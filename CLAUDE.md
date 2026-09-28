@@ -84,8 +84,13 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   (`WorldGen.SPAWN_WHY` bits), never a single verdict. HARD reasons refuse
   every spawn: TERRAIN, ROAD (the roadMask only — ≥ half the cell under the
   band; road proximity is KERB, never hard), RESTRICTED land, QUIET land,
-  KINDERGARTEN grounds, a SENSITIVE_SITE point, BEHIND_HOUSE, PRIVATE (no
-  public frontage; a POI in reach lifts it), FARM_INTERIOR (a field past
+  KINDERGARTEN grounds, a SENSITIVE_SITE point, BEHIND_HOUSE, PRIVATE (a
+  lot with no public frontage; OR — Sep 2026, the Voronoi rule — exterior
+  COMMERCIAL / INDUSTRIAL ground whose NEAREST POI, over the tile's whole poi
+  layer incl. its buffer, is not PUBLIC in the one table
+  `WorldGen.COMMERCIAL_POI_KIND` (office / hotel / clinic nearest, or none
+  within `NEAREST_POI_MAX_M`; `commercialPoiField` is the one field the gate
+  and map-review read); a POI chest in reach lifts it), FARM_INTERIOR (a field past
   `FARM_EDGE_CELLS` of other ground — the EDGE band itself carries no reason
   at all: every class may spawn there). TYPED reasons refuse only the classes
   whose row of ONE table, `WorldGen.SPAWN_CLASS_BLOCKS`, names them: KERB
@@ -99,7 +104,8 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   T.SCHOOL for kindergarten) — COMMERCIAL WELCOMES VISITORS (Sep 2026): a
   later or higher-priority commercial/retail polygon overlapping a stray
   restricted-class or kindergarten polygon in the source data wins the cell
-  and reopens it, though a real hospital campus IS its own commercial paint
+  and reopens it (to be judged by its nearest POI like any commercial
+  cell), though a real hospital campus IS its own commercial paint
   and keeps RESTRICTED. The military/railway rows of QUIET_LAND get the same
   paint check (`stampQuietLandSteps`'s optional `grid` arg); cemetery and the
   boundary/park aboriginal_lands rows do not (no own paint to compare, or

@@ -9,7 +9,8 @@
 // What is pinned:
 //   · each reason on a synthetic tile: ROAD = the roadMask exactly, water /
 //     buildings, restricted and kindergarten land (hard), fields (edge open,
-//     interior hard), industrial roadside only, behind-a-house, private
+//     interior hard), commercial / industrial ground by its nearest POI
+//     (public open, private or none within reach PRIVATE), behind-a-house, private
 //     ways, golf, the kerb (fast movers only), sensitive ground, churchyards,
 //     quiet land;
 //   · RESTRICTED / KINDERGARTEN only hold where the ground's FINAL paint
@@ -60,6 +61,10 @@ const residential = () => ({ type: 3, tags: { class: 'residential' }, geom: [who
 // ── The classifier, rule by rule ───────────────────────────────────────────
 const WHY = W.SPAWN_WHY;
 const has = (r, cx, cy, bit) => !!(raw(r, cx, cy) & bit);
+// A signalling POI (COMMERCIAL_POI_KIND) that mints no chest / pad of its
+// own, so it changes nothing but the nearest-POI field.
+const poiAt = (cls, cx, cy) => ({ type: 1, tags: { class: cls }, geom: [[pt(cx, cy)]] });
+const poiLayer = (...f) => ({ name: 'poi', features: f });
 const grass = () => ({ name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'grass' }, geom: [whole()] }] });
 
 test('spawn gate: the mask rides the build and the entry — reason bits, a Uint16 a cell', () => {
@@ -148,7 +153,10 @@ test('spawn gate: COMMERCIAL ground welcomes visitors — RESTRICTED / KINDERGAR
   const railway = { type: 3, tags: { class: 'railway' }, geom: [box(5, 30, 25, 50)] };
   const retail2 = { type: 3, tags: { class: 'commercial' }, geom: [box(15, 30, 25, 50)] };
   const hospital = { type: 3, tags: { class: 'hospital' }, geom: [box(35, 5, 55, 25)] };
-  const r = build([grass(), { name: 'landuse', features: [kinder, retail1, railway, retail2, hospital] }]);
+  // A shop in each commercial overlap: commercial ground takes its nearest
+  // POI's kind, and these are public.
+  const r = build([grass(), { name: 'landuse', features: [kinder, retail1, railway, retail2, hospital] },
+    poiLayer(poiAt('clothing_store', 20, 15), poiAt('clothing_store', 20, 40))]);
   // Kindergarten grounds stay hard where they actually paint as one.
   assert.eq(r.grid[10 * CPE + 8], T.SCHOOL, 'kindergarten-only cell paints SCHOOL');
   assert.truthy(has(r, 8, 10, WHY.KINDERGARTEN), 'and carries KINDERGARTEN');
@@ -173,7 +181,7 @@ test('spawn gate: COMMERCIAL ground welcomes visitors — RESTRICTED / KINDERGAR
   assert.eq(at(r, 45, 15), INV, 'a hospital stays off-limits');
 });
 
-test('spawn gate: FIELDS — an orchard / farm EDGE carries no reason at all (every class welcome), its INTERIOR is hard; industrial is roadside only', () => {
+test('spawn gate: FIELDS — an orchard / farm EDGE carries no reason at all (every class welcome), its INTERIOR is hard', () => {
   for (const tags of [{ class: 'farmland', subclass: 'farmland' }, { class: 'farmland', subclass: 'orchard' }]) {
     const r = build([{ name: 'landcover', features: [
       { type: 3, tags: { class: 'grass', subclass: 'grass' }, geom: [whole()] },
@@ -195,18 +203,108 @@ test('spawn gate: FIELDS — an orchard / farm EDGE carries no reason at all (ev
     }
     assert.truthy(has(r, x0 + W.FARM_EDGE_CELLS + 1, 30, WHY.FARM_INTERIOR), 'past the edge band: interior');
   }
-  const ind = build([
-    { name: 'landuse', features: [{ type: 3, tags: { class: 'industrial' }, geom: [whole()] }] },
-    { name: 'transportation', features: [{ type: 2, tags: { class: 'minor' }, geom: [line([[0, 10], [CPE - 1, 10]])] }] },
-  ]);
-  assert.truthy(W.ROADSIDE_ONLY.has(ind.grid[40 * CPE + 30]), 'industrial is roadside-only ground');
-  assert.truthy(at(ind, 30, 12) !== INV, 'two cells off the road is frontage');
-  assert.truthy(has(ind, 30, 40, WHY.PRIVATE), 'the interior has no frontage (PRIVATE)');
 });
 
-test('spawn gate: COMMERCIAL ground stays spawnable, frontage or not', () => {
-  const r = build([{ name: 'landuse', features: [{ type: 3, tags: { class: 'commercial' }, geom: [whole()] }] }]);
-  assert.eq(at(r, 32, 32), OPEN, 'a shopping centre\'s lot is open ground');
+// ── COMMERCIAL GROUND: the nearest POI decides (owner, Sep 2026) ─────────────
+// Exterior T.COMMERCIAL / T.INDUSTRIAL cells take the kind of their nearest
+// signalling POI (WorldGen.COMMERCIAL_POI_KIND): public → open, private →
+// PRIVATE, none within NEAREST_POI_MAX_M → PRIVATE. Lots keep their frontage.
+const commercial = (cls = 'commercial') => ({ name: 'landuse', features: [{ type: 3, tags: { class: cls }, geom: [whole()] }] });
+const MVT_TO_CELL = CPE / EXTENT, MVT_TO_M = TILE_EDGE_M / EXTENT;
+
+test('spawn gate: COMMERCIAL ground — a cell nearer a shop is open, nearer an office is PRIVATE', () => {
+  for (const cls of ['commercial', 'retail', 'industrial']) {
+    const r = build([commercial(cls), poiLayer(poiAt('clothing_store', 20, 32), poiAt('office', 40, 32))]);
+    assert.truthy(W.COMMERCIAL_GROUND.has(r.grid[32 * CPE + 30]), `${cls} paints commercial ground`);
+    assert.eq(raw(r, 25, 32), 0, `${cls}: nearer the shop — no reason`);
+    assert.eq(raw(r, 29, 28), 0, `${cls}: just on the shop's side of the bisector`);
+    assert.truthy(has(r, 31, 28, WHY.PRIVATE), `${cls}: just on the office's side — PRIVATE`);
+    assert.truthy(has(r, 35, 32, WHY.PRIVATE), `${cls}: nearer the office — PRIVATE`);
+    assert.eq(at(r, 35, 32), INV, 'and that is hard');
+  }
+  // Street furniture is no signal: a car park next to the office changes nothing.
+  const r2 = build([commercial(), poiLayer(poiAt('clothing_store', 20, 32), poiAt('office', 40, 32),
+    poiAt('parking', 35, 32), poiAt('bicycle_parking', 34, 32))]);
+  assert.truthy(has(r2, 35, 32, WHY.PRIVATE), 'a car park is no signal');
+  assert.eq(W.commercialPoiKind({ class: 'parking' }), 0, 'parking seeds nothing');
+  assert.eq(W.commercialPoiKind({ class: 'shop' }), W.POI_PUBLIC, 'a shop is public');
+  assert.eq(W.commercialPoiKind({ class: 'office' }), W.POI_PRIVATE, 'an office is private');
+  assert.eq(W.commercialPoiKind({ class: 'lodging', subclass: 'hotel' }), W.POI_PRIVATE, 'a hotel is private');
+});
+
+test('spawn gate: COMMERCIAL ground — no POI within NEAREST_POI_MAX_M is PRIVATE (frontage no longer lifts it)', () => {
+  const r = build([commercial(), paths()]);
+  assert.truthy(has(r, 32, 32, WHY.PRIVATE), 'no POI at all: PRIVATE, footpaths or not');
+  const R = W.NEAREST_POI_MAX_M / (TILE_EDGE_M / CPE);
+  const r2 = build([commercial(), poiLayer(poiAt('cafe', 0, 10))]);
+  assert.eq(raw(r2, Math.floor(R) - 1, 10), 0, 'inside the reach: open');
+  assert.truthy(has(r2, Math.ceil(R) + 1, 10, WHY.PRIVATE), 'past the reach: PRIVATE');
+  // A POI chest's doorstep still lifts it (the PRIVATE lane's own lift).
+  assert.truthy(W.isSpawnCell(r.grid, CPE, CPE, 32, 32, { spawnWhy: r.spawnWhy, pois: [{ ix: 33, iy: 32 }] }, 'minor'),
+    'a chest within SPAWN_FRONTAGE lifts PRIVATE, as on a lot');
+});
+
+test('spawn gate: COMMERCIAL ground — seam determinism: each tile answers from its own buffer what the whole world says', () => {
+  // Tiles A (tx 0) and B (tx 1) side by side. POIs in WORLD cells; each
+  // tile's poi layer carries only what its buffer would (the poi buffer is
+  // ~370 m: here, anything within 52 cells of the tile). A seam cell's answer
+  // must equal the brute-force nearest over EVERY POI in the world.
+  const world = [['clothing_store', 70, 20], ['office', 76, 40], ['cafe', 58, 52], ['dentist', 50, 8],
+    ['bakery', 124, 30], ['office', 5, 60]];
+  const BUF = 52;
+  const layerFor = (tx) => poiLayer(...world
+    .filter(([, x]) => x >= tx * CPE - BUF && x < (tx + 1) * CPE + BUF)
+    .map(([c, x, y]) => poiAt(c, x - tx * CPE, y)));
+  const R2 = (W.NEAREST_POI_MAX_M / (TILE_EDGE_M / CPE)) ** 2;
+  const truth = (wx, wy) => {
+    let best = null, bd = Infinity;
+    for (const [c, x, y] of world) {
+      const d = (x - wx) ** 2 + (y - wy) ** 2, k = W.commercialPoiKind({ class: c });
+      if (d < bd || (d === bd && k === W.POI_PRIVATE)) { bd = d; best = k; }
+    }
+    return bd <= R2 ? best : 0;
+  };
+  assert.falsy(layerFor(0).features.some((f) => f.tags.class === 'bakery'), 'A cannot see the far bakery');
+  let n = 0;
+  const seen = new Set();
+  for (const tx of [0, 1]) {
+    const F = W.commercialPoiField([layerFor(tx)], CPE, MVT_TO_CELL, MVT_TO_M);
+    const band = tx === 0 ? [CPE - 20, CPE] : [0, 20];
+    for (let y = 0; y < CPE; y++) {
+      for (let x = band[0]; x < band[1]; x++) {
+        const want = truth(tx * CPE + x, y);
+        assert.eq(F.kind[y * CPE + x], want, `tile ${tx} cell ${x},${y}`);
+        seen.add(want); n++;
+      }
+    }
+    // And the build agrees with the field.
+    const r = build([commercial(), layerFor(tx)], tx, 0);
+    for (let i = 0; i < CPE * CPE; i++) {
+      if (!W.COMMERCIAL_GROUND.has(r.grid[i])) continue;
+      assert.eq(!!(r.spawnWhy[i] & WHY.PRIVATE), F.kind[i] !== W.POI_PUBLIC, `tile ${tx}: build = field at ${i}`);
+    }
+  }
+  assert.gt(n, 0, 'compared');
+  assert.truthy(seen.has(W.POI_PUBLIC) && seen.has(W.POI_PRIVATE), 'both kinds meet at the seam');
+});
+
+test('spawn gate: COMMERCIAL ground — building interiors stay TERRAIN; residential lots keep their frontage rule', () => {
+  const r = build([
+    { name: 'landuse', features: [
+      { type: 3, tags: { class: 'commercial' }, geom: [box(0, 0, 31, CPE - 1)] },
+      { type: 3, tags: { class: 'residential' }, geom: [box(32, 0, CPE - 1, CPE - 1)] }] },
+    { name: 'transportation', features: [{ type: 2, tags: { class: 'minor' }, geom: [line([[0, 10], [CPE - 1, 10]])] }] },
+    { name: 'building', features: [{ type: 3, tags: { render_height: 20 }, geom: [box(10, 30, 20, 40)] }] },
+    poiLayer(poiAt('clothing_store', 15, 20), poiAt('office', 50, 12)),
+  ]);
+  assert.truthy(W.isBuildingTerrain(r.grid[35 * CPE + 15]), 'the store is painted');
+  assert.truthy(has(r, 15, 35, WHY.TERRAIN), 'its interior is TERRAIN');
+  assert.eq(at(r, 15, 35), INV, 'and blocked, as before');
+  assert.eq(raw(r, 15, 22), 0, 'its forecourt (a shop nearest) is open');
+  // The lot beside it: frontage as ever — an office nearest changes nothing.
+  assert.eq(r.grid[12 * CPE + 45], T.RESIDENTIAL, 'residential lot');
+  assert.falsy(has(r, 45, 12, WHY.PRIVATE), 'fronted lot: no PRIVATE despite the office');
+  assert.truthy(has(r, 45, 40, WHY.PRIVATE), 'deep lot: PRIVATE (no frontage), as before');
 });
 
 test('spawn gate: a back yard BEHIND a house is INVALID; the front yard is not', () => {

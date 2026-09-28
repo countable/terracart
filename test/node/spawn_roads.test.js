@@ -58,7 +58,9 @@ function fixtureLayers() {
       { type: 3, tags: { class: 'residential' }, geom: [wholeTile()] },
       // The store lot the parking POI belongs to. Commercial, not residential,
       // so the buried-X below is judged on the ROAD rule alone — the private
-      // -yard frontage rule is a separate test's business.
+      // -yard frontage rule is a separate test's business. Its store (the
+      // shop POI below) is the nearest POI, so the lot is open ground
+      // (COMMERCIAL_GROUND: commercial ground takes its nearest POI's kind).
       { type: 3, tags: { class: 'commercial' },
         geom: [ring([[42, 16], [58, 16], [58, 30], [42, 30]])] },
     ] },
@@ -83,6 +85,8 @@ function fixtureLayers() {
     { name: 'poi', features: [
       { type: 1, tags: { class: 'parking' },
         geom: [[{ x: cellToMvt(50), y: cellToMvt(20) }]] },   // anchor ON an aisle
+      { type: 1, tags: { class: 'shop', subclass: 'supermarket' },
+        geom: [[{ x: cellToMvt(50), y: cellToMvt(29) }]] },   // the store
     ] },
   ];
 }

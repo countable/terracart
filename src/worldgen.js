@@ -409,10 +409,13 @@
   //     SENSITIVE_SITE a sensitive POI's own point (3×3)
   //     BEHIND_HOUSE  a lot cell whose line to its nearest public way crosses
   //                   a building (somebody's back garden)
-  //     PRIVATE       a lot / industrial cell no public anchor fronts within
-  //                   SPAWN_FRONTAGE (private ways vouch for nobody) — lifted
-  //                   by a POI within that reach (opts.pois: a chest is a
-  //                   public place)
+  //     PRIVATE       a lot cell no public anchor fronts within
+  //                   SPAWN_FRONTAGE (private ways vouch for nobody), or a
+  //                   commercial / industrial cell whose nearest POI is not a
+  //                   PUBLIC one (COMMERCIAL_POI_KIND — none within
+  //                   NEAREST_POI_MAX_M counts as private) — lifted by a POI
+  //                   within SPAWN_FRONTAGE (opts.pois: a chest is a public
+  //                   place)
   //     FARM_INTERIOR orchard / farmland further than FARM_EDGE_CELLS from
   //                   any other ground: nothing grows or stands in a field.
   //                   The EDGE band (within FARM_EDGE_CELLS) carries no
@@ -2639,10 +2642,171 @@
   function restrictedExpectedTerrain(c) {
     return c === 'hospital' ? T.COMMERCIAL : T.WASTELAND;   // railway/military/garages/construction
   }
-  // Industrial yards are somebody's working ground: ROADSIDE ONLY — a cell
-  // needs a public anchor within SPAWN_FRONTAGE, like a lot (the PRIVATE
-  // reason).
-  const ROADSIDE_ONLY = new Set([T.INDUSTRIAL]);
+  // ── COMMERCIAL GROUND IS COLOURED BY ITS NEAREST POI (owner, Sep 2026) ──
+  // The tile carries no use for a commercial / industrial polygon (landuse has
+  // only `class`, buildings no use tag): the POIs are the only signal. So the
+  // exterior ground painted T.COMMERCIAL or T.INDUSTRIAL (COMMERCIAL_GROUND —
+  // retail and hospital landuse included; a hospital keeps its RESTRICTED
+  // besides) takes the KIND of its nearest POI, a Voronoi colouring:
+  //   a PUBLIC POI nearest   → no reason (a shop's forecourt welcomes you)
+  //   a PRIVATE POI nearest  → the hard PRIVATE reason (an office park, a
+  //                            hotel's grounds, a clinic's lot)
+  //   no POI of either kind within NEAREST_POI_MAX_M → PRIVATE (a yard nobody
+  //                            vouches for)
+  // It is the PRIVATE lane (the same reason, the same POI-chest lift in
+  // isSpawnCell / landRefused), with a different test for WHO vouches: on lot
+  // land a public anchor within SPAWN_FRONTAGE, on commercial ground the
+  // nearest POI. It REPLACED the industrial ROADSIDE_ONLY frontage rule;
+  // lots keep theirs. Building interiors are TERRAIN, untouched.
+  // Distance is Euclidean in the tile's own cell grid, over EVERY poi-layer
+  // point in the tile bytes, buffer included (the poi buffer, ~370 m, is past
+  // NEAREST_POI_MAX_M), so both tiles of a seam give a cell the same answer.
+  const COMMERCIAL_GROUND = new Set([T.COMMERCIAL, T.INDUSTRIAL]);
+  const NEAREST_POI_MAX_M = 150;
+  // THE ONE TABLE: which POI classes (MVT `class`, else `subclass`; OSM
+  // sidecar values alike) say who is welcome on the ground round them.
+  // A class NOT listed is NO SIGNAL and seeds nothing — street furniture
+  // (parking, bicycle_parking, bollard, gate, waste_basket, recycling,
+  // entrance, bus stop, …) and open-space kinds (park, pitch, playground)
+  // say nothing about whose lot the ground is. Parking in particular is both
+  // a mall's customer lot and a works' staff lot.
+  const COMMERCIAL_POI_KIND = (() => {
+    const pub = [
+      // shops
+      'shop', 'grocery', 'supermarket', 'convenience', 'bakery', 'butcher', 'alcohol_shop', 'beer',
+      'clothing_store', 'clothes', 'shoes', 'books', 'gift', 'florist', 'garden_centre', 'pet',
+      'jewelry', 'jeweler', 'hairdresser', 'beauty', 'laundry', 'doityourself', 'hardware',
+      'electronics', 'mobile_phone', 'sports', 'toys', 'stationery', 'optician', 'chemist',
+      'car', 'car_repair', 'bicycle', 'bicycle_rental', 'car_rental', 'music', 'variety_store',
+      'kiosk', 'copyshop', 'travel_agency', 'tailor', 'tobacco', 'ticket', 'marketplace', 'market',
+      'mall', 'department_store', 'fuel',
+      // food and drink
+      'restaurant', 'cafe', 'fast_food', 'ice_cream', 'bar', 'pub', 'biergarten', 'nightclub',
+      // services open to the public
+      'bank', 'atm', 'pharmacy', 'post', 'library', 'town_hall', 'community_centre',
+      // culture, leisure and transport halls
+      'cinema', 'theatre', 'museum', 'art_gallery', 'attraction', 'zoo', 'aquarium', 'casino',
+      'sports_centre', 'fitness_centre', 'yoga', 'swimming_pool', 'ice_rink', 'bowls', 'climbing',
+      'escape_game', 'railway', 'station', 'ferry_terminal',
+    ];
+    const priv = [
+      'office', 'company', 'lodging', 'hotel', 'motel', 'hostel',
+      'hospital', 'clinic', 'doctors', 'dentist', 'veterinary',
+      'school', 'college', 'university', 'kindergarten',
+      'police', 'fire_station', 'prison', 'border_control', 'embassy', 'courthouse',
+      'place_of_worship', 'hackerspace',
+      'industrial', 'warehouse', 'works', 'factory', 'depot',
+    ];
+    const m = new Map();
+    for (const c of pub) m.set(c, 1);
+    for (const c of priv) m.set(c, 2);
+    return m;
+  })();
+  const POI_PUBLIC = 1, POI_PRIVATE = 2;
+  // 0 (no signal) / POI_PUBLIC / POI_PRIVATE for a poi's tags.
+  function commercialPoiKind(tags) {
+    if (!tags) return 0;
+    return COMMERCIAL_POI_KIND.get(tags.class) || COMMERCIAL_POI_KIND.get(tags.subclass) || 0;
+  }
+  // THE NEAREST-POI FIELD: per cell of the w×w grid, the kind (0 none within
+  // NEAREST_POI_MAX_M / POI_PUBLIC / POI_PRIVATE) of its nearest signalling
+  // POI. A label-propagating two-pass distance transform (8SSEDT: each cell
+  // keeps its nearest SEED, compared by exact integer squared Euclidean
+  // distance) over a grid widened by the reach, so a POI past the seam still
+  // claims this side — O(cells), yielded. Ties go PRIVATE, then to the
+  // lower seed cell (row, col) — translation-invariant, so seam-safe.
+  // Returns { kind: Uint8Array(w*w), seeds: [{ ix, iy, kind, cls }] } (seeds
+  // in tile cells, possibly outside 0..w-1 — the map-review overlay draws
+  // them), or null when no cell is commercial ground (`grid` given).
+  function* commercialPoiFieldSteps(layers, w, mvtToCell, mvtToM, grid) {
+    const NN = w * w;
+    if (grid) {
+      let any = false;
+      for (let i = 0; i < NN && !any; i++) if (COMMERCIAL_GROUND.has(grid[i])) any = true;
+      if (!any) return null;
+    }
+    const cellM = mvtToM / mvtToCell;
+    const R = NEAREST_POI_MAX_M / cellM, R2 = R * R;
+    const MC = Math.ceil(R) + 1, E = w + 2 * MC, EE = E * E;
+    const sx = [], sy = [], sk = [], seeds = [];
+    const lab = new Int32Array(EE).fill(-1);
+    let poiL = null;
+    for (const L of layers || []) if (L && L.name === 'poi') poiL = L;
+    const better = (s, t, x, y) => {   // is seed s nearer (x,y) than seed t?
+      if (t < 0) return true;
+      const ds = (sx[s] - x) * (sx[s] - x) + (sy[s] - y) * (sy[s] - y);
+      const dt = (sx[t] - x) * (sx[t] - x) + (sy[t] - y) * (sy[t] - y);
+      if (ds !== dt) return ds < dt;
+      if (sk[s] !== sk[t]) return sk[s] === POI_PRIVATE;
+      return sy[s] !== sy[t] ? sy[s] < sy[t] : sx[s] < sx[t];
+    };
+    let k = 0;
+    for (const f of (poiL && poiL.features) || []) {
+      if (f.type !== 1 || !f.geom) continue;
+      const kind = commercialPoiKind(f.tags);
+      if (!kind) continue;
+      if ((++k & 255) === 0) yield 'commercial poi seeds';
+      for (const ring of f.geom) {
+        const p = ring && ring[0];
+        if (!p) continue;
+        const ix = Math.floor(p.x * mvtToCell), iy = Math.floor(p.y * mvtToCell);
+        const x = ix + MC, y = iy + MC;
+        if (x < 0 || y < 0 || x >= E || y >= E) continue;
+        const s = sx.length;
+        sx.push(x); sy.push(y); sk.push(kind);
+        seeds.push({ ix, iy, kind, cls: f.tags.class });
+        const e = y * E + x;
+        if (better(s, lab[e], x, y)) lab[e] = s;
+      }
+    }
+    const kindOut = new Uint8Array(NN);
+    if (!sx.length) return { kind: kindOut, seeds };
+    const take = (e, x, y, n) => { const t = lab[n]; if (t >= 0 && better(t, lab[e], x, y)) lab[e] = t; };
+    for (let y = 0; y < E; y++) {
+      if ((y & 15) === 15) yield 'commercial poi field';
+      const row = y * E;
+      for (let x = 0; x < E; x++) {
+        const e = row + x;
+        if (x > 0) take(e, x, y, e - 1);
+        if (y > 0) {
+          take(e, x, y, e - E);
+          if (x > 0) take(e, x, y, e - E - 1);
+          if (x < E - 1) take(e, x, y, e - E + 1);
+        }
+      }
+      for (let x = E - 2; x >= 0; x--) take(row + x, x, y, row + x + 1);
+    }
+    for (let y = E - 1; y >= 0; y--) {
+      if ((y & 15) === 0) yield 'commercial poi field';
+      const row = y * E;
+      for (let x = E - 1; x >= 0; x--) {
+        const e = row + x;
+        if (x < E - 1) take(e, x, y, e + 1);
+        if (y < E - 1) {
+          take(e, x, y, e + E);
+          if (x < E - 1) take(e, x, y, e + E + 1);
+          if (x > 0) take(e, x, y, e + E - 1);
+        }
+      }
+      for (let x = 1; x < E; x++) take(row + x, x, y, row + x - 1);
+    }
+    for (let y = 0; y < w; y++) {
+      for (let x = 0; x < w; x++) {
+        const X = x + MC, Y = y + MC, s = lab[Y * E + X];
+        if (s < 0) continue;
+        const d2 = (sx[s] - X) * (sx[s] - X) + (sy[s] - Y) * (sy[s] - Y);
+        if (d2 <= R2) kindOut[y * w + x] = sk[s];
+      }
+    }
+    return { kind: kindOut, seeds };
+  }
+  // The same field, run to completion (tools, tests).
+  function commercialPoiField(layers, w, mvtToCell, mvtToM, grid) {
+    const g = commercialPoiFieldSteps(layers, w, mvtToCell, mvtToM, grid);
+    let r = g.next();
+    while (!r.done) r = g.next();
+    return r.value;
+  }
   // FIELDS (orchard / farmland): only the EDGE hosts — a cell within
   // FARM_EDGE_CELLS (Chebyshev) of any other ground carries no reason at all
   // (every class may spawn there, same as any other open ground, since the
@@ -2913,6 +3077,8 @@
         farmEdge[y * w + x] = run > 0 ? 1 : 0;
       }
     }
+    // ── COMMERCIAL GROUND's nearest-POI field (null: none on this tile).
+    const comField = yield* commercialPoiFieldSteps(layers, w, mvtToCell, mvtToM, grid);
     // ── The reasons, per cell (every one that applies — the classes decide).
     // BEHIND_HOUSE is about somebody's LOT: it never touches public ground (a
     // park-family polygon's cell, whatever paint won it, or any ground that
@@ -2935,7 +3101,9 @@
         const lot = isLotTerrain(t);
         const lotLike = (lot || FARM_TYPES.has(t)) && !(pubArea[i] & 2);
         if (lot && lotLike && front[i] && behind(i)) v |= W_.BEHIND_HOUSE;
-        if ((lot || ROADSIDE_ONLY.has(t)) && !front[i]) v |= W_.PRIVATE;
+        if (lot && !front[i]) v |= W_.PRIVATE;
+        // Commercial ground: the nearest POI decides (COMMERCIAL_GROUND).
+        if (COMMERCIAL_GROUND.has(t) && (!comField || comField.kind[i] !== POI_PUBLIC)) v |= W_.PRIVATE;
         if (FARM_TYPES.has(t) && !farmEdge[i]) v |= W_.FARM_INTERIOR;
         const e = (y + M) * E + (x + M);
         if (roadClass && (roadClass[i] & (ROAD_CLASS_MAJOR_BUFFER | ROAD_CLASS_MAJOR_BAND))) v |= W_.KERB;
@@ -7300,7 +7468,7 @@
     SPAWN_OPEN, SPAWN_SUPPRESSED, SPAWN_INVALID, spawnClassOf,
     landRefused, stampSpawnWhySteps, isPrivateWay, churchyardBufferM, SPAWN_FRONTAGE,
     SPAWN_SENSITIVE_BUFFER_M,
-    RESTRICTED_LAND, KINDERGARTEN_LAND, ROADSIDE_ONLY, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
+    RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
     SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,

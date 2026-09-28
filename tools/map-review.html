@@ -564,7 +564,7 @@ const SPAWN_WHY_WHAT = {
   TERRAIN: 'water / building / road terrain', ROAD: 'the drawn band covers ≥ half the cell',
   RESTRICTED: 'hospital, rail, military, garages, building site', QUIET: 'quiet land',
   KINDERGARTEN: 'kindergarten grounds', SENSITIVE_SITE: 'a sensitive POI\'s own point',
-  BEHIND_HOUSE: 'a back yard', PRIVATE: 'lot with no public frontage',
+  BEHIND_HOUSE: 'a back yard', PRIVATE: 'lot with no public frontage; commercial ground whose nearest POI is not public',
   FARM_INTERIOR: 'mid-field (the edge band carries no reason at all)',
   KERB: 'major road kerb — fast movers only', SENSITIVE: 'round a sensitive place — no creature, draw or stone',
 };
@@ -623,6 +623,41 @@ function overlays(world) {
     });
     L.imageOverlay(img, b, { opacity: .3 }).addTo(coverageLayer);
   }
+  // COMMERCIAL GROUND BY ITS NEAREST POI (WorldGen.commercialPoiField — the
+  // one field stampSpawnWhySteps reads): every exterior T.COMMERCIAL /
+  // T.INDUSTRIAL cell coloured by the kind of its nearest signalling POI
+  // (COMMERCIAL_POI_KIND), none within NEAREST_POI_MAX_M grey, and the POI
+  // seeds as dots.
+  const COM_COLOUR = { pub: 'rgba(40,200,90,.7)', priv: 'rgba(230,60,40,.7)', none: 'rgba(150,150,150,.7)' };
+  const com = { pub: 0, priv: 0, none: 0, seedsPub: 0, seedsPriv: 0 };
+  {
+    const cg = groups['Commercial: public / private (nearest POI)'] = L.layerGroup();
+    const seen = new Set();
+    for (const { e, b, N, mk } of tileBounds) {
+      const F = WorldGen.commercialPoiField(e.layers, N, N / 4096, N * WorldGen.CELL_M / 4096, e.grid);
+      if (!F) continue;
+      const img = mk((g) => {
+        for (let i = 0; i < N * N; i++) {
+          if (!WorldGen.COMMERCIAL_GROUND.has(e.grid[i])) continue;
+          const k = F.kind[i] === WorldGen.POI_PUBLIC ? 'pub' : F.kind[i] === WorldGen.POI_PRIVATE ? 'priv' : 'none';
+          com[k]++;
+          g.fillStyle = COM_COLOUR[k];
+          g.fillRect(i % N, (i / N) | 0, 1, 1);
+        }
+      });
+      L.imageOverlay(img, b, { opacity: 0.8 }).addTo(cg);
+      for (const s of F.seeds) {
+        const gx = e.tx * N + s.ix, gy = e.ty * N + s.iy, key = `${gx}|${gy}|${s.cls}`;
+        if (s.ix < 0 || s.iy < 0 || s.ix >= N || s.iy >= N) continue;   // a buffer POI: drawn by its own tile
+        if (seen.has(key)) continue;
+        seen.add(key);
+        s.kind === WorldGen.POI_PUBLIC ? com.seedsPub++ : com.seedsPriv++;
+        L.circleMarker(toLL((e.tx + (s.ix + 0.5) / N) * EDGE, (e.ty + (s.iy + 0.5) / N) * EDGE, EDGE),
+          { radius: 3, weight: 1, color: '#000', fillOpacity: 1, fillColor: s.kind === WorldGen.POI_PUBLIC ? '#2c6' : '#e33' })
+          .bindTooltip(`${esc(s.cls)} · ${s.kind === WorldGen.POI_PUBLIC ? 'public' : 'private'}`).addTo(cg);
+      }
+    }
+  }
   // Influence zones (src/zones.js): each anchor's disc at its R, by kind,
   // with its numbers on click.
   if (typeof Zones !== 'undefined') {
@@ -661,6 +696,16 @@ function overlays(world) {
       + `<div style="color:#aaa;margin-top:4px">Reasons (a cell may carry several)</div>`
       + Object.keys(WHY).map((k) => row((WHY[k] & WorldGen.SPAWN_WHY_HARD) ? SPAWN_GATE_COLOUR.invalid : SPAWN_WHY_COLOUR[k],
         `${k}${(WHY[k] & WorldGen.SPAWN_WHY_HARD) ? ' (hard)' : ''}`, SPAWN_WHY_WHAT[k] || '', why[k])).join('');
+    // Commercial ground by its nearest POI (the overlay above).
+    const ctot = com.pub + com.priv + com.none || 1;
+    const crow = (colour, name, what, n) => `<div style="display:flex;gap:6px;align-items:baseline">`
+      + `<span class="sw sq" style="background:${colour}"></span><span>${name} <span style="color:#888">— ${what}</span></span>`
+      + `<span class="n">${n.toLocaleString()} · ${(100 * n / ctot).toFixed(1)}%</span></div>`;
+    div.innerHTML += `<div style="color:#aaa;margin-top:4px">Commercial / industrial ground by nearest POI `
+      + `(≤ ${WorldGen.NEAREST_POI_MAX_M} m; ${com.seedsPub} public · ${com.seedsPriv} private seeds)</div>`
+      + crow(COM_COLOUR.pub, 'public', 'a shop, café, bank … nearest — open', com.pub)
+      + crow(COM_COLOUR.priv, 'private', 'an office, hotel, clinic … nearest — PRIVATE', com.priv)
+      + crow(COM_COLOUR.none, 'no POI', `none within ${WorldGen.NEAREST_POI_MAX_M} m — PRIVATE`, com.none);
     $('ovl').appendChild(div);
   }
   // REFUSED FOR CLASS: pick a spawn class, see every cell its row refuses
