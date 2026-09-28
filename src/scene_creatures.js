@@ -127,6 +127,15 @@ class SceneCreatures {
       // paint nothing. Without it the X-mark scatter below reads the grid,
       // is told "grass", and buries treasure in the middle of the asphalt.
       roadMask: entry.roadMask,
+      // The major roads' band / verge / KERB BUFFER bits (worldgen
+      // ROAD_CLASS_*). isSpawnCell never reads them; WorldGen.isFoeCell —
+      // the seat rule for anything alive (fauna, lair guards, a gate's foe,
+      // a bounty pack) — refuses the kerb buffer off this field.
+      roadClass: entry.roadClass,
+      // QUIET LAND (worldgen QUIET_LAND — military, railway, cemetery,
+      // reserve land): isSpawnCell refuses every cell of it, so nothing is
+      // seated there by any spawner that shares these options.
+      quiet: entry.quietMask,
       occupied: _occupiedIdx,
       pois: genObjects
         .filter(o => o.kind === 'chest')
@@ -234,6 +243,18 @@ class SceneCreatures {
           lx: o.gateX - tx * this.tileEdgeM, ly: o.gateY - ty * this.tileEdgeM });
       }
     }
+    // THE KERB: no lair candidate — a gate's daily foe, a street's guard, a
+    // zone's garrison — holds a point inside a major road's kerb buffer
+    // (WorldGen.ROAD_CLASS_MAJOR_BUFFER). A gate across a major road gets no
+    // foe; the street dressing already seats its guards back from the kerb
+    // (StreetVariants), so for those this is a backstop. The guards' own
+    // seats go through WorldGen.isFoeCell (lairs.js) for the same reason.
+    if (entry.roadClass && entry.streetLairs.length) {
+      entry.streetLairs = entry.streetLairs.filter((L) => {
+        const ix = Math.floor(L.lx / cellM), iy = Math.floor(L.ly / cellM);
+        return !(ix >= 0 && iy >= 0 && ix < N && iy < N && WorldGen.inMajorBuffer(entry.roadClass, N, ix, iy));
+      });
+    }
     // Home holds no slimes or crows until the first harvest (see
     // PEST_FREE_CELLS). Resolved once per tile build; null once the grace has
     // lapsed, which is the common case.
@@ -242,8 +263,9 @@ class SceneCreatures {
     // least one of them only because something GENERATED already stood on
     // the cell (the street dressing, the nexus — opts.occupied), is kept
     // aside here instead of dropped; the attractor lane below seats it on its
-    // favourite ground if its species has one it always takes (p = 1: the
-    // dogs and the bandit road). No extra draws: the shared stream is
+    // favourite ground if its species has one it always takes (a p = 1
+    // column — none today: the dogs' major-verge pull was removed, Sep 2026,
+    // as it seated animals beside fast traffic). No extra draws: the shared stream is
     // untouched, only the verdict on a spent attempt is remembered.
     const unseated = [];
     // The rooted park plants' reservation (below): every drawn seat, taken
@@ -279,6 +301,13 @@ class SceneCreatures {
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
           faunaSeats.add(cy * N + cx);
           if (caughtSet.has(id)) return;
+          // THE KERB: nothing alive is seated in a major road's kerb buffer
+          // (WorldGen.isFoeCell) — no foe to flee and no animal to chase
+          // beside fast traffic. DROPPED after the draw, like the pest
+          // amnesty below, never re-rolled: the stream stays the same for
+          // every later spawn, and the buffer is generated, so every player
+          // loses the same animals.
+          if (WorldGen.inMajorBuffer(entry.roadClass, N, cx, cy)) return;
           // The pest amnesty DROPS a slime or crow that lands in the zone —
           // after the cell was drawn exactly as it would be for anyone else.
           // It used to re-roll (`continue`) instead, which took extra draws out
@@ -344,6 +373,8 @@ class SceneCreatures {
       const cy = Math.floor((plant.y - ty * this.tileEdgeM) / cellM);
       plantCells.add(cy * N + cx);
       if (caughtSet.has(plant.id) || (pestFree && pestFree.has(cx, cy))) continue;
+      // A biting plant is a foe: never in the kerb buffer (dropped, as above).
+      if (WorldGen.inMajorBuffer(entry.roadClass, N, cx, cy)) continue;
       // Keep the park stream's stable seat and id; habitat is a per-player
       // overlay just as it is for the ordinary surface encounter budget.
       plant._surfaceSpawn = { x: plant.x, y: plant.y, tx, ty, cx, cy };
@@ -351,7 +382,7 @@ class SceneCreatures {
       creatures.push(plant);
     }
     // FAUNA ATTRACTORS. A species' favourite ground pulls the tile's OWN
-    // spawns of it (never adds): the dogs work the bandit roads, deer the
+    // spawns of it (never adds): deer the
     // orchard lanes and groves, cats Lantern Row, crows the churchyards… —
     // rows of the `attracts` column (see _seatFaunaOnFavouriteGround). The
     // draw above is taken exactly as before (same count, same ids, same
@@ -371,6 +402,9 @@ class SceneCreatures {
       const cy = Math.floor((creature.y - ty * this.tileEdgeM) / cellM);
       const id = EnemySpawns.surfaceId(tx, ty, cx, cy);
       if (caughtSet.has(id) || enemySeats.has(id)) continue;
+      // THE KERB backstop: the slime seat was already dropped from the buffer
+      // (tryPlace); whatever kind the roster puts on it obeys the same rule.
+      if (WorldGen.inMajorBuffer(entry.roadClass, N, cx, cy)) continue;
       enemySeats.add(id);
       const kind = EnemySpawns.surfaceKind(genGrid[cy * N + cx], id);
       if (!kind) continue;
@@ -674,8 +708,6 @@ class SceneCreatures {
   //   street variants   StreetVariants.STREET_VARIANTS[].attracts — the
   //                     cells the dressing marked with that row's code
   //                     (entry.streetMarks: band + verge of a dressed street)
-  //   the bandit road   StreetVariants.BANDIT_STORY.attracts — every MAJOR
-  //                     verge cell (roadClass, ROAD_CLASS_MAJOR_VERGE)
   //   influence zones   Zones.ZONE_KINDS[].attracts — the zone's field cells
   //   terrain           BIOME_ATTRACTS[code] — the LAND's class (the halo's
   //                     `under` first, like the trap ground)
@@ -707,10 +739,9 @@ class SceneCreatures {
       if (!attracts) return;
       for (const [sp, p] of Object.entries(attracts)) (want[sp] || (want[sp] = [])).push({ p, test });
     };
-    const marks = entry.streetMarks, rc = entry.roadClass;
+    const marks = entry.streetMarks;
     if (SV) {
       if (marks) for (const row of SV.STREET_VARIANTS) if (row.attracts) add(row.attracts, (i) => marks[i] === row.code);
-      if (rc) { const bit = WorldGen.ROAD_CLASS_MAJOR_VERGE; add(SV.BANDIT_STORY.attracts, (i) => !!(rc[i] & bit)); }
     }
     const zf = entry.zone;
     if (Z && zf && zf.idx) {
@@ -750,7 +781,8 @@ class SceneCreatures {
         if (taken.has(idx) || (blocked && blocked.has(idx))) return false;
         const cx = idx % N, cy = (idx / N) | 0;
         if (pest && pest.has(cx, cy)) return false;
-        return WorldGen.isSpawnCell(genGrid, N, N, cx, cy, spawnOpts);
+        // The seat rule for anything alive: never into the kerb buffer.
+        return WorldGen.isFoeCell(genGrid, N, N, cx, cy, spawnOpts);
       };
       const seatOn = (c) => {
         let k = -1, at = -1;
@@ -1120,12 +1152,21 @@ class SceneCreatures {
     // per tick, not per creature. The PLAYER's own weapons are gated by
     // neither, and _updatePlayerAura fades the body on the same expression.
     const unnoticed = this.isUnnoticed();
-    const STEP_MS = 5000;
+    // THE KERB (creature_ai.js): the player's FEET in a major road's kerb
+    // buffer. Every hostile turns its back while it holds (`kerbTurn` below) —
+    // the pavement is where a chase ends, so the carriageway is never a
+    // refuge. Read once per tick, off playerM, never the camera anchor.
+    const STEP_MS = WANDER_STEP_MS;
     const STEP_M = this.cellM;   // 1 cell per step
     // Only sim creatures near the player. Beyond the bubble they stay frozen
     // at their last position — cheap, and the player cannot see it happen.
     const px = this.startWorldM.x + this.playerM.x;
     const py = this.startWorldM.y + this.playerM.y;
+    const kerbLeash = inKerbAt(this, px, py);
+    // The nearest hostile TAKING AN INTEREST this tick (not standing down, the
+    // player not unnoticed) — handed to app.js _foeHeadsUp after the loop,
+    // which buzzes the phone when it is close (SAFETY_FOE_BUZZ_CELLS).
+    let interestedFoeM = Infinity;
     // THE SIM BUBBLE — measured from the player's FEET, never the camera
     // anchor (a peek drag must not widen who is thinking; see the camera rule
     // in CLAUDE.md).
@@ -1351,6 +1392,15 @@ class SceneCreatures {
       // its own leash (Lairs.guardState) and is left to it.
       const wanderOff = !stationary && !isTame && !c.lair && Combat.isEnemy(c)
         && monsterWanderingOff(c, now, Math.sqrt(ddx * ddx + ddy * ddy), this.cellM);
+      // TURNED BACK AT THE KERB (creature_ai.js THE KERB): the player stands
+      // in a major road's kerb buffer, so every hostile — a foe, or a hunted
+      // animal while it is angry — stands down and turns away, exactly as a
+      // foe wandering off does (the same away angle, below). A lair guard
+      // gives up instead (guardState, noticed = false) and walks home; a ghost
+      // stops where it is. One more reason in the wander-off lane, never a
+      // "frozen while you are on the road" rule — that one would lure a
+      // player INTO the road.
+      const kerbTurn = kerbLeash && !isTame && (Combat.isEnemy(c) || enraged);
       // ROUTED: turned onto an away angle at the flee pace — by Home's ward, or
       // by wandering off. Two reasons, one pace; the angle chain says away from
       // WHAT (Home, or the player).
@@ -1365,7 +1415,7 @@ class SceneCreatures {
       //            does NOT bite on the way — the player got clear, and a
       //            guard still leeching on its walk home would mean they had
       //            not.
-      const lairState = c.lair ? Lairs.guardState(c, { x: px, y: py }, this.cellM, !unnoticed) : null;
+      const lairState = c.lair ? Lairs.guardState(c, { x: px, y: py }, this.cellM, !unnoticed && !kerbTurn) : null;
       c._hunting = lairState === 'hunt';
       // ONE READ FOR "THIS FOE IS NOT ATTACKING YOU RIGHT NOW", the way
       // `unnoticed` is one read for "no hostile takes an interest in you".
@@ -1376,7 +1426,7 @@ class SceneCreatures {
       // growing a second condition each. The MOVEMENT chain still asks
       // `warded` by name: an away-from-the-ward angle and a walk back to a seat
       // are two mechanisms, not one, whatever they have in common here.
-      const standDown = warded || wanderOff || (!!lairState && lairState !== 'hunt');
+      const standDown = warded || wanderOff || kerbTurn || (!!lairState && lairState !== 'hunt');
       const rosterRow = !isTame ? EnemyRoster.get(c.kind) : null;
       const enemyDt = c._enemyTickT == null ? 0 : Math.min(0.1, Math.max(0, (now - c._enemyTickT) / 1000));
       c._enemyTickT = now;
@@ -1384,6 +1434,9 @@ class SceneCreatures {
       // (`unnoticed` — a powder, or a body on an empty bar). Read by the butt
       // below, the stride and the angle chain, so the three agree.
       const gameCharge = enraged && !standDown && !unnoticed;
+      if (!isTame && !standDown && !unnoticed && (Combat.isEnemy(c) || enraged)) {
+        interestedFoeM = Math.min(interestedFoeM, Math.sqrt(ddx * ddx + ddy * ddy));
+      }
       // A GHOST has its own mover (ghostTick — hover, rush, burn) and its own
       // blow: ONE touch of its row's dmg, through the mode, the shield and the
       // armour like every blow, and then it is spent — marked in save.caught
@@ -1392,7 +1445,7 @@ class SceneCreatures {
       if (haunts) {
         const gm = Combat.monster(c.kind);
         const pace = gm.mps / 1000;
-        const fate = ghostTick(this, c, now, px, py, unnoticed, warded, pace);
+        const fate = ghostTick(this, c, now, px, py, unnoticed || kerbTurn, warded, pace);
         if (fate === 'touch') {
           const raw = gm.dmg * Combat.powerMul(c);
           const dmg = Combat.incomingDamage(this.save, raw);
@@ -1551,7 +1604,10 @@ class SceneCreatures {
       if (stationary) return;
       if (c.immobile && lairState !== 'hunt' && lairState !== 'return') return;
       if (rosterRow) {
-        rosterEnemyMove(this, c, rosterRow, now, px, py, unnoticed || standDown, routed, lairState, enemyDt);
+        // Turned back at the kerb is the wander-off's away angle (as in the
+        // step chain below); a lair guard walks home instead (guardState).
+        rosterEnemyMove(this, c, rosterRow, now, px, py, unnoticed || standDown,
+          routed || (kerbTurn && !c.lair), lairState, enemyDt);
         return;
       }
       // Wild-crow flight rhythm: perch (still 2-4 s) → one long flight
@@ -1837,8 +1893,9 @@ class SceneCreatures {
             // "surrounded by scarecrows" comment further down warns about.
             angle = Math.atan2(c.y - c._wardFrom.y, c.x - c._wardFrom.x)
                   + (Math.random() - 0.5) * 0.8;
-          } else if (wanderOff) {
-            // WANDERING OFF: away from the PLAYER, on the same spread as the
+          } else if (wanderOff || (kerbTurn && !c.lair)) {
+            // WANDERING OFF (or TURNED BACK AT THE KERB — the same away angle,
+            // at its own pace): away from the PLAYER, on the same spread as the
             // rout above — out of whatever ring it was stalking the edge of.
             // An angle, not a refused cell, for the same reason as the rout;
             // the cell tests below still refuse water, rocks and fires.
@@ -1908,6 +1965,19 @@ class SceneCreatures {
           if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
           const dest = this.cellAt(tx, ty);
           if (dest.loaded && Combat.faunaBlocksCell(dest.type)) continue;
+          // THE KERB (creature_ai.js): nothing wild steps onto a major road's
+          // band, and a FAST foe (isFastFoe) or a wild animal never steps
+          // INTO its kerb buffer from outside it — so no chase ever runs
+          // along or across the carriageway. One already inside may move
+          // anywhere off the band (a refused cell for it would freeze it
+          // there — the stall the scarecrow note below warns about). A pet
+          // and a summoned ally go where they like.
+          if (!isTame && !summoned) {
+            const road = roadClassBitsAt(this, tx, ty);
+            if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) continue;
+            if ((road & WorldGen.ROAD_CLASS_MAJOR_BUFFER) && (!Combat.isEnemy(c) || isFastFoe(c, this.cellM))
+                && !inKerbAt(this, c.x, c.y)) continue;
+          }
           // Scarecrow aversion — refuse any target cell within 4 cells of an
           // active scarecrow to a kind whose row says it keeps clear of one
           // (crow + deer). They get bounced by the attempt loop until they
@@ -1975,6 +2045,7 @@ class SceneCreatures {
       c.x = c._startX + (c._targetX - c._startX) * u;
       c.y = c._startY + (c._targetY - c._startY) * u;
     });
+    this._foeHeadsUp?.(interestedFoeM, now);
     // One throttled flash for everything the slimes drained this window, so a
     // swarm reads as a single "-N⚡" pop rather than 50 of them. Persist here
     // too (debounced in save.js) so the energy loss survives a reload.

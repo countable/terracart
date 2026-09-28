@@ -3,9 +3,16 @@
 //
 // A few kinds of place stamp their character on the ground around them:
 //   grove   — a park POI (poi class park / subclass park)
-//   stones  — a place of worship (any faith) or a cemetery POI
+//   stones  — a CHURCH (a place of worship WorldGen.worshipFaith calls
+//             christian — its subclass, or a church's name when the tile
+//             gives no faith): the invented churchyard round it
 //   tar     — a fuel station (fuel / fuel; charging stations are NOT anchors)
 // Unnamed parks (no POI), nature reserves and charging stations are no anchor.
+// Nor is anything SENSITIVE (WorldGen.isSensitivePoi — the one table): a
+// REAL cemetery is quiet green space (no stones zone, no headstones, no
+// hoards, no ghosts; its cells are quiet land, WorldGen.QUIET_LAND), and a
+// synagogue, mosque, temple or any place of worship whose faith the tile does
+// not name mints nothing at all — no zone, no rocks, no chest.
 //
 // ── THE ANCHOR AND ITS RADIUS (seam-safe by construction) ─────────────────
 // An anchor is a POI POINT. The OpenFreeMap poi layer carries a 1024-unit
@@ -44,7 +51,8 @@
 // ── THE PARK FRINGE (a park spills past its border) ──────────────────────
 // Around EVERY park polygon (named or not; worldgen collects them as it
 // paints T.PARK, with their BiomeProfiles park CHARACTER) a ragged band of
-// halo ground: GROVE round a park, CHURCHYARD round a cemetery, repainting
+// halo ground: GROVE round a park, CHURCHYARD round a cemetery (the LOOK of
+// a graveyard's edge only — no anchor, no stones, nothing laid), repainting
 // ONLY the halo's own set (RESIDENTIAL / COMMERCIAL / WASTELAND, recorded in
 // fld.under like the halo) out to FRINGE_M·(1 ± FRINGE_JITTER) metres of the
 // polygon's edge (≤ 20 m), bent by valueNoise2 at the cell's GLOBAL point.
@@ -71,21 +79,25 @@
 //           keyed off BiomeProfiles.parkCharacterAt at the anchor, the key the
 //           park polygon around it and its POI pad read too), plus ONE shrine
 //           (grove_shrine: a daily gift, a light) beside the chest
-//   stones  churches + cemeteries (the ghost anchors) take NO fixed pattern:
+//   stones  churches take NO fixed pattern:
 //           THE GRAVES are a PER-CELL rule over the churchyard halo — a
 //           walkable CHURCHYARD cell of the anchor's disc on the grave-row
 //           lattice (GRAVE_ROW / GRAVE_COL global cells) holds a headstone
 //           when a hash of its global cell passes HEADSTONE_P · s — so the
 //           stones wrap the church building (a POI inside a footprint put
 //           most of a fixed pattern on BUILDING cells) and are seam-safe by
-//           construction. Other faiths: a square / ring of plain rocks.
+//           construction. A grave is INVENTED: it passes the laying tile's
+//           isSpawnCell with the quiet-land mask, so no headstone ever
+//           stands on a real cemetery / grave_yard cell (QUIET_LAND).
 //           EVERY stones anchor also scatters plain rocks over its halo
 //           (CHURCHYARD_ROCK_P · s, denser at the core), all wearing ONE
 //           look (SpriteLayout.CHURCHYARD_ROCK_VARIANT, the `rockVariant`
 //           field — the frame and the drop follow it)
 //   tar     a grid of tar pits (they SLOW — app.js _bodyHold), a ring of tar
-//           with flint inside, or a tar cross; plus a fire-slime garrison
-//           (lairs.js 'tar' tier, every mode, slimeCountMul)
+//           with flint inside, or a tar cross — an OIL-STAINED LOT, nothing
+//           more. No garrison: a fire enemy at a live forecourt is the one
+//           thing a fuel station must never hold (Sep 2026; lairs.js keeps
+//           its 'tar' tier row, but nothing here pushes it).
 // THE PATTERN IS THE ANCHOR'S, NOT THE TILE'S — so it is whole across a seam.
 // It centres on the anchor's own POI cell in the ANCHOR's tile grid
 // (nexusCentre: floor(local point · N_row / 4096), N_row the anchor row's
@@ -99,7 +111,7 @@
 // stream per anchor (key ^ SALT_NEXUS: the species, then one per piece, laid
 // or not — nexusPlan), replayed alike by every tile, so a piece has the same
 // variant whichever tile lays it. The chest stamp, the grove shrine (seated
-// beside the chest) and the tar garrison stay the OWNER's (the anchor's point
+// beside the chest) stay the OWNER's (the anchor's point
 // in its square — the tile that mints the chest).
 // A piece whose cell is blocked (a building, the road, something there)
 // walks OUTWARD along its ray from the centre to the first free cell, at most
@@ -115,9 +127,9 @@
 // one art per interactable.
 //
 // What this is NOT: a lane of its own for any mechanic. Tar is the burned
-// row's slow (StreetVariants.SLOW_KINDS, _bodyHold); the fire slimes are a
-// lair tier; the ghosts are ghostsHaunt's second reason; the shrine's gift is
-// the coin-burst daily ledger; stories are _storySplashOnce.
+// row's slow (StreetVariants.SLOW_KINDS, _bodyHold); a headstone's ghost is
+// raiseGhostAt's; the shrine's gift is the coin-burst daily ledger; stories
+// are _storySplashOnce.
 //
 // Pure: no Phaser, no DOM. Reads WorldGen / SpriteLayout / fnv1a at CALL
 // time, so it loads before worldgen.js. Audit: test/node/zones.test.js.
@@ -156,10 +168,10 @@
       flash: 'A sacred grove. Hush.' },
     stones: { code: 2, R: 80, terrain: 'CHURCHYARD', story: 'zone_stones', title: 'The old stones',
       attracts: { crow: 0.5 },
-      body: 'Moss-grown stones ring the old chapel. Walk softly here, and be gone by dusk.',
+      body: 'Moss-grown stones ring the old chapel, and someone still lights its lantern. Walk softly here.',
       flash: 'The old stones. Walk softly.' },
     tar: { code: 3, R: 100, terrain: 'TAR_YARD', story: 'zone_tar', title: 'The tar yard',
-      body: 'The old fuel yard weeps black tar. It drags at your feet — and something in the flames is moving.',
+      body: 'Oil stains the old fuel yard black, and the tar drags at your feet. Mind where you step.',
       flash: 'The tar yard. Mind your feet.' },
   };
   const KIND_BY_CODE = [null, 'grove', 'stones', 'tar'];
@@ -167,15 +179,13 @@
   const R_EDGE_MAX_M = R_MAX_M * (1 + EDGE_JITTER);
 
   // ── The nexus patterns (aspects) ─────────────────────────────────────────
-  // Picked per anchor off its own key; `ghosts` anchors (churches, cemeteries)
-  // pick from the headstone list, other faiths' places of worship from rocks.
-  // A ghost anchor's one aspect, 'graves', lays no pattern pieces: its
-  // headstones are the per-cell GRAVE rule (dressSteps). Other faiths keep
-  // their rocks.
+  // Picked per anchor off its own key. A church's one aspect, 'graves', lays
+  // no pattern pieces: its headstones are the per-cell GRAVE rule
+  // (groundSteps). (Other faiths' rock squares / rings are gone with their
+  // anchors — Sep 2026: another faith's house of prayer mints nothing.)
   const ASPECTS = {
     grove: ['rose_rings', 'tree_ring', 'rose_in_trees', 'compass_roses', 'flower_beds', 'diagonal_trees', 'diagonal_shrubs'],
     stones: ['graves'],
-    stones_quiet: ['rock_square', 'rock_ring'],
     tar: ['tar_grid', 'tar_ring_flint', 'tar_cross'],
   };
   // A grove picks among the aspects that suit its park's CHARACTER
@@ -210,7 +220,7 @@
   // the park is already dense instead of packing it (owner, Sep 2026).
   const GROVE_CROWD_MAX = 3;
 
-  // ── Headstones (Old Stones, ghost anchors only) ─────────────────────────
+  // ── Headstones (Old Stones — a church's invented churchyard only) ────────
   // A tap raises a ghost this often, at any hour (creature_ai.js raiseGhostAt);
   // HEADSTONE_HOARD_SHARE of them — by a hash of the stone's own id, so the
   // same stones for every player — hold a one-off low-tier find, rolled from
@@ -219,7 +229,7 @@
   const HEADSTONE_HOARD_SHARE = 0.2;
   const HEADSTONE_CONTEXT = 'chest:lowtier';
   const HEADSTONE_TIER = 1;
-  // THE GRAVES (ghost anchors): the grave-row lattice over GLOBAL cells
+  // THE GRAVES (every stones anchor): the grave-row lattice over GLOBAL cells
   // (tile·N + local) — every GRAVE_ROW-th row, every GRAVE_COL-th column —
   // and the chance a lattice cell holds a stone, × the zone strength s there.
   const GRAVE_ROW = 2, GRAVE_COL = 2;
@@ -239,7 +249,6 @@
   // The shrine's daily gift: one roll of this context, once per UTC day per
   // shrine, in the coin-burst ledger (save.coinBurstClaimed[id + dayKey]).
   const SHRINE_CONTEXT = 'treasure:shrine';
-  // (The fire slimes a fuel yard holds are lairs.js' ZONE_TIER_GUARDS.tar.)
 
   // Salts — one stream per use, off the anchor's key.
   const SALT_ASPECT = 0x5a0e1a57;
@@ -261,19 +270,20 @@
   function hashStr01(s) { return u01(fnv1a(s)); }
 
   // ── Detection ────────────────────────────────────────────────────────────
-  // What kind of anchor a poi feature is, or null. `ghosts`: a church (the
-  // christian subclass, or none given) or a cemetery — the places the dead
-  // walk; other faiths' houses of prayer get the stones but no ghost boost
-  // and no headstones.
+  // What kind of anchor a poi feature is, or null. The sensitive-place table
+  // answers FIRST (WorldGen.isSensitivePoi — one table everything reads): a
+  // memorial, a real cemetery, a place of worship that is not a church
+  // (WorldGen.worshipFaith) is no anchor. What is left of worship IS a
+  // church, and a church is the invented churchyard (the stones, the graves).
   function anchorOf(tags) {
     const t = tags || {};
+    const WG = root.WorldGen;
+    if (WG && WG.isSensitivePoi && WG.isSensitivePoi(t)) return null;
     const c = t.class, sub = t.subclass;
-    if (root.BiomeProfiles ? root.BiomeProfiles.isParkPoi(t) : (c === 'park' && sub === 'park')) return { kind: 'grove', ghosts: false };
-    if (c === 'fuel' && sub === 'fuel') return { kind: 'tar', ghosts: false };
-    if (c === 'place_of_worship') {
-      return { kind: 'stones', ghosts: !sub || sub === 'christian' || sub === 'place_of_worship' };
-    }
-    if (c === 'cemetery') return { kind: 'stones', ghosts: true };
+    if (root.BiomeProfiles ? root.BiomeProfiles.isParkPoi(t) : (c === 'park' && sub === 'park')) return { kind: 'grove' };
+    if (c === 'fuel' && sub === 'fuel') return { kind: 'tar' };
+    // A church, by the table above (without WorldGen loaded: the tag alone).
+    if (c === 'place_of_worship' && (WG || sub === 'christian')) return { kind: 'stones' };
     return null;
   }
 
@@ -312,7 +322,7 @@
         const id = `${k.kind}|${gx}|${gy}`;
         if (seen.has(id)) continue;
         seen.add(id);
-        out.push({ kind: k.kind, ghosts: k.ghosts, gx, gy, lx: p.x, ly: p.y,
+        out.push({ kind: k.kind, gx, gy, lx: p.x, ly: p.y,
           owned: p.x >= 0 && p.y >= 0 && p.x < EXT && p.y < EXT });
       }
     }
@@ -376,7 +386,7 @@
           a.aspect = wl[wl.length - 1][0];
           for (const [asp, wt] of wl) { acc += wt / tot; if (u < acc) { a.aspect = asp; break; } }
         } else {
-          const list2 = ASPECTS[kind === 'stones' && !a.ghosts ? 'stones_quiet' : kind];
+          const list2 = ASPECTS[kind];
           a.aspect = list2[Math.floor(u * list2.length)];
         }
         out.push(a);
@@ -667,13 +677,6 @@
     return { kind: anchor.kind, s: f.s[i] / 255, anchor };
   }
   function inCore(z) { return !!z && z.s >= CORE_S; }
-  // The anchor whose dead walk at this cell — a church or cemetery's stones —
-  // or null. creature_ai.js ghostSpawnPass reads it (the dusk gate, the
-  // cadence, the fan's aim).
-  function ghostAnchorAt(entry, ix, iy) {
-    const z = at(entry, ix, iy);
-    return (z && z.kind === 'stones' && z.anchor.ghosts) ? z.anchor : null;
-  }
   // The anchor's point in a save's frame metres (tx·tileEdgeM + local).
   function anchorFrameM(anchor, tileEdgeM) {
     return { x: anchor.gx * tileEdgeM / EXT, y: anchor.gy * tileEdgeM / EXT };
@@ -723,10 +726,6 @@
       case 'headstone_rows':
         for (const dy of [-3, 3]) for (const dx of [-4, -2, 0, 2, 4]) P.push({ what: 'headstone', dx, dy });
         break;
-      case 'rock_square':
-        add('rock', [[-3, -3], [0, -3], [3, -3], [3, 0], [3, 3], [0, 3], [-3, 3], [-3, 0]]);
-        break;
-      case 'rock_ring':      add('rock', ringOffsets(3, 2.4)); break;
       case 'tar_grid':
         for (const dy of [-3, 0, 3]) for (const dx of [-3, 0, 3]) if (dx || dy) P.push({ what: 'tar', dx, dy });
         break;
@@ -797,8 +796,9 @@
   //           nexus: [{ kind, aspect, chestId (owner only, else null), pieces }] }.
   // Walks field.reach (every anchor whose pattern reaches this square, owned
   // or not) and lays ONLY the pieces whose cell is in this square; the chest
-  // stamp, the grove shrine and the tar garrison stay the OWNER's (a.owned —
-  // they belong to the chest).
+  // stamp and the grove shrine stay the OWNER's (a.owned — they belong to the
+  // chest). `lairs` stays in the result for its readers, and stays EMPTY: a
+  // zone holds no garrison (the tar yard's fire slimes are gone, Sep 2026).
   function* dressSteps(ctx) {
     const WG = root.WorldGen;
     const res = { objects: [], wildplants: [], lairs: [], slowCells: new Map(), nexus: [] };
@@ -826,7 +826,7 @@
       yield 'zone nexus';
       const c = nexusCentre(a, ty, N);
       // The owner's chest (it may have lost the POI dedup: no chest, no stamp,
-      // no shrine, no garrison — the pattern is the anchor's and is laid still).
+      // no shrine — the pattern is the anchor's and is laid still).
       let chest = a.owned ? chestAt.get(`${a.lx},${a.ly}`) : null;
       let ix0 = -1, iy0 = -1;
       if (chest) {
@@ -907,18 +907,10 @@
             { variant: 1 + Math.floor(v * 4), species, zone: zoneTag }));
         } else if (pc.what === 'headstone') {
           res.objects.push(WG.makeObject('headstone', x, y, WG.cellId('hs', tx, ty, ix, iy), { zone: zoneTag }));
-        } else if (pc.what === 'rock') {
-          res.objects.push(WG.makeObject('mineralrock', x, y, WG.cellId('mrz', tx, ty, ix, iy),
-            { requiredTier: 1, yieldTier: 1, rockVariant: rockLook, zone: zoneTag }));
         } else if (pc.what === 'tar') {
           res.objects.push(WG.makeObject('tar', x, y, WG.cellId('tar', tx, ty, ix, iy), { zone: zoneTag }));
           res.slowCells.set(iy * N + ix, 'tar');
         }
-      }
-      if (a.kind === 'tar' && chest) {
-        // The fire-slime garrison (lairs.js 'tar' tier), held at the pumps.
-        res.lairs.push({ tier: 'tar', sid: WG.cellId('taryard', tx, ty, ix0, iy0),
-          lx: (ix0 + 0.5) * frameCellM, ly: (iy0 + 0.5) * frameCellM });
       }
       if (chest || rec.pieces) res.nexus.push(rec);
     }
@@ -978,8 +970,9 @@
   // the GLOBAL cell (cellU01, own salt) — no rng, seam-safe by construction
   // (every cell belongs to one tile), each piece on the spawn rule (roadMask
   // + occupied) and claiming its cell:
-  //   THE GRAVES      a ghost anchor's walkable CHURCHYARD cell on the grave
-  //                   lattice → a headstone with chance HEADSTONE_P · s
+  //   THE GRAVES      a church's walkable CHURCHYARD cell on the grave
+  //                   lattice → a headstone with chance HEADSTONE_P · s —
+  //                   never on real grave land (`ok` reads the quiet mask)
   //   CHURCHYARD ROCKS every stones anchor's CHURCHYARD cell → a plain rock
   //                   (the one look) with chance CHURCHYARD_ROCK_P · s
   //   THE FRINGE FILL past a park's edge (fringeSteps' edgeM) the park
@@ -1008,7 +1001,7 @@
         const s = a ? fld.s[i] / 255 : 0;
         const x = ox + (ix + 0.5) * frameCellM, y = oy + (iy + 0.5) * frameCellM;
         if (a && a.kind === 'stones' && grid[i] === T.CHURCHYARD) {
-          if (a.ghosts && ((gy % GRAVE_ROW) + GRAVE_ROW) % GRAVE_ROW === 0 && ((gx % GRAVE_COL) + GRAVE_COL) % GRAVE_COL === 0
+          if (((gy % GRAVE_ROW) + GRAVE_ROW) % GRAVE_ROW === 0 && ((gx % GRAVE_COL) + GRAVE_COL) % GRAVE_COL === 0
               && cellU01(gx, gy, SALT_GRAVE) < HEADSTONE_P * s && ok(ix, iy)) {
             occ.add(i); graves++;
             res.objects.push(WG.makeObject('headstone', x, y, WG.cellId('hs', tx, ty, ix, iy), { zone: 'stones' }));
@@ -1063,7 +1056,7 @@
     cellU01, fringeReach, fringeSteps, rescueCell,
     anchorOf, upmRow, windowM, radiusFor, anchorKey, collectAnchors, resolveAnchors,
     edgeNoise, edgeAt, fieldSteps, field, haloSteps, terrainOf, zoneTerrains, haloOver,
-    at, inCore, ghostAnchorAt, anchorFrameM, headstoneHoards,
+    at, inCore, anchorFrameM, headstoneHoards,
     ringOffsets, patternPieces, nexusCentre, nexusPieceCell, nexusReachCells, nexusPlan, dressSteps, dress,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

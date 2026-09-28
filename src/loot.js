@@ -91,9 +91,11 @@ const POI_CLASS_FALLBACK = {
   restaurant:       'Tavern',
   // satextract OSM street furniture (sidecar-only POIs) — fallback descriptors
   // so the unnamed box chests read as a place rather than a blank label.
-  memorial:         'Memorial',
   swimming_pool:    'Bathing Pool',
-  bicycle_parking:  'Bicycle Stand',
+  // The rack is a COURIER'S POST in the fiction (Sep 2026): the old "bike
+  // rack" read as riding a bicycle while playing. Ids / texture keys keep
+  // `bicycle_parking` / `bike_rack`.
+  bicycle_parking:  'Courier\'s Post',
   traffic_signals:  'Signal Post',
   stop:             'Stop Post',
   crossing:         'Crossing',
@@ -176,7 +178,7 @@ const POI_CATEGORY = {
   school: 'school', college: 'school', library: 'school', books: 'school',
   // civic/educational: rare-weighted seed drops
   town_hall: 'civic', place_of_worship: 'civic',
-  attraction: 'civic', museum: 'civic', memorial: 'civic',
+  attraction: 'civic', museum: 'civic',
   pet: 'civic',
   // healthcare: mid-weighted seed drops
   pharmacy: 'health', hospital: 'health', dentist: 'health',
@@ -211,19 +213,22 @@ const POI_CATEGORY = {
   sports_centre: 'park', yoga: 'park', swimming: 'park',
   swimming_pool: 'park', bowls: 'park', running: 'park',
   ice_rink: 'park', stadium: 'park', dog_park: 'park',
-  // ── Cultural plaques — civic chests. PUBLIC ART (art_gallery) is a fixed
-  // T1 one-time trunk (CHEST_CLASS_TIER); an INFORMATION board is no chest
-  // at all — it reads one Book page (worldgen.js infoboard, the waystone's
-  // lane in interactables.js).
-  art_gallery: 'civic', monument: 'civic',
-  cemetery: 'civic', cinema: 'civic', theatre: 'civic',
+  // ── Culture — civic chests. PUBLIC ART (art_gallery) is a fixed T1
+  // one-time trunk (CHEST_CLASS_TIER); an INFORMATION board is no chest at
+  // all — it reads one Book page (worldgen.js infoboard, the waystone's lane
+  // in interactables.js). Memorials, monuments and cemeteries have NO row:
+  // they are sensitive places that mint nothing (WorldGen.isSensitivePoi).
+  art_gallery: 'civic', cinema: 'civic', theatre: 'civic',
   // ── Authority buildings — civic T3 chests
   police: 'civic', fire_station: 'civic', harbor: 'civic',
 };
 // Loot identity is separate from world category: no map IDs, tiers or pads change.
 const CHEST_THEME_BY_POI = {
   museum: 'culture', art_gallery: 'culture', cinema: 'culture', theatre: 'culture',
-  place_of_worship: 'worship', cemetery: 'memorial', memorial: 'memorial', monument: 'memorial',
+  // (A place of worship reaching a chest at all is a CHRISTIAN one — every
+  // other faith's mints nothing, WorldGen.isSensitivePoi — and a surface one
+  // stands as the chapel; this row is its cave mirror's loot.)
+  place_of_worship: 'worship',
   police: 'authority', fire_station: 'authority', pet: 'pets',
 };
 function chestThemeForPoi(poiClass) {
@@ -340,7 +345,7 @@ function chestBaseTier(o) {
 }
 // THE chest tier (1-5) — the one every player sees AND the one its loot rolls
 // at: the sprite/gem in render.js, the look (chestLook), the roll in
-// interactables.js and the chapel's alms (Macros.chapelRollTier) all read
+// interactables.js and the chapel's blessing (Macros.chapelRollTier) all read
 // this. Takes the OBJECT (poiClass, poiDensity, depth, zoneNexus).
 function chestTier(o) {
   const d = o ? o.depth : 0;
@@ -452,10 +457,11 @@ function isPotOfGold(o) {
 // lane, app.js _walkRelics / steerSpeedMul), once a UTC day per rack (the day
 // ledger). It stays a `chest` OBJECT only so its id, its cell and the POI
 // light ride the same rails as the pot it used to be.
-// What a bike rack says when it lends its bike (≤ MAP_MSG_MAX), off the
-// boost's own length.
+// What a courier's post (the bike rack's name in the world) says when it
+// lends its pace (≤ MAP_MSG_MAX), off the boost's own multiplier and length.
+// Never a bicycle: the player walks — the boost is the STICK's.
 function bikeRackFlash() {
-  return `Pedal power! Faster ${shortDuration(BIKE_RACK_MS)}`;
+  return `Swift step! Stick ×${BIKE_RACK_SPEED_MUL} for ${shortDuration(BIKE_RACK_MS)}`;
 }
 function isBikeRack(o) {
   return !!o && o.kind === 'chest' && o.poiClass === 'bicycle_parking' && !(o.depth > 0) && !o.crate && !o.fixedLoot;
@@ -789,7 +795,7 @@ function macroFor(o) {
 //            crate. `barrel` standing; render.js swaps in `barrel_smashed`
 //            while it is spent — one art per STATE, so the look carries the
 //            standing key and the renderer the other.
-//   wagon  → the broken wagon: a bus stop on a BANDIT ROAD (a MAJOR way —
+//   wagon  → the broken wagon: a bus stop on an OLD TRADE ROAD (a MAJOR way —
 //            StreetVariants.markBanditStops stamps `banditStop`). The same
 //            chest: id, tier, contents and `opened` are untouched; only the
 //            look (and the one goblin lairs.js seats beside it) changes.

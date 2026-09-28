@@ -32,7 +32,7 @@
     shield: { ids: ['shield_potion'], fallback: { health: 'restorative', worship: 'restorative', default: 'field' } },
     study: { ids: { reach_potion: 2, raven_potion: 1, shield_potion: 1 }, fallback: 'books' },
     shadow: { ids: ['raven_potion', 'shadow_powder'], fallback: 'flowers' },
-    gems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], fallback: { culture: 'books', memorial: 'flowers', default: 'field' } },
+    gems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], fallback: { culture: 'books', default: 'field' } },
     books: { ids: ['book'], minTier: { school: 1 }, fallback: 'torch' },
     honey: { ids: ['honey'], fallback: 'restorative' },
     torch: { ids: ['torch'] },
@@ -56,14 +56,13 @@
     school: { tier: 3, weights: { books: 55, field: 15, study: 20, noncombatGear: 10 } },
     culture: { tier: 3, weights: { culturalGear: 35, gems: 30, books: 25, study: 10 } },
     worship: { tier: 3, weights: { revival: 50, shield: 25, books: 15, flowers: 10 } },
-    memorial: { tier: 3, weights: { shadow: 55, flowers: 25, books: 15, gems: 5 } },
     civic: { tier: 3, weights: { supplies: 35, cash: 30, books: 20, noncombatGear: 15 } },
     authority: { tier: 3, weights: { protectiveGear: 40, field: 40, healing: 15, cash: 5 } },
     pets: { tier: 3, weights: { companions: 70, animalFood: 20, supplies: 10 } },
   };
   for (const [theme, row] of Object.entries(themes)) {
     row.t1Fallback = ['food', 'park', 'farm', 'health', 'worship', 'pets'].includes(theme) ? 'restorative'
-      : ['flora', 'memorial'].includes(theme) ? 'flowers' : theme === 'school' ? 'books' : 'torch';
+      : theme === 'flora' ? 'flowers' : theme === 'school' ? 'books' : 'torch';
   }
   const memberCache = new Map();
   const aliases = { lowtier: 'roadside' };

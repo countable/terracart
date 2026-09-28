@@ -221,7 +221,8 @@ test('graves: headstones wrap the church — per-cell, on the lattice, on church
     assert.eq(r.grid[i], T.CHURCHYARD, `${h.id} on churchyard ground`);
     assert.eq(r.roadMask[i], 0, `${h.id} off the road`);
     const a = f.anchors[f.idx[i] - 1];
-    assert.truthy(a && a.kind === 'stones' && a.ghosts, `${h.id} in a church / cemetery's disc`);
+    assert.truthy(a && a.kind === 'stones', `${h.id} in a church's disc`);
+    assert.eq(r.quietMask[i], 0, `${h.id} never on real grave land (quiet)`);
     assert.eq((ty * N + iy) % Z.GRAVE_ROW, 0, `${h.id} on a grave row`);
     assert.eq((tx * N + ix) % Z.GRAVE_COL, 0, `${h.id} in a grave column`);
     assert.truthy(h.id === WorldGen.cellId('hs', tx, ty, ix, iy), 'a tile + cell id');

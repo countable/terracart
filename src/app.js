@@ -379,16 +379,43 @@ const TELEPORT_FADE_IN_MS = 1300;
 // (within COIN_BURST_NEAR_R cells), so a burst always puts coins in reach —
 // whatever the ground around the pot itself is like.
 const COIN_BURST_NEAR_PLAYER = 3;
-// WHERE A COIN MAY LIE: anywhere a person can stand, AND the road. The
-// no-spawn-on-a-road rule (CLAUDE.md) is for scenery that stays put; a coin
-// is a pickup that lasts a minute, and the street is where the player walks.
-// Never water, a wall or a building. Occupancy is the caller's check.
-function coinGround(t) { return WorldGen.isWalkable(t) || WorldGen.isRoadTerrain(t); }
-// Is this cell part of the road — its terrain, or the band drawn over it?
-function coinRoadCell(entry, i) {
-  return !!(entry.roadMask && entry.roadMask[i]) || WorldGen.isRoadTerrain(entry.grid[i]);
-}
+// WHERE A COIN MAY LIE: where the SHARED SPAWN RULE says (WorldGen.isSpawnCell
+// — walkable, off the road band, under nothing, and on residential ground only
+// near a public anchor), on the player's SIDE of any major road (sameSideAs).
+// SAFETY (owner, Sep 2026): a coin used to be allowed in the carriageway and in
+// front gardens, and to vanish after a minute — the strongest "run into the
+// street" push the safety audit found. Now it never lies on a road or in a
+// yard, and it waits COIN_BURST_LIFE_MS.
+// How long a burst's coins wait for you. No timed reward is shorter than ten
+// minutes: nothing is worth hurrying across a street for.
+const COIN_BURST_LIFE_MS = 10 * 60 * 1000;
 const COIN_BURST_NEAR_R = 2;
+// THE SAFETY CARD (_showSafetyCard): what each version says, and when the
+// short ones come back. Kept here as data so the copy is one table.
+const SAFETY_RESUME_GAP_MS = 5 * 60 * 1000;   // back after 5+ minutes away
+const SAFETY_DUSK_DAYLIGHT = 0.5;             // Lighting.daylight: the sun on the horizon
+const SAFETY_TICK_MS = 30000;                 // how often dusk is asked
+const SAFETY_CARDS = {
+  launch: { title: '⚠ STAY SAFE',
+    lines: ['Look up. Watch where you walk, not the screen.',
+      'NEVER step into a street to reach something — use the stick to walk your farmer to it.',
+      'Do not play while driving or cycling.',
+      'Keep out of private and unsafe places.',
+      'Hot day? Carry water and rest in the shade.'] },
+  resume: { title: '⚠ LOOK UP',
+    lines: ['Welcome back. Check your surroundings before you walk on.',
+      'Out of reach? Use the stick — never the street.'] },
+  dusk: { title: '⚠ IT IS GETTING DARK',
+    lines: ['Stay on lit pavements and paths, and be seen.',
+      'Out of reach? Use the stick — never the street.'] },
+};
+// A HEADS-UP BUZZ (wanderCreatures): the phone vibrates when a hostile that
+// is taking an interest comes within SAFETY_FOE_BUZZ_CELLS of the feet, at
+// most once per SAFETY_FOE_BUZZ_GAP_MS — so a player whose eyes are on the
+// street still learns something is coming. The save's haptics switch mutes it.
+const SAFETY_FOE_BUZZ_CELLS = 5;
+const SAFETY_FOE_BUZZ_GAP_MS = 20000;
+const SAFETY_FOE_BUZZ = [70, 60, 70];
 // Save fields written by the passes that run BEFORE a home is captured — the
 // starter crate anchor, the guaranteed soil plot and the starter-home
 // provision. Every one of them is DERIVED from the projection origin and is
@@ -1884,7 +1911,7 @@ class MapScene extends Phaser.Scene {
     window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
     window.WORLD_ICON_URLS.chest = bakeSheetFrame('chest', 0, 32, 32);
     window.WORLD_ICON_URLS.box   = bakeSheetFrame('box',   0, 16, 16);
-    // A bandit road's bus stop is a broken wagon (loot.js chestLook).
+    // An old trade road's bus stop is a broken wagon (loot.js chestLook).
     if (this.textures.exists('wagon')) window.WORLD_ICON_URLS.wagon = bakeSheetFrame('wagon', 0, 128, 96);
     // The burn confirm opens with the campfire the player just tapped.
     window.WORLD_ICON_URLS.bonfire = bakeSheetFrame('bonfire', 0, 16, 32);
@@ -2883,6 +2910,8 @@ class MapScene extends Phaser.Scene {
         _endTiles?.();
         window.__boot?.mark('MAP PLAYABLE — boot overlay hidden');
         this._bootOverlayGone = true; window.__bootStatus?.(1);
+        // THE SAFETY CARD, every launch, the moment the map is the player's.
+        this._showSafetyCard('launch');
         // The map is the player's now, so responsiveness beats throughput:
         // tile builds go back to short slices (see WorldGen.setSliceBudgetMs).
         WorldGen.setSliceBudgetMs?.(WorldGen.RASTER_SLICE_LIVE_MS);
@@ -3118,7 +3147,7 @@ class MapScene extends Phaser.Scene {
   // One read per feet-cell change (playerToWorldCell — never the camera
   // anchor): the tile's street marks (StreetVariants.dress) and its MAJOR band
   // (entry.roadClass) say which street this is, and the first entry onto each
-  // variant — and onto a bandit road — tells its story once per save
+  // variant — and onto an old trade road — tells its story once per save
   // (_storySplashOnce, keyed and painted by the row's `story` stem); a later
   // entry after being off it for STREET_FLASH_GAP_MS gets its map line. The
   // same cell says whether a Burned Row's tar pit or iron stakes are under
@@ -4443,7 +4472,7 @@ class MapScene extends Phaser.Scene {
     }
 
     // DERELICT LAIRS — the ruins are hard mode's; the STREET structures (a
-    // bandit road's wagon, a hedgerow close — lairs.js ALWAYS_AWAKE_TIERS)
+    // a barricade, a café's hoard — lairs.js ALWAYS_AWAKE_TIERS)
     // are held in every mode, so the pass runs in both and `buildings` says
     // which ruins it may wake. Wake the garrisons of ruins the player
     // has come near and sleep the ones they have left behind (src/lairs.js owns
@@ -4503,6 +4532,7 @@ class MapScene extends Phaser.Scene {
     this._tickTraps(dt);
     // …and is a guildhall bounty's pack still about (its leash)?
     this._tickGuildBounty();
+    this._tickSafetyReminders();
     // …and which STREET are the feet on — a variant's first-entry story, and
     // whether tar or stakes are slowing the body (the same feet cell).
     this._tickStreetFeet();
@@ -5427,9 +5457,29 @@ class MapScene extends Phaser.Scene {
     const tx = Math.floor(victim.x / edge), ty = Math.floor(victim.y / edge);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry) return null;
-    const cellSizeM = edge / (entry.cellsPerEdge || this.cellsPerTile);
-    const cx = Math.floor((victim.x - tx * edge) / cellSizeM);
-    const cy = Math.floor((victim.y - ty * edge) / cellSizeM);
+    const N = entry.cellsPerEdge || this.cellsPerTile;
+    const cellSizeM = edge / N;
+    let cx = Math.floor((victim.x - tx * edge) / cellSizeM);
+    let cy = Math.floor((victim.y - ty * edge) / cellSizeM);
+    // NEVER IN THE ROAD (the coin rule — COIN_BURST_LIFE_MS's note): a foe
+    // felled on a street leaves its coin on the nearest ground beside it
+    // (off the road band and the road's own cells), within three cells.
+    const onRoad = (x, y) => !!(entry.roadMask && entry.roadMask[y * N + x])
+      || WorldGen.isRoadTerrain(entry.grid[y * N + x]);
+    if ((this.depth || 0) === 0 && entry.grid && cx >= 0 && cy >= 0 && cx < N && cy < N && onRoad(cx, cy)) {
+      outer: for (let r = 1; r <= 3; r++) {
+        for (let dy = -r; dy <= r; dy++) {
+          for (let dx = -r; dx <= r; dx++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+            const nx = cx + dx, ny = cy + dy;
+            if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+            if (!WorldGen.isWalkable(entry.grid[ny * N + nx]) || onRoad(nx, ny)) continue;
+            cx = nx; cy = ny;
+            break outer;
+          }
+        }
+      }
+    }
     const coin = {
       kind: 'coindrop',
       x: tx * edge + (cx + 0.5) * cellSizeM,
@@ -6053,7 +6103,12 @@ class MapScene extends Phaser.Scene {
   // === Interaction ===
   // Dispatch lives in interact.js as a flat TAP_HANDLERS priority array;
   // this method just forwards to it.
-  handleWorldTap(sx, sy) { interactTap(this, sx, sy); }
+  // A PASSENGER TAPS NOTHING (isTooFast): no pickup, no harvest, no chest at a
+  // ride's pace — the one gate in front of every world tap.
+  handleWorldTap(sx, sy) {
+    if (this.isTooFast?.()) { this.flash('Too fast — on foot only.', sx, sy); return; }
+    interactTap(this, sx, sy);
+  }
 
   // === Coin-burst (the pot of gold — an ATM) ==============================
   // Once per UTC day per pot: the day ledger (Macros.usedToday / markToday —
@@ -6106,16 +6161,13 @@ class MapScene extends Phaser.Scene {
     // alone, which exists before `_spawned`), so fall back to no occupancy
     // check rather than crash on a missing entry._spawnOpts.
     const occupiedIdx = (entry._spawnOpts && entry._spawnOpts.occupied) || null;
-    const burstOpts = { roadMask: entry.roadMask, occupied: occupiedIdx, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
-    // Cells within `r` that will take a coin. `strict` is the shared scenery
-    // rule (walkable, off the road band, and on RESIDENTIAL only near a public
-    // anchor); relaxed keeps the two that matter for a coin — not in water or
-    // a wall, not in the traffic — and drops the frontage rule. It must NOT
-    // drop the occupancy check too: "not under a rock" isn't a frontage
-    // nicety, it's the same "don't spawn on top of anything already there"
-    // half of the rule strict enforces via isSpawnCell, so relaxed re-checks
-    // occupiedIdx directly.
-    const gather = (r, strict) => {
+    const burstOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, occupied: occupiedIdx, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
+    // Cells within `r` that will take a coin: the shared spawn rule (the pot
+    // itself is the public anchor, so the cells right round it pass the
+    // frontage test) and the player's side of any major road. No relaxed
+    // pass: a burst in a tight spot is a smaller burst, never a coin in the
+    // street or in somebody's garden.
+    const gather = (r) => {
       const out = [];
       for (let dy = -r; dy <= r; dy++) {
         for (let dx = -r; dx <= r; dx++) {
@@ -6123,32 +6175,16 @@ class MapScene extends Phaser.Scene {
           if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
           // Skip the POI's own cell (chest sprite sits there).
           if (dx === 0 && dy === 0) continue;
-          const i = cy * N + cx;
-          // A COIN MAY LIE IN THE STREET: road cells (terrain or the drawn
-          // band) take one on either pass — a coin is a pickup, not scenery.
-          const onRoad = coinRoadCell(entry, i);
-          if (onRoad) {
-            if (!coinGround(entry.grid[i]) || (occupiedIdx && occupiedIdx.has(i))) continue;
-          } else if (strict) {
-            if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, burstOpts)) continue;
-          } else {
-            if (!coinGround(entry.grid[i])) continue;
-            if (occupiedIdx && occupiedIdx.has(i)) continue;
-          }
+          if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, burstOpts)) continue;
+          if (!sameSideAs(this, tx * tileEdgeM + (cx + 0.5) * cellM, ty * tileEdgeM + (cy + 0.5) * cellM)) continue;
           out.push({ cx, cy });
         }
       }
       return out;
     };
-    // KEEP LOOKING UNTIL THERE IS A BURST TO SCATTER. The strict rule is built
-    // for scenery that stays put: on residential ground it wants a road, a
-    // public area or a POI within SPAWN_FRONTAGE, which around a pot of gold
-    // in a suburb can come back with a handful of cells — or one. The count
-    // below is capped by whatever this finds, so the burst quietly became a
-    // single coin. A coin is not scenery: it is a 60-second pickup a few steps
-    // from a chest the player is standing on, so it may lie in a front garden.
-    // Widen first (still strict), and only then relax.
-    let candidates = gather(RADIUS_CELLS, true);
+    // KEEP LOOKING UNTIL THERE IS A BURST TO SCATTER: widen the ring (the same
+    // rule) out to MAX_BURST_CELLS.
+    let candidates = gather(RADIUS_CELLS);
     // The burst: its size off the pot's density on its tile (potCoinsFor),
     // a few of them (a quarter at most) at the player's feet, the rest
     // scattered round the pot.
@@ -6156,9 +6192,8 @@ class MapScene extends Phaser.Scene {
     const nearN = Math.min(COIN_BURST_NEAR_PLAYER, Math.floor(burstN / 4));
     const scatterN = burstN - nearN;
     for (let r = RADIUS_CELLS + 2; candidates.length < scatterN && r <= MAX_BURST_CELLS; r += 2) {
-      candidates = gather(r, true);
+      candidates = gather(r);
     }
-    if (candidates.length < scatterN) candidates = gather(MAX_BURST_CELLS, false);
     // Constrain to the visible SCREEN AREA — coins may sit right at its edge,
     // never past it. The widen/relax escalation above can reach out to
     // MAX_BURST_CELLS (3x the spec'd ~25m) when a suburb has too few
@@ -6212,7 +6247,7 @@ class MapScene extends Phaser.Scene {
     // The ledger's one writer (it prunes takes older than a week).
     Macros.markToday(this.save, poi.id);
     if (typeof persistSave === 'function') persistSave(this.save);
-    const expiresAt = Date.now() + 60_000;
+    const expiresAt = Date.now() + COIN_BURST_LIFE_MS;
     drops.forEach((d, i) => {
       d.entry.coinDrops = d.entry.coinDrops || [];
       d.entry.coinDrops.push({ kind: 'coindrop', x: d.x, y: d.y, id: `coin_${poi.id}_${dayKey}_${i}`, expiresAt });
@@ -6221,8 +6256,9 @@ class MapScene extends Phaser.Scene {
   }
 
   // Up to `count` coin cells around the PLAYER's feet (never the feet cell
-  // itself), within `r` cells, nearest ring first: ground a coin can lie on
-  // (coinGround — roads included), not under anything. On the tile
+  // itself), within `r` cells, nearest ring first: the shared spawn rule (off
+  // the road band, under nothing, no private yard) on the player's side of any
+  // major road — the pot scatter's rule. On the tile
   // the player stands on, in that tile's own grid. `taken` holds cells
   // already used ("tx_ty_cx_cy"). Returns [{ entry, x, y }].
   _coinCellsNearPlayer(count, r, taken) {
@@ -6235,7 +6271,7 @@ class MapScene extends Phaser.Scene {
     if (!entry || !entry.grid) return out;
     const N = entry.cellsPerEdge || rowCells(this, ty);
     const cellM = tileEdgeM / N;
-    const occupied = (entry._spawnOpts && entry._spawnOpts.occupied) || null;
+    const opts = { roadMask: entry.roadMask, quiet: entry.quietMask, occupied: (entry._spawnOpts && entry._spawnOpts.occupied) || null };
     for (let ring = 1; ring <= r && out.length < count; ring++) {
       const cells = [];
       for (let dy = -ring; dy <= ring; dy++) {
@@ -6243,9 +6279,8 @@ class MapScene extends Phaser.Scene {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
           const cx = pcx + dx, cy = pcy + dy;
           if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
-          const i = cy * N + cx;
-          if (!coinGround(entry.grid[i])) continue;       // roads welcome
-          if (occupied && occupied.has(i)) continue;
+          if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts)) continue;
+          if (!sameSideAs(this, tx * tileEdgeM + (cx + 0.5) * cellM, ty * tileEdgeM + (cy + 0.5) * cellM)) continue;
           if (taken.has(`${tx}_${ty}_${cx}_${cy}`)) continue;
           cells.push({ cx, cy });
         }
@@ -9254,6 +9289,80 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
+  // ── THE SAFETY CARD ──────────────────────────────────────────────────────
+  // A FULL-SCREEN card, bold, dismissed only by a tap (owner, Sep 2026: the
+  // one-line loading warning was too easy to miss). The long card at every
+  // LAUNCH (the moment the boot overlay goes), a short one on RESUME after
+  // SAFETY_RESUME_GAP_MS in the background, and a short one at DUSK (the sun
+  // crossing SAFETY_DUSK_DAYLIGHT, once a UTC day). Every version says the one
+  // thing the game most needs you to do: reach what is out of reach with the
+  // STICK, never by stepping into the street. Not a makeModalShell dialog —
+  // it carries no painting and must cover the whole game box, above every
+  // dialog; it does wear .game-modal so the movement pads hide under it.
+  _showSafetyCard(which) {
+    if (window.__TEST_MODE || typeof document === 'undefined') return;
+    const card = SAFETY_CARDS[which];
+    const host = document.getElementById('game');
+    if (!card || !host) return;
+    document.getElementById('safety-card')?.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'safety-card';
+    wrap.className = 'game-modal';
+    wrap.setAttribute('role', 'alertdialog');
+    wrap.style.cssText = 'position:absolute;inset:0;z-index:400;display:flex;flex-direction:column;'
+      + 'align-items:center;justify-content:center;padding:24px 20px;box-sizing:border-box;'
+      + 'background:rgba(12,9,6,0.96);color:#fff4e0;text-align:center;cursor:pointer;'
+      + 'font-weight:700;line-height:1.35;';
+    const title = document.createElement('div');
+    title.textContent = card.title;
+    title.style.cssText = 'font-size:26px;font-weight:900;color:#ff8c3b;letter-spacing:1px;margin-bottom:14px;';
+    wrap.appendChild(title);
+    for (const line of card.lines) {
+      const p = document.createElement('div');
+      p.textContent = line;
+      p.style.cssText = 'font-size:17px;margin:6px 0;max-width:340px;';
+      wrap.appendChild(p);
+    }
+    const tap = document.createElement('div');
+    tap.textContent = 'Tap to continue';
+    tap.style.cssText = 'margin-top:22px;font-size:15px;font-weight:800;color:#ffe066;'
+      + 'border:2px solid #ffe066;border-radius:8px;padding:10px 18px;';
+    wrap.appendChild(tap);
+    const done = (e) => { e?.stopPropagation?.(); e?.preventDefault?.(); wrap.remove(); };
+    wrap.addEventListener('pointerup', done);
+    wrap.addEventListener('click', done);
+    host.appendChild(wrap);
+  }
+  // THE HEADS-UP BUZZ: wanderCreatures hands over the nearest hostile taking
+  // an interest this tick; inside SAFETY_FOE_BUZZ_CELLS the phone vibrates,
+  // at most once per SAFETY_FOE_BUZZ_GAP_MS (haptic — the save's switch).
+  _foeHeadsUp(distM, now) {
+    if (!(distM <= SAFETY_FOE_BUZZ_CELLS * this.cellM)) return;
+    if (now - (this._foeBuzzT ?? -Infinity) < SAFETY_FOE_BUZZ_GAP_MS) return;
+    this._foeBuzzT = now;
+    this.haptic(SAFETY_FOE_BUZZ);
+  }
+  // The resume and dusk reminders. RESUME is stamped by the lifecycle's
+  // visible transition (scene_geo.js onVis → _safetyOnResume); DUSK is read
+  // here, throttled to SAFETY_TICK_MS, off Lighting.daylight — the same sun the
+  // lightmap and the ghosts read — on the surface only.
+  _safetyOnResume(hiddenMs) {
+    if (hiddenMs >= SAFETY_RESUME_GAP_MS) this._showSafetyCard('resume');
+  }
+  _tickSafetyReminders(now = Date.now()) {
+    if (now - (this._safetyTickT || 0) < SAFETY_TICK_MS) return;
+    this._safetyTickT = now;
+    if ((this.depth || 0) !== 0 || typeof Lighting === 'undefined' || !this._bootOverlayGone) return;
+    const day = Lighting.daylight(this, now);
+    const was = this._safetyLastDay;
+    this._safetyLastDay = day;
+    const key = Delivery.dayKey(new Date(now));
+    if (was != null && was >= SAFETY_DUSK_DAYLIGHT && day < SAFETY_DUSK_DAYLIGHT && this._safetyDuskKey !== key) {
+      this._safetyDuskKey = key;
+      this._showSafetyCard('dusk');
+    }
+  }
+
   // True while a Shadow Powder is active: the same in-memory minute the dragon
   // keeps (this._shadowUntil, NOT persisted — a refresh ends it). wanderCreatures
   // reads it to switch off every hostile's pursuit AND its hit; nothing the
@@ -9276,7 +9385,34 @@ class MapScene extends Phaser.Scene {
   // what the AI is doing — a ghost is exactly as unhuntable as it looks, and a
   // third reason for not being there lands in both at once by being ORed here.
   isUnnoticed() {
-    return this.isShadowActive() || Combat.playerDowned(this.save.energy);
+    return this.isShadowActive() || Combat.playerDowned(this.save.energy) || this.isTooFast();
+  }
+  // TOO FAST: the player's real GPS track is running at a ride's pace,
+  // sustained (util.js speedGateStep, stepped per fix by scene_geo.js
+  // _trackSpeedGate). A THIRD reason on the unnoticed lane — nothing hunts a
+  // passenger — and the gate every reward that wants a walker reads: no
+  // street restores (_sweepStreets), so no trail metres, and no taps, so no
+  // pickups (handleWorldTap).
+  isTooFast() {
+    return !!(this._speedGate && this._speedGate.tooFast
+      && !this._speedGateStale());
+  }
+  // A gate whose last fix is long gone judges nothing (the phone stopped
+  // reporting): util.js clears it on the next fix, this clears it NOW.
+  _speedGateStale() {
+    const g = this._speedGate;
+    return !g || g.lastT == null || Date.now() - g.lastT > SPEED_GATE_STALE_MS;
+  }
+  // The card a trip of the gate shows — once per ride, never repeated while
+  // it holds. A modal, not a toast: it has to be read, and it is the moment
+  // the game has something to say about safety.
+  _showPassengerCard() {
+    this.showMessageModal?.({
+      kind: 'note',
+      title: 'Too fast — are you a passenger?',
+      body: 'You are moving faster than anyone walks. While you ride, the street does not mend, nothing is picked up and nothing hunts you. '
+        + 'If you are driving or cycling, put the phone away — the lane will wait for you on foot.',
+    });
   }
 
   useShadowPowder() {
@@ -9869,13 +10005,17 @@ class MapScene extends Phaser.Scene {
   // the pack at findWalkableDestination(BOUNTY_DIST_CELLS) and marks the day
   // (the ledger — one offer a day, taken or lost). Each kill pays its own
   // wage through resolveDefeat; clearing the pack pays Macros.bountyPay on top
-  // (_guildBountyDefeat). The pack is SESSION state and stands down (removed)
-  // when the player is more than CREATURE_SIM_CELLS from every foe left, when
-  // the UTC day turns, when the player goes underground, or on a reload —
-  // _tickGuildBounty. Nothing about it reaches the save but the ledger.
+  // (_guildBountyDefeat). THE PACK WAITS UNTIL THE DAY ENDS (owner, Sep 2026):
+  // no leash that cancels it when you walk off — a reward that vanishes
+  // unless you chase it wherever it runs is exactly the push into the street
+  // the safety audit named. It is seated on the player's SIDE of any major
+  // road, off the kerb buffer (findWalkableDestination, `foe`), is kept in
+  // the save (save.guildBounty: the day, the pay, each foe's kind and seat) so
+  // a reload or an evicted tile puts it back where it stood, and stands down
+  // only when the UTC day turns — _tickGuildBounty.
   _presentGuildhall(sx, sy, o, dress) {
     const wait = shortDuration(msToNextUtcDay());
-    if (this._guildBounty) { this.flash('Finish the hunt first.', sx, sy); return; }
+    if (this._guildBountyNow()) { this.flash('Finish the hunt first.', sx, sy); return; }
     if (Macros.usedToday(this.save, o.id)) { this.flash(`Board empty. Back in ${wait}.`, sx, sy); return; }
     const b = Macros.bountyFor(this.save, o);
     const names = b.kinds.map((k) => Combat.monster(k)?.name || 'Slime');
@@ -9887,12 +10027,12 @@ class MapScene extends Phaser.Scene {
       title: 'Today\'s bounty:',
       get: `Clear ${list} nearby`,
       cost: `pays ${this.moneyHTML(b.pay, 12)} on top of each kill`,
-      blurb: `One bounty a day at this hall. They will come for you. A new one in ${wait}.`,
+      blurb: `One bounty a day at this hall. They will come for you, and wait for you until the day ends (${wait}).`,
       canAfford: true,
       acceptLabel: 'Take it',
       cancelLabel: 'Later',
       onAccept: () => {
-        if (Macros.usedToday(this.save, o.id) || this._guildBounty) return;
+        if (Macros.usedToday(this.save, o.id) || this._guildBountyNow()) return;
         const n = this._spawnGuildBounty(b);
         if (!n) { this.flash('No clear ground here.', sx, sy); return; }
         Macros.markToday(this.save, o.id);
@@ -9912,6 +10052,9 @@ class MapScene extends Phaser.Scene {
     const homePos = this.homeWorldPos();
     const dest = this.findWalkableDestination(Macros.BOUNTY_DIST_CELLS, {
       seed: b.id,
+      // Alive and hostile: the foe seat rule (off the kerb buffer). Same side
+      // of any major road is walkableDestination's own rule.
+      foe: true,
       // Never inside Home's ward ring — it would only rout them.
       accept: (x, y) => !homePos || Math.hypot(x - homePos.x, y - homePos.y) > HOME_R * this.cellM,
     });
@@ -9920,7 +10063,10 @@ class MapScene extends Phaser.Scene {
     const edge = this.tileEdgeM, cm = edge / N;
     const base = entry._spawnOpts;
     const used = new Set();
-    const opts = { ...base, occupied: { has: (k) => used.has(k) || !!(base.occupied && base.occupied.has(k)) } };
+    // The pack's other seats: the shared rule, never stacked, and — the foe
+    // seat rule — never in the kerb buffer (a buffer cell reads as taken).
+    const opts = { ...base, occupied: { has: (k) => used.has(k) || !!(base.occupied && base.occupied.has(k))
+      || WorldGen.inMajorBuffer(base.roadClass, N, k % N, Math.floor(k / N)) } };
     const foes = [];
     entry.creatures = entry.creatures || [];
     b.kinds.forEach((kind, i) => {
@@ -9929,22 +10075,39 @@ class MapScene extends Phaser.Scene {
       if (!seat) return;
       used.add(seat.iy * N + seat.ix);
       const id = `guildfoe_${tx}_${ty}_${Math.floor(now)}_${i}`;
-      entry.creatures.push(WorldGen.makeCreature(kind,
-        tx * edge + (seat.ix + 0.5) * cm, ty * edge + (seat.iy + 0.5) * cm, id,
-        { shiny: false, bounty: b.id }));
-      foes.push({ id, tx, ty });
+      const x = tx * edge + (seat.ix + 0.5) * cm, y = ty * edge + (seat.iy + 0.5) * cm;
+      entry.creatures.push(WorldGen.makeCreature(kind, x, y, id, { shiny: false, bounty: b.id }));
+      foes.push({ id, tx, ty, kind, x, y });
     });
     if (!foes.length) return 0;
     this._guildBounty = { id: b.id, pay: b.pay, day: Delivery.dayKey(new Date(now)), foes };
+    this.save.guildBounty = this._guildBounty;
     return foes.length;
+  }
+  // Today's bounty, if one is out: the live one, or the one the save kept
+  // (a reload). A bounty from another UTC day is dropped here.
+  _guildBountyNow() {
+    if (!this._guildBounty && this.save.guildBounty) this._guildBounty = this.save.guildBounty;
+    const gb = this._guildBounty;
+    if (gb && gb.day !== Delivery.dayKey(new Date())) {
+      this._guildBounty = null;
+      delete this.save.guildBounty;
+      return null;
+    }
+    return gb || null;
   }
   // A bounty foe fell (resolveDefeat): when the whole pack is down, pay the
   // hall's reward — once; the pack is forgotten on payment.
   _guildBountyDefeat(victim) {
-    const gb = this._guildBounty;
+    const gb = this._guildBounty || this.save.guildBounty;
     if (!gb || victim.bounty !== gb.id) return;
-    if (!Macros.bountyCleared(this.save, gb.foes.map((f) => f.id))) return;
+    // Marked on the pack itself as well as in save.caught: the caught-prune
+    // drops a guildfoe marker once its tile leaves the cache, and the pack
+    // must not put a slain foe back (_tickGuildBounty).
+    for (const f of gb.foes) if (f.id === victim.id) f.dead = true;
+    if (!gb.foes.every((f) => f.dead) && !Macros.bountyCleared(this.save, gb.foes.map((f) => f.id))) return;
     this._guildBounty = null;
+    delete this.save.guildBounty;
     addMoney(this.save, gb.pay);
     this.updateHUD?.();
     persistSave(this.save);
@@ -9954,30 +10117,41 @@ class MapScene extends Phaser.Scene {
       body: 'The hall keeps its word. Tomorrow there will be another name on the board.',
     });
   }
-  // THE BOUNTY'S LEASH, asked each frame there is one: stand the pack down
-  // (lift every foe left off its tile) when the day has turned, the player is
-  // underground, or no foe left is within CREATURE_SIM_CELLS of the feet (the
-  // sim bubble — where a creature stops thinking at all). No payout.
+  // THE BOUNTY WAITS, asked each frame there is one: it stands down only when
+  // the UTC day turns (no payout — "The bounty got away."). Walking off, the
+  // stairs and a reload do NOT end it: a foe missing from its loaded tile (an
+  // evicted and re-built tile, or a reload) is put back on the seat it was
+  // given, unless it died. Underground it waits for the surface.
   _tickGuildBounty() {
-    const gb = this._guildBounty;
+    const gb = this._guildBounty || this.save.guildBounty;
     if (!gb) return;
-    const caught = new Set(this.save.caught || []);
-    const live = [];
-    for (const f of gb.foes) {
-      if (caught.has(f.id)) continue;
-      const entry = WorldGen.tileCache.get(WorldGen.tileKey(f.tx, f.ty));
-      const c = entry && entry.creatures && entry.creatures.find((k) => k.id === f.id);
-      if (c) live.push({ c, entry });
+    if (gb.day !== Delivery.dayKey(new Date())) {
+      const caught = new Set(this.save.caught || []);
+      let left = 0;
+      for (const f of gb.foes) {
+        if (f.dead || caught.has(f.id)) continue;
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(f.tx, f.ty));
+        const c = entry && entry.creatures && entry.creatures.find((k) => k.id === f.id);
+        if (c) entry.creatures.splice(entry.creatures.indexOf(c), 1);
+        left++;
+      }
+      this._guildBounty = null;
+      delete this.save.guildBounty;
+      if (left) this.flash('The bounty got away.', this.viewCenterX, this.viewCenterY - 40);
+      return;
     }
-    const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
-    const R = CREATURE_SIM_CELLS * this.cellM;
-    const near = live.some(({ c }) => Math.hypot(c.x - px, c.y - py) <= R);
-    const stale = gb.day !== Delivery.dayKey(new Date()) || (this.depth || 0) !== 0;
-    if (!stale && near) return;
-    for (const { c, entry } of live) entry.creatures.splice(entry.creatures.indexOf(c), 1);
-    this._guildBounty = null;
-    if (live.length) this.flash('The bounty got away.', this.viewCenterX, this.viewCenterY - 40);
+    this._guildBounty = gb;
+    if ((this.depth || 0) !== 0 || !gb.foes[0] || gb.foes[0].x == null) return;
+    const caught = new Set(this.save.caught || []);
+    for (const f of gb.foes) {
+      if (f.dead || caught.has(f.id)) continue;
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(f.tx, f.ty));
+      if (!entry || !entry._spawned || !entry.creatures) continue;
+      if (entry.creatures.some((k) => k.id === f.id)) continue;
+      entry.creatures.push(WorldGen.makeCreature(f.kind, f.x, f.y, f.id, { shiny: false, bounty: gb.id }));
+    }
   }
+
 
   // CURIO HALL: the ONE shared collection (Macros.CURIO_COLLECTION — things
   // that keep). Hold a listed thing the collection lacks and tap to give ONE;
@@ -12114,7 +12288,8 @@ class MapScene extends Phaser.Scene {
     const surface = (this.depth ?? 0) === 0;
     // Cave levels carry no streets at all, so don't pay for the scan down
     // there — and the auto-walk home banks nothing.
-    if (!surface || this._driftingHome) { this._resetStreetSight(); return; }
+    // …and a PASSENGER mends nothing (isTooFast): no restore, so no metres.
+    if (!surface || this._driftingHome || this.isTooFast?.()) { this._resetStreetSight(); return; }
     const reachM = reachRadiusM(this);
     if (!(reachM > 0)) { this._resetStreetSight(); return; }
     const now = Date.now();

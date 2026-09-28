@@ -992,7 +992,7 @@ const TRAP_KIT_KEEP_CHANCE = 0.8;
 const ITEM_GUIDE_TIPS = {
   crow_feather: `A Crow Feather is hard mode's pocket resurrection: eaten on an empty bar, it stands you up with ${FEATHER_REVIVE_ENERGY} energy — enough to crawl home, not to fight. Crows drop them. Carry one before any long walk — crawling home is not a strategy, merely a hobby.`,
   scarecrow: 'A scarecrow keeps crows and deer off the crops around it for good, for a little wood at Home. Cheaper than replanting, and it has never once asked for a day off.',
-  trap_kit: 'A disarm kit shuts a snare\'s jaw for good: hold it and tap the snare, and most kits live to do it again. Snares favour roadside verges and the stairs underground, so one in the bag costs less than a limp.',
+  trap_kit: 'A disarm kit shuts a snare\'s jaw for good: hold it and tap the snare, and most kits live to do it again. Snares favour footpaths, park edges and the stairs underground, so one in the bag costs less than a limp.',
   torch: 'Underground, your light IS your reach, and every level down trims it. A torch doubles it for a while — light one at the top of the stairs, not after you have met the goblin.',
   rope: 'Rope is the exit you carry: up a level, or down one, from wherever you stand. Long grass makes it at Home, so never go deeper than you have rope to climb back.',
   flowers: `A bouquet of wild flowers halves a shop's prices for ${shortDuration(SHOP_CHARM_MS)}. Save it for the relic you have been eyeing, not a packet of seeds — shopkeepers are flattered, not stupid.`,
@@ -1099,8 +1099,17 @@ const PLAY_TIPS = [
   'Fight where you truly stand. While the stick has carried you off your real footing, every blow and shot lands a third softer — walk there yourself to strike at full strength.',
   'The bar over a foe is its health, not a timer — green, then amber, then red.',
   'The ring around a thing you are working on is the wheel, and it is a different readout entirely: it says how far along the job is, never how hurt anything is.',
-  'Snares lie hidden on the verges of the big roads, in waste ground, and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 3 a second, so step off rather than wait it out.',
+  'Snares lie hidden beside footpaths and along park edges — never by a road — and around the stairs underground. Treading on one bites 10\u26a1; standing on a sprung one bleeds 3 a second, so step off rather than wait it out.',
   ITEM_GUIDE_TIPS.trap_kit,
+  // SAFETY (owner, Sep 2026) — taught in the first ten minutes, beside the
+  // snares. THE KERB (creature_ai.js: WorldGen.ROAD_CLASS_MAJOR_BUFFER, the
+  // kerbTurn reason in wanderCreatures, isFastFoe's spawn and step rule), THE
+  // PASSENGER GATE (util.js GPS_MAX_WALK_MPS / speedGateStep — books.test.js
+  // re-derives "16 km/h"), the stick (never the street), and heat / water.
+  'Nothing hostile follows you to the pavement of a busy road: step onto the kerb and every chase ends there. Never into the road itself — nothing out there is worth it.',
+  'Something out of reach across a street? Walk your farmer to it with the stick, never your feet.',
+  'Faster than a run — about 16 km/h, in a car or on a bike — and the game stops: the street will not mend, nothing can be picked up, and nothing hunts you until you are on foot again.',
+  'On a hot day carry water, keep to the shady side and rest often. Nothing in the lane is going anywhere.',
   // The ghosts (app.js GHOST_*, combat.js MONSTERS.ghost): the first night
   // can be the first session, and a touch is an eighth of a fresh bar — so
   // this is safety, taught beside the snares. books.test.js re-derives the
@@ -1147,12 +1156,14 @@ const PLAY_TIPS = [
   'Bins and recycling points are barrels: smash one for a coin or three, an apple, now and then a torch or a rope. Most are empty, and the more of them crowd a street the emptier they run. A smashed barrel mends like a crate.',
   // THE POT OF GOLD (an ATM — loot.js potCoinsFor off POT_COINS_BY_DENSITY):
   // books.test.js re-derives "thirty" (the lone pot) and "one" (the crowd).
-  'A pot of gold spills coins once a day: thirty where it stands alone, fewer the more of them share its streets, down to a single coin in a crowd.',
-  // THE BIKE RACK (loot.js isBikeRack, items.js BIKE_RACK_SPEED_MUL /
-  // BIKE_RACK_MS): books.test.js re-derives "twice" and "three minutes".
-  'A bike rack lends you a bike once a day: for three minutes the stick carries you twice as fast.',
+  'A pot of gold spills coins once a day: thirty where it stands alone, fewer the more of them share its streets, down to a single coin in a crowd. They wait ten minutes for you, on your side of the street and never in the road.',
+  // THE COURIER'S POST (the bike rack POI — loot.js isBikeRack, items.js
+  // BIKE_RACK_SPEED_MUL / BIKE_RACK_MS): books.test.js re-derives "twice" and
+  // "three minutes". Renamed Sep 2026: it lends the STICK its speed, and a
+  // "bike" said ride one while you play.
+  'A courier\'s post lends you its swift step once a day: for three minutes the stick carries you twice as fast.',
   // The POI light (interactables.js poiLit) — one mark for "still there".
-  'A chest, crate, barrel, bike rack, pot of gold, chapel or park shrine that glows still has something for you. Take it and the light goes out until it comes back.',
+  'A chest, crate, barrel, courier\'s post, pot of gold, chapel or park shrine that glows still has something for you. Take it and the light goes out until it comes back.',
   'One stone in ten gathered off the ground hides a gemfruit.',
   'Every new kind of thing you discover brings back a memory, and a full tank with it. Unspent, they hum with a power you might yet learn to use.',
   'A shiny flower or tree is worth ten times the money, and brings back a memory with it.',
@@ -1164,8 +1175,8 @@ const PLAY_TIPS = [
   'A stone shrine at the heart of a named park leaves one gift a day for whoever touches it.',
   `Touch a church's headstone and one time in ${typeof Zones !== 'undefined' ? Math.round(1 / Zones.HEADSTONE_GHOST_P) : 3} the grave gives up a ghost, at any hour. About one stone in ${typeof Zones !== 'undefined' ? Math.round(1 / Zones.HEADSTONE_HOARD_SHARE) : 5} still hides a find, once.`,
   // A churchyard's anchor is a CHAPEL now (a macro stall — loot.js macroFor),
-  // which wears no gem: its alms roll the bonus instead (Macros.chapelRollTier).
-  'The chest at the heart of a grove or a fuel yard wears a gem one tier finer than its kind, and a churchyard\'s chapel gives alms one tier finer.',
+  // which wears no gem: its blessing rolls the bonus instead (Macros.chapelRollTier).
+  'The chest at the heart of a grove or a fuel yard wears a gem one tier finer than its kind, and a churchyard\'s chapel gives a blessing one tier finer.',
   // Fishing: available from the first water tile with nothing in hand, so it
   // is taught here beside the other things already lying around — and what
   // the ✦ row on the rod cannot carry is which fish arrives at which tier.
@@ -1186,35 +1197,37 @@ const PLAY_TIPS = [
   // macro_poi.test.js re-derives "half" (Macros.INN_RATE), "a tier"
   // (CHAPEL_TIER_DROP), "the same again" (BOUNTY_MATCH) and the curio
   // milestones (CURIO_MILESTONES). The day gate is the coin-burst ledger.
-  'A building-front on the map is a place, not a chest, and it is never picked clean. An inn rests you to full once a day for half what a Potion of Vigor charges for the same energy; a chapel leaves alms once a day, a tier humbler than a chest of its kind.',
-  'A guildhall posts one bounty a day: take it and a pack comes for you close by. Each kill drops its own coin, and clearing the pack pays the same again. Walk away from them, or let the day turn, and the bounty is lost.',
+  'A building-front on the map is a place, not a chest, and it is never picked clean. An inn rests you to full once a day for half what a Potion of Vigor charges for the same energy; a chapel gives a blessing once a day, a tier humbler than a chest of its kind.',
+  'A guildhall posts one bounty a day: take it and a pack comes for you close by, on your side of the street. Each kill drops its own coin, and clearing the pack pays the same again. The pack waits for you until the day turns; then the bounty is lost.',
   'A curio hall pays no coin. Every hall keeps the one collection of things that last — metal, gems, shells, feathers, lasting supplies — one of each, and a memory comes back at the 5th, 10th and 15th thing given.',
   // ── The land you walk over ──────────────────────────────────
   // StreetVariants.ROCK_STREET_SHARE (a quarter) — books.test.js re-derives it.
   'Wild rock lines about one residential street in four; shrubs grow in parks, woods and industrial lots.',
-  // The bandit roads (src/street_variants.js MAJOR size: BANDIT_STRETCH_SHARE
-  // stretches, WAGON_STOP_SHARE wagons; lairs.js 'wagon' / 'barricade';
-  // traps.js BANDIT_VERGE_DENSITY_MUL; the dogs' attracts row).
-  'The big roads are bandit country in every mode, but the bandits work only stretches of them: a clear run, then a verge thick with snares. Dogs prowl the whole road, a goblin guards the odd broken wagon at a stop, and every barricade has its goblin.',
+  // The old trade roads (src/street_variants.js MAJOR size: WAGON_STOP_SHARE
+  // wagons, the look only — no guard, no snares, no dogs since Sep 2026, the
+  // safety rule) and a barricade road's goblin, seated back past the kerb
+  // buffer (StreetVariants foeSeat, lairs.js 'barricade').
+  'The big roads are old trade roads: wheel ruts, and a broken wagon at the odd stop. Nothing lies in wait on them, but a barricade road\'s goblin still holds the ground behind its barricade.',
   // app.js SLOW_BODY_M_S / _bodyHold.
   'Tar and iron stakes on a burned road drag at your feet: your body falls behind where you truly stand until you step clear.',
   // The influence zones (src/zones.js): the halo ground, the tar yard's tar
   // (the same slow) and its fire slimes (lairs.js 'tar', every mode).
-  'Parks, churches and fuel yards spread their own ground around them. A fuel yard weeps tar that drags at your feet the same way, and fire slimes hold its pumps in every mode.',
+  'Parks, churches and fuel yards spread their own ground around them. A fuel yard weeps tar that drags at your feet the same way.',
   // interactables.js INTERACTABLES.waystone / .infoboard (one lane).
   'Touch a waystone on a pilgrim\'s way, or read a notice board, and it tells you one page of old lore — once per stone or board.',
   // THE GATES (worldgen.js gatePostsAt, lairs.js 'gate' — DAILY_TIERS, the
   // slime / goblin ladder, every mode).
   'A gate between two posts is a way something comes through: every day a slime or a goblin rises there, in every mode.',
-  // StreetVariants closes + lairs.js 'close' (a giant goblin, every mode).
-  'A hedged lane that ends in a dead end is held by a giant goblin, and something is buried at the end of it.',
+  // StreetVariants café hoards (HOARDS_PER_TILE) + lairs.js 'cafe' (a giant
+  // goblin, every mode — only where the hoard sits clear of the kerb buffer).
+  'Some coffee shops have a hoard buried nearby, and a giant goblin sits on most of them.',
   // StreetVariants.LANTERN_SPACING_DIV (twice).
   'A lantern row, once rebuilt, stands its lamps twice as thick as any other street.',
   'Roads and footpaths lie derelict until you stand by them: three seconds inside your light rebuilds that stretch for good. The first 200m restored pays a seed, and each prize after asks 200m more — seeds, coin, fruit, potions, supplies, feathers, or boots — some wearable, some old junk.',
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
   'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
-  'In either mode, ruins are held — about a third of wrecked houses, most forts, and nearly every castle — and the bigger the building the bigger the garrison: a castle can hide fifteen. Wrecked houses are squatted by slimes; forts and castles hold goblins, archers and giant skeletons.',
+  'In either mode, ruins are held — about a third of wrecked houses, most forts, and nearly every castle — and the bigger the building the bigger the garrison: a castle can hide fifteen. Wrecked houses are infested by slimes; forts and castles hold goblins, archers and giant skeletons.',
   'On hard, you learn to make a thing only by first finding one out in the world.',
   'A held ruin waits. Come within a few cells and the whole garrison comes at you at once — but it never strays far from its own building, so get seventy metres from the ruin and they give up and walk back to it.',
   // ── Animals — meeting them, then keeping them ───────────────
@@ -1222,9 +1235,9 @@ const PLAY_TIPS = [
   'Feed any plant or crop to a chicken or cow for an egg or milk — but only once an hour from each.',
   'Tap a tame animal to pet it. Pet a cow or chicken and for ten minutes its next yield has a coin-flip chance of doubling.',
   'Pet a tame cat and it trails after you for five minutes.',
-  'A tame cat hunts crows; a tame dog goes after deer and slimes.',
+  'A tame cat hunts crows for you; a tame dog hunts deer and chases slimes away.',
   'Chasing an animal down is a chase: it bolts while the wheel turns, and if it stays out of your reach for a second it is gone.',
-  'A deer or a crow can be brought down bare-handed, but it is a long slog. No weapon hurries a hunt — that is what the net is for. And a deer does not run from the net: it turns and butts you until it falls.',
+  'Deer and crows are game: you hunt them, never shoot them. Bare-handed a hunt is a long stalk. No weapon hurries a hunt — that is what the net is for. And a hunted deer does not run from the net: it turns and charges you until the hunt is over.',
   'A shiny animal pays ten times its plain kind, bolts half again as fast, and takes twice the work to bring down.',
   ITEM_GUIDE_TIPS.slime,
   // ── Fighting, once you are armed ────────────────────────────
@@ -1238,9 +1251,6 @@ const PLAY_TIPS = [
   'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
   'A bow shoots across the street; a staff will not wake for anything further than a single cell past your reach — and underground that shrinks with your lit ring.',
   'Anything hostile you put down drops its pay as one coin where it fell — about a coin per 5 hit points, a little more for every level down. Walk over and pick it up.',
-  // creature_ai.js GHOST_ZONE_DUSK / GHOST_ZONE_CADENCE_MUL (the churchyard
-  // reason — churches and cemeteries only); zones.test.js re-derives "twice".
-  'Around a church or a graveyard the dead do not wait for full dark: from dusk they rise twice as often, and they come up from among the stones.',
   'Towers on a castle you have CLAIMED fight on your side: any in sight looses an arrow at the nearest foe, at a fifth of your own rate, and a foe that strays near its walls turns and runs, as it would from Home. A tower\'s kill leaves its coin and nothing more. An unclaimed castle\'s walls stay silent.',
   // ── Underground, which you go looking for ───────────────────
   'Tap a staircase to go down. Barely a tenth of surface rock bears ore; underground, every level is a mine of its own metal and the one before it — iron and copper three levels down, and so on to the deepest.',
