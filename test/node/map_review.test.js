@@ -28,10 +28,15 @@ test('map review: at salt 0 every seed is unchanged, and a salt reseeds', () => 
   assert.eq(WorldGen.makeRng(12345)(), a, 'and clearing it restores the shipped one');
 });
 
-test('map review: index.html still carries the script tags the page reads', () => {
-  const srcs = [...INDEX_HTML_SRC.matchAll(/<script src="(src\/[^"?]+)(?:\?[^"]*)?"><\/script>/g)].map((m) => m[1]);
-  assert.truthy(srcs.includes('src/worldgen.js') && srcs.includes('src/scene_creatures.js'),
-    'the generator and spawnInTile\'s module are script tags');
-  assert.truthy(/const APP_SRC = 'src\/app\.js/.test(INDEX_HTML_SRC), 'app.js is still the boot line\'s');
+test('tool pages: the shared loader\'s own pattern still finds the game\'s modules in index.html', () => {
+  // tools/game-loader.js (map-review.html, balancing.html) reads index.html's
+  // script tags with THIS regex — lifted from the loader, not retyped.
+  const m = GAME_LOADER_SRC.match(/html\.matchAll\((\/.+\/g)\)/);
+  assert.truthy(m, 'the loader\'s script-tag pattern');
+  const re = new RegExp(m[1].slice(1, m[1].lastIndexOf('/')), 'g');
+  const srcs = [...INDEX_HTML_SRC.matchAll(re)].map((x) => x[1]);
+  assert.truthy(srcs.includes('src/worldgen.js') && srcs.includes('src/rarity.js') && srcs.includes('src/scene_creatures.js'),
+    'the generator, the loot roll and spawnInTile\'s module are found');
+  assert.truthy(/const APP_SRC = 'src\/app\.js/.test(INDEX_HTML_SRC), 'app.js is still the boot line\'s (the loader appends it)');
 });
 })();

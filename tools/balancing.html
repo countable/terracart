@@ -1,494 +1,224 @@
 <!doctype html>
+<!--
+  BALANCING — what the treasure and store rolls actually pay.
+
+    https://countable.github.io/terracart/tools/balancing.html     (published)
+    Locally: python3 -m http.server 8000 from the repo root, then
+    http://localhost:8000/tools/balancing.html
+
+  Every number here comes out of the game's own roll: tools/game-loader.js
+  loads the shipping modules (the list read out of index.html), and each
+  table is thousands of calls to rarity.js pickReward — the one function a
+  chest, a buried X, a road prize, an elite kill and every shop's offer all
+  resolve through — valued at the catalog's list prices (items.js PRICES /
+  itemValue, gear.js gearPrice). Nothing is retyped, so a retune in rarity.js
+  or items.js shows up here on the next reload.
+
+  The world placements (what a tile holds, where Home sits) are the map
+  review's: tools/map-review.html.
+-->
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <title>Balancing — Terracart</title>
-  <style>
-    html, body {
-      margin: 0; padding: 0;
-      background: #111; color: #ddd;
-      font: 13px ui-monospace, monospace;
-    }
-    body { padding: 18px; max-width: 880px; margin: 0 auto; }
-    h1 { font-size: 18px; color: #ffd866; margin: 0 0 4px; }
-    h2 { font-size: 14px; color: #c8a64a; margin: 22px 0 6px; }
-    p { margin: 4px 0; color: #888; }
-    section { background: #1a1612; border: 1px solid #333; border-radius: 6px; padding: 12px 16px; margin: 10px 0; }
-    table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #2a2520; vertical-align: top; }
-    th { color: #888; font-weight: 700; width: 32%; white-space: nowrap; }
-    td { color: #ddd; }
-    .muted { color: #777; }
-    .pill { display: inline-block; background: #222; color: #ffd866; padding: 1px 6px; border-radius: 3px; font-size: 11px; margin-right: 4px; }
-    .controls button {
-      background: #c8a64a; color: #1a1612; border: 0;
-      padding: 6px 12px; border-radius: 5px;
-      font: 700 12px ui-monospace, monospace; cursor: pointer;
-      margin-right: 6px;
-    }
-    .err { color: #ff8a7a; }
-    .ok  { color: #a7ffb0; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Balancing</title>
+<style>
+  :root { --bg:#111; --panel:#1a1612; --ink:#ddd; --mute:#888; --gold:#c8a64a; --line:#2a2520; }
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:13px ui-monospace,monospace}
+  body{padding:18px;max-width:1180px;margin:0 auto}
+  h1{font-size:18px;color:#ffd866;margin:0 0 4px}
+  h2{font-size:14px;color:var(--gold);margin:0 0 8px}
+  p{margin:4px 0;color:var(--mute)}
+  a{color:#8ec5ff}
+  section{background:var(--panel);border:1px solid #333;border-radius:6px;padding:12px 16px;margin:12px 0}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:right;padding:3px 7px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--mute);font-weight:700;position:sticky;top:0;background:var(--panel)}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0}
+  select,input{background:#222;color:var(--ink);border:1px solid #444;padding:3px 5px;font:12px ui-monospace,monospace}
+  button{background:var(--gold);color:#1a1612;border:0;padding:5px 11px;border-radius:5px;font:700 12px ui-monospace,monospace;cursor:pointer}
+  .bar{display:inline-block;height:9px;background:var(--gold);vertical-align:middle;margin-right:5px;border-radius:2px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:800px){.grid2{grid-template-columns:1fr}}
+  .scroll{max-height:420px;overflow:auto}
+  .heat{color:#111;font-weight:700}
+  #status{color:var(--gold)}
+</style>
 </head>
 <body>
-  <h1>Terracart — Balancing</h1>
-  <p>Snapshot of generated quantities and unified-rarity distributions. Reroll to resample.</p>
+<h1>Balancing — treasure and store rolls</h1>
+<p>Every figure is the game's own <code>pickReward</code>, sampled, valued at list price.
+   World placements: <a href="map-review.html">map review</a>.</p>
+<p id="status">loading the game…</p>
+
+<section>
+  <h2>Roll one context</h2>
   <div class="controls">
-    <button id="reroll-loot">Reroll rarity</button>
-    <button id="reload-tile">Reload tile</button>
+    <label>Context <select id="ctx"></select></label>
+    <label id="tierL">Chest tier <select id="tier"></select></label>
+    <label id="depthL">Depth <select id="depth"></select></label>
+    <label id="bonusL">Road prize # <select id="bonus"></select></label>
+    <label>Player gear up to <select id="owned"></select></label>
+    <label>Samples <select id="n"><option>1000</option><option selected>5000</option><option>20000</option></select></label>
+    <button id="go">Roll</button>
   </div>
+  <div id="summary"></div>
+  <div class="grid2">
+    <div><h2>By class</h2><table id="byClass"></table></div>
+    <div><h2>By reward tier</h2><table id="byTier"></table></div>
+  </div>
+  <h2 style="margin-top:12px">Top items</h2>
+  <div class="scroll"><table id="byItem"></table></div>
+  <h2 style="margin-top:12px">Ten sample rolls</h2>
+  <table id="samples"></table>
+</section>
 
-  <section>
-    <h2>Starting tile</h2>
-    <p id="tile-status" class="muted">loading…</p>
-    <table id="tile-stats"></table>
-  </section>
+<section>
+  <h2>Every context at a glance</h2>
+  <p>Share of rolls by class and the average list value of one roll. Chest rows use the tier and depth above.</p>
+  <div class="scroll"><table id="matrix"></table></div>
+</section>
 
-  <section>
-    <h2>Unified rarity (rarity.js) — interactive</h2>
-    <p class="muted">
-      Pick a context and a "player owns up to tier" baseline, then re-roll a 10-item
-      pull set. Percents are computed live across 1000 invisible rolls so you can
-      feel the curve. ✨ marks a pulls that triggered a jackpot.
-    </p>
-    <div class="controls" style="margin-bottom:8px;">
-      <label style="font-size:12px;color:#888;">Context:
-        <select id="rar-ctx" style="background:#222;color:#ddd;border:1px solid #444;padding:2px 4px;font:12px ui-monospace,monospace;"></select>
-      </label>
-      <label style="font-size:12px;color:#888;margin-left:8px;" id="rar-chestT-label">Chest tier:
-        <select id="rar-chestT" style="background:#222;color:#ddd;border:1px solid #444;padding:2px 4px;font:12px ui-monospace,monospace;">
-          <option value="1">T1 wooden</option>
-          <option value="2" selected>T2 uncommon</option>
-          <option value="3">T3 rare</option>
-          <option value="4">T4 epic</option>
-        </select>
-      </label>
-      <label style="font-size:12px;color:#888;margin-left:8px;" id="rar-bonus-label">Roll bonus:
-        <select id="rar-bonus" style="background:#222;color:#ddd;border:1px solid #444;padding:2px 4px;font:12px ui-monospace,monospace;">
-          <option value="0">0 — no bonus</option>
-          <option value="1" selected>1 — 1st road prize</option>
-          <option value="2">2 — 2nd</option>
-          <option value="3">3 — 3rd</option>
-          <option value="4">4 — 4th</option>
-          <option value="6">6 — 6th and up (capped)</option>
-        </select>
-      </label>
-      <label style="font-size:12px;color:#888;margin-left:8px;">Player owns relics up to:
-        <select id="rar-owned" style="background:#222;color:#ddd;border:1px solid #444;padding:2px 4px;font:12px ui-monospace,monospace;">
-          <option value="0">T0 (none)</option>
-          <option value="1">T1 wood</option>
-          <option value="2">T2 copper</option>
-          <option value="3">T3 iron</option>
-          <option value="4">T4 gold</option>
-          <option value="5">T5 platinum</option>
-          <option value="6">T6 crimson</option>
-          <option value="7">T7 frost</option>
-        </select>
-      </label>
-      <button id="rar-roll" style="margin-left:8px;">Roll 10</button>
-    </div>
-    <table id="rar-header"></table>
-    <table id="rar-rolls" style="margin-top:10px;"></table>
-    <h2 style="margin-top:18px;">Class × tier population</h2>
-    <p class="muted">What each class can roll into. Empty cells fall back to nearest lower tier on a jackpot.</p>
-    <table id="rarity-population"></table>
-  </section>
+<section>
+  <h2>Chest value by category and tier</h2>
+  <p>Average list value of one chest roll, surface (depth 0), player gear as above.</p>
+  <table id="chestGrid"></table>
+</section>
 
-  <!-- cache-bust on every load so balancing edits show up without clearing cache. -->
-  <script>
-    document.write([
-      '../src/mvt.js', '../src/coords.js', '../src/biome_profiles.js', '../src/worldgen.js', '../src/crops.js',
-      '../src/items.js', '../src/shops.js', '../src/rarity.js', '../src/loot.js',
-    ].map(p => `<scr${'ipt'} src="${p}?${Date.now()}"></scr${'ipt'}>`).join(''));
-  </script>
-  <script>
-    // Same anchor coords as app.js. Diverging from app.js → tile mismatch.
-    const START_LAT = 49.85438;
-    const START_LON = -119.47870;
+<script src="game-loader.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+const fmt$ = (v) => '$' + (v >= 100 ? Math.round(v).toLocaleString() : v.toFixed(1));
+const pct = (v) => (v * 100).toFixed(1) + '%';
 
-    // ────────────────────────────────────────────────────────────────
-    // Starting-tile statistics.
-    // ────────────────────────────────────────────────────────────────
-    async function loadStartTile() {
-      const { x: tx, y: ty } = WorldGen.tileXYForLonLat(START_LON, START_LAT);
-      const entry = await WorldGen.loadTile(tx, ty, START_LAT);
-      if (entry.status === 'loading') await entry.promise;
-      return { entry, tx, ty };
+// A save of a player who owns every relic and armour slot at `tier` — what
+// the rolls read (ring luck, gear upgrades, relic caps).
+function saveAt(tier) {
+  const relics = {}, armor = {};
+  if (tier > 0) {
+    for (const s of Object.keys(RELIC_DEFS)) relics[s] = { tier };
+    for (const s of Object.keys(ARMOR_DEFS)) armor[s] = { tier };
+  }
+  return { relics, armor, inv: [], money: 0 };
+}
+
+// What a roll is worth, and what to call it. The shapes pickReward returns:
+// coins { kind:'gold', amount }, items { kind:'item', id, qty }, gear
+// { kind:'relic'|'armor', slot, tier } (or a relic offer { slot, tier }).
+function describe(r) {
+  if (!r) return { cls: '(nothing)', key: '(nothing)', value: 0, tier: 0, text: '—' };
+  if (r.kind === 'gold') {
+    const cls = r.cls === 'cash' ? 'cash' : (r.slot ? 'gear → coins' : 'cash');
+    return { cls, key: cls === 'cash' ? 'coins' : `coins (${r.slot} T${r.tier} owned)`,
+      value: r.amount || 0, tier: r.tier || 0, text: `$${r.amount}${r.slot ? ` (for ${r.slot} T${r.tier}, owned)` : ''}` };
+  }
+  if (r.slot && r.tier && (r.kind === 'relic' || r.kind === 'armor' || !r.kind)) {
+    const kind = r.kind === 'armor' ? 'armor' : 'relic';
+    const v = (typeof gearPrice === 'function') ? gearPrice(kind, r.slot, r.tier) : 0;
+    return { cls: kind, key: `${kind}: ${r.slot} T${r.tier}`, value: v || 0, tier: r.tier,
+      text: `${r.slot} T${r.tier}` };
+  }
+  const id = r.id, qty = r.qty || 1;
+  const item = ITEM_BY_ID[id];
+  const unit = (typeof itemValue === 'function') ? itemValue(id) : (PRICES[id] ?? 1);
+  return { cls: r.cls || item?.kind || '?', key: item?.name || id, id, value: unit * qty + (r.consolation || 0),
+    tier: r.tier || item?.baseTier || 0, qty, text: `${qty}× ${item?.name || id}` };
+}
+
+function sample(ctx, opts, owned, n) {
+  const save = saveAt(owned);
+  const rows = [];
+  for (let i = 0; i < n; i++) rows.push(describe(pickReward(ctx, save, Math.random, opts)));
+  return rows;
+}
+function optsFor(ctx) {
+  const o = {};
+  if (ctx.startsWith('chest:')) o.tier = +$('tier').value;
+  if (ctx.startsWith('chest:') || ctx.startsWith('treasure:')) o.depth = +$('depth').value;
+  if (ctx === 'treasure:road') o.rollBonus = +$('bonus').value;
+  return o;
+}
+const table = (el, head, body) => { el.innerHTML = `<tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr>` + body.join(''); };
+const barCell = (share) => `<td><span class="bar" style="width:${Math.round(share * 120)}px"></span>${pct(share)}</td>`;
+
+function rollOne() {
+  const ctx = $('ctx').value, n = +$('n').value, opts = optsFor(ctx);
+  const rows = sample(ctx, opts, +$('owned').value, n);
+  const ev = rows.reduce((a, r) => a + r.value, 0) / n;
+  const group = (keyOf) => {
+    const m = new Map();
+    for (const r of rows) {
+      const k = keyOf(r), g = m.get(k) || { n: 0, v: 0, q: 0 };
+      g.n++; g.v += r.value; g.q += r.qty || 0; m.set(k, g);
     }
+    return [...m.entries()].sort((a, b) => b[1].n - a[1].n);
+  };
+  $('summary').innerHTML = `<p><b style="color:#ffd866">${ctx}</b> ${JSON.stringify(opts)} — `
+    + `average list value per roll <b style="color:#ffd866">${fmt$(ev)}</b> over ${n.toLocaleString()} rolls</p>`;
+  table($('byClass'), ['class', 'share', 'avg value when rolled'],
+    group((r) => r.cls).map(([k, g]) => `<tr><td>${k}</td>${barCell(g.n / n)}<td>${fmt$(g.v / g.n)}</td></tr>`));
+  table($('byTier'), ['tier', 'share'],
+    group((r) => 'T' + (r.tier || 0)).sort((a, b) => a[0].localeCompare(b[0])).map(([k, g]) => `<tr><td>${k}</td>${barCell(g.n / n)}</tr>`));
+  table($('byItem'), ['item', 'share', 'avg qty', 'share of value'],
+    group((r) => r.key).slice(0, 40).map(([k, g]) =>
+      `<tr><td>${k}</td>${barCell(g.n / n)}<td>${g.q ? (g.q / g.n).toFixed(1) : '—'}</td><td>${pct(g.v / (ev * n || 1))}</td></tr>`));
+  table($('samples'), ['#', 'reward', 'tier', 'list value'],
+    rows.slice(0, 10).map((r, i) => `<tr><td>${i + 1}</td><td style="text-align:left">${r.text}</td><td>T${r.tier || 0}</td><td>${fmt$(r.value)}</td></tr>`));
+}
 
-    // spawnInTile lives on the scene; reproduce just enough to estimate counts.
-    // Same RNG seed + caught-set assumption (none caught) as app.js spawnInTile.
-    // KEEP IN SYNC with MapScene.spawnInTile — each rng() pull below mirrors
-    // an N-rolled-then-placed line there. Drift will silently miscount.
-    function estimateCreatureCounts(tx, ty) {
-      // Mirrors the N rolls in MapScene.spawnInTile. We can't replay the
-      // intermediate tryPlace draws (they're scene-local), so each N here
-      // is the formula midpoint — actual counts will vary slightly.
-      const mid = (lo, range) => Math.floor(lo + range / 2);
-      return {
-        chicken:   mid(40, 20),   // 40..59 — 80% residential, 20% soft ground
-        cow:       mid(15, 16),   // 15..30 — 80% grassland, 20% soft ground
-        cat:       mid(15, 16),   // 15..30 — global (any natural biome)
-        dog:       mid(15, 16),   // 15..30 — global (any natural biome)
-        rabbit:    mid(30, 20),   // 30..49 — wilderness, grass/forest/park
-        deer:      mid(8,  6),    // 8..13  — forest + park, weapon-gated catch
-        crow:      mid(40, 20),   // 40..59 — global (any natural biome), bug-net
-        butterfly: mid(40, 20),   // 40..59 — park + forest
-      };
-    }
+function matrix() {
+  const ctxs = Object.keys(LOOT_CONTEXTS);
+  const N = 2000, owned = +$('owned').value;
+  const data = ctxs.map((ctx) => {
+    const rows = sample(ctx, optsFor(ctx), owned, N);
+    const by = {};
+    for (const r of rows) by[r.cls] = (by[r.cls] || 0) + 1;
+    return { ctx, by, ev: rows.reduce((a, r) => a + r.value, 0) / N };
+  });
+  const classes = [...new Set(data.flatMap((d) => Object.keys(d.by)))].sort();
+  const heat = (s) => s ? `<td class="heat" style="background:hsla(45,80%,${Math.round(85 - s * 45)}%,${Math.min(1, 0.15 + s)})">${Math.round(s * 100)}%</td>` : '<td style="color:#444">·</td>';
+  table($('matrix'), ['context', 'avg value', ...classes],
+    data.map((d) => `<tr><td>${d.ctx}</td><td>${fmt$(d.ev)}</td>${classes.map((c) => heat((d.by[c] || 0) / N)).join('')}</tr>`));
+}
 
-    function countTile(entry, tx, ty) {
-      // Seed every kind we *expect* to track with 0 so the report always tells
-      // us "feature present but no source polygon here" vs. silent absence.
-      const objKinds = { chest: 0, house: 0, tower: 0, tree: 0, flora: 0,
-                         fruittree: 0, mineralrock: 0 };
-      const chestsByTier = {};
-      const chestsByCategory = {};
-      const wildByCrop = { mushroom: 0 };
-      const floraByDeco = {};
-      const houseByTier = { 9: 0, 11: 0, 12: 0 };
-      // Specialty-shop tally — derived from house.address by Shops.shopType.
-      // Only the small-residential tier (T.BUILDING = 9) is eligible; forts
-      // and civic slabs always return null.
-      const houseSpecialty = { blacksmith: 0, market: 0, trader: 0, plain: 0 };
+function chestGrid() {
+  const cats = Object.keys(LOOT_CONTEXTS).filter((c) => c.startsWith('chest:'));
+  const tiers = [1, 2, 3, 4, 5], N = 1500, owned = +$('owned').value;
+  table($('chestGrid'), ['category', ...tiers.map((t) => 'T' + t)], cats.map((ctx) =>
+    `<tr><td>${ctx.slice(6)}</td>${tiers.map((t) => {
+      const rows = sample(ctx, { tier: t, depth: 0 }, owned, N);
+      return `<td>${fmt$(rows.reduce((a, r) => a + r.value, 0) / N)}</td>`;
+    }).join('')}</tr>`));
+}
 
-      for (const o of (entry.objects || [])) {
-        objKinds[o.kind] = (objKinds[o.kind] || 0) + 1;
-        if (o.kind === 'chest') {
-          const t = chestTier(o.poiClass);
-          chestsByTier[t] = (chestsByTier[t] || 0) + 1;
-          const cat = POI_CATEGORY[o.poiClass] || '(unknown)';
-          chestsByCategory[cat] = (chestsByCategory[cat] || 0) + 1;
-        }
-        if (o.kind === 'flora') {
-          floraByDeco[o.deco] = (floraByDeco[o.deco] || 0) + 1;
-        }
-        if (o.kind === 'house' && o.tier != null) {
-          houseByTier[o.tier] = (houseByTier[o.tier] || 0) + 1;
-          // Only small-tier houses pull a specialty; forts/civic come back null.
-          const sType = (typeof Shops !== 'undefined') ? Shops.shopType(o) : null;
-          if (sType) houseSpecialty[sType]++;
-          else if (o.tier === WorldGen.T.BUILDING) houseSpecialty.plain++;
-        }
-      }
-      for (const w of (entry.wildplants || [])) {
-        wildByCrop[w.crop] = (wildByCrop[w.crop] || 0) + 1;
-      }
-      // Treasure marks placed on parking polygons (entry.parkingTreasures) plus
-      // the per-tile random/start-tile treasure (added by app.js's spawnInTile,
-      // not by worldgen — so it's null here. We don't bother spawning it just
-      // for the count.)
-      const parkingTreasures = (entry.parkingTreasures || []).length;
-      const creatures = estimateCreatureCounts(tx, ty);
-      return { objKinds, chestsByTier, chestsByCategory, wildByCrop, floraByDeco,
-               houseByTier, houseSpecialty, parkingTreasures, creatures };
-    }
+function syncControls() {
+  const ctx = $('ctx').value;
+  $('tierL').style.display = ctx.startsWith('chest:') ? '' : 'none';
+  $('depthL').style.display = (ctx.startsWith('chest:') || ctx.startsWith('treasure:')) ? '' : 'none';
+  $('bonusL').style.display = ctx === 'treasure:road' ? '' : 'none';
+}
 
-    function renderTileStats(stats, tx, ty, entry) {
-      const HOUSE_TIER_LABEL = { 9: 'small (BUILDING)', 11: 'med/fort (BUILDING_MED)', 12: 'large/castle (BUILDING_LARGE)' };
-      const rows = [];
-      rows.push(`<tr><th>tile</th><td>${tx} / ${ty}, ${entry.cellsPerEdge}×${entry.cellsPerEdge} cells, ${entry.tileEdgeM?.toFixed?.(0)}m edge</td></tr>`);
-      for (const k of Object.keys(stats.objKinds).sort()) {
-        const n = stats.objKinds[k];
-        const cls = n === 0 ? ' class="muted"' : '';
-        rows.push(`<tr${cls}><th>${k}</th><td>${n}</td></tr>`);
-      }
-      if (Object.keys(stats.houseByTier).length) {
-        const breakdown = Object.keys(stats.houseByTier).sort().map(t => {
-          const n = stats.houseByTier[t];
-          const cls = n === 0 ? ' class="muted"' : '';
-          return `<span${cls}>${HOUSE_TIER_LABEL[t] || t}: ${n}</span>`;
-        }).join('<br>');
-        rows.push(`<tr><th>↳ houses by tier</th><td>${breakdown}</td></tr>`);
-      }
-      // Specialty shop breakdown — derived from house.address by Shops.shopType.
-      // 'plain' is the residual: small houses with no specialty (just dwellings).
-      if (stats.houseSpecialty) {
-        const order = ['blacksmith', 'market', 'trader', 'plain'];
-        const tot = order.reduce((a, k) => a + (stats.houseSpecialty[k] || 0), 0);
-        const line = order.map(k => {
-          const n = stats.houseSpecialty[k] || 0;
-          const pct = tot ? ((n / tot) * 100).toFixed(1) : '0.0';
-          const cls = n === 0 ? ' class="muted"' : '';
-          return `<span${cls}>${k}: ${n} <span class="muted">(${pct}%)</span></span>`;
-        }).join('<br>');
-        rows.push(`<tr><th>↳ small-house specialties</th><td>${line}</td></tr>`);
-      }
-      if (Object.keys(stats.chestsByTier).length) {
-        const tierLine = Object.keys(stats.chestsByTier).sort().map(t => `T${t}: ${stats.chestsByTier[t]}`).join(' &middot; ');
-        rows.push(`<tr><th>↳ chest tiers</th><td>${tierLine}</td></tr>`);
-        const catLine = Object.keys(stats.chestsByCategory).sort().map(c => `${c}: ${stats.chestsByCategory[c]}`).join('<br>');
-        rows.push(`<tr><th>↳ chests by category</th><td>${catLine}</td></tr>`);
-      }
-      const wildTotal = Object.values(stats.wildByCrop).reduce((a, b) => a + b, 0);
-      if (wildTotal) rows.push(`<tr><th>wildplants total</th><td>${wildTotal}</td></tr>`);
-      for (const c of Object.keys(stats.wildByCrop).sort()) {
-        const n = stats.wildByCrop[c];
-        const cls = n === 0 ? ' class="muted"' : '';
-        rows.push(`<tr${cls}><th>↳ wild ${c}</th><td>${n}</td></tr>`);
-      }
-      for (const d of Object.keys(stats.floraByDeco).sort()) {
-        rows.push(`<tr><th>flora ${d}</th><td>${stats.floraByDeco[d]}</td></tr>`);
-      }
-      if (stats.parkingTreasures) {
-        rows.push(`<tr><th>parking treasures</th><td>${stats.parkingTreasures}</td></tr>`);
-      }
-      for (const k of Object.keys(stats.creatures).sort()) {
-        const n = stats.creatures[k];
-        const cls = n === 0 ? ' class="muted"' : '';
-        const note = n === 0 ? ' — none' : '';
-        rows.push(`<tr${cls}><th>${k}</th><td>${n} <span class="muted">(est. spawn target${note})</span></td></tr>`);
-      }
-      document.getElementById('tile-stats').innerHTML = rows.join('');
-    }
-
-    async function renderTile() {
-      const status = document.getElementById('tile-status');
-      try {
-        status.textContent = 'fetching MVT…';
-        const { entry, tx, ty } = await loadStartTile();
-        renderTileStats(countTile(entry, tx, ty), tx, ty, entry);
-        status.textContent = `loaded tile ${tx}/${ty}`;
-        status.className = 'ok';
-      } catch (e) {
-        status.textContent = 'tile fetch failed: ' + (e.message || e);
-        status.className = 'err';
-      }
-    }
-
-    function rerollLootAndDeals() {
-      renderRarityHeader();
-      renderRarityRolls();
-      renderRarityPopulation();
-    }
-
-    // ────────────────────────────────────────────────────────────────
-    // Unified rarity sampler — calls pickReward() N times per context,
-    // tallies class mix + tier histogram, prints 20 representative pulls.
-    // ────────────────────────────────────────────────────────────────
-    function formatReward(r, ctxKey) {
-      if (!r) return '<span class="muted">∅</span>';
-      const jp = r.jackpot ? ` <span style="color:#ffd866;">✨+${r.jackpot}✨</span>` : '';
-      // Trader barter preview: show what the shop would ask for the offered
-      // item. Mirrors app.js buildShopOffer(forceBarter=true) when the player
-      // owns nothing qualifying — deterministic-ish pick from the wishlist.
-      const traderAsk = (id) => {
-        if (ctxKey !== 'shop:trader' || !id) return '';
-        const baseValue = (typeof PRICES !== 'undefined' && PRICES[id]) || 1;
-        const need = baseValue * 0.75;
-        const wishlist = Object.keys(PRICES || {}).filter(k =>
-          k !== id && PRICES[k] >= need && ITEM_BY_ID[k]);
-        if (!wishlist.length) return ` <span class="muted">for $${Math.ceil(baseValue * 2)}</span>`;
-        const wish = wishlist[Math.floor(Math.random() * wishlist.length)];
-        const wishItem = ITEM_BY_ID[wish];
-        return ` <span class="muted">for 1×</span> ${wishItem?.icon || ''} <span class="muted">${wishItem?.name || wish}</span>`;
-      };
-      if (r.kind === 'item') {
-        const item = ITEM_BY_ID[r.id];
-        return `<span class="muted">[${r.cls} T${r.tier}]</span> ${item?.icon || ''} ${item?.name || r.id} ×${r.qty}${traderAsk(r.id)}${jp}`;
-      }
-      if (r.kind === 'relic') {
-        const name = gearName('relic', r.slot, r.tier);
-        return `<span class="pill">relic</span> ${name}${jp}`;
-      }
-      if (r.kind === 'gold' && !r.slot) {
-        // The 'cash' class (rarity.js) — plain money, no gear behind it. Told
-        // apart from the gear cash-out below by exactly the field the game
-        // tells them apart by.
-        return `<span class="pill">cash</span> <span class="muted">[T${r.tier}]</span> $${r.amount}${jp}`;
-      }
-      if (r.kind === 'gold') {
-        const name = gearName('relic', r.slot, r.tier);
-        return `<span class="pill">gold</span> ${name} (own) → $${r.amount}${jp}`;
-      }
-      return JSON.stringify(r);
-    }
-
-    // Populate the context dropdown once on first run. Keyed by id so we
-    // remember the player's selection across re-rolls.
-    function initRarityControls() {
-      const sel = document.getElementById('rar-ctx');
-      if (sel && !sel.options.length) {
-        for (const key of Object.keys(LOOT_CONTEXTS)) {
-          const opt = document.createElement('option');
-          opt.value = key; opt.textContent = key;
-          sel.appendChild(opt);
-        }
-        sel.value = 'chest:civic';
-      }
-      // Wire the control re-renders here once — subsequent calls are no-ops.
-      if (!sel._wired) {
-        sel._wired = true;
-        const refresh = () => { syncChestTierVisibility(); renderRarityHeader(); renderRarityRolls(); };
-        sel.addEventListener('change', refresh);
-        document.getElementById('rar-owned').addEventListener('change', refresh);
-        document.getElementById('rar-chestT').addEventListener('change', refresh);
-        document.getElementById('rar-bonus').addEventListener('change', refresh);
-        document.getElementById('rar-roll').addEventListener('click', () => { renderRarityRolls(); });
-      }
-      syncChestTierVisibility();
-    }
-
-    // Chest-tier dropdown only applies to chest:* contexts; the roll-bonus
-    // dropdown only to the treasure:* ones whose callers pay for extra chain
-    // steps (the road ladder's Trail.rollBonusFor, the elite's depth bonus).
-    // Hide each where it means nothing.
-    function syncChestTierVisibility() {
-      const key = document.getElementById('rar-ctx').value || '';
-      const label = document.getElementById('rar-chestT-label');
-      const isChest = key.startsWith('chest:');
-      if (label) label.style.display = isChest ? '' : 'none';
-      const bonus = document.getElementById('rar-bonus-label');
-      if (bonus) bonus.style.display = key.startsWith('treasure:') ? '' : 'none';
-    }
-
-    // Read the picker options off the controls in the same shape pickReward expects.
-    function pickerOptsFromControls() {
-      const key = document.getElementById('rar-ctx').value || '';
-      if (key.startsWith('chest:')) return { tier: +document.getElementById('rar-chestT').value || 2 };
-      // rollBonus buys TIER steps only (rarity.js pickReward) — it is what the
-      // road ladder spends to make a longer walk land a finer seed.
-      if (key.startsWith('treasure:')) return { rollBonus: +document.getElementById('rar-bonus').value || 0 };
-      return undefined;
-    }
-
-    // Construct a fake save where every relic + armor slot is at the chosen
-    // owned tier. Lets us watch how the walk-up ladder reacts to progress.
-    function fakeSaveFromControls() {
-      const owned = +document.getElementById('rar-owned').value || 0;
-      const relics = {}, armor = {};
-      if (owned > 0) {
-        if (typeof RELIC_DEFS !== 'undefined') {
-          for (const slot of Object.keys(RELIC_DEFS)) relics[slot] = { tier: owned };
-        }
-        if (typeof ARMOR_DEFS !== 'undefined') {
-          for (const slot of Object.keys(ARMOR_DEFS)) armor[slot] = { tier: owned };
-        }
-      }
-      // Pretend the player has hit every harvest/catch milestone (the flower
-      // and cow gates).
-      return { relics, armor, harvested: { sunflower: 1, fireflower: 1, iceflower: 1 },
-               caughtKinds: { cow: 1 } };
-    }
-
-    // Header: show class bias, the boost chain, maxTier, relicCap, and a
-    // 1000-sample distribution (class mix, tier histogram, jackpot rate).
-    function renderRarityHeader() {
-      initRarityControls();
-      const key = document.getElementById('rar-ctx').value;
-      let ctx = LOOT_CONTEXTS[key];
-      if (!ctx) return;
-      const save = fakeSaveFromControls();
-      const opts = pickerOptsFromControls();
-      // Chest rows carry classBias only — chainSteps / chainMax / maxTier /
-      // relicCap come from the chest-tier modifier pickReward merges in
-      // (rarity.js RARITY_TUNING.chestTierMod), so merge the same way here.
-      if (key.startsWith('chest:') && typeof RARITY_TUNING !== 'undefined') {
-        const mods = RARITY_TUNING.chestTierMod || {};
-        ctx = { ...ctx, ...(mods[opts?.tier] || mods[2] || {}) };
-      }
-      // 1000-pull sample for the distribution columns.
-      const N = 1000;
-      const clsTally = {}, tierTally = {};
-      let jackpot1 = 0, jackpot2 = 0;
-      for (let i = 0; i < N; i++) {
-        const r = pickReward(key, save, Math.random, opts);
-        if (!r) continue;
-        // 'cash' and 'bundle' are synthetic classes (rarity.js): a cash roll
-        // comes back as kind 'gold' with no slot, a bundle as an ordinary item
-        // carrying cls 'bundle'. Both tally under their own name so the row
-        // reads the way the classBias that produced it is written.
-        const cls = r.kind === 'item' ? r.cls
-          : (r.kind === 'relic' || r.kind === 'armor' ? r.kind
-            : (r.cls === 'cash' ? 'cash' : 'gold'));
-        clsTally[cls] = (clsTally[cls] || 0) + 1;
-        if (r.tier != null) tierTally[r.tier] = (tierTally[r.tier] || 0) + 1;
-        if (r.jackpot >= 1) jackpot1++;
-        if (r.jackpot >= 2) jackpot2++;
-      }
-      const fmtBias = Object.entries(ctx.classBias)
-        .sort((a, b) => b[1] - a[1])
-        .map(([c, w]) => `${c}: ${(w * 100).toFixed(1)}%`).join('<br>');
-      const clsMix = Object.keys(clsTally).sort((a, b) => clsTally[b] - clsTally[a])
-        .map(c => `${c}: ${(clsTally[c] / N * 100).toFixed(1)}%`).join('<br>');
-      const tierHist = Object.keys(tierTally).sort((a, b) => +a - +b)
-        .map(t => `T${t}: ${(tierTally[t] / N * 100).toFixed(1)}%`).join('<br>');
-      const rows = [
-        '<tr><th>config</th><th>1000-pull actual</th></tr>',
-        `<tr><th>classBias<br><span class="muted">(declared)</span></th>` +
-        `<td><span class="muted">measured →</span><br>${clsMix}<br><br>` +
-        `<span class="muted">declared →</span><br>${fmtBias}</td></tr>`,
-        `<tr><th>chain / maxTier / relicCap</th>` +
-        `<td>chain ${ctx.chainSteps} step${ctx.chainSteps === 1 ? '' : 's'} (max T${ctx.chainMax})` +
-        ` &middot; maxTier T${ctx.maxTier} &middot; relicCap T${ctx.relicCap}` +
-        (opts?.rollBonus ? ` &middot; <span class="pill">+${opts.rollBonus} tier-only bonus steps</span>` : '') +
-        `</td></tr>`,
-        `<tr><th>tier histogram</th><td>${tierHist}</td></tr>`,
-        `<tr><th>jackpot rate</th>` +
-        `<td>any jackpot (fanfare): ${(jackpot1 / N * 100).toFixed(1)}%<br>` +
-        `2+ step chain: ${(jackpot2 / N * 100).toFixed(1)}%</td></tr>`,
-      ];
-      document.getElementById('rar-header').innerHTML = rows.join('');
-    }
-
-    // The 10 sample rolls. Clicking Roll 10 (or changing controls) refreshes.
-    function renderRarityRolls() {
-      initRarityControls();
-      const key = document.getElementById('rar-ctx').value;
-      const save = fakeSaveFromControls();
-      const opts = pickerOptsFromControls();
-      const rows = ['<tr><th style="width:40px;">#</th><th>pull</th></tr>'];
-      for (let i = 1; i <= 10; i++) {
-        const r = pickReward(key, save, Math.random, opts);
-        rows.push(`<tr><th>${i}</th><td>${formatReward(r, key)}</td></tr>`);
-      }
-      document.getElementById('rar-rolls').innerHTML = rows.join('');
-    }
-
-    // Population table: which item ids occupy each (class, tier) cell.
-    function renderRarityPopulation() {
-      const classes = Object.keys(ITEMS_BY_CLASS_TIER).sort();
-      const tiers = [1, 2, 3, 4, 5, 6, 7];
-      const head = ['<tr><th>class</th>' + tiers.map(t => `<th>T${t}</th>`).join('') + '</tr>'];
-      const body = classes.map(cls => {
-        const cells = tiers.map(t => {
-          const pool = (ITEMS_BY_CLASS_TIER[cls] || {})[t] || [];
-          if (!pool.length) return '<td class="muted">—</td>';
-          return `<td>${pool.map(id => ITEM_BY_ID[id]?.icon || '').join(' ')} <span class="muted">×${pool.length}</span></td>`;
-        }).join('');
-        return `<tr><th>${cls}</th>${cells}</tr>`;
-      });
-      // The two SYNTHETIC classes (rarity.js): neither has a row in
-      // ITEMS_BY_CLASS_TIER, so show what each resolves to. Cash is worth what
-      // an item of the rolled tier is worth; a bundle is always the same two
-      // T1 raw materials and spends its chain steps on the pile's size.
-      if (typeof CASH_TIER_VALUE !== 'undefined') {
-        body.push('<tr><th>cash</th>' +
-          tiers.map(t => `<td>$${CASH_TIER_VALUE[t]} <span class="muted">×qty</span></td>`).join('') +
-          '</tr>');
-      }
-      if (typeof BUNDLE_IDS !== 'undefined') {
-        const names = BUNDLE_IDS.map(id => ITEM_BY_ID[id]?.name || id).join(' / ');
-        body.push('<tr><th>bundle</th>' +
-          tiers.map(t => (t === 1 ? `<td>${names}</td>` : '<td class="muted">—</td>')).join('') +
-          '</tr>');
-      }
-      // Relics span every tier 1..7 for every slot — show separately so it doesn't look empty.
-      const relicSlots = Object.keys(RELIC_DEFS || {});
-      if (relicSlots.length) {
-        const cells = tiers.map(t => `<td>${relicSlots.length} slots</td>`).join('');
-        body.push(`<tr><th>relic</th>${cells}</tr>`);
-      }
-      document.getElementById('rarity-population').innerHTML = head.concat(body).join('');
-    }
-
-    document.getElementById('reroll-loot').addEventListener('click', rerollLootAndDeals);
-    document.getElementById('reload-tile').addEventListener('click', renderTile);
-
-    renderTile();
-    rerollLootAndDeals();
-  </script>
+(async () => {
+  try {
+    await loadGame();
+    const opt = (el, vals, sel) => { el.innerHTML = vals.map(([v, t]) => `<option value="${v}"${v == sel ? ' selected' : ''}>${t}</option>`).join(''); };
+    opt($('ctx'), Object.keys(LOOT_CONTEXTS).map((c) => [c, c]), 'chest:park');
+    opt($('tier'), [1, 2, 3, 4, 5].map((t) => [t, 'T' + t]), 2);
+    opt($('depth'), [0, 1, 2, 3, 4, 5, 6, 7, 8, 10].map((d) => [d, d ? 'level ' + d : 'surface']), 0);
+    opt($('bonus'), [0, 1, 2, 3, 4, 5, 6].map((b) => [b, b ? '#' + b + (b === 6 ? '+' : '') : 'none']), 1);
+    opt($('owned'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'nothing']), 0);
+    $('ctx').onchange = () => { syncControls(); rollOne(); };
+    for (const id of ['tier', 'depth', 'bonus', 'owned', 'n']) $(id).onchange = () => { rollOne(); matrix(); if (id === 'owned') chestGrid(); };
+    $('go').onclick = rollOne;
+    syncControls();
+    $('status').textContent = 'rolling…';
+    setTimeout(() => { rollOne(); matrix(); chestGrid(); $('status').textContent = ''; }, 20);
+  } catch (e) {
+    $('status').textContent = 'failed: ' + e.message;
+    console.error(e);
+  }
+})();
+</script>
 </body>
 </html>
