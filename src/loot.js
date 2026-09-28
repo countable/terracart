@@ -12,10 +12,15 @@
 //   RUSTIC_WORDS, POI_CLASS_FALLBACK, rusticifyName
 //   POI_CATEGORY
 //   PAD_CATEGORIES, padShapeKeyForPoi
-//   CHEST_TIER_BY_CATEGORY, CHEST_TIER_COLOR, CHEST_TIER_HOME_RINGS_M,
+//   CHEST_DENSITY_TIERS, CHEST_DENSITY_T1_AT, CHEST_TIER_UNSTAMPED,
+//   CHEST_CLASS_TIER, CHEST_ONE_TIME_CLASSES, CHEST_TIER_COLOR,
 //   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_CAVE_SKIP_CATEGORIES,
-//   chestTierHomeDrop, chestTierDepthBonus, chestTier, chestRollTier,
-//   chestMirrorsUnderground
+//   chestDensityTier, chestBaseTier, chestTierDepthBonus, chestTier,
+//   chestMirrorsUnderground, CRATE_RESTORE_PER, CRATE_RESTORE_MAX_DAYS,
+//   crateRestoreDays, BARREL_CLASSES, BARREL_EMPTY_P_BASE,
+//   BARREL_EMPTY_P_DENSE, BARREL_LOOT, barrelEmptyP, rollBarrel, isBarrel,
+//   POT_COINS_BY_DENSITY, potCoinsFor, isPotOfGold, isBikeRack, barrelFlash,
+//   bikeRackFlash
 //   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
 //   STAND_NEVER_CLASSES,
 //   standWordItem, standNameItems, subclassProductFor, produceStandFor
@@ -179,32 +184,38 @@ const POI_CATEGORY = {
   park: 'park', playground: 'park', pitch: 'park',
   // fountain: special — drops nothing useful; treat as common-seed for now
   fountain: 'park',
-  // low-tier: bus stops & similar street-furniture POIs are common, heavy T1 seeds
-  bus: 'lowtier', fuel: 'lowtier', lodging: 'lowtier', gate: 'lowtier',
+  // low-tier: bus stops & similar street-furniture POIs
+  bus: 'lowtier', fuel: 'lowtier', lodging: 'lowtier',
   // ── satextract OSM point features → low-tier street furniture. These reach
   // the game only via the Overpass sidecar (data/satextract_osm.geojson), not
   // the MVT poi layer, so they're wired here as plain lowtier box chests.
-  // ('powerline' = OSM power=line way centroid; 'tower' is the chest poiClass
-  // for man_made=tower — distinct from the castle 'tower' OBJECT kind.)
-  traffic_signals: 'lowtier', stop: 'lowtier', crossing: 'lowtier',
-  picnic_table: 'lowtier', carport: 'lowtier', fence: 'lowtier',
-  powerline: 'lowtier', tower: 'lowtier',
-  // ── Daily-tap civic services — heavy T1
+  // ('tower' is the chest poiClass for man_made=tower — distinct from the
+  // castle 'tower' OBJECT kind.) Road furniture that is no PLACE at all —
+  // traffic signals, crossings, stop signs, fences, power lines, carports —
+  // is not a chest (worldgen.js SX_CHEST_POI no longer mints them, and
+  // injectTileBin drops them from a bin cached before), and a GATE is an
+  // enemy spawn point with two posts (worldgen.js gatePostsAt), not a chest.
+  picnic_table: 'lowtier', tower: 'lowtier',
+  // ── Civic services. The bins are BARRELS (BARREL_CLASSES below): smashed
+  // for a coin or an apple, never a tier roll.
   waste_basket: 'lowtier', post: 'lowtier', recycling: 'lowtier',
   drinking_water: 'lowtier', toilets: 'lowtier',
   // ── Restful shelters — small reward, frequent
   shelter: 'lowtier', picnic_site: 'lowtier',
-  // ── Bike / ATM — special coin-burst handlers (see app.js); the chest
-  // category is only consulted if the coin burst is on cooldown.
-  // motorcycle_parking is diverted to a treasure X in worldgen (no chest), so
-  // it needs no loot category here.
+  // ── ATM → the pot of gold (a daily coin burst, app.js) and bicycle
+  // parking → the bike rack (a daily stick-walk speed boost) — neither is
+  // looted (isPotOfGold / isBikeRack below). motorcycle_parking is diverted
+  // to a treasure X in worldgen (no chest), so it needs no category here.
   bicycle_parking: 'lowtier', atm: 'lowtier',
   // ── Athletic facilities — park-class T2 chest, fits the "leisure" feel
   sports_centre: 'park', yoga: 'park', swimming: 'park',
   swimming_pool: 'park', bowls: 'park', running: 'park',
   ice_rink: 'park', stadium: 'park', dog_park: 'park',
-  // ── Cultural plaques — civic T3 chest, dense lore
-  art_gallery: 'civic', information: 'civic', monument: 'civic',
+  // ── Cultural plaques — civic chests. PUBLIC ART (art_gallery) is a fixed
+  // T1 one-time trunk (CHEST_CLASS_TIER); an INFORMATION board is no chest
+  // at all — it reads one Book page (worldgen.js infoboard, the waystone's
+  // lane in interactables.js).
+  art_gallery: 'civic', monument: 'civic',
   cemetery: 'civic', cinema: 'civic', theatre: 'civic',
   // ── Authority buildings — civic T3 chests
   police: 'civic', fire_station: 'civic', harbor: 'civic',
@@ -233,19 +244,54 @@ function padShapeKeyForPoi(poiClass) {
   return PAD_CATEGORIES.has(POI_CATEGORY[poiClass]) ? 'round1' : null;
 }
 
-// Visual chest tier 1..4 derived from category, controls the colored diamond drawn over the chest.
-const CHEST_TIER_BY_CATEGORY = {
-  // Commercial businesses (shops, restaurants, bakeries, etc.) sit at the lowest tier —
-  // no gem rendered. Civic / healthcare / parks / farms remain mid-high; flora is epic.
-  lowtier: 1, commerce: 1, food: 1,
-  park: 2,
-  // 'school' sits with civic at 3 deliberately: the learning places were
-  // civic until they split off for their book loot, and a split that also
-  // moved the tier would have quietly re-priced every school chest on the
-  // map. The only thing that differs is WHAT comes out (rarity.js).
-  health: 3, civic: 3, school: 3, farm: 3,
-  flora: 4,
-};
+// ── A POI chest's TIER is how RARE its kind is on its tile (Sep 2026) ──────
+// The tier (1-5: the gem, the look, and the curve the loot rolls on) is a
+// pure function of the world: how many chests of the SAME POI class the
+// chest's own tile holds (`o.poiDensity`, stamped by worldgen.js
+// stampPoiDensity), plus the depth and zone-nexus bonuses below. A lone
+// florist is a find; the twenty-sixth waste basket on the block is not.
+// Nothing about the player enters it — not Home, not progress — so two
+// players on the same street see the same chest (CLAUDE.md, "every player
+// sees the same generated world"). Until Sep 2026 a chest's CONTENTS rolled
+// a tier or two lower inside rings around Home (CHEST_TIER_HOME_RINGS_M);
+// that rule is gone: the tier the chest shows is the tier it pays.
+//
+// CHEST_DENSITY_TIERS is the one table: the FIRST row whose `atLeast` the
+// count reaches wins. Exactly one of its kind on the tile → T4 (the old
+// flora/epic gem); 2-4 → T3; 5-24 → T2; 25 or more → T1 — the crate, which
+// is the RECURRING look (interactables.js restocks), so a type the tile is
+// full of becomes a supply you come back to and a rare one stays a one-time
+// trunk. The steps are the powers the count has to climb by to drop a tier
+// (1, then ×2, then ×2.5, then ×5), so the common classes of a dense city
+// (bins, bike racks, cafés, shops) spread over T1-T2 and the singular ones
+// (a museum, a garden, the one pharmacy) keep the violet and blue gems.
+// Barrels read CHEST_DENSITY_T1_AT too (barrelEmptyP), so "dense" is one
+// number both read.
+const CHEST_DENSITY_TIERS = [
+  { atLeast: 25, tier: 1 },
+  { atLeast: 5,  tier: 2 },
+  { atLeast: 2,  tier: 3 },
+  { atLeast: 1,  tier: 4 },
+];
+const CHEST_DENSITY_T1_AT = CHEST_DENSITY_TIERS[0].atLeast;
+// A chest with no stamp — a hand-placed or scripted one (the sandbox, a test
+// fixture), or an object read before its tile finished building — rolls at
+// the old unlisted-class tier. A generated surface or cave POI chest is
+// always stamped.
+const CHEST_TIER_UNSTAMPED = 2;
+function chestDensityTier(count) {
+  const n = Math.floor(Number(count) || 0);
+  if (n < 1) return CHEST_TIER_UNSTAMPED;
+  for (const row of CHEST_DENSITY_TIERS) if (n >= row.atLeast) return row.tier;
+  return CHEST_TIER_UNSTAMPED;
+}
+// Classes whose tier is FIXED, whatever their count: PUBLIC ART (an
+// outdoor art_gallery POI — a mural, a statue) is a small one-time find, a
+// T1 chest that never becomes a crate (CHEST_ONE_TIME_CLASSES) — it keeps
+// the trunk look and is spent in save.opened like every other trunk. The
+// depth and nexus bonuses still apply on top, like any tier.
+const CHEST_CLASS_TIER = { art_gallery: 1 };
+const CHEST_ONE_TIME_CLASSES = new Set(['art_gallery']);
 // Tier 1 = no gem (skipped at render). Tiers 2-5 are clearly distinct hues.
 const CHEST_TIER_COLOR = {
   1: null,     // common — no gem drawn at all
@@ -254,43 +300,22 @@ const CHEST_TIER_COLOR = {
   4: 0xc77dff, // violet — epic
   5: 0xffc23d, // gold — legendary (only reached underground, see chestTier)
 };
-// Chests near Home pay HUMBLER CONTENTS — the chest itself is not demoted.
-// A chest's TYPE (look, gem, tier) is a pure function of the world — its POI
-// class and cave depth — so every player sees the same chest on the same
-// street wherever their own Home is. What Home softens is the ROLL: a chest
-// standing inside one of these rings around the spawn origin (HomeArea.worldM
-// — the same world-metre frame every object's x/y lives in) rolls its loot
-// one tier lower per ring it is inside, cumulatively: within 700 m is one
-// tier down, within 350 m is two, floored at T1 (chestRollTier). So a T4
-// flora chest by the trailer still wears its violet gem, but pays like a T2.
-// Rings are radii in metres, largest first; the test in
-// test/node/chest_tier.test.js walks the boundaries.
-const CHEST_TIER_HOME_RINGS_M = [700, 350];
-// Roll-tier drop for a chest at world-metres (x, y) — CONTENTS only, read by
-// chestRollTier and nothing else. 0 when the origin isn't known yet
-// (HomeArea.worldM null — a headless test or a pre-origin build).
-function chestTierHomeDrop(x, y) {
-  if (typeof HomeArea === 'undefined' || !HomeArea.worldM
-      || !Number.isFinite(x) || !Number.isFinite(y)) return 0;
-  let drop = 0;
-  for (const r of CHEST_TIER_HOME_RINGS_M) if (HomeArea.isNear(x, y, r)) drop++;
-  return drop;
-}
 // Chests UNDERGROUND are PROMOTED. Every surface POI chest is mirrored down
-// the cave levels (worldgen.js caveChestsFrom stamps `depth` on the copy),
-// and each CHEST_TIER_DEPTH_STEP levels down raise the chest one tier over
-// what it is on the surface — depth 1 is the surface tier, depth 2-3 one up,
-// depth 4-5 two up — capped at CHEST_TIER_MAX. T5 exists only down here: it
-// is the gold gem and the rarity.js chestTierMod[5] curve.
+// the cave levels (worldgen.js caveChestsFrom stamps `depth` on the copy,
+// and carries the surface chest's density), and each CHEST_TIER_DEPTH_STEP
+// levels down raise the chest one tier over what it is on the surface —
+// depth 1 is the surface tier, depth 2-3 one up, depth 4-5 two up — capped
+// at CHEST_TIER_MAX. T5 exists only down here: it is the gold gem and the
+// rarity.js chestTierMod[5] curve.
 const CHEST_TIER_MAX = 5;
 const CHEST_TIER_DEPTH_STEP = 2;
 // Which POI chests go underground at all. Street furniture — the lowtier
-// boxes (bus stops, crossings, bins, fences…) — stays on the surface: a
-// cave under town is meant to hold the town's PRIZES, not a T1 box every few
-// cells that the depth bonus would then inflate into a real chest. So a
-// cave level carries only the park / civic / health / farm / flora chests
-// overhead (and the T2 fallback for an unlisted class). worldgen.js
-// caveChestsFrom asks this per chest; it is the one place the exclusion lives.
+// boxes (bus stops, bins, shelters…) — stays on the surface: a cave under
+// town is meant to hold the town's PRIZES, not a T1 box every few cells that
+// the depth bonus would then inflate into a real chest. So a cave level
+// carries only the park / civic / health / farm / flora / food / commerce
+// chests overhead. worldgen.js caveChestsFrom asks this per chest; it is the
+// one place the exclusion lives.
 const CHEST_CAVE_SKIP_CATEGORIES = new Set(['lowtier']);
 function chestMirrorsUnderground(poiClass) {
   return !CHEST_CAVE_SKIP_CATEGORIES.has(POI_CATEGORY[poiClass]);
@@ -298,36 +323,142 @@ function chestMirrorsUnderground(poiClass) {
 function chestTierDepthBonus(depth) {
   return Math.floor(Math.max(0, depth || 0) / CHEST_TIER_DEPTH_STEP);
 }
-// The chest's TIER (1-5): the one every player sees. POI class `poiClass` on
-// cave level `depth` (0 / omitted = surface) — a pure function of the world.
-// The sprite/gem in render.js and the look (chestLook) resolve through here.
-// x, y are NOT read: position (and so Home) never enters the chest's type.
-// They stay in the signature so this and its roll-side twin chestRollTier
-// take the same arguments at every call site.
-// Omit x/y/depth for the class's plain base tier.
-// `nexus` (optional) is the chest's zone stamp (o.zoneNexus — src/zones.js):
-// the chest at the heart of a grove, churchyard or tar yard is a zone's
-// NEXUS and wears ZONE_NEXUS_TIER_BONUS more, to measure up to the fanfare
-// around it — a second reason on the same ladder as the depth bonus, capped
-// at the same CHEST_TIER_MAX. It is the world's (the zone is generated), so it
-// shows in the gem and pays in the roll alike.
+// `nexus` is the chest's zone stamp (o.zoneNexus — src/zones.js): the chest
+// at the heart of a grove, churchyard or tar yard is a zone's NEXUS and
+// wears ZONE_NEXUS_TIER_BONUS more, to measure up to the fanfare around it —
+// a second reason on the same ladder as the depth bonus, capped at the same
+// CHEST_TIER_MAX. It is the world's (the zone is generated), so it shows in
+// the gem and pays in the roll alike.
 const ZONE_NEXUS_TIER_BONUS = 1;
 function chestTierZoneBonus(nexus) { return nexus ? ZONE_NEXUS_TIER_BONUS : 0; }
-function chestTier(poiClass, x, y, depth, nexus) {
-  const base = CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
-  return Math.min(CHEST_TIER_MAX, base + chestTierDepthBonus(depth) + chestTierZoneBonus(nexus));
+// The chest's base tier before depth and nexus: its class's fixed tier, else
+// its density on its tile.
+function chestBaseTier(o) {
+  if (!o) return CHEST_TIER_UNSTAMPED;
+  const fixed = CHEST_CLASS_TIER[o.poiClass];
+  return fixed != null ? fixed : chestDensityTier(o.poiDensity);
 }
-// The tier a chest's CONTENTS roll at (the `tier` handed to pickReward).
-// The world tier, softened near Home: the Home drop is applied to the class
-// base and floored at T1 FIRST, then the depth bonus, so a chest two levels
-// under Home still rolls a tier better than the one overhead. Far from Home
-// (or with no origin) it IS chestTier — the drop is the only difference, and
-// it never shows on the map. The loot roll in interactables.js reads this;
-// nothing that draws a chest may.
-function chestRollTier(poiClass, x, y, depth, nexus) {
-  const base = CHEST_TIER_BY_CATEGORY[POI_CATEGORY[poiClass]] || 2;
-  const surface = Math.max(1, base - chestTierHomeDrop(x, y));
-  return Math.min(CHEST_TIER_MAX, surface + chestTierDepthBonus(depth) + chestTierZoneBonus(nexus));
+// THE chest tier (1-5) — the one every player sees AND the one its loot rolls
+// at: the sprite/gem in render.js, the look (chestLook), the roll in
+// interactables.js and the chapel's alms (Macros.chapelRollTier) all read
+// this. Takes the OBJECT (poiClass, poiDensity, depth, zoneNexus).
+function chestTier(o) {
+  const d = o ? o.depth : 0;
+  const nexus = o ? o.zoneNexus : null;
+  return Math.min(CHEST_TIER_MAX, chestBaseTier(o) + chestTierDepthBonus(d) + chestTierZoneBonus(nexus));
+}
+
+// ── Restocking: how long a taken CRATE (or BARREL) stays bare ──────────────
+// A crate refills (interactables.js restocks) — but a type the tile is FULL
+// of must not be a fountain. It stands bare for crateRestoreDays UTC days
+// after it is taken: floor(count / CRATE_RESTORE_PER), at least one day and
+// at most CRATE_RESTORE_MAX_DAYS (a week — also how long the day ledger keeps
+// a take, macros.js). CRATE_RESTORE_PER is the crate threshold itself
+// (CHEST_DENSITY_T1_AT), so an ORDINARY crate — a class just dense enough to
+// be one, 25-49 of it on the tile — restocks daily, and every further 25 of
+// its kind adds a day: 50-74 every 2 days, … 175+ once a week. So a class
+// hands back at most ~2 × CRATE_RESTORE_PER of its crates a day per tile
+// however many the tile holds. A barrel (never below one per tile) reads the
+// same rule: a lone bin smashes daily. The count is the same poiDensity the
+// tier reads (one table).
+const CRATE_RESTORE_PER = CHEST_DENSITY_T1_AT;
+const CRATE_RESTORE_MAX_DAYS = 7;
+function crateRestoreDays(o) {
+  const n = Math.max(1, Math.floor(Number(o && o.poiDensity) || 1));
+  return Math.max(1, Math.min(CRATE_RESTORE_MAX_DAYS, Math.floor(n / CRATE_RESTORE_PER)));
+}
+
+// ── BARRELS: the bins and recycling points you SMASH (Sep 2026) ────────────
+// A waste_basket / recycling POI is not a chest with a gem: it is a barrel,
+// the crate's cheap cousin. It restocks like a crate (crateRestoreDays, the
+// day ledger), wears `barrel` standing and `barrel_smashed` once taken (one
+// art per state — render.js), and holds very little: often NOTHING, and the
+// denser its kind on the tile the likelier (barrelEmptyP: BARREL_EMPTY_P_BASE
+// for a lone bin, rising linearly to BARREL_EMPTY_P_DENSE at
+// CHEST_DENSITY_T1_AT of its kind — the same "dense" the tier table uses).
+// When it holds something it is ONE of BARREL_LOOT: a few coins, an apple,
+// or — rarely — one cheap supply (a torch or a rope). Never gear, never a
+// tier roll: a barrel does not read chestTier at all. Rolled per smash
+// (rollBarrel), like every drop roll — only WHERE the barrel stands is the
+// world's.
+const BARREL_CLASSES = new Set(['waste_basket', 'recycling']);
+const BARREL_EMPTY_P_BASE = 0.6;
+const BARREL_EMPTY_P_DENSE = 0.9;
+function barrelEmptyP(count) {
+  const n = Math.max(1, Math.floor(Number(count) || 1));
+  const f = Math.min(1, (n - 1) / (CHEST_DENSITY_T1_AT - 1));
+  return BARREL_EMPTY_P_BASE + (BARREL_EMPTY_P_DENSE - BARREL_EMPTY_P_BASE) * f;
+}
+// What a barrel that is NOT empty holds — weights re-normalised.
+const BARREL_LOOT = [
+  { kind: 'coin',   w: 0.5, min: 1, max: 3 },
+  { kind: 'apple',  w: 0.4, id: 'apple' },
+  { kind: 'supply', w: 0.1, ids: ['torch', 'rope'] },
+];
+// One smash of barrel `o`: { kind: 'empty' } | { kind: 'gold', amount } |
+// { kind: 'item', id, qty: 1 }. `rng` defaults to Math.random.
+function rollBarrel(o, rng) {
+  const r = typeof rng === 'function' ? rng : Math.random;
+  if (r() < barrelEmptyP(o && o.poiDensity)) return { kind: 'empty' };
+  const total = BARREL_LOOT.reduce((s, row) => s + row.w, 0);
+  let u = r() * total;
+  let row = BARREL_LOOT[BARREL_LOOT.length - 1];
+  for (const cand of BARREL_LOOT) { if (u < cand.w) { row = cand; break; } u -= cand.w; }
+  if (row.kind === 'coin') return { kind: 'gold', amount: row.min + Math.floor(r() * (row.max - row.min + 1)) };
+  if (row.kind === 'apple') return { kind: 'item', id: row.id, qty: 1 };
+  return { kind: 'item', id: row.ids[Math.floor(r() * row.ids.length)], qty: 1 };
+}
+// The one map line a smash prints (≤ MAP_MSG_MAX): what came out, or that
+// nothing did — the real quantity, never a guess.
+function barrelFlash(got) {
+  if (!got || got.kind === 'empty') return 'Empty.';
+  if (got.kind === 'gold') return got.amount === 1 ? '+1 coin' : `+${got.amount} coins`;
+  const name = (typeof ITEM_BY_ID !== 'undefined' && ITEM_BY_ID[got.id] && ITEM_BY_ID[got.id].name) || got.id;
+  return `+${got.qty || 1} ${name}`;
+}
+function isBarrel(o) {
+  return !!o && o.kind === 'chest' && BARREL_CLASSES.has(o.poiClass) && !(o.depth > 0) && !o.crate && !o.fixedLoot;
+}
+
+// ── POTS OF GOLD (ATMs) and BIKE RACKS ────────────────────────────────────
+// An ATM is a pot of gold: a coin burst once a UTC day (app.js
+// _coinBurstInteract). How many coins it spills is its DENSITY on its tile,
+// the same poiDensity count the tier reads: POT_COINS_BY_DENSITY's anchors,
+// interpolated linearly in log(count) between them, rounded, never below 1 —
+// a lone ATM spills 30, one of 50 on the tile 3, one of 150+ a single coin.
+// A cave-level mirror is never a pot (lowtier chests don't mirror anyway).
+const POT_COINS_BY_DENSITY = [
+  { count: 1, coins: 30 },
+  { count: 50, coins: 3 },
+  { count: 150, coins: 1 },
+];
+function potCoinsFor(count) {
+  const n = Math.max(1, Number(count) || 1);
+  const A = POT_COINS_BY_DENSITY;
+  if (n <= A[0].count) return A[0].coins;
+  for (let i = 1; i < A.length; i++) {
+    if (n <= A[i].count) {
+      const f = Math.log(n / A[i - 1].count) / Math.log(A[i].count / A[i - 1].count);
+      return Math.max(1, Math.round(A[i - 1].coins + (A[i].coins - A[i - 1].coins) * f));
+    }
+  }
+  return Math.max(1, A[A.length - 1].coins);
+}
+function isPotOfGold(o) {
+  return !!o && o.kind === 'chest' && o.poiClass === 'atm' && !(o.depth > 0) && !o.crate && !o.fixedLoot;
+}
+// A BIKE RACK (bicycle_parking) is not a chest at all: a tap lends the stick
+// walk BIKE_RACK_SPEED_MUL for BIKE_RACK_MS (items.js — the stick-walk speed
+// lane, app.js _walkRelics / steerSpeedMul), once a UTC day per rack (the day
+// ledger). It stays a `chest` OBJECT only so its id, its cell and the POI
+// light ride the same rails as the pot it used to be.
+// What a bike rack says when it lends its bike (≤ MAP_MSG_MAX), off the
+// boost's own length.
+function bikeRackFlash() {
+  return `Pedal power! Faster ${shortDuration(BIKE_RACK_MS)}`;
+}
+function isBikeRack(o) {
+  return !!o && o.kind === 'chest' && o.poiClass === 'bicycle_parking' && !(o.depth > 0) && !o.crate && !o.fixedLoot;
 }
 
 // === Themed produce / food stands ==========================================
@@ -643,44 +774,55 @@ function macroFor(o) {
   return res;
 }
 
-// Which of a chest's four LOOKS this object wears — the ONE resolver, so the
-// sprite the world drew and the picture a dialog shows can't drift apart. It
-// lived in render.js as a per-frame closure until the treasure ceremony needed
-// the same answer for its hero icon (a chest that stands on the map as a crate
+// Which LOOK this object wears — the ONE resolver, so the sprite the world
+// drew and the picture a dialog shows can't drift apart. It lived in
+// render.js as a per-frame closure until the treasure ceremony needed the
+// same answer for its hero icon (a chest that stands on the map as a crate
 // opened under a diamond).
-//   macro → a macro stall (macroFor): an inn, chapel, apothecary, … — a
-//           building-front whose tap is a service; texKey `macro_<kind>`
-//   stand → the market stall: a shop, not a chest (produceStandFor)
-//   coin  → the pot of gold: a coin-burst POI. A cave-level mirror of one
-//           (worldgen.js caveChestsFrom) is a plain chest — the burst is a
-//           street thing, the same gate interactables.js puts on the burst.
-//   wagon → the broken wagon: a bus stop on a BANDIT ROAD (a MAJOR way —
-//           StreetVariants.markBanditStops stamps `banditStop`). The same
-//           chest: id, tier, contents and `opened` are untouched; only the
-//           look (and the one goblin lairs.js seats beside it) changes.
-//   box   → the small crate sprite: a starter supply crate, or a tier-1 chest
-//   —     → the trunk chest
+//   macro  → a macro stall (macroFor): an inn, chapel, apothecary, … — a
+//            building-front whose tap is a service; texKey `macro_<kind>`
+//   stand  → the market stall: a shop, not a chest (produceStandFor)
+//   coin   → the pot of gold: an ATM (isPotOfGold). A cave-level mirror of
+//            one is a plain chest — the burst is a street thing.
+//   bike   → the bike rack (isBikeRack): a stick-walk speed boost a day
+//   barrel → a bin or recycling point (isBarrel): smashed, restocks like a
+//            crate. `barrel` standing; render.js swaps in `barrel_smashed`
+//            while it is spent — one art per STATE, so the look carries the
+//            standing key and the renderer the other.
+//   wagon  → the broken wagon: a bus stop on a BANDIT ROAD (a MAJOR way —
+//            StreetVariants.markBanditStops stamps `banditStop`). The same
+//            chest: id, tier, contents and `opened` are untouched; only the
+//            look (and the one goblin lairs.js seats beside it) changes.
+//   box    → the small crate sprite: a starter supply crate, or a tier-1
+//            chest (chestTier — a class dense on its tile) that is not a
+//            one-time class (CHEST_ONE_TIME_CLASSES: public art keeps the
+//            trunk though it is T1)
+//   —      → the trunk chest
 // `texKey` is the texture key the RENDERER draws, so a caller that wants the
 // picture (app.js worldIconHTML) asks for it by the same name rather than
 // re-deciding which art a look means.
 // Resolved ONCE per object and cached on it, the same way produceStandFor
-// caches its own answer: every input (poiClass, crate, depth, position) is
-// fixed at spawn and a rebuilt tile is a NEW object, so the memo can't go
-// stale. Home never enters it (chestTier is the world's tier, not the roll's),
-// so every player sees the same look on the same chest — and the chest spec in render.js reads it from seven fields per
-// chest per frame.
+// caches its own answer: every input (poiClass, poiDensity, crate, depth,
+// position) is fixed once the tile is built and a rebuilt tile is a NEW
+// object, so the memo can't go stale — worldgen.js stampPoiDensity drops it
+// when it restamps a count. Nothing about the player enters it (chestTier is
+// the world's), so every player sees the same look on the same chest.
 function chestLook(o) {
   if (o._chestLook) return o._chestLook;
   const stand = (typeof produceStandFor === 'function') ? produceStandFor(o) : null;
-  const coin = (o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') && !(o.depth > 0);
+  const coin = isPotOfGold(o);
+  const bike = !coin && isBikeRack(o);
+  const barrel = !coin && !bike && isBarrel(o);
+  const special = coin || bike || barrel;
   // Starter supply crates always use the box sprite; so does a tier-1 chest.
   const box = !!o.crate
-    || ((typeof chestTier === 'function') ? chestTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus) : 2) === 1;
-  const macro = (!coin && typeof macroFor === 'function') ? macroFor(o) : null;
-  const wagon = !!o.banditStop && !(o.depth > 0) && !stand && !coin && !macro;
-  const texKey = coin ? 'potofgold' : (macro ? macro.texKey
+    || (!CHEST_ONE_TIME_CLASSES.has(o.poiClass) && chestTier(o) === 1);
+  const macro = (!special && typeof macroFor === 'function') ? macroFor(o) : null;
+  const wagon = !!o.banditStop && !(o.depth > 0) && !stand && !special && !macro;
+  const texKey = coin ? 'potofgold' : bike ? 'bike_rack' : barrel ? 'barrel' : (macro ? macro.texKey
     : (stand ? 'market_stand' : (wagon ? 'wagon' : (box ? 'box' : 'chest'))));
-  return (o._chestLook = { stand, coin, macro, box: box && !wagon && !macro, wagon, texKey });
+  return (o._chestLook = { stand, coin, bike, barrel, macro,
+    box: box && !wagon && !macro && !special, wagon, texKey });
 }
 
 

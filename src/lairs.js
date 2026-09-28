@@ -155,8 +155,22 @@
   // 4 on hard), because what holds it is slimes.
   const ZONE_TIER_GUARDS = { tar: 2 };
   Object.assign(TIER_GUARDS, ZONE_TIER_GUARDS);
-  const FIXED_GUARD_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS)]);
-  const ALWAYS_AWAKE_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS)]);
+  // ── A GATE — the same reason again (Sep 2026): an OSM barrier=gate is no
+  // chest any more but a SPAWN POINT marked by two posts (worldgen.js
+  // gatePostsAt; spawnInTile hands the candidate in). ONE guard, fixed and
+  // always held like a wagon, woken in EVERY mode — and it RE-RISES: the one
+  // DAILY tier (DAILY_TIERS). Its guard's id carries the UTC day
+  // (`lair_<sid>_<dayKey>_<i>`, garrisonFor), so killing it spends only
+  // today's in save.caught and tomorrow's rises in the same seat; yesterday's
+  // ids are pruned from save.caught (scene_creatures.js). WHO rises is the
+  // gate's own strength `t` on its ladder (a slime or a goblin) — the world's,
+  // the same for every player; the mode scales its blow like every foe's
+  // (Difficulty.enemyDmgMul), not its count.
+  const GATE_TIER_GUARDS = { gate: 1 };
+  Object.assign(TIER_GUARDS, GATE_TIER_GUARDS);
+  const DAILY_TIERS = new Set(Object.keys(GATE_TIER_GUARDS));
+  const FIXED_GUARD_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS]);
+  const ALWAYS_AWAKE_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS]);
   const MODE_SCALED_TIERS = new Set(Object.keys(ZONE_TIER_GUARDS));
   // The strength multiplier — NOT a tuned number. It is exactly what carries
   // the biggest structure from its t = 0 figure to the ceiling, so the ceiling
@@ -228,6 +242,9 @@
     // zone-seated, never a tile's wild spawn, so the burned row seats its own
     // here rather than relocating any).
     burned: ['fire_slime'],
+    // A gate: the surface pest or the goblin who holds the way — half each,
+    // off the gate's own strength.
+    gate: ['slime', 'goblin'],
   };
   const KIND_LADDER = {};
   for (const [tier, kinds] of Object.entries(KIND_ORDER)) {
@@ -260,6 +277,7 @@
     tar:   { rate: 1, thinned: false },    // a tar yard's pumps
     barricade: { rate: 1, thinned: false },  // a barricade road's barricade
     burned: { rate: 1, thinned: false },   // a burned row's stretch
+    gate:   { rate: 1, thinned: false },   // a gate's posts — held every day
   };
 
   // ── The per-tile budget ──────────────────────────────────────────────────
@@ -741,8 +759,11 @@
     const seatR = Math.hypot(cand.halfW, cand.halfH) + LAIR_RING_PAD_CELLS * cellM;
     const C = root.Combat;
     const out = [];
+    // A DAILY tier's guard carries the UTC day in its id (see DAILY_TIERS).
+    const day = DAILY_TIERS.has(cand.tier)
+      ? String(o.dayKey || (root.Delivery && root.Delivery.dayKey ? root.Delivery.dayKey() : '0')) : null;
     for (let i = 0; i < n; i++) {
-      const id = `lair_${cand.sid}_${i}`;
+      const id = day ? `lair_${cand.sid}_${day}_${i}` : `lair_${cand.sid}_${i}`;
       const kind = kindFor(cand.tier, t, rng);
       if (!kind) continue;                    // no ladder for this tier
       let seat = null;
@@ -794,6 +815,17 @@
       out.push(g);
     }
     return out;
+  }
+
+  // The UTC day a DAILY tier's guard rose on (its id — see DAILY_TIERS), or
+  // null for any other id. A gate's sid starts `gate_` (worldgen.js
+  // gatePostsAt), so the day is the 8 digits before the guard's index.
+  // scene_creatures.js prunes save.caught of the ones not from today: they
+  // can never be minted again, so the marker can never matter again.
+  const DAILY_GUARD_ID = /^lair_gate_.+_(\d{8})_\d+$/;
+  function dailyGuardDay(id) {
+    const m = typeof id === 'string' ? DAILY_GUARD_ID.exec(id) : null;
+    return m ? m[1] : null;
   }
 
   // A 32-bit hash of the structure key, for makeRng. Two neighbouring
@@ -1016,7 +1048,7 @@
     LAIR_RING_PAD_CELLS, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
     LAIR_AGGRO_CELLS, LAIR_LEASH_CELLS, LAIR_SEAT_EPS_CELLS,
     OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, tileHeldExpected, guardState,
-    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, MODE_SCALED_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
+    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, GATE_TIER_GUARDS, DAILY_TIERS, dailyGuardDay, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, MODE_SCALED_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
     GUARD_MIN_DRAW_SCALE, guardDrawScale,
     homeRamp, lairMulFor, capFor, countFor, kindsAt, kindFor, structureKey, tileCellM,
     hashKey, ringBox,

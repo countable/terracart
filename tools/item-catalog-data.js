@@ -33,11 +33,14 @@
     const sources = new Map();
     for (const [biome, definition] of Object.entries(ChestThemes.themes)) {
       const context = 'chest:' + biome;
-      const baseTier = definition.tier;
-      const minTier = Math.max(1, baseTier - CHEST_TIER_HOME_RINGS_M.length);
+      // A chest's tier is its class's DENSITY on its tile (loot.js
+      // chestTier): any theme can stand at T1 (a crowd of its kind) up to T4
+      // (the only one), and a zone nexus lifts that one more — so every
+      // theme is listed at every tier, on the surface and below.
+      void definition;
       for (const depth of [0, 1]) {
         if (depth && biome === 'roadside') continue;
-        for (let tier = minTier; tier <= (depth ? CHEST_TIER_MAX : baseTier); tier++) {
+        for (let tier = 1; tier <= CHEST_TIER_MAX; tier++) {
           const source = { context, tier, depth,
             label: `${biome} · T${tier} · ${depth ? 'underground' : 'surface'}` };
           for (const id of chestContents(context, tier, depth)) {

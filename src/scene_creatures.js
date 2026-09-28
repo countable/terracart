@@ -221,6 +221,19 @@ class SceneCreatures {
         entry.streetLairs.push(L);
       }
     }
+    // GATES: a gate is a pair of posts round a SPAWN POINT (worldgen.js
+    // gatePostsAt stamps `gateSid` and the point on each post) — one lair
+    // candidate per gate, the lairs.js 'gate' tier (a foe a day). Read off the
+    // live objects, like the bandit stops, so an Overpass bin's gates count.
+    {
+      const seen = new Set();
+      for (const o of entry.objects || []) {
+        if (o.kind !== 'gatepost' || !o.gateSid || seen.has(o.gateSid)) continue;
+        seen.add(o.gateSid);
+        entry.streetLairs.push({ tier: 'gate', sid: o.gateSid,
+          lx: o.gateX - tx * this.tileEdgeM, ly: o.gateY - ty * this.tileEdgeM });
+      }
+    }
     // Home holds no slimes or crows until the first harvest (see
     // PEST_FREE_CELLS). Resolved once per tile build; null once the grace has
     // lapsed, which is the common case.
@@ -1165,6 +1178,10 @@ class SceneCreatures {
         // guildhall bounty's foes (app.js _spawnGuildBounty) mint their ids
         // the same way and are pruned by the same rule.
         const m = typeof id === 'string' && /^(?:pest_crow|ghost|fished_slime|spirit_raven|guildfoe)_(-?\d+)_(-?\d+)_/.exec(id);
+        // A gate's guard (lairs.js DAILY_TIERS) carries its UTC day: one
+        // from another day can never rise again, so its marker goes.
+        const gateDay = Lairs.dailyGuardDay(id);
+        if (gateDay) return gateDay === Delivery.dayKey();
         return !m || WorldGen.tileCache.has(WorldGen.tileKey(+m[1], +m[2]));
       });
     }

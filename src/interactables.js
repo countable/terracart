@@ -31,7 +31,7 @@
 // `complete` without smuggling state through closures.
 //
 // Helpers referenced here (treeAxeReqTier, effectiveChopCost, effectivePickCost,
-// TIER_BY_NUM, chestRollTier (loot.js), isShiny, SHINY_RATE, randInt, pickFromArray, ITEM_BY_ID,
+// TIER_BY_NUM, chestTier (loot.js), isShiny, SHINY_RATE, randInt, pickFromArray, ITEM_BY_ID,
 // persistSave, toolDurationMs) are globals from util.js / items.js / save.js,
 // all loaded before this module.
 
@@ -142,6 +142,29 @@ function caveWallDrop(scene) {
 // sentence.
 function tierArticle(name) {
   return /^[aeiou]/i.test(String(name)) ? 'an' : 'a';
+}
+
+// A page stone's interactable (INTERACTABLES.waystone / .infoboard) — see
+// the note on those rows.
+function pageStone({ title, art, spent, read }) {
+  return {
+    custom: (ctx, o) => {
+      const { scene, save, sx, sy } = ctx;
+      if ((save.opened || []).includes(o.id) || typeof scene._bookRead !== 'function') {
+        scene.flash(spent, sx, sy);
+        return true;
+      }
+      save.opened = [...(save.opened || []), o.id];
+      const { body } = scene._bookRead();
+      ctx.dirty = true;
+      if (typeof scene.showMessageModal === 'function') {
+        scene.showMessageModal({ title, body, kind: 'story', ...(art ? { art } : {}) });
+      } else {
+        scene.flash(read, sx, sy);
+      }
+      return true;
+    },
+  };
 }
 
 const INTERACTABLES = {
@@ -386,19 +409,54 @@ const INTERACTABLES = {
     // that would have made them so shipped switched OFF and was removed.
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
-      // Coin-burst POIs (ATM + bicycle parking) hijack the chest tap before the
-      // standard open-and-loot path. They never go into save.opened — they're
-      // gated by save.coinBurstClaimed[id+YYYYMMDD] so they refresh daily, and
-      // produce world-scattered coin pickups instead of inventory loot.
-      // A cave-level mirror of one (worldgen.js caveChestsFrom, o.depth > 0)
-      // is a plain chest: the burst is a street thing.
-      if ((o.poiClass === 'atm' || o.poiClass === 'bicycle_parking') && !(o.depth > 0)) {
+      // A POT OF GOLD (an ATM — loot.js isPotOfGold) hijacks the chest tap
+      // before the standard open-and-loot path. It never goes into
+      // save.opened — it is gated by the day ledger (Macros.usedToday) so it
+      // refreshes daily, and produces world-scattered coin pickups instead
+      // of inventory loot. A cave-level mirror is a plain chest.
+      if (isPotOfGold(o)) {
         if (typeof scene._coinBurstInteract === 'function') {
           scene._coinBurstInteract(sx, sy, o);
           return true;
         }
         // Fall through to default chest behaviour if the method isn't wired
         // (defensive — keeps these POIs usable if app.js is out of sync).
+      }
+      // A BIKE RACK (loot.js isBikeRack): a stick-walk speed boost, once a
+      // UTC day per rack — the day ledger, lit while it is there (poiLit).
+      // The boost itself is a REASON in the stick-walk speed lane
+      // (save.bikeUntil, read by app.js _walkRelics → items.js
+      // steerSpeedMul), not a speed system of its own.
+      if (isBikeRack(o) && typeof Macros !== 'undefined') {
+        if (Macros.usedToday(save, o.id)) {
+          scene.flash(`Bikes all out. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
+          return true;
+        }
+        Macros.markToday(save, o.id);
+        save.bikeUntil = Date.now() + BIKE_RACK_MS;
+        ctx.dirty = true;
+        scene.flash(bikeRackFlash(), sx, sy);
+        return true;
+      }
+      // A BARREL (loot.js isBarrel — a bin or a recycling point): SMASHED,
+      // not opened. It restocks like a crate (crateRestoreDays, the day
+      // ledger) and while it is bare it stands smashed (render.js). What it
+      // holds is its own tiny roll (rollBarrel) — often nothing — told in one
+      // map line, never the chest ceremony.
+      if (isBarrel(o) && typeof Macros !== 'undefined') {
+        const days = crateRestoreDays(o);
+        if (Macros.stillBare(save, o.id, days)) {
+          scene.flash(`Smashed. Back in ${shortDuration(Macros.restockWaitMs(save, o.id, days))}.`, sx, sy);
+          return true;
+        }
+        Macros.markToday(save, o.id);
+        ctx.dirty = true;
+        const got = rollBarrel(o);
+        if (got.kind !== 'empty') Rewards.apply(save, got, scene);
+        if (got.kind === 'gold') scene.flashLoot?.(barrelFlash(got), '#ffe066', 1, null, scene.coinIconEl?.());
+        else if (got.kind === 'item') scene.flashLoot?.(barrelFlash(got), '#a7ffb0', 1, got.id);
+        else scene.flash(barrelFlash(got), sx, sy);
+        return true;
       }
       // Produce/food stands are MARKETS, not one-shot chests: tapping opens a
       // repeatable buy modal that SELLS the themed produce (loot.js
@@ -427,7 +485,7 @@ const INTERACTABLES = {
         }
       }
       const chapel = !!macro;
-      const daily = !chapel && refillsDaily(o) && typeof Macros !== 'undefined';
+      const daily = !chapel && restocks(o) && typeof Macros !== 'undefined';
       const held0 = save.chestHold && save.chestHold[o.id];
       if (chapel) {
         // A left-for-later roll is still this chapel's (claimed when taken),
@@ -444,11 +502,12 @@ const INTERACTABLES = {
           if (again.dirty && typeof persistSave === 'function') persistSave(save);
         })) return true;
       } else if (daily) {
-        // A daily crate (refillsDaily) taken today is bare until the UTC day
-        // rolls — the day ledger, never save.opened. A left-for-later roll is
-        // still today's to take.
-        if (!held0 && Macros.usedToday(save, o.id)) {
-          scene.flash(`The crate is bare. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
+        // A crate (restocks) taken is bare for crateRestoreDays UTC days —
+        // the day ledger, never save.opened. A left-for-later roll is still
+        // its to take.
+        const days = crateRestoreDays(o);
+        if (!held0 && Macros.stillBare(save, o.id, days)) {
+          scene.flash(`The crate is bare. ${shortDuration(Macros.restockWaitMs(save, o.id, days))}.`, sx, sy);
           return true;
         }
       } else if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
@@ -502,7 +561,7 @@ const INTERACTABLES = {
       // which handles items AND relics (biome-specific weights).
       const held = held0;
       const chestT = chapel ? Macros.chapelRollTier(o)
-        : ((typeof chestRollTier === 'function') ? chestRollTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus) : 2);
+        : ((typeof chestTier === 'function') ? chestTier(o) : 2);
       const theme = chestThemeForPoi(o.poiClass);
       const result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: held.consolation || 0 }
@@ -666,30 +725,19 @@ const INTERACTABLES = {
     },
   },
 
-  // ---- Waystone (Pilgrim's Way — src/street_variants.js) ------------------
-  // A stone that remembers a page of the Book: the first tap reads the NEXT
+  // ---- Page stones: the waystone and the notice board ---------------------
+  // A thing that remembers a page of the Book: the first tap reads the NEXT
   // page of the curriculum (app.js _bookRead — the Book's own bookmark,
-  // save.tipsRead) without spending a Book, and records the stone in
-  // save.opened, the POI delta, so each stone gives one page ever. Read, it
-  // is only a stone: it stays standing and says so.
-  waystone: {
-    custom: (ctx, o) => {
-      const { scene, save, sx, sy } = ctx;
-      if ((save.opened || []).includes(o.id) || typeof scene._bookRead !== 'function') {
-        scene.flash('The stone is worn smooth.', sx, sy);
-        return true;
-      }
-      save.opened = [...(save.opened || []), o.id];
-      const { body } = scene._bookRead();
-      ctx.dirty = true;
-      if (typeof scene.showMessageModal === 'function') {
-        scene.showMessageModal({ title: 'The waystone remembers', body, kind: 'story', art: 'street_pilgrim' });
-      } else {
-        scene.flash('The stone remembers.', sx, sy);
-      }
-      return true;
-    },
-  },
+  // save.tipsRead) without spending a Book, and records the thing in
+  // save.opened, the POI delta, so each gives one page ever. Read, it is
+  // only scenery: it stays standing and says so. ONE lane, two reasons:
+  //   waystone  — a Pilgrim's Way street end (src/street_variants.js)
+  //   infoboard — an INFORMATION POI (worldgen.js — an OSM tourism /
+  //               information board, which used to be a chest)
+  waystone: pageStone({ title: 'The waystone remembers', art: 'street_pilgrim',
+    spent: 'The stone is worn smooth.', read: 'The stone remembers.' }),
+  infoboard: pageStone({ title: 'A notice board', art: null,
+    spent: 'Read it already.', read: 'You read the notice.' }),
 
   // ---- Influence zones (src/zones.js) --------------------------------------
   // A HEADSTONE (an Old Stones churchyard — churches and cemeteries only).
@@ -768,17 +816,25 @@ const INTERACTABLES = {
 // `spentAction` with it — those rows are readers of this, not a second lane.
 // And it is not "can this be worked": an unopened chest, a fruit tree between
 // harvests and a house are all un-spent.
-// The coin-burst POIs (the golden cauldrons) tapped TODAY, as a Set of POI
-// ids. save.coinBurstClaimed is keyed `<poiId>YYYYMMDD` on the UTC day
-// (app.js _coinBurstInteract), so a used cauldron is spent until the day
-// rolls and then stands again — hidden like an opened chest meanwhile.
-function coinBurstUsedSet(save) {
-  const out = new Set();
+// THE DAY LEDGER, read once per frame: POI id → whole UTC days since it was
+// last taken (0 = today), for every take the ledger still keeps
+// (save.coinBurstClaimed[id + YYYYMMDD], a week — macros.js markToday).
+// A pot of gold, a bike rack, the chapel's alms and a shrine's gift are
+// spent while theirs is 0; a crate or a barrel while it is under its own
+// crateRestoreDays. Keys are the id plus an 8-digit day, so the id is all
+// but the last eight characters.
+function dayLedgerAges(save) {
+  const out = new Map();
   const m = save && save.coinBurstClaimed;
-  if (!m || typeof Delivery === 'undefined') return out;
-  const day = String(Delivery.dayKey());
+  if (!m || typeof Macros === 'undefined') return out;
+  const today = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
   for (const k of Object.keys(m)) {
-    if (m[k] === 1 && k.endsWith(day)) out.add(k.slice(0, -day.length));
+    if (m[k] !== 1 || k.length <= 8) continue;
+    const age = today - Macros.ledgerKeyDay(k);
+    if (!(age >= 0)) continue;
+    const id = k.slice(0, -8);
+    const prev = out.get(id);
+    if (prev === undefined || age < prev) out.set(id, age);
   }
   return out;
 }
@@ -787,7 +843,7 @@ function spentSets(scene, save) {
   const s = save || (scene && scene.save) || {};
   return {
     opened: setOf(s.opened),
-    burst: coinBurstUsedSet(s),
+    burst: dayLedgerAges(s),
     chopped: setOf(s.chopped),
     picked: setOf(s.picked),
     // The broken-rock ids live on the scene as a Set already (app.js rebuilds
@@ -795,45 +851,59 @@ function spentSets(scene, save) {
     broken: (scene && scene.brokenRockSet) || new Set(),
   };
 }
+// Was `o` taken today, by the frame's ledger ages?
+function takenToday(o, sets) {
+  return !!(sets && sets.burst && sets.burst.get(o.id) === 0);
+}
 function chestNeverSpent(o) {
   return !!((typeof produceStandFor === 'function' && produceStandFor(o))
     || (typeof macroFor === 'function' && macroFor(o)));
 }
-// ── What REFILLS every UTC day ─────────────────────────────────────────────
+// ── What RESTOCKS ─────────────────────────────────────────────────────────
 // Most chests are offered ONCE (save.opened, the delta, forever — that is what
-// keeps a dense city from being a daily fountain). The one chest that comes
-// back is the LOW-TIER CRATE: a surface POI chest wearing the crate look
-// (loot.js chestLook `box` — the tier-1 roll after Home's rings and a nexus),
-// never a starter supply crate (`o.crate`, fixedLoot), never a cave copy
-// (depth / caveOf), never a wagon, stall, macro or golden cauldron. Taking it
-// is written to the coin-burst DAY LEDGER (Macros.markToday —
-// save.coinBurstClaimed[id + dayKey], pruned of other days), the lane the
-// cauldron, the chapel's alms and the grove shrine's gift already share, so
-// it is spent until the day rolls and then stands again at its normal tier.
+// keeps a dense city from being a fountain). What comes back is the CRATE — a
+// surface POI chest wearing the crate look (loot.js chestLook `box`: tier 1,
+// i.e. a class the tile holds CHEST_DENSITY_T1_AT or more of, after a nexus)
+// — and the BARREL (a bin, loot.js isBarrel), never a starter supply crate
+// (`o.crate`, fixedLoot), never a cave copy (depth / caveOf), never a wagon,
+// stall, macro, pot of gold or bike rack, never PUBLIC ART (a one-time T1
+// trunk, CHEST_ONE_TIME_CLASSES). Taking one is written to the DAY LEDGER
+// (Macros.markToday — save.coinBurstClaimed[id + dayKey], kept a week), the
+// lane the pot of gold, the bike rack, the chapel's alms and the grove
+// shrine's gift already share, and it stands bare for crateRestoreDays UTC
+// days (1 for an ordinary crate, up to CRATE_RESTORE_MAX_DAYS for a class
+// the tile is crowded with) before it restocks at its normal tier.
 // It is NOT save.opened: an id there (a save from before Sep 2026) is ignored
 // for a crate — savemigrate.js carried those onto the ledger once.
 // X marks, headstones, trunks, wagons, nexus chests and cave chests never
-// refill; the chapel and the shrine are places, not chests — they share the
+// restock; the chapel and the shrine are places, not chests — they share the
 // ledger and the glow (poiLit), not this predicate.
-function refillsDaily(o) {
+function restocks(o) {
   if (!o || o.kind !== 'chest' || !o.poiClass || o.crate || o.fixedLoot) return false;
   if (o.depth > 0 || o.caveOf) return false;
   if (typeof chestLook !== 'function') return false;
   const L = chestLook(o);
-  return !!(L.box && !L.stand && !L.coin && !L.macro && !L.wagon);
+  if (L.barrel) return true;
+  return !!(L.box && !L.stand && !L.coin && !L.bike && !L.macro && !L.wagon);
 }
 function isSpent(o, sets) {
   switch (o && o.kind) {
-    // A used golden cauldron (coin-burst POI) is spent until the UTC day rolls.
-    // A market stall and a macro stall (loot.js produceStandFor / macroFor)
-    // are never spent: a counter is not a chest, and an id a save put in
-    // save.opened while that POI was still a crate, or in the day ledger for
-    // the inn's rest, leaves the building standing.
-    // A daily crate (refillsDaily) is spent by the day ledger ALONE.
-    case 'chest':
+    // A pot of gold or a bike rack used TODAY is spent until the UTC day
+    // rolls. A market stall and a macro stall (loot.js produceStandFor /
+    // macroFor) are never spent: a counter is not a chest, and an id a save
+    // put in save.opened while that POI was still a crate, or in the day
+    // ledger for the inn's rest, leaves the building standing.
+    // A crate or a barrel (restocks) is spent by the day ledger ALONE, for
+    // its crateRestoreDays — a spent barrel still STANDS, smashed (render.js).
+    case 'chest': {
       if (chestNeverSpent(o)) return false;
-      if (refillsDaily(o)) return !!(sets.burst && sets.burst.has(o.id));
-      return sets.opened.has(o.id) || !!(sets.burst && sets.burst.has(o.id));
+      if (restocks(o)) {
+        const age = sets.burst ? sets.burst.get(o.id) : undefined;
+        return age !== undefined && age < crateRestoreDays(o);
+      }
+      if (isPotOfGold(o) || isBikeRack(o)) return takenToday(o, sets);
+      return sets.opened.has(o.id) || takenToday(o, sets);
+    }
     // o.chopped is the in-memory flag the chop wheel sets; save.chopped is the
     // source of truth that survives a tile re-rasterize. Both, as both sites
     // always checked both.
@@ -848,19 +918,19 @@ function isSpent(o, sets) {
 
 // ── Does this glow as "something to take here"? ────────────────────────────
 // The POI light (Lighting.KINDS.poi) is the one mark for it. A chest wears it
-// until it is spent; the DAILY places — a crate (refillsDaily), the chapel's
-// alms and a grove shrine's gift — wear it exactly while today's take is
-// still there (the day ledger), and go dark once it is taken, until the UTC
-// day rolls. Every other stall and market stays lit (a counter is always
+// until it is spent; the RECURRING places — a crate or a barrel (restocks,
+// dark until it restocks), a pot of gold, a bike rack, the chapel's alms and
+// a grove shrine's gift — wear it exactly while the take is there (the day
+// ledger), and go dark once it is taken. Every other stall and market stays lit (a counter is always
 // open). Takes the frame's sets, like isSpent. Loose starter crates are no
 // place and never lit.
 function poiLit(o, sets) {
   if (!o) return false;
-  const takenToday = !!(sets.burst && sets.burst.has(o.id));
-  if (o.kind === 'grove_shrine') return !takenToday;
+  const today = takenToday(o, sets);
+  if (o.kind === 'grove_shrine') return !today;
   if (o.kind !== 'chest' || o.crate || isSpent(o, sets)) return false;
   const macro = (typeof macroFor === 'function') ? macroFor(o) : null;
-  if (macro && macro.kind === 'chapel') return !takenToday;
+  if (macro && macro.kind === 'chapel') return !today;
   return true;
 }
 

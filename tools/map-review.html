@@ -301,9 +301,8 @@ function popupHTML(e, o, label) {
     const tags = (o._poiAt && poiTagsOf(e).get(o._poiAt)) || {};
     rows.push(`POI: ${esc(o.poiClass || tags.class || '?')}${tags.subclass && tags.subclass !== o.poiClass ? ' / ' + esc(tags.subclass) : ''}`);
     const look = typeof chestLook === 'function' ? chestLook(o) : null;
-    const wt = typeof chestTier === 'function' ? chestTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus) : '?';
-    const rt = typeof chestRollTier === 'function' ? chestRollTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus) : '?';
-    rows.push(`look: ${esc(look ? (look.texKey || look.kind || JSON.stringify(look)) : '?')} · tier T${wt} (rolls T${rt})`);
+    const wt = typeof chestTier === 'function' ? chestTier(o) : '?';
+    rows.push(`look: ${esc(look ? (look.texKey || look.kind || JSON.stringify(look)) : '?')} · tier T${wt} (${o.poiDensity || '?'} of its kind on the tile)`);
     const z = zoneAnchorOf(e, o);
     if (z) {
       rows.push(`zone anchor: <b>${esc(z.kind)}</b>${z.kind === 'stones' ? (z.ghosts ? ' (ghosts)' : ' (quiet)') : ''}`
@@ -325,8 +324,8 @@ function draw(world, home) {
   for (const e of world.tiles) {
     for (const o of e.objects || []) {
       const k = classify(o);
-      const tier = (o.kind === 'chest' && typeof chestRollTier === 'function')
-        ? ' · T' + chestRollTier(o.poiClass, o.x, o.y, 0, o.zoneNexus) : '';
+      const tier = (o.kind === 'chest' && typeof chestTier === 'function')
+        ? ' · T' + chestTier(o) : '';
       const label = [o.kind, o.species, o.poiClass, o.name].filter(Boolean).join(' · ') + tier;
       add(k, toLL(o.x, o.y, EDGE), label, o.id, o.x, o.y, popupHTML(e, o, label));
     }
@@ -373,10 +372,10 @@ function draw(world, home) {
   });
   state.groups = groups;
   density();
-  // Home's own rings: the rest/ward/light radius and the chest-tier rings.
+  // Home's own ring: the softwood pines. (The chest-tier rings are gone — a
+  // chest's tier is its class's density on its tile, loot.js chestTier.)
   const hll = toLL(home.x, home.y, EDGE);
   const ring = (r, c, t) => { const l = L.circle(hll, { radius: r, color: c, weight: 1, fill: false, dashArray: '6 4' }).bindTooltip(t).addTo(map); drawn.push(l); };
-  if (typeof CHEST_TIER_HOME_RINGS_M !== 'undefined') CHEST_TIER_HOME_RINGS_M.forEach((r) => ring(r, '#ff3b3b', `chest tier −1 inside ${r} m`));
   ring(HomeArea.NEAR_M, '#1f9d3a', `softwood pines within ${HomeArea.NEAR_M} m`);
 }
 

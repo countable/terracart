@@ -175,6 +175,15 @@ const ASSETS = {
   headstone:      { kind: 'spritesheet', path: 'assets/Objects/Generated/headstone.png', frameWidth: 16, frameHeight: 16 },
   grove_shrine:   { kind: 'spritesheet', path: 'assets/Objects/Generated/shrine.png', frameWidth: 16, frameHeight: 24 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Generated/flint.png', frameWidth: 16, frameHeight: 16 },
+  // POI props (assets/Objects/Generated/README.md — placeholders): a bin is a
+  // BARREL (standing, and smashed while it restocks — loot.js isBarrel), a
+  // bike rack the bicycle_parking POI (isBikeRack), a notice board the
+  // information POI (render.js infoboard) and a gate's two posts (gatepost).
+  barrel:         { kind: 'spritesheet', path: 'assets/Objects/Generated/barrel.png', frameWidth: 16, frameHeight: 16 },
+  barrel_smashed: { kind: 'spritesheet', path: 'assets/Objects/Generated/barrel_smashed.png', frameWidth: 16, frameHeight: 16 },
+  bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Generated/bike_rack.png', frameWidth: 16, frameHeight: 16 },
+  signpost:       { kind: 'spritesheet', path: 'assets/Objects/Generated/signpost.png', frameWidth: 16, frameHeight: 16 },
+  gatepost:       { kind: 'spritesheet', path: 'assets/Objects/Generated/pillar_a.png', frameWidth: 16, frameHeight: 16 },
   // THE MACRO STALLS (loot.js MACRO_KIND_BY_CLASS / macroFor): the in-building
   // POIs that are places you come back to. One 80×80 frame each, the same
   // frame and box as market_stand (art in x:[12,80) y:[0,70)), drawn by

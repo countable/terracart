@@ -58,8 +58,8 @@
     // Chest tier 1..5 modifiers. Applied on top of the biome's classBias to
     // produce the effective context. Chest worldgen picks (biome, tier)
     // independently — same biome can appear at different tiers, same tier
-    // across different biomes. See CHEST_TIER_BY_CATEGORY in loot.js for
-    // the current biome→tier mapping (still used by the renderer for the
+    // across different biomes. The tier is the chest's class DENSITY on its
+    // tile (loot.js CHEST_DENSITY_TIERS / chestTier — also the renderer's
     // coloured diamond).
     //
     // chainMax bounds what the boost chain alone can reach; maxTier bounds
@@ -728,12 +728,11 @@
     // SCHOOL, the consumable you find is a book" without making books the
     // commonest thing in a hospital.
     //
-    // The pin ignores the rolled TIER on purpose. A school whose roll is
-    // softened to T1 by the Home rings (loot.js chestRollTier — the chest
-    // itself keeps its world tier) rolls tier 1, where the whole
-    // consumable pool is the scarecrow — so the school on your own street,
-    // the first one a new player ever reaches, would be the one that never
-    // handed over a book. A Book is the one item whose worth is the same at
+    // The pin ignores the rolled TIER on purpose. A school in a district
+    // full of schools rolls tier 1 (loot.js chestTier — the tier is how
+    // common its kind is on its tile), where the whole consumable pool is
+    // the scarecrow — so the schools of a dense town, the first a new
+    // player reaches, would be the ones that never handed over a book. A Book is the one item whose worth is the same at
     // every tier, so letting it out of a humble chest costs nothing.
     // A favourite is one `id`, or a weighted set `ids` ({ id: weight }) — the
     // cave supplies' torch / rope / potions (CAVE_SUPPLY_SKEW). Only members

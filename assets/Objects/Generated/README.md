@@ -51,6 +51,12 @@ One frame each, foot-anchored and drawn like the market stall (loot.js `chestLoo
 | sundries.png | SUNDRIES (the generic `shop` POIs no produce stall claims): one supply item for sale | generated placeholder — replace with hand art when available (picked from two candidates, sundries_b) |
 | training.png | the TRAINING HALL (sports_centre / yoga POIs): buy damage, for good or for a day | generated placeholder — replace with hand art when available (picked from two candidates, training_a) |
 
+## Batch 4 — `gpt-image-2` (OpenAI direct, chroma-keyed), single-subject images
+
+| File | Intended use | Status |
+|---|---|---|
+| bike_rack.png | bicycle_parking POI: a bike rack — tap for a stick-walking speed boost | generated placeholder (gpt-image-2, down-res'd) — replace with hand art when available |
+
 ## Contact sheets
 
 | File | Contents | Status |

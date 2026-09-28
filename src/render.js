@@ -2395,10 +2395,11 @@ Render.drawObjects = function drawObjects(scene) {
   // Opened chests: dropped from the sprite list below AND never offered to the
   // lightmap — an emptied POI is no longer a place that glows.
   const openedSet = setOf(scene.save.opened);
-  // The day ledger (interactables.js coinBurstUsedSet): a golden cauldron, a
-  // daily crate, the chapel's alms or a grove shrine's gift taken TODAY —
-  // unlit (and a cauldron / crate hidden) until the UTC day rolls.
-  const burstSet = coinBurstUsedSet(scene.save);
+  // The day ledger (interactables.js dayLedgerAges — id → days since taken):
+  // a pot of gold, a bike rack, the chapel's alms or a grove shrine's gift
+  // taken TODAY, or a crate / barrel inside its restock days — unlit (and a
+  // pot, rack or crate hidden, a barrel smashed) until it comes back.
+  const burstSet = dayLedgerAges(scene.save);
   // The frame's spent sets, built ONCE and handed to isSpent (the sprite cull
   // below) and poiLit (the POI light) alike.
   const spentIds = {
@@ -2627,7 +2628,14 @@ Render.drawObjects = function drawObjects(scene) {
   // also what a looted trunk chest has always done, so both tiers now behave
   // the same. (The tap target survives either way — interactables.js still
   // flashes "Picked clean already."; the pad + label persist via objList.)
-  const filteredObj = objList.filter(({ o }) => !isSpent(o, spentIds));
+  // A spent BARREL is not dropped: it stands SMASHED until it restocks (one
+  // art per state — the chest spec's key reads the flag stamped here, once
+  // per frame, off the same isSpent every other object is culled by).
+  const filteredObj = objList.filter(({ o }) => {
+    const spent = isSpent(o, spentIds);
+    if (o.kind === 'chest' && isBarrel(o)) { o._smashed = spent; return true; }
+    return !spent;
+  });
   // Merge in placed scarecrows so they go through the same sprite pool +
   // depth sort as other world objects. Their RENDER_SPEC entry (kind
   // '_scarecrow') anchors the pole base on the placement cell.
@@ -2688,6 +2696,9 @@ Render.drawObjects = function drawObjects(scene) {
   // 0.8 (down 20% from 1.0, Sep 2026 playtest) — 16 × 0.8 = ~13px inside the
   // 32px cell.
   const CRATE_SCALE = 0.8;
+  // A BARREL (a bin — loot.js isBarrel) and a BIKE RACK (isBikeRack): 16px
+  // generated props, a touch bigger than the crate they stand in for.
+  const SMALL_POI_SCALE = 1.3;
   // The broken WAGON a bandit-road bus stop wears (loot.js chestLook): the
   // 128×96 frame's art is 88 px wide (x 20..108) and ends 2 px above the frame
   // bottom, so 0.55 draws it ~1.5 cells wide, and WAGON_DY_PX drops the
@@ -3011,19 +3022,21 @@ Render.drawObjects = function drawObjects(scene) {
                 // toolGatedAlpha reads the same gate the tap refuses on).
                 s.setAlpha(toolGatedAlpha(o, scene.save));
               } },
-    // Which of the chest's four looks (trunk / crate / produce stand / pot of
-    // gold) this object wears is loot.js's `chestLook` — the same resolver the
-    // treasure ceremony asks for its hero icon, so what stands on the map and
-    // what the dialog opens with are one answer. Coin-burst POIs (ATM +
-    // bicycle parking) spill collectible coins, so they render as a "pot of
-    // gold"; a cave-level mirror of one is a plain chest. The look carries the
-    // texture key it means, so nothing here re-decides which art a look is —
-    // and an opened chest never reaches the renderer (filtered out above), so
-    // there is no "looted" sprite to pick: a crate is either closed or gone.
-    chest:  { key: (o) => chestLook(o).texKey,
+    // Which look (trunk / crate / barrel / bike rack / produce stand / macro
+    // stall / wagon / pot of gold) this object wears is loot.js's `chestLook`
+    // — the same resolver the treasure ceremony asks for its hero icon, so
+    // what stands on the map and what the dialog opens with are one answer.
+    // An ATM spills collectible coins, so it renders as a "pot of gold"; a
+    // cave-level mirror of one is a plain chest. The look carries the texture
+    // key it means, so nothing here re-decides which art a look is — and an
+    // opened chest never reaches the renderer (filtered out above), so a
+    // crate is either closed or gone. The one exception is the BARREL, which
+    // is never dropped: spent, it stands as `barrel_smashed` (o._smashed,
+    // stamped by the filter) until it restocks — one art per state.
+    chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? 'barrel_smashed' : L.texKey; },
               // box is a single-frame image; trunk.png is 2-frame.
               // Crates and coin-burst pots leave `frame` at 0.
-              // Coin-burst POIs (ATM + bicycle_parking) render the procedural
+              // Pots of gold (ATMs) render the procedural
               // 'potofgold' canvas texture (textures.js makePotOfGoldTexture),
               // which is single-frame — so leave `frame` undefined for them,
               // exactly like the themed-house sprites. The pot art is already
@@ -3055,8 +3068,11 @@ Render.drawObjects = function drawObjects(scene) {
               // reads as a small prop rather than filling its cell; trunk is
               // 32×32 so 0.72 is 72% of a cell. The stall and the pot of gold
               // are structures, not chests, and kept their scale.
+              // A barrel and a bike rack are 16px generated props drawn at
+              // SMALL_POI_SCALE (~21px) and seated like the crate.
               scale: (o) => { const L = chestLook(o);
-                              return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.4 : (L.box ? CRATE_SCALE : 0.72))); },
+                              return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.4
+                                : ((L.barrel || L.bike) ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : 0.72)))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
@@ -3212,6 +3228,13 @@ Render.drawObjects = function drawObjects(scene) {
     waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     stakes:   { key: 'stakes',   frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true },
+    // POI PROPS (worldgen.js). A NOTICE BOARD (an information POI) stands like
+    // the waystone and reads a Book page the same way (INTERACTABLES.infoboard);
+    // a GATE POST is one of the pair either side of a gate — scenery marking
+    // the spawn point a foe rises from each day (lairs.js 'gate' tier). Not
+    // tappable: no interactable row matches 'gatepost'.
+    infoboard: { key: 'signpost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    gatepost:  { key: 'gatepost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // INFLUENCE ZONE PROPS (src/zones.js) — generated 16px art at the same
     // 1.6, seated. A headstone stands in an Old Stones churchyard (a tap may
     // raise a ghost or pay a one-off find — INTERACTABLES.headstone); the
@@ -3983,13 +4006,16 @@ Render.drawObjects = function drawObjects(scene) {
   // excluded: the gem is a treasure-chest cue, so it shouldn't float over a crate.
   // Nor over a macro stall (loot.js macroFor): an inn or a chapel is a
   // service, not a chest, and its tier is only what a chapel's alms roll from.
-  const chestObjs = filteredObj.filter(({ o }) => o.kind === 'chest' && !chestLook(o).box && !chestLook(o).macro);
+  // Nor over a barrel, a bike rack or a pot of gold: none of them is a chest
+  // with a tier to show.
+  const chestObjs = filteredObj.filter(({ o }) => { if (o.kind !== 'chest') return false;
+    const L = chestLook(o); return !L.box && !L.macro && !L.barrel && !L.bike && !L.coin; });
   const g = scene.tierGfx;
   g.clear();
   for (const item of chestObjs) {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
-    const tier = chestTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus);
+    const tier = chestTier(o);
     const color = CHEST_TIER_COLOR[tier];
     if (color == null) continue;   // tier 1 → no gem
     const cx = Math.round(sx + 1);   // +2px right (was sx - 1)

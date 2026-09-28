@@ -51,12 +51,17 @@
   //   3 — Magic/Supplies tabs, crop-specific growth timers and conditions.
   //   4 — daily crates: opened surface POI chest ids copied onto TODAY's day
   //       ledger (see carryOpenedCratesToLedger).
-  const SAVE_SCHEMA = 4;
+  //   5 — chest tier by DENSITY (Sep 2026): a class crowded on its tile is a
+  //       crate now, though it was a trunk the save opened — so the same carry
+  //       runs once more, and a newly-crate chest the save emptied reads as
+  //       taken today instead of standing again at once. The ledger's shape
+  //       is unchanged (it only keeps a week now — macros.js markToday).
+  const SAVE_SCHEMA = 5;
 
   // A surface POI chest's id, by SHAPE: `c_<tx>_<ty>_<ix>_<iy>` (the MVT
   // POI) or `sxc_<osm id | tx_ty_ix_iy>` (the satextract / Overpass one). A
   // cave copy (`…_d<depth>`), a starter crate, a headstone or a waystone does
-  // not match. Which of them is a CRATE (interactables.js refillsDaily) needs
+  // not match. Which of them is a CRATE (interactables.js restocks) needs
   // the object, which a save does not carry — so every match is carried.
   const SURFACE_POI_CHEST_ID = /^(?:c_-?\d+_-?\d+_-?\d+_-?\d+|sxc_(?:\d+|-?\d+_-?\d+_-?\d+_-?\d+))$/;
   // Low-tier crates REFILL every UTC day (Sep 2026) and are spent by the
@@ -94,7 +99,7 @@
       needsPersist = true;
     }
     if (typeof Conditions !== 'undefined') Conditions.normalize(save);
-    if ((save.schema || 0) < 4) {
+    if ((save.schema || 0) < 5) {
       if (carryOpenedCratesToLedger(save)) needsPersist = true;
     }
 

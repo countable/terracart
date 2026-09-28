@@ -13,8 +13,8 @@
 // never "picked clean". Only the player's USE is saved, in one of three
 // lanes that already existed or are this module's own:
 //   • the DAY LEDGER — save.coinBurstClaimed[id + Delivery.dayKey()], the
-//     coin-burst / grove-shrine / daily-crate ledger, pruned of other days on
-//     every write (inn, chapel, the guildhall's bounty; usedToday / markToday
+//     coin-burst / grove-shrine / crate ledger, pruned of takes older than a
+//     week on every write (inn, chapel, the guildhall's bounty; usedToday / markToday
 //     below are its one reader and writer). A macro's id in it is NOT spent
 //     (interactables.js isSpent — a macro is never spent); the chapel's alms
 //     go dark in it (interactables.js poiLit) until the day rolls;
@@ -37,13 +37,30 @@
 // VIGOR_POTION_ENERGY), util.js (fnv1a, makeRng32), delivery.js (Delivery),
 // shops.js (Shops.THEME_POOL), shops_math.js (ShopsMath.standPrice),
 // combat.js (Combat.enemyBounty — the bounty's wage),
-// loot.js (chestRollTier), combat.js (Combat.training*), energy.js (Energy),
+// loot.js (chestTier), combat.js (Combat.training*), energy.js (Energy),
 // inventory.js (Inventory), save.js (addMoney).
 (function (root) {
   'use strict';
 
   // ── The day ledger (the coin-burst one) ────────────────────────────────────
-  function _day(now) { return Delivery.dayKey(now instanceof Date ? now : new Date(now ?? Date.now())); }
+  // save.coinBurstClaimed[id + dayKey] = 1 — "this place was taken on that UTC
+  // day". usedToday / markToday are its daily readers and ITS ONE WRITER (the
+  // pot of gold, the bike rack, the chapel, the inn, the guildhall, the grove
+  // shrine and every crate and barrel write through markToday). A write
+  // prunes every entry older than LEDGER_KEEP_DAYS, so a take is remembered
+  // for a week: long enough for a crate that restocks after several days
+  // (loot.js crateRestoreDays, capped at CRATE_RESTORE_MAX_DAYS — the same
+  // week) to know how long ago it was taken (daysSinceTaken / restockWaitMs),
+  // and short enough that the save does not grow.
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const LEDGER_KEEP_DAYS = (typeof CRATE_RESTORE_MAX_DAYS === 'number') ? CRATE_RESTORE_MAX_DAYS : 7;
+  function _date(now) { return now instanceof Date ? now : new Date(now ?? Date.now()); }
+  function _day(now) { return Delivery.dayKey(_date(now)); }
+  // A ledger key's day as a UTC day number (days since the epoch), or NaN.
+  function ledgerKeyDay(key) {
+    const m = /(\d{4})(\d{2})(\d{2})$/.exec(String(key));
+    return m ? Math.floor(Date.UTC(+m[1], +m[2] - 1, +m[3]) / DAY_MS) : NaN;
+  }
   function usedToday(save, id, now) {
     const m = save && save.coinBurstClaimed;
     return !!m && m[id + _day(now)] === 1;
@@ -52,7 +69,36 @@
     const day = _day(now);
     const ledger = save.coinBurstClaimed = save.coinBurstClaimed || {};
     ledger[id + day] = 1;
-    for (const k of Object.keys(ledger)) if (!k.endsWith(day)) delete ledger[k];
+    const today = Math.floor(_date(now).getTime() / DAY_MS);
+    for (const k of Object.keys(ledger)) {
+      const d = ledgerKeyDay(k);
+      if (!(today - d < LEDGER_KEEP_DAYS)) delete ledger[k];
+    }
+  }
+  // Whole UTC days since `id` was last taken: 0 = today, 1 = yesterday, …;
+  // Infinity when the ledger holds no take within LEDGER_KEEP_DAYS.
+  function daysSinceTaken(save, id, now) {
+    const m = save && save.coinBurstClaimed;
+    if (!m) return Infinity;
+    const t = _date(now).getTime();
+    for (let k = 0; k < LEDGER_KEEP_DAYS; k++) {
+      if (m[id + Delivery.dayKey(new Date(t - k * DAY_MS))] === 1) return k;
+    }
+    return Infinity;
+  }
+  // Is `id` still bare, restocking after `days` UTC days? (days 1 = daily.)
+  function stillBare(save, id, days, now) {
+    return daysSinceTaken(save, id, now) < Math.max(1, days || 1);
+  }
+  // How long until `id` restocks, in ms (0 when it is already there): the
+  // rest of today plus every whole day still to run. What a refusal prints,
+  // through shortDuration.
+  function restockWaitMs(save, id, days, now) {
+    const k = daysSinceTaken(save, id, now);
+    const n = Math.max(1, days || 1);
+    if (!(k < n)) return 0;
+    const t = _date(now).getTime();
+    return msToNextUtcDay(t) + (n - 1 - k) * DAY_MS;
   }
 
   // What every stall counter charges for `id`: the market stall's price
@@ -95,13 +141,13 @@
   }
 
   // ── CHAPEL: daily alms, a tier humbler than the chest it replaced ────────
-  // The roll is the chest's own (chestRollTier — Home's rings, the depth
-  // bonus and the churchyard's ZONE_NEXUS_TIER_BONUS all still apply) less
-  // CHAPEL_TIER_DROP, floored at T1: it pays every day, where the chest paid
-  // once. Inside a churchyard (a nexus) that nets the old chest's tier.
+  // The roll is the chest's own (chestTier — its density on its tile, the
+  // depth bonus and the churchyard's ZONE_NEXUS_TIER_BONUS all still apply)
+  // less CHAPEL_TIER_DROP, floored at T1: it pays every day, where the chest
+  // paid once. Inside a churchyard (a nexus) that nets the old chest's tier.
   const CHAPEL_TIER_DROP = 1;
   function chapelRollTier(o) {
-    return Math.max(1, chestRollTier(o.poiClass, o.x, o.y, o.depth, o.zoneNexus) - CHAPEL_TIER_DROP);
+    return Math.max(1, chestTier(o) - CHAPEL_TIER_DROP);
   }
 
   // ── APOTHECARY: a potion counter, and the cure ────────────────────────────
@@ -300,7 +346,7 @@
   };
 
   root.Macros = {
-    usedToday, markToday, stallPrice,
+    usedToday, markToday, daysSinceTaken, stillBare, restockWaitMs, ledgerKeyDay, LEDGER_KEEP_DAYS, stallPrice,
     INN_RATE, innCoinsPerEnergy, innPrice, innRest,
     CHAPEL_TIER_DROP, chapelRollTier,
     APOTHECARY_POTIONS, APOTHECARY_CURE, apothecaryStock,

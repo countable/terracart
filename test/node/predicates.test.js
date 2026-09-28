@@ -174,8 +174,8 @@ test('the literal spellings are gone from the readers', () => {
   // The four-clause "is this spent" filter render.js used to carry.
   assert.falsy(/o\.kind === 'mineralrock' && brokenRockSet\.has/.test(RENDER_SRC),
                'render.js: the spent filter is isSpent now');
-  assert.truthy(/objList\.filter\(\(\{ o \}\) => !isSpent\(o, spentIds\)\)/.test(RENDER_SRC),
-                'render.js: …and it is the shared one');
+  assert.truthy(/const filteredObj = objList\.filter\(\(\{ o \}\) => \{\s*const spent = isSpent\(o, spentIds\);/.test(RENDER_SRC),
+                'render.js: …and it is the shared one (a barrel stands smashed off the same answer)');
 });
 
 // ── The shadow flag lives on the RENDER_SPEC row ───────────────────────────
@@ -226,10 +226,11 @@ test('the literal spellings are gone from the readers', () => {
     // the ground, staircase is a hole cut into it.
     // (+ the street variants' standing props: the waystone and the stakes;
     // the tar pit lies flat and casts none. + the influence zones' two:
-    // the headstone and the grove shrine.)
+    // the headstone and the grove shrine. + the POI props: the notice board
+    // and the gate post.)
     const expected = ['tree', 'fruittree', 'chest', 'mineralrock', 'well', 'pole',
                       '_scarecrow', '_fire', 'torch', 'waystone', 'stakes',
-                      'headstone', 'grove_shrine'];
+                      'headstone', 'grove_shrine', 'infoboard', 'gatepost'];
     for (const k of expected) assert.truthy(flagged.has(k), `${k} casts a contact shadow`);
     for (const k of ['house', 'tower', 'groundstack', 'staircase']) {
       assert.falsy(flagged.has(k), `${k} does not`);

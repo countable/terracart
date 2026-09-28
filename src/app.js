@@ -369,12 +369,14 @@ const TELEPORT_FADE_IN_MS = 1300;
 // going ahead anyway (see _whenIdle). Long enough that a player actively
 // walking and tapping keeps the thread, short enough that the ring is all in
 // well before they could walk out of the centre tile.
-// A pot of gold bursts into at least this many coins. The scatter search
-// widens until it can seat them (see _coinBurstInteract) — a burst that came
-// back with one coin was the search giving up, never the reward being small.
-const COIN_BURST_MIN = 8;
-// And a few more land around the player's own feet (within
-// COIN_BURST_NEAR_R cells), so a burst always puts coins in reach —
+// How many coins a pot of gold bursts into is its DENSITY on its tile
+// (loot.js potCoinsFor off POT_COINS_BY_DENSITY: a lone ATM 30, one of 50 on
+// the tile 3, one of 150+ a single coin). The scatter search widens until it
+// can seat them (see _coinBurstInteract) — a burst that came back short was
+// the search giving up, never the reward being small. Up to
+// COIN_BURST_NEAR_PLAYER of them (a quarter of the burst at most, so a
+// one-coin burst lands by the pot) land around the player's own feet
+// (within COIN_BURST_NEAR_R cells), so a burst always puts coins in reach —
 // whatever the ground around the pot itself is like.
 const COIN_BURST_NEAR_PLAYER = 3;
 // WHERE A COIN MAY LIE: anywhere a person can stand, AND the road. The
@@ -1193,17 +1195,18 @@ const HOME_R = 4;   // cells — Home's light / rest / ward ring
 // linearly) now lives with the offline-rest formula in energy.js as
 // Energy.OFFLINE_FULL_REST_MS.
 
-// Chest tiers are not rolled: a chest's tier (1-5) is a fixed lookup from its
-// OSM POI class via loot.js › chestTier (POI_CATEGORY → CHEST_TIER_BY_CATEGORY),
-// raised one tier per two cave levels down (CHEST_TIER_DEPTH_STEP, cap T5) for
-// the POI's underground mirrors (worldgen.js caveChestsFrom; lowtier street
-// furniture never goes down, loot.js chestMirrorsUnderground). That tier — and
-// the look and gem render.js draws from it — is the WORLD's: every player sees
-// the same chest on the same street (CLAUDE.md "Every player sees the SAME
-// generated world"). Home's rings (700 m / 350 m, CHEST_TIER_HOME_RINGS_M,
-// floor T1) no longer demote the chest; they soften only THIS player's loot
-// roll, via loot.js › chestRollTier, which is what feeds the chestTierMod
-// curve in rarity.js. Only the roll itself is random.
+// Chest tiers are not rolled: a chest's tier (1-5) is how RARE its POI class
+// is on its own tile — loot.js › chestTier off CHEST_DENSITY_TIERS (one of
+// its kind → T4, 25+ → T1; worldgen.js stampPoiDensity counts it) — raised
+// one tier per two cave levels down (CHEST_TIER_DEPTH_STEP, cap T5) for the
+// POI's underground mirrors (worldgen.js caveChestsFrom; lowtier street
+// furniture never goes down, loot.js chestMirrorsUnderground) and one for a
+// zone's nexus. That tier — the look and gem render.js draws from it, and the
+// chestTierMod curve in rarity.js the loot rolls on — is the WORLD's: every
+// player sees, and is paid by, the same chest on the same street (CLAUDE.md
+// "Every player sees the SAME generated world"). Home decides nothing about
+// it (the old Home rings are gone). Only the roll
+// itself is random.
 
 // Tool slots the starter blacksmith can forge a wooden (T1) relic for. All
 // six have wooden-tier art via gearAssetPath. The smithy picks 2 at random
@@ -1755,7 +1758,7 @@ class MapScene extends Phaser.Scene {
     // tinted at draw time so a castle's stone, its turrets and its court all
     // change together — see the unclaimed-shade note in textures.js.
     makeTowerTexture(this, CASTLE_STONE_UNCLAIMED, 'tower_unclaimed');
-    // Pot of gold — art for the coin-burst POIs (ATM + bicycle_parking).
+    // Pot of gold — art for the coin-burst POI (the ATM — loot.js isPotOfGold).
     makePotOfGoldTexture(this);
     // Traps: the barely-there scuff of a hidden one and the sprung iron jaw of
     // a discovered one. Temporary procedural stand-ins — see textures.js.
@@ -4350,7 +4353,7 @@ class MapScene extends Phaser.Scene {
       const opened = setOf(this.save.opened);
       const expired = Date.now() >= this.pairyCompass.until;
       const claimed = opened.has(this.pairyCompass.targetId)
-        || coinBurstUsedSet(this.save).has(this.pairyCompass.targetId);
+        || dayLedgerAges(this.save).get(this.pairyCompass.targetId) === 0;
       if (expired || claimed) {
         this.pairyCompass = null;
       } else {
@@ -4477,6 +4480,8 @@ class MapScene extends Phaser.Scene {
           isClaimed: (key) => this.isClaimedKey(key),
           caughtSet: setOf(this.save.caught),
           hpMemo: this._lairHp,
+          // A gate's guard re-rises each UTC day (lairs.js DAILY_TIERS).
+          dayKey: Delivery.dayKey(),
           buildings: !!Difficulty.get().derelictLairs,
         });
       }
@@ -6050,16 +6055,14 @@ class MapScene extends Phaser.Scene {
   // this method just forwards to it.
   handleWorldTap(sx, sy) { interactTap(this, sx, sy); }
 
-  // === Coin-burst (ATM / bicycle_parking) =================================
-  // Daily-cap key format: `<poiId>YYYYMMDD` (UTC, Delivery.dayKey). Each POI can be
-  // tapped once per UTC day; subsequent taps within the same day flash a hint
-  // and spawn no coins. Coins themselves are in-memory only (entry.coinDrops);
-  // only the daily-cap dictionary persists.
+  // === Coin-burst (the pot of gold — an ATM) ==============================
+  // Once per UTC day per pot: the day ledger (Macros.usedToday / markToday —
+  // save.coinBurstClaimed[<poiId>YYYYMMDD]); subsequent taps within the same
+  // day flash a hint and spawn no coins. Coins themselves are in-memory only
+  // (entry.coinDrops); only the ledger persists.
   _coinBurstInteract(sx, sy, poi) {
     const dayKey = Delivery.dayKey();
-    const claimedKey = poi.id + dayKey;
-    this.save.coinBurstClaimed = this.save.coinBurstClaimed || {};
-    if (this.save.coinBurstClaimed[claimedKey] === 1) {
+    if (Macros.usedToday(this.save, poi.id)) {
       // Same UTC day key as the dayKey above, so the reset is msToNextUtcDay.
       this.flash(`Already used — back in ${shortDuration(msToNextUtcDay())}.`, sx, sy);
       return;
@@ -6146,10 +6149,16 @@ class MapScene extends Phaser.Scene {
     // from a chest the player is standing on, so it may lie in a front garden.
     // Widen first (still strict), and only then relax.
     let candidates = gather(RADIUS_CELLS, true);
-    for (let r = RADIUS_CELLS + 2; candidates.length < COIN_BURST_MIN && r <= MAX_BURST_CELLS; r += 2) {
+    // The burst: its size off the pot's density on its tile (potCoinsFor),
+    // a few of them (a quarter at most) at the player's feet, the rest
+    // scattered round the pot.
+    const burstN = potCoinsFor(poi.poiDensity);
+    const nearN = Math.min(COIN_BURST_NEAR_PLAYER, Math.floor(burstN / 4));
+    const scatterN = burstN - nearN;
+    for (let r = RADIUS_CELLS + 2; candidates.length < scatterN && r <= MAX_BURST_CELLS; r += 2) {
       candidates = gather(r, true);
     }
-    if (candidates.length < COIN_BURST_MIN) candidates = gather(MAX_BURST_CELLS, false);
+    if (candidates.length < scatterN) candidates = gather(MAX_BURST_CELLS, false);
     // Constrain to the visible SCREEN AREA — coins may sit right at its edge,
     // never past it. The widen/relax escalation above can reach out to
     // MAX_BURST_CELLS (3x the spec'd ~25m) when a suburb has too few
@@ -6175,16 +6184,14 @@ class MapScene extends Phaser.Scene {
       const db = (b.cx - poiLocalCX) ** 2 + (b.cy - poiLocalCY) ** 2;
       return da - db;
     });
-    // Spec: one coin per ~5 cells of vicinity, clamped to [COIN_BURST_MIN, 12].
-    const target = Math.max(COIN_BURST_MIN,
-      Math.min(12, Math.floor(candidates.length / 5) || COIN_BURST_MIN));
-    const n = Math.min(target, candidates.length);
+    const n = Math.min(scatterN, candidates.length);
     // Shuffle only the near buffer we're actually drawing coins from, so the
     // exact cells still vary run to run without reaching past it for cells
     // near the far edge of the search box.
-    const pool = shuffleInPlace(candidates.slice(0, Math.max(n, COIN_BURST_MIN * 2)));
+    const pool = shuffleInPlace(candidates.slice(0, Math.max(n, scatterN * 2)));
     // Where each coin lands: { entry, x, y } — the pot's scatter on the pot's
-    // tile, then COIN_BURST_NEAR_PLAYER more at the player's feet.
+    // tile, then the rest of the burst at the player's feet (nearN, plus
+    // whatever the scatter could not seat).
     const drops = [];
     const taken = new Set();
     for (let i = 0; i < n; i++) {
@@ -6193,7 +6200,7 @@ class MapScene extends Phaser.Scene {
       taken.add(`${tx}_${ty}_${cx}_${cy}`);
       drops.push({ entry, x, y });
     }
-    for (const d of this._coinCellsNearPlayer(COIN_BURST_NEAR_PLAYER, COIN_BURST_NEAR_R, taken)) drops.push(d);
+    for (const d of this._coinCellsNearPlayer(burstN - n, COIN_BURST_NEAR_R, taken)) drops.push(d);
     // NOTHING SEATED, NOTHING SPENT. The day's claim is written only once a
     // coin will actually land: "No room to scatter!" used to fire AFTER the
     // claim, so a pot in a tight spot (or tapped with the view peeked away)
@@ -6202,12 +6209,8 @@ class MapScene extends Phaser.Scene {
       this.flash('No room to scatter!', sx, sy);
       return;
     }
-    this.save.coinBurstClaimed[claimedKey] = 1;
-    // Opportunistic prune: drop any keys for days other than today so the
-    // dictionary stays small over weeks of play.
-    for (const k of Object.keys(this.save.coinBurstClaimed)) {
-      if (!k.endsWith(dayKey)) delete this.save.coinBurstClaimed[k];
-    }
+    // The ledger's one writer (it prunes takes older than a week).
+    Macros.markToday(this.save, poi.id);
     if (typeof persistSave === 'function') persistSave(this.save);
     const expiresAt = Date.now() + 60_000;
     drops.forEach((d, i) => {
@@ -6447,7 +6450,8 @@ class MapScene extends Phaser.Scene {
     return !!(this._movePadHeld && v && (v.x || v.y));
   }
   // Boots set walking speed; the amulet sets cost. Dragon and Speed lend
-  // tiers to both; coffee adds speed tiers only.
+  // tiers to both; coffee adds speed tiers only; a bike rack multiplies the
+  // speed (boots.boost).
   _walkRelics() {
     let speedTier = this.save.armor?.boots?.tier || 0;
     let costTier = this.save.relics?.amulet?.tier || 0;
@@ -6460,7 +6464,11 @@ class MapScene extends Phaser.Scene {
     if ((this.save.coffeeUntil ?? 0) > Date.now()) {
       speedTier = Math.min(SPEED_POTION_AMULET_TIER, speedTier + COFFEE_BOOT_BOOST);
     }
-    return { boots: { tier: speedTier }, amulet: { tier: costTier } };
+    // A BIKE RACK's loan (items.js BIKE_RACK_SPEED_MUL for BIKE_RACK_MS —
+    // interactables.js writes save.bikeUntil): a factor on the speed, not a
+    // tier, carried on the boots to steerSpeedMul like every other reason.
+    const boost = (this.save.bikeUntil ?? 0) > Date.now() ? BIKE_RACK_SPEED_MUL : 1;
+    return { boots: { tier: speedTier, boost }, amulet: { tier: costTier } };
   }
   // Steer with the STICK — the one control that walks you somewhere other than
   // where the GPS says you are. Unlike _steerTarget (the keyboard, which is
@@ -9532,8 +9540,8 @@ class MapScene extends Phaser.Scene {
         if (o.kind !== 'chest') continue;
         if (isSpent(o, sets)) continue;
         // A macro stall (an inn, a chapel, … — loot.js macroFor) is a place,
-        // not a chest to find.
-        if (macroFor(o)) continue;
+        // not a chest to find; nor is a barrel, a bike rack or a pot of gold.
+        if (macroFor(o) || isBarrel(o) || isBikeRack(o) || isPotOfGold(o)) continue;
         const dx = o.x - pWX, dy = o.y - pWY;
         const d2 = dx * dx + dy * dy;
         if (d2 < bestD2) { best = o; bestD2 = d2; }

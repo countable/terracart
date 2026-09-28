@@ -1,8 +1,10 @@
-// THE DAILY CRATE (Sep 2026) — interactables.js refillsDaily / poiLit.
+// THE CRATE (Sep 2026) — interactables.js restocks / poiLit.
 //
 // Most chests are offered ONCE (save.opened, forever). The low-tier CRATE (a
-// surface POI chest wearing loot.js chestLook's `box`) refills every UTC day
-// at its normal tier, spent by the coin-burst DAY LEDGER alone — the lane the
+// surface POI chest wearing loot.js chestLook's `box` — a class its tile holds
+// CHEST_DENSITY_T1_AT or more of) restocks after crateRestoreDays UTC days
+// (one for an ordinary crate — the fixtures here hold exactly
+// CHEST_DENSITY_T1_AT) at its normal tier, spent by the coin-burst DAY LEDGER alone — the lane the
 // golden cauldron, the chapel's alms and the grove shrine's gift already
 // share. What still has something to take today wears the POI light
 // (Lighting.KINDS.poi); once taken it goes dark until the day rolls. Pins:
@@ -19,7 +21,10 @@
 (function () {
   const pos = { x: 0, y: 0 };
   let seq = 0;
-  const poi = (poiClass, over) => ({ kind: 'chest', id: `c_1_2_3_${++seq}`, poiClass, ...pos, ...over });
+  // A crowd of CHEST_DENSITY_T1_AT of its kind: T1, the crate, restocking
+  // daily. A trunk is a class the tile holds a few of.
+  const poi = (poiClass, over) => ({ kind: 'chest', id: `c_1_2_3_${++seq}`, poiClass, poiDensity: CHEST_DENSITY_T1_AT, ...pos, ...over });
+  const FEW = { poiDensity: 3 };
   const noHome = (fn) => {
     const prev = HomeArea.worldM;
     HomeArea.worldM = null;
@@ -33,25 +38,25 @@
   test('daily crate: the predicate is the crate look, on the surface, off a real POI', () => {
     const bus = poi('bus');
     assert.eq(chestLook(bus).texKey, 'box', 'a bus stop is a crate');
-    assert.truthy(refillsDaily(bus), 'a crate refills');
-    assert.falsy(refillsDaily(poi('park')), 'a trunk (T2) is one-off');
-    assert.falsy(refillsDaily(poi('bus', { banditStop: true })), 'a wagon is one-off');
-    assert.falsy(refillsDaily(poi('fuel', { zoneNexus: 'tar' })), 'a nexus chest wears a finer gem and is one-off');
-    assert.falsy(refillsDaily(poi('bus', { depth: 1 })), 'a cave copy is one-off');
-    assert.falsy(refillsDaily(poi('bus', { caveOf: 'c_0_0_0_0' })), 'whatever carries the cave id');
-    assert.falsy(refillsDaily({ kind: 'chest', id: 'chest_start_0_0_1', crate: true, fixedLoot: { id: 'wood', qty: 9 }, x: 0, y: 0 }),
+    assert.truthy(restocks(bus), 'a crate refills');
+    assert.falsy(restocks(poi('park', FEW)), 'a trunk (T2) is one-off');
+    assert.falsy(restocks(poi('bus', { banditStop: true })), 'a wagon is one-off');
+    assert.falsy(restocks(poi('fuel', { zoneNexus: 'tar' })), 'a nexus chest wears a finer gem and is one-off');
+    assert.falsy(restocks(poi('bus', { depth: 1 })), 'a cave copy is one-off');
+    assert.falsy(restocks(poi('bus', { caveOf: 'c_0_0_0_0' })), 'whatever carries the cave id');
+    assert.falsy(restocks({ kind: 'chest', id: 'chest_start_0_0_1', crate: true, fixedLoot: { id: 'wood', qty: 9 }, x: 0, y: 0 }),
       'a starter supply crate is one-off');
-    assert.falsy(refillsDaily({ kind: 'chest', id: 'relic', name: 'Old Chest', fixedLoot: { kind: 'relic', slot: 'axe', tier: 1 }, x: 0, y: 0 }),
+    assert.falsy(restocks({ kind: 'chest', id: 'relic', name: 'Old Chest', fixedLoot: { kind: 'relic', slot: 'axe', tier: 1 }, x: 0, y: 0 }),
       'the starter relic chest is one-off');
-    assert.falsy(refillsDaily(poi('atm')), 'a golden cauldron has its own burst');
-    assert.falsy(refillsDaily(poi('place_of_worship')), 'a chapel is a place, not a crate');
-    assert.falsy(refillsDaily(poi('lodging')), 'an inn neither');
-    assert.falsy(refillsDaily({ kind: 'treasure', id: 't_park_0_0_1_1', x: 0, y: 0 }), 'an X mark never refills');
-    assert.falsy(refillsDaily({ kind: 'headstone', id: 'hs_0_0_1_1', x: 0, y: 0 }), 'a headstone never refills');
+    assert.falsy(restocks(poi('atm')), 'a golden cauldron has its own burst');
+    assert.falsy(restocks(poi('place_of_worship')), 'a chapel is a place, not a crate');
+    assert.falsy(restocks(poi('lodging')), 'an inn neither');
+    assert.falsy(restocks({ kind: 'treasure', id: 't_park_0_0_1_1', x: 0, y: 0 }), 'an X mark never refills');
+    assert.falsy(restocks({ kind: 'headstone', id: 'hs_0_0_1_1', x: 0, y: 0 }), 'a headstone never refills');
   });
 
   test('daily crate: spent by TODAY\'s ledger alone; a trunk by save.opened forever', () => {
-    const crate = poi('bus'), trunk = poi('park');
+    const crate = poi('bus'), trunk = poi('park', FEW);
     const legacy = spentSets(null, { opened: [crate.id, trunk.id] });
     assert.falsy(isSpent(crate, legacy), 'save.opened is ignored for a crate');
     assert.truthy(isSpent(trunk, legacy), 'a trunk stays opened');
@@ -83,14 +88,14 @@
       runInteractable(makeCtx(scene, save), crate);
       assert.eq(tiers.length, 2, 'open again the next day');
       assert.eq(tiers[0], tiers[1], 'at the same tier — no refill penalty');
-      assert.eq(tiers[1], chestRollTier(crate.poiClass, crate.x, crate.y, crate.depth, crate.zoneNexus), 'the chest\'s own tier');
+      assert.eq(tiers[1], chestTier(crate), 'the chest\'s own tier');
       assert.eq(events.length, 2, 'credited once per day it is opened');
-      assert.falsy((crate.id + yesterday()) in save.coinBurstClaimed, 'the ledger prunes other days');
+      assert.truthy((crate.id + yesterday()) in save.coinBurstClaimed, 'the ledger keeps a week of takes');
     } finally { globalThis.pickReward = real; }
   }));
 
   test('daily crate: a trunk still opens once, for good', () => noHome(() => {
-    const trunk = poi('park');
+    const trunk = poi('park', FEW);
     const save = { inv: [], opened: [], relics: {}, money: 0 };
     const flashes = [];
     const scene = makeScene({ flash: (m) => flashes.push(m) });
@@ -106,7 +111,7 @@
   }));
 
   test('daily glow: lit while today\'s take is there — crate, chapel, shrine', () => {
-    const crate = poi('bus'), chapel = poi('place_of_worship'), inn = poi('lodging'), trunk = poi('park');
+    const crate = poi('bus'), chapel = poi('place_of_worship'), inn = poi('lodging'), trunk = poi('park', FEW);
     const shrine = { kind: 'grove_shrine', id: 'sh_1_2_3_4', x: 0, y: 0 };
     const none = spentSets(null, {});
     for (const o of [crate, chapel, inn, trunk, shrine]) assert.truthy(poiLit(o, none), `${o.poiClass || o.kind}: lit when untouched`);
@@ -148,16 +153,16 @@
     save.coinBurstClaimed = {};
     SaveMigrate.migrate(save);
     assert.eq(Object.keys(save.coinBurstClaimed).length, 0, 'runs once (the schema says so)');
-    // Bounded: tomorrow's first write prunes the carried day.
+    // Bounded: a write a week on prunes the carried day.
     const s2 = { schema: 3, opened: ['c_1_2_3_4'] };
-    SaveMigrate.carryOpenedCratesToLedger(s2, Date.now() - DAY);
+    SaveMigrate.carryOpenedCratesToLedger(s2, Date.now() - Macros.LEDGER_KEEP_DAYS * DAY);
     Macros.markToday(s2, 'c_9_9_9_9');
     assert.eq(Object.keys(s2.coinBurstClaimed).join(','), 'c_9_9_9_9' + today(), 'pruned on the next write');
   });
 
   test('daily crate: the Book tells it', () => {
     const blob = PLAY_TIPS.join(' ');
-    assert.truthy(/crate refills every day/i.test(blob), 'crates refill daily');
+    assert.truthy(/crate refills at midnight UTC a day after you take it/i.test(blob), 'crates restock');
     assert.truthy(/X mark gives once/i.test(blob), 'X marks never refill');
     assert.truthy(/glows still has something/i.test(blob), 'a glowing one is ready');
   });

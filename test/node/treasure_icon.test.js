@@ -35,9 +35,8 @@ const WORLD_ICON_SRC = lift('worldIconHTML(texKey, sizePx = 26) {', 'worldIconHT
 // A memorial: an ordinary civic T3 trunk. (It was a library until the library
 // became a macro stall — a Scriptorium — and stopped being a chest at all.)
 const chest = (over) => ({ kind: 'chest', poiClass: 'memorial', x: 0, y: 0, ...over });
-// A chest's tier (chestTier) is the world's — Home softens only what it
-// PAYS (chestRollTier), never its look. These still run with no origin so
-// each case says only what it means.
+// A chest's tier (chestTier) is the world's — its class's density on its
+// tile. These still run with no origin so each case says only what it means.
 const noHome = (fn) => {
   const prev = HomeArea.worldM;
   HomeArea.worldM = null;
@@ -48,12 +47,17 @@ test('treasure icon: chestLook names the sprite each chest wears', () => noHome(
   assert.eq(chestLook(chest()).texKey, 'chest', 'an ordinary POI chest is the trunk');
   assert.eq(chestLook(chest({ crate: true })).texKey, 'box', 'a starter supply crate is the box');
   assert.truthy(chestLook(chest({ crate: true })).box, 'and reads as a box');
-  // A tier-1 POI (an ATM, a bike rack) borrows the crate sprite without being
-  // a crate — the same test render.js labels and the tier gem are gated on.
-  const lowtier = chest({ poiClass: 'waste_basket' });
-  assert.eq(chestTier('waste_basket', 0, 0), 1, 'a waste basket is a tier-1 chest');
+  // A tier-1 POI (a class its tile is crowded with) borrows the crate sprite
+  // without being a supply crate — the same test render.js labels and the
+  // tier gem are gated on.
+  const lowtier = chest({ poiClass: 'bus', poiDensity: 30 });
+  assert.eq(chestTier(lowtier), 1, 'thirty bus stops: each a tier-1 chest');
   assert.eq(chestLook(lowtier).texKey, 'box', 'so it wears the crate sprite');
   assert.falsy(lowtier.crate, 'without being a supply crate');
+  // A bin is a BARREL whatever its count, a bike rack its rack.
+  assert.eq(chestLook(chest({ poiClass: 'waste_basket', poiDensity: 1 })).texKey, 'barrel', 'a lone bin is a barrel');
+  assert.eq(chestLook(chest({ poiClass: 'recycling', poiDensity: 40 })).texKey, 'barrel', 'so is a crowd of recycling points');
+  assert.eq(chestLook(chest({ poiClass: 'bicycle_parking' })).texKey, 'bike_rack', 'a bike rack is a rack');
   const stall = chestLook(chest({ poiClass: 'bakery', name: 'Corner Bakery' }));
   assert.eq(stall.texKey, 'market_stand', 'a produce stand is the stall');
   assert.truthy(stall.stand, 'and carries the stand it resolved');
@@ -74,8 +78,8 @@ test('treasure icon: the look is resolved once and cached on the object', () => 
 
 // ── The renderer asks it rather than re-deciding ──────────────────────────
 test('treasure icon: render.js draws the key the look names', () => {
-  assert.truthy(/chest:  \{ key: \(o\) => chestLook\(o\)\.texKey,/.test(RENDER_SRC),
-    "the chest spec's texture key IS the look's");
+  assert.truthy(/chest:  \{ key: \(o\) => \{ const L = chestLook\(o\); return \(L\.barrel && o\._smashed\) \? 'barrel_smashed' : L\.texKey; \},/.test(RENDER_SRC),
+    "the chest spec's texture key IS the look's (a spent barrel its smashed state)");
   assert.truthy(!/_isCoinBurst|_chestIsBox/.test(RENDER_SRC),
     'and render.js keeps no private copy of the look');
   // Everything else the spec varies per look reads the one resolver too.

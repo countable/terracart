@@ -239,6 +239,8 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
     'single', 'missing', 'target', 'stageReadout', 'o', 'bedQ', 'asTree',
     'offer', 'emptyMsg', 'flashMsg',
     'card', 'name', 'label',           // name-bearing loot toasts, below
+    'spent', 'read',                   // pageStone's lines, measured below
+    'barrelFlash', 'bikeRackFlash',    // the barrel / bike-rack lines, measured below
   ]);
   const seen = new Set();
   for (const src of [APP_JS_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {
@@ -409,3 +411,29 @@ test('copy: the Drink / Use descriptions derive durations and omit tiers', () =>
   }
 });
 })();
+
+test('map copy: the barrel, the bike rack and the page stones fit a map line', () => {
+  const outcomes = [{ kind: 'empty' }, { kind: 'gold', amount: 1 }];
+  const coin = BARREL_LOOT.find((r) => r.kind === 'coin');
+  for (let n = coin.min; n <= coin.max; n++) outcomes.push({ kind: 'gold', amount: n });
+  for (const row of BARREL_LOOT) {
+    for (const id of row.ids || (row.id ? [row.id] : [])) outcomes.push({ kind: 'item', id, qty: 1 });
+  }
+  for (const got of outcomes) {
+    const line = barrelFlash(got);
+    assert.lte([...line].length, MAP_MSG_MAX, `barrel: ${line}`);
+  }
+  assert.eq(barrelFlash({ kind: 'empty' }), 'Empty.', 'an empty barrel says so');
+  assert.lte([...bikeRackFlash()].length, MAP_MSG_MAX, `bike rack: ${bikeRackFlash()}`);
+  assert.eq(bikeRackFlash(), 'Pedal power! Faster 3m', 'off the boost\'s own length');
+  // pageStone's literal lines (INTERACTABLES.waystone / .infoboard).
+  for (const m of INTERACTABLES_SRC.matchAll(/(?:spent|read): '([^']+)'/g)) {
+    assert.lte([...m[1]].length, MAP_MSG_MAX, `page stone: ${m[1]}`);
+  }
+  // The barrel / crate / rack refusals print a real wait; at their widest
+  // (a week) they still fit.
+  const week = shortDuration(7 * 24 * 60 * 60 * 1000);
+  for (const line of [`Smashed. Back in ${week}.`, `The crate is bare. ${week}.`, `Bikes all out. ${shortDuration(24 * 60 * 60 * 1000)}.`]) {
+    assert.lte([...line].length, MAP_MSG_MAX, line);
+  }
+});

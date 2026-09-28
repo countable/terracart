@@ -258,13 +258,15 @@ test('zones: the nexus chest keeps its id and wears one tier more, capped', () =
   const offIds = new Set(off.objects.filter((o) => o.kind === 'chest').map((o) => o.id));
   for (const c of nex) {
     assert.truthy(offIds.has(c.id), `${c.id}: the same id as without the zone`);
-    const base = chestTier(c.poiClass, c.x, c.y, c.depth);
-    assert.eq(chestTier(c.poiClass, c.x, c.y, c.depth, c.zoneNexus), Math.min(CHEST_TIER_MAX, base + ZONE_NEXUS_TIER_BONUS),
+    const base = chestTier({ ...c, zoneNexus: null });
+    assert.eq(chestTier(c), Math.min(CHEST_TIER_MAX, base + ZONE_NEXUS_TIER_BONUS),
       `${c.poiClass}: +${ZONE_NEXUS_TIER_BONUS}`);
   }
   assert.eq(ZONE_NEXUS_TIER_BONUS, 1);
-  assert.eq(chestTier('florist', 0, 0, 4, 'grove'), CHEST_TIER_MAX, 'never past the ladder');
-  assert.eq(chestRollTier('park', 1e9, 1e9, 0, 'grove'), chestRollTier('park', 1e9, 1e9, 0) + 1, 'the roll pays it too');
+  assert.eq(chestTier({ kind: 'chest', poiClass: 'florist', poiDensity: 1, depth: 4, zoneNexus: 'grove' }), CHEST_TIER_MAX, 'never past the ladder');
+  // The tier the chest shows is the tier it pays: one function, both sides.
+  assert.eq(chestTier({ kind: 'chest', poiClass: 'park', poiDensity: 10, zoneNexus: 'grove' }),
+    chestTier({ kind: 'chest', poiClass: 'park', poiDensity: 10 }) + 1, 'the roll pays it too');
 });
 
 test('zones: the patterns — groves by character, graves are a per-cell rule, quiet faiths get rocks, never headstones', () => {
