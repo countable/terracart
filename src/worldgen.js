@@ -116,6 +116,79 @@
     return plants;
   }
 
+  // Zone layouts own the entire coverage, including intentionally empty motif
+  // cells. Replace biome scatter and street dressing there, retaining mapped
+  // places/buildings/trees and player objects. Numeric tile-id prefixes belong
+  // to procedural ambience; OSM imports have distinct *_osm / *_sx prefixes.
+  function* clearZoneAmbientSteps({ field, objects, wildplants, occupied, streetDress, tx, ty, N, tileEdgeM }) {
+    const coverage = field && field.coverage;
+    if (!coverage) return 0;
+    const removed = new Set();
+    const ox = tx * tileEdgeM, oy = ty * tileEdgeM, unit = tileEdgeM / N;
+    const cell = o => {
+      const x = Math.floor((o.x - ox) / unit), y = Math.floor((o.y - oy) / unit);
+      return x >= 0 && y >= 0 && x < N && y < N ? y * N + x : -1;
+    };
+    const ambient = o => !o.placed && !o.zoneVariant &&
+      /^(?:wp|hr|hm|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id || '');
+    const streetLists = streetDress ? [streetDress.objects, streetDress.wildplants,
+      streetDress.treasures] : [];
+    let count = 0;
+    field.legacyRemovedByAnchor = {};
+    const record = (idx, street) => {
+      const anchor = field.anchors && field.anchors[coverage[idx] - 1];
+      const key = anchor ? `${anchor.kind}:${anchor.gx},${anchor.gy}` : String(coverage[idx]);
+      const row = field.legacyRemovedByAnchor[key] || (field.legacyRemovedByAnchor[key] = { ambient: 0, street: 0 });
+      row[street ? 'street' : 'ambient']++;
+      removed.add(idx);
+      count++;
+    };
+    for (const list of [objects, wildplants, ...streetLists]) {
+      if (!list) continue;
+      const street = streetLists.includes(list);
+      let kept = 0;
+      for (let i = 0; i < list.length; i++) {
+        if ((i & 63) === 0) yield 'zone ambient replacement';
+        const o = list[i], idx = cell(o);
+        if ((street || ambient(o)) && idx >= 0 && coverage[idx]) {
+          record(idx, street);
+        } else list[kept++] = o;
+      }
+      list.length = kept;
+    }
+    if (streetDress) {
+      const lairs = streetDress.lairs || [];
+      let kept = 0;
+      for (let i = 0; i < lairs.length; i++) {
+        if ((i & 63) === 0) yield 'zone street guard replacement';
+        const lair = lairs[i], idx = cell({ x: ox + lair.lx, y: oy + lair.ly });
+        if (idx >= 0 && coverage[idx]) record(idx, true);
+        else lairs[kept++] = lair;
+      }
+      lairs.length = kept;
+      for (let i = 0; i < coverage.length; i++) {
+        if ((i & 511) === 0) yield 'zone street mark replacement';
+        if (!coverage[i]) continue;
+        if (streetDress.marks) streetDress.marks[i] = 0;
+        if (streetDress.slowCells) streetDress.slowCells.delete(i);
+      }
+    }
+    if (occupied && removed.size) {
+      // Release only cleared cells, then restore any mapped place or retained
+      // street item sharing one. Other reservation lanes remain untouched.
+      for (const idx of removed) occupied.delete(idx);
+      for (const list of [objects, wildplants, ...streetLists]) {
+        if (!list) continue;
+        for (let i = 0; i < list.length; i++) {
+          if ((i & 63) === 0) yield 'zone retained occupancy';
+          const idx = cell(list[i]);
+          if (removed.has(idx)) occupied.add(idx);
+        }
+      }
+    }
+    return count;
+  }
+
   // The id of a generated thing on one CELL of one TILE:
   // `${prefix}_${tx}_${ty}_${ix}_${iy}`. A level or variant goes INTO the
   // prefix (`c_${depth}`), never on the end, so every id minted through here
@@ -4892,6 +4965,20 @@
         field: zone, poiLayer: layersByName['poi'], parks: parkPolys, tx, ty, N: w,
         chests: deduped, tileEdgeM, grid });
       if (zone) {
+        // Mine entrances are world identities, seeded by the original rock
+        // clusters and occupancy. Keep that input separate from the visible
+        // zone layer so removing scenery cannot reroll an existing cave.
+        if (zone.coverage) {
+          const caveGrid = grid.slice();
+          if (zone.under) for (let i = 0; i < caveGrid.length; i++) {
+            if ((i & 511) === 0) yield 'zone cave source';
+            if (zone.under[i]) caveGrid[i] = zone.under[i];
+          }
+          zone.caveSource = { grid: caveGrid, objects: deduped.slice(), wildplants: filtered.slice() };
+        }
+        if (typeof ZoneCoverage !== 'undefined') yield* ZoneCoverage.paintSteps(zone, grid, w, pathUnder, roadMask);
+        zone.legacyRemoved = yield* clearZoneAmbientSteps({ field: zone, objects: deduped,
+          wildplants: filtered, occupied: dressOcc, streetDress, tx, ty, N: w, tileEdgeM });
         dressSpawn();
         zoneDress = yield* ZoneDressing.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
           spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
@@ -6376,11 +6463,12 @@
   // OPEN ground (the spawn gate) before its cluster goes without one.
   const CAVE_MOUTH_RELOCATE_CELLS = 6;
   function maybePlaceCaveEntrance(entry, tx, ty, tileEdgeM, stableObjects, stableWildplants) {
-    const occupancySource = stableObjects || entry.objects || [];
-    const wildplantSource = stableWildplants || entry.wildplants || [];
-    const caveRocks = (entry.objects || []).filter(
+    const source = entry.zone && entry.zone.caveSource;
+    const occupancySource = source ? source.objects : (stableObjects || entry.objects || []);
+    const wildplantSource = source ? source.wildplants : (stableWildplants || entry.wildplants || []);
+    const caveRocks = (source ? source.objects : (entry.objects || [])).filter(
       o => o.kind === 'mineralrock' && o.caveVariant != null);
-    const N = entry.cellsPerEdge, grid = entry.grid;
+    const N = entry.cellsPerEdge, grid = source ? source.grid : entry.grid;
     // See roadMask in rasterizeTile / entry.roadMask above: the terrain grid
     // under-reports the road (one cell wide however wide the carriageway
     // really is, and a parking lot's aisles paint no cell at all), so a
@@ -7295,6 +7383,6 @@
     // sandbox.js as well as this file — one shape per stream, reachable from
     // all of them.
     makeWildplant, makeCreature, makeObject,
-    spawnParkPlants, PARK_PLANT_CELL_CHANCE,
+    spawnParkPlants, PARK_PLANT_CELL_CHANCE, clearZoneAmbientSteps,
   };
 })(window);

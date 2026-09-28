@@ -343,7 +343,7 @@ test('tile rows: the pest-free zone leaves the tile\'s later draws unchanged', (
     const factory = new Function(
       'rng', 'N', 'pestFree', 'entry', '_spawnOpts', 'tx', 'ty', 'caughtSet', 'creatures',
       'cellM', 'genGrid',
-      'const faunaSeats = new Set(); const unseated = []; return (kindWant, classesOK, idx, kindStr) => {\n' + TRY_PLACE_SRC + '\n};');
+      'const enemyGroundSeats = new Set(); const faunaSpawnOpts = { ..._spawnOpts, occupied: null }; const unseated = []; return (kindWant, classesOK, idx, kindStr) => {\n' + TRY_PLACE_SRC + '\n};');
     const tryPlace = factory.call({ tileEdgeM: N * 7 }, rng, N, pestFree, entry, {}, 0, 0,
       new Set(), creatures, 7, entry.grid);
     tryPlace('slime', new Set([0]), 0, 'slime');

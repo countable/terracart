@@ -492,6 +492,11 @@
     }
     return _haloOver;
   }
+  // Legacy underlays use zero for untouched; new coverage paint also records
+  // zero-valued GRASS explicitly in the optional presence mask.
+  function landAt(grid, under, i) {
+    return under && (under[i] || (under.present && under.present[i])) ? under[i] : grid[i];
+  }
   function terrainOf(kind) { return root.WorldGen.T[ZONE_KINDS[kind].terrain]; }
   // Every zone terrain code (the enumerations elsewhere ask this).
   function zoneTerrains() { return Object.keys(ZONE_KINDS).map(terrainOf); }
@@ -1065,7 +1070,7 @@
     FRINGE_M, FRINGE_JITTER, FRINGE_NOISE_UNITS, FRINGE_FILL_M, FRINGE_FILL_P, GROVE_FILL_P,
     cellU01, fringeReach, fringeSteps, rescueCell,
     anchorOf, upmRow, windowM, radiusFor, anchorKey, collectAnchors, resolveAnchors,
-    edgeNoise, edgeAt, fieldSteps, field, haloSteps, terrainOf, zoneTerrains, haloOver,
+    edgeNoise, edgeAt, fieldSteps, field, haloSteps, terrainOf, zoneTerrains, haloOver, landAt,
     at, inCore, anchorFrameM, headstoneHoards,
     ringOffsets, patternPieces, nexusCentre, nexusPieceCell, nexusReachCells, nexusPlan, dressSteps, dress,
   };

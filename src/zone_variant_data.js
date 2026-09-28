@@ -13,7 +13,7 @@
     "orientationFallback": "stable_anchor_quarter_turn",
     "densityBasis": "nominal_pattern_or_expected_scatter_coverage_before_obstacles",
     "densityAccounting": "structured_geometry_measured_after_composition_not_thinned_to_target; coincident_poi_and_connection_slots_replace_background; finite_finds_and_guards_separate",
-    "existingOccupancy": "count_existing_interactables_toward_budget_never_overwrite",
+    "existingOccupancy": "zone_coverage_replaces_procedural_biome_and_street_placements_preserve_mapped_POIs_buildings_and_authored_features",
     "priority": [
       "finds",
       "guards",
@@ -73,7 +73,9 @@
       "materialCyclePhase": "repeat_block_indices_in_this_same_poi_frame",
       "preview": "uses_same_declared_origin_for_background_and_poi",
       "noSettledPoi": "resolve_stable_anchor_cell_once_as_fallback"
-    }
+    },
+    "groundPriority": "zone_coverage_overrides_land_zoning_preserve_roads_paths_water_buildings_and_original_land_spawn_restrictions",
+    "faunaOccupancy": "animals_may_share_interactable_cells_do_not_reserve_layout_seats_keep_terrain_and_road_gates"
   },
   "materials": {
     "grass": {

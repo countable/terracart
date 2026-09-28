@@ -12,6 +12,7 @@
     const { N, tx, ty, tileEdgeM, grid } = ctx, coverage = field.coverage || field.idx;
     if (!coverage) return out;
     const opts = ctx.spawnOpts || (ctx.spawnOpts = {}), occ = opts.occupied || (opts.occupied = new Set());
+    const initialOccupied = new Set(occ);
     const step = tileEdgeM / N, ox = tx * tileEdgeM, oy = ty * tileEdgeM;
     const position = (ix, iy) => [ox + (ix + 0.5) * step, oy + (iy + 0.5) * step];
     const chests = new Map();
@@ -31,6 +32,7 @@
         : !!(source[0] >= 0 && source[1] >= 0 && source[0] < N && source[1] < N
           && WG.isBuildingTerrain && WG.isBuildingTerrain(grid[source[1] * N + source[0]]));
       const rec = { anchorKey: a.key, variant: variant.id, eligible: 0, placed: 0, findsRequested: a.owned ? variant.finds.count : 0,
+        background: { planned: 0, placed: 0, occupied: 0, blocked: 0, reserved: 0 },
         findsPlaced: 0, guardsRequested: a.owned ? (variant.guards.count || 0) : 0, guardsPlaced: 0, shortfalls: [] };
       out.diagnostics.push(rec);
       return { a, ai, variant, unit, originX, originY, rotation: V.rotation(a), chest, poi, indoor, cells: [], rec,
@@ -172,10 +174,17 @@
       for (let ix = 0; ix < N; ix++) {
         const i = iy * N + ix, s = states[coverage[i] - 1];
         if (s) {
-          if (s.clear.has(i) || s.poiSlots.has(i) || s.connections.has(i)) continue;
           const material = motifAt(s, ix, iy);
           if (!material) continue;
+          const background = s.rec.background;
+          background.planned++;
+          // Composition replaces the nominal motif; initial occupancy records
+          // competing spawns separately from this generator's finds and guards.
+          if (s.clear.has(i) || s.poiSlots.has(i) || s.connections.has(i)
+              || (occ.has(i) && !initialOccupied.has(i))) { background.reserved++; continue; }
+          if (initialOccupied.has(i)) { background.occupied++; continue; }
           const o = place(s, ix, iy, material, 'background');
+          background[o ? 'placed' : 'blocked']++;
           if (o) { if (o.kind === 'headstone') ground.graves++; else if (o.kind === 'mineralrock') ground.rocks++; else if (o.kind === 'wildplant') ground.fill++; }
         } else if (ctx.fringe) {
           // Preserve unnamed parks' sparse fringe without assigning rewards.

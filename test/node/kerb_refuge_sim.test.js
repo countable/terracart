@@ -241,7 +241,9 @@ test('kerb: the rules live on the lanes that exist (source pins)', () => {
   // or foe is seated at its own class (creatureSpawnClass — a fast one
   // refuses the kerb), a lair point an 'attractor'.
   assert.truthy(/spawnWhy: entry\.spawnWhy,/.test(spawn), 'the shared spawn options carry the gate');
-  assert.truthy(/if \(!WorldGen\.isSpawnCell\(genGrid, N, N, cx, cy, _spawnOpts, creatureSpawnClass\(kindStr\)\)\) return;/.test(spawn), 'fast fauna and foes are dropped from the buffer');
+  assert.truthy(/const spClass = creatureSpawnClass\(kindStr\);/.test(spawn), 'the class comes from each creature kind');
+  assert.truthy(/if \(!WorldGen\.isSpawnCell\(genGrid, N, N, cx, cy, seatOpts, spClass\)\) return;/.test(spawn), 'fast fauna and foes are dropped from the buffer');
+  assert.truthy(/const faunaSpawnOpts = \{ \.\.\._spawnOpts, occupied: null \};/.test(spawn), 'fauna overlap retains every ground and kerb restriction');
   assert.truthy(/&& isFastMover\(c, this\.cellM\)/.test(w), 'only a FAST mover is kept out of the buffer');
   assert.truthy(/relocateToSpawnCell\(genGrid, N, N, ix, iy, lairOpts, LAIR_POINT_SLACK_CELLS, 'attractor'\)/.test(spawn), 'and every lair candidate');
   assert.falsy(/BANDIT_STORY\.attracts/.test(SCENE_CREATURES_SRC), 'no animal is pulled onto a major verge');

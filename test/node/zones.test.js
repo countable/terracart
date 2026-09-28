@@ -11,8 +11,8 @@
 //     every anchor gets the same key, q, R and aspect from every tile that
 //     sees it (the seam rule), with the poi buffer the design relies on.
 //   · THE HALO: a zone repaints ONLY lot / commercial ground (RESIDENTIAL,
-//     COMMERCIAL, WASTELAND) and touches no object, wild plant, chest id or
-//     cave stair (the mine-mouth hazard, design §7.3).
+//     COMMERCIAL, WASTELAND); the full coverage then styles walkable ground
+//     and replaces procedural scatter while preserving places and cave IDs.
 //   · THE NEXUS: every piece is off the road band and off anything already
 //     there, one per cell, position-derived; the nexus chest keeps its id and
 //     wears one tier more.
@@ -159,7 +159,7 @@ test('zones: the ragged edge is a function of the global point, continuous acros
 });
 
 // ── The halo ────────────────────────────────────────────────────────────────
-test('zones: the halo repaints ONLY lot and commercial ground, and only inside a zone', () => {
+test('zones: zone styling owns coverage while roads, paths, water and buildings retain their ground', () => {
   const { on, off, N } = rasterPair();
   assert.truthy(on.zone && on.zone.anchors.length > 0, 'the fixture has a field');
   const over = new Set([T.RESIDENTIAL, T.COMMERCIAL, T.WASTELAND]);
@@ -172,15 +172,18 @@ test('zones: the halo repaints ONLY lot and commercial ground, and only inside a
       continue;
     }
     changed++;
-    assert.truthy(over.has(off.grid[i]), `cell ${i}: only lot/commercial ground changes (was ${off.grid[i]})`);
+    assert.truthy(WorldGen.isWalkable(off.grid[i]) && !WorldGen.isRoadTerrain(off.grid[i]) &&
+      !WorldGen.isBuildingTerrain(off.grid[i]) && ![T.PATH, T.PIER].includes(off.grid[i]),
+      `cell ${i}: transport and structures retain their visible ground`);
+    assert.falsy(on.roadMask[i], `cell ${i}: a visible road band stays untouched`);
     assert.eq(on.zone.under[i], off.grid[i], `cell ${i}: the land it painted over is recorded`);
-    if (!(on.zone.idx[i] > 0)) {
+    if (!(on.zone.coverage[i] > 0)) {
       // …or the PARK FRINGE (zone_ground.test.js pins its reach).
       assert.includes([T.GROVE, T.CHURCHYARD], on.grid[i], `cell ${i}: the fringe paints a park's halo`);
       byKind.fringe = (byKind.fringe || 0) + 1;
       continue;
     }
-    const kind = on.zone.anchors[on.zone.idx[i] - 1].kind;
+    const kind = on.zone.anchors[on.zone.coverage[i] - 1].kind;
     assert.eq(on.grid[i], Z.terrainOf(kind), `cell ${i}: the winner's own terrain`);
     byKind[kind] = (byKind[kind] || 0) + 1;
   }
@@ -188,18 +191,28 @@ test('zones: the halo repaints ONLY lot and commercial ground, and only inside a
   assert.truthy(byKind.grove && byKind.stones && byKind.tar, `all three kinds painted: ${JSON.stringify(byKind)}`);
   for (const k of Object.keys(off.pathUnder)) {
     if (off.pathUnder[k] !== on.pathUnder[k]) {
-      assert.truthy(over.has(off.pathUnder[k]) && zoneCodes.has(on.pathUnder[k]), `path ${k}: lot ground under a path only`);
+      assert.truthy(WorldGen.isWalkable(off.pathUnder[k]) && zoneCodes.has(on.pathUnder[k]), `path ${k}: style the walkable land below visible cobbles`);
     }
   }
 });
 
-test('zones: no generated object, wild plant or chest id moves (every older stream is untouched)', () => {
-  const { on, off } = rasterPair();
+test('zones: covered ambience is replaced while every preserved item keeps its id and position', () => {
+  const { on, off, N, edge } = rasterPair();
+  const keep = o => {
+    const x = Math.floor((o.x - TILE_TX * edge) / (edge / N));
+    const y = Math.floor((o.y - TILE_TY * edge) / (edge / N));
+    return !(/^(wp|hr|hm|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id) && on.zone.coverage[y * N + x]);
+  };
   const sig = (arr) => arr.map((o) => `${o.kind}|${o.id}|${o.x.toFixed(3)}|${o.y.toFixed(3)}|${o.crop || ''}`).join('\n');
-  assert.eq(sig(on.objects), sig(off.objects), 'the same objects, same ids, same places');
-  assert.eq(sig(on.wildplants), sig(off.wildplants), 'the same wild plants');
+  assert.eq(sig(on.objects), sig(off.objects.filter(keep)), 'preserved objects keep ids and positions');
+  assert.eq(sig(on.wildplants), sig(off.wildplants.filter(keep)), 'preserved wild plants keep ids and positions');
+  assert.gt(off.wildplants.length - on.wildplants.length, 0, 'covered legacy flora is actually replaced');
   assert.eq(JSON.stringify(on.streetDress && on.streetDress.objects.map((o) => o.id)),
-    JSON.stringify(off.streetDress && off.streetDress.objects.map((o) => o.id)), 'the street dressing is laid first, unchanged');
+    JSON.stringify(off.streetDress && off.streetDress.objects.filter(o => {
+      const x = Math.floor((o.x - TILE_TX * edge) / (edge / N));
+      const y = Math.floor((o.y - TILE_TY * edge) / (edge / N));
+      return !on.zone.coverage[y * N + x];
+    }).map((o) => o.id)), 'street dressing survives only outside zone coverage');
 });
 
 test('zones: the trap ground is the LAND\'s — a repainted waste lot stays trap ground', () => {
@@ -216,11 +229,12 @@ test('zones: the trap ground is the LAND\'s — a repainted waste lot stays trap
     'spawnInTile hands the traps the land\'s class');
 });
 
-test('zones: the mine mouths do not move (the stair pass never sees a zone piece)', () => {
+test('zones: mine mouths retain their original source when zone layouts replace mineral clusters', () => {
   const { on, off, N, edge } = rasterPair();
   const stairs = (r) => {
     const entry = { grid: r.grid, cellsPerEdge: N, objects: r.objects.slice(), wildplants: r.wildplants.slice(),
-      roadMask: r.roadMask, poiPadCells: r.poiPadCells };
+      zone: r.zone, roadMask: r.roadMask, poiPadCells: r.poiPadCells,
+      spawnWhy: r.spawnWhy, quietMask: r.quietMask, roadClass: r.roadClass };
     WorldGen.maybePlaceCaveEntrance(entry, TILE_TX, TILE_TY, edge, r.objects, r.wildplants);
     return entry.objects.filter((o) => o.kind === 'staircase').map((o) => o.id).sort().join(',');
   };

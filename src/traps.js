@@ -180,7 +180,7 @@
   // What this is NOT: a verge rule (isRoadside is gone) and not the goblin
   // trapper's snare (canLay — session state, but it refuses the same buffer).
   const TRAP_ROAD_CLEAR_CELLS = 2;
-  const landAt = (grid, under, i) => (under && under[i]) || grid[i];
+  const landAt = (grid, under, i) => root.Zones.landAt(grid, under, i);
   function isRoadCode(T, t) { return t === T.ROAD || t === T.ROAD_MD || t === T.ROAD_LG; }
   // Is any road cell within TRAP_ROAD_CLEAR_CELLS of (cx, cy)? ALLOWLISTED
   // raw roadMask read (spawn_gate_sweep.test.js): GEOMETRY, not the gate —
@@ -201,7 +201,7 @@
     return false;
   }
   // `under` (optional): the codes an influence zone's HALO painted over
-  // (src/zones.js — entry.zone.under, 0 = untouched): the park test reads the
+  // (src/zones.js — entry.zone.under, optional presence mask): the park test reads the
   // LAND's class, so the zones never move a trap. `roadMask` (optional): the
   // drawn band — spawnSurface passes the spawn options' own.
   function isTrapGround(grid, roadClass, w, h, cx, cy, under, roadMask) {
