@@ -6343,8 +6343,9 @@
       objects, wildplants, parkingTreasures: [], extraTreasures, caveCoinSeeds,
       roadLabels: {}, pathUnder: {}, torchSites,
       // The generated layer, frozen for the level below (see loadTile): app.js
-      // digs walls into `grid` and lays the home up-stair into `objects`.
-      baseGrid: grid.slice(), genObjects: objects.slice(),
+      // digs walls into `grid`, filters flora and lays the home up-stair into
+      // the live lists.
+      baseGrid: grid.slice(), genObjects: objects.slice(), genWildplants: wildplants.slice(),
     };
     cache.set(key, entry);
     pruneCache(cache, key);
