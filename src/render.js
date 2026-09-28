@@ -364,7 +364,9 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure)
   hidePoolFrom(pool, i);
 };
 
-// The SHINE on a shiny: a bright band that sweeps across the sprite's own
+// A persistent gold halo makes shinies visible even on fully lit ground,
+// where the multiply lightmap cannot brighten them further. The SHINE is
+// a bright band that sweeps across the sprite's own
 // pixels (Phaser 3.60+ preFX Shine), so the glint is ON the object rather
 // than a star hovering over it. WebGL-only — under the Canvas fallback the
 // FX draws nothing (Phaser may still hand out a preFX controller), so the
@@ -377,16 +379,28 @@ Render.renderPool = function renderPool(scene, pool, container, list, configure)
 const SHINE_SPEED = 0.35;       // sweeps per second, roughly — a slow glint, not a strobe
 const SHINE_LINE_W = 0.35;      // the band's width, as a fraction of the sprite
 const SHINE_GRADIENT = 3;       // how soft the band's edges are
+const SHINY_GLOW_PADDING = 12; // texture pixels reserved around the silhouette
 Render.setShine = function setShine(s, on, id) {
   const fx = s && s.preFX;
   if (!fx) return false;
   if (on) {
+    if (!s._shinyGlowFx) {
+      s._shinyGlowPadding = fx.padding;
+      fx.setPadding(Math.max(fx.padding, SHINY_GLOW_PADDING));
+      s._shinyGlowFx = fx.addGlow(SHINY_TINT, 4, 0.5, false);
+    }
     if (!s._shineFx) s._shineFx = fx.addShine(SHINE_SPEED, SHINE_LINE_W, SHINE_GRADIENT, false);
     return true;
   }
   if (s._shineFx) {
     fx.remove(s._shineFx);
     s._shineFx = null;
+  }
+  if (s._shinyGlowFx) {
+    fx.remove(s._shinyGlowFx);
+    s._shinyGlowFx = null;
+    fx.setPadding(s._shinyGlowPadding);
+    s._shinyGlowPadding = null;
   }
   return false;
 };
