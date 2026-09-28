@@ -69,6 +69,7 @@
     <input id="dmax" type="number" value="20" min="0" style="width:3.5em"></div>
   <div id="dstats" style="margin-top:4px"></div>
   <h3>Placed things</h3>
+  <div id="scope" style="color:#888;margin:-2px 0 6px"></div>
   <div><button id="all">all</button><button id="none">none</button></div>
   <div id="kinds"></div>
   <h3>Terrain legend</h3><div id="legend"></div>
@@ -296,6 +297,11 @@ function draw(world, home) {
   for (const g of world.guards) add('enemy: garrison', toLL(g.x, g.y, EDGE), 'hard-mode garrison · ' + g.kind, g.id, g.x, g.y);
   add('Home', toLL(home.x, home.y, EDGE), 'Home', '');
   const kinds = Object.keys(groups).sort();
+  // WHAT the counts cover: every loaded tile, with the per-tile average beside.
+  const nT = world.tiles.length, side = Math.round(Math.sqrt(nT));
+  $('scope').textContent = `Counts over ${nT} loaded tile${nT === 1 ? '' : 's'}`
+    + (side * side === nT && nT > 1 ? ` (${side}×${side}, ~${(EDGE / 1000).toFixed(1)} km each)` : ` (~${(EDGE / 1000).toFixed(1)} km each)`)
+    + ' — total, then per tile.';
   $('kinds').innerHTML = '';
   kinds.forEach((k, i) => {
     const lg = L.layerGroup();
@@ -309,7 +315,10 @@ function draw(world, home) {
     const on = state.shown[k] ?? onByDefault(k);
     if (on && !state.markersOff) lg.addTo(map);
     drawn.push(lg);
-    mkRow($('kinds'), 'checkbox', `${shapeSwatch(shapeOf(k), colour(k, i))}${k}<span class="n">${groups[k].length}</span>`,
+    const tot = groups[k].length, per = tot / world.tiles.length;
+    mkRow($('kinds'), 'checkbox', `${shapeSwatch(shapeOf(k), colour(k, i))}${k}`
+      + `<span class="n" title="total over the loaded tiles">${tot.toLocaleString()}</span>`
+      + `<span class="n" style="margin-left:8px;min-width:4.2em;text-align:right" title="average per tile">${k === 'Home' ? '' : (per >= 10 ? Math.round(per) : per.toFixed(1)) + '/tile'}</span>`,
       on, (v) => { state.shown[k] = v; (v && !state.markersOff) ? lg.addTo(map) : map.removeLayer(lg); density(); });
     state.layers[k] = lg;
   });
