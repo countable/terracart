@@ -584,12 +584,10 @@ test('tips: the shiny multiplier quotes PRICES', () => {
   assert.truthy(someTip(/ten times its plain kind/i), 'and a tip says so');
 });
 
-test('descriptions: the coffee line quotes COFFEE_BOOT_BOOST', () => {
-  const m = APP_JS_SRC.match(/const COFFEE_BOOT_BOOST = (\d+);/);
-  assert.truthy(m, 'app.js still owns the boost');
-  assert.eq(Number(m[1]), 2, 'a coffee is worth two boot tiers, not one');
-  assert.truthy(/\+2 boot tiers/.test(ITEM_EFFECTS.coffee),
-    'and the inventory effect line says two — it read "+1" for a while');
+test('descriptions: coffee explains its movement effect', () => {
+  assert.truthy(/walk faster.*control stick/.test(ITEM_EFFECTS.coffee),
+    'the effect names faster control-stick walking');
+  assert.truthy(/3 min/.test(ITEM_EFFECTS.coffee), 'the duration remains visible');
 });
 
 test('tips: the gem ladder is the table interactables.js rolls', () => {

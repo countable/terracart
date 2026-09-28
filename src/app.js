@@ -9278,7 +9278,7 @@ class MapScene extends Phaser.Scene {
       if (jumped > 0) extra += `\n🌱 ${jumped} sprang ahead a stage`;
     } else if (sel.id === 'coffee') {
       this.save.coffeeUntil = Date.now() + COFFEE_BUFF_MS;
-      extra = `\n☕ boot speed: +${COFFEE_BOOT_BOOST} tier, 3 min`;
+      extra = `\n☕ faster stick walking, 3 min`;
     }
     if (firstTaste) extra += `\n🍽 first taste: +${Energy.tasteBonus(sel.id)} max ⚡`;
     // Armed only now, after a bite has actually landed.
@@ -14169,15 +14169,36 @@ class MapScene extends Phaser.Scene {
   // is THE way to use a self-targeted consumable: the old tap-your-own-feet
   // gesture (interact.js 'use-consumable') was removed because it was easy
   // to trigger accidentally while tilling / planting under the player.
+  hatchEgg() {
+    const selectedId = this.save.inv?.[this.save.selSlot]?.id;
+    const result = EggHatch.hatch(this.save);
+    if (!result.ok) {
+      if (result.reason === 'full') this.flash('Make room for a pet first.');
+      return false;
+    }
+    this._eggHatchTracker = null;
+    this.save.selSlot = this.save.inv.findIndex(item => item.id === selectedId);
+    this._clampSelSlot();
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    const pet = ITEM_BY_ID[result.petId];
+    this.flashLoot(`Hatched ${pet.name}!`, UI_GREEN, 1, result.petId);
+    return true;
+  }
+
   syncConsumableButton() {
     const sel = this.save.inv?.[this.save.selSlot];
     const existing = document.getElementById('consumable-btn');
     const CONSUMABLE = {
+      egg: { verb: 'Hatch', method: 'hatchEgg', title: 'Hatch the egg?',
+             get: 'a random pet in your bag, ready to release',
+             label: () => EggHatch.ready(this.save) ? 'Hatch' : `Hatch · ${EggHatch.remaining(this.save)} m left`,
+             disabled: () => !EggHatch.ready(this.save), usable: () => EggHatch.ready(this.save) },
       book:  { verb: 'Read', method: 'readBook',  title: 'Read the book?',  get: '📖 a tip from the elders' },
       honey: { verb: 'Use',  method: 'useHoney',  title: 'Set out the honey?', get: '🍯 lure nearby chickens & cows' },
       reach_potion:  { verb: 'Drink', method: 'drinkReachPotion',  title: 'Drink the Potion of Reach?',     get: `✨ reach anything in sight for ${shortDuration(REACH_POTION_MS)}`, channel: true },
       vigor_potion:  { verb: 'Drink', method: 'drinkVigorPotion',  title: 'Drink the Potion of Vigor?',     get: 'restore 40 energy' },
-      speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: `tier-${SPEED_POTION_AMULET_TIER} boots + amulet walking for ${shortDuration(SPEED_POTION_MS)}`, channel: true },
+      speed_potion:  { verb: 'Drink', method: 'drinkSpeedPotion',  title: 'Drink the Potion of Speed?',     get: `much faster, cheaper stick walking for ${shortDuration(SPEED_POTION_MS)}`, channel: true },
       shield_potion: { verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?', get: `half monster damage for ${shortDuration(SHIELD_POTION_MS)}`, channel: true },
       raven_potion:  { verb: 'Drink', method: 'drinkRavenPotion',  title: 'Drink the Potion of the Raven?', get: `🐦 a spirit raven hunts foes & pest crows for ${shortDuration(SPIRIT_RAVEN_MS)}`, channel: true },
       thunder_potion: { verb: 'Drink', method: 'drinkThunderPotion', title: 'Drink the Potion of Thunder?', get: `⚡ every foe in sight takes ${THUNDER_DMG} damage, and the rest flee` },
@@ -14193,7 +14214,7 @@ class MapScene extends Phaser.Scene {
       resurrection_potion: { verb: 'Drink', method: 'drinkRevivePotion', title: 'Drink the Potion of Resurrection?',
                              get: () => this._reviveGetLine('resurrection_potion'),
                              usable: () => Combat.playerDowned(this.save.energy) },
-      dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: `🐉 become a dragon for ${shortDuration(DRAGON_POWDER_MS)} — tier-${DRAGON_AMULET_TIER} boots + amulet walking + 2× damage` },
+      dragon_powder: { verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',       get: `🐉 become a dragon for ${shortDuration(DRAGON_POWDER_MS)} — faster, cheaper stick walking + 2× damage` },
       growth_powder: { verb: 'Use', method: 'useGrowthPowder', title: 'Use the Growth Powder?',       get: `🌱 every crop within ${GROWTH_POWDER_R_M}m springs ahead a stage` },
       shadow_powder: { verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',       get: `🌑 monsters ignore you for ${shortDuration(SHADOW_POWDER_MS)} — no stalking, no hits` },
       frost_powder:  { verb: 'Use', method: 'useFrostPowder',  title: 'Use the Frost Powder?',        get: `❄ every enemy in reach frozen for ${shortDuration(FROST_POWDER_MS)}` },
@@ -14215,8 +14236,17 @@ class MapScene extends Phaser.Scene {
     const cfg = sel && CONSUMABLE[sel.id];
     if (!cfg || (sel.count ?? 0) <= 0) { existing?.remove(); return; }
     const iconHtml = this.iconSpanHTML(sel.id, 20);
-    const label = `${iconHtml} ${cfg.verb}`;
-    if (existing) { existing.innerHTML = label; existing.dataset.id = sel.id; return; }
+    const label = `${iconHtml} ${cfg.label ? cfg.label() : cfg.verb}`;
+    const syncState = button => {
+      button.disabled = !!cfg.disabled?.();
+      button.style.opacity = button.disabled ? '0.55' : '1';
+      button.style.cursor = button.disabled ? 'default' : 'pointer';
+      // Eggs keep Eat and Hatch available without overlapping the controls.
+      button.style.bottom = sel.id === 'egg'
+        ? 'calc(46px + env(safe-area-inset-bottom, 0px))'
+        : 'calc(4px + env(safe-area-inset-bottom, 0px))';
+    };
+    if (existing) { existing.innerHTML = label; existing.dataset.id = sel.id; syncState(existing); return; }
     const btn = document.createElement('button');
     btn.id = 'consumable-btn';
     btn.dataset.id = sel.id;
@@ -14235,6 +14265,7 @@ class MapScene extends Phaser.Scene {
       'color:#ffe066;border:2px solid #c8a64a;' +
       'font:700 12px ui-monospace,monospace;';
     btn.innerHTML = label;
+    syncState(btn);
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const id = btn.dataset.id;

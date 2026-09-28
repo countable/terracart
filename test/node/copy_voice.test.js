@@ -379,27 +379,30 @@ test('copy: no player-facing refusal is a bare lowercase fragment', () => {
 test('copy: a consumable dialog reads as a sensation, not a stat line', () => {
   // The powders and the Torch were written this way; the potions lagged, and
   // two of them had a relic TIER in the middle of the prose ("tier-9 amulet
-  // walking for one minute") — a number that already lives on the potion's own
-  // ✦ line, where a player reads it while holding the flask.
+  // walking for one minute"). Item descriptions explain the effect in plain words.
   const bodies = APP_JS_SRC.match(/_finishConsumable\(\s*[\s\S]{0,400}?\);/g) || [];
   assert.gt(bodies.length, 6, 'the consumable dialogs are still findable');
   for (const b of bodies) {
     assert.falsy(/tier-\d+ amulet/i.test(b), 'no dialog quotes a relic tier: ' + b.slice(0, 90));
   }
-  // The effect lines are where the numbers belong, and they still carry them.
-  assert.truthy(/tier-9 boots \+ amulet/.test(ITEM_EFFECTS.speed_potion),
-    'the speed potion still states its tier where the player can re-read it');
 });
 
-test('copy: the Drink / Use dialog lines derive their durations and tiers', () => {
-  // syncConsumableButton's CONSUMABLE table quoted '1 min', 'tier-9' and
-  // 'tier-8' as typed text beside the constants that decide them.
+test('copy: item descriptions explain effects without tier jargon', () => {
+  const descriptions = [
+    ...Object.values(ITEM_EFFECTS),
+    ...Object.values(RELIC_DEFS).map(def => def.blurb || ''),
+    ...Object.values(ARMOR_DEFS).map(def => def.blurb || ''),
+  ];
+  for (const text of descriptions) {
+    assert.falsy(/\btiers?\b/i.test(text), 'plain item description: ' + text);
+  }
+});
+
+test('copy: the Drink / Use descriptions derive durations and omit tiers', () => {
   const m = APP_JS_SRC.match(/\n    const CONSUMABLE = \{([\s\S]*?)\n    \};/);
   assert.truthy(m, 'the CONSUMABLE table is findable');
   assert.falsy(/\b1 min\b/.test(m[1]), 'no hand-typed "1 min"');
-  assert.falsy(/tier-\d/.test(m[1]), 'no hand-typed relic tier');
-  assert.truthy(/tier-\$\{SPEED_POTION_AMULET_TIER\}/.test(m[1]), 'the speed potion quotes its constant');
-  assert.truthy(/tier-\$\{DRAGON_AMULET_TIER\}/.test(m[1]), 'the dragon powder quotes its constant');
+  assert.falsy(/tier-/.test(m[1]), 'descriptions do not expose gear tiers');
   for (const k of ['REACH_POTION_MS', 'SPEED_POTION_MS', 'SHIELD_POTION_MS', 'DRAGON_POWDER_MS', 'SHADOW_POWDER_MS']) {
     assert.truthy(new RegExp('shortDuration\\(' + k + '\\)').test(m[1]), k + ' is quoted through shortDuration');
     assert.truthy(new RegExp('Date\\.now\\(\\) \\+ ' + k + ';').test(APP_JS_SRC), k + ' is also what starts the buff');

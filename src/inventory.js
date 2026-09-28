@@ -62,6 +62,7 @@
     const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID[id] : null;
     if (!item || n <= 0) return { valid: false, accepted: 0, rejected: 0, isNewStack: false };
 
+    const startingEgg = id === 'egg' && count(save, 'egg') === 0;
     const cap = stackCapFor(save, id);
     save.inv = save.inv || [];
     // Fold any duplicate stacks for this id into one canonical stack — the
@@ -82,6 +83,10 @@
     const accepted = Math.min(room, n);
     stack.count = (stack.count || 0) + accepted;
     const rejected = n - accepted;
+    if (startingEgg && accepted > 0) {
+      save.eggHatchM = 0;
+      save.eggHatchSession = (Number(save.eggHatchSession) || 0) + 1;
+    }
 
     return { valid: true, accepted, rejected, isNewStack };
   }
@@ -102,6 +107,7 @@
       left -= take;
       if (s.count <= 0) inv.splice(i, 1);
     }
+    if (id === 'egg' && count(save, 'egg') === 0) save.eggHatchM = 0;
     return n - left;
   }
 

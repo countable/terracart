@@ -1188,20 +1188,23 @@ const PLAY_TIPS = [
 // secret the player only learns from a Book. Keyed by item id; absent = no
 // special effect (a plain crop / mineral that's just worth money or energy).
 
+const EGG_HATCH_METERS = 500;
+
 const ITEM_EFFECTS = {
+  egg: `Walk ${EGG_HATCH_METERS}m with GPS and the game open to hatch one carried egg into a random pet`,
   // Not a secret: the charm is a cash-shop mechanic the player otherwise only
   // meets by accident (tapping a shop with Flowers selected).
   flowers:   `Gift to a shopkeeper: half prices there for ${shortDuration(SHOP_CHARM_MS)}`,
   // Foods with a side-effect when eaten (on top of their energy restore).
   rainberry: 'Eat to water every crop within 20m',
   pairy:     'Eat to reveal the nearest unfound chest for 5 min',
-  coffee:    'Eat for +2 boot tiers of stick-walking speed (3 min)',
+  coffee:    'Eat to walk faster with the control stick (3 min)',
   // Universal tame treat — fed to any wild creature. Cave monsters are the
   // one exception, and the line says so: it is the only place that caveat is
   // written now that the Book no longer repeats the mango's effect.
   mango:     'Feed to tame any wild animal — never a cave monster',
   // An ingredient: the Craft page at Home is the only place that says so.
-  longgrass: 'Twist 3 into a Rope on Home\'s Craft page',
+  longgrass: 'Twist 5 into a Rope on Home\'s Craft page',
   // A rock is both: an ingredient (the Craft page's kit) and a placeable
   // (interact.js 'place-rock' — held-and-tapped, so the line has to say so).
   rockfruit: 'Set on a bare tile as a stone; 4 make a Trap Disarm Kit',
@@ -1213,7 +1216,7 @@ const ITEM_EFFECTS = {
   // riddle in PLAY_TIPS — which is what makes it a secret rather than a label.
   sapphire:  'Use to open a portal one level down',
   // The Frost jewel: where it comes from and what it is for, in one line.
-  diamond:   'Mined from Frost-tier ore; Frost jewelry is cut around it',
+  diamond:   'Mined from Frost ore; Frost jewelry is cut around it',
   // The one FOOD that still works through the hard-mode zero-energy lockout
   // (see PLAY_TIPS; the revival potions are drunk, not eaten) — a tenth of
   // the bar (REVIVE_ITEM_FRAC). Never a normal food: it carries no
@@ -1225,7 +1228,7 @@ const ITEM_EFFECTS = {
   book:         'Read for a play tip or a hint toward a chest',
   reach_potion:  'Drink to reach anything in sight (1 min)',
   vigor_potion:  'Drink to restore 40 energy',
-  speed_potion:  'Drink for tier-9 boots + amulet walking (1 min)',
+  speed_potion:  'Drink for faster control-stick walking at lower energy cost (1 min)',
   shield_potion: 'Drink for half monster damage (1 min)',
   blight_potion: 'Drink to hurt foes near you 2 HP/s (1 min)',
   raven_potion:  `Drink: a spirit raven hunts foes & pests for ${shortDuration(SPIRIT_RAVEN_MS)}`,
@@ -1392,7 +1395,7 @@ const RELIC_DEFS = {
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'auto-shoots along the compass · 1 wood/20 shots · cheaper buys' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'bolt',          blurb: 'ranged: seeks the nearest foe · 1⚡ a bolt · bigger bolt per tier' },
+             effectKey: 'bolt',          blurb: 'ranged: seeks the nearest foe · 1⚡ a bolt' },
   // Watering can — HOW SOON, not what. Every watering has a tier/7 chance
   // (Crops.waterJumpChance) of springing the plant a whole growth stage on the
   // spot: nothing bare-handed, certain at Frost. It used to set produce
@@ -1400,7 +1403,7 @@ const RELIC_DEFS = {
   // quality is the HOE's now (it belongs to the bed, see Crops.bedQuality)
   // and the charge bank retired with it.
   can:     { slot: 'can',    name: 'Watering Can', icon: 'Watering can.png', baseCost: 100,
-             effectKey: 'waterJump',     blurb: 'a watering may leap the plant forward · surer per tier' },
+             effectKey: 'waterJump',     blurb: 'a watering may leap the plant forward a growth stage' },
   // Hoe — the tilling tool, and the one that sets a BED'S QUALITY. Three
   // effects, all per tier: the till wheel shortens on the shared tool ladder;
   // the energy cost drops (floor(tier/3) off the base 2, floored at 1) with a
@@ -1482,7 +1485,7 @@ const ARMOR_DEFS = {
   chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 165 },
   legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150 },
   boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost: 130,
-           blurb: 'faster stick walking per tier; reduces trap damage' },
+           blurb: 'faster control-stick walking; reduces trap damage' },
 };
 function gearDef(kind, slot) {
   return kind === 'relic' ? RELIC_DEFS[slot] : (kind === 'armor' ? ARMOR_DEFS[slot] : null);

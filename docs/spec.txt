@@ -726,6 +726,17 @@ ORCHARD FRUIT TREES
    worked orchard still reads as an orchard and what's ripe reads at a glance.
 
 ================================================================================
+EGG HATCHING
+================================================================================
+ - EGGS: one carried egg incubates per 500m of accepted GPS walking with the
+   game open (EGG_HATCH_METERS). Stick/debug travel does not count. Progress
+   saves across sessions, but GPS gaps, jumps and unreliable fixes do not.
+   Selecting an egg shows Eat and a disabled "Hatch · N m left" action. At
+   zero metres remaining Hatch enables, consumes one egg, and puts a random
+   pet-shop animal in the bag for release. The next egg starts from zero;
+   a full rolled-pet stack leaves the ready egg intact.
+
+================================================================================
 FISHING
 ================================================================================
  - THE STARTER POND: nothing about a spawn promises water within walking

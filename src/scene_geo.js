@@ -140,6 +140,7 @@ class SceneGeo {
 
     // Visibility lifecycle: pause game + GPS when hidden, resume on return.
     const onVis = () => {
+      this._eggHatchTracker = null;
       if (document.visibilityState === 'hidden') {
         // Pause Phaser's render+update loop — saves CPU/battery while backgrounded.
         if (this.game && !this.game.isPaused) this.game.pause();
@@ -212,6 +213,24 @@ class SceneGeo {
   }
 
   // === GPS ===
+  // Credit physical fixes only, independently of the stick or animated body.
+  // The anchor stays session-local so reopening the game cannot bank a jump.
+  _trackEggHatch(pos) {
+    if (this._sandboxMode || this._gpsManualOverride || _teleportOverride || document.hidden) {
+      this._eggHatchTracker = null;
+      return;
+    }
+    const result = EggHatch.track(this.save, this._eggHatchTracker, {
+      lat: pos.coords.latitude, lon: pos.coords.longitude,
+      accuracy: pos.coords.accuracy, timestamp: pos.timestamp,
+    });
+    this._eggHatchTracker = result.tracker;
+    if (result.changed) {
+      persistSave(this.save);
+      if (this.save.inv?.[this.save.selSlot]?.id === 'egg') this.syncConsumableButton();
+    }
+  }
+
   startGps() {
     // Sandbox mode parks the player at a synthetic biome-grid plot and uses
     // keyboard / joystick movement only — GPS would snap them away to their
@@ -227,6 +246,7 @@ class SceneGeo {
     // than per origin, every extra watchPosition can mean another prompt.
     if (this.gpsWatchId != null) return;
     this.gpsAvailable = true;
+    this._eggHatchTracker = null;
     // Safety net: if no fix ever arrives, stop waiting for home capture after
     // 2 min so the start flow falls back to the default origin rather than
     // hang forever. Generous on purpose: a cold GPS start indoors routinely
@@ -260,6 +280,7 @@ class SceneGeo {
       this.gpsWatchId = Geo.subscribe(
         pos => {
           const { latitude, longitude } = pos.coords;
+          this._trackEggHatch(pos);
           // First GPS fix on a brand-new save: freeze THIS location as the
           // save's home origin and reload so the whole projection re-anchors
           // here. Only reload after VERIFYING the write landed (read it back) —
