@@ -389,12 +389,37 @@ function density() {
     + `<br><span style="color:#888">${counted.toLocaleString()} things counted (the ticked kinds)</span>`;
 }
 
+// TERRAIN FAMILIES — a review palette, NOT the game's (the game's COLORS
+// are deliberately muted khaki and olive, too close to tell apart in an
+// overlay). Each family owns a hue; its members step in lightness, so related
+// ground reads as related: greens grow, blues are wet, greys are paved, brick
+// is built, and so on. A terrain no family names falls to 'Other'.
+const TERRAIN_FAMILIES = [
+  { name: 'Vegetation', hue: 110, sat: 55, members: ['GRASS', 'PARK', 'PITCH', 'PLAYGROUND', 'GOLF', 'SCHOOL', 'ORCHARD', 'FARMLAND', 'FOREST'] },
+  { name: 'Water', hue: 200, sat: 70, members: ['WATER', 'WETLAND', 'PIER'] },
+  { name: 'Paved', hue: 220, sat: 6, members: ['PATH', 'ROAD', 'ROAD_MD', 'ROAD_LG'] },
+  { name: 'Buildings', hue: 8, sat: 60, members: ['BUILDING', 'BUILDING_MED', 'BUILDING_LARGE'] },
+  { name: 'Built-up land', hue: 280, sat: 45, members: ['RESIDENTIAL'] },
+  { name: 'Commerce & industry', hue: 30, sat: 75, members: ['COMMERCIAL', 'INDUSTRIAL'] },
+  { name: 'Sand & rock', hue: 42, sat: 40, members: ['SAND', 'ROCK'] },
+  { name: 'Cave', hue: 15, sat: 30, members: ['CAVE_FLOOR', 'CAVE_WALL', 'CAVE_LAVA'] },
+];
+const TERRAIN_COLOUR = {}, TERRAIN_FAMILY = {};
+for (const f of TERRAIN_FAMILIES) {
+  f.members.forEach((m, i) => {
+    const n = f.members.length;
+    const light = n === 1 ? 55 : Math.round(72 - (i / (n - 1)) * 40);   // light → dark within the family
+    TERRAIN_COLOUR[m] = m === 'CAVE_LAVA' ? 'hsl(10,90%,50%)' : `hsl(${f.hue},${f.sat}%,${light}%)`;
+    TERRAIN_FAMILY[m] = f.name;
+  });
+}
+
 // Overlays: the road mask and the terrain codes, one pixel per cell, per tile.
 function overlays(world) {
   const groups = { 'Road mask (no spawns)': L.layerGroup(), 'Terrain codes': L.layerGroup() };
   const names = Object.fromEntries(Object.entries(WorldGen.T).map(([k, v]) => [v, k]));
   const used = new Set();
-  const hue = (c) => `hsl(${Math.round(c * 137.508 % 360)},55%,50%)`;
+  const hue = (c) => TERRAIN_COLOUR[names[c]] || 'hsl(0,0%,50%)';
   for (const e of world.tiles) {
     const N = e.cellsPerEdge;
     const mk = (paint) => { const c = document.createElement('canvas'); c.width = N; c.height = N; const g = c.getContext('2d'); paint(g); return c.toDataURL(); };
@@ -415,8 +440,16 @@ function overlays(world) {
     }
   });
   mkRow($('ovl'), 'checkbox', 'Density per game view', false, (on) => { densityOn = on; on ? densityLayer.addTo(map) : map.removeLayer(densityLayer); });
-  $('legend').innerHTML = [...used].sort((a, b) => a - b)
-    .map((c) => `<div><span class="sw sq" style="background:${hue(c)}"></span> ${names[c] || c}</div>`).join('');
+  // Legend grouped by family, in the families' order, members in theirs.
+  const present = new Set([...used].map((c) => names[c] || String(c)));
+  const blocks = [];
+  for (const f of [...TERRAIN_FAMILIES, { name: 'Other', members: [...present].filter((m) => !TERRAIN_FAMILY[m]) }]) {
+    const here = f.members.filter((m) => present.has(m));
+    if (!here.length) continue;
+    blocks.push(`<div style="color:#aaa;margin-top:6px">${f.name}</div>` + here.map((m) =>
+      `<div style="padding-left:6px"><span class="sw sq" style="background:${TERRAIN_COLOUR[m] || 'hsl(0,0%,50%)'}"></span> ${m.toLowerCase().replace(/_/g, ' ')}</div>`).join(''));
+  }
+  $('legend').innerHTML = blocks.join('');
 }
 
 // ── TUNING: sliders over the shipped density tables ─────────────────────────
