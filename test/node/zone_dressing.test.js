@@ -142,8 +142,12 @@
     chestCtx.chests.push({ kind: 'chest', id: 'church', _poiAt: `${a.lx},${a.ly}`, x: 35.5 * cell, y: 33.5 * cell });
     chestCtx.spawnOpts.occupied.add(33 * chestCtx.N + 35);
     const chestOut = ZoneDressing.dress(chestCtx);
-    assert.eq(chestCtx.chests[0].zoneNexus, 'grove');
-    assert.eq(chestOut.objects.filter(o => o.kind === 'grove_shrine').length, 1);
+    assert.eq(chestCtx.chests[0].kind, 'grove_shrine');
+    assert.eq(chestCtx.chests[0].id, 'church', 'replacement keeps the POI identity');
+    assert.eq(chestCtx.chests[0].zoneNexus, undefined, 'daily shrine has no chest tier bonus');
+    assert.eq(chestOut.objects.filter(o => o.kind === 'grove_shrine').length, 0, 'no extra adjacent shrine');
+    assert.eq(chestOut.nexus[0].chestId, null);
+    assert.eq(chestOut.nexus[0].poiId, 'church');
     for (const o of all(chestOut).filter(o => o.zoneLayer === 'poi')) assert.eq(Math.max(Math.abs(o._ix - 35), Math.abs(o._iy - 33)), 1);
   });
   test('zone dressing: different tile-row grids sample the same anchor phase across their seam', () => {

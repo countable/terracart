@@ -83,9 +83,9 @@
       }
       return null;
     }
-    if (b.type === 'bounded_line_grid') {
+    if (b.type === 'line_grid' || b.type === 'bounded_line_grid') {
       const step = b.spacingCells;
-      if (u < 0 || v < 0 || u > b.plots[0] * step || v > b.plots[1] * step) return null;
+      if (b.type === 'bounded_line_grid' && (u < 0 || v < 0 || u > b.plots[0] * step || v > b.plots[1] * step)) return null;
       const horizontal = mod(v, step) < b.lineWidthCells;
       const vertical = mod(u, step) < b.lineWidthCells;
       if (horizontal && vertical) return b.intersectionMaterial;
@@ -106,7 +106,10 @@
     if (b.type === 'repeat_motif') {
       const [w, h] = b.repeatCells;
       const material = slotAt(b, mod(u, w), mod(v, h));
-      return material ? cycle(material, Math.floor(u / w), Math.floor(v / h)) : null;
+      if (material) return cycle(material, Math.floor(u / w), Math.floor(v / h));
+      const scatter = b.gapScatter;
+      return scatter && unitHash(`${anchorKey}|${variant.id}|${u}|${v}|gap`) < scatter.chance
+        ? scatter.material : null;
     }
     return null;
   }

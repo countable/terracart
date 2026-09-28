@@ -135,15 +135,18 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   spawns, never add, each species on its own stream. SLOW is a reason inside `_bodyHold`
   fed by `entry.slowCells` (`StreetVariants.SLOW_KINDS`); a new slowing
   hazard joins that map, never a new movement gate.
-- Influence zones (`src/zones.js`): anchors are POI points (park→grove,
-  fuel→tar, place of worship / cemetery→stones), sized from local crowding
-  inside the poi buffer so every tile agrees. The halo repaints ONLY
-  RESIDENTIAL / COMMERCIAL / WASTELAND, last in `rasterizeTileSteps`. Each
-  owned anchor's chest (id unchanged, `zoneNexus` → `ZONE_NEXUS_TIER_BONUS`)
-  gets a nexus pattern laid like street dressing (roadMask + occupied). No
-  decorative props: every standing piece is interactable or a hazard, one
-  art per interactable. Zone mechanics are reasons on existing lanes (tar
-  slow, lair tier, `ghostsHaunt`, coin-burst ledger, `_storySplashOnce`).
+- Influence zones: `ZoneCoverage` owns the union of influence and the
+  associated park footprint plus fringe. Its ground and declarative layout
+  (`docs/zone-variants.json`, `ZoneDressing`) replace ordinary zoning and
+  procedural dressing; roads and buildings remain visible. Painted ground
+  drops inferred PRIVATE / BEHIND_HOUSE reasons, retaining all site and
+  geometry restrictions. Cave generation retains the original ground,
+  objects and spawn reasons so surface dressing cannot reroll entrances.
+  A park's POI becomes its daily grove shrine in place, preserving its name
+  and id. Other nexus chests keep `zoneNexus` and its tier bonus. No decorative
+  props: every standing piece is interactable or a hazard, one art per
+  interactable. Zone mechanics use existing lanes (tar slow, lair tier,
+  `ghostsHaunt`, coin-burst ledger, `_storySplashOnce`).
 - POIs that are no chest ride existing lanes too: a GATE is two posts round a
   spawn point (`WorldGen.gatePostsAt`, lairs.js `'gate'` tier — one foe a UTC
   day, `DAILY_TIERS`); an INFORMATION board reads a Book page like the

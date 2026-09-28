@@ -4,8 +4,8 @@ The game and map review load this declarative table through `src/zone_variant_da
 
 ## Placement contract
 
-- Six equally weighted grove variants and five each for churchyards and tar yards. Choose once from the stable anchor identity. Meadow and Flint Field explicitly use seeded scatter keyed by anchor, variant, and global cell; they do not repeat a random tile or change between visits. Other variants use structured patterns.
-- Background slots use their declared repeat motif, seeded scatter, or continuous line grid throughout the coverage union, without radial density falloff. Coordinates are zero-based. One cell is currently 7 metres. Work Yard uses a fixed 5 × 5 arrangement with one-cell-wide lines every six cells and its POI centered in the middle plot. Hedge Garden uses a fixed 4 × 4 arrangement with lines every six cells: five continuous hedge lines on each axis, including the outside border. Shared borders belong to one grid; intersections count once.
+- Six equally weighted grove variants and five each for churchyards and tar yards. Choose once from the stable anchor identity. Meadow and Flint Field explicitly use seeded scatter keyed by anchor, variant, and global cell; they do not repeat a random tile or change between visits. Other variants use structured patterns; Ancient Grove adds light seeded grass only between its fixed clusters.
+- Background slots use their declared repeat motif, seeded scatter, or continuous line grid throughout the coverage union, without radial density falloff. Coordinates are zero-based. One cell is currently 7 metres. Work Yard uses a fixed 5 × 5 arrangement with one-cell-wide lines every six cells and its POI centered in the middle plot. Hedge Garden uses continuous lines every four cells throughout the coverage union; the preview shows a 4 × 4 sample. Shared borders belong to one grid; intersections count once.
 - Orient the motif toward the accessible POI approach, quantized to a quarter turn. If no approach can be resolved, use the stable anchor orientation. All tiles must use the same resolved orientation.
 - `material.cycle` advances by repeat-block x + y modulo cycle length. Every slot in a bed uses the same phase, keeping beds monochrome. Density values are derived from complete material cycles.
 - Recognizable geometry takes priority over the earlier approximate 15% guide. Never thin a continuous line to meet a density target. Density is measured from the declared geometry, or is the expected seeded-scatter coverage, before obstacles. Report actual eligible-ground coverage separately. Variant coverage replaces procedural biome scatter and street dressing, including their empty lanes. Mapped POIs, buildings and authored features remain occupied. Generic runtime rooted plants, traps and treasure scatter stay outside coverage; authored finds and traps retain their budgets.
@@ -24,7 +24,7 @@ Cover the union of the ragged influence footprint, its associated park polygon, 
 
 Associate parks through the source polygon containing the anchor, not proximity to arbitrary parks. Resolve overlap once per global cell using the existing influence-strength/kind/key ordering; fringe-only ties use the stable anchor key. Then apply the shared spawn gate. Real cemeteries and other quiet/restricted areas remain excluded. Unnamed parks keep their existing fringe behavior without acquiring extra zone rewards.
 
-The variant frame extends continuously over this union. Fixed compositions such as Hedge Garden intersect their declared footprint with the union; they do not stretch, repeat, or grow extra rooms to fill irregular extensions. Finite find targets retain their influence-radius coordinates as the first choice, then search valid alternatives in the union. Expanding coverage does not multiply the per-anchor find or guard count.
+The variant frame extends continuously over this union. Fixed compositions such as Work Yard intersect their declared footprint with the union; they do not stretch, repeat, or grow extra rooms to fill irregular extensions. Finite find targets retain their influence-radius coordinates as the first choice, then search valid alternatives in the union. Expanding coverage does not multiply the per-anchor find or guard count.
 
 ## Shared connection operators
 
@@ -47,11 +47,11 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | Zone | Variant | Background mix | POI | Finds | Guards | Fauna affinity |
 |---|---|---|---|---|---|---|
 | grove | Meadow | 10% grass, 4% blue, 1% orange | flower ring | 3 medium: rose | none | rabbit 50%, butterfly 65% |
-| grove | Mushroom Grove | 8% mushroom, 4% shrub, 3% grass | mushroom crescent | 1 rare: star | 1 slime at find | butterfly 50% |
+| grove | Mushroom Grove | 11.11% mushroom, 5.56% shrub, 2.78% grass | mushroom crescent | 1 rare: star | 1 slime at find | butterfly 50% |
 | grove | Orchard | 4% fruit_tree, 6% grass, 2% blue | paired trees | 3 medium: gemfruit | none | deer 65% |
 | grove | Formal Garden | 10% shrub, 6% blue, 2% orange | hedge flanks flower diamond | 2 medium: rose | none | none |
-| grove | Hedge Garden | 36% shrub, 1.76% blue, 0.64% orange | flowers in hedge room | 2 medium: rose | none | rabbit 60% |
-| grove | Ancient Grove | 1% tree, 8% shrub, 12% grass | stone tree ring | 1 rare: star | 2 slime at find | deer 60% |
+| grove | Hedge Garden | 43.75% shrub, 4.69% blue, 1.56% orange | flowers in hedge room | 2 medium: rose | none | rabbit 60% |
+| grove | Ancient Grove | 1.23% tree, 9.88% shrub, 17.78% grass (expected) | stone tree ring | 1 rare: star | 2 slime at find | deer 60% |
 | stones | Stone Garden | 2.72% iron_ore, 10.88% stone, 6.8% grass | four stones | 3 medium: gemfruit | none | none |
 | stones | Ordered Graves | 6% grave, 6% stone, 3% grass | flanking stone rows | 2 medium: gemfruit | headstone ghosts on interaction | crow 65% |
 | stones | Overgrown Graves | 8% grass, 4% shrub, 4% stone, 2% grave | overgrown crescent | 1 rare: star | headstone ghosts on interaction | crow 40%, butterfly 35% |
@@ -77,13 +77,17 @@ python3 tools/preview_zone_variants.py docs/zone-variants.json /tmp/zone-variant
 
 The generator validates material densities across full repeat cycles, distinct POI positions, grid continuity, find counts, and tar guard exclusions. It displays the background plus the POI arrangement, marked POI point, and an exact-offset POI close-up. Toggles reveal the original background beneath the POI cells. Each motif uses its declared POI-relative phase; no arbitrary square clearing is cut into it. Finds, guards, fauna affinities, connection routes, actual obstacles, and real map boundaries are not drawn; the coverage-union diagram is schematic.
 
+## Mushroom Grove spacing
+
+Mushroom pairs occupy opposite halves of a 6 × 6 repeat. Two shrubs and one grass cell stagger between them, giving 19.44% coverage before clipping. Every motif column has a placement, and no two consecutive rows are empty, preventing the broad blank strips of the former 10 × 10 layout.
+
 ## Hedge Garden geometry
 
-- Four by four rooms, each with a 5 × 5 clear-cell interior between one-cell-thick hedge lines. Boundaries lie at cell coordinates 0, 6, 12, 18, and 24 on each axis. Total footprint: 25 × 25 cells (175 × 175 m at the current cell size).
-- The settled POI is at motif cell (9, 9), the exact center of plot (1, 1) with zero-based indexing. Equivalently, the second room from the top and left. Translate the whole motif by POI cell minus (9, 9), then apply the common orientation; never center the POI on the overall grid intersection.
-- No background flower at the POI center. Four marigolds at offsets (0, −1), (1, 0), (0, 1), (−1, 0) frame the POI within its own room. The room's hedge walls are the surrounding structure; no nested hedge enclosure is added.
-- Sixteen rooms have fifteen ordinary center flowers, with two replaced by the finite rose finds at plot centers (0, 3) and (3, 3). Four POI marigolds occupy otherwise open interior cells. With the POI arrangement included, 244 of 625 cells contain material (39.04%), excluding the POI itself. Background alone is 240 cells (38.4%).
-- Irregular boundaries, blocked ground and existing objects can clip the composition. Preserve the grid phase and line spacing. The square may extend asymmetrically from the POI because it is centered in one room, not the whole garden.
+- Hedge lines repeat every four cells throughout the coverage union. Each room has a 3 × 3 interior between one-cell-thick lines. The preview shows four rooms per axis; it does not limit world coverage.
+- The settled POI is at motif cell (6, 6), centered in room (1, 1). Translate the grid by POI cell minus (6, 6), then apply the common orientation.
+- No ordinary flower at the POI center. Four adjacent marigolds frame the shrine within its room. Hedge walls remain continuous around it.
+- Repeating background density before POI replacement is 50%: 43.75% shrub, 4.6875% blue flowers and 1.5625% marigolds. The two finite rose finds replace room-center flowers; extending the grid does not multiply finds.
+- Irregular boundaries and obstacles clip placement while preserving grid phase and spacing.
 
 ## Tar-yard material choices
 
@@ -102,7 +106,7 @@ The generator validates material densities across full repeat cycles, distinct P
 
 ## Ancient Grove clusters
 
-A 10 × 10-cell repeat contains one rounded cluster: one central tree, eight shrubs around it, and twelve longgrass cells on the outer edge. The four square corners are removed. Clusters repeat every ten cells instead of twelve, raising nominal coverage to 21% while retaining open ground between them. The POI replaces the central tree of the anchor cluster; its adjacent decorations replace only the slots they occupy. The starflower find and two slime guards remain.
+A 9 × 9-cell repeat contains one rounded cluster: one central tree, eight shrubs around it, and twelve longgrass cells on the outer edge. The four square corners are removed. Clusters repeat every nine cells instead of ten, giving 25.93% fixed coverage. Each otherwise empty cell has a deterministic 4% chance of longgrass, adding about 2.96 percentage points for 28.89% expected total coverage. This scatter never replaces cluster cells and does not change between visits. The POI replaces the central tree of the anchor cluster; its adjacent decorations replace only the slots they occupy. The starflower find and two slime guards remain.
 
 ## Stone Garden concentric rings
 
@@ -144,10 +148,10 @@ Only the POI cell and actual decoration slots replace existing background slots.
 | Variant | POI position in motif | Intended alignment |
 |---|---|---|
 | Meadow | [0, 0] | scatter seed origin |
-| Mushroom Grove | [4, 3] | clearing between mushroom pairs |
+| Mushroom Grove | [3, 2] | clearing between mushroom pairs |
 | Orchard | [5, 5] | aisle between four trees |
 | Formal Garden | [4, 4] | central aisle between flower beds |
-| Hedge Garden | [9, 9] | plot center |
+| Hedge Garden | [6, 6] | plot center |
 | Ancient Grove | [5, 5] | cluster center replacing center tree |
 | Stone Garden | [10, 10] | center of three concentric stone rings |
 | Ordered Graves | [5, 4] | central stone row between graves |

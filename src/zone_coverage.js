@@ -126,7 +126,7 @@
   // Zone ground owns the full placement union, while built structures and
   // transport surfaces retain their visible footprint. The old land remains
   // available to trap-ground rules through the existing underlay ledger.
-  function* paintSteps(field, grid, N, pathUnder, roadMask) {
+  function* paintSteps(field, grid, N, pathUnder, roadMask, spawnWhy) {
     if (!field || !field.coverage) return 0;
     const WG = root.WorldGen, T = WG.T, coverage = field.coverage;
     const codes = field.anchors.map(a => root.Zones.terrainOf(a.kind));
@@ -139,7 +139,7 @@
       for (let x = 0; x < N; x++) {
         const i = y * N + x, code = codes[coverage[i] - 1], here = grid[i];
         // ALLOWLISTED raw roadMask read: terrain geometry preserves the visible
-        // road band. This pass paints land; it does not authorize any spawn.
+        // road band. The same footprint also keeps its existing spawn reasons.
         if (roadMask && roadMask[i]) {
           // Earlier halo/fringe passes may already have painted the band.
           // Restore their saved land, even outside this coverage winner.
@@ -156,6 +156,11 @@
           }
           continue;
         }
+        // The declared zone replaces generic lot zoning as well as its look.
+        // Keep source-site restrictions, terrain and road reasons intact; only
+        // frontage/back-yard inferences stop applying to this painted ground.
+        // Do this even when an earlier halo already painted the winning code.
+        if (spawnWhy) spawnWhy[i] &= ~(WG.SPAWN_WHY.PRIVATE | WG.SPAWN_WHY.BEHIND_HOUSE);
         if (here === code) continue;
         if (!under[i] && !present[i]) under[i] = here;
         present[i] = 1;

@@ -2313,6 +2313,91 @@ function fadeLabelOverPlayer(tx, box) {
   tx.setAlpha(hit ? LABEL_OVER_PLAYER_ALPHA : 1);
 }
 
+// QC labels read the generated selections, never choose another variant.
+// Buffered copies share an identity; prefer a zone's owned POI and the
+// nearest visible road-piece midpoint so a clipped street gets one label.
+Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay, halfM) {
+  const zones = new Map(), roads = new Map();
+  const visible = (x, y) => Math.abs(x - ax) <= halfM && Math.abs(y - ay) <= halfM;
+  for (const e of entries) {
+    for (const a of e.zone && e.zone.anchors || []) {
+      const row = typeof ZoneVariants !== 'undefined' && ZoneVariants.byId(a.variant);
+      if (!row) continue;
+      const id = `zone:${a.kind}:${a.gx},${a.gy}`, prior = zones.get(id);
+      if (prior && !a.owned) continue;
+      const poi = a.owned && (e.objects || []).find(o => o._poiAt === `${a.lx},${a.ly}`);
+      const x = poi ? poi.x : a.gx / 4096 * edgeM;
+      const y = poi ? poi.y : a.gy / 4096 * edgeM;
+      zones.set(id, { id, kind: 'zone', text: `Zone: ${row.name}`, x, y });
+    }
+    const index = e.streetIndex;
+    if (!index || typeof StreetVariants === 'undefined') continue;
+    for (const rec of index.lines || []) {
+      const line = rec.line;
+      if (!line || line.length < 2) continue;
+      // Clip to the camera window first: a long road can cross the entire
+      // view while its tile-piece midpoint lies hundreds of metres away.
+      const extent = index.extent || 4096, spans = [];
+      let length = 0;
+      for (let i = 1; i < line.length; i++) {
+        const a = { x: (e.tx + line[i - 1].x / extent) * edgeM, y: (e.ty + line[i - 1].y / extent) * edgeM };
+        const dx = (line[i].x - line[i - 1].x) / extent * edgeM;
+        const dy = (line[i].y - line[i - 1].y) / extent * edgeM;
+        let lo = 0, hi = 1;
+        for (const [at, delta, center] of [[a.x, dx, ax], [a.y, dy, ay]]) {
+          if (!delta) { if (Math.abs(at - center) > halfM) hi = -1; continue; }
+          const t0 = (center - halfM - at) / delta, t1 = (center + halfM - at) / delta;
+          lo = Math.max(lo, Math.min(t0, t1)); hi = Math.min(hi, Math.max(t0, t1));
+        }
+        if (hi <= lo) continue;
+        const d = Math.hypot(dx, dy) * (hi - lo);
+        spans.push({ x: a.x + dx * lo, y: a.y + dy * lo, dx: dx * (hi - lo), dy: dy * (hi - lo), d });
+        length += d;
+      }
+      if (!length) continue;
+      let left = length / 2, x, y;
+      for (const span of spans) {
+        if (left <= span.d) { x = span.x + span.dx * left / span.d; y = span.y + span.dy * left / span.d; break; }
+        left -= span.d;
+      }
+      const id = `road:${rec.key || rec.lineKey}`, distance = (x - ax) ** 2 + (y - ay) ** 2;
+      const prior = roads.get(id);
+      if (prior && prior.distance <= distance) continue;
+      const row = StreetVariants.VARIANT_BY_ID[rec.variant];
+      const title = row ? row.title : rec.variant || (rec.size === 'major' ? StreetVariants.BANDIT_STORY.title : 'Plain street');
+      roads.set(id, { id, kind: 'road', text: `Road: ${title}${rec.rocks ? ' · rocks' : ''}`, x, y, distance });
+    }
+  }
+  return [...zones.values(), ...roads.values()].filter(o => visible(o.x, o.y));
+};
+
+Render.drawVariantLabels = function drawVariantLabels(scene, ax, ay, halfM) {
+  const pool = scene.variantLabelPool || (scene.variantLabelPool = []);
+  if (!scene.debugVariantLabels || scene.depth !== 0) { hidePoolFrom(pool, 0); return; }
+  const edge = scene.tileEdgeM, entries = [];
+  for (const [key, e] of WorldGen.tileCache) {
+    // Shipping entries store coordinates in the cache key, not on the entry.
+    const [, tx, ty] = key.split('/').map(Number);
+    if (tx * edge > ax + halfM || (tx + 1) * edge < ax - halfM ||
+        ty * edge > ay + halfM || (ty + 1) * edge < ay - halfM) continue;
+    entries.push({ tx, ty, zone: e.zone, objects: e.objects, streetIndex: e.streetIndex });
+  }
+  const records = Render.variantLabelRecords(entries, edge, ax, ay, halfM);
+  let i = 0;
+  for (const o of records) {
+    let text = pool[i];
+    if (!text) {
+      text = scene.add.text(0, 0, '', { font: fontMono('bold 10px'), color: '#fff0c4',
+        backgroundColor: '#172620', padding: { x: 3, y: 2 } }).setOrigin(.5, 1).setDepth(60);
+      scene.labelContainer.add(text); pool.push(text);
+    }
+    const screen = deltaMToScreen(scene, o.x - ax, o.y - ay);
+    text.setText(o.text).setPosition(Math.round(screen.x), Math.round(screen.y - 18)).setVisible(true);
+    i++;
+  }
+  hidePoolFrom(pool, i);
+};
+
 Render.drawObjects = function drawObjects(scene) {
   // Canvas width, for keeping centred labels on screen (see clampTextX in
   // util.js). Same 352 the game canvas is sized to. Computed HERE, not at
@@ -3570,7 +3655,7 @@ Render.drawObjects = function drawObjects(scene) {
   const _playerBox = playerScreenBox(scene);
   // Labels persist even on opened chests so the player can still read what the place is.
   const chestLabels = objList.filter(({ o }) =>
-    o.kind === 'chest' && (o.name || POI_CLASS_FALLBACK[o.poiClass]));
+    (o.kind === 'chest' || o.kind === 'grove_shrine') && (o.name || POI_CLASS_FALLBACK[o.poiClass]));
   let li = 0;
   for (const item of chestLabels) {
     const { o, dx, dy } = item;
@@ -3596,7 +3681,7 @@ Render.drawObjects = function drawObjects(scene) {
     // centred in their cell now (the one-cell rule), so their art runs to about
     // sy + 12 — the old +4 anchor cut the bottom third off every chest it
     // labelled. Crates are the smaller sprite, so they need less clearance.
-    const labelY = sy + (chestLook(o).box ? 13 : 16);
+    const labelY = sy + (o.kind === 'chest' && chestLook(o).box ? 13 : 16);
     // Switch font size + padding live: fallback labels are smaller. Done
     // BEFORE the layout below, which measures the rendered text.
     tx.setText(label).setVisible(true);
@@ -4502,5 +4587,6 @@ Render.drawObjects = function drawObjects(scene) {
   // buildings the scan offered above, and the player. Anchored like every
   // sprite in this pass (metres from the camera anchor), so the lights slide
   // with a peek and stay on the ground they belong to.
+  Render.drawVariantLabels(scene, pWorldX, pWorldY, halfM);
   if (LIGHTS) LIGHTS.draw(scene, pWorldX, pWorldY, halfM);
 };

@@ -5,11 +5,11 @@ These are expected Home sale coins using the current Easy-mode sale formula, fro
 | Variant | Background / 100 cells | Finite special finds | Find value / zone | Notes |
 |---|---|---|---|---|
 | Meadow | 51–88 | 3 × Wild Rose | 42–81 |  |
-| Mushroom Grove | 31–55 | 1 × Starflower | 49–98 |  |
+| Mushroom Grove | 42–75 | 1 × Starflower | 49–98 |  |
 | Orchard | 36–64 | 3 × Gemfruit | 30–57 | Apple harvest repeats every 24 h |
 | Formal Garden | 80–144 | 2 × Wild Rose | 28–54 |  |
-| Hedge Garden | 57–77 | 2 × Wild Rose | 28–54 |  |
-| Ancient Grove | 23–26 | 1 × Starflower | 49–98 | Range also allows young/mature maple and axe tier |
+| Hedge Garden | 98–148 | 2 × Wild Rose | 28–54 |  |
+| Ancient Grove | 31–35 | 1 × Starflower | 49–98 | Range also allows young/mature maple and axe tier |
 | Stone Garden | 248–472 | 3 × Gemfruit | 30–57 |  |
 | Ordered Graves | 86–163 | 2 × Gemfruit | 20–38 | Headstone hoards excluded |
 | Overgrown Graves | 68–118 | 1 × Starflower | 49–98 | Headstone hoards excluded |
