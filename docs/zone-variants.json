@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "status": "design_for_review_not_connected_to_world_generation",
   "units": {
     "motif": "game_cells",
@@ -9,7 +9,7 @@
   "rules": {
     "selection": "equal_weight_stable_anchor_hash",
     "orientationFallback": "stable_anchor_quarter_turn",
-    "densityBasis": "nominal_repeat_tile_before_obstacles",
+    "densityBasis": "nominal_pattern_or_expected_scatter_coverage_before_obstacles",
     "densityAccounting": "background_includes_poi_and_connection_budget; finds_and_guards_separate",
     "existingOccupancy": "count_existing_interactables_toward_budget_never_overwrite",
     "priority": [
@@ -19,13 +19,35 @@
       "connection",
       "background"
     ],
-    "blockedPlacement": "preserve_whole_beds_and_rows_reseat_within_zone_no_random_fill",
+    "blockedPlacement": "clip_lines_only_at_zone_boundary_or_ineligible_cells; relocate_compact_beds_whole; never_random_fill",
     "eligibility": "WorldGen.isSpawnCell_with_roadMask_spawnClass_occupied",
     "finiteFindOwnership": "one_anchor_global_plan_not_per_tile_or_per_visit",
     "failedFindPlacement": "try_deterministic_alternatives_inside_zone_then_report_shortfall",
     "hazards": "do_not_count_as_interactables",
     "tarGuards": "none",
-    "runtimeStatus": "requires_shared_pattern_interpreter"
+    "runtimeStatus": "requires_shared_pattern_interpreter",
+    "coverage": {
+      "operation": "union",
+      "members": [
+        "ragged_influence_footprint",
+        "associated_park_footprint",
+        "associated_park_fringe_to_FRINGE_FILL_M"
+      ],
+      "fringePlacementReachMeters": 30,
+      "fringeTerrainReachMeters": [
+        12,
+        20
+      ],
+      "association": "source_park_polygon_containing_anchor; no_nearby_unrelated_parks",
+      "deduplicate": "one_winning_anchor_and_one_placement_per_global_cell",
+      "overlapWinner": "highest_existing_influence_strength_then_zone_code_then_anchor_key; fringe_only_ties_by_anchor_key",
+      "withoutPark": "ragged_influence_footprint_only",
+      "eligibility": "apply_existing_spawn_gate_after_union",
+      "unnamedPark": "retain_existing_fringe_no_new_zone_or_find_budget",
+      "geometry": "fixed_world_coordinates_independent_of_tile_load_order"
+    },
+    "randomness": "seeded_scatter_only_for_explicit_scatter_rows; stable_anchor_and_global_cell_hash",
+    "findCoverage": "find_and_connection_fallbacks_search_the_coverage_union; finite_count_remains_per_anchor"
   },
   "materials": {
     "grass": {
@@ -128,117 +150,6 @@
       "name": "Meadow",
       "weight": 1,
       "background": {
-        "repeatCells": [
-          10,
-          10
-        ],
-        "slots": [
-          {
-            "at": [
-              1,
-              1
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              3,
-              1
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              5,
-              1
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              7,
-              1
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              9,
-              1
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              1,
-              4
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              3,
-              4
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              5,
-              4
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              7,
-              4
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              9,
-              4
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              1,
-              7
-            ],
-            "material": "blue"
-          },
-          {
-            "at": [
-              3,
-              7
-            ],
-            "material": "blue"
-          },
-          {
-            "at": [
-              5,
-              7
-            ],
-            "material": "blue"
-          },
-          {
-            "at": [
-              7,
-              7
-            ],
-            "material": "blue"
-          },
-          {
-            "at": [
-              9,
-              7
-            ],
-            "material": "orange"
-          }
-        ],
         "densityFalloff": "none",
         "phaseOrigin": "anchor",
         "orientation": "quarter_turn_toward_approach",
@@ -247,7 +158,14 @@
           "grass": 0.1,
           "blue": 0.04,
           "orange": 0.01
-        }
+        },
+        "type": "seeded_scatter",
+        "seed": "anchor_key + variant_id + global_cell_coordinates",
+        "sampling": "one_hash_for_occupancy_then_independent_hash_for_material",
+        "previewCells": [
+          24,
+          24
+        ]
       },
       "poi": {
         "id": "flower_ring",
@@ -348,7 +266,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Blue flowers repeat through the lawn; three rose stops complete an outer arc."
+      "atmosphere": "Irregular grass and small flowers cover the meadow; blue markers lead to three roses in an outer arc."
     },
     {
       "id": "mushroom_grove",
@@ -475,7 +393,8 @@
           "mushroom": 0.08,
           "shrub": 0.04,
           "grass": 0.03
-        }
+        },
+        "type": "repeat_motif"
       },
       "poi": {
         "id": "mushroom_crescent",
@@ -678,7 +597,8 @@
           "fruit_tree": 0.04,
           "grass": 0.06,
           "blue": 0.02
-        }
+        },
+        "type": "repeat_motif"
       },
       "poi": {
         "id": "paired_trees",
@@ -963,7 +883,8 @@
           "shrub": 0.1,
           "blue": 0.06,
           "orange": 0.02
-        }
+        },
+        "type": "repeat_motif"
       },
       "poi": {
         "id": "hedge_flanks_flower_diamond",
@@ -1014,13 +935,13 @@
           {
             "at": [
               0,
-              -2
+              -1
             ],
             "material": "orange"
           },
           {
             "at": [
-              2,
+              1,
               0
             ],
             "material": "orange"
@@ -1028,13 +949,13 @@
           {
             "at": [
               0,
-              2
+              1
             ],
             "material": "orange"
           },
           {
             "at": [
-              -2,
+              -1,
               0
             ],
             "material": "orange"
@@ -1086,6 +1007,187 @@
         "mode": "none"
       },
       "atmosphere": "An orderly aisle connects mirrored beds; two matching roses break the repeated blue and gold."
+    },
+    {
+      "id": "hedge_garden",
+      "zone": "grove",
+      "name": "Hedge Garden",
+      "weight": 1,
+      "background": {
+        "type": "line_grid",
+        "spacingCells": 13,
+        "horizontalMaterial": "shrub",
+        "verticalMaterial": "shrub",
+        "intersectionMaterial": "shrub",
+        "lineWidthCells": 1,
+        "plotCenters": {
+          "material": {
+            "cycle": [
+              "blue",
+              "blue",
+              "blue",
+              "orange"
+            ],
+            "index": "block_x_plus_block_y"
+          }
+        },
+        "previewPlots": [
+          3,
+          3
+        ],
+        "phaseOrigin": "anchor",
+        "orientation": "quarter_turn_toward_approach",
+        "densityFalloff": "none",
+        "nominalDensity": 0.15384615384615385,
+        "materialDensity": {
+          "shrub": 0.14792899408284024,
+          "blue": 0.004437869822485207,
+          "orange": 0.0014792899408284023
+        }
+      },
+      "poi": {
+        "id": "hedge_courtyard",
+        "origin": "settled_poi",
+        "slots": [
+          {
+            "at": [
+              -2,
+              -2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -1,
+              -2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              0,
+              -2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              1,
+              -2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              -2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -2,
+              -1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              -1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -2,
+              0
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              0
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -2,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              -2,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              2
+            ],
+            "material": "shrub"
+          }
+        ],
+        "relocation": {
+          "unit": "whole_pattern",
+          "maxCells": 4,
+          "preserveApproach": true
+        }
+      },
+      "finds": {
+        "rarity": "medium",
+        "material": "rose",
+        "targets": [
+          {
+            "id": "1",
+            "radiusFraction": [
+              -0.5,
+              0.5
+            ]
+          },
+          {
+            "id": "2",
+            "radiusFraction": [
+              0.5,
+              0.5
+            ]
+          }
+        ],
+        "spawnClass": "attractor",
+        "owner": "anchor",
+        "relocation": {
+          "unit": "group",
+          "maxCells": 4,
+          "stayInZone": true
+        }
+      },
+      "connection": {
+        "shape": "follow_grid_lane",
+        "widthCells": 1,
+        "from": "poi",
+        "to": "finds",
+        "endpoint": "replace_center_of_matching_outer_plots",
+        "withinCoverageBudget": true,
+        "crossMajorRoad": false,
+        "preserveLines": true
+      },
+      "guards": {
+        "mode": "none"
+      },
+      "atmosphere": "Continuous shrub lines enclose nine garden rooms. Flowers mark their centers; matching roses distinguish two outer rooms."
     },
     {
       "id": "ancient_grove",
@@ -1212,7 +1314,8 @@
           "tree": 0.03,
           "shrub": 0.07,
           "grass": 0.05
-        }
+        },
+        "type": "repeat_motif"
       },
       "poi": {
         "id": "stone_tree_ring",
@@ -1439,7 +1542,8 @@
         "materialDensity": {
           "stone": 0.1,
           "grass": 0.05
-        }
+        },
+        "type": "repeat_motif"
       },
       "poi": {
         "id": "four_stones",
@@ -1653,7 +1757,8 @@
           "grave": 0.06,
           "stone": 0.06,
           "grass": 0.03
-        }
+        },
+        "type": "repeat_motif"
       },
       "poi": {
         "id": "flanking_stone_rows",
@@ -1898,7 +2003,8 @@
           "shrub": 0.04,
           "stone": 0.04,
           "grave": 0.02
-        }
+        },
+        "type": "repeat_motif"
       },
       "poi": {
         "id": "overgrown_crescent",
@@ -2148,7 +2254,8 @@
         "materialDensity": {
           "rubble": 0.12,
           "stone": 0.08
-        }
+        },
+        "type": "repeat_motif"
       },
       "poi": {
         "id": "stone_square",
@@ -2336,7 +2443,8 @@
         "materialDensity": {
           "stone": 0.08,
           "grass": 0.02
-        }
+        },
+        "type": "repeat_motif"
       },
       "poi": {
         "id": "inner_stone_ring",
@@ -2417,117 +2525,6 @@
       "name": "Flint Field",
       "weight": 1,
       "background": {
-        "repeatCells": [
-          10,
-          10
-        ],
-        "slots": [
-          {
-            "at": [
-              1,
-              1
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              3,
-              1
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              5,
-              1
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              7,
-              1
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              9,
-              1
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              1,
-              4
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              3,
-              4
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              5,
-              4
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              7,
-              4
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              9,
-              4
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              1,
-              7
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              3,
-              7
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              5,
-              7
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              7,
-              7
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              9,
-              7
-            ],
-            "material": "rubble"
-          }
-        ],
         "densityFalloff": "none",
         "phaseOrigin": "anchor",
         "orientation": "quarter_turn_toward_approach",
@@ -2535,7 +2532,14 @@
         "materialDensity": {
           "flint": 0.1,
           "rubble": 0.05
-        }
+        },
+        "type": "seeded_scatter",
+        "seed": "anchor_key + variant_id + global_cell_coordinates",
+        "sampling": "one_hash_for_occupancy_then_independent_hash_for_material",
+        "previewCells": [
+          24,
+          24
+        ]
       },
       "poi": {
         "id": "flint_ring",
@@ -2622,7 +2626,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Regular pale flints form a working yard; darker rubble marks the way out."
+      "atmosphere": "Loose flint and rubble lie unevenly across the field; stepping stones link three mineral finds."
     },
     {
       "id": "broken_depot",
@@ -2769,7 +2773,8 @@
         "materialDensity": {
           "rubble": 0.12,
           "flint": 0.06
-        }
+        },
+        "type": "repeat_motif"
       },
       "poi": {
         "id": "paired_stacks",
@@ -2968,7 +2973,8 @@
         "materialDensity": {
           "flint": 0.08,
           "rubble": 0.04
-        }
+        },
+        "type": "repeat_motif"
       },
       "poi": {
         "id": "tar_crescent",
@@ -3086,124 +3092,23 @@
       "name": "Work Yard",
       "weight": 1,
       "background": {
-        "repeatCells": [
-          10,
-          10
+        "type": "line_grid",
+        "spacingCells": 13,
+        "horizontalMaterial": "flint",
+        "verticalMaterial": "rubble",
+        "intersectionMaterial": "flint",
+        "lineWidthCells": 1,
+        "previewPlots": [
+          3,
+          3
         ],
-        "slots": [
-          {
-            "at": [
-              1,
-              1
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              3,
-              1
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              5,
-              1
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              7,
-              1
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              9,
-              1
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              1,
-              4
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              3,
-              4
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              5,
-              4
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              7,
-              4
-            ],
-            "material": "flint"
-          },
-          {
-            "at": [
-              9,
-              4
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              1,
-              7
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              3,
-              7
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              5,
-              7
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              7,
-              7
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              9,
-              7
-            ],
-            "material": "rubble"
-          }
-        ],
-        "densityFalloff": "none",
         "phaseOrigin": "anchor",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.15,
+        "densityFalloff": "none",
+        "nominalDensity": 0.14792899408284024,
         "materialDensity": {
-          "flint": 0.09,
-          "rubble": 0.06
+          "flint": 0.07692307692307693,
+          "rubble": 0.07100591715976332
         }
       },
       "poi": {
@@ -3294,18 +3199,18 @@
         }
       },
       "connection": {
-        "shape": "clear_aisle",
-        "material": "rubble",
-        "spacingCells": 3,
+        "shape": "follow_grid_lane",
+        "widthCells": 1,
         "from": "poi",
         "to": "finds",
         "withinCoverageBudget": true,
-        "crossMajorRoad": false
+        "crossMajorRoad": false,
+        "preserveLines": true
       },
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Straight material rows and an open aisle lead to three items left at the far end."
+      "atmosphere": "Unbroken flint rows and rubble columns enclose nine open plots. The three finds sit at the far ends of parallel lanes."
     },
     {
       "id": "black_ring",
@@ -3431,7 +3336,8 @@
         "materialDensity": {
           "rubble": 0.09,
           "flint": 0.06
-        }
+        },
+        "type": "repeat_motif"
       },
       "poi": {
         "id": "tar_ring",
