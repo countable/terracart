@@ -4,10 +4,13 @@
 // `transportation` line from the vector tile into a one-cell-wide band of
 // ROAD/PATH tiles (see worldgen.js classifyLine / paintLine). That's a lossy
 // step — a diagonal way becomes a staircase, two ways closer than a cell weld
-// together, and parking aisles are dropped entirely. This layer draws the
-// SOURCE linework straight from the decoded MVT features on top of the map, as
-// a soft brown band, so the rasterized roads can be eyeballed against the real
-// ways they came from. Railways are drawn in slate instead of earth — the
+// together. This layer draws the SOURCE linework straight from the decoded
+// MVT features on top of the map, as a soft brown band, so the rasterized
+// roads can be eyeballed against the real ways they came from. Parking
+// aisles are the one way it agrees with the rasterizer: they draw no band
+// here either (WorldGen.isParkingAisle) — a parking lot reads as open ground
+// with its treasure X on it, not as asphalt. Railways are drawn in slate
+// instead of earth — the
 // rasterizer has no rail tier, so without that they'd read as ordinary
 // streets — and then dressed as actual TRACK: timber ties across the slate
 // ballast and two steel rails along it (see "Train tracks" below).
@@ -1379,6 +1382,9 @@
 
   // Iterate every transportation LINE of every tile in the frame:
   // fn(feature, line, lineIdx, mvtToM, originMx, originMy, tileKey).
+  // Parking aisles are skipped for BOTH passes (WorldGen.isParkingAisle):
+  // an aisle is not a street — no dilapidated band, no repaired one, no
+  // footprint in the spawn mask. See the header.
   function eachTransportLine(tiles, fn) {
     for (const { tx, ty, entry } of tiles) {
       const tileEdgeM = entry.tileEdgeM;
@@ -1390,6 +1396,7 @@
         const mvtToM = tileEdgeM / (layer.extent || MVT_EXTENT);
         for (const f of layer.features) {
           if (f.type !== 2 || !f.geom) continue;   // lines only (2 = LineString)
+          if (WorldGen.isParkingAisle(f.tags)) continue;
           for (let i = 0; i < f.geom.length; i++) {
             const line = f.geom[i];
             if (!line || line.length < 2) continue;
