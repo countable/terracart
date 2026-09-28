@@ -4,27 +4,27 @@ These are expected Home sale coins using the current Easy-mode sale formula, fro
 
 | Variant | Background / 100 cells | Finite special finds | Find value / zone | Notes |
 |---|---|---|---|---|
-| Meadow | 51–88 | 3 × Wild Rose | 42–81 |  |
+| Meadow | 15–15 | 3 × Wild Rose | 42–81 |  |
 | Mushroom Grove | 42–75 | 1 × Starflower | 49–98 |  |
 | Orchard | 36–64 | 3 × Gemfruit | 30–57 | Apple harvest repeats every 24 h |
 | Formal Garden | 80–144 | 2 × Wild Rose | 28–54 |  |
 | Hedge Garden | 98–148 | 2 × Wild Rose | 28–54 |  |
-| Ancient Grove | 31–35 | 1 × Starflower | 49–98 | Range also allows young/mature maple and axe tier |
-| Stone Garden | 248–472 | 3 × Gemfruit | 30–57 |  |
+| Ancient Grove | 49–55 | 1 × Starflower | 49–98 | Range also allows young/mature maple and axe tier |
+| Stone Garden | 409–782 | 3 × Gemfruit | 30–57 |  |
 | Ordered Graves | 86–163 | 2 × Gemfruit | 20–38 | Headstone hoards excluded |
 | Overgrown Graves | 68–118 | 1 × Starflower | 49–98 | Headstone hoards excluded |
 | Broken Masonry | 135–248 | 1 × Platinum ore rock | 202–401 | Pick T4 |
 | Silent Circle | 210–400 | 1 × Starflower | 49–98 |  |
-| Flint Field | 30–45 | 3 × Gemfruit | 30–57 |  |
+| Flint Field | 30–44 | 3 × Gemfruit | 30–57 |  |
 | Broken Depot | 24–35 | 2 × Gemfruit | 20–38 | 6% trap |
-| Seep | 8–12 | 1 × Starflower | 49–98 | 10% tar |
-| Work Yard | 322–578 | 1 × Crimson ore rock | 483–965 | Pick T5 |
-| Black Ring | 24–35 | 2 × Gold ore rock | 162–321 | 8% tar; Pick T3 |
+| Seep | 13–18 | 1 × Starflower | 49–98 | 15.625% tar |
+| Work Yard | 469–845 | 1 × Crimson ore rock | 483–965 | Pick T5 |
+| Black Ring | 50–73 | 2 × Gold ore rock | 162–321 | 12.5% tar; Pick T3 |
 
 ## Main findings
 
 - Plain rocks now have a steeper bonus-bar curve: copper stays at 12.5%, while Frost is 0.340% (1/294), three times rarer than before. One ordinary churchyard rock averages 14–27 sale coins. About 80.3% give no bonus bar. Fifteen rocks have a 5.0% chance of at least one Frost bar. Ordinary rocks remain ungated; their averages still include rare jackpots.
-- Work Yard now has the highest background value per unit area: 322–578 coins per 100 cells, followed by Stone Garden at 248–472 and Silent Circle at 210–400. The fixed Work Yard footprint holds about 3090–5550 background coins over 961 cells; Stone Garden holds 1094–2081 over 441 cells, before clipping and POI replacement.
+- Work Yard background value per unit area is: 469–845 coins per 100 cells, versus Stone Garden at 409–782 and Silent Circle at 210–400. The fixed Work Yard footprint holds about 2070–3726 background coins over 441 cells; Stone Garden holds 1803–3448 over 441 cells, before clipping and POI replacement.
 - Work Yard has the largest finite reward: one Crimson rock averages 483–965 coins, versus 202–401 for the Platinum rock and 162–321 for Black Ring’s pair of Gold rocks. Gold requires an Iron pick (T3), Platinum a Gold pick (T4), Crimson a Platinum pick (T5). The existing one-tier-short slow-grind option still applies.
 - Formal Garden pays well because ordinary Marigolds sell for 17–34 coins each, more than the designated Wild Rose finds at 14–27. The “special find” label does not always mean a more valuable item.
 - Seep and Broken Depot have weak backgrounds. Tar and traps contribute no sale income; their income is mainly the finite find or rubble bonuses. Danger is not currently rewarded with comparable extra value.

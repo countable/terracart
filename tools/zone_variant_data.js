@@ -41,6 +41,17 @@ for (const row of data.variants) {
   for (const pattern of [row.poi, row.poi.whenInsideBuilding]) {
     for (const slot of pattern ? pattern.slots : []) material(slot.material);
   }
+  if (row.poi.clearing) {
+    const c = row.poi.clearing, outer = c.radiusCells + c.rimWidthCells;
+    const expected = new Map();
+    for (let y = -outer; y <= outer; y++) for (let x = -outer; x <= outer; x++) {
+      const d2 = x * x + y * y;
+      if (d2 && d2 <= outer * outer) expected.set(`${x},${y}`, d2 <= c.radiusCells * c.radiusCells ? c.material : c.rimMaterial);
+    }
+    for (const pattern of [row.poi, row.poi.whenInsideBuilding]) {
+      if (pattern.slots.length !== expected.size || pattern.slots.some(s => expected.get(s.at.join(',')) !== s.material)) fail(`clearing geometry ${row.id}`);
+    }
+  }
   material(row.finds.material);
   if (row.connection.material) material(row.connection.material);
   if (row.finds.count !== row.finds.targets.length) fail(`find count ${row.id}`);

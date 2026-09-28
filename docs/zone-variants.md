@@ -5,12 +5,12 @@ The game and map review load this declarative table through `src/zone_variant_da
 ## Placement contract
 
 - Six equally weighted grove variants and five each for churchyards and tar yards. Choose once from the stable anchor identity. Meadow and Flint Field explicitly use seeded scatter keyed by anchor, variant, and global cell; they do not repeat a random tile or change between visits. Other variants use structured patterns; Ancient Grove adds light seeded grass only between its fixed clusters.
-- Background slots use their declared repeat motif, seeded scatter, or continuous line grid throughout the coverage union, without radial density falloff. Coordinates are zero-based. One cell is currently 7 metres. Work Yard uses a fixed 5 × 5 arrangement with one-cell-wide lines every six cells and its POI centered in the middle plot. Hedge Garden uses continuous lines every four cells throughout the coverage union; the preview shows a 4 × 4 sample. Shared borders belong to one grid; intersections count once.
+- Background slots use their declared repeat motif, seeded scatter, or continuous line grid throughout the coverage union, without radial density falloff. Coordinates are zero-based. One cell is currently 7 metres. Work Yard uses a fixed 5 × 5 arrangement with one-cell-wide lines every four cells and its POI centered in the middle plot. Hedge Garden uses continuous lines every four cells throughout the coverage union; the preview shows a 4 × 4 sample. Shared borders belong to one grid; intersections count once.
 - Orient the motif toward the accessible POI approach, quantized to a quarter turn. If no approach can be resolved, use the stable anchor orientation. All tiles must use the same resolved orientation.
 - `material.cycle` advances by repeat-block x + y modulo cycle length. Every slot in a bed uses the same phase, keeping beds monochrome. Density values are derived from complete material cycles.
 - Recognizable geometry takes priority over the earlier approximate 15% guide. Never thin a continuous line to meet a density target. Density is measured from the declared geometry, or is the expected seeded-scatter coverage, before obstacles. Report actual eligible-ground coverage separately. Variant coverage replaces procedural biome scatter and street dressing, including their empty lanes. Mapped POIs, buildings and authored features remain occupied. Generic runtime rooted plants, traps and treasure scatter stay outside coverage; authored finds and traps retain their budgets.
 - POI material arrangements and connection markers replace occupied background slots where they coincide. For fixed geometry, density is an outcome: do not delete unrelated line cells to compensate for POI decoration. Special finds and guards have separate finite counts. Tar is a hazard and does not count as coverage.
-- POI coordinates are offsets from the accessible settled chest. Outdoor arrangements occupy only the eight immediately adjacent cells, with edge or corner contact and no empty-cell gap. They stay fixed to the POI; blocked slots are omitted rather than pushed outward. When the original POI lies inside a building, use its stored `whenInsideBuilding` arrangement beside the settled frontage, preserving the previous relocation rules. Both grid variants fix their phase to the settled POI.
+- POI coordinates are offsets from the accessible settled chest. Outdoor arrangements touch the POI: Meadow has a radius-three grass disk and Flint Field a radius-two flint disk, each with a one-cell bush or rubble rim, while other variants use the eight immediately adjacent cells. They stay fixed to the POI; blocked slots are omitted rather than pushed outward. When the original POI lies inside a building, use its stored `whenInsideBuilding` arrangement beside the settled frontage, preserving the previous relocation rules. Both grid variants fix their phase to the settled POI.
 - Find coordinates are fractions of zone radius, or explicit plot coordinates when specified, in the same oriented frame. Resolve and own their finite plan once per anchor across tile boundaries. Try deterministic fallback seats within the zone; report an unmet count instead of spawning on forbidden ground.
 - Keep compact beds whole when blocked. Continuous grid lines are clipped only by the coverage boundary, reserved POI space, and ineligible or occupied cells; never discard an entire long line because one cell is blocked. Do not introduce decorative gaps or replace missing segments with random scatter. Existing roads, buildings, restricted land and spawn buffers remain authoritative.
 - Common material uses the minor spawn gate. Finds use attractor eligibility. Guards and headstones use enemy eligibility. A blocked headstone falls back to ordinary stone; a blocked guard is omitted without removing its find.
@@ -46,22 +46,22 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 
 | Zone | Variant | Background mix | POI | Finds | Guards | Fauna affinity |
 |---|---|---|---|---|---|---|
-| grove | Meadow | 10% grass, 4% blue, 1% orange | flower ring | 3 medium: rose | none | rabbit 50%, butterfly 65% |
+| grove | Meadow | 15% shrub outside the clearing; no grass outside | R=3 grass disk with bush rim | 3 medium: rose | none | rabbit 50%, butterfly 65% |
 | grove | Mushroom Grove | 11.11% mushroom, 5.56% shrub, 2.78% grass | mushroom crescent | 1 rare: star | 1 slime at find | butterfly 50% |
 | grove | Orchard | 4% fruit_tree, 6% grass, 2% blue | paired trees | 3 medium: gemfruit | none | deer 65% |
 | grove | Formal Garden | 10% shrub, 6% blue, 2% orange | hedge flanks flower diamond | 2 medium: rose | none | none |
 | grove | Hedge Garden | 43.75% shrub, 4.69% blue, 1.56% orange | flowers in hedge room | 2 medium: rose | none | rabbit 60% |
-| grove | Ancient Grove | 1.23% tree, 9.88% shrub, 17.78% grass (expected) | stone tree ring | 1 rare: star | 2 slime at find | deer 60% |
-| stones | Stone Garden | 2.72% iron_ore, 10.88% stone, 6.8% grass | four stones | 3 medium: gemfruit | none | none |
+| grove | Ancient Grove | 2.04% tree, 16.33% shrub, 26.78% grass (expected) | stone tree ring | 1 rare: star | 2 slime at find | deer 60% |
+| stones | Stone Garden | 4.54% iron_ore, 18.14% stone, 6.8% grass | four stones | 3 medium: gemfruit | none | none |
 | stones | Ordered Graves | 6% grave, 6% stone, 3% grass | flanking stone rows | 2 medium: gemfruit | headstone ghosts on interaction | crow 65% |
 | stones | Overgrown Graves | 8% grass, 4% shrub, 4% stone, 2% grave | overgrown crescent | 1 rare: star | headstone ghosts on interaction | crow 40%, butterfly 35% |
 | stones | Broken Masonry | 12% rubble, 8% stone | stone square | 1 rare: platinum_ore | 1 slime at find | none |
 | stones | Silent Circle | 15% stone, 1% grass | inner stone ring | 1 rare: star | none | crow 50% |
-| tar | Flint Field | 10% flint, 5% rubble | flint ring | 3 medium: gemfruit | none | none |
+| tar | Flint Field | 15% rubble outside the circle | R=2 flint disk with rubble rim | 3 medium: gemfruit | none | none |
 | tar | Broken Depot | 12% rubble; hazards: 6% trap | rubble and trap flanks | 2 medium: gemfruit | none | none |
-| tar | Seep | 4% rubble; hazards: 10% tar | tar crescent | 1 rare: star | none | none |
-| tar | Work Yard | 19.35% copper_rock, 15.61% rubble | material grid | 1 rare: crimson_ore | none | none |
-| tar | Black Ring | 12% rubble; hazards: 8% tar | tar ring | 2 rare: gold_ore | none | none |
+| tar | Seep | 6.25% rubble; hazards: 15.63% tar | tar crescent | 1 rare: star | none | none |
+| tar | Work Yard | 28.57% copper_rock, 20.41% rubble | material grid | 1 rare: crimson_ore | none | none |
+| tar | Black Ring | 25% rubble; hazards: 12.5% tar | tar ring | 2 rare: gold_ore | none | none |
 
 ## Runtime placement
 
@@ -92,9 +92,9 @@ Mushroom pairs occupy opposite halves of a 6 × 6 repeat. Two shrubs and one gra
 ## Tar-yard material choices
 
 - Work Yard uses copper-bearing mineral rocks (`yieldTier: 2`, `requiredTier: 1`) in place of flint, including its adjacent POI pattern. Vertical rubble lines remain.
-- Seep replaces all flint with tar pits, including the crescent and connection markers. Background coverage is 4% gatherable rubble plus 10% tar hazards; the latter includes its two existing extra pits per repeat tile.
+- Seep replaces all flint with tar pits, including the crescent and connection markers. Its 8 × 8 repeat has 6.25% gatherable rubble plus 15.625% tar hazards; the latter includes its two existing extra pits per repeat tile.
 - Broken Depot replaces all flint with traps, including the POI flanks and offset-row markers. Background coverage is 12% rubble plus 6% trap hazards. Surface trap records must enter the existing trap collection and pass both the enemy spawn gate and `Traps.isTrapGround`. This can omit traps where the real location has no eligible footpath or park edge.
-- Black Ring replaces all flint with tar pits. Background coverage is 12% rubble plus 8% tar hazards. Five extra cells thicken the existing clusters while retaining the ring openings.
+- Black Ring replaces all flint with tar pits. Background coverage is 25% rubble plus 12.5% tar hazards in an 8 × 8 repeat, with a smaller, near-continuous outer circle.
 - Material replacements retain the declared finite special-find counts. Tar pits and traps are shown separately from gatherable coverage.
 
 ## Ore finds
@@ -106,11 +106,11 @@ Mushroom pairs occupy opposite halves of a 6 × 6 repeat. Two shrubs and one gra
 
 ## Ancient Grove clusters
 
-A 9 × 9-cell repeat contains one rounded cluster: one central tree, eight shrubs around it, and twelve longgrass cells on the outer edge. The four square corners are removed. Clusters repeat every nine cells instead of ten, giving 25.93% fixed coverage. Each otherwise empty cell has a deterministic 4% chance of longgrass, adding about 2.96 percentage points for 28.89% expected total coverage. This scatter never replaces cluster cells and does not change between visits. The POI replaces the central tree of the anchor cluster; its adjacent decorations replace only the slots they occupy. The starflower find and two slime guards remain.
+A 7 × 7-cell repeat contains one rounded cluster: one central tree, eight shrubs around it, and twelve longgrass cells on the outer edge. The four square corners are removed. Clusters repeat every seven cells, two cells closer than the previous nine-cell spacing, giving 42.86% fixed coverage. Each otherwise empty cell has a deterministic 4% chance of longgrass, adding about 2.29 percentage points for 45.14% expected total coverage. This scatter never replaces cluster cells and does not change between visits. The POI replaces the central tree of the anchor cluster; its adjacent decorations replace only the slots they occupy. The starflower find and two slime guards remain.
 
 ## Stone Garden concentric rings
 
-Three rings centered on the POI have radii 3, 6 and 9 cells and contain 10, 20 and 30 stones respectively. Each ring follows iron, stone, stone, stone, stone clockwise from north: exactly twelve of sixty stones are iron. Two staggered longgrass rings between them contain ten and twenty cells. The complete 21 × 21-cell footprint holds 48 ordinary stones, 12 iron rocks and 30 grass cells (20.41% background coverage). The central four-stone POI arrangement remains additional to these rings. Iron uses the existing tier-3 ore rock with a tier-2 pick requirement. The finite radial composition is clipped to the eligible coverage union rather than repeated from each tile.
+Three rings centered on the POI have radii 3, 6 and 9 cells and contain 16, 32 and 52 touching stones respectively. The rings use symmetric pixel-circle outlines. Continuing clockwise through the inner, middle and outer rings, every fifth stone is iron: exactly twenty of 100 stones. Two staggered longgrass rings between them contain ten and twenty cells. The complete 21 × 21-cell footprint holds 80 ordinary stones, 20 iron rocks and 30 grass cells (29.48% background coverage). The central four-stone POI arrangement remains additional to these rings. Iron uses the existing tier-3 ore rock with a tier-2 pick requirement. The finite radial composition is clipped to the eligible coverage union rather than repeated from each tile.
 
 ## Fauna affinities
 
@@ -133,7 +133,7 @@ Formal Garden, Stone Garden, Broken Masonry and all five tar-yard variants have 
 
 ## Work Yard grid
 
-The 5 × 5 plots share six continuous boundaries on each axis, at cell coordinates 0, 6, 12, 18, 24 and 30. The whole footprint is 31 × 31 cells. Copper occupies horizontal lines and intersections (186 cells); rubble occupies the remaining vertical-line cells (150 cells). Background coverage is 34.96%, chosen for recognizable geometry rather than the former density guide. The POI is at cell (15, 15), exactly centered in plot (2, 2). Its outdoor arrangement uses the adjacent top and bottom rows. The crimson find occupies the center of the far middle plot.
+The 5 × 5 plots share six continuous boundaries on each axis, at cell coordinates 0, 4, 8, 12, 16 and 20. The whole footprint is 21 × 21 cells. Copper occupies horizontal lines and intersections (126 cells); rubble occupies the remaining vertical-line cells (90 cells). Background coverage is 48.98%, chosen for recognizable geometry rather than the former density guide. The POI is at cell (10, 10), exactly centered in plot (2, 2). Its outdoor arrangement uses the adjacent top and bottom rows. The crimson find occupies the center of the far middle plot.
 
 ## Silent Circle continuity
 
@@ -152,7 +152,7 @@ Only the POI cell and actual decoration slots replace existing background slots.
 | Orchard | [5, 5] | aisle between four trees |
 | Formal Garden | [4, 4] | central aisle between flower beds |
 | Hedge Garden | [6, 6] | plot center |
-| Ancient Grove | [5, 5] | cluster center replacing center tree |
+| Ancient Grove | [3, 3] | cluster center replacing center tree |
 | Stone Garden | [10, 10] | center of three concentric stone rings |
 | Ordered Graves | [5, 4] | central stone row between graves |
 | Overgrown Graves | [5, 4] | middle of shrub row |
@@ -160,10 +160,22 @@ Only the POI cell and actual decoration slots replace existing background slots.
 | Silent Circle | [5, 5] | circle center |
 | Flint Field | [0, 0] | scatter seed origin |
 | Broken Depot | [5, 4] | middle of material row |
-| Seep | [4, 4] | central seep replaced by poi |
-| Work Yard | [15, 15] | plot center |
-| Black Ring | [5, 5] | inner ring clearing |
+| Seep | [3, 3] | central seep replaced by poi |
+| Work Yard | [10, 10] | plot center |
+| Black Ring | [3, 3] | inner ring clearing |
 
 ## Map review diagnostics
 
 The map review shows variant labels and a park/zone selector. Select a zone to highlight its union and see live placements, fauna, removed general/street placements, and background slots lost to occupancy or spawn restrictions. The source filter isolates the variant or hides fauna; marker popups report their generating source. These are read-only views of the game’s generation, not a separate placement simulation.
+
+## Meadow clearing
+
+The POI is the center of a radius-three-cell disk (21 m). Its 28 surrounding cells contain longgrass. A one-cell-wide bush rim occupies the 20 cells with distance greater than three and at most four cells. Outside this composition, seeded bush coverage is 15%, with no grass or ordinary flower scatter. The three wild-rose finds remain; flower-marker connections are removed. Roads, buildings and occupied cells still clip the arrangement.
+
+## Flint Field circle
+
+Uses a smaller version of the Meadow arrangement: 12 flint cells within radius two around the POI, 16 rubble cells forming the rim up to radius three, then 15% seeded rubble outside. The three gemfruit finds remain.
+
+## Black Ring spacing
+
+An 8 × 8 repeat holds a radius-three circle of sixteen touching rubble cells and a tight inner ring of eight tar cells. The POI replaces its center. This makes the circles smaller and two cells closer than the previous repeat.

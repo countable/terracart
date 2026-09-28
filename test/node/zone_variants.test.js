@@ -81,7 +81,7 @@ test('zone variants: Mushroom Grove avoids wide empty strips at every repeated p
 });
 test('zone variants: Ancient Grove keeps rounded clusters and scatters grass only between them', () => {
   const row = V.byId('ancient_grove'), b = row.background;
-  assert.eq(b.repeatCells.join(','), '9,9');
+  assert.eq(b.repeatCells.join(','), '7,7');
   const fixed = { ...row, background: { ...b, gapScatter: null } };
   let empty = 0, grass = 0, changed = 0;
   for (let y = -90; y < 90; y++) for (let x = -90; x < 90; x++) {
@@ -97,14 +97,14 @@ test('zone variants: Ancient Grove keeps rounded clusters and scatters grass onl
   }
   assert.lt(Math.abs(grass / empty - b.gapScatter.chance), 0.005);
   assert.gt(changed, 100, 'gap grass varies by anchor');
-  assert.eq(V.sample(row, 5, 5, 'one'), 'tree');
-  assert.eq(V.sample(row, 14, 5, 'one'), 'tree', 'tree centers are nine cells apart');
+  assert.eq(V.sample(row, 3, 3, 'one'), 'tree');
+  assert.eq(V.sample(row, 10, 3, 'one'), 'tree', 'tree centers are seven cells apart');
 });
 test('zone variants: continuous grids have centered POIs and their declared extent', () => {
   for (const [id, plots] of [['hedge_garden', 4], ['work_yard', 5]]) {
     const row = V.byId(id), b = row.background, edge = b.spacingCells * plots;
     assert.eq((b.plots || b.previewPlots)[0], plots);
-    assert.eq(b.spacingCells, id === 'hedge_garden' ? 4 : 6);
+    assert.eq(b.spacingCells, 4);
     const [ox, oy] = V.poiOrigin(row);
     assert.eq(ox % b.spacingCells, b.spacingCells / 2);
     assert.eq(oy % b.spacingCells, b.spacingCells / 2);
@@ -129,9 +129,19 @@ test('zone variants: Stone Garden is centered rings with every fifth stone iron'
   assert.eq(x, row.background.centerCell[0]);
   assert.eq(y, row.background.centerCell[1]);
   const counts = count(row, 0, 0, 21, 21);
-  assert.eq(counts.iron_ore, 12);
-  assert.eq(counts.stone, 48);
+  assert.eq(counts.iron_ore, 20);
+  assert.eq(counts.stone, 80);
   assert.eq(counts.grass, 30);
+  let start = 0;
+  for (const ring of row.background.stoneRings) {
+    const slots = row.background.slots.slice(start, start + ring.count);
+    for (let i = 0; i < slots.length; i++) {
+      const a = slots[i], b = slots[(i + 1) % slots.length];
+      assert.lte(Math.max(Math.abs(a.at[0] - b.at[0]), Math.abs(a.at[1] - b.at[1])), 1, 'ring has no empty cell between neighbouring stones');
+      assert.eq(a.material, ring.sequence[(i + ring.sequenceOffset) % ring.sequence.length], 'iron rhythm follows the circle');
+    }
+    start += ring.count;
+  }
   assert.eq(V.sample(row, 10, 10), null);
   assert.eq(V.sample(row, 31, 7), null, 'rings do not repeat');
 });
@@ -166,7 +176,7 @@ test('zone variants: finite finds keep exact budgets and pick requirements', () 
   assert.eq(V.materials.gold_ore.requiredTier, 3);
   const workFind = V.findOffsets(V.byId('work_yard'), 12)[0];
   assert.eq(workFind.dx, 0);
-  assert.eq(workFind.dy, 12);
+  assert.eq(workFind.dy, 8);
 });
 test('zone variants: fauna affinities and material classes match their runtime lanes', () => {
   assert.eq(V.rows.filter(row => Object.keys(row.attracts).length).length, 8);
