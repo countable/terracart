@@ -118,6 +118,13 @@ function fixedChestReward(fixedLoot, save) {
 // see is what you get (until Sep 2026 it was that plus a coin-flip bonus).
 // Flint on PLAIN_ROCK_FLINT_P of breaks.
 const PLAIN_ROCK_FLINT_P = 0.10;
+// Copper stays at 1/8; the extra rarity rises smoothly to 3x at Frost.
+// These are independent bonus rolls on ordinary rocks, not the guaranteed
+// primary bar paid by a named ore deposit.
+function plainRockBarChance(tier) {
+  if (!Number.isInteger(tier) || tier < 2 || tier > 7) return 0;
+  return 1 / (2 * tier * tier * Math.pow(3, (tier - 2) / 5));
+}
 function plainRockBaseDrop(scene, stones) {
   const qty = stones == null ? 1 : stones;
   scene.addToInv('rockfruit', qty);
@@ -280,16 +287,16 @@ const INTERACTABLES = {
       const isPlain = isCave || (o.yieldTier || 1) <= 1;
       if (isPlain) {
         // Plain rock — stone, coal on ~10% (shared base table, see
-        // plainRockBaseDrop), plus a small per-tier chance (1/(2·t²) from
-        // copper) of cracking open a bar, on top of the base.
+        // plainRockBaseDrop), plus the shared, tier-steepened bonus-bar
+        // chances, on top of the base.
         // The stone count follows the ART: the pair-of-stones variant drops
-        // 2-3, a single stone 1-2. Both numbers come off the one table in
+        // 2, a single stone 1. Both numbers come off the one table in
         // sprite_layout.js that render.js picks the frame from, so the rock the
         // player sees and the rocks they get can't disagree.
         const qty = plainRockBaseDrop(scene, SpriteLayout.plainRockStones(o));
         let flashId = 'rockfruit';
         for (let t = 2; t <= 7; t++) {
-          if (Math.random() < 1 / (2 * t * t)) {
+          if (Math.random() < plainRockBarChance(t)) {
             const bar = BARS[t];
             if (bar) { scene.addToInv(bar, 1); flashId = bar; }
           }

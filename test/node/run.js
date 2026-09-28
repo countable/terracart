@@ -81,7 +81,7 @@ const FILES = [
   // Influence zones — the anchor field, the halo terrain and the nexus
   // dressing. Pure (reads WorldGen at CALL time), before worldgen.js like the
   // page loads it.
-  'zones.js',
+  'zones.js', 'zone_variant_data.js', 'zone_variants.js', 'zone_coverage.js', 'zone_dressing.js',
   'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
   // Traps — placement + costs. Pure (it reads WorldGen at CALL time), so it
   // loads either side of worldgen.js; index.html puts it first, so do we.
@@ -1516,6 +1516,14 @@ for (const f of testFiles) {
     } });
   }
 }
+
+// The editable table and the shipped browser module must always agree.
+ctx.__tests.push({ name: 'zone variants: generated browser data matches the canonical table', fn: () => {
+  const expected = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs/zone-variants.json'), 'utf8'));
+  if (JSON.stringify(ctx.ZoneVariantData) !== JSON.stringify(expected)) {
+    throw new Error('Zone data is stale; run node tools/zone_variant_data.js --write');
+  }
+} });
 
 // ── Sprite-position rule (tools/sprite_audit.js) ──────────────────────────
 // Folded into the suite so a non-compliant sprite — or a stale ART_BOUNDS

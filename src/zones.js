@@ -474,7 +474,7 @@
       if (!reach.length) return null;
       idx = s = null;                 // a pattern reaches in; no zone ground does
     }
-    return { anchors, idx, s, reach };
+    return { anchors, idx, s, reach, allAnchors: all };
   }
   function field(poiLayer, tx, ty, N) {
     const it = fieldSteps(poiLayer, tx, ty, N);

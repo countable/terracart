@@ -248,7 +248,7 @@ test('zones: every nexus piece is off the road band and off anything already the
     assert.falsy(before.has(i), `${p.id} is not on anything already there`);
     assert.falsy(mine.has(i), `${p.id} is one per cell`);
     assert.truthy(WorldGen.isWalkable(on.grid[i]), `${p.id} stands on walkable ground`);
-    assert.truthy(/_\d+_\d+_\d+_\d+$/.test(p.id), `${p.id} is a tile + cell id`);
+    assert.truthy(p.zoneLayer === 'find' ? /^zf_(grove|stones|tar)_\d+_\d+_/.test(p.id) : /_\d+_\d+_\d+_\d+$/.test(p.id), `${p.id} has a stable anchor or tile-cell identity`);
     mine.add(i);
   }
   // Rasterized again: the same pieces, the same ids.
@@ -260,8 +260,8 @@ test('zones: every nexus piece is off the road band and off anything already the
   }
   // Nexus flora (roses, flint, a symmetric figure's beds and shrubs) and the
   // park fringe's filler (the character's long grass or shrubs).
-  for (const w of d.wildplants) assert.includes(['wildrose', 'flint', 'forgetmenot', 'marigold', 'shrub', 'longgrass'], w.crop);
-  for (const w of d.wildplants.filter((x) => x.crop === 'longgrass')) assert.truthy(w.fringe, `${w.id}: long grass only as fringe filler`);
+  const crops = Object.values(ZoneVariants.materials).filter(m => m.kind === 'wildplant').map(m => m.crop);
+  for (const w of d.wildplants) assert.includes(crops, w.crop);
 });
 
 test('zones: the nexus chest keeps its id and wears one tier more, capped', () => {
@@ -629,22 +629,14 @@ test('park flora: a clump is several times as full as the open lawn, in every sc
   }
 });
 
-test('grove nexus: a piece never lands where the park around it is already full', () => {
-  assert.eq(Z.GROVE_CROWD_MAX, 3);
+test('grove variants: dense geometry preserves existing cells without a neighbour-density veto', () => {
   const { on, N, edge } = rasterPair();
-  const cellOf = (o) => Math.floor((o.y - TILE_TY * edge) / (edge / N)) * N + Math.floor((o.x - TILE_TX * edge) / (edge / N));
+  const cellOf = o => Math.floor((o.y - TILE_TY * edge) / (edge / N)) * N + Math.floor((o.x - TILE_TX * edge) / (edge / N));
   const base = new Set([...on.objects, ...on.wildplants].map(cellOf));
   if (on.streetDress) for (const o of [...on.streetDress.objects, ...on.streetDress.wildplants, ...on.streetDress.treasures]) base.add(cellOf(o));
-  let checked = 0;
-  for (const p of [...on.zoneDress.objects, ...on.zoneDress.wildplants]) {
-    if (p.zone !== 'grove' || p.kind === 'grove_shrine') continue;
-    const i = cellOf(p);
-    let n = 0;
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && base.has(i + dy * N + dx)) n++;
-    assert.lt(n, Z.GROVE_CROWD_MAX, `${p.id}: not packed in`);
-    checked++;
-  }
-  assert.gt(checked, 0, 'grove pieces were checked');
+  const pieces = [...on.zoneDress.objects, ...on.zoneDress.wildplants].filter(p => p.zone === 'grove');
+  assert.gt(pieces.length, 0);
+  for (const p of pieces) assert.falsy(base.has(cellOf(p)), `${p.id} leaves existing flora intact`);
 });
 
 // ── Stories, terrain enumerations, tips ─────────────────────────────────────

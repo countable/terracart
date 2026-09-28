@@ -173,3 +173,43 @@ test('plain rock: an explicit rockVariant decides the frame AND the drop, over c
     if (i < 20) assert.eq(mineOnce(o), PRV[v].stones, `${o.id}: pays what it shows`);
   }
 });
+
+
+// Boundary-controlled rolls pin the shipping payout, not just the formula.
+test('plain rock: steeper bar rarity keeps copper and makes Frost three times rarer', () => {
+  assert.eq(plainRockBarChance(2), 1 / 8);
+  assert.eq(plainRockBarChance(7), 1 / 294);
+  assert.eq(plainRockBarChance(1), 0);
+  assert.eq(plainRockBarChance(8), 0);
+  let previous = 1;
+  for (let tier = 2; tier <= 7; tier++) {
+    const chance = plainRockBarChance(tier);
+    assert.lt(chance, previous);
+    assert.lte(chance, 1 / (2 * tier * tier));
+    previous = chance;
+  }
+  const bars = ['', '', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
+  const original = Math.random;
+  try {
+    for (let tier = 2; tier <= 7; tier++) for (const win of [true, false]) {
+      let calls = 0;
+      Math.random = () => {
+        // Completion rolls coal first, then each bar starting with copper.
+        calls++;
+        return calls === tier ? plainRockBarChance(tier) + (win ? -1e-10 : 1e-10) : 0.99;
+      };
+      const scene = makeScene();
+      const save = { relics: { pick: { tier: 7 } } };
+      INTERACTABLES.mineralrock.complete(makeCtx(scene, save), { kind: 'mineralrock', id: 'bonus-boundary', yieldTier: 1 });
+      assert.eq(scene.invCount(bars[tier]), win ? 1 : 0, `tier ${tier} threshold`);
+      for (let other = 2; other <= 7; other++) if (other !== tier) assert.eq(scene.invCount(bars[other]), 0);
+    }
+    Math.random = () => 0.99;
+    for (let tier = 2; tier <= 7; tier++) {
+      const scene = makeScene();
+      const save = { relics: { pick: { tier: 7 } } };
+      INTERACTABLES.mineralrock.complete(makeCtx(scene, save), { kind: 'mineralrock', id: `ore-${tier}`, yieldTier: tier });
+      assert.eq(scene.invCount(bars[tier]), 1, 'named ore still guarantees its primary bar');
+    }
+  } finally { Math.random = original; }
+});

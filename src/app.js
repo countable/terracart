@@ -8616,11 +8616,12 @@ class MapScene extends Phaser.Scene {
       const genGrid = entry.baseGrid || entry.grid;
       const laid = Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty,
         this.tileEdgeM, entry._spawnOpts, mul, entry.zone && entry.zone.under);
-      // Keep any already-discovered trap the new roll missed, one per cell.
+      // Keep authored zone traps and already-discovered traps, one per cell.
       const cells = new Set(laid.map((t) => t._iy * N + t._ix));
       for (const t of (entry.traps || [])) {
-        if (!sprung.has(t.id) || cells.has(t._iy * N + t._ix)) continue;
+        if ((!t.zoneVariant && !sprung.has(t.id)) || cells.has(t._iy * N + t._ix)) continue;
         laid.push(t);
+        cells.add(t._iy * N + t._ix);
       }
       entry.traps = laid;
       // …and the same per-player cull the spawn pass ends on.

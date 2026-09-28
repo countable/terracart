@@ -1,6 +1,6 @@
 # Zone variants
 
-Declarative design for review. This table is not yet loaded by the game; the existing world generation and map review remain unchanged.
+The game and map review load this declarative table through `src/zone_variant_data.js`. Regenerate that file after editing the JSON: `node tools/zone_variant_data.js --write`. Verify it with `node tools/zone_variant_data.js --check`.
 
 ## Placement contract
 
@@ -38,7 +38,7 @@ The variant frame extends continuously over this union. Fixed compositions such 
 | broken_row | Interrupt the row at the route junction; the find occupies the continuation. |
 | offset_row | Shift the route’s final row segment sideways one cell before the find. |
 
-Connection operators are specifications for a shared interpreter, not currently supported runtime APIs. Reuse eligible pattern slots; do not draw through major roads or create bonus density.
+Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots; do not draw through major roads or create bonus density.
 
 ## Variants
 
@@ -61,9 +61,9 @@ Connection operators are specifications for a shared interpreter, not currently 
 | tar | Work Yard | 19.35% copper_rock, 15.61% rubble | material grid | 1 rare: crimson_ore | none | none |
 | tar | Black Ring | 12% rubble; hazards: 8% tar | tar ring | 2 rare: gold_ore | none | none |
 
-## Before runtime integration
+## Runtime placement
 
-Implement and test the shared motif/connection interpreter, stable cross-tile orientation and finite-find ownership. Measure coverage at Kelowna Gospel Fellowship, including the outer zone, and verify collisions, blocked beds, rebuild stability, guard eligibility, and the declared per-variant find counts. Special finds use existing starflower (T5), wildrose (T3), gemfruit (T3), and gold/platinum/crimson mineral rocks (T4/T5/T6). Each variant declares an explicit count; Black Ring intentionally has two rare gold rocks.
+`ZoneCoverage` builds the union; `ZoneVariants` samples motifs; `ZoneDressing` places materials, finite finds, connections and guards through the shared spawn gate. Existing objects remain occupied. Blocked geometry is clipped. Finite finds are generated once on the source anchor’s owning tile, with deterministic fallback inside its available coverage and diagnostic shortfalls when exhausted. Source-point origins remain stable across tile seams; wholly contained outdoor zones can align their background to the settled POI. Park association uses the source polygon and POI geometry available in each tile’s buffer; a clipped polygon that omits its distant anchor cannot associate that part of a very large park. The map review offers a coverage overlay and reports each POI’s selected variant. Special finds use existing starflower (T5), wildrose (T3), gemfruit (T3), and gold/platinum/crimson mineral rocks (T4/T5/T6). Each variant declares an explicit count; Black Ring intentionally has two rare gold rocks.
 
 ## Review preview
 
@@ -123,7 +123,7 @@ On integration, the variant column replaces the zone-kind affinity: an empty obj
 | Overgrown Graves | Crow 40%, butterfly 35% | Wildlife returning to neglected ground |
 | Silent Circle | Crow 50% | Occasional movement in an otherwise quiet ring |
 
-Formal Garden, Stone Garden, Broken Masonry and all five tar-yard variants have no zone-specific affinity. They can still contain naturally spawned fauna. These remain design-table assignments; the live attraction pass has not yet been wired to the variant rows.
+Formal Garden, Stone Garden, Broken Masonry and all five tar-yard variants have no zone-specific affinity. They can still contain naturally spawned fauna. The live attraction pass reads these variant rows over the same coverage union and relocates existing fauna without adding population.
 
 ## Work Yard grid
 

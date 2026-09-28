@@ -4873,9 +4873,12 @@
       const fringe = parkPolys.length
         ? yield* Zones.fringeSteps({ parks: parkPolys, grid, N: w, tx, ty, field: zone, pathUnder }) : null;
       if (fringe && !zone) zone = fringe.field;
+      if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.buildSteps({
+        field: zone, poiLayer: layersByName['poi'], parks: parkPolys, tx, ty, N: w,
+        chests: deduped, tileEdgeM, grid });
       if (zone) {
         dressSpawn();
-        zoneDress = yield* Zones.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
+        zoneDress = yield* ZoneDressing.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
           spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
       }
     }
