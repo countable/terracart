@@ -579,4 +579,88 @@ test('slow: the feet cell is read off playerToWorldCell, and the first contact f
     assert.truthy(/^street_/.test(row.story), `${row.story} is a street story stem`);
   }
 });
+
+// ── One end piece per street per tile (Sep 2026) ───────────────────────────
+// A major road arrives cut into many short lines, and every owned line END
+// used to stand a barricade + goblin (220 over Seattle's nine tiles). Now the
+// ends are pooled by street key and ONE seats per (street, tile): the end
+// whose hash endPick is lowest and that seats. Same for Pilgrim's waystones.
+const PILG = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'pilgrim', 'Chapel Walk');
+function piecewiseLayers() {
+  // The barricade road down col 40 in FOUR pieces, the pilgrim way along
+  // row 20 in THREE — every cut an owned end.
+  const cuts = (a, b, n, at) => {
+    const out = [];
+    for (let k = 0; k < n; k++) {
+      const p0 = Math.round(a + (b - a) * k / n), p1 = Math.round(a + (b - a) * (k + 1) / n);
+      out.push(pts(at === 'col' ? [[40, p0], [40, p1]] : [[p0, 20], [p1, 20]]));
+    }
+    return out;
+  };
+  const barr = cuts(4, CPE - 5, 4, 'col'), pilg = cuts(4, CPE - 5, 3, 'row');
+  return [
+    { name: 'landuse', features: [{ type: 3, tags: { class: 'park' }, geom: [wholeTile()] }] },
+    { name: 'transportation', extent: EXTENT, features: [
+      ...barr.map((g) => ({ type: 2, tags: { class: 'secondary' }, geom: [g] })),
+      ...pilg.map((g) => ({ type: 2, tags: { class: 'minor' }, geom: [g] })),
+    ] },
+    { name: 'transportation_name', extent: EXTENT, features: [
+      ...barr.map((g) => ({ type: 2, tags: { name: BARR }, geom: [g] })),
+      ...pilg.map((g) => ({ type: 2, tags: { name: PILG }, geom: [g] })),
+    ] },
+  ];
+}
+test('barricade + pilgrim: ONE end piece per street per tile, however many pieces it arrives in', () => {
+  const r = WorldGen.rasterizeTile(piecewiseLayers(), CPE, TX, TY, TILE_EDGE_M);
+  const lines = r.streetIndex.lines;
+  assert.eq(lines.filter((l) => l.variant === 'barricade').length, 4, 'four barricade pieces');
+  assert.eq(lines.filter((l) => l.variant === 'pilgrim').length, 3, 'three pilgrim pieces');
+  const { d } = dressed(r);
+  const bars = d.wildplants.filter((w) => w.crop === 'barricade');
+  const ways = d.objects.filter((o) => o.kind === 'waystone');
+  assert.eq(bars.length, 1, 'one barricade for the street in this tile');
+  assert.eq(d.lairs.filter((L) => L.tier === 'barricade').length, 1, 'and one goblin');
+  assert.eq(ways.length, 1, 'one waystone for the pilgrim way in this tile');
+  // Deterministic, and off a hash of the street + the end's GLOBAL point.
+  const again = dressed(WorldGen.rasterizeTile(piecewiseLayers(), CPE, TX, TY, TILE_EDGE_M)).d;
+  assert.eq(again.wildplants.filter((w) => w.crop === 'barricade')[0].id, bars[0].id, 'the same end every build');
+  assert.truthy(/u01\(`end\|\$\{grp\.v\}\|\$\{grp\.key\}\|\$\{gk\}`\)/.test(ALL_SRC['street_variants.js']),
+    'the pick hashes variant, street key and the global end point');
+});
+
+// ── Dogs: displaced, not lost (Sep 2026) ──────────────────────────────────
+// A dog whose every spawn draw failed — one of them only on a cell the
+// street dressing / nexus already held — used to vanish. spawnInTile keeps
+// it aside (`unseated`) and the attractor lane seats it on the bandit verge,
+// walking on FURTHER ALONG the verge from its last draw when the draws miss.
+test('bandit road: a displaced dog is seated on the verge, walking on along it when its draws miss', () => {
+  const m = liftAttract();
+  const r = rasterize();
+  const cellM = TILE_EDGE_M / CPE;
+  const verge = [];
+  for (let i = 0; i < r.roadClass.length; i++) if (r.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_VERGE) verge.push(i);
+  const opts = { roadMask: r.roadMask, occupied: occupiedOf(r), pois: [] };
+  // Fill all but ONE free verge cell: 12 random draws will almost surely
+  // miss it, so the seat must come from the walk along the verge.
+  const free = verge.filter((i) => WorldGen.isSpawnCell(r.grid, CPE, CPE, i % CPE, (i / CPE) | 0, opts));
+  assert.gt(free.length, 20, 'a verge with room');
+  const last = free[free.length - 1];
+  for (const i of free) if (i !== last) opts.occupied.add(i);
+  const lost = WorldGen.makeCreature('dog', NaN, NaN, `dog_${TX}_${TY}_9`);
+  const creatures = [];
+  const scene = Object.assign({ tileEdgeM: TILE_EDGE_M }, m);
+  const moved = scene._seatFaunaOnFavouriteGround({ roadClass: r.roadClass }, TX, TY, CPE, cellM, r.grid, opts, creatures, null, [lost]);
+  assert.eq(moved.dog, 1, 'the displaced dog is seated');
+  assert.eq(creatures.length, 1, '…and joins the tile\'s creatures');
+  assert.eq(cellOf(lost.y, TY) * CPE + cellOf(lost.x, TX), last, 'on the one free verge cell');
+  // A species the ground only half pulls (p < 1) is not rescued: lost stays lost.
+  const cat = WorldGen.makeCreature('cat', NaN, NaN, `cat_${TX}_${TY}_3`);
+  const none = [];
+  scene._seatFaunaOnFavouriteGround({ roadClass: r.roadClass }, TX, TY, CPE, cellM, r.grid,
+    { roadMask: r.roadMask, occupied: new Set(), pois: [] }, none, null, [cat]);
+  assert.eq(none.length, 0, 'only a whole-species pull seats the displaced');
+  // spawnInTile keeps the displaced aside without a single extra draw.
+  assert.truthy(/if \(displaced\) \{/.test(SCENE_CREATURES_SRC) && /unseated\.push\(/.test(SCENE_CREATURES_SRC),
+    'tryPlace remembers the displaced');
+});
 })();

@@ -225,7 +225,16 @@ class SceneCreatures {
     // PEST_FREE_CELLS). Resolved once per tile build; null once the grace has
     // lapsed, which is the common case.
     const pestFree = this._pestFreeZone(tx, ty);
+    // DISPLACED, NOT LOST: an animal every one of whose 12 draws failed, at
+    // least one of them only because something GENERATED already stood on
+    // the cell (the street dressing, the nexus — opts.occupied), is kept
+    // aside here instead of dropped; the attractor lane below seats it on its
+    // favourite ground if its species has one it always takes (p = 1: the
+    // dogs and the bandit road). No extra draws: the shared stream is
+    // untouched, only the verdict on a spent attempt is remembered.
+    const unseated = [];
     const tryPlace = (classesOK, idx, kindStr) => {
+      let displaced = false;
       for (let attempt = 0; attempt < 12; attempt++) {
         const cx = Math.floor(rng() * N);
         const cy = Math.floor(rng() * N);
@@ -244,7 +253,11 @@ class SceneCreatures {
           // etc. only ever pays the (cheap) roadMask lookup, never the
           // frontage scan. See CLAUDE.md's road-mask invariant / FINDING 2 /
           // test/node/fauna_spawn.test.js.
-          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts)) continue;
+          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, _spawnOpts)) {
+            if (!displaced && _spawnOpts.occupied && _spawnOpts.occupied.has(cy * N + cx)
+                && WorldGen.isSpawnCell(genGrid, N, N, cx, cy, { roadMask: _spawnOpts.roadMask, pois: _spawnOpts.pois })) displaced = true;
+            continue;
+          }
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellM;
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellM;
           const id = `${kindStr}_${tx}_${ty}_${idx}`;
@@ -266,6 +279,10 @@ class SceneCreatures {
             { shiny: faunaShiny(kindStr, id) }));
           return;
         }
+      }
+      if (displaced) {
+        const id = `${kindStr}_${tx}_${ty}_${idx}`;
+        if (!caughtSet.has(id)) unseated.push(WorldGen.makeCreature(kindStr, NaN, NaN, id, { shiny: faunaShiny(kindStr, id) }));
       }
     };
     // Biome-biased fauna spawn — each species' primary (dominant) biome set,
@@ -300,7 +317,7 @@ class SceneCreatures {
     // draw above is taken exactly as before (same count, same ids, same
     // stream for every species after it); the new seats come off each
     // species' OWN stream. A tile without the ground keeps its animals.
-    entry.faunaAttracted = this._seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, _spawnOpts, creatures, pestFree);
+    entry.faunaAttracted = this._seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, _spawnOpts, creatures, pestFree, unseated);
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
     // save.released is a flat array of {x,y,kind,id,tx,ty} — filter by tile + caught state.
@@ -602,10 +619,16 @@ class SceneCreatures {
   // — the dogs' old key), pass the shared spawn rule, never share a cell, and
   // a slime or crow never moves into the starting area's pest amnesty. A
   // species with no ground on the tile, or an animal that finds no free cell
-  // in FAUNA_ATTRACT_TRIES, keeps its drawn seat. Returns { kind: moved }.
-  _seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, spawnOpts, creatures, pestFree) {
+  // in FAUNA_ATTRACT_TRIES, keeps its drawn seat — except a species the
+  // ground takes WHOLE (p = 1: the dogs), which walks on FURTHER ALONG the
+  // ground's cells from its last draw to the first free one. `unseated`
+  // (optional): animals spawnInTile's draw lost only to a cell something
+  // generated already held — a p = 1 species' are seated the same way and
+  // join `creatures` (counted in `moved`); the rest stay lost, as before.
+  // Returns { kind: moved }.
+  _seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, spawnOpts, creatures, pestFree, unseated) {
     const moved = {};
-    if (!creatures || !creatures.length) return moved;
+    if (!creatures || (!creatures.length && !(unseated && unseated.length))) return moved;
     const SV = (typeof StreetVariants !== 'undefined') ? StreetVariants : null;
     const Z = (typeof Zones !== 'undefined') ? Zones : null;
     const BA = (typeof BIOME_ATTRACTS !== 'undefined') ? BIOME_ATTRACTS : null;
@@ -638,7 +661,8 @@ class SceneCreatures {
     const order = (typeof FAUNA_ORDER !== 'undefined' ? FAUNA_ORDER : []).slice();
     for (const sp of Object.keys(want)) if (!order.includes(sp)) order.push(sp);
     const pOf = (sp) => Math.max(...want[sp].map((g) => g.p));
-    const species = order.filter((sp) => want[sp] && creatures.some((c) => c && c.kind === sp))
+    const has = (sp) => creatures.some((c) => c && c.kind === sp) || !!(unseated && unseated.some((c) => c && c.kind === sp));
+    const species = order.filter((sp) => want[sp] && has(sp))
       .sort((a, b) => (pOf(b) >= 1) - (pOf(a) >= 1));
     if (!species.length) return moved;
     const taken = new Set();
@@ -653,21 +677,39 @@ class SceneCreatures {
       if (!pool.length) continue;
       const rng = WorldGen.makeRng(fnv1a(`${sp}s|${tx},${ty}`));
       const pest = (sp === 'slime' || sp === 'crow') ? pestFree : null;
+      const free = (idx) => {
+        if (taken.has(idx)) return false;
+        const cx = idx % N, cy = (idx / N) | 0;
+        if (pest && pest.has(cx, cy)) return false;
+        return WorldGen.isSpawnCell(genGrid, N, N, cx, cy, spawnOpts);
+      };
+      const seatOn = (c) => {
+        let k = -1, at = -1;
+        for (let a = 0; a < FAUNA_ATTRACT_TRIES; a++) {
+          k = Math.floor(rng() * pool.length);
+          if (free(pool[k])) { at = pool[k]; break; }
+        }
+        // A whole-species pull walks on along the ground from its last draw.
+        if (at < 0 && p >= 1 && k >= 0) {
+          for (let j = 1; j < pool.length; j++) {
+            const idx = pool[(k + j) % pool.length];
+            if (free(idx)) { at = idx; break; }
+          }
+        }
+        if (at < 0) return false;
+        taken.add(at);
+        c.x = tx * this.tileEdgeM + ((at % N) + 0.5) * cellM;
+        c.y = ty * this.tileEdgeM + (((at / N) | 0) + 0.5) * cellM;
+        moved[sp] = (moved[sp] || 0) + 1;
+        return true;
+      };
       for (const c of creatures) {
         if (!c || c.kind !== sp) continue;
         if (p < 1 && rng() >= p) continue;
-        for (let a = 0; a < FAUNA_ATTRACT_TRIES; a++) {
-          const idx = pool[Math.floor(rng() * pool.length)];
-          if (taken.has(idx)) continue;
-          const cx = idx % N, cy = (idx / N) | 0;
-          if (pest && pest.has(cx, cy)) continue;
-          if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, spawnOpts)) continue;
-          taken.add(idx);
-          c.x = tx * this.tileEdgeM + (cx + 0.5) * cellM;
-          c.y = ty * this.tileEdgeM + (cy + 0.5) * cellM;
-          moved[sp] = (moved[sp] || 0) + 1;
-          break;
-        }
+        seatOn(c);
+      }
+      if (p >= 1 && unseated) {
+        for (const c of unseated) if (c && c.kind === sp && seatOn(c)) creatures.push(c);
       }
     }
     return moved;

@@ -158,3 +158,18 @@ test('plain rock: the loot toast reports the real stone count', () => {
       `toast "${flashed.msg}" matches the rockfruit actually awarded`);
   }
 });
+
+// --- An explicit look: `rockVariant` wins over the cave variant and the id --
+// The churchyard's rocks (src/zones.js) all wear ONE look; the generator
+// says so on the rock, and both sides — the frame and the drop — follow it.
+test('plain rock: an explicit rockVariant decides the frame AND the drop, over caveVariant and the id', () => {
+  const v = SpriteLayout.CHURCHYARD_ROCK_VARIANT;
+  assert.eq(PRV[v].stones, 1, 'the churchyard look is a single stone');
+  for (let i = 0; i < 60; i++) {
+    const o = { kind: 'mineralrock', id: `mrz_1_2_${i}_${i * 3}`, x: 0, y: 0, yieldTier: 1, rockVariant: v,
+      caveVariant: (v + 1 + i) % PRV.length };
+    assert.eq(SpriteLayout.plainRockFrame(o), PLAIN_ROCK_ROW * MINERALROCK_COLS + PRV[v].col, `${o.id}: its frame`);
+    assert.eq(SpriteLayout.plainRockStones(o), PRV[v].stones, `${o.id}: its count`);
+    if (i < 20) assert.eq(mineOnce(o), PRV[v].stones, `${o.id}: pays what it shows`);
+  }
+});

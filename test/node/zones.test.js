@@ -160,7 +160,13 @@ test('zones: the halo repaints ONLY lot and commercial ground, and only inside a
     }
     changed++;
     assert.truthy(over.has(off.grid[i]), `cell ${i}: only lot/commercial ground changes (was ${off.grid[i]})`);
-    assert.truthy(on.zone.idx[i] > 0, `cell ${i}: inside a zone`);
+    assert.eq(on.zone.under[i], off.grid[i], `cell ${i}: the land it painted over is recorded`);
+    if (!(on.zone.idx[i] > 0)) {
+      // …or the PARK FRINGE (zone_ground.test.js pins its reach).
+      assert.includes([T.GROVE, T.CHURCHYARD], on.grid[i], `cell ${i}: the fringe paints a park's halo`);
+      byKind.fringe = (byKind.fringe || 0) + 1;
+      continue;
+    }
     const kind = on.zone.anchors[on.zone.idx[i] - 1].kind;
     assert.eq(on.grid[i], Z.terrainOf(kind), `cell ${i}: the winner's own terrain`);
     byKind[kind] = (byKind[kind] || 0) + 1;
@@ -239,7 +245,10 @@ test('zones: every nexus piece is off the road band and off anything already the
   for (const o of d.objects) {
     assert.truthy(INTERACTABLES[o.kind] || StreetVariants.isSlowKind(o.kind), `${o.kind} does something`);
   }
-  for (const w of d.wildplants) assert.includes(['wildrose', 'flint'], w.crop);
+  // Nexus flora (roses, flint, a symmetric figure's beds and shrubs) and the
+  // park fringe's filler (the character's long grass or shrubs).
+  for (const w of d.wildplants) assert.includes(['wildrose', 'flint', 'forgetmenot', 'marigold', 'shrub', 'longgrass'], w.crop);
+  for (const w of d.wildplants.filter((x) => x.crop === 'longgrass')) assert.truthy(w.fringe, `${w.id}: long grass only as fringe filler`);
 });
 
 test('zones: the nexus chest keeps its id and wears one tier more, capped', () => {
@@ -258,14 +267,22 @@ test('zones: the nexus chest keeps its id and wears one tier more, capped', () =
   assert.eq(chestRollTier('park', 1e9, 1e9, 0, 'grove'), chestRollTier('park', 1e9, 1e9, 0) + 1, 'the roll pays it too');
 });
 
-test('zones: the patterns — 2-3 per kind, quiet faiths get rocks, never headstones', () => {
-  assert.inRange(Z.ASPECTS.grove.length, 2, 3);
-  assert.inRange(Z.ASPECTS.stones.length, 2, 3);
+test('zones: the patterns — groves by character, graves are a per-cell rule, quiet faiths get rocks, never headstones', () => {
+  assert.gte(Z.ASPECTS.grove.length, 3);
   assert.inRange(Z.ASPECTS.tar.length, 2, 3);
+  // A ghost anchor lays no fixed pattern: its headstones are the per-cell
+  // GRAVE rule over the churchyard halo (zone_ground.test.js).
+  assert.eq(Z.ASPECTS.stones.join(), 'graves');
+  assert.eq(Z.patternPieces('graves').length, 0, 'no fixed stones pattern');
   for (const asp of Z.ASPECTS.stones_quiet) {
     assert.falsy(Z.patternPieces(asp).some((p) => p.what === 'headstone'), `${asp}: no headstones`);
   }
-  for (const asp of [...Z.ASPECTS.grove, ...Z.ASPECTS.stones, ...Z.ASPECTS.tar, ...Z.ASPECTS.stones_quiet]) {
+  // Every grove character's aspects are grove aspects.
+  for (const [ch, list] of Object.entries(Z.GROVE_ASPECTS)) {
+    assert.truthy(BiomeProfiles.PARK_CHARACTERS[ch], `${ch} is a park character`);
+    for (const [asp, wt] of list) { assert.includes(Z.ASPECTS.grove, asp); assert.gt(wt, 0); }
+  }
+  for (const asp of [...Z.ASPECTS.grove, ...Z.ASPECTS.tar, ...Z.ASPECTS.stones_quiet]) {
     const P = Z.patternPieces(asp);
     assert.gt(P.length, 3, `${asp} lays a pattern`);
     assert.falsy(P.some((p) => p.dx === 0 && p.dy === 0), `${asp} leaves the chest's cell alone`);
@@ -339,7 +356,6 @@ function checkSeam(tag, A, Bt, gx, gy, label) {
   assert.gt(inA, 0, `${label}: the owner laid its side`);
   assert.gt(inB, 0, `${label}: the neighbour laid its side`);
   assert.eq([...got.keys()].sort().join(), [...expect.keys()].sort().join(), `${label}: the union is the uncut pattern`);
-  const nRock = SpriteLayout.PLAIN_ROCK_VARIANTS.length;
   for (const [id, e] of expect) {
     const p = got.get(id);
     assert.eq(p.kind === 'wildplant' || p.crop ? p.crop : p.kind, KIND_OF[e.pc.what], `${id}: the pattern's kind`);
@@ -347,7 +363,10 @@ function checkSeam(tag, A, Bt, gx, gy, label) {
       assert.eq(p.variant, 1 + Math.floor(e.pc.v * 4), `${id}: its variant`);
       assert.eq(p.species, planA.species, `${id}: the anchor's species`);
     }
-    if (e.pc.what === 'rock') assert.eq(p.caveVariant, Math.floor(e.pc.v * nRock), `${id}: its variant`);
+    if (e.pc.what === 'rock') {
+      assert.eq(p.rockVariant, SpriteLayout.CHURCHYARD_ROCK_VARIANT, `${id}: the churchyard's one look`);
+      assert.eq(SpriteLayout.plainRockStones(p), 1, `${id}: one stone drawn, one paid`);
+    }
   }
   // The chest is the owner's: stamped there, and only the owner garrisons tar.
   assert.eq(a.chests[0].zoneNexus, ra.kind, `${label}: the owner stamps its chest`);
@@ -378,9 +397,10 @@ test('zones: a nexus straddling an east/west seam is laid whole, once, by the ti
   const cases = [
     ['grove', ['tree_ring', 'rose_in_trees', 'rose_rings']],
     ['quiet', Z.ASPECTS.stones_quiet],
-    ['stones', Z.ASPECTS.stones],
     ['tar', Z.ASPECTS.tar],
   ];
+  // (A ghost anchor's graves are per cell — each cell one tile's — and the
+  // grove's SYMMETRIC figures are the owner's alone: zone_ground.test.js.)
   const seen = new Set();
   for (const [tag, want] of cases) {
     for (const asp of want) {
@@ -624,24 +644,37 @@ test('park flora: clumps are about a third of the plane, off the one noise helpe
     'spawnDebrisSteps scales the threshold of its one draw');
 });
 
-test('park flora: on the fixture, a clump is several times as full as the open lawn', () => {
-  const { off, N } = rasterPair();
-  const occ = new Set();
-  const edge = rasterPair().edge;
-  for (const o of [...off.objects, ...off.wildplants]) {
-    occ.add(Math.floor((o.y - TILE_TY * edge) / (edge / N)) * N + Math.floor((o.x - TILE_TX * edge) / (edge / N)));
+// A synthetic park (a landcover grass/park rectangle, nothing else on the
+// tile) whose global centroid picks character `want`.
+function syntheticPark(want) {
+  const N = WorldGen.cellsPerEdgeForTile(TILE_TY), edge = edgeFor(TILE_TY);
+  for (let wU = 4096; wU > 1024; wU -= 16) {
+    if (BiomeProfiles.parkCharacterAt(TILE_TX * EXT + wU / 2, TILE_TY * EXT + 2048) !== want) continue;
+    const ring = [{ x: 0, y: 0 }, { x: wU, y: 0 }, { x: wU, y: 4096 }, { x: 0, y: 4096 }, { x: 0, y: 0 }];
+    const layers = [{ name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'park' }, geom: [ring] }] }];
+    return { r: WorldGen.rasterizeTile(layers, N, TILE_TX, TILE_TY, edge), N, edge };
   }
+  throw new Error('no ' + want + ' rectangle');
+}
+test('park flora: a clump is several times as full as the open lawn, in every scattered character', () => {
   const P = BiomeProfiles.FLORA_PATCH;
-  let inN = 0, inOcc = 0, outN = 0, outOcc = 0;
-  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const i = y * N + x;
-    if (off.grid[i] !== T.PARK || off.roadMask[i]) continue;
-    const clump = BiomeProfiles.patchMul(P, TILE_TX * EXT + (x + 0.5) * EXT / N, TILE_TY * EXT + (y + 0.5) * EXT / N) === P.dense;
-    if (clump) { inN++; if (occ.has(i)) inOcc++; } else { outN++; if (occ.has(i)) outOcc++; }
+  for (const ch of ['meadow', 'wooded', 'common']) {
+    const { r, N, edge } = syntheticPark(ch);
+    const occ = new Set();
+    for (const o of [...r.objects, ...r.wildplants]) {
+      occ.add(Math.floor((o.y - TILE_TY * edge) / (edge / N)) * N + Math.floor((o.x - TILE_TX * edge) / (edge / N)));
+    }
+    let inN = 0, inOcc = 0, outN = 0, outOcc = 0;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const i = y * N + x;
+      if (r.grid[i] !== T.PARK) continue;
+      const clump = BiomeProfiles.patchMul(P, TILE_TX * EXT + (x + 0.5) * EXT / N, TILE_TY * EXT + (y + 0.5) * EXT / N) === P.dense;
+      if (clump) { inN++; if (occ.has(i)) inOcc++; } else { outN++; if (occ.has(i)) outOcc++; }
+    }
+    assert.gt(inN, 500, `${ch}: park cells in clumps`); assert.gt(outN, 500, `${ch}: and outside`);
+    assert.gt(inOcc / inN, 4 * (outOcc / outN), `${ch} clumped: ${(100 * inOcc / inN).toFixed(1)}% vs ${(100 * outOcc / outN).toFixed(1)}%`);
+    assert.lt(inOcc / inN, 0.35, `${ch}: dense, not packed`);
   }
-  assert.gt(inN, 50, 'park cells in clumps'); assert.gt(outN, 50, 'and outside');
-  assert.gt(inOcc / inN, 2 * (outOcc / outN), `clumped: ${(100 * inOcc / inN).toFixed(0)}% vs ${(100 * outOcc / outN).toFixed(0)}%`);
-  assert.lt(inOcc / inN, 0.5, 'dense, not packed');
 });
 
 test('grove nexus: a piece never lands where the park around it is already full', () => {

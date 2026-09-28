@@ -818,13 +818,15 @@ function drawGroveTex(ctx, size, rng) {
 }
 
 function drawChurchyardTex(ctx, size, rng) {
-  // Churchyard — worn grey-green sward: sparse grass specks over a greyer
-  // ground, and small pale stone chips working up through it.
+  // Churchyard — mossy grey-green sward: moss tufts and grass specks over
+  // the cool grey-green ground, and small pale stone chips working up
+  // through it.
   ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 22; i++) {
     const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
-    ctx.fillStyle = rng() < 0.5 ? 'rgba(60,70,50,0.28)' : 'rgba(150,160,140,0.20)';
-    ctx.fillRect(x, y, 1, 1);
+    const k = rng();
+    ctx.fillStyle = k < 0.45 ? 'rgba(62,92,58,0.34)' : k < 0.75 ? 'rgba(96,128,84,0.26)' : 'rgba(150,160,140,0.20)';
+    ctx.fillRect(x, y, k < 0.25 ? 2 : 1, 1);
   }
   for (let i = 0; i < 3; i++) {
     const x = Math.floor(rng() * (size - 2)), y = Math.floor(rng() * (size - 2));

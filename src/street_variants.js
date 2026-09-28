@@ -613,6 +613,9 @@
     };
 
     const burnedSeen = new Set();
+    // Pilgrim's Way / barricade street key → every owned piece end in the
+    // square (tile-local MVT points), in line order.
+    const streetEnds = new Map();
     for (const rec of idx.lines) {
       const v = rec.variant;
       if (!v) continue;
@@ -694,30 +697,13 @@
             { species: peach ? 'peach' : 'apple', wild: true, _street: v }));
           placed++;
         });
-      } else if (v === 'pilgrim') {
-        // A waystone at each owned end — tapped, it reads one page of the
-        // Book (interactables.js INTERACTABLES.waystone, spent in `opened`).
-        for (const p of ownedEnds(rec)) {
-          const c = seat(p.x, p.y);
-          if (!c) continue;
-          claim(c.ix, c.iy);
-          res.objects.push(WG.makeObject('waystone', cx(c.ix), cy(c.iy),
-            WG.cellId('waystone', tx, ty, c.ix, c.iy), { _street: v }));
-        }
-      } else if (v === 'barricade') {
-        // A barricade at each owned end: a wild plant on the SHRUB's rule
-        // (items.js WILDPLANT_RULES.barricade) — broken up with the axe for
-        // wood, `picked` once cleared.
-        for (const p of ownedEnds(rec)) {
-          const c = seat(p.x, p.y);
-          if (!c) continue;
-          claim(c.ix, c.iy);
-          res.wildplants.push(WG.makeWildplant('barricade', cx(c.ix), cy(c.iy),
-            WG.cellId('barricade', tx, ty, c.ix, c.iy), { _street: v }));
-          // ...and the goblin who holds it (lairs.js 'barricade' tier).
-          res.lairs.push({ tier: 'barricade', sid: WG.cellId('barricade', tx, ty, c.ix, c.iy),
-            lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
-        }
+      } else if (v === 'pilgrim' || v === 'barricade') {
+        // ONE PER STREET PER TILE: the ends are pooled by street key and
+        // seated after this loop (see `streetEnds` below) — a major road cut
+        // into many short pieces stood a barricade at every cut.
+        let arr = streetEnds.get(v + '|' + rec.key);
+        if (!arr) streetEnds.set(v + '|' + rec.key, arr = { v, key: rec.key, ends: [] });
+        for (const p of ownedEnds(rec)) arr.ends.push(p);
       } else if (v === 'burned') {
         const rng = streamFor(rec, v);
         let placed = 0;
@@ -753,6 +739,46 @@
         });
       }
       // lantern: nothing seated here — denser street lamps (lampSpacingFor).
+    }
+
+    // THE END PIECES — ONE per (street, tile). A waystone (Pilgrim's Way —
+    // tapped, it reads one page of the Book: interactables.js
+    // INTERACTABLES.waystone, spent in `opened`) or a barricade (a wild plant
+    // on the SHRUB's rule, items.js WILDPLANT_RULES.barricade — broken up
+    // with the axe, `picked` once cleared — and the goblin who holds it,
+    // lairs.js 'barricade' tier) stands at the ONE owned end of the street's
+    // pieces here whose hash endPick(variant, key, global point) is lowest
+    // and that seats (the next lowest if not). Ends are tile-owned, so no two
+    // tiles seat the same street's piece at one end, and the choice is a pure
+    // function of the tile's bytes. (Until Sep 2026 every piece end stood one:
+    // a major road cut into many short lines stood 220 goblins over Seattle's
+    // nine tiles.)
+    for (const grp of streetEnds.values()) {
+      yield 'street end pieces';
+      const seen = new Set();
+      const cands = [];
+      for (const p of grp.ends) {
+        const gk = `${tx * ext + p.x},${ty * ext + p.y}`;
+        if (seen.has(gk)) continue;
+        seen.add(gk);
+        cands.push({ p, u: u01(`end|${grp.v}|${grp.key}|${gk}`) });
+      }
+      cands.sort((a, b) => a.u - b.u);
+      for (const { p } of cands) {
+        const c = seat(p.x, p.y);
+        if (!c) continue;
+        claim(c.ix, c.iy);
+        if (grp.v === 'pilgrim') {
+          res.objects.push(WG.makeObject('waystone', cx(c.ix), cy(c.iy),
+            WG.cellId('waystone', tx, ty, c.ix, c.iy), { _street: grp.v }));
+        } else {
+          res.wildplants.push(WG.makeWildplant('barricade', cx(c.ix), cy(c.iy),
+            WG.cellId('barricade', tx, ty, c.ix, c.iy), { _street: grp.v }));
+          res.lairs.push({ tier: 'barricade', sid: WG.cellId('barricade', tx, ty, c.ix, c.iy),
+            lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
+        }
+        break;
+      }
     }
 
     // The hedgerow's closes: the hoard at the head, and the head as a lair

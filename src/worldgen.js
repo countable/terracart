@@ -2253,6 +2253,62 @@
       }
     }
 
+    // A FORMAL park's clipped hedge rows (BiomeProfiles.PARK_CHARACTERS.formal
+    // `hedgeRows`): a row every `period` ABSOLUTE cell rows, cut into
+    // `seg`-cell runs of which `on` stand (a stable coin per run). Keyed on
+    // absolute cells like the hedge maze, so a row runs straight on across
+    // polygons and east/west seams; no rng, no clumps — neat is the point.
+    function* spawnHedgeRowsSteps(rings, crop, row) {
+      const bb = bboxOf(rings);
+      const ix0 = Math.max(0, Math.floor(bb.minX * mvtToCell));
+      const iy0 = Math.max(0, Math.floor(bb.minY * mvtToCell));
+      const ix1 = Math.min(w - 1, Math.floor(bb.maxX * mvtToCell));
+      const iy1 = Math.min(h - 1, Math.floor(bb.maxY * mvtToCell));
+      let _row = 0;
+      for (let iy = iy0; iy <= iy1; iy++) {
+        if ((++_row & 7) === 7) yield 'hedge row rows';
+        const ay = ty * h + iy;
+        if (((ay % row.period) + row.period) % row.period !== 0) continue;
+        for (let ix = ix0; ix <= ix1; ix++) {
+          const ax = tx * w + ix;
+          const run = Math.floor(ax / row.seg);
+          const hsh = ((Math.imul(run, 73856093) ^ Math.imul(ay, 19349663) ^ row.salt) >>> 0);
+          if ((hsh % 1000) >= row.on * 1000) continue;
+          if (!pointInRings(rings, (ix + 0.5) / mvtToCell, (iy + 0.5) / mvtToCell)) continue;
+          const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
+          wildplants.push(makeWildplant(crop, cx, cy,
+            cellId('hr', tx, ty, ix, iy), { _ix: ix, _iy: iy }));
+        }
+      }
+    }
+
+    // A WOODED park's trees (PARK_CHARACTERS.wooded `trees`): one candidate
+    // per cell, kept with chance p (× the FLORA_PATCH clump), off the
+    // polygon's own stream (polyKey ^ salt) — one draw per candidate, then
+    // one for the look. The species is the polygon's, as in a forest.
+    function* spawnParkTreesSteps(rings, polyKey, trees, patch) {
+      const TREE_SPECIES = ['maple', 'pine', 'birch', 'mahogany'];
+      const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
+      const prng = makeRng((polyKey ^ trees.salt) >>> 0);
+      const gx0 = tx * TILE_EXTENT, gy0 = ty * TILE_EXTENT;
+      const bb = bboxOf(rings);
+      const stepMvt = CELL_M / mvtToM;
+      let _row = 0;
+      for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
+        if ((++_row & 7) === 7) yield 'park tree rows';
+        for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
+          if (!pointInRings(rings, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
+          const ix = Math.floor(xx * mvtToCell), iy = Math.floor(yy * mvtToCell);
+          if (ix < 0 || iy < 0 || ix >= w || iy >= h) continue;
+          const pm = patch ? BiomeProfiles.patchMul(patch, gx0 + xx + stepMvt * 0.5, gy0 + yy + stepMvt * 0.5) : 1;
+          if (prng() >= trees.p * pm) continue;
+          const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
+          objects.push(makeObject('tree', cx, cy, cellId('ptree', tx, ty, ix, iy),
+            { variant: 1 + Math.floor(prng() * 4), species }));
+        }
+      }
+    }
+
     // Scattered trees on wood/forest landcover — same reason as spawnDebrisSteps
     // above: one call can be the whole tile (a park or greenbelt polygon), and
     // called plainly (a bare double `for` with no yield) this was a single
@@ -2438,6 +2494,39 @@
     const layersByName = {};
     for (const l of layers) layersByName[l.name] = l;
 
+    // PARK CHARACTERS (BiomeProfiles.PARK_CHARACTERS). A park polygon's
+    // character is keyed on a GLOBAL point: the named-park POI inside it (the
+    // grove anchor, so park and grove agree — src/zones.js reads the same
+    // parkCharacterAt off the anchor), else the polygon's own global centroid.
+    // A polygon clipped differently by two tiles may key differently on each
+    // side of a seam — exactly as seam-safe as its flora scatter (polyKey
+    // carries tx, ty) already is. Cemeteries are always a lawn.
+    // `parkPolys` collects every park polygon for the PARK FRINGE (Zones.
+    // fringeSteps, the end of this build).
+    const parkPois = [];
+    if (layersByName['poi']) {
+      for (const f of layersByName['poi'].features) {
+        if (f.type !== 1 || !f.geom || !BiomeProfiles.isParkPoi(f.tags)) continue;
+        for (const ring of f.geom) {
+          const p = ring && ring[0];
+          if (p) parkPois.push({ lx: p.x, ly: p.y, gx: tx * TILE_EXTENT + p.x, gy: ty * TILE_EXTENT + p.y });
+        }
+      }
+      parkPois.sort((a, b) => (a.gy - b.gy) || (a.gx - b.gx));
+    }
+    const parkCharacterFor = (rings, c0, cemetery) => {
+      if (cemetery) return BiomeProfiles.CEMETERY_CHARACTER;
+      if (parkPois.length) {
+        const bb = bboxOf(rings);
+        for (const p of parkPois) {
+          if (p.lx < bb.minX || p.lx > bb.maxX || p.ly < bb.minY || p.ly > bb.maxY) continue;
+          if (pointInRings(rings, p.lx, p.ly)) return BiomeProfiles.parkCharacterAt(p.gx, p.gy);
+        }
+      }
+      return BiomeProfiles.parkCharacterAt(tx * TILE_EXTENT + c0.x, ty * TILE_EXTENT + c0.y);
+    };
+    const parkPolys = [];
+
     // PRE-PASS: measure how far every footpath runs through each cell, BEFORE
     // any painting. A cell only becomes PATH where a way genuinely crosses it
     // (see pathCross below), and its total can't be known until every way has
@@ -2618,8 +2707,13 @@
             // unluckiest roll still grows the floor rather than reading
             // barren. Unwired/unknown biomes fall back to their base-family
             // profile, so no walkable zone is ever barren.
-            const floraPatch = BiomeProfiles.patch(t);
-            for (const fl of BiomeProfiles.flora(t)) {
+            // A park polygon reads its CHARACTER's row (meadow / wooded /
+            // formal / common) — the same scatter over a variant profile.
+            const isCemetery = f.tags.class === 'cemetery';
+            const parkChar = t === T.PARK ? parkCharacterFor(f.geom, c0, isCemetery) : null;
+            if (parkChar) parkPolys.push({ rings: f.geom, character: parkChar, cemetery: isCemetery });
+            const floraPatch = BiomeProfiles.patch(t, parkChar);
+            for (const fl of BiomeProfiles.flora(t, parkChar)) {
               const seed = (polyKey ^ (fl.salt >>> 0)) >>> 0;
               if (fl.pattern === 'hedgemaze') {
                 // Deterministic clipped-hedge-maze layout (commercial plazas) —
@@ -2633,6 +2727,11 @@
                 yield* spawnDebrisSteps(f.geom, fl.crop, seed, fl.dMin, fl.dMax, floraPatch);
               }
             }
+            // The character's own furniture: a wooded park's trees, a formal
+            // park's clipped hedge rows (each on its own stream / lattice).
+            const charRow = parkChar ? BiomeProfiles.parkCharacter(parkChar) : null;
+            if (charRow && charRow.trees) yield* spawnParkTreesSteps(f.geom, polyKey, charRow.trees, floraPatch);
+            if (charRow && charRow.hedgeRows) yield* spawnHedgeRowsSteps(f.geom, 'shrub', charRow.hedgeRows);
 
             // Scattered trees on wood/forest landcover, and fruit trees on
             // orchard landcover — both delegated as generators (see
@@ -3147,11 +3246,18 @@
             if (shapeOffsets) {
               const poiKey = cellHash(tx, ty, poiIX, poiIY);
               const prng = makeRng(poiKey ^ 0xfade5a17);
-              const shrubDensity = 0.18;
-              const longgrassDensity = 0.10;
+              // The pad's greenery reads the park's CHARACTER (keyed on the
+              // POI's own global point — the grove anchor's key too), so a
+              // named park's heart looks like the park it sits in: its `pad`
+              // row (was shrub 0.18 / long grass 0.10 for every park).
+              const padChar = spawnGreenery
+                ? BiomeProfiles.parkCharacterAt(tx * TILE_EXTENT + p.x, ty * TILE_EXTENT + p.y) : null;
+              const padRow = padChar ? BiomeProfiles.parkCharacter(padChar).pad : null;
+              const shrubDensity = padRow ? padRow.shrub : 0;
+              const longgrassDensity = padRow ? padRow.longgrass : 0;
               // The park's own clumps (BiomeProfiles FLORA_PATCH): the pad's
               // greenery thins and gathers with the park around it.
-              const padPatch = spawnGreenery ? BiomeProfiles.patch(padType) : null;
+              const padPatch = spawnGreenery ? BiomeProfiles.patch(padType, padChar) : null;
               for (const [dx, dy] of shapeOffsets) {
                 const ix = cellIX + dx, iy = cellIY + dy;
                 if (ix < 0 || iy < 0 || ix >= w || iy >= h) continue;
@@ -3864,13 +3970,23 @@
     // terrain), then the NEXUS around each owned anchor's chest, claiming into
     // the same occupancy the street dressing grew. spawnInTile lays the nexus
     // like the street dressing; entry.zone is the field the runtime reads.
+    // THE PARK FRINGE (Zones.fringeSteps) runs right after the halo, on the
+    // ground the halo left: every park polygon collected above spills a
+    // ragged band of GROVE (CHURCHYARD round a cemetery) over the lot /
+    // commercial ground at its edge, and the dressing smatters its
+    // character's filler a little further out. A tile with parks but no zone
+    // still gets a (stub) field, so the land's class (`under`) reaches the
+    // trap ground the same way.
     let zone = null, zoneDress = null;
     if (typeof Zones !== 'undefined') {
       zone = yield* Zones.fieldSteps(layersByName['poi'], tx, ty, w);
+      if (zone) yield* Zones.haloSteps(zone, grid, w, pathUnder);
+      const fringe = parkPolys.length
+        ? yield* Zones.fringeSteps({ parks: parkPolys, grid, N: w, tx, ty, field: zone, pathUnder }) : null;
+      if (fringe && !zone) zone = fringe.field;
       if (zone) {
-        yield* Zones.haloSteps(zone, grid, w, pathUnder);
         dressSpawn();
-        zoneDress = yield* Zones.dressSteps({ field: zone, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
+        zoneDress = yield* Zones.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
           spawnOpts: { roadMask, occupied: dressOcc, pois: dressPois } });
       }
     }

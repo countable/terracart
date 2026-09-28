@@ -93,6 +93,13 @@
       <li><b>Rocks line ~25%</b> of minor streets (never a hedgerow), now <b>~1 per 10 m</b> (was 16 m); <b>wasteland lots keep the rock-cluster scatter</b>.</li>
       <li><b>Tar and stakes slow</b> the body.</li>
       <li><b>Influence zones</b> (grove / old stones / tar yard) repaint lot ground; each anchor's <b>nexus</b> chest pays <b>tier +1</b>; a nexus pattern is <b>whole across tile seams</b>. Tar-yard ground is untillable; fire slimes are off the quest board.</li>
+      <li><b>Park characters</b>: every park polygon is a <b>meadow</b> (long grass + wildflowers), <b>wooded</b> (trees, shrubs, mushrooms), <b>formal</b> (clipped hedge rows + marigolds) or <b>common</b> (open lawn) — by a hash of the named-park POI inside it, else its own centroid. The grove, its POI pad and its nexus read the same character.</li>
+      <li><b>Park density ~40% lower</b> (Kelowna fixtures: 18.1% → 10.5% of park cells hold something), still in clumps with near-bare lawn between (<code>FLORA_PATCH.sparse</code> 0.3 → 0.15).</li>
+      <li><b>Park fringe</b>: every park polygon (named or not) spills a ragged <b>≤ 20 m</b> band of GROVE (CHURCHYARD round a cemetery) over lot ground, and a light smattering of its character's filler out to 30 m.</li>
+      <li><b>Churchyards</b>: churches and cemeteries always get <b>headstones</b> — a per-cell rule on the grave-row lattice that wraps the building (no fixed pattern); every place of worship scatters <b>plain rocks</b> (~2.3× before), all one single-stone look. Churchyard ground is a mossier grey-green.</li>
+      <li><b>Grove figures</b>: symmetric nexus aspects (compass roses ~1 park in 6–7, mirrored flower beds, diagonal trees / shrubs) laid whole or not at all; roses stay the rarer prize. A blocked pattern piece walks outward along its ray.</li>
+      <li><b>One barricade (+ goblin) and one waystone per street per tile</b> (was one at every line end: Seattle 220 → 9 barricades, 164 → 28 waystones over 9 tiles).</li>
+      <li>A dog whose spawn draw was only blocked by a generated piece is <b>seated on the bandit verge</b> instead of lost.</li>
     </ul>
   </div>
   <div id="wScope" class="scope"></div>
@@ -496,6 +503,20 @@ function wMeasure(e, EDGE, errors) {
   m.stakes = byKind('stakes').length;
   m.headstones = byKind('headstone').length;
   m.shrines = objs.filter((o) => /shrine/.test(o.kind) && o.zone).length;
+  // Parks: occupancy of PARK cells (anything standing), the characters of the
+  // tile's park polygons, the fringe band and its filler (Zones.groundSteps'
+  // tallies on the zone dressing), and the churchyards per anchor.
+  const held = new Set();
+  for (const o of [...objs, ...plants]) { const i = cellOf(o); if (i >= 0) held.add(i); }
+  let parkCells = 0, parkHeld = 0;
+  for (let i = 0; i < NN; i++) if (grid[i] === T.PARK) { parkCells++; if (held.has(i)) parkHeld++; }
+  const fr = (zd && zd.fringe) || null, gr = (zd && zd.ground) || null;
+  let fringeCells = 0;
+  if (e.zone && e.zone.under) for (let i = 0; i < NN; i++) if (e.zone.under[i] && !(e.zone.idx && e.zone.idx[i])) fringeCells++;
+  const stonesOwned = e.zone ? (e.zone.reach || []).filter((a) => a.kind === 'stones' && a.owned) : [];
+  m.parks = { cells: parkCells, held: parkHeld, chars: (fr && fr.chars) || {}, polys: fr ? fr.parks : 0,
+    fringeCells, fill: gr ? gr.fill : 0, graves: gr ? gr.graves : 0, chRocks: gr ? gr.rocks : 0,
+    ghostAnchors: stonesOwned.filter((a) => a.ghosts).length, stonesAnchors: stonesOwned.length };
   // Zones.
   m.zone = null;
   if (typeof Zones !== 'undefined' && 'zone' in e) {
@@ -622,6 +643,8 @@ function wRender(w) {
     ['bus stops (wagons)', (m) => [m.chests.bus, m.chests.wagon]],
     ['barricade / burned guards', (m) => [m.posts.barricade || 0, m.posts.burned || 0], false, ' / '],
     ['fauna moved', (m) => Object.values(m.attracted || {}).reduce((a, b) => a + b, 0)],
+    ['park occupancy', (m) => m.parks && m.parks.cells ? m.parks.held / m.parks.cells : null, true],
+    ['park fringe cells (filler)', (m) => m.parks ? [m.parks.fringeCells, m.parks.fill] : null],
   ];
   if (hasZ) cols.push(['zone anchors', (m) => m.zone ? m.zone.anchors.length : 0], ['zone halo', zoneHaloShare, true]);
   const one = (v, p) => v == null || !Number.isFinite(v) ? '—' : p ? wPct(v) : (Number.isInteger(v) ? String(v) : f1(v));
@@ -766,6 +789,15 @@ function wRender(w) {
     extra.push(`<tr><td>tar (burned rows) · stakes</td><td>${tot((m) => m.tar.street)} · ${tot((m) => m.stakes)}</td><td>${f1(avg((m) => m.tar.street))} · ${f1(avg((m) => m.stakes))} / tile</td></tr>`);
     extra.push(`<tr><td>grove shrines</td><td>${tot((m) => m.shrines)}</td><td>${f1(avg((m) => m.shrines))} / tile</td></tr>`);
     extra.push(`<tr><td>tar-yard garrisons (lairs)</td><td>${tot((m) => m.zone ? m.zone.lairs : 0)}</td><td></td></tr>`);
+    // Parks and churchyards (Zones.fringeSteps / groundSteps).
+    const pk = (f) => tot((m) => (m.parks ? f(m.parks) : 0));
+    const chars = {};
+    for (const m of ms) for (const [k, v] of Object.entries((m.parks && m.parks.chars) || {})) chars[k] = (chars[k] || 0) + v;
+    extra.push(`<tr><td>park polygons by character</td><td>${pk((p) => p.polys)}</td><td>${Object.entries(chars).sort().map(([k, v]) => `${k} ${v}`).join(' · ') || '—'}</td></tr>`);
+    extra.push(`<tr><td>park occupancy (PARK cells holding anything)</td><td>${pk((p) => p.held)} / ${pk((p) => p.cells)}</td><td>${wPct(pk((p) => p.held) / (pk((p) => p.cells) || 1))}</td></tr>`);
+    extra.push(`<tr><td>park fringe band cells · filler</td><td>${pk((p) => p.fringeCells)} · ${pk((p) => p.fill)}</td><td>${f1(avg((m) => m.parks ? m.parks.fringeCells : 0))} · ${f1(avg((m) => m.parks ? m.parks.fill : 0))} / tile</td></tr>`);
+    extra.push(`<tr><td>graves (headstones) / church or cemetery owned</td><td>${pk((p) => p.graves)} / ${pk((p) => p.ghostAnchors)}</td><td>${f1(pk((p) => p.graves) / (pk((p) => p.ghostAnchors) || 1))} each (grave cells may sit in a neighbour's tile)</td></tr>`);
+    extra.push(`<tr><td>churchyard rocks / place of worship owned</td><td>${pk((p) => p.chRocks)} / ${pk((p) => p.stonesAnchors)}</td><td>${f1(pk((p) => p.chRocks) / (pk((p) => p.stonesAnchors) || 1))} each</td></tr>`);
     table($('wZoneExtra'), ['nexus / props', `total (${n} tiles)`, 'per'], extra);
   }
 }

@@ -103,6 +103,9 @@
   // Row 15 of the sheet (11 cols) holds the small rock variants; the other rows
   // are boulder-sized art that bleeds past the 16×16 frame at render scale.
   const PLAIN_ROCK_ROW = 15, MINERALROCK_COLS = 11;
+  // The one look every churchyard rock wears (src/zones.js): the chunky
+  // single stone — one stone drawn, one stone paid.
+  const CHURCHYARD_ROCK_VARIANT = 3;
 
   // Which variant a given plain rock wears. Stable per rock: a cave rock keys
   // off its caveVariant, a surface rock off a hash of its ID (util.js fnv1a,
@@ -113,8 +116,13 @@
   // and a pebble for the next. BOTH callers go through here — the frame in
   // render.js and the yield in interactables.js — so neither can pick a
   // different rock than the other.
+  // An explicit `rockVariant` (an index into the table) wins over both: a
+  // generator that wants ONE look for a whole place — the churchyard's rocks
+  // (src/zones.js, CHURCHYARD_ROCK_VARIANT) — says so on the rock, and the
+  // frame and the drop both follow it through here.
   function plainRockVariant(o) {
     const n = PLAIN_ROCK_VARIANTS.length;
+    if (o && o.rockVariant != null) return PLAIN_ROCK_VARIANTS[((o.rockVariant % n) + n) % n];
     const v = (o && o.caveVariant != null)
       ? (((o.caveVariant % n) + n) % n)
       : (root.fnv1a(String((o && o.id) ?? '') + '#rock') % n);
@@ -676,7 +684,7 @@
 
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell,
-    PLAIN_ROCK_VARIANTS, plainRockFrame, plainRockStones,
+    PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     CREATURE_BEHAVIOUR, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
