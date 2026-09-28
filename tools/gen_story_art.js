@@ -277,6 +277,51 @@ const PIECES = {
   // missing from assets/art/, so run it with this name (or --force).
   kind_menu: scene(
     'A small half-rebuilt cottage with bare roof rafters, a lone sunflower by its wall, a survivor with a hammer and a sack of stones looking at it at golden hour.'),
+
+  // Influence zones (scratchpad/design/influence_zones.md §5.5): first-visit
+  // story panels for the three zone kinds, keyed zone:grove / zone:tar /
+  // zone:stones by _tickZone.
+  zone_grove: scene(
+    'Moss-hung ancient trees crowding close around a small lichened stone shrine glowing with ' +
+    'a faint green light, fireflies drifting in the dusk air, a deep quiet woodland.', 'sigil'),
+  zone_tar: scene(
+    'A cracked old fuel-yard forecourt, black tar pools scattered across broken asphalt, one ' +
+    'pool bubbling and aflame, a rusted fuel pump leaning nearby, a small glowing orange slime ' +
+    'crouched at the tar\'s edge.', 'embers'),
+  zone_stones: scene(
+    'A weathered stone cherub statue and leaning mossy headstones before a ruined chapel door, ' +
+    'one iron lantern lit beside the door, pale misty shapes drifting faintly among the stones ' +
+    'at dusk.', 'wary'),
+
+  // Street variants (scratchpad/design/street_variants.md §3): first-visit
+  // story panels for each street flavour.
+  street_hedgerow: scene(
+    'A narrow lane between tall clipped hedges leading to a mossy stone archway, ending at a ' +
+    'dead end where the earth is disturbed in a low mound, dusk light.'),
+  street_lantern: scene(
+    'A long cobbled road at dusk lined with old iron lantern posts, some glowing warm amber ' +
+    'light, others dark and unlit, stretching toward a village.'),
+  street_overgrown: scene(
+    'A residential lane swallowed by vines and wildflowers, cracked asphalt pushed up by roots, ' +
+    'faint blue-glowing mushrooms along the verge, dusk light.'),
+  street_orchard: scene(
+    'A quiet lane running beneath old fruit trees heavy with fruit, windfall apples and pears ' +
+    'scattered on the ground below, warm late-afternoon light.'),
+  street_pilgrim: scene(
+    'Close and large in frame: a tall mossy stone waystone carved with a faint worn sigil, ' +
+    'standing right beside a worn dirt road, a well-trodden footpath curving past it toward a ' +
+    'distant church spire, dusk light.'),
+  street_burned: scene(
+    'A burned-out residential street: black tar puddles pooled in the gutters, a row of ' +
+    'sharpened wooden stakes and charred fence posts along the verge, ash drifting in the dusk ' +
+    'air, no buildings alight.'),
+  street_bandit: scene(
+    'A major road with a broken wagon tipped over at the verge, canvas torn and spilling ' +
+    'supplies, a wheel splintered, a goblin silhouette crouched low in the roadside ditch ' +
+    'watching, dusk light.'),
+  street_barricade: scene(
+    'A stake-and-log barricade built across half a wide road, crates and barrels stacked behind ' +
+    'it, an abandoned watch post, dusk light.'),
 };
 
 function loadKey() {
