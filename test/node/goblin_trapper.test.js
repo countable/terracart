@@ -72,8 +72,9 @@ test('trapper: the goblin sheet drawn red, and a Magic Trap on its kill', () => 
 
 test('trapper: dungeon-only roster excludes it from surface garrisons', () => {
   assert.eq(EnemyRoster.get('goblin_trapper').surface, null);
+  assert.eq(Lairs.KIND_ORDER[11].join(), 'goblin,goblin_archer', 'forts hold goblins');
+  assert.eq(Lairs.KIND_ORDER[12].join(), 'skeleton,giant_skeleton', 'castles hold skeletons');
   for (const tier of [11, 12]) {
-    assert.eq(Lairs.KIND_ORDER[tier].join(), 'goblin,goblin_archer,giant_skeleton', `tier ${tier}`);
     assert.falsy(Lairs.kindsAt(tier, 1).includes('goblin_trapper'));
     for (const kind of Lairs.kindsAt(tier, 1)) assert.lte(EnemyRoster.get(kind).tier, 3);
   }

@@ -531,11 +531,10 @@ test('books: the derelict-lair tip is re-derived from lairs.js', () => {
   // ladder table the guards are rolled off — a tip that still promised slimes
   // in a castle would send a player in expecting the wrong fight.
   assert.eq(Lairs.kindsAt(9, 1).join(), 'slime');
-  for (const tier of [11, 12]) {
-    assert.eq(Lairs.kindsAt(tier, 1).join(), 'goblin,goblin_archer,giant_skeleton');
-  }
+  assert.eq(Lairs.kindsAt(11, 1).join(), 'goblin,goblin_archer');
+  assert.eq(Lairs.kindsAt(12, 1).join(), 'skeleton,giant_skeleton');
   assert.truthy(/houses are infested by slimes/i.test(tip));
-  assert.truthy(/forts and castles hold goblins, archers and giant skeletons/i.test(tip));
+  assert.truthy(/forts hold goblins and archers; castles hold skeletons and giant skeletons/i.test(tip));
 
 });
 
