@@ -1305,12 +1305,92 @@
     const present = new Set();
     for (const o of entry.objects) if (o.id) present.add(o.id);
     for (const w of (entry.wildplants || [])) if (w.id) present.add(w.id);
+    const playerClaims = [
+      ...(Array.isArray(scene.save.fruittrees) ? scene.save.fruittrees : []),
+      ...(Array.isArray(scene.save.planted) ? scene.save.planted : []),
+    ];
+    for (const e of [entry, ...WorldGen.tileCache.values()]) {
+      for (const o of [...(e.objects || []), ...(e.wildplants || [])]) {
+        if (o && (o.planted || o.placed || o.playerOwned) && !playerClaims.includes(o)) playerClaims.push(o);
+      }
+    }
+    // A frozen starter record is generated story content. If a player later
+    // plants on its old seat, retain its ID and move only that story record to
+    // the first eligible nearby cell in fixed ring order.
+    const avoidPlayer = (rec) => {
+      if (!playerClaims.some(o => Number.isFinite(o.x) && Number.isFinite(o.y) &&
+          SpawnOwnership.overlaps(scene, rec, o))) return true;
+      const sourceX = rec.sourceX ?? rec.x, sourceY = rec.sourceY ?? rec.y;
+      const sourceTile = worldMetersToTile(scene, sourceX, sourceY);
+      const origin = sourceTile.tx === tx && sourceTile.ty === ty ? entry :
+        WorldGen.tileCache.get(WorldGen.tileKey(sourceTile.tx, sourceTile.ty));
+      if (!origin || !origin.grid) return false; // The original tile has not loaded yet.
+      const old = worldMetersToAbsCell(scene, sourceX, sourceY);
+      const check = (c) => {
+        const p = absCellCenterMeters(scene, c.cellIX, c.cellIY);
+        const probe = { x: p.x, y: p.y, _footprintCells: rec._footprintCells || rec.footprintCells };
+        // Every covered cell must meet hard terrain/access rules in the
+        // immutable generated grid. This search cannot depend on neighbour
+        // load order or ambient objects that the winning record can clear.
+        for (const cell of SpawnOwnership.footprintCells(scene, probe)) {
+          const t = absCellToTile(scene, cell.cellIX, cell.cellIY);
+          if (t.tx !== sourceTile.tx || t.ty !== sourceTile.ty) return false;
+          if (!WorldGen.isSpawnCell(origin.baseGrid || origin.grid,
+            origin.cellsPerEdge, origin.cellsPerEdge, t.ix, t.iy,
+            { roadMask: origin.roadMask, spawnWhy: origin.spawnWhy }, 'minor')) return false;
+        }
+        const trailer = scene.save.starterTrailer;
+        if (trailer) {
+          const h = worldMetersToAbsCell(scene, trailer.x, trailer.y);
+          if (Math.abs(c.cellIX - h.cellIX) <= 1 && Math.abs(c.cellIY - h.cellIY) <= 1) return false;
+        }
+        return ![...playerClaims, ...((scene.save.starterHome && scene.save.starterHome.placed) || [])]
+          .some(o => o.id !== rec.id && Number.isFinite(o.x) && Number.isFinite(o.y) &&
+            SpawnOwnership.overlaps(scene, probe, o));
+      };
+      for (let r = 1; r <= 8; r++) {
+        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const c = absCellOffset(scene, old.cellIX, old.cellIY, dx, dy);
+          if (!check(c)) continue;
+          const p = absCellCenterMeters(scene, c.cellIX, c.cellIY);
+          rec.sourceX = sourceX; rec.sourceY = sourceY;
+          rec.x = p.x; rec.y = p.y;
+          for (const live of [entry, ...WorldGen.tileCache.values()]) {
+            if (live.objects) live.objects = live.objects.filter(o => o.id !== rec.id);
+            if (live.wildplants) live.wildplants = live.wildplants.filter(o => o.id !== rec.id);
+          }
+          present.delete(rec.id);
+          if (origin.spawnShortfalls) origin.spawnShortfalls = origin.spawnShortfalls.filter(s => s.id !== rec.id);
+          if (typeof persistSave === 'function') persistSave(scene.save);
+          return true;
+        }
+      }
+      origin.spawnShortfalls = origin.spawnShortfalls || [];
+      if (!origin.spawnShortfalls.some(s => s.id === rec.id)) {
+        origin.spawnShortfalls.push({ kind: 'starter_home', id: rec.id, reason: 'no_eligible_cell' });
+      }
+      return false;
+    };
     const inject = (rec) => {
+      if (!avoidPlayer(rec)) {
+        for (const e of [entry, ...WorldGen.tileCache.values()]) {
+          if (e.objects) e.objects = e.objects.filter(o => o.id !== rec.id);
+          if (e.wildplants) e.wildplants = e.wildplants.filter(o => o.id !== rec.id);
+        }
+        return;
+      }
       if (inThisTile(rec.x, rec.y)) {
-        if (present.has(rec.id)) return;
         const s = scene._starterHomeStream(entry, rec);
-        s.list.push(s.make());
-        present.add(rec.id);
+        const previous = s.list.find(o => o.id === rec.id);
+        if (previous && (previous.x !== rec.x || previous.y !== rec.y)) {
+          previous.x = rec.x; previous.y = rec.y;
+        }
+        if (!present.has(rec.id)) {
+          s.list.push(s.make());
+          present.add(rec.id);
+        }
+        SpawnOwnership.reconcileEntry(scene, entry, [s.list.find(o => o.id === rec.id)]);
         return;
       }
       // Seated across a seam: put it in whichever loaded tile owns it, so a
@@ -1320,8 +1400,14 @@
       const e = WorldGen.tileCache.get(WorldGen.tileKey(otx, oty));
       if (!e || !e.objects) return;
       const s = scene._starterHomeStream(e, rec);
-      for (const o of s.list) if (o.id === rec.id) return;
-      s.list.push(s.make());
+      let claim = s.list.find(o => o.id === rec.id);
+      if (!claim) {
+        claim = s.make();
+        s.list.push(claim);
+      } else if (claim.x !== rec.x || claim.y !== rec.y) {
+        claim.x = rec.x; claim.y = rec.y;
+      }
+      SpawnOwnership.reconcileEntry(scene, e, [claim]);
     };
     const frozen = scene.save.starterHome;
     if (frozen) {
@@ -1402,6 +1488,10 @@
     const taken = new Set();
     const mark = (wx, wy) => taken.add(key(
       Math.floor((wx - tx0) / cellM), Math.floor((wy - ty0) / cellM)));
+    // Plantings may be restored after this pass; their saved cells already
+    // belong to the player when a generated starter story seat is chosen.
+    for (const o of (Array.isArray(scene.save.fruittrees) ? scene.save.fruittrees : [])) mark(o.x, o.y);
+    for (const o of (Array.isArray(scene.save.planted) ? scene.save.planted : [])) mark(o.x, o.y);
     // Terrain lookup that CROSSES TILE SEAMS, in cells relative to the anchor
     // tile. Seating used to be clamped to the anchor's own tile, so a spawn
     // landing within ring-distance of a seam lost that whole arc — measured on

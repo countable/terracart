@@ -104,7 +104,7 @@ const FILES = [
   // home, greeter, pest amnesty) — moved out of app.js's MapScene. They read
   // the scene they are handed plus app.js's starter constants as GLOBALS at
   // call time; run.js injects those once, below (STARTER_CONSTS).
-  'starter.js',
+  'spawn_ownership.js', 'starter.js',
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and
   // combat.test.js registers a synthetic one), so it runs headless.
@@ -166,7 +166,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   // The one building roof-scale rule — house_scale.test.js asserts against the
   // SHIPPING table rather than its own copies of it.
   houseArtScale, buildingBaseScale, buildingCellsToScale, BUILDING_ART,
-  HomeArea,
+  HomeArea, SpawnOwnership,
   itemValue, randInt, pickFromArray, isShiny, faunaShiny,
   TRAILER_SELL_MUL,
   // The market-stall sign/stock tables — vendor_parity.test.js pins that what

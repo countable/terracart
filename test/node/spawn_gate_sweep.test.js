@@ -95,9 +95,12 @@
       /function scatterStarterStash\([\s\S]{0,2500}WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy,\s*\{ roadMask: entry\.roadMask, spawnWhy: entry\.spawnWhy \}, 'minor'\)/,
       /function carveStarterPlot\([\s\S]{0,4000}WorldGen\.isSpawnCell\(grid, N, N, cx, cy,\s*\{ roadMask: entry\.roadMask, spawnWhy: entry\.spawnWhy \}, 'minor'\)/,
       /function carveStarterPond\([\s\S]{0,9000}spawnOkAt\(cx, cy, 'minor'\)/,
-      /function provisionStarterHome\([\s\S]{0,14000}spawnOkAt\(cx, cy, 'minor'\)/,
     ];
     for (const re of wants) assert.truthy(re.test(src), `starter.js: expected a gated placer matching ${re}`);
+    const provision = src.slice(src.indexOf('  function provisionStarterHome('),
+      src.indexOf('  function placeHomeGreeter('));
+    assert.truthy(/spawnOkAt\(cx, cy, 'minor'\)/.test(provision),
+      'provisionStarterHome uses its gated spawn class');
   });
 
   test('spawn gate sweep: the goblin trapper\'s snare (traps.js canLay) asks the gate unconditionally, no separate roadMask test', () => {
