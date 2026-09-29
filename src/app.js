@@ -5727,7 +5727,7 @@ class MapScene extends Phaser.Scene {
       // their wander, making them a slippery catch.
       const isButterfly = c.kind === 'butterfly';
       const shinyFast = isShiny(c.id, SHINY_RATE.animal) ? SHINY_SPEED_MUL : 1;
-      const FLEE_MPS = (isButterfly ? 5.4 : 2) * shinyFast;
+      const FLEE_MPS = Math.min((isButterfly ? 5.4 : 2) * shinyFast, SpriteLayout.creatureMaxMps(c.kind));
       c.x += (dx / dist) * FLEE_MPS * dt;
       c.y += (dy / dist) * FLEE_MPS * dt;
       wp.worldX = c.x; wp.worldY = c.y;

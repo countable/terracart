@@ -1861,7 +1861,7 @@ class SceneCreatures {
       // to take on trust, because nothing you could see was leaving. The
       // slime's charge quickens the BEAT alone; a rout takes the stride too,
       // because the thing being asked for is distance, not urgency.
-      const stepMs = (c.kind === 'slime' ? STEP_MS * (charging ? 1 : SLIME_STEP_MUL)
+      let stepMs = (c.kind === 'slime' ? STEP_MS * (charging ? 1 : SLIME_STEP_MUL)
                    : isMon ? STEP_MS / mon.speed
                    : sprinting ? (bolt.stepMs ?? STEP_MS)
                    : (gait?.stepMs ?? STEP_MS)) * shinyFast * (routed ? FLEE_BEAT_MUL : 1);
@@ -1869,6 +1869,9 @@ class SceneCreatures {
                   : isMon ? STEP_M * monsterStrideCells(mon)
                   : sprinting ? STEP_M * (bolt.stepCells ?? 1)
                   : STEP_M * (gait?.stepCells ?? 1)) * (routed ? FLEE_STRIDE_MUL : 1);
+      // A kind's top speed (SpriteLayout.creatureMaxMps) stretches the glide,
+      // never shortens the stride: the step still lands where it was aimed.
+      stepMs = Math.max(stepMs, stepM / SpriteLayout.creatureMaxMps(c.kind) * 1000);
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
         c._startX = c.x; c._startY = c.y;
@@ -1934,6 +1937,10 @@ class SceneCreatures {
               c._targetX = ftx; c._targetY = fty;
               c._stepT0 = now;
               c._nextChooseT = now + stepMs * FLEE_BEAT_MUL;
+              // A kind with a top speed (creatureMaxMps) glides the shove no
+              // faster than it: the beat and the glide both stretch.
+              const capMs = stepM * FLEE_STRIDE_MUL / SpriteLayout.creatureMaxMps(c.kind) * 1000;
+              if (capMs > stepMs * FLEE_BEAT_MUL) { c._hopMs = capMs; c._nextChooseT = now + capMs; }
               break;
             }
           }

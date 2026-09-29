@@ -109,6 +109,13 @@ const NPC = (() => {
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
     if (entry?._spawned && entry._spawnOpts) shrineResidents(scene, entry, cell.tx, cell.ty);
   }
+  // A neighbour's stroll: a slow walking pace (m/s, well under the brisk-walk
+  // fast-mover line) in short legs, a few seconds' rest between, never more
+  // than WANDER_CELLS from where it was seated. It was 0.045 cells/s with up
+  // to 16 s rests — about a pixel a second, which read as standing still.
+  const WALK_MPS = 0.8;
+  const WANDER_CELLS = 4;
+  const REST_MS = [2500, 6000];     // [base, spread]
   function tick(scene, c, now, dt) {
     // Integrate only active time: returning to a neighbour never jumps them
     // across their old path. Small steps cannot skip a road cell or building.
@@ -124,16 +131,16 @@ const NPC = (() => {
       c._targetX = c.x + c._npcDX * scene.cellM;
       c._targetY = c.y + c._npcDY * scene.cellM;
     }
-    const step = scene.cellM * 0.045 * dt;
+    const step = WALK_MPS * dt;
     const x = c.x + c._npcDX * step, y = c.y + c._npcDY * step;
     const dest = scene.cellAt(x, y);
     const blocked = !dest.loaded || dest.underRoad || Combat.faunaBlocksCell(dest.type)
-      || Math.hypot(x - (c.homeX ?? c.x), y - (c.homeY ?? c.y)) > scene.cellM * 4;
+      || Math.hypot(x - (c.homeX ?? c.x), y - (c.homeY ?? c.y)) > scene.cellM * WANDER_CELLS;
     if (!blocked) { c.x = x; c.y = y; c._moving = dt > 0; c._faceFlip = c._npcDX < 0; }
     c._npcSteps -= dt;
     if (blocked || c._npcSteps <= 0) {
       c._npcSteps = 0;
-      c._npcRestUntil = now + 4000 + c._npcRng() * 12000;
+      c._npcRestUntil = now + REST_MS[0] + c._npcRng() * REST_MS[1];
       c._moving = false;
     }
   }
@@ -233,5 +240,5 @@ const NPC = (() => {
     if (c.role === 'trader') scene.presentTraderOffer(sx, sy, c, record);
     else scene.presentThemedShop(sx, sy, c, record);
   }
-  return { COUNT, PROFILES, WARDEN_LINE, warden, identity, zoneFor, spawn, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
+  return { COUNT, PROFILES, WALK_MPS, WANDER_CELLS, WARDEN_LINE, warden, identity, zoneFor, spawn, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
 })();

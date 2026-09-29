@@ -521,7 +521,10 @@
     // enemy (no MONSTERS row), NOT game, and NOT tappable (interact.js skips a
     // `summoned` kind: there is nothing to catch, tame or pet).
     spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000 },
-    butterfly:     { wanders: true, pollinates: true, stepMs: 1000,
+    // `maxMps` is the kind's hard top speed, m/s (owner, Sep 2026: a
+    // butterfly never outpaces 6 m/s) — over its gait, its bolt, the net
+    // wheel's flee and a shiny's quickening alike (creatureMaxMps).
+    butterfly:     { wanders: true, pollinates: true, stepMs: 1000, maxMps: 6,
                      flee: { escapes: true, jitter: 1.2, stepMs: 390, stepCells: 1.5 } },
     slime:         { wanders: true },
     cave_slime:    { wanders: true },
@@ -619,6 +622,8 @@
   // stay on the drawn body.
   // A game kind's `fightsBack` row ({ dmg, hitMs, rageMs }), or null.
   function creatureFightsBack(kind) { return creatureBehaviour(kind)?.fightsBack || null; }
+  // A kind's hard top speed, m/s (its row's `maxMps`), or Infinity.
+  function creatureMaxMps(kind) { return creatureBehaviour(kind)?.maxMps ?? Infinity; }
   function creatureScale(kind, inst = 1) { return (creatureArt(kind)?.scale ?? 1) * inst; }
   // One creature's own size multiplier (its instance art scale), or 1.
   function creatureInstScale(c) {
@@ -772,7 +777,7 @@
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
     CAVE_SLIME_TINT, TRAPPER_TINT, FIRE_SLIME_TINT, GHOST_TINT, GHOST_ALPHA, GHOST_GLOW, SPIRIT_RAVEN_ALPHA, creatureSheet, creatureFrames, creatureTint, creatureAlpha, creatureGlow,
-    creatureFoot, creatureScale, creatureInstScale, creatureFightsBack, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
+    creatureFoot, creatureScale, creatureInstScale, creatureFightsBack, creatureMaxMps, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
   };
   root.SpriteLayout = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

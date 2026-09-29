@@ -231,7 +231,7 @@ function faunaTopMps(kind, cellM) {
   if (!beh) return 0;
   const cm = cellM > 0 ? cellM : WorldGen.CELL_M;
   const pace = (g) => (g.stepCells ?? 1) * cm / ((g.stepMs ?? WANDER_STEP_MS) / 1000);
-  return Math.max(pace(beh), beh.flee ? pace(beh.flee) : 0);
+  return Math.min(Math.max(pace(beh), beh.flee ? pace(beh.flee) : 0), SpriteLayout.creatureMaxMps(kind));
 }
 // Anything wild — foe or animal — that out-runs a brisk walk.
 function isFastMover(c, cellM) {

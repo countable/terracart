@@ -181,10 +181,12 @@
       NPC.tick(roadScene, road, 100000 + i * 100, 0.1);
       NPC.tick(openScene, resting, 100000 + i * 100, 0.1);
       const step = Math.hypot(open.x - x, open.y - y);
-      assert.lte(step, CELL_M * 0.1, 'never exceeds a cell per second');
+      assert.lte(step, NPC.WALK_MPS * 0.1 + 1e-9, 'a stroll, never faster than WALK_MPS');
       distance += step;
+      assert.lte(Math.hypot(open.x - start.x, open.y - start.y), CELL_M * NPC.WANDER_CELLS + 1e-9, 'stays near home');
     }
-    assert.gt(distance, 0, 'resident actually takes a walk');
+    assert.lt(NPC.WALK_MPS, BRISK_WALK_MPS, 'a neighbour is never a fast mover');
+    assert.gt(distance, 5, 'a minute on open ground is a visible walk, not a pixel a second');
     assert.eq(blocked.x, start.x, 'building prevents horizontal movement');
     assert.eq(blocked.y, start.y, 'building prevents vertical movement');
     assert.eq(road.x, start.x, 'drawn road band prevents horizontal movement');
