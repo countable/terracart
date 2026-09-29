@@ -49,7 +49,7 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | Zone | Variant | Background mix | POI | Finds | Guards | Fauna affinity |
 |---|---|---|---|---|---|---|
 | grove | Meadow | 15% shrub outside the clearing; no grass outside | R=3 grass disk with bush rim | 3 medium: rose | none | rabbit 50%, butterfly 65% |
-| grove | Mushroom Grove | 11.11% mushroom, 5.56% shrub, 2.78% grass | mushroom crescent | 1 rare: star | 1 slime at find | butterfly 50% |
+| grove | Mushroom Grove | 11.11% mushroom, 5.56% shrub | mushroom crescent | 1 rare: star | 1 slime at find | butterfly 50% |
 | grove | Orchard | 6.25% apple trees, 6.25% medium maples | paired trees | 3 medium: gemfruit | none | deer 65% |
 | grove | Formal Garden | 11.11% shrub, 16.67% blue, 5.56% orange | hedge flanks flower diamond | 2 medium: rose | none | none |
 | grove | Hedge Garden | 43.75% shrub, 4.69% blue, 1.56% orange | flowers in hedge room | 2 medium: rose | none | rabbit 60% |
@@ -84,7 +84,7 @@ The generator validates material densities across full repeat cycles, distinct P
 
 ## Mushroom Grove spacing
 
-Mushroom pairs occupy opposite halves of a 6 × 6 repeat. Two shrubs and one grass cell stagger between them, giving 19.44% coverage before clipping. Every motif column has a placement, and no two consecutive rows are empty, preventing the broad blank strips of the former 10 × 10 layout.
+Mushroom pairs occupy opposite halves of a 6 × 6 repeat. Two shrubs stagger between them, giving 16.67% coverage before clipping. This variant places no grass. Every motif column has a placement, and no two consecutive rows are empty, preventing the broad blank strips of the former 10 × 10 layout.
 
 ## Hedge Garden geometry
 

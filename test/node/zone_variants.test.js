@@ -86,6 +86,7 @@ test('zone variants: Mushroom Grove avoids wide empty strips at every repeated p
   assert.eq(V.sample(row, 1, 0, 'a'), 'mushroom');
   assert.eq(V.sample(row, 3, 3, 'a'), 'mushroom');
   assert.eq(V.sample(row, 4, 3, 'a'), 'mushroom');
+  assert.eq(count(row, -6, -6, 12, 12, 'a').grass || 0, 0, 'grove background has no grass');
 });
 test('zone variants: Ancient Grove keeps rounded clusters and scatters grass only between them', () => {
   const row = V.byId('ancient_grove'), b = row.background;

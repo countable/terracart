@@ -69,11 +69,9 @@ const CROP_SPRITE = {
   // sheet was 32×32 frames rendered at the wildplant scale of 2 → 64×64
   // display, twice the footprint of every other ground prop, which read
   // as a giant broken-looking mushroom on commercial/industrial plots.
-  // scale 1.36 (1.7 — itself down 15% from the wildplant default of 2 — then
-  // a further 20% off, Sep 2026 playtest) renders the 16px frame at ~22px —
-  // the toadstool reads as a prop tucked in its tile rather than one filling
-  // it edge to edge. Origin stays (0.5, 0.5) in the planted pass, so it
-  // shrinks about the cell centre and stays centred.
+  // Scale 1.224 is 10% smaller than the previous 1.36, giving a ~20px
+  // footprint from the 16px frame. Origin stays (0.5, 0.5), so it shrinks
+  // about the cell centre. Surface and cave mushrooms share this scale.
   // `caveFrames`: the look of a mushroom spawned UNDERGROUND (worldgen.js
   // spawnCaveMushrooms stamps `_cave` on the wildplant) — the two blue
   // luminous caps on Props.png row 5, cols 17..18 (5*22+17, 5*22+18), picked
@@ -81,7 +79,7 @@ const CROP_SPRITE = {
   // same Mushroom item when picked; only the art (and its glow, see
   // Lighting.KINDS.mushroom) says it grew in the dark. The inventory icon
   // stays `frame`.
-  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.36, caveFrames: [127, 128] },
+  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.224, caveFrames: [127, 128] },
   // Shell — the beach pickup, and the one crop whose LOOK varies per cell.
   // Shell.png is 48×64 = 3 cols × 4 rows of 16×16, and only the TOP ROW is
   // shell art: three cowries (pink, gold, blue). Row 1 repeats those three
@@ -98,7 +96,7 @@ const CROP_SPRITE = {
   shell: { sheet: 'shell_sheet', custom: true, frames: [0, 1, 2] },
   // Torch — the consumable lying on a level-1 cave floor (worldgen.js
   // caveFloorTorches), drawn with its own inventory icon; picking it is a
-  // Torch. Same 1.36 as the mushroom so a floor pickup reads at one size.
+  // Torch floor pickup uses the shared crop renderer.
   torch: { sheet: 'icon_torch', custom: true, frame: 0, scale: 1.36 },
   // ── Rare wild flora ── prized foraged flowers. Each is a distinct
   // single-cell flower frame off Props.png (22-col grid; frame = row*22 + col).
