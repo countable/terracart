@@ -430,7 +430,9 @@
     if (!base || (!row?.variantOf && !isGiantKind(kind))) return undefined;
     const scale = row?.variantType === 'Mini' ? roster.MINI_SCALE
       : isGiantKind(kind) ? GIANT_ART_SCALE : 1;
-    return (_giantArt[kind] = { ...base, scale: base.scale * scale,
+    // A row's own `artScale` trims its body on top of the variant scale (the
+    // giant slime's stretched pixels read too coarse at the full 1.6×).
+    return (_giantArt[kind] = { ...base, scale: base.scale * scale * (row?.artScale ?? 1),
       sheet: row && (row.palette || row.tint) ? row.id : base.sheet,
       tint: row?.tint ? parseInt(row.tint.slice(1), 16) : base.tint });
   }
