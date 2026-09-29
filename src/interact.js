@@ -19,7 +19,7 @@
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
 //   items.js     — ITEM_BY_ID, SEED_TIER, MAX_GROWTH_STAGE
 //   loot.js      — POI_CATEGORY, chestTier, rusticifyName
-//   rarity.js    — pickReward, rollGearUpgrade
+//   rarity.js    — pickReward
 //   save.js      — persistSave
 //
 // Exports as globals:
@@ -1556,16 +1556,14 @@ const TAP_HANDLERS = [
     const { scene, save, sx, sy, cell } = ctx;
     if (cell.type !== TERRAIN.WATER) return false;
     // No rod? You can still fish BARE-HANDED — it just takes 3× as long. A rod
-    // improves the catch table + skunk rate + energy per cast; bare hands fish
-    // at tier 0 (a 90% whiff, and minnows are the only species in the water)
-    // so only owning a rod improves the catch (spec §FISHING).
+    // cheapens the cast and widens the catch table (bare hands land minnows
+    // only), so owning one improves the catch (spec §FISHING).
     const fishCost = effectiveFishCost(save.relics);
     if (!scene.spendEnergy(fishCost, sx, sy)) return true;
     // Cast time is LOCKED to 9s bare-handed / 3s with any rod — deliberately
     // NOT the per-tier toolDurationMs ladder. Rod tier already scales the
-    // catch table, the skunk rate, and the energy cost; letting it also
-    // shrink the cast to 0.3s turned a Frost rod into a 3-casts-per-second
-    // money faucet (fish + the 2%-per-cast gear jackpot) with no rate limit.
+    // catch table and the energy cost; letting it also shrink the cast to
+    // 0.3s turned a Frost rod into a 3-casts-per-second money faucet.
     const castMs = save.relics?.rod ? 3000 : 9000;
     // Which spot this is, and whether a fish is secretly in it (items.js
     // FISH_STOCK_CHANCE / fishSpotStocked; the starter pond always is). A
@@ -1574,14 +1572,10 @@ const TAP_HANDLERS = [
     const stocked = inStarterPond(scene, cell) || fishSpotStocked(spotId);
     scene.startWorkProgress(ctx.cwmx, ctx.cwmy, () => {
       const tier = save.relics?.rod?.tier || 0;   // 0 = bare hands (worst odds)
-      // Most of the wait results in nothing on a low-tier rod, and that
-      // "skunk" rate falls as the rod climbs — the ladder, the doubling and
-      // the cap all live in items.js (fishWhiffChance), beside the catch table
-      // and the cast's cost, so the four fishing dials read as one set. An
-      // empty or fished-out spot looks and casts like any other and is always
-      // an empty cast — the player learns where the fish are by fishing.
-      const noFish = !stocked || scene.fishedSpotSet?.has(spotId);
-      if (noFish || Math.random() < fishWhiffChance(tier)) {
+      // An empty or fished-out spot looks and casts like any other and is
+      // always an empty cast — the player learns where the fish are by
+      // fishing. A spot still holding its fish ALWAYS gives it up.
+      if (!stocked || scene.fishedSpotSet?.has(spotId)) {
         // An EMPTY CAST is not always empty (items.js rollEmptyCast): now and
         // then a treasure roll, a slime, or junk off the bottom.
         const empty = rollEmptyCast();
@@ -1603,45 +1597,9 @@ const TAP_HANDLERS = [
         scene.flashLoot('🎣 nothing biting…', '#888', 0.9);
         return;
       }
-      // 2% per cast → gear jackpot. The rolled tier is capped by the loot rule
-      // (chestT=2 → preferred tier clamp in rollGearUpgrade); harvest/catch
-      // milestone gating was removed, so this always yields a gear roll. An
-      // upgrade auto-equips; a dupe cashes out as consolation gold.
-      if (Math.random() < FISH_JACKPOT_CHANCE) {
-        const reward = rollGearUpgrade(undefined, save.relics, 2, save.armor);
-        if (reward) Rewards.apply(save, reward, scene);
-        if (reward?.kind === 'relic' || reward?.kind === 'armor') {
-          persistSave(save);
-          const label = gearName(reward.kind, reward.slot, reward.tier);
-          scene.flashLoot(`✨ ${label} (equipped!)`, '#ffe066', 1.6);
-          return;
-        }
-        if (reward?.kind === 'gold') {
-          scene.flashLoot(`✨ Already better — ${reward.amount}`, '#aaa', 1.2, null, scene.coinIconEl?.());
-          persistSave(save);
-          return;
-        }
-        // reward null (no relic defs) — fall through to the fish table.
-      }
-      // FISH_BOOT_CHANCE per cast → junk pull (old boot). Below the relic
-      // jackpot in the order so the jackpot wins the cast outright when both
-      // would fire.
-      if (Math.random() < FISH_BOOT_CHANCE) {
-        scene.addToInv('boot', 1);
-        persistSave(save);
-        scene.flashLoot('🥾 Old Boot', '#999', 1, 'boot');
-        return;
-      }
-      // FISH_SLIME_CHANCE per cast → a wild slime on the line, landed beside
-      // the player and charging (creature_ai.js fishedSlimeSpawn). If no cell beside
-      // the player will take it, the cast pays a fish as usual.
-      if (Math.random() < FISH_SLIME_CHANCE && scene.spawnFishedSlime?.()) {
-        scene.flashLoot('🎣 A slime on the line!', '#ff8a8a', 1.2);
-        return;
-      }
-      // What is in the water is the ROD's business (items.js FISH_SPECIES): a
-      // species below its minTier is not in the pool at all, so bare hands
-      // land minnows and each better rod opens the next fish.
+      // Which fish is the ROD's business (items.js FISH_SPECIES): a species
+      // above the rod's tier is not in the pool at all, so bare hands land
+      // minnows and each better rod opens the next fish.
       const pick = rollFish(tier);
       scene.fishedSpotSet?.add(spotId);   // one fish a spot, gone for good
       scene.addToInv(pick, 1);

@@ -1,7 +1,5 @@
-// Fishing: the cast's price, its whiff, its junk and WHICH FISH are in the
-// water. Fishing paid too well (Sep 2026) — a Wood rod landed three species in
-// the first minutes at 3⚡ a cast, which made a water tile a better living than
-// any of the land. Four dials moved, and this file pins all four against the
+// Fishing: the cast's price, WHERE the fish are (secret one-fish spots), what
+// an empty cast turns up and WHICH FISH the rod lands. Pinned against the
 // module that owns them (items.js › the FISHING block) rather than against
 // numbers retyped here.
 //
@@ -12,30 +10,6 @@
 
 (function () {
 const TIERS = [0, 1, 2, 3, 4, 5, 6, 7];
-
-// --- The whiff ------------------------------------------------------------
-
-test('fishing: the whiff is the old ladder, doubled and capped', () => {
-  // The pre-Sep-2026 curve, re-derived from the constants the module still
-  // keeps rather than a copy: max(FLOOR, BASE - tier * PER_TIER).
-  for (const t of TIERS) {
-    const before = Math.max(FISH_WHIFF_FLOOR, FISH_WHIFF_BASE - t * FISH_WHIFF_PER_TIER);
-    const want = Math.min(FISH_WHIFF_MAX, before * FISH_WHIFF_MULT);
-    assert.eq(fishWhiffChance(t), want, `whiff at tier ${t}`);
-    // Doubled where doubling fits, and never certain.
-    assert.lte(fishWhiffChance(t), FISH_WHIFF_MAX, 'a cast is never hopeless');
-    assert.gte(fishWhiffChance(t), before, 'never gentler than the old rate');
-  }
-  assert.eq(FISH_WHIFF_MULT, 2, 'the whiff doubled');
-  assert.eq(fishWhiffChance(7), 2 * FISH_WHIFF_FLOOR, 'a Frost rod whiffs twice the old floor');
-});
-
-test('fishing: a better rod never whiffs more', () => {
-  for (let t = 1; t <= 7; t++) {
-    assert.lte(fishWhiffChance(t), fishWhiffChance(t - 1), `tier ${t} vs ${t - 1}`);
-  }
-  assert.lt(fishWhiffChance(7), fishWhiffChance(0), 'and the ladder still goes somewhere');
-});
 
 // --- The cost -------------------------------------------------------------
 
@@ -53,22 +27,13 @@ test('fishing: a cast costs double the shared tool ladder', () => {
   assert.eq(effectiveCatchCost({}, always), Math.floor(toolEnergyExpected(0)), 'catching unchanged');
 });
 
-// --- The junk -------------------------------------------------------------
-
-test('fishing: the boot doubled, the gear jackpot did not', () => {
-  assert.eq(FISH_BOOT_CHANCE, 0.12, 'boots come up twice as often as the old 6%');
-  assert.eq(FISH_JACKPOT_CHANCE, 0.02, 'the gear jackpot is untouched');
-  assert.lt(FISH_JACKPOT_CHANCE, FISH_BOOT_CHANCE, 'and junk is commoner than treasure');
-});
+// --- The handler ----------------------------------------------------------
 
 test('fishing: the handler rolls the module\'s numbers, not its own', () => {
-  // The four dials are only one set if the handler reads them. It used to
-  // carry its own literals (0.55 - tier*0.05, 0.06, and the whole fish table).
-  assert.truthy(/fishWhiffChance\(tier\)/.test(INTERACT_SRC), 'whiff');
-  assert.truthy(/< FISH_BOOT_CHANCE/.test(INTERACT_SRC), 'boot');
-  assert.truthy(/< FISH_JACKPOT_CHANCE/.test(INTERACT_SRC), 'jackpot');
+  // It used to carry its own literals (0.55 - tier*0.05, 0.06, and the whole
+  // fish table).
   assert.truthy(/rollFish\(tier\)/.test(INTERACT_SRC), 'the catch');
-  assert.falsy(/0\.55 - tier \* 0\.05/.test(INTERACT_SRC), 'no second copy of the whiff curve');
+  assert.truthy(/rollEmptyCast\(\)/.test(INTERACT_SRC), 'the empty cast');
   assert.falsy(/id: 'goldenfish', +w:/.test(INTERACT_SRC), 'no second copy of the catch table');
 });
 
@@ -196,7 +161,7 @@ test('fished spots persist as an id set bound at scene boot', () => {
     }
     throw new Error('no spot');
   }
-  function cast(ix, fished, save = {}) {
+  function cast(ix, fished, save = {}, tier = 7, rand = () => 0.99) {
     const loot = [], inv = [];
     const scene = {
       depth: 0, save,
@@ -207,11 +172,11 @@ test('fished spots persist as an id set bound at scene boot', () => {
       addToInv: (id) => inv.push(id),
       spawnFishedSlime: () => false,
     };
-    const ctx = { scene, save: Object.assign(save, { relics: { rod: { tier: 7 } } }),
+    const ctx = { scene, save: Object.assign(save, { relics: tier ? { rod: { tier } } : {} }),
       sx: 0, sy: 0, cwmx: 0, cwmy: 0,
       cell: { type: TERRAIN.WATER, tx: 0, ty: 0, ix, iy: 0 } };
     const rnd = Math.random;
-    Math.random = () => 0.99;           // never whiff, never junk
+    Math.random = rand;                 // 0.99: an empty cast turns up nothing
     try { fishing.try(ctx); } finally { Math.random = rnd; }
     return { loot, inv };
   }
@@ -226,6 +191,22 @@ test('fished spots persist as an id set bound at scene boot', () => {
       const again = cast(ix, fished);
       assert.eq(again.inv.length, 0, 'fished out');
       assert.truthy(/nothing biting/.test(again.loot[0]), 'and it reads like any bad cast');
+    }
+  });
+
+  test('fishing: a stocked spot ALWAYS lands a fish, never above the rod', () => {
+    // No whiff, no junk, no slime on a stocked spot: whatever the dice say,
+    // the cast pays one fish off the rod's own pool.
+    const ix = spot(true);
+    for (const t of TIERS) {
+      const allowed = new Set(fishTable(t).map((f) => f.id));
+      for (const r of [0, 0.01, 0.3, 0.5, 0.99]) {
+        const got = cast(ix, new Set(), {}, t, () => r);
+        assert.eq(got.inv.length, 1, `tier ${t}, rng ${r}: a fish`);
+        assert.truthy(allowed.has(got.inv[0]), `tier ${t} landed ${got.inv[0]}`);
+        const minTier = FISH_SPECIES.find((f) => f.id === got.inv[0]).minTier;
+        assert.lte(minTier, t, `${got.inv[0]} is at or below the rod`);
+      }
     }
   });
 

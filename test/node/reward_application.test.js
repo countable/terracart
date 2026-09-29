@@ -21,22 +21,6 @@
     assert.eq(save.money, 30, 'unknown rewards do not pay');
   });
 
-  test('fishing jackpot: duplicate gear credits its consolation cash', () => {
-    const save = { money: 5, relics: {}, armor: {} };
-    for (const slot of Object.keys(RELIC_DEFS)) save.relics[slot] = { tier: 7 };
-    for (const slot of Object.keys(ARMOR_DEFS)) save.armor[slot] = { tier: 7 };
-    const expected = rollGearUpgrade(() => 0, save.relics, 2, save.armor);
-    assert.eq(expected.kind, 'gold');
-    const original = Math.random;
-    let rolls = 0;
-    try {
-      Math.random = () => rolls++ === 0 ? 0.99 : 0;
-      const handler = TAP_HANDLERS.find(h => h.name === 'fishing');
-      handler.try({ scene: makeScene(), save, cell: { type: TERRAIN.WATER }, sx: 0, sy: 0, cwmx: 0, cwmy: 0 });
-      assert.eq(save.money, 5 + expected.amount, 'the cash-out is actually banked');
-    } finally { Math.random = original; }
-  });
-
   test('chest: leaving an item defers its consolation until the saved roll is claimed', () => {
     const original = globalThis.pickReward;
     const save = { money: 0, opened: [], relics: {}, armor: {} };

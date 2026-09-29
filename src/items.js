@@ -1611,50 +1611,26 @@ function effectiveCatchCost(relics, rng) {
   return probEnergy(toolEnergyExpected(relics?.bugnet?.tier || 0), rng);
 }
 // ── FISHING ────────────────────────────────────────────────────────────────
-// Everything a cast rolls, in one place: what it costs, how often it whiffs,
-// what junk it pulls and WHICH FISH the rod can land. The handler
+// Everything a cast rolls, in one place: what it costs, where the fish are,
+// what an empty cast turns up and WHICH FISH the rod can land. The handler
 // (interact.js 'fishing') spends and flashes; the numbers are here so they can
 // be read and tested without a scene.
 //
-// Sep 2026 — fishing paid too well. A Wood rod landed three species in the
-// first minutes at 3⚡ a cast, which made a water tile a better living than
-// anything the land offered. Four dials, one direction:
-//   • the whiff DOUBLES (FISH_WHIFF_MULT),
-//   • the cast COSTS double (FISH_COST_MULT),
-//   • the boot DOUBLES (FISH_BOOT_CHANCE, 6% → 12%),
-//   • and a species is now GATED on the rod (minTier below) — with bare hands
-//     the water holds minnows and nothing else, and each better rod is what
-//     puts the next fish in it.
-// Cast TIME is untouched and still locked (9s bare / 3s with any rod — see the
-// handler): tier buys cheaper, likelier and better catches, never faster ones.
-
-// The whiff ("nothing biting…") ladder. The pre-Sep-2026 curve is kept whole
-// and DOUBLED rather than retyped, so what changed stays legible: it fell from
-// 55% bare-handed by 5 points a tier to a 20% floor. Doubled, the top of that
-// runs past certainty, so FISH_WHIFF_MAX caps it — a cast is never hopeless,
-// and the flat stretch it leaves over tiers 0-2 is the point: below an Iron rod
-// the water mostly gives you nothing, and what a Wood rod buys is the bass
-// (see FISH_SPECIES), not a better strike rate.
-const FISH_WHIFF_BASE = 0.55, FISH_WHIFF_PER_TIER = 0.05, FISH_WHIFF_FLOOR = 0.20;
-const FISH_WHIFF_MULT = 2;
-const FISH_WHIFF_MAX = 0.90;
-function fishWhiffChance(tier) {
-  const base = Math.max(FISH_WHIFF_FLOOR, FISH_WHIFF_BASE - (tier || 0) * FISH_WHIFF_PER_TIER);
-  return Math.min(FISH_WHIFF_MAX, base * FISH_WHIFF_MULT);
-}
-// What a cast costs, and what it pulls up instead of a fish. The jackpot is
-// unchanged — it is the reason to fish at all once the fish stop paying.
+// A cast on a stocked spot (fishSpotStocked below) ALWAYS lands its one fish,
+// drawn from the species at or below the rod's tier (FISH_SPECIES / rollFish).
+// Scarcity is the spots, not the strike: there is no whiff, and junk, slimes
+// and treasure come only from empty casts (rollEmptyCast). Cast TIME is locked
+// (9s bare / 3s with any rod — see the handler): tier buys cheaper casts and
+// better fish, never faster ones.
 const FISH_COST_MULT = 2;
-const FISH_JACKPOT_CHANCE = 0.02;   // → a gear roll (rollGearUpgrade)
-const FISH_BOOT_CHANCE = 0.12;      // → an Old Boot (was 0.06)
 // → a wild SLIME on the line: it lands beside the player and charges (app.js
-// fishedSlimeSpawn). Rolled on a strike, after the jackpot and the boot.
+// fishedSlimeSpawn). Rolled on an empty cast (rollEmptyCast).
 const FISH_SLIME_CHANCE = 0.05;
 // THE EMPTY CAST (Sep 2026, owner's call): a "nothing biting" cast is no
-// longer always nothing. Rolled on the whiff only, in this order:
+// longer always nothing. Rolled on every empty cast, in this order:
 //   • FISH_EMPTY_TREASURE_CHANCE (1 in 50) → a treasure roll at a RANDOM
 //     chest tier (FISH_EMPTY_TREASURE_CONTEXT, tier 1..FISH_EMPTY_TREASURE_TIER_MAX),
-//   • FISH_SLIME_CHANCE → a slime on the line (the strike's own slime),
+//   • FISH_SLIME_CHANCE → a slime on the line,
 //   • FISH_EMPTY_JUNK_CHANCE → junk off the bottom (FISH_EMPTY_JUNK: an Old
 //     Boot, a stone, a stick of wood),
 //   • else nothing biting, as before.

@@ -4,7 +4,7 @@
 // the real lifted wanderCreatures (run.js __wander) has it leech at once.
 //
 // What is pinned:
-//   · the rate: a rarer pull than the boot, rolled by the fishing handler;
+//   · the rate: a rarer pull than junk, rolled on an empty cast;
 //   · the seat: exactly one cell from the feet, never on water / a road /
 //     a building, and no slime at all when nothing beside the player is land;
 //   · the temper: stamped as struck (the slimeCharging lane), so it attacks;
@@ -79,11 +79,11 @@ function tick(scene, ms) {
   }
 }
 
-test('fished slime: a rarer pull than the boot, rolled by the handler', () => {
+test('fished slime: a rarer pull than junk, rolled on an empty cast', () => {
   assert.gt(FISH_SLIME_CHANCE, 0, 'it can happen');
-  assert.lt(FISH_SLIME_CHANCE, FISH_BOOT_CHANCE, 'but less often than an old boot');
-  assert.truthy(/< FISH_SLIME_CHANCE && scene\.spawnFishedSlime/.test(INTERACT_SRC),
-    'the fishing handler rolls the module\'s number and seats it through the spawner');
+  assert.lt(FISH_SLIME_CHANCE, FISH_EMPTY_JUNK_CHANCE, 'but less often than junk');
+  assert.truthy(/empty\?\.kind === 'slime' && scene\.spawnFishedSlime/.test(INTERACT_SRC),
+    'the fishing handler seats the empty cast\'s slime through the spawner');
 });
 
 test('fished slime: lands one cell from the feet, on land, as a wild slime', () => {
