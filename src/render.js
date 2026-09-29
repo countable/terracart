@@ -2578,7 +2578,7 @@ Render.drawObjects = function drawObjects(scene) {
         for (const c of entry.creatures) {
           _boot_scanned++;
           if (caughtSet.has(c.id)) continue;
-          if (c._surfaceSpawn && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
+          if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
           if (c._surfaceInactive) continue;
           const dx = c.x - pWorldX, dy = c.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;

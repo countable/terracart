@@ -34,6 +34,13 @@
       cropPests: false,
       // Garrison eligibility is shared in both modes (lairs.js).
       derelictLairs: true,
+      // THE QUIET HOME: a garrison guard of anything but the plain slime
+      // whose ruin sits within this many metres of THIS player's Home is
+      // hidden for them (EnemySpawns.surfaceActive — the same per-player
+      // "hide, never re-roll" lane as the pest amnesty). The ruin is still
+      // held for everyone else, and still weakened near Home by lairMul; a
+      // wreck's slimes stay. 0 = off. Metres, off EnemySpawns.homeAnchor.
+      quietHomeM: 350,
       // ── Economy ──
       startingMoney: 50,        // items.js STARTING_MONEY — the easy figure IS the base
       buyMul: 1,                // over buyMarkupRange — the trader / castle markup
@@ -85,6 +92,7 @@
       pestAmnesty: false,
       cropPests: true,          // crows are dispatched to your field, ~90 s apart
       derelictLairs: true,      // every ruin past the home ring is held, and holds more further out
+      quietHomeM: 0,            // no quiet home: a fort by the trailer is held for you too
       startingMoney: 20,        // $20 against $50 — a bag of seeds, not a plan
       buyMul: 1.5,              // traders want 1.8..4.5× base; a T7 bow still only reaches 1.5× par
       sellMul: 0.6,             // Home pays 60% — farming is a living, not the fastest one

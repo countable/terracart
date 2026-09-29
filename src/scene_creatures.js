@@ -1472,7 +1472,7 @@ class SceneCreatures {
     ghostSpawnPass(this, now, px, py, pcW, homePos, castleWards, HOME_WARD_R2, caughtSet);
 
     WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
-      if (c._surfaceSpawn && !EnemySpawns.surfaceActive(this, c)) return;
+      if ((c._surfaceSpawn || c.lair) && !EnemySpawns.surfaceActive(this, c)) return;
       // Cheapest reject first: the sim range cull. Everything below runs only
       // for the handful of creatures actually near the player.
       const ddx = c.x - px, ddy = c.y - py;
