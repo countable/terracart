@@ -229,11 +229,14 @@ const PLAY_TIPS = [
   'Some coffee shops have a hoard buried nearby, and a giant goblin sits on most of them.',
   // StreetVariants.LANTERN_SPACING_DIV (twice).
   'A lantern row, once rebuilt, stands its lamps twice as thick as any other street.',
-  'Roads and footpaths lie derelict until you stand by them: three seconds inside your light rebuilds that stretch for good. The first 200m restored pays a seed, and each prize after asks 200m more — seeds, coin, fruit, potions, supplies, feathers, or boots — some wearable, some old junk.',
+  'Roads and footpaths lie derelict until you stand by them: three seconds inside your light rebuilds that stretch for good. The first 200m restored pays a seed, and each prize after asks 200m more. Pick one of three: coin, seeds or supplies, and potions or boots — boots no finer than a tier for every km mended.',
+  // ONE ROAD AT A TIME (app.js _oneRoadPay, ONE_ROAD_WINDOW_MS) and the
+  // stick's share (Trail.STICK_METRES_MUL) — books.test.js re-derives both.
+  'Roads side by side pay as one: rebuild two at once and only the one that mended most counts toward your next prize. Lamps are not held to it — each pays its own. Steered off where you truly stand with the stick, road counts only 40%.',
   // LIVING LAMPS (src/streets.js): Streets.LAMP_FADE_MS (a day) fade,
   // lampCredit (the gap to the next lamp x how dim), LAMP_PATH_SPACING_DIV
   // (twice) — books.test.js re-derives all three.
-  'A rebuilt street\'s lamps fade over a day. Walk by one again and it flares, adding road to your total — a full lamp\'s worth once it has gone a day dark. Footpaths stand their lamps twice as close, and pay as much apiece.',
+  'A rebuilt street\'s lamps fade over a day. Walk by one again and it flares, adding road to your total — three quarters of a lamp\'s worth once it has gone a day dark. Footpaths stand their lamps twice as close, and pay as much apiece.',
   // SCENIC PATHS and VIEWPOINTS (src/scenic.js): Scenic.SCENIC_MUL (the
   // shore's and the park / greenway's multiplier on the ladder, never the
   // distance — Trail.restoredMetres), the sidewalk rule, and the vista:

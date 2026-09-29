@@ -159,7 +159,7 @@
 
 // ── The prize is a CHOICE ─────────────────────────────────────────────────
 // A prize pays three rolls and the player keeps ONE. Two rules carry it:
-// the options must actually differ (Trail.rollChoices), and NOTHING may be
+// the options must actually differ (Trail.rollCardRow), and NOTHING may be
 // granted until the player picks — the roll they turn down was never theirs.
 // The second rule is the one that would silently break: the option not taken
 // still has to be drawn, so the drawing half must pay nothing at all. Both
@@ -188,16 +188,16 @@ test('trail prize: two of a kind is not a choice', () => {
   // lands — rolling either twice has to keep looking rather than offer the
   // player a decision with one answer.
   const gold = () => ({ kind: 'gold', amount: 7 });
-  assert.eq(T.rollChoices(gold).length, 1, 'gold twice collapses to one option');
+  assert.eq(T.rollCardRow(gold).length, 1, 'gold twice collapses to one option');
   let n = 0;
   const sameItem = () => ({ kind: 'item', id: 'potato', qty: ++n });
-  assert.eq(T.rollChoices(sameItem).length, 1, 'the same item at a new qty is the same card');
+  assert.eq(T.rollCardRow(sameItem).length, 1, 'the same item at a new qty is the same card');
 });
 
 test('trail prize: two different finds are offered as two', () => {
   const rolls = [{ kind: 'gold', amount: 7 }, { kind: 'item', id: 'potato', qty: 2 }];
   let i = 0;
-  const out = T.rollChoices(() => rolls[i++] || null);
+  const out = T.rollCardRow(() => rolls[i++] || null);
   assert.eq(out.length, 2, 'both are offered');
   assert.eq(out[0].kind, 'gold', 'in the order they rolled');
   assert.eq(out[1].id, 'potato', 'and the second is the other one');
@@ -211,29 +211,29 @@ test('trail prize: a gold roll and a gear roll are told apart by slot and tier',
   ];
   for (const [a, b, want] of pairs) {
     let i = 0;
-    const got = T.rollChoices(() => [a, b][i++] ?? b);
+    const got = T.rollCardRow(() => [a, b][i++] ?? b);
     assert.eq(got.length, want, `${T.rewardKey(a)} vs ${T.rewardKey(b)} → ${want} option(s)`);
   }
 });
 
 test('trail prize: a picker with nothing to give ends the search', () => {
-  assert.eq(T.rollChoices(() => null).length, 0, 'no rolls, no prize');
+  assert.eq(T.rollCardRow(() => null).length, 0, 'no rolls, no prize');
   let i = 0;
-  assert.eq(T.rollChoices(() => (i++ ? null : { kind: 'gold', amount: 3 })).length, 1,
+  assert.eq(T.rollCardRow(() => (i++ ? null : { kind: 'gold', amount: 3 })).length, 1,
     'one roll then empty → one option, not an infinite retry');
-  assert.eq(T.rollChoices(null).length, 0, 'no picker at all is survivable');
+  assert.eq(T.rollCardRow(null).length, 0, 'no picker at all is survivable');
 });
 
 test('trail prize: an unkeyable roll is never folded into another', () => {
   // A reward shape trail.js does not recognise must not be treated as a
   // duplicate — that would drop a prize the player earned.
   const odd = () => ({ kind: 'mystery' });
-  assert.eq(T.rollChoices(odd).length, T.PRIZE_CHOICES, 'both odd rolls survive');
+  assert.eq(T.rollCardRow(odd).length, T.PRIZE_CHOICES, 'both odd rolls survive');
 });
 
 test('trail prize: rolling stops at PRIZE_CHOICES even when every roll differs', () => {
   let n = 0;
-  const out = T.rollChoices(() => ({ kind: 'item', id: `x${n++}`, qty: 1 }));
+  const out = T.rollCardRow(() => ({ kind: 'item', id: `x${n++}`, qty: 1 }));
   assert.eq(out.length, T.PRIZE_CHOICES, 'never more than the offer');
   assert.eq(T.PRIZE_CHOICES, 3, 'and the offer is three');
 });
@@ -401,24 +401,23 @@ test('trail prize: the ceremony rolls the ROAD pool, and rung one skips the roll
   const app = APP_JS_SRC;
   const at = app.indexOf('_fireTrailPrize(n, onDismiss) {');
   const body = app.slice(at, app.indexOf('\n  _trailChoiceLabel', at));
-  assert.truthy(/pickReward\(Trail\.PRIZE_CONTEXT, this\.save, undefined, \{ rollBonus: bonus \}\)/.test(body),
-    'the pool is trail.js\'s, never a chest context named here');
+  assert.truthy(/pickReward\(Trail\.PRIZE_CONTEXT, this\.save, undefined,\s*\{ rollBonus: bonus, classes, classMaxTier: \{ boots: bootsCap \} \}\)/.test(body),
+    'the pool is trail.js\'s, never a chest context named here, one card group at a time');
   assert.falsy(/chest:lowtier/.test(body), 'the ladder no longer borrows the lowtier chest curve');
   assert.truthy(/const fixed = Trail\.firstPrize \? Trail\.firstPrize\(n\) : null;/.test(body),
     'rung one is asked for first');
-  assert.truthy(/Trail\.rollChoices\(roll, Trail\.PRIZE_CHOICES, Trail\.PRIZE_ROLL_TRIES, fixed \? \[fixed\] : \[\]\)/.test(body),
-    'and leads the rolled row rather than replacing it');
+  assert.truthy(/Trail\.rollCardRow\(rollFor, fixed \? \[fixed\] : \[\]\)/.test(body),
+    'and takes its card in the rolled row rather than replacing it');
 });
 
 test('trail prize: rung one offers the onion seed AND a full row to pick from', () => {
   let n = 0;
   const rolls = [{ kind: 'item', id: 'onion_seed', qty: 1 }, { kind: 'gold', amount: 4 },
                  { kind: 'item', id: 'carrot_seed', qty: 2 }];
-  const out = Trail.rollChoices(() => rolls[n++] || null, Trail.PRIZE_CHOICES,
-                                Trail.PRIZE_ROLL_TRIES, [Trail.firstPrize(1)]);
+  const out = Trail.rollCardRow(() => rolls[n++] || null, [Trail.firstPrize(1)]);
   assert.eq(out.length, Trail.PRIZE_CHOICES, 'three cards, not one');
-  assert.eq(out[0].id, 'onion_seed', 'the seed leads');
-  assert.eq(out[0].qty, Trail.FIRST_PRIZE_QTY, 'as the fixed pack, not the rolled duplicate');
+  assert.eq(out[1].id, 'onion_seed', 'the seed takes the seed card');
+  assert.eq(out[1].qty, Trail.FIRST_PRIZE_QTY, 'as the fixed pack, not the rolled duplicate');
   assert.eq(out.filter(r => r.id === 'onion_seed').length, 1, 'a rolled onion is re-rolled');
 });
 
@@ -566,6 +565,9 @@ const sweepScene = (over) => Object.assign({
   feetOffsetM: 0,
   playerM: { x: MID_M, y: MID_M },
   peekM: { x: 0, y: 0 },
+  // A GPS fix under the feet: walked there, so the ladder pays in full
+  // (app.js _roadMetresMul — the stick's share is its own test).
+  gpsM: { x: MID_M, y: MID_M },
   toasts: [],
   _toast(text, opts) { this.toasts.push({ text, opts }); },
   drained: 0,
@@ -816,6 +818,54 @@ test('streets: the prize fires at two hundred metres, wherever they were restore
       'the counter reads the completed goal');
     assert.inRange(s.save.trail.metres, 14.99, 15.01, 'with the remainder carried');
   });
+});
+
+test('streets: two parallel ways come back together but pay as ONE road', () => {
+  // A street and its neighbour (or its drawn pavement) both in reach: both are
+  // rebuilt, but the ladder banks only the way that restored the most
+  // (app.js _oneRoadPay, ONE_ROAD_WINDOW_MS).
+  const off = Math.round(5 * EXTENT / TILE_EDGE_M);          // 5 m apart
+  const a = straightWay();
+  const b = { id: 8, type: 2, tags: { class: 'minor' },
+    geom: [[{ x: 0, y: EXTENT / 2 + off }, { x: EXTENT, y: EXTENT / 2 + off }]] };
+  const key = WorldGen.tileKey(0, 0);
+  WorldGen.tileCache.set(key, { cellsPerEdge: N, tileEdgeM: TILE_EDGE_M,
+    layers: [{ name: 'transportation', extent: EXTENT, features: [a, b] }] });
+  const realNow = Date.now;
+  let t = 1e12;
+  Date.now = () => t;
+  try {
+    const s = sweepScene({ save: { energy: 10, reachUpgrades: 0, trail: { metres: 0, prizes: 0 } } });
+    s._sweepStreets();
+    t += PATH_STONE_DWELL_MS; s._sweepStreets();
+    const len = (f) => Streets.restoredList(s.save, key, Streets.lineKey(f, 0))
+      .reduce((m, iv) => m + (iv[1] - iv[0]), 0);
+    const la = len(a), lb = len(b);
+    assert.gt(la, 10, 'the first way is rebuilt');
+    assert.gt(lb, 10, 'and so is its neighbour');
+    const banked = Trail.totalMetres(s.save.trail.metres, s.save.trail.prizes);
+    assert.gt(banked, 0, 'the ladder moved');
+    assert.lte(banked, Math.max(la, lb) + 1e-6, 'by one way\'s metres, not both');
+    // Later in the same window, the neighbour catching up pays nothing more.
+    t += 10; s._sweepStreets();
+    assert.lte(Trail.totalMetres(s.save.trail.metres, s.save.trail.prizes), Math.max(la, lb) + 1e-6);
+  } finally { Date.now = realNow; WorldGen.tileCache.delete(key); }
+});
+
+test('streets: off the GPS the stick banks Trail.STICK_METRES_MUL of the road', () => {
+  assert.eq(Trail.STICK_METRES_MUL, 0.4, 'a 60% penalty');
+  const bankedFor = (over) => withStreet((clock) => {
+    const s = sweepScene({ save: { energy: 10, reachUpgrades: 0, trail: { metres: 0, prizes: 0 } }, ...over });
+    clock.at(0);                   s._sweepStreets();
+    clock.at(PATH_STONE_DWELL_MS); s._sweepStreets();
+    return s.save.trail.metres;
+  });
+  const walked = bankedFor({});
+  const steered = bankedFor({ gpsM: { x: MID_M - 30, y: MID_M }, _manualOffsetM: { x: 30, y: 0 } });
+  const noFix = bankedFor({ gpsM: null });
+  assert.gt(walked, 10, 'walked there: the whole stretch');
+  assert.inRange(steered, walked * 0.4 - 1e-6, walked * 0.4 + 1e-6, 'steered there: 40%');
+  assert.inRange(noFix, walked * 0.4 - 1e-6, walked * 0.4 + 1e-6, 'no fix at all: 40%');
 });
 
 test('streets: the counter is throttled, but a paying sweep never waits', () => {

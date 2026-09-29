@@ -161,18 +161,18 @@ test('HomeArea.softwoodSpeciesNear: forces pine near spawn, exempts bushes', () 
 // had to paper over it with `|| 8` / `|| 1`.
 
 test('steerSpeedMul: bare hands cover a cell a second, boots go up from there', () => {
-  // The baseline is 6× walk pace on purpose: WALK_M_S (1.4) × 6 ≈ 8.4 m/s, a
-  // little over one WorldGen.CELL_M cell per second. Real walk pace crawls
+  // The baseline is 4.8× walk pace: WALK_M_S (1.4) × 4.8 ≈ 6.7 m/s, just
+  // under one WorldGen.CELL_M cell per second (down 20% from 6×, Sep 2026). Real walk pace crawls
   // across an 11-cell view, which is what "the default walk speed is super
   // slow" was. It was lifted from 5× (a flat one cell/second) because that
   // still read as a drag over the whole opening.
   //
   // The TOP moved instead: 15.5 -> 24. The old ladder sounded wide and did not
   // play wide — 1.2 cells a second bare-handed against 3.1 at the top, so a
-  // top-tier amulet felt like a bare-handed one with a tailwind. The floor is
-  // load-bearing and stays; the widening lands in the per-tier step.
-  assert.eq(steerSpeedMul({}), 6, 'no relics');
-  assert.eq(steerSpeedMul({ boots: null }), 6, 'no amulet');
+  // top-tier amulet felt like a bare-handed one with a tailwind. The widening
+  // lands in the per-tier step.
+  assert.eq(steerSpeedMul({}), 4.8, 'no relics');
+  assert.eq(steerSpeedMul({ boots: null }), 4.8, 'no amulet');
   assert.eq(steerSpeedMul({ boots: { tier: 7 } }), 24, 'T7 (Frost)');
   // The reason the number moved at all: the ladder has to be worth climbing.
   assert.gte(steerSpeedMul({ boots: { tier: 7 } }) / steerSpeedMul({}), 3.5,
@@ -183,7 +183,7 @@ test('steerSpeedMul: bare hands cover a cell a second, boots go up from there', 
   let prev = 0;
   for (let t = 0; t <= 7; t++) {
     const v = steerSpeedMul({ boots: { tier: t } });
-    assert.gte(v, 6, `tier ${t} at least the baseline`);
+    assert.gte(v, 4.8, `tier ${t} at least the baseline`);
     assert.gt(v, prev, `tier ${t} beats tier ${t - 1}`);
     prev = v;
   }

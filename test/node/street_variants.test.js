@@ -213,11 +213,16 @@ test('rocks: a rock-lined street runs about one rock per 10 m of its length', ()
   assert.inRange(per, 2, 3.5, `one rock per ${per.toFixed(1)} m on open ground`);
 });
 
-test('dressing: hedges line the hedgerow, off the band and off anything already there', () => {
+test('dressing: bushes line the hedgerow, off the band and off anything already there', () => {
   const r = rasterize();
   const { d, before } = dressed(r);
-  const hedges = d.wildplants.filter((p) => p.crop === 'hedge');
+  // A hedge IS a shrub — the ordinary bush (no square hedge kind of its own);
+  // its id keeps the 'hedge' prefix so a save's cut hedges stay cut.
+  const hedges = d.wildplants.filter((p) => /^hedge_/.test(p.id));
   assert.gt(hedges.length, 4, 'the hedgerow is hedged');
+  for (const h of hedges) assert.eq(h.crop, 'shrub', `${h.id} is a bush`);
+  assert.falsy(d.wildplants.some((p) => p.crop === 'hedge'), 'no square hedge kind');
+  assert.eq(CROP_SPRITE.hedge, undefined, 'and no art for one');
   const seen = new Set();
   for (const p of [...d.wildplants, ...d.objects]) {
     const ix = cellOf(p.x, TX), iy = cellOf(p.y, TY), i = iy * CPE + ix;
@@ -229,8 +234,8 @@ test('dressing: hedges line the hedgerow, off the band and off anything already 
       `${p.id} passes the shared spawn rule`);
     assert.eq(p.id.split('_').slice(-4).join('_'), `${TX}_${TY}_${ix}_${iy}`, `${p.id} is minted from its cell`);
   }
-  assert.eq(wildplantOutput('hedge'), 'wood', 'a hedge is chopped for wood, like a shrub');
-  assert.eq(wildplantWorkRelic('hedge'), 'axe');
+  assert.eq(wildplantOutput('shrub'), 'wood', 'a hedge is chopped for wood — it is a shrub');
+  assert.eq(wildplantWorkRelic('shrub'), 'axe');
   assert.eq(wildplantOutput('barricade'), 'wood', 'and a barricade is broken up the same way');
 });
 

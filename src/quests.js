@@ -121,11 +121,13 @@ const _enemyName = (k) => ((typeof Combat !== 'undefined' && Combat.enemyName) ?
 const _a = (k) => QUEST_POI_NAMES[k] || k;
 
 // The opening three, authored rather than rolled. A first impression is worth
-// writing by hand, and this one has to say "these are small" — one slime, one
-// crop, two chests — before the generator takes over at gen 3.
+// writing by hand, and this one has to say "these are small" — three slimes,
+// three crops, two chests — before the generator takes over at gen 3. An
+// opener's `need` pins its size (one slime and one crop were over before the
+// player had noticed the board, Sep 2026); the rank ladder is untouched.
 const QUEST_OPENERS = [
-  { t: 'kill', target: 'slime' },
-  { t: 'harvest' },
+  { t: 'kill', target: 'slime', need: 3 },
+  { t: 'harvest', need: 3 },
   { t: 'chest' },
 ];
 
@@ -182,7 +184,7 @@ const Quests = {
       for (const t of QUEST_TEMPLATES) for (let i = 0; i < t.weight; i++) bag.push(t);
       tpl = bag[Math.floor(rnd() * bag.length)] || QUEST_TEMPLATES[0];
     }
-    const need = clamp(Math.ceil(tpl.base * (1 + rank * tpl.k)), 1, tpl.max);
+    const need = (opener && opener.need) || clamp(Math.ceil(tpl.base * (1 + rank * tpl.k)), 1, tpl.max);
     const q = {
       id: `q${gen}`, slot, gen, verb: tpl.id, event: tpl.event, need, have: 0,
       reward: Math.round(need * tpl.unit * (1 + rank * QUEST_REWARD_RAMP)),

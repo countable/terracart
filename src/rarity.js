@@ -176,14 +176,15 @@
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0 },
     // ── The ROAD ladder's prize ─────────────────────────────────────────
     // What restoring a street pays (src/trail.js, app.js _fireTrailPrize).
-    // Seeds share the choices with walking supplies, fruit, boots and coins.
-    // Favourites keep Old Boots, Pairy and occasional feathers available even on later rungs,
-    // and make the consumable option usually a potion.
+    // The ceremony rolls ONE card per group (Trail.PRIZE_CARDS: cash / seed or
+    // supply / boots or magic), each narrowed to its classes, so these weights
+    // only split a group between its classes; boots are capped a tier a km
+    // (Trail.bootsTierCap). Favourites make the magic card usually a potion.
     // The caller's rollBonus buys tiers up to T4; higher tiers need a jackpot.
-    'treasure:road':    { classBias: { seed:0.20, produce:0.25, magic:0.225, supply:0.025, boots:0.15, cash:0.15 }, cashMul: 0.5,
+    'treasure:road':    { classBias: { seed:0.20, magic:0.225, supply:0.025, boots:0.15, cash:0.15 }, cashMul: 0.5,
                           chainSteps: 1, chainMax: 4, maxTier: 6, relicCap: 0,
                           favourite: { p: 0.85, ids: {
-                            boot: 1, pairy: 3, crow_feather: 0.3, reach_potion: 1, vigor_potion: 1,
+                            reach_potion: 1, vigor_potion: 1,
                             speed_potion: 1, shield_potion: 1, revive_potion: 1,
                           } } },
     // ── A grove shrine's daily gift (src/zones.js, INTERACTABLES.grove_shrine)
@@ -395,27 +396,29 @@
   // (fixedChestReward routes a fixed armor payload through here too, so a
   // future `kind: 'armor'` starter chest can't downgrade equipped armor).
   // ────────────────────────────────────────────────────────────────
-  function reconcileRelicOffer(rolled, save, rng) {
+  // `cap` (default T7) is the highest tier this offer may climb to — the road
+  // prize's boots are held to one tier per kilometre (Trail.bootsTierCap).
+  function reconcileRelicOffer(rolled, save, rng, cap = 7) {
     const kind = rolled.kind || 'relic';
     const slot = rolled.slot;
-    let t = rolled.tier;
+    let t = Math.min(rolled.tier, cap);
     const ownedTable = kind === 'armor' ? save?.armor : save?.relics;
     const owned = ownedTable?.[slot]?.tier ?? 0;
     if (t > owned) return { kind, slot, tier: t, jackpot: rolled.jackpot || 0 };
     t = owned;
     const priceFor = (tier) => (typeof _gearPrice === 'function')
       ? _gearPrice(kind, slot, tier) : 0;
-    // Slot already maxed at T7: there's nothing to climb to, so cash out
-    // consolation gold rather than handing back a useless duplicate relic.
-    if (t >= 7) {
+    // Slot already at the cap (T7 at most): there's nothing to climb to, so
+    // cash out consolation gold rather than handing back a useless duplicate.
+    if (t >= cap) {
       return {
         kind: 'gold',
-        slot, tier: 7, gearKind: kind,
-        amount: Math.max(1, Math.floor(priceFor(7) / 2)),
+        slot, tier: t, gearKind: kind,
+        amount: Math.max(1, Math.floor(priceFor(t) / 2)),
         jackpot: rolled.jackpot || 0,
       };
     }
-    while (t < 7) {
+    while (t < cap) {
       if (rng() < RARITY_TUNING.walkUpStepP) {
         return {
           kind: 'gold',
@@ -426,8 +429,8 @@
       }
       t += 1;
     }
-    // Climbed all the way without cashing out — hand over the T7 gear.
-    return { kind, slot, tier: 7, jackpot: rolled.jackpot || 0 };
+    // Climbed all the way without cashing out — hand over the capped gear.
+    return { kind, slot, tier: cap, jackpot: rolled.jackpot || 0 };
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -511,6 +514,14 @@
       for (const [c, w] of Object.entries(caveSkew.classAdd)) classBias[c] = (classBias[c] || 0) + w;
       ctx = { ...ctx, classBias, favourite: caveSkew.favourite };
     }
+    // A caller may narrow the classes to a subset of the context's own
+    // (opts.classes — the road prize's one-card-per-group row, Trail.PRIZE_CARDS):
+    // the context's weights between those classes stand, the rest drop out.
+    if (opts && Array.isArray(opts.classes)) {
+      const classBias = {};
+      for (const c of opts.classes) if (ctx.classBias[c] > 0) classBias[c] = ctx.classBias[c];
+      ctx = { ...ctx, classBias };
+    }
 
     return ctx;
   }
@@ -523,7 +534,8 @@
     const isRelic = cls === 'relic';
     const finalCap = isRelic
       ? Math.min(ctx.relicCap ?? 7, 7)
-      : Math.min(ctx.maxTier ?? 7, (cls === 'chestQuality' ? 7 : CLASS_MAX_TIER[cls] || 1));
+      : Math.min(ctx.maxTier ?? 7, (cls === 'chestQuality' ? 7 : CLASS_MAX_TIER[cls] || 1),
+          (opts && opts.classMaxTier && opts.classMaxTier[cls]) || 7);
     const chainCap = isRelic
       ? Math.min(ctx.relicChainMax ?? finalCap, finalCap)
       : Math.min(ctx.chainMax ?? finalCap, finalCap);
@@ -693,7 +705,7 @@
     if (cls === 'boots') {
       if (!ctx.singleItem) wastedQtyBumps += bracket;
       const out = reconcileRelicOffer({ kind: 'armor', slot: 'boots', tier,
-        jackpot: jackpotApplied }, save, rng);
+        jackpot: jackpotApplied }, save, rng, finalCap);
       if (out) out.consolation = ctx.singleItem ? 0 : consolationFor(tier);
       return out;
     }

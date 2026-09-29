@@ -112,10 +112,8 @@ const CROP_SPRITE = {
   wildrose:    { sheet: 'props', custom: true, frame: 30,  scale: 1.13 },  // red wild rose (row 1, col 8)
   starflower:  { sheet: 'props', custom: true, frame: 102, scale: 1.13 },  // glowing purple star-flower (row 4, col 14)
   // ── Street variants (src/street_variants.js) — both CHOPPED like a shrub
-  // (WILDPLANT_RULES below), never scenery. The hedgerow's clipped hedge is
-  // props32 r8c5 (frame 7*9+4 = 67); the barricade road's barricade is the
-  // generated 16px piece.
-  hedge:       { sheet: 'props32', custom: true, frame: 67, scale: 0.9 },
+  // (WILDPLANT_RULES below), never scenery. The barricade road's barricade
+  // is the generated 16px piece; a hedgerow's hedges are plain shrubs.
   barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 1.6 },
   // ── Influence zones (src/zones.js) — the tar yard's FLINT: a ground
   // pickup (WILDPLANT_RULES.flint below), the generated 16px nodule. One
@@ -184,9 +182,9 @@ const WILDPLANT_RULES = {
   // work: the axe relic's ladder times the wheel and `workCharged` puts the
   // shared 9/3/1 tool curve on the bar.
   shrub:     { output: 'wood', workRelic: 'axe', workCharged: true },
-  // A hedgerow's hedge and a barricade road's barricade are the shrub's row —
-  // one lane, two more things standing on it: axe work, wood, `picked`.
-  hedge:     { output: 'wood', workRelic: 'axe', workCharged: true },
+  // A barricade road's barricade is the shrub's row — one lane, one more
+  // thing standing on it: axe work, wood, `picked`. (A hedgerow's hedges ARE
+  // shrubs.)
   barricade: { output: 'wood', workRelic: 'axe', workCharged: true },
   // A tar yard's flint nodule (src/zones.js) is picked instantly for nothing,
   // like a shell, and hands over the Flint item (id 'coal').
@@ -1743,15 +1741,16 @@ function toolDurationMs(relics, slot) {
 }
 // Stick walking: boots set speed; the amulet reduces energy per cell.
 // GPS walking stays free and uses its own pace. Buffs can lend tiers to both.
-// Speed runs from 6× walk without boots to 24× at Frost; cost runs from
+// Speed runs from 4.8× walk without boots to 24× at Frost; cost runs from
 // 1 pip/cell without an amulet to 0.15 at Frost.
-const STEER_MUL_FLOOR = 6;      // bare hands
+// The floor came down 20% (6 → 4.8, Sep 2026, owner's call): the stick is
+// the walk you didn't take, and bare-handed it outpaced the reason to walk.
+const STEER_MUL_FLOOR = 4.8;    // bare hands
 // 24, up from 15.5. The ladder ran 6x to 15.5x, which sounds wide and does not
 // PLAY wide: 1.2 cells a second bare-handed against 3.1 at the top, so tier-8
 // boots felt like tier-0 boots with a tailwind and a coffee (+1 tier, ~9% at
-// the top end) did nothing you could feel. The floor stays at 6 — it was
-// deliberately lifted from 5 because one cell a second read as a drag — so the
-// whole widening lands in the per-tier step, which goes 1.36x -> 2.57x.
+// the top end) did nothing you could feel. The whole widening landed in the
+// per-tier step; the floor has since moved on its own (above).
 const STEER_MUL_FROST = 24;   // tier 7 boots
 // THE BIKE RACK (a bicycle_parking POI — loot.js isBikeRack): a tap lends
 // the stick walk BIKE_RACK_SPEED_MUL (+100%) for BIKE_RACK_MS, once a UTC day
@@ -1766,11 +1765,9 @@ const BIKE_RACK_MS = 3 * 60 * 1000;
 function steerSpeedMul(gear) {
   const t = gear?.boots?.tier || 0;
   const boost = gear?.boots?.boost > 0 ? gear.boots.boost : 1;
-  // The FLOOR was lifted 20% (5 → 6): one cell a second is the speed the
-  // player spends the whole opening at, and it sat right on the edge of
-  // reading as a drag. The Frost end is its own tuned endpoint
-  // (STEER_MUL_FROST, above), so the per-tier step absorbs both instead of
-  // every tier shifting up with the floor.
+  // The Frost end is its own tuned endpoint (STEER_MUL_FROST, above), so the
+  // per-tier step absorbs any move of the floor instead of every tier
+  // shifting with it.
   return (STEER_MUL_FLOOR + ((STEER_MUL_FROST - STEER_MUL_FLOOR) / 7) * t) * boost;
 }
 function steerEnergyCost(relics) {

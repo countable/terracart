@@ -473,7 +473,9 @@ const starterWrapper = (name) => {
                    '_sweepStreets() {', '_resetStreetSight() {',
                    '_rescanStreets(p, reachM, now, sight) {',
                    '_setStreetPreview(meta, iv) {', '_streetSpreadPts(meta, s0, s1, k) {',
-                   '_ripenStreets(now, sight) {', '_scenicIntervals(tileKey, lineKey) {',
+                   '_ripenStreets(now, sight) {', '_oneRoadPay(perLine, now) {',
+                   '_roadMetresMul() {', '_offGps() {',
+                   '_scenicIntervals(tileKey, lineKey) {',
                    '_scenicWalkStory(kind) {', '_afterRestoreBeat(fn) {',
                    '_bankStreetMetres(addedM, at, now, opts) {', '_showTrailIntro() {',
                    '_visitStreetLamps(now) {', '_markLampsRestored(meta, newly, now) {',
@@ -507,6 +509,7 @@ const starterWrapper = (name) => {
     `globalThis.CELL_PX = ${constOf('CELL_PX')};\n` +
     `globalThis.STREET_COUNTER_LIFT_PX = ${constOf('STREET_COUNTER_LIFT_PX')};\n` +
     `globalThis.PATH_STONE_DWELL_MS = ${constOf('PATH_STONE_DWELL_MS')};\n` +
+    `globalThis.ONE_ROAD_WINDOW_MS = ${constOf('ONE_ROAD_WINDOW_MS')};\n` +
     // The blast the sweep fires per step that restores (app.js _blastAt), the
     // shine's own clock, the preview's ceiling and the counter's throttle.
     `globalThis.BLAST_STONE_R_CELLS = ${constOf('BLAST_STONE_R_CELLS')};\n` +
@@ -538,7 +541,8 @@ const starterWrapper = (name) => {
   for (const k of ['_worldToastAt', '_cellToastAt', '_energyPopAt', '_isPlayerCell',
                    '_cellAtScreen', 'playerScreen',
                    '_sweepStreets', '_resetStreetSight', '_rescanStreets',
-                   '_setStreetPreview', '_ripenStreets', '_scenicIntervals', '_scenicWalkStory',
+                   '_setStreetPreview', '_ripenStreets', '_oneRoadPay', '_roadMetresMul', '_offGps',
+                   '_scenicIntervals', '_scenicWalkStory',
                    '_afterRestoreBeat', '_bankStreetMetres', '_showTrailIntro',
                    '_armTrailIntro', '_openTrailIntroIfDue',
                    '_drawStreetLive', '_blastAt']) {
