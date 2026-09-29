@@ -58,18 +58,19 @@
       canvas.setAttribute('aria-label', row.name + ' at game scale');
       stage.append(canvas);
       const meta = document.createElement('div'); meta.className = 'meta';
+      const scaleInfo = document.createElement('strong'); scaleInfo.className = 'scale-factor';
       const geometry = document.createElement('div');
       const frameInfo = document.createElement('div'); frameInfo.className = 'frame';
       const support = document.createElement('div');
       support.textContent = art.directions ? 'Authored direction and state frames' : 'Uses the game’s available cycle; no invented directional art';
-      meta.append(geometry, frameInfo, support); card.append(title, kind, stage, meta); gallery.append(card);
-      cards.push({ row, art, asset, canvas, stage, geometry, frameInfo, support, sheet: painted.get(key) });
+      meta.append(scaleInfo, geometry, frameInfo, support); card.append(title, kind, stage, meta); gallery.append(card);
+      cards.push({ row, art, asset, canvas, stage, scaleInfo, geometry, frameInfo, support, sheet: painted.get(key) });
     }
     let clock = 0, lastTime = performance.now();
     function draw(now) {
       const instanceScale = Number(scaleInput.value);
       if (!Number.isFinite(instanceScale) || instanceScale <= 0) return;
-      for (const { row, art, asset, canvas, stage, geometry, frameInfo, support, sheet } of cards) {
+      for (const { row, art, asset, canvas, stage, scaleInfo, geometry, frameInfo, support, sheet } of cards) {
         const move = state.value === 'move';
         const attack = state.value === 'attack';
         const cycleStart = Math.floor(now / 1000) * 1000;
@@ -115,7 +116,9 @@
         if (appearance.flipX) ctx.scale(-1, 1);
         ctx.drawImage(sheet, x, y, fw, fh, -fw * scale / 2, -fh * scale * SpriteLayout.creatureFoot(row.id), fw * scale, fh * scale);
         ctx.restore();
-        geometry.textContent = `${fw}×${fh} source · ${Number(scale.toFixed(3))}× scale · ${Number((fw * scale).toFixed(2))}×${Number((fh * scale).toFixed(2))} px frame`;
+        const formatScale = value => Number(value.toFixed(3));
+        scaleInfo.textContent = `Scale: ${formatScale(scale)}× (${formatScale(SpriteLayout.creatureScale(row.id))}× enemy × ${formatScale(SpriteLayout.creatureInstScale(creature))}× instance)`;
+        geometry.textContent = `${fw}×${fh} source · ${Number((fw * scale).toFixed(2))}×${Number((fh * scale).toFixed(2))} px frame`;
         frameInfo.textContent = `Frame ${appearance.frame}${appearance.flipX ? ' · mirrored' : ''} · opacity ${SpriteLayout.creatureAlpha(row.id)}`;
       }
     }
