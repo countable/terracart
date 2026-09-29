@@ -2613,6 +2613,8 @@ class MapScene extends Phaser.Scene {
       .setDepth(10)
       .play('idle-down')
       .setMask(mask);
+    this._playDirected(this.player, 'idle');
+    this.player.setY(this.viewCenterY + this.playerFeetNudgeY);
     // Contact shadow under the player's feet. It is created at viewCentre and
     // re-seated every frame on scene.playerScreen() (update(): the feet, which
     // a peek drag slides off the viewport centre) — a pixel above them, so the

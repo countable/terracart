@@ -828,6 +828,7 @@
       idle: [row * cols], walk: walkCols.map(col => row * cols + col),
     }]));
   const PLAYER_ART = {
+    farmer: { sheet: 'player_farmer', path: 'assets/Character/FarmerCyan.png', fw: 16, fh: 16, scale: 1.5, footDrop: 6, directions: playerDirections(5, [1, 2, 3, 4]) },
     hunter: { sheet: 'player_hunter', path: 'assets/Character/BowmanCyan.png', fw: 16, fh: 16, scale: 1.5, footDrop: 7, directions: playerDirections(5, [1, 2, 3, 4]) },
     runner: { sheet: 'player_runner', path: 'assets/Character/AssasinCyan.png', fw: 16, fh: 16, scale: 1.5, footDrop: 7, directions: playerDirections(5, [1, 2, 3, 4]) },
     enforcer: { sheet: 'player_enforcer', path: 'assets/Character/SwordsmanCyan.png', fw: 16, fh: 16, scale: 1.5, footDrop: 6, directions: playerDirections(5, [1, 2, 3, 4]) },
@@ -843,7 +844,7 @@
   function playerArt(save, now = Date.now()) {
     if ((save?.bikeUntil ?? 0) > now) return PLAYER_ART.mounted;
     return Object.hasOwn(PLAYER_ART, save?.playerClass) && save.playerClass !== 'mounted'
-      ? PLAYER_ART[save.playerClass] : null;
+      ? PLAYER_ART[save.playerClass] : PLAYER_ART.farmer;
   }
 
   const api = {

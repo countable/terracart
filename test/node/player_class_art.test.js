@@ -1,9 +1,9 @@
 (() => {
   const SL = SpriteLayout;
-  test('player art: unassigned and unknown classes keep the original player', () => {
+  test('player art: unassigned and unknown classes use the cyan farmer', () => {
     for (const save of [undefined, null, {}, { playerClass: 'wizard' },
       { playerClass: 'mounted' }, { playerClass: '__proto__' }, { playerClass: 'constructor' }]) {
-      assert.eq(SL.playerArt(save, 1000), null);
+      assert.eq(SL.playerArt(save, 1000), SL.PLAYER_ART.farmer);
     }
   });
 
@@ -13,7 +13,7 @@
     for (const cls of Wizard.CLASSES) {
       const save = { memories: 0, wizardBuys: 2, relicSalt: 12345, relics: {} };
       assert.eq(Wizard.buy(save, cls.key), null, 'unaffordable calling is refused');
-      assert.eq(SL.playerArt(save, 1000), null, 'refusal does not change appearance');
+      assert.eq(SL.playerArt(save, 1000), SL.PLAYER_ART.farmer, 'refusal does not change appearance');
       save.memories = Wizard.CLASS_COST;
       assert.truthy(Wizard.buy(save, cls.key), cls.key + ' purchase');
       const art = SL.playerArt(save, 1000);
@@ -27,8 +27,8 @@
     for (const playerClass of [undefined, ...Wizard.CLASSES.map(c => c.key)]) {
       const save = { playerClass, bikeUntil: 2000 };
       assert.eq(SL.playerArt(save, 1999), SL.PLAYER_ART.mounted);
-      assert.eq(SL.playerArt(save, 2000), SL.PLAYER_ART[playerClass] || null);
-      assert.eq(SL.playerArt(save, 2001), SL.PLAYER_ART[playerClass] || null);
+      assert.eq(SL.playerArt(save, 2000), SL.PLAYER_ART[playerClass] || SL.PLAYER_ART.farmer);
+      assert.eq(SL.playerArt(save, 2001), SL.PLAYER_ART[playerClass] || SL.PLAYER_ART.farmer);
       assert.eq(save.playerClass, playerClass, 'mounting never replaces the saved calling');
     }
   });
