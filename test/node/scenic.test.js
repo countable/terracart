@@ -181,8 +181,8 @@ test('scenic: bonusMetres pays (mul − 1) on the restored metres that ARE sceni
   assert.eq(S.kindAt(ivs, 1200, m), 'park');
   assert.eq(S.kindOfNewly(ivs, [[400, 1200]], m), 'shore', 'the richest kind touched');
   assert.eq(S.SCENIC_MUL.shore, 2, 'the owner\'s pick: water 2×');
-  assert.eq(S.SCENIC_MUL.park, 1.5, 'park 1.5×');
-  assert.eq(S.SCENIC_MUL.greenway, 1.5, 'greenway 1.5×');
+  assert.eq(S.SCENIC_MUL.park, 1.75, 'park 1.75×');
+  assert.eq(S.SCENIC_MUL.greenway, 1.75, 'greenway 1.75×');
 });
 
 {
@@ -271,6 +271,28 @@ test('scenic: viewpoints — detection, merge, and the grail\'s tier', () => {
   assert.eq(chestTier({ poiClass: 'attraction', vista: 'grail' }), 4, 'T4');
   assert.eq(chestTier({ poiClass: 'vista', vista: 'shore' }), S.VISTA_CHEST_TIER.shore);
   assert.eq(POI_CATEGORY.vista, 'park', 'a stretch chest is a park chest');
+});
+
+test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hall\'s — ~150 value', () => {
+  assert.eq(chestThemeFor({ poiClass: 'attraction', vista: 'grail' }), 'vista', 'the grail is chest:vista');
+  assert.eq(chestThemeFor({ poiClass: 'vista', vista: 'shore' }), 'park', 'a stretch chest keeps its poiClass theme');
+  assert.eq(chestThemeFor({ poiClass: 'attraction' }), 'civic', 'an ordinary attraction (museum, town hall) is unaffected');
+  assert.truthy(ChestThemes.themes.vista, 'the theme exists');
+  assert.eq(ChestThemes.themes.vista.tier, 4, 'the grail\'s own tier');
+  // Monte-Carlo the average value of a T4 chest:vista pull (same shape as the
+  // balancing sheet's describe()) and check it sits in the design target
+  // 100-160 — well under a civic T4's ~440 (loot.js chestThemeFor's comment).
+  const val = (r) => {
+    if (!r) return 0;
+    if (r.kind === 'gold') return (r.amount || 0) + (r.consolation || 0);
+    if (r.kind === 'relic' || r.kind === 'armor') return (gearPrice(r.kind, r.slot, r.tier) || 0) + (r.consolation || 0);
+    return (itemValue(r.id) || 0) * (r.qty || 1) + (r.consolation || 0);
+  };
+  const emptySave = { relics: {}, armor: {}, inv: {} };
+  let sum = 0;
+  const N = 6000;
+  for (let i = 0; i < N; i++) sum += val(pickReward('chest:vista', emptySave, Math.random, { tier: 4, depth: 0 }));
+  assert.inRange(sum / N, 90, 175, 'the one-time grail averages ~150 (design target 100-160)');
 });
 
 test('scenic: the scope — story once, the relic once per save, the gift once per UTC day', () => {

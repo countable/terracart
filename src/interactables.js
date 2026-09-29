@@ -565,7 +565,7 @@ const INTERACTABLES = {
       const held = held0;
       const chestT = chapel ? Macros.chapelRollTier(o)
         : ((typeof chestTier === 'function') ? chestTier(o) : 2);
-      const theme = chestThemeForPoi(o.poiClass);
+      const theme = chestThemeFor(o);
       const result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: held.consolation || 0 }
         // Starter chests carry a fixed payload (9 wood / 9 rockfruit / 9 seeds,

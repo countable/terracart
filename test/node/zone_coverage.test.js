@@ -38,7 +38,7 @@
   }
   test('zone coverage: zone ground overrides ordinary terrain throughout the coverage union', () => {
     const T = WorldGen.T, original = [T.GRASS, T.PARK, T.FOREST, T.FARMLAND, T.ROCK,
-      T.SCHOOL, T.COMMERCIAL, T.INDUSTRIAL, T.RESIDENTIAL, T.WASTELAND, T.SAND, T.WETLAND,
+      T.SCHOOL, T.COMMERCIAL, T.INDUSTRIAL, T.RESIDENTIAL, T.WASTELAND, T.WETLAND,
       T.GOLF, T.ORCHARD, T.PLAYGROUND, T.PITCH];
     for (const kind of Object.keys(Zones.ZONE_KINDS)) {
       const grid = new Uint8Array(N * N).fill(T.FOREST), coverage = new Uint16Array(N * N);
@@ -73,20 +73,25 @@
     assert.eq(Zones.landAt(grid, legacy, 1), T.PARK, 'legacy nonzero land still works');
     assert.eq(Zones.landAt(grid, null, 0), T.CHURCHYARD);
   });
-  test('zone coverage: road bands, paths, water and structures retain their visible footprint', () => {
+  test('zone coverage: road bands, paths, water, structures and BEACH SAND retain their visible footprint', () => {
     const T = WorldGen.T, original = [T.ROAD, T.ROAD_MD, T.ROAD_LG, T.WATER,
-      T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE, T.CAVE_WALL, T.PIER, T.PATH, T.PARK];
+      T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE, T.CAVE_WALL, T.PIER, T.PATH, T.PARK, T.SAND];
     const grid = new Uint8Array(N * N).fill(T.FOREST); grid.set(original);
+    grid[21] = T.PATH;    // a boardwalk cell over the beach, elsewhere from the T.PATH already above
     const coverage = new Uint16Array(N * N).fill(1), roadMask = new Uint8Array(N * N);
     roadMask[10] = 1;
-    const pathUnder = { '9_0': T.FOREST, '20_0': T.FARMLAND };
+    // A path's own "under" land metadata over the beach (a boardwalk pebble
+    // path across the sand) must not turn into zone ground either.
+    const pathUnder = { '9_0': T.FOREST, '20_0': T.FARMLAND, '21_0': T.SAND };
     const field = { anchors: [anchor(1000, 1000)], coverage };
     paint(field, grid, pathUnder, roadMask);
     for (let i = 0; i < original.length; i++) assert.eq(grid[i], original[i], `protected terrain ${i}`);
+    assert.eq(grid[11], T.SAND, 'beach sand, not on any road, still keeps its look under zone coverage');
     assert.eq(pathUnder['9_0'], T.GROVE, 'zone ground beneath the still visible path');
     assert.eq(pathUnder['20_0'], T.FARMLAND, 'stale path metadata does not paint non-path cells');
+    assert.eq(pathUnder['21_0'], T.SAND, 'a boardwalk\'s saved land over sand stays sand, never grove');
     for (let i = 0; i < original.length; i++) assert.eq(field.under[i], 0, 'unpainted cell adds no underlay');
-    assert.eq(grid[11], T.GROVE, 'ordinary adjacent ground still changes');
+    assert.eq(grid[12], T.GROVE, 'ordinary adjacent ground still changes');
   });
   test('zone coverage: road bands restore earlier halo and fringe paint even outside the union', () => {
     const T = WorldGen.T, grid = new Uint8Array(N * N).fill(T.FOREST);
@@ -219,5 +224,48 @@
       assert.eq(a.originGX, undefined, why);
       assert.eq(a.originGY, undefined, why);
     }
+  });
+
+  // ── Beaches keep their sand look (Sep 2026) ──────────────────────────────
+  // A shore-sand cell must never come out of ANY zone/fringe pass as a
+  // zone's ground: not the ragged HALO (Zones.haloSteps), not the PARK FRINGE
+  // band (Zones.fringeSteps), not the full placement union (ZoneCoverage.
+  // paintSteps — this is where the bug lived: it painted every walkable,
+  // non-road/building/pier cell, T.SAND included, which read as ~3/4 of
+  // Vancouver's dry beach wearing grove ground). Runs the real pipeline
+  // order from worldgen.js rasterizeTileSteps (halo, then fringe, then
+  // coverage) over a tile scattered with sand under a full-tile park/anchor,
+  // so every pass gets a real chance to touch it.
+  test('zone coverage: NO zone or fringe pass ever repaints beach sand, through the real pipeline order', () => {
+    const T = WorldGen.T;
+    const grid = new Uint8Array(N * N);
+    const sandCells = [];
+    for (let iy = 0; iy < N; iy++) for (let ix = 0; ix < N; ix++) {
+      const i = iy * N + ix;
+      if ((ix + iy) % 5 === 0) { grid[i] = T.SAND; sandCells.push(i); }
+      else if ((ix + iy) % 3 === 0) grid[i] = T.RESIDENTIAL;
+      else grid[i] = T.GRASS;
+    }
+    assert.gt(sandCells.length, 0, 'the fixture actually has sand');
+    const a = anchor(1500, 1500);
+    const idx = new Uint8Array(N * N).fill(1);        // the whole tile is the one anchor's disc
+    const fld = { anchors: [a], idx, s: null, reach: [], allAnchors: [a] };
+    const pathUnder = {};
+    const run = (it) => { let r = it.next(); while (!r.done) r = it.next(); return r.value; };
+
+    run(Zones.haloSteps(fld, grid, N, pathUnder));
+    for (const i of sandCells) assert.eq(grid[i], T.SAND, `haloSteps left sand at ${i}`);
+    assert.gt(Array.from(grid).filter((v) => v === T.GROVE).length, 0, 'the halo painted SOMETHING (residential lots)');
+
+    const parks = [{ rings: [rect(0, 0, EXT, EXT)] }];
+    const fringeOut = run(Zones.fringeSteps({ parks, grid, N, tx: 0, ty: 0, field: fld, pathUnder }));
+    for (const i of sandCells) assert.eq(grid[i], T.SAND, `fringeSteps left sand at ${i}`);
+
+    const zone = run(ZoneCoverage.buildSteps({ field: fringeOut.field, poiLayer: null, parks,
+      tx: 0, ty: 0, N, chests: [], tileEdgeM: 448, grid }));
+    run(ZoneCoverage.paintSteps(zone, grid, N, pathUnder, null, null));
+    for (const i of sandCells) assert.eq(grid[i], T.SAND, `ZoneCoverage.paintSteps left sand at ${i}`);
+    assert.gt(Array.from(grid).filter((v) => v === T.GROVE).length, sandCells.length,
+      'the full pipeline still painted plenty of grove ground — just never over sand');
   });
 })();

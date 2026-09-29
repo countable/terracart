@@ -10,7 +10,7 @@
 //
 // Exports as globals:
 //   RUSTIC_WORDS, POI_CLASS_FALLBACK, rusticifyName
-//   POI_CATEGORY
+//   POI_CATEGORY, CHEST_THEME_BY_POI, chestThemeForPoi, chestThemeFor
 //   PAD_CATEGORIES, padShapeKeyForPoi
 //   CHEST_DENSITY_TIERS, CHEST_DENSITY_T1_AT, CHEST_TIER_UNSTAMPED,
 //   CHEST_CLASS_TIER, CHEST_ONE_TIME_CLASSES, CHEST_TIER_COLOR,
@@ -236,6 +236,17 @@ const CHEST_THEME_BY_POI = {
 };
 function chestThemeForPoi(poiClass) {
   return CHEST_THEME_BY_POI[poiClass] || ChestThemes.normalize(POI_CATEGORY[poiClass]);
+}
+// The VIEWPOINT GRAIL (o.vista === 'grail') is a lookout's own find, not the
+// civic town hall's — chest_themes.js `vista` theme (a light relic chance, a
+// gem, a good consumable, coins; sized for the one-time chest to average
+// ~150, not a civic T4's ~440). A scenic STRETCH chest (o.vista is the kind —
+// 'shore'/'greenway'/'park', poiClass VISTA_POI_CLASS) keeps reading its
+// poiClass's ordinary theme ('park', src/loot.js POI_CATEGORY.vista) — only
+// the grail gets its own row. Interactables reads this, never
+// chestThemeForPoi(o.poiClass) directly, for any chest.
+function chestThemeFor(o) {
+  return (o && o.vista === 'grail') ? 'vista' : chestThemeForPoi(o && o.poiClass);
 }
 
 // === POI pad mapping ===

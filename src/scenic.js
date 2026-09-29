@@ -75,9 +75,9 @@
 
   // ── The numbers (owner picks, Sep 2026) ────────────────────────────────
   // What a scenic metre banks on the ladder, per kind: water 2×, park and
-  // greenway 1.5×. One table: _ripenStreets banks through bonusMetres, the
-  // Book tip prints it.
-  const SCENIC_MUL = { shore: 2.0, greenway: 1.5, park: 1.5 };
+  // greenway 1.75× (owner's pick, Sep 2026 — up from 1.5×, shore stays 2×).
+  // One table: _ripenStreets banks through bonusMetres, the Book tip prints it.
+  const SCENIC_MUL = { shore: 2.0, greenway: 1.75, park: 1.75 };
   // Which kind wins a sample several apply to: the richest first.
   const KIND_ORDER = ['shore', 'greenway', 'park'];
   // The StreetVariants row each kind wears (the look: lamp glow + story).
@@ -115,11 +115,14 @@
   // How far (cells) off the way the chest may be seated.
   const VISTA_SEAT_CELLS = 3;
   // The chest's tier (loot.js chestBaseTier reads o.vista through this):
-  // the viewpoint's grail T4 (its own civic POI chest, ~440 value). A
-  // stretch's chest is a park chest (loot.js POI_CATEGORY.vista), T3 on the
-  // water (~25), T2 else (~13) — MEASURED over the 36 census tiles (~2-4
-  // stretches a scenic km): with the ladder at ~220 a km at 10 km restored,
-  // a shore path pays ~500-540 a km and a park path ~350-380, the design's
+  // the viewpoint's grail T4 — its OWN pool now (loot.js chestThemeFor,
+  // chest_themes.js 'vista' theme), ~150 value, not a civic T4's ~440: the
+  // grail is a lookout's one-time find, not the town hall's. A stretch's
+  // chest is a park chest (loot.js POI_CATEGORY.vista), T3 on the water
+  // (~25), T2 else (~13) — MEASURED over the 36 census tiles (~2-4 stretches
+  // a scenic km): with the ladder at ~220 a km at 10 km restored, a shore
+  // path pays ~500-540 a km and a park path ~405-430 (up from ~350-380 at
+  // the old 1.5× — SCENIC_MUL.park/greenway is 1.75× now), the design's
   // targets (scratchpad scenic2/measure.js).
   const VISTA_CHEST_TIER = { grail: 4, shore: 3, greenway: 2, park: 2 };
   const VISTA_POI_CLASS = 'vista';

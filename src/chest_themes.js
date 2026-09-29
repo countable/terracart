@@ -59,6 +59,16 @@
     civic: { tier: 3, weights: { supplies: 35, cash: 30, books: 20, noncombatGear: 15 } },
     authority: { tier: 3, weights: { protectiveGear: 40, field: 40, healing: 15, cash: 5 } },
     pets: { tier: 3, weights: { companions: 70, animalFood: 20, supplies: 10 } },
+    // The VIEWPOINT GRAIL (src/scenic.js Scenic.VISTA_CHEST_TIER.grail, T4,
+    // one-time — loot.js chestThemeFor routes o.vista==='grail' here instead
+    // of its poiClass's 'civic' theme). A lookout's own pool, not the town
+    // hall's: a small relic chance (noncombatGear — a real gear/relic roll at
+    // T4), a gem, a good consumable (healing) and coins, weighted light on
+    // the relic (T4 gear is steep — baseCost*costMul/4, up to ×70 at T7 on a
+    // jackpot) so the one-time grail averages ~150 value (design target
+    // 100-160), not the ~440 a civic T4 chest pays. Measured 20k-sample MC,
+    // scratchpad scenic2/vista_theme.js: 149.9 avg.
+    vista: { tier: 4, weights: { noncombatGear: 3, gems: 15, healing: 42, cash: 40 } },
   };
   for (const [theme, row] of Object.entries(themes)) {
     row.t1Fallback = ['food', 'park', 'farm', 'health', 'worship', 'pets'].includes(theme) ? 'restorative'
