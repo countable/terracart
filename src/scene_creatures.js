@@ -462,6 +462,15 @@ class SceneCreatures {
       const cy = Math.floor((creature.y - ty * this.tileEdgeM) / cellM);
       const id = EnemySpawns.surfaceId(tx, ty, cx, cy);
       if (caughtSet.has(id) || enemySeats.has(id)) continue;
+      // A ZONE KEEPS ITS OWN MOBS. A biome seat that lands on ground an
+      // influence zone owns (entry.zone.coverage — a park's grove with its
+      // footprint and fringe, the old stones round a place of worship, a tar
+      // yard) is CANCELLED: those places are held by their own guards (the
+      // zone tiers in lairs.js), never by the tile's wild roll. Dropped after
+      // the draw, like the pest amnesty — no extra draws, so every other seat
+      // stays where it was, and coverage is generated, so every player loses
+      // the same ones.
+      if (zoneCoverage && zoneCoverage[cy * N + cx]) continue;
       // (The seat was an 'enemy' spawn already — tryPlace / the attractor
       // lane — so whatever kind the roster puts on it stands on OPEN ground.)
       enemySeats.add(id);
