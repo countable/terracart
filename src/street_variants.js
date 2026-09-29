@@ -711,10 +711,11 @@
       if (v === 'hedgerow') {
         const rng = streamFor(rec, v);
         // Hedges both sides, one per cell, with a garden-gate gap every
-        // HEDGE_GAP_MIN..+SPAN cells. A hedge is a wild plant on the SHRUB's
-        // rule (items.js WILDPLANT_RULES.hedge): chopped with the axe for
-        // wood, and `picked` once cut — never scenery (CLAUDE.md: nothing
-        // that stands may look tappable and not be).
+        // HEDGE_GAP_MIN..+SPAN cells. A hedge IS a shrub — the ordinary bush,
+        // its art and its rule (items.js WILDPLANT_RULES.shrub): chopped with
+        // the axe for wood, and `picked` once cut. (A square clipped-hedge
+        // kind of its own was dropped, Sep 2026 — owner's call: bushes.) The
+        // id keeps its 'hedge' prefix, so a save's cut hedges stay cut.
         for (const side of [1, -1]) {
           let gapIn = HEDGE_GAP_MIN + Math.floor(rng() * HEDGE_GAP_SPAN);
           sampleLine(rec.line, gM, CELL_M, CELL_M / 2, (s, x, y, nx, ny) => {
@@ -726,7 +727,7 @@
             const c = verge(rec, x, y, nx, ny, side);
             if (!c) return;
             claim(c.ix, c.iy);
-            res.wildplants.push(WG.makeWildplant('hedge', cx(c.ix), cy(c.iy),
+            res.wildplants.push(WG.makeWildplant('shrub', cx(c.ix), cy(c.iy),
               WG.cellId('hedge', tx, ty, c.ix, c.iy), { _street: v }));
           });
         }

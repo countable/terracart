@@ -756,7 +756,7 @@ test('tips: street restoration quotes Trail.GOAL_STEP_M and the dwell', () => {
   // own context (Trail.PRIZE_CONTEXT), so the classes the tip names are the
   // classes that context actually carries — never a list typed out here.
   const road = LOOT_CONTEXTS[Trail.PRIZE_CONTEXT].classBias;
-  assert.lt(road.seed, road.produce + road.magic + road.supply + road.boots, 'road supplies outweigh seeds');
+  assert.lt(road.seed, road.magic + road.supply + road.boots, 'road supplies outweigh seeds');
   assert.falsy(/seeds mostly/i.test(tip), 'the tip reflects the broader pool');
   for (const cls of Object.keys(road)) {
     const word = ({ cash: 'coin', produce: 'fruit', magic: 'potions', supply: 'supplies' })[cls] || cls;
@@ -768,6 +768,19 @@ test('tips: street restoration quotes Trail.GOAL_STEP_M and the dwell', () => {
     'the first prize really is a seed');
   assert.truthy(/first 200m restored pays a seed/i.test(tip.replace(/\d+m/, `${Trail.GOAL_STEP_M}m`)),
     'which is what the tip promises');
+});
+
+test('tips: roads pay one at a time, and the stick pays its share', () => {
+  const tip = PLAY_TIPS.find((t) => /^Roads side by side pay as one/.test(t));
+  assert.truthy(tip, 'the one-road tip is in the list');
+  assert.truthy(/const ONE_ROAD_WINDOW_MS = /.test(APP_JS_SRC) && /_oneRoadPay\(perLine, now\)/.test(APP_JS_SRC),
+    'the sweep pays through the one-road window');
+  assert.truthy(/Lamps are not held to it/.test(tip), 'and lamps are exempt');
+  assert.truthy(tip.includes(`${Math.round(Trail.STICK_METRES_MUL * 100)}%`), 'the stick share is quoted from Trail');
+  // The street tip names the three cards and the boots' km rule.
+  const street = PLAY_TIPS.find((t) => /derelict until you stand by them/i.test(t));
+  assert.eq(Trail.BOOTS_M_PER_TIER, 1000, 'a tier per km');
+  assert.truthy(/tier for every km/.test(street), 'the street tip says a tier per km');
 });
 
 test('books: the rebuild tip quotes the live restore price', () => {

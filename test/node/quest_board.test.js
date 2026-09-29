@@ -23,14 +23,17 @@
     }
   });
 
-  test('quest board: pest control starts at ONE slime', () => {
-    // The headline of the rework. The old opener wanted ten.
+  test('quest board: pest control starts at THREE slimes, the stores at three crops', () => {
+    // The old opener wanted ten; one (the first rework) was over unnoticed.
     const save = qbSave();
     const first = Quests.slot(save, 0);
     assert.eq(first.verb, 'kill', 'slot 1 opens on pest control');
     assert.eq(first.target, 'slime', 'the surface slime — the only one you can meet up top');
-    assert.eq(first.need, 1, 'a single slime');
-    assert.truthy(/\b1 slime\b/.test(first.body), `body reads singular: ${first.body}`);
+    assert.eq(first.need, 3, 'three slimes');
+    assert.truthy(/\b3 slimes\b/.test(first.body), `body reads plural: ${first.body}`);
+    const second = Quests.slot(save, 1);
+    assert.eq(second.verb, 'harvest');
+    assert.eq(second.need, 3, 'three crops');
   });
 
   test('quest board: the whole opening trio is small', () => {

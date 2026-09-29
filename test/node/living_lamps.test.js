@@ -47,11 +47,12 @@ test('living lamps: brightness is QUANTISED to LAMP_BRIGHT_STEPS', () => {
   assert.eq(S.lampBrightness(T0 - 60000, T0), S.lampBrightness(T0, T0), 'a minute does not move it');
 });
 
-test('living lamps: the credit — spacing x how dim, zero when just visited', () => {
-  assert.eq(S.lampCredit(100, undefined, T0), 100, 'never visited: the whole spacing');
-  assert.eq(S.lampCredit(100, T0 - 24 * H, T0), 100, 'a day dark: the whole spacing');
-  assert.eq(S.lampCredit(100, T0 - 48 * H, T0), 100, 'and no more than that however long');
-  assert.inRange(S.lampCredit(100, T0 - H, T0), 100 / 24 - 1e-9, 100 / 24 + 1e-9, 'an hour: 1/24 of it');
+test('living lamps: the credit — three quarters of spacing x how dim, zero when just visited', () => {
+  assert.eq(S.LAMP_CREDIT_SHARE, 0.75, 'a dark lamp pays 75% of its spacing');
+  assert.eq(S.lampCredit(100, undefined, T0), 75, 'never visited: three quarters of the spacing');
+  assert.eq(S.lampCredit(100, T0 - 24 * H, T0), 75, 'a day dark: the same');
+  assert.eq(S.lampCredit(100, T0 - 48 * H, T0), 75, 'and no more than that however long');
+  assert.inRange(S.lampCredit(100, T0 - H, T0), 75 / 24 - 1e-9, 75 / 24 + 1e-9, 'an hour: 1/24 of it');
   assert.eq(S.lampCredit(100, T0, T0), 0, 'standing next to it pays nothing');
   assert.eq(S.lampCredit(0, undefined, T0), 0, 'no spacing, no credit');
 });
@@ -87,9 +88,9 @@ test('living lamps: WALKING PATHS lay lamps at half the spacing, each worth the 
 test('living lamps: the save is a pruned, bounded DELTA map', () => {
   const save = {};
   const L = { id: 'lamp_a', spacingM: 100 };
-  assert.eq(S.visitLamp(save, L, T0), 100, 'first visit pays the whole spacing');
+  assert.eq(S.visitLamp(save, L, T0), 100 * S.LAMP_CREDIT_SHARE, 'first visit pays the credit share of the spacing');
   assert.eq(save.lampVisits.lamp_a, T0, 'and stamps the time');
-  assert.eq(S.visitLamp(save, L, T0 + 1000), 100 * 1000 / S.LAMP_FADE_MS, 'a second later: almost nothing');
+  assert.inRange(S.visitLamp(save, L, T0 + 1000), 75 * 1000 / S.LAMP_FADE_MS - 1e-12, 75 * 1000 / S.LAMP_FADE_MS + 1e-12, 'a second later: almost nothing');
   assert.eq(S.visitLamp(save, { id: 'lamp_b', spacingM: 80 }, T0, false), 0, 'a restore-lit lamp is stamped for nothing');
   assert.eq(save.lampVisits.lamp_b, T0);
   save.lampVisits.old = T0 - 25 * H;
@@ -138,7 +139,7 @@ const mkEntry = (cls) => ({ cellsPerEdge: N, tileEdgeM: TILE_EDGE_M,
 const scene = (over) => Object.assign({
   depth: 0, save: { energy: 10, reachUpgrades: 0 }, cellM: CELL_M, cellsPerTile: N, mPerPx: M_PER_PX,
   originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 }, feetOffsetM: 0,
-  playerM: { x: 0, y: 0 }, peekM: { x: 0, y: 0 },
+  playerM: { x: 0, y: 0 }, peekM: { x: 0, y: 0 }, gpsM: { x: 0, y: 0 },
   toasts: [], _toast(text, opts) { this.toasts.push({ text, opts }); },
   pops: [], _popCellNumber(text, color, ix, iy) { this.pops.push({ text, ix, iy }); },
   _drainTrailPrizes() {}, showMessageModal(o) { if (o.onDismiss) o.onDismiss(); },
@@ -176,7 +177,8 @@ test('living lamps: a visit to a lit lamp pays its credit onto the ladder, poppe
     Streets.restore(s.save, clock.key, L.lineKey, [[L.s - 5, L.s + 5]]);
     s._lampVisitKey = null;                       // the epoch moved; so does the key
     const paid = s._visitStreetLamps(T0);
-    assert.inRange(paid, L.creditM - 1e-6, L.creditM + 1e-6, 'never visited: the whole spacing');
+    const full = L.creditM * Streets.LAMP_CREDIT_SHARE;
+    assert.inRange(paid, full - 1e-6, full + 1e-6, 'never visited: the credit share of the spacing');
     assert.inRange(s.save.trail.metres, paid - 1e-6, paid + 1e-6, 'banked on the one ladder');
     assert.eq(s.pops.length, 1, 'one quiet pop');
     assert.eq(s.pops[0].text, `+${Math.round(paid)}m`, 'a +Nm');
@@ -191,7 +193,7 @@ test('living lamps: a visit to a lit lamp pays its credit onto the ladder, poppe
     walkAway(s); s._visitStreetLamps(T0 + H);
     standAt(s, L);
     const again = s._visitStreetLamps(T0 + H);
-    assert.inRange(again, L.creditM / 24 - 1e-6, L.creditM / 24 + 1e-6, 'an hour on: 1/24 of the spacing');
+    assert.inRange(again, full / 24 - 1e-6, full / 24 + 1e-6, 'an hour on: 1/24 of it');
     // Just visited: zero.
     walkAway(s); s._visitStreetLamps(T0 + H);
     standAt(s, L);
@@ -277,4 +279,5 @@ test('living lamps: the Book tip quotes the owners\' numbers', () => {
   assert.truthy(/twice as close/.test(tip) && Streets.LAMP_PATH_SPACING_DIV === 2, '"twice as close"');
   assert.truthy(/pay as much apiece/.test(tip) && Streets.lampCreditM(50, true) === Streets.LAMP_SPACING_M,
     '"pay as much apiece" — a path lamp is worth a street gap');
+  assert.truthy(/three quarters of a lamp's worth/.test(tip) && Streets.LAMP_CREDIT_SHARE === 0.75, '"three quarters"');
 });

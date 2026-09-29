@@ -360,9 +360,11 @@
   // THE CREDIT (lampCredit): a visit pays restore-ladder metres = the lamp's
   // own spacing (the gap it was laid with; a path lamp its street-equivalent,
   // lampCreditM) x how DIM it had got,
-  // min(1, elapsed / LAMP_FADE_MS). A lamp unseen for a day pays its whole
-  // spacing — the walk between two lamps, again — and standing by one pays
-  // nothing, so no lamp pays more than its spacing per fade.
+  // min(1, elapsed / LAMP_FADE_MS), x LAMP_CREDIT_SHARE. A lamp unseen for a
+  // day pays three quarters of its spacing (Sep 2026: a whole spacing made
+  // re-lighting pay as well as the first restore), and standing by one pays
+  // nothing, so no lamp pays more than that per fade.
+  const LAMP_CREDIT_SHARE = 0.75;
   const LAMP_DIM_FLOOR = 0.5;
   const LAMP_BRIGHT_PEAK = 1.5;
   const LAMP_FADE_MS = 24 * 3600 * 1000;
@@ -404,7 +406,7 @@
   }
   function lampCredit(spacingM, lastMs, now) {
     if (!(spacingM > 0)) return 0;
-    return spacingM * lampFade(lastMs, now);
+    return spacingM * LAMP_CREDIT_SHARE * lampFade(lastMs, now);
   }
   function lampVisitAt(save, id) {
     const v = save && save.lampVisits;
@@ -707,7 +709,7 @@
     LAMP_SPACING_M, lampSpacingM, lampsAlong, lampOffsetM, covers,
     LAMP_PATH_SPACING_DIV, LAMP_PATH_SPACING_M, LAMP_PATH_MIN_LEN_M, isWalkingPath, lampLayFor,
     LAMP_DIM_FLOOR, LAMP_BRIGHT_PEAK, LAMP_FADE_MS, LAMP_BRIGHT_STEPS, LAMP_VISITS_MAX, LAMP_REFRESH_MS,
-    PATH_LAMP_ATTRACTS, lampFade, quantBrightness, lampBrightness, lampCreditM, lampCredit,
+    PATH_LAMP_ATTRACTS, LAMP_CREDIT_SHARE, lampFade, quantBrightness, lampBrightness, lampCreditM, lampCredit,
     lampVisitAt, pruneLampVisits, visitLamp,
     mergeIntervals, intersect, subtract, union, totalM, flatten, unflatten,
     createSight, restoredList, restore, epoch,
