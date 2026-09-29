@@ -327,6 +327,12 @@ function setShadowOnce(tx, key, x, y, color, blur, shadowStroke, shadowFill) {
   tx._lastShadow = key;
   tx.setShadow(x, y, color, blur, shadowStroke, shadowFill);
 }
+function setLineSpacingOnce(tx, px) {
+  if (tx._lastLineSpacing === px) return;
+  tx._lastLineSpacing = px;
+  tx.setLineSpacing(px);
+}
+
 function setPaddingOnce(tx, key, left, top) {
   if (tx._lastPad === key) return;
   tx._lastPad = key;
@@ -3667,9 +3673,14 @@ Render.drawObjects = function drawObjects(scene) {
     // Named POIs get their rusticified name; unnamed POIs fall back to a
     // class-based descriptor in brackets (e.g. "(Chapel)", "(Tourney Grounds)").
     const isFallback = !o.name;
+    // A named macro stall (loot.js macroFor — an inn, a chapel, …) reads as
+    // two lines: what it IS (Macros.KIND_DIALOG's label, the word its dialog
+    // opens under) and, on the next line with no gap, the place's own name.
+    const mac = isFallback ? null : macroFor(o);
+    const macLabel = mac && typeof Macros !== 'undefined' ? Macros.KIND_DIALOG[mac.kind]?.label : null;
     const label = isFallback
       ? `(${POI_CLASS_FALLBACK[o.poiClass]})`
-      : rusticifyName(o.name);
+      : (macLabel ? `${macLabel}\n${rusticifyName(o.name)}` : rusticifyName(o.name));
     // Anchored just BELOW the chest sprite. Chests and crates are seated
     // centred in their cell now (the one-cell rule), so their art runs to about
     // sy + 12 — the old +4 anchor cut the bottom third off every chest it
@@ -3680,6 +3691,9 @@ Render.drawObjects = function drawObjects(scene) {
     tx.setText(label).setVisible(true);
     tx.setFontSize(isFallback ? 9 : 11);
     setPaddingOnce(tx, isFallback ? 'f' : 'n', isFallback ? 2 : 3, isFallback ? 1 : 2);
+    // No space between a stall's two lines: Phaser counts the stroke into
+    // each line's height, so the spacing takes it back out.
+    setLineSpacingOnce(tx, -LABEL_STROKE_W);
     // POI names hang VERTICALLY, reading bottom-to-top up the right-hand side
     // of the chest; every other label on the map is horizontal. On a dense
     // block the POI names, the shop signs and the crate labels all used to
