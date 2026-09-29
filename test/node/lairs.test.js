@@ -83,37 +83,15 @@
   });
 
   // ── The Home nerf ────────────────────────────────────────────────────────
-
-  test('lairs: the Home nerf is derived — 1/FAR_MUL at Home, 1 from LAIR_FAR_M out', () => {
-    assert.eq(Lairs.LAIR_NEAR_MUL, 1 / Lairs.FAR_MUL, 'the near power is the old near:far garrison ratio');
-    assert.eq(Lairs.lairMulFor(0), Lairs.LAIR_NEAR_MUL, 'at Home itself');
-    assert.eq(Lairs.lairMulFor(Lairs.LAIR_FAR_M), 1, 'full strength at the far ring');
-    assert.eq(Lairs.lairMulFor(Lairs.LAIR_FAR_M * 5), 1, 'and never above it');
-    assert.eq(Lairs.lairMulFor(NaN), 1, 'no Home known → no nerf');
-    let prev = 0;
-    for (let d = 0; d <= Lairs.LAIR_FAR_M * 1.5; d += 25) {
-      const m = Lairs.lairMulFor(d);
-      assert.gte(m, prev, `the nerf never deepens further from Home (at ${d} m)`);
-      assert.lte(m, 1, `never a buff (at ${d} m)`);
-      assert.gt(m, 0, `never zero (at ${d} m)`);
-      prev = m;
-    }
-  });
-
-  test('lairs: the nerf rides Combat.powerMul — HP and bounty, beside the elite', () => {
+  // Home no longer multiplies a guard's HP or blow: it DEMOTES the guard, per
+  // player, after generation (EnemySpawns.applyHomeDemotion —
+  // enemy_spawns.test.js). What this module generates never sees Home.
+  test('lairs: no Home multiplier is left on a guard\'s power', () => {
     Combat.registerMonsters(MONSTERS);
-    const base = Combat.creatureMaxHp('goblin');
-    const plain = { kind: 'goblin', id: 'g' };
-    const soft = { kind: 'goblin', id: 'g2', lairMul: 0.5 };
-    const eliteSoft = { kind: 'goblin', id: 'g3', lairMul: 0.5, shiny: true };
-    assert.eq(Combat.lairMul(plain), 1, 'a creature with no stamp is at full power');
-    assert.eq(Combat.powerMul(soft), 0.5, 'the stamp is the power');
-    assert.eq(Combat.powerMul(eliteSoft), Combat.ELITE_MUL * 0.5, 'elite × nerf, one lane');
-    assert.eq(Combat.maxHp(soft), Math.round(base * 0.5), 'a softened pool');
-    assert.eq(Combat.maxHp(plain), base, 'an unstamped pool is unchanged');
-    assert.lt(Combat.enemyBounty('goblin', 0, Combat.powerMul(soft)),
-      Combat.enemyBounty('goblin', 0, Combat.powerMul(plain)), 'a softer guard pays the smaller wage');
-    assert.eq(Combat.lairMul({ kind: 'goblin', lairMul: 0 }), 1, 'a nonsense stamp is ignored');
+    assert.eq(typeof Combat.lairMul, 'undefined', 'the lairMul lane is gone');
+    assert.eq(Combat.powerMul({ kind: 'goblin', id: 'g', lairMul: 0.5 }), 1, 'a stray stamp is ignored');
+    assert.eq(Combat.powerMul({ kind: 'goblin', id: 'g', shiny: true }), Combat.ELITE_MUL, 'the elite is the one factor');
+    assert.eq(Lairs.lairMulFor, undefined, 'and lairs.js computes none');
   });
 
   // ── The roll ─────────────────────────────────────────────────────────────
@@ -323,8 +301,9 @@
     };
   }
 
-  // Home far enough away that the whole tile is at full strength (no nerf).
-  const HOME = { x: -Lairs.LAIR_FAR_M, y: 0 };
+  // Home far enough away that nothing on the tile is demoted (past every band).
+  const FAR_HOME_M = 5000;
+  const HOME = { x: -FAR_HOME_M, y: 0 };
   const CENTRE = { x: 20 * CELL_M, y: 20 * CELL_M };
 
   // Run one residency pass over a single-tile ring with the player at `at`.
@@ -462,7 +441,7 @@
   test('lairs: over many ruins the rate really is the tier\'s rate', () => {
     // The roll drives the shipping garrisonFor, not a reimplementation of it:
     // plant the same wreck at 600 different places and count how many hold.
-    const far = { x: -Lairs.LAIR_FAR_M, y: 0 };
+    const far = { x: -FAR_HOME_M, y: 0 };
     const rateOf = (tier) => {
       let held = 0, n = 0;
       for (let i = 0; i < 600; i++) {
@@ -527,7 +506,7 @@
     // And end to end: build the SAME ruin from two unrelated tile entries, in
     // opposite orders, with different neighbours, and read back the same
     // guards — kinds, ids and seats.
-    const far = { x: -Lairs.LAIR_FAR_M, y: 0 };
+    const far = { x: -FAR_HOME_M, y: 0 };
     const target = mkHeldShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'target');
     const decoys = [
       mkShape(9, 6 * CELL_M, 6 * CELL_M, CELL_M),
@@ -574,7 +553,6 @@
     return {
       facts: gs.map((g) => `${g.id}:${g.kind}:${g.shiny ? 'elite' : 'plain'}:`
         + `${Math.floor((g.seatX - ox) / cM)},${Math.floor((g.seatY - oy) / cM)}`).join('|'),
-      muls: gs.map((g) => g.lairMul ?? 1),
       n: gs.length, elites: gs.filter((g) => g.shiny).length,
     };
   }
@@ -601,8 +579,6 @@
       if (runs[0].n) checked++;
       if (runs[0].elites) withElite++;
       // Only the nerf differs: the doorstep Home softens, the far one does not.
-      for (const m of runs[0].muls) assert.eq(m, 1, `ruin ${k}: shared guard stats near Home`);
-      for (const m of runs[1].muls) assert.eq(m, 1, `ruin ${k}: a far guard is at full power`);
     }
     assert.gt(checked, 20, 'too few of the fixture castles were held to prove anything');
     assert.gt(withElite, 0, 'no guard in 40 castles was an elite — the elite roll is not rolling');
@@ -920,9 +896,8 @@
     const sig = (e) => guardsOf(e).map((g) => `${g.id}:${g.kind}:${g.shiny}:${g.seatX},${g.seatY}`).join('|');
     assert.truthy(guardsOf(far).length > 0, 'the far-Home ruin is held');
     assert.eq(sig(near), sig(far), 'a Home next door changed the garrison');
-    for (const g of guardsOf(far)) assert.eq(g.lairMul, undefined, 'a far guard carries no nerf');
     for (const g of guardsOf(near)) {
-      assert.eq(g.lairMul, undefined, 'Home does not change shared enemy HP or damage');
+      assert.eq(g._genKind, undefined, 'generation demotes nothing — Home is applied later, per player');
     }
   });
 
@@ -1304,15 +1279,9 @@
       'and the step the chain takes is that one');
   });
 
-  test('lairs: a guard softened by Home is drawn smaller — half size at full nerf', () => {
-    const near = { kind: 'goblin', lairMul: Lairs.LAIR_NEAR_MUL };
-    const mid  = { kind: 'goblin', lairMul: (Lairs.LAIR_NEAR_MUL + 1) / 2 };
-    assert.eq(Lairs.guardDrawScale(near), Lairs.GUARD_MIN_DRAW_SCALE, 'full nerf → the minimum');
-    assert.eq(Lairs.GUARD_MIN_DRAW_SCALE, 0.5, 'which is half size');
-    assert.inRange(Lairs.guardDrawScale(mid) - 0.75, -1e-9, 1e-9, 'linear between');
-    assert.eq(Lairs.guardDrawScale({ kind: 'goblin', lairMul: 1 }), 1, 'full strength, full size');
-    assert.eq(Lairs.guardDrawScale({ kind: 'goblin' }), 1, 'not a guard, not scaled');
-    assert.eq(SpriteLayout.creatureInstScale(near), 0.5, 'SpriteLayout reads the same number');
+  test('lairs: a creature\'s instance art scale seats everything on it', () => {
+    assert.eq(SpriteLayout.creatureInstScale({ kind: 'goblin', _artScale: 0.5 }), 0.5, 'the instance scale');
+    assert.eq(SpriteLayout.creatureInstScale({ kind: 'goblin', lairMul: 0.2 }), 1, 'no Home shrink any more');
     // Everything seated on the art follows the drawn size.
     const k = 'goblin';
     assert.eq(SpriteLayout.creatureScale(k, 0.5), SpriteLayout.creatureScale(k) / 2, 'the sprite');

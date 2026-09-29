@@ -22,23 +22,19 @@
 //   ruin's garrison depend on where each player happened to start.
 //
 //   DISTANCE FROM HOME IS A NERF, NOT A PRESENCE. A ruin by the trailer is held
-//   exactly as it is for everyone else, but each of its guards is softened:
-//   `lairMul` (lairMulFor), stamped on the guard and read by combat.js's
-//   powerMul over its HP, its blow and its bounty. It runs from LAIR_NEAR_MUL
-//   at Home up to 1 at LAIR_FAR_M — the map still gets more dangerous the
-//   further you push, which is the only pressure a GPS game can apply: it
-//   cannot gate an area behind a key, so it prices the walk instead. Only the
-//   challenge differs between players; the garrison does not.
+//   exactly as it is for everyone else; what Home changes, for its own player
+//   only, is WHAT each guard is — EnemySpawns.applyHomeDemotion demotes it to
+//   a weaker kind by the ruin's distance from Home (the same bands as every
+//   surface foe), after this module has generated it. The map still gets more
+//   dangerous the further you push, which is the only pressure a GPS game can
+//   apply: it cannot gate an area behind a key, so it prices the walk instead.
 //
 // THE NUMBERS ARE DERIVED, NOT TUNED — the same discipline as combat.js's
 // dps identity. There are exactly three authored figures (TIER_GUARDS: a
 // house 1, a fort 2, a castle 3, at t = 0) plus the ceiling, and the strength
 // multiplier falls out of them: FAR_MUL is the ceiling over the biggest base,
 // so a castle reaches exactly LAIR_MAX_PER_STRUCTURE at t = 1 and the other
-// two tiers scale by the same factor (a fort 2 → 10, a house 1 → 5). The
-// Home nerf is the same ratio read the other way: LAIR_NEAR_MUL = 1/FAR_MUL,
-// so a guard at Home fights at the strength the old near-ring garrison had
-// against the far one. Retune a lair by moving a TIER_GUARDS row or the
+// two tiers scale by the same factor (a fort 2 → 10, a house 1 → 5). Retune a lair by moving a TIER_GUARDS row or the
 // ceiling; a fudge factor added here breaks the correspondence the tests pin.
 //
 // THEY HOLD, THEY HUNT, THEY GIVE UP. A garrison is a place, not a patrol:
@@ -107,13 +103,6 @@
 (function (root) {
   'use strict';
 
-  // ── The Home nerf's reach ────────────────────────────────────────────────
-  // Where the nerf tops out: a guard this far from HOME fights at full
-  // strength (lairMul 1). A kilometre is roughly a fifteen-minute walk in a
-  // game whose map IS the walk. There is NO safe ring any more: a ruin by the
-  // trailer is held exactly as it is for every other player (the garrison is
-  // the world's), and what Home buys is weaker guards, not absent ones.
-  const LAIR_FAR_M = 1000;
   // The most guards any one structure may hold, at t = 1.
   const LAIR_MAX_PER_STRUCTURE = 15;
 
@@ -179,12 +168,6 @@
   // the biggest structure from its t = 0 figure to the ceiling, so the ceiling
   // and the tier table are the only things to change.
   const FAR_MUL = LAIR_MAX_PER_STRUCTURE / MAX_TIER_GUARDS;   // 15 / 3 = 5
-  // A guard's power at Home itself — the same ratio read per guard. When
-  // distance set the COUNT, a castle by Home held its 3 and one a kilometre
-  // out its 15: the near garrison was 1/FAR_MUL of the far one. The count is
-  // the world's now, so that ratio is carried by each guard's HP and blow
-  // instead (lairMulFor ramps it to 1 at LAIR_FAR_M).
-  const LAIR_NEAR_MUL = 1 / FAR_MUL;                           // 1/5
 
   // ── The roll ─────────────────────────────────────────────────────────────
   // The cap is the nominal garrison; the actual count is the cap less a
@@ -487,37 +470,6 @@
   // pushing a guard somewhere it does not belong.
   const LAIR_SEAT_TRIES = 8;
 
-  // How far along the Home nerf a point `distM` metres from Home is: 0 at
-  // Home, 1 at LAIR_FAR_M and beyond. It says nothing about WHETHER a ruin is
-  // held or what by — only how hard its guards hit (lairMulFor).
-  function homeRamp(distM) {
-    if (!Number.isFinite(distM)) return 1;
-    return clamp01(distM / LAIR_FAR_M);
-  }
-  // The guard's power factor at `distM` from Home — stamped on it as
-  // `lairMul` and read by Combat.powerMul. The same straight line the count
-  // used to ride (1 → FAR_MUL), normalised to the far end: LAIR_NEAR_MUL at
-  // Home, 1 from LAIR_FAR_M out, never above 1. No Home known → no nerf.
-  function lairMulFor(distM) {
-    const t = homeRamp(distM);
-    return (1 + t * (FAR_MUL - 1)) / FAR_MUL;
-  }
-
-  // A softened guard LOOKS softened: drawn at GUARD_MIN_DRAW_SCALE of its
-  // size at Home's full nerf (lairMul = LAIR_NEAR_MUL), growing linearly to
-  // full size at lairMul 1. Off the stamped `lairMul` alone — the same number
-  // its HP, blow and bounty read — so what a guard hits for and how big it is
-  // can't disagree. A creature with no lairMul (anything not a guard) is 1.
-  // A LOOK for this player only (the nerf is per player), never the guard's
-  // kind or seat. SpriteLayout.creatureInstScale is the reader.
-  const GUARD_MIN_DRAW_SCALE = 0.5;
-  function guardDrawScale(c) {
-    const m = c && c.lairMul;
-    if (!Number.isFinite(m) || m >= 1) return 1;
-    const f = clamp01((m - LAIR_NEAR_MUL) / (1 - LAIR_NEAR_MUL));
-    return GUARD_MIN_DRAW_SCALE + f * (1 - GUARD_MIN_DRAW_SCALE);
-  }
-
   // The nominal garrison for a structure of `tier` at strength `t` (0..1,
   // the structure's own draw — see garrisonFor). 0 when the tier holds no
   // lair.
@@ -725,7 +677,7 @@
   //   then per guard: its kind (kindFor, exactly one draw), then its seat
   //   tries (two draws each).
   // NOTHING about the player — Home, save, frame — reaches a draw. Home is
-  // read after the fact, for the nerf stamped on each guard (lairMul).
+  // applied after the fact, per player (EnemySpawns.applyHomeDemotion).
   function garrisonFor(entry, cand, opts) {
     const WG = root.WorldGen;
     const o = opts || {};
@@ -999,10 +951,11 @@
     // of distance so the cap, when it binds, refuses the FURTHEST — the ones
     // the player is least likely to be looking at.
     if (live >= liveMax) { report.live = live; return report; }
-    // NO HOME YET, NO WAKE. Home decides nothing about a garrison but how hard
-    // it hits (lairMulFor) — yet a garrison woken before the anchor lands
-    // would stand at full strength by the trailer until it next slept. So the
-    // wake waits a pass for the anchor; nothing already standing is touched.
+    // NO HOME YET, NO WAKE. Home decides nothing about a garrison but what
+    // each guard is demoted to for this player (EnemySpawns.applyHomeDemotion)
+    // — yet a garrison woken before the anchor lands would stand undemoted by
+    // the trailer. So the wake waits a pass for the anchor; nothing already
+    // standing is touched.
     const home = o.homeM;
     if (!home || !Number.isFinite(home.x) || !Number.isFinite(home.y)) {
       report.live = live; return report;
@@ -1084,14 +1037,13 @@
   }
 
   root.Lairs = {
-    LAIR_FAR_M, LAIR_MAX_PER_STRUCTURE, LAIR_SLACK, LAIR_NEAR_MUL,
+    LAIR_MAX_PER_STRUCTURE, LAIR_SLACK,
     LAIR_WAKE_CELLS, LAIR_SLEEP_CELLS, LAIR_LIVE_MAX, LAIR_BUCKET_CELLS,
     LAIR_RING_PAD_CELLS, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
     LAIR_AGGRO_CELLS, LAIR_LEASH_CELLS, LAIR_SEAT_EPS_CELLS,
     OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, tileHeldExpected, guardState,
     TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, GATE_TIER_GUARDS, DAILY_TIERS, dailyGuardDay, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, MODE_SCALED_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
-    GUARD_MIN_DRAW_SCALE, guardDrawScale,
-    homeRamp, lairMulFor, capFor, countFor, kindsAt, kindFor, structureKey, tileCellM,
+    capFor, countFor, kindsAt, kindFor, structureKey, tileCellM,
     hashKey, ringBox,
     bucketKey,
     newIndex, indexChunk, buildIndex, indexFor, garrisonFor, stepResidency,

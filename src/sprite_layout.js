@@ -618,11 +618,9 @@
   // A game kind's `fightsBack` row ({ dmg, hitMs, rageMs }), or null.
   function creatureFightsBack(kind) { return creatureBehaviour(kind)?.fightsBack || null; }
   function creatureScale(kind, inst = 1) { return (creatureArt(kind)?.scale ?? 1) * inst; }
-  // One creature's own size multiplier: a lair guard softened by Home is
-  // drawn smaller (Lairs.guardDrawScale); everything else is 1.
+  // One creature's own size multiplier (its instance art scale), or 1.
   function creatureInstScale(c) {
-    const L = (typeof Lairs !== 'undefined') ? Lairs : null;
-    return (L && L.guardDrawScale ? L.guardDrawScale(c) : 1) * (c._artScale ?? c.artScale ?? 1);
+    return c._artScale ?? c.artScale ?? 1;
   }
   function creatureFloat(kind) { return creatureArt(kind)?.float ?? 0; }
   // The sheet a kind is drawn from, and how many frames of its row-0 cycle the

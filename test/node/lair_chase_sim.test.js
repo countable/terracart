@@ -43,6 +43,10 @@ function mkScene(creature, over = {}) {
     // (and any that accidentally kill the player) behave as the game does.
     isUnnoticed() { return this.isShadowActive() || Combat.playerDowned(this.save.energy); },
     homeWorldPos: () => null,                 // no Home: the ward is out of it
+    // The starter anchor the Home DEMOTION measures from (EnemySpawns
+    // applyHomeDemotion), a world away: these are movement tests of the
+    // garrison as generated, not of what Home turns it into.
+    _starterTrailAnchor: () => ({ x: -1e6, y: 0 }),
     _castleWardPoints: () => [],
     playerToWorldCell: () => ({ tx: 0, ty: 0, ix: 0, iy: 0 }),
     cellAt: () => ({ loaded: true, type: 0 }),   // 0 = GRASS, walkable

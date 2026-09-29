@@ -313,25 +313,13 @@
   }
   function eliteMul(c) { return isElite(c) ? ELITE_MUL : 1; }
 
-  // ── The lair nerf ────────────────────────────────────────────────────────
-  // A hard-mode ruin's garrison (lairs.js) is the SAME for every player —
-  // whether it is held, how many, which kinds, which are elite — so distance
-  // from a player's own Home can no longer thin it out. What Home does
-  // instead is soften each guard: garrisonFor stamps `lairMul` on it (≤ 1,
-  // Lairs.lairMulFor — 1 from LAIR_FAR_M out). It is a second factor in the
-  // SAME lane as the elite's, over the same two things (HP pool and blow), so
-  // the dps identity holds: a guard at half power takes half as long at any
-  // weapon tier and hits half as hard. 1 for anything that is not a guard.
-  function lairMul(c) {
-    const m = c && c.lairMul;
-    return (Number.isFinite(m) && m > 0) ? m : 1;
-  }
   // THE instance's power over its kind's table row — the one factor its HP
-  // pool, its blow and its bounty are scaled by. eliteMul × lairMul: an elite
-  // guard by Home is an elite, softened. Every per-creature scale reads this;
-  // eliteMul alone is the "is it an elite" half, for callers that ask only
-  // that (the elite's treasure roll, its tint).
-  function powerMul(c) { return eliteMul(c) * lairMul(c); }
+  // pool, its blow and its bounty are scaled by: the elite's. (Home's nerf is
+  // no multiplier — it DEMOTES the foe to a weaker kind, EnemySpawns
+  // applyHomeDemotion.) Every per-creature scale reads this; eliteMul alone is
+  // the "is it an elite" half, for callers that ask only that (the elite's
+  // treasure roll, its tint).
+  function powerMul(c) { return eliteMul(c); }
   // The HP pool of THIS instance — the kind's max times its power.
   // Everything that seeds or refills a creature's HP reads this, never
   // creatureMaxHp(kind) directly, or an elite heals back to half its health.
@@ -399,9 +387,8 @@
   const ENEMY_DEPTH_BONUS  = 1 / 3;    // extra coins per level below the surface
   // `hpMul` is the instance's multiplier over the kind's HP — powerMul: an
   // elite has twice the pool, so it pays twice the per-HP wage, by the same
-  // rule that makes a goblin pay more than a slime; and a lair guard softened
-  // near Home (lairMul < 1) has a smaller pool and pays the smaller wage — the
-  // same rule again, no exception for it.
+  // rule that makes a goblin pay more than a slime (a foe demoted near Home
+  // pays its demoted kind's wage by the same rule).
   // (Hard mode adds no wage of its own: creatureMaxHp already scales an
   // enemy's pool by Difficulty.enemyHpMul, and the per-HP rule carries that
   // into the coins — a foe that takes 1.5× as long pays 1.5× as much, same as
@@ -1120,7 +1107,7 @@
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, damageDealt, hpFraction,
-    ELITE_MUL, isElite, eliteMul, lairMul, powerMul, maxHp,
+    ELITE_MUL, isElite, eliteMul, powerMul, maxHp,
     TRAINING_PERM_STEP, TRAINING_PERM_CAP, TRAINING_PERM_MAX, TRAINING_BUFF_BONUS, TRAINING_BUFF_MS,
     trainingLessons, trainingBuffActive, trainingMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,

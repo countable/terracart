@@ -38,8 +38,9 @@
       // whose ruin sits within this many metres of THIS player's Home is
       // hidden for them (EnemySpawns.surfaceActive — the same per-player
       // "hide, never re-roll" lane as the pest amnesty). The ruin is still
-      // held for everyone else, and still weakened near Home by lairMul; a
-      // wreck's slimes stay. 0 = off. Metres, off EnemySpawns.homeAnchor.
+      // held for everyone else (and demoted near Home for every player — the
+      // Home nerf, EnemySpawns.applyHomeDemotion); a wreck's slimes stay.
+      // Read off the GENERATED kind. 0 = off. Metres, off the live Home.
       quietHomeM: 350,
       // ── Economy ──
       startingMoney: 50,        // items.js STARTING_MONEY — the easy figure IS the base
