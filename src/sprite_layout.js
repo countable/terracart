@@ -73,7 +73,7 @@
     'waystone:0':      { fw: 16, fh: 16, minX: 0,  minY: 1,  maxX: 16, maxY: 16 },
     'stakes:0':        { fw: 16, fh: 16, minX: 4,  minY: 0,  maxX: 12, maxY: 16 },
     'tar:0':           { fw: 16, fh: 16, minX: 0,  minY: 6,  maxX: 16, maxY: 16 },
-    'headstone:0':     { fw: 16, fh: 16, minX: 3,  minY: 0,  maxX: 12, maxY: 15 },
+    'headstone:0':     { fw: 16, fh: 16, minX: 4, minY: 4, maxX: 12, maxY: 14 },
     'grove_shrine:0':  { fw: 48, fh: 48, minX: 12, minY: 1, maxX: 37, maxY: 47 },
     'grove_votive:0':  { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 16 },
     'vista_scope:0':   { fw: 16, fh: 24, minX: 0,  minY: 0,  maxX: 15, maxY: 24 },

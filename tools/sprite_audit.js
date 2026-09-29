@@ -260,7 +260,7 @@ const SHEETS = {
   waystone:      { file: 'assets/Objects/Generated/waystone.png',            fw: 16, fh: 16, frames: [0] },
   stakes:        { file: 'assets/Objects/Generated/stakes_a.png',            fw: 16, fh: 16, frames: [0] },
   tar:           { file: 'assets/Objects/Generated/tar.png',                 fw: 16, fh: 16, frames: [0] },
-  headstone:     { file: 'assets/Objects/Generated/headstone.png',           fw: 16, fh: 16, frames: [0] },
+  headstone:     { file: 'assets/Objects/Landmarks/headstone-basalt.png',           fw: 16, fh: 16, frames: [0] },
   ...Object.fromEntries(GROVE_SHRINE_ART.map(({ key, frame }) => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],
   }])),

@@ -162,7 +162,7 @@ const ASSETS = {
   wagon:          { kind: 'spritesheet', path: 'assets/Objects/Generated/wagon.png', frameWidth: 128, frameHeight: 96 },
   // INFLUENCE ZONES (src/zones.js): churchyard headstone, two grove shrine
   // appearances, and the flint nodule (items.js CROP_SPRITE.flint).
-  headstone:      { kind: 'spritesheet', path: 'assets/Objects/Generated/headstone.png', frameWidth: 16, frameHeight: 16 },
+  headstone:      { kind: 'spritesheet', path: 'assets/Objects/Landmarks/headstone-basalt.png', frameWidth: 16, frameHeight: 16 },
   grove_shrine:   { kind: 'spritesheet', path: 'assets/Objects/Landmarks/shrine-figure.png', frameWidth: 48, frameHeight: 48 },
   grove_votive:   { kind: 'spritesheet', path: 'assets/Objects/Landmarks/shrine-votive.png', frameWidth: 16, frameHeight: 16 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Generated/flint.png', frameWidth: 16, frameHeight: 16 },

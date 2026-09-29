@@ -22,12 +22,12 @@ VERDANT = 'verdant-props-tileset-16x16/tiles/16x16/'
 # Rectangles are source pixels: x, y, width, height. Manually inspected against
 # the full source sheets; Fantasy City's sprites do not all start on its grid.
 CANDIDATES = [
-    dict(id='grave-current', group='Grave markers', title='Current · cross marker', current=True,
-         path='assets/Objects/Generated/headstone.png', rect=(0, 0, 16, 16),
-         note='The small cross currently placed in Old Stones zones.', provenance='generated'),
-    dict(id='grave-verdant', group='Grave markers', title='Rounded grey headstone', pick=True,
+    dict(id='grave-current', group='Grave markers', title='Current · low basalt column', current=True, approved=True, render_scale=1.6,
+         path='assets/Objects/Landmarks/headstone-basalt.png', rect=(0, 0, 16, 16),
+         note='Approved low basalt marker used in Old Stones zones. Its visible stone stands 16 pixels tall at the 1.6× runtime scale.', provenance='verdant'),
+    dict(id='grave-verdant', group='Grave markers', title='Rounded grey headstone',
          path=VERDANT+'gravestone.png', rect=(0, 0, 16, 16),
-         note='My first pick for a quieter grave marker: a recognisable upright stone, without a cross. Same 16 × 16 source footprint as the current art.', provenance='verdant'),
+         note='An unused alternative grave marker: a recognisable upright stone, without a cross. Same 16 × 16 source footprint as the current art.', provenance='verdant'),
     dict(id='grave-skull-a', group='Grave markers', title='Skull headstone · A',
          path=FANTASY, rect=(72, 256, 16, 16),
          note='Rounded purple-grey stone with a skull emblem. More explicit cemetery imagery; fits the existing 16 × 16 frame.', provenance='fantasy'),
@@ -50,7 +50,7 @@ CANDIDATES = [
 ]
 
 PROVENANCE = {
-    'generated': 'assets/Objects/Generated/README.md identifies the current headstone and previous moss shrine as gpt-image-2 placeholders, downsampled with binary alpha; it explicitly anticipates replacing them with hand art.',
+    'generated': 'assets/Objects/Generated/README.md identifies the previous cross headstone and moss shrine as gpt-image-2 placeholders, downsampled with binary alpha; it explicitly anticipates replacing them with hand art.',
     'verdant': 'unused_art/verdant-props-tileset-16x16/LICENSE.txt identifies Core Systems Asset Factory (2026) and permits game use and modification, with optional attribution. Its origin statement says the art was produced programmatically from hand-authored rules, without an image-generation model.',
     'fantasy': 'Existing local reserve: unused_art/Fantasy City ver1.3. No pack-specific licence or credit file was found in this local folder. Artwork authorship is not established by the filename.',
     'royal': 'Existing local reserve: unused_art/Medieval Fantasy Royal City. No pack-specific licence or credit file was found in this local folder.',
@@ -60,7 +60,7 @@ PROVENANCE = {
 
 
 PILLAR_CANDIDATES = [
-    dict(id='royal-short-pillar', title='Plain stone bollard', pick=True,
+    dict(id='royal-short-pillar', title='Plain stone bollard',
          path=ROYAL, rect=(672, 288, 48, 48), provenance='royal',
          note='Best match for a plain upright pillar: a simple shaft, foot and rounded cap, with no figure, skull or cross. Complete standalone sprite. Fit to the existing grave-marker height, as in the small comparison.'),
     dict(id='verdant-plinth', title='Low square plinth',
@@ -69,12 +69,12 @@ PILLAR_CANDIDATES = [
     dict(id='verdant-broken-column', title='Short broken column',
          path=VERDANT+'broken_column.png', rect=(0, 0, 16, 16), provenance='verdant',
          note='A complete upright ruined-column sprite, with a jagged top and short fluted sides. More weathered than the plain bollard; no emblem.'),
-    dict(id='verdant-basalt', title='Low basalt column',
-         path=VERDANT+'basalt_column.png', rect=(0, 0, 16, 16), provenance='verdant',
-         note='A complete low stone column with rough facets. Reads more as a natural rock stump than a carved memorial; included as the roughest alternative.'),
-    dict(id='current-grave-reference', title='Current headstone · reference', current=True,
+    dict(id='verdant-basalt', title='Current · low basalt column', current=True,
+         path='assets/Objects/Landmarks/headstone-basalt.png', rect=(0, 0, 16, 16), provenance='verdant',
+         note='Approved and now used for headstones. A complete low stone column with rough facets; visible art is 8 × 10 source pixels, rendered at 1.6×.'),
+    dict(id='current-grave-reference', title='Previous cross marker · reference', current=True, previous=True,
          path='assets/Objects/Generated/headstone.png', rect=(0, 0, 16, 16), provenance='generated',
-         note='The current cross marker, shown for scale and comparison. This audit does not replace it.'),
+         note='The previous cross marker, retained for comparison. Replaced by the low basalt column.'),
 ]
 
 
@@ -111,7 +111,7 @@ def render_pillars(reserve, out):
         # 16px headstone frame × its 1.6 runtime scale, rounded for display).
         small_w = marker.width * 26 / marker.height
         small = image_uri(marker)
-        badge = 'FIRST PICK' if row.get('pick') else 'CURRENT ART' if row.get('current') else 'UNUSED CANDIDATE'
+        badge = 'PREVIOUS' if row.get('previous') else 'CURRENT ART' if row.get('current') else 'UNUSED CANDIDATE'
         cards.append(f'''<article id="{row['id']}"><small>{badge}</small><h2>{row['title']}</h2>
 <div class="comparison"><div class="zoom"><img src="{uri}" alt="{row['title']} at 4× source pixels" style="width:{w*4}px;height:{h*4}px"></div><div class="small"><img src="{small}" alt="{row['title']} at 26px visible height" style="width:{small_w:g}px;height:26px"><small>26px tall</small></div></div>
 <p>{row['note']}</p><details><summary>Source, crop and provenance</summary><code>{html.escape(str(path))}</code><p>Source rectangle: x={x}, y={y}, width={w}, height={h} px. Visible alpha bounds inside it: {bounds}. Original colours and alpha preserved.</p><p>{html.escape(PROVENANCE[row['provenance']])}</p></details></article>''')
@@ -124,7 +124,7 @@ def render_pillars(reserve, out):
         draw.text((i*250+12,238),f'{w} x {h} source / 26px comparison in HTML',fill='#b4c6b4')
     css = '''*{box-sizing:border-box}body{font:16px system-ui;background:#101a15;color:#e5ecdf;max-width:1380px;margin:32px auto;padding:0 24px}p{line-height:1.6}a{color:#95d7d1}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:20px}article{background:#1b2a21;border:1px solid #334a3a;border-radius:12px;padding:20px;min-width:0}h2{font-size:22px}small,details{color:#b4c6b4;font-size:12px}.comparison{display:grid;grid-template-columns:1fr 70px;gap:12px;background:#14241b;padding:8px;border-radius:6px;align-items:center;height:210px}.zoom{display:flex;align-items:center;justify-content:center;height:194px}.zoom img{max-width:100%;object-fit:contain}.small{display:flex;flex-direction:column;align-items:center;gap:12px}img{image-rendering:pixelated}code{display:block;overflow-wrap:anywhere;margin-top:12px}summary{cursor:pointer}'''
     page = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Short stone pillars · existing art</title><style>{css}</style></head><body>
-<h1>Short plain stone pillars</h1><p>Yes — there are suitable existing sprites in <code style="display:inline">unused_art</code>. My first pick is the <a href="#royal-short-pillar">plain stone bollard</a>; choose the <a href="#verdant-plinth">low square plinth</a> if you want something squatter. Neither has a figure, skull or cross.</p><p>Four unused candidates and the current headstone are shown below. All are complete standalone sprites, not the base cut off a statue. Large views use 4× source pixels; small views normalise visible height to 26px to compare the silhouettes fairly. No headstone art has been replaced.</p><p><a href="stone-pillar-contact.png">Compact contact sheet</a> · <a href="index.html">Zone previews</a></p><main class="cards">{''.join(cards)}</main></body></html>'''
+<h1>Short plain stone pillars</h1><p>Yes — there are suitable existing sprites in <code style="display:inline">unused_art</code>. The <a href="#verdant-basalt">low basalt column</a> is approved and now used as the headstone. The other plain pillars remain for comparison.</p><p>The selected basalt marker, three unused alternatives, and the previous cross marker are shown below. All are complete standalone sprites, not the base cut off a statue. Large views use 4× source pixels; small views normalise visible height to 26px to compare the silhouettes fairly. The basalt marker replaces the cross in game.</p><p><a href="stone-pillar-contact.png">Compact contact sheet</a> · <a href="index.html">Zone previews</a></p><main class="cards">{''.join(cards)}</main></body></html>'''
     (out/'stone-pillar-candidates.html').write_text(page)
     (out/'stone-pillar-candidates.json').write_text(json.dumps(records,indent=2)+'\n')
     sheet.save(out/'stone-pillar-contact.png')
@@ -152,7 +152,7 @@ def render(reserve, out):
             contact.append((row, image))
     styles = '''*{box-sizing:border-box}body{margin:32px auto;padding:0 24px;max-width:1380px;background:#101a15;color:#e5ecdf;font:16px system-ui}h1{font-size:34px}p{line-height:1.6}a{color:#95d7d1}nav{display:flex;flex-wrap:wrap;gap:20px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px}article{padding:20px;border:1px solid #334a3a;border-radius:12px;background:#1b2a21}article h3{margin-top:7px}small{font-size:11px;color:#b4c6b4}article:has(>small:first-child){min-width:0}.comparison{display:grid;grid-template-columns:1fr 88px;gap:8px;height:210px;align-items:end;background:#14241b;border-radius:6px;padding:8px}.large{height:194px;display:flex;align-items:center;justify-content:center}.large img{max-width:100%;object-fit:contain}.map-size{height:72px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px}img{image-rendering:pixelated;object-fit:contain}.map-size img{object-fit:contain}details{font-size:12px;color:#b4c6b4}summary{cursor:pointer}code{display:block;margin-top:12px;overflow-wrap:anywhere}section{margin-top:34px;scroll-margin-top:16px}.intro{max-width:1000px}.note{border-left:3px solid #79a956;padding-left:16px}'''
     page = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Grave and shrine art · existing candidates</title><style>{styles}</style></head><body>
-<h1>Grave and shrine art already available</h1><div class="intro"><p>The <a href="#shrine-statue">stone figure</a> and <a href="#shrine-votive">green votive</a> are the approved current grove shrine art. The previous moss placeholder and unused niche remain below for reference. The headstone candidates are still a comparison; the rounded grey stone retains the current grave’s 16 × 16 footprint.</p><p class="note">Grove shrine art has been updated; headstone art has not been replaced. These are existing local assets, not newly generated art. Large images show source pixels enlarged up to 4×. The approved shrines’ small views show their runtime render scales; other small views are silhouette comparisons.</p><p>The ignored <code style="display:inline">unused_art</code> directory is in the primary checkout, <code style="display:inline">/home/claude/terracart</code>; it is absent from the two worktrees searched. Full source paths, crop coordinates and local provenance notes are inside each card. The existing texture called “shrine” is a different asset: assets/Objects/Houses/wizard.png, frame 3, used for wizard houses; the grove POI is grove_shrine.</p></div>
+<h1>Grave and shrine art already available</h1><div class="intro"><p>The <a href="#shrine-statue">stone figure</a> and <a href="#shrine-votive">green votive</a> are the approved current grove shrine art. The previous moss placeholder and unused niche remain below for reference. The low basalt column is the approved current headstone; other grave markers remain for comparison.</p><p class="note">Grove shrine and headstone art have been updated to the approved choices. These are existing local assets, not newly generated art. Large images show source pixels enlarged up to 4×. The approved sprites’ small views show their runtime render scales; other small views are silhouette comparisons.</p><p>The ignored <code style="display:inline">unused_art</code> directory is in the primary checkout, <code style="display:inline">/home/claude/terracart</code>; it is absent from the two worktrees searched. Full source paths, crop coordinates and local provenance notes are inside each card. The existing texture called “shrine” is a different asset: assets/Objects/Houses/wizard.png, frame 3, used for wizard houses; the grove POI is grove_shrine.</p></div>
 <nav><a href="#grave-markers">Graves</a><a href="#grove-shrines">Grove shrines</a><a href="index.html">Zone preview</a><a href="grave-shrine-contact.png">Compact contact sheet</a></nav>'''
     for group, cards in sections.items():
         anchor = {'Grave markers':'grave-markers', 'Grove shrines':'grove-shrines', 'Related art · different roles':'related-art'}[group]

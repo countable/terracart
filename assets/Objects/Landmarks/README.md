@@ -1,4 +1,4 @@
-# Grove shrine artwork
+# Landmark artwork
 
 Native-resolution, unmodified crops from the local art reserve (`unused_art`).
 Coordinates are zero-based pixels, expressed as x, y, width, height.
@@ -11,3 +11,11 @@ Coordinates are zero-based pixels, expressed as x, y, width, height.
 Both are grove POI appearances. `SpriteLayout.GROVE_SHRINE_ART` owns their
 world scale and selects a stable appearance from the POI ID. These replace
 the generated moss shrine placeholder; rewards and interactions are unchanged.
+
+## Headstone
+
+`headstone-basalt.png` is the unmodified 16 × 16 `basalt_column.png` from
+`unused_art/verdant-props-tileset-16x16/tiles/16x16/`. It replaces the cross
+placeholder while keeping the headstone interaction and 1.6× world scale.
+Copyright 2026 Core Systems Asset Factory; licence included in
+`VERDANT-LICENSE.txt`.
