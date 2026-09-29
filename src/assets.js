@@ -87,8 +87,8 @@ const ASSETS = {
   // Bridge Beach — 128×224 = 8 cols × 14 rows of 16×16 frames. Wooden plank
   // tiles for pier rendering (transportation:pier OSM lines). Rows 0-3 are a
   // big multi-cell bridge structure; rows 4-13 are pairs of standalone 3-cell
-  // horizontal bridges. Renderer uses frame 33 (row 4, col 1) — the middle
-  // plank of a horizontal bridge with no end-caps — as the standard pier cell.
+  // horizontal bridges. Renderer uses frame 20 (row 2, col 4), an opaque
+  // interior plank-deck tile, as the standard pier cell.
   pier:        { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Bridge Beach.png', frameWidth: 16, frameHeight: 16 },
   // Wilderness art — all copied out of the gitignored Sprites/ source dump
   // into Objects/Wilderness/ so the tree can build without the raw asset pack.
@@ -110,10 +110,6 @@ const ASSETS = {
   rabbit:      { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Rabbit White.png',    frameWidth: 16, frameHeight: 16 },
   crow:        { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Crow.png',            frameWidth: 32, frameHeight: 32 },
   butterfly:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Azure Butterfly.png', frameWidth: 16, frameHeight: 16 },
-  // Slime — energy-leeching pest. 'Slime Green.png' is a 128×384 sheet of
-  // 32×32 frames (4 cols × 12 rows): row 0 (frames 0-3) is the idle squish
-  // cycle the renderer loops; lower rows are move/death poses we don't use.
-  slime:         { kind: 'spritesheet', path: 'assets/Enemy/Slime Green.png',   frameWidth: 32, frameHeight: 32 },
   // Underground monster sheets. Goblins: 32×32 frames, 6 cols × 3 rows — row 0 (frames 0-5) is the walk cycle.
   purple_slime:  { kind: 'spritesheet', path: 'assets/Enemy/Purple Slime.png',  frameWidth: 32, frameHeight: 32 },
   goblin:        { kind: 'spritesheet', path: 'assets/Enemy/Goblin.png',        frameWidth: 32, frameHeight: 32 },
@@ -141,8 +137,6 @@ const ASSETS = {
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Pine Tree.png',     frameWidth: 32, frameHeight: 48 },
   birch_tree:    { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Birch Tree.png',    frameWidth: 32, frameHeight: 48 },
   mahogany_tree: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Mahogany Tree.png', frameWidth: 32, frameHeight: 48 },
-  // Fantasy Mushroom sheet (96x288) — declared as spritesheet so renderer can pick any single 32x32 mushroom.
-  mushroom_world: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 32 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Wilderness/stone with minerals.png', frameWidth: 16, frameHeight: 16 },
   // Stone pillar — 16×32 (1 cell wide × 2 tall): a fluted column with cap +
@@ -196,8 +190,7 @@ const ASSETS = {
   // ALL props seasons — 352×192 = 22 cols × 12 rows of 16×16 frames.
   // Spring/autumn/winter/aqua grass tufts, ferns, wildflowers, mushrooms,
   // pebbles, logs. Wildplants pick a frame via CROP_SPRITE { sheet: 'props',
-  // custom: true, frame: N }. Frame 0 (top-left small grass tuft) replaces
-  // the procedural longgrass texture.
+  // custom: true, frame: N }. Longgrass uses frame 10 (a grass tuft).
   props:       { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Props.png', frameWidth: 16, frameHeight: 16 },
   // Lush round bushes — 144×288 = 3 cols × 9 rows of 48×32 frames. Replaces
   // the old bare-twig Props.png frame as the in-world shrub wildplant art.
@@ -218,7 +211,7 @@ const ASSETS = {
   torch:       { kind: 'spritesheet', path: 'assets/Objects/Wilderness/torch.png', frameWidth: 16, frameHeight: 32 },
   // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
   // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
-  // Currently used for the fishing-junk boot icon.
+  // Used for the fishing-junk boot (88), rare-drop star (115), and memory (116).
   pickup:      { kind: 'spritesheet', path: 'assets/Objects/Pickup_Items.png', frameWidth: 16, frameHeight: 16 },
   // Wood logs — 48×16 sheet, 3 frames of 16×16 (brown / grey / amber
   // bark variants with little green sprigs). Sliced out of Sprites/
@@ -290,6 +283,9 @@ function recolorEnemyPixels(pixels, palette) {
 }
 if (typeof EnemyRoster !== 'undefined') {
   for (const row of EnemyRoster.ROWS) {
+    // Size variants and trapper reuse their base texture; palette variants
+    // resolve to their own sheet so their recolour hook still runs.
+    if (SpriteLayout.creatureArt(row.id).sheet !== row.id) continue;
     const { path, frameWidth, frameHeight } = row.art;
     ASSETS[row.id] = { kind: 'spritesheet', path, frameWidth, frameHeight };
     if (row.palette) ASSETS[row.id].onLoad = (scene) => {

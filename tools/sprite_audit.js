@@ -227,7 +227,8 @@ const CROP_SPRITE = itemsCtx.CROP_SPRITE;
 // ── …and the texture table from assets.js, so the wildplant-frame audit below
 //    reads the SAME sheet geometry the game loads (path + frame size) rather
 //    than a third copy of it. The onLoad hooks are never called here.
-const assetsCtx = { Math, console, window: {}, EnemyRoster: require('../src/enemy_roster.js') };
+const assetsCtx = { Math, console, window: {}, EnemyRoster: require('../src/enemy_roster.js'),
+  SpriteLayout: require('../src/sprite_layout.js') };
 vm.createContext(assetsCtx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'assets.js'), 'utf8'),
   assetsCtx, { filename: 'assets.js' });

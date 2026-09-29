@@ -3,7 +3,8 @@
 // Paintings ship as lossy WebP at ART_WEBP_QUALITY (about half the bytes of the
 // 128-colour PNG they used to be, and indistinguishable at dialog size —
 // lossless WebP saves nothing, the dithering reads as noise to it). Trimmed
-// ICON pieces (the coin) stay PNG: they are copied into assets/Icons/.
+// ICON pieces (the coin) stay PNG in assets/Icons/. Full-resolution masters
+// live in art-source/paintings/raw/.
 //
 // Reads OPENAI_API_KEY from ~/.env (or the environment), renders each piece at
 // 1536x1024, then downscales to 512px wide (the size the dialogs lazy-load)
@@ -22,7 +23,12 @@ const { execFileSync } = require('child_process');
 
 const ART_WEBP_QUALITY = 85;
 const OUT_DIR = path.join(__dirname, '..', 'assets', 'art');
-const RAW_DIR = path.join(OUT_DIR, 'raw');
+const SOURCE_DIR = path.join(__dirname, '..', 'art-source', 'paintings');
+const RAW_DIR = path.join(SOURCE_DIR, 'raw');
+function outputPath(name, trim) {
+  if (name === 'coin_icon') return path.join(__dirname, '..', 'assets', 'Icons', 'coin.png');
+  return path.join(OUT_DIR, `${name}.${trim ? 'png' : 'webp'}`);
+}
 
 const STYLE =
   'Detailed 16-bit pixel art storybook illustration for a cozy village-rebuilding RPG. ' +
@@ -114,8 +120,8 @@ const PIECES = {
     'humming, the arrow in flight, warm light.'),
   // The ONE money icon: a single JADE coin on transparency. Not a banner -
   // generated large, trimmed to its opaque bounds, downscaled to a 64px
-  // master (assets/art is for banners; the runtime copies live under
-  // assets/Icons/ - see tools/gen_story_art.js --coin). Green on purpose:
+  // runtime icon (assets/art is for banners; the coin lives under
+  // assets/Icons/ - run tools/gen_story_art.js coin_icon). Green on purpose:
   // the ore ladder already owns orange (copper, gold), grey (iron,
   // platinum), red (crimson) and blue (frost), and a gold coin read as a
   // copper one. No ore is green, so the money can't be taken for a metal.
@@ -364,7 +370,8 @@ async function generate(key, name, piece) {
 }
 
 function downscale(rawPath, name, width, colors, trim, aspect) {
-  const outPath = path.join(OUT_DIR, `${name}.${trim ? 'png' : 'webp'}`);
+  const outPath = outputPath(name, trim);
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
   // The piece's own width (512 for banners, 640 for the fullscreen backdrop),
   // then quantize: pixel art survives palette reduction intact (the clusters
   // ARE the palette), and it lands a banner near the ~60-80KB of the original
@@ -413,7 +420,7 @@ else:
 (async () => {
   const args = process.argv.slice(2);
   const force = args.includes('--force');
-  // --reprocess: skip the API entirely, re-downscale from assets/art/raw/.
+  // --reprocess: skip the API, re-downscale from art-source/paintings/raw/.
   const reprocess = args.includes('--reprocess');
   const only = args.filter(a => !a.startsWith('--'));
   fs.mkdirSync(RAW_DIR, { recursive: true });
@@ -424,16 +431,11 @@ else:
     const piece = typeof PIECES[name] === 'string'
       ? { subject: PIECES[name], size: '1536x1024', width: 512 }
       : PIECES[name];
-    const outPath = path.join(OUT_DIR, `${name}.${piece.trim ? 'png' : 'webp'}`);
+    const outPath = outputPath(name, piece.trim);
     if (!force && !reprocess && fs.existsSync(outPath)) { console.log(`skip ${name} (exists)`); continue; }
     const rawPath = path.join(RAW_DIR, `${name}.png`);
     const raw = reprocess ? rawPath : await generate(key, name, piece);
     const out = downscale(raw, name, piece.width, piece.colors, piece.trim, piece.aspect);
-    // The coin's runtime slot is the Icons tree (the art/ copy is just the
-    // generator's outbox); land it there too so a regen can't drift.
-    if (name === 'coin_icon') {
-      fs.copyFileSync(out, path.join(__dirname, '..', 'assets', 'Icons', 'coin.png'));
-    }
     const kb = Math.round(fs.statSync(out).size / 1024);
     console.log(`ok (${kb}KB)`);
     // Gentle pacing: the images endpoint rate-limits bursty accounts.

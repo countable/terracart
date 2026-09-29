@@ -1778,8 +1778,8 @@ class MapScene extends Phaser.Scene {
     // + frame come from CROP_SPRITE.mushroom so the inventory icon stays
     // glued to whatever the world renderer is drawing.
     window.ITEM_DATA_URLS.mushroom  = bakeSheetFrame(
-      CROP_SPRITE.mushroom?.sheet ?? 'mushroom_world',
-      CROP_SPRITE.mushroom?.frame ?? 0, 16, 16);
+      CROP_SPRITE.mushroom.sheet,
+      CROP_SPRITE.mushroom.frame, 16, 16);
     // Wood — inventory uses frame 2 (the third / "amber" log variant
     // of the three). Ground stacks pick a frame based on the stack's
     // qty (see render.js groundstack branch).
