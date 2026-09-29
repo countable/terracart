@@ -1513,6 +1513,31 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
+    // ONE RETRY PER FAILED ASSET. A cold boot fetches the whole catalog at
+    // once — and right after a deploy the service worker's new shell cache is
+    // empty, so every sheet goes to the network in one burst. A single request
+    // that dies there comes back as the worker's 504, and a sheet that never
+    // loaded is not just a grey block: an animation built from it has NO
+    // FRAMES, and playing it throws in Phaser's getFirstTick ("undefined is
+    // not an object (evaluating 't.currentFrame.duration')" — the whole boot
+    // dies on the player's idle-down). So a failed catalog file is queued
+    // again, once, with a cache-busting query so it cannot be answered by the
+    // same failed lookup. The key (and so the filecomplete-* onLoad hook, and
+    // everything that draws by it) is unchanged. create() still guards the
+    // animations against a sheet that fails twice (_createAnim).
+    const retried = new Set();
+    this.load.on('loaderror', (file) => {
+      const a = typeof ASSETS !== 'undefined' ? ASSETS[file.key] : null;
+      if (!a || retried.has(file.key)) return;
+      retried.add(file.key);
+      const url = a.path + (a.path.includes('?') ? '&' : '?') + 'retry=1';
+      console.warn(`asset ${file.key} failed to load; retrying once`);
+      if (a.kind === 'spritesheet') {
+        this.load.spritesheet(file.key, url, { frameWidth: a.frameWidth, frameHeight: a.frameHeight });
+      } else if (a.kind === 'image') {
+        this.load.image(file.key, url);
+      }
+    });
     // Relic / armor icons (7 tiers × 7 slots + extras) are NOT preloaded — they
     // only ever appear inside DOM modals via `<img src="${gearAssetPath(...)}">`,
     // so the browser fetches each one on demand and caches it. Eagerly loading
@@ -2511,23 +2536,23 @@ class MapScene extends Phaser.Scene {
 
     // Animations — Idle.png: 4 cols × 3 rows; Walk.png: 6 cols × 3 rows
     // Row 0 = facing down, row 1 = facing up, row 2 = facing side (right; flip for left)
-    this.anims.create({ key: 'idle-down', frames: this.anims.generateFrameNumbers('idle', { start: 0,  end: 3  }), frameRate: 6,  repeat: -1 });
-    this.anims.create({ key: 'idle-up',   frames: this.anims.generateFrameNumbers('idle', { start: 4,  end: 7  }), frameRate: 6,  repeat: -1 });
-    this.anims.create({ key: 'idle-side', frames: this.anims.generateFrameNumbers('idle', { start: 8,  end: 11 }), frameRate: 6,  repeat: -1 });
-    this.anims.create({ key: 'walk-down', frames: this.anims.generateFrameNumbers('walk', { start: 0,  end: 5  }), frameRate: 10, repeat: -1 });
-    this.anims.create({ key: 'walk-up',   frames: this.anims.generateFrameNumbers('walk', { start: 6,  end: 11 }), frameRate: 10, repeat: -1 });
-    this.anims.create({ key: 'walk-side', frames: this.anims.generateFrameNumbers('walk', { start: 12, end: 17 }), frameRate: 10, repeat: -1 });
+    this._createAnim('idle-down', 'idle', 0, 3, 6);
+    this._createAnim('idle-up', 'idle', 4, 7, 6);
+    this._createAnim('idle-side', 'idle', 8, 11, 6);
+    this._createAnim('walk-down', 'walk', 0, 5, 10);
+    this._createAnim('walk-up', 'walk', 6, 11, 10);
+    this._createAnim('walk-side', 'walk', 12, 17, 10);
     // Dragon transform — single non-directional flap, mirrored by heading in
     // _playDirected (the art faces right at rest). Used for both idle and fly.
-    this.anims.create({ key: 'dragon-fly', frames: this.anims.generateFrameNumbers('dragon', { start: 0, end: 7 }), frameRate: 10, repeat: -1 });
-    this.anims.create({ key: 'chicken-idle', frames: this.anims.generateFrameNumbers('chicken', { start: 0, end: 1 }), frameRate: 3, repeat: -1 });
-    this.anims.create({ key: 'cow-idle',     frames: this.anims.generateFrameNumbers('cow',     { start: 0, end: 3 }), frameRate: 4, repeat: -1 });
+    this._createAnim('dragon-fly', 'dragon', 0, 7, 10);
+    this._createAnim('chicken-idle', 'chicken', 0, 1, 3);
+    this._createAnim('cow-idle', 'cow', 0, 3, 4);
     // Cat / dog idle — row 0 (frames 0-3) of their 4×N pet body sheets. The
     // renderer's cat/dog branch calls s.play('{kind}-idle'); without these
     // anims defined, leftover chicken/cow-idle from the pooled sprite kept
     // re-stamping the wrong texture onto cats and dogs.
-    this.anims.create({ key: 'cat-idle', frames: this.anims.generateFrameNumbers('cat', { start: 0, end: 3 }), frameRate: 4, repeat: -1 });
-    this.anims.create({ key: 'dog-idle', frames: this.anims.generateFrameNumbers('dog', { start: 0, end: 3 }), frameRate: 4, repeat: -1 });
+    this._createAnim('cat-idle', 'cat', 0, 3, 4);
+    this._createAnim('dog-idle', 'dog', 0, 3, 4);
 
     // Player sprite
     // Player sprite — not interactive so taps on it fall through to the world
@@ -6019,6 +6044,25 @@ class MapScene extends Phaser.Scene {
   // viewport centre; a peek slides them off it by the drag. Everything drawn AT
   // the player rather than at a world position (the sprite and its shadow /
   // halo / arrow / swing) reads its centre from here — never viewCenterX/Y.
+  // A looping animation over frames [start, end] of `texKey`'s sheet — or
+  // NONE, when that sheet has no frames to give (it failed to load even after
+  // preload's one retry). Phaser builds an animation with an empty frame list
+  // happily and then throws the moment anything plays it (getFirstTick reads
+  // frames[0].duration), which killed the whole boot on the player's
+  // idle-down. A missing key, by contrast, is a no-op in play(): the sprite
+  // keeps whatever frame it has. So a sheet that is not there costs its art,
+  // never the game.
+  _createAnim(key, texKey, start, end, frameRate) {
+    const frames = this.textures.exists(texKey)
+      ? this.anims.generateFrameNumbers(texKey, { start, end }) : [];
+    if (!frames.length) {
+      console.warn(`animation ${key}: sheet ${texKey} has no frames — not created`);
+      return false;
+    }
+    this.anims.create({ key, frames, frameRate, repeat: -1 });
+    return true;
+  }
+
   playerScreen() {
     const k = CELL_PX / this.cellM;
     return {
