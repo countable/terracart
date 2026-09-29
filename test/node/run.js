@@ -1563,6 +1563,22 @@ ctx.__tests.push({ name: 'zone variants: generated browser data matches the cano
       if (r.violations.length) throw new Error(r.violations.join('; '));
     } });
   }
+  // Every opted-in direction/state must address real artwork, not blank
+  // packing cells. Check decoded source art once per texture sheet.
+  const directionalSheets = new Set();
+  for (const art of Object.values(require('../../src/sprite_layout.js').CREATURE_ART)) {
+    if (!art.directions || directionalSheets.has(art.sheet)) continue;
+    directionalSheets.add(art.sheet);
+    ctx.__tests.push({ name: `enemy directional art: ${art.sheet}`, fn: () => {
+      const sheet = audit.ASSETS[art.sheet];
+      const image = audit.loadPng(sheet.path);
+      const frames = new Set(Object.values(art.directions).flatMap(states => Object.values(states).flat()));
+      for (const frame of frames) {
+        const ink = audit.frameInk(image, sheet.frameWidth, sheet.frameHeight, frame);
+        if (!ink || !ink.opaque || ink.colours < 2) throw new Error(`${art.sheet} frame ${frame} has no complete artwork`);
+      }
+    } });
+  }
   // …and the fruit-tree crowns the fruit overlay hangs off: re-derived from
   // the PNGs, so repainted tree art can't leave a bearing tree's fruit stuck
   // on its trunk or floating over its canopy.

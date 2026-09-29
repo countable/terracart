@@ -395,6 +395,22 @@
   // New art consists of four 16px idle frames. Bounds measured from frame 0;
   // the audit checks these against the shipped pixels. Old 32px goblins and
   // purple slime retain their existing geometry and animation.
+  // Opt-in layouts, verified against the supplied sheets. Their side poses
+  // face opposite ways: the 16px families face left, goblins face right.
+  // Never infer direction support from image dimensions or frame count.
+  const frameRun = (start, count) => Array.from({ length: count }, (_, i) => start + i);
+  const CREATURE_DIRECTION_LAYOUTS = {
+    enemy48: { directionSideFacing: 'left', directions: {
+      down: { idle: frameRun(0, 4), move: frameRun(12, 4), attack: frameRun(24, 4) },
+      side: { idle: frameRun(4, 4), move: frameRun(16, 4), attack: frameRun(28, 4) },
+      up:   { idle: frameRun(8, 4), move: frameRun(20, 4), attack: frameRun(32, 4) },
+    } },
+    goblin18: { directionSideFacing: 'right', directions: {
+      down: { idle: [0], move: frameRun(0, 6) },
+      up:   { idle: [6], move: frameRun(6, 6) },
+      side: { idle: [12], move: frameRun(12, 6) },
+    } },
+  };
   const enemyBounds = { slime: [5, 16], cave_slime: [5, 16], bat: [3, 11],
     vampire_bat: [3, 11], spider: [1, 16], poison_spider: [1, 16],
     ghost: [1, 15], pink_ghost: [1, 15] };
@@ -420,6 +436,7 @@
         float: flying ? 6 : 0, airborne: flying,
         ...(ghost ? { hop: true, hopMs: 1600, hopPx: 3,
           alpha: GHOST_ALPHA, glow: GHOST_GLOW } : {}) };
+    Object.assign(CREATURE_ART[row.id], CREATURE_DIRECTION_LAYOUTS[row.art.directionLayout]);
     CREATURE_ART[row.id].tint = row.tint ? parseInt(row.tint.slice(1), 16) : 0xffffff;
   }
   const _giantArt = {};
@@ -646,7 +663,12 @@
   function creatureFrameMs(kind) { return creatureArt(kind)?.frameMs ?? 0; }
   // A timed attack may select an authored cycle; other creatures keep their
   // existing idle cycle. Both clocks are performance.now() in the sim/render.
-  function creatureCycleFrame(c, now) {
+  function legacyCreatureFrame(c, now) {
+    const hopRow = creatureHopRow(c.kind);
+    const tStep = hopRow && c._stepT0 != null ? now - c._stepT0 : -1;
+    const stepping = tStep >= 0 && tStep < (c._hopMs || 0)
+      && (c._targetX !== c._startX || c._targetY !== c._startY);
+    if (stepping) return hopRowFrame(hopRow, tStep + (c._hopSeed ?? 0));
     const art = creatureArt(c.kind);
     const frameMs = art?.frameMs ?? 0;
     const tick = frameMs ? Math.floor(now / frameMs) : 0;
@@ -657,6 +679,39 @@
     }
     return attack ? attack[tick % attack.length] : tick % (art?.frames ?? 1);
   }
+
+  // A stopped creature keeps its last facing. Motion is stamped by the sim
+  // only after a displacement succeeds; aiming may turn without walking.
+  const CREATURE_MOVE_GRACE_MS = 200;
+  function faceCreature(c, dx, dy) {
+    if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.hypot(dx, dy) < 1e-6) return false;
+    c._facing = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
+    if (Math.abs(dx) > 1e-6) c._faceFlip = dx < 0;
+    return true;
+  }
+  function updateCreatureFacing(c, dx, dy, now) {
+    if (faceCreature(c, dx, dy)) c._moveUntil = now + CREATURE_MOVE_GRACE_MS;
+  }
+  function creatureAppearance(c, now) {
+    const art = creatureArt(c.kind);
+    const facing = c._facing || 'down';
+    const side = facing === 'left' || facing === 'right';
+    const directional = art?.directions?.[side ? 'side' : facing];
+    // Missing poses keep the existing animation and horizontal mirroring.
+    if (!directional) return { frame: legacyCreatureFrame(c, now), flipX: !!c._faceFlip };
+    const attacking = now < (c._attackUntil ?? 0) && directional.attack?.length;
+    const moving = now < (c._moveUntil ?? 0);
+    const frames = (attacking ? directional.attack : moving ? directional.move : null)
+      || directional.idle;
+    if (!frames?.length) return { frame: legacyCreatureFrame(c, now), flipX: !!c._faceFlip };
+    let index = art.frameMs ? Math.floor(now / art.frameMs) % frames.length : 0;
+    if (attacking && c._attackT0 != null && c._attackUntil > c._attackT0) {
+      const progress = Math.max(0, (now - c._attackT0) / (c._attackUntil - c._attackT0));
+      index = Math.min(frames.length - 1, Math.floor(progress * frames.length));
+    }
+    return { frame: frames[index], flipX: side && facing !== art.directionSideFacing };
+  }
+  function creatureCycleFrame(c, now) { return creatureAppearance(c, now).frame; }
 
   function creatureHops(kind) { return !!creatureArt(kind)?.hop; }
   // The code bounce a hopping kind wears: { ms, px } (null if it doesn't).
@@ -774,6 +829,7 @@
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
     creaturePrey, creatureDrop, creatureProduce, creatureCatchMul, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
+    creatureAppearance, faceCreature, updateCreatureFacing, CREATURE_DIRECTION_LAYOUTS,
     creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHops, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,

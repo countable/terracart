@@ -248,7 +248,7 @@ test('frost: a frozen creature is skipped in the wander step before it can hit o
   assert.truthy(gate < w.search(/if \(c\.kind === 'slime' && !isTame && !unnoticed[^)]*\) \{/), 'before the slime leech');
   assert.truthy(gate < w.search(/if \(Combat\.isMonster\(c\.kind\) && !isTame && !unnoticed[^)]*\) \{/), 'before the monster drain');
   assert.truthy(gate < w.indexOf('if (now >= c._nextChooseT) {'), 'before the step is chosen');
-  assert.truthy(gate < w.indexOf('c.x = c._startX + (c._targetX - c._startX) * u;'), 'before the hop is interpolated');
+  assert.truthy(gate < w.indexOf('const nx = c._startX + (c._targetX - c._startX) * u;'), 'before the hop is interpolated');
   // The ice tint rides the same flag.
   assert.truthy(typeof FROZEN_TINT === 'number' && FROZEN_TINT !== SHINY_TINT, 'FROZEN_TINT is its own colour');
 });

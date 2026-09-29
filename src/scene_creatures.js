@@ -2227,11 +2227,15 @@ class SceneCreatures {
         const pause = sprinting ? bolt.pauseMs : (gait ? gait.pauseMs : null);
         const pauseMs = pause ? pause[0] + Math.random() * pause[1] : 0;
         c._nextChooseT = now + stepMs + pauseMs;
-        c._faceFlip = (c._targetX - c._startX) < 0;
+        if (!EnemyRoster.get(c.kind)) c._faceFlip = (c._targetX - c._startX) < 0;
       }
       const u = Math.min(1, (now - c._stepT0) / (c._hopMs || STEP_MS));
-      c.x = c._startX + (c._targetX - c._startX) * u;
-      c.y = c._startY + (c._targetY - c._startY) * u;
+      const nx = c._startX + (c._targetX - c._startX) * u;
+      const ny = c._startY + (c._targetY - c._startY) * u;
+      // Released enemies use the ordinary pet step lane, but keep their
+      // directional art. NPCs and other fauna retain their existing facing.
+      if (EnemyRoster.get(c.kind)) SpriteLayout.updateCreatureFacing(c, nx - c.x, ny - c.y, now);
+      c.x = nx; c.y = ny;
     });
     this._foeHeadsUp?.(interestedFoeM, now);
     // One throttled flash for everything the slimes drained this window, so a

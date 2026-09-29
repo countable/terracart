@@ -30,8 +30,8 @@ test('enemy art: rooted plant keeps its ground line and plays a complete bite be
 });
 
 test('enemy art: timed attacks do not change existing idle cycles without attack artwork', () => {
-  const slime = { kind: 'slime', _attackT0: 0, _attackUntil: 10000 };
-  const art = SpriteLayout.creatureArt('slime');
+  const slime = { kind: 'purple_slime', _attackT0: 0, _attackUntil: 10000 };
+  const art = SpriteLayout.creatureArt('purple_slime');
   assert.eq(SpriteLayout.creatureCycleFrame(slime, art.frameMs * 3), 3);
   assert.eq(SpriteLayout.creatureCycleFrame({ kind: 'unknown' }, 1000), 0);
 });

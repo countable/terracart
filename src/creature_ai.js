@@ -662,8 +662,8 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
   // crosses INTO a major road's kerb buffer (THE KERB). One already inside
   // (risen before the rule, or routed through it) may still leave.
   if (inKerbAt(scene, nx, ny) && !inKerbAt(scene, c.x, c.y)) return null;
+  SpriteLayout.updateCreatureFacing(c, nx - c.x, ny - c.y, now);
   c.x = nx; c.y = ny;
-  if (Math.abs(Math.cos(ang)) > 1e-6) c._faceFlip = Math.cos(ang) < 0;
   if (warded) return null;
   return Math.hypot(px - c.x, py - c.y) <= GHOST_TOUCH_CELLS * scene.cellM ? 'touch' : null;
 }
@@ -809,17 +809,19 @@ function enemyCanStep(scene, c, row, x, y) {
   const fireAverts = !c.lair && (row.tier <= FIRE_WARD_MAX_DEPTH);
   return !(fireAverts && scene._nearAny?.('fires', x, y, FIRE_REST_R));
 }
-function enemySweep(scene, c, row, x, y) {
+function enemySweep(scene, c, row, x, y, now = performance.now()) {
   const dx = x - c.x, dy = y - c.y;
   const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (scene.cellM * 0.2)));
   const sx = c.x, sy = c.y;
+  let clear = true;
   for (let i = 1; i <= n; i++) {
     const nx = sx + dx * i / n, ny = sy + dy * i / n;
-    if (!enemyCanStep(scene, c, row, nx, ny)) return false;
+    if (!enemyCanStep(scene, c, row, nx, ny)) { clear = false; break; }
     c.x = nx; c.y = ny;
   }
-  if (Math.abs(dx) > 1e-6) c._faceFlip = dx < 0;
-  return true;
+  // A blocked sweep can still advance partway. Face only its accepted motion.
+  SpriteLayout.updateCreatureFacing(c, c.x - sx, c.y - sy, now);
+  return clear;
 }
 
 // A wind-up is cancellable: leaving range, hiding or a ward cancels it.
@@ -862,7 +864,9 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt) {
     }
   }
   if (row.attackType === 'trap') {
-    if (enemyAttackReady(c, row, now, clear && dist <= row.range * scene.cellM)) {
+    const ready = enemyAttackReady(c, row, now, clear && dist <= row.range * scene.cellM);
+    if (ready || c._attackWindupUntil != null) SpriteLayout.faceCreature(c, px - c.x, py - c.y);
+    if (ready) {
       scene._trapperLay(c, now, px, py);
     }
     return;
@@ -871,7 +875,9 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt) {
   const swoop = row.movement.pattern === 'orbit_swoop';
   const eligible = clear && dist <= row.range * scene.cellM
     && (!swoop || (c._batSwooping && !c._batHit));
-  if (!enemyAttackReady(c, row, now, eligible)) return;
+  const ready = enemyAttackReady(c, row, now, eligible);
+  if (ready || c._attackWindupUntil != null) SpriteLayout.faceCreature(c, px - c.x, py - c.y);
+  if (!ready) return;
   c._attackT0 = now;
   c._attackUntil = now + Math.max(600, row.windupSeconds * 1000);
   const raw = row.dmg * Combat.powerMul(c);
@@ -957,6 +963,7 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
       return;
     } else if (now >= (c._lungeNextT || 0)) {
       c._lungeWindupUntil = now + m.lungeWindupSeconds * 1000;
+      SpriteLayout.faceCreature(c, px - c.x, py - c.y);
       return;
     }
   } else if (m.pattern === 'ooze' && slimeCharging(c)) {
@@ -965,7 +972,7 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
   if (c._attackWindupUntil != null && !routed) return;
   const step = Math.min(maxDistance, speed * dt);
   const sx = c.x, sy = c.y;
-  if (!enemySweep(scene, c, row, c.x + Math.cos(angle) * step, c.y + Math.sin(angle) * step)) {
+  if (!enemySweep(scene, c, row, c.x + Math.cos(angle) * step, c.y + Math.sin(angle) * step, now)) {
     // Slide around a blocked approach without spending a second frame's
     // movement budget. Stable handedness prevents left/right jitter.
     const remaining = Math.max(0, step - Math.hypot(c.x - sx, c.y - sy));
@@ -974,7 +981,7 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
       const a = angle + side * Math.PI / 2;
       const x = c.x + Math.cos(a) * remaining, y = c.y + Math.sin(a) * remaining;
       if (!enemyCanStep(scene, c, row, x, y)) continue;
-      enemySweep(scene, c, row, x, y); c._avoidSide = side; break;
+      enemySweep(scene, c, row, x, y, now); c._avoidSide = side; break;
     }
   }
 }
@@ -984,7 +991,7 @@ function enemyBatMove(scene, c, row, now, px, py) {
   if (c._batFlight) {
     const f = c._batFlight;
     const u = creatureFlightEase((now - f.start) / f.duration);
-    const clear = enemySweep(scene, c, row, f.x + (f.tx - f.x) * u, f.y + (f.ty - f.y) * u);
+    const clear = enemySweep(scene, c, row, f.x + (f.tx - f.x) * u, f.y + (f.ty - f.y) * u, now);
     if (!clear || now >= f.start + f.duration) {
       c._batFlight = null;
       c._batPauseUntil = now + (m.pauseSeconds[0]
