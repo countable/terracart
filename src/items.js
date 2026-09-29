@@ -1427,15 +1427,11 @@ const RELIC_DEFS = {
              effectKey: 'bugCatch',  blurb: 'catch + hunt animals faster' },
   // Fishing Rod — standard 32×16 weapon sheet per tier folder.
   // NOT a gate, the way the net stopped being one: a bare-handed cast works
-  // (interact.js 'fishing'), it just runs 9 s instead of 3, costs double and
-  // skunks nine casts in ten. What the tier buys is the catch table, the
-  // strike rate and the energy per cast, so 'catch fish from water' described
-  // a permission the rod does not grant. The blurb names the bare-handed
-  // CEILING rather than the ladder (which fish arrives at which tier is the
-  // Book's — a ✦ row cannot carry five species), because that ceiling is what
-  // tells the player a rod is worth buying at all.
+  // (interact.js 'fishing'), it just runs 9 s instead of 3 and costs more.
+  // What the tier buys is the energy per cast and the landing: a fish above
+  // the rod's tier may get away (fishCatchChance), so the blurb says that.
   rod:     { slot: 'rod',    name: 'Fishing Rod', icon: 'Fishing Rod.png', baseCost: 90,
-             effectKey: 'fishing',   blurb: 'quicker, cheaper casts — bare hands land only minnows' },
+             effectKey: 'fishing',   blurb: 'bare hands cast too; fewer big fish get away' },
   // Bags — raise the per-stack inventory cap (STACK_CAP_BY_TIER below).
   // Icon lives under Extras (single image, tier shown via badge).
   bags:    { slot: 'bags',   name: 'Bag',         icon: 'Bags.png',        baseCost: 70,
@@ -1616,10 +1612,10 @@ function effectiveCatchCost(relics, rng) {
 // (interact.js 'fishing') spends and flashes; the numbers are here so they can
 // be read and tested without a scene.
 //
-// A cast on a stocked spot (fishSpotStocked below) ALWAYS lands its one fish,
-// drawn from the species at or below the rod's tier (FISH_SPECIES / rollFish).
-// Scarcity is the spots, not the strike: there is no whiff, and junk, slimes
-// and treasure come only from empty casts (rollEmptyCast). Cast TIME is locked
+// A cast on a stocked spot (fishSpotStocked below) always hooks its one fish
+// (spotFish); a fish above the rod's tier may get away (fishCatchChance).
+// Scarcity is the spots, not the strike: junk, slimes and treasure come only
+// from empty casts (rollEmptyCast). Cast TIME is locked
 // (9s bare / 3s with any rod — see the handler): tier buys cheaper casts and
 // better fish, never faster ones.
 const FISH_COST_MULT = 2;
@@ -1670,26 +1666,23 @@ function rollTillFind(rng = Math.random) {
   if (r < TILL_FLINT_CHANCE + TILL_ROCK_CHANCE) return { kind: 'item', id: 'rockfruit' };
   return null;
 }
-// The catch table. `minTier` is the rod a species needs before it is IN the
-// water at all — one species per odd tier, so every rod up the ladder opens
-// exactly one new fish and a Frost rod is what the goldenfish is for. `w` is
-// the weight once it is available: base + per × tier, so a species also gets
-// commoner as the rod improves (and the minnow thins out, floored so it never
-// leaves the pool entirely).
+// WHICH fish is in a stocked spot: fixed per spot (spotFish, hashed off the
+// spot id like the stocking), weighted `w` — half of all fish are minnows
+// (4 : 1 : 1 : 1 : 1). A fish's TIER is its BASE_TIER row, the same number the
+// loot picker reads, so the tier the rod is measured against is never retyped.
 const FISH_SPECIES = [
-  { id: 'minnow',     minTier: 0, base: 10,   per: -1.0, floor: 0.5 },
-  { id: 'bass',       minTier: 1, base: 3,    per: 0.5 },
-  { id: 'trout',      minTier: 3, base: 1,    per: 0.5 },
-  { id: 'salmon',     minTier: 5, base: 0.3,  per: 0.3 },
-  { id: 'goldenfish', minTier: 7, base: 0.05, per: 0.15 },
+  { id: 'minnow',     w: 4 },
+  { id: 'bass',       w: 1 },
+  { id: 'trout',      w: 1 },
+  { id: 'salmon',     w: 1 },
+  { id: 'goldenfish', w: 1 },
 ];
-// The weighted pool a rod of this tier is fishing: [{ id, w }], commonest
-// first. Never empty — the minnow's minTier is 0, so bare hands still fish.
-function fishTable(tier) {
-  const t = tier || 0;
-  return FISH_SPECIES
-    .filter((f) => t >= f.minTier)
-    .map((f) => ({ id: f.id, w: Math.max(f.floor ?? 0, f.base + f.per * t) }));
+function fishTier(id) { return BASE_TIER[id] || 1; }
+// Landing it: certain when the rod's tier is at or above the fish's, else
+// halved for every tier the fish is above the rod (0.5 ** gap). A fish that
+// gets away stays in its spot for the next cast.
+function fishCatchChance(id, rodTier) {
+  return Math.pow(0.5, Math.max(0, fishTier(id) - (rodTier || 0)));
 }
 // WHERE the fish are. A water cell either holds ONE fish or none, and nothing
 // on screen says which: FISH_STOCK_CHANCE of cells are stocked, decided by a
@@ -1697,8 +1690,9 @@ function fishTable(tier) {
 // the same tiles has the same secret spots. Landing a fish empties the spot
 // for good — the id joins save.fishedSpots (never capped, never restocked).
 // An empty or fished-out spot casts like any other and is always an empty
-// cast (rollEmptyCast); a stocked one always bites. The starter pond is the exception: its cells are always
-// stocked, since it exists to make the first catch reachable.
+// cast (rollEmptyCast); a stocked one always bites. The starter pond is the
+// exception: its cells are always stocked, since it exists to make the first
+// catch reachable.
 const FISH_STOCK_CHANCE = 1 / 3;
 function fishSpotId(tx, ty, ix, iy) {
   return `fish_${tx}_${ty}_${ix}_${iy}`;
@@ -1706,13 +1700,12 @@ function fishSpotId(tx, ty, ix, iy) {
 function fishSpotStocked(id) {
   return fnv1a(id + '#stock') / 4294967296 < FISH_STOCK_CHANCE;
 }
-// One catch off that pool. `rng` is injected so tests can pin the roll.
-function rollFish(tier, rng) {
-  const table = fishTable(tier);
-  const total = table.reduce((a, b) => a + b.w, 0);
-  let r = ((rng || Math.random)()) * total;
-  for (const f of table) { r -= f.w; if (r <= 0) return f.id; }
-  return table[table.length - 1].id;
+// The species living in a stocked spot — same for every player.
+function spotFish(id) {
+  const total = FISH_SPECIES.reduce((a, f) => a + f.w, 0);
+  let r = fnv1a(id + '#species') / 4294967296 * total;
+  for (const f of FISH_SPECIES) { r -= f.w; if (r < 0) return f.id; }
+  return FISH_SPECIES[FISH_SPECIES.length - 1].id;
 }
 // Fishing Rod: the shared 9/3/1 tool curve × FISH_COST_MULT, so a bare-handed
 // cast expects 18, a Wood rod 6 and a Frost rod 2. The multiplier is fishing's

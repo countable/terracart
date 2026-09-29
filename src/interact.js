@@ -1564,8 +1564,7 @@ const TAP_HANDLERS = [
     const { scene, save, sx, sy, cell } = ctx;
     if (cell.type !== TERRAIN.WATER) return false;
     // No rod? You can still fish BARE-HANDED — it just takes 3× as long. A rod
-    // cheapens the cast and widens the catch table (bare hands land minnows
-    // only), so owning one improves the catch (spec §FISHING).
+    // cheapens the cast and lets fewer big fish get away (spec §FISHING).
     const fishCost = effectiveFishCost(save.relics);
     if (!scene.spendEnergy(fishCost, sx, sy)) return true;
     // Cast time is LOCKED to 9s bare-handed / 3s with any rod — deliberately
@@ -1582,7 +1581,7 @@ const TAP_HANDLERS = [
       const tier = save.relics?.rod?.tier || 0;   // 0 = bare hands (worst odds)
       // An empty or fished-out spot looks and casts like any other and is
       // always an empty cast — the player learns where the fish are by
-      // fishing. A spot still holding its fish ALWAYS gives it up.
+      // fishing. A spot still holding its fish always bites.
       if (!stocked || scene.fishedSpotSet?.has(spotId)) {
         // An EMPTY CAST is not always empty (items.js rollEmptyCast): now and
         // then a treasure roll, a slime, or junk off the bottom.
@@ -1605,10 +1604,13 @@ const TAP_HANDLERS = [
         scene.flashLoot('🎣 nothing biting…', '#888', 0.9);
         return;
       }
-      // Which fish is the ROD's business (items.js FISH_SPECIES): a species
-      // above the rod's tier is not in the pool at all, so bare hands land
-      // minnows and each better rod opens the next fish.
-      const pick = rollFish(tier);
+      // The spot's fish is fixed (items.js spotFish); one above the rod's
+      // tier may get away (fishCatchChance) and stays for the next cast.
+      const pick = spotFish(spotId);
+      if (Math.random() >= fishCatchChance(pick, tier)) {
+        scene.flashLoot(`🐟 ${ITEM_BY_ID[pick]?.name || pick} got away!`, '#ff8a8a', 1, pick);
+        return;
+      }
       scene.fishedSpotSet?.add(spotId);   // one fish a spot, gone for good
       scene.addToInv(pick, 1);
       scene.questEvent?.('fish');     // the castle board's 'Fish for the table'

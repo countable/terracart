@@ -185,8 +185,9 @@ const PLAY_TIPS = [
   'The chest at the heart of a grove or a fuel yard wears a gem one tier finer than its kind, and a churchyard\'s chapel gives a blessing one tier finer.',
   // Fishing: available from the first water tile with nothing in hand, so it
   // is taught here beside the other things already lying around — and what
-  // the ✦ row on the rod cannot carry is which fish arrives at which tier.
-  'A Wood rod puts bass in the water, Iron the trout, Platinum the salmon — and a goldenfish rises for nothing under Frost.',
+  // the ✦ row on the rod cannot carry is the landing rule (items.js
+  // fishCatchChance: each tier the fish is above the rod halves the odds).
+  'A fish finer than your rod can slip the hook — every tier short halves your odds — but it stays where it was, waiting for a better rod.',
   'Now and then a cast hooks a slime instead of a fish. It lands beside you, and it is not happy about it.',
   // items.js rollEmptyCast (FISH_EMPTY_TREASURE_CHANCE: 1 in 50).
   'A cast with nothing biting is not always empty: it can drag up an old boot, a stone or a stick, and about one in fifty brings up treasure.',
@@ -270,7 +271,7 @@ const PLAY_TIPS = [
   // The Training Hall (combat.js TRAINING_*, src/macros.js lesson prices):
   // books.test.js re-derives every number here.
   // macro_poi.test.js pins every quoted number against Combat.
-  'A training hall sells lessons: +1% damage for good each, up to +25%, and every lesson dearer than the last. Or a drill: +10% for a day, one at a time. Both ride on every blow and shot of your own, never a pet\'s.',
+  `A training hall sells lessons: +1% damage for good each, up to +25%. The first costs $${Macros.TRAINING_LESSON_FIRST}, each one after $${Macros.TRAINING_LESSON_STEP} more, up to $${Macros.TRAINING_LESSON_TOP}. Or a drill: +10% for a day, one at a time. Both ride on every blow and shot of your own, never a pet's.`,
   'Worn armour soaks what a blow takes off your bar, and a set stacks: the pool covers half a hit, then half of what is left, four times over. It can never soak a blow to nothing — something always gets through.',
   'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
   'A bow shoots across the street; a staff will not wake for anything further than a single cell past your reach — and underground that shrinks with your lit ring.',

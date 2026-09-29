@@ -769,17 +769,18 @@ FISHING
    bare-handed, 3s with any rod, regardless of tier (an exception to the WORK
    WHEEL ladder — tier-scaled 0.3s casts made high-tier fishing an unbounded
    money faucet).
- - A STOCKED SPOT ALWAYS BITES: a cast there lands its one fish, every time —
-   no whiff, no junk, no slime. Scarcity is the spots, not the strike. Junk,
-   slimes and the treasure roll come only from EMPTY casts (rollEmptyCast).
- - WHICH FISH IS THE ROD'S. Each species carries a minimum rod tier (items.js
-   FISH_SPECIES) and is not in the pool above the rod: minnow bare-handed,
-   bass at Wood, trout at Iron, salmon at Platinum, goldenfish only at Frost.
-   One species per rung, so every rod up the ladder opens exactly one new
-   fish; the weights then make it commoner as the tier climbs (and thin the
-   minnow out). The handler (interact.js 'fishing') reads items.js' FISHING
-   block rather than carrying its own copies. Pinned by
-   test/node/fishing.test.js.
+ - A STOCKED SPOT ALWAYS BITES: no whiff, no junk, no slime. Scarcity is the
+   spots, not the strike. Junk, slimes and the treasure roll come only from
+   EMPTY casts (rollEmptyCast).
+ - WHICH FISH is fixed per spot (items.js spotFish, hashed off the spot id),
+   weighted by FISH_SPECIES: minnow 4, bass / trout / salmon / goldenfish 1
+   each — half of all fish are minnows. A fish's tier is its BASE_TIER
+   (minnow 1, bass 2, trout 3, salmon 4, goldenfish 6).
+ - LANDING IT: certain at a rod tier at or above the fish's, else
+   0.5 ** (fish tier − rod tier) (fishCatchChance; bare hands are tier 0). A
+   fish that gets away says so by name and stays in its spot for the next
+   cast. The handler (interact.js 'fishing') reads items.js' FISHING block
+   rather than carrying its own copies. Pinned by test/node/fishing.test.js.
  - a cast costs the shared 9/3/1 tool curve × FISH_COST_MULT (2) — 18 energy
    bare-handed, 6 with a Wood rod, 2 with a Frost one. The multiplier is
    fishing's own; chop / mine / catch keep the plain curve.

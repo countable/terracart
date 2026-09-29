@@ -10302,13 +10302,17 @@ class MapScene extends Phaser.Scene {
     const drillLine = left > 0
       ? `Today's drill: ${shortDuration(left)} left.`
       : `A drill: +${pct(Combat.TRAINING_BUFF_BONUS)}% for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`;
+    // The bonus in force NOW — lessons plus a running drill — off the one
+    // number _attackMul reads (Combat.trainingMul), so what the hall says is
+    // what every blow gets.
+    const bonus = pct(Combat.trainingMul(this.save) - 1);
     this.showOfferModal({
       ...dress, kind: dress.kind,
       title: 'The master offers training:',
       get: lp != null ? `A lesson: +${pct(Combat.TRAINING_PERM_STEP)}% damage for good`
         : `Fully trained: +${pct(Combat.TRAINING_PERM_CAP)}% for good`,
       cost: lp != null ? this.moneyHTML(lp) : undefined,
-      blurb: `Lessons so far: +${lessons * pct(Combat.TRAINING_PERM_STEP)}% of +${pct(Combat.TRAINING_PERM_CAP)}%. ${drillLine}`,
+      blurb: `Your damage bonus: +${bonus}%. Lessons so far: +${lessons * pct(Combat.TRAINING_PERM_STEP)}% of +${pct(Combat.TRAINING_PERM_CAP)}%. ${drillLine}`,
       canAfford: lp != null && money >= lp,
       acceptLabel: 'Lesson',
       cancelLabel: 'Later',
