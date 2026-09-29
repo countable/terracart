@@ -700,12 +700,12 @@
 
   // ── The families, end to end ─────────────────────────────────────────────
 
-  test('lairs: a real wreck wakes slimes and a real fort or castle wakes goblins', () => {
+  test('lairs: a real wreck wakes slimes, a fort goblins and a castle skeletons', () => {
     // The ladder tests above run kindsAt/kindFor directly; this one drives the
     // shipping wake for each tier so the tier actually REACHES the roll —
     // `cand.tier` comes off the footprint in indexChunk, and a garrison seeded
     // from the wrong one would still look right in every unit test above.
-    const want = { 9: /slime$/, 11: /^goblin/, 12: /^goblin/ };
+    const want = { 9: /slime$/, 11: /^goblin/, 12: /skeleton$/ };
     for (const tier of Lairs.TIERS) {
       // A HELD one — a wreck is a 1-in-3 and this test is about families.
       const entry = mkEntry([mkHeldShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M)]);

@@ -192,8 +192,11 @@
   //   escalation is its COUNT (countFor), not its kind.
   //
   //   A FORT OR A CASTLE IS HELD. A fortification with nobody in it is not
-  //   derelict, it is empty — so what holds a ruined keep is a GARRISON, and
-  //   goblins are the only thing in the game that reads as one. This is the
+  //   derelict, it is empty — so what holds a ruined keep is a GARRISON: a
+  //   fort's is goblins, and a castle's is its old dead (skeletons), so the
+  //   two fortifications never field the same foes (owner's call, Sep 2026).
+  //   The giant skeleton is tinted aged-bone amber (its roster `tint`) so
+  //   the castle's two rungs are not the same pixels. Crossing into goblins is the
   //   line the slimes-all-the-way ladder was drawn to avoid ("a goblin on the
   //   surface is a different decision about where the cave ends"), and the
   //   tier is what makes it safe to cross: a goblin is not loose in the
@@ -203,8 +206,8 @@
   // THE RUNGS ARE EVENLY SPACED, not authored. A ladder is just its kinds in
   // order, weakest first, and rung `i` of `n` unlocks at `i / n` of `t` —
   // which reproduces the thirds the slime ladder used to carry as literals
-  // (0, 0.34, 0.67) — and the three-rung garrison ladder (goblin, archer,
-  // giant skeleton) takes the same thirds for free.
+  // (0, 0.34, 0.67) — and the two-rung garrison ladders (goblin, archer;
+  // skeleton, giant skeleton) take halves for free.
   // Adding a kind re-spaces its own ladder and nothing else.
   //
   // Every kind here must be a registered enemy (Combat.isEnemyKind) or the
@@ -214,8 +217,8 @@
   // rung the player cannot see is not an escalation.
   const KIND_ORDER = {
     9:  ['slime'],                                 // T.BUILDING       — infested (surface kind only)
-    11: ['goblin', 'goblin_archer', 'giant_skeleton'],   // T.BUILDING_MED   — held
-    12: ['goblin', 'goblin_archer', 'giant_skeleton'],   // T.BUILDING_LARGE — held
+    11: ['goblin', 'goblin_archer'],               // T.BUILDING_MED   — held by goblins
+    12: ['skeleton', 'giant_skeleton'],            // T.BUILDING_LARGE — held by the dead
     // A café hoard: its guard is one of the approved surface T3 GIANTS
     // (EnemyRoster rows, variantType 'Giant', not eliteEligible — size never
     // stacks with Elite), never a shiny: a shiny's kill pays the relic-biased
