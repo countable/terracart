@@ -346,7 +346,7 @@
     };
   }
   const CREATURE_ART = {
-    npc:           { sheet: 'npc_0_idle', frames: 6, fw: 48, fh: 48, scale: 0.75, foot: 32 / 48, float: 0, minY: 12, maxY: 32 },
+    npc:           { sheet: 'npc_0_idle', frames: 6, fw: 48, fh: 48, scale: 0.98, foot: 32 / 48, float: 0, minY: 12, maxY: 32 },
     chicken:       { sheet: 'chicken',   anim: 'chicken-idle', fw: 16, fh: 16, scale: 1.20, foot: 16 / 16, float: 0,  minY: 0,  maxY: 16 },
     cow:           { sheet: 'cow',       anim: 'cow-idle',     fw: 32, fh: 32, scale: 1.30, foot: 32 / 32, float: 0,  minY: 13, maxY: 32 },
     cat:           { sheet: 'cat',       anim: 'cat-idle',     fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 18, maxY: 29 },

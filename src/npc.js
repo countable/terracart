@@ -213,7 +213,10 @@ const NPC = (() => {
     return { art: portrait(scene, c), title: talk.title, blurb: talk.body };
   }
   function interact(scene, c, sx, sy) {
-    if (document.querySelector('.game-modal')) return;
+    // A dialog SHOWN, not merely present: index.html's static overlays
+    // (#story, #howto, …) always carry .game-modal and only toggle display,
+    // so a presence test swallowed every tap on every neighbour.
+    if (scene._dialogOpen?.()) return;
     c._moving = false;
     c._npcRestUntil = performance.now() + 12000;
     const talk = dialogue(scene, c);
