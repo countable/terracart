@@ -2141,7 +2141,9 @@ class SceneCreatures {
           const { cellIX, cellIY } = worldMetersToAbsCell(this, tx, ty);
           if (this.placedRockSet && this.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) continue;
           const dest = this.cellAt(tx, ty);
-          if (dest.loaded && Combat.faunaBlocksCell(dest.type)) continue;
+          // A keep's garrison may cross its own floor (Lairs.inOwnKeep).
+          if (dest.loaded && Combat.faunaBlocksCell(dest.type)
+              && !(WorldGen.isBuildingTerrain(dest.type) && Lairs.inOwnKeep(c, tx, ty))) continue;
           // THE KERB (creature_ai.js): nothing wild steps onto a major road's
           // band, and a FAST mover (isFastMover — a foe or an animal over
           // BRISK_WALK_MPS) never steps INTO its kerb buffer from outside it — so no chase ever runs

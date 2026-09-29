@@ -834,19 +834,69 @@
 
   // ── Where they stand ─────────────────────────────────────────────────────
 
-  test('lairs: a garrison is immobile, off the footprint and inside the tile', () => {
-    const entry = mkEntry([mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
+  test('lairs: a garrison is immobile, and a house is ringed but a keep is held from INSIDE', () => {
+    // A wrecked house's slimes sit on a ring just off its footing; a fort's or
+    // a castle's garrison stands in a knot about the footprint's centre
+    // (CORE_SEATED_TIERS) — the keep is walked INTO for the fight.
+    for (const tier of [9, 11, 12]) {
+      const entry = mkEntry([mkHeldShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
+      step(entry, CENTRE);
+      const gs = guardsOf(entry);
+      assert.truthy(gs.length > 0, `tier ${tier}: the ruin woke empty`);
+      const core = Lairs.CORE_SEATED_TIERS.has(tier);
+      for (const g of gs) {
+        assert.truthy(g.immobile === true, 'a guard that can walk is not a garrison');
+        assert.truthy(g.x >= 0 && g.x < TILE_M && g.y >= 0 && g.y < TILE_M,
+          'a guard was seated outside the tile it belongs to');
+        const d = Math.hypot(g.x - g.lairX, g.y - g.lairY);
+        if (core) {
+          assert.lte(d, Lairs.LAIR_CORE_SPREAD_CELLS * CELL_M + 1e-6, `tier ${tier}: a guard outside the knot`);
+          assert.eq(g.aggroCells, Lairs.LAIR_CORE_AGGRO_CELLS, 'a keep notices only the near player');
+        } else {
+          const half = 2 * CELL_M;
+          assert.falsy(Math.abs(g.x - g.lairX) < half && Math.abs(g.y - g.lairY) < half,
+            'a house guard was seated on the building it guards');
+          assert.eq(g.aggroCells, undefined, 'a house keeps the ordinary ring');
+        }
+      }
+    }
+  });
+
+  test('lairs: a keep\'s garrison stands on its own floor, and only its own', () => {
+    // The real grid paints a footprint as building terrain, which the shared
+    // spawn rule refuses — a keep's guard is seated there anyway, and may walk
+    // it (inOwnKeep), while every other building stays solid to it.
+    const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M);
+    const entry = mkEntry([shape]);
+    const r = shape.ring;
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const cx = (x + 0.5) * CELL_M, cy = (y + 0.5) * CELL_M;
+      if (cx > r[0] && cx < r[2] && cy > r[1] && cy < r[5]) entry.grid[y * N + x] = 12;
+    }
     step(entry, CENTRE);
     const gs = guardsOf(entry);
-    assert.truthy(gs.length > 0, 'a castle a kilometre out holds nothing');
+    assert.gt(gs.length, 1, 'the castle holds a garrison');
+    const cells = new Set();
     for (const g of gs) {
-      assert.truthy(g.immobile === true, 'a guard that can walk is not a garrison');
-      assert.truthy(g.x >= 0 && g.x < TILE_M && g.y >= 0 && g.y < TILE_M,
-        'a guard was seated outside the tile it belongs to');
-      const half = 2 * CELL_M;
-      assert.falsy(Math.abs(g.x - CENTRE.x) < half && Math.abs(g.y - CENTRE.y) < half,
-        'a guard was seated on the building it guards');
+      const ix = Math.floor(g.x / CELL_M), iy = Math.floor(g.y / CELL_M);
+      assert.eq(entry.grid[iy * N + ix], 12, 'a castle guard stands on the castle floor');
+      assert.truthy(Lairs.inOwnKeep(g, g.x, g.y), 'and that floor is its own');
+      assert.falsy(Lairs.inOwnKeep(g, g.lairX + g.keepHW + CELL_M, g.lairY), 'past its walls is not');
+      cells.add(`${g.x.toFixed(3)},${g.y.toFixed(3)}`);
     }
+    assert.eq(cells.size, gs.length, 'no two guards stacked on one point');
+    assert.falsy(Lairs.inOwnKeep({ lairX: 0, lairY: 0 }, 0, 0), 'a ringed guard has no floor');
+    assert.truthy(/Lairs\.inOwnKeep\(c, x, y\)/.test(CREATURE_AI_SRC), 'the roster step asks inOwnKeep');
+  });
+
+  test('chase: a keep notices only a player near its knot', () => {
+    const lairR = Lairs.LAIR_CORE_SPREAD_CELLS * CELL_M;
+    const g = { kind: 'skeleton', lair: 'K', lairX: 0, lairY: 0, lairR, seatX: 0, seatY: 0,
+      x: 0, y: 0, aggroCells: Lairs.LAIR_CORE_AGGRO_CELLS };
+    const near = lairR + Lairs.LAIR_CORE_AGGRO_CELLS * CELL_M;
+    assert.eq(Lairs.guardState(g, { x: near - 1, y: 0 }, CELL_M), 'hunt', 'close in, it comes');
+    assert.eq(Lairs.guardState(g, { x: near + 1, y: 0 }, CELL_M), 'hold', 'passing by, it holds');
+    assert.lt(Lairs.LAIR_CORE_AGGRO_CELLS, Lairs.LAIR_AGGRO_CELLS, 'a keep is quieter than a wreck');
   });
 
   test('lairs: NOTHING is seated on a road cell (the shared spawn rule, mask included)', () => {

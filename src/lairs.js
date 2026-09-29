@@ -412,6 +412,17 @@
   // tens of metres across, so a ring measured from the CENTRE would have the
   // player standing on the battlements before anyone looked up.
   const LAIR_AGGRO_CELLS = 6;    // clear of the ruin's edge: the garrison notices
+  // A KEEP'S GARRISON IS INSIDE IT (owner's call, Sep 2026). A fort's goblins
+  // and a castle's skeletons stand in a knot about the footprint's CENTRE,
+  // not on a ring round its walls, and they notice only a player who comes
+  // near THEM — LAIR_CORE_AGGRO_CELLS past the knot, not LAIR_AGGRO_CELLS past
+  // the walls. Walking by a castle is safe; walking into it is the fight.
+  // The knot is LAIR_CORE_SPREAD_CELLS across at most, never wider than the
+  // footprint itself, and its guards may cross their OWN floor (inOwnKeep)
+  // to come out after the player — every other building stays solid to them.
+  const CORE_SEATED_TIERS = new Set([11, 12]);   // T.BUILDING_MED / _LARGE
+  const LAIR_CORE_SPREAD_CELLS = 1.5;
+  const LAIR_CORE_AGGRO_CELLS = 3;
   const LAIR_LEASH_CELLS = 10;   // and this far out it gives up and goes home
   //   IN PRACTICE THE LEASH RARELY BINDS, which is the point: a goblin covers
   // 0.84 m/s against a walking player's 1.4, so a player who simply keeps
@@ -740,7 +751,13 @@
       return entry.grid !== genGrid && entry.grid[at] !== genGrid[at]
         && !WG.isWalkable(entry.grid[at]);
     };
-    const seatR = Math.hypot(cand.halfW, cand.halfH) + LAIR_RING_PAD_CELLS * cellM;
+    // A keep seats inside (CORE_SEATED_TIERS); every other lair on a ring
+    // just off its footprint. seatR is the knot's / ring's radius either way,
+    // and it is the `lairR` both chase rings are offset by.
+    const core = CORE_SEATED_TIERS.has(cand.tier);
+    const seatR = core
+      ? Math.max(0.5 * cellM, Math.min(LAIR_CORE_SPREAD_CELLS * cellM, cand.halfW, cand.halfH))
+      : Math.hypot(cand.halfW, cand.halfH) + LAIR_RING_PAD_CELLS * cellM;
     const C = root.Combat;
     const out = [];
     // A DAILY tier's guard carries the UTC day in its id (see DAILY_TIERS).
@@ -756,11 +773,18 @@
       let seat = null;
       for (let a = 0; a < LAIR_SEAT_TRIES && !seat; a++) {
         const ang = (i / n) * Math.PI * 2 + (rng() - 0.5) * 0.8 + a * 0.7;
-        const r = seatR * (1 + rng() * 0.35);
+        const r = core ? seatR * Math.sqrt(rng()) : seatR * (1 + rng() * 0.35);
         const lx = cand.lx + Math.cos(ang) * r;
         const ly = cand.ly + Math.sin(ang) * r;
         const ix = Math.floor(lx / cellM), iy = Math.floor(ly / cellM);
         if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
+        // A keep's guard stands on its own floor — the one building cell the
+        // shared rule (rightly) refuses everything else — at the exact drawn
+        // point, not the cell centre, or a knot of them would stack into one.
+        if (core && WG.isBuildingTerrain(genGrid[iy * N + ix])) {
+          seat = { x: ox + lx, y: oy + ly, ix, iy };
+          break;
+        }
         // The shared seat rule (WorldGen.isSpawnCell at the guard's own
         // class): road mask included - a guard on the carriageway is the bug
         // CLAUDE.md's road invariant is about - AND outside the major roads'
@@ -774,7 +798,8 @@
         // changed (Sep 2026): the draws are the same, so every seat that
         // passes both rules is the seat it always was.
         if (!WG.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, guardClass)) continue;
-        seat = { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM, ix, iy };
+        seat = core ? { x: ox + lx, y: oy + ly, ix, iy }   // a knot, not a stack
+          : { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM, ix, iy };
       }
       if (!seat) continue;                    // ringed by water / road / building
       if (liveBlocks(seat.ix, seat.iy)) continue; // player overlay: drop, never reroll
@@ -802,6 +827,7 @@
         // from (see LAIR_AGGRO_CELLS).
         immobile: true, lair: cand.sid, lairX: cand.wx, lairY: cand.wy,
         lairR: seatR, seatX: seat.x, seatY: seat.y,
+        ...(core ? { keepHW: cand.halfW, keepHH: cand.halfH, aggroCells: LAIR_CORE_AGGRO_CELLS } : {}),
       });
       // A guard the player wounded and walked away from comes back wounded.
       // Session-only, like every other creature's `_hp` (combat.js) — it is
@@ -810,6 +836,15 @@
       out.push(g);
     }
     return out;
+  }
+
+  // May this guard stand at (x, y) although the cell is a building? Only on
+  // its OWN keep's footprint (its bounding box — keepHW / keepHH, stamped by
+  // garrisonFor for CORE_SEATED_TIERS). Both step paths ask it beside the
+  // fauna rule (Combat.faunaBlocksCell / creature_ai enemyCanStep).
+  function inOwnKeep(c, x, y) {
+    return !!c && c.keepHW > 0 && c.keepHH > 0
+      && Math.abs(x - c.lairX) <= c.keepHW && Math.abs(y - c.lairY) <= c.keepHH;
   }
 
   // The UTC day a DAILY tier's guard rose on (its id — see DAILY_TIERS), or
@@ -860,7 +895,7 @@
     if (noticed !== false) {
       const dx = c.lairX - p.x, dy = c.lairY - p.y;
       const dLair = Math.sqrt(dx * dx + dy * dy) - (c.lairR || 0);
-      if (dLair <= LAIR_AGGRO_CELLS * cellM) return 'hunt';
+      if (dLair <= (c.aggroCells ?? LAIR_AGGRO_CELLS) * cellM) return 'hunt';
       if (c._hunting && dLair <= LAIR_LEASH_CELLS * cellM) return 'hunt';
     }
     if (!Number.isFinite(c.seatX) || !Number.isFinite(c.seatY)) return 'hold';
@@ -1036,13 +1071,14 @@
            LAIR_SLEEP_CELLS - LAIR_LEASH_CELLS > cullCornerCells &&
            // And the leash has to be outside the aggro ring, or a garrison on
            // the boundary would notice and give up on alternate passes.
-           LAIR_LEASH_CELLS > LAIR_AGGRO_CELLS;
+           LAIR_LEASH_CELLS > LAIR_AGGRO_CELLS &&
+           LAIR_LEASH_CELLS > LAIR_CORE_AGGRO_CELLS;
   }
 
   root.Lairs = {
     LAIR_MAX_PER_STRUCTURE, LAIR_SLACK,
     LAIR_WAKE_CELLS, LAIR_SLEEP_CELLS, LAIR_LIVE_MAX, LAIR_BUCKET_CELLS,
-    LAIR_RING_PAD_CELLS, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
+    LAIR_RING_PAD_CELLS, CORE_SEATED_TIERS, LAIR_CORE_SPREAD_CELLS, LAIR_CORE_AGGRO_CELLS, inOwnKeep, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
     LAIR_AGGRO_CELLS, LAIR_LEASH_CELLS, LAIR_SEAT_EPS_CELLS,
     OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, tileHeldExpected, guardState,
     TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, GATE_TIER_GUARDS, DAILY_TIERS, dailyGuardDay, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, MODE_SCALED_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
