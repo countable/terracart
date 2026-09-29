@@ -1141,6 +1141,7 @@
           <button id="debug-clear-relics">Remove all relics</button>
           <button id="debug-wood-relics">All wood relics (T1)</button>
           <button id="debug-slime-pack">Call slime pack (6)</button>
+          <button id="debug-dragon-powder">Give 99 Dragon Powder</button>
           <button id="debug-dump-tile">Dump tile (debug)</button>
           <button id="debug-road-ids">Road IDs (debug)</button>
           <button id="debug-variant-labels" aria-pressed="false">Variant labels: off</button>
@@ -1964,6 +1965,16 @@
       e.stopPropagation();
       const m = document.getElementById('menu'); if (m) m.open = false;
       window.__scene?.debugSpawnSlimePack?.(6);
+    });
+    // 99 Dragon Powder — a minute of dragon legs (fast walk) and 2× damage per
+    // use, so a test run can cross the map and clear a fight without farming.
+    document.getElementById('debug-dragon-powder').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (!scene) return;
+      const got = scene.addToInv('dragon_powder', 99, false, { notWild: true });
+      scene.flash?.(got ? `+${got} Dragon Powder` : 'Bag full');
     });
     // Teleport presets — relocate the world origin to a well-mapped suburb to
     // show off OSM features. A preset writes localStorage and reloads so the
