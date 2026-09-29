@@ -102,6 +102,22 @@
     assert.eq(d, POND_MIN_CELLS, 'an unobstructed field seats it on the near edge of the band');
   });
 
+  test('starter pond: all four cells hold a fish, whatever the hash says', () => {
+    // The pond exists so the first catch is reachable; the 1-in-3 secret
+    // stocking (items.js fishSpotStocked) would leave some ponds barren.
+    const scene = makePondScene(N, A);
+    const entry = makeEntry(N);
+    withCache([[0, 0, entry]], () => scene._carveStarterPond(entry, 0, 0));
+    const c = pondCell(scene);
+    for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+      assert.truthy(inStarterPond(scene, { tx: 0, ty: 0, ix: c.cx + dx, iy: c.cy + dy }), `+${dx}+${dy} is pond`);
+    }
+    for (const [dx, dy] of [[-1, 0], [2, 0], [0, -1], [0, 2]]) {
+      assert.falsy(inStarterPond(scene, { tx: 0, ty: 0, ix: c.cx + dx, iy: c.cy + dy }), `+${dx}+${dy} is shore`);
+    }
+    assert.falsy(inStarterPond(Object.assign(scene, { depth: 1 }), { tx: 0, ty: 0, ix: c.cx, iy: c.cy }), 'not below ground');
+  });
+
   test('starter pond: the frozen point is the top-left cell centre, on the tap grid', () => {
     const scene = makePondScene(N, A);
     const entry = makeEntry(N);
