@@ -162,6 +162,81 @@ test('fishing: a rod also makes its own fish commoner', () => {
   assert.lt(share('minnow', 7), share('minnow', 0), 'and the minnow gives way');
 });
 
+// --- Where the fish are ---------------------------------------------------
+// A water cell holds one fish or none (FISH_STOCK_CHANCE, hashed off the
+// tile + local cell id), nothing says which, and landing the fish empties the
+// spot for good (save.fishedSpots).
+
+test('fishing: about one spot in three is stocked, and the same for everyone', () => {
+  let n = 0, stocked = 0;
+  for (let ix = 0; ix < 60; ix++) {
+    for (let iy = 0; iy < 60; iy++) {
+      const id = fishSpotId(5, 7, ix, iy);
+      n++;
+      if (fishSpotStocked(id)) stocked++;
+      assert.eq(fishSpotStocked(id), fishSpotStocked(fishSpotId(5, 7, ix, iy)), 'deterministic');
+    }
+  }
+  assert.inRange(stocked / n, FISH_STOCK_CHANCE - 0.04, FISH_STOCK_CHANCE + 0.04, `share ${stocked}/${n}`);
+  assert.eq(fishSpotId(1, 2, 3, 4), 'fish_1_2_3_4', 'id is tile + local cell');
+});
+
+test('fished spots persist as an id set bound at scene boot', () => {
+  const app = ALL_SRC['app.js'];
+  assert.truthy(app.includes("this.fishedSpotSet = bindIdSet(this.save, 'fishedSpots')"), 'bound');
+  assert.falsy(/'fishedSpots'/.test(ALL_SRC['savemigrate.js'] || ''), 'never capped: gone forever');
+});
+
+(function () {
+  const fishing = TAP_HANDLERS.find((h) => h.name === 'fishing');
+  // First stocked / empty spot on a tile, found through the module's own hash.
+  function spot(want) {
+    for (let ix = 0; ix < 200; ix++) {
+      if (fishSpotStocked(fishSpotId(0, 0, ix, 0)) === want) return ix;
+    }
+    throw new Error('no spot');
+  }
+  function cast(ix, fished, save = {}) {
+    const loot = [], inv = [];
+    const scene = {
+      depth: 0, save,
+      fishedSpotSet: fished,
+      spendEnergy: () => true,
+      startWorkProgress: (_x, _y, done) => done(),
+      flashLoot: (text) => loot.push(text),
+      addToInv: (id) => inv.push(id),
+      spawnFishedSlime: () => false,
+    };
+    const ctx = { scene, save: Object.assign(save, { relics: { rod: { tier: 7 } } }),
+      sx: 0, sy: 0, cwmx: 0, cwmy: 0,
+      cell: { type: TERRAIN.WATER, tx: 0, ty: 0, ix, iy: 0 } };
+    const rnd = Math.random;
+    Math.random = () => 0.99;           // never whiff, never junk
+    try { fishing.try(ctx); } finally { Math.random = rnd; }
+    return { loot, inv };
+  }
+
+  test('fishing: a stocked spot gives one fish, then nothing ever again', () => {
+    const fished = new Set();
+    const ix = spot(true);
+    const first = cast(ix, fished);
+    assert.eq(first.inv.length, 1, 'a fish');
+    assert.truthy(fished.has(fishSpotId(0, 0, ix, 0)), 'the spot is written down');
+    for (let i = 0; i < 5; i++) {
+      const again = cast(ix, fished);
+      assert.eq(again.inv.length, 0, 'fished out');
+      assert.truthy(/nothing biting/.test(again.loot[0]), 'and it reads like any bad cast');
+    }
+  });
+
+  test('fishing: an empty spot never bites, and is not recorded', () => {
+    const fished = new Set();
+    const ix = spot(false);
+    for (let i = 0; i < 5; i++) assert.eq(cast(ix, fished).inv.length, 0, 'no fish here');
+    assert.eq(fished.size, 0, 'nothing to deplete');
+  });
+})();
+
 // --- What the player is told ----------------------------------------------
 
 test('fishing: the Book teaches the ladder, tier by tier', () => {

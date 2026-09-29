@@ -1654,6 +1654,9 @@ class MapScene extends Phaser.Scene {
     // "<depth>:<absCellIX>_<absCellIY>" so the same GPS-mirrored cell can be dug
     // independently on each level. Re-applied to a cave tile's grid on load.
     this.dugWallSet = bindIdSet(this.save, 'dugWalls');
+    // Fishing spots the player has landed a fish from (items.js fishSpotId).
+    // One fish a spot, so a spot in here never bites again — never capped.
+    this.fishedSpotSet = bindIdSet(this.save, 'fishedSpots');
     // Per-save relic salt, mixed into the starter chest's SLOT roll (see
     // _placeStarterRelicChest). World generation is deliberately seedless —
     // everything hashes off location so the world survives tile eviction —

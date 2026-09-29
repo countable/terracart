@@ -1696,6 +1696,21 @@ function fishTable(tier) {
     .filter((f) => t >= f.minTier)
     .map((f) => ({ id: f.id, w: Math.max(f.floor ?? 0, f.base + f.per * t) }));
 }
+// WHERE the fish are. A water cell either holds ONE fish or none, and nothing
+// on screen says which: FISH_STOCK_CHANCE of cells are stocked, decided by a
+// hash of the cell's tile + local cell id (fishSpotId), so every player with
+// the same tiles has the same secret spots. Landing a fish empties the spot
+// for good — the id joins save.fishedSpots (never capped, never restocked).
+// An empty or fished-out spot casts like any other and always comes up
+// "nothing biting". The starter pond is the exception: its cells are always
+// stocked, since it exists to make the first catch reachable.
+const FISH_STOCK_CHANCE = 1 / 3;
+function fishSpotId(tx, ty, ix, iy) {
+  return `fish_${tx}_${ty}_${ix}_${iy}`;
+}
+function fishSpotStocked(id) {
+  return fnv1a(id + '#stock') / 4294967296 < FISH_STOCK_CHANCE;
+}
 // One catch off that pool. `rng` is injected so tests can pin the roll.
 function rollFish(tier, rng) {
   const table = fishTable(tier);

@@ -756,6 +756,16 @@ FISHING
    3×3 and defers (bounded) until the band's tiles have arrived — a plan drawn
    against half a map would seat it wherever loaded first, POI or no POI.
    Pinned by starter_pond.test.js.
+ - FISH LIVE IN SECRET SPOTS (Sep 2026). A water cell holds ONE fish or none:
+   FISH_STOCK_CHANCE (1/3) of cells are stocked, hashed off the cell's tile +
+   local cell id (items.js fishSpotId / fishSpotStocked), so every player with
+   the same tiles has the same spots, and nothing on screen marks them.
+   Landing a fish empties the spot forever: its id joins save.fishedSpots
+   (bindIdSet, never capped). An empty or fished-out spot costs a cast like
+   any other and is always an EMPTY CAST (rollEmptyCast: mostly nothing
+   biting, sometimes junk, a slime or a treasure roll); the strike's jackpot,
+   boot and slime come only from a stocked spot and leave its fish in place.
+   The starter pond's four cells are always stocked (interact.js inStarterPond).
  - tap a WATER cell → the Rod cast wheel, then a weighted catch. Higher rod
    tiers improve the catch and rare odds. Cast TIME is locked: 9s bare-handed,
    3s with any rod, regardless of tier (an exception to the WORK WHEEL ladder
