@@ -1142,6 +1142,7 @@
           <button id="debug-wood-relics">All wood relics (T1)</button>
           <button id="debug-slime-pack">Call slime pack (6)</button>
           <button id="debug-dragon-powder">Give 99 Dragon Powder</button>
+          <button id="debug-nearby-foes">Nearby foes (debug)</button>
           <button id="debug-dump-tile">Dump tile (debug)</button>
           <button id="debug-road-ids">Road IDs (debug)</button>
           <button id="debug-variant-labels" aria-pressed="false">Variant labels: off</button>
@@ -1975,6 +1976,40 @@
       if (!scene) return;
       const got = scene.addToInv('dragon_powder', 99, false, { notWild: true });
       scene.flash?.(got ? `+${got} Dragon Powder` : 'Bag full');
+    });
+    // Nearby foes — every hostile within ~80 m: its kind, where it came from
+    // (the surface roster, a ruin's garrison, a zone guard), whether it is
+    // hidden for this player, and how far it stands from the frozen starter
+    // anchor (the tier bands and lair nerf) and from the live Home (the quiet
+    // home). Answers "why is THAT here?" from the device that sees it.
+    document.getElementById('debug-nearby-foes').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (!scene || !scene.startWorldM || typeof WorldGen === 'undefined') return;
+      const px = scene.startWorldM.x + scene.playerM.x, py = scene.startWorldM.y + scene.playerM.y;
+      const anchor = scene._starterTrailAnchor?.() || null;
+      const home = scene.homeWorldPos?.() || null;
+      const dist = (a, x, y) => (a && Number.isFinite(a.x)) ? Math.round(Math.hypot(x - a.x, y - a.y)) + 'm' : '?';
+      const caught = new Set(scene.save.caught || []);
+      const rows = [];
+      const pc = scene.playerToWorldCell();
+      WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => {
+        if (!c || caught.has(c.id) || !Combat.isEnemyKind(c.kind)) return;
+        const d = Math.hypot(c.x - px, c.y - py);
+        if (d > 80) return;
+        const src = c._surfaceSpawn ? 'roster' : c.zoneVariant ? 'zone' : c.lair ? 'lair' : 'other';
+        const seat = c._surfaceSpawn || (c.lair ? { x: c.lairX, y: c.lairY } : c);
+        rows.push({ d, line: `${c.kind} [${src}${c._surfaceInactive ? ', hidden' : ''}${c.lairMul ? ', x' + c.lairMul.toFixed(2) : ''}] `
+          + `you ${Math.round(d)}m, start ${dist(anchor, seat.x, seat.y)}, home ${dist(home, seat.x, seat.y)}` });
+      });
+      rows.sort((a, b) => a.d - b.d);
+      const out = [
+        `mode ${Difficulty.mode()}, depth ${scene.depth || 0}`,
+        `you: start ${dist(anchor, px, py)}, home ${dist(home, px, py)}; start-home ${home && anchor ? dist(anchor, home.x, home.y) : '?'}`,
+        '', ...(rows.length ? rows.map(r => r.line) : ['no foes within 80m']),
+      ];
+      window.showError?.('NEARBY FOES (copy me)', out.join('\n'));
     });
     // Teleport presets — relocate the world origin to a well-mapped suburb to
     // show off OSM features. A preset writes localStorage and reloads so the
