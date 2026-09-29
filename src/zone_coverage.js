@@ -123,9 +123,14 @@
     f.coverage = coverage;
     return f;
   }
-  // Zone ground owns the full placement union, while built structures and
-  // transport surfaces retain their visible footprint. The old land remains
-  // available to trap-ground rules through the existing underlay ledger.
+  // Zone ground owns the full placement union, while built structures,
+  // transport surfaces AND BEACH SAND retain their visible footprint (T.SAND
+  // — a shore, never a zone's own ground: Scenic's shore-sand cells must keep
+  // reading as sand, not a grove or churchyard — src/scenic.js's shoreSandSteps
+  // comment on Zones.landAt, and the beach measured on Vancouver's Kits /
+  // English Bay used to wear grove ground on ~3/4 of its dry sand before this
+  // exclusion). The old land remains available to trap-ground rules through
+  // the existing underlay ledger.
   function* paintSteps(field, grid, N, pathUnder, roadMask, spawnWhy) {
     if (!field || !field.coverage) return 0;
     const WG = root.WorldGen, T = WG.T, coverage = field.coverage;
@@ -147,12 +152,12 @@
           continue;
         }
         if (code == null) continue;
-        if (WG.isRoadTerrain(here) || WG.isBuildingTerrain(here) || !WG.isWalkable(here) || here === T.PIER) continue;
+        if (WG.isRoadTerrain(here) || WG.isBuildingTerrain(here) || !WG.isWalkable(here) || here === T.PIER || here === T.SAND) continue;
         if (here === T.PATH) {
           const key = `${x}_${y}`;
           if (pathUnder && pathUnder[key] != null) {
             const land = pathUnder[key];
-            if (WG.isWalkable(land) && !WG.isRoadTerrain(land) && !WG.isBuildingTerrain(land) && land !== T.PIER) pathUnder[key] = code;
+            if (WG.isWalkable(land) && !WG.isRoadTerrain(land) && !WG.isBuildingTerrain(land) && land !== T.PIER && land !== T.SAND) pathUnder[key] = code;
           }
           continue;
         }

@@ -1,9 +1,11 @@
 // Themes are tested through the same groups and picker consumed by the game.
 test('chest themes: every authored path terminates and conserves probability', () => {
   assert.truthy(ChestThemes.validate());
-  // 13: the MEMORIAL theme is gone (Sep 2026) — a memorial, monument or
-  // cemetery is a sensitive place that mints no chest (WorldGen.isSensitivePoi).
-  assert.eq(Object.keys(ChestThemes.themes).length, 13);
+  // 14: the MEMORIAL theme is gone (Sep 2026) — a memorial, monument or
+  // cemetery is a sensitive place that mints no chest (WorldGen.isSensitivePoi)
+  // — and VISTA is new (Sep 2026): the viewpoint grail's own T4 pool
+  // (src/chest_themes.js, loot.js chestThemeFor).
+  assert.eq(Object.keys(ChestThemes.themes).length, 14);
   assert.falsy(ChestThemes.themes.memorial, 'no memorial theme');
   for (const theme of Object.keys(ChestThemes.themes)) for (let tier = 1; tier <= 7; tier++) {
     for (const depth of [0, 1]) {
