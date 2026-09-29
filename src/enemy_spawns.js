@@ -42,13 +42,36 @@
     const scale = Math.max(...Object.keys(base).map(t => (band.tierWeights[t] || 0) / base[t]));
     return ((band.tierWeights[tier] || 0) / base[tier]) / scale;
   }
+  // Is this SURFACE FOE here for this player? One lane, several reasons, all
+  // per-player overlays that HIDE a generated foe and never re-roll it:
+  //   a roster spawn (`_surfaceSpawn`) — its habitat's distance band from
+  //     Home, its tier's acceptance there, night-only rows, the pest amnesty;
+  //   a garrison guard (`lair`, lairs.js / zone guards) — the QUIET HOME
+  //     (Difficulty quietHomeM): on easy, nothing but a plain slime is held
+  //     for you within that ring of your Home. A Home effect, so it is off
+  //     the LIVE Home (homeWorldPos, like HOME_R) and there is none without
+  //     one — unlike the tier bands and lairMul, which stay on the frozen
+  //     starter anchor (lairs.test.js pins why). Measured from the RUIN
+  //     (lairX/lairY), so a guard that chases you in does not blink out.
+  // Stamps `_surfaceInactive`, which the draw, the AI and Combat.isEnemy read.
   function surfaceActive(scene, creature) {
     const at = creature?._surfaceSpawn;
-    if (!at) return true;
+    const guard = !at && creature?.lair ? creature : null;
+    if (!at && !guard) return true;
+    let active = true;
+    if (guard) {
+      const quietM = root.Difficulty?.get?.().quietHomeM || 0;
+      const home = quietM > 0 && guard.kind !== 'slime' ? scene?.homeWorldPos?.() : null;
+      if (home && Number.isFinite(home.x) && Number.isFinite(guard.lairX)) {
+        active = Math.hypot(guard.lairX - home.x, guard.lairY - home.y) >= quietM;
+      }
+      creature._surfaceInactive = !active;
+      return active;
+    }
     const row = root.EnemyRoster.get(creature.kind);
     const habitat = row?.surface;
     const home = scene._starterTrailAnchor?.() || scene.save?.starterCratesAt || scene.startWorldM;
-    let active = !!habitat;
+    active = !!habitat;
     if (active && home && Number.isFinite(home.x) && Number.isFinite(home.y)) {
       const distance = Math.hypot(at.x - home.x, at.y - home.y);
       active = distance >= habitat.minDistance && (habitat.maxDistance == null || distance < habitat.maxDistance)

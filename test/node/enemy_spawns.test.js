@@ -65,6 +65,30 @@
     scene._pestFreeZone = () => ({ has: () => true });
     assert.falsy(EnemySpawns.surfaceActive(scene, c), 'tutorial protects against all species');
   });
+  test('enemy spawns: the quiet home hides non-slime garrison guards near Home on easy only', () => {
+    const previous = Difficulty.mode();
+    const scene = { save: {}, startWorldM: { x: 0, y: 0 }, homeWorldPos: () => ({ x: 0, y: 0 }) };
+    const guard = (kind, at) => ({ id: `g_${kind}_${at}`, kind, x: at, y: 0, lair: `L${at}`, lairX: at, lairY: 0 });
+    const quietM = Difficulty.PROFILES.easy.quietHomeM;
+    assert.gt(quietM, 0);
+    try {
+      Difficulty.setMode('easy');
+      const near = guard('goblin', quietM - 1);
+      assert.falsy(EnemySpawns.surfaceActive(scene, near), 'a fort goblin by Home is asleep for you');
+      assert.falsy(Combat.isEnemy(near), 'and cannot be targeted');
+      assert.falsy(EnemySpawns.surfaceActive(scene, guard('giant_skeleton', 10)));
+      assert.truthy(EnemySpawns.surfaceActive(scene, guard('slime', 10)), 'a wreck\'s slimes stay');
+      assert.truthy(EnemySpawns.surfaceActive(scene, guard('goblin', quietM + 1)), 'past the ring the fort is held');
+      const chaser = guard('goblin', quietM + 1);
+      chaser.x = 0;
+      assert.truthy(EnemySpawns.surfaceActive(scene, chaser), 'measured from the ruin, so a chaser does not vanish');
+      scene.homeWorldPos = () => null;
+      assert.truthy(EnemySpawns.surfaceActive(scene, guard('goblin', 10)), 'no Home, no quiet ring');
+      scene.homeWorldPos = () => ({ x: 0, y: 0 });
+      Difficulty.setMode('hard');
+      assert.truthy(EnemySpawns.surfaceActive(scene, guard('goblin', 10)), 'hard has no quiet home');
+    } finally { Difficulty.setMode(previous); }
+  });
   test('enemy spawns: tier thinning matches the declared bands without reseeding identities', () => {
     for (const band of EnemyRoster.SURFACE_TIERS) {
       const accepted = [1, 2, 3].map(tier => EnemySpawns.tierAcceptance(tier, band.minDistance) * EnemyRoster.SURFACE_TIERS.at(-1).tierWeights[tier]);
