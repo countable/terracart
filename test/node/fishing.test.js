@@ -186,3 +186,36 @@ test('fishing: the rod\'s blurb names the bare-handed ceiling', () => {
   assert.lte(blurb.length, 55, 'the ✦ row is one line');
 });
 })();
+
+// --- The empty cast -------------------------------------------------------
+
+test('fishing: an empty cast now and then pays — treasure 1 in 50, a slime, junk', () => {
+  assert.eq(FISH_EMPTY_TREASURE_CHANCE, 1 / 50, 'a treasure roll 1 in 50');
+  assert.lt(FISH_SLIME_CHANCE, FISH_EMPTY_JUNK_CHANCE, 'a slime rarer than junk');
+  const seq = (...v) => { let i = 0; return () => v[i++]; };
+  const t = rollEmptyCast(seq(0, 0.99));
+  assert.eq(t.kind, 'treasure');
+  assert.eq(t.tier, FISH_EMPTY_TREASURE_TIER_MAX, 'the tier is random, up to the chest max');
+  assert.eq(rollEmptyCast(seq(0.5, 0)).kind, 'slime');
+  const j = rollEmptyCast(seq(0.5, 0.5, 0, 0.4));
+  assert.eq(j.kind, 'junk');
+  assert.includes(FISH_EMPTY_JUNK, j.id);
+  assert.eq(rollEmptyCast(seq(0.5, 0.5, 0.5)), null, 'mostly still nothing biting');
+  for (const id of FISH_EMPTY_JUNK) assert.truthy(ITEM_BY_ID[id], `${id} is a real item`);
+  const tiers = new Set(), kinds = {};
+  let r = 1;
+  const rng = () => { r = (r * 16807) % 2147483647; return r / 2147483647; };
+  for (let i = 0; i < 20000; i++) {
+    const e = rollEmptyCast(rng);
+    const k = e ? e.kind : 'none';
+    kinds[k] = (kinds[k] || 0) + 1;
+    if (e && e.kind === 'treasure') tiers.add(e.tier);
+  }
+  assert.inRange(kinds.treasure / 20000, 0.015, 0.025, 'about 1 in 50');
+  assert.eq(tiers.size, FISH_EMPTY_TREASURE_TIER_MAX, 'every chest tier comes up');
+  assert.gt(kinds.none, kinds.junk, 'nothing is still the commonest empty cast');
+  // The handler rolls it on the whiff and pays a treasure through the one lane.
+  assert.truthy(/const empty = rollEmptyCast\(\);/.test(INTERACT_SRC), 'rolled on the whiff');
+  assert.truthy(/grantTreasureRoll\(scene, save, sx, sy, '🎣', FISH_EMPTY_TREASURE_CONTEXT, \{ tier: empty\.tier \}\)/.test(INTERACT_SRC),
+    'the treasure is an ordinary treasure roll');
+});

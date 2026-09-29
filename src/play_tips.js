@@ -188,6 +188,8 @@ const PLAY_TIPS = [
   // the ✦ row on the rod cannot carry is which fish arrives at which tier.
   'A Wood rod puts bass in the water, Iron the trout, Platinum the salmon — and a goldenfish rises for nothing under Frost.',
   'Now and then a cast hooks a slime instead of a fish. It lands beside you, and it is not happy about it.',
+  // items.js rollEmptyCast (FISH_EMPTY_TREASURE_CHANCE: 1 in 50).
+  'A cast with nothing biting is not always empty: it can drag up an old boot, a stone or a stick, and about one in fifty brings up treasure.',
   // ── The village economy, once you have a house to trade with ───
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
   'Addresses ending 2 or 6 are shops. Each one you rebuild sells the next line — seeds, supplies, magic, ore, relics, pets — then round again, a tier up. Endings 1 and 8 are Traders, who barter only.',

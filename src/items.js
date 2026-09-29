@@ -1650,6 +1650,31 @@ const FISH_BOOT_CHANCE = 0.12;      // → an Old Boot (was 0.06)
 // → a wild SLIME on the line: it lands beside the player and charges (app.js
 // fishedSlimeSpawn). Rolled on a strike, after the jackpot and the boot.
 const FISH_SLIME_CHANCE = 0.05;
+// THE EMPTY CAST (Sep 2026, owner's call): a "nothing biting" cast is no
+// longer always nothing. Rolled on the whiff only, in this order:
+//   • FISH_EMPTY_TREASURE_CHANCE (1 in 50) → a treasure roll at a RANDOM
+//     chest tier (FISH_EMPTY_TREASURE_CONTEXT, tier 1..FISH_EMPTY_TREASURE_TIER_MAX),
+//   • FISH_SLIME_CHANCE → a slime on the line (the strike's own slime),
+//   • FISH_EMPTY_JUNK_CHANCE → junk off the bottom (FISH_EMPTY_JUNK: an Old
+//     Boot, a stone, a stick of wood),
+//   • else nothing biting, as before.
+const FISH_EMPTY_TREASURE_CHANCE = 1 / 50;
+const FISH_EMPTY_TREASURE_CONTEXT = 'chest:lowtier';
+const FISH_EMPTY_TREASURE_TIER_MAX = 5;
+const FISH_EMPTY_JUNK_CHANCE = 0.15;
+const FISH_EMPTY_JUNK = ['boot', 'rockfruit', 'wood'];
+// What an empty cast turns up: { kind: 'treasure', tier } | { kind: 'slime' }
+// | { kind: 'junk', id } | null. Pure over `rng`, so tests can drive it.
+function rollEmptyCast(rng = Math.random) {
+  if (rng() < FISH_EMPTY_TREASURE_CHANCE) {
+    return { kind: 'treasure', tier: 1 + Math.floor(rng() * FISH_EMPTY_TREASURE_TIER_MAX) };
+  }
+  if (rng() < FISH_SLIME_CHANCE) return { kind: 'slime' };
+  if (rng() < FISH_EMPTY_JUNK_CHANCE) {
+    return { kind: 'junk', id: FISH_EMPTY_JUNK[Math.floor(rng() * FISH_EMPTY_JUNK.length)] };
+  }
+  return null;
+}
 // The catch table. `minTier` is the rod a species needs before it is IN the
 // water at all — one species per odd tier, so every rod up the ladder opens
 // exactly one new fish and a Frost rod is what the goldenfish is for. `w` is

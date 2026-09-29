@@ -1563,6 +1563,24 @@ const TAP_HANDLERS = [
       // the cap all live in items.js (fishWhiffChance), beside the catch table
       // and the cast's cost, so the four fishing dials read as one set.
       if (Math.random() < fishWhiffChance(tier)) {
+        // An EMPTY CAST is not always empty (items.js rollEmptyCast): now and
+        // then a treasure roll, a slime, or junk off the bottom.
+        const empty = rollEmptyCast();
+        if (empty?.kind === 'treasure') {
+          grantTreasureRoll(scene, save, sx, sy, '🎣', FISH_EMPTY_TREASURE_CONTEXT, { tier: empty.tier });
+          persistSave(save);
+          return;
+        }
+        if (empty?.kind === 'slime' && scene.spawnFishedSlime?.()) {
+          scene.flashLoot('🎣 A slime on the line!', '#ff8a8a', 1.2);
+          return;
+        }
+        if (empty?.kind === 'junk') {
+          scene.addToInv(empty.id, 1);
+          persistSave(save);
+          scene.flashLoot(`🎣 ${ITEM_BY_ID[empty.id]?.name || empty.id}`, '#999', 1, empty.id);
+          return;
+        }
         scene.flashLoot('🎣 nothing biting…', '#888', 0.9);
         return;
       }
