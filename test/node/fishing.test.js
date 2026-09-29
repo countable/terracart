@@ -32,7 +32,7 @@ test('fishing: the handler rolls the module\'s numbers, not its own', () => {
   // It used to carry its own literals (0.55 - tier*0.05, 0.06, and the whole
   // fish table).
   assert.truthy(/spotFish\(spotId\)/.test(INTERACT_SRC), 'the spot\'s fish');
-  assert.truthy(/fishCatchChance\(pick, tier\)/.test(INTERACT_SRC), 'the landing');
+  assert.truthy(/fishCatchChance\(pick, tier, shiny\)/.test(INTERACT_SRC), 'the landing');
   assert.truthy(/rollEmptyCast\(\)/.test(INTERACT_SRC), 'the empty cast');
   assert.falsy(/id: 'goldenfish', +w:/.test(INTERACT_SRC), 'no second copy of the catch table');
 });
@@ -66,6 +66,44 @@ test('fishing: a fish above the rod gets away, halved per tier of gap', () => {
   }
   assert.eq(fishCatchChance('minnow', 0), 0.5, 'bare hands land a minnow half the time');
   assert.eq(fishCatchChance('goldenfish', 7), 1, 'a Frost rod never loses one');
+});
+
+// --- Shiny fish -------------------------------------------------------------
+
+test('fishing: a shiny fish lives in a stocked spot, fights a tier harder and pays the bonus', () => {
+  assert.eq(SHINY_RATE.fish, 0.05, 'shiny fish share the animal rate');
+  let stocked = 0, shiny = 0;
+  for (let i = 0; i < 40000; i++) {
+    const id = fishSpotId(2, 4, i % 200, Math.floor(i / 200));
+    if (fishSpotShiny(id)) { shiny++; assert.truthy(fishSpotStocked(id), 'only a stocked spot is shiny'); }
+    if (fishSpotStocked(id)) stocked++;
+  }
+  assert.inRange(shiny / stocked, 0.035, 0.065, 'about 1 in 20 stocked spots');
+  assert.eq(SHINY_FISH_TIER_UP, 1);
+  for (const f of FISH_SPECIES) for (let rod = 0; rod <= 7; rod++) {
+    assert.eq(fishCatchChance(f.id, rod, true), Math.pow(0.5, Math.max(0, fishTier(f.id) + 1 - rod)),
+      `a shiny ${f.id} lands like tier ${fishTier(f.id) + 1} on a tier ${rod} rod`);
+  }
+  assert.eq(fishCatchChance('minnow', 1, true), 0.5, 'a Wood rod loses a shiny minnow half the time');
+  assert.truthy(/if \(shiny\) scene\.awardShinyBonus\(pick, sx, sy\)/.test(INTERACT_SRC), 'landing one pays the shiny bonus');
+});
+
+test('fishing: the map glints exactly the shiny spots, off a per-tile list', () => {
+  const N = 60;
+  const grid = new Uint8Array(N * N).fill(WorldGen.T.WATER);
+  grid[0] = 0;
+  const entry = { grid, cellsPerEdge: N };
+  const list = shinyFishSpots(entry, 1, 2);
+  assert.truthy(list.length > 0, 'a lake has shiny spots');
+  for (const f of list) {
+    assert.eq(f.id, fishSpotId(1, 2, f.ix, f.iy));
+    assert.truthy(fishSpotShiny(f.id));
+  }
+  let want = 0;
+  for (let iy = 0; iy < N; iy++) for (let ix = 0; ix < N; ix++)
+    if (grid[iy * N + ix] === WorldGen.T.WATER && fishSpotShiny(fishSpotId(1, 2, ix, iy))) want++;
+  assert.eq(list.length, want, 'every shiny water spot, and only those');
+  assert.eq(shinyFishSpots(entry, 1, 2), list, 'derived once per entry');
 });
 
 test('fishing: the rarer fish is the dearer', () => {

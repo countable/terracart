@@ -1607,7 +1607,8 @@ const TAP_HANDLERS = [
       // The spot's fish is fixed (items.js spotFish); one above the rod's
       // tier may get away (fishCatchChance) and stays for the next cast.
       const pick = spotFish(spotId);
-      if (Math.random() >= fishCatchChance(pick, tier)) {
+      const shiny = fishSpotShiny(spotId);   // a tier harder to land, and pays the shiny bonus
+      if (Math.random() >= fishCatchChance(pick, tier, shiny)) {
         scene.flashLoot(`🐟 ${ITEM_BY_ID[pick]?.name || pick} got away!`, '#ff8a8a', 1, pick);
         return;
       }
@@ -1617,6 +1618,7 @@ const TAP_HANDLERS = [
       persistSave(save);
       const item = ITEM_BY_ID[pick];
       scene.flashLoot(`🐟 ${item?.name || pick}`, '#7adcff', 1, pick);
+      if (shiny) scene.awardShinyBonus(pick, sx, sy);
     }, castMs, 5, 'rod');   // castMs = locked cast time (9s bare / 3s rod); 5 = cancel refund
     return true;
   }},

@@ -188,6 +188,8 @@ const PLAY_TIPS = [
   // the ✦ row on the rod cannot carry is the landing rule (items.js
   // fishCatchChance: each tier the fish is above the rod halves the odds).
   'A fish finer than your rod can slip the hook — every tier short halves your odds — but it stays where it was, waiting for a better rod.',
+  // items.js fishSpotShiny / SHINY_FISH_TIER_UP, paid by awardShinyBonus.
+  'Water that glints gold hides a shiny fish: it fights like a fish a tier finer, and pays ten times its plain kind.',
   'Now and then a cast hooks a slime instead of a fish. It lands beside you, and it is not happy about it.',
   // items.js rollEmptyCast (FISH_EMPTY_TREASURE_CHANCE: 1 in 50).
   'A cast with nothing biting is not always empty: it can drag up an old boot, a stone or a stick, and about one in fifty brings up treasure.',

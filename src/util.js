@@ -229,7 +229,7 @@ function makeRng32(seed) {
 // foe, never does.
 // Spawn rates per category. Tuned per the design: flora + trees 1%, animals
 // and monsters 5%.
-const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05, monster: 0.05 };
+const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05, monster: 0.05, fish: 0.05 };
 // ── How long a message on the MAP may be ────────────────────────────────────
 // A flash is a toast drawn over the world, on a phone, usually while the
 // player is mid-action and looking at the cell they just tapped — not a

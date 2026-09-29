@@ -1678,11 +1678,16 @@ const FISH_SPECIES = [
   { id: 'goldenfish', w: 1 },
 ];
 function fishTier(id) { return BASE_TIER[id] || 1; }
+// A SHINY fish (fishSpotShiny) fights like the next tier up: it lands as if
+// its tier were SHINY_FISH_TIER_UP higher, the same one-step "harder to get"
+// a shiny animal's doubled catch wheel is.
+const SHINY_FISH_TIER_UP = 1;
 // Landing it: certain when the rod's tier is at or above the fish's, else
 // halved for every tier the fish is above the rod (0.5 ** gap). A fish that
 // gets away stays in its spot for the next cast.
-function fishCatchChance(id, rodTier) {
-  return Math.pow(0.5, Math.max(0, fishTier(id) - (rodTier || 0)));
+function fishCatchChance(id, rodTier, shiny) {
+  const t = fishTier(id) + (shiny ? SHINY_FISH_TIER_UP : 0);
+  return Math.pow(0.5, Math.max(0, t - (rodTier || 0)));
 }
 // WHERE the fish are. A water cell either holds ONE fish or none, and nothing
 // on screen says which: FISH_STOCK_CHANCE of cells are stocked, decided by a
@@ -1699,6 +1704,30 @@ function fishSpotId(tx, ty, ix, iy) {
 }
 function fishSpotStocked(id) {
   return fnv1a(id + '#stock') / 4294967296 < FISH_STOCK_CHANCE;
+}
+// Is the fish in this spot a SHINY one? Only a hash-stocked spot can be (the
+// starter pond's always-stocked cells are not, so the sparkle the map shows —
+// shinyFishSpots — and the catch agree), at SHINY_RATE.fish off the spot's id:
+// the same shiny spots for every player. Landing one pays the shiny bonus
+// (awardShinyBonus) on top of the fish, and fights a tier harder.
+function fishSpotShiny(id) {
+  return fishSpotStocked(id) && isShiny(id, SHINY_RATE.fish);
+}
+// The shiny spots on a tile, derived once per tile entry (a rebuild replaces
+// the entry, and the cache with it): [{ ix, iy, id }] over its WATER cells.
+// The renderer reads this per frame to glint them; it never rescans a grid.
+function shinyFishSpots(entry, tx, ty) {
+  if (!entry || !entry.grid) return [];
+  if (entry._shinyFish) return entry._shinyFish;
+  const N = entry.cellsPerEdge, out = [];
+  for (let iy = 0; iy < N; iy++) {
+    for (let ix = 0; ix < N; ix++) {
+      if (entry.grid[iy * N + ix] !== WorldGen.T.WATER) continue;
+      const id = fishSpotId(tx, ty, ix, iy);
+      if (fishSpotShiny(id)) out.push({ ix, iy, id });
+    }
+  }
+  return (entry._shinyFish = out);
 }
 // The species living in a stocked spot — same for every player.
 function spotFish(id) {
