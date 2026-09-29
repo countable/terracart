@@ -173,6 +173,45 @@ Tests: `world_frame`, `worldgen_dedup`, `traps`, `lairs`, `spawn_roads`,
 `spawn_rebuild`, `tile_url`, `tile_build_blocks`, `street_variants`, `zones`,
 `chest_tier`, `daily_crates`, `density_pois`, `spawn_class` (`test/node/*.test.js`).
 
+## Spawn precedence
+
+Higher-priority placements and their access space take precedence in this order:
+
+1. Saved player-owned objects, Home and story placements. Preserve saved ids and
+   progress; a conflicting generated story placement finds a valid alternative
+   rather than moving or deleting a player-owned object.
+2. Building-related objects: entrances, building rewards and frontage objects.
+3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
+   similar location-bound features. Incidental mapped trees, shrubs and poles
+   are general fill, not landmarks merely because they came from OSM.
+4. Special zone variants, including their deliberately empty pattern cells.
+5. Special road variants, across their defined corridor and verge, including
+   deliberately empty gaps. Zone variants override road variants where they
+   overlap; the physical road and its safety restrictions remain intact.
+6. General zone/biome fill: ordinary plants, rocks and generic scattered content.
+
+- Hard terrain, land-access, road-safety and accessibility rules are prerequisites,
+  separate from priority. Higher priority does not bypass them. Any authored
+  terrain-carving exception must be explicit and confined to its existing rule.
+- Resolve area ownership before general fill. All lower-priority producers,
+  including later scenic, Overpass and runtime passes, respect the same full-area
+  reservation. Protecting only occupied object cells is insufficient: a variant's
+  empty lanes belong to it too. A higher-priority object can occupy a variant
+  area; its presence does not release that area to general fill.
+- Area ownership and object occupancy are separate. Inside the winning area,
+  objects still obey collision and access rules. Reserve a large object's entire
+  declared footprint (a 3 × 3 shipwreck is one interaction), not just its anchor.
+- Authored guards, finite finds, shrine gifts and tide pickups belong to their
+  declared feature and retain their own budgets and placement rules. Generic
+  traps, treasure and rooted enemies respect variant exclusions; a variant's
+  own content does not use the general-fill veto. Fauna retain their intentional
+  ability to share interactable cells and their terrain/road restrictions.
+- Resolve equal-priority generated claims using stable world-space feature keys
+  and buffered geometry, never iteration order, tile-load order or save state.
+  Apply saved-player changes as overlays without rerolling the generated world.
+  If an authored footprint cannot fit, use its deterministic eligible fallback
+  or report a shortfall; never spill it into forbidden or higher-priority space.
+
 ## Coordinates, rendering and performance
 
 - Draw from the camera anchor using `coords.js` projection helpers. Reach,

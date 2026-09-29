@@ -11368,6 +11368,7 @@ class MapScene extends Phaser.Scene {
     if (this.save.starterShopId !== st.id) return;   // trailer isn't Home any more
     const home = worldMetersToAbsCell(this, st.x, st.y);
     const stamp = `${st.id}@${home.cellIX},${home.cellIY}`;
+    const savedOwnerIds = SpawnOwnership.savedIds(this.save);
     // Only the trailer's own tile and its 8 neighbours can hold a cell in the
     // moat, so the rest of the cache is skipped without touching its objects.
     const htx = Math.floor(st.x / this.tileEdgeM), hty = Math.floor(st.y / this.tileEdgeM);
@@ -11378,7 +11379,8 @@ class MapScene extends Phaser.Scene {
       if (entry._trailerMoat === stamp && entry._trailerMoatN === entry.objects.length) continue;
       for (let i = entry.objects.length - 1; i >= 0; i--) {
         const o = entry.objects[i];
-        if (o === this._starterTrailerObj || isBuilding(o.kind)) continue;
+        if (o === this._starterTrailerObj || isBuilding(o.kind) ||
+            SpawnOwnership.isProtected(o, this.save, savedOwnerIds)) continue;
         const oc = worldMetersToAbsCell(this, o.x, o.y);
         if (Math.abs(oc.cellIX - home.cellIX) <= 1 && Math.abs(oc.cellIY - home.cellIY) <= 1) {
           entry.objects.splice(i, 1);

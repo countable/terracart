@@ -5,7 +5,7 @@ These are expected Home sale coins using the current Easy-mode sale formula, fro
 | Variant | Background / 100 cells | Finite special finds | Find value / zone | Notes |
 |---|---|---|---|---|
 | Meadow | 15–15 | 3 × Wild Rose | 42–81 |  |
-| Mushroom Grove | 42–75 | 1 × Starflower | 49–98 |  |
+| Mushroom Grove | 39–72 | 1 × Starflower | 49–98 |  |
 | Orchard | 61–125 | 3 × Gemfruit | 30–57 | Apple harvest repeats every 24 h; medium maples are one-time timber |
 | Formal Garden | 206–383 | 2 × Wild Rose | 28–54 |  |
 | Hedge Garden | 98–148 | 2 × Wild Rose | 28–54 |  |

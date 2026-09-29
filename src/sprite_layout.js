@@ -74,7 +74,8 @@
     'stakes:0':        { fw: 16, fh: 16, minX: 4,  minY: 0,  maxX: 12, maxY: 16 },
     'tar:0':           { fw: 16, fh: 16, minX: 0,  minY: 6,  maxX: 16, maxY: 16 },
     'headstone:0':     { fw: 16, fh: 16, minX: 3,  minY: 0,  maxX: 12, maxY: 15 },
-    'grove_shrine:0':  { fw: 16, fh: 24, minX: 1,  minY: 3,  maxX: 15, maxY: 23 },
+    'grove_shrine:0':  { fw: 48, fh: 48, minX: 12, minY: 1, maxX: 37, maxY: 47 },
+    'grove_votive:0':  { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 16 },
     'vista_scope:0':   { fw: 16, fh: 24, minX: 0,  minY: 0,  maxX: 15, maxY: 24 },
     'barrel:0':         { fw: 16, fh: 16, minX: 1,  minY: 0,  maxX: 14, maxY: 16 },
     'barrel_smashed:0': { fw: 16, fh: 16, minX: 0,  minY: 4,  maxX: 16, maxY: 16 },
@@ -82,6 +83,15 @@
     'signpost:0':       { fw: 16, fh: 16, minX: 3,  minY: 0,  maxX: 13, maxY: 16 },
     'gatepost:0':       { fw: 16, fh: 16, minX: 0,  minY: 1,  maxX: 16, maxY: 16 },
   };
+
+  // Cosmetic only: each POI keeps its appearance across reloads and save overlays.
+  const GROVE_SHRINE_ART = [
+    { key: 'grove_shrine', frame: 0, scale: 0.7, name: 'Stone figure' },
+    { key: 'grove_votive', frame: 0, scale: 1.6, name: 'Stone votive' },
+  ];
+  function groveShrineArt(o) {
+    return GROVE_SHRINE_ART[root.fnv1a(String(o?.id ?? '') + '#shrine') % GROVE_SHRINE_ART.length];
+  }
 
   // ── Plain rock: what the art SHOWS is what it DROPS ───────────────────────
   // The four "plain rock" looks (row 15, cols 3..6 of the mineralrock sheet)
@@ -849,6 +859,7 @@
 
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell, PLAYER_ART, playerArt,
+    GROVE_SHRINE_ART, groveShrineArt,
     PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
     NPC_FRAME, NPC_SHEETS, npcAppearance,

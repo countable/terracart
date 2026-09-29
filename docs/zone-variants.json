@@ -76,25 +76,21 @@
     "faunaOccupancy": "animals_may_share_interactable_cells_do_not_reserve_layout_seats_keep_terrain_and_road_gates",
     "repeatPatternPolicy": {
       "maxCells": [
-        6,
-        6
+        8,
+        8
       ],
-      "exceptions": {
-        "silent_circle": [
-          8,
-          8
-        ]
-      },
+      "exceptions": {},
       "migrationPending": [
-        "orchard",
         "ordered_graves",
         "overgrown_graves",
         "broken_masonry",
-        "broken_depot",
-        "seep",
-        "black_ring",
-        "draft_beach_family"
-      ]
+        "broken_depot"
+      ],
+      "preferredMaxCells": [
+        6,
+        6
+      ],
+      "shapePolicy": "rectangular_or_square; each_axis_at_most_8; prefer_at_most_6; smaller_motifs_welcome"
     }
   },
   "materials": {
@@ -1075,23 +1071,15 @@
               5
             ],
             "material": "shrub"
-          },
-          {
-            "at": [
-              3,
-              1
-            ],
-            "material": "grass"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.19444444444444445,
+        "nominalDensity": 0.16666666666666666,
         "materialDensity": {
           "mushroom": 0.1111111111111111,
-          "shrub": 0.05555555555555555,
-          "grass": 0.027777777777777776
+          "shrub": 0.05555555555555555
         },
         "type": "repeat_motif",
         "poiOrigin": {
@@ -1257,7 +1245,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Staggered mushroom pairs repeat every six cells, with shrubs and grass between them. The close-set caps lead to a crescent and its luminous flower.",
+      "atmosphere": "Staggered mushroom pairs repeat every six cells, with shrubs between them. The close-set caps lead to a crescent and its luminous flower.",
       "attracts": {
         "butterfly": 0.5
       }

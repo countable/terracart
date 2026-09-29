@@ -4,7 +4,7 @@ The game and map review load this declarative table through `src/zone_variant_da
 
 ## Placement contract
 
-Repeating motifs should fit within 6 × 6 cells. Silent Circle is an explicit 8 × 8 exception so its radius-four circles touch. Its connecting route no longer cuts gaps through the shared stone rims. Formal Garden and Ancient Grove now use 6 × 6 repeats. Larger legacy rows and the beach drafts are recorded in `rules.repeatPatternPolicy.migrationPending` pending their layout review; fixed compositions such as Stone Garden and Work Yard are not repeating motifs.
+Repeating motifs prefer at most 6 × 6 cells, with a hard maximum of 8 cells on either axis. Smaller squares and rectangles such as 3 × 3 and 3 × 5 are welcome; choose dimensions for the pattern rather than padding every row to a square. Silent Circle uses 8 × 8 so its radius-four circles touch. Legacy rows above 8 cells remain listed in `rules.repeatPatternPolicy.migrationPending` pending layout review. Beach drafts now follow the limit. Fixed compositions such as Stone Garden and Work Yard are not repeating motifs.
 
 - Six equally weighted grove variants and five each for churchyards and tar yards. Choose once from the stable anchor identity. Meadow and Flint Field explicitly use seeded scatter keyed by anchor, variant, and global cell; they do not repeat a random tile or change between visits. Other variants use structured patterns; Ancient Grove adds light seeded grass only between its fixed clusters.
 - Background slots use their declared repeat motif, seeded scatter, or continuous line grid throughout the coverage union, without radial density falloff. Coordinates are zero-based. One cell is currently 7 metres. Work Yard uses a fixed 5 × 5 arrangement with one-cell-wide lines every four cells and its POI centered in the middle plot. Hedge Garden uses continuous lines every four cells throughout the coverage union; the preview shows a 4 × 4 sample. Shared borders belong to one grid; intersections count once.
@@ -49,7 +49,7 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | Zone | Variant | Background mix | POI | Finds | Guards | Fauna affinity |
 |---|---|---|---|---|---|---|
 | grove | Meadow | 15% shrub outside the clearing; no grass outside | R=3 grass disk with bush rim | 3 medium: rose | none | rabbit 50%, butterfly 65% |
-| grove | Mushroom Grove | 11.11% mushroom, 5.56% shrub, 2.78% grass | mushroom crescent | 1 rare: star | 1 slime at find | butterfly 50% |
+| grove | Mushroom Grove | 11.11% mushroom, 5.56% shrub | mushroom crescent | 1 rare: star | 1 slime at find | butterfly 50% |
 | grove | Orchard | 6.25% apple trees, 6.25% medium maples | paired trees | 3 medium: gemfruit | none | deer 65% |
 | grove | Formal Garden | 11.11% shrub, 16.67% blue, 5.56% orange | hedge flanks flower diamond | 2 medium: rose | none | none |
 | grove | Hedge Garden | 43.75% shrub, 4.69% blue, 1.56% orange | flowers in hedge room | 2 medium: rose | none | rabbit 60% |
@@ -84,7 +84,7 @@ The generator validates material densities across full repeat cycles, distinct P
 
 ## Mushroom Grove spacing
 
-Mushroom pairs occupy opposite halves of a 6 × 6 repeat. Two shrubs and one grass cell stagger between them, giving 19.44% coverage before clipping. Every motif column has a placement, and no two consecutive rows are empty, preventing the broad blank strips of the former 10 × 10 layout.
+Mushroom pairs occupy opposite halves of a 6 × 6 repeat. Two shrubs stagger between them, giving 16.67% coverage before clipping. This variant places no grass. Every motif column has a placement, and no two consecutive rows are empty, preventing the broad blank strips of the former 10 × 10 layout.
 
 ## Hedge Garden geometry
 

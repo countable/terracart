@@ -128,10 +128,10 @@ test('enemy spawns: a biome seat on zone ground (park, place of worship, tar yar
   const src = SCENE_CREATURES_SRC;
   const loop = src.slice(src.indexOf('const enemySeats = new Set();'), src.indexOf('creatures.length = enemyWrite;'));
   assert.truthy(loop.length > 0, 'found the seat → roster loop');
-  const cancel = loop.indexOf('if (zoneCoverage && zoneCoverage[cy * N + cx]) continue;');
+  const cancel = loop.indexOf('if (WorldGen.variantOwnerAt(entry, cy * N + cx)) continue;');
   assert.gt(cancel, 0, 'zone-owned ground cancels the seat');
   assert.lt(cancel, loop.indexOf('EnemySpawns.surfaceKind('), 'before any kind is chosen for it');
-  assert.truthy(/const zoneCoverage = entry\.zone && entry\.zone\.coverage;/.test(src), 'off the union coverage every zone kind writes');
+  assert.eq(WorldGen.variantOwnerAt({ zone: { coverage: [1] }, streetArea: [1] }, 0), 'zone', 'the shared owner gives zones precedence over roads');
   assert.eq(Object.keys(Zones.ZONE_KINDS).sort().join(), 'grove,stones,tar', 'which is parks, places of worship and tar yards');
 });
 

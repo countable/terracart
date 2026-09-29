@@ -51,8 +51,8 @@
     "independent_sand_zone_routing_before_grove_coverage_and_composite_adjoining_park_ownership",
     "stable_shore_tangent_frame_before_dressing",
     "landward_vegetation_and_waterline_slot_filters",
-    "beach-themed_POI_art; draft_uses_existing_grove_daily_reward",
-    "economic_review_with_current_ore_and_tide_tables_before_activation"
+    "economic_review_with_current_ore_and_tide_tables_before_activation",
+    "shipwreck_shrine_runtime_art_registration_and_whole_extent_reservation; preview_art_only"
   ],
   "materials": {
     "stone": {
@@ -129,48 +129,27 @@
       "background": {
         "type": "repeat_motif",
         "repeatCells": [
-          12,
-          12
+          6,
+          6
         ],
         "slots": [
           {
             "at": [
-              3,
-              3
+              1,
+              1
             ],
             "material": "stone"
           },
           {
             "at": [
-              4,
+              1,
               2
             ],
             "material": "stone"
           },
           {
             "at": [
-              5,
-              2
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              6,
-              2
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              7,
-              2
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              8,
+              2,
               3
             ],
             "material": "stone"
@@ -178,154 +157,28 @@
           {
             "at": [
               2,
-              4
+              1
             ],
-            "material": "stone"
+            "material": "shell"
+          },
+          {
+            "at": [
+              3,
+              1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              4,
+              2
+            ],
+            "material": "shell"
           },
           {
             "at": [
               2,
-              5
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              2,
-              6
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              3,
-              7
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              4,
-              8
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              5,
-              8
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              3,
-              4
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              4,
-              3
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              5,
-              3
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              6,
-              3
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              7,
-              3
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              7,
-              4
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              3,
-              5
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              3,
-              6
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              4,
-              7
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              5,
-              7
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              8,
-              8
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              9,
-              9
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              5,
-              4
-            ],
-            "material": "blue"
-          },
-          {
-            "at": [
-              6,
-              4
-            ],
-            "material": "blue"
-          },
-          {
-            "at": [
-              5,
-              5
-            ],
-            "material": "blue"
-          },
-          {
-            "at": [
-              6,
-              5
+              2
             ],
             "material": "blue"
           }
@@ -340,8 +193,8 @@
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "poiOrigin": {
           "cell": [
-            6,
-            6
+            3,
+            3
           ],
           "role": "center_of_shore_aligned_motif"
         },
@@ -441,7 +294,7 @@
         "mode": "none"
       },
       "attracts": {},
-      "atmosphere": "Rounded stone crescents hold pale shells and small blue flower pools; one starflower marks the luminous heart. Magic comes from repeated geometry and the rare find, with an optional soft night glow as future art."
+      "atmosphere": "Compact stone crescents, shell inlays and a blue flower center repeat every 6 \u00d7 6 cells. The single starflower remains the rare luminous find."
     },
     {
       "id": "pirate_cove",
@@ -452,270 +305,189 @@
       "background": {
         "type": "repeat_motif",
         "repeatCells": [
-          12,
-          12
+          8,
+          8
         ],
         "slots": [
           {
             "at": [
-              3,
-              3
+              2,
+              2
             ],
             "material": "driftwood"
-          },
-          {
-            "at": [
-              3,
-              4
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              3,
-              5
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              3,
-              6
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              3,
-              7
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              8,
-              3
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              8,
-              4
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              8,
-              5
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              8,
-              6
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              8,
-              7
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              4,
-              8
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              5,
-              8
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              6,
-              8
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              7,
-              8
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              1,
-              1
-            ],
-            "material": "shell"
           },
           {
             "at": [
               2,
-              1
+              3
             ],
-            "material": "shell"
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              2,
+              4
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              3,
+              5
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              4,
+              5
+            ],
+            "material": "driftwood"
           },
           {
             "at": [
               5,
-              1
+              4
             ],
-            "material": "shell"
+            "material": "driftwood"
           },
           {
             "at": [
-              6,
-              1
+              5,
+              3
             ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              9,
-              1
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              10,
-              1
-            ],
-            "material": "shell"
+            "material": "driftwood"
           },
           {
             "at": [
               1,
-              10
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              10,
-              10
+              0
             ],
             "material": "shell"
           },
           {
             "at": [
               4,
-              9
+              0
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              6,
+              6
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              1,
+              6
             ],
             "material": "rubble"
           },
           {
             "at": [
               5,
-              9
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              6,
-              9
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              7,
-              9
+              6
             ],
             "material": "rubble"
           }
         ],
-        "nominalDensity": 0.18055555555555555,
+        "nominalDensity": 0.1875,
         "materialDensity": {
-          "driftwood": 0.09722222222222222,
-          "shell": 0.05555555555555555,
-          "rubble": 0.027777777777777776
+          "driftwood": 0.109375,
+          "shell": 0.046875,
+          "rubble": 0.03125
         },
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "poiOrigin": {
           "cell": [
-            6,
-            6
+            4,
+            4
           ],
           "role": "center_of_shore_aligned_motif"
         },
         "orientation": "stable_anchor_shore_tangent; positive_y_is_landward; do_not_reorient_per_tile"
       },
       "poi": {
-        "id": "wreck_ribs_touching_poi",
+        "id": "beached_shipwreck_shrine",
         "origin": "settled_poi",
-        "slots": [
-          {
-            "at": [
+        "slots": [],
+        "relocation": {
+          "unit": "whole_ship_and_extent",
+          "maxCells": 4,
+          "stayInZone": true,
+          "blocked": "reject_whole_footprint; never_delete_higher_priority_spawns"
+        },
+        "reward": "existing_one_daily_grove_gift; no_added_POI_chest",
+        "art": {
+          "path": "docs/art/shipwreck-shrine-draft.png",
+          "status": "generated_draft_not_runtime_asset",
+          "extentCells": [
+            3,
+            3
+          ],
+          "fit": "contain_preserve_aspect; largest_visible_dimension_3_cells",
+          "anchor": "one_settled_POI_center",
+          "interactionCount": 1,
+          "orientation": "fixed_sprite_diagonal; no_per_tile_reorientation"
+        },
+        "footprint": {
+          "cells": [
+            [
               -1,
               -1
             ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              -1,
-              0
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              -1,
-              1
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              1,
-              -1
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              1,
-              0
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              1,
-              1
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
+            [
               0,
               -1
             ],
-            "material": "shell"
+            [
+              1,
+              -1
+            ],
+            [
+              -1,
+              0
+            ],
+            [
+              0,
+              0
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              -1,
+              1
+            ],
+            [
+              0,
+              1
+            ],
+            [
+              1,
+              1
+            ]
+          ],
+          "reservation": "reserve_whole_3x3_extent_before_background_and_general_fill",
+          "eligibility": "all_9_cells_dry_sand_and_spawn_eligible; preserve_higher_priority_home_story_building_spawns",
+          "clipping": "never_clip_or_split_ship",
+          "noFit": "deterministic_whole_footprint_fallback_within_owned_sand; otherwise_keep_existing_accessible_daily_POI_and_report_shortfall",
+          "approach": {
+            "side": "landward",
+            "clearCells": [
+              [
+                0,
+                2
+              ]
+            ],
+            "widthCells": 1
           }
-        ],
-        "relocation": {
-          "unit": "fixed_to_poi",
-          "maxCells": 0,
-          "blocked": "omit_blocked_slots_no_outward_rescue"
-        },
-        "reward": "existing_one_daily_grove_gift; no_added_POI_chest"
+        }
       },
       "finds": {
         "rarity": "rare",
@@ -741,7 +513,7 @@
       "connection": {
         "shape": "clear_aisle",
         "widthCells": 1,
-        "from": "poi",
+        "from": "landward_ship_approach",
         "to": "finds",
         "crossMajorRoad": false,
         "cutPriority": "use_existing_open_motif_lanes_before_removing_slots"
@@ -755,7 +527,7 @@
       "attracts": {
         "crow": 0.35
       },
-      "atmosphere": "Repeated open U-shaped wreck ribs face the water. Shell dashes lead between them to one gold-bearing rock; two ordinary slimes guard it. Pirate costumes and wreck art are optional later additions, not new enemy mechanics."
+      "atmosphere": "Open driftwood ribs repeat every 8 \u00d7 8 cells. One actual broken ship lies on dry sand as the daily shrine, fitted within a 3 \u00d7 3-cell extent. The gold ore and its two slime guards remain separate finite finds."
     },
     {
       "id": "shellwater_strand",
@@ -766,198 +538,47 @@
       "background": {
         "type": "repeat_motif",
         "repeatCells": [
-          12,
-          12
+          3,
+          5
         ],
         "slots": [
           {
             "at": [
+              0,
+              1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
               1,
-              2
+              1
             ],
             "material": "shell"
           },
           {
             "at": [
               2,
-              2
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              3,
-              2
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              4,
-              2
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              5,
-              2
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              6,
-              2
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              7,
-              2
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              8,
-              2
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              9,
-              2
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              10,
-              2
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              2,
-              8
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              3,
-              8
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              4,
-              8
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              5,
-              8
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              6,
-              8
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              7,
-              8
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              8,
-              8
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              9,
-              8
-            ],
-            "material": "shell"
-          },
-          {
-            "at": [
-              2,
-              4
+              3
             ],
             "material": "driftwood"
-          },
-          {
-            "at": [
-              9,
-              6
-            ],
-            "material": "driftwood"
-          },
-          {
-            "at": [
-              4,
-              10
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              5,
-              10
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              6,
-              10
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              7,
-              10
-            ],
-            "material": "grass"
           }
         ],
-        "nominalDensity": 0.16666666666666666,
+        "nominalDensity": 0.2,
         "materialDensity": {
-          "shell": 0.125,
-          "driftwood": 0.013888888888888888,
-          "grass": 0.027777777777777776
+          "shell": 0.13333333333333333,
+          "driftwood": 0.06666666666666667
         },
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "poiOrigin": {
           "cell": [
-            6,
-            6
+            1,
+            2
           ],
           "role": "center_of_shore_aligned_motif"
         },
-        "orientation": "stable_anchor_shore_tangent; positive_y_is_landward; do_not_reorient_per_tile",
-        "slotEligibility": {
-          "grass": "landward_vegetated_edge_only; omit_elsewhere; density_is_pre_clipping"
-        }
+        "orientation": "stable_anchor_shore_tangent; positive_y_is_landward; do_not_reorient_per_tile"
       },
       "poi": {
         "id": "open_shell_horseshoe",
@@ -1062,7 +683,57 @@
       "attracts": {
         "butterfly": 0.35
       },
-      "atmosphere": "Quiet parallel shell ribbons and occasional driftwood leave broad stretches of open sand. Two wild roses sit on the landward edge. No traps or guards; the normal daily tide remains the changing detail."
+      "atmosphere": "Short shell ribbons and one driftwood seat repeat in a narrow 3 \u00d7 5 frame. Open sand separates them; the two wild roses stay on eligible landward vegetation."
+    }
+  ],
+  "repeatPatternPolicy": {
+    "maxCells": [
+      8,
+      8
+    ],
+    "exceptions": {},
+    "preferredMaxCells": [
+      6,
+      6
+    ],
+    "shapePolicy": "rectangular_or_square; each_axis_at_most_8; prefer_at_most_6; smaller_motifs_welcome"
+  },
+  "artCandidates": [
+    {
+      "name": "Cowrie colour mix",
+      "variants": [
+        "mystic_reef",
+        "shellwater_strand"
+      ],
+      "source": "assets/Icons/Fish/Sea/Creatures/Shell.png",
+      "frames": [
+        0,
+        1,
+        2
+      ],
+      "status": "existing_art",
+      "interaction": "existing_shell_pickup; replace_shell_seat_art_not_add_seats"
+    },
+    {
+      "name": "Broken barrel salvage",
+      "variants": [
+        "pirate_cove"
+      ],
+      "source": "assets/Objects/Generated/barrel_smashed.png",
+      "status": "candidate_existing_generated_art; verify_registry_before_activation",
+      "interaction": "proposed_driftwood_seat_visual_variant; retain_wood_pickup_budget; no_extra_barrel_loot"
+    },
+    {
+      "name": "Modular hull and nautical fittings",
+      "url": "https://sevarihk.itch.io/ship-tileset",
+      "status": "external_candidate_not_imported",
+      "notes": "32px modular ship tiles; creator permits CC-BY4 with attribution; alternate source for a hand-assembled wreck"
+    },
+    {
+      "name": "Anchor, rope coil, fishing net, ship bell",
+      "url": "https://animalsanmore.itch.io/underwater-ruins-shipwrecks-pixel-art-pack",
+      "status": "external_candidate_not_imported",
+      "notes": "Static props; anchor and rope coil in free sample; map to existing salvage/find interactions before use; source discloses AI-assisted art"
     }
   ]
 }

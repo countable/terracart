@@ -30,7 +30,7 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.resolve(__dirname, '..');
-const { CELL_PX, ART_BOUNDS, CROWN_BOUNDS, seatInCell, CREATURE_ART,
+const { CELL_PX, ART_BOUNDS, CROWN_BOUNDS, seatInCell, CREATURE_ART, GROVE_SHRINE_ART,
         CREATURE_WHEEL_R, creatureWheelDy } =
   require(path.join(ROOT, 'src', 'sprite_layout.js'));
 const CELL_BOTTOM = CELL_PX / 2;
@@ -261,7 +261,9 @@ const SHEETS = {
   stakes:        { file: 'assets/Objects/Generated/stakes_a.png',            fw: 16, fh: 16, frames: [0] },
   tar:           { file: 'assets/Objects/Generated/tar.png',                 fw: 16, fh: 16, frames: [0] },
   headstone:     { file: 'assets/Objects/Generated/headstone.png',           fw: 16, fh: 16, frames: [0] },
-  grove_shrine:  { file: 'assets/Objects/Generated/shrine.png',              fw: 16, fh: 24, frames: [0] },
+  ...Object.fromEntries(GROVE_SHRINE_ART.map(({ key, frame }) => [key, {
+    file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],
+  }])),
   vista_scope:   { file: 'assets/Objects/Generated/scope.png',               fw: 16, fh: 24, frames: [0] },
   barrel:         { file: 'assets/Objects/Generated/barrel.png',             fw: 16, fh: 16, frames: [0] },
   barrel_smashed: { file: 'assets/Objects/Generated/barrel_smashed.png',     fw: 16, fh: 16, frames: [0] },
@@ -311,7 +313,7 @@ const SCENARIOS = [
   { name: 'stakes',          key: 'stakes',        frameIdx: 0, scale: 1.6 },
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
   { name: 'headstone',       key: 'headstone',     frameIdx: 0, scale: 1.6 },
-  { name: 'grove shrine',    key: 'grove_shrine',  frameIdx: 0, scale: 1.6 },
+  ...GROVE_SHRINE_ART.map(({ name, key, frame, scale }) => ({ name, key, frameIdx: frame, scale })),
   { name: 'vista scope',     key: 'vista_scope',   frameIdx: 0, scale: 1.6 },
   // The POI props (loot.js chestLook — barrel / bike_rack at render.js
   // SMALL_POI_SCALE; the notice board and the gate post at 1.6).

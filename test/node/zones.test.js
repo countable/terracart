@@ -234,7 +234,7 @@ test('zones: mine mouths retain their original source when zone layouts replace 
   const { on, off, N, edge } = rasterPair();
   const stairs = (r) => {
     const entry = { grid: r.grid, cellsPerEdge: N, objects: r.objects.slice(), wildplants: r.wildplants.slice(),
-      zone: r.zone, roadMask: r.roadMask, poiPadCells: r.poiPadCells,
+      zone: r.zone, caveSource: r.caveSource, roadMask: r.roadMask, poiPadCells: r.poiPadCells,
       spawnWhy: r.spawnWhy, quietMask: r.quietMask, roadClass: r.roadClass };
     WorldGen.maybePlaceCaveEntrance(entry, TILE_TX, TILE_TY, edge, r.objects, r.wildplants);
     return entry.objects.filter((o) => o.kind === 'staircase').map((o) => o.id).sort().join(',');

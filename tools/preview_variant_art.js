@@ -28,6 +28,7 @@ const data = vm.runInContext(`({ assets: ASSETS, crops: CROP_SPRITE, cropRows: C
   cropColumns: CROPS_SHEET_COLS, matureStage: MAX_GROWTH_STAGE,
   mineralTiers: MINERAL_TIERS, fruitFrames, names: CROP_NAMES,
   churchyardFrame: SpriteLayout.plainRockFrame({rockVariant: SpriteLayout.CHURCHYARD_ROCK_VARIANT}),
+  groveShrines: SpriteLayout.GROVE_SHRINE_ART,
   creatures: SpriteLayout.CREATURE_ART, lampGold: UI_LAMP_GOLD, lampGlow: UI_LAMP_GLOW })`, ctx);
 // A JSON registry cannot carry onLoad functions. Declare the alpha-keying
 // operation from the owning callback, rather than keying every pale sprite.
