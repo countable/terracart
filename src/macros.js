@@ -20,7 +20,7 @@
 //   • save.donated — the curio ids this save has given (progress, not world
 //     state), and its milestones in the memory ledger (save.discovered);
 //   • save.trainingPerm / save.trainingBuffUntil — the damage the player
-//     bought (read by combat.js Combat.trainingMul through app.js _attackMul).
+//     bought (read by combat.js Combat.trainingBonus through app.js _attackFlat).
 // The stalls (apothecary, sundries, scriptorium) have no gate at all: a
 // counter, like the market stall they share their dialog with (app.js
 // _presentStallOffer — one price lane, ShopsMath.standPrice).
@@ -286,20 +286,15 @@
   }
 
   // ── TRAINING HALL: buy damage, for good or for a day ─────────────────────
-  // The bonus itself is combat.js's (Combat.trainingMul — +1% a lesson to
-  // +25%, +10% for 24 h a drill). A LESSON costs TRAINING_LESSON_FIRST, and
-  // each lesson owned adds TRAINING_LESSON_STEP until the price reaches
-  // TRAINING_LESSON_TOP, where it stays for every lesson after ($10, $20 …
-  // $100, then $100 to the cap). A drill is anchored on the Dragon Powder
-  // (PRICES.dragon_powder — a minute of ×2 damage): TRAINING_DRILL_PRICE_MUL
-  // of one.
-  const TRAINING_LESSON_FIRST = 10;
-  const TRAINING_LESSON_STEP = 10;
-  const TRAINING_LESSON_TOP = 100;
-  const TRAINING_DRILL_PRICE_MUL = 0.5;
+  // The bonus itself is combat.js's (Combat.trainingBonus — +1 damage a hit a
+  // lesson, up to 5 lessons; +5 a hit for 24 h a drill). A LESSON costs
+  // TRAINING_LESSON_PRICE × its number ($25, $50, $75, $100, $125); a DRILL
+  // costs TRAINING_DRILL_PRICE.
+  const TRAINING_LESSON_PRICE = 25;
+  const TRAINING_DRILL_PRICE = 150;
   // The price of lesson number k+1 (k already owned).
   function lessonPriceAt(k) {
-    return Math.min(TRAINING_LESSON_TOP, TRAINING_LESSON_FIRST + k * TRAINING_LESSON_STEP);
+    return TRAINING_LESSON_PRICE * (k + 1);
   }
   // The next lesson's price, or null once the cap is reached.
   function lessonPrice(save) {
@@ -313,7 +308,7 @@
     for (let k = 0; k < Combat.TRAINING_PERM_MAX; k++) out.push(lessonPriceAt(k));
     return out;
   }
-  function drillPrice() { return Math.round(PRICES.dragon_powder * TRAINING_DRILL_PRICE_MUL); }
+  function drillPrice() { return TRAINING_DRILL_PRICE; }
   function buyLesson(save) {
     const price = lessonPrice(save);
     if (price == null) return { ok: false, why: 'cap' };
@@ -376,7 +371,7 @@
     bountyWeaponTier, bountyFor, bountyPay, bountyCleared,
     CURIO_COLLECTION, CURIO_MILESTONES, curioEligible, curioCollection, curioDonated, curioCount,
     curioNextMilestone, curioMilestoneKey, curioMissing, curioDonate,
-    TRAINING_LESSON_FIRST, TRAINING_LESSON_STEP, TRAINING_LESSON_TOP, TRAINING_DRILL_PRICE_MUL, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
+    TRAINING_LESSON_PRICE, TRAINING_DRILL_PRICE, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
     buyLesson, buyDrill, drillLeftMs,
     KIND_DIALOG, KIND_STORY,
   };

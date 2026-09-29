@@ -967,7 +967,7 @@ test('combat: off the GPS the player attacks a third softer, through the one att
   assert.inRange(Combat.OFF_GPS_ATTACK_MUL - 2 / 3, -1e-12, 1e-12, 'a third off');
   assert.eq(Combat.meleeSwingDamage({ sword: { tier: 3 } }, Combat.OFF_GPS_ATTACK_MUL) /
             Combat.meleeSwingDamage({ sword: { tier: 3 } }, 1), Combat.OFF_GPS_ATTACK_MUL, 'the swing scales by it');
-  const m = /_attackMul\(\) \{\s*return \(this\.isDragonActive\(\) \? CONSUMABLE_SPEC\.dragon_powder\.damageMul : 1\)\s*\* \(this\._offGps\(\) \? Combat\.OFF_GPS_ATTACK_MUL : 1\) \* Combat\.trainingMul\(this\.save\);/;
+  const m = /_attackMul\(\) \{\s*return \(this\.isDragonActive\(\) \? CONSUMABLE_SPEC\.dragon_powder\.damageMul : 1\)\s*\* \(this\._offGps\(\) \? Combat\.OFF_GPS_ATTACK_MUL : 1\);/;
   assert.truthy(m.test(APP_JS_SRC), '_attackMul folds the owned dragon multiplier and the off-GPS third');
   assert.truthy(/const dmgMul = this\._attackMul\(\);/.test(APP_JS_SRC), 'the bow / staff read it');
   assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\),/.test(APP_JS_SRC), 'and the melee wheel');

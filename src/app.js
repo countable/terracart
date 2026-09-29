@@ -4734,7 +4734,7 @@ class MapScene extends Phaser.Scene {
         // The tier sizes the shot too (a staff bolt grows with it — both its
         // sweep and its drawn dot, stamped on the shot by spawnShot).
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
-                                      Combat.shotDamage(relics, slot, this.save.playerClass) * dmgMul,
+                                      Combat.shotDamage(relics, slot, this.save.playerClass) * dmgMul + this._attackFlat(),
                                       relics[slot].tier, reach);
         // A bow's arrow and a staff's bolt wear the relic's MATERIAL colour
         // (MATERIAL_TIERS .color) — a Frost bow looses ice-blue arrows, a
@@ -5847,7 +5847,8 @@ class MapScene extends Phaser.Scene {
           const d = Math.hypot(dx, dy) || 1;
           this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
         }
-        const blow = Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass);
+        const blow = Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass)
+          + this._attackFlat();
         if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
       }
     }
@@ -6530,12 +6531,16 @@ class MapScene extends Phaser.Scene {
   }
   // The multiplier on the player's OWN attacks (melee wheel, bow, staff):
   // Dragon Powder doubles them, being off the GPS takes a third off
-  // (Combat.OFF_GPS_ATTACK_MUL), and the Training Hall's lessons and drill add
-  // what the player bought (Combat.trainingMul). One answer both attack paths
-  // read.
+  // (Combat.OFF_GPS_ATTACK_MUL). One answer both attack paths read.
   _attackMul() {
     return (this.isDragonActive() ? CONSUMABLE_SPEC.dragon_powder.damageMul : 1)
-      * (this._offGps() ? Combat.OFF_GPS_ATTACK_MUL : 1) * Combat.trainingMul(this.save);
+      * (this._offGps() ? Combat.OFF_GPS_ATTACK_MUL : 1);
+  }
+  // The FLAT damage every hit of the player's own carries on top — each melee
+  // blow, each arrow or bolt — after _attackMul: the Training Hall's lessons
+  // and drill (Combat.trainingBonus). One answer both attack paths read.
+  _attackFlat() {
+    return Combat.trainingBonus(this.save);
   }
   // Is the stick actually being PUSHED right now? Pointer-down alone isn't
   // enough — a finger resting on a centred nub holds _movePadHeld true while
@@ -10289,11 +10294,11 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // TRAINING HALL: a LESSON (+Combat.TRAINING_PERM_STEP damage for good, to
-  // TRAINING_PERM_CAP) or a DRILL (+TRAINING_BUFF_BONUS for TRAINING_BUFF_MS,
-  // one at a time). Both land in Combat.trainingMul, which _attackMul reads.
+  // TRAINING HALL: a LESSON (+Combat.TRAINING_LESSON_DMG a hit for good, up to
+  // TRAINING_PERM_MAX lessons) or a DRILL (+TRAINING_BUFF_DMG a hit for
+  // TRAINING_BUFF_MS, one at a time). Both land in Combat.trainingBonus, which
+  // _attackFlat reads.
   _presentTraining(sx, sy, o, dress) {
-    const pct = (x) => Math.round(x * 100);
     const lessons = Combat.trainingLessons(this.save);
     const lp = Macros.lessonPrice(this.save);
     const dp = Macros.drillPrice();
@@ -10301,18 +10306,18 @@ class MapScene extends Phaser.Scene {
     const money = this.save.money ?? 0;
     const drillLine = left > 0
       ? `Today's drill: ${shortDuration(left)} left.`
-      : `A drill: +${pct(Combat.TRAINING_BUFF_BONUS)}% for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`;
+      : `A drill: +${Combat.TRAINING_BUFF_DMG} damage a hit for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`;
     // The bonus in force NOW — lessons plus a running drill — off the one
-    // number _attackMul reads (Combat.trainingMul), so what the hall says is
-    // what every blow gets.
-    const bonus = pct(Combat.trainingMul(this.save) - 1);
+    // number _attackFlat reads (Combat.trainingBonus), so what the hall says is
+    // what every hit gets.
+    const bonus = Combat.trainingBonus(this.save);
     this.showOfferModal({
       ...dress, kind: dress.kind,
       title: 'The master offers training:',
-      get: lp != null ? `A lesson: +${pct(Combat.TRAINING_PERM_STEP)}% damage for good`
-        : `Fully trained: +${pct(Combat.TRAINING_PERM_CAP)}% for good`,
+      get: lp != null ? `A lesson: +${Combat.TRAINING_LESSON_DMG} damage a hit, for good`
+        : `Fully trained: +${Combat.TRAINING_PERM_MAX * Combat.TRAINING_LESSON_DMG} damage a hit`,
       cost: lp != null ? this.moneyHTML(lp) : undefined,
-      blurb: `Your damage bonus: +${bonus}%. Lessons so far: +${lessons * pct(Combat.TRAINING_PERM_STEP)}% of +${pct(Combat.TRAINING_PERM_CAP)}%. ${drillLine}`,
+      blurb: `Your damage bonus: +${bonus} a hit. Lessons: ${lessons} of ${Combat.TRAINING_PERM_MAX}. ${drillLine}`,
       canAfford: lp != null && money >= lp,
       acceptLabel: 'Lesson',
       cancelLabel: 'Later',
@@ -10323,14 +10328,14 @@ class MapScene extends Phaser.Scene {
           const r = Macros.buyDrill(this.save);
           if (!r.ok) { if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy); return; }
           this._finishInventoryChange();
-          this.flash(`+${pct(Combat.TRAINING_BUFF_BONUS)}% damage for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`, sx, sy);
+          this.flash(`+${Combat.TRAINING_BUFF_DMG} damage for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`, sx, sy);
         },
       },
       onAccept: () => {
         const r = Macros.buyLesson(this.save);
         if (!r.ok) { if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy); return; }
         this._finishInventoryChange();
-        this.flash(`+${pct(Combat.TRAINING_PERM_STEP)}% damage, for good.`, sx, sy);
+        this.flash(`+${Combat.TRAINING_LESSON_DMG} damage, for good.`, sx, sy);
       },
     });
   }

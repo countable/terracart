@@ -458,49 +458,51 @@
   });
 
   // ── Training hall ─────────────────────────────────────────────────────────
-  test('training: lessons are +1% each to a +25% cap, $10 then $10 dearer each, holding at $100', () => {
-    assert.eq(Combat.TRAINING_PERM_STEP, 0.01);
-    assert.eq(Combat.TRAINING_PERM_CAP, 0.25);
-    assert.eq(Combat.TRAINING_PERM_MAX, 25);
+  test('training: a lesson is +1 damage a hit, up to 5, costing $25 times its number', () => {
+    assert.eq(Combat.TRAINING_LESSON_DMG, 1);
+    assert.eq(Combat.TRAINING_PERM_MAX, 5);
     const save = { money: 1e9 };
-    assert.eq(Macros.lessonPrice(save), 10, 'the first lesson costs $10');
-    assert.eq(Macros.lessonPricesAll().slice(0, 11).join(), '10,20,30,40,50,60,70,80,90,100,100', 'up by $10 a lesson to $100…');
-    assert.eq(Macros.lessonPricesAll()[24], 100, '…and it stays there to the cap');
+    assert.eq(Macros.lessonPricesAll().join(), '25,50,75,100,125', '25 × level');
     let paid = 0;
-    for (let i = 0; i < 40; i++) { const r = Macros.buyLesson(save); if (r.ok) paid += r.price; }
-    assert.eq(save.trainingPerm, 25, 'stops at the cap');
+    for (let i = 0; i < 10; i++) { const r = Macros.buyLesson(save); if (r.ok) paid += r.price; }
+    assert.eq(save.trainingPerm, 5, 'stops at the cap');
     assert.eq(Macros.lessonPrice(save), null, 'and stops offering');
     assert.eq(Macros.buyLesson(save).why, 'cap');
-    assert.eq(paid, Macros.lessonPricesAll().reduce((a, b) => a + b, 0), 'each lesson charged its listed price');
-    assert.inRange(Combat.trainingMul(save, T0) - 1.25, -1e-9, 1e-9, '+25% for good');
-    assert.inRange(Combat.trainingMul({ trainingPerm: 999 }, T0) - 1.25, -1e-9, 1e-9, 'a save can never read past the cap');
+    assert.eq(paid, 375, 'each lesson charged its listed price');
+    assert.eq(Combat.trainingBonus(save, T0), 5, '+5 a hit for good');
+    assert.eq(Combat.trainingBonus({ trainingPerm: 25 }, T0), 5, 'an old save past the cap reads as the cap');
+    assert.eq(Combat.trainingBonus({}, T0), 0, 'untrained, nothing');
   });
 
   test('training: the hall shows the damage bonus in force, lessons and drill together', () => {
     const body = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _presentTraining(sx, sy, o, dress) {'), APP_JS_SRC.indexOf('  buildingFlavorTitle('));
-    assert.truthy(/const bonus = pct\(Combat\.trainingMul\(this\.save\) - 1\);/.test(body), 'off the one multiplier every blow reads');
-    assert.truthy(/Your damage bonus: \+\$\{bonus\}%/.test(body), 'and it is printed');
+    assert.truthy(/const bonus = Combat\.trainingBonus\(this\.save\);/.test(body), 'off the one number every hit reads');
+    assert.truthy(/Your damage bonus: \+\$\{bonus\} a hit/.test(body), 'and it is printed');
   });
 
-  test('training: a drill is +10% for 24 h, one at a time, and lapses on the dot', () => {
+  test('training: a drill is +5 a hit for 24 h at $150, one at a time, and lapses on the dot', () => {
     assert.eq(Combat.TRAINING_BUFF_MS, DAY, 'a day');
+    assert.eq(Combat.TRAINING_BUFF_DMG, 5);
+    assert.eq(Macros.drillPrice(), 150);
     const save = { money: 1000 };
-    assert.eq(Macros.drillPrice(), Math.round(PRICES.dragon_powder * Macros.TRAINING_DRILL_PRICE_MUL), 'priced off the powder');
     const r = Macros.buyDrill(save, T0);
     assert.truthy(r.ok);
-    assert.eq(save.money, 1000 - Macros.drillPrice());
-    assert.inRange(Combat.trainingMul(save, T0 + DAY - 1) - 1.10, -1e-9, 1e-9, '+10% for the day');
+    assert.eq(save.money, 850);
+    assert.eq(Combat.trainingBonus(save, T0 + DAY - 1), 5, '+5 for the day');
     assert.eq(Macros.buyDrill(save, T0 + 1000).why, 'active', 'no second drill while one runs');
     assert.eq(Macros.drillLeftMs(save, T0 + DAY - 3600000), 3600000, 'the time left');
     assert.eq(shortDuration(Macros.drillLeftMs(save, T0 + DAY - 3600000)), '1h', 'shown in shortDuration');
-    assert.eq(Combat.trainingMul(save, T0 + DAY), 1, 'gone at 24 h');
+    assert.eq(Combat.trainingBonus(save, T0 + DAY), 0, 'gone at 24 h');
     assert.truthy(Macros.buyDrill(save, T0 + DAY).ok, 'and can be bought again');
-    save.trainingPerm = 25;
-    assert.inRange(Combat.trainingMul(save, T0 + DAY + 1) - 1.35, -1e-9, 1e-9, 'lessons and a drill add');
+    save.trainingPerm = 5;
+    assert.eq(Combat.trainingBonus(save, T0 + DAY + 1), 10, 'lessons and a drill add');
   });
 
-  test('training: the bonus rides the player\'s one attack multiplier', () => {
-    assert.truthy(/_attackMul\(\) \{[\s\S]*?\* Combat\.trainingMul\(this\.save\);/.test(APP_JS_SRC), '_attackMul folds it in');
+  test('training: the bonus is flat, added to every melee blow and every shot after the multipliers', () => {
+    assert.truthy(/_attackFlat\(\) \{\s*return Combat\.trainingBonus\(this\.save\);/.test(APP_JS_SRC), '_attackFlat reads it');
+    assert.falsy(/trainingMul|trainingBonus[^\n]*_attackMul/.test(APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _attackMul() {'), APP_JS_SRC.indexOf('  _attackFlat() {'))), 'not in the multiplier');
+    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass\)\s*\+ this\._attackFlat\(\);/.test(APP_JS_SRC), 'each melee blow');
+    assert.truthy(/shotDamage\(relics, slot, this\.save\.playerClass\) \* dmgMul \+ this\._attackFlat\(\),/.test(APP_JS_SRC), 'each arrow or bolt');
   });
 
   test('tips: the macro pages quote the numbers the code uses', () => {
@@ -517,10 +519,10 @@
     const tr = PLAY_TIPS.find((t) => /training hall/.test(t));
     const pct = (x) => `${Math.round(x * 100)}%`;
     assert.truthy(tr, 'the training page');
-    assert.truthy(tr.includes(`+${pct(Combat.TRAINING_PERM_STEP)} damage for good`), tr);
-    assert.truthy(tr.includes(`up to +${pct(Combat.TRAINING_PERM_CAP)}`), tr);
-    assert.truthy(tr.includes(`$${Macros.TRAINING_LESSON_FIRST}`) && tr.includes(`$${Macros.TRAINING_LESSON_TOP}`), 'the tip quotes the live lesson prices');
-    assert.truthy(tr.includes(`+${pct(Combat.TRAINING_BUFF_BONUS)} for a day`) && Combat.TRAINING_BUFF_MS === DAY, tr);
+    assert.truthy(tr.includes(`+${Combat.TRAINING_LESSON_DMG} damage on every hit`), tr);
+    assert.truthy(tr.includes(`up to ${Combat.TRAINING_PERM_MAX} lessons`), tr);
+    assert.truthy(tr.includes(`$${Macros.TRAINING_LESSON_PRICE} times its number`) && tr.includes(`$${Macros.TRAINING_DRILL_PRICE}`), 'the tip quotes the live prices');
+    assert.truthy(tr.includes(`+${Combat.TRAINING_BUFF_DMG} a hit for a day`) && Combat.TRAINING_BUFF_MS === DAY, tr);
     // Curriculum: the counters come after the roadside stall they share a dialog with.
     const stall = PLAY_TIPS.findIndex((t) => /A roadside stall undercuts/.test(t));
     assert.gt(PLAY_TIPS.indexOf(inn), stall, 'taught with the village economy');
