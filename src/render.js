@@ -3321,15 +3321,18 @@ Render.drawObjects = function drawObjects(scene) {
     // tappable: no interactable row matches 'gatepost'.
     infoboard: { key: 'signpost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     gatepost:  { key: 'gatepost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
-    // INFLUENCE ZONE PROPS (src/zones.js) — generated 16px art at the same
-    // 1.6, seated. A headstone stands in an Old Stones churchyard (a tap may
-    // raise a ghost or pay a one-off find — INTERACTABLES.headstone); the
-    // grove shrine (16×24, so it bottom-seats) gives a daily gift and is a
-    // light (Lighting.KINDS.shrine).
+    // INFLUENCE ZONE PROPS (src/zones.js). Headstones may raise a ghost or
+    // pay a one-off find. Grove shrines use two stable, cell-seated appearances;
+    // both give the same daily gift and light (Lighting.KINDS.shrine).
     headstone:    { key: 'headstone',    frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
-    grove_shrine: { key: 'grove_shrine', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
-    // A VIEWPOINT's scope (src/scenic.js — generated 16×24 placeholder, the
-    // shrine's size and seat): its daily gift, the first vista's relic, its
+    grove_shrine: {
+      key: o => SpriteLayout.groveShrineArt(o).key,
+      frame: o => SpriteLayout.groveShrineArt(o).frame,
+      scale: o => SpriteLayout.groveShrineArt(o).scale,
+      origin: [0.5, 0.5], seat: true, shadow: true,
+    },
+    // A VIEWPOINT's scope (src/scenic.js — generated 16×24 placeholder):
+    // its daily gift, the first vista's relic, its
     // story, and the rest ring its light shows (Lighting.KINDS.vista).
     vista_scope:  { key: 'vista_scope',  frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // Stone well — decorative landmark for OSM amenity=fountain points. Tap
