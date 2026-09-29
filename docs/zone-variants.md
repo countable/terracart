@@ -71,11 +71,14 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 
 ## Review preview
 
-Generate directly from the table:
+Generate directly from the table with Node.js and Python 3 with Pillow installed:
 
 ```sh
 python3 tools/preview_zone_variants.py docs/zone-variants.json /tmp/zone-variants-preview
+python3 tools/preview_beach_variants.py /tmp/zone-variants-preview
 ```
+
+The preview embeds shipping sprite frames in the material gallery and pattern cells, including finite-find materials. Turn off “Show game art” to inspect coloured geometry. Sprite source details identify the sheet and frame; sprite sizes are schematic, and fruit overlays, animation and lighting are not simulated. Procedural traps and street lamps use the shipping canvas painters.
 
 The generator validates material densities across full repeat cycles, distinct POI positions, grid continuity, find counts, and tar guard exclusions. It displays the background plus the POI arrangement, marked POI point, and an exact-offset POI close-up. Toggles reveal the original background beneath the POI cells. Each motif uses its declared POI-relative phase; no arbitrary square clearing is cut into it. Finds, guards, fauna affinities, connection routes, actual obstacles, and real map boundaries are not drawn; the coverage-union diagram is schematic.
 
