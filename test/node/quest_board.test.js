@@ -212,7 +212,7 @@
     const save = qbSave();
     // Force the overlap: same verb, and no named target (a kill job's target is
     // a real filter — see the enemy test below).
-    for (const q of Quests.board(save)) { q.event = 'harvest'; q.target = null; }
+    for (const q of Quests.board(save)) { q.event = 'harvest'; q.target = null; delete q.active; }
     Quests.onEvent(save, 'harvest');
     for (const q of Quests.board(save)) assert.eq(q.have, 1, `${q.id} credited`);
   });
@@ -297,3 +297,42 @@
     assert.falsy(/openedCastles\s*\[[^\]]+\]\s*=/.test(APP_JS_SRC), 'nothing records a delivery-opened castle any more');
   });
 })();
+
+// ── Sep 2026 board trim: no sowing, tilling or rebuilding jobs; a fishing
+// job; salvage counts only once its castle has shown it. ──────────────────
+test('quest board: sow / break ground / rebuild are gone, fishing is in', () => {
+  const ids = QUEST_TEMPLATES.map(t => t.id);
+  for (const gone of ['plant', 'till', 'restore']) assert.falsy(ids.includes(gone), `${gone} is off the board`);
+  assert.includes(ids, 'fish', 'a fishing job');
+  for (let g = 3; g < 300; g++) {
+    const q = Quests.generate(g % QUEST_SLOTS, g, 4, 77);
+    assert.falsy(['plant', 'till', 'restore'].includes(q.verb), 'never rolled');
+    if (q.verb === 'fish') assert.truthy(/Land \d+ fish\./.test(q.body), `reads plainly: ${q.body}`);
+  }
+  assert.truthy(/scene\.questEvent\?\.\('fish'\)/.test(INTERACT_JS_SRC), 'a landed fish credits it');
+});
+
+test('quest board: a save holding a retired job has it rerolled', () => {
+  const save = {};
+  Quests.board(save);
+  save.quests.slots[2] = { id: 'qold', slot: 2, gen: 99, verb: 'till', event: 'till', need: 4, have: 1 };
+  const q = Quests.slot(save, 2);
+  assert.truthy(q.verb !== 'till', 'rerolled');
+});
+
+test('quest board: Salvage rights counts chests only after its castle shows it', () => {
+  const save = {};
+  const q = Quests.slot(save, 2);
+  assert.eq(q.verb, 'chest', 'the opener in slot 3');
+  assert.eq(q.active, false, 'not yet read at a castle');
+  Quests.onEvent(save, 'chest');
+  assert.eq(Quests.slot(save, 2).have, 0, 'a chest before the board is not salvage');
+  assert.truthy(Quests.activate(save, 2), 'the board shows it');
+  Quests.onEvent(save, 'chest');
+  assert.eq(Quests.slot(save, 2).have, 1, 'counted from then on');
+  assert.falsy(Quests.activate(save, 2), 'activating twice changes nothing');
+  assert.truthy(/Quests\.activate\(this\.save, mine\)/.test(APP_JS_SRC), 'showQuestBoard activates its own slot');
+  // Other verbs track from the start, as before.
+  Quests.onEvent(save, 'kill', { target: 'slime' });
+  assert.eq(Quests.slot(save, 0).have, 1);
+});

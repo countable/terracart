@@ -13745,6 +13745,8 @@ class MapScene extends Phaser.Scene {
     const board = Quests.board(this.save);
     const q = board[mine];
     if (!q) { this.flash('No work here today.', sx, sy); return; }
+    // Read at its castle: an `activates` job (Salvage rights) counts from here.
+    if (Quests.activate(this.save, mine)) persistSave(this.save);
     const done = Quests.isSlotComplete(this.save, mine);
     // The other two are shown, greyed, because "there are three jobs going"
     // is not something a player can learn from a board that only shows one —

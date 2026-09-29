@@ -12,7 +12,7 @@
 // bring a sapphire up from depth 3. Ten slimes was most of an evening for the
 // FIRST thing the game asks of you, and when the three were done the board had
 // nothing left to say. Many small jobs beat three big ones: the opener is now
-// a single slime, and the work grows with the number you have finished.
+// three slimes, and the work grows with the number you have finished.
 const QUEST_SLOTS = 3;
 
 // Rank = quests completed. Every size and every reward is derived from it, so
@@ -20,8 +20,9 @@ const QUEST_SLOTS = 3;
 //   need   = clamp(ceil(base * (1 + rank * k)), 1, max)
 //   reward = round(need * unit * (1 + rank * 0.15))
 // `unit` is what one of a thing is worth, and it is the only place a template
-// says anything about value: restoring a wreck pays many times what tilling a
-// cell does because it costs many times as much.
+// says anything about value: filling a wishlist pays more than a crop does
+// because it costs more. (Sowing, tilling and rebuilding jobs were retired,
+// Sep 2026 — the owner's call; their events still drive the starter ladder.)
 const QUEST_REWARD_RAMP = 0.15;
 
 // The verbs. `event` is the gameplay event that credits one unit (see
@@ -34,24 +35,21 @@ const QUEST_TEMPLATES = [
   { id: 'harvest', event: 'harvest', base: 2, k: 0.5,  max: 15, unit: 10, weight: 3,
     title: 'Fill the stores',
     body: (q) => `The kitchens are short. Bring in ${q.need} ${_plural('crop', q.need)}.` },
-  { id: 'plant',   event: 'plant',   base: 3, k: 0.5,  max: 20, unit: 6,  weight: 2,
-    title: 'Sow the season',
-    body: (q) => `Put ${q.need} ${_plural('seed', q.need)} in the ground.` },
-  { id: 'till',    event: 'till',    base: 4, k: 0.5,  max: 24, unit: 4,  weight: 2,
-    title: 'Break ground',
-    body: (q) => `Turn ${q.need} ${_plural('patch', q.need)} of earth into soil.` },
-  { id: 'chest',   event: 'chest',   base: 2, k: 0.4,  max: 10, unit: 14, weight: 2,
+  // `activates`: the job counts only from the moment a castle board first
+  // SHOWS it (Quests.activate, app.js showQuestBoard) — chests opened on the
+  // way to a castle, before the job was ever read, are not salvage for it.
+  { id: 'chest',   event: 'chest',   base: 2, k: 0.4,  max: 10, unit: 14, weight: 2, activates: true,
     title: 'Salvage rights',
     body: (q) => `Open ${q.need} ${_plural('chest', q.need)} out in the world.` },
+  { id: 'fish',    event: 'fish',    base: 2, k: 0.4,  max: 10, unit: 20, weight: 2,
+    title: 'Fish for the table',
+    body: (q) => `The cooks want fresh fish. Land ${q.need} ${_plural('fish', q.need)}.` },
   { id: 'sell',    event: 'sell',    base: 1, k: 0.7,  max: 8,  unit: 18, weight: 2,
     title: 'Trade run',
     body: (q) => `Cash out at Home ${q.need === 1 ? 'once' : `${q.need} times`}.` },
   { id: 'deliver', event: 'deliver', base: 1, k: 0.3,  max: 5,  unit: 30, weight: 2,
     title: 'Neighbourly',
     body: (q) => `Fill ${q.need === 1 ? 'a household\'s wishlist' : `${q.need} households' wishlists`}.` },
-  { id: 'restore', event: 'restore', base: 1, k: 0.3,  max: 4,  unit: 70, weight: 1,
-    title: 'Rebuild a neighbour',
-    body: (q) => `Raise ${q.need} ruined ${_plural('house', q.need)} back up.` },
   { id: 'poi',     event: 'poi',     base: 1, k: 0,    max: 1,  unit: 55, weight: 1,
     title: 'Scouting report',
     body: (q) => `Scouts want eyes on ${_a(q.target)}. Find one and report back.` },
@@ -116,7 +114,7 @@ const QUEST_POI_NAMES = {
   park: 'a park', place_of_worship: 'a chapel', playground: 'a playground',
 };
 
-const _plural = (w, n) => (n === 1 ? w : (w.endsWith('s') ? w + 'es' : w + 's'));
+const _plural = (w, n) => (n === 1 || w === 'fish' ? w : (w.endsWith('s') ? w + 'es' : w + 's'));
 const _enemyName = (k) => ((typeof Combat !== 'undefined' && Combat.enemyName) ? Combat.enemyName(k) : k);
 const _a = (k) => QUEST_POI_NAMES[k] || k;
 
@@ -153,6 +151,9 @@ const Quests = {
     // the next job takes its number, which is the whole point of numbering them.
     while (q.slots.length < QUEST_SLOTS) q.slots.push(null);
     for (let i = 0; i < QUEST_SLOTS; i++) {
+      // A job whose verb has left the board (plant / till / restore, retired
+      // Sep 2026) is rerolled in its slot rather than left unfinishable-looking.
+      if (q.slots[i] && !QUEST_TEMPLATES.some(t => t.id === q.slots[i].verb)) q.slots[i] = null;
       if (!q.slots[i]) q.slots[i] = this.generate(i, q.gen++, q.done, save.relicSalt || 0);
     }
     return q;
@@ -187,6 +188,7 @@ const Quests = {
     const need = (opener && opener.need) || clamp(Math.ceil(tpl.base * (1 + rank * tpl.k)), 1, tpl.max);
     const q = {
       id: `q${gen}`, slot, gen, verb: tpl.id, event: tpl.event, need, have: 0,
+      ...(tpl.activates ? { active: false } : {}),
       reward: Math.round(need * tpl.unit * (1 + rank * QUEST_REWARD_RAMP)),
     };
     if (tpl.id === 'kill') {
@@ -229,13 +231,22 @@ const Quests = {
     const q = this._qs(save);
     let any = false;
     for (const s of q.slots) {
-      if (!s || s.event !== event || s.have >= s.need) continue;
+      if (!s || s.event !== event || s.have >= s.need || s.active === false) continue;
       if (s.target && detail && detail.target && detail.target !== s.target) continue;
       if (s.target && (!detail || detail.target == null)) continue;
       s.have = Math.min(s.need, s.have + 1);
       any = true;
     }
     return any;
+  },
+
+  // A castle board has SHOWN slot `i`'s job: from now on it counts (only an
+  // `activates` template starts inactive). Returns true when it changed.
+  activate(save, i) {
+    const s = this._qs(save).slots[i];
+    if (!s || s.active !== false) return false;
+    s.active = true;
+    return true;
   },
 
   // The two hooks the gameplay sites already call, kept so no call site has
