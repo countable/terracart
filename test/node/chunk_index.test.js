@@ -123,7 +123,9 @@ test('chunk index: a light past the sprite cull is still offered, one past the q
   const cellM = 7;
   const halfM = (VIEW_CELLS / 2 + 1) * cellM;
   const pad = Lighting.objectLightPadCells() * cellM;
-  const nearLight = halfM + pad - 1;             // outside the sprite cull, inside the light margin
+  // Outside the sprite cull, inside Home's OWN light (the query's pad is the
+  // widest row, which may be wider — the grove shrine's).
+  const nearLight = halfM + Lighting.radiusCells('trailer') * cellM - 1;
   const farOut = halfM + pad + 3 * WorldGen.CHUNK_M;   // chunks away from any query
   WorldGen.tileCache.set(`${WorldGen.Z}/0/0`, {
     objects: [

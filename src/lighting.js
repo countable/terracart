@@ -202,11 +202,13 @@
     // there, some fungus here", never two of the same lamp.
     mushroom: { radiusCells: 1.25, colour: 0x9fdcff, peak: 0.50, flicker: 0, pulse: 0.35 },
     // A GROVE SHRINE (src/zones.js — the one standing prop at a park's heart):
-    // a pale green light breathing on the POI's slow beat, a little wider than
-    // a POI's. It is a COLLECTED light, so it burns ghosts through the same
+    // a pale green light breathing on the POI's slow beat, far wider than a
+    // POI's. It is a COLLECTED light, so it burns ghosts through the same
     // brightnessAt every lamp and fire does — a refuge at night with no ward
-    // code of its own. It is NOT a rest ring and turns no foe away.
-    shrine:   { radiusCells: 3.0, colour: 0xc8f5a0, peak: 0.90, flicker: 0, pulse: 0.4 },
+    // code of its own. It is NOT a rest ring and turns no foe away. Six
+    // cells (owner's call, Sep 2026): the grove's heart lights the park round
+    // it, not just the stone — twice a restored house's reach.
+    shrine:   { radiusCells: 6.0, colour: 0xc8f5a0, peak: 0.90, flicker: 0, pulse: 0.4 },
     // A VIEWPOINT's scope (src/scenic.js — the one standing piece at a
     // vista): a warm, steady lamp out to FIRE_REST_R — the ring its bench
     // rests the player on (app.js update(), the campfire's rest with a new
