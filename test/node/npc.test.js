@@ -254,4 +254,21 @@
       WorldGen.tileCache.clear(); for (const [key, value] of cache) WorldGen.tileCache.set(key, value);
     }
   });
+  test('NPC talk: a hidden static overlay does not swallow the tap', () => {
+    // index.html keeps #story / #howto / … in the DOM as .game-modal at all
+    // times; only a SHOWN dialog (scene._dialogOpen) may refuse the talk.
+    const g = globalThis.document;
+    globalThis.document = { querySelector: sel => (sel === '.game-modal' ? {} : null) };
+    try {
+      const shown = [];
+      const s = { ...scene(), _dialogOpen: () => false, showMessageModal: m => shown.push(m) };
+      const w = { id: 'npc_warden_1_2', kind: 'npc', x: 0, y: 0, ...NPC.warden('npc_warden_1_2'), _portrait: 'x' };
+      NPC.interact(s, w, 0, 0);
+      assert.eq(shown.length, 1, 'the warden speaks');
+      assert.eq(shown[0].body, NPC.WARDEN_LINE);
+      s._dialogOpen = () => true;
+      NPC.interact(s, w, 0, 0);
+      assert.eq(shown.length, 1, 'but not over an open dialog');
+    } finally { globalThis.document = g; }
+  });
 })();
