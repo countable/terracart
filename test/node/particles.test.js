@@ -553,3 +553,15 @@ test('particles: Crops.advanceGrowth / waterWithin report the plants they moved'
   assert.eq(jumped[0], s2.planted[0], 'the jumped plant is reported');
 });
 })();
+
+test('particles: the jackpot fanfare throws confetti, one preset in many baked colours', () => {
+  const P = Particles.PRESETS.confetti;
+  assert.truthy(P, 'a confetti preset');
+  assert.eq(P.tex.shape, 'confetti', 'paper strips');
+  assert.gt(P.gravityY, 0, 'it falls back down');
+  assert.truthy(P.angle[0] >= 180 && P.angle[1] <= 360, 'tossed upward');
+  assert.gte(Particles.CONFETTI_COLOURS.length, 4, 'many colours');
+  assert.eq(new Set(Particles.CONFETTI_COLOURS).size, Particles.CONFETTI_COLOURS.length, 'all different');
+  assert.truthy(/Particles\.burst\(this, 'confetti', t\.x, t\.y, \{ colour \}\)/.test(APP_JS_SRC),
+    'flashJackpot throws it off the banner, once per colour');
+});

@@ -190,6 +190,8 @@ const PLAY_TIPS = [
   'Now and then a cast hooks a slime instead of a fish. It lands beside you, and it is not happy about it.',
   // items.js rollEmptyCast (FISH_EMPTY_TREASURE_CHANCE: 1 in 50).
   'A cast with nothing biting is not always empty: it can drag up an old boot, a stone or a stick, and about one in fifty brings up treasure.',
+  // items.js rollTillFind (TILL_*_CHANCE: 1 in 10, 1 in 10, 1 in 100).
+  'Turning soil with the hoe now and then unearths a flint or a stone — and about one furrow in a hundred strikes buried treasure.',
   // ── The village economy, once you have a house to trade with ───
   'A house numbered ending in 9 is a Blacksmith — it forges your gems and bars into relics.',
   'Addresses ending 2 or 6 are shops. Each one you rebuild sells the next line — seeds, supplies, magic, ore, relics, pets — then round again, a tier up. Endings 1 and 8 are Traders, who barter only.',

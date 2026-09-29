@@ -196,6 +196,17 @@
       count: 10, angle: [0, 360], speed: [70, 150], lifespan: [350, 600],
       gravityY: 0, scale: [0.9, 0], alpha: [1, 0], rotate: [0, 360],
     },
+    // 🎉 CONFETTI — the jackpot fanfare's paper (app.js flashJackpot): little
+    // flat strips tossed UP off the banner in a wide cone, tumbling (a full
+    // spin range) and falling back under a real gravity, slower to die than
+    // the stars so it is still drifting down as the banner fades. One preset,
+    // thrown once per CONFETTI_COLOURS entry (opts.colour — baked, never
+    // tinted), so the shower is many colours with no second preset.
+    confetti: {
+      tex: { shape: 'confetti', color: C.gold, size: 8 },
+      count: 7, angle: [200, 340], speed: [120, 240], lifespan: [900, 1500],
+      gravityY: 280, scale: [1, 0.7], alpha: [1, 0.2], rotate: [0, 720],
+    },
     // BEING HURT — a trap's jaws closing. Red chips thrown hard in a full ring
     // and gone fast: the shortest, fastest preset here, because a hit is an
     // impact and anything that lingers reads as a reward. No gravity — the
@@ -341,6 +352,11 @@
       g.fillStyle(hex(t.edge), 1); g.fillPoints(pts, true);
       g.fillStyle(hex(t.color), 1);
       g.fillPoints(pts.map((p) => ({ x: c + (p.x - c) * 0.6, y: c + (p.y - c) * 0.6 })), true);
+    } else if (t.shape === 'confetti') {
+      // A paper strip: a flat rectangle twice as long as it is wide, a darker
+      // underside line so the tumble reads as a flat thing turning.
+      g.fillStyle(hex(t.color), 1); g.fillRect(c - S * 0.4, c - S * 0.2, S * 0.8, S * 0.4);
+      g.fillStyle(0x000000, 0.25); g.fillRect(c - S * 0.4, c + S * 0.1, S * 0.8, S * 0.1);
     } else if (t.shape === 'drop') {
       // A water drop: a round bead, taller than wide, with a white glint
       // off-centre so it reads as wet rather than as a blue dot.
@@ -486,7 +502,12 @@
     }
   }
 
+  // The confetti's colours: the UI gold and green beside a few party hues that
+  // mean nothing else on the map.
+  const CONFETTI_COLOURS = [C.gold, C.green, '#ff7ab8', '#7ac8ff', '#c89bff', '#ffffff'];
+
   root.Particles = {
+    CONFETTI_COLOURS,
     PRESETS, burstCount, emitterConfig, onScreen, burst, texKey, ringPoints, BURST_MAX, warm,
     dmgSpeedScale,
   };

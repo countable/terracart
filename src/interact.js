@@ -342,6 +342,14 @@ function coinAmount(coin) {
   return n >= 1 ? n : 1;
 }
 
+// FOUND TREASURE (items.js FOUND_TREASURE_CONTEXT, a random chest tier): an
+// ordinary treasure roll, announced with the jackpot fanfare and its confetti
+// — a find nobody marked on the map is the moment it is.
+function grantFoundTreasure(scene, save, sx, sy, mark, tier, headline) {
+  grantTreasureRoll(scene, save, sx, sy, mark, FOUND_TREASURE_CONTEXT, { tier });
+  scene.flashJackpot?.(1, headline);
+}
+
 function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:default', opts) {
   const reward = pickReward(contextKey, save, undefined, opts);
   if (!reward) {
@@ -1580,7 +1588,7 @@ const TAP_HANDLERS = [
         // then a treasure roll, a slime, or junk off the bottom.
         const empty = rollEmptyCast();
         if (empty?.kind === 'treasure') {
-          grantTreasureRoll(scene, save, sx, sy, '🎣', FISH_EMPTY_TREASURE_CONTEXT, { tier: empty.tier });
+          grantFoundTreasure(scene, save, sx, sy, '🎣', empty.tier, '✨ SUNKEN TREASURE ✨');
           persistSave(save);
           return;
         }
@@ -1792,6 +1800,16 @@ const TAP_HANDLERS = [
       persistSave(save);
       scene.flash(bedQ ? `tilled — quality ${bedQ}` : 'tilled', sx, sy);
       scene.questEvent?.('till');
+      // Now and then the hoe turns something up (items.js rollTillFind).
+      const find = rollTillFind();
+      if (find?.kind === 'treasure') {
+        grantFoundTreasure(scene, save, sx, sy, '⛏', find.tier, '✨ BURIED TREASURE ✨');
+        persistSave(save);
+      } else if (find?.kind === 'item') {
+        scene.addToInv(find.id, 1);
+        persistSave(save);
+        scene.flashLoot(`+1 ${ITEM_BY_ID[find.id]?.name || find.id}`, '#a7ffb0', 1, find.id);
+      }
     }, tillMs, tillCost, 'hoe');
     return true;
   }},

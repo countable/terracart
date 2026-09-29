@@ -1626,29 +1626,48 @@ const FISH_COST_MULT = 2;
 // → a wild SLIME on the line: it lands beside the player and charges (app.js
 // fishedSlimeSpawn). Rolled on an empty cast (rollEmptyCast).
 const FISH_SLIME_CHANCE = 0.05;
+// FOUND TREASURE — a treasure roll at a RANDOM chest tier, turned up by
+// chance rather than by a mark: an empty fishing cast (1 in 50) and a hoe's
+// furrow (1 in 100). One context and one tier range, shared, and paid with the
+// jackpot fanfare + confetti (interact.js grantFoundTreasure).
+const FOUND_TREASURE_CONTEXT = 'chest:lowtier';
+const FOUND_TREASURE_TIER_MAX = 5;
+function rollFoundTreasureTier(rng = Math.random) {
+  return 1 + Math.floor(rng() * FOUND_TREASURE_TIER_MAX);
+}
 // THE EMPTY CAST (Sep 2026, owner's call): a "nothing biting" cast is no
 // longer always nothing. Rolled on every empty cast, in this order:
-//   • FISH_EMPTY_TREASURE_CHANCE (1 in 50) → a treasure roll at a RANDOM
-//     chest tier (FISH_EMPTY_TREASURE_CONTEXT, tier 1..FISH_EMPTY_TREASURE_TIER_MAX),
+//   • FISH_EMPTY_TREASURE_CHANCE (1 in 50) → found treasure (above),
 //   • FISH_SLIME_CHANCE → a slime on the line,
 //   • FISH_EMPTY_JUNK_CHANCE → junk off the bottom (FISH_EMPTY_JUNK: an Old
 //     Boot, a stone, a stick of wood),
 //   • else nothing biting, as before.
 const FISH_EMPTY_TREASURE_CHANCE = 1 / 50;
-const FISH_EMPTY_TREASURE_CONTEXT = 'chest:lowtier';
-const FISH_EMPTY_TREASURE_TIER_MAX = 5;
 const FISH_EMPTY_JUNK_CHANCE = 0.15;
 const FISH_EMPTY_JUNK = ['boot', 'rockfruit', 'wood'];
 // What an empty cast turns up: { kind: 'treasure', tier } | { kind: 'slime' }
 // | { kind: 'junk', id } | null. Pure over `rng`, so tests can drive it.
 function rollEmptyCast(rng = Math.random) {
-  if (rng() < FISH_EMPTY_TREASURE_CHANCE) {
-    return { kind: 'treasure', tier: 1 + Math.floor(rng() * FISH_EMPTY_TREASURE_TIER_MAX) };
-  }
+  if (rng() < FISH_EMPTY_TREASURE_CHANCE) return { kind: 'treasure', tier: rollFoundTreasureTier(rng) };
   if (rng() < FISH_SLIME_CHANCE) return { kind: 'slime' };
   if (rng() < FISH_EMPTY_JUNK_CHANCE) {
     return { kind: 'junk', id: FISH_EMPTY_JUNK[Math.floor(rng() * FISH_EMPTY_JUNK.length)] };
   }
+  return null;
+}
+// THE HOE'S FINDS (Sep 2026, owner's call): a finished furrow sometimes
+// turns something up, in this order — TILL_TREASURE_CHANCE (1 in 100) found
+// treasure, TILL_FLINT_CHANCE (1 in 10) a Flint (item id 'coal'),
+// TILL_ROCK_CHANCE (1 in 10) a stone. { kind: 'treasure', tier } |
+// { kind: 'item', id } | null.
+const TILL_TREASURE_CHANCE = 1 / 100;
+const TILL_FLINT_CHANCE = 1 / 10;
+const TILL_ROCK_CHANCE = 1 / 10;
+function rollTillFind(rng = Math.random) {
+  if (rng() < TILL_TREASURE_CHANCE) return { kind: 'treasure', tier: rollFoundTreasureTier(rng) };
+  const r = rng();
+  if (r < TILL_FLINT_CHANCE) return { kind: 'item', id: 'coal' };
+  if (r < TILL_FLINT_CHANCE + TILL_ROCK_CHANCE) return { kind: 'item', id: 'rockfruit' };
   return null;
 }
 // The catch table. `minTier` is the rod a species needs before it is IN the
@@ -1677,8 +1696,8 @@ function fishTable(tier) {
 // hash of the cell's tile + local cell id (fishSpotId), so every player with
 // the same tiles has the same secret spots. Landing a fish empties the spot
 // for good — the id joins save.fishedSpots (never capped, never restocked).
-// An empty or fished-out spot casts like any other and always comes up
-// "nothing biting". The starter pond is the exception: its cells are always
+// An empty or fished-out spot casts like any other and is always an empty
+// cast (rollEmptyCast); a stocked one always bites. The starter pond is the exception: its cells are always
 // stocked, since it exists to make the first catch reachable.
 const FISH_STOCK_CHANCE = 1 / 3;
 function fishSpotId(tx, ty, ix, iy) {
