@@ -287,22 +287,30 @@
 
   // ── TRAINING HALL: buy damage, for good or for a day ─────────────────────
   // The bonus itself is combat.js's (Combat.trainingMul — +1% a lesson to
-  // +25%, +10% for 24 h a drill). The prices are anchored on the Dragon
-  // Powder (PRICES.dragon_powder — a minute of ×2 damage): a lesson starts at
-  // one powder and each lesson owned adds TRAINING_LESSON_RAMP of one; a drill
-  // is TRAINING_DRILL_PRICE_MUL of one.
-  const TRAINING_LESSON_RAMP = 0.25;
+  // +25%, +10% for 24 h a drill). A LESSON costs TRAINING_LESSON_FIRST, and
+  // each lesson owned adds TRAINING_LESSON_STEP until the price reaches
+  // TRAINING_LESSON_TOP, where it stays for every lesson after ($10, $20 …
+  // $100, then $100 to the cap). A drill is anchored on the Dragon Powder
+  // (PRICES.dragon_powder — a minute of ×2 damage): TRAINING_DRILL_PRICE_MUL
+  // of one.
+  const TRAINING_LESSON_FIRST = 10;
+  const TRAINING_LESSON_STEP = 10;
+  const TRAINING_LESSON_TOP = 100;
   const TRAINING_DRILL_PRICE_MUL = 0.5;
+  // The price of lesson number k+1 (k already owned).
+  function lessonPriceAt(k) {
+    return Math.min(TRAINING_LESSON_TOP, TRAINING_LESSON_FIRST + k * TRAINING_LESSON_STEP);
+  }
   // The next lesson's price, or null once the cap is reached.
   function lessonPrice(save) {
     const k = Combat.trainingLessons(save);
     if (k >= Combat.TRAINING_PERM_MAX) return null;
-    return Math.round(PRICES.dragon_powder * (1 + k * TRAINING_LESSON_RAMP));
+    return lessonPriceAt(k);
   }
-  // Every lesson's price, first to last (the Book tip's "all of them" sum).
+  // Every lesson's price, first to last.
   function lessonPricesAll() {
     const out = [];
-    for (let k = 0; k < Combat.TRAINING_PERM_MAX; k++) out.push(Math.round(PRICES.dragon_powder * (1 + k * TRAINING_LESSON_RAMP)));
+    for (let k = 0; k < Combat.TRAINING_PERM_MAX; k++) out.push(lessonPriceAt(k));
     return out;
   }
   function drillPrice() { return Math.round(PRICES.dragon_powder * TRAINING_DRILL_PRICE_MUL); }
@@ -368,7 +376,7 @@
     bountyWeaponTier, bountyFor, bountyPay, bountyCleared,
     CURIO_COLLECTION, CURIO_MILESTONES, curioEligible, curioCollection, curioDonated, curioCount,
     curioNextMilestone, curioMilestoneKey, curioMissing, curioDonate,
-    TRAINING_LESSON_RAMP, TRAINING_DRILL_PRICE_MUL, lessonPrice, lessonPricesAll, drillPrice,
+    TRAINING_LESSON_FIRST, TRAINING_LESSON_STEP, TRAINING_LESSON_TOP, TRAINING_DRILL_PRICE_MUL, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
     buyLesson, buyDrill, drillLeftMs,
     KIND_DIALOG, KIND_STORY,
   };
