@@ -762,9 +762,10 @@ FISHING
    the same tiles has the same spots, and nothing on screen marks them.
    Landing a fish empties the spot forever: its id joins save.fishedSpots
    (bindIdSet, never capped). An empty or fished-out spot costs a cast like
-   any other and always reads "nothing biting"; junk, slimes and the gear
-   jackpot come only from a stocked spot, and leave its fish in place. The
-   starter pond's four cells are always stocked (interact.js inStarterPond).
+   any other and is always an EMPTY CAST (rollEmptyCast: mostly nothing
+   biting, sometimes junk, a slime or a treasure roll); the strike's jackpot,
+   boot and slime come only from a stocked spot and leave its fish in place.
+   The starter pond's four cells are always stocked (interact.js inStarterPond).
  - tap a WATER cell → the Rod cast wheel, then a weighted catch. Higher rod
    tiers improve the catch and rare odds. Cast TIME is locked: 9s bare-handed,
    3s with any rod, regardless of tier (an exception to the WORK WHEEL ladder
