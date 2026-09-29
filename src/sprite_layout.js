@@ -287,8 +287,7 @@
   //             over `frames` (which is therefore a COUNT OF REAL ART, listed
   //             per row — see the frame-index rule in CLAUDE.md).
   //   hop       a code-drawn continuous bounce, phase-offset per creature off
-  //             its id (HOP_MS / HOP_PX, creatureHop) — for a kind whose
-  //             sheet has no hop of its own (the goblins).
+  //             its id (HOP_MS / HOP_PX, creatureHop), e.g. a ghost bob.
   //   hopRow    the sheet DRAWS a hop in this row (`cols` frames a row):
   //             played on a beat while the creature is moving (hopFrameMs a
   //             frame, then hopRestMs on idle frame 0), the idle row-0 cycle
@@ -306,8 +305,7 @@
   // two ever animate at different rates it is the same blob moving two ways.
   const CREATURE_FRAME_MS = 160;
   const SLIME_FRAME_MS = CREATURE_FRAME_MS * 2;
-  // The CODE bounce (`hop`): every hopping kind without art of its own for
-  // it — the goblins. Up HOP_PX and back every HOP_MS.
+  // Default code-bounce beat; art rows can override its height and duration.
   const HOP_MS = 600, HOP_PX = 6;
   // The slime sheets DRAW their hop: rows in threes (idle 0-2, HOP 3-5, move
   // 6-8, splat 9-11), and row 3 rises ~6px over frames 1-2 and lands squashed
@@ -380,12 +378,13 @@
     // The fire slime is the SURFACE SLIME'S SHEET too — every geometry column
     // matches the slime row; the tint is the one thing that differs.
     fire_slime:    { sheet: 'fire_slime',     frames: 4, frameMs: SLIME_FRAME_MS, hopRow: SLIME_HOP_ROW, hopFrameMs: SLIME_HOP_FRAME_MS, hopRestMs: SLIME_HOP_REST_MS, cols: 4, fw: 32, fh: 32, scale: 1.20, foot: 21 / 32, float: 0,  minY: 10, maxY: 21, tint: FIRE_SLIME_TINT },
-    goblin:        { sheet: 'goblin',        frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
-    goblin_archer: { sheet: 'goblin_archer', frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
+    // Goblins use their six-frame walk cycle without an added body bounce.
+    goblin:        { sheet: 'goblin',        frames: 6, frameMs: CREATURE_FRAME_MS, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27 },
+    goblin_archer: { sheet: 'goblin_archer', frames: 6, frameMs: CREATURE_FRAME_MS, fw: 32, fh: 32, scale: 1.25, foot: 26 / 32, float: 0,  minY: 6,  maxY: 26 },
     // The trapper is the GOBLIN'S SHEET — every geometry column matches the
     // goblin row above (one body cannot have two ground lines); the tint is
     // the one thing that differs (TRAPPER_TINT).
-    goblin_trapper: { sheet: 'goblin',       frames: 6, frameMs: CREATURE_FRAME_MS, hop: true, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27, tint: TRAPPER_TINT },
+    goblin_trapper: { sheet: 'goblin',       frames: 6, frameMs: CREATURE_FRAME_MS, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27, tint: TRAPPER_TINT },
     // Front-facing idle cycle from the supplied 16px sheet. Keep the spectral
     // float and halo; its white/blue artwork replaces the tinted slime.
     ghost:         { sheet: 'ghost', frames: 4, frameMs: 200, hop: true, hopMs: 1600, hopPx: 3, airborne: true, fw: 16, fh: 16, scale: 1.70, foot: 15 / 16, float: 6, minY: 1, maxY: 15, alpha: GHOST_ALPHA, glow: GHOST_GLOW },

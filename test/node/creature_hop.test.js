@@ -1,8 +1,8 @@
 // How a creature hops is its ART ROW's. The slime sheets DRAW a hop (row 3:
 // rise, airtime, squashed landing), so a slime plays that row across each
 // step it takes and oozes on row 0 between — no code bounce on top
-// (SpriteLayout.creatureHopRow). A kind with no hop art (the goblins) wears
-// the code bounce (creatureHop). The slimes used to wear the code bounce over
+// (SpriteLayout.creatureHopRow). Ghosts bob with the code bounce
+// (creatureHop); goblins use their walk cycle. Slimes used to wear a bounce over
 // their idle ooze: two rhythms out of step, bouncing in place, reading as
 // rapid and airborne.
 
@@ -19,10 +19,17 @@ test('creature hop: purple slimes retain their sheet hop; new idle sheets do not
     'the cave slime is the surface slime\'s body — one hop');
 });
 
-test('creature hop: goblins keep the code bounce; a cow does neither', () => {
-  assert.eq(JSON.stringify(SpriteLayout.creatureHop('goblin')),
-    JSON.stringify({ ms: SpriteLayout.HOP_MS, px: SpriteLayout.HOP_PX }), 'goblin: the code bounce');
-  assert.eq(SpriteLayout.creatureHopRow('goblin'), null, 'no hop art');
+test('creature hop: goblins walk without a body bounce, including archer, trapper and giants', () => {
+  for (const kind of ['goblin', 'goblin_archer', 'goblin_trapper']) {
+    for (const k of [kind, 'giant_' + kind]) {
+      assert.eq(SpriteLayout.creatureHop(k), null, `${k}: no code bounce`);
+      assert.eq(SpriteLayout.creatureHopRow(k), null, `${k}: no sheet hop`);
+      assert.eq(SpriteLayout.creatureFloat(k), 0, `${k}: grounded`);
+      assert.eq(SpriteLayout.creatureFrames(k), 6, `${k}: retains all walk frames`);
+      assert.eq(SpriteLayout.creatureFrameMs(k), 160, `${k}: retains walk timing`);
+    }
+  }
+  assert.truthy(SpriteLayout.creatureHop('ghost'), 'ghost still bobs');
   assert.eq(SpriteLayout.creatureHop('cow'), null);
   assert.eq(SpriteLayout.creatureHopRow('cow'), null);
 });

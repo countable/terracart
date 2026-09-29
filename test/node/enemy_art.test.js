@@ -38,11 +38,12 @@ test('enemy art: timed attacks do not change existing idle cycles without attack
 
 // The approved roster supplies every enemy surface with the same art source.
 test('enemy art: all roster rows resolve complete sheets and variant geometry', () => {
-  const assets = new Function('window', 'EnemyRoster', ASSETS_SRC + '\nreturn ASSETS;')({}, EnemyRoster);
+  const assets = new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC + '\nreturn ASSETS;')({}, EnemyRoster, SpriteLayout);
   for (const row of EnemyRoster.ROWS) {
     const a = SpriteLayout.creatureArt(row.id);
     assert.truthy(a, row.id + ' has art');
     assert.truthy(assets[a.sheet], row.id + ' sheet is loaded');
+    if (a.sheet !== row.id) assert.falsy(assets[row.id], row.id + ' reuses the base texture without another preload');
     assert.eq(assets[a.sheet].path, row.art.path, row.id + ' matches catalogue art');
     assert.eq(a.fw, row.art.frameWidth);
     assert.eq(a.fh, row.art.frameHeight);
@@ -57,7 +58,7 @@ test('enemy art: all roster rows resolve complete sheets and variant geometry', 
 
 test('enemy art: luminance palettes preserve black and alpha, with distinct bright cyan bats', () => {
   const window = {};
-  new Function('window', 'EnemyRoster', ASSETS_SRC)(window, EnemyRoster);
+  new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC)(window, EnemyRoster, SpriteLayout);
   const input = [0, 0, 0, 255, 80, 20, 30, 128, 255, 255, 255, 255];
   window.recolorEnemyPixels(input, EnemyRoster.get('vampire_bat').palette);
   assert.eq(input.slice(0, 4).join(), '0,0,0,255');
