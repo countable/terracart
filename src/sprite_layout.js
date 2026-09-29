@@ -821,8 +821,33 @@
     };
   }
 
+  // Cyan player sheets use authored left AND right poses. Keep frame lists
+  // explicit: the Mage's last two columns are blank in its walking rows.
+  const playerDirections = (cols, walkCols) => Object.fromEntries(
+    ['down', 'up', 'right', 'left'].map((dir, row) => [dir, {
+      idle: [row * cols], walk: walkCols.map(col => row * cols + col),
+    }]));
+  const PLAYER_ART = {
+    hunter: { sheet: 'player_hunter', path: 'assets/Character/BowmanCyan.png', fw: 16, fh: 16, scale: 1.5, footDrop: 7, directions: playerDirections(5, [1, 2, 3, 4]) },
+    runner: { sheet: 'player_runner', path: 'assets/Character/AssasinCyan.png', fw: 16, fh: 16, scale: 1.5, footDrop: 7, directions: playerDirections(5, [1, 2, 3, 4]) },
+    enforcer: { sheet: 'player_enforcer', path: 'assets/Character/SwordsmanCyan.png', fw: 16, fh: 16, scale: 1.5, footDrop: 6, directions: playerDirections(5, [1, 2, 3, 4]) },
+    enchanter: { sheet: 'player_enchanter', path: 'assets/Character/MageCyan.png', fw: 16, fh: 16, scale: 1.5, footDrop: 6, directions: playerDirections(6, [0, 1, 2, 3]) },
+    mounted: { sheet: 'player_mounted', path: 'assets/Character/CyanKnight.png', fw: 32, fh: 32, scale: 1.25, footDrop: 9,
+      directions: Object.fromEntries(['down', 'right', 'left', 'up'].map((dir, row) => [dir, {
+        idle: [0, 1, 2, 3].map(col => row * 12 + col),
+        walk: [4, 5, 6, 7].map(col => row * 12 + col),
+      }])) },
+  };
+  // Assignment and bicycle expiry already live in the save. No second skin
+  // flag to persist, migrate, or leave stuck after an effect ends.
+  function playerArt(save, now = Date.now()) {
+    if ((save?.bikeUntil ?? 0) > now) return PLAYER_ART.mounted;
+    return Object.hasOwn(PLAYER_ART, save?.playerClass) && save.playerClass !== 'mounted'
+      ? PLAYER_ART[save.playerClass] : null;
+  }
+
   const api = {
-    CELL_PX, ART_BOUNDS, seatInCell,
+    CELL_PX, ART_BOUNDS, seatInCell, PLAYER_ART, playerArt,
     PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
     NPC_FRAME, NPC_SHEETS, npcAppearance,

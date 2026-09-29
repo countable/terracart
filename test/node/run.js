@@ -1566,10 +1566,11 @@ ctx.__tests.push({ name: 'zone variants: generated browser data matches the cano
   // Every opted-in direction/state must address real artwork, not blank
   // packing cells. Check decoded source art once per texture sheet.
   const directionalSheets = new Set();
-  for (const art of Object.values(require('../../src/sprite_layout.js').CREATURE_ART)) {
+  const layout = require('../../src/sprite_layout.js');
+  for (const art of [...Object.values(layout.CREATURE_ART), ...Object.values(layout.PLAYER_ART)]) {
     if (!art.directions || directionalSheets.has(art.sheet)) continue;
     directionalSheets.add(art.sheet);
-    ctx.__tests.push({ name: `enemy directional art: ${art.sheet}`, fn: () => {
+    ctx.__tests.push({ name: `actor directional art: ${art.sheet}`, fn: () => {
       const sheet = audit.ASSETS[art.sheet];
       const image = audit.loadPng(sheet.path);
       const frames = new Set(Object.values(art.directions).flatMap(states => Object.values(states).flat()));

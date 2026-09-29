@@ -134,3 +134,12 @@ test('enemy spawns: a biome seat on zone ground (park, place of worship, tar yar
   assert.truthy(/const zoneCoverage = entry\.zone && entry\.zone\.coverage;/.test(src), 'off the union coverage every zone kind writes');
   assert.eq(Object.keys(Zones.ZONE_KINDS).sort().join(), 'grove,stones,tar', 'which is parks, places of worship and tar yards');
 });
+
+test('enemy spawns: mini vampire bats are retired from enemy and spawn tables', () => {
+  assert.eq(EnemyRoster.get('mini_vampire_bat'), null);
+  assert.falsy(Combat.monster('mini_vampire_bat'));
+  for (let depth = 1; depth <= 20; depth++) {
+    assert.falsy(EnemySpawns.caveRows(depth).some(row => row.id === 'mini_vampire_bat'));
+  }
+  assert.truthy(EnemyRoster.get('vampire_bat'), 'regular vampire bats remain');
+});

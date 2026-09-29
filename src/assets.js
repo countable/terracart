@@ -312,6 +312,11 @@ const ASSETS = {
   house_wreck:      { kind: 'image', path: 'assets/Objects/Houses/Wreck.png?v=1' },
 };
 
+// Player class and bicycle appearances share their verified layout metadata.
+for (const art of Object.values(SpriteLayout.PLAYER_ART)) {
+  ASSETS[art.sheet] = { kind: 'spritesheet', path: art.path, frameWidth: art.fw, frameHeight: art.fh };
+}
+
 // Enemy sheets and colour variants share the approved roster with the catalogue.
 // Recolour luminance instead of multiplying RGB: dark red art must be able to
 // become bright cyan. Alpha and the original source files remain untouched.

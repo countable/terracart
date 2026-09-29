@@ -79,3 +79,23 @@ test('enemy art: dungeon ghost instance size carries through crown and tap geome
   assert.lt(SpriteLayout.creatureTapSpanPx('ghost', scale).top, SpriteLayout.creatureTapSpanPx('ghost').top, 'tap reaches larger crown');
   assert.lt(SpriteLayout.creatureWheelDy('ghost', scale), SpriteLayout.creatureWheelDy('ghost'), 'wheel rises with crown');
 });
+
+// Hold the approved effective sizes, including variants whose parents shrank.
+test('enemy art: size reduction targets 2x foes and the two selected giants only', () => {
+  const smaller = ['bat', 'spider', 'zombie', 'plant', 'skeleton', 'vampire_bat',
+    'brute', 'poison_spider', 'dryad', 'lich', 'bone_plant', 'fiend', 'succubus',
+    'hell_brute', 'ghost', 'pink_ghost', 'giant_cave_slime', 'sand_skeleton',
+    'marsh_zombie', 'copper_plant', 'ash_zombie', 'obsidian_brute'];
+  const expected = Object.fromEntries(smaller.map(kind => [kind, 1.5]));
+  Object.assign(expected, { giant_lich: 2.4, giant_skeleton: 1.68,
+    slime: 1.25, cave_slime: 1.25, purple_slime: 0.95, goblin: 1.25,
+    goblin_archer: 1.25, goblin_trapper: 1.25, mini_slime: 0.8125,
+    mini_spider: 1.3, giant_slime: 1.6, giant_spider: 3.2,
+    moss_slime: 1.25, giant_plant: 3.2 });
+  assert.eq(Object.keys(expected).length, EnemyRoster.ROWS.length);
+  for (const [kind, scale] of Object.entries(expected)) {
+    assert.lt(Math.abs(SpriteLayout.creatureScale(kind) - scale), 1e-9, kind);
+    assert.lt(Math.abs(SpriteLayout.creatureScale(kind, 1.5) - scale * 1.5), 1e-9,
+      kind + ' retains the instance multiplier');
+  }
+});

@@ -2554,6 +2554,14 @@ class MapScene extends Phaser.Scene {
     // Dragon transform — single non-directional flap, mirrored by heading in
     // _playDirected (the art faces right at rest). Used for both idle and fly.
     this._createAnim('dragon-fly', 'dragon', 0, 7, 10);
+    for (const art of Object.values(SpriteLayout.PLAYER_ART)) {
+      if (!this.textures.exists(art.sheet)) continue;
+      for (const [dir, states] of Object.entries(art.directions)) {
+        for (const [state, frames] of Object.entries(states)) {
+          this._createAnim(`${art.sheet}-${state}-${dir}`, art.sheet, frames, null, state === 'walk' ? 10 : 6);
+        }
+      }
+    }
     this._createAnim('chicken-idle', 'chicken', 0, 1, 3);
     this._createAnim('cow-idle', 'cow', 0, 3, 4);
     // Cat / dog idle — row 0 (frames 0-3) of their 4×N pet body sheets. The
@@ -4003,6 +4011,7 @@ class MapScene extends Phaser.Scene {
     // playerScreen() is the GROUND point (feet-on-the-fix, the same point the
     // body's world position projects to); the contact shadow sits a pixel
     // under it, the offset it was created with.
+    this._syncPlayerSkin();
     const pScreen = this.playerScreen();
     // …and the body's own centre rides bodyDy above that ground point: the
     // feet nudge while it is standing, 0 once it has collapsed onto its front
@@ -6057,7 +6066,7 @@ class MapScene extends Phaser.Scene {
   // viewport centre; a peek slides them off it by the drag. Everything drawn AT
   // the player rather than at a world position (the sprite and its shadow /
   // halo / arrow / swing) reads its centre from here — never viewCenterX/Y.
-  // A looping animation over frames [start, end] of `texKey`'s sheet — or
+  // A looping animation over [start, end] or an explicit frame list — or
   // NONE, when that sheet has no frames to give (it failed to load even after
   // preload's one retry). Phaser builds an animation with an empty frame list
   // happily and then throws the moment anything plays it (getFirstTick reads
@@ -6067,7 +6076,7 @@ class MapScene extends Phaser.Scene {
   // never the game.
   _createAnim(key, texKey, start, end, frameRate) {
     const frames = this.textures.exists(texKey)
-      ? this.anims.generateFrameNumbers(texKey, { start, end }) : [];
+      ? this.anims.generateFrameNumbers(texKey, Array.isArray(start) ? { frames: start } : { start, end }) : [];
     if (!frames.length) {
       console.warn(`animation ${key}: sheet ${texKey} has no frames — not created`);
       return false;
@@ -6922,7 +6931,7 @@ class MapScene extends Phaser.Scene {
         const v = Math.round(255 * (1 - (1 - DIM_FLOOR) * k));
         tint = (v << 16) | (v << 8) | v;
       }
-      this.player.setTint(mulTint(tint, this._dragonActive ? null : this.save.playerColor));
+      this.player.setTint(mulTint(tint, (this._dragonActive || this._playerArt) ? null : this.save.playerColor));
       const key = (hit || spent) ? 'halo_red' : 'halo_dark';
       if (this.playerHalo.texture.key !== key) this.playerHalo.setTexture(key);
       // Strength follows the same k as the tint for the far case, so a halo
@@ -6946,7 +6955,7 @@ class MapScene extends Phaser.Scene {
     } else {
       // At rest the farmer wears the save's own colour — the same tint other
       // players see on them (multiplayer.js), so you can spot yourself.
-      this.player.setTint((!this._dragonActive && this.save.playerColor) || 0xffffff);
+      this.player.setTint((!this._dragonActive && !this._playerArt && this.save.playerColor) || 0xffffff);
       if (this.playerHalo.visible) this.playerHalo.setVisible(false);
     }
     // THE GHOST. While nothing can perceive the player — a Shadow Powder's
@@ -14185,6 +14194,7 @@ class MapScene extends Phaser.Scene {
     const ready = on && this.textures.exists('dragon')
       && (this.anims.get('dragon-fly')?.frames?.length > 0);
     this._dragonActive = ready;
+    if (ready) this.playerFeetNudgeY = -PLAYER_FEET_DROP_PX * this.playerScale;
     for (const s of [this.player]) {
       if (!s) continue;
       if (ready) {
@@ -14201,7 +14211,20 @@ class MapScene extends Phaser.Scene {
     // Only the SIZE is set here: the ALPHA is written every frame by
     // _updatePlayerAura, which multiplies the level this form calls for by the
     // ghost fade, so the two can't fight over the property.
+    if (!ready) this._syncPlayerSkin();
     if (this.playerShadow) this.playerShadow.setDisplaySize(ready ? 13 : 17, ready ? 5 : 6);
+  }
+  // Resolve directly from wizard assignment / bicycle deadline every frame,
+  // including restored saves. The dragon transform keeps visual priority.
+  _syncPlayerSkin() {
+    if (!this.player || this._dragonActive) return;
+    const desired = SpriteLayout.playerArt(this.save);
+    const art = desired && this.textures.exists(desired.sheet)
+      && Object.keys(desired.directions).every(dir => ['idle', 'walk'].every(state =>
+        this.anims.get(`${desired.sheet}-${state}-${dir}`)?.frames?.length > 0)) ? desired : null;
+    this._playerArt = art;
+    this.player.setScale(art?.scale ?? this.playerScale);
+    this.playerFeetNudgeY = art ? -art.footDrop * art.scale : -PLAYER_FEET_DROP_PX * this.playerScale;
   }
   _playDirected(sprite, baseKey, dx, dy) {
     if (dx !== undefined) {
@@ -14215,12 +14238,21 @@ class MapScene extends Phaser.Scene {
     if (this._dragonActive && sprite === this.player) {
       if (sprite.anims.currentAnim?.key !== 'dragon-fly') sprite.play('dragon-fly');
       if (Math.abs(x) > 0.001) sprite.setFlipX(x < 0);
+      sprite.anims.timeScale = 1;
       return;
     }
     let dir = 'down', flip = false;
     if (Math.abs(x) > Math.abs(y)) { dir = 'side'; flip = x < 0; }
     else if (y < 0) dir = 'up';
-    const key = `${baseKey}-${dir}`;
+    if (sprite === this.player) {
+      this._syncPlayerSkin();
+      if (this._playerArt) {
+        if (dir === 'side') dir = x < 0 ? 'left' : 'right';
+        flip = false; // these sheets include both authored side directions
+      }
+    }
+    const skin = sprite === this.player ? this._playerArt : null;
+    const key = skin ? `${skin.sheet}-${baseKey}-${dir}` : `${baseKey}-${dir}`;
     if (sprite.anims.currentAnim?.key !== key) sprite.play(key);
     sprite.setFlipX(flip);
     // TIRED WALK: eases the CYCLE's frame pace toward WALK_TIRED_SLOW_MUL as

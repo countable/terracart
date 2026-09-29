@@ -81,7 +81,7 @@
     assert.lt(c.x, 3);
   });
   test('enemy AI: crow-eased bat flight never exceeds declared peak metres/second', () => {
-    for (const kind of ['bat', 'vampire_bat', 'mini_vampire_bat']) {
+    for (const kind of ['bat', 'vampire_bat']) {
       for (const cellM of [5, 10]) {
         const s = scene(cellM), c = foe(kind), row = EnemyRoster.get(kind);
         assert.lte(row.movement.speedMetersPerSecond, 6);

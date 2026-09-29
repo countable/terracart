@@ -45,3 +45,10 @@ combat flashes are outside this body preview.
 Use **Export current view** to save a standalone HTML snapshot with its images
 embedded. The snapshot preserves the selected frame and scale, and needs no
 game files or server. The live tool retains the controls and animation.
+
+Enemy sizes are tuned per roster row through `artScale`. The 16px enemies
+previously drawn at 2× now draw at 1.5×; Giant Lich is 2.4× and Giant Skeleton
+is 1.68×. Mini Spider, Giant Spider and Giant Plant retain their prior sizes
+through explicit variant multipliers, so shrinking their parents does not
+also shrink them. Instance multipliers still apply on top of these sizes.
+Mini Vampire Bat is retired; the regular Vampire Bat retains its shared sheet.

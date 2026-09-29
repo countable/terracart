@@ -337,3 +337,18 @@ test('migrate: a hand-edited trail row is repaired rather than trusted', () => {
   assert.eq(notObj.trail.metres, 0, 'a trail that is not an object is replaced');
   assert.eq(typeof notObj.streets, 'object', 'and so is a streets map that is not one');
 });
+
+test('migrate: retired mini vampire bats cannot restore from released creatures', () => {
+  const slime = { kind: 'slime', id: 'released_slime_1', x: 1, y: 2 };
+  const vampire = { kind: 'vampire_bat', id: 'released_vampire_bat_2', x: 3, y: 4 };
+  const save = { schema: 5, released: [slime,
+    { kind: 'mini_vampire_bat', id: 'released_mini_vampire_bat_3' }, vampire],
+    caught: ['cave_enemy_3_7'] };
+  assert.truthy(SaveMigrate.migrate(save));
+  assert.eq(save.released.length, 2);
+  assert.eq(save.released[0], slime);
+  assert.eq(save.released[1], vampire);
+  assert.eq(save.caught[0], 'cave_enemy_3_7', 'saved defeats retain their identities');
+  assert.eq(save.schema, SaveMigrate.SAVE_SCHEMA);
+  assert.falsy(SaveMigrate.migrate(save), 'retirement migration is idempotent');
+});
