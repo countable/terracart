@@ -458,51 +458,77 @@
   });
 
   // ── Training hall ─────────────────────────────────────────────────────────
-  test('training: a lesson is +1 damage a hit, up to 5, costing $25 times its number', () => {
-    assert.eq(Combat.TRAINING_LESSON_DMG, 1);
+  test('training: five disciplines in one table, each hall teaching one off its own id', () => {
+    assert.eq(Combat.TRAINING_ORDER.join(), 'melee,ranged,magic,energy,speed');
+    const K = Combat.TRAINING_KINDS;
+    assert.eq([K.melee.per, K.ranged.per, K.magic.per, K.energy.per, K.speed.per].join(), '1,1,1,10,0.05', 'a level each');
+    assert.eq([K.melee.drill, K.ranged.drill, K.magic.drill, K.energy.drill, K.speed.drill].join(), '5,5,5,50,0.25', 'a drill each');
     assert.eq(Combat.TRAINING_PERM_MAX, 5);
+    const seen = {};
+    for (let i = 0; i < 2000; i++) {
+      const o = { id: `c_train_${i}` };
+      const k = Macros.trainingKindFor(o);
+      assert.eq(Macros.trainingKindFor({ id: o.id }), k, 'the world\'s: same hall, same discipline');
+      seen[k] = (seen[k] || 0) + 1;
+    }
+    for (const k of Combat.TRAINING_ORDER) assert.inRange(seen[k], 300, 500, `${k} halls are about a fifth`);
+    const o = { id: 'c_train_7' };
+    assert.eq(Macros.stallLabel('training', o), `${K[Macros.trainingKindFor(o)].label} Training`, 'the sign names it');
+    assert.eq(Macros.stallLabel('inn', o), 'Inn', 'other stalls keep their word');
+  });
+
+  test('training: a level costs $25 × its number and needs 2 × its number memories recovered', () => {
     const save = { money: 1e9 };
     assert.eq(Macros.lessonPricesAll().join(), '25,50,75,100,125', '25 × level');
+    assert.eq(Macros.buyLesson(save, 'ranged', 1).why, 'memories', 'level 1 needs 2 memories');
+    assert.eq(Macros.buyLesson(save, 'ranged', 1).need, 2);
     let paid = 0;
-    for (let i = 0; i < 10; i++) { const r = Macros.buyLesson(save); if (r.ok) paid += r.price; }
-    assert.eq(save.trainingPerm, 5, 'stops at the cap');
-    assert.eq(Macros.lessonPrice(save), null, 'and stops offering');
-    assert.eq(Macros.buyLesson(save).why, 'cap');
-    assert.eq(paid, 375, 'each lesson charged its listed price');
-    assert.eq(Combat.trainingBonus(save, T0), 5, '+5 a hit for good');
-    assert.eq(Combat.trainingBonus({ trainingPerm: 25 }, T0), 5, 'an old save past the cap reads as the cap');
-    assert.eq(Combat.trainingBonus({}, T0), 0, 'untrained, nothing');
+    for (let i = 0; i < 10; i++) { const r = Macros.buyLesson(save, 'ranged', 10); if (r.ok) paid += r.price; }
+    assert.eq(Combat.trainingLevel(save, 'ranged'), 5, 'ten memories reach level 5');
+    assert.eq(paid, 375);
+    assert.eq(Macros.buyLesson(save, 'ranged', 99).why, 'cap');
+    assert.eq(Macros.buyLesson(save, 'magic', 99).ok, true, 'each discipline is its own track');
+    const s2 = { money: 1e9 };
+    for (let i = 0; i < 5; i++) Macros.buyLesson(s2, 'melee', 5);
+    assert.eq(Combat.trainingLevel(s2, 'melee'), 2, 'five memories stop at level 2 (level 3 needs 6)');
+    assert.eq(Macros.buyLesson(save, 'nonsense', 99).why, 'kind');
   });
 
-  test('training: the hall shows the damage bonus in force, lessons and drill together', () => {
-    const body = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _presentTraining(sx, sy, o, dress) {'), APP_JS_SRC.indexOf('  buildingFlavorTitle('));
-    assert.truthy(/const bonus = Combat\.trainingBonus\(this\.save\);/.test(body), 'off the one number every hit reads');
-    assert.truthy(/Your damage bonus: \+\$\{bonus\} a hit/.test(body), 'and it is printed');
-  });
-
-  test('training: a drill is +5 a hit for 24 h at $150, one at a time, and lapses on the dot', () => {
-    assert.eq(Combat.TRAINING_BUFF_MS, DAY, 'a day');
-    assert.eq(Combat.TRAINING_BUFF_DMG, 5);
+  test('training: bonuses land per discipline, drills add and lapse, old melee saves carry over', () => {
+    const save = { money: 1e9, training: { melee: 2, ranged: 3, energy: 4, speed: 5 } };
+    assert.eq(Combat.trainingBonus(save, 'melee', T0), 2);
+    assert.eq(Combat.trainingBonus(save, 'ranged', T0), 3);
+    assert.eq(Combat.trainingBonus(save, 'magic', T0), 0);
+    assert.eq(Combat.trainingBonus(save, 'energy', T0), 40);
+    assert.inRange(Combat.trainingIntervalMul(save, T0) - 1 / 1.25, -1e-12, 1e-12, 'five speed levels: a beat 1/1.25 as long');
+    assert.eq(Macros.buyDrill(save, 'melee', T0).ok, true);
+    assert.eq(Macros.buyDrill(save, 'melee', T0 + 1).why, 'active', 'one drill at a time per discipline');
+    assert.eq(Macros.buyDrill(save, 'energy', T0).ok, true, 'but another discipline\'s may run');
+    assert.eq(Combat.trainingBonus(save, 'melee', T0 + DAY - 1), 7, 'lessons and a drill add');
+    assert.eq(Combat.trainingBonus(save, 'energy', T0 + 1), 90);
+    assert.eq(Combat.trainingBonus(save, 'melee', T0 + DAY), 2, 'the drill is gone at 24 h');
+    assert.eq(shortDuration(Macros.drillLeftMs(save, 'melee', T0 + DAY - 3600000)), '1h', 'shown in shortDuration');
     assert.eq(Macros.drillPrice(), 150);
-    const save = { money: 1000 };
-    const r = Macros.buyDrill(save, T0);
-    assert.truthy(r.ok);
-    assert.eq(save.money, 850);
-    assert.eq(Combat.trainingBonus(save, T0 + DAY - 1), 5, '+5 for the day');
-    assert.eq(Macros.buyDrill(save, T0 + 1000).why, 'active', 'no second drill while one runs');
-    assert.eq(Macros.drillLeftMs(save, T0 + DAY - 3600000), 3600000, 'the time left');
-    assert.eq(shortDuration(Macros.drillLeftMs(save, T0 + DAY - 3600000)), '1h', 'shown in shortDuration');
-    assert.eq(Combat.trainingBonus(save, T0 + DAY), 0, 'gone at 24 h');
-    assert.truthy(Macros.buyDrill(save, T0 + DAY).ok, 'and can be bought again');
-    save.trainingPerm = 5;
-    assert.eq(Combat.trainingBonus(save, T0 + DAY + 1), 10, 'lessons and a drill add');
+    // A pre-Sep-2026 save: one melee track, capped, folded on the next purchase.
+    const old = { money: 1e9, trainingPerm: 25, trainingBuffUntil: T0 + 1000 };
+    assert.eq(Combat.trainingLevel(old, 'melee'), 5, 'an old +25% veteran reads as melee level 5');
+    assert.truthy(Combat.trainingBuffActive(old, 'melee', T0), 'and keeps its running drill');
+    Macros.buyLesson(old, 'magic', 99);
+    assert.eq(old.trainingPerm, undefined, 'folded into the new fields');
+    assert.eq(old.training.melee, 5);
+    assert.eq(old.trainingDrills.melee, T0 + 1000);
+    assert.eq(Energy.maxEnergy({ training: { energy: 3 } }) - Energy.maxEnergy({}), 30, 'stamina lifts the bar\'s cap');
   });
 
-  test('training: the bonus is flat, added to every melee blow and every shot after the multipliers', () => {
-    assert.truthy(/_attackFlat\(\) \{\s*return Combat\.trainingBonus\(this\.save\);/.test(APP_JS_SRC), '_attackFlat reads it');
-    assert.falsy(/trainingMul|trainingBonus[^\n]*_attackMul/.test(APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _attackMul() {'), APP_JS_SRC.indexOf('  _attackFlat() {'))), 'not in the multiplier');
-    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass\)\s*\+ this\._attackFlat\(\);/.test(APP_JS_SRC), 'each melee blow');
-    assert.truthy(/shotDamage\(relics, slot, this\.save\.playerClass\) \* dmgMul \+ this\._attackFlat\(\),/.test(APP_JS_SRC), 'each arrow or bolt');
+  test('training: each attack type reads its own discipline, and speed shortens every beat', () => {
+    assert.truthy(/_attackFlat\(kind\) \{\s*return Combat\.TRAINING_KINDS\[kind\]\?\.unit === 'dmg' \? Combat\.trainingBonus\(this\.save, kind\) : 0;/.test(APP_JS_SRC), '_attackFlat, by type');
+    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass\)\s*\+ this\._attackFlat\('melee'\);/.test(APP_JS_SRC), 'melee blows take melee');
+    assert.truthy(/\* dmgMul\s*\+ this\._attackFlat\(Combat\.TRAINING_SLOT_KIND\[slot\]\),/.test(APP_JS_SRC), 'shots take their slot\'s');
+    assert.eq(Combat.TRAINING_SLOT_KIND.bow, 'ranged'); assert.eq(Combat.TRAINING_SLOT_KIND.staff, 'magic');
+    assert.truthy(/this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS \* Combat\.trainingIntervalMul\(this\.save\);/.test(APP_JS_SRC), 'the melee beat');
+    const body = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _presentTraining(sx, sy, o, dress) {'), APP_JS_SRC.indexOf('  buildingFlavorTitle('));
+    assert.truthy(/const bonus = Combat\.trainingBonus\(this\.save, kind\);/.test(body), 'the hall shows the bonus in force');
+    assert.truthy(/Macros\.buyLesson\(this\.save, kind, this\.memoriesTotal\(\)\)/.test(body), 'gated on memories RECOVERED');
   });
 
   test('tips: the macro pages quote the numbers the code uses', () => {
@@ -517,12 +543,13 @@
     assert.truthy(curio.includes(`${nth(Macros.CURIO_MILESTONES[0])}, ${nth(Macros.CURIO_MILESTONES[1])} and ${nth(Macros.CURIO_MILESTONES[2])} thing given`), curio);
     assert.falsy(/scriptorium lends/i.test(TIPS_BLOB_ALL()), 'no free page');
     const tr = PLAY_TIPS.find((t) => /training hall/.test(t));
-    const pct = (x) => `${Math.round(x * 100)}%`;
     assert.truthy(tr, 'the training page');
-    assert.truthy(tr.includes(`+${Combat.TRAINING_LESSON_DMG} damage on every hit`), tr);
-    assert.truthy(tr.includes(`up to ${Combat.TRAINING_PERM_MAX} lessons`), tr);
-    assert.truthy(tr.includes(`$${Macros.TRAINING_LESSON_PRICE} times its number`) && tr.includes(`$${Macros.TRAINING_DRILL_PRICE}`), 'the tip quotes the live prices');
-    assert.truthy(tr.includes(`+${Combat.TRAINING_BUFF_DMG} a hit for a day`) && Combat.TRAINING_BUFF_MS === DAY, tr);
+    const K = Combat.TRAINING_KINDS;
+    assert.truthy(tr.includes(`+${K.melee.per} damage a hit`) && tr.includes(`+${K.energy.per} to the bar`)
+      && tr.includes(`${Math.round(K.speed.per * 100)}% quicker`), tr);
+    assert.truthy(tr.includes(`up to ${Combat.TRAINING_PERM_MAX} levels`), tr);
+    assert.truthy(tr.includes(`$${Macros.TRAINING_LESSON_PRICE} times its number`) && tr.includes(`$${Macros.TRAINING_DRILL_PRICE}`), 'the live prices');
+    assert.truthy(tr.includes(`${Macros.TRAINING_MEMORIES_PER_LEVEL} memories for each level`), 'the memory rule');
     // Curriculum: the counters come after the roadside stall they share a dialog with.
     const stall = PLAY_TIPS.findIndex((t) => /A roadside stall undercuts/.test(t));
     assert.gt(PLAY_TIPS.indexOf(inn), stall, 'taught with the village economy');

@@ -4695,7 +4695,7 @@ class MapScene extends Phaser.Scene {
         }
         if (slot === 'staff') {
           this._staffCharge = Math.max(0, Math.min(1,
-            1 - (due - now) / Combat.fireIntervalMs(slot)));
+            1 - (due - now) / (Combat.fireIntervalMs(slot) * Combat.trainingIntervalMul(this.save))));
         }
         if (now < due) continue;
         // Where this shot goes — the compass for the bow, the line to the
@@ -4729,12 +4729,15 @@ class MapScene extends Phaser.Scene {
           continue;
         }
         if (eCost && !this.spendEnergy(eCost)) continue;
-        this._nextShotT[slot] = now + Combat.fireIntervalMs(slot);
+        // A Speed hall shortens the beat (Combat.trainingIntervalMul); the
+        // shot keeps its damage, so speed is more shots, not bigger ones.
+        this._nextShotT[slot] = now + Combat.fireIntervalMs(slot) * Combat.trainingIntervalMul(this.save);
         if (slot === 'staff') this._staffCharge = 0;
         // The tier sizes the shot too (a staff bolt grows with it — both its
         // sweep and its drawn dot, stamped on the shot by spawnShot).
         const shot = Combat.spawnShot(slot, px, py, heading, this.cellM,
-                                      Combat.shotDamage(relics, slot, this.save.playerClass) * dmgMul + this._attackFlat(),
+                                      Combat.shotDamage(relics, slot, this.save.playerClass) * dmgMul
+                                        + this._attackFlat(Combat.TRAINING_SLOT_KIND[slot]),
                                       relics[slot].tier, reach);
         // A bow's arrow and a staff's bolt wear the relic's MATERIAL colour
         // (MATERIAL_TIERS .color) — a Frost bow looses ice-blue arrows, a
@@ -5837,7 +5840,7 @@ class MapScene extends Phaser.Scene {
       const py = this.startWorldM.y + this.playerM.y;
       const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM);
       if (inSwing && now >= this._nextBlowT) {
-        this._nextBlowT = now + Combat.MELEE_INTERVAL_MS;
+        this._nextBlowT = now + Combat.MELEE_INTERVAL_MS * Combat.trainingIntervalMul(this.save);
         // A blade to actually swing — bare hands (no sword owned) has none, so
         // no slash draws, same gate _setWorkProgressIcon's tool badge uses.
         // The slash rides the blow itself now rather than its own throttle:
@@ -5848,7 +5851,7 @@ class MapScene extends Phaser.Scene {
           this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
         }
         const blow = Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass)
-          + this._attackFlat();
+          + this._attackFlat('melee');
         if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
       }
     }
@@ -6536,11 +6539,12 @@ class MapScene extends Phaser.Scene {
     return (this.isDragonActive() ? CONSUMABLE_SPEC.dragon_powder.damageMul : 1)
       * (this._offGps() ? Combat.OFF_GPS_ATTACK_MUL : 1);
   }
-  // The FLAT damage every hit of the player's own carries on top — each melee
-  // blow, each arrow or bolt — after _attackMul: the Training Hall's lessons
-  // and drill (Combat.trainingBonus). One answer both attack paths read.
-  _attackFlat() {
-    return Combat.trainingBonus(this.save);
+  // The FLAT damage a hit of the player's own carries on top, after
+  // _attackMul — its own attack type's training ('melee' a blow, 'ranged' an
+  // arrow, 'magic' a bolt; Combat.trainingBonus). One answer every attack
+  // path reads, by type.
+  _attackFlat(kind) {
+    return Combat.TRAINING_KINDS[kind]?.unit === 'dmg' ? Combat.trainingBonus(this.save, kind) : 0;
   }
   // Is the stick actually being PUSHED right now? Pointer-down alone isn't
   // enough — a finger resting on a centred nub holds _movePadHeld true while
@@ -10030,7 +10034,7 @@ class MapScene extends Phaser.Scene {
     const kind = macro.kind;
     if (this._macroStory(kind, () => this.presentMacro(sx, sy, o, macro))) return;
     const d = Macros.KIND_DIALOG[kind];
-    const dress = { kind: d.modal, kindLabel: d.label, art: d.art };
+    const dress = { kind: d.modal, kindLabel: Macros.stallLabel(kind, o) || d.label, art: d.art };
     switch (kind) {
       case 'inn':         return this._presentInn(sx, sy, o, dress);
       case 'apothecary':  return this._presentStallOffer(sx, sy,
@@ -10294,48 +10298,68 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // TRAINING HALL: a LESSON (+Combat.TRAINING_LESSON_DMG a hit for good, up to
-  // TRAINING_PERM_MAX lessons) or a DRILL (+TRAINING_BUFF_DMG a hit for
-  // TRAINING_BUFF_MS, one at a time). Both land in Combat.trainingBonus, which
-  // _attackFlat reads.
+  // TRAINING HALL: one DISCIPLINE per hall (Macros.trainingKindFor — melee,
+  // ranged or magic damage, max energy, attack speed; Combat.TRAINING_KINDS).
+  // A LEVEL for good (money AND memories recovered — Macros.buyLesson) or a
+  // day-long DRILL (money only, one at a time). All of it lands in
+  // Combat.trainingBonus, read by _attackFlat, trainingIntervalMul and
+  // Energy.maxEnergy.
   _presentTraining(sx, sy, o, dress) {
-    const lessons = Combat.trainingLessons(this.save);
-    const lp = Macros.lessonPrice(this.save);
+    const kind = Macros.trainingKindFor(o);
+    const row = Combat.TRAINING_KINDS[kind];
+    // How one amount of this discipline reads: "+1 melee damage a hit",
+    // "+10 max energy", "5% faster attacks".
+    const says = (v) => row.unit === 'dmg' ? `+${v} ${row.label.toLowerCase()} damage a hit`
+      : row.unit === 'energy' ? `+${v} max energy`
+      : `${Math.round(v * 100)}% faster attacks`;
+    const level = Combat.trainingLevel(this.save, kind);
+    const lp = Macros.lessonPrice(this.save, kind);
+    const need = Macros.lessonMemories(this.save, kind);
+    const have = this.memoriesTotal();
     const dp = Macros.drillPrice();
-    const left = Macros.drillLeftMs(this.save);
+    const left = Macros.drillLeftMs(this.save, kind);
     const money = this.save.money ?? 0;
     const drillLine = left > 0
       ? `Today's drill: ${shortDuration(left)} left.`
-      : `A drill: +${Combat.TRAINING_BUFF_DMG} damage a hit for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`;
-    // The bonus in force NOW — lessons plus a running drill — off the one
-    // number _attackFlat reads (Combat.trainingBonus), so what the hall says is
-    // what every hit gets.
-    const bonus = Combat.trainingBonus(this.save);
+      : `A drill: ${says(row.drill)} for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`;
+    // The bonus in force NOW — levels plus a running drill — off the one
+    // number the game reads (Combat.trainingBonus), so what the hall says is
+    // what you get.
+    const bonus = Combat.trainingBonus(this.save, kind);
+    const memLine = need != null ? ` The next level needs ${need} memories (you have ${have}).` : '';
+    const refresh = () => {
+      this._finishInventoryChange();
+      if (row.unit === 'energy' && this.updateEnergyDOM) this.updateEnergyDOM();
+    };
     this.showOfferModal({
       ...dress, kind: dress.kind,
-      title: 'The master offers training:',
-      get: lp != null ? `A lesson: +${Combat.TRAINING_LESSON_DMG} damage a hit, for good`
-        : `Fully trained: +${Combat.TRAINING_PERM_MAX * Combat.TRAINING_LESSON_DMG} damage a hit`,
+      title: `The master teaches ${row.label.toLowerCase()}:`,
+      get: lp != null ? `Level ${level + 1}: ${says(row.per)}, for good`
+        : `Mastered: ${says(row.per * Combat.TRAINING_PERM_MAX)}`,
       cost: lp != null ? this.moneyHTML(lp) : undefined,
-      blurb: `Your damage bonus: +${bonus} a hit. Lessons: ${lessons} of ${Combat.TRAINING_PERM_MAX}. ${drillLine}`,
-      canAfford: lp != null && money >= lp,
-      acceptLabel: 'Lesson',
+      blurb: `Your bonus: ${bonus ? says(bonus) : 'none yet'}. Level ${level} of ${Combat.TRAINING_PERM_MAX}.${memLine} ${drillLine}`,
+      canAfford: lp != null && money >= lp && have >= need,
+      acceptLabel: 'Train',
       cancelLabel: 'Later',
       secondary: {
         label: `Drill ${this.moneyHTML(dp, 12)}`,
         disabled: left > 0 || money < dp,
         onClick: () => {
-          const r = Macros.buyDrill(this.save);
+          const r = Macros.buyDrill(this.save, kind);
           if (!r.ok) { if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy); return; }
-          this._finishInventoryChange();
-          this.flash(`+${Combat.TRAINING_BUFF_DMG} damage for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`, sx, sy);
+          refresh();
+          this.flash(`Drilled for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`, sx, sy);
         },
       },
       onAccept: () => {
-        const r = Macros.buyLesson(this.save);
-        if (!r.ok) { if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy); return; }
-        this._finishInventoryChange();
-        this.flash(`+${Combat.TRAINING_LESSON_DMG} damage, for good.`, sx, sy);
+        const r = Macros.buyLesson(this.save, kind, this.memoriesTotal());
+        if (!r.ok) {
+          if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy);
+          else if (r.why === 'memories') this.flash(`need ${r.need} memories`, sx, sy);
+          return;
+        }
+        refresh();
+        this.flash(`${row.label} level ${Combat.trainingLevel(this.save, kind)}!`, sx, sy);
       },
     });
   }

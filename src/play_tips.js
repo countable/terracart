@@ -271,7 +271,7 @@ const PLAY_TIPS = [
   // The Training Hall (combat.js TRAINING_*, src/macros.js lesson prices):
   // books.test.js re-derives every number here.
   // macro_poi.test.js pins every quoted number against Combat.
-  `A training hall sells lessons: +${Combat.TRAINING_LESSON_DMG} damage on every hit of your own, for good, up to ${Combat.TRAINING_PERM_MAX} lessons. Each costs $${Macros.TRAINING_LESSON_PRICE} times its number. Or a drill: +${Combat.TRAINING_BUFF_DMG} a hit for a day, one at a time, for $${Macros.TRAINING_DRILL_PRICE}. Neither reaches a pet's bite.`,
+  `Each training hall teaches one thing: melee, archery or magic (+${Combat.TRAINING_KINDS.melee.per} damage a hit of that kind), stamina (+${Combat.TRAINING_KINDS.energy.per} to the bar's cap) or speed (${Math.round(Combat.TRAINING_KINDS.speed.per * 100)}% quicker blows and shots), up to ${Combat.TRAINING_PERM_MAX} levels each. A level is $${Macros.TRAINING_LESSON_PRICE} times its number, and you must have recovered ${Macros.TRAINING_MEMORIES_PER_LEVEL} memories for each level you reach. Or a day's drill for $${Macros.TRAINING_DRILL_PRICE}. None of it reaches a pet's bite.`,
   'Worn armour soaks what a blow takes off your bar, and a set stacks: the pool covers half a hit, then half of what is left, four times over. It can never soak a blow to nothing — something always gets through.',
   'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
   'A bow shoots across the street; a staff will not wake for anything further than a single cell past your reach — and underground that shrinks with your lit ring.',

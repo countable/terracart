@@ -50,7 +50,9 @@
     let tasted = 0;
     if (Array.isArray(save.eaten)) for (const id of new Set(save.eaten)) tasted += tasteBonus(id);
     const vigour = Math.max(0, Math.floor(Number(save.vigourUpgrades) || 0));
-    save.maxEnergy = base + tasted + vigour * VIGOUR_ENERGY_STEP;
+    // A Stamina hall's levels and drill (Combat.trainingBonus 'energy').
+    const trained = (typeof Combat !== 'undefined' && Combat.trainingBonus) ? Combat.trainingBonus(save, 'energy') : 0;
+    save.maxEnergy = base + tasted + vigour * VIGOUR_ENERGY_STEP + trained;
     return save.maxEnergy;
   }
 

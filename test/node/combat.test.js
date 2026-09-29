@@ -152,7 +152,7 @@ test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () =
   // blow (see the melee-reach test below) — a swing must be both due and in
   // range — so the pin allows it and still refuses a blow that lands without
   // spending the clock.
-  assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS;/.test(wheel),
+  assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS \* Combat\.trainingIntervalMul\(this\.save\);/.test(wheel),
     'the wheel gates each blow on Combat.MELEE_INTERVAL_MS');
   assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\)(?:, [^)]+)?\)/.test(wheel),
     'and one blow is one interval of the rung, dragon bonus included');
@@ -912,7 +912,8 @@ test('staff range: the trigger and the flight are the same number', () => {
 
 test('combat: the staff\'s next bolt charges by the hand between shots', () => {
   const app = APP_JS_SRC;
-  assert.truthy(/1 - \(due - now\) \/ Combat\.fireIntervalMs\(slot\)/.test(app),
+  assert.truthy(/1 - \(due - now\) \/ \(Combat\.fireIntervalMs\(slot\) \* Combat\.trainingIntervalMul\(this\.save\)\)/.test(app)
+    && /this\._nextShotT\[slot\] = now \+ Combat\.fireIntervalMs\(slot\) \* Combat\.trainingIntervalMul\(this\.save\);/.test(app),
     'the charge is read off the same clock that fires the bolt');
   assert.truthy(/if \(slot === 'staff'\) this\._staffCharge = 0;/.test(app), 'a loosed bolt empties the charge');
   const body = app.slice(app.indexOf('\n  _drawStaffCharge(g) {'), app.indexOf('\n  }\n', app.indexOf('\n  _drawStaffCharge(g) {')));

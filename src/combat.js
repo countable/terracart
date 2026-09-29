@@ -600,35 +600,63 @@
   // cells: a nudge to line up a tap is not a detour.
   const OFF_GPS_MIN_CELLS = 0.5;
 
-  // ── Training (the Training Hall — loot.js MACRO_KIND_BY_CLASS 'training') ─
-  // Damage the player BOUGHT, as a FLAT bonus on every hit of their own — each
-  // melee blow (one per MELEE_INTERVAL_MS) and each arrow or bolt — added
-  // after the multipliers (app.js _attackFlat beside _attackMul; pets,
-  // turrets, powders and potions are not the player's attacks). Two
-  // purchases, one reason each:
-  //   • a LESSON: +TRAINING_LESSON_DMG for good, per lesson, up to
-  //     TRAINING_PERM_MAX lessons — the count is save.trainingPerm;
-  //   • a DRILL: +TRAINING_BUFF_DMG for TRAINING_BUFF_MS, the expiry stamp in
-  //     save.trainingBuffUntil. One at a time: the hall sells no second drill
-  //     while one runs, so it never stacks.
-  // The two ADD (a fully taught fighter on a drill hits +10 a blow). The prices
-  // are src/macros.js's. (Until Sep 2026 a lesson was +1% to +25%, a drill
-  // +10%; a save holding more lessons than the cap reads as the cap.)
-  const TRAINING_LESSON_DMG = 1;
+  // ── Training (the Training Halls — loot.js MACRO_KIND_BY_CLASS 'training') ─
+  // What the player BOUGHT at a hall, one DISCIPLINE per hall (Macros
+  // trainingKindFor — off the hall's own id, so every player finds the same
+  // hall teaching the same thing). ONE TABLE, every discipline a row:
+  //   per    — what a level gives, for good (up to TRAINING_PERM_MAX levels);
+  //   drill  — what the hall's day-long drill gives (TRAINING_BUFF_MS, one at
+  //            a time per discipline, never stacking with itself);
+  //   unit   — how it lands:
+  //     'dmg'    flat damage on every hit of THAT attack type, after the
+  //              multipliers (app.js _attackFlat): melee = each sword/fist
+  //              blow, ranged = each arrow, magic = each staff bolt;
+  //     'energy' added to the bar's cap (energy.js maxEnergy);
+  //     'speed'  a fraction faster on every attack beat (trainingIntervalMul
+  //              — the melee blow and both shot cadences; each hit keeps its
+  //              damage, so speed is more hits, not bigger ones).
+  // Levels live in save.training[kind], drills in save.trainingDrills[kind]
+  // (an expiry stamp). A save from before Sep 2026 held ONE melee track
+  // (trainingPerm / trainingBuffUntil): read as melee here, folded into the
+  // new fields on the next purchase (Macros), and capped like any level.
+  // Pets, turrets, powders and potions are not the player's attacks.
+  const TRAINING_KINDS = {
+    melee:  { label: 'Melee',   per: 1,    drill: 5,    unit: 'dmg' },
+    ranged: { label: 'Archery', per: 1,    drill: 5,    unit: 'dmg' },
+    magic:  { label: 'Magic',   per: 1,    drill: 5,    unit: 'dmg' },
+    energy: { label: 'Stamina', per: 10,   drill: 50,   unit: 'energy' },
+    speed:  { label: 'Speed',   per: 0.05, drill: 0.25, unit: 'speed' },
+  };
+  const TRAINING_ORDER = ['melee', 'ranged', 'magic', 'energy', 'speed'];
   const TRAINING_PERM_MAX = 5;
-  const TRAINING_BUFF_DMG = 5;
   const TRAINING_BUFF_MS = 24 * 60 * 60 * 1000;
-  function trainingLessons(save) {
-    return clamp(Math.floor(Number(save && save.trainingPerm) || 0), 0, TRAINING_PERM_MAX);
+  // Which discipline a ranged weapon slot's hits train.
+  const TRAINING_SLOT_KIND = { bow: 'ranged', staff: 'magic' };
+  function trainingLevel(save, kind) {
+    const t = save && save.training && save.training[kind];
+    const raw = t != null ? t : (kind === 'melee' && save ? save.trainingPerm : 0);
+    return clamp(Math.floor(Number(raw) || 0), 0, TRAINING_PERM_MAX);
   }
-  function trainingBuffActive(save, now = Date.now()) {
-    return (Number(save && save.trainingBuffUntil) || 0) > now;
+  function trainingDrillUntil(save, kind) {
+    const d = save && save.trainingDrills && save.trainingDrills[kind];
+    const raw = d != null ? d : (kind === 'melee' && save ? save.trainingBuffUntil : 0);
+    return Number(raw) || 0;
   }
-  // The flat damage the player's hits carry right now: lessons plus a running drill.
-  function trainingBonus(save, now = Date.now()) {
-    return trainingLessons(save) * TRAINING_LESSON_DMG
-      + (trainingBuffActive(save, now) ? TRAINING_BUFF_DMG : 0);
+  function trainingBuffActive(save, kind, now = Date.now()) {
+    return trainingDrillUntil(save, kind) > now;
   }
+  // What a discipline gives right now: its levels plus a running drill.
+  function trainingBonus(save, kind, now = Date.now()) {
+    const row = TRAINING_KINDS[kind];
+    if (!row) return 0;
+    return trainingLevel(save, kind) * row.per + (trainingBuffActive(save, kind, now) ? row.drill : 0);
+  }
+  // The multiplier on every attack INTERVAL (melee blow, bow, staff): 1 over
+  // one plus the speed bonus, so +25% speed is a beat 1/1.25 as long.
+  function trainingIntervalMul(save, now = Date.now()) {
+    return 1 / (1 + trainingBonus(save, 'speed', now));
+  }
+
 
 
   function meleeSwingDamage(relics, mul = 1, playerClass) {
@@ -1108,8 +1136,8 @@
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, damageDealt, hpFraction,
     ELITE_MUL, isElite, eliteMul, powerMul, maxHp,
-    TRAINING_LESSON_DMG, TRAINING_PERM_MAX, TRAINING_BUFF_DMG, TRAINING_BUFF_MS,
-    trainingLessons, trainingBuffActive, trainingBonus,
+    TRAINING_KINDS, TRAINING_ORDER, TRAINING_PERM_MAX, TRAINING_BUFF_MS, TRAINING_SLOT_KIND,
+    trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, playerDowned,

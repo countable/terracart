@@ -20,7 +20,8 @@
 //   • save.donated — the curio ids this save has given (progress, not world
 //     state), and its milestones in the memory ledger (save.discovered);
 //   • save.trainingPerm / save.trainingBuffUntil — the damage the player
-//     bought (read by combat.js Combat.trainingBonus through app.js _attackFlat).
+//     bought (the pre-Sep-2026 melee track; save.training / trainingDrills
+//     now — combat.js Combat.trainingBonus).
 // The stalls (apothecary, sundries, scriptorium) have no gate at all: a
 // counter, like the market stall they share their dialog with (app.js
 // _presentStallOffer — one price lane, ShopsMath.standPrice).
@@ -285,51 +286,85 @@
     return { ok: true, count, milestone: CURIO_MILESTONES.includes(count) ? count : null };
   }
 
-  // ── TRAINING HALL: buy damage, for good or for a day ─────────────────────
-  // The bonus itself is combat.js's (Combat.trainingBonus — +1 damage a hit a
-  // lesson, up to 5 lessons; +5 a hit for 24 h a drill). A LESSON costs
-  // TRAINING_LESSON_PRICE × its number ($25, $50, $75, $100, $125); a DRILL
-  // costs TRAINING_DRILL_PRICE.
+  // ── TRAINING HALLS: one discipline each, bought for good or for a day ───
+  // What each discipline gives is combat.js's (Combat.TRAINING_KINDS /
+  // trainingBonus). A hall teaches ONE, picked off its own id
+  // (trainingKindFor), so it is the world's: every player finds the same hall
+  // teaching the same thing, and the five turn up in equal shares.
+  //   A LEVEL costs TRAINING_LESSON_PRICE × its number ($25 … $125) AND needs
+  // TRAINING_MEMORIES_PER_LEVEL × its number memories RECOVERED (the ledger's
+  // total, scene.memoriesTotal — nothing is spent, so it never competes with
+  // the wizard): level 3 needs 6. A DRILL costs TRAINING_DRILL_PRICE and needs
+  // no memories.
   const TRAINING_LESSON_PRICE = 25;
   const TRAINING_DRILL_PRICE = 150;
-  // The price of lesson number k+1 (k already owned).
-  function lessonPriceAt(k) {
-    return TRAINING_LESSON_PRICE * (k + 1);
+  const TRAINING_MEMORIES_PER_LEVEL = 2;
+  function trainingKindFor(o) {
+    const order = Combat.TRAINING_ORDER;
+    return order[fnv1a(String(o && o.id) + '|training') % order.length];
   }
-  // The next lesson's price, or null once the cap is reached.
-  function lessonPrice(save) {
-    const k = Combat.trainingLessons(save);
+  // The price of level k+1 (k already owned), and the memories it needs.
+  function lessonPriceAt(k) { return TRAINING_LESSON_PRICE * (k + 1); }
+  function lessonMemoriesAt(k) { return TRAINING_MEMORIES_PER_LEVEL * (k + 1); }
+  // The next level's price in `kind`, or null once it is maxed.
+  function lessonPrice(save, kind) {
+    const k = Combat.trainingLevel(save, kind);
     if (k >= Combat.TRAINING_PERM_MAX) return null;
     return lessonPriceAt(k);
   }
-  // Every lesson's price, first to last.
+  function lessonMemories(save, kind) {
+    const k = Combat.trainingLevel(save, kind);
+    return k >= Combat.TRAINING_PERM_MAX ? null : lessonMemoriesAt(k);
+  }
+  // Every level's price, first to last.
   function lessonPricesAll() {
     const out = [];
     for (let k = 0; k < Combat.TRAINING_PERM_MAX; k++) out.push(lessonPriceAt(k));
     return out;
   }
   function drillPrice() { return TRAINING_DRILL_PRICE; }
-  function buyLesson(save) {
-    const price = lessonPrice(save);
+  // Fold a pre-Sep-2026 save's single melee track into the per-discipline
+  // fields before the first write, so there is one place a level lives.
+  function foldLegacyTraining(save) {
+    save.training = save.training || {};
+    save.trainingDrills = save.trainingDrills || {};
+    if (save.trainingPerm != null) {
+      if (save.training.melee == null) save.training.melee = Combat.trainingLevel(save, 'melee');
+      delete save.trainingPerm;
+    }
+    if (save.trainingBuffUntil != null) {
+      if (save.trainingDrills.melee == null) save.trainingDrills.melee = Number(save.trainingBuffUntil) || 0;
+      delete save.trainingBuffUntil;
+    }
+  }
+  // `memories` is the player's RECOVERED total (scene.memoriesTotal()).
+  function buyLesson(save, kind, memories) {
+    if (!Combat.TRAINING_KINDS[kind]) return { ok: false, why: 'kind' };
+    const price = lessonPrice(save, kind);
     if (price == null) return { ok: false, why: 'cap' };
+    const need = lessonMemories(save, kind);
+    if ((Number(memories) || 0) < need) return { ok: false, why: 'memories', need };
     if ((save.money ?? 0) < price) return { ok: false, why: 'money', price };
+    foldLegacyTraining(save);
     addMoney(save, -price);
-    save.trainingPerm = Combat.trainingLessons(save) + 1;
+    save.training[kind] = Combat.trainingLevel(save, kind) + 1;
     return { ok: true, price };
   }
-  // One drill at a time: the hall refuses another while one runs (the dialog
-  // names the time left), so the bonus can never be bought twice over.
-  function buyDrill(save, now = Date.now()) {
-    if (Combat.trainingBuffActive(save, now)) return { ok: false, why: 'active' };
+  // One drill at a time per discipline: the hall refuses another while one
+  // runs (the dialog names the time left), so it can never be bought twice over.
+  function buyDrill(save, kind, now = Date.now()) {
+    if (!Combat.TRAINING_KINDS[kind]) return { ok: false, why: 'kind' };
+    if (Combat.trainingBuffActive(save, kind, now)) return { ok: false, why: 'active' };
     const price = drillPrice();
     if ((save.money ?? 0) < price) return { ok: false, why: 'money', price };
+    foldLegacyTraining(save);
     addMoney(save, -price);
-    save.trainingBuffUntil = now + Combat.TRAINING_BUFF_MS;
+    save.trainingDrills[kind] = now + Combat.TRAINING_BUFF_MS;
     return { ok: true, price };
   }
-  // Time left on the drill, ms (0 when none runs).
-  function drillLeftMs(save, now = Date.now()) {
-    return Math.max(0, (Number(save && save.trainingBuffUntil) || 0) - now);
+  // Time left on a discipline's drill, ms (0 when none runs).
+  function drillLeftMs(save, kind, now = Date.now()) {
+    return Math.max(0, Combat.trainingDrillUntil(save, kind) - now);
   }
 
   // ── Per-kind dialog dressing: the painting each opens on and its label ────
@@ -344,7 +379,13 @@
     curio:       { label: 'Curio Hall',  modal: 'trade',    art: 'kind_relics' },
     sundries:    { label: 'Sundries',    modal: 'shop',     art: 'kind_supplies' },
     training:    { label: 'Training',    modal: 'shop',     art: 'tool_sword' },
-  };
+  };  // The word a stall's sign and dialog wear: its kind's label, except a
+  // training hall, which names its discipline ("Archery Training").
+  function stallLabel(kind, o) {
+    if (kind === 'training' && o) return `${Combat.TRAINING_KINDS[trainingKindFor(o)].label} Training`;
+    return KIND_DIALOG[kind]?.label || null;
+  }
+
   // The first-tap story (app.js _storySplashOnce, key `macro:<kind>`): what
   // the place is, told once. No numbers — those are on the dialog and in the
   // Book.
@@ -371,7 +412,7 @@
     bountyWeaponTier, bountyFor, bountyPay, bountyCleared,
     CURIO_COLLECTION, CURIO_MILESTONES, curioEligible, curioCollection, curioDonated, curioCount,
     curioNextMilestone, curioMilestoneKey, curioMissing, curioDonate,
-    TRAINING_LESSON_PRICE, TRAINING_DRILL_PRICE, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
+    TRAINING_LESSON_PRICE, TRAINING_DRILL_PRICE, TRAINING_MEMORIES_PER_LEVEL, trainingKindFor, lessonMemoriesAt, lessonMemories, foldLegacyTraining, stallLabel, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
     buyLesson, buyDrill, drillLeftMs,
     KIND_DIALOG, KIND_STORY,
   };
