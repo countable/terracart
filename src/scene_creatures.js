@@ -1871,7 +1871,9 @@ class SceneCreatures {
                   : STEP_M * (gait?.stepCells ?? 1)) * (routed ? FLEE_STRIDE_MUL : 1);
       // A kind's top speed (SpriteLayout.creatureMaxMps) stretches the glide,
       // never shortens the stride: the step still lands where it was aimed.
-      stepMs = Math.max(stepMs, stepM / SpriteLayout.creatureMaxMps(c.kind) * 1000);
+      // A shiny's cap rises by the same factor its beat quickens by.
+      const maxMps = SpriteLayout.creatureMaxMps(c.kind) / shinyFast;
+      stepMs = Math.max(stepMs, stepM / maxMps * 1000);
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
         c._startX = c.x; c._startY = c.y;
@@ -1939,7 +1941,7 @@ class SceneCreatures {
               c._nextChooseT = now + stepMs * FLEE_BEAT_MUL;
               // A kind with a top speed (creatureMaxMps) glides the shove no
               // faster than it: the beat and the glide both stretch.
-              const capMs = stepM * FLEE_STRIDE_MUL / SpriteLayout.creatureMaxMps(c.kind) * 1000;
+              const capMs = stepM * FLEE_STRIDE_MUL / maxMps * 1000;
               if (capMs > stepMs * FLEE_BEAT_MUL) { c._hopMs = capMs; c._nextChooseT = now + capMs; }
               break;
             }

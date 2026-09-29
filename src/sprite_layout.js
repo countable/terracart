@@ -522,8 +522,9 @@
     // `summoned` kind: there is nothing to catch, tame or pet).
     spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000 },
     // `maxMps` is the kind's hard top speed, m/s (owner, Sep 2026: a
-    // butterfly never outpaces 6 m/s) — over its gait, its bolt, the net
-    // wheel's flee and a shiny's quickening alike (creatureMaxMps).
+    // butterfly never outpaces 6 m/s) — over its gait, its bolt and the net
+    // wheel's flee. A shiny's cap rises by its own SHINY_SPEED_MUL (9 m/s,
+    // the owner's figure), so the quickening still shows (creatureMaxMps).
     butterfly:     { wanders: true, pollinates: true, stepMs: 1000, maxMps: 6,
                      flee: { escapes: true, jitter: 1.2, stepMs: 390, stepCells: 1.5 } },
     slime:         { wanders: true },
