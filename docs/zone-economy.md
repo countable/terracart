@@ -6,8 +6,8 @@ These are expected Home sale coins using the current Easy-mode sale formula, fro
 |---|---|---|---|---|
 | Meadow | 15–15 | 3 × Wild Rose | 42–81 |  |
 | Mushroom Grove | 42–75 | 1 × Starflower | 49–98 |  |
-| Orchard | 36–64 | 3 × Gemfruit | 30–57 | Apple harvest repeats every 24 h |
-| Formal Garden | 80–144 | 2 × Wild Rose | 28–54 |  |
+| Orchard | 61–125 | 3 × Gemfruit | 30–57 | Apple harvest repeats every 24 h; medium maples are one-time timber |
+| Formal Garden | 127–233 | 2 × Wild Rose | 28–54 |  |
 | Hedge Garden | 98–148 | 2 × Wild Rose | 28–54 |  |
 | Ancient Grove | 49–55 | 1 × Starflower | 49–98 | Range also allows young/mature maple and axe tier |
 | Stone Garden | 409–782 | 3 × Gemfruit | 30–57 |  |

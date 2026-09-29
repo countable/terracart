@@ -212,6 +212,13 @@
       "requiredTier": 2,
       "spawnClass": "minor",
       "color": "#a1b4c5"
+    },
+    "medium_tree": {
+      "kind": "tree",
+      "species": "maple",
+      "size": "medium",
+      "spawnClass": "minor",
+      "color": "#538259"
     }
   },
   "variants": [
@@ -1242,8 +1249,8 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          10,
-          10
+          8,
+          8
         ],
         "slots": [
           {
@@ -1255,7 +1262,7 @@
           },
           {
             "at": [
-              7,
+              6,
               2
             ],
             "material": "fruit_tree"
@@ -1263,90 +1270,61 @@
           {
             "at": [
               2,
-              7
+              6
             ],
             "material": "fruit_tree"
           },
           {
             "at": [
-              7,
-              7
+              6,
+              6
             ],
             "material": "fruit_tree"
           },
           {
             "at": [
-              1,
+              0,
+              0
+            ],
+            "material": "medium_tree"
+          },
+          {
+            "at": [
+              4,
+              0
+            ],
+            "material": "medium_tree"
+          },
+          {
+            "at": [
+              0,
               4
             ],
-            "material": "grass"
+            "material": "medium_tree"
           },
           {
             "at": [
-              3,
+              4,
               4
             ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              6,
-              4
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              8,
-              4
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              1,
-              9
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              3,
-              9
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              6,
-              9
-            ],
-            "material": "blue"
-          },
-          {
-            "at": [
-              8,
-              9
-            ],
-            "material": "blue"
+            "material": "medium_tree"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.12,
+        "nominalDensity": 0.125,
         "materialDensity": {
-          "fruit_tree": 0.04,
-          "grass": 0.06,
-          "blue": 0.02
+          "fruit_tree": 0.0625,
+          "medium_tree": 0.0625
         },
         "type": "repeat_motif",
         "poiOrigin": {
           "cell": [
-            5,
-            5
+            4,
+            4
           ],
-          "role": "aisle_between_four_trees"
+          "role": "avenue_center_between_apple_rows"
         }
       },
       "poi": {
@@ -1441,9 +1419,8 @@
         "count": 3
       },
       "connection": {
-        "shape": "avenue",
-        "material": "blue",
-        "spacingCells": 3,
+        "shape": "clear_aisle",
+        "widthCells": 1,
         "from": "poi",
         "to": "finds",
         "withinCoverageBudget": true,
@@ -1452,7 +1429,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Repeated tree avenues end at three unfamiliar fruits.",
+      "atmosphere": "Regular apple rows alternate with medium maple rows, with open aisles leading to three finite gemfruit finds.",
       "attracts": {
         "deer": 0.65
       }

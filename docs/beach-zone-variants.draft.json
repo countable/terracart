@@ -1,0 +1,1068 @@
+{
+  "schemaVersion": 3,
+  "status": "draft_not_loaded_by_game",
+  "extends": "zone-variants.json",
+  "units": {
+    "motif": "game_cells",
+    "gameCellMeters": 7,
+    "findTargets": "fractions_of_zone_radius_in_the_same_rotated_frame"
+  },
+  "zone": "beach",
+  "selection": {
+    "weights": "equal_for_initial_review",
+    "seed": "stable_beach_sand_anchor_identity_independent_of_park_anchor",
+    "fallback": "ordinary_park_if_no_sand; retain_existing_generation_if_beach_geometry_unresolved"
+  },
+  "detection": {
+    "required": "mapped_sand_footprint; beach_tag_or_mapped_shore_contact",
+    "primaryZone": "sand_is_independent_beach_zone; containing_park_not_required",
+    "optionalComponent": "directly_adjoining_eligible_park_ground",
+    "nameOnly": "never_auto_classify",
+    "waterfrontWithoutSand": "ordinary_park; water_proximity_alone_never_selects_beach_family",
+    "candidatePolicy": "review_missing_or_ambiguous_geometry; never_invent_sand",
+    "inlandSand": "not_a_beach_without_beach_tag_or_shore_evidence",
+    "missingGeometry": "leave_current_generation_unchanged"
+  },
+  "coverage": {
+    "operation": "union_then_clip",
+    "requiredComponent": "associated_original_sand_footprint",
+    "optionalComponents": [
+      "directly_adjoining_eligible_park_area_within_beach_influence",
+      "landward_placement_fringe_up_to_30m"
+    ],
+    "association": "shared_sand_park_boundary_or_actual_polygon_overlap; never_nearest_unrelated_park",
+    "landwardFringeMaxMeters": 30,
+    "water": "never_place_or_paint",
+    "roadsPathsPiersBuildings": "preserve",
+    "priority": "sand_owns_its_footprint_before_grove_assignment; beach_variant_owns_optional_park_extension; remaining_park_retains_grove",
+    "ground": "retain_sand_as_sand; style_adjoined_park_as_landward_component_not_sand",
+    "composition": "one_beach_variant_and_continuous_anchor_frame_across_sand_and_adjoined_park; one_owner_per_cell",
+    "seams": "stable_source_sand_anchor_and_frame; never_clipped_polygon_centroid",
+    "finiteBudget": "one_find_guard_and_daily_landmark_plan_per_composite; no_second_plan_for_park_component"
+  },
+  "coexistence": {
+    "ambient": "replace_general_scatter_and_street_dressing_in_owned_coverage",
+    "tide": "retain_one_existing_daily_tide_stream_on_reserved_waterline; suppress_background_there",
+    "buriedTreasure": "variant_find_budget_replaces_generic_beach_X_scatter_in_owned_coverage",
+    "fauna": "may_share_interactable_cells; affinities_relocate_existing_population",
+    "rewards": "one_daily_POI_gift_and_one_finite_find_plan_per_anchor; no_reward_multiplier_from_large_beaches"
+  },
+  "implementationGaps": [
+    "independent_sand_zone_routing_before_grove_coverage_and_composite_adjoining_park_ownership",
+    "stable_shore_tangent_frame_before_dressing",
+    "landward_vegetation_and_waterline_slot_filters",
+    "beach-themed_POI_art; draft_uses_existing_grove_daily_reward",
+    "economic_review_with_current_ore_and_tide_tables_before_activation"
+  ],
+  "materials": {
+    "stone": {
+      "kind": "mineralrock",
+      "yieldTier": 1,
+      "requiredTier": 1,
+      "rockVariant": "CHURCHYARD_ROCK_VARIANT",
+      "spawnClass": "minor",
+      "color": "#b5b8bf"
+    },
+    "blue": {
+      "kind": "wildplant",
+      "crop": "forgetmenot",
+      "spawnClass": "minor",
+      "color": "#66b5ee"
+    },
+    "grass": {
+      "kind": "wildplant",
+      "crop": "longgrass",
+      "spawnClass": "minor",
+      "color": "#70935e"
+    },
+    "shrub": {
+      "kind": "wildplant",
+      "crop": "shrub",
+      "spawnClass": "minor",
+      "color": "#247b42"
+    },
+    "rubble": {
+      "kind": "wildplant",
+      "crop": "rockfruit",
+      "spawnClass": "minor",
+      "color": "#858d9c"
+    },
+    "star": {
+      "kind": "wildplant",
+      "crop": "starflower",
+      "spawnClass": "attractor",
+      "color": "#e6aaff"
+    },
+    "rose": {
+      "kind": "wildplant",
+      "crop": "wildrose",
+      "spawnClass": "attractor",
+      "color": "#ed6281"
+    },
+    "gold_ore": {
+      "kind": "mineralrock",
+      "yieldTier": 4,
+      "requiredTier": 3,
+      "spawnClass": "attractor",
+      "color": "#efd063"
+    },
+    "shell": {
+      "kind": "wildplant",
+      "crop": "shell",
+      "spawnClass": "minor",
+      "color": "#efe3b6"
+    },
+    "driftwood": {
+      "kind": "wildplant",
+      "crop": "driftwood",
+      "spawnClass": "minor",
+      "color": "#ad8055"
+    }
+  },
+  "variants": [
+    {
+      "id": "mystic_reef",
+      "zone": "beach",
+      "name": "Mystic Reef",
+      "status": "draft",
+      "weight": 1,
+      "background": {
+        "type": "repeat_motif",
+        "repeatCells": [
+          12,
+          12
+        ],
+        "slots": [
+          {
+            "at": [
+              3,
+              3
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              4,
+              2
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              5,
+              2
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              6,
+              2
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              7,
+              2
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              8,
+              3
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              2,
+              4
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              2,
+              5
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              2,
+              6
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              3,
+              7
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              4,
+              8
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              5,
+              8
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              3,
+              4
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              4,
+              3
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              5,
+              3
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              6,
+              3
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              7,
+              3
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              7,
+              4
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              3,
+              5
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              3,
+              6
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              4,
+              7
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              5,
+              7
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              8,
+              8
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              9,
+              9
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              5,
+              4
+            ],
+            "material": "blue"
+          },
+          {
+            "at": [
+              6,
+              4
+            ],
+            "material": "blue"
+          },
+          {
+            "at": [
+              5,
+              5
+            ],
+            "material": "blue"
+          },
+          {
+            "at": [
+              6,
+              5
+            ],
+            "material": "blue"
+          }
+        ],
+        "nominalDensity": 0.19444444444444445,
+        "materialDensity": {
+          "stone": 0.08333333333333333,
+          "shell": 0.08333333333333333,
+          "blue": 0.027777777777777776
+        },
+        "densityFalloff": "none",
+        "phaseOrigin": "settled_poi_at_declared_motif_cell",
+        "poiOrigin": {
+          "cell": [
+            6,
+            6
+          ],
+          "role": "center_of_shore_aligned_motif"
+        },
+        "orientation": "stable_anchor_shore_tangent; positive_y_is_landward; do_not_reorient_per_tile"
+      },
+      "poi": {
+        "id": "tidal_shrine_crescent",
+        "origin": "settled_poi",
+        "slots": [
+          {
+            "at": [
+              -1,
+              -1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              0,
+              -1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
+              -1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              -1,
+              0
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              1,
+              0
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              -1,
+              1
+            ],
+            "material": "blue"
+          },
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "blue"
+          }
+        ],
+        "relocation": {
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "reward": "existing_one_daily_grove_gift; no_added_POI_chest"
+      },
+      "finds": {
+        "rarity": "rare",
+        "material": "star",
+        "count": 1,
+        "targets": [
+          {
+            "id": "1",
+            "radiusFraction": [
+              0.45,
+              0.2
+            ]
+          }
+        ],
+        "owner": "anchor",
+        "spawnClass": "attractor",
+        "relocation": {
+          "maxCells": 4,
+          "stayInZone": true
+        },
+        "extraEligibility": "dry_eligible_ground; magical_flower_bed_permitted_on_dry_sand"
+      },
+      "connection": {
+        "shape": "clear_aisle",
+        "widthCells": 1,
+        "from": "poi",
+        "to": "finds",
+        "crossMajorRoad": false,
+        "cutPriority": "use_existing_open_motif_lanes_before_removing_slots"
+      },
+      "guards": {
+        "mode": "none"
+      },
+      "attracts": {},
+      "atmosphere": "Rounded stone crescents hold pale shells and small blue flower pools; one starflower marks the luminous heart. Magic comes from repeated geometry and the rare find, with an optional soft night glow as future art."
+    },
+    {
+      "id": "pirate_cove",
+      "zone": "beach",
+      "name": "Pirate Cove",
+      "status": "draft",
+      "weight": 1,
+      "background": {
+        "type": "repeat_motif",
+        "repeatCells": [
+          12,
+          12
+        ],
+        "slots": [
+          {
+            "at": [
+              3,
+              3
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              3,
+              4
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              3,
+              5
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              3,
+              6
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              3,
+              7
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              8,
+              3
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              8,
+              4
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              8,
+              5
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              8,
+              6
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              8,
+              7
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              4,
+              8
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              5,
+              8
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              6,
+              8
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              7,
+              8
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              2,
+              1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              5,
+              1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              6,
+              1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              9,
+              1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              10,
+              1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              1,
+              10
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              10,
+              10
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              4,
+              9
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              5,
+              9
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              6,
+              9
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              7,
+              9
+            ],
+            "material": "rubble"
+          }
+        ],
+        "nominalDensity": 0.18055555555555555,
+        "materialDensity": {
+          "driftwood": 0.09722222222222222,
+          "shell": 0.05555555555555555,
+          "rubble": 0.027777777777777776
+        },
+        "densityFalloff": "none",
+        "phaseOrigin": "settled_poi_at_declared_motif_cell",
+        "poiOrigin": {
+          "cell": [
+            6,
+            6
+          ],
+          "role": "center_of_shore_aligned_motif"
+        },
+        "orientation": "stable_anchor_shore_tangent; positive_y_is_landward; do_not_reorient_per_tile"
+      },
+      "poi": {
+        "id": "wreck_ribs_touching_poi",
+        "origin": "settled_poi",
+        "slots": [
+          {
+            "at": [
+              -1,
+              -1
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              -1,
+              0
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              -1,
+              1
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              1,
+              -1
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              1,
+              0
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              0,
+              -1
+            ],
+            "material": "shell"
+          }
+        ],
+        "relocation": {
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "reward": "existing_one_daily_grove_gift; no_added_POI_chest"
+      },
+      "finds": {
+        "rarity": "rare",
+        "material": "gold_ore",
+        "count": 1,
+        "targets": [
+          {
+            "id": "1",
+            "radiusFraction": [
+              0.45,
+              0.35
+            ]
+          }
+        ],
+        "owner": "anchor",
+        "spawnClass": "attractor",
+        "relocation": {
+          "maxCells": 4,
+          "stayInZone": true
+        },
+        "extraEligibility": "dry_eligible_ground; standard_gold_ore_pick_requirement"
+      },
+      "connection": {
+        "shape": "clear_aisle",
+        "widthCells": 1,
+        "from": "poi",
+        "to": "finds",
+        "crossMajorRoad": false,
+        "cutPriority": "use_existing_open_motif_lanes_before_removing_slots"
+      },
+      "guards": {
+        "mode": "at_find",
+        "kind": "slime",
+        "count": 2,
+        "placement": "opposite_flanks_of_find; existing_enemy_gate; omit_if_blocked"
+      },
+      "attracts": {
+        "crow": 0.35
+      },
+      "atmosphere": "Repeated open U-shaped wreck ribs face the water. Shell dashes lead between them to one gold-bearing rock; two ordinary slimes guard it. Pirate costumes and wreck art are optional later additions, not new enemy mechanics."
+    },
+    {
+      "id": "shellwater_strand",
+      "zone": "beach",
+      "name": "Shellwater Strand",
+      "status": "draft",
+      "weight": 1,
+      "background": {
+        "type": "repeat_motif",
+        "repeatCells": [
+          12,
+          12
+        ],
+        "slots": [
+          {
+            "at": [
+              1,
+              2
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              2,
+              2
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              3,
+              2
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              4,
+              2
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              5,
+              2
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              6,
+              2
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              7,
+              2
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              8,
+              2
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              9,
+              2
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              10,
+              2
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              2,
+              8
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              3,
+              8
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              4,
+              8
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              5,
+              8
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              6,
+              8
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              7,
+              8
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              8,
+              8
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              9,
+              8
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              2,
+              4
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              9,
+              6
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              4,
+              10
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              5,
+              10
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              6,
+              10
+            ],
+            "material": "grass"
+          },
+          {
+            "at": [
+              7,
+              10
+            ],
+            "material": "grass"
+          }
+        ],
+        "nominalDensity": 0.16666666666666666,
+        "materialDensity": {
+          "shell": 0.125,
+          "driftwood": 0.013888888888888888,
+          "grass": 0.027777777777777776
+        },
+        "densityFalloff": "none",
+        "phaseOrigin": "settled_poi_at_declared_motif_cell",
+        "poiOrigin": {
+          "cell": [
+            6,
+            6
+          ],
+          "role": "center_of_shore_aligned_motif"
+        },
+        "orientation": "stable_anchor_shore_tangent; positive_y_is_landward; do_not_reorient_per_tile",
+        "slotEligibility": {
+          "grass": "landward_vegetated_edge_only; omit_elsewhere; density_is_pre_clipping"
+        }
+      },
+      "poi": {
+        "id": "open_shell_horseshoe",
+        "origin": "settled_poi",
+        "slots": [
+          {
+            "at": [
+              -1,
+              -1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              0,
+              -1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              1,
+              -1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              -1,
+              0
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              1,
+              0
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              -1,
+              1
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "driftwood"
+          }
+        ],
+        "relocation": {
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "reward": "existing_one_daily_grove_gift; no_added_POI_chest"
+      },
+      "finds": {
+        "rarity": "medium",
+        "material": "rose",
+        "count": 2,
+        "targets": [
+          {
+            "id": "1",
+            "radiusFraction": [
+              -0.4,
+              0.5
+            ]
+          },
+          {
+            "id": "2",
+            "radiusFraction": [
+              0.4,
+              0.5
+            ]
+          }
+        ],
+        "owner": "anchor",
+        "spawnClass": "attractor",
+        "relocation": {
+          "maxCells": 4,
+          "stayInZone": true
+        },
+        "extraEligibility": "landward_vegetated_eligible_ground; if_absent_report_shortfall_not_flowers_in_water"
+      },
+      "connection": {
+        "shape": "clear_aisle",
+        "widthCells": 1,
+        "from": "poi",
+        "to": "finds",
+        "crossMajorRoad": false,
+        "cutPriority": "use_existing_open_motif_lanes_before_removing_slots"
+      },
+      "guards": {
+        "mode": "none"
+      },
+      "attracts": {
+        "butterfly": 0.35
+      },
+      "atmosphere": "Quiet parallel shell ribbons and occasional driftwood leave broad stretches of open sand. Two wild roses sit on the landward edge. No traps or guards; the normal daily tide remains the changing detail."
+    }
+  ]
+}

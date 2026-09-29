@@ -32,7 +32,7 @@ vm.runInContext(items.match(/const PRICES = [^]*?^};/m)[0]+'\n'+
  globalThis.result={stone,probabilities};`,ctx);
 process.stdout.write(JSON.stringify(ctx.result));
 """],cwd=root,text=True))
-values={'grass':(1,1),'shrub':(1,1),'mushroom':(3,6),'blue':(6,11),'orange':(17,34),'rose':(14,27),'star':(49,98),'gemfruit':(10,19),'rubble':(2,2.9),'flint':(2,3),'stone':tuple(live['stone']),'copper_rock':(15,27.5),'iron_ore':(33,64.5),'gold_ore':(81,160.25),'platinum_ore':(201.5,400.5),'crimson_ore':(483,964.5),'fruit_tree':(4.5,9),'tree':(2.6931,6),'grave':(0,0)}
+values={'grass':(1,1),'shrub':(1,1),'mushroom':(3,6),'blue':(6,11),'orange':(17,34),'rose':(14,27),'star':(49,98),'gemfruit':(10,19),'rubble':(2,2.9),'flint':(2,3),'stone':tuple(live['stone']),'copper_rock':(15,27.5),'iron_ore':(33,64.5),'gold_ore':(81,160.25),'platinum_ore':(201.5,400.5),'crimson_ore':(483,964.5),'fruit_tree':(4.5,9),'tree':(2.6931,6),'medium_tree':(5.1931,11),'grave':(0,0)}
 names={'rose':'Wild Rose','star':'Starflower','gemfruit':'Gemfruit','gold_ore':'Gold ore rock','platinum_ore':'Platinum ore rock','crimson_ore':'Crimson ore rock'}
 fmt=lambda pair: f'{math.floor(pair[0]+.5)}–{math.floor(pair[1]+.5)}'
 rows=[]
@@ -42,7 +42,7 @@ for v in d['variants']:
  background_values[v['id']]=bg
  f=v['finds'];fv=tuple(values[f['material']][i]*f['count'] for i in (0,1))
  note=[]
- if v['id']=='orchard':note.append('Apple harvest repeats every 24 h')
+ if v['id']=='orchard':note.append('Apple harvest repeats every 24 h; medium maples are one-time timber')
  if b['materialDensity'].get('grave'):note.append('Headstone hoards excluded')
  if b.get('hazardDensity'):note.append(', '.join(f'{x*100:g}% {k}' for k,x in b['hazardDensity'].items()))
  if v['id']=='ancient_grove':note.append('Range also allows young/mature maple and axe tier')

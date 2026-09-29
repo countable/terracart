@@ -26,6 +26,17 @@
       }
     }
   });
+  test('zone dressing: orchard is apple-only with medium deciduous timber and no ambient flower mix', () => {
+    const out = ZoneDressing.dress(context('orchard'));
+    const fruit = out.objects.filter(o => o.kind === 'fruittree');
+    const timber = out.objects.filter(o => o.kind === 'tree');
+    assert.gt(fruit.length, 200, 'denser than the former four-percent fruit grid');
+    assert.gt(timber.length, 200);
+    assert.truthy(fruit.every(o => o.species === 'apple'), 'all fruit records harvest apples');
+    assert.truthy(timber.every(o => o.species === 'maple' && o.size === 'medium' && treeSizeClass(o) === 'medium'));
+    assert.eq(out.wildplants.length, 3, 'only the finite gemfruit finds remain');
+    assert.truthy(out.wildplants.every(o => o.crop === 'gemfruit' && o.zoneLayer === 'find'));
+  });
   test('zone dressing: blocked guards choose the nearest eligible seat and retain their identity', () => {
     const pristine = ZoneDressing.dress(context('mushroom_grove')).guards[0];
     function blockedContext() {

@@ -71,7 +71,10 @@
       else if (m.kind === 'wildplant') { record = WG.makeWildplant(m.crop, x, y, id, extra); out.wildplants.push(record); }
       else {
         if (m.species) extra.species = m.species;
-        if (m.kind === 'tree') extra.variant = 1;
+        if (m.kind === 'tree') {
+          extra.variant = 1;
+          if (m.size) extra.size = m.size;
+        }
         if (m.yieldTier != null) extra.yieldTier = m.yieldTier;
         if (m.requiredTier != null) extra.requiredTier = m.requiredTier;
         if (m.rockVariant) extra.rockVariant = root.SpriteLayout ? root.SpriteLayout[m.rockVariant] : 3;
