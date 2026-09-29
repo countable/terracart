@@ -3677,7 +3677,7 @@ Render.drawObjects = function drawObjects(scene) {
     // two lines: what it IS (Macros.KIND_DIALOG's label, the word its dialog
     // opens under) and, on the next line with no gap, the place's own name.
     const mac = isFallback ? null : macroFor(o);
-    const macLabel = mac && typeof Macros !== 'undefined' ? Macros.KIND_DIALOG[mac.kind]?.label : null;
+    const macLabel = mac && typeof Macros !== 'undefined' ? Macros.stallLabel(mac.kind, o) : null;
     const label = isFallback
       ? `(${POI_CLASS_FALLBACK[o.poiClass]})`
       : (macLabel ? `${macLabel}\n${rusticifyName(o.name)}` : rusticifyName(o.name));
