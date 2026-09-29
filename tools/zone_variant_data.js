@@ -21,6 +21,11 @@ for (const row of data.variants) {
   if (!(row.weight > 0)) fail(`invalid weight ${row.id}`);
   const b = row.background;
   if (!types.has(b.type)) fail(`unknown layout ${b.type}`);
+  const repeatPolicy = data.rules.repeatPatternPolicy;
+  if (b.type === 'repeat_motif' && repeatPolicy && !repeatPolicy.migrationPending.includes(row.id)) {
+    const limit = repeatPolicy.exceptions[row.id] || repeatPolicy.maxCells;
+    if (b.repeatCells.some((n, axis) => n > limit[axis])) fail(`repeat exceeds declared limit ${row.id}`);
+  }
   const seen = new Set();
   for (const slot of b.slots || []) {
     const key = slot.at.join(',');

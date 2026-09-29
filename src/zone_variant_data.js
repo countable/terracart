@@ -75,7 +75,29 @@
       "noSettledPoi": "resolve_stable_anchor_cell_once_as_fallback"
     },
     "groundPriority": "zone_coverage_overrides_land_zoning_preserve_roads_paths_water_buildings_and_original_land_spawn_restrictions",
-    "faunaOccupancy": "animals_may_share_interactable_cells_do_not_reserve_layout_seats_keep_terrain_and_road_gates"
+    "faunaOccupancy": "animals_may_share_interactable_cells_do_not_reserve_layout_seats_keep_terrain_and_road_gates",
+    "repeatPatternPolicy": {
+      "maxCells": [
+        6,
+        6
+      ],
+      "exceptions": {
+        "silent_circle": [
+          8,
+          8
+        ]
+      },
+      "migrationPending": [
+        "orchard",
+        "ordered_graves",
+        "overgrown_graves",
+        "broken_masonry",
+        "broken_depot",
+        "seep",
+        "black_ring",
+        "draft_beach_family"
+      ]
+    }
   },
   "materials": {
     "grass": {
@@ -1441,172 +1463,117 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          11,
-          11
+          6,
+          6
         ],
         "slots": [
           {
             "at": [
-              2,
-              1
+              1,
+              0
             ],
             "material": "shrub"
           },
           {
             "at": [
-              3,
-              1
+              2,
+              0
             ],
             "material": "shrub"
           },
           {
             "at": [
               4,
-              1
+              3
             ],
             "material": "shrub"
           },
           {
             "at": [
               5,
-              1
+              3
             ],
             "material": "shrub"
           },
           {
             "at": [
-              6,
+              1,
               1
             ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              7,
-              1
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              8,
-              1
-            ],
-            "material": "shrub"
+            "material": {
+              "cycle": [
+                "orange",
+                "blue",
+                "blue",
+                "blue"
+              ],
+              "index": "block_x_plus_block_y"
+            }
           },
           {
             "at": [
               2,
-              9
+              1
             ],
-            "material": "shrub"
+            "material": {
+              "cycle": [
+                "orange",
+                "blue",
+                "blue",
+                "blue"
+              ],
+              "index": "block_x_plus_block_y"
+            }
           },
           {
             "at": [
-              3,
-              9
+              1,
+              2
             ],
-            "material": "shrub"
+            "material": {
+              "cycle": [
+                "orange",
+                "blue",
+                "blue",
+                "blue"
+              ],
+              "index": "block_x_plus_block_y"
+            }
+          },
+          {
+            "at": [
+              2,
+              2
+            ],
+            "material": {
+              "cycle": [
+                "orange",
+                "blue",
+                "blue",
+                "blue"
+              ],
+              "index": "block_x_plus_block_y"
+            }
           },
           {
             "at": [
               4,
-              9
+              4
             ],
-            "material": "shrub"
+            "material": {
+              "cycle": [
+                "blue",
+                "orange",
+                "blue",
+                "blue"
+              ],
+              "index": "block_x_plus_block_y"
+            }
           },
           {
             "at": [
               5,
-              9
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              6,
-              9
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              7,
-              9
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              8,
-              9
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              2,
-              2
-            ],
-            "material": {
-              "cycle": [
-                "orange",
-                "blue",
-                "blue",
-                "blue"
-              ],
-              "index": "block_x_plus_block_y"
-            }
-          },
-          {
-            "at": [
-              3,
-              2
-            ],
-            "material": {
-              "cycle": [
-                "orange",
-                "blue",
-                "blue",
-                "blue"
-              ],
-              "index": "block_x_plus_block_y"
-            }
-          },
-          {
-            "at": [
-              2,
-              3
-            ],
-            "material": {
-              "cycle": [
-                "orange",
-                "blue",
-                "blue",
-                "blue"
-              ],
-              "index": "block_x_plus_block_y"
-            }
-          },
-          {
-            "at": [
-              3,
-              3
-            ],
-            "material": {
-              "cycle": [
-                "orange",
-                "blue",
-                "blue",
-                "blue"
-              ],
-              "index": "block_x_plus_block_y"
-            }
-          },
-          {
-            "at": [
-              7,
-              2
+              4
             ],
             "material": {
               "cycle": [
@@ -1620,8 +1587,8 @@
           },
           {
             "at": [
-              8,
-              2
+              4,
+              5
             ],
             "material": {
               "cycle": [
@@ -1635,8 +1602,8 @@
           },
           {
             "at": [
-              7,
-              3
+              5,
+              5
             ],
             "material": {
               "cycle": [
@@ -1644,141 +1611,6 @@
                 "orange",
                 "blue",
                 "blue"
-              ],
-              "index": "block_x_plus_block_y"
-            }
-          },
-          {
-            "at": [
-              8,
-              3
-            ],
-            "material": {
-              "cycle": [
-                "blue",
-                "orange",
-                "blue",
-                "blue"
-              ],
-              "index": "block_x_plus_block_y"
-            }
-          },
-          {
-            "at": [
-              2,
-              7
-            ],
-            "material": {
-              "cycle": [
-                "blue",
-                "blue",
-                "orange",
-                "blue"
-              ],
-              "index": "block_x_plus_block_y"
-            }
-          },
-          {
-            "at": [
-              3,
-              7
-            ],
-            "material": {
-              "cycle": [
-                "blue",
-                "blue",
-                "orange",
-                "blue"
-              ],
-              "index": "block_x_plus_block_y"
-            }
-          },
-          {
-            "at": [
-              2,
-              8
-            ],
-            "material": {
-              "cycle": [
-                "blue",
-                "blue",
-                "orange",
-                "blue"
-              ],
-              "index": "block_x_plus_block_y"
-            }
-          },
-          {
-            "at": [
-              3,
-              8
-            ],
-            "material": {
-              "cycle": [
-                "blue",
-                "blue",
-                "orange",
-                "blue"
-              ],
-              "index": "block_x_plus_block_y"
-            }
-          },
-          {
-            "at": [
-              7,
-              7
-            ],
-            "material": {
-              "cycle": [
-                "blue",
-                "blue",
-                "blue",
-                "orange"
-              ],
-              "index": "block_x_plus_block_y"
-            }
-          },
-          {
-            "at": [
-              8,
-              7
-            ],
-            "material": {
-              "cycle": [
-                "blue",
-                "blue",
-                "blue",
-                "orange"
-              ],
-              "index": "block_x_plus_block_y"
-            }
-          },
-          {
-            "at": [
-              7,
-              8
-            ],
-            "material": {
-              "cycle": [
-                "blue",
-                "blue",
-                "blue",
-                "orange"
-              ],
-              "index": "block_x_plus_block_y"
-            }
-          },
-          {
-            "at": [
-              8,
-              8
-            ],
-            "material": {
-              "cycle": [
-                "blue",
-                "blue",
-                "blue",
-                "orange"
               ],
               "index": "block_x_plus_block_y"
             }
@@ -1787,19 +1619,19 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.24793388429752067,
+        "nominalDensity": 0.3333333333333333,
         "materialDensity": {
-          "shrub": 0.11570247933884298,
-          "blue": 0.09917355371900827,
-          "orange": 0.03305785123966942
+          "shrub": 0.1111111111111111,
+          "blue": 0.16666666666666666,
+          "orange": 0.05555555555555555
         },
         "type": "repeat_motif",
         "poiOrigin": {
           "cell": [
-            5,
-            5
+            3,
+            3
           ],
-          "role": "cross_aisle_center_between_four_mirrored_flower_beds"
+          "role": "cross_aisle_between_staggered_square_beds"
         }
       },
       "poi": {
@@ -1996,7 +1828,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Four mirrored flower beds frame a central cross aisle beneath straight hedge rows; three beds of forget-me-nots and one orange accent rotate through each repeat.",
+      "atmosphere": "Compact square flower beds step along short straight shrub rows; blue forget-me-nots dominate, with occasional whole orange beds.",
       "attracts": {}
     },
     {
@@ -2195,8 +2027,8 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          7,
-          7
+          6,
+          6
         ],
         "slots": [
           {
@@ -2350,11 +2182,11 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.4514285714285714,
+        "nominalDensity": 0.6,
         "materialDensity": {
-          "tree": 0.02040816326530612,
-          "shrub": 0.16326530612244897,
-          "grass": 0.2677551020408163
+          "tree": 0.027777777777777776,
+          "shrub": 0.2222222222222222,
+          "grass": 0.35
         },
         "type": "repeat_motif",
         "cluster": {
@@ -4599,27 +4431,62 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          10,
-          10
+          8,
+          8
         ],
         "slots": [
           {
             "at": [
+              3,
+              0
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
               4,
-              2
+              0
             ],
             "material": "stone"
           },
           {
             "at": [
               5,
-              2
+              0
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              2,
+              1
             ],
             "material": "stone"
           },
           {
             "at": [
               6,
+              1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              7,
+              1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
               2
             ],
             "material": "stone"
@@ -4627,27 +4494,34 @@
           {
             "at": [
               7,
+              2
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              0,
               3
             ],
             "material": "stone"
           },
           {
             "at": [
-              8,
+              0,
               4
             ],
             "material": "stone"
           },
           {
             "at": [
-              8,
+              0,
               5
             ],
             "material": "stone"
           },
           {
             "at": [
-              8,
+              1,
               6
             ],
             "material": "stone"
@@ -4655,6 +4529,20 @@
           {
             "at": [
               7,
+              6
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
+              7
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              2,
               7
             ],
             "material": "stone"
@@ -4662,56 +4550,14 @@
           {
             "at": [
               6,
-              8
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              5,
-              8
+              7
             ],
             "material": "grass"
           },
           {
             "at": [
-              4,
-              8
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              3,
+              7,
               7
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              2,
-              6
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              2,
-              5
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              2,
-              4
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              3,
-              3
             ],
             "material": "stone"
           }
@@ -4719,29 +4565,30 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.16,
+        "nominalDensity": 0.28125,
         "materialDensity": {
-          "stone": 0.15,
-          "grass": 0.01
+          "stone": 0.265625,
+          "grass": 0.015625
         },
         "type": "repeat_motif",
         "ring": {
           "centerCell": [
-            5,
-            5
+            4,
+            4
           ],
-          "radiusCells": 3,
+          "radiusCells": 4,
           "entranceOffsetCells": [
-            0,
+            2,
             3
           ],
           "entranceMaterial": "grass",
-          "connectivity": "8_neighbor_continuous_stone_arc"
+          "connectivity": "8_neighbor_continuous_arc; adjacent_circles_share_cardinal_rim_cells",
+          "wrap": "modulo_repeat; deduplicate_shared_rim_cells"
         },
         "poiOrigin": {
           "cell": [
-            5,
-            5
+            4,
+            4
           ],
           "role": "circle_center"
         }
@@ -4873,18 +4720,13 @@
         "count": 1
       },
       "connection": {
-        "shape": "aligned_ring_gaps",
-        "material": "grass",
-        "spacingCells": 3,
-        "from": "poi",
-        "to": "finds",
-        "withinCoverageBudget": true,
-        "crossMajorRoad": false
+        "shape": "none",
+        "reason": "shared_stone_rims_are_the_connection; do_not_cut_a_route_through_circle_contacts"
       },
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Nearly closed stone circles share a single grass-marked opening. Their repeated entrances point toward the POI and a lone flower beyond.",
+      "atmosphere": "Touching stone circles form a continuous quiet lattice, with one off-axis grass entrance per circle and a single starflower find.",
       "attracts": {
         "crow": 0.5
       }
