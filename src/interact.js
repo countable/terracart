@@ -548,14 +548,14 @@ const TAP_HANDLERS = [
       // A SUMMONED ally (the spirit raven) is not a tap target: nothing to
       // catch, tame, feed or pet — a tap goes through it to whatever is there.
       if (SpriteLayout.isSummoned(c.kind)) return;
-      // A giant monster is its base kind's art scaled by the same number the
-      // renderer draws it with (SpriteLayout.GIANT_ART_SCALE, applied inside
-      // creatureArt), so the tappable area stays the drawn body.
+      // A variant monster is its base kind's art scaled by the same ratio the
+      // renderer draws it with (creatureArt: GIANT_ART_SCALE times the row's
+      // own artScale), so the tappable area stays the drawn body.
       const bk = SpriteLayout.baseKind(c.kind);
       // A softened lair guard is drawn smaller (creatureInstScale), so its
       // tap box shrinks with it.
       const inst = SpriteLayout.creatureInstScale(c);
-      const gMul = (SpriteLayout.isGiantKind(c.kind) ? SpriteLayout.GIANT_ART_SCALE : 1) * inst;
+      const gMul = SpriteLayout.creatureScale(c.kind) / SpriteLayout.creatureScale(bk) * inst;
       const span = SpriteLayout.creatureTapSpanPx(c.kind, inst)
         || SpriteLayout.creatureTapSpanPx('chicken', inst);
       const halfW = (HALF_W[bk] ?? 2.0) * gMul;

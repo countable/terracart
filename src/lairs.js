@@ -204,7 +204,7 @@
   // order, weakest first, and rung `i` of `n` unlocks at `i / n` of `t` —
   // which reproduces the thirds the slime ladder used to carry as literals
   // (0, 0.34, 0.67) — and the three-rung garrison ladder (goblin, archer,
-  // trapper) takes the same thirds for free.
+  // giant skeleton) takes the same thirds for free.
   // Adding a kind re-spaces its own ladder and nothing else.
   //
   // Every kind here must be a registered enemy (Combat.isEnemyKind) or the
