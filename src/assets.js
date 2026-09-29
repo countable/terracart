@@ -110,6 +110,8 @@ const ASSETS = {
   rabbit:      { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Rabbit White.png',    frameWidth: 16, frameHeight: 16 },
   crow:        { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Crow.png',            frameWidth: 32, frameHeight: 32 },
   butterfly:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Azure Butterfly.png', frameWidth: 16, frameHeight: 16 },
+  // Shore crab — 3 cols x 4 rows of 16px frames (front, back, right, left).
+  crab:        { kind: 'spritesheet', path: 'assets/Farm Animals/Crab.png',                 frameWidth: 16, frameHeight: 16 },
   // Slime — energy-leeching pest. 'Slime Green.png' is a 128×384 sheet of
   // 32×32 frames (4 cols × 12 rows): row 0 (frames 0-3) is the idle squish
   // cycle the renderer loops; lower rows are move/death poses we don't use.
@@ -166,11 +168,11 @@ const ASSETS = {
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Generated/tar.png', frameWidth: 16, frameHeight: 16 },
   stakes:         { kind: 'spritesheet', path: 'assets/Objects/Generated/stakes_a.png', frameWidth: 16, frameHeight: 16 },
   wagon:          { kind: 'spritesheet', path: 'assets/Objects/Generated/wagon.png', frameWidth: 128, frameHeight: 96 },
-  // INFLUENCE ZONES (src/zones.js) — generated 16px placeholders, one art per
-  // interactable: the churchyard's headstone, the grove's shrine (16×24) and
-  // the tar yard's flint nodule (a wild plant — items.js CROP_SPRITE.flint).
-  headstone:      { kind: 'spritesheet', path: 'assets/Objects/Generated/headstone.png', frameWidth: 16, frameHeight: 16 },
-  grove_shrine:   { kind: 'spritesheet', path: 'assets/Objects/Generated/shrine.png', frameWidth: 16, frameHeight: 24 },
+  // INFLUENCE ZONES (src/zones.js): churchyard headstone, two grove shrine
+  // appearances, and the flint nodule (items.js CROP_SPRITE.flint).
+  headstone:      { kind: 'spritesheet', path: 'assets/Objects/Landmarks/headstone-basalt.png', frameWidth: 16, frameHeight: 16 },
+  grove_shrine:   { kind: 'spritesheet', path: 'assets/Objects/Landmarks/shrine-figure.png', frameWidth: 48, frameHeight: 48 },
+  grove_votive:   { kind: 'spritesheet', path: 'assets/Objects/Landmarks/shrine-votive.png', frameWidth: 16, frameHeight: 16 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Generated/flint.png', frameWidth: 16, frameHeight: 16 },
   // SCENIC PLACES (src/scenic.js) — generated placeholders, one art per
   // interactable: the viewpoint's scope (16×24, an object — RENDER_SPEC

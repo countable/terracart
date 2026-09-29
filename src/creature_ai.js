@@ -867,7 +867,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt) {
     }
     return;
   }
-  if (!row.dmg || row.attackType === 'touch') return;
+  if ((!row.dmg && !row.steals) || row.attackType === 'touch') return;
   const swoop = row.movement.pattern === 'orbit_swoop';
   const eligible = clear && dist <= row.range * scene.cellM
     && (!swoop || (c._batSwooping && !c._batHit));
@@ -883,6 +883,11 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt) {
       shot.enemyKind = row.id;
       (scene._shots ||= []).push(shot);
     }
+  } else if (row.steals) {
+    // A THIEF'S SWOOP (Combat.incomingTheft — the gull): the same hit, on
+    // the purse instead of the bar. Nothing here touches energy.
+    const taken = Combat.incomingTheft(scene.save, c, Date.now());
+    if (taken > 0) scene._losePlayerCoins(taken, c);
   } else {
     const damage = Combat.incomingDamage(scene.save, raw);
     const lost = scene._losePlayerEnergy(damage, { closeShop: true });

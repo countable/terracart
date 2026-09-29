@@ -1859,6 +1859,7 @@ class MapScene extends Phaser.Scene {
     window.ITEM_DATA_URLS.rabbit    = bakeSheetFrame('rabbit',    0, 16, 16);
     window.ITEM_DATA_URLS.crow      = bakeSheetFrame('crow',      0, 32, 32);
     window.ITEM_DATA_URLS.butterfly = bakeSheetFrame('butterfly', 0, 16, 16);
+    window.ITEM_DATA_URLS.crab      = bakeSheetFrame('crab',      0, 16, 16);
     // Wilderness drops that share their world sprite. Source sheet
     // + frame come from CROP_SPRITE.mushroom so the inventory icon stays
     // glued to whatever the world renderer is drawing.
@@ -4993,6 +4994,30 @@ class MapScene extends Phaser.Scene {
     this._warnIfTiring(before);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     return lost;
+  }
+
+  // A THEFT BANKED on the purse — the coin twin of _losePlayerEnergy, and
+  // the one place a thief's snatch (Combat.incomingTheft, the gull) comes
+  // off the money: never below $0, the thief marked sated for the day
+  // (Combat.bankTheft), the flinch at the instant it lands (_flashPlayerHit),
+  // the shop shut like any hit, and the gold "-N" on the player's own cell
+  // (_popCellNumber, the coin pickup's "+N" in reverse — a number on the map
+  // names its cell). It never touches
+  // energy. Returns what was taken.
+  _losePlayerCoins(n, thief) {
+    const purse = Math.max(0, Math.floor(this.save.money ?? 0));
+    const taken = Math.min(purse, Math.max(0, Math.floor(n || 0)));
+    if (!(taken > 0)) return 0;
+    addMoney(this.save, -taken);
+    if (thief) Combat.bankTheft(this.save, thief);
+    this._flashPlayerHit(taken);
+    this._closeShopOnHit();
+    if (typeof playerReachCell === 'function' && this.startWorldM && this.originPx) {
+      const p = playerReachCell(this);
+      this._popCellNumber(`-${taken}`, UI_GOLD, p.cellIX, p.cellIY);
+    }
+    if (typeof persistSave === 'function') persistSave(this.save);
+    return taken;
   }
 
   // The castle turrets' volley — one arrow per turret per Combat.TURRET

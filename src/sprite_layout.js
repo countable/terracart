@@ -73,8 +73,9 @@
     'waystone:0':      { fw: 16, fh: 16, minX: 0,  minY: 1,  maxX: 16, maxY: 16 },
     'stakes:0':        { fw: 16, fh: 16, minX: 4,  minY: 0,  maxX: 12, maxY: 16 },
     'tar:0':           { fw: 16, fh: 16, minX: 0,  minY: 6,  maxX: 16, maxY: 16 },
-    'headstone:0':     { fw: 16, fh: 16, minX: 3,  minY: 0,  maxX: 12, maxY: 15 },
-    'grove_shrine:0':  { fw: 16, fh: 24, minX: 1,  minY: 3,  maxX: 15, maxY: 23 },
+    'headstone:0':     { fw: 16, fh: 16, minX: 4, minY: 4, maxX: 12, maxY: 14 },
+    'grove_shrine:0':  { fw: 48, fh: 48, minX: 12, minY: 1, maxX: 37, maxY: 47 },
+    'grove_votive:0':  { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 16 },
     'vista_scope:0':   { fw: 16, fh: 24, minX: 0,  minY: 0,  maxX: 15, maxY: 24 },
     'barrel:0':         { fw: 16, fh: 16, minX: 1,  minY: 0,  maxX: 14, maxY: 16 },
     'barrel_smashed:0': { fw: 16, fh: 16, minX: 0,  minY: 4,  maxX: 16, maxY: 16 },
@@ -82,6 +83,15 @@
     'signpost:0':       { fw: 16, fh: 16, minX: 3,  minY: 0,  maxX: 13, maxY: 16 },
     'gatepost:0':       { fw: 16, fh: 16, minX: 0,  minY: 1,  maxX: 16, maxY: 16 },
   };
+
+  // Cosmetic only: each POI keeps its appearance across reloads and save overlays.
+  const GROVE_SHRINE_ART = [
+    { key: 'grove_shrine', frame: 0, scale: 0.7, name: 'Stone figure' },
+    { key: 'grove_votive', frame: 0, scale: 1.6, name: 'Stone votive' },
+  ];
+  function groveShrineArt(o) {
+    return GROVE_SHRINE_ART[root.fnv1a(String(o?.id ?? '') + '#shrine') % GROVE_SHRINE_ART.length];
+  }
 
   // ── Plain rock: what the art SHOWS is what it DROPS ───────────────────────
   // The four "plain rock" looks (row 15, cols 3..6 of the mineralrock sheet)
@@ -353,12 +363,20 @@
     dog:           { sheet: 'dog',       anim: 'dog-idle',     fw: 32, fh: 32, scale: 1.30, foot: 29 / 32, float: 0,  minY: 15, maxY: 29 },
     deer:          { sheet: 'deer',      fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 0,  minY: 11, maxY: 31 },
     rabbit:        { sheet: 'rabbit',    fw: 16, fh: 16, scale: 1.50, foot: 16 / 16, float: 0,  minY: 3,  maxY: 16 },
+    // The shore crab: 'Crab.png' is 3 cols x 4 rows of 16px frames (front,
+    // back, right, left); the front row's three frames are its scuttle cycle,
+    // stepped at the common creature beat.
+    crab:          { sheet: 'crab',      frames: 3, frameMs: CREATURE_FRAME_MS, fw: 16, fh: 16, scale: 1.20, foot: 15 / 16, float: 0,  minY: 1,  maxY: 15 },
     crow:          { sheet: 'crow',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
     // The spirit raven is the CROW'S SHEET — every geometry column matches the
     // crow row above (one body cannot have two ground lines, and the wheel /
     // tap / health-bar seating all read these); the alpha is the one thing
     // that differs (SPIRIT_RAVEN_ALPHA).
     spirit_raven:  { sheet: 'crow',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31, alpha: SPIRIT_RAVEN_ALPHA },
+    // The gull is the CROW'S SHEET recoloured (its roster row's `palette`,
+    // baked into the 'gull' texture at load — assets.js): every geometry
+    // column matches the crow row, one body, one ground line.
+    gull:          { sheet: 'gull',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
     // The butterfly's 7 frames are the sheet's whole top row, stepped faster
     // than the common creature beat — a flutter, not a plod.
     butterfly:     { sheet: 'butterfly', frames: 7, frameMs: 100, airborne: true, fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
@@ -491,6 +509,11 @@
     // A cow takes twice the netting (catchMul) — the one catch worth a whole
     // bar of energy when eaten, for 3 to net (economy audit, 2026-09-27).
     cow:           { wanders: true, produce: { item: 'milk', verb: 'milked' }, catchMul: 2 },
+    // The shore crab is the chicken's row on the beach: it wanders, is tamed
+    // with its favourite (items.js ANIMAL_FOOD.crab) or netted, and a fed one
+    // gives the beach's own pickup, a SHELL. Seated only on shore sand by its
+    // own rule (scene_creatures.js, biome_profiles.js SHORE_FAUNA).
+    crab:          { wanders: true, produce: { item: 'shell', verb: 'shed' } },
     // A PET is a kind that hunts FOR you once tame — not a kind that can be
     // tamed (any animal can, and a sapphire tames a slime). `prey` is the
     // hoisted Set the per-step scan reads, so it allocates nothing.
@@ -769,6 +792,7 @@
 
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell,
+    GROVE_SHRINE_ART, groveShrineArt,
     PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
     NPC_FRAME, NPC_SHEETS, npcAppearance,

@@ -264,6 +264,10 @@ const PLAY_TIPS = [
   `Tap a tame animal to pet it. Pet a cow or chicken and for ${shortDuration(SpriteLayout.ANIMAL_INTERACTION.petBoostMs)} its next yield has a ${Math.round(SpriteLayout.ANIMAL_INTERACTION.doubleYieldChance * 100)}% chance of doubling.`,
   `Pet a tame cat and it trails after you for ${shortDuration(SpriteLayout.ANIMAL_INTERACTION.followMs)}.`,
   'A tame cat hunts crows for you; a tame dog hunts deer and chases slimes away.',
+  // THE SHORE CRAB (SpriteLayout CREATURE_BEHAVIOUR.crab, items.js
+  // biome_profiles.js SHORE_FAUNA): where it lives and what it gives are
+  // mechanics no item line carries (what TAMES it is on the minnow's line).
+  `Crabs live only on sand beside water. Give one any plant or crop and it sheds a ${ITEM_BY_ID[SpriteLayout.creatureProduce('crab').item].name.toLowerCase()} — once every ${shortDuration(SpriteLayout.ANIMAL_INTERACTION.produceCooldownMs)}, as a chicken lays.`,
   'Chasing an animal down is a chase: it bolts while the wheel turns, and if it stays out of your reach for a second it is gone.',
   'Deer and crows are game: you hunt them, never shoot them. Bare-handed a hunt is a long stalk. No weapon hurries a hunt — that is what the net is for. And a hunted deer does not run from the net: it turns and charges you until the hunt is over.',
   'A shiny animal pays ten times its plain kind, bolts half again as fast, and takes twice the work to bring down.',
@@ -278,6 +282,9 @@ const PLAY_TIPS = [
   'A loosed arrow stops in the first thing it meets, timber and stone included; a bolt of magic passes through the lot and strikes everything on the line.',
   'A bow shoots across the street; a staff will not wake for anything further than a single cell past your reach — and underground that shrinks with your lit ring.',
   'Anything hostile you put down drops its pay as one coin where it fell — about a coin per 5 hit points, a little more for every level down. Walk over and pick it up.',
+  // THE GULL (combat.js incomingTheft / theftAmount / theftSated): a foe
+  // that takes coins, not energy, once a day — no item line can say it.
+  `Gulls haunt beaches and piers, and a gull's swoop takes coins, not energy: up to $${Combat.theftAmount('gull')}, once a day each, and then it flies off. Down one and its coin gives it back.`,
   'Towers on a castle you have CLAIMED fight on your side: any in sight looses an arrow at the nearest foe, at a fifth of your own rate, and a foe that strays near its walls turns and runs, as it would from Home. A tower\'s kill leaves its coin and nothing more. An unclaimed castle\'s walls stay silent.',
   // ── Underground, which you go looking for ───────────────────
   'Tap a staircase to go down. Barely a tenth of surface rock bears ore; underground, every level is a mine of its own metal and the one before it — iron and copper three levels down, and so on to the deepest.',

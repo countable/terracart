@@ -520,6 +520,29 @@
     slime:     { base: 50, range: 0, share: 1.00, primary: ALL_NATURAL, fallback: ALL_NATURAL },
   };
 
+  // ── Shore fauna ─────────────────────────────────────────────────────────
+  // The WATERFRONT's animals are seated by their OWN rule, not by a row
+  // above: BIOME_FAUNA draws candidate cells off the whole tile, and a beach
+  // is a thin strip of it (the X marks learned that — scene_creatures.js
+  // BEACH_X_PER_CELLS). So a shore species draws its seats from the tile's
+  // SHORE cells (src/scenic.js shore sand, entry.scenic.shore — sand within
+  // reach of water, whatever a zone repainted it to look like) and, where
+  // `pier` says so, its PIER cells, and its COUNT follows the shoreline: one
+  // per `perShoreM` metres of waterline (+ pier), capped at `max`. Each
+  // species draws on its OWN stream (`salt`), so no other species' seats
+  // move, and ids are the seat CELL (WorldGen.cellId). Inland sand (a
+  // bunker, a sandpit) holds none. Seated through the spawn gate with the
+  // kind's own class (creatureSpawnClass — the gull, a fast flier, is a
+  // 'fastEnemy' and keeps off the kerb).
+  // What this is NOT: an `attracts` pull — that moves a tile's existing
+  // spawns of a species onto favourite ground; these species have no spawns
+  // anywhere else to move.
+  const SHORE_FAUNA_ORDER = ['crab', 'gull'];
+  const SHORE_FAUNA = {
+    crab: { perShoreM: 35, max: 14, pier: false, salt: 'shorefauna|crab' },
+    gull: { perShoreM: 90, max: 6,  pier: true,  salt: 'shorefauna|gull' },
+  };
+
   // The FAUNA ATTRACTOR column for GROUND (terrain code → { species: p }):
   // each of a tile's own spawns of the species moves onto this ground with
   // probability p (scene_creatures.js _seatFaunaOnFavouriteGround — the same
@@ -538,5 +561,7 @@
   global.BIOME_FAUNA = BIOME_FAUNA;
   global.FAUNA_ORDER = FAUNA_ORDER;
   global.BIOME_ATTRACTS = BIOME_ATTRACTS;
+  global.SHORE_FAUNA = SHORE_FAUNA;
+  global.SHORE_FAUNA_ORDER = SHORE_FAUNA_ORDER;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

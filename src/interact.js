@@ -556,7 +556,7 @@ const TAP_HANDLERS = [
     // Per-kind horizontal grab half-width (m) — the old footprint-tuned radii.
     const HALF_W = {
       npc: 1.8, cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
-      chicken: 1.5, rabbit: 1.4, butterfly: 1.4,
+      chicken: 1.5, crab: 1.5, rabbit: 1.4, butterfly: 1.4, gull: 1.7,
       slime: 2.0, cave_slime: 2.0, fire_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, goblin_trapper: 2.0, purple_slime: 1.4,
     };
     // Closest tappable creature whose DRAWN box contains the tap. Rank by
@@ -748,7 +748,8 @@ const TAP_HANDLERS = [
       && !!SpriteLayout.creatureProduce(target.kind);
     if (isTame && !tameProducerFeed) {
       const SOUND = { chicken: 'cluck', cow: 'moo', cat: 'purr', dog: 'woof',
-                      butterfly: 'flutter', crow: 'caw', rabbit: 'twitch', deer: 'snort' };
+                      butterfly: 'flutter', crow: 'caw', rabbit: 'twitch', deer: 'snort',
+                      crab: 'click' };
       const sound = SOUND[target.kind] || 'happy';
       // Petting accepts the favourite OR plant produce as a treat. Treats
       // get consumed; an empty-handed pet is free. animalLikesFood handles

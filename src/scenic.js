@@ -189,10 +189,12 @@
     return true;
   }
   // A way a vehicle drives beside the path (the sidewalk test). Driveways and
-  // parking aisles are no street; a tunnel is under the ground.
+  // lot lanes (WorldGen.isLotLane — already cut from the layer) are no
+  // street; a tunnel is under the ground.
   function isVehicleWay(tags) {
     const t = tags || {};
-    if (t.service === 'driveway' || t.service === 'parking_aisle' || t.brunnel === 'tunnel') return false;
+    const WG = root.WorldGen;
+    if (t.service === 'driveway' || (WG && WG.isLotLane(t)) || t.brunnel === 'tunnel') return false;
     const SV = root.StreetVariants;
     return !!(SV && SV.isVehicleTags(t));
   }

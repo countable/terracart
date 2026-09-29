@@ -515,7 +515,7 @@ const BASE_TIER = {
   // Plantable fruit-tree saplings — common apple (T3), rare peach (T5).
   apple_sapling: 3, peach_sapling: 5, acorn: 2,
   // Live animals
-  chicken: 1, dog: 1, rabbit: 1,
+  chicken: 1, dog: 1, rabbit: 1, crab: 1,
   cat: 2, butterfly: 2,
   crow: 3,
   deer: 4,
@@ -583,6 +583,8 @@ const ITEMS = [
   { id: 'rabbit',    name: 'Rabbit',    kind: 'animal' },
   { id: 'crow',      name: 'Crow',      kind: 'animal' },
   { id: 'butterfly', name: 'Butterfly', kind: 'animal' },
+  // The shore crab — the chicken of the beach (SpriteLayout CREATURE_BEHAVIOUR.crab).
+  { id: 'crab',      name: 'Crab',      kind: 'animal' },
   // Shiny (rare, 5%) animal variants — caught from yellow-tinted wild animals.
   // Each shiny kind keeps its OWN inventory stack: a shiny chicken never
   // folds into normal chickens, nor into other shiny animals ("not other
@@ -590,7 +592,7 @@ const ITEMS = [
   // reuse the normal sprite/behaviour; `shiny` flags the shiny sheen. Only
   // the catch-into-inventory kinds get a shiny item — hunted fauna (deer,
   // crow) drop meat/feather, so there's no live shiny animal to keep.
-  ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly'].map(k => ({
+  ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab'].map(k => ({
     id: `shiny_${k}`,
     name: `Shiny ${k.charAt(0).toUpperCase() + k.slice(1)}`,
     kind: 'animal', base: k, shiny: true, baseTier: BASE_TIER[k] || 1,
@@ -990,6 +992,7 @@ const PRICES = {
   iceflower: 500,  // T6 — rarest flower, gates the Frost bar; price ceiling
   // ── Animals ──────────────────────────────────────────────
   chicken: 4,      // 150–250/tile
+  crab: 6,         // shore only — a handful per beach (SHORE_FAUNA)
   cow: 200,        // ~15–30/tile, premium catch
   cat: 35,         // companion animal (wants milk/fish) — modest sale, never eaten
   dog: 35,         // companion animal (wants meat) — modest sale, never eaten
@@ -1078,7 +1081,7 @@ function itemValue(id) {
 }
 // Shiny animals sell at 10× their plain counterpart's value — a real prize in
 // the bag, on top of the catch-time money + memory.
-for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly']) {
+for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab']) {
   PRICES[`shiny_${k}`] = itemValue(k) * 10;
 }
 // Seeds houses/traders rotate through for sale. Magical flower seeds (T4+:
@@ -1273,6 +1276,7 @@ const FOOD_ENERGY = {
   fireflower: 90,
   iceflower: 150,
   chicken:    30,
+  crab:       20,
   cow:       120,
   // cats + dogs are companions, not food — no FOOD_ENERGY entry means the
   // eat button never appears for them and eatSelected() refuses.
@@ -1322,6 +1326,9 @@ const ANIMAL_FOOD = {
   // Cats love milk AND any kind of fish.
   cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish'],
   dog:     ['meat'],       // raw meat — hunt a deer with the bug net
+  // A shore crab is tamed with the smallest fish. (Fed plant produce once
+  // tame, it sheds a shell — its CREATURE_BEHAVIOUR `produce` row.)
+  crab:    ['minnow'],
   // Secret: slimes can be tamed with a sapphire — hinted only in book tips,
   // and true again as of Sep 2026 (ITEM_EFFECTS.sapphire used to spell it out).
   // Not reachable through animalLikesFood in practice: a slime is an enemy, so
@@ -1329,8 +1336,10 @@ const ANIMAL_FOOD = {
   // before the favourite-food path, and no "it wants X" hint ever names this.
   slime:   ['sapphire'],
 };
-for (const id of ANIMAL_FOOD.cat) {
-  if (COOKED_FOODS[id]) ITEM_EFFECTS[id] += '; feed raw to tame a wild cat';
+// A raw food that tames names every wild animal it tames, in one clause.
+for (const id of Object.keys(COOKED_FOODS)) {
+  const tames = ['cat', 'crab'].filter(a => ANIMAL_FOOD[a].includes(id));
+  if (tames.length) ITEM_EFFECTS[id] += `; feed raw to tame a wild ${tames.join(' or ')}`;
 }
 
 function animalLikesFood(kind, foodId) {

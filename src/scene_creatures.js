@@ -696,11 +696,15 @@ class SceneCreatures {
     const shoreMask = entry.scenic && entry.scenic.shore ? entry.scenic.shore.mask : null;
     const pathCells = [];
     const sandCells = [];
+    // …and the PIER cells, for the shore fauna below (the gull's perch) —
+    // the same pass, so the post-rasterize path still walks the grid once.
+    const pierCells = [];
     for (let cy = 0; cy < N; cy++) {
       for (let cx = 0; cx < N; cx++) {
         const t = genGrid[cy * N + cx];
         if (t === 8 /* PATH */) pathCells.push(cy * N + cx);
         else if (t === WorldGen.T.SAND && !(shoreMask && shoreMask[cy * N + cx])) sandCells.push(cy * N + cx);
+        else if (t === WorldGen.T.PIER) pierCells.push(cy * N + cx);
       }
     }
     if (pathCells.length > 0) {
@@ -819,8 +823,66 @@ class SceneCreatures {
                 planted: true, planted_t: ft.planted_t }));
       }
     }
+    // THE SHORE'S OWN FAUNA (biome_profiles.js SHORE_FAUNA): crabs on the
+    // shore sand, gulls on the shore and the piers (the
+    // shore and pier cells come out of the bonus-X block's one grid pass). Each species on its OWN
+    // stream (its `salt`), so no other draw moves; its count follows the
+    // waterline; each seat is the kind's own spawn class (creatureSpawnClass)
+    // through the shared gate, and its id is the seat cell. See spawnShoreFauna.
+    this.spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid,
+      faunaSpawnOpts, _spawnOpts, caughtSet);
+
     // The per-player cull, AFTER every draw of the shared stream above.
     this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
+  }
+
+  // THE SHORE FAUNA pass (see the call in spawnInTile). Pure in the tile:
+  // the shore (entry.scenic.shore — generated) and the pier cells (the
+  // generated grid) decide it; nothing per-player. Returns what it seated.
+  //   count   floor((waterline m + pier m) / perShoreM), capped at `max` —
+  //           in GENERATION metres (WorldGen.CELL_M per cell), never the
+  //           save's frame (CLAUDE.md "Every player sees the SAME world")
+  //   seats   drawn from the shore cells (+ pier cells where `pier`), on the
+  //           species' own stream; a seat the spawn gate refuses for the
+  //           kind's class is spent, not re-rolled past the attempt budget
+  //   ids     WorldGen.cellId(kind, tx, ty, cx, cy) — position, so a caught
+  //           crab / felled gull stays gone (save.caught)
+  spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid, faunaOpts, foeOpts, caughtSet) {
+    const out = [];
+    if (typeof SHORE_FAUNA === 'undefined') return out;
+    const shoreCells = (shore && shore.cells) || [];
+    const shoreM = (shore && shore.shoreM) || 0;
+    for (const kind of SHORE_FAUNA_ORDER) {
+      const row = SHORE_FAUNA[kind];
+      const pool = row.pier && pierCells.length ? shoreCells.concat(pierCells) : shoreCells;
+      if (!pool.length) continue;
+      const lenM = shoreM + (row.pier ? pierCells.length * WorldGen.CELL_M : 0);
+      const want = Math.max(0, Math.min(row.max, Math.floor(lenM / row.perShoreM)));
+      if (!want) continue;
+      const spClass = creatureSpawnClass(kind);
+      const fauna = spClass === 'fauna' || spClass === 'fastFauna';
+      const opts = fauna ? faunaOpts : foeOpts;
+      const srng = WorldGen.makeRng(fnv1a(`${row.salt}|${tx},${ty}`));
+      const taken = new Set();
+      let placed = 0;
+      for (let attempt = 0; attempt < want * 8 && placed < want; attempt++) {
+        const cell = pool[Math.floor(srng() * pool.length)];
+        if (taken.has(cell)) continue;
+        const cx = cell % N, cy = Math.floor(cell / N);
+        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, opts, 'minor')) continue;
+        if (!WorldGen.isSpawnCell(genGrid, N, N, cx, cy, opts, spClass)) continue;
+        taken.add(cell);
+        placed++;
+        const id = WorldGen.cellId(kind, tx, ty, cx, cy);
+        if (caughtSet.has(id)) continue;
+        const c = WorldGen.makeCreature(kind,
+          tx * this.tileEdgeM + (cx + 0.5) * cellM, ty * this.tileEdgeM + (cy + 0.5) * cellM, id,
+          { shiny: fauna ? faunaShiny(kind, id) : false });
+        creatures.push(c);
+        out.push(c);
+      }
+    }
+    return out;
   }
 
   // FAUNA ATTRACTORS (see the call in spawnInTile) — ONE lane, many grounds.
@@ -1581,7 +1643,13 @@ class SceneCreatures {
       // ROUTED: turned onto an away angle at the flee pace — by Home's ward, or
       // by wandering off. Two reasons, one pace; the angle chain says away from
       // WHAT (Home, or the player).
-      const routed = warded || wanderOff;
+      // SATED: a thief that has stolen from you today (Combat.theftSated —
+      // the gull, one snatch a day) turns its back and flies off — a third
+      // reason in the rout lane (the away-from-the-player angle at the flee
+      // pace), and one more reason to stand down below. Asked only of a kind
+      // that steals, so the per-creature cost elsewhere is one table read.
+      const sated = !isTame && !!Combat.theftKind(c.kind) && Combat.theftSated(this.save, c);
+      const routed = warded || wanderOff || sated;
       // A LAIR GUARD'S THREE STATES — src/lairs.js owns the rings, the
       // hysteresis and the arrival test; this asks once and stores the
       // hysteresis back (session state on the creature, like `_hp`).
@@ -1603,7 +1671,7 @@ class SceneCreatures {
       // growing a second condition each. The MOVEMENT chain still asks
       // `warded` by name: an away-from-the-ward angle and a walk back to a seat
       // are two mechanisms, not one, whatever they have in common here.
-      const standDown = warded || wanderOff || kerbTurn || (!!lairState && lairState !== 'hunt');
+      const standDown = warded || wanderOff || kerbTurn || sated || (!!lairState && lairState !== 'hunt');
       const rosterRow = !isTame ? EnemyRoster.get(c.kind) : null;
       const enemyDt = c._enemyTickT == null ? 0 : Math.min(0.1, Math.max(0, (now - c._enemyTickT) / 1000));
       c._enemyTickT = now;

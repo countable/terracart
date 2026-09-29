@@ -282,6 +282,45 @@
     return playerDamage(shielded, save.armor, hits, save.mode);
   }
 
+  // ── A THIEF'S BLOW: coins, not energy ────────────────────────────────────
+  // A roster row that says `steals: 'coins'` (the gull) lands its swoop on
+  // the PURSE: the one enemy-hit site (creature_ai.js rosterEnemyAttack)
+  // asks incomingTheft INSTEAD of incomingDamage, and the scene banks it
+  // through its one writer (app.js _losePlayerCoins — addMoney, the flinch,
+  // the "-$N" on the player's cell). It never touches the energy bar, so
+  // armour, the shield potion and the mode's incoming-damage penalty (all
+  // about a BLOW) do not apply; being DOWNED does — nothing hunts a body.
+  //   HOW MUCH: what the thief is worth — its own bounty (enemyBounty at the
+  //   surface), so felling one wins back exactly one snatch. Never more
+  //   than the purse holds (a thief cannot take you below $0).
+  //   HOW OFTEN: ONE snatch per thief per UTC day. A thief that has stolen
+  //   today is SATED (theftSated): it stands down and flies off (the rout
+  //   lane in wanderCreatures) until the day turns. The ledger is the save's
+  //   `thefts` — { day, ids } — the thief's generated (cell) id, reset on a
+  //   new day, so the cap survives a reload.
+  function theftKind(kind) { return monster(kind)?.steals || null; }
+  function theftAmount(kind) { return theftKind(kind) === 'coins' ? enemyBounty(kind, 0) : 0; }
+  function theftDay(now) {
+    return typeof utcDayKey === 'function' ? utcDayKey(now)
+      : new Date(now).toISOString().slice(0, 10).replace(/-/g, '');
+  }
+  function theftSated(save, c, now = Date.now()) {
+    const l = save && save.thefts;
+    return !!(l && c && l.day === theftDay(now) && Array.isArray(l.ids) && l.ids.indexOf(c.id) >= 0);
+  }
+  function incomingTheft(save, c, now = Date.now()) {
+    if (!save || !c || theftKind(c.kind) !== 'coins') return 0;
+    if (playerDowned(save.energy) || theftSated(save, c, now)) return 0;
+    const purse = Math.max(0, Math.floor(save.money ?? 0));
+    return Math.min(purse, theftAmount(c.kind));
+  }
+  // Mark `c` sated for today (the scene calls this once a snatch is banked).
+  function bankTheft(save, c, now = Date.now()) {
+    const day = theftDay(now);
+    if (!save.thefts || save.thefts.day !== day) save.thefts = { day, ids: [] };
+    if (save.thefts.ids.indexOf(c.id) < 0) save.thefts.ids.push(c.id);
+  }
+
   // ── DOWNED: the bar is empty ─────────────────────────────────────────────
   // At zero energy the player has collapsed. They cannot reach (coords.js's
   // reachRadiusM returns 0 at 0 energy, so no cell is tappable), and none of
@@ -1141,6 +1180,7 @@
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, playerDowned,
+    theftKind, theftAmount, theftDay, theftSated, incomingTheft, bankTheft,
     MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
     RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,

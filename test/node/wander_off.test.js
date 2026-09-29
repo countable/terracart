@@ -95,7 +95,7 @@ test('wander-off: one more reason in the lanes that exist, not a lane of its own
     'only a mobile, wild, non-lair enemy wanders off');
   assert.truthy(/const standDown = warded \|\| wanderOff \|\| /.test(w),
     'while it goes it does not leech, hit, shoot or charge (standDown)');
-  assert.truthy(/const routed = warded \|\| wanderOff;/.test(w), 'it runs at the rout pace');
+  assert.truthy(/const routed = warded \|\| wanderOff \|\| sated;/.test(w), 'it runs at the rout pace (beside a sated thief)');
   const ward = w.indexOf('} else if (warded) {');
   const off = w.indexOf('} else if (wanderOff || (kerbTurn && !c.lair)) {');
   const slime = w.indexOf("} else if (c.kind === 'slime') {");

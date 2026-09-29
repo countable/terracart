@@ -112,14 +112,16 @@ test('creature table: what a kill drops is the kind\'s own row', () => {
     assert.truthy(ITEM_BY_ID[CT_SL.creatureDrop(k)], `${k}'s drop is a real item`);
 });
 
-test('creature table: PRODUCE is the chicken and the cow, item and verb together', () => {
-  assert.eq(ctKinds((k) => CT_BEH[k].produce), 'chicken,cow');
+test('creature table: PRODUCE is the chicken, the cow and the crab, item and verb together', () => {
+  assert.eq(ctKinds((k) => CT_BEH[k].produce), 'chicken,cow,crab');
+  assert.eq(CT_SL.creatureProduce('crab').item, 'shell', 'a fed crab gives the beach pickup');
+  assert.eq(CT_SL.creatureProduce('crab').verb, 'shed');
   assert.eq(CT_SL.creatureProduce('chicken').item, 'egg');
   assert.eq(CT_SL.creatureProduce('chicken').verb, 'laid');
   assert.eq(CT_SL.creatureProduce('cow').item, 'milk');
   assert.eq(CT_SL.creatureProduce('cow').verb, 'milked');
   assert.eq(CT_SL.creatureProduce('deer'), null, 'nothing milks a deer');
-  for (const k of ['chicken', 'cow'])
+  for (const k of ['chicken', 'cow', 'crab'])
     assert.truthy(ITEM_BY_ID[CT_SL.creatureProduce(k).item], `${k}'s yield is a real item`);
 });
 

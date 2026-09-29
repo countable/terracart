@@ -127,7 +127,11 @@
   // since the ghost — a surface night kind, so it has no giant.)
   test('quest board: the enemy list follows the declared roster, with no legacy-only targets', () => {
     Combat.registerMonsters(MONSTERS);
-    assert.eq(questEnemies().join(','), EnemyRoster.ROWS.map(row => row.id).join(','));
+    // Every roster row but one that says `board: false` (the gull — a shore
+    // thief a kill job inland could never be done on).
+    assert.eq(questEnemies().join(','), EnemyRoster.ROWS.filter(row => row.board !== false).map(row => row.id).join(','));
+    assert.truthy(Combat.isEnemyKind('gull'), 'the gull is an enemy');
+    assert.falsy(Combat.onQuestBoard('gull'), 'but its row keeps it off the board');
     assert.eq(questEnemies()[0], 'slime');
     assert.falsy(questEnemies().includes('giant_goblin'));
     assert.eq(Combat.enemyName('giant_plant'), 'giant plant');
@@ -148,7 +152,7 @@
     try {
       Combat.registerMonsters({ ...MONSTERS, mud_golem: { name: 'Mud Golem', hp: 30, dmg: 2, minDepth: 4 } });
       assert.includes(questEnemies(), 'mud_golem', 'the new kind is on the list');
-      assert.eq(questEnemies().length, EnemyRoster.ROWS.length + 1, 'appended, not swapped in');
+      assert.eq(questEnemies().length, EnemyRoster.ROWS.filter(row => row.board !== false).length + 1, 'appended, not swapped in');
       assert.eq(Combat.enemyName('mud_golem'), 'mud golem', 'and it has a readable name');
       const seen = new Set();
       for (let g = 0; g < 400; g++) {

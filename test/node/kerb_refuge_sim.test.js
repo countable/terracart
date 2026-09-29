@@ -45,7 +45,7 @@ const at = (col, row) => ({ x: (col + 0.5) * CELL, y: (row + 0.5) * CELL });
 function mkScene(entry, creature, feet) {
   const scene = {
     cellM: CELL, depth: 0, tileEdgeM: EDGE,
-    save: { energy: 1e6, caught: [], armor: {}, planted: [], fires: [], released: [], reachUpgrades: 0 },
+    save: { energy: 1e6, money: 1e6, caught: [], armor: {}, planted: [], fires: [], released: [], reachUpgrades: 0 },
     startWorldM: { x: 0, y: 0 }, playerM: { x: feet.x, y: feet.y }, feetOffsetM: 0,
     // Home a world away, so the safe area (EnemySpawns.homeAllows) hides
     // nothing: this harness is about the kerb, not about Home.
@@ -62,6 +62,9 @@ function mkScene(entry, creature, feet) {
     _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {}, _closeShopOnHit: () => {},
     _losePlayerEnergy(d) { const b = this.save.energy; this.save.energy = Math.max(0, b - d); return b - this.save.energy; },
     _trapperLay() { this._laid++; },
+    // A THIEF'S snatch (the gull — Combat.incomingTheft) banked the way
+    // app.js _losePlayerCoins banks it: off the purse, the thief sated.
+    _losePlayerCoins(n, c) { this.save.money -= n; Combat.bankTheft(this.save, c); return n; },
     updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {},
   };
   scene.creatures = [creature];
@@ -78,8 +81,8 @@ function tick(scene, entry) {
   }
 }
 // Everything a hostile can do TO the player: energy off the bar, an arrow
-// loosed, a snare laid.
-const attacks = (s) => (1e6 - s.save.energy) + s._shots.length + s._laid;
+// loosed, a snare laid, coins snatched from the purse.
+const attacks = (s) => (1e6 - s.save.energy) + s._shots.length + s._laid + (1e6 - s.save.money);
 
 // Every hostile the SURFACE can hold, off the tables that seat them (never a
 // hand list — a kind added to the roster or a lair ladder is audited here the
@@ -90,6 +93,8 @@ const attacks = (s) => (1e6 - s.save.energy) + s._shots.length + s._laid;
 // free foe, a lair guard and a bounty foe.
 const KINDS = [...new Set(['slime',
   ...EnemyRoster.ROWS.filter((row) => row.surface).map((row) => row.id),
+  // …and every hostile the SHORE seats by its own rule (the gull).
+  ...SHORE_FAUNA_ORDER.filter((kind) => Combat.isEnemyKind(kind)),
   ...Object.values(Lairs.KIND_ORDER).flat()])];
 function foes() {
   const out = KINDS.map((kind) => ({ label: kind, make: (p) => ({ kind, id: `${kind}_0_0_1`, x: p.x, y: p.y }) }));

@@ -881,17 +881,231 @@
     if (c === 'pier') return T.PIER;
     return T.ROAD;
   }
-  // A parking-lot aisle (OSM service=parking_aisle) IS NOT A ROAD IN THIS
-  // GAME. A lot carpets itself in parallel service lines spaced closer than
-  // one cell, so painting them would weld the lot into a solid asphalt blob —
-  // instead the aisle is dropped EVERYWHERE, by ONE rule with every reader:
-  // no terrain cell and no roadMask footprint (worldgen's two line walks
-  // below — it bars no spawns and no tilling), no overlay band
-  // (road_overlay.js eachTransportLine), no restoration (app.js
-  // _rescanStreets) and no lamps (app.js _streetLampsForTile). A parking lot
-  // reads as open ground carrying its treasure X, nothing else.
+  // A PARKING-LOT LANE IS NOT A ROAD IN THIS GAME. A lot carpets itself in
+  // parallel service lines spaced closer than one cell, so painting them
+  // would weld the lot into a solid asphalt blob — and a lane is nobody's
+  // street to restore, light or name. So a lot lane DOES NOT EXIST: it is
+  // cut out of the tile's `transportation` layer (and its name out of
+  // `transportation_name`) by pruneLotLanesSteps, the FIRST pass of
+  // rasterizeTileSteps, before any reader walks the layer. Every consumer
+  // downstream — terrain, roadMask / roadClass, the spawn gate's public-way
+  // anchors, the street index and its variants, scenic, road labels, the
+  // road overlay band, restoration (app.js _rescanStreets) and lamps (app.js
+  // _streetLampsForTile) — reads entry.layers, the SAME pruned object, so
+  // there is one lane and one predicate: isLotLane.
+  //
+  // isLotLane(f, lots, li): line `li` of feature `f` is a lot lane when
+  //   • the way is TAGGED `service=parking_aisle` (tags alone decide), or
+  //   • it is an UNLABELLED service way (no `service` subtype, or
+  //     `service=parking`) the tile's own data places CLEARLY inside a lot —
+  //     `lots`, the feature → Set(line index) Map lotLaneSetSteps derives
+  //     (see LOT_* below for the measured rule). Judged per LINE, not per
+  //     feature: the tiles merge every same-tagged service way of a tile into
+  //     one feature of dozens of lines, so a feature-wide share means nothing.
+  // Called with tags only (no `lots`) it answers the tagged half, which is
+  // all a reader of an already-pruned layer can still meet. Driveways,
+  // alleys and every other service way stay ordinary roads.
   function isParkingAisle(tags) {
     return !!(tags && tags.service === 'parking_aisle');
+  }
+  function isLotLane(f, lots, li) {
+    if (!f) return false;
+    // Accept a bare tags object too (the old isParkingAisle call shape).
+    const tags = (f.tags && typeof f.tags === 'object') ? f.tags : f;
+    if (isParkingAisle(tags)) return true;
+    const set = lots && f.tags ? lots.get(f) : null;
+    return !!(set && set.has(li | 0));
+  }
+  // THE INFERRED LOT LANE (measured Sep 2026 on the 36-tile Berlin / Kelowna /
+  // Seattle / Vancouver set). An unlabelled service way is a lot lane when at
+  // least LOT_SHARE of its length lies within
+  //   LOT_POI_R_M of a LOT parking POI (poi class `parking` — the point
+  //     OpenMapTiles puts at a lot's centroid), or
+  //   LOT_AISLE_R_M of a tagged parking aisle (it runs through the same lot).
+  // A parking POI within LOT_STREETSIDE_M of a public road's centreline is
+  // STREET-SIDE parking (Berlin maps every kerb lane as amenity=parking), not
+  // a lot, and vouches for nothing — without that cut, courtyard access ways
+  // off a parked-up street were being eaten. Ways longer than LOT_MAX_M are
+  // never inferred (a lot lane is short; a long service road that merely
+  // passes a lot is a road). A "parallel cluster" rule (≥3 short (<60 m)
+  // parallel unlabelled ways <15 m apart) was measured too: after the two
+  // rules above it found 5 lines, 54 m, all Berlin courtyard stubs — so it
+  // is not here.
+  // Seam: the decision is per tile, off that tile's own layers — the POI
+  // layer is buffered far past the tile, the transportation layer only a few
+  // metres, so a way straddling a seam is judged on the same POIs both sides
+  // but may be cut differently at its ends. Not load-order dependent.
+  const LOT_POI_R_M = 30;
+  const LOT_AISLE_R_M = 12;
+  const LOT_STREETSIDE_M = 10;
+  const LOT_SHARE = 0.5;
+  const LOT_MAX_M = 200;
+  const LOT_SAMPLE_M = 2;
+  function isLotCandidate(tags) {
+    if (!tags || tags.class !== 'service') return false;
+    return !tags.service || tags.service === 'parking';
+  }
+  // Point → segment distance in MVT units.
+  function _segDist(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay, L = dx * dx + dy * dy;
+    let t = L ? ((px - ax) * dx + (py - ay) * dy) / L : 0;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    return Math.hypot(ax + t * dx - px, ay + t * dy - py);
+  }
+  // A bucket grid of segments / points (MVT units), so every query below is
+  // O(nearby) — the tile-build rule forbids a scan of everything per sample.
+  function _bucketGrid(size) {
+    const m = new Map();
+    const k = (bx, by) => bx * 73856093 ^ by * 19349663;
+    return {
+      addBox(item, x0, y0, x1, y1) {
+        for (let by = Math.floor(y0 / size); by <= Math.floor(y1 / size); by++)
+          for (let bx = Math.floor(x0 / size); bx <= Math.floor(x1 / size); bx++) {
+            const key = k(bx, by);
+            let a = m.get(key); if (!a) m.set(key, a = []);
+            a.push(item);
+          }
+      },
+      near(x, y, r, fn) {
+        for (let by = Math.floor((y - r) / size); by <= Math.floor((y + r) / size); by++)
+          for (let bx = Math.floor((x - r) / size); bx <= Math.floor((x + r) / size); bx++) {
+            const a = m.get(k(bx, by));
+            if (a) for (const it of a) if (fn(it)) return true;
+          }
+        return false;
+      },
+    };
+  }
+  // Map: transportation feature → Set of its LINE indices that are inferred
+  // lot lanes (tagged aisles are not in it — isLotLane answers those from
+  // tags).
+  // mvtToM: GENERATION metres per MVT unit (the tile's own, never the frame).
+  function* lotLaneSetSteps(layersByName, mvtToM) {
+    const out = new Map();
+    const tl = layersByName['transportation'];
+    if (!tl || !tl.features || !(mvtToM > 0)) return out;
+    const cands = [];
+    for (const f of tl.features) {
+      if (f.type === 2 && f.geom && isLotCandidate(f.tags)) cands.push(f);
+    }
+    if (!cands.length) return out;
+    const poiR = LOT_POI_R_M / mvtToM, aisleR = LOT_AISLE_R_M / mvtToM;
+    const sideR = LOT_STREETSIDE_M / mvtToM;
+    const B = 128;
+    // Public road segments (for the street-side cut) and aisle segments.
+    const roads = _bucketGrid(B), aisles = _bucketGrid(B);
+    let nAisle = 0, k = 0;
+    for (const f of tl.features) {
+      if (f.type !== 2 || !f.geom) continue;
+      const aisle = isParkingAisle(f.tags);
+      const t = classifyLine('transportation', f.tags || {});
+      const road = !aisle && (f.tags || {}).class !== 'service' &&
+        (t === T.ROAD || t === T.ROAD_MD || t === T.ROAD_LG);
+      if (!aisle && !road) continue;
+      if ((++k & 63) === 0) yield 'lot lanes: index';
+      const g = aisle ? aisles : roads;
+      for (const line of f.geom) {
+        for (let i = 1; i < line.length; i++) {
+          const a = line[i - 1], b = line[i];
+          g.addBox([a.x, a.y, b.x, b.y], Math.min(a.x, b.x), Math.min(a.y, b.y), Math.max(a.x, b.x), Math.max(a.y, b.y));
+          if (aisle) nAisle++;
+        }
+      }
+    }
+    const pl = layersByName['poi'];
+    const lots = _bucketGrid(B);
+    let nLot = 0;
+    if (pl && pl.features) {
+      for (const p of pl.features) {
+        if (p.type !== 1 || !p.geom || !p.tags || p.tags.class !== 'parking') continue;
+        const q = p.geom[0] && p.geom[0][0];
+        if (!q) continue;
+        if ((++k & 63) === 0) yield 'lot lanes: pois';
+        const streetSide = roads.near(q.x, q.y, sideR, s => _segDist(q.x, q.y, s[0], s[1], s[2], s[3]) < sideR);
+        if (streetSide) continue;
+        lots.addBox(q, q.x, q.y, q.x, q.y);
+        nLot++;
+      }
+    }
+    if (!nLot && !nAisle) return out;
+    const step = LOT_SAMPLE_M / mvtToM;
+    for (const f of cands) {
+      for (let li = 0; li < f.geom.length; li++) {
+        const line = f.geom[li];
+        if (!line || line.length < 2) continue;
+        let full = 0;
+        for (let i = 1; i < line.length; i++) full += Math.hypot(line[i].x - line[i - 1].x, line[i].y - line[i - 1].y);
+        if (!(full > 0) || full * mvtToM > LOT_MAX_M) continue;   // too long to be a lane
+        yield 'lot lanes: ways';
+        let len = 0, inLot = 0;
+        for (let i = 1; i < line.length; i++) {
+          const a = line[i - 1], b = line[i];
+          const l = Math.hypot(b.x - a.x, b.y - a.y);
+          const n = Math.max(1, Math.ceil(l / step));
+          for (let j = 0; j < n; j++) {
+            const t = (j + 0.5) / n, x = a.x + t * (b.x - a.x), y = a.y + t * (b.y - a.y);
+            const w = l / n;
+            len += w;
+            if ((nLot && lots.near(x, y, poiR, q => Math.hypot(q.x - x, q.y - y) < poiR)) ||
+                (nAisle && aisles.near(x, y, aisleR, s => _segDist(x, y, s[0], s[1], s[2], s[3]) < aisleR))) inLot += w;
+          }
+        }
+        if (len > 0 && inLot >= LOT_SHARE * len) {
+          let set = out.get(f); if (!set) out.set(f, set = new Set());
+          set.add(li);
+        }
+      }
+    }
+    return out;
+  }
+  // THE CUT. Removes every lot lane (isLotLane) from the transportation
+  // layer IN PLACE — the layer object is the one entry.layers carries, so the
+  // overlay, restoration and lamps never meet one: a feature whose every line
+  // is a lane goes, otherwise it is replaced by a copy without those lines
+  // (a surviving line keeps its Streets.lineKey — that hashes the line
+  // itself and the feature id, not the line's index). Then every service-class `transportation_name` line whose
+  // vertices all sit on a cut lane (its label) goes too. Idempotent: a second
+  // run finds nothing. Returns the cut as [{ f, lines }] (lines: the removed
+  // polylines).
+  function* pruneLotLanesSteps(layersByName, mvtToM) {
+    const tl = layersByName['transportation'];
+    if (!tl || !tl.features) return [];
+    const lots = yield* lotLaneSetSteps(layersByName, mvtToM);
+    const cut = [];
+    let keep = 0;
+    for (let i = 0; i < tl.features.length; i++) {
+      const f = tl.features[i];
+      if (f.type === 2 && f.geom && isLotLane(f.tags)) { cut.push({ f, lines: f.geom }); continue; }
+      const set = f.type === 2 && f.geom ? lots.get(f) : null;
+      if (set) {
+        const gone = [], stay = [];
+        for (let li = 0; li < f.geom.length; li++) (set.has(li) ? gone : stay).push(f.geom[li]);
+        cut.push({ f, lines: gone });
+        if (!stay.length) continue;
+        // A NEW feature object, not f.geom rewritten: Streets.lineKey memoises
+        // per feature object by line index, and the indices just shifted.
+        tl.features[keep++] = Object.assign({}, f, { geom: stay });
+        continue;
+      }
+      tl.features[keep++] = f;
+    }
+    tl.features.length = keep;
+    const tn = layersByName['transportation_name'];
+    if (cut.length && tn && tn.features) {
+      const vk = new Set();
+      for (const c of cut) for (const line of c.lines) for (const p of line) vk.add(p.x * 65536 + p.y);
+      let kn = 0;
+      for (let i = 0; i < tn.features.length; i++) {
+        const f = tn.features[i];
+        let onLot = !!(f.geom && f.tags && f.tags.class === 'service');
+        if (onLot) {
+          for (const line of f.geom) { for (const p of line) if (!vk.has(p.x * 65536 + p.y)) { onLot = false; break; } if (!onLot) break; }
+        }
+        if (!onLot) tn.features[kn++] = f;
+      }
+      tn.features.length = kn;
+    }
+    return cut;
   }
   // Approximate real-world carriageway width, in metres, per transportation
   // class. The rasterizer only reads this for PIER (roads and paths always
@@ -3208,7 +3422,7 @@
     // cell wide whatever its class, while the road-geometry overlay draws each
     // way at its real carriageway width (roadOverlayWidthM), so a motorway's
     // band covers a full cell past its ROAD_LG cells on either side. Parking
-    // aisles are nobody's road at all (isParkingAisle: no cell, no band, no
+    // lanes are nobody's road at all (isLotLane: no cell, no band, no
     // mask — a lot is open ground). Anything seated on a masked cell
     // reads as sitting in the road, which is precisely the bug that kept
     // coming back: the spawn filters were checking terrain, and terrain wasn't
@@ -3625,6 +3839,10 @@
     const order = ['landcover', 'landuse', 'park', 'water', 'transportation', 'building', 'poi'];
     const layersByName = {};
     for (const l of layers) layersByName[l.name] = l;
+    // LOT LANES DO NOT EXIST (isLotLane): cut them out of the layer before
+    // any pass below — or any reader of entry.layers — walks it.
+    yield* pruneLotLanesSteps(layersByName, mvtToM);
+    yield 'lot lanes';
     layersByName['poi'] = parkPoiLayer(layersByName['poi'], layersByName['park']);
 
     // PARK CHARACTERS (BiomeProfiles.PARK_CHARACTERS). A park polygon's
@@ -3670,7 +3888,7 @@
       if (tl) {
         for (const f of tl.features) {
           if (f.type !== 2 || !f.geom) continue;
-          if (isParkingAisle(f.tags)) continue;   // aisles are nothing at all
+          if (isLotLane(f.tags)) continue;   // lot lanes are nothing at all (already cut)
           if (classifyLine('transportation', f.tags) !== T.PATH) continue;
           for (const line of f.geom) accumulateLineSpan(pathSpan, w, h, line, mvtToCell);
         }
@@ -4115,8 +4333,9 @@
           // carpeted in parallel service lines spaced closer than one cell
           // would rasterize into a solid asphalt blob, not a road network; the
           // lot keeps its landuse paint and the parking-POI treasure X already
-          // marks it. See isParkingAisle for the full reach of the rule.
-          if (isParkingAisle(f.tags)) continue;
+          // marks it. See isLotLane for the full reach of the rule (the lane
+          // is already cut from the layer; this is belt and braces).
+          if (isLotLane(f.tags)) continue;
           // Record the way's full drawn footprint — regardless of how narrow a
           // band the rasterizer is about to paint. This is the mask the spawn
           // filters read; see roadMask above.
@@ -7535,7 +7754,7 @@
     // preservation pinned by tile_bin_injection.test.js.
     injectTileBin,
     tileXYForLonLat, loadTile, tileCache, makeRng,
-    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isParkingAisle, isSpawnCell, relocateToSpawnCell,
+    forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isParkingAisle, isLotLane, pruneLotLanesSteps, LOT_POI_R_M, LOT_AISLE_R_M, LOT_STREETSIDE_M, LOT_MAX_M, isSpawnCell, relocateToSpawnCell,
     // THE SPAWN GATE (entry.spawnWhy): the mask's encoding, the classes, the
     // stamp and its numbers, and the live per-player private-ground veto.
     SPAWN_WHY, SPAWN_WHY_HARD, SPAWN_WHY_TYPED, SPAWN_WHY_LAND, SPAWN_CLASS_BLOCKS, SPAWN_CLASSES,

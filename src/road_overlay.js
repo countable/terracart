@@ -6,10 +6,10 @@
 // step — a diagonal way becomes a staircase, two ways closer than a cell weld
 // together. This layer draws the SOURCE linework straight from the decoded
 // MVT features on top of the map, as a soft brown band, so the rasterized
-// roads can be eyeballed against the real ways they came from. Parking
-// aisles are the one way it agrees with the rasterizer: they draw no band
-// here either (WorldGen.isParkingAisle) — a parking lot reads as open ground
-// with its treasure X on it, not as asphalt. Railways are drawn in slate
+// roads can be eyeballed against the real ways they came from. Parking-lot
+// lanes draw no band: they are cut out of entry.layers before this reads it
+// (WorldGen.isLotLane / pruneLotLanesSteps) — a parking lot reads as open
+// ground with its treasure X on it, not as asphalt. Railways are drawn in slate
 // instead of earth — the
 // rasterizer has no rail tier, so without that they'd read as ordinary
 // streets — and then dressed as actual TRACK: timber ties across the slate
@@ -1382,9 +1382,9 @@
 
   // Iterate every transportation LINE of every tile in the frame:
   // fn(feature, line, lineIdx, mvtToM, originMx, originMy, tileKey).
-  // Parking aisles are skipped for BOTH passes (WorldGen.isParkingAisle):
-  // an aisle is not a street — no dilapidated band, no repaired one, no
-  // footprint in the spawn mask. See the header.
+  // Lot lanes never reach here (WorldGen.isLotLane — the rasterizer cuts
+  // them out of the layer); the tagged check below is belt and braces for a
+  // layer that never went through the rasterizer. See the header.
   function eachTransportLine(tiles, fn) {
     for (const { tx, ty, entry } of tiles) {
       const tileEdgeM = entry.tileEdgeM;
@@ -1396,7 +1396,7 @@
         const mvtToM = tileEdgeM / (layer.extent || MVT_EXTENT);
         for (const f of layer.features) {
           if (f.type !== 2 || !f.geom) continue;   // lines only (2 = LineString)
-          if (WorldGen.isParkingAisle(f.tags)) continue;
+          if (WorldGen.isLotLane(f.tags)) continue;
           for (let i = 0; i < f.geom.length; i++) {
             const line = f.geom[i];
             if (!line || line.length < 2) continue;
