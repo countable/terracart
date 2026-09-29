@@ -414,7 +414,9 @@
     const ghost = row.movement.pattern === 'ghost_glide';
     CREATURE_ART[row.id] = fw === 32 ? { ...old, sheet: row.id === 'goblin_trapper' ? 'goblin' : row.id }
       : { sheet: row.id, frames: 4, frameMs: flying ? 120 : 240,
-        fw, fh, scale: 2, foot: maxY / fh, minY, maxY,
+        // 2× a 16px sheet, trimmed by the row's own `artScale` (the slimes:
+        // at the full 2× a pest stood as tall as a goblin).
+        fw, fh, scale: 2 * (row.artScale ?? 1), foot: maxY / fh, minY, maxY,
         ...(row.art.attackFrames ? { attackFrames: row.art.attackFrames } : {}),
         float: flying ? 6 : 0, airborne: flying,
         ...(ghost ? { hop: true, hopMs: 1600, hopPx: 3,
