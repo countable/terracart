@@ -424,6 +424,17 @@ function placeOnEmptyCell(ctx, { itemId, energyKey, extraGuard, place, flashMsg 
 // are unaffected.
 const CATCH_SPEED_MUL = 0.75;
 
+// Is this tapped cell one of the starter pond's four? save.starterPondAt is
+// the pond's top-left cell centre; the pond is 2x2 on its own tile's grid.
+function inStarterPond(scene, cell) {
+  const at = scene.save?.starterPondAt;
+  if (!at || (scene.depth || 0) !== 0) return false;
+  const tl = worldMetersToTileCell(scene, at.x, at.y);
+  if (tl.tx !== cell.tx || tl.ty !== cell.ty) return false;
+  const dx = cell.ix - tl.ix, dy = cell.iy - tl.iy;
+  return dx >= 0 && dx <= 1 && dy >= 0 && dy <= 1;
+}
+
 const TAP_HANDLERS = [
   // -1) Work-progress guard — any tap while a chop/break is in progress cancels it.
   // Ignore taps in the first 150ms after start so the same tap that LAUNCHED
@@ -1556,8 +1567,19 @@ const TAP_HANDLERS = [
     // shrink the cast to 0.3s turned a Frost rod into a 3-casts-per-second
     // money faucet (fish + the 2%-per-cast gear jackpot) with no rate limit.
     const castMs = save.relics?.rod ? 3000 : 9000;
+    // Which spot this is, and whether a fish is secretly in it (items.js
+    // FISH_STOCK_CHANCE / fishSpotStocked; the starter pond always is). A
+    // spot already fished out is in save.fishedSpots for good.
+    const spotId = fishSpotId(cell.tx, cell.ty, cell.ix, cell.iy);
+    const stocked = inStarterPond(scene, cell) || fishSpotStocked(spotId);
     scene.startWorkProgress(ctx.cwmx, ctx.cwmy, () => {
       const tier = save.relics?.rod?.tier || 0;   // 0 = bare hands (worst odds)
+      // An empty or fished-out spot looks and casts like any other, and never
+      // bites — the player learns where the fish are by fishing.
+      if (!stocked || scene.fishedSpotSet?.has(spotId)) {
+        scene.flashLoot('🎣 nothing biting…', '#888', 0.9);
+        return;
+      }
       // Most of the wait results in nothing on a low-tier rod, and that
       // "skunk" rate falls as the rod climbs — the ladder, the doubling and
       // the cap all live in items.js (fishWhiffChance), beside the catch table
@@ -1606,6 +1628,7 @@ const TAP_HANDLERS = [
       // species below its minTier is not in the pool at all, so bare hands
       // land minnows and each better rod opens the next fish.
       const pick = rollFish(tier);
+      scene.fishedSpotSet?.add(spotId);   // one fish a spot, gone for good
       scene.addToInv(pick, 1);
       scene.questEvent?.('fish');     // the castle board's 'Fish for the table'
       persistSave(save);
