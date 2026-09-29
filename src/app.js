@@ -3306,8 +3306,8 @@ class MapScene extends Phaser.Scene {
       const before = this.save.energy ?? 0;
       // The raw trap is shared. Combat.playerDamage applies the receiving
       // player's Hard penalty after boots mitigate both bite and bleed.
-      // A laid snare bites at its trapper's power (Traps.trapPower — the
-      // Home nerf reaches it); a generated trap at 1.
+      // A laid snare bites at its trapper's power (Traps.trapPower — an
+      // elite's snare bites harder); a generated trap at 1.
       // Only boots protect against traps; apply their soak before banking pips.
       const bite = Traps.STEP_ENERGY * Difficulty.get().trapBiteMul * Traps.trapPower(trap);
       Energy.set(this.save, before - Combat.playerDamage(bite, { boots: this.save.armor?.boots }));
@@ -3455,7 +3455,7 @@ class MapScene extends Phaser.Scene {
       if (!Traps.canLay(entry, cell.ix, cell.iy)) continue;
       const cc = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
       if (magic.some(t => Math.abs(t.x - cc.x) < half && Math.abs(t.y - cc.y) < half)) continue;
-      // The snare bites with its trapper's power (Home nerf × elite), like
+      // The snare bites with its trapper's power (its elite factor), like
       // every other blow a guard lands — Traps.trapPower reads it back.
       Traps.layTrap(entry, cell.tx, cell.ty, entry.tileEdgeM || this.tileEdgeM,
         cell.ix, cell.iy, c.id, wall, this.depth || 0, Combat.powerMul(c));
@@ -8731,6 +8731,7 @@ class MapScene extends Phaser.Scene {
 
   // Starter-area setup — see Starter.placeHomeGreeter (src/starter.js).
   _placeHomeGreeter(entry, tx, ty) { return Starter.placeHomeGreeter(this, entry, tx, ty); }
+  _placeSafeAreaWarden(entry, tx, ty) { return Starter.placeSafeAreaWarden(this, entry, tx, ty); }
 
   // Starter-area setup — see Starter.stripStarterCrates (src/starter.js).
   _stripStarterCrates(entry) { return Starter.stripStarterCrates(this, entry); }

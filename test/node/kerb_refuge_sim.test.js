@@ -47,6 +47,9 @@ function mkScene(entry, creature, feet) {
     cellM: CELL, depth: 0, tileEdgeM: EDGE,
     save: { energy: 1e6, caught: [], armor: {}, planted: [], fires: [], released: [], reachUpgrades: 0 },
     startWorldM: { x: 0, y: 0 }, playerM: { x: feet.x, y: feet.y }, feetOffsetM: 0,
+    // Home a world away, so the safe area (EnemySpawns.homeAllows) hides
+    // nothing: this harness is about the kerb, not about Home.
+    _starterTrailAnchor: () => ({ x: -1e6, y: 0 }),
     originPx: { x: 0, y: 0 }, mPerPx: CELL, cellsPerTile: WorldGen.TILE_PX,
     viewCenterX: 0, viewCenterY: 0, _shots: [], _laid: 0,
     isShadowActive: () => false,

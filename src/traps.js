@@ -509,10 +509,9 @@
   // the trapper `byId`. Returns the record. The id names the level and the
   // cell (a cell holds one trap at a time — canLay), which is all it has to
   // be unique for: it never reaches the save.
-  // `power` is the laying trapper's own (Combat.powerMul — the Home nerf ×
-  // elite), carried on the snare so it bites as hard as the hand that set it:
-  // a trapper by Home is softened in HP and bounty, and its snare must be
-  // too, or its one attack walks round the nerf. Read through trapPower.
+  // `power` is the laying trapper's own (Combat.powerMul — its elite factor),
+  // carried on the snare so it bites as hard as the hand that set it: an
+  // elite's snare bites like an elite. Read through trapPower.
   function layTrap(entry, tx, ty, tileEdgeM, lix, liy, byId, now, depth, power) {
     const N = entry.cellsPerEdge;
     const t = makeTrap(tx, ty, tileEdgeM, N, lix, liy,

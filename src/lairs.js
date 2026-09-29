@@ -21,11 +21,11 @@
 //   kind ladder. It used to be distance from the player's HOME, which made a
 //   ruin's garrison depend on where each player happened to start.
 //
-//   DISTANCE FROM HOME IS A NERF, NOT A PRESENCE. A ruin by the trailer is held
-//   exactly as it is for everyone else; what Home changes, for its own player
-//   only, is WHAT each guard is — EnemySpawns.applyHomeDemotion demotes it to
-//   a weaker kind by the ruin's distance from Home (the same bands as every
-//   surface foe), after this module has generated it. The map still gets more
+//   HOME NEVER WEAKENS A GUARD. A ruin by the trailer is held exactly as it is
+//   for everyone else; the only thing Home does, for its own player, is HIDE a
+//   guard too strong for the SAFE AREA (EnemySpawns.homeAllows — the same
+//   distance bands as every surface foe), after this module has generated it.
+//   The map still gets more
 //   dangerous the further you push, which is the only pressure a GPS game can
 //   apply: it cannot gate an area behind a key, so it prices the walk instead.
 //
@@ -677,7 +677,7 @@
   //   then per guard: its kind (kindFor, exactly one draw), then its seat
   //   tries (two draws each).
   // NOTHING about the player — Home, save, frame — reaches a draw. Home is
-  // applied after the fact, per player (EnemySpawns.applyHomeDemotion).
+  // applied after the fact, per player (the safe area, EnemySpawns.homeAllows).
   function garrisonFor(entry, cand, opts) {
     const WG = root.WorldGen;
     const o = opts || {};
@@ -952,9 +952,9 @@
     // the player is least likely to be looking at.
     if (live >= liveMax) { report.live = live; return report; }
     // NO HOME YET, NO WAKE. Home decides nothing about a garrison but what
-    // each guard is demoted to for this player (EnemySpawns.applyHomeDemotion)
-    // — yet a garrison woken before the anchor lands would stand undemoted by
-    // the trailer. So the wake waits a pass for the anchor; nothing already
+    // this player sees of it (the safe area, EnemySpawns.homeAllows) — yet a
+    // garrison woken before the anchor lands would stand in full by the
+    // trailer. So the wake waits a pass for the anchor; nothing already
     // standing is touched.
     const home = o.homeM;
     if (!home || !Number.isFinite(home.x) || !Number.isFinite(home.y)) {

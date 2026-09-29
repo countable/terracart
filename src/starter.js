@@ -109,6 +109,7 @@
       scene._placeStarterTrail(home.entry, home.tx, home.ty);
       scene._stripStarterCrates(home.entry);                       // hard mode: no supply handout
       scene._placeHomeGreeter(home.entry, home.tx, home.ty);       // the mode's doorstep creature
+      scene._placeSafeAreaWarden(home.entry, home.tx, home.ty);    // the safe area's warden
     }
     // The pond's band reaches into the neighbours, which may have spawned
     // before there was an anchor to measure it from — run the pass over
@@ -1819,6 +1820,51 @@
     }
   }
 
+  // THE SAFE AREA'S WARDEN. One neighbour stands a few cells from the
+  // starting trailer on every save, in either mode, and says why the ground
+  // round Home is quiet (NPC.WARDEN_LINE — the safe area, EnemySpawns
+  // homeAllows). PLACED, like the greeter: it belongs to this player's
+  // starting area, so its id is the starter tile's (`npc_warden_<tx>_<ty>`)
+  // and it is seated off the frozen anchor, nearest legal cell in the
+  // WARDEN_MIN..MAX_CELLS ring, scanned in a fixed order so a rebuild seats it
+  // on the same cell. Idempotent; only a tile that has already spawned.
+  const WARDEN_MIN_CELLS = 3;
+  const WARDEN_MAX_CELLS = 6;
+  function placeSafeAreaWarden(scene, entry, tx, ty) {
+    if (typeof NPC === 'undefined' || !entry || !entry.grid || !entry._spawned) return;
+    const anchor = scene.save.starterCratesAt || scene._starterTrailAnchor();
+    if (!anchor || !Number.isFinite(anchor.x)) return;
+    entry.creatures = entry.creatures || [];
+    const id = `npc_warden_${tx}_${ty}`;
+    if (entry.creatures.some(c => c.id === id)) return;
+    const N = entry.cellsPerEdge;
+    const cellM = scene.tileEdgeM / N;
+    const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
+    const ax = Math.floor((anchor.x - tx0) / cellM), ay = Math.floor((anchor.y - ty0) / cellM);
+    const occupied = new Set();
+    const key = (wx, wy) => Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM);
+    for (const o of (entry.objects || [])) occupied.add(key(o.x, o.y));
+    for (const w of (entry.wildplants || [])) occupied.add(key(w.x, w.y));
+    for (const c of entry.creatures) occupied.add(key(c.x, c.y));
+    const opts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
+    let seat = null;
+    for (let r = WARDEN_MIN_CELLS; r <= WARDEN_MAX_CELLS && !seat; r++) {
+      for (let dy = -r; dy <= r && !seat; dy++) {
+        for (let dx = -r; dx <= r && !seat; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // this ring only
+          const cx = ax + dx, cy = ay + dy;
+          if (cx < 0 || cy < 0 || cx >= N || cy >= N || occupied.has(cx + ',' + cy)) continue;
+          if (Combat.faunaBlocksCell(entry.grid[cy * N + cx])) continue;
+          if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts, 'npc')) continue;
+          seat = { cx, cy };
+        }
+      }
+    }
+    if (!seat) return;
+    const x = tx0 + (seat.cx + 0.5) * cellM, y = ty0 + (seat.cy + 0.5) * cellM;
+    entry.creatures.push(WorldGen.makeCreature('npc', x, y, id, { ...NPC.warden(id), homeX: x, homeY: y }));
+  }
+
   // Hard mode has no supply handout: drop the starter crates (the `crate: true`
   // chests _placeStarterTrail seats) from a tile. The relic chest at the end of
   // the trail is TREASURE, not supplies, and stays. Idempotent; a no-op on easy.
@@ -1847,6 +1893,7 @@
     starterHomeStream,
     provisionStarterHome,
     placeHomeGreeter,
+    placeSafeAreaWarden,
     stripStarterCrates,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

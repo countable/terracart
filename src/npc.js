@@ -137,12 +137,22 @@ const NPC = (() => {
       c._moving = false;
     }
   }
+  // THE SAFE AREA'S WARDEN — the one placed neighbour (Starter
+  // placeSafeAreaWarden), standing by the starting trailer on every save. Its
+  // one line is the explanation for EnemySpawns.homeAllows: near Home only
+  // weak monsters are ever met, and nobody knows why.
+  const WARDEN_LINE = 'This is a safe area. For some reason only weak monsters live here.';
+  function warden(id) {
+    return { ...identity(id, 'village'), role: 'warden', roleLabel: 'Warden' };
+  }
   function dialogue(scene, c, now = Date.now()) {
     const day = utcDayIndex(now), seed = fnv1a(`${c.id}:talk`);
     const title = `${c.name} · ${c.roleLabel || LABELS[c.zone || 'village'][c.role]}`;
     const daily = a => a[((seed + day) >>> 0) % a.length];
     let body;
-    if (c.role === 'scholar') {
+    if (c.role === 'warden') {
+      body = WARDEN_LINE;
+    } else if (c.role === 'scholar') {
       body = `I read this in a book:\n${daily(PLAY_TIPS)}`;
     } else if (c.role === 'merchant' || c.role === 'trader') {
       body = daily(c.role === 'merchant'
@@ -220,5 +230,5 @@ const NPC = (() => {
     if (c.role === 'trader') scene.presentTraderOffer(sx, sy, c, record);
     else scene.presentThemedShop(sx, sy, c, record);
   }
-  return { COUNT, PROFILES, identity, zoneFor, spawn, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
+  return { COUNT, PROFILES, WARDEN_LINE, warden, identity, zoneFor, spawn, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
 })();

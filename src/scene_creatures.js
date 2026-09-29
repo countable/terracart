@@ -608,6 +608,7 @@ class SceneCreatures {
       this._placeStarterTrail(entry, tx, ty);
       this._stripStarterCrates(entry);      // hard mode: no supply handout
       this._placeHomeGreeter(entry, tx, ty); // the mode's doorstep creature
+      this._placeSafeAreaWarden(entry, tx, ty);   // the safe area's warden
     } else {
       // Any tile arriving can complete a starter-home plan that was deferred
       // (or left short) because the map around spawn was still streaming —

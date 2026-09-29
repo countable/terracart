@@ -314,9 +314,9 @@
   function eliteMul(c) { return isElite(c) ? ELITE_MUL : 1; }
 
   // THE instance's power over its kind's table row — the one factor its HP
-  // pool, its blow and its bounty are scaled by: the elite's. (Home's nerf is
-  // no multiplier — it DEMOTES the foe to a weaker kind, EnemySpawns
-  // applyHomeDemotion.) Every per-creature scale reads this; eliteMul alone is
+  // pool, its blow and its bounty are scaled by: the elite's. (Home weakens
+  // nothing: a foe too strong for the safe area is simply absent there —
+  // EnemySpawns.homeAllows.) Every per-creature scale reads this; eliteMul alone is
   // the "is it an elite" half, for callers that ask only that (the elite's
   // treasure roll, its tint).
   function powerMul(c) { return eliteMul(c); }
@@ -387,8 +387,7 @@
   const ENEMY_DEPTH_BONUS  = 1 / 3;    // extra coins per level below the surface
   // `hpMul` is the instance's multiplier over the kind's HP — powerMul: an
   // elite has twice the pool, so it pays twice the per-HP wage, by the same
-  // rule that makes a goblin pay more than a slime (a foe demoted near Home
-  // pays its demoted kind's wage by the same rule).
+  // rule that makes a goblin pay more than a slime.
   // (Hard mode adds no wage of its own: creatureMaxHp already scales an
   // enemy's pool by Difficulty.enemyHpMul, and the per-HP rule carries that
   // into the coins — a foe that takes 1.5× as long pays 1.5× as much, same as
