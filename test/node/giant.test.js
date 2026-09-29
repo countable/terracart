@@ -26,7 +26,7 @@
     assert.eq(SpriteLayout.GIANT_ART_SCALE, 1.6);
     for (const row of EnemyRoster.ROWS.filter(row => row.variantType === 'Giant')) {
       const art = SpriteLayout.creatureArt(row.id), base = SpriteLayout.creatureArt(row.variantOf);
-      assert.eq(art.scale, base.scale * SpriteLayout.GIANT_ART_SCALE);
+      assert.eq(art.scale, base.scale * SpriteLayout.GIANT_ART_SCALE * (row.artScale ?? 1));
       assert.lt(SpriteLayout.creatureWheelDy(row.id), SpriteLayout.creatureWheelDy(row.variantOf));
       assert.lt(SpriteLayout.creatureHealthBarTop(row.id), SpriteLayout.creatureHealthBarTop(row.variantOf));
     }

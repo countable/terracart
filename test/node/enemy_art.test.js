@@ -50,7 +50,7 @@ test('enemy art: all roster rows resolve complete sheets and variant geometry', 
     if (row.variantOf) {
       assert.eq(SpriteLayout.baseKind(row.id), row.variantOf);
       const factor = row.variantType === 'Mini' ? 0.65 : row.variantType === 'Giant' ? 1.6 : 1;
-      assert.eq(a.scale, SpriteLayout.creatureArt(row.variantOf).scale * factor);
+      assert.eq(a.scale, SpriteLayout.creatureArt(row.variantOf).scale * factor * (row.artScale ?? 1));
     }
   }
 });
