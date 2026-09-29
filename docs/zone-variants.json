@@ -76,25 +76,21 @@
     "faunaOccupancy": "animals_may_share_interactable_cells_do_not_reserve_layout_seats_keep_terrain_and_road_gates",
     "repeatPatternPolicy": {
       "maxCells": [
-        6,
-        6
+        8,
+        8
       ],
-      "exceptions": {
-        "silent_circle": [
-          8,
-          8
-        ]
-      },
+      "exceptions": {},
       "migrationPending": [
-        "orchard",
         "ordered_graves",
         "overgrown_graves",
         "broken_masonry",
-        "broken_depot",
-        "seep",
-        "black_ring",
-        "draft_beach_family"
-      ]
+        "broken_depot"
+      ],
+      "preferredMaxCells": [
+        6,
+        6
+      ],
+      "shapePolicy": "rectangular_or_square; each_axis_at_most_8; prefer_at_most_6; smaller_motifs_welcome"
     }
   },
   "materials": {
