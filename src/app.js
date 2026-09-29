@@ -7981,6 +7981,10 @@ class MapScene extends Phaser.Scene {
         { tier: 'fanfare', color: UI_GOLD, bg: '#3a1f5a' });
       this.tweens.add({ targets: t, angle: 4, duration: 320, yoyo: true, repeat: 2, delay: 200, ease: 'Sine.InOut' });
       this._burstAt('jackpot', t.x, t.y);
+      // …and CONFETTI off the banner: the one preset, once per colour.
+      if (typeof Particles !== 'undefined' && Particles.CONFETTI_COLOURS) {
+        for (const colour of Particles.CONFETTI_COLOURS) Particles.burst(this, 'confetti', t.x, t.y, { colour });
+      }
     } catch (_) {}
   }
 
