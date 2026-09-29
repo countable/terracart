@@ -103,6 +103,12 @@ const TRAIL_INTRO_DELAY_MS = 2000;
 // when it goes empty); the same reset covers the auto-walk home, which is the
 // character moving itself and never the player looking.
 const PATH_STONE_DWELL_MS = 3000;
+// ONE ROAD AT A TIME: within each window this long, the restore sweep pays
+// only the single way that restored the most (_oneRoadPay) — two parallel
+// streets (or a street and its drawn pavement) come back together but pay as
+// one. A dwell long, so a parallel way ripening a few frames behind its
+// neighbour still falls in the same window.
+const ONE_ROAD_WINDOW_MS = PATH_STONE_DWELL_MS;
 // A RESTORATION'S BLAST (_blastAt): the flash a stretch coming back throws, in
 // cells. Inherited at 2.5 from the old per-pebble flash — one stone lighting
 // up — but a sweep restores a whole STRETCH and fires once for all of it, and
@@ -12790,7 +12796,10 @@ class MapScene extends Phaser.Scene {
     // one ladder — a path by the water, along a greenway or through a park
     // (Scenic.bonusMetres off the tile's scenic intervals). A new REASON on
     // the ladder, never a second one; the km chip still reads true metres.
-    let bonusM = 0, scenicKind = null;
+    let scenicKind = null;
+    // What each way restored this sweep (true metres and scenic bonus) — the
+    // pay is ONE of them (_oneRoadPay), the restore is all of them.
+    const perLine = new Map();
     // The blast and the counter land on the LONGEST piece this sweep brought
     // back — the stretch the player will actually be looking at, rather than
     // a metre of driveway at the far rim of the bubble.
@@ -12801,11 +12810,14 @@ class MapScene extends Phaser.Scene {
       const out = Streets.restore(this.save, meta.tileKey, meta.lineKey, intervals);
       if (!(out.addedM > 0)) continue;
       addedM += out.addedM;
+      const line = perLine.get(key) || { m: 0, bonus: 0 };
+      perLine.set(key, line);
+      line.m += out.addedM;
       const sIvs = this._scenicIntervals(meta.tileKey, meta.lineKey);
       if (sIvs) {
         const b = Scenic.bonusMetres(sIvs, out.newly, meta.mvtToM);
         if (b > 0) {
-          bonusM += b;
+          line.bonus += b;
           const k = Scenic.kindOfNewly(sIvs, out.newly, meta.mvtToM);
           if (k && (!scenicKind || Scenic.SCENIC_MUL[k] > Scenic.SCENIC_MUL[scenicKind])) scenicKind = k;
         }
@@ -12856,9 +12868,47 @@ class MapScene extends Phaser.Scene {
         gather: 'stonegather', gatherPts: best.spread, durationMs: STREET_SHINE_MS,
       }));
     }
-    this._bankStreetMetres(addedM, at, now, bonusM > 0 ? { bonusM } : undefined);
+    const pay = this._oneRoadPay(perLine, now);
+    const mul = this._roadMetresMul();
+    if (pay.m > 0 || pay.bonus > 0) {
+      this._bankStreetMetres(pay.m * mul, at, now, pay.bonus > 0 ? { bonusM: pay.bonus * mul } : undefined);
+    }
     if (scenicKind) this._scenicWalkStory(scenicKind);
     persistSave(this.save);
+  }
+
+  // ONE ROAD AT A TIME (ONE_ROAD_WINDOW_MS): of every way restored inside the
+  // current window, only the one that restored the most pays, and only what
+  // it has restored past what the window already paid. `perLine` is this
+  // sweep's key → { m, bonus }; returns { m, bonus } to bank now. Living
+  // lamps are NOT held to it — a lamp's credit is its own (_visitStreetLamps).
+  _oneRoadPay(perLine, now) {
+    let w = this._roadPayWin;
+    if (!w || now - w.t0 >= ONE_ROAD_WINDOW_MS || now < w.t0) {
+      w = this._roadPayWin = { t0: now, lines: new Map(), paidM: 0, paidBonus: 0 };
+    }
+    for (const [key, l] of perLine) {
+      const acc = w.lines.get(key) || { m: 0, bonus: 0 };
+      acc.m += l.m; acc.bonus += l.bonus;
+      w.lines.set(key, acc);
+    }
+    let best = null;
+    for (const acc of w.lines.values()) {
+      if (!best || acc.m + acc.bonus > best.m + best.bonus) best = acc;
+    }
+    if (!best) return { m: 0, bonus: 0 };
+    const m = Math.max(0, best.m - w.paidM), bonus = Math.max(0, best.bonus - w.paidBonus);
+    w.paidM += m; w.paidBonus += bonus;
+    return { m, bonus };
+  }
+
+  // THE STICK PAYS LESS: road metres earned while the body is off the GPS —
+  // walked there by the stick or keyboard, or with no fix at all — bank at
+  // Trail.STICK_METRES_MUL. The ladder is a reward for walking. Restores and
+  // lamp visits alike (the ladder's two sources); the km chip reads the same
+  // banked metres, so it too counts a stick km as less.
+  _roadMetresMul() {
+    return (!this.gpsM || this._offGps()) ? Trail.STICK_METRES_MUL : 1;
   }
 
   // A line's scenic intervals (src/scenic.js, entry.scenic — MVT arclength
@@ -12955,8 +13005,9 @@ class MapScene extends Phaser.Scene {
     this._lampVisitKey = pending ? null : key;
     if (!entered.length) return 0;
     let paid = 0;
+    const mul = this._roadMetresMul();
     for (const L of entered) {
-      const m = Streets.visitLamp(this.save, L, now);
+      const m = Streets.visitLamp(this.save, L, now) * mul;
       if (!(m > 0)) continue;
       paid += m;
       const shown = Math.round(m);
@@ -13268,19 +13319,27 @@ class MapScene extends Phaser.Scene {
   // THE PRIZE IS A CHOICE: it rolls Trail.PRIZE_CHOICES rewards and the
   // player keeps ONE. Nothing is granted until they pick — the roll they turn
   // down was never theirs — so the payout lives in _claimTrailReward and fires
-  // from the button, not from here. Trail.rollChoices owns the "the options
+  // from the button, not from here. Trail.rollCardRow owns the "the options
   // have to actually differ" rule and may hand back a single reward (a picker
   // with only one thing to give); that opens the plain one-reward ceremony it
   // always did, rather than a choice with one answer.
+  //
+  // ONE CARD PER GROUP (Trail.PRIZE_CARDS): cash, a seed or supply, and boots
+  // or a magic item — boots held to Trail.bootsTierCap (a tier a kilometre).
   _fireTrailPrize(n, onDismiss) {
     const bonus = Trail.rollBonusFor(Math.max(0, (n | 0) - 1));
-    const roll = () => ((typeof pickReward === 'function')
-      ? pickReward(Trail.PRIZE_CONTEXT, this.save, undefined, { rollBonus: bonus })
-      : null);
+    const pc = this.save.playerClass;
+    const bootsCap = Trail.bootsTierCap(n, pc);
+    const ownedBoots = this.save.armor?.boots?.tier ?? 0;
+    const rollFor = (g) => {
+      if (typeof pickReward !== 'function') return null;
+      const classes = Trail.prizeCardClasses(g, n, pc, ownedBoots);
+      if (!classes.length) return null;
+      return pickReward(Trail.PRIZE_CONTEXT, this.save, undefined,
+        { rollBonus: bonus, classes, classMaxTier: { boots: bootsCap } });
+    };
     const fixed = Trail.firstPrize ? Trail.firstPrize(n) : null;
-    const choices = (typeof Trail !== 'undefined' && Trail.rollChoices)
-      ? Trail.rollChoices(roll, Trail.PRIZE_CHOICES, Trail.PRIZE_ROLL_TRIES, fixed ? [fixed] : [])
-      : (fixed ? [fixed] : [roll()].filter(Boolean));
+    const choices = Trail.rollCardRow(rollFor, fixed ? [fixed] : []);
     // The header is the survivors' thanks, not the way — a street has no name
     // here because the ladder no longer asks which one you were on. The goal just completed (200, 400, 600 … metres) is the number
     // the counter on the street read when it paid (Trail.readout), and the

@@ -150,6 +150,12 @@
     return { metres: s, prizes: p, owed };
   }
 
+  // ── THE STICK PAYS 40% ───────────────────────────────────────────────────
+  // Road metres earned off the GPS — the stick or keyboard carried the body
+  // there, or there is no fix at all — bank at this share (a 60% penalty;
+  // app.js _roadMetresMul). The ladder rewards walking, not steering.
+  const STICK_METRES_MUL = 0.4;
+
   // ── Which pool the prize comes out of ────────────────────────────────────
   // Its OWN context (rarity.js › 'treasure:road'), not the lowtier chest curve
   // the ladder used to borrow: what the survivors hand over for a rebuilt
@@ -180,7 +186,7 @@
   //
   // The offer has to be a real choice, which means the options must DIFFER.
   // Two piles of gold, or the same item twice, is a decision with one answer,
-  // so rollChoices keeps rolling for a distinct option and gives up rather
+  // so rollCardRow keeps rolling for a distinct option and gives up rather
   // than presenting a fake one: it returns 1..PRIZE_CHOICES rewards and the
   // caller shows the plain single-reward ceremony when it gets one. Distinct
   // means "reads differently to the player" (rewardKey) — the same item at a
@@ -189,7 +195,10 @@
   // A third card makes it a real comparison while the row still fits across
   // the ceremony (app.js lays the cards three across and keeps each one's
   // description behind an ⓘ so the row stays one line of pictures).
-  const PRIZE_CHOICES = 3;
+  // ONE CARD PER GROUP (see rollCardRow): money, something to grow or carry,
+  // and something to wear or drink.
+  const PRIZE_CARDS = [['cash'], ['seed', 'supply'], ['boots', 'magic']];
+  const PRIZE_CHOICES = PRIZE_CARDS.length;
   // Rolls to spend looking for a distinct option before settling for fewer.
   // Rolls can land on the same card, so a few retries per option is the
   // difference between an offer and a formality; past that it's just burning
@@ -232,37 +241,63 @@
     return null;
   }
 
-  // Roll up to `count` rewards the player can choose between. `roll` is the
-  // caller's picker (app.js hands it pickReward, the tests a stub); it may
-  // return null, which ends the search — a picker with nothing to give won't
-  // start having something on the next call. `preset` rewards (the first
-  // rung's onion seed) lead the row and count toward it; rolls that repeat
-  // one are re-rolled like any other duplicate.
-  function rollChoices(roll, count = PRIZE_CHOICES, tries = PRIZE_ROLL_TRIES, preset = []) {
+  // ── ONE CARD PER GROUP ───────────────────────────────────────────────────
+  // The three cards are three different KINDS of thing, never three rolls of
+  // one bag (Sep 2026: boots came up so often, and so strong, that the pick
+  // was always the boots): PRIZE_CARDS, above. Each card rolls pickReward on PRIZE_CONTEXT narrowed to
+  // its group (opts.classes); the context's classBias still weighs the
+  // classes inside a group, so it stays the one owner of those numbers.
+
+  // BOOTS ARE EARNED BY DISTANCE: the road never offers boots above one tier
+  // per kilometre walked to reach this rung (prize `n`, 1-based) — no boots
+  // at all before the first kilometre, T1 from 1 km, T2 from 2 km … T7.
+  const BOOTS_M_PER_TIER = 1000;
+  function bootsTierCap(n, playerClass) {
+    const walked = totalMetres(0, Math.max(0, n | 0), playerClass);
+    return Math.max(0, Math.min(7, Math.floor(walked / BOOTS_M_PER_TIER + 1e-9)));
+  }
+  // The classes card `groupIdx` may roll for prize `n`: the boots drop out
+  // while the cap is 0 or the player already wears boots at the cap (nothing
+  // to offer but a cash-out, and the cash card is the next card over).
+  function prizeCardClasses(groupIdx, n, playerClass, ownedBootsTier) {
+    const group = PRIZE_CARDS[groupIdx] || [];
+    const cap = bootsTierCap(n, playerClass);
+    return group.filter(c => c !== 'boots' || cap > (ownedBootsTier | 0));
+  }
+
+  // Roll the row: one card per PRIZE_CARDS group, in order. `rollFor(idx)`
+  // rolls card idx's group (null = nothing to give). A `preset` reward (the
+  // first rung's onion seed) takes the card of the group naming its class.
+  // A duplicate of an earlier card is re-rolled up to PRIZE_ROLL_TRIES / count
+  // times, then dropped rather than shown twice.
+  function rollCardRow(rollFor, preset = []) {
     const out = [], keys = new Set();
-    for (const r of preset || []) {
-      if (!r || out.length >= count) continue;
-      const k = rewardKey(r);
-      if (k !== null && keys.has(k)) continue;
+    // A preset's key is taken up front, so no earlier card can roll its twin.
+    for (const r of preset || []) { const k = rewardKey(r); if (k !== null) keys.add(k); }
+    const tries = Math.max(1, Math.floor(PRIZE_ROLL_TRIES / PRIZE_CARDS.length));
+    for (let g = 0; g < PRIZE_CARDS.length; g++) {
+      let card = (preset || []).find(r => r && PRIZE_CARDS[g].includes(r.cls)) || null;
+      for (let i = 0; !card && i < tries; i++) {
+        const r = typeof rollFor === 'function' ? rollFor(g) : null;
+        if (!r) break;
+        const k = rewardKey(r);
+        if (k !== null && keys.has(k)) continue;
+        card = r;
+      }
+      if (!card) continue;
+      const k = rewardKey(card);
+      // (a preset's key is already in `keys`; re-adding is a no-op)
       if (k !== null) keys.add(k);
-      out.push(r);
-    }
-    if (typeof roll !== 'function') return out;
-    for (let i = 0; i < tries && out.length < count; i++) {
-      const r = roll();
-      if (!r) break;
-      const k = rewardKey(r);
-      if (k !== null && keys.has(k)) continue;   // same card — roll again
-      if (k !== null) keys.add(k);
-      out.push(r);
+      out.push(card);
     }
     return out;
   }
 
   root.Trail = {
+    STICK_METRES_MUL, PRIZE_CARDS, BOOTS_M_PER_TIER, bootsTierCap, prizeCardClasses, rollCardRow,
     GOAL_STEP_M, RUNNER_GOAL_DIV, goalDiv, goalFor, totalMetres, restoredMetres, distanceLabel, progress, bank, readout, label,
     PRIZE_CONTEXT, FIRST_PRIZE_ID, FIRST_PRIZE_QTY, firstPrize,
-    PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey, rollChoices,
+    PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey,
     PRIZE_ROLL_BONUS, PRIZE_ROLL_BONUS_MAX, rollBonusFor,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

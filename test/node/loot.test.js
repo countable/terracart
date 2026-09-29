@@ -320,32 +320,56 @@ test('bundle: the T1 chest that can roll no bracket at all still pays a pile', (
   }
 });
 
-test('road: repair choices include supplies and boots with fewer seeds', () => {
+test('road: each card rolls only its own group — cash, seed or supply, boots or magic', () => {
   assert.eq(Trail.PRIZE_CONTEXT, 'treasure:road', 'the ceremony uses the road pool');
+  assert.eq(JSON.stringify(Trail.PRIZE_CARDS), JSON.stringify([['cash'], ['seed', 'supply'], ['boots', 'magic']]));
   for (const bonus of [Trail.rollBonusFor(0), Trail.PRIZE_ROLL_BONUS_MAX]) {
-    const tally = { seed: 0, boot: 0, armor: 0, potion: 0, pairy: 0, feather: 0, gold: 0 };
-    for (let i = 0; i < 4000; i++) {
-      const r = pickReward(Trail.PRIZE_CONTEXT, SAVE(), seeded(i + 1), { rollBonus: bonus });
-      assert.truthy(r, 'every road roll resolves');
-      if (r.kind === 'armor') {
-        assert.eq(r.slot, 'boots', 'road equipment is boots');
-        assert.inRange(r.tier, 1, 7, 'valid armor tier');
-        tally.armor++;
+    const seen = { gold: 0, seed: 0, supply: 0, armor: 0, magic: 0 };
+    for (let g = 0; g < Trail.PRIZE_CARDS.length; g++) {
+      const classes = Trail.PRIZE_CARDS[g];
+      for (let i = 0; i < 1500; i++) {
+        const r = pickReward(Trail.PRIZE_CONTEXT, SAVE(), seeded(i + 1),
+          { rollBonus: bonus, classes, classMaxTier: { boots: 7 } });
+        assert.truthy(r, 'every road roll resolves');
+        if (g === 0) { assert.eq(r.kind, 'gold', 'the cash card is coin'); seen.gold++; continue; }
+        if (r.kind === 'armor') {
+          assert.eq(g, 2, 'boots only on the third card');
+          assert.eq(r.slot, 'boots');
+          seen.armor++;
+          continue;
+        }
+        assert.eq(r.kind, 'item', `card ${g} pays an item`);
+        assert.includes(classes, r.cls, `card ${g} pays its own group`);
+        seen[r.cls]++;
       }
-      if (r.kind === 'gold') tally.gold++;
-      if (r.kind !== 'item') continue;
-      if (r.cls === 'seed') tally.seed++;
-      if (r.id === 'boot') tally.boot++;
-      if (r.id === 'pairy') tally.pairy++;
-      if (r.id === 'crow_feather') tally.feather++;
-      if (/_potion$/.test(r.id)) tally.potion++;
     }
-    assert.gt(tally.feather, 10, 'feathers appear occasionally');
-    assert.lt(tally.feather, tally.pairy, 'feathers are rarer than Pairy');
-    assert.inRange(tally.seed / 4000, 0.10, 0.30, 'seeds remain available without dominating');
-    for (const kind of ['boot', 'armor', 'potion', 'pairy', 'gold']) {
-      assert.gt(tally[kind], 100, `${kind} appears regularly at bonus ${bonus}`);
-    }
+    for (const k of Object.keys(seen)) assert.gt(seen[k], 10, `${k} appears at bonus ${bonus}`);
+  }
+});
+
+test('road: boots are held to one tier per kilometre walked', () => {
+  // No boots before the first km; T1 from 1 km, T2 from 2 km …
+  let firstBoots = 0;
+  for (let n = 1; n <= 40; n++) {
+    const cap = Trail.bootsTierCap(n);
+    const km = Trail.totalMetres(0, n) / 1000;
+    assert.eq(cap, Math.min(7, Math.floor(km + 1e-9)), `rung ${n} (${km} km)`);
+    if (cap > 0 && !firstBoots) firstBoots = n;
+    const classes = Trail.prizeCardClasses(2, n, undefined, 0);
+    assert.eq(classes.includes('boots'), cap > 0, `boots offered at rung ${n} only once a km is walked`);
+  }
+  assert.eq(firstBoots, 3, 'the third rung (1.2 km) is the first that may offer boots');
+  assert.falsy(Trail.prizeCardClasses(2, 10, undefined, 7).includes('boots'), 'boots already at the cap drop out');
+  for (let i = 0; i < 2000; i++) {
+    const r = pickReward(Trail.PRIZE_CONTEXT, SAVE(), seeded(i + 1),
+      { rollBonus: Trail.PRIZE_ROLL_BONUS_MAX, classes: ['boots'], classMaxTier: { boots: 2 } });
+    if (r.kind === 'armor') assert.lte(r.tier, 2, 'never above the km cap');
+  }
+  // A walk-up from owned boots stops at the cap too.
+  for (let i = 0; i < 2000; i++) {
+    const r = pickReward(Trail.PRIZE_CONTEXT, { relics: {}, armor: { boots: { tier: 1 } } }, seeded(i + 1),
+      { rollBonus: 0, classes: ['boots'], classMaxTier: { boots: 2 } });
+    if (r.kind === 'armor') assert.eq(r.tier, 2, 'climbs no further than the cap');
   }
 });
 
