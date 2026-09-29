@@ -789,12 +789,15 @@ function creatureFlightEase(t) {
 function enemyCanStep(scene, c, row, x, y) {
   const cell = scene.cellAt(x, y);
   if (!cell.loaded) return false;
-  if (scene._cellBlocked(x, y) || WorldGen.isBuildingTerrain(cell.type)) return false;
+  if (scene._cellBlocked(x, y)) return false;
+  // A building is solid, except a keep's own floor to its garrison.
+  const ownFloor = WorldGen.isBuildingTerrain(cell.type) && Lairs.inOwnKeep(c, x, y);
+  if (WorldGen.isBuildingTerrain(cell.type) && !ownFloor) return false;
   if (scene.placedRockSet?.size) {
     const { cellIX, cellIY } = worldMetersToAbsCell(scene, x, y);
     if (scene.placedRockSet.has(cellKeyFromAbsCell(cellIX, cellIY))) return false;
   }
-  if (row.movement.pattern !== 'orbit_swoop' && Combat.faunaBlocksCell(cell.type)) return false;
+  if (row.movement.pattern !== 'orbit_swoop' && !ownFloor && Combat.faunaBlocksCell(cell.type)) return false;
   // THE KERB (above): nothing hostile — flier or not — steps onto a major
   // road's band, and a FAST foe never steps INTO the buffer from outside it
   // (one already inside may leave). The same refused-cell reasons the old
