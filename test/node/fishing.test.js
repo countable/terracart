@@ -3,10 +3,9 @@
 // module that owns them (items.js › the FISHING block) rather than against
 // numbers retyped here.
 //
-// The one that is a MECHANIC rather than a rate is the species gate: a fish
-// below its minTier is not in the pool at all, so bare hands land minnows and
-// each better rod is what puts the next fish in the water. That is invisible
-// from the bank, so the Book carries it — pinned at the bottom.
+// The landing rule is the rod's: a fish above the rod's tier gets away with
+// 1 - 0.5 ** gap and stays in its spot. That is invisible from the bank, so
+// the Book carries it — pinned at the bottom.
 
 (function () {
 const TIERS = [0, 1, 2, 3, 4, 5, 6, 7];
@@ -32,99 +31,53 @@ test('fishing: a cast costs double the shared tool ladder', () => {
 test('fishing: the handler rolls the module\'s numbers, not its own', () => {
   // It used to carry its own literals (0.55 - tier*0.05, 0.06, and the whole
   // fish table).
-  assert.truthy(/rollFish\(tier\)/.test(INTERACT_SRC), 'the catch');
+  assert.truthy(/spotFish\(spotId\)/.test(INTERACT_SRC), 'the spot\'s fish');
+  assert.truthy(/fishCatchChance\(pick, tier\)/.test(INTERACT_SRC), 'the landing');
   assert.truthy(/rollEmptyCast\(\)/.test(INTERACT_SRC), 'the empty cast');
   assert.falsy(/id: 'goldenfish', +w:/.test(INTERACT_SRC), 'no second copy of the catch table');
 });
 
-// --- The species gate -----------------------------------------------------
+// --- Which fish, and landing it -------------------------------------------
 
-test('fishing: bare hands fish, and land minnows only', () => {
-  const table = fishTable(0);
-  assert.eq(table.length, 1, 'one species in the water');
-  assert.eq(table[0].id, 'minnow', 'and it is the minnow');
-  for (let i = 0; i < 200; i++) assert.eq(rollFish(0), 'minnow', 'every bare-handed catch');
-});
-
-test('fishing: a Wood rod adds ONE fish, not three', () => {
-  // THE BUG, in the user's words: "I caught 3 species with a wood rod
-  // immediately". A Wood rod opens the bass and stops there.
-  const ids = fishTable(1).map((f) => f.id);
-  assert.eq(ids.join(','), 'minnow,bass', 'the Wood pool');
-  const seen = new Set();
-  for (let i = 0; i < 400; i++) seen.add(rollFish(1));
-  assert.eq(seen.size, 2, 'and 400 casts turn up no third species');
-});
-
-test('fishing: every rod up the ladder opens exactly one more fish', () => {
-  let last = 0;
-  for (const t of TIERS) {
-    const n = fishTable(t).length;
-    assert.gte(n, last, `tier ${t} never loses a species`);
-    assert.lte(n - last, 1, `tier ${t} adds at most one`);
-    last = n;
+test('fishing: half of all fish are minnows, the rest shared evenly', () => {
+  const w = Object.fromEntries(FISH_SPECIES.map((f) => [f.id, f.w]));
+  assert.eq(w.minnow, 4, 'minnow 4');
+  for (const id of ['bass', 'trout', 'salmon', 'goldenfish']) assert.eq(w[id], 1, `${id} 1`);
+  const n = {}, N = 20000;
+  for (let i = 0; i < N; i++) {
+    const id = spotFish(fishSpotId(3, 9, i % 200, Math.floor(i / 200)));
+    n[id] = (n[id] || 0) + 1;
+    assert.eq(id, spotFish(fishSpotId(3, 9, i % 200, Math.floor(i / 200))), 'same fish for everyone');
   }
-  assert.eq(fishTable(7).length, FISH_SPECIES.length, 'a Frost rod fishes the whole table');
-  assert.eq(fishTable(6).map((f) => f.id).includes('goldenfish'), false,
-    'and the goldenfish is the Frost rod\'s alone');
+  assert.inRange(n.minnow / N, 0.47, 0.53, 'about half minnows');
+  for (const id of ['bass', 'trout', 'salmon', 'goldenfish']) {
+    assert.inRange(n[id] / N, 0.105, 0.145, `${id} about 1 in 8`);
+  }
 });
 
-test('fishing: a species is never rolled below its rod', () => {
+test('fishing: a fish above the rod gets away, halved per tier of gap', () => {
   for (const f of FISH_SPECIES) {
-    for (let t = 0; t < f.minTier; t++) {
-      assert.falsy(fishTable(t).some((x) => x.id === f.id), `${f.id} at tier ${t}`);
-    }
-    assert.truthy(fishTable(f.minTier).some((x) => x.id === f.id), `${f.id} at its own tier`);
-  }
-  // 2000 casts at every tier: nothing off the pool ever comes out.
-  for (const t of TIERS) {
-    const allowed = new Set(fishTable(t).map((f) => f.id));
-    for (let i = 0; i < 2000; i++) {
-      assert.truthy(allowed.has(rollFish(t)), `tier ${t} landed something off its table`);
+    const ft = fishTier(f.id);
+    assert.eq(ft, BASE_TIER[f.id], `${f.id}'s tier is its BASE_TIER`);
+    for (let rod = 0; rod <= 7; rod++) {
+      const want = rod >= ft ? 1 : Math.pow(0.5, ft - rod);
+      assert.eq(fishCatchChance(f.id, rod), want, `${f.id} on a tier ${rod} rod`);
     }
   }
+  assert.eq(fishCatchChance('minnow', 0), 0.5, 'bare hands land a minnow half the time');
+  assert.eq(fishCatchChance('goldenfish', 7), 1, 'a Frost rod never loses one');
 });
 
-test('fishing: the pool is ordered by worth, and the rarer fish is the dearer', () => {
-  // The gate has to agree with the price list, or a "rare" fish would be the
-  // cheap one and the ladder would read backwards.
-  const byTier = [...FISH_SPECIES].sort((a, b) => a.minTier - b.minTier);
+test('fishing: the rarer fish is the dearer', () => {
+  const byTier = [...FISH_SPECIES].sort((a, b) => fishTier(a.id) - fishTier(b.id));
   for (let i = 1; i < byTier.length; i++) {
     assert.gt(PRICES[byTier[i].id], PRICES[byTier[i - 1].id],
       `${byTier[i].id} is worth more than ${byTier[i - 1].id}`);
   }
-  // And every species in the table is a real produce item the catalog knows.
   for (const f of FISH_SPECIES) {
     assert.truthy(ITEM_BY_ID[f.id], `${f.id} is in the catalog`);
     assert.eq(ITEM_BY_ID[f.id].kind, 'produce', `${f.id} is produce`);
   }
-});
-
-test('fishing: a rod also makes its own fish commoner', () => {
-  // Two axes, not one: the gate says WHICH fish, the weights say how often.
-  // A species' WEIGHT must never fall as the rod that opened it improves.
-  // (Its SHARE can dip for one tier — the tier that opens the next species
-  // takes a slice off everything already in the pool, which is the ladder
-  // working, not a species getting rarer.)
-  const weight = (id, t) => (fishTable(t).find((f) => f.id === id) || { w: 0 }).w;
-  const share = (id, t) => {
-    const table = fishTable(t);
-    return weight(id, t) / table.reduce((a, b) => a + b.w, 0);
-  };
-  const opensAt = new Set(FISH_SPECIES.map((f) => f.minTier));
-  for (const f of FISH_SPECIES) {
-    if (f.id === 'minnow') continue;          // the minnow thins out on purpose
-    for (let t = f.minTier + 1; t <= 7; t++) {
-      assert.gte(weight(f.id, t), weight(f.id, t - 1), `${f.id} weight at tier ${t}`);
-      if (!opensAt.has(t)) {
-        assert.gte(share(f.id, t) + 1e-9, share(f.id, t - 1), `${f.id} share at tier ${t}`);
-      }
-    }
-    // Over the whole ladder it is unambiguous: by Frost, every gated fish is a
-    // bigger share of the catch than on the rod that first opened it.
-    assert.gt(share(f.id, 7) + 1e-9, share(f.id, f.minTier), `${f.id} by Frost`);
-  }
-  assert.lt(share('minnow', 7), share('minnow', 0), 'and the minnow gives way');
 });
 
 // --- Where the fish are ---------------------------------------------------
@@ -194,18 +147,25 @@ test('fished spots persist as an id set bound at scene boot', () => {
     }
   });
 
-  test('fishing: a stocked spot ALWAYS lands a fish, never above the rod', () => {
-    // No whiff, no junk, no slime on a stocked spot: whatever the dice say,
-    // the cast pays one fish off the rod's own pool.
-    const ix = spot(true);
-    for (const t of TIERS) {
-      const allowed = new Set(fishTable(t).map((f) => f.id));
-      for (const r of [0, 0.01, 0.3, 0.5, 0.99]) {
-        const got = cast(ix, new Set(), {}, t, () => r);
-        assert.eq(got.inv.length, 1, `tier ${t}, rng ${r}: a fish`);
-        assert.truthy(allowed.has(got.inv[0]), `tier ${t} landed ${got.inv[0]}`);
-        const minTier = FISH_SPECIES.find((f) => f.id === got.inv[0]).minTier;
-        assert.lte(minTier, t, `${got.inv[0]} is at or below the rod`);
+  test('fishing: a stocked spot always bites: its fish, landed or got away', () => {
+    // No whiff, no junk, no slime on a stocked spot. The fish is the spot's
+    // own; a roll under fishCatchChance lands it, anything else loses it and
+    // leaves it there.
+    for (let k = 0, found = 0; found < 12 && k < 400; k++) {
+      if (!fishSpotStocked(fishSpotId(0, 0, k, 0))) continue;
+      found++;
+      const fish = spotFish(fishSpotId(0, 0, k, 0));
+      for (const t of TIERS) {
+        const p = fishCatchChance(fish, t);
+        const landed = cast(k, new Set(), {}, t, () => p - 1e-9);
+        assert.eq(landed.inv.join(), fish, `tier ${t}: lands the spot's ${fish}`);
+        if (p < 1) {
+          const fished = new Set();
+          const lost = cast(k, fished, {}, t, () => p);
+          assert.eq(lost.inv.length, 0, `tier ${t}: the ${fish} got away`);
+          assert.truthy(/got away/.test(lost.loot[0]), 'and says so');
+          assert.eq(fished.size, 0, 'and it is still there');
+        }
       }
     }
   });
@@ -220,25 +180,13 @@ test('fished spots persist as an id set bound at scene boot', () => {
 
 // --- What the player is told ----------------------------------------------
 
-test('fishing: the Book teaches the ladder, tier by tier', () => {
-  // A gate nobody can see from the bank, and one no ✦ row can carry — so the
-  // Book owns it, and the tier NAMES it quotes are re-derived from the same
-  // FISH_SPECIES rows the roll reads (books.test.js' rule: never retype a
-  // number a module owns).
-  const tip = PLAY_TIPS.find((t) => /goldenfish/i.test(t));
+test('fishing: the Book teaches the landing rule, and the rod says it', () => {
+  const tip = PLAY_TIPS.find((t) => /slip the hook/i.test(t));
   assert.truthy(tip, 'the Book has a fishing page');
-  for (const f of FISH_SPECIES) {
-    if (f.minTier === 0) continue;            // bare hands: the rod's own blurb
-    const tierName = TIER_BY_NUM[f.minTier].name;
-    const re = new RegExp(`${tierName}[^.]*${ITEM_BY_ID[f.id].name}|${ITEM_BY_ID[f.id].name}[^.]*${tierName}`, 'i');
-    assert.truthy(re.test(tip), `the tip pairs ${ITEM_BY_ID[f.id].name} with ${tierName}`);
-  }
-});
-
-test('fishing: the rod\'s blurb names the bare-handed ceiling', () => {
+  assert.truthy(/halves/i.test(tip), 'each tier short halves the odds');
+  assert.truthy(/stays/i.test(tip), 'and the fish stays put');
   const blurb = RELIC_DEFS.rod.blurb;
-  assert.truthy(/bare hands/i.test(blurb), 'a cast still works bare-handed');
-  assert.truthy(/minnow/i.test(blurb), 'and the blurb says what that gets you');
+  assert.truthy(/get away/i.test(blurb), 'the rod keeps big fish on the line');
   assert.lte(blurb.length, 55, 'the ✦ row is one line');
 });
 })();
