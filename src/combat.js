@@ -296,12 +296,14 @@
   //   null when there is nothing to take (an empty purse, a bag with no food
   //   in it, a body, a sated thief). One shape for both so the hit site and
   //   the writer branch on `what` alone.
-  //   HOW MUCH: coins — what the thief is worth, its own bounty (enemyBounty
-  //   at the surface), so felling one wins back exactly one snatch, and never
-  //   more than the purse holds (a thief cannot take you below $0). Food —
-  //   ONE piece, off the biggest meal in the bag (theftFood: the stack with
-  //   the highest FOOD_ENERGY, the first such stack on a tie): the bird goes
-  //   for the best thing you are carrying.
+  //   HOW MUCH: coins — ONE coin (THEFT_COINS; owner, Sep 2026: "ravens
+  //   could steal just one coin, then retreat"): a raven takes one shiny
+  //   thing, not a purse, and never more than the purse holds (a thief
+  //   cannot take you below $0). Felling one still pays its full bounty, so a
+  //   raven is always worth more felled than fed. Food — ONE piece, off the
+  //   biggest meal in the bag (theftFood: the stack with the highest
+  //   FOOD_ENERGY, the first such stack on a tie): the bird goes for the best
+  //   thing you are carrying.
   //   HOW OFTEN: ONE snatch per thief per UTC day. A thief that has stolen
   //   today is SATED (theftSated): it stands down and flies off (the rout
   //   lane in wanderCreatures) until the day turns. The ledger is the save's
@@ -309,7 +311,8 @@
   //   new day, so the cap survives a reload. One ledger for every kind of
   //   thief.
   function theftKind(kind) { return monster(kind)?.steals || null; }
-  function theftAmount(kind) { return theftKind(kind) === 'coins' ? enemyBounty(kind, 0) : 0; }
+  const THEFT_COINS = 1;
+  function theftAmount(kind) { return theftKind(kind) === 'coins' ? THEFT_COINS : 0; }
   // The bag's biggest meal — the stack a food thief takes from. Food is what
   // FOOD_ENERGY (items.js) prices: the one table the eat button reads.
   function theftFood(save) {
@@ -1248,7 +1251,7 @@
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, playerDowned,
-    theftKind, theftAmount, theftFood, theftDay, theftSated, incomingTheft, bankTheft,
+    theftKind, THEFT_COINS, theftAmount, theftFood, theftDay, theftSated, incomingTheft, bankTheft,
     MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
     RANGED_SLOTS, RANGED_TRIGGER_PAST_REACH, rangedTriggerM, anyEnemyWithin, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,

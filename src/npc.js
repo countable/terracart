@@ -243,10 +243,20 @@ const NPC = (() => {
   // the WITNESS tells of the night the Warmonger took the roofs, the
   // WANDERER has no home until the next restoration after you meet them,
   // the BELIEVER lauds the wise wizard and the tower that might bring him back.
-  const STORY_ROLES = { warden: 'Warden', witness: 'Survivor', wanderer: 'Wanderer', believer: 'Believer' };
+  // `artScale` is the row's INSTANCE size (SpriteLayout.creatureInstScale —
+  // the sprite, its shadow, the tap box and the bar seats all read it): the
+  // wanderer is a child, drawn at CHILD_SCALE of a grown neighbour.
+  const CHILD_SCALE = 0.7;
+  const STORY_ROLES = {
+    warden: { label: 'Warden' },
+    witness: { label: 'Survivor' },
+    wanderer: { label: 'Wanderer', artScale: CHILD_SCALE },
+    believer: { label: 'Believer' },
+  };
   const STORY_NEIGHBOURS = Object.keys(STORY_ROLES);
   function storyNeighbour(id, role) {
-    return { ...identity(id, 'village'), role, roleLabel: STORY_ROLES[role] || 'Neighbour' };
+    const row = STORY_ROLES[role];
+    return { ...identity(id, 'village'), role, roleLabel: row?.label || 'Neighbour', ...(row?.artScale ? { artScale: row.artScale } : {}) };
   }
   function warden(id) { return storyNeighbour(id, 'warden'); }
   // Where a thing stands, from the speaker: compass point and paces (a pace
@@ -392,5 +402,5 @@ const NPC = (() => {
     if (c.role === 'trader') scene.presentTraderOffer(sx, sy, c, record);
     else scene.presentThemedShop(sx, sy, c, record);
   }
-  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, PROFILES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, KEEPER_DEFAULT, nearestWreck, identity, zoneFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
+  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, PROFILES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, KEEPER_DEFAULT, nearestWreck, identity, zoneFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
 })();

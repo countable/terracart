@@ -32,7 +32,7 @@
     assert.eq(JSON.stringify(cellOf(placed[0])), JSON.stringify({ cx: 17, cy: 17 }), 'the warden keeps the first legal ring-3 cell it always had');
     for (const c of placed) {
       assert.inRange(cheb(cellOf(c), { cx: 20, cy: 20 }), 3, 8, `${c.role} stands a few cells from the trailer`);
-      assert.eq(c.roleLabel, NPC.STORY_ROLES[c.role]);
+      assert.eq(c.roleLabel, NPC.STORY_ROLES[c.role].label);
       assert.truthy(c.name && c.name.length >= 3, 'a name of their own');
     }
     for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
@@ -76,6 +76,22 @@
     const later = scene(towerSave(12)); later.save.memoryStory = { met: { [w.id]: 3 } };
     assert.eq(NPC.dialogue(later, w).body, MemoryStory.NEIGHBOURS.wanderer.settled, 'settled by the second act');
     assert.truthy(/· Wanderer$/.test(NPC.dialogue(s, w).title));
+  });
+
+  test('story neighbours: the wanderer is a child, drawn at seven tenths through the instance-size lane', () => {
+    assert.eq(NPC.CHILD_SCALE, 0.7);
+    const child = person('wanderer');
+    assert.eq(child.artScale, NPC.CHILD_SCALE, 'the row stamps the instance size');
+    assert.eq(SpriteLayout.creatureInstScale(child), NPC.CHILD_SCALE, 'the one lane every reader of drawn size uses');
+    assert.eq(SpriteLayout.creatureScale('npc', SpriteLayout.creatureInstScale(child)), SpriteLayout.creatureScale('npc') * NPC.CHILD_SCALE);
+    for (const role of ['warden', 'witness', 'believer']) {
+      const grown = person(role);
+      assert.eq(grown.artScale, undefined, `${role} is grown`);
+      assert.eq(SpriteLayout.creatureInstScale(grown), 1);
+    }
+    for (const line of Object.values(MemoryStory.NEIGHBOURS.wanderer)) {
+      assert.lte(Math.max(...line.split(/[.!?]\s+/).map(t => t.split(' ').length)), 14, 'a child speaks in short sentences');
+    }
   });
 
   test('story neighbours: the believer follows the tower — ruin, sealed, open, abandoned, moved', () => {

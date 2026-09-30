@@ -37,9 +37,9 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
  - crows: move in pauses and straight lines — short glides, a perch between.
    Game (a feather), nothing more; scarecrow aversion 4 cells. (They raided
    crops until Sep 2026; the deer does now.)
- - ravens: the crow's body in blue-black. A thief: its swoop takes COINS from
-   the purse — its own bounty's worth, never below $0 — once per bird per UTC
-   day, then it is sated and flies off. Felling one wins the snatch back.
+ - ravens: the crow's body in blue-black. A thief: its swoop takes ONE COIN
+   from the purse (never below $0), once per bird per UTC day, then it is
+   sated and flies off. Felling one pays its full bounty.
  - gulls: the crow's body in white, on the shore and the piers. A thief too:
    its swoop takes ONE piece of FOOD from the bag (the biggest meal in it),
    once per bird per UTC day. Same ledger, same sating, same flight.
