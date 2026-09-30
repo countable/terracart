@@ -2601,10 +2601,11 @@ Render.drawObjects = function drawObjects(scene) {
   //     the sprite box, which the sprite walk has already offered;
   //   · the WILDPLANT box (wM) — the cull plus the widest light a wild plant
   //     throws (a mushroom's, a cell and a bit).
-  // Until Sep 2026 one box — the widest of the three — served every walk,
-  // and on a town's tiles that was ~2,250 objects and plants opened a step
-  // to keep ~48: most of them opened only because a shrine's light, which
-  // no tree or bush has, set the box.
+  // Until Sep 2026 one box — the widest of the three — served every walk, so
+  // every tree and bush in the chunks a shrine's light could reach was opened
+  // a step, though none of them throws a light. (Most of the profile's
+  // 'drawObjects scanned' in a town is creatures, which move and are walked
+  // flat — see 'drawObjects scanned creatures' below; this is the rest.)
   const sM = halfM + HOUSE_PAD_M;
   const sx0 = pWorldX - sM, sx1 = pWorldX + sM, sy0 = pWorldY - sM, sy1 = pWorldY + sM;
   const lM = halfM + (LIGHTS ? LIGHTS.objectLightPadCells() * scene.cellM : 0);
