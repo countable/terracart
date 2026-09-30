@@ -1,7 +1,7 @@
 // Regression guard: NO SHELLS ON BEACHES.
 //
 // A shell is the sand family's only flora (src/biome_profiles.js), scattered at
-// 4–7 % of a beach's cells — so a beach should be dotted with them. It wasn't,
+// 1–1.75 % of a beach's cells. Originally they were invisible,
 // and every step of the chain looked fine on its own:
 //
 //   • the rasterizer spawned the shells (this file proves it still does);
@@ -58,9 +58,9 @@ test('beach: a sand tile scatters shells over its cells', () => {
   for (const t of beach.grid) if (t === T.SAND) sand++;
   assert.gt(sand, 0, 'the sand polygon painted SAND');
   assert.gt(shells.length, 0, 'shells spawned on the sand');
-  // The sand family's window is 4–7 % of the polygon's cells; allow slack for
-  // the per-polygon density roll but fail if the scatter has collapsed.
-  assert.inRange(shells.length / sand, 0.02, 0.12, 'shell density');
+  // Allow sampling slack around 1–1.75 %, while rejecting the old 4–7 %
+  // scatter that crowded the beach and waterline.
+  assert.inRange(shells.length / sand, 0.005, 0.025, 'shell density');
 });
 
 // --- Every shell draws a shell ---------------------------------------------

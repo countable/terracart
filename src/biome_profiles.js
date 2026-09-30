@@ -147,7 +147,8 @@
       flora: [fix('shrub', D_MIN, D_MAX, S.SHRUB),
               fix('mushroom', 0.04, 0.10, S.MUSH_FOREST)],
     },
-    sand:  { flora: [fix('shell', 0.04, 0.07, S.SHELL)] },
+    // Occasional beach finds; keep the sand and waterline mostly clear.
+    sand:  { flora: [fix('shell', 0.01, 0.0175, S.SHELL)] },
     rocky: { flora: [] },
     farm:  { flora: [dyn('longgrass', 0.10, S.FARM_LG)] },
     urban: {
