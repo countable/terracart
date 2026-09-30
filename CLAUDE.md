@@ -334,7 +334,10 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   affected cell; body changes default to the player. Body damage calls
   `_flashPlayerHit` when it lands, independently of popup throttling.
 - Book stories use direct firsthand excerpts in quotation marks. Occasional
-  narrator asides sit outside the quotation in italics (`bookPageHTML`).
+  narrator asides sit outside the quotation in italics (`bookPageHTML`), usually
+  one short sentence. Vary length, format, mood and author voice across books;
+  keep each author consistent and reserve humor for some passages. Authors
+  describe their world, not interface elements such as work circles or health bars.
 - Story panels, books and item descriptions carry at most one useful fact,
   told through the world, physical sensations or a character's voice. Hint at
   the advantage and leave exact effects for discovery. Confirmations state

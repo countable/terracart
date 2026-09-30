@@ -12,10 +12,10 @@ const PLAY_TIPS = [
   "Wandering survivors will buy anything you want to sell, from your trailer.",
   "Even bare hands can do the work, if you have patience.",
   "Below ground, your light dwindles with every descent. Overwhelmed by the deeper dark.",
-  "Your blows land strongest where your own footsteps fall.",
-  "Watch the colour above a foe fade from green toward red as its strength fails.",
-  "The closing circle tells how near your work is to its end.",
-  "Step clear of a sprung snare; its jaws keep hurting while you linger.",
+  "Your wandering shadow can scout ahead. It cannot put your weight behind a blow. Plant your own boots where the fighting is. Strike true.",
+  "A wounded goblin may still swing. Record observations from a safe distance. If the subject approaches, abandon the notebook.",
+  "One task, then the next. That is how we built our house. I cannot face rebuilding it all yet. Today, just the door. I kept the hinges.",
+  "ROAD WARDEN’S NOTICE: If caught in a snare, move clear immediately. Remaining within its jaws will cause further injury.",
   ITEM_GUIDE_TIPS.trap_kit,
   "Stay on the pavement beside a busy road to escape a chase. Never step into the road to play.",
   "Reach things across a street with the game's stick. Never enter the road to collect them.",
@@ -140,7 +140,15 @@ const PLAY_TIPS = [
 ];
 
 // Narrator observations sit outside the words printed in the book.
-const PLAY_TIP_ASIDES = { 6: "Someone had scraped a name from the page." };
+const PLAY_TIP_ASIDES = {
+  "0": "a few passages stand out",
+  "2": "Rain has blurred the final line.",
+  "4": "A thumbprint darkens the corner.",
+  "6": "Someone had scraped a name from the page.",
+  "10": "The spine is repaired with bootlace.",
+  "12": "A pressed flower falls from the pages.",
+  "14": "A military crest has been cut away."
+};
 function bookPageHTML(page) {
   const aside = PLAY_TIP_ASIDES[page];
   return (aside ? `<em>${aside}</em><br><br>` : '') + `“${PLAY_TIPS[page]}”`;

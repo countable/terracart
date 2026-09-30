@@ -13692,7 +13692,7 @@ class MapScene extends Phaser.Scene {
               art: role === 'plain' ? 'restore_house' : 'restore_' + role,
               header: 'Restored!',
               name: `You restored a ${name}`,
-              sub: info.blurb,
+              sub: order === 0 ? "“I'm not complaining, but repairing a building that quickly is not normal! How did you do it?”" : info.blurb,
               color: '#a7ffb0', accent: '#a7ffb0',
               onDismiss: role === 'wizard' && !this.save.memoryStory?.introDone
                 ? () => MemoryStory.visitWizard(this, () => {}) : undefined,

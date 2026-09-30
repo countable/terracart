@@ -1164,7 +1164,7 @@ const TRAP_KIT_KEEP_CHANCE = 0.8;
 const ITEM_GUIDE_TIPS = {
   crow_feather: 'I keep a black feather inside my coat. When my legs failed on the long road, I pressed it to my lips and found just enough strength to rise.',
   scarecrow: 'I dressed a wooden frame in my old coat. By morning, the crows had found another field.',
-  trap_kit: 'I knelt beside the snare with my little bundle of tools. When I stood, its iron jaw lay slack.',
+  trap_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
   torch: 'I struck a flame before descending. With it, my hand could reach farther into the dark.',
   rope: 'I carry a coil of grass rope into every shaft. Its worn fibres have brought me back toward daylight before.',
   flowers: 'I brought the shopkeeper flowers. She tucked them beside her till, and her voice softened when she named her price.',
