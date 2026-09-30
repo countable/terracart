@@ -1598,7 +1598,7 @@ const TAP_HANDLERS = [
       if (!stocked || scene.fishedSpotSet?.has(spotId)) {
         // An EMPTY CAST is not always empty (items.js rollEmptyCast): now and
         // then a treasure roll, a slime, or junk off the bottom.
-        const empty = rollEmptyCast();
+        const empty = rollEmptyCast(Math.random, tier);
         if (empty?.kind === 'treasure') {
           grantFoundTreasure(scene, save, sx, sy, '🎣', empty.tier, '✨ SUNKEN TREASURE ✨');
           persistSave(save);
@@ -1818,7 +1818,7 @@ const TAP_HANDLERS = [
       scene.flash(bedQ ? `tilled — quality ${bedQ}` : 'tilled', sx, sy);
       scene.questEvent?.('till');
       // Now and then the hoe turns something up (items.js rollTillFind).
-      const find = rollTillFind();
+      const find = rollTillFind(Math.random, save.relics?.hoe?.tier || 0);
       if (find?.kind === 'treasure') {
         grantFoundTreasure(scene, save, sx, sy, '⛏', find.tier, '✨ BURIED TREASURE ✨');
         persistSave(save);
