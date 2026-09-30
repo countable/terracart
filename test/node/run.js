@@ -198,6 +198,8 @@ const BRIDGE = `;Object.assign(globalThis, {
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, mineralDeposit, mineralRockFrame, mineralBarId,
+  // The plain rock's ladder and the GLINT rock built on it — glint_rock.test.js.
+  PLAIN_ROCK_FLINT_P, GEM_BY_TIER, GEM_P_BY_TIER, GLINT_ROCK_FINDS, GLINT_ROCK_PERIOD_MS, GLINT_ROCK_SHOW_MS,
   MAX_GROWTH_STAGE, PRODUCE_COL,
   // The other half of the crop table: what a WILD plant does when tapped —
   // what it drops, which relic times its wheel, what that costs, the bonus it
