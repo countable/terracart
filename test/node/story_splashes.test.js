@@ -96,7 +96,7 @@ test('story splash: every art stem app.js names exists as a WebP in assets/art/'
   for (const m of app.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
   // The dynamic restore stems, derived from the INFO role table in
   // presentWreckRestoreModal so a new role demands its art file here.
-  const roles = [...WRECK_SRC.matchAll(/^ {12}(\w+): *\{/gm)].map((m) => m[1]);
+  const roles = [...WRECK_SRC.matchAll(/^ {14}(\w+): *\{/gm)].map((m) => m[1]);
   assert.includes(roles, 'plain', 'the INFO role table still has the plain house row');
   for (const role of roles) stems.add(role === 'plain' ? 'restore_house' : 'restore_' + role);
   assert.includes([...stems], 'delivery_first', 'the delivery stem was collected');

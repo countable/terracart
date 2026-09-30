@@ -467,10 +467,18 @@ test('particles: _blastAt is ONE entry point — the light, the chips, the spark
   assert.truthy(/typeof Lighting !== 'undefined' && Lighting\.blast/.test(body), 'no Lighting, no throw');
 });
 
-test('particles: a restored wreck blasts at its footprint, before the card opens', () => {
+test('particles: a restored wreck gathers for a beat, then blasts at its footprint before the card opens', () => {
   const a = app.indexOf('  presentWreckRestoreModal(sx, sy, house) {');
   const body = app.slice(a, app.indexOf('\n  }\n\n', a));
-  const blast = body.indexOf('this._blastAt(bg.x, bg.y, {');
+  // The road repair's own gather plays first, off the walls, then the card waits for it.
+  const gather = body.indexOf("this._blastAt(bg.x, bg.y, { ringPx: bg.ringPx, gather: 'stonegather' });");
+  const wait = body.indexOf('this._afterWreckGather(() => {');
+  const blast = body.indexOf('this._blastAt(bg.x, bg.y, {\n');
+  assert.truthy(gather > 0 && wait > gather, 'the gather goes off, then the rest waits on its beat');
+  assert.truthy(body.indexOf("this.questEvent('restore');") < wait, 'bookkeeping does not wait');
+  assert.truthy(blast > wait, 'the blast and the card are inside the wait');
+  const gatherMs = +app.match(/const WRECK_GATHER_MS = (\d+);/)[1];
+  assert.truthy(gatherMs >= 550 && gatherMs <= 1500, 'about a second, long enough for stonegather to land');
   assert.truthy(blast > 0, 'the restore fires a blast');
   const frozen = body.indexOf('this.save.restoredHouses[house.id] = restoredRole;');
   const saved = body.indexOf('persistSave(this.save);');

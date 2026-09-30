@@ -289,6 +289,9 @@ const STREET_PREVIEW_COLOR = parseInt(UI_STREET_INK.slice(1), 16);
 // land on neither the restore's frame nor the overlay repaint after it. See
 // _afterRestoreBeat.
 const RESTORE_FX_DELAY_MS = 70;
+// How long a restored wreck gathers itself (the road's `stonegather`) before
+// the blast and the Restored! card. See _afterWreckGather.
+const WRECK_GATHER_MS = 1000;
 const STREET_COUNTER_MIN_MS = 1000;
 // A BUILDING'S BLAST: how far past the footprint's own half-diagonal the flash
 // reaches, in cells. Two, so the light clears the roof and the street either
@@ -13053,6 +13056,17 @@ class MapScene extends Phaser.Scene {
     }
   }
 
+  // A WRECK'S GATHER: the beat between the restore and its card, long enough
+  // for `stonegather` (550–850 ms of lifespan) to land. Same headless rule as
+  // _afterRestoreBeat: no clock runs it at once.
+  _afterWreckGather(fn) {
+    if (this.time && typeof this.time.delayedCall === 'function') {
+      this.time.delayedCall(WRECK_GATHER_MS, fn);
+    } else {
+      fn();
+    }
+  }
+
   // The metres a sweep just restored, banked against the one ladder: show the
   // counter and queue whatever prizes the new total has earned.
   // `opts.quiet` (a living-lamp visit): the lamp popped its own +Nm on its
@@ -13585,63 +13599,71 @@ class MapScene extends Phaser.Scene {
           this.save.starterBlacksmithId = house.id;
         }
         persistSave(this.save);
-        // THE BLAST, before the card opens: the same fanfare a street gets,
-        // scaled to a building. The flash covers the footprint's half-diagonal
-        // (plus BLAST_HOUSE_PAD_CELLS), the timber chips and the green sparks
-        // are thrown off a RING at its half-extent so they come off the walls
-        // rather than out of the middle, and the sparks are UI_GREEN — the
-        // colour the Restored! card that follows is already set in, so the
-        // world and the card read as one event.
+        // THE GATHER FIRST: the road repair's own `stonegather` (the setts
+        // pulling back together), thrown off a ring at the walls and drawn in
+        // to the footprint's centre, plays for WRECK_GATHER_MS before the
+        // blast and the Restored! card. The save, the ledger and the stock
+        // have all moved already — only the picture and the card wait.
         const bg = this._houseBlastGeometry(house);
-        this._blastAt(bg.x, bg.y, {
-          radiusCells: bg.radiusCells, ringPx: bg.ringPx,
-          chips: 'timber', sparks: 'greenspark',
-        });
+        this._blastAt(bg.x, bg.y, { ringPx: bg.ringPx, gather: 'stonegather' });
         this.buildInventoryDOM();
         this.questEvent('restore');
-        if (this.showChestRewardModal) {
-          // Name the building, describe what it does, show its sprite, and let
-          // showChestRewardModal's sparkle burst supply the fanfare.
-          // The role a wreck reveals once restored — mirrors render.js
-          // _houseTrueRole (minus fort/trailer, which never wreck). Reads the
-          // frozen restore-order role; 'plain' for a role-less residential house.
-          const role = this.houseShopRole(house) || 'plain';
-          // Names come from Shops.roleLabel so the card, the sign outside and
-          // the offer modal all call the building the same thing. A themed
-          // shop's blurb follows its line (marketTheme).
-          const theme = role === 'market' ? this.marketTheme(house).theme : null;
-          const THEME_BLURB = {
-            seed:   'Sells seeds to plant.',
-            supply: 'Sells rope, torches, kits and building stock.',
-            potion: 'Sells potions and powders.',
-            ore:    'Sells flint, bars and gems for the forge.',
-            relic:  'Sells tools and armour finer than yours.',
-            pet:    'Sells animals — pets, livestock and more.',
-          };
-          const INFO = {
-            blacksmith: { blurb: 'Forge tools and trade gems for relics here.' },
-            market:     { blurb: `${THEME_BLURB[theme] || 'Sells one line of goods.'} A new line every shop you rebuild.` },
-            trader:     { blurb: 'Swaps one good for another — no coin changes hands.' },
-            wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage sees power in your memories.' },
-            plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
-          };
-          const info = INFO[role] || INFO.plain;
-          const name = info.name || Shops.roleLabel(role, theme) || INFO.plain.name;
-          this.showChestRewardModal({
-            kind: 'build',
-            // The banner carries the picture now - one art piece per role
-            // (restore_house / restore_blacksmith / …) instead of the
-            // building sprite, so the card shows the story of the restore.
-            iconHTML: '',
-            art: role === 'plain' ? 'restore_house' : 'restore_' + role,
-            header: 'Restored!',
-            name: `You restored a ${name}`,
-            sub: info.blurb,
-            color: '#a7ffb0', accent: '#a7ffb0',
+        this._afterWreckGather(() => {
+          // THE BLAST, before the card opens (once the gather has played): the
+          // same fanfare a street gets, scaled to a building. The flash covers the footprint's half-diagonal
+          // (plus BLAST_HOUSE_PAD_CELLS), the timber chips and the green sparks
+          // are thrown off a RING at its half-extent so they come off the walls
+          // rather than out of the middle, and the sparks are UI_GREEN — the
+          // colour the Restored! card that follows is already set in, so the
+          // world and the card read as one event.
+          this._blastAt(bg.x, bg.y, {
+            radiusCells: bg.radiusCells, ringPx: bg.ringPx,
+            chips: 'timber', sparks: 'greenspark',
           });
-        } else {
-          this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
-        }
+          if (this.showChestRewardModal) {
+            // Name the building, describe what it does, show its sprite, and let
+            // showChestRewardModal's sparkle burst supply the fanfare.
+            // The role a wreck reveals once restored — mirrors render.js
+            // _houseTrueRole (minus fort/trailer, which never wreck). Reads the
+            // frozen restore-order role; 'plain' for a role-less residential house.
+            const role = this.houseShopRole(house) || 'plain';
+            // Names come from Shops.roleLabel so the card, the sign outside and
+            // the offer modal all call the building the same thing. A themed
+            // shop's blurb follows its line (marketTheme).
+            const theme = role === 'market' ? this.marketTheme(house).theme : null;
+            const THEME_BLURB = {
+              seed:   'Sells seeds to plant.',
+              supply: 'Sells rope, torches, kits and building stock.',
+              potion: 'Sells potions and powders.',
+              ore:    'Sells flint, bars and gems for the forge.',
+              relic:  'Sells tools and armour finer than yours.',
+              pet:    'Sells animals — pets, livestock and more.',
+            };
+            const INFO = {
+              blacksmith: { blurb: 'Forge tools and trade gems for relics here.' },
+              market:     { blurb: `${THEME_BLURB[theme] || 'Sells one line of goods.'} A new line every shop you rebuild.` },
+              trader:     { blurb: 'Swaps one good for another — no coin changes hands.' },
+              wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage sees power in your memories.' },
+              plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
+            };
+            const info = INFO[role] || INFO.plain;
+            const name = info.name || Shops.roleLabel(role, theme) || INFO.plain.name;
+            this.showChestRewardModal({
+              kind: 'build',
+              // The banner carries the picture now - one art piece per role
+              // (restore_house / restore_blacksmith / …) instead of the
+              // building sprite, so the card shows the story of the restore.
+              iconHTML: '',
+              art: role === 'plain' ? 'restore_house' : 'restore_' + role,
+              header: 'Restored!',
+              name: `You restored a ${name}`,
+              sub: info.blurb,
+              color: '#a7ffb0', accent: '#a7ffb0',
+            });
+          } else {
+            this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
+          }
+        });
       },
     });
   }
