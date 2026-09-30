@@ -2153,6 +2153,7 @@ class MapScene extends Phaser.Scene {
     this.fogContainer.add(this.fogImage);
 
     // Noise overlay pool — one image per visible cell, set to a hashed noise frame.
+    this.terrainCache = new Render.TerrainCache(this);
     this.noisePool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
       const s = this.add.image(0, 0, 'biome5_0').setOrigin(0, 0)

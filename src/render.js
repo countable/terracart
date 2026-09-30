@@ -237,6 +237,146 @@ class BakedGfx {
   }
 }
 Render.BakedGfx = BakedGfx;
+
+// Bake terrain images between cell changes. Canvas's
+// batchSprite expands every cell by half a pixel, so the bake uses that same
+// renderer at device resolution, then blits without another sprite expansion.
+// All cells retain their original order, including the half-pixel overlaps.
+// Animated textures invalidate on their resolved frame. WebGL keeps its
+// ordinary batching.
+let terrainCacheSerial = 0;
+class TerrainCache {
+  constructor(scene) {
+    this.scene = scene;
+    this.key = `terrain_baked_${++terrainCacheSerial}`;
+    this.image = scene.add.image(0, 0, '__DEFAULT').setOrigin(0, 0).setVisible(false);
+    this.image.renderCanvas = (renderer, image, camera, parent) => this.renderCanvas(renderer, camera, parent);
+    scene.noiseContainer.add(this.image);
+    this.records = [];
+    this.n = 0;
+    this.enabled = typeof location === 'undefined'
+      || new URLSearchParams(location.search).get('terraincache') !== 'off';
+    scene.events?.once('shutdown', () => {
+      if (this.image.scene) this.image.destroy();
+      if (this.tex && scene.textures.exists(this.key)) scene.textures.remove(this.key);
+      this.tex = null;
+      this.records.length = 0;
+    });
+  }
+  begin(x, y) {
+    this.x = x; this.y = y;
+    this.used = 0; this.bypass = false;
+    this.minX = this.minY = Infinity;
+    this.maxX = this.maxY = -Infinity;
+  }
+  offer(sprite) {
+    if (!this.enabled || this.scene.sys.game.renderer.type !== Phaser.CANVAS
+        || !sprite.visible) return;
+    if (sprite.alpha !== 1 || sprite.rotation || sprite.flipX || sprite.flipY
+        || sprite.isCropped || sprite.originX || sprite.originY) { this.bypass = true; return; }
+    const frame = sprite.frame, source = frame?.source?.image;
+    if (!source || frame.trimmed || frame.rotated) { this.bypass = true; return; }
+    const x = sprite.x - this.x, y = sprite.y - this.y;
+    const w = sprite.displayWidth, h = sprite.displayHeight;
+    let r = this.records[this.used];
+    if (!r) r = this.records[this.used] = {};
+    if (r.sprite !== sprite || r.texture !== sprite.texture || r.frame !== frame || r.source !== source
+        || r.cutX !== frame.cutX || r.cutY !== frame.cutY
+        || r.cutW !== frame.cutWidth || r.cutH !== frame.cutHeight
+        || r.tint !== sprite.tintTopLeft || r.resolution !== frame.source.resolution
+        || r.filter !== frame.source.scaleMode
+        || r.x !== x || r.y !== y || r.w !== w || r.h !== h) {
+      Object.assign(r, { sprite, texture: sprite.texture, frame, source,
+        cutX: frame.cutX, cutY: frame.cutY, cutW: frame.cutWidth, cutH: frame.cutHeight,
+        tint: sprite.tintTopLeft, resolution: frame.source.resolution, filter: frame.source.scaleMode,
+        x, y, w, h });
+      this.dirty = true;
+    }
+    this.used++;
+    this.minX = Math.min(this.minX, x); this.minY = Math.min(this.minY, y);
+    this.maxX = Math.max(this.maxX, x + w); this.maxY = Math.max(this.maxY, y + h);
+    sprite.setVisible(false);
+  }
+  flush() {
+    // A partial bake could reorder overlapping cells. Fall back as a layer
+    // if any future terrain sprite needs a transform this cache cannot track.
+    if (this.bypass) {
+      for (let i = 0; i < this.used; i++) this.records[i].sprite.setVisible(true);
+      this.used = 0;
+    }
+    if (this.used !== this.n) this.dirty = true;
+    this.n = this.used;
+    if (!this.n) { this.image.setVisible(false); return; }
+    this.image.setVisible(true);
+  }
+  renderCanvas(renderer, camera, parent) {
+    const m = camera.matrix;
+    // This scene uses a stationary, unrotated camera and an identity terrain
+    // container. Keep Phaser's original draw path if either ever changes.
+    if (m.b || m.c || m.a <= 0 || m.d <= 0 || camera.scrollX || camera.scrollY || camera.alpha !== 1
+        || this.image.alpha !== 1
+        || (parent && (parent.a !== 1 || parent.b || parent.c || parent.d !== 1 || parent.e || parent.f))) {
+      for (let i = 0; i < this.n; i++) {
+        const r = this.records[i], alpha = r.sprite.alpha;
+        try {
+          r.sprite.alpha *= this.image.alpha;
+          renderer.batchSprite(r.sprite, r.frame, camera, parent);
+        } finally { r.sprite.alpha = alpha; }
+      }
+      this.dirty = true;
+      return;
+    }
+    const dx = this.x * m.a + m.e, dy = this.y * m.d + m.f;
+    const phaseX = dx - Math.floor(dx), phaseY = dy - Math.floor(dy);
+    const key = `${m.a},${m.d},${phaseX},${phaseY},${camera.alpha},${camera.roundPixels},${camera.renderRoundPixels}`;
+    if (key !== this.paintKey) { this.paintKey = key; this.dirty = true; }
+    const left = Math.floor(dx + this.minX * m.a) - 1;
+    const top = Math.floor(dy + this.minY * m.d) - 1;
+    const w = Math.ceil((this.maxX - this.minX + .5) * m.a) + 3;
+    const h = Math.ceil((this.maxY - this.minY + .5) * m.d) + 3;
+    if (!this.tex) {
+      this.tex = this.scene.textures.createCanvas(this.key, w, h);
+      this.dirty = true;
+    } else if (this.tex.width !== w || this.tex.height !== h) {
+      this.tex.setSize(w, h);
+      this.dirty = true;
+    }
+    if (this.dirty) {
+      const ctx = this.tex.context;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, w, h);
+      if (!this.paintCamera || Object.getPrototypeOf(this.paintCamera) !== camera) {
+        this.paintCamera = Object.create(camera);
+        this.paintCamera.matrix = new m.constructor();
+      }
+      const paint = this.paintCamera;
+      paint.matrix.copyFrom(m);
+      paint.matrix.e -= left; paint.matrix.f -= top;
+      const previous = renderer.currentContext;
+      try {
+        renderer.currentContext = ctx;
+        for (let i = 0; i < this.n; i++) {
+          const r = this.records[i];
+          renderer.batchSprite(r.sprite, r.frame, paint, parent);
+        }
+      } finally {
+        renderer.currentContext = previous;
+      }
+      this.tex.refresh();
+    }
+    const ctx = renderer.currentContext;
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this.tex.canvas, left, top);
+    ctx.restore();
+    window.__boot?.count?.('terrain cache repainted', this.dirty ? 1 : 0);
+    this.dirty = false;
+  }
+}
+Render.TerrainCache = TerrainCache;
 // Is the POLYGONAL building mode on? When it is, building cells paint as the
 // GROUND around them here and every piece of tiled building art below is
 // skipped — the footprints are drawn from their source rings by
@@ -1216,6 +1356,8 @@ Render.drawCells = function drawCells(scene) {
   const pc = viewAnchorCell(scene);
   const fracX = pc.cx - Math.floor(pc.cx);
   const fracY = pc.cy - Math.floor(pc.cy);
+  scene.terrainCache?.begin(Math.round(scene.viewCenterX - fracX * CELL_PX),
+    Math.round(scene.viewCenterY - fracY * CELL_PX));
   // The anchor's absolute cell (coords.js encoding). All per-cell state
   // lookups (tilled, watered) must derive from this same basis or they'll
   // drift relative to the rendered cell positions — and every slot's own cell
@@ -1746,6 +1888,7 @@ Render.drawCells = function drawCells(scene) {
           // the ground ring too. The pool is reused every frame, so the tint
           // is set on every path, not only the watered one.
           ns.setTint(isWatered ? WATERED_TINT : 0xffffff);
+          scene.terrainCache?.offer(ns);
         } else {
           ns.setVisible(false);
         }
@@ -1805,6 +1948,7 @@ Render.drawCells = function drawCells(scene) {
 
     }
   }
+  scene.terrainCache?.flush();
   // Building outline pass — runs AFTER all cells are filled so a neighbour
   // cell's fillRect can't overpaint the shared boundary. For each building cell,
   // stroke each side whose 4-neighbour isn't itself a building.
@@ -2893,8 +3037,6 @@ Render.drawObjects = function drawObjects(scene) {
   // Deliberately unflagged: `groundstack` (a pile already lying on the ground)
   // and `staircase` (a hole cut INTO the ground — a shadow under it reads as
   // a floating slab).
-  const SEATED_SHADOW_KINDS = new Set(
-    Object.keys(RENDER_SPEC).filter((k) => RENDER_SPEC[k].shadow));
   // Soft contact shadows under everything that stands up off the ground —
   // buildings, trees, rocks, chests, wells, poles. Rendered into
   // shadowContainer — z-ordered just below objectsContainer — so each sprite
@@ -2906,7 +3048,7 @@ Render.drawObjects = function drawObjects(scene) {
     for (const item of filteredObj) {
       const k = item.o.kind;
       if (isBuilding(k)) { shadowList.push(item); continue; }
-      if (!SEATED_SHADOW_KINDS.has(k)) continue;
+      if (!RENDER_SPEC[k]?.shadow) continue;
       const foot = item._appearance?.foot;
       if (foot) shadowList.push({ ...item, _foot: foot });
     }

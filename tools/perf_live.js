@@ -2,6 +2,8 @@
 // Cold live-map CPU profile. No fixtures or substituted tile responses.
 // node tools/perf_live.js [output-directory] (default /tmp/perf-live)
 // PW_CHROMIUM, PORT (0 = free port), IDLE_MS, WALK_MS, STREAM_MS tune runs.
+// STARTUP_MS=30000 profiles only navigation + walking as soon as the centre
+// tile is ready, ending on a Node monotonic deadline without extending for loads.
 // Optional FPS=N compares the existing ?fps=N game setting.
 // Walking is 1.4 m/s. Streaming covers 1.25 tile widths at an accelerated
 // pace to exercise new tile loads; it must not be read as normal walking.
@@ -14,6 +16,8 @@ const { chromium } = require('playwright-core');
 const ROOT = path.resolve(__dirname, '..');
 const OUT = path.resolve(process.argv[2] || '/tmp/perf-live');
 const durations = { idle: +(process.env.IDLE_MS || 8000), walking: +(process.env.WALK_MS || 20000), streaming: +(process.env.STREAM_MS || 20000) };
+const startupMs = +(process.env.STARTUP_MS || 0);
+if (!Number.isFinite(startupMs) || startupMs < 0) throw new Error('STARTUP_MS must be nonnegative');
 const fps = process.env.FPS;
 if (fps !== undefined && (!Number.isFinite(+fps) || +fps < 0)) throw new Error('FPS must be a nonnegative number');
 const tileRE = /\/\d+\/\d+\/\d+\.pbf(?:\?|$)/;
@@ -85,7 +89,7 @@ async function main() {
     });
   });
   await new Promise(resolve => server.listen(+(process.env.PORT || 0), '127.0.0.1', resolve));
-  const results = { environment: { browser: 'Chromium headless with SwiftShader flags', walkingMps: 1.4, fpsOverride: fps === undefined ? null : +fps, durations, note: 'Main-renderer JS CPU samples; GPU/battery power not measured. Fresh browser context, live network tiles. TEST_MODE direct-position movement excludes GPS, multiplayer, street restoration, rest and traps; Overpass disabled.' }, phases: {}, requests: [], pageErrors: [], consoleErrors: [] };
+  const results = { environment: { browser: 'Chromium headless with SwiftShader flags', startupMs: startupMs || null, walkingMps: 1.4, fpsOverride: fps === undefined ? null : +fps, durations, note: 'Main-renderer JS CPU samples; GPU/battery power not measured. Fresh browser context, live network tiles. TEST_MODE direct-position movement excludes GPS, multiplayer, street restoration, rest and traps; Overpass disabled.' }, phases: {}, requests: [], pageErrors: [], consoleErrors: [] };
   let browser, phase = 'boot';
   try {
     browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || '/usr/bin/chromium', headless: true, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
@@ -96,60 +100,98 @@ async function main() {
     page.on('requestfailed', r => { if (tileRE.test(r.url())) results.requests.push({ phase, url: r.url(), ok: false, error: r.failure()?.errorText }); });
     const cdp = await page.context().newCDPSession(page);
     await cdp.send('Profiler.enable');
+    await cdp.send('Performance.enable');
     await cdp.send('Profiler.setSamplingInterval', { interval: 500 });
     async function capture(name, action) {
       phase = name;
-      if (name !== 'boot') await page.evaluate(() => { window.__boot.reset(); window.__boot.spans = []; window.__boot.marks = []; });
+      if (name !== 'boot' && name !== 'startup') await page.evaluate(() => { window.__boot.reset(); window.__boot.spans = []; window.__boot.marks = []; });
       const requestStart = results.requests.length;
+      const metricsBefore = (await cdp.send('Performance.getMetrics')).metrics;
       await cdp.send('Profiler.start');
-      const start = Date.now();
-      await action();
+      const start = performance.now();
+      await action(start);
+      const measuredMs = performance.now() - start;
       const profile = (await cdp.send('Profiler.stop')).profile;
+      const metricsAfter = (await cdp.send('Performance.getMetrics')).metrics;
+      const taskBefore = metricsBefore.find(m => m.name === 'TaskDuration')?.value || 0;
+      const taskAfter = metricsAfter.find(m => m.name === 'TaskDuration')?.value || 0;
+      if (name === 'startup') results.startupMovement = await page.evaluate(() => { clearInterval(window.__startupWalkTimer); return window.__startupWalkState; });
       const snap = await snapshot(page);
       const cpu = digest(profile);
       results.environment.renderer = snap.renderer;
-      results.phases[name] = { elapsedMs: Date.now() - start, snapshot: snap, cpu, successfulTileResponses: results.requests.slice(requestStart).filter(r => r.ok).length };
+      results.phases[name] = { elapsedMs: measuredMs, taskDurationMs: (taskAfter - taskBefore) * 1000, snapshot: snap, cpu, successfulTileResponses: results.requests.slice(requestStart).filter(r => r.ok).length };
       fs.writeFileSync(path.join(OUT, `${name}.cpuprofile`), JSON.stringify(profile));
       console.log(`${name} (${snap.renderer}): ${snap.work['update (all)']?.n || 0} game updates (${snap.live.n} rAF callbacks); CPU busy ${cpu.busyMs.toFixed(0)} ms; ${snap.tiles.filter(t => t.grid).length} ready tiles; ${results.phases[name].successfulTileResponses} successful live PBF responses`);
       console.log('  passes ms/call: ' + Object.entries(snap.work).sort((a, b) => b[1].sum - a[1].sum).slice(0, 10).map(([n, w]) => `${n}=${(w.sum / w.n).toFixed(2)}`).join(', '));
       for (const type of ['self', 'inclusive']) console.log(`  ${type}: ` + cpu[type].filter(([n]) => !n.startsWith('(root)')).slice(0, 8).map(([n, ms]) => `${n}=${ms.toFixed(0)}ms`).join(', '));
       fs.writeFileSync(path.join(OUT, 'results.json'), JSON.stringify(results, null, 2));
     }
-    await capture('boot', async () => {
-      await page.goto(`http://127.0.0.1:${server.address().port}/test/perf.html?live=1&overpass=off${fps === undefined ? '' : '&fps=' + encodeURIComponent(fps)}`,  { timeout: 120000 });
-      await page.evaluate(() => window.__perfReady);
-      await waitTiles(page);
-    });
-    await capture('idle', () => page.waitForTimeout(durations.idle));
-    async function move(ms, speed) {
-      await page.evaluate(({ ms, speed }) => new Promise(resolve => {
-        const s = window.__scene, start = performance.now();
-        let last = start;
-        const timer = setInterval(() => {
-          const now = Math.min(performance.now(), start + ms);
-          s.playerM.x += speed * (now - last) / 1000;
-          s.syncMoveTarget?.();
-          last = now;
-          if (now >= start + ms) { clearInterval(timer); resolve(); }
-        }, 50);
-      }), { ms, speed });
-    }
-    await capture('walking', () => move(durations.walking, 1.4));
-    const startTile = results.phases.walking.snapshot.playerTile;
-    const speed = await page.evaluate(ms => window.__scene.tileEdgeM * 1.25 / (ms / 1000), durations.streaming);
-    results.environment.streamingMps = speed;
-    results.environment.streamingLabel = 'Accelerated 1.25-tile eastbound route plus wait for complete destination 3x3 ring';
-    await capture('streaming', async () => { await move(durations.streaming, speed); await waitTiles(page); });
-    const finalTile = results.phases.streaming.snapshot.playerTile;
     const failures = [];
+    const pageUrl = `http://127.0.0.1:${server.address().port}/test/perf.html?live=1&overpass=off${fps === undefined ? '' : '&fps=' + encodeURIComponent(fps)}`;
+    if (startupMs) {
+      await page.addInitScript(({ ms }) => {
+        const state = window.__startupWalkState = { startedAtMs: null, distanceM: 0 };
+        let last = null;
+        window.__startupWalkTimer = setInterval(() => {
+          const now = performance.now();
+          // navigationStart is the browser's monotonic origin. Stop motion
+          // at the same window boundary even if Node/CDP is briefly delayed.
+          if (now >= ms) { clearInterval(window.__startupWalkTimer); return; }
+          const scene = window.__scene;
+          if (!scene?.cellsPerTile) return;
+          const pc = scene.playerToWorldCell();
+          if (!WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty))?.grid) return;
+          if (last === null) { last = now; state.startedAtMs = now; return; }
+          const delta = 1.4 * (now - last) / 1000;
+          scene.playerM.x += delta;
+          scene.syncMoveTarget?.();
+          state.distanceM += delta;
+          last = now;
+        }, 50);
+      }, { ms: startupMs });
+      await capture('startup', async start => {
+        await page.goto(pageUrl, { waitUntil: 'commit', timeout: startupMs });
+        const remaining = startupMs - (performance.now() - start);
+        if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
+      });
+      if (!results.startupMovement?.distanceM) failures.push('Startup window never reached walking readiness');
+      if (results.phases.startup.snapshot.ring.some(t => !t.ready)) failures.push('Missing startup destination tiles at deadline');
+    } else {
+      await capture('boot', async () => {
+        await page.goto(pageUrl, { timeout: 120000 });
+        await page.evaluate(() => window.__perfReady);
+        await waitTiles(page);
+      });
+      await capture('idle', () => page.waitForTimeout(durations.idle));
+      async function move(ms, speed) {
+        await page.evaluate(({ ms, speed }) => new Promise(resolve => {
+          const s = window.__scene, start = performance.now();
+          let last = start;
+          const timer = setInterval(() => {
+            const now = Math.min(performance.now(), start + ms);
+            s.playerM.x += speed * (now - last) / 1000;
+            s.syncMoveTarget?.();
+            last = now;
+            if (now >= start + ms) { clearInterval(timer); resolve(); }
+          }, 50);
+        }), { ms, speed });
+      }
+      await capture('walking', () => move(durations.walking, 1.4));
+      const startTile = results.phases.walking.snapshot.playerTile;
+      const speed = await page.evaluate(ms => window.__scene.tileEdgeM * 1.25 / (ms / 1000), durations.streaming);
+      results.environment.streamingMps = speed;
+      results.environment.streamingLabel = 'Accelerated 1.25-tile eastbound route plus wait for complete destination 3x3 ring';
+      await capture('streaming', async () => { await move(durations.streaming, speed); await waitTiles(page); });
+      const finalTile = results.phases.streaming.snapshot.playerTile;
+      if (!results.phases.streaming.successfulTileResponses) failures.push('Streaming did not fetch new live tiles');
+      if (startTile.tx === finalTile.tx && startTile.ty === finalTile.ty) failures.push('Streaming did not cross a tile boundary');
+      if (results.phases.streaming.snapshot.ring.some(t => !t.ready)) failures.push('Missing destination tiles');
+    }
     if (!results.requests.some(r => r.ok)) failures.push('No real successful PBF responses');
     if (results.requests.some(r => !r.ok)) failures.push('Failed live PBF requests (see results.requests)');
-    if (!results.phases.streaming.successfulTileResponses) failures.push('Streaming did not fetch new live tiles');
-    if (startTile.tx === finalTile.tx && startTile.ty === finalTile.ty) failures.push('Streaming did not cross a tile boundary');
     if (results.pageErrors.length) failures.push('Browser JavaScript errors');
     const runtimeConsoleErrors = results.consoleErrors.filter(e => !(e.url.endsWith('/favicon.ico') && /Failed to load resource:.*404/.test(e.text)));
     if (runtimeConsoleErrors.length) failures.push('Browser console errors (see results.consoleErrors)');
-    if (results.phases.streaming.snapshot.ring.some(t => !t.ready)) failures.push('Missing destination tiles');
     results.validation = { passed: failures.length === 0, failures };
     if (failures.length) throw new Error(failures.join('; '));
     console.log(`Saved profiles and results: ${OUT}`);
