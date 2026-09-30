@@ -9038,7 +9038,7 @@ class MapScene extends Phaser.Scene {
     // Keep the bookmark in the save; the panel tells the page as a story.
     return {
       title: '📖 The worn book falls open',
-      body: `"${PLAY_TIPS[page]}"`,
+      body: bookPageHTML(page),
     };
   }
 

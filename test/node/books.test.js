@@ -122,7 +122,7 @@ test('course: readBook walks the list in order and bookmarks its place', () => {
     'and wrapped at READ time, so adding a tip cannot scramble a bookmark');
   assert.truthy(/this\.save\.tipsRead = read \+ 1;/.test(APP_JS_SRC),
     'the cursor is stored unwrapped');
-  assert.truthy(/PLAY_TIPS\[page\]/.test(APP_JS_SRC), 'and the page is what is read out');
+  assert.truthy(/bookPageHTML\(page\)/.test(APP_JS_SRC), 'and the page is what is read out');
 });
 
 test('course: the chest hint waits until there is nothing left to teach', () => {
@@ -138,7 +138,7 @@ test('course: the reader opens the book as a story', () => {
 });
 
 test('course: story topics retain their saved-bookmark positions', () => {
-  assert.eq(PLAY_TIPS.length, 135, 'four displaced opening tips are appended');
+  assert.eq(PLAY_TIPS.length, 134, 'three displaced opening tips are appended');
   const topics = {1:/strength/, 11:/colour/, 13:/snare/, 20:/hoe/, 24:/ruined house/, 25:/smithy/, 35:/car park/, 56:/smith/, 69:/stone/, 77:/path/, 88:/favourite food/, 98:/weapon/, 106:/stairs/, 121:/quartermaster/, 130:/sapphire/};
   for (const [page, topic] of Object.entries(topics)) assert.truthy(topic.test(PLAY_TIPS[page]), 'topic stays at page ' + page);
 });
@@ -453,7 +453,7 @@ test('books: pages carry brief stories instead of numeric mechanics', () => {
     assert.lt(page.length, 200, 'page ' + i + ' leaves room for one discovery');
     assert.falsy(/[0-9%⚡×]|\btier\b|Relics tab|hit points|UTC/.test(page), 'page ' + i + ' avoids tuning and interface instructions');
   }
-  assert.eq(new Set(PLAY_TIPS).size, 135, 'each page offers a distinct moment');
+  assert.eq(new Set(PLAY_TIPS).size, 134, 'each page offers a distinct moment');
 });
 
 test('books: real-world road and heat safety stays direct', () => {

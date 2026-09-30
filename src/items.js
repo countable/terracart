@@ -1162,13 +1162,13 @@ const SLIME_LEECH_ENERGY = EnemyRoster.get('slime').dmg;
 const TRAP_KIT_KEEP_CHANCE = 0.8;
 
 const ITEM_GUIDE_TIPS = {
-  crow_feather: 'An elder kept a black feather inside her coat. When her legs failed on the long road, she pressed it to her lips and found just enough strength to rise.',
-  scarecrow: 'The farmer dressed a wooden frame in his old coat. By morning, the crows had found another field.',
-  trap_kit: 'A traveller knelt beside the snare with a little bundle of tools. When she stood, its iron jaw lay slack.',
-  torch: 'The stair keeper struck a flame before descending. With it, her hand could reach farther into the dark.',
-  rope: 'The miner carried a coil of grass rope into every shaft. Its worn fibres had brought him back toward daylight before.',
-  flowers: 'The shopkeeper tucked the flowers beside her till. When she named her price, her voice had softened.',
-  slime: 'An elder once shared her doorstep with a slime. The last page of her journal bears a blue stain.',
+  crow_feather: 'I keep a black feather inside my coat. When my legs failed on the long road, I pressed it to my lips and found just enough strength to rise.',
+  scarecrow: 'I dressed a wooden frame in my old coat. By morning, the crows had found another field.',
+  trap_kit: 'I knelt beside the snare with my little bundle of tools. When I stood, its iron jaw lay slack.',
+  torch: 'I struck a flame before descending. With it, my hand could reach farther into the dark.',
+  rope: 'I carry a coil of grass rope into every shaft. Its worn fibres have brought me back toward daylight before.',
+  flowers: 'I brought the shopkeeper flowers. She tucked them beside her till, and her voice softened when she named her price.',
+  slime: 'A slime shares my doorstep now. It watches me grind the blue stone, but no longer trembles when I reach for it.',
 };
 
 // The ordered Book pages live in play_tips.js; their positions are saved bookmarks.

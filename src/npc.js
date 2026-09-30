@@ -225,7 +225,7 @@ const NPC = (() => {
     } else if (c.role === 'warden') {
       body = WARDEN_LINE;
     } else if (c.role === 'scholar') {
-      body = `I read this in a book:\n${daily(PLAY_TIPS)}`;
+      body = `I read this in a book:\n“${daily(PLAY_TIPS)}”`;
     } else if (c.role === 'merchant' || c.role === 'trader') {
       body = daily(c.role === 'merchant'
         ? ['I brought fresh supplies today. Take a look.', 'A little stock for the road ahead.', 'See anything you need for your travels?']
