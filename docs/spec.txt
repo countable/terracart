@@ -1339,7 +1339,10 @@ ECONOMY (buying & selling)
    CASTLE until the player completes a job from THAT castle's quest board
    (quests.js; the sealed-castle tap opens the board). Completing one CLAIMS
    the castle: its turrets fight for you (see COMBAT), it lights up, and its
-   castellan offers ONE daily favour per UTC day (save.castleServiceClaimed):
+   castellan offers ONE favour per Houses.CASTLE_SERVICE_MS — TWELVE HOURS
+   (Sep 2026; was per UTC day. save.castleServiceClaimed[key] is the ms stamp
+   of the last favour; a legacy day stamp is spent until that day ends). It is
+   the one timer left on any building the player trades at:
    REST for a flat CASTLE_REST_ENERGY (35) energy, or COLLECT
    CASTLE_TAX_GOLD ($10) — presentCastleServiceOffer / _castleRest /
    _castleTax in app.js. (The old lifetime-delivery gate is retired; castles
