@@ -742,7 +742,8 @@ Object.assign(ctx, {
     + '  _castleKey(house) { return Houses.castleKey(house); },\n'
     + '  isCastleClaimed(house) { return Houses.isCastleClaimed(this.save, house); },\n'
     + '  _claimCastle(house) { return Houses.claimCastle(this.save, house); },\n'
-    + '  _castleServiceUsedToday(house) { return Houses.castleServiceUsedToday(this.save, house); },\n'
+    + '  _castleServiceUsed(house) { return Houses.castleServiceUsed(this.save, house); },\n'
+    + '  _castleServiceWaitMs(house) { return Houses.castleServiceWaitMs(this.save, house); },\n'
     + '  _markCastleServiceUsed(house) { return Houses.markCastleServiceUsed(this.save, house); },\n'
     + '  _castleRest(sx, sy, house) {\n' + grab('  _castleRest(sx, sy, house) {\n') + '\n  },\n'
     + '  _castleTax(sx, sy, house) {\n' + grab('  _castleTax(sx, sy, house) {\n') + '\n  },\n'
@@ -1246,6 +1247,9 @@ ctx.BUILDING_OVERLAY_SRC = readSrc('building_overlay.js');
 ctx.APP_JS_SRC = readSrc('app.js');
 ctx.SANDBOX_JS_SRC = readSrc('sandbox.js');
 ctx.SCENE_SRC = SCENE_SRC;
+// The scene's modules by file (app.js first, then each installed mixin's) —
+// scene_mixins.test.js pins that index.html loads every one before app.js.
+ctx.SCENE_FILES = SCENE_FILES;
 // The modal shell (makeModalShell and the stock dialogs, MODAL_KINDS, the
 // scene-art frame consts) moved out of app.js; tests that pin it read this.
 ctx.MODAL_SHELL_SRC = readSrc('modal_shell.js');

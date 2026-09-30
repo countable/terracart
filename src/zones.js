@@ -164,23 +164,35 @@
   // `attracts` { species: p }: the FAUNA ATTRACTOR column (scene_creatures.js
   // _seatFaunaOnFavouriteGround) — each of the tile's own spawns of that
   // species moves onto the zone's ground with probability p. Not an add.
+  // `keeper`: what the zone's KEEPER (the NPC role — npc.js, one guaranteed
+  // per zone kind with residents) says, rotating by day: the zone's story in
+  // the voice of the one who tends it. The splash `body` is the narrator's;
+  // this column is the resident's. Tar has no residents (NPC.zoneFor).
   const ZONE_KINDS = {
     quarry: { code: 5, R: 21, terrain: 'ROCK', story: 'zone_stones', title: 'Quarry',
       body: 'Broken stone fills the old lanes. Blue crystals glint among the rubble.',
-      flash: 'A quarry of broken stone.' },
+      flash: 'A quarry of broken stone.',
+      keeper: ['The lanes here were paved once. The fire cracked the stone and the blue crystals grew in the cracks. Mind the loose footing.'] },
     beach: { code: 4, R: 80, terrain: 'GROVE', story: 'zone_grove', title: 'The shore',
-      body: 'An old shrine stands above the sand.', flash: 'The shore opens ahead.' },
+      body: 'An old shrine stands above the sand.', flash: 'The shore opens ahead.',
+      keeper: ['The shrine above the sand was here before the fire, and the sea never noticed the fire at all. I sweep the salt off its step each morning.',
+        'The tide keeps its own hours. Whatever the Warmonger burned, it never learned to burn water.'] },
     grove: { code: 1, R: 60, terrain: 'GROVE', story: 'zone_grove', title: 'A sacred grove',
       attracts: { deer: 0.5, butterfly: 0.5 },
       body: 'The trees lean close around an old stone shrine. Someone still tends it.',
-      flash: 'A sacred grove. Hush.' },
+      flash: 'A sacred grove. Hush.',
+      keeper: ['The trees leaned in to hide this shrine the night the roofs burned. They have not straightened since. I keep the stone swept and the lantern lit.',
+        'The deer come here at dusk. They came before the fire and they came after. Nothing in this grove was ever the Warmonger’s.'] },
     stones: { code: 2, R: 80, terrain: 'CHURCHYARD', story: 'zone_stones', title: 'The old stones',
       attracts: { crow: 0.5 },
       body: 'Moss-grown stones ring the old chapel, and someone still lights its lantern. Walk softly here.',
-      flash: 'The old stones. Walk softly.' },
+      flash: 'The old stones. Walk softly.',
+      keeper: ['These stones are older than the chapel, and the chapel is older than the town. Someone has lit its lantern every night since the fire. Tonight it is me.',
+        'Walk softly. The names on these stones remember a quieter world than ours.'] },
     tar: { code: 3, R: 100, terrain: 'TAR_YARD', story: 'zone_tar', title: 'The tar yard',
       body: 'Oil stains the old fuel yard black, and the tar drags at your feet. Mind where you step.',
-      flash: 'The tar yard. Mind your feet.' },
+      flash: 'The tar yard. Mind your feet.',
+      keeper: ['Nobody keeps this yard. The tar keeps itself.'] },
   };
   const KIND_BY_CODE = [null];
   for (const [kind, row] of Object.entries(ZONE_KINDS)) KIND_BY_CODE[row.code] = kind;

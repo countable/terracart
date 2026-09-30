@@ -796,9 +796,10 @@ class SceneShops {
 
   // ─── Deliveries: plain houses only buy specific produce ──────────────
   // UTC day stamp ("YYYYMMDD") — the ONE day key every day-gated thing on the
-  // scene reads (delivery wishlists + happy state, the coin-burst POI cap, the
-  // castle favour), so every "back in <wait>" counts down to the same rollover
-  // (msToNextUtcDay).
+  // scene reads (delivery wishlists + happy state, the coin-burst POI cap), so
+  // every "back in <wait>" counts down to the same rollover (msToNextUtcDay).
+  // The castle favour is NOT day-gated: it runs on its own twelve-hour clock
+  // (Houses.CASTLE_SERVICE_MS).
   // Delivery wishlist logic lives in delivery.js (headlessly tested). These stay
   // as scene methods because render.js + the interact/present handlers call them
   // as scene.wantedProduce(o) / scene.isHouseSatisfied(o) / etc. The day key
@@ -1493,13 +1494,13 @@ class SceneShops {
     });
   }
 
-  // REST: a flat CASTLE_REST_ENERGY, once a day (it was a tenth of the bar, the
-  // same fraction the old hourly
-  // hearth gave — just once a day now instead of once an hour. Silent (no-op)
-  // once the day's favour is already spent or the castle isn't claimed; the
-  // modal that calls this never offers the choice in either case.
+  // REST: a flat CASTLE_REST_ENERGY, once per Houses.CASTLE_SERVICE_MS (it was
+  // a tenth of the bar, the same fraction the old hourly hearth gave — twice a
+  // day now instead of once an hour). Silent (no-op) while the favour is
+  // still spent or the castle isn't claimed; the modal that calls this never
+  // offers the choice in either case.
   _castleRest(sx, sy, house) {
-    if (!this.isCastleClaimed(house) || this._castleServiceUsedToday(house)) return;
+    if (!this.isCastleClaimed(house) || this._castleServiceUsed(house)) return;
     const maxE = this.getMaxEnergy();
     const cur = this.save.energy ?? 0;
     const gain = CASTLE_REST_ENERGY;
@@ -1513,21 +1514,21 @@ class SceneShops {
   }
   // COLLECT: a flat CASTLE_TAX_GOLD from the crown's coffers instead of rest.
   _castleTax(sx, sy, house) {
-    if (!this.isCastleClaimed(house) || this._castleServiceUsedToday(house)) return;
+    if (!this.isCastleClaimed(house) || this._castleServiceUsed(house)) return;
     addMoney(this.save, CASTLE_TAX_GOLD);
     this._markCastleServiceUsed(house);
     if (typeof persistSave === 'function') persistSave(this.save);
     this.buildInventoryDOM();
     this.flashLoot(`+${CASTLE_TAX_GOLD} taxes`, '#ffe066', 1, null, this.coinIconEl?.());
   }
-  // The castellan's greeting and daily offer. A RESTORED castle (the player
-  // solved its quest — see showQuestBoard/_claimCastle) no longer sells
-  // relics: it's home turf, so instead of a trade it's a favour, once a day.
+  // The castellan's greeting and offer. A RESTORED castle (the player solved
+  // its quest — see showQuestBoard/_claimCastle) no longer sells relics: it's
+  // home turf, so instead of a trade it's a favour, once per
+  // Houses.CASTLE_SERVICE_MS — the one timer on any building you trade at.
   presentCastleServiceOffer(sx, sy, house) {
-    if (this._castleServiceUsedToday(house)) {
-      // The favour is one per UTC day (utcDayKey),
-      // so the castellan names the wait rather than saying "tomorrow".
-      this.flash(`My lord! Come back in ${shortDuration(msToNextUtcDay())}.`,
+    if (this._castleServiceUsed(house)) {
+      // A timed gate names its wait (shortDuration), never "later".
+      this.flash(`My lord! Come back in ${shortDuration(this._castleServiceWaitMs(house))}.`,
                  sx, sy);
       return;
     }
@@ -1538,7 +1539,7 @@ class SceneShops {
       // restored, greeting the player the banner flew for.
       art: 'castle_favour',
       get: 'My lord, which kindness may we offer?',
-      blurb: `Whichever you pick, it won't be on offer again for ${shortDuration(msToNextUtcDay())}.`,
+      blurb: `Whichever you pick, it won't be on offer again for ${shortDuration(Houses.CASTLE_SERVICE_MS)}.`,
       canAfford: true,
       acceptLabel: `Rest +${CASTLE_REST_ENERGY}⚡`,
       secondary: {

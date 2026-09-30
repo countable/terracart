@@ -16,6 +16,32 @@ const MemoryStory = (() => {
     body: 'My children still ask when we can go home. I kept the key, though there is hardly a door left. If you can mend these houses, we can come back. We still have hands to help.',
   };
   const RUMOUR = 'They say a wise man lives somewhere around here. Nobody I know has seen him. Perhaps he knows why the old roads feel so familiar to you.';
+  // THE STORY NEIGHBOURS by the starting trailer (NPC.STORY_ROLES; Starter
+  // placeSafeAreaWarden seats them). Each keeps to one thread of the story
+  // and moves with the act, never ahead of it: the survivor knows the
+  // Warmonger only as the night the roofs went, the believer never learns
+  // what the player learns at the second tower — the irony is the player's.
+  const NEIGHBOURS = {
+    witness: {
+      1: 'Nobody heard an army. There was a bell, then smoke, then no roofs anywhere. They call whatever did it the Warmonger. I never saw its face.',
+      2: 'The Warmonger took every roof in one night. You are putting them back one at a time. That is the only answer to it I have ever heard.',
+      3: 'Some nights I think the Warmonger is still out there. Then I see lamplight in a mended window, and I stop thinking about it.',
+    },
+    // The wanderer is a CHILD (NPC.STORY_ROLES — drawn at CHILD_SCALE): short
+    // sentences, one thing at a time, a door remembered before a house.
+    wanderer: {
+      homeless: 'We sleep under whichever wall is driest. I had a room once, with my name on the door. Now there is only the door.',
+      housed: 'Did you see? A roof! A real one, with a lamp under it. I slept inside last night. I forgot what rain sounds like on a roof.',
+      settled: 'I have a bed now, and a window. Knock when you go past. There is always something in the pot.',
+    },
+    believer: {
+      ruin: 'Before the fire a wise wizard watched over this land. His tower fell with the rest. Mend enough of these wrecks and you will find it. Restore it, and perhaps he comes back and saves us all.',
+      locked: 'His tower stands again! The door will not open for me, but he is in there, I know it. He will come out when the time is right.',
+      open: 'You have spoken with him? Then there is hope for all of us. He never turned anyone away.',
+      abandoned: 'The tower is cold again. He has not left us. A wise man does not leave. He goes ahead.',
+      moved: 'They say he keeps a new tower now. When you see him, tell him we still light a candle for him every night.',
+    },
+  };
   const SCENES = {
     3: { art: 'story_wrecks', title: 'The name in the smoke',
       body: 'A bell rings through smoke. Someone gathers a child against their chest and whispers a name: the Warmonger. You wake from the glimpse with your hands clenched, though you cannot remember what they held.' },
@@ -171,11 +197,37 @@ const MemoryStory = (() => {
       if (act(scene.save) >= 2) return survivorLine(scene.save);
       return 'There is lamplight in a house that was dark yesterday. My children saw it first. Thank you. We can begin again.';
     }
+    if (c.role === 'witness') return NEIGHBOURS.witness[act(scene.save)];
+    if (c.role === 'wanderer') return wandererLine(scene, c);
+    if (c.role === 'believer') return believerLine(scene.save);
     // The fixed ninth scene guarantees the rumour; a neighbour repeats it
     // without replacing every scholar's or trader's ordinary conversation.
     if (c.role === 'scout' && total(scene.save) >= 9 && act(scene.save) === 1) return RUMOUR;
     if (c.role === 'scout' && act(scene.save) >= 2) return survivorLine(scene.save);
     return null;
+  }
+  // The wanderer is homeless until the NEXT restoration after the player
+  // first meets them: the first talk stamps the restoration count of the day
+  // (save.memoryStory.met[id]); one more roof after that and they are housed.
+  function wandererLine(scene, c) {
+    const s = state(scene.save), mended = Object.keys(scene.save.restoredHouses || {}).length;
+    if (!s.met || typeof s.met !== 'object') s.met = {};
+    if (!Number.isFinite(s.met[c.id])) {
+      s.met[c.id] = mended;
+      if (typeof persistSave === 'function') persistSave(scene.save);
+    }
+    if (mended <= s.met[c.id]) return NEIGHBOURS.wanderer.homeless;
+    return act(scene.save) >= 2 ? NEIGHBOURS.wanderer.settled : NEIGHBOURS.wanderer.housed;
+  }
+  // The believer follows the tower itself (Houses.wizardTowerIds and the
+  // memory gates towerAccess reads), one step behind the player.
+  function believerLine(save) {
+    const towers = Houses.wizardTowerIds(save), memories = total(save);
+    if (act(save) === 3 || towers.secondId) return NEIGHBOURS.believer.moved;
+    if (!towers.firstId) return NEIGHBOURS.believer.ruin;
+    if (memories >= LEAVE_MEMORIES) return NEIGHBOURS.believer.abandoned;
+    if (memories < START_MEMORIES) return NEIGHBOURS.believer.locked;
+    return NEIGHBOURS.believer.open;
   }
   function survivorLine(save) {
     const s = state(save);
@@ -284,7 +336,7 @@ const MemoryStory = (() => {
     try { show(); } catch (error) { scene._wizardStoryOpen = false; throw error; }
   }
   return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, LOCKED, ABANDONED, EMPTY,
-    HOME, RUMOUR, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
-    state, total, enqueue, panel, enqueueHome, drain, npcDialogue, survivorLine, act, towerAccess, objective,
+    HOME, RUMOUR, NEIGHBOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
+    state, total, enqueue, panel, enqueueHome, drain, npcDialogue, wandererLine, believerLine, survivorLine, act, towerAccess, objective,
     eligibleBeats, wizardSequence, pagesFor, visitWizard };
 })();

@@ -37,9 +37,9 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
  - crows: move in pauses and straight lines — short glides, a perch between.
    Game (a feather), nothing more; scarecrow aversion 4 cells. (They raided
    crops until Sep 2026; the deer does now.)
- - ravens: the crow's body in blue-black. A thief: its swoop takes COINS from
-   the purse — its own bounty's worth, never below $0 — once per bird per UTC
-   day, then it is sated and flies off. Felling one wins the snatch back.
+ - ravens: the crow's body in blue-black. A thief: its swoop takes ONE COIN
+   from the purse (never below $0), once per bird per UTC day, then it is
+   sated and flies off. Felling one pays its full bounty.
  - gulls: the crow's body in white, on the shore and the piers. A thief too:
    its swoop takes ONE piece of FOOD from the bag (the biggest meal in it),
    once per bird per UTC day. Same ledger, same sating, same flight.
@@ -1339,7 +1339,10 @@ ECONOMY (buying & selling)
    CASTLE until the player completes a job from THAT castle's quest board
    (quests.js; the sealed-castle tap opens the board). Completing one CLAIMS
    the castle: its turrets fight for you (see COMBAT), it lights up, and its
-   castellan offers ONE daily favour per UTC day (save.castleServiceClaimed):
+   castellan offers ONE favour per Houses.CASTLE_SERVICE_MS — TWELVE HOURS
+   (Sep 2026; was per UTC day. save.castleServiceClaimed[key] is the ms stamp
+   of the last favour; a legacy day stamp is spent until that day ends). It is
+   the one timer left on any building the player trades at:
    REST for a flat CASTLE_REST_ENERGY (35) energy, or COLLECT
    CASTLE_TAX_GOLD ($10) — presentCastleServiceOffer / _castleRest /
    _castleTax in app.js. (The old lifetime-delivery gate is retired; castles

@@ -6,8 +6,9 @@
 //   · the snatch goes through the ONE enemy-hit site (creature_ai.js
 //     rosterEnemyAttack → Combat.incomingTheft, a TAKE { what, n, id? } or
 //     null → scene._losePlayerToThief, app.js) and never touches energy;
-//   · coins: the thief's own bounty, never below $0. Food: ONE piece off the
-//     bag's biggest meal (Combat.theftFood — the highest FOOD_ENERGY stack);
+//   · coins: ONE coin (Combat.THEFT_COINS), never below $0. Food: ONE piece
+//     off the bag's biggest meal (Combat.theftFood — the highest FOOD_ENERGY
+//     stack);
 //   · one snatch per thief per UTC day (save.thefts — Combat.bankTheft /
 //     theftSated), then it is sated and flies off on the rout lane;
 //   · nothing hunts a body, nothing sees you under a Shadow Powder.
@@ -57,15 +58,16 @@ test('thieves: the theft kinds are the two roster columns, and only those', () =
 });
 
 // ── The take, in Combat ─────────────────────────────────────────────────────
-test('thieves: incomingTheft (coins) — its bounty, never past the purse, never on a body, once a day', () => {
+test('thieves: incomingTheft (coins) — one coin, never past the purse, never on a body, once a day', () => {
   const now = Date.UTC(2026, 8, 29, 12);
   const raven = { kind: 'raven', id: 'raven_1_2_3' };
   const amount = Combat.theftAmount('raven');
-  assert.eq(amount, Combat.enemyBounty('raven', 0), 'what it takes is what it is worth');
-  assert.gt(amount, 0);
+  assert.eq(amount, 1, 'a raven takes ONE coin (owner: "just one coin, then retreat")');
+  assert.eq(amount, Combat.THEFT_COINS, 'off the one constant');
+  assert.gt(Combat.enemyBounty('raven', 0), amount, 'and is worth more felled than fed');
   const save = { energy: 50, money: 100 };
   assert.eq(JSON.stringify(Combat.incomingTheft(save, raven, now)), JSON.stringify({ what: 'coins', n: amount }));
-  assert.eq(Combat.incomingTheft({ energy: 50, money: 1 }, raven, now).n, 1, 'never below $0');
+  assert.eq(Combat.incomingTheft({ energy: 50, money: 1 }, raven, now).n, 1, 'the last coin goes, never below $0');
   assert.eq(Combat.incomingTheft({ energy: 50, money: 0 }, raven, now), null, 'an empty purse: nothing to take');
   assert.eq(Combat.incomingTheft({ energy: 0, money: 100 }, raven, now), null, 'nothing hunts a body');
   assert.eq(Combat.incomingTheft(save, { kind: 'bat', id: 'b' }, now), null, 'a biter steals nothing');

@@ -1910,51 +1910,74 @@
     }
   }
 
-  // THE SAFE AREA'S WARDEN. One neighbour stands a few cells from the
-  // starting trailer on every save, in either mode, and says why the ground
-  // round Home is quiet (NPC.WARDEN_LINE — the safe area, EnemySpawns
-  // homeAllows). PLACED, like the greeter: it belongs to this player's
-  // starting area, so its id is the starter tile's (`npc_warden_<tx>_<ty>`)
-  // and it is seated off the frozen anchor, nearest legal cell in the
-  // WARDEN_MIN..MAX_CELLS ring, scanned in a fixed order so a rebuild seats it
-  // on the same cell. Idempotent; only a tile that has already spawned.
+  // THE STORY NEIGHBOURS. The safe area's WARDEN and the three story
+  // neighbours (NPC.STORY_NEIGHBOURS — the survivor of the Warmonger's night,
+  // the wanderer without a home, the wizard's believer) stand a few cells
+  // from the starting trailer on every save, in either mode. The warden says
+  // why the ground round Home is quiet (NPC.WARDEN_LINE — the safe area,
+  // EnemySpawns homeAllows); the others speak through MemoryStory.npcDialogue.
+  // PLACED, like the greeter: they belong to this player's starting area, so
+  // their ids are the starter tile's (`npc_<role>_<tx>_<ty>`) and they are
+  // seated off the frozen anchor, each on the nearest legal cell in the
+  // WARDEN_MIN..MAX_CELLS ring (the warden) or the wider NEIGHBOUR_MAX_CELLS
+  // ring (the rest), scanned in a fixed order so a rebuild seats them on the
+  // same cells. The warden is seated first so its cell never moved when the
+  // other three arrived; the rest keep NEIGHBOUR_GAP_CELLS from every story
+  // neighbour already seated, so they spread round the trailer rather than
+  // queue along one ring. Idempotent per id; only a tile that has already
+  // spawned. Four people on one tile: nothing the sim or the draw notices.
   const WARDEN_MIN_CELLS = 3;
   const WARDEN_MAX_CELLS = 6;
+  const NEIGHBOUR_MAX_CELLS = 8;
+  const NEIGHBOUR_GAP_CELLS = 2;
   function placeSafeAreaWarden(scene, entry, tx, ty) {
     if (typeof NPC === 'undefined' || !entry || !entry.grid || !entry._spawned) return;
     const anchor = scene.save.starterCratesAt || scene._starterTrailAnchor();
     if (!anchor || !Number.isFinite(anchor.x)) return;
     entry.creatures = entry.creatures || [];
-    const id = `npc_warden_${tx}_${ty}`;
-    if (entry.creatures.some(c => c.id === id)) return;
     const N = entry.cellsPerEdge;
     const cellM = scene.tileEdgeM / N;
     const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
     const ax = Math.floor((anchor.x - tx0) / cellM), ay = Math.floor((anchor.y - ty0) / cellM);
     const occupied = new Set();
-    const key = (wx, wy) => Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM);
+    const cellOf = (wx, wy) => ({ cx: Math.floor((wx - tx0) / cellM), cy: Math.floor((wy - ty0) / cellM) });
+    const key = (wx, wy) => { const c = cellOf(wx, wy); return c.cx + ',' + c.cy; };
     for (const o of (entry.objects || [])) occupied.add(key(o.x, o.y));
     for (const w of (entry.wildplants || [])) occupied.add(key(w.x, w.y));
     for (const c of entry.creatures) occupied.add(key(c.x, c.y));
     const opts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
-    let seat = null;
-    for (let r = WARDEN_MIN_CELLS; r <= WARDEN_MAX_CELLS && !seat; r++) {
-      for (let dy = -r; dy <= r && !seat; dy++) {
-        for (let dx = -r; dx <= r && !seat; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // this ring only
-          const cx = ax + dx, cy = ay + dy;
-          if (cx < 0 || cy < 0 || cx >= N || cy >= N || occupied.has(cx + ',' + cy)) continue;
-          if (Combat.faunaBlocksCell(entry.grid[cy * N + cx])) continue;
-          if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts, 'npc')) continue;
-          seat = { cx, cy };
+    const roles = NPC.STORY_NEIGHBOURS || ['warden'];
+    const seated = [];   // story neighbours' cells, present already or seated now
+    for (const role of roles) {
+      const c = entry.creatures.find(o => o.id === `npc_${role}_${tx}_${ty}`);
+      if (c) seated.push(cellOf(c.x, c.y));
+    }
+    for (const role of roles) {
+      const id = `npc_${role}_${tx}_${ty}`;
+      if (entry.creatures.some(c => c.id === id)) continue;
+      const maxR = role === 'warden' ? WARDEN_MAX_CELLS : NEIGHBOUR_MAX_CELLS;
+      let seat = null;
+      for (let r = WARDEN_MIN_CELLS; r <= maxR && !seat; r++) {
+        for (let dy = -r; dy <= r && !seat; dy++) {
+          for (let dx = -r; dx <= r && !seat; dx++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // this ring only
+            const cx = ax + dx, cy = ay + dy;
+            if (cx < 0 || cy < 0 || cx >= N || cy >= N || occupied.has(cx + ',' + cy)) continue;
+            if (role !== 'warden' && seated.some(s => Math.max(Math.abs(s.cx - cx), Math.abs(s.cy - cy)) < NEIGHBOUR_GAP_CELLS)) continue;
+            if (Combat.faunaBlocksCell(entry.grid[cy * N + cx])) continue;
+            if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts, 'npc')) continue;
+            seat = { cx, cy };
+          }
         }
       }
+      if (!seat) continue;
+      const x = tx0 + (seat.cx + 0.5) * cellM, y = ty0 + (seat.cy + 0.5) * cellM;
+      const neighbour = WorldGen.makeCreature('npc', x, y, id, { ...NPC.storyNeighbour(id, role), homeX: x, homeY: y });
+      entry.creatures.push(neighbour);
+      occupied.add(seat.cx + ',' + seat.cy);
+      seated.push(seat);
+      if (role === 'warden' && typeof MemoryStory !== 'undefined') MemoryStory.enqueueHome(scene, neighbour);
     }
-    if (!seat) return;
-    const x = tx0 + (seat.cx + 0.5) * cellM, y = ty0 + (seat.cy + 0.5) * cellM;
-    const neighbour = WorldGen.makeCreature('npc', x, y, id, { ...NPC.warden(id), homeX: x, homeY: y });
-    entry.creatures.push(neighbour);
-    if (typeof MemoryStory !== 'undefined') MemoryStory.enqueueHome(scene, neighbour);
   }
 
   // Hard mode has no supply handout: drop the starter crates (the `crate: true`
