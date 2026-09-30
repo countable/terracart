@@ -1671,9 +1671,9 @@ Render.drawCells = function drawCells(scene) {
           if (spec) {
             texKey = `biome${baseType}_${Math.abs(h) % spec.variants}`;
             // Animated biome (water/pier): pick the pre-baked phase frame from
-            // the wall clock. setTexture already runs on this sprite every
-            // frame, so a time-varying key costs nothing extra — the phases
-            // were rasterized once at startup (textures.js makeBiomeTextures).
+            // the wall clock. The key is compared every frame anyway, so a
+            // time-varying one costs a swap only when the phase turns — the
+            // phases were rasterized once at startup (textures.js makeBiomeTextures).
             // All cells share the clock, so the water drifts as one body.
             if (spec.animPhases) {
               const p = Math.floor(texNow / spec.animMs) % spec.animPhases;
@@ -1682,10 +1682,14 @@ Render.drawCells = function drawCells(scene) {
           }
         }
         if (texKey) {
-          ns.setTexture(texKey);
-          // setTexture resets the sprite's intrinsic size; re-apply CELL_PX.
-          ns.setDisplaySize(CELL_PX, CELL_PX)
-            .setPosition(Math.round(sx), Math.round(sy))
+          // Only on a swap: Phaser's setTexture is NOT a no-op for the key a
+          // sprite already wears (it re-derives the frame, size and crop), and
+          // a cell's key only changes on a crossing or a water phase — so
+          // 169 unconditional swaps a step were pure waste on a still view.
+          // setTexture resets the sprite's intrinsic size; re-apply CELL_PX
+          // with it (the scale it leaves stands until the next swap).
+          if (setTextureIfDifferent(ns, texKey)) ns.setDisplaySize(CELL_PX, CELL_PX);
+          ns.setPosition(Math.round(sx), Math.round(sy))
             .setVisible(true);
           // Watered soil reads a shade darker (damp). The pad is an opaque
           // sprite now, so the tint goes on the sprite — a wash on the cell
@@ -1736,10 +1740,12 @@ Render.drawCells = function drawCells(scene) {
         // adjacent pier cells (vertical OR horizontal runs) and any resize
         // opens a seam. Fully opaque — it's a solid walkway.
         if (type === PIER && !isTilled) {
-          cs.setTexture('pier', PIER_FRAME);
-          cs.setFrame(PIER_FRAME);
-          cs.setDisplaySize(CELL_PX, CELL_PX)
-            .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
+          // Swapped only when it differs, like the ground sprite above.
+          if (cs.texture.key !== 'pier' || cs.frame.name !== PIER_FRAME) {
+            cs.setTexture('pier', PIER_FRAME);
+            cs.setDisplaySize(CELL_PX, CELL_PX);
+          }
+          cs.setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
             .setTint(0xffffff)
             .setAlpha(1)
             .setVisible(true);
@@ -2616,10 +2622,15 @@ Render.drawObjects = function drawObjects(scene) {
         for (const c of entry.creatures) {
           _boot_scanned++;
           if (caughtSet.has(c.id)) continue;
-          if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
-          if (c._surfaceInactive) continue;
+          // The viewport cull BEFORE the surface-foe question: only a foe
+          // that would be drawn needs its `_surfaceInactive` stamp fresh here
+          // (wanderCreatures keeps the rest of the ring's), and asking every
+          // seat on three-by-three town tiles each step was a roster walk
+          // per creature for the few dozen that survive.
           const dx = c.x - pWorldX, dy = c.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+          if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
+          if (c._surfaceInactive) continue;
           creatureList.push({ c, dx, dy });
           _boot_kept++;
         }

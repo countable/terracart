@@ -1554,11 +1554,25 @@ class SceneCreatures {
     ghostSpawnPass(this, now, px, py, pcW, homePos, castleWards, HOME_WARD_R2, caughtSet);
 
     WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
-      if ((c._surfaceSpawn || c.lair) && !EnemySpawns.surfaceActive(this, c)) return;
       // Cheapest reject first: the sim range cull. Everything below runs only
       // for the handful of creatures actually near the player.
       const ddx = c.x - px, ddy = c.y - py;
-      if (ddx * ddx + ddy * ddy > RANGE_SQ) {
+      const far = ddx * ddx + ddy * ddy > RANGE_SQ;
+      // Is this surface foe here for this player (EnemySpawns.surfaceActive —
+      // it stamps `_surfaceInactive`, which Combat.isEnemy and the draw read)?
+      // Asked every tick inside the bubble. Outside it — hundreds of seats
+      // across the 3×3 ring on a town's tiles, each call a roster lookup and
+      // a tier-band walk — a frozen foe is re-asked once per
+      // SURFACE_RECHECK_MS instead: its answer moves with the sun, Home and
+      // the pest amnesty, all minutes-slow, so the stamp a far reader
+      // (a magic trap, a hint) sees is never more than that stale.
+      if (c._surfaceSpawn || c.lair) {
+        if (!far || c._surfaceAskedT == null || now - c._surfaceAskedT >= SURFACE_RECHECK_MS) {
+          c._surfaceAskedT = now;
+          if (!EnemySpawns.surfaceActive(this, c)) return;
+        } else if (c._surfaceInactive) return;
+      }
+      if (far) {
         if (c.kind === 'npc') c._moving = false;
         return;
       }

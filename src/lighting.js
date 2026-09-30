@@ -278,6 +278,19 @@
 
   // Seconds per POI breath. Slow on purpose (see the row above).
   const POI_PULSE_PERIOD_S = 4.5;
+  // The breath's OWN clock: PULSE_STEPS stills per breath (150 ms), where a
+  // flicker needs the light clock's 100 ms. A breath is a slow sine, so its
+  // steepest still-to-still change is pulse · π / PULSE_STEPS of the row's
+  // peak (~5% for a POI) — under what a glow seconds long reads as stepping
+  // — and a view whose only moving lights breathe (a live POI, a shiny, a
+  // mushroom, a shrine: the common still view in a town) repaints a third
+  // less often than on the flicker's clock. It divides the period exactly, so
+  // one breath later a light is where it was. Its own grid on the WALL clock
+  // (draw() reads both), not a multiple of the light clock's — 150 on a
+  // 100 ms grid would step at uneven 100 / 200 ms gaps.
+  const PULSE_STEPS = 30;
+  const PULSE_TICK_MS = POI_PULSE_PERIOD_S * 1000 / PULSE_STEPS;
+  function pulseClock(t) { return Math.floor(t / PULSE_TICK_MS) * PULSE_TICK_MS; }
 
   // app.js's VIEW_CELLS, read at call time like FIRE_REST_R (app.js loads
   // after this file); 11 is its shipping value, for a context without it.
@@ -1025,10 +1038,10 @@
   // Each cookie is its baked shape: peak · (1 - r/R)² times the row's flicker
   // or pulse and the entry's own alpha / scale, at the colour's luminance.
   const COLLECTED_KINDS = new Set(['player', 'handtorch', 'fire', 'magic_trap', 'cobble', 'blast', 'bolt']);
-  function cookieLevel(L, qx, qy, cellM, now) {
+  function cookieLevel(L, qx, qy, cellM, now, pulseNow) {
     const row = KINDS[L.kind];
     if (!row || !(row.peak > 0)) return 0;
-    const a = flickerAlpha(row, L.dx, L.dy, now, L.id) * (L.a == null ? 1 : L.a);
+    const a = flickerAlpha(row, L.dx, L.dy, now, L.id, pulseNow) * (L.a == null ? 1 : L.a);
     const sc = (row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1) * (L.s == null ? 1 : L.s);
     const R = (L.r != null ? L.r : radiusCells(L.kind)) * cellM * sc;
     const d = Math.hypot(qx, qy);
@@ -1072,7 +1085,8 @@
   function brightnessAt(scene, wx, wy, nowIn, opts) {
     if (!scene || !Number.isFinite(wx) || !Number.isFinite(wy)) return 0;
     const cellM = scene.cellM;
-    const now = lightClock(nowIn == null ? Date.now() : nowIn);
+    const wall = nowIn == null ? Date.now() : nowIn;
+    const now = lightClock(wall), pnow = pulseClock(wall);
     const prof = profile(scene, daylight(scene, now), now);
     let b = (opts && opts.playerGlow === false) ? 0 : playerLightAt(scene, wx, wy, prof);
     // The collectors push onto scene._lights; point them at a scratch list for
@@ -1089,12 +1103,12 @@
     } finally {
       scene._lights = frame;
     }
-    for (const L of own) b += cookieLevel(L, -L.dx, -(L.dy + liftM(L, cellM)), cellM, now);
+    for (const L of own) b += cookieLevel(L, -L.dx, -(L.dy + liftM(L, cellM)), cellM, now, pnow);
     const A = scene._lightAnchor;
     if (frame && A) {
       for (const L of frame) {
         if (COLLECTED_KINDS.has(L.kind)) continue;
-        b += cookieLevel(L, wx - (A.x + L.dx), wy - (A.y + L.dy + liftM(L, cellM)), cellM, now);
+        b += cookieLevel(L, wx - (A.x + L.dx), wy - (A.y + L.dy + liftM(L, cellM)), cellM, now, pnow);
       }
     }
     return clamp01(b);
@@ -1125,28 +1139,41 @@
   // which steps LIGHT_TICK_MS at a time, so an animated view repaints at
   // 1000 / LIGHT_TICK_MS Hz rather than the display's rate, and a still one
   // not at all. Ten steps a second is past what a flicker can be told apart
-  // at, and the pulse's period is seconds; the ramp and the plateau never
-  // animate. The gate is the same shape as the fog's and the road canvas's
+  // at; a BREATH (the `pulse` rows) is seconds long and steps on its own,
+  // slower clock (pulseClock, above), so a view whose only moving lights
+  // breathe repaints at 1000 / PULSE_TICK_MS Hz. The ramp and the plateau
+  // never animate. The gate is the same shape as the fog's and the road canvas's
   // (rebuild on a key, else reuse), pointed at the one layer that lacked it.
   const LIGHT_TICK_MS = 100;
   function lightClock(t) { return Math.floor(t / LIGHT_TICK_MS) * LIGHT_TICK_MS; }
-  // Does anything in this step's list move on its own clock? A row's flicker
-  // or pulse, or an entry-level alpha / scale (a blast drives both).
+  // Does anything in this step's list move on its own clock, and on which?
+  // ANIM_FAST: a row's flicker, or an entry-level alpha / scale (a blast
+  // drives both) — the light clock. ANIM_PULSE: a row's breath — the pulse
+  // clock. 0 when nothing moves. A bit mask, so a list holding both keys on
+  // both clocks.
+  const ANIM_FAST = 1, ANIM_PULSE = 2;
   function animates(scene) {
+    let m = 0;
     for (const L of scene._lights) {
       const row = KINDS[L.kind];
-      if ((row && (row.flicker || row.pulse)) || L.a != null || L.s != null) return true;
+      if ((row && row.flicker) || L.a != null || L.s != null) m |= ANIM_FAST;
+      if (row && row.pulse) m |= ANIM_PULSE;
+      if (m === (ANIM_FAST | ANIM_PULSE)) break;
     }
-    return false;
+    return m;
   }
   // Every number the paint reads, in one string. `rp` / `pc` are null when no
-  // plateau is drawn (they only exist to place it); the clock is folded in
-  // only when something animates, so a still fire-less view has no time term.
-  function frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now) {
+  // plateau is drawn (they only exist to place it); each clock is folded in
+  // only when something moves on it, so a still fire-less view has no time
+  // term and a view that only breathes has only the breath's. `pulseNow` is
+  // draw()'s breath clock; left out, it is derived from `now`.
+  function frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pulseNow) {
     let k = `${ps.x},${ps.y},${ox},${oy},${r0},${rMax},${reachM}`
       + `|${prof.depth},${prof.dimA},${prof.dimColour},${prof.farA},${prof.ambient},${prof.edge},${prof.lit},${prof.litColour},${prof.night}`;
     if (rp) k += `|${rp.cellIX},${rp.cellIY},${pc.tx},${pc.ty},${pc.cx},${pc.cy}`;
-    if (animates(scene)) k += `|t${now}`;
+    const anim = animates(scene);
+    if (anim & ANIM_FAST) k += `|t${now}`;
+    if (anim & ANIM_PULSE) k += `|p${pulseNow == null ? pulseClock(now) : pulseNow}`;
     const crit = criticalLights(scene, now);           // every light's tint + stutter
     if (crit) k += `|crit${crit.mix},${crit.a.toFixed(4)}`;
     for (const L of scene._lights) k += `|${L.kind},${L.id},${L.dx},${L.dy},${L.dyPx},${L.r},${L.colour},${L.a},${L.s},${L.g}`;
@@ -1284,7 +1311,9 @@
   // so neighbouring fires don't flicker in unison; a POI's slow breath: one
   // sine over POI_PULSE_PERIOD_S, phased by its id (stable across tile
   // reloads — no RNG) so a street of POIs doesn't throb as one.
-  function flickerAlpha(row, dx, dy, now, id) {
+  // `pulseNow` is the breath's clock (pulseClock of the wall time); left out,
+  // it is derived from `now`, so a direct call steps on the same grid.
+  function flickerAlpha(row, dx, dy, now, id, pulseNow) {
     let a = 1;
     if (row.flicker) {
       const phase = ((dx * 7.13 + dy * 3.71) % 6.283);
@@ -1293,7 +1322,8 @@
     }
     if (row.pulse) {
       const h = strHash31(id || '');
-      const t = (now / 1000) / POI_PULSE_PERIOD_S + (h % 1000) / 1000;
+      const pt = pulseNow == null ? pulseClock(now) : pulseNow;
+      const t = (pt / 1000) / POI_PULSE_PERIOD_S + (h % 1000) / 1000;
       const w = 0.5 + 0.5 * Math.sin(t * Math.PI * 2);           // 0..1
       a *= 1 - row.pulse * w;
     }
@@ -1354,7 +1384,9 @@
     const tex = scene.lightTex;
     if (!tex || typeof document === 'undefined') return false;
     if (!scene._lights) scene._lights = [];
-    const now = lightClock(Date.now());
+    const wall = Date.now();
+    const now = lightClock(wall);
+    const pnow = pulseClock(wall);                   // the breath's own clock
     collectMagicTraps(scene, ax, ay, halfM);
     collectFires(scene, ax, ay, halfM);
     collectLamps(scene, ax, ay, halfM);
@@ -1383,7 +1415,7 @@
     const rp = plateau ? playerReachCell(scene) : null;
     const pc = plateau ? viewAnchorCell(scene) : null;
     const B = (typeof window !== 'undefined') ? window.__boot : null;
-    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now);
+    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow);
     if (key === tex.__lightKey) {
       scene._boot_lightMs = 0;
       if (B) B.count('lightmap painted', 0);
@@ -1469,7 +1501,7 @@
       const colour = crit ? mixColour(L.colour == null ? row.colour : L.colour, LOW_ENERGY_TINT, crit.mix)
                           : L.colour;
       const ck = ensureKindCookie(scene, L.kind, L.r, colour);
-      const a = flickerAlpha(row, L.dx, L.dy, now, L.id) * (L.a == null ? 1 : L.a)
+      const a = flickerAlpha(row, L.dx, L.dy, now, L.id, pnow) * (L.a == null ? 1 : L.a)
         * (crit ? crit.a : 1);
       const sc = (row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1) * (L.s == null ? 1 : L.s);
       const d = 2 * ck.R * sc;
@@ -1509,6 +1541,6 @@
     collectPlayer, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
-    LIGHT_TICK_MS, lightClock, animates, frameKey,
+    LIGHT_TICK_MS, lightClock, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
   };
 })(window);

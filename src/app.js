@@ -5049,7 +5049,7 @@ class MapScene extends Phaser.Scene {
     let scan = this._turretScan;
     if (!scan || now - scan.t > TURRET_SCAN_MS) {
       const list = [];
-      WorldGen.forEachItemNear('objects', pc.tx, pc.ty, (o) => {
+      this._forEachTowerNear(pc, (o) => {
         if (o.kind !== 'tower') return;
         // ONLY A CASTLE YOU HAVE TAKEN BACK FIGHTS FOR YOU. A turret is stamped
         // with its castle's footprint key (worldgen), and this is the SAME
@@ -11228,11 +11228,35 @@ class MapScene extends Phaser.Scene {
     const memo = this._castleWardScan;
     if (memo && now - memo.t < TURRET_SCAN_MS && memo.tx === pc.tx && memo.ty === pc.ty) return memo.list;
     const list = [];
-    WorldGen.forEachItemNear('objects', pc.tx, pc.ty, (o) => {
+    this._forEachTowerNear(pc, (o) => {
       if (o.kind === 'tower' && this.isClaimedKey(o.castle)) list.push(o);
     });
     this._castleWardScan = { t: now, tx: pc.tx, ty: pc.ty, list };
     return list;
+  }
+
+  // Every turret ('tower' object) in the 3×3 tile ring about `pc`. The two
+  // turret scans (_castleWardPoints, _turretFire) re-ran every TURRET_SCAN_MS
+  // — the ward one on every wander tick, enemies or not — and each walked the
+  // nine tiles' WHOLE object lists (tens of thousands in a town) for the
+  // handful of turrets. The turrets are derived once per tile instead, under
+  // the chunk index's own rebuild rule (WorldGen.chunkIndex): keyed on the
+  // objects array's identity, length and last element, which every mutation
+  // the code makes moves, so a rebuilt or edited tile re-derives by itself.
+  _forEachTowerNear(pc, fn) {
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
+        const arr = e && e.objects;
+        if (!arr || !arr.length) continue;
+        const last = arr[arr.length - 1];
+        let d = e._towers;
+        if (!d || d.arr !== arr || d.n !== arr.length || d.last !== last) {
+          d = e._towers = { arr, n: arr.length, last, list: arr.filter((o) => o.kind === 'tower') };
+        }
+        for (const o of d.list) fn(o);
+      }
+    }
   }
 
   homeWorldPos() {
