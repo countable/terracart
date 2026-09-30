@@ -3,20 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Enemy art at game scale</title>
+<title>Monsters</title>
 <style>
 :root{color-scheme:dark;font:14px system-ui,sans-serif;background:#151b1a;color:#e4e9df}
 body{max-width:1280px;margin:0 auto;padding:28px}h1{font-size:25px;margin:0 0 8px}p{color:#adbbae;line-height:1.5}
 .controls{display:flex;flex-wrap:wrap;gap:18px;align-items:center;padding:16px;background:#202a25;border:1px solid #39473d;border-radius:8px;margin:20px 0}
 label{display:flex;gap:8px;align-items:center}select,input,button{font:inherit;padding:7px;background:#111b17;border:1px solid #526456;border-radius:5px;color:inherit}input[type=number]{width:75px}button{cursor:pointer}
 #gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}.enemy{background:#202923;border:1px solid #39473d;border-radius:8px;padding:14px;min-width:0;overflow:auto}.enemy h2{font-size:15px;margin:0 0 4px}.kind{font:12px ui-monospace,monospace;color:#9aafa0}.stage{margin:10px auto;width:192px;height:160px;background:#17211b}.stage canvas,.stage img{display:block;width:192px;height:160px;image-rendering:pixelated}.meta{font-size:12px;line-height:1.6;color:#b8c7b8}.frame{font-variant-numeric:tabular-nums}#status{color:#c6d5a7}.error{color:#ffb4a8}a{color:#cadfb8}
+.views{display:flex;gap:12px;overflow:auto}.view{flex:none}.view[hidden]{display:none}.view-label{color:#cadfb8;font-size:12px;margin-top:10px}.views .stage{margin:4px 0 10px}#gallery.comparing{grid-template-columns:repeat(auto-fill,minmax(min(100%,440px),1fr))}.stats{margin:8px 0;padding:8px 0;border-top:1px solid #39473d}.habitats{margin-bottom:8px}nav{margin-bottom:20px}
 </style>
 </head>
 <body>
-<h1>Enemy art at game scale</h1>
+<nav><a href="../mending-lane-dashboards/index.html">Design dashboard</a> · <a href="../mending-lane-dashboards/archive.html">Archives</a></nav>
+<h1>Monsters</h1>
+<p>Current game roster, combat stats and habitats. The 25% world-palette treatment is a review preview; game assets are unchanged. Compare it with the original game colours below.</p>
 <p>One CSS pixel equals one game logical pixel at 100% browser zoom. Grid squares are 32 pixels.
 Each sprite uses the game's own frames, size, palette, tint and opacity. This preview isolates body frames; scene lighting, shadows, bobbing and combat flashes are not shown. Large instances scroll inside their cards without shrinking.</p>
 <div class="controls">
+<label>Search <input id="search" type="search" placeholder="Monster name or ID"></label>
+<label>Tier <select id="tier"><option value="">All tiers</option></select></label>
+<label>Colour <select id="colour"><option value="palette">25% world palette</option><option value="original">Original</option><option value="compare">Original / 25% side by side</option></select></label>
 <label>Direction <select id="direction"><option value="down">Down</option><option value="up">Up</option><option value="left">Left</option><option value="right">Right</option></select></label>
 <label>State <select id="state"><option value="idle">Idle</option><option value="move">Move</option><option value="attack">Attack</option></select></label>
 <label>Instance size <input id="instance-scale" type="number" min="0.05" max="4" step="0.05" value="1"></label>
@@ -24,8 +30,10 @@ Each sprite uses the game's own frames, size, palette, tint and opacity. This pr
 <button id="export" type="button" disabled>Export current view</button>
 </div>
 <p id="status" role="status">Loading game art…</p>
+<p id="empty" hidden>No monsters match these filters.</p>
 <div id="gallery"></div>
 <script src="game-loader.js"></script>
+<script src="art_preview_colour.js"></script>
 <script src="enemy-preview.js"></script>
 </body>
 </html>

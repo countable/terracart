@@ -22,22 +22,10 @@ body{margin:0;background:#4b7f4b;}
 canvas{position:absolute;image-rendering:pixelated;}
 </style></head><body>
 <div id="stage"></div>
-<script src="/src/enemy_roster.js"></script>
-<script src="/src/sprite_layout.js"></script>
-<script src="/src/mvt.js"></script>
-<script src="/src/util.js"></script>
-<script src="/src/coords.js"></script>
-<script src="/src/fog.js"></script>
-<script src="/src/biome_profiles.js"></script>
-<script src="/src/home.js"></script>
-<script src="/src/worldgen.js"></script>
-<script src="/src/textures.js"></script>
-<script src="/src/render.js"></script>
-<script src="/src/road_overlay.js"></script>
-<script src="/src/building_overlay.js"></script>
+<script src="game-loader.js"></script>
 <script>
-const CELL_PX = 32;
-const COLORS = { 9: 0x9d6350, 11: 0x9b8365, 12: 0x787a80 };
+(async () => {
+await loadGame();
 const stage = document.getElementById('stage');
 // Minimal Phaser-shaped shim: enough of textures/add.image for the overlay's
 // real canvas adapter to run, backed by DOM canvases.
@@ -122,4 +110,9 @@ WorldGen.tileCache.set(WorldGen.tileKey(0, 0), {
 })();
 BuildingOverlay.draw(scene);
 document.title = 'ready';
+})().catch((error) => {
+  document.title = 'preview failed';
+  document.getElementById('stage').textContent = error.message;
+  console.error(error);
+});
 </script></body></html>
