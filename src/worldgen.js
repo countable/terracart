@@ -9,7 +9,7 @@
   const CELL_M = 7;             // game cell size in meters
   // Park, forest and grove trees share this ordered set so a species change
   // reaches every generated tree lane.
-  const TREE_SPECIES = Object.freeze(['maple', 'pine', 'birch', 'mahogany']);
+  const TREE_SPECIES = Object.freeze(['maple', 'pine']);
 
   // ── Where the tiles come from ──────────────────────────────────────────
   // OpenFreeMap serves each weekly planet build from a DATED directory
@@ -3698,7 +3698,7 @@
     // spawnHedgeMazeSteps. `yield` consumes no rng, so rng() fires in exactly
     // the same order sliced or not — the forest this produces is identical.
     function* spawnForestTreesSteps(rings, polyKey) {
-      // Each polygon picks ONE species (maple/pine/birch/mahogany) so a single
+      // Each polygon picks ONE species (maple/pine) so a single
       // forest reads as a single woodland type instead of a jumbled mix. Each
       // species has its own real sprite sheet (no tint pass needed).
       const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
@@ -5514,7 +5514,16 @@
     if (typeof Scenic !== 'undefined') {
       yield 'before scenic';
       scenic = yield* Scenic.buildSteps(layersByName, tx, ty, w, grid, false, zone && zone.under);
-      dressSpawn();
+    }
+    dressSpawn();
+    // Future lamp feet stay clear through both scenic and street dressing,
+    // then leave no phantom occupancy behind for unrelated zone spawns.
+    const lampReservations = typeof RoadOverlay !== 'undefined'
+      ? RoadOverlay.lampReservedCells(tx, ty, { layers, tileEdgeM, cellsPerEdge: w, streetIndex, scenic, zone })
+      : new Set();
+    const temporaryLampCells = [...lampReservations].filter(cell => !dressOcc.has(cell));
+    for (const cell of temporaryLampCells) dressOcc.add(cell);
+    if (scenic) {
       scenicDress = yield* Scenic.dressSteps({ scenic, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
     }
@@ -5528,6 +5537,7 @@
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy: caveSource.spawnWhy,
           roadClass, occupied: dressOcc, pois: dressPois } });
     }
+    for (const cell of temporaryLampCells) dressOcc.delete(cell);
     if (zone) {
       zone.legacyRemoved += yield* clearZoneAmbientSteps({ field: zone, objects: deduped,
         wildplants: filtered, occupied: dressOcc, streetDress, scenicDress, tx, ty, N: w, tileEdgeM });
@@ -6353,7 +6363,8 @@
               // OSM trees have none → fall back to the seeded random species.
               // The WORLD's species: softwood-near-home is a per-player overlay
               // (HomeArea.applySoftwood, app.js), never baked into a bin.
-              species: props.species || TREE_SPECIES[seed % TREE_SPECIES.length],
+              species: TREE_SPECIES.includes(props.species) ? props.species
+                : TREE_SPECIES[seed % TREE_SPECIES.length],
               // An OSM tree is named by its osm_id; a detection (no id) is
               // named by the cell it SETTLES on, at injection (loadTile).
               id: osmId ? `tree_osm_${osmId}` : undefined,
@@ -6361,7 +6372,7 @@
               // crown colour → sprite size / tint in render.js. Undefined for OSM
               // trees, which fall back to the flat species scale and no tint.
               crown_m: props.crown_m,
-              size: props.size,
+              size: props.size === 'bush' ? 'small' : props.size,
               crown_color: props.crown_color,
               // Flag standalone OSM trees (street / yard) so the T-key teleport
               // can hop between them, distinct from dense forest-grove trees.

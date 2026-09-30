@@ -64,6 +64,11 @@ def material_art(material):
         crop = material['crop']
         ov = r['crops'].get(crop)
         look = material.get('_plantArt') or material.get('_streetArt')
+        if crop == 'shrub':
+            if look == 'trimmed':
+                look = 'clipped'
+            if not look and not material.get('_cave') and material.get('_biome') in (5, 16):
+                look = 'clipped'
         if look in r['contextLooks'] and r['contextLooks'][look]['crop'] == crop:
             ov = r['contextLooks'][look]
         elif ov and look:
@@ -92,7 +97,7 @@ def material_art(material):
     else:
         sheet, frames = ('approved_charred_stakes' if kind == 'stakes' and material.get('_street') == 'burned' else kind), [0]
     assert sheet in r['assets'], f'No shipping art for {material}'
-    return {'sheet': sheet, 'frames': frames, 'preserveFrame': kind == 'tree', 'tint': r['creatures'].get(kind, {}).get('tint', 0xffffff),
+    return {'sheet': sheet, 'frames': frames, 'preserveFrame': kind == 'tree' or (kind == 'wildplant' and material.get('crop') == 'shrub'), 'tint': r['creatures'].get(kind, {}).get('tint', 0xffffff),
             'source': r['assets'][sheet]['path'].split('?')[0] + ' · frame ' + ', '.join(map(str, frames))}
 
 
@@ -109,12 +114,13 @@ def sprite_symbols(materials, prefix):
 
 
 def sprite_cell(prefix, material, x, y, size, definition=None):
-    if material == 'giant_mushroom':
-        look = art_registry()['crops']['shrub']['looks']['giant_mushroom']
-        factor = art_registry()['assets'][look['sheet']]['frameHeight'] * look['scale'] / 32
-        x -= size * (factor - 1) / 2
-        y -= size * (factor - 1)
-        size *= factor
+    if definition and definition.get('kind') == 'wildplant' and definition.get('crop') == 'shrub':
+        art = material_art(definition)
+        placement = art_registry()['plantPlacements'][art['sheet'] + ':' + str(art['frames'][0])]
+        unit = size / .8 / art_registry()['cellPx']
+        width, height = placement['width'] * unit, placement['height'] * unit
+        cx, cy = x + size / 2, y + size / 2
+        return art_image(art, f'class="sprite-cell" x="{cx + placement["dxPx"] * unit - width / 2}" y="{cy + placement["dyPx"] * unit - height / 2}" width="{width}" height="{height}"')
     if definition and definition.get('kind') == 'tree' and definition.get('size'):
         factor = 48 * art_registry()['treeSizes'][definition['size']] / 32
         x -= size * (factor - 1) / 2
@@ -331,7 +337,7 @@ def svg_for(v, d, detail=False):
                 gx, gy = x + poi_x - draw_x, y + poi_y - draw_y
                 material = background_at(v, gx, gy)
                 if material:
-                    definition = d['materials'][material]
+                    definition = materials[material]
                     if definition.get('recordType') == 'enemy':
                         parts.append(creature_at(definition['kind'], x*unit+5, y*unit+5, unit, 'Pattern carnivorous plant · persistent defeated state'))
                         continue
@@ -345,9 +351,9 @@ def svg_for(v, d, detail=False):
     for x,y in [(0,0)] + [slot['at'] for slot in slots]:
         parts.append(f'<rect x="{(draw_x+x)*unit}" y="{(draw_y+y)*unit}" width="10" height="10" fill="#172820"/>')
     for slot in slots:
-        x, y = slot['at']; material = slot['material']; color = d['materials'][material]['color']
+        x, y = slot['at']; material = slot['material']; color = materials[material]['color']
         parts.append(f'<rect class="geometry-cell" x="{(draw_x+x)*unit+1}" y="{(draw_y+y)*unit+1}" width="8" height="8" fill="{color}"><title>POI: {material} ({x}, {y})</title></rect>')
-        parts.append(sprite_cell(art_prefix, material, (draw_x+x)*unit+1, (draw_y+y)*unit+1, 8, d['materials'][material]))
+        parts.append(sprite_cell(art_prefix, material, (draw_x+x)*unit+1, (draw_y+y)*unit+1, 8, materials[material]))
     light = registry['lighting']['shrine' if shrine else 'poi']
     color = '#%06x' % light['colour']
     parts.append(light_guide(cx,cy,unit*light['radiusCells'],color))
@@ -377,7 +383,7 @@ def svg_for(v, d, detail=False):
         x,y = (draw_x,draw_y) if guard['mode']=='guard_poi' else targets[n%len(targets)]
         if guard['mode']=='guard_find':
             material = v['finds']['material']
-            parts.append(sprite_cell(art_prefix, material, x*unit+1,y*unit+1,8,d['materials'][material]))
+            parts.append(sprite_cell(art_prefix, material, x*unit+1,y*unit+1,8,materials[material]))
             parts.append(f'<rect class="monster-layer" x="{x*unit}" y="{y*unit}" width="10" height="10" fill="none" stroke="#ffd68d" stroke-width=".6"><title>Guarded special find</title></rect>')
         dx,dy = guard['offsetCells'][n%len(guard['offsetCells'])]
         kinds = guard.get('choices') or guard.get('kinds') or [guard['kind']]
@@ -441,7 +447,7 @@ def street_svg(v, cell_m, detail=False):
         kind = o.get('crop', o['kind'])
         color = STREET_COLORS.get(kind, '#d4d4d4')
         size = cell_m * .8
-        if o.get('_streetArt'):
+        if o.get('_streetArt') and kind != 'shrub':
             registry = art_registry()
             look = registry['crops'][kind]['looks'][o['_streetArt']]
             size = cell_m * registry['assets'][look['sheet']]['frameWidth'] * look['scale'] / 32

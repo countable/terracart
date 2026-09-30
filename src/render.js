@@ -3724,7 +3724,10 @@ Render.drawObjects = function drawObjects(scene) {
     const isPlantedCrop = p.wildId == null && !p._placedRock;
     const cropScl = ((ov && ov.scale != null) ? ov.scale : 2) * (isPlantedCrop ? 0.8 : 1);
     const plantedYOffset = isPlantedCrop ? 3 : 0;
-    s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx), Math.round(sy) - plantedYOffset);
+    // Tall authored plants follow the same cell-foot rule as trees and props.
+    const box = ov?.seat && SpriteLayout.ART_BOUNDS[`${ov.sheet}:${wildplantFrame(p)}`];
+    const placement = box ? SpriteLayout.seatInCell(box, 0.5, oy, cropScl, cropScl) : {dxPx:0, dyPx:0};
+    s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx) + placement.dxPx, Math.round(sy) + placement.dyPx - plantedYOffset);
   });
 
   // Growth-timer corner badges: for a watered, still-growing crop, render the
@@ -4310,24 +4313,18 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
              frame: (o) => (Math.floor(performance.now() / 130) + ((o.x | 0) & 3)) % 4,
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true },
     // Per-polygon species — maple uses the original 32×48 sheet with the
-    // variant->frame growth-stage pick. Pine/birch/mahogany use their own
+    // variant->frame growth-stage pick. Pine uses its own
     // sheets sliced 32×48 (see assets.js) so the WHOLE tree — canopy + trunk
     // + root base — fits in one frame and nothing from the sheet's lower band
     // leaks in under it. Column 3 is a full mature green tree on every
     // species sheet. Origin is only the no-SpriteLayout fallback: the seat
     // pass places the art from its trimmed bounds.
     tree:   { key: (o) => {
-                // Smallest crown tier renders as a bush, not a tree.
-                if (treeSizeClass(o) === 'bush') return 'bushes';
                 if (o.species === 'pine')     return 'pine_tree';
-                if (o.species === 'birch')    return 'birch_tree';
-                if (o.species === 'mahogany') return 'mahogany_tree';
                 return 'trees'; // maple (default)
               },
               frame: (o) => {
-                // bushes.png frame 0 is the lush top-left green bush.
-                if (treeSizeClass(o) === 'bush') return 0;
-                if (o.species && o.species !== 'maple') return 3;
+                if (o.species === 'pine') return 3;
                 // Maple sheet: frames 0 and 4 are STUMPS (cut/dead); only
                 // 1=sprout, 2=young, 3=mature are live trees. Clamp to 1..3 so a
                 // standing tree never renders as a stump. Detected trees carry a
@@ -4341,8 +4338,7 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
                 return treeGrowthStage(o);
               },
               origin: (o) => {
-                if (treeSizeClass(o) === 'bush') return [0.5, 0.9];
-                return (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95];
+                return o.species === 'pine' ? [0.5, 0.92] : [0.5, 0.95];
               },
               // Shared with the harvest gating in interact.js (util.treeScale)
               // so a tree's visual size and the axe tier it demands stay in
@@ -4351,28 +4347,18 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
               // exception: maples render 10% smaller via MAPLE_VISUAL_MUL while
               // their size class keys off the un-shrunk treeBaseScale, so the
               // visual shrink doesn't change a maple's axe tier or wood yield.)
-              // Bushes use the 48×32 bushes sheet at a FIXED scale, independent
-              // of the species/canopy tree scale. A bush is one species at one
-              // size — so a bush-tier tree must render the SAME size as a `shrub`
-              // wildplant (the bushes a park scatters), not a smaller half-size
-              // variant. Both pull from CROP_SPRITE.shrub.scale so they can't
-              // drift apart. Larger tiers use treeScale.
-              scale:  (o) => treeSizeClass(o) === 'bush'
-                ? CROP_SPRITE.shrub.scale : treeScale(o),
+              scale: treeScale,
               // Placement obeys the "one cell" rule via the seat pass (see the
               // render loop + src/sprite_layout.js): each tree is seated from
               // its trimmed art bounds so the trunk base sits 1px above the
               // cell's bottom edge (or centred when it fits) and the canopy
               // rises into the tiles above without spilling into the cell
               // below — automatically across species sheets (maple 32×48 vs
-              // the 32×48 pine/birch/mahogany root padding) and size classes.
+              // the 32×48 pine root padding) and size classes.
               seat: true, shadow: true,
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
-              // Bushes are one uniform type — skip the per-tree crown tint so
-              // every bush renders as the same plain green sprite (an odd
-              // sampled colour otherwise made some bushes look broken).
               after: (s, o, scene) => {
-                if (o.crown_color && treeSizeClass(o) !== 'bush') s.setTint(_crownTint(o.crown_color));
+                if (o.crown_color) s.setTint(_crownTint(o.crown_color));
                 // Out of reach of the current axe → half alpha (interactables.js
                 // toolGatedAlpha reads the same gate the tap refuses on).
                 s.setAlpha(toolGatedAlpha(o, scene.save));

@@ -284,16 +284,10 @@ const FROZEN_TINT = 0x9ad8ff;
 // optional DeepForest crown_m) so it stays stable across reloads/re-rasterise
 // without storing anything. render.js scales the sprite by the SAME value, so
 // the visual size and the gameplay size never diverge.
-// Discrete DeepForest crown-size tiers. The smallest crowns ('bush') render as
-// bushes (see render.js); 'small'/'medium'/'large' are the three tree sizes
-// above. The multiplier feeds the gameplay/classification scale below — bushes
-// render off their own fixed scale in render.js, so this value just keeps a
-// bush classing below 'small' for any size-less fallback path.
-const TREE_SIZE_MUL = { bush: 0.42, small: 0.64, medium: 1.15, large: 1.55 };
-// Maples render 10% smaller than their canopy class at every size — pines (and
-// the other non-maple species) read as the generally larger tree. This is a
-// VISUAL-only factor: treeSizeClass keys off treeBaseScale (below) so a maple's
-// gameplay size / axe-tier / wood yield is unchanged by the shrink.
+// Ordinary trees have three canopy sizes. Legacy detector bush crowns use
+// the smallest tree size; shrubs are separate wildplants.
+const TREE_SIZE_MUL = { small: 0.64, medium: 1.15, large: 1.55 };
+// Maple's visual shrink leaves the harvest size unchanged.
 const MAPLE_VISUAL_MUL = 0.90;
 // Maple's medium/large canopies still render ~10% oversized relative to the
 // other species at those sizes — knock an extra 10% off those two classes
@@ -304,14 +298,14 @@ const MAPLE_BIG_VISUAL_MUL = 0.90;
 // its base is larger; that difference is a SPRITE-SHEET fact, not a size one,
 // which is why treeSizeClass divides it back out before thresholding.
 function treeSpeciesBaseScale(o) {
-  return (o.species && o.species !== 'maple') ? 0.62 : 0.85;
+  return o.species === 'pine' ? 0.62 : 0.85;
 }
 // Maple-sheet growth stage: the maple sheet (also the fallback for a tree with
 // no species) draws 1=sprout, 2=young, 3=mature off `variant`, so a size-less
 // maple's DRAWN size is its growth stage, not its canopy scale. render.js picks
 // the frame with this same function so the art and the size class can't drift.
 function treeUsesGrowthSheet(o) {
-  return !o.size && (!o.species || o.species === 'maple');
+  return !o.size && o.species !== 'pine';
 }
 // A tree the PLAYER planted (an acorn) grows on the CLOCK, not off a static
 // `variant`: sprout → young at the halfway mark → mature at the full window,
@@ -332,54 +326,26 @@ function treeGrowthStage(o) {
   // Frames 0 and 4 are stumps — clamp to the live 1..3 range (default 2/young).
   return Number.isFinite(v) ? clamp(v, 1, 3) : 2;
 }
-// Gameplay/classification scale — the canopy size BEFORE the maple visual
-// shrink. A tree is one of FOUR sizes, or it is size-less and draws its
-// species' flat base.
-//
-// THERE IS NO SMOOTH SCALING, and the continuous path that used to be here is
-// worth a note because it looked load-bearing. DeepForest hands every detected
-// tree a crown diameter in metres, and this function used to scale by
-// crown_m/5 clamped to 0.8–1.6 whenever no discrete `size` was present. But the
-// detector's own classifier (satextract/trees.py) buckets that same crown_m
-// into bush / small / medium / large before the geojson is ever written — the
-// cut-points are 1.8 / 2.5 / 4 m — so every one of the 804 trees in
-// data/satextract_osm.geojson carries BOTH fields, `size` always wins, and the
-// smooth branch had not scaled a tree since the classifier shipped. It was a
-// leftover from the crown_m-only sidecars (data/trees_z20_t10.geojson and
-// friends, no longer loaded).
-//
-// Leaving it in was not harmless. It disagreed with the table it stood behind:
-// its 0.8 floor is nearly TWICE the bush multiplier of 0.42, so a tree that
-// reached it would have drawn a bush-sized crown at small-tree size — and since
-// treeSizeClass thresholds the same multiplier, that tree could never have
-// classed as a bush at all, whatever its crown said.
-//
-// crown_m is still carried and still used — worldgen thins a crowded tile
-// biggest-crown-first — it just doesn't set a sprite size any more.
+// Detected crowns use discrete sizes. crown_m remains available for
+// biggest-first placement, but does not continuously scale sprites.
 function treeBaseScale(o) {
   const base = treeSpeciesBaseScale(o);
-  return (o.size && TREE_SIZE_MUL[o.size]) ? base * TREE_SIZE_MUL[o.size] : base;
+  const size = o.size === 'bush' ? 'small' : o.size;
+  return (size && TREE_SIZE_MUL[size]) ? base * TREE_SIZE_MUL[size] : base;
 }
 // Rendered sprite scale — the canopy size with the maple shrink folded in.
 // Maple gets the flat 10% shrink at every size, plus a further 10% on the two
 // biggest classes (medium/large) which still read oversized.
 function treeScale(o) {
-  if (o.species !== 'maple') return treeBaseScale(o);
+  if (o.species === 'pine') return treeBaseScale(o);
   const cls = treeSizeClass(o);
   const bigMul = (cls === 'full' || cls === 'medium') ? MAPLE_BIG_VISUAL_MUL : 1;
   return treeBaseScale(o) * MAPLE_VISUAL_MUL * bigMul;
 }
-// 'full' (needs an Iron axe, 4× wood) | 'medium' (Copper axe, 2× wood) |
-// 'small' (any axe, base wood) | 'bush' (smallest crowns — any axe, base wood,
-// rendered as a bush). Shiny trees are handled separately — they need a Gold
-// axe regardless of size.
+// Canopy classes drive the axe gate and wood yield. Old bush-sized trees
+// remain trees, rendered and harvested at the smallest canopy size.
 function treeSizeClass(o) {
-  // Detected trees carry a discrete DeepForest crown class — map it straight to
-  // the gameplay class so the axe-tier gate tracks the SIZE, not the species
-  // sprite scale (a maple's base 0.85 would otherwise push every 'small' maple
-  // up into 'medium'/'full'). bush→bush (hands 0), small→small (Wood 1, or
-  // hands for softwood), medium→medium (Copper 2), large→full (Iron 3).
-  if (o.size === 'bush')   return 'bush';
+  if (o.size === 'bush')   return 'small';
   if (o.size === 'small')  return 'small';
   if (o.size === 'medium') return 'medium';
   if (o.size === 'large')  return 'full';
@@ -399,41 +365,28 @@ function treeSizeClass(o) {
   // actually on screen — a sprout/young frame can't gate like a mature canopy.
   return (treeUsesGrowthSheet(o) && treeGrowthStage(o) < 3) ? 'small' : 'medium';
 }
-// Species shifts the felling difficulty on top of the size class. Pine is a
-// SOFTWOOD — one tier easier to fell than its size would imply. Maple is a
-// HARDWOOD — one tier tougher. Every other species fells at its plain size
-// tier. (This only moves the axe gate; wood yield still tracks size below.)
+// Pine is softwood; all other ordinary tree records use the maple fallback.
 function treeSpeciesTierShift(o) {
-  if (o.species === 'pine')  return -1;   // softwood
-  if (o.species === 'maple') return +1;   // hardwood
-  return 0;
+  return o.species === 'pine' ? -1 : +1;
 }
-// Player-facing name for a tree species. Pine reads as "softwood", maple as
-// "hardwood", bush-size is always "bush"; other species keep their own name.
 function treeSpeciesName(o) {
-  if (o.size === 'bush')     return 'bush';
-  if (o.species === 'pine')  return 'softwood';
-  if (o.species === 'maple') return 'hardwood';
-  return o.species || 'tree';
+  return o.species === 'pine' ? 'softwood' : 'hardwood';
 }
 // Axe tier required to fell a tree: Gold(4) for shiny, otherwise +1 axe tier
-// per size class — bush(hands 0) → small(Wood 1) → medium(Copper 2) →
+// per size class — small(Wood 1) → medium(Copper 2) →
 // full(Iron 3) — shifted by species (softwood −1 / hardwood +1) and clamped
 // to the 0–4 range (0 = bare hands). Wood is multiplied 4×/2×/1× off the SIZE
 // class, so yield ignores the species shift.
 function treeAxeReqTier(o) {
   if (isShiny(o.id, SHINY_RATE.tree)) return 4;
   const size = treeSizeClass(o);
-  // Bushes are one uniform type — always bare-hands (tier 0), no wood/species
-  // shift, so a maple bush is no harder than any other.
-  if (size === 'bush') return 0;
   // +1 required axe tier for every step up in size class.
   const base = size === 'full' ? 3 : size === 'medium' ? 2 : size === 'small' ? 1 : 0;
   return clamp(base + treeSpeciesTierShift(o), 0, 4);
 }
 function treeWoodMul(o) {
   const size = treeSizeClass(o);
-  // bush & small both yield base (1×) wood; medium 2×, full (large) 4×.
+  // Small trees yield base (1×) wood; medium 2×, full (large) 4×.
   return size === 'full' ? 4 : size === 'medium' ? 2 : 1;
 }
 

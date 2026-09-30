@@ -57,11 +57,10 @@ const CROP_SPRITE = {
   // wildplant scale. scale 1.16 (down 15% from 1.36) — the tuft was reading
   // oversized against neighbouring one-cell props.
   longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 },
-  // Rounded woodland bush, 48×32. Preserve its visible width (~21px),
-  // shared with bush-sized trees in render.js. Hedged lanes use the clipped look.
-  shrub:     { sheet: 'bushes', custom: true, frame: 0, scale: 0.667,
-    looks: { trimmed: { sheet: 'hedge_trimmed', custom: true, frame: 0, scale: 1.12 },
-      giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 2, scale: 1 } } },
+  // Two shrub appearances with identical harvesting: a basic bush and a cut
+  // hedge, 20% smaller than the former residential hedge.
+  shrub: { sheet: 'bushes', custom: true, frame: 0, scale: 0.667,
+    looks: { clipped: { sheet: 'approved_clipped_hedge', custom: true, frame: 0, scale: (4 / 3) * 0.8 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
   // Scale 1.224 keeps the requested 10% mushroom reduction. Surface and
@@ -147,19 +146,20 @@ function wildplantVariantHash(p) {
 // Zone materialLooks chooses authored looks; ordinary wetland-edge grass is
 // stamped by the rasterizer. None adds an item or changes planted crop art.
 const WILDPLANT_CONTEXT_ART = {
+  // Mushroom Grove's special woody cap keeps shrub mechanics; its tall art seats on the cell.
+  giant_mushroom: { crop: 'shrub', sheet: 'giant_mushroom', custom: true, frame: 2, scale: 1, seat: true },
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
-  clipped: { crop: 'shrub', sheet: 'approved_clipped_hedge', custom: true, frame: 0, scale: 4 / 3 },
   cap_cluster: { crop: 'mushroom', sheet: 'approved_mushroom_cluster', custom: true, frame: 0, scale: 1.224 },
   masonry: { crop: 'rockfruit', sheet: 'approved_masonry_rubble', custom: true, frame: 0, scale: 2 },
 };
 function wildplantSprite(p) {
   const base = CROP_SPRITE[p && p.crop];
-  const look = p && (p._plantArt || p._streetArt);
+  const rawLook = p && (p._plantArt || p._streetArt);
+  const look = rawLook === 'trimmed' ? 'clipped' : rawLook;
   const context = WILDPLANT_CONTEXT_ART[look];
   if (context && context.crop === p.crop) return context;
   if (base?.looks?.[look]) return base.looks[look];
-  // Residential/commercial shrub art is a visual choice, never a spawn rule.
-  if (p && !p._cave && p.crop === 'shrub' && [5, 16].includes(p._biome)) return WILDPLANT_CONTEXT_ART.clipped;
+  if (p && !p._cave && p.crop === 'shrub' && [5, 16].includes(p._biome)) return base.looks.clipped;
   return base;
 }
 function wildplantFrame(p) {

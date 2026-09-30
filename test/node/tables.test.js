@@ -107,7 +107,7 @@ function plainTree(props) {
 test('treeAxeReqTier: the size ladder climbs, and only the biggest needs Gold', () => {
   for (const species of ['maple', 'birch', 'pine']) {
     const tier = (size) => treeAxeReqTier(plainTree({ species, size }));
-    assert.eq(tier('bush'), 0, `${species} bush fells bare-handed`);
+    assert.eq(tier('bush'), tier('small'), `${species} legacy bush uses the smallest tree tier`);
     assert.lt(tier('small'), tier('medium'), `${species}: small easier than medium`);
     assert.lt(tier('medium'), tier('large'), `${species}: medium easier than large`);
     // Gold (4) is the shiny/top gate — no non-shiny tree below 'large' may want it.
@@ -136,17 +136,15 @@ test('treeAxeReqTier: a size-less hardwood gates below a large one', () => {
   assert.eq(treeGrowthStage({}), 2, 'no variant = young');
 });
 
-test('HomeArea.softwoodSpeciesNear: forces pine near spawn, exempts bushes', () => {
+test('HomeArea.softwoodSpeciesNear: forces pine near spawn at every tree size', () => {
   HomeArea.setOrigin(0, 0);
   // A normal-sized tree near the origin is forced to softwood (pine)…
   assert.eq(HomeArea.softwoodSpeciesNear(10, 10, 'maple', 'medium'), 'pine',
     'medium tree near spawn becomes softwood');
   assert.eq(HomeArea.softwoodSpeciesNear(10, 10, 'birch'), 'pine',
     'size-less tree near spawn becomes softwood');
-  // …but a bush-tier crown keeps its own species (it renders as a uniform bush
-  // and is already bare-hands tier-0, so the pine stamp would only mislabel it).
-  assert.eq(HomeArea.softwoodSpeciesNear(10, 10, 'maple', 'bush'), 'maple',
-    'bush near spawn keeps its own species');
+  assert.eq(HomeArea.softwoodSpeciesNear(10, 10, 'maple', 'bush'), 'pine',
+    'legacy small crown near spawn also becomes softwood');
   // Far from spawn nothing is overridden, regardless of size.
   assert.eq(HomeArea.softwoodSpeciesNear(9999, 9999, 'maple', 'medium'), 'maple',
     'tree far from spawn keeps its species');

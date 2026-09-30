@@ -668,6 +668,117 @@
   // Every section's rim bulge — a quadratic's control point, so twice the
   // depth it reaches: the rim of a circle seen from LAMP_VIEW_DEG above.
   const LAMP_UNDER = 2 * LAMP_VIEW_K;
+  const LAMP_DARK_CELLS = { road: 0.64, path: 0.584 };
+  const LAMP_SITE_R_CELLS = Math.max(LAMP_FOOT_R_CELLS,
+    LAMP_DARK_CELLS.road / 2, LAMP_DARK_CELLS.path / 2);
+
+  // Pure geometry shared by generation, preview and live lamps. Includes
+  // every future lamp site regardless of player restoration or brightness.
+  function lampSitesForTile(tx, ty, entry) {
+    const out = [];
+    const tileEdgeM = entry.tileEdgeM;
+    if (typeof Streets === 'undefined' || !entry.layers || !(tileEdgeM > 0)) return out;
+    const ox = tx * tileEdgeM, oy = ty * tileEdgeM;
+    const tileKey = WorldGen.tileKey(tx, ty);
+    // The stone's radius in metres, in this tile's own basis — the second
+    // half of every verge offset below.
+    const cellM = (entry.cellsPerEdge > 0) ? tileEdgeM / entry.cellsPerEdge : WorldGen.CELL_M;
+    const footRM = LAMP_SITE_R_CELLS * cellM;
+    // LANTERN ROW (src/street_variants.js) is this lane, denser: a line whose
+    // street rolled 'lantern' stands its lamps at StreetVariants.lampSpacingFor
+    // — the same lamp, the same lit-when-restored rule, no prop of its own.
+    // The index keys lines by (feature, line) position in this same layer.
+    // THE GLOW is the same record's: StreetVariants.lampGlowFor(rec) — the
+    // variant's colour, torch orange for an unthemed major road, else null →
+    // the default UI_LAMP_GLOW. Resolved ONCE per lamp onto `glow`, the one
+    // value both the baked art (streetLampTexKey) and the light
+    // (Lighting.collectLamps) read.
+    const lineRecs = new Map();
+    const hasVariants = typeof StreetVariants !== 'undefined';
+    if (entry.streetIndex && hasVariants) {
+      for (const rec of entry.streetIndex.lines) lineRecs.set(`${rec.fi}:${rec.li}`, rec);
+    }
+    for (const layer of entry.layers) {
+      if (layer.name !== 'transportation') continue;
+      const extent = layer.extent || 4096;
+      const mvtToM = tileEdgeM / extent;
+      for (let fi = 0; fi < layer.features.length; fi++) {
+        const f = layer.features[fi];
+        if (f.type !== 2 || !f.geom) continue;          // lines only
+        const cls = (f.tags && f.tags.class) || '';
+        if (cls === 'rail' || cls === 'transit') continue;
+        if (WorldGen.isParkingAisle(f.tags)) continue;
+        const tier = WorldGen.classifyLine ? WorldGen.classifyLine('transportation', f.tags || {}) : null;
+        // How far off the centreline this way's lamps stand: its own band's
+        // half-width plus the stone. Per FEATURE — the width is a function of
+        // the way's class, so it is the same for every line and every lamp
+        // this feature carries.
+        const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}), footRM);
+        for (let i = 0; i < f.geom.length; i++) {
+          const line = f.geom[i];
+          if (!line || line.length < 2) continue;
+          const rec = lineRecs.get(`${fi}:${i}`) || null;
+          // How this line lays its lamps (Streets.lampLayFor): Lantern Row's
+          // own spacing, else a WALKING PATH's denser one (with the street's
+          // floor), else the street's. `spacingM` rides on every lamp as the
+          // gap it was actually laid at (length / count) — the metres a
+          // living-lamp visit pays (Streets.lampCredit).
+          const baseLay = Streets.lampLayFor(f.tags || {},
+            (rec && rec.variant === 'lantern') ? StreetVariants.lampSpacingFor('lantern') : 0);
+          const spans = Streets.tileSpans(line, mvtToM, extent);
+          if (!spans.length) continue;
+          const lineKey = Streets.lineKey(f, i);
+          const path = Streets.isWalkingPath(f.tags || {});
+          const styles = hasVariants ? StreetVariants.lineStyles(entry, f, fi, i, mvtToM)
+            : [{ a: 0, b: Streets.lineLengthM(line, mvtToM), variant: null }];
+          for (const style of styles) {
+            const lay = { ...baseLay, spacingM: hasVariants
+              ? StreetVariants.lampSpacingFor(style.variant, Streets.lampLayFor(f.tags || {}).spacingM)
+              : baseLay.spacingM };
+            const part = Streets.subLineM(line, mvtToM, style.a, style.b);
+            const at = Streets.lampsAlong(part, 1, lay.spacingM, lay.minLenM);
+            if (!at.length) continue;
+            const spacingM = (style.b - style.a) / at.length;
+            const creditM = Streets.lampCreditM(spacingM, path);
+            const glow = (hasVariants && StreetVariants.lampGlowFor({ variant: style.variant, size: style.size })) || UI_LAMP_GLOW;
+            for (const offset of at) {
+              const sM = style.a + offset;
+              if (!Streets.covers(spans, sM)) continue;
+              const q = Streets.pointAtM(line, mvtToM, sM, offM);
+              if (!q) continue;
+              const zoneGlow = typeof ZoneVariants !== 'undefined'
+                ? ZoneVariants.lampGlowAt(entry, Math.floor(q.x / cellM), Math.floor(q.y / cellM)) : null;
+              out.push({ tileKey, lineKey, tier, glow: zoneGlow || glow, s: sM, x: ox + q.x, y: oy + q.y, spacingM, path, creditM,
+                         id:`lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
+            }
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  // Reserve every grid cell touched by the larger of a dark stone and lit
+  // lamp foot. These cells belong only to the street dressing pass, not the
+  // general spawn gate: no phantom object or persistent occupancy is added.
+  function lampReservedCells(tx, ty, entry) {
+    const cells = new Set(), N = entry.cellsPerEdge;
+    if (!(N > 0) || !(entry.tileEdgeM > 0)) return cells;
+    const cellM = entry.tileEdgeM / N, r = LAMP_SITE_R_CELLS;
+    for (const lamp of lampSitesForTile(tx, ty, entry)) {
+      const x = (lamp.x - tx * entry.tileEdgeM) / cellM;
+      const y = (lamp.y - ty * entry.tileEdgeM) / cellM;
+      for (let iy = Math.max(0, Math.floor(y - r)); iy <= Math.min(N - 1, Math.floor(y + r)); iy++) {
+        for (let ix = Math.max(0, Math.floor(x - r)); ix <= Math.min(N - 1, Math.floor(x + r)); ix++) {
+          const dx = Math.max(ix - x, 0, x - ix - 1);
+          const dy = Math.max(iy - y, 0, y - iy - 1);
+          if (dx * dx + dy * dy <= r * r) cells.add(iy * N + ix);
+        }
+      }
+    }
+    return cells;
+  }
+
   const LAMP_INK = (typeof UI_LAMP_GLOW === 'string') ? UI_LAMP_GLOW : '#9a8cff';
   const LAMP_GOLD = (typeof UI_LAMP_GOLD === 'string') ? UI_LAMP_GOLD : '#d9a441';
   const LAMP_DARK = [28, 24, 20];  // the outline ink every sprite in here is drawn with
@@ -1719,7 +1830,7 @@
     }
   }
 
-  global.RoadOverlay = { draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
+  global.RoadOverlay = { lampSitesForTile, lampReservedCells, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
                          paintLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,

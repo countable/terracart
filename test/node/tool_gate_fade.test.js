@@ -12,7 +12,7 @@ const axe  = (tier) => ({ relics: { axe:  { tier } } });
 const pick = (tier) => ({ relics: { pick: { tier } } });
 const bigMaple = { kind: 'tree', id: 'tgf_m', x: 0, y: 0, species: 'maple', size: 'large' };
 const smallPine = { kind: 'tree', id: 'tgf_p', x: 7, y: 0, species: 'pine', size: 'small' };
-const bush = { kind: 'tree', id: 'tgf_b', x: 14, y: 0, species: 'maple', size: 'bush' };
+const bush = { kind: 'wildplant', crop: 'shrub', id: 'tgf_b', x: 14, y: 0 };
 const ore4 = { kind: 'mineralrock', id: 'tgf_o', x: 0, y: 7, yieldTier: 4, requiredTier: 3 };
 const plain = { kind: 'mineralrock', id: 'tgf_r', x: 7, y: 7, yieldTier: 1, requiredTier: 1 };
 const cave = { kind: 'mineralrock', id: 'tgf_c', x: 14, y: 7, caveVariant: 2 };

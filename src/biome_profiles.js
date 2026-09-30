@@ -225,14 +225,14 @@
       // Ornamental street trees get a hint of the same manicured green as the
       // hedges, much lighter than the shrub tint so a tree-sized sprite doesn't
       // read as an off-colour species — just a touch fresher than the wild default.
-      tint: { shrub: 0x8fd06f, tree: 0xd9f0c8 },        // bright manicured green
+      tint: { tree: 0xd9f0c8 },        // bright manicured green
     },
     [T.INDUSTRIAL]: {
       // Hardy weeds breaking through the concrete; minerals (worldgen) dominate.
       flora: [fix('shrub', 0.02, 0.05, S.IND_SHRUB)],
       // Any tree that clings on here reads soot-dulled, not lush — a faint
       // grey cast (lighter than the shrub/rock tints, kept subtle at tree size).
-      tint: { shrub: 0x9aa882, mineralrock: 0xc98a5a, tree: 0xc9cbb8 },  // grey-green weeds, rusty rock
+      tint: { mineralrock: 0xc98a5a, tree: 0xc9cbb8 },  // grey-green weeds, rusty rock
     },
     [T.PLAYGROUND]: {
       flora: [dyn('longgrass', 0.08, S.LONGGRASS),
@@ -252,7 +252,7 @@
               fix('forgetmenot', 0.004, 0.010, S.WET_FMN)],
       // Marsh trees pick up a faint mossy cast — much lighter than the
       // ground-level shrub/grass tints so a whole canopy doesn't go swamp-green.
-      tint: { longgrass: 0x6f9a66, shrub: 0x5a7a50, mushroom: 0xb3a25c, tree: 0xc3d6ba },
+      tint: { longgrass: 0x6f9a66, mushroom: 0xb3a25c, tree: 0xc3d6ba },
     },
     [T.GOLF]: {
       flora: [dyn('longgrass', 0.05, S.LONGGRASS)],

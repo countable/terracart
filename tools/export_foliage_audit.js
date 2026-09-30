@@ -20,7 +20,7 @@ const resolver = vm.runInContext('Render.objectAppearance(scene, new Map())', ct
 // deliberately fails if the owning renderer changes its structure.
 const render = read('render');
 const start = render.indexOf('    if (p._placedRock) {');
-const endText = 's.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx), Math.round(sy) - plantedYOffset);';
+const endText = 's.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx) + placement.dxPx, Math.round(sy) + placement.dyPx - plantedYOffset);';
 const end = render.indexOf(endText, start);
 if (start < 0 || end < 0) throw new Error('Cannot locate shipping plant appearance branch');
 vm.runInContext('globalThis.auditPlant = function(p,s) { const sx=0,sy=0; ' + render.slice(start, end + endText.length) + '\n};', ctx);
@@ -46,7 +46,7 @@ function add(id,label,group,object,usage,note='') {
   } : object.kind === 'wildplant' ? plantAppearance(object) : resolver.resolveAppearance(object);
   if (!full || !full.visible) throw new Error('Missing appearance: ' + id);
   const {spec, ...appearance} = full;
-  appearance.tint = object.kind === 'wildplant' ? (ctx.BiomeProfiles.tint(object._biome, object.crop) || 0xffffff) : vm.runInContext('Render',ctx).spriteTint(object,ctx.scene,appearance.texKey);
+  appearance.tint = object.kind === 'plant' ? SL.creatureTint(object.kind) : object.kind === 'wildplant' ? (ctx.BiomeProfiles.tint(object._biome, object.crop) || 0xffffff) : vm.runInContext('Render',ctx).spriteTint(object,ctx.scene,appearance.texKey);
   const overlays = [];
   if (object.kind === 'fruittree') {
     resolver.fruitList.length = 0;
@@ -54,13 +54,13 @@ function add(id,label,group,object,usage,note='') {
     overlays.push(...resolver.fruitList);
   }
   const asset = registry.assets[appearance.texKey];
-  const status = appearance.texKey === 'hedge_trimmed' ? 'Review: legacy cut hedge' :
+  const status = object.crop === 'shrub' ? 'Shared shrub mechanics' :
     object.kind === 'tree' && object.species === 'maple' && !object.size && object.variant < 3 ? 'Review: small growth frames' :
     asset.path.includes('/Approved/') ? 'Approved-path art; visually verify' : 'Other source; visually verify';
   samples.push({id,label,group,usage,object,appearance,overlays,note,status});
 }
-for (const species of ['maple','pine','birch','mahogany']) {
-  for (const size of ['bush','small','medium','large']) add(`tree-${species}-${size}`,`${species} · ${size}`,'Trees',{kind:'tree',species,size},'Detected / generated timber tree',size === 'bush' ? 'All bush-sized species use the shared bush texture.' : 'Mature crown at the runtime size class.');
+for (const species of ['maple','pine']) {
+  for (const size of ['small','medium','large']) add(`tree-${species}-${size}`,`${species} · ${size}`,'Trees',{kind:'tree',species,size},'Detected / generated timber tree',size === 'bush' ? 'All bush-sized species use the same clipped hedge as every shrub, reduced 20% from the former residential size.' : 'Mature crown at the runtime size class.');
   for (const variant of [1,2,3]) add(`tree-${species}-stage-${variant}`,`${species} · growth ${variant}`,'Tree growth',{kind:'tree',species,variant},'Timber growth / size-less tree',species !== 'maple' ? 'Non-maple species use their mature frame at every variant; shown to expose that runtime behavior.' : 'Small growth frames should be compared with the mature crown.');
 }
 for (const species of ['apple','peach']) {
@@ -75,8 +75,8 @@ function plant(id,label,crop,extra={},group='Foliage and ground cover',usage='Wi
 const natural = ['shrub','longgrass','mushroom','forgetmenot','marigold','wildrose','starflower','rockfruit','flint','shell','driftwood'];
 for (const crop of natural) {
   const group = ['rockfruit','flint','shell','driftwood'].includes(crop) ? 'Loose stones and beach' : 'Foliage and ground cover';
-  plant(`plant-${crop}`,registry.names[crop] || crop,crop,{},group);
-  for (const look of Object.keys(registry.crops[crop]?.looks || {})) plant(`plant-${crop}-${look}`,`${crop} · ${look}`,crop,{_plantArt:look},group,'Authored zone / road look',look==='trimmed' ? 'Hedgerow road uses this cut hedge; distinct from the approved clipped hedge.' : 'Same harvest mechanics as the base crop.');
+  plant(`plant-${crop}`,registry.names[crop] || crop,crop,{},group,crop==='shrub'?'Basic shrub':'Wild / zone plant',crop==='shrub'?'The basic bush and cut hedge share the same harvesting mechanics.':'');
+  for (const look of Object.keys(registry.crops[crop]?.looks || {})) plant(`plant-${crop}-${look}`,`${crop} · ${look}`,crop,{_plantArt:look},group,'Authored zone / road look',crop==='shrub' ? 'Cut hedge, 20% smaller than the former residential hedge. Same harvesting mechanics as the basic bush.' : 'Same harvest mechanics as the base crop.');
   for (const cave of [false,true]) {
     const frames = cave ? registry.crops[crop]?.caveFrames : registry.crops[crop]?.frames;
     if (!frames || frames.length < 2) continue;
@@ -89,7 +89,6 @@ for (const crop of natural) {
   }
 }
 for (const [look,row] of Object.entries(registry.contexts)) plant(`context-${look}`,`${row.crop} · ${look}`,row.crop,{_plantArt:look},row.crop==='rockfruit'?'Loose stones and beach':'Foliage and ground cover','Context-specific art');
-for (const biome of [5,16]) plant(`shrub-biome-${biome}`,`shrub · ${biome===5?'residential':'commercial'}`,'shrub',{_biome:biome},'Foliage and ground cover','Automatic biome look','Shows automatic clipped hedge selection without an explicit art tag.');
 for (const moss of [false,true]) for(let rockVariant=0;rockVariant<4;rockVariant++) add(`rock-${moss?'moss':'plain'}-${rockVariant}`,`${moss?'moss':'plain'} rock · shape ${rockVariant+1}`,'Mineral rocks',{kind:'mineralrock',rockVariant,yieldTier:1,...(moss?{_objectArt:'moss'}:{})},'Surface / cave plain rock');
 // Moss is only authored for plain Stone Garden rocks, not ore tiers.
 for(const tier of Object.keys(registry.tiers)) add(`ore-${tier}`,`${registry.tiers[tier].barId.replace('_bar','')} ore`,'Mineral rocks',{kind:'mineralrock',yieldTier:Number(tier)},'Tiered ore');
@@ -97,13 +96,42 @@ for(const crop of Object.keys(registry.rows).filter(k=>!natural.includes(k))) fo
 for (const biomeName of ['COMMERCIAL','INDUSTRIAL','WETLAND','GOLF']) {
   const biome=ctx.BiomeProfiles.T[biomeName];
   for(const variant of [1,3]) add(`biome-${biomeName}-tree-${variant}`,`${biomeName.toLowerCase()} · maple ${variant===1?'sprout':'mature'}`,'Biome tint comparisons',{kind:'tree',species:'maple',variant,_biome:biome},'Runtime biome tint');
-  for(const crop of ['shrub','longgrass','mushroom']) plant(`biome-${biomeName}-${crop}`,`${biomeName.toLowerCase()} · ${crop}`,crop,{_biome:biome},'Biome tint comparisons','Runtime biome tint');
+  for(const crop of ['longgrass','mushroom']) plant(`biome-${biomeName}-${crop}`,`${biomeName.toLowerCase()} · ${crop}`,crop,{_biome:biome},'Biome tint comparisons','Runtime biome tint');
   add(`biome-${biomeName}-rock`,`${biomeName.toLowerCase()} · rock`,'Biome tint comparisons',{kind:'mineralrock',rockVariant:0,yieldTier:1,_biome:biome},'Runtime biome tint');
 }
 add('placed-rockfruit','Placed stone','Loose stones and beach',{kind:'wildplant',crop:'rockfruit',_placedRock:true},'Player-placed rock','Uses the shipping produce-icon frame, distinct from loose wild rockfruit.');
 for (let qty=1;qty<=3;qty++) add(`wood-stack-${qty}`,`Fallen wood · look ${qty}`,'Loose stones and beach',{kind:'groundstack',itemId:'wood',qty},'Dropped wood stack');
 for(let stage=0;stage<=registry.maxStage;stage++) add(`crop-rockfruit-${stage}`,`Stone · stage ${stage}`,'Crop growth',{kind:'wildplant',crop:'rockfruit',stage},'Player-planted stone crop','Includes the runtime planted-crop scale reduction and vertical offset.');
 for(let frame=0;frame<ctx.SpriteLayout.creatureFrames('plant');frame++) add(`carnivorous-plant-${frame}`,`Carnivorous plant · idle ${frame+1}`,'Carnivorous plants',{kind:'plant',_auditTime:frame*ctx.SpriteLayout.creatureFrameMs('plant')},'Static zone pattern / rooted enemy','Actual idle animation frame at runtime creature scale; enemy mechanics.');
+// Organize the audit by gameplay family, keeping growth and contextual art
+// together rather than scattering one mechanic across unrelated sections.
+for (const sample of samples) {
+  const o=sample.object;
+  if(o.kind==='tree') {
+    sample.group='Timber trees · wood harvest';sample.family=o.species;
+    sample.phase=o._biome!=null?'Context tint':o.size?'Crown size':'Growth stage';
+  } else if(o.kind==='fruittree') {
+    sample.group='Fruit trees · recurring fruit';sample.family=o.species;sample.phase=o.planted?'Growth stage':'After picking';
+  } else if(o.kind==='plant') {
+    sample.group='Carnivorous plants · rooted enemy';sample.family='Carnivorous plant';sample.phase='Idle animation';
+  } else if(o.kind==='mineralrock') {
+    sample.group='Rocks · mining';sample.family=o.yieldTier>1?'Tiered ore':'Plain stones';sample.phase=o._biome!=null?'Context tint':o._objectArt==='moss'?'Moss appearance':'Default appearance';
+  } else if(o.kind==='groundstack') {
+    sample.group='Loose materials · pickup';sample.family='Fallen wood';sample.phase='Stack appearance';
+  } else if(o.crop==='shrub') {
+    sample.group='Shrubs · wood harvest';sample.family='Shrub';sample.phase='Appearance';
+  } else if(o._placedRock) {
+    sample.group='Rocks · mining';sample.family='Placed stone';sample.phase='Placed appearance';
+  } else if(o.wildId==null) {
+    sample.group='Planted crops · growth and harvest';sample.family=registry.names[o.crop]||o.crop;sample.phase='Growth stage';
+  } else {
+    sample.group='Forage · wild harvest';sample.family=registry.names[o.crop]||o.crop;
+    sample.phase=o._biome!=null?'Context tint':o._cave?'Cave appearance':'Appearance';
+  }
+}
+const phaseOrder=['Growth stage','Crown size','Appearance','Default appearance','Moss appearance','Cave appearance','After picking','Context tint'];
+const groupOrder=['Timber trees · wood harvest','Fruit trees · recurring fruit','Shrubs · wood harvest','Forage · wild harvest','Rocks · mining','Loose materials · pickup','Planted crops · growth and harvest','Carnivorous plants · rooted enemy'];
+samples.sort((a,b)=>groupOrder.indexOf(a.group)-groupOrder.indexOf(b.group)||a.family.localeCompare(b.family)||phaseOrder.indexOf(a.phase)-phaseOrder.indexOf(b.phase));
 const assets = {};
 for(const sample of samples) for(const [key,frame] of [[sample.appearance.texKey,sample.appearance.frameVal],...sample.overlays.map(o=>[o.key,o.frame])]) {
   if(!assets[key]) {

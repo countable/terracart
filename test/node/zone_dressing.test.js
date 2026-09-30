@@ -97,7 +97,7 @@
     assert.eq(out.wildplants.length, 3, 'only the finite gemfruit finds remain');
     assert.truthy(out.wildplants.every(o => o.crop === 'gemfruit' && o.zoneLayer === 'find'));
   });
-  test('zone dressing: giant mushroom art replaces only Mushroom Grove shrubs, retaining harvesting and identities', () => {
+  test('zone dressing: Mushroom Grove giant mushrooms retain shrub harvesting and identities', () => {
     const grove = ZoneDressing.dress(context('mushroom_grove'));
     const giants = grove.wildplants.filter(o => o.crop === 'shrub');
     assert.gt(giants.length, 0);
@@ -112,7 +112,7 @@
     assert.truthy(grove.wildplants.filter(o => o.crop === 'mushroom').every(o => o._plantArt === 'cap_cluster' && wildplantSprite(o).sheet === 'approved_mushroom_cluster'), 'forage gets its approved cluster look while keeping the mushroom crop');
     const ordinary = ZoneDressing.dress(context('meadow')).wildplants.filter(o => o.crop === 'shrub');
     assert.gt(ordinary.length, 0);
-    assert.truthy(ordinary.every(o => !o._plantArt && wildplantSprite(o).sheet === 'bushes'), 'other groves keep bushes');
+    assert.truthy(ordinary.every(o => !o._plantArt && wildplantSprite(o).sheet === 'bushes'), 'other groves use the same shrub');
   });
   test('zone art: masonry, formal hedges and moss retain their original harvest identities', () => {
     const masonry = ZoneDressing.dress(context('broken_masonry')).wildplants.filter(o => o.crop === 'rockfruit');

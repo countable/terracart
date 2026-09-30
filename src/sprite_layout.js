@@ -42,8 +42,6 @@
     'trees:2': { fw: 32, fh: 48, minX: 7, minY: 16, maxX: 25, maxY: 48 },
     'trees:3': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 48 },
     'pine_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
-    'birch_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
-    'mahogany_tree:3': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 46 },
     'giant_mushroom:2': { fw: 32, fh: 48, minX: 1, minY: 2, maxX: 32, maxY: 48 },
     'bushes:0': { fw: 48, fh: 32, minX: 9, minY: 0, maxX: 41, maxY: 32 },
     'apple_tree:0': { fw: 32, fh: 48, minX: 12, minY: 43, maxX: 20, maxY: 46 },

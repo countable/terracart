@@ -253,13 +253,6 @@
       "color": "#ad8055",
       "recordType": "wildplant"
     },
-    "giant_mushroom": {
-      "kind": "wildplant",
-      "crop": "shrub",
-      "spawnClass": "minor",
-      "color": "#c36259",
-      "_plantArt": "giant_mushroom"
-    },
     "carnivorous_plant": {
       "kind": "plant",
       "recordType": "enemy",
@@ -1108,14 +1101,14 @@
               2,
               2
             ],
-            "material": "giant_mushroom"
+            "material": "shrub"
           },
           {
             "at": [
               5,
               5
             ],
-            "material": "giant_mushroom"
+            "material": "shrub"
           }
         ],
         "densityFalloff": "none",
@@ -1124,7 +1117,7 @@
         "nominalDensity": 0.16666666666666666,
         "materialDensity": {
           "mushroom": 0.1111111111111111,
-          "giant_mushroom": 0.05555555555555555
+          "shrub": 0.05555555555555555
         },
         "type": "repeat_motif",
         "poiOrigin": {
@@ -1294,12 +1287,13 @@
           "spider"
         ]
       },
-      "atmosphere": "Staggered mushroom pairs repeat every six cells, with giant mushrooms between them. The close-set caps lead to a crescent and its luminous flower.",
+      "atmosphere": "Staggered mushroom pairs repeat every six cells, with giant woody mushrooms between them. The close-set caps lead to a crescent and its luminous flower.",
       "attracts": {
         "butterfly": 0.5
       },
       "materialLooks": {
-        "mushroom": "cap_cluster"
+        "mushroom": "cap_cluster",
+        "shrub": "giant_mushroom"
       }
     },
     {

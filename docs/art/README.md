@@ -37,8 +37,9 @@ the browser renders proposed RGB palette swaps beside them using
 colour ramps are assigned by source brightness. Dimensions and alpha are
 preserved exactly. The six defaults are exported to `assets/Objects/Rustic/` with
 `tools/apply_nature_recolours.py`, including matching growth and broken-pot
-states. The clipped hedge is used on hedged lanes; formal-garden / residential /
-commercial shrubs now use the approved clipped-hedge context art. The game has no seasons.
+states. Shrubs have two appearances: the basic bush and the approved cut hedge at 80%
+of its former residential display size. Both share shrub mechanics, and neither
+receives biome tint. Timber trees use maple or pine, without bush-sized forms. The game has no seasons.
 
 Generate both linked review pages and palette exports (Pillow and Node required):
 
@@ -62,9 +63,8 @@ frames. Baked unclaimed buildings bypass the old runtime wash to keep their slud
 and weathering visible. Chapel, macro POI booths, actors and other retained art
 remain unchanged.
 
-The six sprite contexts are wetland-edge reeds, formal/residential/commercial
-hedges, Mushroom Grove cap clusters, Stone Garden moss stones, Broken Masonry
-rubble and Burned Row stakes. Ancient Grove and Silent Circle also use their
+The sprite contexts are wetland-edge reeds, Mushroom Grove cap clusters, Stone
+Garden moss stones, Broken Masonry rubble and Burned Row stakes. Shrubs use the basic bush or the smaller cut hedge, with the same mechanics. Ancient Grove and Silent Circle also use their
 approved ground accents. Context selection preserves placement IDs, quantities,
 loot and interaction types.
 
@@ -141,10 +141,12 @@ contrast references beside the proposed art.
 The rejected ground tileset alternatives remain in source details: the actual
 procedural materials are better suited to arbitrary map polygons.
 
-Mushroom Grove uses the red giant mushroom (32 × 48 frame 2) from
-`art-source/sprites/Fantasy Mushroom.png`, copied unchanged to the Wilderness
-assets. These are shrub interactables with the same harvesting and wood drops;
-ordinary shrubs elsewhere retain their woodland bush art.
+Mushroom Grove keeps giant woody mushrooms as a special shrub appearance, with
+the same wood harvesting. Their tall sprites seat their base inside the cell,
+like trees. Ordinary shrubs retain only the basic bush and smaller cut hedge.
+Mushroom forage retains its cap-cluster art and mushroom harvesting.
+Carnivorous plants use a muted olive multiply tint from their shared enemy-roster
+row, so gameplay, zone previews and the foliage audit agree.
 
 ## Sandbox comparison
 
@@ -202,7 +204,7 @@ inventory icons stay wood and rock. The existing cowrie shell colors remain.
 ## Foliage and rock comparison
 
 The dedicated comparison exports current runtime appearances, including timber
-sizes and growth frames, fruit-tree overlays, both hedge looks, giant mushrooms,
+sizes and growth frames, fruit-tree overlays, both shrub looks, mushrooms,
 plain/moss/ore rocks, loose stone and beach looks, crop stages, plant enemies and
 biome tints. Source sheets are embedded unchanged; approved-output provenance is
 not a claim that every frame matches the motif. Pin appearances to compare at a

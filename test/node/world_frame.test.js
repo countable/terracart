@@ -74,7 +74,7 @@ function layers() {
   return [
     { name: 'landcover', features: [
       { type: 3, tags: { class: 'grass' }, geom: blob(1000, 1000, 700, 60) },
-      { type: 3, tags: { class: 'wood' }, geom: blob(3000, 1000, 600, 50) },
+      { type: 3, tags: { class: 'wood' }, geom: blob(3001, 1000, 600, 50) },
       { type: 3, tags: { class: 'forest' }, geom: blob(3300, 1900, 300, 40) },
       { type: 3, tags: { class: 'orchard' }, geom: blob(1000, 3000, 500, 40) },
     ] },
@@ -248,6 +248,23 @@ test('world frame: sidecar / Overpass bins are frame-free (tile-local cells, not
   assert.eq(bin.trees.find((t) => t.id === 'tree_osm_101') != null, true, 'an OSM tree is named by its osm_id');
   assert.eq(bin.chests[0].id, 'sxc_303', 'a sidecar chest is named by its osm_id');
   assert.truthy(/^well_\d+_\d+_\d+_\d+$/.test(bin.wells[0].id), 'a fountain with no id is named by tile + cell');
+});
+
+test('world frame: ordinary tree sources only generate maple and pine', () => {
+  assert.eq(W.TREE_SPECIES.join(','), 'maple,pine');
+  const features = ['maple', 'pine', 'birch', 'mahogany', undefined].map((species, i) => ({
+    type: 'Feature', geometry: { type: 'Point', coordinates: [-119.47 + i * 0.0002, 49.846] },
+    properties: { kind: 'tree', osm_id: 100 + i, species, size: 'bush' },
+  }));
+  const bins = W.buildBinsFromGeoJSON({ type: 'FeatureCollection', features });
+  const trees = [...bins.values()].flatMap(bin => bin.trees);
+  assert.eq(trees.length, features.length, 'obsolete species keep their tree positions and identities');
+  assert.eq(trees.find(tree => tree.id === 'tree_osm_100').species, 'maple');
+  assert.eq(trees.find(tree => tree.id === 'tree_osm_101').species, 'pine');
+  for (const tree of trees) {
+    assert.includes(W.TREE_SPECIES, tree.species);
+    assert.eq(tree.size, 'small', 'sidecar bush crowns become small trees');
+  }
 });
 
 // ── Caves: derived from the GENERATED layer above, never the live entry ───────
