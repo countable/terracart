@@ -4022,16 +4022,18 @@ Render.drawObjects = function drawObjects(scene) {
     }
   }
   // Shiny fish glint on their water cell until landed (items.js
-  // shinyFishSpots — a per-tile derived list, so no grid scan per frame).
+  // shinyFishSpots — a per-tile derived list, so no grid scan per frame; its
+  // first derivation is spread over frames, SHINY_FISH_SCAN_MS a frame).
   // Surface only: a cave's water is not the surface's fishing spots.
   if ((scene.depth || 0) === 0 && typeof shinyFishSpots === 'function') {
     const fished = scene.fishedSpotSet;
+    const fishUntil = performance.now() + SHINY_FISH_SCAN_MS;
     const tpc = scene.playerToWorldCell();
     for (let dty = -1; dty <= 1; dty++) {
       for (let dtx = -1; dtx <= 1; dtx++) {
         const tx = tpc.tx + dtx, ty = tpc.ty + dty;
         const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-        for (const f of shinyFishSpots(entry, tx, ty)) {
+        for (const f of shinyFishSpots(entry, tx, ty, fishUntil)) {
           if (fished && fished.has(f.id)) continue;
           const m = tileCellCenterMeters(scene, tx, ty, f.ix, f.iy);
           const dx = m.x - pWorldX, dy = m.y - pWorldY;

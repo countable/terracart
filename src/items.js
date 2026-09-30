@@ -1741,17 +1741,32 @@ function fishSpotShiny(id) {
 // The shiny spots on a tile, derived once per tile entry (a rebuild replaces
 // the entry, and the cache with it): [{ ix, iy, id }] over its WATER cells.
 // The renderer reads this per frame to glint them; it never rescans a grid.
-function shinyFishSpots(entry, tx, ty) {
+// Hashing every water cell is 10-26 ms on a lake tile, so the renderer passes
+// `untilMs` (a performance.now() deadline, SHINY_FISH_SCAN_MS into its frame,
+// shared by every tile it asks): the scan then advances a block of rows per
+// call across frames, answering the spots found so far, until it is whole.
+// Without a deadline it finishes the scan now. Either way the finished list
+// is the same one, row by row in the same order.
+const SHINY_FISH_SCAN_MS = 2;
+function shinyFishSpots(entry, tx, ty, untilMs) {
   if (!entry || !entry.grid) return [];
   if (entry._shinyFish) return entry._shinyFish;
-  const N = entry.cellsPerEdge, out = [];
-  for (let iy = 0; iy < N; iy++) {
+  const N = entry.cellsPerEdge;
+  let job = entry._shinyFishScan;
+  if (!job || job.grid !== entry.grid) job = entry._shinyFishScan = { grid: entry.grid, row: 0, out: [] };
+  const until = untilMs > 0 ? untilMs : Infinity;
+  const grid = entry.grid, W = WorldGen.T.WATER, out = job.out;
+  while (job.row < N) {
+    const iy = job.row++;
     for (let ix = 0; ix < N; ix++) {
-      if (entry.grid[iy * N + ix] !== WorldGen.T.WATER) continue;
+      if (grid[iy * N + ix] !== W) continue;
       const id = fishSpotId(tx, ty, ix, iy);
       if (fishSpotShiny(id)) out.push({ ix, iy, id });
     }
+    if ((iy & 7) === 7 && until !== Infinity && performance.now() >= until) break;
   }
+  if (job.row < N) return out;
+  entry._shinyFishScan = null;
   return (entry._shinyFish = out);
 }
 // The species living in a stocked spot — same for every player.
