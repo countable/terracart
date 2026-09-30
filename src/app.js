@@ -1189,6 +1189,11 @@ const FIRE_FULL_REST_S = 360;
 // sleeping at Home — once a day is a courtesy for the walk, not an income.
 const CASTLE_REST_ENERGY = 35;   // a flat 35⚡ (was a tenth of the bar until Sep 2026)
 const CASTLE_TAX_GOLD = 10;
+// What a house says when the feet walk through it (_houseMutter). Each line
+// fits MAP_MSG_MAX.
+const HOUSE_WRECK_MUTTERS = ["It's a fixer upper.", 'Something here smells.', 'Needs a little TLC.'];
+const HOUSE_RESTORED_MUTTERS = ['Eek!', 'Why hello there.', 'Thanks for fixing my house!',
+  'Welcome back!', 'Can I offer some tea?'];
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // HOME IS A CAMPFIRE YOU OWN, and this is its ONE radius — the light it
 // throws, the ring it rests you in, and the ring an enemy turns and walks out
@@ -4306,6 +4311,8 @@ class MapScene extends Phaser.Scene {
       // …and the LIVING LAMPS the feet just came by: a visit flares a lit
       // lamp and pays the ladder for how dim it had got (_visitStreetLamps).
       this._visitStreetLamps(Date.now());
+      // …and a house the feet walk through mutters (_houseMutter).
+      this._houseMutter();
     }
 
     // Facing-direction indicator: yellow triangle arrow at the player's head,
@@ -12945,6 +12952,41 @@ class MapScene extends Phaser.Scene {
   // visited, brightened or paid, and the in-range set is forgotten.
   // Re-derived from the same fix every call, memoised on the feet's cell +
   // Streets.epoch, so standing still costs one string compare.
+  // Flavour toast when the feet step onto a house's own cell: a wreck grumbles
+  // about itself, a restored house greets you. The `cell` toast tier, same as
+  // the energy pops (_popCellNumber); one line per entry, keyed on the
+  // house id so standing still (or shuffling within the cell) says nothing.
+  // Each line fits MAP_MSG_MAX. Surface only, like the lamp visits.
+  _houseMutter() {
+    if ((this.depth ?? 0) !== 0 || this._driftingHome || !this.startWorldM || !this.playerM
+        || !this.originPx || typeof Houses === 'undefined') return;
+    const p = playerReachCell(this);
+    const key = `${p.cellIX},${p.cellIY}`;
+    if (this._mutterCell === key) return;
+    this._mutterCell = key;
+    const pt = absCellToTile(this, p.cellIX, p.cellIY);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(pt.tx, pt.ty));
+    if (!entry || !entry.layers) { this._mutterCell = null; return; }   // still loading: retry
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    const r = this.cellM;
+    let house = null;
+    WorldGen.forEachItemInBox(entry, 'objects', px - r, py - r, px + r, py + r, (o) => {
+      if (house || o.kind !== 'house') return;
+      const c = worldMetersToAbsCell(this, o.x, o.y);
+      if (c.cellIX === p.cellIX && c.cellIY === p.cellIY) house = o;
+    });
+    if (!house) return;
+    const wreck = Houses.isHouseWreck(this.save, house);
+    if (!wreck && house.tier !== 9) return;      // forts / castles keep their peace
+    const lines = wreck ? HOUSE_WRECK_MUTTERS : HOUSE_RESTORED_MUTTERS;
+    // Hash the id so a given house always has its own line for its state.
+    let h = 0;
+    for (let i = 0; i < house.id.length; i++) h = (h * 31 + house.id.charCodeAt(i)) >>> 0;
+    const text = lines[(h + (this._mutterN = (this._mutterN | 0) + 1)) % lines.length];
+    this._popCellNumber(text, wreck ? UI_DANGER_INK : UI_GREEN, p.cellIX, p.cellIY);
+  }
+
   _visitStreetLamps(now) {
     if (typeof Streets === 'undefined') return 0;
     const surface = (this.depth ?? 0) === 0;

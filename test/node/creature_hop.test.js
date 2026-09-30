@@ -14,7 +14,7 @@ test('creature hop: purple slimes retain their sheet hop; new idle sheets do not
     assert.eq(r.cols, 4, 'four frames a row');
     assert.eq(SpriteLayout.creatureHop(k), null, `${k}: no code bounce on top`);
   }
-  assert.eq(SpriteLayout.creatureHopRow('slime'), null, '16px idle sheet has no hop row');
+  assert.truthy(SpriteLayout.creatureHopRow('slime'), 'the surface slime keeps its sheet hop');
   assert.eq(JSON.stringify(SpriteLayout.creatureHopRow('slime')), JSON.stringify(SpriteLayout.creatureHopRow('cave_slime')),
     'the cave slime is the surface slime\'s body — one hop');
 });
