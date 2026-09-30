@@ -58,8 +58,10 @@
   test('starter module: the functions take the scene first, as the wrappers pass it', () => {
     const src = STARTER_JS_SRC;
     for (const [m, params] of Object.entries(MOVED)) {
-      const sig = `  function ${exportName(m)}(scene${params ? ', ' + params : ''}) {`;
-      assert.truthy(src.includes(sig), `starter.js: ${sig.trim()}`);
+      // A placer may take one trailing option bag the wrapper never passes
+      // (placeSafeAreaWarden's `seating`, for the arrivals pass).
+      const sig = new RegExp('^  function ' + esc(exportName(m)) + '\\(scene' + esc(params ? ', ' + params : '') + '(, \\w+ = \\{\\})?\\) \\{$', 'm');
+      assert.truthy(sig.test(src), `starter.js: function ${exportName(m)}(scene${params ? ', ' + params : ''}) {`);
     }
     // The move was `this` → `scene`: a stray `this` in a placer's CODE would
     // read the module's IIFE receiver, not the scene.

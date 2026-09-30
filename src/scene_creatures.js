@@ -584,7 +584,12 @@ class SceneCreatures {
     // Stash the one object rather than let that pass rebuild a near-copy: the
     // road rule has to be THE shared rule (CLAUDE.md), not a second reading of
     // it, and the POI anchors are already gathered here.
-    creatures.push(...NPC.spawn(this, entry, tx, ty, _spawnOpts));
+    // The tile's residents: drawn in full (the same people, the same seats,
+    // for every player) and kept on the entry, but NOT seated here — they
+    // come back as memories return, to Home's ring or a restored house
+    // (NPC.arrivals below, and NPC.tickArrivals as the ledger grows).
+    entry._residents = NPC.spawn(this, entry, tx, ty, _spawnOpts);
+    entry._residentsTile = { tx, ty };
     entry._spawnOpts = _spawnOpts;
     entry._spawned = true;
     // KEEP creatures the entry already carries. On a rebuild they are the live
@@ -601,6 +606,7 @@ class SceneCreatures {
       liveIds.add(guard.id);
     }
     NPC.shrineResidents(this, entry, tx, ty);
+    NPC.arrivals(this, entry, tx, ty);
 
     // Starter loot now lives entirely in the road-side starter chests placed
     // below (entry.objects, kind:'chest' with fixedLoot). No loose groundstack

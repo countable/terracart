@@ -1913,27 +1913,33 @@
   // THE STORY NEIGHBOURS. The safe area's WARDEN and the three story
   // neighbours (NPC.STORY_NEIGHBOURS — the survivor of the Warmonger's night,
   // the wanderer without a home, the wizard's believer) stand a few cells
-  // from the starting trailer on every save, in either mode. The warden says
-  // why the ground round Home is quiet (NPC.WARDEN_LINE — the safe area,
-  // EnemySpawns homeAllows); the others speak through MemoryStory.npcDialogue.
-  // PLACED, like the greeter: they belong to this player's starting area, so
-  // their ids are the starter tile's (`npc_<role>_<tx>_<ty>`) and they are
-  // seated off the frozen anchor, each on the nearest legal cell in the
-  // WARDEN_MIN..MAX_CELLS ring (the warden) or the wider NEIGHBOUR_MAX_CELLS
-  // ring (the rest), scanned in a fixed order so a rebuild seats them on the
-  // same cells. The warden is seated first so its cell never moved when the
-  // other three arrived; the rest keep NEIGHBOUR_GAP_CELLS from every story
-  // neighbour already seated, so they spread round the trailer rather than
-  // queue along one ring. Idempotent per id; only a tile that has already
-  // spawned. Four people on one tile: nothing the sim or the draw notices.
+  // from the starting trailer, in either mode. The warden says why the
+  // ground round Home is quiet (NPC.WARDEN_LINE — the safe area, EnemySpawns
+  // homeAllows), and — on a tap, never as a splash — the family's plea
+  // (MemoryStory.HOME); the others speak through MemoryStory.npcDialogue.
+  // WHEN each is here is the memory ledger's call (NPC.storyNeighbourDue —
+  // the warden from the first morning, the rest as memories return), so a
+  // new save has the one neighbour on screen; the arrivals pass
+  // (NPC.tickArrivals) calls back here as the count grows, with `seating.
+  // offscreen` so nobody is watched appearing. PLACED, like the greeter:
+  // they belong to this player's starting area, so their ids are the starter
+  // tile's (`npc_<role>_<tx>_<ty>`) and they are seated off the frozen
+  // anchor, each on the nearest legal cell in the WARDEN_MIN..MAX_CELLS ring
+  // (the warden) or the wider NEIGHBOUR_MAX_CELLS ring (the rest), scanned
+  // in a fixed order. The warden is seated first so its cell never moves
+  // when the others arrive; the rest keep NEIGHBOUR_GAP_CELLS from every
+  // story neighbour already seated, so they spread round the trailer rather
+  // than queue along one ring. Idempotent per id; only a tile that has
+  // already spawned. Returns how many it seated just now.
   const WARDEN_MIN_CELLS = 3;
   const WARDEN_MAX_CELLS = 6;
   const NEIGHBOUR_MAX_CELLS = 8;
   const NEIGHBOUR_GAP_CELLS = 2;
-  function placeSafeAreaWarden(scene, entry, tx, ty) {
-    if (typeof NPC === 'undefined' || !entry || !entry.grid || !entry._spawned) return;
+  function placeSafeAreaWarden(scene, entry, tx, ty, seating = {}) {
+    if (typeof NPC === 'undefined' || !entry || !entry.grid || !entry._spawned) return 0;
     const anchor = scene.save.starterCratesAt || scene._starterTrailAnchor();
-    if (!anchor || !Number.isFinite(anchor.x)) return;
+    if (!anchor || !Number.isFinite(anchor.x)) return 0;
+    entry._starterTile = true;   // the arrivals pass knows where to call back
     entry.creatures = entry.creatures || [];
     const N = entry.cellsPerEdge;
     const cellM = scene.tileEdgeM / N;
@@ -1952,9 +1958,11 @@
       const c = entry.creatures.find(o => o.id === `npc_${role}_${tx}_${ty}`);
       if (c) seated.push(cellOf(c.x, c.y));
     }
+    let placed = 0;
     for (const role of roles) {
       const id = `npc_${role}_${tx}_${ty}`;
       if (entry.creatures.some(c => c.id === id)) continue;
+      if (!NPC.storyNeighbourDue(scene.save, role)) continue;
       const maxR = role === 'warden' ? WARDEN_MAX_CELLS : NEIGHBOUR_MAX_CELLS;
       let seat = null;
       for (let r = WARDEN_MIN_CELLS; r <= maxR && !seat; r++) {
@@ -1972,12 +1980,14 @@
       }
       if (!seat) continue;
       const x = tx0 + (seat.cx + 0.5) * cellM, y = ty0 + (seat.cy + 0.5) * cellM;
+      if (seating.offscreen && !seating.offscreen(x, y)) continue;
       const neighbour = WorldGen.makeCreature('npc', x, y, id, { ...NPC.storyNeighbour(id, role), homeX: x, homeY: y });
       entry.creatures.push(neighbour);
       occupied.add(seat.cx + ',' + seat.cy);
       seated.push(seat);
-      if (role === 'warden' && typeof MemoryStory !== 'undefined') MemoryStory.enqueueHome(scene, neighbour);
+      placed++;
     }
+    return placed;
   }
 
   // Hard mode has no supply handout: drop the starter crates (the `crate: true`

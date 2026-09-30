@@ -22,14 +22,36 @@
     return save;
   };
 
-  test('story neighbours: four placed people round the trailer, the warden on its old cell, the rest spread', () => {
+  test('story neighbours: the warden alone on a new save; the rest come in as memories return', () => {
     const entry = starterEntry(), anchor = { x: 20.5 * CELL_M, y: 20.5 * CELL_M };
-    const s = { tileEdgeM: EDGE_M, save: { starterCratesAt: anchor }, _starterTrailAnchor: () => anchor };
-    Starter.placeSafeAreaWarden(s, entry, 0, 0);
+    const save = { starterCratesAt: anchor, discovered: {} };
+    const s = { tileEdgeM: EDGE_M, save, _starterTrailAnchor: () => anchor };
+    const remember = (n) => { for (let i = Object.keys(save.discovered).length; i < n; i++) save.discovered[`m${i}`] = 1; };
+    const present = () => NPC.STORY_NEIGHBOURS.filter(role => entry.creatures.some(c => c.id === `npc_${role}_0_0`));
     assert.eq(JSON.stringify(NPC.STORY_NEIGHBOURS), JSON.stringify(['warden', 'witness', 'wanderer', 'believer']), 'the warden is seated first');
+    assert.eq(Starter.placeSafeAreaWarden(s, entry, 0, 0), 1, 'one person seated');
+    assert.eq(present().join(','), 'warden', 'the first morning: the warden is the one neighbour');
+    assert.eq(JSON.stringify(cellOf(entry.creatures[0])), JSON.stringify({ cx: 17, cy: 17 }), 'the warden keeps the first legal ring-3 cell it always had');
+    assert.eq(Starter.placeSafeAreaWarden(s, entry, 0, 0), 0, 'idempotent while nothing is due');
+    // The gates, in the owner's order: the wizard's believer first, at three.
+    assert.eq(NPC.STORY_ROLES.warden.minMemories, 0);
+    assert.eq(NPC.STORY_ROLES.believer.minMemories, 3, 'the soothsayer of the wizard comes at memory three');
+    assert.gt(NPC.STORY_ROLES.witness.minMemories, NPC.STORY_ROLES.believer.minMemories);
+    assert.gt(NPC.STORY_ROLES.wanderer.minMemories, NPC.STORY_ROLES.witness.minMemories);
+    remember(2);
+    Starter.placeSafeAreaWarden(s, entry, 0, 0);
+    assert.eq(present().join(','), 'warden', 'two memories: still alone');
+    remember(3);
+    assert.eq(Starter.placeSafeAreaWarden(s, entry, 0, 0), 1);
+    assert.eq(present().join(','), 'warden,believer', 'three: the believer is by the trailer');
+    remember(NPC.STORY_ROLES.witness.minMemories);
+    Starter.placeSafeAreaWarden(s, entry, 0, 0);
+    assert.eq(present().join(','), 'warden,witness,believer');
+    remember(NPC.STORY_ROLES.wanderer.minMemories);
+    Starter.placeSafeAreaWarden(s, entry, 0, 0);
     const placed = NPC.STORY_NEIGHBOURS.map(role => entry.creatures.find(c => c.id === `npc_${role}_0_0`));
-    assert.truthy(placed.every(Boolean), 'all four are seated');
-    assert.eq(JSON.stringify(cellOf(placed[0])), JSON.stringify({ cx: 17, cy: 17 }), 'the warden keeps the first legal ring-3 cell it always had');
+    assert.truthy(placed.every(Boolean), 'all four are here in the end');
+    assert.eq(JSON.stringify(cellOf(placed[0])), JSON.stringify({ cx: 17, cy: 17 }), 'the warden never moved');
     for (const c of placed) {
       assert.inRange(cheb(cellOf(c), { cx: 20, cy: 20 }), 3, 8, `${c.role} stands a few cells from the trailer`);
       assert.eq(c.roleLabel, NPC.STORY_ROLES[c.role].label);
@@ -41,13 +63,12 @@
     const before = JSON.stringify(entry.creatures);
     Starter.placeSafeAreaWarden(s, entry, 0, 0);
     assert.eq(JSON.stringify(entry.creatures), before, 'idempotent');
-    // A save that already carried the warden alone gains the other three
-    // without moving it.
-    const older = starterEntry();
-    Starter.placeSafeAreaWarden(s, older, 0, 0);
-    older.creatures = older.creatures.filter(c => c.role === 'warden');
-    Starter.placeSafeAreaWarden(s, older, 0, 0);
-    assert.eq(JSON.stringify(older.creatures.map(c => [c.id, c.x, c.y])), JSON.stringify(entry.creatures.map(c => [c.id, c.x, c.y])), 'retro-placed on the same cells');
+    // Nobody is watched arriving: a seat on screen waits for the player to
+    // look away.
+    const shy = starterEntry();
+    assert.eq(Starter.placeSafeAreaWarden(s, shy, 0, 0, { offscreen: () => false }), 0, 'every seat is in view: nobody seated');
+    assert.eq(Starter.placeSafeAreaWarden(s, shy, 0, 0, { offscreen: () => true }), 4, 'looked away: all four');
+    assert.truthy(shy._starterTile, 'the tile is marked for the arrivals pass');
   });
 
   test('story neighbours: the survivor tells of the Warmonger, one act at a time, never the secret', () => {

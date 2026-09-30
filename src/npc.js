@@ -243,15 +243,20 @@ const NPC = (() => {
   // the WITNESS tells of the night the Warmonger took the roofs, the
   // WANDERER has no home until the next restoration after you meet them,
   // the BELIEVER lauds the wise wizard and the tower that might bring him back.
-  // `artScale` is the row's INSTANCE size (SpriteLayout.creatureInstScale —
-  // the sprite, its shadow, the tap box and the bar seats all read it): the
-  // wanderer is a child, drawn at CHILD_SCALE of a grown neighbour.
+  // `minMemories` is WHEN each one is here (storyNeighbourDue): on a new save
+  // the warden is the one neighbour on screen; the others come in as the
+  // past does, at that many recovered memories (MemoryStory.total) — the
+  // believer first, at three (Sep 2026, owner's call), then the survivor,
+  // then the child. `artScale` is the row's INSTANCE size
+  // (SpriteLayout.creatureInstScale — the sprite, its shadow, the tap box and
+  // the bar seats all read it): the wanderer is a child, drawn at
+  // CHILD_SCALE of a grown neighbour.
   const CHILD_SCALE = 0.7;
   const STORY_ROLES = {
-    warden: { label: 'Warden' },
-    witness: { label: 'Survivor' },
-    wanderer: { label: 'Wanderer', artScale: CHILD_SCALE },
-    believer: { label: 'Believer' },
+    warden: { label: 'Warden', minMemories: 0 },
+    witness: { label: 'Survivor', minMemories: 6 },
+    wanderer: { label: 'Wanderer', artScale: CHILD_SCALE, minMemories: 9 },
+    believer: { label: 'Believer', minMemories: 3 },
   };
   const STORY_NEIGHBOURS = Object.keys(STORY_ROLES);
   function storyNeighbour(id, role) {
@@ -259,6 +264,142 @@ const NPC = (() => {
     return { ...identity(id, 'village'), role, roleLabel: row?.label || 'Neighbour', ...(row?.artScale ? { artScale: row.artScale } : {}) };
   }
   function warden(id) { return storyNeighbour(id, 'warden'); }
+  function memoriesOf(save) {
+    return typeof MemoryStory !== 'undefined' ? MemoryStory.total(save) : Object.keys(save?.discovered || {}).length;
+  }
+  function storyNeighbourDue(save, role) {
+    return memoriesOf(save) >= (STORY_ROLES[role]?.minMemories ?? 0);
+  }
+
+  // THE PEOPLE COME BACK AS THE PAST DOES (Sep 2026, owner's call). A tile's
+  // residents are still drawn in full by spawn() — the same people on the
+  // same seats for every player — but at the start of a save none of them
+  // is about: the warden by the trailer is the one neighbour on screen. They
+  // RETURN as memories are recovered, RETURN_PER_MEMORY of the tile's draw
+  // order per memory (returnedCount), and a returning resident does not go
+  // back to its old seat: it lingers where there is something to come back
+  // to — inside Home's ring (scene.inHomeRing, the quiet ground the warden
+  // explains) or within LINGER_CELLS of a RESTORED house (the restoration
+  // ledger, save.restoredHouses). On a tile with neither, nobody returns.
+  // A named zone's KEEPER never left (stayers: the first keeper the draw
+  // seats on each zone kind — the one seatKeepers guarantees — keeps its
+  // seat and its story: "the fire took the roofs, not the stone"); the
+  // wizard tower's elves arrive with its restoration (shrineResidents).
+  // Arrivals are seated only OFF SCREEN
+  // (tickArrivals), so a neighbour is found on the doorstep, never seen to
+  // appear on it. The seat is drawn on the resident's own stream
+  // (`<id>:return`), so a given ledger seats a given person on one cell.
+  const RETURN_PER_MEMORY = 2;
+  const LINGER_CELLS = WANDER_CELLS;
+  const ARRIVALS_MS = 2000;
+  function returnedCount(save) { return memoriesOf(save) * RETURN_PER_MEMORY; }
+  function stayers(residents) {
+    const kept = new Set(), ids = new Set();
+    for (const c of residents) {
+      if (c.role !== 'keeper' || !c.zoneKind || kept.has(c.zoneKind)) continue;
+      kept.add(c.zoneKind); ids.add(c.id);
+    }
+    return ids;
+  }
+  // What a returning resident can come back to on this tile: Home, and the
+  // restored houses, in a stable order (Home first, then by id).
+  function anchorsIn(scene, entry, tx, ty) {
+    const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
+    const inside = (x, y) => x >= tx0 && x < tx0 + scene.tileEdgeM && y >= ty0 && y < ty0 + scene.tileEdgeM;
+    const anchors = [];
+    const home = scene.homeWorldPos?.();
+    if (home && inside(home.x, home.y)) anchors.push({ key: '', x: home.x, y: home.y, home: true });
+    for (const o of (entry.objects || [])) {
+      if (o.kind !== 'house' || !scene.save.restoredHouses?.[o.id] || (home && o.id === home.id)) continue;
+      anchors.push({ key: String(o.id), x: o.x, y: o.y, home: false });
+    }
+    anchors.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    return anchors;
+  }
+  function lingerSeat(scene, entry, tx, ty, r, anchors, occupied, spawnOpts) {
+    const N = entry.cellsPerEdge, cellM = scene.tileEdgeM / N;
+    const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
+    const rng = WorldGen.makeRng(fnv1a(`${r.id}:return`));
+    const a = anchors[Math.floor(rng() * anchors.length)];
+    const ax = Math.floor((a.x - tx0) / cellM), ay = Math.floor((a.y - ty0) / cellM);
+    const cells = [];
+    for (let cy = ay - LINGER_CELLS; cy <= ay + LINGER_CELLS; cy++) {
+      for (let cx = ax - LINGER_CELLS; cx <= ax + LINGER_CELLS; cx++) {
+        if (cx < 0 || cy < 0 || cx >= N || cy >= N || (cx === ax && cy === ay) || occupied.has(cx + ',' + cy)) continue;
+        if (Combat.faunaBlocksCell(entry.grid[cy * N + cx])) continue;
+        if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, spawnOpts, 'npc')) continue;
+        const x = tx0 + (cx + 0.5) * cellM, y = ty0 + (cy + 0.5) * cellM;
+        if (a.home && scene.inHomeRing && !scene.inHomeRing(x, y)) continue;
+        cells.push({ x, y, cx, cy });
+      }
+    }
+    return cells.length ? cells[Math.floor(rng() * cells.length)] : null;
+  }
+  // Seat the residents of `entry` that are due and not yet about. Idempotent
+  // by id; returns the newcomers. `opts.offscreen(x, y)` may refuse a seat the
+  // player would watch fill (tickArrivals passes it; a tile just spawned has
+  // no such worry and passes none).
+  function arrivals(scene, entry, tx, ty, residents = entry?._residents, opts = {}) {
+    if (!entry || !entry.grid || !entry._spawned || !Array.isArray(residents)) return [];
+    const N = entry.cellsPerEdge, cellM = scene.tileEdgeM / N;
+    const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
+    const people = entry.creatures || (entry.creatures = []);
+    const present = new Set(people.map(c => c.id));
+    const cellKey = (x, y) => Math.floor((x - tx0) / cellM) + ',' + Math.floor((y - ty0) / cellM);
+    const occupied = new Set();
+    for (const o of (entry.objects || [])) occupied.add(cellKey(o.x, o.y));
+    for (const w of (entry.wildplants || [])) occupied.add(cellKey(w.x, w.y));
+    for (const c of people) occupied.add(cellKey(c.x, c.y));
+    const due = returnedCount(scene.save), stayed = stayers(residents);
+    const spawnOpts = entry._spawnOpts || { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
+    let anchors = null;
+    const added = [];
+    residents.forEach((r, i) => {
+      if (present.has(r.id)) return;
+      let seat;
+      if (stayed.has(r.id)) seat = { x: r.x, y: r.y };
+      else {
+        if (i >= due) return;
+        if (!anchors) anchors = anchorsIn(scene, entry, tx, ty);
+        if (!anchors.length) return;
+        seat = lingerSeat(scene, entry, tx, ty, r, anchors, occupied, spawnOpts);
+        if (!seat) return;
+      }
+      if (opts.offscreen && !opts.offscreen(seat.x, seat.y)) return;
+      const c = { ...r, x: seat.x, y: seat.y, homeX: seat.x, homeY: seat.y };
+      people.push(c);
+      present.add(c.id);
+      occupied.add(cellKey(c.x, c.y));
+      added.push(c);
+    });
+    return added;
+  }
+  // Is the world point out of the player's sight — past the viewport's half
+  // width, plus a cell — so a neighbour seated there is found, not watched
+  // appearing? A scene with no viewport (a test) hides nothing.
+  function offscreenAt(scene) {
+    if (!(scene.viewSize > 0) || !(scene.mPerPx > 0) || !scene.playerM || !scene.startWorldM) return () => true;
+    const half = (scene.viewSize / 2) * scene.mPerPx + scene.cellM;
+    const px = scene.startWorldM.x + scene.playerM.x, py = scene.startWorldM.y + scene.playerM.y;
+    return (x, y) => Math.max(Math.abs(x - px), Math.abs(y - py)) > half;
+  }
+  // The arrivals pass (app.js update, on the modal-gate cadence): every
+  // surface tile that has spawned seats whoever is due since — a memory
+  // recovered, a house restored — off screen; the starter tile also seats
+  // the story neighbours that are due (Starter.placeSafeAreaWarden).
+  function tickArrivals(scene, now = Date.now()) {
+    if ((scene.depth || 0) !== 0 || now < (scene._npcArrivalsNext || 0)) return 0;
+    scene._npcArrivalsNext = now + ARRIVALS_MS;
+    const offscreen = offscreenAt(scene);
+    let n = 0;
+    for (const entry of WorldGen.tileCacheFor(0).values()) {
+      const at = entry?._residentsTile;
+      if (!at || !entry._spawned || !entry.grid) continue;
+      n += arrivals(scene, entry, at.tx, at.ty, entry._residents, { offscreen }).length;
+      if (entry._starterTile && typeof Starter !== 'undefined') n += Starter.placeSafeAreaWarden(scene, entry, at.tx, at.ty, { offscreen }) | 0;
+    }
+    return n;
+  }
   // Where a thing stands, from the speaker: compass point and paces (a pace
   // is three quarters of a metre; the scout, the mason and the keeper share it).
   function whereabouts(c, o, d) {
@@ -402,5 +543,5 @@ const NPC = (() => {
     if (c.role === 'trader') scene.presentTraderOffer(sx, sy, c, record);
     else scene.presentThemedShop(sx, sy, c, record);
   }
-  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, PROFILES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, KEEPER_DEFAULT, nearestWreck, identity, zoneFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
+  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, PROFILES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, storyNeighbourDue, RETURN_PER_MEMORY, LINGER_CELLS, returnedCount, stayers, anchorsIn, arrivals, offscreenAt, tickArrivals, KEEPER_DEFAULT, nearestWreck, identity, zoneFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
 })();
