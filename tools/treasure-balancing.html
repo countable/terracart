@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="artifact-review" content="disabled"><title>Treasure roll balancing</title><link rel="stylesheet" href="balance.css"></head><body>
+<h1>Treasure roll balancing</h1><p>Sampled chest, treasure and fishing rewards, including seed bonuses and complete fishing casts, valued at list price. Shop offers use separate generators.</p>
+<nav aria-label="Balance dashboards"><a href="map-distribution.html">Map distribution</a> · <a href="treasure-balancing.html">Treasure roll balancing</a> · <a href="items.html">Item catalogue</a> · <a href="../mending-lane-dashboards/index.html">All dashboards</a></nav>
+<p id="status" role="status">Loading current game data…</p>
+<section id="treasure-simulator">
+  <h2>Treasure roll simulator</h2>
+  <div class="controls">
+    <label>Location / reward source <select id="ctx"></select></label>
+    <label id="tierL">Reward roll tier <select id="tier"></select></label>
+    <label id="depthL">Depth <select id="depth"></select></label>
+    <label id="bonusL">Road prize # <select id="bonus"></select></label>
+    <label id="monsterL">Elite monster <select id="monster"></select></label>
+    <label id="rodL">Fishing rod <select id="rod"></select></label>
+    <label id="slimeL">Slime landing space <select id="slime"><option value="yes">Available</option><option value="no">Blocked</option></select></label>
+    <label>Current gear tier <select id="owned"></select></label>
+    <label>Wizard quantity upgrades <select id="qty"></select></label>
+    <label>Samples <select id="n"><option>1000</option><option selected>5000</option><option>20000</option></select></label>
+    <button id="go">Roll</button>
+  </div>
+  <p>Current gear tier sets every relic and armour slot, including the luck ring. Fishing uses the separate rod selection. Each sample uses the same starting gear.</p>
+  <p id="contextNote"></p>
+  <div id="summary"></div>
+  <div class="grid2">
+    <div><h2>By class</h2><table id="byClass"></table></div>
+    <div><h2>By reward tier</h2><table id="byTier"></table></div>
+  </div>
+  <h2 style="margin-top:12px">Top items</h2>
+  <div class="scroll"><table id="byItem"></table></div>
+  <h2 style="margin-top:12px">Ten sample rolls</h2>
+  <table id="samples"></table>
+</section>
+<section>
+  <h2>Default chest tiers</h2>
+  <p>Base chest tiers by location, where a chest is encountered. Surface market stalls sell goods and surface macro stalls (inn, chapel, apothecary, scriptorium, guildhall, curio hall, sundries, training hall) offer a service; the underground copies of both are chests. The chapel's daily alms roll one tier under the tier shown.</p>
+  <table id="defaultTiers"></table>
+  <p id="tierRules"></p>
+  <p>These are chest rules; market stands and coin-burst locations have their own interactions. Fixed starter crates have preset contents.</p>
+</section>
+<section>
+  <h2>Every context at a glance</h2>
+  <p>Share by class and average list value per reward. Road figures describe offered cards, of which the player keeps one.
+     Chest rows use the selected tier and depth; elite rewards use the selected monster and depth. Fishing averages include every cast, using the selected rod and slime landing space.</p>
+  <div class="scroll"><table id="matrix"></table></div>
+</section>
+<section>
+  <h2>Chest value by category and tier</h2>
+  <p>Average list value of one chest roll, surface (depth 0), player gear as above.</p>
+  <table id="chestGrid"></table>
+</section>
+<script src="sortable-tables.js"></script><script src="game-loader.js"></script><script src="balance-common.js"></script><script src="treasure-balancing.js"></script></body></html>

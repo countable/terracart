@@ -1,0 +1,36 @@
+:root { --bg:#111; --panel:#1a1612; --ink:#ddd; --mute:#888; --gold:#c8a64a; --line:#2a2520; }
+  html,body{margin:0;background:var(--bg);color:var(--ink);font:13px ui-monospace,monospace}
+  body{padding:18px;max-width:1180px;margin:0 auto}
+  h1{font-size:18px;color:#ffd866;margin:0 0 4px}
+  h2{font-size:14px;color:var(--gold);margin:0 0 8px}
+  p{margin:4px 0;color:var(--mute)}
+  a{color:#8ec5ff}
+  section{background:var(--panel);border:1px solid #333;border-radius:6px;padding:12px 16px;margin:12px 0}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:right;padding:3px 7px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--mute);font-weight:700;position:sticky;top:0;background:var(--panel)}
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:8px 0}
+  select,input{background:#222;color:var(--ink);border:1px solid #444;padding:3px 5px;font:12px ui-monospace,monospace}
+  button{background:var(--gold);color:#1a1612;border:0;padding:5px 11px;border-radius:5px;font:700 12px ui-monospace,monospace;cursor:pointer}
+  .bar{display:inline-block;height:9px;background:var(--gold);vertical-align:middle;margin-right:5px;border-radius:2px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:800px){.grid2{grid-template-columns:1fr}}
+  .scroll{max-height:420px;overflow:auto}
+  .heat{color:#111;font-weight:700}
+  #status{color:var(--gold)}
+  .scope{color:#b9a77a;font-style:italic}
+  .note{background:#15130f;border-left:3px solid var(--gold);padding:6px 10px;margin:8px 0}
+  .note ul{margin:4px 0;padding-left:18px;color:var(--mute)}
+  .note li{margin:2px 0}
+  details>summary{cursor:pointer}
+  details.explain{margin:6px 0}
+  details.explain>summary{color:var(--mute)}
+  .kpis{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+  .kpi{background:#221d17;border:1px solid #3a322a;border-radius:5px;padding:6px 10px;min-width:120px}
+  .kpi b{display:block;color:#ffd866;font-size:16px}
+  .kpi span{color:var(--mute);font-size:11px}
+  .err{color:#ff7b7b;white-space:pre-wrap}
+  .dim{color:#555}
+  td.l,th.l{text-align:left}
+  #world .grid2>*{min-width:0;overflow-x:auto}
