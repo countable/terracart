@@ -351,6 +351,17 @@
     return !!c && !!c.shiny && isEnemyKind(c.kind) && monster(c.kind)?.eliteEligible !== false;
   }
   function eliteMul(c) { return isElite(c) ? ELITE_MUL : 1; }
+  // A pet RAISED from a baby (SpriteLayout.isBabyPet — found in a nest bush
+  // or hatched from an egg) is twice its kind once grown: HP and bite both,
+  // through powerMul like the elite's, so the dps identity holds — a raised
+  // dog worries a slime in half the time and takes twice the worrying. A
+  // baby is still its kind's size in every sense; the doubling comes with
+  // adulthood. Its own factor, not the elite's: an elite is a MONSTER's
+  // shiny, and a raised pet is shiny for a different reason (it was raised).
+  const RAISED_MUL = 2;
+  function raisedMul(c) {
+    return (c && c.raised && !SpriteLayout.isBabyPet(c)) ? RAISED_MUL : 1;
+  }
 
   // THE instance's power over its kind's table row — the one factor its HP
   // pool, its blow and its bounty are scaled by: the elite's. (Home weakens
@@ -358,7 +369,7 @@
   // EnemySpawns.homeAllows.) Every per-creature scale reads this; eliteMul alone is
   // the "is it an elite" half, for callers that ask only that (the elite's
   // treasure roll, its tint).
-  function powerMul(c) { return eliteMul(c); }
+  function powerMul(c) { return eliteMul(c) * raisedMul(c); }
   // The HP pool of THIS instance — the kind's max times its power.
   // Everything that seeds or refills a creature's HP reads this, never
   // creatureMaxHp(kind) directly, or an elite heals back to half its health.
@@ -516,6 +527,9 @@
     const model = SUMMONED_AS[kind];
     return model ? enemyBlow(model) : PET_BITE;
   }
+  // THIS pet's blow: its kind's bite times its own power (a raised pet's
+  // double). The fight in scene_creatures.js reads this, never petBite alone.
+  function petBlow(c) { return petBite(c.kind) * powerMul(c); }
 
   // Current HP, lazily seeded from the kind's max the first time anything hits
   // it. Creatures are re-spawned from tile data on every reload, so `_hp` is
@@ -1191,13 +1205,13 @@
   const api = {
     MONSTERS, MONSTERS_BASELINE, CAVE_ENEMY_MUL, GIANT_HP_MUL, GIANT_DEPTH_STEP,
     registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
-    SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite,
+    SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, damageDealt, hpFraction,
-    ELITE_MUL, isElite, eliteMul, powerMul, maxHp,
+    ELITE_MUL, isElite, eliteMul, RAISED_MUL, raisedMul, powerMul, maxHp,
     TRAINING_KINDS, TRAINING_ORDER, TRAINING_PERM_MAX, TRAINING_BUFF_MS, TRAINING_SLOT_KIND,
     trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,

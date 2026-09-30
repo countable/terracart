@@ -542,7 +542,10 @@ class SceneCreatures {
       for (const r of this.save.released) {
         if (r.tx !== tx || r.ty !== ty) continue;
         if (caughtSet.has(r.id)) continue;
-        creatures.push(WorldGen.makeCreature(r.kind, r.x, r.y, r.id, { shiny: !!r.shiny }));
+        // A raised pet carries its birth (SpriteLayout.isBabyPet) back too.
+        creatures.push(WorldGen.makeCreature(r.kind, r.x, r.y, r.id, {
+          shiny: !!r.shiny, ...(r.raised ? { raised: true, born: r.born } : {}),
+        }));
       }
     }
     yield 'spawn habitats';
@@ -2248,7 +2251,7 @@ class SceneCreatures {
             // work. The bite is Combat.petBite: a point for a tame pet, the
             // slime's own blow for the spirit raven (summoned as a slime).
             // The prey bites back a point either way.
-            tgt._hp = Combat.damage(tgt, Combat.petBite(c.kind));
+            tgt._hp = Combat.damage(tgt, Combat.petBlow(c));
             c._hp   = Combat.damage(c, 1);
             tgt._lastDamagedT = Date.now();
             c._lastDamagedT   = Date.now();

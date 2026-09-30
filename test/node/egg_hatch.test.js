@@ -68,15 +68,15 @@ test('egg: remaining distance rounds up and only one stacked egg incubates', () 
   assert.truthy(EggHatch.ready(save));
   assert.truthy(EggHatch.hatch(save, () => 0).ok);
   assert.eq(Inventory.count(save, 'egg'), 2);
-  assert.eq(Inventory.count(save, Shops.petItems()[0]), 1);
+  assert.eq(Inventory.count(save, babyItems()[0]), 1);
   assert.eq(save.eggHatchM, 0);
   assert.falsy(EggHatch.ready(save));
   EggHatch.track(save, tracker, eggFix(20, 20000), 20000);
   assert.eq(save.eggHatchM, 0, 'hatching resets GPS anchor for next egg');
 });
 
-test('egg: each pet-shop species can hatch, consuming exactly one egg', () => {
-  const pets = Shops.petItems();
+test('egg: each baby kind can hatch, consuming exactly one egg', () => {
+  const pets = babyItems();
   pets.forEach((petId, i) => {
     const save = eggSave();
     save.eggHatchM = EggHatch.METERS;
@@ -94,7 +94,7 @@ test('egg: unavailable hatches and full pet stacks leave inventory and progress 
   assert.eq(EggHatch.hatch({ inv: [], eggHatchM: EggHatch.METERS }).reason, 'no_egg');
   const save = eggSave();
   save.eggHatchM = EggHatch.METERS;
-  Inventory.add(save, Shops.petItems()[0], Inventory.stackCap(save));
+  Inventory.add(save, babyItems()[0], Inventory.stackCap(save));
   const before = JSON.stringify(save);
   assert.eq(EggHatch.hatch(save, () => 0).reason, 'full');
   assert.eq(JSON.stringify(save), before);

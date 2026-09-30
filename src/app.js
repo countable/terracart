@@ -15430,8 +15430,9 @@ class MapScene extends Phaser.Scene {
     this._clampSelSlot();
     persistSave(this.save);
     this.buildInventoryDOM();
-    const pet = ITEM_BY_ID[result.petId];
-    this.flashLoot(`Hatched ${pet.name}!`, UI_GREEN, 1, result.petId);
+    // The hatch is a ceremony (SceneModals.showBabyFound): the offer modal
+    // that asked has already closed, so the card stands alone.
+    this.showBabyFound(result.petId, 'egg');
     return true;
   }
 
