@@ -90,6 +90,22 @@ test('story splash: the chest reward modal collapses an empty icon row', () => {
     'an empty iconHTML leaves no blank band under the banner');
 });
 
+test('story splash: bow and staff have independent first-use stories and matching art', () => {
+  const method = lift('_toolActionStory(action) {', '_toolActionStory');
+  const calls = [];
+  const scene = new Function('return ({' + method + '});')();
+  scene._storySplashOnce = (key, entry) => calls.push({ key, ...entry });
+  scene._toolActionStory('shoot');
+  scene._toolActionStory('staff');
+  assert.eq(calls[0].key, 'tool:shoot', 'bow preserves the existing save ledger key');
+  assert.eq(calls[0].art, 'tool_shoot');
+  assert.eq(calls[1].key, 'tool:staff', 'staff has its own ledger key');
+  assert.eq(calls[1].art, 'tool_staff');
+  assert.truthy(calls[0].body !== calls[1].body, 'each weapon tells its own story');
+  assert.truthy(/if \(shot\) \{\s*this\._shots\.push\(shot\);[\s\S]{0,260}this\._toolActionStory\(slot === 'bow' \? 'shoot' : 'staff'\)/.test(app),
+    'successful shots choose the story for their weapon');
+});
+
 // ── The art files exist ───────────────────────────────────────────────────
 test('story splash: every art stem app.js names exists as a WebP in assets/art/', () => {
   const stems = new Set();

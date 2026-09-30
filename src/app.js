@@ -4754,9 +4754,9 @@ class MapScene extends Phaser.Scene {
         }
         if (shot) {
           this._shots.push(shot);
-          // First bow/staff shot a save ever looses tells its story, here at
-          // the moment the arrow flies - not on equip, not on a dry cadence.
-          this._toolActionStory('shoot');
+          // Keep the bow's existing ledger key; the staff gets its own first shot.
+          // Only a fired projectile tells the story, never equip or a dry cadence.
+          this._toolActionStory(slot === 'bow' ? 'shoot' : 'staff');
         }
       }
     } else {
@@ -8267,6 +8267,8 @@ class MapScene extends Phaser.Scene {
                body: 'Gentle does it.' },
       sword: { art: 'tool_sword', title: 'Steel out',
                body: 'Your first swing lands true.' },
+      staff: { art: 'tool_staff', title: 'First spark',
+               body: 'A spark gathers at the tip. Hold steady, and the staff answers with light.' },
       shoot: { art: 'tool_shoot', title: 'Loose!',
                body: 'Your hand steadies. With a foe near, the bow seems to know when to loose.' },
     };

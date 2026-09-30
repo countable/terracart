@@ -59,7 +59,7 @@ const storyMethods = new Function(`return {\n${STORY_SRC},\n${TOOL_SRC}\n};`)();
 
 const TRAP_STEMS = ['trap_jaw', 'trap_free'];
 const TOOL_STEMS = ['tool_till', 'tool_chop', 'tool_dig', 'tool_water',
-                    'tool_catch', 'tool_sword', 'tool_shoot'];
+                    'tool_catch', 'tool_sword', 'tool_shoot', 'tool_staff'];
 
 // ── The pin, as source ────────────────────────────────────────────────────
 test('trap pin: the spring branch stamps _pinnedUntil 3 s out', () => {
@@ -198,12 +198,12 @@ const TOOL_TABLE = (() => {
   return rows;
 })();
 
-test('tool stories: the table has all 7 actions, each with its banner', () => {
+test('tool stories: the table has all 8 actions, each with its banner', () => {
   const want = { till: 'tool_till', chop: 'tool_chop', dig: 'tool_dig',
                  water: 'tool_water', catch: 'tool_catch', sword: 'tool_sword',
-                 shoot: 'tool_shoot' };
+                 shoot: 'tool_shoot', staff: 'tool_staff' };
   assert.eq(Object.keys(TOOL_TABLE).sort().join(','),
-            Object.keys(want).sort().join(','), 'exactly the 7 actions');
+            Object.keys(want).sort().join(','), 'exactly the 8 actions');
   for (const [action, stem] of Object.entries(want)) {
     assert.eq(TOOL_TABLE[action].art, stem, `${action} carries ${stem}`);
   }
@@ -246,7 +246,7 @@ test('tool stories: interact.js hooks fire at action start, one per call site', 
 
 test('tool stories: the auto-fire hooks the first shot loosed, not the cadence', () => {
   const push = app.indexOf('this._shots.push(shot);');
-  const call = app.indexOf("this._toolActionStory('shoot');");
+  const call = app.indexOf("this._toolActionStory(slot === 'bow' ? 'shoot' : 'staff');");
   assert.truthy(push > 0 && call > push && call < push + 400,
     "the 'shoot' story fires where the arrow actually flies");
 });
@@ -262,20 +262,22 @@ test('tool stories (behaviour): each action splashes once under its own ledger k
   const realPersist = globalThis.persistSave;
   globalThis.persistSave = () => {};
   try {
-    for (const action of ['till', 'chop', 'dig', 'water', 'catch', 'sword', 'shoot']) {
+    for (const action of ['till', 'chop', 'dig', 'water', 'catch', 'sword', 'shoot', 'staff']) {
       scene._toolActionStory(action);
     }
-    assert.eq(modals.length, 7, 'all 7 splashes opened');
+    assert.eq(modals.length, 8, 'all 8 splashes opened');
     assert.eq(scene.save.storySeen['tool:till'], 1, 'ledger key tool:till');
     assert.eq(scene.save.storySeen['tool:shoot'], 1, 'ledger key tool:shoot');
     assert.eq(modals[0].art, 'tool_till', 'till carries its banner');
     assert.eq(modals[6].art, 'tool_shoot', 'shoot carries its banner');
+    assert.eq(scene.save.storySeen['tool:staff'], 1, 'staff has an independent ledger key');
+    assert.eq(modals[7].art, 'tool_staff', 'staff carries its own banner');
     // Replays are refused.
-    for (const action of ['till', 'shoot']) scene._toolActionStory(action);
-    assert.eq(modals.length, 7, 'a seen action never replays');
+    for (const action of ['till', 'shoot', 'staff']) scene._toolActionStory(action);
+    assert.eq(modals.length, 8, 'a seen action never replays');
     // An unknown action is a silent no-op, not a crash.
     scene._toolActionStory('juggle');
-    assert.eq(modals.length, 7, 'an unknown action tells no story');
+    assert.eq(modals.length, 8, 'an unknown action tells no story');
   } finally {
     globalThis.persistSave = realPersist;
   }
