@@ -213,7 +213,7 @@ test('rocks: a rock-lined street runs about one rock per 10 m of its length', ()
   assert.inRange(per, 2, 3.5, `one rock per ${per.toFixed(1)} m on open ground`);
 });
 
-test('dressing: bushes line the hedgerow, off the band and off anything already there', () => {
+test('dressing: clipped bushes line the hedgerow, off the band and off anything already there', () => {
   const r = rasterize();
   const { d, before } = dressed(r);
   // A hedge IS a shrub — the ordinary bush (no square hedge kind of its own);
@@ -222,7 +222,7 @@ test('dressing: bushes line the hedgerow, off the band and off anything already 
   assert.gt(hedges.length, 4, 'the hedgerow is hedged');
   for (const h of hedges) assert.eq(h.crop, 'shrub', `${h.id} is a bush`);
   assert.falsy(d.wildplants.some((p) => p.crop === 'hedge'), 'no square hedge kind');
-  assert.eq(CROP_SPRITE.hedge, undefined, 'and no art for one');
+  assert.truthy(hedges.every((h) => h._streetArt === 'trimmed'), 'every hedge uses clipped art');
   const seen = new Set();
   for (const p of [...d.wildplants, ...d.objects]) {
     const ix = cellOf(p.x, TX), iy = cellOf(p.y, TY), i = iy * CPE + ix;
@@ -513,7 +513,7 @@ const dressedVariants = () => {
   return Object.assign({ r }, dressed(r));
 };
 
-test('toadstool lane: a minor row at 5%, its verge mostly glowing mushrooms, a little long grass', () => {
+test('toadstool lane: a minor row at 5%, its verge holds patterned glowing mushrooms only', () => {
   const row = SV.VARIANT_BY_ID.toadstool;
   assert.eq(row.size, 'minor'); assert.eq(row.share, 0.05);
   assert.eq(row.story, 'street_toadstool', 'its painting stem');
@@ -531,7 +531,7 @@ test('toadstool lane: a minor row at 5%, its verge mostly glowing mushrooms, a l
   const plants = d.wildplants.filter((w) => w._street === 'toadstool');
   assert.gt(plants.length, 4, 'the lane is dressed');
   const mush = plants.filter((w) => w.crop === 'mushroom').length;
-  assert.truthy(plants.every((w) => w.crop === 'mushroom' || w.crop === 'longgrass'), 'mushrooms and long grass only');
+  assert.truthy(plants.every((w) => w.crop === 'mushroom'), 'mushrooms only');
   assert.gt(mush, plants.length / 2, `mostly mushrooms (${mush} of ${plants.length})`);
   assert.truthy(wildplantLight('mushroom'), 'and a mushroom glows');
   for (const w of plants) {
@@ -546,7 +546,7 @@ test('barricade road: one goblin per barricade, held in either mode', () => {
   assert.eq(Lairs.KIND_ORDER.barricade.join(), 'goblin');
   assert.truthy(Lairs.ALWAYS_AWAKE_TIERS.has('barricade'), 'every mode');
   const { d, r, spawnOpts } = dressedVariants();
-  const bars = d.wildplants.filter((w) => w.crop === 'barricade');
+  const bars = d.wildplants.filter((w) => w.crop === 'barricade' && !w._streetScenery);
   const posts = d.lairs.filter((L) => L.tier === 'barricade');
   assert.gt(bars.length, 0, 'the owned end stands a barricade');
   assert.eq(posts.length, bars.length, 'one guard post per barricade');
@@ -706,14 +706,14 @@ test('barricade + pilgrim: ONE end piece per street per tile, however many piece
   assert.eq(lines.filter((l) => l.variant === 'barricade').length, 4, 'four barricade pieces');
   assert.eq(lines.filter((l) => l.variant === 'pilgrim').length, 3, 'three pilgrim pieces');
   const { d } = dressed(r);
-  const bars = d.wildplants.filter((w) => w.crop === 'barricade');
+  const bars = d.wildplants.filter((w) => w.crop === 'barricade' && !w._streetScenery);
   const ways = d.objects.filter((o) => o.kind === 'waystone');
   assert.eq(bars.length, 1, 'one barricade for the street in this tile');
   assert.eq(d.lairs.filter((L) => L.tier === 'barricade').length, 1, 'and one goblin');
   assert.eq(ways.length, 1, 'one waystone for the pilgrim way in this tile');
   // Deterministic, and off a hash of the street + the end's GLOBAL point.
   const again = dressed(WorldGen.rasterizeTile(piecewiseLayers(), CPE, TX, TY, TILE_EDGE_M)).d;
-  assert.eq(again.wildplants.filter((w) => w.crop === 'barricade')[0].id, bars[0].id, 'the same end every build');
+  assert.eq(again.wildplants.filter((w) => w.crop === 'barricade' && !w._streetScenery)[0].id, bars[0].id, 'the same end every build');
   assert.truthy(/u01\(`end\|\$\{grp\.v\}\|\$\{grp\.key\}\|\$\{gk\}`\)/.test(ALL_SRC['street_variants.js']),
     'the pick hashes variant, street key and the global end point');
 });
@@ -733,5 +733,55 @@ test('old trade road: a displaced dog is no longer seated on the major verge', (
     { roadMask: r.roadMask, occupied: new Set(), pois: [] }, creatures, null, [lost]);
   assert.falsy(moved.dog, 'not seated');
   assert.eq(creatures.length, 0, 'and not added');
+});
+
+test('short street dressing: dense apples and a visible maple growth sequence', () => {
+  for (const v of ['orchard', 'overgrown']) {
+    const name = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === v, v);
+    const line = pts([[2, 30], [60, 30]]);
+    const ls = [
+      { name: 'landuse', features: [{ type: 3, tags: { class: 'park' }, geom: [wholeTile()] }] },
+      { name: 'transportation', extent: EXTENT, features: [{ type: 2, tags: { class: 'minor' }, geom: [line] }] },
+      { name: 'transportation_name', features: [{ type: 2, tags: { name }, geom: [line] }] },
+    ];
+    const r = WorldGen.rasterizeTile(ls, CPE, TX, TY, TILE_EDGE_M);
+    const d = dressed(r).d;
+    const trees = d.objects.filter((o) => o._street === v);
+    assert.gt(trees.length, 15, v + ' dresses the full short street');
+    if (v === 'orchard') {
+      assert.truthy(trees.every((o) => o.kind === 'fruittree' && o.species === 'apple'), 'apple trees only');
+      assert.truthy(trees.some((o) => cellOf(o.y, TY) < 30) && trees.some((o) => cellOf(o.y, TY) > 30), 'both verges');
+    } else {
+      assert.eq([...new Set(trees.map((o) => o.variant))].join(), '1,2,3', 'saplings, young trees, mature trees in order');
+      assert.truthy(trees.every((o) => o.kind === 'tree' && o.species === 'maple'), 'existing maple growth art and mechanics');
+    }
+  }
+});
+
+test('street length cap: aggregate fragments, deduplicate reversed segments, preserve exactly 500m', () => {
+  const name = HEDGE;
+  const make = (segments, named = true) => {
+    const features = segments.map((line) => ({ type: 2, tags: { class: 'minor' }, geom: [line] }));
+    return SV.buildIndex([
+      { name: 'transportation', extent: 4096, features },
+      { name: 'transportation_name', features: named ? segments.map((line) => ({ type: 2, tags: { name }, geom: [line] })) : [] },
+    ], TX, TY, 1);
+  };
+  const a = { x: 100, y: 100 }, b = { x: 350, y: 100 }, c = { x: 600, y: 100 }, d = { x: 601, y: 100 };
+  const short = make([[a, b], [b, c], [c, b]]);
+  assert.truthy(short.lines.every((r) => r.variant === 'hedgerow'), 'exactly 500m keeps its variant, reverse duplicate does not add length');
+  const clipped = make([[{ x: 0, y: 100 }, a], [a, b]]);
+  assert.truthy(clipped.lines.every((r) => !r.variant), 'unknown full length at tile boundary leaves every named fragment plain');
+  for (const named of [true, false]) {
+    const long = make([[a, b], [b, c], [c, d]], named);
+    assert.truthy(long.lines.every((r) => r.streetLengthM === 501 && !r.variant && !r.rocks), 'split long roads stay plain');
+  }
+});
+
+test('barricade scenery adds stakes and barriers without multiplying guards', () => {
+  const { d } = dressedVariants();
+  assert.gt(d.wildplants.filter((o) => o._streetScenery && o.crop === 'barricade').length, 4);
+  assert.gt(d.objects.filter((o) => o._streetScenery && o.kind === 'stakes').length, 2);
+  assert.eq(d.lairs.filter((o) => o.tier === 'barricade').length, 1);
 });
 })();

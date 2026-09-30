@@ -76,6 +76,7 @@
   <pre id="changes" style="white-space:pre-wrap;color:#c8a64a;font-size:11px;margin:6px 0"></pre>
   <h3>Base map</h3><div id="bases"></div>
   <div id="artStatus" hidden style="color:#aaa;margin:4px 0"></div>
+  <div id="artOptions" hidden><label><input id="restoredLamps" type="checkbox">Preview restored lamps</label></div>
   <h3>Overlays</h3><div id="ovl"></div>
   <h3>Density band</h3>
   <div>interactables per view: <input id="dmin" type="number" value="5" min="0" style="width:3.5em"> to
@@ -224,9 +225,11 @@ const gameArt = MapReviewArt.layer({
   },
 });
 bases['Game art'] = gameArt;
+$('restoredLamps').onchange = () => gameArt.setRestoredLamps($('restoredLamps').checked);
 Object.keys(bases).forEach((k, i) => mkRow($('bases'), 'radio', k, i === 0, () => {
   Object.values(bases).forEach((b) => map.removeLayer(b)); bases[k].addTo(map).bringToBack();
   $('artStatus').hidden = k !== 'Game art';
+  $('artOptions').hidden = k !== 'Game art';
   syncMarkers();
 }, 'base'));
 

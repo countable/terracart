@@ -63,7 +63,7 @@
     }
   });
 
-  test('named corridor agrees across a tile seam and build order', () => {
+  test('clipped named road stays plain across a tile seam and build order', () => {
     const seamLine = (offset) => [
       { x: (N - 3.5 - offset) * E / N, y: p(0, 15).y },
       { x: (N + 3.5 - offset) * E / N, y: p(0, 15).y },
@@ -80,9 +80,14 @@
     const east2 = build(tx + 1, N), west2 = build(tx, 0);
     assert.eq(Array.from(west1.streetArea).join(','), Array.from(west2.streetArea).join(','));
     assert.eq(Array.from(east1.streetArea).join(','), Array.from(east2.streetArea).join(','));
-    for (let x = N - 3; x < N; x++) assert.truthy(west1.streetArea[15 * N + x], `west seam ${x}`);
-    for (let x = 0; x < 3; x++) assert.truthy(east1.streetArea[15 * N + x], `east seam ${x}`);
-    assert.eq(west1.streetIndex.lines[0].variant, east1.streetIndex.lines[0].variant);
+    for (const r of [west1, east1, west2, east2]) {
+      assert.falsy(r.streetArea.some(Boolean), 'unknown full length reserves no themed corridor');
+      assert.eq(r.streetIndex.lines[0].variant, null, 'clipped road remains plain in either build order');
+    }
+    // A short road wholly inside a tile still receives its rolled theme.
+    const contained = WorldGen.rasterizeTile(layers(name), N, tx, ty, tileEdgeM);
+    assert.truthy(contained.streetIndex.lines[0].variant, 'contained short road keeps its theme');
+    assert.truthy(contained.streetArea.some(Boolean), 'contained short road owns its corridor');
   });
 
   test('street replacement clears procedural scatter and preserves mapped places', () => {

@@ -37,8 +37,8 @@ the browser renders proposed RGB palette swaps beside them using
 colour ramps are assigned by source brightness. Dimensions and alpha are
 preserved exactly. The six defaults are exported to `assets/Objects/Rustic/` with
 `tools/apply_nature_recolours.py`, including matching growth and broken-pot
-states. The clipped hedge is only a future formal-garden / residential /
-commercial zone alternative. No optional recolour variants are enabled, and
+states. The clipped hedge is used on hedged lanes; formal-garden / residential /
+commercial zone use remains an alternative. No optional recolour variants are enabled, and
 the game has no seasons.
 
 Generate both linked review pages and palette exports (Pillow and Node required):
@@ -67,7 +67,7 @@ audit. Local OSM feature counts are source evidence, not final spawn counts.
 Prevalence order is a qualitative estimate from terrain coverage and placement
 rules; no representative post-filter map census was available. Eight families
 (7.5%) have proposed zone-specific alternatives. None are seasonal and none
-are installed by the dashboard. The clipped hedge is reserved for Formal
+are installed by the dashboard. The clipped hedge is active on hedged lanes and remains a candidate for Formal
 Garden and residential/commercial bush placements.
 
 ```sh

@@ -128,17 +128,19 @@
 
   // ── Dressing density (generation metres along the way) ───────────────────
   const HEDGE_GAP_MIN = 5, HEDGE_GAP_SPAN = 3;   // a gate-gap every 5..7 cells
-  const OVERGROWN_STEP_M = 10, OVERGROWN_MAX = 10;
-  const ORCHARD_STEP_M = 40, ORCHARD_MAX = 3;
-  const TOADSTOOL_STEP_M = 8, TOADSTOOL_MAX = 12, TOADSTOOL_MUSHROOM_SHARE = 0.8;
-  const BURNED_STEP_M = 25, BURNED_MAX = 8;
+  const MAX_VARIANT_LENGTH_M = 500;
+  const OVERGROWN_STEP_M = 12, OVERGROWN_MAX = 42;
+  const ORCHARD_STEP_M = 12, ORCHARD_MAX = 80;
+  const TOADSTOOL_STEP_M = 6, TOADSTOOL_MAX = 100;
+  const BURNED_STEP_M = 8, BURNED_MAX = 100;
+  const BARRICADE_STEP_M = 12, BARRICADE_MAX = 80;
   // How finely a burned row is walked for its one fire slime per stretch.
   const BURNED_GUARD_STEP_M = 10;
   // Lantern Row: NOT a prop of its own — the street lamps, denser. A lantern
   // street stands its restoration lamps at Streets.lampSpacingM() / this
   // (app.js _streetLampsForTile), same art, same lit-when-restored rule, one
   // lane.
-  const LANTERN_SPACING_DIV = 2;
+  const LANTERN_SPACING_DIV = 4;
 
   // What a burned row's verge holds — the two props that SLOW the body
   // (app.js _bodyHold). One table both sides read: dressing lays these kinds,
@@ -169,7 +171,7 @@
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
       lampGlow: '#9be08a', attracts: { rabbit: 0.5, butterfly: 0.5 },
       story: 'street_overgrown', title: 'Gone to seed',
-      body: 'The green is taking this street back, one crack at a time.',
+      body: 'Saplings become trees along the verge. The green is taking this street back.',
       flash: 'The green is taking it back.' },
     { id: 'orchard', size: 'minor', share: 0.08, rung: 'uncommon',
       words: /(orchard|apple|cherry|plum|pear|peach|fruit|obst|kirsch|apfel|birn|pflaum|vine|berry)/i,
@@ -423,6 +425,48 @@
           out.lines.push(rec);
         }
       }
+      // MVT supplies tile-local fragments, not whole OSM ways. Pool named
+      // fragments, and join unnamed fragments at their shared endpoints; a
+      // split feature must not evade the length cap. No loaded-tile state.
+      const groups = new Map(), unnamedEnds = new Map();
+      const parent = out.lines.map((_, i) => i);
+      const find = (i) => { while (parent[i] !== i) i = parent[i]; return i; };
+      const join = (a, b) => { parent[find(a)] = find(b); };
+      out.lines.forEach((rec, i) => {
+        if (rec.name) {
+          if (groups.has(rec.key)) join(i, groups.get(rec.key));
+          else groups.set(rec.key, i);
+        } else for (const p of [rec.line[0], rec.line[rec.line.length - 1]]) {
+          const k = `${rec.size}|${p.x},${p.y}`;
+          if (unnamedEnds.has(k)) join(i, unnamedEnds.get(k));
+          else unnamedEnds.set(k, i);
+        }
+      });
+      const lengths = new Map();
+      out.lines.forEach((rec, i) => {
+        const k = find(i);
+        let group = lengths.get(k);
+        if (!group) lengths.set(k, group = { metres: 0, clipped: false, segments: new Set() });
+        if (rec.line.some((p) => p.x <= 0 || p.y <= 0 || p.x >= ext || p.y >= ext)) group.clipped = true;
+        for (let j = 1; j < rec.line.length; j++) {
+          const a = rec.line[j - 1], b = rec.line[j];
+          const ak = `${a.x},${a.y}`, bk = `${b.x},${b.y}`;
+          const edge = ak < bk ? `${ak}|${bk}` : `${bk}|${ak}`;
+          if (group.segments.has(edge)) continue;
+          group.segments.add(edge);
+          group.metres += Math.hypot(b.x - a.x, b.y - a.y) * mvtToM;
+        }
+      });
+      out.lines.forEach((rec, i) => {
+        rec.streetLengthM = lengths.get(find(i)).metres;
+        // A clipped road has unknown total length. Leave it plain, even
+        // when its visible fragment is short; short seam-crossing roads
+        // are deliberately excluded too.
+        if (lengths.get(find(i)).clipped || rec.streetLengthM > MAX_VARIANT_LENGTH_M) {
+          rec.variant = null;
+          rec.rocks = false;
+        }
+      });
       yield 'street index';
     }
     out.hoardPois = hoardPoisOf(poi, tx, ty, out.extent);
@@ -723,8 +767,8 @@
     const cellOfM = (m) => Math.floor(m / CELL_M);
     // The first spawnable verge cell k = 1..VERGE_MAX_CELLS out from the
     // band's edge at arclength point (x, y) with left normal (nx, ny).
-    const verge = (rec, x, y, nx, ny, side) => {
-      for (let k = 1; k <= VERGE_MAX_CELLS; k++) {
+    const verge = (rec, x, y, nx, ny, side, start = 1) => {
+      for (let k = start; k <= VERGE_MAX_CELLS; k++) {
         const off = side * (rec.halfW + (k - 0.5) * CELL_M);
         const ix = cellOfM(x + nx * off), iy = cellOfM(y + ny * off);
         if (cellOk(ix, iy)) return { ix, iy };
@@ -781,12 +825,7 @@
       if (!spans.length) continue;
       if (v === 'hedgerow') {
         const rng = streamFor(rec, v);
-        // Hedges both sides, one per cell, with a garden-gate gap every
-        // HEDGE_GAP_MIN..+SPAN cells. A hedge IS a shrub — the ordinary bush,
-        // its art and its rule (items.js WILDPLANT_RULES.shrub): chopped with
-        // the axe for wood, and `picked` once cut. (A square clipped-hedge
-        // kind of its own was dropped, Sep 2026 — owner's call: bushes.) The
-        // id keeps its 'hedge' prefix, so a save's cut hedges stay cut.
+        // Clipped art, ordinary shrub harvesting; keep existing hedge ids.
         for (const side of [1, -1]) {
           let gapIn = HEDGE_GAP_MIN + Math.floor(rng() * HEDGE_GAP_SPAN);
           sampleLine(rec.line, gM, CELL_M, CELL_M / 2, (s, x, y, nx, ny) => {
@@ -799,61 +838,73 @@
             if (!c) return;
             claim(c.ix, c.iy);
             res.wildplants.push(WG.makeWildplant('shrub', cx(c.ix), cy(c.iy),
-              WG.cellId('hedge', tx, ty, c.ix, c.iy), { _street: v }));
+              WG.cellId('hedge', tx, ty, c.ix, c.iy), { _street: v, _streetArt: 'trimmed' }));
           });
         }
       } else if (v === 'overgrown') {
-        const rng = streamFor(rec, v);
         let placed = 0;
+        const length = rec.line.slice(1).reduce((m, p, i) => m + Math.hypot(p.x - rec.line[i].x, p.y - rec.line[i].y) * gM, 0);
         sampleLine(rec.line, gM, OVERGROWN_STEP_M, OVERGROWN_STEP_M / 2, (s, x, y, nx, ny) => {
           if (placed >= OVERGROWN_MAX) return false;
-          const side = rng() < 0.5 ? 1 : -1;
-          const pick = rng();
           if (!S.covers(spans, s)) return;
-          const c = verge(rec, x, y, nx, ny, side);
+          const c = verge(rec, x, y, nx, ny, 1);
           if (!c) return;
-          const crop = pick < 0.6 ? 'longgrass' : pick < 0.8 ? 'shrub' : pick < 0.95 ? 'mushroom' : 'forgetmenot';
           claim(c.ix, c.iy);
-          res.wildplants.push(WG.makeWildplant(crop, cx(c.ix), cy(c.iy),
-            WG.cellId('wp_og', tx, ty, c.ix, c.iy), { _street: v }));
+          res.objects.push(WG.makeObject('tree', cx(c.ix), cy(c.iy),
+            WG.cellId('tree_og', tx, ty, c.ix, c.iy),
+            { species: 'maple', variant: 1 + Math.min(2, Math.floor(3 * s / Math.max(1, length))), _street: v }));
           placed++;
         });
       } else if (v === 'toadstool') {
-        // TOADSTOOL LANE: the verge crowds with mushrooms (the wild mushroom
-        // — it glows after dark, items.js WILDPLANT_RULES / wildplantLight),
-        // a tuft of long grass among them now and then.
-        const rng = streamFor(rec, v);
-        let placed = 0;
+        // Repeating loose scallops: three caps, a breathing gap, then the
+        // opposite verge. Setback changes within each group, all spawn-gated.
+        let placed = 0, sample = 0;
         sampleLine(rec.line, gM, TOADSTOOL_STEP_M, TOADSTOOL_STEP_M / 2, (s, x, y, nx, ny) => {
+          const n = sample++;
           if (placed >= TOADSTOOL_MAX) return false;
-          const side = rng() < 0.5 ? 1 : -1;
-          const pick = rng();
-          if (!S.covers(spans, s)) return;
-          const c = verge(rec, x, y, nx, ny, side);
+          if (n % 4 === 3 || !S.covers(spans, s)) return;
+          const side = Math.floor(n / 4) % 2 ? -1 : 1;
+          const c = verge(rec, x, y, nx, ny, side, n % 4 === 1 ? 2 : 1);
           if (!c) return;
-          const crop = pick < TOADSTOOL_MUSHROOM_SHARE ? 'mushroom' : 'longgrass';
           claim(c.ix, c.iy);
-          res.wildplants.push(WG.makeWildplant(crop, cx(c.ix), cy(c.iy),
+          res.wildplants.push(WG.makeWildplant('mushroom', cx(c.ix), cy(c.iy),
             WG.cellId('wp_ts', tx, ty, c.ix, c.iy), { _street: v }));
           placed++;
         });
       } else if (v === 'orchard') {
-        const rng = streamFor(rec, v);
-        let placed = 0, side = 1;
+        let placed = 0;
         sampleLine(rec.line, gM, ORCHARD_STEP_M, ORCHARD_STEP_M / 2, (s, x, y, nx, ny) => {
           if (placed >= ORCHARD_MAX) return false;
-          const peach = rng() < 1 / 8;
-          side = -side;
           if (!S.covers(spans, s)) return;
-          const c = verge(rec, x, y, nx, ny, side);
-          if (!c) return;
-          claim(c.ix, c.iy);
-          res.objects.push(WG.makeObject('fruittree', cx(c.ix), cy(c.iy),
-            WG.cellId('ft_lane', tx, ty, c.ix, c.iy),
-            { species: peach ? 'peach' : 'apple', wild: true, _street: v }));
-          placed++;
+          for (const side of [1, -1]) {
+            const c = verge(rec, x, y, nx, ny, side);
+            if (!c) continue;
+            claim(c.ix, c.iy);
+            res.objects.push(WG.makeObject('fruittree', cx(c.ix), cy(c.iy),
+              WG.cellId('ft_lane', tx, ty, c.ix, c.iy),
+              { species: 'apple', wild: true, _street: v }));
+            placed++;
+          }
         });
       } else if (v === 'pilgrim' || v === 'barricade') {
+        if (v === 'barricade') {
+          let placed = 0;
+          sampleLine(rec.line, gM, BARRICADE_STEP_M, BARRICADE_STEP_M / 2, (s, x, y, nx, ny) => {
+            if (placed >= BARRICADE_MAX) return false;
+            if (!S.covers(spans, s)) return;
+            for (const side of [1, -1]) {
+              const c = verge(rec, x, y, nx, ny, side);
+              if (!c) continue;
+              claim(c.ix, c.iy);
+              const extra = { _street: v, _streetScenery: true };
+              if (placed % 3 === 1) res.objects.push(WG.makeObject('stakes', cx(c.ix), cy(c.iy),
+                WG.cellId('stakes_barr', tx, ty, c.ix, c.iy), extra));
+              else res.wildplants.push(WG.makeWildplant('barricade', cx(c.ix), cy(c.iy),
+                WG.cellId('barr_scenery', tx, ty, c.ix, c.iy), extra));
+              placed++;
+            }
+          });
+        }
         // ONE PER STREET PER TILE: the ends are pooled by street key and
         // seated after this loop (see `streetEnds` below) — a major road cut
         // into many short pieces stood a barricade at every cut.
@@ -1014,7 +1065,7 @@
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GAP_MIN, HEDGE_GAP_SPAN, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
-    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, TOADSTOOL_MUSHROOM_SHARE, BURNED_STEP_M, BURNED_MAX, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, SLOW_KINDS,
+    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, SLOW_KINDS,
     STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     nameVote, lineName, sampleLine, buildIndexSteps, buildIndex, areaSteps, area,

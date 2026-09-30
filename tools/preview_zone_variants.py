@@ -24,7 +24,7 @@ def art_registry():
 
 
 @functools.lru_cache(maxsize=None)
-def sprite_png(sheet, frame):
+def sprite_png(sheet, frame, preserve_frame=False):
     row = art_registry()['assets'][sheet]
     path = pathlib.Path(__file__).resolve().parents[1] / row['path'].split('?')[0]
     with Image.open(path) as source:
@@ -40,7 +40,8 @@ def sprite_png(sheet, frame):
         image.putdata([(r, g, b, 0 if min(r, g, b) > 240 else a) for r, g, b, a in image.getdata()])
     bounds = image.getbbox()
     assert bounds, f'Blank art frame: {sheet}:{frame}'
-    image = image.crop(bounds)
+    if not preserve_frame:
+        image = image.crop(bounds)
     buf = io.BytesIO()
     image.save(buf, format='PNG')
     return 'data:image/png;base64,' + base64.b64encode(buf.getvalue()).decode()
@@ -55,6 +56,8 @@ def material_art(material):
     if kind == 'wildplant':
         crop = material['crop']
         ov = r['crops'].get(crop)
+        if ov and material.get('_streetArt'):
+            ov = ov.get('looks', {}).get(material['_streetArt'], ov)
         if ov and ov.get('custom'):
             sheet, frames = ov['sheet'], ov.get('frames', [ov.get('frame', 0)])
         elif ov and ov['sheet'] == 'springcrops':
@@ -68,21 +71,22 @@ def material_art(material):
         species = material.get('species', 'maple')
         sheet = 'trees' if species == 'maple' else species + '_tree'
         # ZoneDressing sets variant=1; size-bearing maples render mature frame 3.
-        frames = [3 if material.get('size') or species != 'maple' else 1]
+        stage = str(max(1, min(3, round(material.get('variant', 2)))))
+        frames = [3 if material.get('size') or species != 'maple' else r['treeStages'][stage]['frame']]
     elif kind == 'fruittree':
         species = material.get('species', 'apple')
         sheet, frames = species + '_tree', [r['fruitFrames'][species]['mature']]
     else:
         sheet, frames = kind, [0]
     assert sheet in r['assets'], f'No shipping art for {material}'
-    return {'sheet': sheet, 'frames': frames,
+    return {'sheet': sheet, 'frames': frames, 'preserveFrame': kind == 'tree',
             'source': r['assets'][sheet]['path'].split('?')[0] + ' · frame ' + ', '.join(map(str, frames))}
 
 
 def art_image(art, extra='', frame=None):
     if art.get('procedural'):
         return f'<image data-procedural="{art["procedural"]}" {extra}/>'
-    return f'<image href="{sprite_png(art["sheet"], art["frames"][0] if frame is None else frame)}" {extra}/>'
+    return f'<image href="{sprite_png(art["sheet"], art["frames"][0] if frame is None else frame, art.get("preserveFrame", False))}" {extra}/>'
 
 
 def sprite_symbols(materials, prefix):
@@ -292,7 +296,12 @@ STREET_COLORS = {
 
 def street_material_key(o):
     kind = o.get('crop', o['kind'])
-    return kind + ('_' + o.get('species', 'apple') if kind == 'fruittree' else '')
+    suffix = ('_' + o.get('species', 'apple')) if kind in ('tree', 'fruittree') else ''
+    if kind == 'tree':
+        suffix += '_stage_' + str(o.get('variant', 2))
+    if o.get('_streetArt'):
+        suffix += '_' + o['_streetArt']
+    return kind + suffix
 
 
 def street_materials(rows):
@@ -311,13 +320,19 @@ def street_svg(v, cell_m):
              f'<rect x="{left}" y="{top}" width="{width}" height="{height}" fill="url(#{pattern_id})"/>',
              f'<path d="M {a["x"]} {a["y"]} L {b["x"]} {b["y"]}" stroke="#786955" stroke-width="{v["roadWidthM"]}" stroke-linecap="round"/>',
              f'<path d="M {a["x"]} {a["y"]} L {b["x"]} {b["y"]}" stroke="#d5c3a2" stroke-opacity=".45" stroke-width=".5" stroke-dasharray="4 4"/>']
+    for area in v.get('geography', []):
+        points = ' '.join(f'{p["x"]},{p["y"]}' for p in area['points'])
+        parts.insert(4, f'<polygon points="{points}" fill="#315c67"><title>Qualifying shore water used by the scenic classifier</title></polygon>')
     art_prefix = f'street-art-{v["id"]}'
     parts.append(sprite_symbols(street_materials([v]), art_prefix))
     for o in v['objects']:
         kind = o.get('crop', o['kind'])
         color = STREET_COLORS.get(kind, '#d4d4d4')
         size = cell_m * .8
-        label = html.escape(kind + (f' ({o["species"]})' if o.get('species') else ''))
+        if kind == 'tree':
+            stage = str(max(1, min(3, round(o.get('variant', 2)))))
+            size = cell_m * 1.8 * art_registry()['treeStages'][stage]['scale'] / art_registry()['treeStages']['3']['scale']
+        label = html.escape(kind + (f' ({o["species"]})' if o.get('species') else '') + (f' · growth stage {o["variant"]}' if kind == 'tree' and 'variant' in o else ''))
         parts.append(f'<rect class="geometry-cell" x="{o["x"]-size/2}" y="{o["y"]-size/2}" width="{size}" height="{size}" rx=".8" fill="{color}"><title>{label}</title></rect>')
         parts.append(sprite_cell(art_prefix, street_material_key(o), o['x']-size/2, o['y']-size/2, size))
     for o in v['lairs']:
@@ -325,7 +340,7 @@ def street_svg(v, cell_m):
         parts.append(f'<path d="M {x} {y-r} L {x+r} {y} L {x} {y+r} L {x-r} {y} Z" fill="none" stroke="#ff827b" stroke-width="1.2"><title>{html.escape(o["kind"])}; candidate site, not a creature position</title></path>')
     for lamp in v['lamps']:
         parts.append(f'<circle class="geometry-cell" cx="{lamp["x"]}" cy="{lamp["y"]}" r="2.5" fill="{v["lampGlow"]}" stroke="#182019" stroke-width=".6"><title>Street lamp: {v["lampGlow"]}</title></circle>')
-        parts.append(art_image({'procedural': 'lamp:' + v['lampGlow']}, f'class="sprite-cell" x="{lamp["x"]-cell_m}" y="{lamp["y"]-cell_m}" width="{cell_m*2}" height="{cell_m*2}"'))
+        parts.append(art_image({'procedural': 'lamp:' + lamp['glow']}, f'class="sprite-cell" x="{lamp["x"]-cell_m}" y="{lamp["y"]-cell_m}" width="{cell_m*2}" height="{cell_m*2}"'))
     for p in (a, b):
         parts.append(f'<circle cx="{p["x"]}" cy="{p["y"]}" r="2" fill="#e1d1b4"><title>Source line endpoint</title></circle>')
     parts.append(f'<circle cx="{mid_x}" cy="{mid_y}" r="4" fill="none" stroke="#fff6ca" stroke-width="1"/><path d="M {mid_x-3} {mid_y} h 6 M {mid_x} {mid_y-3} v 6" stroke="#fff6ca" stroke-width=".8"><title>Road reference point; not a POI</title></path>')
@@ -340,10 +355,12 @@ def street_section(streets):
         mix = collections.Counter(o.get('crop', o['kind']) for o in v['objects'])
         inventory = ', '.join(f'{n} {kind}' for kind, n in mix.items()) or 'No extra verge props'
         fauna = ', '.join(f'{kind} {chance*100:g}%' for kind, chance in v.get('attracts', {}).items()) or 'No street affinity'
-        cards.append(f'''<article id="street-{v['id']}"><header><small>{v['size']} street · {v['rung']} · {v['share']*100:g}% base share</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Generated straight-road sample · {v['roadWidthM']:g} m carriageway · ⊕ road reference point, not a POI</figcaption></figure><p>{html.escape(v['body'])}</p><dl><dt>Placement</dt><dd>{html.escape(v['placement'])}</dd><dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} generated candidate sites · outlined diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
+        selection = 'Geography-selected path' if v['size'] == 'path' else f"{v['size']} street · {v['share']*100:g}% base share"
+        scenic_details = (f'<dt>Geography</dt><dd>{html.escape(v["selection"])}</dd><dt>Rewards</dt><dd>{html.escape(v["rewards"])}</dd>' if v['size'] == 'path' else '')
+        cards.append(f'''<article id="street-{v['id']}"><header><small>{selection} · {v['rung']}</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Generated straight-road sample · {v['roadWidthM']:g} m carriageway · ⊕ road reference point, not a POI</figcaption></figure><p>{html.escape(v['body'])}</p><dl>{scenic_details}<dt>Placement</dt><dd>{html.escape(v['placement'])}</dd><dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} generated candidate sites · outlined diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
     legend = art_gallery(street_materials(streets['rows']), 'Street prop art', 'street-')
     legend += '<div class="legend art-thumbs">' + ''.join(f'<span><svg viewBox="0 0 64 64">{art_image({"procedural": "lamp:"+v["lampGlow"]}, chr(32).join(["width=64","height=64"]))}</svg>{html.escape(v["title"])}</span>' for v in streets['rows']) + '</div>'
-    return f'''<section id="streets"><h1>{len(streets['rows'])} street variants</h1><p>All shipping rows from <code>StreetVariants.STREET_VARIANTS</code>. Each sample uses the real road rasterizer, street dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road, with an empty occupancy set on public park ground. Props and lamps use their game art. With art switched off, squares are props and coloured circles are lamps. Tiny pale dots are source line ends, and outlined diamonds are guard candidate sites. The marked road midpoint is a reference point, not an interactable.</p><p>Base shares apply within each road size before street-name nudges: {streets['plainShare']['minor']*100:g}% of minor keys and {streets['plainShare']['major']*100:g}% of major keys remain unthemed. Rarity names come from the runtime table. Prop density is the observed sample, not an area-coverage target; line-piece caps explain the empty stretch after some patterns. Real terrain, occupied cells, bends and tile boundaries change the result. Fauna percentages relocate existing animals; guard sites are passed to the later lair spawner. Lamps show their configured colour; restoration and visit brightness are not simulated.</p><p><b>{html.escape(streets['baseline']['title'])}</b> is the background story for every major road, not another variant row: {html.escape(streets['baseline']['body'])} About {streets['wagonStopShare']*100:.1f}% of eligible bus stops wear its wagon look. The separate {streets['rockStreetShare']*100:g}% minor-street rock roll (excluding hedgerows), ambient plants, café hoards and fauna are not drawn here.</p><p><a href="street-variants.json">Generated street geometry and runtime rows</a> · <a href="#zones">Back to zone variants</a></p>{legend}<div class="cards">{''.join(cards)}</div></section>'''
+    return f'''<section id="streets"><h1>{len(streets['rows'])} street and path variants</h1><p>Every shipping street and scenic path row from <code>StreetVariants.STREET_VARIANTS</code>. Samples use the real road rasterizer, street/scenic dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road, with an empty occupancy set. Street samples use public park ground; path fixtures provide actual water, greenway names or park polygons for the scenic classifier. Water appears blue in the promenade sample. Vista chests come from the generated scenic stretches, with their rules below. Props and lamps use their game art. With art switched off, squares are props and coloured circles are lamps. Tiny pale dots are source line ends, and outlined diamonds are guard candidate sites. The marked road midpoint is a reference point, not an interactable.</p><p>Base shares apply within each road size before street-name nudges: {streets['plainShare']['minor']*100:g}% of minor keys and {streets['plainShare']['major']*100:g}% of major keys remain unthemed. Street variants are excluded above {streets['maxVariantLengthM']:g} m of observed road length; roads crossing a tile boundary also remain plain because their full length is unknown. Scenic paths use geography rather than the street-name roll, so their zero roll share is not a spawn probability. Rarity names come from the runtime table. Prop density is the observed sample, not an area-coverage target. Line-piece caps and spawn restrictions limit placement. Real terrain, occupied cells, bends and tile boundaries change the result. Fauna percentages relocate existing animals; guard sites are passed to the later lair spawner. Lamps show their configured colour; restoration and visit brightness are not simulated.</p><p><b>{html.escape(streets['baseline']['title'])}</b> is the background story for every major road, not another variant row: {html.escape(streets['baseline']['body'])} About {streets['wagonStopShare']*100:.1f}% of eligible bus stops wear its wagon look. The separate {streets['rockStreetShare']*100:g}% minor-street rock roll (excluding hedgerows), ambient plants, café hoards and fauna are not drawn here.</p><p><a href="street-variants.json">Generated street geometry and runtime rows</a> · <a href="#zones">Back to zone variants</a></p>{legend}<div class="cards">{''.join(cards)}</div></section>'''
 
 
 def render(d, out):

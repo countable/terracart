@@ -7,6 +7,7 @@ const MapReviewArt = (() => {
       exists: key => entries.has(key), get: key => entries.get(key),
       remove: key => entries.delete(key),
       addSpriteSheet(key, source, spec) { return add(key, source, spec); },
+      addCanvas(key, source) { return add(key, source); },
       createCanvas(key, w, h) {
         const c = document.createElement('canvas'); c.width=w; c.height=h;
         return add(key,c);
@@ -57,7 +58,7 @@ const MapReviewArt = (() => {
     return assetsPromise;
   }
   function cropAppearance(o) {
-    const spec=CROP_SPRITE[o.crop], stage=Math.min(MAX_GROWTH_STAGE,o.stage ?? MAX_GROWTH_STAGE);
+    const spec=wildplantSprite(o), stage=Math.min(MAX_GROWTH_STAGE,o.stage ?? MAX_GROWTH_STAGE);
     const custom=spec?.custom, spring=spec?.sheet==='springcrops';
     return { visible:true, texKey:custom?spec.sheet:spring?'springcrops':'crops',
       frameVal:custom?wildplantFrame(o):spring?spec.row*SPRING_CROPS_COLS+stage:(CROP_ROW[o.crop]??1)*CROPS_SHEET_COLS+stage,
@@ -90,6 +91,9 @@ const MapReviewArt = (() => {
     onRemove(map) { map.off('moveend zoomend resize',this.redraw,this);this._canvas.remove();this._canvas=null;this._map=null; },
     bringToBack() { return this; },
     setWorld(world) { this._world=world;if(this._map)this._load();this._prepare();this.redraw();return this; },
+    setRestoredLamps(restored) {
+      this._restoredLamps=!!restored;this._prepare();this.redraw();return this;
+    },
     _prepare() {
       if(!this._world||!this._assets)return;
       const scene={save:{},textures:this._assets.textures,cellM:WorldGen.CELL_M};
@@ -100,6 +104,13 @@ const MapReviewArt = (() => {
       const add=(e,o,category)=>{
         if(!Number.isFinite(o.x)||!Number.isFinite(o.y))return;
         const appearance=category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(o):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:resolve(o);
+        if(o.kind==='_streetlamp'&&appearance?.visible) {
+          // The shipping after hook owns lamp sizing and dark-stone alpha.
+          appearance.spec.after({
+            setDisplaySize(w,h) { appearance.displayWidth=w;appearance.displayHeight=h;return this; },
+            setAlpha(alpha) { appearance.alpha=alpha;return this; },
+          },o,scene);
+        }
         const kind=category==='creature'?(e?(o.kind==='npc'?'resident: npc':Combat.isEnemy(o)?'enemy: '+o.kind:'animal: '+o.kind):'enemy: garrison'):o.kind==='wildplant'?'plant:'+o.crop:o.kind==='xmark'?'X mark':o.kind;
         // Reuse the game's crown hook, measured at the tree's local origin.
         // Keep fruit with its tree so filtering and painter order stay together.
@@ -115,6 +126,12 @@ const MapReviewArt = (() => {
         this._sprites.push({e,o,category,kind,appearance,fruit});
       };
       for(const e of this._world.tiles) {
+        // Lamps are generated infrastructure, outside the spawned-object filters.
+        // Share geometry, procedural art and sprite appearance with the game.
+        for(const lamp of MapScene.prototype._streetLampsForTile.call(scene,e.tx,e.ty,e)) {
+          if(this._restoredLamps)MapScene.prototype._ensureStreetLampTex.call(scene,lamp.glow);
+          add(e,{...lamp,kind:'_streetlamp',lit:!!this._restoredLamps},'infrastructure');
+        }
         for(const o of e.objects||[])add(e,o,'object');
         for(const o of e.wildplants||[])add(e,o,'plant');
         for(const o of e.creatures||[])add(e,o,'creature');
@@ -167,7 +184,7 @@ const MapReviewArt = (() => {
       }
       for(const item of this._sprites) {
         const {e,o,category,appearance:p}=item;
-        if(this.options.visible&&!this.options.visible(e,o,category,item.kind))continue;
+        if(category!=='infrastructure'&&this.options.visible&&!this.options.visible(e,o,category,item.kind))continue;
         const at=project(o.x,o.y);if(at.x < -180 || at.y < -180 || at.x>size.x+180||at.y>size.y+180)continue;
         const cellM=edge/(e?.cellsPerEdge||this._world.tiles[0].cellsPerEdge);
         const scale=(project(o.x+cellM,o.y).x-at.x)/32;
@@ -175,8 +192,10 @@ const MapReviewArt = (() => {
         if(o.kind==='xmark') { const r=5.1*scale;g.strokeStyle='#2a1d108c';g.lineWidth=2*scale;g.beginPath();g.moveTo(at.x-r,at.y-r);g.lineTo(at.x+r,at.y+r);g.moveTo(at.x+r,at.y-r);g.lineTo(at.x-r,at.y+r);g.stroke();continue; }
         const t=p?.visible&&textures.get(p.texKey),f=t&&t.get(p.frameVal);
         if(!f) {g.fillStyle='#ffd86a';g.fillRect(at.x-1,at.y-1,3,3);continue;}
-        const w=f.width*p.scl*scale,h=f.height*p.scl*p.scaleYMul*scale;
+        const w=(p.displayWidth??f.width*p.scl)*scale,h=(p.displayHeight??f.height*p.scl*p.scaleYMul)*scale;
+        g.globalAlpha=p.alpha??1;
         g.drawImage(t.getSourceImage(),f.x,f.y,f.width,f.height,at.x+p.dxPx*scale-w*p.origin[0],at.y+p.dyPx*scale-h*p.origin[1],w,h);drawn++;
+        g.globalAlpha=1;
         for(const fruit of item.fruit) {
           const ft=textures.get(fruit.key),ff=ft?.get(fruit.frame);
           if(!ff)continue;

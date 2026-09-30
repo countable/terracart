@@ -58,8 +58,9 @@ const CROP_SPRITE = {
   // oversized against neighbouring one-cell props.
   longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 },
   // Rounded woodland bush, 48×32. Preserve its visible width (~21px),
-  // shared with bush-sized trees in render.js. Clipped hedges are zone variants.
-  shrub:     { sheet: 'bushes', custom: true, frame: 0, scale: 0.667 },
+  // shared with bush-sized trees in render.js. Hedged lanes use the clipped look.
+  shrub:     { sheet: 'bushes', custom: true, frame: 0, scale: 0.667,
+    looks: { trimmed: { sheet: 'hedge_trimmed', custom: true, frame: 0, scale: 1.6 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
   // Scale 1.224 keeps the requested 10% mushroom reduction. Surface and
@@ -103,7 +104,7 @@ const CROP_SPRITE = {
   starflower:  { sheet: 'props', custom: true, frame: 102, scale: 1.13 },  // glowing purple star-flower (row 4, col 14)
   // ── Street variants (src/street_variants.js) — both CHOPPED like a shrub
   // (WILDPLANT_RULES below), never scenery. The barricade road's barricade
-  // is the generated 16px piece; a hedgerow's hedges are plain shrubs.
+  // is the generated 16px piece; clipped hedges still harvest as shrubs.
   barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 1.6 },
   // ── Influence zones (src/zones.js) — the tar yard's FLINT: a ground
   // pickup (WILDPLANT_RULES.flint below), the generated 16px nodule. One
@@ -138,8 +139,13 @@ function wildplantVariantHash(p) {
   const key = id != null ? String(id) : `${(p && p._ix) ?? 0}_${(p && p._iy) ?? 0}`;
   return fnv1a(key + '#variant');
 }
+// Placement-specific art shares the crop's harvest and inventory identity.
+function wildplantSprite(p) {
+  const base = CROP_SPRITE[p && p.crop];
+  return base?.looks?.[p && p._streetArt] || base;
+}
 function wildplantFrame(p) {
-  const ov = CROP_SPRITE[p && p.crop];
+  const ov = wildplantSprite(p);
   if (!ov || !ov.custom) return 0;
   // Grown underground: the crop's cave look (mushroom's blue caps), off the
   // same hash — same crop, same item, only the art says it grew in the dark.

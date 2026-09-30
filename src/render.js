@@ -2612,7 +2612,7 @@ Render.drawObjects = function drawObjects(scene) {
           // occupancy pass never saw (cave mushrooms, the sandbox scatter), so
           // the id is what the per-cell variant hash actually keys off.
           plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id,
-                                  _cave: wp._cave, _biome: wp._biome, _ix: wp._ix, _iy: wp._iy }, dx, dy });
+                                  _cave: wp._cave, _biome: wp._biome, _streetArt: wp._streetArt, _ix: wp._ix, _iy: wp._iy }, dx, dy });
           _boot_kept++;
         });
       }
@@ -3616,7 +3616,7 @@ Render.drawObjects = function drawObjects(scene) {
       return;
     }
     const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
-    const ov = CROP_SPRITE[p.crop];
+    const ov = wildplantSprite(p);
     if (ov && ov.custom) {
       // Custom-sheet wildplants. Some are one frame (longgrass, the flowers),
       // others vary per cell — the shell's three cowries, the mushroom's two

@@ -234,8 +234,8 @@ const PLAY_TIPS = [
   // StreetVariants café hoards (HOARDS_PER_TILE) + lairs.js 'cafe' (a giant
   // goblin, every mode — only where the hoard sits clear of the kerb buffer).
   'Some coffee shops have a hoard buried nearby, and a giant goblin sits on most of them.',
-  // StreetVariants.LANTERN_SPACING_DIV (twice).
-  'A lantern row, once rebuilt, stands its lamps twice as thick as any other street.',
+  // StreetVariants.LANTERN_SPACING_DIV.
+  `A lantern row, once rebuilt, stands its lamps ${StreetVariants.LANTERN_SPACING_DIV} times as thick as any other street.`,
   'Roads and footpaths lie derelict until you stand by them: three seconds inside your light rebuilds that stretch for good. The first 200m restored pays a seed, and each prize after asks 200m more. Pick one of three: coin, seeds or supplies, and potions or boots — boots no finer than a tier for every km mended.',
   // ONE ROAD AT A TIME (app.js _oneRoadPay, ONE_ROAD_WINDOW_MS) and the
   // stick's share (Trail.STICK_METRES_MUL) — books.test.js re-derives both.
