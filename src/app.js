@@ -12745,7 +12745,15 @@ class MapScene extends Phaser.Scene {
       // it (see _streetLampsForTile) — otherwise standing still while the
       // ring lands leaves the lamps already in the save unlit until the
       // player happens to step onto another cell.
-      if (!entry || !entry.layers || !(entry.tileEdgeM > 0)) { pending = true; return; }
+      // …but only a tile that could hold a lamp inside the pad (coords.js
+      // tileBoxReach: a lamp stands in its tile's square, a verge offset off
+      // its way). Waiting on one that cannot rebuilt this list every frame
+      // while the far ring streamed in; its arrival changes nothing here.
+      if (!entry || !entry.layers || !(entry.tileEdgeM > 0)) {
+        const E = (entry && entry.tileEdgeM) || this.tileEdgeM;
+        if (!(E > 0) || tileBoxReach(E, tx, ty, c.x - pad, c.y - pad, c.x + pad, c.y + pad)) pending = true;
+        return;
+      }
       const lamps = this._streetLampsForTile(tx, ty, entry);
       if (!lamps.length) return;
       // One restored list per LINE, not per lamp: unflattening the save's
@@ -12981,7 +12989,12 @@ class MapScene extends Phaser.Scene {
     const prev = this._lampsInRange || new Set();
     eachTile3x3(pt.tx, pt.ty, (tx, ty) => {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-      if (!entry || !entry.layers || !(entry.tileEdgeM > 0)) { pending = true; return; }
+      // (Only a tile that could hold a lamp in range — see _updateStreetLamps.)
+      if (!entry || !entry.layers || !(entry.tileEdgeM > 0)) {
+        const E = (entry && entry.tileEdgeM) || this.tileEdgeM;
+        if (!(E > 0) || tileBoxReach(E, tx, ty, px - R, py - R, px + R, py + R)) pending = true;
+        return;
+      }
       const lamps = this._streetLampsForTile(tx, ty, entry);
       const restored = new Map();
       for (const L of lamps) {

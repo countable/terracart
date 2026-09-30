@@ -446,6 +446,36 @@ function viewBandKey(scene, pc, baseCellIY, half) {
 // also the readiness half of each overlay's cache key. `entryReady(entry)` is
 // the overlay's own test (the decoded MVT layers for the roads, the source
 // building rings for the footprints); a tile with no tileEdgeM is never ready.
+// How far past its own square (a fraction of the tile edge) a tile's drawn
+// geometry can reach: the MVT buffer its lines and polygons are clipped to
+// (a couple of percent of the edge) plus the widest band stroked over them,
+// with room to spare. overlayFrame's view test below.
+const OVERLAY_TILE_SLACK = 0.125;
+// Can anything tile (tx, ty) draws land inside the overlays' padded view (the
+// cull overlayProjection keeps, one more cell for the sub-cell scroll)? A ring
+// tile far off-screen cannot, so its arrival must not repaint the canvases.
+// A scene without a view (a headless stub) answers yes.
+function overlayTileInView(scene, tx, ty, edgeM) {
+  const E = edgeM || scene.tileEdgeM;
+  if (!(E > 0) || !(scene.cellM > 0) || !Number.isFinite(scene.viewLeft) || !Number.isFinite(scene.viewTop)
+      || !Number.isFinite(scene.viewSize) || !Number.isFinite(scene.viewCenterX) || !Number.isFinite(scene.viewCenterY)) return true;
+  const a = viewAnchorWorldM(scene);
+  const PAD = CELL_PX * 3;
+  const toM = scene.cellM / CELL_PX;
+  const x0 = a.x + (scene.viewLeft - PAD - scene.viewCenterX) * toM;
+  const x1 = a.x + (scene.viewLeft + scene.viewSize + PAD - scene.viewCenterX) * toM;
+  const y0 = a.y + (scene.viewTop - PAD - scene.viewCenterY) * toM;
+  const y1 = a.y + (scene.viewTop + scene.viewSize + PAD - scene.viewCenterY) * toM;
+  return tileBoxReach(E, tx, ty, x0, y0, x1, y1);
+}
+// Does tile (tx, ty)'s square, widened by OVERLAY_TILE_SLACK, meet the world
+// box [x0, x1] x [y0, y1] (frame metres)? The one reach test for "can this
+// tile's geometry — a band, a footprint, a lamp — land in here".
+function tileBoxReach(edgeM, tx, ty, x0, y0, x1, y1) {
+  const E = edgeM, s = E * OVERLAY_TILE_SLACK;
+  return x1 > tx * E - s && x0 < (tx + 1) * E + s && y1 > ty * E - s && y0 < (ty + 1) * E + s;
+}
+
 function overlayFrame(scene, entryReady) {
   const pc = viewAnchorCell(scene);
   const fracX = pc.cx - Math.floor(pc.cx);
@@ -456,6 +486,10 @@ function overlayFrame(scene, entryReady) {
   for (let dty = -1; dty <= 1; dty++) {
     for (let dtx = -1; dtx <= 1; dtx++) {
       const tx = pc.tx + dtx, ty = pc.ty + dty;
+      // Only the tiles whose geometry can reach the view are the frame's
+      // inputs — both what the rebuild draws and what its key names. A ring
+      // tile landing a kilometre away used to repaint both canvases.
+      if (!overlayTileInView(scene, tx, ty)) continue;
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
       if (!entry || !entry.tileEdgeM || !entryReady(entry)) continue;
       tiles.push({ tx, ty, entry });
