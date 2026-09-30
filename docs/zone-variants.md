@@ -38,6 +38,12 @@ Associate parks through the source polygon containing the anchor, not proximity 
 
 The variant frame extends continuously over this union. Fixed compositions such as Work Yard intersect their declared footprint with the union; they do not stretch, repeat, or grow extra rooms to fill irregular extensions. Finite find targets retain their influence-radius coordinates as the first choice, then search valid alternatives in the union. Expanding coverage does not multiply the per-anchor find or guard count.
 
+## Generated Quarry zones
+
+Parking-lane geometry generates Quarry coverage instead of becoming a visible road. Connected lane buffers merge into a coverage region, extending 21 metres from the source lines. The source lanes remain absent from pavement, street variants, lamps and road restoration. Actual access roads remain roads and keep their spawn restrictions.
+
+Quarries use broken stone rows on eligible cells, with alternating empty rows and seeded gaps in the populated rows: 38% ordinary mineable stone, 1% Crimson ore and 1% Frost ore (40% total). These percentages are expected cell coverage before clipping; they do not promise either rare ore in a small quarry. Rocks use normal mining mechanics, including the existing pick requirements for ore. Quarry has no POI, shrine, finite finds, route decoration, guards, lighting source or lamp tint. The preview draws the actual generated coverage and dressing; dashed lane lines explain the source and are not game roads.
+
 ## Shared connection operators
 
 | Operator | Interpretation |
@@ -74,6 +80,7 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | tar | Seep | 6.25% rubble; hazards: 15.63% tar | tar crescent | 1 rare: star | none | none |
 | tar | Work Yard | 28.57% copper_rock, 20.41% rubble | material grid | 1 rare: crimson_ore | none | none |
 | tar | Black Ring | 25% rubble; hazards: 12.5% tar | tar ring | 2 rare: gold_ore | none | none |
+| quarry | Quarry | 38% stone, 1% Crimson ore, 1% Frost ore (expected) | none; parking-lane generated coverage | none | none | none |
 
 ## Runtime placement
 

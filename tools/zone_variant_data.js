@@ -17,10 +17,17 @@ function material(value) {
 for (const row of data.variants) {
   if (ids.has(row.id)) fail(`duplicate id ${row.id}`);
   ids.add(row.id);
-  if (!['grove', 'stones', 'tar', 'beach'].includes(row.zone)) fail(`unknown zone ${row.zone}`);
+  if (!['grove', 'stones', 'tar', 'beach', 'quarry'].includes(row.zone)) fail(`unknown zone ${row.zone}`);
   if (!(row.weight > 0)) fail(`invalid weight ${row.id}`);
   const b = row.background;
   if (!types.has(b.type)) fail(`unknown layout ${b.type}`);
+  if (b.rows) {
+    const r = b.rows;
+    if (b.type !== 'seeded_scatter' || !['horizontal', 'vertical'].includes(r.axis)
+        || !Number.isInteger(r.spacingCells) || !Number.isInteger(r.lineWidthCells)
+        || !(r.lineWidthCells > 0 && r.lineWidthCells <= r.spacingCells)
+        || b.nominalDensity > r.lineWidthCells / r.spacingCells) fail(`row scatter ${row.id}`);
+  }
   const repeatPolicy = data.rules.repeatPatternPolicy;
   if (b.type === 'repeat_motif' && repeatPolicy && !repeatPolicy.migrationPending.includes(row.id)) {
     const limit = repeatPolicy.exceptions[row.id] || repeatPolicy.maxCells;

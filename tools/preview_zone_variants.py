@@ -206,7 +206,14 @@ def hash_unit(variant, x, y, lane):
 def background_at(v, x, y):
     b = v['background']
     if b['type'] == 'seeded_scatter':
-        if hash_unit(v['id'], x, y, 'occupancy') >= b['nominalDensity']:
+        density = b['nominalDensity']
+        rows = b.get('rows')
+        if rows:
+            coordinate = x if rows['axis'] == 'vertical' else y
+            if coordinate % rows['spacingCells'] >= rows['lineWidthCells']:
+                return None
+            density *= rows['spacingCells'] / rows['lineWidthCells']
+        if hash_unit(v['id'], x, y, 'occupancy') >= density:
             return None
         u = hash_unit(v['id'], x, y, 'material') * b['nominalDensity']
         for material, density in b['materialDensity'].items():
@@ -272,8 +279,12 @@ def validate(d):
         if not v['poi'].get('clearing'):
             assert all(max(abs(c) for c in slot['at']) == 1 for slot in v['poi']['slots']), 'outdoor POI slots touch the POI'
         assert all(slot['material'] in d['materials'] for slot in v['poi'].get('whenInsideBuilding',{}).get('slots',[]))
-        assert v['finds']['material'] in d['materials']
-        assert v['finds']['count'] == len(v['finds']['targets']) and v['finds']['count'] > 0
+        assert v['finds']['count'] == len(v['finds']['targets']) and v['finds']['count'] >= 0
+        if v['finds']['count']:
+            assert v['finds']['material'] in d['materials']
+        if v.get('generated'):
+            assert not v['poi']['slots'] and not v['finds']['count']
+            assert v['guards']['mode'] == 'none'
         if v['zone'] == 'tar':
             assert v['guards']['mode'] == 'none'
         if b['type'] in ('line_grid', 'bounded_line_grid'):
@@ -467,7 +478,10 @@ def street_svg(v, cell_m, detail=False):
         x, y, r = o['x'], o['y'], cell_m * .6
         kinds = art_registry()['lairs']['kinds'].get(o.get('tier', o['kind']), [])
         if kinds:
-            parts.append(creature_at(kinds[0],x,y,cell_m,'Representative guard at candidate anchor; actual seat may move'))
+            count = art_registry()['lairs']['counts'].get(o.get('tier', o['kind']), 1)
+            for n in range(count):
+                offset = (n - (count - 1) / 2) * cell_m
+                parts.append(creature_at(kinds[n % len(kinds)],x+offset,y,cell_m,f'Representative guard {n+1} of {count} at candidate anchor; actual seat may move'))
         parts.append(f'<path class="monster-layer" d="M {x} {y-r} L {x+r} {y} L {x} {y+r} L {x-r} {y} Z" fill="none" stroke="#ff827b" stroke-width="1.2"><title>{html.escape(o["kind"])}; candidate site, not a creature position</title></path>')
     for lamp in v['lamps']:
         parts.append(light_guide(lamp['x'],lamp['y'],cell_m*art_registry()['lighting']['cobble']['radiusCells'],lamp['glow']))
@@ -514,6 +528,35 @@ select.addEventListener('change',update);update();
     return f'''<section id="streets"><h1>{len(streets['rows'])} street and path variants</h1><p>Every shipping street and scenic path row from <code>StreetVariants.STREET_VARIANTS</code>. Samples use the real road rasterizer, street/scenic dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road, with an empty occupancy set. Street samples use public park ground; path fixtures provide actual water, greenway names or park polygons for the scenic classifier. Water appears blue in the promenade sample. Vista chests come from the generated scenic stretches, with their rules below. Props and lamps use their game art. With art switched off, squares are props and coloured circles are lamps. Tiny pale dots are source line ends, and outlined diamonds are guard candidate sites. The marked road midpoint is a reference point, not an interactable.</p><p>The independent rarity roll keeps {streets['plainShare']['minor']*100:g}% of minor keys and {streets['plainShare']['major']*100:g}% of major keys unthemed. Affinities and street names adjust the choice among special roads, without changing that rarity. Golden Road keeps its fixed 2% share of all minor keys. Long and tile-crossing roads retain their theme in deterministic patches, each at most {streets['maxVariantLengthM']:g} m, separated by plain gaps. Scenic paths use geography rather than the street-name roll, so their zero roll share is not a spawn probability. Rarity names come from the runtime table. Prop density is the observed sample, not an area-coverage target. Line-piece caps and spawn restrictions limit placement. Real terrain, occupied cells, bends and tile boundaries change the result. Fauna percentages relocate existing animals; guard sites are passed to the later lair spawner. Pavement uses the game’s worn and restored texture painters. Lamps show their restored art, configured colour and generated spacing; visit dimming is not simulated. A zone with a lamp tint overrides the street colour in the game.</p><p><b>{html.escape(streets['baseline']['title'])}</b> is the background story for every major road, not another variant row: {html.escape(streets['baseline']['body'])} About {streets['wagonStopShare']*100:.1f}% of eligible bus stops wear its wagon look. The separate {streets['rockStreetShare']*100:g}% minor-street rock roll (excluding hedgerows), ambient plants, café hoards and fauna are not drawn here.</p><p><a href="street-variants.json">Generated street geometry and runtime rows</a> · <a href="#zones">Back to zone variants</a></p>{legend}<label class="art-switch"><input id="restored-pavement" type="checkbox" checked> Restored pavement (off = worn)</label>{affinity_controls}<div class="cards">{''.join(cards)}</div>{affinity_script}</section>'''
 
 
+@functools.lru_cache(maxsize=1)
+def quarry_fixture():
+    helper = pathlib.Path(__file__).with_name('preview_quarry.js')
+    return json.loads(subprocess.check_output(['node', str(helper)], text=True))
+
+
+def quarry_card(v, d):
+    fixture = quarry_fixture()
+    unit = 10
+    side = fixture['side']
+    prefix = 'quarry-art'
+    materials = {name: d['materials'][name] for name in v['background']['materialDensity']}
+    parts = [f'<svg role="img" aria-label="Quarry generated from parking lane source geometry" viewBox="0 0 {side*unit} {side*unit}">', '<rect width="100%" height="100%" fill="#172820"/>', sprite_symbols(materials, prefix)]
+    for x,y in fixture['coverage']:
+        parts.append(f'<rect x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}" fill="#4c4b43"/>')
+    for line in fixture['sourceLines']:
+        points = ' '.join(f'{x*unit},{y*unit}' for x,y in line)
+        parts.append(f'<polyline points="{points}" fill="none" stroke="#c3af76" stroke-width="1" stroke-dasharray="3 3"><title>Parking-lane source geometry; not a rendered road</title></polyline>')
+    for o in fixture['objects']:
+        material = o['material']; x,y = o['cell']
+        parts.append(sprite_cell(prefix, material, x*unit+1, y*unit+1, unit-2, materials[material]))
+    parts.append('</svg>')
+    counts = collections.Counter(o['material'] for o in fixture['objects'])
+    labels = {'stone':'ordinary stone', 'crimson_ore':'Crimson ore', 'frost_ore':'Frost ore'}
+    mix = ' · '.join(f'{density*100:g}% {labels.get(name, name.replace("_", " "))}' for name,density in v['background']['materialDensity'].items())
+    actual = ', '.join(f'{n} {name.replace("_", " ")}' for name,n in counts.items())
+    return f'''<article id="{v['id']}"><header><small>quarry · generated from parking lanes</small><h2>{html.escape(v['name'])}</h2></header><p class="mix"><b>{v['background']['nominalDensity']*100:g}% expected coverage of eligible cells</b><br>{mix}</p><figure>{''.join(parts)}<figcaption>Actual rasterizer coverage and broken stone rows · {fixture['bufferM']:g} m buffer<br>Dashed lines show the removed source lanes, not roads. 1 cell = 7 m.</figcaption></figure><p>{html.escape(v['atmosphere'])}</p><p>This fixture placed {actual}. Percentages are independent of area; rare ore is not guaranteed in a small quarry.</p><dl><dt>Source</dt><dd>Parking-lane components; overlapping buffered lanes form one coverage region.</dd><dt>POI / shrine</dt><dd>None</dd><dt>Finite finds</dt><dd>None; ore belongs to the stone rows.</dd><dt>Monsters</dt><dd>No quarry guards</dd><dt>Lighting</dt><dd>No quarry light source or lamp colour override</dd><dt>Clipping</dt><dd>Real roads, buildings, forbidden ground and occupied cells retain their normal spawn restrictions.</dd></dl></article>'''
+
+
 def render(d, out):
     validate(d)
     helper = pathlib.Path(__file__).with_name('preview_street_variants.js')
@@ -522,6 +565,9 @@ def render(d, out):
     cards = []
     for v in d['variants']:
         b = v['background']
+        if v.get('generated') == 'parking_lanes':
+            cards.append(quarry_card(v, d))
+            continue
         mix = ', '.join(f'{n*100:.2f}'.rstrip('0').rstrip('.') + f'% {m.replace("_", " ")}' for m,n in b['materialDensity'].items())
         hazards = b.get('hazardDensity', {})
         if hazards:
@@ -559,7 +605,7 @@ def render(d, out):
 *{box-sizing:border-box}html{scroll-behavior:smooth}section{scroll-margin-top:70px}#streets{margin-top:56px}.swatch{display:inline-block;width:12px;height:12px;margin-right:5px}.page-nav{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:24px}body{background:#101a15;color:#e5ecdf;font:16px system-ui;margin:32px auto;max-width:1420px;padding:0 24px}h1{font-size:34px}p{line-height:1.6}small,figcaption{font-size:12px;color:#b4c6b4}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr));gap:24px}article,.coverage{background:#1b2a21;padding:24px;border:1px solid #334a3a;border-radius:14px}article h2{margin:8px 0 0}article .mix{min-height:60px}.visual{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:center}figure{margin:0}svg{width:100%;display:block}figcaption{margin-top:8px}.legend{display:flex;flex-wrap:wrap;gap:14px;margin:24px 0}.legend i{display:inline-block;width:12px;height:12px;margin-right:6px}a{color:#95d7d1}h2{font-size:23px}dl{display:grid;grid-template-columns:95px 1fr;gap:7px;font-size:14px}dt{color:#a8bbaa}dd{margin:0}.controls{display:flex;gap:24px;position:sticky;top:0;background:#101a15ed;padding:16px 0;z-index:1}.coverage{display:grid;grid-template-columns:1fr 1fr;gap:24px}.coverage svg{max-height:250px}body:has(#show-poi:not(:checked)) figure:not(.detail) .poi-layer{display:none}body:has(#show-bg:not(:checked)) .background{display:none}@media(max-width:640px){.coverage{grid-template-columns:1fr}.visual{grid-template-columns:2fr 1fr}body{padding:0 12px}}</style></head><body>'''
     page = page.replace('</style>', art_styles() + '</style>')
     counts = collections.Counter(v['zone'] for v in d['variants'])
-    page += f'<nav class="page-nav"><a href="#zones">Zone variants</a><a href="#streets">Street variants</a><a href="#art-rubble">Rubble art</a><a href="art-direction.html">Palette and style</a><a href="nature-art.html">Nature and ruins candidates</a></nav><label class="art-switch"><input id="show-art" type="checkbox" checked> Show game art in patterns (off = colour geometry)</label><section id="zones"><h1>{len(d["variants"])} zone variants</h1><p>Runtime pattern table · {counts["grove"]} groves, {counts["stones"]} churchyards, {counts["tar"]} tar yards. These definitions drive live world generation. The diagrams show ideal geometry before terrain and occupied cells clip it.</p><p><a href="zone-variants.json">Complete JSON table</a> · <a href="zone-variants.md">Placement contract and summary</a></p>'
+    page += f'<nav class="page-nav"><a href="#zones">Zone variants</a><a href="#streets">Street variants</a><a href="#art-rubble">Rubble art</a><a href="art-direction.html">Palette and style</a><a href="nature-art.html">Nature and ruins candidates</a></nav><label class="art-switch"><input id="show-art" type="checkbox" checked> Show game art in patterns (off = colour geometry)</label><section id="zones"><h1>{len(d["variants"])} zone variants</h1><p>Runtime pattern table · {counts["grove"]} groves, {counts["stones"]} churchyards, {counts["tar"]} tar yards, {counts["beach"]} beaches, {counts["quarry"]} parking-lane quarries. These definitions drive live world generation. The diagrams show ideal geometry before terrain and occupied cells clip it.</p><p><a href="zone-variants.json">Complete JSON table</a> · <a href="zone-variants.md">Placement contract and summary</a></p>'
     page += '''<section class="coverage"><div><h2>Geometry first</h2><p>Density follows recognizable shapes; 15% is a guide, not a cap. Hedge Garden repeats to the zone edge; its preview shows 4 × 4 plots. Work Yard has a fixed 5 × 5 arrangement. Both grids have lines four cells apart. The POI fixes the phase of the entire grid.</p><h2>Cover the union</h2><p><b>Influence footprint ∪ associated park footprint ∪ its placement fringe.</b> The fringe includes the full 30 m placement reach, beyond the 12–20 m painted band. Count overlap once; apply the existing spawn restrictions afterward.</p><p>Without an associated park, use the influence footprint alone. Nearby unrelated parks do not expand the zone. Special finds remain one set per anchor.</p></div><svg viewBox="0 0 420 230" role="img" aria-label="Diagram of the union of influence area and park with fringe"><rect x="25" y="35" width="250" height="160" rx="28" fill="#749762" fill-opacity=".4" stroke="#a2c483" stroke-dasharray="5 4"/><rect x="48" y="58" width="204" height="114" rx="8" fill="#426e44"/><circle cx="285" cy="118" r="90" fill="#679fac" fill-opacity=".4" stroke="#8ac9da"/><circle cx="285" cy="118" r="5" fill="#fff6ca"/><g fill="#fff" font-size="14" font-family="system-ui"><text x="98" y="117">Park footprint</text><text x="40" y="25">30 m placement fringe</text><text x="270" y="104">Influence</text><text x="297" y="136">POI</text><text x="98" y="218">Schematic · not to scale</text></g></svg></section>'''
     page += legend+'<p>Backgrounds are representative unclipped samples. Hedge Garden shows a 4 × 4 sample of its repeating grid, with the POI at the center of plot (2, 2), counting from the top left. Work Yard shows its 5 × 5 footprint, with the POI in plot (3, 3). Every repeating motif is phased from its declared POI origin, not the image corner. The close-ups include the surrounding pattern. Occupied POI slots replace background cells. Pirate Cove reserves the shipwreck footprint and approach. Shrines and Pirate Cove use their game art; a pale dot marks other POIs. Close-ups show the outdoor arrangement. Meadow has a radius-three grass disk; Flint Field has a radius-two flint disk. Both have one-cell rims of bushes or rubble; other variants use the eight cells touching the POI. Building POIs retain their wider frontage arrangement in the table. Guarded finds and declared guard offsets are drawn with real creature art; red rings mark monsters. Alternative guards show one representative choice. Light guides show source colour and radius, without fog or day/night simulation. Fauna and connection routes are listed but not drawn. Fauna percentages are chances to relocate existing animals onto eligible ground, not extra spawn rates. Obstacles and real zone boundaries will clip placement. Grid lines are unbroken except where POI space or an ineligible cell requires clearance.</p><div class="controls"><label><input id="show-monsters" type="checkbox" checked> Monsters</label><label><input id="show-lights" type="checkbox" checked> Light guides</label><label><input id="show-poi" type="checkbox" checked> Show POI in background</label><label><input id="show-bg" type="checkbox" checked> Show background</label></div><main class="cards">'+''.join(cards)+'</main></section>'+street_section(streets)+art_script()+'</body></html>'
     (out/'index.html').write_text(page)

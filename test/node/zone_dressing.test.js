@@ -26,6 +26,36 @@
       }
     }
   });
+  test('quarry dressing: global cell scatter ignores component centers and creates no landmark', () => {
+    const make = () => {
+      const c = context('quarry'); c.grid.fill(WorldGen.T.ROCK);
+      c.field.anchors[0].generated='parking_lanes';
+      return c;
+    };
+    const a=make(), b=make();
+    Object.assign(b.field.anchors[0],{key:9999,gx:204,gy:311,originGX:921,originGY:1234,rotation:3,owned:false});
+    const first=ZoneDressing.dress(a), second=ZoneDressing.dress(b);
+    assert.eq(JSON.stringify(first.objects),JSON.stringify(second.objects),'component identities do not reroll a cell');
+    assert.eq(first.nexus.length,0);assert.eq(first.guards.length,0);assert.eq(first.traps.length,0);
+    assert.eq(first.wildplants.length,0);assert.eq(first.lairs.length,0);
+    assert.truthy(first.objects.every(o=>o.kind==='mineralrock' && o.zoneLayer==='background'));
+    assert.inRange(first.objects.length,1500,1770,'dense forty-percent coverage');
+    for(const [tier,required] of [[6,5],[7,6]]) {
+      const ore=first.objects.filter(o=>o.yieldTier===tier);
+      assert.inRange(ore.length,20,65,'about one percent of eligible cells per special ore');
+      assert.truthy(ore.every(o=>o.requiredTier===required));
+    }
+    // Every selected cell can be the component centre without becoming an
+    // implicit clearing or a fake POI seat.
+    const selected=first.objects[0], center=make();
+    Object.assign(center.field.anchors[0],{gx:(selected._ix+.5)*4096/center.N,gy:(selected._iy+.5)*4096/center.N});
+    assert.truthy(ZoneDressing.dress(center).objects.some(o=>o.id===selected.id));
+    const blocked=make(), idx=selected._iy*blocked.N+selected._ix;
+    blocked.spawnOpts.spawnWhy[idx]=WorldGen.SPAWN_WHY.RESTRICTED;
+    assert.falsy(ZoneDressing.dress(blocked).objects.some(o=>o.id===selected.id),'shared hard gates still apply');
+    const occupied=make();occupied.spawnOpts.occupied.add(idx);
+    assert.falsy(ZoneDressing.dress(occupied).objects.some(o=>o.id===selected.id),'existing seats remain protected');
+  });
   function pirateShrine() {
     const ctx = context('pirate_cove'), a = ctx.field.anchors[0], cell = WorldGen.CELL_M;
     ctx.grid.fill(WorldGen.T.SAND);

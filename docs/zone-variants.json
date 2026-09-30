@@ -262,6 +262,13 @@
       "crop": "giant_mushroom",
       "spawnClass": "minor",
       "color": "#947051"
+    },
+    "frost_ore": {
+      "kind": "mineralrock",
+      "yieldTier": 7,
+      "requiredTier": 6,
+      "spawnClass": "attractor",
+      "color": "#8be2ee"
     }
   },
   "variants": [
@@ -6978,6 +6985,63 @@
         "butterfly": 0.35
       },
       "atmosphere": "Short shell ribbons and one driftwood seat repeat in a narrow 3 \u00d7 5 frame. Open sand separates them; the two wild roses stay on eligible landward vegetation."
+    },
+    {
+      "id": "quarry",
+      "zone": "quarry",
+      "name": "Quarry",
+      "weight": 1,
+      "generated": "parking_lanes",
+      "source": "parking_lanes",
+      "background": {
+        "type": "seeded_scatter",
+        "densityFalloff": "none",
+        "phaseOrigin": "global_tile_cell",
+        "orientation": "none",
+        "nominalDensity": 0.4,
+        "materialDensity": {
+          "stone": 0.38,
+          "crimson_ore": 0.01,
+          "frost_ore": 0.01
+        },
+        "seed": "source + tile_coordinates + local_cell_coordinates; independent_of_component_center",
+        "sampling": "alternate_rows_with_seeded_gaps; occupancy_adjusted_for_row_fraction; independent_material_hash",
+        "previewCells": [
+          24,
+          24
+        ],
+        "poiOrigin": {
+          "cell": [
+            0,
+            0
+          ],
+          "role": "no_landmark"
+        },
+        "rows": {
+          "axis": "horizontal",
+          "spacingCells": 2,
+          "lineWidthCells": 1
+        }
+      },
+      "poi": {
+        "id": "none",
+        "origin": "none",
+        "slots": []
+      },
+      "finds": {
+        "rarity": "none",
+        "material": "stone",
+        "targets": [],
+        "count": 0
+      },
+      "connection": {
+        "shape": "none"
+      },
+      "guards": {
+        "mode": "none"
+      },
+      "atmosphere": "Broken rows of stone fill removed parking lanes and nearby ground, with seeded gaps between rocks and clear aisles between rows. Crimson and frost ore each occupy about 1% of eligible cells. No landmark, special lighting or fixed guards.",
+      "attracts": {}
     }
   ]
 }

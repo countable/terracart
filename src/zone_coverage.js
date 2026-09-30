@@ -210,5 +210,95 @@
     }
     return painted;
   }
-  root.ZoneCoverage = { buildSteps, paintSteps };
+  // Removed parking lanes remain map evidence. Nearby lane buffers merge into
+  // one generated quarry footprint; they never return as roads or lamp sites.
+  const QUARRY_BUFFER_M = root.Zones.ZONE_KINDS.quarry.R;
+  function* quarrySteps({ field, parkingLanes, tx, ty, N, grid, roadMask, spawnWhy }) {
+    if (!parkingLanes?.length) return field;
+    const WG = root.WorldGen, Z = root.Zones;
+    const mask = new Uint8Array(N * N), radius = QUARRY_BUFFER_M / WG.CELL_M;
+    let segments = 0;
+    for (const source of parkingLanes) {
+      const scale = N / (source.extent || EXT);
+      for (const line of source.lines || []) for (let j = 1; j < line.length; j++) {
+        if ((segments++ & 31) === 0) yield 'quarry source segments';
+        const a = line[j - 1], b = line[j];
+        const ax = a.x * scale, ay = a.y * scale, bx = b.x * scale, by = b.y * scale;
+        const dx = bx - ax, dy = by - ay, length2 = dx * dx + dy * dy;
+        const y0 = Math.max(0, Math.ceil(Math.min(ay, by) - radius - .5));
+        const y1 = Math.min(N - 1, Math.floor(Math.max(ay, by) + radius - .5));
+        for (let y = y0; y <= y1; y++) {
+          if ((y & 15) === 0) yield 'quarry buffer rows';
+          const py = y + .5;
+          // Slice a diagonal to this row before scanning its width.
+          let lo = 0, hi = 1;
+          if (dy) {
+            const ta = (py - radius - ay) / dy, tb = (py + radius - ay) / dy;
+            lo = Math.max(0, Math.min(ta, tb)); hi = Math.min(1, Math.max(ta, tb));
+          }
+          if (lo > hi) continue;
+          const left = Math.min(ax + lo * dx, ax + hi * dx) - radius;
+          const right = Math.max(ax + lo * dx, ax + hi * dx) + radius;
+          for (let x = Math.max(0, Math.ceil(left - .5)); x <= Math.min(N - 1, Math.floor(right - .5)); x++) {
+            const i = y * N + x;
+            if (mask[i]) continue;
+            const px = x + .5;
+            const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (length2 || 1)));
+            if ((px - ax - t * dx) ** 2 + (py - ay - t * dy) ** 2 <= radius * radius) mask[i] = 1;
+          }
+        }
+      }
+    }
+    // As with ordinary zone painting, quarry ownership replaces inferred
+    // frontage/back-yard rules, never actual terrain or protected-site gates.
+    const why = spawnWhy && spawnWhy.map(bits => bits & ~(WG.SPAWN_WHY.PRIVATE | WG.SPAWN_WHY.BEHIND_HOUSE));
+    const opts = { roadMask, spawnWhy: why };
+    const eligible = i => !field?.coverage?.[i] && !field?.idx?.[i]
+      && !WG.isRoadTerrain(grid[i]) && !WG.isBuildingTerrain(grid[i])
+      && grid[i] !== WG.T.PATH && grid[i] !== WG.T.PIER && grid[i] !== WG.T.SAND
+      && WG.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), opts, 'minor');
+    let result = field;
+    for (let start = 0; start < mask.length; start++) {
+      if ((start & 511) === 0) yield 'quarry components';
+      if (mask[start] !== 1) continue;
+      const queue = [start], cells = [];
+      mask[start] = 2;
+      for (let head = 0; head < queue.length; head++) {
+        if ((head & 511) === 0) yield 'quarry component cells';
+        const i = queue[head], x = i % N, y = Math.floor(i / N);
+        if (eligible(i)) cells.push(i);
+        // Eight neighbours merge touching buffers, including diagonal lanes.
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+          const next = ny * N + nx;
+          if (mask[next] === 1) { mask[next] = 2; queue.push(next); }
+        }
+      }
+      if (!cells.length) continue;
+      if (!result) result = { anchors: [], allAnchors: [], reach: [] };
+      if (!result.coverage) result.coverage = result.idx ? Uint16Array.from(result.idx) : new Uint16Array(N * N);
+      if (!(result.idx instanceof Uint16Array)) result.idx = result.idx ? Uint16Array.from(result.idx) : new Uint16Array(N * N);
+      if (!result.s) result.s = new Uint8Array(N * N);
+      // A component label is tile-local, with no finite prize or synthetic
+      // POI. Its scatter hashes each source cell, not this representative point,
+      // so clipped geometry and other components cannot reroll surviving rocks.
+      const first = cells.reduce((a, b) => Math.min(a, b));
+      const lx = (first % N + .5) * EXT / N, ly = (Math.floor(first / N) + .5) * EXT / N;
+      const gx = tx * EXT + lx, gy = ty * EXT + ly;
+      const row = Z.ZONE_KINDS.quarry;
+      const anchor = { kind: 'quarry', variant: 'quarry', aspect: 'quarry', generated: 'parking_lanes',
+        name: row.title, gx, gy, lx, ly, owned: true, key: Z.anchorKey(gx, gy),
+        code: row.code, R: QUARRY_BUFFER_M, upm: N * WG.CELL_M / EXT, q: 0 };
+      result.anchors.push(anchor);
+      if (result.allAnchors) result.allAnchors.push(anchor);
+      const slot = result.anchors.length;
+      for (const i of cells) {
+        result.coverage[i] = slot; result.idx[i] = slot; result.s[i] = 255;
+      }
+    }
+    return result;
+  }
+
+  root.ZoneCoverage = { buildSteps, paintSteps, quarrySteps, QUARRY_BUFFER_M };
 })(typeof window !== 'undefined' ? window : globalThis);

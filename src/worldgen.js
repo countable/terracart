@@ -1139,6 +1139,10 @@
       }
       tn.features.length = kn;
     }
+    // Keep the removed geometry for generated quarries. Replaying an already
+    // pruned layer must retain this evidence without duplicating it.
+    if (cut.length) tl.parkingLanes = [...(tl.parkingLanes || []),
+      ...cut.map(row => ({ ...row, extent: tl.extent || 4096 }))];
     return cut;
   }
   // Approximate real-world carriageway width, in metres, per transportation
@@ -5451,6 +5455,9 @@
       if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.buildSteps({
         field: zone, poiLayer: layersByName['poi'], parks: parkPolys, tx, ty, N: w,
         chests: deduped, tileEdgeM, grid });
+      if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.quarrySteps({
+        field: zone, parkingLanes: layersByName['transportation']?.parkingLanes,
+        tx, ty, N: w, grid, tileEdgeM, roadMask, spawnWhy });
     }
     if (streetIndex && typeof StreetVariants.applyAffinitiesSteps === 'function') {
       // Geography changes the selected theme, never whether the corridor is

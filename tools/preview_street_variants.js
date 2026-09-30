@@ -121,7 +121,7 @@ const affinityContexts = Object.fromEntries(['neutral', 'cultivated', 'woodland'
   [trait, Object.fromEntries(['minor', 'major'].map(size =>
     [size, SV.selectionWeights('Preview', size, trait === 'neutral' ? {} : {[trait]: 1})]))]));
 const rules = {
-  hedgerow: `Two straight rows of cut hedges, one per ${cellM} m cell, with aligned gate gaps every ${SV.HEDGE_GATE_EVERY_CELLS} cells. Blocked slots stay empty.`,
+  hedgerow: `Two straight rows of cut hedges, one per ${cellM} m cell, with aligned gate gaps every ${SV.HEDGE_GATE_EVERY_CELLS} cells. Blocked slots stay empty. One encounter anchor holds two ordinary slimes where safe ground permits.`,
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
   orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} trees per line piece, alternating half apple trees and half mature deciduous maples.`,
   golden: `One seeded 1-coin pickup every ${SV.GOLDEN_STEP_M} m, alternating eligible verges; each coin is collectible once.`,

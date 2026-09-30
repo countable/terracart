@@ -1134,9 +1134,13 @@
       // One finite encounter per themed street and owning tile, independent
       // of how many geometry fragments represent the street. Scenery streams
       // keep their draws; guards share the existing lair persistence lane.
-      if (['overgrown', 'orchard', 'toadstool'].includes(v)) {
+      if (['hedgerow', 'overgrown', 'orchard', 'toadstool'].includes(v)) {
         const sid = `street_habitat_${tx}_${ty}_${v}_${rec.key}`;
-        if (!habitatSeats.has(sid)) sampleLine(rec.line, gM, BURNED_GUARD_STEP_M, BURNED_GUARD_STEP_M / 2, (s, x, y, nx, ny) => {
+        // A hedge encounter uses a regular gate gap, keeping both clipped
+        // rows aligned instead of removing an extra hedge for its anchor.
+        const step = v === 'hedgerow' ? CELL_M * HEDGE_GATE_EVERY_CELLS : BURNED_GUARD_STEP_M;
+        const start = v === 'hedgerow' ? step - CELL_M / 2 : step / 2;
+        if (!habitatSeats.has(sid)) sampleLine(rec.line, gM, step, start, (s, x, y, nx, ny) => {
           if (habitatSeats.has(sid)) return false;
           if (!S.covers(spans, s)) return;
           for (const side of [1, -1]) {

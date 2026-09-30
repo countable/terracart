@@ -132,7 +132,7 @@ test('enemy spawns: a biome seat on zone ground (park, place of worship, tar yar
   assert.gt(cancel, 0, 'zone-owned ground cancels the seat');
   assert.lt(cancel, loop.indexOf('EnemySpawns.surfaceKind('), 'before any kind is chosen for it');
   assert.eq(WorldGen.variantOwnerAt({ zone: { coverage: [1] }, streetArea: [1] }, 0), 'zone', 'the shared owner gives zones precedence over roads');
-  assert.eq(Object.keys(Zones.ZONE_KINDS).sort().join(), 'beach,grove,stones,tar', 'mapped beaches, parks, places of worship and tar yards');
+  assert.eq(Object.keys(Zones.ZONE_KINDS).sort().join(), 'beach,grove,quarry,stones,tar', 'mapped zones and generated parking-lane quarries');
 });
 
 test('enemy spawns: mini vampire bats are retired from enemy and spawn tables', () => {

@@ -5,7 +5,8 @@
 // the tile's transportation layer by the rasterizer's FIRST pass, so nothing
 // downstream (terrain, roadMask, the street index, scenic, labels, the road
 // overlay, restoration, lamps — all of which read that same layer object)
-// ever meets one. Every OTHER service way stays an ordinary road.
+// ever meets one. Removed geometry remains generation-only quarry input.
+// Every OTHER service way stays an ordinary road.
 //
 // These drive the REAL rasterizer over a synthetic lot.
 (function () {
@@ -121,5 +122,56 @@ test('lot lanes: the cut is idempotent and deterministic', () => {
   const again = build().by.transportation.features.map((f) => f.id).join(',');
   assert.eq(by.transportation.features.map((f) => f.id).join(','), again, 'same data, same cut');
   assert.truthy(L);
+});
+test('lot lanes: removed tagged and inferred geometry remains generation-only quarry input', () => {
+  const { r, by } = build();
+  const removed = by.transportation.parkingLanes;
+  assert.truthy(removed && removed.length, 'removed geometry survives outside the rendered features');
+  const removedLines = removed.flatMap(record => record.lines);
+  for (const expected of [AISLE, IN_LOT, IN_LOT2]) {
+    assert.truthy(removedLines.some(actual => sameLine(actual, expected)), 'tagged and inferred lane both feed quarry coverage');
+  }
+  for (const road of [FAR, COURT, LONG, PLAIN]) {
+    assert.falsy(removedLines.some(actual => sameLine(actual, road)), 'a surviving service road does not become quarry source');
+  }
+  const ownerAt = (x, y) => r.zone?.anchors[r.zone.coverage[y * CPE + x] - 1];
+  const owner = ownerAt(40, 41);
+  assert.eq(owner?.kind, 'quarry', 'the removed lot becomes a quarry zone');
+  assert.eq(ownerAt(40, 43)?.key, owner.key, 'nearby lane buffers share a connected quarry');
+  assert.eq(r.grid[41 * CPE + 40], WorldGen.T.ROCK, 'quarry has rocky ground');
+  assert.eq(r.roadMask[41 * CPE + 40], 0, 'the lane never regains a carriageway');
+  assert.falsy(hasLine(by.transportation, IN_LOT), 'lamps, restoration and road overlays still cannot see the lane');
+});
+
+test('lot lanes: quarry coverage and identity survive rebuilding an already-pruned layer', () => {
+  const { L, r: first, by } = build();
+  const source = JSON.stringify(by.transportation.parkingLanes);
+  const signature = result => Array.from(result.zone.coverage, slot => {
+    const anchor = result.zone.anchors[slot - 1];
+    return anchor ? `${anchor.kind}:${anchor.key}:${anchor.variant}` : '-';
+  }).join('|');
+  const before = signature(first);
+  const second = WorldGen.rasterizeTile(L, CPE, 0, 0, TILE_EDGE_M);
+  assert.eq(signature(second), before, 'source identity and covered cells survive a second build');
+  assert.eq(JSON.stringify(by.transportation.parkingLanes), source, 'rebuild neither duplicates nor mutates the removed source');
+  assert.eq(Array.from(second.roadMask).join(','), Array.from(first.roadMask).join(','), 'removed lanes remain absent on rebuild');
+});
+test('lot lanes: quarry ground and dressing preserve original cave entrances', () => {
+  const quarrySteps = ZoneCoverage.quarrySteps;
+  let before;
+  try {
+    ZoneCoverage.quarrySteps = function* ({field}) { return field; };
+    before = build().r;
+  } finally { ZoneCoverage.quarrySteps = quarrySteps; }
+  const after = build().r;
+  const source = result => result.zone?.caveSource || result.caveSource || result;
+  assert.eq(Array.from(source(after).grid).join(','), Array.from(source(before).grid).join(','), 'new rocky paint is excluded from cave substrate');
+  assert.eq(source(after).objects.map(o=>o.id).join(','), source(before).objects.map(o=>o.id).join(','), 'new quarry dressing does not replace original cave occupancy');
+  const entrances = result => {
+    const entry = {...result, objects:result.objects.slice(), cellsPerEdge:CPE, tileEdgeM:TILE_EDGE_M};
+    WorldGen.maybePlaceCaveEntrance(entry,0,0,TILE_EDGE_M,result.objects,result.wildplants);
+    return entry.objects.filter(o=>o.kind === 'staircase').map(o=>`${o.id}:${o.x},${o.y}`).join('|');
+  };
+  assert.eq(entrances(after), entrances(before), 'existing mine mouths keep their positions and IDs');
 });
 })();

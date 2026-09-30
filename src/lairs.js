@@ -138,7 +138,7 @@
   // at a third of the bus stops on every major road; the owner's safety pass
   // removed it — a stop is on the kerb by definition. The hoard's tier was
   // 'close', the head of a hedgerow's residential dead end.)
-  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_overgrown: 1, street_orchard: 1, street_toadstool: 1 };
+  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_hedgerow: 2, street_overgrown: 1, street_orchard: 1, street_toadstool: 1 };
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
   // ── A TAR YARD — the same reason again (src/zones.js): the fire slimes at
   // a fuel station's pumps, seated about its chest. Fixed and always held
@@ -229,6 +229,7 @@
     tar: ['fire_slime'],
     // A barricade: the goblin who holds it.
     barricade: ['spear_goblin', 'archer_goblin'],
+    street_hedgerow: ['slime'],
     street_overgrown: ['plant'],
     street_orchard: ['farmer_goblin'],
     street_toadstool: ['spider'],
@@ -270,6 +271,7 @@
     tar:   { rate: 1, thinned: false },    // a tar yard's pumps
     barricade: { rate: 1, thinned: false },  // a barricade road's barricade
     burned: { rate: 1, thinned: false },   // a burned row's stretch
+    street_hedgerow: { rate: 1, thinned: false },
     street_overgrown: { rate: 1, thinned: false },
     street_orchard: { rate: 1, thinned: false },
     street_toadstool: { rate: 1, thinned: false },

@@ -23,6 +23,7 @@
   }
   // Traits describe appearance, not eligibility: unusual combinations remain possible.
   const TRAITS = {
+    quarry: ['ruined'],
     meadow: ['cultivated'], mushroom_grove: ['woodland', 'damp'], orchard: ['cultivated', 'woodland'],
     formal_garden: ['formal', 'cultivated'], hedge_garden: ['formal', 'cultivated'], ancient_grove: ['woodland', 'sacred'],
     stone_garden: ['formal', 'sacred'], ordered_graves: ['formal', 'sacred'], overgrown_graves: ['woodland', 'sacred'],
@@ -176,7 +177,12 @@
     const b = variant.background;
     if (b.type === 'seeded_scatter') {
       const seed = `${anchorKey}|${variant.id}|${u}|${v}`;
-      if (unitHash(`${seed}|occupancy`) >= b.nominalDensity) return null;
+      // Row geometry controls available seats; conditional occupancy keeps
+      // the declared density measured over the whole area, including aisles.
+      const rows = b.rows;
+      if (rows && mod(rows.axis === 'vertical' ? u : v, rows.spacingCells) >= rows.lineWidthCells) return null;
+      const rowFraction = rows ? rows.lineWidthCells / rows.spacingCells : 1;
+      if (unitHash(`${seed}|occupancy`) >= b.nominalDensity / rowFraction) return null;
       let ticket = unitHash(`${seed}|material`) * b.nominalDensity;
       for (const [material, density] of Object.entries(b.materialDensity)) {
         ticket -= density;
