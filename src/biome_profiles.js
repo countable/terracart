@@ -168,7 +168,10 @@
       //   cluster radius (the rocks carpet ~1×; the flora rings them), each try
       //   picking a crop by `share`. Numbers chosen so surviving flora lands
       //   near the surviving rock count (residential_flora.test.js measures it).
-      yard: { min: 14, span: 12, radiusK: 2, salt: S.YARD_FLORA,
+      //   CUT (Sep 2026, owner's call): 14–25 tries → 4–7. With the lot rubble
+      //   gone (LOT_ROCK_DRY) the plants took the rocks' cells too, and an
+      //   ordinary street read as packed with grass and bushes.
+      yard: { min: 4, span: 4, radiusK: 2, salt: S.YARD_FLORA,
               crops: [{ crop: 'longgrass', share: 0.5 }, { crop: 'shrub', share: 0.5 }] },
       tint: {},
     },
