@@ -64,15 +64,35 @@
   });
 
   test('clipped named road keeps bounded themed patches across a seam in either build order', () => {
+    // A clipped road is a LONG one to the index (its length is unknown), so
+    // it is themed in sections on the LONG_PATCH_UNITS lattice, about
+    // LONG_ROAD_SECTION_SHARE of them (StreetVariants.longPatchThemed), and
+    // a section under MIN_VARIANT_LENGTH_M is not laid. On this 224 m
+    // fixture tile a lattice square is 56 m, so the road reaches 20 cells
+    // into each tile (three squares a side) and the name is searched so a
+    // square on each side of the seam wears the theme.
+    const REACH = 20;
+    const seamY = p(0, 15).y, py = Math.floor(seamY / StreetVariants.LONG_PATCH_UNITS) * StreetVariants.LONG_PATCH_UNITS;
+    const squaresWest = [1024, 2048, 3072].map(px => `${tx * E + px},${ty * E + py}`);
+    const squaresEast = [0, 1024, 2048].map(px => `${(tx + 1) * E + px},${ty * E + py}`);
+    const seamName = (() => {
+      for (let i = 0; i < 5000; i++) {
+        const s = `Seam Lane ${i}`;
+        const kw = StreetVariants.streetKey(s, tx, ty), ke = StreetVariants.streetKey(s, tx + 1, ty);
+        if (StreetVariants.variantFor(kw, s, 'minor') && squaresWest.some(k => StreetVariants.longPatchThemed(kw, k))
+          && squaresEast.some(k => StreetVariants.longPatchThemed(ke, k))) return s;
+      }
+      throw new Error('no seam street');
+    })();
     const seamLine = (offset) => [
-      { x: (N - 3.5 - offset) * E / N, y: p(0, 15).y },
-      { x: (N + 3.5 - offset) * E / N, y: p(0, 15).y },
+      { x: (N - REACH - offset) * E / N, y: seamY },
+      { x: (N + REACH - offset) * E / N, y: seamY },
     ];
     const seamLayers = (offset) => [
       { name: 'transportation', extent: E,
         features: [{ type: 2, tags: { class: 'minor' }, geom: [seamLine(offset)] }] },
       { name: 'transportation_name', extent: E,
-        features: [{ type: 2, tags: { name }, geom: [seamLine(offset)] }] },
+        features: [{ type: 2, tags: { name: seamName }, geom: [seamLine(offset)] }] },
     ];
     const build = (tileX, offset) => WorldGen.rasterizeTile(
       seamLayers(offset), N, tileX, ty, tileEdgeM);

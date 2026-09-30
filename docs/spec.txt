@@ -81,6 +81,10 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
        house 5. FAR_MUL is DERIVED (ceiling / biggest tier figure), not tuned.
    The rolled count is the cap less a seeded shortfall of up to LAIR_SLACK, so
    a house and a fort are always exactly their figure and a castle is 2-3.
+   THE MODE'S GROUP CAP (Difficulty lairGuardMax, Sep 2026): easy WAKES at most
+   2 of any garrison — the first two guards the world rolled, same ids, kinds
+   and seats hard meets first; hard wakes the whole of it. The world's roll is
+   unchanged, so it stays one world for everyone.
    BUT FIRST: IS IT HELD AT ALL? The odds are the tier's (Lairs.OCCUPANCY) —
    a wrecked house 1/3, a fort 2/3, a castle 0.95 — drawn as the FIRST number
    of the structure's own stream, so an empty ruin is empty on every wake,
