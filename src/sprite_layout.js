@@ -689,9 +689,23 @@
   // A kind's hard top speed, m/s (its row's `maxMps`), or Infinity.
   function creatureMaxMps(kind) { return creatureBehaviour(kind)?.maxMps ?? Infinity; }
   function creatureScale(kind, inst = 1) { return (creatureArt(kind)?.scale ?? 1) * inst; }
-  // One creature's own size multiplier (its instance art scale), or 1.
-  function creatureInstScale(c) {
-    return c._artScale ?? c.artScale ?? 1;
+  // A BABY PET (items.js BABY_KINDS — found in a nest bush or hatched from an
+  // egg, then released): a tame creature RAISED by the player (`raised`),
+  // born the moment it was set down (`born`, epoch ms, saved on its
+  // save.released row). It is drawn at half its kind's size until it has
+  // grown for `growMs` — seven days — and is an adult from then on: full
+  // size, and twice its kind's HP and bite (combat.js raisedMul). Both the
+  // size here and the power there read the ONE predicate, isBabyPet.
+  const PET_BABY = Object.freeze({ scale: 0.5, growMs: 7 * 24 * 60 * 60 * 1000 });
+  function isBabyPet(c, now = Date.now()) {
+    return !!(c && c.raised && Number.isFinite(c.born)) && (now - c.born) < PET_BABY.growMs;
+  }
+  // One creature's own size multiplier (its instance art scale), or 1 — a
+  // baby pet's is halved for as long as it is a baby. Every reader of a
+  // creature's drawn size (render.js, the tap box, the wheel and health bar
+  // seats) comes through here, so the whole body shrinks together.
+  function creatureInstScale(c, now) {
+    return (c._artScale ?? c.artScale ?? 1) * (isBabyPet(c, now) ? PET_BABY.scale : 1);
   }
   function creatureFloat(kind) { return creatureArt(kind)?.float ?? 0; }
   // The sheet a kind is drawn from, and how many frames of its row-0 cycle the
@@ -917,7 +931,7 @@
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
     CAVE_SLIME_TINT, TRAPPER_TINT, FIRE_SLIME_TINT, GHOST_TINT, GHOST_ALPHA, GHOST_GLOW, SPIRIT_RAVEN_ALPHA, creatureSheet, creatureFrames, creatureTint, creatureAlpha, creatureGlow,
-    creatureFoot, creatureScale, creatureInstScale, creatureFightsBack, creatureMaxMps, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
+    creatureFoot, creatureScale, creatureInstScale, PET_BABY, isBabyPet, creatureFightsBack, creatureMaxMps, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
   };
   root.SpriteLayout = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

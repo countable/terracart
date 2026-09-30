@@ -196,7 +196,9 @@ const WILDPLANT_RULES = {
   // (tree + shrub have no inventory counterparts), and it is real felling
   // work: the axe relic's ladder times the wheel and `workCharged` puts the
   // shared 9/3/1 tool curve on the bar.
-  shrub:     { output: 'wood', workRelic: 'axe', workCharged: true },
+  // `nest`: one shrub in twenty is a NEST BUSH (isNestBush) — it wiggles
+  // now and then and hands over a baby pet when chopped.
+  shrub:     { output: 'wood', workRelic: 'axe', workCharged: true, nest: true },
   giant_mushroom: { name: 'Giant mushroom', outputs: [{id:'wood',qty:1},{id:'mushroom',qty:1}],
     workRelic: 'axe', workCharged: true },
   // A barricade road's barricade is the shrub's row — one lane, one more
@@ -224,6 +226,17 @@ const WILDPLANT_RULES = {
   mushroom:  { light: 'mushroom' },
 };
 function wildplantRule(crop) { return WILDPLANT_RULES[crop] || null; }
+// Can a plant of this crop be a nest bush at all (its row's `nest`)?
+function wildplantNests(crop) { return !!wildplantRule(crop)?.nest; }
+// THE NEST BUSH: a nesting crop whose id hashes under SHINY_RATE.nest — the
+// same bushes for every player. render.js wiggles it (nestBushPhase) and the
+// wildplant harvest (interact.js) pays the baby off this one predicate.
+function isNestBush(crop, id) { return id != null && wildplantNests(crop) && isShiny(id, SHINY_RATE.nest); }
+// When a nest bush wiggles: its own BEAT (util.js beatPhase), 10-30 s off its
+// id, the wiggle showing NEST_BUSH_BEAT.showMs once per period. Returns the
+// wiggle's progress 0..1 while it shows, else -1.
+const NEST_BUSH_BEAT = Object.freeze({ salt: 'nest', minMs: 10000, maxMs: 30000, showMs: 900 });
+function nestBushPhase(id, nowMs) { return beatPhase(id, nowMs, NEST_BUSH_BEAT); }
 // What a pick hands over — the crop itself, unless a row names something else.
 function wildplantOutput(crop) { const r = wildplantRule(crop); return r?.outputs?.[0]?.id || r?.output || crop; }
 // All guaranteed rewards from one harvest; ordinary plants retain their single drop.
@@ -590,6 +603,19 @@ const BASE_TIER = {
 // toast / house sign). Emoji is reserved for non-item UI only. See
 // docs/QC_RULES.md §1. (Gear in RELIC_DEFS / ARMOR_DEFS keeps an `icon:` field,
 // but that's a PNG filename for gearAssetPath — not an emoji.)
+// ── BABY PETS ──────────────────────────────────────────────────────────────
+// The domestic kinds a baby can be. A baby is found in a NEST BUSH (one shrub
+// in twenty, isNestBush — chopped once, it hands the baby over) or HATCHED
+// from a carried egg (egg_hatch.js). In the bag it is an 'animal' item like
+// any caught creature (`base` names the kind; `baby` marks it); released, it
+// is a tame pet born that moment, half its kind's size for a week
+// (SpriteLayout.PET_BABY / isBabyPet), then a shiny adult of double strength
+// (combat.js raisedMul). ONE table: the item rows, the hatch pool and the
+// bush's find all read it.
+const BABY_KINDS = Object.freeze(['chicken', 'cow', 'cat', 'dog', 'rabbit']);
+function babyItemId(kind) { return `baby_${kind}`; }
+function babyItems() { return BABY_KINDS.map(babyItemId); }
+
 const ITEMS = [
   ...Object.keys(CROP_ROW).map(c => ({
     id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c,
@@ -624,6 +650,13 @@ const ITEMS = [
     id: `shiny_${k}`,
     name: `Shiny ${k.charAt(0).toUpperCase() + k.slice(1)}`,
     kind: 'animal', base: k, shiny: true, baseTier: BASE_TIER[k] || 1,
+  })),
+  // Baby pets (BABY_KINDS above) — their own stacks, released like any
+  // animal; `base` lends the plain kind's icon and creature.
+  ...BABY_KINDS.map(k => ({
+    id: babyItemId(k),
+    name: `Baby ${k.charAt(0).toUpperCase() + k.slice(1)}`,
+    kind: 'animal', base: k, baby: true, baseTier: BASE_TIER[k] || 1,
   })),
   // Animal produce — feed longgrass to a wild chicken / cow to swap the
   // longgrass for an egg / milk. Repeatable until either you run out of
@@ -1117,6 +1150,8 @@ function itemValue(id) {
 for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab']) {
   PRICES[`shiny_${k}`] = itemValue(k) * 10;
 }
+// A baby sells for three of its kind: a promise of a shiny, not yet one.
+for (const k of BABY_KINDS) PRICES[babyItemId(k)] = itemValue(k) * 3;
 // Seeds houses/traders rotate through for sale. Magical flower seeds (T4+:
 // sunflower / fireflower / iceflower) are deliberately EXCLUDED — they're the
 // gateway to the most valuable crops and the T5+ smelting ladder, so they must
@@ -1187,6 +1222,8 @@ const EGG_HATCH_METERS = 500;
 
 const ITEM_EFFECTS = {
   egg: 'A tiny heartbeat keeps time with your footsteps.',
+  ...Object.fromEntries(BABY_KINDS.map(k => [babyItemId(k),
+    'Too small to be left in the bag for long. Set it down on soft ground and let it grow.'])),
   flowers: 'Their scent softens even a shopkeeper’s heart.',
   rainberry: 'Rain gathers on nearby leaves when its skin breaks between your teeth.',
   pairy: 'Its sweetness leaves a glimmer of buried treasure behind your eyes.',

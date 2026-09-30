@@ -141,6 +141,9 @@ const FILES = [
   // + a stub fill target, so its projection, painter-rule ordering, tier
   // styling and claim shading pin headlessly.
   'building_overlay.js',
+  // The browser sandbox now exposes a pure tile builder. Loading it here pins
+  // the same authored scenes, vector roads and dressing that install() uses.
+  'sandbox.js',
   // render.js needs Phaser to DRAW, but it deliberately reads no globals at
   // load time (see the CANVAS_W comment in drawObjects), so loading it here is
   // safe and gives the pure decision helpers it exports — edgeNeedsBorder —
@@ -203,6 +206,8 @@ const BRIDGE = `;Object.assign(globalThis, {
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, mineralDeposit, mineralRockFrame, mineralBarId,
   // The plain rock's ladder and the GLINT rock built on it — glint_rock.test.js.
   PLAIN_ROCK_FLINT_P, GEM_BY_TIER, GEM_P_BY_TIER, GLINT_ROCK_FINDS, GLINT_ROCK_PERIOD_MS, GLINT_ROCK_SHOW_MS,
+  // Baby pets and the nest bush — pet_baby.test.js.
+  BABY_KINDS, NEST_BUSH_BEAT,
   MAX_GROWTH_STAGE, PRODUCE_COL,
   // The other half of the crop table: what a WILD plant does when tapped —
   // what it drops, which relic times its wheel, what that costs, the bonus it
@@ -1239,6 +1244,7 @@ ctx.BUILDING_OVERLAY_SRC = readSrc('building_overlay.js');
 // else in this suite builds one) — so those two are pinned as text too, same
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
+ctx.SANDBOX_JS_SRC = readSrc('sandbox.js');
 ctx.SCENE_SRC = SCENE_SRC;
 // The modal shell (makeModalShell and the stock dialogs, MODAL_KINDS, the
 // scene-art frame consts) moved out of app.js; tests that pin it read this.

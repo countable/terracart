@@ -744,8 +744,17 @@ EGG HATCHING
    saves across sessions, but GPS gaps, jumps and unreliable fixes do not.
    Selecting an egg shows Eat and a disabled "Hatch · N m left" action. At
    zero metres remaining Hatch enables, consumes one egg, and puts a random
-   pet-shop animal in the bag for release. The next egg starts from zero;
-   a full rolled-pet stack leaves the ready egg intact.
+   BABY PET in the bag for release, with a card. The next egg starts from
+   zero; a full baby stack leaves the ready egg intact.
+ - BABY PETS (items.js BABY_KINDS — chicken / cow / cat / dog / rabbit) come
+   from a hatched egg or a NEST BUSH: one shrub in twenty (SHINY_RATE.nest,
+   off the bush's id — the same bushes for everyone) wiggles for a moment
+   every 10-30 s and, chopped, hands over one random baby with a card. A
+   full bag leaves the bush standing. Released, a baby is a tame pet born
+   that moment: half its kind's size for seven days (SpriteLayout.PET_BABY /
+   isBabyPet), then an adult. A pet raised from a baby is ALWAYS SHINY and,
+   grown, has DOUBLE its kind's HP and bite (combat.js raisedMul, through
+   powerMul like an elite's). Growth counts from release, not from the find.
 
 ================================================================================
 FISHING
