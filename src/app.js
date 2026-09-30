@@ -383,6 +383,13 @@ const COIN_BURST_NEAR_PLAYER = 3;
 // How long a burst's coins wait for you. No timed reward is shorter than ten
 // minutes: nothing is worth hurrying across a street for.
 const COIN_BURST_LIFE_MS = 10 * 60 * 1000;
+// THE SMITHY'S PREVIEW: what you receive is a big picture over its name, not
+// a line-height icon beside it. The Smithy chip and the Forge / Smelt tab
+// already say where you are, so neither offer carries a flavour title, and
+// the picture IS the receiving side: only the price is captioned (You give).
+const SMITHY_PREVIEW_PX = 56;
+const smithyPreviewHTML = (iconHTML, name) =>
+  `<div style="line-height:0;margin:2px 0 6px">${iconHTML}</div><div>${name}</div>`;
 const COIN_BURST_NEAR_R = 2;
 // THE SAFETY CARD (_showSafetyCard): what each version says, and when the
 // short ones come back. Kept here as data so the copy is one table. LAUNCH is
@@ -12130,20 +12137,19 @@ class MapScene extends Phaser.Scene {
     const idx = bars.indexOf(target);
     const pageTo = (id) => () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, id);
     const fmt = (n) => ({
-      get: `${n}× ${this.iconSpanHTML(target)} ${outItem?.name || target}`,
+      get: smithyPreviewHTML(this.iconSpanHTML(target, SMITHY_PREVIEW_PX), `${n}× ${outItem?.name || target}`),
       cost: recipeLine(n),
       canAfford: cap >= n && n >= 1,
     });
     const first = fmt(1);
     this.showOfferModal({
       kind: 'forge',
-      title: 'The blacksmith stokes the crucible:',
       cancelLabel: 'Later',
       get: first.get,
       cost: cap >= 1 ? first.cost : recipeLine(1),
       canAfford: cap >= 1,
       acceptLabel: 'Smelt',
-      getLabel: 'You receive', costLabel: 'You give',
+      costLabel: 'You give',
       tabs,
       quantity: cap >= 1 ? { min: 1, max: cap, initial: 1, format: fmt } : undefined,
       pager: {
@@ -13889,7 +13895,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const name = gearName(offer.kind, offer.slot, offer.tier);
-    const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 20);
+    const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, SMITHY_PREVIEW_PX);
     const heldCount = (id) => Inventory.count(this.save, id);
     const canAfford = () => recipe.every(r => heldCount(r.id) >= r.qty);
     const costHTML = recipe.map(r => {
@@ -13917,14 +13923,13 @@ class MapScene extends Phaser.Scene {
       : undefined;
     this.showOfferModal({
       kind: 'forge',
-      title: this.buildingFlavorTitle(house, 'forge'),
       cancelLabel: 'Later',
-      get: `${iconHtml} ${name}`,
+      get: smithyPreviewHTML(iconHtml, name),
       blurb: this._trailRewardBlurb(offer),
       cost: costHTML,
       canAfford: canAfford(),
       acceptLabel: 'Forge',
-      getLabel: 'You receive', costLabel: 'You give',
+      costLabel: 'You give',
       tabs,
       secondary,
       onAccept: () => {
