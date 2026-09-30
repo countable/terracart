@@ -81,11 +81,11 @@
         if(!art.recolour?.length)return;
         try {
           const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext('2d').drawImage(img,0,0);
-          ArtPreviewColour.recolour(c,art.recolour,{strength:art.recolourStrength??.18,preserveLuminance:art.preserveLuminance!==false,mode:art.recolourMode});
+          ArtPreviewColour.recolour(c,art.recolour,{strength:art.recolourStrength??.18,preserveLuminance:art.preserveLuminance!==false,mode:art.recolourMode,colourMap:art.colourMap});
           c.setAttribute('role','img');c.setAttribute('aria-label',(art.label||'Map art')+' subtle colour study');frame.replaceChildren(c);
         }catch(error){fig.title='Palette study unavailable: '+String(error.message||error);}
       });
-      img.src=art.src;frame.append(img);fig.append(frame,node('figcaption','',(art.label||'')+(art.recolour?.length?(art.recolourMode==='approved-apple'?' · Selected apple treatment':art.recolourMode==='scarecrow-contrast'?' · Stronger contour and shading':' · Gentle colour study; source shades retained'):'')));out.append(fig);
+      img.src=art.src;frame.append(img);fig.append(frame,node('figcaption','',(art.label||'')+(art.recolour?.length?(art.recolourMode==='approved-apple'?' · Selected apple treatment':art.recolourMode==='value-lift'?' · Slightly lighter stone':art.recolourMode==='gentle-tune'?' · 10% palette, saturation and lightness adjustment':art.recolourMode==='crop-light'?' · Small 7% lightness lift':art.recolourMode==='gentle-flower'?' · 10% palette, saturation and lightness adjustment':art.recolourMode==='original-chest-colours'?' · Original chest colours, new shape':art.recolourMode==='apple-foliage'?' · Apple-led foliage colour and contrast':art.recolourMode==='scarecrow-contrast'?' · Stronger contour and shading':' · Gentle colour study; source shades retained'):'')));out.append(fig);
     }
     for(const p of Array.isArray(procedural)?procedural:procedural?[procedural]:[])renderProcedural(out,p.spec||p,p.label||'Game renderer');
     if(!out.children.length)out.append(node('div','placeholder',empty));

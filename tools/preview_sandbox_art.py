@@ -13,6 +13,7 @@ import subprocess
 from pathlib import Path
 
 from playwright.async_api import async_playwright
+from PIL import Image
 from preview_map_art import ROOT, PALETTE, raster
 
 
@@ -27,26 +28,40 @@ def plan(reserve):
             current = row['current']
             refs = current if isinstance(current,list) else [current]
             refs = [dict(ref, path=ref.get('path',ref.get('file',''))) for ref in refs]
+            if row.get('category')=='trees' and rec.get('recolourMode') in ['approved-apple', 'apple-foliage']:
+                # Show the same direction across growth, fruiting and bare states.
+                sheets = {ref['path']:ref for ref in refs}
+                refs = []
+                for path,ref in sheets.items():
+                    with Image.open(ROOT/path) as sheet:
+                        w,h=ref['rect'][2:]
+                        refs.extend(dict(ref,rect=[x,y,w,h]) for y in range(0,sheet.height,h) for x in range(0,sheet.width,w))
+            elif rec.get('recolourMode')=='crop-light':
+                refs=[dict(ref,rect=[stage*16,ref['rect'][1],16,16]) for ref in refs for stage in range(5)]
             if isinstance(current,dict) and current.get('textureKeys'):
                 refs += [dict(key=k) for k in current['textureKeys']]
             candidate = rec.get('candidate')
             swap = raster(candidate,reserve) if candidate and rec['action'].startswith('swap') else None
             sprites.append(dict(id=row['id'],refs=refs,palette=palette,candidate=swap['src'] if swap else None,
-                                strength=rec.get('recolourStrength',.18),preserveLuminance=rec.get('preserveLuminance',True),mode=rec.get('recolourMode')))
+                                strength=rec.get('recolourStrength',.18),preserveLuminance=rec.get('preserveLuminance',True),mode=rec.get('recolourMode'),colourMap=rec.get('colourMap')))
     ground = {str(r['terrainId']):r['proposedColor'] for r in json.loads((ROOT/'docs/art/map-audit-ground.json').read_text())['rows'] if 'terrainId' in r and r.get('proposedColor')}
     buildings=json.loads((ROOT/'docs/art/map-building-preview.json').read_text())
     ground.update(buildings['claimed']['floors'])
     hedge=raster(dict(path='assets/Objects/Generated/hedge_end.png',rect=[0,0,16,16]),reserve)
-    hedge['palette']=[PALETTE[k]['hex'] for k in ['ink','leaf_shadow','leaf_dark','leaf','leaf_light']]
-    return dict(sprites=sprites,ground=ground,hedge=hedge,buildings=buildings,notes=[
+    bush=next(row for row in sprites if row['id']=='shrub')
+    hedge.update(palette=bush['palette'],strength=bush['strength'],mode=bush['mode'])
+    ground_patterns = {str(r['terrainId']):r['patternOpacity'] for r in json.loads((ROOT/'docs/art/map-audit-ground.json').read_text())['rows'] if 'patternOpacity' in r}
+    return dict(sprites=sprites,ground=ground,groundPatterns=ground_patterns,hedge=hedge,buildings=buildings,notes=[
         'Before is the current game, including the approved rustic defaults and new gold chest.',
-        'After uses gentle colour transfer that preserves source shades, dark outlines and luminance contrast, plus lighter terrain bases.',
-        'Rockfruit and shells retain their original art; macro booths, chapel and restored house sprites are unchanged.',
+        'After tunes each material’s colour and shading while retaining source geometry. Flowers receive only 10% palette, desaturation and lightness adjustment. Lava retains its original fiery colour and bright highlights.',
+        'The new chest shape uses the old chest’s warm wood and muted metal colours; fort and castle floors move 20% toward their original bases.',
+        'Trees, bushes and grass lean toward the selected apple foliage. Strong ground patterns have 20% less contrast; the forest base is slightly darker.',
+        'Restored buildings and mushrooms receive only a 10% palette, desaturation and lightness adjustment; stone votive lightness lifts 12%. Rockfruit, shells, macro booths and chapel remain unchanged.',
         'The sandbox buildings are claimed. The separate audit cards show the more weathered unclaimed fort treatment.',
         'Both captures use the same frozen sandbox, identical object positions, native pixels and neutral fullbright lighting.',
         'The clipped hedge is previewed only on residential/commercial shrub placements.',
         'The handmade sandbox has no zone-variant motifs or vector road/building polygons. Its existing tiled building mode is used for both views.',
-        'Actors and player-planted crops remain unchanged; candidates absent from the sandbox cannot be evaluated here.',
+        'Crop growth art receives a small 7% lightness lift, excluding rockfruit. Actors and inventory-only frames remain unchanged; candidates absent from the sandbox cannot be evaluated here.',
     ])
 
 

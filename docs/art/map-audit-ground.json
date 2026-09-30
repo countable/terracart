@@ -109,11 +109,11 @@
         "terrainId": 1
       },
       "currentColor": "#3c5233",
-      "proposedColor": "#808b70",
+      "proposedColor": "#768166",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #808b70. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #808b70. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Keep the existing procedural texture with base #768166. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Forest base slightly darkened after scene review. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "rationale": "Keep the existing procedural texture with base #768166. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Forest base slightly darkened after scene review. Reduce the texture marks\u2019 contrast against the base by 20%.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -130,8 +130,9 @@
         "kind": "biome",
         "terrainId": 1
       },
-      "proposedLuminance": 134.7,
-      "proposedChannelSpread": 27
+      "proposedLuminance": 124.7,
+      "proposedChannelSpread": 27,
+      "patternOpacity": 0.8
     },
     {
       "id": "ground-2",
@@ -253,8 +254,8 @@
       "proposedColor": "#9f9677",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #9f9677. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #9f9677. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Keep the existing procedural texture with base #9f9677. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "rationale": "Keep the existing procedural texture with base #9f9677. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -272,7 +273,8 @@
         "terrainId": 4
       },
       "proposedLuminance": 149.7,
-      "proposedChannelSpread": 40
+      "proposedChannelSpread": 40,
+      "patternOpacity": 0.8
     },
     {
       "id": "ground-5",
@@ -441,8 +443,8 @@
       "proposedColor": "#a09a8c",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #a09a8c. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #a09a8c. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Keep the existing procedural texture with base #a09a8c. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "rationale": "Keep the existing procedural texture with base #a09a8c. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/Cliff.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -460,7 +462,8 @@
         "terrainId": 10
       },
       "proposedLuminance": 154.3,
-      "proposedChannelSpread": 20
+      "proposedChannelSpread": 20,
+      "patternOpacity": 0.8
     },
     {
       "id": "ground-15",
@@ -582,8 +585,8 @@
       "proposedColor": "#b0a496",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #b0a496. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #b0a496. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Keep the existing procedural texture with base #b0a496. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "rationale": "Keep the existing procedural texture with base #b0a496. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
       "candidate": {
         "path": "unused_art/Fantasy City ver1.3/Tiles/Floor.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -601,7 +604,8 @@
         "terrainId": 17
       },
       "proposedLuminance": 165.5,
-      "proposedChannelSpread": 26
+      "proposedChannelSpread": 26,
+      "patternOpacity": 0.8
     },
     {
       "id": "ground-18",
@@ -629,8 +633,8 @@
       "proposedColor": "#aba28e",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #aba28e. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #aba28e. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Keep the existing procedural texture with base #aba28e. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "rationale": "Keep the existing procedural texture with base #aba28e. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -648,7 +652,8 @@
         "terrainId": 18
       },
       "proposedLuminance": 162.5,
-      "proposedChannelSpread": 29
+      "proposedChannelSpread": 29,
+      "patternOpacity": 0.8
     },
     {
       "id": "ground-19",
@@ -676,8 +681,8 @@
       "proposedColor": "#8e9b6a",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #8e9b6a. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #8e9b6a. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Keep the existing procedural texture with base #8e9b6a. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "rationale": "Keep the existing procedural texture with base #8e9b6a. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/TexturedGrass.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -695,7 +700,8 @@
         "terrainId": 19
       },
       "proposedLuminance": 148.7,
-      "proposedChannelSpread": 49
+      "proposedChannelSpread": 49,
+      "patternOpacity": 0.8
     },
     {
       "id": "ground-20",
@@ -723,8 +729,8 @@
       "proposedColor": "#839283",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #839283. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #839283. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Keep the existing procedural texture with base #839283. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "rationale": "Keep the existing procedural texture with base #839283. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/Shore.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -742,7 +748,8 @@
         "terrainId": 20
       },
       "proposedLuminance": 141.7,
-      "proposedChannelSpread": 15
+      "proposedChannelSpread": 15,
+      "patternOpacity": 0.8
     },
     {
       "id": "ground-21",
@@ -770,8 +777,8 @@
       "proposedColor": "#acb687",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #acb687. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #acb687. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Keep the existing procedural texture with base #acb687. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "rationale": "Keep the existing procedural texture with base #acb687. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/TexturedGrass.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -789,7 +796,8 @@
         "terrainId": 21
       },
       "proposedLuminance": 176.5,
-      "proposedChannelSpread": 47
+      "proposedChannelSpread": 47,
+      "patternOpacity": 0.8
     },
     {
       "id": "ground-22",
@@ -817,8 +825,8 @@
       "proposedColor": "#8c976e",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #8c976e. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #8c976e. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Keep the existing procedural texture with base #8c976e. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "rationale": "Keep the existing procedural texture with base #8c976e. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -836,7 +844,8 @@
         "terrainId": 22
       },
       "proposedLuminance": 145.7,
-      "proposedChannelSpread": 41
+      "proposedChannelSpread": 41,
+      "patternOpacity": 0.8
     },
     {
       "id": "ground-24",
@@ -861,11 +870,11 @@
         "terrainId": 24
       },
       "currentColor": "#4a423b",
-      "proposedColor": "#938f84",
+      "proposedColor": "#6e6860",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #938f84. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #938f84. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Place the cave base halfway between its original and previous preview colour; retain the softened texture marks.",
+      "rationale": "Place the cave base halfway between its original and previous preview colour; retain the softened texture marks.",
       "candidate": {
         "path": "unused_art/Zoria Tileset/underworld.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -882,8 +891,9 @@
         "kind": "biome",
         "terrainId": 24
       },
-      "proposedLuminance": 143.1,
-      "proposedChannelSpread": 15
+      "proposedLuminance": 104.7,
+      "proposedChannelSpread": 14,
+      "patternOpacity": 0.8
     },
     {
       "id": "ground-25",
@@ -908,11 +918,11 @@
         "terrainId": 25
       },
       "currentColor": "#241f1b",
-      "proposedColor": "#706f68",
+      "proposedColor": "#4a4742",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #706f68. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #706f68. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Place the cave base halfway between its original and previous preview colour; retain the softened texture marks.",
+      "rationale": "Place the cave base halfway between its original and previous preview colour; retain the softened texture marks.",
       "candidate": {
         "path": "unused_art/Zoria Tileset/underworld.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -929,8 +939,9 @@
         "kind": "biome",
         "terrainId": 25
       },
-      "proposedLuminance": 110.7,
-      "proposedChannelSpread": 8
+      "proposedLuminance": 71.3,
+      "proposedChannelSpread": 8,
+      "patternOpacity": 0.8
     },
     {
       "id": "ground-26",
@@ -955,11 +966,11 @@
         "terrainId": 26
       },
       "currentColor": "#9a2a10",
-      "proposedColor": "#bf6442",
-      "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
-      "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #bf6442. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #bf6442. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "proposedColor": "#9a2a10",
+      "assessment": "Lava is an emissive hazard, not a quiet ground canvas; retain its vivid fiery colour and bright animated crests.",
+      "treatment": "keep",
+      "recommendation": "Keep the original saturated red-orange base and bright orange/yellow animated highlights. Lava is exempt from ground lightening, desaturation and pattern softening.",
+      "rationale": "Keep the original saturated red-orange base and bright orange/yellow animated highlights. Lava is exempt from ground lightening, desaturation and pattern softening.",
       "candidate": {
         "path": "unused_art/Zoria Tileset/underworld.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -976,8 +987,8 @@
         "kind": "biome",
         "terrainId": 26
       },
-      "proposedLuminance": 116.9,
-      "proposedChannelSpread": 125
+      "proposedLuminance": 63.9,
+      "proposedChannelSpread": 138
     },
     {
       "id": "ground-27",
@@ -1005,8 +1016,8 @@
       "proposedColor": "#b1a888",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #b1a888. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #b1a888. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Keep the existing procedural texture with base #b1a888. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "rationale": "Keep the existing procedural texture with base #b1a888. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -1024,7 +1035,8 @@
         "terrainId": 27
       },
       "proposedLuminance": 167.6,
-      "proposedChannelSpread": 41
+      "proposedChannelSpread": 41,
+      "patternOpacity": 0.8
     },
     {
       "id": "ground-28",
@@ -1108,11 +1120,11 @@
         "terrainId": 29
       },
       "currentColor": "#667d6a",
-      "proposedColor": "#98a38e",
+      "proposedColor": "#97a48b",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #98a38e. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #98a38e. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Restore a little mossy colour with 15% more chroma while retaining the current base lightness.",
+      "rationale": "Restore a little mossy colour with 15% more chroma while retaining the current base lightness.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -1142,8 +1154,8 @@
         "kind": "biome",
         "terrainId": 29
       },
-      "proposedLuminance": 159.1,
-      "proposedChannelSpread": 21
+      "proposedLuminance": 159.4,
+      "proposedChannelSpread": 25
     },
     {
       "id": "ground-31",
@@ -1171,8 +1183,8 @@
       "proposedColor": "#7f7e78",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #7f7e78. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #7f7e78. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Keep the existing procedural texture with base #7f7e78. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "rationale": "Keep the existing procedural texture with base #7f7e78. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
       "candidate": {
         "path": "unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Ground Tileset/Tileset_Road.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -1190,7 +1202,8 @@
         "terrainId": 31
       },
       "proposedLuminance": 125.8,
-      "proposedChannelSpread": 7
+      "proposedChannelSpread": 7,
+      "patternOpacity": 0.8
     },
     {
       "id": "road-weathered",
@@ -1467,6 +1480,9 @@
     "rule": "Moderate lightening and desaturation per material, retaining its colour and depth. Keep a useful lift in forest, wetland, cave and tar floors without imposing a universal pale base.",
     "desaturation": "Each terrain proposal has RGB channel spread no greater than its current base; cool/olive hue preserves biome identity.",
     "objectGuidance": "Ground supports shaded interactables without looking washed out. Preserve object outlines, shadow planes and lit tops; the original chest and unchanged well are contrast references.",
-    "tuning": "Retain 75% of the previous proposed RGB adjustment from the current base, reducing the lightening and desaturation together by approximately 25%."
+    "tuning": "Retain 75% of the previous proposed RGB adjustment from the current base, reducing the lightening and desaturation together by approximately 25%. Forest base has a further 10-level RGB reduction; the stronger pattern overlays use 80% opacity.",
+    "exceptions": [
+      "Lava retains its original saturated base and bright animated highlights."
+    ]
   }
 }

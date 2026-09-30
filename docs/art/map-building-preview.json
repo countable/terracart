@@ -1,12 +1,12 @@
 {
   "version": 1,
   "status": "proposal-only",
-  "note": "Preview and sandbox share these light floors and weathered stone colours. No runtime art is changed.",
+  "note": "Preview and sandbox share these floors and weathered stone colours. Fort and castle floors are 20% closer to their original base colours after scene review. No runtime art is changed.",
   "claimed": {
     "floors": {
       "9": "#bda18a",
-      "11": "#c1b092",
-      "12": "#b6b9b3"
+      "11": "#b9a789",
+      "12": "#aaaca9"
     },
     "faces": {
       "9": "#816b59",
@@ -31,8 +31,8 @@
     },
     "floors": {
       "9": "#b6a08a",
-      "11": "#b9ab90",
-      "12": "#b0b2aa"
+      "11": "#b3a387",
+      "12": "#a5a7a2"
     },
     "faces": {
       "9": "#877664",
@@ -50,7 +50,7 @@
   },
   "tilledColor": "#a48a66",
   "contrastPolicy": {
-    "minimumCastleFloorBodyLuminanceGap": 25,
+    "minimumCastleFloorBodyLuminanceGap": 15,
     "maximumStoneOutlineLuminance": 60,
     "rule": "Keep floors light and desaturated. Wall and tower bodies stay darker, with deep outlines, distinct shadow planes and bright top surfaces; do not wash out the whole object.",
     "benchmark": "assets/Objects/trunk.png, closed frame 0: original dark edge / shaded body / lit top contrast."

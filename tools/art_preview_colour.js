@@ -10,6 +10,39 @@ globalThis.ArtPreviewColour = (() => {
     const palette=hexes.map(p=>rgb(typeof p==='string'?p:p.hex));
     const ctx=canvas.getContext('2d'),pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
     const ramp=[...palette].sort((a,b)=>luma(a)-luma(b));
+    if(options.mode==='crop-light'||options.mode==='value-lift'){
+      for(let i=0;i<pixels.data.length;i+=4){
+        if(!pixels.data[i+3])continue;
+        const source=Array.from(pixels.data.slice(i,i+3)),light=luma(source);
+        if(light<55||light>235)continue;
+        source.forEach((v,k)=>pixels.data[i+k]=clamp(v+(255-light)*strength));
+      }
+      ctx.putImageData(pixels,0,0);return canvas;
+    }
+    if(options.colourMap){
+      const mapping=new Map(Object.entries(options.colourMap).map(([from,to])=>[rgb(from).join(','),rgb(to)]));
+      for(let i=0;i<pixels.data.length;i+=4){
+        if(!pixels.data[i+3])continue;
+        const source=Array.from(pixels.data.slice(i,i+3)),target=mapping.get(source.join(','));
+        if(target)source.forEach((v,k)=>pixels.data[i+k]=clamp(v+(target[k]-v)*strength));
+      }
+      ctx.putImageData(pixels,0,0);return canvas;
+    }
+    if(options.mode==='apple-foliage'){
+      // Borrow the selected apple's value ramp without quantizing source shades.
+      // Restrict the treatment to foliage; bark, pale birch and fruit keep identity.
+      let lo=255,hi=0;
+      for(let i=0;i<pixels.data.length;i+=4){if(pixels.data[i+3]<200)continue;const v=luma(pixels.data.subarray(i,i+3));lo=Math.min(lo,v);hi=Math.max(hi,v);}
+      for(let i=0;i<pixels.data.length;i+=4){
+        if(pixels.data[i+3]<200)continue;
+        const source=Array.from(pixels.data.slice(i,i+3)),[r,g,b]=source,light=luma(source);
+        if(g<r*.95||g<b*.92||g-b<5||light<30)continue;
+        const at=Math.max(0,Math.min(1,(light-lo)/Math.max(1,hi-lo)))*(ramp.length-1);
+        const a=Math.floor(at),z=Math.ceil(at),t=at-a;
+        source.forEach((v,k)=>{const target=ramp[a][k]+(ramp[z][k]-ramp[a][k])*t;pixels.data[i+k]=clamp(v+(target-v)*strength);});
+      }
+      ctx.putImageData(pixels,0,0);return canvas;
+    }
     if(options.mode==='scarecrow-contrast'){
       const source=new Uint8ClampedArray(pixels.data),w=canvas.width,h=canvas.height;
       const alpha=(x,y)=>x<0||y<0||x>=w||y>=h?0:source[(y*w+x)*4+3];
@@ -47,6 +80,13 @@ globalThis.ArtPreviewColour = (() => {
           const distance=source.reduce((sum,v,k)=>sum+(v-light-(colour[k]-cl))**2,0);
           if(distance<best){best=distance;target=colour.map(v=>light+v-cl);}
         }
+      }
+      if(options.mode==='gentle-flower'||options.mode==='gentle-tune'){
+        // A tenth-step in each direction, keeping silhouette ink untouched.
+        const adapted=source.map((v,k)=>v+(target[k]-v)*strength);
+        const adaptedLight=luma(adapted),lifted=light+(255-light)*strength;
+        adapted.forEach((v,k)=>pixels.data[i+k]=clamp(lifted+(v-adaptedLight)*(1-strength)));
+        continue;
       }
       source.forEach((v,k)=>pixels.data[i+k]=clamp(v+(target[k]-v)*strength));
     }

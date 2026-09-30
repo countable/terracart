@@ -92,7 +92,8 @@ def normalize(group, entry, reserve):
             if vp:
                 for im in vi:
                     im['recolour'] = [p['hex'] for p in vp]
-                    im['recolourStrength'] = .18
+                    im['recolourStrength'] = rec.get('recolourStrength', .18)
+                    im['recolourMode'] = rec.get('recolourMode')
             row['variants'] = [dict(name=v['name'], usage=v['usage'], rationale=v['note'], images=vi, palette=vp)]
     else:
         row['rank'] = entry['prevalenceRank']
@@ -108,7 +109,7 @@ def normalize(group, entry, reserve):
                 spec = dict(kind='biome', terrainId=entry['terrainId'], color=entry['currentColor'])
                 row['currentImages'] = [dict(procedural=spec, label='Shipping terrain painter')]
                 if entry.get('proposedColor'):
-                    row['candidateImages'] = [dict(procedural=dict(spec, color=entry['proposedColor']), label='Proposed base colour; existing texture marks')]
+                    row['candidateImages'] = [dict(procedural=dict(spec, color=entry['proposedColor'], proposed=True), label='Proposed base colour and texture contrast')]
                     row['palette'] = [dict(id='proposed base', hex=entry['proposedColor'])]
             elif ident in ['road-weathered', 'path-weathered', 'road-restored', 'rail']:
                 style = 'path' if ident.startswith('path') else 'rail' if ident == 'rail' else 'road'
@@ -159,7 +160,7 @@ def normalize(group, entry, reserve):
     if not row['candidateImages'] and (row['action'].startswith('keep') or row['action']=='applied'):
         row['candidateImages'] = [dict(im, label='Keep existing art') for im in row['currentImages']]
     elif not row['candidateImages'] and row['currentImages'] and row['palette']:
-        row['candidateImages'] = [dict(row['currentImages'][0], label='Retain silhouette; target palette below')]
+        row['candidateImages'] = [dict(im, label='Retain silhouette; target palette below') for im in row['currentImages']]
     if row['action'] in ['recolour', 'swap', 'simplify', 'simplify/recolour'] and row['palette']:
         for im in row['candidateImages']:
             if im.get('src') and not im['label'].startswith('Library reference'):
@@ -167,13 +168,14 @@ def normalize(group, entry, reserve):
                 im['recolourStrength'] = rec.get('recolourStrength', .18)
                 im['preserveLuminance'] = rec.get('preserveLuminance', True)
                 im['recolourMode'] = rec.get('recolourMode')
+                im['colourMap'] = rec.get('colourMap')
                 im['label'] = 'Palette study · '+im['label']
     if row['id']=='building-fort' and rec.get('stateTreatments'):
         row['candidateImages'] = []
         for state,treatment in rec['stateTreatments'].items():
             im=raster(treatment['candidate'],reserve,treatment['name'])
             im.update(recolour=[p['hex'] for p in colours(treatment['palette'])],
-                      recolourStrength=treatment['recolourStrength'],preserveLuminance=state=='claimed')
+                      recolourStrength=treatment['recolourStrength'],preserveLuminance=state=='claimed',recolourMode=treatment.get('recolourMode'))
             row['candidateImages'].append(im)
     assert row['currentImages'], 'Missing actual art preview: '+row['id']
     return row

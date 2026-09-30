@@ -25,7 +25,7 @@ globalThis.applySandboxCandidates = async function (scene, plan) {
           const scale=Math.min(w/candidate.width,h/candidate.height),cw=Math.round(candidate.width*scale),ch=Math.round(candidate.height*scale);
           ctx.drawImage(candidate,Math.floor((w-cw)/2),h-ch,cw,ch);
         }else ctx.drawImage(sheet,x,y,w,h,0,0,w,h);
-        recolour(frame,row.palette,{strength:row.strength??.18,preserveLuminance:row.preserveLuminance!==false,mode:row.mode});
+        recolour(frame,row.palette,{strength:row.strength??.18,preserveLuminance:row.preserveLuminance!==false,mode:row.mode,colourMap:row.colourMap});
         const out=sheet.getContext('2d');out.clearRect(x,y,w,h);out.drawImage(frame,x,y);
         changed.push({id:row.id,key,rect});
       }
@@ -36,6 +36,18 @@ globalThis.applySandboxCandidates = async function (scene, plan) {
     source.image=canvas;source.isCanvas=true;source.update();
   }
   for(const [id,colour] of Object.entries(plan.ground))COLORS[id]=parseInt(colour.slice(1),16);
+  // Terrain textures are transparent marks composited over the separate base.
+  // Lower their alpha to reduce mark/base contrast without changing geometry.
+  for(const [id,opacity] of Object.entries(plan.groundPatterns||{})){
+    const spec=BIOME_TEX[id];
+    for(let v=0;v<spec.variants;v++)for(let p=0;p<(spec.animPhases||1);p++){
+      const key=`biome${id}_${v}`+(p?`p${p}`:'');
+      if(!scene.textures.exists(key))continue;
+      const texture=scene.textures.get(key),im=texture.getSourceImage(),c=blank(im.width,im.height),ctx=c.getContext('2d');
+      ctx.globalAlpha=opacity;ctx.drawImage(im,0,0);
+      texture.source[0].image=c;texture.source[0].isCanvas=true;texture.source[0].update();
+    }
+  }
   // The same declarative building palette as the generated audit previews.
   if(plan.buildings){
     const settings=plan.buildings;
@@ -56,7 +68,7 @@ globalThis.applySandboxCandidates = async function (scene, plan) {
   if(plan.hedge){
     const im=new Image();im.src=plan.hedge.src;await im.decode();
     const c=blank(48,32),ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;
-    ctx.drawImage(im,8,0,32,32);recolour(c,plan.hedge.palette);
+    ctx.drawImage(im,8,0,32,32);recolour(c,plan.hedge.palette,{strength:plan.hedge.strength,mode:plan.hedge.mode});
     scene.textures.addCanvas('audit_context_hedge',c);
     const original=Render.renderPool;
     Render.renderPool=function(s,pool,container,list,configure){

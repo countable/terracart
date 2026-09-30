@@ -71,6 +71,7 @@ const MapArtProcedural = (() => {
     cx.fillStyle = spec.color || cssOf(COLORS[id]);
     cx.fillRect(0, 0, size, size);
     tex.draw(layer.getContext('2d'), size, seededRand((id + 1) * 1000 + (spec.variant || 0) + 1), spec.phase || 0);
+    cx.globalAlpha = spec.proposed ? (MAP_ART_GROUND_PATTERN_OPACITY[id] ?? 1) : 1;
     cx.drawImage(layer, 0, 0);
     return output;
   }
