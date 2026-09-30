@@ -304,6 +304,20 @@ function setTextureIfDifferent(s, key) {
   return true;
 }
 
+// Change-guarded inline style write for the pooled <body> overlays the sprite
+// pass repositions every step (the wishlist callouts): a player standing
+// still wrote the same transform / display / visibility strings to the DOM a
+// step each, and a style write can invalidate style even at an equal value.
+// The last value written is kept on the element and the write skipped when it
+// stands. Everything that writes these properties on a pooled element goes
+// through here, so the kept value is always the real one.
+function setStyleOnce(el, prop, value) {
+  const last = el._styleOnce || (el._styleOnce = {});
+  if (last[prop] === value) return;
+  last[prop] = value;
+  el.style[prop] = value;
+}
+
 // Change-guarded Text style setters. Phaser guards setText / setFontSize /
 // setStroke against no-op values, but setColor, setBackgroundColor, setShadow
 // and setPadding are UNguarded: each call unconditionally re-measures, redraws
@@ -2617,7 +2631,7 @@ Render.drawObjects = function drawObjects(scene) {
       if (poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
     }
   };
-  let _boot_scanned = 0, _boot_kept = 0;
+  let _boot_scanned = 0, _boot_kept = 0, _boot_creatures = 0;
   for (let dty = -1; dty <= 1; dty++) {
     for (let dtx = -1; dtx <= 1; dtx++) {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
@@ -2675,15 +2689,16 @@ Render.drawObjects = function drawObjects(scene) {
       }
       if (entry.creatures) {
         for (const c of entry.creatures) {
-          _boot_scanned++;
-          if (caughtSet.has(c.id)) continue;
-          // The viewport cull BEFORE the surface-foe question: only a foe
-          // that would be drawn needs its `_surfaceInactive` stamp fresh here
-          // (wanderCreatures keeps the rest of the ring's), and asking every
-          // seat on three-by-three town tiles each step was a roster walk
-          // per creature for the few dozen that survive.
+          _boot_scanned++; _boot_creatures++;
+          // The viewport cull FIRST — two subtractions against a Set lookup
+          // and a roster walk, over every creature of the ring (creatures
+          // move, so they are not chunk-indexed): only a creature that would
+          // be drawn is asked whether it was caught, or whether a surface
+          // foe is here for this player (its `_surfaceInactive` stamp;
+          // wanderCreatures keeps the rest of the ring's).
           const dx = c.x - pWorldX, dy = c.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
+          if (caughtSet.has(c.id)) continue;
           if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
           if (c._surfaceInactive) continue;
           creatureList.push({ c, dx, dy });
@@ -2754,6 +2769,9 @@ Render.drawObjects = function drawObjects(scene) {
   // peak answers "how bad does the densest tile get", the average answers
   // "what does a typical frame pay".
   window.__boot?.count?.('drawObjects scanned', _boot_scanned);
+  // …of which creatures: they move, so they are walked flat across the ring
+  // rather than off the chunk index, and they are most of a town's count.
+  window.__boot?.count?.('drawObjects scanned creatures', _boot_creatures);
   window.__boot?.count?.('drawObjects kept', _boot_kept);
   // Planted crops are tagged with the depth they were sown at (surface = 0 for
   // legacy saves). Only draw the ones that belong to the level you're standing
@@ -3508,8 +3526,8 @@ Render.drawObjects = function drawObjects(scene) {
         // bubble and its tail rise above the building like a callout.
         const px = rect.left + sx * scale;
         const py = rect.top  + (sy - 18) * scale;
-        slot.el.style.transform = `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, -100%)`;
-        slot.el.style.display = 'flex';
+        setStyleOnce(slot.el, 'transform', `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, -100%)`);
+        setStyleOnce(slot.el, 'display', 'flex');
         // Bubble box in game px: n icons + 3px gaps, 5px/3px padding, 1px
         // border, 6px tail (CSS px ÷ scale).
         const n = happy ? 1 : Math.max(1, wanted.length);
@@ -3518,11 +3536,11 @@ Render.drawObjects = function drawObjects(scene) {
         const bl = sx - bw / 2, bb = sy - 18 + 6 / scale, bt = bb - bh;
         const covered = toastRects.some((r) =>
           !(bl + bw <= r.left || bl >= r.right || bb <= r.top || bt >= r.bottom));
-        slot.el.style.visibility = covered ? 'hidden' : 'visible';
+        setStyleOnce(slot.el, 'visibility', covered ? 'hidden' : 'visible');
         psi++;
       }
     }
-    for (; psi < pool.length; psi++) pool[psi].el.style.display = 'none';
+    for (; psi < pool.length; psi++) setStyleOnce(pool[psi].el, 'display', 'none');
   }
 
   // Per-house readiness pip — sits just above each house / tower sprite and
@@ -4099,7 +4117,12 @@ Render.drawObjects = function drawObjects(scene) {
         const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
         for (const f of shinyFishSpots(entry, tx, ty)) {
           if (fished && fished.has(f.id)) continue;
-          const m = tileCellCenterMeters(scene, tx, ty, f.ix, f.iy);
+          // The spot's centre in this save's metre frame, kept on the spot
+          // (the per-tile list is derived once; the frame is fixed by
+          // create(), whose startWorldM object keys it) — every spot in the
+          // ring was re-projected per step.
+          if (f._mFrame !== scene.startWorldM) { f._m = tileCellCenterMeters(scene, tx, ty, f.ix, f.iy); f._mFrame = scene.startWorldM; }
+          const m = f._m;
           const dx = m.x - pWorldX, dy = m.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           sparkList.push({ dx, dy, id: f.id });

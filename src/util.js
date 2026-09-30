@@ -122,8 +122,17 @@ function _utcTimeMs(now) {
 function utcDayIndex(now = Date.now()) {
   return Math.floor(_utcTimeMs(now) / UTC_DAY_MS);
 }
+// The key is a pure function of the day index, so the last one is kept: the
+// sprite pass asks every step, and a Date + ISO string + regex a step was
+// churn for an answer that moves once a day.
+let _utcDayKeyMemo = { day: NaN, key: '' };
 function utcDayKey(now = Date.now()) {
-  return new Date(_utcTimeMs(now)).toISOString().slice(0, 10).replace(/-/g, '');
+  const ms = _utcTimeMs(now);
+  const day = Math.floor(ms / UTC_DAY_MS);
+  if (day === _utcDayKeyMemo.day) return _utcDayKeyMemo.key;
+  const key = new Date(ms).toISOString().slice(0, 10).replace(/-/g, '');
+  _utcDayKeyMemo = { day, key };
+  return key;
 }
 
 // Milliseconds from `now` to the next UTC midnight - the reset the game's
