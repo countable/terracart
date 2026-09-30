@@ -32,7 +32,9 @@ vm.runInContext(items.match(/const PRICES = [^]*?^};/m)[0]+'\n'+
  globalThis.result={stone,probabilities};`,ctx);
 process.stdout.write(JSON.stringify(ctx.result));
 """],cwd=root,text=True))
-values={'grass':(1,1),'shrub':(1,1),'mushroom':(3,6),'blue':(6,11),'orange':(17,34),'rose':(14,27),'star':(49,98),'gemfruit':(10,19),'rubble':(2,2.9),'flint':(2,3),'stone':tuple(live['stone']),'copper_rock':(15,27.5),'iron_ore':(33,64.5),'gold_ore':(81,160.25),'platinum_ore':(201.5,400.5),'crimson_ore':(483,964.5),'fruit_tree':(4.5,9),'tree':(2.6931,6),'medium_tree':(5.1931,11),'grave':(0,0)}
+values={'grass':(1,1),'shrub':(1,1),'mushroom':(3,6),'blue':(6,11),'orange':(17,34),'rose':(14,27),'star':(49,98),'gemfruit':(10,19),'rubble':(2,2.9),'flint':(2,3),'stone':tuple(live['stone']),'copper_rock':(15,27.5),'iron_ore':(33,64.5),'gold_ore':(81,160.25),'platinum_ore':(201.5,400.5),'crimson_ore':(483,964.5),'fruit_tree':(4.5,9),'tree':(10.1931,21),'medium_tree':(5.1931,11),'grave':(0,0)}
+# Giant mushrooms use shrub harvesting; their art does not change value.
+values['giant_mushroom']=values['shrub']
 names={'rose':'Wild Rose','star':'Starflower','gemfruit':'Gemfruit','gold_ore':'Gold ore rock','platinum_ore':'Platinum ore rock','crimson_ore':'Crimson ore rock'}
 fmt=lambda pair: f'{math.floor(pair[0]+.5)}–{math.floor(pair[1]+.5)}'
 rows=[]
@@ -49,7 +51,7 @@ for v in d['variants']:
  req=d['materials'][f['material']].get('requiredTier')
  if req:note.append('Pick T'+str(req))
  rows.append((v['name'],fmt(bg),f'{f["count"]} × {names[f["material"]]}',fmt(fv),'; '.join(note)))
-intro='''These are expected Home sale coins using the current Easy-mode sale formula, from no sword to a Frost sword. Background value is per 100 nominal pattern cells before clipping, not per zone or per 100 placed objects. Fixed grids and rings use their own declared footprint. Mining assumes sufficient tools. Values include normal material bonus drops; exclude shiny bonuses, POI decorations, connection materials, headstone hoards, fauna, guard loot and recurring shrine gifts. The Ancient Grove range additionally allows young/mature maple and axe variation; the table has not fixed tree maturity. Background harvesting is generally one-time, except orchard fruit. This report evaluates the declarative variant profiles used by world generation. Ordinary-rock bonus odds are read from the runtime helper; other material-yield assumptions retain the reviewed baseline.'''
+intro='''These are expected Home sale coins using the current Easy-mode sale formula, from no sword to a Frost sword. Background value is per 100 nominal pattern cells before clipping, not per zone or per 100 placed objects. Fixed grids and rings use their own declared footprint. Mining assumes sufficient tools. Values include normal material bonus drops; exclude shiny bonuses, POI decorations, connection materials, headstone hoards, fauna, guard loot and recurring shrine gifts. Ancient Grove uses the largest mature maples (four times base wood); its range retains the reviewed acorn-drop baseline. Background harvesting is generally one-time, except orchard fruit. This report evaluates the declarative variant profiles used by world generation. Ordinary-rock bonus odds are read from the runtime helper; other material-yield assumptions retain the reviewed baseline.'''
 work_b=next(v['background'] for v in d['variants'] if v['id']=='work_yard')
 work_area=math.prod(n*work_b['spacingCells']+1 for n in work_b['plots'])
 heads=['Variant','Background / 100 cells','Finite special finds','Find value / zone','Notes']

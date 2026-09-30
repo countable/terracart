@@ -60,7 +60,8 @@ const CROP_SPRITE = {
   // Rounded woodland bush, 48×32. Preserve its visible width (~21px),
   // shared with bush-sized trees in render.js. Hedged lanes use the clipped look.
   shrub:     { sheet: 'bushes', custom: true, frame: 0, scale: 0.667,
-    looks: { trimmed: { sheet: 'hedge_trimmed', custom: true, frame: 0, scale: 1.12 } } },
+    looks: { trimmed: { sheet: 'hedge_trimmed', custom: true, frame: 0, scale: 1.12 },
+      giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 2, scale: 1 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
   // Scale 1.224 keeps the requested 10% mushroom reduction. Surface and
@@ -142,7 +143,7 @@ function wildplantVariantHash(p) {
 // Placement-specific art shares the crop's harvest and inventory identity.
 function wildplantSprite(p) {
   const base = CROP_SPRITE[p && p.crop];
-  return base?.looks?.[p && p._streetArt] || base;
+  return base?.looks?.[p && (p._plantArt || p._streetArt)] || base;
 }
 function wildplantFrame(p) {
   const ov = wildplantSprite(p);
