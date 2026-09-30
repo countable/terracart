@@ -1246,6 +1246,9 @@ ctx.BUILDING_OVERLAY_SRC = readSrc('building_overlay.js');
 ctx.APP_JS_SRC = readSrc('app.js');
 ctx.SANDBOX_JS_SRC = readSrc('sandbox.js');
 ctx.SCENE_SRC = SCENE_SRC;
+// The scene's modules by file (app.js first, then each installed mixin's) —
+// scene_mixins.test.js pins that index.html loads every one before app.js.
+ctx.SCENE_FILES = SCENE_FILES;
 // The modal shell (makeModalShell and the stock dialogs, MODAL_KINDS, the
 // scene-art frame consts) moved out of app.js; tests that pin it read this.
 ctx.MODAL_SHELL_SRC = readSrc('modal_shell.js');
