@@ -1176,15 +1176,59 @@
     }
     return m;
   }
+  // ── WHOLE PIXELS ──────────────────────────────────────────────────────
+  // Everything else on the map lands on whole logical pixels (pixelArt, and
+  // every sprite and ground cell is placed at Math.round of its projection),
+  // so the world only visibly moves when a projection crosses a pixel. The
+  // lightmap keyed on the raw sub-pixel inputs instead, and a body easing a
+  // few metres after a GPS jitter — a third of a pixel a step — repainted and
+  // re-uploaded it on every step while the picture under it held still. So
+  // the key names what the paint actually PLACES: each light's centre and the
+  // plateau's cells in whole px (the plateau was already drawn on Math.round
+  // cells), and the paint stamps each light at that same whole-px centre,
+  // which also keeps a glow locked to the sprite it belongs to.
+  //
+  // A light's centre on the lightmap canvas (before the origin comes off),
+  // in whole px: the sprite's own rounding of the same projection. Without a
+  // view centre to place it by (a bare scene), the raw offsets.
+  function lightCentrePx(scene, L, k) {
+    return {
+      x: Math.round(scene.viewCenterX + L.dx * k),
+      y: Math.round(scene.viewCenterY + L.dy * k + (L.dyPx || 0)),
+    };
+  }
+  function placesInPx(scene) {
+    return Number.isFinite(scene.viewCenterX) && Number.isFinite(scene.viewCenterY) && scene.cellM > 0;
+  }
+  // The plateau's placement in whole px: the anchor's cell, the rounded
+  // origin of the drawn grid, and — for a row whose tile row has a different
+  // grid (coords.js viewBand) — that row's column shift and its own rounded
+  // origin. Exactly what the per-cell path in paintStaticLayer rounds to, so
+  // the plateau is a function of this string (and the reach cell).
+  function plateauPxKey(scene, pc) {
+    const half = (VIEW_CELLS - 1) / 2;
+    const fracX = pc.cx - Math.floor(pc.cx);
+    const fracY = pc.cy - Math.floor(pc.cy);
+    const x0 = (ph) => Math.round(scene.viewCenterX + (-1 - half - fracX + 0.5) * CELL_PX - CELL_PX / 2 + ph);
+    const y0 = Math.round(scene.viewCenterY + (-1 - half - fracY + 0.5) * CELL_PX - CELL_PX / 2);
+    let k = `${Math.floor(pc.cx)},${Math.floor(pc.cy)},${x0(0)},${y0}`;
+    const baseCellIY = viewAnchorAbsCell(scene, pc).cellIY;
+    for (let r = -2; r <= VIEW_CELLS + 1; r++) {
+      const b = viewBand(scene, pc, baseCellIY + (r - half));
+      if (b.dX || b.phaseX) k += `|${r}:${b.dX}:${x0(b.phaseX)}`;
+    }
+    return k;
+  }
   // The STATIC half of the key: every number the ambient floor, the player's
   // ramp and the reach plateau read — none of the lights and no clock. It is
   // frameKey's own prefix (frameKey builds on it), so the two can never
   // disagree about what the static layer depends on. draw() keeps that layer
-  // baked while this holds (paintStaticLayer).
-  function staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc) {
+  // baked while this holds (paintStaticLayer). `pcPx` is the plateau's
+  // whole-px placement (plateauPxKey); left out, the anchor's raw fraction.
+  function staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc, pcPx) {
     let k = `${ps.x},${ps.y},${ox},${oy},${r0},${rMax},${reachM}`
       + `|${prof.depth},${prof.dimA},${prof.dimColour},${prof.farA},${prof.ambient},${prof.edge},${prof.lit},${prof.litColour},${prof.night}`;
-    if (rp) k += `|${rp.cellIX},${rp.cellIY},${pc.tx},${pc.ty},${pc.cx},${pc.cy}`;
+    if (rp) k += `|${rp.cellIX},${rp.cellIY},${pc.tx},${pc.ty},${pcPx != null ? pcPx : `${pc.cx},${pc.cy}`}`;
     return k;
   }
   // Every number the paint reads, in one string. `rp` / `pc` are null when no
@@ -1192,14 +1236,23 @@
   // only when something moves on it, so a still fire-less view has no time
   // term and a view that only breathes has only the breath's. `pulseNow` is
   // draw()'s breath clock; left out, it is derived from `now`.
-  function frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pulseNow) {
-    let k = staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc);
+  function frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pulseNow, pcPx) {
+    let k = staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc, pcPx);
     const anim = animates(scene);
     if (anim & ANIM_FAST) k += `|t${now}`;
     if (anim & ANIM_PULSE) k += `|p${pulseNow == null ? pulseClock(now) : pulseNow}`;
     const crit = criticalLights(scene, now);           // every light's tint + stutter
     if (crit) k += `|crit${crit.mix},${crit.a.toFixed(4)}`;
-    for (const L of scene._lights) k += `|${L.kind},${L.id},${L.dx},${L.dy},${L.dyPx},${L.r},${L.colour},${L.a},${L.s},${L.g}`;
+    // Each light where the paint puts it: its whole-px centre (the offsets
+    // themselves only for a scene with no view centre to place by).
+    const inPx = placesInPx(scene);
+    const kPx = inPx ? CELL_PX / scene.cellM : 0;
+    for (const L of scene._lights) {
+      let at;
+      if (inPx) { const c = lightCentrePx(scene, L, kPx); at = `${c.x},${c.y}`; }
+      else at = `${L.dx},${L.dy}`;
+      k += `|${L.kind},${L.id},${at},${L.dyPx},${L.r},${L.colour},${L.a},${L.s},${L.g}`;
+    }
     return k;
   }
 
@@ -1505,7 +1558,10 @@
     const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
     const r0 = Math.max(0, reachM * k);
     const player = ensurePlayerCookie(scene, prof, r0, rMax);
-    const ps = scene.playerScreen ? scene.playerScreen() : { x: scene.viewCenterX, y: scene.viewCenterY };
+    // The feet in whole px, like everything else on the map (WHOLE PIXELS,
+    // above): the ramp and the plateau's gradient are centred there.
+    const ps0 = scene.playerScreen ? scene.playerScreen() : { x: scene.viewCenterX, y: scene.viewCenterY };
+    const ps = { x: Math.round(ps0.x), y: Math.round(ps0.y) };
     const ox = scene.viewLeft, oy = scene.viewTop;   // lightmap-local origin
     // The plateau's placement, hoisted out of its branch below so the gate
     // can key on it: the reach cell and the anchor cell + fraction.
@@ -1513,8 +1569,9 @@
       && typeof viewAnchorCell === 'function';
     const rp = plateau ? playerReachCell(scene) : null;
     const pc = plateau ? viewAnchorCell(scene) : null;
+    const pcPx = plateau ? plateauPxKey(scene, pc) : null;
     const B = (typeof window !== 'undefined') ? window.__boot : null;
-    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow);
+    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx);
     if (key === tex.__lightKey) {
       scene._boot_lightMs = 0;
       if (B) B.count('lightmap painted', 0);
@@ -1535,7 +1592,7 @@
     // paint after that — until they move — starts from ONE copy of it. The
     // floor is opaque, so the copy is exact: the same pixels the direct
     // paint would have left for the lights to add onto.
-    const sk = staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc);
+    const sk = staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc, pcPx);
     const args = [scene, prof, player, ps, ox, oy, plateau, rp, pc, reachM, r0];
     let st = scene._lightStatic;
     if (st && st.key === sk && st.canvas.width === W && st.canvas.height === H) {
@@ -1571,15 +1628,15 @@
         * (crit ? crit.a : 1);
       const sc = (row.flicker ? 1 + (a - (1 - row.flicker / 2)) * 0.15 : 1) * (L.s == null ? 1 : L.s);
       const d = 2 * ck.R * sc;
+      // Centred on the whole px frameKey names (WHOLE PIXELS, above).
+      const c = lightCentrePx(scene, L, k);
       // A steady GAIN `g` (a living lamp) scales the stamp; past 1 it is
       // stamped again — the composite is 'lighter', so two stamps ADD, which
       // is the only way over the cookie's own alpha ceiling.
       let left = clamp01(a) * (L.g == null ? 1 : L.g);
       while (left > 0.001) {
         ctx.globalAlpha = clamp01(left);
-        ctx.drawImage(ck.canvas,
-          scene.viewCenterX + L.dx * k - ox - d / 2,
-          scene.viewCenterY + L.dy * k + (L.dyPx || 0) - oy - d / 2, d, d);
+        ctx.drawImage(ck.canvas, c.x - ox - d / 2, c.y - oy - d / 2, d, d);
         left -= 1;
       }
     };
@@ -1607,6 +1664,6 @@
     collectPlayer, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
-    LIGHT_TICK_MS, lightClock, staticFrameKey, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
+    LIGHT_TICK_MS, lightClock, staticFrameKey, lightCentrePx, plateauPxKey, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
   };
 })(window);

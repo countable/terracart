@@ -445,10 +445,15 @@ test('lighting: collectLamps converts absolute lamp metres against the anchor, c
   // The stamp adds it to the anchored screen point, and the still-frame key
   // names it: a light the key does not name is a light that cannot repaint.
   const st = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('    const stamp = (L) => {'));
-  assert.truthy(/scene\.viewCenterY \+ L\.dy \* k \+ \(L\.dyPx \|\| 0\) - oy - d \/ 2/.test(st),
+  // (Both through lightCentrePx — the stamp's whole-px centre is the key's.)
+  const lc = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function lightCentrePx('));
+  assert.truthy(/y: Math\.round\(scene\.viewCenterY \+ L\.dy \* k \+ \(L\.dyPx \|\| 0\)\)/.test(lc),
     'the stamp lifts the cookie by dyPx, on top of the anchored metres');
-  assert.truthy(/L\.dx\},\$\{L\.dy\},\$\{L\.dyPx\}/.test(LIGHTING_SRC),
-    'and frameKey names dyPx, so a lift that moves repaints');
+  assert.truthy(/const c = lightCentrePx\(scene, L, k\);/.test(st) && /ctx\.drawImage\(ck\.canvas, c\.x - ox - d \/ 2, c\.y - oy - d \/ 2, d, d\);/.test(st),
+    'the stamp is placed at that centre');
+  assert.truthy(/const c = lightCentrePx\(scene, L, kPx\); at = `\$\{c\.x\},\$\{c\.y\}`;/.test(LIGHTING_SRC)
+    && /\$\{L\.id\},\$\{at\},\$\{L\.dyPx\}/.test(LIGHTING_SRC),
+    'and frameKey names the lifted centre (and dyPx), so a lift that moves repaints');
   // No list, or an empty one, is a no-op — like collectFires with no fires.
   assert.eq(Lighting.collectLamps(scene({ cellM }), 0, 0, HALF_M), 0, 'no list at all');
   assert.eq(Lighting.collectLamps(scene({ cellM, _streetLamps: [] }), 0, 0, HALF_M), 0, 'an empty list');

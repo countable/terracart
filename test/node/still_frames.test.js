@@ -112,7 +112,7 @@ test('still frames: a view that only BREATHES keys on the slower pulse clock', (
     'and is read off the pulse clock handed in, not the light clock');
   const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function draw(scene, ax, ay, halfM) {'));
   assert.truthy(/const pnow = pulseClock\(wall\);/.test(d), 'draw() reads the breath off the wall clock, on its own grid');
-  assert.truthy(/frameKey\(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow\)/.test(d), 'and keys on it');
+  assert.truthy(/frameKey\(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx\)/.test(d), 'and keys on it');
   assert.truthy(/flickerAlpha\(row, L\.dx, L\.dy, now, L\.id, pnow\)/.test(d), 'and paints with it');
 });
 

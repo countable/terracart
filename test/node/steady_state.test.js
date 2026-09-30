@@ -225,7 +225,7 @@ test('steady state: a still, breathing view bakes the lightmap\'s static layer o
   }
   // frameKey is built on the static key, so the two cannot drift apart.
   const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function frameKey('));
-  assert.truthy(/let k = staticFrameKey\(ps, ox, oy, prof, r0, rMax, reachM, rp, pc\);/.test(d), 'frameKey starts from staticFrameKey');
+  assert.truthy(/let k = staticFrameKey\(ps, ox, oy, prof, r0, rMax, reachM, rp, pc, pcPx\);/.test(d), 'frameKey starts from staticFrameKey');
 });
 
 // ── The footprint trail repaints only when a print moves ──────────────────
