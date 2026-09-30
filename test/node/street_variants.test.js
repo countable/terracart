@@ -1295,4 +1295,36 @@ test('street terrain: scenic intervals paint only their selected path span', () 
   assert.eq(f.grid[5*12+5],T.SAND);
   assert.eq(f.grid[5*12+9],T.GRASS,'outside scenic interval stays original');
 });
+
+test('street shrines: one kind shrine per street off the road, stable, capped per tile', () => {
+  const build = (streets) => {
+    const indexes = streets.map(([v, y]) => {
+      const name = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === v, `Shrine ${v}`);
+      return indexOfLines([pts([[10, y], [54, y]])], name, TX, TY, TILE_EDGE_M / EXTENT);
+    });
+    const index = { ...indexes[0], lines: indexes.flatMap(i => i.lines),
+      dressingLines: indexes.flatMap(i => i.dressingLines), hoardPois: [] };
+    const roadMask = new Uint8Array(CPE*CPE), grid = new Uint8Array(CPE*CPE).fill(T.PARK);
+    for (const [, y] of streets) for (let x=10; x<=54; x++) { roadMask[y*CPE+x]=1; grid[y*CPE+x]=T.ROAD; }
+    const opts = { roadMask, roadClass: new Uint8Array(CPE*CPE), spawnWhy: new Uint16Array(CPE*CPE), occupied: new Set() };
+    const result = SV.dress({ index, tx:TX, ty:TY, N:CPE, tileEdgeM:TILE_EDGE_M, grid, spawnOpts: opts });
+    return { result, grid, roadMask };
+  };
+  const { result, grid, roadMask } = build([['orchard', 25]]);
+  const shrines = result.objects.filter(o => o.kind === 'grove_shrine');
+  assert.eq(shrines.length, 1, 'one shrine for the orchard street');
+  assert.eq(shrines[0].shrineKind, Shrines.kindForStreet('orchard'));
+  assert.eq(shrines[0]._shrineStreet, 'orchard');
+  const ix = cellOf(shrines[0].x, TX), iy = cellOf(shrines[0].y, TY);
+  assert.falsy(roadMask[iy*CPE+ix], 'off the road');
+  assert.truthy(WorldGen.isSpawnCell(grid, CPE, CPE, ix, iy,
+    { roadMask, roadClass: new Uint8Array(CPE*CPE), spawnWhy: new Uint16Array(CPE*CPE), occupied: new Set() }, 'attractor'),
+    'an attractor seat: open ground outside every buffer');
+  assert.eq(JSON.stringify(shrines), JSON.stringify(build([['orchard', 25]]).result.objects.filter(o => o.kind === 'grove_shrine')),
+    'stable rebuild');
+  const many = build([['orchard', 10], ['toadstool', 30], ['golden', 50]]).result.objects.filter(o => o.kind === 'grove_shrine');
+  assert.eq(many.length, Shrines.STREET_SHRINES_PER_TILE, 'capped per tile');
+  const plain = build([['overgrown', 25]]).result.objects.filter(o => o.kind === 'grove_shrine');
+  assert.eq(plain[0].shrineKind, 'moss_cairn');
+});
 })();

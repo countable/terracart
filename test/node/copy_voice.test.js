@@ -242,6 +242,7 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
     'spent', 'read',                   // pageStone's lines, measured below
     'barrelFlash', 'bikeRackFlash',    // the barrel / bike-rack lines, measured below
     'wildplantHarvestLine',           // every guaranteed wildplant reward bundle, measured below
+    'Shrines',                         // Shrines.boonFlash — every kind measured in shrines.test.js
   ]);
   const seen = new Set();
   for (const src of [SCENE_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {

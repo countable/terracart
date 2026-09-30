@@ -219,6 +219,9 @@
           // stable POI identity and settled seat at the composition's centre.
           s.chest.kind = 'grove_shrine';
           s.chest.zone = a.kind; s.chest.zoneLayer = 'shrine';
+          // A shrine kind (src/shrines.js) lends its boon in place of the gift.
+          const shrineKind = s.shipwreck ? null : root.Shrines && root.Shrines.kindForZoneVariant(v.id);
+          if (shrineKind) s.chest.shrineKind = shrineKind;
           delete s.chest.zoneNexus;
         } else s.chest.zoneNexus = a.kind;
       }
@@ -232,6 +235,25 @@
       yield* connectionSteps(s, opts, N, WG, motifAt);
       for (const [i, material] of s.poiSlots) place(s, i % N, Math.floor(i / N), material, 'poi');
       for (const [i, material] of s.connections) if (!s.poiSlots.has(i)) place(s, i % N, Math.floor(i / N), material, 'connection');
+      // A churchyard or tar yard keeps its chest; its shrine kind stands
+      // beside it on the first free ring cell (Zones.SHRINE_SEAT_R, N first,
+      // clockwise), after the POI pattern and before the background fill.
+      // Owner's tile only.
+      const standKind = s.chest && s.chest.kind === 'chest' && a.owned && root.Shrines
+        && root.Shrines.kindForZoneVariant(v.id);
+      if (standKind) {
+        let seated = false;
+        for (let r = 1; r <= Z.SHRINE_SEAT_R && !seated; r++) for (const [ux, uy] of Z.RING_ORDER) {
+          const ix = s.poi[0] + ux * r, iy = s.poi[1] + uy * r;
+          if (!owns(s, ix, iy) || !WG.isSpawnCell(grid, N, N, ix, iy, opts, 'attractor')) continue;
+          const [x, y] = position(ix, iy);
+          out.objects.push(WG.makeObject('grove_shrine', x, y, WG.cellId('zsh', tx, ty, ix, iy),
+            { zone: a.kind, zoneVariant: v.id, shrineKind: standKind, _ix: ix, _iy: iy }));
+          occ.add(iy * N + ix); s.clear.add(iy * N + ix); seated = true;
+          break;
+        }
+        if (!seated) s.rec.shortfalls.push('shrine:' + standKind);
+      }
       out.nexus.push({ kind: a.kind, aspect: v.id, variant: v.id, chestId: s.chest && s.chest.kind === 'chest' ? s.chest.id : null, poiId: s.chest ? s.chest.id : null, pieces: s.rec.placed });
     }
     const ground = { graves: 0, rocks: 0, fill: 0 };

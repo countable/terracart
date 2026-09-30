@@ -101,7 +101,7 @@ const FILES = [
   // Influence zones — the anchor field, the halo terrain and the nexus
   // dressing. Pure (reads WorldGen at CALL time), before worldgen.js like the
   // page loads it.
-  'zones.js', 'zone_variant_data.js', 'zone_variants.js', 'zone_coverage.js', 'zone_dressing.js',
+  'zones.js', 'zone_variant_data.js', 'zone_variants.js', 'shrines.js', 'zone_coverage.js', 'zone_dressing.js',
   'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
   // Traps — placement + costs. Pure (it reads WorldGen at CALL time), so it
   // loads either side of worldgen.js; index.html puts it first, so do we.

@@ -275,6 +275,13 @@
     // `dyPx`, so the glow sits on the orb, not on the ground under it.
     bolt:     { radiusCells: 1.5, colour: 0x9ad6ff, peak: 0.95, flicker: 0.14 },
   };
+  // The shrine kinds (src/shrines.js): the grove shrine's own light in each
+  // kind's colour — one row per kind, `shrine_<id>` (sourceKind).
+  if (window.Shrines) {
+    for (const id of window.Shrines.KIND_IDS) {
+      KINDS['shrine_' + id] = { ...KINDS.shrine, colour: window.Shrines.SHRINE_KINDS[id].light };
+    }
+  }
 
   // Seconds per POI breath. Slow on purpose (see the row above).
   const POI_PULSE_PERIOD_S = 4.5;
@@ -698,7 +705,7 @@
     if (o.kind === '_magic_trap') return 'magic_trap';
     if (o.kind === 'torch') return 'torch';
     // A grove's shrine (src/zones.js) — its own soft green row.
-    if (o.kind === 'grove_shrine') return 'shrine';
+    if (o.kind === 'grove_shrine') return (o.shrineKind && KINDS['shrine_' + o.shrineKind]) ? 'shrine_' + o.shrineKind : 'shrine';
     // A viewpoint's scope (src/scenic.js) — its rest ring's steady light.
     if (o.kind === 'vista_scope') return 'vista';
     // A wild plant is offered as ITSELF from drawObjects' wildplant scan, and

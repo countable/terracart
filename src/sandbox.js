@@ -393,6 +393,8 @@
     },
     populate(s) {
       s.object('grove_shrine', 5, 3, { name: 'Sandbox Grove Shrine' });
+      // The ten shrine kinds (src/shrines.js), down the east edge.
+      Shrines.KIND_IDS.forEach((k, i) => s.object('grove_shrine', 10, 2 * i, { shrineKind: k }));
       s.object('infoboard', 1, 9, { name: 'Sandbox History Board' });
       s.creature('copper_plant', 8, 1, 1);
       s.creature('goblin', 1, 5, 1); s.creature('goblin_archer', 9, 5, 1);

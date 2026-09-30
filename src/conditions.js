@@ -22,6 +22,8 @@
   function apply(save, id) {
     const def = DEFINITIONS[id];
     if (!def) return false;
+    // A Toad Idol's boon (src/shrines.js 'antidote'): poison cannot take hold.
+    if (id === 'poison' && root.Shrines && root.Shrines.leverActive(save, 'antidote')) return false;
     const fresh = !active(save, id);
     save.conditions ||= {};
     if (fresh) save.conditions[id] = { remainingMs: def.durationMs, nextTickMs: def.intervalMs };

@@ -2594,6 +2594,12 @@ class MapScene extends Phaser.Scene {
       font: fontMono('bold 13px'), color: '#ff6f9a',
       stroke: '#3a0418', strokeThickness: 3,
     }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
+    // A shrine boon's countdown (src/shrines.js) — the same label in the
+    // kind's own light colour, stacked above all the others.
+    this.boonTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
+      font: fontMono('bold 13px'), color: '#ffffff',
+      stroke: '#1a1410', strokeThickness: 3,
+    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
     this.blightAura = this.add.image(this.viewCenterX, this.viewCenterY, 'aura_blight')
       .setOrigin(0.5, 0.5)
       .setVisible(false);
@@ -3216,7 +3222,9 @@ class MapScene extends Phaser.Scene {
   //            (A downed body does not walk anyway.)
   _bodyHold() {
     const pinned = performance.now() < (this._pinnedUntil || 0);
-    const capMS = (!pinned && this._slowHere && !this._dragonActive) ? SLOW_BODY_M_S : null;
+    // An Ember Altar's boon (src/shrines.js 'surefoot') frees the feet like the dragon.
+    const capMS = (!pinned && this._slowHere && !this._dragonActive
+      && !Shrines.leverActive(this.save, 'surefoot')) ? SLOW_BODY_M_S : null;
     return { pinned, capMS };
   }
 
@@ -4032,6 +4040,21 @@ class MapScene extends Phaser.Scene {
     } else if (this.blightAura.visible) {
       this.blightAura.setVisible(false);
       this.blightTimerText.setVisible(false);
+    }
+    // A shrine boon: the last kind's lever, unless the lever keeps its own
+    // countdown (the Torch's, the Shadow Powder's — shown above).
+    const boonMs = Shrines.boonRemainingMs(this.save, this);
+    if (boonMs > 0) {
+      const stacked = (dragonActive ? 1 : 0) + (shadowActive ? 1 : 0)
+        + (this.isTorchActive() ? 1 : 0) + (this.isBlightActive() ? 1 : 0);
+      const ink = '#' + Shrines.SHRINE_KINDS[this.save.shrineBoon].light.toString(16).padStart(6, '0');
+      this.boonTimerText
+        .setText(shortDuration(boonMs))
+        .setColor(ink)
+        .setPosition(pScreen.x, pScreen.y + bodyDy - 35 - 15 * stacked)
+        .setVisible(true);
+    } else if (this.boonTimerText.visible) {
+      this.boonTimerText.setVisible(false);
     }
     // The fourth countdown, and the only one that isn't over the player's head:
     // the bite cooldown lives ON the Eat button, so it is DOM rather than a
@@ -6613,6 +6636,9 @@ class MapScene extends Phaser.Scene {
     }
     speedTier = Math.max(speedTier, buffTier);
     costTier = Math.max(costTier, buffTier);
+    // A Harvest Idol's boon (src/shrines.js 'thrift'): the Speed potion's
+    // cost tier alone — the walk is cheaper, not faster.
+    if (Shrines.leverActive(this.save, 'thrift')) costTier = Math.max(costTier, SPEED_POTION_AMULET_TIER);
     if ((this.save.coffeeUntil ?? 0) > Date.now()) {
       speedTier = Math.min(SPEED_POTION_AMULET_TIER, speedTier + COFFEE_BOOT_BOOST);
     }

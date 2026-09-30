@@ -30,7 +30,7 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.resolve(__dirname, '..');
-const { CELL_PX, ART_BOUNDS, CROWN_BOUNDS, seatInCell, CREATURE_ART, GROVE_SHRINE_ART, CHEST_SCALE,
+const { CELL_PX, ART_BOUNDS, CROWN_BOUNDS, seatInCell, CREATURE_ART, GROVE_SHRINE_ART, SHRINE_KIND_ART, CHEST_SCALE,
         CREATURE_WHEEL_R, creatureWheelDy } =
   require(path.join(ROOT, 'src', 'sprite_layout.js'));
 const CELL_BOTTOM = CELL_PX / 2;
@@ -266,6 +266,8 @@ const SHEETS = {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],
   }])),
   vista_scope:   { file: 'assets/Objects/Approved/vista_scope.png',               fw: 16, fh: 24, frames: [0] },
+  [SHRINE_KIND_ART.key]: { file: ASSETS[SHRINE_KIND_ART.key].path, fw: ASSETS[SHRINE_KIND_ART.key].frameWidth,
+    fh: ASSETS[SHRINE_KIND_ART.key].frameHeight, frames: SHRINE_KIND_ART.frames },
   barrel:         { file: 'assets/Objects/Approved/barrel.png',             fw: 16, fh: 16, frames: [0] },
   barrel_smashed: { file: 'assets/Objects/Approved/barrel_smashed.png',     fw: 16, fh: 16, frames: [0] },
   clay_pot: { file: 'assets/Objects/Rustic/pot.png', fw: 16, fh: 16, frames: [0] },
@@ -319,6 +321,7 @@ const SCENARIOS = [
   { name: 'headstone',       key: 'headstone',     frameIdx: 0, scale: 1.6 },
   ...GROVE_SHRINE_ART.map(({ name, key, frame, scale }) => ({ name, key, frameIdx: frame, scale })),
   { name: 'vista scope',     key: 'vista_scope',   frameIdx: 0, scale: 1.6 },
+  ...SHRINE_KIND_ART.frames.map((f) => ({ name: `shrine kind ${f}`, key: SHRINE_KIND_ART.key, frameIdx: f, scale: SHRINE_KIND_ART.scale })),
   // The POI props (loot.js chestLook — barrel / bike_rack at render.js
   // SMALL_POI_SCALE; the notice board and the gate post at 1.6).
   { name: 'barrel',          key: 'barrel',        frameIdx: 0, scale: 1.3 },

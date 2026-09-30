@@ -29,7 +29,7 @@ Repeating motifs prefer at most 6 × 6 cells, with a hard maximum of 8 cells on 
 - Zone ground styling overrides ordinary land zoning throughout the coverage union. Roads, drawn road bands, paths, piers, water and buildings retain their visible footprint; source-land spawn restrictions and trap rules remain authoritative.
 - Themed surface encounters use `EnemyHabitats.SURFACE_FAMILIES` and `SURFACE_ENCOUNTERS`: one roll per 12-cell square, mostly singles with occasional pairs or trios. Group members start within two cells of their leader inside the same zone, respect occupied features and enemy spawn gates, and retain normal Home, daylight and tutorial visibility rules. Defeats remove fixed identities without rerolling survivors. These encounters are separate from finite guards and generic ambient enemies.
 - Fauna may share cells with interactables and do not reserve layout cells. Their terrain and road restrictions still apply; guards and other enemies retain occupancy checks.
-- Grove shrines remain the existing one-per-POI daily interactable, separate from the finite ground finds. Headstone ghosts retain their current interaction behavior.
+- Grove shrines remain the existing one-per-POI daily interactable, separate from the finite ground finds. A variant listed in `Shrines.SHRINE_KINDS` (`src/shrines.js`) makes that shrine its kind, whose timed boon replaces the gift; churchyard and tar-yard kinds stand beside the chest on the first free `Zones.SHRINE_SEAT_R` ring cell. Headstone ghosts retain their current interaction behavior.
 
 ## Coverage union
 

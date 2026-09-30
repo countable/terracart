@@ -80,6 +80,16 @@
     'grove_shrine:0': { fw: 48, fh: 48, minX: 12, minY: 1, maxX: 37, maxY: 47 },
     'grove_votive:0': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 16 },
     'vista_scope:0': { fw: 16, fh: 24, minX: 0, minY: 0, maxX: 15, maxY: 24 },
+    'shrines:0': { fw: 16, fh: 24, minX: 2, minY: 0, maxX: 14, maxY: 24 },
+    'shrines:1': { fw: 16, fh: 24, minX: 2, minY: 0, maxX: 14, maxY: 24 },
+    'shrines:2': { fw: 16, fh: 24, minX: 0, minY: 4, maxX: 16, maxY: 24 },
+    'shrines:3': { fw: 16, fh: 24, minX: 1, minY: 0, maxX: 14, maxY: 24 },
+    'shrines:4': { fw: 16, fh: 24, minX: 0, minY: 3, maxX: 15, maxY: 24 },
+    'shrines:5': { fw: 16, fh: 24, minX: 2, minY: 0, maxX: 13, maxY: 24 },
+    'shrines:6': { fw: 16, fh: 24, minX: 0, minY: 1, maxX: 16, maxY: 24 },
+    'shrines:7': { fw: 16, fh: 24, minX: 1, minY: 0, maxX: 15, maxY: 24 },
+    'shrines:8': { fw: 16, fh: 24, minX: 0, minY: 6, maxX: 16, maxY: 24 },
+    'shrines:9': { fw: 16, fh: 24, minX: 0, minY: 5, maxX: 16, maxY: 24 },
     'barrel:0': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 14, maxY: 16 },
     'barrel_smashed:0': { fw: 16, fh: 16, minX: 0, minY: 4, maxX: 16, maxY: 16 },
     'clay_pot:0': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 16 },
@@ -100,8 +110,14 @@
   // One centered shrine object, reserving a 3×3-cell footprint.
   const SHIPWRECK_SHRINE_ART = { key: 'shipwreck_shrine', frame: 0, extentCells: 3,
     scale: CELL_PX * 3 / 1536, name: 'Shipwreck' };
+  // The ten shrine kinds (src/shrines.js — a row's `frame` picks its art on
+  // this one sheet). The frames are listed for the sprite audit, which loads
+  // this file without Shrines; shrines.test.js pins every row's frame here.
+  const SHRINE_KIND_ART = { key: 'shrines', scale: 1.6, frames: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] };
   function groveShrineArt(o) {
     if (o?._shrineArt === 'shipwreck') return SHIPWRECK_SHRINE_ART;
+    const kind = o?.shrineKind && root.Shrines && root.Shrines.SHRINE_KINDS[o.shrineKind];
+    if (kind) return { key: SHRINE_KIND_ART.key, frame: kind.frame, scale: SHRINE_KIND_ART.scale, name: kind.name };
     return GROVE_SHRINE_ART[root.fnv1a(String(o?.id ?? '') + '#shrine') % GROVE_SHRINE_ART.length];
   }
 
@@ -932,7 +948,7 @@
 
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell, PLAYER_ART, playerArt, CHEST_SCALE,
-    GROVE_SHRINE_ART, SHIPWRECK_SHRINE_ART, groveShrineArt,
+    GROVE_SHRINE_ART, SHIPWRECK_SHRINE_ART, SHRINE_KIND_ART, groveShrineArt,
     PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
     NPC_FRAME, NPC_SHEETS, npcAppearance,
