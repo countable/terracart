@@ -1101,7 +1101,7 @@ const COLORS = {
   7: 0x474441,  // road — asphalt with dust blown over it
   8: 0xaaa090,  // path — a worn grey dust track
   // Building footprints: halfway between original and approved recolour.
-  9: 0xad826d,  // building — small house: weathered brick
+  9: 0xae685d,  // building — small house: weathered red brick (Sep 2026: redder, a touch more contrast)
   10: 0xa09a8c, // rock
   11: 0xaa9577, // building_med — weathered grey-brown plank floor
   12: 0x919395, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)

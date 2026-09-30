@@ -94,7 +94,7 @@ const GRASS_FALLBACK_COLOR = 0x919e70;   // matches the approved COLORS[0] grass
 // POLYGON with the same colours at the same depths, and a wall that changed
 // height when the footprint stopped being square would give the two modes
 // different silhouettes for the same building.
-const BUILDING_FACE_COLOR = { 9: 0x644c3f, 11: 0x625441, 12: 0x5a5e58 };
+const BUILDING_FACE_COLOR = { 9: 0x613833, 11: 0x625441, 12: 0x5a5e58 };
 const BUILDING_FACE_PX = { 9: 4, 11: 4, 12: 5 };
 // Building tiers, as a predicate. Module scope for the same reason: the base
 // terrain fill needs it too, several hundred lines before the outline pass
