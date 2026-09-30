@@ -7,11 +7,7 @@ test('economy: a delivery takes at most DELIVERY_MAX_SETS sets, checked twice', 
   assert.truthy(/const DELIVERY_MAX_SETS = 5;/.test(APP_JS_SRC), 'five sets');
   assert.truthy(/const maxSets = Math\.min\(DELIVERY_MAX_SETS,/.test(APP_JS_SRC), 'the stepper stops there');
   assert.truthy(/Math\.min\(q \?\? 1, DELIVERY_MAX_SETS,/.test(APP_JS_SRC), 'and the accept re-checks it');
-  // The Book says the number: re-derived here, never retyped (CLAUDE.md).
-  const n = +APP_JS_SRC.match(/const DELIVERY_MAX_SETS = (\d+);/)[1];
-  const words = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
-  const tip = PLAY_TIPS.find((t) => /Plain houses sell nothing/.test(t));
-  assert.truthy(tip && tip.includes(`up to ${words[n]} sets`), 'the delivery tip quotes the live cap');
+
 });
 
 test('economy: the first harvest of each crop is a memory, keyed by crop', () => {

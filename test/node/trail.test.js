@@ -305,7 +305,7 @@ test('trail prize: each card\'s ⓘ says what it does, off the lines the item al
   assert.eq(_trailRewardBlurb({ kind: 'relic', slot: 'axe', tier: 3 }), RELIC_DEFS.axe.blurb,
     'a relic reads its blurb');
   assert.eq(_trailRewardBlurb({ kind: 'armor', slot: 'helmet', tier: 4 }),
-    `−${armorSlotReduction(4)} damage soaked`, 'armour reads its soak, as the shop prints it');
+    ARMOR_DEFS.helmet.blurb, 'armour shares its story description');
   assert.eq(_trailRewardBlurb({ kind: 'gold', amount: 5 }), null, 'gold needs no ⓘ');
 });
 
@@ -349,24 +349,9 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
     'the header constant');
   assert.truthy(/const header = TRAIL_PRIZE_HEADER;/.test(body), 'the ceremony uses it');
   assert.eq((body.match(/header,/g) || []).length, 3, 'all three shapes carry the header');
-  // The flavour line prints the walk through Trail.label — the ONE formatter
-  // the street counter also prints with — so the ceremony and the number that
-  // was on the street a moment ago can't disagree about the rung just paid.
-  assert.truthy(/const goal = Trail\.goalFor\(Math\.max\(0, \(n \| 0\) - 1\)(?:, [^;]+)?\);/.test(body),
-    'the goal just completed');
-  assert.truthy(/const walked = Trail\.label\(goal, goal\);/.test(body),
-    'formatted by Trail.label, never a second `${x}/${y} m`');
-  assert.truthy(/sub: `\$\{walked\} restored · \$\{choices\.length\} finds — one is yours<br>\$\{next\}`/.test(body),
-    'the pick says how much street was restored');
-  // EVERY shape of the ceremony names the next rung — a prize that pays
-  // without saying where the ladder goes next is a dead end.
-  assert.eq((body.match(/sub: (next|`|card\.sub)/g) || []).length, 3,
-    'all three shapes carry a sub line');
-  assert.eq((body.match(/\$\{next\}|sub: next/g) || []).length, 3,
-    'and all three print the next rung');
-  assert.truthy(/const next = trailNextPrizeLine\(n \| 0, this\.save\.playerClass\);/.test(body),
-    'through the one formatter, off Trail.goalFor — on the save\'s own ladder');
-  assert.falsy(/cobbles walked/.test(body), 'nothing counts pebbles any more');
+  assert.truthy(/Choose one\./.test(body), 'the choice is clear');
+  assert.falsy(/\$\{walked\}|\$\{next\}/.test(body), 'the ceremony does not duplicate road counters');
+
 });
 
 // ── THE FIRST PRIZE IS AN ONION SEED ──────────────────────────────────────
@@ -421,16 +406,9 @@ test('trail prize: rung one offers the onion seed AND a full row to pick from', 
   assert.eq(out.filter(r => r.id === 'onion_seed').length, 1, 'a rolled onion is re-rolled');
 });
 
-test('trail prize: every ceremony says where the next rung is', () => {
-  // The ladder grows by GOAL_STEP_M a rung, so the promise under the prize is
-  // Trail.goalFor — never a retyped number, and never absent.
-  for (const won of [0, 1, 5]) {
-    const line = trailNextPrizeLine(won);
-    assert.truthy(line.includes(`${Trail.goalFor(won)}m`), 'quotes the next rung off Trail');
-    assert.truthy(/better prize/.test(line), 'and promises the step up the roll bonus buys');
-  }
-  assert.eq(trailNextPrizeLine(1), `Repair ${Trail.GOAL_STEP_M * 2}m more for a better prize.`,
-    'the second rung asks a step more than the first');
+test('trail prize: story hint leaves the next threshold to the road counter', () => {
+  assert.eq(Trail.readout({ metres: 0, prizes: 1 }).target, Trail.goalFor(1),
+    'the road counter retains the exact next goal');
 });
 
 test('trail counter: the street reads Trail.readout of the bank, not raw progress', () => {
@@ -1033,10 +1011,8 @@ test('streets: the first metres ever banked open the one-time dialog', () => {
     assert.eq(s.intros.length, 1, 'the dialog opened a beat after the first metres');
     assert.eq(s.intros[0].title, TRAIL_INTRO_TITLE, 'with the greeting title');
     assert.truthy(s.save.trail.greeted, 'and the save remembers it');
-    // The rung it promises is Trail's own, never a retyped 200.
-    assert.truthy(s.intros[0].body.includes(`${Trail.GOAL_STEP_M}m`),
-      'quoting the rung the ladder actually pays at');
-    assert.truthy(/arteries of civilization/.test(s.intros[0].body), 'in the survivors\' voice');
+    assert.falsy(/\d/.test(s.intros[0].body), 'thresholds stay on the road counter');
+    assert.truthy(/survivor/.test(s.intros[0].body), 'the road has people to thank you');
     // …and never again.
     s.playerM = { x: MID_M + CELL_M * 3, y: MID_M };
     clock.at(PATH_STONE_DWELL_MS * 3); sweep(s);

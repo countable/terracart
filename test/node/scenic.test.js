@@ -567,15 +567,9 @@ test('scenic: the look rows, their lines and the paintings', () => {
   function require_art(stem) { return !!webpDims(`assets/art/${stem}.webp`); }
 });
 
-test('scenic: the Book re-derives its numbers', () => {
-  const all = PLAY_TIPS.join('\n');
-  assert.truthy(all.includes(`${S.SCENIC_MUL.shore}×`), 'the shore multiplier');
-  assert.truthy(all.includes(`${S.SCENIC_MUL.park}×`), 'the park / greenway multiplier');
-  assert.truthy(all.includes(`every ${S.BEACH_X_SHORE_M}m of shoreline`), 'the beach X rate');
-  assert.truthy(/viewpoint's old scope[\s\S]*violet/.test(all) && S.VISTA_CHEST_TIER.grail === 4, 'the grail\'s gem');
-  assert.truthy(/midnight UTC/.test(all) && /bottle/.test(all), 'the tide');
-  const i = PLAY_TIPS.findIndex((t) => /A path by the water counts/.test(t));
-  const j = PLAY_TIPS.findIndex((t) => /Roads and footpaths lie derelict/.test(t));
-  assert.gt(i, j, 'taught after the road ladder it multiplies');
+test('scenic: the Book hints at rewards without quoting their rates', () => {
+  const pages = PLAY_TIPS.filter(t => /shore|waterline|viewpoint|path by the water/i.test(t));
+  assert.gte(pages.length, 3, 'shore discoveries have their own pages');
+  for (const page of pages) assert.falsy(/\d|×|UTC/.test(page), 'rates stay out of the stories');
 });
 })();

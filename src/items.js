@@ -870,37 +870,37 @@ const CONSUMABLE_SPEC = {
 
   egg: {
     verb: 'Hatch', method: 'hatchEgg', title: 'Hatch the egg?',
-    get: 'a random pet in your bag, ready to release',
+    get: 'A small companion stirs inside the shell.',
     label: scene => EggHatch.ready(scene.save) ? 'Hatch' : `Hatch · ${EggHatch.remaining(scene.save)} m left`,
     disabled: scene => !EggHatch.ready(scene.save),
     usable: scene => EggHatch.ready(scene.save),
   },
-  book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: '📖 a tip from the elders' },
+  book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: 'An elder has left a few words for you.' },
   honey: {
     radiusM: 30,
     verb: 'Use', method: 'useHoney', title: 'Set out the honey?',
-    get: '🍯 lure nearby chickens & cows',
+    get: 'Sweetness draws curious noses through the grass.',
   },
   reach_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS,
     verb: 'Drink', method: 'drinkReachPotion', title: 'Drink the Potion of Reach?',
-    get: (_scene, row) => `✨ reach anything in sight for ${shortDuration(row.durationMs)}`,
+    get: 'The far edges of the world draw close enough to touch.',
     channel: true,
   },
   antidote: {
     verb: 'Drink', method: 'drinkAntidote', title: 'Drink the Antidote?',
-    get: 'cure poison without restoring energy',
+    get: 'The bitter draught washes the poison away.',
     usable: scene => Conditions.active(scene.save, 'poison'),
   },
   elixir: {
     verb: 'Drink', method: 'drinkElixir', title: 'Drink the Elixir?',
-    get: 'restore full energy without curing poison or reviving',
+    get: 'Warmth fills your weary body to the brim.',
     usable: scene => scene.save.energy > 0 && scene.save.energy < scene.getMaxEnergy(),
   },
   vigor_potion: {
     energy: 40,
     verb: 'Drink', method: 'drinkVigorPotion', title: 'Drink the Potion of Vigor?',
-    get: (_scene, row) => `restore ${row.energy} energy`,
+    get: 'A little strength returns to your limbs.',
   },
   speed_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 9,
@@ -911,19 +911,19 @@ const CONSUMABLE_SPEC = {
   shield_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.5,
     verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?',
-    get: 'A shimmering veil softens the blows of nearby beasts.',
+    get: 'A shimmering veil softens the blows of beasts.',
     channel: true,
   },
   raven_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS,
     verb: 'Drink', method: 'drinkRavenPotion', title: 'Drink the Potion of the Raven?',
-    get: (_scene, row) => `🐦 a spirit raven hunts foes & pest crows for ${shortDuration(row.durationMs)}`,
+    get: 'A raven of pale smoke takes wing against your foes.',
     channel: true,
   },
   thunder_potion: {
     damage: 10,
     verb: 'Drink', method: 'drinkThunderPotion', title: 'Drink the Potion of Thunder?',
-    get: (_scene, row) => `⚡ every foe in sight takes ${row.damage} damage, and the rest flee`,
+    get: 'Thunder breaks over the foes before you.',
   },
   blight_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, radiusCells: 1.5, damagePerSecond: 2,
@@ -934,13 +934,13 @@ const CONSUMABLE_SPEC = {
   revive_potion: {
     energyFrac: 0.30,
     verb: 'Drink', method: 'drinkRevivePotion', title: 'Drink the Potion of Revival?',
-    get: scene => scene._reviveGetLine('revive_potion'),
+    get: 'A faint pulse calls you back to your feet.',
     usable: scene => Combat.playerDowned(scene.save.energy),
   },
   resurrection_potion: {
     energyFrac: 0.60,
     verb: 'Drink', method: 'drinkRevivePotion', title: 'Drink the Potion of Resurrection?',
-    get: scene => scene._reviveGetLine('resurrection_potion'),
+    get: 'A deep warmth calls you back to your feet.',
     usable: scene => Combat.playerDowned(scene.save.energy),
   },
   dragon_powder: {
@@ -951,7 +951,7 @@ const CONSUMABLE_SPEC = {
   growth_powder: {
     get radiusM() { return CONSUMABLE_SPEC.rainberry.radiusM; },
     verb: 'Use', method: 'useGrowthPowder', title: 'Use the Growth Powder?',
-    get: (_scene, row) => `🌱 every crop within ${row.radiusM}m springs ahead a stage`,
+    get: 'The crops around you stir as though spring has hurried past.',
   },
   shadow_powder: {
     durationMs: _CONSUMABLE_MINUTE_MS,
@@ -961,24 +961,24 @@ const CONSUMABLE_SPEC = {
   frost_powder: {
     durationMs: 30 * 1000,
     verb: 'Use', method: 'useFrostPowder', title: 'Use the Frost Powder?',
-    get: (_scene, row) => `❄ every enemy in reach frozen for ${shortDuration(row.durationMs)}`,
+    get: 'Frost closes around the foes within your reach.',
   },
   torch: {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS, radiusMul: 2,
     verb: 'Light', method: 'useTorch', title: 'Light the Torch?',
-    get: (scene, row) => scene.isTorchActive()
-      ? `🔥 adds ${shortDuration(row.durationMs)} to the ${shortDuration(scene._torchUntil - Date.now())} still burning — your light reaches ${row.radiusMul}× as far`
-      : `🔥 your light reaches ${row.radiusMul}× as far for ${shortDuration(row.durationMs)}`,
+    get: scene => scene.isTorchActive()
+      ? 'Fresh flame feeds the light already around you.'
+      : 'Firelight opens the dark around you.',
   },
   sapphire: {
     verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?',
-    get: '💎 descend one level',
+    get: 'A blue doorway opens into the depths below.',
   },
   rope: {
     verb: 'Climb', method: 'useRopeDown', acceptLabel: 'Down', title: 'Use the rope — which way?',
     get: scene => scene.depth > 0
-      ? '🪢 climb up a level, or lower yourself down one'
-      : '🪢 lower yourself down a level',
+      ? 'The rope offers a way toward daylight or deeper dark.'
+      : 'The rope offers a way into the dark below.',
     secondary: { label: 'Up', method: 'useRopeUp', disabled: scene => !(scene.depth > 0) },
   },
 };
@@ -1147,134 +1147,97 @@ const FEATHER_REVIVE_ENERGY = 1;
 // Sep 2026, doubled with the basic goblin's hit.)
 const SLIME_LEECH_ENERGY = EnemyRoster.get('slime').dmg;
 
-// ── ITEM GUIDES: the Book pages about a THING ──────────────────────────────
-// The one deliberate exception to "what an item does is written on the item,
-// not in the Book" (see the Book of Tips header in play_tips.js). For a handful of key
-// mechanical items — the Crow Feather, every Home craftable — and two
-// behaviours that no single item can explain (flowers as a bargaining tool,
-// slimes that can be won over), a page gives the WHY: when to reach for it,
-// what it saves you from. It may restate its own item's ✦ line — the test
-// (item_descriptions.test.js) exempts a guide against its own key only — but
-// it must earn the page with the strategy the ✦ line has no room for.
-// Numbers are re-derived from their owners, never retyped. play_tips.js slots
-// each guide in where it first becomes actionable.
-// The chance a Trap Disarm Kit is KEPT after disarming a trap — one number
-// the tap (interact.js 'disarm-trap') rolls and the kit's ✦ line prints.
+// Book guides tell a small story about an item, with one useful hint.
+// Exact effects belong to gameplay owners and the dedicated stat readouts.
+// Trap kits retain this chance after a successful disarm.
 const TRAP_KIT_KEEP_CHANCE = 0.8;
 
 const ITEM_GUIDE_TIPS = {
-  crow_feather: `A Crow Feather is hard mode's pocket resurrection: eaten on an empty bar, it stands you up with ${FEATHER_REVIVE_ENERGY} energy — enough to crawl home, not to fight. Crows drop them. Carry one before any long walk — crawling home is not a strategy, merely a hobby.`,
-  scarecrow: 'A scarecrow keeps crows and deer off the crops around it for good, for a little wood at Home. Cheaper than replanting, and it has never once asked for a day off.',
-  trap_kit: 'A disarm kit shuts a snare\'s jaw for good: hold it and tap the snare, and most kits live to do it again. Snares favour footpaths, park edges and the stairs underground, so one in the bag costs less than a limp.',
-  torch: 'Underground, your light IS your reach, and every level down trims it. A torch doubles it for a while — light one at the top of the stairs, not after you have met the goblin.',
-  rope: 'Rope is the exit you carry: up a level, or down one, from wherever you stand. Long grass makes it at Home, so never go deeper than you have rope to climb back.',
-  flowers: `A bouquet of wild flowers halves a shop's prices for ${shortDuration(SHOP_CHARM_MS)}. Save it for the relic you have been eyeing, not a packet of seeds — shopkeepers are flattered, not stupid.`,
-  slime: 'A slime can be won over as well as beaten, though no net and no food will do it. The very last page knows how. Keep reading — the answer is further in than you would like.',
+  crow_feather: 'An elder kept a black feather inside her coat. When her legs failed on the long road, she pressed it to her lips and found just enough strength to rise.',
+  scarecrow: 'The farmer dressed a wooden frame in his old coat. By morning, the crows had found another field.',
+  trap_kit: 'A traveller knelt beside the snare with a little bundle of tools. When she stood, its iron jaw lay slack.',
+  torch: 'The stair keeper struck a flame before descending. With it, her hand could reach farther into the dark.',
+  rope: 'The miner carried a coil of grass rope into every shaft. Its worn fibres had brought him back toward daylight before.',
+  flowers: 'The shopkeeper tucked the flowers beside her till. When she named her price, her voice had softened.',
+  slime: 'An elder once shared her doorstep with a slime. The last page of her journal bears a blue stain.',
 };
 
-// The ordered Book curriculum lives in play_tips.js because it derives visible
-// numbers from Energy, Crops and SpriteLayout after those owners load.
+// The ordered Book pages live in play_tips.js; their positions are saved bookmarks.
 
-// === Item special effects ====================================
-// Short descriptions explain actions, ingredients and ambiguous collectibles. Shown under the inventory bar (the inv-name
-// strip) whenever such an item is selected, so a non-obvious power isn't a
-// secret the player only learns from a Book. Keyed by item id; absent = no
-// special effect (a plain crop / mineral that's just worth money or energy).
+// === Item story hints =======================================
+// Shown beneath the selected inventory stack. Hint at one use through
+// physical detail or sensation; keep effect lists and exact numbers out.
 
 const EGG_HATCH_METERS = 500;
 
 const ITEM_EFFECTS = {
-  egg: `Walk ${EGG_HATCH_METERS}m with GPS and the game open to hatch one carried egg into a random pet`,
-  // Not a secret: the charm is a cash-shop mechanic the player otherwise only
-  // meets by accident (tapping a shop with Flowers selected).
-  flowers:   `Gift to a shopkeeper: half prices there for ${shortDuration(SHOP_CHARM_MS)}`,
-  // Foods with a side-effect when eaten (on top of their energy restore).
-  rainberry: `Eat to water every crop within ${CONSUMABLE_SPEC.rainberry.radiusM}m`,
-  pairy:     `Eat to reveal the nearest unfound chest for ${shortDuration(CONSUMABLE_SPEC.pairy.durationMs)}; feed to tame a wild cow`,
-  coffee:    `Eat to walk faster with the control stick (${shortDuration(CONSUMABLE_SPEC.coffee.durationMs)})`,
-  // Universal tame treat — fed to any wild creature. Cave monsters are the
-  // one exception, and the line says so: it is the only place that caveat is
-  // written now that the Book no longer repeats the mango's effect.
-  mango:     'Feed to tame any wild animal — never a cave monster',
-  // An ingredient: the Craft page at Home is the only place that says so.
-  longgrass: 'Twist 5 into a Rope on Home\'s Craft page',
-  // A rock is both: an ingredient (the Craft page's kit) and a placeable
-  // (interact.js 'place-rock' — held-and-tapped, so the line has to say so).
-  rockfruit: 'Set on a bare tile as a stone; rebuild houses; 4 make a Trap Disarm Kit',
-  // Name the portal and forging uses; keep slime taming in the Book's riddle.
-  sapphire:  'Open a portal one level down; forge Copper through Crimson amulets at a blacksmith',
-  emerald:   'Forge Copper through Crimson staffs at a blacksmith; Frost staffs need Diamonds',
-  ruby:      'Sell, barter, or deliver when a house requests it',
-  milk:      'Feed to tame a wild cat where it stands',
-  boot:      'Old fishing junk to sell, barter, or deliver on request; not wearable',
-  shell:     'Beach collectible to sell, barter, or deliver on request',
-  rabbit_pelt: 'Hunting trophy to sell, barter, or deliver on request',
-  forgetmenot: 'Wild flower to sell, barter, or deliver on request',
-  marigold:    'Wild flower to sell, barter, or deliver on request',
-  wildrose:    'Wild flower to sell, barter, or deliver on request',
-  starflower:  'Wild flower to sell, barter, or deliver on request',
-  copper_bar:   'Forge Copper equipment at a blacksmith',
-  iron_bar:     'Forge Iron equipment at a blacksmith',
-  gold_bar:     'Forge Gold equipment; smelt with Sunflower into Platinum at a blacksmith',
-  platinum_bar: 'Forge Platinum equipment; smelt with Fireflower into Crimson at a blacksmith',
-  crimson_bar:  'Forge Crimson equipment; smelt with Iceflower into Frost at a blacksmith',
-  frost_bar:    'Forge Frost equipment at a blacksmith',
-  sunflower:   'Edible; smelt with Gold into Platinum at a blacksmith',
-  fireflower:  'Edible; smelt with Platinum into Crimson at a blacksmith',
-  iceflower:   'Edible; smelt with Crimson into Frost at a blacksmith',
-  // The Frost jewel: where it comes from and what it is for, in one line.
-  diamond:   'Mined from Frost ore; Frost jewelry is cut around it',
-  // The one FOOD that still works through the hard-mode zero-energy lockout
-  // (see PLAY_TIPS; the revival potions are drunk, not eaten) — a tenth of
-  // the bar (REVIVE_ITEM_FRAC). Never a normal food: it carries no
-  // FOOD_ENERGY entry, so the Eat button only ever offers this while the
-  // lockout actually holds.
-  crow_feather: `Eat at zero to get up with ${FEATHER_REVIVE_ENERGY} energy (hard mode)`,
-  // Consumables used on yourself / the world.
-  honey:        `Set out to lure chickens & cows within ${CONSUMABLE_SPEC.honey.radiusM}m`,
-  book:         'Read for a play tip or a hint toward a chest',
-  reach_potion:  `Drink to reach anything in sight (${shortDuration(CONSUMABLE_SPEC.reach_potion.durationMs)})`,
-  antidote:     'Drink to cure poison',
-  elixir:       'Drink to fill energy; no cooldown; does not revive or cure poison',
-  vigor_potion:  `Drink to restore ${CONSUMABLE_SPEC.vigor_potion.energy} energy`,
+  egg: 'A tiny heartbeat keeps time with your footsteps.',
+  flowers: 'Their scent softens even a shopkeeper’s heart.',
+  rainberry: 'Rain gathers on nearby leaves when its skin breaks between your teeth.',
+  pairy: 'Its sweetness leaves a glimmer of buried treasure behind your eyes.',
+  coffee: 'A roasted warmth sets your feet itching for the road.',
+  mango: 'Even wary animals lean toward its golden scent.',
+  longgrass: 'Its tough fibres hold fast when twisted together.',
+  rockfruit: 'Beneath its pale skin lies a stone hard enough for a ruined wall.',
+  sapphire: 'A blue depth opens inside it, like a doorway beneath your feet.',
+  emerald: 'A green light waits for a staff to carry it.',
+  ruby: 'A small red fortune warms your palm.',
+  milk: 'A cat follows the scent of the fresh cream.',
+  boot: 'Water seeps from the split sole of someone else’s journey.',
+  shell: 'The sea has polished a little treasure for your pocket.',
+  rabbit_pelt: 'A soft scrap of the forest, still warm in memory.',
+  forgetmenot: 'A small blue bloom that someone might treasure.',
+  marigold: 'Its golden petals brighten the dullest windowsill.',
+  wildrose: 'A thorn guards each fragrant bloom.',
+  starflower: 'Its pale glow lingers long after the sun has gone.',
+  copper_bar: 'A smith could draw a sturdy tool from this warm metal.',
+  iron_bar: 'The smith’s hammer rings clearly against its dark face.',
+  gold_bar: 'Sunflower light seems to linger on its yellow surface.',
+  platinum_bar: 'Its pale face catches the heat of a fireflower.',
+  crimson_bar: 'An iceflower’s chill waits beneath its red sheen.',
+  frost_bar: 'A smith’s breath turns white above this cold metal.',
+  sunflower: 'Its petals hold a warmth that gold seems to answer.',
+  fireflower: 'Its heat draws a blush from pale platinum.',
+  iceflower: 'Its frozen petals cool even crimson metal.',
+  diamond: 'A sliver of winter waits for a jeweller’s hand.',
+  crow_feather: 'Held to the lips when all strength is gone, it stirs a faint pulse.',
+  honey: 'Its sweet scent draws curious noses through the grass.',
+  book: 'An elder’s faded words wait beneath the worn cover.',
+  reach_potion: 'The far horizon trembles close to the rim of this bottle.',
+  antidote: 'Its bitter scent cuts through the sickly taste of poison.',
+  elixir: 'A full day’s warmth seems to glow inside the glass.',
+  vigor_potion: 'A little bottled warmth for weary limbs.',
+  raven_potion: 'A pale wing brushes the inside of the glass.',
+  thunder_potion: 'A distant storm rolls beneath the stopper.',
+  revive_potion: 'A faint pulse waits to call a fallen traveller back.',
+  resurrection_potion: 'A deep warmth waits where a fallen traveller’s heart has quieted.',
+  growth_powder: 'Spring stirs in the dust, impatient with the sleeping crops.',
+  frost_powder: 'A pinch chills the air until foes within reach stand still.',
+  rope: 'Its woven fibres offer a handhold between daylight and the depths.',
+  torch: 'Its flame pushes back the dark beyond your fingertips.',
+  trap_kit: 'Small iron tools made to ease a snare’s clenched jaw.',
+  magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',
+  scarecrow: 'An empty coat watches the beds, and hungry wings turn away.',
+  acorn: 'A young timber tree waits beneath this little cap for earth and time.',
+  coal: 'A spark wakes a small fire inside its black heart.',
+  meat: 'Its rich scent draws a dog from the edge of the path.',
+  wood: 'A fire waits beneath the grain of this dry branch.',
   speed_potion: CONSUMABLE_SPEC.speed_potion.get,
   shield_potion: CONSUMABLE_SPEC.shield_potion.get,
-  raven_potion:  `Drink: a spirit raven hunts foes & pests for ${shortDuration(CONSUMABLE_SPEC.raven_potion.durationMs)}`,
-  thunder_potion:      `Drink: ${CONSUMABLE_SPEC.thunder_potion.damage} damage to every foe in sight; the rest flee`,
   blight_potion: CONSUMABLE_SPEC.blight_potion.get,
-  revive_potion:       `Drink when down to get up with ${revivePct('revive_potion')}% energy`,
-  resurrection_potion: `Drink when down to get up with ${revivePct('resurrection_potion')}% energy`,
   dragon_powder: CONSUMABLE_SPEC.dragon_powder.get,
-  growth_powder: `Use to spring every crop within ${CONSUMABLE_SPEC.growth_powder.radiusM}m ahead a stage`,
   shadow_powder: CONSUMABLE_SPEC.shadow_powder.get,
-  frost_powder:  `Use to freeze every enemy in reach for ${shortDuration(CONSUMABLE_SPEC.frost_powder.durationMs)}`,
-  rope:          'Use to climb up or lower down one level, right here',
-  torch:         `Use to make your light reach ${CONSUMABLE_SPEC.torch.radiusMul}× as far (${shortDuration(CONSUMABLE_SPEC.torch.durationMs)})`,
-  trap_kit:      `Hold and tap a trap to disarm it (${Math.round(TRAP_KIT_KEEP_CHANCE * 100)}% kept)`,
-  magic_trap:    'Hold and tap a cell to set; a foe stepping in is held',
-  scarecrow:    'Place on a tilled cell to ward off crows & deer',
-  // A sapling's Plant button says it plants something; only this says WHAT.
-  // The acorn is the one that puts back timber rather than fruit, which is the
-  // whole reason it drops off a fell.
-  acorn:        'Plant on bare ground to grow a timber tree',
-  // Materials that are also placeables — held-and-tapped, so the line has to
-  // say so or nothing does (the rock's line is `rockfruit`, above — its id).
-  coal:         'Strike on bare ground to make a campfire',
-  // The campfire's recipes (CAMPFIRE_MAKES) — nothing else says a fire cooks.
-  meat:         `Hold over a campfire to grill it: ${GRILL_ENERGY_MUL}× energy; feed raw to tame a wild dog`,
-  wood:         'Make a torch at a campfire; craft scarecrows at Home; forge wooden equipment at a blacksmith',
 };
-// Every raw food the fire cooks says so, in the meat's words.
+// Raw foods hint at the nourishment a campfire brings out.
 for (const raw of Object.keys(COOKED_FOODS)) {
-  ITEM_EFFECTS[raw] = ITEM_EFFECTS[raw] || `Hold over a campfire to cook it: ${GRILL_ENERGY_MUL}× energy`;
+  ITEM_EFFECTS[raw] = ITEM_EFFECTS[raw] || 'The campfire brings out its rich, nourishing scent.';
 }
 
-// Seeds can be offered directly to wild chickens as well as planted.
+// Seed prose hints at planting; other uses remain discoveries.
 for (const item of ITEMS.filter(item => item.kind === 'seed')) {
   Object.defineProperty(ITEM_EFFECTS, item.id, {
     enumerable: true,
-    get: () => 'Plant in a tilled bed; feed to tame a wild chicken'
-      + (typeof Crops !== 'undefined' ? `; watered stage: ${shortDuration(Crops.stageHoldMs(item.grows))}` : ''),
+    get: () => 'A small promise of green, waiting for a soft bed of earth.',
   });
 }
 
@@ -1354,10 +1317,10 @@ const ANIMAL_FOOD = {
   // before the favourite-food path, and no "it wants X" hint ever names this.
   slime:   ['sapphire'],
 };
-// A raw food that tames names every wild animal it tames, in one clause.
+// For tempting fish, keep a single animal hint instead of adding an effect list.
 for (const id of Object.keys(COOKED_FOODS)) {
   const tames = ['cat', 'crab'].filter(a => ANIMAL_FOOD[a].includes(id));
-  if (tames.length) ITEM_EFFECTS[id] += `; feed raw to tame a wild ${tames.join(' or ')}`;
+  if (tames.length) ITEM_EFFECTS[id] = `Its fresh scent draws a ${tames[0]} close.`;
 }
 
 function animalLikesFood(kind, foodId) {
@@ -1394,36 +1357,33 @@ const TIER_BY_NUM = Object.fromEntries(MATERIAL_TIERS.map(t => [t.tier, t]));
 // effectKey is read by gameplay code (interact.js / loot.js) to apply bonuses.
 const RELIC_DEFS = {
   pick:    { slot: 'pick',   name: 'Pickaxe', icon: 'Pickaxe.png', baseCost:  80,
-             effectKey: 'rockSpeed',     blurb: 'lets you break rocks' },
+             effectKey: 'rockSpeed',     blurb: 'Its pointed head finds the seams in stone.' },
   axe:     { slot: 'axe',    name: 'Axe',     icon: 'Axe.png',     baseCost:  80,
-             effectKey: 'chopSpeed',     blurb: 'lets you chop trees' },
+             effectKey: 'chopSpeed',     blurb: 'Its keen edge bites deep into timber.' },
   // The Ring is TIER luck, and the wizard tower's exclusive gift (his Keen Eye
   // track — src/wizard.js TRACKS). Never sold, never forged.
   ring:    { slot: 'ring',   name: 'Ring',    icon: 'Rings.png',   baseCost:  60,
-             effectKey: 'lootTier',      blurb: 'rarer chest loot' },
+             effectKey: 'lootTier',      blurb: 'A glint of luck follows your hand to the chest.' },
   // The Amulet is stick walking and nothing else. It also gave QUANTITY luck
   // (a chance at a bigger stack of loot) until Sep 2026, when that became the
   // wizard's Full Measure rung at the same ceiling — see rarity.js qtyLuck.
   amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
-             effectKey: 'stickWalk',     blurb: 'reduces stick-walking stamina cost' },
+             effectKey: 'stickWalk',     blurb: 'Its gentle warmth eases the weight of each step.' },
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
   // are ranged — they fire on their own while an enemy is on screen, each on
   // its OWN beat (Combat.fireIntervalMs): the bow along the compass every 2 s,
   // the staff at the nearest foe in range every 5 s (5 damage a bolt at Wood),
   // the next bolt charging by the player's hand in between.
-  // These blurbs are the WHOLE disclosure for a weapon — the Book no longer
-  // carries a second copy — so the bow's blurb has to say it aims by the
-  // compass and the staff's that each bolt costs energy.
   // They fight ENEMIES and nothing else: the crow/deer hunt wheel is the BUG
   // NET's job, not a weapon's. On top of the fighting, the Sword raises sell
   // values and the Bow lowers buy prices; the Staff bends no prices at all.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
-             effectKey: 'sellPrice',     blurb: 'melee: auto-fights adjacent foes · better sell prices' },
+             effectKey: 'sellPrice',     blurb: 'Its edge answers a foe that comes too close.' },
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
-             effectKey: 'buyPrice',      blurb: 'auto-shoots along the compass · 1 wood/20 shots · cheaper buys' },
+             effectKey: 'buyPrice',      blurb: 'Its drawn string follows the compass needle.' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
-             effectKey: 'bolt',          blurb: 'ranged: seeks the nearest foe · 1⚡ a bolt' },
+             effectKey: 'bolt',          blurb: 'A spark at its tip strains toward the nearest foe.' },
   // Watering can — HOW SOON, not what. Every watering has a tier/7 chance
   // (Crops.waterJumpChance) of springing the plant a whole growth stage on the
   // spot: nothing bare-handed, certain at Frost. It used to set produce
@@ -1431,7 +1391,7 @@ const RELIC_DEFS = {
   // quality is the HOE's now (it belongs to the bed, see Crops.bedQuality)
   // and the charge bank retired with it.
   can:     { slot: 'can',    name: 'Watering Can', icon: 'Watering can.png', baseCost: 100,
-             effectKey: 'waterJump',     blurb: 'a watering may leap the plant forward a growth stage, and the stage it starts grows faster' },
+             effectKey: 'waterJump',     blurb: 'Green shoots hurry toward its falling water.' },
   // Hoe — the tilling tool, and the one that sets a BED'S QUALITY. Three
   // effects, all per tier: the till wheel shortens on the shared tool ladder;
   // the energy cost drops (floor(tier/3) off the base 2, floored at 1) with a
@@ -1441,7 +1401,7 @@ const RELIC_DEFS = {
   // +10% extra-seed chance and +floor(qual/3) yield). That last one was the
   // watering can's until Sep 2026.
   hoe:     { slot: 'hoe',    name: 'Hoe',     icon: 'Hoe.png',     baseCost:  70,
-             effectKey: 'tillQuality',   blurb: 'cheaper tilling, sometimes free · the bed sets crop quality' },
+             effectKey: 'tillQuality',   blurb: 'Rich earth rises beneath its blade.' },
   // Bug Net — THE animal tool. It shortens every wheel that takes a creature:
   // the catch wheel (chicken / cow / cat / dog / rabbit / butterfly) and the
   // crow / deer HUNT wheel, which weapons used to speed. Bare hands work at
@@ -1449,18 +1409,18 @@ const RELIC_DEFS = {
   // slips out of reach first. Single 16×16 icon under Extras (handled by
   // gearAssetPath below).
   bugnet:  { slot: 'bugnet', name: 'Net',         icon: 'Bug net.png',     baseCost: 60,
-             effectKey: 'bugCatch',  blurb: 'catch + hunt animals faster' },
+             effectKey: 'bugCatch',  blurb: 'Its fine mesh closes swiftly around a fleeing creature.' },
   // Fishing Rod — standard 32×16 weapon sheet per tier folder.
   // NOT a gate, the way the net stopped being one: a bare-handed cast works
   // (interact.js 'fishing'), it just runs 9 s instead of 3 and costs more.
   // What the tier buys is the energy per cast and the landing: a fish above
-  // the rod's tier may get away (fishCatchChance), so the blurb says that.
+  // the rod's tier may get away (fishCatchChance), as modeled by the landing chance.
   rod:     { slot: 'rod',    name: 'Fishing Rod', icon: 'Fishing Rod.png', baseCost: 90,
-             effectKey: 'fishing',   blurb: 'bare hands cast too; fewer big fish get away' },
+             effectKey: 'fishing',   blurb: 'Its bent tip holds fast against the pull of a heavy fish.' },
   // Bags — raise the per-stack inventory cap (STACK_CAP_BY_TIER below).
   // Icon lives under Extras (single image, tier shown via badge).
   bags:    { slot: 'bags',   name: 'Bag',         icon: 'Bags.png',        baseCost: 70,
-             effectKey: 'stackCap',  blurb: 'carry more of each item' },
+             effectKey: 'stackCap',  blurb: 'Its deep pockets always seem to have a little room left.' },
 };
 
 // Stone a wreck costs to restore, given how many the player has already
@@ -1505,11 +1465,14 @@ function stackCapForBags(bagsRelic) {
 // pieces are equal protection, so a chestplate at three times the boots read
 // as three times the armour.
 const ARMOR_DEFS = {
-  helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 135 },
-  chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 165 },
-  legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150 },
+  helmet: { slot: 'helmet', name: 'Helmet',     icon: 'Helmet.png',     baseCost: 135,
+            blurb: 'Blows ring against its crown, muffled beneath the lining.' },
+  chest:  { slot: 'chest',  name: 'Chestplate', icon: 'Chestplate.png', baseCost: 165,
+            blurb: 'Its broad plates take the sting from a beast’s strike.' },
+  legs:   { slot: 'legs',   name: 'Leggings',   icon: 'Leggings.png',   baseCost: 150,
+            blurb: 'A thick lining cushions the blows against your legs.' },
   boots:  { slot: 'boots',  name: 'Boots',      icon: 'Boots.png',      baseCost: 130,
-           blurb: 'faster control-stick walking; reduces trap damage' },
+           blurb: 'The road feels lighter beneath these soles.' },
 };
 function gearDef(kind, slot) {
   return kind === 'relic' ? RELIC_DEFS[slot] : (kind === 'armor' ? ARMOR_DEFS[slot] : null);

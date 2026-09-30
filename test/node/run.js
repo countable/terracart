@@ -528,7 +528,6 @@ const starterWrapper = (name) => {
     // …and the beat it waits out before opening over the repair it explains.
     `globalThis.TRAIL_INTRO_DELAY_MS = ${constOf('TRAIL_INTRO_DELAY_MS')};\n` +
     declOf('trailIntroBody') + '\n' +
-    declOf('trailNextPrizeLine') + '\n' +
     // The energy pop's seating: derived from the walker's art, in the order
     // app.js declares them (the head clearance reads the two before it).
     `globalThis.PLAYER_FEET_DROP_PX = ${constOf('PLAYER_FEET_DROP_PX')};\n` +

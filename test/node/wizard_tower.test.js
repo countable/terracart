@@ -231,7 +231,7 @@ test('wizard tower: the chosen calling shows in the memories explainer', () => {
   s.memoriesTotal = () => 0;
   s.showMemoriesHelp();
   const runner = Wizard.CLASSES.find((c) => c.key === 'runner');
-  assert.truthy(s.messages[0].body.includes(`Your calling: ${runner.icon} ${runner.name} — ${runner.blurb()}`));
+  assert.truthy(s.messages[0].body.includes(runner.blurb()));
   const none = mkScene({ memories: 0, discovered: {} });
   none.memoriesTotal = () => 0;
   none.showMemoriesHelp();
@@ -246,8 +246,6 @@ test('classes: every player call site passes save.playerClass', () => {
     [/Combat\.meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass\)/, 'the melee blow (Enforcer)'],
     [/Trail\.bank\(st\.metres, st\.prizes, addedM \+ bonusM, this\.save\.playerClass\)/, 'the ladder bank (Runner)'],
     [/Trail\.readout\(out, this\.save\.playerClass\)/, 'the street counter'],
-    [/Trail\.goalFor\(Math\.max\(0, \(n \| 0\) - 1\), this\.save\.playerClass\)/, 'the ceremony goal'],
-    [/trailNextPrizeLine\(n \| 0, this\.save\.playerClass\)/, 'the next-rung line'],
     [/trailIntroBody\(this\.save\.playerClass\)/, 'the first-repair greeting'],
   ];
   for (const [re, what] of pins) assert.truthy(re.test(app), what);
@@ -255,7 +253,7 @@ test('classes: every player call site passes save.playerClass', () => {
   // (A call is one line in app.js; the line must name the class.)
   const code = app.split('\n').filter((l) => !/^\s*\/\//.test(l));
   const calls = code.filter((l) => /(Combat\.(shotDamage|meleeDps|meleeSwingDamage)|Trail\.(bank|readout|goalFor|progress))\(/.test(l));
-  assert.gte(calls.length, 8, 'found the calls');
+  assert.gte(calls.length, 7, 'found the gameplay calls');
   // magicTrapDamage is the one shotDamage call that is NOT the player's own
   // weapon: a Magic Trap is a tier-2 bow shot fired by the trap, so no
   // calling (a Hunter's bow bonus) applies to it.
@@ -265,11 +263,9 @@ test('classes: every player call site passes save.playerClass', () => {
   }
 });
 
-test('classes: the trail copy quotes the Runner\'s shorter rungs', () => {
-  assert.eq(trailNextPrizeLine(0, 'runner'), `Repair ${Trail.goalFor(0, 'runner')}m more for a better prize.`);
-  assert.truthy(Trail.goalFor(0, 'runner') < Trail.goalFor(0), 'a runner\'s rung is shorter');
-  assert.truthy(trailIntroBody('runner').includes(`${Trail.goalFor(0, 'runner')}m`), 'the greeting too');
-  assert.truthy(trailIntroBody().includes(`${Trail.GOAL_STEP_M}m`), 'and no class reads the plain ladder');
+test('classes: Runner keeps shorter goals without numeric story copy', () => {
+  assert.truthy(Trail.goalFor(0, 'runner') < Trail.goalFor(0), 'a runner travels less for a gift');
+  assert.falsy(/\d/.test(trailIntroBody('runner')), 'the story does not quote a threshold');
 });
 
 // ── The Enchanter's channel ───────────────────────────────────────────────

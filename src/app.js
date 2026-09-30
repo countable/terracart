@@ -60,32 +60,12 @@ const CELL_PX = 32;
 // cell, so the number clears the carriageway it belongs to without floating
 // off into the cell above it.
 const STREET_COUNTER_LIFT_PX = Math.round(CELL_PX * 0.6);
-// The trail prize modal's header — the kind label the ceremony overrides
-// (MODAL_KINDS). It used to be the count ("10 COBBLES WALKED"); the count now
-// lives on the street's counter and in the pick's flavour line. It thanks the
-// player in the survivors' own voice, because the road ladder is the one loop
-// where somebody is meant to be watching you work.
+// Road ceremonies carry the survivors' thanks; progress stays on the road counter.
 const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
-// The line under every prize: what the NEXT rung asks for. The ladder grows by
-// GOAL_STEP_M a rung and the prize gets a step better with it
-// (Trail.rollBonusFor), so the number and the promise beside it are the same
-// fact — and the number is Trail's, never retyped here. `playerClass` is
-// save.playerClass (the Runner's rungs are shorter — Trail.goalDiv); every
-// caller passes it, so the promise matches the ladder the save actually climbs.
-const trailNextPrizeLine = (prizesWon, playerClass) =>
-  `Repair ${Trail.goalFor(prizesWon, playerClass)}m more for a better prize.`;
-// ── THE FIRST REPAIR ───────────────────────────────────────────────────────
-// The one moment the game says out loud what a road is FOR. Restoration has no
-// tap and no tool — stand by a street and it comes back — so without this the
-// first stretch to rebuild under a new player's feet is an unexplained flash
-// and a "23/200 m" they have no reason to read as an invitation. Shown once,
-// on the first metres ever banked (save.trail.greeted), and it names the rung
-// from Trail so the promise and the ladder can't drift.
+// The first repaired stretch introduces the neighbours who leave gifts.
 const TRAIL_INTRO_TITLE = 'The survivors are watching';
 const trailIntroBody = (playerClass) =>
-  'You start repairing the roads — after all, they are the arteries of ' +
-  'civilization!\n\n' +
-  `Repair ${Trail.goalFor(0, playerClass)}m of road and the survivors will reward you.`;
+  'Loose stones settle beneath your feet. In a nearby doorway, a survivor watches the road return, then reaches for something to give you.';
 // …but not on the same beat as the repair. The first stretch to come back
 // under a new player is a flash, a scatter of chips and a counter on the
 // street itself, and a dialog opening over the top of that covers the very
@@ -4874,9 +4854,8 @@ class MapScene extends Phaser.Scene {
       this.flash('Poisoned! Find an Antidote.', this.viewCenterX, this.viewCenterY);
       if (!this.save.poisonLearned) {
         this.save.poisonLearned = true;
-        const def = Conditions.DEFINITIONS.poison;
         this.showMessageModal({ title: 'Poisoned', body:
-          `Purple Slime bites poison you: lose ${def.energyLoss} energy every ${shortDuration(def.intervalMs)} for ${shortDuration(def.durationMs)}. Antidotes from healthcare sites cure poison, even while downed. Rest and food do not cure it.` });
+          'A purple chill creeps from the bite. At the healthcare site, an antidote waits to draw it out.' });
       }
     }
     persistSave(this.save);
@@ -7237,7 +7216,7 @@ class MapScene extends Phaser.Scene {
       this._storySplashOnce('cave', {
         art: 'cave_first',
         title: 'Into the dark',
-        body: 'The air turns cold and the dark closes in. Your light reaches less far down here, and older things live in it.',
+        body: 'The air turns cold against your face. Your light catches the damp walls, then fades into a dark that seems to breathe.',
       });
     }
   }
@@ -8252,7 +8231,7 @@ class MapScene extends Phaser.Scene {
       { art: 'revive_found', title: 'Found',    body: 'Lantern light. Villagers lift you and help you home.' },
       // The carer is the villager revive_wake draws; they say nothing, which
       // is the point. What the revival GAVE is the energy pop's to say.
-      { art: 'revive_wake',  title: 'Home',     body: 'You wake in the care of a grizzled farmhand. They are silent, bid you farewell with a nod.' },
+      { art: 'revive_wake',  title: 'Home',     body: 'You wake beneath a rough blanket. A grizzled farmhand meets your eyes, then bids you farewell with a nod.' },
     ];
     const show = (i) => this.showMessageModal({
       ...PANELS[i], kind: 'story',
@@ -8282,7 +8261,7 @@ class MapScene extends Phaser.Scene {
       sword: { art: 'tool_sword', title: 'Steel out',
                body: 'Your first swing lands true.' },
       shoot: { art: 'tool_shoot', title: 'Loose!',
-               body: 'The arrow flies. Bow and staff fire on their own while a foe is near.' },
+               body: 'Your hand steadies. With a foe near, the bow seems to know when to loose.' },
     };
     const entry = TOOL_STORIES[action];
     if (entry) this._storySplashOnce('tool:' + action, entry);
@@ -8303,7 +8282,7 @@ class MapScene extends Phaser.Scene {
     if (title === SHINY_FIND_TITLE) this._storySplashOnce('shiny', {
       art: 'shiny_first',
       title: 'A shiny find!',
-      body: 'As you approach the glow, you feel memories forming. Nothing specific yet...',
+      body: 'The glow warms your fingertips. For a moment, you almost remember whose hand you once held.',
     });
     try {
       const banner = this._toast(title,
@@ -8613,14 +8592,9 @@ class MapScene extends Phaser.Scene {
     this.showMessageModal({
       kind: 'memory',
       title: `${total} recovered · ${unspent} unspent`,
-      body: 'A memory comes back each time you discover something new: a shiny, '
-        + 'a new household fed, an elite foe.\n\n'
-        // The wizard is a secret until the player has met him (_metWizard):
-        // before that, the power is only a feeling.
-        + (this._metWizard()
-          ? 'A Wizard Tower can turn unspent memories into power.'
-          : 'They hum with a strange power. It feels like you could use it somehow…')
-        + (cls ? `\n\nYour calling: ${cls.icon} ${cls.name} — ${cls.blurb()}` : ''),
+      body: cls ? `Your calling feels familiar: ${cls.icon} ${cls.name}. ${cls.blurb()}`
+        : this._metWizard() ? 'The memories hum in your chest. At the Wizard Tower, someone knows how to answer.'
+        : 'Each new discovery brings a flicker of recognition. Your old life is finding its way home.',
       okLabel: 'Got it',
     });
   }
@@ -8980,7 +8954,7 @@ class MapScene extends Phaser.Scene {
     }
     return this._finishConsumable(
       '🍯 You set out the honey',
-      lured > 0 ? `${lured} creature${lured === 1 ? '' : 's'} come${lured === 1 ? 's' : ''} closer for a taste.` : 'Nothing stirs nearby.',
+      lured > 0 ? 'The sweet scent carries. Nearby creatures turn their noses toward you.' : 'The honey gleams in the quiet. Nothing stirs nearby.',
     );
   }
 
@@ -9010,13 +8984,11 @@ class MapScene extends Phaser.Scene {
         const dxM = chest.x - pWX, dyM = chest.y - pWY;
         const distM = Math.hypot(dxM, dyM);
         if (distM <= 250) {
-          // ~1 pace = 0.75m, so paces ≈ distM / 0.75.
-          const paces = Math.max(1, Math.round(distM / 0.75));
           const ang = (Math.atan2(dyM, dxM) * 180 / Math.PI + 450) % 360;   // 0=N, CW
           const dirs = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
           const dir = dirs[Math.round(ang / 45) % 8];
           const placeName = chest.name ? rusticifyName(chest.name) : 'a chest';
-          return { title: '📖 You crack open the book', body: `"${placeName} lies about ${paces} paces ${dir}."` };
+          return { title: '📖 You crack open the book', body: `A faded sketch circles ${placeName}. An arrow points ${dir}.` };
         }
       }
     }
@@ -9036,14 +9008,9 @@ class MapScene extends Phaser.Scene {
     const read = this.save.tipsRead ?? 0;
     const page = read % PLAY_TIPS.length;
     this.save.tipsRead = read + 1;
-    // Say the real number (QC: a quantity the player can see gets stated).
-    // It also makes the ordering legible — a reader can tell they are being
-    // taught a course rather than handed a random line — and tells them how
-    // much is left. Past the last page the book comes round again from the
-    // top, which is the best re-read order for the same reason it was the
-    // best first-read order.
+    // Keep the bookmark in the save; the panel tells the page as a story.
     return {
-      title: `📖 The book falls open at page ${page + 1} of ${PLAY_TIPS.length}`,
+      title: '📖 The worn book falls open',
       body: `"${PLAY_TIPS[page]}"`,
     };
   }
@@ -9072,7 +9039,7 @@ class MapScene extends Phaser.Scene {
     const detail = read.title.replace(/^📖\s*/, '');
     const body = detail.startsWith('The book falls open') ? `${detail}\n${read.body}` : read.body;
     this.showMessageModal({
-      title: 'You read the book:',
+      title: 'The pages rustle beneath your fingers',
       body,
       // A book read by firelight — the picture of the places of learning the
       // Book comes from, survivors sharing what they know.
@@ -9113,7 +9080,7 @@ class MapScene extends Phaser.Scene {
     this.save.reachPotionUntil = Date.now() + REACH_POTION_MS;
     return this._finishConsumable(
       `✨ You ${opts.channel ? 'channel' : 'drink'} the Potion of Reach`,
-      `The whole world snaps into reach — for ${shortDuration(REACH_POTION_MS)}, everything in sight is yours to touch.`,
+      'A shiver runs through your fingers. Even the far edge of the world feels close enough to touch.',
       opts,
     );
   }
@@ -9129,7 +9096,7 @@ class MapScene extends Phaser.Scene {
     return this._finishConsumable(
       '\u2728 You drink the Potion of Vigor',
       restored > 0
-        ? `Warmth spreads through your arms — ${restored} energy back in the tank.`
+        ? 'Warmth spreads through your arms. Your grip feels sure again.'
         : 'You were already brimming. The flask goes down anyway.',
     );
   }
@@ -9142,7 +9109,7 @@ class MapScene extends Phaser.Scene {
       return false;
     }
     this._syncConditionHUD();
-    return this._finishConsumable('You drink the Antidote', 'The poison clears. Your energy stays as it was.');
+    return this._finishConsumable('You drink the Antidote', 'The bitter draught burns your tongue. The purple chill loosens its hold.');
   }
 
   drinkElixir() {
@@ -9156,7 +9123,7 @@ class MapScene extends Phaser.Scene {
     }
     this._popEnergy(this.save.energy - before);
     this.updateEnergyDOM();
-    return this._finishConsumable('You drink the Elixir', 'Your energy is fully restored. Conditions remain.');
+    return this._finishConsumable('You drink the Elixir', 'The draught glows against your lips. Strength floods back into your limbs.');
   }
 
   // Potion of Speed: a minute of tier-9 boots and amulet walking, even without either
@@ -9200,7 +9167,7 @@ class MapScene extends Phaser.Scene {
     this._tickSpiritRaven();   // summoned now, not a frame later
     return this._finishConsumable(
       `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of the Raven`,
-      `A raven of smoke and starlight shakes itself out of the flask. For ${shortDuration(SPIRIT_RAVEN_MS)} it hunts the nearest monster or pest crow, bites as hard as a slime, and keeps to your side between fights.`,
+      'A raven of smoke and starlight shakes itself out of the flask. It settles beside you, watching the beasts with hungry eyes.',
       opts,
     );
   }
@@ -9266,8 +9233,8 @@ class MapScene extends Phaser.Scene {
   // are down, and why the button is grey while you are not.
   _reviveGetLine(id) {
     return Combat.playerDowned(this.save.energy)
-      ? `❤ get back up with ${revivePct(id)}% energy`
-      : `❤ only works when you're down (${revivePct(id)}% energy)`;
+      ? '❤ rise where you fell'
+      : '❤ drink only when you have fallen';
   }
 
   // Potion of Revival (T2) and Potion of Resurrection (T5): drunk while
@@ -9287,7 +9254,7 @@ class MapScene extends Phaser.Scene {
     const name = ITEM_BY_ID[sel.id]?.name || 'Potion of Revival';
     return this._finishConsumable(
       `\u2728 You drink the ${name}`,
-      `Your eyes snap open. You are back on your feet with ${revivePct(sel.id)}% of your energy.`,
+      'Your eyes snap open. The ground presses cold against your palms as you rise.',
     );
   }
 
@@ -9394,7 +9361,7 @@ class MapScene extends Phaser.Scene {
     this._dragonUntil = Date.now() + DRAGON_POWDER_MS;
     return this._finishConsumable(
       '🐉 You toss the Dragon Powder',
-      'Scales ripple across your skin. Your wings catch the air.',
+      'Scales ripple across your skin. Heat swells in your chest, and the ground shakes beneath your claws.',
     );
   }
 
@@ -9588,7 +9555,7 @@ class MapScene extends Phaser.Scene {
     this._torchUntil = Math.max(now, this._torchUntil ?? 0) + TORCH_MS;
     return this._finishConsumable(
       burning ? '🔥 You light another Torch' : '🔥 You light the Torch',
-      `The flame takes and the dark draws back — your light reaches ${CONSUMABLE_SPEC.torch.radiusMul}× as far for ${shortDuration(this._torchUntil - now)}.`,
+      'The flame takes with a soft roar. Shadows retreat beyond the reach of your footsteps.',
     );
   }
 
@@ -9626,9 +9593,7 @@ class MapScene extends Phaser.Scene {
     const n = targets.length;
     return this._finishConsumable(
       '\u26a1 You drink the Potion of Thunder',
-      `The sky splits. ${n} foe${n === 1 ? '' : 's'} in sight took ${THUNDER_DMG} damage`
-        + (felled ? `, ${felled} of them fatally` : '')
-        + (felled < n ? ' — and the rest have remembered urgent business elsewhere.' : '.'),
+      felled < n ? 'The sky splits. When your ears stop ringing, the surviving beasts are already fleeing.' : 'The sky splits. When your ears stop ringing, the beasts lie still.',
     );
   }
 
@@ -9971,7 +9936,7 @@ class MapScene extends Phaser.Scene {
       title: 'The farmhand offers a scarecrow:',
       cancelLabel: 'Later',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×1`,
-      blurb: 'Crows and deer steer clear of a planted field.',
+      blurb: 'Its ragged sleeves stir in the breeze. Watchful eyes keep their distance.',
       cost: this.moneyHTML(price),
       canAfford: canAfford(),
       onAccept: () => {
@@ -10111,7 +10076,7 @@ class MapScene extends Phaser.Scene {
     this.showOfferModal({
       ...dress, kind: dress.kind,
       title: 'The innkeeper offers a bed:',
-      get: `Rest to full: +${missing}⚡`,
+      get: 'Wake with your strength restored',
       blurb: `One night a day at this inn. The next is in ${wait}.`,
       cost: this.moneyHTML(price),
       canAfford: (this.save.money ?? 0) >= price,
@@ -10159,7 +10124,7 @@ class MapScene extends Phaser.Scene {
       title: 'Today\'s bounty:',
       get: `Clear ${list} nearby`,
       cost: `pays ${this.moneyHTML(b.pay, 12)} on top of each kill`,
-      blurb: `One bounty a day at this hall. They will come for you, and wait for you until the day ends (${wait}).`,
+      blurb: `Take the hunt. The beasts will wait until the board changes in ${wait}.`,
       canAfford: true,
       acceptLabel: 'Take it',
       cancelLabel: 'Later',
@@ -10316,7 +10281,7 @@ class MapScene extends Phaser.Scene {
       title: `The curio hall: ${progress}`,
       get: next != null && have + 1 === next ? 'A memory returns' : 'A place in the collection',
       cost: `${this.iconSpanHTML(id)} ${itemName(id)} ×1`,
-      blurb: 'It takes one of each thing, once, and pays nothing — but every few gifts bring something back.',
+      blurb: 'Donate this to the collection. Something familiar stirs among the dusty shelves.',
       canAfford: true,
       acceptLabel: 'Donate',
       cancelLabel: 'Keep',
@@ -10345,26 +10310,16 @@ class MapScene extends Phaser.Scene {
   _presentTraining(sx, sy, o, dress) {
     const kind = Macros.trainingKindFor(o);
     const row = Combat.TRAINING_KINDS[kind];
-    // How one amount of this discipline reads: "+1 melee damage a hit",
-    // "+10 max energy", "5% faster attacks".
-    const says = (v) => row.unit === 'dmg' ? `+${v} ${row.label.toLowerCase()} damage a hit`
-      : row.unit === 'energy' ? `+${v} max energy`
-      : `${Math.round(v * 100)}% faster attacks`;
-    const level = Combat.trainingLevel(this.save, kind);
     const lp = Macros.lessonPrice(this.save, kind);
     const need = Macros.lessonMemories(this.save, kind);
     const have = this.memoriesTotal();
     const dp = Macros.drillPrice();
     const left = Macros.drillLeftMs(this.save, kind);
     const money = this.save.money ?? 0;
-    const drillLine = left > 0
-      ? `Today's drill: ${shortDuration(left)} left.`
-      : `A drill: ${says(row.drill)} for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`;
-    // The bonus in force NOW — levels plus a running drill — off the one
-    // number the game reads (Combat.trainingBonus), so what the hall says is
-    // what you get.
-    const bonus = Combat.trainingBonus(this.save, kind);
-    const memLine = need != null ? ` The next level needs ${need} memories (you have ${have}).` : '';
+    const drillLine = left > 0 ? ` Drill again in ${shortDuration(left)}.` : '';
+    const hint = row.unit === 'energy' ? 'Your breath deepens with each lesson.'
+      : row.unit !== 'dmg' ? 'Your hands begin to move before you think.'
+      : 'The master adjusts your stance. The next strike feels surer.';
     const refresh = () => {
       this._finishInventoryChange();
       if (row.unit === 'energy' && this.updateEnergyDOM) this.updateEnergyDOM();
@@ -10372,10 +10327,9 @@ class MapScene extends Phaser.Scene {
     this.showOfferModal({
       ...dress, kind: dress.kind,
       title: `The master teaches ${row.label.toLowerCase()}:`,
-      get: lp != null ? `Level ${level + 1}: ${says(row.per)}, for good`
-        : `Mastered: ${says(row.per * Combat.TRAINING_PERM_MAX)}`,
-      cost: lp != null ? this.moneyHTML(lp) : undefined,
-      blurb: `Your bonus: ${bonus ? says(bonus) : 'none yet'}. Level ${level} of ${Combat.TRAINING_PERM_MAX}.${memLine} ${drillLine}`,
+      get: lp != null ? 'A lesson that stays with you' : 'The master has taught you all they can',
+      cost: lp != null ? `${this.moneyHTML(lp)} · ${need} memories required` : undefined,
+      blurb: `${hint}${drillLine}`,
       canAfford: lp != null && money >= lp && have >= need,
       acceptLabel: 'Train',
       cancelLabel: 'Later',
@@ -10903,7 +10857,7 @@ class MapScene extends Phaser.Scene {
       this.showOfferModal({
         kind: 'shop',
         title: 'Charm the shopkeeper?',
-        get: `💐 half prices here, ${shortDuration(SHOP_CHARM_MS)}`,
+        get: 'A bouquet may soften the shopkeeper’s prices.',
         cost: `1× ${this.iconSpanHTML('flowers')} Flowers`,
         canAfford: true,
         acceptLabel: 'Gift',
@@ -11437,9 +11391,7 @@ class MapScene extends Phaser.Scene {
       kind: 'build',
       title: 'Move Home here?',
       body:
-        `Your Home trailer relocates to where you're standing.` +
-        `<br><br>Cost: <b style="color:#ffe066">${this.moneyHTML(cost)}</b>` +
-        `<span style="opacity:.7"> (half your coins, max ${this.moneyHTML(500, 12)})</span>`,
+        'Settle your trailer here.',
       acceptLabel: `Move (${this.moneyHTML(cost, 12)})`,
       onAccept: () => {
         addMoney(this.save, -cost);
@@ -12017,9 +11969,7 @@ class MapScene extends Phaser.Scene {
   presentRelicOffer(sx, sy, offer, recordDeal, house, allowReroll = false, rerollOpts = {}) {
     const name = gearName(offer.kind, offer.slot, offer.tier);
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
-    const blurb = offer.kind === 'relic'
-      ? (gearDef(offer.kind, offer.slot)?.blurb || '')
-      : `−${armorSlotReduction(offer.tier)} damage soaked${offer.slot === 'boots' ? '; ' + ARMOR_DEFS.boots.blurb : ''}`;
+    const blurb = gearDef(offer.kind, offer.slot)?.blurb || '';
     // Flower charm halves the asking price for the charm window (floor $1).
     const price = Math.max(1, Math.ceil(offer.price * this.shopCharmMul(house)));
     this.showOfferModal({
@@ -12103,7 +12053,7 @@ class MapScene extends Phaser.Scene {
         title: 'Nothing to smelt',
         cancelLabel: 'Later',
         get: 'No ingredients yet',
-        blurb: 'Gather the ingredients to smelt platinum, crimson, or frost bars here.',
+        blurb: 'The crucible waits for something worth melting.',
         cost: '',
         canAfford: false,
         acceptLabel: 'Close',
@@ -12238,13 +12188,11 @@ class MapScene extends Phaser.Scene {
         'display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 6px;'
         + 'border-radius:8px;border:2px solid ' + (o.canAfford ? UI_CONTROL_DIM : '#444') + ';'
         + 'background:#231d16;color:#fff;font:12px ui-monospace,monospace;cursor:pointer;';
-      const what = o.kind === 'class' ? o.sub : o.name;
-      const rung = o.kind === 'track' ? `<div style="opacity:.6;font-size:10px">rung ${o.rung}/${o.max}</div>` : '';
+      const what = o.sub;
       card.innerHTML =
         `<div style="font-size:24px;line-height:1.1">${o.icon}</div>`
         + `<div style="font-weight:700;color:#ffe066">${o.title}</div>`
         + `<div style="font-size:11px;line-height:1.3">${what}</div>`
-        + rung
         + `<div style="margin-top:2px;font-weight:700">${mem(12)} ${o.cost}</div>`;
       if (!o.canAfford) {
         card.disabled = true;
@@ -13336,17 +13284,8 @@ class MapScene extends Phaser.Scene {
     };
     const fixed = Trail.firstPrize ? Trail.firstPrize(n) : null;
     const choices = Trail.rollCardRow(rollFor, fixed ? [fixed] : []);
-    // The header is the survivors' thanks, not the way — a street has no name
-    // here because the ladder no longer asks which one you were on. The goal just completed (200, 400, 600 … metres) is the number
-    // the counter on the street read when it paid (Trail.readout), and the
-    // pick's flavour line repeats it under the header — through Trail.label,
-    // the ONE formatter, so the two can't print the same walk differently.
+    // The ceremony carries the survivors' thanks; the road counter shows progress.
     const header = TRAIL_PRIZE_HEADER;
-    const goal = Trail.goalFor(Math.max(0, (n | 0) - 1), this.save.playerClass);
-    const walked = Trail.label(goal, goal);
-    // What the NEXT rung asks. On every ceremony, single or choice, so the
-    // ladder never pays out without saying where the next rung is.
-    const next = trailNextPrizeLine(n | 0, this.save.playerClass);
     if (!choices.length) {
       // Defensive fallback — give 5 coins so the player isn't stiffed.
       addMoney(this.save, 5);
@@ -13356,7 +13295,7 @@ class MapScene extends Phaser.Scene {
         art: 'trail_prize',
         iconHTML: this.coinIconHTML ? this.coinIconHTML(48) : '',
         name: '+5',
-        sub: next,
+        sub: 'A small kindness from the people along the road.',
         color: UI_GOLD,
         onDismiss,
       });
@@ -13374,16 +13313,14 @@ class MapScene extends Phaser.Scene {
       if (!card) { if (typeof onDismiss === 'function') onDismiss(); return; }
       this.showChestRewardModal({
         kind: 'trail', header, ...card, art: 'trail_prize',
-        // The card's own outcome line ("equipped") stays, with the ladder's
-        // next rung under it — two facts, two lines, not one line saying both.
-        sub: card.sub ? `${card.sub}<br>${next}` : next,
+        sub: 'A small kindness from the people along the road.',
         onDismiss: () => this._revealPendingBookReads(onDismiss),
       });
       return;
     }
     this._offerTreasurePick({
       kind: 'trail', header, art: 'trail_prize', choices, onDismiss,
-      sub: `${walked} restored · ${choices.length} finds — one is yours<br>${next}`,
+      sub: 'The neighbours have set these aside for you. Choose one.',
     });
   }
 
@@ -13461,8 +13398,8 @@ class MapScene extends Phaser.Scene {
     if (reward.kind === 'relic') {
       return (typeof gearDef === 'function' ? gearDef('relic', reward.slot)?.blurb : null) || null;
     }
-    if (reward.kind === 'armor' && typeof armorSlotReduction === 'function') {
-      return `−${armorSlotReduction(reward.tier)} damage soaked${reward.slot === 'boots' ? '; ' + ARMOR_DEFS.boots.blurb : ''}`;
+    if (reward.kind === 'armor') {
+      return ARMOR_DEFS[reward.slot]?.blurb || null;
     }
     return null;
   }
@@ -13610,19 +13547,19 @@ class MapScene extends Phaser.Scene {
           // shop's blurb follows its line (marketTheme).
           const theme = role === 'market' ? this.marketTheme(house).theme : null;
           const THEME_BLURB = {
-            seed:   'Sells seeds to plant.',
-            supply: 'Sells rope, torches, kits and building stock.',
-            potion: 'Sells potions and powders.',
-            ore:    'Sells flint, bars and gems for the forge.',
-            relic:  'Sells tools and armour finer than yours.',
-            pet:    'Sells animals — pets, livestock and more.',
+            seed:   'Packets of seeds fill the shelves, waiting for spring.',
+            supply: 'The shelves hold what a long road asks of you.',
+            potion: 'Strange colours swirl in the bottles behind the counter.',
+            ore:    'The counter gleams with things meant for the forge.',
+            relic:  'Fine tools and armour hang within reach.',
+            pet:    'Restless paws and hooves wait for a new home.',
           };
           const INFO = {
-            blacksmith: { blurb: 'Forge tools and trade gems for relics here.' },
-            market:     { blurb: `${THEME_BLURB[theme] || 'Sells one line of goods.'} A new line every shop you rebuild.` },
-            trader:     { blurb: 'Swaps one good for another — no coin changes hands.' },
+            blacksmith: { blurb: 'The anvil rings again. Your next tool could be born here.' },
+            market:     { blurb: THEME_BLURB[theme] || 'The shutters open on a stocked counter.' },
+            trader:     { blurb: 'The trader eyes your bag. Perhaps you each have something the other needs.' },
             wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage sees power in your memories.' },
-            plain:      { name: 'House',        blurb: 'Neighbours pay coin for the produce bundles they crave.' },
+            plain:      { name: 'House',        blurb: 'A neighbour sets coins aside for a taste of your harvest.' },
           };
           const info = INFO[role] || INFO.plain;
           const name = info.name || Shops.roleLabel(role, theme) || INFO.plain.name;
@@ -13713,7 +13650,7 @@ class MapScene extends Phaser.Scene {
       // The castellan at his gate — the survivor who runs the place you
       // restored, greeting the player the banner flew for.
       art: 'castle_favour',
-      get: 'One favour a day — your call.',
+      get: 'My lord, which kindness may we offer?',
       blurb: `Whichever you pick, it won't be on offer again for ${shortDuration(msToNextUtcDay())}.`,
       canAfford: true,
       acceptLabel: `Rest +${CASTLE_REST_ENERGY}⚡`,
@@ -13743,20 +13680,11 @@ class MapScene extends Phaser.Scene {
     // Read at its castle: an `activates` job (Salvage rights) counts from here.
     if (Quests.activate(this.save, mine)) persistSave(this.save);
     const done = Quests.isSlotComplete(this.save, mine);
-    // The other two are shown, greyed, because "there are three jobs going"
-    // is not something a player can learn from a board that only shows one —
-    // and knowing the other two tells them which castle to walk to next.
-    const others = board
-      .map((o, i) => ({ o, i }))
-      .filter(({ i }) => i !== mine && board[i])
-      .map(({ o, i }) => `<div style="opacity:.55;font-size:11px;margin-top:3px;">`
-        + `#${i + 1} ${o.title} — ${o.have}/${o.need} <i>(another castle)</i></div>`)
-      .join('');
     this.showOfferModal({
       kind: 'quest',
       title: done ? 'Quest complete!' : `#${mine + 1} ${q.title}`,
       get: done ? `Reward: ${this.moneyHTML(q.reward)}` : `${q.have} / ${q.need}`,
-      blurb: q.body + others,
+      blurb: q.body,
       canAfford: done,
       acceptLabel: done ? 'Claim Reward' : 'Locked',
       cancelLabel: 'Later',
@@ -13807,7 +13735,7 @@ class MapScene extends Phaser.Scene {
       title: 'Unseal this fort?',
       cancelLabel: 'Later',
       get: '🛡️ the fort quartermaster',
-      blurb: 'Shore up the gate and the quartermaster opens his slot machine to you — the one thing the garrison still maintains.',
+      blurb: 'Behind the gate, the quartermaster’s reels still turn.',
       cost: `${need}× ${this.iconSpanHTML('wood')} ${ITEM_BY_ID['wood']?.name || 'Wood'}`
         + (canAfford ? '' : ` <span style="opacity:.7">(have ${heldCount})</span>`),
       canAfford,
@@ -13831,7 +13759,7 @@ class MapScene extends Phaser.Scene {
             art: 'fort_unseal',
             header: 'Unsealed!',
             name: 'You unsealed a Fort',
-            sub: 'The quartermaster runs a slot machine: three of a kind wins a prize.',
+            sub: 'The quartermaster beckons you over to his clattering reels.',
             color: '#a7ffb0', accent: '#a7ffb0',
           });
         } else {

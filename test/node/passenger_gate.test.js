@@ -138,16 +138,14 @@ test('heads-up buzz: a hostile taking an interest close by vibrates the phone, t
   assert.eq(buzz.length, 2, 'again after it');
 });
 
-test('tips: the safety pages say what the code does', () => {
-  const tip = (re) => PLAY_TIPS.find((t) => re.test(t));
-  const fast = tip(/km\/h/);
-  assert.truthy(fast, 'the passenger gate is in the Book');
-  assert.truthy(new RegExp(`about ${Math.round(GPS_MAX_WALK_MPS * 3.6)} km/h`).test(fast), 'quoting GPS_MAX_WALK_MPS');
-  assert.truthy(tip(/kerb/i) && /chase ends/i.test(tip(/kerb/i)), 'the kerb ends a chase');
-  assert.truthy(tip(/stick, never your feet/i), 'the stick, never the street');
-  assert.truthy(tip(/water/i), 'heat and water');
-  assert.truthy(tip(/courier's post/i), 'the rack is a courier\'s post now');
-  assert.falsy(PLAY_TIPS.some((t) => /bike rack|lends you a bike/i.test(t)), 'and no tip lends you a bike');
+test('tips: real-world safety stays direct', () => {
+  const tip = re => PLAY_TIPS.find(t => re.test(t));
+  assert.truthy(tip(/game pauses.*travel/i), 'travelling pauses play');
+  assert.truthy(tip(/safely on foot/i), 'only play safely on foot');
+  assert.truthy(tip(/pavement.*busy road/i), 'stay beside the road');
+  assert.truthy(tip(/Never enter the road/i), 'never enter traffic to collect');
+  assert.truthy(tip(/carry water/i), 'water in heat');
+  assert.falsy(PLAY_TIPS.some(t => /bike rack|lends you a bike/i.test(t)), 'the courier offers magic, not a bike');
 });
 
 })();

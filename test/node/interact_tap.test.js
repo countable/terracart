@@ -116,7 +116,7 @@ test('disarm-trap: disarms the trap on the tapped cell, and usually keeps the ki
   assert.truthy(/const kept = Math\.random\(\) < TRAP_KIT_KEEP_CHANCE;/.test(src), 'rolls the shared chance');
   assert.truthy(/if \(!kept\) consumeSelected\(save\);/.test(src), 'spends a kit only when the roll misses');
   assert.eq((src.match(/consumeSelected\(/g) || []).length, 1, 'and nowhere else');
-  assert.truthy(/80% kept/.test(ITEM_EFFECTS.trap_kit), 'the kit\'s ✦ line prints the chance');
+  assert.falsy(/%/.test(ITEM_EFFECTS.trap_kit), 'the story leaves the chance for discovery');
   assert.truthy(/if \(!trap \|\| Traps\.isTrapDisarmed\(save, trap\)\) return false;/.test(src),
     'a cell with no trap (or an already-disarmed one) falls through instead of eating the tap');
 });

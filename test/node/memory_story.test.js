@@ -127,7 +127,7 @@ test('memory chip: the explainer is a declared kind, and says both numbers', () 
   assert.truthy(/const MODAL_KINDS = \{[\s\S]*?\n  memory:/.test(MODAL_SHELL_SRC), 'memory is a MODAL_KINDS row');
   assert.truthy(/2 recovered/.test(m.title) && /1 unspent/.test(m.title), 'both numbers');
   assert.falsy(/wizard/i.test(m.body), 'the wizard is a secret until his tower is restored');
-  assert.truthy(/use it somehow/.test(m.body), 'only a vague sense of the power');
+  assert.truthy(/discover|familiar/i.test(m.body), 'a hint of memory returning through discovery');
   s.save.restoredHouses = { h1: 'blacksmith', h2: 'wizard' };
   s.showMemoriesHelp();
   assert.truthy(/Wizard Tower/.test(s.modals[1].body), 'once his tower stands, it names where they are spent');

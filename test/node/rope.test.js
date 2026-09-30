@@ -33,8 +33,7 @@ test('rope: is a T2 consumable with a price and an effect line', () => {
   // player reads while holding it. It used to be said twice — a Book tip
   // repeated the same sentence — and a Book that restates an item description
   // spends a consumable to print what the inventory bar already showed.
-  assert.truthy(/up/i.test(ITEM_EFFECTS.rope || '') && /down/i.test(ITEM_EFFECTS.rope || ''),
-    'ITEM_EFFECTS discloses the climb, both ways');
+  assert.truthy(/handhold/.test(ITEM_EFFECTS.rope), 'the rope hints at climbing');
   assert.falsy(PLAY_TIPS.some(t => /\bRope\b/.test(t) && t !== ITEM_GUIDE_TIPS.rope),
     'and no Book tip repeats it — bar the rope\'s own guide page (ITEM_GUIDE_TIPS)');
 });

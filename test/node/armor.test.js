@@ -303,14 +303,8 @@ test('armor: every enemy blow uses shared incoming damage before reaching the ba
     'arrows pass their bundled hit count through shared mitigation');
 });
 
-test('armor: what a piece soaks is printed ON the piece', () => {
-  // The description surfaces (CLAUDE.md: what an item DOES is written on the
-  // item). The shop/castle offer reads armorSlotReduction rather than
-  // re-deriving the tier, so the number shown is the number spent.
-  const app = APP_JS_SRC;
-  assert.truthy(/armorSlotReduction\(offer\.tier\)/.test(app),
-    'a shop/castle offer quotes the real per-piece soak before you buy');
-});
+// Narrative copy is covered by item_descriptions and books tests.
+
 
 test('boots: protect against the trap bite and ongoing bleed', () => {
   const boots = { boots: { tier: 3 } };

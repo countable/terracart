@@ -1060,7 +1060,7 @@ function runInteractable(ctx, o) {
     if (short === 1 && typeof scene.showOfferModal === 'function') {
       scene.showOfferModal({
         kind: 'note',
-        title: 'This would be very slow to do with your current equipment.',
+        title: 'Your tools would make hard work of this.',
         get: 'Do it anyway?',
         cost: `${SLOW_GRIND_ENERGY}⚡ · ${Math.round(SLOW_GRIND_MS / 1000)}s of work`,
         canAfford: (save.energy ?? 0) >= SLOW_GRIND_ENERGY,

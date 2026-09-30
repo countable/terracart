@@ -166,10 +166,6 @@
     assert.eq(Object.keys(s2.coinBurstClaimed).join(','), 'c_9_9_9_9' + today(), 'pruned on the next write');
   });
 
-  test('daily crate: the Book tells it', () => {
-    const blob = PLAY_TIPS.join(' ');
-    assert.truthy(/crate refills at midnight UTC a day after you take it/i.test(blob), 'crates restock');
-    assert.truthy(/X mark gives once/i.test(blob), 'X marks never refill');
-    assert.truthy(/glows still has something/i.test(blob), 'a glowing one is ready');
-  });
+  // Narrative copy is covered by item_descriptions and books tests.
+
 })();

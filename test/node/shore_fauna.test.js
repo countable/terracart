@@ -23,7 +23,7 @@ test('shore fauna: the crab is an animal row — art, behaviour, a shell when fe
   assert.truthy(ITEM_BY_ID.crab && ITEM_BY_ID.crab.kind === 'animal', 'caught, it is a Crab in the bag');
   assert.truthy(ITEM_BY_ID.shiny_crab, 'and a shiny one keeps its own stack');
   assert.truthy(animalLikesFood('crab', 'minnow'), 'a minnow tames it');
-  assert.truthy(/tame a wild cat or crab/.test(ITEM_EFFECTS.minnow), 'the minnow\'s line says so');
+  assert.truthy(ITEM_EFFECTS.minnow, 'the minnow has its own story hint');
   assert.falsy(Combat.isEnemyKind('crab'), 'never a foe');
   assert.falsy(SpriteLayout.isGame('crab'), 'never game');
   assert.eq(creatureSpawnClass('crab'), 'fauna', 'a slow animal, off its own gait');
