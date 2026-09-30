@@ -400,7 +400,7 @@ function crateRestoreDays(o) {
 // ── BARRELS: the bins and recycling points you SMASH (Sep 2026) ────────────
 // A waste_basket / recycling POI is not a chest with a gem: it is a barrel,
 // the crate's cheap cousin. It restocks like a crate (crateRestoreDays, the
-// day ledger), wears `barrel` standing and `barrel_smashed` once taken (one
+// day ledger), wears a stable barrel or clay-pot pair from BARREL_ART (one
 // art per state — render.js), and holds very little: often NOTHING, and the
 // denser its kind on the tile the likelier (barrelEmptyP: BARREL_EMPTY_P_BASE
 // for a lone bin, rising linearly to BARREL_EMPTY_P_DENSE at
@@ -410,6 +410,12 @@ function crateRestoreDays(o) {
 // tier roll: a barrel does not read chestTier at all. Rolled per smash
 // (rollBarrel), like every drop roll — only WHERE the barrel stands is the
 // world's.
+// Cosmetic pairs share the barrel's rewards and restock ledger. Hash only the
+// generated identity, so neither location overlays nor smashing changes the pair.
+const BARREL_ART = [
+  { texKey: 'barrel', smashedKey: 'barrel_smashed', name: 'barrel' },
+  { texKey: 'clay_pot', smashedKey: 'clay_pot_smashed', name: 'clay pot' },
+];
 const BARREL_CLASSES = new Set(['waste_basket', 'recycling']);
 const BARREL_EMPTY_P_BASE = 0.6;
 const BARREL_EMPTY_P_DENSE = 0.9;
@@ -816,9 +822,8 @@ function macroFor(o) {
 //            one is a plain chest — the burst is a street thing.
 //   bike   → the bike rack (isBikeRack): a stick-walk speed boost a day
 //   barrel → a bin or recycling point (isBarrel): smashed, restocks like a
-//            crate. `barrel` standing; render.js swaps in `barrel_smashed`
-//            while it is spent — one art per STATE, so the look carries the
-//            standing key and the renderer the other.
+//            crate. The look carries a stable barrel or clay-pot pair;
+//            render.js swaps texKey for smashedKey while it is spent.
 //   wagon  → the broken wagon: a bus stop on an OLD TRADE ROAD (a MAJOR way —
 //            StreetVariants.markBanditStops stamps `banditStop`). The same
 //            chest: id, tier, contents and `opened` are untouched; only the
@@ -843,15 +848,16 @@ function chestLook(o) {
   const coin = isPotOfGold(o);
   const bike = !coin && isBikeRack(o);
   const barrel = !coin && !bike && isBarrel(o);
+  const barrelArt = barrel ? BARREL_ART[o.id == null ? 0 : fnv1a(String(o.id) + '#barrel-art') % BARREL_ART.length] : null;
   const special = coin || bike || barrel;
   // Starter supply crates always use the box sprite; so does a tier-1 chest.
   const box = !!o.crate
     || (!CHEST_ONE_TIME_CLASSES.has(o.poiClass) && chestTier(o) === 1);
   const macro = (!special && typeof macroFor === 'function') ? macroFor(o) : null;
   const wagon = !!o.banditStop && !(o.depth > 0) && !stand && !special && !macro;
-  const texKey = coin ? 'potofgold' : bike ? 'bike_rack' : barrel ? 'barrel' : (macro ? macro.texKey
+  const texKey = coin ? 'potofgold' : bike ? 'bike_rack' : barrel ? barrelArt.texKey : (macro ? macro.texKey
     : (stand ? 'market_stand' : (wagon ? 'wagon' : (box ? 'box' : 'chest'))));
-  return (o._chestLook = { stand, coin, bike, barrel, macro,
+  return (o._chestLook = { stand, coin, bike, barrel, macro, smashedKey: barrelArt?.smashedKey, barrelName: barrelArt?.name,
     box: box && !wagon && !macro && !special, wagon, texKey });
 }
 

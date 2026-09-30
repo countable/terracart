@@ -460,15 +460,15 @@
       "decision": "selected default + recolour",
       "style": "Strong",
       "palette": "Near palette",
-      "context": "Unrestored stone remnants",
-      "note": "Use pillar_c.png with weathered warm greys. Ochre is a sparse worn-edge accent."
+      "context": "Grave marker / Old Stones",
+      "note": "Use the weathered stone pillar for the grave marker, replacing the basalt column."
     },
     "ruin-pot-smashed": {
-      "decision": "selected default + recolour",
+      "decision": "broken state of clay pot",
       "style": "Strong",
       "palette": "Near palette",
-      "context": "Sparse broken pottery among ruins",
-      "note": "Use pot_smashed.png in muted terracotta; retain its readable dark broken edges."
+      "context": "Emptied loot container",
+      "note": "The broken clay pot is the opened state of the intact pot, not ordinary decorative rubble."
     },
     "ruin-broken-column": {
       "decision": "usage-specific variant",
@@ -490,6 +490,13 @@
       "palette": "Near palette",
       "context": "Broken Masonry / depot ruins",
       "note": "Warm brick and stone fit the rustic world. Darken the outer contour for a stronger match to the characters."
+    },
+    "pot-intact": {
+      "decision": "selected default + recolour",
+      "style": "Strong",
+      "palette": "Near palette",
+      "context": "Lootable barrel variant",
+      "note": "Intact clay pot uses the existing barrel loot and restock; pot_smashed.png is its opened state."
     }
   },
   "worldStates": [
@@ -530,19 +537,9 @@
   ],
   "ruinsPlan": [
     {
-      "role": "Vertical remnant",
-      "candidate": "ruin-pillar-c",
-      "use": "Sparse anchors in Old Stones and Broken Masonry; pair with lower debris to keep the scene readable."
-    },
-    {
       "role": "Ground debris",
       "candidate": "ruin-masonry",
       "use": "Main masonry silhouette after contour cleanup; rubble pile can supply a quieter secondary shape."
-    },
-    {
-      "role": "Human trace",
-      "candidate": "ruin-pot-smashed",
-      "use": "Sparse low pottery accent near remnants, never the whole ruin field."
     },
     {
       "role": "Sacred distinction",
@@ -551,8 +548,8 @@
     }
   ],
   "spritePlan": {
-    "status": "Selected art direction; recolours and swaps not applied",
-    "note": "Source sprites are shown unchanged. Named palette swatches are the target colour combination; they are not a rendered recolour preview.",
+    "status": "Proposed recolours rendered in the review gallery; runtime assets unchanged",
+    "note": "Original and Proposed views use the same source pixels. The proposed view swaps RGB colours into the listed palette while preserving sprite dimensions and transparency. These are colour previews; any requested contour cleanup is still pending.",
     "defaults": [
       {
         "id": "default-grass",
@@ -566,7 +563,8 @@
           "leaf",
           "leaf_light"
         ],
-        "treatment": "Retain the current chunky tuft; recolour its bright greens to the olive/moss ramp."
+        "treatment": "Retain the current chunky tuft; recolour its bright greens to the olive/moss ramp.",
+        "previewMaterial": "plain"
       },
       {
         "id": "default-bush",
@@ -580,7 +578,8 @@
           "leaf",
           "leaf_light"
         ],
-        "treatment": "Use hedge_end.png as the compact default; mute the yellow-green tips. Keep the dark contour."
+        "treatment": "Use hedge_end.png as the compact default; mute the yellow-green tips. Keep the dark contour.",
+        "previewMaterial": "bush"
       },
       {
         "id": "default-mushroom",
@@ -594,7 +593,8 @@
           "rust",
           "cream"
         ],
-        "treatment": "Use Props frame 13 with a muted brick cap and cream spots/stem; use rust only as a small cap highlight."
+        "treatment": "Use Props frame 13 with a muted brick cap and cream spots/stem; use rust only as a small cap highlight.",
+        "previewMaterial": "mushroom"
       },
       {
         "id": "default-tree",
@@ -610,13 +610,14 @@
           "bark",
           "earth"
         ],
-        "treatment": "Use the open green broadleaf silhouette; olive canopy, warm bark, restrained leaf highlights."
+        "treatment": "Use the open green broadleaf silhouette; olive canopy, warm bark, restrained leaf highlights.",
+        "previewMaterial": "tree"
       },
       {
-        "id": "default-ruin-pillar",
+        "id": "default-grave",
         "candidate": "ruin-pillar-c",
-        "role": "Ruins \u00b7 upright",
-        "usage": "Unrestored stone remnants",
+        "role": "Grave marker",
+        "usage": "Graves / Old Stones",
         "colours": [
           "ink",
           "stone_shadow",
@@ -624,13 +625,14 @@
           "stone_light",
           "ochre"
         ],
-        "treatment": "Use pillar_c.png with weathered warm greys. Ochre is a sparse worn-edge accent."
+        "treatment": "Weathered stone pillar replaces the grave marker. Proposed colours are warm weathered greys with restrained worn-edge ochre.",
+        "previewMaterial": "plain"
       },
       {
-        "id": "default-ruin-pot",
-        "candidate": "ruin-pot-smashed",
-        "role": "Ruins \u00b7 ground accent",
-        "usage": "Sparse broken pottery among ruins",
+        "id": "default-clay-pot",
+        "candidate": "pot-intact",
+        "role": "Clay pot \u00b7 intact",
+        "usage": "Lootable barrel variant",
         "colours": [
           "ink",
           "shadow",
@@ -638,7 +640,8 @@
           "rust",
           "earth"
         ],
-        "treatment": "Use pot_smashed.png in muted terracotta; retain its readable dark broken edges."
+        "treatment": "Intact clay pot before opening. Mostly empty; occasional low-grade coins, apple or supply. Muted terracotta palette.",
+        "previewMaterial": "plain"
       }
     ],
     "variants": [
@@ -653,7 +656,8 @@
           "dry_leaf",
           "ochre"
         ],
-        "treatment": "Replace strong orange with straw and ochre; ordinary lush areas keep the default olive grass."
+        "treatment": "Replace strong orange with straw and ochre; ordinary lush areas keep the default olive grass.",
+        "previewMaterial": "plain"
       },
       {
         "id": "woodland-fern",
@@ -667,7 +671,8 @@
           "leaf",
           "leaf_light"
         ],
-        "treatment": "Keep low and subdued. Its thin silhouette should not replace the main collectible tuft."
+        "treatment": "Keep low and subdued. Its thin silhouette should not replace the main collectible tuft.",
+        "previewMaterial": "plain"
       },
       {
         "id": "rounded-bush",
@@ -683,7 +688,8 @@
           "bark",
           "earth"
         ],
-        "treatment": "Recolour the rounded shrub to olive; simplify lime flecks. Secondary silhouette, not the default compact bush."
+        "treatment": "Recolour the rounded shrub to olive; simplify lime flecks. Secondary silhouette, not the default compact bush.",
+        "previewMaterial": "bush"
       },
       {
         "id": "autumn-bush",
@@ -697,7 +703,8 @@
           "rust",
           "dry_leaf"
         ],
-        "treatment": "Reduce orange saturation and use rustic ochre highlights."
+        "treatment": "Reduce orange saturation and use rustic ochre highlights.",
+        "previewMaterial": "bush"
       },
       {
         "id": "restored-hedge",
@@ -711,7 +718,8 @@
           "leaf_tip",
           "cream"
         ],
-        "treatment": "Reuse the default hedge silhouette with cleaner brighter foliage. Colour, not a softer drawing style, signals restoration."
+        "treatment": "Reuse the default hedge silhouette with cleaner brighter foliage. Colour, not a softer drawing style, signals restoration.",
+        "previewMaterial": "bush"
       },
       {
         "id": "sacred-shrub",
@@ -725,7 +733,8 @@
           "restored_sage",
           "bark"
         ],
-        "treatment": "Retain the rounded teal shrub as a deliberate special-area contrast; do not use teal as the ordinary wild-bush palette."
+        "treatment": "Retain the rounded teal shrub as a deliberate special-area contrast; do not use teal as the ordinary wild-bush palette.",
+        "previewMaterial": "bush"
       },
       {
         "id": "woodland-mushroom",
@@ -739,7 +748,8 @@
           "ochre",
           "cream"
         ],
-        "treatment": "Use a subdued brown cap and readable cream stem. Local alternative to the default brick-red cap."
+        "treatment": "Use a subdued brown cap and readable cream stem. Local alternative to the default brick-red cap.",
+        "previewMaterial": "mushroom"
       },
       {
         "id": "cluster-mushroom",
@@ -752,7 +762,8 @@
           "rust",
           "cream"
         ],
-        "treatment": "Keep peach/rust caps restrained; use as a secondary cluster silhouette."
+        "treatment": "Keep peach/rust caps restrained; use as a secondary cluster silhouette.",
+        "previewMaterial": "mushroom"
       },
       {
         "id": "cave-mushroom-a",
@@ -766,7 +777,8 @@
           "restored_blue",
           "cream"
         ],
-        "treatment": "Preserve cool luminous colour as an intentional underground exception."
+        "treatment": "Preserve cool luminous colour as an intentional underground exception.",
+        "previewMaterial": "mushroom"
       },
       {
         "id": "cave-mushroom-b",
@@ -780,7 +792,8 @@
           "restored_blue",
           "cream"
         ],
-        "treatment": "Use the second cap shape within the same cave palette; not ordinary surface flora."
+        "treatment": "Use the second cap shape within the same cave palette; not ordinary surface flora.",
+        "previewMaterial": "mushroom"
       },
       {
         "id": "rare-mushroom",
@@ -794,7 +807,8 @@
           "flower_lilac",
           "sacred_ivory"
         ],
-        "treatment": "Reserve the tall detailed pair for a distinct magical/sacred role at readable pixel density. A rose/lilac cap is allowed here."
+        "treatment": "Reserve the tall detailed pair for a distinct magical/sacred role at readable pixel density. A rose/lilac cap is allowed here.",
+        "previewMaterial": "mushroom"
       },
       {
         "id": "sacred-tree",
@@ -809,7 +823,8 @@
           "bark",
           "earth"
         ],
-        "treatment": "Reuse the default tree shape with deliberate cool foliage; keep warm bark for continuity."
+        "treatment": "Reuse the default tree shape with deliberate cool foliage; keep warm bark for continuity.",
+        "previewMaterial": "tree"
       },
       {
         "id": "autumn-tree",
@@ -824,7 +839,8 @@
           "dry_leaf",
           "cream"
         ],
-        "treatment": "Replace vivid red with muted brick/rust and straw; keep the light birch trunk readable."
+        "treatment": "Replace vivid red with muted brick/rust and straw; keep the light birch trunk readable.",
+        "previewMaterial": "tree"
       },
       {
         "id": "evergreen-tree",
@@ -840,7 +856,8 @@
           "bark",
           "earth"
         ],
-        "treatment": "Keep the existing pine silhouette as the conifer variant; move teal foliage into the ordinary olive ramp."
+        "treatment": "Keep the existing pine silhouette as the conifer variant; move teal foliage into the ordinary olive ramp.",
+        "previewMaterial": "tree"
       },
       {
         "id": "birch-tree",
@@ -856,7 +873,8 @@
           "stone_light",
           "cream"
         ],
-        "treatment": "Keep its white trunk and existing species silhouette, with muted olive leaves."
+        "treatment": "Keep its white trunk and existing species silhouette, with muted olive leaves.",
+        "previewMaterial": "tree"
       },
       {
         "id": "dense-maple",
@@ -872,7 +890,8 @@
           "bark",
           "earth"
         ],
-        "treatment": "Retain the current maple as a species/shape variant; reduce leaf noise and recolour to olive."
+        "treatment": "Retain the current maple as a species/shape variant; reduce leaf noise and recolour to olive.",
+        "previewMaterial": "tree"
       },
       {
         "id": "dense-mahogany",
@@ -888,7 +907,8 @@
           "bark",
           "earth"
         ],
-        "treatment": "Retain this species silhouette with the same olive foliage and warm bark relationships."
+        "treatment": "Retain this species silhouette with the same olive foliage and warm bark relationships.",
+        "previewMaterial": "tree"
       },
       {
         "id": "broken-masonry",
@@ -903,7 +923,8 @@
           "clay",
           "earth"
         ],
-        "treatment": "Secondary pick: recolour warm grey/brick AND strengthen the outer contour before adoption."
+        "treatment": "Secondary pick: recolour warm grey/brick AND strengthen the outer contour before adoption.",
+        "previewMaterial": "plain"
       },
       {
         "id": "loose-rubble",
@@ -916,7 +937,8 @@
           "stone",
           "stone_light"
         ],
-        "treatment": "Keep as a quieter low heap; strengthen contrast if it becomes a primary collectible."
+        "treatment": "Keep as a quieter low heap; strengthen contrast if it becomes a primary collectible.",
+        "previewMaterial": "plain"
       },
       {
         "id": "sacred-column",
@@ -929,7 +951,23 @@
           "stone_light",
           "sacred_ivory"
         ],
-        "treatment": "Use cleaner pale stone as a state/meaning exception. A stronger outline is still needed."
+        "treatment": "Use cleaner pale stone as a state/meaning exception. A stronger outline is still needed.",
+        "previewMaterial": "plain"
+      },
+      {
+        "id": "broken-clay-pot",
+        "candidate": "ruin-pot-smashed",
+        "role": "Clay pot \u00b7 broken state",
+        "usage": "After the same clay pot is opened",
+        "colours": [
+          "ink",
+          "shadow",
+          "clay",
+          "rust",
+          "earth"
+        ],
+        "treatment": "Broken/emptied state of the intact clay pot, sharing its colour ramp and barrel restock. Not a separate loose-rubble object.",
+        "previewMaterial": "plain"
       }
     ]
   }

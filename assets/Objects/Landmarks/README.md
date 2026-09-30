@@ -15,7 +15,8 @@ the generated moss shrine placeholder; rewards and interactions are unchanged.
 ## Headstone
 
 `headstone-basalt.png` is the unmodified 16 × 16 `basalt_column.png` from
-`unused_art/verdant-props-tileset-16x16/tiles/16x16/`. It replaces the cross
-placeholder while keeping the headstone interaction and 1.6× world scale.
+`unused_art/verdant-props-tileset-16x16/tiles/16x16/`. It previously replaced
+the cross placeholder. The headstone now uses `../Generated/pillar_c.png`,
+a weathered stone pillar, with the same interaction and 1.6× world scale.
 Copyright 2026 Core Systems Asset Factory; licence included in
 `VERDANT-LICENSE.txt`.

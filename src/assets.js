@@ -164,7 +164,7 @@ const ASSETS = {
   wagon:          { kind: 'spritesheet', path: 'assets/Objects/Generated/wagon.png', frameWidth: 128, frameHeight: 96 },
   // INFLUENCE ZONES (src/zones.js): churchyard headstone, two grove shrine
   // appearances, and the flint nodule (items.js CROP_SPRITE.flint).
-  headstone:      { kind: 'spritesheet', path: 'assets/Objects/Landmarks/headstone-basalt.png', frameWidth: 16, frameHeight: 16 },
+  headstone:      { kind: 'spritesheet', path: 'assets/Objects/Generated/pillar_c.png', frameWidth: 16, frameHeight: 16 },
   grove_shrine:   { kind: 'spritesheet', path: 'assets/Objects/Landmarks/shrine-figure.png', frameWidth: 48, frameHeight: 48 },
   grove_votive:   { kind: 'spritesheet', path: 'assets/Objects/Landmarks/shrine-votive.png', frameWidth: 16, frameHeight: 16 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Generated/flint.png', frameWidth: 16, frameHeight: 16 },
@@ -176,11 +176,13 @@ const ASSETS = {
   driftwood:      { kind: 'spritesheet', path: 'assets/Objects/Generated/driftwood.png', frameWidth: 16, frameHeight: 16 },
   bottle:         { kind: 'spritesheet', path: 'assets/Objects/Generated/bottle.png', frameWidth: 16, frameHeight: 16 },
   // POI props (assets/Objects/Generated/README.md — placeholders): a bin is a
-  // BARREL (standing, and smashed while it restocks — loot.js isBarrel), a
+  // BARREL or clay pot (standing, then smashed while restocking — isBarrel), a
   // bike rack the bicycle_parking POI (isBikeRack), a notice board the
   // information POI (render.js infoboard) and a gate's two posts (gatepost).
   barrel:         { kind: 'spritesheet', path: 'assets/Objects/Generated/barrel.png', frameWidth: 16, frameHeight: 16 },
   barrel_smashed: { kind: 'spritesheet', path: 'assets/Objects/Generated/barrel_smashed.png', frameWidth: 16, frameHeight: 16 },
+  clay_pot:       { kind: 'spritesheet', path: 'assets/Objects/Generated/pot.png', frameWidth: 16, frameHeight: 16 },
+  clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/Generated/pot_smashed.png', frameWidth: 16, frameHeight: 16 },
   bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Generated/bike_rack.png', frameWidth: 16, frameHeight: 16 },
   signpost:       { kind: 'spritesheet', path: 'assets/Objects/Generated/signpost.png', frameWidth: 16, frameHeight: 16 },
   gatepost:       { kind: 'spritesheet', path: 'assets/Objects/Generated/pillar_a.png', frameWidth: 16, frameHeight: 16 },

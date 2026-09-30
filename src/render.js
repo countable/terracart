@@ -4324,9 +4324,9 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
     // key it means, so nothing here re-decides which art a look is — and an
     // opened chest never reaches the renderer (filtered out above), so a
     // crate is either closed or gone. The one exception is the BARREL, which
-    // is never dropped: spent, it stands as `barrel_smashed` (o._smashed,
+    // is never dropped: spent, its barrel or clay pot stands smashed (o._smashed,
     // stamped by the filter) until it restocks — one art per state.
-    chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? 'barrel_smashed' : L.texKey; },
+    chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? L.smashedKey : L.texKey; },
               // box is a single-frame image; trunk.png is 2-frame.
               // Crates and coin-burst pots leave `frame` at 0.
               // Pots of gold (ATMs) render the procedural

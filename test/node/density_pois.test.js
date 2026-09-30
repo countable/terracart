@@ -82,12 +82,33 @@
   });
 
   // ── Barrels ──────────────────────────────────────────────────────────────
+  test('barrel: clay pots keep their intact/broken pair and share the same rewards and restock', () => {
+    const seen = new Set();
+    for (let i = 0; i < 40; i++) {
+      const b = poi('waste_basket', { id: `container_${i}`, poiDensity: 50 });
+      const look = chestLook(b);
+      seen.add(look.texKey);
+      assert.eq(tillBlockerLine(b), look.texKey === 'clay_pot' ? 'A clay pot stands here.' : 'A barrel stands here.', 'blocker names the visible object');
+      assert.eq(look.smashedKey, look.texKey + '_smashed', 'broken state matches the intact object');
+      assert.truthy(SpriteLayout.ART_BOUNDS[look.texKey + ':0'], 'intact art seats in its cell');
+      assert.truthy(SpriteLayout.ART_BOUNDS[look.smashedKey + ':0'], 'broken art seats in its cell');
+      const reloaded = { ...b, _chestLook: undefined, x: 1234, y: -45, _smashed: true };
+      assert.eq(chestLook(reloaded).texKey, look.texKey, 'reload, position and spent overlays keep the pair');
+      assert.truthy(restocks(b), 'both use the recurring container ledger');
+      assert.eq(crateRestoreDays(b), 2, 'same density-based restock');
+      assert.eq(rollBarrel(b, () => 0).kind, 'empty', 'empty roll is still empty');
+      const rolls = [0.99, 0.6];
+      assert.eq(rollBarrel(b, () => rolls.shift()).id, 'apple', 'the same low-grade loot roll');
+    }
+    assert.eq([...seen].sort().join(','), 'barrel,clay_pot', 'both cosmetic pairs occur');
+  });
+
   test('barrel: a bin or a recycling point is a barrel, whatever its count; it restocks like a crate', () => {
     for (const cls of ['waste_basket', 'recycling']) {
       for (const n of [1, 5, 40]) {
         const b = poi(cls, { poiDensity: n });
         assert.truthy(isBarrel(b), `${cls} ×${n} is a barrel`);
-        assert.eq(chestLook(b).texKey, 'barrel', 'wears the barrel');
+        assert.includes(['barrel', 'clay_pot'], chestLook(b).texKey, 'wears a breakable container');
         assert.falsy(chestLook(b).box, 'not the crate look');
         assert.truthy(restocks(b), 'restocks');
       }
@@ -151,7 +172,7 @@
     // The renderer keeps it, smashed — one art per state.
     assert.truthy(/if \(o\.kind === 'chest' && isBarrel\(o\)\) \{ o\._smashed = spent; return true; \}/.test(RENDER_SRC),
       'render.js keeps a spent barrel on the draw list');
-    assert.truthy(/\(L\.barrel && o\._smashed\) \? 'barrel_smashed' : L\.texKey/.test(RENDER_SRC), 'and draws it smashed');
+    assert.truthy(/\(L\.barrel && o\._smashed\) \? L\.smashedKey : L\.texKey/.test(RENDER_SRC), 'and draws it smashed');
     assert.truthy(/barrel_smashed: +\{ kind: 'spritesheet', path: 'assets\/Objects\/Generated\/barrel_smashed\.png'/.test(ASSETS_SRC),
       'the smashed art is loaded');
   });
