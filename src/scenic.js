@@ -651,9 +651,9 @@
     return out.filter((a) => !a.merged);
   }
 
-  // ── The whole build (rasterizeTileSteps, after the zones) ──────────────
+  // ── The whole build (rasterizeTileSteps, before surface terrain paint) ──
   // Returns entry.scenic: { lines, census, stretches, shore (shoreSandSteps'
-  // or null), vistas } — pure MVT + the finished grid; a rebuild re-derives
+  // or null), vistas } — pure MVT + the source land; a rebuild re-derives
   // it (it is generated).
   // `keepGeo` (tests, tools): also hand back the geometry indices as `_geo`
   // (classify() reads them) — the game drops them with the build. `under`:

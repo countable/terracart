@@ -5536,12 +5536,26 @@
         }
       }
     }
+    // Scenic selection reads source geography before road terrain. Keep its
+    // shoreline rewards tied to original beaches, not newly painted sand.
+    let scenic = null, scenicDress = null;
+    if (typeof Scenic !== 'undefined') {
+      scenic = yield* Scenic.buildSteps(layersByName, tx, ty, w, grid, false, zone && zone.under);
+    }
+    // Polygon scatter is legacy input for caves; surface corridor replacement
+    // follows affinity selection and precedes zone paint and all dressings.
+    const streetTerrain = typeof StreetVariants !== 'undefined'
+      ? yield* StreetVariants.paintTerrainSteps({ index: streetIndex, scenic,
+        transportation: layersByName.transportation, grid, N: w, roadMask, spawnWhy, zone }) : null;
+    const hasStreetTerrain = streetTerrain && streetTerrain.some(Boolean);
+    if (hasStreetTerrain) yield* clearStreetAmbientSteps({ area: streetTerrain,
+      objects: deduped, wildplants: filtered, tx, ty, N: w, tileEdgeM, ownLines: ownStreetLines });
     if (zone) {
       // Mine entrances are world identities, seeded by the original rock
       // clusters and occupancy. Keep that input separate from the visible
       // zone layer so removing scenery cannot reroll an existing cave.
       if (zone.coverage) {
-        const caveGrid = grid.slice();
+        const caveGrid = caveSource.grid.slice();
         if (zone.under) for (let i = 0; i < caveGrid.length; i++) {
           if ((i & 511) === 0) yield 'zone cave source';
           if (zone.under[i]) caveGrid[i] = zone.under[i];
@@ -5552,18 +5566,6 @@
       if (typeof ZoneCoverage !== 'undefined') yield* ZoneCoverage.paintSteps(zone, grid, w, pathUnder, roadMask, spawnWhy);
       zone.legacyRemoved = yield* clearZoneAmbientSteps({ field: zone, objects: deduped,
         wildplants: filtered, tx, ty, N: w, tileEdgeM });
-    }
-    // SCENIC PLACES (src/scenic.js) — after the zones, on the finished grid:
-    // every walking way's scenic intervals (shore / greenway / park — the
-    // restore ladder's multiplier and the lamps' glow read them off
-    // entry.scenic), the shore sand, the viewpoints; then the dressing — a
-    // viewpoint's chest stamped its grail and the scope beside it, one vista
-    // chest per scenic stretch, the tide pool on the waterline. Their mapped
-    // places claim ahead of street and zone furniture. Pure MVT + final grid.
-    let scenic = null, scenicDress = null;
-    if (typeof Scenic !== 'undefined') {
-      yield 'before scenic';
-      scenic = yield* Scenic.buildSteps(layersByName, tx, ty, w, grid, false, zone && zone.under);
     }
     dressSpawn();
     // Future lamp feet stay clear through both scenic and street dressing,
@@ -5595,7 +5597,7 @@
       zoneDress = yield* ZoneDressing.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
     }
-    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes, caveSource: hasStreetArea ? caveSource : null };
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that

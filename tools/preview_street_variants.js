@@ -55,6 +55,22 @@ function carpetPreview(row, roadWidthM) {
   return strokes;
 }
 
+// Export the shipping raster, cropped to the preview viewport. Road surfaces are
+// drawn by the pavement painter; park is the fixture's unchanged base ground.
+function groundPreview(tile) {
+  const cells = [];
+  for (let y = Math.max(0, middle - 12); y <= Math.min(N - 1, middle + 12); y++) {
+    for (let x = Math.max(0, Math.floor(middle - halfLengthCells - 6)); x <= Math.min(N - 1, Math.ceil(middle + halfLengthCells + 6)); x++) {
+      const i = y * N + x;
+      let type = tile.grid[i];
+      if (type === WG.T.PATH) type = tile.pathUnder[`${x}_${y}`] ?? WG.T.PARK;
+      if (type === WG.T.PARK || tile.roadMask[i]) continue;
+      cells.push({x: x * cellM, y: y * cellM, type});
+    }
+  }
+  return {baseTerrain: WG.T.PARK, groundCells: cells};
+}
+
 function preview(row) {
   if (row.size === 'path') return previewPath(row);
   let name = 'Preview';
@@ -92,7 +108,7 @@ function preview(row) {
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   const objects = [...dress.objects, ...dress.wildplants, ...(dress.coins || []), ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))].map(local);
   const lairs = dress.lairs.map((o) => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly }));
-  return { ...row, words: row.words ? row.words.source : null, sampleName: name,
+  return { ...row, ...groundPreview(tile), words: row.words ? row.words.source : null, sampleName: name,
     roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
     carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags)),
     lampSpacingM: SV.lampSpacingFor(row.id), objects, lamps, lairs,
@@ -128,7 +144,7 @@ function previewPath(row) {
   const lamps = ctx.previewLampPass._streetLampsForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong scenic lamps for ${row.id}`);
-  return { ...row, sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
+  return { ...row, ...groundPreview(tile), sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
     carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags)),
     lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects: [...dress.objects, ...dress.wildplants, ...(dress.coins || []), ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))].map(local),
     lamps, lairs: [], slowKinds: [], geography, scenicKind: kind,

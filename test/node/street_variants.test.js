@@ -1142,4 +1142,76 @@ test('street styles: patch gaps stay plain for paving and lamp consumers', () =>
   const styles = SV.lineStyles({streetIndex:{lines:[rec]}},{geom:[line]},0,0,2);
   assert.eq(JSON.stringify(styles.map(p=>[p.a,p.b,p.variant])),JSON.stringify([[0,40,null],[40,160,'golden'],[160,200,null]]));
 });
+
+function paintVerge(ctx) {
+  const it = SV.paintTerrainSteps(ctx);
+  let result = it.next();
+  while (!result.done) result = it.next();
+  return result.value;
+}
+function vergeFixture(variant = 'overgrown') {
+  const N = 12;
+  const grid = new Uint8Array(N*N).fill(T.GRASS);
+  const roadMask = new Uint8Array(N*N), spawnWhy = new Uint16Array(N*N);
+  for (let x=1;x<11;x++) grid[6*N+x]=T.ROAD,roadMask[6*N+x]=1;
+  return { N, grid, roadMask, spawnWhy, index: {extent:N, dressingLines:[{
+    key:'road', variant, halfW:3.5, line:[{x:1.5,y:6.5},{x:10.5,y:6.5}]
+  }]}};
+}
+test('street terrain: agreed biome rows paint one cell beyond road geometry', () => {
+  for (const [variant, terrain] of Object.entries({hedgerow:T.PARK,overgrown:T.FOREST,
+    orchard:T.ORCHARD,pilgrim:T.ROCK,lantern:T.COMMERCIAL,burned:T.INDUSTRIAL,
+    barricade:T.WASTELAND,toadstool:T.WETLAND,golden:T.ROCK,promenade:T.SAND,
+    greenway:T.GRASS,parkpath:T.PARK})) {
+    assert.eq(SV.terrainFor(variant),terrain);
+    const f=vergeFixture(variant), painted=paintVerge(f);
+    assert.eq(f.grid[5*12+5],terrain);
+    assert.eq(f.grid[7*12+5],terrain);
+    assert.eq(f.grid[4*12+5],T.GRASS,'outside one-cell band');
+    assert.eq(f.grid[6*12+5],T.ROAD,'road stays road');
+    assert.eq(painted[5*12+5],1);
+  }
+});
+test('street terrain: water, buildings, access and special zones take precedence', () => {
+  const f=vergeFixture('promenade'), N=f.N;
+  f.grid[5*N+2]=T.WATER;f.grid[5*N+3]=T.BUILDING;f.grid[5*N+4]=T.PATH;
+  f.spawnWhy[5*N+5]=WorldGen.SPAWN_WHY.PRIVATE;
+  f.spawnWhy[5*N+6]=WorldGen.SPAWN_WHY.RESTRICTED;
+  f.zone={coverage:new Uint16Array(N*N),under:new Uint8Array(N*N)};
+  f.zone.coverage[5*N+7]=1; f.zone.under[5*N+8]=T.PARK;
+  const before=Array.from(f.grid), reasons=JSON.stringify(Array.from(f.spawnWhy));
+  paintVerge(f);
+  for(let x=2;x<=8;x++) assert.eq(f.grid[5*N+x],before[5*N+x]);
+  assert.eq(f.grid[5*N+9],T.SAND);
+  assert.eq(JSON.stringify(Array.from(f.spawnWhy)),reasons);
+});
+test('street terrain: intersections are independent of road ordering', () => {
+  const f=vergeFixture(), other={...f.index.dressingLines[0],key:'another',variant:'golden'};
+  f.index.dressingLines.push(other);
+  const a={...f,grid:f.grid.slice()};paintVerge(a);
+  f.index.dressingLines.reverse();paintVerge(f);
+  assert.eq(JSON.stringify(Array.from(f.grid)),JSON.stringify(Array.from(a.grid)));
+});
+test('street terrain: rasterization preserves original affinity and cave inputs', () => {
+  const painted=WorldGen.rasterizeTile(layers(),CPE,TX,TY,TILE_EDGE_M);
+  const actual=SV.paintTerrainSteps;
+  let baseline;
+  try {
+    SV.paintTerrainSteps=function*({N}) {return new Uint8Array(N*N);};
+    baseline=WorldGen.rasterizeTile(layers(),CPE,TX,TY,TILE_EDGE_M);
+  } finally {SV.paintTerrainSteps=actual;}
+  assert.eq(JSON.stringify(painted.caveSource),JSON.stringify(baseline.caveSource));
+  assert.eq(JSON.stringify(painted.streetIndex),JSON.stringify(baseline.streetIndex));
+  assert.eq(JSON.stringify(painted.spawnWhy),JSON.stringify(baseline.spawnWhy));
+});
+
+test('street terrain: scenic intervals paint only their selected path span', () => {
+  const f=vergeFixture();f.index.dressingLines=[];
+  const feature={id:9,type:2,tags:{class:'path'},geom:[[{x:1.5,y:6.5},{x:10.5,y:6.5}]]};
+  f.transportation={extent:12,features:[feature]};
+  f.scenic={ext:12,lines:new Map([[Streets.lineKey(feature,0),[[2,5,'shore']]]])};
+  paintVerge(f);
+  assert.eq(f.grid[5*12+5],T.SAND);
+  assert.eq(f.grid[5*12+9],T.GRASS,'outside scenic interval stays original');
+});
 })();
