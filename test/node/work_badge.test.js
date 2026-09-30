@@ -18,12 +18,12 @@
 // in the shared helper now, where a new wheel starter cannot forget it.
 //
 // app.js needs Phaser and can't load headlessly, so the helper is pinned as
-// source text (APP_JS_SRC, lifted by run.js) and then RUN: the body is small
+// source text (SCENE_SRC, lifted by run.js) and then RUN: the body is small
 // and self-contained, so the test re-evaluates it against a stub scene and
 // checks what it actually does with an empty relics table.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 const helper = (() => {
   const a = app.indexOf('  _setWorkProgressIcon(toolSlot) {');

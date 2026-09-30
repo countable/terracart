@@ -832,8 +832,11 @@ class SceneModals {
   // its outcome wording and gains the kind's hero icon — so this modal shows
   // one header, not two. Callers that say nothing get TREASURE, which is what
   // a chest is.
+  // `tier` (1..7) hangs the TIER BADGE (items.js tierBadgeHTML — the rarity
+  // word on its ore's colour) under the name: an item's baseTier, a relic's
+  // own tier. Left out for cash, a story card or a pick with no one thing.
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
-    onDismiss, header, kind = 'treasure', kindIcon, actions, art, cards = false }) {
+    onDismiss, header, kind = 'treasure', kindIcon, actions, art, cards = false, tier = 0 }) {
     const { wrap, box, mount } = this.makeModalShell('chest-reward-modal', {
       zIndex: 55, borderColor: accent, wrapBg: '#000c', art, centerBody: true,
       kind, kindLabel: header, kindIcon,
@@ -869,6 +872,8 @@ class SceneModals {
     const subHtml = sub
       ? `<div style="margin-top:4px;font-size:13px;opacity:.85">${sub}</div>`
       : '';
+    const badge = (tier > 0 && typeof tierBadgeHTML === 'function') ? tierBadgeHTML(tier, 11) : '';
+    const tierHtml = badge ? `<div style="margin-top:6px;line-height:0">${badge}</div>` : '';
     const hasActions = Array.isArray(actions) && actions.length > 0;
     box.innerHTML =
       // The icon row is optional and collapses when a card passes no
@@ -878,6 +883,7 @@ class SceneModals {
       // margins as a blank band under the banner.
       (iconHTML ? `<div style="margin:6px 0 10px;font-size:0">${iconHTML}</div>` : '') +
       `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}</div>` +
+      tierHtml +
       qtyHtml +
       subHtml +
       (hasActions ? '' : '<div style="margin-top:14px;opacity:.45;font-size:10px;letter-spacing:.06em">tap to continue</div>');

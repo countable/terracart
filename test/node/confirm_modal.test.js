@@ -98,9 +98,9 @@ test('confirm modal: an existing id blocks duplicate construction', () => {
 });
 
 test('confirm modal: feed and Move Home delegate to the shared shell', () => {
-  assert.truthy(/showFeedConfirm\([\s\S]*?this\.showConfirmModal\(\{[\s\S]*?id: 'feed-confirm-modal'/.test(APP_JS_SRC),
+  assert.truthy(/showFeedConfirm\([\s\S]*?this\.showConfirmModal\(\{[\s\S]*?id: 'feed-confirm-modal'/.test(SCENE_SRC),
     'feeding delegates to the shared confirmation');
-  assert.truthy(/confirmMoveHomeTrailer\([\s\S]*?this\.showConfirmModal\(\{[\s\S]*?id: 'move-home-modal'/.test(APP_JS_SRC),
+  assert.truthy(/confirmMoveHomeTrailer\([\s\S]*?this\.showConfirmModal\(\{[\s\S]*?id: 'move-home-modal'/.test(SCENE_SRC),
     'Move Home delegates to the shared confirmation');
 });
 })();

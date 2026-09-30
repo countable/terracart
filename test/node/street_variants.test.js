@@ -418,7 +418,7 @@ test('old trade road: only about a third of the major-road stops are wagons, by 
 // The FAUNA ATTRACTOR lane (scene_creatures.js _seatFaunaOnFavouriteGround),
 // lifted from the source and driven for real.
 function liftAttract() {
-  const src = SCENE_CREATURES_SRC;
+  const src = SCENE_SRC;
   const a = src.indexOf('\n  _seatFaunaOnFavouriteGround(');
   const b = src.indexOf('\n  }\n', a);
   assert.truthy(a > 0 && b > a, 'found _seatFaunaOnFavouriteGround');
@@ -472,7 +472,7 @@ test('fauna attractors: a table, not code — every column names a spawned speci
   assert.eq(BIOME_ATTRACTS[WorldGen.T.WASTELAND].slime, 0.5, 'wasteland → slimes');
   assert.eq(BIOME_ATTRACTS[WorldGen.T.PITCH].deer, 0.5, 'sports pitch → deer');
   // The spawner reads the columns; it names no species of its own.
-  const src = SCENE_CREATURES_SRC;
+  const src = SCENE_SRC;
   const body = src.slice(src.indexOf('\n  _seatFaunaOnFavouriteGround('), src.indexOf('\n  }\n', src.indexOf('\n  _seatFaunaOnFavouriteGround(')));
   for (const sp of ['deer', 'cat', 'butterfly', 'dog', 'rabbit']) {
     assert.falsy(new RegExp(`'${sp}'`).test(body), `no '${sp}' literal in the lane`);
@@ -698,7 +698,7 @@ test('burned row: one fire slime per stretch, keyed on the street and the square
 
 // ── Slow going ──────────────────────────────────────────────────────────
 test('slow: tar or stakes underfoot cap the body at SLOW_BODY_M_S, and the cap lets go', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const lift = (sig) => {
     const s = app.indexOf('\n  ' + sig), e = app.indexOf('\n  }\n', s);
     assert.truthy(s > 0 && e > s, `found ${sig}`);
@@ -742,8 +742,8 @@ test('slow: tar or stakes underfoot cap the body at SLOW_BODY_M_S, and the cap l
 });
 
 test('slow: the feet cell is read off playerToWorldCell, and the first contact flashes', () => {
-  const src = APP_JS_SRC.slice(APP_JS_SRC.indexOf('\n  _tickStreetFeet() {'),
-    APP_JS_SRC.indexOf('\n  _bodyHold() {'));
+  const src = SCENE_SRC.slice(SCENE_SRC.indexOf('\n  _tickStreetFeet() {'),
+    SCENE_SRC.indexOf('\n  _bodyHold() {'));
   assert.truthy(/this\.playerToWorldCell\(\)/.test(src), 'the FEET, never the camera anchor');
   assert.truthy(/entry\.slowCells\.get\(i\)/.test(src), 'the dressing\'s slow cells');
   for (const m of src.matchAll(/say\('([^']+)'/g)) {

@@ -7,7 +7,7 @@
 // (the one lane that pops the numbers and pays the kill).
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 test('blight potion: an item with a price, a tier, an icon and a ✦ line', () => {
   assert.truthy(ITEM_BY_ID.blight_potion, 'the catalogue knows it');

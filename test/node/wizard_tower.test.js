@@ -14,11 +14,11 @@
 //     / meleeDps / meleeSwingDamage and Trail.bank / readout / goalFor carries
 //     save.playerClass, and an Enchanter can CHANNEL a timed potion.
 //
-// app.js needs Phaser, so its methods are lifted out of APP_JS_SRC and run on
+// app.js needs Phaser, so its methods are lifted out of SCENE_SRC and run on
 // a stub scene (the memory_story.test.js idiom); the rest is pinned as source.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 const lift = (sig, what) => {
   const start = app.indexOf('\n  ' + sig);
@@ -91,7 +91,7 @@ test('wizard tower: the modal shows Wizard.offers as priced, greyable cards (kin
   assert.eq(s.shells.length, 1, 'one dialog');
   const sh = s.shells[0];
   assert.eq(sh.opts.kind, 'wizard', 'declares the wizard kind');
-  assert.truthy(/const MODAL_KINDS = \{[\s\S]*?\n  wizard:/.test(MODAL_SHELL_SRC), 'which is a MODAL_KINDS row');
+  assert.truthy(/const MODAL_KINDS = \{[\s\S]*?\n  wizard:/.test(SCENE_SRC), 'which is a MODAL_KINDS row');
   assert.truthy(sh.mounted, 'mounted');
   const texts = walk(sh.box).map((e) => e.textContent + '|' + e.innerHTML).join('\n');
   assert.truthy(texts.includes(Wizard.INTRO), 'the wizard speaks of memories');

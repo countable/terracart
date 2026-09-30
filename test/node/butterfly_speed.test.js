@@ -10,7 +10,7 @@ test('butterfly speed: the cap is the row\'s column and the classifier reads it'
 });
 
 test('butterfly speed: every mover in the loop and the net wheel is held to it', () => {
-  const w = SCENE_CREATURES_SRC;
+  const w = SCENE_SRC;
   assert.eq(6 * SHINY_SPEED_MUL, 9, 'a shiny butterfly tops out at 9 m/s');
   assert.truthy(/const maxMps = SpriteLayout\.creatureMaxMps\(c\.kind\) \/ shinyFast;/.test(w),
     'the loop\'s cap rises with the shiny beat');
@@ -18,7 +18,7 @@ test('butterfly speed: every mover in the loop and the net wheel is held to it',
     'the wander glide stretches to the cap');
   assert.truthy(/stepM \* FLEE_STRIDE_MUL \/ maxMps \* 1000/.test(w),
     'the struck-prey shove is held to it too');
-  assert.truthy(/FLEE_MPS = Math\.min\(isButterfly \? 5\.4 : 2, SpriteLayout\.creatureMaxMps\(c\.kind\)\) \* shinyFast;/.test(APP_JS_SRC),
+  assert.truthy(/FLEE_MPS = Math\.min\(isButterfly \? 5\.4 : 2, SpriteLayout\.creatureMaxMps\(c\.kind\)\) \* shinyFast;/.test(SCENE_SRC),
     'the net wheel\'s flee: capped, then quickened for a shiny');
 });
 })();

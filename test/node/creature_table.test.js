@@ -137,7 +137,7 @@ test('creature table: animal interaction timing has one owner beside behaviour',
     && /ANIMAL_INTERACTION\.doubleYieldChance/.test(INTERACT_SRC)
     && /ANIMAL_INTERACTION\.followMs/.test(INTERACT_SRC),
     'interact.js reads every number from the owner');
-  assert.truthy(/SpriteLayout\.creatureProduce\(c\.kind\)/.test(APP_JS_SRC),
+  assert.truthy(/SpriteLayout\.creatureProduce\(c\.kind\)/.test(SCENE_SRC),
     'honey asks the producer predicate instead of naming chicken and cow again');
 });
 
@@ -202,7 +202,7 @@ test('creatures: a hunted deer fights back — a row, wired through the one blow
   assert.falsy(Combat.isEnemy({ kind: 'deer', id: 'deer_1' }), 'never an enemy — nothing auto-fires at it');
   assert.truthy(/const fb = SpriteLayout\.creatureFightsBack\(victim\.kind\);\s*if \(fb\) victim\._rageUntil = Date\.now\(\) \+ fb\.rageMs;/.test(INTERACT_SRC),
     'starting a hunt enrages it');
-  const w = SCENE_CREATURES_SRC;
+  const w = SCENE_SRC;
   assert.truthy(/const gameCharge = enraged && !standDown && !unnoticed;/.test(w),
     'it charges only when noticed and not warded (NOTHING HUNTS A BODY; Home wards it)');
   assert.truthy(/Combat\.incomingDamage\(this\.save, raw\)/.test(w)
@@ -211,6 +211,6 @@ test('creatures: a hunted deer fights back — a row, wired through the one blow
 });
 
 test('creatures: no pest crow is dispatched underground', () => {
-  assert.truthy(/if \(\(this\.depth \|\| 0\) === 0 && now - this\._lastPestT > 90000\)/.test(SCENE_CREATURES_SRC),
+  assert.truthy(/if \(\(this\.depth \|\| 0\) === 0 && now - this\._lastPestT > 90000\)/.test(SCENE_SRC),
     'the pump is surface-only');
 });

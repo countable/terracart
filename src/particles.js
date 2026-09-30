@@ -167,6 +167,17 @@
       count: 10, angle: [245, 295], speed: [40, 90], lifespan: [350, 600],
       gravityY: 260, scale: [0.9, 0.35], alpha: [1, 0.1], rotate: [0, 0],
     },
+    // RAIN — the rainberry's soak (app.js _rainOver). The same drop as the
+    // watering, but FALLING: launched straight down from a few cells above
+    // the ground point and fading out as it lands, from a scatter of points
+    // across the whole radius, so the plot reads as rained on rather than
+    // sprinkled from one spot. Short-lived by the test's rule; the scatter
+    // is what makes it a shower.
+    rain: {
+      tex: { shape: 'drop', color: C.water, core: '#ffffff', size: 8 },
+      count: 6, angle: [86, 94], speed: [120, 180], lifespan: [500, 700],
+      gravityY: 200, scale: [0.9, 0.6], alpha: [0.9, 0.15], rotate: [0, 0],
+    },
     // A WRECK COMING BACK — the timber-and-plaster cousin of the stone chip,
     // thrown off a restored building's walls (app.js _blastAt with a ringPx).
     // Warm sawn wood over a dark beam, and it falls like the stone does: this

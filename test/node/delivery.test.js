@@ -73,7 +73,7 @@ test('isSatisfied: a house fed ONCE is happy for good (the house Discovery badge
 });
 
 test('delivery: the accept path banks the house badge and writes no day stamp', () => {
-  const src = APP_JS_SRC;
+  const src = SCENE_SRC;
   assert.truthy(/_bankDiscovery\(`house:\$\{house\.id\}`,/.test(src), 'first delivery banks house:<id>');
   assert.falsy(/houseSatisfied\[house\.id\]\s*=/.test(src), 'no per-day happy stamp any more');
 });
@@ -285,8 +285,8 @@ test('missingLine: fits MAP_MSG_MAX over every real wishlist item, worst case', 
 });
 
 test('missingLine: the delivery tap uses it, and the callout stands down under a toast', () => {
-  assert.truthy(/Delivery\.missingLine\(wanted, invCount,/.test(APP_JS_SRC), 'presentDeliveryOffer flashes the missing line');
-  assert.falsy(/wants the set: \$\{names\}/.test(APP_JS_SRC), 'the whole-list flash is gone');
+  assert.truthy(/Delivery\.missingLine\(wanted, invCount,/.test(SCENE_SRC), 'presentDeliveryOffer flashes the missing line');
+  assert.falsy(/wants the set: \$\{names\}/.test(SCENE_SRC), 'the whole-list flash is gone');
   assert.truthy(/scene\._liveToasts/.test(RENDER_SRC) && /setStyleOnce\(slot\.el, 'visibility', covered \? 'hidden' : 'visible'\)/.test(RENDER_SRC),
     'a wishlist bubble hides while a live toast overlaps it');
 });

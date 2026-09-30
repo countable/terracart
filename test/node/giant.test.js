@@ -68,7 +68,7 @@
     assert.truthy(Quests.onKill(save, 'giant_goblin'), 'a giant goblin is');
     // The kill path credits the kind as-is, and the elite badge is keyed the
     // same way — so an elite giant goblin is a discovery of its own.
-    const app = APP_JS_SRC;
+    const app = SCENE_SRC;
     assert.truthy(/const qDone = Quests\.onKill\(save, victim\.kind\);/.test(app), 'quest credit is the kind as-is');
     assert.falsy(/\.giant \|\| victim\.kind/.test(app), 'no fold to the base kind anywhere');
     assert.truthy(/if \(this\._bankDiscovery\(victim\.kind, /.test(app), 'the elite badge is keyed by the kind as-is');

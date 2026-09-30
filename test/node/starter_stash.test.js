@@ -8,7 +8,7 @@
 // tested is where it actually seats crates and what they hold.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const starter = STARTER_JS_SRC;
 const lift = (sig) => {
   const a = starter.indexOf('\n  ' + sig);

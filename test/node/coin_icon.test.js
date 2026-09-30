@@ -1,7 +1,7 @@
 // The HUD keeps its detailed jade coin; ground drops use coarse native-size art.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 // ── The asset ─────────────────────────────────────────────────────────────
 test('coin icon: ground and HUD each load their intended artwork', () => {
@@ -91,9 +91,9 @@ test('coin icon: money amounts in HTML go through moneyHTML', () => {
 });
 
 test('coin icon: the shop modal category glyph is the coin asset', () => {
-  assert.truthy(/shop:\s*\{ coinIcon: true, label: 'Shop'[,}]/.test(MODAL_SHELL_SRC),
+  assert.truthy(/shop:\s*\{ coinIcon: true, label: 'Shop'[,}]/.test(SCENE_SRC),
     'the MODAL_KINDS shop row asks for the coin');
-  assert.truthy(/\} else if \(k\.coinIcon\) \{[\s\S]*?ico\.innerHTML = this\.coinIconHTML\(22\);/.test(MODAL_SHELL_SRC),
+  assert.truthy(/\} else if \(k\.coinIcon\) \{[\s\S]*?ico\.innerHTML = this\.coinIconHTML\(22\);/.test(SCENE_SRC),
     'the kind header renders it');
 });
 
