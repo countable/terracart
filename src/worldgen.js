@@ -2381,6 +2381,8 @@
   // was the single longest block left in a build: a labelled slice profile on a
   // real 14-layer tile named it at 1.3-1.7 s, which is the walking stutter.
   // Yields between buildings; the shape of the answer is untouched.
+  // Footprint cells the shape-cleanup pass (4) tidies between two yields.
+  const FOOT_TIDY_YIELD_CELLS = 256;
   function* assignBuildingFootprintsSteps(polys, mvtToCell, w, h, pad = 0) {
     const lo = -pad, hiX = w - 1 + pad, hiY = h - 1 + pad;
     const stride = (hiX - lo + 1);
@@ -2539,9 +2541,12 @@
     // never re-introduce an overlap. Buildings are processed in geometry-key
     // order for the same reason pass 1 is: no dependence on input order.
     const tidyOrder = info.slice().sort((a, b) => a.key - b.key);
-    let _ti = 0;
+    // Yield by CELLS tidied, not buildings: the tidy's cost is its cell sets,
+    // and 64 large footprints between two yields was one 40 ms block.
+    let _tiCells = 0;
     for (const it of tidyOrder) {
-      if (((_ti++) & 63) === 63) yield 'footprint tidy';
+      if (_tiCells >= FOOT_TIDY_YIELD_CELLS) { _tiCells = 0; yield 'footprint tidy'; }
+      _tiCells += it.cells.length + 1;
       if (it.cells.length < 2) continue;
       const before = it.cells;
       const after = tidyFootprintCells(before, it.bp.tier === T.BUILDING,
@@ -5575,15 +5580,32 @@
   let _lastRasterWorstMs = 0;
   let _lastRasterWorstAt = '';
   async function rasterizeTileSliced(layers, cellsPerEdge, tx, ty, tileEdgeM) {
-    const it = rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM);
+    const stats = {};
+    const value = await driveStepsSliced(rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM), stats);
+    _lastRasterSlices = stats.slices;
+    _lastRasterWorstMs = Math.round(stats.worstMs);
+    _lastRasterWorstAt = stats.worstAt;
+    return value;
+  }
+
+  // THE SLICE DRIVER, shared by every sliced pass (the rasterize above, the
+  // post-rasterize tail in loadTile, the scene's spawn pass): run a steps
+  // generator, handing the browser a painted frame whenever a slice has held
+  // the thread for its budget. Same steps, same result as driving it straight
+  // through (runSteps) — only the wall-clock shape differs.
+  //   stats   optional; filled with { slices, worstMs, worstAt }
+  //   abort   optional; asked after every handed-back frame — true stops the
+  //           pass there (the generator's `finally` blocks run) and the
+  //           promise resolves with ABORTED. For a pass whose target can be
+  //           replaced while it waits (a tile evicted mid-spawn).
+  const ABORTED = Symbol('aborted');
+  async function driveStepsSliced(it, stats, abort) {
     let started = _now();
     let slices = 1, worst = 0, worstAt = '';
     for (;;) {
       const r = it.next();
       if (r.done) {
-        _lastRasterSlices = slices;
-        _lastRasterWorstMs = Math.round(worst);
-        _lastRasterWorstAt = worstAt;
+        if (stats) { stats.slices = slices; stats.worstMs = worst; stats.worstAt = worstAt; }
         return r.value;
       }
       // The WORST unbroken stretch, which is the number that matters: the
@@ -5601,8 +5623,28 @@
         noteSliceFrame(held + (back - handedBack));
         started = back;
         slices++;
+        if (abort && abort()) {
+          it.return();
+          if (stats) { stats.slices = slices; stats.worstMs = worst; stats.worstAt = worstAt; }
+          return ABORTED;
+        }
       }
     }
+  }
+  // Drive a steps generator straight through, synchronously.
+  function runSteps(it) {
+    let r = it.next();
+    while (!r.done) r = it.next();
+    return r.value;
+  }
+  // A sliced pass as its own turn on the heavy chain (runHeavyPhase): at most
+  // one heavy chunk runs per frame across every tile in flight.
+  function runStepsSliced(makeSteps, opts) {
+    const o = opts || {};
+    return runHeavyPhase(() => {
+      if (o.abort && o.abort()) return ABORTED;
+      return driveStepsSliced(makeSteps(), o.stats, o.abort);
+    });
   }
 
   function tileEdgeMeters(lat) {
@@ -5796,7 +5838,9 @@
       // (see CLAUDE.md), and once a player has descended, loadCaveTile has
       // already baked this tile's staircase into a cached cave level. The
       // stair must be a pure function of this tile's MVT bytes.
-      maybePlaceCaveEntrance(entry, x, y, tileEdgeM, objects, wildplants);
+      // Sliced, as its own heavy turn: the random-cell guarantee judges every
+      // cell of the tile (one ~17 ms stretch when it ran inline here).
+      await runStepsSliced(() => maybePlaceCaveEntranceSteps(entry, x, y, tileEdgeM, objects, wildplants));
       entry.wildplants = wildplants;
       // THE GENERATED LAYER, frozen before anything order-dependent lands on
       // it. The Overpass bin below is injected only if it happens to be in
@@ -5827,7 +5871,9 @@
       // (the start area otherwise loads treeless right after a save reset
       // wipes the IDB cache).
       entry.hadBin = !!bin;
-      injectTileBin(entry, bin, x, y);
+      // Sliced like the rasterize: a big bin's placement loops held the thread
+      // up to 16 ms. No bin, no turn (and no frame spent waiting for one).
+      if (bin) await runStepsSliced(() => injectTileBinSteps(entry, bin, x, y));
       // The bin's chests count too: restamp every POI chest's density off the
       // settled tile (stampPoiDensity — the tile is the unit).
       stampPoiDensity(entry.objects);
@@ -5867,8 +5913,17 @@
   // snapshots have been captured. Bin rows are cloned before placement so a
   // cached bin can be reused across builds and world frames without changing.
   // Placement order is intentional: destinations win before scenery is seated.
+  // A steps generator like the rasterize (loadTile drives it sliced — a big
+  // bin's placement loops ran up to 16 ms unbroken); this runs it straight
+  // through, for the tests and any caller that cannot await.
   function injectTileBin(entry, bin, x, y) {
+    return runSteps(injectTileBinSteps(entry, bin, x, y));
+  }
+  function* injectTileBinSteps(entry, bin, x, y) {
     if (!bin) return;
+    let _yi = 0;
+    // One yield per 256 rows of any loop below (the label names the stream).
+    const tick = (label) => ((_yi++) & 255) === 255 ? label : null;
     const { grid, roadMask, tileEdgeM } = entry;
     const quiet = entry.quietMask || null;
     const cpe = entry.cellsPerEdge;
@@ -5944,8 +5999,14 @@
     // injected features never land on an existing interactable (a rasterized
     // tree / rock / house / chest).
     const occupied = new Set();
-    for (const o of entry.objects)     occupied.add(cellKeyOf(o.x, o.y));
-    for (const wp of entry.wildplants) occupied.add(cellKeyOf(wp.x, wp.y));
+    for (const o of entry.objects) {
+      occupied.add(cellKeyOf(o.x, o.y));
+      const y1 = tick('bin occupancy'); if (y1) yield y1;
+    }
+    for (const wp of entry.wildplants) {
+      occupied.add(cellKeyOf(wp.x, wp.y));
+      const y1 = tick('bin occupancy'); if (y1) yield y1;
+    }
     // Lot-yard rule for the sidecar injections below. These land after
     // rasterizeTile's lot post-pass, so they re-apply the shared spawn rule.
     // Residential and wasteland lot cells are gated (LOT_TYPES); other
@@ -5989,6 +6050,7 @@
     // tryTreeCell/_sxYardOK's separate call, right below) rather than a bare
     // roadMask read, so this and every other spawner answer "is this under
     // the band" the same one way.
+    yield 'bin ground';
     const detectedGround = entry.zone?.under && typeof Zones !== 'undefined'
       ? grid.map((t, i) => Zones.landAt(grid, entry.zone.under, i)) : grid;
     const _sxHardCell = (ix, iy, detected = false) => {
@@ -6070,6 +6132,7 @@
       return true;
     };
     for (const ch of sx.chests) {
+      { const y1 = tick('bin chests'); if (y1) yield y1; }
       if (onWater(ch.x, ch.y)) continue;   // a chest mid-lake / on stream water reads wrong
       if (!_sxYardOK(ch.x, ch.y)) continue;
       if (isDupPoiChest(entry.objects, ch, _sxCellM)) continue;
@@ -6135,6 +6198,7 @@
       return cells;
     };
     for (const list of [entry.objects, entry.wildplants]) for (const o of list) {
+      { const y1 = tick('bin cell claims'); if (y1) yield y1; }
       const cells = replaceable(o) ? themedCells : fixedCells;
       for (const i of objectCells(o)) cells.add(i);
     }
@@ -6167,6 +6231,7 @@
     const allTrees = [...sx.trees, ...sx.fruittrees]
       .sort((a, b) => (b.crown_m || 0) - (a.crown_m || 0));
     for (const t of allTrees) {
+      { const y1 = tick('bin trees'); if (y1) yield y1; }
       const detected = detectedTree(t);
       const r = placeTree(t.x, t.y, detected);
       if (!r) continue;
@@ -6207,6 +6272,7 @@
       }
     }
     for (const s of sx.shrubs) {
+      { const y1 = tick('bin shrubs'); if (y1) yield y1; }
       if (_sxReservedAt(s.x, s.y)) continue;
       if (onWater(s.x, s.y)) continue;
       if (_sxHard(s.x, s.y)) continue;            // never on road / building / hard cell
@@ -6225,6 +6291,7 @@
       entry.wildplants.push(makeWildplant(s.crop, c.x, c.y, s.id));
     }
     for (const p of sx.poles) {
+      { const y1 = tick('bin poles'); if (y1) yield y1; }
       if (_sxReservedAt(p.x, p.y)) continue;
       if (onWater(p.x, p.y)) continue;
       if (_sxHard(p.x, p.y)) continue;            // never on road / building / hard cell
@@ -6239,6 +6306,7 @@
     // Wells (OSM amenity=fountain) → a tappable well object that refills the
     // watering can (interact.js 'well' branch), rendered as the well sprite.
     for (const wl of sx.wells) {
+      { const y1 = tick('bin wells'); if (y1) yield y1; }
       if (onWater(wl.x, wl.y)) continue;
       if (_sxBuilding(wl.x, wl.y)) continue;      // never on a building (roads are superseded below)
       if (_sxNearBuilding(wl.x, wl.y)) continue;  // nor inside a house sprite's overhang
@@ -6279,6 +6347,7 @@
     // parking path fills). No per-cell occupancy — X marks sit under the
     // terrain and don't block other interactables.
     for (const pk of sx.parking) {
+      { const y1 = tick('bin parking'); if (y1) yield y1; }
       // Same treatment the MVT parking path gets in the rasterize
       // post-pass: a lot's anchor lands on its aisle or the street beside
       // it as often as on standable ground, so walk the X to the nearest
@@ -6919,11 +6988,21 @@
     }
     return mask;
   }
+  // The IndexedDB answer already read this session, until its own `until`:
+  // the veto is warmed on every 20 m walk check, and each read structured-
+  // clones the tile's whole mask. key -> { until, mask }.
+  const _privateVetoRead = new Map();
   async function fetchPrivateVeto(x, y) {
     const key = `${PRIVATE_VETO_IDB_PREFIX}/${Z}/${x}/${y}`;
     const k = `${x}_${y}`;
+    const memo = _privateVetoRead.get(key);
+    if (memo && Date.now() < memo.until) {
+      if (memo.mask) _privateVeto.set(k, memo.mask);
+      return memo.mask || null;
+    }
     const cached = await idbGet(key);
     if (cached && Date.now() < (cached.until ?? 0)) {
+      _privateVetoRead.set(key, { until: cached.until, mask: cached.mask || null });
       if (cached.mask) _privateVeto.set(k, cached.mask);
       return cached.mask || null;
     }
@@ -6945,14 +7024,18 @@
             if (!j || j.remark) continue;        // partial answer: no veto from it
             const mask = privateVetoMask(j.elements, x, y);
             _privateVeto.set(k, mask);
-            await idbPut(key, { mask, until: Date.now() + PRIVATE_VETO_TTL_MS });
+            const until = Date.now() + PRIVATE_VETO_TTL_MS;
+            _privateVetoRead.set(key, { until, mask });
+            await idbPut(key, { mask, until });
             return mask;
           } catch (_) { /* next mirror */ }
           finally { if (timer) clearTimeout(timer); }
         }
         // Failed: no veto, and a short negative cache so a reload does not
         // hammer the server (the decoration's own backoff).
-        idbPut(key, { mask: null, until: Date.now() + OVERPASS_FAIL_TTL_MS });
+        const until = Date.now() + OVERPASS_FAIL_TTL_MS;
+        _privateVetoRead.set(key, { until, mask: null });
+        idbPut(key, { mask: null, until });
         return null;
       } finally { overpassRelease(); _privateVetoInflight.delete(key); }
     })();
@@ -6990,6 +7073,12 @@
     if (!overpassLiveEnabled()) return Promise.resolve(false);
     // The live private-ground veto rides the same tile (per-player things only).
     warmPrivateVeto(x, y);
+    // A READY tile that was built WITH its bin has nothing left to learn from
+    // this: the answer below is false whatever the fetch returns. It is asked
+    // on every 20 m walk check, and the fetch's first step structured-clones
+    // the whole bin out of IndexedDB — so answer from the entry instead.
+    const live = cacheFor(0).get(tileKey(x, y));
+    if (live && live.status === 'ready' && live.hadBin) return Promise.resolve(false);
     ovpNote(x, y, 'fetching');
     return fetchOverpassBin(x, y, lat).then(async (bin) => {
       if (!bin) return false;
@@ -7111,7 +7200,13 @@
   // How far (cells, Chebyshev) a mine mouth may walk off its rock to find
   // OPEN ground (the spawn gate) before its cluster goes without one.
   const CAVE_MOUTH_RELOCATE_CELLS = 6;
+  // The pass itself is a steps generator (loadTile drives it sliced — its
+  // random-cell guarantee judges every cell of the tile); this runs it
+  // straight through, for the tests and any caller that cannot await.
   function maybePlaceCaveEntrance(entry, tx, ty, tileEdgeM, stableObjects, stableWildplants) {
+    return runSteps(maybePlaceCaveEntranceSteps(entry, tx, ty, tileEdgeM, stableObjects, stableWildplants));
+  }
+  function* maybePlaceCaveEntranceSteps(entry, tx, ty, tileEdgeM, stableObjects, stableWildplants) {
     const source = (entry.zone && entry.zone.caveSource) || entry.caveSource;
     const occupancySource = source ? source.objects : (stableObjects || entry.objects || []);
     const wildplantSource = source ? source.wildplants : (stableWildplants || entry.wildplants || []);
@@ -7147,13 +7242,16 @@
     //   • never on or beside a POI chest / its concrete plaza pad
     const objCells = new Set();
     const chestCells = [];
+    let _oi = 0;
     for (const o of occupancySource) {
+      if (((_oi++) & 1023) === 1023) yield 'cave entrance occupancy';
       const { lix, liy } = cellIndexOf(tx, ty, o.x, o.y, tileEdgeM, N);
       if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
       objCells.add(liy * N + lix);
       if (o.kind === 'chest') chestCells.push({ ix: lix, iy: liy });
     }
     for (const wp of wildplantSource) {
+      if (((_oi++) & 1023) === 1023) yield 'cave entrance occupancy';
       const { lix, liy } = cellIndexOf(tx, ty, wp.x, wp.y, tileEdgeM, N);
       if (lix < 0 || liy < 0 || lix >= N || liy >= N) continue;
       objCells.add(liy * N + lix);
@@ -7221,9 +7319,12 @@
 
     // Drop a down-staircase on a random walkable cell (used when the tile has
     // no cave rock to anchor to). Returns true on success.
-    const placeRandomWalkable = () => {
+    // The whole-tile scan yields every row block: stairCellOK over every cell
+    // was one ~17 ms stretch after the last rasterize yield.
+    const placeRandomWalkable = function* () {
       const cells = [];
       for (let i = 0; i < grid.length; i++) {
+        if ((i & 2047) === 2047) yield 'cave entrance random cell';
         if (stairCellOK(i % N, Math.floor(i / N), i)) {
           cells.push(i);
         }
@@ -7242,6 +7343,7 @@
     // Group cave rocks by their residential cluster id. Non-residential rocks
     // (industrial / ROCK terrain) carry no cluster id and fall through to the
     // per-tile guarantee below.
+    yield 'cave entrance sites';
     const byCluster = new Map();
     for (const r of caveRocks) {
       if (!r._clusterId) continue;
@@ -7263,7 +7365,7 @@
     // inside the house buffer — hands the guarantee on to a random OPEN
     // cell, deterministically, rather than leave the tile without a way down.)
     if (placed === 0) {
-      if (!(caveRocks.length && placeBeside(caveRocks[Math.floor(rng() * caveRocks.length)]))) placeRandomWalkable();
+      if (!(caveRocks.length && placeBeside(caveRocks[Math.floor(rng() * caveRocks.length)]))) yield* placeRandomWalkable();
     }
   }
 
@@ -7927,6 +8029,10 @@
     // is not the total but the longest stretch between two yields.
     rasterizeTileSteps,
     setSliceBudgetMs, sliceBudgetMs, noteSliceFrame, sliceFrameTargetMs,
+    // The shared slice driver (see driveStepsSliced): a steps generator run
+    // straight through, or sliced as a turn on the heavy chain — the scene's
+    // spawn pass rides it too. STEPS_ABORTED is what an aborted pass returns.
+    runSteps, runStepsSliced, STEPS_ABORTED: ABORTED,
     RASTER_SLICE_LIVE_MS, SLICE_MIN_MS,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters,
     // The tile's OWN grid: cells per edge from the tile's row (a pure
@@ -7943,7 +8049,7 @@
     buildBinsFromGeoJSON,
     // Apply cached bins independently of fetching, with placement and snapshot
     // preservation pinned by tile_bin_injection.test.js.
-    injectTileBin,
+    injectTileBin, injectTileBinSteps,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isParkingAisle, isLotLane, pruneLotLanesSteps, LOT_POI_R_M, LOT_AISLE_R_M, LOT_STREETSIDE_M, LOT_MAX_M, isSpawnCell, relocateToSpawnCell,
     // THE SPAWN GATE (entry.spawnWhy): the mask's encoding, the classes, the
@@ -8029,7 +8135,7 @@
     // rasterizeTileSliced's result, so a fixture only needs to hand-build the
     // minimal `entry` shape it reads (grid/cellsPerEdge/objects/roadMask/
     // poiPadCells) rather than driving a full tile load.
-    maybePlaceCaveEntrance,
+    maybePlaceCaveEntrance, maybePlaceCaveEntranceSteps,
     // The three stream factories (see the block by tileKey). Exported because
     // the mint sites are spread across app.js, interact.js, lairs.js and
     // sandbox.js as well as this file — one shape per stream, reachable from
