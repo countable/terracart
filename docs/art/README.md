@@ -190,3 +190,21 @@ The Beach folder's driftwood and beach rock come from Core Systems Asset
 Factory's Verdant Props 16×16 pack; its included license permits use in games.
 Only beach-variant pickup looks use these assets; their item identities and
 inventory icons stay wood and rock. The existing cowrie shell colors remain.
+
+
+## Foliage and rock comparison
+
+The dedicated comparison exports current runtime appearances, including timber
+sizes and growth frames, fruit-tree overlays, both hedge looks, giant mushrooms,
+plain/moss/ore rocks, loose stone and beach looks, crop stages, plant enemies and
+biome tints. Source sheets are embedded unchanged; approved-output provenance is
+not a claim that every frame matches the motif. Pin appearances to compare at a
+shared game scale, or switch to sprite detail for colour inspection.
+
+```sh
+python3 tools/preview_foliage_audit.py --output /tmp/foliage-audit
+```
+
+The self-contained HTML and `audit.json` come from `export_foliage_audit.js`, which
+uses the shipping object resolver and crop-render branch. The audit omits light,
+fog, shadows and tool-lock fading. It makes no game-art changes.
