@@ -73,7 +73,8 @@ kept for the life of the save):
   markup, Home paying 60% for a haul, and 2.5× incoming damage after armour.
   There is no pest amnesty, deer are sent at your crops, and roadside traps are more
   common. Enemy health, attacks, ordinary populations and ruin garrisons are
-  shared across modes, so players can fight the same enemies together.
+  shared across modes, so players can fight the same enemies together; easy
+  wakes at most two guards of any one garrison, hard wakes the whole of it.
 
 Every number that differs lives in `src/difficulty.js` as a multiplier over
 the base value, read at the site that owns that value;

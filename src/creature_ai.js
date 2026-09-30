@@ -81,6 +81,17 @@ const FLEE_BEAT_MUL = 0.5;
 // both read. It was 2×, which stacked on the butterfly's own quickness into a
 // blur that no net under tier 3 could hold.
 const SHINY_SPEED_MUL = 1.5;
+// THE SPEED CEILING (owner, Sep 2026): nothing wild — animal or foe, shiny
+// included — ever moves faster than this, m/s, BY ITS BASE NUMBERS. Not a cap
+// applied on top (the owner's call: "rebalance the base speed, no max
+// mechanic"): every gait and bolt row (SpriteLayout.CREATURE_BEHAVIOUR), every
+// roster speed (enemy_roster.js), the crow tick's glides (CROW_FLIGHT_MPS,
+// CROW_DEPART_HOP) and the struck / routed flee are tuned so that
+// pace × SHINY_SPEED_MUL stays under it, and test/node/speed_ceiling.test.js
+// measures every one of them against it. Retune the row, never add a cap.
+// (Before this, a deer bolted at 37 m/s, a rabbit at 33, and the crow's
+// panic dash ran at 40.)
+const WILD_SPEED_CEILING_MPS = 10;
 // The spread on a COMMITTED approach, in radians: tight enough to read as a
 // line rather than a meander. The cave monsters stalk on it (a flyer doubles
 // it, which is what makes a bat careen), and a charging slime borrows it —
@@ -825,7 +836,26 @@ const RAID_NOTICE_CELLS = 8;
 // pace the odds are tuned on: test/node/crow_hunt_odds.test.js drives the
 // real tick against every net tier and pins the wood net's coin flip (and
 // that bare hands never take a crow, a tier-3 net nearly always does).
+//   THE ONE EXCEPTION TO THE SPEED CEILING (WILD_SPEED_CEILING_MPS). This
+// hop is 21 m in 1.5 s — a 14 m/s mean, a 28 m/s peak on the eased leg —
+// and the hunt's odds above are tuned on exactly that: a T1 net's 4 s wheel
+// against the crow's remaining perch plus the ~1.1 s it takes this hop to
+// clear the reach (plus the wheel's 1 s grace). Under the ceiling (a 4.2 s+
+// hop) the crow could never clear the reach inside a 4 s wheel and a T1 net
+// took a crow 97 times in 100, bare hands 8 (test/node/crow_hunt_odds.test.js
+// measured it) — the owner's "coin flip, depending on timing" cannot survive
+// a 10 m/s hop with the reach, the grace and the net wheel as they are. So
+// the one burst stays, declared here, measured as the exception in
+// test/node/speed_ceiling.test.js, and flagged for the owner: slow the hop
+// and retune the hunt (reach, grace or wheel), or keep the burst.
 const CROW_DEPART_HOP = { cells: 3, ms: 1500 };
+// The crow's PEAK flight speed, m/s: every OTHER glide in _wildCrowTick — the
+// roam, the panic dash away from a pet — is a quadratic leg
+// (creatureFlightEase, whose peak is twice its mean), so it lasts
+// 2 × distance / this, and a longer hop is a longer glide, never a faster
+// one (WILD_SPEED_CEILING_MPS). The roam used to peak at 44 m/s, the dash at
+// 80.
+const CROW_FLIGHT_MPS = 9;
 // ── A foe WANDERS OFF now and then ───────────────────────────────────────────
 // Every few minutes each hostile (Combat.isEnemy — the wild slime and every
 // cave monster; never a pet, never a lair guard, whose seat and leash are

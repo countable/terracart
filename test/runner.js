@@ -37,6 +37,61 @@ function teleport(scene, wx, wy) {
   if (scene.syncMoveTarget) scene.syncMoveTarget();
 }
 
+// Seat a deterministic mineralrock on the first free grass cell around the
+// player, in the player's own tile, and return {o, entry}. Terrain rock
+// stopped breaking (edbf0b2), so mining tests drive a real object instead of
+// hunting painted rock - worldgen's own rocks cluster where the fixture
+// never promised them.
+let __rockSeq = 0;
+function placeMineralrock(scene, extra) {
+  const wx = scene.startWorldM.x + scene.playerM.x;
+  const wy = scene.startWorldM.y + scene.playerM.y;
+  // The scene's own conversions (the save's metre frame), never hand-rolled
+  // tile math: floor(w / tileEdgeM) is only right while the origin happens to
+  // sit tile-aligned, which the boot fixture gives and later tests break.
+  const pc = worldMetersToTileCell(scene, wx, wy);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
+  if (!entry || !entry.grid) return null;
+  const N = entry.cellsPerEdge;
+  const taken = new Set();
+  const cellKeyOf = (x, y) => {
+    const c = worldMetersToAbsCell(scene, x, y);
+    return c.cellIX + '_' + c.cellIY;
+  };
+  for (const o of entry.objects) taken.add(cellKeyOf(o.x, o.y));
+  // Wildplants outrank objects at tap time (the pick comes first), and a
+  // creature in the cell outranks both - so all three lists' cells are taken.
+  // A nest bush would swallow the rock's tap; a released pet would pet it.
+  // Creatures get a 2-cell halo because the tap test is their DRAWN body box
+  // (a cow's is ~2.4 cells wide), not their feet.
+  for (const w of (entry.wildplants || [])) taken.add(cellKeyOf(w.x, w.y));
+  for (const c of (entry.creatures || [])) {
+    const cc = worldMetersToAbsCell(scene, c.x, c.y);
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++)
+      taken.add((cc.cellIX + dx) + '_' + (cc.cellIY + dy));
+  }
+  // Grass first, then any walkable open ground (a residential lawn carries
+  // worldgen's curbside rocks too); never road or building feet.
+  const okTerrain = (t) => t === WorldGen.T.GRASS
+    || (WorldGen.isWalkable(t) && !WorldGen.isRoadTerrain(t) && !WorldGen.isBuildingTerrain(t));
+  for (const pass of [0, 1]) for (let d = 1; d < 48; d++)
+    for (const [dx, dy] of [[d,0],[0,d],[-d,0],[0,-d],[d,d],[-d,-d],[d,-d],[-d,d]]) {
+      const ix = pc.ix + dx, iy = pc.iy + dy;
+      if (ix < 1 || iy < 1 || ix >= N - 1 || iy >= N - 1) continue;
+      const t = entry.grid[iy * N + ix];
+      if ((pass === 0 ? t !== WorldGen.T.GRASS : !okTerrain(t))) continue;
+      const abs = tileCellToAbs(scene, pc.tx, pc.ty, ix, iy);
+      const key = abs.cellIX + '_' + abs.cellIY;
+      if (taken.has(key)) continue;
+      const { x, y } = absCellCenterMeters(scene, abs.cellIX, abs.cellIY);
+      const o = WorldGen.makeObject('mineralrock', x, y,
+        'test_rock_' + (++__rockSeq), extra || {});
+      entry.objects.push(o);
+      return { o, entry };
+    }
+  return null;
+}
+
 // Project a world-meter point to screen pixels (the same maths handleWorldTap
 // reverses). Returns the (sx, sy) the tap handler expects.
 function worldToScreen(scene, wx, wy) {
@@ -84,6 +139,10 @@ function terrainAt(scene, wx, wy) {
 // === Runner ───────────────────────────────────────────────────────────
 async function runTests(scene) {
   const list = document.getElementById('cases');
+  // The boot position: a known-open spot tests can pin themselves to when
+  // their fixture must not depend on wherever earlier tests parked the player.
+  scene.__bootWX = scene.startWorldM.x + scene.playerM.x;
+  scene.__bootWY = scene.startWorldM.y + scene.playerM.y;
   let passed = 0, failed = 0;
   for (const t of window.__tests) {
     const row = document.createElement('div');
@@ -97,6 +156,14 @@ async function runTests(scene) {
     // Tests drive taps synchronously without waiting out durMs, so we reset
     // here rather than relying on every test to clean up after itself.
     if (scene._workProgress) scene.cancelWorkProgress();
+    // Test isolation, part two: close any modal a prior test left open.
+    // handleWorldTap is a no-op while a modal is up, so a leaked offer or
+    // slots modal silently eats the following test's first tap - the same
+    // first-tap failure mode as the leaked wheel above.
+    for (const id of ['offer-modal', 'slots-modal', 'chest-reward-modal',
+                      'menu-modal', 'message-modal', 'delivery-menu']) {
+      document.getElementById(id)?.remove();
+    }
     try {
       await t.fn(scene);
       row.className = 'case pass';

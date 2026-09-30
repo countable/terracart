@@ -578,6 +578,40 @@
     };
   }
 
+  test('lairs: easy wakes at most two guards of a garrison — the SAME first two hard meets', () => {
+    // Difficulty lairGuardMax: the world's roll is untouched (held or not,
+    // strength, count, kinds, seats); the mode trims what wakes. Find a
+    // castle the world rolls more than two guards for, then read it in both
+    // modes.
+    const prev = Difficulty.mode();
+    try {
+      assert.eq(Difficulty.PROFILES.easy.lairGuardMax, 2, 'easy: two');
+      assert.falsy(Difficulty.PROFILES.hard.lairGuardMax, 'hard: no cap');
+      let found = null;
+      Difficulty.setMode('hard');
+      for (let fx = 8; fx < 60 && !found; fx += 3) for (let fy = 8; fy < 60 && !found; fy += 3) {
+        const r = garrisonIn(TILE_M, 0, 0, fx, fy, 5, HOME);
+        if (r.n > 2) found = { fx, fy, hard: r };
+      }
+      assert.truthy(found, 'the harness bites: some castle rolls more than two on hard');
+      Difficulty.setMode('easy');
+      const easy = garrisonIn(TILE_M, 0, 0, found.fx, found.fy, 5, HOME);
+      assert.eq(easy.n, 2, `easy wakes two of the ${found.hard.n}`);
+      assert.eq(easy.facts, found.hard.facts.split('|').slice(0, 2).join('|'),
+        'and they are the first two of hard\'s garrison — same ids, kinds, elites and seats');
+      // A garrison of one or two is the same in both modes.
+      Difficulty.setMode('hard');
+      let small = null;
+      for (let fx = 8; fx < 60 && !small; fx += 3) for (let fy = 8; fy < 60 && !small; fy += 3) {
+        const r = garrisonIn(TILE_M, 0, 0, fx, fy, 5, HOME);
+        if (r.n > 0 && r.n <= 2) small = { fx, fy, hard: r };
+      }
+      assert.truthy(small, 'the harness bites: some castle rolls one or two on hard');
+      Difficulty.setMode('easy');
+      assert.eq(garrisonIn(TILE_M, 0, 0, small.fx, small.fy, 5, HOME).facts, small.hard.facts, 'nothing to trim, nothing changes');
+    } finally { Difficulty.setMode(prev); }
+  });
+
   test('lairs: the garrison is identical for any Home and any save frame', () => {
     // THE DETERMINISM PIN. Two players' saves project the world at different
     // latitudes (tileEdgeM differs) and live different distances from the

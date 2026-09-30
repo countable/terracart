@@ -557,13 +557,22 @@
     // flee stride instead of fleeing, and butts for `dmg` every `hitMs` at
     // arm's length (scene_creatures.js). It is still GAME, never an enemy:
     // nothing auto-fires at it. See creatureFightsBack.
+    // BOLT PACES sit under the speed ceiling WITH the shiny factor
+    // (creature_ai.js WILD_SPEED_CEILING_MPS / SHINY_SPEED_MUL: 10 / 1.5, so
+    // a plain bolt stays under ~6.6 m/s). The deer: 1.2 cells (8.4 m) in
+    // 1.3 s ≈ 6.5 m/s, a committed run; it used to cover 1.8 cells in 340 ms
+    // — 37 m/s, a teleport with legs.
     deer:          { wanders: true, game: true, drop: 'meat', raidsCrops: true,
                      avoids: ['scarecrow'], tameSettles: true,
-                     flee: { cells: 5, jitter: 0.6, stepMs: 340, stepCells: 1.8 },
+                     flee: { cells: 5, jitter: 0.6, stepMs: 1300, stepCells: 1.2 },
                      fightsBack: { dmg: 3, hitMs: 2000, rageMs: 20000 } },
+    // The rabbit: half-cell hops in 0.9 s idling (3.9 m/s; it was 420 ms —
+    // 8.3 m/s, over the ceiling as a shiny before it even bolted) and a bolt
+    // of 0.6 cells (4.2 m) in 650 ms ≈ 6.5 m/s, quick short hops with a
+    // breath between (it was 1.4 cells in 300 ms — 33 m/s).
     rabbit:        { wanders: true, tameSettles: true,
-                     stepMs: 420, stepCells: 0.5, pauseMs: [700, 1300],
-                     flee: { cells: 4, jitter: 1.1, stepMs: 300, stepCells: 1.4,
+                     stepMs: 900, stepCells: 0.5, pauseMs: [700, 1300],
+                     flee: { cells: 4, jitter: 1.1, stepMs: 650, stepCells: 0.6,
                              pauseMs: [80, 120] } },
     crow:          { wanders: true, game: true, drop: 'crow_feather', avoids: ['scarecrow'] },
     // THE SPIRIT RAVEN — summoned by the Potion of the Raven (app.js
@@ -588,8 +597,13 @@
     // butterfly never outpaces 6 m/s) — over its gait, its bolt and the net
     // wheel's flee. A shiny's cap rises by its own SHINY_SPEED_MUL (9 m/s,
     // the owner's figure), so the quickening still shows (creatureMaxMps).
-    butterfly:     { wanders: true, pollinates: true, stepMs: 1000, maxMps: 6,
-                     flee: { escapes: true, jitter: 1.2, stepMs: 390, stepCells: 1.5 } },
+    // Its base numbers now sit under that cap on their own (7 m in 1.4 s =
+    // 5 m/s idling; 1.15 cells, 8 m, in 1.35 s ≈ 6 m/s bolting — a quicker
+    // beat and a longer stride, as every bolt row is), so the cap is the
+    // owner's stated number, not what paces it (the speed ceiling wants base
+    // numbers).
+    butterfly:     { wanders: true, pollinates: true, stepMs: 1400, maxMps: 6,
+                     flee: { escapes: true, jitter: 1.2, stepMs: 1350, stepCells: 1.15 } },
     slime:         { wanders: true },
     cave_slime:    { wanders: true },
     purple_slime:  { wanders: true },

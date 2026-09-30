@@ -16,7 +16,7 @@ test('butterfly speed: every mover in the loop and the net wheel is held to it',
     'the loop\'s cap rises with the shiny beat');
   assert.truthy(/stepMs = Math\.max\(stepMs, stepM \/ maxMps \* 1000\)/.test(w),
     'the wander glide stretches to the cap');
-  assert.truthy(/stepM \* FLEE_STRIDE_MUL \/ maxMps \* 1000/.test(w),
+  assert.truthy(/c\._hopMs = Math\.max\(hurryMs, hurryM \/ maxMps \* 1000\);/.test(w),
     'the struck-prey shove is held to it too');
   assert.truthy(/FLEE_MPS = Math\.min\(isButterfly \? 5\.4 : 2, SpriteLayout\.creatureMaxMps\(c\.kind\)\) \* shinyFast;/.test(SCENE_SRC),
     'the net wheel\'s flee: capped, then quickened for a shiny');

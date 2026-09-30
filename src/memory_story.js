@@ -11,6 +11,12 @@ const MemoryStory = (() => {
     body: 'The fire is cold. The shelves are bare. A note waits where the wizard used to sit.\n\n“' + ABANDONED_NOTE + '”' };
   const EMPTY = { art: 'restore_wizard', title: 'An empty tower',
     body: 'No one answers. The wizard is elsewhere.' };
+  // THE FIRST WORDS ARE THE WARDEN'S, ON A TAP. This page is what the safe
+  // area's warden says while nothing is mended yet (npcDialogue below). It
+  // used to be pushed onto the pending queue by the warden's own seating and
+  // splashed over the map on the first morning; it never is now (Sep 2026,
+  // owner's call): the player walks up to the one neighbour on screen and
+  // taps them. drain() drops a queued 'home' record from an older save.
   const HOME = {
     title: 'A neighbour at the gate', art: 'revive_found',
     body: 'My children still ask when we can go home. I kept the key, though there is hardly a door left. If you can mend these houses, we can come back. We still have hands to help.',
@@ -159,21 +165,19 @@ const MemoryStory = (() => {
     return { art: 'discovery_badge', kind: 'memory', title: 'A memory returns',
       body: `A glimpse of a memory comes back as you find ${record.label}.` };
   }
-  function enqueueHome(scene, npc) {
-    // Existing adventures do not receive a belated first-morning greeting.
-    if (total(scene.save) || Object.keys(scene.save.restoredHouses || {}).length) return;
-    const s = state(scene.save);
-    if (s.homeSeen || s.pending.some(p => p.id === 'home')) return;
-    const { id, name, npcVariant, tint } = npc;
-    s.pending.unshift({ id: 'home', npc: { id, name, npcVariant, tint, role: 'warden' } });
-    persistSave(scene.save);
-  }
   function drain(scene) {
     const s = scene.save.memoryStory;
     if (!s?.pending?.length || scene._memoryStoryOpen) return false;
+    // A 'home' record queued by an older save: the warden says it on a tap
+    // now, so it leaves the queue unshown.
+    if (s.pending.some(p => p.id === 'home')) {
+      s.pending = s.pending.filter(p => p.id !== 'home');
+      persistSave(scene.save);
+      if (!s.pending.length) return false;
+    }
     if (document.body?.classList?.contains('modal-open')) return false;
     const record = s.pending[0];
-    let p = record.id === 'home' ? { ...HOME } : panel(record, scene.save);
+    let p = panel(record, scene.save);
     if (record.npc && scene.textures && typeof NPC !== 'undefined') {
       p.art = NPC.portrait(scene, record.npc);
       p.title = `${record.npc.name} · Neighbour`;
@@ -182,7 +186,6 @@ const MemoryStory = (() => {
     try {
       scene.showMessageModal({ ...p, mustAcknowledge: true, onDismiss: () => {
         if (s.pending[0] === record) s.pending.shift();
-        if (record.id === 'home') s.homeSeen = true;
         scene._memoryStoryOpen = false;
         persistSave(scene.save);
       } });
@@ -337,6 +340,6 @@ const MemoryStory = (() => {
   }
   return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, LOCKED, ABANDONED, EMPTY,
     HOME, RUMOUR, NEIGHBOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
-    state, total, enqueue, panel, enqueueHome, drain, npcDialogue, wandererLine, believerLine, survivorLine, act, towerAccess, objective,
+    state, total, enqueue, panel, drain, npcDialogue, wandererLine, believerLine, survivorLine, act, towerAccess, objective,
     eligibleBeats, wizardSequence, pagesFor, visitWizard };
 })();

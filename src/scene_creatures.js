@@ -584,7 +584,12 @@ class SceneCreatures {
     // Stash the one object rather than let that pass rebuild a near-copy: the
     // road rule has to be THE shared rule (CLAUDE.md), not a second reading of
     // it, and the POI anchors are already gathered here.
-    creatures.push(...NPC.spawn(this, entry, tx, ty, _spawnOpts));
+    // The tile's residents: drawn in full (the same people, the same seats,
+    // for every player) and kept on the entry, but NOT seated here — they
+    // come back as memories return, to Home's ring or a restored house
+    // (NPC.arrivals below, and NPC.tickArrivals as the ledger grows).
+    entry._residents = NPC.spawn(this, entry, tx, ty, _spawnOpts);
+    entry._residentsTile = { tx, ty };
     entry._spawnOpts = _spawnOpts;
     entry._spawned = true;
     // KEEP creatures the entry already carries. On a rebuild they are the live
@@ -601,6 +606,7 @@ class SceneCreatures {
       liveIds.add(guard.id);
     }
     NPC.shrineResidents(this, entry, tx, ty);
+    NPC.arrivals(this, entry, tx, ty);
 
     // Starter loot now lives entirely in the road-side starter chests placed
     // below (entry.objects, kind:'chest' with fixedLoot). No loose groundstack
@@ -2135,14 +2141,21 @@ class SceneCreatures {
       // to take on trust, because nothing you could see was leaving. The
       // slime's charge quickens the BEAT alone; a rout takes the stride too,
       // because the thing being asked for is distance, not urgency.
+      //   NOT ON A SPRINT. A kind already at its bolt (sprinting — bolting,
+      // or a hunted deer's charge) is already in a hurry: the bolt row IS its
+      // hurry pace, tuned under the speed ceiling (WILD_SPEED_CEILING_MPS),
+      // and the FLEE multipliers on top would stack a run on a run (a routed
+      // deer at four times its bolt). So the rout quickens what was not
+      // already running.
+      const hurry = routed && !sprinting;
       let stepMs = (c.kind === 'slime' ? STEP_MS * (charging ? 1 : SLIME_STEP_MUL)
                    : isMon ? STEP_MS / mon.speed
                    : sprinting ? (bolt.stepMs ?? STEP_MS)
-                   : (gait?.stepMs ?? STEP_MS)) * shinyFast * (routed ? FLEE_BEAT_MUL : 1);
+                   : (gait?.stepMs ?? STEP_MS)) * shinyFast * (hurry ? FLEE_BEAT_MUL : 1);
       const stepM = (c.kind === 'slime' ? STEP_M * SLIME_HOP_CELLS
                   : isMon ? STEP_M * monsterStrideCells(mon)
                   : sprinting ? STEP_M * (bolt.stepCells ?? 1)
-                  : STEP_M * (gait?.stepCells ?? 1)) * (routed ? FLEE_STRIDE_MUL : 1);
+                  : STEP_M * (gait?.stepCells ?? 1)) * (hurry ? FLEE_STRIDE_MUL : 1);
       // A kind's top speed (SpriteLayout.creatureMaxMps) stretches the glide,
       // never shortens the stride: the step still lands where it was aimed.
       // A shiny's cap rises by the same factor its beat quickens by.
@@ -2200,27 +2213,35 @@ class SceneCreatures {
           c._chaseTarget = nearest;
         }
 
-        // Flee override: prey that was just hit runs away.
+        // Flee override: prey that was just hit runs away — at its BOLT if
+        // its row has one (the bolt IS the kind's hurry, tuned under the speed
+        // ceiling; the FLEE multipliers on top would stack a run on a run),
+        // else at the FLEE pace anything else in a hurry runs. The hop glides
+        // over the same beat it is chosen on (_hopMs): it used to inherit
+        // whatever _hopMs the last step left, so the shove's speed was an
+        // accident of history.
         if (c._fleeUntilT && c._fleeUntilT > now) {
           // Shoved off among houses, it runs the ROADSIDE (creature_ai.js
           // roadsideRunAngle) like every other retreat.
           const shove = c._fleeAngle ?? 0;
           const run = roadsideRunAngle(this, c, shove);
           const fa = run ?? shove;
+          const base = hurry ? { m: stepM / FLEE_STRIDE_MUL, ms: stepMs / FLEE_BEAT_MUL } : { m: stepM, ms: stepMs };
+          const hurryM = bolt ? STEP_M * (bolt.stepCells ?? 1) : base.m * FLEE_STRIDE_MUL;
+          const hurryMs = bolt ? (bolt.stepMs ?? STEP_MS) * shinyFast : base.ms * FLEE_BEAT_MUL;
           for (let attempt = 0; attempt < 4; attempt++) {
             const fleeAngle = fa + (run != null ? 0 : (Math.random() - 0.5) * 0.6);
-            const ftx = c.x + Math.cos(fleeAngle) * stepM * FLEE_STRIDE_MUL;
-            const fty = c.y + Math.sin(fleeAngle) * stepM * FLEE_STRIDE_MUL;
+            const ftx = c.x + Math.cos(fleeAngle) * hurryM;
+            const fty = c.y + Math.sin(fleeAngle) * hurryM;
             const dest = this.cellAt(ftx, fty);
             if (dest.loaded && !Combat.faunaBlocksCell(dest.type)) {
               c._startX = c.x; c._startY = c.y;
               c._targetX = ftx; c._targetY = fty;
               c._stepT0 = now;
-              c._nextChooseT = now + stepMs * FLEE_BEAT_MUL;
               // A kind with a top speed (creatureMaxMps) glides the shove no
               // faster than it: the beat and the glide both stretch.
-              const capMs = stepM * FLEE_STRIDE_MUL / maxMps * 1000;
-              if (capMs > stepMs * FLEE_BEAT_MUL) { c._hopMs = capMs; c._nextChooseT = now + capMs; }
+              c._hopMs = Math.max(hurryMs, hurryM / maxMps * 1000);
+              c._nextChooseT = now + c._hopMs;
               break;
             }
           }
@@ -2584,8 +2605,9 @@ class SceneCreatures {
 
   // Per-tick movement for wild crows. Two-phase state machine:
   //   PERCH      → still for 2–4.5 s
-  //   FLIGHT     → one eased glide over ~800–1200 ms covering ~1–2.5 cells
-  //                (slow + short — crows used to be too fast / fly too far)
+  //   FLIGHT     → one eased glide covering ~0.4–1 cell, peaking at
+  //                CROW_FLIGHT_MPS (~0.6–1.6 s; slow + short — crows used to
+  //                be too fast / fly too far)
   // A crow is GAME (a feather), nothing more. Until Sep 2026 this tick also
   // CASED AND ATE planted crops — an orbit ring round the nearest crop, two
   // perch cycles on it, then the crop was gone — and the hard-mode pump
@@ -2656,8 +2678,11 @@ class SceneCreatures {
           c._startX = c.x; c._startY = c.y;
           c._targetX = ftx; c._targetY = fty;
           c._flightT0 = now;
-          // Quicker than a normal 800-1200ms glide — panic speed.
-          c._flightUntilT = now + 350 + Math.random() * 200;
+          // Twice its distance over the crow's peak flight speed
+          // (CROW_FLIGHT_MPS — a quadratic leg peaks at twice its mean): the
+          // panic is in the short legs and the turn, not a faster bird (it
+          // used to cross two cells in 350 ms: 40 m/s).
+          c._flightUntilT = now + (2 * d / CROW_FLIGHT_MPS) * 1000;
           c._fleeDash = true;
           c._faceFlip = (ftx - c.x) < 0;
           break;
@@ -2712,9 +2737,15 @@ class SceneCreatures {
         tx = c.x + Math.cos(away) * d;
         ty = c.y + Math.sin(away) * d;
       } else {
-        // Random roam, ~1–2.5 cell hops.
+        // Random roam, short hops of 0.4–1 cell. Short on purpose: a glide
+        // lasts its distance over CROW_FLIGHT_MPS (below), and the HUNT's
+        // odds (crow_hunt_odds.test.js) ride on how much of a crow's rhythm
+        // is perch — a tapped crow flies its glide out and sits a full perch
+        // before it leaves — so a longer hop is a longer glide and a T1 net
+        // that never loses. These hops keep a glide near the second the odds
+        // were tuned on (1–2.5-cell hops at the old 800–1200 ms).
         const a = Math.random() * Math.PI * 2;
-        const d = (1 + Math.random() * 1.5) * this.cellM;
+        const d = (0.4 + Math.random() * 0.6) * this.cellM;
         tx = c.x + Math.cos(a) * d;
         ty = c.y + Math.sin(a) * d;
       }
@@ -2747,9 +2778,12 @@ class SceneCreatures {
     c._startX = c.x; c._startY = c.y;
     c._targetX = tx; c._targetY = ty;
     c._flightT0 = now;
-    // 800–1200 ms slow glide; a departing leg takes its row's own time —
-    // longer, over a longer hop: the pace the hunt's odds are tuned on.
-    c._flightUntilT = now + (departing ? CROW_DEPART_HOP.ms : 800 + Math.random() * 400);
+    // A glide lasts twice its distance over the crow's peak flight speed
+    // (CROW_FLIGHT_MPS — a quadratic leg peaks at twice its mean: ~0.6–1.6 s
+    // over the roam's 0.4–1-cell hops); a departing leg takes its row's own time
+    // — the pace the hunt's odds are tuned on, the one declared exception to
+    // the speed ceiling (CROW_DEPART_HOP has the reasoning).
+    c._flightUntilT = now + (departing ? CROW_DEPART_HOP.ms : (2 * Math.hypot(tx - c.x, ty - c.y) / CROW_FLIGHT_MPS) * 1000);
     c._perchUntilT = null;
     c._faceFlip = (tx - c.x) < 0;
     // This is a normal glide, not a flee dash — clear the marker so a FUTURE

@@ -115,5 +115,7 @@ test('coin piles: pickup amounts select the exact quantity boundaries', () => {
     [50, 'coin_pile_medium'], [51, 'coin_pile_large'], [75, 'coin_pile_large']]) {
     assert.eq(Render.coinPile({ amount }).texture, texture, `amount ${amount}`);
   }
-  for (const row of Render.COIN_PILES) assert.lte(row.width, 30, 'fits a map cell');
+  for (const row of Render.COIN_PILES) assert.lte(row.width, 20, 'well inside a map cell (owner, Sep 2026: smaller again)');
+  assert.eq(Render.COIN_PILES.map(r => r.width).join(','), '10,14,17,20');
+  assert.lt(Render.COIN_PILES[0].width, Render.COIN_DROP_PX, 'a lone coin draws under its native width');
 });

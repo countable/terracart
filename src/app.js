@@ -3945,6 +3945,7 @@ class MapScene extends Phaser.Scene {
       this._drainBadgeStories();
       DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
+      NPC.tickArrivals(this, Date.now());
     }
     const dt = dtMs / 1000;
     this._tickConditions();
