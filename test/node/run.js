@@ -162,6 +162,9 @@ const FILES = [
   // crow tick, catching): a third mixin class nobody runs here plus four
   // consts (one reads Combat, loaded above), loaded with no app.js in scope.
   'scene_creatures.js',
+  // The scene's shops (shopInteract, the offers it opens, the shop clock): a
+  // fourth mixin class nobody runs here plus its literal consts.
+  'scene_shops.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
@@ -721,9 +724,7 @@ Object.assign(ctx, {
   const rest = src.match(/const CASTLE_REST_ENERGY = (\d+);/);
   if (!rest) { console.error('Could not find CASTLE_REST_ENERGY in src/app.js — update run.js'); process.exit(2); }
   decls += `const CASTLE_REST_ENERGY = ${rest[1]};\n`;
-  const tax = src.match(/const CASTLE_TAX_GOLD = (\d+);/);
-  if (!tax) { console.error('Could not find CASTLE_TAX_GOLD in src/app.js — update run.js'); process.exit(2); }
-  decls += `const CASTLE_TAX_GOLD = ${tax[1]};\n`;
+  // CASTLE_TAX_GOLD needs no lift: scene_shops.js, in the bundle, declares it.
   vm.runInContext(
     decls
     + 'globalThis.CASTLE_REST_ENERGY = CASTLE_REST_ENERGY;\n'

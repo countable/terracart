@@ -2739,6 +2739,7 @@
   <script src="src/scene_geo.js?v=96439ff3"></script>
   <script src="src/npc.js?v=e826ea4e"></script>
   <script src="src/scene_creatures.js?v=05157f89"></script>
+  <script src="src/scene_shops.js?v=ba777778"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2799,7 +2800,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=48f46229';
+      const APP_SRC = 'src/app.js?v=bd3b40c1';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
