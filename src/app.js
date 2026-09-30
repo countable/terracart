@@ -15345,7 +15345,11 @@ class MapScene extends Phaser.Scene {
     const sel = this.save.inv?.[this.save.selSlot];
     const existing = document.getElementById('consumable-btn');
     const cfg = sel && CONSUMABLE_SPEC[sel.id];
-    if (!cfg || (sel.count ?? 0) <= 0) { existing?.remove(); return; }
+    // Only a row with an ACTION gets the button. The foods with an extra
+    // effect (rainberry, pairy, coffee) keep tuning rows in CONSUMABLE_SPEC
+    // but no verb — they go through Eat — and without this check the
+    // rainberry grew a second button reading "undefined".
+    if (!cfg || !(cfg.verb || cfg.label) || (sel.count ?? 0) <= 0) { existing?.remove(); return; }
     const iconHtml = this.iconSpanHTML(sel.id, 20);
     const label = `${iconHtml} ${cfg.label ? cfg.label(this, cfg) : cfg.verb}`;
     const syncState = button => {
