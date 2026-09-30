@@ -135,7 +135,7 @@
       return x >= 0 && y >= 0 && x < N && y < N ? y * N + x : -1;
     };
     const streetLists = streetDress ? [streetDress.objects, streetDress.wildplants,
-      streetDress.treasures] : [];
+      streetDress.treasures, streetDress.coins] : [];
     const scenicLists = scenicDress ? [scenicDress.objects, scenicDress.wildplants] : [];
     let count = 0;
     field.legacyRemovedByAnchor = field.legacyRemovedByAnchor || {};

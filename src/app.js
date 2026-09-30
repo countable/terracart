@@ -3251,7 +3251,7 @@ class MapScene extends Phaser.Scene {
     this._streetStoryHere = row.story;
     const seen = this.save.storySeen && this.save.storySeen[row.story];
     if (!seen) {
-      this._storySplashOnce(row.story, { art: row.story, title: row.title, body: row.body });
+      this._storySplashOnce(row.story, { art: row.art || row.story, title: row.title, body: row.body });
       return;
     }
     const last = (this._streetFlashAt = this._streetFlashAt || {});
@@ -12742,31 +12742,33 @@ class MapScene extends Phaser.Scene {
           // floor), else the street's. `spacingM` rides on every lamp as the
           // gap it was actually laid at (length / count) — the metres a
           // living-lamp visit pays (Streets.lampCredit).
-          const lay = Streets.lampLayFor(f.tags || {},
-            (rec && rec.variant === 'lantern') ? StreetVariants.lampSpacingFor('lantern') : 0);
-          const at = Streets.lampsAlong(line, mvtToM, lay.spacingM, lay.minLenM);
-          const glow = (hasVariants && StreetVariants.lampGlowFor && StreetVariants.lampGlowFor(rec)) || UI_LAMP_GLOW;
-          if (!at.length) continue;
           const spans = Streets.tileSpans(line, mvtToM, extent);
           if (!spans.length) continue;
           const lineKey = Streets.lineKey(f, i);
-          const spacingM = Streets.lineLengthM(line, mvtToM) / at.length;
           const path = Streets.isWalkingPath(f.tags || {});
-          const creditM = Streets.lampCreditM(spacingM, path);
-          // A SCENIC way's lamps (src/scenic.js — a path by the water, a
-          // greenway, a park path) shed their scenic row's glow on the scenic
-          // metres: StreetVariants' 'path' rows, the same lampGlow column the
-          // street variants' lamps read. Per lamp, off the lamp's own metre.
           const sIvs = (!rec && hasVariants && typeof Scenic !== 'undefined' && entry.scenic && entry.scenic.lines)
             ? entry.scenic.lines.get(lineKey) : null;
-          for (const sM of at) {
-            if (!Streets.covers(spans, sM)) continue;   // in the buffer — the neighbour's stone
-            const q = Streets.pointAtM(line, mvtToM, sM, offM);
-            if (!q) continue;
-            const sKind = sIvs ? Scenic.kindAt(sIvs, sM, mvtToM) : null;
-            const lampGlow = (sKind && StreetVariants.lampGlowFor({ variant: Scenic.KIND_ROW[sKind] })) || glow;
-            out.push({ tileKey, lineKey, tier, glow: lampGlow, s: sM, x: ox + q.x, y: oy + q.y, spacingM, path, creditM,
-                       id:`lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
+          const parts = hasVariants ? StreetVariants.lineParts({ ...rec, line }, mvtToM)
+            : [{ a: 0, b: Streets.lineLengthM(line, mvtToM), variant: null }];
+          for (const part of parts) {
+            const lay = Streets.lampLayFor(f.tags || {},
+              part.variant === 'lantern' ? StreetVariants.lampSpacingFor('lantern') : 0);
+            const subline = Streets.subLineM(line, mvtToM, part.a, part.b);
+            const at = Streets.lampsAlong(subline, 1, lay.spacingM, lay.minLenM);
+            if (!at.length) continue;
+            const spacingM = (part.b - part.a) / at.length;
+            const creditM = Streets.lampCreditM(spacingM, path);
+            const glow = (hasVariants && StreetVariants.lampGlowFor({ size: rec && rec.size, variant: part.variant })) || UI_LAMP_GLOW;
+            for (const offset of at) {
+              const sM = part.a + offset;
+              if (!Streets.covers(spans, sM)) continue;
+              const q = Streets.pointAtM(line, mvtToM, sM, offM);
+              if (!q) continue;
+              const sKind = sIvs ? Scenic.kindAt(sIvs, sM, mvtToM) : null;
+              const lampGlow = (sKind && StreetVariants.lampGlowFor({ variant: Scenic.KIND_ROW[sKind] })) || glow;
+              out.push({ tileKey, lineKey, tier, glow: lampGlow, s: sM, x: ox + q.x, y: oy + q.y, spacingM, path, creditM,
+                         id:`lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
+            }
           }
         }
       }
@@ -13008,7 +13010,7 @@ class MapScene extends Phaser.Scene {
     const row = Scenic.rowFor(kind);
     if (!row) return;
     if (!(this.save.storySeen && this.save.storySeen[row.story])) {
-      this._storySplashOnce(row.story, { art: row.story, title: row.title, body: row.body });
+      this._storySplashOnce(row.story, { art: row.art || row.story, title: row.title, body: row.body });
       return;
     }
     const last = (this._streetFlashAt = this._streetFlashAt || {});

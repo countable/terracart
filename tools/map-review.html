@@ -235,7 +235,7 @@ Object.keys(bases).forEach((k, i) => mkRow($('bases'), 'radio', k, i === 0, () =
 
 const FIXED = { tree: '#1f9d3a', fruittree: '#9be15d', house: '#8a6a4a', tower: '#6f7fa8',
   chest: '#ff3b3b', mineralrock: '#c9c9c9', trap: '#ff2bd6', 'enemy: garrison': '#ff7a00',
-  'enemy: slime': '#b000ff', 'X mark': '#ffe600', Home: '#ffffff' };
+  'enemy: slime': '#b000ff', coindrop: '#efc46a', 'X mark': '#ffe600', Home: '#ffffff' };
 const colour = (k, i) => FIXED[k] || `hsl(${Math.round(i * 137.508 % 360)},80%,55%)`;
 // Everything is shown (and so counted for density) but the traps: a trap is
 // hidden until it springs, so it is not something on screen to interact with.
@@ -267,7 +267,7 @@ function shapeOf(k) {
   if (k.startsWith('animal:')) return 'circle';
   if (k.startsWith('plant:') || k === 'tree' || k === 'fruittree') return 'triangle';
   if (k.startsWith('enemy:')) return 'diamond';
-  if (k === 'chest' || k === 'X mark' || k === 'staircase') return 'star';
+  if (k === 'chest' || k === 'coindrop' || k === 'X mark' || k === 'staircase') return 'star';
   if (k === 'trap') return 'cross';
   return 'square';
 }
@@ -470,6 +470,11 @@ function draw(world, home) {
         ? ' · T' + chestTier(o) : '';
       const label = [o.kind, o.species, o.poiClass, o.name].filter(Boolean).join(' · ') + tier;
       add(k, toLL(o.x, o.y, EDGE), label, o.id, o.x, o.y, popupHTML(e, o, label), ZoneReview.source(e,o));
+    }
+    for (const coin of e.coinDrops || []) {
+      const label = `${coin.amount || 1} coin${(coin.amount || 1) === 1 ? '' : 's'}${coin._street === 'golden' ? ' · Golden Road' : ''}`;
+      add('coindrop', toLL(coin.x, coin.y, EDGE), label, coin.id, coin.x, coin.y,
+        popupHTML(e, coin, label), ZoneReview.source(e, coin));
     }
     for (const w of e.wildplants || []) add(classify(w), toLL(w.x, w.y, EDGE), w.crop, w.id, w.x, w.y, popupHTML(e, w, w.crop), ZoneReview.source(e,w));
     for (const t of e.traps || []) add('trap', toLL(t.x, t.y, EDGE), 'trap', t.id, t.x, t.y, popupHTML(e,t,'trap'), ZoneReview.source(e,t));
@@ -760,7 +765,7 @@ function overlays(world) {
       const idx = e.streetIndex;
       if (!idx || !idx.lines) continue;
       const ext = idx.extent || 4096;
-      for (const rec of idx.lines) {
+      for (const rec of SVx.displayLines(idx, EDGE / ext)) {
         const id = rec.variant || (rec.size === 'major' ? '__major' : '__minor');
         const lk = look[id] || (look[id] = { colour: '#fff', label: id });
         (keys[id] || (keys[id] = new Set())).add(rec.key);

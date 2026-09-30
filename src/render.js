@@ -53,6 +53,8 @@
 // pattern other scene code and tests use.)
 
 const Render = {};
+const COIN_DROP_PX = 16.8;
+Render.COIN_DROP_PX = COIN_DROP_PX;
 
 // Fallback fill for cells whose terrain type has no COLORS entry (and for the
 // diagonal-neighbour colour painted into rounded corners). Matches the grass
@@ -2336,7 +2338,7 @@ Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay
     }
     const index = e.streetIndex;
     if (!index || typeof StreetVariants === 'undefined') continue;
-    for (const rec of index.lines || []) {
+    for (const rec of StreetVariants.displayLines(index, edgeM / (index.extent || 4096))) {
       const line = rec.line;
       if (!line || line.length < 2) continue;
       // Clip to the camera window first: a long road can cross the entire
@@ -2364,7 +2366,7 @@ Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay
         if (left <= span.d) { x = span.x + span.dx * left / span.d; y = span.y + span.dy * left / span.d; break; }
         left -= span.d;
       }
-      const id = `road:${rec.key || rec.lineKey}`, distance = (x - ax) ** 2 + (y - ay) ** 2;
+      const id = `road:${rec.key || rec.lineKey}:${rec.variant || 'plain'}`, distance = (x - ax) ** 2 + (y - ay) ** 2;
       const prior = roads.get(id);
       if (prior && prior.distance <= distance) continue;
       const row = StreetVariants.VARIANT_BY_ID[rec.variant];
@@ -3606,7 +3608,6 @@ Render.drawObjects = function drawObjects(scene) {
       // coin_drop is the 64px pixel-art asset now (was a baked 16px disc).
       // The drop still draws COIN_DROP_PX across, derived off the frame's own
       // width so a re-cut asset can't silently resize what the player sees.
-      const COIN_DROP_PX = 16.8;
       s.setOrigin(0.5, 0.5)
        .setScale((COIN_DROP_PX / s.width) * pulse)
        .setPosition(Math.round(sx), Math.round(sy))

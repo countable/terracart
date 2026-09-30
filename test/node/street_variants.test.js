@@ -142,7 +142,7 @@ test('variants: a name word nudges its row (the sign foreshadows the street)', (
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'orchard') plain++;
     if (SV.variantFor(`s${i}|0,0`, `Cherry ${i}`, 'minor') === 'orchard') cherry++;
   }
-  assert.gt(cherry, plain * 3, `a cherry street is far likelier an orchard (${cherry} vs ${plain})`);
+  assert.gt(cherry, plain * 2, `a cherry street is far likelier an orchard (${cherry} vs ${plain})`);
 });
 
 test('variants: sizes follow the terrain tiers — major = ROAD_MD + ROAD_LG, minor = ROAD streets', () => {
@@ -520,13 +520,13 @@ test('toadstool lane: a minor row at 5%, its verge holds patterned glowing mushr
   // Appended after the seven older rows (code 8), and only the never-rolled
   // scenic 'path' rows (src/scenic.js) after it: no older row's code moves.
   assert.eq(row.code, 8, 'appended: no older row\'s code moves');
-  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path'), 'only the scenic path rows after it');
+  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path' || r.id === 'golden'), 'new rows append without changing existing codes');
   let plain = 0, named = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'toadstool') plain++;
     if (SV.variantFor(`s${i}|0,0`, `Mushroom ${i}`, 'minor') === 'toadstool') named++;
   }
-  assert.gt(named, plain * 3, `a mushroom street is likelier a toadstool lane (${named} vs ${plain})`);
+  assert.gt(named, plain * 2, `a mushroom street is likelier a toadstool lane (${named} vs ${plain})`);
   const { d, r, before } = dressedVariants();
   const plants = d.wildplants.filter((w) => w._street === 'toadstool');
   assert.gt(plants.length, 4, 'the lane is dressed');
@@ -782,24 +782,108 @@ test('short street dressing: mixed orchard rows and a visible maple growth seque
   }
 });
 
-test('street length cap: aggregate fragments, deduplicate reversed segments, preserve exactly 500m', () => {
-  const name = HEDGE;
-  const make = (segments, named = true) => {
-    const features = segments.map((line) => ({ type: 2, tags: { class: 'minor' }, geom: [line] }));
-    return SV.buildIndex([
-      { name: 'transportation', extent: 4096, features },
-      { name: 'transportation_name', features: named ? segments.map((line) => ({ type: 2, tags: { name }, geom: [line] })) : [] },
-    ], TX, TY, 1);
-  };
-  const a = { x: 100, y: 100 }, b = { x: 350, y: 100 }, c = { x: 600, y: 100 }, d = { x: 601, y: 100 };
-  const short = make([[a, b], [b, c], [c, b]]);
-  assert.truthy(short.lines.every((r) => r.variant === 'hedgerow'), 'exactly 500m keeps its variant, reverse duplicate does not add length');
-  const clipped = make([[{ x: 0, y: 100 }, a], [a, b]]);
-  assert.truthy(clipped.lines.every((r) => !r.variant), 'unknown full length at tile boundary leaves every named fragment plain');
-  for (const named of [true, false]) {
-    const long = make([[a, b], [b, c], [c, d]], named);
-    assert.truthy(long.lines.every((r) => r.streetLengthM === 501 && !r.variant && !r.rocks), 'split long roads stay plain');
+function indexOfLines(lines, name = HEDGE, tx = TX, ty = TY, mvtToM = 1) {
+  return SV.buildIndex([
+    { name: 'transportation', extent: EXTENT, features: lines.map(line => ({ type: 2, tags: { class: 'minor' }, geom: [line] })) },
+    { name: 'transportation_name', extent: EXTENT, features: name ? lines.map(line => ({ type: 2, tags: { name }, geom: [line] })) : [] },
+  ], tx, ty, mvtToM);
+}
+const themeGeometry = index => JSON.stringify(index.dressingLines.map(r => ({ key: r.key, variant: r.variant, line: r.line, patch: r.patch })));
+
+test('street themes: 40% of all minor keys, with name bias only selecting identity', () => {
+  let plain = 0, named = 0, golden = 0, namedGolden = 0;
+  const n = 40000;
+  for (let i = 0; i < n; i++) {
+    const key = `road eligibility ${i}|0,0`;
+    const a = SV.variantFor(key, null, 'minor');
+    const b = SV.variantFor(key, 'Cherry Church Golden Lane', 'minor');
+    plain += !!a; named += !!b; golden += a === 'golden'; namedGolden += b === 'golden';
+    assert.eq(!!a, !!b, 'names cannot change eligibility');
   }
+  assert.inRange(plain / n, .39, .41, '40% overall');
+  assert.eq(named, plain);
+  assert.inRange(golden / n, .015, .025, 'Golden Road is 2% of all minor roads');
+  assert.eq(golden, namedGolden, 'name nudges cannot inflate the rare coin-road share');
+});
+
+test('street themes: exactly 500m, reversed duplicates and feature cuts keep identical dressing paths', () => {
+  const a = { x: 100, y: 100 }, b = { x: 350, y: 100 }, c = { x: 600, y: 100 };
+  const whole = indexOfLines([[a, c]]);
+  const split = indexOfLines([[c, b], [a, b], [b, c]]);
+  assert.eq(themeGeometry(whole), themeGeometry(split));
+  assert.truthy(split.lines.every(r => r.variant === 'hedgerow' && r.streetLengthM === 500));
+  assert.eq(split.dressingLines[0].patch, null, 'a complete compact road needs no artificial gaps');
+  assert.eq(themeGeometry(indexOfLines([[a, c]], null)), themeGeometry(indexOfLines([[c, b], [b, a]], null)),
+    'anonymous joined geometry is stable too');
+});
+
+test('street themes: long and clipped roads get bounded patches with visible plain gaps', () => {
+  const a = { x: -50, y: 100 }, b = { x: 1800, y: 100 }, c = { x: 4146, y: 100 };
+  const whole = indexOfLines([[a, c]]), split = indexOfLines([[c, b], [b, a]]);
+  assert.eq(themeGeometry(whole), themeGeometry(split), 'cuts and direction do not change theme geometry');
+  assert.gt(whole.dressingLines.length, 1, 'a crossing road is not discarded');
+  const patches = new Map();
+  for (const rec of whole.dressingLines) {
+    assert.eq(rec.variant, 'hedgerow');
+    patches.set(rec.patch, (patches.get(rec.patch) || 0) + Streets.lineLengthM(rec.line, 1));
+    for (const p of rec.line) assert.inRange(p.x % SV.VARIANT_PATCH_UNITS,
+      SV.VARIANT_PATCH_INSET_UNITS - 1e-6, SV.VARIANT_PATCH_UNITS - SV.VARIANT_PATCH_INSET_UNITS + 1e-6);
+  }
+  for (const length of patches.values()) assert.lte(length, SV.MAX_VARIANT_LENGTH_M);
+  const parts = SV.lineParts(whole.lines[0], 1);
+  assert.gt(parts.filter(p => !p.variant && p.b - p.a >= 2 * SV.VARIANT_PATCH_INSET_UNITS).length, 1,
+    'plain intervals visibly separate themes');
+  assert.eq(SV.variantAt(whole.lines[0], 512 + 50, 1), null, 'lattice boundary is a plain gap');
+  for (const line of [[{x:-50,y:512},{x:4146,y:512}], [{x:512,y:-50},{x:512,y:4146}]]) {
+    const aligned = indexOfLines([line]);
+    assert.gt(aligned.dressingLines.length, 0, 'roads following a patch boundary are still themed');
+    assert.eq(aligned.dressingLines.length, 8, 'the seam-aligned road belongs to each patch only once');
+  }
+  const next = indexOfLines([[{x:-50,y:100},{x:4146,y:100}]], HEDGE, TX + 1);
+  assert.truthy(next.dressingLines.every(r => r.variant === whole.dressingLines[0].variant), 'named road keeps its identity across the tile seam');
+});
+
+test('street themes: a winding patch caps total arclength and yields during interval matching', () => {
+  const points=[];
+  for(let y=32;y<450;y++) points.push({x:40,y},{x:450,y});
+  const layers=[
+    {name:'transportation',extent:EXTENT,features:[{type:2,tags:{class:'minor'},geom:[points]}]},
+    {name:'transportation_name',extent:EXTENT,features:[{type:2,tags:{name:HEDGE},geom:[points]}]},
+  ];
+  const it=SV.buildIndexSteps(layers,TX,TY,1); let r, yields=0;
+  do { r=it.next(); if(r.value === 'street theme interval geometry') yields++; } while(!r.done);
+  const total=r.value.dressingLines.reduce((n,rec)=>n+Streets.lineLengthM(rec.line,1),0);
+  assert.inRange(total,499.99,500.01,'one patch cannot hide more than500m of winding street');
+  // Additional short source segments are tested against its clipped theme.
+  assert.gt(yields,0,'the interval comparison loop cooperates with sliced world generation');
+});
+
+test('golden road: seeded one-coin pickups have stable 28m spacing and respect occupied/blocked cells', () => {
+  const name = nameWhere((n,k) => SV.variantFor(k,n,'minor') === 'golden', 'Golden Street');
+  const line = pts([[10,25],[54,25]]), split = [line[0], pts([[32,25]])[0], line[1]];
+  const build = (lines, blocked = false) => {
+    const index = indexOfLines(lines, name, TX, TY, TILE_EDGE_M / EXTENT);
+    const spawnWhy = new Uint16Array(CPE*CPE);
+    if (blocked) spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    const opts = { roadMask: new Uint8Array(CPE*CPE), roadClass: new Uint8Array(CPE*CPE), spawnWhy, occupied: new Set() };
+    const grid = new Uint8Array(CPE*CPE).fill(T.PARK);
+    const result = SV.dress({ index, tx:TX, ty:TY, N:CPE, tileEdgeM:TILE_EDGE_M, grid, spawnOpts:opts });
+    return { result, opts };
+  };
+  const { result, opts } = build([line]);
+  assert.eq(SV.VARIANT_BY_ID.golden.story, 'street_golden');
+  assert.eq(SV.VARIANT_BY_ID.golden.art, 'street_lantern', 'reuse the existing warm road banner');
+  assert.eq(result.coins.length, 11, '308m straight road yields one coin every28m');
+  assert.eq(JSON.stringify(result.coins), JSON.stringify(build([[split[2],split[1]],[split[1],split[0]]]).result.coins));
+  const xs = result.coins.map(c => c.x).sort((a,b)=>a-b);
+  for(let i=1;i<xs.length;i++) assert.eq(xs[i]-xs[i-1], SV.GOLDEN_STEP_M);
+  for(const coin of result.coins) {
+    const ix=cellOf(coin.x,TX), iy=cellOf(coin.y,TY);
+    assert.eq(coin.id,WorldGen.cellId('golden_coin',TX,TY,ix,iy));
+    assert.eq(coin.kind,'coindrop'); assert.eq(coin.amount,1); assert.truthy(coin.seeded);
+    assert.truthy(opts.occupied.has(iy*CPE+ix),'coin reserves its cell before save filtering');
+  }
+  assert.eq(build([line],true).result.coins.length,0,'hard restrictions prevent coin placement');
 });
 
 test('barricade scenery adds stakes and barriers without multiplying guards', () => {

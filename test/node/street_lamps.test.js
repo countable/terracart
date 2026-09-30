@@ -508,6 +508,18 @@ test('street lamps: each lamp carries its street\'s glow — StreetVariants.lamp
   assert.truthy(/out\.push\(\{ \.\.\.L, lit:/.test(updateSrc), 'the frame list spreads the tile lamp, glow and all');
 });
 
+test('street lamps: density and glow stop at the same compact theme intervals', () => {
+  const rec = { fi:0,li:0,size:'major',variant:'lantern',
+    variantRanges:[[60 / MVT_TO_M,120 / MVT_TO_M]] };
+  const lamps = P._streetLampsForTile.call({},TX,TY,withIndex([rec]));
+  const themed=lamps.filter(l=>l.s>=60 && l.s<=120), plain=lamps.filter(l=>l.s<60 || l.s>120);
+  assert.gt(themed.length,0,'the compact lantern stretch has lamps');
+  assert.gt(plain.length,0,'the plain road remains represented');
+  assert.truthy(themed.every(l=>l.glow === StreetVariants.VARIANT_BY_ID.lantern.lampGlow));
+  assert.truthy(plain.every(l=>l.glow === StreetVariants.BANDIT_STORY.lampGlow));
+  assert.lt(themed[0].spacingM,plain[0].spacingM,'only the themed interval has dense lamps');
+});
+
 test('street lamps: the ART and the LIGHT read the one glow', () => {
   // The light: collectLamps colours the entry by the lamp's glow; the default
   // leaves the row's own colour (and cookie) alone.

@@ -25,6 +25,14 @@
     assert.eq(labels[0].x, 110); assert.eq(labels[0].y, 100);
     assert.eq(Render.variantLabelRecords([e], 100, 110, 150, 10).length, 0, 'nonintersecting road culled');
   });
+  test('variant labels: a plain gap cannot hide the visible themed stretch', () => {
+    const rec = { key: 'mixed street', size: 'minor', variant: 'golden',
+      variantRanges: [[40, 80]], line: [{x:0,y:0},{x:100,y:0}] };
+    const e = { tx:0,ty:0,streetIndex:{extent:100,lines:[rec]} };
+    const labels = Render.variantLabelRecords([e],100,30,0,80);
+    assert.truthy(labels.some(l => l.text === 'Road: Golden Road' && l.x >=40 && l.x <=80));
+    assert.truthy(labels.some(l => l.text === 'Road: Plain street' && (l.x<40 || l.x>80)));
+  });
   test('variant labels: pooled draw follows camera projection and clears on toggle or underground', () => {
     const previous = new Map(WorldGen.tileCache), made = [];
     const text = () => {

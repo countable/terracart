@@ -65,7 +65,11 @@ const cellIdx = (p) => cellY(p.y) * CPE + cellX(p.x);
 // 40 → 39, one older plant's cell now holds a street rock (occupancy).
 // The biome stream's pre-ownership source remains stable; special street
 // corridors now remove only plants inside their claimed area.
-const OLDER_PLANTS_BEFORE = { n: 39, hash: 3112412394 };
+// RE-PINNED (40% minor-road variants): two roads now choose Hedgerow, which
+// excludes street rocks. Exactly two previously rock-occupied plant cells
+// become free; every original plant keeps its position and id.
+const OLDER_PLANTS_BEFORE = { n: 41, hash: 2322481391 };
+const NEWLY_UNCOVERED_PLANTS = new Set(['wp_3_5_29_53', 'wp_3_5_52_58']);
 
 test('residential yard flora: street ownership only removes older plants inside its corridor', () => {
   const r = rasterize();
@@ -75,8 +79,11 @@ test('residential yard flora: street ownership only removes older plants inside 
   const sourceIds = source.map((p) => p.id).sort();
   assert.eq(fnv1a(sourceIds.join('|')), OLDER_PLANTS_BEFORE.hash, 'the older plant stream did not reroll');
   assert.eq(sourceIds.length, OLDER_PLANTS_BEFORE.n);
+  const originalIds = sourceIds.filter((id) => !NEWLY_UNCOVERED_PLANTS.has(id));
+  assert.eq(originalIds.length, 39, 'only the two newly rock-free cells add plants');
+  assert.eq(fnv1a(originalIds.join('|')), 3112412394, 'all original ambient plants retain their ids');
   const expected = source.filter((p) => !r.streetArea[cellIdx(p)]).map((p) => p.id).sort();
-  const older = r.wildplants.filter((p) => !isYard(p)).map((p) => p.id).sort();
+  const older = r.wildplants.filter((p) => !isYard(p) && !p._street).map((p) => p.id).sort();
   assert.eq(older.join('|'), expected.join('|'), 'only owned corridor plants are cleared');
 });
 
