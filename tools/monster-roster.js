@@ -1,0 +1,125 @@
+/* global loadGame, EnemyRoster, EnemySpawns, EnemyHabitats, ZoneVariantData, Combat,
+          SpriteLayout, ASSETS, ArtPreviewColour, recolorEnemyPixels, MATERIAL_TIERS */
+'use strict';
+(async () => {
+  try {
+    await loadGame();
+    const $=id=>document.getElementById(id);
+    const tiers=['Bare / none',...MATERIAL_TIERS.map(t=>t.name)];
+    const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const fmt=n=>Number.isInteger(n)?String(n):n.toFixed(1);
+    let selected=null;
+    // Aliases adapt the proposal's presentation to the runtime schema. Never copy stats.
+    const enemies=EnemyRoster.ROWS.filter(e=>!e.retired).map(e=>({...e,
+      attack:e.attackType,attackSeconds:e.damageIntervalSeconds,
+      surface:e.surface&&{...e.surface,minHomeM:e.surface.minDistance,maxHomeM:e.surface.maxDistance},
+      cave:e.cave&&{...e.cave,every:e.cave.depthRule==='even'?2:null},
+    }));
+    const DATA={ghostScaling:EnemyRoster.GHOST_SCALING,rules:[
+      'Loaded from the current game roster, combat helpers, sprite layouts and habitat tables. Retired rows are excluded.',
+      'General spawn ranges and named habitat memberships are separate routes. Membership does not guarantee a spawn: terrain, home distance, depth and encounter rules still apply.',
+      'Combat comparisons assume uninterrupted attacks, no class or training bonuses, no movement or regeneration, and sequential kills within a concurrent group. Kill time charges one full attack interval per hit. Group cost is an estimate, not a battle simulation.',
+      'Ghost touch, traps and coin theft are special encounters and excluded from group energy estimates. Staff assumes one target per bolt and one energy per cast.',
+      `Ordinary surface tier bands: ${EnemyRoster.SURFACE_TIERS.map(b=>`${b.minDistance}–${b.maxDistance??'∞'} m: T${Object.keys(b.tierWeights).join('/T')}`).join('; ')}.`,
+    ]};
+    const zoneName=id=>ZoneVariantData.variants.find(z=>z.id===id)?.name||id.replaceAll('_',' ');
+    function habitatMemberships(e) {
+      const memberships=table=>Object.entries(table).filter(([,kinds])=>kinds.includes(e.id)).map(([id])=>zoneName(id));
+      return [['Zone encounters',memberships(EnemyHabitats.SURFACE_FAMILIES)],['Building habitats',memberships(EnemyHabitats.BUILDING_FAMILIES)],['Cave habitats',memberships(EnemyHabitats.FAMILIES)],['Zone guards',ZoneVariantData.variants.filter(z=>z.guards?.kind===e.id||z.guards?.choices?.includes(e.id)).map(z=>z.name)]];
+    }
+    function hasSurface(e) { const m=habitatMemberships(e);return !!e.surface||[m[0],m[1],m[3]].some(([,names])=>names.length); }
+    function hasCave(e) {return !!e.cave||e.id==='red_dragon'||habitatMemberships(e)[2][1].length>0;}
+    function atDepth(e,depth) {
+      if(e.attack==='touch')return depth>=Math.max(EnemyRoster.GHOST_SCALING.minCryptDepth,e.id==='pink_ghost'?e.cave.minDepth:0);
+      if(e.id==='red_dragon')return depth>=e.cave.minDepth;
+      const themes=EnemyHabitats.THEME_BANDS.find(b=>depth<=b.max)?.themes||[];
+      const kinds=[...new Set(themes.flatMap(theme=>EnemyHabitats.FAMILIES[theme]||[]))];
+      return EnemySpawns.caveRows(depth,{kinds}).some(row=>row.id===e.id);
+    }
+    const response=await fetch('../docs/art/art-direction.json',{cache:'no-store'});
+    if(!response.ok)throw new Error('Could not load the world palette.');
+    const {palette:worldPalette}=await response.json();
+    const artFrames={}, images=new Map();
+    async function imageFor(path) {
+      if(!images.has(path))images.set(path,new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(new Error(`Could not load ${path}`));image.src='../'+path;}));
+      return images.get(path);
+    }
+    for(const row of enemies) {
+      const art=SpriteLayout.creatureArt(row.id),asset=ASSETS[art.sheet];
+      const image=await imageFor(asset.path),fw=asset.frameWidth,fh=asset.frameHeight;
+      const canvas=document.createElement('canvas');canvas.width=fw;canvas.height=fh;
+      const ctx=canvas.getContext('2d',{willReadFrequently:true});
+      const frame=SpriteLayout.creatureAppearance({kind:row.id,id:row.id,_facing:'down'},0).frame;
+      const cols=image.naturalWidth/fw;
+      ctx.drawImage(image,(frame%cols)*fw,Math.floor(frame/cols)*fh,fw,fh,0,0,fw,fh);
+      const pixels=ctx.getImageData(0,0,fw,fh),palette=EnemyRoster.get(art.sheet)?.palette;
+      if(palette)recolorEnemyPixels(pixels.data,palette);
+      const tint=SpriteLayout.creatureTint(row.id),rgb=[(tint>>16)&255,(tint>>8)&255,tint&255];
+      for(let i=0;i<pixels.data.length;i+=4)for(let ch=0;ch<3;ch++)pixels.data[i+ch]=Math.round(pixels.data[i+ch]*rgb[ch]/255);
+      ctx.putImageData(pixels,0,0);
+      artFrames[row.id]={width:fw,height:fh,original:canvas.toDataURL()};
+      ArtPreviewColour.recolour(canvas,worldPalette,{strength:.25,preserveLuminance:true});
+      artFrames[row.id].palette=canvas.toDataURL();
+    }
+for(let t=0;t<tiers.length;t++){for(const id of (t===0?['armorTier']:['weaponTier','armorTier']))$(id).add(new Option(`T${t} · ${tiers[t]}`,t));if(t)$('tier').add(new Option(`T${t} · ${tiers[t]}`,t))}$('weaponTier').value='3';$('armorTier').value='3';
+const biomes=[...new Set(enemies.flatMap(e=>e.surface?.biomes||[]))].sort();biomes.forEach(b=>$('biome').add(new Option(b,b)));
+const base=enemies.filter(e=>!e.variantOf);
+$('summary').innerHTML=[[base.length,'active base kinds'],[enemies.length-base.length,'active variants'],[enemies.filter(e=>hasSurface(e)).length,'surface or zone kinds'],[enemies.filter(e=>hasCave(e)).length,'cave or special kinds']].map(([n,label])=>`<div class="metric"><strong>${n}</strong>${label}</div>`).join('');
+$('rules').innerHTML=DATA.rules.map(r=>`<p>${esc(r)}</p>`).join('');
+
+function pool(){return $('pool').value!==''?Math.max(0,Number($('pool').value)):Number($('armorTier').value)*Number($('pieces').value)}
+function stats(e){const elite=$('elite').value==='elite'&&e.eliteEligible;return {hp:Math.round(e.hp*(elite?Combat.ELITE_MUL:1)),dmg:e.dmg*(elite?Combat.ELITE_MUL:1),armor:e.armor,elite}}
+function penalty(){return Combat.playerDamageMultiplier($('mode').value)}
+function groupN(){return Math.max(1,Number($('groupSize').value)||($('mode').value==='hard'?3:5))}
+function group(e,t,w,p=pool(),n=groupN()){if(e.attack==='trap'||e.attack==='touch'||!!e.steals)return null;const f=fight(e,t,w),dps=attackDps(e,p)+auraDps(e,p)*Number($('auraExposure').value);return n*(n+1)/2*f.seconds*dps+(w==='staff'?n*f.hits*Combat.SHOT.staff.energyCost:0)}
+function verdict(cost){if(cost==null)return 'Special';const ratio=cost/Math.max(1,Number($('energy').value)||100);return ratio<.75?'Player favoured':ratio<=1.15?'Roughly even':'Enemies favoured'}
+function weapon(t,w){const interval=w==='sword'?Combat.MELEE_INTERVAL_MS/1000:Combat.fireIntervalMs(w)/1000;const relics={[w]:{tier:t}};const raw=w==='sword'?Combat.meleeSwingDamage(relics):Combat.shotDamage(relics,w);return {interval,raw}}
+function fight(e,t,w){const s=stats(e),p=weapon(t,w),hit=Combat.mitigate(p.raw,s.armor),hits=Math.ceil(s.hp/hit);return {hit,hits,seconds:hits*p.interval}}
+function incoming(e){if(e.steals)return {hit:null,label:'Coin theft'};if(e.attack==='trap')return {hit:null,label:'Trap hazard'};const s=stats(e),n=e.attackHits||1;const hit=n*Combat.mitigate(s.dmg,pool())*penalty();return {hit,label:`${fmt(hit)} / ${e.attack==='projectile'?'projectile':e.attack==='touch'?'touch':'hit'}`}}
+function caveLabel(c){return !c?'—':`D${c.minDepth}${c.maxDepth==null?'+':c.maxDepth===c.minDepth?'':'–'+c.maxDepth}${c.every?' · every '+c.every+' levels':''}`}
+function distanceLabel(s){return `${s.minHomeM}–${s.maxHomeM==null?'∞':s.maxHomeM} m`}
+function zone(e) {
+  const lines=[];
+  if(e.surface) lines.push(`<div><span class="tag">General surface ${distanceLabel(e.surface)}</span><br>${esc(e.surface.biomes.join(', '))}<br><small>${esc(e.surface.time)} · weight ${e.surface.weight}</small></div>`);
+  else lines.push('<small>No general surface spawn</small>');
+  if(e.cave && e.attack!=='touch' && e.id!=='red_dragon') lines.push(`<div><span class="tag">General cave ${caveLabel(e.cave)}</span><small>weight ${e.cave.weight}</small></div>`);
+  for(const [label,names] of habitatMemberships(e)) if(names.length) lines.push(`<div><span class="tag">${label}</span>${esc(names.join(', '))}</div>`);
+  if(e.attack==='touch') lines.push(`<div>${e.surface?'Night haunt / ':''}crypt pockets D${Math.max(EnemyRoster.GHOST_SCALING.minCryptDepth,e.id==='pink_ghost'?e.cave.minDepth:0)}+ (odd and even depths)</div>`);
+  if(e.id==='red_dragon') lines.push(`<div>Special dragon roost encounter D${e.cave.minDepth}+; excluded from the general cave bag.</div>`);
+  return lines.join('');
+}
+
+function movementLabel(e){const m=e.movement;return Number.isFinite(m.speedMetersPerSecond)?`${fmt(m.speedMetersPerSecond)} m/s`:`${Number(m.speedCellsPerSecond.toFixed(3))} cells/s${m.pattern==='orbit_swoop'?' in flight':''}`}
+function ghostRule(e){if(e.attack!=='touch')return null;const depth=Number($('depth').value)||0;return EnemyRoster.ghostProfile(depth)}
+function sprite(e,big=false,treatment=Number($('paletteTreatment').value)) {
+  const frame=artFrames[e.id], scale=SpriteLayout.creatureScale(e.id,ghostRule(e)?.sizeMultiplier||1);
+  const zoom=big?4:3;
+  return `<span class="spritebox" style="display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:${big?120:82}px;height:${big?120:82}px"><img class="sprite" alt="${esc(e.name)} runtime art" src="${frame[treatment===25?'palette':'original']}" style="width:${frame.width*scale*zoom}px;height:${frame.height*scale*zoom}px;max-width:none;max-height:none;opacity:${SpriteLayout.creatureAlpha(e.id)}"></span>`;
+}
+
+function attackDps(e,p=pool()){if(e.attack==='trap'||e.attack==='touch'||!!e.steals)return 0;return (e.attackHits||1)*Combat.mitigate(stats(e).dmg,p)*penalty()/e.attackSeconds}
+function auraDps(e,p=pool()){if(!e.aura)return 0;const seconds=e.aura.mitigationPacketSeconds,raw=e.aura.rawDps*(stats(e).elite?Combat.ELITE_MUL:1);return Combat.mitigate(raw*seconds,p)/seconds*penalty()}
+function rawDps(e){return !e.steals&&e.attackSeconds&&e.attack!=='trap'?stats(e).dmg*(e.attackHits||1)/e.attackSeconds:null}
+function rawDpsLabel(e){const raw=rawDps(e);return raw==null?'Special':`${fmt(raw)} raw DPS${e.aura?' + '+fmt(e.aura.rawDps*(stats(e).elite?Combat.ELITE_MUL:1))+' aura':''}`}
+function dpsPair(e){if(e.attack==='trap'||e.attack==='touch'||!!e.steals)return '— / —';const raw=rawDps(e)+(e.aura?e.aura.rawDps*(stats(e).elite?Combat.ELITE_MUL:1):0);return `${fmt(raw)} / ${fmt(attackDps(e,e.tier*4)+auraDps(e,e.tier*4))}`}
+function attackLabel(e){return e.steals?'Steals coins once per day':e.attack==='touch'?'One touch, then disappears':e.attack==='trap'?'Lays a snare every '+e.attackSeconds+' s':`${e.attackHits||1} ${e.projectile?esc(e.projectile)+' ':''}${e.attack==='projectile'?'projectile':'hit'} every ${e.attackSeconds} s`}
+function movementDetails(e){const m=e.movement;return `<h3>Movement & vision</h3><p><b>${movementLabel(e)}</b> · vision <b>${e.visionCells} cells</b><br>${esc(m.pattern.replaceAll('_',' '))}</p><p class="muted">${esc(e.movementNotes||'')}</p>${m.pattern==='orbit_swoop'?`<p>Orbit ${m.orbitRadiusCells.join('–')} cells · flight ${m.flightSeconds.join('–')} s · recovery ${m.pauseSeconds.join('–')} s · leg cap ${m.maxLegCells} cells. One attack opportunity per ${e.attackSeconds} s cycle, only on a swoop.</p>`:''}<p>${attackLabel(e)} · ${fmt(e.windupSeconds||0)} s wind-up, included in cycle. <b>${rawDpsLabel(e)}</b>.</p><p>Through selected armour: ${fmt(attackDps(e))} attack DPS${e.aura?' + '+fmt(auraDps(e))+' aura DPS at full exposure':''}.</p>${e.aura?`<p class="banner">Blight aura: ${e.aura.radiusCells}-cell radius, ${e.aura.rawDps} raw DPS. ${esc(e.aura.source)} aura. ${esc(e.aura.rule)}</p>`:''}${e.attack==='touch'?`<h3>Ghost depth scaling</h3><table><thead><tr><th>Zone</th><th>Group / cap</th><th>Size</th></tr></thead><tbody>${DATA.ghostScaling.rows.map(r=>`<tr><td>${r.zone==='surface_night'?'Surface night':'D'+Math.max(r.minDepth,DATA.ghostScaling.minCryptDepth)+(r.maxDepth==null?'+':'–'+r.maxDepth)}</td><td>${r.groupMin}–${r.groupMax} / ${r.nearMax}</td><td>${r.sizeMultiplier}×</td></tr>`).join('')}</tbody></table><p class="muted">${DATA.ghostScaling.cadenceSeconds} ± ${DATA.ghostScaling.jitterSeconds} seconds between groups. ${esc(DATA.ghostScaling.stats)}</p>`:''}`}
+function render(){let list=enemies.filter(e=>{const q=$('search').value.toLowerCase(),s=e.surface,c=e.cave;return (!q||(JSON.stringify(e)+' '+JSON.stringify(habitatMemberships(e))).toLowerCase().includes(q))&&($('tier').value==='all'||e.tier===Number($('tier').value))&&($('variant').value==='all'||($('variant').value==='base'?!e.variantOf:!!e.variantOf))&&($('habitat').value==='all'||($('habitat').value==='surface'?hasSurface(e):$('habitat').value==='dungeon'?hasCave(e):!hasSurface(e)&&hasCave(e)))&&($('biome').value==='all'||s?.biomes.includes($('biome').value))&&($('time').value==='all'||(s&&(s.time==='any'||s.time===$('time').value)))&&($('distance').value===''||(hasSurface(e)&&EnemySpawns.homeAllows(e.id,Number($('distance').value))&&(!s||s.maxHomeM==null||Number($('distance').value)<s.maxHomeM)))&&($('depth').value===''||atDepth(e,Number($('depth').value)))});list.sort((a,b)=>$('sort').value==='name'?a.name.localeCompare(b.name):(a[$('sort').value]-b[$('sort').value]||a.name.localeCompare(b.name)));if(!list.some(e=>e.id===selected))selected=list[0]?.id;$('count').textContent=`${list.length} enemies shown · player armour pool ${pool()} · ${$('mode').value==='hard'?'Hard':'Easy'} mode · ${$('elite').value==='elite'?'Elite preview (where eligible)':'ordinary stats'}`;$('rows').innerHTML=list.map(e=>{const s=stats(e),f=fight(e,Number($('weaponTier').value),$('weapon').value),inc=incoming(e),cost=group(e,Number($('weaponTier').value),$('weapon').value);return `<tr data-id="${e.id}" class="${selected===e.id?'selected':''}"><td data-sort-value="${esc(e.name)}"><div class="name">${sprite(e)}<div><button class="pick" data-pick="${e.id}">${esc(e.name)}</button><br><span class="tag">T${e.tier} ${tiers[e.tier]}</span>${e.variantOf?'<small>'+esc(e.variantType)+'</small>':''}${s.elite?'<span class="tag">Elite</span>':''}</div></div></td><td class="nowrap" data-sort-value="${s.hp}"><b>${s.hp}</b> HP<br>${s.armor} armour</td><td data-sort-value="${e.visionCells}">${movementLabel(e)}<br><b>${e.visionCells} cells vision</b><br><small>${esc(e.movement.pattern.replaceAll('_',' '))}</small></td><td data-sort-value="${e.steals||e.attack==='trap'?'':s.dmg}">${e.steals?'Coin theft':e.attack==='trap'?'Snares':fmt(s.dmg)+' dmg'}<br>${e.range} cells<br><small>${esc(e.attack)}${e.attack==='touch'?'':` · ${e.attackSeconds}s`}</small></td><td data-sort-value="${e.attack==='trap'||e.attack==='touch'||e.steals?'':rawDps(e)+(e.aura?e.aura.rawDps*(s.elite?Combat.ELITE_MUL:1):0)}" class="nowrap" title="Raw total DPS / damage through a full same-tier armour set. Includes full aura exposure; Hard affects only the armour-adjusted result.">${dpsPair(e)}<br><small>raw / armour</small></td><td class="zone">${zone(e)}</td><td class="nowrap" data-sort-value="${f.seconds}">${fmt(f.seconds)} s<br><small>${f.hits} hits × ${fmt(f.hit)}</small></td><td data-sort-value="${cost??''}">${cost==null?'Special':fmt(cost)+' energy'}<br><small>${verdict(cost)} · ${groupN()} foes</small></td></tr>`}).join('')||'<tr><td colspan="8" class="empty">No enemies match these zones and filters.</td></tr>';SortableTables.refresh($('rows').closest('table'));$('rows').querySelectorAll('tr[data-id]').forEach(tr=>tr.onclick=()=>{selected=tr.dataset.id;render()});detail(enemies.find(e=>e.id===selected));$('detail').querySelectorAll('table').forEach(SortableTables.refresh)}
+function detail(e){if(!e){$('detail').innerHTML='<h2>No selection</h2><p>Broaden a filter to inspect an enemy.</p>';return}const s=stats(e),f=fight(e,Number($('weaponTier').value),$('weapon').value);$('detail').innerHTML=`<div class="name">${sprite(e,true)}<div><div class="eyebrow">${e.variantOf?'Declared variant':'Base kind'}</div><h2>${esc(e.name)}</h2><span class="tag">T${e.tier} · ${tiers[e.tier]}</span></div></div><p>${esc(e.notes||e.movement.hitPolicy||e.movement.speedMeaning||'')}</p><div class="statgrid"><div><small>HP</small><b>${s.hp}</b></div><div><small>Armour pool</small><b>${s.armor}</b></div><div><small>Reach</small><b>${e.range}</b></div></div>${movementDetails(e)}<h3>Palette comparison</h3><div style="display:flex;flex-wrap:wrap;gap:12px"><div>${sprite(e,true,0)}<p>Original</p></div><div>${sprite(e,true,25)}<p>25% palette</p></div></div><h3>Declared zones</h3>${zone(e)}<h3>Group challenge</h3><button onclick="matchTier(${e.tier})">Equip matching T${e.tier} weapon + full armour</button><p><strong>${group(e,Number($('weaponTier').value),$('weapon').value)==null?'Special encounter':fmt(group(e,Number($('weaponTier').value),$('weapon').value))+' energy'}</strong> expected cost against ${groupN()} concurrent enemies. ${verdict(group(e,Number($('weaponTier').value),$('weapon').value))}.</p><p class="muted">Same-tier full-set cost: ${['sword','bow','staff'].map(w=>w+' '+(group(e,e.tier,w,e.tier*4)==null?'special':fmt(group(e,e.tier,w,e.tier*4)))).join(' · ')}. Staff estimate includes 1 energy per cast and assumes a single target per bolt; piercing groups can materially reduce the cost.</p><h3>Kill time by player weapon</h3><p class="muted">Includes enemy armour and Elite modifier. Difficulty changes incoming player damage only.</p><table><thead><tr><th>Tier</th><th>Sword</th><th>Bow</th><th>Staff</th></tr></thead><tbody>${tiers.slice(1).map((name,i)=>`<tr><td>T${i+1} ${name}</td>${['sword','bow','staff'].map(w=>`<td>${fmt(fight(e,i+1,w).seconds)} s</td>`).join('')}</tr>`).join('')}</tbody></table><h3>Incoming attack damage by full armour set</h3><table><thead><tr><th>Armour</th><th>${e.attack==='projectile'?'Per projectile':'Per hit / touch'}</th></tr></thead><tbody>${tiers.map((name,t)=>`<tr><td>T${t} ${name}</td><td>${e.steals?'Coin theft':e.attack==='trap'?'Separate hazard':fmt((e.attackHits||1)*Combat.mitigate(s.dmg,4*t)*penalty())}</td></tr>`).join('')}</tbody></table><p class="muted">Selected attack: ${fmt(weapon(Number($('weaponTier').value),$('weapon').value).raw)} raw → ${fmt(f.hit)} after enemy armour.</p>${s.elite&&$('mode').value==='hard'?`<p class="warn">Elite is identical in both modes. Hard players receive ×${penalty()} damage after armour; this can make Elite hits severe.</p>`:''}<details><summary>Declared row</summary><pre>${esc(JSON.stringify(e,null,2))}</pre></details>`}
+function matchTier(t){$('weaponTier').value=t;$('armorTier').value=t;$('pieces').value='4';$('pool').value='';render()}
+$('sort').addEventListener('input',()=>SortableTables.clear($('rows').closest('table')));
+for(const input of document.querySelectorAll('.controls input,.controls select'))input.addEventListener('input',render);$('reset').onclick=()=>{SortableTables.clear($('rows').closest('table'));for(const id of ['search','distance','depth'])$(id).value='';for(const id of ['habitat','tier','variant','biome','time'])$(id).value='all';$('sort').value='tier';render()};renderArtComparison();render();window.review={enemies,fight,incoming,stats,weapon,group,atDepth,hasSurface,hasCave,artFrames};window.matchTier=matchTier;
+
+function renderArtComparison(){$('artCompare').innerHTML=['bat','vampire_bat','plant','copper_plant','giant_plant','skeleton','lich'].map(id=>{const e=enemies.find(e=>e.id===id);if(!e)return '';return `<div style="text-align:center">${sprite(e,true)}<p>${esc(e.name)}</p></div>`}).join('');}
+$('paletteTreatment').addEventListener('change',()=>{renderArtComparison();render();});
+    document.documentElement.dataset.previewReady='true';
+    document.documentElement.dataset.rosterReady='true';
+    const status=document.getElementById('paletteStatus');
+    if(status)status.textContent=`${enemies.length} active monsters loaded from current game data.`;
+  } catch(error) {
+    document.documentElement.dataset.rosterError=error.message;
+    const status=document.getElementById('paletteStatus')||document.getElementById('count');
+    if(status){status.className='error';status.textContent=`Could not load monster viewer: ${error.message}`;}
+    console.error(error);
+  }
+})();

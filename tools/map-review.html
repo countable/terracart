@@ -28,6 +28,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="artifact-review" content="disabled">
 <title>Map review</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
@@ -67,13 +68,6 @@
   <label><input id="sourceColors" type="checkbox"> Color markers by source</label>
   <details><summary>Source colors</summary><div id="sourceLegend"></div></details>
   <h3>Difficulty</h3><div id="modes"></div>
-  <h3>Seed</h3>
-  <div><button id="reroll">Reroll</button><button id="reseed">Original seed</button>
-    <span id="salt" style="color:#888"></span></div>
-  <h3>Tuning <span style="text-transform:none;color:#777">(× the shipped value)</span></h3>
-  <div id="tuning"></div>
-  <div><button id="tuneReset">Reset all</button></div>
-  <pre id="changes" style="white-space:pre-wrap;color:#c8a64a;font-size:11px;margin:6px 0"></pre>
   <h3>Base map</h3><div id="bases"></div>
   <div id="artStatus" hidden style="color:#aaa;margin:4px 0"></div>
   <div id="artOptions" hidden><label><input id="restoredLamps" type="checkbox">Preview restored roads and lamps</label></div>
@@ -857,66 +851,6 @@ function overlays(world) {
   $('legend').innerHTML = blocks.join('');
 }
 
-// ── TUNING: sliders over the shipped density tables ─────────────────────────
-// Nothing here is a copy of a game number: each slider scales the LIVE table
-// the generator reads at build time — the per-biome flora ranges
-// (BiomeProfiles.flora, dMin / dMax), the fauna counts (BIOME_FAUNA base /
-// range) and the mode's trap multiplier (Difficulty.PROFILES) — from its
-// shipped value, which is kept aside so Reset puts it back. The page is its
-// own copy of the game; nothing reaches the real one.
-const tune = { knobs: [] };
-function initTuning() {
-  const byCrop = new Map();
-  for (const code of Object.values(WorldGen.T)) {
-    for (const fl of BiomeProfiles.flora(code) || []) {
-      if (!fl || !fl.crop || !Number.isFinite(fl.dMax)) continue;
-      if (!byCrop.has(fl.crop)) byCrop.set(fl.crop, new Set());
-      byCrop.get(fl.crop).add(fl);
-    }
-  }
-  for (const [crop, set] of [...byCrop.entries()].sort()) {
-    const entries = [...set].map((fl) => ({ fl, dMin: fl.dMin, dMax: fl.dMax }));
-    tune.knobs.push({ name: 'plant: ' + crop, mul: 1,
-      apply: (m) => entries.forEach((e) => { e.fl.dMin = e.dMin * m; e.fl.dMax = e.dMax * m; }),
-      describe: (m) => `${crop} density ${entries[0].dMin}–${entries[0].dMax} → ×${m}` });
-  }
-  for (const kind of Object.keys(BIOME_FAUNA).sort()) {
-    const f = BIOME_FAUNA[kind], base = f.base, range = f.range;
-    tune.knobs.push({ name: (Combat.isEnemy({ kind }) ? 'enemy: ' : 'animal: ') + kind, mul: 1,
-      apply: (m) => { f.base = Math.round(base * m); f.range = Math.round(range * m); },
-      describe: (m) => `BIOME_FAUNA.${kind} base ${base} → ${Math.round(base * m)}, range ${range} → ${Math.round(range * m)}` });
-  }
-  const trapBase = Object.fromEntries(Object.entries(Difficulty.PROFILES).map(([k, p]) => [k, p.trapCountMul]));
-  tune.knobs.push({ name: 'traps (per mode)', mul: 1,
-    apply: (m) => Object.entries(Difficulty.PROFILES).forEach(([k, p]) => { p.trapCountMul = trapBase[k] * m; }),
-    describe: (m) => Object.entries(trapBase).map(([k, v]) => `trapCountMul ${k} ${v} → ${+(v * m).toFixed(2)}`).join(', ') });
-  let t = null;
-  const soon = () => { clearTimeout(t); t = setTimeout(() => rebuild(window.__home), 400); };
-  for (const k of tune.knobs) {
-    const row = document.createElement('label');
-    row.style.cssText = 'display:grid;grid-template-columns:1fr 90px 36px;gap:6px';
-    row.innerHTML = `<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${k.name}</span>`
-      + `<input type="range" min="0" max="3" step="0.1" value="1"><span class="n">×1</span>`;
-    const r = row.querySelector('input'), v = row.querySelector('.n');
-    r.oninput = () => { k.mul = +r.value; v.textContent = '×' + k.mul; k.apply(k.mul); showChanges(); soon(); };
-    k.input = r; k.label = v;
-    $('tuning').appendChild(row);
-  }
-  $('tuneReset').onclick = () => {
-    for (const k of tune.knobs) { k.mul = 1; k.input.value = 1; k.label.textContent = '×1'; k.apply(1); }
-    showChanges(); rebuild(window.__home);
-  };
-  let salt = 0;
-  const showSalt = () => { $('salt').textContent = salt ? 'salt ' + salt.toString(16) : 'as shipped'; };
-  $('reroll').onclick = () => { salt = (Math.random() * 0xffffffff) >>> 0 || 1; WorldGen.setReviewSalt(salt); showSalt(); rebuild(window.__home); };
-  $('reseed').onclick = () => { salt = 0; WorldGen.setReviewSalt(0); showSalt(); rebuild(window.__home); };
-  showSalt();
-}
-function showChanges() {
-  const lines = tune.knobs.filter((k) => k.mul !== 1).map((k) => k.describe(k.mul));
-  $('changes').textContent = lines.length ? 'changed from shipped:\n' + lines.join('\n') : '';
-}
-
 // ── Go ──────────────────────────────────────────────────────────────────────
 function rebuild(home) {
   $('status').textContent = 'building the world around Home…';
@@ -959,7 +893,6 @@ function rebuild(home) {
       mkRow($('modes'), 'radio', m, Difficulty.mode() === m, () => { Difficulty.setMode(m); rebuild(window.__home); }, 'mode');
     }
     $('dmin').onchange = $('dmax').onchange = density;
-    initTuning();
     const setAll = (v) => {
       Object.entries(state.layers).forEach(([k, l]) => { state.shown[k] = v; v ? l.addTo(map) : map.removeLayer(l); });
       document.querySelectorAll('#kinds input').forEach((i) => { i.checked = v; });
