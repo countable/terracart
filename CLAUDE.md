@@ -71,7 +71,7 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   while available (`poiLit`); a refusal prints the wait via `shortDuration`. A
   new recurring thing joins that ledger and that glow, never a list of its own.
 - Derive generated ids/seeds from tile + local cell or OSM id, never array
-  indices, timestamps or save-relative metres. The transient pest crow is the
+  indices, timestamps or save-relative metres. The transient pest deer is the
   id exception. Per-save salts may vary rewards, not positions;
   `WorldGen.setReviewSalt` is for the map-review tool only.
 - Every player with the same tile data sees the same generated identities and
@@ -353,9 +353,17 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   stay out of public item descriptions (sapphire taming stays in the closing riddle).
 - Loot identity by place uses per-context `favourite`; general frequency uses
   `dropWeight`.
+- A neighbour's talk is its ROLE, a row of `NPC.PROFILES[zone].roles` with a
+  label in every `NPC.LABELS` zone and a branch in `NPC.dialogue` that reads
+  an owning ledger (restoration, lamps), never a count of its own. A zone's
+  story in a resident's voice is the `keeper` column of `Zones.ZONE_KINDS`.
+  The story neighbours by the trailer (`NPC.STORY_ROLES`, seated by
+  `Starter.placeSafeAreaWarden`) arrive by the memory ledger (`minMemories`,
+  re-run from `_bankDiscovery`) and speak through `MemoryStory.npcDialogue`
+  by act; a new story voice is a role there, not a new placer or dialog path.
 
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
-`item_descriptions`, `books`.
+`item_descriptions`, `books`, `story_neighbours`.
 
 ## Maintaining this file
 

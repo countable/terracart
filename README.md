@@ -71,7 +71,7 @@ kept for the life of the save):
   exploring and rebuilding are the loop.
 - **Hard mode — no tutorial.** A $20 purse (against $50), traders at 1.5× the
   markup, Home paying 60% for a haul, and 2.5× incoming damage after armour.
-  There is no pest amnesty, crows raid your crops, and roadside traps are more
+  There is no pest amnesty, deer are sent at your crops, and roadside traps are more
   common. Enemy health, attacks, ordinary populations and ruin garrisons are
   shared across modes, so players can fight the same enemies together.
 

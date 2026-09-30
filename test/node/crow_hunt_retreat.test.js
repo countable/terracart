@@ -1,11 +1,12 @@
-// A crow retreats IN FULL when the player starts hunting it — the same
-// departure a crow makes after eating (scene_creatures.js _crowDepart, creature_ai.js CROW_DEPART_MS):
-// straight away from the player for the usual ~2.5–4 minutes. TWO REASONS,
-// one departure: a SATED crow is out of its perch on the spot; a HUNTED one
-// keeps its rhythm — the perch it is sitting, or the glide it is on — and
-// leaves on its next launch, so the net's wheel races the perch the crow had
-// left when it was tapped (creature_ai.js CROW_DEPART_HOP: the hunt is timed,
-// not rolled; crow_hunt_odds.test.js pins the odds).
+// A crow retreats IN FULL when the player starts hunting it (scene_creatures.js
+// _crowDepart, creature_ai.js CROW_DEPART_MS): straight away from the player
+// for the usual ~2.5–4 minutes. ONE departure, two forms: a SATED crow is out
+// of its perch on the spot (the form a meal used to take — until Sep 2026 the
+// crow ate crops; the deer does now, so nothing calls it); a HUNTED one keeps
+// its rhythm — the perch it is sitting, or the glide it is on — and leaves on
+// its next launch, so the net's wheel races the perch the crow had left when
+// it was tapped (creature_ai.js CROW_DEPART_HOP: the hunt is timed, not
+// rolled; crow_hunt_odds.test.js pins the odds).
 
 (function () {
 const app = SCENE_SRC;   // _crowDepart and its caller are the SceneCreatures mixin's
@@ -48,11 +49,12 @@ test('crow retreat: a HUNTED crow keeps its perch — or its glide — and leave
   assert.eq(flying._perchUntilT, null, 'and lands into its usual perch');
 });
 
-test('crow retreat: one departure, two reasons — a meal and a hunt', () => {
+test('crow retreat: one departure — the hunt drives it now (the crow eats no crop any more)', () => {
   assert.falsy(/c\._departUntilT = now \+ 150000/.test(app), 'no second copy of the departure');
-  assert.truthy(/this\._crowDepart\(c, now\);/.test(app), 'a sated crow departs through it, at once');
+  assert.falsy(/this\._crowDepart\(c, now\);/.test(app), 'no sated-crow departure is left in the tick: the crow eats nothing');
+  assert.falsy(/_destroyCropRef|_destroyAtT|_destroyCyclesLeft/.test(app), 'the crop-casing state is gone with it');
   assert.truthy(/if \(victim\.kind === 'crow'\) scene\._crowDepart\?\.\(victim, performance\.now\(\), 'hunted'\);/.test(INTERACT_SRC),
-    'and a hunted crow through the same call, on its own rhythm');
+    'a hunted crow departs through the one call, on its own rhythm');
   // The retreat hop is the table's, past the approach cap, on its own glide.
   assert.truthy(/const d = CROW_DEPART_HOP\.cells \* this\.cellM;/.test(WILD_CROW_TICK_SRC), 'the hop is the row\'s cells');
   assert.truthy(/if \(!departing && legD > MAX_LEG\) \{/.test(WILD_CROW_TICK_SRC), 'a retreat is not an approach: no cap');

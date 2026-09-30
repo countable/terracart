@@ -2839,7 +2839,7 @@ test('scarecrow aversion: crow refuses to step within 4 cells of a scarecrow', (
   }
 });
 
-test('pest crow eats planted crop on contact (removes from save.planted)', (scene) => {
+test('a wild crow beside a planted crop leaves it alone (the deer is the crop raider)', (scene) => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
   const entry = [...WorldGen.tileCache.values()].find(e => e.creatures);
   if (!entry) return;
@@ -2850,22 +2850,20 @@ test('pest crow eats planted crop on contact (removes from save.planted)', (scen
   const crop = { x: pWX, y: pWY, id: 'rainberry', stage: 0, t: 0 };
   scene.save.planted.push(crop);
   const before = scene.save.planted.length;
-  // Crow co-located with the crop → bestD2 < (cellM*0.5)^2 → eaten.
+  // Crow co-located with the crop. Until Sep 2026 _wildCrowTick armed a
+  // destroy timer on landing here and ate the crop two perch cycles later;
+  // the owner moved crop-raiding to the deer (wanderCreatures `raidsCrops`),
+  // so a crow on the bed is just a crow on the bed.
   const crow = { x: pWX, y: pWY, kind: 'crow', id: 'eat_crow_' + Date.now() };
   entry.creatures.push(crow);
   try {
-    // _wildCrowTick uses a perch → flight → land-on-crop → 2 s destroy
-    // timer rhythm. To make this a single-tick test, pre-arm the timer
-    // directly: stamp the destroy reference + a past _destroyAtT so the
-    // very next tick fires step (1) of _wildCrowTick (resolve pending
-    // destruction) and splices the crop out of save.planted.
-    crow._destroyCropRef = crop;
-    crow._destroyAtT = performance.now() - 1;   // already due
-    scene.wanderCreatures();
-    assert.eq(scene.save.planted.length, before - 1, 'planted crop was eaten');
-    assert.falsy(scene.save.planted.includes(crop), 'specific crop gone');
+    for (let i = 0; i < 20; i++) scene.wanderCreatures();
+    assert.eq(scene.save.planted.length, before, 'no planted crop was eaten by a crow');
+    assert.truthy(scene.save.planted.includes(crop), 'the crop is still there');
   } finally {
     entry.creatures.pop();
+    const ci = scene.save.planted.indexOf(crop);
+    if (ci >= 0) scene.save.planted.splice(ci, 1);
   }
 });
 

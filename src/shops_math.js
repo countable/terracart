@@ -1,16 +1,20 @@
-// Shop scheduling + pricing core — the per-house hour-bucket math, deal-rate
-// ladder, seeded per-bucket RNG, and buy-price markup, extracted from app.js so
-// they're testable headlessly (no scene, no DOM).
+// Shop scheduling + pricing core — the per-house hour-bucket math, seeded
+// per-bucket RNG, re-roll cost curves and buy-price markup, extracted from
+// app.js so they're testable headlessly (no scene, no DOM).
 //
 // A shop's offers are derived from a deterministic RNG keyed by (house.id,
 // hour-bucket, rerolls, offerSalt, lane) so the same shop in the same hour shows
 // the same offer without persisting the offer object; a per-house sub-hour
-// offset staggers rotations. Deal counts + rerolls live in save.shopState,
-// self-GC'd as buckets roll over.
+// offset staggers rotations. Deal counts + rerolls live in save.shopState.
 //
-// The scene calls ShopsMath directly from its shop helpers (app.js shopDealCap /
-// shopReadiness / shopBucketState / shopRng / buildShopOffer). dealCap takes the
-// scene-derived isStarterBlacksmith flag rather than reaching for a predicate.
+// NO SHOP RATIONS ITS DEALS (Sep 2026, owner's call): a smithy, trader or
+// storefront can be used continuously — there is no "busy" hour, no resting
+// anvil, no readiness pip. The ONE thing the clock does to a shop is ease its
+// RE-ROLL LEVEL: the paid re-roll count (the cost ladder's rung) drops by one
+// per hour bucket that passes, instead of resetting outright (bucketState).
+//
+// The scene calls ShopsMath directly from its shop helpers (scene_shops.js
+// shopBucketState / shopRng / buildShopOffer).
 //
 // Depends on the global buyMarkupRange (items.js) for the Bow-discounted markup.
 // Distinct from shops.js (Shops.shopType, the OSM-address → role lookup).
@@ -31,28 +35,29 @@
     return Math.floor((now + bucketOffset(houseId)) / HOUR);
   }
 
-  // Per-house deal-rate ladder. castle/tower & the starter blacksmith never gate
-  // (Infinity); forts (tier 11) allow 5/hour; small houses 1/hour.
-  function dealCap(house, isStarterBlacksmith = false) {
-    if (!house) return Infinity;
-    // interactables.js loads after this module, so isCastle is resolved at CALL
-    // time — which is the only time dealCap runs.
-    if (isCastle(house)) return Infinity;
-    if (isStarterBlacksmith) return Infinity;
-    // A fort runs a slot machine now (app.js presentFortSlots): every spin is
-    // paid for at its fair price, so there is nothing for a deal cap to ration.
-    if (house.tier === 11) return Infinity;
-    return 1;
+  // The re-roll level a stale record is worth NOW: one rung comes off per
+  // hour bucket that has passed since it was written (never below zero, and
+  // a clock that ran backwards eases nothing). This is the only thing the
+  // clock does to a shop — see the header.
+  function easedRerolls(cur, b) {
+    const elapsed = Math.max(0, b - (cur.bucket | 0));
+    return Math.max(0, (cur.rerolls | 0) - elapsed);
   }
 
-  // Live { bucket, deals, rerolls } for a house, creating it and GC-ing any
-  // stale-bucket predecessor on the way (self-cleaning — no separate sweep).
+  // Live { bucket, deals, rerolls } for a house, creating it on first touch.
+  // A record from an earlier bucket is carried forward, not thrown away: its
+  // re-roll level eases by one per elapsed hour (easedRerolls) and its deal
+  // count — the trader's stock turnover within the hour (rng's perDeal) —
+  // starts over with the new offer.
   function bucketState(save, house, now = Date.now()) {
     save.shopState = save.shopState || {};
     const id = house.id;
     const b = bucket(id, now);
     let cur = save.shopState[id];
-    if (cur && cur.bucket !== b) cur = null;
+    if (cur && cur.bucket !== b) {
+      cur = { bucket: b, deals: 0, rerolls: easedRerolls(cur, b) };
+      save.shopState[id] = cur;
+    }
     if (!cur) {
       cur = { bucket: b, deals: 0, rerolls: 0 };
       save.shopState[id] = cur;
@@ -60,57 +65,26 @@
     return cur;
   }
 
-  // Garbage-collect stale-bucket entries out of save.shopState. render.js polls
-  // readiness for every house it draws (even a house never once shopped at
-  // gets an entry the first time its pip is painted), and nothing ever deleted
-  // one, so the map grew by one entry per house EVER SEEN and never shrank.
-  // Deleting a stale entry is lossless: it's exactly the predecessor
-  // bucketState() already treats as dead and replaces with a fresh
-  // { bucket, deals: 0, rerolls: 0 } the next time that house is touched, so
-  // pruning it now costs nothing that wasn't already going to be rerolled.
+  // Garbage-collect spent entries out of save.shopState (savemigrate.js, once
+  // per boot) so the map can't grow by one record per shop ever visited. An
+  // entry is spent when it is from an earlier bucket AND its re-roll level has
+  // eased all the way to zero: that is exactly the record bucketState() would
+  // replace with a fresh { bucket, deals: 0, rerolls: 0 } on the next touch,
+  // so deleting it now is lossless. A stale entry still carrying re-roll
+  // rungs is kept — pruning it would forgive the ladder early.
   // Returns the number of entries removed.
   function pruneShopState(save, now = Date.now()) {
     if (!save || !save.shopState) return 0;
     let n = 0;
     for (const id of Object.keys(save.shopState)) {
       const cur = save.shopState[id];
-      if (!cur || cur.bucket !== bucket(id, now)) {
+      const b = bucket(id, now);
+      if (!cur || (cur.bucket !== b && easedRerolls(cur, b) === 0)) {
         delete save.shopState[id];
         n++;
       }
     }
     return n;
-  }
-
-  // Milliseconds until this house's NEXT hourly bucket opens. Every house has
-  // its own id-derived offset into the hour, so this is per-house, not "top of
-  // the hour". Exposed because two callers besides readiness() need the raw
-  // wait to write it in the shared largest-unit notation (util.js
-  // shortDuration): the busy plaque over the roof, and the blacksmith whose
-  // anvil is "resting" — that one is not rate-limited at all, it simply has no
-  // offer this bucket, so its wait is the bucket roll and nothing else.
-  function msToNextBucket(house, now = Date.now()) {
-    if (!house || !house.id) return 0;
-    const offset = bucketOffset(house.id);
-    return (bucket(house.id, now) + 1) * HOUR - offset - now;
-  }
-
-  // Snapshot readiness: ready when a new deal would be accepted now; else
-  // waitMs / waitMin = wall-clock time until the next bucket. `cap` is supplied
-  // by the caller (dealCap with the scene's isStarterBlacksmith flag).
-  // waitMs is what the labels format (it can say "1h" on a full bucket, where
-  // rounded minutes could only ever say "60m"); waitMin is a test seam — no
-  // production caller reads it (shops_math.test.js / duration_notation.test.js
-  // pin it), it just keeps the rounded-minute figure inspectable.
-  function readiness(save, house, cap, now = Date.now()) {
-    if (cap === Infinity || !house || !house.id) {
-      return { dealCap: cap, ready: true, waitMs: 0, waitMin: 0 };
-    }
-    const cur = bucketState(save, house, now);
-    if (cur.deals < cap) return { dealCap: cap, ready: true, waitMs: 0, waitMin: 0 };
-    const waitMs = Math.max(0, msToNextBucket(house, now));
-    const waitMin = Math.max(1, Math.ceil(waitMs / 60000));
-    return { dealCap: cap, ready: false, waitMs, waitMin };
   }
 
   // Deterministic 0..1 RNG keyed by (house.id offset, bucket, rerolls, offerSalt,
@@ -258,8 +232,9 @@
     return { askId, askQty: qtyFor(askId) };
   }
 
-  // A themed shop's re-roll: $2, then ×1.5 rounded DOWN per re-roll this hour
-  // ($2, 3, 4, 6, 9, 13, 19 …). Deliberately cheaper than the smithy's $5 start
+  // A themed shop's re-roll: $2, then ×1.5 rounded DOWN per re-roll rung
+  // ($2, 3, 4, 6, 9, 13, 19 …); a rung comes off per hour (bucketState).
+  // Deliberately cheaper than the smithy's $5 start
   // and the trader's 5 × 2^n — a themed shop sells one ordinary item, and looking
   // along its shelf should cost less than asking a smith for another relic.
   const THEMED_REROLL_START = 2;
@@ -465,7 +440,7 @@
     return out;
   }
 
-  root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, SMITHY_REROLL_START, smithyRerollCost, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
+  root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, SMITHY_REROLL_START, smithyRerollCost, bucketOffset, bucket, easedRerolls, bucketState, pruneShopState, rng, buyPrice,
                      SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, SLOT_JACKPOT_PAIR_COINS,
                      SLOT_STAR_WEIGHT, SLOT_NATURAL_MUL, SLOT_STAR_PAIR_MUL, SLOT_DELUXE_SPINS, SLOT_DELUXE_MUL, slotDeluxeShare, slotDeluxeNext, SLOT_STAR_BADGES, SLOT_STAR_JACKPOT_COINS, slotMachine, slotSpin, slotPrizes,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice,

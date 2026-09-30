@@ -38,7 +38,7 @@ const makeScene = () => ({
   playerM: { x: 0, y: 0 },
   save: { energy: 50, reachUpgrades: 0, planted: [] },
   cellAt: () => ({ loaded: true, type: 0 }),
-  _nearAny: () => false, _crowRaids: () => false,
+  _nearAny: () => false,
   _crowDepart(c, now, reason) { departFn(c, now, reason, DEPART_MS); },
 });
 

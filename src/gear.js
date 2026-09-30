@@ -44,11 +44,15 @@
   // Armor and relic pools are normalised to ~50% airtime each; within each pool
   // weight ∝ 1/2^(tier-1) biases offers toward low tiers. `rng` defaults to
   // Math.random — pass a seeded one for stable per-bucket offers.
+  // A SMITHY (opts.isBlacksmith) only ever offers what its anvil can forge
+  // (blacksmithRecipe): wooden jewellery has no recipe, and a seeded offer of
+  // it used to shut the forge for the whole hour bucket ("Anvil's resting").
   function buildRelicOffer(save, rng = Math.random, opts = {}) {
     const candidates = [];
     const consider = (kind, slot, currentTier) => {
       for (const t of MATERIAL_TIERS) {
         if (t.tier <= currentTier) continue;
+        if (opts.isBlacksmith && !blacksmithRecipe(kind, slot, t.tier)) continue;
         candidates.push({ kind, slot, tier: t.tier });
       }
     };

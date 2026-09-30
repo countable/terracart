@@ -170,23 +170,14 @@ const GLINT_ROCK_FINDS = Object.freeze([
 function glintRockFind(rng) {
   return weightedPickBy(GLINT_ROCK_FINDS, f => f.weight, rng).id;
 }
-// When a glint rock glints. Each rock has its own period, 10-60 s off its id
-// (so a field of them twinkles out of step), and shows the glint for
-// GLINT_ROCK_SHOW_MS once per period. Returns the glint's progress 0..1 while
-// it shows, else -1. Wall-clock ms in, like the shiny spark's twinkle, so
-// every player sees the same rock glint at the same moment.
+// When a glint rock glints: its own BEAT (util.js beatPhase) — a period of
+// 10-60 s off the rock's id, the glint showing GLINT_ROCK_SHOW_MS once per
+// period. Returns the glint's progress 0..1 while it shows, else -1.
 const GLINT_ROCK_PERIOD_MS = Object.freeze({ min: 10000, max: 60000 });
 const GLINT_ROCK_SHOW_MS = 700;
-function glintRockPeriodMs(id) {
-  const h = fnv1a(String(id) + '#glint') / 4294967296;
-  return GLINT_ROCK_PERIOD_MS.min + h * (GLINT_ROCK_PERIOD_MS.max - GLINT_ROCK_PERIOD_MS.min);
-}
-function glintRockPhase(id, nowMs) {
-  const period = glintRockPeriodMs(id);
-  const offset = fnv1a(String(id) + '#glintphase') % Math.floor(period);
-  const t = (((nowMs + offset) % period) + period) % period;
-  return t < GLINT_ROCK_SHOW_MS ? t / GLINT_ROCK_SHOW_MS : -1;
-}
+const GLINT_ROCK_BEAT = Object.freeze({ salt: 'glint', minMs: GLINT_ROCK_PERIOD_MS.min, maxMs: GLINT_ROCK_PERIOD_MS.max, showMs: GLINT_ROCK_SHOW_MS });
+function glintRockPeriodMs(id) { return beatPeriodMs(id, GLINT_ROCK_BEAT); }
+function glintRockPhase(id, nowMs) { return beatPhase(id, nowMs, GLINT_ROCK_BEAT); }
 
 // A CAVE WALL dug out — by a tap (interact.js cave-wall) or by walking into
 // it (app.js auto-mine), both through here: always one stone, and flint on

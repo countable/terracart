@@ -138,7 +138,7 @@ test('course: the reader opens the book as a story', () => {
 });
 
 test('course: story topics retain their saved-bookmark positions', () => {
-  assert.eq(PLAY_TIPS.length, 134, 'three displaced opening tips are appended');
+  assert.eq(PLAY_TIPS.length, 135, 'three displaced opening tips are appended, then the gull\'s page');
   const topics = {1:/strength/, 11:/wounded goblin/, 13:/snare/, 20:/hoe/, 24:/ruined house/, 25:/smithy/, 35:/car park/, 56:/smith/, 69:/stone/, 77:/path/, 88:/favourite food/, 98:/weapon/, 106:/stairs/, 121:/quartermaster/, 130:/sapphire/};
   for (const [page, topic] of Object.entries(topics)) assert.truthy(topic.test(PLAY_TIPS[page]), 'topic stays at page ' + page);
 });
@@ -340,10 +340,9 @@ test('mechanics: only claimed castles fire at enemies', () => {
   assert.eq(Combat.TURRET_RATE_DIV, 5, 'a turret fires at a fifth of the player rate');
 });
 
-test('mechanics: shop deals follow their caps', () => {
-  assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 9 }), 1, 'a shop just 1 an hour');
-  assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 11 }), Infinity, 'a fort\'s slots never wait');
-  assert.eq(ShopsMath.dealCap({ kind: 'tower' }), Infinity, 'a tower never waits');
+test('mechanics: no shop rations its deals; only the re-roll ladder eases with the hour', () => {
+  assert.eq(typeof ShopsMath.dealCap, 'undefined', 'no shop waits an hour between deals');
+  assert.eq(ShopsMath.easedRerolls({ bucket: 0, rerolls: 3 }, 1), 2, 'a re-roll rung comes off an hour');
 });
 
 test('mechanics: fort slots retain their prizes and bonuses', () => {
@@ -453,7 +452,7 @@ test('books: pages carry brief stories instead of numeric mechanics', () => {
     assert.lt(page.length, 200, 'page ' + i + ' leaves room for one discovery');
     assert.falsy(/[0-9%⚡×]|\btier\b|Relics tab|hit points|UTC/.test(page), 'page ' + i + ' avoids tuning and interface instructions');
   }
-  assert.eq(new Set(PLAY_TIPS).size, 134, 'each page offers a distinct moment');
+  assert.eq(new Set(PLAY_TIPS).size, 135, 'each page offers a distinct moment');
 });
 
 test('books: real-world road and heat safety stays direct', () => {

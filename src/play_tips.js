@@ -62,10 +62,10 @@ const PLAY_TIPS = [
   "I took the household exactly what its wishlist asked for. They paid generously, and called me by my name.",
   "Their wishlist was unchanged when I returned. They had waited for my bundle. I had not expected anyone to wait for me.",
   "After many deliveries, the newly restored households asked for finer crops. We are beginning to want things again.",
-  "Please allow time between deals. I must replenish the shelves. There is only one of me, despite the rumours.",
+  "Deal with me as often as you like. Ask me to look again and my price for looking climbs, though it softens with each hour that passes.",
   ITEM_GUIDE_TIPS.flowers,
   "The fort's reels gave me matching pictures and a prize. I have omitted the preceding losses from this account.",
-  "Our reclaimed castle offers a favour each day. Come back tomorrow. You need not earn our gratitude all over again.",
+  "Our reclaimed castle offers a favour morning and evening. Return in half a day. You need not earn our gratitude all over again.",
   "The roadside stall charged less than I expected. I bought enough to share, before good sense could intervene.",
   "At the inn I rested my feet and felt my strength return. Someone had kept a chair by the hearth.",
   "The guildhall offers a bounty for clearing the waiting pack. Make certain you come back to collect it. That is an order.",
@@ -105,7 +105,7 @@ const PLAY_TIPS = [
   "My arrow lodged in the first obstacle in its path. Unfortunately, the obstacle was not the goblin.",
   "In the deep dark, a staff reaches only a little beyond the light. Do not mistake that little for safety.",
   "A coin where the hostile creature fell. Pick it up when the fighting is done. The living still need feeding.",
-  "Gull passed overhead. Purse lighter afterwards. No witnesses willing to testify.",
+  "Raven passed overhead. Purse lighter afterwards. No witnesses willing to testify.",
   "A tower in the castle I reclaimed fired in my defence. I had forgotten what it felt like to be guarded.",
   "Below the stairs, metal waits in the stone.",
   ITEM_GUIDE_TIPS.torch,
@@ -135,6 +135,9 @@ const PLAY_TIPS = [
   "In the harsher world, even a small bite leaves me trembling. I used to laugh at the old warnings.",
   "When the harsher world takes your last strength, seek your own trailer. Shelter first. Pride can spend the night outside.",
   ITEM_GUIDE_TIPS.crow_feather,
+  // Appended (Sep 2026, the gull's food theft): a new page goes LAST so every
+  // saved bookmark (save.tipsRead) still opens on the page it was left at.
+  "A gull took the best of my lunch from the top of the bag. It did not so much as land.",
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -365,7 +368,8 @@ const PLAY_TIP_VOLUMES = [
   "scholar",
   "ash",
   "road",
-  "road"
+  "road",
+  "ledger"
 ];
 
 // Narrator observations sit outside the quoted excerpt.

@@ -243,7 +243,31 @@ function makeRng32(seed) {
 // sheen and pays no 10× bonus — it catches the light for a moment every
 // 10-60 s (glintRockPhase) and is GUARANTEED one find on top of its stones
 // (glintRockFind), rolled off the plain rock's own rarity ladder.
-const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05, monster: 0.05, fish: 0.05, rock: 0.05 };
+// `nest` is the NEST BUSH (items.js isNestBush): one shrub in twenty, off the
+// bush's id, that wiggles every 10-30 s (nestBushPhase) and hides a BABY PET
+// (items.js BABY_KINDS) — found once, when the bush is chopped. The same
+// hash as the shiny flora roll, so every shiny bush is a nest bush too.
+const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05, monster: 0.05, fish: 0.05, rock: 0.05, nest: 0.05 };
+
+// ── A thing's own BEAT: a brief show once every so-many seconds ─────────────
+// The glint rock (interactables.js glintRockPhase) and the nest bush (items.js
+// nestBushPhase) each catch the eye for a moment on a period of their own —
+// one beat per id, so a field of them never moves in unison. A beat is
+// `{ salt, minMs, maxMs, showMs }`: the period is hashed from the id and salt
+// into [minMs, maxMs]; the show lasts showMs once per period, offset by a
+// second hash so two things with equal periods still start apart. Wall-clock
+// ms in, so every player sees the same one move at the same moment.
+// beatPhase returns the show's progress 0..1 while it shows, else -1.
+function beatPeriodMs(id, beat) {
+  const h = fnv1a(String(id) + '#' + beat.salt) / 4294967296;
+  return beat.minMs + h * (beat.maxMs - beat.minMs);
+}
+function beatPhase(id, nowMs, beat) {
+  const period = beatPeriodMs(id, beat);
+  const offset = fnv1a(String(id) + '#' + beat.salt + 'phase') % Math.floor(period);
+  const t = (((nowMs + offset) % period) + period) % period;
+  return t < beat.showMs ? t / beat.showMs : -1;
+}
 // ── How long a message on the MAP may be ────────────────────────────────────
 // A flash is a toast drawn over the world, on a phone, usually while the
 // player is mid-action and looking at the cell they just tapped — not a
