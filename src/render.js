@@ -4273,9 +4273,10 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
     // puts it at ~26×23px — about 0.73 of the 32px cell. Raised from 0.455
     // (~18px) which read too small; still fits inside its single cell (QC rule).
     _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true, shadow: true },
-    // Cave staircase — Props Mine ladder art (32×32 each). 'down': ladder into
-    // dark pit; 'up': bare standalone ladder. Texture picked by direction.
+    // The down pit uses only the lower half of its sheet, centred in the
+    // cell. The standalone up ladder keeps its full image.
     staircase: { key: (o) => (o.dir === 'up' ? 'stair_up' : 'stair_down'),
+                 frame: (o) => (o.dir === 'up' ? '__BASE' : 'down'),
                  origin: [0.5, 0.5], scale: 1.0 },
     // Placed campfire — 16×32 art, foot-anchored near the logs so the flame
     // rises up out of the cell (like a small tree). The 6-frame sheet is cycled

@@ -911,8 +911,13 @@ class SceneCreatures {
       for (const [sp, p] of Object.entries(attracts)) (want[sp] || (want[sp] = [])).push({ p, test });
     };
     const marks = entry.streetMarks;
-    if (SV) {
-      if (marks) for (const row of SV.STREET_VARIANTS) if (row.attracts) add(row.attracts, (i) => marks[i] === row.code);
+    if (SV && marks) {
+      // Only present street grounds contribute a probability. An absent
+      // Pilgrim's Way must not strengthen another zone's weaker crow pull.
+      const present = new Set(marks);
+      for (const row of SV.STREET_VARIANTS) if (row.attracts && present.has(row.code)) {
+        add(row.attracts, (i) => marks[i] === row.code);
+      }
     }
     // WALKING-PATH LAMPS: the cells beside every lamp a footway / path /
     // cycleway stands (Streets.PATH_LAMP_ATTRACTS — the cats, moved here from

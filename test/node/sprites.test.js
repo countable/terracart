@@ -516,3 +516,19 @@ test('maple and pine canopy sizes use authored growth art at a fixed species sca
     assert.eq(spec.frame({species,variant:4}),3,'never dead or seasonal art');
   }
 });
+
+
+test('down ladder uses only the centered bottom half while the up ladder stays whole', () => {
+  // Run the registered callback against a recording texture, so the assertion
+  // checks the actual frame rectangle supplied to Phaser.
+  const declaration=ASSETS_SRC.match(/stair_down: \{[^]*?onLoad: \(scene\) => \{([^]*?)\},/);
+  assert.truthy(declaration);
+  let call;
+  new Function('scene',declaration[1])({textures:{get:key=>({add:(...args)=>{call={key,args};}})}});
+  assert.eq(call.key,'stair_down');
+  assert.eq(JSON.stringify(call.args),JSON.stringify(['down',0,0,16,32,16]));
+  const spec=Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.staircase;
+  assert.eq(spec.key({dir:'down'}),'stair_down');assert.eq(spec.frame({dir:'down'}),'down');
+  assert.eq(spec.key({dir:'up'}),'stair_up');assert.eq(spec.frame({dir:'up'}),'__BASE');
+  assert.eq(JSON.stringify(spec.origin),'[0.5,0.5]');assert.eq(spec.scale,1);
+});

@@ -163,7 +163,7 @@
       },
       "zoneVariant": {
         "name": "Clipped hedge",
-        "usage": "Formal Garden, residential and commercial planting only; proposed, not implemented.",
+        "usage": "Cut hedge for manicured roads and formal planting; shared shrub mechanics.",
         "candidate": {
           "path": "assets/Objects/Generated/hedge_end.png",
           "rect": [
@@ -173,9 +173,9 @@
             16
           ]
         },
-        "note": "Retain the previous clipped-hedge colour treatment independently of the selected woodland bush. The clipped silhouette identifies formal and residential/commercial planting.",
+        "note": "Retain the clipped silhouette and previous foliage treatment, then reduce saturation and brightness by 10% each and shift foliage hue 12 degrees toward the pine green.",
         "recolourStrength": 0.425,
-        "recolourMode": "apple-foliage"
+        "recolourMode": "clipped-hedge"
       }
     },
     {

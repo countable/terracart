@@ -191,6 +191,10 @@ original colour than the earlier proposal; sports pitch pattern strength is 88%
 of original. Seam fixes live in the runtime
 terrain painters so randomly adjacent variants share compatible boundaries.
 
+The cut hedge uses the same muted green direction as the pine: its baked
+recipe shifts foliage hue 12 degrees toward pine, then reduces saturation
+and brightness by 10% each. Its silhouette, alpha and ground shadow stay intact.
+
 The pine foliage treatment includes cyan shadows that the general green mask
 missed, and warms mint highlights at the same shading luminance. Other flora
 strengths are unchanged.

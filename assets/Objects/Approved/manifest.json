@@ -1,7 +1,7 @@
 {
   "version": 1,
   "sourceCommit": "175b790f3e089f9298d8e14ebccd6b3549f997c2",
-  "colourTransformSha256": "fb5ebc4a1a4d0db9ce6e766476a6535db021b8c14b1485dbf286c9ef7ae22954",
+  "colourTransformSha256": "5aa3f26d60ce1b14eed732852e5a02a2b2558bea4bae32d8841bc52ecac1510b",
   "originalAssets": {
     "house_wreck": {
       "kind": "image",
@@ -5670,7 +5670,7 @@
       "source": "assets/Objects/Generated/hedge_end.png",
       "width": 16,
       "height": 16,
-      "sha256": "b1279b7f6ca3154514fd0326c13534af7cc26e718d4905f592197f87ae2a5fc3",
+      "sha256": "0a8673b887a1ed1a6004dee1a3374dc92afe6c8c3a785085d02abd70a6714206",
       "rows": [
         "shrub-context"
       ],
@@ -5692,7 +5692,7 @@
             "#e6d7a3"
           ],
           "strength": 0.425,
-          "mode": "apple-foliage",
+          "mode": "clipped-hedge",
           "preserveLuminance": false,
           "colourMap": null,
           "paletteStrength": null

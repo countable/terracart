@@ -7,6 +7,25 @@ globalThis.ArtPreviewColour = (() => {
   function recolour(canvas,hexes,options={}) {
     const strength=options.strength??.18;
     if(!hexes?.length||strength<=0)return canvas;
+    if(options.mode==='clipped-hedge'){
+      // Work from the original hedge recipe each bake. Bring its yellow-green
+      // foliage toward the pine hue, then reduce HSV saturation/value by 10%.
+      recolour(canvas,hexes,{...options,mode:'apple-foliage'});
+      const ctx=canvas.getContext('2d'),pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+      for(let i=0;i<pixels.data.length;i+=4){
+        if(!pixels.data[i+3])continue;
+        const [r,g,b]=Array.from(pixels.data.subarray(i,i+3),v=>v/255);
+        const max=Math.max(r,g,b),min=Math.min(r,g,b),delta=max-min;
+        let h=delta?(max===r?(g-b)/delta:max===g?(b-r)/delta+2:(r-g)/delta+4):0;
+        h=(h+6)%6;
+        if(g>=r&&g>b)h=(h+12/60)%6;
+        const value=max*.9,saturation=(max?delta/max:0)*.9;
+        const c=value*saturation,x=c*(1-Math.abs(h%2-1)),m=value-c;
+        const rgb=h<1?[c,x,0]:h<2?[x,c,0]:h<3?[0,c,x]:h<4?[0,x,c]:h<5?[x,0,c]:[c,0,x];
+        rgb.forEach((v,k)=>pixels.data[i+k]=clamp((v+m)*255));
+      }
+      ctx.putImageData(pixels,0,0);return canvas;
+    }
     if(options.mode==='bush-foliage'){
       // Selected original green bush, with the gallery's 72% apple treatment.
       // Ease interior value contrast by a tenth without fading contour ink.

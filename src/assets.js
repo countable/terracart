@@ -22,7 +22,10 @@ const ASSETS = {
   },
   // Cave staircases (the surface→cave entrance and the cave's way back up).
   // ?v= busts the SW/browser cache when the art changes.
-  stair_down: { kind: 'image', path: 'assets/Objects/Approved/stair_down.png' },
+  stair_down: { kind: 'image', path: 'assets/Objects/Approved/stair_down.png',
+    // The upper half is the ascending ladder; the lower half is the down pit.
+    onLoad: (scene) => { scene.textures.get('stair_down').add('down', 0, 0, 16, 32, 16); },
+  },
   stair_up:   { kind: 'image', path: 'assets/Objects/Approved/stair_up.png' },
   // Chicken Red.png is 64×32: a 4-col × 2-row grid of 16×16 frames (NOT
   // 2× 32×32 like its filename + the cow sheet might suggest). Loading at
