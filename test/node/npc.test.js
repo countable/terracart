@@ -48,11 +48,11 @@
     }
   });
 
-  test('NPC spawn: open inhabited tile produces forty unique seeded residents', () => {
+  test('NPC spawn: open inhabited tile produces NPC.COUNT unique seeded residents', () => {
     const e = entry(), s = scene();
     const first = NPC.spawn(s, e, 3, 5, { roadMask: e.roadMask, occupied: new Set(), pois: [] });
-    assert.eq(first.length, 40);
-    assert.eq(new Set(first.map(c => c.id)).size, 40);
+    assert.eq(first.length, NPC.COUNT);
+    assert.eq(new Set(first.map(c => c.id)).size, NPC.COUNT);
     assert.truthy(first.every(c => c.kind === 'npc' && /^npc_3_5_\d+_\d+$/.test(c.id)));
     NPC.spawn(s, entry(), 8, 9, {});
     assert.eq(signature(NPC.spawn(s, e, 3, 5, { roadMask: e.roadMask, occupied: new Set(), pois: [] })), signature(first));

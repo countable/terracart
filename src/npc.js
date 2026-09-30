@@ -1,20 +1,35 @@
 // Seeded neighbours. Identity is world data; conversation rotates by UTC day.
 // Keep this stream separate from fauna so adding people never moves animals.
 const NPC = (() => {
-  const COUNT = 40;
+  // Residents an inhabited tile draws (bounded attempts below keep a sparse
+  // tile cheap). Far residents cost the sim loop one distance check a frame
+  // (scene_creatures.js wanderCreatures) and the draw a viewport cull, so a
+  // tile of fifty is a few hundred multiply-adds — the NPC count is not a
+  // frame budget. Was 40 (Sep 2026: more neighbours, more to say).
+  const COUNT = 50;
+  // ROLES are what a neighbour has to say when tapped (dialogue below): the
+  // scout points at things, the scholar reads the Book, merchant and trader
+  // sell, the MASON talks wrecks off the restoration ledger, the LAMPLIGHTER
+  // reads the street-lamp ledger, the KEEPER tells the story of the zone it
+  // stands in (Zones.ZONE_KINDS[kind].keeper — the zone row owns its copy).
+  // The story neighbours by the starting trailer (STORY_ROLES) are placed,
+  // not drawn, and speak through MemoryStory.npcDialogue.
   const PROFILES = {
-    village: { prefixes: ['Al', 'Bel', 'Mar', 'Ros'], roots: ['an', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'wyn'], colors: [0xe8bb91, 0xbfc8ee, 0xeeb3cb], roles: ['scout', 'scout', 'scout', 'scout', 'merchant', 'merchant', 'trader', 'trader', 'trader', 'scholar'], theme: 'supply' },
-    farm: { prefixes: ['Br', 'Fen', 'Haz', 'Row'], roots: ['am', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'wyn'], colors: [0xdec58d, 0xe9ba96, 0xc6ce9c], roles: ['scout', 'scout', 'merchant', 'trader'], theme: 'seed' },
-    market: { prefixes: ['Cal', 'Dar', 'Mer', 'Val'], roots: ['an', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'is'], colors: [0xe7b1d8, 0xaacde9, 0xe5d593], roles: ['merchant', 'trader', 'merchant', 'scout'], theme: 'supply' },
+    village: { prefixes: ['Al', 'Bel', 'Mar', 'Ros'], roots: ['an', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'wyn'], colors: [0xe8bb91, 0xbfc8ee, 0xeeb3cb], roles: ['scout', 'scout', 'scout', 'scout', 'merchant', 'merchant', 'trader', 'trader', 'trader', 'scholar', 'mason', 'lamplighter'], theme: 'supply' },
+    farm: { prefixes: ['Br', 'Fen', 'Haz', 'Row'], roots: ['am', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'wyn'], colors: [0xdec58d, 0xe9ba96, 0xc6ce9c], roles: ['scout', 'scout', 'merchant', 'trader', 'mason'], theme: 'seed' },
+    market: { prefixes: ['Cal', 'Dar', 'Mer', 'Val'], roots: ['an', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'is'], colors: [0xe7b1d8, 0xaacde9, 0xe5d593], roles: ['merchant', 'trader', 'merchant', 'scout', 'mason', 'lamplighter'], theme: 'supply' },
     woodland: { prefixes: ['Syl', 'Lin', 'Fa', 'El'], roots: ['ar', 'eth', 'ir', 'ow'], suffixes: ['a', 'iel', 'en', 'yn'], colors: [0xacc79a, 0xc3bf8c, 0xa4c8bd], roles: ['scout', 'scout', 'scout', 'scout', 'scout', 'trader', 'trader', 'trader', 'trader', 'scholar'], theme: 'seed' },
-    shrine: { prefixes: ['Ae', 'Eli', 'Gala', 'Syl'], roots: ['lan', 'riel', 'thar', 'wen'], suffixes: ['iel', 'ia', 'eth', 'wyn'], colors: [0x70cf86, 0x87db96, 0x59bc78, 0x9bdd7f], roles: ['scout', 'scout', 'scholar', 'trader'], theme: 'potion' },
+    shrine: { prefixes: ['Ae', 'Eli', 'Gala', 'Syl'], roots: ['lan', 'riel', 'thar', 'wen'], suffixes: ['iel', 'ia', 'eth', 'wyn'], colors: [0x70cf86, 0x87db96, 0x59bc78, 0x9bdd7f], roles: ['scout', 'scout', 'scholar', 'trader', 'keeper', 'keeper'], theme: 'potion' },
   };
+  // Every zone labels every role: a keeper reseated by the zone guarantee in
+  // spawn(), or a role added to one profile later, must never title as
+  // "undefined".
   const LABELS = {
-    village: { scout: 'Wayfinder', scholar: 'Storykeeper', merchant: 'Peddler', trader: 'Barterer' },
-    farm: { scout: 'Fieldwalker', scholar: 'Almanac Keeper', merchant: 'Seed Seller', trader: 'Harvest Trader' },
-    market: { scout: 'Town Guide', scholar: 'Scribe', merchant: 'Peddler', trader: 'Market Trader' },
-    woodland: { scout: 'Ranger', scholar: 'Lorekeeper', merchant: 'Herbalist', trader: 'Forager' },
-    shrine: { scout: 'Shrine Warden', scholar: 'Elven Lorekeeper', merchant: 'Herbalist', trader: 'Grove Trader' },
+    village: { scout: 'Wayfinder', scholar: 'Storykeeper', merchant: 'Peddler', trader: 'Barterer', mason: 'Mason', lamplighter: 'Lamplighter', keeper: 'Keeper' },
+    farm: { scout: 'Fieldwalker', scholar: 'Almanac Keeper', merchant: 'Seed Seller', trader: 'Harvest Trader', mason: 'Barn Raiser', lamplighter: 'Lamplighter', keeper: 'Keeper' },
+    market: { scout: 'Town Guide', scholar: 'Scribe', merchant: 'Peddler', trader: 'Market Trader', mason: 'Stonemason', lamplighter: 'Lamplighter', keeper: 'Keeper' },
+    woodland: { scout: 'Ranger', scholar: 'Lorekeeper', merchant: 'Herbalist', trader: 'Forager', mason: 'Woodwright', lamplighter: 'Lamplighter', keeper: 'Grove Keeper' },
+    shrine: { scout: 'Shrine Warden', scholar: 'Elven Lorekeeper', merchant: 'Herbalist', trader: 'Grove Trader', mason: 'Shrine Mason', lamplighter: 'Lantern Keeper', keeper: 'Shrine Keeper' },
   };
   function identity(id, zone = 'village') {
     if (!PROFILES[zone]) zone = 'village';
@@ -72,9 +87,24 @@ const NPC = (() => {
       if (!zone || !WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, 'npc')) continue;
       used.add(idx);
       const id = `npc_${tx}_${ty}_${cx}_${cy}`;
-      result.push(WorldGen.makeCreature('npc', x, y, id, { ...identity(id, zone), homeX: x, homeY: y }));
+      // zoneKind: the named zone (Zones.ZONE_KINDS) the resident stands in,
+      // if any — what a keeper tells the story of.
+      result.push(WorldGen.makeCreature('npc', x, y, id, { ...identity(id, zone), zoneKind: influence?.kind || null, homeX: x, homeY: y }));
     }
+    seatKeepers(result);
     return result;
+  }
+  // EVERY NAMED ZONE WITH RESIDENTS HAS A KEEPER: the zone's story should not
+  // depend on the role lottery. The first shrine-profile resident drawn on
+  // each zone kind (the draw order above is seeded, so the same one every
+  // build, for every player) becomes its keeper when the roll seated none.
+  function seatKeepers(people) {
+    const kept = new Set(people.filter(c => c.role === 'keeper' && c.zoneKind).map(c => c.zoneKind));
+    for (const c of people) {
+      if (!c.zoneKind || kept.has(c.zoneKind) || c.zone !== 'shrine') continue;
+      c.role = 'keeper'; c.roleLabel = LABELS.shrine.keeper;
+      kept.add(c.zoneKind);
+    }
   }
   // Restoration is a per-save overlay, like the shrine itself. Give it a
   // separate per-house stream: restoring a shrine cannot reroll neighbours.
@@ -207,9 +237,41 @@ const NPC = (() => {
   // one line is the explanation for EnemySpawns.homeAllows: near Home only
   // weak monsters are ever met, and nobody knows why.
   const WARDEN_LINE = 'This is a safe area. For some reason only weak monsters live here.';
-  function warden(id) {
-    return { ...identity(id, 'village'), role: 'warden', roleLabel: 'Warden' };
+  // THE STORY NEIGHBOURS — placed by the starting trailer (Starter
+  // placeSafeAreaWarden seats them in this order, the warden first so its
+  // seat never moves). What each says is MemoryStory.npcDialogue's, by act:
+  // the WITNESS tells of the night the Warmonger took the roofs, the
+  // WANDERER has no home until the next restoration after you meet them,
+  // the BELIEVER lauds the wise wizard and the tower that might bring him back.
+  const STORY_ROLES = { warden: 'Warden', witness: 'Survivor', wanderer: 'Wanderer', believer: 'Believer' };
+  const STORY_NEIGHBOURS = Object.keys(STORY_ROLES);
+  function storyNeighbour(id, role) {
+    return { ...identity(id, 'village'), role, roleLabel: STORY_ROLES[role] || 'Neighbour' };
   }
+  function warden(id) { return storyNeighbour(id, 'warden'); }
+  // Where a thing stands, from the speaker: compass point and paces (a pace
+  // is three quarters of a metre; the scout, the mason and the keeper share it).
+  function whereabouts(c, o, d) {
+    const angle = (Math.atan2(o.y - c.y, o.x - c.x) * 180 / Math.PI + 450) % 360;
+    const dir = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'][Math.round(angle / 45) % 8];
+    return `about ${Math.max(1, Math.round(d / 0.75))} paces ${dir} of here`;
+  }
+  // The nearest wreck still waiting (Houses.isHouseWreck — the one wreck
+  // verdict) within a walk of the speaker, or null.
+  function nearestWreck(scene, c, radius = 250) {
+    if (typeof Houses === 'undefined') return null;
+    let best = null;
+    for (const entry of WorldGen.tileCache.values()) WorldGen.forEachItemInBox(entry, 'objects', c.x - radius, c.y - radius, c.x + radius, c.y + radius, o => {
+      if (!Houses.isHouseWreck(scene.save, o)) return;
+      const d = Math.hypot(o.x - c.x, o.y - c.y);
+      if (d <= radius && (!best || d < best.d || (d === best.d && String(o.id) < String(best.o.id)))) best = { o, d };
+    });
+    return best;
+  }
+  const KEEPER_DEFAULT = [
+    'This shrine is older than the town. I sweep its step each morning and light its lantern each night.',
+    'The fire took the roofs, not the stone. Someone has to keep the old places, so I do.',
+  ];
   function dialogue(scene, c, now = Date.now()) {
     const day = utcDayIndex(now), seed = fnv1a(`${c.id}:talk`);
     const title = `${c.name} · ${c.roleLabel || LABELS[c.zone || 'village'][c.role]}`;
@@ -230,6 +292,30 @@ const NPC = (() => {
       body = daily(c.role === 'merchant'
         ? ['I brought fresh supplies today. Take a look.', 'A little stock for the road ahead.', 'See anything you need for your travels?']
         : ['Perhaps we each have what the other needs.', 'Let us see what we can exchange today.', 'A fair trade makes the walk worthwhile.']);
+    } else if (c.role === 'keeper') {
+      // The zone row owns its keeper's copy; a keeper off a plain shrine grove
+      // (no named zone) has the default lines.
+      const row = typeof Zones !== 'undefined' && c.zoneKind ? Zones.ZONE_KINDS[c.zoneKind] : null;
+      body = daily(row?.keeper?.length ? row.keeper : KEEPER_DEFAULT);
+    } else if (c.role === 'mason') {
+      // Off the restoration ledger (save.restoredHouses) and the wreck
+      // verdict, never a count of its own.
+      const mended = Object.keys(scene.save.restoredHouses || {}).length;
+      const wreck = nearestWreck(scene, c);
+      const where = wreck ? ` The nearest wreck still waiting is ${whereabouts(c, wreck.o, wreck.d)}.` : ' No wreck near here still waits, that I know of.';
+      body = (mended
+        ? `${mended === 1 ? 'One roof stands' : `${mended} roofs stand`} again since you came.`
+        : daily(['Every roof here came down in the one night. Stone remembers its shape, though. Mend one wreck and the street will follow.',
+          'Nobody has laid a stone here since the fire. The wrecks are waiting for hands.'])) + where;
+    } else if (c.role === 'lamplighter') {
+      // The living lamps (Streets lampVisits: pruned at LAMP_FADE_MS, so the
+      // count is the lamps still burning brighter for the player).
+      const lit = Object.keys(scene.save.lampVisits || {}).length;
+      const fade = typeof Streets !== 'undefined' && Streets.LAMP_FADE_MS ? shortDuration(Streets.LAMP_FADE_MS) : 'a day';
+      body = lit
+        ? `${lit === 1 ? 'One lamp burns' : `${lit} lamps burn`} brighter for your passing tonight. Stay away ${fade} and they forget.`
+        : daily(['The lamps along the road have been dark since the fire. Walk beneath one and it will remember you.',
+          'A lamp only wants company. Pass under it and watch what it does.']);
     } else {
       const radius = 250, candidates = [];
       const opened = setOf(scene.save.opened || []), caught = setOf(scene.save.caught || []);
@@ -250,9 +336,7 @@ const NPC = (() => {
       candidates.sort((a, b) => String(a.o.id).localeCompare(String(b.o.id)));
       if (candidates.length) {
         const { o, label, d } = daily(candidates);
-        const angle = (Math.atan2(o.y - c.y, o.x - c.x) * 180 / Math.PI + 450) % 360;
-        const dir = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'][Math.round(angle / 45) % 8];
-        body = `${daily(['I spotted', 'On my walk I noticed', 'Keep an eye out for'])} ${label}, about ${Math.max(1, Math.round(d / 0.75))} paces ${dir} of here.`;
+        body = `${daily(['I spotted', 'On my walk I noticed', 'Keep an eye out for'])} ${label}, ${whereabouts(c, o, d)}.`;
       } else body = daily(['The paths are quiet today. I have no nearby discoveries to share.', 'I have seen nothing new nearby today. Come back tomorrow.', 'No fresh sightings today. I will keep looking.']);
     }
     return { title, body };
@@ -310,5 +394,5 @@ const NPC = (() => {
     if (c.role === 'trader') scene.presentTraderOffer(sx, sy, c, record);
     else scene.presentThemedShop(sx, sy, c, record);
   }
-  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, PROFILES, WALK_MPS, WANDER_CELLS, WARDEN_LINE, warden, identity, zoneFor, spawn, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
+  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, PROFILES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, KEEPER_DEFAULT, nearestWreck, identity, zoneFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
 })();
