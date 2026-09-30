@@ -759,9 +759,15 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   // kind is offered to the lightmap by joining that group rather than by being
   // remembered here.
   // (+ the grove shrine, src/zones.js — a standing light like the torch.)
-  const offer = body.indexOf("if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine')) LIGHTS.consider(scene, o, dx, dy, halfM);");
+  // One closure offers them, for the sprite walk and the light walk alike.
+  assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine') LIGHTS.consider(scene, o, dx, dy, halfM);"),
+    'the pre-cull offer asks isBuilding (+ torch, grove shrine)');
+  const offer = body.indexOf('if (LIGHTS && offersPreCullLight(o)) offerPreCullLights(o, dx, dy);');
   const cull = body.indexOf('if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;');
   assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
+  const pred = r.slice(r.indexOf('function offersPreCullLight(o) {'), r.indexOf('Render.drawObjects = function drawObjects(scene)'));
+  assert.truthy(/return isBuilding\(k\) \|\| k === 'torch' \|\| k === 'grove_shrine' \|\| k === 'vista_scope';/.test(pred),
+    'and the per-tile light list is derived by the same kinds');
   // The mushroom is a wildplant, scanned in its own loop: offered as itself,
   // before that loop's cull, so its little glow can still show from a cell
   // off-screen.

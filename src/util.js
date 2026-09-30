@@ -501,6 +501,35 @@ function setOf(arr) {
   return set;
 }
 
+// ── A tile's objects of one sort, derived once ───────────────────────────
+// entry.objects filtered by `pred`, hung on the entry at entry[slot] and
+// re-derived only when the objects array moves — the chunk index's own rebuild
+// rule (WorldGen.chunkIndex): its identity, its length AND its last element,
+// which every mutation the code makes moves (a push or splice moves the
+// length, a filter() reassignment the identity, the trailer's
+// splice-then-push the tail). For per-step questions that only ever want a
+// handful of kinds out of a tile's tens of thousands of objects — the
+// turrets, the starter crates, the lights drawObjects offers past its cull —
+// so the step walks the handful, not the tile. The predicate must read only
+// what cannot change in place (an object's kind, its id); state that can
+// (opened, restored) is for the caller to test on the short list. The list
+// lives at entry[slot] so WorldGen.forEachItemInBox(entry, slot, …) can index
+// it like any tile array; a fresh array on each derivation re-lays that index
+// too. A rebuilt entry starts with neither and derives on first ask.
+const _NO_OBJECTS = Object.freeze([]);
+function derivedObjects(entry, slot, pred) {
+  const arr = entry && entry.objects;
+  if (!arr || !arr.length) return _NO_OBJECTS;
+  const last = arr[arr.length - 1];
+  const metaKey = slot + 'Of';
+  const d = entry[metaKey];
+  if (!d || d.arr !== arr || d.n !== arr.length || d.last !== last) {
+    entry[metaKey] = { arr, n: arr.length, last };
+    entry[slot] = arr.filter(pred);
+  }
+  return entry[slot];
+}
+
 // ── Building roof scale ──────────────────────────────────────────────────
 // ONE RULE FOR EVERY BUILDING: draw at your own FOOTPRINT, clamped to the range
 // your role is allowed. sqrt(area) is the footprint's side in metres and /cellM

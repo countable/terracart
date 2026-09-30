@@ -146,4 +146,54 @@ test('steady state: drawCells swaps a ground sprite\'s texture only when its key
     'the pier plank likewise');
 });
 
+// ── drawObjects: three boxes offer exactly the lights one wide box did ────
+test('steady state: the split sprite / light walks offer every pre-cull light once, and nothing a single wide walk would not', () => {
+  WorldGen.tileCache.clear();
+  const cellM = 7;
+  const halfM = (VIEW_CELLS / 2 + 1) * cellM;
+  const rng = WorldGen.makeRng(3, 5, 0);
+  const objects = [];
+  const kinds = ['torch', 'house', 'tower', 'tree', 'tree', 'rock'];
+  for (let i = 0; i < 1500; i++) {
+    const kind = kinds[i % kinds.length];
+    objects.push({ kind, id: `${kind}_${i}`, castle: kind === 'tower' ? 'k' : undefined,
+      x: (rng() - 0.5) * 500, y: (rng() - 0.5) * 500 });
+  }
+  WorldGen.tileCache.set(`${WorldGen.Z}/0/0`, { objects });
+  const scene = {
+    startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 },
+    cellM, depth: 0,
+    save: { picked: [], caught: [], planted: [], starterShopId: 'house_1' },
+    viewCenterX: 176, viewCenterY: 176,
+    placedRockSet: null, brokenRockSet: new Set(),
+    isClaimedKey: () => true,                      // every house and castle restored: all lit
+    playerToWorldCell() { return { tx: 0, ty: 0, cx: 0, cy: 0 }; },
+  };
+  const counts = [];
+  window.__boot = { tick() {}, count(name, n) { counts.push({ name, n }); } };
+  try {
+    try { Render.drawObjects(scene); } catch (_) { /* expected — no Phaser stub past the walks */ }
+    const got = (scene._lights || []).map((L) => L.id);
+    assert.eq(new Set(got).size, got.length, 'no light offered twice');
+    // The single-wide-walk truth: every object whose light reaches the view.
+    const want = objects.filter((o) => {
+      const kind = Lighting.sourceKind(scene, o);
+      if (!kind) return false;
+      const pad = Lighting.radiusCells(kind) * cellM;
+      return Math.abs(o.x) <= halfM + pad && Math.abs(o.y) <= halfM + pad;
+    }).map((o) => o.id);
+    assert.gt(want.length, 20, 'the fixture lights a good few');
+    assert.eq(got.slice().sort().join(','), want.slice().sort().join(','), 'the same lights, whichever walk offered them');
+    // And the walk is smaller than one wide box over every object would be.
+    const scanned = counts.filter((c) => c.name === 'drawObjects scanned').pop().n;
+    const lM = halfM + Lighting.objectLightPadCells() * cellM, C = WorldGen.CHUNK_M;
+    const chunkIn = (v) => Math.floor(v / C) >= Math.floor(-lM / C) && Math.floor(v / C) <= Math.floor(lM / C);
+    const wide = objects.filter((o) => chunkIn(o.x) && chunkIn(o.y)).length;
+    assert.lt(scanned, wide, `walked ${scanned}, where one wide box would open ${wide}`);
+  } finally {
+    window.__boot = undefined;
+    WorldGen.tileCache.clear();
+  }
+});
+
 })();

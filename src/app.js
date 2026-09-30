@@ -3831,9 +3831,9 @@ class MapScene extends Phaser.Scene {
     const pWY = this.startWorldM.y + this.playerM.y;
     let crate = null, crateD2 = Infinity, chest = null, chestD2 = Infinity;
     for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind !== 'chest' || !o.id) continue;
-        if (!String(o.id).startsWith('chest_start_')) continue;
+      // The starter chests of each tile, derived once (util.js derivedObjects)
+      // rather than picked out of every cached tile's every object on each ask.
+      for (const o of derivedObjects(e, '_starterChests', (o) => o.kind === 'chest' && !!o.id && String(o.id).startsWith('chest_start_'))) {
         if (opened.has(o.id)) continue;
         const dx = o.x - pWX, dy = o.y - pWY;
         const d2 = dx * dx + dy * dy;
@@ -11239,22 +11239,14 @@ class MapScene extends Phaser.Scene {
   // turret scans (_castleWardPoints, _turretFire) re-ran every TURRET_SCAN_MS
   // — the ward one on every wander tick, enemies or not — and each walked the
   // nine tiles' WHOLE object lists (tens of thousands in a town) for the
-  // handful of turrets. The turrets are derived once per tile instead, under
-  // the chunk index's own rebuild rule (WorldGen.chunkIndex): keyed on the
-  // objects array's identity, length and last element, which every mutation
-  // the code makes moves, so a rebuilt or edited tile re-derives by itself.
+  // handful of turrets. The turrets are derived once per tile instead
+  // (util.js derivedObjects), so a rebuilt or edited tile re-derives by itself.
   _forEachTowerNear(pc, fn) {
     for (let dty = -1; dty <= 1; dty++) {
       for (let dtx = -1; dtx <= 1; dtx++) {
         const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
-        const arr = e && e.objects;
-        if (!arr || !arr.length) continue;
-        const last = arr[arr.length - 1];
-        let d = e._towers;
-        if (!d || d.arr !== arr || d.n !== arr.length || d.last !== last) {
-          d = e._towers = { arr, n: arr.length, last, list: arr.filter((o) => o.kind === 'tower') };
-        }
-        for (const o of d.list) fn(o);
+        if (!e) continue;
+        for (const o of derivedObjects(e, '_towers', (o) => o.kind === 'tower')) fn(o);
       }
     }
   }
@@ -14189,9 +14181,15 @@ class MapScene extends Phaser.Scene {
   _syncPlayerSkin() {
     if (!this.player || this._dragonActive) return;
     const desired = SpriteLayout.playerArt(this.save);
-    const art = desired && this.textures.exists(desired.sheet)
+    // Is the desired skin's sheet loaded and every directional anim built?
+    // Runs every step, so a YES is remembered per skin (`_skinReady`): the
+    // answer only ever turns from no to yes as the lazy sheets arrive, and
+    // re-deriving it cost a texture lookup plus a dozen anim-key strings a
+    // step for a player standing still. A NO is asked again next step.
+    const art = desired && (this._skinReady === desired || (this.textures.exists(desired.sheet)
       && Object.keys(desired.directions).every(dir => ['idle', 'walk'].every(state =>
-        this.anims.get(`${desired.sheet}-${state}-${dir}`)?.frames?.length > 0)) ? desired : null;
+        this.anims.get(`${desired.sheet}-${state}-${dir}`)?.frames?.length > 0))
+      && (this._skinReady = desired))) ? desired : null;
     this._playerArt = art;
     this.player.setScale(art?.scale ?? this.playerScale);
     this.playerFeetNudgeY = art ? -art.footDrop * art.scale : -PLAYER_FEET_DROP_PX * this.playerScale;

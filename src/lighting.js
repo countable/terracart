@@ -820,6 +820,20 @@
     return m;
   }
 
+  // The widest light a WILD PLANT throws, in cells — the pad drawObjects'
+  // wildplant query adds to the sprite cull. Which plants glow, and as which
+  // row, is items.js' WILDPLANT_RULES (`light`), so a new glowing plant widens
+  // it by itself; without the table, the object pad (never too narrow).
+  function wildplantLightPadCells() {
+    if (typeof WILDPLANT_RULES === 'undefined') return objectLightPadCells();
+    let m = 0;
+    for (const k in WILDPLANT_RULES) {
+      const kind = WILDPLANT_RULES[k] && WILDPLANT_RULES[k].light;
+      if (kind && KINDS[kind]) m = Math.max(m, radiusCells(kind));
+    }
+    return m;
+  }
+
   function inRange(scene, dx, dy, kind, halfM) {
     const pad = radiusCells(kind) * scene.cellM;
     return Math.abs(dx) <= halfM + pad && Math.abs(dy) <= halfM + pad;
@@ -1537,7 +1551,7 @@
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIM, CRITICAL_LIGHT_DIP, CRITICAL_PLAYER_TINT_A, criticalLights, critPaintProfile, mixColour, mixToWhite, scaleColour, lum, atLuminance,
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
-    profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells,
+    profile, playerCookieAlpha, plateauCellColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells, wildplantLightPadCells,
     collectPlayer, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
