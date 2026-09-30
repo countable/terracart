@@ -3367,10 +3367,9 @@ Render.drawObjects = function drawObjects(scene) {
     // over a positive-z-index body child, and the bubble pokes through the
     // dim. A correctly layered callout would sit under the modal dim
     // (invisible) anyway, so just hide them. Skipping the build loop leaves
-    // psi at 0, so the hide-tail below collapses the whole pool. Add new
-    // full-screen modal ids here if more are introduced.
-    const MODAL_IDS = ['offer-modal', 'chest-reward-modal', 'message-modal', 'slots-modal'];
-    const dialogOpen = MODAL_IDS.some((id) => document.getElementById(id));
+    // psi at 0, so the hide-tail below collapses the whole pool. Share the
+    // modal gate with the HUD so safety cards and future dialogs count too.
+    const dialogOpen = document.body.classList.contains('modal-open');
     let psi = 0;
     const gameRect = (gameEl && !dialogOpen) ? gameScreenRect() : null;
     if (gameRect) {
@@ -3399,6 +3398,7 @@ Render.drawObjects = function drawObjects(scene) {
         let slot = pool[psi];
         if (!slot) {
           const el = document.createElement('div');
+          el.className = 'delivery-callout';
           // White rounded callout — a little speech bubble that floats above the
           // house roof (where the old open/busy pip used to sit). The downward
           // tail is a separate child triangle added during the icon rebuild.
