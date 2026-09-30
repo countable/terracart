@@ -192,4 +192,28 @@
     assert.eq(entry._ambientSpawnOpts.occupied.size, N * N);
     assert.eq(entry._spawnOpts.occupied.size, 1, 'authored trap reserves only its own cell for story placements');
   });
+  test('beach POI raster: canonical tags produce one shrine and preserve real sand', () => {
+    const N = 64, tx = 2799, ty = 6544, edge = N * WorldGen.CELL_M;
+    const ring = [{ x: 0, y: 0 }, { x: 4096, y: 0 }, { x: 4096, y: 4096 }, { x: 0, y: 4096 }];
+    const point = { x: 2048, y: 2048 };
+    const raster = tags => WorldGen.rasterizeTile([
+      { name: 'landcover', features: [{ type: 3, tags: { class: 'sand', subclass: 'beach' }, geom: [ring] }] },
+      { name: 'poi', features: [{ type: 1, tags, geom: [[point]] }] },
+    ], N, tx, ty, edge);
+    for (const tags of [{ class: 'beach' }, { class: 'park', subclass: 'beach' }, { natural: 'beach' }]) {
+      const a = raster({ ...tags, name: 'Test Shore' });
+      const b = raster({ ...tags, name: 'Test Shore' });
+      const shrines = a.objects.filter(o => o.kind === 'grove_shrine');
+      assert.eq(shrines.length, 1, JSON.stringify(tags));
+      assert.eq(shrines[0]._poiAt, '2048,2048');
+      assert.eq(shrines[0].id, WorldGen.cellId('c', tx, ty, 32, 32));
+      assert.eq(shrines[0].zone, 'beach');
+      assert.eq(a.objects.filter(o => o.kind === 'chest').length, 0, 'the POI converts instead of duplicating');
+      assert.eq(b.objects.find(o => o.kind === 'grove_shrine').id, shrines[0].id);
+      assert.truthy(a.grid.every(t => t === WorldGen.T.SAND), 'beach POI never synthesizes a park or concrete pad');
+    }
+    const parking = raster({ class: 'parking', subclass: 'beach' });
+    assert.eq(parking.objects.filter(o => o.kind === 'grove_shrine' || o.kind === 'chest').length, 0,
+      'existing parking branch retains priority');
+  });
 })();

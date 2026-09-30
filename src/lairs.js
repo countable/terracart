@@ -732,7 +732,7 @@
     if (cap <= 0) return [];
     const baseCount = countFor(cap, rng);
     // Hard barricades introduce ranged support, capped at a two-member team.
-    const n = cand.tier === 'barricade' && o.buildings ? 2 : baseCount;
+    const n = cand.tier === 'barricade' && root.Difficulty?.mode() === 'hard' ? 2 : baseCount;
     const family = root.EnemyHabitats?.buildingKinds(entry, cand);
     const ox = cand.ox, oy = cand.oy;
     const caught = o.caughtSet;

@@ -82,3 +82,8 @@ studies are labelled separately. RGB studies preserve source shape/alpha;
 they do not complete recommended contour cleanup or selective material masks.
 The rejected ground tileset alternatives remain in source details: the actual
 procedural materials are better suited to arbitrary map polygons.
+
+Mushroom Grove uses the red giant mushroom (32 × 48 frame 2) from
+`art-source/sprites/Fantasy Mushroom.png`, copied unchanged to the Wilderness
+assets. These are shrub interactables with the same harvesting and wood drops;
+ordinary shrubs elsewhere retain their woodland bush art.

@@ -174,7 +174,8 @@
       "kind": "tree",
       "species": "maple",
       "spawnClass": "minor",
-      "color": "#3c6132"
+      "color": "#3c6132",
+      "size": "large"
     },
     "fruit_tree": {
       "kind": "fruittree",
@@ -251,6 +252,13 @@
       "spawnClass": "minor",
       "color": "#ad8055",
       "recordType": "wildplant"
+    },
+    "giant_mushroom": {
+      "kind": "wildplant",
+      "crop": "shrub",
+      "spawnClass": "minor",
+      "color": "#c36259",
+      "_plantArt": "giant_mushroom"
     }
   },
   "variants": [
@@ -1079,14 +1087,14 @@
               2,
               2
             ],
-            "material": "shrub"
+            "material": "giant_mushroom"
           },
           {
             "at": [
               5,
               5
             ],
-            "material": "shrub"
+            "material": "giant_mushroom"
           }
         ],
         "densityFalloff": "none",
@@ -1095,7 +1103,7 @@
         "nominalDensity": 0.16666666666666666,
         "materialDensity": {
           "mushroom": 0.1111111111111111,
-          "shrub": 0.05555555555555555
+          "giant_mushroom": 0.05555555555555555
         },
         "type": "repeat_motif",
         "poiOrigin": {
@@ -1265,7 +1273,7 @@
           "spider"
         ]
       },
-      "atmosphere": "Staggered mushroom pairs repeat every six cells, with shrubs between them. The close-set caps lead to a crescent and its luminous flower.",
+      "atmosphere": "Staggered mushroom pairs repeat every six cells, with giant mushrooms between them. The close-set caps lead to a crescent and its luminous flower.",
       "attracts": {
         "butterfly": 0.5
       }
@@ -2421,7 +2429,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Rounded tree, bush and grass clusters repeat seven cells apart. A light scatter of grass crosses the gaps; stone markers lead from the central grove to its guarded starflower.",
+      "atmosphere": "Rounded clusters centered on the largest mature deciduous trees repeat six cells apart, surrounded by bushes and grass. A light scatter of grass crosses the gaps; stone markers lead from the central grove to its guarded starflower.",
       "attracts": {
         "deer": 0.6
       }

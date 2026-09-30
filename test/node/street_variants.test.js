@@ -576,6 +576,25 @@ test('barricade road: one goblin per barricade, held in either mode', () => {
   }
 });
 
+test('barricade support follows difficulty, independently of building garrisons', () => {
+  const previous = Difficulty.mode();
+  try {
+    for (const mode of ['easy', 'hard']) {
+      Difficulty.setMode(mode);
+      const { d, r, spawnOpts } = dressedVariants();
+      const post = d.lairs.find((L) => L.tier === 'barricade');
+      const entry = { grid: r.grid, cellsPerEdge: CPE, buildingShapes: [], _spawnOpts: spawnOpts,
+        roadClass: r.roadClass, streetLairs: [post], creatures: [] };
+      Lairs.stepResidency([{ entry, tx: TX, ty: TY }], {
+        cellM: TILE_EDGE_M / CPE, tileEdgeM: TILE_EDGE_M,
+        playerM: { x: TX * TILE_EDGE_M + post.lx, y: TY * TILE_EDGE_M + post.ly },
+        homeM: { x: 0, y: 0 }, caughtSet: new Set(), buildings: true });
+      assert.eq(entry.creatures.map((c) => c.kind).sort().join(),
+        mode === 'hard' ? 'archer_goblin,spear_goblin' : 'spear_goblin');
+    }
+  } finally { Difficulty.setMode(previous); }
+});
+
 test('kerb buffer: a barricade whose every seat is in the buffer gets no goblin (dropped, never forced)', () => {
   const { r, spawnOpts } = dressedVariants();
   // Paint the whole tile as buffer: no foe cell anywhere.

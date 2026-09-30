@@ -428,3 +428,13 @@ test('clipped street hedges resolve art without changing ordinary shrubs', () =>
   assert.eq(wildplantSprite({crop:'shrub', _streetArt:'unknown'}).sheet, 'bushes');
   assert.eq(wildplantRule(hedge.crop).output, 'wood');
 });
+
+// Art overrides leave the crop responsible for harvesting and inventory.
+test('giant mushroom shrub look resolves without overriding ordinary or trimmed shrubs', () => {
+  const giant = {crop:'shrub', _plantArt:'giant_mushroom'};
+  assert.eq(wildplantSprite(giant).sheet, 'giant_mushroom');
+  assert.eq(wildplantFrame(giant), 2);
+  assert.eq(wildplantSprite({crop:'shrub', _plantArt:'unknown'}).sheet, 'bushes');
+  assert.eq(wildplantSprite({crop:'shrub', _streetArt:'trimmed'}).sheet, 'hedge_trimmed');
+  assert.eq(wildplantRule(giant.crop), wildplantRule('shrub'));
+});

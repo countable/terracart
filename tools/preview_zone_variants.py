@@ -56,8 +56,9 @@ def material_art(material):
     if kind == 'wildplant':
         crop = material['crop']
         ov = r['crops'].get(crop)
-        if ov and material.get('_streetArt'):
-            ov = ov.get('looks', {}).get(material['_streetArt'], ov)
+        look = material.get('_plantArt') or material.get('_streetArt')
+        if ov and look:
+            ov = ov.get('looks', {}).get(look, ov)
         if ov and ov.get('custom'):
             sheet, frames = ov['sheet'], ov.get('frames', [ov.get('frame', 0)])
         elif ov and ov['sheet'] == 'springcrops':
@@ -95,7 +96,18 @@ def sprite_symbols(materials, prefix):
         '</symbol>' for name, m in materials.items()) + '</defs>'
 
 
-def sprite_cell(prefix, material, x, y, size):
+def sprite_cell(prefix, material, x, y, size, definition=None):
+    if material == 'giant_mushroom':
+        look = art_registry()['crops']['shrub']['looks']['giant_mushroom']
+        factor = art_registry()['assets'][look['sheet']]['frameHeight'] * look['scale'] / 32
+        x -= size * (factor - 1) / 2
+        y -= size * (factor - 1)
+        size *= factor
+    if definition and definition.get('kind') == 'tree' and definition.get('size'):
+        factor = 48 * art_registry()['treeSizes'][definition['size']] / 32
+        x -= size * (factor - 1) / 2
+        y -= size * (factor - 1)
+        size *= factor
     return f'<use class="sprite-cell" href="#{prefix}-{material}" x="{x}" y="{y}" width="{size}" height="{size}"/>'
 
 
@@ -271,7 +283,7 @@ def svg_for(v, d, detail=False):
                     color = d['materials'][material]['color']
                     gap = 0 if b['type'] in ('line_grid','bounded_line_grid') and (gx % b['spacingCells'] == 0 or gy % b['spacingCells'] == 0) else 1
                     parts.append(f'<rect class="geometry-cell" x="{x*unit+gap}" y="{y*unit+gap}" width="{unit-2*gap}" height="{unit-2*gap}" fill="{color}"><title>{material}</title></rect>')
-                    parts.append(sprite_cell(art_prefix, material, x*unit+1, y*unit+1, unit-2))
+                    parts.append(sprite_cell(art_prefix, material, x*unit+1, y*unit+1, unit-2, d['materials'][material]))
         parts.append('</g>')
     parts.append('<g class="poi-layer">')
     # Replace only actual POI cells, not a square cut out of the motif.
@@ -280,7 +292,7 @@ def svg_for(v, d, detail=False):
     for s in v['poi']['slots']:
         x, y = s['at']; color = d['materials'][s['material']]['color']
         parts.append(f'<rect class="geometry-cell" x="{(draw_x+x)*unit+1}" y="{(draw_y+y)*unit+1}" width="8" height="8" fill="{color}"><title>POI: {s["material"]} ({x}, {y})</title></rect>')
-        parts.append(sprite_cell(art_prefix, s['material'], (draw_x+x)*unit+1, (draw_y+y)*unit+1, 8))
+        parts.append(sprite_cell(art_prefix, s['material'], (draw_x+x)*unit+1, (draw_y+y)*unit+1, 8, d['materials'][s['material']]))
     cx, cy = draw_x * unit + unit / 2, draw_y * unit + unit / 2
     parts.append(f'<circle cx="{cx}" cy="{cy}" r="4" fill="#fff6ca" stroke="#171b12" stroke-width=".8"><title>POI / settled interactable</title></circle><path d="M {cx-2.5} {cy} h 5 M {cx} {cy-2.5} v 5" stroke="#33291c" stroke-width="1"/>')
     parts.append('</g></svg>')
@@ -329,6 +341,10 @@ def street_svg(v, cell_m):
         kind = o.get('crop', o['kind'])
         color = STREET_COLORS.get(kind, '#d4d4d4')
         size = cell_m * .8
+        if o.get('_streetArt'):
+            registry = art_registry()
+            look = registry['crops'][kind]['looks'][o['_streetArt']]
+            size = cell_m * registry['assets'][look['sheet']]['frameWidth'] * look['scale'] / 32
         if kind == 'tree':
             stage = str(max(1, min(3, round(o.get('variant', 2)))))
             size = cell_m * 1.8 * art_registry()['treeStages'][stage]['scale'] / art_registry()['treeStages']['3']['scale']
@@ -371,7 +387,7 @@ def render(d, out):
     cards = []
     for v in d['variants']:
         b = v['background']
-        mix = ', '.join(f'{n*100:.2f}'.rstrip('0').rstrip('.') + f'% {m}' for m,n in b['materialDensity'].items())
+        mix = ', '.join(f'{n*100:.2f}'.rstrip('0').rstrip('.') + f'% {m.replace("_", " ")}' for m,n in b['materialDensity'].items())
         hazards = b.get('hazardDensity', {})
         if hazards:
             mix += '; hazards: ' + ', '.join(f'{n*100:g}% {m}' for m,n in hazards.items())
