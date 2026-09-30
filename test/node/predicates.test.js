@@ -186,12 +186,12 @@ test('the literal spellings are gone from the readers', () => {
   const specEnd = RENDER_SRC.indexOf('\n  };\n', specStart);
   const SPEC_SRC = specStart < 0 || specEnd < 0 ? '' : RENDER_SRC.slice(specStart, specEnd);
 
-  test('SEATED_SHADOW_KINDS is derived from RENDER_SPEC, not a second list', () => {
+  test('seated shadows read RENDER_SPEC, not a second list', () => {
     assert.gt(SPEC_SRC.length, 0, 'found the RENDER_SPEC block');
     assert.truthy(
-      /const SEATED_SHADOW_KINDS = new Set\(\s*Object\.keys\(RENDER_SPEC\)\.filter\(\(k\) => RENDER_SPEC\[k\]\.shadow\)\)/
+      /if \(!RENDER_SPEC\[k\]\?\.shadow\) continue;/
         .test(RENDER_SRC),
-      'the set is Object.keys(RENDER_SPEC) filtered on the row flag');
+      'read the row flag without constructing a per-frame set');
     assert.falsy(/SEATED_SHADOW_KINDS = new Set\(\[/.test(RENDER_SRC),
                  'the hand-kept nine-name list is gone');
   });

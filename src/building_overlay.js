@@ -628,7 +628,7 @@
         const sprite = scene.add.image(x, y, key).setOrigin(0, 0);
         scene.worldContainer.add(sprite);
         const piece = {
-          sprite, textureKey: key, x, y, wx, wy, rank: 1,
+          sprite, textureKey: key, x, y, wx, wy, width: w, height: h, rank: 1,
           // The perimeter is the ground anchor; extrusion is visual height,
           // just as for tiled walls. Towers at this boundary rank above it.
           groundY: (Math.max(p.y, q.y) - projY(0)) * scene.cellM / CELL_PX,
@@ -689,7 +689,15 @@
     }
     if (container) container.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
     for (const p of scene._buildingUprightPieces || []) {
-      p.sprite.setPosition(p.x - fracX * CELL_PX, p.y - fracY * CELL_PX);
+      const x = p.x - fracX * CELL_PX, y = p.y - fracY * CELL_PX;
+      p.sprite.setPosition(x, y);
+      // Keep the padded cache for the next crossing, but do not submit walls
+      // wholly outside the world's viewport mask to the renderer. One pixel
+      // of slack preserves filtered/rounded edge pixels at fractional scales.
+      p.sprite.visible = x + p.width >= scene.viewLeft - 1
+        && y + p.height >= scene.viewTop - 1
+        && x <= scene.viewLeft + scene.viewSize + 1
+        && y <= scene.viewTop + scene.viewSize + 1;
     }
   }
 

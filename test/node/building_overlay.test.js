@@ -758,4 +758,29 @@ test('building overlay: upright polygon walls share world ordering and scroll in
   assert.eq(scene._buildingGeomKey, null, 'a restarted scene rebuilds its buildings');
 });
 
+test('building overlay: cached offscreen walls skip rendering and reappear on subcell scrolling', () => {
+  clearTiles();
+  putShapes(0, 0, []);
+  const scene = makeScene();
+  BuildingOverlay.draw(scene);
+  const right = { x: 354, y: 176, width: 12, height: 12, sprite: makeContainer() };
+  const leftEdge = { x: -11, y: 176, width: 10, height: 12, sprite: makeContainer() };
+  const above = { x: 176, y: -14, width: 12, height: 12, sprite: makeContainer() };
+  const below = { x: 176, y: 354, width: 12, height: 12, sprite: makeContainer() };
+  scene._buildingUprightPieces = [right, leftEdge, above, below];
+  BuildingOverlay.draw(scene);
+  assert.falsy(right.sprite.visible, 'right of the mask');
+  assert.truthy(leftEdge.sprite.visible, 'retain a filtered edge pixel');
+  assert.falsy(above.sprite.visible, 'above the mask');
+  assert.falsy(below.sprite.visible, 'below the mask');
+  scene.playerM.x = 1; // Within the same cell; no cache rebuild.
+  BuildingOverlay.draw(scene);
+  assert.truthy(right.sprite.visible, 'the retained wall enters immediately');
+  assert.falsy(leftEdge.sprite.visible, 'the opposite wall leaves');
+  assert.eq(scene._buildingUprightPieces[0], right, 'reuse the same piece');
+  scene.playerM.x = 0;
+  BuildingOverlay.draw(scene);
+  assert.falsy(right.sprite.visible, 'hide it again without rebuilding');
+});
+
 })();
