@@ -33,7 +33,7 @@ test('fishing: the handler rolls the module\'s numbers, not its own', () => {
   // fish table).
   assert.truthy(/spotFish\(spotId\)/.test(INTERACT_SRC), 'the spot\'s fish');
   assert.truthy(/fishCatchChance\(pick, tier, shiny\)/.test(INTERACT_SRC), 'the landing');
-  assert.truthy(/rollEmptyCast\(\)/.test(INTERACT_SRC), 'the empty cast');
+  assert.truthy(/rollEmptyCast\(/.test(INTERACT_SRC), 'the empty cast');
   assert.falsy(/id: 'goldenfish', +w:/.test(INTERACT_SRC), 'no second copy of the catch table');
 });
 
@@ -231,13 +231,14 @@ test('fishing: the Book teaches the landing rule, and the rod says it', () => {
 
 // --- The empty cast -------------------------------------------------------
 
-test('fishing: an empty cast now and then pays — treasure 1 in 50, a slime, junk', () => {
-  assert.eq(FISH_EMPTY_TREASURE_CHANCE, 1 / 50, 'a treasure roll 1 in 50');
+test('fishing: an empty cast now and then pays — treasure rod tier / 100, a slime, junk', () => {
+  assert.eq(FISH_EMPTY_TREASURE_PER_TIER, 1 / 100, 'a treasure roll of rod tier / 100');
   assert.lt(FISH_SLIME_CHANCE, FISH_EMPTY_JUNK_CHANCE, 'a slime rarer than junk');
   const seq = (...v) => { let i = 0; return () => v[i++]; };
-  const t = rollEmptyCast(seq(0, 0.99));
+  const t = rollEmptyCast(seq(0, 0.99), 1);
   assert.eq(t.kind, 'treasure');
   assert.eq(t.tier, FOUND_TREASURE_TIER_MAX, 'the tier is random, up to the chest max');
+  assert.eq(rollEmptyCast(seq(0, 0.99), 0), null, 'bare hands never find treasure');
   assert.eq(rollEmptyCast(seq(0.5, 0)).kind, 'slime');
   const j = rollEmptyCast(seq(0.5, 0.5, 0, 0.4));
   assert.eq(j.kind, 'junk');
@@ -248,24 +249,25 @@ test('fishing: an empty cast now and then pays — treasure 1 in 50, a slime, ju
   let r = 1;
   const rng = () => { r = (r * 16807) % 2147483647; return r / 2147483647; };
   for (let i = 0; i < 20000; i++) {
-    const e = rollEmptyCast(rng);
+    const e = rollEmptyCast(rng, 7);
     const k = e ? e.kind : 'none';
     kinds[k] = (kinds[k] || 0) + 1;
     if (e && e.kind === 'treasure') tiers.add(e.tier);
   }
-  assert.inRange(kinds.treasure / 20000, 0.015, 0.025, 'about 1 in 50');
+  assert.inRange(kinds.treasure / 20000, 0.055, 0.085, 'about 7 in 100 at tier 7');
   assert.eq(tiers.size, FOUND_TREASURE_TIER_MAX, 'every chest tier comes up');
   assert.gt(kinds.none, kinds.junk, 'nothing is still the commonest empty cast');
   // The handler rolls it on the whiff and pays a treasure through the one lane.
-  assert.truthy(/const empty = rollEmptyCast\(\);/.test(INTERACT_SRC), 'rolled on the whiff');
+  assert.truthy(/const empty = rollEmptyCast\(Math\.random, tier\);/.test(INTERACT_SRC), 'rolled on the whiff');
   assert.truthy(/grantFoundTreasure\(scene, save, sx, sy, '🎣', empty\.tier, /.test(INTERACT_SRC),
     'the treasure is found treasure, with its fanfare');
 });
 
 // --- The hoe's finds ------------------------------------------------------
 
-test('tilling: a furrow turns up flint 1 in 10, a stone 1 in 10, treasure 1 in 100', () => {
-  assert.eq(TILL_TREASURE_CHANCE, 1 / 100);
+test('tilling: a furrow turns up flint 1 in 10, a stone 1 in 10, treasure hoe tier / 200', () => {
+  assert.eq(TILL_TREASURE_PER_TIER, 1 / 200);
+  assert.eq(rollTillFind(() => 0, 0)?.kind === 'treasure', false, 'bare hands never find treasure');
   assert.eq(TILL_FLINT_CHANCE, 1 / 10);
   assert.eq(TILL_ROCK_CHANCE, 1 / 10);
   assert.eq(ITEM_BY_ID.coal.name, 'Flint', "flint is item id 'coal'");
@@ -274,15 +276,15 @@ test('tilling: a furrow turns up flint 1 in 10, a stone 1 in 10, treasure 1 in 1
   const k = {};
   const N = 50000;
   for (let i = 0; i < N; i++) {
-    const f = rollTillFind(rng);
+    const f = rollTillFind(rng, 7);
     const key = !f ? 'none' : f.kind === 'treasure' ? 'treasure' : f.id;
     k[key] = (k[key] || 0) + 1;
     if (f && f.kind === 'treasure') assert.inRange(f.tier, 1, FOUND_TREASURE_TIER_MAX);
   }
-  assert.inRange(k.treasure / N, 0.007, 0.013, 'about 1 in 100');
+  assert.inRange(k.treasure / N, 0.03, 0.04, 'about 3.5 in 100 at tier 7');
   assert.inRange(k.coal / N, 0.08, 0.12, 'about 1 in 10 flint');
   assert.inRange(k.rockfruit / N, 0.08, 0.12, 'about 1 in 10 stone');
-  assert.truthy(/const find = rollTillFind\(\);/.test(INTERACT_SRC), 'rolled when the furrow finishes');
+  assert.truthy(/const find = rollTillFind\(Math\.random, save\.relics\?\.hoe\?\.tier \|\| 0\);/.test(INTERACT_SRC), 'rolled when the furrow finishes');
   assert.truthy(/grantFoundTreasure\(scene, save, sx, sy, '⛏', find\.tier, /.test(INTERACT_SRC),
     'buried treasure pays through the found-treasure lane');
   assert.truthy(/scene\.flashJackpot\?\.\(1, headline\)/.test(INTERACT_SRC), 'with the jackpot fanfare');
