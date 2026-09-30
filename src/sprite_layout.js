@@ -719,14 +719,23 @@
   // A stopped creature keeps its last facing. Motion is stamped by the sim
   // only after a displacement succeeds; aiming may turn without walking.
   const CREATURE_MOVE_GRACE_MS = 200;
-  function faceCreature(c, dx, dy) {
+  // The DRAWN facing holds at least this long before it turns again, so a foe
+  // dithering across a diagonal doesn't flicker. Art only: movement and aim
+  // read dx/dy, never the facing.
+  const CREATURE_FACE_HOLD_MS = 1000;
+  function faceCreature(c, dx, dy, now = performance.now()) {
     if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.hypot(dx, dy) < 1e-6) return false;
-    c._facing = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
-    if (Math.abs(dx) > 1e-6) c._faceFlip = dx < 0;
+    const facing = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
+    const flip = Math.abs(dx) > 1e-6 ? dx < 0 : c._faceFlip;
+    if (c._facing && (facing !== c._facing || flip !== c._faceFlip)
+      && c._faceAt != null && now - c._faceAt < CREATURE_FACE_HOLD_MS) return true;
+    if (facing !== c._facing || flip !== c._faceFlip) c._faceAt = now;
+    c._facing = facing;
+    if (flip !== undefined) c._faceFlip = flip;
     return true;
   }
   function updateCreatureFacing(c, dx, dy, now) {
-    if (faceCreature(c, dx, dy)) c._moveUntil = now + CREATURE_MOVE_GRACE_MS;
+    if (faceCreature(c, dx, dy, now)) c._moveUntil = now + CREATURE_MOVE_GRACE_MS;
   }
   function creatureAppearance(c, now) {
     const art = creatureArt(c.kind);
@@ -893,7 +902,7 @@
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
     creaturePrey, creatureDrop, creatureProduce, creatureCatchMul, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
-    creatureAppearance, faceCreature, updateCreatureFacing, CREATURE_DIRECTION_LAYOUTS,
+    creatureAppearance, faceCreature, CREATURE_FACE_HOLD_MS, CREATURE_MOVE_GRACE_MS, updateCreatureFacing, CREATURE_DIRECTION_LAYOUTS,
     creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHops, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
