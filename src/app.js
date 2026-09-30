@@ -391,6 +391,14 @@ const SMITHY_PREVIEW_PX = 56;
 const smithyPreviewHTML = (iconHTML, name) =>
   `<div style="line-height:0;margin:2px 0 6px">${iconHTML}</div><div>${name}</div>`;
 const COIN_BURST_NEAR_R = 2;
+// THE FORGE CEREMONY (presentBlacksmithOffer's onAccept): the piece just
+// forged, large on the forge_done painting (a bare anvil, so the icon is the
+// only piece in the picture), with the smith's own cheer. One hint, no
+// mechanics: finer ore is what the next visit wants.
+const FORGE_CEREMONY = {
+  kind: 'forge', art: 'forge_done', header: 'Forged!', iconPx: 64,
+  sub: '“Stone from the ground, fire in the coals, and now this in your hand. Bring finer ore and the metal sings finer still.”',
+};
 // THE SAFETY CARD (_showSafetyCard): what each version says, and when the
 // short ones come back. Kept here as data so the copy is one table. LAUNCH is
 // the game's only opening safety message (the loading screen carries none).
@@ -13976,12 +13984,16 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         this.updateHUD();
         this.buildInventoryDOM();
-        // Splash the forged tool's own art (not a coin) — gear uses
-        // gearIconHTML, so render it into a throwaway span and hand the
-        // sized element to flashLoot.
-        const splashWrap = document.createElement('span');
-        splashWrap.innerHTML = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 28);
-        this.flashLoot(name, '#ffe066', 1.25, null, splashWrap.firstElementChild);
+        // The forge's story pane: the forged piece's own art (not a coin),
+        // large on the forge painting, with the smith's cheer (FORGE_CEREMONY).
+        // It replaces the old loot splash rather than stacking a toast under it.
+        const { iconPx, ...ceremony } = FORGE_CEREMONY;
+        this.showChestRewardModal({
+          ...ceremony,
+          iconHTML: this.gearIconHTML(offer.kind, offer.slot, offer.tier, iconPx),
+          name,
+          color: '#ffe066', accent: '#ffb347',
+        });
       },
     });
   }
