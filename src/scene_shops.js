@@ -7,8 +7,8 @@
 //     shops, the smelter, the wizard, the trader's barter, the castle's daily
 //     service, the quest board, the fort unlock and the blacksmith's forge
 //     (with its FORGE_CEREMONY story pane);
-//   · the shop clock they share: shopDealCap / shopReadiness / shopWaitLabel /
-//     shopBucketState / shopRng and buildShopOffer.
+//   · the shop clock they share: shopBucketState / shopRng and
+//     buildShopOffer (no shop is ever "busy" — shops_math.js header).
 // Plus the constants only they read.
 //
 // Moved verbatim out of app.js. The methods live on `class SceneShops`, a
@@ -220,13 +220,8 @@ class SceneShops {
       this.presentFortSlots(sx, sy, house);
       return;
     }
-    // Per-building deal rate-limit — see shopDealCap() / shopReadiness() for
-    // the ladder + bucket math. Renderer reuses the same helpers to draw the
-    // ready/timer pip above each house, so the player sees the same state
-    // the tap handler will enforce.
     const castle = isCastle(house);
     const isStarterSmith = this.isStarterBlacksmith(house);
-    const { dealCap, ready: shopReady, waitMs } = this.shopReadiness(house);
     // Effective shop role from the frozen restore-order assignment (falls back
     // to the address-derived type for legacy saves). Returns 'blacksmith' for
     // the first-restored starter smithy too, so the forge branch fires
@@ -237,24 +232,16 @@ class SceneShops {
       return;
     }
     const isFort = !!house && house.tier === 11;
-    // A delivery host (plain house, no shop role) is not a timed shop: it
-    // takes ONE delivery ever (Delivery.isSatisfied), and render.js shows its
-    // wishlist instead of the open/busy plaque. So the hourly deal cap must
-    // not shut its door either — a deal banked while it was the one-off
-    // scarecrow shop used to leave it "busy" under a live potato ask.
+    // A delivery host (plain house, no shop role) takes ONE delivery ever
+    // (Delivery.isSatisfied), and render.js shows its wishlist over the roof.
     const isDeliveryHost = !castle && !isFort && !shopType && !isStarterSmith && !!house
       && !(this.isScarecrowShop(house) && !this.save.scarecrowShopUsed);
-    if (house && !shopReady && !isDeliveryHost && shopType !== 'wizard') {
-      const kindLabel = castle ? 'castle' : (house.tier === 11) ? 'fort' : 'house';
-      // Same notation, same number as the plaque over the roof (render.js
-      // formats info.waitMs through shortDuration too), so the tap and the
-      // label can't disagree about how long the wait is.
-      this.flash(`${kindLabel} busy — try again in ${shortDuration(waitMs)}`, sx, sy);
-      return;
-    }
-    // Record a deal against this house — called from inside the accept path.
+    // No door here is ever shut by the clock: there is no per-hour deal cap
+    // (shops_math.js header). A deal is still RECORDED against the house —
+    // the trader's stock turns over on it (shopRng's perDeal) — called from
+    // inside every accept path.
     const recordDeal = () => {
-      if (!house || !house.id || dealCap === Infinity) return;
+      if (!house || !house.id) return;
       const cur = this.shopBucketState(house);
       cur.deals += 1;
     };
@@ -365,11 +352,10 @@ class SceneShops {
       }
       const offer = this.peekOrBuildRelicOffer(house);
       if (offer) { this.presentBlacksmithOffer(sx, sy, offer, recordDeal, house); return; }
-      // "Later" is a real number: the offer is rolled per hourly bucket, so
-      // the anvil wakes when this house's bucket rolls over. Without it this
-      // was the one shop message that named no wait at all, and a player could
-      // only find out by tapping again.
-      this.flash(`Anvil's resting — back ${this.shopWaitLabel(house)}.`, sx, sy);
+      // No offer means no piece left above what the player wears (Gear
+      // buildRelicOffer) — the anvil never "rests" on the clock, so there is
+      // no wait to name: waiting would not change the answer.
+      this.flash('Nothing left to forge.', sx, sy);
       return;
     }
     // Traders are barter-only with their own seeded offer (qty scales to a
@@ -383,10 +369,6 @@ class SceneShops {
     // See presentWizardOffer.
     if (shopType === 'wizard') {
       MemoryStory.visitWizard(this, () => {
-        if (house && !shopReady) {
-          this.flash(`house busy — try again in ${shortDuration(waitMs)}`, sx, sy);
-          return;
-        }
         this.presentWizardOffer(sx, sy, recordDeal);
       }, house);
       return;
@@ -429,7 +411,7 @@ class SceneShops {
     // above). buildShopOffer always returns a cash offer.
     const offer = this.buildShopOffer(id, baseValue, { house });
     if (!offer) {
-      this.flash(`No stock today. Back ${this.shopWaitLabel(house)}.`, sx, sy);
+      this.flash('Nothing on the shelf.', sx, sy);
       return;
     }
     // Cash purchases hand over exactly ONE unit — the ×2 TRADE_OFFER_QTY
@@ -951,28 +933,12 @@ class SceneShops {
   // player either buys it, rerolls it, or (for non-castle shops) leaves and
   // the cap resets it. Castle offers persist forever and rotate on purchase.
   //
-  // ─── Shop readiness helpers ─────────────────────────────────────
+  // ─── Shop clock helpers ──────────────────────────────────────────
   // Shop hour-bucket scheduling + the seeded per-bucket RNG live in
-  // shops_math.js (ShopsMath.*); these stay as scene methods because the present*
-  // handlers + the renderer's ready/timer indicator call them as this.shopX(…).
-  shopDealCap(house) {
-    return ShopsMath.dealCap(house, this.isStarterBlacksmith(house));
-  }
-  shopReadiness(house) {
-    return ShopsMath.readiness(this.save, house, this.shopDealCap(house));
-  }
-  // "How long until this house has something new" in the shared largest-unit
-  // notation ("47m", "1h"). Offers and deal caps both roll on the house's own
-  // hourly bucket, so one label serves the busy plaque, the busy tap and the
-  // blacksmith's resting anvil — which is not rate-limited but is waiting on
-  // exactly the same rollover.
-  // Returns the whole clause ("in 47m", or "later" when there is no bucket to
-  // count to — a synthetic building with no id), so the sentence still reads
-  // either way rather than promising "in 0s".
-  shopWaitLabel(house) {
-    const ms = ShopsMath.msToNextBucket(house);
-    return ms > 0 ? `in ${shortDuration(ms)}` : 'later';
-  }
+  // shops_math.js (ShopsMath.*); these stay as scene methods because the
+  // present* handlers call them as this.shopX(…). Nothing here answers "is
+  // the shop open" — every shop always is; the bucket only rotates the offer
+  // and eases the re-roll ladder (ShopsMath.bucketState).
   // Flower charm multiplier — see Houses.shopCharmMul.
   shopCharmMul(house) { return Houses.shopCharmMul(this.save, house); }
   shopBucketState(house) {
@@ -1060,7 +1026,7 @@ class SceneShops {
       return;
     }
     const id = this.themedShopPick(house);
-    if (!id) { this.flash(`No stock. Back ${this.shopWaitLabel(house)}.`, sx, sy); return; }
+    if (!id) { this.flash('Nothing on the shelf.', sx, sy); return; }
     this._presentThemedItem(sx, sy, house, recordDeal, id);
   }
 
@@ -1476,7 +1442,7 @@ class SceneShops {
 
   presentTraderOffer(sx, sy, house, recordDeal) {
     const offer = this.peekOrBuildTraderOffer(house);
-    if (!offer) { this.flash(`No trade today. Back ${this.shopWaitLabel(house)}.`, sx, sy); return; }
+    if (!offer) { this.flash('Nothing to trade for.', sx, sy); return; }
     const giveItem = ITEM_BY_ID[offer.giveId];
     const askItem  = ITEM_BY_ID[offer.askId];
     const heldCount = () => Inventory.count(this.save, offer.askId);
@@ -1695,8 +1661,10 @@ class SceneShops {
     // (rockfruit + tree) without loosening the T2+ bar requirement in
     // blacksmithRecipe — keeps every other smithy on the original ladder.
     const recipe = opts.recipe || Gear.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
+    // Unreachable for a seeded smithy offer (Gear.buildRelicOffer skips what
+    // the anvil cannot forge); kept as a guard for a hand-built one.
     if (!recipe) {
-      this.flash(`Anvil's resting — back ${this.shopWaitLabel(house)}.`, sx, sy);
+      this.flash('Nothing to forge here.', sx, sy);
       return;
     }
     const name = gearName(offer.kind, offer.slot, offer.tier);
@@ -1755,9 +1723,9 @@ class SceneShops {
         this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
         recordDeal();
-        // Forging "settles" the smithy — reset its re-roll count so the next
-        // re-roll cost drops back to the $5 base (cost = 5 × 2^rerolls)
-        // instead of staying inflated from pre-forge re-rolls.
+        // Forging "settles" the smithy — reset its re-roll level so the next
+        // re-roll cost drops back to the $5 base (ShopsMath.smithyRerollCost)
+        // at once, rather than easing off one rung an hour.
         if (house && house.id) {
           const cur = this.shopBucketState(house);
           if (cur) cur.rerolls = 0;

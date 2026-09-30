@@ -178,10 +178,10 @@
     if (save.offerSalt == null) {
       save.offerSalt = (Math.floor(Math.random() * 0xffffffff)) >>> 0;
     }
-    // GC stale per-house shop-state entries once per boot. render.js polls
-    // shop readiness for every house it draws (not just ones ever shopped at),
-    // and nothing else ever deletes an entry, so save.shopState otherwise grows
-    // by one record per house EVER SEEN and never shrinks. shops_math.js loads
+    // GC spent per-house shop-state entries once per boot (a record is spent
+    // once its re-roll level has eased to nothing — ShopsMath.pruneShopState);
+    // nothing else ever deletes an entry, so save.shopState otherwise grows
+    // by one record per shop EVER VISITED and never shrinks. shops_math.js loads
     // AFTER this file in index.html, so the call is runtime-guarded; node tests
     // that load savemigrate.js on its own (without shops_math.js) still pass.
     if (typeof ShopsMath !== 'undefined') {
