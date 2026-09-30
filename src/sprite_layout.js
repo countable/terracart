@@ -385,8 +385,12 @@
     spirit_raven:  { sheet: 'crow',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31, alpha: SPIRIT_RAVEN_ALPHA },
     // The gull is the CROW'S SHEET recoloured (its roster row's `palette`,
     // baked into the 'gull' texture at load — assets.js): every geometry
-    // column matches the crow row, one body, one ground line.
+    // column matches the crow row, one body, one ground line. It steals FOOD
+    // (the roster row's `steals`).
     gull:          { sheet: 'gull',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
+    // The raven too — the crow's sheet under an inky blue-violet ramp (its
+    // roster row's `palette`), the coin thief; same geometry, same reason.
+    raven:         { sheet: 'raven',     airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
     // The butterfly's 7 frames are the sheet's whole top row, stepped faster
     // than the common creature beat — a flutter, not a plod.
     butterfly:     { sheet: 'butterfly', frames: 7, frameMs: 100, airborne: true, fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
@@ -566,7 +570,7 @@
     // drinkRavenPotion / _tickSpiritRaven) for SPIRIT_RAVEN_MS. It is a PET's
     // hunt by another reason, not a second hunter: wanderCreatures' pet scan
     // runs for it (`summoned`), asks huntsPrey (creature_ai.js) what it may
-    // take — `preysOnFoes`: every Combat.isEnemy foe and every pest crow,
+    // take — `preysOnFoes`: every Combat.isEnemy foe and every pest deer,
     // where a pet's `prey` is a list of kinds — and its kill pays as the pet's
     // ('pet', Combat.isPlayerKill). It FOLLOWS its summoner while nothing is in
     // range (the cat's `follows` lane, its timer armed for the raven's whole
@@ -638,7 +642,7 @@
   // raven)? It hunts for the player without being tame, and is never a tap
   // target.
   function isSummoned(kind) { return !!creatureBehaviour(kind)?.summoned; }
-  // Does this hunter take every FOE (Combat.isEnemy) and every pest crow,
+  // Does this hunter take every FOE (Combat.isEnemy) and every pest deer,
   // rather than a `prey` list of kinds? creature_ai.js huntsPrey answers it.
   function preysOnFoes(kind) { return !!creatureBehaviour(kind)?.preysOnFoes; }
   // Does a petted one follow the player? ANIMAL_INTERACTION owns the window.
@@ -685,9 +689,23 @@
   // A kind's hard top speed, m/s (its row's `maxMps`), or Infinity.
   function creatureMaxMps(kind) { return creatureBehaviour(kind)?.maxMps ?? Infinity; }
   function creatureScale(kind, inst = 1) { return (creatureArt(kind)?.scale ?? 1) * inst; }
-  // One creature's own size multiplier (its instance art scale), or 1.
-  function creatureInstScale(c) {
-    return c._artScale ?? c.artScale ?? 1;
+  // A BABY PET (items.js BABY_KINDS — found in a nest bush or hatched from an
+  // egg, then released): a tame creature RAISED by the player (`raised`),
+  // born the moment it was set down (`born`, epoch ms, saved on its
+  // save.released row). It is drawn at half its kind's size until it has
+  // grown for `growMs` — seven days — and is an adult from then on: full
+  // size, and twice its kind's HP and bite (combat.js raisedMul). Both the
+  // size here and the power there read the ONE predicate, isBabyPet.
+  const PET_BABY = Object.freeze({ scale: 0.5, growMs: 7 * 24 * 60 * 60 * 1000 });
+  function isBabyPet(c, now = Date.now()) {
+    return !!(c && c.raised && Number.isFinite(c.born)) && (now - c.born) < PET_BABY.growMs;
+  }
+  // One creature's own size multiplier (its instance art scale), or 1 — a
+  // baby pet's is halved for as long as it is a baby. Every reader of a
+  // creature's drawn size (render.js, the tap box, the wheel and health bar
+  // seats) comes through here, so the whole body shrinks together.
+  function creatureInstScale(c, now) {
+    return (c._artScale ?? c.artScale ?? 1) * (isBabyPet(c, now) ? PET_BABY.scale : 1);
   }
   function creatureFloat(kind) { return creatureArt(kind)?.float ?? 0; }
   // The sheet a kind is drawn from, and how many frames of its row-0 cycle the
@@ -913,7 +931,7 @@
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
     CAVE_SLIME_TINT, TRAPPER_TINT, FIRE_SLIME_TINT, GHOST_TINT, GHOST_ALPHA, GHOST_GLOW, SPIRIT_RAVEN_ALPHA, creatureSheet, creatureFrames, creatureTint, creatureAlpha, creatureGlow,
-    creatureFoot, creatureScale, creatureInstScale, creatureFightsBack, creatureMaxMps, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
+    creatureFoot, creatureScale, creatureInstScale, PET_BABY, isBabyPet, creatureFightsBack, creatureMaxMps, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
   };
   root.SpriteLayout = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -260,8 +260,8 @@ test('ghost pump: after dark, a small group every ~5 minutes', () => {
     // Seated on the dispatch ring: off-screen, inside the sim bubble.
     for (const c of s._entry.creatures) {
       assert.eq(c.kind, 'ghost');
-      assert.truthy(/^ghost_0_0_/.test(c.id), 'a clock id on the pest crow\'s pattern (pruned the same way)');
-      assert.lt(Math.abs(dist(c) - PEST_CROW_SPAWN_CELLS), 1e-6, 'on the dispatch ring');
+      assert.truthy(/^ghost_0_0_/.test(c.id), 'a clock id on the pest deer\'s pattern (pruned the same way)');
+      assert.lt(Math.abs(dist(c) - PEST_SPAWN_CELLS), 1e-6, 'on the dispatch ring');
       assert.lt(dist(c), CREATURE_SIM_CELLS, 'inside the bubble, so it thinks');
     }
   });
@@ -274,7 +274,7 @@ test('ghost pump: only where it is dark, and never in Home\'s ring', () => {
     for (let i = 0; i < 64; i++) {
       const a = i / 64 * Math.PI * 2;
       lamps.push({ id: 'lamp' + i, lit: true,
-        x: P.x + Math.cos(a) * PEST_CROW_SPAWN_CELLS * CELL, y: P.y + Math.sin(a) * PEST_CROW_SPAWN_CELLS * CELL });
+        x: P.x + Math.cos(a) * PEST_SPAWN_CELLS * CELL, y: P.y + Math.sin(a) * PEST_SPAWN_CELLS * CELL });
     }
     const lit = pumpScene({ _streetLamps: lamps });
     for (let t = 0; t < 30 * 60000; t += 1000) pump(lit, t);
@@ -282,7 +282,7 @@ test('ghost pump: only where it is dark, and never in Home\'s ring', () => {
     // Home standing on the ring's every point is impossible, so: Home at the
     // player — the ring is outside HOME_R and they rise; widen the test to a
     // home out on the ring and check none rise inside its ring.
-    const home = { x: P.x + PEST_CROW_SPAWN_CELLS * CELL, y: P.y };
+    const home = { x: P.x + PEST_SPAWN_CELLS * CELL, y: P.y };
     const s = pumpScene({ homeWorldPos: () => home });
     for (let t = 0; t < 120 * 60000; t += 1000) {
       if (pump(s, t)) for (const c of s._entry.creatures) if (!s.save.caught.includes(c.id)) s.save.caught.push(c.id);

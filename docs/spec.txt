@@ -34,8 +34,15 @@ Each cell may contain one interactable object (excluding fauna). ie, rocks, tree
 
 # fauna
 Entities that can typically move around over cells, like pets, enemies, wild animals
- - crows: move in pauses and straight lines. Orbit nearest crop at 1.5-3.5 cells,
-   land on it for 2 full cycles, then destroy it. Scarecrow aversion 4 cells.
+ - crows: move in pauses and straight lines — short glides, a perch between.
+   Game (a feather), nothing more; scarecrow aversion 4 cells. (They raided
+   crops until Sep 2026; the deer does now.)
+ - ravens: the crow's body in blue-black. A thief: its swoop takes ONE COIN
+   from the purse (never below $0), once per bird per UTC day, then it is
+   sated and flies off. Felling one pays its full bounty.
+ - gulls: the crow's body in white, on the shore and the piers. A thief too:
+   its swoop takes ONE piece of FOOD from the bag (the biggest meal in it),
+   once per bird per UTC day. Same ledger, same sating, same flight.
  - no fauna may move onto a building footing, or road. Nor is any SEATED on one:
    every spawner goes through WorldGen.isSpawnCell with the tile's roadMask.
  - animals simulate when within the SIM BUBBLE, 12 cells of the player's feet
@@ -47,8 +54,12 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
  - slime: a pest that drifts toward the player and leeches energy when adjacent
    (numbers + defeat in CREATURES). Tame with a sapphire (secret — hinted only
    in book tips); tame slimes don't drain.
- - deer (15 hp), crow (8 hp): sneak in and eat crops. Deer: 20% chance per wander
-   step within 1.5 cells of a crop. Crow: orbital 2-cycle attack (see above).
+ - deer (15 hp): THE crop raider. Notices a crop it may eat within 8 cells
+   (a dispatched hard-mode pest from anywhere in the bubble) and about half
+   its steps walk at it; 20% chance per wander step to eat one within 1.5
+   cells. Never a potato, never Home's yard; bolts from a player within 5
+   cells, so a field is safe while you stand in it. Dogs hunt it, scarecrows
+   turn it.
  - DERELICT LAIRS ARE A HARD-MODE RULE (Difficulty derelictLairs, src/lairs.js).
    Every UNCLAIMED structure — a wrecked house, a sealed fort, an unclaimed
    castle, by the isClaimedKey test the derelict wash already reads — holds a
@@ -733,8 +744,17 @@ EGG HATCHING
    saves across sessions, but GPS gaps, jumps and unreliable fixes do not.
    Selecting an egg shows Eat and a disabled "Hatch · N m left" action. At
    zero metres remaining Hatch enables, consumes one egg, and puts a random
-   pet-shop animal in the bag for release. The next egg starts from zero;
-   a full rolled-pet stack leaves the ready egg intact.
+   BABY PET in the bag for release, with a card. The next egg starts from
+   zero; a full baby stack leaves the ready egg intact.
+ - BABY PETS (items.js BABY_KINDS — chicken / cow / cat / dog / rabbit) come
+   from a hatched egg or a NEST BUSH: one shrub in twenty (SHINY_RATE.nest,
+   off the bush's id — the same bushes for everyone) wiggles for a moment
+   every 10-30 s and, chopped, hands over one random baby with a card. A
+   full bag leaves the bush standing. Released, a baby is a tame pet born
+   that moment: half its kind's size for seven days (SpriteLayout.PET_BABY /
+   isBabyPet), then an adult. A pet raised from a baby is ALWAYS SHINY and,
+   grown, has DOUBLE its kind's HP and bite (combat.js raisedMul, through
+   powerMul like an elite's). Growth counts from release, not from the find.
 
 ================================================================================
 FISHING
@@ -1319,7 +1339,10 @@ ECONOMY (buying & selling)
    CASTLE until the player completes a job from THAT castle's quest board
    (quests.js; the sealed-castle tap opens the board). Completing one CLAIMS
    the castle: its turrets fight for you (see COMBAT), it lights up, and its
-   castellan offers ONE daily favour per UTC day (save.castleServiceClaimed):
+   castellan offers ONE favour per Houses.CASTLE_SERVICE_MS — TWELVE HOURS
+   (Sep 2026; was per UTC day. save.castleServiceClaimed[key] is the ms stamp
+   of the last favour; a legacy day stamp is spent until that day ends). It is
+   the one timer left on any building the player trades at:
    REST for a flat CASTLE_REST_ENERGY (35) energy, or COLLECT
    CASTLE_TAX_GOLD ($10) — presentCastleServiceOffer / _castleRest /
    _castleTax in app.js. (The old lifetime-delivery gate is retired; castles
@@ -1340,8 +1363,17 @@ ECONOMY (buying & selling)
    potion's effect for energy). What each does lives with the module that
    applies it; a rung's printed number comes from that module, never a copy.
  - OFFER MODAL: shows the item (sprite + name ×qty), a cost, and Buy/Cancel
-   (greyed if you can't afford). Shops may show a re-roll button (relic
-   offers $5 × 2^rerolls; themed shops start at $2 and grow ×1.5).
+   (greyed if you can't afford). Shops may show a re-roll button (the trader
+   $5 × 2^rerolls; the smithy $5 growing ×1.5; themed shops start at $2 and
+   grow ×1.5 — ShopsMath.*RerollCost).
+ - NO SHOP IS EVER BUSY (Sep 2026): there is no per-hour deal cap, no
+   "resting" anvil and no open/busy plaque — the smithy, trader, storefront
+   and tower are used continuously. The smithy only offers what it can forge
+   (Gear.buildRelicOffer skips wooden jewellery for the smith). The clock's
+   one hold on a shop is the RE-ROLL LADDER: the paid re-roll count eases by
+   ONE rung per hour bucket (ShopsMath.bucketState / easedRerolls), never a
+   reset; forging at the smithy still settles its ladder to the base at once.
+   Offers themselves still rotate on the house's hourly bucket.
  - BUY cost generation: cash storefronts (markets + generic houses) always
    price in CASH (1.2-3.0× the item value, shrunk by your Bow tier). BARTER is
    exclusively the TRADER shop kind's job (its own qty-scaled deal + re-roll —

@@ -40,6 +40,8 @@ function mkScene({ energy = 100, max = 100 } = {}) {
   s.chipDOM = 0;
   s.updateMemoriesDOM = () => { s.chipDOM++; };
   s.addToInv = () => { throw new Error('a memory never enters the bag'); };
+  s._seatStoryNeighbours = () => {};   // the trailer's arrivals: starter.js's, story_neighbours.test.js
+
   s.modals = [];
   s.showMessageModal = (o) => s.modals.push(o);
   return s;

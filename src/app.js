@@ -757,7 +757,7 @@ const TURRET_SCAN_MS = 300;
 // Crows ignore potato crops — they won't notice, orbit, land on, or eat them.
 // The rule (and its crop set) now lives in crops.js; this stays as a free-
 // function alias because the crow pest logic calls it bare in several spots.
-function crowEatsCrop(p) { return Crops.crowEats(p); }
+function raiderEatsCrop(p) { return Crops.raiderEats(p); }
 
 // --- Debug ---
 // WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
@@ -861,24 +861,28 @@ const STEER_DRAIN_LUMP = 2;
 // along the step, and alternating either side of the line of travel like a
 // real pair of feet.
 //
-// The stance is MEASURED, not picked: in Walk.png's 32px frame the two feet
-// sit at x ≈ 14.2 and ≈ 17.8 on the bottom art row, i.e. ±1.8px either side of
-// the midline. Scaled by playerScale at draw time, that is where the sprite's
-// own feet are, so a print lands under the foot that made it.
+// The stance is MEASURED, not picked: in the cyan farmer's 16px frame
+// (SpriteLayout.PLAYER_ART.farmer — the base sheet every save starts on) the
+// two feet sit at x 5–6 and 9–10 on the bottom art row of the front pose,
+// i.e. ±2px either side of the art's midline. Scaled by playerScale at draw
+// time, that is where the sprite's own feet are, so a print lands under the
+// foot that made it.
 const FOOT_DOT_R = 3 * 0.7;          // was a flat 3px circle — 30% smaller now
 const FOOT_DOT_LONG = FOOT_DOT_R * 1.15;   // semi-axis ALONG the step…
 const FOOT_DOT_ACROSS = FOOT_DOT_R * 0.8;  // …and across it: a slight oval, not a slot
-const FOOT_STANCE_HALF_ART_PX = 1.8; // half the sprite's stance, in frame px
-// How far the walker's visible FEET sit below the centre of its 32px frame, in
-// TEXTURE px — a fact about the art, like the stance above, not about the size
-// it happens to be drawn at. Measured as a 14px drop back when the sprite drew
-// at 1.35×, so 14/1.35 ≈ 10.37 px in the frame itself; kept as the division so
-// the measurement stays legible. playerFeetNudgeY multiplies it by whatever
-// playerScale is, which is what keeps the feet on the GPS fix at any scale.
-const PLAYER_FEET_DROP_PX = 14 / 1.35;
-// The walker's frame edge, in texture px (assets.js `idle`: 32×32). Its head
-// stands half of this plus the feet drop above the fix.
-const PLAYER_FRAME_PX = 32;
+const FOOT_STANCE_HALF_ART_PX = 2;   // half the sprite's stance, in frame px
+// THE BASE ART. The player's frame, feet and scale are facts about the cyan
+// farmer's sheet, read off the one table that owns its layout
+// (SpriteLayout.PLAYER_ART.farmer) rather than copied here: how far its
+// visible FEET sit below the centre of its frame in TEXTURE px (footDrop),
+// its frame edge (fh) and the scale it is drawn at. playerFeetNudgeY
+// multiplies the drop by playerScale, which is what keeps the feet on the
+// GPS fix; a calling or the bicycle swaps in its own row's numbers
+// (_syncPlayerSkin). The head stands half the frame plus the feet drop
+// above the fix.
+const PLAYER_FEET_DROP_PX = SpriteLayout.PLAYER_ART.farmer.footDrop;
+const PLAYER_FRAME_PX = SpriteLayout.PLAYER_ART.farmer.fh;
+const PLAYER_ART_SCALE = SpriteLayout.PLAYER_ART.farmer.scale;
 // THE COLLAPSE POSE. At zero energy the player is not standing: the reach is 0,
 // nothing hunts them, no trap springs under them (Combat.playerDowned — the one
 // expression all of that reads). A body that is upright in the picture while
@@ -897,12 +901,12 @@ const PLAYER_FRAME_PX = 32;
 const PLAYER_DOWNED_ROTATION = Math.PI / 2;
 // Where an energy pop hangs (_popEnergy). On a cell that isn't the player's,
 // its bottom clears the cell's TOP EDGE by ENERGY_POP_LIFT_PX. On the player's
-// own cell the walker's head is in the way, so it clears the HEAD by the same
+// own cell the player's head is in the way, so it clears the HEAD by the same
 // margin instead: the head is half the frame plus the feet drop above the fix
-// (the feet ARE the fix — see playerFeetNudgeY), so this is derived from the
-// art, not tuned to it.
+// (the feet ARE the fix — see playerFeetNudgeY), at the scale the base art is
+// drawn, so this is derived from the art, not tuned to it.
 const ENERGY_POP_LIFT_PX = 4;
-const ENERGY_POP_HEAD_PX = Math.round(PLAYER_FRAME_PX / 2 + PLAYER_FEET_DROP_PX) + ENERGY_POP_LIFT_PX;
+const ENERGY_POP_HEAD_PX = Math.round((PLAYER_FRAME_PX / 2 + PLAYER_FEET_DROP_PX) * PLAYER_ART_SCALE) + ENERGY_POP_LIFT_PX;
 // How long the stick must sit idle before the character walks itself home.
 //
 // This is a DEBOUNCE, not a pause — it exists so lifting a thumb to reposition
@@ -1161,13 +1165,13 @@ const REST_SETTLE_S = 10;
 // recovery spot out in the wild. See the fire-warmth block in update().
 const FIRE_FULL_REST_S = 360;
 // A CLAIMED castle no longer trades relics — it's the player's own — and
-// instead its castellan offers ONE favour a day (save.castleServiceClaimed[key]
-// holds the UTC day it was last used, same day-key idiom as houseSatisfied):
+// instead its castellan offers ONE favour per Houses.CASTLE_SERVICE_MS, twelve
+// hours (save.castleServiceClaimed[key] holds when it was last used):
 // REST, a flat lump of CASTLE_REST_ENERGY handed over on arrival rather than a
 // rest rate like the ones above (the castle is somewhere you travel to, so
 // the payoff should land the moment you get there), or COLLECT, a flat tax
 // take in gold. Small enough either way that it can't replace food or
-// sleeping at Home — once a day is a courtesy for the walk, not an income.
+// sleeping at Home — twice a day is a courtesy for the walk, not an income.
 const CASTLE_REST_ENERGY = 35;   // a flat 35⚡ (was a tenth of the bar until Sep 2026)
 // What a house says when the feet walk through it (_houseMutter). Each line
 // fits MAP_MSG_MAX.
@@ -2216,7 +2220,6 @@ class MapScene extends Phaser.Scene {
     this.sparkPool = [];      // gold sparkle sprites floated above shiny entities
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
-    this.shopReadyPool  = []; // Phaser.Text "✓ / Xm" readiness pip above each house/tower
     this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
     this.trapPool = [];       // sprites for hidden / sprung traps lying on the ground (src/traps.js)
@@ -2481,14 +2484,9 @@ class MapScene extends Phaser.Scene {
       vignette.lineBetween(x0 + size - i - 0.5, y0 + VIG_LIP, x0 + size - i - 0.5, y0 + size - VIG_LIP);
     }
 
-    // Animations — Idle.png: 4 cols × 3 rows; Walk.png: 6 cols × 3 rows
-    // Row 0 = facing down, row 1 = facing up, row 2 = facing side (right; flip for left)
-    this._createAnim('idle-down', 'idle', 0, 3, 6);
-    this._createAnim('idle-up', 'idle', 4, 7, 6);
-    this._createAnim('idle-side', 'idle', 8, 11, 6);
-    this._createAnim('walk-down', 'walk', 0, 5, 10);
-    this._createAnim('walk-up', 'walk', 6, 11, 10);
-    this._createAnim('walk-side', 'walk', 12, 17, 10);
+    // The player's directional idle / walk cycles come from
+    // SpriteLayout.PLAYER_ART below — every sheet (the cyan farmer every save
+    // starts on, the callings, the bicycle) authors all four directions.
     // Dragon transform — single non-directional flap, mirrored by heading in
     // _playDirected (the art faces right at rest). Used for both idle and fly.
     this._createAnim('dragon-fly', 'dragon', 0, 7, 10);
@@ -2515,26 +2513,17 @@ class MapScene extends Phaser.Scene {
     // Depth 10: above the footprint trail (9) so dots can't draw on the
     // character's face, below the facing-arrow overlay (11).
     //
-    // ONE TEXTURE PIXEL, ONE GAME PIXEL. The walker's 32px frame draws at 32px
-    // — a whole cell wide, which is the size it has effectively been at since
-    // Sep 2026 anyway: the scale was 1.35 × 0.9 × 0.85 = 1.033, a product of
-    // three tuning passes that landed 3% from 1 and stayed there.
-    //
-    // That 3% was not free. Every other pixel on screen is drawn at an exact
-    // multiple of a texture pixel or as geometry; the walker alone was
-    // resampled at 1.033, so its pixels came out in irregular runs — some one
-    // device pixel wider than their neighbours, and the seam wandering as the
-    // sprite moved. At 1 the character is the crisp thing in the middle of the
-    // frame rather than the soft one. The 3% of height it gives up is not a
-    // size anyone was reading.
-    //
-    // Keep it at 1 unless the ART changes. Everything derived from it below
-    // (the feet nudge, the footprint stance) is written as a multiple of the
-    // scale, so a future change stays a one-line change.
-    this.playerScale = 1;
+    // The base scale is the cyan farmer's own (SpriteLayout.PLAYER_ART.farmer:
+    // 16px frames at 1.5, a 24px body a little under a cell — the size every
+    // calling's sheet shares, see assets/Character/README.md). It is the one
+    // scale the player is drawn at when no calling or bicycle skin overrides
+    // it (_syncPlayerSkin), and everything derived from it below (the feet
+    // nudge, the footprint stance) is written as a multiple of it, so the art
+    // table stays the one owner of the number.
+    this.playerScale = PLAYER_ART_SCALE;
     // Dragon Powder skin: the 96×96 dragon frames are scaled down so the red
-    // dragon reads a touch larger than the human walker without dwarfing the
-    // map. Applied in _applyDragonSkin.
+    // dragon reads a touch larger than the human without dwarfing the map.
+    // Applied in _applyDragonSkin.
     this.dragonScale = 0.7;
     // FEET ON THE FIX: the projected world position (viewCentre for the local
     // player, the fix's screen point for a peer) is where the FEET go, so
@@ -2546,10 +2535,12 @@ class MapScene extends Phaser.Scene {
     // put the map a body-length north of where the player stood (see
     // feetOffsetM in create()).
     this.playerFeetNudgeY = -PLAYER_FEET_DROP_PX * this.playerScale;
-    this.player = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
+    // Born on the cyan farmer's sheet (frame 0, the front idle pose); the
+    // _playDirected call below picks the directional cycle, and the skin the
+    // save is owed once its sheet is up (_syncPlayerSkin).
+    this.player = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, SpriteLayout.PLAYER_ART.farmer.sheet, 0)
       .setScale(this.playerScale)
       .setDepth(10)
-      .play('idle-down')
       .setMask(mask);
     // The body and its melee effect occlude together at the player's feet.
     // Keep this container at (0,0): existing drawing uses screen coordinates.
@@ -4989,14 +4980,22 @@ class MapScene extends Phaser.Scene {
     return lost;
   }
 
-  // A THEFT BANKED on the purse — the coin twin of _losePlayerEnergy, and
-  // the one place a thief's snatch (Combat.incomingTheft, the gull) comes
-  // off the money: never below $0, the thief marked sated for the day
-  // (Combat.bankTheft), the flinch at the instant it lands (_flashPlayerHit),
-  // the shop shut like any hit, and the gold "-N" on the player's own cell
-  // (_popCellNumber, the coin pickup's "+N" in reverse — a number on the map
-  // names its cell). It never touches
-  // energy. Returns what was taken.
+  // A THEFT BANKED — the one place a thief's snatch (Combat.incomingTheft:
+  // the raven's coins, the gull's food) lands on the player. The TAKE says
+  // what: `{ what: 'coins', n }` goes to _losePlayerCoins, `{ what: 'food',
+  // id, n }` to _losePlayerFood. Both are the thief twins of
+  // _losePlayerEnergy — the thief marked sated for the day (Combat.bankTheft),
+  // the flinch at the instant it lands (_flashPlayerHit), the shop shut like
+  // any hit, and the "-N" on the player's own cell (_popCellNumber, the
+  // pickup's "+N" in reverse — a number on the map names its cell). Neither
+  // touches energy. Returns what was taken (a count).
+  _losePlayerToThief(take, thief) {
+    if (!take) return 0;
+    if (take.what === 'coins') return this._losePlayerCoins(take.n, thief);
+    if (take.what === 'food') return this._losePlayerFood(take.id, take.n, thief);
+    return 0;
+  }
+  // Coins off the purse: never below $0, the gold "-N".
   _losePlayerCoins(n, thief) {
     const purse = Math.max(0, Math.floor(this.save.money ?? 0));
     const taken = Math.min(purse, Math.max(0, Math.floor(n || 0)));
@@ -5010,6 +5009,26 @@ class MapScene extends Phaser.Scene {
       this._popCellNumber(`-${taken}`, UI_GOLD, p.cellIX, p.cellIY);
     }
     if (typeof persistSave === 'function') persistSave(this.save);
+    return taken;
+  }
+  // Food out of the bag: Inventory.remove is the one bag writer (never more
+  // than the stack holds), the bar rebuilt so the missing piece shows, the
+  // selection re-clamped like any consume, and the "-N Name" in the danger
+  // ink — the same tier the eat button's "+N" answers in gold.
+  _losePlayerFood(id, n, thief) {
+    const taken = Inventory.remove(this.save, id, Math.max(0, Math.floor(n || 0)));
+    if (!(taken > 0)) return 0;
+    if (thief) Combat.bankTheft(this.save, thief);
+    if ((this.save.selSlot ?? -1) >= (this.save.inv || []).length) this.save.selSlot = -1;
+    this._flashPlayerHit(taken);
+    this._closeShopOnHit();
+    if (typeof playerReachCell === 'function' && this.startWorldM && this.originPx) {
+      const p = playerReachCell(this);
+      const name = (typeof ITEM_BY_ID !== 'undefined' && ITEM_BY_ID[id]?.name) || id;
+      this._popCellNumber(`-${taken} ${name}`, UI_DANGER_INK, p.cellIX, p.cellIY);
+    }
+    if (typeof persistSave === 'function') persistSave(this.save);
+    if (this.buildInventoryDOM) this.buildInventoryDOM();
     return taken;
   }
 
@@ -8181,6 +8200,7 @@ class MapScene extends Phaser.Scene {
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     if (this.updateMemoriesDOM) this.updateMemoriesDOM();
     MemoryStory.enqueue(this.save, this.memoriesTotal(), label);
+    this._seatStoryNeighbours();   // a neighbour this memory brings to the trailer
     this.updateObjectiveDOM?.();
     persistSave(this.save);
     return true;
@@ -8800,6 +8820,7 @@ class MapScene extends Phaser.Scene {
   // Starter-area setup — see Starter.placeHomeGreeter (src/starter.js).
   _placeHomeGreeter(entry, tx, ty) { return Starter.placeHomeGreeter(this, entry, tx, ty); }
   _placeSafeAreaWarden(entry, tx, ty) { return Starter.placeSafeAreaWarden(this, entry, tx, ty); }
+  _seatStoryNeighbours() { return Starter.seatStoryNeighbours(this); }
 
   // Starter-area setup — see Starter.stripStarterCrates (src/starter.js).
   _stripStarterCrates(entry) { return Starter.stripStarterCrates(this, entry); }
@@ -9187,7 +9208,7 @@ class MapScene extends Phaser.Scene {
 
   // Potion of the Raven: SPIRIT_RAVEN_MS of a slime-strength ally
   // (SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven) hunting the nearest foe or
-  // pest crow through wanderCreatures' pet lane. Only the EXPIRY reaches the
+  // pest deer through wanderCreatures' pet lane. Only the EXPIRY reaches the
   // save (save.spiritRavenUntil), so the timer is honest across a reload; the
   // bird is session state that _tickSpiritRaven keeps at your side while it
   // runs. Drinking again while one is out refreshes the timer on the SAME
@@ -9207,7 +9228,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // THE SPIRIT RAVEN'S KEEPER — once a frame, beside the Blight aura. The bird
-  // is SESSION state (an id minted off the clock, like the pest crow and the
+  // is SESSION state (an id minted off the clock, like the pest deer and the
   // ghost), pushed into the live creature list of the player's tile; what
   // persists is only save.spiritRavenUntil. So one pass answers everything:
   //   the timer ran out, or its HP did (the pet fight flags `_spent`) → it is
@@ -10825,15 +10846,17 @@ class MapScene extends Phaser.Scene {
   // lettuce on your doorstep while you rest there read as Home doing nothing.
   // Out past the ring the field is as exposed as it always was (scarecrows are
   // the answer there). It is a REASON on the raider's existing "may I eat
-  // this?" test, never a second lane: _crowRaids for the crow, the deer's
-  // graze filter for the deer.
+  // this?" test, never a second lane: _cropRaidable, which the deer's graze
+  // and the hard-mode pest pump both read.
   homeGuardsCrop(p) {
     return !!p && this.inHomeRing(p.x, p.y);
   }
-  // May a crow eat this crop? Its kind (Crops.crowEats — never potato) and
-  // where it grows (homeGuardsCrop). Every crow-side crop test reads this.
-  _crowRaids(p) {
-    return crowEatsCrop(p) && !this.homeGuardsCrop(p);
+  // May a raider (the deer) eat this crop? Its kind (Crops.raiderEats —
+  // never potato) and where it grows (homeGuardsCrop). Every crop-raid test
+  // — the deer's notice, its graze, the pest pump's "is there a field worth
+  // sending one at" — reads this and nothing else.
+  _cropRaidable(p) {
+    return raiderEatsCrop(p) && !this.homeGuardsCrop(p);
   }
 
   // Build a synthetic "trailer" house at (wmx, wmy), snapped to the cell-grid
@@ -12227,7 +12250,7 @@ class MapScene extends Phaser.Scene {
         Houses.registerWizardTower(this.save, house, order);
         if (restoredRole === 'wizard') NPC.restoreShrine(this, house);
         // The first wreck restored becomes the starter blacksmith (wooden-tool
-        // forge). Stamp its id so isStarterBlacksmith / shopDealCap pick it up.
+        // forge). Stamp its id so isStarterBlacksmith picks it up.
         if (restoredRole === 'blacksmith' && this.save.starterBlacksmithId == null) {
           this.save.starterBlacksmithId = house.id;
         }
@@ -12325,8 +12348,9 @@ class MapScene extends Phaser.Scene {
 
   _claimCastle(house) { return Houses.claimCastle(this.save, house); }
 
-  // Once-per-castle-per-UTC-day gate — see Houses.castleServiceUsedToday.
-  _castleServiceUsedToday(house) { return Houses.castleServiceUsedToday(this.save, house); }
+  // Once-per-castle-per-twelve-hours gate — see Houses.castleServiceUsed.
+  _castleServiceUsed(house) { return Houses.castleServiceUsed(this.save, house); }
+  _castleServiceWaitMs(house) { return Houses.castleServiceWaitMs(this.save, house); }
   _markCastleServiceUsed(house) { return Houses.markCastleServiceUsed(this.save, house); }
 
   // Simple yes/no DOM modal. Dismissible. Renders over #game so it scales with the viewport.
@@ -12502,7 +12526,7 @@ class MapScene extends Phaser.Scene {
   // Swap the player between the human sheets and the red dragon while the
   // Dragon Powder is active. Sets _dragonActive so
   // _playDirected routes both sprites through the looping 'dragon-fly' anim,
-  // and rescales the 96×96 dragon frames down to roughly the walker's size.
+  // and rescales the 96×96 dragon frames down to roughly the human's size.
   _applyDragonSkin(on) {
     // Guard: if the dragon spritesheet failed to load (e.g. the asset 404s on
     // a deploy), 'dragon-fly' would be a frameless anim and play() would crash
@@ -12521,7 +12545,7 @@ class MapScene extends Phaser.Scene {
       } else {
         s.setScale(this.playerScale);
         s.setFlipX(false);
-        if (s.anims.currentAnim?.key !== 'idle-down') s.play('idle-down');   // _playDirected re-picks the directional anim next frame
+        this._playDirected(s, 'idle');   // back onto the human sheet the save is owed, facing as before
       }
     }
     // A flying dragon isn't standing on the cell, so its shadow shrinks and
@@ -12565,20 +12589,19 @@ class MapScene extends Phaser.Scene {
       sprite.anims.timeScale = 1;
       return;
     }
-    let dir = 'down', flip = false;
-    if (Math.abs(x) > Math.abs(y)) { dir = 'side'; flip = x < 0; }
+    let dir = 'down';
+    if (Math.abs(x) > Math.abs(y)) dir = x < 0 ? 'left' : 'right';
     else if (y < 0) dir = 'up';
-    if (sprite === this.player) {
-      this._syncPlayerSkin();
-      if (this._playerArt) {
-        if (dir === 'side') dir = x < 0 ? 'left' : 'right';
-        flip = false; // these sheets include both authored side directions
-      }
-    }
-    const skin = sprite === this.player ? this._playerArt : null;
-    const key = skin ? `${skin.sheet}-${baseKey}-${dir}` : `${baseKey}-${dir}`;
+    if (sprite === this.player) this._syncPlayerSkin();
+    // Every player sheet authors all four directions (SpriteLayout.PLAYER_ART),
+    // so nothing is mirrored. Until the skin the save is owed has its sheet
+    // and cycles up, the cyan farmer — the base sheet every save starts on —
+    // stands in for it (a missing farmer cycle is a no-op in play(), never a
+    // crash: anim_guard.test.js).
+    const skin = (sprite === this.player && this._playerArt) || SpriteLayout.PLAYER_ART.farmer;
+    const key = `${skin.sheet}-${baseKey}-${dir}`;
     if (sprite.anims.currentAnim?.key !== key) sprite.play(key);
-    sprite.setFlipX(flip);
+    sprite.setFlipX(false);
     // TIRED WALK: eases the CYCLE's frame pace toward WALK_TIRED_SLOW_MUL as
     // energy drains past Lighting.LOW_ENERGY_FRAC — the same weight the reach
     // tint reddens by (Lighting.lowEnergyFrac), so the legs visibly labour in
@@ -13650,8 +13673,9 @@ class MapScene extends Phaser.Scene {
     this._clampSelSlot();
     persistSave(this.save);
     this.buildInventoryDOM();
-    const pet = ITEM_BY_ID[result.petId];
-    this.flashLoot(`Hatched ${pet.name}!`, UI_GREEN, 1, result.petId);
+    // The hatch is a ceremony (SceneModals.showBabyFound): the offer modal
+    // that asked has already closed, so the card stands alone.
+    this.showBabyFound(result.petId, 'egg');
     return true;
   }
 

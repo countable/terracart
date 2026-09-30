@@ -16,6 +16,32 @@ const MemoryStory = (() => {
     body: 'My children still ask when we can go home. I kept the key, though there is hardly a door left. If you can mend these houses, we can come back. We still have hands to help.',
   };
   const RUMOUR = 'They say a wise man lives somewhere around here. Nobody I know has seen him. Perhaps he knows why the old roads feel so familiar to you.';
+  // THE STORY NEIGHBOURS by the starting trailer (NPC.STORY_ROLES; Starter
+  // placeSafeAreaWarden seats them). Each keeps to one thread of the story
+  // and moves with the act, never ahead of it: the survivor knows the
+  // Warmonger only as the night the roofs went, the believer never learns
+  // what the player learns at the second tower — the irony is the player's.
+  const NEIGHBOURS = {
+    witness: {
+      1: 'Nobody heard an army. There was a bell, then smoke, then no roofs anywhere. They call whatever did it the Warmonger. I never saw its face.',
+      2: 'The Warmonger took every roof in one night. You are putting them back one at a time. That is the only answer to it I have ever heard.',
+      3: 'Some nights I think the Warmonger is still out there. Then I see lamplight in a mended window, and I stop thinking about it.',
+    },
+    // The wanderer is a CHILD (NPC.STORY_ROLES — drawn at CHILD_SCALE): short
+    // sentences, one thing at a time, a door remembered before a house.
+    wanderer: {
+      homeless: 'We sleep under whichever wall is driest. I had a room once, with my name on the door. Now there is only the door.',
+      housed: 'Did you see? A roof! A real one, with a lamp under it. I slept inside last night. I forgot what rain sounds like on a roof.',
+      settled: 'I have a bed now, and a window. Knock when you go past. There is always something in the pot.',
+    },
+    believer: {
+      ruin: 'Before the fire a wise wizard watched over this land. His tower fell with the rest. Mend enough of these wrecks and you will find it. Restore it, and perhaps he comes back and saves us all.',
+      locked: 'His tower stands again! The door will not open for me, but he is in there, I know it. He will come out when the time is right.',
+      open: 'You have spoken with him? Then there is hope for all of us. He never turned anyone away.',
+      abandoned: 'The tower is cold again. He has not left us. A wise man does not leave. He goes ahead.',
+      moved: 'They say he keeps a new tower now. When you see him, tell him we still light a candle for him every night.',
+    },
+  };
   const SCENES = {
     3: { art: 'story_wrecks', title: 'The name in the smoke',
       body: 'A bell rings through smoke. Someone gathers a child against their chest and whispers a name: the Warmonger. You wake from the glimpse with your hands clenched, though you cannot remember what they held.' },
@@ -67,22 +93,22 @@ const MemoryStory = (() => {
       { art: 'kind_wizard', title: 'What remains useful', body: '“Do not strain after every face. Remember the weight in your hands. The moment your enemy gave way.”\n\nYou try to return to the doorway. His fingers tighten around your wrist. “Stay with the victory.”' },
     ] },
     { id: 'hesitation', minMemories: 18, tower: 'first', pages: [
-      { art: 'kind_wizard', title: 'An old habit', body: '“When I tell you to move, move. Doubt can cost us everything.”\n\nYour body starts to rise before you decide to stand. He smiles. “Some good habits survive even this.”' },
+      { art: 'wizard_cold', title: 'An old habit', body: '“When I tell you to move, move. Doubt can cost us everything.”\n\nYour body starts to rise before you decide to stand. He smiles. “Some good habits survive even this.”' },
     ] },
     { id: 'little_lives', minMemories: 24, tower: 'second', pages: [
-      { art: 'restore_wizard', title: 'Their little lives', body: '“They will ask for another roof, another basket, another day. Their little lives will take all of yours if you allow it.”\n\nHe pushes a chair into place for you. “Sit. We have more important work.”' },
+      { art: 'wizard_cold', title: 'Their little lives', body: '“They will ask for another roof, another basket, another day. Their little lives will take all of yours if you allow it.”\n\nHe pushes a chair into place for you. “Sit. We have more important work.”' },
     ] },
     { id: 'what_comes_next', minMemories: 27, tower: 'second', pages: [
-      { art: 'kind_wizard', title: 'What comes next', body: 'A map lies open beneath his hand. You recognise none of its coastlines.\n\n“When I have you back—” He pauses. “When you have your strength back, this land will seem very small.”' },
+      { art: 'wizard_map', title: 'What comes next', body: 'A map lies open beneath his hand. You recognise none of its coastlines.\n\n“When I have you back—” He pauses. “When you have your strength back, this land will seem very small.”' },
     ] },
   ];
   // These fragments contradict a version the player actually heard him give.
   // Before that visit, the original fragments remain ambiguous and complete.
   const ACT2_MEMORIES = {
-    18: { requires: 'right_order', art: 'story_wrecks', title: 'The hand in the doorway', body: 'The wizard said she was welcoming you. Now the burning doorway returns. Her hand is braced against the door. The roof gives way before she can close it.' },
+    18: { requires: 'right_order', art: 'memory_doorway', title: 'The hand in the doorway', body: 'The wizard said she was welcoming you. Now the burning doorway returns. Her hand is braced against the door. The roof gives way before she can close it.' },
     21: { requires: 'useful_memories', art: 'kind_memory', title: 'The word beneath the word', body: 'You reach for the victory he told you to remember. Through the burning roofs, a voice breaks through: “Please.” The whole street falls silent. This is not how he told it.' },
-    24: { requires: 'hesitation', art: 'revive_wake', title: 'An older grip', body: 'He called it a good habit. You remember the same grip beside a battlefield, your hand turning when his did. You try to remember what you wanted. Nothing comes.' },
-    27: { requires: 'little_lives', art: 'kind_wizard', title: 'A mark on a map', body: '“Their little lives.” You remember those words above a map of unfamiliar shores. A tiny mark stands for a whole town. His finger covers it. The people vanish beneath it.' },
+    24: { requires: 'hesitation', art: 'memory_grip', title: 'An older grip', body: 'He called it a good habit. You remember the same grip beside a battlefield, your hand turning when his did. You try to remember what you wanted. Nothing comes.' },
+    27: { requires: 'little_lives', art: 'wizard_map', title: 'A mark on a map', body: '“Their little lives.” You remember those words above a map of unfamiliar shores. A tiny mark stands for a whole town. His finger covers it. The people vanish beneath it.' },
   };
   // A repeat visit holds the current voice instead of advancing or cycling
   // back to an earlier, kinder wizard. These pages never grant an upgrade.
@@ -104,8 +130,8 @@ const MemoryStory = (() => {
   ];
   const DRAGON_DECLARATION = 'I am a dragon, and so are you. We are the alpha species of the stars, and this planet is mine. You are my sword, nearly restored. Collect your fire breath on level 9 of the dungeon from the demons there.';
   const REVEAL = [
-    { art: 'kind_wizard', dragon: true, title: 'The shape behind the mask', body: 'The old man’s outline unfolds into wings and red scales. His true form fills the tower.\n\nThe fire above the ruined town returns to you. It left your own throat. The Warmonger was you.' },
-    { art: 'kind_wizard', dragon: true, title: 'His planet', body: '“' + DRAGON_DECLARATION + '”' },
+    { art: 'wizard_dragon', title: 'The shape behind the mask', body: 'The old man’s outline unfolds into wings and red scales. His true form fills the tower.\n\nThe fire above the ruined town returns to you. It left your own throat. The Warmonger was you.' },
+    { art: 'wizard_dragon', title: 'His planet', body: '“' + DRAGON_DECLARATION + '”' },
     { art: 'cave_first', title: 'Act III · The fire below', body: 'You burned this world at his command. In the battle you were nearly killed, losing your dragon form and your memory. He has been choosing what to give back.\n\nYour fire waits below. What you do with it need not be his choice.' },
   ];
   function state(save) {
@@ -171,11 +197,37 @@ const MemoryStory = (() => {
       if (act(scene.save) >= 2) return survivorLine(scene.save);
       return 'There is lamplight in a house that was dark yesterday. My children saw it first. Thank you. We can begin again.';
     }
+    if (c.role === 'witness') return NEIGHBOURS.witness[act(scene.save)];
+    if (c.role === 'wanderer') return wandererLine(scene, c);
+    if (c.role === 'believer') return believerLine(scene.save);
     // The fixed ninth scene guarantees the rumour; a neighbour repeats it
     // without replacing every scholar's or trader's ordinary conversation.
     if (c.role === 'scout' && total(scene.save) >= 9 && act(scene.save) === 1) return RUMOUR;
     if (c.role === 'scout' && act(scene.save) >= 2) return survivorLine(scene.save);
     return null;
+  }
+  // The wanderer is homeless until the NEXT restoration after the player
+  // first meets them: the first talk stamps the restoration count of the day
+  // (save.memoryStory.met[id]); one more roof after that and they are housed.
+  function wandererLine(scene, c) {
+    const s = state(scene.save), mended = Object.keys(scene.save.restoredHouses || {}).length;
+    if (!s.met || typeof s.met !== 'object') s.met = {};
+    if (!Number.isFinite(s.met[c.id])) {
+      s.met[c.id] = mended;
+      if (typeof persistSave === 'function') persistSave(scene.save);
+    }
+    if (mended <= s.met[c.id]) return NEIGHBOURS.wanderer.homeless;
+    return act(scene.save) >= 2 ? NEIGHBOURS.wanderer.settled : NEIGHBOURS.wanderer.housed;
+  }
+  // The believer follows the tower itself (Houses.wizardTowerIds and the
+  // memory gates towerAccess reads), one step behind the player.
+  function believerLine(save) {
+    const towers = Houses.wizardTowerIds(save), memories = total(save);
+    if (act(save) === 3 || towers.secondId) return NEIGHBOURS.believer.moved;
+    if (!towers.firstId) return NEIGHBOURS.believer.ruin;
+    if (memories >= LEAVE_MEMORIES) return NEIGHBOURS.believer.abandoned;
+    if (memories < START_MEMORIES) return NEIGHBOURS.believer.locked;
+    return NEIGHBOURS.believer.open;
   }
   function survivorLine(save) {
     const s = state(save);
@@ -243,24 +295,11 @@ const MemoryStory = (() => {
     const pages = beats.flatMap(id => ACT2.find(beat => beat.id === id)?.pages || []);
     if (visit.kind === 'return') return [FIRST_RETURN, ...pages];
     if ((visit.kind === 'milestone' || visit.kind === 'act2') && pages.length) return pages;
-    if (save.memoryStory?.act3Started) return [{ art: 'kind_wizard', dragon: true, title: 'The fire below',
+    if (save.memoryStory?.act3Started) return [{ art: 'wizard_dragon', title: 'The fire below',
       body: typeof DragonStory !== 'undefined' && DragonStory.unlocked(save)
         ? '“Your fire has returned. You begin to resemble yourself.” His gaze moves past you, toward the distant stars.'
         : '“Level nine. The demons have kept your fire long enough.”' }];
     return [{ art: 'kind_wizard', title: 'More important work', body: VISITS[Math.min(state(save).act2Seen.length, VISITS.length - 1)] }];
-  }
-  // Present the existing red-dragon sprite as the revealed speaker. Cached
-  // once per scene; no generated asset, pixel reads, or per-frame canvas work.
-  function dragonPortrait(scene) {
-    if (scene._wizardDragonPortrait) return scene._wizardDragonPortrait;
-    if (!scene.textures?.exists?.('red_dragon') || typeof document === 'undefined') return 'kind_wizard';
-    const row = EnemyRoster.get('red_dragon').art;
-    const source = scene.textures.get('red_dragon').getSourceImage();
-    const canvas = document.createElement('canvas'); canvas.width = 352; canvas.height = 448;
-    const ctx = canvas.getContext('2d'); ctx.fillStyle = '#251820'; ctx.fillRect(0, 0, 352, 448);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(source, 0, 0, row.frameWidth, row.frameHeight, 80, 8, 192, 192);
-    return (scene._wizardDragonPortrait = canvas.toDataURL());
   }
   function visitWizard(scene, offer, house) {
     if (scene._wizardStoryOpen) return;
@@ -273,7 +312,7 @@ const MemoryStory = (() => {
       visit.page = i;
       let dismissed = false;
       const panel = pages[i];
-      try { scene.showMessageModal({ ...panel, art: panel.dragon ? dragonPortrait(scene) : panel.art,
+      try { scene.showMessageModal({ ...panel,
         kind: visit.kind === 'reveal' ? 'memory' : 'wizard',
         mustAcknowledge: true, okLabel: i + 1 < pages.length ? 'Next' : blocked ? 'Leave' : 'Continue', onDismiss: () => {
           if (dismissed || (!blocked && (s.visit !== visit || visit.page !== i))) return;
@@ -297,7 +336,7 @@ const MemoryStory = (() => {
     try { show(); } catch (error) { scene._wizardStoryOpen = false; throw error; }
   }
   return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, LOCKED, ABANDONED, EMPTY,
-    HOME, RUMOUR, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
-    state, total, enqueue, panel, enqueueHome, drain, npcDialogue, survivorLine, act, towerAccess, objective,
-    eligibleBeats, wizardSequence, pagesFor, dragonPortrait, visitWizard };
+    HOME, RUMOUR, NEIGHBOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
+    state, total, enqueue, panel, enqueueHome, drain, npcDialogue, wandererLine, believerLine, survivorLine, act, towerAccess, objective,
+    eligibleBeats, wizardSequence, pagesFor, visitWizard };
 })();

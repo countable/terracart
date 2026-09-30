@@ -289,6 +289,20 @@ const PIECES = {
     'The top of a crooked wizard tower, a mage\'s desk with an open spellbook, a glowing crystal ball and floating golden stars, violet light in the windows.'),
   kind_memory: scene(
     'Golden five-pointed stars drifting upward like fireflies over a quiet dusk meadow, a faint glowing path among the grass.', 'shadow'),
+  // ACT II (memory_story.js): the wizard's voice cools, the memories he
+  // retold come back true, and the memory-30 return shows his own form. No
+  // LORE hint on any of them: the copy carries the act, and the reveal paints
+  // HIS dragon only - never the survivor's (CLAUDE.md: art never reveals it).
+  wizard_cold: scene(
+    'The high room of a wizard tower at dusk: an old mage in a starry robe stands half-turned at a tall window, looking out over distant village rooftops, one hand pushing a wooden chair into place for a guest. Cold violet light, long shadows, a sense of distance.'),
+  wizard_map: scene(
+    'A candlelit wizard\'s desk seen from above: a large old map of unfamiliar coastlines and islands, tiny town marks inked along the shores, an old mage\'s long finger resting over one small town mark. A brass compass and quills at the map\'s edge.'),
+  memory_doorway: scene(
+    'A remembered street at night in a burning town: in a cottage doorway a frightened woman shoves the heavy wooden door half shut with her palm pressed flat against it and her arm locked straight, bracing it against whoever is outside, her face turned away in fear, a small child hidden behind her skirts, the roof above sagging with fire and falling embers. She is NOT waving or greeting. Seen from the street, hazy at the edges like a memory.'),
+  memory_grip: scene(
+    'Close view of two hands beside a smoky battlefield at dusk: an old ring-heavy hand in a starry sleeve grips a younger wrist and turns it, the younger hand following the turn. Tattered banners and distant smoke behind, hazy at the edges like a memory.'),
+  wizard_dragon: scene(
+    'The top room of a crooked wizard tower at night: an old mage\'s starry robe slides to the floor as his shape unfolds into a huge red-scaled dragon, wings pressing against the rafters, the violet window light turning ember-red, a spellbook and crystal ball knocked from the desk. Awe and dread.'),
   kind_slots: scene(
     'A rickety wooden slot machine with three spinning reels showing fruit and a star, set in the courtyard of a stone fort, torches lit, coins on a barrel.'),
   kind_farm: scene(

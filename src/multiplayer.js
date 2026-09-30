@@ -16,8 +16,9 @@
 // Depends on:
 //   app.js    — scene fields: save, startWorldM, playerM, mPerPx, cellM, depth,
 //               facing, _targetM, playerScale, worldContainer, shadowContainer, viewCenterX/Y,
-//               viewSize, _toast; textures 'idle' / 'walk' / 'bldg_shadow'; the
-//               idle-*/walk-* animations.
+//               viewSize, _toast; the 'bldg_shadow' texture; the cyan
+//               farmer's sheet and directional animations
+//               (SpriteLayout.PLAYER_ART.farmer — every peer wears it).
 //   render.js — worldMetersToScreen, screenToWorldMeters
 //   coords.js — sameAbsCell
 //   worldgen.js — WorldGen.forEachItem (ping labels)
@@ -298,8 +299,11 @@ const Multiplayer = (function () {
   }
   function makePeerArt(scene, p) {
     p.sh = scene.add.image(0, 0, 'bldg_shadow').setOrigin(0.5, 0.5).setDisplaySize(17, 6).setAlpha(0.34);
-    p.spr = scene.add.sprite(0, 0, 'idle', 0).setScale(scene.playerScale || 1).setTint(p.color);
-    p.spr.play('idle-down');
+    // A peer is always the cyan farmer (callings are not shared), tinted its
+    // colour, at the farmer's own scale.
+    const art = SpriteLayout.PLAYER_ART.farmer;
+    p.spr = scene.add.sprite(0, 0, art.sheet, 0).setScale(art.scale).setTint(p.color);
+    playDirected(p.spr, 'idle', 0, 1);
     p.lbl = scene.add.text(0, 0, p.name, {
       font: fontMono('bold 10px'), color: cssOf(p.color),
       stroke: '#000', strokeThickness: 3, padding: { x: 2, y: 1 },
@@ -308,13 +312,13 @@ const Multiplayer = (function () {
     scene.worldContainer.add(p.spr);
     S.container.add(p.lbl);
   }
+  // The farmer's sheet authors all four directions, so nothing is mirrored.
   function playDirected(spr, base, fx, fy) {
-    let dir = 'down', flip = false;
-    if (Math.abs(fx) > Math.abs(fy)) { dir = 'side'; flip = fx < 0; }
+    let dir = 'down';
+    if (Math.abs(fx) > Math.abs(fy)) dir = fx < 0 ? 'left' : 'right';
     else if (fy < 0) dir = 'up';
-    const key = `${base}-${dir}`;
+    const key = `${SpriteLayout.PLAYER_ART.farmer.sheet}-${base}-${dir}`;
     if (spr.anims.currentAnim?.key !== key) spr.play(key);
-    spr.setFlipX(flip);
   }
   function drawPeers(scene, now, dt) {
     const half = scene.viewSize / 2 + 24;

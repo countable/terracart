@@ -3,8 +3,9 @@
 // Phaser builds an animation from a missing sheet with an EMPTY frame list and
 // then throws the moment it is played (getFirstTick reads frames[0].duration):
 // "undefined is not an object (evaluating 't.currentFrame.duration')" on the
-// player's idle-down, the whole game dead on load. Reproduced in Chromium by
-// answering assets/Character/Idle.png with a 504. Two halves: preload retries
+// player's idle cycle, the whole game dead on load. Reproduced in Chromium by
+// answering the player's sheet (then assets/Character/Idle.png; now
+// FarmerCyan.png) with a 504. Two halves: preload retries
 // a failed catalog file once, and create() never builds an empty animation
 // (a MISSING key is a no-op in play(), an empty one is the crash).
 (function () {
@@ -16,7 +17,7 @@ test('anim guard: every animation goes through _createAnim, which refuses an emp
   const m = app.match(/\n  _createAnim\(key, texKey, start, end, frameRate\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(m, '_createAnim exists');
   assert.truthy(/if \(!frames\.length\) \{[\s\S]*?return false;/.test(m[1]), 'no frames, no animation');
-  assert.eq((app.match(/this\._createAnim\('/g) || []).length, 11, 'the eleven animations the game plays');
+  assert.eq((app.match(/this\._createAnim\('/g) || []).length, 5, 'the five fixed animations the game plays (the player sheets build theirs from SpriteLayout.PLAYER_ART)');
 });
 
 test('anim guard: preload retries a failed catalog asset once, under the same key', () => {

@@ -282,24 +282,49 @@
     return playerDamage(shielded, save.armor, hits, save.mode);
   }
 
-  // ── A THIEF'S BLOW: coins, not energy ────────────────────────────────────
-  // A roster row that says `steals: 'coins'` (the gull) lands its swoop on
-  // the PURSE: the one enemy-hit site (creature_ai.js rosterEnemyAttack)
-  // asks incomingTheft INSTEAD of incomingDamage, and the scene banks it
-  // through its one writer (app.js _losePlayerCoins — addMoney, the flinch,
-  // the "-$N" on the player's cell). It never touches the energy bar, so
-  // armour, the shield potion and the mode's incoming-damage penalty (all
-  // about a BLOW) do not apply; being DOWNED does — nothing hunts a body.
-  //   HOW MUCH: what the thief is worth — its own bounty (enemyBounty at the
-  //   surface), so felling one wins back exactly one snatch. Never more
-  //   than the purse holds (a thief cannot take you below $0).
+  // ── A THIEF'S BLOW: the purse or the bag, never the bar ──────────────────
+  // A roster row that says `steals` lands its swoop on what it names: the
+  // PURSE (`'coins'` — the raven) or the BAG (`'food'` — the gull). The one
+  // enemy-hit site (creature_ai.js rosterEnemyAttack) asks incomingTheft
+  // INSTEAD of incomingDamage and hands what it says to the scene's one
+  // thief writer (app.js _losePlayerToThief — off the money through addMoney
+  // or out of the bag through Inventory.remove, the flinch, the "-N" on the
+  // player's cell). It never touches the energy bar, so armour, the shield
+  // potion and the mode's incoming-damage penalty (all about a BLOW) do not
+  // apply; being DOWNED does — nothing hunts a body.
+  //   WHAT: a TAKE, { what: 'coins', n } or { what: 'food', id, n: 1 }, or
+  //   null when there is nothing to take (an empty purse, a bag with no food
+  //   in it, a body, a sated thief). One shape for both so the hit site and
+  //   the writer branch on `what` alone.
+  //   HOW MUCH: coins — ONE coin (THEFT_COINS; owner, Sep 2026: "ravens
+  //   could steal just one coin, then retreat"): a raven takes one shiny
+  //   thing, not a purse, and never more than the purse holds (a thief
+  //   cannot take you below $0). Felling one still pays its full bounty, so a
+  //   raven is always worth more felled than fed. Food — ONE piece, off the
+  //   biggest meal in the bag (theftFood: the stack with the highest
+  //   FOOD_ENERGY, the first such stack on a tie): the bird goes for the best
+  //   thing you are carrying.
   //   HOW OFTEN: ONE snatch per thief per UTC day. A thief that has stolen
   //   today is SATED (theftSated): it stands down and flies off (the rout
   //   lane in wanderCreatures) until the day turns. The ledger is the save's
   //   `thefts` — { day, ids } — the thief's generated (cell) id, reset on a
-  //   new day, so the cap survives a reload.
+  //   new day, so the cap survives a reload. One ledger for every kind of
+  //   thief.
   function theftKind(kind) { return monster(kind)?.steals || null; }
-  function theftAmount(kind) { return theftKind(kind) === 'coins' ? enemyBounty(kind, 0) : 0; }
+  const THEFT_COINS = 1;
+  function theftAmount(kind) { return theftKind(kind) === 'coins' ? THEFT_COINS : 0; }
+  // The bag's biggest meal — the stack a food thief takes from. Food is what
+  // FOOD_ENERGY (items.js) prices: the one table the eat button reads.
+  function theftFood(save) {
+    const table = typeof FOOD_ENERGY !== 'undefined' ? FOOD_ENERGY : {};
+    let best = null, bestE = 0;
+    for (const s of (save && save.inv) || []) {
+      if (!s || !(s.count > 0)) continue;
+      const e = table[s.id] || 0;
+      if (e > bestE) { best = s.id; bestE = e; }
+    }
+    return best;
+  }
   function theftDay(now) {
     return typeof utcDayKey === 'function' ? utcDayKey(now)
       : new Date(now).toISOString().slice(0, 10).replace(/-/g, '');
@@ -309,10 +334,19 @@
     return !!(l && c && l.day === theftDay(now) && Array.isArray(l.ids) && l.ids.indexOf(c.id) >= 0);
   }
   function incomingTheft(save, c, now = Date.now()) {
-    if (!save || !c || theftKind(c.kind) !== 'coins') return 0;
-    if (playerDowned(save.energy) || theftSated(save, c, now)) return 0;
-    const purse = Math.max(0, Math.floor(save.money ?? 0));
-    return Math.min(purse, theftAmount(c.kind));
+    const what = save && c ? theftKind(c.kind) : null;
+    if (!what) return null;
+    if (playerDowned(save.energy) || theftSated(save, c, now)) return null;
+    if (what === 'coins') {
+      const purse = Math.max(0, Math.floor(save.money ?? 0));
+      const n = Math.min(purse, theftAmount(c.kind));
+      return n > 0 ? { what, n } : null;
+    }
+    if (what === 'food') {
+      const id = theftFood(save);
+      return id ? { what, id, n: 1 } : null;
+    }
+    return null;
   }
   // Mark `c` sated for today (the scene calls this once a snatch is banked).
   function bankTheft(save, c, now = Date.now()) {
@@ -351,6 +385,17 @@
     return !!c && !!c.shiny && isEnemyKind(c.kind) && monster(c.kind)?.eliteEligible !== false;
   }
   function eliteMul(c) { return isElite(c) ? ELITE_MUL : 1; }
+  // A pet RAISED from a baby (SpriteLayout.isBabyPet — found in a nest bush
+  // or hatched from an egg) is twice its kind once grown: HP and bite both,
+  // through powerMul like the elite's, so the dps identity holds — a raised
+  // dog worries a slime in half the time and takes twice the worrying. A
+  // baby is still its kind's size in every sense; the doubling comes with
+  // adulthood. Its own factor, not the elite's: an elite is a MONSTER's
+  // shiny, and a raised pet is shiny for a different reason (it was raised).
+  const RAISED_MUL = 2;
+  function raisedMul(c) {
+    return (c && c.raised && !SpriteLayout.isBabyPet(c)) ? RAISED_MUL : 1;
+  }
 
   // THE instance's power over its kind's table row — the one factor its HP
   // pool, its blow and its bounty are scaled by: the elite's. (Home weakens
@@ -358,7 +403,7 @@
   // EnemySpawns.homeAllows.) Every per-creature scale reads this; eliteMul alone is
   // the "is it an elite" half, for callers that ask only that (the elite's
   // treasure roll, its tint).
-  function powerMul(c) { return eliteMul(c); }
+  function powerMul(c) { return eliteMul(c) * raisedMul(c); }
   // The HP pool of THIS instance — the kind's max times its power.
   // Everything that seeds or refills a creature's HP reads this, never
   // creatureMaxHp(kind) directly, or an elite heals back to half its health.
@@ -516,6 +561,9 @@
     const model = SUMMONED_AS[kind];
     return model ? enemyBlow(model) : PET_BITE;
   }
+  // THIS pet's blow: its kind's bite times its own power (a raised pet's
+  // double). The fight in scene_creatures.js reads this, never petBite alone.
+  function petBlow(c) { return petBite(c.kind) * powerMul(c); }
 
   // Current HP, lazily seeded from the kind's max the first time anything hits
   // it. Creatures are re-spawned from tile data on every reload, so `_hp` is
@@ -1191,19 +1239,19 @@
   const api = {
     MONSTERS, MONSTERS_BASELINE, CAVE_ENEMY_MUL, GIANT_HP_MUL, GIANT_DEPTH_STEP,
     registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
-    SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite,
+    SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, damageDealt, hpFraction,
-    ELITE_MUL, isElite, eliteMul, powerMul, maxHp,
+    ELITE_MUL, isElite, eliteMul, RAISED_MUL, raisedMul, powerMul, maxHp,
     TRAINING_KINDS, TRAINING_ORDER, TRAINING_PERM_MAX, TRAINING_BUFF_MS, TRAINING_SLOT_KIND,
     trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, playerDowned,
-    theftKind, theftAmount, theftDay, theftSated, incomingTheft, bankTheft,
+    theftKind, THEFT_COINS, theftAmount, theftFood, theftDay, theftSated, incomingTheft, bankTheft,
     MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
     RANGED_SLOTS, RANGED_TRIGGER_PAST_REACH, rangedTriggerM, anyEnemyWithin, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,

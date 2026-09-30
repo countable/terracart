@@ -78,13 +78,13 @@ test('spirit raven: a slime\'s stats, derived — and never an enemy', () => {
   assert.truthy(Combat.isPlayerKill('pet'), 'its kills pay as the player\'s own');
 });
 
-test('spirit raven: it hunts every foe and the pest crow — not game, not the tame', () => {
+test('spirit raven: it hunts every foe and the pest deer — not game, not the tame', () => {
   const R = 'spirit_raven';
   assert.truthy(huntsPrey(R, { kind: 'slime', id: 'slime_1_2_3' }), 'a wild slime');
   assert.truthy(huntsPrey(R, { kind: 'goblin', id: 'mon_goblin_2_1_1_0' }), 'a cave monster');
   assert.truthy(huntsPrey(R, { kind: 'giant_goblin_archer', id: 'mon_giant_goblin_archer_5_1_1_0' }), 'a giant');
-  assert.truthy(huntsPrey(R, { kind: 'crow', id: 'pest_crow_3_4_1000_7' }), 'a pest crow');
-  assert.falsy(huntsPrey(R, { kind: 'crow', id: 'crow_3_4_0' }), 'never a wild crow (game)');
+  assert.truthy(huntsPrey(R, { kind: 'deer', id: 'pest_deer_3_4_1000_7' }), 'a pest deer — the one dispatched at your field');
+  assert.falsy(huntsPrey(R, { kind: 'crow', id: 'crow_3_4_0' }), 'never a wild crow (game — it raids nothing)');
   assert.falsy(huntsPrey(R, { kind: 'deer', id: 'deer_3_4_0' }), 'never a deer (game)');
   assert.falsy(huntsPrey(R, { kind: 'chicken', id: 'chicken_3_4_0' }), 'never livestock');
   assert.falsy(huntsPrey(R, { kind: 'slime', id: 'released_slime_1_2' }), 'never a tamed slime');
@@ -101,9 +101,9 @@ test('spirit raven: the pet lane is the raven\'s lane', () => {
   assert.truthy(/const huntsForPlayer = \(isTame && SpriteLayout\.isPet\(c\.kind\)\) \|\| summoned;/.test(sim),
     'a summoned ally hunts through the pet scan, as a second reason');
   assert.truthy(/if \(!huntsPrey\(c\.kind, cr\)\) return;/.test(sim), 'the scan asks the one predicate');
-  assert.truthy(/Combat\.damage\(tgt, Combat\.petBite\(c\.kind\)\)/.test(sim), 'the bite is Combat.petBite');
+  assert.truthy(/Combat\.damage\(tgt, Combat\.petBlow\(c\)\)/.test(sim), 'the bite is Combat.petBlow — petBite times the pet\'s own power');
   assert.truthy(/this\.resolveDefeat\(tgt, 'pet'\)/.test(sim), 'and a kill pays as the pet\'s');
-  assert.truthy(/pest_crow\|ghost\|fished_slime\|spirit_raven/.test(sim), 'a dismissed raven\'s id is pruned like the pest crow\'s');
+  assert.truthy(/pest_deer\|pest_crow\|ghost\|fished_slime\|spirit_raven/.test(sim), 'a dismissed raven\'s id is pruned like the pest deer\'s');
   assert.truthy(/if \(SpriteLayout\.isSummoned\(c\.kind\)\) return;/.test(INTERACT_SRC),
     'a tap goes through it — nothing to catch, tame or pet');
 });

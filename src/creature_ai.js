@@ -127,11 +127,12 @@ const CREATURE_SIM_CELLS = 12;
 // pest amnesty — move over minutes, so a second of staleness on a frozen,
 // far-off seat changes nothing anyone can see.
 const SURFACE_RECHECK_MS = 1000;
-// Where the crop-raiding crow pump seats the bird it dispatches (hard mode
+// Where the crop-raiding pest pump seats the deer it dispatches (hard mode
 // only — see wanderCreatures): past the viewport corner (7.8 cells) so it is
 // never seen popping into being, but inside CREATURE_SIM_CELLS so it is
-// thinking, and flying at the field, from the tick it is pushed.
-const PEST_CROW_SPAWN_CELLS = 10;
+// thinking, and walking at the field, from the tick it is pushed. The ghosts
+// rise on the same ring.
+const PEST_SPAWN_CELLS = 10;
 // A MONSTER'S STRIDE, in cells: how far one step of the step chain carries it
 // (wanderCreatures' stepM) — a full cell for a flier, 0.6 for everything that
 // walks. Its PACE is this over its beat (the loop's STEP_MS / its row's
@@ -337,10 +338,10 @@ function sameSideAs(scene, x, y, fx, fy) { return sameSideField(scene, fx, fy).t
 // burns them (Lighting.brightnessAt, the lightmap's own model). Their row is
 // combat.js MONSTERS.ghost (`spawn: 'night'` — never the cave bag, no giant),
 // their mover is ghostTick below (SpriteLayout `haunts`), and they are SESSION
-// state exactly like the pest crow: pushed into the player's tile entry with an
+// state exactly like the pest deer: pushed into the player's tile entry with an
 // id minted off the clock, never generated and never seated on a tile — a
 // spent or slain ghost's marker in save.caught is pruned by the same pass the
-// pest crow's is (wanderCreatures).
+// pest deer's is (wanderCreatures).
 //   "After dark" is the daylight (Lighting.daylight, 1 noon .. 0 night) under
 // GHOST_DARK_DAYLIGHT: 0.5 is the sun on the horizon, and 0.25 is a few
 // degrees under it — dusk gone to dark.
@@ -366,7 +367,7 @@ function ghostsHaunt(depth, day, habitat) {
 const GHOST_SPAWN_MS = EnemyRoster.GHOST_SCALING.cadenceSeconds * 1000;
 const GHOST_SPAWN_JITTER_MS = EnemyRoster.GHOST_SCALING.jitterSeconds * 1000;
 // A group rises together: its members' angles about the player fan across
-// this much of a turn (radians), on the pest crow's ring (PEST_CROW_SPAWN_CELLS
+// this much of a turn (radians), on the pest pump's ring (PEST_SPAWN_CELLS
 // — past the viewport corner, inside the sim bubble, for the same reason).
 const GHOST_GROUP_SPREAD = 1.2;
 // "Dark": a spawn point whose added light (Lighting.brightnessAt) is at most
@@ -461,7 +462,7 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
   const profile = EnemyRoster.ghostProfile(depth);
   const want = Math.min(profile.nearMax - near,
     profile.groupMin + Math.floor(Math.random() * (profile.groupMax - profile.groupMin + 1)));
-  const R = PEST_CROW_SPAWN_CELLS * scene.cellM;
+  const R = PEST_SPAWN_CELLS * scene.cellM;
   const base = Math.random() * Math.PI * 2;
   let made = 0;
   for (let i = 0; made < want && i < want * 8; i++) {
@@ -487,7 +488,7 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
   }
   return made;
 }
-// One risen ghost — session state, id minted off the clock (the pest crow's
+// One risen ghost — session state, id minted off the clock (the pest deer's
 // shape, pruned by the same pass). The pump and a disturbed headstone both
 // mint through here.
 function makeGhost(x, y, now, tx, ty, tag) {
@@ -530,7 +531,7 @@ function raiseGhostAt(scene, x, y, now, tag) {
 // second reason (it was yanked out of the water), not a new aggression flag;
 // every ward that turns a struck slime back (Home, a fire's ring, `unnoticed`)
 // turns this one back too.
-//   It is SESSION state exactly like the ghost and the pest crow: pushed into
+//   It is SESSION state exactly like the ghost and the pest deer: pushed into
 // the player's tile entry with an id minted off the clock
 // (`fished_slime_<tx>_<ty>_…`), pruned from save.caught by the same pass.
 // Returns the creature, or null when no cell beside the player will take it
@@ -691,8 +692,15 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
   return Math.hypot(px - c.x, py - c.y) <= GHOST_TOUCH_CELLS * scene.cellM ? 'touch' : null;
 }
 // How long a departing crow keeps flying away (_crowDepart): [base, spread]
-// ms, so ~2.5–4 minutes — after a meal, or once the player starts hunting it.
+// ms, so ~2.5–4 minutes — once the player starts hunting it.
 const CROW_DEPART_MS = [150000, 90000];
+// How far a CROP RAIDER (the deer — SpriteLayout `raidsCrops`) notices a
+// planted crop it may eat, in cells (wanderCreatures raidStep): the on-screen
+// sim range, so it spots a field from across the viewport but not from the
+// next street. It does not teleport in — every step is its own gait's — so a
+// far deer visibly walks toward the beds. A dispatched pest (isPest) has no
+// limit: it was sent at the field.
+const RAID_NOTICE_CELLS = 8;
 // THE HUNT IS TIMED, NOT ROLLED (owner, Sep 2026: "a 50/50 chance with a T1
 // net, depending on timing, standing right on it"). A hunted crow does NOT
 // bolt the instant the wheel starts — it keeps its own rhythm, finishes the
@@ -800,23 +808,26 @@ function wardTrip(c, homePos, castleWards, r2) {
 }
 
 // ── What a hunter of the player's may take ───────────────────────────────────
-// A PEST CROW: the bird the hard-mode pump dispatches at a planted field
-// (wanderCreatures mints its id `pest_crow_<tx>_<ty>_…`, the same prefix the
-// save.caught prune reads). A wild crow the tile spawned is game, never a pest.
-function isPestCrow(c) {
-  return !!c && typeof c.id === 'string' && c.id.startsWith('pest_crow_');
+// A PEST: the animal the hard-mode pump dispatches at a planted field — a
+// DEER since Sep 2026 (it was a crow; the owner moved crop-raiding to the
+// deer). wanderCreatures mints its id `pest_deer_<tx>_<ty>_…`, the prefix the
+// save.caught prune reads (`pest_crow_` markers from older sessions prune the
+// same way). A wild deer the tile spawned is game, never a pest.
+function isPest(c) {
+  return !!c && typeof c.id === 'string' && c.id.startsWith('pest_');
 }
 // ONE predicate for wanderCreatures' pet scan: may `hunterKind` (a tame pet,
 // or a summoned ally) go for creature `cr`? Two reasons, one lane:
 //   a PET takes the kinds on its row's `prey` list (a cat crows; a dog deer
 //     and slimes);
 //   a hunter that `preysOnFoes` (the spirit raven) takes every Combat.isEnemy
-//     foe and every pest crow — never a deer, a wild crow or anything tame.
+//     foe and every dispatched pest — never a wild deer, a crow or anything
+//     tame.
 // Nobody's hunter takes a tamed (released_) animal. The caller still skips
 // what is already caught.
 function huntsPrey(hunterKind, cr) {
   if (!cr || (typeof cr.id === 'string' && cr.id.startsWith('released_'))) return false;
-  if (SpriteLayout.preysOnFoes(hunterKind)) return Combat.isEnemy(cr) || isPestCrow(cr);
+  if (SpriteLayout.preysOnFoes(hunterKind)) return Combat.isEnemy(cr) || isPest(cr);
   const prey = SpriteLayout.creaturePrey(hunterKind);
   return !!prey && prey.has(cr.kind);
 }
@@ -1083,10 +1094,11 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   } else if (npcTarget) {
     NPC.hit(scene, npcTarget);
   } else if (row.steals) {
-    // A THIEF'S SWOOP (Combat.incomingTheft — the gull): the same hit, on
-    // the purse instead of the bar. Nothing here touches energy.
-    const taken = Combat.incomingTheft(scene.save, c, Date.now());
-    if (taken > 0) scene._losePlayerCoins(taken, c);
+    // A THIEF'S SWOOP (Combat.incomingTheft — the raven's coins, the gull's
+    // food): the same hit, on the purse or the bag instead of the bar, banked
+    // by the scene's one thief writer. Nothing here touches energy.
+    const take = Combat.incomingTheft(scene.save, c, Date.now());
+    if (take) scene._losePlayerToThief(take, c);
   } else {
     const damage = Combat.incomingDamage(scene.save, raw);
     const lost = scene._losePlayerEnergy(damage, { closeShop: true });
