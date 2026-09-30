@@ -255,7 +255,7 @@ const PLAY_TIPS = [
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
   'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
-  'In either mode, ruins are held — about a third of wrecked houses, most forts, and nearly every castle — and the bigger the building the bigger the garrison: a castle can hide fifteen. Wrecked houses are infested by slimes; forts hold goblins and archers; castles hold skeletons and skeleton soldiers. A fort or castle garrison waits deep inside: walk past and it holds, walk in and it comes.',
+  'In either mode, ruins are held — about a third of wrecked houses, most forts, and nearly every castle — and the bigger the building the bigger the garrison: a castle can hide ten. Wrecked houses are infested by slimes; forts hold goblins and archers; castles hold skeletons and skeleton soldiers. A fort or castle garrison waits deep inside: walk past and it holds, walk in and it comes.',
   'On hard, you learn to make a thing only by first finding one out in the world.',
   'A held ruin waits. Come within a few cells and the mobile guards come at you together — but it never strays far from its own building, so get seventy metres from the ruin and they give up and walk back to it.',
   // ── Animals — meeting them, then keeping them ───────────────

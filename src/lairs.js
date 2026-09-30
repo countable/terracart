@@ -34,7 +34,7 @@
 // house 1, a fort 2, a castle 3, at t = 0) plus the ceiling, and the strength
 // multiplier falls out of them: FAR_MUL is the ceiling over the biggest base,
 // so a castle reaches exactly LAIR_MAX_PER_STRUCTURE at t = 1 and the other
-// two tiers scale by the same factor (a fort 2 → 10, a house 1 → 5). Retune a lair by moving a TIER_GUARDS row or the
+// two tiers scale by the same factor (a fort 2 → 7, a house 1 → 3). Retune a lair by moving a TIER_GUARDS row or the
 // ceiling; a fudge factor added here breaks the correspondence the tests pin.
 //
 // THEY HOLD, THEY HUNT, THEY GIVE UP. A garrison is a place, not a patrol:
@@ -104,7 +104,7 @@
   'use strict';
 
   // The most guards any one structure may hold, at t = 1.
-  const LAIR_MAX_PER_STRUCTURE = 15;
+  const LAIR_MAX_PER_STRUCTURE = 10;
 
   // ── The three authored figures ───────────────────────────────────────────
   // Guards at t = 0, by the world's own building tier. Everything else in
@@ -167,7 +167,7 @@
   // The strength multiplier — NOT a tuned number. It is exactly what carries
   // the biggest structure from its t = 0 figure to the ceiling, so the ceiling
   // and the tier table are the only things to change.
-  const FAR_MUL = LAIR_MAX_PER_STRUCTURE / MAX_TIER_GUARDS;   // 15 / 3 = 5
+  const FAR_MUL = LAIR_MAX_PER_STRUCTURE / MAX_TIER_GUARDS;
 
   // ── The roll ─────────────────────────────────────────────────────────────
   // The cap is the nominal garrison; the actual count is the cap less a
@@ -175,8 +175,8 @@
   // rather than an arithmetic exercise the player can do from the map. Note
   // what the fraction does to the small end: a house (cap 1) and a fort
   // (cap 2) floor to no slack at all and always hold exactly their figure,
-  // while a castle (cap 3) holds 2 or 3 and a maxed castle (cap 15) holds
-  // 9 to 15. The named numbers are the typical ones, which is what "a castle
+  // while a castle (cap 3) holds 2 or 3 and a maxed castle (cap 10) holds
+  // 6 to 10. The named numbers are the typical ones, which is what "a castle
   // typically has 3" has to mean.
   const LAIR_SLACK = 0.4;
 
@@ -523,7 +523,7 @@
     return rows.filter((k) => t >= k.minT).map((k) => k.kind);
   }
   // One guard's kind. Uniform over what has unlocked, so a maxed lair is a
-  // mixed pack rather than fifteen of the worst thing on the ladder. Takes
+  // mixed pack rather than ten of the worst thing on the ladder. Takes
   // exactly ONE draw whatever the ladder's length, so a caller can reason
   // about the stream (garrisonFor's seat rolls sit either side of it).
   function kindFor(tier, t, rng) {

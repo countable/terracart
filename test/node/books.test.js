@@ -513,10 +513,10 @@ test('tips: crates, barrels, pots of gold, bike racks and gates are told truthfu
 
 test('books: the derelict-lair tip is re-derived from lairs.js', () => {
   // Garrisons and their enemies are shared across player modes.
-  assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 15, 'the tip says "can hide fifteen"');
-  assert.eq(Lairs.capFor(12, 1), 15);
+  assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 10, 'the tip says "can hide ten"');
+  assert.eq(Lairs.capFor(12, 1), 10);
   assert.gt(Lairs.TIER_GUARDS[12], Lairs.TIER_GUARDS[9]);
-  const tip = PLAY_TIPS.find((t) => /a castle can hide fifteen/i.test(t));
+  const tip = PLAY_TIPS.find((t) => /a castle can hide ten/i.test(t));
   assert.truthy(/^In either mode,/.test(tip), 'garrisons occur in both modes');
   assert.truthy(Difficulty.PROFILES.easy.derelictLairs);
   assert.truthy(Difficulty.PROFILES.hard.derelictLairs);
