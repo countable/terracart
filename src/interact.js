@@ -518,6 +518,61 @@ const TAP_HANDLERS = [
     return false;
   }},
 
+  // 0b) A coin. INSTANT BEATS WORKABLE (owner, Sep 2026): a tap that can
+  // be paid on the spot wins over one that would start a work wheel on the
+  // same cell — a coin lying on a rock, a tuft or beside an animal is picked
+  // up, not mined, pulled or caught. So the coin sits above the creature and
+  // wild-plant handlers, next to the X mark (also instant).
+  { name: 'coindrop', try: (ctx) => {
+    const { scene, save, wm, sx, sy } = ctx;
+    let bestEntry = null, bestIdx = -1, bestD2 = Infinity;
+    // Scan the 3×3 tile neighbourhood around the player (same set the
+    // renderer walks) — coins only live in loaded tiles.
+    const pc = scene.playerToWorldCell();
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
+        if (!entry || !entry.coinDrops) continue;
+        const now = Date.now();
+        for (let i = 0; i < entry.coinDrops.length; i++) {
+          const c = entry.coinDrops[i];
+          if (c.expiresAt && c.expiresAt <= now) continue;
+          if (!sameAbsCell(scene, wm.x, wm.y, c.x, c.y)) continue;
+          // Distance only picks a winner among coins sharing the tapped cell.
+          const d2 = distM2(c.x, c.y, wm.x, wm.y);
+          if (d2 < bestD2) { bestD2 = d2; bestEntry = entry; bestIdx = i; }
+        }
+      }
+    }
+    if (!bestEntry) return false;
+    // Player-reach gate — the cell test above is tap PRECISION (did you hit
+    // the coin?); without this a coin in a neighbour tile but outside the lit
+    // reach indicator could be grabbed (QC §7).
+    const coin = bestEntry.coinDrops[bestIdx];
+    if (tooFar(ctx, coin.x, coin.y)) return 'far';
+    bestEntry.coinDrops.splice(bestIdx, 1);
+    // A cave coin is GENERATED where it lies (worldgen.js caveCoins), so the
+    // pickup is the delta: the id goes in the X marks' found list, and the
+    // next build of the level leaves it out.
+    if (coin.seeded) save.foundTreasures = [...(save.foundTreasures || []), coin.id];
+    // A coin is worth its `amount` — a kill's bounty coin (app.js
+    // _dropBountyCoin) carries the whole wage; every other coin is a single.
+    const amount = coinAmount(coin);
+    addMoney(save, amount);
+    // The "+N" lands ON the cell the coin was picked from, like every other
+    // number on the map (app.js _popCellNumber) — not at the finger, which
+    // is over the coin only until it lifts. A stub scene has no cell pops.
+    // The real number, always: it is the amount just banked.
+    if (typeof scene._popCellNumber === 'function') {
+      const cc = worldMetersToAbsCell(scene, coin.x, coin.y);
+      scene._popCellNumber(`+${amount}`, UI_GOLD, cc.cellIX, cc.cellIY);
+    } else {
+      scene.flash(`+${amount}`, sx, sy);
+    }
+    ctx.dirty = true;   // money changed — persist
+    return true;
+  }},
+
   // 1) Tap a creature within 4m. The outcome depends on what's in the
   // selected inventory slot:
   //
@@ -1026,56 +1081,6 @@ const TAP_HANDLERS = [
   // splice it out of entry.coinDrops, pop the number on its cell. Runs
   // BEFORE the 'object' handler so a coin sitting near a chest sprite still
   // gets picked up cleanly. Does NOT consume energy — it's a tap, not work.
-  { name: 'coindrop', try: (ctx) => {
-    const { scene, save, wm, sx, sy } = ctx;
-    let bestEntry = null, bestIdx = -1, bestD2 = Infinity;
-    // Scan the 3×3 tile neighbourhood around the player (same set the
-    // renderer walks) — coins only live in loaded tiles.
-    const pc = scene.playerToWorldCell();
-    for (let dty = -1; dty <= 1; dty++) {
-      for (let dtx = -1; dtx <= 1; dtx++) {
-        const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
-        if (!entry || !entry.coinDrops) continue;
-        const now = Date.now();
-        for (let i = 0; i < entry.coinDrops.length; i++) {
-          const c = entry.coinDrops[i];
-          if (c.expiresAt && c.expiresAt <= now) continue;
-          if (!sameAbsCell(scene, wm.x, wm.y, c.x, c.y)) continue;
-          // Distance only picks a winner among coins sharing the tapped cell.
-          const d2 = distM2(c.x, c.y, wm.x, wm.y);
-          if (d2 < bestD2) { bestD2 = d2; bestEntry = entry; bestIdx = i; }
-        }
-      }
-    }
-    if (!bestEntry) return false;
-    // Player-reach gate — the cell test above is tap PRECISION (did you hit
-    // the coin?); without this a coin in a neighbour tile but outside the lit
-    // reach indicator could be grabbed (QC §7).
-    const coin = bestEntry.coinDrops[bestIdx];
-    if (tooFar(ctx, coin.x, coin.y)) return 'far';
-    bestEntry.coinDrops.splice(bestIdx, 1);
-    // A cave coin is GENERATED where it lies (worldgen.js caveCoins), so the
-    // pickup is the delta: the id goes in the X marks' found list, and the
-    // next build of the level leaves it out.
-    if (coin.seeded) save.foundTreasures = [...(save.foundTreasures || []), coin.id];
-    // A coin is worth its `amount` — a kill's bounty coin (app.js
-    // _dropBountyCoin) carries the whole wage; every other coin is a single.
-    const amount = coinAmount(coin);
-    addMoney(save, amount);
-    // The "+N" lands ON the cell the coin was picked from, like every other
-    // number on the map (app.js _popCellNumber) — not at the finger, which
-    // is over the coin only until it lifts. A stub scene has no cell pops.
-    // The real number, always: it is the amount just banked.
-    if (typeof scene._popCellNumber === 'function') {
-      const cc = worldMetersToAbsCell(scene, coin.x, coin.y);
-      scene._popCellNumber(`+${amount}`, UI_GOLD, cc.cellIX, cc.cellIY);
-    } else {
-      scene.flash(`+${amount}`, sx, sy);
-    }
-    ctx.dirty = true;   // money changed — persist
-    return true;
-  }},
-
   // 1b) World objects: chest open, tree flavor, house shop.
   // 4.5) Staircase — tap a cave entrance / stairs within reach to change level.
   // Runs before the generic object handler so the stair consumes the tap rather

@@ -624,9 +624,9 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
   const EXPECTED = [
     'work-progress',
     'treasure',
+    'coindrop',
     'creature',
     'wildplant',
-    'coindrop',
     'staircase',
     'object',
     'cell-resolve',
