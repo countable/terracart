@@ -248,9 +248,16 @@ Higher-priority placements and their access space take precedence in this order:
   offers/lights beyond the sprite cull. Indexed objects do not move in place.
 - Cached drawing keys must include every input. `Lighting.frameKey` uses the
   quantised light clock; new tile arrays read per frame need a derived index.
+- A cell-crossing rebuild never reads pixels back: no `getImageData`, no
+  per-piece `textures.createCanvas` (Phaser reads the canvas back on
+  creation). Bake short-lived canvas pieces into shared atlas pages
+  (`building_overlay.js` wall atlas) and apply a colour treatment to the
+  colours (`unclaimedMaterialColor`), not to finished pixels. Measured: one
+  read-back per building per crossing was the walking stutter on iPhone.
 
 Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
-`tilled_bed`, `still_frames`, `chunk_index`; also `tools/sprite_audit.js`.
+`tilled_bed`, `still_frames`, `chunk_index`, `building_overlay`; also
+`tools/sprite_audit.js`.
 
 ## Combat, energy and Home
 
