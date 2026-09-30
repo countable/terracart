@@ -141,9 +141,9 @@ test('pixel resolve: every dialog painting has an inline thumbnail', () => {
   // ~1KB/piece: the 22×28 thumbnail plus its three coarser resolve cuts. The
   // cuts are baked rather than cut at runtime (toDataURL was ~200 ms), so
   // they ride here; keep the file this small — it loads with the code. The
-  // cap tracks the piece count (61 as of the zones/streets story art) rather
-  // than a fixed number, so it grows only when paintings are actually added.
-  assert.truthy(ART_THUMBS_SRC.length < 56 * 1024, 'the thumbnails stay small — they load with the code');
+  // cap tracks the piece count rather than a fixed number (about 850 bytes a
+  // piece), so it grows only when paintings are actually added.
+  assert.truthy(ART_THUMBS_SRC.length < keys.size * 900, 'the thumbnails stay small — they load with the code');
 });
 
 test('pixel resolve: an uncached painting resolves out of its tone, then fades in', () => {
