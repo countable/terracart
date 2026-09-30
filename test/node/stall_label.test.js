@@ -8,7 +8,7 @@ test('stall label: kind on line one, the name on line two', () => {
   const src = RENDER_SRC;
   assert.truthy(/const mac = isFallback \? null : macroFor\(o\);/.test(src), 'only a named macro stall');
   assert.truthy(/Macros\.stallLabel\(mac\.kind, o\)/.test(src), 'the kind word its dialog opens under (a training hall names its discipline)');
-  assert.truthy(/kindLabel: Macros\.stallLabel\(kind, o\) \|\| d\.label/.test(APP_JS_SRC), 'the same word on the dialog');
+  assert.truthy(/kindLabel: Macros\.stallLabel\(kind, o\) \|\| d\.label/.test(SCENE_SRC), 'the same word on the dialog');
   assert.truthy(/`\$\{macLabel\}\\n\$\{rusticifyName\(o\.name\)\}`/.test(src), 'then the name on the next line');
 });
 

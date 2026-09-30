@@ -234,10 +234,15 @@
     // Appended LAST so no older row's code (index + 1) moves; the roll walks
     // the minor rows in order, so a street that rolled an older minor row
     // still does — only plain streets can become a toadstool lane.
+    // The paving is a fly agaric: red cap, cream spots. The restored red is
+    // kept SATURATED (owner, Sep 2026 — the earlier #9a5943 read as dusty
+    // pink against the dim wetland verge); the weathered stone stays muted
+    // like every unrestored surface. Its lamps burn torch orange, not the
+    // caps' glow — the mushrooms carry that themselves after dark.
     { id: 'toadstool', terrain: 'WETLAND', affinities: ['damp', 'woodland'], size: 'minor', share: 0.05, rung: 'uncommon',
-      stone: { weathered: '#634537', restored: '#9a5943', pattern: 'spots', accent: '#ead9ad' }, lampDensity: 1,
+      stone: { weathered: '#6d412c', restored: '#ad4e2e', pattern: 'spots', accent: '#f0dfb4' }, lampDensity: 1,
       words: /(mushroom|toadstool|fung|pilz|fairy|\bring|moss|damp|mycel|spore|schwamm|elfen|feen)/i,
-      lampGlow: '#4fd8c4', attracts: { butterfly: 0.5 },
+      lampGlow: '#ff8c2a', attracts: { butterfly: 0.5 },
       story: 'street_toadstool', title: 'Toadstool Lane',
       body: 'Pale caps crowd the verge, and after dark they glow. Step round them. Something here is listening.',
       flash: 'Toadstools. They glow at dusk.' },

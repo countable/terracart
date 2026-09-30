@@ -222,7 +222,7 @@ test('steer curves: the borrowed buff tiers rank above Frost and never pay you t
 test('walking gear: boots change speed, amulets change cost independently', () => {
   assert.eq(steerSpeedMul({ amulet: { tier: 7 } }), steerSpeedMul({}));
   assert.eq(steerEnergyCost({ boots: { tier: 7 } }), steerEnergyCost({}));
-  const body = APP_JS_SRC.match(/  _walkRelics\(\) \{([\s\S]*?)\n  \}/)[1];
+  const body = SCENE_SRC.match(/  _walkRelics\(\) \{([\s\S]*?)\n  \}/)[1];
   const walk = new Function('DRAGON_AMULET_TIER', 'SPEED_POTION_AMULET_TIER', 'COFFEE_BOOT_BOOST', body);
   const scene = { save: { armor: { boots: { tier: 3 } }, relics: { amulet: { tier: 6 } } }, isDragonActive: () => false };
   let gear = walk.call(scene, 8, 9, 2);

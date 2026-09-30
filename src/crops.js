@@ -128,13 +128,14 @@
     return { candidates: nearby.length, rebuiltEntries };
   }
 
-  // Fruit and timber saplings share one four-day growth window so their copy
-  // and art cannot drift when tree growth changes.
+  // Fruit and timber saplings share one growth window (PLANTED_TREE_GROW_MS,
+  // one day) so their copy and art cannot drift when tree growth changes.
   const FRUIT_STAGE_MS = PLANTED_TREE_GROW_MS / 4;
   const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;
 
   // Shared by tree art and harvesting. Wild trees start mature; planted trees
-  // take four stages, then each pick starts a fresh fruit respawn timer.
+  // take four stages (a quarter of the window each), then each pick starts a
+  // fresh fruit respawn timer.
   function fruitTreeState(tree, pickedAt, now = Date.now()) {
     const elapsed = now - (tree.planted_t || 0);
     const stage = tree.planted

@@ -15,7 +15,7 @@
 // player-facing LABEL changed.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const render = RENDER_SRC;
 
 test('shop naming: a themed shop is named for its line, not "Market"', () => {
@@ -66,6 +66,20 @@ test('shop naming: the trader is named for its goods, never its address', () => 
     'the sign names the offered item by its catalogue name');
   assert.falsy(/peekOrBuildTraderOffer\(house\) \{[\s\S]{0,300}?BUY_LIST\[Math\.floor/.test(app),
     'the modal no longer rolls its own give item beside the sign\'s');
+});
+
+// A trade takes the trader's goods with it: the give-pick is seeded per deal
+// (ShopsMath.rng perDeal), so the modal's next offer and the sign over the
+// roof both name new goods the moment a barter closes, never the stack just
+// handed over. Cash shops keep their shelf across a purchase — the fold is
+// the trader's alone.
+test('shop naming: a closed trade turns the trader\'s goods over', () => {
+  assert.truthy(/traderGivePick\(house\) \{[\s\S]{0,200}?this\.shopRng\(house, 'trader', \{ perDeal: true \}\)/.test(app),
+    'the trader\'s give-pick is seeded per deal');
+  const perDeal = app.match(/perDeal: true/g) || [];
+  assert.eq(perDeal.length, 1, 'only the trader folds deals into its offer');
+  assert.truthy(/shopRng\(house, lane = '', opts = \{\}\) \{\s*return ShopsMath\.rng\(this\.save, house, lane, Date\.now\(\), opts\);/.test(app),
+    'shopRng hands the option to ShopsMath.rng');
 });
 
 test('shop naming: the role KEY is untouched — saves still say "market"', () => {

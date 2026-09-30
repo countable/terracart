@@ -5,7 +5,7 @@
 // tells no such story. Once per save, in the story ledger under 'revive'.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const lift = (sig) => {
   const i = app.indexOf('\n  ' + sig);
   assert.truthy(i > 0, `found ${sig}`);

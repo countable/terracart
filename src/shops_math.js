@@ -116,12 +116,22 @@
   // Deterministic 0..1 RNG keyed by (house.id offset, bucket, rerolls, offerSalt,
   // lane). `lane` namespaces independent rolls within a bucket so e.g. the price
   // roll can't consume the pool-pick roll.
-  function rng(save, house, lane = '', now = Date.now()) {
+  //
+  // The bucket's DEAL count stays out of the seed by default: a cash shop's
+  // shelf is the same shelf after a purchase (shops_math.test.js "spending
+  // deals does not reshuffle the offer"). `opts.perDeal` folds it in, for a
+  // shop whose STOCK is what changes hands — the trader barters its goods
+  // away, so the moment a deal closes it has something else to offer (and
+  // its sign, which reads the same pick, names the new goods). A re-roll
+  // still pivots the stream on top of that.
+  function rng(save, house, lane = '', now = Date.now(), opts = {}) {
     const cur = bucketState(save, house, now);
+    const turnover = opts.perDeal ? (cur.deals | 0) : 0;
     const seed = ((bucketOffset(house.id) >>> 0)
                 ^ (cur.bucket >>> 0)
                 ^ ((save.offerSalt || 0) >>> 0)
-                ^ Math.imul(cur.rerolls + 1, 0x9e3779b1)) >>> 0;
+                ^ Math.imul(cur.rerolls + 1, 0x9e3779b1)
+                ^ Math.imul(turnover, 0x85ebca6b)) >>> 0;
     // The lane name is folded onto that seed with util.js' fnv1a loop — the
     // same prime and order fnv1a() itself uses, just started from here rather
     // than from the FNV offset basis (util.js › fnv1aFrom).

@@ -174,9 +174,9 @@ test('blacksmith offers: Copper progression restores exact ordinary seeded offer
 });
 
 test('blacksmith offers: hourly shop lookup passes the bias only for the smith role', () => {
-  const start=APP_JS_SRC.indexOf('\n  peekOrBuildRelicOffer('),end=APP_JS_SRC.indexOf('\n  }\n',start);
+  const start=SCENE_SRC.indexOf('\n  peekOrBuildRelicOffer('),end=SCENE_SRC.indexOf('\n  }\n',start);
   assert.truthy(start>0&&end>start);
-  const method=new Function(`return {${APP_JS_SRC.slice(start+1,end+4)}};`)().peekOrBuildRelicOffer;
+  const method=new Function(`return {${SCENE_SRC.slice(start+1,end+4)}};`)().peekOrBuildRelicOffer;
   const rng=seeded(42), house={kind:'house',id:'smith_test',tier:9};
   for(const role of ['blacksmith','market','trader',null]) {
     const scene={houseShopRole:()=>role,shopRng:()=>rng,buildRelicOffer:(actual,opts)=>({actual,opts})};

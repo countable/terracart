@@ -76,12 +76,14 @@ Render.objectGroundOffsetPx = function (appearance, textures) {
 
 const COIN_DROP_PX = 13;
 Render.COIN_DROP_PX = COIN_DROP_PX;
-// Low-detail ground sprites show the amount waiting on the map.
+// Low-detail ground sprites show the amount waiting on the map. The stacks
+// were 20 / 25 / 30 wide; scaled down a little (owner, Sep 2026) so a large
+// pile no longer fills its whole cell.
 Render.COIN_PILES = [
   { min: 1, texture: 'coin_drop', width: COIN_DROP_PX },
-  { min: 2, texture: 'coin_pile_small', width: 20 },
-  { min: 11, texture: 'coin_pile_medium', width: 25 },
-  { min: 51, texture: 'coin_pile_large', width: 30 },
+  { min: 2, texture: 'coin_pile_small', width: 17 },
+  { min: 11, texture: 'coin_pile_medium', width: 21 },
+  { min: 51, texture: 'coin_pile_large', width: 25 },
 ];
 Render.coinPile = (coin) => {
   const amount = coinAmount(coin);
@@ -4215,9 +4217,20 @@ Render.drawObjects = function drawObjects(scene) {
   // (so it depth-sorts / tracks state) but is dropped from filteredObj and so
   // renders no sprite. Sparking off objList left a gold sparkle hovering over
   // the now-empty cell — the "sparkle on the road with nothing under it" bug.
+  const _sparkNow = Date.now();
   for (const it of filteredObj) {
     if (isTreeLike(it.o.kind) && isShiny(it.o.id, SHINY_RATE.tree)) {
       pushSpark(it, it.o.id);
+    }
+    // The GLINT ROCK (interactables.js isGlintRock — the one predicate the
+    // drop reads too): no light, no sheen, no star hovering all day — a
+    // small glint on the stone for GLINT_ROCK_SHOW_MS, once every 10-60 s
+    // (glintRockPhase), drawn under WebGL and Canvas alike. `glint` carries
+    // the glint's 0..1 progress; the draw below fades it in and out on it.
+    // filteredObj, like the trees: a broken rock is spent and glints no more.
+    if (it.o.kind === 'mineralrock' && isGlintRock(it.o)) {
+      const k = glintRockPhase(it.o.id, _sparkNow);
+      if (k >= 0) sparkList.push({ dx: it.dx, dy: it.dy, id: it.o.id, glint: k });
     }
   }
   // Shiny fish glint on their water cell until landed (items.js
@@ -4247,12 +4260,28 @@ Render.drawObjects = function drawObjects(scene) {
       }
     }
   }
-  if (LIGHTS) for (const it of sparkList) LIGHTS.offerShiny(scene, it.id, it.dx, it.dy, halfM);
-  const _sparkNow = Date.now();
-  const sparkDrawn = Render.canShine(scene) ? [] : sparkList;
+  // A glint rock throws no light: its cue is the glint alone.
+  if (LIGHTS) for (const it of sparkList) if (it.glint == null) LIGHTS.offerShiny(scene, it.id, it.dx, it.dy, halfM);
+  // Under WebGL the shine sweep replaces the shinies' stars; the rock's
+  // glint has no sweep, so it is drawn on every renderer.
+  const sparkDrawn = Render.canShine(scene) ? sparkList.filter(it => it.glint != null) : sparkList;
   Render.renderPool(scene, scene.sparkPool, scene.sparkContainer, sparkDrawn, (s, item) => {
     setTextureIfDifferent(s, 'shiny_spark');
     const { sx, sy } = project(item.dx, item.dy);
+    if (item.glint != null) {
+      // The rock's glint: a small star on the stone's upper face that swells
+      // and fades over its GLINT_ROCK_SHOW_MS (sin envelope, 0→1→0) with a
+      // quarter turn — a catch of light, not the shinies' twinkle. About a
+      // third the star's size at its peak (~10px from the 32px texture).
+      const e = Math.sin(item.glint * Math.PI);
+      s.setOrigin(0.5, 0.5)
+       .setScale(0.18 + 0.14 * e)
+       .setAlpha(0.9 * e)
+       .setAngle(item.glint * 90)
+       .setTint(0xffffff)
+       .setPosition(Math.round(sx + 3), Math.round(sy - 4));
+      return;
+    }
     // Desync each marker's twinkle off a stable per-id phase so a cluster of
     // shinies shimmers out of step rather than blinking in unison.
     const phase = ((_sparkNow + (strHash31(item.id) % 2600)) % 2600) / 2600;   // 0..1

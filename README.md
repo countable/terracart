@@ -41,6 +41,7 @@ manifest.webmanifest  PWA manifest; icon-192/512.png are the PWA icons.
 
 src/        Game source (vanilla JS, global scope, load-order dependent). The big ones:
               app.js          the Phaser scene: wiring, HUD, dialogs, per-frame update
+              scene_*.js / modal_shell.js   scene mixins app.js installs (geo, creatures, shops, modals)
               worldgen.js     map tiles → terrain grid, objects, creatures (seeded)
               render.js       the world draw pass (RENDER_SPEC, painter rule, seat pass)
               lighting.js     the lightmap — the only lighting pass

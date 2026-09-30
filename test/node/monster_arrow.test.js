@@ -101,7 +101,7 @@ test('monster arrow: a hostile arrow stops in rock like any other', () => {
 test('monster arrow: app.js — a ranged kind shoots instead of leeching, and the hit lands on energy', () => {
   // The trigger and the cadence consts are wanderCreatures' (scene_creatures.js,
   // the SceneCreatures mixin); the shot list and _shotHitsPlayer are app.js's.
-  const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+  const app = SCENE_SRC;
   assert.truthy(CREATURE_AI_SRC.includes("if (row.attackType === 'projectile')"));
   assert.truthy(CREATURE_AI_SRC.includes('raw * row.attackHits, row.attackHits'));
   assert.truthy(CREATURE_AI_SRC.includes('enemyAttackReady(c, row, now, eligible)'));

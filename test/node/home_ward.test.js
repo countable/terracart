@@ -21,7 +21,7 @@
 (function () {
 // Home's rest half and _damageEnemy are app.js's; the ward half is
 // wanderCreatures' (scene_creatures.js, the SceneCreatures mixin). Both.
-const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+const app = SCENE_SRC;
 const CELL_M = 5;
 
 // A stub scene for the lifted methods: Home is the synthetic starter trailer

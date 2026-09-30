@@ -61,8 +61,8 @@ test('baked gfx: calls land in the canvas in game coordinates, one upload per re
 });
 
 test('baked gfx: the grid and the borders are baked, and the grid skips crossings it cannot change', () => {
-  assert.truthy(/this\.gridGfx = new Render\.BakedGfx\(this, 'grid_baked', this\.gridContainer\);/.test(APP_JS_SRC));
-  assert.truthy(/this\.borderGfx = new Render\.BakedGfx\(this, 'border_baked', this\.borderContainer\);/.test(APP_JS_SRC));
+  assert.truthy(/this\.gridGfx = new Render\.BakedGfx\(this, 'grid_baked', this\.gridContainer\);/.test(SCENE_SRC));
+  assert.truthy(/this\.borderGfx = new Render\.BakedGfx\(this, 'border_baked', this\.borderContainer\);/.test(SCENE_SRC));
   const render = RENDER_SRC;
   assert.truthy(/if \(gb2 && gb2\.flush\) gb2\.flush\(\);/.test(render), 'the border rebuild is uploaded');
   assert.truthy(/if \(gg\.flush\) gg\.flush\(\);/.test(render), 'the grid rebuild is uploaded');
@@ -90,6 +90,6 @@ test('corner fan: the cell pass draws no fillRoundedRect, and the rim is baked',
   const render = RENDER_SRC;
   assert.falsy(/g\.fillRoundedRect\(/.test(render), 'no earcut arcs in the per-frame cell pass');
   assert.truthy(/fillCornerFan\(g, cx, cy, R, dx, dy\)/.test(render), 'rounded corners are fans');
-  assert.truthy(/this\.atmosRimGfx = new Render\.BakedGfx\(this, 'atmos_rim_baked', null\);/.test(APP_JS_SRC));
+  assert.truthy(/this\.atmosRimGfx = new Render\.BakedGfx\(this, 'atmos_rim_baked', null\);/.test(SCENE_SRC));
   assert.truthy(/if \(g\.flush\) g\.flush\(\);   \/\/ BAKED/.test(render), 'the rim uploads once per haze change');
 });

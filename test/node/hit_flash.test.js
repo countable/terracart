@@ -11,7 +11,7 @@
 (function () {
 // The leech, the melee and a ghost's touch land in wanderCreatures
 // (scene_creatures.js); the arrow and the rest in app.js. Counted across both.
-const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+const app = SCENE_SRC;
 
 test('hit flash: every drain on the body flinches at the instant it lands, with what it cost', () => {
   // Four drains bank through ONE method, and it flinches right after the loss
@@ -76,7 +76,7 @@ test('hit flash: the haptic sits between a pickup and a refusal', () => {
 (function () {
 // The leech, the melee and a ghost's touch land in wanderCreatures
 // (scene_creatures.js); the arrow and the rest in app.js. Counted across both.
-const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+const app = SCENE_SRC;
 test('hit flash: a FOE\'s blow closes an open shop dialog — a trap\'s does not', () => {
   const sites = app.match(/this\._losePlayerEnergy\([^)]*\{ closeShop: true \}\)/g) || [];
   assert.eq(sites.length, 5, 'slime leech, retaliating fauna, monster melee, arrows and ghost touches all close it');
@@ -84,7 +84,7 @@ test('hit flash: a FOE\'s blow closes an open shop dialog — a trap\'s does not
   assert.truthy(/if \(closeShop\) this\._closeShopOnHit\(\);/.test(lose[1]), 'only when the caller asks — a trap does not');
   const m = app.match(/\n  _closeShopOnHit\(\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(m && /\.game-modal\[data-kind="shop"\]/.test(m[1]), 'it finds shop dialogs by kind');
-  assert.truthy(/if \(typeof kind === 'string'\) wrap\.dataset\.kind = kind;/.test(MODAL_SHELL_SRC), 'makeModalShell stamps the kind');
+  assert.truthy(/if \(typeof kind === 'string'\) wrap\.dataset\.kind = kind;/.test(SCENE_SRC), 'makeModalShell stamps the kind');
   const flash = app.match(/\n  _flashPlayerHit\(dmg\) \{([\s\S]*?)\n  \}\n/);
   assert.falsy(/_closeShopOnHit/.test(flash[1]), 'not from the shared flinch a trap also uses');
 });

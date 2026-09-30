@@ -293,15 +293,15 @@
     ], gen: 1, done: 0 } };
     assert.truthy(Quests.onEvent(save, 'deliver'), 'one delivery credits it');
     assert.eq(save.quests.slots[0].have, 1);
-    assert.truthy(/this\.questEvent\('deliver'\)/.test(APP_JS_SRC), 'the delivery accept fires the event');
+    assert.truthy(/this\.questEvent\('deliver'\)/.test(SCENE_SRC), 'the delivery accept fires the event');
   });
 
   test('quest board: no delivery count unseals a castle — the board replaced that gate', () => {
-    assert.falsy(/_deliveryGate|CASTLE_DELIVERY_GATE/.test(APP_JS_SRC), 'the delivery gate is gone');
-    const i = APP_JS_SRC.indexOf('  _isBuildingSealed(house) {');
-    const body = APP_JS_SRC.slice(i, APP_JS_SRC.indexOf('\n  }\n', i));
+    assert.falsy(/_deliveryGate|CASTLE_DELIVERY_GATE/.test(SCENE_SRC), 'the delivery gate is gone');
+    const i = SCENE_SRC.indexOf('  _isBuildingSealed(house) {');
+    const body = SCENE_SRC.slice(i, SCENE_SRC.indexOf('\n  }\n', i));
     assert.falsy(/deliveryCount/.test(body), 'the seal never reads the delivery tally');
-    assert.falsy(/openedCastles\s*\[[^\]]+\]\s*=/.test(APP_JS_SRC), 'nothing records a delivery-opened castle any more');
+    assert.falsy(/openedCastles\s*\[[^\]]+\]\s*=/.test(SCENE_SRC), 'nothing records a delivery-opened castle any more');
   });
 })();
 
@@ -338,7 +338,7 @@ test('quest board: Salvage rights counts chests only after its castle shows it',
   Quests.onEvent(save, 'chest');
   assert.eq(Quests.slot(save, 2).have, 1, 'counted from then on');
   assert.falsy(Quests.activate(save, 2), 'activating twice changes nothing');
-  assert.truthy(/Quests\.activate\(this\.save, mine\)/.test(APP_JS_SRC), 'showQuestBoard activates its own slot');
+  assert.truthy(/Quests\.activate\(this\.save, mine\)/.test(SCENE_SRC), 'showQuestBoard activates its own slot');
   // Other verbs track from the start, as before.
   Quests.onEvent(save, 'kill', { target: 'slime' });
   assert.eq(Quests.slot(save, 0).have, 1);

@@ -238,7 +238,12 @@ function makeRng32(seed) {
 // foe, never does.
 // Spawn rates per category. Tuned per the design: flora + trees 1%, animals
 // and monsters 5%.
-const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05, monster: 0.05, fish: 0.05 };
+// `rock` is the GLINT ROCK (interactables.js isGlintRock): one plain rock in
+// twenty, the same rocks for every player off the rock's id. It wears no gold
+// sheen and pays no 10× bonus — it catches the light for a moment every
+// 10-60 s (glintRockPhase) and is GUARANTEED one find on top of its stones
+// (glintRockFind), rolled off the plain rock's own rarity ladder.
+const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05, monster: 0.05, fish: 0.05, rock: 0.05 };
 // ── How long a message on the MAP may be ────────────────────────────────────
 // A flash is a toast drawn over the world, on a phone, usually while the
 // player is mid-action and looking at the cell they just tapped — not a
@@ -304,11 +309,13 @@ function treeUsesGrowthSheet(o) {
 }
 // A tree the PLAYER planted (an acorn) grows on the CLOCK, not off a static
 // `variant`: sprout → young at the halfway mark → mature at the full window,
-// which is the same four days a fruit-tree sapling takes to bear. One window,
+// which is the same one day a fruit-tree sapling takes to bear. One window,
 // one ladder, and it comes back through treeGrowthStage so the frame render.js
 // draws, the size class the axe gate reads and the wood the fell pays all move
 // together — a sapling can't draw tiny and gate like a full canopy.
-const PLANTED_TREE_GROW_MS = 4 * 24 * 60 * 60 * 1000;
+// One day (owner's call, Sep 2026 — was four): a sapling planted on a walk
+// is grown by the next one. Every consumer derives from this number.
+const PLANTED_TREE_GROW_MS = 1 * 24 * 60 * 60 * 1000;
 function plantedTreeStage(plantedT, now) {
   const age = (now == null ? Date.now() : now) - (Number(plantedT) || 0);
   const f = age / PLANTED_TREE_GROW_MS;

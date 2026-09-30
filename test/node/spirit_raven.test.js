@@ -7,7 +7,7 @@
 // are pinned as source text.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const methodBody = (sig) => {
   const a = app.indexOf(sig);
   assert.truthy(a > 0, `found ${sig.trim()}`);
@@ -57,6 +57,16 @@ test('spirit raven: a slime\'s stats, derived — and never an enemy', () => {
   // One bite per step, one step a second: the slime's own cadence.
   assert.eq(SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven.stepMs, Combat.MELEE_INTERVAL_MS,
     'it steps (and so bites) once a second, as a slime leeches');
+  // Its pace is the STRIDE (owner: a full cell a second was a little too
+  // fast): under a cell a hop, over the quickest ground foe's chase so it
+  // still catches its prey, under the brisk-walk line's four-fold.
+  const stride = SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven.stepCells;
+  assert.eq(stride, 0.7, 'seven tenths of a cell a hop');
+  const mps = faunaTopMps('spirit_raven', WorldGen.CELL_M);
+  assert.eq(mps, stride * WorldGen.CELL_M, 'its top speed is that stride over the one-second beat');
+  const goblin = foeChaseMps({ kind: 'goblin', id: 'mon_goblin_1_1_1_0' }, WorldGen.CELL_M);
+  assert.gt(mps, goblin, 'still faster than the quickest ground pursuer');
+  assert.lt(mps, WorldGen.CELL_M, 'and slower than the full cell a second it flew before');
   assert.falsy(Combat.isEnemyKind('spirit_raven'), 'not an enemy kind');
   assert.falsy(Combat.isEnemy({ kind: 'spirit_raven', id: 'spirit_raven_1_2_3_4' }), 'nothing auto-fires at it');
   assert.falsy(Combat.isMonster('spirit_raven'), 'no MONSTERS row');
@@ -87,7 +97,7 @@ test('spirit raven: it hunts every foe and the pest deer — not game, not the t
 });
 
 test('spirit raven: the pet lane is the raven\'s lane', () => {
-  const sim = SCENE_CREATURES_SRC;
+  const sim = SCENE_SRC;
   assert.truthy(/const huntsForPlayer = \(isTame && SpriteLayout\.isPet\(c\.kind\)\) \|\| summoned;/.test(sim),
     'a summoned ally hunts through the pet scan, as a second reason');
   assert.truthy(/if \(!huntsPrey\(c\.kind, cr\)\) return;/.test(sim), 'the scan asks the one predicate');

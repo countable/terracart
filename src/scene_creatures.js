@@ -2577,12 +2577,19 @@ class SceneCreatures {
   // A crow's FULL RETREAT: it launches on this very tick (out of its perch,
   // any flight cut short) and hops straight away from the player for the
   // usual ~2.5–4 minutes (CROW_DEPART_MS), until it drifts off the sim range
-  // and is simply gone. One reason now: a crow the player has started to
-  // hunt (interact.js) — a hunted crow used to carry on as if nothing had
-  // happened.
-  _crowDepart(c, now = performance.now()) {
+  // and is simply gone. ONE departure, two forms. 'hunted' (the net's wheel
+  // started on it — interact.js, the one caller now): it keeps the perch it
+  // is sitting — or the glide it is on, and the landing perch that ends it —
+  // and leaves on its next launch. That remaining perch is the hunt's timing
+  // window (creature_ai.js CROW_DEPART_HOP has the design). 'sated' (the
+  // default): off at once, out of its perch this tick — the form a meal used
+  // to take; no crow eats now, so nothing calls it, but it stays the at-once
+  // departure for whatever next wants one (crow_hunt_retreat.test.js pins
+  // both forms).
+  _crowDepart(c, now = performance.now(), reason = 'sated') {
     const [base, spread] = CROW_DEPART_MS;
     c._departUntilT = now + base + Math.random() * spread;
+    if (reason === 'hunted') return;
     c._perchUntilT = now;
     c._flightUntilT = null;
   }
@@ -2672,12 +2679,16 @@ class SceneCreatures {
     // A hunted crow leaving — fly steadily away from the player until the
     // few-minute timer lapses (it freezes once it drifts off the sim range,
     // so it simply stays gone).
+    // Its first departing launch is the one the hunt's wheel races
+    // (CROW_DEPART_HOP).
     const departing = c._departUntilT && now < c._departUntilT;
     for (let attempt = 0; attempt < 6 && !chosen; attempt++) {
       if (departing) {
-        // Long outbound hop directly away from the player, with a little jitter.
+        // Long outbound hop directly away from the player, with a little
+        // jitter — CROW_DEPART_HOP's cells, past the approach cap below: a
+        // retreat is not an approach, and the hop must clear the reach.
         const away = Math.atan2(c.y - py, c.x - px) + (Math.random() - 0.5) * 0.6;
-        const d = (2 + Math.random() * 0.5) * this.cellM;
+        const d = CROW_DEPART_HOP.cells * this.cellM;
         tx = c.x + Math.cos(away) * d;
         ty = c.y + Math.sin(away) * d;
       } else {
@@ -2687,13 +2698,14 @@ class SceneCreatures {
         tx = c.x + Math.cos(a) * d;
         ty = c.y + Math.sin(a) * d;
       }
-      // Cap any single flight leg to ~2.5 cells. The roam and the retreat are
-      // already under it; it is the one rule every leg passes, so a future
-      // longer hop is validated at its landing point, not its far goal.
+      // Cap any single flight leg to ~2.5 cells — the approach cap (a crow
+      // used to APPROACH a crop over several hops; the roam is already under
+      // it). Not the retreat: a retreat is not an approach, and its hop must
+      // clear the reach (CROW_DEPART_HOP).
       const MAX_LEG = 2.5 * this.cellM;
       const legDX = tx - c.x, legDY = ty - c.y;
       const legD = Math.hypot(legDX, legDY);
-      if (legD > MAX_LEG) {
+      if (!departing && legD > MAX_LEG) {
         tx = c.x + (legDX / legD) * MAX_LEG;
         ty = c.y + (legDY / legD) * MAX_LEG;
       }
@@ -2715,7 +2727,9 @@ class SceneCreatures {
     c._startX = c.x; c._startY = c.y;
     c._targetX = tx; c._targetY = ty;
     c._flightT0 = now;
-    c._flightUntilT = now + 800 + Math.random() * 400;   // 800–1200 ms slow glide
+    // 800–1200 ms slow glide; a departing leg takes its row's own time —
+    // longer, over a longer hop: the pace the hunt's odds are tuned on.
+    c._flightUntilT = now + (departing ? CROW_DEPART_HOP.ms : 800 + Math.random() * 400);
     c._perchUntilT = null;
     c._faceFlip = (tx - c.x) < 0;
     // This is a normal glide, not a flee dash — clear the marker so a FUTURE

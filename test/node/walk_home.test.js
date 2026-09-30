@@ -389,7 +389,7 @@ test('walk home: an auto wheel (auto-mining) does not hold the walk', () => {
 });
 
 test('walk home: a tap on the world puts the countdown back to full', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   assert.truthy(/this\._resetWalkHome\(\);\s+\/\/ a tap on the world is interacting\n\s+this\.handleWorldTap\(up\.x, up\.y\);/.test(app),
     'every world tap resets it before it is handled');
   assert.truthy(/_resetWalkHome\(\) \{\n\s+if \(this\._lastStickT\) this\._lastStickT = Date\.now\(\);/.test(app),

@@ -701,6 +701,27 @@ const CROW_DEPART_MS = [150000, 90000];
 // far deer visibly walks toward the beds. A dispatched pest (isPest) has no
 // limit: it was sent at the field.
 const RAID_NOTICE_CELLS = 8;
+// THE HUNT IS TIMED, NOT ROLLED (owner, Sep 2026: "a 50/50 chance with a T1
+// net, depending on timing, standing right on it"). A hunted crow does NOT
+// bolt the instant the wheel starts — it keeps its own rhythm, finishes the
+// perch it is sitting (or the glide it is on, and the perch that ends it)
+// and leaves on its NEXT launch (_crowDepart 'hunted'). So the race is
+// between the net's wheel and how much perch the crow had left when you
+// tapped: tap one that has just settled and it sits through a wood net's
+// 4 s; tap one about to hop and it is gone. It used to launch at once
+// (_perchUntilT = now), so the wheel raced its first hop, and whether that
+// 2–2.5-cell hop happened to land on a cell still inside the reach diamond
+// — a die roll on its direction — decided the hunt, not the player.
+//   The departure hop itself is here, one row: `cells` out and `ms` of
+// glide per leg. Three cells clears the base reach (2.5 cells + 1 m, whole
+// cells — coords.js cellInReach) from wherever it sat, so the hop always
+// ends the hunt and never the roll above; it is exempt from the 2.5-cell
+// approach cap in _wildCrowTick, which exists to make a crow APPROACH a crop
+// over several hops, not to keep a fleeing one near. The 1.5 s glide is the
+// pace the odds are tuned on: test/node/crow_hunt_odds.test.js drives the
+// real tick against every net tier and pins the wood net's coin flip (and
+// that bare hands never take a crow, a tier-3 net nearly always does).
+const CROW_DEPART_HOP = { cells: 3, ms: 1500 };
 // ── A foe WANDERS OFF now and then ───────────────────────────────────────────
 // Every few minutes each hostile (Combat.isEnemy — the wild slime and every
 // cave monster; never a pet, never a lair guard, whose seat and leash are

@@ -575,10 +575,15 @@
     // ('pet', Combat.isPlayerKill). It FOLLOWS its summoner while nothing is in
     // range (the cat's `follows` lane, its timer armed for the raven's whole
     // life). Its stepMs is one bite a second (Combat.MELEE_INTERVAL_MS — the
-    // pet fight resolves once per step), the slime's own cadence. It is NOT an
+    // pet fight resolves once per step), the slime's own cadence. Its PACE is
+    // the stride, not the beat (owner, Sep 2026: "a little too fast" at a
+    // full cell a second, 7 m/s): 0.7 of a cell a hop is 4.9 m/s, still over
+    // every ground foe's chase (the goblin's 3.5 m/s is the quickest — it
+    // still catches what it hunts) but no longer a blur beside a walking
+    // player. Slow it by the stride; the beat is the bite. It is NOT an
     // enemy (no MONSTERS row), NOT game, and NOT tappable (interact.js skips a
     // `summoned` kind: there is nothing to catch, tame or pet).
-    spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000 },
+    spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000, stepCells: 0.7 },
     // `maxMps` is the kind's hard top speed, m/s (owner, Sep 2026: a
     // butterfly never outpaces 6 m/s) — over its gait, its bolt and the net
     // wheel's flee. A shiny's cap rises by its own SHINY_SPEED_MUL (9 m/s,

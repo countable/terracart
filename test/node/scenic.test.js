@@ -292,16 +292,16 @@ test('scenic: bonusMetres pays (mul − 1) on the restored metres that ARE sceni
   });
 
   test('scenic: the living lamps\' re-walk credit is NOT multiplied — the bonus is the first walk\'s', () => {
-    const body = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _visitStreetLamps(now) {'), APP_JS_SRC.indexOf('  _markLampsRestored(meta, newly, now) {'));
+    const body = SCENE_SRC.slice(SCENE_SRC.indexOf('  _visitStreetLamps(now) {'), SCENE_SRC.indexOf('  _markLampsRestored(meta, newly, now) {'));
     assert.truthy(/this\._bankStreetMetres\(paid, null, now, \{ quiet: true \}\)/.test(body), 'a lamp visit banks its credit plain');
     assert.falsy(/bonusM|Scenic/.test(body), 'and never asks the scenic table');
   });
 
   test('scenic: the multiplier rides the sweep, so a passenger and the drift home earn none of it', () => {
-    const body = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _sweepStreets() {'), APP_JS_SRC.indexOf('  _resetStreetSight() {'));
+    const body = SCENE_SRC.slice(SCENE_SRC.indexOf('  _sweepStreets() {'), SCENE_SRC.indexOf('  _resetStreetSight() {'));
     assert.truthy(/this\._driftingHome \|\| this\.isTooFast\?\.\(\)\) \{ this\._resetStreetSight\(\); return; \}/.test(body),
       'the one sweep refuses a passenger before anything is banked');
-    const n = (APP_JS_SRC.match(/Scenic\.bonusMetres\(/g) || []).length;
+    const n = (SCENE_SRC.match(/Scenic\.bonusMetres\(/g) || []).length;
     assert.eq(n, 1, 'one call site: the ripen pass');
   });
 }
@@ -386,7 +386,7 @@ test('scenic: the scope — story once, the relic once per save, the gift once p
 test('scenic: a scope is a rest spot on the fire\'s own ring and a light on it — not a ward', () => {
   assert.eq(Lighting.sourceKind({}, { kind: 'vista_scope' }), 'vista');
   assert.eq(Lighting.radiusCells('vista'), Lighting.radiusCells('fire'), 'its light is the rest ring (FIRE_REST_R)');
-  assert.truthy(/_nearVista\(wx, wy, cells\) \{/.test(APP_JS_SRC), 'the rest reason');
+  assert.truthy(/_nearVista\(wx, wy, cells\) \{/.test(SCENE_SRC), 'the rest reason');
   const creatures = SCENE_CREATURES_SRC || '';
   assert.falsy(/_nearVista/.test(creatures), 'no foe is turned away by a vista');
 });

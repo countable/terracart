@@ -778,9 +778,12 @@ const TAP_HANDLERS = [
       // the scene as resolveDefeat so all three routes pay out identically.
       scene.startWorkProgress(victim.x, victim.y, () => scene.resolveDefeat(victim),
         durMs * hpMul * dmgMul, 0, netSlot, victim);   // track the victim → hunt aborts if it flees out of reach
-      // A hunted crow takes fright and retreats in full — the same departure
-      // a fed crow makes — so the wheel is a race against it leaving reach.
-      if (victim.kind === 'crow') scene._crowDepart?.(victim);
+      // A hunted crow retreats in full — the same departure a fed crow makes
+      // — but on its OWN rhythm: it finishes the perch it is sitting and
+      // leaves on its next launch, so the wheel races the perch the crow had
+      // left when you tapped (creature_ai.js CROW_DEPART_HOP: a wood net at
+      // point blank is a coin flip, decided by timing).
+      if (victim.kind === 'crow') scene._crowDepart?.(victim, performance.now(), 'hunted');
       // A kind that FIGHTS BACK (the deer — SpriteLayout.creatureFightsBack)
       // turns on the hunter instead: enraged for its rageMs, it charges and
       // butts (scene_creatures.js wanderCreatures). Wall clock, like
@@ -1712,7 +1715,7 @@ const TAP_HANDLERS = [
       //   `plants:'tree'` (the ACORN) → a `tree` object: timber, chopped for
       //       wood like any other, its growth stage read off planted_t by
       //       util.js treeGrowthStage so the frame, the axe gate and the wood
-      //       yield all climb together over the same four days.
+      //       yield all climb together over the same PLANTED_TREE_GROW_MS.
       //   otherwise (apple / peach) → a `fruittree`: picked, not chopped. It
       //       advances through the species sheet's life-cycle frames and bears
       //       fruit at maturity (render.js fruittree spec + the fruittree

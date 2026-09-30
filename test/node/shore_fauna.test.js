@@ -55,9 +55,9 @@ test('shore fauna: the gull is a roster foe on the crow\'s sheet, fast, off the 
 // ── The seats ───────────────────────────────────────────────────────────────
 // spawnShoreFauna, lifted and RUN on a synthetic beach.
 const lift = () => {
-  const i = SCENE_CREATURES_SRC.indexOf('  spawnShoreFauna(');
-  const j = SCENE_CREATURES_SRC.indexOf('\n  }\n', i);
-  return new Function(`return ({ ${SCENE_CREATURES_SRC.slice(i, j + 4)} });`)().spawnShoreFauna;
+  const i = SCENE_SRC.indexOf('  spawnShoreFauna(');
+  const j = SCENE_SRC.indexOf('\n  }\n', i);
+  return new Function(`return ({ ${SCENE_SRC.slice(i, j + 4)} });`)().spawnShoreFauna;
 };
 const T = WorldGen.T, NB = 80, CM = WorldGen.CELL_M;
 function beach() {

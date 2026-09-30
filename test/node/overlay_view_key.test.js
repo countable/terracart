@@ -91,10 +91,10 @@
   });
 
   test('street lamps: a loading ring tile out of reach no longer holds the memo open (source pin)', () => {
-    const upd = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _updateStreetLamps() {'), APP_JS_SRC.indexOf('  // THE RIPEN PASS.'));
+    const upd = SCENE_SRC.slice(SCENE_SRC.indexOf('  _updateStreetLamps() {'), SCENE_SRC.indexOf('  // THE RIPEN PASS.'));
     assert.truthy(/tileBoxReach\(E, tx, ty, c\.x - pad, c\.y - pad, c\.x \+ pad, c\.y \+ pad\)\) pending = true;/.test(upd),
       'pending only for a tile that could hold a lamp in the pad');
-    const visit = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _visitStreetLamps(now) {'));
+    const visit = SCENE_SRC.slice(SCENE_SRC.indexOf('  _visitStreetLamps(now) {'));
     assert.truthy(/tileBoxReach\(E, tx, ty, px - R, py - R, px \+ R, py \+ R\)\) pending = true;/.test(visit),
       'and the visit pass likewise');
   });
