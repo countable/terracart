@@ -172,30 +172,50 @@ test('isCastleClaimed / claimCastle: idempotent, presence not truthiness, non-ca
   assert.falsy(Houses.isCastleClaimed({}, null), 'nor does nothing');
 });
 
-test('castleServiceUsedToday / markCastleServiceUsed: once per castle per UTC day', () => {
+test('castleServiceUsed / markCastleServiceUsed: once per castle per twelve hours', () => {
   const save = {};
   const tower = { castle: 'b_1_1' };
-  const day1 = new Date('2026-09-26T12:00:00Z');
-  assert.falsy(Houses.castleServiceUsedToday(save, tower, day1), 'not used yet');
-  Houses.markCastleServiceUsed(save, tower, day1);
-  assert.truthy(Houses.castleServiceUsedToday(save, tower, day1), 'used today');
-  const laterSameDay = new Date('2026-09-26T23:00:00Z');
-  assert.truthy(Houses.castleServiceUsedToday(save, tower, laterSameDay), 'same UTC day, still used');
-  const nextDay = new Date('2026-09-27T00:00:00Z');
-  assert.falsy(Houses.castleServiceUsedToday(save, tower, nextDay), 'a new UTC day pours again');
+  const H = 60 * 60 * 1000;
+  const t0 = Date.parse('2026-09-26T12:00:00Z');
+  assert.eq(Houses.CASTLE_SERVICE_MS, 12 * H, 'twelve hours');
+  assert.falsy(Houses.castleServiceUsed(save, tower, t0), 'not used yet');
+  assert.eq(Houses.castleServiceWaitMs(save, tower, t0), 0, 'no wait to print');
+  Houses.markCastleServiceUsed(save, tower, t0);
+  assert.eq(save.castleServiceClaimed['b_1_1'], t0, 'stamped with the moment, not a day key');
+  assert.truthy(Houses.castleServiceUsed(save, tower, t0), 'used now');
+  assert.eq(Houses.castleServiceWaitMs(save, tower, t0 + 5 * H), 7 * H, 'five hours on: seven to go');
+  assert.truthy(Houses.castleServiceUsed(save, tower, t0 + 12 * H - 1), 'a millisecond short: still spent');
+  assert.falsy(Houses.castleServiceUsed(save, tower, t0 + 12 * H), 'twelve hours on: pours again');
+  assert.eq(Houses.castleServiceWaitMs(save, tower, t0 + 20 * H), 0, 'and the wait never goes negative');
 });
 
-test('markCastleServiceUsed: prunes every OTHER castle\'s stale day stamp', () => {
-  const save = { castleServiceClaimed: { old_castle: '20000101' } };
-  const day1 = new Date('2026-09-26T12:00:00Z');
-  Houses.markCastleServiceUsed(save, { castle: 'b_1_1' }, day1);
-  assert.falsy('old_castle' in save.castleServiceClaimed, 'stale stamp pruned');
+test('castleServiceUsed: a legacy UTC-day stamp is spent until that day ends, then gone', () => {
+  // Saves from before the twelve-hour clock hold 'YYYYMMDD' (utcDayKey).
+  const save = { castleServiceClaimed: { b_1_1: '20260926' } };
+  const tower = { castle: 'b_1_1' };
+  const sameDay = Date.parse('2026-09-26T23:00:00Z');
+  assert.truthy(Houses.castleServiceUsed(save, tower, sameDay), 'today\'s favour was already taken');
+  assert.eq(Houses.castleServiceWaitMs(save, tower, sameDay), msToNextUtcDay(sameDay), 'and it waits for the old day to roll');
+  const nextDay = Date.parse('2026-09-27T00:00:00Z');
+  assert.falsy(Houses.castleServiceUsed(save, tower, nextDay), 'a new UTC day pours again');
+  Houses.markCastleServiceUsed(save, tower, nextDay);
+  assert.eq(save.castleServiceClaimed['b_1_1'], nextDay, 'and the next use writes the new stamp');
+});
+
+test('markCastleServiceUsed: prunes every OTHER castle\'s spent stamp, keeps a live one', () => {
+  const H = 60 * 60 * 1000;
+  const now = Date.parse('2026-09-26T12:00:00Z');
+  const save = { castleServiceClaimed: { old_castle: now - 13 * H, live_castle: now - 3 * H, legacy_castle: '20000101' } };
+  Houses.markCastleServiceUsed(save, { castle: 'b_1_1' }, now);
+  assert.falsy('old_castle' in save.castleServiceClaimed, 'spent stamp pruned');
+  assert.falsy('legacy_castle' in save.castleServiceClaimed, 'a stale legacy day stamp pruned too');
+  assert.truthy('live_castle' in save.castleServiceClaimed, 'a castle still owed nine hours keeps its stamp');
   assert.truthy('b_1_1' in save.castleServiceClaimed, 'the current one kept');
 });
 
-test('castleServiceUsedToday / markCastleServiceUsed: no castle key is a silent no-op', () => {
+test('castleServiceUsed / markCastleServiceUsed: no castle key is a silent no-op', () => {
   const save = {};
-  assert.falsy(Houses.castleServiceUsedToday(save, { kind: 'house' }), 'not a castle');
+  assert.falsy(Houses.castleServiceUsed(save, { kind: 'house' }), 'not a castle');
   Houses.markCastleServiceUsed(save, { kind: 'house' });
   assert.falsy(save.castleServiceClaimed, 'nothing written');
 });

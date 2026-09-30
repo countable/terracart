@@ -1161,13 +1161,13 @@ const REST_SETTLE_S = 10;
 // recovery spot out in the wild. See the fire-warmth block in update().
 const FIRE_FULL_REST_S = 360;
 // A CLAIMED castle no longer trades relics — it's the player's own — and
-// instead its castellan offers ONE favour a day (save.castleServiceClaimed[key]
-// holds the UTC day it was last used, same day-key idiom as houseSatisfied):
+// instead its castellan offers ONE favour per Houses.CASTLE_SERVICE_MS, twelve
+// hours (save.castleServiceClaimed[key] holds when it was last used):
 // REST, a flat lump of CASTLE_REST_ENERGY handed over on arrival rather than a
 // rest rate like the ones above (the castle is somewhere you travel to, so
 // the payoff should land the moment you get there), or COLLECT, a flat tax
 // take in gold. Small enough either way that it can't replace food or
-// sleeping at Home — once a day is a courtesy for the walk, not an income.
+// sleeping at Home — twice a day is a courtesy for the walk, not an income.
 const CASTLE_REST_ENERGY = 35;   // a flat 35⚡ (was a tenth of the bar until Sep 2026)
 // What a house says when the feet walk through it (_houseMutter). Each line
 // fits MAP_MSG_MAX.
@@ -12354,8 +12354,9 @@ class MapScene extends Phaser.Scene {
 
   _claimCastle(house) { return Houses.claimCastle(this.save, house); }
 
-  // Once-per-castle-per-UTC-day gate — see Houses.castleServiceUsedToday.
-  _castleServiceUsedToday(house) { return Houses.castleServiceUsedToday(this.save, house); }
+  // Once-per-castle-per-twelve-hours gate — see Houses.castleServiceUsed.
+  _castleServiceUsed(house) { return Houses.castleServiceUsed(this.save, house); }
+  _castleServiceWaitMs(house) { return Houses.castleServiceWaitMs(this.save, house); }
   _markCastleServiceUsed(house) { return Houses.markCastleServiceUsed(this.save, house); }
 
   // Simple yes/no DOM modal. Dismissible. Renders over #game so it scales with the viewport.

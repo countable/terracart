@@ -142,11 +142,16 @@ test('the crop stage badge shows a unit, not a bare number', () => {
 
 test('the day-gated messages name the wait to the UTC roll', () => {
   const src = DURATION_SOURCES['app.js'];
-  // Castle favour, coin-burst POI — both keyed on a UTC day stamp, both
-  // saying how long that is. (A fed delivery house is no longer day-gated:
-  // one delivery per house, ever.)
+  // Coin-burst POI, the inn, the guildhall — each keyed on a UTC day stamp,
+  // each saying how long that is. (A fed delivery house is no longer
+  // day-gated: one delivery per house, ever. The castle favour left the day
+  // key for its own twelve-hour clock, Houses.CASTLE_SERVICE_MS.)
   const n = (src.match(/msToNextUtcDay\(\)/g) || []).length;
-  assert.gte(n, 3, `expected the 2 day-gated messages + the castle blurb, found ${n}`);
+  assert.gte(n, 3, `expected the 3 day-gated messages, found ${n}`);
+  const castle = SCENE_SRC.slice(SCENE_SRC.indexOf('  presentCastleServiceOffer('), SCENE_SRC.indexOf('  showQuestBoard('));
+  assert.truthy(/shortDuration\(this\._castleServiceWaitMs\(house\)\)/.test(castle), 'the castellan names the twelve-hour wait');
+  assert.truthy(/shortDuration\(Houses\.CASTLE_SERVICE_MS\)/.test(castle), 'and the blurb its length');
+  assert.falsy(/msToNextUtcDay/.test(castle), 'neither counts to the UTC roll');
 });
 
 test('numeric consumable durations derive from CONSUMABLE_SPEC', () => {
