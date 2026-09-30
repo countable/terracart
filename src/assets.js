@@ -94,10 +94,10 @@ const ASSETS = {
   // into Objects/Wilderness/ so the tree can build without the raw asset pack.
   // Ground coins use simplified native-size art. The detailed HUD and popup
   // icon stays in Icons/coin.png. Map quantity bands live in Render.COIN_PILES.
-  coin_drop: { kind: 'image', path: 'assets/Objects/Approved/coin_single_ground.png' },
-  coin_pile_small: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_small.png' },
-  coin_pile_medium: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_medium.png' },
-  coin_pile_large: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_large.png' },
+  coin_drop: { kind: 'image', path: 'assets/Objects/Approved/coin_single_ground.png?v=3' },
+  coin_pile_small: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_small.png?v=2' },
+  coin_pile_medium: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_medium.png?v=2' },
+  coin_pile_large: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_large.png?v=2' },
   // Misc 16x16 prop — single boxed crate from the Singles tileset.
   box:         { kind: 'image', path: 'assets/Objects/Approved/box.png' },
   // Forest critters. Sheets are 16x16 frames; renderer picks frames as needed.

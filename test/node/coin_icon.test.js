@@ -5,7 +5,7 @@ const app = APP_JS_SRC;
 
 // ── The asset ─────────────────────────────────────────────────────────────
 test('coin icon: ground and HUD each load their intended artwork', () => {
-  assert.truthy(/coin_drop:\s*\{ kind: 'image', path: 'assets\/Objects\/Approved\/coin_single_ground\.png' \}/.test(ASSETS_SRC),
+  assert.truthy(/coin_drop:\s*\{ kind: 'image', path: 'assets\/Objects\/Approved\/coin_single_ground\.png\?v=3' \}/.test(ASSETS_SRC),
     'ground drops load the flat mini coin');
   const mini = pngDims('assets/Objects/Approved/coin_single_ground.png');
   assert.eq(mini.w, Render.COIN_DROP_PX, 'mini coin renders at native width');
@@ -55,7 +55,7 @@ test('coin icon: no money "$" remains in src/ strings (interpolation ${ } untouc
 
 // ── The helpers and their call sites ──────────────────────────────────────
 test('coin icon: the three helpers exist beside iconSpanHTML', () => {
-  assert.truthy(/coinIconHTML\(px = 16\) \{\s*\n\s*return `<img src="assets\/Icons\/coin\.png"/.test(app),
+  assert.truthy(/coinIconHTML\(px = 16\) \{\s*\n\s*return `<img src="assets\/Icons\/coin\.png\?v=2"/.test(app),
     'coinIconHTML returns the coin <img> for modal / list HTML');
   assert.truthy(/moneyHTML\(n, px = 16\) \{\s*\n\s*return `\$\{this\.coinIconHTML\(px\)\} \$\{n\}`;/.test(app),
     'moneyHTML is the icon plus an amount');

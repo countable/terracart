@@ -1104,7 +1104,7 @@
     <!-- The chip is coin icon + bare number: the coin (assets/Icons/coin.png)
          is the game's ONE money symbol, so the readout never grows a "$" back.
          app.js updateHUD writes #money-num. -->
-    <div id="money"><img class="coin-ico" src="assets/Icons/coin.png" alt=""><span id="money-num">0</span></div>
+    <div id="money"><img class="coin-ico" src="assets/Icons/coin.png?v=2" alt=""><span id="money-num">0</span></div>
   </div>
   <div id="objective" style="display:none">
     <div class="row">
@@ -2701,7 +2701,7 @@
   <script src="src/multiplayer.js?v=a4181a1f"></script>
   <script src="src/road_overlay.js?v=bbe74df5"></script>
   <script src="src/building_overlay.js?v=d8681b44"></script>
-  <script src="src/assets.js?v=39ec9823"></script>
+  <script src="src/assets.js?v=8e44d981"></script>
   <script src="src/sandbox.js?v=31c599de"></script>
   <script src="src/testtools.js?v=e112a59e"></script>
   <script src="src/geo.js?v=0a205c42"></script>
@@ -2770,7 +2770,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=e6f2b072';
+      const APP_SRC = 'src/app.js?v=f67ab80d';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

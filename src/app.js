@@ -13970,14 +13970,14 @@ class MapScene extends Phaser.Scene {
   //   moneyHTML     — that icon plus an amount, for any money readout in HTML
   //   coinIconEl    — the same coin as a DOM element, for flashLoot's iconEl
   coinIconHTML(px = 16) {
-    return `<img src="assets/Icons/coin.png" style="width:${px}px;height:${px}px;image-rendering:pixelated;vertical-align:-2px;" alt="">`;
+    return `<img src="assets/Icons/coin.png?v=2" style="width:${px}px;height:${px}px;image-rendering:pixelated;vertical-align:-2px;" alt="">`;
   }
   moneyHTML(n, px = 16) {
     return `${this.coinIconHTML(px)} ${n}`;
   }
   coinIconEl(px = 28) {
     const el = document.createElement('img');
-    el.src = 'assets/Icons/coin.png';
+    el.src = 'assets/Icons/coin.png?v=2';
     el.alt = '';
     el.style.cssText = `width:${px}px;height:${px}px;image-rendering:pixelated;`;
     return el;
