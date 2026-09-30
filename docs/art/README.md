@@ -22,11 +22,14 @@ shapes, dark readable contours, sparse intentional pixel clusters and opaque
 pixel edges. Copy the paintings' colour relationships, not their detail density.
 A soft high-resolution sprite does not become a style match through recolouring.
 
-The strongest next candidates are the existing chunky grass silhouette in olive,
-a warm brown mushroom or brick-red spotted cap, `hedge_end.png` for compact bushes,
-and the outlined broadleaf trees with quieter olive foliage. Keep teal foliage
-for a restored or sacred setting. For ruins, start with `pillar_c.png` and
-`pot_smashed.png`; masonry and broken-column candidates need contour review.
+`spritePlan` in the JSON records the selected default sprite + target-colour
+combinations, plus named variants for specific settings. The defaults are the
+current chunky grass tuft, red spotted mushroom, `hedge_end.png`, open broadleaf
+tree, `pillar_c.png` and `pot_smashed.png`. Their target palettes are declared as
+palette IDs, so swatches and annotations stay in sync. Variants cover dry/autumn
+foliage, woodland details, caves, restored gardens, sacred places and ruin debris.
+The gallery marks unselected candidates separately and identifies contour work
+where recolouring alone is insufficient. Source thumbnails remain unchanged.
 
 Generate both linked review pages and palette exports (Pillow and Node required):
 

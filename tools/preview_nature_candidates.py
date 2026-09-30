@@ -114,6 +114,22 @@ def current_crop_scales():
     return scales
 
 
+def palette_chips(combo, palette):
+    return '<div class="target-palette" aria-label="Target colours">' + ''.join(
+        f'<span class="target-colour" title="{html.escape(palette[key]["name"])} {palette[key]["hex"]}">'
+        f'<i style="background:{palette[key]["hex"]}"></i><small>{html.escape(palette[key]["name"])}</small></span>'
+        for key in combo['colours']) + '</div>'
+
+
+def combo_annotation(combo, palette, default=False):
+    label = 'DEFAULT + RECOLOUR' if default else 'USAGE VARIANT'
+    return (f'<div class="recipe {"default-recipe" if default else "variant-recipe"}">'
+            f'<b>{label} · {html.escape(combo["role"])}</b>'
+            f'<p class="usage">{html.escape(combo["usage"])}</p>'
+            + palette_chips(combo, palette)
+            + f'<p>{html.escape(combo["treatment"])}</p></div>')
+
+
 def render(reserve, output):
     output.mkdir(parents=True, exist_ok=True)
     rows = candidates()
@@ -121,6 +137,17 @@ def render(reserve, output):
     direction = json.loads((ROOT/'docs/art/art-direction.json').read_text())
     assessments = direction['recommendations']
     assert set(assessments) == {row['id'] for row in rows}, 'Every candidate needs a current art-direction assessment'
+    plan = direction['spritePlan']
+    palette = {p['id']: p for p in direction['palette']}
+    defaults = {c['candidate']: c for c in plan['defaults']}
+    variants = {}
+    candidate_ids = {row['id'] for row in rows}
+    for combo in plan['defaults'] + plan['variants']:
+        assert combo['candidate'] in candidate_ids, combo['candidate']
+        assert all(key in palette for key in combo['colours']), combo['id']
+    assert len(defaults) == len(plan['defaults']), 'Duplicate default candidate'
+    for combo in plan['variants']:
+        variants.setdefault(combo['candidate'], []).append(combo)
     cards = {}
     images = {}
     for row in rows:
@@ -136,26 +163,49 @@ def render(reserve, output):
         ratio = min(target_h / im.height, target_w / im.width)
         assessment = row['assessment'] = assessments[row['id']]
         row.pop('recommended', None)
+        row['defaultCombo'] = defaults.get(row['id'])
+        row['usageVariants'] = variants.get(row['id'], [])
+        recipes = (combo_annotation(row['defaultCombo'], palette, True) if row['defaultCombo'] else '')
+        recipes += ''.join(combo_annotation(c, palette) for c in row['usageVariants'])
+        if not recipes:
+            recipes = '<div class="recipe unused-recipe"><b>NOT SELECTED</b><p>Retained for comparison; use the selected default or a named usage variant.</p></div>'
+        selection = 'selected-default' if row['defaultCombo'] else 'selected-variant' if row['usageVariants'] else 'not-selected'
         badge = ('CURRENT · ' if row.get('current') else '') + assessment['decision'].upper()
         assessment_html = '<div class=assessment><b>Style: '+html.escape(assessment['style'])+'</b><br>Palette: '+html.escape(assessment['palette'])+'<br>Use: '+html.escape(assessment['context'])+'<p>'+html.escape(assessment['note'])+'</p></div>'
+        if row['defaultCombo']:
+            badge = 'SELECTED DEFAULT + RECOLOUR' + (' · KEEP CURRENT SHAPE' if row.get('current') else '')
+        elif row['usageVariants']:
+            badge = 'USAGE-SPECIFIC VARIANT' + (' · CURRENT ART' if row.get('current') else '')
+        else:
+            badge = 'NOT SELECTED · ' + assessment['decision'].upper()
         native_zoom = 3 if is_tree else 4
-        card = f'''<article id="{row['id']}"><div class="badge">{badge}</div><h3>{html.escape(row['title'])}</h3><code>{row['id']}</code>
+        card = f'''<article id="{row['id']}" class="{selection}"><div class="badge">{badge}</div><h3>{html.escape(row['title'])}</h3><code>{row['id']}</code>
 <div class="native"><img alt="{html.escape(row['title'])}" src="{uri}" width="{im.width*native_zoom}" height="{im.height*native_zoom}"></div>
 <div class="caption">Native frame ×{native_zoom} · {im.width} × {im.height} px</div>
 <div class="small"><img alt="Small comparison: {html.escape(row['title'])}" src="{uri}" style="width:{im.width*ratio:.3f}px;height:{im.height*ratio:.3f}px"></div>
 <div class="caption">{'48 px frame-height fit' if is_tree else f'{target_h:.3f} px frame-height fit'}</div>
-{assessment_html}<details><summary>Source rectangle &amp; provenance</summary><p class="path">{html.escape(row['path'])}</p><p>x, y, width, height: <code>{row['rect']}</code>{'; frame '+str(row['frame']) if 'frame' in row else ''}. Visible bounds: <code>{bounds}</code>.</p><p>{html.escape(PROVENANCE[row['provenance']])}</p></details></article>'''
+{recipes}{assessment_html}<details><summary>Source rectangle &amp; provenance</summary><p class="path">{html.escape(row['path'])}</p><p>x, y, width, height: <code>{row['rect']}</code>{'; frame '+str(row['frame']) if 'frame' in row else ''}. Visible bounds: <code>{bounds}</code>.</p><p>{html.escape(PROVENANCE[row['provenance']])}</p></details></article>'''
         cards.setdefault(row['group'], []).append(card)
+    row_by_id = {row['id']: row for row in rows}
+    default_cards = []
+    for combo in plan['defaults']:
+        row = row_by_id[combo['candidate']]
+        default_cards.append(f'<div class="default-pick"><img src="{data_uri(images[row["id"]])}" alt="{html.escape(row["title"])} source colours">'
+            f'<h3>{html.escape(combo["role"])}</h3><a href="#{row["id"]}">{html.escape(row["title"])}</a>'
+            + palette_chips(combo, palette) + f'<p>{html.escape(combo["treatment"])}</p></div>')
+    default_summary = '<section id="defaults"><h2>Default sprite + recolour combinations</h2><p>'+html.escape(plan['note'])+'</p><div class="grid defaults-grid">'+''.join(default_cards)+'</div></section>'
+    variant_links = ''.join(f'<a href="#{c["candidate"]}">{html.escape(c["role"])}</a>' for c in plan['variants'])
+    default_summary += '<section id="usage-variants"><h2>Variants for specific uses</h2><p>Use these only for the named setting or role. Their cards specify the sprite, target colours and any extra contour work.</p><div class="variant-links">'+variant_links+'</div></section>'
     sections = ''.join(f'<section id="{group}"><h2>{title}</h2><p>{intro}</p><div class="grid">{"".join(cards[group])}</div></section>' for group, title, intro in [
-        ('grass', 'Grass & ferns', 'Collectible tufts and ferns, rather than ground terrain. Prefer the current chunky tuft or grass-green with muted olive colours. The soft leafy sprig is no longer recommended for main-world grass.'),
-        ('mushrooms', 'Mushrooms', 'Surface and both cave looks are shown first. The brown cap is closest in colour; the red spotted shape is strongest after a muted brick recolour. Blue cave caps remain a special-area exception.'),
-        ('bushes', 'Bushes', 'Current shrub and five complete alternatives, including the requested hedge_end.png. Bush-green preserves the outlined round shape; bush-hedge-end suits formal gardens. Small views fit the current shrub frame dimensions and runtime scale.'),
-        ('trees', 'Whole trees', 'The four current mature trees precede five complete alternatives. Tree-tall-green fits after olive recolouring. Teal belongs in restored or sacred groves; autumn red needs a rustic rust/ochre treatment.'),
-        ('ruins', 'Ruins props', 'A focused shortlist from the sprite audit and local reserve: complete pillars, broken pottery and rubble. These are art choices, not proposed runtime substitutions. Small views use a shared 24 px frame height.'),
+        ('grass', 'Grass & ferns', 'Collectible tufts and ferns, rather than ground terrain. Default: keep the current chunky tuft and recolour to olive. Dry grass and low fern are usage-specific variants. The soft leafy sprig is no longer recommended for main-world grass.'),
+        ('mushrooms', 'Mushrooms', 'Surface and both cave looks are shown first. Default: red spotted cap recoloured to muted brick and cream. Brown woodland caps and warm clusters are local variants. Blue cave caps remain a special-area exception.'),
+        ('bushes', 'Bushes', 'Current shrub and five complete alternatives, including the requested hedge_end.png. Default: hedge_end.png with olive colours. Reuse it with brighter colours for restored hedges; rounded shrubs have specific woodland or sacred uses. Small views fit the current shrub frame dimensions and runtime scale.'),
+        ('trees', 'Whole trees', 'The four current mature trees precede five complete alternatives. Default: tree-tall-green with olive foliage and warm bark. Teal belongs in restored or sacred groves; autumn red needs a rustic rust/ochre treatment.'),
+        ('ruins', 'Ruins props', 'A focused shortlist from the sprite audit and local reserve: complete pillars, broken pottery and rubble. Defaults: the short pillar and smashed pot; masonry, low rubble and pale sacred columns have specific secondary uses. These annotations do not change runtime placement. Small views use a shared 24 px frame height.'),
     ])
     page = f'''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Nature art candidates</title><style>
-*{{box-sizing:border-box}}body{{margin:0;background:#14231f;color:#e7efe8;font:16px/1.5 system-ui,sans-serif}}main{{max-width:1440px;margin:auto;padding:28px}}h1{{font-size:36px;margin-bottom:8px}}h2{{margin-top:48px}}h3{{margin:8px 0;font-size:18px}}p{{color:#c3d3c7}}a{{color:#e6c780}}nav{{display:flex;gap:22px;flex-wrap:wrap}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px}}article{{background:#1e332b;border:1px solid #48614e;border-radius:14px;padding:18px;min-width:0}}.assessment{{border-left:3px solid #a5a569;padding-left:10px;margin:16px 0;font-size:13px}}.badge{{font-size:11px;letter-spacing:1px;color:#e5cb81}}code{{font-size:12px;overflow-wrap:anywhere}}.native{{height:206px;display:flex;align-items:center;justify-content:center;margin-top:18px;background:#7f9174;border-radius:8px}}img{{image-rendering:pixelated;object-fit:contain}}.small{{height:64px;display:flex;align-items:center;justify-content:center;margin-top:16px;background:#7f9174;border:1px dashed #a5b396;border-radius:8px}}.caption{{font-size:12px;color:#aebfb2;text-align:center;margin-top:5px}}details{{font-size:12px;border-top:1px solid #48614e;padding-top:12px}}summary{{cursor:pointer}}.path{{overflow-wrap:anywhere}}.intro{{max-width:1000px}}@media(max-width:600px){{main{{padding:16px}}h1{{font-size:28px}}}}
-</style><main><nav><a href="art-direction.html">Palette and style rules</a><a href="index.html">Zone previews</a><a href="#grass">Grass</a><a href="#mushrooms">Mushrooms</a><a href="#bushes">Bushes</a><a href="#trees">Trees</a><a href="#ruins">Ruins</a><a href="nature-contact.png">Contact sheet</a></nav><h1>Nature art candidates</h1><div class="intro"><p>Revised for the current chibi pixel characters and story-art palette. Natural and pre-restoration objects stay muted and rustic; restored assets and special or sacred areas may deliberately use brighter or cooler colours. All candidates retain their original pixels here: colour changes and replacement decisions are proposals, not applied edits.</p><p>The large view preserves native pixels at an integer zoom. The small view fits each frame into a common category height, capped in width. Current grass uses CROP_SPRITE scale {scales['longgrass']}; all current mushrooms use {scales['mushroom']}. Their small views therefore match those frame scales. Tree comparisons use a common 48 px frame height, not runtime camera zoom. Source margins are retained.</p></div>{sections}<p>All {len(rows)} sprite crops are embedded in this page. Coordinates are source pixels (x, y, width, height). Whole silhouettes were visually checked against their sheets. Local provenance is listed per card; no new art was generated.</p></main></html>'''
+*{{box-sizing:border-box}}body{{margin:0;background:#14231f;color:#e7efe8;font:16px/1.5 system-ui,sans-serif}}main{{max-width:1440px;margin:auto;padding:28px}}h1{{font-size:36px;margin-bottom:8px}}h2{{margin-top:48px}}h3{{margin:8px 0;font-size:18px}}p{{color:#c3d3c7}}a{{color:#e6c780}}nav{{display:flex;gap:22px;flex-wrap:wrap}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:16px}}article{{background:#1e332b;border:1px solid #48614e;border-radius:14px;padding:18px;min-width:0}}.selected-default{{border:2px solid #c4b06a}}.selected-variant{{border-color:#6b90ac}}.not-selected{{border-style:dashed}}.defaults-grid{{grid-template-columns:repeat(3,minmax(0,1fr))}}.default-pick{{padding:18px;background:#283627;border:1px solid #c4b06a;border-radius:12px;min-width:0}}.default-pick>img{{float:right;width:64px;height:64px;margin-left:8px}}.default-pick p{{font-size:14px}}.target-palette{{display:flex;flex-wrap:wrap;gap:7px;clear:both;margin:12px 0}}.target-colour{{width:51px;text-align:center;display:block}}.target-colour i{{display:block;width:38px;height:25px;margin:auto;border:1px solid #a5a569}}.target-colour small{{display:block;font-size:10px;line-height:1.25;margin-top:4px;color:#c3d3c7}}.recipe{{padding:12px;margin-top:16px;background:#14231f;border-radius:6px;font-size:13px}}.default-recipe{{border-left:3px solid #c4b06a}}.variant-recipe{{border-left:3px solid #6b90ac}}.recipe b{{font-size:12px;color:#e6d7a3}}.recipe .usage{{margin-top:5px}}.variant-links{{display:flex;gap:10px;flex-wrap:wrap}}.variant-links a{{background:#1e332b;border:1px solid #48614e;border-radius:6px;padding:6px 10px;font-size:13px}}section,article{{scroll-margin-top:90px}}.assessment{{border-left:3px solid #a5a569;padding-left:10px;margin:16px 0;font-size:13px}}.badge{{font-size:11px;letter-spacing:1px;color:#e5cb81}}code{{font-size:12px;overflow-wrap:anywhere}}.native{{height:206px;display:flex;align-items:center;justify-content:center;margin-top:18px;background:#7f9174;border-radius:8px}}img{{image-rendering:pixelated;object-fit:contain}}.small{{height:64px;display:flex;align-items:center;justify-content:center;margin-top:16px;background:#7f9174;border:1px dashed #a5b396;border-radius:8px}}.caption{{font-size:12px;color:#aebfb2;text-align:center;margin-top:5px}}details{{font-size:12px;border-top:1px solid #48614e;padding-top:12px}}summary{{cursor:pointer}}.path{{overflow-wrap:anywhere}}.intro{{max-width:1000px}}@media(max-width:900px){{.defaults-grid{{grid-template-columns:repeat(2,minmax(0,1fr))}}}}@media(max-width:600px){{.defaults-grid{{grid-template-columns:1fr}}main{{padding:16px}}h1{{font-size:28px}}}}
+</style><main><nav><a href="#defaults">Selected defaults</a><a href="#usage-variants">Usage variants</a><a href="art-direction.html">Palette and style rules</a><a href="index.html">Zone previews</a><a href="#grass">Grass</a><a href="#mushrooms">Mushrooms</a><a href="#bushes">Bushes</a><a href="#trees">Trees</a><a href="#ruins">Ruins</a><a href="nature-contact.png">Contact sheet</a></nav><h1>Selected nature and ruins art</h1><div class="intro"><p>Revised for the current chibi pixel characters and story-art palette. Natural and pre-restoration objects stay muted and rustic; restored assets and special or sacred areas may deliberately use brighter or cooler colours. All candidates retain their original pixels here: colour changes and replacement decisions are proposals, not applied edits.</p><p>The large view preserves native pixels at an integer zoom. The small view fits each frame into a common category height, capped in width. Current grass uses CROP_SPRITE scale {scales['longgrass']}; all current mushrooms use {scales['mushroom']}. Their small views therefore match those frame scales. Tree comparisons use a common 48 px frame height, not runtime camera zoom. Source margins are retained.</p></div>{default_summary}{sections}<p>All {len(rows)} sprite crops are embedded in this page. Coordinates are source pixels (x, y, width, height). Whole silhouettes were visually checked against their sheets. Local provenance is listed per card; no new art was generated.</p></main></html>'''
     (output / 'nature-art.html').write_text(page)
     (output / 'nature-candidates.json').write_text(json.dumps(rows, indent=2)+'\n')
     columns, cell_w, cell_h = 5, 240, 260
@@ -167,7 +217,7 @@ def render(reserve, output):
         zoom = min(3 if row['group'] == 'trees' else 6, 190//im.height)
         enlarged = im.resize((im.width*zoom, im.height*zoom), Image.Resampling.NEAREST)
         contact.paste(enlarged, (x+(cell_w-enlarged.width)//2, y+30+(190-enlarged.height)//2), enlarged)
-        draw.text((x+8, y+8), 'CURRENT' if row.get('current') else 'ALTERNATIVE', fill='#203027')
+        draw.text((x+8, y+8), 'DEFAULT + RECOLOUR' if row['defaultCombo'] else 'USAGE VARIANT' if row['usageVariants'] else 'NOT SELECTED', fill='#203027')
         draw.text((x+8, y+226), row['id'], fill='#13201a')
         draw.text((x+8, y+242), str(tuple(row['rect'])), fill='#13201a')
     contact.save(output / 'nature-contact.png')
