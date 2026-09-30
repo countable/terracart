@@ -29,11 +29,11 @@ test('coin icon: the baked coin_drop graphics block is gone from app.js', () => 
     'the hand-drawn gold disc is gone');
 });
 
-test('coin icon: the world coin scale derives from the 64px texture', () => {
+test('coin icon: map size derives from each texture width', () => {
   assert.falsy(/setScale\(1\.5 \* pulse\)/.test(RENDER_SRC),
     'the old 16px-disc scale is gone');
   assert.truthy(/setScale\(\(pile.width \/ s\.width\) \* pulse\)/.test(RENDER_SRC),
-    'the draw scales the 64px frame down to a fixed displayed width');
+    'the draw uses the configured width and actual texture dimensions');
   assert.truthy(/const COIN_DROP_PX = 13\.44;/.test(RENDER_SRC),
     'the single coin is 20% smaller than its previous 16.8px width');
 });
