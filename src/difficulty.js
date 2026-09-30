@@ -35,6 +35,14 @@
       cropPests: false,
       // Garrison eligibility is shared in both modes (lairs.js).
       derelictLairs: true,
+      // THE GROUP CAP (owner, Sep 2026: "reduce guard group size max to 2 on
+      // easy"): the most guards any one lair WAKES for this player. The world
+      // rolls the same garrison for everyone (lairs.js garrisonFor — held or
+      // not, strength, count, kinds, seats); easy wakes only the first two of
+      // it, so a maxed castle's ten is a pair here and the same pair, in the
+      // same seats, that hard meets first. null = no cap (the world's own
+      // figure, up to LAIR_MAX_PER_STRUCTURE).
+      lairGuardMax: 2,
       // THE QUIET HOME: a garrison guard of anything but the plain slime
       // whose ruin sits within this many metres of THIS player's Home is
       // hidden for them (EnemySpawns.surfaceActive — the same per-player
@@ -94,6 +102,7 @@
       pestAmnesty: false,
       cropPests: true,          // deer are dispatched to your field, ~90 s apart
       derelictLairs: true,      // every ruin past the home ring is held, and holds more further out
+      lairGuardMax: null,       // no group cap: a maxed castle wakes its whole ten
       quietHomeM: 0,            // no quiet home: a fort by the trailer is held for you too
       startingMoney: 20,        // $20 against $50 — a bag of seeds, not a plan
       buyMul: 1.5,              // traders want 1.8..4.5× base; a T7 bow still only reaches 1.5× par
