@@ -11912,7 +11912,8 @@ class MapScene extends Phaser.Scene {
   // Build the "Re-roll" secondary button shared by the relic and blacksmith
   // offers. Both pivot the same seed lane (curState.rerolls) and pull the next
   // target from peekOrBuildRelicOffer; they differ only in the "nothing left"
-  // flash text and which present* method re-renders. Cost = 5 × 2^rerolls.
+  // flash text and which present* method re-renders. Cost = 5 × 2^rerolls,
+  // unless `opts.cost` says otherwise (the smithy: ShopsMath.smithyRerollCost).
   // (The trader offer's re-roll is structurally different — it has no peek
   // step — so it stays inline in presentTraderOffer.)
   // A themed shop rides the same button with its own `opts.cost` (the cheaper
@@ -13903,13 +13904,14 @@ class MapScene extends Phaser.Scene {
       return `${r.qty}× ${this.iconSpanHTML(r.id)} ${itm?.name || r.id}`;
     }).join(' + ');
     // Re-roll mirrors the relic-offer flow (shared via _makeRerollSecondary):
-    // cost = 5 × 2^rerolls, bumps curState.rerolls so the next
+    // cost = ShopsMath.smithyRerollCost (×1.5 a roll), bumps curState.rerolls so the next
     // peekOrBuildRelicOffer returns a different forge target. Suppressed for
     // the starter blacksmith — the wooden-tool queue is sequential, not
     // random, so there's nothing to re-roll into.
     const secondary = opts.noReroll ? undefined
       : this._makeRerollSecondary(house, sx, sy, 'nothing else to forge',
-          next => this.presentBlacksmithOffer(sx, sy, next, recordDeal, house));
+          next => this.presentBlacksmithOffer(sx, sy, next, recordDeal, house),
+          { cost: ShopsMath.smithyRerollCost });
     // Forge / Smelt tab row — only on a normal smithy (not the starter
     // wooden-tool queue). Switching to Smelt re-presents this same forge
     // offer as the "back" target so the player can toggle freely.

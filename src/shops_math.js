@@ -249,16 +249,22 @@
   }
 
   // A themed shop's re-roll: $2, then ×1.5 rounded DOWN per re-roll this hour
-  // ($2, 3, 4, 6, 9, 13, 19 …). Deliberately cheaper than the smithy's and the
-  // trader's 5 × 2^n — a themed shop sells one ordinary item, and looking
+  // ($2, 3, 4, 6, 9, 13, 19 …). Deliberately cheaper than the smithy's $5 start
+  // and the trader's 5 × 2^n — a themed shop sells one ordinary item, and looking
   // along its shelf should cost less than asking a smith for another relic.
   const THEMED_REROLL_START = 2;
   const THEMED_REROLL_MUL = 1.5;
-  function themedRerollCost(rerolls = 0) {
-    let c = THEMED_REROLL_START;
+  function growRerollCost(start, rerolls) {
+    let c = start;
     for (let i = 0; i < (rerolls | 0); i++) c = Math.floor(c * THEMED_REROLL_MUL);
     return c;
   }
+  function themedRerollCost(rerolls = 0) { return growRerollCost(THEMED_REROLL_START, rerolls); }
+  // The smithy's re-roll: the relic stalls' $5 start, but growing on the
+  // same ×1.5 rounded-down curve ($5, 7, 10, 15, 22, 33 …) rather than their
+  // doubling — hunting the anvil for the one piece you want stays affordable.
+  const SMITHY_REROLL_START = 5;
+  function smithyRerollCost(rerolls = 0) { return growRerollCost(SMITHY_REROLL_START, rerolls); }
 
   // ─── Fort slot machine ───────────────────────────────────────────────────
   // A fort's quartermaster runs a three-reel slot machine instead of a shop.
@@ -449,7 +455,7 @@
     return out;
   }
 
-  root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
+  root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, SMITHY_REROLL_START, smithyRerollCost, bucketOffset, bucket, dealCap, bucketState, pruneShopState, readiness, msToNextBucket, rng, buyPrice,
                      SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, SLOT_JACKPOT_PAIR_COINS,
                      SLOT_STAR_WEIGHT, SLOT_NATURAL_MUL, SLOT_STAR_PAIR_MUL, SLOT_DELUXE_SPINS, SLOT_DELUXE_MUL, slotDeluxeShare, slotDeluxeNext, SLOT_STAR_BADGES, SLOT_STAR_JACKPOT_COINS, slotMachine, slotSpin, slotPrizes,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice,
