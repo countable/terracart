@@ -53,7 +53,7 @@
 // pattern other scene code and tests use.)
 
 const Render = {};
-const COIN_DROP_PX = 16.8;
+const COIN_DROP_PX = 13.44;
 Render.COIN_DROP_PX = COIN_DROP_PX;
 // One coin keeps the HUD's face; piles show the amount waiting on the ground.
 Render.COIN_PILES = [

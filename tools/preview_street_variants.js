@@ -33,7 +33,8 @@ const N = WG.cellsPerEdgeForTile(ty);
 const cellM = WG.CELL_M, tileEdgeM = N * cellM;
 const point = (x, y) => ({ x: (x + 0.5) * extent / N, y: (y + 0.5) * extent / N });
 const middle = Math.floor(N / 2);
-const line = [point(middle - 22, middle), point(middle + 22, middle)];
+const previewHalfLength = 22 * 0.7; // Shorter samples make verge details readable in the cards.
+const line = [point(middle - previewHalfLength, middle), point(middle + previewHalfLength, middle)];
 const lengthM = ctx.Streets.lineLengthM(line, tileEdgeM / extent);
 const local = (o) => ({ ...o, x: o.x - tx * tileEdgeM, y: o.y - ty * tileEdgeM });
 
