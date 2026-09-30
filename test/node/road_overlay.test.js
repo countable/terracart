@@ -1646,7 +1646,7 @@ test('road overlay: equal pavement colors retain distinct road and path canvas l
   });
 });
 
-// The hedged lane's red carpet: two offset strips read off the row's own column,
+// The hedged lane's carpet: two offset strips read off the row's own column,
 // and white, closer lamps from the same row.
 test('hedgerow carpet: offsetLine pushes left/right; row carries carpet + white closer lamps', () => {
   const l = RoadOverlay.offsetLine([{ x: 0, y: 0 }, { x: 10, y: 0 }], 3);
@@ -1656,4 +1656,25 @@ test('hedgerow carpet: offsetLine pushes left/right; row carries carpet + white 
   assert.eq(StreetVariants.carpetColorFor('orchard'), null);
   assert.eq(StreetVariants.VARIANT_BY_ID.hedgerow.lampGlow, '#ffffff');
   assert.truthy(StreetVariants.VARIANT_BY_ID.hedgerow.lampDensity > 2, 'denser than before');
+});
+
+// The monarch's carpet: dark green, sown with upright crowns a cell apart.
+test('hedgerow carpet: dark green with a repeating crown emblem', () => {
+  const c = StreetVariants.carpetColorFor('hedgerow');
+  const r = c >> 16, g = (c >> 8) & 255, b = c & 255;
+  assert.truthy(g > r && g > b && g < 0x80, 'a dark green');
+  const em = StreetVariants.carpetEmblemFor('hedgerow');
+  assert.eq(em.kind, 'crown', 'the crown emblem');
+  assert.eq(StreetVariants.carpetEmblemFor('orchard'), null, 'no carpet, no emblem');
+  const ops = [];
+  const sink = { decorPath: (w, col, pts) => ops.push({ w, col, pts }) };
+  const step = RoadOverlay.CARPET_EMBLEM_STEP_PX;
+  RoadOverlay.emitCarpetEmblems(sink, [{ x: 0, y: 0 }, { x: 5 * step, y: 0 }], em);
+  assert.eq(ops.length, 5 * RoadOverlay.CARPET_EMBLEMS.crown.length, 'one crown a step');
+  for (const o of ops) assert.eq(o.col, em.ink, 'in the emblem ink');
+  // Upright on screen whatever the road's heading: a vertical run stamps the same shape.
+  const up = [];
+  RoadOverlay.emitCarpetEmblems({ decorPath: (w, col, pts) => up.push(pts) }, [{ x: 0, y: 0 }, { x: 0, y: step }], em);
+  const shape = RoadOverlay.CARPET_EMBLEMS.crown[0];
+  assert.eq(up[0].map((p) => p.x - up[0][0].x).join(), shape.map((p) => p.x - shape[0].x).join(), 'not turned with the road');
 });

@@ -147,7 +147,7 @@
   // The hedged lane's white lamps stand closer than the usual street's, still
   // short of a Lantern Row.
   const HEDGE_LAMP_DENSITY = 3;
-  // The hedged lane's red carpet: centred on the first verge cell (where the
+  // The hedged lane's carpet: centred on the first verge cell (where the
   // hedges stand, so it shows at every garden gate), this many cells wide.
   const CARPET_WIDTH_CELLS = 0.6;
 
@@ -169,8 +169,11 @@
   const STREET_VARIANTS = [
     { id: 'hedgerow', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.095, nudge: 2, rung: 'find',
       stone: { weathered: '#3a322c', restored: '#000000' }, lampDensity: HEDGE_LAMP_DENSITY,
-      // A red carpet runs down the verge either side (road_overlay.js decor lane).
-      carpet: '#8f2a2e',
+      // A dark green carpet runs down the verge either side (road_overlay.js
+      // decor lane), sown with the old monarch's crown — the one royal symbol
+      // the kept lanes still carry from before the fire. `emblem` names the
+      // repeating mark; `emblemInk` is its colour.
+      carpet: '#1f4a2c', emblem: 'crown', emblemInk: '#d8b54a',
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
       lampGlow: '#ffffff', attracts: { rabbit: 0.5 },
       story: 'street_hedgerow', title: 'The hedged lane',
@@ -1441,6 +1444,12 @@
     const hex = VARIANT_BY_ID[variant]?.carpet;
     return hex ? parseInt(hex.slice(1), 16) : null;
   }
+  // The repeating mark on a variant's carpet, or null: { kind, ink }.
+  function carpetEmblemFor(variant) {
+    const row = VARIANT_BY_ID[variant];
+    if (!row?.carpet || !row.emblem) return null;
+    return { kind: row.emblem, ink: parseInt((row.emblemInk || '#ffffff').slice(1), 16) };
+  }
 
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
@@ -1457,6 +1466,6 @@
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,
-    markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, lineStyles, isSlowKind,
+    markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, carpetEmblemFor, lineStyles, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
