@@ -57,4 +57,12 @@
     SL.updateCreatureFacing(c, 0, 0, 2000); assert.eq(c._facing, 'up'); assert.eq(c._moveUntil, until);
     SL.faceCreature(c, 5, 0); assert.eq(c._facing, 'right'); assert.eq(c._moveUntil, until, 'aiming does not walk');
   });
+  test('enemy direction: the drawn facing holds a second before turning, and motion stamps still land', () => {
+    const c = { kind: 'zombie' };
+    SL.updateCreatureFacing(c, 5, 0, 10000); assert.eq(c._facing, 'right');
+    SL.updateCreatureFacing(c, 0, 5, 10400); assert.eq(c._facing, 'right', 'held');
+    assert.eq(c._moveUntil, 10400 + SL.CREATURE_MOVE_GRACE_MS, 'movement animation unaffected');
+    SL.updateCreatureFacing(c, 0, 5, 10000 + SL.CREATURE_FACE_HOLD_MS); assert.eq(c._facing, 'down');
+    SL.updateCreatureFacing(c, 0, -5, 10000 + SL.CREATURE_FACE_HOLD_MS + 50); assert.eq(c._facing, 'down', 'held again');
+  });
 })();
