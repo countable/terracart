@@ -11886,8 +11886,10 @@ class MapScene extends Phaser.Scene {
   shopBucketState(house) {
     return ShopsMath.bucketState(this.save, house);
   }
-  shopRng(house, lane = '') {
-    return ShopsMath.rng(this.save, house, lane);
+  // opts.perDeal: the stream also turns over with each deal this bucket —
+  // for the trader, whose goods leave with the deal (ShopsMath.rng).
+  shopRng(house, lane = '', opts = {}) {
+    return ShopsMath.rng(this.save, house, lane, Date.now(), opts);
   }
 
   // Build a relic/armor offer for a specific house, derived purely from the
@@ -12311,9 +12313,14 @@ class MapScene extends Phaser.Scene {
   // Trader offer: barter-only, qty scaled to a target trade value. The trader
   // picks an item to give the player, picks an asking item from inventory,
   // then asks for whatever count of it hits a target value (1.0..2.0× of the
-  // offered item's base price). Seeded by (house, bucket, rerolls) so the
-  // offer is stable until the player buys, walks away through a bucket flip,
-  // or pays the re-roll cost.
+  // offered item's base price). Seeded by (house, bucket, rerolls, deals) so
+  // the offer is stable until the player buys, walks away through a bucket
+  // flip, or pays the re-roll cost. THE DEAL IS IN THE SEED (shopRng's
+  // perDeal): the goods on offer are what the trader hands over, so once a
+  // trade closes the trader holds something else — the next offer, and the
+  // sign over the roof, name new goods instead of the stack just bartered
+  // away. (Cash shops keep their shelf across a purchase; that fold is the
+  // trader's alone.)
   //
   // The GIVE side is drawn first and on its own (traderGivePick) because the
   // sign over the roof names the trader for it — "Rockfruit Trader" (render.js
@@ -12332,7 +12339,7 @@ class MapScene extends Phaser.Scene {
   }
   traderGivePick(house) {
     if (!house?.id) return null;
-    const rng = this.shopRng(house, 'trader');
+    const rng = this.shopRng(house, 'trader', { perDeal: true });
     // Same houseSeed produce-vs-buylist coin flip the generic path uses.
     const houseSeed = this._houseSeed(house);
     const sellsProduce = !!houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;

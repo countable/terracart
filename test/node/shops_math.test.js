@@ -291,6 +291,31 @@ test('shop offer: spending deals does not reshuffle the offer', () => {
   }
 });
 
+// The trader is the one shop whose stock LEAVES with the deal: what it offers
+// is what it hands over, so a closed trade must turn its goods over on the
+// spot (app.js traderGivePick reads shopRng with perDeal). Cash shops keep
+// their shelf — the test above — so the fold is opt-in, and a re-roll still
+// pivots on top of it.
+test('rng: perDeal turns the stream over with each deal; plain lanes ignore deals', () => {
+  const save = { offerSalt: 5 };
+  const house = { id: 'trader-A', kind: 'house', tier: 9 };
+  const draw = (perDeal) => ShopsMath.rng(save, house, 'trader', 0, { perDeal })();
+  ShopsMath.bucketState(save, house, 0).deals = 0;
+  const fresh = draw(true);
+  assert.eq(draw(true), fresh, 'stable while no deal is made');
+  assert.eq(draw(false), fresh, 'no deals yet: perDeal and plain agree');
+  const seen = new Set([fresh]);
+  for (let deal = 1; deal <= 4; deal++) {
+    ShopsMath.bucketState(save, house, 0).deals = deal;
+    const next = draw(true);
+    assert.falsy(seen.has(next), `deal ${deal}: new goods`);
+    seen.add(next);
+    assert.eq(draw(false), fresh, `deal ${deal}: a plain lane still ignores the deal`);
+  }
+  ShopsMath.bucketState(save, house, 0).rerolls = 1;
+  assert.falsy(seen.has(draw(true)), 'a re-roll still pivots the per-deal stream');
+});
+
 test('shop offer: two shops in the same hour make their own independent offers', () => {
   // Stability must come from the seed, not from the offer being constant.
   const save = { offerSalt: 11, relics: {} };
