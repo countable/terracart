@@ -164,9 +164,9 @@ test('castle service: it will not pour twice in the same day', () => {
   assert.eq(s.save.energy, after, 'walking in and out changes nothing');
 });
 
-test('castle service: resting and collecting share the same daily gate', () => {
-  // One favour a day, whichever it is — picking one closes off the other
-  // until tomorrow rather than opening a second, different freebie.
+test('castle service: resting and collecting share the same twelve-hour gate', () => {
+  // One favour per CASTLE_SERVICE_MS, whichever it is — picking one closes
+  // off the other for the same wait rather than opening a second freebie.
   const s = ccScene();
   const t = ccTower('b_1_1');
   s._claimCastle(t);
@@ -177,18 +177,22 @@ test('castle service: resting and collecting share the same daily gate', () => {
   assert.eq(s.save.energy, afterRest, 'and resting again does nothing either');
 });
 
-test('castle service: a new day pours again', () => {
+test('castle service: twelve hours on it pours again — not a minute sooner', () => {
   const s = ccScene();
   const t = ccTower('b_1_1');
   s._claimCastle(t);
   s._castleRest(0, 0, t);
   const after = s.save.energy;
-  s.save.castleServiceClaimed['b_1_1'] = '20000101';   // long-stale UTC day stamp
+  assert.eq(Houses.CASTLE_SERVICE_MS, 12 * 60 * 60 * 1000, 'the favour comes round twice a day');
+  s.save.castleServiceClaimed['b_1_1'] = Date.now() - Houses.CASTLE_SERVICE_MS + 60 * 1000;   // 11h59 ago
   s._castleRest(0, 0, t);
-  assert.gt(s.save.energy, after, 'the day rolled over');
+  assert.eq(s.save.energy, after, 'still spent a minute short');
+  s.save.castleServiceClaimed['b_1_1'] = Date.now() - Houses.CASTLE_SERVICE_MS - 1;           // 12h ago
+  s._castleRest(0, 0, t);
+  assert.gt(s.save.energy, after, 'the twelve hours are up');
 });
 
-test('castle service: the daily gate is per castle, not global', () => {
+test('castle service: the gate is per castle, not global', () => {
   const s = ccScene();
   const a = ccTower('b_1_1'), b = ccTower('b_9_9');
   s._claimCastle(a); s._claimCastle(b);

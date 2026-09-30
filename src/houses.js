@@ -10,7 +10,7 @@
 // deciding anything about quests itself.
 //
 // Depends on globals from interactables.js (isCastle), shops.js (Shops),
-// util.js (utcDayKey) and items.js (wreckRestoreQty) - all resolved
+// util.js (utcDayKey, msToNextUtcDay) and items.js (wreckRestoreQty) - all resolved
 // at CALL time, so load order only needs this module after those modules (and
 // after shops_math.js, which shops.js itself depends on).
 //
@@ -287,24 +287,38 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return true;
   }
 
-  // The castle's daily favour, gated to once per castle per UTC day. Uses the
-  // same utcDayKey as recurring POIs; each castle only remembers the day its
-  // service was last used.
-  function castleServiceUsedToday(save, house, now = new Date()) {
-    const key = castleKey(house);
-    return !!key && save.castleServiceClaimed?.[key] === utcDayKey(now);
+  // The castle's favour, gated to once per castle per CASTLE_SERVICE_MS —
+  // twelve hours (Sep 2026, owner's call: it was once per UTC day, and it is
+  // the ONE timer left on any building the player trades at; shops never
+  // wait — shops_math.js header). save.castleServiceClaimed[key] holds the
+  // ms stamp of the last favour. A save from before carries a 'YYYYMMDD'
+  // UTC-day stamp instead: it counts as spent until that day ends, so the
+  // upgrade neither steals a favour nor gifts one.
+  const CASTLE_SERVICE_MS = 12 * 60 * 60 * 1000;
+  function _stampWaitMs(stamp, now) {
+    if (stamp == null) return 0;
+    if (typeof stamp !== 'number') return stamp === utcDayKey(now) ? msToNextUtcDay(now) : 0;
+    return Math.max(0, stamp + CASTLE_SERVICE_MS - now);
   }
-  function markCastleServiceUsed(save, house, now = new Date()) {
+  // Milliseconds until this castle's favour is on offer again (0 = now). The
+  // one number its refusal and its blurb print (shortDuration).
+  function castleServiceWaitMs(save, house, now = Date.now()) {
+    const key = castleKey(house);
+    return key ? _stampWaitMs(save.castleServiceClaimed?.[key], now) : 0;
+  }
+  function castleServiceUsed(save, house, now = Date.now()) {
+    return castleServiceWaitMs(save, house, now) > 0;
+  }
+  function markCastleServiceUsed(save, house, now = Date.now()) {
     const key = castleKey(house);
     if (!key) return;
-    const dayKey = utcDayKey(now);
     save.castleServiceClaimed = save.castleServiceClaimed || {};
-    // Prune every OTHER castle's stale day stamp while we're here — the map
+    // Prune every OTHER castle's spent stamp while we're here — the map
     // can't grow without bound across weeks of play.
     for (const k of Object.keys(save.castleServiceClaimed)) {
-      if (save.castleServiceClaimed[k] !== dayKey) delete save.castleServiceClaimed[k];
+      if (k !== key && !_stampWaitMs(save.castleServiceClaimed[k], now)) delete save.castleServiceClaimed[k];
     }
-    save.castleServiceClaimed[key] = dayKey;
+    save.castleServiceClaimed[key] = now;
   }
 
   root.Houses = {
@@ -315,6 +329,6 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     isHouseWreck, wreckRestoreCost,
     fortUnlockCost, isFortLocked,
     castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle,
-    castleServiceUsedToday, markCastleServiceUsed,
+    CASTLE_SERVICE_MS, castleServiceWaitMs, castleServiceUsed, markCastleServiceUsed,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
