@@ -241,7 +241,7 @@ test('living lamps: the frame list carries each lamp\'s brightness', () => {
     assert.eq(lamps.length, Math.round(TILE_EDGE_M / Streets.LAMP_PATH_SPACING_M), 'at the path spacing');
     assert.inRange(lamps[0].creditM, 2 * lamps[0].spacingM - 1e-9, 2 * lamps[0].spacingM + 1e-9, 'each worth the street gap');
   });
-  const updateSrc = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _updateStreetLamps() {'), APP_JS_SRC.indexOf('  // THE RIPEN PASS.'));
+  const updateSrc = SCENE_SRC.slice(SCENE_SRC.indexOf('  _updateStreetLamps() {'), SCENE_SRC.indexOf('  // THE RIPEN PASS.'));
   assert.truthy(/bright: Streets\.lampBrightness\(Streets\.lampVisitAt\(this\.save, L\.id\), now\)/.test(updateSrc),
     'the one list carries `bright`, read by collectLamps');
 });
@@ -268,7 +268,7 @@ test('living lamps: cats move beside WALKING-PATH lamps (the attracts lane)', ()
   }
   const r = run('minor');
   assert.eq(r.moved.cat || 0, 0, 'a street\'s lamps pull no cats');
-  assert.truthy(/creatureSpawnClass\(sp\)/.test(SCENE_CREATURES_SRC), 'seats judged by the species\' own spawn class');
+  assert.truthy(/creatureSpawnClass\(sp\)/.test(SCENE_SRC), 'seats judged by the species\' own spawn class');
 });
 })();
 

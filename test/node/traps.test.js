@@ -504,7 +504,7 @@ test('traps: hard mode penalizes the player after boots mitigate the shared bite
 test('traps: standing on one out-drains the fastest passive rest in the game', () => {
   // Lifted from app.js, not restated: the Home rest is maxE over
   // HOME_FULL_REST_S, which is the quickest energy comes back without eating.
-  const m = APP_JS_SRC.match(/const HOME_FULL_REST_S = (\d+);/);
+  const m = SCENE_SRC.match(/const HOME_FULL_REST_S = (\d+);/);
   assert.truthy(m, 'HOME_FULL_REST_S is a plain literal');
   const homeRestPerS = STARTING_ENERGY / Number(m[1]);
   assert.gt(Traps.STAND_ENERGY_PER_S, homeRestPerS,
@@ -517,11 +517,11 @@ test('traps: standing on one out-drains the fastest passive rest in the game', (
 test('traps: the surface spawn passes the SHARED spawn options, mask and all', () => {
   assert.truthy(
     /Traps\.spawnSurface(?:Steps)?\(genGrid, entry\.roadClass, N, N, tx, ty, this\.tileEdgeM, ambientSpawnOpts,/
-      .test(SCENE_CREATURES_SRC),
+      .test(SCENE_SRC),
     'surface traps retain the shared mask and generated grid while respecting authored coverage');
-  assert.truthy(/const ambientSpawnOpts = \{ \.\.\._spawnOpts, occupied: ambientOccupied \}/.test(SCENE_CREATURES_SRC),
+  assert.truthy(/const ambientSpawnOpts = \{ \.\.\._spawnOpts, occupied: ambientOccupied \}/.test(SCENE_SRC),
     'ambient placement retains all shared spawn-gate options');
-  assert.truthy(/Traps\.spawnSurface(?:Steps)?\([^;]*Difficulty\.get\(\)\.trapCountMul/.test(SCENE_CREATURES_SRC),
+  assert.truthy(/Traps\.spawnSurface(?:Steps)?\([^;]*Difficulty\.get\(\)\.trapCountMul/.test(SCENE_SRC),
     'the surface density scales with the game mode, not a fixed rate');
 });
 
@@ -534,10 +534,10 @@ test('traps: _spawnOpts carries opts.occupied, built from the tile\'s own object
   // the object every spawner in this method shares.
   // spawnInTile is the SceneCreatures mixin's (scene_creatures.js).
   const block = (() => {
-    const a = SCENE_CREATURES_SRC.indexOf('  *spawnInTileSteps(entry, tx, ty) {');
-    const b = SCENE_CREATURES_SRC.indexOf('\n  }\n', a);
+    const a = SCENE_SRC.indexOf('  *spawnInTileSteps(entry, tx, ty) {');
+    const b = SCENE_SRC.indexOf('\n  }\n', a);
     assert.truthy(a > 0 && b > a, 'found spawnInTile in scene_creatures.js');
-    return SCENE_CREATURES_SRC.slice(a, b);
+    return SCENE_SRC.slice(a, b);
   })();
   // From the tile's GENERATED objects (entry.genObjects, falling back to
   // entry.objects): what an Overpass bin or this player's starter kit put on
@@ -564,19 +564,19 @@ test('traps: answering the how-to card re-lays the traps at that mode\'s density
     'the two modes really do differ on density — otherwise there is no race to fix');
 
   const block = (() => {
-    const a = APP_JS_SRC.indexOf('  chooseMode(mode) {');
-    const b = APP_JS_SRC.indexOf('\n  }\n', a);
+    const a = SCENE_SRC.indexOf('  chooseMode(mode) {');
+    const b = SCENE_SRC.indexOf('\n  }\n', a);
     assert.truthy(a > 0 && b > a, 'found chooseMode in app.js');
-    return APP_JS_SRC.slice(a, b);
+    return SCENE_SRC.slice(a, b);
   })();
   assert.truthy(/this\._relayTrapsForMode\(\)/.test(block),
     'chooseMode re-lays the traps, beside the crate strip and the greeter swap');
 
   const relay = (() => {
-    const a = APP_JS_SRC.indexOf('  _relayTrapsForMode() {');
-    const b = APP_JS_SRC.indexOf('\n  }\n', a);
+    const a = SCENE_SRC.indexOf('  _relayTrapsForMode() {');
+    const b = SCENE_SRC.indexOf('\n  }\n', a);
     assert.truthy(a > 0 && b > a, 'found _relayTrapsForMode in app.js');
-    return APP_JS_SRC.slice(a, b);
+    return SCENE_SRC.slice(a, b);
   })();
   assert.truthy(/Difficulty\.get\(\)\.trapCountMul/.test(relay),
     're-laid at the mode that was just chosen, not a retyped number');
@@ -594,16 +594,16 @@ test('traps: answering the how-to card re-lays the traps at that mode\'s density
     'a trap the player has already sprung is carried across: the new roll draws '
     + 'a different sequence, and a trap that has bitten you must not blink out');
   // And the entry has to be CARRYING those options for any of that to work.
-  assert.truthy(/entry\._spawnOpts = _spawnOpts;/.test(SCENE_CREATURES_SRC),
+  assert.truthy(/entry\._spawnOpts = _spawnOpts;/.test(SCENE_SRC),
     'spawnInTile keeps the tile\'s spawn options on the entry for the re-lay');
 });
 
 test('traps: the tick asks where the PLAYER is, never where the camera is', () => {
   const block = (() => {
-    const a = APP_JS_SRC.indexOf('  _tickTraps(dt) {');
-    const b = APP_JS_SRC.indexOf('\n  }\n', a);
+    const a = SCENE_SRC.indexOf('  _tickTraps(dt) {');
+    const b = SCENE_SRC.indexOf('\n  }\n', a);
     assert.truthy(a > 0 && b > a, 'found _tickTraps in app.js');
-    return APP_JS_SRC.slice(a, b);
+    return SCENE_SRC.slice(a, b);
   })();
   assert.truthy(/this\.playerToWorldCell\(\)/.test(block),
     'the cell under the feet comes from playerToWorldCell');
@@ -629,10 +629,10 @@ test('traps: a downed player springs nothing — the whole tick stands down', ()
   // be charged nothing for it, and on hard — where only Home lifts the bar off
   // zero — the walk home would clear every trap it crossed for free.
   const block = (() => {
-    const a = APP_JS_SRC.indexOf('  _tickTraps(dt) {');
-    const b = APP_JS_SRC.indexOf('\n  }\n', a);
+    const a = SCENE_SRC.indexOf('  _tickTraps(dt) {');
+    const b = SCENE_SRC.indexOf('\n  }\n', a);
     assert.truthy(a > 0 && b > a, 'found _tickTraps in app.js');
-    return APP_JS_SRC.slice(a, b);
+    return SCENE_SRC.slice(a, b);
   })();
   assert.truthy(/if \(Combat\.playerDowned\(this\.save\.energy\)\) \{/.test(block),
     'the tick reads the SAME expression the pursuit gate and the damage guards do');
@@ -653,7 +653,7 @@ test('traps: a downed player springs nothing — the whole tick stands down', ()
 });
 
 test('traps: the numbers land on the trap\'s own cell, through _popEnergy', () => {
-  const block = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _tickTraps(dt) {'));
+  const block = SCENE_SRC.slice(SCENE_SRC.indexOf('  _tickTraps(dt) {'));
   const head = block.slice(0, block.indexOf('\n  }\n'));
   const pops = head.match(/this\._popEnergy\([^)]*\)/g) || [];
   assert.gte(pops.length, 2, 'both the bite and the bleed pop a number');
@@ -679,7 +679,7 @@ test('traps: a disarmed trap is dropped from the render list, not retextured', (
 });
 
 test('traps: the tick treats a disarmed trap as no trap at all', () => {
-  const block = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _tickTraps(dt) {'));
+  const block = SCENE_SRC.slice(SCENE_SRC.indexOf('  _tickTraps(dt) {'));
   assert.truthy(/Traps\.isTrapDisarmed\(this\.save, found\)/.test(block.slice(0, 2400)),
     'the disarmed check runs before the bite/bleed logic below it');
 });
@@ -727,7 +727,7 @@ test('traps: both textures bake one cell square, under the key the renderer name
     assert.eq(size.w, TRAP_TEX.TRAP_PX, `${key} width is one cell`);
     assert.eq(size.h, TRAP_TEX.TRAP_PX, `${key} height is one cell`);
   }
-  assert.truthy(/makeTrapTextures\(this\);/.test(APP_JS_SRC), 'and they are baked at boot');
+  assert.truthy(/makeTrapTextures\(this\);/.test(SCENE_SRC), 'and they are baked at boot');
 });
 
 test('traps: neither texture draws outside its own cell', () => {
@@ -777,10 +777,10 @@ test('traps: a trapper\'s snare bites at its trapper\'s power — the Home nerf 
   const plain = Traps.layTrap(entry, 0, 0, 280, 5, 6, 'lair_x_1', 0, 0);
   assert.eq(Traps.trapPower(plain), 1, 'no power given → full strength');
   assert.eq(Traps.trapPower({}), 1, 'a generated trap is the world\'s own, at 1');
-  assert.truthy(/Traps\.layTrap\([\s\S]*?Combat\.powerMul\(c\)\);/.test(APP_JS_SRC), 'the trapper hands over its powerMul');
-  assert.truthy(/Traps\.STEP_ENERGY \* Difficulty\.get\(\)\.trapBiteMul \* Traps\.trapPower\(trap\)/.test(APP_JS_SRC),
+  assert.truthy(/Traps\.layTrap\([\s\S]*?Combat\.powerMul\(c\)\);/.test(SCENE_SRC), 'the trapper hands over its powerMul');
+  assert.truthy(/Traps\.STEP_ENERGY \* Difficulty\.get\(\)\.trapBiteMul \* Traps\.trapPower\(trap\)/.test(SCENE_SRC),
     'the bite scales by it');
-  assert.truthy(/Combat\.playerDamage\(Traps\.STAND_ENERGY_PER_S \* Traps\.trapPower\(trap\), \{ boots: this\.save\.armor\?\.boots \}\) \* dt/.test(APP_JS_SRC), 'and the bleed');
+  assert.truthy(/Combat\.playerDamage\(Traps\.STAND_ENERGY_PER_S \* Traps\.trapPower\(trap\), \{ boots: this\.save\.armor\?\.boots \}\) \* dt/.test(SCENE_SRC), 'and the bleed');
 });
 
 // ── Danger: the per-tile spread ─────────────────────────────────────────────

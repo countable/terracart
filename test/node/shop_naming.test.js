@@ -15,7 +15,7 @@
 // player-facing LABEL changed.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const render = RENDER_SRC;
 
 test('shop naming: a themed shop is named for its line, not "Market"', () => {

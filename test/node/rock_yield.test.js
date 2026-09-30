@@ -159,7 +159,7 @@ test('cave wall dig: always one stone, flint on 30%', () => {
   }
   assert.inRange(flint / N, 0.26, 0.34, 'flint on about 30% of digs');
   assert.truthy(/const qty = caveWallDrop\(scene\);/.test(INTERACT_SRC), 'the tapped dig pays it');
-  assert.truthy(/const qty = caveWallDrop\(this\);/.test(APP_JS_SRC), 'and so does the auto-mine');
+  assert.truthy(/const qty = caveWallDrop\(this\);/.test(SCENE_SRC), 'and so does the auto-mine');
 });
 
 test('plain rock: flint on 10% of breaks', () => {

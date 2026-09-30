@@ -42,7 +42,7 @@
   });
 
   test('starter module: each scene wrapper delegates with its params, in order', () => {
-    const app = APP_JS_SRC;
+    const app = SCENE_SRC;
     for (const [m, params] of Object.entries(MOVED)) {
       const args = params ? 'this, ' + params : 'this';
       const line = `  ${m}(${params}) { return Starter.${exportName(m)}(${args}); }`;

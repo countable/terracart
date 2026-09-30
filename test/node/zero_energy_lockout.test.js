@@ -7,10 +7,10 @@
 // behaves exactly as it did before this feature.
 //
 // app.js needs Phaser and can't load headlessly, so every gate here is
-// pinned as source text (APP_JS_SRC, lifted by run.js).
+// pinned as source text (SCENE_SRC, lifted by run.js).
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 test('lockout: _zeroEnergyLocked is hard-mode-only, and reads energy live', () => {
   const a = app.indexOf('_zeroEnergyLocked() {');

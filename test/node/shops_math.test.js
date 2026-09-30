@@ -587,7 +587,7 @@ test('slots: deluxe doubles the coin payouts too', () => {
   assert.truthy(three.starJackpot && three.doubled, 'three stars, flagged for the caller to double its coin');
   assert.falsy(S.slotSpin(m, slotSeq(['star', 'star', 'star'])).doubled, 'not doubled outside deluxe');
   assert.eq(S.slotSpin(m, slotSeq(['a', 'b', 'a'])).coins, S.SLOT_JACKPOT_PAIR_COINS, 'plain spins pay plain');
-  assert.truthy(/_payStarJackpot\(out\.doubled \? ShopsMath\.SLOT_DELUXE_MUL : 1\)/.test(APP_JS_SRC),
+  assert.truthy(/_payStarJackpot\(out\.doubled \? ShopsMath\.SLOT_DELUXE_MUL : 1\)/.test(SCENE_SRC),
     'the machine pays the star jackpot\'s coin doubled');
 });
 
@@ -613,7 +613,7 @@ test('slots: a mixed row with no star loses', () => {
 });
 
 test('slots: app.js pays three stars from the badge ledger, then coin', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const m = app.match(/\n  _payStarJackpot\(mul = 1\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(m, '_payStarJackpot exists');
   assert.truthy(/ShopsMath\.SLOT_STAR_BADGES/.test(m[1]), 'counts up to SLOT_STAR_BADGES');
@@ -634,7 +634,7 @@ test('slots: three distinct prizes a day, the same all day, seeded on the fort a
 });
 
 test('slots: the machine fixes a spin\'s deluxe state when it is paid, and saves the count at once', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const i = app.indexOf('\n  presentFortSlots(sx, sy, house) {');
   const body = app.slice(i, app.indexOf('\n  }\n', i));
   assert.truthy(/const wasDeluxe = deluxeLeft\(\) > 0;\s*\n\s*const out = ShopsMath\.slotSpin\(m, Math\.random, wasDeluxe\);\s*\n\s*this\.save\.slotDeluxe = ShopsMath\.slotDeluxeNext\(deluxeLeft\(\), out\);\s*\n\s*persistSave\(this\.save\);/.test(body),
@@ -644,7 +644,7 @@ test('slots: the machine fixes a spin\'s deluxe state when it is paid, and saves
 });
 
 test('slots: a paid spin cannot be closed before its precomputed payout settles', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const i = app.indexOf('\n  presentFortSlots(sx, sy, house) {');
   const body = app.slice(i, app.indexOf('\n  }\n', i));
   assert.truthy(/makeModalShell\('slots-modal',\s*\{ kind: 'slots' \}\)/.test(body),
