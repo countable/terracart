@@ -1645,3 +1645,15 @@ test('road overlay: equal pavement colors retain distinct road and path canvas l
     } finally { StreetVariants.lineStyles = previousStyles; document.createElement = previousCreate; }
   });
 });
+
+// The hedged lane's red carpet: two offset strips read off the row's own column,
+// and white, closer lamps from the same row.
+test('hedgerow carpet: offsetLine pushes left/right; row carries carpet + white closer lamps', () => {
+  const l = RoadOverlay.offsetLine([{ x: 0, y: 0 }, { x: 10, y: 0 }], 3);
+  assert.eq(l[0].y, 3); assert.eq(l[1].y, 3);
+  assert.eq(RoadOverlay.offsetLine([{ x: 0, y: 0 }, { x: 10, y: 0 }], -3)[0].y, -3);
+  assert.truthy(StreetVariants.carpetColorFor('hedgerow') > 0, 'hedgerow has a carpet');
+  assert.eq(StreetVariants.carpetColorFor('orchard'), null);
+  assert.eq(StreetVariants.VARIANT_BY_ID.hedgerow.lampGlow, '#ffffff');
+  assert.truthy(StreetVariants.VARIANT_BY_ID.hedgerow.lampDensity > 2, 'denser than before');
+});

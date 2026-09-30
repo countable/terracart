@@ -148,6 +148,26 @@
   }
 
   // Emit one rail run's furniture: ties by arclength, then the two rails.
+  // A polyline pushed `off` to its left (negative: right), each vertex along
+  // the mean of its two segment normals. Pure; the carpet strips use it.
+  function offsetLine(pts, off) {
+    const n = pts.length, out = [];
+    const norm = (a, b) => {
+      const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy);
+      return l > 1e-9 ? { x: -dy / l, y: dx / l } : null;
+    };
+    for (let i = 0; i < n; i++) {
+      const a = i > 0 ? norm(pts[i - 1], pts[i]) : null, b = i < n - 1 ? norm(pts[i], pts[i + 1]) : null;
+      let nx = (a ? a.x : 0) + (b ? b.x : 0), ny = (a ? a.y : 0) + (b ? b.y : 0);
+      const l = Math.hypot(nx, ny);
+      if (l < 1e-9) { out.push({ x: pts[i].x, y: pts[i].y }); continue; }
+      nx /= l; ny /= l;
+      const k = a && b ? Math.max(0.5, nx * a.x + ny * a.y) : 1;   // cap the mitre
+      out.push({ x: pts[i].x + nx * off / k, y: pts[i].y + ny * off / k });
+    }
+    return out;
+  }
+
   function emitRailDecor(scene, g, run) {
     const pxPerM = CELL_PX / scene.cellM;
     const halfGauge = (RAIL_GAUGE_M / 2) * pxPerM;
@@ -1594,6 +1614,7 @@
     // bend, and one lineStyle per style beats one per feature.
     const runsByStyle = new Map();   // width, colour, variant and path kind → runs
     const railRuns = [];             // rail-class runs, for the track furniture pass
+    const carpets = [];              // themed verge strips (StreetVariants row.carpet)
     const addRun = (widthPx, color, run, isRail, variant, isPath) => {
       if (run.length < 2) return;
       const k = `${widthPx}|${color}|${variant || ''}|${!!isPath}`;
@@ -1615,6 +1636,8 @@
         const tint = hex ? parseInt(hex.slice(1), 16) : color;
         const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
         emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, isRail, style?.variant, PATH_CLASSES.has(f.tags?.class)));
+        const carpet = style && global.StreetVariants?.carpetColorFor(style.variant);
+        if (carpet != null) carpets.push({ pts, carpet, halfM: (widthPx / CELL_PX) * scene.cellM / 2 });
       }
     });
 
@@ -1623,6 +1646,15 @@
     // when the target can draw decor (the canvas adapter); the headless test
     // stub gets the plain band.
     if (g.decorPath) for (const run of railRuns) emitRailDecor(scene, g, run);
+    // Carpet strips: plain crisp strokes either side of the road, on the
+    // verge cell, so the keep-out below trims them like the track.
+    if (g.decorPath) for (const { pts, carpet, halfM } of carpets) {
+      const off = halfM + scene.cellM / 2;
+      const w = StreetVariants.CARPET_WIDTH_CELLS * CELL_PX;
+      for (const side of [1, -1]) {
+        emitRuns(offsetLine(pts, side * off), proj, (run) => { if (run.length >= 2) g.decorPath(w, carpet, run); });
+      }
+    }
     // Land only, and never over a floor: punch the keep-out cells back out.
     keepOut(scene, g, baseCellIX, baseCellIY);
     // Anchor the stone pattern to the world before it's laid down: the world origin's
@@ -1831,7 +1863,7 @@
   }
 
   global.RoadOverlay = { lampSitesForTile, lampReservedCells, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
-                         paintLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
+                         offsetLine, paintLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans };
