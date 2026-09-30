@@ -629,6 +629,32 @@ test('kerb buffer: a barricade whose every seat is in the buffer gets no goblin 
   assert.eq(d.lairs.filter((L) => L.tier === 'barricade' || L.tier === 'burned').length, 0, 'but no foe is seated');
 });
 
+test('burned row: placed torches share the spawn gate and red lamps have twice the spacing', () => {
+  assert.eq(SV.lampSpacingFor('burned', 100), 200);
+  assert.eq(SV.VARIANT_BY_ID.burned.lampGlow, '#ff5a3c');
+  const { d, r, before } = dressedVariants();
+  const torches = d.objects.filter(o => o.kind === 'torch' && o._street === 'burned');
+  assert.gt(torches.length, 4, 'several placed torches light the burned verge');
+  assert.eq(JSON.stringify(torches), JSON.stringify(dressedVariants().d.objects.filter(o => o.kind === 'torch' && o._street === 'burned')));
+  const cells = new Set();
+  for (const o of d.objects) {
+    const ix = cellOf(o.x, TX), iy = cellOf(o.y, TY), cell = iy*CPE+ix;
+    assert.falsy(cells.has(cell), 'torches and debris never overlap');
+    cells.add(cell);
+    if (o.kind !== 'torch') continue;
+    assert.eq(r.roadMask[cell], 0, 'torch stays off the roadway');
+    assert.falsy(before.has(cell), 'preexisting occupants stay clear');
+    assert.eq(o.id, WorldGen.cellId('torch_burned', TX, TY, ix, iy));
+    assert.falsy(d.slowCells.has(cell), 'a torch is not slowing debris');
+  }
+  const blocked = WorldGen.rasterizeTile(variantLayers(), CPE, TX, TY, TILE_EDGE_M);
+  blocked.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+  const blockedResult = SV.dress({ index: blocked.streetIndex, tx: TX, ty: TY, N: CPE,
+    tileEdgeM: TILE_EDGE_M, grid: blocked.grid,
+    spawnOpts: { roadMask: blocked.roadMask, spawnWhy: blocked.spawnWhy, occupied: new Set() } });
+  assert.eq(blockedResult.objects.filter(o => o.kind === 'torch').length, 0);
+});
+
 test('burned row: one fire slime per stretch, keyed on the street and the square', () => {
   assert.eq(Lairs.capFor('burned', 1), 1);
   assert.eq(Lairs.KIND_ORDER.burned.join(), 'fire_slime');
@@ -882,14 +908,14 @@ test('street themes: a winding patch caps total arclength and yields during inte
   assert.gt(yields,0,'the interval comparison loop cooperates with sliced world generation');
 });
 
-test('golden road: seeded one-coin pickups have stable 28m spacing and respect occupied/blocked cells', () => {
+test('golden road: coins carpet both verges without overlapping occupied or blocked cells', () => {
   const name = nameWhere((n,k) => SV.variantFor(k,n,'minor') === 'golden', 'Golden Street');
   const line = pts([[10,25],[54,25]]), split = [line[0], pts([[32,25]])[0], line[1]];
-  const build = (lines, blocked = false) => {
+  const build = (lines, blocked = false, occupied = new Set(), roadMask = new Uint8Array(CPE*CPE)) => {
     const index = indexOfLines(lines, name, TX, TY, TILE_EDGE_M / EXTENT);
     const spawnWhy = new Uint16Array(CPE*CPE);
     if (blocked) spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
-    const opts = { roadMask: new Uint8Array(CPE*CPE), roadClass: new Uint8Array(CPE*CPE), spawnWhy, occupied: new Set() };
+    const opts = { roadMask, roadClass: new Uint8Array(CPE*CPE), spawnWhy, occupied };
     const grid = new Uint8Array(CPE*CPE).fill(T.PARK);
     const result = SV.dress({ index, tx:TX, ty:TY, N:CPE, tileEdgeM:TILE_EDGE_M, grid, spawnOpts:opts });
     return { result, opts };
@@ -897,10 +923,31 @@ test('golden road: seeded one-coin pickups have stable 28m spacing and respect o
   const { result, opts } = build([line]);
   assert.eq(SV.VARIANT_BY_ID.golden.story, 'street_golden');
   assert.eq(SV.VARIANT_BY_ID.golden.art, 'street_lantern', 'reuse the existing warm road banner');
-  assert.eq(result.coins.length, 11, '308m straight road yields one coin every28m');
+  assert.eq(result.coins.length, 270, '45 cells along each of six verge rows are full');
+  assert.eq(new Set(result.coins.map(c => c.id)).size, result.coins.length, 'one pickup per cell');
   assert.eq(JSON.stringify(result.coins), JSON.stringify(build([[split[2],split[1]],[split[1],split[0]]]).result.coins));
-  const xs = result.coins.map(c => c.x).sort((a,b)=>a-b);
-  for(let i=1;i<xs.length;i++) assert.eq(xs[i]-xs[i-1], SV.GOLDEN_STEP_M);
+  const rows = new Map();
+  for (const coin of result.coins) {
+    const iy = cellOf(coin.y, TY);
+    if (!rows.has(iy)) rows.set(iy, []);
+    rows.get(iy).push(cellOf(coin.x, TX));
+  }
+  assert.eq(rows.size, 6, 'three dense rows on each side');
+  for (const [iy, xs] of rows) {
+    assert.falsy(iy === 25, 'roadway stays clear');
+    assert.eq(xs.length, 45);
+    xs.sort((a,b) => a-b);
+    for (let i=1; i<xs.length; i++) assert.eq(xs[i]-xs[i-1], 1, 'no gaps along a verge');
+  }
+  const occupiedCell = cellOf(result.coins[0].y, TY)*CPE + cellOf(result.coins[0].x, TX);
+  const occupiedResult = build([line], false, new Set([occupiedCell])).result;
+  assert.eq(occupiedResult.coins.length, result.coins.length-1);
+  assert.falsy(occupiedResult.coins.some(c => c.id === result.coins[0].id));
+  const crossingRoad = new Uint8Array(CPE*CPE);
+  for (let y=0; y<CPE; y++) crossingRoad[y*CPE+32] = 1;
+  const crossingResult = build([line], false, new Set(), crossingRoad).result;
+  assert.eq(crossingResult.coins.length, result.coins.length-6, 'crossing roadway cuts all six coin rows');
+  assert.falsy(crossingResult.coins.some(c => cellOf(c.x, TX) === 32));
   for(const coin of result.coins) {
     const ix=cellOf(coin.x,TX), iy=cellOf(coin.y,TY);
     assert.eq(coin.id,WorldGen.cellId('golden_coin',TX,TY,ix,iy));

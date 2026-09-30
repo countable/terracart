@@ -80,7 +80,7 @@ const PLAY_TIPS = [
   "Restore the lantern row and its close-set lights will push back the dark.",
   "Linger beside a ruined path and its broken stretches will come whole again.",
   "Where roads ran beside each other, their restoration counted as a single stretch toward a reward.",
-  "The dim lamp flared as the farmer passed, welcoming them back.",
+  "The path was already repaired, but walking it again rekindled its dim lamps. Even familiar footsteps brought the farmer closer to another road reward.",
   "A path beside the water brings your next road reward closer.",
   "Within the viewpoint's light, the farmer rested and watched the distance.",
   "Look for long grass in open fields beyond the deep forest.",

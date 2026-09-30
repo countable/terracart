@@ -8,6 +8,18 @@ vm.createContext(ctx);
 for (const name of ['sprite_layout', 'util', 'zone_variant_data', 'zone_variants', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'zones', 'zone_coverage', 'zone_dressing', 'worldgen', 'scenic', 'road_overlay']) {
   vm.runInContext(fs.readFileSync(path.join(root, 'src', name + '.js'), 'utf8'), ctx, { filename: name + '.js' });
 }
+// Only this isolated preview VM receives draft overrides. Shipping data stays intact.
+const draftId = process.argv[2];
+if (draftId) {
+  const drafts = JSON.parse(fs.readFileSync(path.join(root, 'docs/art/quarry-variants.draft.json'), 'utf8'));
+  const draft = drafts.variants.find(row => row.id === draftId);
+  if (!draft) throw new Error(`Unknown quarry preview: ${draftId}`);
+  const quarry = ctx.ZoneVariantData.variants.find(row => row.id === 'quarry');
+  Object.assign(quarry.background, draft.background);
+  const b = quarry.background, fraction = b.rows ? b.rows.lineWidthCells / b.rows.spacingCells : 1;
+  if (Math.abs(Object.values(b.materialDensity).reduce((a,b)=>a+b,0)-b.nominalDensity)>1e-9
+      || b.nominalDensity > fraction) throw new Error('Invalid quarry draft density');
+}
 const WG = ctx.WorldGen, tx = 2622, ty = 5615, extent = 4096;
 const N = WG.cellsPerEdgeForTile(ty), tileEdgeM = N * WG.CELL_M;
 const side = 37, origin = Math.floor((N - side) / 2);

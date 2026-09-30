@@ -131,11 +131,13 @@
   // Global MVT patches align with tile boundaries. The inset leaves a real
   // plain interval between compact themes, even along a cross-tile street.
   const VARIANT_PATCH_UNITS = 512, VARIANT_PATCH_INSET_UNITS = 32;
-  const GOLDEN_STEP_M = 28, GOLDEN_COIN_AMOUNT = 1;
+  // Half-cell samples fill the full three-cell verge on both sides.
+  const GOLDEN_STEP_M = 3.5, GOLDEN_COIN_AMOUNT = 1;
   const OVERGROWN_STEP_M = 12, OVERGROWN_MAX = 42;
   const ORCHARD_STEP_M = 12, ORCHARD_MAX = 80;
   const TOADSTOOL_STEP_M = 6, TOADSTOOL_MAX = 100;
   const BURNED_STEP_M = 8, BURNED_MAX = 100;
+  const BURNED_TORCH_STEP_M = 32;
   const BARRICADE_STEP_M = 12, BARRICADE_MAX = 80;
   // How finely a burned row is walked for its one fire slime per stretch.
   const BURNED_GUARD_STEP_M = 10;
@@ -181,6 +183,7 @@
       flash: 'A hedged lane, still kept.' },
     { id: 'overgrown', affinities: ['woodland'], size: 'minor', share: 0.095, rung: 'common',
       stone: { weathered: '#465b42', restored: '#5d7953' }, lampDensity: 1,
+      carpet: '#9caa55', carpetWidthCells: 0.28, carpetFeatherCells: 0.14,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
       lampGlow: '#9be08a', attracts: { rabbit: 0.5, butterfly: 0.5 },
       story: 'street_overgrown', title: 'Gone to seed',
@@ -195,6 +198,8 @@
       flash: 'Old trees, still fruiting.' },
     { id: 'pilgrim', affinities: ['sacred'], size: 'minor', share: 0.06, rung: 'uncommon',
       stone: { weathered: '#8b8879', restored: '#c5c1aa' }, lampDensity: 1,
+      // The diamond marks the ancient religion; hedged lanes bear the ruling crown.
+      carpet: '#64517d', emblem: 'diamond', emblemInk: '#c5b4d5',
       words: /(church|chapel|abbey|kirch|kloster|pilgrim|cross|saint|\bst\b|priest|minster|\bdom\b|mission)/i,
       lampGlow: '#f2eee0', attracts: { crow: 0.5 },
       story: 'street_pilgrim', title: "Pilgrim's Way",
@@ -210,11 +215,11 @@
       body: 'Lamp posts stand thick along this road, cold and waiting. Rebuild it and it will burn bright.',
       flash: 'Lamp posts, cold and waiting.' },
     { id: 'burned', affinities: ['ruined'], size: 'major', share: 0.05, rung: 'uncommon',
-      stone: { weathered: '#583c35', restored: '#865041' }, lampDensity: 1,
+      stone: { weathered: '#583c35', restored: '#865041' }, lampDensity: 0.5,
       words: /(mill|forge|smith|ash|burn|brand|kiln|furnace|cinder|coal|ember|kohle|schmied|asche)/i,
       lampGlow: '#ff5a3c',
       story: 'street_burned', title: 'Burned Row',
-      body: 'Tar in the gutters and iron stakes in the verge. Watch your feet.',
+      body: 'Torches burn beside tar in the gutters and iron stakes in the verge. Watch your feet.',
       flash: 'Tar underfoot. Go slow.' },
     { id: 'barricade', affinities: ['ruined'], size: 'major', share: 0.04, rung: 'rare',
       stone: { weathered: '#706047', restored: '#a38754' }, lampDensity: 1,
@@ -263,8 +268,8 @@
       stone: { weathered: '#806747', restored: '#bd9650' }, lampDensity: 1,
       lampGlow: '#efc46a',
       story: 'street_golden', art: 'street_lantern', title: 'Golden Road',
-      body: 'Single coins catch the light along the verge. Someone passed this way with a torn purse.',
-      flash: 'A trail of scattered coins.' },
+      body: 'Coins carpet both verges, catching the light at every step.',
+      flash: 'The verges glitter with coins.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
@@ -1230,17 +1235,21 @@
           }
         });
       } else if (v === 'golden') {
-        // Existing seeded coin pickups: one coin per interval, on alternating
-        // eligible verges. Cell ids survive reloads and use foundTreasures.
+        // Dense ribbons on both verges, one pickup per free cell. Sampling
+        // below cell width also covers diagonal roads; the shared gate and
+        // immediate claim keep roadway, restricted and occupied cells empty.
+        // Cell ids survive reloads and use the existing foundTreasures ledger.
         sampleLine(rec.line, gM, GOLDEN_STEP_M, GOLDEN_STEP_M / 2, (s, x, y, nx, ny) => {
           if (!S.covers(spans, s)) return;
-          const side = Math.floor(s / GOLDEN_STEP_M) % 2 ? -1 : 1;
-          const c = verge(rec, x, y, nx, ny, side) || verge(rec, x, y, nx, ny, -side);
-          if (!c) return;
-          claim(c.ix, c.iy);
-          res.coins.push({ kind: 'coindrop', x: cx(c.ix), y: cy(c.iy),
-            id: WG.cellId('golden_coin', tx, ty, c.ix, c.iy),
-            amount: GOLDEN_COIN_AMOUNT, seeded: true, _street: v });
+          for (const side of [1, -1]) for (let k = 1; k <= VERGE_MAX_CELLS; k++) {
+            const off = side * (rec.halfW + (k - 0.5) * CELL_M);
+            const ix = cellOfM(x + nx * off), iy = cellOfM(y + ny * off);
+            if (!cellOk(ix, iy)) continue;
+            claim(ix, iy);
+            res.coins.push({ kind: 'coindrop', x: cx(ix), y: cy(iy),
+              id: WG.cellId('golden_coin', tx, ty, ix, iy),
+              amount: GOLDEN_COIN_AMOUNT, seeded: true, _street: v });
+          }
         });
       } else if (v === 'pilgrim' || v === 'barricade') {
         if (v === 'barricade') {
@@ -1283,6 +1292,17 @@
             WG.cellId(kind, tx, ty, c.ix, c.iy), { _street: v }));
           res.slowCells.set(c.iy * N + c.ix, kind);
           placed++;
+        });
+        // Placed torches reuse the cave torch's animated art and warm light.
+        // Dress after the debris without disturbing its random stream or seats.
+        sampleLine(rec.line, gM, BURNED_TORCH_STEP_M, BURNED_TORCH_STEP_M / 2, (s, x, y, nx, ny) => {
+          if (!S.covers(spans, s)) return;
+          const side = Math.floor(s / BURNED_TORCH_STEP_M) % 2 ? -1 : 1;
+          const c = verge(rec, x, y, nx, ny, side) || verge(rec, x, y, nx, ny, -side);
+          if (!c) return;
+          claim(c.ix, c.iy);
+          res.objects.push(WG.makeObject('torch', cx(c.ix), cy(c.iy),
+            WG.cellId('torch_burned', tx, ty, c.ix, c.iy), { _street: v }));
         });
         // ONE FIRE SLIME PER STRETCH (lairs.js 'burned' tier): the first
         // spawnable verge cell of each (street key, stretch square) this piece
@@ -1451,6 +1471,14 @@
     return { kind: row.emblem, ink: parseInt((row.emblemInk || '#ffffff').slice(1), 16) };
   }
 
+  // Runtime and review surfaces share the strip's width, soft edge and mark.
+  function carpetStyleFor(variant) {
+    const row = VARIANT_BY_ID[variant];
+    if (!row?.carpet) return null;
+    return { color: carpetColorFor(variant), widthCells: row.carpetWidthCells ?? CARPET_WIDTH_CELLS,
+      featherCells: row.carpetFeatherCells || 0, emblem: carpetEmblemFor(variant) };
+  }
+
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
   root.StreetVariants = {
@@ -1461,11 +1489,11 @@
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GATE_EVERY_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
-    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, VARIANT_PATCH_UNITS, VARIANT_PATCH_INSET_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
+    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, VARIANT_PATCH_UNITS, VARIANT_PATCH_INSET_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
     STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,
-    markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, carpetEmblemFor, lineStyles, isSlowKind,
+    markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, carpetEmblemFor, carpetStyleFor, lineStyles, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -4,6 +4,7 @@ Usage: python3 tools/preview_zone_variants.py [table.json] [output-directory]
 Requires Node.js and Pillow; sprite frames come directly from shipped assets.
 """
 import collections
+import copy
 import base64
 import functools
 import hashlib
@@ -140,6 +141,9 @@ def sprite_cell(prefix, material, x, y, size, definition=None):
         if source:
             light = art_registry()['lighting'][source]
             glow = light_guide(x+size/2,y+size/2,size/.8*light['radiusCells'],'#%06x' % light['colour'])
+    if definition and definition.get('kind') == 'torch':
+        light = art_registry()['lighting']['torch']
+        glow = light_guide(x+size/2,y+size/2,size/.8*light['radiusCells'],'#%06x' % light['colour'])
     return glow + f'<use class="sprite-cell" href="#{prefix}-{material}" x="{x}" y="{y}" width="{size}" height="{size}"/>'
 
 
@@ -457,6 +461,10 @@ def street_svg(v, cell_m, detail=False):
         tile_size = cell_m
         parts.append(f'<defs><pattern id="{pid}" patternUnits="userSpaceOnUse" width="{tile_size}" height="{tile_size}">' + art_image({'procedural': painter}, f'width="{tile_size}" height="{tile_size}"') + '</pattern></defs>')
         parts.append(f'<path class="sprite-cell pavement-{state}" d="M {a["x"]} {a["y"]} L {b["x"]} {b["y"]}" stroke="url(#{pid})" stroke-width="{v["roadWidthM"]}" stroke-linecap="round"/>')
+    # Shipping carpet strokes appear below the hedge/grass sprite layer.
+    for stroke in v.get('carpetStrokes', []):
+        points = ' '.join(f'{point["x"]},{point["y"]}' for point in stroke['points'])
+        parts.append(f'<polyline class="sprite-cell carpet-deco" points="{points}" fill="none" stroke="{stroke["colour"]}" stroke-width="{stroke["width"]}" stroke-opacity="{stroke["alpha"]}"><title>Shipping verge carpet decoration</title></polyline>')
     for area in v.get('geography', []):
         points = ' '.join(f'{p["x"]},{p["y"]}' for p in area['points'])
         parts.insert(4, f'<polygon points="{points}" fill="#315c67"><title>Qualifying shore water used by the scenic classifier</title></polygon>')
@@ -527,20 +535,20 @@ target.textContent=row.id==='golden' ? `Fixed rarity · ${(row.probability*100).
 select.addEventListener('change',update);update();
 })();</script>"""
     grouped = ''.join(f'<section id="roads-{size}"><h2>{label}</h2><div class="cards">' + ''.join(card for row, card in zip(streets['rows'], cards) if row['size'] == size) + '</div></section>' for size, label in [('minor', 'Minor roads'), ('major', 'Major roads'), ('path', 'Scenic paths')])
-    return f'''<section id="streets"><h1>{len(streets['rows'])} street and path variants</h1><details><summary>How road samples are generated</summary><p>Every shipping street and scenic path row from <code>StreetVariants.STREET_VARIANTS</code>. Samples use the real road rasterizer, street/scenic dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road, with an empty occupancy set. Street samples use public park ground; path fixtures provide actual water, greenway names or park polygons for the scenic classifier. Water appears blue in the promenade sample. Vista chests come from the generated scenic stretches, with their rules below. Props and lamps use their game art. With art switched off, squares are props and coloured circles are lamps. Tiny pale dots are source line ends, and outlined diamonds are guard candidate sites. The marked road midpoint is a reference point, not an interactable.</p><p>The independent rarity roll keeps {streets['plainShare']['minor']*100:g}% of minor keys and {streets['plainShare']['major']*100:g}% of major keys unthemed. Affinities and street names adjust the choice among special roads, without changing that rarity. Golden Road keeps its fixed 2% share of all minor keys. Long and tile-crossing roads retain their theme in deterministic patches, each at most {streets['maxVariantLengthM']:g} m, separated by plain gaps. Scenic paths use geography rather than the street-name roll, so their zero roll share is not a spawn probability. Rarity names come from the runtime table. Prop density is the observed sample, not an area-coverage target. Line-piece caps and spawn restrictions limit placement. Real terrain, occupied cells, bends and tile boundaries change the result. Fauna percentages relocate existing animals; guard sites are passed to the later lair spawner. Pavement uses the game’s worn and restored texture painters. Lamps show their restored art, configured colour and generated spacing; visit dimming is not simulated. A zone with a lamp tint overrides the street colour in the game.</p><p><b>{html.escape(streets['baseline']['title'])}</b> is the background story for every major road, not another variant row: {html.escape(streets['baseline']['body'])} About {streets['wagonStopShare']*100:.1f}% of eligible bus stops wear its wagon look. The separate {streets['rockStreetShare']*100:g}% minor-street rock roll (excluding hedgerows), ambient plants, café hoards and fauna are not drawn here.</p></details><p><a href="street-variants.json">Generated street geometry and runtime rows</a> · <a href="#zones">Back to zone variants</a></p>{legend}<label class="art-switch"><input id="restored-pavement" type="checkbox" checked> Restored pavement (off = worn)</label>{affinity_controls}{grouped}{affinity_script}</section>'''
+    return f'''<section id="streets"><h1>{len(streets['rows'])} street and path variants</h1><details><summary>How road samples are generated</summary><p>Every shipping street and scenic path row from <code>StreetVariants.STREET_VARIANTS</code>. Samples use the real road rasterizer, street/scenic dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road, with an empty occupancy set. Street samples use public park ground; path fixtures provide actual water, greenway names or park polygons for the scenic classifier. Water appears blue in the promenade sample. Vista chests come from the generated scenic stretches, with their rules below. Props and lamps use their game art. With art switched off, squares are props and coloured circles are lamps. Tiny pale dots are source line ends, and outlined diamonds are guard candidate sites. The marked road midpoint is a reference point, not an interactable.</p><p>The independent rarity roll keeps {streets['plainShare']['minor']*100:g}% of minor keys and {streets['plainShare']['major']*100:g}% of major keys unthemed. Affinities and street names adjust the choice among special roads, without changing that rarity. Golden Road keeps its fixed 2% share of all minor keys. Long and tile-crossing roads retain their theme in deterministic patches, each at most {streets['maxVariantLengthM']:g} m, separated by plain gaps. Scenic paths use geography rather than the street-name roll, so their zero roll share is not a spawn probability. Rarity names come from the runtime table. Prop density is the observed sample, not an area-coverage target. Line-piece caps and spawn restrictions limit placement. Real terrain, occupied cells, bends and tile boundaries change the result. Fauna percentages relocate existing animals; guard sites are passed to the later lair spawner. Pavement and verge carpet decoration use the game’s painters, including carpet colour, width, soft edges and any symbols. Lamps show their restored art, configured colour and generated spacing; visit dimming is not simulated. A zone with a lamp tint overrides the street colour in the game.</p><p><b>{html.escape(streets['baseline']['title'])}</b> is the background story for every major road, not another variant row: {html.escape(streets['baseline']['body'])} About {streets['wagonStopShare']*100:.1f}% of eligible bus stops wear its wagon look. The separate {streets['rockStreetShare']*100:g}% minor-street rock roll (excluding hedgerows), ambient plants, café hoards and fauna are not drawn here.</p></details><p><a href="street-variants.json">Generated street geometry and runtime rows</a> · <a href="#zones">Back to zone variants</a></p>{legend}<label class="art-switch"><input id="restored-pavement" type="checkbox" checked> Restored pavement (off = worn)</label>{affinity_controls}{grouped}{affinity_script}</section>'''
 
 
-@functools.lru_cache(maxsize=1)
-def quarry_fixture():
+@functools.lru_cache(maxsize=None)
+def quarry_fixture(draft_id=None):
     helper = pathlib.Path(__file__).with_name('preview_quarry.js')
-    return json.loads(subprocess.check_output(['node', str(helper)], text=True))
+    return json.loads(subprocess.check_output(['node', str(helper)] + ([draft_id] if draft_id else []), text=True))
 
 
-def quarry_card(v, d):
-    fixture = quarry_fixture()
+def quarry_card(v, d, draft_id=None):
+    fixture = quarry_fixture(draft_id)
     unit = 10
     side = fixture['side']
-    prefix = 'quarry-art'
+    prefix = v['id'] + '-art'
     materials = {name: d['materials'][name] for name in v['background']['materialDensity']}
     parts = [f'<svg role="img" aria-label="Quarry generated from parking lane source geometry" viewBox="0 0 {side*unit} {side*unit}">', '<rect width="100%" height="100%" fill="#172820"/>', sprite_symbols(materials, prefix)]
     for x,y in fixture['coverage']:
@@ -556,8 +564,23 @@ def quarry_card(v, d):
     labels = {'stone':'ordinary stone', 'crimson_ore':'Crimson ore', 'crystal':'Sapphire crystals'}
     mix = ' · '.join(f'{density*100:g}% {labels.get(name, name.replace("_", " "))}' for name,density in v['background']['materialDensity'].items())
     actual = ', '.join(f'{n} {name.replace("_", " ")}' for name,n in counts.items())
-    return f'''<article id="{v['id']}"><header><small>quarry · generated from parking lanes</small><h2>{html.escape(v['name'])}</h2></header><p class="mix"><b>{v['background']['nominalDensity']*100:g}% expected coverage of eligible cells</b><br>{mix}</p><figure>{''.join(parts)}<figcaption>Actual rasterizer coverage and broken stone rows · {fixture['bufferM']:g} m buffer<br>Dashed lines show the removed source lanes, not roads. 1 cell = 7 m.</figcaption></figure><p>{html.escape(v['atmosphere'])}</p><p>This fixture placed {actual}. Percentages are independent of area; crystals are not guaranteed in a small quarry.</p><dl><dt>Source</dt><dd>Parking-lane components; overlapping buffered lanes form one coverage region.</dd><dt>POI / shrine</dt><dd>None</dd><dt>Finite finds</dt><dd>None; crystals belong to the stone rows.</dd><dt>Monsters</dt><dd>No quarry guards</dd><dt>Lighting</dt><dd>No quarry light source or lamp colour override</dd><dt>Clipping</dt><dd>Real roads, buildings, forbidden ground and occupied cells retain their normal spawn restrictions.</dd></dl></article>'''
+    status = 'Draft · preview only' if draft_id else 'Current quarry'
+    return f'''<article id="{v['id']}"><header><small>{status} · generated from parking lanes</small><h2>{html.escape(v['name'])}</h2></header><p class="mix"><b>{v['background']['nominalDensity']*100:g}% expected coverage of eligible cells</b><br>{mix}</p><figure>{''.join(parts)}<figcaption>Shared quarry footprint · {fixture['bufferM']:g} m buffer<br>Dashed lines show the removed source lanes, not roads. 1 cell = 7 m.</figcaption></figure><p>{html.escape(v['atmosphere'])}</p><p>This fixture placed {actual}. Percentages are independent of area; crystals are not guaranteed in a small quarry.</p><dl><dt>Source</dt><dd>Parking-lane components; overlapping buffered lanes form one coverage region.</dd><dt>POI / shrine</dt><dd>None</dd><dt>Finite finds</dt><dd>None; crystals belong to the stone rows.</dd><dt>Monsters</dt><dd>No quarry guards</dd><dt>Lighting</dt><dd>No quarry light source or lamp colour override</dd><dt>Clipping</dt><dd>Real roads, buildings, forbidden ground and occupied cells retain their normal spawn restrictions.</dd></dl></article>'''
 
+
+
+
+def quarry_draft_section(d):
+    source = pathlib.Path(__file__).resolve().parents[1] / 'docs/art/quarry-variants.draft.json'
+    drafts = json.loads(source.read_text())['variants']
+    current = next(row for row in d['variants'] if row['id'] == 'quarry')
+    cards = []
+    for draft in drafts:
+        row = copy.deepcopy(current)
+        row.update({key: draft[key] for key in ('id', 'name', 'atmosphere')})
+        row['background'].update(draft['background'])
+        cards.append(quarry_card(row, d, draft['id']))
+    return '<section id="quarry-drafts"><h2>Quarry alternatives · for review</h2><p>Three draft layouts on the same parking-lane footprint and seeded sample as the current quarry above. Each keeps Sapphire crystals at 2% of eligible cells; ordinary stone density and aisle width vary. Sample counts fluctuate with geometry. These options use the game’s placement rules but are not enabled in world generation. <a href="quarry-variants.draft.json">Draft settings</a></p><div class="cards">' + ''.join(cards) + '</div></section>'
 
 
 def basic_tile_section():
@@ -645,10 +668,13 @@ def render(d, out):
         page += f'<section id="category-{key}"><h2>{category_names.get(key, key.title())}</h2><div class="cards">'
         page += ''.join(card for variant, card in zip(d['variants'], cards) if variant['zone'] == key)
         page += '</div></section>'
+        if key == 'quarry':
+            page += quarry_draft_section(d)
     page += '</section>' + street_section(streets) + basic_tile_section() + art_script() + basic_tile_script() + '</body></html>'
     (out/'index.html').write_text(page)
     (out/'street-variants.json').write_text(json.dumps(streets, indent=2)+'\n')
     (out/'zone-variants.json').write_text(json.dumps(d,indent=2)+'\n')
+    (out/'quarry-variants.draft.json').write_text((pathlib.Path(__file__).resolve().parents[1]/'docs/art/quarry-variants.draft.json').read_text())
     print(f'Validated and rendered {len(d["variants"])} zone variants: {dict(counts)}; {len(streets["rows"])} street variants')
 
 

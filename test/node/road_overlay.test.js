@@ -1659,6 +1659,40 @@ test('hedgerow carpet: offsetLine pushes left/right; row carries carpet + white 
 });
 
 // The monarch's carpet: dark green, sown with upright crowns a cell apart.
+test('carpet strips: soft unmarked seed verge, preserved royal crown, religious diamond', () => {
+  const run = [{ x: 0, y: 0 }, { x: 96, y: 0 }];
+  const capture = (variant) => {
+    const ops = [];
+    RoadOverlay.emitCarpetStrip({ decorPath: (w, color, pts, alpha = 1) => ops.push({ w, color, pts, alpha }) }, run, variant, 32);
+    return ops;
+  };
+  const seed = StreetVariants.carpetStyleFor('overgrown');
+  const hedge = StreetVariants.carpetStyleFor('hedgerow');
+  assert.truthy(seed.widthCells < hedge.widthCells, 'seed strip is thinner than kept carpet');
+  assert.truthy(seed.featherCells > 0, 'seed strip has a soft edge');
+  assert.eq(seed.emblem, null, 'no symbols in gone to seed');
+  const r = seed.color >> 16, g = (seed.color >> 8) & 255, b = seed.color & 255;
+  assert.truthy(g > r && r > b, 'yellowish green');
+  const soft = capture('overgrown');
+  assert.truthy(soft.length > 1, 'feathered strokes');
+  for (let i = 0; i < soft.length; i++) {
+    assert.eq(soft[i].pts, run, 'no emblem path added');
+    assert.truthy(soft[i].alpha > 0 && soft[i].alpha < 1, 'translucent edge');
+    if (i) assert.truthy(soft[i].w < soft[i - 1].w, 'progressively narrower strokes');
+  }
+  const royal = capture('hedgerow');
+  assert.eq(royal[0].w, StreetVariants.CARPET_WIDTH_CELLS * 32);
+  assert.eq(royal[0].alpha, 1, 'kept carpet stays crisp');
+  assert.eq(royal.length, 4, 'strip plus three crowns');
+  const pilgrim = capture('pilgrim');
+  const religion = StreetVariants.carpetStyleFor('pilgrim');
+  assert.truthy((religion.color & 255) > ((religion.color >> 8) & 255), 'purple carpet');
+  assert.eq(religion.emblem.kind, 'diamond');
+  assert.eq(pilgrim.length, 4, 'strip plus three diamonds');
+  assert.eq(pilgrim[1].pts.length, 5, 'closed diamond');
+  assert.eq(capture('orchard').length, 0, 'other streets acquire no carpet');
+});
+
 test('hedgerow carpet: dark green with a repeating crown emblem', () => {
   const c = StreetVariants.carpetColorFor('hedgerow');
   const r = c >> 16, g = (c >> 8) & 255, b = c & 255;

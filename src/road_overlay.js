@@ -177,6 +177,8 @@
   const CARPET_EMBLEM_STEP_PX = 32;   // one crown a cell
   const CARPET_EMBLEM_W_PX = 1.5;
   const CARPET_EMBLEMS = {
+    // The ancient religion's diamond; the crown below belongs to its rulers.
+    diamond: [[{ x: 0, y: -5 }, { x: 4, y: 0 }, { x: 0, y: 5 }, { x: -4, y: 0 }, { x: 0, y: -5 }]],
     // A simple three-point crown on a band.
     crown: [[{ x: -5, y: 3 }, { x: -5, y: -3 }, { x: -2.5, y: 0 }, { x: 0, y: -4 },
       { x: 2.5, y: 0 }, { x: 5, y: -3 }, { x: 5, y: 3 }, { x: -5, y: 3 }]],
@@ -199,6 +201,22 @@
       }
       next -= len;
     }
+  }
+
+  // Shared by the map and dashboard: translucent nested strokes soften the
+  // edge without requiring Canvas filters or a separate preview-only blur.
+  function emitCarpetStrip(g, run, variant, cellPx = CELL_PX) {
+    const style = global.StreetVariants?.carpetStyleFor(variant);
+    if (!style || run.length < 2 || !g.decorPath) return;
+    const w = style.widthCells * cellPx;
+    const feather = style.featherCells * cellPx;
+    if (feather > 0) {
+      const layers = 8;
+      for (let i = layers; i >= 0; i--) {
+        g.decorPath(w + 2 * feather * i / layers, style.color, run, 0.16);
+      }
+    } else g.decorPath(w, style.color, run);
+    emitCarpetEmblems(g, run, style.emblem);
   }
 
   function emitRailDecor(scene, g, run) {
@@ -1274,9 +1292,9 @@
       // Track furniture (railway ties + rails). Stroked plain in commit() —
       // after the gravel so it stays crisp, before the erases so the keep-out
       // cells punch it out along with the ballast.
-      decorPath(w, c, pts) {
+      decorPath(w, c, pts, alpha = 1) {
         if (pts && pts.length >= 2) {
-          pass.decorOps.push({ w, c, pts: pts.map((p) => ({ x: p.x - originX, y: p.y - originY })) });
+          pass.decorOps.push({ w, c, alpha, pts: pts.map((p) => ({ x: p.x - originX, y: p.y - originY })) });
         }
       },
       texturePhase(x, y) { pass.phaseX = Math.round(x - originX); pass.phaseY = Math.round(y - originY); },
@@ -1343,6 +1361,7 @@
       }
     }
     for (const op of pass.decorOps) {
+      ctx.globalAlpha = op.alpha;
       ctx.lineWidth = op.w;
       ctx.strokeStyle = cssOf(op.c);
       ctx.beginPath();
@@ -1350,6 +1369,7 @@
       for (let i = 1; i < op.pts.length; i++) ctx.lineTo(op.pts[i].x, op.pts[i].y);
       ctx.stroke();
     }
+    ctx.globalAlpha = 1;
     // Land only, and never over a floor — applied LAST so the keep-out
     // holes punch through band, gravel, cracks and track alike.
     for (const [x, y, w, h] of pass.erases) ctx.clearRect(x, y, w, h);
@@ -1669,8 +1689,7 @@
         const tint = hex ? parseInt(hex.slice(1), 16) : color;
         const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
         emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, isRail, style?.variant, PATH_CLASSES.has(f.tags?.class)));
-        const carpet = style && global.StreetVariants?.carpetColorFor(style.variant);
-        if (carpet != null) carpets.push({ pts, carpet, emblem: StreetVariants.carpetEmblemFor?.(style.variant) || null,
+        if (style && StreetVariants.carpetStyleFor(style.variant)) carpets.push({ pts, variant: style.variant,
           halfM: (widthPx / CELL_PX) * scene.cellM / 2 });
       }
     });
@@ -1680,17 +1699,14 @@
     // when the target can draw decor (the canvas adapter); the headless test
     // stub gets the plain band.
     if (g.decorPath) for (const run of railRuns) emitRailDecor(scene, g, run);
-    // Carpet strips: plain crisp strokes either side of the road, on the
+    // Carpet strips: row-defined strokes either side of the road, on the
     // verge cell, so the keep-out below trims them like the track — then the
     // row's emblem stamped down each strip.
-    if (g.decorPath) for (const { pts, carpet, emblem, halfM } of carpets) {
+    if (g.decorPath) for (const { pts, variant, halfM } of carpets) {
       const off = halfM + scene.cellM / 2;
-      const w = StreetVariants.CARPET_WIDTH_CELLS * CELL_PX;
       for (const side of [1, -1]) {
         emitRuns(offsetLine(pts, side * off), proj, (run) => {
-          if (run.length < 2) return;
-          g.decorPath(w, carpet, run);
-          emitCarpetEmblems(g, run, emblem);
+          emitCarpetStrip(g, run, variant);
         });
       }
     }
@@ -1902,7 +1918,7 @@
   }
 
   global.RoadOverlay = { lampSitesForTile, lampReservedCells, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
-                         offsetLine, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
+                         offsetLine, emitCarpetStrip, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans };

@@ -1,0 +1,23 @@
+{
+  "status": "preview-only",
+  "variants": [
+    {
+      "id": "quarry-loose-scree",
+      "name": "Loose scree",
+      "atmosphere": "An irregular scatter of stone with open ground between deposits. The least structured and easiest to cross.",
+      "background": {"nominalDensity": 0.24, "materialDensity": {"stone": 0.22, "crystal": 0.02}, "rows": null}
+    },
+    {
+      "id": "quarry-narrow-benches",
+      "name": "Narrow benches",
+      "atmosphere": "Single broken stone benches with two clear rows between them. Long open aisles make the old excavation pattern easy to read.",
+      "background": {"nominalDensity": 0.28, "materialDensity": {"stone": 0.26, "crystal": 0.02}, "rows": {"axis": "horizontal", "spacingCells": 3, "lineWidthCells": 1}}
+    },
+    {
+      "id": "quarry-broad-shelves",
+      "name": "Broad shelves",
+      "atmosphere": "Two-cell stone shelves separated by three clear rows. Denser groups of rock alternate with generous walking lanes.",
+      "background": {"nominalDensity": 0.32, "materialDensity": {"stone": 0.30, "crystal": 0.02}, "rows": {"axis": "horizontal", "spacingCells": 5, "lineWidthCells": 2}}
+    }
+  ]
+}

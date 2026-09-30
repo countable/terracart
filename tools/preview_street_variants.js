@@ -33,9 +33,27 @@ const N = WG.cellsPerEdgeForTile(ty);
 const cellM = WG.CELL_M, tileEdgeM = N * cellM;
 const point = (x, y) => ({ x: (x + 0.5) * extent / N, y: (y + 0.5) * extent / N });
 const middle = Math.floor(N / 2);
-const line = [point(middle - 22, middle), point(middle + 22, middle)];
+// Keep the preview 30% shorter than the former 44-cell road, at the same game scale.
+const halfLengthCells = 22 * .7;
+const line = [point(middle - halfLengthCells, middle), point(middle + halfLengthCells, middle)];
 const lengthM = ctx.Streets.lineLengthM(line, tileEdgeM / extent);
 const local = (o) => ({ ...o, x: o.x - tx * tileEdgeM, y: o.y - ty * tileEdgeM });
+
+// Record the actual carpet painter, including its soft edge and symbols.
+// The painter uses screen pixels; the diagram's coordinate system is metres.
+function carpetPreview(row, roadWidthM) {
+  if (!SV.carpetStyleFor(row.id)) return [];
+  const pxPerM = ctx.SpriteLayout.CELL_PX / cellM, strokes = [];
+  const base = line.map(p => ({x:p.x*tileEdgeM/extent, y:p.y*tileEdgeM/extent}));
+  for (const side of [-1, 1]) {
+    const run = base.map(p => ({x:p.x*pxPerM, y:(p.y+side*(roadWidthM/2+cellM/2))*pxPerM}));
+    ctx.RoadOverlay.emitCarpetStrip({decorPath(width, colour, points, alpha=1) {
+      strokes.push({width:width/pxPerM, colour:'#'+colour.toString(16).padStart(6,'0'), alpha,
+        points:points.map(p=>({x:p.x/pxPerM,y:p.y/pxPerM}))});
+    }}, run, row.id, ctx.SpriteLayout.CELL_PX);
+  }
+  return strokes;
+}
 
 function preview(row) {
   if (row.size === 'path') return previewPath(row);
@@ -71,6 +89,7 @@ function preview(row) {
   const lairs = dress.lairs.map((o) => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly }));
   return { ...row, words: row.words ? row.words.source : null, sampleName: name,
     roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
+    carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags)),
     lampSpacingM: SV.lampSpacingFor(row.id), objects, lamps, lairs,
     line: line.map((p) => ({ x: p.x * tileEdgeM / extent, y: p.y * tileEdgeM / extent })),
     slowKinds: [...new Set(objects.filter((o) => SV.isSlowKind(o.kind)).map((o) => o.kind))] };
@@ -105,6 +124,7 @@ function previewPath(row) {
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong scenic lamps for ${row.id}`);
   return { ...row, sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
+    carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags)),
     lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects: [...dress.objects, ...dress.wildplants, ...(dress.coins || [])].map(local),
     lamps, lairs: [], slowKinds: [], geography, scenicKind: kind,
     selection: kind === 'shore' ? 'Off-road walking path beside qualifying shore water.' :
@@ -124,10 +144,10 @@ const rules = {
   hedgerow: `Two straight rows of cut hedges, one per ${cellM} m cell, with aligned gate gaps every ${SV.HEDGE_GATE_EVERY_CELLS} cells. Blocked slots stay empty. One encounter anchor holds two ordinary slimes where safe ground permits.`,
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
   orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} trees per line piece, alternating half apple trees and half mature deciduous maples.`,
-  golden: `One seeded 1-coin pickup every ${SV.GOLDEN_STEP_M} m, alternating eligible verges; each coin is collectible once.`,
+  golden: `Dense 1-coin pickups across all three rows of both verges; samples every ${SV.GOLDEN_STEP_M} m fill eligible cells. Road, lamp and occupied cells stay clear. Each coin is collectible once.`,
   pilgrim: 'One waystone per street per tile, at an eligible owned line end.',
   lantern: `Lamps at ${SV.lampSpacingFor('lantern')} m target spacing (${SV.LANTERN_SPACING_DIV}× the usual density); no extra verge props.`,
-  burned: `One attempt every ${SV.BURNED_STEP_M} m; at most ${SV.BURNED_MAX} tar/stakes per line piece. One fire-slime guard site per stretch, seated back from the kerb.`,
+  burned: `One attempt every ${SV.BURNED_STEP_M} m; at most ${SV.BURNED_MAX} tar/stakes per line piece. Placed torches punctuate the verges; red lamps have ${SV.lampSpacingFor('burned')} m target spacing. One fire-slime guard site per stretch, seated back from the kerb.`,
   barricade: `Repeated stakes and barricades every ${SV.BARRICADE_STEP_M} m, up to ${SV.BARRICADE_MAX} pieces; one encounter anchor and its goblin guard site per street per tile.`,
   toadstool: `One attempt every ${SV.TOADSTOOL_STEP_M} m; at most ${SV.TOADSTOOL_MAX} mushrooms per line piece. Mushrooms only, in three-on/one-gap groups with varying verge setbacks.`,
 };
