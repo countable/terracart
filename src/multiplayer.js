@@ -15,7 +15,7 @@
 //
 // Depends on:
 //   app.js    — scene fields: save, startWorldM, playerM, mPerPx, cellM, depth,
-//               facing, _targetM, player (sprite; its mask + scale), viewCenterX/Y,
+//               facing, _targetM, playerScale, worldContainer, shadowContainer, viewCenterX/Y,
 //               viewSize, _toast; textures 'idle' / 'walk' / 'bldg_shadow'; the
 //               idle-*/walk-* animations.
 //   render.js — worldMetersToScreen, screenToWorldMeters
@@ -189,6 +189,7 @@ const Multiplayer = (function () {
     if (S.retryTimer) { clearTimeout(S.retryTimer); S.retryTimer = null; }
     if (S.ws) { const ws = S.ws; S.ws = null; S.id = null; ws.onclose = null; ws.close(); }
     clearPeers();
+    if (S.scene) S.scene._peerUprightPieces = [];
     for (const p of S.pings) { p.gfx?.destroy(); p.txt?.destroy(); }
     S.pings = [];
     S.pingMode = false;
@@ -284,13 +285,13 @@ const Multiplayer = (function () {
   function clearPeers() { for (const id of [...S.peers.keys()]) dropPeer(id); }
 
   // ── drawing ──────────────────────────────────────────────────────────────
-  // One container, masked to the map view like every world layer, at depth
-  // 9.8: above the world (0) so a peer stands on the ground, just under the
-  // local farmer (10) so you always read as "in front" when you overlap.
+  // Names, pings and edge dots remain in the masked annotation layer. Peer
+  // bodies join the world painter pass; their contact shadows stay on ground.
   function ensureLayer(scene) {
     if (S.container) return;
     S.container = scene.add.container(0, 0).setDepth(9.8);
-    if (scene.player?.mask) S.container.setMask(scene.player.mask);
+    const mask = scene.worldContainer?.mask || scene.player?.mask;
+    if (mask) S.container.setMask(mask);
     // One shared Graphics for every peer's edge dot, cleared each frame.
     S.dotGfx = scene.add.graphics();
     S.container.add(S.dotGfx);
@@ -303,7 +304,9 @@ const Multiplayer = (function () {
       font: fontMono('bold 10px'), color: cssOf(p.color),
       stroke: '#000', strokeThickness: 3, padding: { x: 2, y: 1 },
     }).setOrigin(0.5, 1);
-    S.container.add([p.sh, p.spr, p.lbl]);
+    scene.shadowContainer.add(p.sh);
+    scene.worldContainer.add(p.spr);
+    S.container.add(p.lbl);
   }
   function playDirected(spr, base, fx, fy) {
     let dir = 'down', flip = false;
@@ -339,6 +342,11 @@ const Multiplayer = (function () {
       // player's (app.js), the contact shadow sits on it, and the name tag
       // floats a fixed gap over the head (23px above the sprite centre).
       p.spr.setPosition(p.dx, p.dy + scene.playerFeetNudgeY).setVisible(true);
+      // Use the eased feet position, not the latest network fix: depth must
+      // change when the visible body crosses a trunk, including during peeks.
+      scene._peerUprightPieces.push({
+        sprite: p.spr, groundY: screenToWorldMeters(scene, p.dx, p.dy).y, rank: 3,
+      });
       p.sh.setPosition(p.dx, p.dy - 1).setVisible(true);
       p.lbl.setPosition(p.dx, p.dy + scene.playerFeetNudgeY - 23).setVisible(true);
     }
@@ -510,6 +518,7 @@ const Multiplayer = (function () {
 
   // ── per-frame ────────────────────────────────────────────────────────────
   function tick(scene) {
+    scene._peerUprightPieces = [];
     if (S.status === 'noname' && cleanName(scene.save.playerName)) start(scene);
     if (!S.container) return;
     const now = performance.now();

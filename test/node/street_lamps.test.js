@@ -122,10 +122,9 @@ test('street lamps: a lamp is a STANDING sprite — it sorts by screen row with 
     'measured from the CAMERA ANCHOR the whole pass projects from — a peek carries the lamps with the ground');
   assert.truthy(/for \(const L of lampList\) filteredObj\.push\(L\);/.test(render),
     'and pushed onto filteredObj, which is what the z-order pass ranks');
-  // The z-order pass itself: rank by CELL ROW first, so a lamp in a lower row
-  // draws over a house in a higher one and under one in a lower.
-  assert.truthy(/zList\.sort\(\(a, b\) => \(_cellRow\(a\.it\.dy\) - _cellRow\(b\.it\.dy\)\)/.test(render),
-    'the one screen-row sort, ranking every item on that list');
+  // The shared pass uses continuous ground anchors, including a lamp's foot.
+  assert.truthy(/Render\.sortWorldDepth\(zList\)/.test(render),
+    'the one ground-depth sort ranks every item on that list');
   // …and app.js no longer draws lamps itself.
   assert.falsy(/_drawStreetLamps/.test(app), 'the lamp has no draw pass of its own any more');
   assert.falsy(/streetLampPool/.test(app), 'nor a pool of its own in the ground-decoration layer');

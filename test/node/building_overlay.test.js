@@ -677,4 +677,50 @@ test('building overlay: nothing is drawn underground', () => {
 });
 
 clearTiles();
+test('building overlay: upright polygon walls share world ordering and scroll independently of floors', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE)]);
+  const removed = [], sprites = [];
+  let shutdown, shutdownRegistrations = 0;
+  const ctx = new Proxy({}, { get: (obj, key) => obj[key] || (() => {}), set: (obj, key, v) => { obj[key] = v; return true; } });
+  const scene = makeScene({
+    events: { once(event, fn) { assert.eq(event, 'shutdown'); shutdown = fn; shutdownRegistrations++; } },
+    worldContainer: { add(sprite) { sprites.push(sprite); } },
+    textures: {
+      exists: () => false,
+      remove: (key) => removed.push(key),
+      createCanvas: () => ({ getContext: () => ctx, refresh() {} }),
+    },
+    add: { image(x, y) { return {
+      x, y, destroyed: false,
+      setOrigin() { return this; },
+      setPosition(x, y) { this.x = x; this.y = y; return this; },
+      destroy() { this.destroyed = true; },
+    }; } },
+  });
+  BuildingOverlay.draw(scene);
+  assert.eq(scene.buildingGeomGfx.only('fill').length, 1, 'only the floor stays on the ground canvas');
+  assert.eq(scene.buildingGeomGfx.only('inset').length, 0, 'castle ramparts leave the ground canvas');
+  assert.eq(scene._buildingUprightPieces.length, 8, 'perimeter divides into cell-length wall pieces');
+  const north = scene._buildingUprightPieces[0], south = scene._buildingUprightPieces[4];
+  assert.lt(north.groundY, south.groundY, 'north and south walls have independent world anchors');
+  assert.eq(south.groundY, 10, 'anchor is the perimeter ground line, independent of visual extrusion');
+  const oldX = north.sprite.x;
+  scene.playerM.x = 1;
+  BuildingOverlay.draw(scene);
+  assert.eq(north.sprite.x, oldX - PX_PER_M, 'uprights follow subcell camera scrolling');
+  scene.depth = 1;
+  BuildingOverlay.draw(scene);
+  assert.eq(scene._buildingUprightPieces.length, 0, 'underground removes surface uprights');
+  assert.truthy(sprites.every(s => s.destroyed), 'old wall sprites are destroyed');
+  assert.eq(removed.length, 8, 'wall textures are released');
+  scene.depth = 0;
+  BuildingOverlay.draw(scene);
+  assert.eq(shutdownRegistrations, 1, 'rebuilds share one shutdown cleanup');
+  shutdown();
+  assert.eq(scene._buildingUprightPieces.length, 0, 'scene shutdown releases cached pieces');
+  assert.eq(removed.length, 16, 'shutdown releases surviving textures');
+  assert.eq(scene._buildingGeomKey, null, 'a restarted scene rebuilds its buildings');
+});
+
 })();

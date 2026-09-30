@@ -2051,39 +2051,16 @@ class MapScene extends Phaser.Scene {
     // (The POI halo layer — a ring "ping" under every live POI — lived here
     // until Sep 2026. A live POI is a LIGHT now, breathing in the lightmap:
     // Lighting.KINDS.poi.)
-    // Castle ramparts (tier-12) split across two layers so towers sort per-edge.
-    // BACK layer — the north/top wall + the E/W side walls — sits BELOW the
-    // object sprites so towers on those edges read as standing IN FRONT of them
-    // (and side walls tuck under everything). Added before objectsContainer.
+    // Flat building trim and claim washes stay below upright world pieces.
     this.rampartBackGfx = this.add.graphics();
-    // ONE display layer for every cell-anchored world sprite — planted crops,
-    // world objects (trees / buildings / chests / rocks) and creatures. They
-    // share a layer so render.js can depth-sort them TOGETHER by screen cell
-    // row: anything in a lower row always draws over anything in a higher row,
-    // whatever kind it is. Inside one cell row the old layer hierarchy still
-    // holds (crops under objects under creatures) — see the z-order pass in
-    // Render.drawObjects, which stamps each sprite's depth and sorts this
-    // container. The three aliases below are the names the renderer uses.
+    // Upright scenery and characters share a continuous ground-Y sort.
+    // Cell art keeps its seating; moving feet can cross its base within a cell.
     this.worldContainer = this.add.container(0, 0);
     this.plantedContainer = this.worldContainer;
     this.objectsContainer = this.worldContainer;
     this.creaturesContainer = this.worldContainer;
-    // FRONT layer — the south wall + its battlements — sits ABOVE the object
-    // sprites so a building or chest south of the wall reads as standing
-    // BEHIND it. Both rampart layers are cleared + repainted each frame in
-    // Render.drawCells.
-    this.rampartFrontGfx = this.add.graphics();
-    // Castle turrets get their OWN layer, added after both rampart layers, so
-    // a tower always reads as standing above the wall it's built on — on the
-    // front (south) edge too, where it used to be painted over by the wall in
-    // front of it.
-    //
-    // The cost of that: a turret sits outside worldContainer's row sort, so it
-    // no longer yields to a sprite one row further south — an animal crossing
-    // in front of a turret is drawn behind it. Anything above the front wall
-    // has to leave the shared layer, and the wall-over-turret artefact is the
-    // one people actually noticed. Coins / sparks / labels still draw above.
-    this.towerContainer = this.add.container(0, 0);
+    // Castle walls, turrets and flags participate in the world foot sort.
+    this.towerContainer = this.worldContainer;
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
     // so coins read on top of pads + the source chest sprite.
     this.coinContainer = this.add.container(0, 0);
@@ -2150,7 +2127,7 @@ class MapScene extends Phaser.Scene {
     this.ghostGlowContainer = this.add.container(0, 0);
     // Text-label layer — POI name tablets, specialty-shop signs, and open/busy
     // pips. Added AFTER every world-object layer (including the castle
-    // rampartFrontGfx) so a label always reads ABOVE map objects like castle
+    // worldContainer) so a label always reads ABOVE map objects like castle
     // walls / towers, and is only ever covered by popups (Phaser flash text at
     // depth 100+ and the DOM modals). Without its own layer the labels lived in
     // objectsContainer and the castle front wall painted over them.
@@ -2264,8 +2241,7 @@ class MapScene extends Phaser.Scene {
     }
 
     this.objectPool = [];
-    // Turrets render from their own pool into towerContainer (above the
-    // ramparts); every other world object shares objectPool.
+    // Turrets use their own pool within the shared world container.
     this.towerPool = [];
     this.castleFlagPool = [];   // the claimed-castle banner, one per castle
     this.fruitPool = [];        // ripe fruit worn on a bearing fruit tree's crown (render.js)
@@ -2466,8 +2442,6 @@ class MapScene extends Phaser.Scene {
     this.auraContainer.setMask(mask);
     this.rampartBackGfx.setMask(mask);
     this.worldContainer.setMask(mask);   // crops + objects + creatures
-    this.rampartFrontGfx.setMask(mask);
-    this.towerContainer.setMask(mask);
     this.coinContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
     this.atmosRimGfx.setMask(mask);
@@ -2614,6 +2588,12 @@ class MapScene extends Phaser.Scene {
       .setDepth(10)
       .play('idle-down')
       .setMask(mask);
+    // The body and its melee effect occlude together at the player's feet.
+    // Keep this container at (0,0): existing drawing uses screen coordinates.
+    this.playerWorldContainer = this.add.container(0, 0);
+    this.worldContainer.add(this.playerWorldContainer);
+    this.player.clearMask();
+    this.playerWorldContainer.add(this.player);
     this._playDirected(this.player, 'idle');
     this.player.setY(this.viewCenterY + this.playerFeetNudgeY);
     // Contact shadow under the player's feet. It is created at viewCentre and
@@ -2631,6 +2611,8 @@ class MapScene extends Phaser.Scene {
       .setAlpha(PLAYER_SHADOW_ALPHA)
       .setDepth(9.5)
       .setMask(mask);
+    this.playerShadow.clearMask();
+    this.shadowContainer.add(this.playerShadow);
     // Countdown label floated over the dragon's head while Dragon Powder is
     // active — shows whole seconds of the buff remaining. Hidden whenever the
     // player isn't a dragon. Seated per-frame in update() a fixed offset above
@@ -2680,6 +2662,8 @@ class MapScene extends Phaser.Scene {
       .setDepth(9.7)
       .setVisible(false)
       .setMask(mask);
+    this.playerHalo.clearMask();
+    this.playerWorldContainer.add(this.playerHalo);
     // GPS marker — a crosshair at your REAL (GPS) position, shown once the
     // stick has walked the character far enough off it to matter. Walking off
     // the GPS is the whole point of the stick, so you need to see where you
@@ -2697,9 +2681,9 @@ class MapScene extends Phaser.Scene {
       .setMask(mask);
     // Walk-home lead — the dashed line from the feet to the GPS dot while
     // the character is walking itself back (see _drawWalkHomeHint). Depth
-    // 9.75 tucks it under the character (10) and the dot (9.8) but over the
-    // halo (9.7), so it reads as being on the ground.
-    this.walkHomeGfx = this.add.graphics().setDepth(9.75).setMask(mask);
+    // Keep the line on the ground, below characters and upright scenery.
+    this.walkHomeGfx = this.add.graphics().setDepth(9.75);
+    this.shadowContainer.add(this.walkHomeGfx);
     this._walkHomeDashPhase = 0;
     this._driftingHome = false;
     // Marching dashes are decoration — the line itself says where the
@@ -2746,13 +2730,17 @@ class MapScene extends Phaser.Scene {
     // it's engaged with, on the same beat the melee wheel's damage numbers
     // pop (see SWORD_SWING_MS / _drawSwordSwing). Depth 11: same tier as the
     // facing arrow, above the body (10).
-    this.swordSwingGfx = this.add.graphics().setDepth(11).setMask(mask);
+    this.swordSwingGfx = this.add.graphics().setDepth(11);
+    this.playerWorldContainer.add(this.swordSwingGfx);
+    this.playerWorldContainer.sort('depth');
     this._swing = null;                // { startT, dir: {x,y} } while a slash is animating
     this._nextBlowT = 0;               // performance.now() ms the next melee blow may land
     // Footprint trail — small dark ovals dropped as the player moves, laid
     // along the step and alternating left/right foot (see _fillFootprint),
     // each fading 20% per new drop so ~5 are visible. Under the player sprite.
-    this.footprintGfx = this.add.graphics().setDepth(9).setMask(mask);
+    this.footprintGfx = this.add.graphics().setDepth(9);
+    this.shadowContainer.add(this.footprintGfx);
+    this.shadowContainer.sort('depth');
     this.footprints = [];               // [{ x, y, alpha, ux, uy, side }, …], world metres
     this._lastFootprintM = { x: this.playerM.x, y: this.playerM.y };
     this._footSide = 1;                 // flipped on each drop: left, right, left…
@@ -4590,9 +4578,9 @@ class MapScene extends Phaser.Scene {
     this.drawCells();
     this.drawRoadGeometry();
     this.drawBuildingGeometry();
+    if (typeof Multiplayer !== 'undefined') Multiplayer.tick(this);
     this.drawObjects();
     this._drawWorkProgress();
-    if (typeof Multiplayer !== 'undefined') Multiplayer.tick(this);
     this.updateHUD();
     } catch (e) {
       this._reportLoopError(e);
@@ -5154,14 +5142,20 @@ class MapScene extends Phaser.Scene {
 
   // One glow from the pool, placed at screen (x, y) with radius `rPx` (the
   // texture's own edge — where it has faded to nothing).
-  _boltGlow(key, x, y, rPx, alpha) {
+  _boltGlow(key, x, y, rPx, alpha, container = this.boltContainer) {
     let im = this._boltPool[this._boltUsed];
     if (!im) {
       im = this.add.image(0, 0, key).setBlendMode(Phaser.BlendModes.ADD);
-      this.boltContainer.add(im);
       this._boltPool.push(im);
     } else if (im.texture.key !== key) {
       im.setTexture(key);
+    }
+    // The pool serves both flying bolts and the orb held in the player's
+    // hand. Reset the parent on reuse so the charge hides with the body.
+    if (im.parentContainer !== container) {
+      im.setDepth(12);
+      container.add(im);
+      container.sort('depth');
     }
     this._boltUsed++;
     im.setVisible(true).setPosition(x, y)
@@ -5235,8 +5229,8 @@ class MapScene extends Phaser.Scene {
     // round a hot core, both growing with the charge.
     const key = this._boltGlowKey(shotTierColour('staff', tier));
     const glow = Combat.boltGlow('staff', tier);
-    this._boltGlow(key, x, y, r * 3.6, (0.2 + 0.45 * f) * pulse * glow);
-    this._boltGlow(key, x, y, r * 2.2, (0.35 + 0.65 * f) * (0.5 + 0.5 * glow));
+    this._boltGlow(key, x, y, r * 3.6, (0.2 + 0.45 * f) * pulse * glow, this.playerWorldContainer);
+    this._boltGlow(key, x, y, r * 2.2, (0.35 + 0.65 * f) * (0.5 + 0.5 * glow), this.playerWorldContainer);
   }
 
   // A health bar over every enemy hurt in the last few seconds — the same bar

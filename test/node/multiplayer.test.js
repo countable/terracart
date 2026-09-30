@@ -14,7 +14,7 @@ function mpScene() {
   };
 }
 
-test('welcome paints the near count once after a large roster', () => {
+test('peer roster batches the near count and shares feet-based world ordering', () => {
   const oldDocument = globalThis.document, oldWebSocket = globalThis.WebSocket;
   let paints = 0, metreScaleReads = 0, button;
   class FakeWebSocket {
@@ -36,7 +36,7 @@ test('welcome paints the near count once after a large roster', () => {
   sc.save = { multiplayer: true, playerName: 'Ada', playerColor: 0x9fd8ff };
   sc.add = {
     container() { return { setDepth() { return this; }, add() {} }; },
-    graphics() { return {}; },
+    graphics() { return { clear() {} }; },
   };
   try {
     Multiplayer.start(sc);
@@ -54,6 +54,59 @@ test('welcome paints the near count once after a large roster', () => {
     assert.eq(paints - before, 1);
     assert.eq(metreScaleReads, 200);
     assert.eq(button.text, '📍 · 👥 100');
+
+    // The body joins the same world painter pass as trees; labels remain
+    // annotations and contact shadows cannot cover any upright sprite.
+    const art = [];
+    function fakeArt() {
+      const obj = { anims: {}, visible: true };
+      for (const name of ['setOrigin', 'setDisplaySize', 'setAlpha', 'setScale', 'setTint', 'setFlipX']) {
+        obj[name] = function () { return this; };
+      }
+      obj.play = function (key) { this.anims.currentAnim = { key }; return this; };
+      obj.setPosition = function (x, y) { this.x = x; this.y = y; return this; };
+      obj.setVisible = function (v) { this.visible = v; return this; };
+      obj.destroy = function () { this.destroyed = true; };
+      art.push(obj);
+      return obj;
+    }
+    sc.add.image = sc.add.sprite = sc.add.text = fakeArt;
+    const bodies = [], shadows = [];
+    sc.worldContainer = { add: (obj) => bodies.push(obj) };
+    sc.shadowContainer = { add: (obj) => shadows.push(obj) };
+    sc.viewCenterX = sc.viewCenterY = 176;
+    sc.viewSize = 352;
+    sc.playerFeetNudgeY = -12;
+    Multiplayer.tick(sc);
+    assert.eq(bodies.length, 100);
+    assert.eq(shadows.length, 100);
+    assert.eq(sc._peerUprightPieces.length, 100);
+    const piece = sc._peerUprightPieces[0];
+    assert.eq(piece.sprite, bodies[0]);
+    assert.eq(piece.rank, 3);
+    assert.inRange(piece.groundY - (sc.startWorldM.y + sc.playerM.y), -1e-6, 1e-6);
+    assert.inRange(piece.sprite.y - (sc.viewCenterY + sc.playerFeetNudgeY), -1e-6, 1e-6);
+    assert.falsy(bodies.includes(shadows[0]));
+
+    // A changed fix may still be easing: order follows the body the user
+    // sees, not the relay's new target or the sprite's head height.
+    FakeWebSocket.last.onmessage({ data: JSON.stringify({
+      t: 'p', id: 2, x: at.x, y: at.y + 1, fx: 0, fy: 1, m: 1, d: 0,
+    }) });
+    Multiplayer.tick(sc);
+    const eased = sc._peerUprightPieces[0];
+    const feetY = eased.sprite.y - sc.playerFeetNudgeY;
+    const expectedY = sc.startWorldM.y + sc.playerM.y
+      + (feetY - sc.viewCenterY) / CELL_PX * sc.cellM;
+    assert.inRange(eased.groundY - expectedY, -1e-6, 1e-6);
+    FakeWebSocket.last.onmessage({ data: JSON.stringify({ t: 'leave', id: 2 }) });
+    Multiplayer.tick(sc);
+    assert.eq(sc._peerUprightPieces.length, 99);
+    assert.truthy(bodies[0].destroyed);
+    assert.truthy(shadows[0].destroyed);
+    Multiplayer.stop(sc);
+    assert.eq(sc._peerUprightPieces.length, 0);
+    assert.truthy(art.every((obj) => obj.destroyed));
   } finally {
     Multiplayer.stop(sc);
     globalThis.document = oldDocument;

@@ -53,6 +53,27 @@
 // pattern other scene code and tests use.)
 
 const Render = {};
+
+// Ground anchors, never animated sprite tops, determine occlusion. Rank only
+// breaks exact ties, so stepping within one cell can pass behind a tree.
+Render.sortWorldDepth = function (pieces) {
+  pieces.sort((a, b) => (a.groundY - b.groundY) || ((a.rank || 0) - (b.rank || 0)));
+  pieces.forEach((piece, depth) => {
+    if (piece.it) piece.it._z = depth;
+    if (piece.sprite) piece.sprite.setDepth(depth);
+  });
+};
+
+Render.objectGroundOffsetPx = function (appearance, textures) {
+  if (!appearance?.visible) return 0;
+  if (appearance.foot) return appearance.foot.footFromCentre;
+  const frame = textures?.getFrame?.(appearance.texKey, appearance.frameVal);
+  // Unseated buildings use their rendered base; their centroid is not their
+  // ground line. Short props retain their actual art placement as well.
+  return appearance.dyPx + (1 - appearance.origin[1]) * (frame?.height || CELL_PX)
+    * appearance.scl * appearance.scaleYMul;
+};
+
 const COIN_DROP_PX = 16.8;
 Render.COIN_DROP_PX = COIN_DROP_PX;
 
@@ -1141,6 +1162,22 @@ function drawAtmosRim(scene, haze) {
   if (g.flush) g.flush();   // BAKED (app.js): one upload per haze change
 }
 
+// A wall segment is a first-class upright drawable, just like a tree or
+// tower. Its geometry is screen-space; its sorting anchor stays world-space.
+Render.rampartPiece = function rampartPiece(scene, groundY, rank = 1) {
+  const pool = scene._rampartPool || (scene._rampartPool = []);
+  const i = scene._rampartPoolUsed++;
+  let sprite = pool[i];
+  if (!sprite) {
+    sprite = scene.add.graphics();
+    scene.worldContainer.add(sprite);
+    pool.push(sprite);
+  }
+  sprite.setVisible(true);
+  scene._uprightPieces.push({ sprite, groundY, rank });
+  return sprite;
+};
+
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
@@ -1148,14 +1185,12 @@ Render.drawCells = function drawCells(scene) {
   // toggle flipping mid-pass would draw half a building.
   const POLY = polyBuildings();
   const gb2 = scene.borderGfx;
-  // Castle ramparts split across TWO layers so towers (objectsContainer) sort
-  // correctly per edge: the FRONT (south) wall draws ABOVE objects (towers read
-  // as standing behind it), while the BACK (north) wall + the E/W SIDE walls
-  // draw BELOW objects (towers stand in front of the top wall; side walls sit
-  // under everything). Both cleared in lockstep with cellGfx so nothing desyncs.
-  const gf = scene.rampartFrontGfx || g;   // front (south) wall — ABOVE objects
-  const gb = scene.rampartBackGfx  || g;   // back (north) + side walls — BELOW objects
-  if (gf !== g) gf.clear();
+  // Tiled walls join the same painter pass as sprites. Reuse their Graphics
+  // objects, clearing/hiding every old piece before this frame's geometry.
+  scene._uprightPieces = [];
+  scene._rampartPoolUsed = 0;
+  for (const piece of scene._rampartPool || []) piece.clear().setVisible(false);
+  const gb = scene.rampartBackGfx || g; // flat building trim and claim wash
   if (gb !== g) gb.clear();
   const half = (VIEW_CELLS - 1) / 2;
   // One clock read per pass for the animated biome textures (water) — every
@@ -1895,9 +1930,12 @@ Render.drawCells = function drawCells(scene) {
         const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
         const CREN = 2;          // crenel-level wall (the gaps still show a low parapet)
         const WALL = 8;          // south wall-face height (the lit 3-D extrusion)
-        // Ramparts split front vs back/side across two layers (gf above objects,
-        // gb below) so towers sort per-edge. The wall stone is a light masonry
-        // material that reads against the lighter castle floor.
+        // Each boundary has its own ground anchor in world metres, so
+        // camera motion cannot change its ordering against moving sprites.
+        const si = (row + 2) * RING + (col + 2);
+        const ty = _ringTY[si], cm = rowCellM(scene, ty);
+        const northY = ty * scene.tileEdgeM + _ringIY[si] * cm;
+        const wallPiece = fraction => Render.rampartPiece(scene, northY + fraction * cm);
         // Horizontal battlement crest: a low parapet at `baseY` with merlons
         // rising UP from it, drawn into the supplied graphics layer `gx`. Teeth
         // share the SPAN grid on every wall so front/back crenellations line up.
@@ -1912,48 +1950,24 @@ Render.drawCells = function drawCells(scene) {
             gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
           }
         };
-        // South / front wall → FRONT layer (above objects). Darker extruded face
-        // hangs BELOW the cell, grounded by a 1px dark shadow line at its far
-        // (bottom) edge; the lit battlement crest rises up from the bottom edge.
+        // South boundary: a turret standing here shares this ground row;
+        // its tie rank keeps the turret above the wall's stone.
         if (wallEdge(col, row, 0, 1)) {
-          // Anything parked in FRONT of (south of) this wall must occlude
-          // it — a wall behind an object painting over its art reads
-          // backwards. Route just this cell's front wall to the BACK layer
-          // so the sprite (worldContainer, above gb) draws on top. Two
-          // sources, both stamped by drawObjects last frame:
-          //   • _rampartOccludedCells — the set of absolute cells hosting a
-          //     world sprite (tree / chest / crop / creature …). One-cell
-          //     sprites never cross their own south edge (QC rule), so only
-          //     the immediate southern neighbour cell can reach the wall.
-          //   • _homeTrailerRect — the Home trailer's screen rect (its house
-          //     art is multi-cell + centroid-anchored, so cell membership
-          //     alone can't place it). Strip spans crest top … face bottom
-          //     (sy+CELL_PX+WALL).
-          const occ = scene._rampartOccludedCells;
-          const southHosted = occ &&
-            occ.has(AX(col, row + 1) + '_' + AY(col, row + 1));
-          const tr = scene._homeTrailerRect;
-          const gw = (southHosted || (tr &&
-            (tr.y0 + tr.y1) / 2 > sy + CELL_PX &&   // trailer's cell is south of the wall
-            tr.y0 < sy + CELL_PX + WALL &&          // and its art reaches up into the strip
-            tr.x1 > sx && tr.x0 < sx + CELL_PX)) ? gb : gf;
+          const gw = wallPiece(1);
           gw.fillStyle(_DBG ? 0x30a030 : STONE_FACE, 1); gw.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
           gw.fillStyle(STONE_DARK, 1); gw.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
           crestH(gw, sx, sy + CELL_PX, _DBG ? 0x50c050 : undefined);
         }
-        // North / back wall → BACK layer (below objects). Same tall extruded face
-        // as the front, mirrored to rise ABOVE the cell's top edge, crest on top
-        // so the back reads as tall as the front. No dark grounding line here: at
-        // the TOP edge it read as an unwanted hard line, not a contact shadow.
+        // North boundary rises into the cell above from its own ground line.
         const SIDE_W = 5;
         if (wallEdge(col, row, 0, -1)) {
-          // The lower-anchored piece paints in front (the game's painter rule:
-          // lower centre of mass renders in front). This band belongs to THIS
+          // The lower ground anchor paints in front. This band belongs to THIS
           // cell and rises into the cell above — so it must also cover the FOOT
           // of any side band descending to the step from a diagonal-above
           // castle cell. Without the widening, that band's last 12px stuck out
           // beside the crest at every stepped top edge / notch: the top wall
           // did not paint over the side wall in the cell above.
+          const gb = wallPiece(0);
           const extL = (T(col - 1, row - 1) === 12 && wallEdge(col - 1, row - 1, 1, 0)) ? SIDE_W : 0;
           const extR = (T(col + 1, row - 1) === 12 && wallEdge(col + 1, row - 1, -1, 0)) ? SIDE_W : 0;
           gb.fillStyle(_DBG ? 0x3060c0 : STONE_FACE, 1);
@@ -1972,23 +1986,12 @@ Render.drawCells = function drawCells(scene) {
           if (extL) shoulder(sx - extL, extL);
           if (extR) shoulder(sx + CELL_PX, extR);
         }
-        // Side walls → BACK layer (below objects). No protruding teeth; a light
-        // stone edge hugs the wall with shadow dashes on the merlon span so they
-        // align with the front/back crests. SIDE_W is the band thickness (5px).
-        // WALL / SIDE_W set the wall's visible MASS; the merlon grid (SPAN /
-        // MOFF / MW) is independent of both, so thickening the stone keeps the
-        // teeth and side dashes on the same grid — still aligned cell to cell.
-        // Corner joins follow the painter rule (lower centre of mass in
-        // front): the SOUTH wall paints over the side band — the band stops
-        // short of the front crest's tooth rows, so the crenel gaps show
-        // courtyard floor, not side-wall stone, behind the front wall (by
-        // geometry, so it holds even on cells the occlusion routing sends to
-        // gb) — and the NORTH wall paints over side-band feet at stepped top
-        // edges (the widened band above). At a plain top corner the band runs
-        // to the cell top and the full-width north crest caps it.
+        // Side bands end at the south ground edge. At corners their tie
+        // rank leaves horizontal walls in front of the band.
         const bandY = sy;
         const bandBot = sy + (wallEdge(col, row, 0, 1) ? CELL_PX - TOOTH_H : CELL_PX);
         const sideShade = (x, innerX) => {
+          const gb = Render.rampartPiece(scene, northY + cm, 0);
           gb.fillStyle(_DBG ? 0xc03030 : STONE_BODY, 1);   gb.fillRect(x, bandY, SIDE_W, bandBot - bandY);
           gb.fillStyle(_DBG ? 0xe06060 : STONE_SIDE, 1);
           // Crenel-grid dashes stay on the cell's own span; skip any dash the
@@ -2046,9 +2049,8 @@ Render.drawCells = function drawCells(scene) {
     // pickets, so the wash reached the floor and nothing else. gb sits above
     // the terrain, so one pass there covers all three.
     //
-    // It no longer needs a second pass on the front layer: that pass existed
-    // for the castle's south rampart (drawn in gf, above the world sprites),
-    // and the castle is baked now.
+    // Castle stones already use their claimed/unclaimed material palette;
+    // only the flat trim of other building tiers needs this wash.
     const paint = (gx, colour, alpha) => {
       gx.fillStyle(colour, alpha);
       for (let i = 0; i < _washCells.length; i += 3) {
@@ -2451,16 +2453,6 @@ Render.drawObjects = function drawObjects(scene) {
   // Re-inject the synthetic starter trailer (if any) into its owning tile —
   // worldgen never emits it, so it must be re-added after reloads / eviction.
   if (scene.ensureStarterTrailerObject) scene.ensureStarterTrailerObject();
-  // Is drawCells drawing the TILED building art this frame? Only that path
-  // (the tier-12 rampart pass) reads the two occlusion stamps below —
-  // _homeTrailerRect and _rampartOccludedCells — so in the polygonal mode
-  // (the shipping default, see polyBuildings) neither is computed at all.
-  const TILED = !polyBuildings();
-  // Screen-space rect of the Home trailer's sprite — re-stamped each frame by
-  // the house spec's `after` hook when the trailer is on-screen, null when it
-  // isn't. drawCells reads it to sort castle front walls BEHIND the trailer
-  // (see the tier-12 rampart pass).
-  scene._homeTrailerRect = null;
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   // Extra cull reach for house sprites — half the widest building art that can
   // be drawn (BUILDING_ART.fort.max: a fort tops out at 3.48 cells wide, so 2.2
@@ -2788,52 +2780,23 @@ Render.drawObjects = function drawObjects(scene) {
   for (const fr of fireList) filteredObj.push(fr);
   for (const L of lampList) filteredObj.push(L);
   filteredObj.sort((a, b) => a.dy - b.dy);
-  // ── Screen-row z-order ──────────────────────────────────────────────────
-  // Crops, world objects and creatures all live in ONE display layer
-  // (scene.worldContainer — see app.js), so they can interleave: a sprite in a
-  // LOWER screen cell row ALWAYS draws over one in a higher row, whatever kind
-  // it is. A deer standing north of a house no longer floats in front of it,
-  // and a crop in the front row no longer hides under the row behind it.
-  // Inside a single cell row the previous hierarchy still decides: crops under
-  // objects under creatures, and within one kind the old north-to-south (dy)
-  // order. The stamped index becomes each sprite's Phaser depth; the container
-  // is sorted by it at the end of this pass. Overlay badges in the same layer
-  // (crop timers, pet hearts) sit at Z_OVERLAY, above every world sprite.
-  const _cellRow = (dy) => Math.floor((pWorldY + dy) / scene.cellM);
+  const { RENDER_SPEC, resolveAppearance, fruitList, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseMidPx } = Render.objectAppearance(scene, houseRoles);
+  for (const item of filteredObj) item._appearance = resolveAppearance(item.o);
+  // Every upright piece shares one continuous ground-Y order. Pixel offsets
+  // come from the same seating geometry as the art, converted back to metres.
+  const groundY = (it, offsetPx = 0) => pWorldY + it.dy + offsetPx * scene.cellM / CELL_PX;
   const zList = [];
-  for (const it of plantedList)  zList.push({ it, rank: 0 });
-  for (const it of filteredObj)  zList.push({ it, rank: 1 });
-  for (const it of creatureList) zList.push({ it, rank: 2 });
-  zList.sort((a, b) => (_cellRow(a.it.dy) - _cellRow(b.it.dy))
-                    || (a.rank - b.rank)
-                    || (a.it.dy - b.it.dy));
-  for (let zi = 0; zi < zList.length; zi++) zList[zi].it._z = zi;
-  // Absolute cells occupied by a world-layer sprite, for drawCells' castle-
-  // rampart sorting (read next frame — drawCells runs first): a castle FRONT
-  // (south) wall extrudes 8px down into its southern neighbour cell, and
-  // rampartFrontGfx sits ABOVE the world sprites, so without this a tree /
-  // chest / crop / animal standing in that cell — in FRONT of the wall — got
-  // painted over by it. When the south cell hosts a sprite, drawCells drops
-  // just that cell's front wall to the BACK layer so the sprite occludes it.
-  // Keys are absolute "ix_iy" cells (coords.js basis), so the one-frame lag
-  // can't misplace them the way screen rects would. Towers are excluded (they
-  // stand ON the wall cell and live in towerContainer, above both rampart
-  // layers) and houses are excluded (multi-cell centroid anchors don't map to
-  // one cell — the Home trailer keeps its dedicated _homeTrailerRect path).
-  // Tiled mode only: the polygonal path draws no rampart, so it never reads it.
-  if (TILED) {
-    const _rampOcc = new Set();
-    for (const { it } of zList) {
-      const kind = it.o && it.o.kind;
-      if (isBuilding(kind)) continue;
-      const c = worldMetersToAbsCell(scene, pWorldX + it.dx, pWorldY + it.dy);
-      _rampOcc.add(c.cellIX + '_' + c.cellIY);
-    }
-    scene._rampartOccludedCells = _rampOcc;
-  } else {
-    scene._rampartOccludedCells = null;
-  }
-  const { RENDER_SPEC, resolveAppearance, fruitList, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseMidPx } = Render.objectAppearance(scene, houseRoles, TILED);
+  for (const it of plantedList) zList.push({ it, rank: 0,
+    groundY: groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
+  for (const it of filteredObj) zList.push({ it, rank: it.o.kind === 'tower' ? 2 : 1,
+    groundY: groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures)) });
+  for (const it of creatureList) zList.push({ it, rank: 3,
+    groundY: groundY(it, SpriteLayout.CREATURE_GROUND_DY) });
+  if (scene.playerWorldContainer) zList.push({ sprite: scene.playerWorldContainer,
+    groundY: scene.startWorldM.y + scene.playerM.y, rank: 3 });
+  zList.push(...(scene._uprightPieces || []), ...(scene._buildingUprightPieces || []),
+    ...(scene._peerUprightPieces || []));
+  Render.sortWorldDepth(zList);
   // Kinds that stand UP off the ground and therefore cast a contact shadow.
   // DERIVED from the table above — `shadow: true` on the row, beside the
   // `seat: true` it always accompanies, rather than a second hand-kept list of
@@ -2847,7 +2810,6 @@ Render.drawObjects = function drawObjects(scene) {
   // a floating slab).
   const SEATED_SHADOW_KINDS = new Set(
     Object.keys(RENDER_SPEC).filter((k) => RENDER_SPEC[k].shadow));
-  for (const item of filteredObj) item._appearance = resolveAppearance(item.o);
   // Soft contact shadows under everything that stands up off the ground —
   // buildings, trees, rocks, chests, wells, poles. Rendered into
   // shadowContainer — z-ordered just below objectsContainer — so each sprite
@@ -2927,11 +2889,7 @@ Render.drawObjects = function drawObjects(scene) {
        .setAlpha(0.5).setTint(0xffffff);
     });
   }
-  // One configure routine, two pools: turrets render into towerContainer
-  // (added above BOTH rampart layers in app.js) so a tower always reads as
-  // standing above the wall it's built on — including the south wall, which
-  // draws above every other object and used to paint over the turret in front
-  // of it. Everything else keeps objectsContainer and its existing sorting.
+  // Turrets keep a separate reusable pool inside the shared world layer.
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
@@ -2986,7 +2944,7 @@ Render.drawObjects = function drawObjects(scene) {
   // sy + CELL_PX/2 and runs its full frame height upward, so the flag's own
   // bottom-anchored pole lands on the battlements. Read from the frame rather
   // than a copied number, so a retall of the turret can't leave the flag
-  // floating. Same container as the turrets, so it clears both rampart layers.
+  // floating. The flag inherits its turret's ground depth.
   const flagList = scene.isCastleClaimed
     ? towerList.filter(({ o }) => o.flagPost && scene.isCastleClaimed(o))
     : [];
@@ -2995,6 +2953,7 @@ Render.drawObjects = function drawObjects(scene) {
     const { dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     setTextureIfDifferent(s, 'castle_flag');
+    s.setDepth((item._z ?? 0) + 0.1);
     s.setOrigin(0.5, 1)
      .setScale(1)
      .setAlpha(1)
@@ -4094,7 +4053,7 @@ Render.wildplantShadow = function (plant, art = wildplantSprite(plant)) {
     dyPx: height / 2, alpha: 0.55 };
 };
 
-Render.objectAppearance = function (scene, houseRoles, TILED = false) {
+Render.objectAppearance = function (scene, houseRoles) {
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
   // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
@@ -4237,27 +4196,15 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
       origin: (o) => (_houseRole(o) === 'wizard' ? [0.5, 1.0] : [0.5, 0.5]),
       dyPx: (o) => (_houseRole(o) === 'wizard' ? CELL_PX * 0.5 : 0),
       scale: _houseScale,
-      // Stamp the Home trailer's display rect for drawCells' castle-rampart
-      // sorting: a front (south) wall the trailer is parked in front of must
-      // not paint over it. Runs after position/origin/scale are final. Tiled
-      // mode only — the polygonal path has no rampart pass to read it.
-      after: (s, o) => {
-        if (!TILED || _houseRole(o) !== 'trailer') return;
-        const w = s.displayWidth, h = s.displayHeight;
-        scene._homeTrailerRect = {
-          x0: s.x - w * s.originX, x1: s.x + w * (1 - s.originX),
-          y0: s.y - h * s.originY, y1: s.y + h * (1 - s.originY),
-        };
-      } },
+    },
     // Turret placement, exactly: the art is anchored by its frame's
     // bottom-centre (origin 0.5, 1.0) and dropped half a cell from the cell
     // CENTRE that sy gives us, so its grounding line lands ON the cell's
     // bottom edge — not the ~2px short of it the old 0.95 origin left. The
     // texture carries no bottom padding (see makeTowerTexture) so frame bottom
     // IS art bottom, and its art is symmetric about the frame's centre column,
-    // so origin x 0.5 centres it on the cell. Towers draw in their own layer
-    // above BOTH rampart layers (app.js towerContainer), so the turret always
-    // reads as standing on top of the wall, never behind it.
+    // so origin x 0.5 centres it on the cell. Towers share the world painter
+    // pass and give way to anything whose feet are farther south.
     // A turret has TWO baked textures, not one texture and a tint: an unclaimed
     // castle's masonry is generated in the shaded palette (textures.js), and a
     // tower that took a multiply tint instead never quite landed on the wall
