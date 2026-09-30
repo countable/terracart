@@ -1125,7 +1125,7 @@ const COLORS = {
   // --- Underground cave biome (depth > 0) ---
   24: 0x6e6860, // CAVE_FLOOR — packed earth/stone floor (walkable)
   25: 0x4a4742, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
-  26: 0x9a2a10, // CAVE_LAVA  — molten rock under the buildings on WorldGen.LAVA_DEPTH
+  26: 0x78240f, // CAVE_LAVA  — molten rock under the buildings on WorldGen.LAVA_DEPTH
   // WASTELAND (27) — unclassified landuse (railway yards, brownfield,
   // neighbourhood outlines). Plays as residential; looks like the abandoned
   // scrub it is: residential's dirty concrete pulled toward dusty khaki.
@@ -2253,8 +2253,7 @@ class MapScene extends Phaser.Scene {
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
     this.trapPool = [];       // sprites for hidden / sprung traps lying on the ground (src/traps.js)
 
-    // The coin_drop texture is the 64px pixel-art asset (assets/Icons/coin.png)
-    // loaded through ASSETS — the ONE face of money everywhere (see assets.js).
+    // Ground coin sprites load through ASSETS at their native map sizes.
 
     // Bake a soft building shadow: a flat dark ellipse that fades at the rim.
     // Drawn as concentric ellipses of decreasing alpha so the edge feathers
@@ -8750,10 +8749,10 @@ class MapScene extends Phaser.Scene {
       const genGrid = entry.baseGrid || entry.grid;
       const laid = Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty,
         this.tileEdgeM, entry._ambientSpawnOpts || entry._spawnOpts, mul, entry.zone && entry.zone.under);
-      // Keep authored zone traps and already-discovered traps, one per cell.
+      // Keep authored zone/street traps and already-discovered traps, one per cell.
       const cells = new Set(laid.map((t) => t._iy * N + t._ix));
       for (const t of (entry.traps || [])) {
-        if ((!t.zoneVariant && !sprung.has(t.id)) || cells.has(t._iy * N + t._ix)) continue;
+        if ((!t.zoneVariant && !t._street && !sprung.has(t.id)) || cells.has(t._iy * N + t._ix)) continue;
         laid.push(t);
         cells.add(t._iy * N + t._ix);
       }
@@ -14088,21 +14087,21 @@ class MapScene extends Phaser.Scene {
     return this.renderItemIcon(itemId, sizePx, 'inline');
   }
 
-  // The ONE face of money (assets/Icons/coin.png, the coin_drop world
-  // texture's own file). Deliberately NOT routed through renderItemIcon /
+  // The detailed money icon (assets/Icons/coin.png); ground drops use
+  // separate coarse art. Deliberately NOT routed through renderItemIcon /
   // ICON_SHEETS — the coin is no item-sheet icon. Three forms:
   //   coinIconHTML  — an inline <img> for modal / list HTML strings
   //   moneyHTML     — that icon plus an amount, for any money readout in HTML
   //   coinIconEl    — the same coin as a DOM element, for flashLoot's iconEl
   coinIconHTML(px = 16) {
-    return `<img src="assets/Icons/coin.png" style="width:${px}px;height:${px}px;image-rendering:pixelated;vertical-align:-2px;" alt="">`;
+    return `<img src="assets/Icons/coin.png?v=2" style="width:${px}px;height:${px}px;image-rendering:pixelated;vertical-align:-2px;" alt="">`;
   }
   moneyHTML(n, px = 16) {
     return `${this.coinIconHTML(px)} ${n}`;
   }
   coinIconEl(px = 28) {
     const el = document.createElement('img');
-    el.src = 'assets/Icons/coin.png';
+    el.src = 'assets/Icons/coin.png?v=2';
     el.alt = '';
     el.style.cssText = `width:${px}px;height:${px}px;image-rendering:pixelated;`;
     return el;

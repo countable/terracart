@@ -58,14 +58,14 @@ test('bounty: a tougher kind never pays less than an easier one', () => {
 
 test('bounty: the coins track the HP that sets the wheel length', () => {
   for (const [kind, m] of Object.entries(MONSTERS)) {
-    assert.eq(enemyBounty(kind, 0), Math.max(1, Math.round(m.hp * ENEMY_COIN_PER_HP)),
+    assert.eq(enemyBounty(kind, 0), m.bountyCoins ?? Math.max(1, Math.round(m.hp * ENEMY_COIN_PER_HP)),
       `${kind} at the surface is its HP share`);
   }
   // …and the HP the bounty reads is the HP the FIGHT reads. One source, so a
   // kind's price and the pool you have to chew through can't drift apart.
   for (const kind of Object.keys(MONSTERS).concat(['slime'])) {
     assert.eq(enemyBounty(kind, 0),
-      Math.max(1, Math.round(Combat.creatureMaxHp(kind) * ENEMY_COIN_PER_HP)),
+      Combat.monster(kind)?.bountyCoins ?? Math.max(1, Math.round(Combat.creatureMaxHp(kind) * ENEMY_COIN_PER_HP)),
       `${kind} is priced off Combat.creatureMaxHp`);
   }
 });

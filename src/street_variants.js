@@ -152,6 +152,9 @@
   // The hedged lane's carpet: centred on the first verge cell (where the
   // hedges stand, so it shows at every garden gate), this many cells wide.
   const CARPET_WIDTH_CELLS = 0.6;
+  const SNARE_CHEST_TIER = 3;
+  const SNARE_TRAP_RADIUS_CELLS = 2;
+  const SNARE_MIN_TRAPS = 8;
 
   // What a burned row's verge holds — the two props that SLOW the body
   // (app.js _bodyHold). One table both sides read: dressing lays these kinds,
@@ -169,7 +172,7 @@
   // `story` is the _storySplashOnce key AND the painting stem (sceneArtUrl);
   // `flash` is the ≤30-char map line a later visit gets.
   const STREET_VARIANTS = [
-    { id: 'hedgerow', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.095, nudge: 2, rung: 'find',
+    { id: 'hedgerow', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.08, nudge: 2, rung: 'find',
       stone: { weathered: '#3a322c', restored: '#000000' }, lampDensity: HEDGE_LAMP_DENSITY,
       // A dark green carpet runs down the verge either side (road_overlay.js
       // decor lane), sown with the old monarch's crown — the one royal symbol
@@ -181,7 +184,7 @@
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Clipped hedges both sides, a gap at every garden gate. The green still knows its shape.',
       flash: 'A hedged lane, still kept.' },
-    { id: 'overgrown', affinities: ['woodland'], size: 'minor', share: 0.095, rung: 'common',
+    { id: 'overgrown', affinities: ['woodland'], size: 'minor', share: 0.08, rung: 'common',
       stone: { weathered: '#465b42', restored: '#5d7953' }, lampDensity: 1,
       carpet: '#9caa55', carpetWidthCells: 0.28, carpetFeatherCells: 0.14,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
@@ -205,7 +208,7 @@
       story: 'street_pilgrim', title: "Pilgrim's Way",
       body: 'A waystone, worn smooth by hands. It remembers something.',
       flash: 'A waystone, worn smooth.' },
-    { id: 'lantern', affinities: ['formal'], size: 'major', share: 0.07, rung: 'common',
+    { id: 'lantern', affinities: ['formal', 'destination'], size: 'major', share: 0.07, rung: 'common',
       stone: { weathered: '#806438', restored: '#c79a48' }, lampDensity: LANTERN_SPACING_DIV,
       words: /(lantern|lamp|light|candle|latern)/i,
       // No `attracts`: its marks lie on the major band + verge, all inside
@@ -247,19 +250,19 @@
     // painting for all three (street_scenic), told on the first scenic metre
     // restored (app.js _ripenStreets), the `flash` on later walks.
     { id: 'promenade', affinities: ['coastal', 'formal'], size: 'path', share: 0, rung: 'uncommon',
-      stone: { weathered: '#92743e', restored: '#d6ad58' }, lampDensity: 1,
-      lampGlow: '#ffd16a',
+      stone: { weathered: '#92743e', restored: '#d6ad58' },
+      lampGlow: '#ffd16a', attracts: { metal_slime: 1 },
       story: 'street_scenic', title: 'The promenade',
       body: 'A path by the water. Those who mend it seem to come home with fuller bags.',
       flash: 'The promenade. Walk it slow.' },
     { id: 'greenway', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
-      stone: { weathered: '#4f6c49', restored: '#76966a' }, lampDensity: 1,
-      lampGlow: '#a8e07a',
+      stone: { weathered: '#4f6c49', restored: '#76966a' },
+      lampGlow: '#a8e07a', attracts: { butterfly: 0.5 },
       story: 'street_scenic', title: 'A greenway',
       body: 'An old green way. Its keepers are generous to those who mend it.',
       flash: 'A greenway. The green holds.' },
     { id: 'parkpath', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
-      stone: { weathered: '#5c4b3f', restored: '#000000' }, lampDensity: 2,
+      stone: { weathered: '#5c4b3f', restored: '#000000' },
       lampGlow: '#a8e07a',
       story: 'street_scenic', title: 'The park path',
       body: 'A path winding through the park. Its keepers have gifts for those who mend it.',
@@ -270,6 +273,11 @@
       story: 'street_golden', art: 'street_lantern', title: 'Golden Road',
       body: 'Coins carpet both verges, catching the light at every step.',
       flash: 'The verges glitter with coins.' },
+    { id: 'snare', affinities: ['ruined'], size: 'minor', share: 0.03, rung: 'rare',
+      stone: { weathered: '#594a3f', restored: '#897051' }, lampDensity: 1,
+      lampGlow: '#d58b52', story: 'street_snare', art: 'street_barricade', title: 'Snare Lane',
+      body: 'An old chest waits halfway down the lane. Iron teeth lie quiet in the grass around it.',
+      flash: 'Iron teeth around a chest.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
@@ -381,10 +389,33 @@
   // Final coverage is the same ownership field as zone art and lamp tint.
   // Eligible roads are wholly inside this tile; never consult loaded neighbours.
   // Canonical, unique segments make reversal and duplicate features immaterial.
-  function* applyAffinitiesSteps(index, zone, N, mvtToM) {
+  function* applyAffinitiesSteps(index, zone, N, mvtToM, geography = {}) {
     if (!index || !(N > 0) || !(mvtToM > 0)) return;
     const coverage = zone && (zone.coverage || zone.idx);
     const groups = new Map(), zoneTraits = new Map();
+    const WG = root.WorldGen, nearby = new Map();
+    const poiCells = new Set((geography.pois || []).filter(p => p.ix >= 0 && p.iy >= 0 && p.ix < N && p.iy < N).map(p => p.iy * N + p.ix));
+    // Reuse public-frontage ground and reach. Roads and paths are routes,
+    // not destinations: a road alone must not favour its own Lantern Row.
+    const destinationAt = (x, y) => {
+      if (x < 0 || y < 0 || x >= N || y >= N) return false;
+      const key = y * N + x;
+      if (nearby.has(key)) return nearby.get(key);
+      const radius = WG.SPAWN_FRONTAGE;
+      for (let iy = Math.max(0, y - radius); iy <= Math.min(N - 1, y + radius); iy++) {
+        for (let ix = Math.max(0, x - radius); ix <= Math.min(N - 1, x + radius); ix++) {
+          const i = iy * N + ix;
+          const land = geography.grid && (root.Zones
+            ? root.Zones.landAt(geography.grid, zone && zone.under, i) : geography.grid[i]);
+          const publicArea = WG.PUBLIC_NEAR.has(land)
+            && ![WG.T.ROAD, WG.T.ROAD_MD, WG.T.ROAD_LG, WG.T.PATH].includes(land);
+          if (poiCells.has(i) || publicArea) { nearby.set(key, true); return true; }
+        }
+      }
+      nearby.set(key, false);
+      return false;
+    };
+    const cell = p => ({ x: Math.floor(p.x * N / index.extent), y: Math.floor(p.y * N / index.extent) });
     for (const rec of index.lines) {
       if (!rec.variantEligible) continue;
       const key = rec.size + '|' + rec.affinityKey;
@@ -392,7 +423,7 @@
       groups.get(key).push(rec);
     }
     for (const records of groups.values()) {
-      const segments = new Map(), context = {};
+      const segments = new Map(), context = {}, ends = new Map();
       let total = 0, samples = 0;
       for (const rec of records) for (let i = 1; i < rec.line.length; i++) {
         let a = rec.line[i - 1], b = rec.line[i];
@@ -400,6 +431,10 @@
         segments.set(`${a.x},${a.y}|${b.x},${b.y}`, [a, b]);
       }
       for (const [, [a, b]] of [...segments].sort((a, b) => a[0].localeCompare(b[0]))) {
+        for (const p of [a, b]) {
+          const key = `${p.x},${p.y}`, end = ends.get(key);
+          ends.set(key, { p, degree: (end ? end.degree : 0) + 1 });
+        }
         const metres = Math.hypot(b.x - a.x, b.y - a.y) * mvtToM;
         if (!metres) continue;
         const count = Math.ceil(metres / AFFINITY_SAMPLE_M), weight = metres / count;
@@ -412,13 +447,22 @@
             const anchor = slot && zone.anchors[slot - 1];
             zoneTraits.set(slot, anchor && root.ZoneVariants ? root.ZoneVariants.traitsFor(root.ZoneVariants.pick(anchor)) : []);
           }
-          const traits = zoneTraits.get(slot);
+          const traits = zoneTraits.get(slot).slice();
+          if (destinationAt(x, y)) traits.push('destination');
           if (traits.length) for (const trait of traits) context[trait] = (context[trait] || 0) + weight / traits.length;
           else context.neutral = (context.neutral || 0) + weight;
           total += weight;
           if ((++samples & 127) === 0) yield 'street affinity samples';
         }
       }
+      // An actual road end near a destination favours the whole approach,
+      // even when most of that approach runs through ordinary residential land.
+      // Unique segment degrees ignore duplicates and internal feature cuts.
+      const leadsSomewhere = [...ends.values()].some(({ p, degree }) => {
+        const c = cell(p);
+        return degree === 1 && destinationAt(c.x, c.y);
+      });
+      if (leadsSomewhere) { context.destination = (context.destination || 0) + total; total *= 2; }
       for (const trait of Object.keys(context)) context[trait] /= total;
       const first = records[0];
       const variant = variantFor(first.affinityKey, first.name, first.size, context);
@@ -1055,7 +1099,7 @@
   // never in the unsliced spawn pass (CLAUDE.md, the worst-block rule).
   function* dressSteps(ctx) {
     const WG = root.WorldGen, S = root.Streets;
-    const res = { objects: [], wildplants: [], treasures: [], coins: [], lairs: [], slowCells: new Map(), marks: null };
+    const res = { objects: [], wildplants: [], treasures: [], coins: [], traps: [], lairs: [], slowCells: new Map(), marks: null };
     const idx = ctx && ctx.index;
     if (!idx || !WG || !S) return res;
     const { tx, ty, N, tileEdgeM, grid, spawnOpts } = ctx;
@@ -1138,7 +1182,7 @@
     const burnedSeen = new Set();
     // Pilgrim's Way / barricade street key → every owned piece end in the
     // square (tile-local MVT points), in line order.
-    const streetEnds = new Map(), habitatSeats = new Set();
+    const streetEnds = new Map(), habitatSeats = new Set(), snareSeats = new Set();
     for (const rec of (idx.dressingLines || idx.lines)) {
       const v = rec.variant;
       if (!v) continue;
@@ -1170,7 +1214,39 @@
           }
         });
       }
-      if (v === 'hedgerow') {
+      if (v === 'snare' && !snareSeats.has(rec.key)) {
+        // One cache at the canonical street patch's midpoint, on one verge.
+        // The dense two-cell ring stays off roads and outside major buffers;
+        // every seat also obeys occupied, private-ground and restriction masks.
+        const length = S.lineLengthM(rec.line, gM);
+        sampleLine(rec.line, gM, length + CELL_M, length / 2, (s, x, y, nx, ny) => {
+          if (!S.covers(spans, s)) return;
+          for (const side of [1, -1]) {
+            const off = side * (rec.halfW + (SNARE_TRAP_RADIUS_CELLS + 1.5) * CELL_M);
+            const ix = cellOfM(x + nx * off), iy = cellOfM(y + ny * off);
+            if (!hoardOk(ix, iy) || !foeOk(ix, iy)) continue;
+            const traps = [];
+            for (let dy = -SNARE_TRAP_RADIUS_CELLS; dy <= SNARE_TRAP_RADIUS_CELLS; dy++) {
+              for (let dx = -SNARE_TRAP_RADIUS_CELLS; dx <= SNARE_TRAP_RADIUS_CELLS; dx++) {
+                if (!dx && !dy) continue;
+                const ax = ix + dx, ay = iy + dy;
+                if (!foeOk(ax, ay)) continue;
+                traps.push({ id: WG.cellId('trap_snare', tx, ty, ax, ay),
+                  x: cx(ax), y: cy(ay), _ix: ax, _iy: ay, _street: v });
+              }
+            }
+            // Do not generate an undefended reward on cramped ground.
+            if (traps.length < SNARE_MIN_TRAPS) continue;
+            claim(ix, iy);
+            for (const trap of traps) claim(trap._ix, trap._iy);
+            res.traps.push(...traps);
+            res.objects.push(WG.makeObject('chest', cx(ix), cy(iy),
+              WG.cellId('chest_snare', tx, ty, ix, iy), { _street: v, name: 'Snare cache' }));
+            snareSeats.add(rec.key);
+            break;
+          }
+        });
+      } else if (v === 'hedgerow') {
         // One tidy row at the band's edge; obstacles leave a gap instead of
         // pushing individual hedges out of line. Both sides share gate stations.
         sampleLine(rec.line, gM, CELL_M, CELL_M / 2, (s, x, y, nx, ny) => {
@@ -1409,12 +1485,15 @@
     return res;
   }
 
-  // The lamp spacing for one line of a street: a Lantern Row's is
-  // LANTERN_SPACING_DIV times denser than Streets.lampSpacingM().
+  // Scenic paths show their distance-credit bonus through lantern density.
+  // Resolve the owning table at call time: Scenic loads after this module.
+  // Non-scenic street themes keep their authored density (e.g. Lantern Row).
   function lampSpacingFor(variant, baseSpacingM) {
-    const S = root.Streets;
+    const S = root.Streets, scenic = root.Scenic;
     const base = baseSpacingM || (S ? S.lampSpacingM() : 100);
-    return base / (VARIANT_BY_ID[variant]?.lampDensity || 1);
+    const kind = Object.keys(scenic?.KIND_ROW || {}).find(k => scenic.KIND_ROW[k] === variant);
+    const density = kind ? scenic.SCENIC_MUL[kind] : VARIANT_BY_ID[variant]?.lampDensity;
+    return base / (density || 1);
   }
 
   function stoneColorFor(variant, restored = true) {
@@ -1490,7 +1569,7 @@
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GATE_EVERY_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, VARIANT_PATCH_UNITS, VARIANT_PATCH_INSET_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
-    STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
+    SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,

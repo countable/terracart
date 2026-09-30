@@ -586,7 +586,7 @@ const INTERACTABLES = {
             : (stand
                 ? { kind: 'item', id: stand.item, qty: 2 + Math.floor(Math.random() * 3), consolation: 0 }
                 : ((typeof pickReward === 'function')
-                    ? pickReward('chest:' + theme, save, undefined, { tier: chestT, depth: o.depth || 0,
+                    ? pickReward('chest:' + theme, save, undefined, { tier: chestT, depth: chestLootDepth(o),
                         venueProduct: venueProductFor(o) })
                     : null)));
       if (!result) {

@@ -450,7 +450,7 @@ test('fauna attractors: a table, not code — every column names a spawned speci
   const cols = [...StreetVariants.STREET_VARIANTS.map((r) => [r.id, r.attracts]),
     ...Object.entries(Zones.ZONE_KINDS).map(([k, r]) => ['zone ' + k, r.attracts]),
     ...Object.entries(BIOME_ATTRACTS).map(([c, a]) => ['terrain ' + c, a])];
-  const known = new Set([...FAUNA_ORDER, 'rabbit']);
+  const known = new Set([...FAUNA_ORDER, ...SHORE_FAUNA_ORDER, 'rabbit']);
   for (const [who, a] of cols) {
     if (!a) continue;
     for (const [sp, p] of Object.entries(a)) {
@@ -464,11 +464,13 @@ test('fauna attractors: a table, not code — every column names a spawned speci
   assert.eq(row('overgrown').rabbit, 0.5, 'Overgrown → rabbits');
   assert.eq(row('overgrown').butterfly, 0.5, 'Overgrown → butterflies');
   assert.eq(row('toadstool').butterfly, 0.5, 'Toadstool → butterflies');
+  assert.eq(row('greenway').butterfly, 0.5, 'Greenway → butterflies');
   assert.eq(row('pilgrim').crow, 0.5, "Pilgrim's Way → crows");
   assert.eq(Zones.ZONE_KINDS.stones.attracts.crow, 0.5, 'churchyard → crows');
   assert.eq(Zones.ZONE_KINDS.grove.attracts.deer, 0.5, 'grove → deer');
   assert.eq(Zones.ZONE_KINDS.grove.attracts.butterfly, 0.5, 'grove → butterflies');
   assert.eq(BIOME_ATTRACTS[WorldGen.T.WASTELAND].slime, 0.5, 'wasteland → slimes');
+  assert.eq(BIOME_ATTRACTS[WorldGen.T.PITCH].deer, 0.5, 'sports pitch → deer');
   // The spawner reads the columns; it names no species of its own.
   const src = SCENE_CREATURES_SRC;
   const body = src.slice(src.indexOf('\n  _seatFaunaOnFavouriteGround('), src.indexOf('\n  }\n', src.indexOf('\n  _seatFaunaOnFavouriteGround(')));
@@ -510,6 +512,20 @@ test('fauna attractors: half of a species moves onto its ground, the rest stay; 
   assert.falsy(m2.slime, 'no slime moves into the starting area\'s amnesty');
 });
 
+test('sports pitch affinity relocates existing deer without creating more animals', () => {
+  const N = CPE, cellM = TILE_EDGE_M / N;
+  const grid = new Uint8Array(N * N).fill(T.GRASS);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N / 2; x++) grid[y * N + x] = T.PITCH;
+  const deer = Array.from({ length: 60 }, (_, i) => WorldGen.makeCreature('deer',
+    TX * TILE_EDGE_M + (N - 2) * cellM, TY * TILE_EDGE_M + (i + .5) * cellM, `pitch_deer_${i}`));
+  const scene = Object.assign({ tileEdgeM: TILE_EDGE_M }, liftAttract());
+  const moved = scene._seatFaunaOnFavouriteGround({ roadClass: new Uint8Array(N * N) },
+    TX, TY, N, cellM, grid, { occupied: new Set(), roadMask: new Uint8Array(N * N), pois: [] }, deer, null);
+  assert.eq(deer.length, 60, 'affinity never adds deer');
+  assert.inRange(moved.deer, 18, 42, 'approximately half the existing deer choose the pitch');
+  assert.eq(deer.filter(d => grid[cellOf(d.y, TY) * N + cellOf(d.x, TX)] === T.PITCH).length, moved.deer);
+});
+
 // ── Toadstool Lane, the barricade's goblins, the burned row's fire slimes ──
 const TOAD = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'toadstool', 'Pale Lane');
 const BARR = nameWhere((n, k) => SV.variantFor(k, n, 'major') === 'barricade', 'Gate Road');
@@ -544,7 +560,7 @@ test('toadstool lane: a minor row at 5%, its verge holds patterned glowing mushr
   // Appended after the seven older rows (code 8), and only the never-rolled
   // scenic 'path' rows (src/scenic.js) after it: no older row's code moves.
   assert.eq(row.code, 8, 'appended: no older row\'s code moves');
-  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path' || r.id === 'golden'), 'new rows append without changing existing codes');
+  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path' || r.id === 'golden' || r.id === 'snare'), 'new rows append without changing existing codes');
   let plain = 0, named = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'toadstool') plain++;
@@ -955,6 +971,48 @@ test('golden road: coins carpet both verges without overlapping occupied or bloc
     assert.truthy(opts.occupied.has(iy*CPE+ix),'coin reserves its cell before save filtering');
   }
   assert.eq(build([line],true).result.coins.length,0,'hard restrictions prevent coin placement');
+});
+
+test('snare lane: a deterministic central T3 cave cache surrounded by reserved traps', () => {
+  const name = nameWhere((n,k) => SV.variantFor(k,n,'minor') === 'snare', 'Snare Street');
+  const line = pts([[10,25],[54,25]]), middle = pts([[32,25]])[0];
+  const build = (lines, blocked = false, occupied = new Set()) => {
+    const index = indexOfLines(lines, name, TX, TY, TILE_EDGE_M / EXTENT);
+    const spawnWhy = new Uint16Array(CPE*CPE);
+    if (blocked) spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    const roadMask = new Uint8Array(CPE*CPE), roadClass = new Uint8Array(CPE*CPE);
+    const grid = new Uint8Array(CPE*CPE).fill(T.PARK);
+    for (let x=10; x<=54; x++) { roadMask[25*CPE+x]=1; grid[25*CPE+x]=T.ROAD; }
+    const opts = {roadMask, roadClass, spawnWhy, occupied};
+    return {result: SV.dress({index,tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,spawnOpts:opts}), opts, grid};
+  };
+  const {result,opts,grid} = build([line]);
+  assert.eq(result.objects.length,1);
+  const deterministicSnapshot = JSON.stringify(result);
+  const chest=result.objects[0];
+  assert.eq(chest.kind,'chest'); assert.eq(chestTier(chest),3);
+  assert.eq(chestLook(chest).texKey,'chest'); assert.falsy(restocks(chest));
+  assert.falsy(chest.depth,'the cache remains a surface object');
+  assert.eq(chestLootDepth(chest),1,'the reward picker uses the canonical cave mix');
+  assert.eq(chestLootDepth({depth:4}),4,'ordinary underground chests retain their depth');
+  assert.eq(cellOf(chest.x,TX),32,'reward halfway along the street');
+  assert.eq(result.traps.length,24,'two complete trap rings around the central reward');
+  const occupied=new Set();
+  for(const o of [chest,...result.traps]) {
+    const ix=cellOf(o.x,TX),iy=cellOf(o.y,TY),i=iy*CPE+ix;
+    assert.falsy(occupied.has(i)); occupied.add(i);
+    assert.truthy(opts.occupied.has(i)); assert.falsy(opts.roadMask[i]);
+    assert.truthy(WorldGen.isSpawnCell(grid,CPE,CPE,ix,iy,{...opts,occupied:new Set()},'fastEnemy'));
+    if(o!==chest) { assert.eq(o._ix,ix); assert.eq(o._iy,iy); }
+  }
+  assert.eq(deterministicSnapshot,JSON.stringify(build([[line[1],middle],[middle,line[0]]]).result),
+    'reversed, fragmented geometry keeps the cache and traps');
+  assert.eq(build([line],true).result.objects.length,0,'restricted ground holds no reward');
+  assert.eq(build([line],true).result.traps.length,0);
+  assert.eq(build([line],false,new Set(Array.from({length:CPE*CPE},(_,i)=>i))).result.objects.length,0,
+    'occupied ground holds no reward');
+  const picked=build([line]).result;
+  assert.eq(JSON.stringify(result.traps),JSON.stringify(picked.traps),'reload uses stable trap identities');
 });
 
 test('barricade scenery adds stakes and barriers without multiplying guards', () => {

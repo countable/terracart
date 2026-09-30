@@ -262,6 +262,7 @@ class SceneCreatures {
       }
       entry.wildplants = entry.wildplants || [];
       for (const wp of dressing.wildplants) if (lay(wp)) entry.wildplants.push(wp);
+      for (const trap of (dressing.traps || [])) if (lay(trap)) zoneTraps.push({ ...trap });
       streetTreasures = dressing.treasures.filter(lay);
       const found = setOf(this.save.foundTreasures || []);
       const coinIds = new Set((entry.coinDrops || []).map(c => c.id));
@@ -883,8 +884,10 @@ class SceneCreatures {
     // stream (its `salt`), so no other draw moves; its count follows the
     // waterline; each seat is the kind's own spawn class (creatureSpawnClass)
     // through the shared gate, and its id is the seat cell. See spawnShoreFauna.
-    this.spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid,
+    const shoreFauna = this.spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid,
       faunaSpawnOpts, _spawnOpts, caughtSet);
+    Object.assign(entry.faunaAttracted, this._seatFaunaOnFavouriteGround(entry, tx, ty, N,
+      cellM, genGrid, _spawnOpts, shoreFauna, pestFree, null, plantCells));
 
     // The per-player cull, AFTER every draw of the shared stream above.
     this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
@@ -983,6 +986,11 @@ class SceneCreatures {
     const marks = (SV && entry.streetMarks) || null;
     const streetRows = [];              // [code, row] with an attracts column
     if (marks) for (const row of SV.STREET_VARIANTS) if (row.attracts) streetRows.push([row.code, row]);
+    const scenicRows = [];
+    if (SV) for (const [kind, cells] of Object.entries(entry.scenic?.attractionCells || {})) {
+      const row = SV.VARIANT_BY_ID[Scenic.KIND_ROW[kind]];
+      if (row?.attracts && cells.size) scenicRows.push([cells, row]);
+    }
     // WALKING-PATH LAMPS: the cells beside every lamp a footway / path /
     // cycleway stands (Streets.PATH_LAMP_ATTRACTS — the cats, moved here from
     // Lantern Row). Every GENERATED lamp, lit or not: where an animal sits is
@@ -1013,6 +1021,7 @@ class SceneCreatures {
       for (const sp of Object.keys(attracts || {})) if (!candIdx.has(sp) && has(sp)) { candIdx.set(sp, cand.length); cand.push(sp); }
     };
     for (const [, row] of streetRows) note(row.attracts);
+    for (const [, row] of scenicRows) note(row.attracts);
     note(lampAttracts);
     for (const [, row] of zoneRows) note(row.attracts);
     for (const code of landCodes) note(BA[code]);
@@ -1040,6 +1049,13 @@ class SceneCreatures {
       };
       const byMark = new Int32Array(256);
       for (const [code, row] of streetRows) if (code >= 0 && code < 256) byMark[code] |= maskOf(row.attracts);
+      // Scenic paths have sparse classified verge sets instead of street
+      // marks. Fold them into the same single-pass species masks.
+      const byScenic = scenicRows.length ? new Int32Array(NN) : null;
+      for (const [cells, row] of scenicRows) {
+        const mask = maskOf(row.attracts);
+        for (const i of cells) if (i >= 0 && i < NN) byScenic[i] |= mask;
+      }
       const lampMask = lampAttracts ? maskOf(lampAttracts) : 0;
       const byOwner = new Int32Array(nA + 1);
       for (const [o, row] of zoneRows) byOwner[o] = maskOf(row.attracts);
@@ -1054,6 +1070,7 @@ class SceneCreatures {
           const c = marks[i];
           if (c > 0 && c < 256) { m |= byMark[c]; markSeen[c] = 1; }
         }
+        if (byScenic) m |= byScenic[i];
         if (lampMask && lampCells.has(i)) m |= lampMask;
         if (coverage) {
           const o = coverage[i];
@@ -1083,6 +1100,7 @@ class SceneCreatures {
     // Only present street grounds contribute a probability. An absent
     // Pilgrim's Way must not strengthen another zone's weaker crow pull.
     for (const [code, row] of streetRows) if (markSeen[code]) add(row.attracts);
+    for (const [, row] of scenicRows) add(row.attracts);
     add(lampAttracts);
     if (coverage) {
       const rowsSeen = new Set();

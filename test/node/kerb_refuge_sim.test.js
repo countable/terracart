@@ -138,6 +138,7 @@ test('kerb: the harness bites — every mobile hostile attacks a player in open 
   // Without this the test below could pass for the wrong reason: a sim in
   // which nothing ever attacks anybody.
   for (const spec of foes()) {
+    if (EnemyRoster.get(spec.label)?.attackType === 'none') continue;
     const r = walk(spec, at(10, OPEN_ROW + 1), () => at(10, OPEN_ROW), 30);
     assert.gt(attacks(r.scene), 0, `${spec.label}: attacked a player standing in the open`);
   }

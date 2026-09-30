@@ -33,6 +33,10 @@ test('elite: the bounty pays per HP, so an elite pays double the wage', () => {
   for (const kind of Object.keys(MONSTERS)) {
     const plain = enemyBounty(kind, 0);
     const elite = enemyBounty(kind, 0, Combat.ELITE_MUL);
+    if (MONSTERS[kind].bountyCoins != null) {
+      assert.eq(elite,plain,kind+' keeps its authored fixed payout');
+      continue;
+    }
     assert.eq(elite, Math.max(1, Math.round(MONSTERS[kind].hp * 2 * ENEMY_COIN_PER_HP)),
       kind + ' elite bounty is the doubled pool at the per-HP rate');
     assert.gt(elite, plain, kind + ' elite pays more than plain');

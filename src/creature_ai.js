@@ -973,6 +973,7 @@ function enemyAreaContains(c, row, px, py, cellM) {
     && Math.abs(delta) <= row.breath.halfAngleRadians;
 }
 function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget = null) {
+  if (row.attackType === 'none') return;
   const targetKey = npcTarget?.id || 'player';
   if (c._attackTargetKey != null && c._attackTargetKey !== targetKey) {
     c._attackWindupUntil = null; c._attackAim = null;
@@ -1122,6 +1123,8 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
       c._idleAngle = Math.random() * Math.PI * 2; c._idleTurnT = now + 3000;
     }
     angle = c._idleAngle; maxDistance = Infinity;
+  } else if (m.pattern === 'flee') {
+    angle += Math.PI; maxDistance = Infinity;
   } else if (m.pattern === 'orbit_swoop') {
     enemyBatMove(scene, c, row, now, px, py);
     return;

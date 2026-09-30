@@ -103,7 +103,7 @@ const MapReviewArt = (() => {
       this._sprites=[];
       const add=(e,o,category)=>{
         if(!Number.isFinite(o.x)||!Number.isFinite(o.y))return;
-        const appearance=category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(o):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:'coin_drop',frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.COIN_DROP_PX,displayHeight:Render.COIN_DROP_PX}:resolve(o);
+        const appearance=category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(o):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:Render.coinPile(o).texture,frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.coinPile(o).width,displayHeight:Render.coinPile(o).width}:resolve(o);
         if(o.kind==='_streetlamp'&&appearance?.visible) {
           // The shipping after hook owns lamp sizing and dark-stone alpha.
           appearance.spec.after({

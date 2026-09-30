@@ -56,7 +56,9 @@ data.assets.quarry_equipment = {kind:'image', path:vm.runInContext("gearAssetPat
 const colourTable = read('app').match(/const COLORS = (\{[\s\S]*?\n\});/);
 if (!colourTable) throw new Error('Cannot find shipping ground colours');
 vm.runInContext('const COLORS = ' + colourTable[1] + ';' + read('textures'), ctx);
-data.basicTiles = vm.runInContext(`Object.entries(BiomeProfiles.T).map(([name,type]) => ({
+data.basicTiles = vm.runInContext(`Object.entries(BiomeProfiles.T)
+  .filter(([name]) => !Object.values(Zones.ZONE_KINDS).some(zone => zone.terrain === name))
+  .map(([name,type]) => ({
   name, type, color: COLORS[type], variants: typeof BIOME_TEX[type] === 'object' ? BIOME_TEX[type].variants : 0,
   flora: BiomeProfiles.flora(type),
 }))`, ctx);

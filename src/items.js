@@ -95,6 +95,8 @@ const CROP_SPRITE = {
   // caveFloorTorches), drawn with its own inventory icon; picking it is a
   // Torch floor pickup uses the shared crop renderer.
   torch: { sheet: 'icon_torch', custom: true, frame: 0, scale: 1.36 },
+  // Ordinary wild blooms use the same pink blossom as their inventory icon.
+  flowers: { sheet: 'props', custom: true, frame: 12, scale: 1.13 },
   // ── Rare wild flora ── prized foraged flowers. Each is a distinct
   // single-cell flower frame off Props.png (22-col grid; frame = row*22 + col).
   // They spawn sparsely on a matching biome (see the per-biome flora in

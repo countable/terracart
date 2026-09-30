@@ -96,12 +96,12 @@ const ASSETS = {
   pier:        { kind: 'spritesheet', path: 'assets/Objects/Approved/pier.png', frameWidth: 16, frameHeight: 16 },
   // Wilderness art — all copied out of the gitignored Sprites/ source dump
   // into Objects/Wilderness/ so the tree can build without the raw asset pack.
-  // The ONE face of money — a 64x64 transparent pixel-art jade coin (green: no ore is). It is
-  // the coin_drop world sprite (the old 16px disc was baked in app.js create()
-  // until Oct 2026; renderer scales it down to 24px), the HUD money chip's
-  // icon, and the icon every money toast / modal wears (app.js coinIconHTML /
-  // coinIconEl / moneyHTML). One file, so no surface can draw money another way.
-  coin_drop: { kind: 'image', path: 'assets/Icons/coin.png' },
+  // Ground coins use simplified native-size art. The detailed HUD and popup
+  // icon stays in Icons/coin.png. Map quantity bands live in Render.COIN_PILES.
+  coin_drop: { kind: 'image', path: 'assets/Objects/Approved/coin_single_ground.png?v=3' },
+  coin_pile_small: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_small.png?v=2' },
+  coin_pile_medium: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_medium.png?v=2' },
+  coin_pile_large: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_large.png?v=2' },
   // Misc 16x16 prop — single boxed crate from the Singles tileset.
   box:         { kind: 'image', path: 'assets/Objects/Approved/box.png' },
   // Forest critters. Sheets are 16x16 frames; renderer picks frames as needed.
