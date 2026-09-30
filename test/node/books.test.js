@@ -362,8 +362,8 @@ test('tips: reach — the underground trim and the zero-energy floor are documen
 
 test('tips: the crop clock and the seed-back rate are the ones the code rolls', () => {
   const tip = PLAY_TIPS.find((t) => /plain watered crop/i.test(t));
-  assert.eq(Crops.STAGE_HOLD_MS, 15 * 60 * 1000, 'a tier-1 stage is 15 minutes');
-  assert.eq(Crops.stageHoldMs('coffee'), 3 * Crops.STAGE_HOLD_MS, 'finer crops take longer (the tip says so)');
+  assert.eq(Crops.STAGE_HOLD_MS, 2 * 60 * 1000, 'a tier-1 stage is 2 minutes');
+  assert.gt(Crops.stageHoldMs('coffee'), Crops.STAGE_HOLD_MS, 'finer crops take longer (the tip says so)');
   assert.truthy(/finer crops take longer/i.test(tip) && /better can shortens/i.test(tip), 'tier and can both named');
   assert.truthy(tip && tip.includes(`every ${shortDuration(Crops.STAGE_HOLD_MS)}`),
     'the course formats the owning growth duration');

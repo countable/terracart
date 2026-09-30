@@ -17,31 +17,36 @@
 (function (root) {
   'use strict';
 
-  // A TIER-1 crop's stage: 15 min. A finer crop takes longer between
-  // waterings (owner's call, Sep 2026): its stage is STAGE_HOLD_MS × its
-  // BASE_TIER (items.js — the one tier the loot and prices read), so a tier-2
-  // pairy holds 30 min and a tier-3 coffee 45. The magical flowers keep their
-  // own hours (STAGE_HOLDS), well past what the ladder would give them.
-  const STAGE_HOLD_MS = 15 * 60 * 1000;
-  const STAGE_HOLDS = Object.freeze({
-    sunflower: 60 * 60 * 1000,
-    fireflower: 2 * 60 * 60 * 1000,
-    iceflower: 3 * 60 * 60 * 1000,
-  });
+  // A crop's stage lasts 2 × tier³ minutes (owner's call, Sep 2026), off its
+  // BASE_TIER (items.js — the one tier the loot and prices read), rounded to a
+  // number a player can hold in their head (roundHoldMin): tier 1 2m, 2 15m,
+  // 3 55m, 4 2h, 5 4h, 6 7h. The magical flowers ride the same curve at their
+  // own tiers (sunflower 4, fireflower 5, iceflower 6).
+  const HOLD_MIN_PER_TIER_CUBED = 2;
+  function roundHoldMin(m) {
+    if (m < 10) return Math.max(1, Math.round(m));
+    if (m < 60) return Math.round(m / 5) * 5;
+    return Math.round(m / 60) * 60;
+  }
   function cropTier(crop) {
     const t = (typeof BASE_TIER !== 'undefined' && BASE_TIER[crop]) || 1;
     return Math.max(1, t);
   }
-  function stageHoldMs(crop) {
-    return Object.prototype.hasOwnProperty.call(STAGE_HOLDS, crop)
-      ? STAGE_HOLDS[crop] : STAGE_HOLD_MS * cropTier(crop);
+  function tierHoldMs(tier) {
+    return roundHoldMin(HOLD_MIN_PER_TIER_CUBED * tier ** 3) * 60 * 1000;
   }
+  function stageHoldMs(crop) { return tierHoldMs(cropTier(crop)); }
+  // A tier-1 crop's stage — the first crop a player grows (the starter seeds).
+  const STAGE_HOLD_MS = tierHoldMs(1);
+  // The flat 15-minute stage every crop had before per-crop holds. Only the
+  // one-time save migration below still reads it.
+  const LEGACY_STAGE_HOLD_MS = 15 * 60 * 1000;
   // THE CAN SHORTENS THE STAGE IT STARTS (owner's call, Sep 2026): a watering
   // stamps the plant's hold for the stage it begins (`p.hold_ms`), cut by the
-  // can's tier — CAN_HOLD_CUT off at Frost, a straight line down from bare
+  // can's tier — CAN_HOLD_CUT off at Frost (three quarters), a straight line down from bare
   // hands' full hold. A plant watered before this carried no stamp and reads
   // its crop's own hold (plantHoldMs).
-  const CAN_HOLD_CUT = 0.5;
+  const CAN_HOLD_CUT = 0.75;   // a Frost can's stage is a quarter of bare hands'
   function canHoldMul(relics) {
     const t = relics && relics.can && relics.can.tier ? relics.can.tier : 0;
     return 1 - CAN_HOLD_CUT * Math.max(0, Math.min(1, t / CAN_TOP_TIER));
@@ -57,12 +62,12 @@
     for (const p of save.planted || []) {
       if (!p.watered_t || isMature(p)) continue;
       const elapsed = Math.max(0, now - p.watered_t);
-      if (elapsed >= STAGE_HOLD_MS) {
+      if (elapsed >= LEGACY_STAGE_HOLD_MS) {
         p.stage = (p.stage ?? 0) + 1;
         p.watered_t = 0;
         changed = true;
-      } else if (stageHoldMs(p.crop) !== STAGE_HOLD_MS) {
-        p.watered_t = now - elapsed / STAGE_HOLD_MS * stageHoldMs(p.crop);
+      } else if (stageHoldMs(p.crop) !== LEGACY_STAGE_HOLD_MS) {
+        p.watered_t = now - elapsed / LEGACY_STAGE_HOLD_MS * stageHoldMs(p.crop);
         changed = true;
       }
     }
@@ -294,7 +299,7 @@
     return q;
   }
 
-  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, migrateStageTimers, CAN_TOP_TIER, maxStage, isMature, crowEats,
+  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, LEGACY_STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, migrateStageTimers, CAN_TOP_TIER, maxStage, isMature, crowEats,
                  advanceGrowth, waterWithin, waterOne, waterJumpChance, advanceWithin,
                  bedQuality, setBedQuality, clearBedQuality, takeBedQuality,
                  forEachInBox, invalidateSpatialIndex };
