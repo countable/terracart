@@ -69,6 +69,15 @@
     assert.eq(Starter.placeSafeAreaWarden(s, shy, 0, 0, { offscreen: () => false }), 0, 'every seat is in view: nobody seated');
     assert.eq(Starter.placeSafeAreaWarden(s, shy, 0, 0, { offscreen: () => true }), 4, 'looked away: all four');
     assert.truthy(shy._starterTile, 'the tile is marked for the arrivals pass');
+    // The runtime paths: a banked memory seats through the scene's starter-tile
+    // lookup (off screen only), and the arrivals pass calls back later.
+    const late = starterEntry();
+    const ls = { ...s, _starterTileEntry: () => ({ entry: late, tx: 0, ty: 0 }) };
+    assert.eq(Starter.seatStoryNeighbours(ls), 4, 'a banked memory seats whoever is due');
+    ls._starterTileEntry = () => null;
+    assert.eq(Starter.seatStoryNeighbours(ls), 0, 'underground or before the tile is up: a no-op');
+    assert.truthy(/MemoryStory\.enqueue\(this\.save, this\.memoriesTotal\(\), label\);\n\s*this\._seatStoryNeighbours\(\);/.test(SCENE_SRC), 'the one memory writer seats the arrival');
+    assert.truthy(/_seatStoryNeighbours\(\) \{ return Starter\.seatStoryNeighbours\(this\); \}/.test(SCENE_SRC), 'through the scene wrapper');
   });
 
   test('story neighbours: the survivor tells of the Warmonger, one act at a time, never the secret', () => {

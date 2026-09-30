@@ -358,8 +358,13 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   an owning ledger (restoration, lamps), never a count of its own. A zone's
   story in a resident's voice is the `keeper` column of `Zones.ZONE_KINDS`.
   The story neighbours by the trailer (`NPC.STORY_ROLES`, seated by
-  `Starter.placeSafeAreaWarden`) speak through `MemoryStory.npcDialogue`
-  by act; a new story voice is a role there, not a new placer or dialog path.
+  `Starter.placeSafeAreaWarden`) arrive by the memory ledger (`minMemories`;
+  only the warden on a new save, re-run from `_bankDiscovery` and
+  `NPC.tickArrivals`) and speak through `MemoryStory.npcDialogue` by act; a
+  new story voice is a role there, not a new placer or dialog path. Ordinary
+  residents are drawn in full by `NPC.spawn` but seated by `NPC.arrivals`:
+  they return with memories to Home's ring or a restored house, off screen;
+  a named zone's keeper stays. The warden's home plea is a tap, never a splash.
 
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
 `item_descriptions`, `books`, `story_neighbours`.

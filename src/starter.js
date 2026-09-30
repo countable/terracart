@@ -1990,6 +1990,17 @@
     return placed;
   }
 
+  // A memory has just been banked (app.js _bankDiscovery): seat whichever
+  // story neighbour it brings, if the starter tile is up — off screen only,
+  // like every arrival (NPC.offscreenAt); a seat in view waits for the
+  // arrivals pass (NPC.tickArrivals) to find the player looking elsewhere.
+  function seatStoryNeighbours(scene) {
+    const home = scene._starterTileEntry?.();
+    if (!home) return 0;
+    const offscreen = typeof NPC !== 'undefined' && NPC.offscreenAt ? NPC.offscreenAt(scene) : undefined;
+    return placeSafeAreaWarden(scene, home.entry, home.tx, home.ty, { offscreen });
+  }
+
   // Hard mode has no supply handout: drop the starter crates (the `crate: true`
   // chests _placeStarterTrail seats) from a tile. The relic chest at the end of
   // the trail is TREASURE, not supplies, and stays. Idempotent; a no-op on easy.
@@ -2019,6 +2030,7 @@
     provisionStarterHome,
     placeHomeGreeter,
     placeSafeAreaWarden,
+    seatStoryNeighbours,
     stripStarterCrates,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -8201,6 +8201,7 @@ class MapScene extends Phaser.Scene {
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     if (this.updateMemoriesDOM) this.updateMemoriesDOM();
     MemoryStory.enqueue(this.save, this.memoriesTotal(), label);
+    this._seatStoryNeighbours();   // a neighbour this memory brings to the trailer
     this.updateObjectiveDOM?.();
     persistSave(this.save);
     return true;
@@ -8820,6 +8821,7 @@ class MapScene extends Phaser.Scene {
   // Starter-area setup — see Starter.placeHomeGreeter (src/starter.js).
   _placeHomeGreeter(entry, tx, ty) { return Starter.placeHomeGreeter(this, entry, tx, ty); }
   _placeSafeAreaWarden(entry, tx, ty) { return Starter.placeSafeAreaWarden(this, entry, tx, ty); }
+  _seatStoryNeighbours() { return Starter.seatStoryNeighbours(this); }
 
   // Starter-area setup — see Starter.stripStarterCrates (src/starter.js).
   _stripStarterCrates(entry) { return Starter.stripStarterCrates(this, entry); }

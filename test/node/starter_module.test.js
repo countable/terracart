@@ -29,12 +29,13 @@
     _provisionStarterHome: 'entry, tx, ty, spawnIX, spawnIY, usedSeats',
     _placeHomeGreeter: 'entry, tx, ty',
     _placeSafeAreaWarden: 'entry, tx, ty',
+    _seatStoryNeighbours: '',
     _stripStarterCrates: 'entry',
   };
   const exportName = (m) => m.charAt(1).toLowerCase() + m.slice(2);
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  test('starter module: Starter exports all eighteen placers and supply payloads', () => {
+  test('starter module: Starter exports all nineteen placers and supply payloads', () => {
     assert.truthy(typeof Starter === 'object' && Starter, 'starter.js defines window.Starter');
     const want = Object.keys(MOVED).map(exportName).sort();
     assert.eq(Object.keys(Starter).sort().join(), [...want, 'STARTER_LOOT'].sort().join(), 'the export list');
