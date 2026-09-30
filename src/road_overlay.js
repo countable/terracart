@@ -168,6 +168,39 @@
     return out;
   }
 
+  // ── Carpet emblems ───────────────────────────────────────────────────────
+  // A carpet row's repeating mark (StreetVariants carpetEmblemFor), stamped
+  // down the strip's centre line every CARPET_EMBLEM_STEP_PX of run. Drawn
+  // UPRIGHT on screen, not turned with the road: an emblem reads as one only
+  // the right way up. Shapes are polylines in px about the stamp point, sized
+  // to sit inside the 0.6-cell strip.
+  const CARPET_EMBLEM_STEP_PX = 32;   // one crown a cell
+  const CARPET_EMBLEM_W_PX = 1.5;
+  const CARPET_EMBLEMS = {
+    // A simple three-point crown on a band.
+    crown: [[{ x: -5, y: 3 }, { x: -5, y: -3 }, { x: -2.5, y: 0 }, { x: 0, y: -4 },
+      { x: 2.5, y: 0 }, { x: 5, y: -3 }, { x: 5, y: 3 }, { x: -5, y: 3 }]],
+  };
+  function emitCarpetEmblems(g, run, emblem) {
+    const shape = emblem && CARPET_EMBLEMS[emblem.kind];
+    if (!shape) return;
+    let next = CARPET_EMBLEM_STEP_PX / 2;
+    for (let i = 1; i < run.length; i++) {
+      const ax = run[i - 1].x, ay = run[i - 1].y;
+      const dx = run[i].x - ax, dy = run[i].y - ay;
+      const len = Math.hypot(dx, dy);
+      if (len < 1e-6) continue;
+      while (next <= len) {
+        const cx = ax + dx / len * next, cy = ay + dy / len * next;
+        for (const poly of shape) {
+          g.decorPath(CARPET_EMBLEM_W_PX, emblem.ink, poly.map((p) => ({ x: cx + p.x, y: cy + p.y })));
+        }
+        next += CARPET_EMBLEM_STEP_PX;
+      }
+      next -= len;
+    }
+  }
+
   function emitRailDecor(scene, g, run) {
     const pxPerM = CELL_PX / scene.cellM;
     const halfGauge = (RAIL_GAUGE_M / 2) * pxPerM;
@@ -1637,7 +1670,8 @@
         const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
         emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, isRail, style?.variant, PATH_CLASSES.has(f.tags?.class)));
         const carpet = style && global.StreetVariants?.carpetColorFor(style.variant);
-        if (carpet != null) carpets.push({ pts, carpet, halfM: (widthPx / CELL_PX) * scene.cellM / 2 });
+        if (carpet != null) carpets.push({ pts, carpet, emblem: StreetVariants.carpetEmblemFor?.(style.variant) || null,
+          halfM: (widthPx / CELL_PX) * scene.cellM / 2 });
       }
     });
 
@@ -1647,12 +1681,17 @@
     // stub gets the plain band.
     if (g.decorPath) for (const run of railRuns) emitRailDecor(scene, g, run);
     // Carpet strips: plain crisp strokes either side of the road, on the
-    // verge cell, so the keep-out below trims them like the track.
-    if (g.decorPath) for (const { pts, carpet, halfM } of carpets) {
+    // verge cell, so the keep-out below trims them like the track — then the
+    // row's emblem stamped down each strip.
+    if (g.decorPath) for (const { pts, carpet, emblem, halfM } of carpets) {
       const off = halfM + scene.cellM / 2;
       const w = StreetVariants.CARPET_WIDTH_CELLS * CELL_PX;
       for (const side of [1, -1]) {
-        emitRuns(offsetLine(pts, side * off), proj, (run) => { if (run.length >= 2) g.decorPath(w, carpet, run); });
+        emitRuns(offsetLine(pts, side * off), proj, (run) => {
+          if (run.length < 2) return;
+          g.decorPath(w, carpet, run);
+          emitCarpetEmblems(g, run, emblem);
+        });
       }
     }
     // Land only, and never over a floor: punch the keep-out cells back out.
@@ -1863,7 +1902,7 @@
   }
 
   global.RoadOverlay = { lampSitesForTile, lampReservedCells, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
-                         offsetLine, paintLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
+                         offsetLine, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans };
