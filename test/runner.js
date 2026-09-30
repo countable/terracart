@@ -37,6 +37,42 @@ function teleport(scene, wx, wy) {
   if (scene.syncMoveTarget) scene.syncMoveTarget();
 }
 
+// Seat a deterministic mineralrock on the first free grass cell around the
+// player, in the player's own tile, and return {o, entry}. Terrain rock
+// stopped breaking (edbf0b2), so mining tests drive a real object instead of
+// hunting painted rock - worldgen's own rocks cluster where the fixture
+// never promised them.
+let __rockSeq = 0;
+function placeMineralrock(scene, extra) {
+  const wx = scene.startWorldM.x + scene.playerM.x;
+  const wy = scene.startWorldM.y + scene.playerM.y;
+  const tx = Math.floor(wx / scene.tileEdgeM), ty = Math.floor(wy / scene.tileEdgeM);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+  if (!entry) return null;
+  const N = entry.cellsPerEdge, M = entry.tileEdgeM / N;
+  const pcx = Math.floor((wx - tx * entry.tileEdgeM) / M);
+  const pcy = Math.floor((wy - ty * entry.tileEdgeM) / M);
+  const taken = new Set(entry.objects.map(o =>
+    Math.floor((o.x - tx * entry.tileEdgeM) / M) + '_' + Math.floor((o.y - ty * entry.tileEdgeM) / M)));
+  // Grass first, then any walkable open ground (a residential lawn carries
+  // worldgen's curbside rocks too); never road or building feet.
+  const okTerrain = (t) => t === WorldGen.T.GRASS
+    || (WorldGen.isWalkable(t) && !WorldGen.isRoadTerrain(t) && !WorldGen.isBuildingTerrain(t));
+  for (const pass of [0, 1]) for (let d = 1; d < 48; d++)
+    for (const [dx, dy] of [[d,0],[0,d],[-d,0],[0,-d],[d,d],[-d,-d],[d,-d],[-d,d]]) {
+      const ix = pcx + dx, iy = pcy + dy;
+      if (ix < 1 || iy < 1 || ix >= N - 1 || iy >= N - 1) continue;
+      const t = entry.grid[iy * N + ix];
+      if ((pass === 0 ? t !== WorldGen.T.GRASS : !okTerrain(t)) || taken.has(ix + '_' + iy)) continue;
+      const o = WorldGen.makeObject('mineralrock',
+        tx * entry.tileEdgeM + (ix + 0.5) * M, ty * entry.tileEdgeM + (iy + 0.5) * M,
+        'test_rock_' + (++__rockSeq), extra || {});
+      entry.objects.push(o);
+      return { o, entry };
+    }
+  return null;
+}
+
 // Project a world-meter point to screen pixels (the same maths handleWorldTap
 // reverses). Returns the (sx, sy) the tap handler expects.
 function worldToScreen(scene, wx, wy) {

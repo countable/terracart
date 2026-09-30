@@ -1294,30 +1294,27 @@ test('rock break: bare-handed works but slower than with pick', (scene) => {
   scene.save.relics = { pick: null, axe: null, ring: null, amulet: null };
   scene.save.energy = 100;
   scene.save.brokenRocks = []; scene.brokenRockSet = new Set();
-  // Find a rock cell. Type 10 = rock.
-  let target = null;
-  for (let d = 1; d < 30 && !target; d++) {
-    for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d], [d, d], [-d, -d]]) {
-      const wx = scene.startWorldM.x + dx * scene.cellM;
-      const wy = scene.startWorldM.y + dy * scene.cellM;
-      const c = scene.cellAt(wx, wy);
-      if (c.loaded && c.type === 10) { target = { wx, wy }; break; }
-    }
-  }
-  if (!target) return; // no rock loaded — skip
-  teleport(scene, target.wx, target.wy);
-  // No pick → still spends energy and kicks off a (longer) work progress.
-  tapWorld(scene, target.wx, target.wy);
-  assert.lt(scene.save.energy, 100, 'energy spent even without pick');
-  assert.truthy(scene._workProgress, 'work-progress started bare-handed');
-  assert.eq(scene._workProgress.durationMs, 10000, 'bare-handed mining takes 10s');
-  // Equip wood pick → 4s instead of 10s. (Tap once to cancel the in-progress
-  // bare-handed attempt, then again to start the picked one.)
-  scene.cancelWorkProgress();
-  scene.save.relics.pick = { tier: 1 };
-  tapWorld(scene, target.wx, target.wy);
-  assert.truthy(scene._workProgress, 'work-progress started with pick');
-  assert.eq(scene._workProgress.durationMs, 4000, 'pick makes mining take 4s');
+  // Terrain rock stopped breaking (edbf0b2): a real mineralrock object is the
+  // mineable surface now, so seat one instead of scanning painted rock. A
+  // PLAIN rock (no yieldTier) so the pick gate stays open bare-handed.
+  const seat = placeMineralrock(scene, { requiredTier: 1 });
+  if (!seat) return; // no free grass loaded - skip
+  const o = seat.o;
+  teleport(scene, o.x, o.y);
+  try {
+    // No pick → still spends energy and kicks off a (longer) work progress.
+    tapWorld(scene, o.x, o.y);
+    assert.lt(scene.save.energy, 100, 'energy spent even without pick');
+    assert.truthy(scene._workProgress, 'work-progress started bare-handed');
+    assert.eq(scene._workProgress.durationMs, 9000, 'bare-handed mining takes the 9s bare rung');
+    // Equip wood pick → 4s instead of 9s. (Cancel the in-progress bare-handed
+    // attempt, then start the picked one.)
+    scene.cancelWorkProgress();
+    scene.save.relics.pick = { tier: 1 };
+    tapWorld(scene, o.x, o.y);
+    assert.truthy(scene._workProgress, 'work-progress started with pick');
+    assert.eq(scene._workProgress.durationMs, 4000, 'pick makes mining take 4s');
+  } finally { scene.cancelWorkProgress(); }
 });
 
 test('tree chop refuses without an axe relic', (scene) => {
@@ -1422,9 +1419,10 @@ test('fort wood cost ramps per fort, then opens its slot machine', (scene) => {
   assert.eq(woodLeft, 0, 'the start wood was consumed');
   document.getElementById('offer-modal')?.remove();
   document.getElementById('chest-reward-modal')?.remove();
-  // (3) After unsealing the fort opens its slot machine.
+  // (3) After unsealing the fort opens its slot machine - rendered as the
+  // slots modal (presentFortSlots), not the offer modal.
   scene.shopInteract(0, 0, fort);
-  m = document.getElementById('offer-modal');
+  m = document.getElementById('slots-modal');
   assert.truthy(m, 'fort opens its slot machine once unsealed');
   assert.falsy([...m.querySelectorAll('button')].some(b => b.textContent === 'Buy'), 'fort has no legacy Buy offer');
   document.getElementById('offer-modal')?.remove();
@@ -1432,6 +1430,9 @@ test('fort wood cost ramps per fort, then opens its slot machine', (scene) => {
   assert.eq(scene._fortUnlockCost(),
     FORT_UNLOCK_WOOD_START + FORT_UNLOCK_WOOD_STEP,
     'second fort costs one step higher');
+  // The slots modal outlives this test otherwise and shopInteract's
+  // single-modal guard then eats every later shop tap.
+  document.getElementById('slots-modal')?.remove();
 });
 
 test('re-roll button is hidden on non-castle relic offers', (scene) => {
@@ -1457,6 +1458,10 @@ test('castle relic offer has NO re-roll button (balance pass)', (scene) => {
   // test guards the regression that would let castles silently re-roll.
   scene.save.shopState = {};
   if (scene.save.offerSalt == null) scene.save.offerSalt = 0xdeadbeef;
+  // A stale modal from an earlier test would eat the tap (shopInteract's
+  // single-modal guard) and read as 'castle opened nothing'.
+  document.getElementById('offer-modal')?.remove();
+  document.getElementById('slots-modal')?.remove();
   scene.save.relics = Object.fromEntries(Object.keys(RELIC_DEFS).map(k => [k, null]));
   scene.save.armor = Object.fromEntries(Object.keys(ARMOR_DEFS).map(k => [k, null]));
   scene.save.money = 100000;
@@ -2138,7 +2143,9 @@ test('defeat: bare-handed crow tap starts a long 9s work queue, no instant catch
   const crow = { x: pWX, y: pWY, kind: 'crow', id: 'test_crow_' + Date.now() };
   entry.creatures.push(crow);
   try {
-    tapWorld(scene, pWX, pWY);
+    // A crow FLOATS: its tappable body (interact.js creatureTapSpanPx) rides
+    // ~2.4-6.1 m above its feet, so the tap goes there, not on the foot cell.
+    tapWorld(scene, pWX, pWY - 4.2);
     assert.truthy(scene._workProgress, 'tapping a crow starts the defeat work queue');
     assert.eq(scene._workProgress.durationMs, 9000, 'bare-handed → 9s queue (2.25× wood)');
     assert.falsy(scene.save.caught.includes(crow.id), 'crow not caught until the queue finishes');
@@ -2162,7 +2169,8 @@ test('defeat: a bug net shortens the queue; finishing it removes the crow + drop
   const crow = { x: pWX, y: pWY, kind: 'crow', id: 'test_crow2_' + Date.now() };
   entry.creatures.push(crow);
   try {
-    tapWorld(scene, pWX, pWY);
+    // Tap the crow's floating body, ~4 m above its feet (see the test above).
+    tapWorld(scene, pWX, pWY - 4.2);
     assert.truthy(scene._workProgress, 'bug-net tap starts the queue');
     assert.eq(scene._workProgress.durationMs, 4000, 'tier-1 bug net → 4s queue');
     // Force the wheel to completion (fires onComplete, no real-time wait).
@@ -2632,29 +2640,25 @@ test('work-progress: tap within 150ms of start does NOT cancel; later tap cancel
   scene.save.relics.pick = { tier: 1 };
   scene.save.energy = 100;
   scene.save.brokenRocks = []; scene.brokenRockSet = new Set();
-  // Find a rock cell to start a real work wheel.
-  let target = null;
-  for (let d = 1; d < 30 && !target; d++) {
-    for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d], [d, d], [-d, -d]]) {
-      const wx = scene.startWorldM.x + dx * scene.cellM;
-      const wy = scene.startWorldM.y + dy * scene.cellM;
-      const c = scene.cellAt(wx, wy);
-      if (c.loaded && c.type === 10) { target = { wx, wy }; break; }
-    }
-  }
-  if (!target) return;
-  teleport(scene, target.wx, target.wy);
-  tapWorld(scene, target.wx, target.wy);
-  assert.truthy(scene._workProgress, 'work-progress launched');
-  // Fake an immediate second tap: by manually setting startT to "now" we
-  // guarantee the elapsed < 150ms branch fires.
-  scene._workProgress.startT = performance.now();
-  tapWorld(scene, target.wx, target.wy);
-  assert.truthy(scene._workProgress, 'tap within 150ms grace was swallowed, wheel still running');
-  // Now backdate the start so the grace window has passed. A tap should cancel.
-  scene._workProgress.startT = performance.now() - 500;
-  tapWorld(scene, target.wx, target.wy);
-  assert.falsy(scene._workProgress, 'tap after grace window cancels the wheel');
+  // Terrain rock stopped breaking (edbf0b2) - start the wheel on a seated
+  // mineralrock so the grace window is tested on a real work queue.
+  const seat = placeMineralrock(scene, { requiredTier: 1, yieldTier: 2 });
+  if (!seat) return;
+  const o = seat.o;
+  teleport(scene, o.x, o.y);
+  try {
+    tapWorld(scene, o.x, o.y);
+    assert.truthy(scene._workProgress, 'work-progress launched');
+    // Fake an immediate second tap: by manually setting startT to "now" we
+    // guarantee the elapsed < 150ms branch fires.
+    scene._workProgress.startT = performance.now();
+    tapWorld(scene, o.x, o.y);
+    assert.truthy(scene._workProgress, 'tap within 150ms grace was swallowed, wheel still running');
+    // Now backdate the start so the grace window has passed. A tap should cancel.
+    scene._workProgress.startT = performance.now() - 500;
+    tapWorld(scene, o.x, o.y);
+    assert.falsy(scene._workProgress, 'tap after grace window cancels the wheel');
+  } finally { scene.cancelWorkProgress(); }
 });
 
 // CANCEL REFUND — energy is charged up-front when a mine/break/cast starts, but
@@ -2665,25 +2669,22 @@ test('work-progress: cancelling a mine refunds the up-front energy', (scene) => 
   scene.save.relics.pick = { tier: 1 };
   scene.save.energy = 100;
   scene.save.brokenRocks = []; scene.brokenRockSet = new Set();
-  let target = null;
-  for (let d = 1; d < 30 && !target; d++) {
-    for (const [dx, dy] of [[d, 0], [0, d], [-d, 0], [0, -d], [d, d], [-d, -d]]) {
-      const wx = scene.startWorldM.x + dx * scene.cellM;
-      const wy = scene.startWorldM.y + dy * scene.cellM;
-      const c = scene.cellAt(wx, wy);
-      if (c.loaded && c.type === 10) { target = { wx, wy }; break; }
-    }
-  }
-  if (!target) return; // no rock loaded — skip
-  teleport(scene, target.wx, target.wy);
-  tapWorld(scene, target.wx, target.wy);
-  assert.lt(scene.save.energy, 100, 'energy charged up-front when mining starts');
-  assert.truthy(scene._workProgress, 'work wheel running');
-  // Backdate past the grace window, then tap to bail out.
-  scene._workProgress.startT = performance.now() - 500;
-  tapWorld(scene, target.wx, target.wy);
-  assert.falsy(scene._workProgress, 'tap cancelled the wheel');
-  assert.eq(scene.save.energy, 100, 'cancelling refunded the energy');
+  // Terrain rock stopped breaking (edbf0b2) - charge and refund a real
+  // mineralrock work queue.
+  const seat = placeMineralrock(scene, { requiredTier: 1, yieldTier: 2 });
+  if (!seat) return; // no free grass loaded - skip
+  const o = seat.o;
+  teleport(scene, o.x, o.y);
+  try {
+    tapWorld(scene, o.x, o.y);
+    assert.lt(scene.save.energy, 100, 'energy charged up-front when mining starts');
+    assert.truthy(scene._workProgress, 'work wheel running');
+    // Backdate past the grace window, then tap to bail out.
+    scene._workProgress.startT = performance.now() - 500;
+    tapWorld(scene, o.x, o.y);
+    assert.falsy(scene._workProgress, 'tap cancelled the wheel');
+    assert.eq(scene.save.energy, 100, 'cancelling refunded the up-front energy');
+  } finally { scene.cancelWorkProgress(); }
 });
 
 // SANDBOX MODULE — detect() reads the URL query; install() pre-populates
@@ -3050,44 +3051,37 @@ test('mineralrock mining: ore rocks drop the yield-tier bar (each tier its own n
   // then yields its OWN namesake bar (no collapsing to gold). See BARS[]+isPlain.
   const expected = { 1: 'rockfruit', 2: 'copper_bar', 3: 'iron_bar',
                      4: 'gold_bar',   5: 'platinum_bar', 6: 'crimson_bar', 7: 'frost_bar' };
-  // Group ore rocks by yield tier. A world tap resolves to the FIRST object
-  // within 3.5 m of the tap point — and rocks sit in dense fields, so a tap
-  // aimed at one rock can land on a neighbouring object instead. We therefore
-  // try rocks of each tier until one is provably the rock that broke (its id
-  // entered brokenRockSet), then assert that rock's bar dropped.
-  const byTier = {};
-  for (const e of WorldGen.tileCache.values()) {
-    for (const o of (e.objects || [])) {
-      if (o.kind !== 'mineralrock' || o.caveVariant != null) continue;  // ore rocks only
-      if (!expected[o.yieldTier]) continue;
-      (byTier[o.yieldTier] = byTier[o.yieldTier] || []).push(o);
-    }
+  // Seat one rock per tier beside the player instead of scanning streamed
+  // tiles: which tiles are live by now is order-dependent, and a pinned
+  // fixture owns its own rocks (the tier ladder, not worldgen luck, is under
+  // test). Seat them all while standing still, then mine each in turn.
+  const seats = [];
+  for (const tier of Object.keys(expected)) {
+    const seat = placeMineralrock(scene, tier === '1'
+      ? { requiredTier: 1 }
+      : { yieldTier: +tier, requiredTier: Math.max(1, +tier - 1) });
+    if (seat) seats.push(seat);
   }
   let testedTiers = 0;
-  for (const tier of Object.keys(byTier)) {
-    const want = expected[tier];
-    let mined = false;
-    for (const o of byTier[tier].slice(0, 40)) {     // cap attempts; clean rocks are common
-      scene.save.relics = scene.save.relics || {};
-      scene.save.relics.pick = { tier: 7 };
-      scene.save.energy = 100;
-      scene.save.inv = []; scene.save.selSlot = 0;
-      scene.save.brokenRocks = (scene.save.brokenRocks || []).filter(k => k !== o.id);
-      scene.brokenRockSet = new Set(scene.save.brokenRocks);
-      if (scene._workProgress) scene.cancelWorkProgress();
-      teleport(scene, o.x, o.y);
-      const origStart = scene.startWorkProgress.bind(scene);
-      const origFlashLoot = scene.flashLoot;
-      scene.flashLoot = () => {};                 // incidental UI; not under test
-      scene.startWorkProgress = (wx, wy, cb) => cb();
-      try { tapWorld(scene, o.x, o.y); }
-      finally { scene.startWorkProgress = origStart; scene.flashLoot = origFlashLoot; }
-      if (!scene.brokenRockSet.has(o.id)) continue;  // tap hit a neighbour — try the next rock
-      assert.gt(invCount(scene, want), 0, 'T' + tier + ' ore rock drops ' + want);
-      mined = true; testedTiers++;
-      break;
-    }
-    assert.truthy(mined, 'found a cleanly-tappable T' + tier + ' ore rock');
+  for (const seat of seats) {
+    const o = seat.o, want = expected[o.yieldTier || 1];
+    scene.save.relics = scene.save.relics || {};
+    scene.save.relics.pick = { tier: 7 };   // Frost: every gate opens
+    scene.save.energy = 100;
+    scene.save.inv = []; scene.save.selSlot = 0;
+    scene.save.brokenRocks = (scene.save.brokenRocks || []).filter(k => k !== o.id);
+    scene.brokenRockSet = new Set(scene.save.brokenRocks);
+    if (scene._workProgress) scene.cancelWorkProgress();
+    teleport(scene, o.x, o.y);
+    const origStart = scene.startWorkProgress.bind(scene);
+    const origFlashLoot = scene.flashLoot;
+    scene.flashLoot = () => {};                 // incidental UI; not under test
+    scene.startWorkProgress = (wx, wy, cb) => cb();
+    try { tapWorld(scene, o.x, o.y); }
+    finally { scene.startWorkProgress = origStart; scene.flashLoot = origFlashLoot; }
+    assert.truthy(scene.brokenRockSet.has(o.id), 'seated T' + (o.yieldTier || 1) + ' rock broke');
+    assert.gt(invCount(scene, want), 0, 'T' + (o.yieldTier || 1) + ' ore rock drops ' + want);
+    testedTiers++;
   }
-  assert.gt(testedTiers, 0, 'fixture contains ore mineralrocks');
+  assert.eq(testedTiers, Object.keys(expected).length, 'every yield tier was seated and mined');
 });
