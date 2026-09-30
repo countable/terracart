@@ -391,18 +391,15 @@ const SMITHY_PREVIEW_PX = 56;
 const smithyPreviewHTML = (iconHTML, name) =>
   `<div style="line-height:0;margin:2px 0 6px">${iconHTML}</div><div>${name}</div>`;
 const COIN_BURST_NEAR_R = 2;
-// THE SAFETY CARD (_showSafetyCard): what each version says, and when the
-// short ones come back. Kept here as data so the copy is one table. LAUNCH is
-// the game's only opening safety message (the loading screen carries none).
+// THE SAFETY CARDS (_showSafetyCard): what each reminder says, and when it
+// comes back. Kept here as data so the copy is one table. The opening
+// (LAUNCH) message is NOT here: it IS the loading screen (index.html
+// #bootload › #safety, owner, Sep 2026 — read while the wagon packs, and
+// acknowledged by the Go to my location tap), so these are the two REMINDERS.
 const SAFETY_RESUME_GAP_MS = 5 * 60 * 1000;   // back after 5+ minutes away
 const SAFETY_DUSK_DAYLIGHT = 0.5;             // Lighting.daylight: the sun on the horizon
 const SAFETY_TICK_MS = 30000;                 // how often dusk is asked
 const SAFETY_CARDS = {
-  launch: { title: '⚠ STAY SAFE',
-    lines: ['Look up. Watch where you walk, not the screen.',
-      'NEVER step into a street to reach something — use the stick to walk your farmer to it.',
-      'Do not play while driving or cycling.',
-      'Keep out of private, unsafe and prohibited places.'] },
   resume: { title: '⚠ LOOK UP',
     lines: ['Welcome back. Check your surroundings before you walk on.',
       'Out of reach? Use the stick — never the street.'] },
@@ -2934,8 +2931,8 @@ class MapScene extends Phaser.Scene {
         _endTiles?.();
         window.__boot?.mark('MAP PLAYABLE — boot overlay hidden');
         this._bootOverlayGone = true; window.__bootStatus?.(1);
-        // THE SAFETY CARD, every launch, the moment the map is the player's.
-        this._showSafetyCard('launch');
+        // No launch card here: the STAY SAFE message is the loading screen
+        // itself (index.html #safety), already read and acknowledged.
         // The map is the player's now, so responsiveness beats throughput:
         // tile builds go back to short slices (see WorldGen.setSliceBudgetMs).
         WorldGen.setSliceBudgetMs?.(WorldGen.RASTER_SLICE_LIVE_MS);
@@ -9429,13 +9426,14 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── THE SAFETY CARD ──────────────────────────────────────────────────────
-  // A FULL-SCREEN card, bold, dismissed only by a tap (owner, Sep 2026: the
-  // one-line loading warning was too easy to miss). The long card at every
-  // LAUNCH (the moment the boot overlay goes), a short one on RESUME after
-  // SAFETY_RESUME_GAP_MS in the background, and a short one at DUSK (the sun
-  // crossing SAFETY_DUSK_DAYLIGHT, once a UTC day). Every version says the one
-  // thing the game most needs you to do: reach what is out of reach with the
-  // STICK, never by stepping into the street. Not a makeModalShell dialog —
+  // A FULL-SCREEN card, bold, dismissed only by a tap. The REMINDERS: a short
+  // one on RESUME after SAFETY_RESUME_GAP_MS in the background, and a short
+  // one at DUSK (the sun crossing SAFETY_DUSK_DAYLIGHT, once a UTC day). The
+  // long opening message is the loading screen itself (index.html #safety —
+  // owner, Sep 2026: a card over the freshly loaded map got tapped away
+  // unread; on the loading screen it is what there is to read). Every
+  // version says the one thing the game most needs you to do: reach what is
+  // out of reach with the STICK, never by stepping into the street. Not a makeModalShell dialog —
   // it carries no painting and must cover the whole game box, above every
   // dialog; it does wear .game-modal so the movement pads hide under it.
   _showSafetyCard(which) {
