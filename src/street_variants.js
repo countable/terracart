@@ -162,30 +162,35 @@
   // `flash` is the ≤30-char map line a later visit gets.
   const STREET_VARIANTS = [
     { id: 'hedgerow', size: 'minor', share: 0.10, nudge: 2, rung: 'find',
+      stone: { weathered: '#52644b', restored: '#69805d' }, lampDensity: 1,
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
       lampGlow: '#9be08a', attracts: { rabbit: 0.5 },
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Clipped hedges both sides, a gap at every garden gate. The green still knows its shape.',
       flash: 'A hedged lane, still kept.' },
     { id: 'overgrown', size: 'minor', share: 0.10, rung: 'common',
+      stone: { weathered: '#465b42', restored: '#5d7953' }, lampDensity: 1,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
       lampGlow: '#9be08a', attracts: { rabbit: 0.5, butterfly: 0.5 },
       story: 'street_overgrown', title: 'Gone to seed',
       body: 'Saplings become trees along the verge. The green is taking this street back.',
       flash: 'The green is taking it back.' },
     { id: 'orchard', size: 'minor', share: 0.08, rung: 'uncommon',
+      stone: { weathered: '#78604e', restored: '#ab8659' }, lampDensity: 1,
       words: /(orchard|apple|cherry|plum|pear|peach|fruit|obst|kirsch|apfel|birn|pflaum|vine|berry)/i,
       lampGlow: '#ffa6c9', attracts: { deer: 0.5 },
       story: 'street_orchard', title: 'Orchard Lane',
       body: 'The old trees still fruit. Nobody picks them.',
       flash: 'Old trees, still fruiting.' },
     { id: 'pilgrim', size: 'minor', share: 0.06, rung: 'uncommon',
+      stone: { weathered: '#8b8879', restored: '#c5c1aa' }, lampDensity: 1,
       words: /(church|chapel|abbey|kirch|kloster|pilgrim|cross|saint|\bst\b|priest|minster|\bdom\b|mission)/i,
       lampGlow: '#f2eee0', attracts: { crow: 0.5 },
       story: 'street_pilgrim', title: "Pilgrim's Way",
       body: 'A waystone, worn smooth by hands. It remembers something.',
       flash: 'A waystone, worn smooth.' },
     { id: 'lantern', size: 'major', share: 0.07, rung: 'common',
+      stone: { weathered: '#806438', restored: '#c79a48' }, lampDensity: LANTERN_SPACING_DIV,
       words: /(lantern|lamp|light|candle|latern)/i,
       // No `attracts`: its marks lie on the major band + verge, all inside
       // the kerb buffer, where no animal is seated (WorldGen.isFoeCell).
@@ -194,12 +199,14 @@
       body: 'Lamp posts stand thick along this road, cold and waiting. Rebuild it and it will burn bright.',
       flash: 'Lamp posts, cold and waiting.' },
     { id: 'burned', size: 'major', share: 0.05, rung: 'uncommon',
+      stone: { weathered: '#583c35', restored: '#865041' }, lampDensity: 1,
       words: /(mill|forge|smith|ash|burn|brand|kiln|furnace|cinder|coal|ember|kohle|schmied|asche)/i,
       lampGlow: '#ff5a3c',
       story: 'street_burned', title: 'Burned Row',
       body: 'Tar in the gutters and iron stakes in the verge. Watch your feet.',
       flash: 'Tar underfoot. Go slow.' },
     { id: 'barricade', size: 'major', share: 0.04, rung: 'rare',
+      stone: { weathered: '#706047', restored: '#a38754' }, lampDensity: 1,
       words: /(gate|wall|fort|\btor\b|mauer|castle|burg|bastion|guard|wache|barrack|kaserne|armou?ry)/i,
       lampGlow: '#ff8c2a',
       story: 'street_barricade', title: 'The barricade',
@@ -209,6 +216,7 @@
     // the minor rows in order, so a street that rolled an older minor row
     // still does — only plain streets can become a toadstool lane.
     { id: 'toadstool', size: 'minor', share: 0.05, rung: 'uncommon',
+      stone: { weathered: '#45665f', restored: '#669489', pattern: 'spots', accent: '#d7dba3' }, lampDensity: 1,
       words: /(mushroom|toadstool|fung|pilz|fairy|\bring|moss|damp|mycel|spore|schwamm|elfen|feen)/i,
       lampGlow: '#4fd8c4', attracts: { butterfly: 0.5 },
       story: 'street_toadstool', title: 'Toadstool Lane',
@@ -223,16 +231,19 @@
     // painting for all three (street_scenic), told on the first scenic metre
     // restored (app.js _ripenStreets), the `flash` on later walks.
     { id: 'promenade', size: 'path', share: 0, rung: 'uncommon',
-      lampGlow: '#7fe3d0',
+      stone: { weathered: '#92743e', restored: '#d6ad58' }, lampDensity: 1,
+      lampGlow: '#ffd16a',
       story: 'street_scenic', title: 'The promenade',
       body: 'A path by the water. Every metre of it you mend counts for more. Walk it slow.',
       flash: 'The promenade. Walk it slow.' },
     { id: 'greenway', size: 'path', share: 0, rung: 'uncommon',
+      stone: { weathered: '#4f6c49', restored: '#76966a' }, lampDensity: 1,
       lampGlow: '#a8e07a',
       story: 'street_scenic', title: 'A greenway',
       body: 'An old green way, kept clear of the roads. Every metre of it you mend counts for more.',
       flash: 'A greenway. The green holds.' },
     { id: 'parkpath', size: 'path', share: 0, rung: 'uncommon',
+      stone: { weathered: '#5c4b3f', restored: '#000000' }, lampDensity: 2,
       lampGlow: '#a8e07a',
       story: 'street_scenic', title: 'The park path',
       body: 'A path winding through the park. Every metre of it you mend counts for more.',
@@ -1039,10 +1050,38 @@
 
   // The lamp spacing for one line of a street: a Lantern Row's is
   // LANTERN_SPACING_DIV times denser than Streets.lampSpacingM().
-  function lampSpacingFor(variant) {
+  function lampSpacingFor(variant, baseSpacingM) {
     const S = root.Streets;
-    const base = S ? S.lampSpacingM() : 100;
-    return variant === 'lantern' ? base / LANTERN_SPACING_DIV : base;
+    const base = baseSpacingM || (S ? S.lampSpacingM() : 100);
+    return base / (VARIANT_BY_ID[variant]?.lampDensity || 1);
+  }
+
+  function stoneColorFor(variant, restored = true) {
+    return VARIANT_BY_ID[variant]?.stone?.[restored ? 'restored' : 'weathered'] || null;
+  }
+
+  // One line's themed metre intervals, shared by paving, lamps and previews.
+  // Scenic classifications can change partway along a path; never let one
+  // scenic stretch repaint or change the lamp spacing on its plain remainder.
+  function lineStyles(entry, feature, fi, li, mvtToM) {
+    const S = root.Streets, line = feature.geom[li];
+    const length = S.lineLengthM(line, mvtToM);
+    const rec = entry.streetIndex?.lines?.find((r) => r.fi === fi && r.li === li);
+    const ivs = !rec && entry.scenic?.lines?.get(S.lineKey(feature, li));
+    const cuts = [0, length];
+    for (const iv of ivs || []) for (const u of [iv[0], iv[1]]) {
+      const m = Math.max(0, Math.min(length, u * mvtToM));
+      cuts.push(m);
+    }
+    cuts.sort((a, b) => a - b);
+    const out = [];
+    for (let i = 1; i < cuts.length; i++) {
+      const a = cuts[i - 1], b = cuts[i];
+      if (b - a < 1e-6) continue;
+      const kind = ivs && root.Scenic?.kindAt(ivs, (a + b) / 2, mvtToM);
+      out.push({ a, b, variant: rec?.variant || (kind && root.Scenic.KIND_ROW[kind]) || null, size: rec?.size });
+    }
+    return out;
   }
 
   // THE LAMP'S GLOW: a street's lamps shed its variant's colour (the row's
@@ -1073,6 +1112,6 @@
     STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     nameVote, lineName, sampleLine, buildIndexSteps, buildIndex, areaSteps, area,
-    markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, isSlowKind,
+    markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, lineStyles, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -618,7 +618,7 @@ const RO_STREETS_STUB = {
 // Install the stub for one test and hand the global back afterwards.
 function withStreets(fn) {
   const prev = globalThis.Streets;
-  globalThis.Streets = RO_STREETS_STUB;
+  globalThis.Streets = { ...prev, ...RO_STREETS_STUB };
   try { return fn(); } finally { globalThis.Streets = prev; }
 }
 
@@ -1566,3 +1566,19 @@ test('restored patch: the softening is the LAST thing the pass does', () => {
   assert.falsy(/softenEdge\(/.test(baseBody), 'the dilapidated band is not feathered');
 });
 })();
+
+
+test('road overlay: themed paving uses colored setts and spotty pavement before and after restoration', () => {
+  const fills = [];
+  const cx = { fillStyle: '', globalAlpha: 1, beginPath() {}, moveTo() {}, lineTo() {}, quadraticCurveTo() {}, closePath() {},
+    fillRect() { fills.push(this.fillStyle); }, fill() { fills.push(this.fillStyle); }, arc() {}, stroke() {}, drawImage() {} };
+  RoadOverlay.paintPavementTile(cx, 32, true, true, 'promenade');
+  assert.truthy(fills.includes(StreetVariants.stoneColorFor('promenade')), 'golden bodies, not just mortar');
+  const previousCreate = document.createElement;
+  document.createElement = () => ({ getContext: () => cx });
+  try { for (const restored of [false, true]) {
+    fills.length = 0;
+    RoadOverlay.paintPavementTile(cx, 32, false, restored, 'toadstool');
+    assert.truthy(fills.includes(StreetVariants.VARIANT_BY_ID.toadstool.stone.accent), 'cream mushroom spots on both finishes');
+  } } finally { document.createElement = previousCreate; }
+});

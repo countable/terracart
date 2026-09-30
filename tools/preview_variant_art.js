@@ -8,7 +8,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'util', 'sprite_layout', 'assets', 'items']) {
+for (const name of ['enemy_roster', 'util', 'sprite_layout', 'assets', 'items', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'road_overlay']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 const render = read('render');
@@ -22,8 +22,7 @@ function slice(source, from, to) {
   if (a < 0 || b < a) throw new Error('Cannot find preview painter: ' + from);
   return source.slice(a, b);
 }
-const painters = slice(read('textures'), 'const TRAP_PX =', '// === Animated biome textures ===')
-  + slice(read('road_overlay'), '  const LAMP_TEX_PX =', '  // The kerb: a hairline');
+const painters = slice(read('textures'), 'const TRAP_PX =', '// === Animated biome textures ===');
 const data = vm.runInContext(`({ assets: ASSETS, crops: CROP_SPRITE, cropRows: CROP_ROW,
   cropColumns: CROPS_SHEET_COLS, matureStage: MAX_GROWTH_STAGE,
   mineralTiers: MINERAL_TIERS, fruitFrames, names: CROP_NAMES,
@@ -32,6 +31,8 @@ const data = vm.runInContext(`({ assets: ASSETS, crops: CROP_SPRITE, cropRows: C
     {frame:treeGrowthStage({species:'maple',variant}),scale:treeScale({species:'maple',variant})}])) ,
   churchyardFrame: SpriteLayout.plainRockFrame({rockVariant: SpriteLayout.CHURCHYARD_ROCK_VARIANT}),
   groveShrines: SpriteLayout.GROVE_SHRINE_ART,
+  cellPx: SpriteLayout.CELL_PX, pathClasses: [...WorldGen.PATH_CLASSES], waterTerrain: WorldGen.T.WATER,
+  lampDrawCells: RoadOverlay.LAMP_DRAW_CELLS, lampGroundFrac: RoadOverlay.LAMP_GROUND_FRAC,
   creatures: SpriteLayout.CREATURE_ART, lampGold: UI_LAMP_GOLD, lampGlow: UI_LAMP_GLOW })`, ctx);
 // A JSON registry cannot carry onLoad functions. Declare the alpha-keying
 // operation from the owning callback, rather than keying every pale sprite.
@@ -39,4 +40,7 @@ for (const row of Object.values(data.assets)) {
   row.whiteKey = !!(row.onLoad && /data\.data\[i\] > 240/.test(row.onLoad.toString()));
 }
 data.painters = painters;
+// Embed the shipping pavement/lamp painters, preserving their shared helpers.
+data.roadPainter = read('road_overlay');
+data.variantSource = read('street_variants');
 process.stdout.write(JSON.stringify(data));

@@ -135,6 +135,31 @@ test('scenic: a park path needs a NAMED park or one of PARK_MIN_M2', () => {
   assert.eq(S.ringsAreaU2([[{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }]]), 100);
 });
 
+test('scenic: greenway grass lines both verges deterministically and respects blocked or occupied cells', () => {
+  const pts = [[800, 2000], [3200, 2000]];
+  const spec = { transportation: [line(FOOT, pts)],
+    transportation_name: [line({ class: 'path', name: 'Test Greenway' }, pts)] };
+  const scenic = buildOf(spec);
+  const grid = new Uint8Array(N * N).fill(WorldGen.T.GRASS);
+  const edge = N * WorldGen.CELL_M;
+  const grass = (sc, extra = {}, frame = edge) => S.dress({ scenic: sc, tx: TX, ty: TY, N,
+    tileEdgeM: frame, grid, chests: [], spawnOpts: { occupied: new Set(), ...extra } }).wildplants;
+  const a = grass(scenic), b = grass(buildOf(spec));
+  assert.gt(a.length, 20, 'a visible row on both sides');
+  assert.eq(a.map(p => p.id).join(), b.map(p => p.id).join(), 'repeatable cell identities');
+  assert.eq(a.map(p => p.id).join(), grass(scenic, {}, edge * 1.3).map(p => p.id).join(), 'independent of drawing metre frame');
+  assert.truthy(a.every(p => p.crop === 'longgrass' && p._street === 'greenway'), 'ordinary harvestable grass');
+  const centreY = TY * edge + 2000 * edge / EXT;
+  assert.truthy(a.some(p => p.y < centreY) && a.some(p => p.y > centreY), 'both verges');
+  assert.eq(new Set(a.map(p => p.id)).size, a.length, 'one plant per cell');
+  assert.eq(grass(scenic, { occupied: new Set(Array.from({ length: N * N }, (_, i) => i)) }).length, 0, 'occupancy');
+  assert.eq(grass(scenic, { spawnWhy: new Uint16Array(N * N).fill(WorldGen.SPAWN_WHY.PRIVATE) }).length, 0, 'hard suppression');
+  assert.eq(grass(scenic, { roadMask: new Uint8Array(N * N).fill(1) }).length, 0, 'road mask');
+  assert.eq(grass(buildOf({ transportation: spec.transportation })).length, 0, 'ordinary paths do not gain greenway grass');
+  assert.eq(grass(buildOf({ ...spec, transportation: [...spec.transportation, hline({ class: 'minor' }, 2000 + u(5))] })).length,
+    0, 'the sidewalk safety filter also excludes grass');
+});
+
 test('scenic: a GREENWAY is a named or waymarked off-road path — the name alone never upgrades a pavement', () => {
   const pts = [[800, 1500], [3200, 1500]];
   const gw = buildOf({ transportation: [line(FOOT, pts)],
@@ -440,7 +465,7 @@ test('scenic: on the Kelowna fixtures every scenic piece stands off the road, on
       assert.eq(r.roadMask[i], 0, `${key} ${p.id}: off the drawn road`);
       assert.truthy(WorldGen.isSpawnCell(r.grid, Nf, Nf, ix, iy,
         { roadMask: r.roadMask, spawnWhy: r.spawnWhy, quiet: r.quietMask, roadClass: r.roadClass },
-        'reward'), `${key} ${p.id}: the spawn gate takes it as a reward (off the kerb)`);
+        p._street === 'greenway' ? 'minor' : 'reward'), `${key} ${p.id}: the spawn gate takes its class`);
       assert.falsy(seen.has(i), `${key} ${p.id}: one piece a cell`);
       seen.add(i);
       assert.truthy(p.id.endsWith(`_${tx}_${ty}_${ix}_${iy}`), `${key} ${p.id}: its id is its cell`);
