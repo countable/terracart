@@ -12,9 +12,15 @@
           0,
           80,
           98
-        ]
+        ],
+        "stateShade": {
+          "wash": "#1e3b24",
+          "washA": 0.35,
+          "murk": "#05070c",
+          "murkA": 0.12
+        }
       },
-      "assessment": "The dominant pre-restoration house has vivid red roof and green creepers beneath a runtime green wash. Fine roof lines read busier than character art.",
+      "assessment": "The original unclaimed wreck already supplies the right weathered appearance; it only needs a small lift in readability.",
       "recommendation": {
         "action": "recolour",
         "candidate": {
@@ -24,9 +30,15 @@
             0,
             80,
             98
-          ]
+          ],
+          "stateShade": {
+            "wash": "#1e3b24",
+            "washA": 0.35,
+            "murk": "#05070c",
+            "murkA": 0.12
+          }
         },
-        "rationale": "Keep the wreck silhouette and boarded door, map roof to clay/earth and ivy to leaf_dark/leaf; reduce repeated one-pixel highlights. This is the strongest building-wide rustic baseline change.",
+        "rationale": "Retain the original green weathering, roof detail and boarded door. Lift lightness and nudge the official palette by only 10%; do not replace its original material colours.",
         "palette": [
           "ink",
           "shadow",
@@ -37,7 +49,9 @@
           "leaf",
           "stone"
         ],
-        "recolourStrength": 0.6
+        "recolourStrength": 0.1,
+        "recolourMode": "gentle-tune",
+        "preserveLuminance": true
       },
       "prevalenceRank": 1,
       "prevalenceReason": "Every unclaimed tier-9 building before restoration; house sprite under building wash.",
@@ -238,7 +252,7 @@
           154
         ]
       },
-      "assessment": "The earlier muted proposal suits an unclaimed fort. A claimed fort should regain the brightness and detail of the original building.",
+      "assessment": "The original weathered fort is the unclaimed baseline; its claimed state retains the separately tuned clean appearance.",
       "recommendation": {
         "action": "recolour",
         "candidate": {
@@ -271,7 +285,13 @@
                 0,
                 214,
                 154
-              ]
+              ],
+              "stateShade": {
+                "wash": "#1e3b24",
+                "washA": 0.35,
+                "murk": "#05070c",
+                "murkA": 0.12
+              }
             },
             "palette": [
               "ink",
@@ -282,8 +302,10 @@
               "hero_cyan",
               "restored_sage"
             ],
-            "recolourStrength": 0.7,
-            "rationale": "Previous muted palette direction retained for the unrepaired fort."
+            "recolourStrength": 0.1,
+            "rationale": "Start from the original unclaimed fort with its green runtime wash. Apply only a 10% lightness and palette nudge, preserving weathering and timber/roof detail.",
+            "recolourMode": "gentle-tune",
+            "preserveLuminance": true
           },
           "claimed": {
             "name": "Claimed fort",
@@ -1297,7 +1319,7 @@
           "clay",
           "earth"
         ],
-        "rationale": "Keep restored masonry close to its original clean, brighter colours. Restrict the stronger rustic colour transfer to unclaimed structures; preserve floor and wall detail and the shared material palette.",
+        "rationale": "Retain the approved claimed/restored palette. For unclaimed structures, preserve the original weathered colours and clearly visible sludge; only a 10% palette and lightness nudge is proposed.",
         "recolourStrength": 0.08,
         "stateTreatments": {
           "unclaimed": {
@@ -1310,8 +1332,10 @@
               "clay",
               "earth"
             ],
-            "recolourStrength": 0.55,
-            "rationale": "Weathered rustic stone for the existing unclaimed state."
+            "recolourStrength": 0.1,
+            "rationale": "Use the original unclaimed floor, masonry and sludge, with only a 10% lightness and palette adjustment. Preserve original stain contrast.",
+            "recolourMode": "gentle-tune",
+            "preserveLuminance": true
           },
           "claimed": {
             "name": "Restored structure",
@@ -1358,7 +1382,7 @@
           "clay",
           "earth"
         ],
-        "rationale": "Keep restored masonry close to its original clean, brighter colours. Restrict the stronger rustic colour transfer to unclaimed structures; preserve floor and wall detail and the shared material palette.",
+        "rationale": "Retain the approved claimed/restored palette. For unclaimed structures, preserve the original weathered colours and clearly visible sludge; only a 10% palette and lightness nudge is proposed.",
         "recolourStrength": 0.08,
         "stateTreatments": {
           "unclaimed": {
@@ -1371,8 +1395,10 @@
               "clay",
               "earth"
             ],
-            "recolourStrength": 0.55,
-            "rationale": "Weathered rustic stone for the existing unclaimed state."
+            "recolourStrength": 0.1,
+            "rationale": "Use the original unclaimed floor, masonry and sludge, with only a 10% lightness and palette adjustment. Preserve original stain contrast.",
+            "recolourMode": "gentle-tune",
+            "preserveLuminance": true
           },
           "claimed": {
             "name": "Restored structure",
@@ -1419,7 +1445,7 @@
           "clay",
           "earth"
         ],
-        "rationale": "Keep restored masonry close to its original clean, brighter colours. Restrict the stronger rustic colour transfer to unclaimed structures; preserve floor and wall detail and the shared material palette.",
+        "rationale": "Retain the approved claimed/restored palette. For unclaimed structures, preserve the original weathered colours and clearly visible sludge; only a 10% palette and lightness nudge is proposed.",
         "recolourStrength": 0.08,
         "stateTreatments": {
           "unclaimed": {
@@ -1432,8 +1458,10 @@
               "clay",
               "earth"
             ],
-            "recolourStrength": 0.55,
-            "rationale": "Weathered rustic stone for the existing unclaimed state."
+            "recolourStrength": 0.1,
+            "rationale": "Use the original unclaimed floor, masonry and sludge, with only a 10% lightness and palette adjustment. Preserve original stain contrast.",
+            "recolourMode": "gentle-tune",
+            "preserveLuminance": true
           },
           "claimed": {
             "name": "Restored structure",
@@ -1479,7 +1507,7 @@
           "stone",
           "stone_light"
         ],
-        "rationale": "Keep restored masonry close to its original clean, brighter colours. Restrict the stronger rustic colour transfer to unclaimed structures; preserve floor and wall detail and the shared material palette.",
+        "rationale": "Retain the approved claimed/restored palette. For unclaimed structures, preserve the original weathered colours and clearly visible sludge; only a 10% palette and lightness nudge is proposed.",
         "recolourStrength": 0.08,
         "stateTreatments": {
           "unclaimed": {
@@ -1490,8 +1518,10 @@
               "stone",
               "stone_light"
             ],
-            "recolourStrength": 0.55,
-            "rationale": "Weathered rustic stone for the existing unclaimed state."
+            "recolourStrength": 0.1,
+            "rationale": "Use the original unclaimed floor, masonry and sludge, with only a 10% lightness and palette adjustment. Preserve original stain contrast.",
+            "recolourMode": "gentle-tune",
+            "preserveLuminance": true
           },
           "claimed": {
             "name": "Restored structure",

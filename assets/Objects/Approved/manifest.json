@@ -1,0 +1,5919 @@
+{
+  "version": 1,
+  "sourceCommit": "175b790f3e089f9298d8e14ebccd6b3549f997c2",
+  "colourTransformSha256": "0f17edadd9999554969e695e8d67512ad88c82f0b89fbe60ed3a5e3973c45624",
+  "originalAssets": {
+    "house_wreck": {
+      "kind": "image",
+      "path": "assets/Objects/Houses/Wreck.png?v=1"
+    },
+    "house": {
+      "kind": "image",
+      "path": "assets/Objects/House.png"
+    },
+    "house_blacksmith": {
+      "kind": "image",
+      "path": "assets/Objects/Houses/blacksmith.png"
+    },
+    "house_trader": {
+      "kind": "image",
+      "path": "assets/Objects/Houses/trader.png"
+    },
+    "house_market": {
+      "kind": "image",
+      "path": "assets/Objects/Houses/market.png"
+    },
+    "house_fort": {
+      "kind": "image",
+      "path": "assets/Objects/Houses/fort.png"
+    },
+    "house_trailer": {
+      "kind": "image",
+      "path": "assets/Objects/Houses/trailer.png"
+    },
+    "shrine": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Houses/wizard.png",
+      "frameWidth": 80,
+      "frameHeight": 104
+    },
+    "market_stand": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/market_stand.png?v=1",
+      "frameWidth": 80,
+      "frameHeight": 80
+    },
+    "wagon": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Generated/wagon.png",
+      "frameWidth": 128,
+      "frameHeight": 96
+    },
+    "pillar": {
+      "kind": "image",
+      "path": "assets/Objects/Wilderness/pillar.png?v=2"
+    },
+    "gatepost": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Generated/pillar_a.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "signpost": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Generated/signpost.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "waystone": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Generated/waystone.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "barricade": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Generated/barricade.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "stair_down": {
+      "kind": "image",
+      "path": "assets/Objects/stair_down.png?v=2"
+    },
+    "stair_up": {
+      "kind": "image",
+      "path": "assets/Objects/stair_up.png?v=1"
+    },
+    "grove_votive": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Landmarks/shrine-votive.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "props": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Rustic/Props.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "bushes": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Rustic/bush.png",
+      "frameWidth": 48,
+      "frameHeight": 32
+    },
+    "trees": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Rustic/trees.png",
+      "frameWidth": 32,
+      "frameHeight": 48
+    },
+    "pine_tree": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Wilderness/Pine Tree.png",
+      "frameWidth": 32,
+      "frameHeight": 48
+    },
+    "birch_tree": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Wilderness/Birch Tree.png",
+      "frameWidth": 32,
+      "frameHeight": 48
+    },
+    "mahogany_tree": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Wilderness/Mahogany Tree.png",
+      "frameWidth": 32,
+      "frameHeight": 48
+    },
+    "mineralrock": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Wilderness/stone with minerals.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "crops": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Crops.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "apple_tree": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Wilderness/Apple Tree.png",
+      "frameWidth": 32,
+      "frameHeight": 48
+    },
+    "flint": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Generated/flint.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "tar": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Generated/tar.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "stakes": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Generated/stakes_a.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "barrel": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Generated/barrel.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "barrel_smashed": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Generated/barrel_smashed.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "box": {
+      "kind": "image",
+      "path": "assets/Objects/Wilderness/Box_Single_16x16.png"
+    },
+    "chest": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Gold Chest.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "bike_rack": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Generated/bike_rack.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "peach_tree": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Wilderness/Peach Tree.png",
+      "frameWidth": 32,
+      "frameHeight": 48
+    },
+    "driftwood": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Generated/driftwood.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "bottle": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Generated/bottle.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "vista_scope": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Generated/scope.png",
+      "frameWidth": 16,
+      "frameHeight": 24
+    },
+    "scarecrow": {
+      "kind": "image",
+      "path": "assets/Objects/Scarecrow_16x16.png?v=1"
+    },
+    "springcrops": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Spring Crops.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    },
+    "pier": {
+      "kind": "spritesheet",
+      "path": "assets/Objects/Wilderness/Bridge Beach.png",
+      "frameWidth": 16,
+      "frameHeight": 16
+    }
+  },
+  "inputs": {
+    "assets/Objects/Wilderness/Bridge Beach.png": {
+      "path": "assets/Objects/Wilderness/Bridge Beach.png",
+      "sha256": "aedd8618a9f3e9dea56e0f1d91b937ccf2a71215a988ff3d29a791b9ece24dd9"
+    },
+    "assets/Objects/Houses/Wreck.png": {
+      "path": "assets/Objects/Houses/Wreck.png",
+      "sha256": "fda0d220370e15ad19f64b8cad85f7ff250d0681aadb1d495ad0e61a1295c404"
+    },
+    "assets/Objects/House.png": {
+      "path": "assets/Objects/House.png",
+      "sha256": "9c7ddb00b96abbc272a82bf1a68a40dc312a274936ede2f4b9c4b9e971ba12b1"
+    },
+    "assets/Objects/Houses/blacksmith.png": {
+      "path": "assets/Objects/Houses/blacksmith.png",
+      "sha256": "c7f02e607256f4e8d09416cf613a7893290689cdbe4bbdf26b72e557429621e0"
+    },
+    "assets/Objects/Houses/trader.png": {
+      "path": "assets/Objects/Houses/trader.png",
+      "sha256": "5acce38e5efa4ef4b577288109439fb0ec4e7f00a77ec5071748dede5e1542b9"
+    },
+    "assets/Objects/Houses/market.png": {
+      "path": "assets/Objects/Houses/market.png",
+      "sha256": "51237ebc93c53dcbf9ed8afdaa3e540ef67ae40627c9f7abd2ee02f1e038cc70"
+    },
+    "assets/Objects/Houses/fort.png": {
+      "path": "assets/Objects/Houses/fort.png",
+      "sha256": "f603b7e11dfc78ef6294364fd81a071d1ecb0f4aa4579123ac614d4ced454d98"
+    },
+    "assets/Objects/Houses/trailer.png": {
+      "path": "assets/Objects/Houses/trailer.png",
+      "sha256": "1a9c07434010bfbc17e85603f2dcbf9cdda58ea425477d692c9cc918439e4d2a"
+    },
+    "assets/Objects/Houses/wizard.png": {
+      "path": "assets/Objects/Houses/wizard.png",
+      "sha256": "9cd01e9bc0cfa676f0020cdf85e6098ec79953f92d2954346b4319681054cd22"
+    },
+    "assets/Objects/market_stand.png": {
+      "path": "assets/Objects/market_stand.png",
+      "sha256": "098d227f469a54ce8ca99d3d6919f99e6db8fcf7fdae47b2dd7c361ba8d4f5d1"
+    },
+    "assets/Objects/Generated/wagon.png": {
+      "path": "assets/Objects/Generated/wagon.png",
+      "sha256": "fa55ee5b472df48c6f32d9b27bf7392115e85f3266123d4fedfb9afce78de4b5"
+    },
+    "assets/Objects/Wilderness/pillar.png": {
+      "path": "assets/Objects/Wilderness/pillar.png",
+      "sha256": "37e53deeaa811cf51bc430de2581514b53da88b095025deb93d8f94850fec07f"
+    },
+    "assets/Objects/Generated/pillar_a.png": {
+      "path": "assets/Objects/Generated/pillar_a.png",
+      "sha256": "a584ec006a8c34917573785067be0af6983eae6b317ca43dfe1c7f912f0ba244"
+    },
+    "assets/Objects/Generated/signpost.png": {
+      "path": "assets/Objects/Generated/signpost.png",
+      "sha256": "712c8565c1a77a0eb71cc533cb6a1c3529721bdbe1fb3980bf28827ae5f22353"
+    },
+    "unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Props/BulletinBoard_1.png": {
+      "path": "assets/Objects/Approved/Sources/information-board-candidate.png",
+      "sha256": "64739e6ed7775dd8933ed85a620cbd2d4bf19b11bc931be3e4a9ba9fffec1c41"
+    },
+    "assets/Objects/Generated/waystone.png": {
+      "path": "assets/Objects/Generated/waystone.png",
+      "sha256": "f2a53bf12c60084a0d0fc8d87af09a170730dffd95551b67a880fa4b132c66c8"
+    },
+    "assets/Objects/Generated/barricade.png": {
+      "path": "assets/Objects/Generated/barricade.png",
+      "sha256": "c5c33df41ec86a3876ee3a34eca8c15cc59764201251c8d3f8830b0a8ce1a62e"
+    },
+    "assets/Objects/stair_down.png": {
+      "path": "assets/Objects/stair_down.png",
+      "sha256": "ad126b24dab95d51cc9e5fef0a478e5b6473a596c5ec59807f722e25891458e2"
+    },
+    "assets/Objects/stair_up.png": {
+      "path": "assets/Objects/stair_up.png",
+      "sha256": "c0982663d3ee02ade9e49397705aed9b1c86b5af3662b59c2c7028294a3398f5"
+    },
+    "assets/Objects/Landmarks/shrine-votive.png": {
+      "path": "assets/Objects/Landmarks/shrine-votive.png",
+      "sha256": "add495add656782ab61f497b022302dcf01178839aea75dcd991da47d63f6418"
+    },
+    "assets/Objects/Rustic/Props.png": {
+      "path": "assets/Objects/Rustic/Props.png",
+      "sha256": "10f4f186da71bf81988df6994dca86577d0aee16d96854a25f28592ba7f138b7"
+    },
+    "unused_art/verdant-props-tileset-16x16/tiles/16x16/cattails.png": {
+      "path": "assets/Objects/Approved/Sources/longgrass-context.png",
+      "sha256": "7e51e97de85ccb50eabb822ed12ed45f9fb92289f917aa5d47341b58cde3c76c"
+    },
+    "assets/Objects/Rustic/bush.png": {
+      "path": "assets/Objects/Rustic/bush.png",
+      "sha256": "60a976a5d00ab6e44aeb2013efecb994c4fcf75c4ba7c582fcb01e8a5af8d1bf"
+    },
+    "assets/Objects/Wilderness/bushes.png": {
+      "path": "assets/Objects/Wilderness/bushes.png",
+      "sha256": "069c4c18bb439c018cd9720093fdfe83b562d0ae78ee998080057e961d3850fd"
+    },
+    "assets/Objects/Generated/hedge_end.png": {
+      "path": "assets/Objects/Generated/hedge_end.png",
+      "sha256": "9ed0587aa408dad94c0f04a700532ee38ab77fb349c7c3557166b1353c5281bc"
+    },
+    "assets/Objects/Rustic/trees.png": {
+      "path": "assets/Objects/Rustic/trees.png",
+      "sha256": "fc4d368998cf2cf510ca59a948b8b470d7e227283b3f5a3d151186e67a56940d"
+    },
+    "assets/Objects/Wilderness/Pine Tree.png": {
+      "path": "assets/Objects/Wilderness/Pine Tree.png",
+      "sha256": "aa9a32533a463a541c3b90877f7244696fb38bd6ab58e3d48371d8488a1aa032"
+    },
+    "assets/Objects/Wilderness/Birch Tree.png": {
+      "path": "assets/Objects/Wilderness/Birch Tree.png",
+      "sha256": "ce3fcba0bd7027048974a76f82c691f8a16e55178bfd3c5c07c8ab9be5e6b438"
+    },
+    "assets/Objects/Wilderness/Mahogany Tree.png": {
+      "path": "assets/Objects/Wilderness/Mahogany Tree.png",
+      "sha256": "bb8a49c81863e667754f3de84393a732b227b4840f3a3dd486b5f30bd0eeb4e6"
+    },
+    "assets/Objects/Wilderness/stone with minerals.png": {
+      "path": "assets/Objects/Wilderness/stone with minerals.png",
+      "sha256": "e44e9b1e3588b7c1e13e85219ba440eee2603572a517590632fdf994fd27e367"
+    },
+    "assets/Objects/Crops.png": {
+      "path": "assets/Objects/Crops.png",
+      "sha256": "b151e77a456d09c7fea984a8ca2e8c3be3f418eafbf56fa80b0a80334e61652e"
+    },
+    "unused_art/verdant-props-tileset-16x16/tiles/16x16/rubble_masonry.png": {
+      "path": "assets/Objects/Approved/Sources/rubble-context.png",
+      "sha256": "5abab3beb517a9490fb54c67157cfdfd4f04d0d81c25968705c5968d48a9b82c"
+    },
+    "assets/Objects/Wilderness/Props.png": {
+      "path": "assets/Objects/Wilderness/Props.png",
+      "sha256": "aef6c69aa3bf876c5d8eae2e35278605b1d676674617d8d3bff560b0deae96a3"
+    },
+    "assets/Objects/Wilderness/Apple Tree.png": {
+      "path": "assets/Objects/Wilderness/Apple Tree.png",
+      "sha256": "d8f4ce4404683d3221dddd011fcb4d52aa7b26f8ceb590af9acf3712638e0802"
+    },
+    "assets/Objects/Generated/flint.png": {
+      "path": "assets/Objects/Generated/flint.png",
+      "sha256": "7acbc684e2839b9064a6b37607703828eea42823c1e13231d480b498857c68a9"
+    },
+    "assets/Objects/Generated/tar.png": {
+      "path": "assets/Objects/Generated/tar.png",
+      "sha256": "aa3b5715ed13d167a97a8386a3b9af646c3b6252532a114ebe4c4ed2d72ca2cd"
+    },
+    "assets/Objects/Generated/stakes_a.png": {
+      "path": "assets/Objects/Generated/stakes_a.png",
+      "sha256": "e2c8ab23c2aa19078db87ff45ede633cf212476771da070c63d4fe91566be49f"
+    },
+    "assets/Objects/Generated/barrel.png": {
+      "path": "assets/Objects/Generated/barrel.png",
+      "sha256": "34a5ee3ca286ee4d9a64902b4cb61c5df109bb1c1030b810affd8dd7064d35b4"
+    },
+    "assets/Objects/Generated/barrel_smashed.png": {
+      "path": "assets/Objects/Generated/barrel_smashed.png",
+      "sha256": "68a0d176be2ecc6c8e28d0a26ed2372c98cc9310f8d6908dc58f3c068cda835d"
+    },
+    "assets/Objects/Wilderness/Box_Single_16x16.png": {
+      "path": "assets/Objects/Wilderness/Box_Single_16x16.png",
+      "sha256": "e9fcb325dbdfe8738986006bb01982a4913da192b4458976a02c3d77e13dc8b7"
+    },
+    "assets/Objects/Gold Chest.png": {
+      "path": "assets/Objects/Gold Chest.png",
+      "sha256": "877c117dc5c72598efaa71afb7c66a74de2389d2c57e7c37b296be516b7b5c78"
+    },
+    "assets/Objects/Generated/bike_rack.png": {
+      "path": "assets/Objects/Generated/bike_rack.png",
+      "sha256": "bddf234dc81776061b08e7fda83d310e990688be3fc5581b6488ffb83f52c362"
+    },
+    "assets/Objects/Wilderness/Peach Tree.png": {
+      "path": "assets/Objects/Wilderness/Peach Tree.png",
+      "sha256": "8157d69803e57b9a087f3ba179dfb57123cda6b6ba6b4d8ea5cc6b384abd5a6c"
+    },
+    "assets/Objects/Generated/driftwood.png": {
+      "path": "assets/Objects/Generated/driftwood.png",
+      "sha256": "c68a488041b8e2bba572dbfd51bd52cade6ab71c97cb7d7d36c980f7faa1e79e"
+    },
+    "unused_art/verdant-props-tileset-16x16/tiles/16x16/driftwood.png": {
+      "path": "assets/Objects/Approved/Sources/driftwood-candidate.png",
+      "sha256": "f46727ec5864d7b8d5835405d1b84f568322c1d49a88444b00f67c7e11e4b34a"
+    },
+    "assets/Objects/Generated/bottle.png": {
+      "path": "assets/Objects/Generated/bottle.png",
+      "sha256": "44cc8efd1c94c4f79e4f702f51507d0e3d59809a92ab0bb2343f78f3e8d31c54"
+    },
+    "assets/Objects/Generated/scope.png": {
+      "path": "assets/Objects/Generated/scope.png",
+      "sha256": "7018efa8b51a20f566931b3fc34ba8dffcaac39bc0ae65b3dd0ce00ac1dd2657"
+    },
+    "assets/Objects/Scarecrow_16x16.png": {
+      "path": "assets/Objects/Scarecrow_16x16.png",
+      "sha256": "e0e3fa74b23b046ab468710c94190171e69496b5d1832e7dfe63f5c8ed42a5fa"
+    },
+    "assets/Objects/Spring Crops.png": {
+      "path": "assets/Objects/Spring Crops.png",
+      "sha256": "f9f8fa8f31472a2291067df8191f1fd7cbb9c0f892f596497a52669bbdd08915"
+    }
+  },
+  "files": [
+    {
+      "key": "house_wreck",
+      "keys": [
+        "house_wreck"
+      ],
+      "path": "assets/Objects/Approved/house_wreck.png",
+      "source": "assets/Objects/Houses/Wreck.png",
+      "width": 80,
+      "height": 98,
+      "sha256": "503c90e7ac18812b64ad652d66409f5e9c828178d1d617d3640f585245e7878e",
+      "rows": [
+        "building-wreck"
+      ],
+      "operations": [
+        {
+          "row": "building-wreck",
+          "rect": [
+            0,
+            0,
+            80,
+            98
+          ],
+          "palette": [
+            "#171717",
+            "#28110b",
+            "#6c431d",
+            "#90431b",
+            "#9b6526",
+            "#3e4b2c",
+            "#596338",
+            "#777462"
+          ],
+          "strength": 0.1,
+          "mode": "gentle-tune",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null,
+          "stateShade": {
+            "wash": "#1e3b24",
+            "washA": 0.35,
+            "murk": "#05070c",
+            "murkA": 0.12
+          }
+        }
+      ]
+    },
+    {
+      "key": "house",
+      "keys": [
+        "house"
+      ],
+      "path": "assets/Objects/Approved/house.png",
+      "source": "assets/Objects/House.png",
+      "width": 224,
+      "height": 112,
+      "sha256": "6425b9d1396be98add1a759d704834ea7b2e06b3dac43d9220d4e10a96c3c3ca",
+      "rows": [
+        "building-plain"
+      ],
+      "operations": [
+        {
+          "row": "building-plain",
+          "rect": [
+            148,
+            3,
+            72,
+            95
+          ],
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#6c431d",
+            "#90431b",
+            "#e6d7a3",
+            "#4ebcb9",
+            "#82b9a0"
+          ],
+          "strength": 0.1,
+          "mode": "gentle-tune",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "house_blacksmith",
+      "keys": [
+        "house_blacksmith"
+      ],
+      "path": "assets/Objects/Approved/house_blacksmith.png",
+      "source": "assets/Objects/Houses/blacksmith.png",
+      "width": 72,
+      "height": 87,
+      "sha256": "00bf1d11bf0058713de75d82967d655806d46163e6a77ac1a88fb20bc55ffff6",
+      "rows": [
+        "building-blacksmith"
+      ],
+      "operations": [
+        {
+          "row": "building-blacksmith",
+          "rect": [
+            0,
+            0,
+            72,
+            87
+          ],
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#6c431d",
+            "#90431b",
+            "#e6d7a3",
+            "#4ebcb9",
+            "#82b9a0"
+          ],
+          "strength": 0.1,
+          "mode": "gentle-tune",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "house_trader",
+      "keys": [
+        "house_trader"
+      ],
+      "path": "assets/Objects/Approved/house_trader.png",
+      "source": "assets/Objects/Houses/trader.png",
+      "width": 76,
+      "height": 98,
+      "sha256": "79246b87576a3410460aa72375e7983e8c233cb02f2617073e2c3298453f2442",
+      "rows": [
+        "building-trader"
+      ],
+      "operations": [
+        {
+          "row": "building-trader",
+          "rect": [
+            0,
+            0,
+            76,
+            98
+          ],
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#6c431d",
+            "#90431b",
+            "#e6d7a3",
+            "#4ebcb9",
+            "#82b9a0"
+          ],
+          "strength": 0.1,
+          "mode": "gentle-tune",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "house_market",
+      "keys": [
+        "house_market"
+      ],
+      "path": "assets/Objects/Approved/house_market.png",
+      "source": "assets/Objects/Houses/market.png",
+      "width": 106,
+      "height": 94,
+      "sha256": "97a3c417fef4e83479baa76f06932a3beee11fdad6dd0f51b3405b05cd282c4f",
+      "rows": [
+        "building-market"
+      ],
+      "operations": [
+        {
+          "row": "building-market",
+          "rect": [
+            0,
+            0,
+            106,
+            94
+          ],
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#6c431d",
+            "#90431b",
+            "#e6d7a3",
+            "#4ebcb9",
+            "#82b9a0"
+          ],
+          "strength": 0.1,
+          "mode": "gentle-tune",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "house_fort",
+      "keys": [
+        "house_fort"
+      ],
+      "path": "assets/Objects/Approved/house_fort.png",
+      "source": "assets/Objects/Houses/fort.png",
+      "width": 214,
+      "height": 154,
+      "sha256": "acf6539ebbdbdef17375e3fc0a7513a8c72c0a79b5fc9495f3a5a7bf29f49240",
+      "rows": [
+        "building-fort"
+      ],
+      "operations": [
+        {
+          "row": "building-fort",
+          "rect": [
+            0,
+            0,
+            214,
+            154
+          ],
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#6c431d",
+            "#90431b",
+            "#e6d7a3",
+            "#4ebcb9",
+            "#82b9a0"
+          ],
+          "strength": 0.1,
+          "mode": "gentle-tune",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "house_trailer",
+      "keys": [
+        "house_trailer"
+      ],
+      "path": "assets/Objects/Approved/house_trailer.png",
+      "source": "assets/Objects/Houses/trailer.png",
+      "width": 108,
+      "height": 75,
+      "sha256": "c0e2096f5ba9bb3598207a0f61ccf9b1bd817973516c2e103a3143af5e96191b",
+      "rows": [
+        "building-trailer"
+      ],
+      "operations": [
+        {
+          "row": "building-trailer",
+          "rect": [
+            0,
+            0,
+            108,
+            75
+          ],
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#6c431d",
+            "#90431b",
+            "#e6d7a3",
+            "#4ebcb9",
+            "#82b9a0"
+          ],
+          "strength": 0.1,
+          "mode": "gentle-tune",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "shrine",
+      "keys": [
+        "shrine"
+      ],
+      "path": "assets/Objects/Approved/shrine.png",
+      "source": "assets/Objects/Houses/wizard.png",
+      "width": 320,
+      "height": 208,
+      "sha256": "eccf0591104e6d6afd18d52877757fdbce11aa8b78773f3155cbc7eb7c57b1d7",
+      "rows": [
+        "building-wizard"
+      ],
+      "operations": [
+        {
+          "row": "building-wizard",
+          "rect": [
+            240,
+            0,
+            80,
+            104
+          ],
+          "palette": [
+            "#171717",
+            "#403e34",
+            "#777462",
+            "#8d79a1",
+            "#dce4da"
+          ],
+          "strength": 0.1,
+          "mode": "gentle-tune",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "market_stand",
+      "keys": [
+        "market_stand"
+      ],
+      "path": "assets/Objects/Approved/market_stand.png",
+      "source": "assets/Objects/market_stand.png",
+      "width": 560,
+      "height": 80,
+      "sha256": "4e7287b3e6662d8e0374c09c8c5fd789d729e5e380dddba0a1409c1979a374b2",
+      "rows": [
+        "produce-stand"
+      ],
+      "operations": [
+        {
+          "row": "produce-stand",
+          "rect": [
+            0,
+            0,
+            80,
+            80
+          ],
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#e6d7a3",
+            "#a55e72",
+            "#6b90ac"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "produce-stand",
+          "rect": [
+            80,
+            0,
+            80,
+            80
+          ],
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#e6d7a3",
+            "#a55e72",
+            "#6b90ac"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "produce-stand",
+          "rect": [
+            160,
+            0,
+            80,
+            80
+          ],
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#e6d7a3",
+            "#a55e72",
+            "#6b90ac"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "produce-stand",
+          "rect": [
+            240,
+            0,
+            80,
+            80
+          ],
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#e6d7a3",
+            "#a55e72",
+            "#6b90ac"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "produce-stand",
+          "rect": [
+            320,
+            0,
+            80,
+            80
+          ],
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#e6d7a3",
+            "#a55e72",
+            "#6b90ac"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "produce-stand",
+          "rect": [
+            400,
+            0,
+            80,
+            80
+          ],
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#e6d7a3",
+            "#a55e72",
+            "#6b90ac"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "produce-stand",
+          "rect": [
+            480,
+            0,
+            80,
+            80
+          ],
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#e6d7a3",
+            "#a55e72",
+            "#6b90ac"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "wagon",
+      "keys": [
+        "wagon"
+      ],
+      "path": "assets/Objects/Approved/wagon.png",
+      "source": "assets/Objects/Generated/wagon.png",
+      "width": 128,
+      "height": 96,
+      "sha256": "9ee6ea9d9be9878b327acb3798d0ebb0461d512396a03c64f72e8b153113a503",
+      "rows": [
+        "wagon"
+      ],
+      "operations": [
+        {
+          "row": "wagon",
+          "rect": [
+            0,
+            0,
+            128,
+            96
+          ],
+          "palette": [
+            "#171717",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#e6d7a3"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "pillar",
+      "keys": [
+        "pillar"
+      ],
+      "path": "assets/Objects/Approved/pillar.png",
+      "source": "assets/Objects/Wilderness/pillar.png",
+      "width": 16,
+      "height": 32,
+      "sha256": "d0a95670cbf2d4fb5214747ccbdda001eccde46c02ffd92707106efdb08f0729",
+      "rows": [
+        "utility-pillar"
+      ],
+      "operations": [
+        {
+          "row": "utility-pillar",
+          "rect": [
+            0,
+            0,
+            16,
+            32
+          ],
+          "palette": [
+            "#171717",
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#9b6526"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "gatepost",
+      "keys": [
+        "gatepost"
+      ],
+      "path": "assets/Objects/Approved/gatepost.png",
+      "source": "assets/Objects/Generated/pillar_a.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "84c866ba1a5d8f1de348dd6be31808c38bc666bb00e8c46a48165fe33a3beca7",
+      "rows": [
+        "gateposts"
+      ],
+      "operations": [
+        {
+          "row": "gateposts",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#171717",
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#9b6526"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "signpost",
+      "keys": [
+        "signpost"
+      ],
+      "path": "assets/Objects/Approved/signpost.png",
+      "source": "assets/Objects/Generated/signpost.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "934076b9cfb875bb634ff7b0551bd3ca4fb03ad19ea65a5c1aaf64d4fd21ad6b",
+      "rows": [
+        "information-board"
+      ],
+      "operations": [
+        {
+          "row": "information-board",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#171717",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#e6d7a3"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null,
+          "candidate": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACwAAAAqCAYAAADI3bkcAAAC6UlEQVR4nNWZz0sbQRTHv2u9yBYkQS2L1uZSEA+KvXiw1JYevEW81IsKPRd69z/oP9B/QPdiL8HePBRN6V0UDNJCG2PKEpSkgS6BgEwPYZbJ7PzcbBrzvSTZmffm8968vM1sHEIIdHq/8UE7x70rKB2FDzYcrRMDjSY15AF3tuaU8/f87vlJAzAGFgF+/XKNF68fG9nTgKhN0gCkwLv55cihC30GK6W6cnx2Ptv1mfdnGoDD1jALSR1WSvXYYvT6yfc/WF/x0LxpKWFZUZvxyTHhOF1vz78UwkcZ3s0vE1UWdRm0Fe9PtQN7foFQaGlJUIflIJRmI01VSnWUgxCLCxPSXQU44OZNy2p7+yl2B361CKYedt5ru0TOc3F2fovFhQlpMP5x1Qhi69WMdIxmV5cw6z7Mw3389ANrebPW5n++jmyoVEGIpAWmgN8uGwBgDCeSyJYGQdd49+apMsuxGma3xj+uGgF602ZZCn7HS4f3f3h0hfW1JxGLEnh8cgw5AGfntz3DmdqKguATh59/xcBUOc+NRdcLqEq83wvUosSJSiPxjx9biTLJyjQhVsC6RW0XTyIr4DRAeB+mSaAa6ZngP2vogIV9WCZ2++jW0mvsVovmicZkUnEI+zAAoYGohk2v2YjlAKDvw/1QWp1jOGuYPRqpJKs/b3rGqj2p6l8m965z6hilRyP2DKVbyHYsDZsOY4EMZ0modFGsdV5R6zuMiSLgl8+mcHh01TXInwbKQYic5xo5Np0rmsdzvF15FAeenc9iR3JSZSU7zfYyN3bEV9iNVJttY4BBq9psdzJs+pBEddtOOtfGJzCENw6HEILt1SWjG8eglcluOtHDwO3VJfJ8LhN9a8tBiGqzjf3iqWPyQDstNeoHQo5MdjP+bI22F/o6qC+kiuPe1rCsh99bYJliwKZ3skEpBmzbF/slGcdwZ5iNapCZLgdhtD7P0fWnDH8D2S+eOoDZH4tpqlE/6OKgPRgA/gGtIXbLTwePyAAAAABJRU5ErkJggg=="
+        }
+      ]
+    },
+    {
+      "key": "waystone",
+      "keys": [
+        "waystone"
+      ],
+      "path": "assets/Objects/Approved/waystone.png",
+      "source": "assets/Objects/Generated/waystone.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "444c509662c97dbecff1253b6f5fe6c6ce4fd9c884d680fe052b02461a9605e4",
+      "rows": [
+        "waystone"
+      ],
+      "operations": [
+        {
+          "row": "waystone",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#171717",
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#3e4b2c"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "barricade",
+      "keys": [
+        "barricade"
+      ],
+      "path": "assets/Objects/Approved/barricade.png",
+      "source": "assets/Objects/Generated/barricade.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "950b90629fd356523ec48afbdc7ebcc4b9c61042e0c0e8784b5f999d445f968d",
+      "rows": [
+        "barricade"
+      ],
+      "operations": [
+        {
+          "row": "barricade",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#171717",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#e6d7a3"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "stair_down",
+      "keys": [
+        "stair_down"
+      ],
+      "path": "assets/Objects/Approved/stair_down.png",
+      "source": "assets/Objects/stair_down.png",
+      "width": 32,
+      "height": 32,
+      "sha256": "1ecf6813550f61b0b93288a1f599a0b6be12ee38406d931182c8afcf4e0d54d5",
+      "rows": [
+        "cave-stair-down"
+      ],
+      "operations": [
+        {
+          "row": "cave-stair-down",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "palette": [
+            "#171717",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#e6d7a3"
+          ],
+          "strength": 0.2,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "stair_up",
+      "keys": [
+        "stair_up"
+      ],
+      "path": "assets/Objects/Approved/stair_up.png",
+      "source": "assets/Objects/stair_up.png",
+      "width": 32,
+      "height": 32,
+      "sha256": "e9a324ed75293bd9bac79f0068a9b672f85d1fd6ca321afda5993b78bdae5fe9",
+      "rows": [
+        "cave-stair-up"
+      ],
+      "operations": [
+        {
+          "row": "cave-stair-up",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "palette": [
+            "#171717",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#e6d7a3"
+          ],
+          "strength": 0.2,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "grove_votive",
+      "keys": [
+        "grove_votive"
+      ],
+      "path": "assets/Objects/Approved/grove_votive.png",
+      "source": "assets/Objects/Landmarks/shrine-votive.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "3a142c5ca01a90d4b5242d85d234d2340ee457ba98f7770744bcd2ac9d2c2545",
+      "rows": [
+        "grove-votive"
+      ],
+      "operations": [
+        {
+          "row": "grove-votive",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#171717",
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#3e4b2c",
+            "#dce4da"
+          ],
+          "strength": 0.12,
+          "mode": "value-lift",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "props",
+      "keys": [
+        "props"
+      ],
+      "path": "assets/Objects/Approved/props.png",
+      "source": "assets/Objects/Rustic/Props.png",
+      "width": 352,
+      "height": 192,
+      "sha256": "4c364143999723c309d58e15ac61764a090047bff3cb3b8e9f139f62d0fa1eab",
+      "rows": [
+        "cave-mushroom",
+        "forgetmenot",
+        "longgrass",
+        "marigold",
+        "mushroom",
+        "starflower",
+        "wildrose"
+      ],
+      "operations": [
+        {
+          "row": "longgrass",
+          "rect": [
+            160,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.85,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mushroom",
+          "rect": [
+            208,
+            16,
+            16,
+            16
+          ],
+          "palette": [
+            "#171717",
+            "#28110b",
+            "#90431b",
+            "#ba6724",
+            "#e6d7a3"
+          ],
+          "strength": 0.075,
+          "mode": "gentle-tune",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "cave-mushroom",
+          "rect": [
+            272,
+            80,
+            16,
+            16
+          ],
+          "palette": [
+            "#26342a",
+            "#349aa4",
+            "#4ebcb9",
+            "#e6d7a3"
+          ],
+          "strength": 0.075,
+          "mode": "gentle-tune",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "cave-mushroom",
+          "rect": [
+            288,
+            80,
+            16,
+            16
+          ],
+          "palette": [
+            "#26342a",
+            "#349aa4",
+            "#4ebcb9",
+            "#e6d7a3"
+          ],
+          "strength": 0.075,
+          "mode": "gentle-tune",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "forgetmenot",
+          "rect": [
+            160,
+            48,
+            16,
+            16
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#6b90ac",
+            "#e6d7a3"
+          ],
+          "strength": 0.075,
+          "mode": "gentle-flower",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": 0.1
+        },
+        {
+          "row": "marigold",
+          "rect": [
+            192,
+            16,
+            16,
+            16
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#9b6526",
+            "#fac756"
+          ],
+          "strength": 0.075,
+          "mode": "gentle-flower",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": 0.1
+        },
+        {
+          "row": "wildrose",
+          "rect": [
+            128,
+            16,
+            16,
+            16
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#a55e72",
+            "#e6d7a3"
+          ],
+          "strength": 0.075,
+          "mode": "gentle-flower",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": 0.1
+        },
+        {
+          "row": "starflower",
+          "rect": [
+            224,
+            64,
+            16,
+            16
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#8d79a1",
+            "#4ebcb9"
+          ],
+          "strength": 0.075,
+          "mode": "gentle-flower",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": 0.1
+        }
+      ]
+    },
+    {
+      "key": "bushes",
+      "keys": [
+        "bushes"
+      ],
+      "path": "assets/Objects/Approved/bushes.png",
+      "source": "assets/Objects/Rustic/bush.png",
+      "width": 48,
+      "height": 32,
+      "sha256": "951ad187bcf0da7279e42396eb5421d80c47214fc9333f4a10da516674983ade",
+      "rows": [
+        "shrub"
+      ],
+      "operations": [
+        {
+          "row": "shrub",
+          "rect": [
+            0,
+            0,
+            48,
+            32
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.72,
+          "mode": "bush-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null,
+          "candidate": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAgCAYAAABU1PscAAAEX0lEQVR4nL1YPWsjVxQ9WlmRs2BZ8AoVHgaE3BkMDssUavwL5EAwbBqxrqRim5BUhsSFElDrJoVUGdyswGzhzR9Q40KECAzpLASDXIgwMJKxI61GcYrJfbpvPJJmxnJOMx+aeXPOfefed5+AFSOZ231M5nYfVz3uPLx6iUHL9RRIhFfQqgU+W8A8QiSiXE8pz/LrVWAlM8AjTmj1LOydTOT1S5AHgNhzB+DEaqWhQtoPhiZQKw0x7lzHuOhx5zoSl0gveaNdrqfQ6lkAANMcyfu6vg7THMkj3QOAdiWBvZMJTHME62xDvhNWSGQB3A6tnoXu+SYA4O3xmrx/cXWrkDY0gUbVQbY4AACFvDi6g3W28f8I4CIo8t3zTYU83ScYmpDnjaqD+H5fkt87maBdSUSyUegXvPYhz9MMxPf7AIDD/JYUQeQvrm4xbWYAQM4CgWbjRWZgHmnub7KJaY5wmN+Sz7Z6lhL9i6tb+SxHu5JQroMKCVxGy/UUvGXQOtuAoQkZVQDKOeUAHb2/G5pA93xTzp44uoM4ugMQfMELJGDcuY7VSkMphEerVhoqdrC7DwBcn1Okp80MGlVH+Z1m5e3xGuzugyTuFbIMofxGEaHBvVbgVYVmi1uGhPO8IUE0Ji+phEV2Wpv3wzzwyPh6P69WoGkzAxQHMM0RyvVZLrR6ljJz7YoqvFYaytK6CIFzIJnbfdw7mWDazGDazOAwv6UkK/c2MPM9RdgvNzh4jjWqTuB1IdAMEHkC1XtvRdGO+zgtuN7X9XVQ3nA0qg5+GK7h43v32jRHmDYzaHfdZ9PZ167obrCSGthCM/8O0Ki6VSNbfFoOuSBvX+SSn9mL2w5IoVYauutIQPJAiCrECWWLA8T3+7KSGJpQVmHTHMHQBAxNyB4oWxxI8h/fu89yC3o9H3TPEEgADUaz4F2sOL751Vk41mnBkeIurm7RqDpoVB28i98DcIvEso42tABATbJ5CfuT9SUA4LtPboRpLSDCpwVV3GF+C3b3AV+bf8l7ur4eqi8KvZD5EecJS/bgXScnPG1mfKvQb8V/YJ1tPGkpliHSQpbOvgbwtCEjcItRA0c5Ql6fNjNPVuCw0Y8kgLfQwGxj4keeBADwJQy4Ky+9H6WlDrUnJiu1Kwm0KwlZYfgujK+c3Hbx/b6sMrq+Lo9EPCpCb+opQuV6Sqn5XFCtNJRWISwiPO5cx6KKWMmemCLLm7x2JQFxdOdL+l38Hr9bE/yZTpOAA88nPgXlEraZK3g/mMztXnLbEHl+Th7fsW28ETMhPsSV7yCAkDAWKvjd3LFtuQgBs0jv2DYl5cHn7++xY9sAgO10KNf6fpMjdDvtxR+WeQDol0i7Pv9Z/A0AuIknAMsGhH7Jo74tHnFjP/erM4TNgbkR+Urol3T+o/EFbqwYPnTGeCMS2E6/wraYpc0vrc//CV+KpRaK+rfKQiHf5pIAgA+dMfg5IQD5wEn87L8WGZb6dQ4Ck/XDv12qdPDwFzSgAAAAAElFTkSuQmCC"
+        }
+      ]
+    },
+    {
+      "key": "trees",
+      "keys": [
+        "trees"
+      ],
+      "path": "assets/Objects/Approved/trees.png",
+      "source": "assets/Objects/Rustic/trees.png",
+      "width": 160,
+      "height": 48,
+      "sha256": "19fe8e5ca9774edf82e378d9ec947ae6ff29b53338dc6eaa3efb9c5e90a9493c",
+      "rows": [
+        "trees"
+      ],
+      "operations": [
+        {
+          "row": "trees",
+          "rect": [
+            0,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "trees",
+          "rect": [
+            32,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "trees",
+          "rect": [
+            64,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "trees",
+          "rect": [
+            96,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "trees",
+          "rect": [
+            128,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "pine_tree",
+      "keys": [
+        "pine_tree"
+      ],
+      "path": "assets/Objects/Approved/pine_tree.png",
+      "source": "assets/Objects/Wilderness/Pine Tree.png",
+      "width": 256,
+      "height": 96,
+      "sha256": "f88156f789914c3829ba1440397b7bca888ccb2b4870bdfa7c2a061fa154a41a",
+      "rows": [
+        "pine_tree"
+      ],
+      "operations": [
+        {
+          "row": "pine_tree",
+          "rect": [
+            0,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            32,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            64,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            96,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            128,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            160,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            192,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            224,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            0,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            32,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            64,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            96,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            128,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            160,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            192,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "pine_tree",
+          "rect": [
+            224,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "pine-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "birch_tree",
+      "keys": [
+        "birch_tree"
+      ],
+      "path": "assets/Objects/Approved/birch_tree.png",
+      "source": "assets/Objects/Wilderness/Birch Tree.png",
+      "width": 256,
+      "height": 96,
+      "sha256": "7f5f3df5b70f479c0a6d0e6503609482f6f381bbd74be7090f1920f26c49981b",
+      "rows": [
+        "birch_tree"
+      ],
+      "operations": [
+        {
+          "row": "birch_tree",
+          "rect": [
+            0,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            32,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            64,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            96,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            128,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            160,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            192,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            224,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            0,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            32,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            64,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            96,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            128,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            160,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            192,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "birch_tree",
+          "rect": [
+            224,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "mahogany_tree",
+      "keys": [
+        "mahogany_tree"
+      ],
+      "path": "assets/Objects/Approved/mahogany_tree.png",
+      "source": "assets/Objects/Wilderness/Mahogany Tree.png",
+      "width": 384,
+      "height": 96,
+      "sha256": "1f73a8562c0e5cec791b1b07919bbaecc13f42ac2e6cf4cda4f9910943851713",
+      "rows": [
+        "mahogany_tree"
+      ],
+      "operations": [
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            0,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            32,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            64,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            96,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            128,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            160,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            192,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            224,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            256,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            288,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            320,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            352,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            0,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            32,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            64,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            96,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            128,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            160,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            192,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            224,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            256,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            288,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            320,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "mahogany_tree",
+          "rect": [
+            352,
+            48,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "mineralrock",
+      "keys": [
+        "mineralrock"
+      ],
+      "path": "assets/Objects/Approved/mineralrock.png",
+      "source": "assets/Objects/Wilderness/stone with minerals.png",
+      "width": 176,
+      "height": 272,
+      "sha256": "a033d36362ad5581999ba88fd9709103e4961cb9ddc09db8e31cbe55635bc43a",
+      "rows": [
+        "ore-copper",
+        "ore-crimson",
+        "ore-frost",
+        "ore-gold",
+        "ore-iron",
+        "ore-platinum",
+        "plain-rock"
+      ],
+      "operations": [
+        {
+          "row": "plain-rock",
+          "rect": [
+            48,
+            240,
+            16,
+            16
+          ],
+          "palette": [
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#e6d7a3"
+          ],
+          "strength": 0.12,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "plain-rock",
+          "rect": [
+            64,
+            240,
+            16,
+            16
+          ],
+          "palette": [
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#e6d7a3"
+          ],
+          "strength": 0.12,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "plain-rock",
+          "rect": [
+            80,
+            240,
+            16,
+            16
+          ],
+          "palette": [
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#e6d7a3"
+          ],
+          "strength": 0.12,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "plain-rock",
+          "rect": [
+            96,
+            240,
+            16,
+            16
+          ],
+          "palette": [
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#e6d7a3"
+          ],
+          "strength": 0.12,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "ore-copper",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#e6d7a3",
+            "#90431b",
+            "#ba6724"
+          ],
+          "strength": 0.08,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "ore-iron",
+          "rect": [
+            16,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#e6d7a3",
+            "#b0aa8a",
+            "#e6d7a3"
+          ],
+          "strength": 0.08,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "ore-gold",
+          "rect": [
+            32,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#e6d7a3",
+            "#9b6526",
+            "#fac756"
+          ],
+          "strength": 0.08,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "ore-platinum",
+          "rect": [
+            48,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#e6d7a3",
+            "#e6d7a3"
+          ],
+          "strength": 0.08,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "ore-crimson",
+          "rect": [
+            80,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#e6d7a3",
+            "#a55e72"
+          ],
+          "strength": 0.08,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "ore-frost",
+          "rect": [
+            96,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#e6d7a3",
+            "#4ebcb9",
+            "#e6d7a3"
+          ],
+          "strength": 0.08,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "crops",
+      "keys": [
+        "crops"
+      ],
+      "path": "assets/Objects/Approved/crops.png",
+      "source": "assets/Objects/Crops.png",
+      "width": 144,
+      "height": 256,
+      "sha256": "cdfb8cd50a00d2ec8e10028c56ddcea32d9e97b1f3f0409c5248edea5e923ca2",
+      "rows": [
+        "gemfruit",
+        "nut-plant",
+        "planted-crops",
+        "rubble"
+      ],
+      "operations": [
+        {
+          "row": "rubble",
+          "rect": [
+            0,
+            64,
+            16,
+            16
+          ],
+          "palette": [
+            "#1b151e",
+            "#38242e",
+            "#493838",
+            "#6b4749",
+            "#926d6a",
+            "#b4a07f",
+            "#c7bb97"
+          ],
+          "strength": 0.35,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "rubble",
+          "rect": [
+            16,
+            64,
+            16,
+            16
+          ],
+          "palette": [
+            "#1b151e",
+            "#38242e",
+            "#493838",
+            "#6b4749",
+            "#926d6a",
+            "#b4a07f",
+            "#c7bb97"
+          ],
+          "strength": 0.35,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "rubble",
+          "rect": [
+            32,
+            64,
+            16,
+            16
+          ],
+          "palette": [
+            "#1b151e",
+            "#38242e",
+            "#493838",
+            "#6b4749",
+            "#926d6a",
+            "#b4a07f",
+            "#c7bb97"
+          ],
+          "strength": 0.35,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "rubble",
+          "rect": [
+            48,
+            64,
+            16,
+            16
+          ],
+          "palette": [
+            "#1b151e",
+            "#38242e",
+            "#493838",
+            "#6b4749",
+            "#926d6a",
+            "#b4a07f",
+            "#c7bb97"
+          ],
+          "strength": 0.35,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "rubble",
+          "rect": [
+            64,
+            64,
+            16,
+            16
+          ],
+          "palette": [
+            "#1b151e",
+            "#38242e",
+            "#493838",
+            "#6b4749",
+            "#926d6a",
+            "#b4a07f",
+            "#c7bb97"
+          ],
+          "strength": 0.35,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "rubble",
+          "rect": [
+            112,
+            64,
+            16,
+            16
+          ],
+          "palette": [
+            "#1b151e",
+            "#38242e",
+            "#493838",
+            "#6b4749",
+            "#926d6a",
+            "#b4a07f",
+            "#c7bb97"
+          ],
+          "strength": 0.35,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "gemfruit",
+          "rect": [
+            64,
+            32,
+            16,
+            16
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#4ebcb9",
+            "#8d79a1"
+          ],
+          "strength": 0.06,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            16,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            32,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            48,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            64,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            0,
+            16,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            32,
+            16,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            48,
+            16,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            64,
+            16,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            0,
+            32,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            16,
+            32,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            32,
+            32,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            48,
+            32,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            64,
+            32,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            0,
+            80,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            16,
+            80,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            32,
+            80,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            48,
+            80,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            64,
+            80,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            0,
+            112,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            16,
+            112,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            32,
+            112,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            48,
+            112,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            64,
+            112,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            0,
+            128,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            16,
+            128,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            32,
+            128,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            48,
+            128,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            64,
+            128,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            0,
+            144,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            16,
+            144,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            32,
+            144,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            48,
+            144,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            64,
+            144,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "nut-plant",
+          "rect": [
+            0,
+            48,
+            16,
+            16
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.55,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "nut-plant",
+          "rect": [
+            16,
+            48,
+            16,
+            16
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.55,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "nut-plant",
+          "rect": [
+            32,
+            48,
+            16,
+            16
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.55,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "nut-plant",
+          "rect": [
+            48,
+            48,
+            16,
+            16
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.55,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "nut-plant",
+          "rect": [
+            64,
+            48,
+            16,
+            16
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.55,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "apple_tree",
+      "keys": [
+        "apple_tree"
+      ],
+      "path": "assets/Objects/Approved/apple_tree.png",
+      "source": "assets/Objects/Wilderness/Apple Tree.png",
+      "width": 480,
+      "height": 48,
+      "sha256": "3e9b3626bed561d432e6c712b897eed8201669afe9d99bc3c4acf73803c0a7b7",
+      "rows": [
+        "apple_tree"
+      ],
+      "operations": [
+        {
+          "row": "apple_tree",
+          "rect": [
+            0,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "apple_tree",
+          "rect": [
+            32,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "apple_tree",
+          "rect": [
+            64,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "apple_tree",
+          "rect": [
+            96,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "apple_tree",
+          "rect": [
+            128,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "apple_tree",
+          "rect": [
+            160,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "apple_tree",
+          "rect": [
+            192,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "apple_tree",
+          "rect": [
+            224,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "apple_tree",
+          "rect": [
+            256,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "apple_tree",
+          "rect": [
+            288,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "apple_tree",
+          "rect": [
+            320,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "apple_tree",
+          "rect": [
+            352,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "apple_tree",
+          "rect": [
+            384,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "apple_tree",
+          "rect": [
+            416,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "apple_tree",
+          "rect": [
+            448,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#90431b",
+            "#e6d7a3"
+          ],
+          "strength": 0.75,
+          "mode": "approved-apple",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "flint",
+      "keys": [
+        "flint"
+      ],
+      "path": "assets/Objects/Approved/flint.png",
+      "source": "assets/Objects/Generated/flint.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "c8a456ea0ae21a00e315fac498d101df6ff166523b88fe634e5a9212bd0f8903",
+      "rows": [
+        "flint"
+      ],
+      "operations": [
+        {
+          "row": "flint",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#403e34",
+            "#777462",
+            "#b0aa8a",
+            "#e6d7a3"
+          ],
+          "strength": 0.12,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "tar",
+      "keys": [
+        "tar"
+      ],
+      "path": "assets/Objects/Approved/tar.png",
+      "source": "assets/Objects/Generated/tar.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "50bd2ddd315dc08c71e2eb6f32bcdbde8a0eca23e794e9621c79fa659d7d571e",
+      "rows": [
+        "tar"
+      ],
+      "operations": [
+        {
+          "row": "tar",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#28110b",
+            "#171717",
+            "#403e34",
+            "#777462"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "stakes",
+      "keys": [
+        "stakes"
+      ],
+      "path": "assets/Objects/Approved/stakes.png",
+      "source": "assets/Objects/Generated/stakes_a.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "d78c4177bd6a6042d3ded51ae064ed18ab7d89309c7c42ca31c701fc40cf6198",
+      "rows": [
+        "stakes"
+      ],
+      "operations": [
+        {
+          "row": "stakes",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#171717",
+            "#403e34",
+            "#777462",
+            "#ba6724"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "barrel",
+      "keys": [
+        "barrel"
+      ],
+      "path": "assets/Objects/Approved/barrel.png",
+      "source": "assets/Objects/Generated/barrel.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "dcf6b6246d4f337e5c1a62dd53ca8feb5a33b6f3fd65f8a807b28e09e50a94b6",
+      "rows": [
+        "barrel"
+      ],
+      "operations": [
+        {
+          "row": "barrel",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#403e34"
+          ],
+          "strength": 0.2,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "barrel_smashed",
+      "keys": [
+        "barrel_smashed"
+      ],
+      "path": "assets/Objects/Approved/barrel_smashed.png",
+      "source": "assets/Objects/Generated/barrel_smashed.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "23b5757a04375d4f09f29f98621fdb0604c55a0929fdd9040cee86f3b78225fd",
+      "rows": [
+        "barrel"
+      ],
+      "operations": [
+        {
+          "row": "barrel",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#403e34"
+          ],
+          "strength": 0.2,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "box",
+      "keys": [
+        "box"
+      ],
+      "path": "assets/Objects/Approved/box.png",
+      "source": "assets/Objects/Wilderness/Box_Single_16x16.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "d61b3d0a0f233feb01367de9fe0d006d221892fe2ce44149364d66a1e16c7b17",
+      "rows": [
+        "crate"
+      ],
+      "operations": [
+        {
+          "row": "crate",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "chest",
+      "keys": [
+        "chest"
+      ],
+      "path": "assets/Objects/Approved/chest.png",
+      "source": "assets/Objects/Gold Chest.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "91c7f776188496f9e23a33db66cea295515749d9f872cbb3045154a3f61a3aa4",
+      "rows": [
+        "chest"
+      ],
+      "operations": [
+        {
+          "row": "chest",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#3a3a50",
+            "#e1af7b",
+            "#b5754d",
+            "#ca8854",
+            "#ce8b59",
+            "#d9a16a",
+            "#d5935e",
+            "#a85f46",
+            "#6b5052",
+            "#46465e",
+            "#565972"
+          ],
+          "strength": 0.5,
+          "mode": "original-chest-colours",
+          "preserveLuminance": true,
+          "colourMap": {
+            "#1a1a1a": "#3a3a50",
+            "#ffffbb": "#e1af7b",
+            "#d28100": "#b5754d",
+            "#ebbb00": "#ca8854",
+            "#b38047": "#ce8b59",
+            "#d09f69": "#d9a16a",
+            "#fdff00": "#d5935e",
+            "#a84d00": "#a85f46",
+            "#6e492f": "#6b5052",
+            "#452e25": "#46465e",
+            "#58362a": "#565972"
+          },
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "bike_rack",
+      "keys": [
+        "bike_rack"
+      ],
+      "path": "assets/Objects/Approved/bike_rack.png",
+      "source": "assets/Objects/Generated/bike_rack.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "c57667e3dafd04caf4b4708ae00809f3ec5b733fb4b5f7cd97d0bbf400b52a16",
+      "rows": [
+        "courier-post"
+      ],
+      "operations": [
+        {
+          "row": "courier-post",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#403e34",
+            "#777462",
+            "#4c3018",
+            "#9b6526"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "peach_tree",
+      "keys": [
+        "peach_tree"
+      ],
+      "path": "assets/Objects/Approved/peach_tree.png",
+      "source": "assets/Objects/Wilderness/Peach Tree.png",
+      "width": 416,
+      "height": 48,
+      "sha256": "a3e2afeaf9c0b5152d3b90a028ccebf8e3e516554849f31e1df84465ce676890",
+      "rows": [
+        "peach_tree"
+      ],
+      "operations": [
+        {
+          "row": "peach_tree",
+          "rect": [
+            0,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "peach_tree",
+          "rect": [
+            32,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "peach_tree",
+          "rect": [
+            64,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "peach_tree",
+          "rect": [
+            96,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "peach_tree",
+          "rect": [
+            128,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "peach_tree",
+          "rect": [
+            160,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "peach_tree",
+          "rect": [
+            192,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "peach_tree",
+          "rect": [
+            224,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "peach_tree",
+          "rect": [
+            256,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "peach_tree",
+          "rect": [
+            288,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "peach_tree",
+          "rect": [
+            320,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "peach_tree",
+          "rect": [
+            352,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "peach_tree",
+          "rect": [
+            384,
+            0,
+            32,
+            48
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.6375,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "driftwood",
+      "keys": [
+        "driftwood"
+      ],
+      "path": "assets/Objects/Approved/driftwood.png",
+      "source": "assets/Objects/Generated/driftwood.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "e0999ae03b5f590d2495937df4e21c81e78f5aef618671301b7bdf83ccf6ccb0",
+      "rows": [
+        "driftwood"
+      ],
+      "operations": [
+        {
+          "row": "driftwood",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#28110b",
+            "#4c3018",
+            "#6c431d",
+            "#9b6526",
+            "#b0aa8a"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null,
+          "candidate": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAoklEQVR4nO3OoQrCUBTG8f+VvcsNY4OV1bXF5YHIsmC3GPcOy4aB2WizWgYOw32aY/GOe2WMcZvgFw/n950D/wSl71rpu1YAohD8fBmG0QCwCcW3+0MBqLUQ4BsvFljkwqau2O5PnlFLyM0wGrJEk8baK4kAyiKXpq44X64AZImekM3nbbGHbIk6HnaSxnq6OIO8lEUu7ifKDpfQXMna3R/IG4uKWkdML5f+AAAAAElFTkSuQmCC"
+        }
+      ]
+    },
+    {
+      "key": "bottle",
+      "keys": [
+        "bottle"
+      ],
+      "path": "assets/Objects/Approved/bottle.png",
+      "source": "assets/Objects/Generated/bottle.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "46926df1114d69b37ab2aef22727ed14641a21da518220a042bc860f9811a8d6",
+      "rows": [
+        "bottle"
+      ],
+      "operations": [
+        {
+          "row": "bottle",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#403e34",
+            "#b0aa8a",
+            "#e6d7a3",
+            "#349aa4"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "vista_scope",
+      "keys": [
+        "vista_scope"
+      ],
+      "path": "assets/Objects/Approved/vista_scope.png",
+      "source": "assets/Objects/Generated/scope.png",
+      "width": 16,
+      "height": 24,
+      "sha256": "22d7039ba6b1f083c9541d907dc8f33be3a3e5c9b38de37b6345d86c7db64a2c",
+      "rows": [
+        "vista-scope"
+      ],
+      "operations": [
+        {
+          "row": "vista-scope",
+          "rect": [
+            0,
+            0,
+            16,
+            24
+          ],
+          "palette": [
+            "#28110b",
+            "#4c3018",
+            "#9b6526",
+            "#fac756",
+            "#403e34",
+            "#b0aa8a"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "scarecrow",
+      "keys": [
+        "scarecrow"
+      ],
+      "path": "assets/Objects/Approved/scarecrow.png",
+      "source": "assets/Objects/Scarecrow_16x16.png",
+      "width": 48,
+      "height": 48,
+      "sha256": "952c9882184cf5b9d162a44c09d70ff027b1e7b67a7698b1d3ac6110ede97fff",
+      "rows": [
+        "scarecrow"
+      ],
+      "operations": [
+        {
+          "row": "scarecrow",
+          "rect": [
+            0,
+            0,
+            48,
+            48
+          ],
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#9b6526",
+            "#e6d7a3"
+          ],
+          "strength": 1,
+          "mode": "scarecrow-contrast",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "springcrops",
+      "keys": [
+        "springcrops"
+      ],
+      "path": "assets/Objects/Approved/springcrops.png",
+      "source": "assets/Objects/Spring Crops.png",
+      "width": 224,
+      "height": 128,
+      "sha256": "8c209f7e45b45df331b23bf46d17a192180c9b5e403ec4cebd8344ab7e3c29fc",
+      "rows": [
+        "planted-crops"
+      ],
+      "operations": [
+        {
+          "row": "planted-crops",
+          "rect": [
+            0,
+            80,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            16,
+            80,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            32,
+            80,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            48,
+            80,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            64,
+            80,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            0,
+            16,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            32,
+            16,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            48,
+            16,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            64,
+            16,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            0,
+            48,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            16,
+            48,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            32,
+            48,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            48,
+            48,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            64,
+            48,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            0,
+            112,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            16,
+            112,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            32,
+            112,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            48,
+            112,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        },
+        {
+          "row": "planted-crops",
+          "rect": [
+            64,
+            112,
+            16,
+            16
+          ],
+          "palette": [
+            "#ffffff"
+          ],
+          "strength": 0.0525,
+          "mode": "crop-light",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "pier",
+      "keys": [
+        "pier"
+      ],
+      "path": "assets/Objects/Approved/pier.png",
+      "source": "assets/Objects/Wilderness/Bridge Beach.png",
+      "width": 128,
+      "height": 224,
+      "sha256": "e6dd0763daa3348ea74537aaf2683b43272ea5a1715cc9d3230eec31d9278715",
+      "rows": [
+        "pier-planks"
+      ],
+      "operations": [
+        {
+          "row": "pier-planks",
+          "rect": [
+            64,
+            32,
+            16,
+            16
+          ],
+          "palette": [
+            "#4c3018",
+            "#6c431d",
+            "#b1a064"
+          ],
+          "strength": 0.1,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "house_fort_unclaimed",
+      "keys": [
+        "house_fort_unclaimed"
+      ],
+      "path": "assets/Objects/Approved/house_fort_unclaimed.png",
+      "source": "assets/Objects/Houses/fort.png",
+      "width": 214,
+      "height": 154,
+      "sha256": "0600863fd97a099cb165a29ee167cb3c966d0113c82e50b8e59fd8f0b36c31fc",
+      "rows": [
+        "building-fort-unclaimed"
+      ],
+      "operations": [
+        {
+          "row": "building-fort-unclaimed",
+          "rect": [
+            0,
+            0,
+            214,
+            154
+          ],
+          "stateShade": {
+            "wash": "#1e3b24",
+            "washA": 0.35,
+            "murk": "#05070c",
+            "murkA": 0.12
+          },
+          "palette": [
+            "#171717",
+            "#4c3018",
+            "#6c431d",
+            "#90431b",
+            "#e6d7a3",
+            "#4ebcb9",
+            "#82b9a0"
+          ],
+          "strength": 0.1,
+          "mode": "gentle-tune",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "approved_wetland_reeds",
+      "keys": [
+        "approved_wetland_reeds"
+      ],
+      "path": "assets/Objects/Approved/approved_wetland_reeds.png",
+      "source": "unused_art/verdant-props-tileset-16x16/tiles/16x16/cattails.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "d4c2dd1f776025ea5bcac76ce921a3d5685c515bf9d8aeefc5e6773c23a3c424",
+      "rows": [
+        "longgrass-context"
+      ],
+      "operations": [
+        {
+          "row": "longgrass-context",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [],
+          "strength": 0,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "approved_clipped_hedge",
+      "keys": [
+        "approved_clipped_hedge"
+      ],
+      "path": "assets/Objects/Approved/approved_clipped_hedge.png",
+      "source": "assets/Objects/Generated/hedge_end.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "b1279b7f6ca3154514fd0326c13534af7cc26e718d4905f592197f87ae2a5fc3",
+      "rows": [
+        "shrub-context"
+      ],
+      "operations": [
+        {
+          "row": "shrub-context",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#26342a",
+            "#3e4b2c",
+            "#596338",
+            "#7a8147",
+            "#a5a569",
+            "#e6d7a3"
+          ],
+          "strength": 0.425,
+          "mode": "apple-foliage",
+          "preserveLuminance": false,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "approved_moss_rocks",
+      "keys": [
+        "approved_moss_rocks"
+      ],
+      "path": "assets/Objects/Approved/approved_moss_rocks.png",
+      "source": null,
+      "width": 176,
+      "height": 272,
+      "sha256": "d02621314e1557b40888a91637b0c7b4c57e3ff5d7a887c09da446e1b8cb5a8f",
+      "rows": [
+        "plain-rock-context"
+      ],
+      "operations": [
+        {
+          "row": "plain-rock-context",
+          "rect": [
+            48,
+            240,
+            16,
+            16
+          ],
+          "palette": [],
+          "strength": 0,
+          "moss": true
+        },
+        {
+          "row": "plain-rock-context",
+          "rect": [
+            64,
+            240,
+            16,
+            16
+          ],
+          "palette": [],
+          "strength": 0,
+          "moss": true
+        },
+        {
+          "row": "plain-rock-context",
+          "rect": [
+            80,
+            240,
+            16,
+            16
+          ],
+          "palette": [],
+          "strength": 0,
+          "moss": true
+        },
+        {
+          "row": "plain-rock-context",
+          "rect": [
+            96,
+            240,
+            16,
+            16
+          ],
+          "palette": [],
+          "strength": 0,
+          "moss": true
+        }
+      ]
+    },
+    {
+      "key": "approved_masonry_rubble",
+      "keys": [
+        "approved_masonry_rubble"
+      ],
+      "path": "assets/Objects/Approved/approved_masonry_rubble.png",
+      "source": "unused_art/verdant-props-tileset-16x16/tiles/16x16/rubble_masonry.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "3f6a6b613ed92fc27c4b46a76f35cc44d142a4b2b634e2818aba09c955130ea6",
+      "rows": [
+        "rubble-context"
+      ],
+      "operations": [
+        {
+          "row": "rubble-context",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [],
+          "strength": 0,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "approved_mushroom_cluster",
+      "keys": [
+        "approved_mushroom_cluster"
+      ],
+      "path": "assets/Objects/Approved/approved_mushroom_cluster.png",
+      "source": "assets/Objects/Wilderness/Props.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "c3ca03010cb45ea30f56cb6ef13cc3848095aecfeb0d26e4f55981055d9d2b06",
+      "rows": [
+        "mushroom-context"
+      ],
+      "operations": [
+        {
+          "row": "mushroom-context",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#171717",
+            "#28110b",
+            "#90431b",
+            "#ba6724",
+            "#e6d7a3"
+          ],
+          "strength": 0.075,
+          "mode": "gentle-tune",
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "approved_charred_stakes",
+      "keys": [
+        "approved_charred_stakes"
+      ],
+      "path": "assets/Objects/Approved/approved_charred_stakes.png",
+      "source": "assets/Objects/Generated/stakes_a.png",
+      "width": 16,
+      "height": 16,
+      "sha256": "d78c4177bd6a6042d3ded51ae064ed18ab7d89309c7c42ca31c701fc40cf6198",
+      "rows": [
+        "stakes-context"
+      ],
+      "operations": [
+        {
+          "row": "stakes-context",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "palette": [
+            "#171717",
+            "#403e34",
+            "#777462",
+            "#ba6724"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "potofgold",
+      "keys": [
+        "potofgold"
+      ],
+      "path": "assets/Objects/Approved/potofgold.png",
+      "source": null,
+      "width": 24,
+      "height": 22,
+      "sha256": "ff74669a214d51541b4fedbb65e42d4f852c765385904d6090ce35eb13834d24",
+      "rows": [
+        "gold-pot"
+      ],
+      "operations": [
+        {
+          "row": "gold-pot",
+          "rect": [
+            0,
+            0,
+            24,
+            22
+          ],
+          "palette": [
+            "#171717",
+            "#403e34",
+            "#777462",
+            "#9b6526",
+            "#fac756",
+            "#e6d7a3"
+          ],
+          "strength": 0.18,
+          "mode": null,
+          "preserveLuminance": true,
+          "colourMap": null,
+          "paletteStrength": null
+        }
+      ]
+    }
+  ]
+}

@@ -13,17 +13,17 @@ const ASSETS = {
   // Red dragon transform (Dragon Powder). 11-col sheet of 96×96 frames;
   // row 0 (frames 0-7) is the wing-flap we loop while transformed.
   dragon:  { kind: 'spritesheet', path: 'assets/Character/Dragon/babydragon_sheets/dragon_red.png', frameWidth: 96, frameHeight: 96 },
-  trees:   { kind: 'spritesheet', path: 'assets/Objects/Rustic/trees.png',       frameWidth: 32, frameHeight: 48 },
+  trees:   { kind: 'spritesheet', path: 'assets/Objects/Approved/trees.png',       frameWidth: 32, frameHeight: 48 },
   house:   {
-    kind: 'image', path: 'assets/Objects/House.png',
+    kind: 'image', path: 'assets/Objects/Approved/house.png',
     // House.png is a tileset (two houses + detail bits). Register a single
     // "front" frame for the right-hand cabin so we only render that.
     onLoad: (scene) => { scene.textures.get('house').add('front', 0, 148, 3, 72, 95); },
   },
   // Cave staircases (the surface→cave entrance and the cave's way back up).
   // ?v= busts the SW/browser cache when the art changes.
-  stair_down: { kind: 'image', path: 'assets/Objects/stair_down.png?v=2' },
-  stair_up:   { kind: 'image', path: 'assets/Objects/stair_up.png?v=1' },
+  stair_down: { kind: 'image', path: 'assets/Objects/Approved/stair_down.png' },
+  stair_up:   { kind: 'image', path: 'assets/Objects/Approved/stair_up.png' },
   // Chicken Red.png is 64×32: a 4-col × 2-row grid of 16×16 frames (NOT
   // 2× 32×32 like its filename + the cow sheet might suggest). Loading at
   // 32×32 made every "frame" a 2×2 cluster of mini-chickens — so each
@@ -42,15 +42,15 @@ const ASSETS = {
   cat:     { kind: 'spritesheet', path: 'assets/Objects/Pets/cat.png', frameWidth: 32, frameHeight: 32 },
   dog:     { kind: 'spritesheet', path: 'assets/Objects/Pets/dog.png', frameWidth: 32, frameHeight: 32 },
   // Approved closed gold chest: exact right-hand crop from Chests.png; see Gold Chest.md.
-  chest:   { kind: 'spritesheet', path: 'assets/Objects/Gold Chest.png',       frameWidth: 16, frameHeight: 16 },
+  chest:   { kind: 'spritesheet', path: 'assets/Objects/Approved/chest.png',       frameWidth: 16, frameHeight: 16 },
   // Market stall — a "produce stand" POI sprite (80×80 per frame). One frame
   // per product family (awning colour): 0 fruit, 1 veg, 2 meat, 3 fish,
   // 4 coffee/bakery, 5 dairy/egg, 6 flowers. See produceStandFor() in loot.js.
-  market_stand: { kind: 'spritesheet', path: 'assets/Objects/market_stand.png?v=1', frameWidth: 80, frameHeight: 80 },
+  market_stand: { kind: 'spritesheet', path: 'assets/Objects/Approved/market_stand.png', frameWidth: 80, frameHeight: 80 },
   // Crops sheet: 9 cols x 16 rows of 16x16 cells. Each crop = one row.
   // In-world growth: col 0 (sprout) -> col 4 (harvestable). Inventory: col 7 produce, col 8 seed.
   crops:   {
-    kind: 'spritesheet', path: 'assets/Objects/Crops.png', frameWidth: 16, frameHeight: 16,
+    kind: 'spritesheet', path: 'assets/Objects/Approved/crops.png', frameWidth: 16, frameHeight: 16,
     // Source PNG has a solid white background — alpha-key near-white pixels to transparent.
     onLoad: (scene) => {
       const tex = scene.textures.get('crops');
@@ -72,7 +72,7 @@ const ASSETS = {
   },
   // Spring Crops sheet (224x128, 14x8 of 16x16 frames). Used by crops whose
   // art lives here (e.g. potato) — see CROP_SPRITE override below.
-  springcrops: { kind: 'spritesheet', path: 'assets/Objects/Spring Crops.png',  frameWidth: 16, frameHeight: 16 },
+  springcrops: { kind: 'spritesheet', path: 'assets/Objects/Approved/springcrops.png',  frameWidth: 16, frameHeight: 16 },
   // Road copiar.png — 80×64 = 5×4 of 16×16 frames, the OLD road cobble. It
   // stamped a pebble cluster per road cell and a stone per path cell until
   // Sep 2026 (a street is restored and drawn as arclength along the WAY now;
@@ -89,7 +89,7 @@ const ASSETS = {
   // big multi-cell bridge structure; rows 4-13 are pairs of standalone 3-cell
   // horizontal bridges. Renderer uses frame 20 (row 2, col 4), an opaque
   // interior plank-deck tile, as the standard pier cell.
-  pier:        { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Bridge Beach.png', frameWidth: 16, frameHeight: 16 },
+  pier:        { kind: 'spritesheet', path: 'assets/Objects/Approved/pier.png', frameWidth: 16, frameHeight: 16 },
   // Wilderness art — all copied out of the gitignored Sprites/ source dump
   // into Objects/Wilderness/ so the tree can build without the raw asset pack.
   // The ONE face of money — a 64x64 transparent pixel-art jade coin (green: no ore is). It is
@@ -99,7 +99,7 @@ const ASSETS = {
   // coinIconEl / moneyHTML). One file, so no surface can draw money another way.
   coin_drop: { kind: 'image', path: 'assets/Icons/coin.png' },
   // Misc 16x16 prop — single boxed crate from the Singles tileset.
-  box:         { kind: 'image', path: 'assets/Objects/Wilderness/Box_Single_16x16.png' },
+  box:         { kind: 'image', path: 'assets/Objects/Approved/box.png' },
   // Forest critters. Sheets are 16x16 frames; renderer picks frames as needed.
   // Deer + Crow sheets are 32×32 frames despite living in a "Wilderness"
   // folder that mostly holds 16×16 props. Loading them as 16×16 sliced each
@@ -121,8 +121,8 @@ const ASSETS = {
   // Fruit trees — 32x48 frames (2 cells wide x 3 cells tall), same shape as
   // Maple (32 wide). Each tree spans a 32px column; slicing at 16 split every
   // tree in half (the odd 16px frame was just the right half of a tree).
-  apple_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Apple Tree.png',   frameWidth: 32, frameHeight: 48 },
-  peach_tree:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Peach Tree.png',   frameWidth: 32, frameHeight: 48 },
+  apple_tree:   { kind: 'spritesheet', path: 'assets/Objects/Approved/apple_tree.png',   frameWidth: 32, frameHeight: 48 },
+  peach_tree:   { kind: 'spritesheet', path: 'assets/Objects/Approved/peach_tree.png',   frameWidth: 32, frameHeight: 48 },
   // Wood/forest tree species — the art is a growth-stage strip where each
   // tree is ~1.5 cells TALL (canopy + trunk + root base). The sheets are
   // 96px tall: the top 48px are the standing tree, the bottom 48px hold
@@ -138,11 +138,11 @@ const ASSETS = {
   // The trimmed art bounds then ran to the frame's very bottom, so the seat
   // pass took that tip for the trunk base: the birch sat 16px too high in its
   // cell with a sliver of red foliage under its roots.
-  pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Pine Tree.png',     frameWidth: 32, frameHeight: 48 },
-  birch_tree:    { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Birch Tree.png',    frameWidth: 32, frameHeight: 48 },
-  mahogany_tree: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Mahogany Tree.png', frameWidth: 32, frameHeight: 48 },
+  pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
+  birch_tree:    { kind: 'spritesheet', path: 'assets/Objects/Approved/birch_tree.png',    frameWidth: 32, frameHeight: 48 },
+  mahogany_tree: { kind: 'spritesheet', path: 'assets/Objects/Approved/mahogany_tree.png', frameWidth: 32, frameHeight: 48 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
-  mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Wilderness/stone with minerals.png', frameWidth: 16, frameHeight: 16 },
+  mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
   // Stone pillar — 16×32 (1 cell wide × 2 tall): a fluted column with cap +
   // stepped base. Originally sliced from a gitignored source sheet, but the
   // slice rect clipped the column's top and left edge ("pole art is cut off"),
@@ -151,46 +151,46 @@ const ASSETS = {
   // man_made=mast, barrier=bollard, highway=street_lamp) — no interaction.
   // Authored at 16px-per-cell, so RENDER_SPEC.pole draws it at scale 2.0 to
   // match the game's 32px cell (1 cell wide × ~2 tall — a full-height pole).
-  pillar:         { kind: 'image', path: 'assets/Objects/Wilderness/pillar.png?v=2' },
+  pillar:         { kind: 'image', path: 'assets/Objects/Approved/pillar.png' },
   // STREET VARIANTS (src/street_variants.js): the generated 16px props (see
   // assets/Objects/Generated/README.md — placeholders): the pilgrim's
   // waystone, the barricade, and the burned row's tar pit and iron stakes
   // (one look each). wagon: the broken wagon a bandit-road bus stop wears
   // (loot.js chestLook), one 128×96 frame.
-  waystone:       { kind: 'spritesheet', path: 'assets/Objects/Generated/waystone.png', frameWidth: 16, frameHeight: 16 },
+  waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone.png', frameWidth: 16, frameHeight: 16 },
   giant_mushroom: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 48 },
   hedge_trimmed:  { kind: 'spritesheet', path: 'assets/Objects/Generated/hedge_end.png', frameWidth: 16, frameHeight: 16 },
-  barricade:      { kind: 'spritesheet', path: 'assets/Objects/Generated/barricade.png', frameWidth: 16, frameHeight: 16 },
-  tar:            { kind: 'spritesheet', path: 'assets/Objects/Generated/tar.png', frameWidth: 16, frameHeight: 16 },
-  stakes:         { kind: 'spritesheet', path: 'assets/Objects/Generated/stakes_a.png', frameWidth: 16, frameHeight: 16 },
-  wagon:          { kind: 'spritesheet', path: 'assets/Objects/Generated/wagon.png', frameWidth: 128, frameHeight: 96 },
+  barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 16, frameHeight: 16 },
+  tar:            { kind: 'spritesheet', path: 'assets/Objects/Approved/tar.png', frameWidth: 16, frameHeight: 16 },
+  stakes:         { kind: 'spritesheet', path: 'assets/Objects/Approved/stakes.png', frameWidth: 16, frameHeight: 16 },
+  wagon:          { kind: 'spritesheet', path: 'assets/Objects/Approved/wagon.png', frameWidth: 128, frameHeight: 96 },
   // INFLUENCE ZONES (src/zones.js): churchyard headstone, two grove shrine
   // appearances, and the flint nodule (items.js CROP_SPRITE.flint).
   headstone:      { kind: 'spritesheet', path: 'assets/Objects/Rustic/pillar_c.png', frameWidth: 16, frameHeight: 16 },
   grove_shrine:   { kind: 'spritesheet', path: 'assets/Objects/Landmarks/shrine-figure.png', frameWidth: 48, frameHeight: 48 },
-  grove_votive:   { kind: 'spritesheet', path: 'assets/Objects/Landmarks/shrine-votive.png', frameWidth: 16, frameHeight: 16 },
-  flint:          { kind: 'spritesheet', path: 'assets/Objects/Generated/flint.png', frameWidth: 16, frameHeight: 16 },
+  grove_votive:   { kind: 'spritesheet', path: 'assets/Objects/Approved/grove_votive.png', frameWidth: 16, frameHeight: 16 },
+  flint:          { kind: 'spritesheet', path: 'assets/Objects/Approved/flint.png', frameWidth: 16, frameHeight: 16 },
   // SCENIC PLACES (src/scenic.js) — generated placeholders, one art per
   // interactable: the viewpoint's scope (16×24, an object — RENDER_SPEC
   // vista_scope) and the tide line's driftwood and message bottle (wild
   // plants — items.js CROP_SPRITE).
-  vista_scope:    { kind: 'spritesheet', path: 'assets/Objects/Generated/scope.png', frameWidth: 16, frameHeight: 24 },
+  vista_scope:    { kind: 'spritesheet', path: 'assets/Objects/Approved/vista_scope.png', frameWidth: 16, frameHeight: 24 },
+  driftwood:      { kind: 'spritesheet', path: 'assets/Objects/Approved/driftwood.png', frameWidth: 16, frameHeight: 16 },
+  bottle:         { kind: 'spritesheet', path: 'assets/Objects/Approved/bottle.png', frameWidth: 16, frameHeight: 16 },
   shipwreck_shrine: { kind: 'spritesheet', path: 'assets/Objects/Beach/shipwreck_shrine.png', frameWidth: 1536, frameHeight: 1024 },
   beach_driftwood: { kind: 'spritesheet', path: 'assets/Objects/Beach/driftwood.png', frameWidth: 16, frameHeight: 16 },
   beach_rock: { kind: 'spritesheet', path: 'assets/Objects/Beach/beach_rock.png', frameWidth: 16, frameHeight: 16 },
-  driftwood:      { kind: 'spritesheet', path: 'assets/Objects/Generated/driftwood.png', frameWidth: 16, frameHeight: 16 },
-  bottle:         { kind: 'spritesheet', path: 'assets/Objects/Generated/bottle.png', frameWidth: 16, frameHeight: 16 },
   // POI props (assets/Objects/Generated/README.md — placeholders): a bin is a
   // BARREL or clay pot (standing, then smashed while restocking — isBarrel), a
   // bike rack the bicycle_parking POI (isBikeRack), a notice board the
   // information POI (render.js infoboard) and a gate's two posts (gatepost).
-  barrel:         { kind: 'spritesheet', path: 'assets/Objects/Generated/barrel.png', frameWidth: 16, frameHeight: 16 },
-  barrel_smashed: { kind: 'spritesheet', path: 'assets/Objects/Generated/barrel_smashed.png', frameWidth: 16, frameHeight: 16 },
+  barrel:         { kind: 'spritesheet', path: 'assets/Objects/Approved/barrel.png', frameWidth: 16, frameHeight: 16 },
+  barrel_smashed: { kind: 'spritesheet', path: 'assets/Objects/Approved/barrel_smashed.png', frameWidth: 16, frameHeight: 16 },
   clay_pot:       { kind: 'spritesheet', path: 'assets/Objects/Rustic/pot.png', frameWidth: 16, frameHeight: 16 },
   clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/Rustic/pot_smashed.png', frameWidth: 16, frameHeight: 16 },
-  bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Generated/bike_rack.png', frameWidth: 16, frameHeight: 16 },
-  signpost:       { kind: 'spritesheet', path: 'assets/Objects/Generated/signpost.png', frameWidth: 16, frameHeight: 16 },
-  gatepost:       { kind: 'spritesheet', path: 'assets/Objects/Generated/pillar_a.png', frameWidth: 16, frameHeight: 16 },
+  bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Approved/bike_rack.png', frameWidth: 16, frameHeight: 16 },
+  signpost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/signpost.png', frameWidth: 16, frameHeight: 16 },
+  gatepost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/gatepost.png', frameWidth: 16, frameHeight: 16 },
   // THE MACRO STALLS (loot.js MACRO_KIND_BY_CLASS / macroFor): the in-building
   // POIs that are places you come back to. One 80×80 frame each, the same
   // frame and box as market_stand (art in x:[12,80) y:[0,70)), drawn by
@@ -221,7 +221,7 @@ const ASSETS = {
   // Wizard tower — 320×208 sheet, 4 cols × 2 rows of 80×104.
   // Top row = 4 tower variants (blue-ivy, purple-ivy, blue-clean, purple-clean).
   // Wizard houses (role 'wizard') use frame 3 (fully-restored purple-clean).
-  shrine:      { kind: 'spritesheet', path: 'assets/Objects/Houses/wizard.png', frameWidth: 80, frameHeight: 104 },
+  shrine:      { kind: 'spritesheet', path: 'assets/Objects/Approved/shrine.png', frameWidth: 80, frameHeight: 104 },
   // Shell collectible — 48×64 = 3 cols × 4 rows of 16×16. Only the top row is
   // shell art (three cowries); the rest is keyline duplicates, mask rows and
   // blanks, so WHICH frames may be drawn is CROP_SPRITE.shell's `frames` list
@@ -243,15 +243,15 @@ const ASSETS = {
   // Scarecrow — 48×48 single-image prop (straw-man on a cross-pole). Pole base
   // anchors at origin (0.5, 1) so it stands on its placement cell; the render
   // spec scales the 48px art down to ~one cell. ?v= busts the SW/browser cache.
-  scarecrow:   { kind: 'image', path: 'assets/Objects/Scarecrow_16x16.png?v=1' },
+  scarecrow:   { kind: 'image', path: 'assets/Objects/Approved/scarecrow.png' },
   // Rustic default grass/mushroom in the original 22×12 prop grid. Other
   // flowers, seasonal props and existing cave mushrooms keep their source art.
   // Spring/autumn/winter/aqua grass tufts, ferns, wildflowers, mushrooms,
   // pebbles, logs. Wildplants pick a frame via CROP_SPRITE { sheet: 'props',
   // custom: true, frame: N }. Longgrass uses frame 10 (a grass tuft).
-  props:       { kind: 'spritesheet', path: 'assets/Objects/Rustic/Props.png', frameWidth: 16, frameHeight: 16 },
+  props:       { kind: 'spritesheet', path: 'assets/Objects/Approved/props.png', frameWidth: 16, frameHeight: 16 },
   // Rounded woodland bush: shared by shrub wildplants and bush-sized trees.
-  bushes:      { kind: 'spritesheet', path: 'assets/Objects/Rustic/bush.png', frameWidth: 48, frameHeight: 32 },
+  bushes:      { kind: 'spritesheet', path: 'assets/Objects/Approved/bushes.png', frameWidth: 48, frameHeight: 32 },
   // Animated campfire — 96×32 = 6 cols × 1 row of 16×32 frames. Lit by burning
   // a coal on bare ground (see interact.js 'light-fire'); the _fire render spec
   // cycles the 6 frames for a flicker. Repels slimes + slowly restores energy.
@@ -303,11 +303,11 @@ const ASSETS = {
   // Sprites/unused/Objects/Exterior/Houses/NPCS houses). Each replaces the
   // generic tinted 'house' for a specific role — see render.js' house key
   // function. Anchored at origin (0.5, 0.9) like the base house.
-  house_blacksmith: { kind: 'image', path: 'assets/Objects/Houses/blacksmith.png' },
-  house_trader:     { kind: 'image', path: 'assets/Objects/Houses/trader.png' },
-  house_market:     { kind: 'image', path: 'assets/Objects/Houses/market.png' },
-  house_fort:       { kind: 'image', path: 'assets/Objects/Houses/fort.png' },
-  house_trailer:    { kind: 'image', path: 'assets/Objects/Houses/trailer.png' },
+  house_blacksmith: { kind: 'image', path: 'assets/Objects/Approved/house_blacksmith.png' },
+  house_trader:     { kind: 'image', path: 'assets/Objects/Approved/house_trader.png' },
+  house_market:     { kind: 'image', path: 'assets/Objects/Approved/house_market.png' },
+  house_fort:       { kind: 'image', path: 'assets/Objects/Approved/house_fort.png' },
+  house_trailer:    { kind: 'image', path: 'assets/Objects/Approved/house_trailer.png' },
   // Wreck: every tier-9 small house starts out as one of these until the
   // player brings the restoration materials. Single sprite shared across
   // all roles — what the wreck WILL become is hidden until restoration.
@@ -316,7 +316,17 @@ const ASSETS = {
   // above its shadow). Bump this when the art changes again — the service
   // worker + browser HTTP cache key on the full URL, so the new query forces
   // a fresh fetch instead of serving the stale image.
-  house_wreck:      { kind: 'image', path: 'assets/Objects/Houses/Wreck.png?v=1' },
+  house_wreck:      { unclaimedArt: true, kind: 'image', path: 'assets/Objects/Approved/house_wreck.png' },
+  // BEGIN approved map-art states and contexts
+  house_fort_unclaimed: {"kind": "image", "path": "assets/Objects/Approved/house_fort_unclaimed.png", "unclaimedArt": true},
+  approved_wetland_reeds: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_wetland_reeds.png", "frameWidth": 16, "frameHeight": 16},
+  approved_clipped_hedge: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_clipped_hedge.png", "frameWidth": 16, "frameHeight": 16},
+  approved_moss_rocks: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_moss_rocks.png", "frameWidth": 16, "frameHeight": 16},
+  approved_masonry_rubble: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_masonry_rubble.png", "frameWidth": 16, "frameHeight": 16},
+  approved_mushroom_cluster: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_mushroom_cluster.png", "frameWidth": 16, "frameHeight": 16},
+  approved_charred_stakes: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_charred_stakes.png", "frameWidth": 16, "frameHeight": 16},
+  potofgold: {"kind": "image", "path": "assets/Objects/Approved/potofgold.png"},
+  // END approved map-art states and contexts
 };
 
 // Player class and bicycle appearances share their verified layout metadata.

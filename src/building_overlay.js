@@ -78,8 +78,9 @@
   // colour by construction. The fallbacks are for the headless suite, where
   // app.js isn't loaded.
   const FLOOR_FALLBACK = { 9: 0x9d6350, 11: 0x9b8365, 12: 0x787a80 };
-  const floorColor = (tier) =>
-    (typeof COLORS !== 'undefined' && COLORS[tier] != null) ? COLORS[tier]
+  const floorColor = (tier, claimed = true) =>
+    (!claimed && typeof UNCLAIMED_BUILDING_BASE !== 'undefined') ? UNCLAIMED_BUILDING_BASE.floors[tier]
+      : (typeof COLORS !== 'undefined' && COLORS[tier] != null) ? COLORS[tier]
       : (FLOOR_FALLBACK[tier] ?? 0x9d6350);
 
   // Wall face + its depth: render.js's own SOUTH_FACE_COLOR / SOUTH_FACE_PX,
@@ -93,7 +94,8 @@
   // scaling a colour by `m` is the lerp from black.
   const mix = BiomeProfiles.mixHex;
   const dim = (c, m) => mix(0x000000, c, m);
-  const faceColor = (tier) => {
+  const faceColor = (tier, claimed = true) => {
+    if (!claimed && typeof UNCLAIMED_BUILDING_BASE !== 'undefined') return UNCLAIMED_BUILDING_BASE.faces[tier];
     const tbl = (typeof Render !== 'undefined' && Render.BUILDING_FACE_COLOR) || null;
     return (tbl && tbl[tier] != null) ? tbl[tier] : dim(floorColor(tier), FACE_MUL);
   };
@@ -344,7 +346,8 @@
     if (scene.textures.exists(TEX_KEY)) scene.textures.remove(TEX_KEY);
     const tex = scene.textures.createCanvas(TEX_KEY, size, size);
     if (!tex) return null;
-    const ctx = tex.getContext();
+    const mainCtx = tex.getContext();
+    let ctx = mainCtx, materialLayer = null;
     ctx.lineJoin = 'round';
     const img = scene.add.image(originX, originY, TEX_KEY).setOrigin(0, 0);
     scene.buildingGeomContainer.add(img);
@@ -384,6 +387,30 @@
     };
     const target = {
       clear() { ctx.clearRect(0, 0, size, size); },
+      beginMaterial(d, unclaimed) {
+        if (!unclaimed || typeof tuneUnclaimedMaterialCanvas !== 'function') return;
+        // Only during an overlay rebuild, and only the visible building's
+        // small clipped rectangle. No viewport-sized readback per footprint.
+        const x = Math.max(0, Math.floor(d.left - originX) - 2);
+        const y = Math.max(0, Math.floor(d.north - originY) - 2);
+        const right = Math.min(size, Math.ceil(d.right - originX) + 2);
+        const bottom = Math.min(size, Math.ceil(d.south - originY + facePx(d.tier)) + 2);
+        if (right <= x || bottom <= y) return;
+        const layer = document.createElement('canvas');
+        layer.width = right - x; layer.height = bottom - y;
+        materialLayer = { layer, x, y };
+        ctx = layer.getContext('2d');
+        ctx.lineJoin = 'round';
+        ctx.translate(-x, -y);
+      },
+      endMaterial() {
+        if (!materialLayer) return;
+        const { layer, x, y } = materialLayer;
+        tuneUnclaimedMaterialCanvas(layer);
+        ctx = mainCtx;
+        ctx.drawImage(layer, x, y);
+        materialLayer = null;
+      },
       fillPoly(pts, color) {
         if (!pts || pts.length < 3) return;
         trace(pts);
@@ -631,13 +658,14 @@
 
     for (const d of draws) {
       const isMine = claimed(d.key);
+      if (g.beginMaterial) g.beginMaterial(d, !isMine);
       const shade = shadeOf(isMine);
-      const floor = shade(floorColor(d.tier));
+      const floor = shade(floorColor(d.tier, isMine));
       const depth = facePx(d.tier);
       // The wall, as the ring filled again one face-depth south and painted
       // UNDER the floor: whatever survives is exactly the polygon's
       // south-facing edges, at any angle, with no per-edge normal test.
-      g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), shade(faceColor(d.tier)));
+      g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), shade(faceColor(d.tier, isMine)));
       g.fillPoly(d.pts, floor);
       if (g.texturePoly) g.texturePoly(d.pts, d.tier);
       // Dilapidated: the slime, over the floor and its material (it is growing
@@ -663,6 +691,7 @@
       } else {
         g.strokePoly(d.pts, OUTLINE_PX, dim(floor, OUTLINE_MUL));
       }
+      if (g.endMaterial) g.endMaterial();
     }
     if (g.commit) g.commit();
   }

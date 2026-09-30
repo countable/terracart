@@ -3,25 +3,6 @@
 // tiny Phaser texture adapters; it does not reimplement their drawing styles.
 const MapArtProcedural = (() => {
   const colorNumber = value => typeof value === 'string' ? parseInt(value.replace('#',''),16) : value;
-  function withBuildingProposal(draw) {
-    const settings = MAP_ART_BUILDING_PROPOSAL;
-    const tables = [COLORS,Render.BUILDING_FACE_COLOR,CASTLE_STONE,CASTLE_STONE_UNCLAIMED,UNCLAIMED_SHADE];
-    const originals = tables.map(table => Object.assign({},table));
-    const originalTilled = TILLED_COLOR;
-    for (const [tier,color] of Object.entries(settings.claimed.floors)) COLORS[tier]=colorNumber(color);
-    for (const [tier,color] of Object.entries(settings.claimed.faces)) Render.BUILDING_FACE_COLOR[tier]=colorNumber(color);
-    for (const [state,table] of [['claimed',CASTLE_STONE],['unclaimed',CASTLE_STONE_UNCLAIMED]]) {
-      for (const [key,color] of Object.entries(settings[state].stone)) table[key]={n:colorNumber(color),s:color};
-    }
-    const shade=settings.unclaimed.shade;
-    Object.assign(UNCLAIMED_SHADE,{wash:colorNumber(shade.wash),washA:shade.washA,murk:colorNumber(shade.murk),murkA:shade.murkA});
-    TILLED_COLOR=colorNumber(settings.tilledColor);
-    try { return draw(); }
-    finally {
-      tables.forEach((table,i)=>Object.assign(table,originals[i]));
-      TILLED_COLOR=originalTilled;
-    }
-  }
   function canvas(w, h = w) {
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
@@ -68,10 +49,10 @@ const MapArtProcedural = (() => {
     const tex = BIOME_TEX[id];
     if (!tex || id === 30) throw new Error('Not an audited map terrain: ' + id);
     const cx = output.getContext('2d');
-    cx.fillStyle = spec.color || cssOf(COLORS[id]);
+    cx.fillStyle = spec.color || (!spec.proposed && MAP_ART_GROUND_ORIGINALS[id]) || cssOf(COLORS[id]);
     cx.fillRect(0, 0, size, size);
     tex.draw(layer.getContext('2d'), size, seededRand((id + 1) * 1000 + (spec.variant || 0) + 1), spec.phase || 0);
-    cx.globalAlpha = spec.proposed ? (MAP_ART_GROUND_PATTERN_OPACITY[id] ?? 1) : 1;
+    cx.globalAlpha = spec.proposed ? (tex.patternOpacity ?? 1) : 1;
     cx.drawImage(layer, 0, 0);
     return output;
   }
@@ -83,7 +64,9 @@ const MapArtProcedural = (() => {
     cx.lineCap = cx.lineJoin = 'round';
     const rail = spec.style === 'rail', path = spec.style === 'path';
     const restored = !!spec.restored && !rail;
-    const color = colorNumber(spec.color) || (rail ? r.RAIL_COLOR : restored
+    const original = !spec.proposed && !restored
+      ? MAP_ART_ROAD_ORIGINALS[rail ? 'rail' : path ? 'path-weathered' : 'road-weathered'] : null;
+    const color = colorNumber(spec.color || original) || (rail ? r.RAIL_COLOR : restored
       ? (path ? r.RESTORED_PATH_COLOR : r.RESTORED_ROAD_COLOR)
       : (path ? r.PATH_COLOR : r.ROAD_COLOR));
     const pts = [{x:-10,y:size * .72},{x:size * .42,y:size * .49},{x:size+10,y:size * .35}];
@@ -105,11 +88,8 @@ const MapArtProcedural = (() => {
     return out;
   }
   function render(spec) {
-    // Apply real painter palettes for the proposed side and restore immediately.
-    // Consecutive before/after/before samples must leave the originals identical.
-    if (spec.proposed && ['building','tower','tilled'].includes(spec.kind)) {
-      return withBuildingProposal(()=>render(Object.assign({},spec,{proposed:false})));
-    }
+    // Building, tower and tilled proposals are now the shipping painters.
+    // Their unclaimed colour transfer already runs once inside the painter.
     if (spec.kind === 'treasure') {
       // The two snapped 2px strokes in Render.drawCells/drawX; no new art.
       const c = canvas(14), ctx = c.getContext('2d'), s = 5.1, mid = 7;
@@ -144,7 +124,8 @@ const MapArtProcedural = (() => {
       return scene.result('sample');
     }
     if (spec.kind === 'pad') {
-      makeRoundPadTexture(scene, 'sample');
+      makeRoundPadTexture(scene, 'sample', spec.proposed ? undefined
+        : { top: UI_TREASURE, side: '#dde5f2' });
       return scene.result('sample');
     }
     if (spec.kind === 'potofgold') {

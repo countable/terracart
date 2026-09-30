@@ -65,6 +65,9 @@ const cellIdx = (p) => cellY(p.y) * CPE + cellX(p.x);
 // 40 → 39, one older plant's cell now holds a street rock (occupancy).
 // The biome stream's pre-ownership source remains stable; special street
 // corridors now remove only plants inside their claimed area.
+// Affinity and rarity changes reconcile SURFACE rocks after caveSource is
+// captured. Its legacy rock substrate must keep this original 39-plant
+// stream intact, even when the surface road now chooses a rock-free theme.
 const OLDER_PLANTS_BEFORE = { n: 39, hash: 3112412394 };
 
 test('residential yard flora: street ownership only removes older plants inside its corridor', () => {
@@ -76,7 +79,7 @@ test('residential yard flora: street ownership only removes older plants inside 
   assert.eq(fnv1a(sourceIds.join('|')), OLDER_PLANTS_BEFORE.hash, 'the older plant stream did not reroll');
   assert.eq(sourceIds.length, OLDER_PLANTS_BEFORE.n);
   const expected = source.filter((p) => !r.streetArea[cellIdx(p)]).map((p) => p.id).sort();
-  const older = r.wildplants.filter((p) => !isYard(p)).map((p) => p.id).sort();
+  const older = r.wildplants.filter((p) => !isYard(p) && !p._street).map((p) => p.id).sort();
   assert.eq(older.join('|'), expected.join('|'), 'only owned corridor plants are cleared');
 });
 

@@ -323,8 +323,9 @@ const PIECES = {
   street_hedgerow: scene(
     // The lane just continues out of frame (Sep 2026): no dead end, no
     // disturbed mound — that hoard moved to the coffee-shop POIs.
-    'An empty narrow lane between tall clipped hedges, a mossy stone archway straddling the ' +
-    'path, the hedgerow lane continuing on out of view beyond it, nobody about, dusk light.'),
+    'An empty narrow lane between clipped hedges, the unobstructed lane continuing out of ' +
+    'view between the hedge rows, nobody about, dusk light. No archway, gate or structure ' +
+    'crossing the lane.'),
   street_lantern: scene(
     'A long cobbled road at dusk lined with old iron lantern posts, some glowing warm amber ' +
     'light, others dark and unlit, stretching toward a village.'),

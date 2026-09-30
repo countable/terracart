@@ -680,10 +680,10 @@
       },
       "currentColor": "#62753f",
       "proposedColor": "#8e9b6a",
-      "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
+      "assessment": "Slightly clearer pitch markings and surface pattern; retain the current lighter olive base.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #8e9b6a. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
-      "rationale": "Keep the existing procedural texture with base #8e9b6a. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "recommendation": "Keep the existing procedural texture with base #8e9b6a. Increase pattern contrast 10% from the previous preview (88% of original texture-mark strength), keeping the base colour unchanged.",
+      "rationale": "Keep the existing procedural texture with base #8e9b6a. Increase pattern contrast 10% from the previous preview (88% of original texture-mark strength), keeping the base colour unchanged.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/TexturedGrass.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -702,7 +702,7 @@
       },
       "proposedLuminance": 148.7,
       "proposedChannelSpread": 49,
-      "patternOpacity": 0.8
+      "patternOpacity": 0.88
     },
     {
       "id": "ground-20",
@@ -727,11 +727,11 @@
         "terrainId": 20
       },
       "currentColor": "#3d4f3c",
-      "proposedColor": "#607060",
-      "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
+      "proposedColor": "#4b5d4a",
+      "assessment": "Original wetland green and full texture, with a small lightness lift.",
       "treatment": "recolor",
-      "recommendation": "Bring the swamp base halfway back toward its original deeper green. Soften the dark organic marks to 50% of their original overlay strength, retaining the small litter or water highlights and corrected tiling geometry.",
-      "rationale": "Bring the swamp base halfway back toward its original deeper green. Soften the dark organic marks to 50% of their original overlay strength, retaining the small litter or water highlights and corrected tiling geometry.",
+      "recommendation": "Keep the original wetland colour balance and full-strength marsh marks. Lift the original base by 14 RGB levels to #4b5d4a, preserving saturation and the corrected seamless geometry.",
+      "rationale": "Keep the original wetland colour balance and full-strength marsh marks. Lift the original base by 14 RGB levels to #4b5d4a, preserving saturation and the corrected seamless geometry.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/Shore.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -748,9 +748,9 @@
         "kind": "biome",
         "terrainId": 20
       },
-      "proposedLuminance": 107.4,
-      "proposedChannelSpread": 16,
-      "patternOpacity": 0.5
+      "proposedLuminance": 87.8,
+      "proposedChannelSpread": 19,
+      "patternOpacity": 1
     },
     {
       "id": "ground-21",
@@ -775,11 +775,11 @@
         "terrainId": 21
       },
       "currentColor": "#87995c",
-      "proposedColor": "#acb687",
-      "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
-      "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #acb687. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
-      "rationale": "Keep the existing procedural texture with base #acb687. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "proposedColor": "#87995c",
+      "assessment": "Keep the original golf fairway, as requested.",
+      "treatment": "keep",
+      "recommendation": "Revert the proposed fairway changes: retain the original base colour and full-strength texture.",
+      "rationale": "Revert the proposed fairway changes: retain the original base colour and full-strength texture.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/TexturedGrass.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -796,9 +796,9 @@
         "kind": "biome",
         "terrainId": 21
       },
-      "proposedLuminance": 176.5,
-      "proposedChannelSpread": 47,
-      "patternOpacity": 0.8
+      "proposedLuminance": 144.8,
+      "proposedChannelSpread": 61,
+      "patternOpacity": 1
     },
     {
       "id": "ground-22",
@@ -823,11 +823,11 @@
         "terrainId": 22
       },
       "currentColor": "#556237",
-      "proposedColor": "#8c976e",
-      "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
+      "proposedColor": "#818c63",
+      "assessment": "Orchard ground regains a little depth and saturation: 20% closer to its original colour than the previous preview.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #8c976e. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
-      "rationale": "Keep the existing procedural texture with base #8c976e. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "recommendation": "Keep the existing procedural texture with base #818c63, moved 20% toward the original olive floor. Preserve texture shadows and highlights; keep texture marks 20% softer than the original.",
+      "rationale": "Keep the existing procedural texture with base #818c63, moved 20% toward the original olive floor. Preserve texture shadows and highlights; keep texture marks 20% softer than the original.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -844,7 +844,7 @@
         "kind": "biome",
         "terrainId": 22
       },
-      "proposedLuminance": 145.7,
+      "proposedLuminance": 134.7,
       "proposedChannelSpread": 41,
       "patternOpacity": 0.8
     },
@@ -1088,7 +1088,9 @@
           ],
           "recommendation": "Use a light cool grey-olive litter tint immediately beneath Ancient Grove clusters, at the same brightness as the default floor. Keep open gaps lighter and warmer.",
           "reason": "Cluster identity comes from coolness and existing litter texture, while all floor areas stay bright enough to separate the trees.",
-          "status": "proposal only"
+          "status": "applied",
+          "groundColor": "#94a38c",
+          "cells": "authored tree and shrub motif cells"
         }
       ],
       "preview": {
@@ -1148,7 +1150,9 @@
           ],
           "recommendation": "A tiny warm-ivory worn-stone centre at the Silent Circle POI only, touching the votive/stone figure; leave outer ground rustic olive.",
           "reason": "Silent Circle is one of five equal-weight stone assignments; one restrained sacred focal patch reinforces the compact rings without recolouring the entire churchyard.",
-          "status": "proposal only"
+          "status": "applied",
+          "groundColor": "#d5d3bd",
+          "cells": "single settled POI ground cell"
         }
       ],
       "preview": {
@@ -1459,6 +1463,9 @@
       "assessment": "Small pixel boards already match gameplay scale; unify weathered wood.",
       "treatment": "recolor",
       "recommendation": "Recolour boards to bark/earth/dry-leaf while retaining transparent gaps and muted teal water underneath.",
+      "palette": ["bark", "earth", "dry_leaf"],
+      "recolourStrength": 0.1,
+      "preserveLuminance": true,
       "rationale": "A crisp narrow plank reads better at map scale than a detailed replacement bridge.",
       "candidate": {
         "path": "assets/Objects/Wilderness/Bridge Beach.png",

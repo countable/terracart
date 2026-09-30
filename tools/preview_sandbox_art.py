@@ -44,19 +44,20 @@ def plan(reserve):
             candidate = rec.get('candidate')
             swap = raster(candidate,reserve) if candidate and rec['action'].startswith('swap') else None
             sprites.append(dict(id=row['id'],refs=refs,palette=palette,candidate=swap['src'] if swap else None,
-                                strength=rec.get('recolourStrength',.18),preserveLuminance=rec.get('preserveLuminance',True),mode=rec.get('recolourMode'),colourMap=rec.get('colourMap')))
+                                strength=rec.get('recolourStrength',.18),preserveLuminance=rec.get('preserveLuminance',True),mode=rec.get('recolourMode'),colourMap=rec.get('colourMap'),paletteStrength=rec.get('paletteStrength')))
     ground = {str(r['terrainId']):r['proposedColor'] for r in json.loads((ROOT/'docs/art/map-audit-ground.json').read_text())['rows'] if 'terrainId' in r and r.get('proposedColor')}
     buildings=json.loads((ROOT/'docs/art/map-building-preview.json').read_text())
     ground.update(buildings['claimed']['floors'])
     hedge=raster(dict(path='assets/Objects/Generated/hedge_end.png',rect=[0,0,16,16]),reserve)
     bush=next(row for row in sprites if row['id']=='shrub')
-    hedge.update(palette=bush['palette'],strength=bush['strength'],mode=bush['mode'])
+    hedge_choice=next(row for row in json.loads((ROOT/'docs/art/map-audit-interactables.json').read_text())['rows'] if row['id']=='shrub')['zoneVariant']
+    hedge.update(palette=bush['palette'],strength=hedge_choice.get('recolourStrength',bush['strength']),mode=hedge_choice.get('recolourMode',bush['mode']))
     ground_patterns = {str(r['terrainId']):r['patternOpacity'] for r in json.loads((ROOT/'docs/art/map-audit-ground.json').read_text())['rows'] if 'patternOpacity' in r}
     return dict(sprites=sprites,ground=ground,groundPatterns=ground_patterns,hedge=hedge,buildings=buildings,notes=[
         'Before is the current game, including the approved rustic defaults and new gold chest.',
-        'After tunes each material’s colour and shading while retaining source geometry. Flowers receive only 7.5% palette, desaturation and lightness adjustment. Lava retains its original fiery colour and bright highlights.',
+        'After tunes each material’s colour and shading while retaining source geometry. Flowers receive a 10% palette shift with 7.5% desaturation and lightness adjustments. Lava retains its original fiery colour and bright highlights.',
         'The new chest shape blends halfway toward the old chest’s warm wood and muted metal colours; fort and castle floors move 20% toward their original bases.',
-        'Flora keeps the apple-inspired direction with 25% less adjustment, except grass which retains its approved treatment; bushes and hedges use half the earlier adjustment. Forest and marsh spots use half-strength overlays; sand marks are 15% softer. The swamp returns toward its earlier deeper green.',
+        'Flora keeps the apple-inspired direction with 25% less adjustment, except grass which retains its approved treatment. The ordinary bush uses the original green source, 72% apple treatment and 10% softer interior contrast; clipped hedges retain their previous treatment. Forest spots use half-strength overlays; sand marks are 15% softer. Marsh retains its original texture with a small base lightness lift; golf fairway is unchanged. Orchard floor is 20% closer to original and sports pitch marks regain a little contrast.',
         'Restored buildings receive a 10% palette/desaturation/lightness adjustment and mushrooms 7.5%; stone votive lightness lifts 12%. Rockfruit moves gently toward ore-stone colours; shells, macro booths and chapel remain unchanged.',
         'The sandbox buildings are claimed. The separate audit cards show the more weathered unclaimed fort treatment.',
         'Both captures use the same frozen sandbox, identical object positions, native pixels and neutral fullbright lighting.',
@@ -68,7 +69,11 @@ def plan(reserve):
 
 async def capture(args):
     args.output.mkdir(parents=True,exist_ok=True)
-    proposal=plan(args.reserve_root)
+    installed = ROOT/'assets/Objects/Approved/manifest.json'
+    baseline = args.baseline or (args.output/'before.png' if installed.exists() else None)
+    if installed.exists() and (not baseline or not baseline.exists()):
+        raise SystemExit('Art is already applied. Pass --baseline with a pre-application sandbox PNG; do not apply the colour recipes twice.')
+    proposal = None if installed.exists() else plan(args.reserve_root)
     async with async_playwright() as p:
         browser=await p.chromium.launch(headless=True,executable_path=os.environ.get('CHROMIUM_PATH'))
         page=await browser.new_page(viewport=dict(width=1100,height=900),device_scale_factor=1)
@@ -79,12 +84,22 @@ async def capture(args):
         await page.wait_for_function("window.__game?.scene.getScene('map')?._sandboxLabelData?.length",timeout=60000)
         await page.add_script_tag(content=(ROOT/'tools/sandbox_capture.js').read_text())
         info=await page.evaluate('setupSandboxCapture()')
-        before=await page.evaluate('sandboxCapture.mosaic()')
-        await page.add_script_tag(content=(ROOT/'tools/art_preview_colour.js').read_text())
-        await page.add_script_tag(content=subprocess.check_output(['node','tools/export_map_art_painters.js'],cwd=ROOT,text=True))
-        await page.add_script_tag(content=(ROOT/'tools/sandbox_candidate_art.js').read_text())
-        applied=await page.evaluate('(plan)=>applySandboxCandidates(sandboxCapture.scene,plan)',proposal)
-        after=await page.evaluate('sandboxCapture.mosaic()')
+        if installed.exists():
+            before = 'data:image/png;base64,' + base64.b64encode(baseline.read_bytes()).decode()
+            after = await page.evaluate('sandboxCapture.mosaic()')
+            applied = dict(changed=[], live=True, notes=[
+                'Before is the preserved pre-application sandbox; after is captured directly from the shipping game.',
+                'No preview colour filter or replacement is applied to the after capture.',
+                'Approved default sprites, generated ground and building treatments are installed; actors retain their original art.',
+                'The authored sandbox has no assigned zone motifs; use the zone preview and map reviewer for context variants.',
+            ])
+        else:
+            before=await page.evaluate('sandboxCapture.mosaic()')
+            await page.add_script_tag(content=(ROOT/'tools/art_preview_colour.js').read_text())
+            await page.add_script_tag(content=subprocess.check_output(['node','tools/export_map_art_painters.js'],cwd=ROOT,text=True))
+            await page.add_script_tag(content=(ROOT/'tools/sandbox_candidate_art.js').read_text())
+            applied=await page.evaluate('(plan)=>applySandboxCandidates(sandboxCapture.scene,plan)',proposal)
+            after=await page.evaluate('sandboxCapture.mosaic()')
         assert before != after, 'Candidate substitution made no visual change'
         for name,uri in [('before',before),('after',after)]:
             (args.output/(name+'.png')).write_bytes(base64.b64decode(uri.split(',',1)[1]))
@@ -93,7 +108,7 @@ async def capture(args):
           const images=await Promise.all([before,after].map(async src=>{const i=new Image();i.src=src;await i.decode();return i;}));
           const w=images[0].width,h=images[0].height,c=document.createElement('canvas');c.width=w*2+32;c.height=h+72;
           const x=c.getContext('2d');x.fillStyle='#141b18';x.fillRect(0,0,c.width,c.height);x.fillStyle='#eee8d7';x.font='bold 28px sans-serif';
-          x.fillText('BEFORE · current game',20,45);x.fillText('AFTER · candidate study',w+52,45);
+          x.fillText('BEFORE · previous game',20,45);x.fillText('AFTER · approved art',w+52,45);
           x.drawImage(images[0],0,72);x.drawImage(images[1],w+32,72);return c.toDataURL('image/png');
         }''',[before,after])
         (args.output/'comparison.png').write_bytes(base64.b64decode(pair.split(',',1)[1]))
@@ -102,6 +117,8 @@ async def capture(args):
     metadata=dict(info=info,applied=applied)
     (args.output/'capture.json').write_text(json.dumps(metadata,indent=2))
     html=(ROOT/'tools/sandbox_art_comparison.html').read_text().replace('__CAPTURE__',json.dumps(metadata).replace('<','\\u003c'))
+    if applied.get('live'):
+        html = html.replace('current and candidate art','previous and applied art').replace('Before · current game','Before · previous game').replace('After · candidate study','After · applied game').replace('These candidate treatments are previews.','These approved treatments are now applied in the game.').replace('Current PNG','Previous PNG').replace('Candidate PNG','Applied PNG').replace('Candidate treatment','Applied treatment').replace('Current game','Previous game').replace('Reveal candidates','Reveal applied art')
     (args.output/'index.html').write_text(html)
     print(json.dumps(dict(output=str(args.output),spriteFrames=len(applied['changed']),errors=errors)))
 
@@ -111,4 +128,5 @@ if __name__=='__main__':
     parser.add_argument('--url',default='http://127.0.0.1:8767/')
     parser.add_argument('--reserve-root',type=Path,default=ROOT/'unused_art')
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--baseline',type=Path,help='Preserved pre-application sandbox PNG, required once art is installed (defaults to existing output/before.png).')
     asyncio.run(capture(parser.parse_args()))

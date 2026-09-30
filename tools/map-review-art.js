@@ -51,7 +51,7 @@ const MapReviewArt = (() => {
       // Only phase zero is needed. Use the very same painter and seed as the game.
       for(const [type,spec] of Object.entries(BIOME_TEX)) for(let v=0;v<spec.variants;v++) {
         const t=textures.createCanvas(`biome${type}_${v}`,32,32);
-        spec.draw(t.getContext(),32,seededRand((Number(type)+1)*1000+v+1),0);
+        drawBiomeTexture(t.getContext(),32,type,v,0);
       }
       return {textures,failures};
     })();
@@ -103,7 +103,7 @@ const MapReviewArt = (() => {
       this._sprites=[];
       const add=(e,o,category)=>{
         if(!Number.isFinite(o.x)||!Number.isFinite(o.y))return;
-        const appearance=category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(o):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:resolve(o);
+        const appearance=category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(o):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:'coin_drop',frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.COIN_DROP_PX,displayHeight:Render.COIN_DROP_PX}:resolve(o);
         if(o.kind==='_streetlamp'&&appearance?.visible) {
           // The shipping after hook owns lamp sizing and dark-stone alpha.
           appearance.spec.after({
@@ -133,6 +133,7 @@ const MapReviewArt = (() => {
           add(e,{...lamp,kind:'_streetlamp',lit:!!this._restoredLamps},'infrastructure');
         }
         for(const o of e.objects||[])add(e,o,'object');
+        for(const o of e.coinDrops||[])add(e,o,'object');
         for(const o of e.wildplants||[])add(e,o,'plant');
         for(const o of e.creatures||[])add(e,o,'creature');
         for(const o of e.traps||[])add(e,{...o,kind:'trap'},'object');
@@ -165,7 +166,7 @@ const MapReviewArt = (() => {
           let type=e.grid[y*N+x];
           if(type===WorldGen.T.PATH&&e.pathUnder?.[`${x}_${y}`]!=null)type=e.pathUnder[`${x}_${y}`];
           const spec=BIOME_TEX[type],h=((e.tx*N+x)*2246822519)^((e.ty*N+y)*3266489917);
-          g.fillStyle='#'+(COLORS[type]??0x71845b).toString(16).padStart(6,'0');g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
+          g.fillStyle='#'+(zoneGroundColor(e,x,y,type)??COLORS[type]??0x71845b).toString(16).padStart(6,'0');g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
           if(spec&&dx>=4)g.drawImage(textures.get(`biome${type}_${Math.abs(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
 
         }

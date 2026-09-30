@@ -85,4 +85,21 @@ test('wreck dim: only houses take it', () => {
   assert.eq(Render.spriteTint(tree, s), 0xffffff, 'a distant tree is untinted');
 });
 
+test('wreck dim: baked wreck and unclaimed fort textures do not receive a second wash', () => {
+  const previous = globalThis.ASSETS;
+  globalThis.ASSETS = { house_wreck: { unclaimedArt: true }, house_fort_unclaimed: { unclaimedArt: true } };
+  try {
+    const s = scene();
+    const wreck = { ...house(NEAR, 0), tier: 9 };
+    const fort = { ...house(NEAR, 0, 'fort'), tier: 11 };
+    assert.eq(Render.houseTextureKey('fort', fort, s), 'house_fort_unclaimed', 'locked fort selects its weathered art');
+    assert.eq(Render.spriteTint(wreck, s, 'house_wreck'), 0xffffff, 'baked wreck keeps its final colour');
+    assert.eq(Render.spriteTint(fort, s, 'house_fort_unclaimed'), 0xffffff, 'baked fort keeps its final colour');
+    assert.truthy(/Render\.spriteTint\(o, scene, texKey\)/.test(RENDER_SRC), 'the sprite pass supplies its already-resolved appearance');
+    assert.eq(Render.houseTextureKey('fort', fort, scene({ isClaimedKey: () => true })), 'house_fort', 'restored fort uses clean art');
+  } finally {
+    if (previous === undefined) delete globalThis.ASSETS; else globalThis.ASSETS = previous;
+  }
+});
+
 })();

@@ -1,15 +1,107 @@
 {
-  "purpose": "Bush comparisons only. No choice changes the game or the shared map-art proposal.",
+  "purpose": "Bush comparison. D is the selected ordinary-bush proposal; this page does not change shipping game art.",
   "reference": "Use the selected apple foliage palette without losing source shading. Show raw source alongside every treatment.",
-  "mapFootprint": {"maxWidth": 22, "maxHeight": 24, "cellSize": 32},
+  "mapFootprint": {
+    "maxWidth": 22,
+    "maxHeight": 24,
+    "cellSize": 32
+  },
   "options": [
-    {"id":"shipped", "name":"A · Shipped woodland bush", "source":"assets/Objects/Rustic/bush.png", "rect":[0,0,48,32], "strength":0, "mode":"apple-foliage", "usage":"Everyday woodland reference", "note":"Current shipped rustic art. Dense, dark leaf detail; no additional colour adjustment."},
-    {"id":"current", "name":"B · Current proposal", "source":"assets/Objects/Rustic/bush.png", "rect":[0,0,48,32], "strength":0.425, "mode":"apple-foliage", "usage":"Review reference", "note":"The latest sandbox treatment, included so the new options can be compared directly."},
-    {"id":"soft", "name":"C · Restrained woodland", "source":"assets/Objects/Rustic/bush.png", "rect":[0,0,48,32], "strength":0.2, "mode":"apple-foliage", "usage":"Everyday woodland candidate", "note":"A smaller apple-led colour and value lift. Keeps the original dark leaf separations and uneven natural outline."},
-    {"id":"source-green", "name":"D · Original green source", "source":"assets/Objects/Wilderness/bushes.png", "rect":[48,0,48,32], "strength":0.72, "mode":"apple-foliage", "usage":"Everyday woodland candidate", "note":"Start from the unrecoloured green source. More original leaf colours and warm branches survive a continuous apple-ramp treatment."},
-    {"id":"rounded", "name":"E · Rounded leaf clusters", "source":"unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Trees and Bushes/Bush_Emerald_5.png", "strength":0.8, "mode":"apple-foliage", "usage":"Alternate everyday bush", "note":"Chunkier, simpler leaf masses suit the small character scale. Apple-led colour tones down the source emerald green."},
-    {"id":"low", "name":"F · Low wild bush", "source":"unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Trees and Bushes/Bush_Emerald_6.png", "strength":0.8, "mode":"apple-foliage", "usage":"Alternate everyday bush", "note":"Low, asymmetric shape leaves more ground visible. Clear few-pixel leaf clusters; original proportions retained."},
-    {"id":"lobed", "name":"G · Uneven woodland bush", "source":"unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Trees and Bushes/Bush_Emerald_3.png", "strength":0.8, "mode":"apple-foliage", "usage":"Alternate everyday bush", "note":"An irregular two-lobed silhouette with broader shading regions. More upright than the low bush, less busy than the shipped art."},
-    {"id":"hedge", "name":"H · Clipped hedge", "source":"assets/Objects/Generated/hedge_end.png", "strength":0.2, "mode":"apple-foliage", "usage":"Formal Garden / residential / commercial only", "note":"A deliberately clipped silhouette for managed planting. Not proposed as the ordinary woodland bush."}
+    {
+      "id": "shipped",
+      "name": "A \u00b7 Shipped woodland bush",
+      "source": "assets/Objects/Rustic/bush.png",
+      "rect": [
+        0,
+        0,
+        48,
+        32
+      ],
+      "strength": 0,
+      "mode": "apple-foliage",
+      "usage": "Everyday woodland reference",
+      "note": "Current shipped rustic art. Dense, dark leaf detail; no additional colour adjustment."
+    },
+    {
+      "id": "current",
+      "name": "B \u00b7 Previous proposal",
+      "source": "assets/Objects/Rustic/bush.png",
+      "rect": [
+        0,
+        0,
+        48,
+        32
+      ],
+      "strength": 0.425,
+      "mode": "apple-foliage",
+      "usage": "Review reference",
+      "note": "The preceding sandbox treatment, retained as a comparison with the selected original-source bush."
+    },
+    {
+      "id": "soft",
+      "name": "C \u00b7 Restrained woodland",
+      "source": "assets/Objects/Rustic/bush.png",
+      "rect": [
+        0,
+        0,
+        48,
+        32
+      ],
+      "strength": 0.2,
+      "mode": "apple-foliage",
+      "usage": "Everyday woodland candidate",
+      "note": "A smaller apple-led colour and value lift. Keeps the original dark leaf separations and uneven natural outline."
+    },
+    {
+      "id": "source-green",
+      "name": "D \u00b7 Selected original green source",
+      "source": "assets/Objects/Wilderness/bushes.png",
+      "rect": [
+        48,
+        0,
+        48,
+        32
+      ],
+      "strength": 0.72,
+      "mode": "bush-foliage",
+      "usage": "Selected ordinary-bush proposal",
+      "note": "Restore the original green bush with its 72% apple-led treatment. Interior lightness contrast is softened by 10%, retaining dark contours and individual pixel shades."
+    },
+    {
+      "id": "rounded",
+      "name": "E \u00b7 Rounded leaf clusters",
+      "source": "unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Trees and Bushes/Bush_Emerald_5.png",
+      "strength": 0.8,
+      "mode": "apple-foliage",
+      "usage": "Alternate everyday bush",
+      "note": "Chunkier, simpler leaf masses suit the small character scale. Apple-led colour tones down the source emerald green."
+    },
+    {
+      "id": "low",
+      "name": "F \u00b7 Low wild bush",
+      "source": "unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Trees and Bushes/Bush_Emerald_6.png",
+      "strength": 0.8,
+      "mode": "apple-foliage",
+      "usage": "Alternate everyday bush",
+      "note": "Low, asymmetric shape leaves more ground visible. Clear few-pixel leaf clusters; original proportions retained."
+    },
+    {
+      "id": "lobed",
+      "name": "G \u00b7 Uneven woodland bush",
+      "source": "unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Trees and Bushes/Bush_Emerald_3.png",
+      "strength": 0.8,
+      "mode": "apple-foliage",
+      "usage": "Alternate everyday bush",
+      "note": "An irregular two-lobed silhouette with broader shading regions. More upright than the low bush, less busy than the shipped art."
+    },
+    {
+      "id": "hedge",
+      "name": "H \u00b7 Clipped hedge",
+      "source": "assets/Objects/Generated/hedge_end.png",
+      "strength": 0.2,
+      "mode": "apple-foliage",
+      "usage": "Formal Garden / residential / commercial only",
+      "note": "A deliberately clipped silhouette for managed planting. Not proposed as the ordinary woodland bush."
+    }
   ]
 }

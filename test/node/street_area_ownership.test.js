@@ -63,7 +63,7 @@
     }
   });
 
-  test('clipped named road stays plain across a tile seam and build order', () => {
+  test('clipped named road keeps bounded themed patches across a seam in either build order', () => {
     const seamLine = (offset) => [
       { x: (N - 3.5 - offset) * E / N, y: p(0, 15).y },
       { x: (N + 3.5 - offset) * E / N, y: p(0, 15).y },
@@ -81,8 +81,12 @@
     assert.eq(Array.from(west1.streetArea).join(','), Array.from(west2.streetArea).join(','));
     assert.eq(Array.from(east1.streetArea).join(','), Array.from(east2.streetArea).join(','));
     for (const r of [west1, east1, west2, east2]) {
-      assert.falsy(r.streetArea.some(Boolean), 'unknown full length reserves no themed corridor');
-      assert.eq(r.streetIndex.lines[0].variant, null, 'clipped road remains plain in either build order');
+      assert.truthy(r.streetArea.some(Boolean), 'a clipped street retains its compact themed corridor');
+      assert.eq(r.streetIndex.lines[0].variant, west1.streetIndex.lines[0].variant, 'same theme in both tiles and build orders');
+      for (const rec of r.streetIndex.dressingLines) {
+        assert.lte(Streets.lineLengthM(rec.line, tileEdgeM / E), StreetVariants.MAX_VARIANT_LENGTH_M);
+      }
+      assert.truthy(StreetVariants.lineParts(r.streetIndex.lines[0], tileEdgeM / E).some(part => !part.variant), 'plain gaps separate the patches');
     }
     // A short road wholly inside a tile still receives its rolled theme.
     const contained = WorldGen.rasterizeTile(layers(name), N, tx, ty, tileEdgeM);

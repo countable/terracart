@@ -66,9 +66,9 @@ function preview(row) {
       spawnWhy: tile.spawnWhy, occupied: new Set(), pois: [] } });
   const lamps = ctx.previewLampPass._streetLampsForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
-  const objects = [...dress.objects, ...dress.wildplants].map(local);
+  const objects = [...dress.objects, ...dress.wildplants, ...(dress.coins || [])].map(local);
   const lairs = dress.lairs.map((o) => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly }));
-  return { ...row, words: row.words.source, sampleName: name,
+  return { ...row, words: row.words ? row.words.source : null, sampleName: name,
     roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
     lampSpacingM: SV.lampSpacingFor(row.id), objects, lamps, lairs,
     line: line.map((p) => ({ x: p.x * tileEdgeM / extent, y: p.y * tileEdgeM / extent })),
@@ -103,7 +103,7 @@ function previewPath(row) {
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong scenic lamps for ${row.id}`);
   return { ...row, sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
-    lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects: [...dress.objects, ...dress.wildplants].map(local),
+    lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects: [...dress.objects, ...dress.wildplants, ...(dress.coins || [])].map(local),
     lamps, lairs: [], slowKinds: [], geography, scenicKind: kind,
     selection: kind === 'shore' ? 'Off-road walking path beside qualifying shore water.' :
       kind === 'greenway' ? 'Off-road walking path with a greenway name or route.' : 'Off-road walking path inside a named or sufficiently large park.',
@@ -122,6 +122,7 @@ const rules = {
   hedgerow: `Both verges, one trimmed hedge per ${cellM} m cell; a gate gap every ${SV.HEDGE_GAP_MIN}–${SV.HEDGE_GAP_MIN + SV.HEDGE_GAP_SPAN - 1} cells.`,
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
   orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} trees per line piece, alternating half apple trees and half mature deciduous maples.`,
+  golden: `One seeded 1-coin pickup every ${SV.GOLDEN_STEP_M} m, alternating eligible verges; each coin is collectible once.`,
   pilgrim: 'One waystone per street per tile, at an eligible owned line end.',
   lantern: `Lamps at ${SV.lampSpacingFor('lantern')} m target spacing (${SV.LANTERN_SPACING_DIV}× the usual density); no extra verge props.`,
   burned: `One attempt every ${SV.BURNED_STEP_M} m; at most ${SV.BURNED_MAX} tar/stakes per line piece. One fire-slime guard site per stretch, seated back from the kerb.`,
@@ -132,4 +133,4 @@ for (const row of rows) row.placement = rules[row.id] || row.placement;
 process.stdout.write(JSON.stringify({ cellM, affinityContexts, fixture: { tx, ty, cellsPerEdge: N }, rows, baseline: SV.BANDIT_STORY,
   maxVariantLengthM: SV.MAX_VARIANT_LENGTH_M, wagonStopShare: SV.WAGON_STOP_SHARE, rockStreetShare: SV.ROCK_STREET_SHARE,
   plainShare: Object.fromEntries(['minor', 'major'].map((size) =>
-    [size, 1 - rows.filter((r) => r.size === size).reduce((sum, r) => sum + r.share, 0)])) }, null, 2) + '\n');
+    [size, 1 - (size === 'minor' ? SV.MINOR_VARIANT_SHARE : rows.filter((r) => r.size === size).reduce((sum, r) => sum + r.share, 0))])) }, null, 2) + '\n');

@@ -479,7 +479,14 @@ test('street lamps: a cave clears the list — surface only', () => {
 // entry's `glow` — null there means the plain UI_LAMP_GLOW. The baked art
 // (streetLampTexKey → _ensureStreetLampTex → RoadOverlay.paintLamp) and the
 // light (Lighting.collectLamps → the entry's colour) both read that one field.
-const withIndex = (lines) => Object.assign(readyEntry(), { streetIndex: { lines } });
+const withIndex = (lines) => {
+  const entry = readyEntry();
+  // Real index records retain the source geometry for compact theme ranges.
+  entry.streetIndex = { lines: lines.map(rec => ({
+    ...rec, line: entry.layers[0].features[rec.fi]?.geom[rec.li],
+  })) };
+  return entry;
+};
 const themedVariant = () => StreetVariants.STREET_VARIANTS.find((v) => v.lampGlow && v.id !== 'lantern');
 
 test('street lamps: each lamp carries its street\'s glow — StreetVariants.lampGlowFor(its line\'s rec), default UI_LAMP_GLOW', () => {
@@ -506,6 +513,18 @@ test('street lamps: each lamp carries its street\'s glow — StreetVariants.lamp
   assert.eq(other[0].glow, UI_LAMP_GLOW, 'keyed by fi:li — another line\'s theme stays on that line');
   // …and the frame list carries it through untouched.
   assert.truthy(/out\.push\(\{ \.\.\.L, lit:/.test(updateSrc), 'the frame list spreads the tile lamp, glow and all');
+});
+
+test('street lamps: density and glow stop at the same compact theme intervals', () => {
+  const rec = { fi:0,li:0,size:'major',variant:'lantern',
+    variantRanges:[[60 / MVT_TO_M,120 / MVT_TO_M]] };
+  const lamps = P._streetLampsForTile.call({},TX,TY,withIndex([rec]));
+  const themed=lamps.filter(l=>l.s>=60 && l.s<=120), plain=lamps.filter(l=>l.s<60 || l.s>120);
+  assert.gt(themed.length,0,'the compact lantern stretch has lamps');
+  assert.gt(plain.length,0,'the plain road remains represented');
+  assert.truthy(themed.every(l=>l.glow === StreetVariants.VARIANT_BY_ID.lantern.lampGlow));
+  assert.truthy(plain.every(l=>l.glow === StreetVariants.BANDIT_STORY.lampGlow));
+  assert.lt(themed[0].spacingM,plain[0].spacingM,'only the themed interval has dense lamps');
 });
 
 test('street lamps: the ART and the LIGHT read the one glow', () => {

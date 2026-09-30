@@ -7,6 +7,24 @@ globalThis.ArtPreviewColour = (() => {
   function recolour(canvas,hexes,options={}) {
     const strength=options.strength??.18;
     if(!hexes?.length||strength<=0)return canvas;
+    if(options.mode==='bush-foliage'){
+      // Selected original green bush, with the gallery's 72% apple treatment.
+      // Ease interior value contrast by a tenth without fading contour ink.
+      recolour(canvas,hexes,{...options,mode:'apple-foliage'});
+      const ctx=canvas.getContext('2d'),pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+      let sum=0,count=0;
+      for(let i=0;i<pixels.data.length;i+=4){
+        const light=luma(pixels.data.subarray(i,i+3));
+        if(pixels.data[i+3]>=200&&light>=55&&light<=235){sum+=light;count++;}
+      }
+      const center=sum/Math.max(1,count);
+      for(let i=0;i<pixels.data.length;i+=4){
+        const light=luma(pixels.data.subarray(i,i+3));
+        if(pixels.data[i+3]<200||light<55||light>235)continue;
+        for(let k=0;k<3;k++)pixels.data[i+k]=clamp(pixels.data[i+k]+(center-light)*.1);
+      }
+      ctx.putImageData(pixels,0,0);return canvas;
+    }
     const palette=hexes.map(p=>rgb(typeof p==='string'?p:p.hex));
     const ctx=canvas.getContext('2d'),pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
     const ramp=[...palette].sort((a,b)=>luma(a)-luma(b));
@@ -91,7 +109,7 @@ globalThis.ArtPreviewColour = (() => {
       }
       if(options.mode==='gentle-flower'||options.mode==='gentle-tune'){
         // A tenth-step in each direction, keeping silhouette ink untouched.
-        const adapted=source.map((v,k)=>v+(target[k]-v)*strength);
+        const adapted=source.map((v,k)=>v+(target[k]-v)*(options.paletteStrength??strength));
         const adaptedLight=luma(adapted),lifted=light+(255-light)*strength;
         adapted.forEach((v,k)=>pixels.data[i+k]=clamp(lifted+(v-adaptedLight)*(1-strength)));
         continue;

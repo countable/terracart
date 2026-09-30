@@ -1101,51 +1101,51 @@ const COLORS = {
   // can touch this" turns into scenery. That is why sand, the paths, the
   // farmland mud, the plank floors and tilled soil all sit in grey-brown and
   // olive here rather than the golds they used to carry.
-  0: 0x6b7d4a,  // grass — dry meadow khaki-green (was a fresh lawn green)
-  1: 0x3c5233,  // forest — deep desaturated olive
-  2: 0xc6b9a2,  // sand — pale grit; was a golden tan, the worst yellow offender
-  3: 0x3f6b7a,  // water — murky standing teal, not swimming-pool blue
-  4: 0x7e7350,  // farmland — dull olive-brown mud
-  5: 0x9c968a,  // residential — dirty concrete
-  6: 0x7b8c53,  // park — unmown, going to seed
+  0: 0x919e70,  // grass — dry meadow khaki-green (was a fresh lawn green)
+  1: 0x6d7a5e,  // forest — deep desaturated olive
+  2: 0xd4c9b4,  // sand — pale grit; was a golden tan, the worst yellow offender
+  3: 0x749ca5,  // water — murky standing teal, not swimming-pool blue
+  4: 0x9f9677,  // farmland — dull olive-brown mud
+  5: 0xb2aca0,  // residential — dirty concrete
+  6: 0xa0ac7c,  // park — unmown, going to seed
   7: 0x474441,  // road — asphalt with dust blown over it
-  8: 0x8b8071,  // path — a worn grey dust track
-  9: 0x9d6350,  // building — small house: weathered brick
-  10: 0x776d63, // rock
-  11: 0x9b8365, // building_med — weathered grey-brown plank floor
-  12: 0x787a80, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
+  8: 0xaaa090,  // path — a worn grey dust track
+  9: 0xbda18a,  // building — small house: weathered brick
+  10: 0xa09a8c, // rock
+  11: 0xb9a789, // building_med — weathered grey-brown plank floor
+  12: 0xaaaca9, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
   13: 0x3b3936, // road_lg (motorway/trunk/primary) — darkest
   14: 0x413f3b, // road_md (secondary/tertiary)
   // --- Subtype splits — each tile fits into one of three base biomes ---
-  15: 0x77805e, // SCHOOL       (GRASSLAND) — schoolyard: greyer, patchier turf than the meadow around it
-  16: 0x999790, // COMMERCIAL   (ROCKY)     — grimy floor tile
-  17: 0x9a8279, // INDUSTRIAL   (ROCKY)     — same hue, rust-dusted
-  18: 0x8e8270, // PLAYGROUND   (GRASSLAND) — rotting mulch
-  19: 0x62753f, // PITCH        (GRASSLAND) — pitch markings long gone
-  20: 0x3d4f3c, // WETLAND      (FOREST)    — dim swampy green
+  15: 0x9da384, // SCHOOL       (GRASSLAND) — schoolyard: greyer, patchier turf than the meadow around it
+  16: 0xb1afa9, // COMMERCIAL   (ROCKY)     — grimy floor tile
+  17: 0xb0a496, // INDUSTRIAL   (ROCKY)     — same hue, rust-dusted
+  18: 0xaba28e, // PLAYGROUND   (GRASSLAND) — rotting mulch
+  19: 0x8e9b6a, // PITCH        (GRASSLAND) — pitch markings long gone
+  20: 0x4b5d4a, // WETLAND      (FOREST)    — dim swampy green
   21: 0x87995c, // GOLF         (GRASSLAND) — fairway reverting to scrub
-  22: 0x556237, // ORCHARD      (FOREST)    — olive
+  22: 0x818c63, // ORCHARD      (FOREST)    — olive
   // PIER (transportation:pier OSM lines, painted as T.PIER=23 in worldgen).
   // Base cell colour is the water tone — the wooden plank sprite from
   // Objects/Wilderness/Bridge Beach.png is drawn on top via the cobblePool
   // (see render.js PIER_FRAME). The water peeks through any plank-art alpha
   // so the cell still reads as "walkway over water".
-  23: 0x3f6b7a, // PIER         (WATER base) — plank sprite overlays on top
+  23: 0x749ca5, // PIER         (WATER base) — plank sprite overlays on top
   // --- Underground cave biome (depth > 0) ---
-  24: 0x4a423b, // CAVE_FLOOR — packed earth/stone floor (walkable)
-  25: 0x241f1b, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
+  24: 0x6e6860, // CAVE_FLOOR — packed earth/stone floor (walkable)
+  25: 0x4a4742, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
   26: 0x9a2a10, // CAVE_LAVA  — molten rock under the buildings on WorldGen.LAVA_DEPTH
   // WASTELAND (27) — unclassified landuse (railway yards, brownfield,
   // neighbourhood outlines). Plays as residential; looks like the abandoned
   // scrub it is: residential's dirty concrete pulled toward dusty khaki.
-  27: 0x9a8e68, // WASTELAND  — dusty grey-ochre scrub
+  27: 0xb1a888, // WASTELAND  — dusty grey-ochre scrub
   // INFLUENCE ZONES (src/zones.js) — the halo a park / church / fuel yard
   // paints over the lot and commercial ground around it.
-  28: 0x5a8a48, // GROVE       — lush green sward, the one fresh green in town
-  29: 0x667d6a, // CHURCHYARD  — mossy grey-green sward among the stones: darker and
+  28: 0x90a87b, // GROVE       — lush green sward, the one fresh green in town
+  29: 0x97a48b, // CHURCHYARD  — mossy grey-green sward among the stones: darker and
                //                greener than the residential concrete it replaces
                //                (was 0x7d8672, which read as the same grey at a glance)
-  31: 0x3b3833, // TAR_YARD    — dark oily ground
+  31: 0x7f7e78, // TAR_YARD    — dark oily ground
   // UNMAPPED (30) — render-only: render.js stamps this on cells whose map tile
   // hasn't loaded yet (never appears in a tile's grid). Dark fog, deliberately
   // darker than every real biome so "beyond the charted world" reads as the
@@ -1413,8 +1413,8 @@ const ROAD_CHIP_SVG =
   + '</g></svg>';
 
 const ICON_SHEETS = {
-  crops:       { url: 'assets/Objects/Crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
-  springcrops: { url: 'assets/Objects/Spring Crops.png',                cols: 14, srcW: 224, srcH: 128 },
+  crops:       { url: 'assets/Objects/Approved/crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
+  springcrops: { url: 'assets/Objects/Approved/springcrops.png',                cols: 14, srcW: 224, srcH: 128 },
   gems:        { url: 'assets/Icons/RPG icons/Extras/Gemstones.png',    cols: 7,  srcW: 112, srcH: 64  },
   coal_icon:   { url: 'assets/Icons/RPG icons/Extras/Coal.png',         cols: 2,  srcW: 32,  srcH: 32  },
   // Bars + ores — 256×64, 16 cols × 4 rows of 16×16. Row 0 left-to-right
@@ -1470,7 +1470,7 @@ const ICON_SHEETS = {
   shell_sheet:   { url: 'assets/Icons/Fish/Sea/Creatures/Shell.png',         cols: 3,  srcW: 48,  srcH: 64 },
   // Same rustic prop sheet as the map: grass frame 10, mushroom frame 35.
   // Other frames retain their existing art.
-  props:         { url: 'assets/Objects/Rustic/Props.png',               cols: 22, srcW: 352, srcH: 192 },
+  props:         { url: 'assets/Objects/Approved/props.png',               cols: 22, srcW: 352, srcH: 192 },
   // 7_Pickup_Items — 224×160, 14×10 of 16×16. Frame 88 (row 6 col 4)
   // is the brown leather boot used as the fishing-junk inventory icon.
   pickup:        { url: 'assets/Objects/Pickup_Items.png',                   cols: 14, srcW: 224, srcH: 160 },
@@ -3251,7 +3251,7 @@ class MapScene extends Phaser.Scene {
     this._streetStoryHere = row.story;
     const seen = this.save.storySeen && this.save.storySeen[row.story];
     if (!seen) {
-      this._storySplashOnce(row.story, { art: row.story, title: row.title, body: row.body });
+      this._storySplashOnce(row.story, { art: row.art || row.story, title: row.title, body: row.body });
       return;
     }
     const last = (this._streetFlashAt = this._streetFlashAt || {});
@@ -13011,7 +13011,7 @@ class MapScene extends Phaser.Scene {
     const row = Scenic.rowFor(kind);
     if (!row) return;
     if (!(this.save.storySeen && this.save.storySeen[row.story])) {
-      this._storySplashOnce(row.story, { art: row.story, title: row.title, body: row.body });
+      this._storySplashOnce(row.story, { art: row.art || row.story, title: row.title, body: row.body });
       return;
     }
     const last = (this._streetFlashAt = this._streetFlashAt || {});

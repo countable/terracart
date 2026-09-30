@@ -135,7 +135,7 @@ test('road overlay: strokes muted, desaturated earth brown at 61% opacity', () =
   const scene = makeOverlayScene();
   RoadOverlay.draw(scene);
   const style = scene.roadGeomGfx.paths[0].style;
-  assert.eq(style.c, 0x3a322c, 'colour is the desaturated, darkened road earth');
+  assert.eq(style.c, 0x79766c, 'colour is the desaturated, darkened road earth');
   assert.eq(style.a, 0.61, 'alpha is 61%');
   // Desaturated, not merely darkened: the colour keeps its brightness but its
   // channels sit closer together than a saturated brown's would.
@@ -153,8 +153,8 @@ test('road overlay: a footpath strokes lighter than a vehicle road', () => {
   RoadOverlay.draw(scene);
   const byColour = {};
   for (const p of scene.roadGeomGfx.paths) byColour[p.style.c] = (byColour[p.style.c] || 0) + 1;
-  assert.eq(byColour[0x5c4b3f], 1, 'the footway keeps the lighter path earth');
-  assert.eq(byColour[0x3a322c], 1, 'the residential street is the darker road earth');
+  assert.eq(byColour[0x948b75], 1, 'the footway keeps the lighter path earth');
+  assert.eq(byColour[0x79766c], 1, 'the residential street is the darker road earth');
   // The road colour must actually be darker (and less saturated) than the
   // path colour, not just a different hue — that's the whole point of the
   // split (spec: paved streets read as a harder surface than a dirt path).
@@ -315,8 +315,8 @@ test('road overlay: railways are drawn in slate, not road earth', () => {
   RoadOverlay.draw(scene);
   const byColour = {};
   for (const p of scene.roadGeomGfx.paths) byColour[p.style.c] = (byColour[p.style.c] || 0) + 1;
-  assert.eq(byColour[0x565d69], 2, 'both rail classes stroke slate');
-  assert.eq(byColour[0x3a322c], 1, 'the street keeps the road earth');
+  assert.eq(byColour[0x838a8c], 2, 'both rail classes stroke slate');
+  assert.eq(byColour[0x79766c], 1, 'the street keeps the road earth');
 });
 
 test('road overlay: railways get track furniture — two offset rails + perpendicular ties', () => {
@@ -655,7 +655,7 @@ test('road overlay: a restored interval is stroked from the save, in metres', ()
     assert.eq(p.style.a, 0.92, 'the restored pass is near-opaque');
     // The dilapidated band is still drawn underneath, in full.
     assert.eq(scene.roadGeomGfx.paths.length, 1, 'the base band is untouched');
-    assert.eq(scene.roadGeomGfx.paths[0].style.c, 0x3a322c, 'still dilapidated earth');
+    assert.eq(scene.roadGeomGfx.paths[0].style.c, 0x79766c, 'still dilapidated earth');
   });
 });
 
@@ -1112,6 +1112,24 @@ test('street lamp: real gradients and opaque outlines, never a stack of transluc
   }
 });
 
+test('street lamp: metal has crisp shade bands while the three light gradients stay smooth', () => {
+  const { ctx, ops } = roRecorder();
+  RoadOverlay.paintLamp(ctx, RoadOverlay.LAMP_TEX_PX, '#66bbdd');
+  const bands = [];
+  for (let i = 0; i < ops.length; i++) {
+    if (ops[i][0] !== 'createLinearGradient') continue;
+    const stops = [];
+    for (let j = i + 1; j < ops.length && ops[j][0] === 'addColorStop'; j++) stops.push(ops[j]);
+    bands.push(stops);
+  }
+  assert.gte(bands.length, 9, 'every metal casting has its own banded fill');
+  for (const stops of bands) {
+    assert.eq(stops.length, 8, 'four solid bands, two endpoints each');
+    for (let i = 0; i < stops.length; i += 2) assert.eq(stops[i][2], stops[i+1][2], 'each band is a single metal shade');
+  }
+  assert.eq(ops.filter(([op]) => op === 'createRadialGradient').length, 3, 'pool, bloom and glass remain radial light');
+});
+
 test('street lamp: gold ironwork, violet light — one constant each, and they are two different things', () => {
   // UI_LAMP_GOLD is what the lamp is MADE of; UI_LAMP_GLOW is what it SHEDS
   // (the glass, the bloom, the pool — the same violet lighting.js's `cobble`
@@ -1305,10 +1323,11 @@ test('road overlay live: runs project through the camera anchor, minus the conta
 // double-composited its own alpha over the stroke sitting under it: at the
 // preview's old 0.55 the overlap read at ~0.80). Pure, so the exact
 // geometry is pinned without a Phaser Graphics.
-// `near` is shared across the *.test.js files in this directory (run.js
-// loads them all into one context, alphabetically — energy_pop.test.js
-// declares it before this file runs).
-const nearPt = (p, x, y, eps, m) => { near(p.x, x, eps, m); near(p.y, y, eps, m); };
+const roadNear = (a, b, eps, m) => assert.inRange(a, b - eps, b + eps, m);
+const nearPt = (p, x, y, eps, m) => {
+  assert.inRange(p.x, x - eps, x + eps, m);
+  assert.inRange(p.y, y - eps, y + eps, m);
+};
 
 test('round join fans: nothing to fill for fewer than two points, no radius, or no points', () => {
   assert.eq(RoadOverlay.roundJoinFans([{ x: 0, y: 0 }], 5).length, 0, 'one point, no line');
@@ -1328,13 +1347,13 @@ test('round join fans: a straight line gets exactly two caps, bulging away from 
   for (let i = 1; i < fans[0].length; i++) {
     const p = fans[0][i];
     assert.lte(p.x, 100 + 1e-9, 'start cap stays behind the line');
-    near(Math.hypot(p.x - 100, p.y - 200), 4, 1e-6, 'on the radius');
+    roadNear(Math.hypot(p.x - 100, p.y - 200), 4, 1e-6, 'on the radius');
   }
   // The end cap bulges EAST (ahead of the line's own end).
   for (let i = 1; i < fans[1].length; i++) {
     const p = fans[1][i];
     assert.gte(p.x, 150 - 1e-9, 'end cap stays ahead of the line');
-    near(Math.hypot(p.x - 150, p.y - 200), 4, 1e-6, 'on the radius');
+    roadNear(Math.hypot(p.x - 150, p.y - 200), 4, 1e-6, 'on the radius');
   }
 });
 
@@ -1358,7 +1377,7 @@ test('round join fans: a right-angle bend wedges the OUTER side only, by exactly
   // rectangles do NOT cover between them.
   for (let i = 1; i < join.length; i++) {
     const p = join[i];
-    near(Math.hypot(p.x - 100, p.y - 0), 4, 1e-6, 'on the radius');
+    roadNear(Math.hypot(p.x - 100, p.y - 0), 4, 1e-6, 'on the radius');
     assert.gte(p.x, 100 - 1e-6, 'the outer wedge, not the overlapping inner side');
     assert.lte(p.y, 0 + 1e-6, 'the outer wedge, not the overlapping inner side');
   }
@@ -1368,7 +1387,7 @@ test('round join fans: a right-angle bend wedges the OUTER side only, by exactly
   let sweep = a1 - a0;
   while (sweep > Math.PI) sweep -= 2 * Math.PI;
   while (sweep < -Math.PI) sweep += 2 * Math.PI;
-  near(Math.abs(sweep), Math.PI / 2, 1e-6, 'swept by exactly the 90° turn');
+  roadNear(Math.abs(sweep), Math.PI / 2, 1e-6, 'swept by exactly the 90° turn');
 });
 
 test('road overlay live: round caps + joins never overlap the stroke — fans, not circles', () => {

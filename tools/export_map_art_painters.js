@@ -9,6 +9,11 @@ const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 
 function bundle() {
   const buildingProposal = JSON.parse(read('docs/art/map-building-preview.json'));
+  const groundRows = JSON.parse(read('docs/art/map-audit-ground.json')).rows;
+  const groundOriginals = Object.fromEntries(groundRows
+    .filter(row => row.terrainId != null).map(row => [row.terrainId,row.currentColor]));
+  const roadOriginals = Object.fromEntries(groundRows
+    .filter(row => row.preview?.kind === 'road').map(row => [row.id,row.currentColor]));
   const groundProposals = Object.fromEntries(JSON.parse(read('docs/art/map-audit-ground.json')).rows
     .filter(row => row.terrainId != null).map(row => [row.terrainId,row.proposedColor]));
   const groundPatternOpacity = Object.fromEntries(JSON.parse(read('docs/art/map-audit-ground.json')).rows
@@ -64,6 +69,8 @@ function bundle() {
   const COLORS = ${JSON.stringify(colors)};
   const MAP_ART_BUILDING_PROPOSAL = ${JSON.stringify(buildingProposal)};
   const MAP_ART_GROUND_PROPOSALS = ${JSON.stringify(groundProposals)};
+  const MAP_ART_GROUND_ORIGINALS = ${JSON.stringify(groundOriginals)};
+  const MAP_ART_ROAD_ORIGINALS = ${JSON.stringify(roadOriginals)};
   const MAP_ART_GROUND_PATTERN_OPACITY = ${JSON.stringify(groundPatternOpacity)};
   const { UI_TREASURE, UI_LAMP_GOLD, UI_LAMP_GLOW } = ${JSON.stringify(tokens)};
   const lerp = (a,b,t) => a + (b-a)*t;

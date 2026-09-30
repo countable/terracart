@@ -3,12 +3,12 @@
 //
 // A street is a NAME inside a PARISH (streetKey). Every tile can compute it
 // from its own layers (the name comes off `transportation_name` by vertex
-// vote, nameVote/lineName) and it is the same on both sides of a seam, so a
+// vote, nameVote/lineName) and it is the same on both sides of a seam, so
 // deterministic rolls give each eligible street ONE variant end to end.
 // Named fragments are pooled; connected unnamed fragments share a canonical
-// local key. Roads crossing a tile edge have unknown full length and remain
-// plain, as do roads longer than 500 m. Affinities read only final local zone
-// coverage: no fetches or currently loaded neighbour state.
+// local key. Roads crossing a tile edge have unknown full length and use
+// compact patches, as do roads longer than 500 m. Their context stays neutral;
+// local complete roads read final zone coverage without fetching neighbours.
 //
 // TWO SIZES, off WorldGen.classifyLine's tiers:
 //   MAJOR — ROAD_MD + ROAD_LG (tertiary / secondary and up): the OLD TRADE
@@ -67,6 +67,7 @@
   const NUDGED_SHARE_MAX = 0.9;
   // Share of MINOR street keys lined with rock clusters (hedgerows excepted).
   const ROCK_STREET_SHARE = 0.25;
+  const MINOR_VARIANT_SHARE = 0.40;
 
   // ── The verge ────────────────────────────────────────────────────────────
   // Every verge piece searches OUTWARD from the band's edge, k = 1..this
@@ -127,6 +128,10 @@
   // ── Dressing density (generation metres along the way) ───────────────────
   const HEDGE_GAP_MIN = 5, HEDGE_GAP_SPAN = 3;   // a gate-gap every 5..7 cells
   const MAX_VARIANT_LENGTH_M = 500;
+  // Global MVT patches align with tile boundaries. The inset leaves a real
+  // plain interval between compact themes, even along a cross-tile street.
+  const VARIANT_PATCH_UNITS = 512, VARIANT_PATCH_INSET_UNITS = 32;
+  const GOLDEN_STEP_M = 28, GOLDEN_COIN_AMOUNT = 1;
   const OVERGROWN_STEP_M = 12, OVERGROWN_MAX = 42;
   const ORCHARD_STEP_M = 12, ORCHARD_MAX = 80;
   const TOADSTOOL_STEP_M = 6, TOADSTOOL_MAX = 100;
@@ -150,23 +155,20 @@
   // the one value); `attracts` { species: p } is the FAUNA ATTRACTOR column
   // (scene_creatures.js _seatFaunaOnFavouriteGround): each of the tile's own
   // spawns of that species moves onto this street's verge with probability p.
-  // `share` is the base probability for a key of that size; the minor rows
-  // sum to 0.39 (0.34 + Toadstool Lane's 0.05) and the major ones to 0.16. The design's shares, rescaled
-  // now that each row dresses ONE size (the minor rows took the dressed
-  // share the design's minor+medium rows gave minor streets, the major rows
-  // likewise), keeping its rarity ladder: Common lantern/overgrown,
-  // Uncommon orchard/pilgrim/burned, Rare barricade, Find hedgerow.
+  // `share` is the neutral-name probability for a key of that size. Minor
+  // shares total 40%; name nudges redistribute ordinary themes inside that
+  // fixed budget, while Golden Road remains 2% of all minor keys.
   // `story` is the _storySplashOnce key AND the painting stem (sceneArtUrl);
   // `flash` is the ≤30-char map line a later visit gets.
   const STREET_VARIANTS = [
-    { id: 'hedgerow', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.10, nudge: 2, rung: 'find',
+    { id: 'hedgerow', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.095, nudge: 2, rung: 'find',
       stone: { weathered: '#3a322c', restored: '#000000' }, lampDensity: 2,
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
       lampGlow: '#9be08a', attracts: { rabbit: 0.5 },
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Clipped hedges both sides, a gap at every garden gate. The green still knows its shape.',
       flash: 'A hedged lane, still kept.' },
-    { id: 'overgrown', affinities: ['woodland'], size: 'minor', share: 0.10, rung: 'common',
+    { id: 'overgrown', affinities: ['woodland'], size: 'minor', share: 0.095, rung: 'common',
       stone: { weathered: '#465b42', restored: '#5d7953' }, lampDensity: 1,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
       lampGlow: '#9be08a', attracts: { rabbit: 0.5, butterfly: 0.5 },
@@ -246,6 +248,12 @@
       story: 'street_scenic', title: 'The park path',
       body: 'A path winding through the park. Every metre of it you mend counts for more.',
       flash: 'The park path winds on.' },
+    { id: 'golden', affinities: ['formal'], size: 'minor', share: 0.02, rung: 'rare',
+      stone: { weathered: '#806747', restored: '#bd9650' }, lampDensity: 1,
+      lampGlow: '#efc46a',
+      story: 'street_golden', art: 'street_lantern', title: 'Golden Road',
+      body: 'Single coins catch the light along the verge. Someone passed this way with a torn purse.',
+      flash: 'A trail of scattered coins.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
@@ -275,8 +283,9 @@
   function streetKey(name, tx, ty) { return `${normName(name)}|${parishOf(tx, ty)}`; }
   // An unnamed way: its own geometry in the tile (tile-local MVT ends).
   function anonKey(tx, ty, line) {
-    const a = line[0], z = line[line.length - 1];
-    return `~${tx},${ty}|${a.x},${a.y}|${z.x},${z.y}|${line.length}`;
+    const path = canonicalPaths([line])[0] || line;
+    const a = path[0], z = path[path.length - 1];
+    return `~${tx},${ty}|${a.x},${a.y}|${z.x},${z.y}|${path.length}`;
   }
   const u01 = (s) => (fnv1a(s) >>> 0) / 4294967296;
 
@@ -312,17 +321,25 @@
       return { id: row.id, baseWeight: row.share, nameMultiplier, contextMultiplier,
         weight: row.share * nameMultiplier * contextMultiplier };
     });
-    const total = weights.reduce((sum, row) => sum + row.weight, 0);
-    for (const row of weights) row.probability = row.weight / total;
+    const golden = size === 'minor' && weights.find(row => row.id === 'golden');
+    const goldenShare = golden ? golden.baseWeight / MINOR_VARIANT_SHARE : 0;
+    const total = weights.reduce((sum, row) => sum + (row === golden ? 0 : row.weight), 0);
+    for (const row of weights) row.probability = row === golden ? goldenShare : (1 - goldenShare) * row.weight / total;
     return weights;
   }
   function variantFor(key, name, size, context) {
     if (!key || !size) return null;
     const weights = selectionWeights(name, size, context);
-    const share = weights.reduce((sum, row) => sum + row.baseWeight, 0);
+    const share = size === 'minor' ? MINOR_VARIANT_SHARE : weights.reduce((sum, row) => sum + row.baseWeight, 0);
     if (u01('street|' + key) >= share || !weights.length) return null;
-    let ticket = u01('street-choice|' + key);
+    let ticket = u01(size === 'minor' ? 'street-kind|' + key : 'street-choice|' + key);
+    const golden = weights.find(row => row.id === 'golden');
+    if (golden) {
+      if (ticket < golden.probability) return golden.id;
+      ticket -= golden.probability;
+    }
     for (const row of weights) {
+      if (row === golden) continue;
       ticket -= row.probability;
       if (ticket < 0) return row.id;
     }
@@ -335,9 +352,10 @@
     let cumulative = 0;
     const roll = u01('street|' + key);
     for (const row of STREET_VARIANTS) {
-      if (row.size !== size) continue;
+      if (row.size !== size || row.id === 'golden') continue;
+      const share = row.id === 'hedgerow' || row.id === 'overgrown' ? 0.10 : row.share;
       cumulative += name && row.words && row.words.test(name)
-        ? Math.min(NUDGED_SHARE_MAX, row.share * (row.nudge || NAME_NUDGE)) : row.share;
+        ? Math.min(NUDGED_SHARE_MAX, share * (row.nudge || NAME_NUDGE)) : share;
       if (roll < cumulative) return row.id;
     }
     return null;
@@ -390,8 +408,13 @@
       const variant = variantFor(first.affinityKey, first.name, first.size, context);
       for (const rec of records) {
         rec.affinityContext = context;
-        rec.variant = variant;
+        rec.selectedVariant = variant;
+        rec.variant = !rec.variantRanges || rec.variantRanges.length ? variant : null;
         rec.rocks = rocksFor(rec.key, rec.size, variant);
+      }
+      for (const rec of index.dressingLines || []) if (rec.key === first.affinityKey && rec.size === first.size) {
+        rec.variant = variant;
+        rec.affinityContext = context;
       }
       yield 'street affinities';
     }
@@ -474,9 +497,155 @@
   //   roadClass, kerb buffer included) so the dressing can read the buffer.
   // A generator for the tile-build rule: one yield per INDEX_YIELD_LINES.
   const INDEX_YIELD_LINES = 256;
+  // Reconstruct canonical paths before sampling. Splitting a line into MVT
+  // features, reversing it, or repeating a reversed segment cannot reroll
+  // its dressing or restart the coin/plant spacing at artificial cuts.
+  function canonicalPaths(lines) {
+    const nodes = new Map(), edges = new Set();
+    const pointKey = p => `${p.x},${p.y}`;
+    const compare = (a, b) => a.x - b.x || a.y - b.y;
+    const node = p => {
+      const key = pointKey(p);
+      if (!nodes.has(key)) nodes.set(key, { key, p, next: new Set() });
+      return nodes.get(key);
+    };
+    const edgeKey = (a, b) => a < b ? `${a}|${b}` : `${b}|${a}`;
+    for (const line of lines) for (let i = 1; i < line.length; i++) {
+      const a = node(line[i - 1]), b = node(line[i]);
+      if (a.key === b.key) continue;
+      a.next.add(b.key); b.next.add(a.key); edges.add(edgeKey(a.key, b.key));
+    }
+    const sorted = [...nodes.values()].sort((a, b) => compare(a.p, b.p));
+    const out = [];
+    const walk = (start, next) => {
+      const path = [start.p];
+      let a = start, b = nodes.get(next);
+      while (edges.delete(edgeKey(a.key, b.key))) {
+        path.push(b.p);
+        if (b.next.size !== 2 || b.key === start.key) break;
+        const forward = [...b.next].find(k => k !== a.key);
+        a = b; b = nodes.get(forward);
+      }
+      // Remove redundant collinear vertices introduced by fragmentation.
+      const clean = [];
+      for (const p of path) {
+        while (clean.length > 1) {
+          const a = clean[clean.length - 2], b = clean[clean.length - 1];
+          const cross = (b.x - a.x) * (p.y - b.y) - (b.y - a.y) * (p.x - b.x);
+          const dot = (b.x - a.x) * (p.x - b.x) + (b.y - a.y) * (p.y - b.y);
+          if (Math.abs(cross) > 1e-7 || dot < 0) break;
+          clean.pop();
+        }
+        clean.push(p);
+      }
+      if (clean.length > 1) out.push(clean);
+    };
+    for (const n of sorted.filter(n => n.next.size !== 2)) {
+      for (const k of [...n.next].sort((a, b) => compare(nodes.get(a).p, nodes.get(b).p))) {
+        if (edges.has(edgeKey(n.key, k))) walk(n, k);
+      }
+    }
+    // Closed rings have no endpoint; start at their smallest coordinate.
+    for (const n of sorted) for (const k of [...n.next].sort((a, b) => compare(nodes.get(a).p, nodes.get(b).p))) {
+      if (edges.has(edgeKey(n.key, k))) walk(n, k);
+    }
+    return out;
+  }
+
+  function clipPath(line, left, top, right, bottom) {
+    const paths = [];
+    let path = null;
+    for (let i = 1; i < line.length; i++) {
+      const a = line[i - 1], b = line[i], dx = b.x - a.x, dy = b.y - a.y;
+      // Half-open ownership: a line along a grid boundary belongs only to
+      // the patch on its right/bottom, never both neighbouring patches.
+      if ((!dx && a.x >= right) || (!dy && a.y >= bottom)) { path = null; continue; }
+      let lo = 0, hi = 1;
+      for (const [p, q] of [[-dx, a.x - left], [dx, right - a.x], [-dy, a.y - top], [dy, bottom - a.y]]) {
+        if (p === 0) { if (q < 0) { lo = 2; break; } continue; }
+        const t = q / p;
+        if (p < 0) lo = Math.max(lo, t); else hi = Math.min(hi, t);
+      }
+      if (lo >= hi) { path = null; continue; }
+      const p = { x: a.x + dx * lo, y: a.y + dy * lo };
+      const q = { x: a.x + dx * hi, y: a.y + dy * hi };
+      const last = path && path[path.length - 1];
+      if (!last || Math.hypot(last.x - p.x, last.y - p.y) > 1e-7) {
+        path = [p]; paths.push(path);
+      }
+      path.push(q);
+    }
+    return paths;
+  }
+
+  // MVT-arclength intervals of an original source line covered by canonical theme
+  // paths. The renderer/lamp pass reads these same intervals as the dressing.
+  function* themeRanges(line, themed, mvtToM) {
+    const ranges = [];
+    let comparisons = 0;
+    let metres = 0;
+    for (let i = 1; i < line.length; i++) {
+      const a = line[i - 1], b = line[i], dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.hypot(dx, dy), len2 = len * len;
+      if (!len) continue;
+      for (const path of themed) for (let j = 1; j < path.length; j++) {
+        if ((++comparisons & 511) === 0) yield 'street theme interval geometry';
+        const p = path[j - 1], q = path[j];
+        const dist = r => Math.abs((r.x - a.x) * dy - (r.y - a.y) * dx) / len;
+        if (dist(p) > 1e-5 || dist(q) > 1e-5) continue;
+        const t = r => ((r.x - a.x) * dx + (r.y - a.y) * dy) / len2;
+        const lo = Math.max(0, Math.min(t(p), t(q))), hi = Math.min(1, Math.max(t(p), t(q)));
+        if (hi > lo + 1e-9) ranges.push([metres + lo * len * mvtToM, metres + hi * len * mvtToM]);
+      }
+      metres += len * mvtToM;
+    }
+    ranges.sort((a, b) => a[0] - b[0]);
+    const merged = [];
+    for (const span of ranges) {
+      const last = merged[merged.length - 1];
+      if (last && span[0] <= last[1] + 1e-6) last[1] = Math.max(last[1], span[1]);
+      else merged.push(span.slice());
+    }
+    return merged;
+  }
+
+  function variantAt(rec, metres, mvtToM = 1) {
+    if (!rec || !rec.variant) return null;
+    metres /= mvtToM;
+    return !rec.variantRanges || rec.variantRanges.some(([a, b]) => metres >= a - 1e-6 && metres <= b + 1e-6)
+      ? rec.variant : null;
+  }
+
+  function lineParts(rec, mvtToM) {
+    const length = root.Streets.lineLengthM(rec.line, mvtToM);
+    const cuts = [0, length];
+    for (const span of rec.variantRanges || []) for (const end of span) {
+      cuts.push(Math.max(0, Math.min(length, end * mvtToM)));
+    }
+    cuts.sort((a, b) => a - b);
+    const out = [];
+    for (let i = 1; i < cuts.length; i++) {
+      const a = cuts[i - 1], b = cuts[i];
+      if (b - a < 1e-6) continue;
+      out.push({ a, b, variant: variantAt(rec, (a + b) / 2, mvtToM) });
+    }
+    return out;
+  }
+
+  // Same split geometry for the map-review overlay and in-game QC labels.
+  function displayLines(index, mvtToM) {
+    const out = [];
+    for (const rec of index.lines || []) for (const part of lineParts(rec, mvtToM)) {
+      const line = root.Streets.subLineM(rec.line, mvtToM, part.a, part.b)
+        .map(p => ({ x: p.x / mvtToM, y: p.y / mvtToM }));
+      out.push({ ...rec, line, variant: part.variant });
+    }
+    return out;
+  }
+
   function* buildIndexSteps(layers, tx, ty, mvtToM) {
     const WG = root.WorldGen, S = root.Streets;
-    const out = { lines: [], hoardPois: [], extent: 4096 };
+    const out = { lines: [], dressingLines: [], hoardPois: [], extent: 4096 };
     if (!layers || !WG) return out;
     let tr = null, tn = null, poi = null;
     for (const l of layers) {
@@ -521,8 +690,9 @@
       const join = (a, b) => { parent[find(a)] = find(b); };
       out.lines.forEach((rec, i) => {
         if (rec.name) {
-          if (groups.has(rec.key)) join(i, groups.get(rec.key));
-          else groups.set(rec.key, i);
+          const groupKey = rec.size + '|' + rec.key;
+          if (groups.has(groupKey)) join(i, groups.get(groupKey));
+          else groups.set(groupKey, i);
         } else for (const p of [rec.line[0], rec.line[rec.line.length - 1]]) {
           const k = `${rec.size}|${p.x},${p.y}`;
           if (unnamedEnds.has(k)) join(i, unnamedEnds.get(k));
@@ -533,8 +703,8 @@
       out.lines.forEach((rec, i) => {
         const k = find(i);
         let group = lengths.get(k);
-        if (!group) lengths.set(k, group = { metres: 0, clipped: false, segments: new Set(), key: rec.key });
-        if (rec.key < group.key) group.key = rec.key;
+        if (!group) lengths.set(k, group = { metres: 0, clipped: false, segments: new Set(), records: [] });
+        group.records.push(rec);
         if (rec.line.some((p) => p.x <= 0 || p.y <= 0 || p.x >= ext || p.y >= ext)) group.clipped = true;
         for (let j = 1; j < rec.line.length; j++) {
           const a = rec.line[j - 1], b = rec.line[j];
@@ -545,21 +715,66 @@
           group.metres += Math.hypot(b.x - a.x, b.y - a.y) * mvtToM;
         }
       });
-      out.lines.forEach((rec, i) => {
-        const group = lengths.get(find(i));
-        rec.streetLengthM = group.metres;
-        rec.affinityKey = group.key;
-        rec.variantEligible = !group.clipped && group.metres <= MAX_VARIANT_LENGTH_M;
-        rec.variant = variantFor(rec.affinityKey, rec.name, rec.size);
-        rec.rocks = rocksFor(rec.key, rec.size, substrateVariantFor(rec.key, rec.name, rec.size));
-        // A clipped road has unknown total length. Leave it plain, even
-        // when its visible fragment is short; short seam-crossing roads
-        // are deliberately excluded too.
-        if (lengths.get(find(i)).clipped || rec.streetLengthM > MAX_VARIANT_LENGTH_M) {
-          rec.variant = null;
-          rec.rocks = false;
+      // Every selected street remains eligible. Long/unknown streets use
+      // compact tile-aligned patches instead of silently losing their theme.
+      // Canonical paths make the geometry independent of feature order/cuts.
+      for (const group of lengths.values()) {
+        yield 'street theme paths';
+        const records = group.records;
+        const canonical = canonicalPaths(records.map(rec => rec.line));
+        const source = records.slice().sort((a, b) => a.key.localeCompare(b.key))[0];
+        const key = source.name ? source.key : canonical.map(line => anonKey(tx, ty, line)).join(';');
+        const selected = variantFor(key, source.name, source.size);
+        const prototype = { ...source, key, variant: selected, halfW: Math.max(...records.map(r => r.halfW)) };
+        const bounded = group.clipped || group.metres > MAX_VARIANT_LENGTH_M;
+        const paths = [];
+        if (selected) {
+          if (!bounded) paths.push(...canonical.map(line => ({ line, patch: null })));
+          else for (let py = 0; py < ext; py += VARIANT_PATCH_UNITS) {
+            for (let px = 0; px < ext; px += VARIANT_PATCH_UNITS) {
+              yield 'street theme patch';
+              const insetM = VARIANT_PATCH_INSET_UNITS * mvtToM;
+              let budget = MAX_VARIANT_LENGTH_M;
+              const patch = `${tx * ext + px},${ty * ext + py}`;
+              for (const path of canonical) {
+                for (const line of clipPath(path, px, py,
+                  px + VARIANT_PATCH_UNITS, py + VARIANT_PATCH_UNITS)) {
+                  if (budget <= 1e-6) break;
+                  const length = S.lineLengthM(line, mvtToM);
+                  // Trim ALONG the road, never perpendicular to it: otherwise
+                  // a road following a lattice boundary would disappear.
+                  const trim = Math.min(insetM, length / 4);
+                  const keptLength = Math.min(length - 2 * trim, budget);
+                  const kept = S.subLineM(line, mvtToM, trim, trim + keptLength)
+                    .map(p => ({ x: p.x / mvtToM, y: p.y / mvtToM }));
+                  paths.push({ line: kept, patch });
+                  budget -= keptLength;
+                }
+              }
+            }
+          }
         }
-      });
+        for (const { line, patch } of paths) {
+          const lineKey = line.map(p => `${p.x},${p.y}`).join('|');
+          out.dressingLines.push({ ...prototype, line, lineKey, patch,
+            variant: selected, streetLengthM: group.metres });
+        }
+        for (const rec of records) {
+          yield 'street theme intervals';
+          const substrateKey = rec.key;
+          rec.key = key;
+          rec.affinityKey = key;
+          rec.variantEligible = !bounded;
+          rec.rocks = rocksFor(substrateKey, rec.size, substrateVariantFor(substrateKey, rec.name, rec.size));
+          rec.streetLengthM = group.metres;
+          rec.selectedVariant = selected;
+          rec.variantRanges = yield* themeRanges(rec.line, paths.map(p => p.line), 1);
+          rec.variant = rec.variantRanges.length ? selected : null;
+          // Keep the independent rock treatment compact too; it is not one
+          // of the themed dressing rows and has no interval consumer.
+          if (bounded) rec.rocks = false;
+        }
+      }
       yield 'street index';
     }
     out.hoardPois = hoardPoisOf(poi, tx, ty, out.extent);
@@ -615,7 +830,7 @@
     const toCell = N / ext;
     let segments = 0;
     let candidates = 0;
-    for (const rec of index.lines) {
+    for (const rec of (index.dressingLines || index.lines)) {
       if (!rec.variant) continue;
       yield 'street area';
       const radius = rec.halfW / cellM + 1;
@@ -824,7 +1039,7 @@
   // never in the unsliced spawn pass (CLAUDE.md, the worst-block rule).
   function* dressSteps(ctx) {
     const WG = root.WorldGen, S = root.Streets;
-    const res = { objects: [], wildplants: [], treasures: [], lairs: [], slowCells: new Map(), marks: null };
+    const res = { objects: [], wildplants: [], treasures: [], coins: [], lairs: [], slowCells: new Map(), marks: null };
     const idx = ctx && ctx.index;
     if (!idx || !WG || !S) return res;
     const { tx, ty, N, tileEdgeM, grid, spawnOpts } = ctx;
@@ -908,7 +1123,7 @@
     // Pilgrim's Way / barricade street key → every owned piece end in the
     // square (tile-local MVT points), in line order.
     const streetEnds = new Map(), habitatSeats = new Set();
-    for (const rec of idx.lines) {
+    for (const rec of (idx.dressingLines || idx.lines)) {
       const v = rec.variant;
       if (!v) continue;
       yield 'street dressing';
@@ -1001,6 +1216,19 @@
                 : { species: 'maple', variant: 3, _street: v }));
             placed++;
           }
+        });
+      } else if (v === 'golden') {
+        // Existing seeded coin pickups: one coin per interval, on alternating
+        // eligible verges. Cell ids survive reloads and use foundTreasures.
+        sampleLine(rec.line, gM, GOLDEN_STEP_M, GOLDEN_STEP_M / 2, (s, x, y, nx, ny) => {
+          if (!S.covers(spans, s)) return;
+          const side = Math.floor(s / GOLDEN_STEP_M) % 2 ? -1 : 1;
+          const c = verge(rec, x, y, nx, ny, side) || verge(rec, x, y, nx, ny, -side);
+          if (!c) return;
+          claim(c.ix, c.iy);
+          res.coins.push({ kind: 'coindrop', x: cx(c.ix), y: cy(c.iy),
+            id: WG.cellId('golden_coin', tx, ty, c.ix, c.iy),
+            amount: GOLDEN_COIN_AMOUNT, seeded: true, _street: v });
         });
       } else if (v === 'pilgrim' || v === 'barricade') {
         if (v === 'barricade') {
@@ -1168,7 +1396,8 @@
     const S = root.Streets, line = feature.geom[li];
     const length = S.lineLengthM(line, mvtToM);
     const rec = entry.streetIndex?.lines?.find((r) => r.fi === fi && r.li === li);
-    const ivs = !rec && entry.scenic?.lines?.get(S.lineKey(feature, li));
+    if (rec) return lineParts(rec, mvtToM).map(part => ({ ...part, size: rec.size }));
+    const ivs = entry.scenic?.lines?.get(S.lineKey(feature, li));
     const cuts = [0, length];
     for (const iv of ivs || []) for (const u of [iv[0], iv[1]]) {
       const m = Math.max(0, Math.min(length, u * mvtToM));
@@ -1202,18 +1431,18 @@
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
   root.StreetVariants = {
-    PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, VERGE_MAX_CELLS,
+    PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, MINOR_VARIANT_SHARE, VERGE_MAX_CELLS,
     BANDIT_STRETCH_UNITS, BANDIT_STRETCH_SHARE, BANDIT_STAMP_OUT_CELLS,
     stretchOf, isBanditStretch, stampBanditStretchesSteps,
     BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GAP_MIN, HEDGE_GAP_SPAN, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
-    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, SLOW_KINDS,
+    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, VARIANT_PATCH_UNITS, VARIANT_PATCH_INSET_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, SLOW_KINDS,
     STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M,
-    nameVote, lineName, sampleLine, buildIndexSteps, buildIndex, areaSteps, area,
+    nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,
     markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, lineStyles, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
