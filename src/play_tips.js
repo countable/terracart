@@ -1,13 +1,14 @@
-// Story pages keep their saved-bookmark order. Each carries one useful discovery.
+// The opening eight alternate story and mechanics. Later bookmark positions stay fixed.
+// Displaced opening tips remain at the end so their guidance is still available.
 // Real-world safety pages speak directly so their guidance stays clear.
 const PLAY_TIPS = [
+  "“Keep the key,” a mother had written. “When someone mends our house, I want the children to open the door themselves.”",
   "Leave weary hands to rest awhile; strength returns even while you are away.",
-  "In the harsher world, even a small bite leaves you trembling.",
-  "When the harsher world takes your last strength, seek the shelter of your own trailer.",
-  ITEM_GUIDE_TIPS.crow_feather,
+  "The village ledger ended in a different hand: “We heard no army coming. By dawn there were no roofs. They called it the Warmonger.”",
   "Only beneath your own roof can you sink into the deep rest of home.",
+  "A traveller wrote of a figure watching from an empty window. The next morning, fresh footprints ended at the wall beneath it.",
   "A campfire warms tired hands until they are ready to work again.",
-  "Finish the work before you settle into a proper rest.",
+  "Someone had scraped a name from the page. Your fingers knew where the missing letters should be, though you could not remember reading them.",
   "Bring the day's haul home, where it can become a little money.",
   "Even bare hands can do the work, if you have patience.",
   "Below ground, your light draws closer with every descent.",
@@ -132,4 +133,9 @@ const PLAY_TIPS = [
   "In the furnace, a magical flower helped turn a lesser bar into finer metal.",
   "Seek magical flowers in the world; shops cannot supply their seeds.",
   "The old texts whispered of sapphire, and a slime that might be gentler than it seemed.",
+  // Former opening guidance; appended rather than shifting later bookmarks.
+  "In the harsher world, even a small bite leaves you trembling.",
+  "When the harsher world takes your last strength, seek the shelter of your own trailer.",
+  ITEM_GUIDE_TIPS.crow_feather,
+  "Finish the work before you settle into a proper rest.",
 ];
