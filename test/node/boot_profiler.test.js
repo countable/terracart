@@ -11,7 +11,7 @@
 //   2. app.js can't load headlessly (it needs Phaser) — its hooks (the
 //      update()/drawCells/drawObjects ticks, the 'phaser render' game-event
 //      wiring, the window.__boot.device line) are pinned as source text
-//      (APP_JS_SRC, exposed by run.js) instead, same trick spawn_roads.test.js
+//      (SCENE_SRC, exposed by run.js) instead, same trick spawn_roads.test.js
 //      uses for ROAD_OVERLAY_SRC. Likewise the border-crossing stamp and the
 //      fog-paint tick sit deep inside Render.drawCells, which needs a full
 //      Graphics-shaped scene fixture nothing else in this suite builds — text
@@ -193,25 +193,25 @@ test('boot profiler: drawObjects counts entries scanned and kept', () => {
 
 // ── Source pins: app.js hooks that can't load headlessly ───────────────────
 test('boot profiler (pin): update() ticks the whole frame and a crossing-frame label', () => {
-  assert.truthy(/_uB\.tick\('update \(all\)', _dt\)/.test(APP_JS_SRC), 'update (all) ticked');
-  assert.truthy(/_uB\.tick\('update @crossing', _dt\)/.test(APP_JS_SRC), 'update @crossing ticked');
-  assert.truthy(/this\._boot_crossing/.test(APP_JS_SRC), 'update() reads the crossing flag drawCells stamps');
+  assert.truthy(/_uB\.tick\('update \(all\)', _dt\)/.test(SCENE_SRC), 'update (all) ticked');
+  assert.truthy(/_uB\.tick\('update @crossing', _dt\)/.test(SCENE_SRC), 'update @crossing ticked');
+  assert.truthy(/this\._boot_crossing/.test(SCENE_SRC), 'update() reads the crossing flag drawCells stamps');
 });
 
 test('boot profiler (pin): drawCells forwarder ticks a crossing-frame label too', () => {
-  assert.truthy(/B\.tick\('drawCells @crossing', dt\)/.test(APP_JS_SRC), 'drawCells @crossing ticked');
+  assert.truthy(/B\.tick\('drawCells @crossing', dt\)/.test(SCENE_SRC), 'drawCells @crossing ticked');
 });
 
 test('boot profiler (pin): create() wires the game-level prerender/postrender events', () => {
-  assert.truthy(/this\.game\.events\.on\('prerender'/.test(APP_JS_SRC), 'prerender listener registered');
-  assert.truthy(/this\.game\.events\.on\('postrender'/.test(APP_JS_SRC), 'postrender listener registered');
-  assert.truthy(/__boot\?\.tick\('phaser render'/.test(APP_JS_SRC), 'phaser render tick fired from postrender');
+  assert.truthy(/this\.game\.events\.on\('prerender'/.test(SCENE_SRC), 'prerender listener registered');
+  assert.truthy(/this\.game\.events\.on\('postrender'/.test(SCENE_SRC), 'postrender listener registered');
+  assert.truthy(/__boot\?\.tick\('phaser render'/.test(SCENE_SRC), 'phaser render tick fired from postrender');
 });
 
 test('boot profiler (pin): create() populates window.__boot.device', () => {
-  assert.truthy(/window\.__boot\.device = device/.test(APP_JS_SRC), 'device object assigned onto window.__boot');
-  assert.truthy(/deviceMemory/.test(APP_JS_SRC), 'navigator.deviceMemory read');
-  assert.truthy(/WEBGL_debug_renderer_info/.test(APP_JS_SRC), 'unmasked GPU strings read (guarded)');
+  assert.truthy(/window\.__boot\.device = device/.test(SCENE_SRC), 'device object assigned onto window.__boot');
+  assert.truthy(/deviceMemory/.test(SCENE_SRC), 'navigator.deviceMemory read');
+  assert.truthy(/WEBGL_debug_renderer_info/.test(SCENE_SRC), 'unmasked GPU strings read (guarded)');
 });
 
 test('boot profiler (pin): render.js stamps the crossing flag and ticks the fog repaint', () => {

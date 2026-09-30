@@ -181,7 +181,7 @@
   // app.js _walkRelics, lifted and run against a fake scene: the ONE lane
   // every stick speed reads.
   const liftWalkRelics = () => {
-    const src = APP_JS_SRC;
+    const src = SCENE_SRC;
     const a = src.indexOf('\n  _walkRelics() {');
     const b = src.indexOf('\n  }\n', a);
     const body = src.slice(src.indexOf('{', a) + 1, b);
@@ -230,16 +230,17 @@
   });
 
   test('bike rack: stick walking only — the GPS walk never reads the lane', () => {
-    // Every steerSpeedMul reader in app.js is a stick path: the stick itself,
-    // the drift back home and the follow cap while the stick is pushed.
-    const calls = APP_JS_SRC.match(/steerSpeedMul\([^)]*\)/g) || [];
+    // Every steerSpeedMul reader in the scene is a stick path: the stick itself,
+    // the drift back home and the follow cap while the stick is pushed. The
+    // debug readout's `${steerSpeedMul(…)}` only prints it.
+    const calls = SCENE_SRC.match(/(?<!\$\{)steerSpeedMul\([^)]*\)/g) || [];
     assert.eq(calls.length, 3, 'three readers');
-    assert.truthy(/const step = WALK_M_S \* steerSpeedMul\(relics\) \* dt;/.test(APP_JS_SRC), 'the stick (_steerManual)');
-    assert.truthy(/const stickMul = this\._stickPushed\(\) \? steerSpeedMul\(this\._walkRelics\(\)\) : 1;/.test(APP_JS_SRC),
+    assert.truthy(/const step = WALK_M_S \* steerSpeedMul\(relics\) \* dt;/.test(SCENE_SRC), 'the stick (_steerManual)');
+    assert.truthy(/const stickMul = this\._stickPushed\(\) \? steerSpeedMul\(this\._walkRelics\(\)\) : 1;/.test(SCENE_SRC),
       'the follow cap, only while the stick is pushed');
-    assert.truthy(/const boost = \(this\.save\.bikeUntil \?\? 0\) > Date\.now\(\) \? BIKE_RACK_SPEED_MUL : 1;/.test(APP_JS_SRC),
+    assert.truthy(/const boost = \(this\.save\.bikeUntil \?\? 0\) > Date\.now\(\) \? BIKE_RACK_SPEED_MUL : 1;/.test(SCENE_SRC),
       '_walkRelics reads the loan');
-    assert.falsy(/bikeUntil/.test(APP_JS_SRC.replace(/_walkRelics\(\) \{[\s\S]*?\n  \}\n/, '')), 'nothing else in app.js reads it');
+    assert.falsy(/bikeUntil/.test(SCENE_SRC.replace(/_walkRelics\(\) \{[\s\S]*?\n  \}\n/, '')), 'nothing else in app.js reads it');
   });
 
   // ── Gates ────────────────────────────────────────────────────────────────
@@ -306,11 +307,11 @@
     // Yesterday's corpse is pruned from save.caught; today's is kept.
     assert.eq(Lairs.dailyGuardDay(d1[0].id), '20260928', 'the day reads back off the id');
     assert.eq(Lairs.dailyGuardDay('lair_wagon_1_2_3_4_0'), null, 'a wagon guard is no daily one');
-    assert.truthy(/const gateDay = Lairs\.dailyGuardDay\(id\);\s*if \(gateDay\) return gateDay === Delivery\.dayKey\(\);/.test(SCENE_CREATURES_SRC),
+    assert.truthy(/const gateDay = Lairs\.dailyGuardDay\(id\);\s*if \(gateDay\) return gateDay === Delivery\.dayKey\(\);/.test(SCENE_SRC),
       'scene_creatures.js prunes the other days');
-    assert.truthy(/o\.kind !== 'gatepost' \|\| !o\.gateSid \|\| seen\.has\(o\.gateSid\)/.test(SCENE_CREATURES_SRC),
+    assert.truthy(/o\.kind !== 'gatepost' \|\| !o\.gateSid \|\| seen\.has\(o\.gateSid\)/.test(SCENE_SRC),
       'spawnInTile hands in one lair per gate');
-    assert.truthy(/dayKey: utcDayKey\(\),/.test(APP_JS_SRC), 'app.js hands the residency pass today');
+    assert.truthy(/dayKey: utcDayKey\(\),/.test(SCENE_SRC), 'app.js hands the residency pass today');
   });
 
   test('gate: an Overpass bin\'s gates become posts; road furniture mints nothing', () => {

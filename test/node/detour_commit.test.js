@@ -12,11 +12,11 @@
 // and DETOUR_COMMIT_MS past the last one.
 //
 // app.js can't load headlessly, so _followStep and _detourDir are lifted out of
-// APP_JS_SRC and run for real on a stub cave (the trap_pin / walk_home idiom),
+// SCENE_SRC and run for real on a stub cave (the trap_pin / walk_home idiom),
 // with a fake clock standing in for performance.now().
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 const lift = (sig) => {
   const start = app.indexOf('\n  ' + sig);

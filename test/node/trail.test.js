@@ -310,12 +310,12 @@ test('trail prize: each card\'s ⓘ says what it does, off the lines the item al
 });
 
 test('trail prize: the pick lays its cards out in one row, descriptions behind the ⓘ', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const pat = app.indexOf('\n  _offerTreasurePick({');
   const pick = app.slice(pat, app.indexOf('\n  }\n', pat));
   assert.truthy(/cards: true,/.test(pick), 'the pick asks for the card row');
   assert.truthy(/info: this\._trailRewardBlurb\(reward\),/.test(pick), 'each card carries its description as info');
-  const shell = MODAL_SHELL_SRC;
+  const shell = SCENE_SRC;
   const mat = shell.indexOf('\n  showChestRewardModal(');
   const modal = shell.slice(mat, shell.indexOf('\n  }\n', mat));
   assert.truthy(/if \(a\.info\) \{/.test(modal), 'the shell draws an ⓘ only for an action with info');
@@ -328,7 +328,7 @@ test('trail prize: the pick lays its cards out in one row, descriptions behind t
 // the pick is what pays, and that the modal offering it can't be dismissed
 // without choosing — is pinned as source text.
 test('trail prize: the payout hangs off the button, not the offer', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const at = app.indexOf('_fireTrailPrize(n, onDismiss) {');
   assert.gt(at, 0, 'found the prize path');
   const body = app.slice(at, app.indexOf('\n  _trailChoiceLabel', at));
@@ -383,7 +383,7 @@ test('trail prize: the fixed first rung pays out through the ordinary claim', ()
 });
 
 test('trail prize: the ceremony rolls the ROAD pool, and rung one skips the roll', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const at = app.indexOf('_fireTrailPrize(n, onDismiss) {');
   const body = app.slice(at, app.indexOf('\n  _trailChoiceLabel', at));
   assert.truthy(/pickReward\(Trail\.PRIZE_CONTEXT, this\.save, undefined,\s*\{ rollBonus: bonus, classes, classMaxTier: \{ boots: bootsCap \} \}\)/.test(body),
@@ -412,7 +412,7 @@ test('trail prize: story hint leaves the next threshold to the road counter', ()
 });
 
 test('trail counter: the street reads Trail.readout of the bank, not raw progress', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const at = app.indexOf('  _bankStreetMetres(addedM, at, now, opts) {');
   assert.gt(at, 0, 'found the bank');
   const body = app.slice(at, app.indexOf('\n  }\n', at));
@@ -492,10 +492,10 @@ test('street counter: the number wears the restored street\'s own ink', () => {
   // debris and the figure over it can never end up different colours. Pinned
   // as source text — app.js needs Phaser and can't load headlessly.
   assert.eq(typeof UI_TRAIL_LIT, 'undefined', 'and the lit-pebble violet is gone');
-  assert.truthy(/color: UI_STREET_INK,\s*\n\s*\.\.\.\(at \? this\._worldToastAt\(/.test(APP_JS_SRC),
+  assert.truthy(/color: UI_STREET_INK,\s*\n\s*\.\.\.\(at \? this\._worldToastAt\(/.test(SCENE_SRC),
     'the counter is drawn in it, on the stretch');
   assert.falsy(/`\$\{pos\}\/\$\{target\}`, \{ tier: 'note', color: UI_TREASURE_INK \}/
-    .test(APP_JS_SRC), 'the old centred treasure-ink toast is gone');
+    .test(SCENE_SRC), 'the old centred treasure-ink toast is gone');
 });
 })();
 
@@ -678,9 +678,9 @@ test('streets: a peek drag does not widen the sweep', () => {
   const peeked = runOne({ x: 3 * CELL_M, y: 0 });
   assert.gt(plain, 0, 'the plain sweep restored something');
   assert.eq(peeked, plain, 'and a three-cell peek restores exactly the same metres');
-  assert.truthy(/const p = playerReachCell\(this\);/.test(APP_JS_SRC),
+  assert.truthy(/const p = playerReachCell\(this\);/.test(SCENE_SRC),
     'the sweep measures from the reach cell');
-  const scan = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _rescanStreets(p, reachM, now, sight) {'));
+  const scan = SCENE_SRC.slice(SCENE_SRC.indexOf('  _rescanStreets(p, reachM, now, sight) {'));
   assert.falsy(/peekM|viewAnchor/.test(scan.slice(0, scan.indexOf('\n  }\n'))),
     'and the scan never reads the camera anchor');
 });
@@ -867,7 +867,7 @@ test('streets: the counter is throttled, but a paying sweep never waits', () => 
 });
 
 test('streets: a restore\'s blast and counter play a beat after it, the ladder moves at once', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const i = app.indexOf('  _afterRestoreBeat(fn) {');
   const body = app.slice(i, app.indexOf('\n  }\n', i));
   assert.truthy(/this\.time\.delayedCall\(RESTORE_FX_DELAY_MS, fn\)/.test(body), 'on the scene clock');
@@ -974,7 +974,7 @@ test('streets: the sweep is memoised on the reach cell, and the ripen runs every
   // the 3×3 tiles — and standing still can't bring fresh street into the
   // bubble. The RIPEN half is waiting on the clock, not the player, so it runs
   // regardless.
-  const src = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _sweepStreets() {'));
+  const src = SCENE_SRC.slice(SCENE_SRC.indexOf('  _sweepStreets() {'));
   const body = src.slice(0, src.indexOf('\n  }\n'));
   assert.truthy(/const sweepKey = `\$\{p\.cellIX\},\$\{p\.cellIY\},\$\{Math\.round\(reachM\)\}`;/.test(body),
     'the memo key is the reach cell plus the radius');
@@ -985,7 +985,7 @@ test('streets: the sweep is memoised on the reach cell, and the ripen runs every
   // The live pass is NOT in the sweep: it strokes into the container
   // RoadOverlay.draw positions, and the sweep runs earlier in update() — so it
   // hangs off drawRoadGeometry, after the draw.
-  assert.truthy(/drawRoadGeometry\(\) \{\n\s+if \(typeof RoadOverlay === 'undefined'\) return;\n\s+RoadOverlay\.draw\(this\);[\s\S]{0,400}?this\._drawStreetLive\(\);/.test(APP_JS_SRC),
+  assert.truthy(/drawRoadGeometry\(\) \{\n\s+if \(typeof RoadOverlay === 'undefined'\) return;\n\s+RoadOverlay\.draw\(this\);[\s\S]{0,400}?this\._drawStreetLive\(\);/.test(SCENE_SRC),
     'and the live pass runs after the overlay draw, every frame');
   assert.falsy(/_drawStreetLive/.test(body), 'never from the sweep itself');
 });
@@ -1037,7 +1037,7 @@ test('streets: the greeting is armed ONCE and read by the pass that runs every f
   // …and it is read from the TOP of _sweepStreets, before that pass's own
   // surface and reach gates: a greeting armed by a repair the player then
   // walked away from (into a cave, onto an empty bar) is still owed.
-  const body = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _sweepStreets() {'));
+  const body = SCENE_SRC.slice(SCENE_SRC.indexOf('  _sweepStreets() {'));
   assert.truthy(/_sweepStreets\(\) \{\n\s+if \(typeof Streets === 'undefined'\) return;\n\s+this\._openTrailIntroIfDue\(\);/
     .test(body), 'the wait is read before the sweep gates on depth or reach');
 });

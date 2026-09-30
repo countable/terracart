@@ -116,7 +116,7 @@ test('starter trailer footing: a house in a NEIGHBOURING cell is left alone (not
 // read save.starterTrailer.id. The trailer claims Home INSIDE
 // _makeStarterTrailer, before the inject, and no caller reads the record back.
 test('starter trailer footing: no caller reads the trailer record back after making it', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const at = app.indexOf('  _makeStarterTrailer(wmx, wmy) {');
   const body = app.slice(at, app.indexOf('\n  }\n', at));
   assert.truthy(body.indexOf('this.save.starterShopId = id;') >= 0

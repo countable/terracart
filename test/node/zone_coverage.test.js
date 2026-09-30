@@ -203,6 +203,52 @@
     }
   });
 
+  test('park beaches: mapped footprints gain beach variants while inland parks retain groves', () => {
+    const T = WorldGen.T, a = anchor(1800, 1800);
+    const park = { rings: [rect(700, 700, 3000, 3000)] };
+    const beachLayer = { features: [{ type: 3, tags: { class: 'sand', subclass: 'beach' },
+      geom: [rect(700, 700, 1100, 3000)] }] };
+    const grid = new Uint8Array(N * N).fill(T.PARK);
+    grid[20 * N + 13] = T.BUILDING;
+    grid[21 * N + 13] = T.WATER;
+    const f = build([a], [park], { grid, beachLayer }).field;
+    const beach = ownerAt(f, 13, 22);
+    assert.eq(beach.kind, 'beach');
+    assert.truthy(beach.parkShore);
+    assert.eq(beach.key, a.key, 'existing source point owns the beach identity');
+    assert.eq(ownerAt(f, 30, 22), a, 'inland coverage retains the original grove');
+    assert.falsy(ownerAt(f, 13, 20)?.parkShore, 'building is never beach');
+    assert.falsy(ownerAt(f, 13, 21)?.parkShore, 'water is never beach');
+    assert.eq(ownerAt(build([anchor(1800, 1800)], [park], { grid }).field, 13, 22).kind,
+      'grove', 'a beach-like park name or sand without mapped beach is insufficient');
+    const inland = { features: [{ type: 3, tags: { class: 'sand', subclass: 'sand' }, geom: beachLayer.features[0].geom }] };
+    assert.falsy(build([anchor(1800, 1800)], [park], { grid, beachLayer: inland }).field.anchors.some(a => a.parkShore));
+  });
+
+  test('park beaches: source identity survives clipped geometry, seams and feature order', () => {
+    const run = (tx, reverse) => {
+      const shift = rings => rings.map(r => r.map(p => ({ x: p.x - tx * EXT, y: p.y })));
+      const parks = [
+        { rings: shift([rect(3400, 1000, 4800, 2600)]) },
+        { rings: shift([rect(3200, 800, 4900, 2800)]) },
+      ];
+      const features = [
+        { type: 3, tags: { natural: 'beach' }, geom: shift([rect(tx ? 4096 : 3500, 1200, tx ? 4700 : 4096, 1500)]) },
+        { type: 3, tags: { subclass: 'beach' }, geom: shift([rect(3600, 1500, 4600, 1700)]) },
+      ];
+      const grid = new Uint8Array(N * N).fill(WorldGen.T.SAND);
+      return build([anchor(3900, 1800, 'grove', tx)], reverse ? parks.reverse() : parks,
+        { tx, grid, beachLayer: { features: reverse ? features.reverse() : features } }).field;
+    };
+    const left = run(0), right = run(1);
+    for (const tx of [0, 1]) assert.eq(signature(run(tx)), signature(run(tx, true)));
+    const a = left.anchors.find(a => a.parkShore), b = right.anchors.find(a => a.parkShore);
+    assert.truthy(a && b);
+    for (const k of ['gx', 'gy', 'key', 'R', 'variant']) assert.eq(a[k], b[k], k);
+    assert.truthy(a.owned); assert.falsy(b.owned, 'finite beach finds retain canonical tile ownership');
+    assert.eq(a.originGX, undefined); assert.eq(b.originGX, undefined);
+  });
+
   test('zone coverage: enclosed outdoor patterns phase from the settled POI in either metre frame', () => {
     for (const tileEdgeM of [448, 713]) {
       const a = anchor(1800, 1800);

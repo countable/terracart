@@ -4,9 +4,9 @@
 // roll hands out the ring, the wizard's exclusive gift.
 (function () {
 test('economy: a delivery takes at most DELIVERY_MAX_SETS sets, checked twice', () => {
-  assert.truthy(/const DELIVERY_MAX_SETS = 5;/.test(APP_JS_SRC), 'five sets');
-  assert.truthy(/const maxSets = Math\.min\(DELIVERY_MAX_SETS,/.test(APP_JS_SRC), 'the stepper stops there');
-  assert.truthy(/Math\.min\(q \?\? 1, DELIVERY_MAX_SETS,/.test(APP_JS_SRC), 'and the accept re-checks it');
+  assert.truthy(/const DELIVERY_MAX_SETS = 5;/.test(SCENE_SRC), 'five sets');
+  assert.truthy(/const maxSets = Math\.min\(DELIVERY_MAX_SETS,/.test(SCENE_SRC), 'the stepper stops there');
+  assert.truthy(/Math\.min\(q \?\? 1, DELIVERY_MAX_SETS,/.test(SCENE_SRC), 'and the accept re-checks it');
 
 });
 

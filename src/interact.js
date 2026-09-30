@@ -1713,7 +1713,7 @@ const TAP_HANDLERS = [
       //   `plants:'tree'` (the ACORN) → a `tree` object: timber, chopped for
       //       wood like any other, its growth stage read off planted_t by
       //       util.js treeGrowthStage so the frame, the axe gate and the wood
-      //       yield all climb together over the same four days.
+      //       yield all climb together over the same PLANTED_TREE_GROW_MS.
       //   otherwise (apple / peach) → a `fruittree`: picked, not chopped. It
       //       advances through the species sheet's life-cycle frames and bears
       //       fruit at maturity (render.js fruittree spec + the fruittree

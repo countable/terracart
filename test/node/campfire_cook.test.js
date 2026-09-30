@@ -62,7 +62,7 @@ test('campfire: the cooked icons are one baked sheet, a frame per dish, all art'
   assert.truthy(dims, 'Cooked.png exists');
   assert.eq(dims.w, 16 * ids.length, 'one 16px frame per dish');
   assert.eq(dims.h, 16);
-  assert.truthy(/icon_cooked:\s*\{ url: 'assets\/Icons\/Food Icons\/Cooked\.png',\s*cols: Object\.keys\(COOKED_FOODS\)\.length/.test(APP_JS_SRC),
+  assert.truthy(/icon_cooked:\s*\{ url: 'assets\/Icons\/Food Icons\/Cooked\.png',\s*cols: Object\.keys\(COOKED_FOODS\)\.length/.test(SCENE_SRC),
     'ICON_SHEETS loads the sheet');
 });
 
@@ -142,7 +142,7 @@ test('campfire: two potions TRANSMUTE, same tier only; the rest EXPLODE', () => 
 
 test('campfire: a potion blast is a blow on the body — armour soaks it', () => {
   // Mirrors app.js _potionBlast: through Combat.playerDamage, never raw.
-  const src = APP_JS_SRC.match(/_potionBlast\(rawDmg, fire\) \{[\s\S]*?\n  \}/)[0];
+  const src = SCENE_SRC.match(/_potionBlast\(rawDmg, fire\) \{[\s\S]*?\n  \}/)[0];
   assert.truthy(/Combat\.playerDamage\(rawDmg, this\.save\.armor\)/.test(src), 'armour soaks the blast');
   assert.truthy(/Combat\.playerDowned\(before\)/.test(src), 'nothing off an empty bar');
   assert.truthy(/_flashPlayerHit\(/.test(src) && /_popEnergy\(-lost\)/.test(src), 'flinch + −N⚡ pop');
@@ -154,7 +154,7 @@ test('campfire: a potion blast is a blow on the body — armour soaks it', () =>
 test('flint: the coal item is called Flint everywhere the player reads it', () => {
   assert.eq(ITEM_BY_ID.coal.name, 'Flint', 'id kept (saves carry it), name changed');
   assert.falsy(/\bcoal\b/i.test(ITEM_EFFECTS.coal), 'no "coal" in its ✦ line');
-  const quoted = APP_JS_SRC.match(/(['`])[^'`\n]*\bcoal\b[^'`\n]*\1/gi) || [];
+  const quoted = SCENE_SRC.match(/(['`])[^'`\n]*\bcoal\b[^'`\n]*\1/gi) || [];
   const shown = quoted.filter(q => !/^['`](coal|coal_icon)['`]$/.test(q) && !/assets\//.test(q));
   assert.eq(shown.length, 0, 'no player-facing "coal" string in app.js: ' + shown.join(' | '));
 });

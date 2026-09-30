@@ -7,7 +7,7 @@
 // the retreat itself is the real monsterRout, run below.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const body = (() => {
   const a = app.indexOf('  drinkThunderPotion() {');
   assert.truthy(a > 0, 'found drinkThunderPotion');

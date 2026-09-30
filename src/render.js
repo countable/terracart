@@ -76,12 +76,14 @@ Render.objectGroundOffsetPx = function (appearance, textures) {
 
 const COIN_DROP_PX = 13;
 Render.COIN_DROP_PX = COIN_DROP_PX;
-// Low-detail ground sprites show the amount waiting on the map.
+// Low-detail ground sprites show the amount waiting on the map. The stacks
+// were 20 / 25 / 30 wide; scaled down a little (owner, Sep 2026) so a large
+// pile no longer fills its whole cell.
 Render.COIN_PILES = [
   { min: 1, texture: 'coin_drop', width: COIN_DROP_PX },
-  { min: 2, texture: 'coin_pile_small', width: 20 },
-  { min: 11, texture: 'coin_pile_medium', width: 25 },
-  { min: 51, texture: 'coin_pile_large', width: 30 },
+  { min: 2, texture: 'coin_pile_small', width: 17 },
+  { min: 11, texture: 'coin_pile_medium', width: 21 },
+  { min: 51, texture: 'coin_pile_large', width: 25 },
 ];
 Render.coinPile = (coin) => {
   const amount = coinAmount(coin);

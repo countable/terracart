@@ -48,6 +48,6 @@ test('creature hop: while moving, hop on a beat — the row, then a rest on idle
 test('creature hop: renderer and preview share the appearance resolver; sim stamps the step', () => {
   assert.truthy(/s\.setFrame\(appearance\.frame\)/.test(RENDER_SRC), 'uses resolved frame');
   assert.truthy(/creatureAppearance\(c, performance\.now\(\)\)/.test(RENDER_SRC), 'resolves current creature');
-  assert.truthy(/c\._stepT0 = now;\s*c\._hopMs = stepMs;/.test(SCENE_CREATURES_SRC),
+  assert.truthy(/c\._stepT0 = now;\s*c\._hopMs = stepMs;/.test(SCENE_SRC),
     'wanderCreatures stamps the step it picks');
 });

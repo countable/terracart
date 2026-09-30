@@ -1254,32 +1254,34 @@ for (const item of ITEMS.filter(item => item.kind === 'seed')) {
 }
 
 const STARTING_ENERGY = 100;
+// Every food's restore was raised 30% (owner, Sep 2026): the numbers below
+// are the rows themselves, and the cooked rows follow through GRILL_ENERGY_MUL.
 const FOOD_ENERGY = {
-  longgrass:  2,
-  nut:        8,
-  potato:     8,
-  cress:      6,   // leafy green — mild restore
-  onion:      8,   // bulb — same as potato
-  berry:     10,   // sweet — between potato and rainberry
-  rainberry: 12,   // also waters all crops within 20m
-  pairy:     12,   // also shows the nearest undiscovered chest for 5 min
-  starfruit: 16,
-  gemfruit:  20,
-  coffee:    35,
-  sunflower:  60,
-  fireflower: 90,
-  iceflower: 150,
-  chicken:    30,
-  crab:       20,
-  cow:       120,
+  longgrass:  3,
+  nut:        10,
+  potato:     10,
+  cress:      8,   // leafy green — mild restore
+  onion:      10,   // bulb — same as potato
+  berry:     13,   // sweet — between potato and rainberry
+  rainberry: 16,   // also waters all crops within 20m
+  pairy:     16,   // also shows the nearest undiscovered chest for 5 min
+  starfruit: 21,
+  gemfruit:  26,
+  coffee:    46,
+  sunflower:  78,
+  fireflower: 117,
+  iceflower: 195,
+  chicken:    39,
+  crab:       26,
+  cow:       156,
   // cats + dogs are companions, not food — no FOOD_ENERGY entry means the
   // eat button never appears for them and eatSelected() refuses.
-  egg:        10,
-  milk:       40,
-  mushroom:   16,
-  apple:      12, cherry: 14, peach: 12, banana: 18, orange: 12, mango: 20, coconut: 18, apricot: 10,
-  minnow:      5, bass: 15, trout: 25, salmon: 50, goldenfish: 100,
-  meat:       45,   // hunted from deer; dog favourite
+  egg:        13,
+  milk:       52,
+  mushroom:   21,
+  apple:      16, cherry: 18, peach: 16, banana: 23, orange: 16, mango: 26, coconut: 23, apricot: 13,
+  minnow:      7, bass: 20, trout: 33, salmon: 65, goldenfish: 130,
+  meat:       59,   // hunted from deer; dog favourite
 };
 FOOD_ENERGY.grilled_meat = Math.round(FOOD_ENERGY.meat * GRILL_ENERGY_MUL);
 for (const [raw, c] of Object.entries(COOKED_FOODS)) {

@@ -74,7 +74,7 @@ test('themed shops: the re-roll is $2, then ×1.5 rounded down — cheaper than 
 test('smithy: the re-roll is $5, then ×1.5 rounded down, and the forge offer uses it', () => {
   const got = [0, 1, 2, 3, 4, 5, 6].map((n) => ShopsMath.smithyRerollCost(n));
   assert.eq(got.join(), '5,7,10,15,22,33,49');
-  assert.truthy(/next => this\.presentBlacksmithOffer\(sx, sy, next, recordDeal, house\),\s*\{ cost: ShopsMath\.smithyRerollCost \}\);/.test(APP_JS_SRC),
+  assert.truthy(/next => this\.presentBlacksmithOffer\(sx, sy, next, recordDeal, house\),\s*\{ cost: ShopsMath\.smithyRerollCost \}\);/.test(SCENE_SRC),
     'presentBlacksmithOffer passes the smithy curve');
 });
 
@@ -104,7 +104,7 @@ test('themed shops: a relic shop sells up to its tier, never at or below what yo
 });
 
 test('themed shops: the wiring — the tap, the stock, the price and the re-roll', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   assert.truthy(/if \(shopType === 'market'\) \{\s*\n\s*this\.presentThemedShop\(sx, sy, house, recordDeal\);/.test(app),
     'a shop tap opens the themed shop');
   assert.truthy(/return Shops\.themeAt\(Shops\.shopOrder\(this\.save, house\)\);/.test(app), 'one resolver');
@@ -124,7 +124,7 @@ test('themed shops: no re-roll where the tier stocks one item', () => {
     for (let tier = 1; tier <= 8; tier++) if (Shops.themedStock(t, tier).length === 1) single.push(`${t} T${tier}`);
   }
   assert.truthy(single.some(k => k.startsWith('ore')), `some ore tier is a single item: ${single.join(', ')}`);
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   assert.truthy(/secondary: this\._themedStockCount\(house\) > 1\s*\?\s*this\._makeRerollSecondary/.test(app),
     'the themed item offers its re-roll only when the stock has another item');
   assert.truthy(/_themedStockCount\(house\) \{[\s\S]{0,200}?Shops\.themedStock\(theme, tier\)\.length/.test(app),

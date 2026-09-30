@@ -1,16 +1,16 @@
 // Home's Craft page — the trailer panel's second tab beside Sell (app.js
 // presentHomeSell / presentHomeCraft, recipes in items.js HOME_RECIPES).
 // app.js can't load headlessly, so the page methods are lifted out of
-// APP_JS_SRC and run for real on a stub scene; the routing is pinned as
+// SCENE_SRC and run for real on a stub scene; the routing is pinned as
 // source text.
 
 (function () {
 
 const lift = (sig) => {
-  const start = APP_JS_SRC.indexOf('\n  ' + sig);
-  const end = start < 0 ? -1 : APP_JS_SRC.indexOf('\n  }\n', start);
+  const start = SCENE_SRC.indexOf('\n  ' + sig);
+  const end = start < 0 ? -1 : SCENE_SRC.indexOf('\n  }\n', start);
   assert.truthy(start > 0 && end > start, `found ${sig} in app.js`);
-  return APP_JS_SRC.slice(start + 1, end + 4);
+  return SCENE_SRC.slice(start + 1, end + 4);
 };
 const HOME = (0, eval)('({\n' + [
   lift('_finishInventoryChange() {'),
@@ -129,8 +129,8 @@ test('home craft: the Sell and Craft pages are tabs of one panel', () => {
 });
 
 test('home craft: Home routes a held stack to Sell and an empty hand to Craft', () => {
-  const start = APP_JS_SRC.indexOf('\n  shopInteract(sx, sy, house) {');
-  const body = APP_JS_SRC.slice(start, APP_JS_SRC.indexOf('\n  }\n', start));
+  const start = SCENE_SRC.indexOf('\n  shopInteract(sx, sy, house) {');
+  const body = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start));
   assert.truthy(/if \(isHome\) \{\s*if \(hasSel\) this\.presentHomeSell\(sx, sy\);\s*else this\.presentHomeCraft\(sx, sy\);/.test(body),
     'shopInteract hands Home to its two pages');
 });
@@ -160,10 +160,10 @@ test('home craft: on hard a recipe stays locked until its item is found in the w
 });
 
 test('home craft: the wild-finds ledger — every grant counts except bought, bartered, forged or crafted', () => {
-  const add = APP_JS_SRC.slice(APP_JS_SRC.indexOf('\n  addToInv(id, n = 1, silent = false, opts = {}) {'));
+  const add = SCENE_SRC.slice(SCENE_SRC.indexOf('\n  addToInv(id, n = 1, silent = false, opts = {}) {'));
   assert.truthy(/if \(!opts\.notWild\) \(this\.save\.foundWild = this\.save\.foundWild \|\| \{\}\)\[id\] = 1;/.test(add.slice(0, 3000)),
     'addToInv records the find');
-  const notWild = (APP_JS_SRC.match(/\{ notWild: true(?:, deferRefresh: true)? \}/g) || []).length;
+  const notWild = (SCENE_SRC.match(/\{ notWild: true(?:, deferRefresh: true)? \}/g) || []).length;
   assert.eq(notWild, 10, 'the ten non-wild grants in app.js: craft, smelt, trader, stand, farmhand, two shop buys, a slot win, a potion transmuted in a campfire and its full-bag refund');
   assert.truthy(/addToInv\('scarecrow', 1, false, \{ notWild: true \}\)/.test(INTERACT_SRC), 'a reclaimed scarecrow is not a find');
 });

@@ -8,7 +8,7 @@
 // and run against a stub scene: accept the offer, and see what opened.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 const constSrc = (name) => {
   const i = app.indexOf(`const ${name} = `);

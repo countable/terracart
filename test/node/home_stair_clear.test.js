@@ -5,7 +5,7 @@
 // is seated on it either. Lifted and run on a synthetic cave tile.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const lift = (head) => {
   const a = app.indexOf('\n  ' + head + ' {');
   assert.truthy(a > 0, 'found ' + head);

@@ -347,7 +347,7 @@
   // ── The call sites ────────────────────────────────────────────────────────
 
   test('home greeter: the shipping call sites cover all three races', () => {
-    const app = APP_JS_SRC;
+    const app = SCENE_SRC;
     // The starter tile's own build.
     assert.truthy(/this\._placeHomeGreeter\(entry, tx, ty\);/.test(SPAWN_IN_TILE_SRC),
       'spawnInTile seats it on the starter tile');

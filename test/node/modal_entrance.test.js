@@ -4,8 +4,8 @@
 // tab) swaps in place rather than popping every page.
 
 test('modal entrance: every shell dialog gets it, unless it replaces one', () => {
-  const start = MODAL_SHELL_SRC.indexOf('    const mount = () => {');
-  const body = MODAL_SHELL_SRC.slice(start, MODAL_SHELL_SRC.indexOf('\n    };', start));
+  const start = SCENE_SRC.indexOf('    const mount = () => {');
+  const body = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n    };', start));
   assert.truthy(/box\.classList\.add\('modal-box'\)/.test(body), 'the box is marked');
   assert.truthy(/if \(!document\.body\.classList\.contains\('modal-open'\)\) wrap\.classList\.add\('modal-anim'\)/.test(body),
     'animated only when no dialog was up');

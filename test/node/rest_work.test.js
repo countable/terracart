@@ -10,13 +10,13 @@
 // read the same number before and after ("tilling takes no energy").
 //
 // app.js needs Phaser and can't load headlessly, so the gate is pinned as
-// source text (APP_JS_SRC is lifted by run.js). The arithmetic test below is
+// source text (SCENE_SRC is lifted by run.js). The arithmetic test below is
 // the reason the gate exists: if the rates or the till ever change so a
 // wheel can't out-earn its cost, the gate is still right, just no longer load-
 // bearing — never drop it to "fix" that test.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 // The rest block of update(): from the HOME-ONLY comment to the street sweep.
 const block = (() => {

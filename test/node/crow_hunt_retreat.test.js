@@ -4,7 +4,7 @@
 // usual ~2.5–4 minutes. It used to ignore the hunt wheel and keep orbiting.
 
 (function () {
-const app = SCENE_CREATURES_SRC;   // _crowDepart and its caller are the SceneCreatures mixin's
+const app = SCENE_SRC;   // _crowDepart and its caller are the SceneCreatures mixin's
 const a = app.indexOf('\n  _crowDepart(c, now = performance.now()) {');
 assert.truthy(a > 0, 'found _crowDepart');
 const body = app.slice(app.indexOf('{', a) + 1, app.indexOf('\n  }\n', a));

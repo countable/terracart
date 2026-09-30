@@ -7,7 +7,7 @@
 // are pinned as source text.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const methodBody = (sig) => {
   const a = app.indexOf(sig);
   assert.truthy(a > 0, `found ${sig.trim()}`);
@@ -87,7 +87,7 @@ test('spirit raven: it hunts every foe and the pest crow — not game, not the t
 });
 
 test('spirit raven: the pet lane is the raven\'s lane', () => {
-  const sim = SCENE_CREATURES_SRC;
+  const sim = SCENE_SRC;
   assert.truthy(/const huntsForPlayer = \(isTame && SpriteLayout\.isPet\(c\.kind\)\) \|\| summoned;/.test(sim),
     'a summoned ally hunts through the pet scan, as a second reason');
   assert.truthy(/if \(!huntsPrey\(c\.kind, cr\)\) return;/.test(sim), 'the scan asks the one predicate');

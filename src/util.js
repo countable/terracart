@@ -304,11 +304,13 @@ function treeUsesGrowthSheet(o) {
 }
 // A tree the PLAYER planted (an acorn) grows on the CLOCK, not off a static
 // `variant`: sprout → young at the halfway mark → mature at the full window,
-// which is the same four days a fruit-tree sapling takes to bear. One window,
+// which is the same one day a fruit-tree sapling takes to bear. One window,
 // one ladder, and it comes back through treeGrowthStage so the frame render.js
 // draws, the size class the axe gate reads and the wood the fell pays all move
 // together — a sapling can't draw tiny and gate like a full canopy.
-const PLANTED_TREE_GROW_MS = 4 * 24 * 60 * 60 * 1000;
+// One day (owner's call, Sep 2026 — was four): a sapling planted on a walk
+// is grown by the next one. Every consumer derives from this number.
+const PLANTED_TREE_GROW_MS = 1 * 24 * 60 * 60 * 1000;
 function plantedTreeStage(plantedT, now) {
   const age = (now == null ? Date.now() : now) - (Number(plantedT) || 0);
   const f = age / PLANTED_TREE_GROW_MS;
