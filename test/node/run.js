@@ -1172,6 +1172,8 @@ Object.assign(ctx, {
 }
 
 ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
+// …and the building overlay's, for building_overlay.test.js's read-back sweep.
+ctx.BUILDING_OVERLAY_SRC = readSrc('building_overlay.js');
 
 // ── The STREET LAMPS' two placement passes (app.js) ───────────────────────
 // A restored street lights its own way, and where the stones stand is decided
