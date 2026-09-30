@@ -10,7 +10,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { console, performance, addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['sprite_layout', 'util', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'scenic', 'road_overlay']) {
+for (const name of ['sprite_layout', 'util', 'zone_variant_data', 'zone_variants', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'scenic', 'road_overlay']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 // The pure lamp method and its footprint constants are lifted exactly as in
@@ -113,6 +113,11 @@ function previewPath(row) {
 }
 
 const rows = SV.STREET_VARIANTS.map(preview);
+// Use the runtime weighting helper, with no name match, to make soft affinities
+// inspectable without changing the generated art fixture or rarity roll.
+const affinityContexts = Object.fromEntries(['neutral', 'cultivated', 'woodland', 'damp', 'formal', 'sacred', 'ruined', 'coastal'].map(trait =>
+  [trait, Object.fromEntries(['minor', 'major'].map(size =>
+    [size, SV.selectionWeights('Preview', size, trait === 'neutral' ? {} : {[trait]: 1})]))]));
 const rules = {
   hedgerow: `Both verges, one trimmed hedge per ${cellM} m cell; a gate gap every ${SV.HEDGE_GAP_MIN}–${SV.HEDGE_GAP_MIN + SV.HEDGE_GAP_SPAN - 1} cells.`,
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
@@ -124,7 +129,7 @@ const rules = {
   toadstool: `One attempt every ${SV.TOADSTOOL_STEP_M} m; at most ${SV.TOADSTOOL_MAX} mushrooms per line piece. Mushrooms only, in three-on/one-gap groups with varying verge setbacks.`,
 };
 for (const row of rows) row.placement = rules[row.id] || row.placement;
-process.stdout.write(JSON.stringify({ cellM, fixture: { tx, ty, cellsPerEdge: N }, rows, baseline: SV.BANDIT_STORY,
+process.stdout.write(JSON.stringify({ cellM, affinityContexts, fixture: { tx, ty, cellsPerEdge: N }, rows, baseline: SV.BANDIT_STORY,
   maxVariantLengthM: SV.MAX_VARIANT_LENGTH_M, wagonStopShare: SV.WAGON_STOP_SHARE, rockStreetShare: SV.ROCK_STREET_SHARE,
   plainShare: Object.fromEntries(['minor', 'major'].map((size) =>
     [size, 1 - rows.filter((r) => r.size === size).reduce((sum, r) => sum + r.share, 0)])) }, null, 2) + '\n');

@@ -8,7 +8,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'util', 'sprite_layout', 'assets', 'items', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones']) {
+for (const name of ['enemy_roster', 'util', 'sprite_layout', 'assets', 'items', 'zone_variant_data', 'zone_variants', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 const render = read('render');
@@ -45,5 +45,6 @@ for (const row of Object.values(data.assets)) {
 data.painters = painters;
 // Embed the shipping pavement/lamp painters, preserving their shared helpers.
 data.roadPainter = read('road_overlay');
-data.variantSource = read('street_variants');
+data.zoneTraits = Object.fromEntries(ctx.ZoneVariantData.variants.map(row => [row.id, ctx.ZoneVariants.traitsFor(row)]));
+data.variantSource = read('zone_variant_data') + '\n' + read('zone_variants') + '\n' + read('street_variants');
 process.stdout.write(JSON.stringify(data));

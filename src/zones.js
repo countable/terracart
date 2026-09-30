@@ -331,6 +331,7 @@
         if (seen.has(id)) continue;
         seen.add(id);
         out.push({ kind: k.kind, gx, gy, lx: p.x, ly: p.y, name: f.tags.name || '',
+          geographicTraits: root.ZoneVariants ? root.ZoneVariants.geographyTraits(f.tags) : {},
           owned: p.x >= 0 && p.y >= 0 && p.x < EXT && p.y < EXT });
       }
     }

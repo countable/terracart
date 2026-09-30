@@ -4,13 +4,11 @@
 // A street is a NAME inside a PARISH (streetKey). Every tile can compute it
 // from its own layers (the name comes off `transportation_name` by vertex
 // vote, nameVote/lineName) and it is the same on both sides of a seam, so a
-// pure hash of the key gives the street ONE variant end to end, and every tile
-// holding a piece of it dresses its own piece the same way. An UNNAMED way
-// has no such identity: it keys off its own line geometry inside the tile
-// (anonKey), so an unnamed way crossing a seam may roll differently on each
-// side. Accepted: unnamed ways are mostly short (alleys, stubs) and the
-// disagreement is a change of dressing at a tile edge, never a change of
-// what anything IS for a given player.
+// deterministic rolls give each eligible street ONE variant end to end.
+// Named fragments are pooled; connected unnamed fragments share a canonical
+// local key. Roads crossing a tile edge have unknown full length and remain
+// plain, as do roads longer than 500 m. Affinities read only final local zone
+// coverage: no fetches or currently loaded neighbour state.
 //
 // TWO SIZES, off WorldGen.classifyLine's tiers:
 //   MAJOR — ROAD_MD + ROAD_LG (tertiary / secondary and up): the OLD TRADE
@@ -38,13 +36,13 @@
 // Sep 2026 it sat at the head of a hedgerow's residential dead end.
 //
 // THE VARIANTS are rows of STREET_VARIANTS, each on ONE size. The roll
-// (variantFor) walks the size's rows in order off one hash of the key; a
-// name word (row.words) multiplies a row's share by NAME_NUDGE, so "Cherry
+// (variantFor) first rolls rarity, then chooses a weighted row. A
+// name word (row.words) multiplies its choice weight by NAME_NUDGE, so "Cherry
 // Lane" is likelier an orchard — the street sign foreshadows the street.
 // Separately, ROCK_STREET_SHARE of minor streets are lined with rock clusters
 // (rocksFor — worldgen's street rock pass reads it), never a hedgerow.
 //
-// NOTHING IS STORED. A variant is a pure function of the key; what the
+// NOTHING IS STORED. A variant is a pure function of its key and mapped context; what the
 // player does to its pieces lands in the save's existing delta lists
 // (picked, foundTreasures, caught). Every piece's id is `cellId(prefix, tx,
 // ty, ix, iy)` and every stream is its own (`dress|variant|key|tile|line`),
@@ -161,35 +159,35 @@
   // `story` is the _storySplashOnce key AND the painting stem (sceneArtUrl);
   // `flash` is the ≤30-char map line a later visit gets.
   const STREET_VARIANTS = [
-    { id: 'hedgerow', size: 'minor', share: 0.10, nudge: 2, rung: 'find',
+    { id: 'hedgerow', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.10, nudge: 2, rung: 'find',
       stone: { weathered: '#3a322c', restored: '#000000' }, lampDensity: 2,
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
       lampGlow: '#9be08a', attracts: { rabbit: 0.5 },
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Clipped hedges both sides, a gap at every garden gate. The green still knows its shape.',
       flash: 'A hedged lane, still kept.' },
-    { id: 'overgrown', size: 'minor', share: 0.10, rung: 'common',
+    { id: 'overgrown', affinities: ['woodland'], size: 'minor', share: 0.10, rung: 'common',
       stone: { weathered: '#465b42', restored: '#5d7953' }, lampDensity: 1,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
       lampGlow: '#9be08a', attracts: { rabbit: 0.5, butterfly: 0.5 },
       story: 'street_overgrown', title: 'Gone to seed',
       body: 'Saplings become trees along the verge. The green is taking this street back.',
       flash: 'The green is taking it back.' },
-    { id: 'orchard', size: 'minor', share: 0.08, rung: 'uncommon',
+    { id: 'orchard', affinities: ['cultivated'], size: 'minor', share: 0.08, rung: 'uncommon',
       stone: { weathered: '#78604e', restored: '#ab8659' }, lampDensity: 0.5,
       words: /(orchard|apple|cherry|plum|pear|peach|fruit|obst|kirsch|apfel|birn|pflaum|vine|berry)/i,
       lampGlow: '#ffa6c9', attracts: { deer: 0.5 },
       story: 'street_orchard', title: 'Orchard Lane',
       body: 'The old trees still fruit. Nobody picks them.',
       flash: 'Old trees, still fruiting.' },
-    { id: 'pilgrim', size: 'minor', share: 0.06, rung: 'uncommon',
+    { id: 'pilgrim', affinities: ['sacred'], size: 'minor', share: 0.06, rung: 'uncommon',
       stone: { weathered: '#8b8879', restored: '#c5c1aa' }, lampDensity: 1,
       words: /(church|chapel|abbey|kirch|kloster|pilgrim|cross|saint|\bst\b|priest|minster|\bdom\b|mission)/i,
       lampGlow: '#f2eee0', attracts: { crow: 0.5 },
       story: 'street_pilgrim', title: "Pilgrim's Way",
       body: 'A waystone, worn smooth by hands. It remembers something.',
       flash: 'A waystone, worn smooth.' },
-    { id: 'lantern', size: 'major', share: 0.07, rung: 'common',
+    { id: 'lantern', affinities: ['formal'], size: 'major', share: 0.07, rung: 'common',
       stone: { weathered: '#806438', restored: '#c79a48' }, lampDensity: LANTERN_SPACING_DIV,
       words: /(lantern|lamp|light|candle|latern)/i,
       // No `attracts`: its marks lie on the major band + verge, all inside
@@ -198,14 +196,14 @@
       story: 'street_lantern', title: 'Lantern Row',
       body: 'Lamp posts stand thick along this road, cold and waiting. Rebuild it and it will burn bright.',
       flash: 'Lamp posts, cold and waiting.' },
-    { id: 'burned', size: 'major', share: 0.05, rung: 'uncommon',
+    { id: 'burned', affinities: ['ruined'], size: 'major', share: 0.05, rung: 'uncommon',
       stone: { weathered: '#583c35', restored: '#865041' }, lampDensity: 1,
       words: /(mill|forge|smith|ash|burn|brand|kiln|furnace|cinder|coal|ember|kohle|schmied|asche)/i,
       lampGlow: '#ff5a3c',
       story: 'street_burned', title: 'Burned Row',
       body: 'Tar in the gutters and iron stakes in the verge. Watch your feet.',
       flash: 'Tar underfoot. Go slow.' },
-    { id: 'barricade', size: 'major', share: 0.04, rung: 'rare',
+    { id: 'barricade', affinities: ['ruined'], size: 'major', share: 0.04, rung: 'rare',
       stone: { weathered: '#706047', restored: '#a38754' }, lampDensity: 1,
       words: /(gate|wall|fort|\btor\b|mauer|castle|burg|bastion|guard|wache|barrack|kaserne|armou?ry)/i,
       lampGlow: '#ff8c2a',
@@ -215,7 +213,7 @@
     // Appended LAST so no older row's code (index + 1) moves; the roll walks
     // the minor rows in order, so a street that rolled an older minor row
     // still does — only plain streets can become a toadstool lane.
-    { id: 'toadstool', size: 'minor', share: 0.05, rung: 'uncommon',
+    { id: 'toadstool', affinities: ['damp', 'woodland'], size: 'minor', share: 0.05, rung: 'uncommon',
       stone: { weathered: '#634537', restored: '#9a5943', pattern: 'spots', accent: '#ead9ad' }, lampDensity: 1,
       words: /(mushroom|toadstool|fung|pilz|fairy|\bring|moss|damp|mycel|spore|schwamm|elfen|feen)/i,
       lampGlow: '#4fd8c4', attracts: { butterfly: 0.5 },
@@ -230,19 +228,19 @@
     // lamps on the scenic metres shed it — lampGlowFor), and the story — one
     // painting for all three (street_scenic), told on the first scenic metre
     // restored (app.js _ripenStreets), the `flash` on later walks.
-    { id: 'promenade', size: 'path', share: 0, rung: 'uncommon',
+    { id: 'promenade', affinities: ['coastal', 'formal'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#92743e', restored: '#d6ad58' }, lampDensity: 1,
       lampGlow: '#ffd16a',
       story: 'street_scenic', title: 'The promenade',
       body: 'A path by the water. Every metre of it you mend counts for more. Walk it slow.',
       flash: 'The promenade. Walk it slow.' },
-    { id: 'greenway', size: 'path', share: 0, rung: 'uncommon',
+    { id: 'greenway', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#4f6c49', restored: '#76966a' }, lampDensity: 1,
       lampGlow: '#a8e07a',
       story: 'street_scenic', title: 'A greenway',
       body: 'An old green way, kept clear of the roads. Every metre of it you mend counts for more.',
       flash: 'A greenway. The green holds.' },
-    { id: 'parkpath', size: 'path', share: 0, rung: 'uncommon',
+    { id: 'parkpath', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#5c4b3f', restored: '#000000' }, lampDensity: 2,
       lampGlow: '#a8e07a',
       story: 'street_scenic', title: 'The park path',
@@ -304,21 +302,99 @@
     return tier === WG.T.ROAD || tier === WG.T.ROAD_MD || tier === WG.T.ROAD_LG;
   }
 
-  // The roll. One draw off the key; rows of the other size never match.
-  function variantFor(key, name, size) {
+  // Rarity and choice have independent hash lanes. Names and surroundings
+  // redistribute the special roads; they never increase their total share.
+  function selectionWeights(name, size, context) {
+    const weights = STREET_VARIANTS.filter(row => row.size === size && row.share > 0).map(row => {
+      const named = !!(name && row.words && row.words.test(name));
+      const nameMultiplier = named ? Math.min(NUDGED_SHARE_MAX, row.share * (row.nudge || NAME_NUDGE)) / row.share : 1;
+      const contextMultiplier = root.ZoneVariants?.affinityMultiplier(row.affinities, context) || 1;
+      return { id: row.id, baseWeight: row.share, nameMultiplier, contextMultiplier,
+        weight: row.share * nameMultiplier * contextMultiplier };
+    });
+    const total = weights.reduce((sum, row) => sum + row.weight, 0);
+    for (const row of weights) row.probability = row.weight / total;
+    return weights;
+  }
+  function variantFor(key, name, size, context) {
     if (!key || !size) return null;
-    const u = u01('street|' + key);
-    let acc = 0;
+    const weights = selectionWeights(name, size, context);
+    const share = weights.reduce((sum, row) => sum + row.baseWeight, 0);
+    if (u01('street|' + key) >= share || !weights.length) return null;
+    let ticket = u01('street-choice|' + key);
+    for (const row of weights) {
+      ticket -= row.probability;
+      if (ticket < 0) return row.id;
+    }
+    return weights[weights.length - 1].id;
+  }
+
+  // Preserve the original rock substrate used to derive existing caves.
+  // Surface rocks are reconciled against the final theme after zone coverage.
+  function substrateVariantFor(key, name, size) {
+    let cumulative = 0;
+    const roll = u01('street|' + key);
     for (const row of STREET_VARIANTS) {
       if (row.size !== size) continue;
-      let sh = row.share;
-      if (name && row.words && row.words.test(name)) {
-        sh = Math.min(NUDGED_SHARE_MAX, sh * (row.nudge || NAME_NUDGE));
-      }
-      acc += sh;
-      if (u < acc) return row.id;
+      cumulative += name && row.words && row.words.test(name)
+        ? Math.min(NUDGED_SHARE_MAX, row.share * (row.nudge || NAME_NUDGE)) : row.share;
+      if (roll < cumulative) return row.id;
     }
     return null;
+  }
+
+  const AFFINITY_SAMPLE_M = 20;
+  // Final coverage is the same ownership field as zone art and lamp tint.
+  // Eligible roads are wholly inside this tile; never consult loaded neighbours.
+  // Canonical, unique segments make reversal and duplicate features immaterial.
+  function* applyAffinitiesSteps(index, zone, N, mvtToM) {
+    if (!index || !(N > 0) || !(mvtToM > 0)) return;
+    const coverage = zone && (zone.coverage || zone.idx);
+    const groups = new Map(), zoneTraits = new Map();
+    for (const rec of index.lines) {
+      if (!rec.variantEligible) continue;
+      const key = rec.size + '|' + rec.affinityKey;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(rec);
+    }
+    for (const records of groups.values()) {
+      const segments = new Map(), context = {};
+      let total = 0, samples = 0;
+      for (const rec of records) for (let i = 1; i < rec.line.length; i++) {
+        let a = rec.line[i - 1], b = rec.line[i];
+        if (a.x > b.x || (a.x === b.x && a.y > b.y)) [a, b] = [b, a];
+        segments.set(`${a.x},${a.y}|${b.x},${b.y}`, [a, b]);
+      }
+      for (const [, [a, b]] of [...segments].sort((a, b) => a[0].localeCompare(b[0]))) {
+        const metres = Math.hypot(b.x - a.x, b.y - a.y) * mvtToM;
+        if (!metres) continue;
+        const count = Math.ceil(metres / AFFINITY_SAMPLE_M), weight = metres / count;
+        for (let i = 0; i < count; i++) {
+          const t = (i + .5) / count;
+          const x = Math.floor((a.x + (b.x - a.x) * t) * N / index.extent);
+          const y = Math.floor((a.y + (b.y - a.y) * t) * N / index.extent);
+          const slot = coverage && x >= 0 && y >= 0 && x < N && y < N ? coverage[y * N + x] : 0;
+          if (!zoneTraits.has(slot)) {
+            const anchor = slot && zone.anchors[slot - 1];
+            zoneTraits.set(slot, anchor && root.ZoneVariants ? root.ZoneVariants.traitsFor(root.ZoneVariants.pick(anchor)) : []);
+          }
+          const traits = zoneTraits.get(slot);
+          if (traits.length) for (const trait of traits) context[trait] = (context[trait] || 0) + weight / traits.length;
+          else context.neutral = (context.neutral || 0) + weight;
+          total += weight;
+          if ((++samples & 127) === 0) yield 'street affinity samples';
+        }
+      }
+      for (const trait of Object.keys(context)) context[trait] /= total;
+      const first = records[0];
+      const variant = variantFor(first.affinityKey, first.name, first.size, context);
+      for (const rec of records) {
+        rec.affinityContext = context;
+        rec.variant = variant;
+        rec.rocks = rocksFor(rec.key, rec.size, variant);
+      }
+      yield 'street affinities';
+    }
   }
   // Is this street one of the rock-lined ones? Minor only, never a hedgerow.
   function rocksFor(key, size, variant) {
@@ -457,7 +533,8 @@
       out.lines.forEach((rec, i) => {
         const k = find(i);
         let group = lengths.get(k);
-        if (!group) lengths.set(k, group = { metres: 0, clipped: false, segments: new Set() });
+        if (!group) lengths.set(k, group = { metres: 0, clipped: false, segments: new Set(), key: rec.key });
+        if (rec.key < group.key) group.key = rec.key;
         if (rec.line.some((p) => p.x <= 0 || p.y <= 0 || p.x >= ext || p.y >= ext)) group.clipped = true;
         for (let j = 1; j < rec.line.length; j++) {
           const a = rec.line[j - 1], b = rec.line[j];
@@ -469,7 +546,12 @@
         }
       });
       out.lines.forEach((rec, i) => {
-        rec.streetLengthM = lengths.get(find(i)).metres;
+        const group = lengths.get(find(i));
+        rec.streetLengthM = group.metres;
+        rec.affinityKey = group.key;
+        rec.variantEligible = !group.clipped && group.metres <= MAX_VARIANT_LENGTH_M;
+        rec.variant = variantFor(rec.affinityKey, rec.name, rec.size);
+        rec.rocks = rocksFor(rec.key, rec.size, substrateVariantFor(rec.key, rec.name, rec.size));
         // A clipped road has unknown total length. Leave it plain, even
         // when its visible fragment is short; short seam-crossing roads
         // are deliberately excluded too.
@@ -1130,6 +1212,7 @@
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, SLOW_KINDS,
     STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
+    selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M,
     nameVote, lineName, sampleLine, buildIndexSteps, buildIndex, areaSteps, area,
     markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, lineStyles, isSlowKind,
   };

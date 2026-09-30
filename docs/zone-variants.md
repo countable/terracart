@@ -2,11 +2,21 @@
 
 The game and map review load this declarative table through `src/zone_variant_data.js`. Regenerate that file after editing the JSON: `node tools/zone_variant_data.js --write`. Verify it with `node tools/zone_variant_data.js --check`.
 
+## Soft affinities
+
+`ZoneVariants` owns the shared traits and relationship table: exact matches ×2, related traits ×1.3, explicit clashes ×0.6, unspecified relationships ×1. Each context trait contributes its strongest relationship to the candidate; context proportions are averaged, never multiplied. All otherwise eligible variants retain a nonzero chance.
+
+Zone selection uses the anchor's own geographic POI tags, with its existing wooded/formal park character as fallback. It never infers a parent from a neighbouring tile's clipped polygon. Explicit variant overrides still win.
+
+Roads roll rarity independently from theme choice. Street-name matches and geographic affinities adjust only the conditional choice weights. Once final zone coverage is available, each eligible road samples canonical unique segments at intervals no greater than 20 m, averages the covering variants' traits by road length, and selects one theme for all its fragments. Uncovered samples are neutral. Roads over 500 m or clipped at a tile boundary remain plain; scenic paths retain their existing geography-based classification. No extra tiles are fetched, and rendering reads the stored street index without rerolling.
+
+The preview's surroundings selector shows conditional probabilities among special roads. Changing this selector does not change rarity. Theme updates reconcile visible roadside rocks while preserving the original rock substrate used for cave identities.
+
 ## Placement contract
 
 Repeating motifs prefer at most 6 × 6 cells, with a hard maximum of 8 cells on either axis. Smaller squares and rectangles such as 3 × 3 and 3 × 5 are welcome; choose dimensions for the pattern rather than padding every row to a square. Silent Circle uses 8 × 8 so its radius-four circles touch. Legacy rows above 8 cells remain listed in `rules.repeatPatternPolicy.migrationPending` pending layout review. Beach drafts now follow the limit. Fixed compositions such as Stone Garden and Work Yard are not repeating motifs.
 
-- Six equally weighted grove variants and five each for churchyards and tar yards. Choose once from the stable anchor identity. Meadow and Flint Field explicitly use seeded scatter keyed by anchor, variant, and global cell; they do not repeat a random tile or change between visits. Other variants use structured patterns; Ancient Grove adds light seeded grass only between its fixed clusters.
+- Six grove variants, five each for churchyards and tar yards, and three beach variants. Base weights are adjusted by soft geographic affinities, then chosen from the stable anchor identity. Meadow and Flint Field explicitly use seeded scatter keyed by anchor, variant, and global cell; they do not repeat a random tile or change between visits. Other variants use structured patterns; Ancient Grove adds light seeded grass only between its fixed clusters.
 - Background slots use their declared repeat motif, seeded scatter, or continuous line grid throughout the coverage union, without radial density falloff. Coordinates are zero-based. One cell is currently 7 metres. Work Yard uses a fixed 5 × 5 arrangement with one-cell-wide lines every four cells and its POI centered in the middle plot. Hedge Garden uses continuous lines every four cells throughout the coverage union; the preview shows a 4 × 4 sample. Shared borders belong to one grid; intersections count once.
 - Orient the motif toward the accessible POI approach, quantized to a quarter turn. If no approach can be resolved, use the stable anchor orientation. All tiles must use the same resolved orientation.
 - `material.cycle` advances by repeat-block x + y modulo cycle length. Every slot in a bed uses the same phase, keeping beds monochrome. Density values are derived from complete material cycles.

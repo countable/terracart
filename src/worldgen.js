@@ -3821,7 +3821,7 @@
     const STREET_ROCK_MIN = 6, STREET_ROCK_SPAN = 6;
     const STREET_ROCK_ALONG_M = 7;
     const STREET_ROCK_OUT_MIN = 0.5, STREET_ROCK_OUT_SPAN = 2;
-    function* spawnStreetRocksSteps(index) {
+    function* spawnStreetRocksSteps(index, output = objects) {
       const SV = StreetVariants;
       const plainP = caveRockP(0);
       const ext = index.extent || TILE_EXTENT;
@@ -3847,11 +3847,11 @@
             const ix = Math.floor(px / CELL_M), iy = Math.floor(py / CELL_M);
             if (ix < 0 || iy < 0 || ix >= w || iy >= h) continue;
             const { mx, my } = cellCenterMeters(ix, iy);
-            objects.push(roll.plain
+            output.push(roll.plain
               ? makeObject('mineralrock', mx, my, cellId('mr', tx, ty, ix, iy),
-                  { requiredTier: 1, caveVariant: roll.caveVariant, _clusterId: clusterId, _street: true })
+                  { requiredTier: 1, caveVariant: roll.caveVariant, _clusterId: clusterId, _street: true, _streetLine: rec.lineKey })
               : makeObject('mineralrock', mx, my, cellId('mr', tx, ty, ix, iy),
-                  { requiredTier: roll.requiredTier, yieldTier: roll.yieldTier, _street: true }));
+                  { requiredTier: roll.requiredTier, yieldTier: roll.yieldTier, _street: true, _streetLine: rec.lineKey }));
           }
         });
       }
@@ -4952,6 +4952,7 @@
     // first cull below reads it. Pure MVT, re-derived by a rebuild.
     const spawnWhy = yield* stampSpawnWhySteps({ layers, grid, w, h, mvtToCell, mvtToM,
       roadMask, roadClass, quietMask });
+    let streetRockRefused = null;
     // Post-pass: mineralrock cleanup. The polygon feature loop processes
     // landuse, roads, and buildings in MVT-supplied order, so a mineralrock
     // spawned by a residential polygon might have been placed on a cell
@@ -4972,8 +4973,8 @@
       // exactly the cells players notice (the flanks of a big road, the
       // whole of a parking lot).
       const _underRoadBand = (ix, iy) => roadMask[iy * w + ix] === 1;
-      const _mrIsBlocked = (ix, iy) => {
-        const tc = grid[iy * w + ix];
+      const _mrIsBlocked = (ix, iy, ground = grid) => {
+        const tc = ground[iy * w + ix];
         return isCobbleTerrain(tc) || tc === T.WATER || tc === T.PIER
             || isBuildingTerrain(tc)
             || _underRoadBand(ix, iy);
@@ -5017,11 +5018,11 @@
       // the road mask and the POI snapshot taken above — never the array it is
       // walking — so the verdict for one object is independent of every other,
       // which is what lets the sweep compact instead of splice.
-      const _mrDrop = (o) => {
+      const _mrDrop = (o, ground = grid) => {
         if (_mrSkipKind(o.kind)) return false;
         const { ix, iy } = paintCellOf(o.x, o.y);
         if (ix < 0 || ix >= w || iy < 0 || iy >= h) return false;   // off-tile objects belong to a neighbour pass
-        const here = grid[iy * w + ix];
+        const here = ground[iy * w + ix];
         // Quiet land hosts nothing at all — not even a POI chest (a café on
         // railway land, a kiosk on a base): the mask's whole promise is that
         // nothing there asks to be walked to.
@@ -5040,7 +5041,7 @@
           // player's own house), and a tall canopy beside a wall reads
           // naturally where a rock on the foundation reads as junk.
           const _mrIsTree = isTreeLike(o.kind);
-          if (!_mrIsTree && nearBuildingCell(grid, w, h, ix, iy)) return true;
+          if (!_mrIsTree && nearBuildingCell(ground, w, h, ix, iy)) return true;
           // Synthesized concrete POI pads (hospital cross / school pyramid)
           // repaint cells AFTER scatter spawns ran — e.g. a residential rock
           // cluster's cell becomes COMMERCIAL pad, skipping the RESIDENTIAL
@@ -5050,7 +5051,7 @@
           if (nearPoiCell(_mrSpawnOpts.pois, ix, iy)) return true;
         }
         if (o.kind === 'mineralrock') {
-          if (_mrIsBlocked(ix, iy)) return true;
+          if (_mrIsBlocked(ix, iy, ground)) return true;
         }
         // THE SPAWN GATE, as a MINOR spawn (flora, rocks, scenery — they may
         // stand on SUPPRESSED ground): whatever its FINAL cell's land refuses
@@ -5061,9 +5062,10 @@
         // residential cell after the grid is fully painted. A POI chest is
         // the place itself (isSpawnCell's note) and reads only the quiet land
         // above. Forts, castles, houses and towers are already exempt above.
-        if (o.kind !== 'chest' && landRefused(spawnWhy, grid, roadMask, iy * w + ix, _mrSpawnOpts.pois, ix, iy)) return true;
+        if (o.kind !== 'chest' && landRefused(spawnWhy, ground, roadMask, iy * w + ix, _mrSpawnOpts.pois, ix, iy)) return true;
         return false;
       };
+      streetRockRefused = _mrDrop;
       // COMPACTED IN PLACE, not spliced — the same change the wildplant sweep
       // below already carries, and for the same reason. This was a reverse walk
       // calling objects.splice(i, 1) on every rejection, and a splice rewrites
@@ -5436,23 +5438,60 @@
       if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.buildSteps({
         field: zone, poiLayer: layersByName['poi'], parks: parkPolys, tx, ty, N: w,
         chests: deduped, tileEdgeM, grid });
-      if (zone) {
-        // Mine entrances are world identities, seeded by the original rock
-        // clusters and occupancy. Keep that input separate from the visible
-        // zone layer so removing scenery cannot reroll an existing cave.
-        if (zone.coverage) {
-          const caveGrid = grid.slice();
-          if (zone.under) for (let i = 0; i < caveGrid.length; i++) {
-            if ((i & 511) === 0) yield 'zone cave source';
-            if (zone.under[i]) caveGrid[i] = zone.under[i];
-          }
-          zone.caveSource = { grid: caveGrid, objects: caveSource.objects,
-            wildplants: caveSource.wildplants, spawnWhy: caveSource.spawnWhy };
+    }
+    if (streetIndex && typeof StreetVariants.applyAffinitiesSteps === 'function') {
+      // Geography changes the selected theme, never whether the corridor is
+      // special. Its area and bandit mask are therefore already final. Keep
+      // the original rock substrate in caveSource so this visual preference
+      // cannot move a mine entrance on an existing map.
+      const oldRockLines = new Set(streetIndex.lines.filter(r => r.rocks).map(r => r.lineKey));
+      yield* StreetVariants.applyAffinitiesSteps(streetIndex, zone, w, mvtToM);
+      const finalRockLines = new Set(streetIndex.lines.filter(r => r.rocks).map(r => r.lineKey));
+      const added = streetIndex.lines.filter(r => r.rocks && !oldRockLines.has(r.lineKey));
+      const removed = new Set([...oldRockLines].filter(key => !finalRockLines.has(key)));
+      if (removed.size) {
+        let keep = 0;
+        for (let i = 0; i < deduped.length; i++) {
+          if ((i & 63) === 0) yield 'street affinity rock cleanup';
+          const o = deduped[i];
+          if (!(o._street && removed.has(o._streetLine))) deduped[keep++] = o;
         }
-        if (typeof ZoneCoverage !== 'undefined') yield* ZoneCoverage.paintSteps(zone, grid, w, pathUnder, roadMask, spawnWhy);
-        zone.legacyRemoved = yield* clearZoneAmbientSteps({ field: zone, objects: deduped,
-          wildplants: filtered, tx, ty, N: w, tileEdgeM });
+        deduped.length = keep;
       }
+      if (added.length) {
+        const rocks = [];
+        yield* spawnStreetRocksSteps({ ...streetIndex, lines: added }, rocks);
+        const occupied = new Set();
+        for (const list of [deduped, filtered]) for (let i = 0; i < list.length; i++) {
+          if ((i & 63) === 0) yield 'street affinity rock occupancy';
+          const c = cellOfWorldM(list[i].x, list[i].y);
+          occupied.add(c.iy * w + c.ix);
+        }
+        for (let i = 0; i < rocks.length; i++) {
+          if ((i & 63) === 0) yield 'street affinity new rocks';
+          const o = rocks[i], c = cellOfWorldM(o.x, o.y), cell = c.iy * w + c.ix;
+          if (occupied.has(cell) || streetRockRefused(o, caveSource.grid)) continue;
+          occupied.add(cell);
+          deduped.push(o);
+        }
+      }
+    }
+    if (zone) {
+      // Mine entrances are world identities, seeded by the original rock
+      // clusters and occupancy. Keep that input separate from the visible
+      // zone layer so removing scenery cannot reroll an existing cave.
+      if (zone.coverage) {
+        const caveGrid = grid.slice();
+        if (zone.under) for (let i = 0; i < caveGrid.length; i++) {
+          if ((i & 511) === 0) yield 'zone cave source';
+          if (zone.under[i]) caveGrid[i] = zone.under[i];
+        }
+        zone.caveSource = { grid: caveGrid, objects: caveSource.objects,
+          wildplants: caveSource.wildplants, spawnWhy: caveSource.spawnWhy };
+      }
+      if (typeof ZoneCoverage !== 'undefined') yield* ZoneCoverage.paintSteps(zone, grid, w, pathUnder, roadMask, spawnWhy);
+      zone.legacyRemoved = yield* clearZoneAmbientSteps({ field: zone, objects: deduped,
+        wildplants: filtered, tx, ty, N: w, tileEdgeM });
     }
     // SCENIC PLACES (src/scenic.js) — after the zones, on the finished grid:
     // every walking way's scenic intervals (shore / greenway / park — the

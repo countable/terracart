@@ -28,6 +28,68 @@ test('zone variants: all 19 rows select deterministically in their zone kind', (
   assert.eq(V.pick({ kind: 'tar', variant: 'seep' }).id, 'seep');
   assert.eq(V.pick({ kind: 'unknown' }), null);
 });
+test('zone affinities: bounded averaged context and neutral fallback preserve rare combinations', () => {
+  assert.lt(Math.abs(V.affinityMultiplier(['cultivated'], {cultivated: .6, woodland: .3, neutral: .1}) - 1.69), 1e-12);
+  assert.eq(V.affinityMultiplier(['formal'], {ruined: 1}), .6);
+  assert.eq(V.affinityMultiplier(['formal', 'cultivated'], {formal: 1}), 2);
+  assert.eq(V.affinityMultiplier(['formal'], {}), 1);
+  assert.eq(V.affinityMultiplier([], {woodland: 1}), 1);
+  for (const row of V.rows) {
+    assert.gt(V.traitsFor(row).length, 0, row.id);
+    for (const trait of ['woodland', 'cultivated', 'formal', 'damp', 'sacred', 'ruined', 'coastal'])
+      assert.inRange(V.affinityMultiplier(row, {[trait]: 1}), .6, 2);
+  }
+});
+test('zone affinities: source traits and park character favour matching zones without excluding alternatives', () => {
+  const anchor = {kind: 'grove', gx: 417, gy: 991, character: 'wooded'};
+  const weights = Object.fromEntries(V.selectionWeights(anchor).map(c => [c.row.id, c.weight]));
+  assert.gt(weights.mushroom_grove, weights.formal_garden);
+  assert.gt(weights.ancient_grove, weights.meadow);
+  const source = {...anchor, geographicTraits: V.geographyTraits({class: 'park', landuse: 'orchard'})};
+  assert.eq(V.contextFor(source).cultivated, 1, 'source geography takes precedence over generated character');
+  assert.eq(V.pick({...source, variant: 'formal_garden'}).id, 'formal_garden', 'explicit choice still wins');
+  const selected = new Set();
+  for (let i = 0; i < 800; i++) {
+    const a = {...source, gx: i * 317, gy: -i * 71};
+    selected.add(V.pick(a).id);
+    assert.eq(V.pick(a), V.pick({...a, owned: false, lx: -400, ly: 921}));
+  }
+  assert.eq(selected.size, V.forKind('grove').length);
+});
+test('zone affinities: cached weights follow edits to contexts, overrides and candidate tables', () => {
+  const anchor = {kind: 'grove', gx: 143, gy: 851, character: 'wooded'};
+  const weight = () => V.selectionWeights(anchor).find(c => c.row.id === 'formal_garden').weight;
+  const wooded = weight();
+  anchor.character = 'formal';
+  assert.gt(weight(), wooded);
+  anchor.geographicTraits = {ruined: 1};
+  assert.lt(weight(), wooded);
+  anchor.geographicTraits.ruined = 0;
+  anchor.geographicTraits.formal = 1;
+  const formal = weight(), row = V.byId('formal_garden'), original = row.weight;
+  try {
+    row.weight *= 3;
+    assert.eq(weight(), formal * 3);
+  } finally { row.weight = original; }
+  assert.eq(weight(), formal);
+  anchor.variant = 'orchard';
+  assert.eq(V.pick(anchor).id, 'orchard');
+  anchor.variant = 'formal_garden';
+  assert.eq(V.pick(anchor).id, 'formal_garden');
+  const diagnostic = V.selectionWeights(anchor);
+  diagnostic[0].weight = 1e9;
+  assert.lt(V.selectionWeights(anchor)[0].weight, 1e9, 'diagnostics cannot corrupt cached choices');
+});
+test('zone affinities: buffered anchor source tags and global park character agree across observers', () => {
+  const feature = (x) => ({features: [{type: 1, geom: [[{x, y: 1200}]], tags: {class: 'park', subclass: 'park', natural: 'wood'}}]});
+  const a = Zones.collectAnchors(feature(4000), 23, 26)[0];
+  const b = Zones.collectAnchors(feature(-96), 24, 26)[0];
+  assert.eq(V.contextFor(a).woodland, 1);
+  assert.eq(JSON.stringify(a.geographicTraits), JSON.stringify(b.geographicTraits));
+  assert.eq(V.pick(a), V.pick(b));
+  const raw = {kind: 'grove', gx: a.gx, gy: a.gy};
+  assert.eq(V.pick(raw), V.pick({...raw, character: BiomeProfiles.parkCharacterAt(raw.gx, raw.gy)}));
+});
 test('zone variants: explicit lamp tint follows coverage winner and otherwise leaves street color intact', () => {
   const tinted = V.byId('mushroom_grove'), plain = V.byId('meadow');
   const original = tinted.lampGlow;

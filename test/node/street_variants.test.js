@@ -142,7 +142,7 @@ test('variants: a name word nudges its row (the sign foreshadows the street)', (
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'orchard') plain++;
     if (SV.variantFor(`s${i}|0,0`, `Cherry ${i}`, 'minor') === 'orchard') cherry++;
   }
-  assert.gt(cherry, plain * 3, `a cherry street is far likelier an orchard (${cherry} vs ${plain})`);
+  assert.gt(cherry, plain * 2, `a cherry street is far likelier an orchard (${cherry} vs ${plain})`);
 });
 
 test('variants: sizes follow the terrain tiers — major = ROAD_MD + ROAD_LG, minor = ROAD streets', () => {
@@ -526,7 +526,7 @@ test('toadstool lane: a minor row at 5%, its verge holds patterned glowing mushr
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'toadstool') plain++;
     if (SV.variantFor(`s${i}|0,0`, `Mushroom ${i}`, 'minor') === 'toadstool') named++;
   }
-  assert.gt(named, plain * 3, `a mushroom street is likelier a toadstool lane (${named} vs ${plain})`);
+  assert.gt(named, plain * 2, `a mushroom street is likelier a toadstool lane (${named} vs ${plain})`);
   const { d, r, before } = dressedVariants();
   const plants = d.wildplants.filter((w) => w._street === 'toadstool');
   assert.gt(plants.length, 4, 'the lane is dressed');
@@ -818,5 +818,61 @@ test('themed street encounters: one finite spider post per street and tile, outs
     const ix = Math.floor(p.lx / (TILE_EDGE_M / CPE)), iy = Math.floor(p.ly / (TILE_EDGE_M / CPE));
     assert.falsy(inBuf(r, iy * CPE + ix));
   }
+});
+
+
+
+// Affinities alter which theme wins, never whether a road is special.
+test('street affinity: context and names preserve the rarity gate for every key', () => {
+  let orchardPlain = 0, orchardAligned = 0;
+  for (let i = 0; i < 10000; i++) {
+    const key = `affinity-road-${i}`;
+    const neutral = SV.variantFor(key, null, 'minor');
+    const aligned = SV.variantFor(key, null, 'minor', { cultivated: 1 });
+    const named = SV.variantFor(key, 'Cherry Lane', 'minor', { cultivated: 1 });
+    assert.eq(!!neutral, !!aligned, 'context cannot turn an ordinary road special');
+    assert.eq(!!neutral, !!named, 'name cannot turn an ordinary road special');
+    if (neutral === 'orchard') orchardPlain++;
+    if (aligned === 'orchard') orchardAligned++;
+  }
+  assert.gt(orchardAligned, orchardPlain * 1.2, 'cultivated ground favours orchards');
+});
+
+test('street affinity: conditional probabilities are normalized and retain alternatives', () => {
+  const rows = SV.selectionWeights(null, 'minor', { cultivated: .6, woodland: .3, neutral: .1 });
+  assert.inRange(rows.reduce((n, r) => n + r.probability, 0), .999999, 1.000001);
+  const orchard = rows.find(r => r.id === 'orchard');
+  assert.gt(orchard.contextMultiplier, 1);
+  assert.truthy(rows.every(r => r.probability > 0), 'affinities never ban an eligible variant');
+  assert.eq(SV.selectionWeights(null, 'path', { coastal: 1 }).length, 0, 'scenic paths keep geography selection');
+});
+
+test('street affinity: final coverage overrides halo ownership and length weights split context', () => {
+  const N = 10, coverage = new Uint16Array(N * N), idx = new Uint8Array(N * N).fill(2);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) coverage[y*N+x] = x < 5 ? 1 : 2;
+  const zone = { coverage, idx, anchors: [
+    { kind: 'grove', variant: 'orchard' }, { kind: 'grove', variant: 'mushroom_grove' },
+  ] };
+  const rec = { key: 'mixed', affinityKey: 'mixed', size: 'minor', name: null,
+    variantEligible: true, line: [{ x: 10, y: 50 }, { x: 90, y: 50 }] };
+  const index = { extent: 100, lines: [rec] };
+  for (const _ of SV.applyAffinitiesSteps(index, zone, N, 1)) {}
+  assert.inRange(rec.affinityContext.cultivated, .24, .26, 'half the road is orchard; its two traits share that weight');
+  assert.inRange(Object.values(rec.affinityContext).reduce((a,b) => a+b,0), .999999, 1.000001);
+  assert.eq(rec.variant, SV.variantFor(rec.affinityKey, null, 'minor', rec.affinityContext));
+});
+
+test('street affinity: duplicates, reversed geometry and feature order keep one road choice', () => {
+  const zone = { coverage: new Uint16Array(100).fill(1), anchors: [{ kind: 'grove', variant: 'orchard' }] };
+  const line = [{x:10,y:50},{x:40,y:50}];
+  const second = [{x:40,y:50},{x:90,y:50}];
+  const make = (lines) => ({ extent:100, lines:lines.map(line => ({ line, key:'same', affinityKey:'same', size:'minor', variantEligible:true })) });
+  const a = make([line,second]), b = make([second.slice().reverse(),line.slice().reverse(),line]);
+  for (const index of [a,b]) for (const _ of SV.applyAffinitiesSteps(index,zone,10,1)) {}
+  assert.eq(JSON.stringify(a.lines[0].affinityContext), JSON.stringify(b.lines[0].affinityContext));
+  assert.truthy([...a.lines,...b.lines].every(r => r.variant === a.lines[0].variant));
+  const excluded = { ...a.lines[0], variant: null, variantEligible:false };
+  for (const _ of SV.applyAffinitiesSteps({extent:100,lines:[excluded]},zone,10,1)) {}
+  assert.eq(excluded.variant,null,'length/seam exclusions cannot be revived');
 });
 })();

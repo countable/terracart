@@ -21,17 +21,105 @@
     return Number.isFinite(anchor.gx) && Number.isFinite(anchor.gy)
       ? `${anchor.kind}|${anchor.gx}|${anchor.gy}` : `${anchor.kind}|${anchor.key}`;
   }
+  // Traits describe appearance, not eligibility: unusual combinations remain possible.
+  const TRAITS = {
+    meadow: ['cultivated'], mushroom_grove: ['woodland', 'damp'], orchard: ['cultivated', 'woodland'],
+    formal_garden: ['formal', 'cultivated'], hedge_garden: ['formal', 'cultivated'], ancient_grove: ['woodland', 'sacred'],
+    stone_garden: ['formal', 'sacred'], ordered_graves: ['formal', 'sacred'], overgrown_graves: ['woodland', 'sacred'],
+    broken_masonry: ['ruined'], silent_circle: ['sacred'], flint_field: ['ruined'], broken_depot: ['ruined'],
+    seep: ['damp'], work_yard: ['formal'], black_ring: ['ruined'],
+    mystic_reef: ['coastal', 'sacred'], pirate_cove: ['coastal', 'ruined'], shellwater_strand: ['coastal', 'damp']
+  };
+  const RELATED = new Set(['cultivated|formal', 'cultivated|woodland', 'damp|woodland', 'coastal|damp', 'formal|sacred', 'sacred|woodland']);
+  const OPPOSED = new Set(['formal|ruined', 'cultivated|ruined']);
+  const pair = (a, b) => [a, b].sort().join('|');
+  function traitsFor(value) {
+    if (!value) return [];
+    if (typeof value === 'string') return TRAITS[value] || [];
+    if (Array.isArray(value.affinities)) return value.affinities;
+    if (value.id && TRAITS[value.id]) return TRAITS[value.id];
+    const row = value.kind && pick(value);
+    return row ? traitsFor(row) : [];
+  }
+  function affinityMultiplier(candidateTraits, context) {
+    const traits = Array.isArray(candidateTraits) ? candidateTraits : traitsFor(candidateTraits);
+    let total = 0, weighted = 0;
+    for (const [trait, amount] of Object.entries(context || {})) {
+      if (!(Number.isFinite(amount) && amount > 0)) continue;
+      // One best relationship per context trait: tagging an object twice never
+      // multiplies boosts, and a matching trait wins over an incidental clash.
+      let affinity = 1;
+      if (traits.includes(trait)) affinity = 2;
+      else if (traits.some(t => RELATED.has(pair(t, trait)))) affinity = 1.3;
+      else if (traits.some(t => OPPOSED.has(pair(t, trait)))) affinity = 0.6;
+      weighted += amount * affinity;
+      total += amount;
+    }
+    return total ? weighted / total : 1;
+  }
+  // Only the anchor's own source tags are shared verbatim by buffered tiles.
+  // A polygon clipped differently by each observer cannot safely inform this roll.
+  function geographyTraits(tags) {
+    const t = tags || {}, result = new Set();
+    const values = [t.class, t.subclass, t.landuse, t.natural, t.leisure, t.garden_type];
+    const has = (...terms) => values.some(v => terms.includes(v));
+    if (has('wood', 'forest', 'woodland')) result.add('woodland');
+    if (has('orchard', 'vineyard', 'farmland', 'allotments')) result.add('cultivated');
+    if (has('garden', 'formal', 'botanical')) { result.add('formal'); result.add('cultivated'); }
+    if (has('wetland', 'marsh', 'swamp', 'water')) result.add('damp');
+    if (has('beach', 'coastline')) result.add('coastal');
+    if (has('place_of_worship', 'cemetery', 'grave_yard')) result.add('sacred');
+    if (has('brownfield', 'ruins') || t.ruins === 'yes' || t.historic === 'ruins') result.add('ruined');
+    const traits = [...result].sort();
+    return Object.fromEntries(traits.map(trait => [trait, 1 / traits.length]));
+  }
+  function contextFor(anchor) {
+    if (anchor.geographicTraits && Object.keys(anchor.geographicTraits).length) return anchor.geographicTraits;
+    // Park character already determines the ordinary parent ground from a
+    // global anchor hash. Use it only when source geography gives no detail.
+    if (anchor.kind === 'grove') {
+      const character = anchor.character || (root.BiomeProfiles && Number.isFinite(anchor.gx) && Number.isFinite(anchor.gy)
+        ? root.BiomeProfiles.parkCharacterAt(anchor.gx, anchor.gy) : null);
+      if (character === 'wooded') return { woodland: 1 };
+      if (character === 'formal') return { formal: 1 };
+    }
+    return {};
+  }
+  // A handful of contexts are shared by thousands of cells. Cache their
+  // weights rather than mutable anchors; overrides and edited anchor traits
+  // always take effect immediately. Bound the cache for review-tool inputs.
+  const weightCache = new Map();
+  function weightedChoices(anchor) {
+    const context = contextFor(anchor), candidates = forKind(anchor.kind);
+    const contextKey = Object.keys(context).sort().filter(k => Number.isFinite(context[k]) && context[k] > 0)
+      .map(k => `${k}:${context[k]}`).join('|');
+    const tableKey = candidates.map(row => `${row.id}:${row.weight}:${traitsFor(row).join(',')}`).join('|');
+    const key = `${anchor.kind};${contextKey};${tableKey}`;
+    let result = weightCache.get(key);
+    if (!result) {
+      const choices = candidates.map(row => {
+        const multiplier = affinityMultiplier(traitsFor(row), context);
+        return { row, multiplier, weight: row.weight * multiplier };
+      });
+      result = { choices, total: choices.reduce((sum, c) => sum + c.weight, 0) };
+      if (weightCache.size >= 64) weightCache.delete(weightCache.keys().next().value);
+      weightCache.set(key, result);
+    }
+    return result;
+  }
+  function selectionWeights(anchor) {
+    return weightedChoices(anchor).choices.map(choice => ({ ...choice }));
+  }
   function pick(anchor) {
     const fixed = byId(anchor.variant);
     if (fixed && fixed.zone === anchor.kind) return fixed;
-    const candidates = forKind(anchor.kind);
-    const total = candidates.reduce((n, row) => n + row.weight, 0);
+    const { choices: candidates, total } = weightedChoices(anchor);
     let ticket = (fnv1a(`zone-variant|${identity(anchor)}`) / 4294967296) * total;
-    for (const row of candidates) {
-      ticket -= row.weight;
-      if (ticket < 0) return row;
+    for (const choice of candidates) {
+      ticket -= choice.weight;
+      if (ticket < 0) return choice.row;
     }
-    return candidates[candidates.length - 1] || null;
+    return candidates.length ? candidates[candidates.length - 1].row : null;
   }
   // An explicit zone lamp tint wins over the street theme. Read the same
   // coverage winner as the dressing, including associated park ground.
@@ -140,5 +228,6 @@
     });
   }
   root.ZoneVariants = { rows, materials, byId, forKind, pick, sample, findOffsets,
-    identity, poiOrigin, rotation, rotate, inverseRotate, lampGlowAt };
+    identity, poiOrigin, rotation, rotate, inverseRotate, lampGlowAt,
+    traitsFor, affinityMultiplier, geographyTraits, contextFor, selectionWeights };
 })(typeof window !== 'undefined' ? window : globalThis);
