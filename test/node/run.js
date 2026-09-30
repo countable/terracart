@@ -111,7 +111,7 @@ const FILES = [
   'combat.js', 'creature_ai.js', 'npc.js',
   // The wizard tower's offers — pure (reads Combat / Trail / Energy /
   // RARITY_TUNING at call time), so wizard.test.js drives the shipping rules.
-  'wizard.js', 'memory_story.js', 'story_encounters.js',
+  'wizard.js', 'dragon_story.js', 'memory_story.js', 'story_encounters.js',
   'interact.js',
   // The ordered Book curriculum loads after the mechanic owners whose values
   // it teaches. It stays before app.js, which reads the saved page bookmark.
@@ -151,7 +151,7 @@ const FILES = [
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
-  INTERACTABLES, runInteractable, NPC, SceneModals, MemoryStory, StoryEncounters,
+  INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, StoryEncounters,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   REACH_CORNER_PX, ReachCorner,

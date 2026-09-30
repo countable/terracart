@@ -322,8 +322,10 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   portrait, subject above, quiet copy zone below. The shell handles overflow
   with its band layout. Painted headers use a label without emoji/`kindIcon`.
 - Before memory 30, art and dialogue may foreshadow the survivor's past but
-  must not reveal it. `MemoryStory` owns the reveal on a return to the wizard:
-  the survivor was the Warmonger, a dragon the wizard controlled. Keep earlier
+  must not reveal it. `MemoryStory` gates Act 2 on the first tower and nine
+  lifetime memories; that tower is abandoned at 21. Its memory-30 reveal
+  happens only at the second tower (restoration index 25 or later): both the
+  wizard and survivor are dragons; the survivor was his Warmonger. Keep earlier
   scenes ambiguous; most paintings need no hint. Reuse existing art for this arc.
 - Format every visible wait with `shortDuration`; UTC-day gates pair it with
   `msToNextUtcDay`. A timed gate needs a visible wait.

@@ -3985,6 +3985,7 @@ class MapScene extends Phaser.Scene {
     if (this._modalGateTick % 10 === 0) {
       this._syncModalGate?.();
       this._drainBadgeStories();
+      DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
     }
     const dt = dtMs / 1000;
@@ -4671,6 +4672,7 @@ class MapScene extends Phaser.Scene {
       enemies.push(c);
     });
 
+    DragonStory.tick(this, now, px, py, enemies);
     const relics = this.save.relics || {};
     // The player's attack multiplier (_attackMul — Dragon Powder's ×2, the
     // off-GPS third), the same one the melee wheel reads.
@@ -5453,6 +5455,7 @@ class MapScene extends Phaser.Scene {
     if (save.caught.includes(victim.id)) return;
     save.caught.push(victim.id);
     StoryEncounters.defeated(this, victim);
+    DragonStory.defeated(this, victim, source);
     const mine = Combat.isPlayerKill(source);
     // WHAT A KILL DROPS is the kind's own row (SpriteLayout.CREATURE_BEHAVIOUR
     // `drop`), not a ternary here: game drops a body part, and an ENEMY pays a
@@ -8175,6 +8178,7 @@ class MapScene extends Phaser.Scene {
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     if (this.updateMemoriesDOM) this.updateMemoriesDOM();
     MemoryStory.enqueue(this.save, this.memoriesTotal(), label);
+    this.updateObjectiveDOM?.();
     persistSave(this.save);
     return true;
   }
@@ -8619,9 +8623,9 @@ class MapScene extends Phaser.Scene {
     this.showMessageModal({
       kind: 'memory',
       title: `${total} recovered · ${unspent} unspent`,
-      body: cls ? `Your calling feels familiar: ${cls.icon} ${cls.name}. ${cls.blurb()}`
+      body: MemoryStory.objective(this.save) || (cls ? `Your calling feels familiar: ${cls.icon} ${cls.name}. ${cls.blurb()}`
         : this._metWizard() ? 'The memories hum in your chest. At the Wizard Tower, someone knows how to answer.'
-        : 'Each new discovery brings a flicker of recognition. Your old life is finding its way home.',
+        : 'Each new discovery brings a flicker of recognition. Your old life is finding its way home.'),
       okLabel: 'Got it',
     });
   }
@@ -10851,6 +10855,10 @@ class MapScene extends Phaser.Scene {
     // the first-restored starter smithy too, so the forge branch fires
     // regardless of the underlying house number.
     const shopType = this.houseShopRole(house);
+    if (shopType === 'wizard' && MemoryStory.towerAccess(this.save, house) !== 'open') {
+      MemoryStory.visitWizard(this, () => {}, house);
+      return;
+    }
     const isFort = !!house && house.tier === 11;
     // A delivery host (plain house, no shop role) is not a timed shop: it
     // takes ONE delivery ever (Delivery.isSatisfied), and render.js shows its
@@ -11003,7 +11011,7 @@ class MapScene extends Phaser.Scene {
           return;
         }
         this.presentWizardOffer(sx, sy, recordDeal);
-      });
+      }, house);
       return;
     }
     // THEMED SHOPS (role key 'market') sell one line each — seed, supply,
@@ -13627,6 +13635,7 @@ class MapScene extends Phaser.Scene {
         const order = Object.keys(this.save.restoredHouses).length;
         const restoredRole = this._preseedRestoreRole(order, house);
         this.save.restoredHouses[house.id] = restoredRole;   // role string, not bare `true`
+        Houses.registerWizardTower(this.save, house, order);
         if (restoredRole === 'wizard') NPC.restoreShrine(this, house);
         // The first wreck restored becomes the starter blacksmith (wooden-tool
         // forge). Stamp its id so isStarterBlacksmith / shopDealCap pick it up.
@@ -13694,8 +13703,8 @@ class MapScene extends Phaser.Scene {
               name: `You restored a ${name}`,
               sub: order === 0 ? "“I'm not complaining, but repairing a building that quickly is not normal! How did you do it?”" : info.blurb,
               color: '#a7ffb0', accent: '#a7ffb0',
-              onDismiss: role === 'wizard' && !this.save.memoryStory?.introDone
-                ? () => MemoryStory.visitWizard(this, () => {}) : undefined,
+              onDismiss: role === 'wizard'
+                ? () => MemoryStory.visitWizard(this, () => {}, house) : undefined,
             });
           } else {
             this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
