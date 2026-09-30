@@ -1,5 +1,7 @@
 (() => {
   const day = 24 * 60 * 60 * 1000;
+  // A fruit stage is a quarter of the shared one-day window: six hours.
+  const stage = Crops.FRUIT_STAGE_MS;
   const planted = { planted: true, planted_t: 1000 };
 
   test('fruit state: wild trees are immediately ready until picked', () => {
@@ -10,22 +12,23 @@
     assert.eq(state.remainingMs, 0);
   });
 
-  test('fruit state: fruit and timber saplings share one four-day window', () => {
+  test('fruit state: fruit and timber saplings share one one-day window', () => {
     assert.eq(Crops.FRUIT_STAGE_MS * 4, PLANTED_TREE_GROW_MS);
+    assert.eq(PLANTED_TREE_GROW_MS, day, 'a sapling is grown in a day');
   });
 
-  test('fruit state: planted trees advance at daily boundaries and mature at four days', () => {
-    for (let stage = 0; stage < 4; stage++) {
-      const state = Crops.fruitTreeState(planted, undefined, 1000 + stage * day);
-      assert.eq(state.stage, stage);
+  test('fruit state: planted trees advance every six hours and mature at one day', () => {
+    for (let s = 0; s < 4; s++) {
+      const state = Crops.fruitTreeState(planted, undefined, 1000 + s * stage);
+      assert.eq(state.stage, s);
       assert.eq(state.mature, false);
       assert.eq(state.ready, false);
-      assert.eq(state.remainingMs, (4 - stage) * day);
+      assert.eq(state.remainingMs, (4 - s) * stage);
     }
-    const before = Crops.fruitTreeState(planted, undefined, 1000 + 4 * day - 1);
+    const before = Crops.fruitTreeState(planted, undefined, 1000 + day - 1);
     assert.eq(before.stage, 3);
     assert.eq(before.remainingMs, 1);
-    const ripe = Crops.fruitTreeState(planted, undefined, 1000 + 4 * day);
+    const ripe = Crops.fruitTreeState(planted, undefined, 1000 + day);
     assert.eq(ripe.stage, 4);
     assert.eq(ripe.ready, true);
     assert.eq(ripe.remainingMs, 0);
@@ -48,6 +51,6 @@
     const state = Crops.fruitTreeState(planted, undefined, 0);
     assert.eq(state.stage, 0);
     assert.eq(state.ready, false);
-    assert.eq(state.remainingMs, 4 * day + 1000);
+    assert.eq(state.remainingMs, day + 1000);
   });
 })();
