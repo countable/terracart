@@ -759,7 +759,7 @@ const TURRET_SCAN_MS = 300;
 // Crows ignore potato crops — they won't notice, orbit, land on, or eat them.
 // The rule (and its crop set) now lives in crops.js; this stays as a free-
 // function alias because the crow pest logic calls it bare in several spots.
-function crowEatsCrop(p) { return Crops.crowEats(p); }
+function raiderEatsCrop(p) { return Crops.raiderEats(p); }
 
 // --- Debug ---
 // WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
@@ -5008,14 +5008,22 @@ class MapScene extends Phaser.Scene {
     return lost;
   }
 
-  // A THEFT BANKED on the purse — the coin twin of _losePlayerEnergy, and
-  // the one place a thief's snatch (Combat.incomingTheft, the gull) comes
-  // off the money: never below $0, the thief marked sated for the day
-  // (Combat.bankTheft), the flinch at the instant it lands (_flashPlayerHit),
-  // the shop shut like any hit, and the gold "-N" on the player's own cell
-  // (_popCellNumber, the coin pickup's "+N" in reverse — a number on the map
-  // names its cell). It never touches
-  // energy. Returns what was taken.
+  // A THEFT BANKED — the one place a thief's snatch (Combat.incomingTheft:
+  // the raven's coins, the gull's food) lands on the player. The TAKE says
+  // what: `{ what: 'coins', n }` goes to _losePlayerCoins, `{ what: 'food',
+  // id, n }` to _losePlayerFood. Both are the thief twins of
+  // _losePlayerEnergy — the thief marked sated for the day (Combat.bankTheft),
+  // the flinch at the instant it lands (_flashPlayerHit), the shop shut like
+  // any hit, and the "-N" on the player's own cell (_popCellNumber, the
+  // pickup's "+N" in reverse — a number on the map names its cell). Neither
+  // touches energy. Returns what was taken (a count).
+  _losePlayerToThief(take, thief) {
+    if (!take) return 0;
+    if (take.what === 'coins') return this._losePlayerCoins(take.n, thief);
+    if (take.what === 'food') return this._losePlayerFood(take.id, take.n, thief);
+    return 0;
+  }
+  // Coins off the purse: never below $0, the gold "-N".
   _losePlayerCoins(n, thief) {
     const purse = Math.max(0, Math.floor(this.save.money ?? 0));
     const taken = Math.min(purse, Math.max(0, Math.floor(n || 0)));
@@ -5029,6 +5037,26 @@ class MapScene extends Phaser.Scene {
       this._popCellNumber(`-${taken}`, UI_GOLD, p.cellIX, p.cellIY);
     }
     if (typeof persistSave === 'function') persistSave(this.save);
+    return taken;
+  }
+  // Food out of the bag: Inventory.remove is the one bag writer (never more
+  // than the stack holds), the bar rebuilt so the missing piece shows, the
+  // selection re-clamped like any consume, and the "-N Name" in the danger
+  // ink — the same tier the eat button's "+N" answers in gold.
+  _losePlayerFood(id, n, thief) {
+    const taken = Inventory.remove(this.save, id, Math.max(0, Math.floor(n || 0)));
+    if (!(taken > 0)) return 0;
+    if (thief) Combat.bankTheft(this.save, thief);
+    if ((this.save.selSlot ?? -1) >= (this.save.inv || []).length) this.save.selSlot = -1;
+    this._flashPlayerHit(taken);
+    this._closeShopOnHit();
+    if (typeof playerReachCell === 'function' && this.startWorldM && this.originPx) {
+      const p = playerReachCell(this);
+      const name = (typeof ITEM_BY_ID !== 'undefined' && ITEM_BY_ID[id]?.name) || id;
+      this._popCellNumber(`-${taken} ${name}`, UI_DANGER_INK, p.cellIX, p.cellIY);
+    }
+    if (typeof persistSave === 'function') persistSave(this.save);
+    if (this.buildInventoryDOM) this.buildInventoryDOM();
     return taken;
   }
 
@@ -9180,7 +9208,7 @@ class MapScene extends Phaser.Scene {
 
   // Potion of the Raven: SPIRIT_RAVEN_MS of a slime-strength ally
   // (SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven) hunting the nearest foe or
-  // pest crow through wanderCreatures' pet lane. Only the EXPIRY reaches the
+  // pest deer through wanderCreatures' pet lane. Only the EXPIRY reaches the
   // save (save.spiritRavenUntil), so the timer is honest across a reload; the
   // bird is session state that _tickSpiritRaven keeps at your side while it
   // runs. Drinking again while one is out refreshes the timer on the SAME
@@ -9200,7 +9228,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // THE SPIRIT RAVEN'S KEEPER — once a frame, beside the Blight aura. The bird
-  // is SESSION state (an id minted off the clock, like the pest crow and the
+  // is SESSION state (an id minted off the clock, like the pest deer and the
   // ghost), pushed into the live creature list of the player's tile; what
   // persists is only save.spiritRavenUntil. So one pass answers everything:
   //   the timer ran out, or its HP did (the pet fight flags `_spent`) → it is
@@ -11298,15 +11326,17 @@ class MapScene extends Phaser.Scene {
   // lettuce on your doorstep while you rest there read as Home doing nothing.
   // Out past the ring the field is as exposed as it always was (scarecrows are
   // the answer there). It is a REASON on the raider's existing "may I eat
-  // this?" test, never a second lane: _crowRaids for the crow, the deer's
-  // graze filter for the deer.
+  // this?" test, never a second lane: _cropRaidable, which the deer's graze
+  // and the hard-mode pest pump both read.
   homeGuardsCrop(p) {
     return !!p && this.inHomeRing(p.x, p.y);
   }
-  // May a crow eat this crop? Its kind (Crops.crowEats — never potato) and
-  // where it grows (homeGuardsCrop). Every crow-side crop test reads this.
-  _crowRaids(p) {
-    return crowEatsCrop(p) && !this.homeGuardsCrop(p);
+  // May a raider (the deer) eat this crop? Its kind (Crops.raiderEats —
+  // never potato) and where it grows (homeGuardsCrop). Every crop-raid test
+  // — the deer's notice, its graze, the pest pump's "is there a field worth
+  // sending one at" — reads this and nothing else.
+  _cropRaidable(p) {
+    return raiderEatsCrop(p) && !this.homeGuardsCrop(p);
   }
 
   // Build a synthetic "trailer" house at (wmx, wmy), snapped to the cell-grid

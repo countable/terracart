@@ -43,7 +43,7 @@ function wScene(EDGE, home, midTy) {
     originPx: { x: home.x / (EDGE / WorldGen.TILE_PX), y: home.y / (EDGE / WorldGen.TILE_PX) },
     cellM: WorldGen.CELL_M, cellsForRow: WorldGen.cellsPerEdgeForTile,
     cellPx: 32, feetOffsetM: 0, peekM: { x: 0, y: 0 },
-    _popEnergy() {}, _crowRaids: [], flash() {}, flashLoot() {},
+    _popEnergy() {}, _cropRaidable: [], flash() {}, flashLoot() {},
   });
   s.cellsPerTile = WorldGen.cellsPerEdgeForTile(midTy);
   return s;

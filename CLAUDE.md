@@ -71,7 +71,7 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   while available (`poiLit`); a refusal prints the wait via `shortDuration`. A
   new recurring thing joins that ledger and that glow, never a list of its own.
 - Derive generated ids/seeds from tile + local cell or OSM id, never array
-  indices, timestamps or save-relative metres. The transient pest crow is the
+  indices, timestamps or save-relative metres. The transient pest deer is the
   id exception. Per-save salts may vary rewards, not positions;
   `WorldGen.setReviewSalt` is for the map-review tool only.
 - Every player with the same tile data sees the same generated identities and

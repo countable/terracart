@@ -385,8 +385,12 @@
     spirit_raven:  { sheet: 'crow',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31, alpha: SPIRIT_RAVEN_ALPHA },
     // The gull is the CROW'S SHEET recoloured (its roster row's `palette`,
     // baked into the 'gull' texture at load — assets.js): every geometry
-    // column matches the crow row, one body, one ground line.
+    // column matches the crow row, one body, one ground line. It steals FOOD
+    // (the roster row's `steals`).
     gull:          { sheet: 'gull',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
+    // The raven too — the crow's sheet under an inky blue-violet ramp (its
+    // roster row's `palette`), the coin thief; same geometry, same reason.
+    raven:         { sheet: 'raven',     airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
     // The butterfly's 7 frames are the sheet's whole top row, stepped faster
     // than the common creature beat — a flutter, not a plod.
     butterfly:     { sheet: 'butterfly', frames: 7, frameMs: 100, airborne: true, fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
@@ -566,7 +570,7 @@
     // drinkRavenPotion / _tickSpiritRaven) for SPIRIT_RAVEN_MS. It is a PET's
     // hunt by another reason, not a second hunter: wanderCreatures' pet scan
     // runs for it (`summoned`), asks huntsPrey (creature_ai.js) what it may
-    // take — `preysOnFoes`: every Combat.isEnemy foe and every pest crow,
+    // take — `preysOnFoes`: every Combat.isEnemy foe and every pest deer,
     // where a pet's `prey` is a list of kinds — and its kill pays as the pet's
     // ('pet', Combat.isPlayerKill). It FOLLOWS its summoner while nothing is in
     // range (the cat's `follows` lane, its timer armed for the raven's whole
@@ -633,7 +637,7 @@
   // raven)? It hunts for the player without being tame, and is never a tap
   // target.
   function isSummoned(kind) { return !!creatureBehaviour(kind)?.summoned; }
-  // Does this hunter take every FOE (Combat.isEnemy) and every pest crow,
+  // Does this hunter take every FOE (Combat.isEnemy) and every pest deer,
   // rather than a `prey` list of kinds? creature_ai.js huntsPrey answers it.
   function preysOnFoes(kind) { return !!creatureBehaviour(kind)?.preysOnFoes; }
   // Does a petted one follow the player? ANIMAL_INTERACTION owns the window.

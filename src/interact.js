@@ -624,7 +624,7 @@ const TAP_HANDLERS = [
     // Per-kind horizontal grab half-width (m) — the old footprint-tuned radii.
     const HALF_W = {
       npc: 1.8, cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
-      chicken: 1.5, crab: 1.5, rabbit: 1.4, butterfly: 1.4, gull: 1.7,
+      chicken: 1.5, crab: 1.5, rabbit: 1.4, butterfly: 1.4, gull: 1.7, raven: 1.7,
       slime: 2.0, cave_slime: 2.0, fire_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, goblin_trapper: 2.0, purple_slime: 1.4,
     };
     // Closest tappable creature whose DRAWN box contains the tap. Rank by
@@ -1522,9 +1522,8 @@ const TAP_HANDLERS = [
       // emoji-free (name + count only).
       scene.flashLoot(`harvested ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0', 1, p.crop);
       // The first harvest ends the pest amnesty around home (app.js
-      // _pestFreeZone + the crow pump): from here on, crops attract crows and
-      // slimes spawn at home like anywhere else. Persisted with this tap's
-      // ctx.dirty save.
+      // _pestFreeZone): from here on, slimes, crows and ravens spawn at home
+      // like anywhere else. Persisted with this tap's ctx.dirty save.
       save.hasHarvested = true;
       // The FIRST harvest of each crop type is a memory — the same ledger a
       // shiny find and a first delivery bank in (app.js _bankDiscovery), keyed

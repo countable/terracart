@@ -3,10 +3,10 @@
 
 const HOLD = () => Crops.STAGE_HOLD_MS;
 
-test('crowEats: crows ignore potatoes, eat everything else', () => {
-  assert.eq(Crops.crowEats({ crop: 'potato' }), false, 'potato is immune');
-  assert.eq(Crops.crowEats({ crop: 'berry' }), true, 'berry is fair game');
-  assert.eq(Crops.crowEats({ crop: 'cress' }), true);
+test('raiderEats: the deer ignores potatoes, eats everything else', () => {
+  assert.eq(Crops.raiderEats({ crop: 'potato' }), false, 'potato is immune');
+  assert.eq(Crops.raiderEats({ crop: 'berry' }), true, 'berry is fair game');
+  assert.eq(Crops.raiderEats({ crop: 'cress' }), true);
 });
 
 test('isMature: at or past MAX_GROWTH_STAGE', () => {

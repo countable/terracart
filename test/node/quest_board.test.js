@@ -127,11 +127,14 @@
   // since the ghost — a surface night kind, so it has no giant.)
   test('quest board: the enemy list follows the declared roster, with no legacy-only targets', () => {
     Combat.registerMonsters(MONSTERS);
-    // Every roster row but one that says `board: false` (the gull — a shore
-    // thief a kill job inland could never be done on).
+    // Every roster row but one that says `board: false` (the thieves: the
+    // gull — a shore bird a kill job inland could never be done on — and the
+    // raven, a pest, not a monster to hunt).
     assert.eq(questEnemies().join(','), EnemyRoster.ROWS.filter(row => row.board !== false).map(row => row.id).join(','));
     assert.truthy(Combat.isEnemyKind('gull'), 'the gull is an enemy');
     assert.falsy(Combat.onQuestBoard('gull'), 'but its row keeps it off the board');
+    assert.truthy(Combat.isEnemyKind('raven'), 'the raven is an enemy');
+    assert.falsy(Combat.onQuestBoard('raven'), 'and its row keeps it off the board too');
     assert.eq(questEnemies()[0], 'slime');
     assert.falsy(questEnemies().includes('giant_goblin'));
     assert.eq(Combat.enemyName('giant_plant'), 'giant plant');

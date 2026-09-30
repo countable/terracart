@@ -37,7 +37,7 @@ function trailerScene(over) {
     isRestingAtHome: __home.isRestingAtHome,
     inHomeRing: __home.inHomeRing,
     homeGuardsCrop: __home.homeGuardsCrop,
-    _crowRaids: __home._crowRaids,
+    _cropRaidable: __home._cropRaidable,
   }, over);
 }
 
@@ -48,25 +48,27 @@ test('home: crop raiders keep out of Home\'s ring', () => {
   const field = { crop: 'berry', x: r * 1.01, y: 0 };
   assert.truthy(s.homeGuardsCrop(yard), 'a crop two cells from Home is guarded');
   assert.falsy(s.homeGuardsCrop(field), 'one a step past the ring is not');
-  assert.falsy(s._crowRaids(yard), 'so a crow leaves the yard crop alone');
-  assert.truthy(s._crowRaids(field), 'and still raids the field past it');
-  assert.falsy(s._crowRaids({ crop: 'potato', x: r * 2, y: 0 }), 'potato stays crow-proof anywhere');
+  assert.falsy(s._cropRaidable(yard), 'so a deer leaves the yard crop alone');
+  assert.truthy(s._cropRaidable(field), 'and still raids the field past it');
+  assert.falsy(s._cropRaidable({ crop: 'potato', x: r * 2, y: 0 }), 'potato stays raider-proof anywhere');
   assert.falsy(trailerScene({ depth: 2 }).homeGuardsCrop(yard), 'no Home underground, no guard');
-  assert.truthy(trailerScene({ save: {} })._crowRaids(yard), 'no Home yet, nothing is guarded');
+  assert.truthy(trailerScene({ save: {} })._cropRaidable(yard), 'no Home yet, nothing is guarded');
 });
 
 test('home: every crop raider asks the guard, none keeps its own test', () => {
-  // The raiders are the crow tick and the deer graze (scene_creatures.js);
-  // counted across both files, as they were across app.js.
+  // The one raider is the deer (scene_creatures.js): its notice, its graze
+  // and the hard-mode pump all read _cropRaidable, never the bare kind test
+  // or the bare yard test.
   const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
-  assert.eq((app.match(/if \(!crowEatsCrop\(pp\)\) continue;/g) || []).length, 0,
-    'the crow\'s notice and landing ask _crowRaids, not the bare kind test');
-  assert.eq((app.match(/if \(!this\._crowRaids\(pp\)\) continue;/g) || []).length, 2,
-    'both crow crop scans (landing + notice) read _crowRaids');
-  assert.truthy(/this\.save\.planted\.some\(\(p\) => this\._crowRaids\(p\)\)/.test(app),
-    'the hard-mode pump only dispatches a crow for a crop it may eat');
-  assert.truthy(/if \(this\.homeGuardsCrop\(p\)\) return false;   \/\/ Home's yard/.test(app),
-    'the deer graze skips Home\'s yard');
+  assert.eq((app.match(/raiderEatsCrop\(/g) || []).length, 2,
+    'the bare kind test is read once, inside _cropRaidable (plus its definition)');
+  assert.truthy(/if \(!this\._cropRaidable\(p\)\) return;/.test(app), 'the deer\'s notice reads _cropRaidable');
+  assert.truthy(/if \(!this\._cropRaidable\(p\)\) return false;   \/\/ potato, or Home's yard/.test(app),
+    'the deer graze reads _cropRaidable');
+  assert.truthy(/this\.save\.planted\.some\(\(p\) => this\._cropRaidable\(p\)\)/.test(app),
+    'the hard-mode pump only dispatches a deer for a crop it may eat');
+  assert.falsy(/if \(this\.homeGuardsCrop\(p\)\) return false;/.test(app),
+    'no raider keeps a bare yard test of its own');
 });
 
 test('home: the rest is a RING, not a doormat', () => {

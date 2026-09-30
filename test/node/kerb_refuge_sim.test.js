@@ -42,10 +42,13 @@ const rowOf = (c) => Math.floor(c.y / CELL);
 const bits = (entry, c) => entry.roadClass[rowOf(c) * N + Math.floor(c.x / CELL)] || 0;
 const at = (col, row) => ({ x: (col + 0.5) * CELL, y: (row + 0.5) * CELL });
 
+// A bag with something in it for a food thief (the gull) to take — a huge
+// stack, so every snatch counts and none runs it dry.
+const BAG_BERRIES = 1e6;
 function mkScene(entry, creature, feet) {
   const scene = {
     cellM: CELL, depth: 0, tileEdgeM: EDGE,
-    save: { energy: 1e6, money: 1e6, caught: [], armor: {}, planted: [], fires: [], released: [], reachUpgrades: 0 },
+    save: { energy: 1e6, money: 1e6, inv: [{ id: 'berry', count: BAG_BERRIES }], caught: [], armor: {}, planted: [], fires: [], released: [], reachUpgrades: 0 },
     startWorldM: { x: 0, y: 0 }, playerM: { x: feet.x, y: feet.y }, feetOffsetM: 0,
     // Home a world away, so the safe area (EnemySpawns.homeAllows) hides
     // nothing: this harness is about the kerb, not about Home.
@@ -62,9 +65,14 @@ function mkScene(entry, creature, feet) {
     _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {}, _closeShopOnHit: () => {},
     _losePlayerEnergy(d) { const b = this.save.energy; this.save.energy = Math.max(0, b - d); return b - this.save.energy; },
     _trapperLay() { this._laid++; },
-    // A THIEF'S snatch (the gull — Combat.incomingTheft) banked the way
-    // app.js _losePlayerCoins banks it: off the purse, the thief sated.
-    _losePlayerCoins(n, c) { this.save.money -= n; Combat.bankTheft(this.save, c); return n; },
+    // A THIEF'S snatch (the raven's coins, the gull's food —
+    // Combat.incomingTheft) banked the way app.js _losePlayerToThief banks
+    // it: off the purse or out of the bag, the thief sated.
+    _losePlayerToThief(take, c) {
+      const taken = take.what === 'coins' ? (this.save.money -= take.n, take.n) : Inventory.remove(this.save, take.id, take.n);
+      if (taken > 0) Combat.bankTheft(this.save, c);
+      return taken;
+    },
     updateEnergyDOM: () => {}, flash: () => {}, _wildCrowTick: () => {},
   };
   scene.creatures = [creature];
@@ -81,20 +89,23 @@ function tick(scene, entry) {
   }
 }
 // Everything a hostile can do TO the player: energy off the bar, an arrow
-// loosed, a snare laid, coins snatched from the purse.
-const attacks = (s) => (1e6 - s.save.energy) + s._shots.length + s._laid + (1e6 - s.save.money);
+// loosed, a snare laid, coins snatched from the purse, food out of the bag.
+const attacks = (s) => (1e6 - s.save.energy) + s._shots.length + s._laid + (1e6 - s.save.money) + (BAG_BERRIES - Inventory.count(s.save, 'berry'));
 
 // Every hostile the SURFACE can hold, off the tables that seat them (never a
 // hand list — a kind added to the roster or a lair ladder is audited here the
 // moment it exists): every EnemyRoster row with a `surface` habitat (the wild
 // encounter budget, the park plants, the night's ghost), every kind on a
 // Lairs.KIND_ORDER ladder (ruins, gates, cafés, barricades, the burned row's
-// fire slime), the wild slime — plus a hunted deer while it is angry, as a
-// free foe, a lair guard and a bounty foe.
+// fire slime), the wild slime, every hostile the fauna spawner seats (the
+// raven) — plus a hunted deer while it is angry, as a free foe, a lair guard
+// and a bounty foe.
 const KINDS = [...new Set(['slime',
   ...EnemyRoster.ROWS.filter((row) => row.surface).map((row) => row.id),
-  // …and every hostile the SHORE seats by its own rule (the gull).
+  // …and every hostile the SHORE seats by its own rule (the gull), and every
+  // one the FAUNA spawner seats (the raven).
   ...SHORE_FAUNA_ORDER.filter((kind) => Combat.isEnemyKind(kind)),
+  ...FAUNA_ORDER.filter((kind) => Combat.isEnemyKind(kind)),
   ...Object.values(Lairs.KIND_ORDER).flat()])];
 function foes() {
   const out = KINDS.map((kind) => ({ label: kind, make: (p) => ({ kind, id: `${kind}_0_0_1`, x: p.x, y: p.y }) }));
