@@ -356,7 +356,8 @@ const INTERACTABLES = {
 
   // ---- Fruit tree: instant harvest, respawn-timer gated --------------------
   // Not a tool interaction (no axe/pick, no work wheel, no energy) — handled
-  // via `custom`. A planted sapling must mature (~4 days) before its first pick,
+  // via `custom`. A planted sapling must mature (PLANTED_TREE_GROW_MS, a day)
+  // before its first pick,
   // and each tree fruits once per 24h.
   fruittree: {
     custom: (ctx, o) => {
