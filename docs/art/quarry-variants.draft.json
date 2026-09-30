@@ -1,23 +1,58 @@
 {
   "status": "preview-only",
+  "source": "The same removed parking-lane footprint becomes a scar left by the old world's extraction, industry or defence.",
   "variants": [
     {
-      "id": "quarry-loose-scree",
-      "name": "Loose scree",
-      "atmosphere": "An irregular scatter of stone with open ground between deposits. The least structured and easiest to cross.",
-      "background": {"nominalDensity": 0.24, "materialDensity": {"stone": 0.22, "crystal": 0.02}, "rows": null}
+      "id": "quarry-crater",
+      "name": "Destroyed crater",
+      "layout": "crater",
+      "atmosphere": "The old road ends at a wound in the earth. Whatever struck here scattered the stone outward; small seams still smoulder beneath the ash. Deep Crimson ore was thrown up with the broken ground.",
+      "storyConnection": "A surviving scar of the fire that broke the world. Its cause stays uncertain; the exposed deep ore is the clue the player can carry away.",
+      "layoutDescription": "A broken circular rock rim, a largely empty impact bowl, and scattered lava spots. One approach remains open.",
+      "findsDescription": "1–2 finite Crimson ore deposits per site; this sample shows 2. No Sapphire scatter.",
+      "hazardsDescription": "Smouldering lava spots: visible hot ground to walk around, not a decorative red carpet.",
+      "guardsDescription": "No fixed guards; the heat is the danger.",
+      "lightingDescription": "Small orange-red glows from the hot seams.",
+      "persistenceDescription": "Mined ore stays exhausted. The crater is a lasting scar rather than a daily resource refill."
     },
     {
-      "id": "quarry-narrow-benches",
-      "name": "Narrow benches",
-      "atmosphere": "Single broken stone benches with two clear rows between them. Long open aisles make the old excavation pattern easy to read.",
-      "background": {"nominalDensity": 0.28, "materialDensity": {"stone": 0.26, "crystal": 0.02}, "rows": {"axis": "horizontal", "spacingCells": 3, "lineWidthCells": 1}}
+      "id": "quarry-abandoned",
+      "name": "Abandoned quarry",
+      "layout": "abandoned",
+      "atmosphere": "The crews who cut stone for the old kingdom's roads left in a hurry. Weathered timber, rusting iron and unopened tool crates lie where the last shift dropped them. Nothing here has been worked since the fire.",
+      "storyConnection": "The ordinary workers behind the ancient rulers' grand roads: their abandoned tools can now help the player mend what those roads connected.",
+      "layoutDescription": "An uneven worked rock face, a cleared loading yard, driftwood and clusters of old metal equipment.",
+      "findsDescription": "Two one-off tool crates in this sample. Each proposes one useful tool or equipment find, not a recurring supply chest.",
+      "hazardsDescription": "No authored lava or traps; leave a clear approach to the crates.",
+      "guardsDescription": "No fixed guards: a quiet salvage site.",
+      "lightingDescription": "No special light source.",
+      "persistenceDescription": "Opened crates stay empty. Salvaged timber and mined rock do not refill on the next visit."
     },
     {
-      "id": "quarry-broad-shelves",
-      "name": "Broad shelves",
-      "atmosphere": "Two-cell stone shelves separated by three clear rows. Denser groups of rock alternate with generous walking lanes.",
-      "background": {"nominalDensity": 0.32, "materialDensity": {"stone": 0.30, "crystal": 0.02}, "rows": {"axis": "horizontal", "spacingCells": 5, "lineWidthCells": 2}}
+      "id": "quarry-strip-mine",
+      "name": "Strip mine",
+      "layout": "strip_mine",
+      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches.",
+      "storyConnection": "A landscape ravaged for the old ruling class's appetite for resources. Its relentless lines contrast with the living places the player restores.",
+      "layoutDescription": "Uniform parallel rock benches following the current quarry's lane-like rhythm, with clear walking aisles and exposed blue seams.",
+      "findsDescription": "Concentrated Sapphire seams among ordinary rock. This sample emphasizes the exposed veins; final abundance remains for balance review. No bonus crates or buried hoard.",
+      "hazardsDescription": "No additional hazards: the damage is to the land itself.",
+      "guardsDescription": "No fixed guards.",
+      "lightingDescription": "No special light source; Sapphire colour provides the visual accent.",
+      "persistenceDescription": "Deposits are finite, making each harvested bench feel worked out rather than endlessly replenished."
+    },
+    {
+      "id": "quarry-stronghold",
+      "name": "Ruined stronghold",
+      "layout": "stronghold",
+      "atmosphere": "Low square foundations are all that remain of the garrison that guarded the stone road. Goblins shelter behind the broken walls. Crosses scratched into the abandoned yards suggest that the defenders buried more than they managed to carry away.",
+      "storyConnection": "The ancient ruling class's grip on the quarry and its road survives as a ruined military footprint, now occupied by scavengers. Crowns belong to those rulers; the religion's diamond remains a separate symbol.",
+      "layoutDescription": "Square building foundations drawn in rock, clear doorway gaps and connected courtyards. Goblins lurk inside the ruined rooms rather than blocking every entrance.",
+      "findsDescription": "Three extra X-marks-the-spot in this sample, in addition to any existing parking-place treasure. Contents and final count remain a balance decision.",
+      "hazardsDescription": "Keep every doorway and the routes to the buried finds clear.",
+      "guardsDescription": "Three lurking goblins shown as proposed encounter positions; enemy tier and reward tuning remain for review.",
+      "lightingDescription": "No special light source: a quiet, watchful ruin.",
+      "persistenceDescription": "Dug treasure and defeated fixed guards stay cleared. Foundation stones remain harvestable under the usual rock rules."
     }
   ]
 }

@@ -50,6 +50,8 @@ for (const row of Object.values(data.assets)) {
   row.whiteKey = !!(row.onLoad && /data\.data\[i\] > 240/.test(row.onLoad.toString()));
 }
 data.painters = painters;
+// Existing iron tool art stands in for abandoned metal equipment in design drafts.
+data.assets.quarry_equipment = {kind:'image', path:vm.runInContext("gearAssetPath('relic','pick',3)", ctx), whiteKey:false};
 // Basic terrain samples use the same base colours and texture painter as the map.
 const colourTable = read('app').match(/const COLORS = (\{[\s\S]*?\n\});/);
 if (!colourTable) throw new Error('Cannot find shipping ground colours');

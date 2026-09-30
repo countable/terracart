@@ -172,6 +172,7 @@ def art_script():
     code += '\nconst WorldGen={PATH_CLASSES:new Set(' + json.dumps(r['pathClasses']) + '),T:{WATER:' + str(r['waterTerrain']) + '}};'
     code += '\nconst SpriteLayout={CELL_PX:' + str(r['cellPx']) + '};\n'
     code += r['variantSource'] + '\n' + r['roadPainter']
+    code += '\nconst paintQuarryLava = (()=>{\n' + r['biomePainter'] + '\nreturn drawLavaTex;})();\n'
     code += '''
 const baked = new Map();
 const scene = {textures:{exists:key=>baked.has(key),createCanvas:(key,w,h)=>{
@@ -185,6 +186,14 @@ for(const image of document.querySelectorAll('[data-procedural]')){
     const [,variant,state,isPath]=key.split(':');
     const c=document.createElement('canvas');c.width=c.height=RoadOverlay.CLEAN_TILE_PX;
     RoadOverlay.paintPavementTile(c.getContext('2d'),RoadOverlay.CLEAN_TILE_PX,isPath==='true',state==='restored',variant);
+    baked.set(key,c.toDataURL());
+  }
+  if(!baked.has(key)&&key==='quarry-lava'){
+    const marks=document.createElement('canvas');marks.width=marks.height=32;
+    let seed=19;const rng=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+    paintQuarryLava(marks.getContext('2d'),32,rng,0);
+    const c=document.createElement('canvas');c.width=c.height=32;
+    const ctx=c.getContext('2d');ctx.fillStyle='#9a2a10';ctx.fillRect(0,0,32,32);ctx.drawImage(marks,0,0);
     baked.set(key,c.toDataURL());
   }
   if(!baked.has(key)&&key.startsWith('lamp:')){
@@ -546,41 +555,68 @@ def quarry_fixture(draft_id=None):
 
 def quarry_card(v, d, draft_id=None):
     fixture = quarry_fixture(draft_id)
-    unit = 10
-    side = fixture['side']
+    unit, side = 10, fixture['side']
     prefix = v['id'] + '-art'
-    materials = {name: d['materials'][name] for name in v['background']['materialDensity']}
-    parts = [f'<svg role="img" aria-label="Quarry generated from parking lane source geometry" viewBox="0 0 {side*unit} {side*unit}">', '<rect width="100%" height="100%" fill="#172820"/>', sprite_symbols(materials, prefix)]
+    definitions = {**d['materials'], 'equipment': {'kind':'quarry_equipment'},
+                   'tool_crate': {'kind':'box'}, 'goblin': {'kind':'goblin'}}
+    names = {o['material'] for o in fixture['objects']}
+    materials = {name:definitions[name] for name in names if name != 'treasure_x'}
+    if 'tool_crate' in names:
+        materials['equipment'] = definitions['equipment']
+    parts = [f'<svg role="img" aria-label="{html.escape(v["name"])} layout" viewBox="0 0 {side*unit} {side*unit}">',
+             '<rect width="100%" height="100%" fill="#172820"/>', sprite_symbols(materials, prefix)]
+    ground = {'crater':'#45413b','abandoned':'#555042','strip_mine':'#55544b','stronghold':'#505044'}.get(v.get('layout'),'#4c4b43')
     for x,y in fixture['coverage']:
-        parts.append(f'<rect x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}" fill="#4c4b43"/>')
+        parts.append(f'<rect x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}" fill="{ground}"/>')
+    for terrain in fixture.get('terrain', []):
+        x,y = terrain['cell']
+        if terrain['kind'] == 'lava':
+            parts.append(f'<circle cx="{x*unit+5}" cy="{y*unit+5}" r="9" fill="#dc571b" opacity=".1"/>')
+            parts.append(art_image({'procedural':'quarry-lava'},f'class="sprite-cell" x="{x*unit}" y="{y*unit}" width="{unit}" height="{unit}"'))
     for line in fixture['sourceLines']:
         points = ' '.join(f'{x*unit},{y*unit}' for x,y in line)
-        parts.append(f'<polyline points="{points}" fill="none" stroke="#c3af76" stroke-width="1" stroke-dasharray="3 3"><title>Parking-lane source geometry; not a rendered road</title></polyline>')
+        parts.append(f'<polyline class="quarry-source" points="{points}" fill="none" stroke="#c3af76" stroke-width="1" stroke-dasharray="3 3"><title>Removed parking-lane source geometry</title></polyline>')
     for o in fixture['objects']:
         material = o['material']; x,y = o['cell']
-        parts.append(sprite_cell(prefix, material, x*unit+1, y*unit+1, unit-2, materials[material]))
+        if material == 'treasure_x':
+            cx,cy = x*unit+5,y*unit+5
+            parts.append(f'<g class="treasure-mark"><circle cx="{cx}" cy="{cy}" r="4" fill="#c7b28a" opacity=".35"/><path d="M {cx-2.5} {cy-2.5} L {cx+2.5} {cy+2.5} M {cx+2.5} {cy-2.5} L {cx-2.5} {cy+2.5}" stroke="#2a1d10" stroke-width="1.1"><title>Extra buried treasure · one-off find</title></path></g>')
+        else:
+            parts.append(sprite_cell(prefix, material, x*unit+1, y*unit+1, unit-2, materials[material]))
+            if material == 'tool_crate':
+                parts.append(f'<use class="sprite-cell" href="#{prefix}-equipment" x="{x*unit+5}" y="{y*unit-1}" width="6" height="6"><title>One-off tool crate</title></use>')
     parts.append('</svg>')
+    labels = {'stone':'stone', 'crimson_ore':'Crimson ore', 'crystal':'Sapphire crystals',
+              'equipment':'discarded iron tools', 'tool_crate':'one-off tool crates',
+              'goblin':'lurking goblins', 'treasure_x':'extra buried finds', 'driftwood':'driftwood'}
     counts = collections.Counter(o['material'] for o in fixture['objects'])
-    labels = {'stone':'ordinary stone', 'crimson_ore':'Crimson ore', 'crystal':'Sapphire crystals'}
-    mix = ' · '.join(f'{density*100:g}% {labels.get(name, name.replace("_", " "))}' for name,density in v['background']['materialDensity'].items())
-    actual = ', '.join(f'{n} {name.replace("_", " ")}' for name,n in counts.items())
-    status = 'Draft · preview only' if draft_id else 'Current quarry'
-    return f'''<article id="{v['id']}"><header><small>{status} · generated from parking lanes</small><h2>{html.escape(v['name'])}</h2></header><p class="mix"><b>{v['background']['nominalDensity']*100:g}% expected coverage of eligible cells</b><br>{mix}</p><figure>{''.join(parts)}<figcaption>Shared quarry footprint · {fixture['bufferM']:g} m buffer<br>Dashed lines show the removed source lanes, not roads. 1 cell = 7 m.</figcaption></figure><p>{html.escape(v['atmosphere'])}</p><p>This fixture placed {actual}. Percentages are independent of area; crystals are not guaranteed in a small quarry.</p><dl><dt>Source</dt><dd>Parking-lane components; overlapping buffered lanes form one coverage region.</dd><dt>POI / shrine</dt><dd>None</dd><dt>Finite finds</dt><dd>None; crystals belong to the stone rows.</dd><dt>Monsters</dt><dd>No quarry guards</dd><dt>Lighting</dt><dd>No quarry light source or lamp colour override</dd><dt>Clipping</dt><dd>Real roads, buildings, forbidden ground and occupied cells retain their normal spawn restrictions.</dd></dl></article>'''
-
-
+    actual = ' · '.join(f'{n} {labels.get(name,name)}' for name,n in counts.items())
+    legend = []
+    for name in counts:
+        if name == 'treasure_x':
+            swatch = '<span aria-hidden="true" style="color:#d5bd8d;font-size:22px">×</span>'
+        else:
+            swatch = '<svg viewBox="0 0 1 1" width="26" height="26" aria-hidden="true" style="width:26px;height:26px">'+art_image(material_art(materials[name]),'width="1" height="1"')+'</svg>'
+        legend.append(f'<span style="display:inline-flex;align-items:center;gap:6px">{swatch}{html.escape(labels.get(name,name))}</span>')
+    status = 'Design draft · not enabled in-game' if draft_id else 'Current quarry · in-game reference'
+    if draft_id:
+        metadata = ''.join(f'<dt>{label}</dt><dd>{html.escape(v[key])}</dd>' for label,key in [
+          ('Layout','layoutDescription'),('Finite finds','findsDescription'),('Hazards','hazardsDescription'),
+          ('Monsters','guardsDescription'),('Lighting','lightingDescription'),('After a visit','persistenceDescription')])
+        story = f'<p><strong>Place in the story.</strong> {html.escape(v["storyConnection"])}</p>'
+        note = '<p><small>Existing game sprites; iron picks represent discarded metal equipment. Crate contents, enemy tuning and final reward quantities are proposed, not live loot rolls.</small></p>' if v['layout']=='abandoned' else ''
+    else:
+        metadata = '<dt>Layout</dt><dd>Current seeded stone rows and Sapphire deposits.</dd><dt>Finds</dt><dd>No added crates, guards or extra buried treasure.</dd>'
+        story = note = ''
+    return f'''<article id="{v['id']}"><header><small>{status}</small><h2>{html.escape(v['name'])}</h2></header><p>{html.escape(v['atmosphere'])}</p><figure>{''.join(parts)}<figcaption>Same parking-lot footprint · one cell = 7 m · illustrative sample</figcaption></figure><div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:16px 0;font-size:12px">{''.join(legend)}</div>{story}<dl>{metadata}</dl><details><summary>What is shown in this sample</summary><p>{actual}</p><p>All placements fit the same generated parking-lane coverage. Draft geometry is authored for comparison; production placement and rewards would follow approval. Optional dashed lines show the removed source lanes.</p>{note}</details></article>'''
 
 
 def quarry_draft_section(d):
     source = pathlib.Path(__file__).resolve().parents[1] / 'docs/art/quarry-variants.draft.json'
     drafts = json.loads(source.read_text())['variants']
-    current = next(row for row in d['variants'] if row['id'] == 'quarry')
-    cards = []
-    for draft in drafts:
-        row = copy.deepcopy(current)
-        row.update({key: draft[key] for key in ('id', 'name', 'atmosphere')})
-        row['background'].update(draft['background'])
-        cards.append(quarry_card(row, d, draft['id']))
-    return '<section id="quarry-drafts"><h2>Quarry alternatives · for review</h2><p>Three draft layouts on the same parking-lane footprint and seeded sample as the current quarry above. Each keeps Sapphire crystals at 2% of eligible cells; ordinary stone density and aisle width vary. Sample counts fluctuate with geometry. These options use the game’s placement rules but are not enabled in world generation. <a href="quarry-variants.draft.json">Draft settings</a></p><div class="cards">' + ''.join(cards) + '</div></section>'
+    cards = [quarry_card(draft, d, draft['id']) for draft in drafts]
+    return '<section id="quarry-drafts"><h2>Parking-lot remnants · four stories</h2><p>The old parking geometry becomes evidence of what happened here: destruction, abandoned labour, extraction, or a fallen garrison. These are proposed identities and layouts; the current quarry above remains the in-game reference.</p><label class="art-switch"><input id="show-quarry-source" type="checkbox"> Show original parking lanes</label><p><a href="quarry-variants.draft.json">Draft stories and settings</a></p><style>.quarry-source{display:none}body:has(#show-quarry-source:checked) .quarry-source{display:inline}</style><div class="cards">' + ''.join(cards) + '</div></section>'
+
 
 
 def basic_tile_section():
@@ -660,6 +696,8 @@ def render(d, out):
     category_names = {'grove': 'Groves and gardens', 'stones': 'Churchyards and stone', 'tar': 'Tar yards', 'beach': 'Beaches', 'quarry': 'Quarries'}
     categories = list(dict.fromkeys(v['zone'] for v in d['variants']))
     quick_links = ''.join(f'<a href="#category-{key}">{category_names.get(key, key.title())} ({counts[key]})</a>' for key in categories)
+    if 'quarry' in categories:
+        quick_links += '<a href="#quarry-drafts">Parking-lot stories (4 drafts)</a>'
     quick_links += '<a href="#roads-minor">Minor roads</a><a href="#roads-major">Major roads</a><a href="#roads-path">Scenic paths</a><a href="#basic-zones">Basic tile zones</a>'
     page += f'<h1>Zones and roads</h1><p>{len(d["variants"])} special zones · {len(streets["rows"])} road and path variants · basic terrain previews</p><nav class="page-nav" aria-label="Zone categories">{quick_links}</nav>'
     page += '<div class="controls"><label><input id="show-art" type="checkbox" checked> Game art</label><label><input id="show-monsters" type="checkbox" checked> Monsters</label><label><input id="show-lights" type="checkbox" checked> Light guides</label><label><input id="show-poi" type="checkbox" checked> POIs</label><label><input id="show-bg" type="checkbox" checked> Background</label></div>'
