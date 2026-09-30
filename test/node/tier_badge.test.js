@@ -9,13 +9,17 @@ test('tier badge: seven words on the seven ores, dark ink on the pale ones', () 
   const words = ['basic', 'common', 'uncommon', 'rare', 'epic', 'legendary', 'godly'];
   words.forEach((w, i) => {
     const html = tierBadgeHTML(i + 1);
-    const hex = '#' + TIER_BY_NUM[i + 1].color.toString(16).padStart(6, '0');
+    // Epic is the one cheat: Platinum is near white, so its chip is a
+    // lavender platinum — the material colour itself is untouched.
+    const colour = i + 1 === 5 ? 0xc9a6f2 : TIER_BY_NUM[i + 1].color;
+    const hex = '#' + colour.toString(16).padStart(6, '0');
     assert.truthy(html.includes(`>${w}<`), `T${i + 1} reads ${w}`);
     assert.truthy(html.includes(`background:${hex};`), `T${i + 1} sits on ${TIER_BY_NUM[i + 1].name}`);
     assert.truthy(html.includes(`data-tier="${i + 1}"`), 'carries its tier');
   });
   assert.truthy(tierBadgeHTML(4).includes('color:#1a1612'), 'dark ink on gold');
   assert.truthy(tierBadgeHTML(6).includes('color:#fff4e0'), 'pale ink on crimson');
+  assert.eq(TIER_BY_NUM[5].color, 0xe8f1f6, 'Platinum itself is still platinum');
   assert.eq(tierBadgeHTML(0), '', 'no tier, no badge');
   assert.eq(tierBadgeHTML(9), tierBadgeHTML(7), 'clamped to the ladder');
   assert.truthy(tierBadgeHTML(3, 11).includes('font:700 11px'), 'the size is the caller\'s');
