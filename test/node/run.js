@@ -125,6 +125,9 @@ const FILES = [
   // + a stub fill target, so its projection, painter-rule ordering, tier
   // styling and claim shading pin headlessly.
   'building_overlay.js',
+  // The browser sandbox now exposes a pure tile builder. Loading it here pins
+  // the same authored scenes, vector roads and dressing that install() uses.
+  'sandbox.js',
   // render.js needs Phaser to DRAW, but it deliberately reads no globals at
   // load time (see the CANVAS_W comment in drawObjects), so loading it here is
   // safe and gives the pure decision helpers it exports — edgeNeedsBorder —
@@ -1220,6 +1223,7 @@ ctx.BUILDING_OVERLAY_SRC = readSrc('building_overlay.js');
 // else in this suite builds one) — so those two are pinned as text too, same
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
+ctx.SANDBOX_JS_SRC = readSrc('sandbox.js');
 // The modal shell (makeModalShell and the stock dialogs, MODAL_KINDS, the
 // scene-art frame consts) moved out of app.js; tests that pin it read this.
 ctx.MODAL_SHELL_SRC = readSrc('modal_shell.js');
