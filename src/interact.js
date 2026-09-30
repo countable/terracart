@@ -1553,11 +1553,11 @@ const TAP_HANDLERS = [
       // readout and the wait, and "you water by cupping your hands" ran the
       // line off the screen.
       // Then the growth readout, so the player can see how close it is to
-      // harvest (e.g. "Pairy 2/5").
+      // harvest (e.g. "Pairy 2/5"). No wait on this line (owner's call, Sep
+      // 2026): the stage badge and a second tap already show it.
       const how = can?.tier ? 'watered' : 'watered by hand';
       scene.flash((jumped ? `🌱 sprang ahead! ${stageReadout()}`
-                          : `💧 ${how} — ${stageReadout()}`)
-                  + growthLeft(), sx, sy);
+                          : `💧 ${how} — ${stageReadout()}`), sx, sy);
       // The visual cue: a sprinkle of drops onto the cell (particles.js
       // 'water'). A jump adds the sprout burst on top — two things happened.
       scene._burstAtWorld?.('water', cwmx, cwmy);
