@@ -205,7 +205,16 @@
     return entry.streetArea && entry.streetArea[idx] ? 'road' : null;
   }
 
-  function* clearStreetAmbientSteps({ area, objects, wildplants, tx, ty, N, tileEdgeM }) {
+  // A record's `_street` is a variant id for that variant's own pieces (kept),
+  // or `true` for a rock-lined street's verge rocks. Those rocks are general
+  // fill: they stay only on a street that is itself a variant (`ownLines`, the
+  // lineKeys of variant streets); a plain rock street's rocks crossing or
+  // running beside a variant's corridor yield to it.
+  function streetRockForeign(o, ownLines) {
+    return o._street === true && !!ownLines && !ownLines.has(o._streetLine);
+  }
+
+  function* clearStreetAmbientSteps({ area, objects, wildplants, tx, ty, N, tileEdgeM, ownLines }) {
     if (!area) return 0;
     const ox = tx * tileEdgeM, oy = ty * tileEdgeM, unit = tileEdgeM / N;
     let removed = 0;
@@ -215,7 +224,7 @@
         if ((i & 63) === 0) yield 'street ambient replacement';
         const o = list[i];
         const x = Math.floor((o.x - ox) / unit), y = Math.floor((o.y - oy) / unit);
-        if (isGeneralAmbientRecord(o) && !o._street && x >= 0 && y >= 0 && x < N && y < N && area[y * N + x]) removed++;
+        if (isGeneralAmbientRecord(o) && (!o._street || streetRockForeign(o, ownLines)) && x >= 0 && y >= 0 && x < N && y < N && area[y * N + x]) removed++;
         else list[kept++] = o;
       }
       list.length = kept;
@@ -5414,8 +5423,10 @@
     // Capture after ordinary dedupe, before either street or zone replacement.
     const caveSource = { grid: grid.slice(), objects: deduped.slice(),
       wildplants: filtered.slice(), spawnWhy: spawnWhy.slice() };
+    const ownStreetLines = hasStreetArea
+      ? new Set(streetIndex.lines.filter(r => r.variant).map(r => r.lineKey)) : null;
     if (hasStreetArea) yield* clearStreetAmbientSteps({ area: streetArea, objects: deduped,
-      wildplants: filtered, tx, ty, N: w, tileEdgeM });
+      wildplants: filtered, tx, ty, N: w, tileEdgeM, ownLines: ownStreetLines });
     // STREET DRESSING (StreetVariants.dressSteps) — computed HERE, inside the
     // sliced build, against every cell the tile's own objects and wild plants
     // now hold; spawnInTile lays it (dropping any piece whose cell something
@@ -5495,8 +5506,7 @@
         for (let i = 0; i < rocks.length; i++) {
           if ((i & 63) === 0) yield 'street affinity new rocks';
           const o = rocks[i], c = cellOfWorldM(o.x, o.y), cell = c.iy * w + c.ix;
-          if (occupied.has(cell) || streetRockRefused(o, caveSource.grid)) continue;
-          occupied.add(cell);
+          if (occupied.has(cell) || streetRockRefused(o, caveSource.grid)) continue;          occupied.add(cell);
           deduped.push(o);
         }
       }
