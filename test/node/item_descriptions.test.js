@@ -263,15 +263,7 @@ test('consumables: one action row names every button method', () => {
     'app.js has no second action registry');
 });
 
-test('consumables: gameplay numbers and player copy read the same spec rows', () => {
-  const shieldPct = Math.round((1 - CONSUMABLE_SPEC.shield_potion.damageMul) * 100);
-  assert.truthy(ITEM_EFFECTS.shield_potion.includes(`${shieldPct}%`), 'shield item copy');
-  assert.truthy(CONSUMABLE_SPEC.shield_potion.get(null, CONSUMABLE_SPEC.shield_potion)
-    .includes(`${shieldPct}%`), 'shield modal copy');
-  assert.truthy(ITEM_EFFECTS.dragon_powder.includes(`${CONSUMABLE_SPEC.dragon_powder.damageMul}×`),
-    'dragon item copy');
-  assert.truthy(CONSUMABLE_SPEC.dragon_powder.get(null, CONSUMABLE_SPEC.dragon_powder)
-    .includes(`${CONSUMABLE_SPEC.dragon_powder.damageMul}×`), 'dragon modal copy');
+test('consumables: gameplay numbers read the owning spec rows', () => {
   assert.truthy(ITEM_EFFECTS.torch.includes(`${CONSUMABLE_SPEC.torch.radiusMul}×`), 'torch item copy');
   assert.eq(CONSUMABLE_SPEC.growth_powder.radiusM, CONSUMABLE_SPEC.rainberry.radiusM,
     'growth powder reuses the rainberry crop radius');

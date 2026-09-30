@@ -905,13 +905,13 @@ const CONSUMABLE_SPEC = {
   speed_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 9,
     verb: 'Drink', method: 'drinkSpeedPotion', title: 'Drink the Potion of Speed?',
-    get: (_scene, row) => `much faster, cheaper stick walking for ${shortDuration(row.durationMs)}`,
+    get: 'Warmth rushes into your legs. For a little while, your steps are light and swift.',
     channel: true,
   },
   shield_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.5,
     verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?',
-    get: (_scene, row) => `${Math.round((1 - row.damageMul) * 100)}% less monster damage for ${shortDuration(row.durationMs)}`,
+    get: 'A shimmering veil softens the blows of nearby beasts.',
     channel: true,
   },
   raven_potion: {
@@ -928,7 +928,7 @@ const CONSUMABLE_SPEC = {
   blight_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, radiusCells: 1.5, damagePerSecond: 2,
     verb: 'Drink', method: 'drinkBlightPotion', title: 'Drink the Potion of Blight?',
-    get: (_scene, row) => `☠ foes within ${row.radiusCells} cells lose ${row.damagePerSecond} HP/s for ${shortDuration(row.durationMs)}`,
+    get: 'A sickly haze clings to you, withering foes that stray too close.',
     channel: true,
   },
   revive_potion: {
@@ -946,7 +946,7 @@ const CONSUMABLE_SPEC = {
   dragon_powder: {
     durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 8, damageMul: 2,
     verb: 'Use', method: 'useDragonPowder', title: 'Use the Dragon Powder?',
-    get: (_scene, row) => `🐉 become a dragon for ${shortDuration(row.durationMs)} — faster, cheaper stick walking + ${row.damageMul}× damage`,
+    get: 'The powder lets you soar in dragon form, for a short time.',
   },
   growth_powder: {
     get radiusM() { return CONSUMABLE_SPEC.rainberry.radiusM; },
@@ -956,7 +956,7 @@ const CONSUMABLE_SPEC = {
   shadow_powder: {
     durationMs: _CONSUMABLE_MINUTE_MS,
     verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',
-    get: (_scene, row) => `🌑 monsters ignore you for ${shortDuration(row.durationMs)} — no stalking, no hits`,
+    get: 'The shadows gather around you, hiding you from hungry eyes.',
   },
   frost_powder: {
     durationMs: 30 * 1000,
@@ -1237,16 +1237,16 @@ const ITEM_EFFECTS = {
   antidote:     'Drink to cure poison',
   elixir:       'Drink to fill energy; no cooldown; does not revive or cure poison',
   vigor_potion:  `Drink to restore ${CONSUMABLE_SPEC.vigor_potion.energy} energy`,
-  speed_potion:  `Drink for faster control-stick walking at lower energy cost (${shortDuration(CONSUMABLE_SPEC.speed_potion.durationMs)})`,
-  shield_potion: `Drink for ${Math.round((1 - CONSUMABLE_SPEC.shield_potion.damageMul) * 100)}% less monster damage (${shortDuration(CONSUMABLE_SPEC.shield_potion.durationMs)})`,
+  speed_potion: CONSUMABLE_SPEC.speed_potion.get,
+  shield_potion: CONSUMABLE_SPEC.shield_potion.get,
   raven_potion:  `Drink: a spirit raven hunts foes & pests for ${shortDuration(CONSUMABLE_SPEC.raven_potion.durationMs)}`,
   thunder_potion:      `Drink: ${CONSUMABLE_SPEC.thunder_potion.damage} damage to every foe in sight; the rest flee`,
-  blight_potion:       `Drink to hurt foes near you ${CONSUMABLE_SPEC.blight_potion.damagePerSecond} HP/s (${shortDuration(CONSUMABLE_SPEC.blight_potion.durationMs)})`,
+  blight_potion: CONSUMABLE_SPEC.blight_potion.get,
   revive_potion:       `Drink when down to get up with ${revivePct('revive_potion')}% energy`,
   resurrection_potion: `Drink when down to get up with ${revivePct('resurrection_potion')}% energy`,
-  dragon_powder: `Use to become a dragon for ${shortDuration(CONSUMABLE_SPEC.dragon_powder.durationMs)}: faster legs, ${CONSUMABLE_SPEC.dragon_powder.damageMul}× damage`,
+  dragon_powder: CONSUMABLE_SPEC.dragon_powder.get,
   growth_powder: `Use to spring every crop within ${CONSUMABLE_SPEC.growth_powder.radiusM}m ahead a stage`,
-  shadow_powder: `Use to make monsters ignore you (${shortDuration(CONSUMABLE_SPEC.shadow_powder.durationMs)})`,
+  shadow_powder: CONSUMABLE_SPEC.shadow_powder.get,
   frost_powder:  `Use to freeze every enemy in reach for ${shortDuration(CONSUMABLE_SPEC.frost_powder.durationMs)}`,
   rope:          'Use to climb up or lower down one level, right here',
   torch:         `Use to make your light reach ${CONSUMABLE_SPEC.torch.radiusMul}× as far (${shortDuration(CONSUMABLE_SPEC.torch.durationMs)})`,

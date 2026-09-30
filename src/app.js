@@ -9168,7 +9168,7 @@ class MapScene extends Phaser.Scene {
     this.save.speedPotionUntil = Date.now() + SPEED_POTION_MS;
     return this._finishConsumable(
       `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Speed`,
-      `Your legs blaze. For ${shortDuration(SPEED_POTION_MS)} the stick carries you faster than any boots could.`,
+      'Warmth races down to your toes. The road slips beneath your feet.',
       opts,
     );
   }
@@ -9179,7 +9179,7 @@ class MapScene extends Phaser.Scene {
     this.save.shieldPotionUntil = Date.now() + SHIELD_POTION_MS;
     return this._finishConsumable(
       `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Shielding`,
-      `A shimmering barrier wraps you — for ${shortDuration(SHIELD_POTION_MS)} every monster blow lands with ${Math.round((1 - CONSUMABLE_SPEC.shield_potion.damageMul) * 100)}% less force.`,
+      'A cool shimmer settles over your skin, taking the sting from claw and fang.',
       opts,
     );
   }
@@ -9297,7 +9297,7 @@ class MapScene extends Phaser.Scene {
     this.save.blightPotionUntil = Date.now() + BLIGHT_MS;
     return this._finishConsumable(
       `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Blight`,
-      `A sickly crimson haze seeps out around you — for ${shortDuration(BLIGHT_MS)} every monster within ${BLIGHT_R_CELLS} cells of you loses ${BLIGHT_DPS} HP a second.`,
+      'A crimson haze seeps from your skin. Nearby beasts shudder in its wake.',
       opts,
     );
   }
@@ -9394,7 +9394,7 @@ class MapScene extends Phaser.Scene {
     this._dragonUntil = Date.now() + DRAGON_POWDER_MS;
     return this._finishConsumable(
       '🐉 You toss the Dragon Powder',
-      `Scales erupt across your skin — you ARE a dragon for ${shortDuration(DRAGON_POWDER_MS)}: dragon legs on the stick, and every blow lands ${CONSUMABLE_SPEC.dragon_powder.damageMul}× as hard.`,
+      'Scales ripple across your skin. Your wings catch the air.',
     );
   }
 
@@ -9563,7 +9563,7 @@ class MapScene extends Phaser.Scene {
     this._shadowUntil = Date.now() + SHADOW_POWDER_MS;
     return this._finishConsumable(
       '🌑 You cast the Shadow Powder',
-      `The dark takes you in — for ${shortDuration(SHADOW_POWDER_MS)} no monster can find you: none will stalk you, none will strike. Your own blows still land.`,
+      'The dark folds around you. Hungry eyes pass you by.',
     );
   }
 

@@ -401,7 +401,7 @@ test('copy: item descriptions explain effects without tier jargon', () => {
   }
 });
 
-test('copy: the Drink / Use descriptions derive durations and omit tiers', () => {
+test('copy: the Drink / Use descriptions omit tiers and keep numeric durations derived', () => {
   const timed = Object.entries(CONSUMABLE_SPEC).filter(([, row]) => row.method && row.durationMs);
   assert.gt(timed.length, 5, 'timed action rows are in the shared spec');
   for (const [id, row] of timed) {
@@ -410,7 +410,9 @@ test('copy: the Drink / Use descriptions derive durations and omit tiers', () =>
     }, row) : row.get;
     assert.falsy(/\b1 min\b/.test(text), `${id}: no hand-typed "1 min"`);
     assert.falsy(/tier-/.test(text), `${id}: descriptions do not expose gear tiers`);
-    assert.truthy(text.includes(shortDuration(row.durationMs)), `${id}: quotes the owning duration`);
+    if (/\d/.test(text)) {
+      assert.truthy(text.includes(shortDuration(row.durationMs)), `${id}: numeric waits use the owning duration`);
+    }
   }
   for (const [name, id] of Object.entries({
     REACH_POTION_MS: 'reach_potion', SPEED_POTION_MS: 'speed_potion',
