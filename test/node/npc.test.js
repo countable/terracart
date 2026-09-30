@@ -267,10 +267,122 @@
       const w = { id: 'npc_warden_1_2', kind: 'npc', x: 0, y: 0, ...NPC.warden('npc_warden_1_2'), _portrait: 'x' };
       NPC.interact(s, w, 0, 0);
       assert.eq(shown.length, 1, 'the warden speaks');
-      assert.eq(shown[0].body, NPC.WARDEN_LINE);
+      assert.truthy(shown[0].body.includes(NPC.WARDEN_LINE), 'the introduction retains the safety explanation');
       s._dialogOpen = () => true;
       NPC.interact(s, w, 0, 0);
       assert.eq(shown.length, 1, 'but not over an open dialog');
     } finally { globalThis.document = g; }
   });
 })();
+
+(function () {
+  const neighbour = () => ({ kind: 'npc', id: 'recovering_neighbour', name: 'Neighbour', role: 'scout', x: 3, y: 0 });
+  const scene = () => ({ cellM: 7, depth: 0, save: { energy: 100, armor: {} },
+    cellAt: () => ({ loaded: true, type: WorldGen.T.GRASS }),
+    _cellBlocked: () => false, _nearAny: () => false, _shots: [],
+    _losePlayerEnergy(n) { this.save.energy -= n; return n; } });
+
+  test('NPC wounds: one hit rests for exactly a minute, survives regeneration, repeated hits do not extend it', () => {
+    const s = scene(), c = neighbour(), now = Date.now();
+    c._moving = true;
+    assert.truthy(NPC.hit(s, c, now));
+    assert.falsy(c._moving);
+    assert.truthy(NPC.isDormant(c, now + 59999));
+    assert.falsy(NPC.hit(s, c, now + 20000));
+    assert.eq(s.save.npcRestUntil[c.id], now + 60000);
+    const rebuilt = NPC.restore(s, neighbour());
+    assert.truthy(NPC.isDormant(rebuilt, now + 59999));
+    assert.falsy(NPC.isDormant(rebuilt, now + 60000));
+    NPC.tick(s, c, 1000, 0.1);
+    assert.eq(c.x, 3, 'wounded body never strolls');
+    assert.eq(NPC.dialogue(s, c, now + 1).body, "I'm ok, just resting my wounds.");
+    assert.truthy(NPC.hit(s, c, now + 60000), 'recovered neighbours can be hit again');
+  });
+
+  test('NPC target selection: closer player wins; dormant, warded and hidden neighbours are ignored', () => {
+    const s = scene(), c = neighbour(), foe = {kind: 'zombie', x: 0, y: 0};
+    const row = EnemyRoster.get('zombie');
+    s._npcCombatTargets = [c];
+    assert.eq(NPC.enemyTarget(s, foe, row, 1, 0, false), null);
+    assert.eq(NPC.enemyTarget(s, foe, row, 20, 0, false), c);
+    assert.eq(NPC.enemyTarget(s, foe, row, 1, 0, true), c);
+    s._npcWardContext = { home: {x:3,y:0}, castles:[], radius2:49 };
+    assert.eq(NPC.enemyTarget(s, foe, row, 20, 0, false), null);
+    s._npcWardContext = null;
+    s._cellBlocked = () => true;
+    assert.eq(NPC.enemyTarget(s, foe, row, 20, 0, false), null);
+    s._cellBlocked = () => false;
+    NPC.hit(s, c);
+    assert.eq(NPC.enemyTarget(s, foe, row, 20, 0, false), null);
+  });
+
+  test('NPC melee: monster windup hits neighbour without draining player and cannot strike resting body', () => {
+    const s = scene(), c = neighbour(), foe = {kind:'zombie', id:'attacker', x:0,y:0};
+    const row = EnemyRoster.get('zombie');
+    rosterEnemyAttack(s, foe, row, 10000, c.x, c.y, false, 0.1, c);
+    rosterEnemyAttack(s, foe, row, 10000 + row.windupSeconds * 1000, c.x, c.y, false, 0.1, c);
+    assert.truthy(NPC.isDormant(c));
+    assert.eq(s.save.energy, 100);
+    const deadline = c._npcRestUntilEpoch;
+    rosterEnemyAttack(s, foe, row, 20000, c.x, c.y, false, 0.1, c);
+    assert.eq(foe._attackWindupUntil, null);
+    assert.eq(c._npcRestUntilEpoch, deadline);
+  });
+
+  test('NPC ranged attack: archer aims at neighbour and shot collision rests them', () => {
+    const s = scene(), c = neighbour(), foe = {kind:'goblin_archer', id:'archer', x:0,y:0};
+    c.x = 14;
+    const row = EnemyRoster.get('goblin_archer');
+    rosterEnemyAttack(s, foe, row, 10000, c.x, c.y, false, 0.1, c);
+    rosterEnemyAttack(s, foe, row, 10000 + row.windupSeconds * 1000, c.x, c.y, false, 0.1, c);
+    assert.eq(s._shots.length, 1);
+    const shot = s._shots[0];
+    assert.truthy(shot.hostile);
+    assert.gt(shot.vx, 0);
+    assert.eq(shot.vy, 0);
+    const result = Combat.stepShots([shot], 14 / shot.speedMps, [], 3,
+      target => NPC.hit(s, target), {cellM:7,hostileTargets:[c]});
+    assert.eq(result.length, 0);
+    assert.truthy(NPC.isDormant(c));
+    assert.eq(s.save.energy, 100);
+  });
+
+  test('NPC target switch: changing victims cancels an already wound-up blow', () => {
+    const s = scene(), c = neighbour(), foe = {kind:'brute',id:'brute',x:0,y:0};
+    const row = EnemyRoster.get('brute');
+    rosterEnemyAttack(s,foe,row,10000,3,0,false,0.1);
+    rosterEnemyAttack(s,foe,row,10000 + row.windupSeconds * 1000,3,0,false,0.1,c);
+    assert.falsy(NPC.isDormant(c), 'player windup cannot instantly hit a newly selected NPC');
+    assert.eq(s.save.energy,100);
+  });
+})();
+
+test('NPC resting merchant: wound dialogue replaces trading', () => {
+  const c = { kind:'npc',id:'resting_merchant',name:'Merchant',role:'merchant',roleLabel:'Peddler',_portrait:'portrait' };
+  const shown = [];
+  const s = {save:{},_dialogOpen:()=>false,showMessageModal:m=>shown.push(m),
+    shopReadiness:()=>{throw new Error('resting merchant cannot trade');}};
+  NPC.hit(s,c);
+  NPC.interact(s,c,0,0);
+  assert.eq(shown.length,1);
+  assert.eq(shown[0].body,"I'm ok, just resting my wounds.");
+});
+
+test('NPC targeting: membership scan is throttled and rebuilds on depth change', () => {
+  const s={save:{},depth:0,cellM:7};
+  const c={kind:'npc',id:'near',x:3,y:0}, far={kind:'npc',id:'far',x:1000,y:0};
+  const real=WorldGen.forEachItemNear;
+  let scans=0;
+  WorldGen.forEachItemNear=(kind,tx,ty,fn)=>{scans++; fn(c); fn(far);};
+  try {
+    NPC.prepareTargets(s,{tx:0,ty:0},0,0,84,1000);
+    for(let now=1001;now<1250;now++) NPC.prepareTargets(s,{tx:0,ty:0},0,0,84,now);
+    assert.eq(scans,1);
+    assert.eq(s._npcCombatTargets.length,1);
+    NPC.prepareTargets(s,{tx:0,ty:0},0,0,84,1250);
+    assert.eq(scans,2);
+    s.depth=1;
+    NPC.prepareTargets(s,{tx:0,ty:0},0,0,84,1251);
+    assert.eq(scans,3,'surface neighbours cannot become cave targets');
+  } finally {WorldGen.forEachItemNear=real;}
+});

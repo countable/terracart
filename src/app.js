@@ -3985,6 +3985,7 @@ class MapScene extends Phaser.Scene {
     if (this._modalGateTick % 10 === 0) {
       this._syncModalGate?.();
       this._drainBadgeStories();
+      StoryEncounters.tick(this, Date.now());
     }
     const dt = dtMs / 1000;
     this._tickConditions();
@@ -4830,16 +4831,18 @@ class MapScene extends Phaser.Scene {
         const cc = worldMetersToAbsCell(this, x, y);
         return solidCells.has(cc.cellIX + '_' + cc.cellIY);
       };
-      // The player is what a HOSTILE shot (a monster's arrow) can hit: one
-      // marker at the feet, rebuilt each tick so it follows the fix. A
+      // Hostile arrows can hit the player or an awake, unwarded neighbour. A
       // friendly shot never sweeps it, a hostile one never sweeps `enemies`
       // — stepShots keeps the two lanes apart.
       const playerTarget = { id: 'player', x: px, y: py };
       this._shots = Combat.stepShots(this._shots, dt, enemies,
         Combat.HIT_RADIUS_CELLS * this.cellM,
-        (target, shot) => (shot.hostile ? this._shotHitsPlayer(shot)
+        (target, shot) => (shot.hostile ? (target.kind === 'npc' ? NPC.hit(this, target) : this._shotHitsPlayer(shot))
                                         : this._damageEnemy(target, shot.damage, Combat.shotSource(shot))),
-        { blocked: shotBlocked, cellM: this.cellM, hostileTargets: [playerTarget] });
+        { blocked: shotBlocked, cellM: this.cellM,
+          hostileTargets: [playerTarget, ...(this._npcCombatTargets || [])],
+          canHit: (target, shot) => !shot.hostile || target.kind !== 'npc'
+            || (!NPC.isDormant(target) && NPC.canTarget(this, target)) });
     }
     this._drawShots();
 
@@ -5449,6 +5452,7 @@ class MapScene extends Phaser.Scene {
     save.caught = save.caught || [];
     if (save.caught.includes(victim.id)) return;
     save.caught.push(victim.id);
+    StoryEncounters.defeated(this, victim);
     const mine = Combat.isPlayerKill(source);
     // WHAT A KILL DROPS is the kind's own row (SpriteLayout.CREATURE_BEHAVIOUR
     // `drop`), not a ternary here: game drops a body part, and an ENEMY pays a
@@ -8170,7 +8174,8 @@ class MapScene extends Phaser.Scene {
     }
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     if (this.updateMemoriesDOM) this.updateMemoriesDOM();
-    (this._badgeStories = this._badgeStories || []).push(label || 'something new');
+    MemoryStory.enqueue(this.save, this.memoriesTotal(), label);
+    persistSave(this.save);
     return true;
   }
 
@@ -8203,14 +8208,7 @@ class MapScene extends Phaser.Scene {
   // modal-gate backstop's throttle in update(), right after the sync, so
   // body.modal-open is fresh when it is read.
   _drainBadgeStories() {
-    if (!this._badgeStories?.length) return;
-    if (document.body?.classList?.contains('modal-open')) return;
-    const label = this._badgeStories.shift();
-    this.showMessageModal({
-      art: 'discovery_badge',
-      title: 'A memory returns',
-      body: `A glimpse of a memory comes back as you find ${label}.`,
-    });
+    MemoryStory.drain(this);
   }
 
   // THE STORY LEDGER. One story splash per key, ever: `save.storySeen` is
@@ -10861,7 +10859,7 @@ class MapScene extends Phaser.Scene {
     // scarecrow shop used to leave it "busy" under a live potato ask.
     const isDeliveryHost = !castle && !isFort && !shopType && !isStarterSmith && !!house
       && !(this.isScarecrowShop(house) && !this.save.scarecrowShopUsed);
-    if (house && !shopReady && !isDeliveryHost) {
+    if (house && !shopReady && !isDeliveryHost && shopType !== 'wizard') {
       const kindLabel = castle ? 'castle' : (house.tier === 11) ? 'fort' : 'house';
       // Same notation, same number as the plaque over the roof (render.js
       // formats info.waitMs through shortDuration too), so the tap and the
@@ -10999,7 +10997,13 @@ class MapScene extends Phaser.Scene {
     // mage sees power in the player's memories and spends them on his gifts.
     // See presentWizardOffer.
     if (shopType === 'wizard') {
-      this.presentWizardOffer(sx, sy, recordDeal);
+      MemoryStory.visitWizard(this, () => {
+        if (house && !shopReady) {
+          this.flash(`house busy — try again in ${shortDuration(waitMs)}`, sx, sy);
+          return;
+        }
+        this.presentWizardOffer(sx, sy, recordDeal);
+      });
       return;
     }
     // THEMED SHOPS (role key 'market') sell one line each — seed, supply,
@@ -13671,11 +13675,11 @@ class MapScene extends Phaser.Scene {
               pet:    'Restless paws and hooves wait for a new home.',
             };
             const INFO = {
-              blacksmith: { blurb: 'The anvil rings again. Your next tool could be born here.' },
-              market:     { blurb: THEME_BLURB[theme] || 'The shutters open on a stocked counter.' },
-              trader:     { blurb: 'The trader eyes your bag. Perhaps you each have something the other needs.' },
+              blacksmith: { blurb: 'A family carries its bundles home. “You gave us our forge back. Let us make the tools you need.”' },
+              market:     { blurb: 'A family opens the shutters again. “Thank you. We have something to help you on your way.” ' + (THEME_BLURB[theme] || 'Their old counter is stocked once more.') },
+              trader:     { blurb: 'The trader’s family unpacks beside the hearth. “You brought us home. Let us share what we have.”' },
               wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage sees power in your memories.' },
-              plain:      { name: 'House',        blurb: 'A neighbour sets coins aside for a taste of your harvest.' },
+              plain:      { name: 'House',        blurb: 'Children choose their beds beneath the mended roof. “We can come home,” their parent says. “Bring us your harvest. We will gladly pay.”' },
             };
             const info = INFO[role] || INFO.plain;
             const name = info.name || Shops.roleLabel(role, theme) || INFO.plain.name;
@@ -13690,10 +13694,13 @@ class MapScene extends Phaser.Scene {
               name: `You restored a ${name}`,
               sub: info.blurb,
               color: '#a7ffb0', accent: '#a7ffb0',
+              onDismiss: role === 'wizard' && !this.save.memoryStory?.introDone
+                ? () => MemoryStory.visitWizard(this, () => {}) : undefined,
             });
           } else {
             this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
           }
+          StoryEncounters.arm(this, house);
         });
       },
     });

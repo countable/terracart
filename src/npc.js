@@ -116,7 +116,65 @@ const NPC = (() => {
   const WALK_MPS = 0.8;
   const WANDER_CELLS = 4;
   const REST_MS = [2500, 6000];     // [base, spread]
+  const REST_MS_AFTER_HIT = 60000;
+  const RESTING_LINE = "I'm ok, just resting my wounds.";
+  function restore(scene, c) {
+    const until = scene.save.npcRestUntil?.[c.id] || 0;
+    if (until > (c._npcRestUntilEpoch || 0)) c._npcRestUntilEpoch = until;
+    return c;
+  }
+  function isDormant(c, now = Date.now()) {
+    return c?.kind === 'npc' && (c._npcRestUntilEpoch || 0) > now;
+  }
+  function hit(scene, c, now = Date.now()) {
+    if (c?.kind !== 'npc') return false;
+    restore(scene, c);
+    if (isDormant(c, now)) return false;
+    c._npcRestUntilEpoch = now + REST_MS_AFTER_HIT;
+    c._moving = false;
+    c._npcSteps = 0;
+    const ledger = scene.save.npcRestUntil ||= {};
+    for (const id of Object.keys(ledger)) if (ledger[id] <= now) delete ledger[id];
+    ledger[c.id] = c._npcRestUntilEpoch;
+    if (typeof persistSave === 'function') persistSave(scene.save);
+    return true;
+  }
+  function canTarget(scene, c) {
+    if (isDormant(c)) return false;
+    const wards = scene._npcWardContext;
+    if (wards && wardTrip(c, wards.home, wards.castles, wards.radius2)) return false;
+    if (typeof inKerbAt === 'function' && inKerbAt(scene, c.x, c.y)) return false;
+    return !scene._nearAny?.('fires', c.x, c.y, FIRE_REST_R);
+  }
+  // Refresh membership four times a second, not once per enemy per frame.
+  // Objects remain live: a moving or newly wounded neighbour is checked at use.
+  function prepareTargets(scene, pc, px, py, radius, now) {
+    if (scene._npcTargetDepth === scene.depth && now < (scene._npcTargetsNext || 0)) return;
+    scene._npcTargetDepth = scene.depth;
+    scene._npcTargetsNext = now + 250;
+    const targets = scene._npcCombatTargets = [];
+    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, c => {
+      if (c.kind === 'npc' && Math.hypot(c.x - px, c.y - py) <= radius + scene.cellM) {
+        restore(scene, c); targets.push(c);
+      }
+    });
+  }
+  function enemyTarget(scene, enemy, row, px, py, playerHidden) {
+    let best = null;
+    let d2 = playerHidden ? Infinity : (enemy.x - px) ** 2 + (enemy.y - py) ** 2;
+    d2 = Math.min(d2, (row.visionCells * scene.cellM) ** 2);
+    for (const c of scene._npcCombatTargets || []) {
+      const distance2 = (enemy.x - c.x) ** 2 + (enemy.y - c.y) ** 2;
+      if (distance2 >= d2 || !canTarget(scene, c) || enemySightBlocked(scene, enemy, c.x, c.y)) continue;
+      if (!Combat.lineOfFire(enemy.x, enemy.y, c.x, c.y,
+        (x, y) => enemySightBlocked(scene, enemy, x, y), scene.cellM)) continue;
+      best = c; d2 = distance2;
+    }
+    return best;
+  }
   function tick(scene, c, now, dt) {
+    restore(scene, c);
+    if (isDormant(c)) { c._moving = false; return; }
     // Integrate only active time: returning to a neighbour never jumps them
     // across their old path. Small steps cannot skip a road cell or building.
     dt = Math.min(0.1, Math.max(0, dt));
@@ -157,7 +215,14 @@ const NPC = (() => {
     const title = `${c.name} · ${c.roleLabel || LABELS[c.zone || 'village'][c.role]}`;
     const daily = a => a[((seed + day) >>> 0) % a.length];
     let body;
-    if (c.role === 'warden') {
+    restore(scene, c);
+    const story = !isDormant(c, now) && typeof MemoryStory !== 'undefined'
+      && MemoryStory.npcDialogue(scene, c);
+    if (isDormant(c, now)) {
+      body = RESTING_LINE;
+    } else if (story) {
+      body = story;
+    } else if (c.role === 'warden') {
       body = WARDEN_LINE;
     } else if (c.role === 'scholar') {
       body = `I read this in a book:\n${daily(PLAY_TIPS)}`;
@@ -227,6 +292,11 @@ const NPC = (() => {
     c._moving = false;
     c._npcRestUntil = performance.now() + 12000;
     const talk = dialogue(scene, c);
+    if (isDormant(c)) {
+      scene.showMessageModal({ ...talk, kind: 'note', art: portrait(scene, c) });
+      return;
+    }
+    if (typeof StoryEncounters !== 'undefined' && StoryEncounters.interact(scene, c)) return;
     if (c.role !== 'merchant' && c.role !== 'trader') {
       scene.showMessageModal({ ...talk, kind: 'note', art: portrait(scene, c) });
       return;
@@ -240,5 +310,5 @@ const NPC = (() => {
     if (c.role === 'trader') scene.presentTraderOffer(sx, sy, c, record);
     else scene.presentThemedShop(sx, sy, c, record);
   }
-  return { COUNT, PROFILES, WALK_MPS, WANDER_CELLS, WARDEN_LINE, warden, identity, zoneFor, spawn, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
+  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, PROFILES, WALK_MPS, WANDER_CELLS, WARDEN_LINE, warden, identity, zoneFor, spawn, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
 })();

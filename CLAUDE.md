@@ -321,9 +321,10 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
   with its band layout. Painted headers use a label without emoji/`kindIcon`.
-- Art may hint that the survivor is the demon who burned the world, but never
-  reveal it. Follow the generator's `LORE`: at most one subtle hint per piece,
-  only where it fits; most pieces have none.
+- Before memory 30, art and dialogue may foreshadow the survivor's past but
+  must not reveal it. `MemoryStory` owns the reveal on a return to the wizard:
+  the survivor was the Warmonger, a dragon the wizard controlled. Keep earlier
+  scenes ambiguous; most paintings need no hint. Reuse existing art for this arc.
 - Format every visible wait with `shortDuration`; UTC-day gates pair it with
   `msToNextUtcDay`. A timed gate needs a visible wait.
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including

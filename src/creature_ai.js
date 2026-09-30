@@ -972,12 +972,18 @@ function enemyAreaContains(c, row, px, py, cellM) {
   return Math.hypot(px - c.x, py - c.y) <= row.range * cellM
     && Math.abs(delta) <= row.breath.halfAngleRadians;
 }
-function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt) {
+function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget = null) {
+  const targetKey = npcTarget?.id || 'player';
+  if (c._attackTargetKey != null && c._attackTargetKey !== targetKey) {
+    c._attackWindupUntil = null; c._attackAim = null;
+  }
+  c._attackTargetKey = targetKey;
+  if (npcTarget && !NPC.canTarget(scene, npcTarget)) inactive = true;
   const dist = Math.hypot(px - c.x, py - c.y);
   const territory = row.movement.territoryCells;
   const inTerritory = !territory || Math.hypot(px - (c._territoryX ?? c.homeX ?? c.x),
     py - (c._territoryY ?? c.homeY ?? c.y)) <= territory * scene.cellM;
-  const attentive = !inactive && !Combat.playerDowned(scene.save.energy)
+  const attentive = !inactive && (npcTarget || !Combat.playerDowned(scene.save.energy))
     && inTerritory && dist <= row.visionCells * scene.cellM;
   if (row.movement.pattern === 'lunge_recover'
       && (now < (c._lungeWindupUntil || 0) || now < (c._lungeRecoverUntil || 0))) {
@@ -991,6 +997,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt) {
     return;
   }
   if (row.aura && clear && dist <= row.aura.radiusCells * scene.cellM) {
+    if (npcTarget) { NPC.hit(scene, npcTarget); return; }
     const a = row.aura;
     const raw = a.rawDps * Combat.powerMul(c);
     const shield = (scene.save.shieldPotionUntil ?? 0) > Date.now() ? 0.5 : 1;
@@ -1051,6 +1058,8 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt) {
       shot._sourceGuard = c;
       (scene._shots ||= []).push(shot);
     }
+  } else if (npcTarget) {
+    NPC.hit(scene, npcTarget);
   } else if (row.steals) {
     // A THIEF'S SWOOP (Combat.incomingTheft — the gull): the same hit, on
     // the purse instead of the bar. Nothing here touches energy.

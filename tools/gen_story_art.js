@@ -53,11 +53,12 @@ const SCENE_RULE =
   'simple dithered areas, darkening toward the bottom edge, with no objects, no figures, no ' +
   'bright spots and no fine detail - text will be printed over it.';
 // THE LORE, as the paintings tell it: the world was not simply abandoned — a
-// powerful demon burned it, and the survivor the player walks is that demon,
-// unremembering. Never shown outright. A piece may carry ONE small hint, in
+// Warmonger burned it: a dragon controlled by the wizard, now the survivor,
+// unremembering. MemoryStory reveals this only on the memory-30 wizard return.
+// Earlier paintings never show it outright. A piece may carry ONE small hint, in
 // its detail zone and only where it fits the scene; most carry none, so the
 // ones that do are noticed on a second look rather than announced. Two kinds:
-//   the FALL   — what the demon did (claw scorches, a horned mural, a sigil)
+//   the FALL   — what the Warmonger did (claw scorches, a horned mural, a sigil)
 //   the SECRET — that it is the survivor (horned shadow, leaning sparks, an
 //                ember glint, a wary glance) — the subtlest, and rarest. Keep
 // SECRET hints fewer than every FALL kind so they remain a rare second look.

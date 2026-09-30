@@ -57,7 +57,7 @@ test('memory story: a banked memory queues its dialog, a refused key queues none
   assert.eq(s._bankDiscovery('cow', 'a shiny Cow'), false, 'one memory per key');
   assert.eq(s.save.memories, 1, 'the counter took it — not the bag');
   assert.eq(s.save.inv.length, 0);
-  assert.eq(s._badgeStories.length, 1, 'only the banked memory tells its story');
+  assert.eq(s.save.memoryStory.pending.length, 1, 'only the banked memory tells its story');
   assert.eq(s.modals.length, 0, 'queued, never opened on the spot');
   assert.truthy(s.chipDOM > 0, 'the HUD chip repaints');
 });
@@ -76,6 +76,7 @@ test('memory story: the drain opens one dialog per memory, with the label in the
   withBody(() => busy, () => {
     s._drainBadgeStories();
     assert.eq(s.modals.length, 1, 'a busy screen holds the queue');
+    s.modals[0].onDismiss();
     busy = false;
     s._drainBadgeStories();
   });
@@ -135,7 +136,7 @@ test('memory chip: the explainer is a declared kind, and says both numbers', () 
   s.save.wizardBuys = 1;
   s.showMemoriesHelp();
   assert.truthy(/Wizard Tower/.test(s.modals[2].body), 'a save that has already bought from him knows him too');
-  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note' \}\)/.test(MODAL_SHELL_SRC),
+  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note', mustAcknowledge = false \}\)/.test(MODAL_SHELL_SRC),
     'showMessageModal forwards a kind, defaulting to note (a story when it has a painting)');
 });
 

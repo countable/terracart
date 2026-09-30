@@ -4097,6 +4097,9 @@ Render.drawObjects = function drawObjects(scene) {
     // A softened lair guard is drawn smaller (creatureInstScale).
     s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, creatureInstScale(c)))
      .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
+    // Reset every pooled body: the next creature may reuse a resting NPC sprite.
+    s.setRotation(npcArt && NPC.isDormant(c) ? Math.PI / 2 : 0);
+    if (npcArt && NPC.isDormant(c)) s.setOrigin(0.5, 0.5);
     s.setFlipX(npcArt ? false : appearance.flipX);
     // Rare shiny animals — and ELITE monsters, the same flag — wear the warm
     // sheen. Pooled sprites keep their last tint, so set an explicit colour
