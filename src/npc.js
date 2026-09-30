@@ -385,11 +385,9 @@ const NPC = (() => {
       scene.showMessageModal({ ...talk, kind: 'note', art: portrait(scene, c) });
       return;
     }
-    const ready = scene.shopReadiness(c);
-    if (!ready.ready) {
-      scene.showMessageModal({ title: talk.title, body: `I have finished trading for now. Come back in ${shortDuration(ready.waitMs)}.`, art: portrait(scene, c), kind: 'trade' });
-      return;
-    }
+    // A peddler trades as often as asked — no shop is ever "busy"
+    // (shops_math.js header); the deal is still banked for the trader's
+    // stock turnover.
     const record = () => { scene.shopBucketState(c).deals += 1; };
     if (c.role === 'trader') scene.presentTraderOffer(sx, sy, c, record);
     else scene.presentThemedShop(sx, sy, c, record);

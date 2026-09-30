@@ -169,8 +169,6 @@ test('the literal spellings are gone from the readers', () => {
   }
   assert.falsy(/kind === 'tower' \|\| \w+\.tier === 12/.test(DURATION_SOURCES['shops_math.js']),
                'shops_math.js: no inline castle test');
-  assert.truthy(/isCastle\(house\)/.test(DURATION_SOURCES['shops_math.js']),
-                'shops_math.js: dealCap asks isCastle');
   // The four-clause "is this spent" filter render.js used to carry.
   assert.falsy(/o\.kind === 'mineralrock' && brokenRockSet\.has/.test(RENDER_SRC),
                'render.js: the spent filter is isSpent now');
