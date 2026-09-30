@@ -32,7 +32,7 @@ vm.runInContext(items.match(/const PRICES = [^]*?^};/m)[0]+'\n'+
  globalThis.result={stone,probabilities};`,ctx);
 process.stdout.write(JSON.stringify(ctx.result));
 """],cwd=root,text=True))
-values={'grass':(1,1),'shrub':(1,1),'mushroom':(3,6),'blue':(6,11),'orange':(17,34),'rose':(14,27),'star':(49,98),'gemfruit':(10,19),'rubble':(2,2.9),'flint':(2,3),'stone':tuple(live['stone']),'copper_rock':(15,27.5),'iron_ore':(33,64.5),'gold_ore':(81,160.25),'platinum_ore':(201.5,400.5),'crimson_ore':(483,964.5),'fruit_tree':(4.5,9),'tree':(10.1931,21),'medium_tree':(5.1931,11),'grave':(0,0)}
+values={'grass':(1,1),'shrub':(1,1),'mushroom':(3,6),'flowers':(2,4),'orange':(17,34),'rose':(14,27),'star':(49,98),'gemfruit':(10,19),'rubble':(2,2.9),'flint':(2,3),'stone':tuple(live['stone']),'copper_rock':(15,27.5),'iron_ore':(33,64.5),'gold_ore':(81,160.25),'platinum_ore':(201.5,400.5),'crimson_ore':(483,964.5),'fruit_tree':(4.5,9),'tree':(10.1931,21),'medium_tree':(5.1931,11),'grave':(0,0)}
 # Each woody giant pays one wood plus one ordinary mushroom.
 values['giant_mushroom']=tuple(a+b for a,b in zip(values['shrub'],values['mushroom']))
 # Art-only beach aliases; enemy combat drops are outside this harvest report.

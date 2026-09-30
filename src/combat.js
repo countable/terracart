@@ -433,6 +433,9 @@
   // an elite.)
   function enemyBounty(kind, depth, hpMul = 1) {
     if (!isEnemyKind(kind)) return 0;
+    // Treasure creatures can declare a fixed payout, independent of mode/depth.
+    const fixed = monster(kind)?.bountyCoins;
+    if (fixed != null) return fixed;
     return Math.max(1, Math.round(creatureMaxHp(kind) * (hpMul || 1) * ENEMY_COIN_PER_HP))
          + Math.floor(Math.max(0, depth || 0) * ENEMY_DEPTH_BONUS);
   }

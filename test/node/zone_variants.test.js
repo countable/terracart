@@ -130,16 +130,16 @@ test('zone variants: repeated geometry preserves densities and phase across nega
   }
   const formal = V.byId('formal_garden'), [w, h] = formal.background.repeatCells;
   for (let bx = -4; bx <= 4; bx++) {
-    let blueBeds = 0, orangeBeds = 0;
+    let flowerBeds = 0, orangeBeds = 0;
     for (const [x0, y0] of [[1, 1], [4, 4]]) {
       const material = V.sample(formal, bx * w + x0, y0 - h, 'a');
-      if (material === 'blue') blueBeds++;
+      if (material === 'flowers') flowerBeds++;
       if (material === 'orange') orangeBeds++;
       for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
         assert.eq(V.sample(formal, bx * w + x0 + dx, y0 - h + dy, 'b'), material, 'one species per bed');
       }
     }
-    assert.gte(blueBeds, 1, 'at least one blue bed per repeat');
+    assert.gte(flowerBeds, 1, 'at least one pale flower bed per repeat');
     assert.lte(orangeBeds, 1, 'at most one accent bed per repeat');
     for (let y = 0; y < h; y++) assert.eq(V.sample(formal, bx * w + 3, y - h, 'a'), null, 'central aisle remains open');
   }

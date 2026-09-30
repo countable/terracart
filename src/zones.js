@@ -731,7 +731,7 @@
       // The symmetric figures (SYMMETRIC_ASPECTS — laid whole or not at all).
       case 'compass_roses':  add('rose', [[0, -2], [2, 0], [0, 2], [-2, 0]]); break;
       case 'flower_beds':
-        add('forgetmenot', [[-3, -1], [3, -1], [-3, 1], [3, 1]]);
+        add('flowers', [[-3, -1], [3, -1], [-3, 1], [3, 1]]);
         add('marigold', [[-3, 0], [3, 0]]);
         break;
       case 'diagonal_trees':  add('tree', [[-3, -3], [3, -3], [3, 3], [-3, 3]]); break;
@@ -920,7 +920,7 @@
         const x = cx(ix), y = cy(iy);
         if (pc.what === 'rose') {
           res.wildplants.push(WG.makeWildplant('wildrose', x, y, WG.cellId('wz', tx, ty, ix, iy), { zone: zoneTag }));
-        } else if (pc.what === 'forgetmenot' || pc.what === 'marigold' || pc.what === 'shrub') {
+        } else if (pc.what === 'flowers' || pc.what === 'marigold' || pc.what === 'shrub') {
           res.wildplants.push(WG.makeWildplant(pc.what, x, y, WG.cellId('wz', tx, ty, ix, iy), { zone: zoneTag }));
         } else if (pc.what === 'flint') {
           res.wildplants.push(WG.makeWildplant('flint', x, y, WG.cellId('wz', tx, ty, ix, iy), { zone: zoneTag }));

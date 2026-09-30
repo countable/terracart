@@ -223,6 +223,7 @@ class SceneCreatures {
       }
       entry.wildplants = entry.wildplants || [];
       for (const wp of dressing.wildplants) if (lay(wp)) entry.wildplants.push(wp);
+      for (const trap of (dressing.traps || [])) if (lay(trap)) zoneTraps.push({ ...trap });
       streetTreasures = dressing.treasures.filter(lay);
       const found = setOf(this.save.foundTreasures || []);
       const coinIds = new Set((entry.coinDrops || []).map(c => c.id));
@@ -827,8 +828,10 @@ class SceneCreatures {
     // stream (its `salt`), so no other draw moves; its count follows the
     // waterline; each seat is the kind's own spawn class (creatureSpawnClass)
     // through the shared gate, and its id is the seat cell. See spawnShoreFauna.
-    this.spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid,
+    const shoreFauna = this.spawnShoreFauna(creatures, shore, pierCells, N, tx, ty, cellM, genGrid,
       faunaSpawnOpts, _spawnOpts, caughtSet);
+    Object.assign(entry.faunaAttracted, this._seatFaunaOnFavouriteGround(entry, tx, ty, N,
+      cellM, genGrid, _spawnOpts, shoreFauna, pestFree, null, plantCells));
 
     // The per-player cull, AFTER every draw of the shared stream above.
     this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
@@ -924,6 +927,10 @@ class SceneCreatures {
     const marks = entry.streetMarks;
     if (SV) {
       if (marks) for (const row of SV.STREET_VARIANTS) if (row.attracts) add(row.attracts, (i) => marks[i] === row.code);
+      for (const [kind, cells] of Object.entries(entry.scenic?.attractionCells || {})) {
+        const row = SV.VARIANT_BY_ID[Scenic.KIND_ROW[kind]];
+        if (row?.attracts) add(row.attracts, i => cells.has(i));
+      }
     }
     // WALKING-PATH LAMPS: the cells beside every lamp a footway / path /
     // cycleway stands (Streets.PATH_LAMP_ATTRACTS — the cats, moved here from

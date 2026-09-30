@@ -160,6 +160,30 @@ test('scenic: greenway grass lines both verges deterministically and respects bl
     0, 'the sidewalk safety filter also excludes grass');
 });
 
+test('scenic: real classified verges attract metal slimes and butterflies without street marks', () => {
+  const pts=[[800,2000],[3200,2000]], grid=new Uint8Array(N*N).fill(WorldGen.T.GRASS);
+  const specs=[
+    ['shore','metal_slime',{transportation:[line(FOOT,pts)],water:[rect({class:'lake'},0,2000+u(5),EXT,3000)]}],
+    ['greenway','butterfly',{transportation:[line(FOOT,pts)],transportation_name:[line({name:'Test Greenway',class:'path'},pts)]}],
+  ];
+  const edge=N*WorldGen.CELL_M, scene=Object.assign(new SceneCreatures(),{tileEdgeM:edge});
+  for(const [kind,species,spec] of specs) {
+    const scenic=buildOf(spec), cells=scenic.attractionCells[kind];
+    assert.truthy(cells && cells.size>10,kind+' classified verge seats');
+    const creatures=Array.from({length:40},(_,n)=>({kind:species,id:species+n,x:0,y:0}));
+    const moved=scene._seatFaunaOnFavouriteGround({scenic},TX,TY,N,WorldGen.CELL_M,grid,
+      {occupied:new Set(),roadMask:new Uint8Array(N*N)},creatures,null);
+    assert.gt(moved[species]||0,0,kind+' uses the shared favorite-ground pass');
+    assert.eq(creatures.length,40,'affinity moves existing population only');
+    for(const c of creatures.filter(c=>c.x)) {
+      const ix=Math.floor((c.x-TX*edge)/WorldGen.CELL_M),iy=Math.floor((c.y-TY*edge)/WorldGen.CELL_M);
+      assert.truthy(cells.has(iy*N+ix));
+    }
+  }
+  const ordinary=buildOf({transportation:[line(FOOT,pts)]});
+  assert.eq(Object.keys(ordinary.attractionCells).length,0,'ordinary paths gain no scenic affinity');
+});
+
 test('scenic: a GREENWAY is a named or waymarked off-road path — the name alone never upgrades a pavement', () => {
   const pts = [[800, 1500], [3200, 1500]];
   const gw = buildOf({ transportation: [line(FOOT, pts)],

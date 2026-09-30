@@ -968,6 +968,7 @@ function enemyAreaContains(c, row, px, py, cellM) {
     && Math.abs(delta) <= row.breath.halfAngleRadians;
 }
 function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt) {
+  if (row.attackType === 'none') return;
   const dist = Math.hypot(px - c.x, py - c.y);
   const territory = row.movement.territoryCells;
   const inTerritory = !territory || Math.hypot(px - (c._territoryX ?? c.homeX ?? c.x),
@@ -1108,6 +1109,8 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
       c._idleAngle = Math.random() * Math.PI * 2; c._idleTurnT = now + 3000;
     }
     angle = c._idleAngle; maxDistance = Infinity;
+  } else if (m.pattern === 'flee') {
+    angle += Math.PI; maxDistance = Infinity;
   } else if (m.pattern === 'orbit_swoop') {
     enemyBatMove(scene, c, row, now, px, py);
     return;

@@ -4,8 +4,8 @@
 // spawnInTile on a light scene) and COUNTS what landed. Nothing here is a
 // copy of a game rule: terrain names come from WorldGen.T, the variants from
 // StreetVariants.STREET_VARIANTS, zone kinds from Zones.ZONE_KINDS, chest
-// looks from loot.js chestLook, traps from Traps.spawnSurface at each mode's
-// Difficulty.PROFILES trapCountMul. Every block feature-detects its module.
+// looks from loot.js chestLook, ambient traps from Traps.spawnSurface at each
+// mode's Difficulty.PROFILES trapCountMul, plus seated authored encounters.
 // The original fixture block plus downtown centres for the other review cities.
 const W_CITIES = {
   kelowna: { name: 'Kelowna', centre: [2754, 5566] },
@@ -88,10 +88,26 @@ function wMeasure(e, EDGE, errors) {
     if (Traps.tileDanger) m.danger = Traps.tileDanger(e.tx, e.ty);
     for (const mode of [Difficulty.EASY, Difficulty.HARD]) {
       try {
-        const list = Traps.spawnSurface(gen, e.roadClass, N, N, e.tx, e.ty, EDGE, e._spawnOpts || {},
+        const list = Traps.spawnSurface(gen, e.roadClass, N, N, e.tx, e.ty, EDGE, e._ambientSpawnOpts || e._spawnOpts || {},
           Difficulty.PROFILES[mode].trapCountMul, e.zone && e.zone.under);
+        // Runtime has already resolved authored seats against landmarks and
+        // each other. Preserve that accepted set, as the mode relay does;
+        // counting raw dressing would include traps rejected for collisions.
+        const cells = new Set(list.map(t => t._iy * N + t._ix));
+        for (const t of e.traps || []) {
+          const cell = t._iy * N + t._ix;
+          if ((!t.zoneVariant && !t._street) || cells.has(cell)) continue;
+          list.push(t);
+          cells.add(cell);
+        }
         const at = {};
-        for (const t of list) { const w = where(t._iy * N + t._ix); at[w] = (at[w] || 0) + 1; }
+        for (const t of list) {
+          const ground = Traps.trapGroundKind(gen, e.roadClass, N, N, t._ix, t._iy, e.zone && e.zone.under, e.roadMask);
+          const place = t._street ? 'street encounter' : t.zoneVariant ? 'zone encounter'
+            : t._ix < 0 || t._iy < 0 || t._ix >= N || t._iy >= N ? 'off tile'
+            : ground === 1 ? 'pathside' : ground === 2 ? 'park edge' : 'other';
+          at[place] = (at[place] || 0) + 1;
+        }
         m.traps[mode] = { n: list.length, at };
       } catch (err) { m.errors.push(`traps ${mode}: ${err.message}`); }
     }
@@ -320,8 +336,8 @@ function wRender(w) {
     `<tr><td>${label}</td>${barCell(shareOfCells(f))}</tr>`));
 
   // Traps by where they sit.
-  const places = ['major verge', 'wasteland', 'other', 'off tile'];
-  $('wTrapScope').textContent = `Total traps across the roaming area, both modes; ${scope}. "other" should be 0 (zone halo may repaint wasteland).`;
+  const places = ['street encounter', 'zone encounter', 'pathside', 'park edge', 'other', 'off tile'];
+  $('wTrapScope').textContent = `Total traps across the roaming area, both modes; ${scope}. Includes seated street and zone encounters; only ambient traps scale with mode.`;
   table($('wTraps'), ['mode', 'total traps', ...places, 'total dogs', 'dogs on verge'], [E, H].map((mode) => {
     const tot = ms.reduce((a, m) => a + tr(m, mode), 0) || 1;
     return `<tr><td>${mode} (×${typeof Difficulty !== 'undefined' ? Difficulty.PROFILES[mode].trapCountMul : '?'})</td><td>${f1(sum((m) => tr(m, mode)))}</td>`

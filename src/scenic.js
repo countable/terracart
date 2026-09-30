@@ -519,7 +519,7 @@
   // generation metres, in-square) and the STRETCHES for the vista chests.
   function* linesSteps(geo, trLayer) {
     const S = root.Streets, SV = root.StreetVariants;
-    const res = { lines: new Map(), census: { shore: 0, greenway: 0, park: 0 }, stretches: [], grassSeats: [] };
+    const res = { lines: new Map(), census: { shore: 0, greenway: 0, park: 0 }, stretches: [], grassSeats: [], attractionCells: {} };
     if (!trLayer || !S) return res;
     const stretch = new Map();     // `${sx},${sy}|${kind}` → { m, best }
     const ox = geo.tx * geo.ext, oy = geo.ty * geo.ext;
@@ -538,6 +538,15 @@
         const ivs = lineIntervals(geo, line, greenway, (kind, s, x, y, nx, ny, stepU) => {
           const m = stepU * geo.gM;
           res.census[kind] += m;
+          // Favourite-ground seats follow classified scenic intervals, not
+          // street marks (footpaths are not vehicle street variants).
+          const cells = res.attractionCells[kind] || (res.attractionCells[kind] = new Set());
+          const vergeU = (root.WorldGen.roadOverlayWidthM(f.tags) / 2 + root.WorldGen.CELL_M) / geo.gM;
+          for (const side of [-1, 1]) {
+            const ix = Math.floor((x + nx * vergeU * side) * geo.N / geo.ext);
+            const iy = Math.floor((y + ny * vergeU * side) * geo.N / geo.ext);
+            if (ix >= 0 && iy >= 0 && ix < geo.N && iy < geo.N) cells.add(iy * geo.N + ix);
+          }
           if (kind === 'greenway' && Math.floor(s * geo.gM / SAMPLE_M) % (GREENWAY_GRASS_STEP_M / SAMPLE_M) === 0) {
             const vergeU = (root.WorldGen.roadOverlayWidthM(f.tags) / 2 + root.WorldGen.CELL_M) / geo.gM;
             for (const side of [-1, 1]) res.grassSeats.push({ x: x + nx * vergeU * side, y: y + ny * vergeU * side });
@@ -655,7 +664,7 @@
     const lines = yield* linesSteps(geo, L.transportation);
     const shore = yield* shoreSandSteps(geo, grid, under);
     const vistas = collectVistas(L.poi, tx, ty, N);
-    const out = { ext: geo.ext, lines: lines.lines, census: lines.census, stretches: lines.stretches, grassSeats: lines.grassSeats, shore, vistas };
+    const out = { ext: geo.ext, lines: lines.lines, census: lines.census, stretches: lines.stretches, grassSeats: lines.grassSeats, attractionCells: lines.attractionCells, shore, vistas };
     if (keepGeo) out._geo = geo;
     return out;
   }

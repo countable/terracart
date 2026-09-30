@@ -138,7 +138,7 @@
       return x >= 0 && y >= 0 && x < N && y < N ? y * N + x : -1;
     };
     const streetLists = streetDress ? [streetDress.objects, streetDress.wildplants,
-      streetDress.treasures, streetDress.coins] : [];
+      streetDress.treasures, streetDress.coins, streetDress.traps] : [];
     const scenicLists = scenicDress ? [scenicDress.objects, scenicDress.wildplants] : [];
     let count = 0;
     field.legacyRemovedByAnchor = field.legacyRemovedByAnchor || {};
@@ -5458,7 +5458,13 @@
       // the original rock substrate in caveSource so this visual preference
       // cannot move a mine entrance on an existing map.
       const oldRockLines = new Set(streetIndex.lines.filter(r => r.rocks).map(r => r.lineKey));
-      yield* StreetVariants.applyAffinitiesSteps(streetIndex, zone, w, mvtToM);
+      yield* StreetVariants.applyAffinitiesSteps(streetIndex, zone, w, mvtToM, {
+        grid,
+        pois: deduped.filter(isDensityChest).map(o => ({
+          ix: Math.floor((o.x - tileOriginMx) / cellWidthM),
+          iy: Math.floor((o.y - tileOriginMy) / cellWidthM),
+        })),
+      });
       const finalRockLines = new Set(streetIndex.lines.filter(r => r.rocks).map(r => r.lineKey));
       const added = streetIndex.lines.filter(r => r.rocks && !oldRockLines.has(r.lineKey));
       const removed = new Set([...oldRockLines].filter(key => !finalRockLines.has(key)));

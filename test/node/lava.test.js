@@ -56,8 +56,8 @@ test('lava: level 5 turns BUILDING rock to lava — not road or water rock, and 
 });
 
 test('lava: drawn as the water tile in red, shore and all', () => {
-  assert.truthy(/26: \{ variants: 2, draw: drawLavaTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS \}/.test(TEXTURES_SRC),
-    'the water animation, on the water clock');
+  assert.truthy(/26: \{ variants: 1, draw: drawLavaTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS \}/.test(TEXTURES_SRC),
+    'one seamless periodic wave, on the water clock');
   assert.truthy(/function drawLavaTex\([^)]*\) \{\s*\n\s*drawWaterTex\(ctx, size, rng, phaseFrac, LAVA_INKS\);/.test(TEXTURES_SRC),
     'the water drawing, in lava inks');
   assert.truthy(/type === WATER \|\| type === LAVA/.test(RENDER_SRC), 'and water\'s shoreline');

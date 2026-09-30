@@ -1115,7 +1115,7 @@ const COLORS = {
   // --- Underground cave biome (depth > 0) ---
   24: 0x6e6860, // CAVE_FLOOR — packed earth/stone floor (walkable)
   25: 0x4a4742, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
-  26: 0x9a2a10, // CAVE_LAVA  — molten rock under the buildings on WorldGen.LAVA_DEPTH
+  26: 0x78240f, // CAVE_LAVA  — molten rock under the buildings on WorldGen.LAVA_DEPTH
   // WASTELAND (27) — unclassified landuse (railway yards, brownfield,
   // neighbourhood outlines). Plays as residential; looks like the abandoned
   // scrub it is: residential's dirty concrete pulled toward dusty khaki.
@@ -8723,10 +8723,10 @@ class MapScene extends Phaser.Scene {
       const genGrid = entry.baseGrid || entry.grid;
       const laid = Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty,
         this.tileEdgeM, entry._ambientSpawnOpts || entry._spawnOpts, mul, entry.zone && entry.zone.under);
-      // Keep authored zone traps and already-discovered traps, one per cell.
+      // Keep authored zone/street traps and already-discovered traps, one per cell.
       const cells = new Set(laid.map((t) => t._iy * N + t._ix));
       for (const t of (entry.traps || [])) {
-        if ((!t.zoneVariant && !sprung.has(t.id)) || cells.has(t._iy * N + t._ix)) continue;
+        if ((!t.zoneVariant && !t._street && !sprung.has(t.id)) || cells.has(t._iy * N + t._ix)) continue;
         laid.push(t);
         cells.add(t._iy * N + t._ix);
       }

@@ -216,6 +216,17 @@ function seat(b, caught = new Set(), order) {
 }
 const cellOf = (c) => Math.floor((c.y - 4 * NB * CM) / CM) * NB + Math.floor((c.x - 3 * NB * CM) / CM);
 
+test('shore fauna: metal slimes use a sparse independent population with persistent identities', () => {
+  const b=beach(), all=seat(b), metals=all.filter(c=>c.kind==='metal_slime');
+  const count=Math.min(SHORE_FAUNA.metal_slime.max,
+    Math.floor((b.shore.shoreM+b.pierCells.length*CM)/SHORE_FAUNA.metal_slime.perShoreM));
+  assert.eq(metals.length,count); assert.gt(count,0);
+  assert.eq(metals.map(c=>c.id).join(),seat(b,new Set(),['metal_slime']).map(c=>c.id).join(),
+    'other species never reroll the metal stream');
+  assert.eq(seat(b,new Set(metals.map(c=>c.id))).filter(c=>c.kind==='metal_slime').length,0,
+    'defeated metal slimes do not respawn');
+});
+
 test('shore fauna: crabs on shore sand only, gulls on the shore or the pier, counted off the waterline', () => {
   const b = beach();
   const out = seat(b);

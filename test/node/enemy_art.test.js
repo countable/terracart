@@ -88,7 +88,7 @@ test('enemy art: size reduction targets 2x foes and the two selected giants only
     'marsh_zombie', 'copper_plant', 'ash_zombie', 'obsidian_brute'];
   const expected = Object.fromEntries(smaller.map(kind => [kind, 1.5]));
   Object.assign(expected, { giant_lich: 2.4, giant_skeleton: 1.68,
-    slime: 1.25, cave_slime: 1.25, purple_slime: 0.95, goblin: 1.25,
+    slime: 1.25, metal_slime: 1.25, cave_slime: 1.25, purple_slime: 0.95, goblin: 1.25,
     goblin_archer: 1.25, goblin_trapper: 1.25, mini_slime: 0.8125,
     mini_spider: 1.3, giant_slime: 1.6, giant_spider: 3.2,
     moss_slime: 1.25, giant_plant: 3.2,

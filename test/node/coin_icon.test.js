@@ -32,7 +32,7 @@ test('coin icon: the baked coin_drop graphics block is gone from app.js', () => 
 test('coin icon: the world coin scale derives from the 64px texture', () => {
   assert.falsy(/setScale\(1\.5 \* pulse\)/.test(RENDER_SRC),
     'the old 16px-disc scale is gone');
-  assert.truthy(/setScale\(\(COIN_DROP_PX \/ s\.width\) \* pulse\)/.test(RENDER_SRC),
+  assert.truthy(/setScale\(\(pile.width \/ s\.width\) \* pulse\)/.test(RENDER_SRC),
     'the draw scales the 64px frame down to a fixed displayed width');
   assert.truthy(/const COIN_DROP_PX = 16\.8;/.test(RENDER_SRC),
     'the displayed width is 30% smaller than 24px, a named constant');
@@ -114,3 +114,13 @@ test('coin icon: the HUD chip writes a bare number into #money-num', () => {
     'the old "$N" chip text is gone');
 });
 })();
+
+
+test('coin piles: pickup amounts select the exact quantity boundaries', () => {
+  for (const [amount, texture] of [[undefined, 'coin_drop'], [0, 'coin_drop'], [1, 'coin_drop'],
+    [2, 'coin_pile_small'], [10, 'coin_pile_small'], [11, 'coin_pile_medium'],
+    [50, 'coin_pile_medium'], [51, 'coin_pile_large'], [75, 'coin_pile_large']]) {
+    assert.eq(Render.coinPile({ amount }).texture, texture, `amount ${amount}`);
+  }
+  for (const row of Render.COIN_PILES) assert.lte(row.width, 30, 'fits a map cell');
+});

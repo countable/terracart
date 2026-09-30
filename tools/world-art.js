@@ -46,6 +46,7 @@
       if(ASSETS[sheet] && !SpriteLayout.creatureArt(sheet))want(sheet,Number.isNaN(Number(frame))?frame:Number(frame));
     }
     for(const [key,asset] of Object.entries(ASSETS))if(/^(house_|macro_)/.test(key))want(key,asset.kind==='image'?'__BASE':0);
+    for (const pile of Render.COIN_PILES) want(pile.texture);
     const crops = [...new Set([...Object.keys(CROP_ROW),...Object.keys(CROP_SPRITE)])];
     function plantArt(plant){const s=wildplantSprite(plant);return {key:s?.sheet||'crops',frame:s?.custom?wildplantFrame(plant):s?.sheet==='springcrops'?s.row*SPRING_CROPS_COLS+MAX_GROWTH_STAGE:(CROP_ROW[plant.crop]??1)*CROPS_SHEET_COLS+MAX_GROWTH_STAGE};}
     const plantRows=[];

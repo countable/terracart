@@ -114,11 +114,11 @@
       "spawnClass": "minor",
       "color": "#b58ad8"
     },
-    "blue": {
+    "flowers": {
       "kind": "wildplant",
-      "crop": "forgetmenot",
+      "crop": "flowers",
       "spawnClass": "minor",
-      "color": "#66b5ee"
+      "color": "#f4e4b1"
     },
     "orange": {
       "kind": "wildplant",
@@ -1538,9 +1538,9 @@
             "material": {
               "cycle": [
                 "orange",
-                "blue",
-                "blue",
-                "blue"
+                "flowers",
+                "flowers",
+                "flowers"
               ],
               "index": "block_x_plus_block_y"
             }
@@ -1553,9 +1553,9 @@
             "material": {
               "cycle": [
                 "orange",
-                "blue",
-                "blue",
-                "blue"
+                "flowers",
+                "flowers",
+                "flowers"
               ],
               "index": "block_x_plus_block_y"
             }
@@ -1568,9 +1568,9 @@
             "material": {
               "cycle": [
                 "orange",
-                "blue",
-                "blue",
-                "blue"
+                "flowers",
+                "flowers",
+                "flowers"
               ],
               "index": "block_x_plus_block_y"
             }
@@ -1583,9 +1583,9 @@
             "material": {
               "cycle": [
                 "orange",
-                "blue",
-                "blue",
-                "blue"
+                "flowers",
+                "flowers",
+                "flowers"
               ],
               "index": "block_x_plus_block_y"
             }
@@ -1597,10 +1597,10 @@
             ],
             "material": {
               "cycle": [
-                "blue",
+                "flowers",
                 "orange",
-                "blue",
-                "blue"
+                "flowers",
+                "flowers"
               ],
               "index": "block_x_plus_block_y"
             }
@@ -1612,10 +1612,10 @@
             ],
             "material": {
               "cycle": [
-                "blue",
+                "flowers",
                 "orange",
-                "blue",
-                "blue"
+                "flowers",
+                "flowers"
               ],
               "index": "block_x_plus_block_y"
             }
@@ -1627,10 +1627,10 @@
             ],
             "material": {
               "cycle": [
-                "blue",
+                "flowers",
                 "orange",
-                "blue",
-                "blue"
+                "flowers",
+                "flowers"
               ],
               "index": "block_x_plus_block_y"
             }
@@ -1642,10 +1642,10 @@
             ],
             "material": {
               "cycle": [
-                "blue",
+                "flowers",
                 "orange",
-                "blue",
-                "blue"
+                "flowers",
+                "flowers"
               ],
               "index": "block_x_plus_block_y"
             }
@@ -1657,7 +1657,7 @@
         "nominalDensity": 0.3333333333333333,
         "materialDensity": {
           "shrub": 0.1111111111111111,
-          "blue": 0.16666666666666666,
+          "flowers": 0.16666666666666666,
           "orange": 0.05555555555555555
         },
         "type": "repeat_motif",
@@ -1685,7 +1685,7 @@
               -1,
               0
             ],
-            "material": "blue"
+            "material": "flowers"
           },
           {
             "at": [
@@ -1706,7 +1706,7 @@
               1,
               0
             ],
-            "material": "blue"
+            "material": "flowers"
           },
           {
             "at": [
@@ -1720,14 +1720,14 @@
               0,
               -1
             ],
-            "material": "blue"
+            "material": "flowers"
           },
           {
             "at": [
               0,
               1
             ],
-            "material": "blue"
+            "material": "flowers"
           }
         ],
         "relocation": {
@@ -1863,7 +1863,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Compact square flower beds step along short straight shrub rows; blue forget-me-nots dominate, with occasional whole orange beds.",
+      "atmosphere": "Compact square flower beds step along short straight shrub rows; pale wildflowers dominate, with occasional whole orange beds.",
       "attracts": {},
       "materialLooks": {
         "shrub": "clipped"
@@ -1884,9 +1884,9 @@
         "plotCenters": {
           "material": {
             "cycle": [
-              "blue",
-              "blue",
-              "blue",
+              "flowers",
+              "flowers",
+              "flowers",
               "orange"
             ],
             "index": "block_x_plus_block_y"
@@ -1907,7 +1907,7 @@
         "nominalDensity": 0.5,
         "materialDensity": {
           "shrub": 0.375,
-          "blue": 0.046875,
+          "flowers": 0.046875,
           "orange": 0.015625,
           "carnivorous_plant": 0.0625
         },
@@ -6516,14 +6516,14 @@
               2,
               2
             ],
-            "material": "blue"
+            "material": "flowers"
           }
         ],
         "nominalDensity": 0.19444444444444445,
         "materialDensity": {
           "stone": 0.08333333333333333,
           "shell": 0.08333333333333333,
-          "blue": 0.027777777777777776
+          "flowers": 0.027777777777777776
         },
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
@@ -6580,14 +6580,14 @@
               -1,
               1
             ],
-            "material": "blue"
+            "material": "flowers"
           },
           {
             "at": [
               1,
               1
             ],
-            "material": "blue"
+            "material": "flowers"
           }
         ],
         "relocation": {
@@ -6643,7 +6643,7 @@
         "fallback": "omit_guard_keep_find"
       },
       "attracts": {},
-      "atmosphere": "Compact stone crescents, shell inlays and a blue flower center repeat every 6 × 6 cells. The single starflower remains the rare luminous find."
+      "atmosphere": "Compact stone crescents, shell inlays and a pale wildflower center repeat every 6 × 6 cells. The single starflower remains the rare luminous find."
     },
     {
       "id": "pirate_cove",

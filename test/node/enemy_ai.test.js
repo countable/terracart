@@ -9,6 +9,23 @@
   }
   function foe(kind, x = 0, y = 0) { return { kind, id: `ai_${kind}`, x, y }; }
 
+  test('metal slime: flees instead of attacking, with very high HP and a fixed 75-coin bounty', () => {
+    const row=EnemyRoster.get('metal_slime'), c=foe('metal_slime'), s=scene();
+    assert.eq(row.hp,375);
+    assert.gt(row.hp,EnemyRoster.get('red_dragon').hp);
+    assert.eq(row.dmg,0); assert.falsy(row.eliteEligible);
+    for(const depth of [0,1,12]) for(const mul of [1,2]) assert.eq(Combat.enemyBounty(c.kind,depth,mul),75);
+    for(let i=0;i<10;i++) {
+      rosterEnemyAttack(s,c,row,i*100,7,0,false,0.1);
+      rosterEnemyMove(s,c,row,i*100,7,0,false,false,null,0.1);
+    }
+    assert.lt(c.x,-2,'moves away from the player');
+    assert.eq(s.save.energy,100,'never attacks');
+    assert.eq(s._shots.length,0);
+    assert.eq(SpriteLayout.creatureArt(c.kind).sheet,c.kind);
+    const assets = new Function('window','EnemyRoster','SpriteLayout',ASSETS_SRC+'\nreturn ASSETS;')({},EnemyRoster,SpriteLayout);
+    assert.truthy(assets[c.kind].onLoad,'canonical palette recolor supplies silver art');
+  });
   test('enemy AI: walk distance uses absolute metres, independent of cell size', () => {
     const row = EnemyRoster.get('zombie');
     const positions = [];
