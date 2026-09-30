@@ -97,9 +97,9 @@ async function tileBytes(tx, ty) {
     const r = await fetch(`../test/fixtures/${tx}_${ty}.pbf`).catch(() => null);
     if (r && r.ok) return new Uint8Array(await r.arrayBuffer());
   }
-  if (!tileBytes.tpl) tileBytes.tpl = (await (await fetch(WorldGen.TILEJSON_URL)).json()).tiles[0];
-  const r = await fetch(tileBytes.tpl.replace('{z}', WorldGen.Z).replace('{x}', tx).replace('{y}', ty));
-  return r.ok ? new Uint8Array(await r.arrayBuffer()) : null;
+  // The game's own fetch: IndexedDB-cached (same origin, same store as the
+  // game), live TileJSON template, stale records refreshed in the background.
+  try { return (await WorldGen.fetchTileBytes(tx, ty)).bytes; } catch (_) { return null; }
 }
 function tileList() {
   if (FIXTURES) {
@@ -133,13 +133,22 @@ async function fetchTiles() {
   raw = [];
   const list = tileList();
   EDGE = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(list[Math.floor(list.length / 2)][1]));
-  for (const [tx, ty] of list) {
-    const [b, bin] = await Promise.all([
-      tileBytes(tx, ty),
-      WorldGen.getTileBin(tx, ty, WorldGen.latOfRowCentre(ty)),
-    ]);
-    if (b) raw.push({ tx, ty, layers: MVT.decodeTile(b), bin });
-  }
+  // A few tiles in flight at once; raw keeps tileList() order regardless.
+  const got = new Array(list.length);
+  let next = 0, done = 0;
+  const worker = async () => {
+    while (next < list.length) {
+      const i = next++, [tx, ty] = list[i];
+      const [b, bin] = await Promise.all([
+        tileBytes(tx, ty),
+        WorldGen.getTileBin(tx, ty, WorldGen.latOfRowCentre(ty)),
+      ]);
+      if (b) got[i] = { tx, ty, layers: MVT.decodeTile(b), bin };
+      $('status').textContent = `fetching tiles… ${++done}/${list.length}`;
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, worker));
+  raw = got.filter(Boolean);
 }
 
 // A scene with the fields spawnInTile and its helpers read, and no-ops for
@@ -216,7 +225,6 @@ const bases = {
   'Streets (OSM)': L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxNativeZoom: 19, maxZoom: 21, attribution: '© OpenStreetMap' }),
   'Satellite (Esri)': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxNativeZoom: 19, maxZoom: 21, attribution: 'Esri' }),
 };
-bases['Streets (OSM)'].addTo(map);
 const $ = (id) => document.getElementById(id);
 const mkRow = (host, type, html, checked, on, name) => {
   const l = document.createElement('label');
@@ -232,8 +240,11 @@ const gameArt = MapReviewArt.layer({
   },
 });
 bases['Game art'] = gameArt;
+const DEFAULT_BASE = 'Game art';
+bases[DEFAULT_BASE].addTo(map);
+$('artStatus').hidden = $('artOptions').hidden = DEFAULT_BASE !== 'Game art';
 $('restoredLamps').onchange = () => gameArt.setRestoredLamps($('restoredLamps').checked);
-Object.keys(bases).forEach((k, i) => mkRow($('bases'), 'radio', k, i === 0, () => {
+Object.keys(bases).forEach((k) => mkRow($('bases'), 'radio', k, k === DEFAULT_BASE, () => {
   Object.values(bases).forEach((b) => map.removeLayer(b)); bases[k].addTo(map).bringToBack();
   $('artStatus').hidden = k !== 'Game art';
   $('artOptions').hidden = k !== 'Game art';
@@ -248,7 +259,7 @@ const colour = (k, i) => FIXED[k] || `hsl(${Math.round(i * 137.508 % 360)},80%,5
 // hidden until it springs, so it is not something on screen to interact with.
 const onByDefault = (k) => k !== 'trap';
 const state = {
-  layers: {}, shown: {}, markersShown: true,
+  layers: {}, shown: {}, markersShown: false,
   get markersOff() { return map.hasLayer(gameArt) || !this.markersShown; },
 };
 let markersToggle;
