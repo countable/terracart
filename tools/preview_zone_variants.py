@@ -88,16 +88,16 @@ def material_art(material):
     elif kind == 'tree':
         species = material.get('species', 'maple')
         sheet = 'trees' if species == 'maple' else species + '_tree'
-        # ZoneDressing sets variant=1; size-bearing maples render mature frame 3.
+        # Explicit canopy sizes select authored growth frames for both species.
         stage = str(max(1, min(3, round(material.get('variant', 2)))))
-        frames = [3 if material.get('size') or species != 'maple' else r['treeStages'][stage]['frame']]
+        frames = [r['treeArt'][species][material['size']]['frame'] if material.get('size') else r['treeStages'][stage]['frame']]
     elif kind == 'fruittree':
         species = material.get('species', 'apple')
         sheet, frames = species + '_tree', [r['fruitFrames'][species]['mature']]
     else:
         sheet, frames = ('approved_charred_stakes' if kind == 'stakes' and material.get('_street') == 'burned' else kind), [0]
     assert sheet in r['assets'], f'No shipping art for {material}'
-    return {'sheet': sheet, 'frames': frames, 'preserveFrame': kind == 'tree' or (kind == 'wildplant' and material.get('crop') == 'shrub'), 'tint': r['creatures'].get(kind, {}).get('tint', 0xffffff),
+    return {'sheet': sheet, 'frames': frames, 'preserveFrame': kind == 'tree' or (kind == 'wildplant' and material.get('crop') in ('shrub', 'giant_mushroom')), 'tint': r['creatures'].get(kind, {}).get('tint', 0xffffff),
             'source': r['assets'][sheet]['path'].split('?')[0] + ' · frame ' + ', '.join(map(str, frames))}
 
 
@@ -114,15 +114,21 @@ def sprite_symbols(materials, prefix):
 
 
 def sprite_cell(prefix, material, x, y, size, definition=None):
-    if definition and definition.get('kind') == 'wildplant' and definition.get('crop') == 'shrub':
+    if definition and definition.get('kind') == 'wildplant' and definition.get('crop') in ('shrub', 'giant_mushroom'):
         art = material_art(definition)
         placement = art_registry()['plantPlacements'][art['sheet'] + ':' + str(art['frames'][0])]
         unit = size / .8 / art_registry()['cellPx']
         width, height = placement['width'] * unit, placement['height'] * unit
         cx, cy = x + size / 2, y + size / 2
-        return art_image(art, f'class="sprite-cell" x="{cx + placement["dxPx"] * unit - width / 2}" y="{cy + placement["dyPx"] * unit - height / 2}" width="{width}" height="{height}"')
+        shadow = placement.get('shadow')
+        shadow_svg = ''
+        if shadow:
+            for ring in range(12, 0, -1):
+                t = ring / 12
+                shadow_svg += f'<ellipse class="sprite-cell" cx="{cx}" cy="{cy + shadow["dyPx"] * unit}" rx="{shadow["width"] * unit * 30/64 * t}" ry="{shadow["height"] * unit * 15/32 * t}" fill="black" opacity="{shadow["alpha"] * (.05 + .16 * (1-t))}"/>'
+        return shadow_svg + art_image(art, f'class="sprite-cell" x="{cx + placement["dxPx"] * unit - width / 2}" y="{cy + placement["dyPx"] * unit - height / 2}" width="{width}" height="{height}"')
     if definition and definition.get('kind') == 'tree' and definition.get('size'):
-        factor = 48 * art_registry()['treeSizes'][definition['size']] / 32
+        factor = 48 * art_registry()['treeArt'][definition.get('species', 'maple')][definition['size']]['scale'] / 32
         x -= size * (factor - 1) / 2
         y -= size * (factor - 1)
         size *= factor

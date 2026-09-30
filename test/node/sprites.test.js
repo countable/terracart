@@ -437,8 +437,8 @@ test('shrubs have only basic and cut art with identical harvesting and no biome 
   }
 });
 
-test('Mushroom Grove giant caps seat their base inside the cell and keep shrub rewards', () => {
-  const p = {crop:'shrub', _plantArt:'giant_mushroom'};
+test('Mushroom Grove giant caps seat their base inside the cell and have distinct rewards', () => {
+  const p = {crop:'giant_mushroom'};
   const art = wildplantSprite(p);
   assert.eq(art.sheet, 'giant_mushroom');
   assert.eq(wildplantFrame(p), 2);
@@ -447,7 +447,9 @@ test('Mushroom Grove giant caps seat their base inside the cell and keep shrub r
   const pos = SpriteLayout.seatInCell(box, .5, .5, art.scale, art.scale);
   assert.eq(pos.dyPx + (box.maxY - box.fh/2) * art.scale, SpriteLayout.CELL_PX/2 - 1);
   assert.eq(pos.dxPx + ((box.minX + box.maxX)/2 - box.fw/2) * art.scale, 0);
-  assert.eq(wildplantRule(p.crop).output, 'wood');
+  assert.eq(JSON.stringify(wildplantRewards(p.crop)),JSON.stringify([{id:'wood',qty:1},{id:'mushroom',qty:1}]));
+  assert.eq(itemName(p.crop),'Giant mushroom');
+  assert.eq(inventoryIconSource(p.crop).sheet,'giant_mushroom');
   assert.truthy(RENDER_SRC.includes('const box = ov?.seat && SpriteLayout.ART_BOUNDS'));
 });
 
@@ -492,5 +494,25 @@ test('fallen wood uses look 2 for every quantity without changing the stack', ()
     const stack={kind:'groundstack',itemId:'wood',qty};
     assert.eq(spec.frame(stack),1);
     assert.eq(stack.qty,qty);
+  }
+});
+
+
+test('maple and pine canopy sizes use authored growth art at a fixed species scale', () => {
+  const spec = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.tree;
+  for (const species of ['maple','pine']) {
+    const sizes=['small','medium','large'];
+    const scales=sizes.map(size=>spec.scale({species,size}));
+    assert.eq(new Set(scales).size,1,'growth comes from artwork, not resizing mature crowns');
+    for (let i=0;i<sizes.length;i++) {
+      const o={species,size:sizes[i],variant:1};
+      assert.eq(spec.frame(o),i+1);
+      assert.eq(treeSizeClass(o),['small','medium','full'][i]);
+      assert.eq(treeWoodMul(o),[1,2,4][i]);
+      assert.truthy(SpriteLayout.ART_BOUNDS[`${spec.key(o)}:${spec.frame(o)}`]);
+    }
+    for (const variant of [1,2,3]) assert.eq(spec.frame({species,variant}),variant);
+    assert.eq(spec.frame({species,variant:0}),1,'never a seed or stump');
+    assert.eq(spec.frame({species,variant:4}),3,'never dead or seasonal art');
   }
 });

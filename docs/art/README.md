@@ -39,7 +39,9 @@ preserved exactly. The six defaults are exported to `assets/Objects/Rustic/` wit
 `tools/apply_nature_recolours.py`, including matching growth and broken-pot
 states. Shrubs have two appearances: the basic bush and the approved cut hedge at 80%
 of its former residential display size. Both share shrub mechanics, and neither
-receives biome tint. Timber trees use maple or pine, without bush-sized forms. Biomes do not tint sprites. Long grass keeps its standard art and wetland reeds context; mushrooms retain the surface cap, two cave caps, and Mushroom Grove cap cluster. The game has no seasons.
+receives biome tint. The cut hedge has a soft contact shadow behind its lower third.
+Timber trees use maple or pine sprout, young and mature frames at one scale per
+species; their size classes retain their harvest tiers and yields. Biomes do not tint sprites. Long grass keeps its standard art and wetland reeds context; mushrooms retain the surface cap, two cave caps, and Mushroom Grove cap cluster. The game has no seasons.
 
 Generate both linked review pages and palette exports (Pillow and Node required):
 
@@ -141,10 +143,13 @@ contrast references beside the proposed art.
 The rejected ground tileset alternatives remain in source details: the actual
 procedural materials are better suited to arbitrary map polygons.
 
-Mushroom Grove keeps giant woody mushrooms as a special shrub appearance, with
-the same wood harvesting. Their tall sprites seat their base inside the cell,
+Mushroom Grove has distinct giant mushrooms: axe harvesting gives one wood and
+one mushroom. Their tall sprites seat their base inside the cell,
 like trees. Ordinary shrubs retain only the basic bush and smaller cut hedge.
-Mushroom forage retains its cap-cluster art and mushroom harvesting.
+Mushroom forage retains its cap-cluster art and mushroom harvesting. The surface
+toadstool and cap cluster share baked muted red and cream colors. Rockfruit stone
+pixels use the approved ore rocks’ grey palette across growth and inventory
+frames, including player-placed rocks; foliage and sprite alpha are preserved.
 Carnivorous plants use a muted olive multiply tint from their shared enemy-roster
 row, so gameplay, zone previews and the foliage audit agree.
 

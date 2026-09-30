@@ -606,40 +606,25 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep rockfruit\u2019s existing shape and shading, shifting its cool stone colour 35% toward the actual ore-rock substrate\u2019s warm greys and tan highlights. Include its growing and placed-stone frames. Broken Masonry uses its own brick-and-stone rubble silhouette.",
+        "note": "Bake warm neutral grey into the cool blue/purple rocky area only, across growth, wild and placed-stone frames. Preserve original foliage, orange fruit, outlines, transparency and luminance shading.",
         "palette": [
           {
-            "id": "ore-stone-0",
-            "hex": "#1b151e"
+            "id": "stone-shadow",
+            "hex": "#514f49"
           },
           {
-            "id": "ore-stone-1",
-            "hex": "#38242e"
+            "id": "stone",
+            "hex": "#9e9c96"
           },
           {
-            "id": "ore-stone-2",
-            "hex": "#493838"
-          },
-          {
-            "id": "ore-stone-3",
-            "hex": "#6b4749"
-          },
-          {
-            "id": "ore-stone-4",
-            "hex": "#926d6a"
-          },
-          {
-            "id": "ore-stone-5",
-            "hex": "#b4a07f"
-          },
-          {
-            "id": "ore-stone-6",
-            "hex": "#c7bb97"
+            "id": "stone-highlight",
+            "hex": "#c4c2bc"
           }
         ],
-        "recolourStrength": 0.35,
+        "recolourStrength": 1,
         "preserveLuminance": true,
-        "growthStages": true
+        "growthStages": true,
+        "recolourMode": "rockfruit-stone"
       },
       "zoneVariant": {
         "name": "Broken Masonry debris",
@@ -687,32 +672,50 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
+        "note": "Both surface mushroom silhouettes share muted brick-red caps and cream stems/spots. Bake the exact source palette mapping; preserve every pixel silhouette and cave mushroom colours.",
         "palette": [
           {
             "id": "ink",
-            "hex": "#171717"
+            "hex": "#29252a"
           },
           {
-            "id": "shadow",
-            "hex": "#28110b"
+            "id": "red-shadow",
+            "hex": "#603e39"
           },
           {
-            "id": "clay",
-            "hex": "#90431b"
+            "id": "red",
+            "hex": "#9d5648"
           },
           {
-            "id": "rust",
-            "hex": "#ba6724"
+            "id": "red-light",
+            "hex": "#bb7761"
           },
           {
             "id": "cream",
-            "hex": "#e6d7a3"
+            "hex": "#d7c4a0"
+          },
+          {
+            "id": "cream-light",
+            "hex": "#ece0bd"
           }
         ],
-        "recolourStrength": 0.075,
-        "recolourMode": "gentle-tune",
-        "preserveLuminance": true
+        "recolourStrength": 1,
+        "recolourMode": "surface-mushroom",
+        "preserveLuminance": true,
+        "colourMap": {
+          "#171717": "#29252a",
+          "#28110b": "#603e39",
+          "#90431b": "#9d5648",
+          "#ba6724": "#bb7761",
+          "#e6d7a3": "#ece0bd",
+          "#352026": "#29252a",
+          "#602c35": "#603e39",
+          "#be6d47": "#9d5648",
+          "#ee9d51": "#bb7761",
+          "#ffbb6e": "#d7c4a0",
+          "#d9a88a": "#d7c4a0",
+          "#f7dbc6": "#ece0bd"
+        }
       },
       "zoneVariant": {
         "name": "Mushroom Grove cap cluster",
@@ -726,7 +729,7 @@
             16
           ]
         },
-        "note": "Source frame108 groups caps into one clear silhouette. Recolour to brick, rust and cream, preserving the current size and per-cell loot. This variant already repeats four mushroom cells per6\u00d76 motif; it gains identity without adding clutter or reward."
+        "note": "Keep the cap-cluster silhouette and cell loot, using exactly the same muted red and cream palette as the ordinary surface mushroom."
       }
     },
     {

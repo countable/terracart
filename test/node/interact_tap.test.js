@@ -934,3 +934,25 @@ test('shipwreck shrine: every reserved cell taps the same reward, outside cells 
     assert.eq(findItemInTapCell(scene, 'objects', {x:7.5,y:12.5}), null, 'fallback small shrine has one cell');
   } finally { globalThis.WorldGen = original; }
 });
+
+
+test('giant mushroom harvest awards wood and mushroom once through axe work', () => {
+  const original=globalThis.WorldGen;
+  let award, duration, cost, relic;
+  const plant={kind:'wildplant',crop:'giant_mushroom',id:'giant_harvest_test',x:2.5,y:2.5};
+  const save={picked:[],energy:100,relics:{axe:{tier:1}}};
+  const scene=makeGridScene({save,
+    startWorkProgress:(x,y,cb,ms,energy,tool)=>{award=cb;duration=ms;cost=energy;relic=tool;},
+  });
+  try {
+    globalThis.WorldGen={...original,forEachItem:(layer,cb)=>{if(layer==='wildplants')cb(plant);}};
+    const context={scene,save,wm:{x:2.5,y:2.5},sx:0,sy:0};
+    assert.eq(TAP_HANDLERS.find(h=>h.name==='wildplant').try(context),true);
+    assert.eq(scene.invCount('wood'),0,'work must finish first');
+    assert.eq(relic,'axe');assert.eq(duration,toolDurationMs(save.relics,'axe'));assert.eq(cost,3);
+    award();award();
+    assert.eq(scene.invCount('wood'),1);assert.eq(scene.invCount('mushroom'),1);
+    assert.eq(scene.invCount('giant_mushroom'),0,'the plant itself is not an inventory item');
+    assert.eq(save.picked.filter(id=>id===plant.id).length,1,'one persistent picked identity');
+  } finally {globalThis.WorldGen=original;}
+});

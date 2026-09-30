@@ -47,6 +47,7 @@ function add(id,label,group,object,usage,note='') {
   if (!full || !full.visible) throw new Error('Missing appearance: ' + id);
   const {spec, ...appearance} = full;
   appearance.tint = object.kind === 'plant' ? SL.creatureTint(object.kind) : object.kind === 'wildplant' ? (ctx.BiomeProfiles.tint(object._biome, object.crop) || 0xffffff) : vm.runInContext('Render',ctx).spriteTint(object,ctx.scene,appearance.texKey);
+  if (object.kind === 'wildplant') appearance.shadow = vm.runInContext('Render',ctx).wildplantShadow(object);
   const overlays = [];
   if (object.kind === 'fruittree') {
     resolver.fruitList.length = 0;
@@ -60,8 +61,7 @@ function add(id,label,group,object,usage,note='') {
   samples.push({id,label,group,usage,object,appearance,overlays,note,status});
 }
 for (const species of ['maple','pine']) {
-  for (const size of ['small','medium','large']) add(`tree-${species}-${size}`,`${species} · ${size}`,'Trees',{kind:'tree',species,size},'Detected / generated timber tree','Mature crown at the runtime size class.');
-  if (species === 'maple') for (const variant of [1,2,3]) add(`tree-${species}-stage-${variant}`,`${species} · growth ${variant}`,'Tree growth',{kind:'tree',species,variant},'Timber growth / size-less tree','Small growth frames should be compared with the mature crown.');
+  for (const size of ['small','medium','large']) add(`tree-${species}-${size}`,`${species} · ${{small:'sprout',medium:'young',large:'mature'}[size]} (${size})`,'Trees',{kind:'tree',species,size},'Detected / generated timber tree','Authored sprout, young or mature artwork; fixed scale per species.');
 }
 for (const species of ['apple','peach']) {
   for (let stage=0;stage<=4;stage++) add(`fruit-${species}-${stage}`,`${species} · ${['sprout','young','green','blossom','bearing'][stage]}`,'Fruit trees',{kind:'fruittree',species,planted:true,planted_t:now-(stage+0.1)*ctx.Crops.FRUIT_STAGE_MS},'Planted fruit tree');
@@ -72,7 +72,7 @@ for (const species of ['apple','peach']) {
 function plant(id,label,crop,extra={},group='Foliage and ground cover',usage='Wild / zone plant',note='') {
   add(id,label,group,{kind:'wildplant',crop,stage:registry.maxStage,wildId:id,...extra},usage,note);
 }
-const natural = ['shrub','longgrass','mushroom','forgetmenot','marigold','wildrose','starflower','rockfruit','flint','shell','driftwood'];
+const natural = ['giant_mushroom','shrub','longgrass','mushroom','forgetmenot','marigold','wildrose','starflower','rockfruit','flint','shell','driftwood'];
 for (const crop of natural) {
   const group = ['rockfruit','flint','shell','driftwood'].includes(crop) ? 'Loose stones and beach' : 'Foliage and ground cover';
   plant(`plant-${crop}`,registry.names[crop] || crop,crop,{},group,crop==='shrub'?'Basic shrub':'Wild / zone plant',crop==='shrub'?'The basic bush and cut hedge share the same harvesting mechanics.':'');
@@ -112,6 +112,9 @@ for (const sample of samples) {
     sample.group='Rocks · mining';sample.family=o.yieldTier>1?'Tiered ore':'Plain stones';sample.phase='Default appearance';
   } else if(o.kind==='groundstack') {
     sample.group='Loose materials · pickup';sample.family='Fallen wood';sample.phase='Stack appearance';
+  } else if(o.crop==='giant_mushroom') {
+    sample.group='Giant mushrooms · wood + mushroom harvest';sample.family='Giant mushroom';sample.phase='Appearance';
+    sample.note='Chop with the axe: harvest 1 Wood and 1 Mushroom.';
   } else if(o.crop==='shrub') {
     sample.group='Shrubs · wood harvest';sample.family='Shrub';sample.phase='Appearance';
   } else if(o._placedRock) {
@@ -124,7 +127,7 @@ for (const sample of samples) {
   }
 }
 const phaseOrder=['Growth stage','Crown size','Appearance','Default appearance','Cave appearance','After picking','Context tint'];
-const groupOrder=['Timber trees · wood harvest','Fruit trees · recurring fruit','Shrubs · wood harvest','Forage · wild harvest','Rocks · mining','Loose materials · pickup','Planted crops · growth and harvest','Carnivorous plants · rooted enemy'];
+const groupOrder=['Timber trees · wood harvest','Fruit trees · recurring fruit','Shrubs · wood harvest','Giant mushrooms · wood + mushroom harvest','Forage · wild harvest','Rocks · mining','Loose materials · pickup','Planted crops · growth and harvest','Carnivorous plants · rooted enemy'];
 samples.sort((a,b)=>groupOrder.indexOf(a.group)-groupOrder.indexOf(b.group)||a.family.localeCompare(b.family)||phaseOrder.indexOf(a.phase)-phaseOrder.indexOf(b.phase));
 const assets = {};
 for(const sample of samples) for(const [key,frame] of [[sample.appearance.texKey,sample.appearance.frameVal],...sample.overlays.map(o=>[o.key,o.frame])]) {

@@ -241,7 +241,7 @@ const SHEETS = {
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
   // 32×48, not 32×64: at 64 the birch frame reached into the sheet's lower
   // band and picked up the tip of the red autumn tree (see assets.js).
-  pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [3] },
+  pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [1, 2, 3] },
   bushes:        { file: 'assets/Objects/Approved/bushes.png',             fw: 48, fh: 32, frames: [0] },
   // The sheets' fruiting cells (apple 7, peach 5) are deliberately absent: a
   // bearing tree now keeps its mature frame and wears a fruit sprite instead,
@@ -290,14 +290,14 @@ const SEAT_ANCHOR = [0.5, 0.5];
 const SCENARIOS = [
   { name: 'maple sprout',    key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },
   { name: 'maple young',     key: 'trees',         frameIdx: 2, scale: t('maple', 'medium') },
-  { name: 'maple small',     key: 'trees',         frameIdx: 3, scale: t('maple', 'small') },
-  { name: 'maple medium',    key: 'trees',         frameIdx: 3, scale: t('maple', 'medium') },
+  { name: 'maple small',     key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },
+  { name: 'maple medium',    key: 'trees',         frameIdx: 2, scale: t('maple', 'medium') },
   { name: 'maple large',     key: 'trees',         frameIdx: 3, scale: t('maple', 'large') },
-  { name: 'pine small',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'small') },
-  { name: 'pine medium',     key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'medium') },
+  { name: 'pine small',      key: 'pine_tree',     frameIdx: 1, scale: t('pine', 'small') },
+  { name: 'pine medium',     key: 'pine_tree',     frameIdx: 2, scale: t('pine', 'medium') },
   { name: 'pine large',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'large') },
   { name: 'bush',            key: 'bushes',        frameIdx: 0, scale: SHRUB_SCALE },
-  { name: 'giant mushroom', key: 'giant_mushroom', frameIdx: 2, scale: itemsCtx.WILDPLANT_CONTEXT_ART.giant_mushroom.scale },
+  { name: 'giant mushroom', key: 'giant_mushroom', frameIdx: 2, scale: itemsCtx.CROP_SPRITE.giant_mushroom.scale },
   { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, scale: 0.85 * 0.625, scaleYMul: 1.10 },
   { name: 'apple (wild)',    key: 'apple_tree',    frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
   { name: 'peach (wild)',    key: 'peach_tree',    frameIdx: 3, scale: 0.85, scaleYMul: 1.10 },

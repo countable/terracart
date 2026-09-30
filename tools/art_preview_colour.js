@@ -37,6 +37,22 @@ globalThis.ArtPreviewColour = (() => {
       }
       ctx.putImageData(pixels,0,0);return canvas;
     }
+    if(options.mode==='rockfruit-stone'){
+      // Rockfruit shares its row with living foliage and orange fruit. Only
+      // the cool blue/purple stone pixels receive the baked warm-grey ramp.
+      // Retain the prior approved treatment on living parts of the same row.
+      const sourcePixels=new Uint8ClampedArray(pixels.data);
+      recolour(canvas,['#1b151e','#38242e','#493838','#6b4749','#926d6a','#b4a07f','#c7bb97'],{strength:.35,preserveLuminance:true});
+      pixels.data.set(ctx.getImageData(0,0,canvas.width,canvas.height).data);
+      for(let i=0;i<pixels.data.length;i+=4){
+        if(!pixels.data[i+3])continue;
+        const [r,g,b]=sourcePixels.subarray(i,i+3),light=luma([r,g,b]);
+        if(light<35||b<=r+4||b<=g+4)continue;
+        const grey=[light+3,light+1,light-5];
+        grey.forEach((v,k)=>pixels.data[i+k]=clamp(v));
+      }
+      ctx.putImageData(pixels,0,0);return canvas;
+    }
     if(options.colourMap){
       const mapping=new Map(Object.entries(options.colourMap).map(([from,to])=>[rgb(from).join(','),rgb(to)]));
       for(let i=0;i<pixels.data.length;i+=4){

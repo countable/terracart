@@ -97,15 +97,15 @@
     assert.eq(out.wildplants.length, 3, 'only the finite gemfruit finds remain');
     assert.truthy(out.wildplants.every(o => o.crop === 'gemfruit' && o.zoneLayer === 'find'));
   });
-  test('zone dressing: Mushroom Grove giant mushrooms retain shrub harvesting and identities', () => {
+  test('zone dressing: Mushroom Grove giant mushrooms have distinct rewards and preserve placement identities', () => {
     const grove = ZoneDressing.dress(context('mushroom_grove'));
-    const giants = grove.wildplants.filter(o => o.crop === 'shrub');
+    const giants = grove.wildplants.filter(o => o.crop === 'giant_mushroom');
     assert.gt(giants.length, 0);
     for (const o of giants) {
-      assert.eq(o._plantArt, 'giant_mushroom');
+      assert.eq(o._plantArt, undefined, 'distinct crop needs no shrub art override');
       assert.eq(o.kind, 'wildplant');
       assert.eq(o.id, WorldGen.cellId('wpf', 0, 0, o._ix, o._iy), 'existing shrub identity survives the art change');
-      assert.eq(wildplantRule(o.crop).output, 'wood');
+      assert.eq(JSON.stringify(wildplantRewards(o.crop)),JSON.stringify([{id:'wood',qty:1},{id:'mushroom',qty:1}]));
       assert.eq(wildplantSprite(o).sheet, 'giant_mushroom');
       assert.eq(wildplantFrame(o), 2);
     }

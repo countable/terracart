@@ -258,6 +258,12 @@
       "recordType": "enemy",
       "spawnClass": "enemy",
       "color": "#9cbd56"
+    },
+    "giant_mushroom": {
+      "kind": "wildplant",
+      "crop": "giant_mushroom",
+      "spawnClass": "minor",
+      "color": "#947051"
     }
   },
   "variants": [
@@ -1086,14 +1092,14 @@
               2,
               2
             ],
-            "material": "shrub"
+            "material": "giant_mushroom"
           },
           {
             "at": [
               5,
               5
             ],
-            "material": "shrub"
+            "material": "giant_mushroom"
           }
         ],
         "densityFalloff": "none",
@@ -1102,7 +1108,7 @@
         "nominalDensity": 0.16666666666666666,
         "materialDensity": {
           "mushroom": 0.1111111111111111,
-          "shrub": 0.05555555555555555
+          "giant_mushroom": 0.05555555555555555
         },
         "type": "repeat_motif",
         "poiOrigin": {
@@ -1272,13 +1278,12 @@
           "spider"
         ]
       },
-      "atmosphere": "Staggered mushroom pairs repeat every six cells, with giant woody mushrooms between them. The close-set caps lead to a crescent and its luminous flower.",
+      "atmosphere": "Staggered mushroom pairs repeat every six cells, with giant woody mushrooms between them. The close-set caps lead to a crescent and its luminous flower. Chop a giant mushroom for both wood and a mushroom.",
       "attracts": {
         "butterfly": 0.5
       },
       "materialLooks": {
-        "mushroom": "cap_cluster",
-        "shrub": "giant_mushroom"
+        "mushroom": "cap_cluster"
       }
     },
     {

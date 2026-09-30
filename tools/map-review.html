@@ -133,15 +133,18 @@ const toM = (lat, lon, edge) => {
 };
 
 // ── Building the world around a Home ────────────────────────────────────────
-let raw = null;          // [{ tx, ty, layers }] — decoded once
+let raw = null;          // [{ tx, ty, layers, bin }] — decoded / fetched once
 let EDGE = 0;            // the one tileEdgeM the scene uses (the start row's, as app.js does)
 async function fetchTiles() {
   raw = [];
   const list = tileList();
   EDGE = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(list[Math.floor(list.length / 2)][1]));
   for (const [tx, ty] of list) {
-    const b = await tileBytes(tx, ty);
-    if (b) raw.push({ tx, ty, layers: MVT.decodeTile(b) });
+    const [b, bin] = await Promise.all([
+      tileBytes(tx, ty),
+      WorldGen.getTileBin(tx, ty, WorldGen.latOfRowCentre(ty)),
+    ]);
+    if (b) raw.push({ tx, ty, layers: MVT.decodeTile(b), bin });
   }
 }
 
@@ -174,10 +177,20 @@ function buildWorld(home) {
   WorldGen.tileCache.clear();
   const scene = reviewScene(home);
   const tiles = [];
-  for (const { tx, ty, layers } of raw) {
+  for (const { tx, ty, layers, bin } of raw) {
     const N = WorldGen.cellsPerEdgeForTile(ty);
     const r = WorldGen.rasterizeTile(layers, N, tx, ty, EDGE);
     const entry = Object.assign({ tx, ty, cellsPerEdge: N, tileEdgeM: EDGE, layers }, r);
+    entry.objects = r.objects.slice();
+    // Match loadTile: keep the generated layer stable, then seat real-world
+    // trees before authored dressing is replayed by spawnInTile. Cached bin
+    // rows are cloned by injectTileBin, so rerolls and moving Home reuse them.
+    WorldGen.maybePlaceCaveEntrance(entry, tx, ty, EDGE, r.objects, r.wildplants);
+    entry.baseGrid = entry.grid.slice();
+    entry.genObjects = entry.objects.slice();
+    entry.hadBin = !!bin;
+    WorldGen.injectTileBin(entry, bin, tx, ty);
+    WorldGen.stampPoiDensity(entry.objects);
     ZoneReview.capture(entry);
     WorldGen.tileCache.set(WorldGen.tileKey(tx, ty), entry);
     tiles.push(entry);

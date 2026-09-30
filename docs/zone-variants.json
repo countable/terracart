@@ -256,6 +256,12 @@
       "recordType": "enemy",
       "spawnClass": "enemy",
       "color": "#9cbd56"
+    },
+    "giant_mushroom": {
+      "kind": "wildplant",
+      "crop": "giant_mushroom",
+      "spawnClass": "minor",
+      "color": "#947051"
     }
   },
   "variants": [
@@ -1084,14 +1090,14 @@
               2,
               2
             ],
-            "material": "shrub"
+            "material": "giant_mushroom"
           },
           {
             "at": [
               5,
               5
             ],
-            "material": "shrub"
+            "material": "giant_mushroom"
           }
         ],
         "densityFalloff": "none",
@@ -1100,7 +1106,7 @@
         "nominalDensity": 0.16666666666666666,
         "materialDensity": {
           "mushroom": 0.1111111111111111,
-          "shrub": 0.05555555555555555
+          "giant_mushroom": 0.05555555555555555
         },
         "type": "repeat_motif",
         "poiOrigin": {
@@ -1270,13 +1276,12 @@
           "spider"
         ]
       },
-      "atmosphere": "Staggered mushroom pairs repeat every six cells, with giant woody mushrooms between them. The close-set caps lead to a crescent and its luminous flower.",
+      "atmosphere": "Staggered mushroom pairs repeat every six cells, with giant woody mushrooms between them. The close-set caps lead to a crescent and its luminous flower. Chop a giant mushroom for both wood and a mushroom.",
       "attracts": {
         "butterfly": 0.5
       },
       "materialLooks": {
-        "mushroom": "cap_cluster",
-        "shrub": "giant_mushroom"
+        "mushroom": "cap_cluster"
       }
     },
     {
@@ -2069,7 +2074,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Sixteen garden rooms form a clear 4 × 4 square. The POI is centered in an inner room, framed by four marigolds. Two roses distinguish the far corner rooms. A stationary carnivorous plant replaces one hedge seat in each repeated garden plot.",
+      "atmosphere": "Sixteen garden rooms form a clear 4 \u00d7 4 square. The POI is centered in an inner room, framed by four marigolds. Two roses distinguish the far corner rooms. A stationary carnivorous plant replaces one hedge seat in each repeated garden plot.",
       "attracts": {
         "rabbit": 0.6
       }
@@ -6636,7 +6641,7 @@
         "fallback": "omit_guard_keep_find"
       },
       "attracts": {},
-      "atmosphere": "Compact stone crescents, shell inlays and a blue flower center repeat every 6 × 6 cells. The single starflower remains the rare luminous find."
+      "atmosphere": "Compact stone crescents, shell inlays and a blue flower center repeat every 6 \u00d7 6 cells. The single starflower remains the rare luminous find."
     },
     {
       "id": "pirate_cove",
@@ -6816,7 +6821,7 @@
       "attracts": {
         "crow": 0.35
       },
-      "atmosphere": "Driftwood ribs and shell fragments surround one shipwreck shrine, with a reserved 3 × 3-cell footprint and one daily gift. A pirate grunt and gunner hold the separate gold-ore find. If the full wreck cannot fit on dry sand, the accessible small shrine remains."
+      "atmosphere": "Driftwood ribs and shell fragments surround one shipwreck shrine, with a reserved 3 \u00d7 3-cell footprint and one daily gift. A pirate grunt and gunner hold the separate gold-ore find. If the full wreck cannot fit on dry sand, the accessible small shrine remains."
     },
     {
       "id": "shellwater_strand",
@@ -6972,7 +6977,7 @@
       "attracts": {
         "butterfly": 0.35
       },
-      "atmosphere": "Short shell ribbons and one driftwood seat repeat in a narrow 3 × 5 frame. Open sand separates them; the two wild roses stay on eligible landward vegetation."
+      "atmosphere": "Short shell ribbons and one driftwood seat repeat in a narrow 3 \u00d7 5 frame. Open sand separates them; the two wild roses stay on eligible landward vegetation."
     }
   ]
 }

@@ -22,15 +22,17 @@ function slice(source, from, to) {
   if (a < 0 || b < a) throw new Error('Cannot find preview painter: ' + from);
   return source.slice(a, b);
 }
+vm.runInContext('const Render = {}; ' + slice(render, 'Render.wildplantShadow =', 'Render.objectAppearance ='), ctx);
 const painters = slice(read('textures'), 'const TRAP_PX =', '// === Animated biome textures ===');
 const data = vm.runInContext(`({ assets: ASSETS, crops: CROP_SPRITE, contextLooks: WILDPLANT_CONTEXT_ART, cropRows: CROP_ROW,
   cropColumns: CROPS_SHEET_COLS, matureStage: MAX_GROWTH_STAGE,
-  plantPlacements: Object.fromEntries([CROP_SPRITE.shrub, ...Object.values(CROP_SPRITE.shrub.looks), ...Object.values(WILDPLANT_CONTEXT_ART)].map(art => {
+  plantPlacements: Object.fromEntries([CROP_SPRITE.shrub, CROP_SPRITE.giant_mushroom, ...Object.values(CROP_SPRITE.shrub.looks), ...Object.values(WILDPLANT_CONTEXT_ART)].map(art => {
     const asset = ASSETS[art.sheet], box = SpriteLayout.ART_BOUNDS[art.sheet+':'+art.frame];
     const offset = art.seat && box ? SpriteLayout.seatInCell(box,.5,.5,art.scale,art.scale) : {dxPx:0,dyPx:0};
-    return [art.sheet+':'+art.frame, {width:asset.frameWidth*art.scale,height:asset.frameHeight*art.scale,...offset}];
+    return [art.sheet+':'+art.frame, {width:asset.frameWidth*art.scale,height:asset.frameHeight*art.scale,shadow:Render.wildplantShadow(null,art),...offset}];
   })),
   mineralTiers: MINERAL_TIERS, fruitFrames, names: CROP_NAMES,
+  treeArt: Object.fromEntries(['maple','pine'].map(species => [species, Object.fromEntries(['small','medium','large'].map(size => [size,{frame:treeArtFrame({species,size}),scale:treeScale({species,size})}]))])),
   treeSizes: Object.fromEntries(['small','medium','large'].map(size => [size, treeScale({species:'maple',size})])),
   treeStages: Object.fromEntries([1,2,3].map(variant => [variant,
     {frame:treeGrowthStage({species:'maple',variant}),scale:treeScale({species:'maple',variant})}])) ,
