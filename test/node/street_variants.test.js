@@ -735,7 +735,7 @@ test('old trade road: a displaced dog is no longer seated on the major verge', (
   assert.eq(creatures.length, 0, 'and not added');
 });
 
-test('short street dressing: dense apples and a visible maple growth sequence', () => {
+test('short street dressing: mixed orchard rows and a visible maple growth sequence', () => {
   for (const v of ['orchard', 'overgrown']) {
     const name = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === v, v);
     const line = pts([[2, 30], [60, 30]]);
@@ -749,7 +749,12 @@ test('short street dressing: dense apples and a visible maple growth sequence', 
     const trees = d.objects.filter((o) => o._street === v);
     assert.gt(trees.length, 15, v + ' dresses the full short street');
     if (v === 'orchard') {
-      assert.truthy(trees.every((o) => o.kind === 'fruittree' && o.species === 'apple'), 'apple trees only');
+      const apples = trees.filter(o => o.kind === 'fruittree' && o.species === 'apple');
+      const maples = trees.filter(o => o.kind === 'tree' && o.species === 'maple');
+      assert.eq(apples.length, maples.length, 'half apple, half deciduous on open ground');
+      assert.eq(apples.length + maples.length, trees.length, 'only the two intended species');
+      assert.truthy(maples.every(o => treeGrowthStage(o) === 3), 'deciduous trees are mature');
+      assert.eq(new Set(trees.map(o => o.id)).size, trees.length, 'tree identities remain distinct');
       assert.truthy(trees.some((o) => cellOf(o.y, TY) < 30) && trees.some((o) => cellOf(o.y, TY) > 30), 'both verges');
     } else {
       assert.eq([...new Set(trees.map((o) => o.variant))].join(), '1,2,3', 'saplings, young trees, mature trees in order');

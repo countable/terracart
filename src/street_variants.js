@@ -880,9 +880,13 @@
             const c = verge(rec, x, y, nx, ny, side);
             if (!c) continue;
             claim(c.ix, c.iy);
-            res.objects.push(WG.makeObject('fruittree', cx(c.ix), cy(c.iy),
-              WG.cellId('ft_lane', tx, ty, c.ix, c.iy),
-              { species: 'apple', wild: true, _street: v }));
+            // Alternate along each verge, with the opposite species across
+            // the road: half apples, half mature deciduous maples on clear ground.
+            const apple = (Math.floor(s / ORCHARD_STEP_M) + (side === 1 ? 0 : 1)) % 2 === 0;
+            res.objects.push(WG.makeObject(apple ? 'fruittree' : 'tree', cx(c.ix), cy(c.iy),
+              WG.cellId(apple ? 'ft_lane' : 'tree_lane', tx, ty, c.ix, c.iy),
+              apple ? { species: 'apple', wild: true, _street: v }
+                : { species: 'maple', variant: 3, _street: v }));
             placed++;
           }
         });

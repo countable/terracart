@@ -116,7 +116,7 @@ const rows = SV.STREET_VARIANTS.map(preview);
 const rules = {
   hedgerow: `Both verges, one trimmed hedge per ${cellM} m cell; a gate gap every ${SV.HEDGE_GAP_MIN}–${SV.HEDGE_GAP_MIN + SV.HEDGE_GAP_SPAN - 1} cells.`,
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
-  orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} apple trees per line piece.`,
+  orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} trees per line piece, alternating half apple trees and half mature deciduous maples.`,
   pilgrim: 'One waystone per street per tile, at an eligible owned line end.',
   lantern: `Lamps at ${SV.lampSpacingFor('lantern')} m target spacing (${SV.LANTERN_SPACING_DIV}× the usual density); no extra verge props.`,
   burned: `One attempt every ${SV.BURNED_STEP_M} m; at most ${SV.BURNED_MAX} tar/stakes per line piece. One fire-slime guard site per stretch, seated back from the kerb.`,
