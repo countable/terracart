@@ -103,12 +103,12 @@ function previewPath(row) {
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong scenic lamps for ${row.id}`);
   return { ...row, sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
-    lampSpacingM: ctx.Streets.lampLayFor(tags).spacingM, objects: [...dress.objects, ...dress.wildplants].map(local),
+    lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects: [...dress.objects, ...dress.wildplants].map(local),
     lamps, lairs: [], slowKinds: [], geography, scenicKind: kind,
     selection: kind === 'shore' ? 'Off-road walking path beside qualifying shore water.' :
       kind === 'greenway' ? 'Off-road walking path with a greenway name or route.' : 'Off-road walking path inside a named or sufficiently large park.',
     rewards: `${SC.SCENIC_MUL[kind]}× first-restoration metre credit; one T${SC.VISTA_CHEST_TIER[kind]} one-time vista chest per eligible stretch of at least ${SC.VISTA_STRETCH_MIN_M} m. Daily path-lamp credit is unchanged.`,
-    placement: 'Geography selects the scenic row; real scenic stretch dressing seats vista chests off the path. No additional themed verge plants.',
+    placement: 'Geography selects the scenic row; real scenic stretch dressing seats vista chests off the path. ' + (kind === 'greenway' ? `Grass along both verges every ${SC.GREENWAY_GRASS_STEP_M} m where ground permits.` : 'No additional themed verge plants.'),
     line: line.map(p => ({ x: p.x * tileEdgeM / extent, y: p.y * tileEdgeM / extent })) };
 }
 

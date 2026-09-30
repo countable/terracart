@@ -172,13 +172,28 @@ const MapReviewArt = (() => {
         // Follow the source road centreline, using the game's physical widths.
         const roads=e.layers?.find(l=>l.name==='transportation');
         g.lineCap='round';g.lineJoin='round';
-        for(const f of roads?.features||[]) {
+        for(const [fi,f] of (roads?.features||[]).entries()) {
           if(f.type!==2||WorldGen.isLotLane(f.tags)||WorldGen.classifyLine('transportation',f.tags)==null)continue;
           const width=WorldGen.roadOverlayWidthM(f.tags);if(!width)continue;
-          g.strokeStyle='#82775f';g.lineWidth=width/edge*(b.x-a.x);
-          for(const line of f.geom||[]) {
-            if(line.length<2)continue;g.beginPath();
-            line.forEach((p,i)=>g[i?'lineTo':'moveTo'](a.x+p.x/(roads.extent||4096)*(b.x-a.x),a.y+p.y/(roads.extent||4096)*(b.y-a.y)));g.stroke();
+          const mvtToM=edge/(roads.extent||4096),isPath=WorldGen.PATH_CLASSES.has(f.tags?.class);
+          g.lineWidth=width/edge*(b.x-a.x);
+          for(const [li,line] of (f.geom||[]).entries()) {
+            if(line.length<2)continue;
+            for(const style of StreetVariants.lineStyles(e,f,fi,li,mvtToM)) {
+              const key=JSON.stringify([style.variant,isPath,!!this._restoredLamps]);
+              this._pavementTiles ||= new Map();
+              let tile=this._pavementTiles.get(key);
+              if(!tile) {
+                tile=document.createElement('canvas');tile.width=tile.height=RoadOverlay.CLEAN_TILE_PX;
+                RoadOverlay.paintPavementTile(tile.getContext('2d'),RoadOverlay.CLEAN_TILE_PX,isPath,!!this._restoredLamps,style.variant);
+                this._pavementTiles.set(key,tile);
+              }
+              const pattern=g.createPattern(tile,'repeat');
+              pattern.setTransform(new DOMMatrix([dx/32,0,0,dy/32,a.x-e.tx*N*dx,a.y-e.ty*N*dy]));
+              g.strokeStyle=pattern;g.beginPath();
+              Streets.subLineM(line,mvtToM,style.a,style.b).forEach((p,i)=>g[i?'lineTo':'moveTo'](a.x+p.x/edge*(b.x-a.x),a.y+p.y/edge*(b.y-a.y)));
+              g.stroke();
+            }
           }
         }
       }

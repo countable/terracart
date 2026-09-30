@@ -572,5 +572,21 @@ test('street lamps: the frame pass bakes each LIT glow before the sprite pass dr
       'their one colour baked once');
   });
 });
+
+test('street lamps: scenic segments share palette and lamp density without changing plain stretches', () => {
+  const entry = readyEntry(), f = entry.layers[0].features[0];
+  f.tags.class = 'path';
+  entry.scenic = { lines: new Map([[Streets.lineKey(f, 0), [
+    [0, toMvt(60), 'park'], [toMvt(60), toMvt(120), 'shore'],
+  ]]]) };
+  const lamps = P._streetLampsForTile.call({}, TX, TY, entry);
+  assert.eq(lamps.filter((l) => l.s < 60).length, 2, 'park gets twice ordinary path frequency');
+  assert.eq(lamps.filter((l) => l.s >= 60 && l.s < 120).length, 1, 'promenade keeps normal path density');
+  assert.eq(lamps.filter((l) => l.s >= 120).length, 1, 'plain remainder keeps normal density');
+  assert.eq(lamps.find((l) => l.s > 60 && l.s < 120).glow, StreetVariants.VARIANT_BY_ID.promenade.lampGlow, 'golden promenade lamps');
+  const styles = StreetVariants.lineStyles(entry, f, 0, 0, MVT_TO_M);
+  assert.eq(styles.map((r) => r.variant).join(','), 'parkpath,promenade,');
+});
+
 }
 })();

@@ -513,8 +513,8 @@
 
   // One sett: black body, a slight per-stone tone so neighbours aren't
   // identical, and a catch-light along its top edge.
-  function paintSett(cx, x, y, w, h, tone) {
-    cx.fillStyle = '#000';
+  function paintSett(cx, x, y, w, h, tone, stoneColor) {
+    cx.fillStyle = stoneColor || '#000';
     roundRectPath(cx, x, y, w, h, CLEAN_SETT_R); cx.fill();
     cx.fillStyle = `rgba(255,255,255,${tone})`;
     roundRectPath(cx, x, y, w, h, CLEAN_SETT_R); cx.fill();
@@ -522,7 +522,7 @@
     roundRectPath(cx, x + 0.5, y + 0.5, w - 1, h * CLEAN_BEVEL_H, 1); cx.fill();
   }
 
-  function paintCleanTile(cx, size, mortarAlpha) {
+  function paintCleanTile(cx, size, mortarAlpha, stoneColor, pattern, accent) {
     const S = size || CLEAN_TILE_PX;
     const rnd = lcg(0xc0bb1e);
     cx.fillStyle = `rgba(255,255,255,${mortarAlpha == null ? CLEAN_MORTAR_ALPHA : mortarAlpha})`;
@@ -534,19 +534,39 @@
         const x = col * sw + off + CLEAN_GAP_X / 2, y = row * sh + CLEAN_GAP_Y / 2;
         const w = sw - CLEAN_GAP_X, h = sh - CLEAN_GAP_Y;
         const tone = CLEAN_TONE_MIN + rnd() * (CLEAN_TONE_MAX - CLEAN_TONE_MIN);
-        paintSett(cx, x, y, w, h, tone);
+        paintSett(cx, x, y, w, h, tone, stoneColor);
         // A staggered course's last sett runs off the tile's right edge; draw
         // that same stone again one tile to the LEFT so the pattern meets
         // itself where it repeats. The tile is CLEAN_COLS setts wide by
         // construction — the wrap is a second copy, not a seventh stone.
-        if (x + w > S) paintSett(cx, x - S, y, w, h, tone);
+        if (x + w > S) paintSett(cx, x - S, y, w, h, tone, stoneColor);
       }
     }
   }
 
+  function paintSpots(cx, size, accent) {
+    cx.fillStyle = accent || '#d7dba3';
+    cx.globalAlpha = 0.65;
+    for (const [x, y, r] of [[0.18, 0.21, 0.09], [0.67, 0.38, 0.13], [0.35, 0.77, 0.08], [0.88, 0.88, 0.06]]) {
+      cx.beginPath(); cx.arc(x * size, y * size, r * size, 0, Math.PI * 2); cx.fill();
+    }
+    cx.globalAlpha = 1;
+  }
+
+  // Shared preview swatch uses the same authored tiles and palette as the game.
+  function paintPavementTile(cx, size, isPath, restored, variant) {
+    const palette = global.StreetVariants?.VARIANT_BY_ID[variant]?.stone;
+    const color = palette?.[restored ? 'restored' : 'weathered'];
+    cx.fillStyle = color || cssOf(restored ? (isPath ? RESTORED_PATH_COLOR : RESTORED_ROAD_COLOR) : (isPath ? PATH_COLOR : ROAD_COLOR));
+    cx.fillRect(0, 0, size, size);
+    if (restored) paintCleanTile(cx, size, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1), color);
+    else { const tile = stoneTile(); if (tile) cx.drawImage(tile, 0, 0, size, size); }
+    if (palette?.pattern === 'spots') paintSpots(cx, size, palette.accent);
+  }
+
   const cleanCanvas = {};
-  function cleanTile(isPath) {
-    const k = isPath ? 'path' : 'road';
+  function cleanTile(isPath, stoneColor, pattern, accent) {
+    const k = `${isPath ? 'path' : 'road'}:${stoneColor || '#000'}:${pattern || ''}:${accent || ''}`;
     if (cleanCanvas[k] !== undefined) return cleanCanvas[k];
     cleanCanvas[k] = null;
     if (typeof document === 'undefined') return cleanCanvas[k];
@@ -554,7 +574,8 @@
     c.width = c.height = CLEAN_TILE_PX;
     const cx = c.getContext('2d');
     if (!cx) return cleanCanvas[k];
-    paintCleanTile(cx, CLEAN_TILE_PX, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1));
+    paintCleanTile(cx, CLEAN_TILE_PX, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1), stoneColor);
+    if (pattern === 'spots') paintSpots(cx, CLEAN_TILE_PX, accent);
     cleanCanvas[k] = c;
     return cleanCanvas[k];
   }
@@ -1111,6 +1132,20 @@
     // BEFORE the track furniture, so ties and rails stay untextured.
     const stones = patternOf(ctx, pass.pats, 'stone', stoneTile());
     if (stones) patternFill(ctx, pass, stones, 'source-atop', STONE_TILE_PX);
+    for (const row of global.StreetVariants?.STREET_VARIANTS || []) {
+      if (row.stone?.pattern !== 'spots') continue;
+      const ops = pass.ops.filter((op) => op.c === parseInt(row.stone.weathered.slice(1), 16));
+      if (!ops.length) continue;
+      const layer = scratchLayer(size);
+      if (!layer) continue;
+      const tile = document.createElement('canvas'); tile.width = tile.height = STONE_TILE_PX;
+      paintSpots(tile.getContext('2d'), STONE_TILE_PX, row.stone.accent);
+      const pat = layer.ctx.createPattern(tile, 'repeat');
+      strokeOps(layer.ctx, ops, 0);
+      if (pat) patternFill(layer.ctx, pass, pat, 'source-in', STONE_TILE_PX);
+      ctx.save(); ctx.globalCompositeOperation = 'source-atop';
+      ctx.drawImage(layer.canvas, 0, 0); ctx.restore();
+    }
     // Weathering, on the ROADS only. A rail band is ballast and gets none, but
     // the stone pattern above is one fill over the whole network — there is no
     // per-way pass to opt out of. So the cracks are masked instead: the road
@@ -1165,14 +1200,19 @@
   function commitRestored(pass) {
     const { ctx, size } = pass;
     ctx.clearRect(0, 0, size, size);
-    for (const isPath of [false, true]) {
-      const want = isPath ? RESTORED_PATH_COLOR : RESTORED_ROAD_COLOR;
+    const themes = [
+      { isPath: false, want: RESTORED_ROAD_COLOR }, { isPath: true, want: RESTORED_PATH_COLOR },
+      ...((global.StreetVariants?.STREET_VARIANTS || []).map((row) => ({
+        isPath: row.size === 'path', want: parseInt(row.stone.restored.slice(1), 16), stoneColor: row.stone.restored, pattern: row.stone.pattern, accent: row.stone.accent,
+      }))),
+    ];
+    for (const { isPath, want, stoneColor, pattern, accent } of themes) {
       const ops = pass.ops.filter((op) => op.c === want);
       if (!ops.length) continue;
       const layer = scratchLayer(size);
       if (!layer) break;
       const lx = layer.ctx;
-      const tile = cleanTile(isPath);
+      const tile = cleanTile(isPath, stoneColor, pattern, accent);
       const pat = tile && lx.createPattern(tile, 'repeat');
       strokeOps(lx, ops, 0);
       if (pat) patternFill(lx, pass, pat, 'source-atop', CLEAN_TILE_PX);
@@ -1394,13 +1434,14 @@
       for (const layer of entry.layers) {
         if (layer.name !== 'transportation') continue;
         const mvtToM = tileEdgeM / (layer.extent || MVT_EXTENT);
-        for (const f of layer.features) {
+        for (let fi = 0; fi < layer.features.length; fi++) {
+          const f = layer.features[fi];
           if (f.type !== 2 || !f.geom) continue;   // lines only (2 = LineString)
           if (WorldGen.isLotLane(f.tags)) continue;
           for (let i = 0; i < f.geom.length; i++) {
             const line = f.geom[i];
             if (!line || line.length < 2) continue;
-            fn(f, line, i, mvtToM, originMx, originMy, tileKey);
+            fn(f, line, i, mvtToM, originMx, originMy, tileKey, entry, fi);
           }
         }
       }
@@ -1441,12 +1482,19 @@
       if (isRail) railRuns.push(run);
     };
 
-    eachTransportLine(tiles, (f, line, i, mvtToM, originMx, originMy) => {
+    eachTransportLine(tiles, (f, line, i, mvtToM, originMx, originMy, tileKey, entry, fi) => {
       const widthPx = widthPxFor(scene, f.tags);
       const color = colorFor(f.tags);
       const isRail = RAIL_CLASSES.has((f.tags && f.tags.class) || '');
-      const pts = line.map((p) => ({ x: originMx + p.x * mvtToM, y: originMy + p.y * mvtToM }));
-      emitRuns(pts, proj, (run) => addRun(widthPx, color, run, isRail));
+      const styles = !isRail && global.StreetVariants && global.Streets
+        ? StreetVariants.lineStyles(entry, f, fi, i, mvtToM) : null;
+      for (const style of styles || [null]) {
+        const sub = style ? Streets.subLineM(line, mvtToM, style.a, style.b) : line.map((p) => ({ x: p.x * mvtToM, y: p.y * mvtToM }));
+        const hex = style && StreetVariants.stoneColorFor(style.variant, false);
+        const tint = hex ? parseInt(hex.slice(1), 16) : color;
+        const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
+        emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, isRail));
+      }
     });
 
     strokeBuckets(g, runsByStyle, ALPHA);
@@ -1489,17 +1537,20 @@
         if (!bucket) { bucket = { widthPx, color, runs: [] }; runsByStyle.set(k, bucket); }
         bucket.runs.push(run);
       };
-      eachTransportLine(tiles, (f, line, i, mvtToM, originMx, originMy, tileKey) => {
+      eachTransportLine(tiles, (f, line, i, mvtToM, originMx, originMy, tileKey, entry, fi) => {
         if (RAIL_CLASSES.has((f.tags && f.tags.class) || '')) return;
         const list = S.restoredList(scene.save, tileKey, S.lineKey(f, i));
         if (!list || !list.length) return;
         const widthPx = widthPxFor(scene, f.tags);
         const color = restoredColorFor(f.tags);
-        for (const iv of list) {
+        const styles = global.StreetVariants ? StreetVariants.lineStyles(entry, f, fi, i, mvtToM) : [{ a: 0, b: Infinity }];
+        for (const style of styles) for (const iv of S.intersect(list, [[style.a, style.b]])) {
+          const hex = global.StreetVariants && StreetVariants.stoneColorFor(style.variant);
+          const tint = hex ? parseInt(hex.slice(1), 16) : color;
           const sub = S.subLineM(line, mvtToM, iv[0], iv[1]);
           if (!sub || sub.length < 2) continue;
           const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
-          emitRuns(pts, proj, (run) => addRun(widthPx, color, run));
+          emitRuns(pts, proj, (run) => addRun(widthPx, tint, run));
         }
       });
       strokeBuckets(g, runsByStyle, RESTORED_ALPHA);
@@ -1658,7 +1709,7 @@
     }
   }
 
-  global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile,
+  global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile, paintPavementTile, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
                          paintLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,

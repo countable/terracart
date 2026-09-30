@@ -28,6 +28,30 @@ test('zone variants: all 19 rows select deterministically in their zone kind', (
   assert.eq(V.pick({ kind: 'tar', variant: 'seep' }).id, 'seep');
   assert.eq(V.pick({ kind: 'unknown' }), null);
 });
+test('zone variants: explicit lamp tint follows coverage winner and otherwise leaves street color intact', () => {
+  const tinted = V.byId('mushroom_grove'), plain = V.byId('meadow');
+  const original = tinted.lampGlow;
+  const entry = { cellsPerEdge: 2, zone: {
+    anchors: [{ kind: 'grove', variant: tinted.id }, { kind: 'grove', variant: plain.id }],
+    coverage: new Uint16Array([1, 2, 0, 1]), idx: new Uint16Array([0, 1, 0, 1])
+  } };
+  const streetColor = '#ffd16a';
+  try {
+    tinted.lampGlow = '#abcdef';
+    assert.eq(V.lampGlowAt(entry, 0, 0) || streetColor, '#abcdef', 'zone overrides street outside the core too');
+    assert.eq(V.lampGlowAt(entry, 1, 0) || streetColor, streetColor, 'untinted coverage winner overrides an underlying tinted core');
+    assert.eq(V.lampGlowAt(entry, 0, 1) || streetColor, streetColor, 'no zone keeps street theme');
+    for (const [x, y] of [[-1, 0], [2, 0], [0, 2], [.5, 0]]) assert.eq(V.lampGlowAt(entry, x, y), null);
+    assert.eq(V.lampGlowAt(null, 0, 0), null);
+    delete entry.zone.coverage;
+    assert.eq(V.lampGlowAt(entry, 1, 0), '#abcdef', 'core field works before coverage is available');
+    tinted.lampGlow = 'invalid';
+    assert.eq(V.lampGlowAt(entry, 1, 0), null);
+  } finally {
+    if (original === undefined) delete tinted.lampGlow;
+    else tinted.lampGlow = original;
+  }
+});
 test('zone variants: repeated geometry preserves densities and phase across negative cells', () => {
   for (const row of V.rows.filter(v => v.background.type === 'repeat_motif')) {
     const b = row.background, [w, h] = b.repeatCells;

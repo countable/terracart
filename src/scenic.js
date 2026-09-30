@@ -95,6 +95,8 @@
   const PARK_MIN_M2 = 10000;
   // The classification step along a way (generation metres).
   const SAMPLE_M = 5;
+  // A grass tuft on each verge every other classification sample.
+  const GREENWAY_GRASS_STEP_M = SAMPLE_M * 2;
   // Greenway names (the name alone upgrades only an OFF-ROAD sample).
   const GREENWAY_RE = /greenway|trail|seawall|sea wall|promenade|walkway|boardwalk|esplanade|corridor|ufer|mauerweg|towpath|\bloop\b/i;
   // Eligible ways: the walking subclasses of OMT's class `path` (or the class
@@ -517,7 +519,7 @@
   // generation metres, in-square) and the STRETCHES for the vista chests.
   function* linesSteps(geo, trLayer) {
     const S = root.Streets, SV = root.StreetVariants;
-    const res = { lines: new Map(), census: { shore: 0, greenway: 0, park: 0 }, stretches: [] };
+    const res = { lines: new Map(), census: { shore: 0, greenway: 0, park: 0 }, stretches: [], grassSeats: [] };
     if (!trLayer || !S) return res;
     const stretch = new Map();     // `${sx},${sy}|${kind}` → { m, best }
     const ox = geo.tx * geo.ext, oy = geo.ty * geo.ext;
@@ -536,6 +538,10 @@
         const ivs = lineIntervals(geo, line, greenway, (kind, s, x, y, nx, ny, stepU) => {
           const m = stepU * geo.gM;
           res.census[kind] += m;
+          if (kind === 'greenway' && Math.floor(s * geo.gM / SAMPLE_M) % (GREENWAY_GRASS_STEP_M / SAMPLE_M) === 0) {
+            const vergeU = (root.WorldGen.roadOverlayWidthM(f.tags) / 2 + root.WorldGen.CELL_M) / geo.gM;
+            for (const side of [-1, 1]) res.grassSeats.push({ x: x + nx * vergeU * side, y: y + ny * vergeU * side });
+          }
           const k = `${Math.floor((ox + x) / SQ)},${Math.floor((oy + y) / SQ)}|${kind}`;
           let r = per.get(k);
           if (!r) per.set(k, r = { m: 0, pts: [] });
@@ -649,7 +655,7 @@
     const lines = yield* linesSteps(geo, L.transportation);
     const shore = yield* shoreSandSteps(geo, grid, under);
     const vistas = collectVistas(L.poi, tx, ty, N);
-    const out = { ext: geo.ext, lines: lines.lines, census: lines.census, stretches: lines.stretches, shore, vistas };
+    const out = { ext: geo.ext, lines: lines.lines, census: lines.census, stretches: lines.stretches, grassSeats: lines.grassSeats, shore, vistas };
     if (keepGeo) out._geo = geo;
     return out;
   }
@@ -664,7 +670,7 @@
   // ctx: { scenic, tx, ty, N, tileEdgeM, grid, chests (the tile's deduped
   //        objects), spawnOpts (roadMask + spawnWhy + roadClass + occupied —
   //        occupied GROWS: each piece claims its cell) }
-  // Returns { objects (scopes, vista chests), wildplants (the tide pool) }.
+  // Returns { objects (scopes, vista chests), wildplants (tide pool + greenway grass) }.
   function* dressSteps(ctx) {
     const WG = root.WorldGen, SV = root.StreetVariants;
     const res = { objects: [], wildplants: [] };
@@ -679,7 +685,7 @@
     const cy = (iy) => oy + (iy + 0.5) * frameCellM;
     const claim = (ix, iy) => occ.add(iy * N + ix);
     const inSq = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N;
-    // Every scenic piece is a find the player walks to: the spawn gate's
+    // Scenic rewards are finds the player walks to: the spawn gate's
     // 'reward' class (the attractor row + the kerb buffer — never a reason to
     // step to the kerb of a major road), off the road mask and whatever the
     // tile already put there.
@@ -763,6 +769,18 @@
             { tide: true, tideP: p }));
         }
       }
+    }
+    // Greenway verges: ordinary harvestable grass, after rewards have claimed
+    // their seats. The geometry belongs to the tile's scenic classification;
+    // the minor gate and cell ids are shared with all other roadside flora.
+    let grassCount = 0;
+    for (const p of sc.grassSeats || []) {
+      if ((grassCount++ % 128) === 0) yield 'scenic greenway grass';
+      const ix = Math.floor(p.x * N / ext), iy = Math.floor(p.y * N / ext);
+      if (!inSq(ix, iy) || !WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'minor')) continue;
+      claim(ix, iy);
+      res.wildplants.push(WG.makeWildplant('longgrass', cx(ix), cy(iy), WG.cellId('greenway_grass', tx, ty, ix, iy),
+        { _street: 'greenway' }));
     }
     return res;
   }
@@ -861,7 +879,7 @@
 
   root.Scenic = {
     SCENIC_MUL, KIND_ORDER, KIND_ROW, SCENIC_SHORE_CELLS, SHORE_MAX_UNITS, SIDEWALK_M, BUSY_VERGE_M,
-    PARK_MIN_M2, SAMPLE_M, GREENWAY_RE, PATH_SUBCLASSES,
+    PARK_MIN_M2, SAMPLE_M, GREENWAY_GRASS_STEP_M, GREENWAY_RE, PATH_SUBCLASSES,
     VISTA_STRETCH_MIN_M, VISTA_SEAT_CELLS, VISTA_CHEST_TIER, VISTA_POI_CLASS, VISTA_MERGE_M, SCOPE_SEAT_R,
     VISTA_CONTEXT, FIRST_VISTA_SLOT, VISTA_STORY,
     BEACH_X_SHORE_M, BEACH_X_MAX, TIDE_PER_M, TIDE_MAX, WATERLINE_CELLS, TIDE_BOTTLE_P, TIDE_DRIFTWOOD_P,

@@ -33,6 +33,19 @@
     }
     return candidates[candidates.length - 1] || null;
   }
+  // An explicit zone lamp tint wins over the street theme. Read the same
+  // coverage winner as the dressing, including associated park ground.
+  // Untinted zones leave the street's own palette intact.
+  function lampGlowAt(entry, ix, iy) {
+    const field = entry && entry.zone, n = entry && entry.cellsPerEdge;
+    const coverage = field && (field.coverage || field.idx);
+    if (!coverage || !(n > 0) || !Number.isInteger(ix) || !Number.isInteger(iy) ||
+        ix < 0 || iy < 0 || ix >= n || iy >= n) return null;
+    const anchor = field.anchors[coverage[iy * n + ix] - 1];
+    const row = anchor && pick(anchor);
+    return row && typeof row.lampGlow === 'string' && /^#[0-9a-f]{6}$/i.test(row.lampGlow)
+      ? row.lampGlow : null;
+  }
   function rotation(anchor) {
     if (Number.isInteger(anchor.rotation)) return mod(anchor.rotation, 4);
     if (Number.isFinite(anchor.approachDx) && Number.isFinite(anchor.approachDy) &&
@@ -125,5 +138,5 @@
     });
   }
   root.ZoneVariants = { rows, materials, byId, forKind, pick, sample, findOffsets,
-    identity, poiOrigin, rotation, rotate, inverseRotate };
+    identity, poiOrigin, rotation, rotate, inverseRotate, lampGlowAt };
 })(typeof window !== 'undefined' ? window : globalThis);

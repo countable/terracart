@@ -126,13 +126,16 @@ def art_gallery(materials, title='Material art', id_prefix=''):
 
 
 def art_styles():
-    return '''.art-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}.art-item{background:#172820;border:1px solid #334a3a;border-radius:8px;padding:12px;overflow-wrap:anywhere}.art-item b,.art-item small{display:block}.art-thumbs{display:flex;flex-wrap:wrap;gap:4px;min-height:68px;align-items:center}.art-thumbs svg{width:64px;height:64px}.art-item details{font-size:11px;color:#a8bbaa;margin-top:8px}.art-item summary{cursor:pointer}.art-gallery{margin:28px 0}.sprite-cell{pointer-events:none}.sprite-cell,.art-thumbs image{image-rendering:pixelated}.geometry-cell{opacity:.12}body:has(#show-art:not(:checked)) .sprite-cell{display:none}body:has(#show-art:not(:checked)) .geometry-cell{opacity:1}.art-switch{display:inline-block;padding:10px 14px;background:#263b2d;border-radius:8px}'''
+    return '''.art-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}.art-item{background:#172820;border:1px solid #334a3a;border-radius:8px;padding:12px;overflow-wrap:anywhere}.art-item b,.art-item small{display:block}.art-thumbs{display:flex;flex-wrap:wrap;gap:4px;min-height:68px;align-items:center}.art-thumbs svg{width:64px;height:64px}.art-item details{font-size:11px;color:#a8bbaa;margin-top:8px}.art-item summary{cursor:pointer}.art-gallery{margin:28px 0}.sprite-cell{pointer-events:none}.sprite-cell,.art-thumbs image{image-rendering:pixelated}.geometry-cell{opacity:.12}body:has(#show-art:not(:checked)) .sprite-cell{display:none}body:has(#restored-pavement:checked) .pavement-worn,body:has(#restored-pavement:not(:checked)) .pavement-restored{display:none}body:has(#show-art:not(:checked)) .geometry-cell{opacity:1}.art-switch{display:inline-block;padding:10px 14px;background:#263b2d;border-radius:8px}'''
 
 
 def art_script():
     r = art_registry()
     # Self-contained Canvas2D painters: no network, Phaser or external assets.
     code = f'const UI_LAMP_GLOW={json.dumps(r["lampGlow"])}, UI_LAMP_GOLD={json.dumps(r["lampGold"])};\n' + r['painters']
+    code += '\nconst WorldGen={PATH_CLASSES:new Set(' + json.dumps(r['pathClasses']) + '),T:{WATER:' + str(r['waterTerrain']) + '}};'
+    code += '\nconst SpriteLayout={CELL_PX:' + str(r['cellPx']) + '};\n'
+    code += r['variantSource'] + '\n' + r['roadPainter']
     code += '''
 const baked = new Map();
 const scene = {textures:{exists:key=>baked.has(key),createCanvas:(key,w,h)=>{
@@ -142,9 +145,15 @@ const scene = {textures:{exists:key=>baked.has(key),createCanvas:(key,w,h)=>{
 makeTrapTextures(scene);
 for(const image of document.querySelectorAll('[data-procedural]')){
   const key=image.dataset.procedural;
+  if(!baked.has(key)&&key.startsWith('pavement:')){
+    const [,variant,state,isPath]=key.split(':');
+    const c=document.createElement('canvas');c.width=c.height=RoadOverlay.CLEAN_TILE_PX;
+    RoadOverlay.paintPavementTile(c.getContext('2d'),RoadOverlay.CLEAN_TILE_PX,isPath==='true',state==='restored',variant);
+    baked.set(key,c.toDataURL());
+  }
   if(!baked.has(key)&&key.startsWith('lamp:')){
-    const c=document.createElement('canvas');c.width=c.height=LAMP_TEX_PX;
-    paintLamp(c.getContext('2d'),LAMP_TEX_PX,key.slice(5));baked.set(key,c.toDataURL());
+    const c=document.createElement('canvas');c.width=c.height=RoadOverlay.LAMP_TEX_PX;
+    RoadOverlay.paintLamp(c.getContext('2d'),RoadOverlay.LAMP_TEX_PX,key.slice(5));baked.set(key,c.toDataURL());
   }
   if(!baked.has(key))throw new Error('Missing preview painter: '+key);
   image.setAttribute('href',baked.get(key));
@@ -320,22 +329,32 @@ def street_materials(rows):
     return {street_material_key(o): o for row in rows for o in row['objects']}
 
 
-def street_svg(v, cell_m):
+def street_svg(v, cell_m, detail=False):
     a, b = v['line']
     mid_x, mid_y = (a['x'] + b['x']) / 2, (a['y'] + b['y']) / 2
     left, top = a['x'] - cell_m * 5, mid_y - cell_m * 11
     width, height = v['lengthM'] + cell_m * 10, cell_m * 22
-    pattern_id = f'street-grid-{v["id"]}'
+    if detail:
+        left, top, width, height = mid_x - cell_m * 8, mid_y - cell_m * 5, cell_m * 16, cell_m * 10
+    suffix = '-detail' if detail else ''
+    pattern_id = f'street-grid-{v["id"]}{suffix}'
     parts = [f'<svg role="img" aria-label="{html.escape(v["title"])} generated street arrangement" viewBox="{left} {top} {width} {height}">',
              f'<defs><pattern id="{pattern_id}" width="{cell_m}" height="{cell_m}" patternUnits="userSpaceOnUse"><path d="M {cell_m} 0 H 0 V {cell_m}" fill="none" stroke="#bfd0b3" stroke-opacity=".08" stroke-width=".35"/></pattern></defs>',
              f'<rect x="{left}" y="{top}" width="{width}" height="{height}" fill="#172820"/>',
              f'<rect x="{left}" y="{top}" width="{width}" height="{height}" fill="url(#{pattern_id})"/>',
              f'<path d="M {a["x"]} {a["y"]} L {b["x"]} {b["y"]}" stroke="#786955" stroke-width="{v["roadWidthM"]}" stroke-linecap="round"/>',
              f'<path d="M {a["x"]} {a["y"]} L {b["x"]} {b["y"]}" stroke="#d5c3a2" stroke-opacity=".45" stroke-width=".5" stroke-dasharray="4 4"/>']
+    # The same procedural pavement tiles as the game, in both restoration states.
+    for state in ['worn', 'restored']:
+        pid = f'pavement-{v["id"]}-{state}{suffix}'
+        painter = f'pavement:{v["id"]}:{state}:{str(v["size"] == "path").lower()}'
+        tile_size = cell_m
+        parts.append(f'<defs><pattern id="{pid}" patternUnits="userSpaceOnUse" width="{tile_size}" height="{tile_size}">' + art_image({'procedural': painter}, f'width="{tile_size}" height="{tile_size}"') + '</pattern></defs>')
+        parts.append(f'<path class="sprite-cell pavement-{state}" d="M {a["x"]} {a["y"]} L {b["x"]} {b["y"]}" stroke="url(#{pid})" stroke-width="{v["roadWidthM"]}" stroke-linecap="round"/>')
     for area in v.get('geography', []):
         points = ' '.join(f'{p["x"]},{p["y"]}' for p in area['points'])
         parts.insert(4, f'<polygon points="{points}" fill="#315c67"><title>Qualifying shore water used by the scenic classifier</title></polygon>')
-    art_prefix = f'street-art-{v["id"]}'
+    art_prefix = f'street-art-{v["id"]}{suffix}'
     parts.append(sprite_symbols(street_materials([v]), art_prefix))
     for o in v['objects']:
         kind = o.get('crop', o['kind'])
@@ -356,11 +375,13 @@ def street_svg(v, cell_m):
         parts.append(f'<path d="M {x} {y-r} L {x+r} {y} L {x} {y+r} L {x-r} {y} Z" fill="none" stroke="#ff827b" stroke-width="1.2"><title>{html.escape(o["kind"])}; candidate site, not a creature position</title></path>')
     for lamp in v['lamps']:
         parts.append(f'<circle class="geometry-cell" cx="{lamp["x"]}" cy="{lamp["y"]}" r="2.5" fill="{v["lampGlow"]}" stroke="#182019" stroke-width=".6"><title>Street lamp: {v["lampGlow"]}</title></circle>')
-        parts.append(art_image({'procedural': 'lamp:' + lamp['glow']}, f'class="sprite-cell" x="{lamp["x"]-cell_m}" y="{lamp["y"]-cell_m}" width="{cell_m*2}" height="{cell_m*2}"'))
+        lamp_size = cell_m * art_registry()['lampDrawCells']
+        parts.append(art_image({'procedural': 'lamp:' + lamp['glow']}, f'class="sprite-cell" x="{lamp["x"]-lamp_size/2}" y="{lamp["y"]-lamp_size*art_registry()["lampGroundFrac"]}" width="{lamp_size}" height="{lamp_size}"'))
     for p in (a, b):
         parts.append(f'<circle cx="{p["x"]}" cy="{p["y"]}" r="2" fill="#e1d1b4"><title>Source line endpoint</title></circle>')
-    parts.append(f'<circle cx="{mid_x}" cy="{mid_y}" r="4" fill="none" stroke="#fff6ca" stroke-width="1"/><path d="M {mid_x-3} {mid_y} h 6 M {mid_x} {mid_y-3} v 6" stroke="#fff6ca" stroke-width=".8"><title>Road reference point; not a POI</title></path>')
-    parts.append(f'<path d="M {left+7} {top+height-10} h {cell_m*5}" stroke="#c2cbb8"/><text x="{left+7}" y="{top+height-15}" fill="#c2cbb8" font-size="7">{cell_m*5:g} m · 5 cells</text></svg>')
+    if not detail:
+        parts.append(f'<circle cx="{mid_x}" cy="{mid_y}" r="4" fill="none" stroke="#fff6ca" stroke-width="1"/><path d="M {mid_x-3} {mid_y} h 6 M {mid_x} {mid_y-3} v 6" stroke="#fff6ca" stroke-width=".8"><title>Road reference point; not a POI</title></path>')
+    parts.append(f'<path d="M {left+7} {top+height-10} h {cell_m*5}" stroke="#c2cbb8"/><text x="{left+7}" y="{top+height-15}" fill="#c2cbb8" font-size="{2.2 if detail else 7}">{cell_m*5:g} m · 5 cells</text></svg>')
     return ''.join(parts)
 
 
@@ -373,10 +394,10 @@ def street_section(streets):
         fauna = ', '.join(f'{kind} {chance*100:g}%' for kind, chance in v.get('attracts', {}).items()) or 'No street affinity'
         selection = 'Geography-selected path' if v['size'] == 'path' else f"{v['size']} street · {v['share']*100:g}% base share"
         scenic_details = (f'<dt>Geography</dt><dd>{html.escape(v["selection"])}</dd><dt>Rewards</dt><dd>{html.escape(v["rewards"])}</dd>' if v['size'] == 'path' else '')
-        cards.append(f'''<article id="street-{v['id']}"><header><small>{selection} · {v['rung']}</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Generated straight-road sample · {v['roadWidthM']:g} m carriageway · ⊕ road reference point, not a POI</figcaption></figure><p>{html.escape(v['body'])}</p><dl>{scenic_details}<dt>Placement</dt><dd>{html.escape(v['placement'])}</dd><dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} generated candidate sites · outlined diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
+        cards.append(f'''<article id="street-{v['id']}"><header><small>{selection} · {v['rung']}</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Generated straight-road sample · {v['roadWidthM']:g} m carriageway · ⊕ road reference point, not a POI</figcaption></figure><details class="street-closeup"><summary>Pavement and lamp close-up</summary>{street_svg(v, streets['cellM'], True)}</details><p>{html.escape(v['body'])}</p><dl>{scenic_details}<dt>Placement</dt><dd>{html.escape(v['placement'])}</dd><dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} generated candidate sites · outlined diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
     legend = art_gallery(street_materials(streets['rows']), 'Street prop art', 'street-')
     legend += '<div class="legend art-thumbs">' + ''.join(f'<span><svg viewBox="0 0 64 64">{art_image({"procedural": "lamp:"+v["lampGlow"]}, chr(32).join(["width=64","height=64"]))}</svg>{html.escape(v["title"])}</span>' for v in streets['rows']) + '</div>'
-    return f'''<section id="streets"><h1>{len(streets['rows'])} street and path variants</h1><p>Every shipping street and scenic path row from <code>StreetVariants.STREET_VARIANTS</code>. Samples use the real road rasterizer, street/scenic dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road, with an empty occupancy set. Street samples use public park ground; path fixtures provide actual water, greenway names or park polygons for the scenic classifier. Water appears blue in the promenade sample. Vista chests come from the generated scenic stretches, with their rules below. Props and lamps use their game art. With art switched off, squares are props and coloured circles are lamps. Tiny pale dots are source line ends, and outlined diamonds are guard candidate sites. The marked road midpoint is a reference point, not an interactable.</p><p>Base shares apply within each road size before street-name nudges: {streets['plainShare']['minor']*100:g}% of minor keys and {streets['plainShare']['major']*100:g}% of major keys remain unthemed. Street variants are excluded above {streets['maxVariantLengthM']:g} m of observed road length; roads crossing a tile boundary also remain plain because their full length is unknown. Scenic paths use geography rather than the street-name roll, so their zero roll share is not a spawn probability. Rarity names come from the runtime table. Prop density is the observed sample, not an area-coverage target. Line-piece caps and spawn restrictions limit placement. Real terrain, occupied cells, bends and tile boundaries change the result. Fauna percentages relocate existing animals; guard sites are passed to the later lair spawner. Lamps show their configured colour; restoration and visit brightness are not simulated.</p><p><b>{html.escape(streets['baseline']['title'])}</b> is the background story for every major road, not another variant row: {html.escape(streets['baseline']['body'])} About {streets['wagonStopShare']*100:.1f}% of eligible bus stops wear its wagon look. The separate {streets['rockStreetShare']*100:g}% minor-street rock roll (excluding hedgerows), ambient plants, café hoards and fauna are not drawn here.</p><p><a href="street-variants.json">Generated street geometry and runtime rows</a> · <a href="#zones">Back to zone variants</a></p>{legend}<div class="cards">{''.join(cards)}</div></section>'''
+    return f'''<section id="streets"><h1>{len(streets['rows'])} street and path variants</h1><p>Every shipping street and scenic path row from <code>StreetVariants.STREET_VARIANTS</code>. Samples use the real road rasterizer, street/scenic dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road, with an empty occupancy set. Street samples use public park ground; path fixtures provide actual water, greenway names or park polygons for the scenic classifier. Water appears blue in the promenade sample. Vista chests come from the generated scenic stretches, with their rules below. Props and lamps use their game art. With art switched off, squares are props and coloured circles are lamps. Tiny pale dots are source line ends, and outlined diamonds are guard candidate sites. The marked road midpoint is a reference point, not an interactable.</p><p>Base shares apply within each road size before street-name nudges: {streets['plainShare']['minor']*100:g}% of minor keys and {streets['plainShare']['major']*100:g}% of major keys remain unthemed. Street variants are excluded above {streets['maxVariantLengthM']:g} m of observed road length; roads crossing a tile boundary also remain plain because their full length is unknown. Scenic paths use geography rather than the street-name roll, so their zero roll share is not a spawn probability. Rarity names come from the runtime table. Prop density is the observed sample, not an area-coverage target. Line-piece caps and spawn restrictions limit placement. Real terrain, occupied cells, bends and tile boundaries change the result. Fauna percentages relocate existing animals; guard sites are passed to the later lair spawner. Pavement uses the game’s worn and restored texture painters. Lamps show their restored art, configured colour and generated spacing; visit dimming is not simulated. A zone with a lamp tint overrides the street colour in the game.</p><p><b>{html.escape(streets['baseline']['title'])}</b> is the background story for every major road, not another variant row: {html.escape(streets['baseline']['body'])} About {streets['wagonStopShare']*100:.1f}% of eligible bus stops wear its wagon look. The separate {streets['rockStreetShare']*100:g}% minor-street rock roll (excluding hedgerows), ambient plants, café hoards and fauna are not drawn here.</p><p><a href="street-variants.json">Generated street geometry and runtime rows</a> · <a href="#zones">Back to zone variants</a></p>{legend}<label class="art-switch"><input id="restored-pavement" type="checkbox" checked> Restored pavement (off = worn)</label><div class="cards">{''.join(cards)}</div></section>'''
 
 
 def render(d, out):
