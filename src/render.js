@@ -3042,7 +3042,7 @@ Render.drawObjects = function drawObjects(scene) {
     torch: { key: 'torch',
              frame: (o) => (Math.floor(performance.now() / 130) + ((o.x | 0) & 3)) % 4,
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true },
-    // Per-polygon species — maple uses the original 32×48 sheet with the
+    // Per-polygon species — maple uses the rustic 32×48 growth sheet with the
     // variant->frame growth-stage pick. Pine/birch/mahogany use their own
     // sheets sliced 32×48 (see assets.js) so the WHOLE tree — canopy + trunk
     // + root base — fits in one frame and nothing from the sheet's lower band
@@ -3058,10 +3058,10 @@ Render.drawObjects = function drawObjects(scene) {
                 return 'trees'; // maple (default)
               },
               frame: (o) => {
-                // bushes.png frame 0 is the lush top-left green bush.
+                // The shared rounded woodland bush is the single bush frame.
                 if (treeSizeClass(o) === 'bush') return 0;
                 if (o.species && o.species !== 'maple') return 3;
-                // Maple sheet: frames 0 and 4 are STUMPS (cut/dead); only
+                // Growth sheet preserves the old live frame indices: only
                 // 1=sprout, 2=young, 3=mature are live trees. Clamp to 1..3 so a
                 // standing tree never renders as a stump. Detected trees carry a
                 // real size class → always mature (frame 3); their variety comes
@@ -3084,7 +3084,7 @@ Render.drawObjects = function drawObjects(scene) {
               // exception: maples render 10% smaller via MAPLE_VISUAL_MUL while
               // their size class keys off the un-shrunk treeBaseScale, so the
               // visual shrink doesn't change a maple's axe tier or wood yield.)
-              // Bushes use the 48×32 bushes sheet at a FIXED scale, independent
+              // Bushes use the 48×32 woodland sprite at a FIXED scale, independent
               // of the species/canopy tree scale. A bush is one species at one
               // size — so a bush-tier tree must render the SAME size as a `shrub`
               // wildplant (the bushes a park scatters), not a smaller half-size

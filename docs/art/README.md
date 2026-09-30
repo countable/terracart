@@ -24,18 +24,22 @@ A soft high-resolution sprite does not become a style match through recolouring.
 
 `spritePlan` in the JSON records the selected default sprite + target-colour
 combinations, plus named variants for specific settings. The defaults are the
-current chunky grass tuft, red spotted mushroom, `hedge_end.png`, open broadleaf
+current chunky grass tuft, red spotted mushroom, rounded woodland bush, open broadleaf
 tree, `pillar_c.png` for the grave marker and `pot.png` for the intact clay pot.
 `pot_smashed.png` is the opened state of that same lootable container, not loose
 ruins decoration. Their target palettes are declared as
-palette IDs, so swatches and annotations stay in sync. Variants cover dry/autumn
+palette IDs, so swatches and annotations stay in sync. Zone proposals cover dry
 foliage, woodland details, caves, restored gardens, sacred places and ruin debris.
 The gallery marks unselected candidates separately and identifies contour work
 where recolouring alone is insufficient. Original thumbnails remain unchanged;
 the browser renders proposed RGB palette swaps beside them using
 `tools/nature_recolour.js`. Material groups separate foliage/caps from bark/stems;
 colour ramps are assigned by source brightness. Dimensions and alpha are
-preserved exactly. These previews do not recolour runtime assets.
+preserved exactly. The six defaults are exported to `assets/Objects/Rustic/` with
+`tools/apply_nature_recolours.py`, including matching growth and broken-pot
+states. The clipped hedge is only a future formal-garden / residential /
+commercial zone alternative. No optional recolour variants are enabled, and
+the game has no seasons.
 
 Generate both linked review pages and palette exports (Pillow and Node required):
 

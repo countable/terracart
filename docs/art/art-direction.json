@@ -548,8 +548,8 @@
     }
   ],
   "spritePlan": {
-    "status": "Proposed recolours rendered in the review gallery; runtime assets unchanged",
-    "note": "Original and Proposed views use the same source pixels. The proposed view swaps RGB colours into the listed palette while preserving sprite dimensions and transparency. These are colour previews; any requested contour cleanup is still pending.",
+    "status": "Default recolours applied; zone-specific alternatives remain proposals",
+    "note": "Original and Applied views share the exact source pixels. Six default palettes are applied in-game, including matching tree growth and broken-pot states. Zone alternatives remain preview-only; there are no seasonal rules.",
     "defaults": [
       {
         "id": "default-grass",
@@ -564,11 +564,12 @@
           "leaf_light"
         ],
         "treatment": "Retain the current chunky tuft; recolour its bright greens to the olive/moss ramp.",
-        "previewMaterial": "plain"
+        "previewMaterial": "plain",
+        "applied": true
       },
       {
         "id": "default-bush",
-        "candidate": "bush-hedge-end",
+        "candidate": "bush-green",
         "role": "Bush",
         "usage": "Ordinary wild bushes",
         "colours": [
@@ -578,8 +579,9 @@
           "leaf",
           "leaf_light"
         ],
-        "treatment": "Use hedge_end.png as the compact default; mute the yellow-green tips. Keep the dark contour.",
-        "previewMaterial": "bush"
+        "treatment": "Use the rounded woodland bush with muted olive foliage. Reserve the clipped hedge silhouette for formal gardens and residential/commercial zones.",
+        "previewMaterial": "bush",
+        "applied": true
       },
       {
         "id": "default-mushroom",
@@ -594,7 +596,8 @@
           "cream"
         ],
         "treatment": "Use Props frame 13 with a muted brick cap and cream spots/stem; use rust only as a small cap highlight.",
-        "previewMaterial": "mushroom"
+        "previewMaterial": "mushroom",
+        "applied": true
       },
       {
         "id": "default-tree",
@@ -611,7 +614,8 @@
           "earth"
         ],
         "treatment": "Use the open green broadleaf silhouette; olive canopy, warm bark, restrained leaf highlights.",
-        "previewMaterial": "tree"
+        "previewMaterial": "tree",
+        "applied": true
       },
       {
         "id": "default-grave",
@@ -626,7 +630,8 @@
           "ochre"
         ],
         "treatment": "Weathered stone pillar replaces the grave marker. Proposed colours are warm weathered greys with restrained worn-edge ochre.",
-        "previewMaterial": "plain"
+        "previewMaterial": "plain",
+        "applied": true
       },
       {
         "id": "default-clay-pot",
@@ -641,15 +646,16 @@
           "earth"
         ],
         "treatment": "Intact clay pot before opening. Mostly empty; occasional low-grade coins, apple or supply. Muted terracotta palette.",
-        "previewMaterial": "plain"
+        "previewMaterial": "plain",
+        "applied": true
       }
     ],
     "variants": [
       {
         "id": "dry-grass",
         "candidate": "grass-golden",
-        "role": "Dry / autumn grass",
-        "usage": "Dry patches and autumn zones",
+        "role": "Dry grass",
+        "usage": "Dry ground zones",
         "colours": [
           "ink",
           "dry_shadow",
@@ -710,7 +716,7 @@
         "id": "restored-hedge",
         "candidate": "bush-hedge-end",
         "role": "Restored hedge",
-        "usage": "Player-tended formal gardens",
+        "usage": "Formal gardens and residential/commercial areas; brighter colours only when restored",
         "colours": [
           "ink",
           "leaf_dark",
@@ -829,8 +835,8 @@
       {
         "id": "autumn-tree",
         "candidate": "tree-autumn-birch",
-        "role": "Autumn birch",
-        "usage": "Autumn natural areas",
+        "role": "Rust-toned birch",
+        "usage": "Dry woodland zones",
         "colours": [
           "ink",
           "clay",
@@ -967,7 +973,8 @@
           "earth"
         ],
         "treatment": "Broken/emptied state of the intact clay pot, sharing its colour ramp and barrel restock. Not a separate loose-rubble object.",
-        "previewMaterial": "plain"
+        "previewMaterial": "plain",
+        "applied": true
       }
     ]
   }

@@ -57,21 +57,13 @@ const CROP_SPRITE = {
   // wildplant scale. scale 1.16 (down 15% from 1.36) — the tuft was reading
   // oversized against neighbouring one-cell props.
   longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 },
-  // Shrub — round lush bush from bushes.png (144×288 = 3×9 of 48×32 frames).
-  // Frame 0 is the top-left large green bush. Scale 0.667 renders the 48px-wide
-  // frame at 32px (one cell). Replaces the old bare-twig Props.png frame 120.
+  // Rounded woodland bush, 48×32. Preserve its visible width (~21px),
+  // shared with bush-sized trees in render.js. Clipped hedges are zone variants.
   shrub:     { sheet: 'bushes', custom: true, frame: 0, scale: 0.667 },
-  // Mushroom uses Props.png (22 cols × 12 rows of 16×16 frames). Frame
-  // (col=13, row=1) → index 1*22 + 13 = 35 is the small red-cap toadstool
-  // sized to fit a single cell. (The cell one column to its right, frame
-  // 36, was the original pick but turned out to be a different prop that
-  // looked half-clipped at wildplant scale.) The previous Fantasy Mushroom
-  // sheet was 32×32 frames rendered at the wildplant scale of 2 → 64×64
-  // display, twice the footprint of every other ground prop, which read
-  // as a giant broken-looking mushroom on commercial/industrial plots.
-  // Scale 1.224 is 10% smaller than the previous 1.36, giving a ~20px
-  // footprint from the 16px frame. Origin stays (0.5, 0.5), so it shrinks
-  // about the cell centre. Surface and cave mushrooms share this scale.
+  // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
+  // contains the approved red-spotted toadstool from original Props frame 13.
+  // Scale 1.224 keeps the requested 10% mushroom reduction. Surface and
+  // cave mushrooms share this scale; inventory uses the surface frame.
   // `caveFrames`: the look of a mushroom spawned UNDERGROUND (worldgen.js
   // spawnCaveMushrooms stamps `_cave` on the wildplant) — the two blue
   // luminous caps on Props.png row 5, cols 17..18 (5*22+17, 5*22+18), picked

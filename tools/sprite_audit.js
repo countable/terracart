@@ -237,13 +237,13 @@ const ASSETS = assetsCtx.window.ASSETS;
 // ── Sheet metadata: where each texture key's PNG lives + frame size, and the
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const SHEETS = {
-  trees:         { file: 'assets/Objects/Maple Tree.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
+  trees:         { file: 'assets/Objects/Rustic/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
   // 32×48, not 32×64: at 64 the birch frame reached into the sheet's lower
   // band and picked up the tip of the red autumn tree (see assets.js).
   pine_tree:     { file: 'assets/Objects/Wilderness/Pine Tree.png',          fw: 32, fh: 48, frames: [3] },
   birch_tree:    { file: 'assets/Objects/Wilderness/Birch Tree.png',         fw: 32, fh: 48, frames: [3] },
   mahogany_tree: { file: 'assets/Objects/Wilderness/Mahogany Tree.png',      fw: 32, fh: 48, frames: [3] },
-  bushes:        { file: 'assets/Objects/Wilderness/bushes.png',             fw: 48, fh: 32, frames: [0] },
+  bushes:        { file: 'assets/Objects/Rustic/bush.png',             fw: 48, fh: 32, frames: [0] },
   // The sheets' fruiting cells (apple 7, peach 5) are deliberately absent: a
   // bearing tree now keeps its mature frame and wears a fruit sprite instead,
   // so nothing ever seats them (see FRUIT_FRAMES in render.js).
@@ -260,15 +260,15 @@ const SHEETS = {
   waystone:      { file: 'assets/Objects/Generated/waystone.png',            fw: 16, fh: 16, frames: [0] },
   stakes:        { file: 'assets/Objects/Generated/stakes_a.png',            fw: 16, fh: 16, frames: [0] },
   tar:           { file: 'assets/Objects/Generated/tar.png',                 fw: 16, fh: 16, frames: [0] },
-  headstone:     { file: 'assets/Objects/Generated/pillar_c.png',           fw: 16, fh: 16, frames: [0] },
+  headstone:     { file: 'assets/Objects/Rustic/pillar_c.png',           fw: 16, fh: 16, frames: [0] },
   ...Object.fromEntries(GROVE_SHRINE_ART.map(({ key, frame }) => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],
   }])),
   vista_scope:   { file: 'assets/Objects/Generated/scope.png',               fw: 16, fh: 24, frames: [0] },
   barrel:         { file: 'assets/Objects/Generated/barrel.png',             fw: 16, fh: 16, frames: [0] },
   barrel_smashed: { file: 'assets/Objects/Generated/barrel_smashed.png',     fw: 16, fh: 16, frames: [0] },
-  clay_pot: { file: 'assets/Objects/Generated/pot.png', fw: 16, fh: 16, frames: [0] },
-  clay_pot_smashed: { file: 'assets/Objects/Generated/pot_smashed.png', fw: 16, fh: 16, frames: [0] },
+  clay_pot: { file: 'assets/Objects/Rustic/pot.png', fw: 16, fh: 16, frames: [0] },
+  clay_pot_smashed: { file: 'assets/Objects/Rustic/pot_smashed.png', fw: 16, fh: 16, frames: [0] },
   bike_rack:      { file: 'assets/Objects/Generated/bike_rack.png',          fw: 16, fh: 16, frames: [0] },
   signpost:       { file: 'assets/Objects/Generated/signpost.png',           fw: 16, fh: 16, frames: [0] },
   gatepost:       { file: 'assets/Objects/Generated/pillar_a.png',           fw: 16, fh: 16, frames: [0] },
