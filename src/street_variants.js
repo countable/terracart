@@ -173,7 +173,7 @@
       // decor lane), sown with the old monarch's crown — the one royal symbol
       // the kept lanes still carry from before the fire. `emblem` names the
       // repeating mark; `emblemInk` is its colour.
-      carpet: '#1f4a2c', emblem: 'crown', emblemInk: '#d8b54a',
+      carpet: '#1f4a2c', emblem: 'crown', emblemInk: '#7b803b',
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
       lampGlow: '#ffffff', attracts: { rabbit: 0.5 },
       story: 'street_hedgerow', title: 'The hedged lane',

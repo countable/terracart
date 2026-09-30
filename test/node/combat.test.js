@@ -667,7 +667,8 @@ test('combat: the staff holds fire while the nearest foe is beyond its range', (
 test('combat: the staff still needs no compass at all', () => {
   // A player whose phone has no heading yet (facing zero-length) can still
   // cast: the staff's heading comes from the foe, not the sensor.
-  const foe = { kind: 'goblin', id: 'f', x: 14, y: 14 };
+  const inRange = Combat.rangeCellsFor('staff') * COMBAT_CELL_M * 0.6;
+  const foe = { kind: 'goblin', id: 'f', x: inRange, y: inRange };
   const h = Combat.shotHeading('staff', 0, 0, { x: 0, y: 0 }, [foe], COMBAT_CELL_M);
   assert.truthy(h && Combat.spawnShot('staff', 0, 0, h, COMBAT_CELL_M, 1), 'fires with a dead compass');
   assert.eq(Combat.spawnShot('bow', 0, 0, Combat.shotHeading('bow', 0, 0, { x: 0, y: 0 }, [foe], COMBAT_CELL_M), COMBAT_CELL_M, 1),
@@ -854,20 +855,19 @@ test('combat: the RANGED weapons keep their range', () => {
 // cell — derived from coords.js' own reachCells, so it grows with the Inner
 // Light upgrades and tightens as the dark takes the reach back underground.
 
-test('staff range: one cell past the player\'s live reach', () => {
+test('ranges: the arrow flies one cell past the live reach, magic to the reach', () => {
   const scene = (over) => ({ depth: 0, save: {}, ...over });
   for (const over of [{}, { save: { reachUpgrades: 3 } }, { save: { reachUpgrades: 6 } },
                       { depth: 1 }, { depth: 4 }]) {
     const s = scene(over);
     const reach = reachCells(s);
-    assert.eq(Combat.rangeCellsFor('staff', reach), reach + 1,
-      `staff at reach ${reach}`);
+    assert.eq(Combat.rangeCellsFor('bow', reach), reach + 1, `bow at reach ${reach}`);
+    assert.eq(Combat.rangeCellsFor('staff', reach), reach, `staff at reach ${reach}`);
   }
-  assert.eq(Combat.SHOT.staff.rangeFromReach, 1, 'one cell beyond, and only one');
-  // The bow does NOT follow the reach: it is the weapon you buy to hit what
-  // you cannot punch, and it is aimed by turning rather than by seeking.
-  assert.eq(Combat.SHOT.bow.rangeFromReach, undefined, 'the bow keeps a flat range');
-  assert.eq(Combat.rangeCellsFor('bow', 99), Combat.SHOT.bow.rangeCells, 'whatever the reach');
+  assert.eq(Combat.SHOT.bow.rangeFromReach, 1, 'one cell beyond, and only one');
+  assert.eq(Combat.SHOT.staff.rangeFromReach, 0, 'magic goes to the vision range');
+  // No reach to ask (a castle turret): the bow keeps its flat range.
+  assert.eq(Combat.rangeCellsFor('bow'), Combat.SHOT.bow.rangeCells, 'no reach → the flat number');
 });
 
 test('staff range: it tightens underground and grows with the Inner Light', () => {
@@ -886,7 +886,7 @@ test('staff range: the flat number is the standing fallback, and it agrees at sp
   assert.eq(Combat.rangeCellsFor('staff'), Combat.SHOT.staff.rangeCells, 'no reach → the flat number');
   assert.eq(Combat.SHOT.staff.rangeCells,
     reachCells({ depth: 0, save: {} }) + Combat.SHOT.staff.rangeFromReach,
-    'and the flat number IS reach+1 at the start');
+    'and the flat number IS the reach at the start');
 });
 
 test('staff range: the trigger and the flight are the same number', () => {
@@ -898,7 +898,7 @@ test('staff range: the trigger and the flight are the same number', () => {
   const inside  = { kind: 'goblin', id: 'in',  x: rangeM * 0.95, y: 0 };
   const outside = { kind: 'goblin', id: 'out', x: rangeM * 1.05, y: 0 };
   assert.eq(Combat.shotHeading('staff', 0, 0, { x: 1, y: 0 }, [outside], COMBAT_CELL_M, reach), null,
-    'a foe past reach+1 draws no bolt, and no energy');
+    'a foe past the reach draws no bolt, and no energy');
   const h = Combat.shotHeading('staff', 0, 0, { x: 1, y: 0 }, [inside], COMBAT_CELL_M, reach);
   assert.truthy(h, 'one inside it does');
   const shot = Combat.spawnShot('staff', 0, 0, h, COMBAT_CELL_M, 3, 1, reach);
