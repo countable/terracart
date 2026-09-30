@@ -94,7 +94,8 @@ procedural materials are better suited to arbitrary map polygons.
 actual sandbox in an isolated browser. It freezes time and actors, uses neutral
 lighting, and stitches native 32px cells with a two-cell margin. No shipping
 textures or user saves are modified. Candidates share the dashboard's gentle colour transfer and lighter,
-desaturated ground. The original closed chest is the shading reference; the
+moderately desaturated ground. Ground and water retain more of their original colour and depth, with the
+previous lightening and desaturation reduced by approximately 25%. The original closed chest is the shading reference; the
 new gold chest uses its source colours without recolouring. Clipped hedges are limited to residential/commercial shrub cells.
 
 ```sh

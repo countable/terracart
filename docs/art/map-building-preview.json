@@ -48,7 +48,7 @@
       "DARK": "#2e3028"
     }
   },
-  "tilledColor": "#ad9572",
+  "tilledColor": "#a48a66",
   "contrastPolicy": {
     "minimumCastleFloorBodyLuminanceGap": 25,
     "maximumStoneOutlineLuminance": 60,
