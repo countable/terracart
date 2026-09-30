@@ -930,7 +930,6 @@ test('combat: the bow burns a wood every 20 arrows and will not fire without one
   assert.truthy(/if \(!this\._ammoDryWarned\) \{\s*this\._ammoDryWarned = true;/.test(app), 'the dry message fires once');
   assert.truthy(/if \(this\.save\.ammoShots >= ammo\.shots\) \{\s*this\.save\.ammoShots = 0;\s*Inventory\.remove\(this\.save, ammo\.id, 1\);/.test(app),
     'every 20th arrow takes one wood, counted in the save');
-  assert.truthy(/1 wood\/20 shots/.test(RELIC_DEFS.bow.blurb), 'and the bow says so');
 });
 
 // ── Class bonuses (src/wizard.js CLASSES) ─────────────────────────────────

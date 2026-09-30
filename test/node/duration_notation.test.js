@@ -167,7 +167,7 @@ test('the day-gated messages name the wait to the UTC roll', () => {
   assert.gte(n, 3, `expected the 2 day-gated messages + the castle blurb, found ${n}`);
 });
 
-test('timed consumable copy derives from CONSUMABLE_SPEC', () => {
+test('numeric consumable durations derive from CONSUMABLE_SPEC', () => {
   const timed = [
     'pairy', 'coffee', 'reach_potion', 'speed_potion', 'shield_potion',
     'raven_potion', 'blight_potion', 'dragon_powder', 'shadow_powder',
@@ -176,8 +176,11 @@ test('timed consumable copy derives from CONSUMABLE_SPEC', () => {
   for (const id of timed) {
     const spec = CONSUMABLE_SPEC[id];
     assert.truthy(spec && spec.durationMs > 0, `${id}: duration row`);
-    assert.truthy((ITEM_EFFECTS[id] || '').includes(shortDuration(spec.durationMs)),
-      `${id}: effect line formats the owning duration`);
+    const effect = ITEM_EFFECTS[id] || '';
+    if (/\d/.test(effect)) {
+      assert.truthy(effect.includes(shortDuration(spec.durationMs)),
+        `${id}: numeric effect duration uses the owning value`);
+    }
   }
   const app = DURATION_SOURCES['app.js'];
   const aliases = {

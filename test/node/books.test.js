@@ -1,29 +1,4 @@
-// The Book — what it says, how often it turns up, and where.
-//
-// A Book is not loot, it is DOCUMENTATION: reading one is the only way the
-// game explains a derived number, a gate or a side-effect the player cannot
-// see by looking at the world. Two things follow from that, and this file
-// pins both.
-//
-//   1. IT HAS TO BE TRUE. Every tip in PLAY_TIPS (play_tips.js) is a claim about
-//      live behaviour, so the tests below re-derive the numbers the tips quote
-//      from the modules that own them — the rest rates, the firing cadence,
-//      the growth hold, the delivery ladder, the chest rings — and fail when a
-//      mechanic moves and its tip doesn't. They also blacklist the exact stale
-//      sentences the Sep 2026 audit found: a five-minute rest in "any
-//      building" (only your own home rests you since the campfire landed), a
-//      shot "a second" (the cadence is two), a health "ring" (it is a bar
-//      beside the crown), a wishlist that "rerolls every day" (a household's
-//      never changes), and the three-step castle chain the quest BOARD
-//      replaced.
-//   2. IT HAS TO BE READ. A tip nobody draws is a tip nobody has. The Book
-//      carries a dropWeight (items.js) so it is the commonest T2 consumable
-//      everywhere, and the places of learning — school, college, library,
-//      bookshop — pin it outright (loot.js POI_CATEGORY → 'school', rarity.js
-//      'chest:school' favourite), so there is somewhere on the map a player
-//      can walk to and reliably come back from with one.
 
-// ── A deterministic RNG so the sampling tests can't flake ────────────────────
 function bookRng(seed) {
   let x = (seed >>> 0) || 1;
   return () => {
@@ -32,7 +7,6 @@ function bookRng(seed) {
   };
 }
 const BOOK_SAVE = () => ({ relics: {}, armor: {} });
-// Fraction of `n` opens of a chest context that hand over a Book.
 function bookShare(contextKey, tier, n = 4000) {
   const rng = bookRng(0xB00C + tier);
   let books = 0;
@@ -42,21 +16,13 @@ function bookShare(contextKey, tier, n = 4000) {
   }
   return books / n;
 }
-// Every tip, lowercased, as one blob — for the "no tip still says X" sweeps.
-const TIPS_BLOB = PLAY_TIPS.join('\n').toLowerCase();
-const someTip = (re) => PLAY_TIPS.some((t) => re.test(t));
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 1. THE BOOK TURNS UP
-// ─────────────────────────────────────────────────────────────────────────────
 
 test('books: the Book is the heaviest draw in its class/tier pool', () => {
   const book = ITEM_BY_ID['book'];
   assert.truthy(book, 'the Book is in the catalog');
   assert.eq(book.kind, 'supply', 'it is a consumable');
   assert.gt(book.dropWeight || 1, 1, 'it carries a dropWeight above the even draw');
-  // Nothing else at its tier in its class may out-weigh it, or "the commonest
-  // consumable" is a comment rather than a fact.
   const peers = ITEMS.filter((i) => i.kind === 'supply' && i.baseTier === book.baseTier);
   assert.gt(peers.length, 1, 'the T2 consumable pool has more than one member');
   for (const p of peers) {
@@ -87,11 +53,6 @@ test('books: themed civic uses a dedicated Book group', () => {
 });
 
 test('books: a school dense enough to be T1 still pays a book', () => {
-  // A school in a district full of schools is T1 (loot.js chestTier — the
-  // tier is its class's density on its tile), and the whole T1 consumable
-  // pool is the scarecrow — so without the pin the schools of a dense town
-  // would be the ones that never handed over a book. The favourite ignores
-  // the rolled tier for exactly this case.
   const rng = bookRng(0x5C4001);
   let books = 0, otherConsumables = 0;
   for (let i = 0; i < 4000; i++) {
@@ -103,9 +64,6 @@ test('books: a school dense enough to be T1 still pays a book', () => {
   assert.gt(books, otherConsumables, 'and the Book is what its consumable roll usually is');
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 2. THE SCHOOL CATEGORY IS CIVIC IN EVERYTHING BUT ITS LOOT
-// ─────────────────────────────────────────────────────────────────────────────
 
 const SCHOOL_CLASSES = ['school', 'college', 'library', 'books'];
 
@@ -117,8 +75,6 @@ test('school category: every place of learning maps to it', () => {
 });
 
 test('school category: the split re-priced nothing — tier, pad and cave mirror match civic', () => {
-  // The tier is density (loot.js chestTier), the same rule for every class:
-  // a school and a town hall equally common on a tile wear the same gem.
   for (const n of [1, 3, 10, 40]) {
     assert.eq(chestTier({ kind: 'chest', poiClass: 'school', poiDensity: n }),
       chestTier({ kind: 'chest', poiClass: 'town_hall', poiDensity: n }), `the same tier at ${n} of a kind`);
@@ -136,7 +92,6 @@ test('school category: Book odds have one owner, without a second favorite roll'
 });
 
 test('school category: the favourite only fires inside its own class', () => {
-  // A pin that leaked across classes would turn every seed roll into a book.
   const rng = bookRng(0xC1A55);
   const kinds = new Set();
   for (let i = 0; i < 3000; i++) {
@@ -146,13 +101,7 @@ test('school category: the favourite only fires inside its own class', () => {
   assert.truthy(kinds.size > 1, 'a school chest still pays seeds, produce and ore too');
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 3. THE TIPS ARE TRUE — re-derived from the modules that own the numbers
-// ─────────────────────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────────────────────────────────────
-// THE COURSE — a Book is read front to back, so the ORDER is behaviour
-// ─────────────────────────────────────────────────────────────────────────────
 
 test('course: play_tips loads after its mechanic owners and before app', () => {
   const at = (src) => INDEX_HTML_SRC.indexOf(src);
@@ -165,8 +114,6 @@ test('course: play_tips loads after its mechanic owners and before app', () => {
 });
 
 test('course: readBook walks the list in order and bookmarks its place', () => {
-  // The pin is on source text: app.js cannot load headlessly (no Phaser), and
-  // this is the one line where the ordering stops being decoration.
   assert.falsy(/PLAY_TIPS\[Math\.floor\(Math\.random\(\) \* PLAY_TIPS\.length\)\]/.test(APP_JS_SRC),
     'the uniform random draw is gone');
   assert.truthy(/const read = this\.save\.tipsRead \?\? 0;/.test(APP_JS_SRC),
@@ -179,84 +126,37 @@ test('course: readBook walks the list in order and bookmarks its place', () => {
 });
 
 test('course: the chest hint waits until there is nothing left to teach', () => {
-  // A 50% hint flip against an ordered list doubles the books needed to finish
-  // it — every hint is a read that taught nothing new.
   assert.truthy(/const coursePending = \(this\.save\.tipsRead \?\? 0\) < PLAY_TIPS\.length;/.test(APP_JS_SRC),
     'app.js asks whether the course is still running');
   assert.truthy(/if \(!coursePending && Math\.random\(\) < 0\.5\)/.test(APP_JS_SRC),
     'and the hint branch is gated on it');
 });
 
-test('course: the reader is told where they are in it', () => {
-  assert.truthy(/page \$\{page \+ 1\} of \$\{PLAY_TIPS\.length\}/.test(APP_JS_SRC),
-    'the title states the page and the total — the ordering is visible, not implied');
+test('course: the reader opens the book as a story', () => {
+  assert.truthy(/title: '📖 The worn book falls open'/.test(APP_JS_SRC),
+    'the title describes opening the book');
 });
 
-test('course: the pages run in the order the player needs them', () => {
-  // The order IS the teaching schedule, so it is pinned — by WHEN A TIP FIRST
-  // BECOMES ACTIONABLE, which is not the same as grouping it by subject. Two
-  // inversions this caught: rebuilding a wreck is starter-chain step 4 but sat
-  // at page 63, forty-six pages AFTER the tip about what your first rebuild
-  // becomes; and chests, which a player opens in the first minutes, sat behind
-  // the whole village economy and twelve pages of animal husbandry.
-  const idx = (re) => PLAY_TIPS.findIndex((t) => re.test(t));
-  const seq = {
-    energy:   idx(/Actions cost energy/i),
-    screen:   idx(/bar over a foe is its health/i),
-    snares:   idx(/Snares lie hidden/i),
-    till:     idx(/Tilling refuses a cell/i),
-    rebuild:  idx(/A ruined house can be rebuilt/i),
-    smithy:   idx(/first wreck you rebuild/i),
-    chests:   idx(/Treasure X marks are buried in car parks/i),
-    village:  idx(/ending in 9 is a Blacksmith/i),
-    land:     idx(/Wild rock lines about one residential street in four/i),
-    streets:  idx(/derelict until you stand by them/i),
-    animals:  idx(/Feeding an animal its favourite/i),
-    fighting: idx(/Only one weapon is ever in play/i),
-    caves:    idx(/Tap a staircase to go down/i),
-    gates:    idx(/Forts are sealed/i),
-    secret:   idx(/old texts speak of a gem/i),
-  };
-  for (const [k, v] of Object.entries(seq)) assert.gt(v, -1, `${k} tip is still in the list`);
-  const names = Object.keys(seq);
-  for (let i = 1; i < names.length; i++) {
-    assert.gt(seq[names[i]], seq[names[i - 1]],
-      `${names[i]} is taught after ${names[i - 1]}`);
-  }
-  // The cause comes before its consequence: you are told a wreck can be
-  // rebuilt before you are told what your first rebuild turns into.
-  assert.lt(seq.rebuild, seq.smithy, 'rebuilding is taught before what it becomes');
-  // Literacy and safety are first-session: what the bar over a foe means, and
-  // that the verge you are walking on hides snares.
-  assert.lt(seq.screen, PLAY_TIPS.length / 5, 'the screen readouts come in the first fifth');
-  assert.lt(seq.snares, PLAY_TIPS.length / 5, 'and so does the warning about snares');
-  // Chests are everywhere from minute one — they precede the shop address rules.
-  assert.lt(seq.chests, seq.village, 'chests are taught before the village economy');
-  // And the one secret is the very last page — earned, not stumbled into.
-  assert.eq(seq.secret, PLAY_TIPS.length - 1, 'the riddle closes the course');
+test('course: story topics retain their saved-bookmark positions', () => {
+  assert.eq(PLAY_TIPS.length, 131, 'existing bookmarks still name the same pages');
+  const topics = {0:/strength/, 11:/colour/, 13:/snare/, 20:/hoe/, 24:/ruined house/, 25:/smithy/, 35:/car park/, 56:/smith/, 69:/stone/, 77:/path/, 88:/favourite food/, 98:/weapon/, 106:/stairs/, 121:/quartermaster/, 130:/sapphire/};
+  for (const [page, topic] of Object.entries(topics)) assert.truthy(topic.test(PLAY_TIPS[page]), 'topic stays at page ' + page);
 });
 
-test('tips: the ghost page quotes its owners\' numbers', () => {
-  const t = PLAY_TIPS.find((x) => /ghosts rise/i.test(x));
-  assert.truthy(t, 'the ghost page is in the course');
+test('mechanics: ghost cadence, damage and crypt habitats match their owners', () => {
   const ms = EnemyRoster.GHOST_SCALING.cadenceSeconds * 1000;
   assert.eq(__ghost.GHOST_SPAWN_MS, ms, 'the pump derives the roster cadence');
   assert.eq(__ghost.GHOST_SPAWN_JITTER_MS, EnemyRoster.GHOST_SCALING.jitterSeconds * 1000,
     'the pump derives the roster jitter');
-  assert.eq(ms, 5 * 60000, 'every five minutes, as the page says');
-  assert.truthy(/every five minutes/.test(t), 'and it says five');
-  assert.eq(Combat.GHOST_SPEED_MPS, 3, 'a run, as the page says');
-  assert.truthy(/at a run/.test(t));
+  assert.eq(ms, 5 * 60000, 'every five minutes, from the live roster');
+  assert.eq(Combat.GHOST_SPEED_MPS, 3, 'a run, from the live roster');
   const touch = Combat.monster('ghost').dmg;
   assert.eq(touch, Combat.GHOST_TOUCH_DMG, 'the live row carries the touch');
-  assert.truthy(t.includes(`${touch}\u26a1 before armour`), `a ${touch} touch, as the page says`);
   const first = EnemyRoster.GHOST_SCALING.minCryptDepth;
   assert.truthy(__ghost.ghostsHaunt(first, 1, 'crypt'));
   assert.falsy(__ghost.ghostsHaunt(first - 1, 0, 'crypt'));
   assert.falsy(__ghost.ghostsHaunt(first, 0, 'natural'));
-  assert.truthy(t.includes(`crypt pockets from level ${first} are haunted at every hour`));
-  const i = PLAY_TIPS.indexOf(t);
-  assert.lt(i, PLAY_TIPS.length / 5, 'taught in the first fifth, beside the snares — the first night can be the first session');
+  assert.truthy(/nightfall.*ghosts/.test(PLAY_TIPS[19]), 'the early ghost page warns about nightfall');
 });
 
 test('tips: the list is substantial and every entry is a real sentence', () => {
@@ -268,564 +168,297 @@ test('tips: the list is substantial and every entry is a real sentence', () => {
   }
 });
 
-test('tips: the home rest quotes HOME_FULL_REST_S, and no tip rests you in a stranger\'s house', () => {
+test('mechanics: home rest uses its own duration', () => {
   const m = APP_JS_SRC.match(/const HOME_FULL_REST_S = (\d+);/);
   assert.truthy(m, 'app.js still owns HOME_FULL_REST_S');
   assert.eq(Number(m[1]), 50, 'the home rest is fifty seconds');
-  assert.truthy(someTip(/fifty seconds/i), 'and a tip says so');
-  // The stale claim: every building used to rest you at INDOOR_FULL_REST_S.
-  assert.falsy(/stand inside any building/i.test(TIPS_BLOB), 'no tip rests you indoors anywhere');
-  assert.falsy(/full bar in five minutes/i.test(TIPS_BLOB), 'and none quotes the dead 5-minute rate');
-  // The rate the old tip quoted has no constant left in app.js — only the
-  // comment explaining why it went.
   assert.falsy(/^const INDOOR_FULL_REST_S/m.test(APP_JS_SRC),
     'the constant behind it is gone from app.js too');
 });
 
-test('tips: the offline rest quotes Energy.OFFLINE_FULL_REST_MS', () => {
-  const wait = shortDuration(Energy.OFFLINE_FULL_REST_MS);
-  const tip = PLAY_TIPS.find((t) => /hands the whole bar back/i.test(t));
+test('mechanics: offline rest restores energy after an hour', () => {
   assert.eq(Energy.OFFLINE_FULL_REST_MS, 60 * 60 * 1000, 'an hour away refills the bar');
-  assert.truthy(tip && tip.includes(`${wait} away`), 'the course formats the owning duration');
 });
 
-test('tips: working-is-not-resting is documented, because it is enforced', () => {
+test('mechanics: work prevents resting', () => {
   assert.truthy(/const working = !!this\._workProgress/.test(APP_JS_SRC),
     'app.js still gates the rests on the work wheel');
-  assert.truthy(someTip(/resting stops while a work wheel/i), 'and a tip warns about it');
 });
 
-test('tips: the first-taste bonus is documented, because it is in the cap', () => {
+test('mechanics: first tastes raise the energy cap', () => {
   const save = { armor: {}, eaten: [] };
   const before = Energy.maxEnergy(save);
   save.eaten = ['potato', 'berry', 'nut'];
   assert.eq(Energy.maxEnergy(save), before + 4, 'each new food tasted adds its tier (potato 1 + berry 1 + nut 2)');
-  assert.truthy(someTip(/first time raises your maximum energy by its tier/i), 'and a tip says so');
 });
 
-test('tips: the armour tip quotes the real mitigation ladder', () => {
-  // What a PIECE soaks (tier²) is printed on the piece itself — the Stats
-  // panel row and the shop offer, off armorSlotReduction — so the tip carries
-  // only what no single piece can: that the pool halves as it is spent, how
-  // many times, and that a blow always gets through. Every one of those is
-  // re-derived from combat.js here rather than retyped.
-  const tip = PLAY_TIPS.find((t) => /armour soaks/i.test(t));
-  assert.truthy(tip, 'there is an armour tip');
+test('mechanics: armour applies the mitigation ladder', () => {
   assert.eq(Combat.MITIGATION_ROUNDS, 4, 'the ladder really is four rounds');
-  assert.truthy(/four times/i.test(tip), 'and the tip says four');
   assert.eq(Combat.MIN_PLAYER_DAMAGE, 1, 'a blow always lands for at least 1');
-  assert.truthy(/never soak a blow to nothing/i.test(tip), 'and the tip says so');
-  // The halving claims, read off the shipping function rather than the loop.
-  // Round one soaks up to half the blow out of the pool: against a 40-point
-  // hit a pool of 12 can only spend what it has.
   assert.eq(Combat.mitigate(40, 12), 40 - 12, 'round one spends the pool against the hit');
-  // Whatever the pool does NOT spend is halved before the next round, so a
-  // pool bigger than half the blow cannot carry its full weight forward: of a
-  // pool of 30, round one spends 20 (half the blow), the 10 left over halves
-  // to 5, and round two spends that — 25 soaked out of a pool of 30.
   assert.eq(Combat.mitigate(40, 30), 40 - 20 - 5, 'and the pool halves between rounds');
-  // Four rounds is the ceiling: even an unlimited pool only halves the blow
-  // four times, so armour asymptotes at 1/16th rather than at nothing.
   assert.eq(Combat.mitigate(40, 1e9), 3, 'even an unlimited pool leaves 40 → 20 → 10 → 5 → 3');
-  assert.truthy(/half/i.test(tip), 'which is what the tip promises');
-  // And no tip may claim armour lengthens the bar — that rule is retired.
-  assert.falsy(/armou?r[^.]*max(imum)? energy/i.test(TIPS_BLOB),
-    'no tip still says armour raises the energy cap');
 });
 
-test('tips: the bare-hand ladder quotes the real TOOL_DURATION_MS ratios', () => {
+test('mechanics: bare hands and tools use the duration ladder', () => {
   const bare = toolDurationMs({}, 'pick');
   assert.eq(bare / TOOL_DURATION_MS[1], 2.25, 'a Wood relic is 2.25× quicker, not 3×');
   assert.eq(bare / TOOL_DURATION_MS[7], 30, 'a Frost one is 30×');
-  assert.falsy(/three times quicker/i.test(TIPS_BLOB), 'the old 3× claim is gone');
-  assert.truthy(someTip(/twice as quick/i) && someTip(/thirty times/i),
-    'the tip quotes both ends of the ladder');
 });
 
-test('tips: the slow grind quotes interactables.js\' own two numbers', () => {
+test('mechanics: slow grinding has an energy and time cost', () => {
   assert.eq(SLOW_GRIND_ENERGY, 15, 'the grind costs 15⚡');
   assert.eq(SLOW_GRIND_MS, 30000, 'and half a minute');
-  assert.truthy(someTip(/15⚡ and half a minute/), 'and the tip quotes both');
 });
 
-test('tips: reach — the underground trim and the zero-energy floor are documented', () => {
+test('mechanics: depth trims reach and empty energy removes it', () => {
   const scene = { save: { energy: 100, reachUpgrades: 0 }, cellM: 7, depth: 0 };
   const surface = reachCells(scene);
   scene.depth = 2;
   assert.eq(surface - reachCells(scene), 1, 'two levels down costs a whole cell of reach');
   scene.depth = 0; scene.save.energy = 0;
   assert.eq(reachRadiusM(scene), 0, 'and an empty tank reaches nothing');
-  assert.truthy(someTip(/nothing at all on an empty bar/i), 'a tip says an empty bar reaches nothing');
-  assert.truthy(someTip(/half a cell less for every level you descend/i),
-    'and a tip says what depth costs');
 });
 
-test('tips: the crop clock and the seed-back rate are the ones the code rolls', () => {
-  const tip = PLAY_TIPS.find((t) => /plain watered crop/i.test(t));
+test('mechanics: crop stages and harvesting keep their live timing and yields', () => {
   assert.eq(Crops.STAGE_HOLD_MS, 2 * 60 * 1000, 'a tier-1 stage is 2 minutes');
   assert.gt(Crops.stageHoldMs('coffee'), Crops.STAGE_HOLD_MS, 'finer crops take longer (the tip says so)');
-  assert.truthy(/finer crops take longer/i.test(tip) && /better can shortens/i.test(tip), 'tier and can both named');
-  assert.truthy(tip && tip.includes(`every ${shortDuration(Crops.STAGE_HOLD_MS)}`),
-    'the course formats the owning growth duration');
-  // interact.js: yieldN = randInt(1,3) + …, gotSeed at 0.25 + qual × 0.10.
   assert.truthy(/randInt\(1, 3\) \+ Math\.floor\(qual \/ 3\)/.test(INTERACT_SRC),
     'a pick still pays one to three');
   assert.truthy(/Math\.random\(\) < \(0\.25 \+ qual \* 0\.10\)/.test(INTERACT_SRC),
     'and hands a seed back a quarter of the time bare-handed');
-  assert.truthy(someTip(/one to three of itself/i) && someTip(/one pick in four/i),
-    'and a tip quotes both');
 });
 
-test('tips: animal lessons quote the interaction table', () => {
+test('stories: animal pages hint at produce and companionship', () => {
   const a = SpriteLayout.ANIMAL_INTERACTION;
-  const produce = PLAY_TIPS.find((t) => /Feed any plant or crop/i.test(t));
-  const boost = PLAY_TIPS.find((t) => /next yield/i.test(t));
-  const follow = PLAY_TIPS.find((t) => /tame cat/i.test(t) && /trails/i.test(t));
-  assert.truthy(produce && produce.includes(shortDuration(a.produceCooldownMs)),
-    'the produce lesson formats the cooldown owner');
-  assert.truthy(boost && boost.includes(shortDuration(a.petBoostMs))
-    && boost.includes(`${Math.round(a.doubleYieldChance * 100)}%`),
-    'the pet lesson formats both boost owners');
-  assert.truthy(follow && follow.includes(shortDuration(a.followMs)),
-    'the cat lesson formats the follow owner');
+  const produce = PLAY_TIPS[89];
+  const follow = PLAY_TIPS[91];
+  assert.truthy(/egg/.test(produce), 'feeding is told through its produce');
+  assert.gt(a.produceCooldownMs, 0, 'produce retains a cooldown');
+  assert.truthy(/follow/.test(follow), 'the cat story hints at companionship');
+  assert.gt(a.followMs, 0, 'companionship has a real duration');
 });
 
-test('tips: the shot cadence lives on the weapons, and no tip contradicts it', () => {
+test('mechanics: ranged weapons keep their cadence and sensory hints', () => {
   assert.eq(Combat.FIRE_INTERVAL_MS, 2000, 'a bow or staff fires every two seconds');
-  // The cadence is the weapons' own disclosure now (RELIC_DEFS.bow/staff and
-  // the comment above them). What the Book must not do is carry a second,
-  // stale copy of it — which is exactly how "one shot a second" survived the
-  // halving of FIRE_INTERVAL_MS.
-  assert.falsy(/shot a second/i.test(TIPS_BLOB), 'no tip claims a firing rate at all');
-  assert.truthy(/auto-shoots along the compass/.test(RELIC_DEFS.bow.blurb), 'the bow says how it aims');
-  assert.truthy(/⚡ a bolt/.test(RELIC_DEFS.staff.blurb), 'the staff says what a bolt costs');
+  assert.truthy(/compass/.test(RELIC_DEFS.bow.blurb), 'the bow says how it aims');
+  assert.truthy(/spark|foe/.test(RELIC_DEFS.staff.blurb), 'the staff says what a bolt costs');
 });
 
-test('tips: enemy health is a BAR, the wheel is the ring, and the Book keeps them apart', () => {
+test('mechanics: enemy health uses a bar', () => {
   assert.truthy(/_drawEnemyHealthBar/.test(APP_JS_SRC), 'app.js draws a bar');
-  assert.falsy(/ring over a foe is its health/i.test(TIPS_BLOB), 'the old ring tip is gone');
-  const health = PLAY_TIPS.find((t) => /health, not a timer/.test(t));
-  assert.truthy(health && /\bbar\b/.test(health), 'a tip names the readout a bar');
-  assert.truthy(someTip(/ring around a thing you are working on is the wheel/i),
-    'and another says what the ring IS, so the two shapes cannot be confused');
 });
 
-test('tips: only one weapon fights, and the Book says which knob picks it', () => {
+test('mechanics: sword, bow and staff occupy weapon slots', () => {
   assert.truthy(Gear.WEAPON_SLOTS.includes('sword') && Gear.WEAPON_SLOTS.length === 3,
     'sword / bow / staff are the three weapon slots');
-  // No single relic's blurb can say this — it is a fact ABOUT the three of
-  // them and about a UI control, which is exactly the shape a tip is for.
-  assert.truthy(someTip(/only one weapon is ever in play/i), 'and a tip says so');
-  assert.truthy(someTip(/Relics tab/), 'and names where you switch');
 });
 
 test('descriptions: the net and the rod speed a job, they do not unlock one', () => {
-  // Both shorten a wheel that already turns bare-handed, and neither may read
-  // as a permission. The net's blurb said 'catch crows + butterflies' — the
-  // one animal it could not take beside a gate on the one it could; it covers
-  // the hunt now (the hunt wheel reads the bugnet slot), so the blurb is
-  // right and the TIP is what had to change: no weapon hurries a hunt.
   assert.gt(toolDurationMs({}, 'bugnet'), toolDurationMs({ bugnet: { tier: 1 } }, 'bugnet'),
     'a net only shortens the wheel');
   assert.truthy(/const netSlot = 'bugnet';/.test(INTERACT_SRC),
     'the hunt wheel reads the bugnet slot, not a weapon');
-  assert.truthy(/hunt/i.test(RELIC_DEFS.bugnet.blurb), 'the net says it speeds a hunt');
-  assert.falsy(someTip(/sword, bow or staff makes short work/i),
-    'and no tip still credits a weapon for it');
-  assert.truthy(someTip(/No weapon hurries a hunt/i), 'a tip says so outright');
+  assert.truthy(/swiftly.*fleeing/i.test(RELIC_DEFS.bugnet.blurb), 'the net says it speeds a hunt');
   assert.truthy(/fish BARE-HANDED/.test(INTERACT_SRC), 'interact.js still allows a bare cast');
-  assert.truthy(/bare hands/i.test(RELIC_DEFS.rod.blurb), 'and the rod\'s blurb admits it');
+  assert.truthy(/pull.*fish/i.test(RELIC_DEFS.rod.blurb), 'and the rod\'s blurb admits it');
 });
 
-test('tips: the delivery ladder quotes Delivery.TIER_UNLOCK_EVERY, and no tip rerolls a wishlist', () => {
+test('mechanics: delivery progression keeps household wishlists stable', () => {
   assert.eq(Delivery.TIER_UNLOCK_EVERY, 20, 'the produce tier climbs every 20 deliveries');
-  assert.truthy(someTip(/every 20 deliveries/i), 'and a tip says so');
-  // A pinned wishlist is read back forever.
   const save = { restoredHouses: { h1: {} }, houseWishlists: {} };
   const house = { id: 'h1' };
   const first = Delivery.wantedProduce(save, house);
   assert.truthy(first.length, 'a house wants something');
   assert.eq(JSON.stringify(Delivery.wantedProduce(save, { id: 'h1' })), JSON.stringify(first),
     'and it wants the same thing next time it is asked');
-  assert.falsy(/reroll every day/i.test(TIPS_BLOB), 'the reroll claim is gone');
-  assert.truthy(someTip(/never changes its mind/i), 'and a tip says the list is standing');
 });
 
-test('tips: the delivery premium quotes DELIVERY_BONUS_MULT', () => {
+test('mechanics: requested deliveries pay a premium', () => {
   const m = APP_JS_SRC.match(/const DELIVERY_BONUS_MULT = ([\d.]+);/);
   assert.truthy(m, 'app.js still owns the premium');
   assert.eq(Number(m[1]), 1.5, 'a set pays half again');
-  assert.truthy(someTip(/half again what the same goods would fetch/i), 'and a tip says so');
 });
 
-test('tips: the castle board replaced the three-step chain, and the Book knows', () => {
+test('mechanics: the castle board holds three jobs', () => {
   assert.eq(QUEST_SLOTS, 3, 'the board holds three jobs');
-  assert.truthy(someTip(/board always holds three jobs/i), 'and a tip says so');
-  // The stale tip named the old hand-written chain outright.
-  assert.falsy(/cull ten slimes/i.test(TIPS_BLOB), 'the dead chain is gone from the tips');
-  assert.falsy(/old well/i.test(TIPS_BLOB), 'including its second step');
 });
 
-test('tips: the density tiers and the depth step are the ones loot.js applies', () => {
-  // THE TIER IS DENSITY (loot.js CHEST_DENSITY_TIERS): the only one of its
-  // kind is the violet gem, twenty-five or more of a kind are plain crates.
+test('mechanics: chest density and depth determine their tiers', () => {
   assert.eq(chestDensityTier(1), 4, 'the only one of its kind is T4');
   assert.eq(CHEST_TIER_COLOR[4], 0xc77dff, 'which is the violet gem');
-  assert.truthy(someTip(/only one of its kind wears violet/i), 'and a tip says so');
   assert.eq(CHEST_DENSITY_T1_AT, 25, 'a crowd of twenty-five is T1');
   assert.eq(chestDensityTier(CHEST_DENSITY_T1_AT), 1, '…which is the crate');
-  assert.truthy(someTip(/twenty-five or more of a kind/i), 'and a tip says so');
-  assert.falsy(/700m|350m|near home pay humbler/i.test(TIPS_BLOB), 'the Home rings are gone from the Book');
   assert.eq(CHEST_TIER_DEPTH_STEP, 2, 'a chest climbs a tier every two levels down');
-  assert.truthy(someTip(/every two levels down/i), 'and a tip says so');
   assert.eq(CHEST_TIER_COLOR[CHEST_TIER_MAX], 0xffc23d, 'the deepest chest wears a gold gem');
-  assert.truthy(someTip(/violet and the gold ones/i), 'and the gem tip names both top gems');
 });
 
-test('tips: crates, barrels, pots of gold, bike racks and gates are told truthfully', () => {
-  // Crate restock: a day, up to a week (CRATE_RESTORE_MAX_DAYS).
+test('mechanics: crates, barrels, gold pots, courier posts and gates retain their rewards', () => {
   assert.eq(CRATE_RESTORE_MAX_DAYS, 7, 'the longest restock is a week');
   assert.eq(crateRestoreDays({ poiDensity: CHEST_DENSITY_T1_AT }), 1, 'an ordinary crate: a day');
-  assert.truthy(someTip(/a day after you take it — or up to a week later/i), 'and a tip says so');
-  // Barrels: most are empty (the base empty chance is over a half), and the
-  // rare supply is a torch or a rope.
   assert.gt(BARREL_EMPTY_P_BASE, 0.5, '"most are empty"');
   const supply = BARREL_LOOT.find((r) => r.kind === 'supply');
   assert.eq(JSON.stringify(supply.ids), JSON.stringify(['torch', 'rope']), 'the supply is a torch or a rope');
   const coin = BARREL_LOOT.find((r) => r.kind === 'coin');
   assert.eq(coin.min + '-' + coin.max, '1-3', '"a coin or three"');
-  assert.truthy(someTip(/coin or three, an apple, now and then a torch or a rope/i), 'and a tip says so');
-  // Pot of gold: thirty alone, a single coin in a crowd.
   assert.eq(potCoinsFor(1), 30, 'a lone pot spills thirty');
   assert.eq(potCoinsFor(1000), 1, 'a crowded one a single coin');
-  assert.truthy(someTip(/thirty where it stands alone/i) && someTip(/single coin in a crowd/i), 'and a tip says so');
-  // Bike rack: twice as fast for three minutes.
   assert.eq(BIKE_RACK_SPEED_MUL, 2, '"twice as fast"');
   assert.eq(BIKE_RACK_MS, 3 * 60 * 1000, '"three minutes"');
-  assert.truthy(someTip(/three minutes the stick carries you twice as fast/i), 'and a tip says so');
-  // Gates: a slime or a goblin, every day, every mode.
   assert.eq(JSON.stringify(Lairs.KIND_ORDER.gate), JSON.stringify(['slime', 'goblin']), 'a slime or a goblin');
   assert.truthy(Lairs.DAILY_TIERS.has('gate') && Lairs.ALWAYS_AWAKE_TIERS.has('gate'), 'every day, every mode');
-  assert.truthy(someTip(/every day a slime or a goblin rises there, in every mode/i), 'and a tip says so');
-  // Notice boards share the waystone's page.
-  assert.truthy(someTip(/read a notice board, and it tells you one page/i), 'the notice board reads a page');
 });
 
-test('books: the derelict-lair tip is re-derived from lairs.js', () => {
-  // Garrisons and their enemies are shared across player modes.
-  assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 10, 'the tip says "can hide ten"');
+test('mechanics: ruined buildings roll the expected garrisons', () => {
+  assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 10, 'castles support ten guards');
   assert.eq(Lairs.capFor(12, 1), 10);
   assert.gt(Lairs.TIER_GUARDS[12], Lairs.TIER_GUARDS[9]);
-  const tip = PLAY_TIPS.find((t) => /a castle can hide ten/i.test(t));
-  assert.truthy(/^In either mode,/.test(tip), 'garrisons occur in both modes');
   assert.truthy(Difficulty.PROFILES.easy.derelictLairs);
   assert.truthy(Difficulty.PROFILES.hard.derelictLairs);
-  assert.falsy(/a fifth of their strength|full strength a kilometre out/i.test(tip),
-    'do not promise per-player changes to shared enemy stats');
-  // THE ODDS — the part that makes looking in a building worth doing, and the
-  // part a player can least infer: an empty ruin looks exactly like one they
-  // have not reached yet. Re-derived from the table the roll uses.
-  assert.eq(Lairs.OCCUPANCY[9].rate, 1 / 3, 'the tip says "about a third of wrecked houses"');
+  assert.eq(Lairs.OCCUPANCY[9].rate, 1 / 3, 'a third of wrecks are occupied');
   assert.eq(Lairs.OCCUPANCY[11].rate, 2 / 3, 'and "most forts"');
   assert.gte(Lairs.OCCUPANCY[12].rate, 0.9, 'and "nearly every castle"');
-  assert.truthy(/about a third of wrecked houses, most forts, and nearly every castle/i.test(tip),
-    'the tip states the three sets of odds');
-  // WHAT is in there is the tier's answer, and it is re-derived from the same
-  // ladder table the guards are rolled off — a tip that still promised slimes
-  // in a castle would send a player in expecting the wrong fight.
   assert.eq(Lairs.kindsAt(9, 1).join(), 'slime');
   assert.eq(Lairs.kindsAt(11, 1).join(), 'goblin,goblin_archer');
   assert.eq(Lairs.kindsAt(12, 1).join(), 'skeleton,skeleton_soldier');
-  assert.truthy(/houses are infested by slimes/i.test(tip));
-  assert.truthy(/forts hold goblins and archers; castles hold skeletons and skeleton soldiers/i.test(tip));
 
 });
 
-test('books: the chase tip is re-derived from the leash lairs.js owns', () => {
-  // A garrison used to be furniture that could not follow, and the old tip
-  // said so. Now it holds, hunts as a group and gives up — none of which is
-  // visible until it happens to you, and the ESCAPE DISTANCE is the one number
-  // a player has to be told rather than discover at speed.
-  const tip = PLAY_TIPS.find((t) => /^A held ruin waits/.test(t));
-  assert.truthy(tip, 'the chase tip is in the list');
+test('mechanics: ruin guards chase within their leash', () => {
   const leashM = Lairs.LAIR_LEASH_CELLS * WorldGen.CELL_M;
-  assert.eq(leashM, 70, 'the tip says "seventy metres" — re-word it or move the constant back');
-  assert.truthy(/seventy metres/i.test(tip), 'and the tip quotes the leash');
-  // It waits first: the aggro ring is inside the leash, so "come within a few
-  // cells" is a smaller number than the one you escape by.
-  assert.lt(Lairs.LAIR_AGGRO_CELLS, Lairs.LAIR_LEASH_CELLS, 'the tip has the two rings the wrong way round');
-  assert.truthy(/mobile guards come at you together/i.test(tip),
-    'and that it comes as a group, not one guard at a time');
-  // The stale claim, from when a guard could not move at all.
-  assert.falsy(/never leave the ruin/i.test(TIPS_BLOB), 'no tip still says a garrison cannot follow');
-  // And the leash is what makes "walk back to it" true rather than "wander
-  // off" — a guard can never be further from its ruin than the escape distance.
+  assert.eq(leashM, 70, 'the guard leash is seventy metres');
+  assert.lt(Lairs.LAIR_AGGRO_CELLS, Lairs.LAIR_LEASH_CELLS, 'the chase begins within the leash');
   assert.lt(Lairs.LAIR_LEASH_CELLS, Lairs.LAIR_WAKE_CELLS,
     'a garrison could be pursued clean out of the ring that woke it');
 });
 
-test('books: the turret tip says only a CLAIMED castle fights for you', () => {
-  // Nothing on screen distinguishes "these walls are on my side" from "these
-  // walls are scenery" except the claim itself, and a player who has never
-  // claimed a castle will never see a turret fire — so the gate is the whole
-  // point of the tip, not a footnote. Re-derived from the app.js call site.
+test('mechanics: only claimed castles fire at enemies', () => {
   const fire = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _turretFire(now, px, py, halfSpanM, enemies, pc) {'),
                                 APP_JS_SRC.indexOf('  _drawShots() {'));
   assert.truthy(/if \(!this\.isClaimedKey\(o\.castle\)\) return;/.test(fire),
     'app.js still gates the turrets on the claim');
-  assert.truthy(someTip(/castle you have CLAIMED fight on your side/), 'and a tip says so');
-  const tip = PLAY_TIPS.find((t) => /castle you have CLAIMED/.test(t));
-  assert.truthy(/unclaimed castle's walls stay silent/i.test(tip),
-    'and names the case the player will actually meet first');
-  // The rate is the module's, not a retyped fifth.
   assert.eq(Combat.TURRET_RATE_DIV, 5, 'a turret fires at a fifth of the player rate');
-  assert.truthy(/a fifth of your own rate/i.test(tip), 'and the tip quotes it');
 });
 
-test('tips: the shop ladder quotes ShopsMath.dealCap', () => {
+test('mechanics: shop deals follow their caps', () => {
   assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 9 }), 1, 'a shop just 1 an hour');
   assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 11 }), Infinity, 'a fort\'s slots never wait');
   assert.eq(ShopsMath.dealCap({ kind: 'tower' }), Infinity, 'a tower never waits');
-  assert.truthy(someTip(/A shop makes one deal an hour/i), 'and a tip says so');
 });
 
-test('tips: the fort slot machine quotes ShopsMath', () => {
+test('mechanics: fort slots retain their prizes and bonuses', () => {
   assert.eq(ShopsMath.SLOT_PRIZES, 3, 'three prizes');
   assert.eq(ShopsMath.SLOT_REELS, 3, 'three of a kind');
-  assert.truthy(someTip(/three prizes a day, and three of a kind wins one/i), 'and a tip says so');
-  const pair = ShopsMath.SLOT_JACKPOT_PAIR_COINS;
-  assert.truthy(someTip(new RegExp(`two of it pays ${pair} coin back`, 'i')), 'the pair coin, quoted');
   const S = ShopsMath;
   assert.eq(S.SLOT_NATURAL_MUL, 2, 'a natural three pays double');
-  assert.truthy(someTip(/a natural three pays double, and a star completes any pair/i), 'the star and the natural, quoted');
-  assert.truthy(someTip(new RegExp(`Two stars pay back double your stake; three stars bring back a memory the first time, then ${S.SLOT_STAR_JACKPOT_COINS} coin`, 'i')),
-    'the star payouts, quoted');
-  assert.truthy(someTip(new RegExp(`Two stars beside the jackpot turn the machine deluxe: the next ${S.SLOT_DELUXE_SPINS} spins pay every prize and coin double`, 'i')),
-    'deluxe, quoted');
-  assert.truthy(someTip(/spins pay every prize and coin double, and the first time brings back a memory/i), 'the deluxe memory, quoted');
-  assert.eq(S.SLOT_STAR_BADGES, 1, 'three stars pay one memory (so the tip says "the first time"); the first deluxe is the other');
+  assert.eq(S.SLOT_STAR_BADGES, 1, 'three stars pay one memory');
   assert.eq(S.SLOT_DELUXE_MUL, 2, 'deluxe doubles');
-  assert.truthy(someTip(new RegExp(`each memory counted as ${S.SLOT_STAR_JACKPOT_COINS} coin`, 'i')), 'and how the stake prices a memory');
 });
 
-test('tips: the shiny multiplier quotes PRICES', () => {
+test('mechanics: shiny animals retain their value premium', () => {
   assert.eq(PRICES.shiny_chicken, itemValue('chicken') * 10, 'a shiny pays ten times');
-  assert.truthy(someTip(/ten times its plain kind/i), 'and a tip says so');
 });
 
 test('descriptions: coffee explains its movement effect', () => {
-  assert.truthy(/walk faster.*control stick/.test(ITEM_EFFECTS.coffee),
+  assert.truthy(/quick|swift|step|stride|feet/.test(ITEM_EFFECTS.coffee),
     'the effect names faster control-stick walking');
-  assert.truthy(ITEM_EFFECTS.coffee.includes(shortDuration(CONSUMABLE_SPEC.coffee.durationMs)),
-    'the duration remains visible and comes from the owner');
+  assert.gt(CONSUMABLE_SPEC.coffee.durationMs, 0, 'coffee has a real timed benefit');
 });
 
-test('tips: the gem ladder is the table interactables.js rolls', () => {
-  // One tip names four rocks and four gems; the table is the only place that
-  // pairing lives, and the Frost rung changed under it when the Diamond
-  // landed (it read 'emerald and frost' while frost rock now pays a diamond).
+test('mechanics: deep rock follows the gem table', () => {
   const m = INTERACTABLES_SRC.match(/const GEM_BY_TIER = \{([^}]*)\}/);
   assert.truthy(m, 'interactables.js still owns the gem table');
-  const tip = PLAY_TIPS.find((t) => /^Gems come only/.test(t));
-  assert.truthy(tip, 'a tip carries the ladder');
   for (const [tier, gem] of [[4, 'sapphire'], [5, 'ruby'], [6, 'emerald'], [7, 'diamond']]) {
     assert.truthy(new RegExp(`${tier}: \\[[^\\]]*'${gem}'`).test(m[1]),
       `T${tier} rock still pays a ${gem}`);
-    assert.truthy(new RegExp(gem, 'i').test(tip), `and the tip names the ${gem}`);
   }
 });
 
-test('tips: the Ring claim is the one the code actually enforces', () => {
-  // Gear.buildRelicOffer skips the ring slot outright, so no shop, smithy or
-  // castle can offer one — that is the real rule. It is NOT "never found in a
-  // chest": rollGearUpgrade draws from every relic slot, ring included, and
-  // syncInnerLightRing deliberately never downgrades a higher one. A tip that
-  // said "or found in a chest" was claiming a gate that isn't there.
+test('mechanics: vendors never offer a Ring', () => {
   const save = { relics: {}, armor: {} };
   const rng = bookRng(0x21C0);
   for (let i = 0; i < 2000; i++) {
     const offer = Gear.buildRelicOffer(save, rng);
     assert.truthy(!offer || offer.slot !== 'ring', 'no vendor ever offers a Ring');
   }
-  assert.falsy(someTip(/Ring[^.]*chest/i), 'and no tip claims a chest cannot hold one');
-  assert.truthy(someTip(/shop, smithy or castle vault deals in Rings/i),
-    'the tip names the gate that exists');
 });
 
-test('tips: melee reach is re-derived from Combat.MELEE_REACH_CELLS', () => {
-  // The number a tip quotes comes from the module that owns it — retyping is
-  // how the stale ones got there (the Bow/Staff tip outlived a halved cadence).
-  const tip = PLAY_TIPS.find((t) => /Swinging reaches/i.test(t));
-  assert.truthy(tip, 'the melee reach is documented — nothing on an item can say it');
-  const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five'];
-  assert.truthy(tip.includes(`${WORDS[Combat.MELEE_REACH_CELLS]} cell`),
-    `the tip must quote Combat.MELEE_REACH_CELLS (${Combat.MELEE_REACH_CELLS}): ${tip}`);
-  // And it must say the thing that makes the rule readable: that the LIT reach
-  // is bigger and is not what a swing uses.
-  assert.truthy(/light reaches further/i.test(tip),
-    'the tip separates the working reach from the fighting one');
-  // The sword's own line agrees rather than promising the lit reach — it used
-  // to read 'auto-fights foes in reach', which is exactly the reach it no
-  // longer has.
-  assert.truthy(/adjacent/.test(RELIC_DEFS.sword.blurb),
+test('mechanics: melee reaches adjacent foes', () => {
+  assert.eq(Combat.MELEE_REACH_CELLS, 1, 'a sword still reaches adjacent foes');
+  assert.truthy(/too close/.test(RELIC_DEFS.sword.blurb),
     `the sword blurb says how far it swings: ${RELIC_DEFS.sword.blurb}`);
   assert.falsy(/in reach/.test(RELIC_DEFS.sword.blurb),
     'and never claims the lit reach again');
 });
 
-test('tips: Home\'s ward is documented, rout and all', () => {
-  const tip = PLAY_TIPS.find((t) => /turns enemies away inside its circle/i.test(t));
-  assert.truthy(tip, 'Home warding enemies is invisible and derived — Book or nowhere');
-  assert.truthy(/cannot bite/i.test(tip),
-    'the ward switches the bite off, which is the half that makes it a ward');
-  assert.truthy(/runs until it is out of sight/i.test(tip),
-    'and striking a warded foe routes it to the sim bubble edge');
-  // No number is quoted, on purpose: the ring is HOME_R and the rout is
-  // CREATURE_SIM_CELLS, and a player reads both off the picture (the lit
-  // circle IS the safe circle). A tip that retyped either could go stale.
-  assert.falsy(/\d/.test(tip), `the ward tip quotes no number to drift: ${tip}`);
-});
-
-test('tips: a struck slime charges, and the tip quotes STRUCK_REACTION_MS', () => {
-  const tip = PLAY_TIPS.find((t) => /Strike a slime/i.test(t));
-  assert.truthy(tip, 'what a hit turns a slime into is invisible until it happens — Book or nowhere');
-  // The window is app.js', so it is re-derived rather than retyped. Spelt in
-  // words, like every other duration the Book quotes.
+test('mechanics: struck slimes have a reaction window', () => {
   const m = CREATURE_AI_SRC.match(/const STRUCK_REACTION_MS = (\d+);/);
   assert.truthy(m, 'app.js still owns the reaction window');
-  const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven',
-    'eight', 'nine', 'ten'];
-  const secs = Number(m[1]) / 1000;
-  assert.truthy(tip.includes(`${WORDS[secs]} second`),
-    `the tip must quote STRUCK_REACTION_MS (${secs}s): ${tip}`);
-  // Both provokers, because a pet's bite used to do the OPPOSITE.
-  assert.truthy(/pet/i.test(tip), 'a pet\'s bite provokes the charge too');
-  // And the wards it does not beat — the half that keeps Home worth having.
-  assert.truthy(/home/i.test(tip) && /fire/i.test(tip),
-    'the tip names the two wards that still turn a charging slime back');
-  // No tip may still say a slime is only ever escapable — the pest tip's
-  // "walk away" is true of an unprovoked one and this page is what qualifies it.
-  const pest = PLAY_TIPS.find((t) => /drains \d+ energy a second/i.test(t));
-  assert.truthy(pest, 'the pest tip is still there');
-  assert.truthy(pest.includes(`drains ${SLIME_LEECH_ENERGY} energy`),
-    `the pest tip quotes SLIME_LEECH_ENERGY (${SLIME_LEECH_ENERGY}): ${pest}`);
-  assert.lt(PLAY_TIPS.indexOf(pest), PLAY_TIPS.indexOf(tip),
-    'what a slime does is taught before what hitting one does');
+  assert.eq(Number(m[1]), 8000, 'struck slimes react for eight seconds');
 });
 
-test('tips: no tip promises a mechanic that does not exist', () => {
-  // Gather luck (ring/amulet on tree/rock/fruit yields) was never switched on
-  // and has since been deleted outright, so neither the Book nor a blurb may
-  // advertise it — the ring's CHEST effect is the live one.
+test('mechanics: gathering luck remains absent and Rings favour chests', () => {
   assert.eq(typeof globalThis.gatherLuck, 'undefined', 'the gather-luck path is gone');
-  assert.falsy(someTip(/\bRing\b[^.]*\b(ore|stone|wood|gem|dig|fell)/i),
-    'no tip claims the Ring improves what you dig or fell');
   assert.truthy(/chest/i.test(RELIC_DEFS.ring.blurb), 'the ring\'s own line keeps it to chests');
 });
 
-test('tips: the snares are documented — nothing else can say where they are', () => {
+test('mechanics: snares hurt on entry and while standing on them', () => {
   assert.eq(Traps.STEP_ENERGY, 10, 'treading on one bites 10⚡');
   assert.eq(Traps.STAND_ENERGY_PER_S, 3, 'and standing on it bleeds 3 a second');
-  const tip = PLAY_TIPS.find((t) => /snare/i.test(t));
-  assert.truthy(tip, 'a tip warns about them');
-  assert.truthy(/10⚡/.test(tip) && /3 a second/.test(tip), 'and quotes both costs');
-  assert.truthy(/verge|road/i.test(tip) && /stair|underground/i.test(tip),
-    'and says where they lie');
 });
 
-test('tips: street restoration quotes Trail.GOAL_STEP_M and the dwell', () => {
-  // Nothing on the map says how long you have to stand by a street, or how
-  // much of one a prize costs — the dwell is a constant in app.js and the rung
-  // is a constant in trail.js, and no item's ✦ line can carry either. So the
-  // Book carries them, and both are re-derived here rather than retyped: a
-  // retune of the ladder or the dwell has to move the tip with it.
+test('mechanics: street restoration retains its dwell and reward ladder', () => {
   assert.eq(Trail.GOAL_STEP_M, 200, 'the first rung is two hundred metres');
-  const tip = PLAY_TIPS.find((t) => /derelict until you stand by them/i.test(t));
-  assert.truthy(tip, 'the street tip is in the list');
-  assert.truthy(tip.includes(`${Trail.GOAL_STEP_M}m`), 'and quotes the rung the ladder owns');
-  // The dwell, in whole seconds, said in words.
   const dwell = +/const PATH_STONE_DWELL_MS = (\d+);/.exec(APP_JS_SRC)[1];
   assert.eq(dwell, 3000, 'three seconds of sight rebuilds a stretch');
-  assert.truthy(/three seconds/i.test(tip), 'and the tip says three seconds');
-  // Each rung asks GOAL_STEP_M MORE than the last — "every 200m" would be a
-  // lie by the second prize.
   assert.eq(Trail.goalFor(1) - Trail.goalFor(0), Trail.GOAL_STEP_M, 'the rungs grow by a step');
-  assert.truthy(/each prize after asks/i.test(tip), 'and the tip says the ladder lengthens');
-  // The stale claim: the mechanic was lit pebbles until Sep 2026.
-  assert.falsy(/cobble/i.test(TIPS_BLOB), 'no tip still counts cobbles');
-  assert.falsy(/lit stone/i.test(TIPS_BLOB), 'nor lit stones');
-  // WHAT it pays, re-derived from the pool that pays it. The ladder rolls its
-  // own context (Trail.PRIZE_CONTEXT), so the classes the tip names are the
-  // classes that context actually carries — never a list typed out here.
   const road = LOOT_CONTEXTS[Trail.PRIZE_CONTEXT].classBias;
   assert.lt(road.seed, road.magic + road.supply + road.boots, 'road supplies outweigh seeds');
-  assert.falsy(/seeds mostly/i.test(tip), 'the tip reflects the broader pool');
-  for (const cls of Object.keys(road)) {
-    const word = ({ cash: 'coin', produce: 'fruit', magic: 'potions', supply: 'supplies' })[cls] || cls;
-    assert.truthy(new RegExp(word, 'i').test(tip), `the tip names the ${cls} the pool can pay`);
-  }
-  // And the FIXED first rung: the tip promises a seed, so trail.js had better
-  // hand one over (Trail.firstPrize).
   assert.eq(ITEM_BY_ID[Trail.firstPrize(1).id].kind, 'seed',
     'the first prize really is a seed');
-  assert.truthy(/first 200m restored pays a seed/i.test(tip.replace(/\d+m/, `${Trail.GOAL_STEP_M}m`)),
-    'which is what the tip promises');
 });
 
-test('tips: roads pay one at a time, and the stick pays its share', () => {
-  const tip = PLAY_TIPS.find((t) => /^Roads side by side pay as one/.test(t));
-  assert.truthy(tip, 'the one-road tip is in the list');
+test('mechanics: roads use the shared reward window', () => {
   assert.truthy(/const ONE_ROAD_WINDOW_MS = /.test(APP_JS_SRC) && /_oneRoadPay\(perLine, now\)/.test(APP_JS_SRC),
     'the sweep pays through the one-road window');
-  assert.truthy(/Lamps are not held to it/.test(tip), 'and lamps are exempt');
-  assert.truthy(tip.includes(`${Math.round(Trail.STICK_METRES_MUL * 100)}%`), 'the stick share is quoted from Trail');
-  // The street tip names the three cards and the boots' km rule.
-  const street = PLAY_TIPS.find((t) => /derelict until you stand by them/i.test(t));
   assert.eq(Trail.BOOTS_M_PER_TIER, 1000, 'a tier per km');
-  assert.truthy(/tier for every km/.test(street), 'the street tip says a tier per km');
 });
 
-test('books: the rebuild tip quotes the live restore price', () => {
-  const tip = PLAY_TIPS.find((t) => /^A ruined house can be rebuilt/.test(t));
-  assert.truthy(tip, 'the rebuild tip exists');
-  assert.truthy(tip.includes(`for ${WRECK_RESTORE_BASE_QTY} stone`), 'base cost matches WRECK_RESTORE_BASE_QTY');
-  assert.eq(WRECK_RESTORE_PER_HOUSE, 1, 'the tip says "adds a stone" — reword it if this moves');
-  assert.truthy(tip.includes(`up to ${WRECK_RESTORE_MAX_QTY}`), 'the cap matches WRECK_RESTORE_MAX_QTY');
-  assert.truthy(!/5 wood/.test(tip), 'the stale wood price is gone');
+test('mechanics: rebuilding adds stone to later restoration costs', () => {
+  assert.eq(WRECK_RESTORE_PER_HOUSE, 1, 'each restored house adds one stone to the next cost');
 });
 
 test('restore cost: 1 stone, one more per house restored, capped at 20', () => {
   assert.eq([0, 1, 2, 6, 18, 19, 20, 50].map(wreckRestoreExact).join(','), '1,2,3,7,19,20,20,20', 'the ladder');
-  // Whole prices: the house key never changes the quote.
   for (const k of ['a', 'b', 'c']) assert.eq(wreckRestoreQty(4, k), 5, 'same price for every house');
 });
 
-test('books: the wizard\'s calling is in the Book, right after the wizard, and true to wizard.js', () => {
-  const at = PLAY_TIPS.findIndex((t) => /wizard sees power in your memories/.test(t));
-  assert.gte(at, 0, 'the wizard tip exists');
-  const tip = PLAY_TIPS[at + 1];
-  assert.truthy(/calling/.test(tip), 'the calling tip follows the wizard tip — the moment it is needed');
-  // The purchase it is offered at is wizard.js's own gate (CLASS_AT_BUYS
-  // purchases already made), so "third" is re-derived, not trusted.
-  assert.eq(Wizard.CLASS_AT_BUYS + 1, 3, 'the tip says "third purchase" — reword it if this moves');
-  assert.truthy(/third purchase/.test(tip), 'names the purchase');
-  for (const c of Wizard.CLASSES) assert.truthy(tip.includes(c.name), `names ${c.name}`);
-  assert.truthy(/once, for good/.test(tip), 'says the choice is permanent');
-  assert.falsy(tip.includes(String(Wizard.ENCHANTER_ENERGY_COST)), 'the channel price is the class card\'s to print, never retyped here');
-  // The wizard tip itself names the four tracks wizard.js actually offers.
-  assert.eq(Wizard.TRACKS.length, 4, 'the tip says "two gifts from four"');
+test('stories: wizard memories precede the permanent calling', () => {
+  const at = 125;
+  assert.eq(Wizard.CLASS_AT_BUYS + 1, 3, 'the third purchase offers a calling');
+  assert.eq(Wizard.TRACKS.length, 4, 'the wizard has four gift tracks');
   assert.eq(Wizard.OFFER_COUNT, 2);
-  assert.truthy(/two gifts from four/.test(PLAY_TIPS[at]), 'and the wizard tip counts them');
+  assert.truthy(/unspent memories/.test(PLAY_TIPS[at]), 'the wizard hints at the value of memories');
+  assert.truthy(/calling.*for good/.test(PLAY_TIPS[at + 1]), 'the next page warns that a calling is permanent');
 });
 
-test('books: the off-GPS penalty is taught early, and true to combat.js', () => {
-  const tip = PLAY_TIPS.find((t) => /carried you off your real footing/i.test(t));
-  assert.truthy(tip, 'a tip explains fighting off the GPS');
-  // "a third softer" is re-derived, never retyped.
+test('mechanics: leaving your real position weakens attacks', () => {
   assert.eq(Math.round((1 - Combat.OFF_GPS_ATTACK_MUL) * 3), 1, 'the penalty is a third');
-  assert.truthy(/a third softer/i.test(tip), 'and the tip says a third');
-  // Early: in the first-ten-minutes block, before the starter loop's tips.
-  const loop = PLAY_TIPS.findIndex((t) => /^Tilling refuses/.test(t));
-  assert.gt(loop, 0, 'the starter loop block is found');
-  assert.lt(PLAY_TIPS.indexOf(tip), loop, 'taught before the starter loop');
+});
+
+test('books: pages carry brief stories instead of numeric mechanics', () => {
+  for (const [i, page] of PLAY_TIPS.entries()) {
+    assert.eq(typeof page, 'string');
+    assert.gt(page.length, 20, 'page ' + i + ' is a complete thought');
+    assert.lt(page.length, 200, 'page ' + i + ' leaves room for one discovery');
+    assert.falsy(/[0-9%⚡×]|\btier\b|Relics tab|hit points|UTC/.test(page), 'page ' + i + ' avoids tuning and interface instructions');
+  }
+  assert.eq(new Set(PLAY_TIPS).size, 131, 'each page offers a distinct moment');
+});
+
+test('books: real-world road and heat safety stays direct', () => {
+  assert.truthy(/Never step into the road/.test(PLAY_TIPS[15]));
+  assert.truthy(/Never enter the road/.test(PLAY_TIPS[16]));
+  assert.truthy(/safely on foot/.test(PLAY_TIPS[17]));
+  assert.truthy(/carry water.*shade.*rest often/.test(PLAY_TIPS[18]));
 });

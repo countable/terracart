@@ -149,14 +149,13 @@
     assert.truthy(W.playerClass(all), 'and a calling chosen on the way');
   });
 
-  test('wizard: the calling copy reads the owning modules\' numbers', () => {
-    const by = Object.fromEntries(W.offers(fresh({ wizardBuys: 2 })).map((o) => [o.key, o]));
-    assert.truthy(by.hunter.get.includes(String(Combat.HUNTER_BOW_MUL)), 'hunter prints the bow mul');
-    assert.truthy(by.enforcer.get.includes(String(Combat.ENFORCER_MELEE_DPS)), 'enforcer prints the bonus');
-    assert.truthy(by.enchanter.get.includes(String(W.ENCHANTER_ENERGY_COST)), 'enchanter prints the cost');
-    const vig = W.offers(fresh({ memories: 9, reachUpgrades: 6, qtyUpgrades: 99,
-                                 relics: { ring: { tier: 7 } }, playerClass: 'runner' }))[0];
-    assert.truthy(vig.get.includes(`+${Energy.VIGOUR_ENERGY_STEP}`), 'vigour prints energy.js\'s step');
+  test('wizard: each calling has one hint and an explicit price', () => {
+    const offers = W.offers(fresh({ wizardBuys: 2 }));
+    for (const offer of offers) {
+      assert.truthy(offer.get && offer.sub, `${offer.key}: a calling hint`);
+      assert.falsy(/[0-9%×⚡]/.test(offer.sub), 'exact effects stay out of the calling story');
+      assert.gte(offer.cost, 0, 'the choice retains a price');
+    }
     assert.eq(W.playerClass({ playerClass: 'wizard' }), null, 'an unknown class is no class');
   });
   test('wizard: a spend hook IS the payment — the scene keeps one writer', () => {

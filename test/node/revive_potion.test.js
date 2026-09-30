@@ -25,7 +25,7 @@ test('revive potions: T2 at 30%, T5 at 60%, both drunk not eaten', () => {
     assert.eq(ITEM_BY_ID[id]?.kind, 'magic', `${id} is a consumable`);
     assert.eq(FOOD_ENERGY[id], undefined, `${id} never reaches the Eat button`);
     assert.gt(PRICES[id], 0, `${id} has a price`);
-    assert.truthy(ITEM_EFFECTS[id].includes(`${revivePct(id)}%`), `${id}'s ✦ line prints its own number`);
+    assert.falsy(/\d|%/.test(ITEM_EFFECTS[id]), `${id}: the item hints at revival without exact effects`);
     assert.eq(CONSUMABLE_SPEC[id].method, 'drinkRevivePotion',
       `the Drink button offers ${id}`);
   }

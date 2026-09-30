@@ -324,12 +324,14 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls
   `_flashPlayerHit` when it lands, independently of popup throttling.
-- Item effects belong on item descriptions/Stats, derived from owning constants.
-  `PLAY_TIPS` teaches otherwise undiscoverable mechanics in first-actionable
-  order, read sequentially. Search tips and descriptions when changing a value.
-  `ITEM_GUIDE_TIPS` may repeat its own item's effect to teach strategy; add a
-  guide for each craftable. Secret uses stay out of the item's public effect
-  line (sapphire taming stays in the closing riddle).
+- Story panels, books and item descriptions carry at most one useful fact,
+  told through the world, physical sensations or a character's voice. Hint at
+  the advantage and leave exact effects for discovery. Confirmations state
+  the choice and direct outcome concisely; keep prices and required quantities
+  clear. Exact mechanics belong in brief action feedback or dedicated Stats,
+  derived from owning constants. Keep safety and technical recovery instructions
+  direct. Preserve `PLAY_TIPS` order for saved reading progress; secret uses
+  stay out of public item descriptions (sapphire taming stays in the closing riddle).
 - Loot identity by place uses per-context `favourite`; general frequency uses
   `dropWeight`.
 

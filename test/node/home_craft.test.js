@@ -42,8 +42,8 @@ test('home craft: the recipes are a Torch from 1 wood, a Scarecrow from 3, a Rop
   assert.eq(JSON.stringify(by.scarecrow), JSON.stringify([{ id: 'wood', qty: 3 }]), 'scarecrow');
   assert.eq(JSON.stringify(by.rope), JSON.stringify([{ id: 'longgrass', qty: 5 }]), 'rope from five long grass');
   assert.eq(JSON.stringify(by.trap_kit), JSON.stringify([{ id: 'rockfruit', qty: 4 }]), 'a disarm kit from four stones');
-  assert.truthy(/Trap Disarm Kit/.test(ITEM_EFFECTS.rockfruit || ''), 'the stone line names the recipe');
-  assert.truthy(/Rope/.test(ITEM_EFFECTS.longgrass || ''), 'the long grass line names the recipe');
+  assert.truthy(/wall/.test(ITEM_EFFECTS.rockfruit), 'stone hints at rebuilding');
+  assert.truthy(/twist/.test(ITEM_EFFECTS.longgrass), 'grass hints at binding');
   for (const r of HOME_RECIPES) {
     assert.truthy(ITEM_BY_ID[r.id], `${r.id} is a real item`);
     for (const c of r.cost) assert.truthy(ITEM_BY_ID[c.id], `${c.id} is a real item`);

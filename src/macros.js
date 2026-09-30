@@ -390,14 +390,14 @@
   // the place is, told once. No numbers — those are on the dialog and in the
   // Book.
   const KIND_STORY = {
-    inn:         { title: 'An inn', body: 'A bed, a hearth and a keeper who takes coin. Once a day it will see you rested.' },
-    chapel:      { title: 'A chapel', body: 'Somebody still tends it. Light a candle by the door and you leave with a blessing, once a day.' },
-    apothecary:  { title: 'An apothecary', body: 'Shelves of small bottles, and a counter that never runs dry.' },
-    scriptorium: { title: 'A scriptorium', body: 'The written word, kept, copied and sold. Books are on the counter.' },
-    guildhall:   { title: 'A guildhall', body: 'The board by the door posts one bounty a day: something prowling close by that the hall wants gone.' },
-    curio:       { title: 'A curio hall', body: 'The hall is rebuilding a collection of things that last. It pays nothing, but every gift brings something back.' },
-    sundries:    { title: 'A sundries shop', body: 'A counter of useful things, always stocked.' },
-    training:    { title: 'A training hall', body: 'Lessons that stay with you, or a hard day’s drill that wears off by tomorrow.' },
+    inn:         { title: 'An inn', body: 'Clean sheets wait beside a warm hearth. Your shoulders loosen at the sight.' },
+    chapel:      { title: 'A chapel', body: 'A candle waits by the door. Its keeper offers a quiet blessing.' },
+    apothecary:  { title: 'An apothecary', body: 'Small bottles crowd the shelves, each stoppered against some ache or ill.' },
+    scriptorium: { title: 'A scriptorium', body: 'Fresh ink scents the room. Books lie open on the counter.' },
+    guildhall:   { title: 'A guildhall', body: 'A bounty hangs by the door. Something nearby has worn out its welcome.' },
+    curio:       { title: 'A curio hall', body: 'Empty shelves await your finds. The keeper remembers every gift.' },
+    sundries:    { title: 'A sundries shop', body: 'A coil of rope, a dry torch. Small comforts for the road ahead.' },
+    training:    { title: 'A training hall', body: 'Practice blades knock together. There is strength to be learned here.' },
   };
 
   root.Macros = {

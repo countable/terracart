@@ -218,15 +218,8 @@ test('fished spots persist as an id set bound at scene boot', () => {
 
 // --- What the player is told ----------------------------------------------
 
-test('fishing: the Book teaches the landing rule, and the rod says it', () => {
-  const tip = PLAY_TIPS.find((t) => /slip the hook/i.test(t));
-  assert.truthy(tip, 'the Book has a fishing page');
-  assert.truthy(/halves/i.test(tip), 'each tier short halves the odds');
-  assert.truthy(/stays/i.test(tip), 'and the fish stays put');
-  const blurb = RELIC_DEFS.rod.blurb;
-  assert.truthy(/get away/i.test(blurb), 'the rod keeps big fish on the line');
-  assert.lte(blurb.length, 55, 'the ✦ row is one line');
-});
+// Narrative copy is covered by item_descriptions and books tests.
+
 })();
 
 // --- The empty cast -------------------------------------------------------
