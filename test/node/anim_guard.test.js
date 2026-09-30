@@ -8,7 +8,7 @@
 // a failed catalog file once, and create() never builds an empty animation
 // (a MISSING key is a no-op in play(), an empty one is the crash).
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 test('anim guard: every animation goes through _createAnim, which refuses an empty sheet', () => {
   assert.eq((app.match(/this\.anims\.create\(/g) || []).length, 1,

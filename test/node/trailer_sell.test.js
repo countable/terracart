@@ -92,9 +92,9 @@ test('trailer sell: NO ARBITRAGE — buy at a stand, cash out at home, never pro
 });
 
 // app.js can't load headlessly, so the shipping call site is pinned as source
-// text (APP_JS_SRC, lifted by run.js) — the same trick feet_anchor.test.js uses.
+// text (SCENE_SRC, lifted by run.js) — the same trick feet_anchor.test.js uses.
 test('trailer sell: the home sale in app.js goes through trailerSellPrice', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   assert.truthy(/trailerSellPrice\(PRICES\[sel\.id\] \?\? 1, this\.save\.relics\)/.test(app),
     'the home sell modal prices via trailerSellPrice');
   assert.falsy(/const sellMul = \(typeof sellMultiplier === 'function'\) \? sellMultiplier\(this\.save\.relics\)/.test(app),

@@ -20,7 +20,7 @@
 // source text in the style of rope.test.js.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 function scene(over) {
   return Object.assign({

@@ -26,7 +26,7 @@ test('restore roles: a save with no blacksmith gets one on its next rebuild', ()
 
 test('restore roles: the scene keeps a same-named wrapper over Houses', () => {
   // interact.js and the restore modal call it on the scene; the rule is houses.js.
-  assert.truthy(/_preseedRestoreRole\(order, house\) \{ return Houses\.preseedRestoreRole\(this\.save, order, house\); \}/.test(APP_JS_SRC),
+  assert.truthy(/_preseedRestoreRole\(order, house\) \{ return Houses\.preseedRestoreRole\(this\.save, order, house\); \}/.test(SCENE_SRC),
     'app.js delegates to Houses.preseedRestoreRole');
 });
 })();

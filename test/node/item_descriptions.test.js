@@ -49,12 +49,12 @@ test('consumables: one action row names every button method', () => {
     const row = CONSUMABLE_SPEC[id];
     assert.truthy(ITEM_BY_ID[id], `${id}: real item`);
     assert.truthy(row && row.verb && row.title && row.method, `${id}: complete action row`);
-    assert.truthy(new RegExp(`\\n  ${row.method}\\(`).test(APP_JS_SRC),
+    assert.truthy(new RegExp(`\\n  ${row.method}\\(`).test(SCENE_SRC),
       `${id}: MapScene implements ${row.method}`);
   }
-  assert.truthy(/const cfg = sel && CONSUMABLE_SPEC\[sel\.id\];/.test(APP_JS_SRC),
+  assert.truthy(/const cfg = sel && CONSUMABLE_SPEC\[sel\.id\];/.test(SCENE_SRC),
     'the button reads the static owner instead of rebuilding a local registry');
-  assert.falsy(/const CONSUMABLE = \{/.test(APP_JS_SRC),
+  assert.falsy(/const CONSUMABLE = \{/.test(SCENE_SRC),
     'app.js has no second action registry');
 });
 
@@ -62,18 +62,18 @@ test('consumables: gameplay numbers read the owning spec rows', () => {
   assert.eq(CONSUMABLE_SPEC.torch.radiusMul, 2, 'torch range remains in the gameplay spec');
   assert.eq(CONSUMABLE_SPEC.growth_powder.radiusM, CONSUMABLE_SPEC.rainberry.radiusM,
     'growth powder reuses the rainberry crop radius');
-  assert.truthy(/const DRAGON_AMULET_TIER = CONSUMABLE_SPEC\.dragon_powder\.movementTier;/.test(APP_JS_SRC),
+  assert.truthy(/const DRAGON_AMULET_TIER = CONSUMABLE_SPEC\.dragon_powder\.movementTier;/.test(SCENE_SRC),
     'dragon walking derives from the row');
-  assert.truthy(/const SPEED_POTION_AMULET_TIER = CONSUMABLE_SPEC\.speed_potion\.movementTier;/.test(APP_JS_SRC),
+  assert.truthy(/const SPEED_POTION_AMULET_TIER = CONSUMABLE_SPEC\.speed_potion\.movementTier;/.test(SCENE_SRC),
     'speed-potion walking derives from the row');
 });
 
 test('effect line: a tap opens the whole description in a dialog', () => {
-  const m = APP_JS_SRC.match(/\n  _effectLineEl\(text, titleHTML\) \{[\s\S]*?\n  \}\n/);
+  const m = SCENE_SRC.match(/\n  _effectLineEl\(text, titleHTML\) \{[\s\S]*?\n  \}\n/);
   assert.truthy(m, '_effectLineEl exists');
   assert.truthy(/pointer-events:auto/.test(m[0]), 'the line opts back into taps');
   assert.truthy(/showMessageModal\(/.test(m[0]), 'the tap opens a message dialog');
-  const uses = APP_JS_SRC.match(/this\._effectLineEl\(/g) || [];
+  const uses = SCENE_SRC.match(/this\._effectLineEl\(/g) || [];
   assert.eq(uses.length, 2, 'both ✦ lines (item and relic) go through it');
-  assert.eq((APP_JS_SRC.match(/textContent = `✦/g) || []).length, 1, 'the helper builds the only ✦ line');
+  assert.eq((SCENE_SRC.match(/textContent = `✦/g) || []).length, 1, 'the helper builds the only ✦ line');
 });

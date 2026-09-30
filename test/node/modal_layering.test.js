@@ -5,7 +5,7 @@
 // over the dialog: the Eat / Use button sat on top of the safety card.
 
 test('modal layering: every element appended to <body> stands down under body.modal-open', () => {
-  const css = INDEX_HTML_SRC + '\n' + APP_JS_SRC;
+  const css = INDEX_HTML_SRC + '\n' + SCENE_SRC;
   const covered = new Set();
   for (const m of css.matchAll(/body\.modal-open\s+([#.][\w-]+)/g)) covered.add(m[1]);
   const missing = [];
@@ -28,7 +28,7 @@ test('modal layering: every element appended to <body> stands down under body.mo
 });
 
 test('modal layering: the safety card is a .game-modal inside #game', () => {
-  assert.truthy(/wrap\.id = 'safety-card';\s*wrap\.className = 'game-modal';/.test(APP_JS_SRC),
+  assert.truthy(/wrap\.id = 'safety-card';\s*wrap\.className = 'game-modal';/.test(SCENE_SRC),
     'wears .game-modal so the body-level HUD stands down under it');
   assert.truthy(/body\.modal-open \.hud-action,/.test(INDEX_HTML_SRC), 'the Eat / Use buttons hide under a dialog');
 });

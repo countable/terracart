@@ -81,11 +81,11 @@ test('GPS speed: one lane — the egg reads the same reliable-leg rule and ceili
 });
 
 test('passenger gate: the scene wiring — every fix steps it, and three things read it', () => {
-  const geo = SCENE_GEO_SRC;
+  const geo = SCENE_SRC;
   assert.truthy(/this\._trackEggHatch\(pos\);\s*this\._trackSpeedGate\(pos\);/.test(geo), 'every physical fix');
   assert.truthy(/speed: pos\.coords\.speed,/.test(geo), 'with the device\'s own speed');
   assert.truthy(/if \(!was && this\._speedGate\.tooFast\) this\._showPassengerCard\?\.\(\);/.test(geo), 'the card, once per ride');
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   assert.truthy(/return this\.isShadowActive\(\) \|\| Combat\.playerDowned\(this\.save\.energy\) \|\| this\.isTooFast\(\);/.test(app),
     'nothing hunts a passenger — ORed into isUnnoticed');
   assert.truthy(/if \(!surface \|\| this\._driftingHome \|\| this\.isTooFast\?\.\(\)\) \{ this\._resetStreetSight\(\); return; \}/.test(app),
@@ -97,7 +97,7 @@ test('passenger gate: the scene wiring — every fix steps it, and three things 
 });
 
 test('safety card: full-screen, bold, tap to continue — launch, resume and dusk', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const body = app.slice(app.indexOf('  _showSafetyCard(which) {'));
   const card = body.slice(0, body.indexOf('\n  }\n'));
   assert.truthy(/position:absolute;left:0;right:0;top:var\(--view-top,0px\);height:var\(--view-h,100%\)/.test(card),
@@ -105,7 +105,7 @@ test('safety card: full-screen, bold, tap to continue — launch, resume and dus
   assert.truthy(/font-weight:900/.test(card) && /font-weight:700/.test(card), 'bold');
   assert.truthy(/Tap to continue/.test(card) && /addEventListener\('pointerup', done\)/.test(card), 'dismissed by a tap');
   assert.truthy(/this\._bootOverlayGone = true;[^\n]*\n[^\n]*\n\s*this\._showSafetyCard\('launch'\);/.test(app), 'at every launch');
-  assert.truthy(/this\._safetyOnResume\?\.\(Date\.now\(\) - this\._hiddenAt\)/.test(SCENE_GEO_SRC), 'on resume');
+  assert.truthy(/this\._safetyOnResume\?\.\(Date\.now\(\) - this\._hiddenAt\)/.test(SCENE_SRC), 'on resume');
   assert.truthy(/this\._showSafetyCard\('dusk'\)/.test(app), 'and at dusk');
   assert.truthy(/this\._tickGuildBounty\(\);\s*this\._tickSafetyReminders\(\);/.test(app), 'the dusk check ticks');
   // Every version says it: the stick, never the street.
@@ -121,9 +121,9 @@ test('safety card: full-screen, bold, tap to continue — launch, resume and dus
 });
 
 test('heads-up buzz: a hostile taking an interest close by vibrates the phone, throttled', () => {
-  const app = APP_JS_SRC;
-  assert.truthy(/this\._foeHeadsUp\?\.\(interestedFoeM, now\);/.test(SCENE_CREATURES_SRC), 'the sim hands over the nearest interested foe');
-  assert.truthy(/if \(!isTame && !standDown && !unnoticed && \(Combat\.isEnemy\(c\) \|\| enraged\)\)/.test(SCENE_CREATURES_SRC),
+  const app = SCENE_SRC;
+  assert.truthy(/this\._foeHeadsUp\?\.\(interestedFoeM, now\);/.test(SCENE_SRC), 'the sim hands over the nearest interested foe');
+  assert.truthy(/if \(!isTame && !standDown && !unnoticed && \(Combat\.isEnemy\(c\) \|\| enraged\)\)/.test(SCENE_SRC),
     'only one that is taking an interest');
   const m = app.slice(app.indexOf('  _foeHeadsUp(distM, now) {'));
   const f = new Function('SAFETY_FOE_BUZZ_CELLS', 'SAFETY_FOE_BUZZ_GAP_MS', 'SAFETY_FOE_BUZZ',

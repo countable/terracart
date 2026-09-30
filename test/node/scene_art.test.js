@@ -7,9 +7,9 @@
 // the quiet zone switches the dialog to THE BAND by measurement.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 // The shell, MODAL_KINDS and the ART_* frame consts live in modal_shell.js.
-const shell = MODAL_SHELL_SRC;
+const shell = SCENE_SRC;
 const kindsSrc = shell.slice(shell.indexOf('const MODAL_KINDS = {'), shell.indexOf('\n};', shell.indexOf('const MODAL_KINDS = {')));
 
 // Every stem a dialog can open on: the literal `art: '…'`s, the kind rows'
@@ -114,7 +114,7 @@ test('scene art: no lore hint on a chapel, church, shrine or grave painting', ()
 })();
 
 test('cave story: the first descent below the surface tells its story, once', () => {
-  const src = APP_JS_SRC;
+  const src = SCENE_SRC;
   const i = src.indexOf('  changeDepth(delta, stair) {');
   const body = src.slice(i, src.indexOf('\n  }\n', i));
   assert.truthy(/if \(delta > 0\) \{\s*this\._storySplashOnce\('cave', \{\s*art: 'cave_first'/.test(body),
@@ -128,7 +128,7 @@ test('pixel resolve: every dialog painting has an inline thumbnail', () => {
   const cutKeys = new Set([...ART_THUMBS_SRC.matchAll(/^  (\w+): \[$/gm)].map((m) => m[1]));
   const tones = new Set([...ART_THUMBS_SRC.matchAll(/^  (\w+): '#[0-9a-f]{6}',$/gm)].map((m) => m[1]));
   const used = new Set();
-  for (const src of [APP_JS_SRC, INTERACT_SRC, MODAL_SHELL_SRC_TEXT]) {
+  for (const src of [SCENE_SRC, INTERACT_SRC, MODAL_SHELL_SRC_TEXT]) {
     for (const m of src.matchAll(/\bart: '([^']+)'/g)) used.add(m[1]);
   }
   for (const r of ['house', 'blacksmith', 'market', 'trader', 'wizard']) used.add('restore_' + r);
@@ -166,8 +166,8 @@ test('preload: every kind painting is warmed after boot, at the address the shel
   const portrait = 'data:image/png;base64,dGVzdA==';
   assert.eq(sceneArtUrl(portrait), portrait, 'generated tinted portraits keep their data URL');
   assert.falsy(/`assets\/art\/\$\{art\}\.webp`/.test(MODAL_SHELL_SRC_TEXT), 'the shell builds no second one');
-  const i = APP_JS_SRC.indexOf('  _prewarmModalIcons() {');
-  const body = APP_JS_SRC.slice(i, APP_JS_SRC.indexOf('\n  }\n', i));
+  const i = SCENE_SRC.indexOf('  _prewarmModalIcons() {');
+  const body = SCENE_SRC.slice(i, SCENE_SRC.indexOf('\n  }\n', i));
   assert.truthy(/for \(const k of Object\.values\(MODAL_KINDS\)\) if \(k\.art\) urls\.add\(sceneArtUrl\(k\.art\)\);/.test(body),
     'the boot prewarm queues every kind painting');
   assert.truthy(body.indexOf('sceneArtUrl') < body.indexOf('IconNet.prewarm('), 'into the same two-at-a-time queue');

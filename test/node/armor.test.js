@@ -244,7 +244,7 @@ test('armor: the max-energy cap has no idea armour exists', () => {
 test('armor: no source still folds a gear bonus into the cap', () => {
   assert.falsy(/energyPerTier\s*[:=]/.test(ITEMS_JS_SRC),
     'ARMOR_DEFS carries no per-slot energy number any more');
-  assert.falsy(/maxEnergyFromArmor\s*\(/.test(APP_JS_SRC),
+  assert.falsy(/maxEnergyFromArmor\s*\(/.test(SCENE_SRC),
     'app.js never asks armour for a cap');
 });
 
@@ -293,13 +293,13 @@ test('armor: downed players reject incoming damage before shield or armour', () 
 });
 
 test('armor: every enemy blow uses shared incoming damage before reaching the bar', () => {
-  assert.truthy(/Combat\.incomingDamage\(this\.save, slimeBite\)/.test(SCENE_CREATURES_SRC),
+  assert.truthy(/Combat\.incomingDamage\(this\.save, slimeBite\)/.test(SCENE_SRC),
     'slime leech uses shared mitigation');
-  assert.eq((SCENE_CREATURES_SRC.match(/Combat\.incomingDamage\(this\.save, raw\)/g) || []).length, 2,
+  assert.eq((SCENE_SRC.match(/Combat\.incomingDamage\(this\.save, raw\)/g) || []).length, 2,
     'retaliating fauna and ghost touches use shared mitigation');
-  assert.truthy(/Combat\.incomingDamage\(this\.save, dmg\)/.test(SCENE_CREATURES_SRC),
+  assert.truthy(/Combat\.incomingDamage\(this\.save, dmg\)/.test(SCENE_SRC),
     'monster melee uses shared mitigation');
-  assert.truthy(/Combat\.incomingDamage\(this\.save, shot\.damage, shot\.hits(?: \|\| 1)?\)/.test(APP_JS_SRC),
+  assert.truthy(/Combat\.incomingDamage\(this\.save, shot\.damage, shot\.hits(?: \|\| 1)?\)/.test(SCENE_SRC),
     'arrows pass their bundled hit count through shared mitigation');
 });
 
@@ -310,8 +310,8 @@ test('boots: protect against the trap bite and ongoing bleed', () => {
   const boots = { boots: { tier: 3 } };
   assert.lt(Combat.playerDamage(Traps.STEP_ENERGY, boots), Traps.STEP_ENERGY);
   assert.lt(Combat.playerDamage(Traps.STAND_ENERGY_PER_S, boots), Traps.STAND_ENERGY_PER_S);
-  assert.truthy(APP_JS_SRC.includes('Combat.playerDamage(bite, { boots: this.save.armor?.boots })'));
-  assert.truthy(APP_JS_SRC.includes('Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt'));
+  assert.truthy(SCENE_SRC.includes('Combat.playerDamage(bite, { boots: this.save.armor?.boots })'));
+  assert.truthy(SCENE_SRC.includes('Combat.playerDamage(Traps.STAND_ENERGY_PER_S * Traps.trapPower(trap), { boots: this.save.armor?.boots }) * dt'));
 });
 
 test('armor: enemy armour uses the player mitigation engine and returns actual damage', () => {
@@ -339,11 +339,11 @@ test('armor: Hard penalty applies once after mitigation and aura damage is frame
 });
 
 test('armor: the real damage handler preserves fractional ghost light burn across frames', () => {
-  const start = APP_JS_SRC.indexOf("  _damageEnemy(c, amount, source = 'player'");
+  const start = SCENE_SRC.indexOf("  _damageEnemy(c, amount, source = 'player'");
   assert.gte(start, 0);
-  const end = APP_JS_SRC.indexOf('\n  }\n', start) + '\n  }'.length;
+  const end = SCENE_SRC.indexOf('\n  }\n', start) + '\n  }'.length;
   const damageEnemy = new Function('ENEMY_HEALTH_RING_MS', 'DMG_POPUP_BEAT_MS',
-    'return ({' + APP_JS_SRC.slice(start, end) + '})._damageEnemy;')(1000, 100);
+    'return ({' + SCENE_SRC.slice(start, end) + '})._damageEnemy;')(1000, 100);
   const scene = { _popDamageNumber() {}, resolveDefeat() { throw new Error('fractional burn killed too soon'); } };
   const split = { kind: 'ghost' }, whole = { kind: 'ghost' };
   const total = 2;

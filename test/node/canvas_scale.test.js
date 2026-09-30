@@ -31,7 +31,7 @@
 // peek_drag.test.js, next to the tap rules it protects.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const html = INDEX_HTML_SRC;
 
 // ── renderScale(): the real function, driven at real screens ───────────────

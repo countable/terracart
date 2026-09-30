@@ -56,7 +56,7 @@
   // Execute the shipping scene methods with a small sprite stub. This checks
   // texture switching, fallback, and direction retention without Phaser/GPS.
   const sceneMethod = (name) => {
-    const source = APP_JS_SRC.match(new RegExp('^  ' + name + '\\([^\\n]*\\) \\{[\\s\\S]*?^  \\}', 'm'))[0];
+    const source = SCENE_SRC.match(new RegExp('^  ' + name + '\\([^\\n]*\\) \\{[\\s\\S]*?^  \\}', 'm'))[0];
     return new Function('SpriteLayout', 'PLAYER_FEET_DROP_PX', 'Lighting', 'WALK_TIRED_SLOW_MUL',
       'return ({' + source + '}).' + name)(SL, 12, { lowEnergyFrac: () => 0 }, 0.5);
   };

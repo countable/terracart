@@ -7,16 +7,16 @@
 // smithy sells its one scarecrow (recordDeal banks a deal), reverts to a
 // delivery host asking for potatoes, and used to answer the potato tap with
 // "house busy — try again in 47m" under a live wishlist.
-// app.js can't load headlessly, so shopInteract is lifted out of APP_JS_SRC
+// app.js can't load headlessly, so shopInteract is lifted out of SCENE_SRC
 // and run on a stub scene with the hourly bucket already spent.
 
 (function () {
 
 const lift = (sig) => {
-  const start = APP_JS_SRC.indexOf('\n  ' + sig);
-  const end = start < 0 ? -1 : APP_JS_SRC.indexOf('\n  }\n', start);
+  const start = SCENE_SRC.indexOf('\n  ' + sig);
+  const end = start < 0 ? -1 : SCENE_SRC.indexOf('\n  }\n', start);
   assert.truthy(start > 0 && end > start, `found ${sig} in app.js`);
-  return APP_JS_SRC.slice(start + 1, end + 4);
+  return SCENE_SRC.slice(start + 1, end + 4);
 };
 const SHOP = (0, eval)('({\n' + lift('shopInteract(sx, sy, house) {') + '\n})');
 

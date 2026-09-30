@@ -562,8 +562,8 @@ test('tar yard: every tar pit is a slow cell (the burned row\'s lane, _bodyHold)
   assert.truthy(StreetVariants.isSlowKind('tar'), 'one table both sides read');
   assert.truthy(/const zDress = entry\.zoneDress;[\s\S]*StreetVariants\.isSlowKind\(o\.kind\)\) slow\.set/.test(SPAWN_IN_TILE_SRC),
     'spawnInTile merges the zone\'s tar into the same slow map');
-  assert.truthy(/capMS = \(!pinned && this\._slowHere/.test(APP_JS_SRC), 'and _bodyHold caps the body on it');
-  assert.truthy(/'Tar drags at your feet\.'/.test(APP_JS_SRC), 'tar SLOWS — it drags, it does not grip');
+  assert.truthy(/capMS = \(!pinned && this\._slowHere/.test(SCENE_SRC), 'and _bodyHold caps the body on it');
+  assert.truthy(/'Tar drags at your feet\.'/.test(SCENE_SRC), 'tar SLOWS — it drags, it does not grip');
 });
 
 // The tar yard is an OIL-STAINED LOT (Sep 2026): a live fuel forecourt must
@@ -686,7 +686,7 @@ test('zones: each kind has a shipped story painting, and every line fits', () =>
     assert.truthy(row.title && row.body, `${kind}: title and body`);
   }
   assert.truthy(/drags/.test(Z.ZONE_KINDS.tar.body) && !/grips/.test(Z.ZONE_KINDS.tar.body), 'tar drags, it does not grip');
-  assert.truthy(/this\._storySplashOnce\(zrow\.story, \{ art: zrow\.story, title: zrow\.title, body: zrow\.body \}\)/.test(APP_JS_SRC),
+  assert.truthy(/this\._storySplashOnce\(zrow\.story, \{ art: zrow\.story, title: zrow\.title, body: zrow\.body \}\)/.test(SCENE_SRC),
     'the feet tick tells it, painted by its own stem');
 });
 
@@ -696,7 +696,7 @@ test('zones: every zone terrain is enumerated — colour, texture, family, walka
   for (const [name, code] of [['GROVE', 28], ['CHURCHYARD', 29], ['TAR_YARD', 31]]) {
     assert.eq(T[name], code, `T.${name}`);
     assert.eq(BiomeProfiles.T[name], code, `BiomeProfiles mirrors ${name}`);
-    assert.truthy(new RegExp(`^  ${code}: 0x[0-9a-f]{6},`, 'm').test(APP_JS_SRC), `COLORS[${code}]`);
+    assert.truthy(new RegExp(`^  ${code}: 0x[0-9a-f]{6},`, 'm').test(SCENE_SRC), `COLORS[${code}]`);
     const texture = textures[code];
     assert.truthy(texture && Number.isInteger(texture.variants) && texture.variants > 0, `BIOME_TEX[${code}] has texture variants`);
     assert.eq(typeof texture.draw, 'function', `${name} has a callable painter`);
