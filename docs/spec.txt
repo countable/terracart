@@ -244,6 +244,17 @@ ONBOARDING (the first session)
  - OPENING: two story slides (trailer → wrecked neighbourhood), then the safety
    splash + "Go to my location". On a brand-new save the first GPS fix triggers
    a reload to anchor the projection, so nothing shown before it survives.
+ - THE ONE NEIGHBOUR: on a new save the safe area's WARDEN (npc.js
+   STORY_ROLES, seated by Starter.placeSafeAreaWarden) is the only person
+   on screen. The family's plea (MemoryStory.HOME) is what the warden SAYS
+   ON A TAP — it is never splashed over the map. Everyone else comes back as
+   memories are recovered: the other story neighbours at STORY_ROLES'
+   minMemories (the believer at 3, the survivor at 6, the child at 9), and a
+   tile's ordinary residents RETURN_PER_MEMORY (2) per memory, seated in
+   Home's ring or within LINGER_CELLS of a restored house (NPC.arrivals /
+   tickArrivals — off screen, never watched appearing; a tile with nothing
+   restored gets nobody back). Zone keepers never left; the tower's elves
+   arrive with its restoration.
  - HOW-TO-PLAY CARD: shown once over the LIVE map on first arrival (after that
    reload), covering movement (you walk; WASD on desktop), reach, the farming
    loop, energy and home-only selling. Reopenable any time from ☰ "How to play".

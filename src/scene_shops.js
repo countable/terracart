@@ -39,7 +39,7 @@ const smithyPreviewHTML = (iconHTML, name) =>
 // mechanics: finer ore is what the next visit wants.
 const FORGE_CEREMONY = {
   kind: 'forge', art: 'forge_done', header: 'Forged!', iconPx: 64,
-  sub: '“Stone from the ground, fire in the coals, and now this in your hand. Bring finer ore and the metal sings finer still.”',
+  sub: '“It’s ready, fresh from my forge. Let it serve you well.”',
 };
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
