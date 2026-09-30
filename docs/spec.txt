@@ -814,7 +814,11 @@ CREATURES
        NET speeds it by tier (see WORK WHEEL), the same slot the catch wheel
        uses — one tool takes animals, and weapons are for enemies. Game is not
        an enemy: nothing auto-fires at it and no shot can hit it, so a hunt is
-       always something you chose.
+       always something you chose. A hunted CROW retreats in full, but on its
+       own rhythm: it finishes the perch it is sitting and leaves on its next
+       launch (creature_ai.js CROW_DEPART_HOP), so the wheel races the perch it
+       had left when you tapped — a wood net standing right on it is a coin
+       flip decided by timing; bare hands never take one.
      * ENEMIES (slime, and every cave monster) — see COMBAT. Tapping one starts
        the HP-driven combat wheel instead, and a sword starts it for you.
  - RELEASE: select a caught animal and tap a passable cell to place it, one at a

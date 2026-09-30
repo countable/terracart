@@ -507,7 +507,7 @@ test('particles: a crop reaching its next stage bursts on every path that grows 
   assert.truthy(/Crops\.advanceGrowth\(this\.save, Date\.now\(\), advanced\)/.test(body), 'the tick collects the advanced plants');
   assert.truthy(/for \(const p of advanced\) this\._burstAtWorld\('sprout', p\.x, p\.y\);/.test(body), '…and bursts each');
   // The area watering (rainberry) bursts the ones the can jumped.
-  const w = app.indexOf('  waterCropsWithin(radius) {');
+  const w = app.indexOf('  waterCropsWithin(radius, canTier = 0) {');
   const wbody = app.slice(w, app.indexOf('\n  }\n', w));
   assert.truthy(/for \(const p of jumpedPlants\) this\._burstAtWorld\('sprout', p\.x, p\.y\);/.test(wbody));
   // The tap handler: the tap that beats the tick, and the can's jump.

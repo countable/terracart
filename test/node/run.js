@@ -165,6 +165,9 @@ const FILES = [
   // crow tick, catching): a third mixin class nobody runs here plus four
   // consts (one reads Combat, loaded above), loaded with no app.js in scope.
   'scene_creatures.js',
+  // The scene's shops (shopInteract, the offers it opens, the shop clock): a
+  // fourth mixin class nobody runs here plus its literal consts.
+  'scene_shops.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
@@ -201,6 +204,8 @@ const BRIDGE = `;Object.assign(globalThis, {
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, mineralDeposit, mineralRockFrame, mineralBarId,
+  // The plain rock's ladder and the GLINT rock built on it — glint_rock.test.js.
+  PLAIN_ROCK_FLINT_P, GEM_BY_TIER, GEM_P_BY_TIER, GLINT_ROCK_FINDS, GLINT_ROCK_PERIOD_MS, GLINT_ROCK_SHOW_MS,
   MAX_GROWTH_STAGE, PRODUCE_COL,
   // The other half of the crop table: what a WILD plant does when tapped —
   // what it drops, which relic times its wheel, what that costs, the bonus it
@@ -724,9 +729,7 @@ Object.assign(ctx, {
   const rest = src.match(/const CASTLE_REST_ENERGY = (\d+);/);
   if (!rest) { console.error('Could not find CASTLE_REST_ENERGY in src/app.js — update run.js'); process.exit(2); }
   decls += `const CASTLE_REST_ENERGY = ${rest[1]};\n`;
-  const tax = src.match(/const CASTLE_TAX_GOLD = (\d+);/);
-  if (!tax) { console.error('Could not find CASTLE_TAX_GOLD in src/app.js — update run.js'); process.exit(2); }
-  decls += `const CASTLE_TAX_GOLD = ${tax[1]};\n`;
+  // CASTLE_TAX_GOLD needs no lift: scene_shops.js, in the bundle, declares it.
   vm.runInContext(
     decls
     + 'globalThis.CASTLE_REST_ENERGY = CASTLE_REST_ENERGY;\n'
