@@ -16,7 +16,7 @@
 // frames are pinned together here.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const inter = INTERACTABLES_SRC;
 
 // ── Registry ────────────────────────────────────────────────────────────────

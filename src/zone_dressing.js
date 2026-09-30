@@ -22,7 +22,7 @@
       const ownerX = Math.floor(gx / EXT), ownerY = Math.floor(gy / EXT);
       const originX = ownerX * EXT + (Math.floor((gx - ownerX * EXT) / unit) + 0.5) * unit;
       const originY = ownerY * EXT + (Math.floor((gy - ownerY * EXT) / unit) + 0.5) * unit;
-      const chest = a.owned && !a.generated && !variant.generated ? chests.get(`${a.lx},${a.ly}`) : null;
+      const chest = a.owned && !a.parkShore && !a.generated && !variant.generated ? chests.get(`${a.lx},${a.ly}`) : null;
       const local = (x, y) => [Math.floor((x - tx * EXT) * N / EXT), Math.floor((y - ty * EXT) * N / EXT)];
       let poi = local(originX, originY);
       if (chest) poi = [Math.floor((chest.x - ox) / step), Math.floor((chest.y - oy) / step)];

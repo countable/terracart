@@ -23,7 +23,7 @@ test('cauldron: the draw pass hides and unlights it through the same set', () =>
 });
 
 test('cauldron: a burst drops extra coins at the player\'s feet, and claims only what it pays', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const body = app.slice(app.indexOf('  _coinBurstInteract(sx, sy, poi) {'), app.indexOf('  _coinCellsNearPlayer(count, r, taken) {'));
   assert.truthy(/const nearN = Math\.min\(COIN_BURST_NEAR_PLAYER, Math\.floor\(burstN \/ 4\)\);/.test(body), 'a few by the player, a quarter at most');
   assert.truthy(/this\._coinCellsNearPlayer\(burstN - n, COIN_BURST_NEAR_R, taken\)/.test(body), 'the rest of the burst at the feet');
@@ -40,7 +40,7 @@ test('cauldron: coins never lie in the road or a yard, wait ten minutes, and sta
   // SAFETY (owner, Sep 2026): a coin used to be allowed in the carriageway and
   // in front gardens and to vanish after a minute — the strongest "run into
   // the street" push the audit found.
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   assert.falsy(/function coinGround|function coinRoadCell/.test(app), 'the road-welcoming coin ground is gone');
   const life = Number(/const COIN_BURST_LIFE_MS = (\d+) \* 60 \* 1000;/.exec(app)?.[1]);
   assert.gte(life, 10, 'a burst waits at least ten minutes');
@@ -83,9 +83,9 @@ test('pot of gold: the burst is its density on its tile — 30 alone, 3 at 50, 1
   // Log-linear between the anchors: the geometric midpoint of 1..50 pays the
   // arithmetic middle of 30..3.
   assert.eq(potCoinsFor(Math.sqrt(50)), Math.round((30 + 3) / 2), 'log-linear in the count');
-  const body = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _coinBurstInteract(sx, sy, poi) {'), APP_JS_SRC.indexOf('  _coinCellsNearPlayer(count, r, taken) {'));
+  const body = SCENE_SRC.slice(SCENE_SRC.indexOf('  _coinBurstInteract(sx, sy, poi) {'), SCENE_SRC.indexOf('  _coinCellsNearPlayer(count, r, taken) {'));
   assert.truthy(/const burstN = potCoinsFor\(poi\.poiDensity\);/.test(body), 'the burst reads the pot\'s own count');
-  assert.falsy(/COIN_BURST_MIN/.test(APP_JS_SRC), 'the old flat floor is gone');
+  assert.falsy(/COIN_BURST_MIN/.test(SCENE_SRC), 'the old flat floor is gone');
 });
 
 test('pot of gold: only an ATM — a bike rack is no pot', () => {

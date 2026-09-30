@@ -23,7 +23,7 @@
 // mixin's (scene_creatures.js), the rest app.js's, so both.
 
 (function () {
-const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+const app = SCENE_SRC;
 
 // The method body: an inner brace is indented deeper than two spaces, so the
 // first "\n  }\n" after the header closes the method (the zero_energy_lockout

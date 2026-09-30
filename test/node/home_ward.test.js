@@ -21,7 +21,7 @@
 (function () {
 // Home's rest half and _damageEnemy are app.js's; the ward half is
 // wanderCreatures' (scene_creatures.js, the SceneCreatures mixin). Both.
-const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+const app = SCENE_SRC;
 const CELL_M = 5;
 
 // A stub scene for the lifted methods: Home is the synthetic starter trailer
@@ -58,7 +58,7 @@ test('home: crop raiders keep out of Home\'s ring', () => {
 test('home: every crop raider asks the guard, none keeps its own test', () => {
   // The raiders are the crow tick and the deer graze (scene_creatures.js);
   // counted across both files, as they were across app.js.
-  const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+  const app = SCENE_SRC;
   assert.eq((app.match(/if \(!crowEatsCrop\(pp\)\) continue;/g) || []).length, 0,
     'the crow\'s notice and landing ask _crowRaids, not the bare kind test');
   assert.eq((app.match(/if \(!this\._crowRaids\(pp\)\) continue;/g) || []).length, 2,

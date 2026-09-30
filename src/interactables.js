@@ -413,7 +413,8 @@ const INTERACTABLES = {
 
   // ---- Fruit tree: instant harvest, respawn-timer gated --------------------
   // Not a tool interaction (no axe/pick, no work wheel, no energy) — handled
-  // via `custom`. A planted sapling must mature (~4 days) before its first pick,
+  // via `custom`. A planted sapling must mature (PLANTED_TREE_GROW_MS, a day)
+  // before its first pick,
   // and each tree fruits once per 24h.
   fruittree: {
     custom: (ctx, o) => {
@@ -662,7 +663,8 @@ const INTERACTABLES = {
           : `${result.slot} T${result.tier}`;
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(result.kind, result.slot, result.tier, 64) : '★';
-        scene.showChestRewardModal({ ...dress, iconHTML, name, sub: 'equipped', color: UI_TREASURE, kindIcon });
+        scene.showChestRewardModal({ ...dress, iconHTML, name, sub: 'equipped', color: UI_TREASURE, kindIcon,
+                                     tier: result.tier });
         if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
           scene.flashJackpot(result.jackpot);
         }
@@ -698,7 +700,7 @@ const INTERACTABLES = {
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(gearKind, result.slot, result.tier, 64) : '★';
         scene.showChestRewardModal({ ...dress, iconHTML, name, sub: 'already own better — discarded', color: '#aaa',
-                                     kindIcon });
+                                     kindIcon, tier: result.tier });
         if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
           scene.flashJackpot(result.jackpot);
         }
@@ -709,6 +711,7 @@ const INTERACTABLES = {
       const lootQty = result.qty;
       const lootName = itemName(lootId).toString();
       const lootColor = (typeof tierInfo === 'function') ? tierInfo(lootId).color : UI_TREASURE;
+      const lootTier = (typeof itemTierOf === 'function') ? itemTierOf(lootId) : 0;
       // A starter supply crate is not treasure. `o.crate` is the same test the
       // renderer uses to draw the box sprite instead of the tier-2 trunk, and
       // the same one the label pass uses to keep its name horizontal — so the
@@ -726,7 +729,7 @@ const INTERACTABLES = {
       const room = (typeof scene.invRoomFor === 'function') ? scene.invRoomFor(lootId) : Infinity;
       if (lootQty > room) {
         scene.showChestRewardModal({ ...dress,
-          iconHTML, name: lootName, qty: qtyLabel, color: lootColor, kind: rewardKind, kindIcon,
+          iconHTML, name: lootName, qty: qtyLabel, color: lootColor, kind: rewardKind, kindIcon, tier: lootTier,
           sub: room > 0
             ? `Bag full — room for only ${room} of ${lootQty}.`
             : 'Your bag is full.',
@@ -763,7 +766,7 @@ const INTERACTABLES = {
       if (save.chestHold) delete save.chestHold[o.id];
       ctx.dirty = true;
       scene.showChestRewardModal({ ...dress, iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
-                                   kind: rewardKind, kindIcon,
+                                   kind: rewardKind, kindIcon, tier: lootTier,
                                    onDismiss: () => scene._revealPendingBookReads() });
       if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
         scene.flashJackpot(result.jackpot);

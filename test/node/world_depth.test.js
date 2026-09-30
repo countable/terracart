@@ -17,9 +17,9 @@
     const a = { it: {}, groundY: 4, rank: 1 }, b = { sprite: sprite(), groundY: 4, rank: 3 };
     Render.sortWorldDepth([b, a]);
     assert.lt(a.it._z, b.sprite.depth);
-    assert.truthy(APP_JS_SRC.includes('this.worldContainer.add(this.playerWorldContainer)'));
-    assert.truthy(APP_JS_SRC.includes('this.playerWorldContainer.add(this.player)'));
-    assert.truthy(APP_JS_SRC.includes('this.playerWorldContainer.add(this.swordSwingGfx)'));
+    assert.truthy(SCENE_SRC.includes('this.worldContainer.add(this.playerWorldContainer)'));
+    assert.truthy(SCENE_SRC.includes('this.playerWorldContainer.add(this.player)'));
+    assert.truthy(SCENE_SRC.includes('this.playerWorldContainer.add(this.swordSwingGfx)'));
     assert.truthy(RENDER_SRC.includes('groundY: scene.startWorldM.y + scene.playerM.y'),
       'player uses world feet, not relative metres or the peek camera');
   });
@@ -33,9 +33,9 @@
 })();
 
 test('world depth: pooled staff charge follows the player and returns to the projectile layer on reuse', () => {
-  const start = APP_JS_SRC.indexOf('\n  _boltGlow(key,');
-  const end = APP_JS_SRC.indexOf('\n  }', start);
-  const body = APP_JS_SRC.slice(APP_JS_SRC.indexOf('{', start) + 1, end);
+  const start = SCENE_SRC.indexOf('\n  _boltGlow(key,');
+  const end = SCENE_SRC.indexOf('\n  }', start);
+  const body = SCENE_SRC.slice(SCENE_SRC.indexOf('{', start) + 1, end);
   const draw = new Function('key', 'x', 'y', 'rPx', 'alpha', 'container', 'BOLT_GLOW_TEX_PX', body);
   const layer = () => ({ add(s) { s.parentContainer = this; }, sort() {} });
   const player = layer(), projectiles = layer();
@@ -48,6 +48,6 @@ test('world depth: pooled staff charge follows the player and returns to the pro
     draw.call(scene, 'glow', 10, 10, 8, 1, container, 64);
     assert.eq(image.parentContainer, container, 'a reused glow must follow its current owner');
   }
-  assert.truthy(APP_JS_SRC.includes('this.playerWorldContainer.add(this.playerHalo)'));
-  assert.truthy(APP_JS_SRC.includes('this.shadowContainer.add(this.walkHomeGfx)'));
+  assert.truthy(SCENE_SRC.includes('this.playerWorldContainer.add(this.playerHalo)'));
+  assert.truthy(SCENE_SRC.includes('this.shadowContainer.add(this.walkHomeGfx)'));
 });

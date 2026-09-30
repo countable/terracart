@@ -167,7 +167,7 @@ test('shore fauna: the theft is ONE lane — the hit site and the scene writer (
     'the snatch is a branch of the one enemy-hit site');
   const branch = body.slice(body.indexOf('} else if (row.steals) {'), body.indexOf('} else {', body.indexOf('} else if (row.steals) {')));
   assert.falsy(/_losePlayerEnergy|incomingDamage|Energy\.set/.test(branch), 'the theft branch never touches energy');
-  const app = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _losePlayerCoins(n, thief) {'));
+  const app = SCENE_SRC.slice(SCENE_SRC.indexOf('  _losePlayerCoins(n, thief) {'));
   const fn = app.slice(0, app.indexOf('\n  }\n'));
   assert.truthy(/addMoney\(this\.save, -taken\)/.test(fn), 'off the purse');
   assert.truthy(/Math\.min\(purse,/.test(fn), 'never below $0');
@@ -175,7 +175,7 @@ test('shore fauna: the theft is ONE lane — the hit site and the scene writer (
   assert.truthy(/this\._flashPlayerHit\(taken\)/.test(fn), 'the body flinches');
   assert.truthy(/this\._popCellNumber\(`-\$\{taken\}`/.test(fn), 'the number lands on the player\'s cell');
   assert.falsy(/energy|Energy\./.test(fn.replace(/\/\/.*$/gm, '')), 'no energy in the coin writer');
-  const w = SCENE_CREATURES_SRC.slice(SCENE_CREATURES_SRC.indexOf('  wanderCreatures() {'));
+  const w = SCENE_SRC.slice(SCENE_SRC.indexOf('  wanderCreatures() {'));
   assert.truthy(/const sated = !isTame && !!Combat\.theftKind\(c\.kind\) && Combat\.theftSated\(this\.save, c\);/.test(w),
     'sated is read once per creature, only for a thief');
   assert.truthy(/const routed = warded \|\| wanderOff \|\| sated;/.test(w), 'a sated thief flies off on the rout lane');
@@ -184,9 +184,9 @@ test('shore fauna: the theft is ONE lane — the hit site and the scene writer (
 // ── The seats ───────────────────────────────────────────────────────────────
 // spawnShoreFauna, lifted and RUN on a synthetic beach.
 const lift = () => {
-  const i = SCENE_CREATURES_SRC.indexOf('  spawnShoreFauna(');
-  const j = SCENE_CREATURES_SRC.indexOf('\n  }\n', i);
-  return new Function(`return ({ ${SCENE_CREATURES_SRC.slice(i, j + 4)} });`)().spawnShoreFauna;
+  const i = SCENE_SRC.indexOf('  spawnShoreFauna(');
+  const j = SCENE_SRC.indexOf('\n  }\n', i);
+  return new Function(`return ({ ${SCENE_SRC.slice(i, j + 4)} });`)().spawnShoreFauna;
 };
 const T = WorldGen.T, NB = 80, CM = WorldGen.CELL_M;
 function beach() {

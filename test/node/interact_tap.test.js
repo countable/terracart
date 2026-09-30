@@ -863,7 +863,7 @@ test('reach: the removed rule leaves nothing behind to feed it', () => {
   // fallback would have thrown rather than saved anything if it had ever run.
   assert.falsy(/pCellCx:|ctx\.pCellC[xy]/.test(src),
     'the player cell centre is no longer plumbed through ctx');
-  assert.falsy(/\bREACH_FAR_M\b/.test(APP_JS_SRC), 'and the constant is gone from app.js');
+  assert.falsy(/\bREACH_FAR_M\b/.test(SCENE_SRC), 'and the constant is gone from app.js');
 });
 })();
 

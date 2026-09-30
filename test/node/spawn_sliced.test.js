@@ -105,10 +105,10 @@
   });
 
   test('spawn sliced: the neighbour ring slices, the centre stays whole (source pin)', () => {
-    const geo = SCENE_GEO_SRC;
+    const geo = SCENE_SRC;
     assert.truthy(/entry\._spawnPass \|\| k !== centreKey/.test(geo), 'ring tiles (and a pass in flight) go through the sliced pass');
     assert.truthy(/await this\._spawnInTileSliced\(entry, tx, ty\)/.test(geo), 'and the build awaits it');
-    assert.truthy(/return WorldGen\.runSteps\(this\.spawnInTileSteps\(entry, tx, ty\)\);/.test(SCENE_CREATURES_SRC),
+    assert.truthy(/return WorldGen\.runSteps\(this\.spawnInTileSteps\(entry, tx, ty\)\);/.test(SCENE_SRC),
       'spawnInTile drives the same steps straight through');
   });
 })();

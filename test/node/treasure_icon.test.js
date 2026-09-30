@@ -20,7 +20,7 @@
 // story_splashes.test.js uses); chestLook runs for real from the bundle.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 const lift = (sig, what) => {
   const start = app.indexOf('\n  ' + sig);

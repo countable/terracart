@@ -391,6 +391,19 @@ const SMITHY_PREVIEW_PX = 56;
 const smithyPreviewHTML = (iconHTML, name) =>
   `<div style="line-height:0;margin:2px 0 6px">${iconHTML}</div><div>${name}</div>`;
 const COIN_BURST_NEAR_R = 2;
+// THE SHOWER (_rainOver): how many cells above the ground each rain burst
+// starts, and the most bursts one soak scatters (the 20 m rainberry disc is
+// ~26 cells; a bigger radius still stops here).
+const RAIN_DROP_CELLS = 4;
+const RAIN_MAX_POINTS = 32;
+// THE FORGE CEREMONY (presentBlacksmithOffer's onAccept): the piece just
+// forged, large on the forge_done painting (a bare anvil, so the icon is the
+// only piece in the picture), with the smith's own cheer. One hint, no
+// mechanics: finer ore is what the next visit wants.
+const FORGE_CEREMONY = {
+  kind: 'forge', art: 'forge_done', header: 'Forged!', iconPx: 64,
+  sub: '“Stone from the ground, fire in the coals, and now this in your hand. Bring finer ore and the metal sings finer still.”',
+};
 // THE SAFETY CARDS (_showSafetyCard): what each reminder says, and when it
 // comes back. Kept here as data so the copy is one table. The opening
 // (LAUNCH) message is NOT here: it IS the loading screen (index.html
@@ -4265,6 +4278,15 @@ class MapScene extends Phaser.Scene {
       const restNow = performance.now();
       if (this._workProgress) this._holdRest(restNow);
       const working = !!this._workProgress || restNow < (this._restHoldUntil ?? 0);
+      // WALKING THROUGH IS NOT A REST (owner, Sep 2026): the trailer sits
+      // where the player passes a dozen times a session, and every pass
+      // popped "+N⚡" over their head. The energy still banks from the first
+      // frame (the bar shows it); the SPLASH waits until the feet have been
+      // in the ring for REST_SETTLE_S — the same settling the wheel gets —
+      // and a pass that never settles says nothing, on the way out either.
+      if (atHome) { if (this._homeSinceT == null) this._homeSinceT = restNow; }
+      else this._homeSinceT = null;
+      const settledHome = atHome && restNow - this._homeSinceT >= REST_SETTLE_S * 1000;
       // Hard mode's zero-energy lockout (_zeroEnergyLocked): the trailer
       // doesn't trickle you back up from empty — arriving there puts you
       // straight at a quarter bar (Energy.REVIVE_FRAC; a Crow Feather eaten
@@ -4284,10 +4306,11 @@ class MapScene extends Phaser.Scene {
         // Feather or a revival potion is the player's own doing.
         if (gainedE > 0) this._reviveStoryboard();
       } else if (atHome && !working && (this.save.energy ?? 0) < maxE) {
-        this._accrueRestEnergy('_restAccrueE', maxE * (dt / HOME_FULL_REST_S), maxE);
+        this._accrueRestEnergy('_restAccrueE', maxE * (dt / HOME_FULL_REST_S), maxE, !settledHome);
       } else {
         // Stopped resting — flush any unsplashed accumulation so the last few
-        // points of a short rest still register.
+        // points of a short rest still register. (A quiet pass through Home
+        // banked none to flush — see _accrueRestEnergy's `quiet`.)
         if (this._restSplashAccum > 0) {
           this._splashEnergyGain(this._restSplashAccum);
           this._restSplashAccum = 0;
@@ -7877,7 +7900,9 @@ class MapScene extends Phaser.Scene {
   // accumulator field, spends whole points into save.energy (capped at maxE),
   // and emits the throttled green "+N⚡" splash. Used by BOTH indoor/home rest
   // and campfire warmth so the two share one mental model (and one bug surface).
-  _accrueRestEnergy(accrueKey, gain, maxE) {
+  // `quiet` banks the pips with no splash at all — not now, not on the way
+  // out: the walk through Home (update()'s settledHome). The bar still moves.
+  _accrueRestEnergy(accrueKey, gain, maxE, quiet = false) {
     this[accrueKey] = (this[accrueKey] || 0) + gain;
     const pip = Math.floor(this[accrueKey]);
     if (pip <= 0) return;
@@ -7887,7 +7912,7 @@ class MapScene extends Phaser.Scene {
     const gainedE = this.save.energy - beforeE;
     // Accumulate rest gains and splash a throttled "+N⚡" so a long rest shows
     // periodic ticks rather than one pop per energy pip.
-    if (gainedE > 0) {
+    if (gainedE > 0 && !quiet) {
       this._restSplashAccum = (this._restSplashAccum || 0) + gainedE;
       const tnow = performance.now();
       if (!this._restSplashNextT || tnow >= this._restSplashNextT) {
@@ -7965,6 +7990,21 @@ class MapScene extends Phaser.Scene {
     const ICON_GAP = 8;       // gap between icon and text inside the bg
     const RESERVE = iconEl ? ICON_PX + ICON_GAP : 0;
     const t = this._toast(text, { tier: 'gain', color, dwellMul, padExtraLeft: RESERVE });
+    // THE TIER BADGE (items.js tierBadgeHTML): the item's rarity word on its
+    // ore's colour, hung off the toast's right edge and tracked with it, so
+    // every "you got something" says how good it is. Same overlay lane as
+    // the icon (the .loot-toast-icon class hides both under a dialog).
+    let badgeEl = null;
+    if (iconEl && itemId && typeof tierBadgeHTML === 'function' && typeof itemTierOf === 'function') {
+      const html = tierBadgeHTML(itemTierOf(itemId), 9);
+      if (html) {
+        badgeEl = document.createElement('span');
+        badgeEl.innerHTML = html;
+        badgeEl.className = 'loot-toast-icon';
+        badgeEl.style.cssText = 'position:fixed;left:0;top:0;z-index:102;pointer-events:none;opacity:0;'
+          + 'transform-origin:left center;white-space:nowrap;line-height:0;';
+      }
+    }
     if (iconEl) {
       // The 'block' icon came back as inline-block — restyle as a fixed
       // overlay we can absolute-position with transform.
@@ -7977,6 +8017,7 @@ class MapScene extends Phaser.Scene {
       iconEl.style.opacity = '0';
       iconEl.style.transformOrigin = 'center center';
       document.body.appendChild(iconEl);
+      if (badgeEl) document.body.appendChild(badgeEl);
       // Re-place every frame so the icon tracks the text through pop-in,
       // hold, and drift-up. Cheap — getBoundingClientRect + transform set.
       const gameEl = document.getElementById('game');
@@ -7989,6 +8030,7 @@ class MapScene extends Phaser.Scene {
         if (!t || !t.scene || t.active === false) {
           this.events.off('update', placeIcon);
           iconEl.remove();
+          badgeEl?.remove();
           return;
         }
         try {
@@ -8005,6 +8047,12 @@ class MapScene extends Phaser.Scene {
           iconEl.style.transform =
             `translate(${Math.round(px - ICON_PX / 2)}px, ${Math.round(py - ICON_PX / 2)}px) scale(${t.scaleX})`;
           iconEl.style.opacity = String(t.alpha);
+          if (badgeEl) {
+            // Just past the text's right edge, on its centre line.
+            const bx = r.left + (b.right + 6 * t.scaleX) * sx;
+            badgeEl.style.transform = `translate(${Math.round(bx)}px, ${Math.round(py)}px) scale(${t.scaleX})`;
+            badgeEl.style.opacity = String(t.alpha);
+          }
         } catch (_) { /* keep the loop alive; the destroy handler will clean up */ }
       };
       this.events.on('update', placeIcon);
@@ -8013,6 +8061,7 @@ class MapScene extends Phaser.Scene {
       t.once('destroy', () => {
         this.events.off('update', placeIcon);
         iconEl.remove();
+        badgeEl?.remove();
       });
       placeIcon();
     }
@@ -9783,7 +9832,9 @@ class MapScene extends Phaser.Scene {
         extra = `\n🧭 no chests nearby`;
       }
     } else if (sel.id === 'rainberry') {
-      const { n: watered, jumped } = this.waterCropsWithin(CONSUMABLE_SPEC.rainberry.radiusM);
+      const spec = CONSUMABLE_SPEC.rainberry;
+      const { n: watered, jumped } = this.waterCropsWithin(spec.radiusM, spec.canTier);
+      this._rainOver(spec.radiusM);
       extra = watered > 0 ? `\n💧 watered ${watered} crop${watered === 1 ? '' : 's'}` : '\n💧 no crops nearby';
       if (jumped > 0) extra += `\n🌱 ${jumped} sprang ahead a stage`;
     } else if (sel.id === 'coffee') {
@@ -9826,16 +9877,46 @@ class MapScene extends Phaser.Scene {
 
   // Water every planted crop within ${radius} meters of the player. Returns count.
   // Sets watered_t = now on cells that aren't already watered or at MAX_GROWTH_STAGE.
-  waterCropsWithin(radius) {
+  // `canTier` is the can the soak counts as (the rainberry's Gold,
+  // CONSUMABLE_SPEC.rainberry.canTier): the player's own can is used when it
+  // is the better of the two, so owning a Frost can is never undercut.
+  waterCropsWithin(radius, canTier = 0) {
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
     // The can's jump roll applies here too — a rainberry soaking the whole
     // plot is still the player watering, so it is still worth owning a can.
+    const own = this.save.relics || {};
+    const relics = (canTier > (own.can?.tier || 0)) ? { ...own, can: { ...(own.can || {}), tier: canTier } } : own;
     const jumpedPlants = [];
-    const out = Crops.waterWithin(this.save, pWX, pWY, radius, Date.now(), this.save.relics,
+    const out = Crops.waterWithin(this.save, pWX, pWY, radius, Date.now(), relics,
                                   Math.random, jumpedPlants);
     for (const p of jumpedPlants) this._burstAtWorld('sprout', p.x, p.y);
     return out;
+  }
+
+  // THE SHOWER: rain over the `radiusM` disc round the feet — the rainberry's
+  // soak made visible (owner, Sep 2026: eating one showed only the toast).
+  // A scatter of 'rain' bursts (particles.js), each launched RAIN_DROP_CELLS
+  // above its ground point so the drops fall in and fade as they land. Off
+  // the projection, never the viewport centre, and gated on screen per point
+  // by _burstAt's caller contract (Particles.onScreen).
+  _rainOver(radiusM) {
+    if (typeof Particles === 'undefined' || !this.worldMetersToScreen || !this.startWorldM || !this.originPx) return 0;
+    const pWX = this.startWorldM.x + this.playerM.x;
+    const pWY = this.startWorldM.y + this.playerM.y;
+    const cellM = this.cellM || 1;
+    const points = Math.max(6, Math.min(RAIN_MAX_POINTS, Math.round(Math.PI * (radiusM / cellM) ** 2)));
+    let n = 0;
+    for (let i = 0; i < points; i++) {
+      // Even over the disc (sqrt on the radius), a golden-angle turn per point.
+      const r = radiusM * Math.sqrt((i + 0.5) / points), a = i * 2.399963;
+      const p = this.worldMetersToScreen(pWX + Math.cos(a) * r, pWY + Math.sin(a) * r);
+      if (!p) continue;
+      const y = p.y - RAIN_DROP_CELLS * CELL_PX;
+      if (!Particles.onScreen(this, p.x, y, CELL_PX * (RAIN_DROP_CELLS + 1))) continue;
+      n += Particles.burst(this, 'rain', p.x, y);
+    }
+    return n;
   }
 
   // Spring every unripe crop within ${radius} metres of the player one stage
@@ -13486,6 +13567,7 @@ class MapScene extends Phaser.Scene {
         name: item?.name || reward.id,
         qty: reward.qty > 1 ? `× ${reward.qty}` : null,
         color: (typeof tierInfo === 'function' ? tierInfo(reward.id).color : '#a7e9ff'),
+        tier: (typeof itemTierOf === 'function') ? itemTierOf(reward.id) : 0,
       };
     }
     if (reward.kind === 'gold') {
@@ -13504,6 +13586,7 @@ class MapScene extends Phaser.Scene {
           : `${reward.slot} T${reward.tier}`,
         sub: 'equipped',
         color: UI_TREASURE,
+        tier: reward.tier,
       };
     }
     return null;   // an unrecognised kind draws no card and opens no modal
@@ -13981,12 +14064,16 @@ class MapScene extends Phaser.Scene {
         persistSave(this.save);
         this.updateHUD();
         this.buildInventoryDOM();
-        // Splash the forged tool's own art (not a coin) — gear uses
-        // gearIconHTML, so render it into a throwaway span and hand the
-        // sized element to flashLoot.
-        const splashWrap = document.createElement('span');
-        splashWrap.innerHTML = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 28);
-        this.flashLoot(name, '#ffe066', 1.25, null, splashWrap.firstElementChild);
+        // The forge's story pane: the forged piece's own art (not a coin),
+        // large on the forge painting, with the smith's cheer (FORGE_CEREMONY).
+        // It replaces the old loot splash rather than stacking a toast under it.
+        const { iconPx, ...ceremony } = FORGE_CEREMONY;
+        this.showChestRewardModal({
+          ...ceremony,
+          iconHTML: this.gearIconHTML(offer.kind, offer.slot, offer.tier, iconPx),
+          name,
+          color: '#ffe066', accent: '#ffb347',
+        });
       },
     });
   }

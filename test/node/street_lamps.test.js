@@ -9,11 +9,11 @@
 //
 // app.js needs Phaser and can't load headlessly (no bridge exists for these
 // methods in run.js), so — like feet_anchor.test.js and energy_pop.test.js —
-// the wiring is pinned as SOURCE TEXT against APP_JS_SRC, with the one
+// the wiring is pinned as SOURCE TEXT against SCENE_SRC, with the one
 // self-contained arithmetic expression (STREET_LAMP_PX) lifted out and run.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 // The three passes, as source, in the order drawRoadGeometry calls them.
 const forTileSrc = app.slice(app.indexOf('  _streetLampsForTile(tx, ty, entry) {'),

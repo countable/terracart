@@ -271,6 +271,12 @@ const PIECES = {
     'Two travellers shake hands over a wooden cart of goods at a crossroads - sacks of grain on one side, bundles of cloth on the other - lanterns hanging from the cart.'),
   kind_forge: scene(
     'A stone smithy\'s open forge glowing bright orange, a hammer resting on an anvil beside a fresh ingot, sparks drifting in the dark workshop.', 'embers'),
+  // The forge ceremony (app.js presentBlacksmithOffer's onAccept): the piece
+  // just forged is laid over this as its icon, so the painting shows the
+  // forge's triumph and leaves the anvil bare - a painted blade would argue
+  // with whatever was actually made. No lore: kind_forge already carries it.
+  forge_done: scene(
+    'Inside a stone smithy at night, the forge roaring white-hot and bright orange, a burly blacksmith in a leather apron throwing both arms up in triumph beside a bare anvil, a quench barrel billowing steam, a fountain of golden sparks showering up to the rafters. Joyful celebration of the craft.'),
   kind_relics: scene(
     'A small velvet-lined display case on a low wall shelf, seen from across the room, holding a ring, an amulet and a small enchanted pickaxe, each glinting with faint light in a dim hall.', 'sigil'),
   kind_delivery: scene(

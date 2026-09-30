@@ -676,7 +676,7 @@ CHOPPING
    felling it retires the record. It carries NO species, so it draws off the
    default growth sheet and takes no hardwood/softwood tier shift.
  - A PLANTED TREE GROWS ON THE CLOCK. util.js treeGrowthStage reads planted_t
-   when there is one (PLANTED_TREE_GROW_MS = 4 days, the same window a fruit
+   when there is one (PLANTED_TREE_GROW_MS = 1 day, the same window a fruit
    sapling takes): sprout → young at the halfway mark → mature at the window.
    One function, so the frame render.js draws, the size class the axe gate
    reads and the wood the fell pays all climb together — a sprout can't draw

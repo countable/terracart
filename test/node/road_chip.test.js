@@ -3,7 +3,7 @@
 // counter prints — so the chip and the counter can't disagree.
 
 test('road chip: reads the ladder through Trail.progress, Runner rungs included', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   assert.truthy(/roadChipProgress\(\) \{[\s\S]{0,200}?Trail\.progress\(st\.metres, st\.prizes, this\.save\?\.playerClass\)/.test(app),
     'the chip reads Trail.progress with the player\'s class');
   assert.truthy(/this\._buildMemoriesChip\(\);\s*this\._buildRoadChip\(\);/.test(app), 'built beside the memories chip');
@@ -28,7 +28,7 @@ test('road chip: the tap hint adds every metre restored (Trail.totalMetres)', ()
   assert.eq(Trail.distanceLabel(134000), '130km');
   // The TRUE total (Trail.restoredMetres — the ladder's less the scenic
   // bonus, src/scenic.js): a kilometre by the water is one on the chip.
-  assert.truthy(/_showRoadChipHelp\(\) \{[\s\S]{0,500}?Trail\.restoredMetres\(/.test(APP_JS_SRC), 'the hint reads the total');
+  assert.truthy(/_showRoadChipHelp\(\) \{[\s\S]{0,500}?Trail\.restoredMetres\(/.test(SCENE_SRC), 'the hint reads the total');
   assert.eq(Trail.restoredMetres({ metres: 120, prizes: 2 }), 720, 'no bonus: the ladder\'s total');
   assert.eq(Trail.restoredMetres({ metres: 120, prizes: 2, bonusM: 300 }), 420, 'a scenic bonus is not distance');
   assert.eq(Trail.restoredMetres(null), 0);
@@ -38,12 +38,12 @@ test('road chip: the tap hint adds every metre restored (Trail.totalMetres)', ()
 });
 
 test('energy chip: the readout has no denominator', () => {
-  assert.truthy(/label\.textContent = `⚡\$\{cur\}`;/.test(APP_JS_SRC), 'just ⚡N');
-  assert.truthy(!/⚡\$\{cur\}\/\$\{max\}/.test(APP_JS_SRC), 'no /max');
+  assert.truthy(/label\.textContent = `⚡\$\{cur\}`;/.test(SCENE_SRC), 'just ⚡N');
+  assert.truthy(!/⚡\$\{cur\}\/\$\{max\}/.test(SCENE_SRC), 'no /max');
 });
 
 test('road chip: an SVG road strip is the bar, the number small beneath, no icon', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   assert.truthy(/el\.innerHTML = ROAD_CHIP_SVG \+ '<span class="road-num">0km<\/span>';/.test(app), 'strip then number');
   assert.truthy(/num\.textContent = total;/.test(app), 'the number is the total restored');
   assert.truthy(/clip\.setAttribute\('width', \(ROAD_CHIP_W \* frac\)/.test(app), 'the repave clip tracks the fraction');
