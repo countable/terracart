@@ -62,7 +62,7 @@ Entries carry their actual placement producers, current source frames, palette
 recommendations and available-library alternatives. Shared states are grouped;
 unused registry definitions, actors and inventory-only items are excluded.
 Campfires are outside this generated-placement audit; crops and the scarecrow
-are explicitly included at the user’s request. Crops get a small 7% lightness
+are explicitly included at the user’s request. Crops get a small 5.25% lightness
 lift across their growth art, retaining their colours and outlines. Local OSM feature counts are source evidence, not final spawn counts.
 
 Prevalence order is a qualitative estimate from terrain coverage and placement
@@ -82,13 +82,16 @@ painters with sample geometry. Existing texture states and proposed colour
 studies are labelled separately. Per-material colour transfer preserves source
 geometry and readable shading rather than forcing every sprite through one filter. The selected apple treatment provides the colour, saturation and shading reference
 for all tree, bush and grass candidates, including the clipped hedge. Their foliage
-uses continuous shade mapping while bark and fruit retain their identity. The
+uses continuous shade mapping while bark and fruit retain their identity.
+Bushes and clipped hedges use half the initial foliage adjustment; other flora
+(including the selected apple treatment) is eased back by 25%. Grass retains
+the approved full-strength treatment. The
 scarecrow preview strengthens its existing contour and shading. Flowers get
-only a 10% palette, desaturation and lightness adjustment. Strong ground
+only a 7.5% palette, desaturation and lightness adjustment. Strong ground
 patterns have 20% less contrast; the forest base is slightly darker. Fort and
 castle floors move 20% toward their original colours. Lava is an exception:
 keep its original fiery base and bright animated highlights. Restored building
-sprites and mushrooms also use only a 10% palette/desaturation/lightness pass.
+sprites use only a 10% palette/desaturation/lightness pass; mushrooms use 7.5%.
 The stone votive gets a 12% lightness lift; ladders and barrels receive a 20%
 colour-only nudge. Churchyard ground regains a little saturation, and cave
 floor/wall bases sit halfway between the original and previous proposals.
@@ -108,7 +111,7 @@ textures or user saves are modified. Candidates share the dashboard's gentle col
 moderately desaturated ground. Ground and water retain more of their original colour and depth, with the
 previous lightening and desaturation reduced by approximately 25%. The original closed chest is the shading reference; the
 new chest candidate keeps its shape with the original chest’s warm wood and
-muted metal colours, preserving all eleven source shades. Clipped hedges are limited to residential/commercial shrub cells.
+muted metal colours at half strength, preserving all eleven source shades. Clipped hedges are limited to residential/commercial shrub cells.
 
 ```sh
 CHROMIUM_PATH=/path/to/chromium python3 tools/preview_sandbox_art.py \

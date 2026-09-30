@@ -121,7 +121,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity.",
+        "note": "Use half the previous apple-led colour and shading adjustment. Keep more of the existing woodland bush\u2019s darker olive colour while gently warming and lifting its foliage.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -148,7 +148,7 @@
             "hex": "#e6d7a3"
           }
         ],
-        "recolourStrength": 0.85,
+        "recolourStrength": 0.425,
         "recolourMode": "apple-foliage",
         "preserveLuminance": false
       },
@@ -164,7 +164,7 @@
             16
           ]
         },
-        "note": "Use the same apple-led colour, saturation and shading direction as the woodland bush. The clipped silhouette identifies formal and residential/commercial planting."
+        "note": "Use the same reduced-strength colour treatment as the woodland bush. The clipped silhouette identifies formal and residential/commercial planting."
       }
     },
     {
@@ -222,7 +222,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity.",
+        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity. Ease this colour treatment back by 25% from the previous preview.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -249,7 +249,7 @@
             "hex": "#e6d7a3"
           }
         ],
-        "recolourStrength": 0.85,
+        "recolourStrength": 0.6375,
         "recolourMode": "apple-foliage",
         "preserveLuminance": false
       }
@@ -284,7 +284,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity.",
+        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity. Ease this colour treatment back by 25% from the previous preview.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -311,7 +311,7 @@
             "hex": "#e6d7a3"
           }
         ],
-        "recolourStrength": 0.85,
+        "recolourStrength": 0.6375,
         "preserveLuminance": false,
         "recolourMode": "apple-foliage"
       }
@@ -345,7 +345,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity.",
+        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity. Ease this colour treatment back by 25% from the previous preview.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -372,7 +372,7 @@
             "hex": "#e6d7a3"
           }
         ],
-        "recolourStrength": 0.85,
+        "recolourStrength": 0.6375,
         "preserveLuminance": false,
         "recolourMode": "apple-foliage"
       }
@@ -406,7 +406,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity.",
+        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity. Ease this colour treatment back by 25% from the previous preview.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -433,7 +433,7 @@
             "hex": "#e6d7a3"
           }
         ],
-        "recolourStrength": 0.85,
+        "recolourStrength": 0.6375,
         "preserveLuminance": false,
         "recolourMode": "apple-foliage"
       }
@@ -619,7 +619,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Only 10% palette adaptation, desaturation and lightness lift; keep the mushroom spots, cap colours, luminous identity and dark contours distinct.",
+        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
         "palette": [
           {
             "id": "ink",
@@ -642,7 +642,7 @@
             "hex": "#e6d7a3"
           }
         ],
-        "recolourStrength": 0.1,
+        "recolourStrength": 0.075,
         "recolourMode": "gentle-tune",
         "preserveLuminance": true
       },
@@ -704,7 +704,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Only 10% palette adaptation, desaturation and lightness lift; keep the mushroom spots, cap colours, luminous identity and dark contours distinct.",
+        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -723,7 +723,7 @@
             "hex": "#e6d7a3"
           }
         ],
-        "recolourStrength": 0.1,
+        "recolourStrength": 0.075,
         "recolourMode": "gentle-tune",
         "preserveLuminance": true
       }
@@ -759,7 +759,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Only a 10% adjustment: gently adapt toward the palette, reduce saturation by 10%, and lift lightness 10% toward white. Keep dark outlines and bright glints intact so the distinct flower colours and details remain clear.",
+        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -790,7 +790,7 @@
             "hex": "#e6d7a3"
           }
         ],
-        "recolourStrength": 0.1,
+        "recolourStrength": 0.075,
         "preserveLuminance": true,
         "recolourMode": "gentle-flower"
       }
@@ -826,7 +826,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Only a 10% adjustment: gently adapt toward the palette, reduce saturation by 10%, and lift lightness 10% toward white. Keep dark outlines and bright glints intact so the distinct flower colours and details remain clear.",
+        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -857,7 +857,7 @@
             "hex": "#fac756"
           }
         ],
-        "recolourStrength": 0.1,
+        "recolourStrength": 0.075,
         "preserveLuminance": true,
         "recolourMode": "gentle-flower"
       }
@@ -1017,7 +1017,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Retain the earlier apple-tree recolour selected by the user. This is the approved exception to the generally subtler colour pass. Fruit and foliage geometry stay unchanged.",
+        "note": "Keep the selected apple colour direction, softened to 75% of its previous treatment so more of the source colour and shading comes through.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -1064,7 +1064,7 @@
             "hex": "#e6d7a3"
           }
         ],
-        "recolourStrength": 1,
+        "recolourStrength": 0.75,
         "preserveLuminance": true,
         "recolourMode": "approved-apple"
       }
@@ -1676,7 +1676,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Only a 10% adjustment: gently adapt toward the palette, reduce saturation by 10%, and lift lightness 10% toward white. Keep dark outlines and bright glints intact so the distinct flower colours and details remain clear.",
+        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -1707,7 +1707,7 @@
             "hex": "#e6d7a3"
           }
         ],
-        "recolourStrength": 0.1,
+        "recolourStrength": 0.075,
         "preserveLuminance": true,
         "recolourMode": "gentle-flower"
       }
@@ -1741,7 +1741,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep the new compact chest shape with the original chest\u2019s predominantly warm timber and muted slate contour colours. Preserve all eleven shades through a one-to-one colour map; keep about two-thirds of the visible surface warm wood so the metal does not dominate.",
+        "note": "Keep the new compact chest shape and halve the previous colour adjustment: blend its source gold and timber halfway toward the original chest\u2019s warmer wood and muted slate colours, preserving all eleven shades.",
         "palette": [
           {
             "id": "original-chest-0",
@@ -1788,7 +1788,7 @@
             "hex": "#565972"
           }
         ],
-        "recolourStrength": 1,
+        "recolourStrength": 0.5,
         "recolourMode": "original-chest-colours",
         "colourMap": {
           "#1a1a1a": "#3a3a50",
@@ -2263,7 +2263,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity.",
+        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity. Ease this colour treatment back by 25% from the previous preview.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -2290,7 +2290,7 @@
             "hex": "#e6d7a3"
           }
         ],
-        "recolourStrength": 0.85,
+        "recolourStrength": 0.6375,
         "preserveLuminance": false,
         "recolourMode": "apple-foliage"
       }
@@ -2450,7 +2450,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Only a 10% adjustment: gently adapt toward the palette, reduce saturation by 10%, and lift lightness 10% toward white. Keep dark outlines and bright glints intact so the distinct flower colours and details remain clear.",
+        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -2481,7 +2481,7 @@
             "hex": "#4ebcb9"
           }
         ],
-        "recolourStrength": 0.1,
+        "recolourStrength": 0.075,
         "preserveLuminance": true,
         "recolourMode": "gentle-flower"
       }
@@ -2749,7 +2749,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep fantastical fruit silhouette; olive supporting leaves with a jewel-coloured focal fruit. Its rarity permits the accent. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
+        "note": "Keep fantastical fruit silhouette; olive supporting leaves with a jewel-coloured focal fruit. Its rarity permits the accent. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast. Ease this colour treatment back by 25% from the previous preview.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -2780,7 +2780,7 @@
             "hex": "#8d79a1"
           }
         ],
-        "recolourStrength": 0.08,
+        "recolourStrength": 0.06,
         "preserveLuminance": true
       }
     },
@@ -2984,14 +2984,14 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "A small 7% lift in lightness across growth stages, preserving hue, contours and transparent pixels. Rockfruit remains unchanged. Inventory-only produce and seed frames are excluded.",
+        "note": "A small 5.25% lightness lift across growth stages, eased back from 7%. Preserve hue, dark contours and transparency; rockfruit and inventory-only frames remain unchanged.",
         "palette": [
           {
             "id": "lightness-target",
             "hex": "#ffffff"
           }
         ],
-        "recolourStrength": 0.07,
+        "recolourStrength": 0.0525,
         "recolourMode": "crop-light",
         "preserveLuminance": false
       }

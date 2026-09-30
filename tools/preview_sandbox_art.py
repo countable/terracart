@@ -53,15 +53,15 @@ def plan(reserve):
     ground_patterns = {str(r['terrainId']):r['patternOpacity'] for r in json.loads((ROOT/'docs/art/map-audit-ground.json').read_text())['rows'] if 'patternOpacity' in r}
     return dict(sprites=sprites,ground=ground,groundPatterns=ground_patterns,hedge=hedge,buildings=buildings,notes=[
         'Before is the current game, including the approved rustic defaults and new gold chest.',
-        'After tunes each material’s colour and shading while retaining source geometry. Flowers receive only 10% palette, desaturation and lightness adjustment. Lava retains its original fiery colour and bright highlights.',
-        'The new chest shape uses the old chest’s warm wood and muted metal colours; fort and castle floors move 20% toward their original bases.',
-        'Trees, bushes and grass lean toward the selected apple foliage. Strong ground patterns have 20% less contrast; the forest base is slightly darker.',
-        'Restored buildings and mushrooms receive only a 10% palette, desaturation and lightness adjustment; stone votive lightness lifts 12%. Rockfruit, shells, macro booths and chapel remain unchanged.',
+        'After tunes each material’s colour and shading while retaining source geometry. Flowers receive only 7.5% palette, desaturation and lightness adjustment. Lava retains its original fiery colour and bright highlights.',
+        'The new chest shape blends halfway toward the old chest’s warm wood and muted metal colours; fort and castle floors move 20% toward their original bases.',
+        'Flora keeps the apple-inspired direction with 25% less adjustment, except grass which retains its approved treatment; bushes and hedges use half the earlier adjustment. Strong ground patterns have 20% less contrast; the forest base is slightly darker.',
+        'Restored buildings receive a 10% palette/desaturation/lightness adjustment and mushrooms 7.5%; stone votive lightness lifts 12%. Rockfruit, shells, macro booths and chapel remain unchanged.',
         'The sandbox buildings are claimed. The separate audit cards show the more weathered unclaimed fort treatment.',
         'Both captures use the same frozen sandbox, identical object positions, native pixels and neutral fullbright lighting.',
         'The clipped hedge is previewed only on residential/commercial shrub placements.',
         'The handmade sandbox has no zone-variant motifs or vector road/building polygons. Its existing tiled building mode is used for both views.',
-        'Crop growth art receives a small 7% lightness lift, excluding rockfruit. Actors and inventory-only frames remain unchanged; candidates absent from the sandbox cannot be evaluated here.',
+        'Crop growth art receives a small 5.25% lightness lift, excluding rockfruit. Actors and inventory-only frames remain unchanged; candidates absent from the sandbox cannot be evaluated here.',
     ])
 
 

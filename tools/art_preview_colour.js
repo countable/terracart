@@ -56,10 +56,10 @@ globalThis.ArtPreviewColour = (() => {
       ctx.putImageData(pixels,0,0);return canvas;
     }
     if(options.mode==='approved-apple'){
-      // Preserve the exact earlier apple treatment the user selected.
+      // Use the selected apple ramp; strength can ease it back toward source.
       let lo=255,hi=0;
       for(let i=0;i<pixels.data.length;i+=4){if(!pixels.data[i+3])continue;const v=luma(pixels.data.subarray(i,i+3));lo=Math.min(lo,v);hi=Math.max(hi,v);}
-      for(let i=0;i<pixels.data.length;i+=4){if(!pixels.data[i+3])continue;const at=Math.round((luma(pixels.data.subarray(i,i+3))-lo)/Math.max(1,hi-lo)*(ramp.length-1));pixels.data.set(ramp[at],i);}
+      for(let i=0;i<pixels.data.length;i+=4){if(!pixels.data[i+3])continue;const at=Math.round((luma(pixels.data.subarray(i,i+3))-lo)/Math.max(1,hi-lo)*(ramp.length-1));ramp[at].forEach((v,k)=>pixels.data[i+k]=clamp(pixels.data[i+k]+(v-pixels.data[i+k])*strength));}
       ctx.putImageData(pixels,0,0);return canvas;
     }
     for(let i=0;i<pixels.data.length;i+=4){

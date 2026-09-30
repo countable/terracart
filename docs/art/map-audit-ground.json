@@ -109,11 +109,11 @@
         "terrainId": 1
       },
       "currentColor": "#3c5233",
-      "proposedColor": "#768166",
+      "proposedColor": "#6d7a5e",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #768166. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Forest base slightly darkened after scene review. Reduce the texture marks\u2019 contrast against the base by 20%.",
-      "rationale": "Keep the existing procedural texture with base #768166. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Forest base slightly darkened after scene review. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "recommendation": "Bring the forest base another 15% toward its original darker, richer green, retaining a useful lift for object visibility. Keep the leaf-litter pattern contrast reduced by 20%.",
+      "rationale": "Bring the forest base another 15% toward its original darker, richer green, retaining a useful lift for object visibility. Keep the leaf-litter pattern contrast reduced by 20%.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -130,8 +130,8 @@
         "kind": "biome",
         "terrainId": 1
       },
-      "proposedLuminance": 124.7,
-      "proposedChannelSpread": 27,
+      "proposedLuminance": 117.2,
+      "proposedChannelSpread": 28,
       "patternOpacity": 0.8
     },
     {
@@ -1480,7 +1480,7 @@
     "rule": "Moderate lightening and desaturation per material, retaining its colour and depth. Keep a useful lift in forest, wetland, cave and tar floors without imposing a universal pale base.",
     "desaturation": "Each terrain proposal has RGB channel spread no greater than its current base; cool/olive hue preserves biome identity.",
     "objectGuidance": "Ground supports shaded interactables without looking washed out. Preserve object outlines, shadow planes and lit tops; the original chest and unchanged well are contrast references.",
-    "tuning": "Retain 75% of the previous proposed RGB adjustment from the current base, reducing the lightening and desaturation together by approximately 25%. Forest base has a further 10-level RGB reduction; the stronger pattern overlays use 80% opacity.",
+    "tuning": "Retain 75% of the previous proposed RGB adjustment from the current base, reducing the lightening and desaturation together by approximately 25%. Forest base has a further 10-level RGB reduction; the stronger pattern overlays use 80% opacity. Forest base then moves a further 15% toward its original colour after scene review.",
     "exceptions": [
       "Lava retains its original saturated base and bright animated highlights."
     ]
