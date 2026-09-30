@@ -23,7 +23,7 @@ These are expected Home sale coins using the current Easy-mode sale formula, fro
 | Mystic Reef | 183–352 | 1 × Starflower | 49–98 |  |
 | Pirate Cove | 45–76 | 1 × Gold ore rock | 81–160 | Pick T3 |
 | Shellwater Strand | 87–167 | 2 × Wild Rose | 28–54 |  |
-| Quarry | 2222–4395 | None | 0–0 | Generated from removed parking lanes; ore is probabilistic background, not guaranteed finite finds; Crimson pick T5, Frost pick T6 |
+| Quarry | 553–1057 | None | 0–0 | Generated from removed parking lanes; crystals are probabilistic background, not guaranteed finite finds; Iron pick T3; one Sapphire per cluster, no metal bars |
 
 ## Main findings
 

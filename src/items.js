@@ -277,6 +277,10 @@ const COOKED_FOODS = {
 // The mineralrock sheet's top row orders copper through platinum at columns
 // 0..3, leaves column 4 for unrelated art, then puts crimson/frost at 5/6.
 // Yield tier 1 is a plain rock and therefore has no row or namesake bar.
+// A crystal deposit is mined like a rock but pays only its visible gem.
+const CRYSTAL_DEPOSIT = Object.freeze({ item: 'sapphire', quantity: 1, yieldTier: 4, requiredTier: 3 });
+function mineralDeposit(o) { return o.deposit === 'crystal' ? CRYSTAL_DEPOSIT : null; }
+
 const MINERAL_TIERS = Object.freeze({
   2: Object.freeze({ barId: 'copper_bar',   rockFrame: 0 }),
   3: Object.freeze({ barId: 'iron_bar',     rockFrame: 1 }),

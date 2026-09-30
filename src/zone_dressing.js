@@ -89,6 +89,7 @@
           extra.variant = 1;
           if (m.size) extra.size = m.size;
         }
+        if (m.deposit) extra.deposit = m.deposit;
         if (m.yieldTier != null) extra.yieldTier = m.yieldTier;
         if (m.requiredTier != null) extra.requiredTier = m.requiredTier;
         if (m.rockVariant) extra.rockVariant = root.SpriteLayout ? root.SpriteLayout[m.rockVariant] : 3;

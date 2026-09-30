@@ -250,11 +250,12 @@ const INTERACTABLES = {
     spent: (o, ctx) => isSpent(o, spentSets(ctx.scene, ctx.save)),
     spentAction: 'consume',
     gate: (o, save) => {
+      const deposit = mineralDeposit(o);
       const isCave = o.caveVariant != null;
-      const isPlain = isCave || (o.yieldTier || 1) <= 1;
+      const isPlain = !deposit && (isCave || (o.yieldTier || 1) <= 1);
       if (isPlain) return null;   // plain rock is ungated
       const pickTier = save.relics?.pick?.tier || 0;
-      const reqTier = o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
+      const reqTier = deposit?.requiredTier || o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
       if (pickTier < reqTier) {
         const need = TIER_BY_NUM[reqTier]?.name || 'better';
         return `Need ${tierArticle(need)} ${need} pick.`;
@@ -264,21 +265,29 @@ const INTERACTABLES = {
     // Tier shortfall for the slow-grind offer — same req the gate reads.
     // Plain rock is ungated, so it never reports short.
     tierShort: (o, save) => {
-      const isPlain = o.caveVariant != null || (o.yieldTier || 1) <= 1;
+      const deposit = mineralDeposit(o);
+      const isPlain = !deposit && (o.caveVariant != null || (o.yieldTier || 1) <= 1);
       if (isPlain) return 0;
-      const reqTier = o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
+      const reqTier = deposit?.requiredTier || o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
       return reqTier - (save.relics?.pick?.tier || 0);
     },
     // Shared tool-tier baseline (9 bare → 1 Frost via effectivePickCost) OR a
     // +9-per-tier surcharge when the rock out-tiers the pick, whichever is more.
     energy: (save, o) => {
       const pickTier = save.relics?.pick?.tier || 0;
-      const rockTier = o.yieldTier || 1;
+      const rockTier = mineralDeposit(o)?.yieldTier || o.yieldTier || 1;
       return Math.max(effectivePickCost(save.relics), 9 * (rockTier - pickTier));
     },
     complete: (ctx, o) => {
       const { scene, save } = ctx;
       scene.brokenRockSet.add(o.id);
+      const deposit = mineralDeposit(o);
+      if (deposit) {
+        scene.addToInv(deposit.item, deposit.quantity);
+        persistSave(save);
+        scene.flashLoot(`+${deposit.quantity} ${ITEM_BY_ID[deposit.item]?.name || deposit.item}`, '#a7ffb0', 1, deposit.item);
+        return;
+      }
       const isCave = o.caveVariant != null;
       const isPlain = isCave || (o.yieldTier || 1) <= 1;
       if (isPlain) {

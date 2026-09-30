@@ -13,7 +13,7 @@ vm.createContext(ctx);
 for (const name of ['enemy_roster', 'util', 'sprite_layout', 'assets', 'items', 'crops', 'biome_profiles', 'render']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
-const registry = vm.runInContext('({assets:ASSETS,crops:CROP_SPRITE,contexts:WILDPLANT_CONTEXT_ART,rows:CROP_ROW,names:CROP_NAMES,tiers:MINERAL_TIERS,maxStage:MAX_GROWTH_STAGE,cellPx:SpriteLayout.CELL_PX})', ctx);
+const registry = vm.runInContext('({assets:ASSETS,crops:CROP_SPRITE,contexts:WILDPLANT_CONTEXT_ART,rows:CROP_ROW,names:CROP_NAMES,tiers:MINERAL_TIERS,crystal:CRYSTAL_DEPOSIT,maxStage:MAX_GROWTH_STAGE,cellPx:SpriteLayout.CELL_PX})', ctx);
 ctx.scene = { save: { fruitPicked: {} }, textures: { exists: key => !!registry.assets[key] }, cellM: 7 };
 const resolver = vm.runInContext('Render.objectAppearance(scene, new Map())', ctx);
 // Run the actual planted/wildplant branch with a sprite recorder. The slice
@@ -90,6 +90,7 @@ for (const crop of natural) {
 }
 for (const [look,row] of Object.entries(registry.contexts)) plant(`context-${look}`,`${row.crop} · ${look}`,row.crop,{_plantArt:look},row.crop==='rockfruit'?'Loose stones and beach':'Foliage and ground cover','Context-specific art');
 for(let rockVariant=0;rockVariant<4;rockVariant++) add(`rock-plain-${rockVariant}`,`plain rock · shape ${rockVariant+1}`,'Mineral rocks',{kind:'mineralrock',rockVariant,yieldTier:1},'Surface / cave plain rock');
+add('crystal-deposit','Crystal deposit','Mineral rocks',{kind:'mineralrock',deposit:'crystal',yieldTier:registry.crystal.yieldTier,requiredTier:registry.crystal.requiredTier},'Quarry crystal deposit',`Harvest ${registry.crystal.quantity} ${registry.crystal.item}; shared rock scale and cell seating.`);
 // Ore tiers keep their material-specific artwork.
 for(const tier of Object.keys(registry.tiers)) add(`ore-${tier}`,`${registry.tiers[tier].barId.replace('_bar','')} ore`,'Mineral rocks',{kind:'mineralrock',yieldTier:Number(tier)},'Tiered ore');
 for(const crop of Object.keys(registry.rows).filter(k=>!natural.includes(k))) for(let stage=0;stage<=registry.maxStage;stage++) add(`crop-${crop}-${stage}`,`${registry.names[crop]||crop} · stage ${stage}`,'Crop growth',{kind:'wildplant',crop,stage},'Player-planted crop','Includes the runtime planted-crop scale reduction and vertical offset.');
@@ -109,7 +110,7 @@ for (const sample of samples) {
   } else if(o.kind==='plant') {
     sample.group='Carnivorous plants · rooted enemy';sample.family='Carnivorous plant';sample.phase='Idle animation';
   } else if(o.kind==='mineralrock') {
-    sample.group='Rocks · mining';sample.family=o.yieldTier>1?'Tiered ore':'Plain stones';sample.phase='Default appearance';
+    sample.group='Rocks · mining';sample.family=o.deposit==='crystal'?'Crystal deposit':o.yieldTier>1?'Tiered ore':'Plain stones';sample.phase='Default appearance';
   } else if(o.kind==='groundstack') {
     sample.group='Loose materials · pickup';sample.family='Fallen wood';sample.phase='Stack appearance';
   } else if(o.crop==='giant_mushroom') {

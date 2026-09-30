@@ -40,11 +40,10 @@
     assert.eq(first.wildplants.length,0);assert.eq(first.lairs.length,0);
     assert.truthy(first.objects.every(o=>o.kind==='mineralrock' && o.zoneLayer==='background'));
     assert.inRange(first.objects.length,1500,1770,'dense forty-percent coverage');
-    for(const [tier,required] of [[6,5],[7,6]]) {
-      const ore=first.objects.filter(o=>o.yieldTier===tier);
-      assert.inRange(ore.length,20,65,'about one percent of eligible cells per special ore');
-      assert.truthy(ore.every(o=>o.requiredTier===required));
-    }
+    const crystals=first.objects.filter(o=>o.deposit==='crystal');
+    assert.inRange(crystals.length,50,115,'about two percent of eligible cells are crystals');
+    assert.truthy(crystals.every(o=>o.yieldTier===4 && o.requiredTier===3));
+    assert.falsy(first.objects.some(o=>o.yieldTier===6 || o.yieldTier===7),'no rare metal ore in quarry');
     // Every selected cell can be the component centre without becoming an
     // implicit clearing or a fake POI seat.
     const selected=first.objects[0], center=make();
@@ -163,7 +162,7 @@
     assert.truthy(stones.every(o => !o._objectArt), 'stone gardens keep standard stone art');
     assert.truthy(stones.filter(o => o.yieldTier > 1).every(o => !o._objectArt), 'iron ore keeps its tier art');
     const looks = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC;
-    assert.eq(looks.mineralrock.key, 'mineralrock');
+    assert.eq(looks.mineralrock.key({}), 'mineralrock');
     assert.eq(looks.stakes.key({_street:'burned'}), 'approved_charred_stakes');
     assert.eq(looks.stakes.key({}), 'stakes');
   });

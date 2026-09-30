@@ -56,6 +56,7 @@
     'peach_tree:4': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
     'chest:0': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 15 },
     'box:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
+    'crystal_cluster:0': { fw: 16, fh: 16, minX: 1, minY: 2, maxX: 15, maxY: 14 },
     'mineralrock:168': { fw: 16, fh: 16, minX: 1, minY: 5, maxX: 16, maxY: 15 },
     'mineralrock:169': { fw: 16, fh: 16, minX: 3, minY: 6, maxX: 12, maxY: 14 },
     'mineralrock:170': { fw: 16, fh: 16, minX: 3, minY: 6, maxX: 13, maxY: 14 },

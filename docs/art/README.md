@@ -227,3 +227,12 @@ python3 tools/preview_foliage_audit.py --output /tmp/foliage-audit
 The self-contained HTML and `audit.json` come from `export_foliage_audit.js`, which
 uses the shipping object resolver and crop-render branch. The audit omits light,
 fog, shadows and tool-lock fading. It makes no game-art changes.
+
+
+## Quarry crystal cluster
+
+`assets/Objects/Wilderness/crystal_cluster.png` is the unchanged 16×16
+`crystal_cluster` tile from Verdant Props (Core Systems Asset Factory, 2026).
+The pack licence is preserved beside it. Mineral-rock records with
+`deposit: 'crystal'` use this cluster at the shared rock scale and measured
+cell-centred seating; ordinary stone and ore artwork are unchanged.

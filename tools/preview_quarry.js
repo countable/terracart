@@ -28,7 +28,7 @@ for (let y=0;y<side;y++) for(let x=0;x<side;x++) {
 if (!coverage.length) throw new Error('Parking lanes produced no Quarry coverage');
 const objects = (tile.zoneDress?.objects || []).filter(o=>o.zoneVariant==='quarry').map(o=>({
   cell:[Math.floor((o.x-tx*tileEdgeM)/WG.CELL_M)-origin,Math.floor((o.y-ty*tileEdgeM)/WG.CELL_M)-origin],
-  material:o.yieldTier===7?'frost_ore':o.yieldTier===6?'crimson_ore':'stone',
+  material:o.deposit==='crystal'?'crystal':'stone',
 }));
 if (!objects.length) throw new Error('Quarry fixture produced no background rocks');
 if ((tile.streetIndex?.lines || []).length) throw new Error('Removed parking lanes survived as roads');

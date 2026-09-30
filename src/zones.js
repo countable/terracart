@@ -166,7 +166,7 @@
   // species moves onto the zone's ground with probability p. Not an add.
   const ZONE_KINDS = {
     quarry: { code: 5, R: 21, terrain: 'ROCK', story: 'zone_stones', title: 'Quarry',
-      body: 'Broken stone fills the old lanes. Rare crimson and frost veins lie among the rubble.',
+      body: 'Broken stone fills the old lanes. Blue crystals glint among the rubble.',
       flash: 'A quarry of broken stone.' },
     beach: { code: 4, R: 80, terrain: 'GROVE', story: 'zone_grove', title: 'The shore',
       body: 'An old shrine stands above the sand.', flash: 'The shore opens ahead.' },

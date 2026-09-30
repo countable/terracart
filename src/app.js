@@ -11887,9 +11887,10 @@ class MapScene extends Phaser.Scene {
   // opts.maxTier caps the roll at a themed relic shop's tier (Gear.buildRelicOffer).
   peekOrBuildRelicOffer(house, opts = {}) {
     const castle = isCastle(house);
-    if (!house?.id) return this.buildRelicOffer(Math.random, { isCastle: castle, ...opts });
+    const isBlacksmith = !castle && this.houseShopRole(house) === 'blacksmith';
+    if (!house?.id) return this.buildRelicOffer(Math.random, { isCastle: castle, isBlacksmith, ...opts });
     const rng = this.shopRng(house, 'relic');
-    return this.buildRelicOffer(rng, { isCastle: castle, ...opts });
+    return this.buildRelicOffer(rng, { isCastle: castle, isBlacksmith, ...opts });
   }
 
   // Pick a random relic OR armor piece the player can actually use — meaning

@@ -265,12 +265,13 @@
       "spawnClass": "minor",
       "color": "#947051"
     },
-    "frost_ore": {
+    "crystal": {
       "kind": "mineralrock",
-      "yieldTier": 7,
-      "requiredTier": 6,
+      "deposit": "crystal",
+      "yieldTier": 4,
+      "requiredTier": 3,
       "spawnClass": "attractor",
-      "color": "#8be2ee"
+      "color": "#8ccfe3"
     }
   },
   "variants": [
@@ -7003,8 +7004,7 @@
         "nominalDensity": 0.4,
         "materialDensity": {
           "stone": 0.38,
-          "crimson_ore": 0.01,
-          "frost_ore": 0.01
+          "crystal": 0.02
         },
         "seed": "source + tile_coordinates + local_cell_coordinates; independent_of_component_center",
         "sampling": "alternate_rows_with_seeded_gaps; occupancy_adjusted_for_row_fraction; independent_material_hash",
@@ -7042,7 +7042,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Broken rows of stone fill removed parking lanes and nearby ground, with seeded gaps between rocks and clear aisles between rows. Crimson and frost ore each occupy about 1% of eligible cells. No landmark, special lighting or fixed guards.",
+      "atmosphere": "Broken stone rows fill removed parking lanes and nearby ground. Blue crystal clusters occupy about 2% of eligible cells and yield Sapphires. No landmark, special lighting or fixed guards.",
       "attracts": {}
     }
   ]

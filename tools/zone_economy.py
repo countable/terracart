@@ -19,6 +19,7 @@ const fn=(source,name)=>source.match(new RegExp('^function '+name+'\\([^]*?^}', 
 const ctx={};vm.createContext(ctx);
 vm.runInContext(items.match(/const PRICES = [^]*?^};/m)[0]+'\n'+
  items.match(/const TRAILER_SELL_MUL = [^;]+;/)[0]+'\n'+
+ items.match(/const CRYSTAL_DEPOSIT = [^;]+;/)[0]+'\n'+
  ['sellMultiplier','trailerSellMultiplier','trailerSellPrice'].map(name=>fn(items,name)).join('\n')+'\n'+
  fn(rocks,'plainRockBarChance')+'\n'+
  rocks.match(/const PLAIN_ROCK_FLINT_P = [^;]+;/)[0]+'\n'+`
@@ -29,21 +30,18 @@ vm.runInContext(items.match(/const PRICES = [^]*?^};/m)[0]+'\n'+
    return price('rockfruit')+PLAIN_ROCK_FLINT_P*price('coal')+
      bars.reduce((sum,id,i)=>sum+price(id)*probabilities[i],0);
  });
- const frost=[0,7].map(sword=>{
-   const price=id=>trailerSellPrice(PRICES[id]??1,{sword:{tier:sword}});
-   return price('frost_bar')+1.5*price('coal')+.25*(price('diamond')+price('emerald'))+.25*price('ruby');
- });
- globalThis.result={stone,probabilities,frost};`,ctx);
+ const crystal=[0,7].map(sword=>CRYSTAL_DEPOSIT.quantity*trailerSellPrice(PRICES[CRYSTAL_DEPOSIT.item],{sword:{tier:sword}}));
+ globalThis.result={stone,probabilities,crystal};`,ctx);
 process.stdout.write(JSON.stringify(ctx.result));
 """],cwd=root,text=True))
 values={'grass':(1,1),'shrub':(1,1),'mushroom':(3,6),'blue':(6,11),'orange':(17,34),'rose':(14,27),'star':(49,98),'gemfruit':(10,19),'rubble':(2,2.9),'flint':(2,3),'stone':tuple(live['stone']),'copper_rock':(15,27.5),'iron_ore':(33,64.5),'gold_ore':(81,160.25),'platinum_ore':(201.5,400.5),'crimson_ore':(483,964.5),'fruit_tree':(4.5,9),'tree':(10.1931,21),'medium_tree':(5.1931,11),'grave':(0,0)}
 # Each woody giant pays one wood plus one ordinary mushroom.
 values['giant_mushroom']=tuple(a+b for a,b in zip(values['shrub'],values['mushroom']))
 # Art-only beach aliases; enemy combat drops are outside this harvest report.
-values['frost_ore']=tuple(live['frost'])
+values['crystal']=tuple(live['crystal'])
 values.update(shell=(6,12), driftwood=values['shrub'],
               carnivorous_plant=(0,0))
-names={'rose':'Wild Rose','star':'Starflower','gemfruit':'Gemfruit','gold_ore':'Gold ore rock','platinum_ore':'Platinum ore rock','crimson_ore':'Crimson ore rock','frost_ore':'Frost ore rock'}
+names={'rose':'Wild Rose','star':'Starflower','gemfruit':'Gemfruit','gold_ore':'Gold ore rock','platinum_ore':'Platinum ore rock','crimson_ore':'Crimson ore rock','crystal':'Sapphire crystal'}
 fmt=lambda pair: f'{math.floor(pair[0]+.5)}–{math.floor(pair[1]+.5)}'
 rows=[]
 background_values={}
@@ -52,7 +50,7 @@ for v in d['variants']:
  background_values[v['id']]=bg
  f=v['finds'];fv=tuple(values[f['material']][i]*f['count'] for i in (0,1))
  note=[]
- if v.get('generated')=='parking_lanes':note.append('Generated from removed parking lanes; ore is probabilistic background, not guaranteed finite finds; Crimson pick T5, Frost pick T6')
+ if v.get('generated')=='parking_lanes':note.append('Generated from removed parking lanes; crystals are probabilistic background, not guaranteed finite finds; Iron pick T3; one Sapphire per cluster, no metal bars')
  if v['id']=='orchard':note.append('Apple harvest repeats every 24 h; medium maples are one-time timber')
  if b['materialDensity'].get('grave'):note.append('Headstone hoards excluded')
  if b.get('hazardDensity'):note.append(', '.join(f'{x*100:g}% {k}' for k,x in b['hazardDensity'].items()))

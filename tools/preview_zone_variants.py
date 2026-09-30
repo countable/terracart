@@ -85,6 +85,8 @@ def material_art(material):
         tier = material.get('yieldTier', 1)
         sheet = 'mineralrock'
         frames = [r['churchyardFrame'] if tier == 1 else r['mineralTiers'][str(tier)]['rockFrame']]
+        if material.get('deposit') == 'crystal':
+            sheet, frames = 'crystal_cluster', [0]
     elif kind == 'tree':
         species = material.get('species', 'maple')
         sheet = 'trees' if species == 'maple' else species + '_tree'
@@ -551,10 +553,10 @@ def quarry_card(v, d):
         parts.append(sprite_cell(prefix, material, x*unit+1, y*unit+1, unit-2, materials[material]))
     parts.append('</svg>')
     counts = collections.Counter(o['material'] for o in fixture['objects'])
-    labels = {'stone':'ordinary stone', 'crimson_ore':'Crimson ore', 'frost_ore':'Frost ore'}
+    labels = {'stone':'ordinary stone', 'crimson_ore':'Crimson ore', 'crystal':'Sapphire crystals'}
     mix = ' · '.join(f'{density*100:g}% {labels.get(name, name.replace("_", " "))}' for name,density in v['background']['materialDensity'].items())
     actual = ', '.join(f'{n} {name.replace("_", " ")}' for name,n in counts.items())
-    return f'''<article id="{v['id']}"><header><small>quarry · generated from parking lanes</small><h2>{html.escape(v['name'])}</h2></header><p class="mix"><b>{v['background']['nominalDensity']*100:g}% expected coverage of eligible cells</b><br>{mix}</p><figure>{''.join(parts)}<figcaption>Actual rasterizer coverage and broken stone rows · {fixture['bufferM']:g} m buffer<br>Dashed lines show the removed source lanes, not roads. 1 cell = 7 m.</figcaption></figure><p>{html.escape(v['atmosphere'])}</p><p>This fixture placed {actual}. Percentages are independent of area; rare ore is not guaranteed in a small quarry.</p><dl><dt>Source</dt><dd>Parking-lane components; overlapping buffered lanes form one coverage region.</dd><dt>POI / shrine</dt><dd>None</dd><dt>Finite finds</dt><dd>None; ore belongs to the stone rows.</dd><dt>Monsters</dt><dd>No quarry guards</dd><dt>Lighting</dt><dd>No quarry light source or lamp colour override</dd><dt>Clipping</dt><dd>Real roads, buildings, forbidden ground and occupied cells retain their normal spawn restrictions.</dd></dl></article>'''
+    return f'''<article id="{v['id']}"><header><small>quarry · generated from parking lanes</small><h2>{html.escape(v['name'])}</h2></header><p class="mix"><b>{v['background']['nominalDensity']*100:g}% expected coverage of eligible cells</b><br>{mix}</p><figure>{''.join(parts)}<figcaption>Actual rasterizer coverage and broken stone rows · {fixture['bufferM']:g} m buffer<br>Dashed lines show the removed source lanes, not roads. 1 cell = 7 m.</figcaption></figure><p>{html.escape(v['atmosphere'])}</p><p>This fixture placed {actual}. Percentages are independent of area; crystals are not guaranteed in a small quarry.</p><dl><dt>Source</dt><dd>Parking-lane components; overlapping buffered lanes form one coverage region.</dd><dt>POI / shrine</dt><dd>None</dd><dt>Finite finds</dt><dd>None; crystals belong to the stone rows.</dd><dt>Monsters</dt><dd>No quarry guards</dd><dt>Lighting</dt><dd>No quarry light source or lamp colour override</dd><dt>Clipping</dt><dd>Real roads, buildings, forbidden ground and occupied cells retain their normal spawn restrictions.</dd></dl></article>'''
 
 
 def render(d, out):

@@ -4503,7 +4503,7 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
                   depth: s.depth + 0.5,
                 });
               } },
-    mineralrock: { key: 'mineralrock',
+    mineralrock: { key: (o) => o.deposit === 'crystal' ? 'crystal_cluster' : 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
               // to the SMALL rock variants only — other rows have boulder-
               // sized art that visibly bleeds past the 16 × 16 frame at
@@ -4522,6 +4522,7 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
               //           (T5), col 4 unused, crimson 5 (T6), frost 6 (T7) —
               //           so the rock you see matches the bar it drops.
               frame: (o) => {
+                if (o.deposit === 'crystal') return 0;
                 const tier = o.yieldTier || o.requiredTier || 1;
                 // Cave rock and T1 ore both render as a plain rock variant.
                 if (o.caveVariant != null || tier <= 1) {
