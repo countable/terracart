@@ -89,3 +89,68 @@ test('enemy habitats: every selected cave theme has an eligible family through d
   }
   assert.truthy(EnemySpawns.caveRows(4, { kinds: EnemyHabitats.FAMILIES.warren }).some(r => r.id === 'bomb_goblin'));
 });
+
+(() => {
+  const N = 64, edge = N * 7;
+  const entry = (theme = 'orchard') => ({ cellsPerEdge: N, tileEdgeM: edge,
+    grid: new Array(N * N).fill(WorldGen.T.PARK), objects: [],
+    zone: { coverage: new Uint8Array(N * N).fill(1), anchors: [{ variant: theme }] } });
+  const signature = cs => cs.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|');
+  test('surface encounters: themed singles and small groups are stable and occupy distinct seats', () => {
+    const e = entry(), occupied = new Set();
+    const cs = EnemyHabitats.surfaceEncounters(e, 0, 0, occupied);
+    assert.inRange(cs.length, 15, 50, 'a fully themed tile has regular encounters');
+    assert.eq(signature(cs), signature(EnemyHabitats.surfaceEncounters(entry(), 0, 0, new Set())));
+    const groups = new Map();
+    for (const c of cs) {
+      assert.includes(EnemyHabitats.SURFACE_FAMILIES.orchard, c.kind);
+      assert.falsy(c.lair, 'these are roamers, not more guards');
+      const key = c.id.replace(/_\d+$/, '');
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(c);
+    }
+    assert.eq(occupied.size, cs.length);
+    assert.truthy([...groups.values()].some(g => g.length === 1));
+    assert.truthy([...groups.values()].some(g => g.length > 1));
+    for (const group of groups.values()) {
+      assert.lte(group.length, 3);
+      for (const c of group) assert.lte(Math.hypot(c.x - group[0].x, c.y - group[0].y), 3 * 7);
+    }
+  });
+  test('surface encounters: require themed coverage and obey roads, occupied seats, and hard spawn gates', () => {
+    for (const block of ['road', 'occupied', 'restricted', 'coverage']) {
+      const e = entry(), occupied = new Set();
+      if (block === 'road') e.roadMask = new Uint8Array(N * N).fill(1);
+      if (block === 'occupied') for (let i = 0; i < N * N; i++) occupied.add(i);
+      if (block === 'restricted') e.spawnWhy = new Uint32Array(N * N).fill(WorldGen.SPAWN_WHY.RESTRICTED);
+      if (block === 'coverage') e.zone.coverage.fill(0);
+      assert.eq(EnemyHabitats.surfaceEncounters(e, 0, 0, occupied).length, 0, block);
+    }
+  });
+  test('surface encounters: actual spawn pass preserves defeat identities and Home protections', () => {
+    const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow'));
+    const generate = new Function('entry', 'tx', 'ty', body + '\nreturn creatures;');
+    const run = (caught = [], near = false) => {
+      const scene = Object.assign(new SceneCreatures(), { tileEdgeM: edge, save: { caught },
+        startWorldM: { x: near ? 0 : -5000, y: 0 }, _pestFreeZone: () => null });
+      return generate.call(scene, entry(), 0, 0).filter(c => c.id.startsWith('zone_encounter_'));
+    };
+    const cs = run();
+    assert.gt(cs.length, 0);
+    assert.eq(signature(run([cs[0].id])), signature(cs.slice(1)));
+    assert.truthy(run([], true).some(c => c._surfaceInactive), 'strong foes remain hidden near Home');
+  });
+  test('surface encounters: rebuild admits new zone enemies without moving or healing survivors', () => {
+    const creatures = EnemyHabitats.surfaceEncounters(entry(), 0, 0, new Set());
+    const survivor = { ...creatures[0], x: -1, _hp: 2 };
+    const rebuilt = { creatures: [survivor] };
+    const begin = SPAWN_IN_TILE_SRC.indexOf('    entry.creatures = entry.creatures || creatures;');
+    const end = SPAWN_IN_TILE_SRC.indexOf('    NPC.shrineResidents', begin);
+    const reconcile = new Function('entry', 'creatures', SPAWN_IN_TILE_SRC.slice(begin, end));
+    reconcile(rebuilt, creatures);
+    reconcile(rebuilt, creatures);
+    assert.eq(rebuilt.creatures.length, creatures.length, 'new encounters added exactly once');
+    assert.eq(rebuilt.creatures[0], survivor);
+    assert.eq(survivor.x, -1); assert.eq(survivor._hp, 2);
+  });
+})();

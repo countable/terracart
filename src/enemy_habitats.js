@@ -30,6 +30,17 @@
     barricade: ['spear_goblin', 'archer_goblin'],
     hungry_marsh: ['plant', 'slime'], orc_stronghold: ['orc', 'orc_shaman', 'orc_mage'],
   };
+  const SURFACE_FAMILIES = {
+    ...BUILDING_FAMILIES,
+    meadow: ['slime', 'plant'], mushroom_grove: ['spider', 'slime'],
+    formal_garden: ['slime', 'plant'], stone_garden: ['slime', 'skeleton'],
+    flint_field: ['club_goblin', 'spear_goblin'], broken_depot: ['skeleton', 'club_goblin'],
+    seep: ['slime', 'plant'], work_yard: ['club_goblin', 'archer_goblin'],
+    black_ring: ['skeleton', 'skeleton_soldier'], shellwater_strand: ['giant_crab', 'slime'],
+  };
+  // One encounter roll per ~84 m square at the usual 7 m cell size.
+  // Most are solitary; 25% are pairs and 10% are trios. No per-kind budget.
+  const SURFACE_ENCOUNTERS = { blockCells: 12, chance: .6, pairAt: .65, trioAt: .9, tries: 12 };
   function unit(key) {
     // Avalanche FNV: nearby spatial keys must not form long same-theme runs.
     let h = root.EnemySpawns.hash(key);
@@ -65,6 +76,52 @@
   function surfaceAt(entry, cx, cy) {
     const i = cy * entry.cellsPerEdge + cx;
     return { theme: variantAt(entry, cx, cy), beach: !!entry.scenic?.shore?.mask?.[i] };
+  }
+  function surfaceEncounters(entry, tx, ty, occupied) {
+    const WG = root.WorldGen, N = entry.cellsPerEdge, grid = entry.baseGrid || entry.grid;
+    const cellM = entry.tileEdgeM / N, out = [], cfg = SURFACE_ENCOUNTERS;
+    const opts = { ...entry._spawnOpts, roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
+      roadClass: entry.roadClass, occupied };
+    if (!entry.zone?.coverage) return out;
+    for (let by = 0; by < N; by += cfg.blockCells) for (let bx = 0; bx < N; bx += cfg.blockCells) {
+      const id = `zone_encounter_${tx}_${ty}_${bx}_${by}`;
+      if (unit(id + ':present') >= cfg.chance) continue;
+      const size = unit(id + ':size'), count = size >= cfg.trioAt ? 3 : size >= cfg.pairAt ? 2 : 1;
+      let anchor = null;
+      for (let n = 0; n < count; n++) {
+        for (let k = 0; k < cfg.tries; k++) {
+          const key = `${id}:${n}:${k}`;
+          const cx = anchor ? anchor.cx + Math.floor(unit(key + ':x') * 5) - 2
+            : bx + Math.floor(unit(key + ':x') * Math.min(cfg.blockCells, N - bx));
+          const cy = anchor ? anchor.cy + Math.floor(unit(key + ':y') * 5) - 2
+            : by + Math.floor(unit(key + ':y') * Math.min(cfg.blockCells, N - by));
+          if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
+          const slot = entry.zone.coverage[cy * N + cx];
+          if (!slot || (anchor && slot !== anchor.slot)) continue;
+          const theme = entry.zone.anchors[slot - 1]?.variant;
+          const family = SURFACE_FAMILIES[theme];
+          if (!family) continue;
+          const kinds = family.filter(kind => {
+            const row = root.EnemyRoster.get(kind);
+            return row?.surface && !row.retired && row.tier <= 3;
+          });
+          if (!kinds.length) continue;
+          const kind = kinds[Math.floor(unit(`${id}:${n}:kind`) * kinds.length)];
+          const cls = root.creatureSpawnClass(kind);
+          if (!WG.isSpawnCell(grid, N, N, cx, cy, opts, cls)) continue;
+          const x = tx * entry.tileEdgeM + (cx + .5) * cellM;
+          const y = ty * entry.tileEdgeM + (cy + .5) * cellM;
+          occupied.add(cy * N + cx);
+          anchor ||= { cx, cy, slot };
+          out.push(WG.makeCreature(kind, x, y, `${id}_${n}`, {
+            habitat: theme, zoneVariant: theme, shiny: false, _surfaceSpawn: { x, y, tx, ty, cx, cy },
+          }));
+          break;
+        }
+        if (!anchor) break;
+      }
+    }
+    return out;
   }
   function buildingKinds(entry, cand) {
     const N = entry.cellsPerEdge, cellM = entry.tileEdgeM / N;
@@ -177,6 +234,7 @@
     }
     return out;
   }
-  root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, unit, caveAt, surfaceAt, variantAt, buildingKinds, surfaceSites, caveSites };
+  root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS,
+    unit, caveAt, surfaceAt, surfaceEncounters, variantAt, buildingKinds, surfaceSites, caveSites };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.EnemyHabitats;
 })(typeof window !== 'undefined' ? window : globalThis);
