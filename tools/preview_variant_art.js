@@ -8,7 +8,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'util', 'sprite_layout', 'assets', 'items', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'road_overlay']) {
+for (const name of ['enemy_roster', 'util', 'sprite_layout', 'assets', 'items', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 const render = read('render');
@@ -30,7 +30,10 @@ const data = vm.runInContext(`({ assets: ASSETS, crops: CROP_SPRITE, cropRows: C
   treeStages: Object.fromEntries([1,2,3].map(variant => [variant,
     {frame:treeGrowthStage({species:'maple',variant}),scale:treeScale({species:'maple',variant})}])) ,
   churchyardFrame: SpriteLayout.plainRockFrame({rockVariant: SpriteLayout.CHURCHYARD_ROCK_VARIANT}),
-  groveShrines: SpriteLayout.GROVE_SHRINE_ART,
+  groveShrines: SpriteLayout.GROVE_SHRINE_ART, shipwreckShrine: SpriteLayout.SHIPWRECK_SHRINE_ART,
+  lighting: Lighting.KINDS, wildplantRules: WILDPLANT_RULES,
+  lairs: {kinds:Lairs.KIND_ORDER,counts:Lairs.STREET_TIER_GUARDS,daily:[...Lairs.DAILY_TIERS]},
+  zoneKinds: Zones.ZONE_KINDS,
   cellPx: SpriteLayout.CELL_PX, pathClasses: [...WorldGen.PATH_CLASSES], waterTerrain: WorldGen.T.WATER,
   lampDrawCells: RoadOverlay.LAMP_DRAW_CELLS, lampGroundFrac: RoadOverlay.LAMP_GROUND_FRAC,
   creatures: SpriteLayout.CREATURE_ART, lampGold: UI_LAMP_GOLD, lampGlow: UI_LAMP_GLOW })`, ctx);

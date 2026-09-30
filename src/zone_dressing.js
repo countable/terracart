@@ -55,7 +55,8 @@
       if (grid[iy * N + ix] === WG.T.SAND && s.variant.id === 'shellwater_strand' && material === 'rose') return false;
       const m = V.materials[material];
       if (!m) return false;
-      const cls = m.spawnClass;
+      const cls = m.recordType === 'enemy' && typeof root.creatureSpawnClass === 'function'
+        ? root.creatureSpawnClass(m.kind) : m.spawnClass;
       if (!WG.isSpawnCell(grid, N, N, ix, iy, opts, cls)) return false;
       return m.recordType !== 'surface_trap' || !!(root.Traps && root.Traps.isTrapGround(grid, opts.roadClass, N, N, ix, iy, field.under, opts.roadMask));
     };
@@ -68,11 +69,17 @@
       const i = iy * N + ix, [x, y] = position(ix, iy);
       const extra = { zone: s.a.kind, zoneVariant: s.variant.id, zoneLayer: layer, _ix: ix, _iy: iy };
       if (m._plantArt) extra._plantArt = m._plantArt;
-      const prefix = m.kind === 'wildplant' ? (layer === 'background' ? 'wpf' : 'wz')
+      const prefix = m.recordType === 'enemy' ? 'zp' : m.kind === 'wildplant' ? (layer === 'background' ? 'wpf' : 'wz')
         : ({ tree: 'ztree', fruittree: 'ft', mineralrock: 'mrz', headstone: 'hs', tar: 'tar' }[m.kind] || 'zt');
       id = id || WG.cellId(prefix, tx, ty, ix, iy);
       let record;
       if (m.recordType === 'surface_trap') { record = { id, x, y, ...extra }; out.traps.push(record); }
+      else if (m.recordType === 'enemy') {
+        // Pattern enemies share the ordinary guard/caught pipeline, but each
+        // repeated seat owns its stable cell id rather than a finite-find id.
+        record = { kind: m.kind, id, x, y, homeX: x, homeY: y, stationary: m.kind === 'plant', ...extra };
+        out.guards.push(record);
+      }
       else if (m.kind === 'wildplant') { record = WG.makeWildplant(m.crop, x, y, id, extra); out.wildplants.push(record); }
       else {
         if (m.species) extra.species = m.species;
@@ -110,6 +117,48 @@
         if (d < distance && allowed(s, x, y, material)) { distance = d; best = [x, y]; }
       }
       return best;
+    }
+    // A wreck is still the beach's one daily POI. Reserve its entire dry
+    // footprint and approach before finite finds, guards and background fill.
+    for (const s of states) {
+      if (!s.chest || s.variant.id !== 'pirate_cove') continue;
+      const extent = root.SpriteLayout.SHIPWRECK_SHRINE_ART.extentCells;
+      const radius = Math.floor(extent / 2), original = s.poi.slice();
+      const originalIndex = original[1] * N + original[0];
+      const free = new Set(occ); free.delete(originalIndex);
+      const shrineOpts = { ...opts, occupied: free };
+      const [ax, ay] = V.rotate(0, -radius - 1, s.rotation);
+      const footprint = (x, y) => {
+        const cells = [];
+        for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
+          const ix = x + dx, iy = y + dy;
+          if (!owns(s, ix, iy) || grid[iy * N + ix] !== WG.T.SAND
+              || !WG.isSpawnCell(grid, N, N, ix, iy, shrineOpts, 'minor')) return null;
+          cells.push(iy * N + ix);
+        }
+        const ix = x + ax, iy = y + ay;
+        if (!owns(s, ix, iy) || grid[iy * N + ix] !== WG.T.SAND
+            || !WG.isSpawnCell(grid, N, N, ix, iy, shrineOpts, 'minor')) return null;
+        cells.push(iy * N + ix);
+        return cells;
+      };
+      let seat = original, reserved = footprint(...seat), distance = reserved ? 0 : Infinity;
+      if (!reserved) for (let n = 0; n < s.cells.length; n++) {
+        if ((n & 255) === 0) yield 'shipwreck footprint fallback';
+        const i = s.cells[n], x = i % N, y = Math.floor(i / N);
+        const d = (x - original[0]) ** 2 + (y - original[1]) ** 2;
+        if (d >= distance) continue;
+        const candidate = footprint(x, y);
+        if (candidate) { seat = [x, y]; reserved = candidate; distance = d; }
+      }
+      if (!reserved) { s.rec.shortfalls.push('shrine:shipwreck'); continue; }
+      const [x, y] = position(...seat);
+      Object.assign(s.chest, { x, y, _ix: seat[0], _iy: seat[1],
+        _shrineArt: 'shipwreck', _shrineExtentCells: extent });
+      s.poi = seat; s.shipwreck = true;
+      // Retain a clear old seat when relocating; only the existing POI moves.
+      s.clear.add(originalIndex);
+      for (const i of reserved) { occ.add(i); s.clear.add(i); }
     }
     for (const s of states) {
       yield 'zone finite finds';
@@ -167,7 +216,7 @@
       // Outdoor slots touch the POI. Buildings use the wider table pattern.
       const pattern = s.indoor && v.poi.whenInsideBuilding ? v.poi.whenInsideBuilding : v.poi;
       if (owns(s, s.poi[0], s.poi[1])) s.clear.add(s.poi[1] * N + s.poi[0]);
-      for (const slot of pattern.slots || []) {
+      for (const slot of s.shipwreck ? [] : pattern.slots || []) {
         const [dx, dy] = V.rotate(slot.at[0], slot.at[1], s.rotation), ix = s.poi[0] + dx, iy = s.poi[1] + dy;
         if (owns(s, ix, iy)) s.poiSlots.set(iy * N + ix, slot.material);
       }

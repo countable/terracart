@@ -438,3 +438,18 @@ test('giant mushroom shrub look resolves without overriding ordinary or trimmed 
   assert.eq(wildplantSprite({crop:'shrub', _streetArt:'trimmed'}).sheet, 'hedge_trimmed');
   assert.eq(wildplantRule(giant.crop), wildplantRule('shrub'));
 });
+
+
+test('Pirate Cove shipwreck fits the reserved extent and beach looks preserve pickup identities', () => {
+  const art = SpriteLayout.groveShrineArt({_shrineArt:'shipwreck'});
+  assert.eq(art.key, 'shipwreck_shrine');
+  assert.eq(art.extentCells, 3);
+  assert.eq(1536 * art.scale, 3 * SpriteLayout.CELL_PX);
+  assert.truthy(1024 * art.scale <= 3 * SpriteLayout.CELL_PX);
+  assert.truthy(SpriteLayout.groveShrineArt({id:'ordinary'}).key !== art.key);
+  assert.eq(wildplantSprite({crop:'driftwood',_plantArt:'beach'}).sheet, 'beach_driftwood');
+  assert.eq(wildplantSprite({crop:'rockfruit',_plantArt:'beach'}).sheet, 'beach_rock');
+  assert.eq(wildplantSprite({crop:'driftwood'}).sheet, 'driftwood');
+  assert.eq(inventoryIconSource('rockfruit').sheet, 'crops');
+  assert.eq(iconBadgeItem('rockfruit_seed'), 'rockfruit');
+});

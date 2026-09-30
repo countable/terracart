@@ -175,6 +175,9 @@ const ASSETS = {
   // vista_scope) and the tide line's driftwood and message bottle (wild
   // plants — items.js CROP_SPRITE).
   vista_scope:    { kind: 'spritesheet', path: 'assets/Objects/Generated/scope.png', frameWidth: 16, frameHeight: 24 },
+  shipwreck_shrine: { kind: 'spritesheet', path: 'assets/Objects/Beach/shipwreck_shrine.png', frameWidth: 1536, frameHeight: 1024 },
+  beach_driftwood: { kind: 'spritesheet', path: 'assets/Objects/Beach/driftwood.png', frameWidth: 16, frameHeight: 16 },
+  beach_rock: { kind: 'spritesheet', path: 'assets/Objects/Beach/beach_rock.png', frameWidth: 16, frameHeight: 16 },
   driftwood:      { kind: 'spritesheet', path: 'assets/Objects/Generated/driftwood.png', frameWidth: 16, frameHeight: 16 },
   bottle:         { kind: 'spritesheet', path: 'assets/Objects/Generated/bottle.png', frameWidth: 16, frameHeight: 16 },
   // POI props (assets/Objects/Generated/README.md — placeholders): a bin is a

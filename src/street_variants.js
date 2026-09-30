@@ -162,7 +162,7 @@
   // `flash` is the ≤30-char map line a later visit gets.
   const STREET_VARIANTS = [
     { id: 'hedgerow', size: 'minor', share: 0.10, nudge: 2, rung: 'find',
-      stone: { weathered: '#52644b', restored: '#69805d' }, lampDensity: 1,
+      stone: { weathered: '#3a322c', restored: '#000000' }, lampDensity: 2,
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
       lampGlow: '#9be08a', attracts: { rabbit: 0.5 },
       story: 'street_hedgerow', title: 'The hedged lane',
@@ -176,7 +176,7 @@
       body: 'Saplings become trees along the verge. The green is taking this street back.',
       flash: 'The green is taking it back.' },
     { id: 'orchard', size: 'minor', share: 0.08, rung: 'uncommon',
-      stone: { weathered: '#78604e', restored: '#ab8659' }, lampDensity: 1,
+      stone: { weathered: '#78604e', restored: '#ab8659' }, lampDensity: 0.5,
       words: /(orchard|apple|cherry|plum|pear|peach|fruit|obst|kirsch|apfel|birn|pflaum|vine|berry)/i,
       lampGlow: '#ffa6c9', attracts: { deer: 0.5 },
       story: 'street_orchard', title: 'Orchard Lane',
@@ -216,7 +216,7 @@
     // the minor rows in order, so a street that rolled an older minor row
     // still does — only plain streets can become a toadstool lane.
     { id: 'toadstool', size: 'minor', share: 0.05, rung: 'uncommon',
-      stone: { weathered: '#45665f', restored: '#669489', pattern: 'spots', accent: '#d7dba3' }, lampDensity: 1,
+      stone: { weathered: '#634537', restored: '#9a5943', pattern: 'spots', accent: '#ead9ad' }, lampDensity: 1,
       words: /(mushroom|toadstool|fung|pilz|fairy|\bring|moss|damp|mycel|spore|schwamm|elfen|feen)/i,
       lampGlow: '#4fd8c4', attracts: { butterfly: 0.5 },
       story: 'street_toadstool', title: 'Toadstool Lane',

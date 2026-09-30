@@ -257,6 +257,27 @@
       "spawnClass": "minor",
       "color": "#c36259",
       "_plantArt": "giant_mushroom"
+    },
+    "carnivorous_plant": {
+      "kind": "plant",
+      "recordType": "enemy",
+      "spawnClass": "enemy",
+      "color": "#9cbd56"
+    },
+    "beach_rubble": {
+      "kind": "wildplant",
+      "crop": "rockfruit",
+      "spawnClass": "minor",
+      "color": "#858d9c",
+      "_plantArt": "beach"
+    },
+    "beach_driftwood": {
+      "kind": "wildplant",
+      "crop": "driftwood",
+      "spawnClass": "minor",
+      "color": "#ad8055",
+      "recordType": "wildplant",
+      "_plantArt": "beach"
     }
   },
   "variants": [
@@ -1893,9 +1914,10 @@
         "densityFalloff": "none",
         "nominalDensity": 0.5,
         "materialDensity": {
-          "shrub": 0.4375,
+          "shrub": 0.375,
           "blue": 0.046875,
-          "orange": 0.015625
+          "orange": 0.015625,
+          "carnivorous_plant": 0.0625
         },
         "poiPlot": [
           1,
@@ -1909,7 +1931,16 @@
             6
           ],
           "role": "plot_center"
-        }
+        },
+        "slots": [
+          {
+            "at": [
+              2,
+              0
+            ],
+            "material": "carnivorous_plant"
+          }
+        ]
       },
       "poi": {
         "id": "flowers_in_hedge_room",
@@ -2053,7 +2084,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Sixteen garden rooms form a clear 4 \u00d7 4 square. The POI is centered in an inner room, framed by four marigolds. Two roses distinguish the far corner rooms.",
+      "atmosphere": "Sixteen garden rooms form a clear 4 \u00d7 4 square. The POI is centered in an inner room, framed by four marigolds. Two roses distinguish the far corner rooms. A stationary carnivorous plant replaces one hedge seat in each repeated garden plot.",
       "attracts": {
         "rabbit": 0.6
       }
@@ -2109,7 +2140,7 @@
               3,
               2
             ],
-            "material": "shrub"
+            "material": "carnivorous_plant"
           },
           {
             "at": [
@@ -2223,8 +2254,9 @@
         "nominalDensity": 0.6,
         "materialDensity": {
           "tree": 0.027777777777777776,
-          "shrub": 0.2222222222222222,
-          "grass": 0.35
+          "shrub": 0.19444444444444442,
+          "grass": 0.35,
+          "carnivorous_plant": 0.027777777777777776
         },
         "type": "repeat_motif",
         "cluster": {
@@ -2427,7 +2459,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Rounded clusters centered on the largest mature deciduous trees repeat six cells apart, surrounded by bushes and grass. A light scatter of grass crosses the gaps; stone markers lead from the central grove to its guarded starflower.",
+      "atmosphere": "Rounded clusters centered on the largest mature deciduous trees repeat six cells apart, surrounded by bushes and grass. A light scatter of grass crosses the gaps; stone markers lead from the central grove to its guarded starflower. One stationary carnivorous plant replaces a bush beside each repeated central tree.",
       "attracts": {
         "deer": 0.6
       }
@@ -6639,49 +6671,49 @@
               2,
               2
             ],
-            "material": "driftwood"
+            "material": "beach_driftwood"
           },
           {
             "at": [
               2,
               3
             ],
-            "material": "driftwood"
+            "material": "beach_driftwood"
           },
           {
             "at": [
               2,
               4
             ],
-            "material": "driftwood"
+            "material": "beach_driftwood"
           },
           {
             "at": [
               3,
               5
             ],
-            "material": "driftwood"
+            "material": "beach_driftwood"
           },
           {
             "at": [
               4,
               5
             ],
-            "material": "driftwood"
+            "material": "beach_driftwood"
           },
           {
             "at": [
               5,
               4
             ],
-            "material": "driftwood"
+            "material": "beach_driftwood"
           },
           {
             "at": [
               5,
               3
             ],
-            "material": "driftwood"
+            "material": "beach_driftwood"
           },
           {
             "at": [
@@ -6709,21 +6741,21 @@
               1,
               6
             ],
-            "material": "rubble"
+            "material": "beach_rubble"
           },
           {
             "at": [
               5,
               6
             ],
-            "material": "rubble"
+            "material": "beach_rubble"
           }
         ],
         "nominalDensity": 0.1875,
         "materialDensity": {
-          "driftwood": 0.109375,
           "shell": 0.046875,
-          "rubble": 0.03125
+          "beach_rubble": 0.03125,
+          "beach_driftwood": 0.109375
         },
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
@@ -6799,7 +6831,7 @@
       "attracts": {
         "crow": 0.35
       },
-      "atmosphere": "Driftwood ribs and shell fragments surround an existing daily shrine. A pirate grunt and gunner hold the separate gold-ore find; shipwreck art remains a draft."
+      "atmosphere": "Driftwood ribs and shell fragments surround one shipwreck shrine, with a reserved 3 × 3-cell footprint and one daily gift. A pirate grunt and gunner hold the separate gold-ore find. If the full wreck cannot fit on dry sand, the accessible small shrine remains."
     },
     {
       "id": "shellwater_strand",
@@ -6833,13 +6865,13 @@
               2,
               3
             ],
-            "material": "driftwood"
+            "material": "beach_driftwood"
           }
         ],
         "nominalDensity": 0.2,
         "materialDensity": {
           "shell": 0.13333333333333333,
-          "driftwood": 0.06666666666666667
+          "beach_driftwood": 0.06666666666666667
         },
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
@@ -6896,14 +6928,14 @@
               -1,
               1
             ],
-            "material": "driftwood"
+            "material": "beach_driftwood"
           },
           {
             "at": [
               1,
               1
             ],
-            "material": "driftwood"
+            "material": "beach_driftwood"
           }
         ],
         "relocation": {

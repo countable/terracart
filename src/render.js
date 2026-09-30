@@ -4568,7 +4568,7 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
       key: o => SpriteLayout.groveShrineArt(o).key,
       frame: o => SpriteLayout.groveShrineArt(o).frame,
       scale: o => SpriteLayout.groveShrineArt(o).scale,
-      origin: [0.5, 0.5], seat: true, shadow: true,
+      origin: [0.5, 0.5], seat: o => o._shrineArt !== 'shipwreck', shadow: true,
     },
     // A VIEWPOINT's scope (src/scenic.js — generated 16×24 placeholder):
     // its daily gift, the first vista's relic, its

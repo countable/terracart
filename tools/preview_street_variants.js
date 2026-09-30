@@ -67,7 +67,7 @@ function preview(row) {
   const lamps = ctx.previewLampPass._streetLampsForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   const objects = [...dress.objects, ...dress.wildplants].map(local);
-  const lairs = dress.lairs.map((o) => ({ kind: o.tier + ' guard site', x: o.lx, y: o.ly }));
+  const lairs = dress.lairs.map((o) => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly }));
   return { ...row, words: row.words.source, sampleName: name,
     roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
     lampSpacingM: SV.lampSpacingFor(row.id), objects, lamps, lairs,

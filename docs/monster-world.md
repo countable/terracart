@@ -19,8 +19,8 @@ Retired variants remain readable in old saves but leave ordinary spawn pools.
 | --- | --- |
 | Mushroom Grove | One slime or spider beside the existing find |
 | Orchard | One farmer goblin beside a find |
-| Hedge Garden | One rooted plant inside the garden |
-| Ancient Grove | Plant and spider replace the two slime guards |
+| Hedge Garden | One rooted POI guard, plus stationary plants in the hedge pattern |
+| Ancient Grove | Plant and spider at the find, plus stationary plants beside the repeating tree centers |
 | Ordered Graves | One skeleton soldier; headstone ghost interactions remain |
 | Overgrown Graves | One spider; headstone ghost interactions remain |
 | Broken Masonry | One club goblin replaces the slime |
@@ -86,8 +86,10 @@ park share one owner and one encounter budget. Ordinary grove motifs leave sand
 alone. Untagged beaches remain ordinary shores, with occasional ambient pirates;
 a beach-like name alone does not create a themed encounter.
 
-Pirate Cove currently uses the existing daily shrine. The proposed shipwreck
-image remains a draft and is not a runtime asset. Beach motifs use a stable
+Pirate Cove's shipwreck uses the existing daily shrine interaction and reward.
+It reserves a 3 × 3 dry-sand footprint plus an approach before other dressing,
+with deterministic whole-footprint relocation or a small-shrine fallback.
+New beach driftwood and rock art retain their existing pickup mechanics. Beach motifs use a stable
 quarter-turn orientation; aligning them to the shoreline awaits a canonical
 shore direction shared by neighboring tiles. Shellwater's roses require
 vegetated ground and may be omitted when the beach has no eligible landward

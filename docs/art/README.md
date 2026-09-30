@@ -145,3 +145,13 @@ terrain painters so randomly adjacent variants share compatible boundaries.
 The pine foliage treatment includes cyan shadows that the general green mask
 missed, and warms mint highlights at the same shading luminance. Other flora
 strengths are unchanged.
+
+
+Pirate Cove's active shipwreck shrine uses the unchanged generated PNG from
+`docs/art/shipwreck-shrine-draft.png`, copied to `assets/Objects/Beach/`.
+`SpriteLayout.SHIPWRECK_SHRINE_ART` fits its original aspect ratio inside the
+reserved 3 × 3 cells. It remains one daily shrine, not extra rewards.
+The Beach folder's driftwood and beach rock come from Core Systems Asset
+Factory's Verdant Props 16×16 pack; its included license permits use in games.
+Only beach-variant pickup looks use these assets; their item identities and
+inventory icons stay wood and rock. The existing cowrie shell colors remain.

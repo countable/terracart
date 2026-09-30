@@ -34,7 +34,7 @@ page = '''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewp
 <h1>Monster world</h1><p>Implemented habitats, enemy art, and remaining art decisions. Source sprites below are the imported runtime files. Warnings and spell effects are drawn by the game.</p>
 <div class="summary"><b>Enabled:</b> 19 imported enemy types; 8 of the original 16 composed zones have signature encounters, plus three beach variants. Five street variants have their own enemies. Hungry Marsh and Orc Stronghold are finite habitat sites; Dragon Roost is a single-dragon cave encounter. Demons begin at depth 5; dragons at depth 9. Fourteen size/tint variants remain save-compatible but leave random pools.</div>
 <div class="gap"><h2>Art to review</h2><ul>
-<li><b>Pirate Cove shrine:</b> uses the existing shrine. The shipwreck image remains a draft; finished art and its multi-cell placement still need a separate pass.</li>
+<li><b>Pirate Cove shrine:</b> uses the shipwreck art as one daily shrine, reserving a 3 × 3 dry-sand footprint and approach. Narrow beaches keep the smaller accessible shrine.</li>
 <li><b>Spear Goblin strike:</b> the supplied attack extends beyond its 16px body frame. Movement is animated; attacks currently hold the body pose. Needs a taller-frame animation adapter or an aligned export.</li>
 <li><b>Giant Crab claw:</b> no dedicated attack cycle in the supplied sheet. The attack uses its existing pose and combat windup.</li>
 <li><b>Dragon breath, bomb blast, summoning and healing:</b> gameplay uses visible geometric warnings and flashes. Bespoke pixel effects would improve the presentation.</li>

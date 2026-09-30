@@ -99,6 +99,8 @@
     if (b.type === 'line_grid' || b.type === 'bounded_line_grid') {
       const step = b.spacingCells;
       if (b.type === 'bounded_line_grid' && (u < 0 || v < 0 || u > b.plots[0] * step || v > b.plots[1] * step)) return null;
+      const override = b.slots && slotAt(b, mod(u, step), mod(v, step));
+      if (override) return override;
       const horizontal = mod(v, step) < b.lineWidthCells;
       const vertical = mod(u, step) < b.lineWidthCells;
       if (horizontal && vertical) return b.intersectionMaterial;

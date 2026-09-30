@@ -917,3 +917,20 @@ test('hunt: the net times the wheel the same way the catch does', () => {
   assert.eq(toolDurationMs({ sword: { tier: 7 }, bow: { tier: 7 }, staff: { tier: 7 } }, 'bugnet'),
     toolDurationMs({}, 'bugnet'), 'a full weapon rack does nothing for a hunt');
 });
+
+
+test('shipwreck shrine: every reserved cell taps the same reward, outside cells stay empty', () => {
+  const original = globalThis.WorldGen;
+  const shrine = { kind:'grove_shrine', id:'one_daily_shrine', x:12.5, y:12.5,
+    _shrineArt:'shipwreck', _shrineExtentCells:3 };
+  try {
+    globalThis.WorldGen = Object.assign({}, original, { forEachItem: (_, fn) => { fn(shrine); } });
+    const scene = makeGridScene();
+    for (let y=1;y<=3;y++) for (let x=1;x<=3;x++)
+      assert.eq(findItemInTapCell(scene, 'objects', {x:x*5+.1,y:y*5+.1}), shrine);
+    for (const [x,y] of [[0,2],[4,2],[2,0],[2,4]])
+      assert.eq(findItemInTapCell(scene, 'objects', {x:x*5+2.5,y:y*5+2.5}), null);
+    delete shrine._shrineArt;
+    assert.eq(findItemInTapCell(scene, 'objects', {x:7.5,y:12.5}), null, 'fallback small shrine has one cell');
+  } finally { globalThis.WorldGen = original; }
+});

@@ -17,13 +17,73 @@
     for (const row of ZoneVariants.rows) {
       const a = ZoneDressing.dress(context(row.id)), b = ZoneDressing.dress(context(row.id));
       assert.eq(finds(a).length, row.finds.count, row.id);
-      assert.eq(a.guards.length, row.guards.count || 0, row.id);
+      assert.eq(a.guards.filter(g => g.zoneLayer !== 'background').length, row.guards.count || 0, row.id);
       assert.eq(new Set(all(a).map(o => `${o.x},${o.y}`)).size, all(a).length, `${row.id}: unique cells`);
       assert.eq(JSON.stringify(all(a)), JSON.stringify(all(b)), `${row.id}: stable rebuild`);
       const m = ZoneVariants.materials[row.finds.material];
       for (const find of finds(a)) if (m.kind === 'mineralrock') {
         assert.eq(find.requiredTier, m.requiredTier); assert.eq(find.yieldTier, m.yieldTier);
       }
+    }
+  });
+  function pirateShrine() {
+    const ctx = context('pirate_cove'), a = ctx.field.anchors[0], cell = WorldGen.CELL_M;
+    ctx.grid.fill(WorldGen.T.SAND);
+    ctx.chests.push({ kind: 'chest', id: 'beach_daily', name: 'Pirate Cove',
+      _poiAt: `${a.lx},${a.ly}`, x: 32.5 * cell, y: 32.5 * cell });
+    ctx.spawnOpts.occupied.add(32 * ctx.N + 32);
+    return ctx;
+  }
+  test('zone dressing: Pirate Cove reserves one wreck and approach before finds and guards', () => {
+    const ctx = pirateShrine(), out = ZoneDressing.dress(ctx), shrine = ctx.chests[0];
+    assert.eq(shrine.kind, 'grove_shrine'); assert.eq(shrine.id, 'beach_daily');
+    assert.eq(shrine._shrineArt, 'shipwreck'); assert.eq(shrine._shrineExtentCells, 3);
+    assert.eq(out.objects.filter(o => o.kind === 'grove_shrine').length, 0, 'no second reward');
+    assert.eq(out.diagnostics[0].shortfalls.length, 0);
+    const reserved = new Set();
+    for (let y = 31; y <= 33; y++) for (let x = 31; x <= 33; x++) reserved.add(y * ctx.N + x);
+    reserved.add(30 * ctx.N + 32);
+    for (const i of reserved) assert.truthy(ctx.spawnOpts.occupied.has(i), 'whole footprint reserved');
+    for (const o of all(out)) assert.falsy(reserved.has(o._iy * ctx.N + o._ix), 'scenery and guards cannot overlap hull or approach');
+    assert.eq(out.wildplants.filter(o => o.zoneLayer === 'poi').length, 0, 'wreck replaces small shrine composition');
+    assert.eq(finds(out).length, ZoneVariants.byId('pirate_cove').finds.count);
+  });
+  test('zone dressing: blocked Pirate Cove wreck relocates deterministically without moving obstacles', () => {
+    const make = () => {
+      const ctx = pirateShrine();
+      ctx.spawnOpts.occupied.add(31 * ctx.N + 31);
+      ctx.spawnOpts.roadMask[33 * ctx.N + 33] = 1;
+      ctx.grid[32 * ctx.N + 34] = WorldGen.T.WATER;
+      return ctx;
+    };
+    const a = make(), b = make(), out = ZoneDressing.dress(a);
+    ZoneDressing.dress(b);
+    assert.eq(JSON.stringify(a.chests), JSON.stringify(b.chests));
+    const shrine = a.chests[0];
+    assert.eq(shrine._shrineArt, 'shipwreck');
+    assert.truthy(shrine._ix !== 32 || shrine._iy !== 32, 'whole hull moves away from obstruction');
+    for (let y = shrine._iy - 1; y <= shrine._iy + 1; y++) for (let x = shrine._ix - 1; x <= shrine._ix + 1; x++) {
+      assert.eq(a.grid[y * a.N + x], WorldGen.T.SAND);
+      assert.falsy(a.spawnOpts.roadMask[y * a.N + x]);
+      assert.falsy(x === 31 && y === 31, 'higher-priority obstacle preserved');
+    }
+    assert.eq(out.diagnostics[0].shortfalls.length, 0);
+  });
+  test('zone dressing: narrow or gated sand retains the existing accessible daily shrine', () => {
+    for (const mode of ['narrow', 'gated']) {
+      const ctx = pirateShrine(), before = { ...ctx.chests[0] };
+      if (mode === 'narrow') {
+        ctx.grid.fill(WorldGen.T.PARK);
+        for (let y = 0; y < ctx.N; y++) ctx.grid[y * ctx.N + 32] = WorldGen.T.SAND;
+      } else {
+        ctx.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+        ctx.spawnOpts.spawnWhy[32 * ctx.N + 32] = 0;
+      }
+      const out = ZoneDressing.dress(ctx), shrine = ctx.chests[0];
+      assert.eq(shrine.kind, 'grove_shrine'); assert.eq(shrine.id, before.id);
+      assert.eq(shrine.x, before.x); assert.eq(shrine.y, before.y);
+      assert.eq(shrine._shrineArt, undefined);
+      assert.truthy(out.diagnostics[0].shortfalls.includes('shrine:shipwreck'));
     }
   });
   test('zone dressing: orchard is apple-only with medium deciduous timber and no ambient flower mix', () => {
@@ -104,7 +164,7 @@
     for (const id of ['black_ring', 'ancient_grove', 'seep']) {
       const ctx = context(id); ctx.field.anchors[0].owned = false;
       const out = ZoneDressing.dress(ctx);
-      assert.eq(finds(out).length, 0); assert.eq(out.guards.length, 0);
+      assert.eq(finds(out).length, 0); assert.eq(out.guards.filter(g => g.zoneLayer !== 'background').length, 0);
       assert.gt(all(out).length, 0, 'neighbour still draws background');
     }
   });
@@ -242,8 +302,26 @@
     do { r = it.next(); if (!r.done) labels.push(r.value); } while (!r.done);
     assert.includes(labels, 'zone variant coverage'); assert.includes(labels, 'zone variant pattern rows'); assert.includes(labels, 'zone find fallback');
   });
+  test('zone dressing: repeating carnivorous plants use enemy gates and stable stationary seats', () => {
+    for (const id of ['ancient_grove', 'hedge_garden']) {
+      const ctx = context(id), out = ZoneDressing.dress(ctx);
+      const plants = out.guards.filter(g => g.zoneLayer === 'background');
+      assert.gt(plants.length, 1, id);
+      for (const p of plants) {
+        assert.eq(p.kind, 'plant'); assert.truthy(p.stationary);
+        assert.eq(p.homeX, p.x); assert.eq(p.homeY, p.y);
+        assert.eq(p.id, WorldGen.cellId('zp', 0, 0, p._ix, p._iy));
+      }
+      const blocked = context(id);
+      for (const p of plants) blocked.spawnOpts.spawnWhy[p._iy * blocked.N + p._ix] = WorldGen.SPAWN_WHY.SENSITIVE;
+      assert.eq(ZoneDressing.dress(blocked).guards.filter(g => g.zoneLayer === 'background').length, 0);
+      const neighbour = context(id); neighbour.field.anchors[0].owned = false;
+      assert.gt(ZoneDressing.dress(neighbour).guards.filter(g => g.zoneLayer === 'background').length, 1,
+        'pattern seats continue into buffered coverage without duplicating finite guards');
+    }
+  });
   test('zone encounters: species, stationary plants and a finite proximity ghost follow the theme', () => {
-    const kinds = id => ZoneDressing.dress(context(id)).guards.map(g => g.kind).join();
+    const kinds = id => ZoneDressing.dress(context(id)).guards.filter(g => g.zoneLayer !== 'background').map(g => g.kind).join();
     assert.eq(kinds('pirate_cove'), 'pirate_grunt,pirate_gunner');
     assert.eq(kinds('orchard'), 'farmer_goblin');
     assert.eq(kinds('ancient_grove'), 'plant,spider');

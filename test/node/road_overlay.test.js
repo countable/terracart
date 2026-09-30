@@ -1582,3 +1582,47 @@ test('road overlay: themed paving uses colored setts and spotty pavement before 
     assert.truthy(fills.includes(StreetVariants.VARIANT_BY_ID.toadstool.stone.accent), 'cream mushroom spots on both finishes');
   } } finally { document.createElement = previousCreate; }
 });
+
+test('road overlay: equal pavement colors retain distinct road and path canvas layers', () => {
+  withStreets(() => {
+    clearTiles();
+    const features = [
+      Object.assign(line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'street' }), { id: 701 }),
+      Object.assign(line([{ x: 0, y: 16 }, { x: 16, y: 16 }], { class: 'path' }), { id: 702 }),
+    ];
+    putTile(0, 0, features);
+    const previousStyles = StreetVariants.lineStyles, previousCreate = document.createElement;
+    const images = [];
+    const canvas = () => {
+      const moves = [], fills = [], drawn = [];
+      const cx = new Proxy({ moves, fills, drawn, filter: undefined,
+        moveTo(x, y) { moves.push([x, y]); },
+        fillRect() { fills.push(this.fillStyle); },
+        drawImage(image) { drawn.push(image); },
+        createPattern(tile) { return { tile }; },
+      }, { get(target, key) { return key in target ? target[key] : () => {}; } });
+      return { width: 0, height: 0, cx, getContext: () => cx };
+    };
+    const restored = canvas();
+    document.createElement = canvas;
+    StreetVariants.lineStyles = (entry, feature) => [{ a: 0, b: 10, variant: feature.id === 701 ? 'hedgerow' : 'parkpath' }];
+    try {
+      assert.eq(StreetVariants.stoneColorFor('hedgerow'), StreetVariants.stoneColorFor('parkpath'), 'regression fixture deliberately shares its stone color');
+      const image = { setOrigin() { return this; }, setAlpha() { return this; } };
+      const scene = makeOverlayScene({
+        save: { streets: { [RO_KEY00()]: { '701:0': [0, 10], '702:0': [0, 10] } }, streetsEpoch: 1 },
+        textures: { exists: () => false, createCanvas: () => ({ getContext: () => restored.cx, refresh() {} }) },
+        add: { image() { images.push(image); return image; } },
+      });
+      scene.roadGeomContainer.add = () => {};
+      RoadOverlay.draw(scene);
+      assert.eq(images.length, 1, 'the real canvas adapter was used');
+      assert.eq(restored.cx.drawn.length, 2, 'each pavement theme composites exactly once');
+      const [road, path] = restored.cx.drawn;
+      assert.truthy(road.cx.moves.length > 0 && path.cx.moves.length > 0);
+      assert.eq(new Set(road.cx.moves.map(p => p[1])).size, 1, 'road layer contains only its own geometry');
+      assert.eq(new Set(path.cx.moves.map(p => p[1])).size, 1, 'path layer contains only its own geometry');
+      assert.falsy(road.cx.moves[0][1] === path.cx.moves[0][1], 'matching black palettes do not duplicate each other');
+    } finally { StreetVariants.lineStyles = previousStyles; document.createElement = previousCreate; }
+  });
+});

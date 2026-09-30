@@ -95,7 +95,11 @@
     { key: 'grove_shrine', frame: 0, scale: 0.7, name: 'Stone figure' },
     { key: 'grove_votive', frame: 0, scale: 1.6, name: 'Stone votive' },
   ];
+  // One centered shrine object, reserving a 3×3-cell footprint.
+  const SHIPWRECK_SHRINE_ART = { key: 'shipwreck_shrine', frame: 0, extentCells: 3,
+    scale: CELL_PX * 3 / 1536, name: 'Shipwreck' };
   function groveShrineArt(o) {
+    if (o?._shrineArt === 'shipwreck') return SHIPWRECK_SHRINE_ART;
     return GROVE_SHRINE_ART[root.fnv1a(String(o?.id ?? '') + '#shrine') % GROVE_SHRINE_ART.length];
   }
 
@@ -880,7 +884,7 @@
 
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell, PLAYER_ART, playerArt, CHEST_SCALE,
-    GROVE_SHRINE_ART, groveShrineArt,
+    GROVE_SHRINE_ART, SHIPWRECK_SHRINE_ART, groveShrineArt,
     PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
     NPC_FRAME, NPC_SHEETS, npcAppearance,

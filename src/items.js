@@ -115,7 +115,10 @@ const CROP_SPRITE = {
   // each UTC day, beside the shell: a sea-worn DRIFTWOOD branch and, rarely,
   // a MESSAGE BOTTLE. The generated 16px placeholders, one frame of art
   // each, listed.
-  driftwood:   { sheet: 'driftwood', custom: true, frames: [0], scale: 1.36 },
+  // Beach rubble keeps ordinary rock harvesting; only its ground art changes.
+  rockfruit: { looks: { beach: { sheet: 'beach_rock', custom: true, frame: 0, scale: 1.6 } } },
+  driftwood:   { sheet: 'driftwood', custom: true, frames: [0], scale: 1.36,
+    looks: { beach: { sheet: 'beach_driftwood', custom: true, frame: 0, scale: 1.6 } } },
   bottle:      { sheet: 'bottle', custom: true, frames: [0], scale: 1.36 },
 };
 
@@ -459,7 +462,7 @@ const PLANTS_YIELD = { tree: 'wood' };
 function iconBadgeItem(itemId) {
   const item = ITEM_BY_ID[itemId];
   if (!item) return null;
-  if (item.kind === 'seed') return CROP_SPRITE[item.grows] ? null : item.grows;
+  if (item.kind === 'seed') return CROP_SPRITE[item.grows]?.sheet ? null : item.grows;
   if (item.kind === 'sapling') return item.grows || PLANTS_YIELD[item.plants] || null;
   return null;
 }

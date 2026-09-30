@@ -106,11 +106,24 @@ function confirmFeed(scene, foodId, faunaKind, doFeed) {
 
 // Closest item of `layer` whose own cell is the cell the tap landed in, or
 // null. "Closest" only breaks ties between items sharing one cell.
+// A shipwreck's reserved cells all lead to its single daily shrine interaction.
+// Ordinary tall sprites still own only their foot cell.
+function itemContainsTapCell(scene, item, tapCell) {
+  const own = worldMetersToAbsCell(scene, item.x, item.y);
+  if (item.kind === 'grove_shrine' && item._shrineArt === 'shipwreck' && item._shrineExtentCells > 1) {
+    const radius = (item._shrineExtentCells - 1) / 2;
+    const d = absCellDelta(scene, own.cellIX, own.cellIY, tapCell.cellIX, tapCell.cellIY);
+    return Math.abs(d.dx) <= radius && Math.abs(d.dy) <= radius;
+  }
+  return own.cellIX === tapCell.cellIX && own.cellIY === tapCell.cellIY;
+}
+
 function findItemInTapCell(scene, layer, wm, accept) {
+  const tapCell = worldMetersToAbsCell(scene, wm.x, wm.y);
   let best = null, bestD2 = Infinity;
   WorldGen.forEachItem(layer, (item) => {
     if (accept && !accept(item)) return;
-    if (!sameAbsCell(scene, wm.x, wm.y, item.x, item.y)) return;
+    if (!itemContainsTapCell(scene, item, tapCell)) return;
     const d2 = distM2(item.x, item.y, wm.x, wm.y);
     if (d2 < bestD2) { bestD2 = d2; best = item; }
   });
@@ -1119,8 +1132,7 @@ const TAP_HANDLERS = [
       // lost for multi-cell buildings: the 'building-zone' handler below
       // catches taps on any BUILDING-terrain cell of a footprint and routes
       // them to that building, which is cell-based in the same way.
-      const oc = worldMetersToAbsCell(scene, o.x, o.y);
-      if (oc.cellIX !== tapCell.cellIX || oc.cellIY !== tapCell.cellIY) continue;
+      if (!itemContainsTapCell(scene, o, tapCell)) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
       // Every tap-driven world object (groundstack / chest / well / tree /
       // mineralrock / fruittree / house / tower) is declared in the

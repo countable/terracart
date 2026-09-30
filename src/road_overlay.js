@@ -1088,12 +1088,12 @@
       // always opaque; the colour is the caller's (earth for roads, slate for
       // rail, near-black for a restored street) and the alpha argument is
       // deliberately ignored here.
-      lineStyle(w, c) { curStyle = { w, c: c == null ? ROAD_COLOR : c }; },
+      lineStyle(w, c, alpha, pavement) { curStyle = { w, c: c == null ? ROAD_COLOR : c, ...pavement }; },
       beginPath() { curPts = []; },
       moveTo(x, y) { curPts.push(x - originX, y - originY); },
       lineTo(x, y) { curPts.push(x - originX, y - originY); },
       strokePath() {
-        if (curPts && curPts.length >= 4) pass.ops.push({ w: curStyle.w, c: curStyle.c, pts: curPts });
+        if (curPts && curPts.length >= 4) pass.ops.push({ ...curStyle, pts: curPts });
         curPts = null;
       },
       // Punch a cell-sized hole in the finished band. Recorded and applied
@@ -1134,7 +1134,7 @@
     if (stones) patternFill(ctx, pass, stones, 'source-atop', STONE_TILE_PX);
     for (const row of global.StreetVariants?.STREET_VARIANTS || []) {
       if (row.stone?.pattern !== 'spots') continue;
-      const ops = pass.ops.filter((op) => op.c === parseInt(row.stone.weathered.slice(1), 16));
+      const ops = pass.ops.filter((op) => op.variant === row.id);
       if (!ops.length) continue;
       const layer = scratchLayer(size);
       if (!layer) continue;
@@ -1200,14 +1200,17 @@
   function commitRestored(pass) {
     const { ctx, size } = pass;
     ctx.clearRect(0, 0, size, size);
-    const themes = [
-      { isPath: false, want: RESTORED_ROAD_COLOR }, { isPath: true, want: RESTORED_PATH_COLOR },
-      ...((global.StreetVariants?.STREET_VARIANTS || []).map((row) => ({
-        isPath: row.size === 'path', want: parseInt(row.stone.restored.slice(1), 16), stoneColor: row.stone.restored, pattern: row.stone.pattern, accent: row.stone.accent,
-      }))),
-    ];
-    for (const { isPath, want, stoneColor, pattern, accent } of themes) {
-      const ops = pass.ops.filter((op) => op.c === want);
+    // Palette colours are not identities: a dark hedge road and park path
+    // may share black stone but still need their own mortar and pattern.
+    const themes = new Map();
+    for (const op of pass.ops) {
+      const key = `${!!op.isPath}|${op.variant || ''}`;
+      if (!themes.has(key)) themes.set(key, { isPath: !!op.isPath, variant: op.variant, ops: [] });
+      themes.get(key).ops.push(op);
+    }
+    for (const { isPath, variant, ops } of [...themes.values()].sort((a, b) => Number(a.isPath) - Number(b.isPath))) {
+      const palette = global.StreetVariants?.VARIANT_BY_ID[variant]?.stone;
+      const stoneColor = palette?.restored, pattern = palette?.pattern, accent = palette?.accent;
       if (!ops.length) continue;
       const layer = scratchLayer(size);
       if (!layer) break;
@@ -1405,12 +1408,13 @@
   // crossing a motorway still reads as its own stroke on top. Sorted rather
   // than insertion-ordered so the draw order doesn't depend on which tile
   // happened to load first; ties (same width, different colour) break on the
-  // colour so the order is fully determined.
+  // colour and pavement identity so the order is fully determined.
   function strokeBuckets(g, runsByStyle, alpha) {
     const styles = [...runsByStyle.values()]
-      .sort((a, b) => (b.widthPx - a.widthPx) || (a.color - b.color));
-    for (const { widthPx, color, runs } of styles) {
-      g.lineStyle(widthPx, color, alpha);
+      .sort((a, b) => (b.widthPx - a.widthPx) || (a.color - b.color)
+        || (Number(!!a.isPath) - Number(!!b.isPath)) || String(a.variant || '').localeCompare(String(b.variant || '')));
+    for (const { widthPx, color, runs, variant, isPath } of styles) {
+      g.lineStyle(widthPx, color, alpha, { variant, isPath });
       for (const run of runs) {
         g.beginPath();
         g.moveTo(run[0].x, run[0].y);
@@ -1468,16 +1472,16 @@
     const { projX, projY } = proj;
 
     // Ways are collected into runs of consecutive ON-SCREEN segments, bucketed
-    // by stroke STYLE (width + colour), and stroked as PATHS rather than loose
+    // by stroke STYLE (width, colour and pavement), and stroked as PATHS rather than loose
     // segments: a wide band drawn segment-by-segment leaves a notch at every
     // bend, and one lineStyle per style beats one per feature.
-    const runsByStyle = new Map();   // "widthPx|color" -> { widthPx, color, runs }
+    const runsByStyle = new Map();   // width, colour, variant and path kind → runs
     const railRuns = [];             // rail-class runs, for the track furniture pass
-    const addRun = (widthPx, color, run, isRail) => {
+    const addRun = (widthPx, color, run, isRail, variant, isPath) => {
       if (run.length < 2) return;
-      const k = `${widthPx}|${color}`;
+      const k = `${widthPx}|${color}|${variant || ''}|${!!isPath}`;
       let bucket = runsByStyle.get(k);
-      if (!bucket) { bucket = { widthPx, color, runs: [] }; runsByStyle.set(k, bucket); }
+      if (!bucket) { bucket = { widthPx, color, variant, isPath, runs: [] }; runsByStyle.set(k, bucket); }
       bucket.runs.push(run);
       if (isRail) railRuns.push(run);
     };
@@ -1493,7 +1497,7 @@
         const hex = style && StreetVariants.stoneColorFor(style.variant, false);
         const tint = hex ? parseInt(hex.slice(1), 16) : color;
         const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
-        emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, isRail));
+        emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, isRail, style?.variant, PATH_CLASSES.has(f.tags?.class)));
       }
     });
 
@@ -1530,11 +1534,11 @@
     const S = (typeof Streets !== 'undefined') ? Streets : null;
     if (S && scene.save) {
       const runsByStyle = new Map();
-      const addRun = (widthPx, color, run) => {
+      const addRun = (widthPx, color, run, variant, isPath) => {
         if (run.length < 2) return;
-        const k = `${widthPx}|${color}`;
+        const k = `${widthPx}|${color}|${variant || ''}|${!!isPath}`;
         let bucket = runsByStyle.get(k);
-        if (!bucket) { bucket = { widthPx, color, runs: [] }; runsByStyle.set(k, bucket); }
+        if (!bucket) { bucket = { widthPx, color, variant, isPath, runs: [] }; runsByStyle.set(k, bucket); }
         bucket.runs.push(run);
       };
       eachTransportLine(tiles, (f, line, i, mvtToM, originMx, originMy, tileKey, entry, fi) => {
@@ -1550,7 +1554,7 @@
           const sub = S.subLineM(line, mvtToM, iv[0], iv[1]);
           if (!sub || sub.length < 2) continue;
           const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
-          emitRuns(pts, proj, (run) => addRun(widthPx, tint, run));
+          emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, style.variant, PATH_CLASSES.has(f.tags?.class)));
         }
       });
       strokeBuckets(g, runsByStyle, RESTORED_ALPHA);
