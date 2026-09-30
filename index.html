@@ -325,11 +325,17 @@
        CSS transform makes a stacking context — so a modal inside #game at
        z-index 50 can NEVER climb above them. Stats & Relics was the worst case:
        its Close button sat behind the item bar. Hide the bars outright and dim
-       the top chips so a dialog owns the screen. */
+       the top chips so a dialog owns the screen. The Eat / Read / Drink
+       buttons (.hud-action, z-index 7) and the loot toast's icon (z-index 102)
+       are body-level too — the Use button sat over the safety card. Every
+       element appended to <body> needs a rule here
+       (test/node/modal_layering.test.js). */
     body.modal-open #move-pad,
     body.modal-open #inv-tabs,
     body.modal-open #inv,
     body.modal-open #inv-name,
+    body.modal-open .hud-action,
+    body.modal-open .loot-toast-icon,
     body.modal-open .delivery-callout,
     body.modal-open #hud { display: none !important; }
     body.modal-open #money,
@@ -2769,7 +2775,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=d9b52956';
+      const APP_SRC = 'src/app.js?v=2df7c6b6';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

@@ -7957,6 +7957,7 @@ class MapScene extends Phaser.Scene {
     if (iconEl) {
       // The 'block' icon came back as inline-block — restyle as a fixed
       // overlay we can absolute-position with transform.
+      iconEl.classList.add('loot-toast-icon');   // body.modal-open hides it (index.html)
       iconEl.style.position = 'fixed';
       iconEl.style.left = '0px';
       iconEl.style.top  = '0px';
