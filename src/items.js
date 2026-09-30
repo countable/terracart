@@ -57,11 +57,10 @@ const CROP_SPRITE = {
   // wildplant scale. scale 1.16 (down 15% from 1.36) — the tuft was reading
   // oversized against neighbouring one-cell props.
   longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 },
-  // Rounded woodland bush, 48×32. Preserve its visible width (~21px),
-  // shared with bush-sized trees in render.js. Hedged lanes use the clipped look.
-  shrub:     { sheet: 'bushes', custom: true, frame: 0, scale: 0.667,
-    looks: { trimmed: { sheet: 'hedge_trimmed', custom: true, frame: 0, scale: 1.12 },
-      giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 2, scale: 1 } } },
+  // Two shrub appearances with identical harvesting: a basic bush and a cut
+  // hedge, 20% smaller than the former residential hedge.
+  shrub: { sheet: 'bushes', custom: true, frame: 0, scale: 0.667,
+    looks: { clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frame: 0, scale: (4 / 3) * 0.8 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
   // Scale 1.224 keeps the requested 10% mushroom reduction. Surface and
@@ -107,6 +106,7 @@ const CROP_SPRITE = {
   // (WILDPLANT_RULES below), never scenery. The barricade road's barricade
   // is the generated 16px piece; clipped hedges still harvest as shrubs.
   barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 1.6 },
+  giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 2, scale: 1, seat: true },
   // ── Influence zones (src/zones.js) — the tar yard's FLINT: a ground
   // pickup (WILDPLANT_RULES.flint below), the generated 16px nodule. One
   // frame of art, listed.
@@ -115,10 +115,7 @@ const CROP_SPRITE = {
   // each UTC day, beside the shell: a sea-worn DRIFTWOOD branch and, rarely,
   // a MESSAGE BOTTLE. The generated 16px placeholders, one frame of art
   // each, listed.
-  // Beach rubble keeps ordinary rock harvesting; only its ground art changes.
-  rockfruit: { looks: { beach: { sheet: 'beach_rock', custom: true, frame: 0, scale: 1.6 } } },
-  driftwood:   { sheet: 'driftwood', custom: true, frames: [0], scale: 1.36,
-    looks: { beach: { sheet: 'beach_driftwood', custom: true, frame: 0, scale: 1.6 } } },
+  driftwood:   { sheet: 'driftwood', custom: true, frames: [0], scale: 1.36 },
   bottle:      { sheet: 'bottle', custom: true, frames: [0], scale: 1.36 },
 };
 
@@ -148,18 +145,16 @@ function wildplantVariantHash(p) {
 // stamped by the rasterizer. None adds an item or changes planted crop art.
 const WILDPLANT_CONTEXT_ART = {
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
-  clipped: { crop: 'shrub', sheet: 'approved_clipped_hedge', custom: true, frame: 0, scale: 4 / 3 },
   cap_cluster: { crop: 'mushroom', sheet: 'approved_mushroom_cluster', custom: true, frame: 0, scale: 1.224 },
-  masonry: { crop: 'rockfruit', sheet: 'approved_masonry_rubble', custom: true, frame: 0, scale: 2 },
 };
 function wildplantSprite(p) {
   const base = CROP_SPRITE[p && p.crop];
-  const look = p && (p._plantArt || p._streetArt);
+  const rawLook = p && (p._plantArt || p._streetArt);
+  const look = rawLook === 'trimmed' ? 'clipped' : rawLook;
   const context = WILDPLANT_CONTEXT_ART[look];
   if (context && context.crop === p.crop) return context;
   if (base?.looks?.[look]) return base.looks[look];
-  // Residential/commercial shrub art is a visual choice, never a spawn rule.
-  if (p && !p._cave && p.crop === 'shrub' && [5, 16].includes(p._biome)) return WILDPLANT_CONTEXT_ART.clipped;
+  if (p && !p._cave && p.crop === 'shrub' && [5, 16].includes(p._biome)) return base.looks.clipped;
   return base;
 }
 function wildplantFrame(p) {
@@ -196,6 +191,8 @@ const WILDPLANT_RULES = {
   // work: the axe relic's ladder times the wheel and `workCharged` puts the
   // shared 9/3/1 tool curve on the bar.
   shrub:     { output: 'wood', workRelic: 'axe', workCharged: true },
+  giant_mushroom: { name: 'Giant mushroom', outputs: [{id:'wood',qty:1},{id:'mushroom',qty:1}],
+    workRelic: 'axe', workCharged: true },
   // A barricade road's barricade is the shrub's row — one lane, one more
   // thing standing on it: axe work, wood, `picked`. (A hedgerow's hedges ARE
   // shrubs.)
@@ -222,7 +219,10 @@ const WILDPLANT_RULES = {
 };
 function wildplantRule(crop) { return WILDPLANT_RULES[crop] || null; }
 // What a pick hands over — the crop itself, unless a row names something else.
-function wildplantOutput(crop) { return wildplantRule(crop)?.output || crop; }
+function wildplantOutput(crop) { const r = wildplantRule(crop); return r?.outputs?.[0]?.id || r?.output || crop; }
+// All guaranteed rewards from one harvest; ordinary plants retain their single drop.
+function wildplantRewards(crop) { return wildplantRule(crop)?.outputs || [{id:wildplantOutput(crop),qty:1}]; }
+function wildplantHarvestLine(crop) { return wildplantRewards(crop).map(r => `+${r.qty} ${itemName(r.id)}`).join(' · '); }
 // Which relic's tool ladder times the work wheel. null = picked instantly.
 function wildplantWorkRelic(crop) { return wildplantRule(crop)?.workRelic || null; }
 // What that wheel costs. Charged off the SAME 9/3/1 curve every other gated
@@ -277,6 +277,10 @@ const COOKED_FOODS = {
 // The mineralrock sheet's top row orders copper through platinum at columns
 // 0..3, leaves column 4 for unrelated art, then puts crimson/frost at 5/6.
 // Yield tier 1 is a plain rock and therefore has no row or namesake bar.
+// A crystal deposit is mined like a rock but pays only its visible gem.
+const CRYSTAL_DEPOSIT = Object.freeze({ item: 'sapphire', quantity: 1, yieldTier: 4, requiredTier: 3 });
+function mineralDeposit(o) { return o.deposit === 'crystal' ? CRYSTAL_DEPOSIT : null; }
+
 const MINERAL_TIERS = Object.freeze({
   2: Object.freeze({ barId: 'copper_bar',   rockFrame: 0 }),
   3: Object.freeze({ barId: 'iron_bar',     rockFrame: 1 }),
@@ -289,6 +293,7 @@ function mineralRockFrame(tier) { return MINERAL_TIERS[tier]?.rockFrame ?? 0; }
 function mineralBarId(tier) { return MINERAL_TIERS[tier]?.barId || null; }
 
 const MINERAL_ICON_SHEET = {
+  giant_mushroom: { sheet: 'giant_mushroom', frame: 2 },
   // Wood — frame 2 of the 3-variant log sheet (amber bark variant).
   wood:     { sheet: 'wood',      frame: 2 },
   coal:     { sheet: 'coal_icon', frame: 0 },
@@ -483,6 +488,7 @@ function iconBadgeItem(itemId) {
 
 // Build ITEMS from CROP_ROW so seed/produce stay in sync with the crop list.
 const CROP_NAMES = {
+  giant_mushroom: 'Giant mushroom',
   rainberry: 'Rainberry', pairy: 'Pairy', gemfruit: 'Gemfruit', nut: 'Nut',
   rockfruit: 'Rock', coffee: 'Coffee', potato: 'Potato', iceflower: 'Iceflower',
   fireflower: 'Fireflower', sunflower: 'Sunflower',
@@ -810,7 +816,7 @@ for (const it of ITEMS) {
 }
 const ITEM_BY_ID = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 // An item's display name, or its bare id when the catalog has no row for it.
-function itemName(id) { return ITEM_BY_ID[id]?.name || id; }
+function itemName(id) { return ITEM_BY_ID[id]?.name || wildplantRule(id)?.name || id; }
 
 // Shop: tap a house with a selected item to sell it, or with an empty selection
 // to buy the next seed in BUY_LIST. Prices are tuned to how easy each item is

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "sourceCommit": "175b790f3e089f9298d8e14ebccd6b3549f997c2",
-  "colourTransformSha256": "0f17edadd9999554969e695e8d67512ad88c82f0b89fbe60ed3a5e3973c45624",
+  "colourTransformSha256": "5aa3f26d60ce1b14eed732852e5a02a2b2558bea4bae32d8841bc52ecac1510b",
   "originalAssets": {
     "house_wreck": {
       "kind": "image",
@@ -1274,7 +1274,7 @@
       "source": "assets/Objects/Rustic/Props.png",
       "width": 352,
       "height": 192,
-      "sha256": "4c364143999723c309d58e15ac61764a090047bff3cb3b8e9f139f62d0fa1eab",
+      "sha256": "dde89ac1bfcb181e4408979fead1e5120e246cf8c6b6582e71a8725ea2c40ec1",
       "rows": [
         "cave-mushroom",
         "forgetmenot",
@@ -1316,16 +1316,30 @@
             16
           ],
           "palette": [
-            "#171717",
-            "#28110b",
-            "#90431b",
-            "#ba6724",
-            "#e6d7a3"
+            "#29252a",
+            "#603e39",
+            "#9d5648",
+            "#bb7761",
+            "#d7c4a0",
+            "#ece0bd"
           ],
-          "strength": 0.075,
-          "mode": "gentle-tune",
+          "strength": 1,
+          "mode": "surface-mushroom",
           "preserveLuminance": true,
-          "colourMap": null,
+          "colourMap": {
+            "#171717": "#29252a",
+            "#28110b": "#603e39",
+            "#90431b": "#9d5648",
+            "#ba6724": "#bb7761",
+            "#e6d7a3": "#ece0bd",
+            "#352026": "#29252a",
+            "#602c35": "#603e39",
+            "#be6d47": "#9d5648",
+            "#ee9d51": "#bb7761",
+            "#ffbb6e": "#d7c4a0",
+            "#d9a88a": "#d7c4a0",
+            "#f7dbc6": "#ece0bd"
+          },
           "paletteStrength": null
         },
         {
@@ -3148,7 +3162,7 @@
       "source": "assets/Objects/Crops.png",
       "width": 144,
       "height": 256,
-      "sha256": "cdfb8cd50a00d2ec8e10028c56ddcea32d9e97b1f3f0409c5248edea5e923ca2",
+      "sha256": "3bd92dfeb76f644ef553e62cdc609b8bbec7e3778fa82756f23834417d01a3dd",
       "rows": [
         "gemfruit",
         "nut-plant",
@@ -3165,16 +3179,12 @@
             16
           ],
           "palette": [
-            "#1b151e",
-            "#38242e",
-            "#493838",
-            "#6b4749",
-            "#926d6a",
-            "#b4a07f",
-            "#c7bb97"
+            "#514f49",
+            "#9e9c96",
+            "#c4c2bc"
           ],
-          "strength": 0.35,
-          "mode": null,
+          "strength": 1,
+          "mode": "rockfruit-stone",
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": null
@@ -3188,16 +3198,12 @@
             16
           ],
           "palette": [
-            "#1b151e",
-            "#38242e",
-            "#493838",
-            "#6b4749",
-            "#926d6a",
-            "#b4a07f",
-            "#c7bb97"
+            "#514f49",
+            "#9e9c96",
+            "#c4c2bc"
           ],
-          "strength": 0.35,
-          "mode": null,
+          "strength": 1,
+          "mode": "rockfruit-stone",
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": null
@@ -3211,16 +3217,12 @@
             16
           ],
           "palette": [
-            "#1b151e",
-            "#38242e",
-            "#493838",
-            "#6b4749",
-            "#926d6a",
-            "#b4a07f",
-            "#c7bb97"
+            "#514f49",
+            "#9e9c96",
+            "#c4c2bc"
           ],
-          "strength": 0.35,
-          "mode": null,
+          "strength": 1,
+          "mode": "rockfruit-stone",
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": null
@@ -3234,16 +3236,12 @@
             16
           ],
           "palette": [
-            "#1b151e",
-            "#38242e",
-            "#493838",
-            "#6b4749",
-            "#926d6a",
-            "#b4a07f",
-            "#c7bb97"
+            "#514f49",
+            "#9e9c96",
+            "#c4c2bc"
           ],
-          "strength": 0.35,
-          "mode": null,
+          "strength": 1,
+          "mode": "rockfruit-stone",
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": null
@@ -3257,16 +3255,12 @@
             16
           ],
           "palette": [
-            "#1b151e",
-            "#38242e",
-            "#493838",
-            "#6b4749",
-            "#926d6a",
-            "#b4a07f",
-            "#c7bb97"
+            "#514f49",
+            "#9e9c96",
+            "#c4c2bc"
           ],
-          "strength": 0.35,
-          "mode": null,
+          "strength": 1,
+          "mode": "rockfruit-stone",
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": null
@@ -3280,16 +3274,12 @@
             16
           ],
           "palette": [
-            "#1b151e",
-            "#38242e",
-            "#493838",
-            "#6b4749",
-            "#926d6a",
-            "#b4a07f",
-            "#c7bb97"
+            "#514f49",
+            "#9e9c96",
+            "#c4c2bc"
           ],
-          "strength": 0.35,
-          "mode": null,
+          "strength": 1,
+          "mode": "rockfruit-stone",
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": null
@@ -5680,7 +5670,7 @@
       "source": "assets/Objects/Generated/hedge_end.png",
       "width": 16,
       "height": 16,
-      "sha256": "b1279b7f6ca3154514fd0326c13534af7cc26e718d4905f592197f87ae2a5fc3",
+      "sha256": "0a8673b887a1ed1a6004dee1a3374dc92afe6c8c3a785085d02abd70a6714206",
       "rows": [
         "shrub-context"
       ],
@@ -5702,7 +5692,7 @@
             "#e6d7a3"
           ],
           "strength": 0.425,
-          "mode": "apple-foliage",
+          "mode": "clipped-hedge",
           "preserveLuminance": false,
           "colourMap": null,
           "paletteStrength": null
@@ -5813,7 +5803,7 @@
       "source": "assets/Objects/Wilderness/Props.png",
       "width": 16,
       "height": 16,
-      "sha256": "c3ca03010cb45ea30f56cb6ef13cc3848095aecfeb0d26e4f55981055d9d2b06",
+      "sha256": "903ab308796b8e4dca3f93f9760407d096db225b706cc3974c61dae4e68da658",
       "rows": [
         "mushroom-context"
       ],
@@ -5827,16 +5817,30 @@
             16
           ],
           "palette": [
-            "#171717",
-            "#28110b",
-            "#90431b",
-            "#ba6724",
-            "#e6d7a3"
+            "#29252a",
+            "#603e39",
+            "#9d5648",
+            "#bb7761",
+            "#d7c4a0",
+            "#ece0bd"
           ],
-          "strength": 0.075,
-          "mode": "gentle-tune",
+          "strength": 1,
+          "mode": "surface-mushroom",
           "preserveLuminance": true,
-          "colourMap": null,
+          "colourMap": {
+            "#171717": "#29252a",
+            "#28110b": "#603e39",
+            "#90431b": "#9d5648",
+            "#ba6724": "#bb7761",
+            "#e6d7a3": "#ece0bd",
+            "#352026": "#29252a",
+            "#602c35": "#603e39",
+            "#be6d47": "#9d5648",
+            "#ee9d51": "#bb7761",
+            "#ffbb6e": "#d7c4a0",
+            "#d9a88a": "#d7c4a0",
+            "#f7dbc6": "#ece0bd"
+          },
           "paletteStrength": null
         }
       ]

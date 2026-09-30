@@ -84,10 +84,10 @@
     populate(s) {
       // Maple growth stages 0..4 along the top row (render reads `variant`).
       for (let v = 0; v < 5; v++) s.tree(v, v, 0);
-      // The three non-maple species (own full canopy sheets, frame 3).
+      // Pine companions at three growth sizes.
       s.tree(2, 0, 2, 'pine');
-      s.tree(2, 3, 2, 'birch');
-      s.tree(2, 6, 2, 'mahogany');
+      s.tree(1, 3, 2, 'pine');
+      s.tree(4, 6, 2, 'pine');
       s.wildplant('shrub', 0, 4); s.wildplant('shrub', 7, 4);
       s.wildplant('nut', 2, 5);   s.wildplant('nut', 5, 5);
       // Wilderness fauna — deer drops meat (weapon-gated), rabbit drops pelt.

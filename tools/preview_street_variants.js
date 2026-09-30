@@ -63,7 +63,8 @@ function preview(row) {
   // rasterized terrain, road band and all spawn reasons / kerb buffers.
   const dress = SV.dress({ index: tile.streetIndex, tx, ty, N, tileEdgeM, grid: tile.grid,
     spawnOpts: { roadMask: tile.roadMask, roadClass: tile.roadClass,
-      spawnWhy: tile.spawnWhy, occupied: new Set(), pois: [] } });
+      spawnWhy: tile.spawnWhy, occupied: ctx.RoadOverlay.lampReservedCells(tx, ty,
+        { ...tile, layers, tileEdgeM, cellsPerEdge: N }), pois: [] } });
   const lamps = ctx.previewLampPass._streetLampsForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   const objects = [...dress.objects, ...dress.wildplants, ...(dress.coins || [])].map(local);
@@ -98,7 +99,8 @@ function previewPath(row) {
   const scenic = tile.scenic;
   if (!scenic || scenic.census[kind] < lengthM - SC.SAMPLE_M) throw new Error(`Wrong scenic classification for ${row.id}`);
   const dress = SC.dress({ scenic, tx, ty, N, tileEdgeM, grid: tile.grid, chests: [],
-    spawnOpts: { roadMask: tile.roadMask, roadClass: tile.roadClass, spawnWhy: tile.spawnWhy, occupied: new Set() } });
+    spawnOpts: { roadMask: tile.roadMask, roadClass: tile.roadClass, spawnWhy: tile.spawnWhy, occupied: ctx.RoadOverlay.lampReservedCells(tx, ty,
+      { ...tile, layers, tileEdgeM, cellsPerEdge: N }) } });
   const lamps = ctx.previewLampPass._streetLampsForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong scenic lamps for ${row.id}`);
@@ -119,7 +121,7 @@ const affinityContexts = Object.fromEntries(['neutral', 'cultivated', 'woodland'
   [trait, Object.fromEntries(['minor', 'major'].map(size =>
     [size, SV.selectionWeights('Preview', size, trait === 'neutral' ? {} : {[trait]: 1})]))]));
 const rules = {
-  hedgerow: `Both verges, one trimmed hedge per ${cellM} m cell; a gate gap every ${SV.HEDGE_GAP_MIN}–${SV.HEDGE_GAP_MIN + SV.HEDGE_GAP_SPAN - 1} cells.`,
+  hedgerow: `Two straight rows of cut hedges, one per ${cellM} m cell, with aligned gate gaps every ${SV.HEDGE_GATE_EVERY_CELLS} cells. Blocked slots stay empty. One encounter anchor holds two ordinary slimes where safe ground permits.`,
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
   orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} trees per line piece, alternating half apple trees and half mature deciduous maples.`,
   golden: `One seeded 1-coin pickup every ${SV.GOLDEN_STEP_M} m, alternating eligible verges; each coin is collectible once.`,

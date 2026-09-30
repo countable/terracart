@@ -222,7 +222,7 @@ test('dressing: clipped bushes line the hedgerow, off the band and off anything 
   assert.gt(hedges.length, 4, 'the hedgerow is hedged');
   for (const h of hedges) assert.eq(h.crop, 'shrub', `${h.id} is a bush`);
   assert.falsy(d.wildplants.some((p) => p.crop === 'hedge'), 'no square hedge kind');
-  assert.truthy(hedges.every((h) => h._streetArt === 'trimmed'), 'every hedge uses clipped art');
+  assert.truthy(hedges.every((h) => h._streetArt === 'clipped' && wildplantSprite(h).sheet === 'approved_clipped_hedge'), 'every hedge uses the shared cut shrub appearance');
   const seen = new Set();
   for (const p of [...d.wildplants, ...d.objects]) {
     const ix = cellOf(p.x, TX), iy = cellOf(p.y, TY), i = iy * CPE + ix;
@@ -237,6 +237,30 @@ test('dressing: clipped bushes line the hedgerow, off the band and off anything 
   assert.eq(wildplantOutput('shrub'), 'wood', 'a hedge is chopped for wood — it is a shrub');
   assert.eq(wildplantWorkRelic('shrub'), 'axe');
   assert.eq(wildplantOutput('barricade'), 'wood', 'and a barricade is broken up the same way');
+});
+
+test('hedgerow: aligned regular gates and fixed verge rows stay tidy around obstacles', () => {
+  const rec = {variant:'hedgerow', key:'manicured', halfW:4, line:pts([[5,30],[47,30]])};
+  const grid = new Uint8Array(CPE * CPE).fill(T.GRASS);
+  const draw = (occupied = new Set(), spawnWhy = new Uint16Array(CPE * CPE)) => SV.dress({
+    index:{extent:EXTENT,lines:[rec]}, tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,
+    spawnOpts:{occupied,spawnWhy,roadMask:new Uint8Array(CPE * CPE)},
+  }).wildplants;
+  const rows = draw();
+  const north = rows.filter(p => cellOf(p.y,TY) < 30).map(p => cellOf(p.x,TX));
+  const south = rows.filter(p => cellOf(p.y,TY) > 30).map(p => cellOf(p.x,TX));
+  assert.eq(north.join(','),south.join(','),'garden gates line up across the road');
+  assert.eq(new Set(rows.map(p => cellOf(p.y,TY))).size,2,'one fixed row on each side');
+  const gaps = [];
+  for (let x = north[0]; x < north[north.length-1]; x++) if (!north.includes(x)) gaps.push(x);
+  assert.gt(gaps.length,4,'several regular gates');
+  for (let i=1;i<gaps.length;i++) assert.eq(gaps[i]-gaps[i-1],SV.HEDGE_GATE_EVERY_CELLS);
+  const target=rows[2], ix=cellOf(target.x,TX),iy=cellOf(target.y,TY),idx=iy*CPE+ix;
+  const expected=rows.filter(p=>p.id!==target.id).map(p=>p.id).join(',');
+  assert.eq(draw(new Set([idx])).map(p=>p.id).join(','),expected,'an obstacle removes only its slot');
+  const reasons=new Uint16Array(CPE*CPE);reasons[idx]=WorldGen.SPAWN_WHY.RESTRICTED;
+  assert.eq(draw(new Set(),reasons).map(p=>p.id).join(','),expected,'hard spawn gates leave a gap too');
+  assert.eq(draw().map(p=>p.id).join(','),rows.map(p=>p.id).join(','),'rebuild is deterministic');
 });
 
 // ── Café hoards ─────────────────────────────────────────────────────────
@@ -891,6 +915,28 @@ test('barricade scenery adds stakes and barriers without multiplying guards', ()
   assert.gt(d.wildplants.filter((o) => o._streetScenery && o.crop === 'barricade').length, 4);
   assert.gt(d.objects.filter((o) => o._streetScenery && o.kind === 'stakes').length, 2);
   assert.eq(d.lairs.filter((o) => o.tier === 'barricade').length, 1);
+});
+test('hedgerow encounters: one stable post holds two ordinary slimes per street and tile', () => {
+  const {d}=dressed(rasterize());
+  const posts=d.lairs.filter(l=>l.tier==='street_hedgerow');
+  assert.eq(posts.length,1);
+  assert.eq(JSON.stringify(posts),JSON.stringify(dressed(rasterize()).d.lairs.filter(l=>l.tier==='street_hedgerow')));
+  assert.eq(Lairs.STREET_TIER_GUARDS.street_hedgerow,2);
+  assert.eq(Lairs.KIND_ORDER.street_hedgerow.join(','),'slime');
+  assert.falsy(Lairs.DAILY_TIERS.has('street_hedgerow'),'defeated slimes do not reset daily');
+  const N=64,edge=N*7,grid=new Uint8Array(N*N).fill(WorldGen.T.GRASS);
+  const entry={cellsPerEdge:N,grid,objects:[],buildingShapes:[],_spawnOpts:{occupied:new Set(),roadMask:new Uint8Array(N*N),spawnWhy:new Uint16Array(N*N)}};
+  const cand={tier:'street_hedgerow',sid:'hedge-slime-test',tx:0,ty:0,ox:0,oy:0,lx:32.5*7,ly:32.5*7,ix:32,iy:32,halfW:0,halfH:0};
+  const wake=(caughtSet)=>Lairs.garrisonFor(entry,cand,{tileEdgeM:edge,caughtSet});
+  const guards=wake();
+  assert.eq(guards.length,2);assert.truthy(guards.every(g=>g.kind==='slime'));
+  assert.eq(JSON.stringify(wake()),JSON.stringify(guards),'guard positions and IDs repeat');
+  assert.eq(wake(new Set(guards.map(g=>g.id))).length,0,'caught ledger spends both guards');
+  for(const guard of guards) entry._spawnOpts.occupied.add(Math.floor(guard.y/7)*N+Math.floor(guard.x/7));
+  const blockedSeats=wake();
+  assert.truthy(blockedSeats.every(g=>!entry._spawnOpts.occupied.has(Math.floor(g.y/7)*N+Math.floor(g.x/7))),'occupied seats, including lamps, stay clear');
+  entry._spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+  assert.eq(wake().length,0,'hard spawn reasons prevent the pair');
 });
 test('themed street encounters: one finite spider post per street and tile, outside the kerb', () => {
   const { d, r } = dressedVariants();

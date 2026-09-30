@@ -12,14 +12,14 @@
     for (const method of ['clearRect','beginPath','arc','ellipse','fill','moveTo','lineTo','stroke','closePath','quadraticCurveTo']) cx[method] = () => {};
     return { cx, ops };
   }
-  test('ground art: approved mark strength is applied once to the finished texture', () => {
-    const expected = {1:.5,2:.85,4:.8,10:.8,17:.8,18:.8,19:.88,20:1,21:1,22:.8,24:.8,25:.8,27:.8,31:.8};
+  test('ground art: gameplay mark strength is applied once to the finished texture', () => {
+    const expected = {1:.75,2:.925,4:.9,10:.9,17:.9,18:.9,19:.94,20:1,21:1,22:.9,24:.9,25:.9,27:.9,31:.9};
     for (const [id,opacity] of Object.entries(expected)) {
       const {cx,ops} = recordingContext();
       art.drawBiomeTexture(cx,32,id);
       const masks = ops.filter(o=>o.mode==='destination-in');
       assert.eq(masks.length,opacity===1?0:1,`${id}: one layer mask`);
-      if (masks.length) assert.eq(masks[0].alpha,opacity,`${id}: approved opacity`);
+      if (masks.length) assert.eq(masks[0].alpha,opacity,`${id}: halfway-restored opacity`);
       assert.eq(cx.globalAlpha,1,'restore caller alpha');
       assert.eq(cx.globalCompositeOperation,'source-over','restore caller blend');
       assert.truthy(ops.filter(o=>o.mode==='source-over').every(o=>o.alpha===1),'raw marks retain their overlap contrast before attenuation');

@@ -17,7 +17,8 @@ const app = APP_JS_SRC;
 
 // The three passes, as source, in the order drawRoadGeometry calls them.
 const forTileSrc = app.slice(app.indexOf('  _streetLampsForTile(tx, ty, entry) {'),
-                              app.indexOf('  // The lamps near the frame'));
+                              app.indexOf('  // The lamps near the frame')) + ROAD_OVERLAY_SRC.slice(
+  ROAD_OVERLAY_SRC.indexOf('  function lampSitesForTile('), ROAD_OVERLAY_SRC.indexOf('  function lampReservedCells('));
 const updateSrc = app.slice(app.indexOf('  _updateStreetLamps() {'),
                              app.indexOf('  // THE RIPEN PASS.'));
 // …and the DRAW is render.js's: a lamp goes through the shared world sprite
@@ -157,7 +158,7 @@ test('street lamps: an UNLIT lamp draws as the OLD ROAD COBBLE sprite, a lit one
   assert.truthy(/streetLampDarkCells\(o\.tier\)/.test(lampSpecSrc), 'and that tier\'s own size');
   assert.truthy(/setAlpha\(o\.lit \? 1 : STREET_LAMP_DARK_ALPHA\)/.test(lampSpecSrc), 'at the old stones\' alpha');
   assert.truthy(/const STREET_LAMP_DARK_ALPHA = 0\.57;/.test(app), 'the 57% the per-cell cobbles drew at');
-  assert.truthy(/const STREET_LAMP_DARK_CELLS = \{ road: 0\.64, path: 0\.584 \};/.test(app), 'and their sizes: a road cluster at 0.64 of a cell, a path pebble at 0.584');
+  assert.truthy(/const LAMP_DARK_CELLS = \{ road: 0\.64, path: 0\.584 \};/.test(ROAD_OVERLAY_SRC), 'and their sizes: a road cluster at 0.64 of a cell, a path pebble at 0.584');
   // The tier is the terrain classifier's own answer, not a second class list.
   assert.truthy(/WorldGen\.classifyLine\('transportation', f\.tags \|\| \{\}\)/.test(forTileSrc),
     '_streetLampsForTile classifies the way with WorldGen.classifyLine');
@@ -288,6 +289,46 @@ const mkFeature = () => ({
 });
 const mkLayers = () => [{ name: 'transportation', extent: EXTENT, features: [mkFeature()] }];
 const readyEntry = () => ({ tileEdgeM: TILE_EDGE_M, cellsPerEdge: CELLS, layers: mkLayers() });
+test('street lamps: future lamp reservations cover the exact rendered feet and their cell-edge overlap', () => {
+  const entry = readyEntry();
+  const lamps = RoadOverlay.lampSitesForTile(TX, TY, entry);
+  const reserved = RoadOverlay.lampReservedCells(TX, TY, entry);
+  assert.truthy(lamps.length > 0);
+  for (const lamp of lamps) {
+    const ix = Math.floor((lamp.x - TX * TILE_EDGE_M) / CELL_M_T);
+    const iy = Math.floor((lamp.y - TY * TILE_EDGE_M) / CELL_M_T);
+    assert.truthy(reserved.has(iy * CELLS + ix), 'every unlit future lamp owns its foot cell');
+  }
+  assert.eq(JSON.stringify(lamps), JSON.stringify(P._streetLampsForTile(TX, TY, entry)), 'live renderer uses the same exact coordinates and identities');
+  assert.truthy(reserved.size > lamps.length, 'feet straddling a grid boundary also reserve the adjoining cell');
+});
+
+test('street lamps: rasterized road decorations cannot occupy future lamp footprints', () => {
+  let props = 0, sites = 0;
+  for (let sample = 0; sample < 12; sample++) {
+    const layers = mkLayers();
+    const road = layers[0].features[0];
+    road.tags.class = 'minor';
+    layers.push({name:'landuse', extent:EXTENT, features:[{type:3, tags:{class:'park'},
+      geom:[[{x:0,y:0},{x:EXTENT,y:0},{x:EXTENT,y:EXTENT},{x:0,y:EXTENT}]]}]});
+    layers.push({name:'transportation_name', extent:EXTENT, features:[
+      {type:2, tags:{name:`Hedge Lane ${sample}`}, geom:road.geom}
+    ]});
+    const tile = WorldGen.rasterizeTile(layers, CELLS, TX, TY, TILE_EDGE_M);
+    const reserved = RoadOverlay.lampReservedCells(TX, TY,
+      {...tile, layers, tileEdgeM:TILE_EDGE_M, cellsPerEdge:CELLS});
+    sites += reserved.size;
+    const dress = tile.streetDress;
+    for (const o of [...dress.objects, ...dress.wildplants, ...dress.coins, ...dress.treasures]) {
+      props++;
+      const ix = Math.floor((o.x - TX * TILE_EDGE_M) / CELL_M_T);
+      const iy = Math.floor((o.y - TY * TILE_EDGE_M) / CELL_M_T);
+      assert.falsy(reserved.has(iy * CELLS + ix), `${o.id} collides with a lamp site`);
+    }
+  }
+  assert.truthy(sites > 0 && props > 0, 'fixture exercises actual lamps and variant decorations');
+});
+
 const loadingEntry = () => ({ tileEdgeM: TILE_EDGE_M, cellsPerEdge: CELLS });   // no layers yet
 
 // The scene the passes read: the player standing in the middle of that tile,

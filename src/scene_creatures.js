@@ -462,6 +462,17 @@ class SceneCreatures {
       creatures[enemyWrite++] = replacement;
     }
     creatures.length = enemyWrite;
+    // Themed roamers have their own small-group budget. Reserve all generated
+    // seats before filtering defeats, so caught enemies never reroll a group.
+    const themedOccupied = new Set([..._occupiedIdx, ...plantCells]);
+    const themedEnemies = EnemyHabitats.surfaceEncounters(entry, tx, ty, themedOccupied);
+    for (const c of themedEnemies) {
+      const at = c._surfaceSpawn;
+      _spawnOpts.occupied.add(at.cy * N + at.cx);
+      if (caughtSet.has(c.id)) continue;
+      EnemySpawns.surfaceActive(this, c);
+      creatures.push(c);
+    }
     // Zone guards already have an authored species and seat. Append after
     // attraction and surface-roster replacement so neither can move or turn
     // them into an unrelated enemy. Their kills use the usual caught ledger.
@@ -505,7 +516,7 @@ class SceneCreatures {
     // draw they came from, so replacing them would only teleport them home.
     entry.creatures = entry.creatures || creatures;
     // A rebuilt tile carries its live creatures. Preserve their positions and
-    // wounds, while admitting a newly discovered zone guard exactly once.
+    // wounds, while admitting newly discovered zone guards and encounters once.
     const liveIds = new Set(entry.creatures.map(c => c.id));
     for (const guard of creatures) {
       if (!guard.zoneVariant || liveIds.has(guard.id)) continue;
@@ -911,8 +922,13 @@ class SceneCreatures {
       for (const [sp, p] of Object.entries(attracts)) (want[sp] || (want[sp] = [])).push({ p, test });
     };
     const marks = entry.streetMarks;
-    if (SV) {
-      if (marks) for (const row of SV.STREET_VARIANTS) if (row.attracts) add(row.attracts, (i) => marks[i] === row.code);
+    if (SV && marks) {
+      // Only present street grounds contribute a probability. An absent
+      // Pilgrim's Way must not strengthen another zone's weaker crow pull.
+      const present = new Set(marks);
+      for (const row of SV.STREET_VARIANTS) if (row.attracts && present.has(row.code)) {
+        add(row.attracts, (i) => marks[i] === row.code);
+      }
     }
     // WALKING-PATH LAMPS: the cells beside every lamp a footway / path /
     // cycleway stands (Streets.PATH_LAMP_ATTRACTS — the cats, moved here from

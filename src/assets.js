@@ -22,8 +22,12 @@ const ASSETS = {
   },
   // Cave staircases (the surface→cave entrance and the cave's way back up).
   // ?v= busts the SW/browser cache when the art changes.
-  stair_down: { kind: 'image', path: 'assets/Objects/Approved/stair_down.png' },
+  stair_down: { kind: 'image', path: 'assets/Objects/Approved/stair_down.png',
+    // The upper half is the ascending ladder; the lower half is the down pit.
+    onLoad: (scene) => { scene.textures.get('stair_down').add('down', 0, 0, 16, 32, 16); },
+  },
   stair_up:   { kind: 'image', path: 'assets/Objects/Approved/stair_up.png' },
+  crystal_cluster: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/crystal_cluster.png', frameWidth: 16, frameHeight: 16 },
   // Chicken Red.png is 64×32: a 4-col × 2-row grid of 16×16 frames (NOT
   // 2× 32×32 like its filename + the cow sheet might suggest). Loading at
   // 32×32 made every "frame" a 2×2 cluster of mini-chickens — so each
@@ -123,24 +127,9 @@ const ASSETS = {
   // tree in half (the odd 16px frame was just the right half of a tree).
   apple_tree:   { kind: 'spritesheet', path: 'assets/Objects/Approved/apple_tree.png',   frameWidth: 32, frameHeight: 48 },
   peach_tree:   { kind: 'spritesheet', path: 'assets/Objects/Approved/peach_tree.png',   frameWidth: 32, frameHeight: 48 },
-  // Wood/forest tree species — the art is a growth-stage strip where each
-  // tree is ~1.5 cells TALL (canopy + trunk + root base). The sheets are
-  // 96px tall: the top 48px are the standing tree, the bottom 48px hold
-  // separate ground decorations (snow piles / extra saplings / the autumn
-  // variants). Slicing at 32×32 cut every tree in half — frame 4 showed
-  // canopy only, no trunk. Slicing 32×48 captures the WHOLE tree per column
-  // (every standing tree's roots end by row 48 on all three sheets — see
-  // tools/sprite_audit.js) and NOTHING below it: Pine/Birch 256×96 → 8 frames
-  // (cols 0–7, row 0), Mahogany 384×96 → 12 frames. Column index = growth
-  // stage; render.js uses col 3 (a full mature green tree on every sheet).
-  // These were sliced 32×64 until Sep 2026, and on the birch sheet the tip of
-  // the red autumn tree in the lower band rises to row 62 — inside the frame.
-  // The trimmed art bounds then ran to the frame's very bottom, so the seat
-  // pass took that tip for the trunk base: the birch sat 16px too high in its
-  // cell with a sliver of red foliage under its roots.
+  // Pine uses the upper 32×48 growth strip; the lower band is separate
+  // ground decoration and must not enter the standing tree frame.
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
-  birch_tree:    { kind: 'spritesheet', path: 'assets/Objects/Approved/birch_tree.png',    frameWidth: 32, frameHeight: 48 },
-  mahogany_tree: { kind: 'spritesheet', path: 'assets/Objects/Approved/mahogany_tree.png', frameWidth: 32, frameHeight: 48 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
   // Stone pillar — 16×32 (1 cell wide × 2 tall): a fluted column with cap +
@@ -159,7 +148,6 @@ const ASSETS = {
   // (loot.js chestLook), one 128×96 frame.
   waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone.png', frameWidth: 16, frameHeight: 16 },
   giant_mushroom: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 48 },
-  hedge_trimmed:  { kind: 'spritesheet', path: 'assets/Objects/Generated/hedge_end.png', frameWidth: 16, frameHeight: 16 },
   barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 16, frameHeight: 16 },
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Approved/tar.png', frameWidth: 16, frameHeight: 16 },
   stakes:         { kind: 'spritesheet', path: 'assets/Objects/Approved/stakes.png', frameWidth: 16, frameHeight: 16 },
@@ -178,8 +166,6 @@ const ASSETS = {
   driftwood:      { kind: 'spritesheet', path: 'assets/Objects/Approved/driftwood.png', frameWidth: 16, frameHeight: 16 },
   bottle:         { kind: 'spritesheet', path: 'assets/Objects/Approved/bottle.png', frameWidth: 16, frameHeight: 16 },
   shipwreck_shrine: { kind: 'spritesheet', path: 'assets/Objects/Beach/shipwreck_shrine.png', frameWidth: 1536, frameHeight: 1024 },
-  beach_driftwood: { kind: 'spritesheet', path: 'assets/Objects/Beach/driftwood.png', frameWidth: 16, frameHeight: 16 },
-  beach_rock: { kind: 'spritesheet', path: 'assets/Objects/Beach/beach_rock.png', frameWidth: 16, frameHeight: 16 },
   // POI props (assets/Objects/Generated/README.md — placeholders): a bin is a
   // BARREL or clay pot (standing, then smashed while restocking — isBarrel), a
   // bike rack the bicycle_parking POI (isBikeRack), a notice board the
@@ -321,8 +307,6 @@ const ASSETS = {
   house_fort_unclaimed: {"kind": "image", "path": "assets/Objects/Approved/house_fort_unclaimed.png", "unclaimedArt": true},
   approved_wetland_reeds: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_wetland_reeds.png", "frameWidth": 16, "frameHeight": 16},
   approved_clipped_hedge: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_clipped_hedge.png", "frameWidth": 16, "frameHeight": 16},
-  approved_moss_rocks: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_moss_rocks.png", "frameWidth": 16, "frameHeight": 16},
-  approved_masonry_rubble: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_masonry_rubble.png", "frameWidth": 16, "frameHeight": 16},
   approved_mushroom_cluster: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_mushroom_cluster.png", "frameWidth": 16, "frameHeight": 16},
   approved_charred_stakes: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_charred_stakes.png", "frameWidth": 16, "frameHeight": 16},
   potofgold: {"kind": "image", "path": "assets/Objects/Approved/potofgold.png"},

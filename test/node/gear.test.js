@@ -141,3 +141,47 @@ test('smeltingRecipe + smeltUnlockedBars: T5+ bars, always available', () => {
     'all three T5+ bars unlocked',
   );
 });
+
+test('blacksmith offers: Wood-stage stock favours Copper without removing higher tiers', () => {
+  const save={relics:{},armor:{}};
+  for(const slot of Object.keys(RELIC_DEFS)) save.relics[slot]={tier:1};
+  for(const slot of Object.keys(ARMOR_DEFS)) save.armor[slot]={tier:1};
+  const totals={ordinary:{copper:0,far:0},smith:{copper:0,far:0}},seen=new Set(),n=6000;
+  for(let i=1;i<=n;i++) {
+    const ordinary=Gear.buildRelicOffer(save,seeded(i));
+    const smith=Gear.buildRelicOffer(save,seeded(i),{isBlacksmith:true});
+    for(const [name,offer] of [['ordinary',ordinary],['smith',smith]]) {
+      if(offer.tier===2) totals[name].copper++;
+      if(offer.tier>=4) totals[name].far++;
+    }
+    seen.add(smith.tier);
+  }
+  assert.inRange(totals.smith.copper/n,.64,.71,'roughly two thirds offer the next Copper tier');
+  assert.gt(totals.smith.copper,totals.ordinary.copper,'Copper is more common than the old curve');
+  assert.lt(totals.smith.far,totals.ordinary.far*.75,'fewer Gold-and-above offers');
+  assert.eq([...seen].sort().join(','),'2,3,4,5,6,7','every upgrade tier remains available');
+});
+
+test('blacksmith offers: Copper progression restores exact ordinary seeded offers and prices', () => {
+  for(const table of ['relics','armor']) {
+    const save={relics:{pick:{tier:1}},armor:{}};
+    save[table][table==='relics'?'axe':'helmet']={tier:2};
+    for(let seed=1;seed<=100;seed++) {
+      assert.eq(JSON.stringify(Gear.buildRelicOffer(save,seeded(seed),{isBlacksmith:true})),
+        JSON.stringify(Gear.buildRelicOffer(save,seeded(seed))),'later stock and RNG draw count stay unchanged');
+    }
+  }
+});
+
+test('blacksmith offers: hourly shop lookup passes the bias only for the smith role', () => {
+  const start=APP_JS_SRC.indexOf('\n  peekOrBuildRelicOffer('),end=APP_JS_SRC.indexOf('\n  }\n',start);
+  assert.truthy(start>0&&end>start);
+  const method=new Function(`return {${APP_JS_SRC.slice(start+1,end+4)}};`)().peekOrBuildRelicOffer;
+  const rng=seeded(42), house={kind:'house',id:'smith_test',tier:9};
+  for(const role of ['blacksmith','market','trader',null]) {
+    const scene={houseShopRole:()=>role,shopRng:()=>rng,buildRelicOffer:(actual,opts)=>({actual,opts})};
+    const result=method.call(scene,house);
+    assert.eq(result.actual,rng,'keeps the existing hourly/reroll seed');
+    assert.eq(result.opts.isBlacksmith,role==='blacksmith');
+  }
+});

@@ -64,14 +64,8 @@ const HomeArea = {
   // generates the world's species; applySoftwood (below) stamps this rule
   // onto a built tile's trees for THIS player, from app.js's spawn pass.
   //
-  // EXCEPT bush-tier trees: the smallest size class renders as a uniform
-  // `bushes` sprite regardless of species (render.js), AND it's already
-  // bare-hands tier-0 with no species shift / 1× wood (util.js), so stamping
-  // 'pine' gains nothing gameplay-wise — it only mislabels a tiny bush as a
-  // "softwood" tree (treeSpeciesName). Leave bushes their own species so the
-  // sprite and the label agree.
-  softwoodSpeciesNear(x, y, fallbackSpecies, size) {
-    if (size === 'bush') return fallbackSpecies;
+  // Includes legacy bush-sized trees, which now use the small tree canopy.
+  softwoodSpeciesNear(x, y, fallbackSpecies) {
     return this.isNear(x, y) ? 'pine' : fallbackSpecies;
   },
 

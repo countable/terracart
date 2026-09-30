@@ -3,13 +3,16 @@
 // Game cell = CELL_M m (currently 7 m). Cell size in pixels depends on latitude.
 
 (function (global) {
+  const SATEXTRACT_URL = typeof document !== 'undefined' && document.currentScript?.src
+    ? new URL('../data/satextract_osm.geojson?v=7', document.currentScript.src).href
+    : 'data/satextract_osm.geojson?v=7';
   const Z = 14;
   const TILE_PX = 256;          // standard
   const TILE_EXTENT = 4096;     // MVT units
   const CELL_M = 7;             // game cell size in meters
   // Park, forest and grove trees share this ordered set so a species change
   // reaches every generated tree lane.
-  const TREE_SPECIES = Object.freeze(['maple', 'pine', 'birch', 'mahogany']);
+  const TREE_SPECIES = Object.freeze(['maple', 'pine']);
 
   // ── Where the tiles come from ──────────────────────────────────────────
   // OpenFreeMap serves each weekly planet build from a DATED directory
@@ -1136,6 +1139,10 @@
       }
       tn.features.length = kn;
     }
+    // Keep the removed geometry for generated quarries. Replaying an already
+    // pruned layer must retain this evidence without duplicating it.
+    if (cut.length) tl.parkingLanes = [...(tl.parkingLanes || []),
+      ...cut.map(row => ({ ...row, extent: tl.extent || 4096 }))];
     return cut;
   }
   // Approximate real-world carriageway width, in metres, per transportation
@@ -3698,7 +3705,7 @@
     // spawnHedgeMazeSteps. `yield` consumes no rng, so rng() fires in exactly
     // the same order sliced or not — the forest this produces is identical.
     function* spawnForestTreesSteps(rings, polyKey) {
-      // Each polygon picks ONE species (maple/pine/birch/mahogany) so a single
+      // Each polygon picks ONE species (maple/pine) so a single
       // forest reads as a single woodland type instead of a jumbled mix. Each
       // species has its own real sprite sheet (no tint pass needed).
       const species = TREE_SPECIES[(polyKey >>> 8) % TREE_SPECIES.length];
@@ -5448,6 +5455,9 @@
       if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.buildSteps({
         field: zone, poiLayer: layersByName['poi'], parks: parkPolys, tx, ty, N: w,
         chests: deduped, tileEdgeM, grid });
+      if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.quarrySteps({
+        field: zone, parkingLanes: layersByName['transportation']?.parkingLanes,
+        tx, ty, N: w, grid, tileEdgeM, roadMask, spawnWhy });
     }
     if (streetIndex && typeof StreetVariants.applyAffinitiesSteps === 'function') {
       // Geography changes the selected theme, never whether the corridor is
@@ -5514,7 +5524,16 @@
     if (typeof Scenic !== 'undefined') {
       yield 'before scenic';
       scenic = yield* Scenic.buildSteps(layersByName, tx, ty, w, grid, false, zone && zone.under);
-      dressSpawn();
+    }
+    dressSpawn();
+    // Future lamp feet stay clear through both scenic and street dressing,
+    // then leave no phantom occupancy behind for unrelated zone spawns.
+    const lampReservations = typeof RoadOverlay !== 'undefined'
+      ? RoadOverlay.lampReservedCells(tx, ty, { layers, tileEdgeM, cellsPerEdge: w, streetIndex, scenic, zone })
+      : new Set();
+    const temporaryLampCells = [...lampReservations].filter(cell => !dressOcc.has(cell));
+    for (const cell of temporaryLampCells) dressOcc.add(cell);
+    if (scenic) {
       scenicDress = yield* Scenic.dressSteps({ scenic, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
     }
@@ -5528,6 +5547,7 @@
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy: caveSource.spawnWhy,
           roadClass, occupied: dressOcc, pois: dressPois } });
     }
+    for (const cell of temporaryLampCells) dressOcc.delete(cell);
     if (zone) {
       zone.legacyRemoved += yield* clearZoneAmbientSteps({ field: zone, objects: deduped,
         wildplants: filtered, occupied: dressOcc, streetDress, scenicDress, tx, ty, N: w, tileEdgeM });
@@ -5931,7 +5951,7 @@
     // Residential and wasteland lot cells are gated (LOT_TYPES); other
     // terrain passes through. POI chests, both placed and pending, count as anchors.
     const _sxPois = [];
-    for (const o of entry.objects) if (o.kind === 'chest') _sxPois.push(_sxCell(o.x, o.y));
+    for (const o of entry.objects) if (o.kind === 'chest' || o.kind === 'grove_shrine') _sxPois.push(_sxCell(o.x, o.y));
     for (const ch of sx.chests) _sxPois.push(_sxCell(ch.x, ch.y));
     const spawnWhy = entry.spawnWhy || null;
     const _sxSpawnOpts = { pois: _sxPois, roadMask, quiet, spawnWhy };
@@ -5969,10 +5989,15 @@
     // tryTreeCell/_sxYardOK's separate call, right below) rather than a bare
     // roadMask read, so this and every other spawner answer "is this under
     // the band" the same one way.
-    const _sxHardCell = (ix, iy) => {
+    const detectedGround = entry.zone?.under && typeof Zones !== 'undefined'
+      ? grid.map((t, i) => Zones.landAt(grid, entry.zone.under, i)) : grid;
+    const _sxHardCell = (ix, iy, detected = false) => {
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return false;
-      return TREE_BLOCK.has(grid[iy * cpe + ix])
-        || !isSpawnCell(grid, cpe, cpe, ix, iy, { roadMask }, 'minor')
+      const i = iy * cpe + ix;
+      // A zone's decorative ground paint must not erase a real canopy.
+      const ground = detected ? detectedGround : grid;
+      return TREE_BLOCK.has(ground[i])
+        || !isSpawnCell(ground, cpe, cpe, ix, iy, { roadMask }, 'minor')
         || !!(quiet && quiet[iy * cpe + ix]);
     };
     const _sxHard = (wx, wy) => {
@@ -6088,11 +6113,38 @@
       }
       wps.length = wr;
     }
-    const tryTreeCell = (ix, iy) => {
+    // DeepForest crowns outrank authored dressing, including intentionally
+    // empty motif cells. Older cached bins predate the explicit source flag.
+    const detectedTree = t => t._treeSource === 'deepforest' ||
+      (!t.id && (t.crown_m != null || t.size != null || t.individual === true));
+    const replaceable = o => !o.placed && !o.planted && !o.playerOwned &&
+      !['chest', 'grove_shrine', 'house', 'tower', 'staircase', 'gatepost', 'well'].includes(o.kind) &&
+      !!(o._street || o.zoneVariant || o._scenic);
+    const fixedCells = new Set(), themedCells = new Set(), treeClaims = new Set();
+    const objectCells = o => {
+      const {ix, iy} = _sxCell(o.x, o.y);
+      const footprint = o._footprintCells || o.footprintCells || {};
+      const width = Math.max(1, Math.floor(footprint.width || o._shrineExtentCells || 1));
+      const height = Math.max(1, Math.floor(footprint.height || o._shrineExtentCells || 1));
+      const cells = [];
+      for (let dy = 0; dy < height; dy++) for (let dx = 0; dx < width; dx++) {
+        const cx = ix - Math.floor((width - 1) / 2) + dx;
+        const cy = iy - Math.floor((height - 1) / 2) + dy;
+        if (cx >= 0 && cy >= 0 && cx < cpe && cy < cpe) cells.push(cy * cpe + cx);
+      }
+      return cells;
+    };
+    for (const list of [entry.objects, entry.wildplants]) for (const o of list) {
+      const cells = replaceable(o) ? themedCells : fixedCells;
+      for (const i of objectCells(o)) cells.add(i);
+    }
+    const tryTreeCell = (ix, iy, detected) => {
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
-      if (_sxReserved(ix, iy)) return null;
-      if (_sxHardCell(ix, iy)) return null;
-      if (occupied.has(`${ix}_${iy}`)) return null;
+      if (!detected && _sxReserved(ix, iy)) return null;
+      if (_sxHardCell(ix, iy, detected)) return null;
+      const cell = iy * cpe + ix;
+      if (fixedCells.has(cell)) return null;
+      if (occupied.has(`${ix}_${iy}`) && !(detected && themedCells.has(cell))) return null;
       // Chest frontage stays clear (the player stands beside the chest),
       // but trees may hug buildings — no nearBuildingCell here. Yard
       // trees sit right against real houses; routing them through the
@@ -6105,19 +6157,25 @@
     };
     // 4-neighbours first (closer, axis-aligned), then diagonals.
     const NB8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-    const placeTree = (wx, wy) => {
+    const placeTree = (wx, wy, detected) => {
       const { ix, iy } = _sxCell(wx, wy);
-      let r = tryTreeCell(ix, iy);
+      let r = tryTreeCell(ix, iy, detected);
       if (r) return r;
-      for (const [dx, dy] of NB8) { r = tryTreeCell(ix + dx, iy + dy); if (r) return r; }
+      for (const [dx, dy] of NB8) { r = tryTreeCell(ix + dx, iy + dy, detected); if (r) return r; }
       return null;
     };
     const allTrees = [...sx.trees, ...sx.fruittrees]
       .sort((a, b) => (b.crown_m || 0) - (a.crown_m || 0));
     for (const t of allTrees) {
-      const r = placeTree(t.x, t.y);
+      const detected = detectedTree(t);
+      const r = placeTree(t.x, t.y, detected);
       if (!r) continue;
       occupied.add(r.key);
+      fixedCells.add(r.iy * cpe + r.ix);
+      if (detected) {
+        treeClaims.add(r.iy * cpe + r.ix);
+        t._treeSource = 'deepforest';
+      }
       t.x = r.x; t.y = r.y;
       // A detection with no OSM id is named by the cell it SETTLED on —
       // unique (one tree per cell, just claimed) and positional. Its bin
@@ -6126,6 +6184,27 @@
       // chopping one felled the other.
       if (!t.id) t.id = cellId(`${t.kind === 'fruittree' ? 'ft' : 'tree'}_sx`, x, y, r.ix, r.iy);
       entry.objects.push(t);
+    }
+    if (treeClaims.size) {
+      const overlapsTree = o => objectCells(o).some(i => treeClaims.has(i));
+      // Filter live arrays only; genObjects and cave snapshots stay immutable.
+      entry.objects = entry.objects.filter(o => !replaceable(o) || !overlapsTree(o));
+      entry.wildplants = entry.wildplants.filter(o => !replaceable(o) || !overlapsTree(o));
+      for (const dress of [entry.streetDress, entry.zoneDress, entry.scenicDress]) {
+        if (!dress) continue;
+        for (const key of ['objects', 'wildplants', 'treasures', 'coins', 'traps', 'guards']) {
+          if (!dress[key]) continue;
+          dress[key] = dress[key].filter(o => !overlapsTree(o) &&
+            !(key === 'guards' && Number.isFinite(o.homeX) && Number.isFinite(o.homeY) &&
+              overlapsTree({x:o.homeX, y:o.homeY})));
+        }
+        if (dress.lairs) dress.lairs = dress.lairs.filter(l =>
+          !overlapsTree({x:x * tileEdgeM + l.lx, y:y * tileEdgeM + l.ly}));
+        for (const i of treeClaims) {
+          if (dress.marks) dress.marks[i] = 0;
+          if (dress.slowCells) dress.slowCells.delete(i);
+        }
+      }
     }
     for (const s of sx.shrubs) {
       if (_sxReservedAt(s.x, s.y)) continue;
@@ -6353,15 +6432,17 @@
               // OSM trees have none → fall back to the seeded random species.
               // The WORLD's species: softwood-near-home is a per-player overlay
               // (HomeArea.applySoftwood, app.js), never baked into a bin.
-              species: props.species || TREE_SPECIES[seed % TREE_SPECIES.length],
+              species: TREE_SPECIES.includes(props.species) ? props.species
+                : TREE_SPECIES[seed % TREE_SPECIES.length],
               // An OSM tree is named by its osm_id; a detection (no id) is
               // named by the cell it SETTLES on, at injection (loadTile).
               id: osmId ? `tree_osm_${osmId}` : undefined,
               // DeepForest crown diameter (metres) + discrete size class + sampled
               // crown colour → sprite size / tint in render.js. Undefined for OSM
               // trees, which fall back to the flat species scale and no tint.
+              _treeSource: props.score != null ? 'deepforest' : undefined,
               crown_m: props.crown_m,
-              size: props.size,
+              size: props.size === 'bush' ? 'small' : props.size,
               crown_color: props.crown_color,
               // Flag standalone OSM trees (street / yard) so the T-key teleport
               // can hop between them, distinct from dense forest-grove trees.
@@ -6383,6 +6464,7 @@
               // Named by osm_id when it has one, else by its settled cell at
               // injection (loadTile) — see the tree row above.
               id: osmId ? `ft_osm_${osmId}` : undefined,
+              _treeSource: props.score != null ? 'deepforest' : undefined,
               crown_m: props.crown_m,
               size: props.size,
               wild: true,            // mature & fruiting (vs a planted sapling)
@@ -6466,7 +6548,7 @@
   // appear. Bump this when you re-run satextract.
   function ensureSatextract(lat) {
     if (_satextractPromise) return _satextractPromise;
-    _satextractPromise = fetch('data/satextract_osm.geojson?v=7')
+    _satextractPromise = fetch(SATEXTRACT_URL)
       .then(r => (r.ok ? r.json() : null))
       .then(gj => buildBinsFromGeoJSON(gj, lat))
       .catch(() => new Map());
@@ -7954,6 +8036,6 @@
     // all of them.
     makeWildplant, makeCreature, makeObject,
     spawnParkPlants, PARK_PLANT_CELL_CHANCE, clearZoneAmbientSteps,
-    clearStreetAmbientSteps, variantOwnerAt, injectTileBin,
+    clearStreetAmbientSteps, variantOwnerAt, getTileBin,
   };
 })(window);

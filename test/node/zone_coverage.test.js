@@ -45,15 +45,15 @@
       grid.set(original); coverage.fill(1, 0, original.length);
       const field = { anchors: [anchor(1000, 1000, kind)], coverage, idx: new Uint8Array(N * N) };
       const result = paint(field, grid);
-      assert.eq(result.painted, original.length);
+      assert.eq(result.painted, original.filter(t => t !== Zones.terrainOf(kind)).length);
       assert.gt(result.slices, 0);
       for (let i = 0; i < original.length; i++) {
         assert.eq(grid[i], Zones.terrainOf(kind), `${kind} overrides ${original[i]} beyond influence`);
-        assert.eq(field.under[i], original[i], 'original land recorded');
+        assert.eq(Zones.landAt(grid, field.under, i), original[i], 'original land remains available even when no repaint is needed');
       }
       assert.eq(grid[original.length], T.FOREST, 'outside coverage unchanged');
       assert.eq(paint(field, grid).painted, 0, 'repainting preserves the original underlay');
-      for (let i = 0; i < original.length; i++) assert.eq(field.under[i], original[i]);
+      for (let i = 0; i < original.length; i++) assert.eq(Zones.landAt(grid, field.under, i), original[i]);
     }
   });
   test('zone coverage: zero-valued grass remains original land across paint and legacy underlays', () => {

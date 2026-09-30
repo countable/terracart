@@ -126,7 +126,7 @@
   const END_SEAT_CELLS = 4;
 
   // ── Dressing density (generation metres along the way) ───────────────────
-  const HEDGE_GAP_MIN = 5, HEDGE_GAP_SPAN = 3;   // a gate-gap every 5..7 cells
+  const HEDGE_GATE_EVERY_CELLS = 6; // aligned garden gates on both verges
   const MAX_VARIANT_LENGTH_M = 500;
   // Global MVT patches align with tile boundaries. The inset leaves a real
   // plain interval between compact themes, even along a cross-tile street.
@@ -1142,9 +1142,13 @@
       // One finite encounter per themed street and owning tile, independent
       // of how many geometry fragments represent the street. Scenery streams
       // keep their draws; guards share the existing lair persistence lane.
-      if (['overgrown', 'orchard', 'toadstool'].includes(v)) {
+      if (['hedgerow', 'overgrown', 'orchard', 'toadstool'].includes(v)) {
         const sid = `street_habitat_${tx}_${ty}_${v}_${rec.key}`;
-        if (!habitatSeats.has(sid)) sampleLine(rec.line, gM, BURNED_GUARD_STEP_M, BURNED_GUARD_STEP_M / 2, (s, x, y, nx, ny) => {
+        // A hedge encounter uses a regular gate gap, keeping both clipped
+        // rows aligned instead of removing an extra hedge for its anchor.
+        const step = v === 'hedgerow' ? CELL_M * HEDGE_GATE_EVERY_CELLS : BURNED_GUARD_STEP_M;
+        const start = v === 'hedgerow' ? step - CELL_M / 2 : step / 2;
+        if (!habitatSeats.has(sid)) sampleLine(rec.line, gM, step, start, (s, x, y, nx, ny) => {
           if (habitatSeats.has(sid)) return false;
           if (!S.covers(spans, s)) return;
           for (const side of [1, -1]) {
@@ -1159,23 +1163,20 @@
         });
       }
       if (v === 'hedgerow') {
-        const rng = streamFor(rec, v);
-        // Clipped art, ordinary shrub harvesting; keep existing hedge ids.
-        for (const side of [1, -1]) {
-          let gapIn = HEDGE_GAP_MIN + Math.floor(rng() * HEDGE_GAP_SPAN);
-          sampleLine(rec.line, gM, CELL_M, CELL_M / 2, (s, x, y, nx, ny) => {
-            if (!S.covers(spans, s)) return;
-            if (--gapIn <= 0) {                       // a garden gate
-              gapIn = HEDGE_GAP_MIN + Math.floor(rng() * HEDGE_GAP_SPAN);
-              return;
-            }
-            const c = verge(rec, x, y, nx, ny, side);
-            if (!c) return;
-            claim(c.ix, c.iy);
-            res.wildplants.push(WG.makeWildplant('shrub', cx(c.ix), cy(c.iy),
-              WG.cellId('hedge', tx, ty, c.ix, c.iy), { _street: v, _streetArt: 'trimmed' }));
-          });
-        }
+        // One tidy row at the band's edge; obstacles leave a gap instead of
+        // pushing individual hedges out of line. Both sides share gate stations.
+        sampleLine(rec.line, gM, CELL_M, CELL_M / 2, (s, x, y, nx, ny) => {
+          if (!S.covers(spans, s)) return;
+          if (Math.floor(s / CELL_M) % HEDGE_GATE_EVERY_CELLS === HEDGE_GATE_EVERY_CELLS - 1) return;
+          for (const side of [1, -1]) {
+            const off = side * (rec.halfW + CELL_M / 2);
+            const ix = cellOfM(x + nx * off), iy = cellOfM(y + ny * off);
+            if (!cellOk(ix, iy)) continue;
+            claim(ix, iy);
+            res.wildplants.push(WG.makeWildplant('shrub', cx(ix), cy(iy),
+              WG.cellId('hedge', tx, ty, ix, iy), { _street: v, _streetArt: 'clipped' }));
+          }
+        });
       } else if (v === 'overgrown') {
         let placed = 0;
         const length = rec.line.slice(1).reduce((m, p, i) => m + Math.hypot(p.x - rec.line[i].x, p.y - rec.line[i].y) * gM, 0);
@@ -1450,7 +1451,7 @@
     BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
-    HEDGE_GAP_MIN, HEDGE_GAP_SPAN, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
+    HEDGE_GATE_EVERY_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, VARIANT_PATCH_UNITS, VARIANT_PATCH_INSET_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
     STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,

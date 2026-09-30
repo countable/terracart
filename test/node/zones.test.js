@@ -306,7 +306,7 @@ test('zones: the patterns — groves by character, graves are a per-cell rule, n
   assert.eq(Z.ASPECTS.stones.join(), 'graves');
   assert.eq(Z.patternPieces('graves').length, 0, 'no fixed stones pattern');
   assert.eq(Z.ASPECTS.stones_quiet, undefined, 'no quiet-faith pattern left');
-  assert.eq(Object.keys(Z.ASPECTS).sort().join(), 'beach,grove,stones,tar');
+  assert.eq(Object.keys(Z.ASPECTS).sort().join(), 'beach,grove,quarry,stones,tar');
   // Every grove character's aspects are grove aspects.
   for (const [ch, list] of Object.entries(Z.GROVE_ASPECTS)) {
     assert.truthy(BiomeProfiles.PARK_CHARACTERS[ch], `${ch} is a park character`);
@@ -657,7 +657,7 @@ test('grove variants: dense geometry preserves existing cells without a neighbou
 // ── Stories, terrain enumerations, tips ─────────────────────────────────────
 test('zones: each kind has a shipped story painting, and every line fits', () => {
   for (const [kind, row] of Object.entries(Z.ZONE_KINDS)) {
-    assert.eq(row.story, `zone_${kind === 'beach' ? 'grove' : kind}`, `${kind}: key`);
+    assert.eq(row.story, `zone_${kind === 'beach' ? 'grove' : kind === 'quarry' ? 'stones' : kind}`, `${kind}: key`);
     assert.truthy(new RegExp(`^  ${row.story}: 'data:image/webp`, 'm').test(ART_THUMBS_SRC), `${row.story} has its painting`);
     assert.lte(row.flash.length, MAP_MSG_MAX, `${kind}: the map line fits`);
     assert.truthy(row.title && row.body, `${kind}: title and body`);

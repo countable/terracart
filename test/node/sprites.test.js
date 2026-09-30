@@ -115,10 +115,9 @@ test('MINERAL_ICON_SHEET: shell inventory icon is frame 0 on shell_sheet', () =>
 });
 
 // ── CROP_SPRITE: shrub (bug 1d5ac29) ──────────────────────────────────────
-// Shrub uses the rounded 48×32 woodland bush, shared with bush-sized trees.
-// Scale 0.667 preserves its visible silhouette width (~21px).
+// Two shrub appearances share harvesting; the cut hedge is 20% smaller.
 
-test('CROP_SPRITE: shrub uses the bushes sheet', () => {
+test('CROP_SPRITE: basic shrub uses the bushes sheet', () => {
   assert.eq(CROP_SPRITE['shrub'].sheet, 'bushes');
 });
 
@@ -126,12 +125,12 @@ test('CROP_SPRITE: shrub is a custom sprite (custom: true)', () => {
   assert.eq(CROP_SPRITE['shrub'].custom, true);
 });
 
-test('CROP_SPRITE: shrub frame is 0 (single woodland bush)', () => {
+test('CROP_SPRITE: shrub frame is 0 (single basic bush)', () => {
   assert.eq(CROP_SPRITE['shrub'].frame, 0);
 });
 
-test('CROP_SPRITE: shrub scale preserves its compact visible width', () => {
-  assert.eq(CROP_SPRITE['shrub'].scale, 0.667);
+test('CROP_SPRITE: shrub is 20% smaller in each dimension than the former residential hedge', () => {
+  assert.eq(CROP_SPRITE.shrub.looks.clipped.scale / (4 / 3), 0.8);
 });
 
 // ── CROP_SPRITE: longgrass (bug 1d5ac29) ──────────────────────────────────
@@ -419,26 +418,60 @@ test('MINERAL_ICON_SHEET: row stride for bars is 16 cols (gold at 16, crimson at
   assert.eq(MINERAL_ICON_SHEET['crimson_bar'].frame - MINERAL_ICON_SHEET['gold_bar'].frame, 16);
 });
 
-// Street hedges retain shrub harvesting while using their own clipped art.
-test('clipped street hedges resolve art without changing ordinary shrubs', () => {
-  const hedge = {crop:'shrub', _streetArt:'trimmed'};
-  assert.eq(wildplantSprite(hedge).sheet, 'hedge_trimmed');
-  assert.eq(wildplantFrame(hedge), 0);
-  assert.eq(wildplantSprite({crop:'shrub'}).sheet, 'bushes');
-  assert.eq(wildplantSprite({crop:'shrub', _streetArt:'unknown'}).sheet, 'bushes');
-  assert.eq(wildplantRule(hedge.crop).output, 'wood');
+test('shrubs have only basic and cut art with identical harvesting and no biome tints', () => {
+  const base = CROP_SPRITE.shrub, cut = base.looks.clipped;
+  assert.eq(Object.keys(base.looks).join(','), 'clipped');
+  for (const _biome of [undefined, 0, 5, 6, 16, 17, 18]) {
+    for (const look of [undefined, 'clipped', 'trimmed', 'unknown']) {
+      for (const tag of ['_plantArt', '_streetArt']) {
+        for (const _cave of [true, false]) {
+          const p = {crop:'shrub', _biome, [tag]:look, _cave};
+          const isCut = ['clipped','trimmed'].includes(look) || (!_cave && [5,16].includes(_biome));
+          assert.eq(wildplantSprite(p), isCut ? cut : base);
+          assert.eq(wildplantFrame(p), 0);
+          assert.eq(BiomeProfiles.tint(_biome, 'shrub'), null);
+          assert.eq(wildplantRule(p.crop).output, 'wood');
+        }
+      }
+    }
+  }
 });
 
-// Art overrides leave the crop responsible for harvesting and inventory.
-test('giant mushroom shrub look resolves without overriding ordinary or trimmed shrubs', () => {
-  const giant = {crop:'shrub', _plantArt:'giant_mushroom'};
-  assert.eq(wildplantSprite(giant).sheet, 'giant_mushroom');
-  assert.eq(wildplantFrame(giant), 2);
-  assert.eq(wildplantSprite({crop:'shrub', _plantArt:'unknown'}).sheet, 'bushes');
-  assert.eq(wildplantSprite({crop:'shrub', _streetArt:'trimmed'}).sheet, 'hedge_trimmed');
-  assert.eq(wildplantRule(giant.crop), wildplantRule('shrub'));
+test('Mushroom Grove giant caps seat their base inside the cell and have distinct rewards', () => {
+  const p = {crop:'giant_mushroom'};
+  const art = wildplantSprite(p);
+  assert.eq(art.sheet, 'giant_mushroom');
+  assert.eq(wildplantFrame(p), 2);
+  assert.truthy(art.seat);
+  const box = SpriteLayout.ART_BOUNDS['giant_mushroom:2'];
+  const pos = SpriteLayout.seatInCell(box, .5, .5, art.scale, art.scale);
+  assert.eq(pos.dyPx + (box.maxY - box.fh/2) * art.scale, SpriteLayout.CELL_PX/2 - 1);
+  assert.eq(pos.dxPx + ((box.minX + box.maxX)/2 - box.fw/2) * art.scale, 0);
+  assert.eq(JSON.stringify(wildplantRewards(p.crop)),JSON.stringify([{id:'wood',qty:1},{id:'mushroom',qty:1}]));
+  assert.eq(itemName(p.crop),'Giant mushroom');
+  assert.eq(inventoryIconSource(p.crop).sheet,'giant_mushroom');
+  assert.truthy(RENDER_SRC.includes('const box = ov?.seat && SpriteLayout.ART_BOUNDS'));
 });
 
+test('legacy bush crowns use small trees and retired species use maple art and scale', () => {
+  const spec = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.tree;
+  for (const species of ['maple', 'pine', 'birch', 'mahogany']) {
+    const o = {kind:'tree', size:'bush', species};
+    const canonical = {...o, size:'small', species: species === 'pine' ? 'pine' : 'maple'};
+    assert.eq(spec.key(o), species === 'pine' ? 'pine_tree' : 'trees');
+    assert.eq(spec.frame(o), spec.frame(canonical));
+    assert.eq(spec.scale(o), spec.scale(canonical));
+    assert.eq(treeSizeClass(o), 'small');
+  }
+  for (const species of ['birch', 'mahogany']) {
+    const o = {kind:'tree', species, variant:1};
+    const maple = {...o, species:'maple'};
+    assert.eq(spec.key(o), spec.key(maple));
+    assert.eq(spec.frame(o), spec.frame(maple));
+    assert.eq(spec.scale(o), spec.scale(maple));
+    assert.eq(treeSizeClass(o), treeSizeClass(maple));
+  }
+});
 
 test('Pirate Cove shipwreck fits the reserved extent and beach looks preserve pickup identities', () => {
   const art = SpriteLayout.groveShrineArt({_shrineArt:'shipwreck'});
@@ -447,9 +480,68 @@ test('Pirate Cove shipwreck fits the reserved extent and beach looks preserve pi
   assert.eq(1536 * art.scale, 3 * SpriteLayout.CELL_PX);
   assert.truthy(1024 * art.scale <= 3 * SpriteLayout.CELL_PX);
   assert.truthy(SpriteLayout.groveShrineArt({id:'ordinary'}).key !== art.key);
-  assert.eq(wildplantSprite({crop:'driftwood',_plantArt:'beach'}).sheet, 'beach_driftwood');
-  assert.eq(wildplantSprite({crop:'rockfruit',_plantArt:'beach'}).sheet, 'beach_rock');
+  assert.eq(wildplantSprite({crop:'driftwood',_plantArt:'beach'}).sheet, 'driftwood', 'retired beach look falls back to standard driftwood');
+  assert.eq(wildplantSprite({crop:'rockfruit',_plantArt:'beach'})?.sheet, undefined, 'retired beach rock uses ordinary crop art');
   assert.eq(wildplantSprite({crop:'driftwood'}).sheet, 'driftwood');
   assert.eq(inventoryIconSource('rockfruit').sheet, 'crops');
   assert.eq(iconBadgeItem('rockfruit_seed'), 'rockfruit');
+});
+
+
+test('fallen wood uses look 2 for every quantity without changing the stack', () => {
+  const spec = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.groundstack;
+  for (const qty of [1,2,3,12]) {
+    const stack={kind:'groundstack',itemId:'wood',qty};
+    assert.eq(spec.frame(stack),1);
+    assert.eq(stack.qty,qty);
+  }
+});
+
+
+test('maple and pine canopy sizes use authored growth art at a fixed species scale', () => {
+  const spec = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.tree;
+  for (const species of ['maple','pine']) {
+    const sizes=['small','medium','large'];
+    const scales=sizes.map(size=>spec.scale({species,size}));
+    assert.eq(new Set(scales).size,1,'growth comes from artwork, not resizing mature crowns');
+    for (let i=0;i<sizes.length;i++) {
+      const o={species,size:sizes[i],variant:1};
+      assert.eq(spec.frame(o),i+1);
+      assert.eq(treeSizeClass(o),['small','medium','full'][i]);
+      assert.eq(treeWoodMul(o),[1,2,4][i]);
+      assert.truthy(SpriteLayout.ART_BOUNDS[`${spec.key(o)}:${spec.frame(o)}`]);
+    }
+    for (const variant of [1,2,3]) assert.eq(spec.frame({species,variant}),variant);
+    assert.eq(spec.frame({species,variant:0}),1,'never a seed or stump');
+    assert.eq(spec.frame({species,variant:4}),3,'never dead or seasonal art');
+  }
+});
+
+
+test('down ladder uses only the centered bottom half while the up ladder stays whole', () => {
+  // Run the registered callback against a recording texture, so the assertion
+  // checks the actual frame rectangle supplied to Phaser.
+  const declaration=ASSETS_SRC.match(/stair_down: \{[^]*?onLoad: \(scene\) => \{([^]*?)\},/);
+  assert.truthy(declaration);
+  let call;
+  new Function('scene',declaration[1])({textures:{get:key=>({add:(...args)=>{call={key,args};}})}});
+  assert.eq(call.key,'stair_down');
+  assert.eq(JSON.stringify(call.args),JSON.stringify(['down',0,0,16,32,16]));
+  const spec=Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.staircase;
+  assert.eq(spec.key({dir:'down'}),'stair_down');assert.eq(spec.frame({dir:'down'}),'down');
+  assert.eq(spec.key({dir:'up'}),'stair_up');assert.eq(spec.frame({dir:'up'}),'__BASE');
+  assert.eq(JSON.stringify(spec.origin),'[0.5,0.5]');assert.eq(spec.scale,1);
+});
+
+
+test('crystal deposits use their cluster art at ordinary rock scale and centered seating', () => {
+  const spec=Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.mineralrock;
+  const crystal={kind:'mineralrock',deposit:'crystal',yieldTier:1};
+  assert.eq(spec.key(crystal),'crystal_cluster');assert.eq(spec.frame(crystal),0);
+  assert.eq(spec.key({yieldTier:6}),'mineralrock');assert.eq(spec.frame({yieldTier:6}),mineralRockFrame(6));
+  assert.eq(spec.scale,1.28);assert.truthy(spec.seat);
+  const b=SpriteLayout.ART_BOUNDS['crystal_cluster:0'];
+  const offset=SpriteLayout.seatInCell(b,.5,.5,spec.scale,spec.scale);
+  assert.eq(offset.dxPx+((b.minX+b.maxX)/2-b.fw/2)*spec.scale,0);
+  assert.eq(offset.dyPx+((b.minY+b.maxY)/2-b.fh/2)*spec.scale,0);
 });

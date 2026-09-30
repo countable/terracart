@@ -26,6 +26,35 @@
       }
     }
   });
+  test('quarry dressing: global cell scatter ignores component centers and creates no landmark', () => {
+    const make = () => {
+      const c = context('quarry'); c.grid.fill(WorldGen.T.ROCK);
+      c.field.anchors[0].generated='parking_lanes';
+      return c;
+    };
+    const a=make(), b=make();
+    Object.assign(b.field.anchors[0],{key:9999,gx:204,gy:311,originGX:921,originGY:1234,rotation:3,owned:false});
+    const first=ZoneDressing.dress(a), second=ZoneDressing.dress(b);
+    assert.eq(JSON.stringify(first.objects),JSON.stringify(second.objects),'component identities do not reroll a cell');
+    assert.eq(first.nexus.length,0);assert.eq(first.guards.length,0);assert.eq(first.traps.length,0);
+    assert.eq(first.wildplants.length,0);assert.eq(first.lairs.length,0);
+    assert.truthy(first.objects.every(o=>o.kind==='mineralrock' && o.zoneLayer==='background'));
+    assert.inRange(first.objects.length,1500,1770,'dense forty-percent coverage');
+    const crystals=first.objects.filter(o=>o.deposit==='crystal');
+    assert.inRange(crystals.length,50,115,'about two percent of eligible cells are crystals');
+    assert.truthy(crystals.every(o=>o.yieldTier===4 && o.requiredTier===3));
+    assert.falsy(first.objects.some(o=>o.yieldTier===6 || o.yieldTier===7),'no rare metal ore in quarry');
+    // Every selected cell can be the component centre without becoming an
+    // implicit clearing or a fake POI seat.
+    const selected=first.objects[0], center=make();
+    Object.assign(center.field.anchors[0],{gx:(selected._ix+.5)*4096/center.N,gy:(selected._iy+.5)*4096/center.N});
+    assert.truthy(ZoneDressing.dress(center).objects.some(o=>o.id===selected.id));
+    const blocked=make(), idx=selected._iy*blocked.N+selected._ix;
+    blocked.spawnOpts.spawnWhy[idx]=WorldGen.SPAWN_WHY.RESTRICTED;
+    assert.falsy(ZoneDressing.dress(blocked).objects.some(o=>o.id===selected.id),'shared hard gates still apply');
+    const occupied=make();occupied.spawnOpts.occupied.add(idx);
+    assert.falsy(ZoneDressing.dress(occupied).objects.some(o=>o.id===selected.id),'existing seats remain protected');
+  });
   function pirateShrine() {
     const ctx = context('pirate_cove'), a = ctx.field.anchors[0], cell = WorldGen.CELL_M;
     ctx.grid.fill(WorldGen.T.SAND);
@@ -97,27 +126,28 @@
     assert.eq(out.wildplants.length, 3, 'only the finite gemfruit finds remain');
     assert.truthy(out.wildplants.every(o => o.crop === 'gemfruit' && o.zoneLayer === 'find'));
   });
-  test('zone dressing: giant mushroom art replaces only Mushroom Grove shrubs, retaining harvesting and identities', () => {
+  test('zone dressing: Mushroom Grove giant mushrooms have distinct rewards and preserve placement identities', () => {
     const grove = ZoneDressing.dress(context('mushroom_grove'));
-    const giants = grove.wildplants.filter(o => o.crop === 'shrub');
+    const giants = grove.wildplants.filter(o => o.crop === 'giant_mushroom');
     assert.gt(giants.length, 0);
     for (const o of giants) {
-      assert.eq(o._plantArt, 'giant_mushroom');
+      assert.eq(o._plantArt, undefined, 'distinct crop needs no shrub art override');
       assert.eq(o.kind, 'wildplant');
       assert.eq(o.id, WorldGen.cellId('wpf', 0, 0, o._ix, o._iy), 'existing shrub identity survives the art change');
-      assert.eq(wildplantRule(o.crop).output, 'wood');
+      assert.eq(JSON.stringify(wildplantRewards(o.crop)),JSON.stringify([{id:'wood',qty:1},{id:'mushroom',qty:1}]));
       assert.eq(wildplantSprite(o).sheet, 'giant_mushroom');
       assert.eq(wildplantFrame(o), 2);
     }
     assert.truthy(grove.wildplants.filter(o => o.crop === 'mushroom').every(o => o._plantArt === 'cap_cluster' && wildplantSprite(o).sheet === 'approved_mushroom_cluster'), 'forage gets its approved cluster look while keeping the mushroom crop');
     const ordinary = ZoneDressing.dress(context('meadow')).wildplants.filter(o => o.crop === 'shrub');
     assert.gt(ordinary.length, 0);
-    assert.truthy(ordinary.every(o => !o._plantArt && wildplantSprite(o).sheet === 'bushes'), 'other groves keep bushes');
+    assert.truthy(ordinary.every(o => !o._plantArt && wildplantSprite(o).sheet === 'bushes'), 'other groves use the same shrub');
   });
-  test('zone art: masonry, formal hedges and moss retain their original harvest identities', () => {
+  test('zone art: stone variants use ordinary rock art and formal hedges keep their harvest identity', () => {
     const masonry = ZoneDressing.dress(context('broken_masonry')).wildplants.filter(o => o.crop === 'rockfruit');
     assert.gt(masonry.length, 0);
-    assert.truthy(masonry.every(o => o._plantArt === 'masonry' && wildplantSprite(o).sheet === 'approved_masonry_rubble'));
+    assert.truthy(masonry.every(o => !o._plantArt && !wildplantSprite(o)?.sheet));
+    assert.eq(wildplantSprite({crop:'rockfruit',_plantArt:'masonry'})?.sheet, undefined, 'legacy masonry tags use ordinary loose stones');
     assert.eq(wildplantSprite({crop:'rockfruit'})?.sheet, undefined, 'ordinary stone keeps the crop sheet despite its placement-specific looks');
     assert.eq(inventoryIconSource('rockfruit').sheet, 'crops', 'harvest remains the same inventory item');
     for (const o of masonry) assert.eq(o.id, WorldGen.cellId(o.zoneLayer === 'background' ? 'wpf' : 'wz', 0, 0, o._ix, o._iy));
@@ -128,10 +158,11 @@
     assert.eq(wildplantSprite({crop:'shrub',_biome:16}).sheet, 'approved_clipped_hedge');
     assert.eq(wildplantSprite({crop:'shrub',_biome:6}).sheet, 'bushes');
     const stones = ZoneDressing.dress(context('stone_garden')).objects.filter(o => o.kind === 'mineralrock');
-    assert.truthy(stones.some(o => o._objectArt === 'moss'));
+    assert.gt(stones.length, 0);
+    assert.truthy(stones.every(o => !o._objectArt), 'stone gardens keep standard stone art');
     assert.truthy(stones.filter(o => o.yieldTier > 1).every(o => !o._objectArt), 'iron ore keeps its tier art');
     const looks = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC;
-    assert.eq(looks.mineralrock.key(stones.find(o=>o._objectArt==='moss')), 'approved_moss_rocks');
+    assert.eq(looks.mineralrock.key({}), 'mineralrock');
     assert.eq(looks.stakes.key({_street:'burned'}), 'approved_charred_stakes');
     assert.eq(looks.stakes.key({}), 'stakes');
   });

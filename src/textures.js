@@ -18,12 +18,12 @@
 const CASTLE_STONE = (() => {
   const mk = (n) => ({ n, s: '#' + n.toString(16).padStart(6, '0') });
   return {
-    LITE:   mk(0xcbd1c2),   // lit battlement tops / merlon crowns
-    BODY:   mk(0x989d91),   // battlement + parapet stone
-    FACE:   mk(0x7d8476),   // the tall extruded wall faces (and the turret column)
-    SIDE:   mk(0x777e70),   // E/W side-wall crenel dashes
-    SHADOW: mk(0x535d4e),   // shadow lines / joints
-    DARK:   mk(0x282e25),   // grounding line + silhouette
+    LITE:   mk(0xc2c7c2),   // lit battlement tops / merlon crowns
+    BODY:   mk(0x949895),   // battlement + parapet stone
+    FACE:   mk(0x7e837f),   // the tall extruded wall faces (and the turret column)
+    SIDE:   mk(0x797e7a),   // E/W side-wall crenel dashes
+    SHADOW: mk(0x575d59),   // shadow lines / joints
+    DARK:   mk(0x2c302d),   // grounding line + silhouette
   };
 })();
 
@@ -57,7 +57,7 @@ function unclaimedShade(rgb) {
   return (((ch(16) << 16) | (ch(8) << 8) | ch(0)) >>> 0);
 }
 // Unclaimed masonry retains its original weathering rather than shading the
-// much lighter restored palette. The final 10% treatment is applied after
+// much lighter restored palette. The final 5% treatment is applied after
 // painting, so mortar, translucent sludge and outlines keep their contrast.
 const UNCLAIMED_BUILDING_BASE = {
   floors: { 9: 0x9d6350, 11: 0x9b8365, 12: 0x787a80 },
@@ -68,7 +68,8 @@ const UNCLAIMED_BUILDING_BASE = {
 const UNCLAIMED_MATERIAL_PALETTE = [0x171717, 0x26342a, 0x3e4b2c, 0x403e34,
   0x777462, 0xb0aa8a, 0x4c3018, 0x6c431d].map(n => [(n >> 16) & 255, (n >> 8) & 255, n & 255]);
 const _unclaimedMaterialColours = new Map();
-// Matches the approved gentle colour/lightness study. Source shadows below
+// Half the approved colour/lightness treatment keeps gameplay masonry legible.
+// Source shadows below
 // 55 and bright glints above 235 remain exact; alpha never changes.
 function tuneUnclaimedMaterialPixels(pixels) {
   const luma = c => c[0] * .2126 + c[1] * .7152 + c[2] * .0722;
@@ -88,9 +89,9 @@ function tuneUnclaimedMaterialPixels(pixels) {
       const distance = source.reduce((sum, v, k) => sum + (v - light - (colour[k] - cl)) ** 2, 0);
       if (distance < best) { best = distance; target = colour.map(v => light + v - cl); }
     }
-    const adapted = source.map((v, k) => v + (target[k] - v) * .1);
-    const adaptedLight = luma(adapted), lifted = light + (255 - light) * .1;
-    for (let k = 0; k < 3; k++) pixels[i + k] = Math.max(0, Math.min(255, Math.round(lifted + (adapted[k] - adaptedLight) * .9)));
+    const adapted = source.map((v, k) => v + (target[k] - v) * .05);
+    const adaptedLight = luma(adapted), lifted = light + (255 - light) * .05;
+    for (let k = 0; k < 3; k++) pixels[i + k] = Math.max(0, Math.min(255, Math.round(lifted + (adapted[k] - adaptedLight) * .95)));
     if (_unclaimedMaterialColours.size >= 4096) _unclaimedMaterialColours.clear();
     _unclaimedMaterialColours.set(key, (pixels[i] << 16) | (pixels[i + 1] << 8) | pixels[i + 2]);
   }
@@ -132,37 +133,37 @@ const WATER_ANIM_MS = 220;
 // picks the phase from the wall clock when it builds the key.
 const BIOME_TEX = {
   0:  { variants: 2, draw: drawGrassTex },        // grass: tufts (procedural — sheet-tiling was abandoned, see git history)
-  1:  { variants: 2, patternOpacity: 0.5, draw: drawForestTex },       // forest: dense leaf litter
-  2:  { variants: 2, patternOpacity: 0.85, draw: drawSandTex },         // sand: horizontal ripple marks
+  1:  { variants: 2, patternOpacity: 0.75, draw: drawForestTex },       // forest: dense leaf litter
+  2:  { variants: 2, patternOpacity: 0.925, draw: drawSandTex },         // sand: horizontal ripple marks
   // Water animates: `animPhases` pre-baked frames per variant (the bands drift
   // downward one band-period per loop), stepped every `animMs`. See the
   // "Animated biome textures" note above makeBiomeTextures for why this is the
   // cheap way to animate every water cell at once.
   3:  { variants: 2, draw: drawWaterTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
-  4:  { variants: 2, patternOpacity: 0.8, draw: drawFarmlandTex },     // farmland: muddy pasture + grass
+  4:  { variants: 2, patternOpacity: 0.9, draw: drawFarmlandTex },     // farmland: muddy pasture + grass
   5:  { variants: 1, draw: drawResidentialTex },  // residential: concrete
   6:  { variants: 2, draw: drawParkTex },         // park: grass + flowers
   8:  { variants: 2, draw: drawPathTex },         // path: pebble grain
   9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
   11: { variants: 1, draw: drawWoodFloorTex },    // building_med: wooden plank floor
   12: { variants: 2, draw: drawCastleFloorTex },  // building_large / castle: subtle stone cobbles
-  10: { variants: 2, patternOpacity: 0.8, draw: drawRockTex },         // rock: cracks
+  10: { variants: 2, patternOpacity: 0.9, draw: drawRockTex },         // rock: cracks
   // Subtype splits — each biome gets its own low-res texture so it reads
   // qualitatively different from the others (see src/biome_profiles.js for the
   // matching flora/fauna/tint profile).
   15: { variants: 2, draw: drawSchoolTex },       // SCHOOL — mown grass bands
   16: { variants: 2, draw: drawCommercialTex },   // COMMERCIAL — grey ceramic floor tile
-  17: { variants: 1, patternOpacity: 0.8, draw: drawIndustrialTex },   // INDUSTRIAL — concrete + gravel
-  27: { variants: 2, patternOpacity: 0.8, draw: drawWastelandTex },    // WASTELAND — dry grit + dead scrub tufts
+  17: { variants: 1, patternOpacity: 0.9, draw: drawIndustrialTex },   // INDUSTRIAL — concrete + gravel
+  27: { variants: 2, patternOpacity: 0.9, draw: drawWastelandTex },    // WASTELAND — dry grit + dead scrub tufts
   // The influence-zone halos (src/zones.js).
   28: { variants: 2, draw: drawGroveTex },        // GROVE — lush clover sward
   29: { variants: 2, draw: drawChurchyardTex },   // CHURCHYARD — worn sward, stone chips
-  31: { variants: 2, patternOpacity: 0.8, draw: drawTarYardTex },      // TAR_YARD — oily ground, black pools
-  18: { variants: 2, patternOpacity: 0.8, draw: drawPlaygroundTex },   // PLAYGROUND — bark mulch
-  19: { variants: 2, patternOpacity: 0.88, draw: drawPitchTex },        // PITCH — mown stripes + chalk
+  31: { variants: 2, patternOpacity: 0.9, draw: drawTarYardTex },      // TAR_YARD — oily ground, black pools
+  18: { variants: 2, patternOpacity: 0.9, draw: drawPlaygroundTex },   // PLAYGROUND — bark mulch
+  19: { variants: 2, patternOpacity: 0.94, draw: drawPitchTex },        // PITCH — mown stripes + chalk
   20: { variants: 2, patternOpacity: 1, draw: drawWetlandTex },      // WETLAND — marsh mottle + glints
   21: { variants: 2, patternOpacity: 1, draw: drawGolfTex },         // GOLF — fine fairway stripes
-  22: { variants: 2, patternOpacity: 0.8, draw: drawOrchardTex },      // ORCHARD — dappled grass
+  22: { variants: 2, patternOpacity: 0.9, draw: drawOrchardTex },      // ORCHARD — dappled grass
   // PIER (type 23) — reuse the water ripple as base texture; render.js
   // overlays the wooden plank sprite on top via the cobblePool. Without
   // this entry the cell would fall back to bare colour with no ripple,
@@ -171,8 +172,8 @@ const BIOME_TEX = {
   // edge would break the "one body of water" read.
   23: { variants: 2, draw: drawWaterTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
   // Underground cave biome
-  24: { variants: 3, patternOpacity: 0.8, draw: drawCaveFloorTex }, // CAVE_FLOOR — packed grit + pebbles
-  25: { variants: 3, patternOpacity: 0.8, draw: drawCaveWallTex  }, // CAVE_WALL  — packed boulder faces
+  24: { variants: 3, patternOpacity: 0.9, draw: drawCaveFloorTex }, // CAVE_FLOOR — packed grit + pebbles
+  25: { variants: 3, patternOpacity: 0.9, draw: drawCaveWallTex  }, // CAVE_WALL  — packed boulder faces
   // CAVE_LAVA (26) — the WATER tile, ember palette (drawLavaTex): same bands,
   // same animation clock, so it reads as the same kind of thing gone red.
   26: { variants: 2, draw: drawLavaTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
@@ -1421,7 +1422,8 @@ function makeSprungTrapTexture(scene) {
 // just building the key with the clock-derived phase — no per-frame canvas
 // redraws, no texture uploads, no per-cell tweens. Each phase re-seeds the
 // SAME rng, so static features stay put and only the phase-driven motion moves.
-// Apply the approved mark contrast once when baking a biome. Raw painters
+// Restore mark strength halfway toward the original for gameplay readability.
+// Apply it once when baking a biome. Raw painters
 // remain available to the audit's original/proposal comparison.
 function drawBiomeTexture(ctx, size, type, variant = 0, phase = 0) {
   const spec = BIOME_TEX[type];

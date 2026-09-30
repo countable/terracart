@@ -362,8 +362,8 @@ test('tips: reach — the underground trim and the zero-energy floor are documen
 
 test('tips: the crop clock and the seed-back rate are the ones the code rolls', () => {
   const tip = PLAY_TIPS.find((t) => /plain watered crop/i.test(t));
-  assert.eq(Crops.STAGE_HOLD_MS, 15 * 60 * 1000, 'a tier-1 stage is 15 minutes');
-  assert.eq(Crops.stageHoldMs('coffee'), 3 * Crops.STAGE_HOLD_MS, 'finer crops take longer (the tip says so)');
+  assert.eq(Crops.STAGE_HOLD_MS, 2 * 60 * 1000, 'a tier-1 stage is 2 minutes');
+  assert.gt(Crops.stageHoldMs('coffee'), Crops.STAGE_HOLD_MS, 'finer crops take longer (the tip says so)');
   assert.truthy(/finer crops take longer/i.test(tip) && /better can shortens/i.test(tip), 'tier and can both named');
   assert.truthy(tip && tip.includes(`every ${shortDuration(Crops.STAGE_HOLD_MS)}`),
     'the course formats the owning growth duration');
@@ -513,10 +513,10 @@ test('tips: crates, barrels, pots of gold, bike racks and gates are told truthfu
 
 test('books: the derelict-lair tip is re-derived from lairs.js', () => {
   // Garrisons and their enemies are shared across player modes.
-  assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 15, 'the tip says "can hide fifteen"');
-  assert.eq(Lairs.capFor(12, 1), 15);
+  assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 10, 'the tip says "can hide ten"');
+  assert.eq(Lairs.capFor(12, 1), 10);
   assert.gt(Lairs.TIER_GUARDS[12], Lairs.TIER_GUARDS[9]);
-  const tip = PLAY_TIPS.find((t) => /a castle can hide fifteen/i.test(t));
+  const tip = PLAY_TIPS.find((t) => /a castle can hide ten/i.test(t));
   assert.truthy(/^In either mode,/.test(tip), 'garrisons occur in both modes');
   assert.truthy(Difficulty.PROFILES.easy.derelictLairs);
   assert.truthy(Difficulty.PROFILES.hard.derelictLairs);

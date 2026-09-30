@@ -37,8 +37,11 @@ the browser renders proposed RGB palette swaps beside them using
 colour ramps are assigned by source brightness. Dimensions and alpha are
 preserved exactly. The six defaults are exported to `assets/Objects/Rustic/` with
 `tools/apply_nature_recolours.py`, including matching growth and broken-pot
-states. The clipped hedge is used on hedged lanes; formal-garden / residential /
-commercial shrubs now use the approved clipped-hedge context art. The game has no seasons.
+states. Shrubs have two appearances: the basic bush and the approved cut hedge at 80%
+of its former residential display size. Both share shrub mechanics, and neither
+receives biome tint. The cut hedge has a soft contact shadow behind its lower third.
+Timber trees use maple or pine sprout, young and mature frames at one scale per
+species; their size classes retain their harvest tiers and yields. Biomes do not tint sprites. Long grass keeps its standard art and wetland reeds context; mushrooms retain the surface cap, two cave caps, and Mushroom Grove cap cluster. The game has no seasons.
 
 Generate both linked review pages and palette exports (Pillow and Node required):
 
@@ -62,9 +65,8 @@ frames. Baked unclaimed buildings bypass the old runtime wash to keep their slud
 and weathering visible. Chapel, macro POI booths, actors and other retained art
 remain unchanged.
 
-The six sprite contexts are wetland-edge reeds, formal/residential/commercial
-hedges, Mushroom Grove cap clusters, Stone Garden moss stones, Broken Masonry
-rubble and Burned Row stakes. Ancient Grove and Silent Circle also use their
+The sprite contexts are wetland-edge reeds, Mushroom Grove cap clusters and
+Burned Row stakes. Rocks use their ordinary art without moss, beach or masonry looks. Shrubs use the basic bush or the smaller cut hedge, with the same mechanics. Ancient Grove and Silent Circle also use their
 approved ground accents. Context selection preserves placement IDs, quantities,
 loot and interaction types.
 
@@ -81,6 +83,13 @@ installed generated-material colours. The audit dashboard reads baked sprite
 outputs directly, so no second colour treatment is applied. The sandbox comparison
 captures the installed game against the preserved before image; pass `--baseline`
 when generating into a new output directory after application.
+
+Ground-pattern attenuation is now halfway back toward its pre-recolour strength
+(for example forest 0.50 → 0.75 and rock 0.80 → 0.90), following gameplay review.
+Building footprint floors, wall faces and restored castle masonry likewise use
+the midpoint of the original and approved palettes. Unclaimed footprint material
+receives a 5% treatment instead of 10%. Terrain base colours and sprite sheets
+retain their approved treatment. These values live in the shared runtime painters.
 
 ## Active map-art audit
 
@@ -134,10 +143,15 @@ contrast references beside the proposed art.
 The rejected ground tileset alternatives remain in source details: the actual
 procedural materials are better suited to arbitrary map polygons.
 
-Mushroom Grove uses the red giant mushroom (32 × 48 frame 2) from
-`art-source/sprites/Fantasy Mushroom.png`, copied unchanged to the Wilderness
-assets. These are shrub interactables with the same harvesting and wood drops;
-ordinary shrubs elsewhere retain their woodland bush art.
+Mushroom Grove has distinct giant mushrooms: axe harvesting gives one wood and
+one mushroom. Their tall sprites seat their base inside the cell,
+like trees. Ordinary shrubs retain only the basic bush and smaller cut hedge.
+Mushroom forage retains its cap-cluster art and mushroom harvesting. The surface
+toadstool and cap cluster share baked muted red and cream colors. Rockfruit stone
+pixels use the approved ore rocks’ grey palette across growth and inventory
+frames, including player-placed rocks; foliage and sprite alpha are preserved.
+Carnivorous plants use a muted olive multiply tint from their shared enemy-roster
+row, so gameplay, zone previews and the foliage audit agree.
 
 ## Sandbox comparison
 
@@ -177,6 +191,10 @@ original colour than the earlier proposal; sports pitch pattern strength is 88%
 of original. Seam fixes live in the runtime
 terrain painters so randomly adjacent variants share compatible boundaries.
 
+The cut hedge uses the same muted green direction as the pine: its baked
+recipe shifts foliage hue 12 degrees toward pine, then reduces saturation
+and brightness by 10% each. Its silhouette, alpha and ground shadow stay intact.
+
 The pine foliage treatment includes cyan shadows that the general green mask
 missed, and warms mint highlights at the same shading luminance. Other flora
 strengths are unchanged.
@@ -188,16 +206,17 @@ Pirate Cove's active shipwreck shrine uses the unchanged generated PNG from
 reserved 3 × 3 cells. It remains one daily shrine, not extra rewards.
 The Beach folder's driftwood and beach rock come from Core Systems Asset
 Factory's Verdant Props 16×16 pack; its included license permits use in games.
-Only beach-variant pickup looks use these assets; their item identities and
-inventory icons stay wood and rock. The existing cowrie shell colors remain.
+Beach rock and driftwood alternates are retired; pickups use their standard art
+everywhere. Their item identities and inventory icons stay wood and rock. The
+existing cowrie shell colors remain.
 
 
 ## Foliage and rock comparison
 
 The dedicated comparison exports current runtime appearances, including timber
-sizes and growth frames, fruit-tree overlays, both hedge looks, giant mushrooms,
-plain/moss/ore rocks, loose stone and beach looks, crop stages, plant enemies and
-biome tints. Source sheets are embedded unchanged; approved-output provenance is
+sizes and growth frames, fruit-tree overlays, both shrub looks, mushrooms,
+plain/ore rocks, loose stone, crop stages, plant enemies and
+authored context art. Fallen wood uses only look 2 for every quantity. Source sheets are embedded unchanged; approved-output provenance is
 not a claim that every frame matches the motif. Pin appearances to compare at a
 shared game scale, or switch to sprite detail for colour inspection.
 
@@ -208,3 +227,12 @@ python3 tools/preview_foliage_audit.py --output /tmp/foliage-audit
 The self-contained HTML and `audit.json` come from `export_foliage_audit.js`, which
 uses the shipping object resolver and crop-render branch. The audit omits light,
 fog, shadows and tool-lock fading. It makes no game-art changes.
+
+
+## Quarry crystal cluster
+
+`assets/Objects/Wilderness/crystal_cluster.png` is the unchanged 16×16
+`crystal_cluster` tile from Verdant Props (Core Systems Asset Factory, 2026).
+The pack licence is preserved beside it. Mineral-rock records with
+`deposit: 'crystal'` use this cluster at the shared rock scale and measured
+cell-centred seating; ordinary stone and ore artwork are unchanged.

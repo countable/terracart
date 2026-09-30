@@ -165,6 +165,9 @@
   // _seatFaunaOnFavouriteGround) — each of the tile's own spawns of that
   // species moves onto the zone's ground with probability p. Not an add.
   const ZONE_KINDS = {
+    quarry: { code: 5, R: 21, terrain: 'ROCK', story: 'zone_stones', title: 'Quarry',
+      body: 'Broken stone fills the old lanes. Blue crystals glint among the rubble.',
+      flash: 'A quarry of broken stone.' },
     beach: { code: 4, R: 80, terrain: 'GROVE', story: 'zone_grove', title: 'The shore',
       body: 'An old shrine stands above the sand.', flash: 'The shore opens ahead.' },
     grove: { code: 1, R: 60, terrain: 'GROVE', story: 'zone_grove', title: 'A sacred grove',
@@ -179,7 +182,8 @@
       body: 'Oil stains the old fuel yard black, and the tar drags at your feet. Mind where you step.',
       flash: 'The tar yard. Mind your feet.' },
   };
-  const KIND_BY_CODE = [null, 'grove', 'stones', 'tar', 'beach'];
+  const KIND_BY_CODE = [null];
+  for (const [kind, row] of Object.entries(ZONE_KINDS)) KIND_BY_CODE[row.code] = kind;
   const R_MAX_M = Math.max(...Object.values(ZONE_KINDS).map((k) => k.R));
   const R_EDGE_MAX_M = R_MAX_M * (1 + EDGE_JITTER);
 
@@ -189,6 +193,7 @@
   // (groundSteps). (Other faiths' rock squares / rings are gone with their
   // anchors — Sep 2026: another faith's house of prayer mints nothing.)
   const ASPECTS = {
+    quarry: ['quarry'],
     beach: ['tree_ring'],
     grove: ['rose_rings', 'tree_ring', 'rose_in_trees', 'compass_roses', 'flower_beds', 'diagonal_trees', 'diagonal_shrubs'],
     stones: ['graves'],

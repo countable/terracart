@@ -251,33 +251,25 @@
       "color": "#ad8055",
       "recordType": "wildplant"
     },
-    "giant_mushroom": {
-      "kind": "wildplant",
-      "crop": "shrub",
-      "spawnClass": "minor",
-      "color": "#c36259",
-      "_plantArt": "giant_mushroom"
-    },
     "carnivorous_plant": {
       "kind": "plant",
       "recordType": "enemy",
       "spawnClass": "enemy",
       "color": "#9cbd56"
     },
-    "beach_rubble": {
+    "giant_mushroom": {
       "kind": "wildplant",
-      "crop": "rockfruit",
+      "crop": "giant_mushroom",
       "spawnClass": "minor",
-      "color": "#858d9c",
-      "_plantArt": "beach"
+      "color": "#947051"
     },
-    "beach_driftwood": {
-      "kind": "wildplant",
-      "crop": "driftwood",
-      "spawnClass": "minor",
-      "color": "#ad8055",
-      "recordType": "wildplant",
-      "_plantArt": "beach"
+    "crystal": {
+      "kind": "mineralrock",
+      "deposit": "crystal",
+      "yieldTier": 4,
+      "requiredTier": 3,
+      "spawnClass": "attractor",
+      "color": "#8ccfe3"
     }
   },
   "variants": [
@@ -1292,7 +1284,7 @@
           "spider"
         ]
       },
-      "atmosphere": "Staggered mushroom pairs repeat every six cells, with giant mushrooms between them. The close-set caps lead to a crescent and its luminous flower.",
+      "atmosphere": "Staggered mushroom pairs repeat every six cells, with giant woody mushrooms between them. The close-set caps lead to a crescent and its luminous flower. Chop a giant mushroom for both wood and a mushroom.",
       "attracts": {
         "butterfly": 0.5
       },
@@ -3599,10 +3591,7 @@
         "mode": "none"
       },
       "atmosphere": "Three concentric stone rings surround the POI, with softer grass rings between. Every fifth stone is iron, creating a regular metallic rhythm through the circles.",
-      "attracts": {},
-      "materialLooks": {
-        "stone": "moss"
-      }
+      "attracts": {}
     },
     {
       "id": "ordered_graves",
@@ -4532,10 +4521,7 @@
         "fallback": "omit_guard_keep_find"
       },
       "atmosphere": "Repeated piles suggest fallen walls; one displaced line ends at a platinum-bearing rock guarded by a club goblin.",
-      "attracts": {},
-      "materialLooks": {
-        "rubble": "masonry"
-      }
+      "attracts": {}
     },
     {
       "id": "silent_circle",
@@ -6683,49 +6669,49 @@
               2,
               2
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
               2,
               3
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
               2,
               4
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
               3,
               5
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
               4,
               5
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
               5,
               4
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
               5,
               3
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
@@ -6753,21 +6739,21 @@
               1,
               6
             ],
-            "material": "beach_rubble"
+            "material": "rubble"
           },
           {
             "at": [
               5,
               6
             ],
-            "material": "beach_rubble"
+            "material": "rubble"
           }
         ],
         "nominalDensity": 0.1875,
         "materialDensity": {
           "shell": 0.046875,
-          "beach_rubble": 0.03125,
-          "beach_driftwood": 0.109375
+          "rubble": 0.03125,
+          "driftwood": 0.109375
         },
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
@@ -6843,7 +6829,7 @@
       "attracts": {
         "crow": 0.35
       },
-      "atmosphere": "Driftwood ribs and shell fragments surround one shipwreck shrine, with a reserved 3 × 3-cell footprint and one daily gift. A pirate grunt and gunner hold the separate gold-ore find. If the full wreck cannot fit on dry sand, the accessible small shrine remains."
+      "atmosphere": "Driftwood ribs and shell fragments surround one shipwreck shrine, with a reserved 3 \u00d7 3-cell footprint and one daily gift. A pirate grunt and gunner hold the separate gold-ore find. If the full wreck cannot fit on dry sand, the accessible small shrine remains."
     },
     {
       "id": "shellwater_strand",
@@ -6877,13 +6863,13 @@
               2,
               3
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           }
         ],
         "nominalDensity": 0.2,
         "materialDensity": {
           "shell": 0.13333333333333333,
-          "beach_driftwood": 0.06666666666666667
+          "driftwood": 0.06666666666666667
         },
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
@@ -6940,14 +6926,14 @@
               -1,
               1
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
               1,
               1
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           }
         ],
         "relocation": {
@@ -7000,6 +6986,62 @@
         "butterfly": 0.35
       },
       "atmosphere": "Short shell ribbons and one driftwood seat repeat in a narrow 3 \u00d7 5 frame. Open sand separates them; the two wild roses stay on eligible landward vegetation."
+    },
+    {
+      "id": "quarry",
+      "zone": "quarry",
+      "name": "Quarry",
+      "weight": 1,
+      "generated": "parking_lanes",
+      "source": "parking_lanes",
+      "background": {
+        "type": "seeded_scatter",
+        "densityFalloff": "none",
+        "phaseOrigin": "global_tile_cell",
+        "orientation": "none",
+        "nominalDensity": 0.4,
+        "materialDensity": {
+          "stone": 0.38,
+          "crystal": 0.02
+        },
+        "seed": "source + tile_coordinates + local_cell_coordinates; independent_of_component_center",
+        "sampling": "alternate_rows_with_seeded_gaps; occupancy_adjusted_for_row_fraction; independent_material_hash",
+        "previewCells": [
+          24,
+          24
+        ],
+        "poiOrigin": {
+          "cell": [
+            0,
+            0
+          ],
+          "role": "no_landmark"
+        },
+        "rows": {
+          "axis": "horizontal",
+          "spacingCells": 2,
+          "lineWidthCells": 1
+        }
+      },
+      "poi": {
+        "id": "none",
+        "origin": "none",
+        "slots": []
+      },
+      "finds": {
+        "rarity": "none",
+        "material": "stone",
+        "targets": [],
+        "count": 0
+      },
+      "connection": {
+        "shape": "none"
+      },
+      "guards": {
+        "mode": "none"
+      },
+      "atmosphere": "Broken stone rows fill removed parking lanes and nearby ground. Blue crystal clusters occupy about 2% of eligible cells and yield Sapphires. No landmark, special lighting or fixed guards.",
+      "attracts": {}
     }
   ]
 }

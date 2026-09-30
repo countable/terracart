@@ -233,7 +233,7 @@ const streetLampDarkFrame = (tier) => {
 // shows round them), and their 57% alpha. Read through streetLampDarkCells for
 // the same reason as the frame: the T codes are looked up live rather than
 // retyped wherever the art is drawn.
-const STREET_LAMP_DARK_CELLS = { road: 0.64, path: 0.584 };
+const STREET_LAMP_DARK_CELLS = RoadOverlay.LAMP_DARK_CELLS;
 const streetLampDarkCells = (tier) => {
   const T = (typeof WorldGen !== 'undefined' && WorldGen.T) || {};
   return tier === T.PATH ? STREET_LAMP_DARK_CELLS.path : STREET_LAMP_DARK_CELLS.road;
@@ -1110,10 +1110,11 @@ const COLORS = {
   6: 0xa0ac7c,  // park — unmown, going to seed
   7: 0x474441,  // road — asphalt with dust blown over it
   8: 0xaaa090,  // path — a worn grey dust track
-  9: 0xbda18a,  // building — small house: weathered brick
+  // Building footprints: halfway between original and approved recolour.
+  9: 0xad826d,  // building — small house: weathered brick
   10: 0xa09a8c, // rock
-  11: 0xb9a789, // building_med — weathered grey-brown plank floor
-  12: 0xaaaca9, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
+  11: 0xaa9577, // building_med — weathered grey-brown plank floor
+  12: 0x919395, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
   13: 0x3b3936, // road_lg (motorway/trunk/primary) — darkest
   14: 0x413f3b, // road_md (secondary/tertiary)
   // --- Subtype splits — each tile fits into one of three base biomes ---
@@ -11886,9 +11887,10 @@ class MapScene extends Phaser.Scene {
   // opts.maxTier caps the roll at a themed relic shop's tier (Gear.buildRelicOffer).
   peekOrBuildRelicOffer(house, opts = {}) {
     const castle = isCastle(house);
-    if (!house?.id) return this.buildRelicOffer(Math.random, { isCastle: castle, ...opts });
+    const isBlacksmith = !castle && this.houseShopRole(house) === 'blacksmith';
+    if (!house?.id) return this.buildRelicOffer(Math.random, { isCastle: castle, isBlacksmith, ...opts });
     const rng = this.shopRng(house, 'relic');
-    return this.buildRelicOffer(rng, { isCastle: castle, ...opts });
+    return this.buildRelicOffer(rng, { isCastle: castle, isBlacksmith, ...opts });
   }
 
   // Pick a random relic OR armor piece the player can actually use — meaning
@@ -12683,97 +12685,9 @@ class MapScene extends Phaser.Scene {
   // glow can never be left behind on the tarmac.
   _streetLampsForTile(tx, ty, entry) {
     if (entry._streetLamps) return entry._streetLamps;
-    const out = [];
-    const tileEdgeM = entry.tileEdgeM;
-    if (typeof Streets === 'undefined' || !entry.layers || !(tileEdgeM > 0)) {
-      // A MISS IS NEVER MEMOISED — the same rule _neighborZoneCache keeps, and
-      // the reason no lamp ever lit until Sep 2026. A tile's entry goes into
-      // WorldGen.tileCache the moment its FETCH starts, with no `layers` on it
-      // until the build finishes seconds later; this pass runs every frame, so
-      // it always meets a tile in that state. Writing the empty answer onto
-      // the entry froze it there forever — the entry IS the cache — and every
-      // tile in the world was scanned while it was still loading, so every
-      // tile had no lamps for the rest of the session. Hand back the empty
-      // list uncached and let the next frame ask again.
-      return out;
-    }
-    const ox = tx * tileEdgeM, oy = ty * tileEdgeM;
-    const tileKey = WorldGen.tileKey(tx, ty);
-    // The stone's radius in metres, in this tile's own basis — the second
-    // half of every verge offset below.
-    const cellM = (entry.cellsPerEdge > 0) ? tileEdgeM / entry.cellsPerEdge : (this.cellM || 0);
-    const footRM = STREET_LAMP_R_CELLS * cellM;
-    // LANTERN ROW (src/street_variants.js) is this lane, denser: a line whose
-    // street rolled 'lantern' stands its lamps at StreetVariants.lampSpacingFor
-    // — the same lamp, the same lit-when-restored rule, no prop of its own.
-    // The index keys lines by (feature, line) position in this same layer.
-    // THE GLOW is the same record's: StreetVariants.lampGlowFor(rec) — the
-    // variant's colour, torch orange for an unthemed major road, else null →
-    // the default UI_LAMP_GLOW. Resolved ONCE per lamp onto `glow`, the one
-    // value both the baked art (streetLampTexKey) and the light
-    // (Lighting.collectLamps) read.
-    const lineRecs = new Map();
-    const hasVariants = typeof StreetVariants !== 'undefined';
-    if (entry.streetIndex && hasVariants) {
-      for (const rec of entry.streetIndex.lines) lineRecs.set(`${rec.fi}:${rec.li}`, rec);
-    }
-    for (const layer of entry.layers) {
-      if (layer.name !== 'transportation') continue;
-      const extent = layer.extent || 4096;
-      const mvtToM = tileEdgeM / extent;
-      for (let fi = 0; fi < layer.features.length; fi++) {
-        const f = layer.features[fi];
-        if (f.type !== 2 || !f.geom) continue;          // lines only
-        const cls = (f.tags && f.tags.class) || '';
-        if (cls === 'rail' || cls === 'transit') continue;
-        if (WorldGen.isParkingAisle(f.tags)) continue;
-        const tier = WorldGen.classifyLine ? WorldGen.classifyLine('transportation', f.tags || {}) : null;
-        // How far off the centreline this way's lamps stand: its own band's
-        // half-width plus the stone. Per FEATURE — the width is a function of
-        // the way's class, so it is the same for every line and every lamp
-        // this feature carries.
-        const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}), footRM);
-        for (let i = 0; i < f.geom.length; i++) {
-          const line = f.geom[i];
-          if (!line || line.length < 2) continue;
-          const rec = lineRecs.get(`${fi}:${i}`) || null;
-          // How this line lays its lamps (Streets.lampLayFor): Lantern Row's
-          // own spacing, else a WALKING PATH's denser one (with the street's
-          // floor), else the street's. `spacingM` rides on every lamp as the
-          // gap it was actually laid at (length / count) — the metres a
-          // living-lamp visit pays (Streets.lampCredit).
-          const baseLay = Streets.lampLayFor(f.tags || {},
-            (rec && rec.variant === 'lantern') ? StreetVariants.lampSpacingFor('lantern') : 0);
-          const spans = Streets.tileSpans(line, mvtToM, extent);
-          if (!spans.length) continue;
-          const lineKey = Streets.lineKey(f, i);
-          const path = Streets.isWalkingPath(f.tags || {});
-          const styles = hasVariants ? StreetVariants.lineStyles(entry, f, fi, i, mvtToM)
-            : [{ a: 0, b: Streets.lineLengthM(line, mvtToM), variant: null }];
-          for (const style of styles) {
-            const lay = { ...baseLay, spacingM: hasVariants
-              ? StreetVariants.lampSpacingFor(style.variant, Streets.lampLayFor(f.tags || {}).spacingM)
-              : baseLay.spacingM };
-            const part = Streets.subLineM(line, mvtToM, style.a, style.b);
-            const at = Streets.lampsAlong(part, 1, lay.spacingM, lay.minLenM);
-            if (!at.length) continue;
-            const spacingM = (style.b - style.a) / at.length;
-            const creditM = Streets.lampCreditM(spacingM, path);
-            const glow = (hasVariants && StreetVariants.lampGlowFor({ variant: style.variant, size: style.size })) || UI_LAMP_GLOW;
-            for (const offset of at) {
-              const sM = style.a + offset;
-              if (!Streets.covers(spans, sM)) continue;
-              const q = Streets.pointAtM(line, mvtToM, sM, offM);
-              if (!q) continue;
-              const zoneGlow = typeof ZoneVariants !== 'undefined'
-                ? ZoneVariants.lampGlowAt(entry, Math.floor(q.x / cellM), Math.floor(q.y / cellM)) : null;
-              out.push({ tileKey, lineKey, tier, glow: zoneGlow || glow, s: sM, x: ox + q.x, y: oy + q.y, spacingM, path, creditM,
-                         id:`lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
-            }
-          }
-        }
-      }
-    }
+    // Never cache a loading tile's empty list.
+    if (!entry.layers || !(entry.tileEdgeM > 0) || typeof Streets === 'undefined') return [];
+    const out = RoadOverlay.lampSitesForTile(tx, ty, entry);
     entry._streetLamps = out;
     return out;
   }

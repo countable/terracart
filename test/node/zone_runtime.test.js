@@ -122,6 +122,28 @@
     }
   });
 
+  test('zone runtime: absent street attractors cannot strengthen a zone affinity', () => {
+    const N = 64, grid = new Uint8Array(N * N).fill(WorldGen.T.GRASS);
+    const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 7 });
+    const run = marks => {
+      const creatures = Array.from({length:1000}, (_,i) => ({kind:'crow', id:`crow_${i}`, x:-1, y:-1}));
+      const entry = { streetMarks:marks, zone:{coverage:new Uint16Array(N*N).fill(1),
+        anchors:[{kind:'beach',variant:'pirate_cove'}]} };
+      const moved = scene._seatFaunaOnFavouriteGround(entry,0,0,N,7,grid,
+        {spawnWhy:new Uint16Array(N*N)},creatures,null,[],new Set());
+      return {moved:moved.crow, creatures};
+    };
+    const baseline = run(null);
+    assert.inRange(baseline.moved,300,400,'Pirate Cove retains its configured 35% pull');
+    for (const marks of [new Uint8Array(N*N), new Uint8Array(N*N).fill(StreetVariants.STREET_VARIANTS.find(r=>r.id==='hedgerow').code)]) {
+      assert.eq(JSON.stringify(run(marks)),JSON.stringify(baseline),'empty or unrelated street marks cannot alter crow draws or seats');
+    }
+    const pilgrim = new Uint8Array(N*N).fill(StreetVariants.STREET_VARIANTS.find(r=>r.id==='pilgrim').code);
+    const present = run(pilgrim);
+    assert.inRange(present.moved,450,550,'a present Pilgrim road still contributes its configured 50% pull');
+    assert.gt(present.moved,baseline.moved,'present stronger grounds still take effect');
+  });
+
   test('fauna overlap: static interactables permit animals while blocking enemies and traps', () => {
     const N = 32, scene = Object.assign(new SceneCreatures(), {
       tileEdgeM: N * 10, save: { caught: [] }, startWorldM: { x: -5000, y: 0 },

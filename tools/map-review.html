@@ -133,15 +133,18 @@ const toM = (lat, lon, edge) => {
 };
 
 // ── Building the world around a Home ────────────────────────────────────────
-let raw = null;          // [{ tx, ty, layers }] — decoded once
+let raw = null;          // [{ tx, ty, layers, bin }] — decoded / fetched once
 let EDGE = 0;            // the one tileEdgeM the scene uses (the start row's, as app.js does)
 async function fetchTiles() {
   raw = [];
   const list = tileList();
   EDGE = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(list[Math.floor(list.length / 2)][1]));
   for (const [tx, ty] of list) {
-    const b = await tileBytes(tx, ty);
-    if (b) raw.push({ tx, ty, layers: MVT.decodeTile(b) });
+    const [b, bin] = await Promise.all([
+      tileBytes(tx, ty),
+      WorldGen.getTileBin(tx, ty, WorldGen.latOfRowCentre(ty)),
+    ]);
+    if (b) raw.push({ tx, ty, layers: MVT.decodeTile(b), bin });
   }
 }
 
@@ -174,10 +177,20 @@ function buildWorld(home) {
   WorldGen.tileCache.clear();
   const scene = reviewScene(home);
   const tiles = [];
-  for (const { tx, ty, layers } of raw) {
+  for (const { tx, ty, layers, bin } of raw) {
     const N = WorldGen.cellsPerEdgeForTile(ty);
     const r = WorldGen.rasterizeTile(layers, N, tx, ty, EDGE);
     const entry = Object.assign({ tx, ty, cellsPerEdge: N, tileEdgeM: EDGE, layers }, r);
+    entry.objects = r.objects.slice();
+    // Match loadTile: keep the generated layer stable, then seat real-world
+    // trees before authored dressing is replayed by spawnInTile. Cached bin
+    // rows are cloned by injectTileBin, so rerolls and moving Home reuse them.
+    WorldGen.maybePlaceCaveEntrance(entry, tx, ty, EDGE, r.objects, r.wildplants);
+    entry.baseGrid = entry.grid.slice();
+    entry.genObjects = entry.objects.slice();
+    entry.hadBin = !!bin;
+    WorldGen.injectTileBin(entry, bin, tx, ty);
+    WorldGen.stampPoiDensity(entry.objects);
     ZoneReview.capture(entry);
     WorldGen.tileCache.set(WorldGen.tileKey(tx, ty), entry);
     tiles.push(entry);
@@ -407,6 +420,7 @@ function selectZone(id, focus) {
   const lines = [`<b>${esc(z.variant?.name || 'No variant')}</b> · ${esc(z.name || z.anchor.kind)}`,
     `${z.coverage} coverage cells · ${z.eligible} free eligible cells before placement`,
     `Finds ${z.finds.join('/')} · guards ${z.guards.join('/')}`];
+  if (z.variant?.generated === 'parking_lanes') lines.push('Generated from removed parking lanes · Quarry background only; no POI, shrine, finite finds, guards or light source.');
   if (bg.planned != null) lines.push(`<b>Background: ${bg.placed || 0}/${bg.planned} slots placed</b><br>`
     + `${bg.occupied || 0} occupied by earlier spawns · ${bg.blocked || 0} refused by terrain/spawn rules · ${bg.reserved || 0} used by POI/find/connection layout`);
   lines.push(`Suppressed earlier placements: ${z.suppressed.ambient} general · ${z.suppressed.street} street`);
@@ -651,7 +665,7 @@ function overlays(world) {
         const slot = e.zone.coverage[i];
         if (!slot) continue;
         const a = e.zone.anchors[slot - 1];
-        g.fillStyle = { grove: '#3fd06a', stones: '#b8c0d0', tar: '#ff8a2a' }[a.kind];
+        g.fillStyle = { grove: '#3fd06a', stones: '#b8c0d0', tar: '#ff8a2a', beach: '#e1c481', quarry: '#9d9b8b' }[a.kind];
         g.fillRect(i % N, (i / N) | 0, 1, 1);
       }
     });
@@ -696,7 +710,7 @@ function overlays(world) {
   // with its numbers on click.
   if (typeof Zones !== 'undefined') {
     const zg = groups['Influence zones (anchors, R)'] = L.layerGroup();
-    const ZC = { grove: '#3fd06a', stones: '#b8c0d0', tar: '#ff8a2a' };
+    const ZC = { grove: '#3fd06a', stones: '#b8c0d0', tar: '#ff8a2a', beach: '#e1c481', quarry: '#9d9b8b' };
     const seen = new Set();
     for (const e of world.tiles) {
       for (const a of (e.zone && e.zone.anchors) || []) {
@@ -704,6 +718,13 @@ function overlays(world) {
         if (seen.has(key)) continue;
         seen.add(key);
         const ll = toLL(a.gx * EDGE / 4096, a.gy * EDGE / 4096, EDGE);
+        if (a.generated === 'parking_lanes') {
+          L.circleMarker(ll, { radius: 3, color: ZC.quarry, weight: 1, fillOpacity: .4 })
+            .bindTooltip('Quarry · parking-lane component reference; not a POI')
+            .bindPopup('<b>Quarry</b><br>Coverage comes from buffered parking-lane geometry, not this reference point. No POI or light source.')
+            .addTo(zg);
+          continue;
+        }
         L.circle(ll, { radius: a.R, color: ZC[a.kind] || '#fff', weight: 1, fillOpacity: 0.08 })
           .bindTooltip(`${a.kind} · R ${a.R.toFixed(0)} m`)
           .bindPopup(`<b>${esc(a.kind)}</b>${a.kind === 'stones' ? (a.ghosts ? ' (ghosts)' : ' (quiet)') : ''}<br>`

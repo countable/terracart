@@ -72,7 +72,12 @@
       candidates.push(...keep);
     }
 
-    const tierW = (t) => 1 / Math.pow(2, t - 1);
+    // A Wood-stage smith more often offers the next affordable material.
+    // Keep every tier possible, and leave other shops and later progression
+    // on the original curve, including their exact seeded choices.
+    const woodStageSmith = opts.isBlacksmith &&
+      ![...Object.values(save.relics || {}), ...Object.values(save.armor || {})].some(gear => gear?.tier > 1);
+    const tierW = (t) => (woodStageSmith ? (t === 2 ? 1.5 : t > 2 ? 0.75 : 1) : 1) / Math.pow(2, t - 1);
     const relicSum = candidates.filter((c) => c.kind === 'relic').reduce((a, c) => a + tierW(c.tier), 0);
     const armorSum = candidates.filter((c) => c.kind === 'armor').reduce((a, c) => a + tierW(c.tier), 0);
     const relicNorm = relicSum > 0 ? 1 / relicSum : 0;

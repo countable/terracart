@@ -27,6 +27,7 @@ Repeating motifs prefer at most 6 × 6 cells, with a hard maximum of 8 cells on 
 - Keep compact beds whole when blocked. Continuous grid lines are clipped only by the coverage boundary, reserved POI space, and ineligible or occupied cells; never discard an entire long line because one cell is blocked. Do not introduce decorative gaps or replace missing segments with random scatter. Existing roads, buildings, restricted land and spawn buffers remain authoritative.
 - Common material uses the minor spawn gate. Finds use attractor eligibility. Guards and headstones use enemy eligibility. A blocked headstone falls back to ordinary stone; a blocked guard is omitted without removing its find.
 - Zone ground styling overrides ordinary land zoning throughout the coverage union. Roads, drawn road bands, paths, piers, water and buildings retain their visible footprint; source-land spawn restrictions and trap rules remain authoritative.
+- Themed surface encounters use `EnemyHabitats.SURFACE_FAMILIES` and `SURFACE_ENCOUNTERS`: one roll per 12-cell square, mostly singles with occasional pairs or trios. Group members start within two cells of their leader inside the same zone, respect occupied features and enemy spawn gates, and retain normal Home, daylight and tutorial visibility rules. Defeats remove fixed identities without rerolling survivors. These encounters are separate from finite guards and generic ambient enemies.
 - Fauna may share cells with interactables and do not reserve layout cells. Their terrain and road restrictions still apply; guards and other enemies retain occupancy checks.
 - Grove shrines remain the existing one-per-POI daily interactable, separate from the finite ground finds. Headstone ghosts retain their current interaction behavior.
 
@@ -37,6 +38,12 @@ Cover the union of the ragged influence footprint, its associated park polygon, 
 Associate parks through the source polygon containing the anchor, not proximity to arbitrary parks. Resolve overlap once per global cell using the existing influence-strength/kind/key ordering; fringe-only ties use the stable anchor key. Then apply the shared spawn gate. Real cemeteries and other quiet/restricted areas remain excluded. Unnamed parks keep their existing fringe behavior without acquiring extra zone rewards.
 
 The variant frame extends continuously over this union. Fixed compositions such as Work Yard intersect their declared footprint with the union; they do not stretch, repeat, or grow extra rooms to fill irregular extensions. Finite find targets retain their influence-radius coordinates as the first choice, then search valid alternatives in the union. Expanding coverage does not multiply the per-anchor find or guard count.
+
+## Generated Quarry zones
+
+Parking-lane geometry generates Quarry coverage instead of becoming a visible road. Connected lane buffers merge into a coverage region, extending 21 metres from the source lines. The source lanes remain absent from pavement, street variants, lamps and road restoration. Actual access roads remain roads and keep their spawn restrictions.
+
+Quarries use broken stone rows on eligible cells, with alternating empty rows and seeded gaps in the populated rows: 38% ordinary mineable stone, 2% Sapphire crystals (40% total). These percentages are expected cell coverage before clipping; they do not promise crystals in a small quarry. Rocks use normal mining mechanics, with an Iron pick required for crystals; each crystal cluster gives one Sapphire and no metal bars. Quarry has no POI, shrine, finite finds, route decoration, guards, lighting source or lamp tint. The preview draws the actual generated coverage and dressing; dashed lane lines explain the source and are not game roads.
 
 ## Shared connection operators
 
@@ -74,6 +81,7 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | tar | Seep | 6.25% rubble; hazards: 15.63% tar | tar crescent | 1 rare: star | none | none |
 | tar | Work Yard | 28.57% copper_rock, 20.41% rubble | material grid | 1 rare: crimson_ore | none | none |
 | tar | Black Ring | 25% rubble; hazards: 12.5% tar | tar ring | 2 rare: gold_ore | none | none |
+| quarry | Quarry | 38% stone, 2% Sapphire crystals (expected) | none; parking-lane generated coverage | none | none | none |
 
 ## Runtime placement
 

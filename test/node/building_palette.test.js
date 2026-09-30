@@ -11,7 +11,7 @@ test('building materials: gentle unclaimed lift preserves alpha and silhouette i
   assert.eq([...pixels.slice(12)].join(','), before.slice(12).join(','), 'invisible pixels stay exact');
   const brightness = at => pixels[at]*.2126 + pixels[at+1]*.7152 + pixels[at+2]*.0722;
   assert.gt(brightness(4), 94, 'the weathered floor receives a small lift');
-  assert.lt(brightness(4), 115, 'the floor does not become restored pale stone');
+  assert.lt(brightness(4), 104, 'half-strength lift avoids washing out the weathered floor');
   assert.gt(brightness(4)-brightness(8), 30, 'sludge remains visibly darker than the floor');
 });
 test('building materials: restored palette cannot brighten the unclaimed source', () => {

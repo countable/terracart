@@ -6,7 +6,7 @@
 // Four things this file exists to hold:
 //
 //   THE NUMBERS ARE DERIVED. A house 1, a fort 2, a castle 3 at t = 0
-//   and a castle 15 at t = 1 are the ONLY authored figures; the ramp
+//   and a castle 10 at t = 1 are the ONLY authored figures; the ramp
 //   between them and the other two tiers' ceilings fall out of the table. So
 //   the tests re-derive rather than restate — a retuned TIER_GUARDS row moves
 //   every figure here with it, and a fudge factor added inside the module
@@ -49,7 +49,7 @@
   test('lairs: the strength ramp maxes at t = 1, and the ceiling is the castle', () => {
     assert.eq(Lairs.capFor(12, 1), Lairs.LAIR_MAX_PER_STRUCTURE,
       'a castle at full strength holds the ceiling');
-    assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 15, 'the ceiling is the figure the design named');
+    assert.eq(Lairs.LAIR_MAX_PER_STRUCTURE, 10, 'building garrisons stay small enough to approach');
     // Clamped, not extrapolated.
     assert.eq(Lairs.capFor(12, 4), Lairs.LAIR_MAX_PER_STRUCTURE, 't past 1 is the same as 1');
     assert.eq(Lairs.capFor(12, -1), Lairs.TIER_GUARDS[12], 't below 0 is the same as 0');
@@ -126,7 +126,7 @@
   });
 
   test('lairs: countFor takes exactly one draw, whatever the cap', () => {
-    for (const cap of [1, 2, 3, 8, 15]) {
+    for (const cap of [1, 2, 3, 8, Lairs.LAIR_MAX_PER_STRUCTURE]) {
       let draws = 0;
       const rng = () => { draws++; return 0.5; };
       Lairs.countFor(cap, rng);

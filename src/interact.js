@@ -977,8 +977,9 @@ const TAP_HANDLERS = [
           }
           return;
         }
-        const outId = wildplantOutput(wp.crop);
-        scene.addToInv(outId, 1);
+        const rewards = wildplantRewards(wp.crop);
+        const outId = rewards[0].id;
+        for (const reward of rewards) scene.addToInv(reward.id, reward.qty);
         let bonus = '';
         const treasure = wildplantTreasure(wp.crop);
         if (treasure && Math.random() < treasure.chance) {
@@ -991,7 +992,7 @@ const TAP_HANDLERS = [
         // flashed "+1 longgrass" instead of "+1 Long grass".
         const outName = itemName(outId);
         if (bonus) scene.flashLoot(`${outName}${bonus}`, '#ff8aff', 1, outId);
-        else scene.flashLoot(`+1 ${outName}`, undefined, 1, outId);
+        else scene.flashLoot(wildplantHarvestLine(wp.crop), undefined, rewards[0].qty, outId);
         // Rare shiny flora — 10× money + a memory, on top of the
         // normal pickup, with fanfare.
         if (isShiny(wp.id, SHINY_RATE.flora)) scene.awardShinyBonus(outId, sx, sy);

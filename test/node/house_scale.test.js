@@ -183,11 +183,11 @@ test('tree scale: a crown diameter no longer sets a sprite size', () => {
   }
 });
 
-test('tree scale: a size class always wins, and there are exactly four', () => {
+test('tree scale: three canopy classes absorb legacy bush-sized trees', () => {
   const classes = ['bush', 'small', 'medium', 'large'].map(
     (size) => treeSizeClass({ species: 'pine', size, crown_m: 999 }));
-  assert.eq(classes.join(','), 'bush,small,medium,full', 'the four tiers, crown ignored');
-  assert.eq(new Set(classes).size, 4, 'and they are distinct');
+  assert.eq(classes.join(','), 'small,small,medium,full', 'legacy bush crowns join small trees, crown ignored');
+  assert.eq(new Set(classes).size, 3, 'three distinct canopy classes');
 });
 
 test('tree scale: a size-less tree classes mid-ladder, never bush or full', () => {

@@ -22,7 +22,7 @@
       const ownerX = Math.floor(gx / EXT), ownerY = Math.floor(gy / EXT);
       const originX = ownerX * EXT + (Math.floor((gx - ownerX * EXT) / unit) + 0.5) * unit;
       const originY = ownerY * EXT + (Math.floor((gy - ownerY * EXT) / unit) + 0.5) * unit;
-      const chest = a.owned ? chests.get(`${a.lx},${a.ly}`) : null;
+      const chest = a.owned && !a.generated && !variant.generated ? chests.get(`${a.lx},${a.ly}`) : null;
       const local = (x, y) => [Math.floor((x - tx * EXT) * N / EXT), Math.floor((y - ty * EXT) * N / EXT)];
       let poi = local(originX, originY);
       if (chest) poi = [Math.floor((chest.x - ox) / step), Math.floor((chest.y - oy) / step)];
@@ -89,6 +89,7 @@
           extra.variant = 1;
           if (m.size) extra.size = m.size;
         }
+        if (m.deposit) extra.deposit = m.deposit;
         if (m.yieldTier != null) extra.yieldTier = m.yieldTier;
         if (m.requiredTier != null) extra.requiredTier = m.requiredTier;
         if (m.rockVariant) extra.rockVariant = root.SpriteLayout ? root.SpriteLayout[m.rockVariant] : 3;
@@ -103,6 +104,10 @@
       return [Math.floor((s.originX + rx * s.unit - tx * EXT) * N / EXT), Math.floor((s.originY + ry * s.unit - ty * EXT) * N / EXT)];
     };
     const motifAt = (s, ix, iy) => {
+      // Generated footprints may merge or acquire a different centre as lane
+      // geometry changes. Their scatter belongs to the geographic tile/cell.
+      if (s.a.generated || s.variant.generated) return V.sample(s.variant, ix, iy,
+        `generated|${s.a.generated || s.variant.generated}|${tx}|${ty}`);
       const dx = Math.round((tx * EXT + (ix + 0.5) * EXT / N - s.originX) / s.unit);
       const dy = Math.round((ty * EXT + (iy + 0.5) * EXT / N - s.originY) / s.unit);
       const [u, v] = V.inverseRotate(dx, dy, s.rotation), p = V.poiOrigin(s.variant);
@@ -165,6 +170,8 @@
     for (const s of states) {
       yield 'zone finite finds';
       const { a, variant: v } = s;
+      // A generated quarry has no POI or composition origin to reserve.
+      if (a.generated || v.generated) continue;
       for (const target of V.findOffsets(v, a.R / WG.CELL_M)) {
         const desired = offsetCell(s, target.dx, target.dy);
         let seat = desired;

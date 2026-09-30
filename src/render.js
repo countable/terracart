@@ -62,7 +62,7 @@ Render.COIN_DROP_PX = COIN_DROP_PX;
 const GRASS_FALLBACK_COLOR = 0x919e70;   // matches the approved COLORS[0] grass
 // Pseudo-3D extrusion: a building footprint is the "top surface", and its
 // south-facing edge gets a darker wall projected downward onto the row below.
-// Wall face = 40% brightness of the footprint colour (60% darker) — deep
+// Wall faces recover half the pre-recolour contrast against their floors — deep
 // shadow under the lit top surface, but with enough hue to read as the
 // building's own material rather than a generic dark stripe. Houses get a 4px
 // wall; civic slabs (LARGE) keep a thicker 5px one to read at their bigger
@@ -73,7 +73,7 @@ const GRASS_FALLBACK_COLOR = 0x919e70;   // matches the approved COLORS[0] grass
 // POLYGON with the same colours at the same depths, and a wall that changed
 // height when the footprint stopped being square would give the two modes
 // different silhouettes for the same building.
-const BUILDING_FACE_COLOR = { 9: 0x816b59, 11: 0x87795f, 12: 0x7e8475 };
+const BUILDING_FACE_COLOR = { 9: 0x644c3f, 11: 0x625441, 12: 0x5a5e58 };
 const BUILDING_FACE_PX = { 9: 4, 11: 4, 12: 5 };
 // Building tiers, as a predicate. Module scope for the same reason: the base
 // terrain fill needs it too, several hundred lines before the outline pass
@@ -2863,10 +2863,21 @@ Render.drawObjects = function drawObjects(scene) {
       const foot = item._appearance?.foot;
       if (foot) shadowList.push({ ...item, _foot: foot });
     }
+    for (const item of plantedList) {
+      const shadow = Render.wildplantShadow(item.p);
+      if (shadow) shadowList.push({ ...item, _plantShadow: shadow });
+    }
     Render.renderPool(scene, scene.shadowPool, scene.shadowContainer, shadowList, (s, item) => {
       const { o, dx, dy } = item;
       const { sx, sy } = project(dx, dy);
       setTextureIfDifferent(s, 'bldg_shadow');
+      if (item._plantShadow) {
+        const shadow = item._plantShadow;
+        s.setOrigin(0.5, 0.5).setDisplaySize(shadow.width, shadow.height)
+          .setPosition(Math.round(sx), Math.round(sy) + shadow.dyPx)
+          .setAlpha(shadow.alpha).setTint(0xffffff);
+        return;
+      }
       // Non-building path: an ellipse centred on the art's base, so its top
       // half tucks behind the sprite and its bottom half spills onto the cell.
       // Only that bottom half is ever seen, and 'bldg_shadow' feathers toward
@@ -3356,10 +3367,9 @@ Render.drawObjects = function drawObjects(scene) {
     // over a positive-z-index body child, and the bubble pokes through the
     // dim. A correctly layered callout would sit under the modal dim
     // (invisible) anyway, so just hide them. Skipping the build loop leaves
-    // psi at 0, so the hide-tail below collapses the whole pool. Add new
-    // full-screen modal ids here if more are introduced.
-    const MODAL_IDS = ['offer-modal', 'chest-reward-modal', 'message-modal', 'slots-modal'];
-    const dialogOpen = MODAL_IDS.some((id) => document.getElementById(id));
+    // psi at 0, so the hide-tail below collapses the whole pool. Share the
+    // modal gate with the HUD so safety cards and future dialogs count too.
+    const dialogOpen = document.body.classList.contains('modal-open');
     let psi = 0;
     const gameRect = (gameEl && !dialogOpen) ? gameScreenRect() : null;
     if (gameRect) {
@@ -3388,6 +3398,7 @@ Render.drawObjects = function drawObjects(scene) {
         let slot = pool[psi];
         if (!slot) {
           const el = document.createElement('div');
+          el.className = 'delivery-callout';
           // White rounded callout — a little speech bubble that floats above the
           // house roof (where the old open/busy pip used to sit). The downward
           // tail is a separate child triangle added during the icon rebuild.
@@ -3724,7 +3735,10 @@ Render.drawObjects = function drawObjects(scene) {
     const isPlantedCrop = p.wildId == null && !p._placedRock;
     const cropScl = ((ov && ov.scale != null) ? ov.scale : 2) * (isPlantedCrop ? 0.8 : 1);
     const plantedYOffset = isPlantedCrop ? 3 : 0;
-    s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx), Math.round(sy) - plantedYOffset);
+    // Tall authored plants follow the same cell-foot rule as trees and props.
+    const box = ov?.seat && SpriteLayout.ART_BOUNDS[`${ov.sheet}:${wildplantFrame(p)}`];
+    const placement = box ? SpriteLayout.seatInCell(box, 0.5, oy, cropScl, cropScl) : {dxPx:0, dyPx:0};
+    s.setOrigin(0.5, oy).setScale(cropScl).setPosition(Math.round(sx) + placement.dxPx, Math.round(sy) + placement.dyPx - plantedYOffset);
   });
 
   // Growth-timer corner badges: for a watered, still-growing crop, render the
@@ -4069,6 +4083,17 @@ Render.drawObjects = function drawObjects(scene) {
 
 // Shared appearance rules for the live renderer and static review canvases.
 // Callbacks that change gameplay appearance remain opt-in through spec.after.
+// Authored plant contact shadows use the same dimensions in-game and in review.
+Render.wildplantShadow = function (plant, art = wildplantSprite(plant)) {
+  if (!art?.shadow) return null;
+  const frame = ASSETS[art.sheet];
+  if (!frame) return null;
+  const scale = art.scale || 1;
+  const height = frame.frameHeight * scale;
+  return { width: frame.frameWidth * scale * 1.15, height: height * 2 / 3,
+    dyPx: height / 2, alpha: 0.55 };
+};
+
 Render.objectAppearance = function (scene, houseRoles, TILED = false) {
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
@@ -4093,11 +4118,7 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
   // resolving the role again; Houses.displayRole owns the verdict.
   const _houseRole = (o) => houseRoles.get(o);
   // ── Tree size + fruit-tree growth helpers (shared by the specs below) ──
-  // Four discrete in-game size tiers from the DeepForest crown size class —
-  // the smallest ('bush') renders as a bush, the rest as trees. OSM trees carry
-  // no size and draw their flat species scale; there is no continuous size in
-  // between (see treeBaseScale in util.js for why the crown_m one went).
-  // (Authoritative copy lives in util.js TREE_SIZE_MUL; treeScale() applies it.)
+  // Timber tree frames/scales are shared with previews through util.js.
   // Fruit-tree life-cycle frames, in 32px-wide frame indices (sheets are sliced
   // 32×48 — see assets.js; each tree is a full 32px column, NOT 16). The Apple
   // and Peach sheets DON'T share a layout, so map each explicitly:
@@ -4252,9 +4273,10 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
     // puts it at ~26×23px — about 0.73 of the 32px cell. Raised from 0.455
     // (~18px) which read too small; still fits inside its single cell (QC rule).
     _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true, shadow: true },
-    // Cave staircase — Props Mine ladder art (32×32 each). 'down': ladder into
-    // dark pit; 'up': bare standalone ladder. Texture picked by direction.
+    // The down pit uses only the lower half of its sheet, centred in the
+    // cell. The standalone up ladder keeps its full image.
     staircase: { key: (o) => (o.dir === 'up' ? 'stair_up' : 'stair_down'),
+                 frame: (o) => (o.dir === 'up' ? '__BASE' : 'down'),
                  origin: [0.5, 0.5], scale: 1.0 },
     // Placed campfire — 16×32 art, foot-anchored near the logs so the flame
     // rises up out of the cell (like a small tree). The 6-frame sheet is cycled
@@ -4310,69 +4332,33 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
              frame: (o) => (Math.floor(performance.now() / 130) + ((o.x | 0) & 3)) % 4,
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true },
     // Per-polygon species — maple uses the original 32×48 sheet with the
-    // variant->frame growth-stage pick. Pine/birch/mahogany use their own
+    // variant->frame growth-stage pick. Pine uses its own
     // sheets sliced 32×48 (see assets.js) so the WHOLE tree — canopy + trunk
     // + root base — fits in one frame and nothing from the sheet's lower band
     // leaks in under it. Column 3 is a full mature green tree on every
     // species sheet. Origin is only the no-SpriteLayout fallback: the seat
     // pass places the art from its trimmed bounds.
     tree:   { key: (o) => {
-                // Smallest crown tier renders as a bush, not a tree.
-                if (treeSizeClass(o) === 'bush') return 'bushes';
                 if (o.species === 'pine')     return 'pine_tree';
-                if (o.species === 'birch')    return 'birch_tree';
-                if (o.species === 'mahogany') return 'mahogany_tree';
                 return 'trees'; // maple (default)
               },
-              frame: (o) => {
-                // bushes.png frame 0 is the lush top-left green bush.
-                if (treeSizeClass(o) === 'bush') return 0;
-                if (o.species && o.species !== 'maple') return 3;
-                // Maple sheet: frames 0 and 4 are STUMPS (cut/dead); only
-                // 1=sprout, 2=young, 3=mature are live trees. Clamp to 1..3 so a
-                // standing tree never renders as a stump. Detected trees carry a
-                // real size class → always mature (frame 3); their variety comes
-                // from the size-class scale, not the growth-stage frame.
-                // treeGrowthStage (util.js) does the clamping, and treeSizeClass
-                // reads the SAME stage back for a size-less maple's axe tier —
-                // one function, so a sprout can't draw tiny and gate like a
-                // mature canopy.
-                if (o.size) return 3;
-                return treeGrowthStage(o);
-              },
+              frame: treeArtFrame,
               origin: (o) => {
-                if (treeSizeClass(o) === 'bush') return [0.5, 0.9];
-                return (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95];
+                return o.species === 'pine' ? [0.5, 0.92] : [0.5, 0.95];
               },
-              // Shared with the harvest gating in interact.js (util.treeScale)
-              // so a tree's visual size and the axe tier it demands stay in
-              // lockstep — bigger sprite, sturdier axe, more wood. treeScale
-              // honours the discrete o.size crown class too. (One deliberate
-              // exception: maples render 10% smaller via MAPLE_VISUAL_MUL while
-              // their size class keys off the un-shrunk treeBaseScale, so the
-              // visual shrink doesn't change a maple's axe tier or wood yield.)
-              // Bushes use the 48×32 bushes sheet at a FIXED scale, independent
-              // of the species/canopy tree scale. A bush is one species at one
-              // size — so a bush-tier tree must render the SAME size as a `shrub`
-              // wildplant (the bushes a park scatters), not a smaller half-size
-              // variant. Both pull from CROP_SPRITE.shrub.scale so they can't
-              // drift apart. Larger tiers use treeScale.
-              scale:  (o) => treeSizeClass(o) === 'bush'
-                ? CROP_SPRITE.shrub.scale : treeScale(o),
+              // Growth artwork changes size; species scale stays constant.
+              scale: treeScale,
               // Placement obeys the "one cell" rule via the seat pass (see the
               // render loop + src/sprite_layout.js): each tree is seated from
               // its trimmed art bounds so the trunk base sits 1px above the
               // cell's bottom edge (or centred when it fits) and the canopy
               // rises into the tiles above without spilling into the cell
               // below — automatically across species sheets (maple 32×48 vs
-              // the 32×48 pine/birch/mahogany root padding) and size classes.
+              // the 32×48 pine root padding) and size classes.
               seat: true, shadow: true,
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
-              // Bushes are one uniform type — skip the per-tree crown tint so
-              // every bush renders as the same plain green sprite (an odd
-              // sampled colour otherwise made some bushes look broken).
               after: (s, o, scene) => {
-                if (o.crown_color && treeSizeClass(o) !== 'bush') s.setTint(_crownTint(o.crown_color));
+                if (o.crown_color) s.setTint(_crownTint(o.crown_color));
                 // Out of reach of the current axe → half alpha (interactables.js
                 // toolGatedAlpha reads the same gate the tap refuses on).
                 s.setAlpha(toolGatedAlpha(o, scene.save));
@@ -4517,7 +4503,7 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
                   depth: s.depth + 0.5,
                 });
               } },
-    mineralrock: { key: (o) => o._objectArt === 'moss' ? 'approved_moss_rocks' : 'mineralrock',
+    mineralrock: { key: (o) => o.deposit === 'crystal' ? 'crystal_cluster' : 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
               // to the SMALL rock variants only — other rows have boulder-
               // sized art that visibly bleeds past the 16 × 16 frame at
@@ -4536,6 +4522,7 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
               //           (T5), col 4 unused, crimson 5 (T6), frost 6 (T7) —
               //           so the rock you see matches the bar it drops.
               frame: (o) => {
+                if (o.deposit === 'crystal') return 0;
                 const tier = o.yieldTier || o.requiredTier || 1;
                 // Cave rock and T1 ore both render as a plain rock variant.
                 if (o.caveVariant != null || tier <= 1) {
@@ -4615,14 +4602,12 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
     // Ground stack — an item id + qty sitting on the map. Texture +
     // frame come from inventoryIconSource(itemId) so any item with an
     // inventory icon can sit on the ground without per-kind plumbing.
-    // For wood (the 4-frame stack sheet) we override the frame to
-    // visualise stack size: frame = clamp(qty - 1, 0, 3).
+    // Fallen wood always uses the grey log artwork (look 2).
     groundstack: {
       key: (o) => (inventoryIconSource(o.itemId) || {}).sheet || 'wood',
       frame: (o) => {
-        // Wood sheet is 3 frames (brown / grey / amber log variants); the
-        // frame cycles with qty so the sprite changes as the stack grows.
-        if (o.itemId === 'wood') return clamp((o.qty || 1) - 1, 0, 2);
+        // Quantity remains on the stack record; it does not change its artwork.
+        if (o.itemId === 'wood') return 1;
         return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
       },
       // Centred in the cell (origin y 0.5), NOT foot-anchored. At 0.9 the

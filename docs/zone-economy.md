@@ -5,11 +5,11 @@ These are expected Home sale coins using the current Easy-mode sale formula, fro
 | Variant | Background / 100 cells | Finite special finds | Find value / zone | Notes |
 |---|---|---|---|---|
 | Meadow | 15–15 | 3 × Wild Rose | 42–81 |  |
-| Mushroom Grove | 39–72 | 1 × Starflower | 49–98 |  |
+| Mushroom Grove | 56–106 | 1 × Starflower | 49–98 |  |
 | Orchard | 61–125 | 3 × Gemfruit | 30–57 | Apple harvest repeats every 24 h; medium maples are one-time timber |
 | Formal Garden | 206–383 | 2 × Wild Rose | 28–54 |  |
-| Hedge Garden | 98–148 | 2 × Wild Rose | 28–54 |  |
-| Ancient Grove | 86–116 | 1 × Starflower | 49–98 | Range also allows young/mature maple and axe tier |
+| Hedge Garden | 92–142 | 2 × Wild Rose | 28–54 |  |
+| Ancient Grove | 83–113 | 1 × Starflower | 49–98 | Range also allows young/mature maple and axe tier |
 | Stone Garden | 409–782 | 3 × Gemfruit | 30–57 |  |
 | Ordered Graves | 86–163 | 2 × Gemfruit | 20–38 | Headstone hoards excluded |
 | Overgrown Graves | 68–118 | 1 × Starflower | 49–98 | Headstone hoards excluded |
@@ -20,6 +20,10 @@ These are expected Home sale coins using the current Easy-mode sale formula, fro
 | Seep | 13–18 | 1 × Starflower | 49–98 | 15.625% tar |
 | Work Yard | 469–845 | 1 × Crimson ore rock | 483–965 | Pick T5 |
 | Black Ring | 50–73 | 2 × Gold ore rock | 162–321 | 12.5% tar; Pick T3 |
+| Mystic Reef | 183–352 | 1 × Starflower | 49–98 |  |
+| Pirate Cove | 45–76 | 1 × Gold ore rock | 81–160 | Pick T3 |
+| Shellwater Strand | 87–167 | 2 × Wild Rose | 28–54 |  |
+| Quarry | 553–1057 | None | 0–0 | Generated from removed parking lanes; crystals are probabilistic background, not guaranteed finite finds; Iron pick T3; one Sapphire per cluster, no metal bars |
 
 ## Main findings
 

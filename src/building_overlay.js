@@ -77,11 +77,11 @@
   // tiled floor fill reads — so a polygon and the cells under it are the same
   // colour by construction. The fallbacks are for the headless suite, where
   // app.js isn't loaded.
-  const FLOOR_FALLBACK = { 9: 0x9d6350, 11: 0x9b8365, 12: 0x787a80 };
+  const FLOOR_FALLBACK = { 9: 0xad826d, 11: 0xaa9577, 12: 0x919395 };
   const floorColor = (tier, claimed = true) =>
     (!claimed && typeof UNCLAIMED_BUILDING_BASE !== 'undefined') ? UNCLAIMED_BUILDING_BASE.floors[tier]
       : (typeof COLORS !== 'undefined' && COLORS[tier] != null) ? COLORS[tier]
-      : (FLOOR_FALLBACK[tier] ?? 0x9d6350);
+      : (FLOOR_FALLBACK[tier] ?? 0xad826d);
 
   // Wall face + its depth: render.js's own SOUTH_FACE_COLOR / SOUTH_FACE_PX,
   // read through Render so the polygonal wall and the tiled one are the same

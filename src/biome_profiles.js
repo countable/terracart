@@ -1,8 +1,7 @@
 // Central per-biome "feel" registry — the single source of truth for what each
 // terrain/biome looks and plays like beyond its flat colour: its prominent
-// wild flora (kinds + densities), its dominant fauna, and the tints applied to
-// its primary interactables. Worldgen reads flora() + allows(), the fauna
-// spawner reads BIOME_FAUNA, and the renderer reads tint().
+// wild flora (kinds + densities) and its dominant fauna. Worldgen reads
+// flora() + allows(), and the fauna spawner reads BIOME_FAUNA.
 //
 // WHY a registry: the per-biome content used to be scattered across worldgen
 // (DEBRIS_CROP / LONGGRASS_TYPES / MEADOW_FLORA / FOREST_FLORA / inline
@@ -143,16 +142,15 @@
               // and kept below forget-me-not: it's the rarer flower (sell 3 vs 2)
               // but grows in far more biomes, so it read as the most common bloom.
               fix('marigold', 0.002, 0.006, S.MARIGOLD)],
-      tint: {},
     },
     forest: {
       flora: [fix('shrub', D_MIN, D_MAX, S.SHRUB),
               fix('mushroom', 0.04, 0.10, S.MUSH_FOREST)],
-      tint: {},
     },
-    sand:  { flora: [fix('shell', 0.04, 0.07, S.SHELL)], tint: {} },
-    rocky: { flora: [], tint: {} },
-    farm:  { flora: [dyn('longgrass', 0.10, S.FARM_LG)], tint: {} },
+    // Occasional beach finds; keep the sand and waterline mostly clear.
+    sand:  { flora: [fix('shell', 0.01, 0.0175, S.SHELL)] },
+    rocky: { flora: [] },
+    farm:  { flora: [dyn('longgrass', 0.10, S.FARM_LG)] },
     urban: {
       flora: [fix('mushroom', 0.008, 0.025, S.MUSH_RESID)],
       // YARD flora — NOT a debris scatter. A bit of long grass and scrub grown
@@ -173,10 +171,9 @@
       //   ordinary street read as packed with grass and bushes.
       yard: { min: 4, span: 4, radiusK: 2, salt: S.YARD_FLORA,
               crops: [{ crop: 'longgrass', share: 0.5 }, { crop: 'shrub', share: 0.5 }] },
-      tint: {},
     },
-    water: { flora: [], tint: {} },
-    paved: { flora: [], tint: {} },   // roads / buildings / cave — never grow flora
+    water: { flora: [] },
+    paved: { flora: [] },   // roads / buildings / cave — never grow flora
   };
 
   // ── Per-biome profiles ──────────────────────────────────────────────────────
@@ -184,9 +181,6 @@
   //        and "medium-frequency drop" axis). canopy/minerals (trees, fruit,
   //        rock clusters) stay in worldgen — they're object spawns with their
   //        own placement maths — but their on/off is still biome-gated there.
-  // tint:  crop / object-kind → 0xRRGGBB multiply, applied at render time so the
-  //        same shared sprite reads differently per biome (golden field grass,
-  //        swampy reeds, rusty industrial rock, …).
   // A biome with no row here inherits its family's profile above — GRASS,
   // SAND, RESIDENTIAL, WASTELAND and ROCK are exactly their family defaults
   // (grassland / sand / urban / urban / rocky), so they have no row.
@@ -197,14 +191,12 @@
               fix('mushroom', 0.04, 0.10, S.MUSH_FOREST),
               fix('wildrose', 0.004, 0.012, S.WILDROSE),
               fix('starflower', 0.002, 0.006, S.STARFLOWER)],
-      tint: {},
     },
     [T.FARMLAND]: {
       // Muddy pasture — patches of grass + the odd wildflower (green, not the
       // old golden wheat tint, to suit the churned-pasture look).
       flora: [dyn('longgrass', 0.10, S.FARM_LG),
               fix('marigold', 0.003, 0.009, S.FARM_MAR)],
-      tint: {},
     },
     // [T.PARK] is PARK_CHARACTERS.common — assigned below the table. A park
     // POLYGON reads its own character's row (flora(T.PARK, character)).
@@ -214,7 +206,6 @@
       flora: [dyn('longgrass', 0.12, S.LONGGRASS),
               fix('forgetmenot', 0.006, 0.020, S.FORGETMENOT),
               fix('marigold', 0.003, 0.008, S.SCH_MAR)],
-      tint: {},
     },
     [T.COMMERCIAL]: {
       // Clipped hedge maze across the plaza paving — shrubs laid out in neat
@@ -222,27 +213,19 @@
       // planter marigolds for colour.
       flora: [{ crop: 'shrub', pattern: 'hedgemaze', salt: S.COM_SHRUB },
               fix('marigold', 0.004, 0.010, S.COM_MAR)],
-      // Ornamental street trees get a hint of the same manicured green as the
-      // hedges, much lighter than the shrub tint so a tree-sized sprite doesn't
-      // read as an off-colour species — just a touch fresher than the wild default.
-      tint: { shrub: 0x8fd06f, tree: 0xd9f0c8 },        // bright manicured green
     },
     [T.INDUSTRIAL]: {
       // Hardy weeds breaking through the concrete; minerals (worldgen) dominate.
       flora: [fix('shrub', 0.02, 0.05, S.IND_SHRUB)],
-      // Any tree that clings on here reads soot-dulled, not lush — a faint
-      // grey cast (lighter than the shrub/rock tints, kept subtle at tree size).
-      tint: { shrub: 0x9aa882, mineralrock: 0xc98a5a, tree: 0xc9cbb8 },  // grey-green weeds, rusty rock
     },
     [T.PLAYGROUND]: {
       flora: [dyn('longgrass', 0.08, S.LONGGRASS),
               fix('forgetmenot', 0.004, 0.014, S.FORGETMENOT),
               fix('marigold', 0.002, 0.006, S.MARIGOLD)],
-      tint: {},
     },
     // PITCH + GOLF are deliberately manicured: long grass only, no wildflowers
     // (this is intentional per-biome differentiation, not the old meadow pass).
-    [T.PITCH]: { flora: [dyn('longgrass', 0.06, S.LONGGRASS)], tint: {} },
+    [T.PITCH]: { flora: [dyn('longgrass', 0.06, S.LONGGRASS)] },
     [T.WETLAND]: {
       // Lush marsh — dense reedy grass, marsh scrub, damp mushrooms, the odd
       // forget-me-not at the water's edge.
@@ -250,22 +233,15 @@
               fix('shrub', 0.03, 0.08, S.WET_SHRUB),
               fix('mushroom', 0.015, 0.04, S.WET_MUSH),
               fix('forgetmenot', 0.004, 0.010, S.WET_FMN)],
-      // Marsh trees pick up a faint mossy cast — much lighter than the
-      // ground-level shrub/grass tints so a whole canopy doesn't go swamp-green.
-      tint: { longgrass: 0x6f9a66, shrub: 0x5a7a50, mushroom: 0xb3a25c, tree: 0xc3d6ba },
     },
     [T.GOLF]: {
       flora: [dyn('longgrass', 0.05, S.LONGGRASS)],
-      // Fairway trees get a whisper of the same bright manicured green as the
-      // turf, subtle enough at tree size to just read as "well kept".
-      tint: { longgrass: 0xa5d878, tree: 0xdcf0c8 },    // bright fairway green
     },
     // (T.GROVE takes the PARK row — assigned below the table.)
     [T.ORCHARD]: {
       // Fruit trees (worldgen canopy) + grassy understory with wildflowers.
       flora: [dyn('longgrass', 0.08, S.ORCH_LG),
               fix('marigold', 0.003, 0.008, S.ORCH_MAR)],
-      tint: {},
     },
   };
 
@@ -299,7 +275,7 @@
               fix('forgetmenot', 0.004, 0.012, S.FORGETMENOT),
               fix('marigold', 0.003, 0.007, S.MARIGOLD),
               fix('shrub', 0.004, 0.010, S.SHRUB)],
-      patch: FLORA_PATCH, tint: {},
+      patch: FLORA_PATCH,
     },
     wooded: {
       share: 0.25, filler: 'shrub', pad: { shrub: 0.07, longgrass: 0.015 },
@@ -307,7 +283,7 @@
       flora: [fix('shrub', 0.02, 0.045, S.SHRUB),
               fix('mushroom', 0.01, 0.025, PARK_S.MUSH),
               fix('forgetmenot', 0.002, 0.004, S.FORGETMENOT)],
-      patch: FLORA_PATCH, tint: {},
+      patch: FLORA_PATCH,
     },
     formal: {
       share: 0.15, filler: 'shrub', pad: { shrub: 0.05, longgrass: 0 },
@@ -315,7 +291,7 @@
       // `on` stand (a stable per-run coin) — ~1/6 · 0.45 ≈ 7.5% of the park.
       hedgeRows: { period: 6, seg: 4, on: 0.45, salt: 0xf0a1ed01 },
       flora: [fix('marigold', 0.006, 0.012, S.MARIGOLD)],
-      patch: FLORA_PATCH, tint: {},
+      patch: FLORA_PATCH,
     },
     common: {
       share: 0.30, filler: 'longgrass', pad: { shrub: 0.03, longgrass: 0.05 },
@@ -323,7 +299,7 @@
               fix('shrub', 0.005, 0.012, S.SHRUB),
               fix('forgetmenot', 0.002, 0.004, S.FORGETMENOT),
               fix('marigold', 0.001, 0.003, S.MARIGOLD)],
-      patch: FLORA_PATCH, tint: {},
+      patch: FLORA_PATCH,
     },
   };
   const PARK_CHARACTER_IDS = Object.keys(PARK_CHARACTERS);
@@ -368,10 +344,8 @@
   const parkCharacter = (id) => PARK_CHARACTERS[id] || null;
   const patchMul = (row, gx, gy) =>
     (valueNoise2(gx / row.units, gy / row.units, row.salt) >= row.cut ? row.dense : row.sparse);
-  const tint = (type, kind) => {
-    const p = get(type);
-    return (p.tint && p.tint[kind]) || null;
-  };
+  // Compatibility for render/preview callers: biome does not recolour sprites.
+  const tint = () => null;
 
   // allows(crop, type): may this crop legally survive on this cell? Used by the
   // worldgen occupancy/biome filter to drop debris that spilled (via polygon

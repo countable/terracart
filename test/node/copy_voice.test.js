@@ -241,6 +241,7 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
     'card', 'name', 'label',           // name-bearing loot toasts, below
     'spent', 'read',                   // pageStone's lines, measured below
     'barrelFlash', 'bikeRackFlash',    // the barrel / bike-rack lines, measured below
+    'wildplantHarvestLine',           // every guaranteed wildplant reward bundle, measured below
   ]);
   const seen = new Set();
   for (const src of [APP_JS_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {
@@ -449,4 +450,19 @@ test('map copy: the barrel, the bike rack and the page stones fit a map line', (
   for (const line of [`Smashed. Back in ${week}.`, `The crate is bare. ${week}.`, `Bikes all out. ${shortDuration(24 * 60 * 60 * 1000)}.`]) {
     assert.lte([...line].length, MAP_MSG_MAX, line);
   }
+});
+
+
+test('map copy: every wildplant reward bundle fits the harvest toast', () => {
+  const crops=new Set([...Object.keys(CROP_ROW),...Object.keys(WILDPLANT_RULES)]);
+  for (const crop of crops) {
+    if (wildplantRoll(crop)) continue;
+    const line=wildplantHarvestLine(crop);
+    for (const reward of wildplantRewards(crop)) {
+      assert.truthy(line.includes(`+${reward.qty} ${itemName(reward.id)}`),`${crop} names every guaranteed reward`);
+    }
+    assert.lte([...line].length,MAP_MSG_MAX,`${crop} harvest toast: ${line}`);
+  }
+  assert.eq(wildplantHarvestLine('giant_mushroom'),'+1 Wood · +1 Mushroom');
+  assert.truthy(INTERACT_SRC.includes('scene.flashLoot(wildplantHarvestLine(wp.crop)'), 'harvest uses the measured formatter');
 });

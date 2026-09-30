@@ -237,13 +237,11 @@ const ASSETS = assetsCtx.window.ASSETS;
 // ── Sheet metadata: where each texture key's PNG lives + frame size, and the
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const SHEETS = {
+  giant_mushroom: { file: ASSETS.giant_mushroom.path, fw: 32, fh: 48, frames: [2] },
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
   // 32×48, not 32×64: at 64 the birch frame reached into the sheet's lower
   // band and picked up the tip of the red autumn tree (see assets.js).
-  pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [3] },
-  birch_tree:    { file: 'assets/Objects/Approved/birch_tree.png',         fw: 32, fh: 48, frames: [3] },
-  mahogany_tree: { file: 'assets/Objects/Approved/mahogany_tree.png',      fw: 32, fh: 48, frames: [3] },
-  giant_mushroom: { file: 'assets/Objects/Wilderness/Fantasy Mushroom.png', fw: 32, fh: 48, frames: [2] },
+  pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [1, 2, 3] },
   bushes:        { file: 'assets/Objects/Approved/bushes.png',             fw: 48, fh: 32, frames: [0] },
   // The sheets' fruiting cells (apple 7, peach 5) are deliberately absent: a
   // bearing tree now keeps its mature frame and wears a fruit sprite instead,
@@ -252,8 +250,8 @@ const SHEETS = {
   peach_tree:    { file: 'assets/Objects/Approved/peach_tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
   chest:         { file: 'assets/Objects/Approved/chest.png',                    fw: 16, fh: 16, frames: [0] },
   box:           { file: 'assets/Objects/Approved/box.png',   fw: 16, fh: 16, frames: [0] },
+  crystal_cluster: { file: 'assets/Objects/Wilderness/crystal_cluster.png', fw: 16, fh: 16, frames: [0] },
   mineralrock:   { file: 'assets/Objects/Approved/mineralrock.png',fw: 16, fh: 16, frames: [168, 169, 170, 171, 0, 1, 2, 3, 5, 6] },
-  approved_moss_rocks: { file: 'assets/Objects/Approved/approved_moss_rocks.png', fw: 16, fh: 16, frames: [168,169,170,171] },
   approved_charred_stakes: { file: 'assets/Objects/Approved/approved_charred_stakes.png', fw: 16, fh: 16, frames: [0] },
   well:          { file: 'assets/Objects/Wilderness/well.png',               fw: 30, fh: 32, frames: [0] },
   pillar:        { file: 'assets/Objects/Approved/pillar.png',             fw: 16, fh: 32, frames: [0] },
@@ -291,24 +289,23 @@ const SHEETS = {
 const t = (species, size) => treeScale({ species, size });
 const SEAT_ANCHOR = [0.5, 0.5];
 const SCENARIOS = [
-  { name: 'giant mushroom shrub', key: 'giant_mushroom', frameIdx: 2, scale: CROP_SPRITE.shrub.looks.giant_mushroom.scale },
   { name: 'maple sprout',    key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },
   { name: 'maple young',     key: 'trees',         frameIdx: 2, scale: t('maple', 'medium') },
-  { name: 'maple small',     key: 'trees',         frameIdx: 3, scale: t('maple', 'small') },
-  { name: 'maple medium',    key: 'trees',         frameIdx: 3, scale: t('maple', 'medium') },
+  { name: 'maple small',     key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },
+  { name: 'maple medium',    key: 'trees',         frameIdx: 2, scale: t('maple', 'medium') },
   { name: 'maple large',     key: 'trees',         frameIdx: 3, scale: t('maple', 'large') },
-  { name: 'pine small',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'small') },
-  { name: 'pine medium',     key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'medium') },
+  { name: 'pine small',      key: 'pine_tree',     frameIdx: 1, scale: t('pine', 'small') },
+  { name: 'pine medium',     key: 'pine_tree',     frameIdx: 2, scale: t('pine', 'medium') },
   { name: 'pine large',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'large') },
-  { name: 'birch medium',    key: 'birch_tree',    frameIdx: 3, scale: t('birch', 'medium') },
-  { name: 'mahogany medium', key: 'mahogany_tree', frameIdx: 3, scale: t('mahogany', 'medium') },
   { name: 'bush',            key: 'bushes',        frameIdx: 0, scale: SHRUB_SCALE },
+  { name: 'giant mushroom', key: 'giant_mushroom', frameIdx: 2, scale: itemsCtx.CROP_SPRITE.giant_mushroom.scale },
   { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, scale: 0.85 * 0.625, scaleYMul: 1.10 },
   { name: 'apple (wild)',    key: 'apple_tree',    frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
   { name: 'peach (wild)',    key: 'peach_tree',    frameIdx: 3, scale: 0.85, scaleYMul: 1.10 },
   { name: 'chest',           key: 'chest',         frameIdx: 0, scale: CHEST_SCALE },
   { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 0.8 },
   { name: 'mineralrock',     key: 'mineralrock',   frameIdx: 171, scale: 1.28 },
+  { name: 'crystal deposit', key: 'crystal_cluster', frameIdx: 0, scale: 1.28 },
   { name: 'ore rock',        key: 'mineralrock',   frameIdx: 0,   scale: 1.28 },
   { name: 'well',            key: 'well',          frameIdx: 0, scale: 0.9 },
   { name: 'pole (pillar)',   key: 'pillar',        frameIdx: 0, scale: 2.0 },
@@ -318,7 +315,6 @@ const SCENARIOS = [
   { name: 'waystone',        key: 'waystone',      frameIdx: 0, scale: 1.6 },
   { name: 'stakes',          key: 'stakes',        frameIdx: 0, scale: 1.6 },
   { name: 'charred stakes', key: 'approved_charred_stakes', frameIdx: 0, scale: 1.6 },
-  { name: 'moss rock pair', key: 'approved_moss_rocks', frameIdx: 168, scale: 1.28 },
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
   { name: 'headstone',       key: 'headstone',     frameIdx: 0, scale: 1.6 },
   ...GROVE_SHRINE_ART.map(({ name, key, frame, scale }) => ({ name, key, frameIdx: frame, scale })),
