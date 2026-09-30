@@ -67,12 +67,13 @@
     window.__TEST_MODE = true;
   </script>
   <script>
-    // Fully offline: the sandbox pre-seeds the 3x3 tiles around the player,
+    // Offline by default; ?live=1 allows genuine network tiles. The sandbox pre-seeds the 3x3 tiles around the player,
     // and every other tile fetch answers 504 (the shape worldgen tolerates).
     const realFetch = window.fetch;
     window.fetch = (input, init) => {
       const url = typeof input === 'string' ? input : input.url;
-      if (/\/\d+\/\d+\/\d+\.pbf(\?|$)/.test(url) || /tiles\.json/.test(url)) {
+      if (!/[?&]live=1\b/.test(location.search) &&
+          (/\/\d+\/\d+\/\d+\.pbf(\?|$)/.test(url) || /tiles\.json/.test(url))) {
         return Promise.resolve(new Response('', { status: 504 }));
       }
       return realFetch(input, init);
@@ -120,6 +121,7 @@
     document.write([
       '/vendor/phaser.js', '/src/mvt.js', '/src/enemy_roster.js', '/src/enemy_spawns.js', '/src/enemy_habitats.js', '/src/difficulty.js', '/src/util.js',
       '/src/particles.js', '/src/trail.js', '/src/streets.js', '/src/street_variants.js', '/src/scenic.js', '/src/zones.js',
+      '/src/zone_variant_data.js', '/src/zone_variants.js', '/src/zone_coverage.js', '/src/zone_dressing.js',
       '/src/sprite_layout.js',
       '/src/placed_floor.js', '/src/home.js', '/src/coords.js', '/src/fog.js',
       '/src/biome_profiles.js', '/src/traps.js', '/src/lairs.js', '/src/worldgen.js',
@@ -128,8 +130,8 @@
       '/src/savemigrate.js', '/src/gear.js', '/src/rewards.js', '/src/shops_math.js',
       '/src/shops.js', '/src/egg_hatch.js', '/src/chest_themes.js', '/src/rarity.js',
       '/src/loot.js', '/src/macros.js', '/src/quests.js', '/src/interactables.js', '/src/houses.js',
-      '/src/starter.js', '/src/combat.js', '/src/creature_ai.js', '/src/wizard.js',
-      '/src/interact.js', '/src/lighting.js', '/src/render.js', '/src/multiplayer.js',
+      '/src/spawn_ownership.js', '/src/starter.js', '/src/combat.js', '/src/creature_ai.js', '/src/wizard.js',
+      '/src/interact.js', '/src/play_tips.js', '/src/lighting.js', '/src/render.js', '/src/multiplayer.js',
       '/src/road_overlay.js', '/src/building_overlay.js', '/src/assets.js', '/src/sandbox.js',
       '/src/testtools.js', '/src/geo.js', '/src/art_thumbs.js', '/src/modal_shell.js',
       '/src/scene_geo.js', '/src/npc.js', '/src/scene_creatures.js', '/src/app.js',
@@ -145,7 +147,7 @@
       const pc0 = window.__scene.playerToWorldCell();
       const startKey = WorldGen.tileKey(pc0.tx, pc0.ty);
       while (!WorldGen.tileCache.get(startKey)?.grid) {
-        if (Date.now() - t0 > 30000) throw new Error('start tile never loaded');
+        if (Date.now() - t0 > (/[?&]live=1\b/.test(location.search) ? 120000 : 30000)) throw new Error('start tile never loaded');
         await new Promise(r => setTimeout(r, 50));
       }
       // Let the neighbour ring build so a walk doesn't measure tile builds.
