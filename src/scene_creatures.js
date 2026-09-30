@@ -904,74 +904,137 @@ class SceneCreatures {
     const SV = (typeof StreetVariants !== 'undefined') ? StreetVariants : null;
     const Z = (typeof Zones !== 'undefined') ? Zones : null;
     const BA = (typeof BIOME_ATTRACTS !== 'undefined') ? BIOME_ATTRACTS : null;
-    // The grounds present on this tile, as [p, test(i)] per species.
-    const want = {};
-    const add = (attracts, test) => {
-      if (!attracts) return;
-      for (const [sp, p] of Object.entries(attracts)) (want[sp] || (want[sp] = [])).push({ p, test });
-    };
-    const marks = entry.streetMarks;
-    if (SV && marks) {
-      // Only present street grounds contribute a probability. An absent
-      // Pilgrim's Way must not strengthen another zone's weaker crow pull.
-      const present = new Set(marks);
-      for (const row of SV.STREET_VARIANTS) if (row.attracts && present.has(row.code)) {
-        add(row.attracts, (i) => marks[i] === row.code);
-      }
-    }
+    // The grounds on this tile, each an `attracts` column plus the ONE cell
+    // attribute that selects it: a street row's mark code, the path-lamp
+    // cells, a zone row's coverage owners, a land code. Their pools are built
+    // in ONE pass over the grid below (a per-cell species bitmask off four
+    // lookups), never a scan per species with a closure per ground — that
+    // was ~50k cells x grounds x species, the bulk of a tile's spawn pass.
+    // Pools come out in ascending cell order, exactly as the per-species
+    // scan left them, so every draw below lands where it always did
+    // (test/node/fauna_seat_pools.test.js pins the two against each other).
+    const marks = (SV && entry.streetMarks) || null;
+    const streetRows = [];              // [code, row] with an attracts column
+    if (marks) for (const row of SV.STREET_VARIANTS) if (row.attracts) streetRows.push([row.code, row]);
     // WALKING-PATH LAMPS: the cells beside every lamp a footway / path /
     // cycleway stands (Streets.PATH_LAMP_ATTRACTS — the cats, moved here from
     // Lantern Row). Every GENERATED lamp, lit or not: where an animal sits is
     // the same for every player, and restoration is per-save.
     const lampCells = this._pathLampCells ? this._pathLampCells(entry, tx, ty, N) : null;
-    if (lampCells && lampCells.size && typeof Streets !== 'undefined' && Streets.PATH_LAMP_ATTRACTS) {
-      add(Streets.PATH_LAMP_ATTRACTS, (i) => lampCells.has(i));
-    }
+    const lampAttracts = (lampCells && lampCells.size && typeof Streets !== 'undefined' && Streets.PATH_LAMP_ATTRACTS) || null;
     const zf = entry.zone;
-    if (zf && zf.anchors && (zf.coverage || zf.idx)) {
-      const coverage = zf.coverage || zf.idx;
-      const groups = new Map();
-      for (const owner of new Set(coverage)) {
-        const anchor = zf.anchors[owner - 1];
-        if (!anchor) continue;
-        // An explicit empty affinity is intentional: it must not inherit the
-        // old grove/churchyard defaults. Terrain and street pulls still apply.
-        const row = anchor.variant
-          ? (typeof ZoneVariants !== 'undefined' && ZoneVariants.byId(anchor.variant))
-          : Z && Z.ZONE_KINDS[anchor.kind];
-        if (!row || !row.attracts) continue;
-        if (!groups.has(row)) groups.set(row, new Set());
-        groups.get(row).add(owner);
+    const coverage = (zf && zf.anchors && (zf.coverage || zf.idx)) || null;
+    // A zone owner's row. An explicit empty affinity is intentional: it must
+    // not inherit the old grove/churchyard defaults. Terrain and street pulls
+    // still apply.
+    const ownerRow = (owner) => {
+      const anchor = zf.anchors[owner - 1];
+      if (!anchor) return null;
+      const row = anchor.variant
+        ? (typeof ZoneVariants !== 'undefined' && ZoneVariants.byId(anchor.variant))
+        : Z && Z.ZONE_KINDS[anchor.kind];
+      return row && row.attracts ? row : null;
+    };
+    const zoneRows = [];                // [owner, row]
+    if (coverage) for (let o = 1; o <= zf.anchors.length; o++) { const r = ownerRow(o); if (r) zoneRows.push([o, r]); }
+    const landCodes = BA ? Object.keys(BA) : [];
+    // Every species any ground here could pull, that the tile spawned.
+    const has = (sp) => creatures.some((c) => c && c.kind === sp) || !!(unseated && unseated.some((c) => c && c.kind === sp));
+    const cand = [];
+    const candIdx = new Map();
+    const note = (attracts) => {
+      for (const sp of Object.keys(attracts || {})) if (!candIdx.has(sp) && has(sp)) { candIdx.set(sp, cand.length); cand.push(sp); }
+    };
+    for (const [, row] of streetRows) note(row.attracts);
+    note(lampAttracts);
+    for (const [, row] of zoneRows) note(row.attracts);
+    for (const code of landCodes) note(BA[code]);
+    if (!cand.length) return moved;
+    const pools = new Map();
+    const NN = N * N;
+    const under = zf && zf.under;
+    const underPresent = under && under.present;
+    const markSeen = [];
+    const ownerSeen = [];
+    const ownerFirst = [];              // owners in order of first appearance
+    // 31 species per pass keeps the mask a small int; FAUNA_ORDER is 8.
+    for (let base = 0; base < cand.length; base += 31) {
+      const top = Math.min(cand.length, base + 31);
+      const maskOf = (attracts) => {
+        let m = 0;
+        for (const sp of Object.keys(attracts || {})) {
+          const k = candIdx.get(sp);
+          if (k !== undefined && k >= base && k < top) m |= 1 << (k - base);
+        }
+        return m;
+      };
+      const byMark = [];
+      for (const [code, row] of streetRows) byMark[code] = (byMark[code] | 0) | maskOf(row.attracts);
+      const lampMask = lampAttracts ? maskOf(lampAttracts) : 0;
+      const byOwner = [];
+      for (const [o, row] of zoneRows) byOwner[o] = maskOf(row.attracts);
+      const byLand = [];
+      for (const code of landCodes) byLand[+code] = maskOf(BA[code]);
+      const lists = [];
+      for (let k = base; k < top; k++) lists.push([]);
+      const first = base === 0;
+      for (let i = 0; i < NN; i++) {
+        let m = 0;
+        if (marks) {
+          const c = marks[i];
+          m |= byMark[c] | 0;
+          if (first && markSeen[c] === undefined) markSeen[c] = true;
+        }
+        if (lampMask && lampCells.has(i)) m |= lampMask;
+        if (coverage) {
+          const o = coverage[i];
+          m |= byOwner[o] | 0;
+          if (first && ownerSeen[o] === undefined) { ownerSeen[o] = true; ownerFirst.push(o); }
+        }
+        const land = under && (under[i] || (underPresent && underPresent[i])) ? under[i] : genGrid[i];
+        m |= byLand[land] | 0;
+        while (m) {
+          const b = 31 - Math.clz32(m & -m);
+          lists[b].push(i);
+          m &= m - 1;
+        }
       }
-      // Group matching variants so the cell scan scales with variant count,
-      // not every POI in a dense neighbourhood.
-      for (const [row, owners] of groups) add(row.attracts, (i) => owners.has(coverage[i]));
+      for (let k = base; k < top; k++) pools.set(cand[k], lists[k - base]);
     }
-    if (BA) {
-      const under = zf && zf.under;
-      for (const code of Object.keys(BA)) {
-        const c = +code;
-        add(BA[code], (i) => (Z ? Z.landAt(genGrid, under, i) : genGrid[i]) === c);
+    // The grounds PRESENT on this tile, as { p } per species — in the order
+    // they always were (streets, lamps, zones by first cell, land), which
+    // orders any species FAUNA_ORDER does not list.
+    const want = {};
+    const add = (attracts) => {
+      if (!attracts) return;
+      for (const [sp, p] of Object.entries(attracts)) (want[sp] || (want[sp] = [])).push({ p });
+    };
+    // Only present street grounds contribute a probability. An absent
+    // Pilgrim's Way must not strengthen another zone's weaker crow pull.
+    for (const [code, row] of streetRows) if (markSeen[code]) add(row.attracts);
+    add(lampAttracts);
+    if (coverage) {
+      const rowsSeen = new Set();
+      for (const o of ownerFirst) {
+        const row = o >= 1 && o <= zf.anchors.length ? ownerRow(o) : null;
+        if (!row || rowsSeen.has(row)) continue;
+        rowsSeen.add(row);
+        add(row.attracts);
       }
     }
+    for (const code of landCodes) add(BA[code]);
     // Only species the tile actually spawned; p = 1 first (the dogs keep the
     // seats they had with an empty `taken`), then FAUNA_ORDER.
     const order = (typeof FAUNA_ORDER !== 'undefined' ? FAUNA_ORDER : []).slice();
     for (const sp of Object.keys(want)) if (!order.includes(sp)) order.push(sp);
     const pOf = (sp) => Math.max(...want[sp].map((g) => g.p));
-    const has = (sp) => creatures.some((c) => c && c.kind === sp) || !!(unseated && unseated.some((c) => c && c.kind === sp));
     const species = order.filter((sp) => want[sp] && has(sp))
       .sort((a, b) => (pOf(b) >= 1) - (pOf(a) >= 1));
     if (!species.length) return moved;
     const taken = new Set();
-    const NN = N * N;
     for (const sp of species) {
-      const grounds = want[sp];
       const p = pOf(sp);
-      const pool = [];
-      for (let i = 0; i < NN; i++) {
-        for (const g of grounds) if (g.test(i)) { pool.push(i); break; }
-      }
+      const pool = pools.get(sp) || [];
       if (!pool.length) continue;
       const rng = WorldGen.makeRng(fnv1a(`${sp}s|${tx},${ty}`));
       const pest = (sp === 'slime' || sp === 'crow') ? pestFree : null;
