@@ -96,7 +96,7 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
   assert.inRange(SHINY_RATE.monster, 0.001, 0.5, 'monsters have a shiny rate');
   const spawn = app.slice(app.indexOf('spawnCaveCreatures(entry, tx, ty, depth) {'));
-  assert.truthy(/creatures\.push\(WorldGen\.makeCreature\(kind, wmx, wmy, id,\s*\{ shiny: EnemyRoster\.get\(kind\)\.eliteEligible && isShiny\(id, SHINY_RATE\.monster\) \}\)\)/.test(spawn),
+  assert.truthy(/creatures\.push\(WorldGen\.makeCreature\(kind, wmx, wmy, id,\s*\{ shiny: EnemyRoster\.get\(kind\)\.eliteEligible && isShiny\(id, SHINY_RATE\.monster\), habitat: habitat\.theme \}\)\)/.test(spawn),
     'spawnCaveCreatures stamps shiny off the stable id at the monster rate');
   assert.truthy(/const dmg = m\.dmg \* Combat\.powerMul\(c\);/.test(app),
     'the monster hit is scaled by Combat.powerMul — elite × lair (and the mode)');

@@ -67,7 +67,7 @@ vm.createContext(ctx);
 const FILES = [
   // The game-mode table — first, because items.js / combat.js / energy.js
   // read Difficulty.get() at call time and app.js pins it at boot.
-  'enemy_roster.js', 'enemy_spawns.js', 'difficulty.js',
+  'enemy_roster.js', 'enemy_spawns.js', 'enemy_habitats.js', 'difficulty.js',
   'sprite_layout.js',
   'mvt.js', 'util.js', 'particles.js', 'trail.js',
   // Street restoration's arithmetic: interval lists, the line key, the exact
@@ -1284,7 +1284,6 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
     // The ghosts: the stride both movers read, the night pump and the mover.
     fn('function monsterStrideCells(mon) {'),
     num('GHOST_DARK_DAYLIGHT'),
-    'const GHOST_CAVE_EVERY = EnemyRoster.GHOST_SCALING.hauntedDepthEvery;',
     'const GHOST_SPAWN_MS = EnemyRoster.GHOST_SCALING.cadenceSeconds * 1000;',
     'const GHOST_SPAWN_JITTER_MS = EnemyRoster.GHOST_SCALING.jitterSeconds * 1000;',
     num('GHOST_GROUP_SPREAD'),
@@ -1292,7 +1291,7 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
     num('GHOST_PLATEAU_BURN_S'), num('GHOST_LIGHT_TICK_MS'), num('GHOST_LIFETIME_MS'),
     fn('function ghostSpawnDelay(r) {'),
     fn('function ghostSunExposure(day) {'),
-    fn('function ghostsHaunt(depth, day) {'),
+    fn('function ghostsHaunt(depth, day, habitat) {'),
     fn('function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, caughtSet) {'),
     fn('function makeGhost(x, y, now, tx, ty, tag) {'),
     fn('function raiseGhostAt(scene, x, y, now, tag) {'),
@@ -1306,7 +1305,7 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   // land on the context global; that is what the BRIDGE above exists for).
   // The method text is a class method, so it is wrapped as an object literal
   // and the property taken off it.
-  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\nglobalThis.__ghostTick = ghostTick;\nglobalThis.__ghostSpawnPass = ghostSpawnPass;\nglobalThis.__raiseGhostAt = raiseGhostAt;\nglobalThis.__fishedSlimeSpawn = fishedSlimeSpawn;\nconst surfaceGhosts = EnemyRoster.ghostProfile(0);\nglobalThis.__ghost = { GHOST_DARK_DAYLIGHT, GHOST_CAVE_EVERY, ghostsHaunt, ghostSunExposureAt, GHOST_SPAWN_MS, GHOST_SPAWN_JITTER_MS, GHOST_GROUP_MIN: surfaceGhosts.groupMin, GHOST_GROUP_MAX: surfaceGhosts.groupMax, GHOST_NEAR_MAX: surfaceGhosts.nearMax, GHOST_SPAWN_DARK, GHOST_HOVER_MS, GHOST_TOUCH_CELLS, GHOST_PLATEAU_BURN_S, GHOST_LIGHT_TICK_MS, GHOST_LIFETIME_MS, monsterStrideCells, ghostSunExposure, ghostSpawnDelay };\n})();`,
+  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\nglobalThis.__ghostTick = ghostTick;\nglobalThis.__ghostSpawnPass = ghostSpawnPass;\nglobalThis.__raiseGhostAt = raiseGhostAt;\nglobalThis.__fishedSlimeSpawn = fishedSlimeSpawn;\nconst surfaceGhosts = EnemyRoster.ghostProfile(0);\nglobalThis.__ghost = { GHOST_DARK_DAYLIGHT, ghostsHaunt, ghostSunExposureAt, GHOST_SPAWN_MS, GHOST_SPAWN_JITTER_MS, GHOST_GROUP_MIN: surfaceGhosts.groupMin, GHOST_GROUP_MAX: surfaceGhosts.groupMax, GHOST_NEAR_MAX: surfaceGhosts.nearMax, GHOST_SPAWN_DARK, GHOST_HOVER_MS, GHOST_TOUCH_CELLS, GHOST_PLATEAU_BURN_S, GHOST_LIGHT_TICK_MS, GHOST_LIFETIME_MS, monsterStrideCells, ghostSunExposure, ghostSpawnDelay };\n})();`,
     ctx, { filename: 'scene_creatures.js#wanderCreatures' });
   if (typeof ctx.__wander !== 'function') {
     console.error('__wander did not come back as a function — update run.js');

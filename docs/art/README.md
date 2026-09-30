@@ -37,8 +37,8 @@ the browser renders proposed RGB palette swaps beside them using
 colour ramps are assigned by source brightness. Dimensions and alpha are
 preserved exactly. The six defaults are exported to `assets/Objects/Rustic/` with
 `tools/apply_nature_recolours.py`, including matching growth and broken-pot
-states. The clipped hedge is only a future formal-garden / residential /
-commercial zone alternative. No optional recolour variants are enabled, and
+states. The clipped hedge is used on hedged lanes; formal-garden / residential /
+commercial zone use remains an alternative. No optional recolour variants are enabled, and
 the game has no seasons.
 
 Generate both linked review pages and palette exports (Pillow and Node required):
@@ -68,7 +68,8 @@ lift across their growth art, retaining their colours and outlines. Local OSM fe
 Prevalence order is a qualitative estimate from terrain coverage and placement
 rules; no representative post-filter map census was available. Seven families
 (6.4%) have proposed zone-specific alternatives. None are seasonal and none
-are installed by the dashboard. The clipped hedge is reserved for Formal
+are installed by the dashboard. The clipped hedge is active on hedged lanes
+and remains a candidate for Formal
 Garden and residential/commercial bush placements.
 
 ```sh
@@ -101,6 +102,11 @@ flattening their leaf shading. The original chest and unchanged well provide
 contrast references beside the proposed art.
 The rejected ground tileset alternatives remain in source details: the actual
 procedural materials are better suited to arbitrary map polygons.
+
+Mushroom Grove uses the red giant mushroom (32 × 48 frame 2) from
+`art-source/sprites/Fantasy Mushroom.png`, copied unchanged to the Wilderness
+assets. These are shrub interactables with the same harvesting and wood drops;
+ordinary shrubs elsewhere retain their woodland bush art.
 
 ## Sandbox comparison
 

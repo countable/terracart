@@ -81,11 +81,21 @@
     for (const a of all) a.variant = V.pick(a).id;
     for (const a of f.anchors) a.variant = V.pick(a).id;
     const sorted = all.slice().sort((a, b) => a.gy - b.gy || a.gx - b.gx || a.code - b.code);
+    const sourceLand = i => grid && Z.landAt(grid, f.under, i);
+    // Beach identity comes from the canonical POI, never an observer's clipped
+    // sand patch. Its dry footprint is refined below; ordinary groves leave sand.
+    if (grid) for (let i = 0; i < coverage.length; i++) {
+      if (i % (N * 16) === 0) yield 'zone coverage shore eligibility';
+      const a = f.anchors[coverage[i] - 1];
+      if (a && (a.kind === 'beach' || (a.kind === 'grove' && sourceLand(i) === WG.T.SAND))) coverage[i] = 0;
+    }
     const unit = EXT / N, margin = Z.FRINGE_FILL_M / (N * WG.CELL_M / EXT);
     const associated = [];
     for (const park of parks || []) {
       if (park.cemetery) continue;
-      const a = sorted.find(a => a.kind === 'grove' && contains(park.rings, a.gx - tx * EXT, a.gy - ty * EXT));
+      const inPark = a => contains(park.rings, a.gx - tx * EXT, a.gy - ty * EXT);
+      const a = sorted.find(a => a.kind === 'beach' && inPark(a))
+        || sorted.find(a => a.kind === 'grove' && inPark(a));
       if (!a) continue;
       const g = geometry(park);
       associated.push({ a, g });
@@ -94,9 +104,34 @@
         if ((y & 31) === 0) yield 'zone coverage union';
         for (let x = 0; x < N; x++) {
           const i = y * N + x;
-          if (!mask[i] || (f.idx && f.idx[i])) continue;
+          if (!mask[i]) continue;
+          const land = sourceLand(i);
+          if (grid && a.kind === 'grove' && land === WG.T.SAND) continue;
+          if (grid && a.kind === 'beach' && ![WG.T.SAND, WG.T.PARK, WG.T.GRASS, WG.T.FOREST, WG.T.GROVE].includes(land)) continue;
+          const current = coverage[i] && f.anchors[coverage[i] - 1];
+          if (f.idx && f.idx[i] && current && !(a.kind === 'beach' && (land === WG.T.SAND || current.kind === 'grove'))) continue;
           const b = coverage[i] && f.anchors[coverage[i] - 1];
-          if (b && (b.gy < a.gy || (b.gy === a.gy && b.gx <= a.gx))) continue;
+          if (b && !(a.kind === 'beach' && b.kind === 'grove')
+              && (b.gy < a.gy || (b.gy === a.gy && b.gx <= a.gx))) continue;
+          coverage[i] = slot;
+        }
+      }
+    }
+    // Sand under a tagged beach's stable influence belongs to that beach,
+    // even when a stronger grove field overlaps it. No anchor is minted from
+    // local geometry, and unanchored shores receive no finite encounter.
+    if (grid) for (const a of sorted.filter(a => a.kind === 'beach')) {
+      const slot = slotFor(a), lx = a.gx - tx * EXT, ly = a.gy - ty * EXT;
+      const r = a.R * (1 + Z.EDGE_JITTER) / a.upm;
+      for (let y = Math.max(0, Math.floor((ly - r) / unit)); y <= Math.min(N - 1, Math.floor((ly + r) / unit)); y++) {
+        if ((y & 15) === 0) yield 'beach coverage';
+        for (let x = Math.max(0, Math.floor((lx - r) / unit)); x <= Math.min(N - 1, Math.floor((lx + r) / unit)); x++) {
+          const i = y * N + x;
+          if (sourceLand(i) !== WG.T.SAND) continue;
+          const gx = tx * EXT + (x + .5) * unit, gy = ty * EXT + (y + .5) * unit;
+          if (Math.hypot(gx - a.gx, gy - a.gy) * a.upm > Z.edgeAt(a, gx, gy)) continue;
+          const old = f.anchors[coverage[i] - 1];
+          if (old && old.kind === 'beach' && (old.gy < a.gy || (old.gy === a.gy && old.gx <= a.gx))) continue;
           coverage[i] = slot;
         }
       }

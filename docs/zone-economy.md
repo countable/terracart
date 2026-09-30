@@ -1,6 +1,6 @@
 # Zone economy comparison
 
-These are expected Home sale coins using the current Easy-mode sale formula, from no sword to a Frost sword. Background value is per 100 nominal pattern cells before clipping, not per zone or per 100 placed objects. Fixed grids and rings use their own declared footprint. Mining assumes sufficient tools. Values include normal material bonus drops; exclude shiny bonuses, POI decorations, connection materials, headstone hoards, fauna, guard loot and recurring shrine gifts. The Ancient Grove range additionally allows young/mature maple and axe variation; the table has not fixed tree maturity. Background harvesting is generally one-time, except orchard fruit. This report evaluates the declarative variant profiles used by world generation. Ordinary-rock bonus odds are read from the runtime helper; other material-yield assumptions retain the reviewed baseline.
+These are expected Home sale coins using the current Easy-mode sale formula, from no sword to a Frost sword. Background value is per 100 nominal pattern cells before clipping, not per zone or per 100 placed objects. Fixed grids and rings use their own declared footprint. Mining assumes sufficient tools. Values include normal material bonus drops; exclude shiny bonuses, POI decorations, connection materials, headstone hoards, fauna, guard loot and recurring shrine gifts. Ancient Grove uses the largest mature maples (four times base wood); its range retains the reviewed acorn-drop baseline. Background harvesting is generally one-time, except orchard fruit. This report evaluates the declarative variant profiles used by world generation. Ordinary-rock bonus odds are read from the runtime helper; other material-yield assumptions retain the reviewed baseline.
 
 | Variant | Background / 100 cells | Finite special finds | Find value / zone | Notes |
 |---|---|---|---|---|
@@ -9,7 +9,7 @@ These are expected Home sale coins using the current Easy-mode sale formula, fro
 | Orchard | 61–125 | 3 × Gemfruit | 30–57 | Apple harvest repeats every 24 h; medium maples are one-time timber |
 | Formal Garden | 206–383 | 2 × Wild Rose | 28–54 |  |
 | Hedge Garden | 98–148 | 2 × Wild Rose | 28–54 |  |
-| Ancient Grove | 65–74 | 1 × Starflower | 49–98 | Range also allows young/mature maple and axe tier |
+| Ancient Grove | 86–116 | 1 × Starflower | 49–98 | Range also allows young/mature maple and axe tier |
 | Stone Garden | 409–782 | 3 × Gemfruit | 30–57 |  |
 | Ordered Graves | 86–163 | 2 × Gemfruit | 20–38 | Headstone hoards excluded |
 | Overgrown Graves | 68–118 | 1 × Starflower | 49–98 | Headstone hoards excluded |

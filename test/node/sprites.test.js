@@ -418,3 +418,23 @@ test('MINERAL_ICON_SHEET: row stride for bars is 16 cols (gold at 16, crimson at
   assert.eq(MINERAL_ICON_SHEET['gold_bar'].frame - MINERAL_ICON_SHEET['copper_bar'].frame, 16);
   assert.eq(MINERAL_ICON_SHEET['crimson_bar'].frame - MINERAL_ICON_SHEET['gold_bar'].frame, 16);
 });
+
+// Street hedges retain shrub harvesting while using their own clipped art.
+test('clipped street hedges resolve art without changing ordinary shrubs', () => {
+  const hedge = {crop:'shrub', _streetArt:'trimmed'};
+  assert.eq(wildplantSprite(hedge).sheet, 'hedge_trimmed');
+  assert.eq(wildplantFrame(hedge), 0);
+  assert.eq(wildplantSprite({crop:'shrub'}).sheet, 'bushes');
+  assert.eq(wildplantSprite({crop:'shrub', _streetArt:'unknown'}).sheet, 'bushes');
+  assert.eq(wildplantRule(hedge.crop).output, 'wood');
+});
+
+// Art overrides leave the crop responsible for harvesting and inventory.
+test('giant mushroom shrub look resolves without overriding ordinary or trimmed shrubs', () => {
+  const giant = {crop:'shrub', _plantArt:'giant_mushroom'};
+  assert.eq(wildplantSprite(giant).sheet, 'giant_mushroom');
+  assert.eq(wildplantFrame(giant), 2);
+  assert.eq(wildplantSprite({crop:'shrub', _plantArt:'unknown'}).sheet, 'bushes');
+  assert.eq(wildplantSprite({crop:'shrub', _streetArt:'trimmed'}).sheet, 'hedge_trimmed');
+  assert.eq(wildplantRule(giant.crop), wildplantRule('shrub'));
+});

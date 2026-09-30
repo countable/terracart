@@ -9,12 +9,12 @@ const count = (row, x0, y0, w, h, seed) => {
   }
   return result;
 };
-test('zone variants: all 16 rows select deterministically in their zone kind', () => {
-  assert.eq(V.rows.length, 16);
+test('zone variants: all 19 rows select deterministically in their zone kind', () => {
+  assert.eq(V.rows.length, 19);
   assert.eq(V.forKind('grove').length, 6);
   assert.eq(V.forKind('stones').length, 5);
   assert.eq(V.forKind('tar').length, 5);
-  for (const kind of ['grove', 'stones', 'tar']) {
+  for (const kind of ['grove', 'stones', 'tar', 'beach']) {
     const selected = new Set();
     for (let i = 0; i < 500; i++) {
       const anchor = { kind, gx: i * 317, gy: i * -71 };
@@ -202,12 +202,12 @@ test('zone variants: finite finds keep exact budgets and pick requirements', () 
   assert.eq(workFind.dy, 8);
 });
 test('zone variants: fauna affinities and material classes match their runtime lanes', () => {
-  assert.eq(V.rows.filter(row => Object.keys(row.attracts).length).length, 8);
+  assert.eq(V.rows.filter(row => Object.keys(row.attracts).length).length, 10);
   assert.eq(V.materials.grave.spawnClass, 'headstone');
   assert.eq(ZoneVariantData.materials.grave.spawnClass, 'enemy', 'runtime adapts without mutating reviewed source');
   assert.eq(V.materials.trap.collection, 'traps');
   for (const row of V.rows) {
-    for (const slot of [...row.poi.slots, ...row.poi.whenInsideBuilding.slots]) assert.truthy(V.materials[slot.material]);
+    for (const slot of [...row.poi.slots, ...(row.poi.whenInsideBuilding?.slots || [])]) assert.truthy(V.materials[slot.material]);
     for (const value of Object.values(row.attracts)) assert.truthy(value > 0 && value <= 1);
     for (const material of Object.keys(count(row, -30, -30, 60, 60, 'materials'))) assert.truthy(V.materials[material]);
   }

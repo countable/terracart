@@ -133,13 +133,15 @@ test('ghost: the cave bag skips touch ghosts at every depth', () => {
 
 // ── The pump ────────────────────────────────────────────────────────────────
 function pumpScene(over) {
-  const entry = { creatures: [] };
-  const scene = ghostScene(entry.creatures, { _starterTrailAnchor: () => ({ x: -1000, y: 0 }), ...over });
+  const entry = { creatures: [], cellsPerEdge: WorldGen.TILE_PX };
+  const scene = ghostScene(entry.creatures, { tileEdgeM: CELL * WorldGen.TILE_PX, _theme: 'crypt', _starterTrailAnchor: () => ({ x: -1000, y: 0 }), ...over });
   scene._entry = entry;
   return scene;
 }
 function pump(scene, now) {
   const realGet = WorldGen.tileCache.get;
+  const realContext = EnemySpawns.caveContextAt;
+  EnemySpawns.caveContextAt = (entry, tx, ty, ix, iy) => ({theme: scene._themeAt ? scene._themeAt(tx, ty, ix, iy) : scene._theme});
   const realNear = WorldGen.forEachItemNear;
   WorldGen.tileCache.get = () => scene._entry;
   WorldGen.forEachItemNear = (what, tx, ty, fn) => { for (const c of scene._entry.creatures) fn(c); };
@@ -148,6 +150,7 @@ function pump(scene, now) {
       (HOME_R * CELL) ** 2, new Set(scene.save.caught));
   } finally {
     WorldGen.tileCache.get = realGet;
+    EnemySpawns.caveContextAt = realContext;
     WorldGen.forEachItemNear = realNear;
   }
 }
@@ -169,38 +172,54 @@ test('ghost pump: no churchyard reason — dusk is dusk at a church too (safety,
   // The Old Stones used to raise the dead from DUSK round a church or a
   // cemetery, twice as often, fanned from the stones — pulling players to
   // graveyards at closing time. Gone: one predicate, the same night everywhere.
-  assert.eq(__ghost.ghostsHaunt.length, 2, 'ghostsHaunt(depth, day) — no zone argument');
+  assert.falsy(__ghost.ghostsHaunt(0, 0.4, 'crypt'), 'a cave habitat does not accelerate surface dusk');
   assert.falsy('GHOST_ZONE_DUSK' in __ghost || 'GHOST_ZONE_CADENCE_MUL' in __ghost, 'the boost constants are gone');
   assert.falsy(/ghostAnchorAt|Zones\./.test(CREATURE_AI_SRC.slice(CREATURE_AI_SRC.indexOf('function ghostSpawnPass('),
     CREATURE_AI_SRC.indexOf('function makeGhost('))), 'the pump reads no zone');
   assert.falsy(__ghost.ghostsHaunt(0, 0.4), 'dusk, not yet dark: nothing, anywhere');
 });
 
-test('ghost pump: nothing on an ODD cave level, night or not', () => {
-  for (const depth of [1, 3, 5]) {
-    atDaylight(0, () => {
-      const s = pumpScene({ depth });
-      for (let t = 0; t < 30 * 60000; t += 1000) pump(s, t);
-      assert.eq(s._entry.creatures.length, 0, `depth ${depth}: the odd levels are not haunted`);
-    });
+test('ghost pump: no crypt means no haunting on odd or even cave levels', () => {
+  for (const depth of [1,2,3,4,5,6]) {
+    for (const theme of ['natural','goblin','infernal']) {
+      const s=pumpScene({depth,_theme:theme});
+      pump(s,0); assert.eq(pump(s,400000),0);
+      assert.eq(s._nextGhostT,null);
+      assert.falsy(__ghost.ghostsHaunt(depth,0), 'missing habitat never falls back to even floors');
+    }
   }
 });
 
-test('ghost pump: an EVEN cave level is haunted at every hour', () => {
-  for (const depth of [2, 4]) {
-    for (const day of [1, 0]) {
-      atDaylight(day, () => {
-        const s = pumpScene({ depth });
-        let rose = 0;
-        for (let t = 0; t < 30 * 60000; t += 1000) rose += pump(s, t);
-        assert.gt(rose, 0, `depth ${depth}, daylight ${day}: ghosts rise`);
-      });
-    }
+test('ghost pump: crypts are haunted from depth 3 at every hour, odd or even', () => {
+  for (const depth of [1,2,3,4,5,6]) {
+    for (const day of [1,0]) atDaylight(day,()=>{
+      const s=pumpScene({depth});pump(s,0);
+      const rose=pump(s,400000);
+      if(depth>=3) assert.gt(rose,0);else assert.eq(rose,0);
+    });
   }
-  assert.eq(__ghost.GHOST_CAVE_EVERY, EnemyRoster.GHOST_SCALING.hauntedDepthEvery,
-    'the pump derives the roster-owned haunted-depth interval');
-  assert.truthy(__ghost.ghostsHaunt(2, 1) && !__ghost.ghostsHaunt(3, 0) && !__ghost.ghostsHaunt(0, 1) && __ghost.ghostsHaunt(0, 0),
-    'the one predicate: even levels always, the surface only after dark');
+  assert.falsy(__ghost.ghostsHaunt(0,1));assert.truthy(__ghost.ghostsHaunt(0,0));
+});
+
+test('ghost pump: player and each generated seat must both belong to crypt habitat', () => {
+  const isPlayer=(tx,ty,ix,iy)=>tx===0&&ty===0&&ix===0&&iy===0;
+  for(const playerCrypt of [true,false]) {
+    const s=pumpScene({depth:3,_themeAt:(tx,ty,ix,iy)=>isPlayer(tx,ty,ix,iy)===playerCrypt?'crypt':'natural'});
+    pump(s,0);assert.eq(pump(s,400000),0);
+    assert.eq(s._entry.creatures.length,0);
+  }
+});
+
+test('ghost: explicit headstone encounters still rise by day outside ordinary crypt habitat', () => {
+  atDaylight(1,()=>{
+    const s=pumpScene({_theme:'natural'}),oldGet=WorldGen.tileCache.get,oldNear=WorldGen.forEachItemNear;
+    WorldGen.tileCache.get=()=>s._entry;
+    WorldGen.forEachItemNear=(what,tx,ty,fn)=>s._entry.creatures.forEach(fn);
+    try {
+      const g=__raiseGhostAt(s,P.x,P.y,10000,'headstone');
+      assert.truthy(g);assert.eq(s._entry.creatures.length,1);
+    } finally {WorldGen.tileCache.get=oldGet;WorldGen.forEachItemNear=oldNear;}
+  });
 });
 
 test('ghost: no sun burn underground, even at noon', () => {
@@ -523,7 +542,7 @@ test('ghost pump: D4 enlarges groups and D6 enlarges both ghost colours', () => 
     const random = Math.random;
     try {
       Math.random = () => 0.99;
-      for (const depth of [0, 2, 4, 6]) {
+      for (const depth of [0, 3, 4, 5, 6, 7]) {
         const s = pumpScene({ depth });
         pump(s, 0);
         const n = pump(s, 400000);

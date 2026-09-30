@@ -1,4 +1,4 @@
-// Drive the real scene loop: plants reposition slowly and spit from their declared range.
+// Drive the real scene loop: plants remain rooted and spit from their declared range.
 (function () {
   const CELL = 7;
   function setup(extra = {}) {
@@ -71,11 +71,10 @@
     tick(scene, 100);
     assert.eq(scene._shots.length, 1, 'the row cooldown prevents another shot');
   });
-  test('park plant: moves at declared metres per second and anchors at firing distance', () => {
+  test('park plant: remains rooted outside range and fires when approached', () => {
     const { plant, scene } = setup({ x: 4 * CELL });
     for (let i = 0; i < 20; i++) tick(scene);
-    const expected = EnemyRoster.get('plant').movement.speedMetersPerSecond * 1.9;
-    assert.inRange(4 * CELL - plant.x, expected - 1e-6, expected + 1e-6);
+    assert.eq(plant.x, 4 * CELL);
     assert.inRange(plant.y, -1e-9, 1e-9); assert.eq(scene._shots.length, 0, 'outside declared range');
     plant.x = 2 * CELL;
     for (let i = 0; i < 10; i++) tick(scene);
@@ -95,7 +94,7 @@
       for (let i = 0; i < 32; i++) tick(scene);
       assert.eq(scene.save.energy, energy, guard + ' prevents damage');
       assert.eq(scene._shots.length, 0, guard + ' prevents shooting');
-      if (guard === 'home' || guard === 'castle') assert.gt(plant.x, 2 * CELL, guard + ' drives the plant away');
+      if (guard === 'home' || guard === 'castle') assert.eq(plant.x, 2 * CELL, guard + ' suppresses the rooted plant without moving it');
       if (guard === 'frozen') { assert.eq(plant.x, 2 * CELL); assert.eq(plant.y, 0); }
     }
   });
@@ -109,7 +108,7 @@
     plant._wanderOffInMs = 1;
     plant._wanderOffSimT = scene._simT;
     for (let i = 0; i < 30; i++) tick(scene);
-    assert.gt(plant.x, 2 * CELL); assert.eq(scene._shots.length, 0);
+    assert.eq(plant.x, 2 * CELL); assert.eq(scene._shots.length, 0);
     assert.gt(plant._wanderOffUntilT, scene._simT);
   });
 })();

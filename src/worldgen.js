@@ -4456,7 +4456,8 @@
             }
             continue;
           }
-          if (!POI_USEFUL.has(cls)) continue;
+          const beachPoi = typeof Zones !== 'undefined' && Zones.anchorOf(f.tags)?.kind === 'beach';
+          if (!POI_USEFUL.has(cls) && !beachPoi) continue;
           for (const ring of f.geom) {
             const p = ring[0];
             if (!ownsPoint(p)) continue;
@@ -4475,6 +4476,9 @@
             // takes the rest. Tile bytes only, so the same on every device.
             objects.push(makeObject('chest', cx, cy, id,
               { poiClass: cls, subclass: f.tags.subclass || '', name: f.tags.name || '', _poiAt: `${p.x},${p.y}` }));
+            // The beach shrine keeps the ordinary POI identity and later
+            // dedupe/quiet-land gates, but must not pave its source sand.
+            if (beachPoi) continue;
             // Synthesized concrete-pad terrain around the POI, in a per-class SHAPE.
             // Building polygons are independent of POIs and never overpainted: if the POI
             // point lands on or right next to a building, slide it to the nearest non-

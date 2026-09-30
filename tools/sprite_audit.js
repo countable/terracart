@@ -243,6 +243,7 @@ const SHEETS = {
   pine_tree:     { file: 'assets/Objects/Wilderness/Pine Tree.png',          fw: 32, fh: 48, frames: [3] },
   birch_tree:    { file: 'assets/Objects/Wilderness/Birch Tree.png',         fw: 32, fh: 48, frames: [3] },
   mahogany_tree: { file: 'assets/Objects/Wilderness/Mahogany Tree.png',      fw: 32, fh: 48, frames: [3] },
+  giant_mushroom: { file: 'assets/Objects/Wilderness/Fantasy Mushroom.png', fw: 32, fh: 48, frames: [2] },
   bushes:        { file: 'assets/Objects/Rustic/bush.png',             fw: 48, fh: 32, frames: [0] },
   // The sheets' fruiting cells (apple 7, peach 5) are deliberately absent: a
   // bearing tree now keeps its mature frame and wears a fruit sprite instead,
@@ -288,6 +289,7 @@ const SHEETS = {
 const t = (species, size) => treeScale({ species, size });
 const SEAT_ANCHOR = [0.5, 0.5];
 const SCENARIOS = [
+  { name: 'giant mushroom shrub', key: 'giant_mushroom', frameIdx: 2, scale: CROP_SPRITE.shrub.looks.giant_mushroom.scale },
   { name: 'maple sprout',    key: 'trees',         frameIdx: 1, scale: t('maple', 'small') },
   { name: 'maple young',     key: 'trees',         frameIdx: 2, scale: t('maple', 'medium') },
   { name: 'maple small',     key: 'trees',         frameIdx: 3, scale: t('maple', 'small') },
@@ -501,7 +503,8 @@ function frameInk(img, fw, fh, frameIdx) {
 // One row per (crop, frame) a CROP_SPRITE entry declares on a custom sheet.
 function wildFrameRows() {
   const rows = [];
-  for (const [crop, ov] of Object.entries(CROP_SPRITE)) {
+  for (const [crop, ov] of Object.entries(CROP_SPRITE).flatMap(([crop, row]) =>
+    [[crop, row], ...Object.entries(row.looks || {}).map(([look, art]) => [crop + '.' + look, art])])) {
     if (!ov || !ov.custom) continue;
     const declared = [];
     if (ov.frame != null) declared.push(['frame', ov.frame]);

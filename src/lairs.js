@@ -138,7 +138,7 @@
   // at a third of the bus stops on every major road; the owner's safety pass
   // removed it — a stop is on the kerb by definition. The hoard's tier was
   // 'close', the head of a hedgerow's residential dead end.)
-  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1 };
+  const STREET_TIER_GUARDS = { cafe: 1, barricade: 1, burned: 1, street_overgrown: 1, street_orchard: 1, street_toadstool: 1 };
   Object.assign(TIER_GUARDS, STREET_TIER_GUARDS);
   // ── A TAR YARD — the same reason again (src/zones.js): the fire slimes at
   // a fuel station's pumps, seated about its chest. Fixed and always held
@@ -218,17 +218,20 @@
   const KIND_ORDER = {
     9:  ['slime'],                                 // T.BUILDING       — infested (surface kind only)
     11: ['goblin', 'goblin_archer'],               // T.BUILDING_MED   — held by goblins
-    12: ['skeleton', 'giant_skeleton'],            // T.BUILDING_LARGE — held by the dead
+    12: ['skeleton', 'skeleton_soldier'],            // T.BUILDING_LARGE — held by the dead
     // A café hoard: its guard is one of the approved surface T3 GIANTS
     // (EnemyRoster rows, variantType 'Giant', not eliteEligible — size never
     // stacks with Elite), never a shiny: a shiny's kill pays the relic-biased
     // elite roll and every café would flood the map with gear. (The old
     // 'close' tier's ladder; there is no 'wagon' tier — the safety pass.)
-    cafe: ['giant_skeleton', 'giant_spider'],
+    cafe: ['skeleton_soldier', 'orc'],
     // A tar yard: fire slimes (combat.js MONSTERS.fire_slime).
     tar: ['fire_slime'],
     // A barricade: the goblin who holds it.
-    barricade: ['goblin'],
+    barricade: ['spear_goblin', 'archer_goblin'],
+    street_overgrown: ['plant'],
+    street_orchard: ['farmer_goblin'],
+    street_toadstool: ['spider'],
     // A burned row's stretch: one fire slime in the tar (the fire slimes are
     // zone-seated, never a tile's wild spawn, so the burned row seats its own
     // here rather than relocating any).
@@ -267,6 +270,9 @@
     tar:   { rate: 1, thinned: false },    // a tar yard's pumps
     barricade: { rate: 1, thinned: false },  // a barricade road's barricade
     burned: { rate: 1, thinned: false },   // a burned row's stretch
+    street_overgrown: { rate: 1, thinned: false },
+    street_orchard: { rate: 1, thinned: false },
+    street_toadstool: { rate: 1, thinned: false },
     gate:   { rate: 1, thinned: false },   // a gate's posts — held every day
   };
 
@@ -724,7 +730,10 @@
     const t = rng();
     const cap = capFor(cand.tier, t);
     if (cap <= 0) return [];
-    const n = countFor(cap, rng);
+    const baseCount = countFor(cap, rng);
+    // Hard barricades introduce ranged support, capped at a two-member team.
+    const n = cand.tier === 'barricade' && root.Difficulty?.mode() === 'hard' ? 2 : baseCount;
+    const family = root.EnemyHabitats?.buildingKinds(entry, cand);
     const ox = cand.ox, oy = cand.oy;
     const caught = o.caughtSet;
     const hpMemo = o.hpMemo;
@@ -765,10 +774,12 @@
       ? String(o.dayKey || (root.Delivery && root.Delivery.dayKey ? root.Delivery.dayKey() : '0')) : null;
     for (let i = 0; i < n; i++) {
       const id = day ? `lair_${cand.sid}_${day}_${i}` : `lair_${cand.sid}_${i}`;
-      const kind = kindFor(cand.tier, t, rng);
+      const legacyKind = kindFor(cand.tier, t, rng); // preserve the seat RNG stream
+      const kind = cand.tier === 'barricade' ? (i === 0 ? 'spear_goblin' : 'archer_goblin')
+        : family ? family[i % Math.min(family.length, 1 + Math.floor(t * family.length))] : legacyKind;
       if (!kind) continue;                    // no ladder for this tier
       // Its seat class (the spawn gate): a fast guard also keeps off the kerb.
-      const guardClass = (typeof root.creatureSpawnClass === 'function')
+      const guardClass = Object.hasOwn(STREET_TIER_GUARDS, cand.tier) ? 'fastEnemy' : (typeof root.creatureSpawnClass === 'function')
         ? root.creatureSpawnClass(kind) : 'fastEnemy';
       let seat = null;
       for (let a = 0; a < LAIR_SEAT_TRIES && !seat; a++) {

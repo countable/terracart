@@ -129,7 +129,7 @@ test('fruit overlay: the fruit pass renders through its own pool', () => {
 // exercise animated bounds and missing-frame semantics without a Phaser scene.
 (() => {
   const start = RENDER_SRC.indexOf('  const resolveAppearance = (o) => {');
-  const end = RENDER_SRC.indexOf('  for (const item of filteredObj) item._appearance', start);
+  const end = RENDER_SRC.indexOf('  return { RENDER_SPEC, resolveAppearance,', start);
   const makeResolver = new Function('RENDER_SPEC', 'scene', 'window', 'CELL_PX',
     RENDER_SRC.slice(start, end) + '\nreturn resolveAppearance;');
   const scene = { textures: { exists: (key) => key === 'tree' } };

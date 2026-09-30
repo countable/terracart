@@ -37,6 +37,38 @@
     assert.eq(out.wildplants.length, 3, 'only the finite gemfruit finds remain');
     assert.truthy(out.wildplants.every(o => o.crop === 'gemfruit' && o.zoneLayer === 'find'));
   });
+  test('zone dressing: giant mushroom art replaces only Mushroom Grove shrubs, retaining harvesting and identities', () => {
+    const grove = ZoneDressing.dress(context('mushroom_grove'));
+    const giants = grove.wildplants.filter(o => o.crop === 'shrub');
+    assert.gt(giants.length, 0);
+    for (const o of giants) {
+      assert.eq(o._plantArt, 'giant_mushroom');
+      assert.eq(o.kind, 'wildplant');
+      assert.eq(o.id, WorldGen.cellId('wpf', 0, 0, o._ix, o._iy), 'existing shrub identity survives the art change');
+      assert.eq(wildplantRule(o.crop).output, 'wood');
+      assert.eq(wildplantSprite(o).sheet, 'giant_mushroom');
+      assert.eq(wildplantFrame(o), 2);
+    }
+    assert.truthy(grove.wildplants.filter(o => o.crop === 'mushroom').every(o => !o._plantArt), 'small mushroom forage stays unchanged');
+    const ordinary = ZoneDressing.dress(context('meadow')).wildplants.filter(o => o.crop === 'shrub');
+    assert.gt(ordinary.length, 0);
+    assert.truthy(ordinary.every(o => !o._plantArt && wildplantSprite(o).sheet === 'bushes'), 'other groves keep bushes');
+  });
+  test('zone dressing: Ancient Grove centers and shrine trees use the largest mature canopy', () => {
+    const grove = ZoneDressing.dress(context('ancient_grove'));
+    const trees = grove.objects.filter(o => o.kind === 'tree');
+    assert.gt(trees.filter(o => o.zoneLayer === 'background').length, 0, 'cluster centers are trees');
+    assert.gt(trees.filter(o => o.zoneLayer === 'poi').length, 0, 'shrine ring has trees');
+    for (const o of trees) {
+      assert.eq(o.species, 'maple');
+      assert.eq(o.size, 'large');
+      assert.eq(treeSizeClass(o), 'full');
+      assert.falsy(treeUsesGrowthSheet(o), 'mature canopy overrides the default sapling variant');
+      assert.eq(treeWoodMul(o), 4, 'largest tree appearance and harvesting size agree');
+    }
+    const orchard = ZoneDressing.dress(context('orchard')).objects.filter(o => o.kind === 'tree');
+    assert.truthy(orchard.every(o => o.size === 'medium'), 'orchard trees retain their medium canopy');
+  });
   test('zone dressing: blocked guards choose the nearest eligible seat and retain their identity', () => {
     const pristine = ZoneDressing.dress(context('mushroom_grove')).guards[0];
     function blockedContext() {
@@ -209,5 +241,24 @@
     const labels = [], it = ZoneDressing.dressSteps(ctx); let r;
     do { r = it.next(); if (!r.done) labels.push(r.value); } while (!r.done);
     assert.includes(labels, 'zone variant coverage'); assert.includes(labels, 'zone variant pattern rows'); assert.includes(labels, 'zone find fallback');
+  });
+  test('zone encounters: species, stationary plants and a finite proximity ghost follow the theme', () => {
+    const kinds = id => ZoneDressing.dress(context(id)).guards.map(g => g.kind).join();
+    assert.eq(kinds('pirate_cove'), 'pirate_grunt,pirate_gunner');
+    assert.eq(kinds('orchard'), 'farmer_goblin');
+    assert.eq(kinds('ancient_grove'), 'plant,spider');
+    assert.eq(kinds('ordered_graves'), 'skeleton_soldier');
+    assert.eq(kinds('overgrown_graves'), 'spider');
+    assert.eq(kinds('broken_masonry'), 'club_goblin');
+    assert.eq(kinds('mystic_reef'), 'giant_crab');
+    assert.truthy(['slime', 'spider'].includes(kinds('mushroom_grove')));
+    const plant = ZoneDressing.dress(context('hedge_garden')).guards[0];
+    assert.truthy(plant.stationary);
+    const ghost = ZoneDressing.dress(context('silent_circle')).guards;
+    assert.eq(ghost.length, 1); assert.eq(ghost[0].kind, 'ghost'); assert.eq(ghost[0].proximityCells, 4);
+    for (const id of ['meadow', 'formal_garden', 'stone_garden', 'shellwater_strand', 'seep', 'black_ring']) assert.eq(kinds(id), '');
+    for (const id of ['ordered_graves', 'overgrown_graves']) {
+      assert.gt(ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone').length, 0);
+    }
   });
 })();

@@ -306,7 +306,7 @@ test('zones: the patterns — groves by character, graves are a per-cell rule, n
   assert.eq(Z.ASPECTS.stones.join(), 'graves');
   assert.eq(Z.patternPieces('graves').length, 0, 'no fixed stones pattern');
   assert.eq(Z.ASPECTS.stones_quiet, undefined, 'no quiet-faith pattern left');
-  assert.eq(Object.keys(Z.ASPECTS).sort().join(), 'grove,stones,tar');
+  assert.eq(Object.keys(Z.ASPECTS).sort().join(), 'beach,grove,stones,tar');
   // Every grove character's aspects are grove aspects.
   for (const [ch, list] of Object.entries(Z.GROVE_ASPECTS)) {
     assert.truthy(BiomeProfiles.PARK_CHARACTERS[ch], `${ch} is a park character`);
@@ -655,9 +655,9 @@ test('grove variants: dense geometry preserves existing cells without a neighbou
 });
 
 // ── Stories, terrain enumerations, tips ─────────────────────────────────────
-test('zones: each kind tells its story off its own painting, and every line fits', () => {
+test('zones: each kind has a shipped story painting, and every line fits', () => {
   for (const [kind, row] of Object.entries(Z.ZONE_KINDS)) {
-    assert.eq(row.story, `zone_${kind === 'stones' ? 'stones' : kind}`, `${kind}: key`);
+    assert.eq(row.story, `zone_${kind === 'beach' ? 'grove' : kind}`, `${kind}: key`);
     assert.truthy(new RegExp(`^  ${row.story}: 'data:image/webp`, 'm').test(ART_THUMBS_SRC), `${row.story} has its painting`);
     assert.lte(row.flash.length, MAP_MSG_MAX, `${kind}: the map line fits`);
     assert.truthy(row.title && row.body, `${kind}: title and body`);
@@ -708,5 +708,12 @@ test('tar yard: the oily ground takes no hoe, and says why', () => {
   assert.truthy(isTillable(T.GROVE) && isTillable(T.CHURCHYARD), 'the grove and churchyard still take one');
   const line = TERRAIN_FLAVOR[T.TAR_YARD];
   assert.truthy(line && line.length <= MAP_MSG_MAX, `a refusal that fits the map (${line})`);
+});
+test('beach anchors: source tags choose the theme without beach-name heuristics', () => {
+  for (const tags of [{ class: 'beach' }, { subclass: 'beach' }, { natural: 'beach' }]) {
+    assert.eq(Z.anchorOf(tags).kind, 'beach');
+  }
+  assert.eq(Z.anchorOf({ class: 'park', subclass: 'park', name: 'Pirate Beach Park' }).kind, 'grove');
+  assert.eq(Z.ZONE_KINDS.beach.story, 'zone_grove', 'reuse a shipped painting until beach art exists');
 });
 })();

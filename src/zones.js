@@ -165,6 +165,8 @@
   // _seatFaunaOnFavouriteGround) — each of the tile's own spawns of that
   // species moves onto the zone's ground with probability p. Not an add.
   const ZONE_KINDS = {
+    beach: { code: 4, R: 80, terrain: 'GROVE', story: 'zone_grove', title: 'The shore',
+      body: 'An old shrine stands above the sand.', flash: 'The shore opens ahead.' },
     grove: { code: 1, R: 60, terrain: 'GROVE', story: 'zone_grove', title: 'A sacred grove',
       attracts: { deer: 0.5, butterfly: 0.5 },
       body: 'The trees lean close around an old stone shrine. Someone still tends it.',
@@ -177,7 +179,7 @@
       body: 'Oil stains the old fuel yard black, and the tar drags at your feet. Mind where you step.',
       flash: 'The tar yard. Mind your feet.' },
   };
-  const KIND_BY_CODE = [null, 'grove', 'stones', 'tar'];
+  const KIND_BY_CODE = [null, 'grove', 'stones', 'tar', 'beach'];
   const R_MAX_M = Math.max(...Object.values(ZONE_KINDS).map((k) => k.R));
   const R_EDGE_MAX_M = R_MAX_M * (1 + EDGE_JITTER);
 
@@ -187,6 +189,7 @@
   // (groundSteps). (Other faiths' rock squares / rings are gone with their
   // anchors — Sep 2026: another faith's house of prayer mints nothing.)
   const ASPECTS = {
+    beach: ['tree_ring'],
     grove: ['rose_rings', 'tree_ring', 'rose_in_trees', 'compass_roses', 'flower_beds', 'diagonal_trees', 'diagonal_shrubs'],
     stones: ['graves'],
     tar: ['tar_grid', 'tar_ring_flint', 'tar_cross'],
@@ -282,6 +285,9 @@
     const WG = root.WorldGen;
     if (WG && WG.isSensitivePoi && WG.isSensitivePoi(t)) return null;
     const c = t.class, sub = t.subclass;
+    // Source tags are canonical across buffered tiles. Never infer an anchor
+    // kind from a clipped polygon centroid or a tile-local neighbour scan.
+    if (c === 'beach' || sub === 'beach' || t.natural === 'beach') return { kind: 'beach' };
     if (root.BiomeProfiles ? root.BiomeProfiles.isParkPoi(t) : (c === 'park' && sub === 'park')) return { kind: 'grove' };
     if (c === 'fuel' && sub === 'fuel') return { kind: 'tar' };
     // A church, by the table above (without WorldGen loaded: the tag alone).

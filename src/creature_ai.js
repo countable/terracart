@@ -325,7 +325,7 @@ function sameSideField(scene, fx, fy) {
 }
 function sameSideAs(scene, x, y, fx, fy) { return sameSideField(scene, fx, fy).test(x, y); }
 // ── GHOSTS ───────────────────────────────────────────────────────────────────
-// After dark (and at any hour on an even cave level — ghostsHaunt) a few
+// After dark (and at any hour in a deep crypt pocket — ghostsHaunt) a few
 // ghosts rise in the dark around the player, hover a moment,
 // then rush them: a touch costs Combat's GHOST_TOUCH_DMG (the mode, the shield
 // and armour have their say, as with every blow) and spends the ghost; light
@@ -344,7 +344,6 @@ function sameSideAs(scene, x, y, fx, fy) { return sameSideField(scene, fx, fy).t
 // hour, while odd levels stay empty. The sun never reaches them either
 // (ghostSunExposureAt).
 const GHOST_DARK_DAYLIGHT = 0.25;
-const GHOST_CAVE_EVERY = EnemyRoster.GHOST_SCALING.hauntedDepthEvery;
 // (THE OLD STONES used to be a second reason here - from DUSK inside a
 // church's or cemetery's zone, twice as often, fanned from the stones. Gone,
 // Sep 2026, owner: it pulled players to churchyards at closing time and sent
@@ -352,8 +351,8 @@ const GHOST_CAVE_EVERY = EnemyRoster.GHOST_SCALING.hauntedDepthEvery;
 // one when TAPPED (raiseGhostAt); the night itself is the same everywhere.)
 // Is this a time and place ghosts rise? One predicate the pump reads: the
 // surface after dark, or a haunted cave level at any hour.
-function ghostsHaunt(depth, day) {
-  if (depth > 0) return depth % GHOST_CAVE_EVERY === 0;
+function ghostsHaunt(depth, day, habitat) {
+  if (depth > 0) return depth >= EnemyRoster.GHOST_SCALING.minCryptDepth && habitat === 'crypt';
   return day < GHOST_DARK_DAYLIGHT;
 }
 // The roster sets the cadence and jitter so the pump and every balance tool
@@ -423,7 +422,7 @@ function ghostSurfaceEligible(scene, x, y, cell) {
 }
 // THE NIGHT PUMP — seats a group of ghosts in the dark about the player, once
 // every ghostSpawnDelay while ghostsHaunt says so (the surface after dark, an
-// even cave level always). Returns how many rose. The timer is disarmed
+// crypt pocket from depth 3 at any hour). Returns how many rose. The timer is disarmed
 // whenever it doesn't, so the first group comes one delay after dark, a load,
 // or the stairs down to a haunted level — never at once.
 // `wardPts` / `wardR2` are wanderCreatures' Home + claimed-castle wards: a
@@ -432,7 +431,15 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
   const depth = scene.depth || 0;
   const entry = WorldGen.tileCache.get(WorldGen.tileKey(pcW.tx, pcW.ty));
   // Daylight is only asked on the surface (a cave level has no sun).
-  if (!ghostsHaunt(depth, depth > 0 ? 0 : Lighting.daylight(scene, Date.now()))) {
+  const habitatAt = (tile, tx, ty, x, y) => {
+    if (!tile || !tile.cellsPerEdge) return 'natural';
+    const cellM = scene.tileEdgeM / tile.cellsPerEdge;
+    return EnemySpawns.caveContextAt(tile, tx, ty,
+      Math.floor((x - tx * scene.tileEdgeM) / cellM),
+      Math.floor((y - ty * scene.tileEdgeM) / cellM), depth).theme;
+  };
+  const habitat = depth > 0 ? habitatAt(entry, pcW.tx, pcW.ty, px, py) : null;
+  if (!ghostsHaunt(depth, depth > 0 ? 0 : Lighting.daylight(scene, Date.now()), habitat)) {
     scene._nextGhostT = null; return 0;
   }
   // The stairs repoint the level: a timer armed on another depth is not this
@@ -458,6 +465,11 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
     const x = px + Math.cos(a) * R, y = py + Math.sin(a) * R;
     const cell = scene.cellAt(x, y);
     if (!cell.loaded || (depth === 0 && !ghostSurfaceEligible(scene, x, y, cell))) continue;
+    if (depth > 0) {
+      const tx = Math.floor(x / scene.tileEdgeM), ty = Math.floor(y / scene.tileEdgeM);
+      const tile = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+      if (habitatAt(tile, tx, ty, x, y) !== 'crypt') continue;
+    }
     // A ghost is a FAST foe: never risen in a major road's kerb buffer.
     if (inKerbAt(scene, x, y)) continue;
     if (wardTrip({ x, y }, homePos, castleWards, wardR2)) continue;
@@ -635,6 +647,12 @@ function fireWardTrip(scene, c) {
 // straight away from the ward; `unnoticed` (NOTHING HUNTS A BODY, or a Shadow
 // Powder) it hovers where it is. Neither touches.
 function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
+  // A finite memorial guard is visible but dormant until approached. Its
+  // lifetime begins at awakening, not while the player passes far away.
+  if (c.proximityCells && !c._awakened) {
+    if (unnoticed || warded || Math.hypot(px - c.x, py - c.y) > c.proximityCells * scene.cellM) return null;
+    c._awakened = true; c._spawnT = now;
+  }
   if (c._spawnT == null) c._spawnT = now;
   const dt = c._ghostT != null ? Math.max(0, now - c._ghostT) : 0;
   c._ghostT = now;
@@ -824,6 +842,19 @@ function enemySweep(scene, c, row, x, y, now = performance.now()) {
   return clear;
 }
 
+// Walls and buildings block hostile sight even on the surface, where the
+// player's cave-only _cellBlocked predicate deliberately returns false.
+function enemySightBlocked(scene, c, x, y) {
+  const cell = scene.cellAt(x, y);
+  if (!cell.loaded || scene._cellBlocked(x, y)) return true;
+  if (WorldGen.isBuildingTerrain(cell.type) && !Lairs.inOwnKeep(c, x, y)) return true;
+  if (scene.placedRockSet?.size) {
+    const cell = worldMetersToAbsCell(scene, x, y);
+    if (scene.placedRockSet.has(cellKeyFromAbsCell(cell.cellIX, cell.cellIY))) return true;
+  }
+  return false;
+}
+
 // A wind-up is cancellable: leaving range, hiding or a ward cancels it.
 // Cooldowns start when the attack starts, so the declared interval includes
 // the wind-up rather than accidentally extending every attack cycle.
@@ -841,12 +872,119 @@ function enemyAttackReady(c, row, now, eligible) {
   c._attackWindupUntil = null;
   return true;
 }
+// A caster's support action uses its own interruptible wind-up. Summons have
+// two fixed identity slots per caster: defeated slots never refill after a
+// reload, so neither enemy count nor rewards can grow without bound.
+function enemySupportAllies(scene, c, radiusCells) {
+  const pc = worldMetersToTileCell(scene, c.x, c.y), allies = [];
+  const caught = new Set(scene.save.caught || []);
+  WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, ally => {
+    if (ally !== c && Combat.isEnemy(ally) && !caught.has(ally.id)
+        && Math.hypot(ally.x - c.x, ally.y - c.y) <= radiusCells * scene.cellM
+        && Combat.lineOfFire(c.x, c.y, ally.x, ally.y,
+          (x, y) => enemySightBlocked(scene, c, x, y), scene.cellM)) allies.push(ally);
+  });
+  return allies;
+}
+function enemySummon(scene, c, ability) {
+  const kind = ability.kind, row = EnemyRoster.get(kind);
+  if (!row) return false;
+  const pc = worldMetersToTileCell(scene, c.x, c.y);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
+  if (!entry?.creatures) return false;
+  const caught = new Set(scene.save.caught || []);
+  const existing = new Set();
+  WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, other => existing.add(other.id));
+  for (let slot = 0; slot < ability.maxMinions; slot++) {
+    const id = `${c.id}_summon_${slot}`;
+    if (caught.has(id) || existing.has(id)) continue;
+    for (let i = 0; i < 8; i++) {
+      const angle = i * Math.PI / 4;
+      const x = c.x + Math.cos(angle) * scene.cellM, y = c.y + Math.sin(angle) * scene.cellM;
+      const cell = worldMetersToTileCell(scene, x, y);
+      const destination = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+      if (!destination?.creatures || !enemyCanStep(scene, c, row, x, y)) continue;
+      const n = destination.cellsPerEdge;
+      const grid = destination.baseGrid || destination.grid;
+      const opts = destination._spawnOpts;
+      if (!grid || !opts || !WorldGen.isSpawnCell(grid, n, n, cell.ix, cell.iy, opts, creatureSpawnClass(kind))) continue;
+      if (destination.creatures.some(other => !caught.has(other.id)
+          && Math.hypot(other.x - x, other.y - y) < scene.cellM * 0.7)) continue;
+      const child = WorldGen.makeCreature(kind, x, y, id);
+      // A garrison's escort inherits its leash and difficulty, not a new lair.
+      for (const key of ['lair', 'immobile', 'lairX', 'lairY', 'lairR', 'keepHW', 'keepHH', 'aggroCells', 'homeX', 'homeY']) {
+        if (c[key] != null) child[key] = c[key];
+      }
+      child.seatX = x; child.seatY = y;
+      child._summonerId = c.id;
+      destination.creatures.push(child);
+      return true;
+    }
+    return false;
+  }
+  return false;
+}
+function enemySupportTick(scene, c, row, now, eligible) {
+  const a = row.ability;
+  if (!a) return false;
+  if (!eligible || (c._abilityWindupUntil != null && c._lastDamagedT !== c._abilityDamageStamp)) {
+    c._abilityWindupUntil = null;
+    return false;
+  }
+  if (c._abilityWindupUntil != null) {
+    if (now < c._abilityWindupUntil) return true;
+    c._abilityWindupUntil = null;
+    if (a.type === 'heal') {
+      const allies = enemySupportAllies(scene, c, a.radiusCells);
+      const target = allies.find(ally => Combat.hp(ally) < Combat.maxHp(ally));
+      if (target) {
+        target._hp = Math.min(Combat.maxHp(target), Combat.hp(target) + a.amount);
+        target._supportUntil = now + 600;
+      }
+    } else if (a.type === 'summon') enemySummon(scene, c, a);
+    return true;
+  }
+  if (now < (c._abilityNextT || 0)) return false;
+  if (a.type === 'heal' && !enemySupportAllies(scene, c, a.radiusCells)
+    .some(ally => Combat.hp(ally) < Combat.maxHp(ally))) {
+    c._abilityNextT = now + 1000;
+    return false;
+  }
+  c._abilityNextT = now + a.intervalSeconds * 1000;
+  c._abilityWindupUntil = now + a.windupSeconds * 1000;
+  c._abilityDamageStamp = c._lastDamagedT;
+  return true;
+}
+// The target footprint is fixed when the tell begins. Moving out avoids the
+// blow; it cannot follow the player at the moment it lands.
+function enemyAreaContains(c, row, px, py, cellM) {
+  const aim = c._attackAim;
+  if (!aim) return false;
+  if (row.attackType === 'area') return Math.hypot(px - aim.x, py - aim.y) <= row.area.radiusCells * cellM;
+  if (row.attackType === 'blast') return Math.hypot(px - c.x, py - c.y) <= row.blast.radiusCells * cellM;
+  const angle = Math.atan2(py - c.y, px - c.x);
+  const delta = Math.atan2(Math.sin(angle - aim.angle), Math.cos(angle - aim.angle));
+  return Math.hypot(px - c.x, py - c.y) <= row.range * cellM
+    && Math.abs(delta) <= row.breath.halfAngleRadians;
+}
 function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt) {
   const dist = Math.hypot(px - c.x, py - c.y);
+  const territory = row.movement.territoryCells;
+  const inTerritory = !territory || Math.hypot(px - (c._territoryX ?? c.homeX ?? c.x),
+    py - (c._territoryY ?? c.homeY ?? c.y)) <= territory * scene.cellM;
   const attentive = !inactive && !Combat.playerDowned(scene.save.energy)
-    && dist <= row.visionCells * scene.cellM;
+    && inTerritory && dist <= row.visionCells * scene.cellM;
+  if (row.movement.pattern === 'lunge_recover'
+      && (now < (c._lungeWindupUntil || 0) || now < (c._lungeRecoverUntil || 0))) {
+    enemyAttackReady(c, row, now, false);
+    return;
+  }
   const clear = attentive && Combat.lineOfFire(c.x, c.y, px, py,
-    (x, y) => scene._cellBlocked(x, y), scene.cellM);
+    (x, y) => enemySightBlocked(scene, c, x, y), scene.cellM);
+  if (enemySupportTick(scene, c, row, now, clear)) {
+    SpriteLayout.faceCreature(c, px - c.x, py - c.y);
+    return;
+  }
   if (row.aura && clear && dist <= row.aura.radiusCells * scene.cellM) {
     const a = row.aura;
     const raw = a.rawDps * Combat.powerMul(c);
@@ -873,20 +1011,39 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt) {
   }
   if ((!row.dmg && !row.steals) || row.attackType === 'touch') return;
   const swoop = row.movement.pattern === 'orbit_swoop';
-  const eligible = clear && dist <= row.range * scene.cellM
-    && (!swoop || (c._batSwooping && !c._batHit));
-  const ready = enemyAttackReady(c, row, now, eligible);
-  if (ready || c._attackWindupUntil != null) SpriteLayout.faceCreature(c, px - c.x, py - c.y);
+  const lunging = row.movement.pattern === 'lunge_recover' && now < (c._lungeUntil || 0);
+  const shaped = ['area', 'breath', 'blast'].includes(row.attackType);
+  const winding = c._attackWindupUntil != null;
+  const eligible = (shaped && winding ? attentive : clear && dist <= row.range * scene.cellM)
+    && (!swoop || (c._batSwooping && !c._batHit)) && (!lunging || !c._lungeHit);
+  // The charge already warned before moving; contact lands once without
+  // starting a second melee wind-up that would stop the charge mid-stride.
+  const ready = enemyAttackReady(c, lunging ? {...row, windupSeconds: 0} : row, now, eligible);
+  if (shaped && !winding && (c._attackWindupUntil != null || ready)) {
+    c._attackAim = { x: px, y: py, angle: Math.atan2(py - c.y, px - c.x) };
+  }
+  if (ready || c._attackWindupUntil != null) {
+    const aim = shaped ? c._attackAim : {x: px, y: py};
+    SpriteLayout.faceCreature(c, aim.x - c.x, aim.y - c.y);
+  }
   if (!ready) return;
   c._attackT0 = now;
   c._attackUntil = now + Math.max(600, row.windupSeconds * 1000);
   const raw = row.dmg * Combat.powerMul(c);
+  if (row.movement.stopToReload) c._reloadUntil = now + row.movement.reloadSeconds * 1000;
+  if (row.attackType === 'blast') {
+    // A spent bomb carrier disappears without paying a kill reward.
+    (scene.save.caught ||= []).push(c.id);
+    if (typeof persistSave === 'function') persistSave(scene.save);
+  }
+  if (shaped && (!clear || !enemyAreaContains(c, row, px, py, scene.cellM))) return;
   if (row.attackType === 'projectile') {
     const shot = Combat.monsterShot(c.x, c.y, px, py, scene.cellM,
       raw * row.attackHits, row.attackHits);
     if (shot) {
       shot.projectile = row.projectile || (row.id === 'goblin_archer' ? 'arrow' : 'enemy_magic');
       shot.enemyKind = row.id;
+      shot._sourceGuard = c;
       (scene._shots ||= []).push(shot);
     }
   } else if (row.steals) {
@@ -902,18 +1059,37 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt) {
     if (lost > 0 && condition) scene._applyCondition(condition);
   }
   if (swoop) c._batHit = true;
+  if (lunging) c._lungeHit = true;
 }
 
 function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt) {
-  const m = row.movement;
-  const dist = Math.hypot(px - c.x, py - c.y);
-  const sees = !inactive && dist <= row.visionCells * scene.cellM;
-  let angle = Math.atan2(py - c.y, px - c.x);
-  let speed = m.speedMetersPerSecond;
-  let maxDistance = Math.max(0, dist - scene.cellM * 0.35);
   if (c._lastDamagedT && Date.now() - c._lastDamagedT >= 20 * 60 * 1000) {
     c._hp = Combat.maxHp(c); c._lastDamagedT = null;
   }
+  const m = row.movement;
+  // Roots cannot wander, pursue, flee from wards or shuffle back to a seat.
+  // Attack suppression still uses the ordinary ward/hidden/downed gates.
+  if (c.stationary || m.pattern === 'anchor_spit') return;
+  if (c._abilityWindupUntil > now || c._reloadUntil > now) return;
+  const dist = Math.hypot(px - c.x, py - c.y);
+  let sees = !inactive && dist <= row.visionCells * scene.cellM;
+  if (m.territoryCells) {
+    c._territoryX ??= c.homeX ?? c.x; c._territoryY ??= c.homeY ?? c.y;
+    const radius = m.territoryCells * scene.cellM;
+    if (Math.hypot(px - c._territoryX, py - c._territoryY) > radius) sees = false;
+    if (!sees && !routed) {
+      const distance = Math.hypot(c.x - c._territoryX, c.y - c._territoryY);
+      if (distance > scene.cellM * 0.2) {
+        const step = Math.min(distance, m.speedMetersPerSecond * dt);
+        enemySweep(scene, c, row, c.x + (c._territoryX - c.x) / distance * step,
+          c.y + (c._territoryY - c.y) / distance * step, now);
+      }
+      return;
+    }
+  }
+  let angle = Math.atan2(py - c.y, px - c.x);
+  let speed = m.speedMetersPerSecond;
+  let maxDistance = Math.max(0, dist - scene.cellM * 0.35);
   if (routed) {
     const from = c._wardFrom || { x: px, y: py };
     angle = Math.atan2(c.y - from.y, c.x - from.x);
@@ -942,19 +1118,18 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     // A stable lateral bias for each scuttle, not frame-rate-dependent noise.
     const leg = Math.floor((now - c._scuttleStart) / (cycle * 1000));
     angle += (leg % 2 ? 1 : -1) * m.approachAngleJitterRadians / 2;
-  } else if (m.pattern === 'anchor_spit' || m.pattern === 'strafe_cast' || m.pattern === 'keep_distance') {
-    // The roster owns each ranged foe's movement. anchor_spit closes to its
-    // preferred range and holds there; the other patterns may strafe or retreat.
+  } else if (m.pattern === 'strafe_cast' || m.pattern === 'keep_distance') {
+    // Mobile ranged foes strafe or retreat; rooted spitters returned above.
     const preferred = m.preferredDistanceCells * scene.cellM;
     if (c._attackWindupUntil != null) return;
     if (Math.abs(dist - preferred) < scene.cellM * 0.5) {
-      if (m.pattern === 'anchor_spit') return;
       angle += Math.PI / 2; maxDistance = Infinity;
     } else if (dist < preferred) { angle += Math.PI; maxDistance = preferred - dist; }
     else maxDistance = dist - preferred;
   } else if (m.pattern === 'lunge_recover') {
     if (c._lungeUntil != null && now < c._lungeUntil) {
       angle = c._lungeAngle; speed = m.lungeSpeedMetersPerSecond;
+      maxDistance = Infinity;
     } else if (c._lungeUntil != null) {
       c._lungeUntil = null; c._lungeRecoverUntil = now + m.lungeWindupSeconds * 1000;
       return;
@@ -963,10 +1138,11 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
       if (now < c._lungeWindupUntil) return;
       c._lungeWindupUntil = null;
       c._lungeUntil = now + m.lungeSeconds * 1000;
-      c._lungeAngle = angle;
       c._lungeNextT = now + m.lungeCooldownSeconds * 1000;
       return;
     } else if (now >= (c._lungeNextT || 0)) {
+      c._lungeAngle = angle; c._lungeHit = false;
+      c._attackWindupUntil = null; c._attackNextT = now;
       c._lungeWindupUntil = now + m.lungeWindupSeconds * 1000;
       SpriteLayout.faceCreature(c, px - c.x, py - c.y);
       return;
@@ -978,6 +1154,11 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
   const step = Math.min(maxDistance, speed * dt);
   const sx = c.x, sy = c.y;
   if (!enemySweep(scene, c, row, c.x + Math.cos(angle) * step, c.y + Math.sin(angle) * step, now)) {
+    if (c._lungeUntil != null) {
+      c._lungeUntil = null;
+      c._lungeRecoverUntil = now + m.lungeWindupSeconds * 1000;
+      return;
+    }
     // Slide around a blocked approach without spending a second frame's
     // movement budget. Stable handedness prevents left/right jitter.
     const remaining = Math.max(0, step - Math.hypot(c.x - sx, c.y - sy));

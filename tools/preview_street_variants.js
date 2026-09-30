@@ -10,7 +10,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { console, performance, addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['sprite_layout', 'util', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'road_overlay']) {
+for (const name of ['sprite_layout', 'util', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'scenic', 'road_overlay']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 // The pure lamp method and its footprint constants are lifted exactly as in
@@ -38,6 +38,7 @@ const lengthM = ctx.Streets.lineLengthM(line, tileEdgeM / extent);
 const local = (o) => ({ ...o, x: o.x - tx * tileEdgeM, y: o.y - ty * tileEdgeM });
 
 function preview(row) {
+  if (row.size === 'path') return previewPath(row);
   // Select a real key that rolls the row. No runtime tables or rolls are patched.
   let name;
   for (let i = 0; i < 10000; i++) {
@@ -74,21 +75,56 @@ function preview(row) {
     slowKinds: [...new Set(objects.filter((o) => SV.isSlowKind(o.kind)).map((o) => o.kind))] };
 }
 
-// Scenic path looks are selected by geography, not the street-key roll.
-// This straight-road fixture previews the rolled minor/major street variants.
-const rows = SV.STREET_VARIANTS.filter(row => row.size !== 'path').map(preview);
+function previewPath(row) {
+  const SC = ctx.Scenic;
+  const kind = Object.keys(SC.KIND_ROW).find(k => SC.KIND_ROW[k] === row.id);
+  const name = row.id === 'greenway' ? 'Preview Greenway' : 'Preview Footpath';
+  const tags = { class: 'path', subclass: 'footway' };
+  const ground = [[point(0, 0), point(N - 1, 0), point(N - 1, N - 1), point(0, N - 1)]];
+  const layers = [
+    { name: 'landuse', extent, features: [{ type: 3, tags: { class: 'park' }, geom: ground }] },
+    { name: 'transportation', extent, features: [{ type: 2, tags, geom: [line] }] },
+    { name: 'transportation_name', extent, features: [{ type: 2, tags: { name }, geom: [line] }] },
+  ];
+  const geography = [];
+  if (kind === 'park') layers.push({ name: 'park', extent,
+    features: [{ type: 3, tags: { name: 'Preview Park' }, geom: ground }] });
+  if (kind === 'shore') {
+    const shore = [point(0, middle - 2), point(N - 1, middle - 2), point(N - 1, 0), point(0, 0)];
+    layers.push({ name: 'water', extent, features: [{ type: 3, tags: { class: 'lake' }, geom: [shore] }] });
+    geography.push({ kind: 'water', points: shore.map(p => ({ x: p.x * tileEdgeM / extent, y: p.y * tileEdgeM / extent })) });
+  }
+  const tile = WG.rasterizeTile(layers, N, tx, ty, tileEdgeM);
+  const scenic = tile.scenic;
+  if (!scenic || scenic.census[kind] < lengthM - SC.SAMPLE_M) throw new Error(`Wrong scenic classification for ${row.id}`);
+  const dress = SC.dress({ scenic, tx, ty, N, tileEdgeM, grid: tile.grid, chests: [],
+    spawnOpts: { roadMask: tile.roadMask, roadClass: tile.roadClass, spawnWhy: tile.spawnWhy, occupied: new Set() } });
+  const lamps = ctx.previewLampPass._streetLampsForTile(tx, ty,
+    { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
+  if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong scenic lamps for ${row.id}`);
+  return { ...row, sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
+    lampSpacingM: ctx.Streets.lampLayFor(tags).spacingM, objects: [...dress.objects, ...dress.wildplants].map(local),
+    lamps, lairs: [], slowKinds: [], geography, scenicKind: kind,
+    selection: kind === 'shore' ? 'Off-road walking path beside qualifying shore water.' :
+      kind === 'greenway' ? 'Off-road walking path with a greenway name or route.' : 'Off-road walking path inside a named or sufficiently large park.',
+    rewards: `${SC.SCENIC_MUL[kind]}× first-restoration metre credit; one T${SC.VISTA_CHEST_TIER[kind]} one-time vista chest per eligible stretch of at least ${SC.VISTA_STRETCH_MIN_M} m. Daily path-lamp credit is unchanged.`,
+    placement: 'Geography selects the scenic row; real scenic stretch dressing seats vista chests off the path. No additional themed verge plants.',
+    line: line.map(p => ({ x: p.x * tileEdgeM / extent, y: p.y * tileEdgeM / extent })) };
+}
+
+const rows = SV.STREET_VARIANTS.map(preview);
 const rules = {
-  hedgerow: `Both verges, one hedge per ${cellM} m cell; a gate gap every ${SV.HEDGE_GAP_MIN}–${SV.HEDGE_GAP_MIN + SV.HEDGE_GAP_SPAN - 1} cells.`,
-  overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; at most ${SV.OVERGROWN_MAX} plants per line piece.`,
-  orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, alternating sides; at most ${SV.ORCHARD_MAX} fruit trees per line piece.`,
+  hedgerow: `Both verges, one trimmed hedge per ${cellM} m cell; a gate gap every ${SV.HEDGE_GAP_MIN}–${SV.HEDGE_GAP_MIN + SV.HEDGE_GAP_SPAN - 1} cells.`,
+  overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
+  orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} trees per line piece, alternating half apple trees and half mature deciduous maples.`,
   pilgrim: 'One waystone per street per tile, at an eligible owned line end.',
   lantern: `Lamps at ${SV.lampSpacingFor('lantern')} m target spacing (${SV.LANTERN_SPACING_DIV}× the usual density); no extra verge props.`,
   burned: `One attempt every ${SV.BURNED_STEP_M} m; at most ${SV.BURNED_MAX} tar/stakes per line piece. One fire-slime guard site per stretch, seated back from the kerb.`,
-  barricade: 'One barricade per street per tile, at an eligible owned line end; its goblin guard site is seated back from the kerb.',
-  toadstool: `One attempt every ${SV.TOADSTOOL_STEP_M} m; at most ${SV.TOADSTOOL_MAX} plants per line piece. ${SV.TOADSTOOL_MUSHROOM_SHARE * 100}% mushroom picks, otherwise long grass.`,
+  barricade: `Repeated stakes and barricades every ${SV.BARRICADE_STEP_M} m, up to ${SV.BARRICADE_MAX} pieces; one encounter anchor and its goblin guard site per street per tile.`,
+  toadstool: `One attempt every ${SV.TOADSTOOL_STEP_M} m; at most ${SV.TOADSTOOL_MAX} mushrooms per line piece. Mushrooms only, in three-on/one-gap groups with varying verge setbacks.`,
 };
-for (const row of rows) row.placement = rules[row.id] || 'See the generated sample and runtime table.';
+for (const row of rows) row.placement = rules[row.id] || row.placement;
 process.stdout.write(JSON.stringify({ cellM, fixture: { tx, ty, cellsPerEdge: N }, rows, baseline: SV.BANDIT_STORY,
-  wagonStopShare: SV.WAGON_STOP_SHARE, rockStreetShare: SV.ROCK_STREET_SHARE,
+  maxVariantLengthM: SV.MAX_VARIANT_LENGTH_M, wagonStopShare: SV.WAGON_STOP_SHARE, rockStreetShare: SV.ROCK_STREET_SHARE,
   plainShare: Object.fromEntries(['minor', 'major'].map((size) =>
     [size, 1 - rows.filter((r) => r.size === size).reduce((sum, r) => sum + r.share, 0)])) }, null, 2) + '\n');
