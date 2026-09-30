@@ -861,24 +861,28 @@ const STEER_DRAIN_LUMP = 2;
 // along the step, and alternating either side of the line of travel like a
 // real pair of feet.
 //
-// The stance is MEASURED, not picked: in Walk.png's 32px frame the two feet
-// sit at x ≈ 14.2 and ≈ 17.8 on the bottom art row, i.e. ±1.8px either side of
-// the midline. Scaled by playerScale at draw time, that is where the sprite's
-// own feet are, so a print lands under the foot that made it.
+// The stance is MEASURED, not picked: in the cyan farmer's 16px frame
+// (SpriteLayout.PLAYER_ART.farmer — the base sheet every save starts on) the
+// two feet sit at x 5–6 and 9–10 on the bottom art row of the front pose,
+// i.e. ±2px either side of the art's midline. Scaled by playerScale at draw
+// time, that is where the sprite's own feet are, so a print lands under the
+// foot that made it.
 const FOOT_DOT_R = 3 * 0.7;          // was a flat 3px circle — 30% smaller now
 const FOOT_DOT_LONG = FOOT_DOT_R * 1.15;   // semi-axis ALONG the step…
 const FOOT_DOT_ACROSS = FOOT_DOT_R * 0.8;  // …and across it: a slight oval, not a slot
-const FOOT_STANCE_HALF_ART_PX = 1.8; // half the sprite's stance, in frame px
-// How far the walker's visible FEET sit below the centre of its 32px frame, in
-// TEXTURE px — a fact about the art, like the stance above, not about the size
-// it happens to be drawn at. Measured as a 14px drop back when the sprite drew
-// at 1.35×, so 14/1.35 ≈ 10.37 px in the frame itself; kept as the division so
-// the measurement stays legible. playerFeetNudgeY multiplies it by whatever
-// playerScale is, which is what keeps the feet on the GPS fix at any scale.
-const PLAYER_FEET_DROP_PX = 14 / 1.35;
-// The walker's frame edge, in texture px (assets.js `idle`: 32×32). Its head
-// stands half of this plus the feet drop above the fix.
-const PLAYER_FRAME_PX = 32;
+const FOOT_STANCE_HALF_ART_PX = 2;   // half the sprite's stance, in frame px
+// THE BASE ART. The player's frame, feet and scale are facts about the cyan
+// farmer's sheet, read off the one table that owns its layout
+// (SpriteLayout.PLAYER_ART.farmer) rather than copied here: how far its
+// visible FEET sit below the centre of its frame in TEXTURE px (footDrop),
+// its frame edge (fh) and the scale it is drawn at. playerFeetNudgeY
+// multiplies the drop by playerScale, which is what keeps the feet on the
+// GPS fix; a calling or the bicycle swaps in its own row's numbers
+// (_syncPlayerSkin). The head stands half the frame plus the feet drop
+// above the fix.
+const PLAYER_FEET_DROP_PX = SpriteLayout.PLAYER_ART.farmer.footDrop;
+const PLAYER_FRAME_PX = SpriteLayout.PLAYER_ART.farmer.fh;
+const PLAYER_ART_SCALE = SpriteLayout.PLAYER_ART.farmer.scale;
 // THE COLLAPSE POSE. At zero energy the player is not standing: the reach is 0,
 // nothing hunts them, no trap springs under them (Combat.playerDowned — the one
 // expression all of that reads). A body that is upright in the picture while
@@ -897,12 +901,12 @@ const PLAYER_FRAME_PX = 32;
 const PLAYER_DOWNED_ROTATION = Math.PI / 2;
 // Where an energy pop hangs (_popEnergy). On a cell that isn't the player's,
 // its bottom clears the cell's TOP EDGE by ENERGY_POP_LIFT_PX. On the player's
-// own cell the walker's head is in the way, so it clears the HEAD by the same
+// own cell the player's head is in the way, so it clears the HEAD by the same
 // margin instead: the head is half the frame plus the feet drop above the fix
-// (the feet ARE the fix — see playerFeetNudgeY), so this is derived from the
-// art, not tuned to it.
+// (the feet ARE the fix — see playerFeetNudgeY), at the scale the base art is
+// drawn, so this is derived from the art, not tuned to it.
 const ENERGY_POP_LIFT_PX = 4;
-const ENERGY_POP_HEAD_PX = Math.round(PLAYER_FRAME_PX / 2 + PLAYER_FEET_DROP_PX) + ENERGY_POP_LIFT_PX;
+const ENERGY_POP_HEAD_PX = Math.round((PLAYER_FRAME_PX / 2 + PLAYER_FEET_DROP_PX) * PLAYER_ART_SCALE) + ENERGY_POP_LIFT_PX;
 // How long the stick must sit idle before the character walks itself home.
 //
 // This is a DEBOUNCE, not a pause — it exists so lifting a thumb to reposition
@@ -2480,14 +2484,9 @@ class MapScene extends Phaser.Scene {
       vignette.lineBetween(x0 + size - i - 0.5, y0 + VIG_LIP, x0 + size - i - 0.5, y0 + size - VIG_LIP);
     }
 
-    // Animations — Idle.png: 4 cols × 3 rows; Walk.png: 6 cols × 3 rows
-    // Row 0 = facing down, row 1 = facing up, row 2 = facing side (right; flip for left)
-    this._createAnim('idle-down', 'idle', 0, 3, 6);
-    this._createAnim('idle-up', 'idle', 4, 7, 6);
-    this._createAnim('idle-side', 'idle', 8, 11, 6);
-    this._createAnim('walk-down', 'walk', 0, 5, 10);
-    this._createAnim('walk-up', 'walk', 6, 11, 10);
-    this._createAnim('walk-side', 'walk', 12, 17, 10);
+    // The player's directional idle / walk cycles come from
+    // SpriteLayout.PLAYER_ART below — every sheet (the cyan farmer every save
+    // starts on, the callings, the bicycle) authors all four directions.
     // Dragon transform — single non-directional flap, mirrored by heading in
     // _playDirected (the art faces right at rest). Used for both idle and fly.
     this._createAnim('dragon-fly', 'dragon', 0, 7, 10);
@@ -2514,26 +2513,17 @@ class MapScene extends Phaser.Scene {
     // Depth 10: above the footprint trail (9) so dots can't draw on the
     // character's face, below the facing-arrow overlay (11).
     //
-    // ONE TEXTURE PIXEL, ONE GAME PIXEL. The walker's 32px frame draws at 32px
-    // — a whole cell wide, which is the size it has effectively been at since
-    // Sep 2026 anyway: the scale was 1.35 × 0.9 × 0.85 = 1.033, a product of
-    // three tuning passes that landed 3% from 1 and stayed there.
-    //
-    // That 3% was not free. Every other pixel on screen is drawn at an exact
-    // multiple of a texture pixel or as geometry; the walker alone was
-    // resampled at 1.033, so its pixels came out in irregular runs — some one
-    // device pixel wider than their neighbours, and the seam wandering as the
-    // sprite moved. At 1 the character is the crisp thing in the middle of the
-    // frame rather than the soft one. The 3% of height it gives up is not a
-    // size anyone was reading.
-    //
-    // Keep it at 1 unless the ART changes. Everything derived from it below
-    // (the feet nudge, the footprint stance) is written as a multiple of the
-    // scale, so a future change stays a one-line change.
-    this.playerScale = 1;
+    // The base scale is the cyan farmer's own (SpriteLayout.PLAYER_ART.farmer:
+    // 16px frames at 1.5, a 24px body a little under a cell — the size every
+    // calling's sheet shares, see assets/Character/README.md). It is the one
+    // scale the player is drawn at when no calling or bicycle skin overrides
+    // it (_syncPlayerSkin), and everything derived from it below (the feet
+    // nudge, the footprint stance) is written as a multiple of it, so the art
+    // table stays the one owner of the number.
+    this.playerScale = PLAYER_ART_SCALE;
     // Dragon Powder skin: the 96×96 dragon frames are scaled down so the red
-    // dragon reads a touch larger than the human walker without dwarfing the
-    // map. Applied in _applyDragonSkin.
+    // dragon reads a touch larger than the human without dwarfing the map.
+    // Applied in _applyDragonSkin.
     this.dragonScale = 0.7;
     // FEET ON THE FIX: the projected world position (viewCentre for the local
     // player, the fix's screen point for a peer) is where the FEET go, so
@@ -2545,10 +2535,12 @@ class MapScene extends Phaser.Scene {
     // put the map a body-length north of where the player stood (see
     // feetOffsetM in create()).
     this.playerFeetNudgeY = -PLAYER_FEET_DROP_PX * this.playerScale;
-    this.player = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
+    // Born on the cyan farmer's sheet (frame 0, the front idle pose); the
+    // _playDirected call below picks the directional cycle, and the skin the
+    // save is owed once its sheet is up (_syncPlayerSkin).
+    this.player = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, SpriteLayout.PLAYER_ART.farmer.sheet, 0)
       .setScale(this.playerScale)
       .setDepth(10)
-      .play('idle-down')
       .setMask(mask);
     // The body and its melee effect occlude together at the player's feet.
     // Keep this container at (0,0): existing drawing uses screen coordinates.
@@ -12534,7 +12526,7 @@ class MapScene extends Phaser.Scene {
   // Swap the player between the human sheets and the red dragon while the
   // Dragon Powder is active. Sets _dragonActive so
   // _playDirected routes both sprites through the looping 'dragon-fly' anim,
-  // and rescales the 96×96 dragon frames down to roughly the walker's size.
+  // and rescales the 96×96 dragon frames down to roughly the human's size.
   _applyDragonSkin(on) {
     // Guard: if the dragon spritesheet failed to load (e.g. the asset 404s on
     // a deploy), 'dragon-fly' would be a frameless anim and play() would crash
@@ -12553,7 +12545,7 @@ class MapScene extends Phaser.Scene {
       } else {
         s.setScale(this.playerScale);
         s.setFlipX(false);
-        if (s.anims.currentAnim?.key !== 'idle-down') s.play('idle-down');   // _playDirected re-picks the directional anim next frame
+        this._playDirected(s, 'idle');   // back onto the human sheet the save is owed, facing as before
       }
     }
     // A flying dragon isn't standing on the cell, so its shadow shrinks and
@@ -12597,20 +12589,19 @@ class MapScene extends Phaser.Scene {
       sprite.anims.timeScale = 1;
       return;
     }
-    let dir = 'down', flip = false;
-    if (Math.abs(x) > Math.abs(y)) { dir = 'side'; flip = x < 0; }
+    let dir = 'down';
+    if (Math.abs(x) > Math.abs(y)) dir = x < 0 ? 'left' : 'right';
     else if (y < 0) dir = 'up';
-    if (sprite === this.player) {
-      this._syncPlayerSkin();
-      if (this._playerArt) {
-        if (dir === 'side') dir = x < 0 ? 'left' : 'right';
-        flip = false; // these sheets include both authored side directions
-      }
-    }
-    const skin = sprite === this.player ? this._playerArt : null;
-    const key = skin ? `${skin.sheet}-${baseKey}-${dir}` : `${baseKey}-${dir}`;
+    if (sprite === this.player) this._syncPlayerSkin();
+    // Every player sheet authors all four directions (SpriteLayout.PLAYER_ART),
+    // so nothing is mirrored. Until the skin the save is owed has its sheet
+    // and cycles up, the cyan farmer — the base sheet every save starts on —
+    // stands in for it (a missing farmer cycle is a no-op in play(), never a
+    // crash: anim_guard.test.js).
+    const skin = (sprite === this.player && this._playerArt) || SpriteLayout.PLAYER_ART.farmer;
+    const key = `${skin.sheet}-${baseKey}-${dir}`;
     if (sprite.anims.currentAnim?.key !== key) sprite.play(key);
-    sprite.setFlipX(flip);
+    sprite.setFlipX(false);
     // TIRED WALK: eases the CYCLE's frame pace toward WALK_TIRED_SLOW_MUL as
     // energy drains past Lighting.LOW_ENERGY_FRAC — the same weight the reach
     // tint reddens by (Lighting.lowEnergyFrac), so the legs visibly labour in

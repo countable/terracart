@@ -26,36 +26,38 @@ test('feet anchor: feetOffsetM is 0 — the feet stand on playerM', () => {
 
 test('feet anchor: the sprite is raised by its own feet drop, so the feet sit on viewCentre', () => {
   // The drop is a fact about the ART — how far the visible feet sit below the
-  // centre of the 32px frame — so it is a named constant in texture px, and the
-  // nudge is that constant times whatever scale the sprite draws at. Written
-  // that way, the feet stay on the fix when the scale changes; written as a
-  // number, they do not.
-  const dm = app.match(/const PLAYER_FEET_DROP_PX = (\d+) \/ ([\d.]+);/);
-  assert.truthy(dm, 'PLAYER_FEET_DROP_PX is the measured drop, in texture px');
-  const feetDropPx = Number(dm[1]) / Number(dm[2]);
+  // centre of the frame — so it is read off the art table that owns the base
+  // sheet (SpriteLayout.PLAYER_ART.farmer, in texture px), and the nudge is
+  // that number times whatever scale the sprite draws at. Written that way,
+  // the feet stay on the fix when the scale changes; written as a number,
+  // they do not.
+  assert.truthy(/const PLAYER_FEET_DROP_PX = SpriteLayout\.PLAYER_ART\.farmer\.footDrop;/.test(app),
+    'PLAYER_FEET_DROP_PX is the farmer row\'s measured drop, in texture px');
+  const feetDropPx = SpriteLayout.PLAYER_ART.farmer.footDrop;
   assert.truthy(/this\.playerFeetNudgeY = -PLAYER_FEET_DROP_PX \* this\.playerScale;/.test(app),
     'playerFeetNudgeY is the NEGATIVE drop, scaled — never a literal');
-  const sm = app.match(/this\.playerScale = ([\d.]+(?: \* [\d.]+)*);/);
-  assert.truthy(sm, 'playerScale is a plain numeric product');
-  const scale = sm[1].split(' * ').map(Number).reduce((a, b) => a * b, 1);
-  assert.truthy(scale > 0.9 && scale < 1.1, `scale ${scale} is the human-sized walker`);
+  assert.truthy(/this\.playerScale = PLAYER_ART_SCALE;/.test(app), 'playerScale is the base art\'s own scale');
+  const scale = SpriteLayout.PLAYER_ART.farmer.scale;
   // Feet ON the point: the nudge and the drawn drop must cancel exactly.
   const nudge = -feetDropPx * scale;
   assert.truthy(Math.abs(nudge + feetDropPx * scale) < 1e-9,
     `nudge (${nudge}) cancels the feet drop (${feetDropPx * scale})`);
-  assert.truthy(nudge < -10, 'the sprite is drawn well ABOVE its point, not on it');
+  assert.truthy(nudge < -6, 'the sprite is drawn well ABOVE its point, not on it');
   assert.truthy(/this\.player = this\.add\.sprite\(this\.viewCenterX, this\.viewCenterY \+ this\.playerFeetNudgeY/.test(app),
     'the player sprite is created at viewCentre + nudge');
 });
 
-test('feet anchor: the walker draws one texture pixel to one game pixel', () => {
+test('feet anchor: the base scale is the farmer row\'s, a whole-half-pixel ratio', () => {
   // Everything else on screen is an exact multiple of a texture pixel or is
-  // geometry. At 1.033 the walker alone was resampled at a near-but-not-1
-  // ratio, so its pixels came out in irregular runs with the seam wandering as
-  // it moved. Scale 1 is what makes the character the crisp thing on screen.
-  const sm = app.match(/this\.playerScale = ([\d.]+(?: \* [\d.]+)*);/);
-  const scale = sm[1].split(' * ').map(Number).reduce((a, b) => a * b, 1);
-  assert.eq(scale, 1, 'playerScale is exactly 1');
+  // geometry. The old 32px walker was once resampled at 1.033 and came out in
+  // irregular pixel runs with the seam wandering as it moved. The cyan
+  // farmer's 16px frames draw at 1.5 (assets/Character/README.md): every two
+  // texture pixels are three device pixels, a regular run, so the character
+  // stays the crisp thing on screen — and the number lives in the art table,
+  // not here.
+  assert.truthy(/const PLAYER_ART_SCALE = SpriteLayout\.PLAYER_ART\.farmer\.scale;/.test(app), 'PLAYER_ART_SCALE reads the farmer row');
+  assert.eq(SpriteLayout.PLAYER_ART.farmer.scale, 1.5, 'the farmer draws at 1.5');
+  assert.eq(SpriteLayout.PLAYER_ART.farmer.fw, 16, 'a 16px frame: 24 device px, a whole number');
 });
 
 test('feet anchor: ground marks sit on the point with no feet offset of their own', () => {
