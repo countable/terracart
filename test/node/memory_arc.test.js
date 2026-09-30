@@ -223,7 +223,7 @@ test('memory arc: contradictory fragments require their acknowledged claim, and 
   }
 });
 
-test('memory arc: ten milestones and the dragon declaration reuse existing art without early spoilers', () => {
+test('memory arc: ten milestones and the dragon declaration have painted art and no early spoilers', () => {
   assert.eq(Object.keys(MemoryStory.SCENES).length, 10);
   const early = Object.values(MemoryStory.SCENES).map(p => p.body);
   assert.eq(early.filter(body => /watching you|being watched/.test(body)).length, 2);
