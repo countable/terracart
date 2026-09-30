@@ -39,7 +39,7 @@ preserved exactly. The six defaults are exported to `assets/Objects/Rustic/` wit
 `tools/apply_nature_recolours.py`, including matching growth and broken-pot
 states. Shrubs have two appearances: the basic bush and the approved cut hedge at 80%
 of its former residential display size. Both share shrub mechanics, and neither
-receives biome tint. Timber trees use maple or pine, without bush-sized forms. The game has no seasons.
+receives biome tint. Timber trees use maple or pine, without bush-sized forms. Biomes do not tint sprites. Long grass keeps its standard art and wetland reeds context; mushrooms retain the surface cap, two cave caps, and Mushroom Grove cap cluster. The game has no seasons.
 
 Generate both linked review pages and palette exports (Pillow and Node required):
 
@@ -63,8 +63,8 @@ frames. Baked unclaimed buildings bypass the old runtime wash to keep their slud
 and weathering visible. Chapel, macro POI booths, actors and other retained art
 remain unchanged.
 
-The sprite contexts are wetland-edge reeds, Mushroom Grove cap clusters, Stone
-Garden moss stones, Broken Masonry rubble and Burned Row stakes. Shrubs use the basic bush or the smaller cut hedge, with the same mechanics. Ancient Grove and Silent Circle also use their
+The sprite contexts are wetland-edge reeds, Mushroom Grove cap clusters and
+Burned Row stakes. Rocks use their ordinary art without moss, beach or masonry looks. Shrubs use the basic bush or the smaller cut hedge, with the same mechanics. Ancient Grove and Silent Circle also use their
 approved ground accents. Context selection preserves placement IDs, quantities,
 loot and interaction types.
 
@@ -197,16 +197,17 @@ Pirate Cove's active shipwreck shrine uses the unchanged generated PNG from
 reserved 3 × 3 cells. It remains one daily shrine, not extra rewards.
 The Beach folder's driftwood and beach rock come from Core Systems Asset
 Factory's Verdant Props 16×16 pack; its included license permits use in games.
-Only beach-variant pickup looks use these assets; their item identities and
-inventory icons stay wood and rock. The existing cowrie shell colors remain.
+Beach rock and driftwood alternates are retired; pickups use their standard art
+everywhere. Their item identities and inventory icons stay wood and rock. The
+existing cowrie shell colors remain.
 
 
 ## Foliage and rock comparison
 
 The dedicated comparison exports current runtime appearances, including timber
 sizes and growth frames, fruit-tree overlays, both shrub looks, mushrooms,
-plain/moss/ore rocks, loose stone and beach looks, crop stages, plant enemies and
-biome tints. Source sheets are embedded unchanged; approved-output provenance is
+plain/ore rocks, loose stone, crop stages, plant enemies and
+authored context art. Fallen wood uses only look 2 for every quantity. Source sheets are embedded unchanged; approved-output provenance is
 not a claim that every frame matches the motif. Pin appearances to compare at a
 shared game scale, or switch to sprite detail for colour inspection.
 

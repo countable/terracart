@@ -83,7 +83,7 @@ def material_art(material):
         sheet, frames = 'coin_drop', [0]
     elif kind == 'mineralrock':
         tier = material.get('yieldTier', 1)
-        sheet = 'approved_moss_rocks' if material.get('_objectArt') == 'moss' else 'mineralrock'
+        sheet = 'mineralrock'
         frames = [r['churchyardFrame'] if tier == 1 else r['mineralTiers'][str(tier)]['rockFrame']]
     elif kind == 'tree':
         species = material.get('species', 'maple')

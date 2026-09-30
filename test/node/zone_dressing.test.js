@@ -114,10 +114,11 @@
     assert.gt(ordinary.length, 0);
     assert.truthy(ordinary.every(o => !o._plantArt && wildplantSprite(o).sheet === 'bushes'), 'other groves use the same shrub');
   });
-  test('zone art: masonry, formal hedges and moss retain their original harvest identities', () => {
+  test('zone art: stone variants use ordinary rock art and formal hedges keep their harvest identity', () => {
     const masonry = ZoneDressing.dress(context('broken_masonry')).wildplants.filter(o => o.crop === 'rockfruit');
     assert.gt(masonry.length, 0);
-    assert.truthy(masonry.every(o => o._plantArt === 'masonry' && wildplantSprite(o).sheet === 'approved_masonry_rubble'));
+    assert.truthy(masonry.every(o => !o._plantArt && !wildplantSprite(o)?.sheet));
+    assert.eq(wildplantSprite({crop:'rockfruit',_plantArt:'masonry'})?.sheet, undefined, 'legacy masonry tags use ordinary loose stones');
     assert.eq(wildplantSprite({crop:'rockfruit'})?.sheet, undefined, 'ordinary stone keeps the crop sheet despite its placement-specific looks');
     assert.eq(inventoryIconSource('rockfruit').sheet, 'crops', 'harvest remains the same inventory item');
     for (const o of masonry) assert.eq(o.id, WorldGen.cellId(o.zoneLayer === 'background' ? 'wpf' : 'wz', 0, 0, o._ix, o._iy));
@@ -128,10 +129,11 @@
     assert.eq(wildplantSprite({crop:'shrub',_biome:16}).sheet, 'approved_clipped_hedge');
     assert.eq(wildplantSprite({crop:'shrub',_biome:6}).sheet, 'bushes');
     const stones = ZoneDressing.dress(context('stone_garden')).objects.filter(o => o.kind === 'mineralrock');
-    assert.truthy(stones.some(o => o._objectArt === 'moss'));
+    assert.gt(stones.length, 0);
+    assert.truthy(stones.every(o => !o._objectArt), 'stone gardens keep standard stone art');
     assert.truthy(stones.filter(o => o.yieldTier > 1).every(o => !o._objectArt), 'iron ore keeps its tier art');
     const looks = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC;
-    assert.eq(looks.mineralrock.key(stones.find(o=>o._objectArt==='moss')), 'approved_moss_rocks');
+    assert.eq(looks.mineralrock.key, 'mineralrock');
     assert.eq(looks.stakes.key({_street:'burned'}), 'approved_charred_stakes');
     assert.eq(looks.stakes.key({}), 'stakes');
   });

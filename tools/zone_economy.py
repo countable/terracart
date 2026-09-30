@@ -36,8 +36,8 @@ values={'grass':(1,1),'shrub':(1,1),'mushroom':(3,6),'blue':(6,11),'orange':(17,
 # Giant mushrooms use shrub harvesting; their art does not change value.
 values['giant_mushroom']=values['shrub']
 # Art-only beach aliases; enemy combat drops are outside this harvest report.
-values.update(shell=(6,12), driftwood=values['shrub'], beach_driftwood=values['shrub'],
-              beach_rubble=values['rubble'], carnivorous_plant=(0,0))
+values.update(shell=(6,12), driftwood=values['shrub'],
+              carnivorous_plant=(0,0))
 names={'rose':'Wild Rose','star':'Starflower','gemfruit':'Gemfruit','gold_ore':'Gold ore rock','platinum_ore':'Platinum ore rock','crimson_ore':'Crimson ore rock'}
 fmt=lambda pair: f'{math.floor(pair[0]+.5)}–{math.floor(pair[1]+.5)}'
 rows=[]

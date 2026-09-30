@@ -258,21 +258,6 @@
       "recordType": "enemy",
       "spawnClass": "enemy",
       "color": "#9cbd56"
-    },
-    "beach_rubble": {
-      "kind": "wildplant",
-      "crop": "rockfruit",
-      "spawnClass": "minor",
-      "color": "#858d9c",
-      "_plantArt": "beach"
-    },
-    "beach_driftwood": {
-      "kind": "wildplant",
-      "crop": "driftwood",
-      "spawnClass": "minor",
-      "color": "#ad8055",
-      "recordType": "wildplant",
-      "_plantArt": "beach"
     }
   },
   "variants": [
@@ -3595,10 +3580,7 @@
         "mode": "none"
       },
       "atmosphere": "Three concentric stone rings surround the POI, with softer grass rings between. Every fifth stone is iron, creating a regular metallic rhythm through the circles.",
-      "attracts": {},
-      "materialLooks": {
-        "stone": "moss"
-      }
+      "attracts": {}
     },
     {
       "id": "ordered_graves",
@@ -4528,10 +4510,7 @@
         "fallback": "omit_guard_keep_find"
       },
       "atmosphere": "Repeated piles suggest fallen walls; one displaced line ends at a platinum-bearing rock guarded by a club goblin.",
-      "attracts": {},
-      "materialLooks": {
-        "rubble": "masonry"
-      }
+      "attracts": {}
     },
     {
       "id": "silent_circle",
@@ -6679,49 +6658,49 @@
               2,
               2
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
               2,
               3
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
               2,
               4
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
               3,
               5
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
               4,
               5
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
               5,
               4
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
               5,
               3
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
@@ -6749,21 +6728,21 @@
               1,
               6
             ],
-            "material": "beach_rubble"
+            "material": "rubble"
           },
           {
             "at": [
               5,
               6
             ],
-            "material": "beach_rubble"
+            "material": "rubble"
           }
         ],
         "nominalDensity": 0.1875,
         "materialDensity": {
           "shell": 0.046875,
-          "beach_rubble": 0.03125,
-          "beach_driftwood": 0.109375
+          "rubble": 0.03125,
+          "driftwood": 0.109375
         },
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
@@ -6873,13 +6852,13 @@
               2,
               3
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           }
         ],
         "nominalDensity": 0.2,
         "materialDensity": {
           "shell": 0.13333333333333333,
-          "beach_driftwood": 0.06666666666666667
+          "driftwood": 0.06666666666666667
         },
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
@@ -6936,14 +6915,14 @@
               -1,
               1
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           },
           {
             "at": [
               1,
               1
             ],
-            "material": "beach_driftwood"
+            "material": "driftwood"
           }
         ],
         "relocation": {

@@ -114,10 +114,7 @@ const CROP_SPRITE = {
   // each UTC day, beside the shell: a sea-worn DRIFTWOOD branch and, rarely,
   // a MESSAGE BOTTLE. The generated 16px placeholders, one frame of art
   // each, listed.
-  // Beach rubble keeps ordinary rock harvesting; only its ground art changes.
-  rockfruit: { looks: { beach: { sheet: 'beach_rock', custom: true, frame: 0, scale: 1.6 } } },
-  driftwood:   { sheet: 'driftwood', custom: true, frames: [0], scale: 1.36,
-    looks: { beach: { sheet: 'beach_driftwood', custom: true, frame: 0, scale: 1.6 } } },
+  driftwood:   { sheet: 'driftwood', custom: true, frames: [0], scale: 1.36 },
   bottle:      { sheet: 'bottle', custom: true, frames: [0], scale: 1.36 },
 };
 
@@ -150,7 +147,6 @@ const WILDPLANT_CONTEXT_ART = {
   giant_mushroom: { crop: 'shrub', sheet: 'giant_mushroom', custom: true, frame: 2, scale: 1, seat: true },
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
   cap_cluster: { crop: 'mushroom', sheet: 'approved_mushroom_cluster', custom: true, frame: 0, scale: 1.224 },
-  masonry: { crop: 'rockfruit', sheet: 'approved_masonry_rubble', custom: true, frame: 0, scale: 2 },
 };
 function wildplantSprite(p) {
   const base = CROP_SPRITE[p && p.crop];

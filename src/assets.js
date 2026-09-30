@@ -162,8 +162,6 @@ const ASSETS = {
   driftwood:      { kind: 'spritesheet', path: 'assets/Objects/Approved/driftwood.png', frameWidth: 16, frameHeight: 16 },
   bottle:         { kind: 'spritesheet', path: 'assets/Objects/Approved/bottle.png', frameWidth: 16, frameHeight: 16 },
   shipwreck_shrine: { kind: 'spritesheet', path: 'assets/Objects/Beach/shipwreck_shrine.png', frameWidth: 1536, frameHeight: 1024 },
-  beach_driftwood: { kind: 'spritesheet', path: 'assets/Objects/Beach/driftwood.png', frameWidth: 16, frameHeight: 16 },
-  beach_rock: { kind: 'spritesheet', path: 'assets/Objects/Beach/beach_rock.png', frameWidth: 16, frameHeight: 16 },
   // POI props (assets/Objects/Generated/README.md — placeholders): a bin is a
   // BARREL or clay pot (standing, then smashed while restocking — isBarrel), a
   // bike rack the bicycle_parking POI (isBikeRack), a notice board the
@@ -305,8 +303,6 @@ const ASSETS = {
   house_fort_unclaimed: {"kind": "image", "path": "assets/Objects/Approved/house_fort_unclaimed.png", "unclaimedArt": true},
   approved_wetland_reeds: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_wetland_reeds.png", "frameWidth": 16, "frameHeight": 16},
   approved_clipped_hedge: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_clipped_hedge.png", "frameWidth": 16, "frameHeight": 16},
-  approved_moss_rocks: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_moss_rocks.png", "frameWidth": 16, "frameHeight": 16},
-  approved_masonry_rubble: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_masonry_rubble.png", "frameWidth": 16, "frameHeight": 16},
   approved_mushroom_cluster: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_mushroom_cluster.png", "frameWidth": 16, "frameHeight": 16},
   approved_charred_stakes: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_charred_stakes.png", "frameWidth": 16, "frameHeight": 16},
   potofgold: {"kind": "image", "path": "assets/Objects/Approved/potofgold.png"},

@@ -4503,7 +4503,7 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
                   depth: s.depth + 0.5,
                 });
               } },
-    mineralrock: { key: (o) => o._objectArt === 'moss' ? 'approved_moss_rocks' : 'mineralrock',
+    mineralrock: { key: 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
               // to the SMALL rock variants only — other rows have boulder-
               // sized art that visibly bleeds past the 16 × 16 frame at
@@ -4601,14 +4601,12 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
     // Ground stack — an item id + qty sitting on the map. Texture +
     // frame come from inventoryIconSource(itemId) so any item with an
     // inventory icon can sit on the ground without per-kind plumbing.
-    // For wood (the 4-frame stack sheet) we override the frame to
-    // visualise stack size: frame = clamp(qty - 1, 0, 3).
+    // Fallen wood always uses the grey log artwork (look 2).
     groundstack: {
       key: (o) => (inventoryIconSource(o.itemId) || {}).sheet || 'wood',
       frame: (o) => {
-        // Wood sheet is 3 frames (brown / grey / amber log variants); the
-        // frame cycles with qty so the sprite changes as the stack grows.
-        if (o.itemId === 'wood') return clamp((o.qty || 1) - 1, 0, 2);
+        // Quantity remains on the stack record; it does not change its artwork.
+        if (o.itemId === 'wood') return 1;
         return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
       },
       // Centred in the cell (origin y 0.5), NOT foot-anchored. At 0.9 the

@@ -478,9 +478,19 @@ test('Pirate Cove shipwreck fits the reserved extent and beach looks preserve pi
   assert.eq(1536 * art.scale, 3 * SpriteLayout.CELL_PX);
   assert.truthy(1024 * art.scale <= 3 * SpriteLayout.CELL_PX);
   assert.truthy(SpriteLayout.groveShrineArt({id:'ordinary'}).key !== art.key);
-  assert.eq(wildplantSprite({crop:'driftwood',_plantArt:'beach'}).sheet, 'beach_driftwood');
-  assert.eq(wildplantSprite({crop:'rockfruit',_plantArt:'beach'}).sheet, 'beach_rock');
+  assert.eq(wildplantSprite({crop:'driftwood',_plantArt:'beach'}).sheet, 'driftwood', 'retired beach look falls back to standard driftwood');
+  assert.eq(wildplantSprite({crop:'rockfruit',_plantArt:'beach'})?.sheet, undefined, 'retired beach rock uses ordinary crop art');
   assert.eq(wildplantSprite({crop:'driftwood'}).sheet, 'driftwood');
   assert.eq(inventoryIconSource('rockfruit').sheet, 'crops');
   assert.eq(iconBadgeItem('rockfruit_seed'), 'rockfruit');
+});
+
+
+test('fallen wood uses look 2 for every quantity without changing the stack', () => {
+  const spec = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.groundstack;
+  for (const qty of [1,2,3,12]) {
+    const stack={kind:'groundstack',itemId:'wood',qty};
+    assert.eq(spec.frame(stack),1);
+    assert.eq(stack.qty,qty);
+  }
 });
