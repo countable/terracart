@@ -835,6 +835,25 @@ class SceneModals {
   // `tier` (1..7) hangs the TIER BADGE (items.js tierBadgeHTML — the rarity
   // word on its ore's colour) under the name: an item's baseTier, a relic's
   // own tier. Left out for cash, a story card or a pick with no one thing.
+  // A BABY PET found (a nest bush, `how` 'bush') or hatched (an egg, `how`
+  // 'egg') — the reward ceremony on the farm painting, the baby drawn small.
+  // One fact, told through the world: it wants setting down, and it grows.
+  showBabyFound(babyId, how) {
+    const item = ITEM_BY_ID[babyId];
+    if (!item) return;
+    const hatched = how === 'egg';
+    this.showChestRewardModal({
+      kind: 'farm',
+      header: hatched ? 'Hatched' : 'Found',
+      iconHTML: this.iconSpanHTML ? this.iconSpanHTML(babyId, 36) : '',
+      name: item.name,
+      sub: hatched
+        ? 'The shell falls away. Something small blinks up at you, hungry for soft ground.'
+        : 'Curled asleep in the leaves. It stirs, and looks to you for a place to grow.',
+      color: UI_TREASURE,
+      tier: item.baseTier || 0,
+    });
+  }
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
     onDismiss, header, kind = 'treasure', kindIcon, actions, art, cards = false, tier = 0 }) {
     const { wrap, box, mount } = this.makeModalShell('chest-reward-modal', {

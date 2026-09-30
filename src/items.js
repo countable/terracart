@@ -196,7 +196,9 @@ const WILDPLANT_RULES = {
   // (tree + shrub have no inventory counterparts), and it is real felling
   // work: the axe relic's ladder times the wheel and `workCharged` puts the
   // shared 9/3/1 tool curve on the bar.
-  shrub:     { output: 'wood', workRelic: 'axe', workCharged: true },
+  // `nest`: one shrub in twenty is a NEST BUSH (isNestBush) — it wiggles
+  // now and then and hands over a baby pet when chopped.
+  shrub:     { output: 'wood', workRelic: 'axe', workCharged: true, nest: true },
   giant_mushroom: { name: 'Giant mushroom', outputs: [{id:'wood',qty:1},{id:'mushroom',qty:1}],
     workRelic: 'axe', workCharged: true },
   // A barricade road's barricade is the shrub's row — one lane, one more
@@ -224,6 +226,17 @@ const WILDPLANT_RULES = {
   mushroom:  { light: 'mushroom' },
 };
 function wildplantRule(crop) { return WILDPLANT_RULES[crop] || null; }
+// Can a plant of this crop be a nest bush at all (its row's `nest`)?
+function wildplantNests(crop) { return !!wildplantRule(crop)?.nest; }
+// THE NEST BUSH: a nesting crop whose id hashes under SHINY_RATE.nest — the
+// same bushes for every player. render.js wiggles it (nestBushPhase) and the
+// wildplant harvest (interact.js) pays the baby off this one predicate.
+function isNestBush(crop, id) { return id != null && wildplantNests(crop) && isShiny(id, SHINY_RATE.nest); }
+// When a nest bush wiggles: its own BEAT (util.js beatPhase), 10-30 s off its
+// id, the wiggle showing NEST_BUSH_BEAT.showMs once per period. Returns the
+// wiggle's progress 0..1 while it shows, else -1.
+const NEST_BUSH_BEAT = Object.freeze({ salt: 'nest', minMs: 10000, maxMs: 30000, showMs: 900 });
+function nestBushPhase(id, nowMs) { return beatPhase(id, nowMs, NEST_BUSH_BEAT); }
 // What a pick hands over — the crop itself, unless a row names something else.
 function wildplantOutput(crop) { const r = wildplantRule(crop); return r?.outputs?.[0]?.id || r?.output || crop; }
 // All guaranteed rewards from one harvest; ordinary plants retain their single drop.
@@ -590,6 +603,19 @@ const BASE_TIER = {
 // toast / house sign). Emoji is reserved for non-item UI only. See
 // docs/QC_RULES.md §1. (Gear in RELIC_DEFS / ARMOR_DEFS keeps an `icon:` field,
 // but that's a PNG filename for gearAssetPath — not an emoji.)
+// ── BABY PETS ──────────────────────────────────────────────────────────────
+// The domestic kinds a baby can be. A baby is found in a NEST BUSH (one shrub
+// in twenty, isNestBush — chopped once, it hands the baby over) or HATCHED
+// from a carried egg (egg_hatch.js). In the bag it is an 'animal' item like
+// any caught creature (`base` names the kind; `baby` marks it); released, it
+// is a tame pet born that moment, half its kind's size for a week
+// (SpriteLayout.PET_BABY / isBabyPet), then a shiny adult of double strength
+// (combat.js raisedMul). ONE table: the item rows, the hatch pool and the
+// bush's find all read it.
+const BABY_KINDS = Object.freeze(['chicken', 'cow', 'cat', 'dog', 'rabbit']);
+function babyItemId(kind) { return `baby_${kind}`; }
+function babyItems() { return BABY_KINDS.map(babyItemId); }
+
 const ITEMS = [
   ...Object.keys(CROP_ROW).map(c => ({
     id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c,
@@ -624,6 +650,13 @@ const ITEMS = [
     id: `shiny_${k}`,
     name: `Shiny ${k.charAt(0).toUpperCase() + k.slice(1)}`,
     kind: 'animal', base: k, shiny: true, baseTier: BASE_TIER[k] || 1,
+  })),
+  // Baby pets (BABY_KINDS above) — their own stacks, released like any
+  // animal; `base` lends the plain kind's icon and creature.
+  ...BABY_KINDS.map(k => ({
+    id: babyItemId(k),
+    name: `Baby ${k.charAt(0).toUpperCase() + k.slice(1)}`,
+    kind: 'animal', base: k, baby: true, baseTier: BASE_TIER[k] || 1,
   })),
   // Animal produce — feed longgrass to a wild chicken / cow to swap the
   // longgrass for an egg / milk. Repeatable until either you run out of
@@ -670,7 +703,7 @@ const ITEMS = [
   { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'magic', potion: true },
   { id: 'shield_potion', name: 'Potion of Shielding', kind: 'magic', potion: true },
   { id: 'blight_potion', name: 'Potion of Blight',    kind: 'magic', potion: true },
-  // Drunk to summon a spirit raven that hunts foes and pest crows for
+  // Drunk to summon a spirit raven that hunts foes and pest deer for
   // SPIRIT_RAVEN_MS (app.js drinkRavenPotion; the bird is the creature row
   // SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven).
   { id: 'raven_potion',  name: 'Potion of the Raven', kind: 'magic', potion: true },
@@ -741,9 +774,9 @@ const ITEMS = [
   // Fishing junk pull — old leather boot. T1, low sell, no eat. Joke drop
   // from the rod's loot table at small weight; mostly a flavour moment.
   { id: 'boot',         name: 'Old Boot',     kind: 'produce' },
-  // Scarecrow — placeable on tillable cells. Wild crows and deer steer
-  // around it (4-cell aversion radius in wanderCreatures). Stack of N can
-  // be deployed across the farm.
+  // Scarecrow — placeable on tillable cells. Wild deer (the crop raider)
+  // and crows steer around it (4-cell aversion radius in wanderCreatures).
+  // Stack of N can be deployed across the farm.
   { id: 'scarecrow',    name: 'Scarecrow',    kind: 'supply' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
@@ -1117,6 +1150,8 @@ function itemValue(id) {
 for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab']) {
   PRICES[`shiny_${k}`] = itemValue(k) * 10;
 }
+// A baby sells for three of its kind: a promise of a shiny, not yet one.
+for (const k of BABY_KINDS) PRICES[babyItemId(k)] = itemValue(k) * 3;
 // Seeds houses/traders rotate through for sale. Magical flower seeds (T4+:
 // sunflower / fireflower / iceflower) are deliberately EXCLUDED — they're the
 // gateway to the most valuable crops and the T5+ smelting ladder, so they must
@@ -1169,7 +1204,7 @@ const TRAP_KIT_KEEP_CHANCE = 0.8;
 
 const ITEM_GUIDE_TIPS = {
   crow_feather: 'My legs failed on the long road. I pressed the black feather to my lips. Just enough strength to rise. Sometimes that is all a mercy needs to be.',
-  scarecrow: 'The crows have left our field since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
+  scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
   trap_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
   torch: 'Light a torch before descending. By its flame, my hand could reach farther into the dark.',
   rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',
@@ -1187,6 +1222,8 @@ const EGG_HATCH_METERS = 500;
 
 const ITEM_EFFECTS = {
   egg: 'A tiny heartbeat keeps time with your footsteps.',
+  ...Object.fromEntries(BABY_KINDS.map(k => [babyItemId(k),
+    'Too small to be left in the bag for long. Set it down on soft ground and let it grow.'])),
   flowers: 'Their scent softens even a shopkeeper’s heart.',
   rainberry: 'Rain gathers on nearby leaves when its skin breaks between your teeth.',
   pairy: 'Its sweetness leaves a glimmer of buried treasure behind your eyes.',
@@ -1233,7 +1270,7 @@ const ITEM_EFFECTS = {
   torch: 'Its flame pushes back the dark beyond your fingertips.',
   trap_kit: 'Small iron tools made to ease a snare’s clenched jaw.',
   magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',
-  scarecrow: 'An empty coat watches the beds, and hungry wings turn away.',
+  scarecrow: 'An empty coat watches the beds, and hungry mouths turn away.',
   acorn: 'A young timber tree waits beneath this little cap for earth and time.',
   coal: 'A spark wakes a small fire inside its black heart.',
   meat: 'Its rich scent draws a dog from the edge of the path.',
@@ -1381,6 +1418,10 @@ const TIER_BY_NUM = Object.fromEntries(MATERIAL_TIERS.map(t => [t.tier, t]));
 const TIER_BADGE_NAMES = {
   1: 'basic', 2: 'common', 3: 'uncommon', 4: 'rare', 5: 'epic', 6: 'legendary', 7: 'godly',
 };
+// The one cheat (owner, Sep 2026): Platinum is near white, and "epic" wants a
+// little purple — the badge alone wears this lavender-platinum; the material
+// colour that relics, arrows and bolts read stays MATERIAL_TIERS' own.
+const TIER_BADGE_TINT = { 5: 0xc9a6f2 };
 function itemTierOf(id) {
   const t = ITEM_BY_ID[id]?.baseTier;
   return t > 0 ? Math.min(7, Math.floor(t)) : 0;
@@ -1390,7 +1431,7 @@ function tierBadgeHTML(tier, fontPx = 10) {
   const name = TIER_BADGE_NAMES[t];
   const row = TIER_BY_NUM[t];
   if (!name || !row) return '';
-  const c = row.color;
+  const c = TIER_BADGE_TINT[t] ?? row.color;
   const r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
   // Dark ink on the pale ores (Iron, Gold, Platinum, Frost), pale on the dark.
   const ink = (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? '#1a1612' : '#fff4e0';

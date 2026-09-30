@@ -15,11 +15,11 @@
 //      margin, so things arrive already in motion.
 //
 //   2. Anything DISPATCHED at the player must land inside it. The crop-raiding
-//      crow pump seats its bird "just off-screen" and the code promised it
+//      pest pump seats its deer "just off-screen" and the code promised it
 //      "flies toward the nearest crop next tick" — while seating it at exactly
 //      12 cells, i.e. ON the rim of the cull that decides whether it thinks at
 //      all. The bird sat frozen out in the dark until the player happened to
-//      walk at it. PEST_CROW_SPAWN_CELLS (10) has to stay strictly between the
+//      walk at it. PEST_SPAWN_CELLS (10) has to stay strictly between the
 //      viewport corner and the bubble, and this is the test that says so.
 //
 // The constants are lifted by run.js along with the source text of the three
@@ -55,16 +55,16 @@
       'the camera crept into the sim origin');
   });
 
-  test('crow pump: the dispatched bird lands off-screen but inside the bubble', () => {
-    assert.gt(PEST_CROW_SPAWN_CELLS, VIEW_CORNER_CELLS,
+  test('pest pump: the dispatched deer lands off-screen but inside the bubble', () => {
+    assert.gt(PEST_SPAWN_CELLS, VIEW_CORNER_CELLS,
       'the player would watch the crow pop into being');
-    assert.lt(PEST_CROW_SPAWN_CELLS, CREATURE_SIM_CELLS,
+    assert.lt(PEST_SPAWN_CELLS, CREATURE_SIM_CELLS,
       'seated on or past the cull the crow spawns FROZEN — the bug this pins');
     // Strictly inside is not enough on its own: a bird one hair inside the rim
     // is one player step from being culled again before it has flown anywhere.
-    assert.gte(CREATURE_SIM_CELLS - PEST_CROW_SPAWN_CELLS, 1,
+    assert.gte(CREATURE_SIM_CELLS - PEST_SPAWN_CELLS, 1,
       'leave the crow at least a cell of room inside the bubble');
-    assert.truthy(PEST_CROW_SPAWN_SRC.includes('PEST_CROW_SPAWN_CELLS * this.cellM'),
+    assert.truthy(PEST_SPAWN_SRC.includes('PEST_SPAWN_CELLS * this.cellM'),
       'the spawn radius must resolve through the constant the pins above read');
   });
 

@@ -1,125 +1,154 @@
 # Sandbox test world
 
-Load with `?sandbox=true` (e.g. `index.html?sandbox=true`). Replaces the start
-tile with a hand-laid **town + countryside** map that packs one of every biome,
-interactable, and fauna into a single area you can walk in seconds. Source:
-`src/sandbox.js`.
+Load `index.html?sandbox=true`. The sandbox replaces the start tile with a
+hand-laid town and countryside map. It keeps sparse mechanics close together,
+because a tester can compare their art and interactions without waiting for a
+real-world roll. `src/sandbox.js` owns the map.
 
-## Why scenes, not swatches
+## Why scenes and vector roads
 
-Worldgen never produces a pure "residential square" — a real residential
-polygon is a *scene*: a road threads through it, houses (shop type set by the
-address digit) line the road, yards carry flora, mineral rocks sit at the curb.
-So each test area is a small realistic composite, and the connective **roads**
-between them aren't filler — they cover the road / road_lg / road_md / path
-biomes and their street-name labels.
+A real residential polygon is a scene, not a colour swatch. A road passes
+houses, yards carry flora, and rocks collect near the kerb. The sandbox builds
+the same composites.
 
-## Layout (north → south)
+The sandbox also supplies decoded transportation geometry with the same shape
+as a vector tile. `RoadOverlay`, `Streets`, `StreetVariants` and the lamp pass
+therefore read their normal inputs. The terrain grid and vector geometry come
+from the same route table, so the visible road matches its spawn mask,
+restoration metres and dressing.
 
-```
+## Layout from north to south
+
+```text
 Band 1  COUNTRYSIDE      FOREST · ORCHARD · ROCK
-   ── Oak Road (road) ──
-Band 2  WATER & PASTURE  BARNYARD · PETTING PADDOCK · BEACH(sand+water+pier+well) · WETLAND/GOLF
-   ── Main Street (road_lg) ──
-Band 3  CENTRE           PLAYER SPAWN(Home+wizard tower+well+coin bursts+treasure) · FARMLAND
-   ── Mill Lane (road_md) ──
-Band 4  TOWN             RESIDENTIAL ST(road+4 house types) · CIVIC(school/commerce/hospital+path) · SMALL HOUSE
-   ── Garden Row (road) ──
-Band 5  RECREATION       PARK · PLAYGROUND · PITCH · CASTLE · FORT
+   -- Oak Road: hedgerow (road) --
+Band 2  WATER & PASTURE  BARNYARD · PETTING PADDOCK · BEACH/PIER · WETLAND/GOLF
+   -- Main Street: Lantern Row (road_lg) --
+Band 3  CENTRE           PLAYER SPAWN · FARMLAND
+   -- Mill Lane: Burned Row (road_md) --
+Band 4  TOWN             RESIDENTIAL ST · CIVIC BLOCK/PATH · SMALL HOUSE
+   -- Garden Row: Toadstool Lane (road) --
+Band 5  RECREATION       PARK/PARK PATH · PLAYGROUND · PITCH · CASTLE/FORT
+Band 6  NEW MECHANICS    STREET VARIANTS · SACRED GROVE/OLD STONES/TAR YARD
 ```
 
-Total footprint 36 × 56 cells (≈ 252 m × 392 m at 7 m/cell), centred in the
-start tile (`buildLayout` computes it from the scenes' `w`/`h`). The player
-teleports to the PLAYER SPAWN scene, where a synthetic Home trailer is pinned
-so the wizard tower next to spawn isn't adopted as Home.
+The footprint is 36 x 86 cells, about 252 m x 602 m at 7 m per cell.
+`buildLayout` centres it in the start tile. The player teleports to PLAYER
+SPAWN, where a synthetic Home trailer keeps the nearby wizard tower in its
+wizard role.
 
-## Coverage matrix
+## Map-system coverage
 
-### Biomes (terrain codes 0–23) — all 24 present
+| System | Sandbox coverage |
+|---|---|
+| Vector roads | Decoded `transportation` and `transportation_name` layers drive the live road overlay. |
+| Spawn safety | `roadMask`, `roadClass`, `spawnWhy` and the major-road kerb buffer derive from the authored routes; the buffer is stamped one cell wider than the real one, so refusals stay conservative. |
+| Street restoration | Half of Lantern Row starts restored, so lit and unlit lamps appear on one road. |
+| Street dressing | The live `StreetVariants.dress` pass places hedges, trees, fruit trees, mushrooms, coins, waystones, barricades, tar, stakes and torches. |
+| Old trade road | A plain major road carries the bandit-verge bit and a hashed wagon-stop look. |
+| Street rewards | Golden Road coins, street lairs and a cafe hoard use their normal generated records. |
+| Scenic paths | Common Walk is a `parkpath`; the beach carries a scenic shore mask, tide pool and viewpoint scope. |
+| Influence zones | Grove, old-stones and tar anchors carry real zone coverage and run `ZoneDressing`. |
+| Surface traps | `Traps.spawnSurface` places traps beside paths and park edges from the shared spawn fields. |
+| Placed floor | One campfire joins the existing crops, tilled beds and scarecrows. |
 
-| Code | Name | Scene |
+### Street variants
+
+| Variant | Road | What it exposes |
 |---|---|---|
-| 0 grass | BARNYARD / PLAZA / gutters |
-| 1 forest | FOREST |
-| 2 sand | BEACH |
-| 3 water | BEACH |
-| 4 farmland | FARMLAND |
-| 5 residential | RESIDENTIAL ST |
-| 6 park | RECREATION |
-| 7 road | connective roads + residential street |
-| 8 path | CIVIC (named "Garden Path") |
-| 9 building | SMALL HOUSE |
-| 10 rock | ROCK |
-| 11 building_med | CASTLE+FORT (fort) |
-| 12 building_large | CASTLE+FORT (castle) |
-| 13 road_lg | Main Street spine |
-| 14 road_md | Mill Lane |
-| 15 school | CIVIC |
-| 16 commercial | CIVIC |
-| 17 industrial | CIVIC |
-| 18 playground | RECREATION |
-| 19 pitch | RECREATION |
-| 20 wetland | MARSH |
-| 21 golf | MARSH |
-| 22 orchard | ORCHARD |
-| 23 pier | BEACH |
+| hedgerow | Oak Road | clipped hedges and a habitat gate |
+| lantern | Main Street | dense amber lamps; half restored |
+| burned | Mill Lane | tar, stakes, torches and slow cells |
+| toadstool | Garden Row | mushroom verge and teal lamps |
+| overgrown | Fern Way | staged roadside trees |
+| orchard | Cherry Lane | alternating apple and maple rows |
+| pilgrim | Abbey Walk | waystone end piece |
+| golden | Coin Row | persistent verge coins |
+| snare | Iron Lane | a snare chest ringed by iron teeth |
+| barricade | Fort Road | barricades, stakes and guard lair |
+| plain minor | Market Close / Maple Street | ordinary street comparison |
+| plain major | Old Trade Road | old-trade-road lamps and wagon stop |
+| parkpath | Common Walk | scenic path colour, lamps and reward multiplier |
 
-### Interactable objects
+This table covers every rolled minor and major row in
+`StreetVariants.STREET_VARIANTS`. Scenic promenade and greenway rows still
+need geography that the sandbox does not author.
 
-| Kind | Variants covered | Scene |
+## Terrain coverage
+
+The surface tile contains every surface terrain code. Cave-only codes 24-26
+belong to depth tiles and stay outside this surface sandbox.
+
+| Codes | Terrain | Scene |
 |---|---|---|
-| tree | maple stages 0–4, pine, birch, mahogany | FOREST |
-| fruittree | apple, cherry, peach, banana, orange, mango, coconut, apricot | ORCHARD |
-| mineralrock (ore) | required tiers T1–T7 (+ curbside T1, industrial T2/T3) | ROCK / RESIDENTIAL / CIVIC |
-| mineralrock (cave) | the 4 vanilla variants — rockfruit + lucky bar | ROCK |
-| chest (pad) | farm/park/orchard/shop/school/hospital/playground/pitch all share one rounded oversized pad (round1); bus = no pad | CIVIC / RECREATION / etc. |
-| chest (coin burst) | atm + bicycle_parking → pot-of-gold art + coin spill | PLAZA |
-| house | blacksmith (addr 9), market (6), trader (8), plain/delivery (3); all on BUILDING-terrain footprints | RESIDENTIAL ST |
-| house (fort/cluster) | fort building (tier 11); small-house cluster (4× plain, tier 9) | CASTLE / SMALL HOUSE |
-| house (wizard) | wizard tower (drawn with the `shrine` art) — memory-priced offers | PLAZA |
-| tower | castle towers ×4 (quest board → claim) | CASTLE |
-| well | well ×2 (landmark) | BEACH, PLAZA |
-| chest (starter) | real starter chest, no pad | PLAZA |
-| flora | flower variants 0–3, mushroom decals | BARNYARD/PARK/RESIDENTIAL |
-| groundstack | wood ×2 | BARNYARD |
-| wildplant | longgrass, shrub, nut, shell, mushroom, rockfruit (placed-rock ring) | various |
-| coindrop | 3-coin burst | PLAZA |
-| treasure | in-reach (N of spawn) + SW seam | PLAZA / SW tile |
-| planted crop | all 5 growth stages + a double-yield mature one | FARMLAND |
-| scarecrow | aversion ring (farm + beside a park crow) | FARMLAND / RECREATION |
-| placed rock | pen ring + a lone one for the pickaxe cycle | BARNYARD / PLAZA |
+| 0-6 | grass, forest, sand, water, farmland, residential, park | countryside, beach, centre, town, recreation |
+| 7-8 | road, path | connective roads, Maple Street, Common Walk and Civic |
+| 9-12 | building tiers and rock | Small House, Castle/Fort and Rock |
+| 13-14 | large and medium roads | Main Street, Mill Lane, Fort Road and Old Trade Road |
+| 15-23 | school through pier | Civic, Recreation, Marsh, Orchard and Beach |
+| 27 | wasteland | vacant residential lot |
+| 28 | grove | Sacred Grove |
+| 29 | churchyard | Old Stones |
+| 31 | tar yard | Tar Yard |
 
-### Fauna — all kinds present
+## Interactables and hazards
 
-| Kind | Path tested | Scene |
+The original scenes retain the farming, mining, shops, chests, wells, castle,
+treasure, fishing, wild plants, released pets and crop-growth coverage.
+The new scenes add:
+
+| Kind or state | Scene |
+|---|---|
+| `grove_shrine` | Sacred Grove |
+| `headstone`, `infoboard` | Old Stones |
+| `tar`, `stakes`, `torch` | Tar Yard and themed roads |
+| `waystone` | Abbey Walk |
+| `vista_scope` and scenic chest | Recreation viewpoint |
+| `coindrop` from Golden Road | Coin Row |
+| surface trap | Common Walk and park edges |
+| campfire | Player Plaza |
+| street and cafe lairs | themed streets |
+
+## Creatures and combat
+
+| Group | Kinds | Scene |
 |---|---|---|
-| chicken, cow, cat, dog | catch + produce | BARNYARD, FARMLAND |
-| released_* (each tameable) | pet path, cat-follow, +50% double-produce | PETTING PADDOCK |
-| rabbit, deer | wilderness; deer is GAME (bug-net hunt wheel, drops meat) | FOREST |
-| crow | GAME (feather); scarecrow aversion | RECREATION |
-| butterfly (wild) | catch wheel (bare hands work, slowly; the net speeds it) | FOREST, RECREATION |
-| plant | Rooted park enemy; bites only within one cell | RECREATION |
-| slime | ENEMY — energy leech, combat on HP | FOREST, BARNYARD |
-| fish (minnow→goldenfish) | FISHING — stand on the BEACH pier, tap water | BEACH |
+| Farm and pets | chicken, cow, cat, dog, released tame animals | Barnyard, Farmland, Paddock |
+| Wildlife | rabbit, deer, crow, butterfly | Forest, Recreation |
+| Shore | gull, giant crab, fish | Beach |
+| Basic foes | slime, plant | Forest, Barnyard, Recreation |
+| Melee and armour | goblin, skeleton, zombie | Grove, Old Stones |
+| Ranged and rooted | goblin archer, copper plant | Grove |
+| Special movement | ghost, fire slime | Old Stones, Tar Yard |
 
-### Test kit granted on load
+The sandbox seeds these creatures through `WorldGen.makeCreature`, so combat,
+art, movement and hostility still resolve through the shared roster and
+`Combat.isEnemy`.
 
-- Inventory: 5 of every item (seeds → produce → animals → minerals →
-  consumables → the rest), plus at least 20 memories so the wizard's offers
-  can be bought.
-- Gear: one of every relic + armor at **T3**, except the pickaxe at **T7**
-  (Frost) so every ore tier in the ROCK scene can be mined and checked.
-  Energy is topped up to max.
-- All sandbox houses marked restored (the wizard house as `'wizard'`) so shop
-  sprites + signs render immediately.
+## Test kit
 
-## Notes
+- The inventory starts with five of every item and at least 20 memories.
+- Every relic and armour piece starts at T3. The pickaxe starts at T7 so every
+  ore deposit can be mined.
+- Energy starts full.
+- Sandbox houses start restored, while the wizard house keeps its `wizard`
+  role.
 
-- Everything is **clobbered on every load** (inventory, gear, planted, released,
-  placed rocks) for a predictable baseline.
-- Scene-name captions float over each scene (white-on-black) to help orient.
-- Cave levels, traps and derelict lairs are not in the sandbox; test those in
-  the real world or headlessly.
-- To extend: add a scene object, drop it into a `BANDS` row, and add its
-  coverage to this matrix. The layout (sizes → positions) is computed from the
-  scene `w`/`h`, so you never hand-place coordinates.
+## Limits
+
+- Cave floor, wall and lava require synthetic depth tiles, so codes 24-26 and
+  cave-only enemies remain in the cave tests and real map.
+- The sandbox authors decoded layer objects rather than fetching MVT bytes. It
+  exercises downstream map systems, while parser and live fetch coverage stays
+  in the fixture/browser tests.
+- Park polygon characters and residential lot-ring flora depend on source
+  polygon stamps. The sandbox uses the common park profile and its existing
+  biome scatter instead.
+- Scenic promenade and greenway classification still need coastal and corridor
+  geometry beyond the one park path and shore authored here.
+
+Every load rebuilds inventory, gear, crops, released pets, placed rocks,
+campfires and street restoration for a predictable baseline. Scene captions
+float above the map. To extend the world, add a scene to `BANDS` or a route to
+a scene's `routes` table, then update this coverage matrix and
+`test/node/sandbox_coverage.test.js`.

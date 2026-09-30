@@ -169,7 +169,7 @@ function reviewScene(home) {
     cellM: WorldGen.CELL_M,
     cellsForRow: WorldGen.cellsPerEdgeForTile,
     cellPx: 32, feetOffsetM: 0, peekM: { x: 0, y: 0 },
-    _popEnergy() {}, _crowRaids: [], flash() {}, flashLoot() {},
+    _popEnergy() {}, _cropRaidable: [], flash() {}, flashLoot() {},
   });
   s.cellsPerTile = WorldGen.cellsPerEdgeForTile(raw[Math.floor(raw.length / 2)].ty);
   return s;

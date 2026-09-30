@@ -131,6 +131,53 @@ function plainRockBaseDrop(scene, stones) {
   if (Math.random() < PLAIN_ROCK_FLINT_P) scene.addToInv('coal', 1);
   return qty;
 }
+// A PLAIN rock: a cave rock or a T1 surface rock with no named deposit —
+// bare-hand-breakable, drawn off SpriteLayout.PLAIN_ROCK_VARIANTS, paid off
+// the base table above. The one test the gate, the tier-shortfall, the
+// completion and the glint below all read.
+function isPlainRock(o) {
+  return !!o && !mineralDeposit(o) && (o.caveVariant != null || (o.yieldTier || 1) <= 1);
+}
+
+// The gem an ORE rock (T4+) may hold beside its bar, per yield tier, and how
+// often. The T7 (frost) rock's headline gem is the diamond — listed FIRST so
+// it reads as the primary — with the emerald as its secondary. pickFromArray
+// rolls the list uniformly. Both tables are also what the glint rock's
+// crystal odds derive from (GLINT_ROCK_FINDS).
+const GEM_BY_TIER = { 4: ['sapphire'], 5: ['ruby'], 6: ['emerald'], 7: ['diamond', 'emerald'] };
+const GEM_P_BY_TIER = { 4: 0.25, 5: 0.35, 6: 0.40, 7: 0.50 };
+
+// ── The GLINT ROCK ────────────────────────────────────────────────────────
+// One plain rock in twenty (SHINY_RATE.rock, off the rock's id like every
+// shiny — the same rocks glint for every player, and a cave rock's id is its
+// cell too) catches the light for a moment every 10-60 s. Breaking it pays
+// what any plain rock pays PLUS ONE GUARANTEED FIND, drawn from the plain
+// rock's own rarity ladder: flint at its base chance, each bar at its bonus
+// chance, and a crystal — the sapphire, the T4 gem — at the gold rock's own
+// gem odds against its bar (GEM_P_BY_TIER[4] × the T4 bar chance). So a
+// glint rock's find is most often flint or copper, sometimes iron, rarely a
+// gem — the ordinary luck of a hundred rocks, promised on this one.
+// Identity and drop are ONE predicate (isGlintRock); render.js reads it for
+// the glint and never keeps a list of glinting rocks.
+function isGlintRock(o) {
+  return isPlainRock(o) && isShiny(o.id, SHINY_RATE.rock);
+}
+const GLINT_ROCK_FINDS = Object.freeze([
+  Object.freeze({ id: 'coal', weight: PLAIN_ROCK_FLINT_P }),
+  ...[2, 3, 4, 5, 6, 7].map(t => Object.freeze({ id: mineralBarId(t), weight: plainRockBarChance(t) })),
+  Object.freeze({ id: GEM_BY_TIER[4][0], weight: GEM_P_BY_TIER[4] * plainRockBarChance(4) }),
+]);
+function glintRockFind(rng) {
+  return weightedPickBy(GLINT_ROCK_FINDS, f => f.weight, rng).id;
+}
+// When a glint rock glints: its own BEAT (util.js beatPhase) — a period of
+// 10-60 s off the rock's id, the glint showing GLINT_ROCK_SHOW_MS once per
+// period. Returns the glint's progress 0..1 while it shows, else -1.
+const GLINT_ROCK_PERIOD_MS = Object.freeze({ min: 10000, max: 60000 });
+const GLINT_ROCK_SHOW_MS = 700;
+const GLINT_ROCK_BEAT = Object.freeze({ salt: 'glint', minMs: GLINT_ROCK_PERIOD_MS.min, maxMs: GLINT_ROCK_PERIOD_MS.max, showMs: GLINT_ROCK_SHOW_MS });
+function glintRockPeriodMs(id) { return beatPeriodMs(id, GLINT_ROCK_BEAT); }
+function glintRockPhase(id, nowMs) { return beatPhase(id, nowMs, GLINT_ROCK_BEAT); }
 
 // A CAVE WALL dug out — by a tap (interact.js cave-wall) or by walking into
 // it (app.js auto-mine), both through here: always one stone, and flint on
@@ -251,9 +298,7 @@ const INTERACTABLES = {
     spentAction: 'consume',
     gate: (o, save) => {
       const deposit = mineralDeposit(o);
-      const isCave = o.caveVariant != null;
-      const isPlain = !deposit && (isCave || (o.yieldTier || 1) <= 1);
-      if (isPlain) return null;   // plain rock is ungated
+      if (isPlainRock(o)) return null;   // plain rock is ungated
       const pickTier = save.relics?.pick?.tier || 0;
       const reqTier = deposit?.requiredTier || o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
       if (pickTier < reqTier) {
@@ -266,8 +311,7 @@ const INTERACTABLES = {
     // Plain rock is ungated, so it never reports short.
     tierShort: (o, save) => {
       const deposit = mineralDeposit(o);
-      const isPlain = !deposit && (o.caveVariant != null || (o.yieldTier || 1) <= 1);
-      if (isPlain) return 0;
+      if (isPlainRock(o)) return 0;
       const reqTier = deposit?.requiredTier || o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
       return reqTier - (save.relics?.pick?.tier || 0);
     },
@@ -288,12 +332,11 @@ const INTERACTABLES = {
         scene.flashLoot(`+${deposit.quantity} ${ITEM_BY_ID[deposit.item]?.name || deposit.item}`, '#a7ffb0', 1, deposit.item);
         return;
       }
-      const isCave = o.caveVariant != null;
-      const isPlain = isCave || (o.yieldTier || 1) <= 1;
-      if (isPlain) {
+      if (isPlainRock(o)) {
         // Plain rock — stone, coal on ~10% (shared base table, see
         // plainRockBaseDrop), plus the shared, tier-steepened bonus-bar
-        // chances, on top of the base.
+        // chances, on top of the base — and, on a GLINT rock, one
+        // guaranteed find off that same ladder (glintRockFind).
         // The stone count follows the ART: the pair-of-stones variant drops
         // 2, a single stone 1. Both numbers come off the one table in
         // sprite_layout.js that render.js picks the frame from, so the rock the
@@ -305,6 +348,15 @@ const INTERACTABLES = {
             const bar = mineralBarId(t);
             if (bar) { scene.addToInv(bar, 1); flashId = bar; }
           }
+        }
+        if (isGlintRock(o)) {
+          // The glint's promise: one find, always, rolled AFTER the chance
+          // rolls so it upstages them in the toast. A crystal is a gem find
+          // and takes the ore rock's jackpot fanfare.
+          const find = glintRockFind();
+          scene.addToInv(find, 1);
+          flashId = find;
+          if (GEM_BY_TIER[4].includes(find) && typeof scene.flashJackpot === 'function') scene.flashJackpot(1);
         }
         persistSave(save);
         const item = ITEM_BY_ID[flashId];
@@ -325,11 +377,7 @@ const INTERACTABLES = {
       scene.addToInv(primaryBar, 1);
       let flashId = primaryBar;
       let gemsFound = 0;
-      // One gem per tier of the ladder; the T7 (frost) rock's headline gem is
-      // the diamond — listed FIRST so it reads as the primary — with the
-      // emerald as its secondary. pickFromArray rolls the list uniformly.
-      const GEM_BY_TIER = { 4: ['sapphire'], 5: ['ruby'], 6: ['emerald'], 7: ['diamond', 'emerald'] };
-      const GEM_P_BY_TIER = { 4: 0.25, 5: 0.35, 6: 0.40, 7: 0.50 };
+      // One gem per tier of the ladder (GEM_BY_TIER / GEM_P_BY_TIER above).
       const gems = GEM_BY_TIER[t];
       if (gems && Math.random() < (GEM_P_BY_TIER[t] || 0)) {
         const gemId = pickFromArray(gems);

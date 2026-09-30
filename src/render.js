@@ -3854,10 +3854,19 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
 
+  const _plantNow = Date.now();
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
+    // A NEST BUSH (items.js isNestBush — the predicate the harvest pays the
+    // baby off) WIGGLES: three quick swings, a few degrees about its centre,
+    // swelling and dying over the beat's show (nestBushPhase, once every
+    // 10-30 s). Pooled sprites keep their angle, so it is set EVERY frame —
+    // 0 for everything that is not mid-wiggle — or a bush's tilt would ride
+    // onto whatever plant next takes its slot.
+    const wig = (p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow) : -1;
+    s.setAngle(wig >= 0 ? Math.sin(wig * Math.PI * 6) * 7 * Math.sin(wig * Math.PI) : 0);
     // Wild flora wears its biome's tint; farmed crops and placed rocks render
     // untinted. Pooled sprites keep their last tint, so set it explicitly
     // every frame. A SHINY plant is not tinted: what marks it is its light
@@ -4175,7 +4184,7 @@ Render.drawObjects = function drawObjects(scene) {
   // animate (a measured shadow would pulse frame to frame).
   if (scene.creatureShadowPool && scene.shadowContainer) {
     const CRITTER_SHADOW_W = {
-      cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, gull: 18, rabbit: 14, chicken: 14, crab: 14,
+      cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, gull: 18, raven: 18, rabbit: 14, chicken: 14, crab: 14,
       butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
     };
     Render.renderPool(scene, scene.creatureShadowPool, scene.shadowContainer, creatureList, (s, item) => {
@@ -4217,9 +4226,20 @@ Render.drawObjects = function drawObjects(scene) {
   // (so it depth-sorts / tracks state) but is dropped from filteredObj and so
   // renders no sprite. Sparking off objList left a gold sparkle hovering over
   // the now-empty cell — the "sparkle on the road with nothing under it" bug.
+  const _sparkNow = Date.now();
   for (const it of filteredObj) {
     if (isTreeLike(it.o.kind) && isShiny(it.o.id, SHINY_RATE.tree)) {
       pushSpark(it, it.o.id);
+    }
+    // The GLINT ROCK (interactables.js isGlintRock — the one predicate the
+    // drop reads too): no light, no sheen, no star hovering all day — a
+    // small glint on the stone for GLINT_ROCK_SHOW_MS, once every 10-60 s
+    // (glintRockPhase), drawn under WebGL and Canvas alike. `glint` carries
+    // the glint's 0..1 progress; the draw below fades it in and out on it.
+    // filteredObj, like the trees: a broken rock is spent and glints no more.
+    if (it.o.kind === 'mineralrock' && isGlintRock(it.o)) {
+      const k = glintRockPhase(it.o.id, _sparkNow);
+      if (k >= 0) sparkList.push({ dx: it.dx, dy: it.dy, id: it.o.id, glint: k });
     }
   }
   // Shiny fish glint on their water cell until landed (items.js
@@ -4249,12 +4269,28 @@ Render.drawObjects = function drawObjects(scene) {
       }
     }
   }
-  if (LIGHTS) for (const it of sparkList) LIGHTS.offerShiny(scene, it.id, it.dx, it.dy, halfM);
-  const _sparkNow = Date.now();
-  const sparkDrawn = Render.canShine(scene) ? [] : sparkList;
+  // A glint rock throws no light: its cue is the glint alone.
+  if (LIGHTS) for (const it of sparkList) if (it.glint == null) LIGHTS.offerShiny(scene, it.id, it.dx, it.dy, halfM);
+  // Under WebGL the shine sweep replaces the shinies' stars; the rock's
+  // glint has no sweep, so it is drawn on every renderer.
+  const sparkDrawn = Render.canShine(scene) ? sparkList.filter(it => it.glint != null) : sparkList;
   Render.renderPool(scene, scene.sparkPool, scene.sparkContainer, sparkDrawn, (s, item) => {
     setTextureIfDifferent(s, 'shiny_spark');
     const { sx, sy } = project(item.dx, item.dy);
+    if (item.glint != null) {
+      // The rock's glint: a small star on the stone's upper face that swells
+      // and fades over its GLINT_ROCK_SHOW_MS (sin envelope, 0→1→0) with a
+      // quarter turn — a catch of light, not the shinies' twinkle. About a
+      // third the star's size at its peak (~10px from the 32px texture).
+      const e = Math.sin(item.glint * Math.PI);
+      s.setOrigin(0.5, 0.5)
+       .setScale(0.18 + 0.14 * e)
+       .setAlpha(0.9 * e)
+       .setAngle(item.glint * 90)
+       .setTint(0xffffff)
+       .setPosition(Math.round(sx + 3), Math.round(sy - 4));
+      return;
+    }
     // Desync each marker's twinkle off a stable per-id phase so a cluster of
     // shinies shimmers out of step rather than blinking in unison.
     const phase = ((_sparkNow + (strHash31(item.id) % 2600)) % 2600) / 2600;   // 0..1
