@@ -385,7 +385,8 @@ const COIN_BURST_NEAR_PLAYER = 3;
 const COIN_BURST_LIFE_MS = 10 * 60 * 1000;
 const COIN_BURST_NEAR_R = 2;
 // THE SAFETY CARD (_showSafetyCard): what each version says, and when the
-// short ones come back. Kept here as data so the copy is one table.
+// short ones come back. Kept here as data so the copy is one table. LAUNCH is
+// the game's only opening safety message (the loading screen carries none).
 const SAFETY_RESUME_GAP_MS = 5 * 60 * 1000;   // back after 5+ minutes away
 const SAFETY_DUSK_DAYLIGHT = 0.5;             // Lighting.daylight: the sun on the horizon
 const SAFETY_TICK_MS = 30000;                 // how often dusk is asked
@@ -394,7 +395,7 @@ const SAFETY_CARDS = {
     lines: ['Look up. Watch where you walk, not the screen.',
       'NEVER step into a street to reach something — use the stick to walk your farmer to it.',
       'Do not play while driving or cycling.',
-      'Keep out of private and unsafe places.'] },
+      'Keep out of private, unsafe and prohibited places.'] },
   resume: { title: '⚠ LOOK UP',
     lines: ['Welcome back. Check your surroundings before you walk on.',
       'Out of reach? Use the stick — never the street.'] },
