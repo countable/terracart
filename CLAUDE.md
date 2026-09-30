@@ -143,7 +143,13 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   `BIOME_ATTRACTS`) read by `_seatFaunaOnFavouriteGround`: relocate existing
   spawns, never add, each species on its own stream. SLOW is a reason inside `_bodyHold`
   fed by `entry.slowCells` (`StreetVariants.SLOW_KINDS`); a new slowing
-  hazard joins that map, never a new movement gate.
+  hazard joins that map, never a new movement gate. A RETREAT among houses
+  (a bolt, Home's rout, wandering off, a pet's shove) runs the ROADSIDE:
+  `roadsideRunAngle` (creature_ai.js) bends the away angle along the nearest
+  street on the creature's own side, and a retreat step never enters a yard
+  (`yardReasonAt` — the gate's BEHIND_HOUSE / PRIVATE) it is not already in.
+  A new retreat reason takes that bend, never its own steering
+  (`test/node/roadside_run.test.js`).
 - Influence zones: `ZoneCoverage` owns the union of influence and the
   associated park footprint plus fringe. Its ground and declarative layout
   (`docs/zone-variants.json`, `ZoneDressing`) replace ordinary zoning and
