@@ -57,12 +57,13 @@ assessments identify state-specific uses and any additional contour work.
 ## Active map-art audit
 
 `map-audit-ground.json`, `map-audit-structures.json` and
-`map-audit-interactables.json` audit 107 active environmental art families.
+`map-audit-interactables.json` audit 109 environmental art families.
 Entries carry their actual placement producers, current source frames, palette
 recommendations and available-library alternatives. Shared states are grouped;
 unused registry definitions, actors and inventory-only items are excluded.
-Player-only crops, campfires and scarecrows are outside this generated-placement
-audit. Local OSM feature counts are source evidence, not final spawn counts.
+Campfires are outside this generated-placement audit; crops and the scarecrow
+are explicitly included at the user’s request. Crops get a small 5.25% lightness
+lift across their growth art, retaining their colours and outlines. Local OSM feature counts are source evidence, not final spawn counts.
 
 Prevalence order is a qualitative estimate from terrain coverage and placement
 rules; no representative post-filter map census was available. Eight families
@@ -78,8 +79,26 @@ python3 tools/preview_map_art.py \
 The output is a self-contained searchable HTML dashboard plus `audit.json`.
 `tools/export_map_art_painters.js` embeds the shipping terrain, road and building
 painters with sample geometry. Existing texture states and proposed colour
-studies are labelled separately. RGB studies preserve source shape/alpha;
-they do not complete recommended contour cleanup or selective material masks.
+studies are labelled separately. Per-material colour transfer preserves source
+geometry and readable shading rather than forcing every sprite through one filter. The selected apple treatment provides the colour, saturation and shading reference
+for all tree, bush and grass candidates, including the clipped hedge. Their foliage
+uses continuous shade mapping while bark and fruit retain their identity.
+Bushes and clipped hedges use half the initial foliage adjustment; other flora
+(including the selected apple treatment) is eased back by 25%. Grass retains
+the approved full-strength treatment. The
+scarecrow preview strengthens its existing contour and shading. Flowers get
+only a 7.5% palette, desaturation and lightness adjustment. Strong ground
+patterns have 20% less contrast; the forest base is slightly darker. Fort and
+castle floors move 20% toward their original colours. Lava is an exception:
+keep its original fiery base and bright animated highlights. Restored building
+sprites use only a 10% palette/desaturation/lightness pass; mushrooms use 7.5%.
+The stone votive gets a 12% lightness lift; ladders and barrels receive a 20%
+colour-only nudge. Churchyard ground regains a little saturation, and cave
+floor/wall bases sit halfway between the original and previous proposals.
+Tune saturation and contrast per sprite: readability matters as much as matching
+the palette. Keep the helpful olive correction to bright green trees without
+flattening their leaf shading. The original chest and unchanged well provide
+contrast references beside the proposed art.
 The rejected ground tileset alternatives remain in source details: the actual
 procedural materials are better suited to arbitrary map polygons.
 
@@ -87,3 +106,26 @@ Mushroom Grove uses the red giant mushroom (32 × 48 frame 2) from
 `art-source/sprites/Fantasy Mushroom.png`, copied unchanged to the Wilderness
 assets. These are shrub interactables with the same harvesting and wood drops;
 ordinary shrubs elsewhere retain their woodland bush art.
+
+## Sandbox comparison
+
+`tools/preview_sandbox_art.py` captures matched current/candidate views of the
+actual sandbox in an isolated browser. It freezes time and actors, uses neutral
+lighting, and stitches native 32px cells with a two-cell margin. No shipping
+textures or user saves are modified. Candidates share the dashboard's gentle colour transfer and lighter,
+moderately desaturated ground. Ground and water retain more of their original colour and depth, with the
+previous lightening and desaturation reduced by approximately 25%. The original closed chest is the shading reference; the
+new chest candidate keeps its shape with the original chest’s warm wood and
+muted metal colours at half strength, preserving all eleven source shades. Clipped hedges are limited to residential/commercial shrub cells.
+
+```sh
+CHROMIUM_PATH=/path/to/chromium python3 tools/preview_sandbox_art.py \
+  --url http://127.0.0.1:8767/ \
+  --reserve-root /home/claude/terracart/unused_art \
+  --output /tmp/sandbox-art-comparison
+```
+
+Outputs include before/after PNGs, a static comparison, capture metadata and an
+interactive comparison page. The sandbox has no vector roads/building polygons
+or assigned zone motifs, so the capture uses its intended tiled building mode.
+It demonstrates candidates present in that layout, not every audit entry.

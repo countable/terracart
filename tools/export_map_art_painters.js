@@ -8,6 +8,11 @@ const root = path.resolve(__dirname, '..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 
 function bundle() {
+  const buildingProposal = JSON.parse(read('docs/art/map-building-preview.json'));
+  const groundProposals = Object.fromEntries(JSON.parse(read('docs/art/map-audit-ground.json')).rows
+    .filter(row => row.terrainId != null).map(row => [row.terrainId,row.proposedColor]));
+  const groundPatternOpacity = Object.fromEntries(JSON.parse(read('docs/art/map-audit-ground.json')).rows
+    .filter(row => row.patternOpacity != null).map(row => [row.terrainId,row.patternOpacity]));
   const app = read('src/app.js');
   const colorsMatch = app.match(/const COLORS = (\{[\s\S]*?\n\});/);
   if (!colorsMatch) throw new Error('Cannot find shipping terrain colours');
@@ -20,12 +25,18 @@ function bundle() {
     tokens[key] = match[2];
   }
   let road = read('src/road_overlay.js');
+  road = road.replace('const RAIL_COLOR =', 'let RAIL_COLOR =');
   const hook = '  global.RoadOverlay = {';
   if (!road.includes(hook)) throw new Error('Cannot find road painter export');
   road = road.replace(hook, `  global.MapArtRoadPasses = {
     commitBase, commitRestored, emitRailDecor,
     ROAD_COLOR, PATH_COLOR, RAIL_COLOR, RESTORED_ROAD_COLOR, RESTORED_PATH_COLOR,
-    ALPHA, RESTORED_ALPHA
+    ALPHA, RESTORED_ALPHA,
+    withRailColor(color, draw) {
+      const original = RAIL_COLOR;
+      RAIL_COLOR = color;
+      try { return draw(); } finally { RAIL_COLOR = original; }
+    }
   };\n${hook}`);
   let building = read('src/building_overlay.js');
   const buildingHook = 'global.BuildingOverlay = { draw, enabled, setEnabled };';
@@ -51,6 +62,9 @@ function bundle() {
   const SpriteLayout = { CELL_PX:32 };
   const CELL_PX = 32;
   const COLORS = ${JSON.stringify(colors)};
+  const MAP_ART_BUILDING_PROPOSAL = ${JSON.stringify(buildingProposal)};
+  const MAP_ART_GROUND_PROPOSALS = ${JSON.stringify(groundProposals)};
+  const MAP_ART_GROUND_PATTERN_OPACITY = ${JSON.stringify(groundPatternOpacity)};
   const { UI_TREASURE, UI_LAMP_GOLD, UI_LAMP_GLOW } = ${JSON.stringify(tokens)};
   const lerp = (a,b,t) => a + (b-a)*t;
   const clamp = (value,lo,hi) => Math.max(lo,Math.min(hi,value));
@@ -64,7 +78,7 @@ ${functionText(util, 'luminance')}
   const overlayProjection = () => ({ projX:x=>x,projY:y=>y,minX:-64,maxX:192,minY:-64,maxY:192 });
 ${read('src/biome_profiles.js')}
   const BiomeProfiles = window.BiomeProfiles;
-${read('src/textures.js')}
+${read('src/textures.js').replace('const TILLED_COLOR =', 'let TILLED_COLOR =')}
 ${road}
 ${building}
 ${read('tools/map_art_procedural.js')}

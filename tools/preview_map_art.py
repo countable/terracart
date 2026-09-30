@@ -64,6 +64,8 @@ def normalize(group, entry, reserve):
         kind = {'longgrass':'grass','shrub':'bush','trees':'tree','mushroom':'mushroom','headstone':'grave','clay_pot':'clay-pot'}
         if entry['id'] in kind:
             palette = colours(next(c['colours'] for c in defaults if c['id']=='default-'+kind[entry['id']]))
+    elif action == 'keep':
+        palette = []
     row = dict(id=entry['id'], name=entry['name'], category=entry['category'].title(),
                action=action, rationale=rec.get('rationale', rec.get('note', '')),
                assessment=entry.get('assessment', ''), palette=palette,
@@ -90,6 +92,8 @@ def normalize(group, entry, reserve):
             if vp:
                 for im in vi:
                     im['recolour'] = [p['hex'] for p in vp]
+                    im['recolourStrength'] = rec.get('recolourStrength', .18)
+                    im['recolourMode'] = rec.get('recolourMode')
             row['variants'] = [dict(name=v['name'], usage=v['usage'], rationale=v['note'], images=vi, palette=vp)]
     else:
         row['rank'] = entry['prevalenceRank']
@@ -105,7 +109,7 @@ def normalize(group, entry, reserve):
                 spec = dict(kind='biome', terrainId=entry['terrainId'], color=entry['currentColor'])
                 row['currentImages'] = [dict(procedural=spec, label='Shipping terrain painter')]
                 if entry.get('proposedColor'):
-                    row['candidateImages'] = [dict(procedural=dict(spec, color=entry['proposedColor']), label='Proposed base colour; existing texture marks')]
+                    row['candidateImages'] = [dict(procedural=dict(spec, color=entry['proposedColor'], proposed=True), label='Proposed base colour and texture contrast')]
                     row['palette'] = [dict(id='proposed base', hex=entry['proposedColor'])]
             elif ident in ['road-weathered', 'path-weathered', 'road-restored', 'rail']:
                 style = 'path' if ident.startswith('path') else 'rail' if ident == 'rail' else 'road'
@@ -117,6 +121,8 @@ def normalize(group, entry, reserve):
                     row['candidateImages'] = [procedural('road', 'Proposed base colour; shipping road geometry', style=style, color=entry['proposedColor'])]
             elif ident in ['tilled-bed', 'poi-pad']:
                 row['currentImages'] = [procedural('tilled' if ident == 'tilled-bed' else 'pad', 'Shipping painter')]
+                if ident=='tilled-bed':
+                    row['candidateImages']=[procedural('tilled','Proposed lighter tilled soil',proposed=True)]
             elif ident == 'pier-planks':
                 row['currentImages'] = images([entry['candidate']], reserve, 'Existing bridge deck')
             for v in entry.get('usageVariants', []):
@@ -132,8 +138,12 @@ def normalize(group, entry, reserve):
                 row['currentImages'] = [procedural('building', 'Unrestored polygon walls and floor', tier=current['tier'], unclaimed=True),
                                         procedural('building', 'Restored polygon walls and floor', tier=current['tier']),
                                         procedural('biome', 'Existing floor texture', terrainId=current['tier'])]
+                row['candidateImages'] = [procedural('building', 'Proposed unclaimed footprint', tier=current['tier'], unclaimed=True, proposed=True),
+                                          procedural('building', 'Proposed claimed footprint', tier=current['tier'], proposed=True),
+                                          procedural('biome', 'Proposed light floor', terrainId=current['tier'], proposed=True)]
             elif row['id'] == 'castle-turret':
                 row['currentImages'] = [procedural('tower', 'Unclaimed stone', unclaimed=True), procedural('tower', 'Claimed stone')]
+                row['candidateImages'] = [procedural('tower', 'Proposed unclaimed stone', unclaimed=True, proposed=True), procedural('tower', 'Proposed claimed stone', proposed=True)]
             elif row['id'] == 'street-lamp':
                 row['currentImages'] = [procedural('lamp', 'Existing restored lamp')]
                 row['currentImages'] += images([dict(file='assets/Objects/Road copiar.png',frame=i,frameWidth=16,frameHeight=16,label='Unrestored foundation '+str(i)) for i in [0,5,1,3]],reserve)
@@ -150,12 +160,23 @@ def normalize(group, entry, reserve):
     if not row['candidateImages'] and (row['action'].startswith('keep') or row['action']=='applied'):
         row['candidateImages'] = [dict(im, label='Keep existing art') for im in row['currentImages']]
     elif not row['candidateImages'] and row['currentImages'] and row['palette']:
-        row['candidateImages'] = [dict(row['currentImages'][0], label='Retain silhouette; target palette below')]
+        row['candidateImages'] = [dict(im, label='Retain silhouette; target palette below') for im in row['currentImages']]
     if row['action'] in ['recolour', 'swap', 'simplify', 'simplify/recolour'] and row['palette']:
         for im in row['candidateImages']:
             if im.get('src') and not im['label'].startswith('Library reference'):
                 im['recolour'] = [p['hex'] for p in row['palette']]
+                im['recolourStrength'] = rec.get('recolourStrength', .18)
+                im['preserveLuminance'] = rec.get('preserveLuminance', True)
+                im['recolourMode'] = rec.get('recolourMode')
+                im['colourMap'] = rec.get('colourMap')
                 im['label'] = 'Palette study · '+im['label']
+    if row['id']=='building-fort' and rec.get('stateTreatments'):
+        row['candidateImages'] = []
+        for state,treatment in rec['stateTreatments'].items():
+            im=raster(treatment['candidate'],reserve,treatment['name'])
+            im.update(recolour=[p['hex'] for p in colours(treatment['palette'])],
+                      recolourStrength=treatment['recolourStrength'],preserveLuminance=state=='claimed',recolourMode=treatment.get('recolourMode'))
+            row['candidateImages'].append(im)
     assert row['currentImages'], 'Missing actual art preview: '+row['id']
     return row
 
@@ -189,7 +210,11 @@ def main():
     payload = dict(rows=rows, excluded=exclusions, variantCount=variant_count,
                    prevalenceMethod='Generator coverage and spawn-rule estimates, not measured final placement counts. Local source-feature counts are labelled separately.',
                    version=subprocess.check_output(['git','rev-parse','--short','HEAD'],cwd=ROOT,text=True).strip())
-    painters = subprocess.check_output(['node','tools/export_map_art_painters.js'],cwd=ROOT,text=True)
+    payload['lightingReference'] = [
+        raster(dict(path='assets/Objects/trunk.png',rect=[0,0,32,32]),args.reserve_root,'Original chest · lighting reference'),
+        raster(dict(path='assets/Objects/Gold Chest.png',rect=[0,0,16,16]),args.reserve_root,'Replacement chest · original source colours'),
+        raster(dict(path='assets/Objects/Wilderness/well.png',rect=[0,0,30,32]),args.reserve_root,'Unchanged well · contrast reference')]
+    painters = (ROOT/'tools/art_preview_colour.js').read_text()+'\n'+subprocess.check_output(['node','tools/export_map_art_painters.js'],cwd=ROOT,text=True)
     template = (ROOT/'tools/map_art_dashboard.html').read_text()
     page = template.replace('__DATA__', json.dumps(payload).replace('<','\\u003c')).replace('__PAINTERS__',painters)
     args.output.mkdir(parents=True,exist_ok=True)

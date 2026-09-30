@@ -36,7 +36,8 @@
           "leaf_dark",
           "leaf",
           "stone"
-        ]
+        ],
+        "recolourStrength": 0.6
       },
       "prevalenceRank": 1,
       "prevalenceReason": "Every unclaimed tier-9 building before restoration; house sprite under building wash.",
@@ -57,9 +58,9 @@
           95
         ]
       },
-      "assessment": "Clear role silhouette, but denser outlining and internal texture than 16px character art. Bright details are meaningful restoration or sacred cues.",
+      "assessment": "The original artwork is a welcoming, repaired destination; its brighter colours distinguish restoration from nearby wrecks.",
       "recommendation": {
-        "action": "simplify",
+        "action": "recolour",
         "candidate": {
           "file": "assets/Objects/House.png",
           "rect": [
@@ -69,7 +70,7 @@
             95
           ]
         },
-        "rationale": "Keep cyan/purple restorative accents; collapse roof and wall texture into fewer broad pixel clusters. Do not tint away the service identity.",
+        "rationale": "Keep the existing restored building art and clean appearance. Apply only 10% palette adaptation, desaturation and lightness lift, retaining dark contours, windows and material detail.",
         "palette": [
           "ink",
           "bark",
@@ -78,7 +79,10 @@
           "cream",
           "hero_cyan",
           "restored_sage"
-        ]
+        ],
+        "recolourStrength": 0.1,
+        "recolourMode": "gentle-tune",
+        "preserveLuminance": true
       },
       "prevalenceRank": 2,
       "prevalenceReason": "Tier-9 houses restored as plain homes.",
@@ -99,9 +103,9 @@
           87
         ]
       },
-      "assessment": "Clear role silhouette, but denser outlining and internal texture than 16px character art. Bright details are meaningful restoration or sacred cues.",
+      "assessment": "The original artwork is a welcoming, repaired destination; its brighter colours distinguish restoration from nearby wrecks.",
       "recommendation": {
-        "action": "simplify",
+        "action": "recolour",
         "candidate": {
           "file": "assets/Objects/Houses/blacksmith.png",
           "rect": [
@@ -111,7 +115,7 @@
             87
           ]
         },
-        "rationale": "Keep cyan/purple restorative accents; collapse roof and wall texture into fewer broad pixel clusters. Do not tint away the service identity.",
+        "rationale": "Keep the existing restored building art and clean appearance. Apply only 10% palette adaptation, desaturation and lightness lift, retaining dark contours, windows and material detail.",
         "palette": [
           "ink",
           "bark",
@@ -120,7 +124,10 @@
           "cream",
           "hero_cyan",
           "restored_sage"
-        ]
+        ],
+        "recolourStrength": 0.1,
+        "recolourMode": "gentle-tune",
+        "preserveLuminance": true
       },
       "prevalenceRank": 2,
       "prevalenceReason": "First restored house always blacksmith; additional roles from deterministic address.",
@@ -141,9 +148,9 @@
           98
         ]
       },
-      "assessment": "Clear role silhouette, but denser outlining and internal texture than 16px character art. Bright details are meaningful restoration or sacred cues.",
+      "assessment": "The original artwork is a welcoming, repaired destination; its brighter colours distinguish restoration from nearby wrecks.",
       "recommendation": {
-        "action": "simplify",
+        "action": "recolour",
         "candidate": {
           "file": "assets/Objects/Houses/trader.png",
           "rect": [
@@ -153,7 +160,7 @@
             98
           ]
         },
-        "rationale": "Keep cyan/purple restorative accents; collapse roof and wall texture into fewer broad pixel clusters. Do not tint away the service identity.",
+        "rationale": "Keep the existing restored building art and clean appearance. Apply only 10% palette adaptation, desaturation and lightness lift, retaining dark contours, windows and material detail.",
         "palette": [
           "ink",
           "bark",
@@ -162,7 +169,10 @@
           "cream",
           "hero_cyan",
           "restored_sage"
-        ]
+        ],
+        "recolourStrength": 0.1,
+        "recolourMode": "gentle-tune",
+        "preserveLuminance": true
       },
       "prevalenceRank": 2,
       "prevalenceReason": "Second restored house always trader.",
@@ -183,9 +193,9 @@
           94
         ]
       },
-      "assessment": "Clear role silhouette, but denser outlining and internal texture than 16px character art. Bright details are meaningful restoration or sacred cues.",
+      "assessment": "The original artwork is a welcoming, repaired destination; its brighter colours distinguish restoration from nearby wrecks.",
       "recommendation": {
-        "action": "simplify",
+        "action": "recolour",
         "candidate": {
           "file": "assets/Objects/Houses/market.png",
           "rect": [
@@ -195,7 +205,7 @@
             94
           ]
         },
-        "rationale": "Keep cyan/purple restorative accents; collapse roof and wall texture into fewer broad pixel clusters. Do not tint away the service identity.",
+        "rationale": "Keep the existing restored building art and clean appearance. Apply only 10% palette adaptation, desaturation and lightness lift, retaining dark contours, windows and material detail.",
         "palette": [
           "ink",
           "bark",
@@ -204,7 +214,10 @@
           "cream",
           "hero_cyan",
           "restored_sage"
-        ]
+        ],
+        "recolourStrength": 0.1,
+        "recolourMode": "gentle-tune",
+        "preserveLuminance": true
       },
       "prevalenceRank": 2,
       "prevalenceReason": "Fourth restored house always market.",
@@ -225,9 +238,9 @@
           154
         ]
       },
-      "assessment": "Clear role silhouette, but denser outlining and internal texture than 16px character art. Bright details are meaningful restoration or sacred cues.",
+      "assessment": "The earlier muted proposal suits an unclaimed fort. A claimed fort should regain the brightness and detail of the original building.",
       "recommendation": {
-        "action": "simplify",
+        "action": "recolour",
         "candidate": {
           "file": "assets/Objects/Houses/fort.png",
           "rect": [
@@ -237,7 +250,7 @@
             154
           ]
         },
-        "rationale": "Keep cyan/purple restorative accents; collapse roof and wall texture into fewer broad pixel clusters. Do not tint away the service identity.",
+        "rationale": "Keep the existing restored building art and clean appearance. Apply only 10% palette adaptation, desaturation and lightness lift, retaining dark contours, windows and material detail.",
         "palette": [
           "ink",
           "bark",
@@ -246,7 +259,59 @@
           "cream",
           "hero_cyan",
           "restored_sage"
-        ]
+        ],
+        "recolourStrength": 0.1,
+        "stateTreatments": {
+          "unclaimed": {
+            "name": "Unclaimed fort",
+            "candidate": {
+              "file": "assets/Objects/Houses/fort.png",
+              "rect": [
+                0,
+                0,
+                214,
+                154
+              ]
+            },
+            "palette": [
+              "ink",
+              "bark",
+              "earth",
+              "clay",
+              "cream",
+              "hero_cyan",
+              "restored_sage"
+            ],
+            "recolourStrength": 0.7,
+            "rationale": "Previous muted palette direction retained for the unrepaired fort."
+          },
+          "claimed": {
+            "name": "Claimed fort",
+            "candidate": {
+              "file": "assets/Objects/Houses/fort.png",
+              "rect": [
+                0,
+                0,
+                214,
+                154
+              ]
+            },
+            "palette": [
+              "ink",
+              "bark",
+              "earth",
+              "clay",
+              "cream",
+              "hero_cyan",
+              "restored_sage"
+            ],
+            "recolourStrength": 0.1,
+            "rationale": "Keep the existing restored building art and clean appearance. Apply only 10% palette adaptation, desaturation and lightness lift, retaining dark contours, windows and material detail.",
+            "recolourMode": "gentle-tune"
+          }
+        },
+        "recolourMode": "gentle-tune",
+        "preserveLuminance": true
       },
       "prevalenceRank": 2,
       "prevalenceReason": "Every tier-11 building; existing locked/unlocked wash is gameplay state.",
@@ -267,9 +332,9 @@
           75
         ]
       },
-      "assessment": "Clear role silhouette, but denser outlining and internal texture than 16px character art. Bright details are meaningful restoration or sacred cues.",
+      "assessment": "The original artwork is a welcoming, repaired destination; its brighter colours distinguish restoration from nearby wrecks.",
       "recommendation": {
-        "action": "keep",
+        "action": "recolour",
         "candidate": {
           "file": "assets/Objects/Houses/trailer.png",
           "rect": [
@@ -279,7 +344,7 @@
             75
           ]
         },
-        "rationale": "Keep the existing silhouette and intentional off-palette identity: Home is restored technology; wizard tower is a sacred service. No extra colour variant.",
+        "rationale": "Keep the existing restored building art and clean appearance. Apply only 10% palette adaptation, desaturation and lightness lift, retaining dark contours, windows and material detail.",
         "palette": [
           "ink",
           "bark",
@@ -288,7 +353,10 @@
           "cream",
           "hero_cyan",
           "restored_sage"
-        ]
+        ],
+        "recolourStrength": 0.1,
+        "recolourMode": "gentle-tune",
+        "preserveLuminance": true
       },
       "prevalenceRank": 2,
       "prevalenceReason": "Exactly one player Home overlay, repeatedly visible during play.",
@@ -309,9 +377,9 @@
           104
         ]
       },
-      "assessment": "Clear role silhouette, but denser outlining and internal texture than 16px character art. Bright details are meaningful restoration or sacred cues.",
+      "assessment": "The original artwork is a welcoming, repaired destination; its brighter colours distinguish restoration from nearby wrecks.",
       "recommendation": {
-        "action": "keep",
+        "action": "recolour",
         "candidate": {
           "file": "assets/Objects/Houses/wizard.png",
           "rect": [
@@ -321,14 +389,17 @@
             104
           ]
         },
-        "rationale": "Keep the existing silhouette and intentional off-palette identity: Home is restored technology; wizard tower is a sacred service. No extra colour variant.",
+        "rationale": "Keep the existing restored building art and clean appearance. Apply only 10% palette adaptation, desaturation and lightness lift, retaining dark contours, windows and material detail.",
         "palette": [
           "ink",
           "stone_shadow",
           "stone",
           "flower_lilac",
           "sacred_ivory"
-        ]
+        ],
+        "recolourStrength": 0.1,
+        "recolourMode": "gentle-tune",
+        "preserveLuminance": true
       },
       "prevalenceRank": 3,
       "prevalenceReason": "Fifteenth restored house guaranteed wizard; rare later role.",
@@ -349,19 +420,19 @@
           80
         ]
       },
-      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "assessment": "The existing booth clearly identifies its service and should remain the map POI artwork.",
       "recommendation": {
-        "action": "swap",
+        "action": "keep",
         "candidate": {
-          "file": "unused_art/MiniWorldSprites/Buildings/Wood/Taverns.png",
+          "file": "assets/Objects/Generated/inn.png",
           "rect": [
             0,
             0,
-            16,
-            16
+            80,
+            80
           ]
         },
-        "rationale": "Try the existing MiniWorld Wood Taverns first cell, recoloured with warm rustic wood and a single readable service accent. It matches the character pack pixel scale; compare service recognition before replacing the current counter.",
+        "rationale": "Keep this existing service booth, including its silhouette, readable wares and original colours. No building-art swap is proposed.",
         "palette": [
           "ink",
           "shadow",
@@ -371,7 +442,8 @@
           "cream",
           "stone",
           "restored_sage"
-        ]
+        ],
+        "recolourStrength": 0
       },
       "prevalenceRank": 2,
       "prevalenceReason": "lodging \u2192 macro_inn on surface; produce stands take precedence.",
@@ -392,29 +464,21 @@
           80
         ]
       },
-      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "assessment": "The existing chapel booth is the approved POI artwork.",
       "recommendation": {
-        "action": "swap",
+        "action": "keep",
         "candidate": {
-          "file": "unused_art/MiniWorldSprites/Buildings/Wood/Chapels.png",
+          "file": "assets/Objects/Generated/chapel.png",
           "rect": [
             0,
             0,
-            16,
-            16
+            80,
+            80
           ]
         },
-        "rationale": "Try the existing MiniWorld Wood Chapels first cell, recoloured with warm rustic wood and a single readable service accent. It matches the character pack pixel scale; compare service recognition before replacing the current counter.",
-        "palette": [
-          "ink",
-          "shadow",
-          "bark",
-          "earth",
-          "ochre",
-          "cream",
-          "stone",
-          "restored_sage"
-        ]
+        "rationale": "Keep the chapel POI exactly as drawn: no swap, recolour or contour change.",
+        "palette": [],
+        "recolourStrength": 0
       },
       "prevalenceRank": 2,
       "prevalenceReason": "place_of_worship \u2192 macro_chapel on surface; produce stands take precedence.",
@@ -435,9 +499,9 @@
           80
         ]
       },
-      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "assessment": "The existing booth clearly identifies its service and should remain the map POI artwork.",
       "recommendation": {
-        "action": "simplify",
+        "action": "keep",
         "candidate": {
           "file": "assets/Objects/Generated/apothecary.png",
           "rect": [
@@ -447,7 +511,7 @@
             80
           ]
         },
-        "rationale": "Retain the existing service-specific object, but reduce to crisp clusters with warm timber and stone; preserve one readable symbol (bottles/books/crest/curio/training target). No available library sprite conveys the service as faithfully.",
+        "rationale": "Keep this existing service booth, including its silhouette, readable wares and original colours. No building-art swap is proposed.",
         "palette": [
           "ink",
           "shadow",
@@ -457,7 +521,8 @@
           "cream",
           "stone",
           "restored_sage"
-        ]
+        ],
+        "recolourStrength": 0
       },
       "prevalenceRank": 2,
       "prevalenceReason": "pharmacy, dentist, hospital \u2192 macro_apothecary on surface; produce stands take precedence.",
@@ -478,9 +543,9 @@
           80
         ]
       },
-      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "assessment": "The existing booth clearly identifies its service and should remain the map POI artwork.",
       "recommendation": {
-        "action": "simplify",
+        "action": "keep",
         "candidate": {
           "file": "assets/Objects/Generated/scriptorium.png",
           "rect": [
@@ -490,7 +555,7 @@
             80
           ]
         },
-        "rationale": "Retain the existing service-specific object, but reduce to crisp clusters with warm timber and stone; preserve one readable symbol (bottles/books/crest/curio/training target). No available library sprite conveys the service as faithfully.",
+        "rationale": "Keep this existing service booth, including its silhouette, readable wares and original colours. No building-art swap is proposed.",
         "palette": [
           "ink",
           "shadow",
@@ -500,7 +565,8 @@
           "cream",
           "stone",
           "restored_sage"
-        ]
+        ],
+        "recolourStrength": 0
       },
       "prevalenceRank": 3,
       "prevalenceReason": "library, college \u2192 macro_scriptorium on surface; produce stands take precedence.",
@@ -521,9 +587,9 @@
           80
         ]
       },
-      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "assessment": "The existing booth clearly identifies its service and should remain the map POI artwork.",
       "recommendation": {
-        "action": "simplify",
+        "action": "keep",
         "candidate": {
           "file": "assets/Objects/Generated/guildhall.png",
           "rect": [
@@ -533,7 +599,7 @@
             80
           ]
         },
-        "rationale": "Retain the existing service-specific object, but reduce to crisp clusters with warm timber and stone; preserve one readable symbol (bottles/books/crest/curio/training target). No available library sprite conveys the service as faithfully.",
+        "rationale": "Keep this existing service booth, including its silhouette, readable wares and original colours. No building-art swap is proposed.",
         "palette": [
           "ink",
           "shadow",
@@ -543,7 +609,8 @@
           "cream",
           "stone",
           "restored_sage"
-        ]
+        ],
+        "recolourStrength": 0
       },
       "prevalenceRank": 3,
       "prevalenceReason": "town_hall, police, fire_station \u2192 macro_guildhall on surface; produce stands take precedence.",
@@ -564,9 +631,9 @@
           80
         ]
       },
-      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "assessment": "The existing booth clearly identifies its service and should remain the map POI artwork.",
       "recommendation": {
-        "action": "simplify",
+        "action": "keep",
         "candidate": {
           "file": "assets/Objects/Generated/curio.png",
           "rect": [
@@ -576,7 +643,7 @@
             80
           ]
         },
-        "rationale": "Retain the existing service-specific object, but reduce to crisp clusters with warm timber and stone; preserve one readable symbol (bottles/books/crest/curio/training target). No available library sprite conveys the service as faithfully.",
+        "rationale": "Keep this existing service booth, including its silhouette, readable wares and original colours. No building-art swap is proposed.",
         "palette": [
           "ink",
           "shadow",
@@ -586,7 +653,8 @@
           "cream",
           "stone",
           "restored_sage"
-        ]
+        ],
+        "recolourStrength": 0
       },
       "prevalenceRank": 3,
       "prevalenceReason": "museum, theatre, cinema \u2192 macro_curio on surface; produce stands take precedence.",
@@ -607,19 +675,19 @@
           80
         ]
       },
-      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "assessment": "The existing booth clearly identifies its service and should remain the map POI artwork.",
       "recommendation": {
-        "action": "swap",
+        "action": "keep",
         "candidate": {
-          "file": "unused_art/MiniWorldSprites/Buildings/Wood/Market.png",
+          "file": "assets/Objects/Generated/sundries.png",
           "rect": [
             0,
             0,
-            16,
-            16
+            80,
+            80
           ]
         },
-        "rationale": "Try the existing MiniWorld Wood Market first cell, recoloured with warm rustic wood and a single readable service accent. It matches the character pack pixel scale; compare service recognition before replacing the current counter.",
+        "rationale": "Keep this existing service booth, including its silhouette, readable wares and original colours. No building-art swap is proposed.",
         "palette": [
           "ink",
           "shadow",
@@ -629,7 +697,8 @@
           "cream",
           "stone",
           "restored_sage"
-        ]
+        ],
+        "recolourStrength": 0
       },
       "prevalenceRank": 1,
       "prevalenceReason": "shop (excluding produce stands) \u2192 macro_sundries on surface; produce stands take precedence.",
@@ -650,9 +719,9 @@
           80
         ]
       },
-      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "assessment": "The existing booth clearly identifies its service and should remain the map POI artwork.",
       "recommendation": {
-        "action": "simplify",
+        "action": "keep",
         "candidate": {
           "file": "assets/Objects/Generated/training.png",
           "rect": [
@@ -662,7 +731,7 @@
             80
           ]
         },
-        "rationale": "Retain the existing service-specific object, but reduce to crisp clusters with warm timber and stone; preserve one readable symbol (bottles/books/crest/curio/training target). No available library sprite conveys the service as faithfully.",
+        "rationale": "Keep this existing service booth, including its silhouette, readable wares and original colours. No building-art swap is proposed.",
         "palette": [
           "ink",
           "shadow",
@@ -672,7 +741,8 @@
           "cream",
           "stone",
           "restored_sage"
-        ]
+        ],
+        "recolourStrength": 0
       },
       "prevalenceRank": 3,
       "prevalenceReason": "sports_centre, yoga \u2192 macro_training on surface; produce stands take precedence.",
@@ -1058,7 +1128,7 @@
             32
           ]
         },
-        "rationale": "Keep ladder and pit silhouette; align ladder with bark/earth/ochre and stone rim with stone_shadow/stone. Do not replace with MiniWorld CaveV2: its roofed mine icon would obscure the up/down distinction.",
+        "rationale": "Nudge ladder timber and stone toward the rustic palette by 20%, preserving source shading, dark pit openings and direction cues.",
         "palette": [
           "ink",
           "shadow",
@@ -1066,7 +1136,9 @@
           "earth",
           "ochre",
           "cream"
-        ]
+        ],
+        "recolourStrength": 0.2,
+        "preserveLuminance": true
       },
       "prevalenceRank": 2,
       "prevalenceReason": "Generated walkable cave stair sites; paired return on the next depth.",
@@ -1099,7 +1171,7 @@
             32
           ]
         },
-        "rationale": "Keep ladder and pit silhouette; align ladder with bark/earth/ochre and stone rim with stone_shadow/stone. Do not replace with MiniWorld CaveV2: its roofed mine icon would obscure the up/down distinction.",
+        "rationale": "Nudge ladder timber and stone toward the rustic palette by 20%, preserving source shading, dark pit openings and direction cues.",
         "palette": [
           "ink",
           "shadow",
@@ -1107,7 +1179,9 @@
           "earth",
           "ochre",
           "cream"
-        ]
+        ],
+        "recolourStrength": 0.2,
+        "preserveLuminance": true
       },
       "prevalenceRank": 2,
       "prevalenceReason": "Generated walkable cave stair sites; paired return on the next depth.",
@@ -1171,7 +1245,7 @@
       },
       "assessment": "Approved existing shrine art; the figure and compact votive provide intentional landmark variety.",
       "recommendation": {
-        "action": "keep",
+        "action": "recolour",
         "candidate": {
           "file": "assets/Objects/Landmarks/shrine-votive.png",
           "rect": [
@@ -1181,7 +1255,7 @@
             16
           ]
         },
-        "rationale": "Retain the chosen art and stable identity hashing; weathered stone should remain muted, with a small sacred light reserved for the focal point.",
+        "rationale": "Lift the stone votive\u2019s body lightness by 12% toward white so its carved form reads more clearly. Preserve deep outlines, original colours, silhouette and transparency.",
         "palette": [
           "ink",
           "stone_shadow",
@@ -1189,7 +1263,9 @@
           "stone_light",
           "leaf_dark",
           "sacred_ivory"
-        ]
+        ],
+        "recolourStrength": 0.12,
+        "recolourMode": "value-lift"
       },
       "prevalenceRank": 2,
       "prevalenceReason": "Daily grove gift POI; two existing stable cosmetic appearances.",
@@ -1221,7 +1297,36 @@
           "clay",
           "earth"
         ],
-        "rationale": "Retain exact OSM footprint, extrusion and existing restoration state. Use warm stone for unclaimed structures; permit clean cooler/brighter restored surfaces. Apply the same palette to walls and floor so seams remain coherent."
+        "rationale": "Keep restored masonry close to its original clean, brighter colours. Restrict the stronger rustic colour transfer to unclaimed structures; preserve floor and wall detail and the shared material palette.",
+        "recolourStrength": 0.08,
+        "stateTreatments": {
+          "unclaimed": {
+            "name": "Unclaimed structure",
+            "palette": [
+              "ink",
+              "stone_shadow",
+              "stone",
+              "stone_light",
+              "clay",
+              "earth"
+            ],
+            "recolourStrength": 0.55,
+            "rationale": "Weathered rustic stone for the existing unclaimed state."
+          },
+          "claimed": {
+            "name": "Restored structure",
+            "palette": [
+              "ink",
+              "stone_shadow",
+              "stone",
+              "stone_light",
+              "clay",
+              "earth"
+            ],
+            "recolourStrength": 0.08,
+            "rationale": "Clean and bright, close to the original restored material."
+          }
+        }
       },
       "prevalenceRank": 1,
       "prevalenceReason": "Every mapped building footprint in this tier; large screen coverage. Rank is generation-based, not measured global frequency.",
@@ -1253,7 +1358,36 @@
           "clay",
           "earth"
         ],
-        "rationale": "Retain exact OSM footprint, extrusion and existing restoration state. Use warm stone for unclaimed structures; permit clean cooler/brighter restored surfaces. Apply the same palette to walls and floor so seams remain coherent."
+        "rationale": "Keep restored masonry close to its original clean, brighter colours. Restrict the stronger rustic colour transfer to unclaimed structures; preserve floor and wall detail and the shared material palette.",
+        "recolourStrength": 0.08,
+        "stateTreatments": {
+          "unclaimed": {
+            "name": "Unclaimed structure",
+            "palette": [
+              "ink",
+              "stone_shadow",
+              "stone",
+              "stone_light",
+              "clay",
+              "earth"
+            ],
+            "recolourStrength": 0.55,
+            "rationale": "Weathered rustic stone for the existing unclaimed state."
+          },
+          "claimed": {
+            "name": "Restored structure",
+            "palette": [
+              "ink",
+              "stone_shadow",
+              "stone",
+              "stone_light",
+              "clay",
+              "earth"
+            ],
+            "recolourStrength": 0.08,
+            "rationale": "Clean and bright, close to the original restored material."
+          }
+        }
       },
       "prevalenceRank": 1,
       "prevalenceReason": "Every mapped building footprint in this tier; large screen coverage. Rank is generation-based, not measured global frequency.",
@@ -1285,7 +1419,36 @@
           "clay",
           "earth"
         ],
-        "rationale": "Retain exact OSM footprint, extrusion and existing restoration state. Use warm stone for unclaimed structures; permit clean cooler/brighter restored surfaces. Apply the same palette to walls and floor so seams remain coherent."
+        "rationale": "Keep restored masonry close to its original clean, brighter colours. Restrict the stronger rustic colour transfer to unclaimed structures; preserve floor and wall detail and the shared material palette.",
+        "recolourStrength": 0.08,
+        "stateTreatments": {
+          "unclaimed": {
+            "name": "Unclaimed structure",
+            "palette": [
+              "ink",
+              "stone_shadow",
+              "stone",
+              "stone_light",
+              "clay",
+              "earth"
+            ],
+            "recolourStrength": 0.55,
+            "rationale": "Weathered rustic stone for the existing unclaimed state."
+          },
+          "claimed": {
+            "name": "Restored structure",
+            "palette": [
+              "ink",
+              "stone_shadow",
+              "stone",
+              "stone_light",
+              "clay",
+              "earth"
+            ],
+            "recolourStrength": 0.08,
+            "rationale": "Clean and bright, close to the original restored material."
+          }
+        }
       },
       "prevalenceRank": 1,
       "prevalenceReason": "Every mapped building footprint in this tier; large screen coverage. Rank is generation-based, not measured global frequency.",
@@ -1316,7 +1479,32 @@
           "stone",
           "stone_light"
         ],
-        "rationale": "Keep the turret silhouette and shared palette linkage; warm stone together with polygon ramparts. Preserve existing claimed flag as a state cue, not a new zone variant."
+        "rationale": "Keep restored masonry close to its original clean, brighter colours. Restrict the stronger rustic colour transfer to unclaimed structures; preserve floor and wall detail and the shared material palette.",
+        "recolourStrength": 0.08,
+        "stateTreatments": {
+          "unclaimed": {
+            "name": "Unclaimed structure",
+            "palette": [
+              "ink",
+              "stone_shadow",
+              "stone",
+              "stone_light"
+            ],
+            "recolourStrength": 0.55,
+            "rationale": "Weathered rustic stone for the existing unclaimed state."
+          },
+          "claimed": {
+            "name": "Restored structure",
+            "palette": [
+              "ink",
+              "stone_shadow",
+              "stone",
+              "stone_light"
+            ],
+            "recolourStrength": 0.08,
+            "rationale": "Clean and bright, close to the original restored material."
+          }
+        }
       },
       "prevalenceRank": 2,
       "prevalenceReason": "One per roughly five perimeter cells of large buildings; local building topology controls counts.",
@@ -1386,6 +1574,7 @@
   "notes": [
     "Input fixture counts are local source signals, not post-spawn map counts.",
     "No new zone-specific variants nominated by structures: save the ~10% variant budget for more prevalent ground/flora where spatial identity is stronger.",
-    "Existing restored/unrestored states, product counter frames, and two grove shrine appearances are existing gameplay art, not proposed new variants."
+    "Existing restored/unrestored states, product counter frames, and two grove shrine appearances are existing gameplay art, not proposed new variants.",
+    "Restored buildings retain their original brighter art. Fort and generated building treatments distinguish existing claimed/unclaimed states; these are not new zone variants. Macro POI booths stay as-is, with the chapel explicitly unchanged."
   ]
 }

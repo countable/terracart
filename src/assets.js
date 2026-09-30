@@ -41,8 +41,8 @@ const ASSETS = {
   // sheets from those folders if we ever want colour variety.
   cat:     { kind: 'spritesheet', path: 'assets/Objects/Pets/cat.png', frameWidth: 32, frameHeight: 32 },
   dog:     { kind: 'spritesheet', path: 'assets/Objects/Pets/dog.png', frameWidth: 32, frameHeight: 32 },
-  // trunk.png: 32x64, two 32x32 frames stacked. Frame 0 = closed, frame 1 = open (lid up).
-  chest:   { kind: 'spritesheet', path: 'assets/Objects/trunk.png',            frameWidth: 32, frameHeight: 32 },
+  // Approved closed gold chest: exact right-hand crop from Chests.png; see Gold Chest.md.
+  chest:   { kind: 'spritesheet', path: 'assets/Objects/Gold Chest.png',       frameWidth: 16, frameHeight: 16 },
   // Market stall — a "produce stand" POI sprite (80×80 per frame). One frame
   // per product family (awning colour): 0 fruit, 1 veg, 2 meat, 3 fish,
   // 4 coffee/bakery, 5 dairy/egg, 6 flowers. See produceStandFor() in loot.js.

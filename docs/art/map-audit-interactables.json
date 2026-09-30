@@ -1,18 +1,17 @@
 {
   "version": 1,
   "title": "Nonliving map interactables",
-  "scope": "Naturally generated environmental flora, resource nodes, containers and hazards; existing cave/shore placements included.",
+  "scope": "Naturally generated environmental flora, resource nodes, containers and hazards; existing cave/shore placements included. Player-planted crop art included by explicit review request.",
   "excluded": [
     "characters",
     "enemies",
     "fauna and other living actors",
     "mounts and pets",
     "inventory-only rewards/gear/food",
-    "player-planted crop varieties beyond the naturally spawned materials",
     "buildings and terrain audited separately"
   ],
   "prevalenceMethod": "Qualitative priority from explicit spawn rules, biome coverage and repeated zone materials. No full-map post-filter census was run. Locally dense does not imply common everywhere.",
-  "zoneVariantPolicy": "Six targeted context variants only; no seasons. None are enabled by this audit.",
+  "zoneVariantPolicy": "Five targeted context proposals; rockfruit replacement withdrawn. No seasons; no context variants enabled.",
   "rows": [
     {
       "id": "longgrass",
@@ -44,13 +43,9 @@
         "docs/zone-variants.json:materials.grass"
       ],
       "recommendation": {
-        "action": "keep-applied",
-        "note": "Keep approved olive/straw tuft. Dense coverage makes hue consistency more valuable than more silhouettes.",
+        "action": "recolour",
+        "note": "Bring grass blades toward the selected apple-tree foliage palette and shading range, together with trees and bushes. Preserve silhouette ink, blade geometry and transparency.",
         "palette": [
-          {
-            "id": "ink",
-            "hex": "#171717"
-          },
           {
             "id": "leaf_shadow",
             "hex": "#26342a"
@@ -66,8 +61,19 @@
           {
             "id": "leaf_light",
             "hex": "#7a8147"
+          },
+          {
+            "id": "leaf_tip",
+            "hex": "#a5a569"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.85,
+        "recolourMode": "apple-foliage",
+        "preserveLuminance": false
       },
       "zoneVariant": {
         "name": "Wetland reeds",
@@ -114,13 +120,9 @@
         "docs/zone-variants.json:materials.shrub"
       ],
       "recommendation": {
-        "action": "keep-applied",
-        "note": "Rounded woodland default from Wilderness/bushes.png frame 1, recoloured olive. Keep the wild rounded silhouette.",
+        "action": "recolour",
+        "note": "Use half the previous apple-led colour and shading adjustment. Keep more of the existing woodland bush\u2019s darker olive colour while gently warming and lifting its foliage.",
         "palette": [
-          {
-            "id": "ink",
-            "hex": "#171717"
-          },
           {
             "id": "leaf_shadow",
             "hex": "#26342a"
@@ -136,8 +138,19 @@
           {
             "id": "leaf_light",
             "hex": "#7a8147"
+          },
+          {
+            "id": "leaf_tip",
+            "hex": "#a5a569"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.425,
+        "recolourMode": "apple-foliage",
+        "preserveLuminance": false
       },
       "zoneVariant": {
         "name": "Clipped hedge",
@@ -151,7 +164,7 @@
             16
           ]
         },
-        "note": "Use the same rustic olive palette; orderly silhouette provides the distinction. Never replace ordinary woodland bushes globally."
+        "note": "Use the same reduced-strength colour treatment as the woodland bush. The clipped silhouette identifies formal and residential/commercial planting."
       }
     },
     {
@@ -208,13 +221,9 @@
         "src/util.js:treeGrowthStage"
       ],
       "recommendation": {
-        "action": "keep-applied",
-        "note": "Approved open broadleaf with matching sprout/young stages. Preserve existing size, yield and axe-tier relationships.",
+        "action": "recolour",
+        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity. Ease this colour treatment back by 25% from the previous preview.",
         "palette": [
-          {
-            "id": "ink",
-            "hex": "#171717"
-          },
           {
             "id": "leaf_shadow",
             "hex": "#26342a"
@@ -232,14 +241,17 @@
             "hex": "#7a8147"
           },
           {
-            "id": "bark",
-            "hex": "#4c3018"
+            "id": "leaf_tip",
+            "hex": "#a5a569"
           },
           {
-            "id": "earth",
-            "hex": "#6c431d"
+            "id": "cream",
+            "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.6375,
+        "recolourMode": "apple-foliage",
+        "preserveLuminance": false
       }
     },
     {
@@ -272,7 +284,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Preserve growth stages and canopy/trunk silhouette. Olive foliage and warm bark; keep pale birch bark readable.",
+        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity. Ease this colour treatment back by 25% from the previous preview.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -295,22 +307,13 @@
             "hex": "#a5a569"
           },
           {
-            "id": "shadow",
-            "hex": "#28110b"
-          },
-          {
-            "id": "bark",
-            "hex": "#4c3018"
-          },
-          {
-            "id": "earth",
-            "hex": "#6c431d"
-          },
-          {
-            "id": "ochre",
-            "hex": "#9b6526"
+            "id": "cream",
+            "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.6375,
+        "preserveLuminance": false,
+        "recolourMode": "apple-foliage"
       }
     },
     {
@@ -342,7 +345,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Preserve growth stages and canopy/trunk silhouette. Olive foliage and warm bark; keep pale birch bark readable.",
+        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity. Ease this colour treatment back by 25% from the previous preview.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -365,26 +368,13 @@
             "hex": "#a5a569"
           },
           {
-            "id": "shadow",
-            "hex": "#28110b"
-          },
-          {
-            "id": "bark",
-            "hex": "#4c3018"
-          },
-          {
-            "id": "earth",
-            "hex": "#6c431d"
-          },
-          {
-            "id": "ochre",
-            "hex": "#9b6526"
-          },
-          {
             "id": "cream",
             "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.6375,
+        "preserveLuminance": false,
+        "recolourMode": "apple-foliage"
       }
     },
     {
@@ -416,7 +406,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Preserve growth stages and canopy/trunk silhouette. Olive foliage and warm bark; keep pale birch bark readable.",
+        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity. Ease this colour treatment back by 25% from the previous preview.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -439,22 +429,13 @@
             "hex": "#a5a569"
           },
           {
-            "id": "shadow",
-            "hex": "#28110b"
-          },
-          {
-            "id": "bark",
-            "hex": "#4c3018"
-          },
-          {
-            "id": "earth",
-            "hex": "#6c431d"
-          },
-          {
-            "id": "ochre",
-            "hex": "#9b6526"
+            "id": "cream",
+            "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.6375,
+        "preserveLuminance": false,
+        "recolourMode": "apple-foliage"
       }
     },
     {
@@ -524,7 +505,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Retain all four quantity-bearing silhouettes: the pair must remain a pair, singles remain singles. Warm neutral stone replaces the cool grey/purple substrate.",
+        "note": "Retain all four quantity-bearing silhouettes: the pair must remain a pair, singles remain singles. Warm neutral stone replaces the cool grey/purple substrate. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "stone_shadow",
@@ -542,7 +523,9 @@
             "id": "cream",
             "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.12,
+        "preserveLuminance": true
       },
       "zoneVariant": {
         "name": "Moss-edged stone",
@@ -599,49 +582,10 @@
         "src/items.js:CROP_ROW.rockfruit"
       ],
       "recommendation": {
-        "action": "swap-proposed",
-        "note": "Use a compact loose rubble pile with a clear dark contour; separate loose rubble from mineable ore. Keep the existing rockfruit interaction.",
-        "palette": [
-          {
-            "id": "stone_shadow",
-            "hex": "#403e34"
-          },
-          {
-            "id": "stone",
-            "hex": "#777462"
-          },
-          {
-            "id": "stone_light",
-            "hex": "#b0aa8a"
-          },
-          {
-            "id": "cream",
-            "hex": "#e6d7a3"
-          }
-        ],
-        "candidate": {
-          "path": "unused_art/verdant-props-tileset-16x16/tiles/16x16/rubble_pile.png",
-          "rect": [
-            0,
-            0,
-            16,
-            16
-          ]
-        }
-      },
-      "zoneVariant": {
-        "name": "Masonry debris",
-        "usage": "Broken Masonry / ruined built ground only; proposed only.",
-        "candidate": {
-          "path": "unused_art/verdant-props-tileset-16x16/tiles/16x16/rubble_masonry.png",
-          "rect": [
-            0,
-            0,
-            16,
-            16
-          ]
-        },
-        "note": "Brick and stone rubble signals construction remains. Warm stone with muted brick; strengthen its faint outer contour before shipping."
+        "action": "keep",
+        "note": "Keep the existing rockfruit art, original colours and interaction. Withdraw the loose-rubble replacement.",
+        "palette": [],
+        "recolourStrength": 0
       }
     },
     {
@@ -674,8 +618,8 @@
         "docs/zone-variants.json:mushroom_grove"
       ],
       "recommendation": {
-        "action": "keep-applied",
-        "note": "Keep approved red-spotted toadstool, muted brick cap and cream stem/spots. Preserve the current 10% size reduction.",
+        "action": "recolour",
+        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
         "palette": [
           {
             "id": "ink",
@@ -697,7 +641,10 @@
             "id": "cream",
             "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.075,
+        "recolourMode": "gentle-tune",
+        "preserveLuminance": true
       },
       "zoneVariant": {
         "name": "Mushroom Grove cap cluster",
@@ -756,8 +703,8 @@
         "src/lighting.js:KINDS.mushroom"
       ],
       "recommendation": {
-        "action": "keep",
-        "note": "Keep existing luminous caps as an established underground readability cue. They are real current cave art, not new palette variants.",
+        "action": "recolour",
+        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -775,7 +722,10 @@
             "id": "cream",
             "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.075,
+        "recolourMode": "gentle-tune",
+        "preserveLuminance": true
       }
     },
     {
@@ -809,7 +759,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep the compact flower silhouette. Muted olive leaves; petals may retain controlled colour. Avoid bright green leaves competing with the flower.",
+        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -839,7 +789,10 @@
             "id": "cream",
             "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.075,
+        "preserveLuminance": true,
+        "recolourMode": "gentle-flower"
       }
     },
     {
@@ -873,7 +826,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep the compact flower silhouette. Muted olive leaves; petals may retain controlled colour. Avoid bright green leaves competing with the flower.",
+        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -903,7 +856,10 @@
             "id": "gold",
             "hex": "#fac756"
           }
-        ]
+        ],
+        "recolourStrength": 0.075,
+        "preserveLuminance": true,
+        "recolourMode": "gentle-flower"
       }
     },
     {
@@ -937,7 +893,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Warm neutral stone substrate; retain a small unmistakable copper deposit accent. Resource tier recognition justifies selective off-palette mineral colours.",
+        "note": "Warm neutral stone substrate; retain a small unmistakable copper deposit accent. Resource tier recognition justifies selective off-palette mineral colours. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "stone_shadow",
@@ -963,7 +919,9 @@
             "id": "rust",
             "hex": "#ba6724"
           }
-        ]
+        ],
+        "recolourStrength": 0.08,
+        "preserveLuminance": true
       }
     },
     {
@@ -997,7 +955,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Warm neutral stone substrate; retain a small unmistakable iron deposit accent. Resource tier recognition justifies selective off-palette mineral colours.",
+        "note": "Warm neutral stone substrate; retain a small unmistakable iron deposit accent. Resource tier recognition justifies selective off-palette mineral colours. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "stone_shadow",
@@ -1023,7 +981,9 @@
             "id": "cream",
             "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.08,
+        "preserveLuminance": true
       }
     },
     {
@@ -1057,7 +1017,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep current fruit-tree silhouette and growth frames. Olive canopy, warm bark; preserve apples/peaches as small recognizable food accents.",
+        "note": "Keep the selected apple colour direction, softened to 75% of its previous treatment so more of the source colour and shading comes through.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -1103,7 +1063,10 @@
             "id": "cream",
             "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.75,
+        "preserveLuminance": true,
+        "recolourMode": "approved-apple"
       }
     },
     {
@@ -1160,34 +1123,10 @@
         "src/items.js:CROP_SPRITE.shell"
       ],
       "recommendation": {
-        "action": "recolour",
-        "note": "Keep the three existing compact cowrie shapes. Bone/stone base with restrained dusty rose or blue; retain readable shell ridges.",
-        "palette": [
-          {
-            "id": "stone_shadow",
-            "hex": "#403e34"
-          },
-          {
-            "id": "stone",
-            "hex": "#777462"
-          },
-          {
-            "id": "stone_light",
-            "hex": "#b0aa8a"
-          },
-          {
-            "id": "cream",
-            "hex": "#e6d7a3"
-          },
-          {
-            "id": "flower_rose",
-            "hex": "#a55e72"
-          },
-          {
-            "id": "flower_blue",
-            "hex": "#6b90ac"
-          }
-        ]
+        "action": "keep",
+        "note": "Keep the original shell colours and dark contours; withdraw the purple-outline recolour.",
+        "palette": [],
+        "recolourStrength": 0
       }
     },
     {
@@ -1220,7 +1159,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep angular nodule; use dark warm stone with one restrained light fractured face. Distinguish it from rounded mineable stones.",
+        "note": "Keep angular nodule; use dark warm stone with one restrained light fractured face. Distinguish it from rounded mineable stones. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "stone_shadow",
@@ -1238,7 +1177,9 @@
             "id": "cream",
             "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.12,
+        "preserveLuminance": true
       }
     },
     {
@@ -1271,7 +1212,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Retain the low irregular puddle. Warm near-black body and subtle grey-brown sheen; keep it visually separate from ordinary soil.",
+        "note": "Retain the low irregular puddle. Warm near-black body and subtle grey-brown sheen; keep it visually separate from ordinary soil. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "shadow",
@@ -1289,7 +1230,9 @@
             "id": "stone",
             "hex": "#777462"
           }
-        ]
+        ],
+        "recolourStrength": 0.18,
+        "preserveLuminance": true
       }
     },
     {
@@ -1417,7 +1360,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep narrow irregular iron stakes. Warm charcoal iron with restrained rust; distinct upright silhouette differentiates them from flat tar.",
+        "note": "Keep narrow irregular iron stakes. Warm charcoal iron with restrained rust; distinct upright silhouette differentiates them from flat tar. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "ink",
@@ -1435,7 +1378,9 @@
             "id": "rust",
             "hex": "#ba6724"
           }
-        ]
+        ],
+        "recolourStrength": 0.18,
+        "preserveLuminance": true
       },
       "zoneVariant": {
         "name": "Burned Row charred stakes",
@@ -1552,7 +1497,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep intact and smashed appearances as a matched pair. Usually empty; occasional 1\u20133 coins, apple, or torch/rope. Broken art is a spent container, not generic scenery.",
+        "note": "Move colour 20% toward the rustic timber palette. Preserve every source shade and original luminance contrast in both intact and smashed states.",
         "palette": [
           {
             "id": "shadow",
@@ -1574,7 +1519,9 @@
             "id": "stone_shadow",
             "hex": "#403e34"
           }
-        ]
+        ],
+        "recolourStrength": 0.2,
+        "preserveLuminance": true
       }
     },
     {
@@ -1675,7 +1622,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep the crisp small wooden crate. Dark bark outlines and worn ochre planks align it with the rustic world without obscuring the lid.",
+        "note": "Keep the crisp small wooden crate. Dark bark outlines and worn ochre planks align it with the rustic world without obscuring the lid. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "shadow",
@@ -1693,7 +1640,9 @@
             "id": "ochre",
             "hex": "#9b6526"
           }
-        ]
+        ],
+        "recolourStrength": 0.18,
+        "preserveLuminance": true
       }
     },
     {
@@ -1727,7 +1676,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep the compact flower silhouette. Muted olive leaves; petals may retain controlled colour. Avoid bright green leaves competing with the flower.",
+        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -1757,7 +1706,10 @@
             "id": "cream",
             "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.075,
+        "preserveLuminance": true,
+        "recolourMode": "gentle-flower"
       }
     },
     {
@@ -1773,27 +1725,14 @@
       "current": [
         {
           "key": "chest",
-          "path": "assets/Objects/trunk.png",
+          "path": "assets/Objects/Gold Chest.png",
           "frame": 0,
           "rect": [
             0,
             0,
-            32,
-            32
-          ],
-          "whiteKey": false
-        },
-        {
-          "key": "chest",
-          "path": "assets/Objects/trunk.png",
-          "frame": 1,
-          "rect": [
-            0,
-            32,
-            32,
-            32
-          ],
-          "whiteKey": false
+            16,
+            16
+          ]
         }
       ],
       "spawnEvidence": [
@@ -1802,33 +1741,68 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep the readable closed/open chest family. Warm wood and restrained metal; treasure glint is a purposeful important-object accent.",
+        "note": "Keep the new compact chest shape and halve the previous colour adjustment: blend its source gold and timber halfway toward the original chest\u2019s warmer wood and muted slate colours, preserving all eleven shades.",
         "palette": [
           {
-            "id": "shadow",
-            "hex": "#28110b"
+            "id": "original-chest-0",
+            "hex": "#3a3a50"
           },
           {
-            "id": "bark",
-            "hex": "#4c3018"
+            "id": "original-chest-1",
+            "hex": "#e1af7b"
           },
           {
-            "id": "earth",
-            "hex": "#6c431d"
+            "id": "original-chest-2",
+            "hex": "#b5754d"
           },
           {
-            "id": "ochre",
-            "hex": "#9b6526"
+            "id": "original-chest-3",
+            "hex": "#ca8854"
           },
           {
-            "id": "gold",
-            "hex": "#fac756"
+            "id": "original-chest-4",
+            "hex": "#ce8b59"
           },
           {
-            "id": "stone",
-            "hex": "#777462"
+            "id": "original-chest-5",
+            "hex": "#d9a16a"
+          },
+          {
+            "id": "original-chest-6",
+            "hex": "#d5935e"
+          },
+          {
+            "id": "original-chest-7",
+            "hex": "#a85f46"
+          },
+          {
+            "id": "original-chest-8",
+            "hex": "#6b5052"
+          },
+          {
+            "id": "original-chest-9",
+            "hex": "#46465e"
+          },
+          {
+            "id": "original-chest-10",
+            "hex": "#565972"
           }
-        ]
+        ],
+        "recolourStrength": 0.5,
+        "recolourMode": "original-chest-colours",
+        "colourMap": {
+          "#1a1a1a": "#3a3a50",
+          "#ffffbb": "#e1af7b",
+          "#d28100": "#b5754d",
+          "#ebbb00": "#ca8854",
+          "#b38047": "#ce8b59",
+          "#d09f69": "#d9a16a",
+          "#fdff00": "#d5935e",
+          "#a84d00": "#a85f46",
+          "#6e492f": "#6b5052",
+          "#452e25": "#46465e",
+          "#58362a": "#565972"
+        }
       }
     },
     {
@@ -1860,7 +1834,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep existing small prop for now; muted stone/metal with rusty timber. The current art still resembles a rack, so a future courier signpost silhouette would improve fiction alignment, but no unverified replacement is nominated.",
+        "note": "Keep existing small prop for now; muted stone/metal with rusty timber. The current art still resembles a rack, so a future courier signpost silhouette would improve fiction alignment, but no unverified replacement is nominated. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "stone_shadow",
@@ -1878,7 +1852,9 @@
             "id": "ochre",
             "hex": "#9b6526"
           }
-        ]
+        ],
+        "recolourStrength": 0.18,
+        "preserveLuminance": true
       }
     },
     {
@@ -2168,7 +2144,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Warm neutral stone substrate; retain a small unmistakable gold deposit accent. Resource tier recognition justifies selective off-palette mineral colours.",
+        "note": "Warm neutral stone substrate; retain a small unmistakable gold deposit accent. Resource tier recognition justifies selective off-palette mineral colours. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "stone_shadow",
@@ -2194,7 +2170,9 @@
             "id": "gold",
             "hex": "#fac756"
           }
-        ]
+        ],
+        "recolourStrength": 0.08,
+        "preserveLuminance": true
       }
     },
     {
@@ -2223,7 +2201,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Dark warm iron cauldron with bright gold only on coins. Preserve the obvious treasure accent and distinct round pot shape; all three are meaningful POI cues.",
+        "note": "Dark warm iron cauldron with bright gold only on coins. Preserve the obvious treasure accent and distinct round pot shape; all three are meaningful POI cues. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "ink",
@@ -2249,7 +2227,9 @@
             "id": "cream",
             "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.18,
+        "preserveLuminance": true
       }
     },
     {
@@ -2283,7 +2263,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep current fruit-tree silhouette and growth frames. Olive canopy, warm bark; preserve apples/peaches as small recognizable food accents.",
+        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity. Ease this colour treatment back by 25% from the previous preview.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -2306,30 +2286,13 @@
             "hex": "#a5a569"
           },
           {
-            "id": "shadow",
-            "hex": "#28110b"
-          },
-          {
-            "id": "bark",
-            "hex": "#4c3018"
-          },
-          {
-            "id": "earth",
-            "hex": "#6c431d"
-          },
-          {
-            "id": "ochre",
-            "hex": "#9b6526"
-          },
-          {
-            "id": "clay",
-            "hex": "#90431b"
-          },
-          {
             "id": "cream",
             "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.6375,
+        "preserveLuminance": false,
+        "recolourMode": "apple-foliage"
       }
     },
     {
@@ -2363,7 +2326,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Warm neutral stone substrate; retain a small unmistakable platinum deposit accent. Resource tier recognition justifies selective off-palette mineral colours.",
+        "note": "Warm neutral stone substrate; retain a small unmistakable platinum deposit accent. Resource tier recognition justifies selective off-palette mineral colours. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "stone_shadow",
@@ -2385,7 +2348,9 @@
             "id": "cream",
             "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.08,
+        "preserveLuminance": true
       }
     },
     {
@@ -2418,7 +2383,7 @@
       ],
       "recommendation": {
         "action": "swap-proposed",
-        "note": "Use the simple existing driftwood branch; warm grey-brown wood, clear forked silhouette. Avoid a bright lumber-plank look.",
+        "note": "Use the simple existing driftwood branch; warm grey-brown wood, clear forked silhouette. Avoid a bright lumber-plank look. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "shadow",
@@ -2449,7 +2414,9 @@
             16,
             16
           ]
-        }
+        },
+        "recolourStrength": 0.18,
+        "preserveLuminance": true
       }
     },
     {
@@ -2483,7 +2450,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep the compact flower silhouette. Muted olive leaves; petals may retain controlled colour. Preserve its magical bloom contrast as a rare-find signal.",
+        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -2513,7 +2480,10 @@
             "id": "hero_cyan",
             "hex": "#4ebcb9"
           }
-        ]
+        ],
+        "recolourStrength": 0.075,
+        "preserveLuminance": true,
+        "recolourMode": "gentle-flower"
       }
     },
     {
@@ -2547,7 +2517,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Warm neutral stone substrate; retain a small unmistakable crimson deposit accent. Resource tier recognition justifies selective off-palette mineral colours.",
+        "note": "Warm neutral stone substrate; retain a small unmistakable crimson deposit accent. Resource tier recognition justifies selective off-palette mineral colours. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "stone_shadow",
@@ -2569,7 +2539,9 @@
             "id": "flower_rose",
             "hex": "#a55e72"
           }
-        ]
+        ],
+        "recolourStrength": 0.08,
+        "preserveLuminance": true
       }
     },
     {
@@ -2603,7 +2575,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Warm neutral stone substrate; retain a small unmistakable frost deposit accent. Resource tier recognition justifies selective off-palette mineral colours.",
+        "note": "Warm neutral stone substrate; retain a small unmistakable frost deposit accent. Resource tier recognition justifies selective off-palette mineral colours. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "stone_shadow",
@@ -2629,7 +2601,9 @@
             "id": "cream",
             "hex": "#e6d7a3"
           }
-        ]
+        ],
+        "recolourStrength": 0.08,
+        "preserveLuminance": true
       }
     },
     {
@@ -2662,7 +2636,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Small pale glass/teal accent is justified by its discoverable message. Keep cork warm and silhouette crisp.",
+        "note": "Small pale glass/teal accent is justified by its discoverable message. Keep cork warm and silhouette crisp. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "stone_shadow",
@@ -2680,7 +2654,9 @@
             "id": "hero_cyan_dark",
             "hex": "#349aa4"
           }
-        ]
+        ],
+        "recolourStrength": 0.18,
+        "preserveLuminance": true
       }
     },
     {
@@ -2712,7 +2688,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Warm worn brass, dark tripod and subdued glass. Keep telescope barrel legible; a small glass glint can signal the daily viewpoint interaction.",
+        "note": "Warm worn brass, dark tripod and subdued glass. Keep telescope barrel legible; a small glass glint can signal the daily viewpoint interaction. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast.",
         "palette": [
           {
             "id": "shadow",
@@ -2738,7 +2714,9 @@
             "id": "stone_light",
             "hex": "#b0aa8a"
           }
-        ]
+        ],
+        "recolourStrength": 0.18,
+        "preserveLuminance": true
       }
     },
     {
@@ -2771,7 +2749,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep fantastical fruit silhouette; olive supporting leaves with a jewel-coloured focal fruit. Its rarity permits the accent.",
+        "note": "Keep fantastical fruit silhouette; olive supporting leaves with a jewel-coloured focal fruit. Its rarity permits the accent. Use a subtle colour adjustment only: retain source shades, dark contours and original luminance contrast. Ease this colour treatment back by 25% from the previous preview.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -2801,7 +2779,221 @@
             "id": "flower_lilac",
             "hex": "#8d79a1"
           }
-        ]
+        ],
+        "recolourStrength": 0.06,
+        "preserveLuminance": true
+      }
+    },
+    {
+      "id": "scarecrow",
+      "name": "Scarecrow \u00b7 farm and park",
+      "category": "placed scenery",
+      "priority": 24,
+      "prevalence": {
+        "band": "localized",
+        "reason": "Player-placed scarecrows; both farm and park sandbox placements are explicitly included for this contrast review.",
+        "basis": "Explicit user-requested addition"
+      },
+      "current": [
+        {
+          "key": "scarecrow",
+          "path": "assets/Objects/Scarecrow_16x16.png",
+          "rect": [
+            0,
+            0,
+            48,
+            48
+          ]
+        }
+      ],
+      "spawnEvidence": [
+        "src/render.js:_scarecrow; scene.save.scarecrows",
+        "src/sandbox.js:seedSandboxState farm and park placements"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Strengthen the existing side/bottom contour and separate lit straw/head from shaded body. Preserve every source pixel position and alpha; both placements need to read on light ground.",
+        "palette": [
+          "ink",
+          "bark",
+          "ochre",
+          "cream"
+        ],
+        "recolourStrength": 1,
+        "recolourMode": "scarecrow-contrast"
+      }
+    },
+    {
+      "id": "planted-crops",
+      "name": "Planted crops \u00b7 growth art",
+      "category": "crops",
+      "priority": 35,
+      "prevalence": {
+        "band": "localized",
+        "basis": "Player planted; not a natural spawn estimate.",
+        "reason": "Player gardens and the sandbox crop beds; exposure depends on planting."
+      },
+      "current": [
+        {
+          "key": "crops",
+          "path": "assets/Objects/Crops.png",
+          "rect": [
+            64,
+            0,
+            16,
+            16
+          ],
+          "label": "Rainberry \u00b7 mature",
+          "whiteKey": true
+        },
+        {
+          "key": "crops",
+          "path": "assets/Objects/Crops.png",
+          "rect": [
+            64,
+            16,
+            16,
+            16
+          ],
+          "label": "Pairy \u00b7 mature",
+          "whiteKey": true
+        },
+        {
+          "key": "crops",
+          "path": "assets/Objects/Crops.png",
+          "rect": [
+            64,
+            32,
+            16,
+            16
+          ],
+          "label": "Gemfruit \u00b7 mature",
+          "whiteKey": true
+        },
+        {
+          "key": "crops",
+          "path": "assets/Objects/Crops.png",
+          "rect": [
+            64,
+            48,
+            16,
+            16
+          ],
+          "label": "Nut \u00b7 mature",
+          "whiteKey": true
+        },
+        {
+          "key": "crops",
+          "path": "assets/Objects/Crops.png",
+          "rect": [
+            64,
+            80,
+            16,
+            16
+          ],
+          "label": "Coffee \u00b7 mature",
+          "whiteKey": true
+        },
+        {
+          "key": "springcrops",
+          "path": "assets/Objects/Spring Crops.png",
+          "rect": [
+            64,
+            80,
+            16,
+            16
+          ],
+          "label": "Potato \u00b7 mature",
+          "whiteKey": false
+        },
+        {
+          "key": "crops",
+          "path": "assets/Objects/Crops.png",
+          "rect": [
+            64,
+            112,
+            16,
+            16
+          ],
+          "label": "Iceflower \u00b7 mature",
+          "whiteKey": true
+        },
+        {
+          "key": "crops",
+          "path": "assets/Objects/Crops.png",
+          "rect": [
+            64,
+            128,
+            16,
+            16
+          ],
+          "label": "Fireflower \u00b7 mature",
+          "whiteKey": true
+        },
+        {
+          "key": "crops",
+          "path": "assets/Objects/Crops.png",
+          "rect": [
+            64,
+            144,
+            16,
+            16
+          ],
+          "label": "Sunflower \u00b7 mature",
+          "whiteKey": true
+        },
+        {
+          "key": "springcrops",
+          "path": "assets/Objects/Spring Crops.png",
+          "rect": [
+            64,
+            16,
+            16,
+            16
+          ],
+          "label": "Berry \u00b7 mature",
+          "whiteKey": false
+        },
+        {
+          "key": "springcrops",
+          "path": "assets/Objects/Spring Crops.png",
+          "rect": [
+            64,
+            48,
+            16,
+            16
+          ],
+          "label": "Cress \u00b7 mature",
+          "whiteKey": false
+        },
+        {
+          "key": "springcrops",
+          "path": "assets/Objects/Spring Crops.png",
+          "rect": [
+            64,
+            112,
+            16,
+            16
+          ],
+          "label": "Onion \u00b7 mature",
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/items.js:CROP_ROW/CROP_SPRITE; src/render.js:drawPlanted; src/crops.js:growth stages"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "A small 5.25% lightness lift across growth stages, eased back from 7%. Preserve hue, dark contours and transparency; rockfruit and inventory-only frames remain unchanged.",
+        "palette": [
+          {
+            "id": "lightness-target",
+            "hex": "#ffffff"
+          }
+        ],
+        "recolourStrength": 0.0525,
+        "recolourMode": "crop-light",
+        "preserveLuminance": false
       }
     }
   ],
@@ -2820,7 +3012,6 @@
     ],
     "excludedRenderKinds": {
       "_fire": "player-lit campfire only",
-      "_scarecrow": "player-placed scarecrow only",
       "groundstack": "arbitrary dropped inventory, not a normal generated environmental placement"
     },
     "method": "Compared RENDER_SPEC keys, shared chestLook branches, worldgen makeObject/objects/coinDrops and scenic/street dressing calls. Separate ground and structures audits cover the remaining normal nonliving kinds."
