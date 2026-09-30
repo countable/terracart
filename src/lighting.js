@@ -1176,15 +1176,24 @@
     }
     return m;
   }
+  // The STATIC half of the key: every number the ambient floor, the player's
+  // ramp and the reach plateau read — none of the lights and no clock. It is
+  // frameKey's own prefix (frameKey builds on it), so the two can never
+  // disagree about what the static layer depends on. draw() keeps that layer
+  // baked while this holds (paintStaticLayer).
+  function staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc) {
+    let k = `${ps.x},${ps.y},${ox},${oy},${r0},${rMax},${reachM}`
+      + `|${prof.depth},${prof.dimA},${prof.dimColour},${prof.farA},${prof.ambient},${prof.edge},${prof.lit},${prof.litColour},${prof.night}`;
+    if (rp) k += `|${rp.cellIX},${rp.cellIY},${pc.tx},${pc.ty},${pc.cx},${pc.cy}`;
+    return k;
+  }
   // Every number the paint reads, in one string. `rp` / `pc` are null when no
   // plateau is drawn (they only exist to place it); each clock is folded in
   // only when something moves on it, so a still fire-less view has no time
   // term and a view that only breathes has only the breath's. `pulseNow` is
   // draw()'s breath clock; left out, it is derived from `now`.
   function frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pulseNow) {
-    let k = `${ps.x},${ps.y},${ox},${oy},${r0},${rMax},${reachM}`
-      + `|${prof.depth},${prof.dimA},${prof.dimColour},${prof.farA},${prof.ambient},${prof.edge},${prof.lit},${prof.litColour},${prof.night}`;
-    if (rp) k += `|${rp.cellIX},${rp.cellIY},${pc.tx},${pc.ty},${pc.cx},${pc.cy}`;
+    let k = staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc);
     const anim = animates(scene);
     if (anim & ANIM_FAST) k += `|t${now}`;
     if (anim & ANIM_PULSE) k += `|p${pulseNow == null ? pulseClock(now) : pulseNow}`;
@@ -1382,64 +1391,10 @@
     ctx.closePath();
   }
 
-  // Paint this frame's lightmap: the ambient floor, the player's ramp at the
-  // feet-on-the-fix point, the plateau over every reach cell, then every
-  // collected light at its anchored screen position. `ax, ay` are the camera
-  // anchor in world metres, `halfM` the sprite cull the collector pads.
-  //
-  // Returns true when it painted, false when the still-frame gate reused the
-  // last upload. Times itself for the load profile: scene._boot_lightMs is
-  // what drawObjects' own tick subtracts, since this runs inside that pass.
-  function draw(scene, ax, ay, halfM) {
-    // The anchor this frame's scanned lights are measured from — brightnessAt
-    // reads them back against it.
-    const anchor = scene._lightAnchor || (scene._lightAnchor = { x: 0, y: 0 });
-    anchor.x = ax; anchor.y = ay;
-    const tex = scene.lightTex;
-    if (!tex || typeof document === 'undefined') return false;
-    if (!scene._lights) scene._lights = [];
-    const wall = Date.now();
-    const now = lightClock(wall);
-    const pnow = pulseClock(wall);                   // the breath's own clock
-    collectMagicTraps(scene, ax, ay, halfM);
-    collectFires(scene, ax, ay, halfM);
-    collectLamps(scene, ax, ay, halfM);
-    collectPlayer(scene, ax, ay, halfM, now);
-    collectBolts(scene, ax, ay, halfM);
-    // The live blasts, converted against THIS frame's anchor (they are stored
-    // in world metres) and pruned as they burn out.
-    collectBlasts(scene, ax, ay, halfM, now);
-    // Critically low: every light red, dimmed and stuttering, and the
-    // player's own red raised (criticalLights / critPaintProfile).
-    const crit = criticalLights(scene, now);
-    const prof = critPaintProfile(scene, profile(scene, daylight(scene, now), now), crit, now);
-    const k = CELL_PX / scene.cellM;                 // metres → screen px
-    // The ramp's extent: the player row's radius — the viewport's half-
-    // diagonal plus PLAYER_RAMP_PAST_CORNER_CELLS, so the corners stay lit.
-    const rMax = radiusCells('player') * CELL_PX;
-    const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
-    const r0 = Math.max(0, reachM * k);
-    const player = ensurePlayerCookie(scene, prof, r0, rMax);
-    const ps = scene.playerScreen ? scene.playerScreen() : { x: scene.viewCenterX, y: scene.viewCenterY };
-    const ox = scene.viewLeft, oy = scene.viewTop;   // lightmap-local origin
-    // The plateau's placement, hoisted out of its branch below so the gate
-    // can key on it: the reach cell and the anchor cell + fraction.
-    const plateau = reachM > 0 && prof.lit > prof.edge && typeof playerReachCell === 'function'
-      && typeof viewAnchorCell === 'function';
-    const rp = plateau ? playerReachCell(scene) : null;
-    const pc = plateau ? viewAnchorCell(scene) : null;
-    const B = (typeof window !== 'undefined') ? window.__boot : null;
-    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow);
-    if (key === tex.__lightKey) {
-      scene._boot_lightMs = 0;
-      if (B) B.count('lightmap painted', 0);
-      return false;
-    }
-    tex.__lightKey = key;
-    const t0 = B ? performance.now() : 0;
-    const ctx = tex.context;
-    const W = tex.width, H = tex.height;
-
+  // The static layer (see draw()): the ambient floor, then — added — the
+  // player's ramp and the reach plateau, painted onto `ctx` (the lightmap
+  // itself, or the baked copy's canvas).
+  function paintStaticLayer(ctx, W, H, scene, prof, player, ps, ox, oy, plateau, rp, pc, reachM, r0) {
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
     ctx.fillStyle = hex(prof.ambient);
@@ -1503,6 +1458,103 @@
       }
       ctx.fill();
     }
+  }
+  // One exact copy of the baked static layer onto the lightmap. The layer is
+  // opaque (its floor is), so source-over replaces every pixel outright.
+  function blitStatic(ctx, canvas) {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.drawImage(canvas, 0, 0);
+  }
+
+  // Paint this frame's lightmap: the ambient floor, the player's ramp at the
+  // feet-on-the-fix point, the plateau over every reach cell, then every
+  // collected light at its anchored screen position. `ax, ay` are the camera
+  // anchor in world metres, `halfM` the sprite cull the collector pads.
+  //
+  // Returns true when it painted, false when the still-frame gate reused the
+  // last upload. Times itself for the load profile: scene._boot_lightMs is
+  // what drawObjects' own tick subtracts, since this runs inside that pass.
+  function draw(scene, ax, ay, halfM) {
+    // The anchor this frame's scanned lights are measured from — brightnessAt
+    // reads them back against it.
+    const anchor = scene._lightAnchor || (scene._lightAnchor = { x: 0, y: 0 });
+    anchor.x = ax; anchor.y = ay;
+    const tex = scene.lightTex;
+    if (!tex || typeof document === 'undefined') return false;
+    if (!scene._lights) scene._lights = [];
+    const wall = Date.now();
+    const now = lightClock(wall);
+    const pnow = pulseClock(wall);                   // the breath's own clock
+    collectMagicTraps(scene, ax, ay, halfM);
+    collectFires(scene, ax, ay, halfM);
+    collectLamps(scene, ax, ay, halfM);
+    collectPlayer(scene, ax, ay, halfM, now);
+    collectBolts(scene, ax, ay, halfM);
+    // The live blasts, converted against THIS frame's anchor (they are stored
+    // in world metres) and pruned as they burn out.
+    collectBlasts(scene, ax, ay, halfM, now);
+    // Critically low: every light red, dimmed and stuttering, and the
+    // player's own red raised (criticalLights / critPaintProfile).
+    const crit = criticalLights(scene, now);
+    const prof = critPaintProfile(scene, profile(scene, daylight(scene, now), now), crit, now);
+    const k = CELL_PX / scene.cellM;                 // metres → screen px
+    // The ramp's extent: the player row's radius — the viewport's half-
+    // diagonal plus PLAYER_RAMP_PAST_CORNER_CELLS, so the corners stay lit.
+    const rMax = radiusCells('player') * CELL_PX;
+    const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : 0;
+    const r0 = Math.max(0, reachM * k);
+    const player = ensurePlayerCookie(scene, prof, r0, rMax);
+    const ps = scene.playerScreen ? scene.playerScreen() : { x: scene.viewCenterX, y: scene.viewCenterY };
+    const ox = scene.viewLeft, oy = scene.viewTop;   // lightmap-local origin
+    // The plateau's placement, hoisted out of its branch below so the gate
+    // can key on it: the reach cell and the anchor cell + fraction.
+    const plateau = reachM > 0 && prof.lit > prof.edge && typeof playerReachCell === 'function'
+      && typeof viewAnchorCell === 'function';
+    const rp = plateau ? playerReachCell(scene) : null;
+    const pc = plateau ? viewAnchorCell(scene) : null;
+    const B = (typeof window !== 'undefined') ? window.__boot : null;
+    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow);
+    if (key === tex.__lightKey) {
+      scene._boot_lightMs = 0;
+      if (B) B.count('lightmap painted', 0);
+      return false;
+    }
+    tex.__lightKey = key;
+    const t0 = B ? performance.now() : 0;
+    const ctx = tex.context;
+    const W = tex.width, H = tex.height;
+
+    // THE STATIC LAYER — the ambient floor, the ramp and the plateau. On a
+    // walk it moves every step and is painted straight onto the lightmap, as
+    // it always was. Standing still, the lightmap still repaints whenever a
+    // light animates (a POI's breath, a fire's flicker) — and the plateau's
+    // per-cell path was most of each of those paints while its picture had
+    // not changed at all. So once the static inputs (staticFrameKey) hold
+    // across two paints the layer is baked into its own canvas, and every
+    // paint after that — until they move — starts from ONE copy of it. The
+    // floor is opaque, so the copy is exact: the same pixels the direct
+    // paint would have left for the lights to add onto.
+    const sk = staticFrameKey(ps, ox, oy, prof, r0, rMax, reachM, rp, pc);
+    const args = [scene, prof, player, ps, ox, oy, plateau, rp, pc, reachM, r0];
+    let st = scene._lightStatic;
+    if (st && st.key === sk && st.canvas.width === W && st.canvas.height === H) {
+      blitStatic(ctx, st.canvas);
+    } else if (tex.__lightStaticKey === sk) {
+      if (!st || st.canvas.width !== W || st.canvas.height !== H) {
+        const c = document.createElement('canvas');
+        c.width = W; c.height = H;
+        st = scene._lightStatic = { canvas: c, key: null };
+      }
+      paintStaticLayer(st.canvas.getContext('2d'), W, H, ...args);
+      st.key = sk;
+      blitStatic(ctx, st.canvas);
+    } else {
+      paintStaticLayer(ctx, W, H, ...args);
+    }
+    tex.__lightStaticKey = sk;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.imageSmoothingEnabled = true;
 
     // The lights: the objects' — drawObjects' scan, plus the fires and the
     // blasts. A light may carry its own alpha / scale multipliers (`a`, `s` — a blast drives both off its own
@@ -1555,6 +1607,6 @@
     collectPlayer, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
     flickerAlpha, plateauCellPath, draw,
-    LIGHT_TICK_MS, lightClock, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
+    LIGHT_TICK_MS, lightClock, staticFrameKey, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
   };
 })(window);

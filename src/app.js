@@ -4404,18 +4404,29 @@ class MapScene extends Phaser.Scene {
         if (this.footprints.length > 5) this.footprints.splice(0, this.footprints.length - 5);
         this._lastFootprintM = { x: bodyM.x, y: bodyM.y };
       }
-      this.footprintGfx.clear();
       // Dots pressed into the GROUND, so they project like any other world
       // point (worldMetersToScreen → the camera anchor) and slide with a peek.
+      // The body's world point IS its feet (feet-on-the-fix), so each dot
+      // goes on the projected point with no anchor offset — the same point
+      // the contact shadow sits on. Redrawn only when a dot's drawn position
+      // or ink moves (a step, a fade, a peek): standing still, the same five
+      // 14-gons were rebuilt every step.
+      const prints = [];
+      let printKey = '';
       for (const fp of this.footprints) {
-        // The body's world point IS its feet (feet-on-the-fix), so the dot
-        // goes on the projected point with no anchor offset — the same point
-        // the contact shadow sits on.
         const s2 = this.worldMetersToScreen(fp.x + this.startWorldM.x,
                                             fp.y + this.startWorldM.y);
-        const sx2 = s2.x, sy2 = s2.y;
-        this.footprintGfx.fillStyle(0x000000, fp.alpha);
-        this._fillFootprint(this.footprintGfx, Math.round(sx2), Math.round(sy2), fp);
+        const sx2 = Math.round(s2.x), sy2 = Math.round(s2.y);
+        prints.push(sx2, sy2);
+        printKey += `${sx2},${sy2},${fp.alpha},${fp.ux},${fp.uy},${fp.side};`;
+      }
+      if (printKey !== this._footprintKey) {
+        this._footprintKey = printKey;
+        this.footprintGfx.clear();
+        this.footprints.forEach((fp, i) => {
+          this.footprintGfx.fillStyle(0x000000, fp.alpha);
+          this._fillFootprint(this.footprintGfx, prints[2 * i], prints[2 * i + 1], fp);
+        });
       }
     }
 

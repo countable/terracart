@@ -146,6 +146,100 @@ test('steady state: drawCells swaps a ground sprite\'s texture only when its key
     'the pier plank likewise');
 });
 
+// ── The lightmap's static layer is baked while it holds ───────────────────
+// A recording 2D context: every call is logged against the canvas it was
+// made on, and createRadialGradient hands back a stop-taker.
+function fakeCanvasWorld() {
+  const log = [];
+  const makeCtx = (name) => new Proxy({}, {
+    get(t, prop) {
+      if (prop in t) return t[prop];
+      if (prop === 'createRadialGradient' || prop === 'createLinearGradient') return () => ({ addColorStop() {} });
+      return (...args) => { log.push({ canvas: name, op: prop, args }); };
+    },
+    set(t, prop, v) { t[prop] = v; return true; },
+  });
+  let n = 0;
+  const createElement = () => {
+    const c = { width: 0, height: 0, name: `c${++n}` };
+    const ctx = makeCtx(c.name);
+    c.getContext = () => ctx;
+    return c;
+  };
+  return { log, makeCtx, createElement };
+}
+
+test('steady state: a still, breathing view bakes the lightmap\'s static layer once and copies it after', () => {
+  const W = 352;
+  const fk = fakeCanvasWorld();
+  const realCreate = document.createElement, realNow = Date.now;
+  document.createElement = fk.createElement;
+  const tex = { width: W, height: W, context: fk.makeCtx('tex'), refresh() {} };
+  const scene = {
+    depth: 0, cellM: 7, cellsPerTile: WorldGen.TILE_PX,
+    startWorldM: { x: 0, y: 0 }, playerM: { x: 3.5, y: 3.5 }, originPx: { x: 0, y: 0 }, mPerPx: 7,
+    save: { energy: 100, maxEnergy: 100, fires: [] },
+    _atmos: { dim: 0x1a2a1e },
+    isClaimedKey: () => false,
+    viewCenterX: W / 2, viewCenterY: W / 2, viewLeft: 0, viewTop: 0,
+    lightTex: tex,
+  };
+  const P = Lighting.PULSE_TICK_MS;
+  let t = 1e12;
+  const paint = () => {
+    scene._lights = [{ kind: 'poi', dx: 7, dy: 7, id: 'c_1_1' }];   // drawObjects' offer
+    fk.log.length = 0;
+    Date.now = () => t;
+    const painted = Lighting.draw(scene, 0, 0, 50);
+    Date.now = realNow;
+    const on = (canvas, op) => fk.log.filter((e) => e.canvas === canvas && e.op === op).length;
+    const blits = fk.log.filter((e) => e.canvas === 'tex' && e.op === 'drawImage' && e.args[0] && e.args[0] === (scene._lightStatic || {}).canvas).length;
+    const bakedOn = scene._lightStatic ? scene._lightStatic.canvas.name : null;
+    return { painted, texFloor: on('tex', 'fillRect'), bakes: bakedOn ? on(bakedOn, 'fillRect') : 0, blits };
+  };
+  try {
+    const a = paint();
+    assert.truthy(a.painted, 'the first step paints');
+    assert.eq(a.texFloor, 1, 'straight onto the lightmap');
+    assert.eq(a.bakes, 0, 'nothing baked on a first sight of the static inputs');
+    t += P;                                              // the breath ticks; nothing else moves
+    const b = paint();
+    assert.truthy(b.painted, 'the breath repaints');
+    assert.eq(b.bakes, 1, 'the static inputs held: the layer is baked once');
+    assert.eq(b.texFloor, 0, 'and copied, not repainted, onto the lightmap');
+    assert.eq(b.blits, 1);
+    t += P;
+    const c = paint();
+    assert.truthy(c.painted);
+    assert.eq(c.bakes + c.texFloor, 0, 'while they hold, no floor, ramp or plateau is painted at all');
+    assert.eq(c.blits, 1, 'one copy of the baked layer');
+    // Walk a little: the static inputs move and the paint goes direct again.
+    scene.playerM = { x: 5, y: 3.5 };
+    t += P;
+    const d = paint();
+    assert.eq(d.texFloor, 1, 'a moved view paints its static layer directly');
+    assert.eq(d.blits, 0, 'the stale bake is not used');
+  } finally {
+    document.createElement = realCreate;
+    Date.now = realNow;
+  }
+  // frameKey is built on the static key, so the two cannot drift apart.
+  const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function frameKey('));
+  assert.truthy(/let k = staticFrameKey\(ps, ox, oy, prof, r0, rMax, reachM, rp, pc\);/.test(d), 'frameKey starts from staticFrameKey');
+});
+
+// ── The footprint trail repaints only when a print moves ──────────────────
+test('steady state: the footprint trail is rebuilt only when a drawn print moves or fades', () => {
+  const a = APP_JS_SRC;
+  const blk = a.slice(a.indexOf('const prints = [];'), a.indexOf('// Pairy chest-compass indicator.'));
+  assert.truthy(/printKey \+= `\$\{sx2\},\$\{sy2\},\$\{fp\.alpha\},\$\{fp\.ux\},\$\{fp\.uy\},\$\{fp\.side\};`;/.test(blk),
+    'the key names every input of a print: its drawn point, ink, step and foot');
+  const gate = blk.indexOf('if (printKey !== this._footprintKey) {');
+  const clear = blk.indexOf('this.footprintGfx.clear();');
+  assert.truthy(gate > 0 && clear > gate, 'the clear and redraw sit behind the key');
+  assert.eq((a.match(/footprintGfx\.clear\(\)/g) || []).length, 1, 'and nothing else clears (or draws on) the trail');
+});
+
 // ── drawObjects: three boxes offer exactly the lights one wide box did ────
 test('steady state: the split sprite / light walks offer every pre-cull light once, and nothing a single wide walk would not', () => {
   WorldGen.tileCache.clear();
