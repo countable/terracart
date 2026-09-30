@@ -53,9 +53,9 @@
 // pattern other scene code and tests use.)
 
 const Render = {};
-const COIN_DROP_PX = 13.44;
+const COIN_DROP_PX = 13;
 Render.COIN_DROP_PX = COIN_DROP_PX;
-// One coin keeps the HUD's face; piles show the amount waiting on the ground.
+// Low-detail ground sprites show the amount waiting on the map.
 Render.COIN_PILES = [
   { min: 1, texture: 'coin_drop', width: COIN_DROP_PX },
   { min: 2, texture: 'coin_pile_small', width: 20 },
@@ -3653,14 +3653,9 @@ Render.drawObjects = function drawObjects(scene) {
       const { sx, sy } = project(dx, dy);
       const pile = Render.coinPile(c);
       setTextureIfDifferent(s, pile.texture);
-      // The single coin keeps its pulse. Native-size stacks stay still so their
-      // one-pixel rims are not continuously resampled at fractional scales.
-      const idH = (c.id || '').length * 2654435761;
-      const phase = ((_coinNow + idH) % 800) / 800;     // 0..1
-      const pulse = pile.texture === 'coin_drop' ? 1.0 + 0.12 * Math.sin(phase * Math.PI * 2) : 1;
-      // Scale from the actual frame width so every pile fits within a cell.
+      // Native-size coin art stays still: fractional pulsing resamples its rims.
       s.setOrigin(0.5, 0.5)
-       .setScale((pile.width / s.width) * pulse)
+       .setScale(pile.width / s.width)
        .setPosition(Math.round(sx), Math.round(sy))
        .setAlpha(1).setTint(0xffffff);
     });

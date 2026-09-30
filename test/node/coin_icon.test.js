@@ -1,21 +1,14 @@
-// The ONE face of money — assets/Icons/coin.png, a 64x64 pixel-art jade coin.
-// It is the coin_drop world texture (ASSETS, replacing the 16px disc app.js
-// used to bake in create()), the HUD money chip's icon, and the icon every
-// money toast and modal wears through the app.js helpers coinIconHTML /
-// moneyHTML / coinIconEl. One file, one face: no `🪙` emoji and no money `$`
-// survives in src/ strings, so no surface can draw money another way.
-//
-// app.js needs Phaser and can't load headlessly, so the helpers and the call
-// sites are pinned as source text (the story_splashes.test.js idiom); the PNG
-// itself is checked through pngDims, which reads the real IHDR off disk.
+// The HUD keeps its detailed jade coin; ground drops use coarse native-size art.
 
 (function () {
 const app = APP_JS_SRC;
 
 // ── The asset ─────────────────────────────────────────────────────────────
-test('coin icon: ASSETS loads coin_drop from assets/Icons/coin.png, and the file exists', () => {
-  assert.truthy(/coin_drop:\s*\{ kind: 'image', path: 'assets\/Icons\/coin\.png' \}/.test(ASSETS_SRC),
-    'the coin_drop texture is the coin asset, not a baked graphic');
+test('coin icon: ground and HUD each load their intended artwork', () => {
+  assert.truthy(/coin_drop:\s*\{ kind: 'image', path: 'assets\/Objects\/Approved\/coin_single_ground\.png' \}/.test(ASSETS_SRC),
+    'ground drops load the flat mini coin');
+  const mini = pngDims('assets/Objects/Approved/coin_single_ground.png');
+  assert.eq(mini.w, Render.COIN_DROP_PX, 'mini coin renders at native width');
   const dims = pngDims('assets/Icons/coin.png');
   assert.truthy(dims, 'assets/Icons/coin.png exists and is a PNG');
   assert.eq(dims.w, 64, 'the coin is 64px wide');
@@ -32,10 +25,10 @@ test('coin icon: the baked coin_drop graphics block is gone from app.js', () => 
 test('coin icon: map size derives from each texture width', () => {
   assert.falsy(/setScale\(1\.5 \* pulse\)/.test(RENDER_SRC),
     'the old 16px-disc scale is gone');
-  assert.truthy(/setScale\(\(pile.width \/ s\.width\) \* pulse\)/.test(RENDER_SRC),
+  assert.truthy(/setScale\(pile.width \/ s\.width\)/.test(RENDER_SRC),
     'the draw uses the configured width and actual texture dimensions');
-  assert.truthy(/const COIN_DROP_PX = 13\.44;/.test(RENDER_SRC),
-    'the single coin is 20% smaller than its previous 16.8px width');
+  assert.truthy(/const COIN_DROP_PX = 13;/.test(RENDER_SRC),
+    'the mini coin uses an integer pixel width');
 });
 
 // ── No other face of money survives ───────────────────────────────────────

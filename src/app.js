@@ -2261,8 +2261,7 @@ class MapScene extends Phaser.Scene {
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
     this.trapPool = [];       // sprites for hidden / sprung traps lying on the ground (src/traps.js)
 
-    // The coin_drop texture is the 64px pixel-art asset (assets/Icons/coin.png)
-    // loaded through ASSETS — the ONE face of money everywhere (see assets.js).
+    // Ground coin sprites load through ASSETS at their native map sizes.
 
     // Bake a soft building shadow: a flat dark ellipse that fades at the rim.
     // Drawn as concentric ellipses of decreasing alpha so the edge feathers
@@ -13964,8 +13963,8 @@ class MapScene extends Phaser.Scene {
     return this.renderItemIcon(itemId, sizePx, 'inline');
   }
 
-  // The ONE face of money (assets/Icons/coin.png, the coin_drop world
-  // texture's own file). Deliberately NOT routed through renderItemIcon /
+  // The detailed money icon (assets/Icons/coin.png); ground drops use
+  // separate coarse art. Deliberately NOT routed through renderItemIcon /
   // ICON_SHEETS — the coin is no item-sheet icon. Three forms:
   //   coinIconHTML  — an inline <img> for modal / list HTML strings
   //   moneyHTML     — that icon plus an amount, for any money readout in HTML

@@ -92,9 +92,9 @@ const ASSETS = {
   pier:        { kind: 'spritesheet', path: 'assets/Objects/Approved/pier.png', frameWidth: 16, frameHeight: 16 },
   // Wilderness art — all copied out of the gitignored Sprites/ source dump
   // into Objects/Wilderness/ so the tree can build without the raw asset pack.
-  // The single coin is also the HUD and money-popup icon. Map piles convey
-  // pickup amounts; their thresholds and display widths live in Render.COIN_PILES.
-  coin_drop: { kind: 'image', path: 'assets/Icons/coin.png' },
+  // Ground coins use simplified native-size art. The detailed HUD and popup
+  // icon stays in Icons/coin.png. Map quantity bands live in Render.COIN_PILES.
+  coin_drop: { kind: 'image', path: 'assets/Objects/Approved/coin_single_ground.png' },
   coin_pile_small: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_small.png' },
   coin_pile_medium: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_medium.png' },
   coin_pile_large: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_large.png' },
