@@ -542,7 +542,7 @@ class SceneCreatures {
     // ambient options; the scan reads the generated grid), so the result is
     // the one they gave in place. Both are explained where they are used.
     const surfaceTraps = (typeof Traps !== 'undefined' && !testMode)
-      ? Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty, this.tileEdgeM, ambientSpawnOpts,
+      ? yield* Traps.spawnSurfaceSteps(genGrid, entry.roadClass, N, N, tx, ty, this.tileEdgeM, ambientSpawnOpts,
           Difficulty.get().trapCountMul, entry.zone && entry.zone.under)
       : [];
     yield 'spawn traps';
@@ -1010,8 +1010,11 @@ class SceneCreatures {
     const NN = N * N;
     const under = zf && zf.under;
     const underPresent = under && under.present;
-    const markSeen = [];
-    const ownerSeen = [];
+    // Flat typed lookups (a mark code is a byte, a land code a small int, a
+    // zone owner 1..anchors) — the pass is ~50k cells, so no holey arrays.
+    const markSeen = new Uint8Array(256);
+    const nA = coverage ? zf.anchors.length : 0;
+    const ownerSeen = new Uint8Array(nA + 1);
     const ownerFirst = [];              // owners in order of first appearance
     // 31 species per pass keeps the mask a small int; FAUNA_ORDER is 8.
     for (let base = 0; base < cand.length; base += 31) {
@@ -1024,13 +1027,13 @@ class SceneCreatures {
         }
         return m;
       };
-      const byMark = [];
-      for (const [code, row] of streetRows) byMark[code] = (byMark[code] | 0) | maskOf(row.attracts);
+      const byMark = new Int32Array(256);
+      for (const [code, row] of streetRows) if (code >= 0 && code < 256) byMark[code] |= maskOf(row.attracts);
       const lampMask = lampAttracts ? maskOf(lampAttracts) : 0;
-      const byOwner = [];
+      const byOwner = new Int32Array(nA + 1);
       for (const [o, row] of zoneRows) byOwner[o] = maskOf(row.attracts);
-      const byLand = [];
-      for (const code of landCodes) byLand[+code] = maskOf(BA[code]);
+      const byLand = new Int32Array(256);
+      for (const code of landCodes) if (+code >= 0 && +code < 256) byLand[+code] = maskOf(BA[code]);
       const lists = [];
       for (let k = base; k < top; k++) lists.push([]);
       const first = base === 0;
@@ -1038,17 +1041,18 @@ class SceneCreatures {
         let m = 0;
         if (marks) {
           const c = marks[i];
-          m |= byMark[c] | 0;
-          if (first && markSeen[c] === undefined) markSeen[c] = true;
+          if (c > 0 && c < 256) { m |= byMark[c]; markSeen[c] = 1; }
         }
         if (lampMask && lampCells.has(i)) m |= lampMask;
         if (coverage) {
           const o = coverage[i];
-          m |= byOwner[o] | 0;
-          if (first && ownerSeen[o] === undefined) { ownerSeen[o] = true; ownerFirst.push(o); }
+          if (o > 0 && o <= nA) {
+            m |= byOwner[o];
+            if (first && !ownerSeen[o]) { ownerSeen[o] = 1; ownerFirst.push(o); }
+          }
         }
         const land = under && (under[i] || (underPresent && underPresent[i])) ? under[i] : genGrid[i];
-        m |= byLand[land] | 0;
+        if (land >= 0 && land < 256) m |= byLand[land];
         while (m) {
           const b = 31 - Math.clz32(m & -m);
           lists[b].push(i);
@@ -1072,7 +1076,7 @@ class SceneCreatures {
     if (coverage) {
       const rowsSeen = new Set();
       for (const o of ownerFirst) {
-        const row = o >= 1 && o <= zf.anchors.length ? ownerRow(o) : null;
+        const row = ownerRow(o);
         if (!row || rowsSeen.has(row)) continue;
         rowsSeen.add(row);
         add(row.attracts);

@@ -263,13 +263,24 @@
   // a cell can only be trap ground if it touches a path or is park, so the
   // path cells mark their ring once and trapGroundKind — the one definition —
   // is asked only of those and of park cells. Same verdicts, same order.
+  // (A steps generator — the spawn pass drives it sliced, yielding every
+  // block of rows; sampleTrapCells runs it straight through.)
+  function drive(it) {
+    let r = it.next();
+    while (!r.done) r = it.next();
+    return r.value;
+  }
   function sampleTrapCells(grid, roadClass, w, h, rng, k, under, roadMask) {
+    return drive(sampleTrapCellsSteps(grid, roadClass, w, h, rng, k, under, roadMask));
+  }
+  function* sampleTrapCellsSteps(grid, roadClass, w, h, rng, k, under, roadMask) {
     const pools = [null, { cells: [], seen: 0 }, { cells: [], seen: 0 }];
     const WG = root.WorldGen;
     if (!grid || !WG) return { cells: [], seen: 0, path: pools[1], park: pools[2] };
     const PATH = WG.T.PATH, PARK = WG.T.PARK;
     const nearPath = new Uint8Array(w * h);
     for (let cy = 0; cy < h; cy++) {
+      if ((cy & 63) === 63) yield 'trap path ring';
       for (let cx = 0; cx < w; cx++) {
         if (grid[cy * w + cx] !== PATH) continue;
         for (let y = Math.max(0, cy - 1); y <= Math.min(h - 1, cy + 1); y++) {
@@ -278,6 +289,7 @@
       }
     }
     for (let cy = 0; cy < h; cy++) {
+      if ((cy & 31) === 31) yield 'trap ground';
       for (let cx = 0; cx < w; cx++) {
         const i = cy * w + cx;
         if (!nearPath[i] && landAt(grid, under, i) !== PARK) continue;
@@ -326,6 +338,10 @@
   const TRAP_GROUND_DENSITY_MUL = 2;
   // `under`: the zone halo's replaced codes (see isTrapGround), or omitted.
   function spawnSurface(grid, roadClass, w, h, tx, ty, tileEdgeM, spawnOpts, countMul, under) {
+    return drive(spawnSurfaceSteps(grid, roadClass, w, h, tx, ty, tileEdgeM, spawnOpts, countMul, under));
+  }
+  // The same draw as a steps generator (spawnInTileSteps rides it sliced).
+  function* spawnSurfaceSteps(grid, roadClass, w, h, tx, ty, tileEdgeM, spawnOpts, countMul, under) {
     if (!grid || !root.WorldGen) return [];
     const WG = root.WorldGen;
     // Deliberately NOT WorldGen.tileStreamSeed / HASH_MUL_X/Y: traps seed their
@@ -336,7 +352,7 @@
     let n = Math.round((ROAD_TRAP_MIN + Math.floor(rng() * ROAD_TRAP_SPAN)) * mul);
     const sampleSize = mul > 1 ? Math.max(ROADSIDE_SAMPLE, n * 6) : ROADSIDE_SAMPLE;
     const roadMask = spawnOpts && spawnOpts.roadMask;
-    const { cells: all, path, park } = sampleTrapCells(grid, roadClass, w, h, rng, sampleSize, under, roadMask);
+    const { cells: all, path, park } = yield* sampleTrapCellsSteps(grid, roadClass, w, h, rng, sampleSize, under, roadMask);
     if (!all.length) return [];
     // The cap per ground, off the pools' sizes (never a draw).
     const share = TRAP_GROUND_SHARE_PER_MUL * mul * TRAP_GROUND_DENSITY_MUL;
@@ -635,7 +651,7 @@
     DUNGEON_DENSITY_MUL,
     isSprung, spring,
     isDisarmed, disarm,
-    TRAP_ROAD_CLEAR_CELLS, isTrapGround, trapGroundKind, sampleTrapCells, TRAP_GROUND_SHARE_PER_MUL, TRAP_GROUND_DENSITY_MUL, spawnSurface, spawnCave, trapAt,
+    TRAP_ROAD_CLEAR_CELLS, isTrapGround, trapGroundKind, sampleTrapCells, TRAP_GROUND_SHARE_PER_MUL, TRAP_GROUND_DENSITY_MUL, spawnSurface, spawnSurfaceSteps, spawnCave, trapAt,
     LAID_MAX, LAID_LIFE_MS, isLive, isTrapSprung, isTrapDisarmed, springTrap, disarmTrap,
     canLay, layTrap, trapPower, pruneLaid, laidOut, layPoints,
     magicTrapId,
