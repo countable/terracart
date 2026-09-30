@@ -48,8 +48,9 @@ test('new medicines have distinct nonempty art and fixed tiers', () => {
   }
 });
 
-test('seed descriptions disclose the shared stage timer before planting', () => {
+test('seed descriptions hint at planting without a growth formula', () => {
   for (const crop of ['potato', 'sunflower', 'fireflower', 'iceflower']) {
-    assert.includes(ITEM_EFFECTS[crop + '_seed'], shortDuration(Crops.stageHoldMs(crop)));
+    assert.truthy(/earth/.test(ITEM_EFFECTS[crop + '_seed']));
+    assert.falsy(/\d/.test(ITEM_EFFECTS[crop + '_seed']));
   }
 });

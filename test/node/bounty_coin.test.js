@@ -198,11 +198,6 @@ test('bounty coin: every kill route names its killer', () => {
   assert.falsy(/addMoney\(save, coins\)/.test(SCENE), 'no kill credits its bounty directly');
 });
 
-test('bounty coin: the Book says the kill pays per HP, re-derived', () => {
-  const tip = PLAY_TIPS.find(t => typeof t === 'string' && /hostile you put down/.test(t));
-  assert.truthy(tip, 'the bounty tip exists');
-  assert.truthy(/one coin where it fell/.test(tip), 'it says the pay lies on the ground');
-  const per = Math.round(1 / Combat.ENEMY_COIN_PER_HP);
-  assert.truthy(tip.includes(`a coin per ${per} hit points`), 'the per-HP rate matches Combat.ENEMY_COIN_PER_HP');
-});
+// Narrative copy is covered by item_descriptions and books tests.
+
 })();

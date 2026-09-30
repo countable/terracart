@@ -688,22 +688,16 @@ test('zones: every zone terrain is enumerated — colour, texture, family, walka
   assert.eq(T.GROVE !== 30 && T.CHURCHYARD !== 30 && T.TAR_YARD !== 30, true, '30 stays the unmapped veil');
 });
 
-test('tips: the zones\' pages quote the numbers the code rolls', () => {
-  const head = PLAY_TIPS.find((t) => /headstone/.test(t));
-  assert.truthy(head, 'the headstone page');
-  assert.truthy(head.includes(`one time in ${Math.round(1 / Z.HEADSTONE_GHOST_P)}`), head);
-  assert.truthy(head.includes(`one stone in ${Math.round(1 / Z.HEADSTONE_HOARD_SHARE)}`), head);
-  assert.truthy(PLAY_TIPS.some((t) => /shrine/.test(t) && /one gift a day/.test(t)), 'the shrine page');
-  assert.truthy(PLAY_TIPS.some((t) => /fuel yard/.test(t) && /drag/.test(t)), 'the tar page');
-  // No page promises what is gone: the churchyard's dusk rise, the fuel
-  // yard's fire slimes, a cemetery's stones.
+test('tips: zone stories hint at the place without revealing odds', () => {
+  const head = PLAY_TIPS.find(t => /headstone/i.test(t));
+  assert.truthy(head && /ghost/i.test(head), 'a headstone may wake a ghost');
+  assert.falsy(/\d/.test(head), 'the story does not give odds');
   for (const t of PLAY_TIPS) {
     assert.falsy(/(graveyard|churchyard)/i.test(t) && /(dusk|twice as often)/i.test(t), `no churchyard dusk rise: ${t}`);
     assert.falsy(/fuel yard/i.test(t) && /(fire slime|flame)/i.test(t), `no fire at a fuel yard: ${t}`);
     assert.falsy(/cemeter/i.test(t) && /(headstone|ghost|stones)/i.test(t), `no cemetery stones: ${t}`);
   }
-  const tier = PLAY_TIPS.find((t) => /one tier finer/.test(t));
-  assert.truthy(tier && ZONE_NEXUS_TIER_BONUS === 1, 'the nexus tier page says one');
+  assert.eq(ZONE_NEXUS_TIER_BONUS, 1, 'the nexus bonus remains in gameplay');
 });
 
 test('tar yard: the oily ground takes no hoe, and says why', () => {

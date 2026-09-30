@@ -287,8 +287,15 @@ function sample(ctx, opts, owned, n) {
   const roll = () => pickReward(ctx, save, Math.random, opts);
   for (let i = 0; i < n; i++) {
     if (ctx === Trail.PRIZE_CONTEXT) {
-      const fixed = Trail.firstPrize(+$('bonus').value);
-      rows.push(...Trail.rollChoices(roll, Trail.PRIZE_CHOICES, Trail.PRIZE_ROLL_TRIES, fixed ? [fixed] : []).map(describe));
+      const prize = +$('bonus').value;
+      const fixed = Trail.firstPrize(prize);
+      const rollFor = (group) => {
+        const classes = Trail.prizeCardClasses(group, prize, save.playerClass, save.armor.boots?.tier || 0);
+        if (!classes.length) return null;
+        return pickReward(ctx, save, Math.random, { ...opts, classes,
+          classMaxTier: { boots: Trail.bootsTierCap(prize, save.playerClass) } });
+      };
+      rows.push(...Trail.rollCardRow(rollFor, fixed ? [fixed] : []).map(describe));
     } else if (ctx === 'fishing') rows.push(sampleFishing(save, opts));
     else {
       const reward = roll();
@@ -401,7 +408,7 @@ function syncControls() {
   $('contextNote').textContent = ctx === 'fishing'
     ? 'One completed cast, including misses, boots, slime encounters and gear jackpots. Blocked slime landing space falls through to a fish. Values are gross rewards before energy costs; no value is assigned to fighting a caught slime. Coin values reflect the payout actually credited by the game.'
     : ctx === Trail.PRIZE_CONTEXT
-    ? `Each sample offers up to ${Trail.PRIZE_CHOICES} distinct cards; the player keeps one. Prize #1 includes ${Trail.FIRST_PRIZE_QTY} onion seeds. Tables measure offered cards, not total payout.`
+    ? `Each sample offers up to ${Trail.PRIZE_CHOICES} distinct cards: cash, seed or supply, and boots or magic. Boots follow the distance cap for the default player class; the player keeps one. Prize #1 includes ${Trail.FIRST_PRIZE_QTY} onion seeds. Tables measure offered cards, not total payout.`
     : ctx === Combat.ELITE_TREASURE_CONTEXT
       ? 'Repeat elite kills pay this reward. The first discovery gives a memory instead. The normal kill wage is separate. Includes the extra low-tier seeds paid by the game.'
       : ctx.startsWith('chest:') ? 'Themed chest rewards at the chosen tier. Cave loot mixes 60% location theme with 40% cave supplies; the cave component increasingly favors magic. Seed odds decrease at high rolled quality. Surface food POIs are market stalls; their underground copies use chest:food. Florists and garden centres are also stalls; gardens stay chests. Fixed starter contents are not included.'
@@ -417,7 +424,7 @@ function syncControls() {
     opt($('ctx'), rewardContexts().map((c) => [c, c]), 'chest:park');
     opt($('tier'), [1, 2, 3, 4, 5].map((t) => [t, 'T' + t]), 2);
     opt($('depth'), [0, 1, 2, 3, 4, 5, 6, 7, 8, 10].map((d) => [d, d ? 'level ' + d : 'surface']), 0);
-    opt($('bonus'), Array.from({ length: Trail.PRIZE_ROLL_BONUS_MAX }, (_, i) => i + 1).map((b) => [b, '#' + b + (b === Trail.PRIZE_ROLL_BONUS_MAX ? '+' : '')]), 1);
+    opt($('bonus'), Array.from({ length: Trail.PRIZE_ROLL_BONUS_MAX }, (_, i) => i + 1).map((b) => [b, '#' + b]), 1);
     opt($('monster'), Object.keys(Combat.MONSTERS).filter((k) => Combat.spawnsUnderground(k)).map((k) => [k, k]), 'cave_slime');
     opt($('owned'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'nothing']), 0);
     opt($('rod'), [0, 1, 2, 3, 4, 5, 6, 7].map((t) => [t, t ? 'T' + t : 'bare hands']), 0);

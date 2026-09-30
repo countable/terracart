@@ -28,8 +28,6 @@ test('campfire: the table both sides read — meat grills, wood makes a torch', 
   assert.eq(CAMPFIRE_MAKES.meat, 'grilled_meat');
   assert.eq(CAMPFIRE_MAKES.wood, 'torch');
   for (const out of Object.values(CAMPFIRE_MAKES)) assert.truthy(ITEM_BY_ID[out], `${out} is a real item`);
-  assert.truthy(ITEM_EFFECTS.meat.includes(`${GRILL_ENERGY_MUL}×`), 'the meat ✦ line quotes the live multiplier');
-  assert.truthy(/torch/i.test(ITEM_EFFECTS.wood), 'the wood ✦ line says it makes a torch');
 });
 
 test('campfire: grilled meat is 1.5× the raw energy and price, and is never loot', () => {
@@ -49,7 +47,6 @@ test('campfire: every COOKED_FOODS raw cooks through the same lane as meat', () 
     assert.truthy(it && it.kind === 'produce' && it.cooked, `${c.id} is cooked produce`);
     assert.eq(FOOD_ENERGY[c.id], Math.round(FOOD_ENERGY[raw] * GRILL_ENERGY_MUL), `${c.id} energy`);
     assert.eq(PRICES[c.id], Math.round(PRICES[raw] * GRILL_ENERGY_MUL), `${c.id} price`);
-    assert.truthy(ITEM_EFFECTS[raw].includes('campfire'), `${raw}'s ✦ line says a fire cooks it`);
   }
   const rare = ITEMS.filter((i) => i.cooked).map((i) => i.id);
   assert.eq(rare.length, Object.keys(COOKED_FOODS).length + 1, 'every dish is flagged cooked, meat included');
@@ -156,7 +153,6 @@ test('campfire: a potion blast is a blow on the body — armour soaks it', () =>
 
 test('flint: the coal item is called Flint everywhere the player reads it', () => {
   assert.eq(ITEM_BY_ID.coal.name, 'Flint', 'id kept (saves carry it), name changed');
-  assert.truthy(/campfire/i.test(ITEM_EFFECTS.coal), 'still says it makes a campfire');
   assert.falsy(/\bcoal\b/i.test(ITEM_EFFECTS.coal), 'no "coal" in its ✦ line');
   const quoted = APP_JS_SRC.match(/(['`])[^'`\n]*\bcoal\b[^'`\n]*\1/gi) || [];
   const shown = quoted.filter(q => !/^['`](coal|coal_icon)['`]$/.test(q) && !/assets\//.test(q));
@@ -173,6 +169,6 @@ test('campfire: the first fire lit tells its story, through the story ledger', (
   const place = src.slice(src.indexOf("{ name: 'light-fire'"), src.indexOf("{ name: 'place-magic-trap'"));
   assert.truthy(/scene\._storySplashOnce\?\.\('fire', \{\s*art: 'fire_first'/.test(place),
     'light-fire opens the fire story once per save');
-  assert.truthy(/who knows what could happen when you cook things\?/.test(place), 'it teases cooking');
+  assert.truthy(/body:\s*['`][^'`]+/.test(place), 'the fire story has narrative copy');
   assert.truthy(webpDims('assets/art/fire_first.webp'), 'the banner exists');
 });

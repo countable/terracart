@@ -499,7 +499,7 @@ test('trapper: its kill drops a Magic Trap ON TOP of the bounty coin — for the
 test('trapper: the Book says what no item can — it lays, and what it pays', () => {
   const i = PLAY_TIPS.findIndex((t) => /red goblin/i.test(t));
   assert.gte(i, 0, 'a tip about the trapper');
-  const goblins = PLAY_TIPS.findIndex((t) => /^Goblins hold the deep/.test(t));
+  const goblins = PLAY_TIPS.findIndex((t) => /goblin archers.*depths/i.test(t));
   assert.eq(i, goblins + 1, 'right after the goblins are introduced (the underground section)');
 });
 })();

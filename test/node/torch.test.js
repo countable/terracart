@@ -45,8 +45,8 @@ test('torch: a T1 consumable with a price, an effect line and a Book tip', () =>
   assert.eq(BASE_TIER.torch, 1, 'BASE_TIER row');
   assert.eq(PRICES.torch, 5, 'price (one wood crafts it, so it stays low)');
   assert.lt(PRICES.torch, PRICES.rope, 'cheaper than the rope');
-  assert.truthy(/^Use /.test(ITEM_EFFECTS.torch || ''), 'an ITEM_EFFECTS line that starts "Use"');
-  assert.truthy(/light/i.test(ITEM_EFFECTS.torch), 'and says it is light');
+  assert.truthy(ITEM_EFFECTS.torch, 'a narrative item description');
+  assert.truthy(/flame|dark/i.test(ITEM_EFFECTS.torch), 'the description hints through firelight');
   assert.falsy('icon' in it, 'no emoji icon field (QC_RULES §1)');
   // What the torch does is on the torch (its ✦ line); no Book tip repeats it.
   assert.falsy(PLAY_TIPS.some(t => /\bTorch\b/.test(t)), 'no Book tip restates the item');
@@ -167,7 +167,7 @@ test('torch: useTorch lights it for TORCH_MS, extending from the current end, in
   assert.truthy(/this\._torchUntil = Math\.max\(now, this\._torchUntil \?\? 0\) \+ TORCH_MS;/.test(body),
     'extends from the LATER of now and the current end — a second torch is never wasted');
   assert.truthy(/return this\._finishConsumable\(/.test(body), 'consumed through the shared finisher (consume, persist, rebuild, modal)');
-  assert.truthy(/shortDuration\(this\._torchUntil - now\)/.test(body), 'the modal says how long it now burns, via shortDuration');
+  assert.falsy(/shortDuration/.test(body), 'the story leaves time to the live torch readout');
   assert.truthy(/\n  isTorchActive\(\) \{\n    return \(this\._torchUntil \?\? 0\) > Date\.now\(\);\n  \}/.test(app),
     'isTorchActive is the timer test');
   assert.falsy(/save\.(_)?torchUntil|torchUntil: /.test(app), 'never on the save — a refresh puts it out');
@@ -182,17 +182,16 @@ test('torch: the readout beside the dragon\'s and the shadow\'s, via shortDurati
     'stacked above whichever of the other two are showing');
 });
 
-test('torch: the Use button row says a second one adds', () => {
+test('torch: the Light confirmation distinguishes fresh and renewed flame', () => {
   const row = CONSUMABLE_SPEC.torch;
   assert.eq(row.method, 'useTorch', '→ useTorch');
   assert.eq(row.verb, 'Light', 'the button reads Light');
   const now = Date.now();
   const lit = row.get({ isTorchActive: () => true, _torchUntil: now + 30_000 }, row);
   const dark = row.get({ isTorchActive: () => false, _torchUntil: now }, row);
-  assert.truthy(/adds/.test(lit) && lit.includes(shortDuration(row.durationMs)),
-    'with one lit, the line says the new one ADDS to what is left');
-  assert.truthy(/for/.test(dark) && dark.includes(shortDuration(row.durationMs)),
-    'otherwise, how long it burns comes from the owner');
+  assert.truthy(/feeds.*already/.test(lit), 'a burning torch receives fresh flame');
+  assert.truthy(/opens the dark/.test(dark), 'an unlit torch opens the dark');
+  assert.falsy(/\d/.test(lit + dark), 'exact durations stay out of confirmation prose');
 });
 test('torch: the sun outshines it on the surface — full by night, TORCH_DAY_FLOOR at noon', () => {
   const F = Lighting.TORCH_DAY_FLOOR;

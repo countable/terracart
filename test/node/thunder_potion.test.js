@@ -20,7 +20,7 @@ test('thunder potion: a T4 potion with a price, an icon and a ✦ line quoting i
   assert.eq(ITEM_BY_ID.thunder_potion?.kind, 'magic', 'drunk, not eaten');
   assert.eq(FOOD_ENERGY.thunder_potion, undefined, 'never on the Eat button');
   assert.gt(PRICES.thunder_potion, 0, 'priced');
-  assert.truthy(ITEM_EFFECTS.thunder_potion.includes(`${THUNDER_DMG} damage`), 'the ✦ line prints the live number');
+  assert.falsy(/\d/.test(ITEM_EFFECTS.thunder_potion), 'the storm hints at its power');
   assert.eq(CONSUMABLE_SPEC.thunder_potion.method, 'drinkThunderPotion', 'the Drink button offers it');
   assert.truthy(Shops.themedStock('potion', 4).includes('thunder_potion'), 'a T4 potion shop stocks it');
 });

@@ -28,11 +28,10 @@ test('spirit raven: a potion with an icon, a tier, a price and a ✦ line quotin
   assert.eq(PRICES.raven_potion, PRICES.blight_potion, 'and Blight\'s price');
   const line = ITEM_EFFECTS.raven_potion;
   assert.truthy(line && line.length <= 55, `the ✦ line fits its row (${line && line.length} chars)`);
-  assert.truthy(line.includes(shortDuration(SPIRIT_RAVEN_MS)), 'it quotes the live length');
+  assert.falsy(/\d/.test(line), 'the raven description leaves its duration for discovery');
   assert.eq(SPIRIT_RAVEN_MS, 60 * 1000, 'one minute');
   assert.eq(CONSUMABLE_SPEC.raven_potion.method, 'drinkRavenPotion', 'the Drink button offers it');
-  assert.truthy(CONSUMABLE_SPEC.raven_potion.get(null, CONSUMABLE_SPEC.raven_potion)
-    .includes(shortDuration(SPIRIT_RAVEN_MS)), 'the dialog quotes the same duration');
+  assert.truthy(/foes/.test(CONSUMABLE_SPEC.raven_potion.get), 'the confirmation hints at an ally');
   assert.truthy(Shops.themedStock('potion', 3).includes('raven_potion'), 'a T3 potion shop stocks it');
 });
 

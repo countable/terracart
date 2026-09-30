@@ -1387,7 +1387,7 @@ const TAP_HANDLERS = [
       scene._storySplashOnce?.('fire', {
         art: 'fire_first',
         title: 'First fire',
-        body: 'The flames catch and crackle. Monsters will not cross into its light, and resting beside it heals you. And who knows what could happen when you cook things?',
+        body: 'The flames catch. Beside their warmth, your weary limbs begin to ease.',
       });
     },
     flashMsg: '🔥 The fire crackles.',

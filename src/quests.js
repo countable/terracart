@@ -40,13 +40,13 @@ const QUEST_TEMPLATES = [
   // way to a castle, before the job was ever read, are not salvage for it.
   { id: 'chest',   event: 'chest',   base: 2, k: 0.4,  max: 10, unit: 14, weight: 2, activates: true,
     title: 'Salvage rights',
-    body: (q) => `Open ${q.need} ${_plural('chest', q.need)} out in the world.` },
+    body: (q) => `The storekeeper seeks salvage from ${q.need} unopened ${_plural('chest', q.need)}.` },
   { id: 'fish',    event: 'fish',    base: 2, k: 0.4,  max: 10, unit: 20, weight: 2,
     title: 'Fish for the table',
     body: (q) => `The cooks want fresh fish. Land ${q.need} ${_plural('fish', q.need)}.` },
   { id: 'sell',    event: 'sell',    base: 1, k: 0.7,  max: 8,  unit: 18, weight: 2,
     title: 'Trade run',
-    body: (q) => `Cash out at Home ${q.need === 1 ? 'once' : `${q.need} times`}.` },
+    body: (q) => `The castle needs trade moving again. Sell a haul at Home ${q.need === 1 ? 'once' : `${q.need} times`}.` },
   { id: 'deliver', event: 'deliver', base: 1, k: 0.3,  max: 5,  unit: 30, weight: 2,
     title: 'Neighbourly',
     body: (q) => `Fill ${q.need === 1 ? 'a household\'s wishlist' : `${q.need} households' wishlists`}.` },
@@ -288,36 +288,31 @@ const STARTER_CHAIN = [
   {
     id: 's2_till', event: 'till',
     title: 'Break ground',
-    body: 'Tap open grass within reach to till it.',
+    body: 'Turn a patch of grass into a bed for seeds.',
     reward: { money: 5 },
   },
   {
     id: 's3_plant', event: 'plant',
     title: 'Sow a seed',
-    body: 'Pick a seed from your bag, then tap the tilled soil.',
+    body: 'A seed from your bag belongs in that fresh earth.',
     reward: { money: 5 },
   },
   {
     id: 's4_restore', event: 'restore',
     title: 'Rebuild a neighbour',
-    body: 'Tap a ruined house to rebuild it with wood or stone.',
+    body: 'A ruined house waits for your hands to mend it.',
     reward: { money: 5 },
   },
   {
     id: 's5_harvest', event: 'harvest',
     title: 'Bring in the crop',
-    // Says the LOOP, because the loop is what the player has to know. A crop
-    // advances only while watered, then clears that watering, so each stage
-    // needs another tap. The owner supplies both the wait and stage count;
-    // tuning growth cannot leave the starter chip teaching the old loop.
-    body: `Tap to water. A stage grows ${shortDuration(Crops.STAGE_HOLD_MS)} later, then water again - `
-        + `${MAX_GROWTH_STAGE} times to ripe.`,
+    body: 'Water your young crop whenever the soil dries, until it is ready to gather.',
     reward: { money: 5 },
   },
   {
     id: 's6_sell', event: 'sell',
     title: 'Cash out at Home',
-    body: 'Only Home buys. Carry your haul back and tap your house.',
+    body: 'Bring your harvest Home, where someone will pay for it.',
     reward: { money: 25 },
   },
 ];

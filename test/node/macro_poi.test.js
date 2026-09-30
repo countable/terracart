@@ -527,32 +527,18 @@
     assert.eq(Combat.TRAINING_SLOT_KIND.bow, 'ranged'); assert.eq(Combat.TRAINING_SLOT_KIND.staff, 'magic');
     assert.truthy(/this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS \* Combat\.trainingIntervalMul\(this\.save\);/.test(APP_JS_SRC), 'the melee beat');
     const body = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _presentTraining(sx, sy, o, dress) {'), APP_JS_SRC.indexOf('  buildingFlavorTitle('));
-    assert.truthy(/const bonus = Combat\.trainingBonus\(this\.save, kind\);/.test(body), 'the hall shows the bonus in force');
+    assert.truthy(/memories required/.test(body), 'the lesson states its requirement');
     assert.truthy(/Macros\.buyLesson\(this\.save, kind, this\.memoriesTotal\(\)\)/.test(body), 'gated on memories RECOVERED');
   });
 
-  test('tips: the macro pages quote the numbers the code uses', () => {
-    const inn = PLAY_TIPS.find((t) => /An inn rests you/.test(t));
-    assert.truthy(inn && Macros.INN_RATE === 0.5 && /half what a Potion of Vigor/.test(inn), 'the inn page says half');
-    assert.truthy(Macros.CHAPEL_TIER_DROP === 1 && /a tier humbler/.test(inn), 'the chapel is a tier humbler');
-    const guild = PLAY_TIPS.find((t) => /guildhall/.test(t));
-    assert.truthy(guild && Macros.BOUNTY_MATCH === 1 && /pays the same again/.test(guild), 'the bounty pays the wage again');
-    const curio = PLAY_TIPS.find((t) => /curio hall/.test(t));
-    const nth = (n) => `${n}th`;
-    assert.truthy(curio && /pays no coin/.test(curio), 'the curio hall pays no coin');
-    assert.truthy(curio.includes(`${nth(Macros.CURIO_MILESTONES[0])}, ${nth(Macros.CURIO_MILESTONES[1])} and ${nth(Macros.CURIO_MILESTONES[2])} thing given`), curio);
+  test('tips: places offer a story hint while service values remain owned', () => {
+    for (const place of ['inn', 'guildhall', 'curio hall', 'training hall']) {
+      assert.truthy(PLAY_TIPS.some(t => t.toLowerCase().includes(place)), `${place}: a story page`);
+    }
+    assert.eq(Macros.INN_RATE, 0.5);
+    assert.eq(Macros.CHAPEL_TIER_DROP, 1);
+    assert.eq(Macros.BOUNTY_MATCH, 1);
     assert.falsy(/scriptorium lends/i.test(TIPS_BLOB_ALL()), 'no free page');
-    const tr = PLAY_TIPS.find((t) => /training hall/.test(t));
-    assert.truthy(tr, 'the training page');
-    const K = Combat.TRAINING_KINDS;
-    assert.truthy(tr.includes(`+${K.melee.per} damage a hit`) && tr.includes(`+${K.energy.per} to the bar`)
-      && tr.includes(`${Math.round(K.speed.per * 100)}% quicker`), tr);
-    assert.truthy(tr.includes(`up to ${Combat.TRAINING_PERM_MAX} levels`), tr);
-    assert.truthy(tr.includes(`$${Macros.TRAINING_LESSON_PRICE} times its number`) && tr.includes(`$${Macros.TRAINING_DRILL_PRICE}`), 'the live prices');
-    assert.truthy(tr.includes(`${Macros.TRAINING_MEMORIES_PER_LEVEL} memories for each level`), 'the memory rule');
-    // Curriculum: the counters come after the roadside stall they share a dialog with.
-    const stall = PLAY_TIPS.findIndex((t) => /A roadside stall undercuts/.test(t));
-    assert.gt(PLAY_TIPS.indexOf(inn), stall, 'taught with the village economy');
   });
 
   // ── The picture ───────────────────────────────────────────────────────────

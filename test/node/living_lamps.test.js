@@ -272,12 +272,10 @@ test('living lamps: cats move beside WALKING-PATH lamps (the attracts lane)', ()
 });
 })();
 
-test('living lamps: the Book tip quotes the owners\' numbers', () => {
-  const tip = PLAY_TIPS.find((t) => /lamps fade over a day/.test(t));
-  assert.truthy(tip, 'a tip teaches the fade');
-  assert.eq(Streets.LAMP_FADE_MS, 24 * 3600 * 1000, '"over a day"');
-  assert.truthy(/twice as close/.test(tip) && Streets.LAMP_PATH_SPACING_DIV === 2, '"twice as close"');
-  assert.truthy(/pay as much apiece/.test(tip) && Streets.lampCreditM(50, true) === Streets.LAMP_SPACING_M,
-    '"pay as much apiece" — a path lamp is worth a street gap');
-  assert.truthy(/three quarters of a lamp's worth/.test(tip) && Streets.LAMP_CREDIT_SHARE === 0.75, '"three quarters"');
+test('living lamps: story hints at fading while rates remain in their owners', () => {
+  assert.truthy(PLAY_TIPS.some(t => /lamp/i.test(t) && /fade|dim/i.test(t)), 'the fading light is discoverable');
+  assert.eq(Streets.LAMP_FADE_MS, 24 * 3600 * 1000);
+  assert.eq(Streets.LAMP_PATH_SPACING_DIV, 2);
+  assert.eq(Streets.lampCreditM(50, true), Streets.LAMP_SPACING_M);
+  assert.eq(Streets.LAMP_CREDIT_SHARE, 0.75);
 });

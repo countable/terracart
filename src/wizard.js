@@ -64,9 +64,6 @@
   function qtyLuckAt(n) {
     return (typeof qtyLuck === 'function') ? qtyLuck({ qtyUpgrades: n }) : 0;
   }
-  const pct = (p) => `${Math.round(p * 100)}%`;
-  const reachAt = (n) => Math.min(5, 2 + 0.5 * n);
-  const vigourStep = () => (typeof Energy !== 'undefined' && Energy.VIGOUR_ENERGY_STEP) || 10;
   const int = (v) => Math.max(0, Math.floor(Number(v) || 0));
 
   // ── The tracks ───────────────────────────────────────────────────────────
@@ -79,9 +76,9 @@
       have: (save) => int(save.reachUpgrades),
       grant: (save, n) => { save.reachUpgrades = n; },
       title: 'Inner Light', accept: 'Kindle',
-      get: (n) => `🔆 Inner Light — reach ${reachAt(n)} cells`,
+      get: () => 'Let your inner light reach farther into the dark.',
       header: '✨ Inner Light kindled ✨',
-      name: (n) => `Reach ${reachAt(n)} cells`,
+      name: () => 'Inner Light',
       sub: 'Your memories, burned into wider sight.',
     },
     {
@@ -90,9 +87,9 @@
       have: (save) => int(save.qtyUpgrades),
       grant: (save, n) => { save.qtyUpgrades = n; },
       title: 'Full Measure', accept: 'Accept',
-      get: (n) => `🎒 Full Measure — ${pct(qtyLuckAt(n))} chance of a bigger find`,
+      get: () => 'Let each find fill your hands a little more.',
       header: '✨ Full Measure granted ✨',
-      name: (n) => `Bigger finds — ${pct(qtyLuckAt(n))} of the time`,
+      name: () => 'Full Measure',
       sub: 'What the world gives you, it gives you more of.',
     },
     {
@@ -102,9 +99,9 @@
       // The Ring is GEAR: the caller equips it (buy() returns `equip`).
       grant: null,
       title: 'Keen Eye', accept: 'Accept',
-      get: (n) => `👁 Keen Eye — Ring T${n} · rarer finds`,
+      get: () => 'Let hidden treasures catch your eye.',
       header: '✨ Keen Eye opened ✨',
-      name: (n) => `Ring T${n} · rarer finds`,
+      name: () => 'Keen Eye',
       sub: 'A Ring to bear the sight — rarer things find you.',
     },
     {
@@ -113,9 +110,9 @@
       have: (save) => int(save.vigourUpgrades),
       grant: (save, n) => { save.vigourUpgrades = n; },
       title: 'Vigour', accept: 'Accept',
-      get: (n) => `💪 Vigour — +${n * vigourStep()}⚡ max energy`,
+      get: () => 'Carry the strength to go a little farther.',
       header: '✨ Vigour granted ✨',
-      name: (n) => `Max energy +${n * vigourStep()}⚡`,
+      name: () => 'Vigour',
       sub: 'Old strength, remembered into your bones.',
     },
   ];
@@ -127,22 +124,19 @@
   const CLASSES = [
     {
       key: 'hunter', icon: '🏹', name: 'Hunter',
-      blurb: () => `Bow shots hit ×${(typeof Combat !== 'undefined' && Combat.HUNTER_BOW_MUL) || 1.5}.`,
+      blurb: () => 'Your arrows strike deep.',
     },
     {
       key: 'runner', icon: '👟', name: 'Runner',
-      blurb: () => {
-        const div = (typeof Trail !== 'undefined' && Trail.RUNNER_GOAL_DIV) || 2;
-        return div === 2 ? 'Road treasure twice as often.' : `Road treasure ${div}× as often.`;
-      },
+      blurb: () => 'The road brings gifts sooner to your feet.',
     },
     {
       key: 'enforcer', icon: '⚔', name: 'Enforcer',
-      blurb: () => `Melee +${(typeof Combat !== 'undefined' && Combat.ENFORCER_MELEE_DPS) || 5} damage a second.`,
+      blurb: () => 'Your blows carry a heavy hand.',
     },
     {
       key: 'enchanter', icon: '🔮', name: 'Enchanter',
-      blurb: () => `Pay ${ENCHANTER_ENERGY_COST}⚡ for a potion's effect, and keep it.`,
+      blurb: () => "Draw magic from a flask without drinking it.",
     },
   ];
   const CLASS_BY_KEY = Object.fromEntries(CLASSES.map((c) => [c.key, c]));
