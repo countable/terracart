@@ -19,7 +19,7 @@
 // for exactly this (see its doc comment); app.js already uses it in six
 // places, just not these four.
 //
-// FINDING 3(a) — pest crows mint a fresh globally-unique id every ~90s spawn
+// FINDING 3(a) — dispatched pests (the deer now; crows before Sep 2026) mint a fresh globally-unique id every ~90s spawn
 // and nothing ever pruned save.caught of them, so a long session with crops
 // planted grew the array forever.
 //

@@ -244,6 +244,9 @@
     const out = {};
     for (const it of _ITEMS) {
       if (it.shiny) continue;
+      // A BABY PET (items.js BABY_KINDS) comes from a nest bush or an egg,
+      // never a chest — the same shape of exception as a shiny.
+      if (it.baby) continue;
       // CAVE-ONLY finds (items.js `caveOnly` — the Magic Trap) are the same
       // shape of exception as a shiny: reachable only through the one lane
       // meant for them (CAVE_SUPPLY_SKEW's favourite set, below), never the

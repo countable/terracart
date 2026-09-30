@@ -105,7 +105,7 @@ const PLAY_TIPS = [
   "My arrow lodged in the first obstacle in its path. Unfortunately, the obstacle was not the goblin.",
   "In the deep dark, a staff reaches only a little beyond the light. Do not mistake that little for safety.",
   "A coin where the hostile creature fell. Pick it up when the fighting is done. The living still need feeding.",
-  "Gull passed overhead. Purse lighter afterwards. No witnesses willing to testify.",
+  "Raven passed overhead. Purse lighter afterwards. No witnesses willing to testify.",
   "A tower in the castle I reclaimed fired in my defence. I had forgotten what it felt like to be guarded.",
   "Below the stairs, metal waits in the stone.",
   ITEM_GUIDE_TIPS.torch,
@@ -135,6 +135,9 @@ const PLAY_TIPS = [
   "In the harsher world, even a small bite leaves me trembling. I used to laugh at the old warnings.",
   "When the harsher world takes your last strength, seek your own trailer. Shelter first. Pride can spend the night outside.",
   ITEM_GUIDE_TIPS.crow_feather,
+  // Appended (Sep 2026, the gull's food theft): a new page goes LAST so every
+  // saved bookmark (save.tipsRead) still opens on the page it was left at.
+  "A gull took the best of my lunch from the top of the bag. It did not so much as land.",
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -365,7 +368,8 @@ const PLAY_TIP_VOLUMES = [
   "scholar",
   "ash",
   "road",
-  "road"
+  "road",
+  "ledger"
 ];
 
 // Narrator observations sit outside the quoted excerpt.

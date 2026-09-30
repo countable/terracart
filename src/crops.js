@@ -4,7 +4,7 @@
 // Growth, countdowns and item descriptions share stageHoldMs(crop).
 //
 // The scene keeps thin wrappers (app.js advanceGrowth / waterCropsWithin /
-// crowEatsCrop) that own the side effects: persistSave and reading the player's
+// raiderEatsCrop) that own the side effects: persistSave and reading the player's
 // world position.
 //
 // Crop model: save.planted is a list of { x, y, crop, stage, watered_t }.
@@ -74,7 +74,11 @@
     return changed;
   }
 
-  const CROW_IGNORED_CROPS = new Set(['potato']); // crows never notice potatoes
+  // The one crop no raider touches: a potato grows underground, and the deer
+  // (the crop raider — scene_creatures.js wanderCreatures `raidsCrops`) never
+  // notices it. It was the crow's rule until Sep 2026, when crop-raiding moved
+  // to the deer; the safe crop stayed the same.
+  const RAIDER_IGNORED_CROPS = new Set(['potato']);
 
   // The save owns the flat crop list; this derived index is deliberately kept
   // outside it so persistence never serializes buckets. Crops do not move in
@@ -151,9 +155,9 @@
     return (p?.stage ?? 0) >= maxStage();
   }
 
-  // Will a crow notice / orbit / land on / eat this crop? (potatoes are immune)
-  function crowEats(p) {
-    return !CROW_IGNORED_CROPS.has(p?.crop);
+  // Will a raider notice / walk at / eat this crop? (potatoes are immune)
+  function raiderEats(p) {
+    return !RAIDER_IGNORED_CROPS.has(p?.crop);
   }
 
   // Advance every watered crop whose crop-specific hold has elapsed by ONE
@@ -300,7 +304,7 @@
     return q;
   }
 
-  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, LEGACY_STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, migrateStageTimers, CAN_TOP_TIER, maxStage, isMature, crowEats,
+  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, LEGACY_STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, migrateStageTimers, CAN_TOP_TIER, maxStage, isMature, raiderEats,
                  advanceGrowth, waterWithin, waterOne, waterJumpChance, advanceWithin,
                  bedQuality, setBedQuality, clearBedQuality, takeBedQuality,
                  forEachInBox, invalidateSpatialIndex };

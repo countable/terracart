@@ -730,6 +730,33 @@
   // as often as it lands on tarmac you can stand on. Dropping those outright
   // would cost the lot its reward, so walk the X into the lot instead.
   // Deterministic: fixed ring order, first hit wins, no rng.
+  // The hedge-maze lattice decision — one owner for the commercial plaza's
+  // clipped maze (spawnHedgeMazeSteps) and the sandbox's flora mirror, which
+  // reads it through the export so the two never tune apart. Deterministic on
+  // ABSOLUTE cell coords (continuous across polygons + tiles), on a
+  // period-HEDGE_LATTICE_P lattice:
+  //   pillars    (ax%P==0 && ay%P==0)             always a hedge cell
+  //   wall cells (one coord %P==0, the other not) a hedge IFF that segment
+  //                                              "exists" (a stable coin per
+  //                                              segment; both cells of a
+  //                                              2-cell wall share the id)
+  //   interior   (neither coord %P==0)            never a hedge (open path)
+  // ~25% of cells end up hedged (1/9 pillars + ~30% of the 4/9 wall cells).
+  const HEDGE_LATTICE_P = 3;   // lattice period (cells between pillars)
+  const HEDGE_WALL_PCT = 30;   // % of wall segments that exist → ~25% fill
+  function hedgeWallOn(sx, sy, k, salt) {
+    const hsh = (((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0);
+    return (hsh % 100) < HEDGE_WALL_PCT;
+  }
+  function hedgeMazeCell(ax, ay, salt) {
+    const P = HEDGE_LATTICE_P;
+    const mx3 = ((ax % P) + P) % P;
+    const my3 = ((ay % P) + P) % P;
+    if (mx3 === 0 && my3 === 0) return true;                                    // pillar
+    if (my3 === 0 && mx3 !== 0) return hedgeWallOn(Math.floor(ax / P), ay, 0, salt); // horizontal wall
+    if (mx3 === 0 && my3 !== 0) return hedgeWallOn(ax, Math.floor(ay / P), 1, salt); // vertical wall
+    return false;                                                               // open interior
+  }
   // `cls` is the spawn's class (isSpawnCell's — 'minor' / 'attractor' /
   // 'enemy'), required like isSpawnCell's.
   function relocateToSpawnCell(grid, w, h, cx, cy, opts, maxR, cls) {
@@ -3630,26 +3657,22 @@
     // Structured "hedge maze" spawner — used for commercial-plaza shrubs so they
     // read as a neat clipped hedge maze instead of random scatter. Placement is
     // deterministic on ABSOLUTE cell coords (continuous across polygons + tiles),
-    // on a period-3 lattice:
-    //   • pillars   (ax%3==0 && ay%3==0)            → always a hedge cell
-    //   • wall cells (one coord %3==0, the other not) → a hedge IFF that wall
+    // on a period-HEDGE_LATTICE_P lattice:
+    //   • pillars   (ax%P==0 && ay%P==0)            → always a hedge cell
+    //   • wall cells (one coord %P==0, the other not) → a hedge IFF that wall
     //                 segment "exists" (a stable per-segment coin flip); both
     //                 cells of a 2-cell wall share the segment id so a wall is
     //                 contiguous and the gaps read as passages.
-    //   • interior  (neither coord %3==0)            → never a hedge (open path)
+    //   • interior  (neither coord %P==0)            → never a hedge (open path)
     // ~25% of cells end up hedged (1/9 pillars + ~30% of the 4/9 wall cells).
+    // The lattice decision lives in hedgeMazeCell (IIFE level, exported) so
+    // the sandbox's flora mirror runs the SAME maze instead of a drifted copy.
     function* spawnHedgeMazeSteps(rings, crop, salt) {
-      const P = 3;                 // lattice period (cells between pillars)
-      const WALL_PCT = 30;         // % of wall segments that exist → ~25% fill
       const bb = bboxOf(rings);
       const ix0 = Math.max(0, Math.floor(bb.minX * mvtToCell));
       const iy0 = Math.max(0, Math.floor(bb.minY * mvtToCell));
       const ix1 = Math.min(w - 1, Math.floor(bb.maxX * mvtToCell));
       const iy1 = Math.min(h - 1, Math.floor(bb.maxY * mvtToCell));
-      const wallOn = (sx, sy, k) => {
-        const hsh = (((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0);
-        return (hsh % 100) < WALL_PCT;
-      };
       let _row = 0;
       for (let iy = iy0; iy <= iy1; iy++) {
         if ((++_row & 7) === 7) yield 'hedge maze rows';
@@ -3657,14 +3680,7 @@
           // Cell centre in MVT units for the inside-polygon test.
           if (!pointInRings(rings, (ix + 0.5) / mvtToCell, (iy + 0.5) / mvtToCell)) continue;
           const ax = tx * w + ix, ay = ty * h + iy;     // absolute cell coords
-          const mx3 = ((ax % P) + P) % P;
-          const my3 = ((ay % P) + P) % P;
-          let hedge;
-          if (mx3 === 0 && my3 === 0) hedge = true;                                   // pillar
-          else if (my3 === 0 && mx3 !== 0) hedge = wallOn(Math.floor(ax / P), ay, 0); // horizontal wall
-          else if (mx3 === 0 && my3 !== 0) hedge = wallOn(ax, Math.floor(ay / P), 1); // vertical wall
-          else hedge = false;                                                          // open interior
-          if (!hedge) continue;
+          if (!hedgeMazeCell(ax, ay, salt)) continue;
           const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
           wildplants.push(makeWildplant(crop, cx, cy,
             cellId('hm', tx, ty, ix, iy), { _ix: ix, _iy: iy }));
@@ -8092,6 +8108,9 @@
     injectTileBin, injectTileBinSteps,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isParkingAisle, isLotLane, pruneLotLanesSteps, LOT_POI_R_M, LOT_AISLE_R_M, LOT_STREETSIDE_M, LOT_MAX_M, isSpawnCell, relocateToSpawnCell,
+    // The hedge-maze lattice decision (spawnHedgeMazeSteps' owner): exported
+    // so the sandbox's flora mirror runs the SAME maze, never a drifted copy.
+    hedgeMazeCell, HEDGE_LATTICE_P,
     // THE SPAWN GATE (entry.spawnWhy): the mask's encoding, the classes, the
     // stamp and its numbers, and the live per-player private-ground veto.
     SPAWN_WHY, SPAWN_WHY_HARD, SPAWN_WHY_TYPED, SPAWN_WHY_LAND, SPAWN_CLASS_BLOCKS, SPAWN_CLASSES,

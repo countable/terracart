@@ -3769,10 +3769,19 @@ Render.drawObjects = function drawObjects(scene) {
     });
   }
 
+  const _plantNow = Date.now();
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
+    // A NEST BUSH (items.js isNestBush — the predicate the harvest pays the
+    // baby off) WIGGLES: three quick swings, a few degrees about its centre,
+    // swelling and dying over the beat's show (nestBushPhase, once every
+    // 10-30 s). Pooled sprites keep their angle, so it is set EVERY frame —
+    // 0 for everything that is not mid-wiggle — or a bush's tilt would ride
+    // onto whatever plant next takes its slot.
+    const wig = (p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow) : -1;
+    s.setAngle(wig >= 0 ? Math.sin(wig * Math.PI * 6) * 7 * Math.sin(wig * Math.PI) : 0);
     // Wild flora wears its biome's tint; farmed crops and placed rocks render
     // untinted. Pooled sprites keep their last tint, so set it explicitly
     // every frame. A SHINY plant is not tinted: what marks it is its light
@@ -4090,7 +4099,7 @@ Render.drawObjects = function drawObjects(scene) {
   // animate (a measured shadow would pulse frame to frame).
   if (scene.creatureShadowPool && scene.shadowContainer) {
     const CRITTER_SHADOW_W = {
-      cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, gull: 18, rabbit: 14, chicken: 14, crab: 14,
+      cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, gull: 18, raven: 18, rabbit: 14, chicken: 14, crab: 14,
       butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
     };
     Render.renderPool(scene, scene.creatureShadowPool, scene.shadowContainer, creatureList, (s, item) => {

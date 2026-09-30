@@ -10,14 +10,14 @@
 //   sandbox compresses every biome + every native interactable + every fauna
 //   into one walkable area a tester can sweep in seconds.
 //
-// Design (the 2026-05 rewrite):
-//   The old sandbox was a 5×5 grid of FLAT colour swatches — one solid biome
+// Design:
+//   The old sandbox was a 5×5 grid of flat colour swatches - one solid biome
 //   per plot. But worldgen never produces a pure "residential square"; a real
 //   residential polygon is a SCENE: a road threads through it, houses (shop
 //   type set by address digit) line the road, mineral rocks sit at the curb. So this version is built from SCENES — small realistic
-//   composites — arranged in horizontal BANDS, separated by named connective
-//   ROADS. The roads are not filler: they're how the road / road_lg / road_md
-//   biomes (and their street-name labels) get covered.
+//   composites - arranged in horizontal bands, separated by named connective
+//   roads. Each road also carries decoded vector geometry, so the sandbox uses
+//   the same overlay, restoration, lamp and street-dressing lanes as a map tile.
 //
 //   Layout (north → south):
 //     Band 1  COUNTRYSIDE     FOREST · ORCHARD · ROCK
@@ -29,10 +29,11 @@
 //     Band 4  TOWN            RESIDENTIAL STREET · CIVIC BLOCK · SMALL HOUSE
 //        ── Garden Row (road) ──
 //     Band 5  RECREATION      PARK+PLAYGROUND+PITCH · CASTLE+FORT
+//     Band 6  NEW MECHANICS   STREET VARIANTS · GROVE/OLD STONES/TAR YARD
 //
-//   Every terrain code 0..23 (and 27, WASTELAND), every interactable object kind + sub-variant,
-//   and every fauna kind (incl. slime, wild net-gated butterfly, fishing, and
-//   released/tame pets) has a home. See docs/SANDBOX.md for the coverage matrix.
+//   Every surface terrain, every rolled street variant and representative
+//   interactables, fauna and foes have a home. See docs/SANDBOX.md for the
+//   coverage matrix and the cave-only exclusions.
 //
 // How it works:
 //   1. detect() reads location.search for `sandbox=true`.
@@ -171,6 +172,8 @@
       s.wildplant('shell', 0, 0); s.wildplant('shell', 1, 2);
       s.wildplant('shell', 2, 6); s.wildplant('shell', 0, 7); s.wildplant('shell', 2, 5);
       s.creature('cat', 1, 1, 1);           // a cat sunning on the sand
+      s.creature('giant_crab', 2, 3, 1);     // representative shore enemy
+      s.creature('gull', 3, 1, 1);           // scenic-shore scavenger
       s.well(3, 6);                          // fountain on dry land
     },
   };
@@ -225,6 +228,8 @@
   //    & dogs roam (their primary biome). Houses are marked restored in seed.
   const RESIDENTIAL = {
     name: 'RESIDENTIAL', label: 'RESIDENTIAL ST', w: 13, h: 8, fill: T.RESIDENTIAL,
+    routes: [{ name: 'Maple Street', class: 'street', type: T.ROAD, y: 3, thick: 2,
+      x0: 0, x1: 12, variant: null }],
     paint(p) {
       p.rect(0, 3, 13, 2, T.ROAD);            // 2-cell street, rows dy3..4
       // One whole-word label per street half (covers the road-label render path).
@@ -295,11 +300,15 @@
   //    a CROW pest (scarecrow seeded nearby), and a second wild butterfly.
   const RECREATION = {
     name: 'RECREATION', label: 'PARK · PLAYGROUND · PITCH', w: 24, h: 12, fill: T.PARK,
+    routes: [{ name: 'Common Walk', class: 'path', type: T.PATH, y: 9, thick: 1,
+      x0: 0, x1: 8, variant: null, scenic: 'park' }],
     subLabels: [{ label: 'PARK', dx: 4, dy: 6 }, { label: 'PLAYGROUND', dx: 12, dy: 6 },
                 { label: 'PITCH', dx: 20, dy: 6 }],
     paint(p) {
       p.rect(9, 0, 7, 12, T.PLAYGROUND);   // cols 9-15
       p.rect(16, 0, 8, 12, T.PITCH);       // cols 16-23
+      p.rect(0, 9, 9, 1, T.PATH);
+      p.roadLabel(4, 9, 'Common Walk');
     },
     populate(s) {
       s.wildplant('shrub', 0, 0); s.wildplant('shrub', 7, 0);
@@ -333,14 +342,74 @@
     },
   };
 
-  // Bands top→south. `roadAfter` draws a full-width connective road BELOW the
-  // band (covering the road / road_lg / road_md terrains + their letters).
+  // The showcase uses one table for terrain paint, vector geometry, variant
+  // indexing and labels. This keeps the authored road and the road the live
+  // overlay sees identical.
+  const SHOWCASE_ROUTES = [
+    { name: 'Fern Way', class: 'minor', type: T.ROAD, y: 1, thick: 1, x0: 0, x1: 23, variant: 'overgrown' },
+    { name: 'Cherry Lane', class: 'minor', type: T.ROAD, y: 4, thick: 1, x0: 0, x1: 23, variant: 'orchard' },
+    { name: 'Abbey Walk', class: 'minor', type: T.ROAD, y: 7, thick: 1, x0: 0, x1: 23, variant: 'pilgrim' },
+    { name: 'Coin Row', class: 'minor', type: T.ROAD, y: 10, thick: 1, x0: 0, x1: 23, variant: 'golden' },
+    { name: 'Market Close', class: 'minor', type: T.ROAD, y: 13, thick: 1, x0: 0, x1: 23, variant: null },
+    { name: 'Iron Lane', class: 'minor', type: T.ROAD, y: 22, thick: 1, x0: 0, x1: 23, variant: 'snare' },
+    { name: 'Fort Road', class: 'tertiary', type: T.ROAD_MD, y: 25, thick: 2, x0: 0, x1: 23, variant: 'barricade' },
+    { name: 'Old Trade Road', class: 'primary', type: T.ROAD_LG, y: 28, thick: 2, x0: 0, x1: 23, variant: null, bandit: true },
+  ];
+  const SHOWCASE = {
+    name: 'STREETS', label: 'STREET VARIANTS', w: 24, h: 30, fill: T.GRASS,
+    routes: SHOWCASE_ROUTES,
+    subLabels: SHOWCASE_ROUTES.map((r) => ({
+      label: r.variant ? r.variant.toUpperCase() : (r.bandit ? 'OLD TRADE ROAD' : r.name.toUpperCase()),
+      dx: 12, dy: r.y,
+    })),
+    paint(p) {
+      for (const r of SHOWCASE_ROUTES) {
+        p.rect(r.x0, r.y, r.x1 - r.x0 + 1, r.thick, r.type);
+        p.roadLabel(12, r.y, r.name);
+      }
+    },
+    populate(s) {
+      // Pick a stable id that passes the wagon-look hash, while keeping the
+      // object next to the authored old trade road.
+      s.chest('bus', 'Sandbox Wagon Stop', 2, 27, { wagonCandidate: true });
+      s.chest('cafe', 'Sandbox Café', 16, 8, { cafeAnchor: true });
+    },
+  };
+
+  const ZONES = {
+    name: 'ZONES', label: 'INFLUENCE ZONES', w: 11, h: 21, fill: T.RESIDENTIAL,
+    zoneStrips: [
+      { kind: 'grove', variant: 'ancient_grove', y: 0, h: 7, terrain: T.GROVE },
+      { kind: 'stones', variant: 'ordered_graves', y: 7, h: 7, terrain: T.CHURCHYARD },
+      { kind: 'tar', variant: 'black_ring', y: 14, h: 7, terrain: T.TAR_YARD },
+    ],
+    subLabels: [
+      { label: 'SACRED GROVE', dx: 5, dy: 3 },
+      { label: 'OLD STONES', dx: 5, dy: 10 },
+      { label: 'TAR YARD', dx: 5, dy: 17 },
+    ],
+    paint(p) {
+      for (const z of this.zoneStrips) p.rect(0, z.y, this.w, z.h, z.terrain);
+    },
+    populate(s) {
+      s.object('grove_shrine', 5, 3, { name: 'Sandbox Grove Shrine' });
+      s.object('infoboard', 1, 9, { name: 'Sandbox History Board' });
+      s.creature('copper_plant', 8, 1, 1);
+      s.creature('goblin', 1, 5, 1); s.creature('goblin_archer', 9, 5, 1);
+      s.creature('zombie', 5, 9, 1); s.creature('skeleton', 2, 12, 1); s.creature('ghost', 8, 12, 1);
+      s.creature('fire_slime', 2, 18, 1);
+    },
+  };
+
+  // Bands run north to south. Each connective road owns both its painted
+  // cells and its vector/variant row through the same record.
   const BANDS = [
-    { roadAfter: { type: T.ROAD,    name: 'Oak Road',    thick: 1 }, scenes: [FOREST, ORCHARD, ROCK] },
-    { roadAfter: { type: T.ROAD_LG, name: 'Main Street', thick: 2 }, scenes: [BARNYARD, PADDOCK, BEACH, MARSH] },
-    { roadAfter: { type: T.ROAD_MD, name: 'Mill Lane',   thick: 1 }, scenes: [PLAZA, FARMLAND] },
-    { roadAfter: { type: T.ROAD,    name: 'Garden Row',  thick: 1 }, scenes: [RESIDENTIAL, CIVIC, SMALLHOUSE] },
+    { roadAfter: { type: T.ROAD, class: 'minor', name: 'Oak Road', thick: 1, variant: 'hedgerow' }, scenes: [FOREST, ORCHARD, ROCK] },
+    { roadAfter: { type: T.ROAD_LG, class: 'primary', name: 'Main Street', thick: 2, variant: 'lantern' }, scenes: [BARNYARD, PADDOCK, BEACH, MARSH] },
+    { roadAfter: { type: T.ROAD_MD, class: 'tertiary', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND] },
+    { roadAfter: { type: T.ROAD, class: 'minor', name: 'Garden Row', thick: 1, variant: 'toadstool' }, scenes: [RESIDENTIAL, CIVIC, SMALLHOUSE] },
     { roadAfter: null, scenes: [RECREATION, CASTLE] },
+    { roadAfter: null, scenes: [SHOWCASE, ZONES] },
   ];
 
   // Resolve each scene's grid-local origin (lx, ly) and the road rows. Sizes
@@ -370,6 +439,15 @@
   const LAYOUT = buildLayout();
   const sceneByName = (n) => LAYOUT.scenes.find((s) => s.name === n);
 
+  function buildRoutes() {
+    const routes = LAYOUT.roads.map((r) => ({ ...r, x0: 0, x1: LAYOUT.width - 1 }));
+    for (const s of LAYOUT.scenes) for (const r of (s.routes || [])) {
+      routes.push({ ...r, x0: s.lx + r.x0, x1: s.lx + r.x1, y: s.ly + r.y });
+    }
+    return routes;
+  }
+  const ROUTES = buildRoutes();
+
   // ─────────────────────────────────────────────────────────────────────────
   // Detection
   // ─────────────────────────────────────────────────────────────────────────
@@ -391,7 +469,7 @@
   // WorldGen.loadTile() short-circuits on the cache lookup. The entry mirrors
   // the shape rasterizeTile() returns, plus a creatures[] array (normally
   // added by scene_creatures.js spawnInTile — we set it here so spawnInTile is skipped).
-  function makeTileEntry({ tx, ty, cellsPerEdge, tileEdgeM, cellM, populate }) {
+  function makeTileEntry({ tx, ty, cellsPerEdge, tileEdgeM, cellM, populate, finalize }) {
     const grid = new Uint8Array(cellsPerEdge * cellsPerEdge);   // default 0 = grass
     const objects = [];
     const wildplants = [];
@@ -404,20 +482,42 @@
       y: ty * tileEdgeM + (iy + 0.5) * cellM,
     });
 
-    populate({ grid, objects, wildplants, creatures, roadLabels,
-               cellsPerEdge, wmAt, tx, ty, cellM, tileEdgeM });
+    const context = { grid, objects, wildplants, creatures, roadLabels,
+      cellsPerEdge, wmAt, tx, ty, cellM, tileEdgeM };
+    populate(context);
 
-    return {
+    const entry = {
       status: 'ready',
+      tx, ty, depth: 0,
       grid,
       objects,
       wildplants,
       creatures,
+      owners: new Uint16Array(cellsPerEdge * cellsPerEdge),
+      ownerKeys: [],
+      poiPadCells: new Set(),
       parkingTreasures: [],
       roadLabels,
+      pathUnder: {},
+      buildingShapes: [],
       treasure: null,
+      extraTreasures: [],
+      coinDrops: [],
+      traps: [],
+      streetLairs: [],
+      slowCells: null,
+      streetMarks: null,
+      layers: [],
+      streetIndex: null,
+      streetDress: null,
+      streetArea: null,
+      zone: null,
+      zoneDress: null,
+      scenic: null,
+      scenicDress: null,
       tileEdgeM,
       cellsPerEdge,
+      _spawned: true,
       // Mark as already-decorated so warmOverpass's evict-and-rebuild (which
       // refreshes real tiles whose Overpass bin landed late) never evicts a
       // synthetic sandbox tile in favour of real-world geometry.
@@ -426,6 +526,10 @@
       // ready so it's never awaited, but harmless to satisfy the shape.
       promise: Promise.resolve(null),
     };
+    if (finalize) finalize(entry, context);
+    entry.baseGrid = entry.grid.slice();
+    entry.genObjects = entry.objects.slice();
+    return entry;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -459,10 +563,15 @@
         objects.push(WorldGen.makeObject('fruittree', x, y,
           `${baseId}_ft_${tag}_${species}_${dx}_${dy}`, { species }));
       },
-      chest(poiClass, name, dx, dy) {
+      chest(poiClass, name, dx, dy, extra) {
         const { x, y } = at(dx, dy);
         objects.push(WorldGen.makeObject('chest', x, y,
-          `${baseId}_chest_${tag}_${dx}_${dy}`, { poiClass, name }));
+          `${baseId}_chest_${tag}_${dx}_${dy}`, { poiClass, name, ...(extra || {}) }));
+      },
+      object(kind, dx, dy, extra) {
+        const { x, y } = at(dx, dy);
+        objects.push(WorldGen.makeObject(kind, x, y,
+          `${baseId}_${kind}_${tag}_${dx}_${dy}`, extra || {}));
       },
       // Starter chest — a real kind:'chest' carrying a fixed payload (no
       // poiClass), so it opens through the standard chest path reading
@@ -539,14 +648,27 @@
       const iy = Math.round((o.y - ty * tileEdgeM) / cellM - 0.5);
       occupied.add(key(ix, iy));
     }
-    for (const wp of wildplants) if (wp._ix != null) occupied.add(key(wp._ix, wp._iy));
-    const wallOn = (sx, sy, k, salt) => ((((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0) % 100) < 30;
+    for (const wp of wildplants) {
+      if (wp._ix != null) occupied.add(key(wp._ix, wp._iy));
+      else {
+        const ix = Math.floor((wp.x - tx * tileEdgeM) / cellM);
+        const iy = Math.floor((wp.y - ty * tileEdgeM) / cellM);
+        occupied.add(key(ix, iy));
+      }
+    }
+    // Zone and street patterns own their empty cells too, because a deliberate
+    // gap must not fill with ordinary biome scatter on the next pass.
+    const zoneCoverage = c.zone && (c.zone.coverage || c.zone.idx);
+    const streetArea = c.streetArea;
+    if (zoneCoverage || streetArea) for (let i = 0; i < cellsPerEdge * cellsPerEdge; i++) {
+      if (zoneCoverage?.[i] || streetArea?.[i]) occupied.add(key(i % cellsPerEdge, Math.floor(i / cellsPerEdge)));
+    }
     const place = (ix, iy, crop, t) => {
       const kk = key(ix, iy);
       if (occupied.has(kk)) return false;
       occupied.add(kk);
       const { x, y } = wmAt(ix, iy);
-      wildplants.push(WorldGen.makeWildplant(crop, x, y, `sbflora_${crop}_${ix}_${iy}`,
+      wildplants.push(WorldGen.makeWildplant(crop, x, y, `sbflora_${tx}_${ty}_${crop}_${ix}_${iy}`,
         { _biome: t, _ix: ix, _iy: iy }));
       return true;
     };
@@ -563,15 +685,12 @@
         for (const fl of BiomeProfiles.flora(t)) {
           const salt = fl.salt >>> 0;
           if (fl.pattern === 'hedgemaze') {
-            const P = 3;
+            // WorldGen.hedgeMazeCell owns the lattice; the sandbox passes
+            // ABSOLUTE cells like worldgen does, so the commercial maze here
+            // matches the real plaza's rule 1:1.
             for (const [ix, iy] of cells) {
-              const mx = ((ix % P) + P) % P, my = ((iy % P) + P) % P;
-              let hedge;
-              if (mx === 0 && my === 0) hedge = true;
-              else if (my === 0 && mx !== 0) hedge = wallOn(Math.floor(ix / P), iy, 0, salt);
-              else if (mx === 0 && my !== 0) hedge = wallOn(ix, Math.floor(iy / P), 1, salt);
-              else hedge = false;
-              if (hedge) place(ix, iy, fl.crop, t);
+              const ax = tx * cellsPerEdge + ix, ay = ty * cellsPerEdge + iy;
+              if (WorldGen.hedgeMazeCell(ax, ay, salt)) place(ix, iy, fl.crop, t);
             }
           } else {
             // fnv1a: the shared FNV-1a hash (util.js).
@@ -637,11 +756,278 @@
         }
       }
     }
+  }
 
-    // Finally, scatter the real per-biome flora distribution over every scene
-    // (after roads, so road cells are correctly excluded). Runs last so it can
-    // see all placed objects + sample wildplants and avoid their cells.
+  // ─────────────────────────────────────────────────────────────────────────
+  // Real-map systems on the synthetic tile
+  // ─────────────────────────────────────────────────────────────────────────
+  const SANDBOX_EXTENT = 4096;
+  const driveSteps = (it) => { let r = it.next(); while (!r.done) r = it.next(); return r.value; };
+
+  function itemCell(p, c) {
+    const ix = Math.floor((p.x - c.tx * c.tileEdgeM) / c.cellM);
+    const iy = Math.floor((p.y - c.ty * c.tileEdgeM) / c.cellM);
+    return { ix, iy, i: iy * c.cellsPerEdge + ix };
+  }
+
+  function occupiedCells(c) {
+    const out = new Set();
+    for (const p of [...c.objects, ...c.wildplants]) {
+      const at = itemCell(p, c);
+      if (at.ix >= 0 && at.iy >= 0 && at.ix < c.cellsPerEdge && at.iy < c.cellsPerEdge) out.add(at.i);
+    }
+    return out;
+  }
+
+  function routeLine(route, originIX, originIY, N) {
+    const u = (cell) => Math.round(cell * SANDBOX_EXTENT / N);
+    const y = originIY + route.y + (route.thick || 1) / 2;
+    return [{ x: u(originIX + route.x0 + 0.5), y: u(y) },
+      { x: u(originIX + route.x1 + 0.5), y: u(y) }];
+  }
+
+  function buildTransport(originIX, originIY, c) {
+    const features = ROUTES.map((route, i) => ({
+      id: fnv1a(`sandbox-road|${route.name}|${i}`), type: 2,
+      geom: [routeLine(route, originIX, originIY, c.cellsPerEdge)],
+      tags: { class: route.class, name: route.name },
+    }));
+    const names = features.map((f) => ({ id: f.id, type: 2, geom: f.geom,
+      tags: { name: f.tags.name } }));
+    return { routes: ROUTES, features,
+      layers: [
+        { name: 'transportation', extent: SANDBOX_EXTENT, features },
+        { name: 'transportation_name', extent: SANDBOX_EXTENT, features: names },
+        { name: 'poi', extent: SANDBOX_EXTENT, features: [] },
+      ] };
+  }
+
+  function buildRoadFields(entry, originIX, originIY, c) {
+    const N = c.cellsPerEdge;
+    const roadBand = new Uint8Array(N * N);
+    const roadClass = new Uint8Array(N * N);
+    const spawnWhy = new Uint16Array(N * N);
+    const quietMask = new Uint8Array(N * N);
+    for (let i = 0; i < entry.grid.length; i++) {
+      const t = entry.grid[i];
+      // roadMask covers the drawn ROAD bands only — footpaths feed pathSpan
+      // in the real pipeline, and marking them as road ground would refuse
+      // every path-side spawn (traps keep TRAP_ROAD_CLEAR_CELLS off the band).
+      if (t === T.ROAD || t === T.ROAD_MD || t === T.ROAD_LG) {
+        roadBand[i] = 1;
+        spawnWhy[i] |= WorldGen.SPAWN_WHY.ROAD;
+      }
+    }
+    for (const r of ROUTES) {
+      if (r.type !== T.ROAD_MD && r.type !== T.ROAD_LG) continue;
+      const x0 = originIX + r.x0, x1 = originIX + r.x1;
+      const y0 = originIY + r.y, y1 = y0 + r.thick - 1;
+      for (let y = Math.max(0, y0 - Math.ceil(WorldGen.MAJOR_BUFFER_CELLS) - 1);
+           y <= Math.min(N - 1, y1 + Math.ceil(WorldGen.MAJOR_BUFFER_CELLS) + 1); y++) {
+        for (let x = Math.max(0, x0); x <= Math.min(N - 1, x1); x++) {
+          const i = y * N + x;
+          if (y >= y0 && y <= y1) roadClass[i] |= WorldGen.ROAD_CLASS_MAJOR_BAND;
+          else if (y === y0 - 1 || y === y1 + 1) roadClass[i] |= WorldGen.ROAD_CLASS_MAJOR_VERGE;
+          roadClass[i] |= WorldGen.ROAD_CLASS_MAJOR_BUFFER;
+          spawnWhy[i] |= WorldGen.SPAWN_WHY.KERB;
+        }
+      }
+    }
+    Object.assign(entry, { roadMask: roadBand, roadClass, spawnWhy, quietMask });
+    return { roadMask: roadBand, roadClass, spawnWhy, quiet: quietMask };
+  }
+
+  function buildScenic(entry, originIX, originIY, c, transport, spawnOpts) {
+    const N = c.cellsPerEdge, lines = new Map();
+    for (let fi = 0; fi < transport.routes.length; fi++) {
+      const route = transport.routes[fi];
+      if (!route.scenic) continue;
+      const f = transport.features[fi], line = f.geom[0];
+      const length = Math.hypot(line[1].x - line[0].x, line[1].y - line[0].y);
+      lines.set(Streets.lineKey(f, 0), [[0, length, route.scenic]]);
+    }
+    const beach = sceneByName('BEACH');
+    const mask = new Uint8Array(N * N), cells = [], waterline = [];
+    for (let dy = 0; dy < beach.h; dy++) for (const dx of [2, 3]) {
+      if (dy === 4 && dx === 3) continue;
+      const ix = originIX + beach.lx + dx, iy = originIY + beach.ly + dy, i = iy * N + ix;
+      mask[i] = dx === 3 ? 2 : 1; cells.push(i); if (dx === 3) waterline.push(i);
+    }
+    const rec = sceneByName('RECREATION'), vistaIX = originIX + rec.lx + 2, vistaIY = originIY + rec.ly + 7;
+    const lx = Math.round((vistaIX + 0.5) * SANDBOX_EXTENT / N);
+    const ly = Math.round((vistaIY + 0.5) * SANDBOX_EXTENT / N);
+    const scenic = { ext: SANDBOX_EXTENT, lines,
+      census: { shore: waterline.length * WorldGen.CELL_M, greenway: 0, park: 9 * WorldGen.CELL_M },
+      stretches: [], grassSeats: [], shore: { mask, cells, waterline, shoreM: waterline.length * WorldGen.CELL_M },
+      vistas: [{ gx: c.tx * SANDBOX_EXTENT + lx, gy: c.ty * SANDBOX_EXTENT + ly,
+        lx, ly, owned: true, id: `vista_${c.tx * SANDBOX_EXTENT + lx}_${c.ty * SANDBOX_EXTENT + ly}` }],
+    };
+    const dressing = Scenic.dress({ scenic, tx: c.tx, ty: c.ty, N, tileEdgeM: c.tileEdgeM,
+      grid: entry.grid, chests: entry.objects, spawnOpts });
+    entry.scenic = scenic; entry.scenicDress = dressing;
+    entry.objects.push(...dressing.objects);
+    entry.wildplants.push(...dressing.wildplants);
+  }
+
+  function buildZones(entry, originIX, originIY, c, spawnOpts) {
+    const N = c.cellsPerEdge, idx = new Uint8Array(N * N), strength = new Uint8Array(N * N);
+    const under = new Uint8Array(N * N), anchors = [], zoneScene = sceneByName('ZONES');
+    const upm = N * WorldGen.CELL_M / SANDBOX_EXTENT;
+    zoneScene.zoneStrips.forEach((z, ai) => {
+      const ix = originIX + zoneScene.lx + Math.floor(zoneScene.w / 2);
+      const iy = originIY + zoneScene.ly + z.y + Math.floor(z.h / 2);
+      const lx = Math.round((ix + 0.5) * SANDBOX_EXTENT / N);
+      const ly = Math.round((iy + 0.5) * SANDBOX_EXTENT / N);
+      anchors.push({ kind: z.kind, variant: z.variant, gx: c.tx * SANDBOX_EXTENT + lx,
+        gy: c.ty * SANDBOX_EXTENT + ly, lx, ly, key: `sandbox-zone-${z.kind}`,
+        owned: false, generated: false, upm, R: Math.max(zoneScene.w, z.h) * WorldGen.CELL_M,
+        code: Zones.ZONE_KINDS[z.kind].code, rotation: 0 });
+      for (let dy = 0; dy < z.h; dy++) for (let dx = 0; dx < zoneScene.w; dx++) {
+        const x = originIX + zoneScene.lx + dx, y = originIY + zoneScene.ly + z.y + dy, i = y * N + x;
+        idx[i] = ai + 1; strength[i] = 255; under[i] = z.kind === 'tar' ? T.WASTELAND : T.RESIDENTIAL;
+      }
+    });
+    const field = { anchors, idx, coverage: idx, s: strength, reach: anchors, allAnchors: anchors, under };
+    entry.zone = field;
+    const dressing = ZoneDressing.dress({ field, tx: c.tx, ty: c.ty, N, tileEdgeM: c.tileEdgeM,
+      grid: entry.grid, chests: entry.objects, spawnOpts });
+    entry.zoneDress = dressing;
+    entry.objects.push(...dressing.objects);
+    entry.wildplants.push(...dressing.wildplants);
+    entry.traps.push(...(dressing.traps || []));
+    entry.streetLairs.push(...(dressing.lairs || []));
+    const slow = entry.slowCells || new Map();
+    for (const [i, kind] of (dressing.slowCells || [])) slow.set(i, kind);
+    entry.slowCells = slow.size ? slow : null;
+    for (const guard of (dressing.guards || [])) {
+      entry.creatures.push(WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id, {
+        ...guard, shiny: false, immobile: true, lair: guard.lair || guard.id,
+        lairX: guard.homeX ?? guard.x, lairY: guard.homeY ?? guard.y,
+        lairR: 0, seatX: guard.x, seatY: guard.y,
+      }));
+    }
+  }
+
+  function buildStreetIndex(entry, originIX, originIY, c, transport) {
+    const lines = [];
+    for (let fi = 0; fi < transport.routes.length; fi++) {
+      const route = transport.routes[fi];
+      if (route.type !== T.ROAD && route.type !== T.ROAD_MD && route.type !== T.ROAD_LG) continue;
+      const f = transport.features[fi], line = f.geom[0];
+      let key = StreetVariants.streetKey(route.name, c.tx, c.ty);
+      if (route.bandit) {
+        const p = line[Math.floor(line.length / 2)], st = StreetVariants.stretchOf(c.tx * SANDBOX_EXTENT + p.x, c.ty * SANDBOX_EXTENT + p.y);
+        let n = 0;
+        do { key = `sandbox-old-trade-${n++}`; } while (!StreetVariants.isBanditStretch(key, st.sx, st.sy));
+      }
+      lines.push({ fi, li: 0, line, tags: f.tags, name: route.name, key,
+        variant: route.variant, selectedVariant: route.variant,
+        size: (route.type === T.ROAD_MD || route.type === T.ROAD_LG) ? 'major' : 'minor',
+        halfW: WorldGen.roadOverlayWidthM(f.tags) / 2,
+        lineKey: Streets.lineKey(f, 0), variantRanges: null });
+    }
+    const cafe = entry.objects.find((o) => o.cafeAnchor), at = cafe && itemCell(cafe, c);
+    const hoardPois = at ? [{ x: Math.round((at.ix + 0.5) * SANDBOX_EXTENT / c.cellsPerEdge),
+      y: Math.round((at.iy + 0.5) * SANDBOX_EXTENT / c.cellsPerEdge),
+      gk: `${c.tx * SANDBOX_EXTENT + at.ix},${c.ty * SANDBOX_EXTENT + at.iy}` }] : [];
+    return { extent: SANDBOX_EXTENT, lines, dressingLines: lines, hoardPois };
+  }
+
+  function layStreetDressing(entry, c, dressing) {
+    entry.streetDress = dressing;
+    entry.objects.push(...dressing.objects);
+    entry.wildplants.push(...dressing.wildplants);
+    entry.extraTreasures.push(...dressing.treasures);
+    entry.coinDrops.push(...dressing.coins);
+    entry.streetLairs.push(...dressing.lairs);
+    // Snare-lane iron teeth: the real spawn pass lays dressing.traps into
+    // entry.traps (scene_creatures.js); seat them here too, skipping cells
+    // the earlier phases already claimed.
+    const taken = occupiedCells(c);
+    for (const trap of (dressing.traps || [])) {
+      const at = itemCell(trap, c);
+      if (!taken.has(at.i)) entry.traps.push(trap);
+    }
+    const slow = entry.slowCells || new Map();
+    for (const [i, kind] of dressing.slowCells) slow.set(i, kind);
+    entry.slowCells = slow.size ? slow : null;
+    entry.streetMarks = dressing.marks;
+  }
+
+  function finalizeSandbox(originIX, originIY, entry, c) {
+    const transport = buildTransport(originIX, originIY, c);
+    entry.layers = transport.layers;
+    entry._sandboxRoutes = ROUTES;
+    const spawnOpts = buildRoadFields(entry, originIX, originIY, c);
+    spawnOpts.occupied = occupiedCells(c);
+    spawnOpts.pois = entry.objects.filter((o) => o.kind === 'chest' || o.kind === 'grove_shrine')
+      .map((o) => itemCell(o, c));
+    entry._spawnOpts = spawnOpts;
+
+    // Landmarks and zones claim their space before road themes; ordinary flora
+    // runs last and respects both full-area reservations.
+    buildScenic(entry, originIX, originIY, c, transport, spawnOpts);
+    spawnOpts.occupied = occupiedCells(c);
+    buildZones(entry, originIX, originIY, c, spawnOpts);
+    spawnOpts.occupied = occupiedCells(c);
+
+    const index = buildStreetIndex(entry, originIX, originIY, c, transport);
+    entry.streetIndex = index;
+    driveSteps(StreetVariants.stampBanditStretchesSteps(index, entry.roadClass, c.cellsPerEdge, c.tx, c.ty));
+    const dressing = StreetVariants.dress({ index, tx: c.tx, ty: c.ty, N: c.cellsPerEdge,
+      tileEdgeM: c.tileEdgeM, grid: entry.grid, spawnOpts });
+    // Zone layouts own their whole footprint, including empty pattern cells.
+    // Use worldgen's clearing pass before laying road records, so the sandbox
+    // demonstrates the same zone-over-street precedence as a fetched tile.
+    driveSteps(WorldGen.clearZoneAmbientSteps({ field: entry.zone, objects: [], wildplants: [],
+      occupied: spawnOpts.occupied, streetDress: dressing, scenicDress: null,
+      tx: c.tx, ty: c.ty, N: c.cellsPerEdge, tileEdgeM: c.tileEdgeM }));
+    layStreetDressing(entry, c, dressing);
+    entry.streetArea = StreetVariants.area(index, c.cellsPerEdge);
+
+    const wagon = entry.objects.find((o) => o.wagonCandidate);
+    if (wagon) {
+      const base = wagon.id; let n = 0;
+      do { wagon.id = `${base}_${n++}`; } while (!StreetVariants.isWagonStop(wagon.id));
+    }
+    StreetVariants.markBanditStops(entry.objects, entry.roadClass, c.cellsPerEdge, c.tx, c.ty, c.tileEdgeM);
+
+    spawnOpts.occupied = occupiedCells(c);
+    // The shipping density cap (TRAP_GROUND_SHARE_PER_MUL × pool size) governs
+    // the count: this much authored ground honestly yields ~1 trap, exactly as
+    // a real tile of the same size would. No fallback seat — the coverage test
+    // re-runs the placer and pins that it, not a hand row, furnished the traps.
+    entry.traps.push(...Traps.spawnSurface(entry.grid, entry.roadClass, c.cellsPerEdge, c.cellsPerEdge,
+      c.tx, c.ty, c.tileEdgeM, spawnOpts, 1, entry.zone && entry.zone.under));
+
+    // A lair point is an attractor: the real spawn pass keeps a street lair
+    // only where attractor ground lies within LAIR_POINT_SLACK_CELLS of its
+    // point (scene_creatures.js). The same filter here means sandbox guards
+    // never wake on ground the pipeline would refuse.
+    if (entry.streetLairs.length) {
+      const lairOpts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
+        roadClass: entry.roadClass, quiet: entry.quietMask };
+      entry.streetLairs = entry.streetLairs.filter((L) => {
+        const ix = Math.floor(L.lx / c.cellM), iy = Math.floor(L.ly / c.cellM);
+        return !!WorldGen.relocateToSpawnCell(entry.grid, c.cellsPerEdge, c.cellsPerEdge,
+          ix, iy, lairOpts, LAIR_POINT_SLACK_CELLS, 'attractor');
+      });
+    }
+
+    c.zone = entry.zone; c.streetArea = entry.streetArea;
     scatterSandboxFlora(originIX, originIY, c);
+  }
+
+  function buildForTest(options) {
+    const opts = options || {}, cellsPerEdge = opts.cellsPerEdge || Math.max(128, LAYOUT.height + 4, LAYOUT.width + 4);
+    const tileEdgeM = opts.tileEdgeM || cellsPerEdge * WorldGen.CELL_M;
+    const tx = opts.tx || 0, ty = opts.ty || 0, cellM = tileEdgeM / cellsPerEdge;
+    const originIX = Math.floor((cellsPerEdge - LAYOUT.width) / 2);
+    const originIY = Math.floor((cellsPerEdge - LAYOUT.height) / 2);
+    const entry = makeTileEntry({ tx, ty, cellsPerEdge, tileEdgeM, cellM,
+      populate: populateSandbox.bind(null, originIX, originIY),
+      finalize: finalizeSandbox.bind(null, originIX, originIY) });
+    return { entry, originIX, originIY, tx, ty, cellM };
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -686,6 +1072,7 @@
           populate: isCentre
             ? populateSandbox.bind(null, gridOriginIX, gridOriginIY)
             : () => { /* grass everywhere, no items */ },
+          finalize: isCentre ? finalizeSandbox.bind(null, gridOriginIX, gridOriginIY) : null,
         });
         WorldGen.tileCache.set(key, entry);
       }
@@ -756,6 +1143,21 @@
     if (typeof scene.persistSave === 'function') scene.persistSave();
   }
 
+  function seedCoverageState(save, entry, originIX, originIY, tx, ty, cellM) {
+    const plaza = sceneByName('PLAZA');
+    const ix = originIX + plaza.lx + 1, iy = originIY + plaza.ly + 6;
+    save.fires = [{ x: tx * entry.tileEdgeM + (ix + 0.5) * cellM,
+      y: ty * entry.tileEdgeM + (iy + 0.5) * cellM, depth: 0 }];
+    save.streets = {};
+    save.streetsEpoch = 0;
+    const lantern = entry.streetIndex?.lines?.find((r) => r.variant === 'lantern');
+    if (lantern) {
+      const length = Streets.lineLengthM(lantern.line, entry.tileEdgeM / SANDBOX_EXTENT);
+      Streets.restore(save, WorldGen.tileKey(tx, ty), lantern.lineKey, [[0, length / 2]]);
+    }
+    return { fire: save.fires[0], lantern };
+  }
+
   // Drop runtime-state interactables into the scenes. All live in save.* arrays
   // / scene-side Sets, so we mutate the scene directly. Clobber-and-rebuild for
   // a predictable baseline across reloads.
@@ -787,6 +1189,8 @@
       const c = tileCellToAbs(scene, centreTX, centreTY, cellIX, cellIY);
       return cellKeyFromAbsCell(c.cellIX, c.cellIY);
     };
+    if (centreEntry) seedCoverageState(save, centreEntry, originIX, originIY,
+      centreTX, centreTY, cellM);
 
     // ── Restore every house in the sandbox tile. Tier-9 houses render as a
     //    generic "wreck" until restored — so without this, the blacksmith /
@@ -812,7 +1216,6 @@
       const { cellIX, cellIY } = sceneCell('PLAZA', 0, 3);
       const { x, y } = cellCenter(cellIX, cellIY);
       scene._makeStarterTrailer(x, y);
-      save.starterShopId = save.starterTrailer.id;
       scene._starterShopOk = true;
     }
 
@@ -880,7 +1283,7 @@
     //    real game these expire after COIN_BURST_LIFE_MS; here we omit expiresAt so they
     //    persist across reloads. They live in entry.coinDrops, not objects[].
     if (centreEntry) {
-      centreEntry.coinDrops = [];
+      centreEntry.coinDrops = (centreEntry.coinDrops || []).filter((c) => c._street === 'golden');
       const coin = (dx, dy) => {
         const { cellIX, cellIY } = sceneCell('PLAZA', dx, dy);
         const { x, y } = cellCenter(cellIX, cellIY);
@@ -1000,4 +1403,8 @@
   }
 
   global.Sandbox = { detect, install };
+  // Pure hooks keep coverage tests on the same builder the browser installs.
+  global.Sandbox.buildForTest = buildForTest;
+  global.Sandbox.seedCoverageState = seedCoverageState;
+  global.Sandbox.layoutForTest = LAYOUT;
 })(window);
