@@ -53,7 +53,8 @@ test('turret: the arrow is the bow arrow, aimed at the nearest foe in range', ()
   assert.eq(Combat.shotSource(shot), 'turret', 'read back as the turret\'s');
   assert.falsy(Combat.isPlayerKill(Combat.shotSource(shot)), 'and a turret kill is not the player\'s');
   assert.eq(shot.speedMps, Combat.SHOT.bow.speedCps * CELL, 'the bow\'s speed');
-  assert.eq(shot.rangeM, Combat.SHOT.bow.rangeCells * CELL, 'the bow\'s range');
+  assert.eq(Combat.TURRET.rangeCells, 3, 'a turret guards three cells');
+  assert.eq(shot.rangeM, Combat.TURRET.rangeCells * CELL, 'the arrow flies the turret\'s range');
   assert.falsy(shot.pierce, 'an arrow stops in the first foe and in solid ground');
   assert.eq(shot.damage, Combat.turretShotDamage(), 'Wood bow damage');
   assert.truthy(shot.vx === 0 && shot.vy === -1, 'lined up on the NEAR foe, not the far one');
@@ -69,8 +70,8 @@ test('turret: the arrow is the bow arrow, aimed at the nearest foe in range', ()
 });
 
 test('turret: holds fire with nothing in range, and with nothing at all', () => {
-  const beyond = goblin('b', (Combat.SHOT.bow.rangeCells + 1) * CELL, 0);
-  assert.eq(Combat.turretShot(0, 0, [beyond], CELL), null, 'beyond the bow\'s range: no arrow');
+  const beyond = goblin('b', (Combat.TURRET.rangeCells + 0.5) * CELL, 0);
+  assert.eq(Combat.turretShot(0, 0, [beyond], CELL), null, 'beyond the turret\'s range: no arrow');
   assert.eq(Combat.turretShot(0, 0, [], CELL), null, 'nothing on screen: no arrow');
   assert.eq(Combat.turretShot(5, 5, [goblin('on', 5, 5)], CELL), null,
     'a foe standing on the turret gives no heading');
@@ -164,4 +165,15 @@ test('turret: app.js fires the turrets from _combatTick with the SAME enemy list
   assert.truthy(/const TURRET_ARROW_LIFT_PX = 42 - CELL_PX \/ 2 - 4;/.test(app), 'the start lift is derived from the 42px tower art');
   assert.truthy(/if \(s\.liftFromPx != null\)/.test(app), '_drawShots honours the turret lift');
 });
+test('ranged weapons: wake only for a foe within the reach plus a cell', () => {
+  const reach = 2.5, trig = Combat.rangedTriggerM(reach, CELL);
+  assert.eq(Combat.RANGED_TRIGGER_PAST_REACH, 1);
+  assert.eq(trig, (reach + 1) * CELL);
+  assert.eq(Combat.SHOT.staff.rangeFromReach, Combat.RANGED_TRIGGER_PAST_REACH, 'the staff\'s range is the same ring');
+  assert.truthy(Combat.anyEnemyWithin(0, 0, [goblin('in', trig - 1, 0)], trig), 'inside: armed');
+  assert.falsy(Combat.anyEnemyWithin(0, 0, [goblin('out', trig + 1, 0)], trig), 'on screen but beyond: silent');
+  assert.truthy(/const rangedArmed = Combat\.anyEnemyWithin\(px, py, enemies, Combat\.rangedTriggerM\(reachCells\(this\), this\.cellM\)\);\s*\n\s*if \(rangedArmed\)/.test(APP_JS_SRC),
+    'the auto-fire loop is gated on it');
+});
+
 })();

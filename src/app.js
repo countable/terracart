@@ -4675,7 +4675,10 @@ class MapScene extends Phaser.Scene {
     // 0 → 1 over its beat, read off the same clock that fires it. Null (no
     // orb) while nothing is on screen to shoot at or the staff isn't in hand.
     this._staffCharge = null;
-    if (enemies.length) {
+    // …and only while one stands within the reach plus a cell
+    // (Combat.rangedTriggerM): a foe further off on screen draws no fire.
+    const rangedArmed = Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
+    if (rangedArmed) {
       for (const slot of Combat.RANGED_SLOTS) {
         if (!relics[slot] || this.save.activeWeapon !== slot) continue;
         const due = this._nextShotT[slot];

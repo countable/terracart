@@ -764,6 +764,22 @@
   // scene to ask (and is the value at the starting reach, 2.5 + 1, so the two
   // agree where a new save begins). The BOW keeps a flat range: it is the
   // weapon you buy to hit what you cannot punch, and it does not aim itself.
+  // RANGED WEAPONS WAKE ONLY FOR A CLOSE FOE (owner's call, Sep 2026): the
+  // bow and the staff fire only while a hostile stands within the player's
+  // reach plus this many cells — the same "one past the ring" the staff's
+  // range is built from. A foe further off on screen no longer draws fire.
+  const RANGED_TRIGGER_PAST_REACH = 1;
+  function rangedTriggerM(reachCells, cellM) {
+    return ((reachCells ?? 2.5) + RANGED_TRIGGER_PAST_REACH) * cellM;
+  }
+  function anyEnemyWithin(x, y, enemies, maxM) {
+    const m2 = maxM * maxM;
+    for (const e of enemies || []) {
+      const dx = e.x - x, dy = e.y - y;
+      if (dx * dx + dy * dy <= m2) return true;
+    }
+    return false;
+  }
   const SHOT = {
     // `ammo`: the bow burns one WOOD per `shots` arrows, and will not fire
     // with none in the bag (app.js _combatTick). Energy is the staff's price;
@@ -771,7 +787,7 @@
     bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2,
              aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS,
              ammo: { id: 'wood', shots: 20 } },
-    staff: { speedCps: 1.0, rangeCells: 3.5, rangeFromReach: 1,
+    staff: { speedCps: 1.0, rangeCells: 3.5, rangeFromReach: RANGED_TRIGGER_PAST_REACH,
              color: 0x9ad6ff, dotPx: 3,
              pierce: true, energyCost: 1, aim: 'nearest',
              growsWithTier: true,
@@ -920,7 +936,8 @@
   // `reachCells` is the caster's live reach, for the slots whose range is
   // derived from it (rangeCellsFor) — the same value shotHeading was handed,
   // so the bolt flies exactly as far as the check that loosed it.
-  function spawnShot(slot, x, y, dir, cellM, dmg, tier, reachCells) {
+  // `rangeCellsOverride` flies the shot a range of its own (the turret's).
+  function spawnShot(slot, x, y, dir, cellM, dmg, tier, reachCells, rangeCellsOverride) {
     const mag = Math.hypot(dir?.x || 0, dir?.y || 0);
     if (!(mag > 0)) return null;
     const spec = SHOT[slot];
@@ -928,7 +945,7 @@
       slot, x, y,
       vx: dir.x / mag, vy: dir.y / mag,
       speedMps: spec.speedCps * cellM,
-      rangeM: rangeCellsFor(slot, reachCells) * cellM,
+      rangeM: (rangeCellsOverride ?? rangeCellsFor(slot, reachCells)) * cellM,
       travelledM: 0,
       damage: dmg,
       pierce: !!spec.pierce,
@@ -1037,7 +1054,9 @@
   // ── Castle turrets ───────────────────────────────────────────────────────
   // A castle's turrets (worldgen's `tower` objects, one per ~5 rim cells) are
   // archers. While an enemy is on screen, every turret ALSO on screen looses a
-  // WOOD-TIER BOW ARROW at the nearest foe inside the bow's range — at ONE
+  // WOOD-TIER BOW ARROW at the nearest foe inside TURRET.rangeCells (3 cells,
+  // owner's call Sep 2026 — the walls guard their own ground, not the street
+  // beyond; the arrow flies that far and no further) — at ONE
   // FIFTH the player's cadence, so a rim of six covers the approach without
   // fighting the fight for you. Nothing here is tuned: the arrow IS the
   // player's bow arrow (SHOT.bow — same speed, range, streak, and it stops in
@@ -1054,6 +1073,7 @@
   const TURRET = {
     slot: 'bow',
     tier: 1,                                              // Wood
+    rangeCells: 3,
     // The turret shoots the player's BOW arrow, so it paces off the bow's own
     // beat — never the bare base — times TURRET_RATE_DIV.
     fireIntervalMs: fireIntervalMs('bow') * TURRET_RATE_DIV,   // 10 s a turret
@@ -1075,9 +1095,9 @@
   // none. `aimDistM` is stamped on for the draw — the arrow leaves the
   // battlements and comes down to chest height over that distance.
   function turretShot(x, y, enemies, cellM) {
-    const heading = aimAtNearest(x, y, enemies, SHOT[TURRET.slot].rangeCells * cellM);
+    const heading = aimAtNearest(x, y, enemies, TURRET.rangeCells * cellM);
     if (!heading) return null;
-    const shot = spawnShot(TURRET.slot, x, y, heading, cellM, turretShotDamage(), TURRET.tier);
+    const shot = spawnShot(TURRET.slot, x, y, heading, cellM, turretShotDamage(), TURRET.tier, null, TURRET.rangeCells);
     if (!shot) return null;
     shot.source = 'turret';   // not the player's: see isPlayerKill
     shot.aimDistM = Math.hypot(heading.x, heading.y);
@@ -1183,7 +1203,7 @@
     theftKind, theftAmount, theftDay, theftSated, incomingTheft, bankTheft,
     MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
-    RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,
+    RANGED_SLOTS, RANGED_TRIGGER_PAST_REACH, rangedTriggerM, anyEnemyWithin, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,
     OFF_GPS_ATTACK_MUL, OFF_GPS_MIN_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, BOLT_MIN_GLOW, boltGlow, shotRadiusM, shotDotPx,
     aimAtNearest, shotHeading, spawnShot, stepShots, lineOfFire, healthColor,
