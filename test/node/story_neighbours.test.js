@@ -24,11 +24,11 @@
 
   test('story neighbours: four placed people round the trailer, the warden on its old cell, the rest spread', () => {
     const entry = starterEntry(), anchor = { x: 20.5 * CELL_M, y: 20.5 * CELL_M };
-    const s = { tileEdgeM: EDGE_M, save: { starterCratesAt: anchor }, _starterTrailAnchor: () => anchor };
+    const s = { tileEdgeM: EDGE_M, save: { starterCratesAt: anchor, discovered: { a: 1, b: 1, c: 1, d: 1, e: 1, f: 1, g: 1, h: 1, i: 1 } }, _starterTrailAnchor: () => anchor };
     Starter.placeSafeAreaWarden(s, entry, 0, 0);
-    assert.eq(JSON.stringify(NPC.STORY_NEIGHBOURS), JSON.stringify(['warden', 'witness', 'wanderer', 'believer']), 'the warden is seated first');
+    assert.eq(JSON.stringify(NPC.STORY_NEIGHBOURS), JSON.stringify(['warden', 'wanderer', 'witness', 'believer']), 'the warden is seated first');
     const placed = NPC.STORY_NEIGHBOURS.map(role => entry.creatures.find(c => c.id === `npc_${role}_0_0`));
-    assert.truthy(placed.every(Boolean), 'all four are seated');
+    assert.truthy(placed.every(Boolean), 'all four are seated once nine memories are in');
     assert.eq(JSON.stringify(cellOf(placed[0])), JSON.stringify({ cx: 17, cy: 17 }), 'the warden keeps the first legal ring-3 cell it always had');
     for (const c of placed) {
       assert.inRange(cheb(cellOf(c), { cx: 20, cy: 20 }), 3, 8, `${c.role} stands a few cells from the trailer`);
@@ -48,6 +48,42 @@
     older.creatures = older.creatures.filter(c => c.role === 'warden');
     Starter.placeSafeAreaWarden(s, older, 0, 0);
     assert.eq(JSON.stringify(older.creatures.map(c => [c.id, c.x, c.y])), JSON.stringify(entry.creatures.map(c => [c.id, c.x, c.y])), 'retro-placed on the same cells');
+  });
+
+  test('story neighbours: arrival is timed by the memory ledger — the survivor at three, the believer at nine', () => {
+    assert.eq(NPC.STORY_ROLES.warden.minMemories, 0); assert.eq(NPC.STORY_ROLES.wanderer.minMemories, 0);
+    assert.eq(NPC.STORY_ROLES.witness.minMemories, 3, 'the memory that first names the Warmonger');
+    assert.eq(NPC.STORY_ROLES.believer.minMemories, 9, 'the memory that starts the rumour of the wise man');
+    assert.truthy(MemoryStory.SCENES[3].body.includes('Warmonger') && /wise man/.test(MemoryStory.RUMOUR));
+    const anchor = { x: 20.5 * CELL_M, y: 20.5 * CELL_M };
+    const save = { starterCratesAt: anchor, discovered: {} };
+    const s = { tileEdgeM: EDGE_M, save, _starterTrailAnchor: () => anchor };
+    const entry = starterEntry();
+    const roles = () => NPC.STORY_NEIGHBOURS.filter(r => entry.creatures.some(c => c.id === `npc_${r}_0_0`)).join(',');
+    Starter.placeSafeAreaWarden(s, entry, 0, 0);
+    assert.eq(roles(), 'warden,wanderer', 'the first morning: the warden and the child');
+    for (let i = 0; i < 2; i++) save.discovered[`m${i}`] = 1;
+    Starter.placeSafeAreaWarden(s, entry, 0, 0);
+    assert.eq(roles(), 'warden,wanderer', 'two memories: nobody new');
+    save.discovered.m2 = 1;
+    // The runtime path: _bankDiscovery seats through the scene's starter-tile lookup.
+    s._starterTileEntry = () => ({ entry, tx: 0, ty: 0 });
+    Starter.seatStoryNeighbours(s);
+    assert.eq(roles(), 'warden,wanderer,witness', 'the third memory brings the survivor');
+    for (let i = 3; i < 8; i++) save.discovered[`m${i}`] = 1;
+    Starter.seatStoryNeighbours(s);
+    assert.eq(roles(), 'warden,wanderer,witness', 'eight memories: still no believer');
+    save.discovered.m8 = 1;
+    Starter.seatStoryNeighbours(s);
+    assert.eq(roles(), 'warden,wanderer,witness,believer', 'the ninth memory brings the believer');
+    // Arriving late seats them exactly where arriving together would have.
+    const together = starterEntry();
+    Starter.placeSafeAreaWarden(s, together, 0, 0);
+    assert.eq(JSON.stringify(entry.creatures.map(c => [c.id, c.x, c.y])), JSON.stringify(together.creatures.map(c => [c.id, c.x, c.y])));
+    s._starterTileEntry = () => null;
+    Starter.seatStoryNeighbours(s);   // underground or before the tile is up: a no-op
+    assert.truthy(/MemoryStory\.enqueue\(this\.save, this\.memoriesTotal\(\), label\);\n\s*this\._seatStoryNeighbours\(\);/.test(SCENE_SRC), 'the one memory writer seats the arrival');
+    assert.truthy(/_seatStoryNeighbours\(\) \{ return Starter\.seatStoryNeighbours\(this\); \}/.test(SCENE_SRC), 'through the scene wrapper');
   });
 
   test('story neighbours: the survivor tells of the Warmonger, one act at a time, never the secret', () => {

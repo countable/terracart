@@ -1924,8 +1924,14 @@
   // same cells. The warden is seated first so its cell never moved when the
   // other three arrived; the rest keep NEIGHBOUR_GAP_CELLS from every story
   // neighbour already seated, so they spread round the trailer rather than
-  // queue along one ring. Idempotent per id; only a tile that has already
-  // spawned. Four people on one tile: nothing the sim or the draw notices.
+  // queue along one ring. ARRIVAL IS TIMED BY MEMORY: a role is seated only
+  // once the lifetime memory count has reached its row's minMemories
+  // (NPC.storyNeighbourDue), so this runs at every build of the starter tile
+  // AND each time a memory is banked (seatStoryNeighbours, off app.js
+  // _bankDiscovery) — a neighbour whose turn has come walks in on the same
+  // fixed scan, on the cell it would always have had. Idempotent per id;
+  // only a tile that has already spawned. Four people on one tile: nothing
+  // the sim or the draw notices.
   const WARDEN_MIN_CELLS = 3;
   const WARDEN_MAX_CELLS = 6;
   const NEIGHBOUR_MAX_CELLS = 8;
@@ -1947,6 +1953,7 @@
     for (const c of entry.creatures) occupied.add(key(c.x, c.y));
     const opts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
     const roles = NPC.STORY_NEIGHBOURS || ['warden'];
+    const memories = typeof MemoryStory !== 'undefined' ? MemoryStory.total(scene.save) : Object.keys(scene.save.discovered || {}).length;
     const seated = [];   // story neighbours' cells, present already or seated now
     for (const role of roles) {
       const c = entry.creatures.find(o => o.id === `npc_${role}_${tx}_${ty}`);
@@ -1955,6 +1962,7 @@
     for (const role of roles) {
       const id = `npc_${role}_${tx}_${ty}`;
       if (entry.creatures.some(c => c.id === id)) continue;
+      if (NPC.storyNeighbourDue && !NPC.storyNeighbourDue(role, memories)) continue;   // not yet their turn
       const maxR = role === 'warden' ? WARDEN_MAX_CELLS : NEIGHBOUR_MAX_CELLS;
       let seat = null;
       for (let r = WARDEN_MIN_CELLS; r <= maxR && !seat; r++) {
@@ -1978,6 +1986,13 @@
       seated.push(seat);
       if (role === 'warden' && typeof MemoryStory !== 'undefined') MemoryStory.enqueueHome(scene, neighbour);
     }
+  }
+
+  // A memory has just been banked: seat whichever story neighbour that
+  // memory brings (placeSafeAreaWarden's gate), if the starter tile is up.
+  function seatStoryNeighbours(scene) {
+    const home = scene._starterTileEntry?.();
+    if (home) placeSafeAreaWarden(scene, home.entry, home.tx, home.ty);
   }
 
   // Hard mode has no supply handout: drop the starter crates (the `crate: true`
@@ -2009,6 +2024,7 @@
     provisionStarterHome,
     placeHomeGreeter,
     placeSafeAreaWarden,
+    seatStoryNeighbours,
     stripStarterCrates,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

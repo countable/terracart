@@ -246,14 +246,25 @@ const NPC = (() => {
   // `artScale` is the row's INSTANCE size (SpriteLayout.creatureInstScale —
   // the sprite, its shadow, the tap box and the bar seats all read it): the
   // wanderer is a child, drawn at CHILD_SCALE of a grown neighbour.
+  // `minMemories` TIMES THE ARRIVAL by the lifetime memory ledger
+  // (MemoryStory.total — the same count that gates the acts): a neighbour
+  // stands by the trailer only once the player's own memories have reached
+  // its thread of the story. The warden and the child are there from the
+  // first morning (the family at the gate); the survivor arrives with the
+  // third memory, where the Warmonger is first named (MemoryStory.SCENES 3);
+  // the believer with the ninth, where the rumour of the wise man begins
+  // (SCENES 9, RUMOUR). Starter.placeSafeAreaWarden reads it at every tile
+  // build and again each time a memory is banked (seatStoryNeighbours).
   const CHILD_SCALE = 0.7;
   const STORY_ROLES = {
-    warden: { label: 'Warden' },
-    witness: { label: 'Survivor' },
-    wanderer: { label: 'Wanderer', artScale: CHILD_SCALE },
-    believer: { label: 'Believer' },
+    warden: { label: 'Warden', minMemories: 0 },
+    wanderer: { label: 'Wanderer', artScale: CHILD_SCALE, minMemories: 0 },
+    witness: { label: 'Survivor', minMemories: 3 },
+    believer: { label: 'Believer', minMemories: 9 },
   };
   const STORY_NEIGHBOURS = Object.keys(STORY_ROLES);
+  // Has this player's memory ledger reached the role's arrival?
+  function storyNeighbourDue(role, memories) { return memories >= (STORY_ROLES[role]?.minMemories || 0); }
   function storyNeighbour(id, role) {
     const row = STORY_ROLES[role];
     return { ...identity(id, 'village'), role, roleLabel: row?.label || 'Neighbour', ...(row?.artScale ? { artScale: row.artScale } : {}) };
@@ -402,5 +413,5 @@ const NPC = (() => {
     if (c.role === 'trader') scene.presentTraderOffer(sx, sy, c, record);
     else scene.presentThemedShop(sx, sy, c, record);
   }
-  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, PROFILES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, KEEPER_DEFAULT, nearestWreck, identity, zoneFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
+  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, PROFILES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbourDue, storyNeighbour, warden, KEEPER_DEFAULT, nearestWreck, identity, zoneFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, offerArt, interact };
 })();
