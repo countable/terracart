@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mending Lane · Map art audit</title>
+  <style>
+    :root{color-scheme:dark;--page:#141b18;--panel:#1d2721;--panel2:#263229;--line:#3a4738;--text:#eee8d7;--muted:#b7b9a6;--soft:#899782;--accent:#c6d18b;--gold:#e4bb73;--radius:15px}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--page);color:var(--text);font:15px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input,select{font:inherit}button,a,input,select,summary{touch-action:manipulation}button,select{cursor:pointer}button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--gold);outline-offset:4px}a{color:var(--accent)}button{color:inherit}h1,h2,h3,p{margin:0}button,input,select{border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--text)}button{padding:8px 12px}button:hover{border-color:var(--accent)}input,select{padding:10px 12px;min-width:0;width:100%}input::placeholder{color:var(--soft)}label{display:block;font-size:12px;font-weight:650;color:var(--muted)}label input,label select{display:block;margin-top:5px;font-size:14px;font-weight:400}.shell{max-width:1600px;margin:auto;padding:0 32px}.masthead{padding:42px 0 28px;border-bottom:1px solid var(--line);background:radial-gradient(ellipse at top right,#39433255,transparent 62%)}.eyebrow{text-transform:uppercase;letter-spacing:.15em;font-size:11px;font-weight:750;color:var(--accent);margin-bottom:10px}.topline{display:flex;align-items:center;justify-content:space-between;gap:20px}.topline a{font-size:12px;color:var(--muted);text-decoration:none}.topline a:hover{text-decoration:underline}h1{font-size:clamp(30px,4vw,48px);line-height:1.12;letter-spacing:-.045em;font-weight:650;margin:12px 0}.intro{font-size:16px;max-width:850px;color:var(--muted);line-height:1.7}.intro strong{color:var(--text);font-weight:600}.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}.badge{font-size:11px;border:1px solid var(--line);border-radius:100px;padding:4px 10px;color:var(--muted);background:#17201b}.badge.applied{color:var(--accent);border-color:#5a6e44}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:24px 0 0}.metric{border:1px solid var(--line);border-radius:11px;padding:15px 18px;background:#18211bcc}.metric .value{font-size:26px;font-weight:650;letter-spacing:-.03em;line-height:1.3}.metric .label{font-size:12px;color:var(--muted)}.scope{font-size:12px;color:var(--soft);margin-top:15px;max-width:1100px}.controls-wrap{position:sticky;top:0;z-index:5;background:#141b18f5;backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}.controls{display:grid;grid-template-columns:minmax(200px,2fr) repeat(3,minmax(140px,1fr));gap:12px;padding-top:18px}.control-bottom{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:12px 0 15px}.options{display:flex;align-items:center;gap:18px;flex-wrap:wrap}.check-label{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:400;cursor:pointer}.check-label input{margin:0;width:16px;height:16px;accent-color:var(--accent)}.background-options{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.bg-choice{width:23px;height:23px;padding:0;border-radius:50%;border:2px solid transparent;box-shadow:0 0 0 1px var(--line)}.bg-choice[aria-pressed=true]{border-color:var(--text)}.results-count{font-size:12px;color:var(--muted)}.clear-filters{padding:3px 0;background:none;border:0;border-radius:0;text-decoration:underline;font-size:12px;color:var(--accent)}.main-head{display:flex;justify-content:space-between;gap:18px;align-items:baseline;padding:28px 0 17px}.main-head h2{font-size:18px;font-weight:600}.main-head p{font-size:12px;color:var(--muted)}.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;align-items:start;padding-bottom:36px}.card{border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);overflow:hidden;min-width:0;scroll-margin-top:190px}.card-header{padding:18px 18px 12px}.card-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}.category{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}.priority{font-size:10px;border-radius:4px;padding:2px 6px;white-space:nowrap;color:var(--muted);background:#334032}.priority.high{background:#64543166;color:var(--gold)}.card h3{font-size:19px;line-height:1.25;letter-spacing:-.02em;font-weight:650}.card h3 a{text-decoration:none;color:inherit}.card h3 a:hover{color:var(--accent)}.prevalence{font-size:11px;color:var(--soft);margin-top:7px}.action-line{display:flex;gap:8px;align-items:center;margin-top:12px}.action{display:inline-block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;font-weight:750;padding:3px 7px;border-radius:5px;background:#415536;color:#d0e1ad}.action.swap{background:#61502f;color:#efd29c}.action.keep{background:#34493f;color:#b4d6c4}.action.simplify{background:#4d455d;color:#d8cbe9}.action-note{font-size:10px;color:var(--soft)}.comparison{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}.art-column{background:var(--panel);min-width:0}.art-title{padding:10px 12px 5px;font-size:10px;font-weight:750;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}.art-title.proposal{color:var(--accent)}.art-gallery{display:flex;align-items:flex-start;justify-content:center;flex-wrap:wrap;gap:8px;padding:8px 8px 12px;min-height:144px;background:var(--art-bg,#596338)}figure{margin:0;text-align:center;min-width:0;flex:1 1 55px;max-width:100%}.art-frame{height:98px;display:flex;align-items:center;justify-content:center;overflow:hidden}.art-frame img,.art-frame canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;max-width:100%;max-height:94px;object-fit:contain;width:auto;height:auto;filter:drop-shadow(0 2px 1px #0003)}.art-frame img.small{height:64px;max-width:100%;width:auto}.art-frame canvas{height:94px}.art-frame img.large{max-width:100%;max-height:94px}.art-gallery figcaption{font-size:10px;line-height:1.3;color:#f1f0df;text-shadow:0 1px 2px #000;overflow-wrap:anywhere;margin-top:6px}.placeholder{font-size:11px;color:#eef0d8;align-self:center;text-align:center;padding:20px 8px}.card-copy{padding:15px 18px 0}.assessment{font-size:12px;color:var(--muted)}.recommendation{font-size:13px;color:var(--text);margin-top:10px}.palette-label{font-size:10px;color:var(--soft);text-transform:uppercase;letter-spacing:.07em;margin-top:14px}.palette{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0 15px}.swatch{width:21px;height:21px;border-radius:4px;border:1px solid #ffffff25;position:relative}.swatch:hover:after{content:attr(aria-label);position:absolute;bottom:27px;left:0;background:#101813;color:var(--text);padding:4px 7px;border:1px solid var(--line);font-size:10px;white-space:nowrap;border-radius:4px;z-index:2}.variant-section{margin:0 18px 16px;border:1px solid #6c7043;border-radius:10px;background:#353d2866;padding:12px}.variant-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#d8d89d;font-weight:750}.variant h4{font-size:13px;margin:8px 0 4px}.variant+.variant{border-top:1px solid #5a6141;margin-top:12px;padding-top:3px}.variant p{font-size:12px;color:var(--muted);margin-top:4px}.variant .usage{color:var(--text)}.variant .art-gallery{border-radius:7px;margin-top:9px;min-height:0;padding:9px}.variant .art-frame{height:66px}.variant .art-frame img,.variant .art-frame canvas{max-height:64px}.variant .palette{margin-bottom:0}.sources{border-top:1px solid var(--line);padding:10px 18px 13px;font-size:11px;color:var(--soft)}.sources summary{cursor:pointer;color:var(--muted);font-size:11px}.sources p{margin:10px 0 7px;overflow-wrap:anywhere}.sources ul{margin:8px 0;padding-left:17px}.sources li{margin:5px 0;overflow-wrap:anywhere}.sources code{font-size:10px;color:var(--muted)}.empty{grid-column:1/-1;text-align:center;padding:60px 20px;border:1px dashed var(--line);border-radius:var(--radius);color:var(--muted)}.empty h3{color:var(--text);margin-bottom:8px}footer{border-top:1px solid var(--line);padding:22px 0 36px;font-size:12px;color:var(--soft)}.footer-inner{display:flex;justify-content:space-between;gap:25px;flex-wrap:wrap}.footnote{max-width:880px}.live-only{display:none}.error{color:#f0c3aa}.skip{position:absolute;top:-100px;left:20px;z-index:20;background:var(--panel);padding:10px}.skip:focus{top:10px}
+    @media(min-width:1450px){.cards{grid-template-columns:repeat(4,minmax(0,1fr))}.art-frame{height:92px}.card h3{font-size:18px}}
+    @media(max-width:1100px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.shell{padding:0 24px}.controls{grid-template-columns:1.5fr 1fr 1fr}.sort-control{grid-column:3}.search-control{grid-row:1/3;align-self:center}.control-bottom{align-items:flex-start}.background-options{display:none}}
+    @media(max-width:650px){.shell{padding:0 16px}.masthead{padding-top:25px}.topline{align-items:flex-start}.topline a{max-width:130px;text-align:right}h1{font-size:34px}.intro{font-size:14px}.metrics{grid-template-columns:repeat(2,1fr);gap:8px;margin-top:20px}.metric{padding:10px 13px}.metric .value{font-size:23px}.controls-wrap{position:relative;backdrop-filter:none}.controls{grid-template-columns:1fr 1fr;gap:9px}.search-control{grid-column:1/-1;grid-row:auto}.sort-control{grid-column:auto}.options{gap:10px}.check-label{font-size:12px}.control-bottom{gap:10px;padding-bottom:13px}.cards{grid-template-columns:1fr;gap:15px}.main-head{padding-top:23px;display:block}.main-head p{margin-top:5px}.card{scroll-margin-top:18px}.art-frame{height:112px}.art-frame img,.art-frame canvas{max-height:106px}.card h3{font-size:21px}.scope{line-height:1.6}.card-copy .recommendation{font-size:14px}}
+    @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+  </style>
+</head>
+<body>
+<a class="skip" href="#audit-grid">Skip to art comparisons</a>
+<header class="masthead"><div class="shell">
+  <div class="topline"><div class="eyebrow">Mending Lane / Art direction</div><a href="../zone-variants/nature-art.html">Nature palette reference ↗</a></div>
+  <h1>Map art, by prevalence.</h1>
+  <p class="intro">An audit of the art players actually encounter on the map. <strong>Weathered nature and ruins share the rustic story palette;</strong> restored places and sacred landmarks can earn their colour. Review each current sprite beside its proposed direction.</p>
+  <div class="badges"><span class="badge applied">Approved default recolours applied</span><span class="badge">New recommendations are proposals</span><span class="badge">Zone variants only · no seasons</span></div>
+  <div class="metrics" aria-label="Audit coverage"><div class="metric"><div class="value" id="metric-total">—</div><div class="label">Active map-art families</div></div><div class="metric"><div class="value" id="metric-priority">—</div><div class="label">High-exposure priorities</div></div><div class="metric"><div class="value" id="metric-categories">—</div><div class="label">Art categories covered</div></div><div class="metric"><div class="value" id="metric-variants">—</div><div class="label">Families with proposed zone art</div></div></div>
+  <p class="scope">Scope: map interactables, scenery, ground, buildings, roads and their generated styles. Characters, enemies, unused definitions and inventory-only art are excluded. Prevalence ranks are estimates from placement rules unless a row supplies measured evidence; OSM input counts are not final map placements.</p>
+</div></header>
+<section class="controls-wrap" aria-label="Filter the audit"><div class="shell">
+  <div class="controls">
+    <label class="search-control">Find map art<input id="search" type="search" placeholder="Search name, material, zone or source…" autocomplete="off"></label>
+    <label>Category<select id="category"><option value="">All categories</option></select></label>
+    <label>Recommendation<select id="action"><option value="">All recommendations</option></select></label>
+    <label class="sort-control">Sort by<select id="sort"><option value="rank">Prevalence priority</option><option value="name">Name A–Z</option><option value="category">Category</option></select></label>
+  </div>
+  <div class="control-bottom"><div class="options"><label class="check-label"><input id="only-variants" type="checkbox">Proposed zone variants only</label><div class="background-options" aria-label="Sprite preview background">Backdrop <button class="bg-choice" data-bg="#596338" style="background:#596338" aria-label="Olive ground" aria-pressed="true"></button><button class="bg-choice" data-bg="#6c633f" style="background:#6c633f" aria-label="Dry ground" aria-pressed="false"></button><button class="bg-choice" data-bg="#403e34" style="background:#403e34" aria-label="Stone ground" aria-pressed="false"></button><button class="bg-choice" data-bg="#171717" style="background:#171717" aria-label="Charcoal" aria-pressed="false"></button></div></div><div><span class="results-count" id="results-count" aria-live="polite"></span> · <button class="clear-filters" id="clear">Reset filters</button></div></div>
+</div></section>
+<main class="shell"><div class="main-head"><h2>Map art comparisons</h2><p id="coverage-note">Existing state frames stay together. New zone art is reserved for roughly 10% of families.</p></div><div class="cards" id="audit-grid"></div></main>
+<footer><div class="shell footer-inner"><p class="footnote">“Keep” means the current art already serves the world. A candidate image shows an available source, not an installed change; palette chips describe the proposed target. Existing restoration, growth and spent states are distinct from newly proposed zone variants.</p><a href="#">Back to top ↑</a></div></footer>
+<script>window.MAP_ART_DATA = __DATA__;</script>
+<script>__PAINTERS__</script>
+<script>
+(() => {
+  'use strict';
+  const data = window.MAP_ART_DATA || {}, rows = data.rows || [];
+  const el = id => document.getElementById(id);
+  const text = value => typeof value === 'string' ? value : value == null ? '' : JSON.stringify(value);
+  const node = (tag,cls,content) => {const n=document.createElement(tag);if(cls)n.className=cls;if(content!=null)n.textContent=text(content);return n;};
+  const actions = {keep:'Keep',recolour:'Recolour',recolor:'Recolour',swap:'Art swap',simplify:'Simplify',applied:'Already applied',review:'Review'};
+  const actionName = value => actions[value] || text(value || 'Review').replaceAll('_',' ');
+  const rank = row => Number(row.rank ?? row.prevalenceRank ?? 3);
+  const rankName = value => value <= 1 ? 'High exposure' : value <= 2 ? 'Regular / impactful' : value <= 3 ? 'Local / uncommon' : 'Rare';
+  const sortText = (a,b) => text(a).localeCompare(text(b),undefined,{sensitivity:'base'});
+  const safeId = value => 'art-' + text(value).replace(/[^a-zA-Z0-9_-]/g,'-');
+  function addOptions(id, values, label = v => v) {for(const value of [...new Set(values.filter(Boolean))].sort(sortText)){const o=node('option','',label(value));o.value=value;el(id).append(o);}}
+  addOptions('category',rows.map(r=>r.category)); addOptions('action',rows.map(r=>r.action),actionName);
+  el('metric-total').textContent=rows.length;
+  el('metric-priority').textContent=rows.filter(r=>rank(r)<=1).length;
+  el('metric-categories').textContent=new Set(rows.map(r=>r.category)).size;
+  const variantCount=rows.filter(r=>(r.variants||[]).length).length;
+  const variantPct=rows.length?(100*variantCount/rows.length).toFixed(1):0;
+  el('metric-variants').textContent=`${variantCount} / ${variantPct}%`;
+  if(data.coverageNote)el('coverage-note').textContent=text(data.coverageNote);
+  function palette(p) {
+    const out=node('div','palette');
+    for(const entry of p||[]){const hex=typeof entry==='string'?entry:entry.hex;if(!/^#[0-9a-f]{6}$/i.test(hex||''))continue;const name=typeof entry==='string'?entry:entry.id||entry.name||hex;const s=node('span','swatch');s.style.backgroundColor=hex;s.title=`${name} · ${hex}`;s.setAttribute('role','img');s.setAttribute('aria-label',`${name} ${hex}`);out.append(s);}
+    return out;
+  }
+  function renderProcedural(container,spec,label='Generated from game renderer') {
+    const fig=node('figure'),frame=node('div','art-frame');fig.append(frame,node('figcaption','',label));container.append(fig);
+    try{if(!window.MapArtProcedural?.render)throw new Error('Painter unavailable');const result=window.MapArtProcedural.render(spec);if(result instanceof HTMLCanvasElement){result.setAttribute('role','img');result.setAttribute('aria-label',label);frame.append(result);}else throw new Error('Painter did not return a canvas');}
+    catch(error){frame.append(node('span','placeholder error','Preview unavailable'));fig.title=String(error.message||error);}
+    return fig;
+  }
+  function gallery(images,empty='No replacement needed',procedural) {
+    const out=node('div','art-gallery');
+    for(const art of images||[]){
+      if(art.procedural){renderProcedural(out,art.procedural,art.label||'Game renderer');continue;}
+      if(!art.src)continue;
+      const fig=node('figure'),frame=node('div','art-frame'),img=document.createElement('img');img.alt=art.label||'Map art';img.loading='lazy';img.decoding='async';
+      img.addEventListener('load',()=>{
+        img.className=img.naturalWidth<=48&&img.naturalHeight<=48?'small':'large';
+        if(!art.recolour?.length)return;
+        try {
+          const colours=art.recolour.map(c=>typeof c==='string'?c:c.hex).filter(c=>/^#[0-9a-f]{6}$/i.test(c)).map(c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)));
+          const luma=c=>c[0]*.2126+c[1]*.7152+c[2]*.0722;colours.sort((a,b)=>luma(a)-luma(b));if(!colours.length)return;
+          const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;const ctx=c.getContext('2d');ctx.drawImage(img,0,0);const pixels=ctx.getImageData(0,0,c.width,c.height);let lo=255,hi=0;
+          for(let i=0;i<pixels.data.length;i+=4){if(!pixels.data[i+3])continue;const b=luma(pixels.data.subarray(i,i+3));lo=Math.min(lo,b);hi=Math.max(hi,b);}
+          for(let i=0;i<pixels.data.length;i+=4){if(!pixels.data[i+3])continue;const b=luma(pixels.data.subarray(i,i+3));const ink=colours[Math.max(0,Math.min(colours.length-1,Math.round((b-lo)/Math.max(1,hi-lo)*(colours.length-1))))];for(let ch=0;ch<3;ch++)pixels.data[i+ch]=ink[ch];}
+          ctx.putImageData(pixels,0,0);c.setAttribute('role','img');c.setAttribute('aria-label',(art.label||'Map art')+' palette study; contour simplification pending');frame.replaceChildren(c);
+        }catch(error){fig.title='Palette study unavailable: '+String(error.message||error);}
+      });
+      img.src=art.src;frame.append(img);fig.append(frame,node('figcaption','',(art.label||'')+(art.recolour?.length?' · Palette study; contour simplification pending':'')));out.append(fig);
+    }
+    for(const p of Array.isArray(procedural)?procedural:procedural?[procedural]:[])renderProcedural(out,p.spec||p,p.label||'Game renderer');
+    if(!out.children.length)out.append(node('div','placeholder',empty));
+    return out;
+  }
+  function card(row) {
+    const out=node('article','card');out.id=safeId(row.id);out.dataset.artId=row.id;
+    const head=node('div','card-header'),meta=node('div','card-meta');meta.append(node('span','category',row.category),node('span','priority'+(rank(row)<=1?' high':''),rankName(rank(row))));
+    const title=node('h3'),anchor=node('a','',row.name);anchor.href='#'+out.id;title.append(anchor);head.append(meta,title);
+    if(row.prevalence)head.append(node('p','prevalence',row.prevalence));
+    const actionLine=node('div','action-line');actionLine.append(node('span','action '+(row.action||'review'),actionName(row.action)),node('span','action-note',row.action==='applied'?'Current runtime default':'Proposed direction'));head.append(actionLine);out.append(head);
+    const comp=node('div','comparison');
+    const proc=row.procedural;
+    const currentProc=proc?.current || (proc?.kind?proc:null),candidateProc=proc?.candidate || proc?.proposed;
+    const current=node('div','art-column');current.append(node('div','art-title','Current · existing states'),gallery(row.currentImages,'See renderer details',currentProc));
+    const proposed=node('div','art-column');proposed.append(node('div','art-title proposal',row.action==='keep'?'Retain current art':row.action==='applied'?'Applied default':'Proposal · source candidate'),gallery(row.candidateImages,row.action==='keep'?'Retain current art':'Palette / shape direction below',candidateProc));comp.append(current,proposed);out.append(comp);
+    const copy=node('div','card-copy');if(row.assessment)copy.append(node('p','assessment',row.assessment));if(row.rationale)copy.append(node('p','recommendation',row.rationale));if(row.palette?.length)copy.append(node('div','palette-label',row.action==='applied'?'Applied palette':'Target palette'),palette(row.palette));else copy.style.paddingBottom='15px';out.append(copy);
+    if(row.variants?.length){const box=node('section','variant-section');box.append(node('div','variant-label','Proposed zone use · not installed'));for(const v of row.variants){const part=node('div','variant');part.append(node('h4','',v.name));if(v.usage)part.append(node('p','usage',v.usage));if(v.rationale)part.append(node('p','',v.rationale));if(v.images?.length||v.procedural)part.append(gallery(v.images,'',v.procedural));if(v.palette?.length)part.append(palette(v.palette));box.append(part);}out.append(box);}
+    const details=node('details','sources');details.append(node('summary','', 'Placement evidence & source files'));if(row.evidence)details.append(node('p','',row.evidence));if(row.sources?.length){const list=node('ul');for(const src of row.sources){const li=node('li');li.append(node('code','',src));list.append(li);}details.append(list);}if(!row.evidence&&!row.sources?.length)details.append(node('p','','Placement-rule estimate; no measured final-placement count available.'));out.append(details);
+    return out;
+  }
+  const searchIndex=new Map(rows.map(r=>[r,JSON.stringify([r.name,r.category,r.prevalence,r.assessment,r.rationale,r.sources,r.evidence,r.variants]).toLocaleLowerCase()]));
+  function render() {
+    const words=el('search').value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean),category=el('category').value,action=el('action').value;
+    let visible=rows.filter(r=>(!category||r.category===category)&&(!action||r.action===action)&&(!el('only-variants').checked||r.variants?.length)&&words.every(w=>searchIndex.get(r).includes(w)));
+    const sorting=el('sort').value;visible.sort((a,b)=>sorting==='name'?sortText(a.name,b.name):sorting==='category'?sortText(a.category,b.category)||rank(a)-rank(b)||(a.order??100)-(b.order??100)||sortText(a.name,b.name):rank(a)-rank(b)||(a.order??100)-(b.order??100)||sortText(a.name,b.name));
+    const frag=document.createDocumentFragment();for(const r of visible)frag.append(card(r));if(!visible.length){const empty=node('div','empty');empty.append(node('h3','','No matching map art'),node('p','','Try a broader search or reset the filters.'));frag.append(empty);}el('audit-grid').replaceChildren(frag);el('results-count').textContent=`${visible.length} of ${rows.length} families`;
+    window.dispatchEvent(new CustomEvent('map-art-rendered',{detail:{rows:visible}}));
+  }
+  let timeout;el('search').addEventListener('input',()=>{clearTimeout(timeout);timeout=setTimeout(render,110);});for(const id of ['category','action','sort','only-variants'])el(id).addEventListener('change',render);
+  el('clear').addEventListener('click',()=>{for(const id of ['search','category','action'])el(id).value='';el('sort').value='rank';el('only-variants').checked=false;render();});
+  document.querySelectorAll('.bg-choice').forEach(b=>b.addEventListener('click',()=>{document.documentElement.style.setProperty('--art-bg',b.dataset.bg);document.querySelectorAll('.bg-choice').forEach(n=>n.setAttribute('aria-pressed',String(n===b)));}));
+  window.MapArtDashboard={render,card,gallery,palette,renderProcedural,safeId};render();document.documentElement.dataset.auditReady='true';
+  if(location.hash){requestAnimationFrame(()=>document.getElementById(location.hash.slice(1))?.scrollIntoView());}
+})();
+</script>
+</body>
+</html>

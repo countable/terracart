@@ -422,11 +422,11 @@
       "note": "Rounded outlined silhouette fits; shift to moss/olive if used as common wild shrubs."
     },
     "bush-green": {
-      "decision": "usage-specific variant",
+      "decision": "selected default + recolour",
       "style": "Strong",
       "palette": "Needs olive ramp",
       "context": "Natural / unrestored",
-      "note": "Keep the rounded canopy and dark outline; simplify bright leaf flecks and replace lime with sage olive."
+      "note": "Rounded woodland default, applied in olive with the original pixel silhouette preserved."
     },
     "bush-golden": {
       "decision": "usage-specific variant",
@@ -450,11 +450,11 @@
       "note": "Mint can communicate restoration, but soft shading and weak contours still mismatch the characters."
     },
     "bush-hedge-end": {
-      "decision": "selected default + recolour",
+      "decision": "usage-specific variant",
       "style": "Strong",
-      "palette": "Near palette; tame bright tips for wild",
-      "context": "Ordinary wild bushes",
-      "note": "Use hedge_end.png as the compact default; mute the yellow-green tips. Keep the dark contour."
+      "palette": "Olive for unrestored; brighter sage only after restoration",
+      "context": "Formal gardens and residential/commercial areas",
+      "note": "Reserve the clipped hedge silhouette for these cultivated zones. Ordinary wild bushes use the rounded woodland default."
     },
     "ruin-pillar-c": {
       "decision": "selected default + recolour",

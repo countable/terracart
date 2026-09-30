@@ -1,0 +1,1410 @@
+{
+  "scope": "Normal map terrain and roads, including reachable underground terrain and existing restored/damp states; floor textures owned by building audit.",
+  "prevalenceMethod": "Heuristic generator reach. No representative live tile census available; selected local 20-feature OSM export is not a terrain sample.",
+  "coverage": {
+    "rows": 31,
+    "terrainIds": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      8,
+      10,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      31
+    ],
+    "excluded": [
+      "UNMAPPED30 loading shimmer (not map placement)",
+      "Raw ROAD7/13/14 base swatches (actual shared road overlay audited once)",
+      "Building floors9/11/12 delegated to building audit",
+      "Standalone pier water duplicated from water3",
+      "Weather/season proposals",
+      "Fog, reach and UI effects"
+    ]
+  },
+  "rows": [
+    {
+      "id": "ground-0",
+      "name": "Open grass",
+      "category": "ground",
+      "terrainId": 0,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawGrassTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 0
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawGrassTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 0
+      },
+      "currentColor": "#6b7d4a",
+      "proposedColor": "#596338",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Dry olive ground unifies the newly approved flora; keep tiny flecks so terrain does not resemble pickable grass.",
+      "rationale": "Dry olive ground unifies the newly approved flora; keep tiny flecks so terrain does not resemble pickable grass.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/TexturedGrass.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "WorldGen.classifyPolygon: grass, meadow and default landcover.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 0
+      }
+    },
+    {
+      "id": "ground-1",
+      "name": "Forest leaf litter",
+      "category": "ground",
+      "terrainId": 1,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawForestTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 1
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawForestTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 1
+      },
+      "currentColor": "#3c5233",
+      "proposedColor": "#3e4b2c",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Olive shadow and blocky leaf clusters support common woodland trees without bright competing vegetation.",
+      "rationale": "Olive shadow and blocky leaf clusters support common woodland trees without bright competing vegetation.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "WorldGen.classifyPolygon: wood and forest landcover.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 1
+      }
+    },
+    {
+      "id": "ground-2",
+      "name": "Beach sand",
+      "category": "ground",
+      "terrainId": 2,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawSandTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 2
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawSandTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 2
+      },
+      "currentColor": "#c6b9a2",
+      "proposedColor": "#b0aa8a",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Retain quiet ripple geometry; use muted stone-light sand rather than yellow currency-like gold.",
+      "rationale": "Retain quiet ripple geometry; use muted stone-light sand rather than yellow currency-like gold.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/Grass.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "WorldGen.classifyPolygon: sand and beach landcover; separate from adjoining park coverage.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 2
+      }
+    },
+    {
+      "id": "ground-3",
+      "name": "Water and shore backdrop",
+      "category": "ground",
+      "terrainId": 3,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawWaterTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 3
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawWaterTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 3
+      },
+      "currentColor": "#3f6b7a",
+      "proposedColor": "#3f6b7a",
+      "assessment": "Procedural material is useful; material colour exception is justified.",
+      "treatment": "keep",
+      "recommendation": "Keep muted teal as a deliberate material exception; the narrow cool range distinguishes inaccessible water and shoreline.",
+      "rationale": "Keep muted teal as a deliberate material exception; the narrow cool range distinguishes inaccessible water and shoreline.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/Shore.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "All water-layer polygons; also the base beneath piers.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 3
+      }
+    },
+    {
+      "id": "ground-4",
+      "name": "Farmland pasture",
+      "category": "ground",
+      "terrainId": 4,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawFarmlandTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 4
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawFarmlandTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 4
+      },
+      "currentColor": "#7e7350",
+      "proposedColor": "#6c633f",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Dry soil ramp; preserve patch geometry and quiet green flecks so fields stay distinct from restored tilled beds.",
+      "rationale": "Dry soil ramp; preserve patch geometry and quiet green flecks so fields stay distinct from restored tilled beds.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "WorldGen.classifyPolygon: farmland, farmyard and allotments.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 4
+      }
+    },
+    {
+      "id": "ground-5",
+      "name": "Residential concrete",
+      "category": "ground",
+      "terrainId": 5,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawResidentialTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 5
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawResidentialTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 5
+      },
+      "currentColor": "#9c968a",
+      "proposedColor": "#b0aa8a",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Warm light stone avoids cold concrete competing with the rustic sprite set; retain sparse aggregate.",
+      "rationale": "Warm light stone avoids cold concrete competing with the rustic sprite set; retain sparse aggregate.",
+      "candidate": {
+        "path": "unused_art/Fantasy City ver1.3/Tiles/Floor.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "WorldGen.classifyPolygon: residential, neighbourhood and quarter.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 5
+      }
+    },
+    {
+      "id": "ground-6",
+      "name": "Park grass",
+      "category": "ground",
+      "terrainId": 6,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawParkTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 6
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawParkTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 6
+      },
+      "currentColor": "#7b8c53",
+      "proposedColor": "#7a8147",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Reduce green saturation while keeping park ground lighter than forest. Remove/quiet decorative flower specks if they compete with actual beds.",
+      "rationale": "Reduce green saturation while keeping park ground lighter than forest. Remove/quiet decorative flower specks if they compete with actual beds.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/TexturedGrass.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "WorldGen.classifyPolygon: park, garden, cemetery and dog park plus park layer.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 6
+      }
+    },
+    {
+      "id": "ground-8",
+      "name": "Path underlay pebble grain",
+      "category": "ground",
+      "terrainId": 8,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawPathTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 8
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawPathTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 8
+      },
+      "currentColor": "#8b8071",
+      "proposedColor": "#777462",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Retain fallback pebble grain with warm stone base; low priority because most paths inherit adjacent terrain.",
+      "rationale": "Retain fallback pebble grain with warm stone base; low priority because most paths inherit adjacent terrain.",
+      "candidate": {
+        "path": "unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Ground Tileset/Tileset_Road.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 3,
+      "prevalenceReason": "drawCells uses this only if pathUnder has no usable biome; road overlay supplies normal path appearance.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 8
+      }
+    },
+    {
+      "id": "ground-10",
+      "name": "Rocky ground",
+      "category": "ground",
+      "terrainId": 10,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawRockTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 10
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawRockTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 10
+      },
+      "currentColor": "#776d63",
+      "proposedColor": "#777462",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Warm stone body with ink cracks and sparse stone-light highlights. Angular cracks already fit pixel props.",
+      "rationale": "Warm stone body with ink cracks and sparse stone-light highlights. Angular cracks already fit pixel props.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/Cliff.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "WorldGen.classifyPolygon: rock/scree; exposed rock and excavation context.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 10
+      }
+    },
+    {
+      "id": "ground-15",
+      "name": "Schoolyard turf",
+      "category": "ground",
+      "terrainId": 15,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawSchoolTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 15
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawSchoolTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 15
+      },
+      "currentColor": "#77805e",
+      "proposedColor": "#7a8147",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Keep muted mown strips distinguishable from wild park speckle; no sacred/bright variant needed.",
+      "rationale": "Keep muted mown strips distinguishable from wild park speckle; no sacred/bright variant needed.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/TexturedGrass.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "WorldGen.classifyPolygon: school, college, university, kindergarten and education.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 15
+      }
+    },
+    {
+      "id": "ground-16",
+      "name": "Commercial paving",
+      "category": "ground",
+      "terrainId": 16,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawCommercialTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 16
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawCommercialTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 16
+      },
+      "currentColor": "#999790",
+      "proposedColor": "#777462",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Warm grey stone tiles keep paved districts legible and create a coherent foundation for weathered props.",
+      "rationale": "Warm grey stone tiles keep paved districts legible and create a coherent foundation for weathered props.",
+      "candidate": {
+        "path": "unused_art/Fantasy City ver1.3/Tiles/Floor.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "WorldGen.classifyPolygon: commercial, retail, hospital.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 16
+      }
+    },
+    {
+      "id": "ground-17",
+      "name": "Industrial concrete and gravel",
+      "category": "ground",
+      "terrainId": 17,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawIndustrialTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 17
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawIndustrialTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 17
+      },
+      "currentColor": "#9a8279",
+      "proposedColor": "#777462",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Use warm stone with sparse clay/rust chips. Large concrete patches should remain quieter than interactable mineral rocks.",
+      "rationale": "Use warm stone with sparse clay/rust chips. Large concrete patches should remain quieter than interactable mineral rocks.",
+      "candidate": {
+        "path": "unused_art/Fantasy City ver1.3/Tiles/Floor.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "WorldGen.classifyPolygon: industrial.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 17
+      }
+    },
+    {
+      "id": "ground-18",
+      "name": "Playground mulch",
+      "category": "ground",
+      "terrainId": 18,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawPlaygroundTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 18
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawPlaygroundTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 18
+      },
+      "currentColor": "#8e8270",
+      "proposedColor": "#6c633f",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Muted dry wood chips suit abandoned play areas; reduce soft edges by snapping generated marks to pixel units.",
+      "rationale": "Muted dry wood chips suit abandoned play areas; reduce soft edges by snapping generated marks to pixel units.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 3,
+      "prevalenceReason": "WorldGen.classifyPolygon: playground; present once in the small local selected OSM sample, not a prevalence estimate.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 18
+      }
+    },
+    {
+      "id": "ground-19",
+      "name": "Sports pitch",
+      "category": "ground",
+      "terrainId": 19,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawPitchTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 19
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawPitchTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 19
+      },
+      "currentColor": "#62753f",
+      "proposedColor": "#596338",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Olive mown strips with cream chalk used sparingly; field pattern is recognizable without saturated green.",
+      "rationale": "Olive mown strips with cream chalk used sparingly; field pattern is recognizable without saturated green.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/TexturedGrass.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "WorldGen.classifyPolygon: pitch, stadium, sports centre, recreation ground and track.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 19
+      }
+    },
+    {
+      "id": "ground-20",
+      "name": "Wetland marsh",
+      "category": "ground",
+      "terrainId": 20,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawWetlandTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 20
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawWetlandTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 20
+      },
+      "currentColor": "#3d4f3c",
+      "proposedColor": "#26342a",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Deep olive marsh with restrained glints. Preserve wet material readability rather than borrowing vivid grass tiles.",
+      "rationale": "Deep olive marsh with restrained glints. Preserve wet material readability rather than borrowing vivid grass tiles.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/Shore.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "WorldGen.classifyPolygon: wetland landcover.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 20
+      }
+    },
+    {
+      "id": "ground-21",
+      "name": "Golf fairway",
+      "category": "ground",
+      "terrainId": 21,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawGolfTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 21
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawGolfTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 21
+      },
+      "currentColor": "#87995c",
+      "proposedColor": "#7a8147",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Desaturate towards olive while preserving fine fairway stripes. No seasonal greens.",
+      "rationale": "Desaturate towards olive while preserving fine fairway stripes. No seasonal greens.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/TexturedGrass.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 3,
+      "prevalenceReason": "WorldGen.classifyPolygon: grass landcover subclass golf_course.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 21
+      }
+    },
+    {
+      "id": "ground-22",
+      "name": "Orchard floor",
+      "category": "ground",
+      "terrainId": 22,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawOrchardTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 22
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawOrchardTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 22
+      },
+      "currentColor": "#556237",
+      "proposedColor": "#3e4b2c",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Quiet olive dapple consistent with apple tree art; avoid flower-like surface flecks.",
+      "rationale": "Quiet olive dapple consistent with apple tree art; avoid flower-like surface flecks.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "WorldGen.classifyPolygon: farmland subclass orchard; actual orchard zone trees use their grove floor.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 22
+      }
+    },
+    {
+      "id": "ground-24",
+      "name": "Cave floor",
+      "category": "ground",
+      "terrainId": 24,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawCaveFloorTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 24
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawCaveFloorTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 24
+      },
+      "currentColor": "#4a423b",
+      "proposedColor": "#403e34",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Warm stone floor, small cream chips; visibility and wall distinction take priority over exact earth palette matches.",
+      "rationale": "Warm stone floor, small cream chips; visibility and wall distinction take priority over exact earth palette matches.",
+      "candidate": {
+        "path": "unused_art/Zoria Tileset/underworld.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "WorldGen.loadCaveTile: every walkable surface cell becomes cave floor below ground.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 24
+      }
+    },
+    {
+      "id": "ground-25",
+      "name": "Cave wall",
+      "category": "ground",
+      "terrainId": 25,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawCaveWallTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 25
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawCaveWallTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 25
+      },
+      "currentColor": "#241f1b",
+      "proposedColor": "#28110b",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Maintain strong dark wall-vs-floor separation; blocky faces support the chibi pixel silhouettes.",
+      "rationale": "Maintain strong dark wall-vs-floor separation; blocky faces support the chibi pixel silhouettes.",
+      "candidate": {
+        "path": "unused_art/Zoria Tileset/underworld.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "WorldGen.loadCaveTile: roads, buildings and water mirror as walls underground.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 25
+      }
+    },
+    {
+      "id": "ground-26",
+      "name": "Cave lava",
+      "category": "ground",
+      "terrainId": 26,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawLavaTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 26
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawLavaTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 26
+      },
+      "currentColor": "#9a2a10",
+      "proposedColor": "#9a2a10",
+      "assessment": "Procedural material is useful; material colour exception is justified.",
+      "treatment": "keep",
+      "recommendation": "Keep emissive ember exception and animated water-band geometry; red/amber communicates hazard and should remain conspicuous.",
+      "rationale": "Keep emissive ember exception and animated water-band geometry; red/amber communicates hazard and should remain conspicuous.",
+      "candidate": {
+        "path": "unused_art/Zoria Tileset/underworld.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 3,
+      "prevalenceReason": "WorldGen.loadCaveTile on LAVA_DEPTH: building footprints become lava.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 26
+      }
+    },
+    {
+      "id": "ground-27",
+      "name": "Wasteland scrub",
+      "category": "ground",
+      "terrainId": 27,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawWastelandTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 27
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawWastelandTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 27
+      },
+      "currentColor": "#9a8e68",
+      "proposedColor": "#6c633f",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Dry olive/ochre ground with sparse dead tufts is directly compatible with the world story palette.",
+      "rationale": "Dry olive/ochre ground with sparse dead tufts is directly compatible with the world story palette.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "WorldGen.classifyPolygon: brownfield, construction, railway and unmatched landuse; broad fallback class.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 27
+      }
+    },
+    {
+      "id": "ground-28",
+      "name": "Grove influence ground",
+      "category": "ground",
+      "terrainId": 28,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawGroveTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 28
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawGroveTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 28
+      },
+      "currentColor": "#5a8a48",
+      "proposedColor": "#596338",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Current fresh green is too vivid for untouched land. Olive base integrates dense grove/bush motifs while the layout carries identity.",
+      "rationale": "Current fresh green is too vivid for untouched land. Olive base integrates dense grove/bush motifs while the layout carries identity.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/TexturedGrass.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "Zones.haloSteps + park fringe; six implemented grove variants selected with equal stable weights.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [
+        {
+          "id": "ancient-grove-shade",
+          "zone": "ancient_grove",
+          "palette": [
+            "leaf_shadow",
+            "leaf_dark",
+            "leaf"
+          ],
+          "recommendation": "Dark olive litter immediately beneath the compact ancient-grove tree clusters, leaving the gap grass at the default grove value.",
+          "reason": "Ancient Grove is one of six equal-weight grove assignments; cluster shading makes an already-recognizable repeated motif read as connected canopy.",
+          "status": "proposal only"
+        }
+      ],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 28
+      }
+    },
+    {
+      "id": "ground-29",
+      "name": "Churchyard influence ground",
+      "category": "ground",
+      "terrainId": 29,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawChurchyardTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 29
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawChurchyardTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 29
+      },
+      "currentColor": "#667d6a",
+      "proposedColor": "#596338",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Replace minty ground with grey olive so weathered pillars and mineral rings are the focal points; sacred focal details may still contrast.",
+      "rationale": "Replace minty ground with grey olive so weathered pillars and mineral rings are the focal points; sacred focal details may still contrast.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Zones.haloSteps: place-of-worship/old-stone coverage; five implemented stone variants.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [
+        {
+          "id": "silent-circle-centre",
+          "zone": "silent_circle",
+          "palette": [
+            "stone",
+            "stone_light",
+            "sacred_ivory"
+          ],
+          "recommendation": "A tiny warm-ivory worn-stone centre at the Silent Circle POI only, touching the votive/stone figure; leave outer ground rustic olive.",
+          "reason": "Silent Circle is one of five equal-weight stone assignments; one restrained sacred focal patch reinforces the compact rings without recolouring the entire churchyard.",
+          "status": "proposal only"
+        }
+      ],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 29
+      }
+    },
+    {
+      "id": "ground-31",
+      "name": "Tar-yard influence ground",
+      "category": "ground",
+      "terrainId": 31,
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawTarYardTex"
+        },
+        {
+          "path": "src/app.js",
+          "symbol": "COLORS",
+          "terrainId": 31
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawTarYardTex",
+        "registry": "BIOME_TEX",
+        "terrainId": 31
+      },
+      "currentColor": "#3b3833",
+      "proposedColor": "#403e34",
+      "assessment": "Procedural material is useful; palette alignment needed.",
+      "treatment": "recolor",
+      "recommendation": "Keep near-charcoal oily pools; warm slate aligns with ruins and leaves gold/crimson deposits readable.",
+      "rationale": "Keep near-charcoal oily pools; warm slate aligns with ruins and leaves gold/crimson deposits readable.",
+      "candidate": {
+        "path": "unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Ground Tileset/Tileset_Road.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Zones.haloSteps: fuel-yard coverage; five implemented tar variants.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyPolygon / src/zones.js / docs/zone-variants.json"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "biome",
+        "terrainId": 31
+      }
+    },
+    {
+      "id": "road-weathered",
+      "name": "Weathered road cobbles",
+      "category": "roads",
+      "sources": [
+        {
+          "path": "src/road_overlay.js",
+          "function": "paintWeatherTile"
+        }
+      ],
+      "renderer": {
+        "path": "src/road_overlay.js",
+        "function": "paintWeatherTile"
+      },
+      "currentColor": "#3a322c",
+      "proposedColor": "#403e34",
+      "assessment": "Keep proven map geometry; harmonize material colours where needed.",
+      "treatment": "recolor",
+      "recommendation": "Retain broken cobbles, chips and lichen; shift base to warm stone shadow and keep muted olive lichen.",
+      "rationale": "Retain broken cobbles, chips and lichen; shift base to warm stone shadow and keep muted olive lichen.",
+      "candidate": {
+        "path": "unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Ground Tileset/Tileset_Road.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "All normal vehicle roads; tier difference is width, not a different sprite.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/road_overlay.js"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "road",
+        "style": "road",
+        "restored": false
+      }
+    },
+    {
+      "id": "path-weathered",
+      "name": "Weathered footpaths",
+      "category": "roads",
+      "sources": [
+        {
+          "path": "src/road_overlay.js",
+          "function": "paintWeatherTile"
+        }
+      ],
+      "renderer": {
+        "path": "src/road_overlay.js",
+        "function": "paintWeatherTile"
+      },
+      "currentColor": "#5c4b3f",
+      "proposedColor": "#6c633f",
+      "assessment": "Keep proven map geometry; harmonize material colours where needed.",
+      "treatment": "recolor",
+      "recommendation": "Keep packed-earth band and shared weathering; dry-shadow base works with olive verges.",
+      "rationale": "Keep packed-earth band and shared weathering; dry-shadow base works with olive verges.",
+      "candidate": {
+        "path": "unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Ground Tileset/Tileset_Road.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "PATH_CLASSES: path, footway, track, pedestrian, cycleway and steps.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/road_overlay.js"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "road",
+        "style": "path",
+        "restored": false
+      }
+    },
+    {
+      "id": "road-restored",
+      "name": "Restored road and path setts",
+      "category": "roads",
+      "sources": [
+        {
+          "path": "src/road_overlay.js",
+          "function": "paintCleanTile"
+        }
+      ],
+      "renderer": {
+        "path": "src/road_overlay.js",
+        "function": "paintCleanTile"
+      },
+      "currentColor": "#161412",
+      "proposedColor": "#161412",
+      "assessment": "Keep proven map geometry; harmonize material colours where needed.",
+      "treatment": "keep",
+      "recommendation": "Keep clean dark setts and brighter joints as earned restoration contrast; no new zone palette variant is needed.",
+      "rationale": "Keep clean dark setts and brighter joints as earned restoration contrast; no new zone palette variant is needed.",
+      "candidate": {
+        "path": "unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Ground Tileset/Tileset_Road.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Player restoration intervals in Streets.restoredList; paths use half mortar alpha.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/road_overlay.js"
+      },
+      "usageVariants": [],
+      "currentPathColor": "#2e2620",
+      "preview": {
+        "kind": "road",
+        "style": "road",
+        "restored": true
+      }
+    },
+    {
+      "id": "rail",
+      "name": "Railway ballast, ties and rails",
+      "category": "roads",
+      "sources": [
+        {
+          "path": "src/road_overlay.js",
+          "function": "emitRailDecor"
+        }
+      ],
+      "renderer": {
+        "path": "src/road_overlay.js",
+        "function": "emitRailDecor"
+      },
+      "currentColor": "#565d69",
+      "proposedColor": "#403e34",
+      "assessment": "Keep proven map geometry; harmonize material colours where needed.",
+      "treatment": "recolor",
+      "recommendation": "Warm slate ballast and bark ties; retain cool steel rails for transport identity. Geometry follows real source lines.",
+      "rationale": "Warm slate ballast and bark ties; retain cool steel rails for transport identity. Geometry follows real source lines.",
+      "candidate": {
+        "path": "unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Ground Tileset/Tileset_Road.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 3,
+      "prevalenceReason": "Transportation classes rail and transit.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/road_overlay.js"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "road",
+        "style": "rail",
+        "restored": false
+      }
+    },
+    {
+      "id": "tilled-bed",
+      "name": "Tilled soil bed, dry / watered",
+      "category": "ground",
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "drawTilledTex"
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "drawTilledTex"
+      },
+      "currentColor": "#8a6a41",
+      "proposedColor": "#6c431d",
+      "assessment": "Keep proven map geometry; harmonize material colours where needed.",
+      "treatment": "recolor",
+      "recommendation": "Warm earth furrows with restrained cream ridges. Preserve inset bed footprint and darker wet tint.",
+      "rationale": "Warm earth furrows with restrained cream ridges. Preserve inset bed footprint and darker wet tint.",
+      "candidate": {
+        "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Any player-tilled eligible surface cell; watered state is renderer tint, not a new asset.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/textures.js"
+      },
+      "usageVariants": [],
+      "preview": {
+        "kind": "tilled"
+      }
+    },
+    {
+      "id": "poi-pad",
+      "name": "POI stone plinth",
+      "category": "ground",
+      "sources": [
+        {
+          "path": "src/textures.js",
+          "function": "makeRoundPadTexture"
+        }
+      ],
+      "renderer": {
+        "path": "src/textures.js",
+        "function": "makeRoundPadTexture"
+      },
+      "proposedColor": "#dce4da",
+      "assessment": "Keep proven map geometry; harmonize material colours where needed.",
+      "treatment": "recolor",
+      "recommendation": "Retain sacred ivory exception as readable reward pedestal; use warmer ivory rather than pure blue-white.",
+      "rationale": "Retain sacred ivory exception as readable reward pedestal; use warmer ivory rather than pure blue-white.",
+      "candidate": {
+        "path": "unused_art/Fantasy City ver1.3/Tiles/Floor.png",
+        "role": "available-library comparison; retain current procedural geometry",
+        "crop": null
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Shared pad_round1 for pad-bearing map POIs.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/textures.js"
+      },
+      "usageVariants": [],
+      "currentColorSource": "UI_TREASURE top; #dde5f2 side face; src/textures.js makeRoundPadTexture",
+      "preview": {
+        "kind": "pad"
+      }
+    },
+    {
+      "id": "pier-planks",
+      "name": "Pier boards over animated water",
+      "category": "ground",
+      "sources": [
+        {
+          "path": "assets/Objects/Wilderness/Bridge Beach.png",
+          "frame": 20,
+          "frameWidth": 16,
+          "frameHeight": 16
+        }
+      ],
+      "renderer": {
+        "path": "src/render.js",
+        "function": "drawCells",
+        "symbol": "PIER_FRAME"
+      },
+      "assessment": "Small pixel boards already match gameplay scale; unify weathered wood.",
+      "treatment": "recolor",
+      "recommendation": "Recolour boards to bark/earth/dry-leaf while retaining transparent gaps and muted teal water underneath.",
+      "rationale": "A crisp narrow plank reads better at map scale than a detailed replacement bridge.",
+      "candidate": {
+        "path": "assets/Objects/Wilderness/Bridge Beach.png",
+        "frame": 20,
+        "frameWidth": 16,
+        "frameHeight": 16,
+        "role": "reuse current art"
+      },
+      "prevalenceRank": 3,
+      "prevalenceReason": "WorldGen.classifyLine transportation:pier; restricted to mapped shore structures.",
+      "prevalenceEvidence": {
+        "basis": "generator coverage heuristic; not measured population",
+        "source": "src/worldgen.js classifyLine"
+      },
+      "usageVariants": []
+    }
+  ]
+}
