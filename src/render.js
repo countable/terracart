@@ -3419,6 +3419,10 @@ Render.drawObjects = function drawObjects(scene) {
     // restores them. The owner then returns the correct shop / house role.
     if (role === 'wreck') return null;
     if (role === 'trailer') return 'Home';
+    if (role === 'wizard') {
+      const access = MemoryStory.towerAccess(scene.save, o);
+      return { locked: 'Sealed Tower', abandoned: 'Abandoned Tower', empty: 'Empty Tower', open: 'Wizard Tower' }[access];
+    }
     // Forced scarecrow shop - signed only while it still has one to sell.
     // After the sale it reverts to its underlying role (handled below).
     if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
@@ -3682,6 +3686,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) continue;
     // Wrecks aren't shops yet - the pip would read as a contradiction.
     if (item.houseRole === 'wreck') continue;
+    if (item.houseRole === 'wizard' && MemoryStory.towerAccess(scene.save, o) !== 'open') continue;
     // Sealed castles (delivery gate not yet met) aren't open for business —
     // a "ready" pip would lie about the lock. (Castles report dealCap Infinity
     // and bail above, but keep this for safety.)
