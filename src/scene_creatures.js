@@ -2533,9 +2533,15 @@ class SceneCreatures {
   // off the sim range and is simply gone. One retreat, two reasons: a crow
   // that has eaten, and a crow the player has started to hunt (interact.js)
   // — a hunted crow used to carry on orbiting as if nothing had happened.
-  _crowDepart(c, now = performance.now()) {
+  // ONE departure, two reasons. 'sated' (a meal): off at once, out of its
+  // perch this tick. 'hunted' (the net's wheel started on it): it keeps the
+  // perch it is sitting — or the glide it is on, and the landing perch that
+  // ends it — and leaves on its next launch. That remaining perch is the
+  // hunt's timing window (creature_ai.js CROW_DEPART_HOP has the design).
+  _crowDepart(c, now = performance.now(), reason = 'sated') {
     const [base, spread] = CROW_DEPART_MS;
     c._departUntilT = now + base + Math.random() * spread;
+    if (reason === 'hunted') return;
     c._perchUntilT = now;
     c._flightUntilT = null;
   }
@@ -2689,9 +2695,11 @@ class SceneCreatures {
       this.save.planted.indexOf(c._destroyCropRef) >= 0;
     for (let attempt = 0; attempt < 6 && !chosen; attempt++) {
       if (departing) {
-        // Long outbound hop directly away from the player, with a little jitter.
+        // Long outbound hop directly away from the player, with a little
+        // jitter — CROW_DEPART_HOP's cells, past the approach cap below: a
+        // retreat is not an approach, and the hop must clear the reach.
         const away = Math.atan2(c.y - py, c.x - px) + (Math.random() - 0.5) * 0.6;
-        const d = (2 + Math.random() * 0.5) * this.cellM;
+        const d = CROW_DEPART_HOP.cells * this.cellM;
         tx = c.x + Math.cos(away) * d;
         ty = c.y + Math.sin(away) * d;
       } else if (committed) {
@@ -2749,7 +2757,7 @@ class SceneCreatures {
       const MAX_LEG = 2.5 * this.cellM;
       const legDX = tx - c.x, legDY = ty - c.y;
       const legD = Math.hypot(legDX, legDY);
-      if (legD > MAX_LEG) {
+      if (!departing && legD > MAX_LEG) {
         tx = c.x + (legDX / legD) * MAX_LEG;
         ty = c.y + (legDY / legD) * MAX_LEG;
       }
@@ -2771,7 +2779,9 @@ class SceneCreatures {
     c._startX = c.x; c._startY = c.y;
     c._targetX = tx; c._targetY = ty;
     c._flightT0 = now;
-    c._flightUntilT = now + 800 + Math.random() * 400;   // 800–1200 ms slow glide
+    // 800–1200 ms slow glide; a departing leg takes its row's own time —
+    // longer, over a longer hop: the pace the hunt's odds are tuned on.
+    c._flightUntilT = now + (departing ? CROW_DEPART_HOP.ms : 800 + Math.random() * 400);
     c._perchUntilT = null;
     c._faceFlip = (tx - c.x) < 0;
     // This is a normal orbit glide, not a flee dash — clear the marker so a
