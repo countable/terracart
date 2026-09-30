@@ -39,13 +39,21 @@ function rasterPair() {
   if (_pair) return _pair;
   const layers = decode(`${TILE_TX}_${TILE_TY}`);
   const N = WorldGen.cellsPerEdgeForTile(TILE_TY), edge = edgeFor(TILE_TY);
-  const saved = globalThis.Zones;
-  let off;
+  const saved = globalThis.Zones, paintRoad = StreetVariants.paintTerrainSteps;
+  let off, on;
   try {
+    // Isolate zone paint over source land. Otherwise the zone-off build
+    // acquires road verges exactly where the zone-on build takes precedence.
+    // Street terrain tests exercise that composition separately.
+    StreetVariants.paintTerrainSteps = function* ({ N }) { return new Uint8Array(N*N); };
     globalThis.Zones = undefined;
     off = WorldGen.rasterizeTile(decode(`${TILE_TX}_${TILE_TY}`), N, TILE_TX, TILE_TY, edge);
-  } finally { globalThis.Zones = saved; }
-  const on = WorldGen.rasterizeTile(layers, N, TILE_TX, TILE_TY, edge);
+    globalThis.Zones = saved;
+    on = WorldGen.rasterizeTile(layers, N, TILE_TX, TILE_TY, edge);
+  } finally {
+    globalThis.Zones = saved;
+    StreetVariants.paintTerrainSteps = paintRoad;
+  }
   return (_pair = { on, off, N, edge });
 }
 
@@ -240,6 +248,21 @@ test('zones: mine mouths retain their original source when zone layouts replace 
     return entry.objects.filter((o) => o.kind === 'staircase').map((o) => o.id).sort().join(',');
   };
   assert.eq(stairs(on), stairs(off), 'the same staircase with and without the zones');
+});
+
+test('zones: road terrain leaves real-tile cave source identities unchanged', () => {
+  const N=WorldGen.cellsPerEdgeForTile(TILE_TY), edge=edgeFor(TILE_TY);
+  const actual=StreetVariants.paintTerrainSteps;
+  const on=WorldGen.rasterizeTile(decode(`${TILE_TX}_${TILE_TY}`),N,TILE_TX,TILE_TY,edge);
+  let off;
+  try {
+    StreetVariants.paintTerrainSteps=function* ({N}) {return new Uint8Array(N*N);};
+    off=WorldGen.rasterizeTile(decode(`${TILE_TX}_${TILE_TY}`),N,TILE_TX,TILE_TY,edge);
+  } finally {StreetVariants.paintTerrainSteps=actual;}
+  assert.truthy(on.zone?.caveSource,'real fixture has special-zone cave source');
+  assert.eq(JSON.stringify(on.zone.caveSource),JSON.stringify(off.zone.caveSource));
+  if(off.caveSource) assert.eq(JSON.stringify(on.caveSource),JSON.stringify(off.caveSource));
+  assert.eq(JSON.stringify(on.streetIndex),JSON.stringify(off.streetIndex),'paint cannot feed back into affinity');
 });
 
 // ── The nexus ───────────────────────────────────────────────────────────────

@@ -463,6 +463,21 @@ def street_svg(v, cell_m, detail=False):
              f'<rect x="{left}" y="{top}" width="{width}" height="{height}" fill="url(#{pattern_id})"/>',
              f'<path d="M {a["x"]} {a["y"]} L {b["x"]} {b["y"]}" stroke="#786955" stroke-width="{v["roadWidthM"]}" stroke-linecap="round"/>',
              f'<path d="M {a["x"]} {a["y"]} L {b["x"]} {b["y"]}" stroke="#d5c3a2" stroke-opacity=".45" stroke-width=".5" stroke-dasharray="4 4"/>']
+    # Rasterized terrain under the road uses the map's own palette and textures.
+    terrain_tiles = {tile['type']: tile for tile in art_registry()['basicTiles']}
+    ground = []
+    for terrain_type in sorted({v['baseTerrain']} | {cell['type'] for cell in v['groundCells']}):
+        tile = terrain_tiles[terrain_type]
+        pid = f'street-ground-{v["id"]}-{terrain_type}{suffix}'
+        colour = f'#{tile["color"]:06x}'
+        ground.append(f'<defs><pattern id="{pid}" patternUnits="userSpaceOnUse" width="{cell_m}" height="{cell_m}"><rect width="{cell_m}" height="{cell_m}" fill="{colour}"/><image class="sprite-cell" data-ground-type="{terrain_type}" width="{cell_m}" height="{cell_m}"/></pattern></defs>')
+    base_pid = f'street-ground-{v["id"]}-{v["baseTerrain"]}{suffix}'
+    ground.append(f'<rect x="{left}" y="{top}" width="{width}" height="{height}" fill="url(#{base_pid})"/>')
+    for cell in v['groundCells']:
+        tile = terrain_tiles[cell['type']]
+        pid = f'street-ground-{v["id"]}-{cell["type"]}{suffix}'
+        ground.append(f'<rect class="terrain-cell" x="{cell["x"]}" y="{cell["y"]}" width="{cell_m}" height="{cell_m}" fill="url(#{pid})"><title>{tile["name"].replace("_", " ").title()} ground</title></rect>')
+    parts[2:3] = ground
     # The same procedural pavement tiles as the game, in both restoration states.
     for state in ['worn', 'restored']:
         pid = f'pavement-{v["id"]}-{state}{suffix}'
@@ -474,9 +489,6 @@ def street_svg(v, cell_m, detail=False):
     for stroke in v.get('carpetStrokes', []):
         points = ' '.join(f'{point["x"]},{point["y"]}' for point in stroke['points'])
         parts.append(f'<polyline class="sprite-cell carpet-deco" points="{points}" fill="none" stroke="{stroke["colour"]}" stroke-width="{stroke["width"]}" stroke-opacity="{stroke["alpha"]}"><title>Shipping verge carpet decoration</title></polyline>')
-    for area in v.get('geography', []):
-        points = ' '.join(f'{p["x"]},{p["y"]}' for p in area['points'])
-        parts.insert(4, f'<polygon points="{points}" fill="#315c67"><title>Qualifying shore water used by the scenic classifier</title></polygon>')
     art_prefix = f'street-art-{v["id"]}{suffix}'
     parts.append(sprite_symbols(street_materials([v]), art_prefix))
     for o in v['objects']:
@@ -528,8 +540,9 @@ def street_section(streets):
         if tiers: monsters += '; stays defeated; placement and home safety can suppress guards'
         affinity = ', '.join(v.get('affinities', [])) or 'Neutral'
         affinity_details = f'<dt>Affinities</dt><dd>{html.escape(affinity)}</dd>' + (f'<dt>Selection</dt><dd data-affinity-row="{v["id"]}" data-road-size="{v["size"]}"></dd>' if v['size'] != 'path' else '')
+        terrain_details = f'<dt>Terrain verge</dt><dd>{html.escape(v.get("terrain", "").replace("_", " ").title())} · one cell ({streets["cellM"]:g} m) beyond the road edge, on eligible ground. Special zones take precedence.</dd>'
         scenic_details = (f'<dt>Geography</dt><dd>{html.escape(v["selection"])}</dd><dt>Rewards</dt><dd>{html.escape(v["rewards"])}</dd>' if v['size'] == 'path' else '')
-        cards.append(f'''<article id="street-{v['id']}"><header><small>{selection} · {v['rung']}</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Generated straight-road sample · {v['roadWidthM']:g} m carriageway · ⊕ road reference point, not a POI</figcaption></figure><details class="street-closeup"><summary>Pavement and lamp close-up</summary>{street_svg(v, streets['cellM'], True)}</details><p>{html.escape(v['body'])}</p><dl>{affinity_details}{scenic_details}<dt>Placement</dt><dd>{html.escape(v['placement'])}</dd><dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Monsters</dt><dd>{monsters}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} generated candidate sites · outlined diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
+        cards.append(f'''<article id="street-{v['id']}"><header><small>{selection} · {v['rung']}</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Generated straight-road sample · {v['roadWidthM']:g} m carriageway · ⊕ road reference point, not a POI</figcaption></figure><details class="street-closeup"><summary>Pavement and lamp close-up</summary>{street_svg(v, streets['cellM'], True)}</details><p>{html.escape(v['body'])}</p><dl>{affinity_details}{terrain_details}{scenic_details}<dt>Placement</dt><dd>{html.escape(v['placement'])}</dd><dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Monsters</dt><dd>{monsters}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} generated candidate sites · outlined diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
     legend = ''
     contexts = html.escape(json.dumps(streets['affinityContexts']), quote=True)
     affinity_controls = f'<div class="affinity-controls" data-affinity-contexts="{contexts}"><label>Surroundings <select id="affinity-context">' + ''.join(f'<option value="{key}">{key.title()}</option>' for key in streets['affinityContexts']) + '</select></label><p>Selection probabilities below are conditional on a road already being special, within its road size, with no street-name match. Change surroundings to compare soft preferences; the art fixtures stay the same. Scenic paths retain their geographic selection.</p></div>'
@@ -544,7 +557,7 @@ target.textContent=row.id==='golden' ? `Fixed rarity · ${(row.probability*100).
 select.addEventListener('change',update);update();
 })();</script>"""
     grouped = ''.join(f'<section id="roads-{size}"><h2>{label}</h2><div class="cards">' + ''.join(card for row, card in zip(streets['rows'], cards) if row['size'] == size) + '</div></section>' for size, label in [('minor', 'Minor roads'), ('major', 'Major roads'), ('path', 'Scenic paths')])
-    return f'''<section id="streets"><h1>{len(streets['rows'])} street and path variants</h1><details><summary>How road samples are generated</summary><p>Every shipping street and scenic path row from <code>StreetVariants.STREET_VARIANTS</code>. Samples use the real road rasterizer, street/scenic dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road, with an empty occupancy set. Street samples use public park ground; path fixtures provide actual water, greenway names or park polygons for the scenic classifier. Water appears blue in the promenade sample. Vista chests come from the generated scenic stretches, with their rules below. Props and lamps use their game art. With art switched off, squares are props and coloured circles are lamps. Tiny pale dots are source line ends, and outlined diamonds are guard candidate sites. The marked road midpoint is a reference point, not an interactable.</p><p>The independent rarity roll keeps {streets['plainShare']['minor']*100:g}% of minor keys and {streets['plainShare']['major']*100:g}% of major keys unthemed. Affinities and street names adjust the choice among special roads, without changing that rarity. Golden Road keeps its fixed 2% share of all minor keys. Long and tile-crossing roads retain their theme in deterministic patches, each at most {streets['maxVariantLengthM']:g} m, separated by plain gaps. Scenic paths use geography rather than the street-name roll, so their zero roll share is not a spawn probability. Rarity names come from the runtime table. Prop density is the observed sample, not an area-coverage target. Line-piece caps and spawn restrictions limit placement. Real terrain, occupied cells, bends and tile boundaries change the result. Fauna percentages relocate existing animals; guard sites are passed to the later lair spawner. Pavement and verge carpet decoration use the game’s painters, including carpet colour, width, soft edges and any symbols. Lamps show their restored art, configured colour and generated spacing; visit dimming is not simulated. A zone with a lamp tint overrides the street colour in the game.</p><p><b>{html.escape(streets['baseline']['title'])}</b> is the background story for every major road, not another variant row: {html.escape(streets['baseline']['body'])} About {streets['wagonStopShare']*100:.1f}% of eligible bus stops wear its wagon look. The separate {streets['rockStreetShare']*100:g}% minor-street rock roll (excluding hedgerows), ambient plants, café hoards and fauna are not drawn here.</p></details><p><a href="street-variants.json">Generated street geometry and runtime rows</a> · <a href="#zones">Back to zone variants</a></p>{legend}<label class="art-switch"><input id="restored-pavement" type="checkbox" checked> Restored pavement (off = worn)</label>{affinity_controls}{grouped}{affinity_script}</section>'''
+    return f'''<section id="streets"><h1>{len(streets['rows'])} street and path variants</h1><details><summary>How road samples are generated</summary><p>Every shipping street and scenic path row from <code>StreetVariants.STREET_VARIANTS</code>. Samples use the real road rasterizer, street/scenic dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road, with an empty occupancy set. Street samples begin on public park ground, then the shipping terrain pass paints each variant’s one-cell verge before special-zone painting and surface dressing. Path fixtures provide actual water, greenway names or park polygons for the scenic classifier. Water appears blue in the promenade sample. Vista chests come from the generated scenic stretches, with their rules below. Props and lamps use their game art. With art switched off, squares are props and coloured circles are lamps. Tiny pale dots are source line ends, and outlined diamonds are guard candidate sites. The marked road midpoint is a reference point, not an interactable.</p><p>The independent rarity roll keeps {streets['plainShare']['minor']*100:g}% of minor keys and {streets['plainShare']['major']*100:g}% of major keys unthemed. Affinities and street names adjust the choice among special roads, without changing that rarity. Golden Road keeps its fixed 2% share of all minor keys. Long and tile-crossing roads retain their theme in deterministic patches, each at most {streets['maxVariantLengthM']:g} m, separated by plain gaps. Scenic paths use geography rather than the street-name roll, so their zero roll share is not a spawn probability. Rarity names come from the runtime table. Prop density is the observed sample, not an area-coverage target. Line-piece caps and spawn restrictions limit placement. Real terrain, occupied cells, bends and tile boundaries change the result. Fauna percentages relocate existing animals; guard sites are passed to the later lair spawner. Pavement and verge carpet decoration use the game’s painters, including carpet colour, width, soft edges and any symbols. Lamps show their restored art, configured colour and generated spacing; visit dimming is not simulated. A zone with a lamp tint overrides the street colour in the game.</p><p><b>{html.escape(streets['baseline']['title'])}</b> is the background story for every major road, not another variant row: {html.escape(streets['baseline']['body'])} About {streets['wagonStopShare']*100:.1f}% of eligible bus stops wear its wagon look. The separate {streets['rockStreetShare']*100:g}% minor-street rock roll (excluding hedgerows), ambient plants, café hoards and fauna are not drawn here.</p></details><p><a href="street-variants.json">Generated street geometry and runtime rows</a> · <a href="#zones">Back to zone variants</a></p>{legend}<label class="art-switch"><input id="restored-pavement" type="checkbox" checked> Restored pavement (off = worn)</label>{affinity_controls}{grouped}{affinity_script}</section>'''
 
 
 @functools.lru_cache(maxsize=None)
@@ -641,6 +654,17 @@ for (const canvas of document.querySelectorAll('[data-terrain]')) {
     drawBiomeTexture(texture.getContext('2d'),32,tile.type,(x+y)%tile.variants);
     ctx.drawImage(texture,x*32,y*32);
   }
+}
+const groundTextures = new Map();
+for (const image of document.querySelectorAll('[data-ground-type]')) {
+  const type=Number(image.dataset.groundType);
+  if(!groundTextures.has(type)) {
+    const tile=tiles.find(row=>row.type===type),texture=document.createElement('canvas');
+    texture.width=texture.height=32;
+    if(tile.variants)drawBiomeTexture(texture.getContext('2d'),32,type,0);
+    groundTextures.set(type,texture.toDataURL());
+  }
+  image.setAttribute('href',groundTextures.get(type));
 }
 document.documentElement.dataset.tilesReady='true';
 """
