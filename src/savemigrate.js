@@ -111,6 +111,7 @@
       }
     }
     if (typeof Conditions !== 'undefined') Conditions.normalize(save);
+    if (typeof Shrines !== 'undefined') Shrines.normalize(save);
     if ((save.schema || 0) < 5) {
       if (carryOpenedCratesToLedger(save)) needsPersist = true;
     }

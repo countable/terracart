@@ -1255,6 +1255,8 @@
     // Pilgrim's Way / barricade street key → every owned piece end in the
     // square (tile-local MVT points), in line order.
     const streetEnds = new Map(), habitatSeats = new Set(), snareSeats = new Set();
+    // Street key → its dressed pieces here, for the street shrines.
+    const shrineStreets = new Map();
     for (const rec of (idx.dressingLines || idx.lines)) {
       const v = rec.variant;
       if (!v) continue;
@@ -1263,6 +1265,10 @@
       mark(rec, row.code);
       const spans = S.tileSpans(rec.line, gM, ext);
       if (!spans.length) continue;
+      if (root.Shrines && root.Shrines.kindForStreet(v)) {
+        if (!shrineStreets.has(rec.key)) shrineStreets.set(rec.key, { v, recs: [] });
+        shrineStreets.get(rec.key).recs.push({ rec, spans });
+      }
       // One finite encounter per themed street and owning tile, independent
       // of how many geometry fragments represent the street. Scenery streams
       // keep their draws; guards share the existing lair persistence lane.
@@ -1522,6 +1528,38 @@
         }
         break;
       }
+    }
+
+    // THE STREET SHRINES (src/shrines.js — Shrines.kindForStreet): at most
+    // STREET_SHRINES_PER_TILE of the tile's shrine streets, lowest hash of the
+    // street key first. Each stands at the midpoint of its first piece that
+    // seats one: a verge cell, then the nearest ATTRACTOR cell (open ground,
+    // outside the kerb buffer) on the same side of any major band — a daily
+    // shrine is a reason to walk to it, never toward the road.
+    const shrineKeys = [...shrineStreets.keys()].sort((a, b) => u01('shrine|' + a) - u01('shrine|' + b));
+    let shrinesSeated = 0;
+    for (const key of shrineKeys) {
+      if (shrinesSeated >= root.Shrines.STREET_SHRINES_PER_TILE) break;
+      yield 'street shrines';
+      const { v, recs } = shrineStreets.get(key);
+      let c = null;
+      for (const { rec, spans } of recs) {
+        const length = S.lineLengthM(rec.line, gM);
+        sampleLine(rec.line, gM, length + CELL_M, length / 2, (s, x, y, nx, ny) => {
+          if (!S.covers(spans, s)) return;
+          for (const side of [1, -1]) {
+            const k = verge(rec, x, y, nx, ny, side);
+            c = k && nearestSeat(k.ix, k.iy, N, rc, HOARD_OFFSETS, hoardOk);
+            if (c) break;
+          }
+        });
+        if (c) break;
+      }
+      if (!c) continue;
+      claim(c.ix, c.iy);
+      shrinesSeated++;
+      res.objects.push(WG.makeObject('grove_shrine', cx(c.ix), cy(c.iy),
+        WG.cellId('street_shrine', tx, ty, c.ix, c.iy), { _shrineStreet: v, shrineKind: root.Shrines.kindForStreet(v) }));
     }
 
     // THE CAFÉ HOARDS: the index's hoard POIs in hash order, the first

@@ -158,6 +158,9 @@ const ASSETS = {
   grove_shrine:   { kind: 'spritesheet', path: 'assets/Objects/Landmarks/shrine-figure.png', frameWidth: 48, frameHeight: 48 },
   grove_votive:   { kind: 'spritesheet', path: 'assets/Objects/Approved/grove_votive.png', frameWidth: 16, frameHeight: 16 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Approved/flint.png', frameWidth: 16, frameHeight: 16 },
+  // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — ten 16×24 generated
+  // placeholders on one row, in the table's order.
+  shrines:        { kind: 'spritesheet', path: 'assets/Objects/Generated/shrines.png', frameWidth: 16, frameHeight: 24 },
   // SCENIC PLACES (src/scenic.js) — generated placeholders, one art per
   // interactable: the viewpoint's scope (16×24, an object — RENDER_SPEC
   // vista_scope) and the tide line's driftwood and message bottle (wild

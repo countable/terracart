@@ -391,4 +391,25 @@
       assert.gt(ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone').length, 0);
     }
   });
+  test('zone dressing: a churchyard or tar yard keeps its chest and stands its shrine kind beside it', () => {
+    for (const id of ['ordered_graves', 'black_ring', 'stone_garden']) {
+      const ctx = context(id), a = ctx.field.anchors[0], cell = WorldGen.CELL_M;
+      ctx.chests.push({ kind: 'chest', id: 'poi_' + id, _poiAt: `${a.lx},${a.ly}`, x: 32.5 * cell, y: 32.5 * cell });
+      ctx.spawnOpts.occupied.add(32 * ctx.N + 32);
+      const out = ZoneDressing.dress(ctx), shrines = out.objects.filter(o => o.kind === 'grove_shrine');
+      assert.eq(ctx.chests[0].kind, 'chest', `${id}: the chest stays`);
+      const kind = Shrines.kindForZoneVariant(id);
+      if (!kind) { assert.eq(shrines.length, 0, `${id}: no kind, no shrine`); continue; }
+      assert.eq(shrines.length, 1, id);
+      assert.eq(shrines[0].shrineKind, kind);
+      assert.lte(Math.max(Math.abs(shrines[0]._ix - 32), Math.abs(shrines[0]._iy - 32)), Zones.SHRINE_SEAT_R, 'beside the chest');
+      assert.eq(new Set(all(out).map(o => `${o.x},${o.y}`)).size, all(out).length, `${id}: its cell is its own`);
+      assert.eq(JSON.stringify(shrines), JSON.stringify((() => { const c = context(id); c.chests.push({ ...ctx.chests[0] }); c.spawnOpts.occupied.add(32 * c.N + 32); return ZoneDressing.dress(c); })().objects.filter(o => o.kind === 'grove_shrine')), 'stable');
+    }
+    const grove = context('orchard'), g = grove.field.anchors[0], cell = WorldGen.CELL_M;
+    grove.chests.push({ kind: 'chest', id: 'park', _poiAt: `${g.lx},${g.ly}`, x: 32.5 * cell, y: 32.5 * cell });
+    ZoneDressing.dress(grove);
+    assert.eq(grove.chests[0].kind, 'grove_shrine');
+    assert.eq(grove.chests[0].shrineKind, 'harvest_idol', 'the park POI itself becomes the kind');
+  });
 })();

@@ -739,7 +739,10 @@
   function trainingBonus(save, kind, now = Date.now()) {
     const row = TRAINING_KINDS[kind];
     if (!row) return 0;
-    return trainingLevel(save, kind) * row.per + (trainingBuffActive(save, kind, now) ? row.drill : 0);
+    // A Rust Totem's boon (src/shrines.js 'melee') runs the melee drill too.
+    const drilled = trainingBuffActive(save, kind, now)
+      || (kind === 'melee' && !!root.Shrines && root.Shrines.leverActive(save, 'melee', now));
+    return trainingLevel(save, kind) * row.per + (drilled ? row.drill : 0);
   }
   // The multiplier on every attack INTERVAL (melee blow, bow, staff): 1 over
   // one plus the speed bonus, so +25% speed is a beat 1/1.25 as long.

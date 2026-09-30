@@ -49,6 +49,7 @@ wizard role.
 | Street rewards | Golden Road coins, street lairs and a cafe hoard use their normal generated records. |
 | Scenic paths | Common Walk is a `parkpath`; the beach carries a scenic shore mask, tide pool and viewpoint scope. |
 | Influence zones | Grove, old-stones and tar anchors carry real zone coverage and run `ZoneDressing`. |
+| Shrine kinds | The zones scene's east edge stands one shrine of each `Shrines.SHRINE_KINDS` row, north to south in table order; tap one for its boon. |
 | Surface traps | `Traps.spawnSurface` places traps beside paths and park edges from the shared spawn fields. |
 | Placed floor | One campfire joins the existing crops, tilled beds and scarecrows. |
 

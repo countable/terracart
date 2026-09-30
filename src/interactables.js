@@ -621,8 +621,10 @@ const INTERACTABLES = {
       // reopening replays that same roll. Fresh opens go through pickReward
       // which handles items AND relics (biome-specific weights).
       const held = held0;
+      // A Wishing Well's boon (Shrines 'fortune') lifts a fresh roll a tier.
+      const fortune = !chapel && Shrines.leverActive(save, 'fortune') ? Shrines.FORTUNE_TIER_BONUS : 0;
       const chestT = chapel ? Macros.chapelRollTier(o)
-        : ((typeof chestTier === 'function') ? chestTier(o) : 2);
+        : Math.min(CHEST_TIER_MAX, ((typeof chestTier === 'function') ? chestTier(o) : 2) + fortune);
       const theme = chestThemeFor(o);
       const result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: held.consolation || 0 }
@@ -845,6 +847,11 @@ const INTERACTABLES = {
       }
       Macros.markToday(save, o.id);
       ctx.dirty = true;
+      // A shrine KIND (src/shrines.js) lends its timed boon instead of the gift.
+      if (Shrines.grant(save, o.shrineKind, Date.now(), scene)) {
+        scene.flash(Shrines.boonFlash(o.shrineKind), sx, sy);
+        return true;
+      }
       grantTreasureRoll(scene, save, sx, sy, '\u{1F33F}', Zones.SHRINE_CONTEXT);
       return true;
     },
