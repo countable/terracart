@@ -144,6 +144,12 @@
   // (app.js _streetLampsForTile), same art, same lit-when-restored rule, one
   // lane.
   const LANTERN_SPACING_DIV = 4;
+  // The hedged lane's white lamps stand closer than the usual street's, still
+  // short of a Lantern Row.
+  const HEDGE_LAMP_DENSITY = 3;
+  // The hedged lane's red carpet: centred on the first verge cell (where the
+  // hedges stand, so it shows at every garden gate), this many cells wide.
+  const CARPET_WIDTH_CELLS = 0.6;
 
   // What a burned row's verge holds — the two props that SLOW the body
   // (app.js _bodyHold). One table both sides read: dressing lays these kinds,
@@ -162,9 +168,11 @@
   // `flash` is the ≤30-char map line a later visit gets.
   const STREET_VARIANTS = [
     { id: 'hedgerow', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.095, nudge: 2, rung: 'find',
-      stone: { weathered: '#3a322c', restored: '#000000' }, lampDensity: 2,
+      stone: { weathered: '#3a322c', restored: '#000000' }, lampDensity: HEDGE_LAMP_DENSITY,
+      // A red carpet runs down the verge either side (road_overlay.js decor lane).
+      carpet: '#8f2a2e',
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
-      lampGlow: '#9be08a', attracts: { rabbit: 0.5 },
+      lampGlow: '#ffffff', attracts: { rabbit: 0.5 },
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Clipped hedges both sides, a gap at every garden gate. The green still knows its shape.',
       flash: 'A hedged lane, still kept.' },
@@ -1428,6 +1436,11 @@
     return null;
   }
 
+  function carpetColorFor(variant) {
+    const hex = VARIANT_BY_ID[variant]?.carpet;
+    return hex ? parseInt(hex.slice(1), 16) : null;
+  }
+
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
   root.StreetVariants = {
@@ -1438,11 +1451,11 @@
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GAP_MIN, HEDGE_GAP_SPAN, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
-    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, VARIANT_PATCH_UNITS, VARIANT_PATCH_INSET_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, SLOW_KINDS,
+    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, VARIANT_PATCH_UNITS, VARIANT_PATCH_INSET_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
     STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,
-    markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, lineStyles, isSlowKind,
+    markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, lineStyles, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
