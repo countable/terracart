@@ -11,7 +11,7 @@
 // bright button that refuses, is the bug this file exists to catch.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 test('eat cooldown: ten seconds, and a fresh save is ready to eat', () => {
   assert.eq(Energy.EAT_COOLDOWN_MS, 10 * 1000, 'ten seconds between bites');

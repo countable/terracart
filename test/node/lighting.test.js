@@ -272,7 +272,7 @@ test('lighting: at 20% energy and below the tint throbs like a heartbeat, not a 
 // ── The tired walk (app.js — can't load headlessly, pinned as source text) ──
 
 test('lighting: the walk cycle eases toward half speed on the same weight as the red', () => {
-  const a = APP_JS_SRC;
+  const a = SCENE_SRC;
   const s = a.indexOf('  _playDirected(sprite, baseKey, dx, dy) {');
   assert.truthy(s > 0, 'found _playDirected');
   const body = a.slice(s, a.indexOf('\n  }\n', s));
@@ -618,7 +618,7 @@ test('lighting: draw() stamps a light with its own alpha and scale', () => {
 });
 
 test('lighting: the halo ping is gone — the POI light replaced it', () => {
-  assert.falsy(/poiHaloContainer|halo_poi|POI_HALO_PERIOD_S/.test(APP_JS_SRC + RENDER_SRC),
+  assert.falsy(/poiHaloContainer|halo_poi|POI_HALO_PERIOD_S/.test(SCENE_SRC + RENDER_SRC),
     'the ring layer, its texture and its period are gone from app.js / render.js');
   const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawObjects = function drawObjects(scene)'));
   assert.truthy(/if \(LIGHTS && o\.kind === 'chest' && poiLit\(o, spentIds\)\) LIGHTS\.consider\(scene, o, dx, dy, halfM\);/.test(body),
@@ -784,7 +784,7 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
 });
 
 test('lighting: the map multiplies, the cookies add, and the plateau is per cell', () => {
-  const a = APP_JS_SRC;
+  const a = SCENE_SRC;
   assert.truthy(/this\.lightTex = this\.textures\.exists\('lightmap'\)/.test(a), 'the lightmap is a canvas texture');
   assert.truthy(/this\.lightMap = this\.add\.image\(this\.viewLeft, this\.viewTop, 'lightmap'\)\s*\n\s*\.setOrigin\(0, 0\)\.setBlendMode\(Phaser\.BlendModes\.MULTIPLY\)/.test(a),
     'shown as a viewport-sized image multiplied over the world');

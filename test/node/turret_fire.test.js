@@ -16,7 +16,7 @@
 //     hostile list, and app.js hands it the same `enemies` _combatTick built
 //     with Combat.isEnemy — so a turret can no more shoot a crow, a deer or a
 //     tamed slime than the auto-fire can. Both halves are pinned: the maths
-//     here, and the app.js call site as source text (APP_JS_SRC).
+//     here, and the app.js call site as source text (SCENE_SRC).
 //
 //  4. THE WALLS ARE A REWARD, NOT SCENERY. Only a CLAIMED castle's turrets
 //     fire — the same isClaimedKey test that already decides whether the tower
@@ -139,7 +139,7 @@ test('turret: several turrets keep independent clocks', () => {
 // ── The app.js call site ────────────────────────────────────────────────────
 // app.js can't load headlessly, so the glue is pinned as source text.
 test('turret: app.js fires the turrets from _combatTick with the SAME enemy list, surface only', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const tick = app.slice(app.indexOf('  _combatTick(dt) {'), app.indexOf('  _turretFire(now, px, py, halfSpanM, enemies, pc) {'));
   assert.truthy(tick.length > 0, '_combatTick precedes _turretFire');
   assert.truthy(/if \(enemies\.length && this\.depth === 0\) \{\s*\n\s*this\._turretFire\(now, px, py, halfSpanM, enemies, pcTick\);/.test(tick),
@@ -173,7 +173,7 @@ test('ranged weapons: wake only for a foe within the reach plus a cell', () => {
   assert.eq(Combat.SHOT.staff.rangeFromReach, 0, 'magic stops at the vision range itself');
   assert.truthy(Combat.anyEnemyWithin(0, 0, [goblin('in', trig - 1, 0)], trig), 'inside: armed');
   assert.falsy(Combat.anyEnemyWithin(0, 0, [goblin('out', trig + 1, 0)], trig), 'on screen but beyond: silent');
-  assert.truthy(/const rangedArmed = Combat\.anyEnemyWithin\(px, py, enemies, Combat\.rangedTriggerM\(reachCells\(this\), this\.cellM\)\);\s*\n\s*if \(rangedArmed\)/.test(APP_JS_SRC),
+  assert.truthy(/const rangedArmed = Combat\.anyEnemyWithin\(px, py, enemies, Combat\.rangedTriggerM\(reachCells\(this\), this\.cellM\)\);\s*\n\s*if \(rangedArmed\)/.test(SCENE_SRC),
     'the auto-fire loop is gated on it');
 });
 

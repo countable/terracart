@@ -18,13 +18,13 @@
 // dry tap tells no story.
 //
 // app.js can't load headlessly, so _tickTraps, _toolActionStory and the
-// gated movement block are lifted out of APP_JS_SRC and run for real on stub
+// gated movement block are lifted out of SCENE_SRC and run for real on stub
 // scenes (the story_splashes / home_ward idiom); the call sites are pinned
 // as source text. The art stems are checked against the real PNGs via
 // pngDims, same as story_splashes.test.js.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const ix = INTERACT_SRC;
 
 const lift = (src, sig, what) => {

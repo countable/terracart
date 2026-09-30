@@ -81,11 +81,11 @@ test('GPS speed: one lane — the egg reads the same reliable-leg rule and ceili
 });
 
 test('passenger gate: the scene wiring — every fix steps it, and three things read it', () => {
-  const geo = SCENE_GEO_SRC;
+  const geo = SCENE_SRC;
   assert.truthy(/this\._trackEggHatch\(pos\);\s*this\._trackSpeedGate\(pos\);/.test(geo), 'every physical fix');
   assert.truthy(/speed: pos\.coords\.speed,/.test(geo), 'with the device\'s own speed');
   assert.truthy(/if \(!was && this\._speedGate\.tooFast\) this\._showPassengerCard\?\.\(\);/.test(geo), 'the card, once per ride');
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   assert.truthy(/return this\.isShadowActive\(\) \|\| Combat\.playerDowned\(this\.save\.energy\) \|\| this\.isTooFast\(\);/.test(app),
     'nothing hunts a passenger — ORed into isUnnoticed');
   assert.truthy(/if \(!surface \|\| this\._driftingHome \|\| this\.isTooFast\?\.\(\)\) \{ this\._resetStreetSight\(\); return; \}/.test(app),
@@ -97,7 +97,7 @@ test('passenger gate: the scene wiring — every fix steps it, and three things 
 });
 
 test('safety card: full-screen, bold, tap to continue — resume and dusk', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const body = app.slice(app.indexOf('  _showSafetyCard(which) {'));
   const card = body.slice(0, body.indexOf('\n  }\n'));
   assert.truthy(/position:absolute;left:0;right:0;top:var\(--view-top,0px\);height:var\(--view-h,100%\)/.test(card),
@@ -139,15 +139,15 @@ test('launch safety: the STAY SAFE message is the loading screen, acknowledged b
   assert.truthy(/#safety \.warn-title \{[^}]*font: 900[^}]*#ff8c3b/.test(html), 'a bold orange heading');
   assert.truthy(/#safety \.warn-line \{[^}]*font-weight: 700/.test(html), 'bold lines');
   // And no second opening card once the map is up.
-  assert.falsy(/_showSafetyCard\('launch'\)/.test(APP_JS_SRC), 'no launch card after the map loads');
+  assert.falsy(/_showSafetyCard\('launch'\)/.test(SCENE_SRC), 'no launch card after the map loads');
   // The loading view holds for the answer, however ready the game is.
   assert.truthy(/if \(document\.getElementById\('safety'\)\) \{ held = true; return; \}/.test(html), 'the overlay waits on the CTA');
 });
 
 test('heads-up buzz: a hostile taking an interest close by vibrates the phone, throttled', () => {
-  const app = APP_JS_SRC;
-  assert.truthy(/this\._foeHeadsUp\?\.\(interestedFoeM, now\);/.test(SCENE_CREATURES_SRC), 'the sim hands over the nearest interested foe');
-  assert.truthy(/if \(!isTame && !standDown && !unnoticed && \(Combat\.isEnemy\(c\) \|\| enraged\)\)/.test(SCENE_CREATURES_SRC),
+  const app = SCENE_SRC;
+  assert.truthy(/this\._foeHeadsUp\?\.\(interestedFoeM, now\);/.test(SCENE_SRC), 'the sim hands over the nearest interested foe');
+  assert.truthy(/if \(!isTame && !standDown && !unnoticed && \(Combat\.isEnemy\(c\) \|\| enraged\)\)/.test(SCENE_SRC),
     'only one that is taking an interest');
   const m = app.slice(app.indexOf('  _foeHeadsUp(distM, now) {'));
   const f = new Function('SAFETY_FOE_BUZZ_CELLS', 'SAFETY_FOE_BUZZ_GAP_MS', 'SAFETY_FOE_BUZZ',

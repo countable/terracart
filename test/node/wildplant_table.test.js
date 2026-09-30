@@ -81,13 +81,13 @@ test('wildplant: the factory is the shape, and the id stays the caller\'s', () =
 test('wildplant: nothing mints one by hand any more', () => {
   // The point of the factory is that a new field cannot miss a site. A bare
   // object literal pushed into a wildplant stream is that miss coming back.
-  for (const [name, src] of [['worldgen.js', WORLDGEN_SRC], ['app.js', APP_JS_SRC],
+  for (const [name, src] of [['worldgen.js', WORLDGEN_SRC], ['app.js', SCENE_SRC],
                              ['interact.js', INTERACT_SRC]]) {
     assert.falsy(/wildplants\.push\(\{/.test(src), `${name} mints a wildplant by hand`);
     assert.falsy(/creatures\.push\(\{/.test(src), `${name} mints a creature by hand`);
   }
   assert.truthy(/makeWildplant\(/.test(WORLDGEN_SRC), 'worldgen mints through the factory');
-  assert.truthy(/WorldGen\.makeCreature\(/.test(APP_JS_SRC), 'app.js mints creatures through it');
+  assert.truthy(/WorldGen\.makeCreature\(/.test(SCENE_SRC), 'app.js mints creatures through it');
   // The rasterized ids are unchanged by the refactor — the delta lists
   // (save.picked) key off them, so a rebuilt tile must reproduce them exactly.
   const again = WorldGen.rasterizeTile(woodLayers(), CPE, TX, TY, TILE_EDGE_M);

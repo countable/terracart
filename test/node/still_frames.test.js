@@ -129,7 +129,7 @@ test('still frames: draw() reads the quantised clock and gates before it touches
 });
 
 test('still frames: the loop steps on a cap, and the profile can tell the cap from the passes', () => {
-  const a = APP_JS_SRC;
+  const a = SCENE_SRC;
   assert.truthy(/const FPS_LIMIT_DEFAULT = 30;/.test(a), 'thirty steps a second by default');
   const cfg = a.slice(a.indexOf('new Phaser.Game({'));
   assert.truthy(/fps: \{ limit: PHASER_FPS_LIMIT \},/.test(cfg), 'the Phaser config carries the cap');

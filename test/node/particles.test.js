@@ -10,7 +10,7 @@
 // tick's bursts are gated on the viewport.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const near = (a, b, eps, m) => { if (Math.abs(a - b) > eps) throw new Error(`${m || 'near'}: ${a} vs ${b}`); };
 
 // Derived, not listed: the completeness / burstCount / emitterConfig checks
@@ -570,6 +570,6 @@ test('particles: the jackpot fanfare throws confetti, one preset in many baked c
   assert.truthy(P.angle[0] >= 180 && P.angle[1] <= 360, 'tossed upward');
   assert.gte(Particles.CONFETTI_COLOURS.length, 4, 'many colours');
   assert.eq(new Set(Particles.CONFETTI_COLOURS).size, Particles.CONFETTI_COLOURS.length, 'all different');
-  assert.truthy(/Particles\.burst\(this, 'confetti', t\.x, t\.y, \{ colour \}\)/.test(APP_JS_SRC),
+  assert.truthy(/Particles\.burst\(this, 'confetti', t\.x, t\.y, \{ colour \}\)/.test(SCENE_SRC),
     'flashJackpot throws it off the banner, once per colour');
 });

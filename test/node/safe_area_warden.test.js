@@ -28,6 +28,6 @@ test('warden: placed once by the starting trailer, a few cells out, off the spaw
   assert.eq(w[0].role, 'warden');
   Starter.placeSafeAreaWarden(scene, entry, 0, 0);
   assert.eq(entry.creatures.filter(c => c.id === 'npc_warden_0_0').length, 1, 'idempotent');
-  assert.truthy(/this\._placeSafeAreaWarden\(entry, tx, ty\)/.test(SCENE_CREATURES_SRC), 'the starter tile seats it');
+  assert.truthy(/this\._placeSafeAreaWarden\(entry, tx, ty\)/.test(SCENE_SRC), 'the starter tile seats it');
 });
 })();

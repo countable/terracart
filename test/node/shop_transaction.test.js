@@ -1,6 +1,6 @@
 (() => {
   function method(name) {
-    const match = APP_JS_SRC.match(new RegExp('^  ' + name + '\\([^\\n]*\\) \\{[\\s\\S]*?^  \\}', 'm'));
+    const match = SCENE_SRC.match(new RegExp('^  ' + name + '\\([^\\n]*\\) \\{[\\s\\S]*?^  \\}', 'm'));
     if (!match) throw new Error('Missing scene method: ' + name);
     return new Function('return ({' + match[0] + '})')()[name];
   }
@@ -55,7 +55,7 @@
     assert.eq(Inventory.count(scene.save, 'potato'), 9, 'the stack stays');
     assert.truthy(/Bag full for Potato/.test(scene.denial || ''), `names the full stack: ${scene.denial}`);
 
-    const guards = APP_JS_SRC.match(/if \(this\.invRoomFor\(id\) < buyQty\)/g) || [];
+    const guards = SCENE_SRC.match(/if \(this\.invRoomFor\(id\) < buyQty\)/g) || [];
     assert.eq(guards.length, 2, 'both cash-item purchase paths recheck room before payment');
   });
 

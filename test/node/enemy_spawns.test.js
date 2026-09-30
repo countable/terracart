@@ -125,7 +125,7 @@
 })();
 
 test('enemy spawns: a biome seat on zone ground (park, place of worship, tar yard) is cancelled', () => {
-  const src = SCENE_CREATURES_SRC;
+  const src = SCENE_SRC;
   const loop = src.slice(src.indexOf('const enemySeats = new Set();'), src.indexOf('creatures.length = enemyWrite;'));
   assert.truthy(loop.length > 0, 'found the seat → roster loop');
   const cancel = loop.indexOf('if (WorldGen.variantOwnerAt(entry, cy * N + cx)) continue;');

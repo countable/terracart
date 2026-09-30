@@ -88,9 +88,9 @@
 
   for (const street of [false,true]) test(`${street ? 'street' : 'zone'} runtime: difficulty changes retain unsprung authored traps`, () => {
     const { entry, scene, trap } = fixture([],undefined,street);
-    const at = APP_JS_SRC.indexOf('  _relayTrapsForMode() {');
-    const end = APP_JS_SRC.indexOf('\n  }', at);
-    const relay = new Function(`return {${APP_JS_SRC.slice(at, end + 4)}};`)();
+    const at = SCENE_SRC.indexOf('  _relayTrapsForMode() {');
+    const end = SCENE_SRC.indexOf('\n  }', at);
+    const relay = new Function(`return {${SCENE_SRC.slice(at, end + 4)}};`)();
     const priorMode = window.__TEST_MODE;
     const prior = WorldGen.tileCache.get('surface/0/0');
     WorldGen.tileCache.set('surface/0/0', entry);

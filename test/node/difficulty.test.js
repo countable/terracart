@@ -181,7 +181,7 @@
   });
 
   test('difficulty: the card carries the two CTAs and the choice hook (source pin)', () => {
-    const html = INDEX_HTML_SRC, app = APP_JS_SRC;   // run.js exposes both as text
+    const html = INDEX_HTML_SRC, app = SCENE_SRC;   // run.js exposes both as text
     const easyAt = html.indexOf('id="howto-easy"'), hardAt = html.indexOf('id="howto-hard"');
     assert.gt(easyAt, 0, 'the easy CTA exists'); assert.gt(hardAt, 0, 'the hard CTA exists');
     assert.lt(easyAt, hardAt, 'easy — the tutorial — is the top CTA');
@@ -196,7 +196,7 @@
   });
 
   test('difficulty: hard mode also blacks out on the SURFACE, easy mode never does', () => {
-    const app = APP_JS_SRC;
+    const app = SCENE_SRC;
     // The update() gate: surface exhaustion only fires under Difficulty.isHard().
     const gate = /this\.depth === 0 && Difficulty\.isHard\(\)[\s\S]{0,200}this\._passOutOnSurface\(\)/;
     assert.truthy(gate.test(app),
@@ -230,7 +230,7 @@
     // frame until it hit $0. `save.exhausted` is the second latch that fixes it:
     // it outlives the modal and only clears once energy is actually back
     // above 0 (a rest, a meal), so both gates fire at most once per dry spell.
-    const app = APP_JS_SRC;
+    const app = SCENE_SRC;
     const a = app.indexOf('// Exhaustion underground:');
     const b = app.indexOf('this._passOutOnSurface();');
     assert.truthy(a > 0 && b > a, 'found the update() exhaustion gate block');

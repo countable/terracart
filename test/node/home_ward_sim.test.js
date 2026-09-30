@@ -174,7 +174,7 @@ test('ward: wardTrip — Home first, else the nearest turret inside the ring', (
 });
 
 test('ward: only a CLAIMED castle\'s turrets ward, and only on the surface', () => {
-  const src = APP_JS_SRC;
+  const src = SCENE_SRC;
   const body = src.slice(src.indexOf('  _castleWardPoints(now, pc) {'), src.indexOf('  homeWorldPos() {'));
   assert.truthy(/if \(\(this\.depth \|\| 0\) !== 0 \|\| !pc\) return \[\];/.test(body), 'surface only');
   assert.truthy(/o\.kind === 'tower' && this\.isClaimedKey\(o\.castle\)/.test(body), 'the turret test _turretFire reads');

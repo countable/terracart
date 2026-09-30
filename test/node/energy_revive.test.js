@@ -18,6 +18,6 @@ test('revive: an item passes its own share, rounded the same way', () => {
 });
 
 test('revive: every share-of-the-bar revive uses it — Home on hard, the potions', () => {
-  assert.eq((APP_JS_SRC.match(/Energy\.reviveLevel\(/g) || []).length, 2, 'two callers (the feather is a flat 1)');
-  assert.falsy(/energy = [^;\n]*\* 0\.25/.test(APP_JS_SRC), 'no bare quarter-bar left');
+  assert.eq((SCENE_SRC.match(/Energy\.reviveLevel\(/g) || []).length, 2, 'two callers (the feather is a flat 1)');
+  assert.falsy(/energy = [^;\n]*\* 0\.25/.test(SCENE_SRC), 'no bare quarter-bar left');
 });

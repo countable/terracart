@@ -3,7 +3,7 @@
 // offers a CHOICE never fires it; the slot machine's two jackpots do.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const body = (name) => {
   const m = app.match(new RegExp(`\\n  ${name}\\([^)]*\\) \\{([\\s\\S]*?)\\n  \\}\\n`));
   assert.truthy(m, `${name} exists`);
