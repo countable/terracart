@@ -25,7 +25,7 @@
   module lands.
 -->
 <html lang="en">
-<head>
+<head><meta name="artifact-review" content="disabled">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Balancing</title>
@@ -194,6 +194,7 @@
   <table id="chestGrid"></table>
 </section>
 
+<script src="sortable-tables.js"></script>
 <script src="game-loader.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
@@ -322,7 +323,7 @@ function optsFor(ctx) {
   if (ctx === Combat.ELITE_TREASURE_CONTEXT) o.rollBonus = Combat.eliteRollBonus($('monster').value, +$('depth').value);
   return o;
 }
-const table = (el, head, body) => { el.innerHTML = `<tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr>` + body.join(''); };
+const table = (el, head, body) => { el.innerHTML = `<thead><tr>${head.map((h) => `<th scope="col">${h}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody>`; SortableTables.refresh(el); };
 const barCell = (share) => `<td><span class="bar" style="width:${Math.round(share * 120)}px"></span>${pct(share)}</td>`;
 
 function rollOne() {
@@ -766,7 +767,7 @@ function wRender(w) {
   const favg = (v, p) => Array.isArray(v) ? v.map((x) => (p ? wPct(x) : f1(x))) : v == null ? '—' : p ? wPct(v) : f1(v);
   table($('wTiles'), ['tile', ...cols.map((c) => c[0])],
     ms.map((m) => `<tr><td>${m.tile}</td>${cols.map(([, f, p, sep]) => `<td>${cell(f(m), p, sep)}</td>`).join('')}</tr>`)
-      .concat(`<tr style="border-top:2px solid var(--gold)"><td><b>avg / tile</b></td>${cols.map(([, f, p, sep]) => {
+      .concat(`<tr data-sort-fixed style="border-top:2px solid var(--gold)"><td><b>avg / tile</b></td>${cols.map(([, f, p, sep]) => {
         const v = favg(avgOf(f), p);
         return `<td><b>${Array.isArray(v) ? (sep ? v.join(sep) : `${v[0]} (${v[1]})`) : v}</b></td>`;
       }).join('')}</tr>`));

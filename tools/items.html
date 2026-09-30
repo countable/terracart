@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<head>
+<head><meta name="artifact-review" content="disabled">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Item catalogue · Mending Lane</title>
@@ -23,7 +23,8 @@
 <button id="reset" type="button">Reset</button>
 </div>
 <p id="status" role="status" aria-live="polite">Loading game items…</p>
-<div class="table-wrap"><table><thead><tr><th scope="col">Art</th><th scope="col">Item</th><th scope="col">Value</th><th scope="col">Category</th><th scope="col">Tier</th><th scope="col">Chest types</th><th scope="col">In-game description</th></tr></thead><tbody id="rows"></tbody></table><p id="empty" hidden>No items match these filters.</p></div>
+<div class="table-wrap"><table data-sortable><thead><tr><th scope="col" data-sort="none">Art</th><th scope="col">Item</th><th scope="col">Value</th><th scope="col">Category</th><th scope="col">Tier</th><th scope="col">Chest types</th><th scope="col">In-game description</th></tr></thead><tbody id="rows"></tbody></table><p id="empty" hidden>No items match these filters.</p></div>
+<script src="sortable-tables.js"></script>
 <script src="game-loader.js"></script>
 <script src="item-catalog-data.js"></script>
 <script>
@@ -51,7 +52,8 @@ function render() {
     && (!chest || (chest === 'none' ? !row.chests.length : row.chests.some(source => source.context === chest))));
   const sort = el('sort').value;
   rows.sort((a,b) => (sort === 'value-desc' ? b.value-a.value : sort === 'value-asc' ? a.value-b.value : sort === 'tier' ? a.tier-b.tier : sort === 'category' ? a.category.localeCompare(b.category) : 0) || a.name.localeCompare(b.name));
-  el('rows').innerHTML = rows.map(row => `<tr data-item="${escapeHTML(row.id)}"><td class="art">${iconHTML(row)}</td><td class="name"><strong>${escapeHTML(row.name)}</strong><small>${escapeHTML(row.id)}</small></td><td class="value">$${Number(row.value).toLocaleString()}</td><td>${escapeHTML(row.category)}</td><td>${row.tier ? 'T'+escapeHTML(row.tier) : '—'}</td><td class="sources">${sourceHTML(row)}</td><td class="description">${row.description ? escapeHTML(row.description) : '<span class="muted">No in-game description</span>'}</td></tr>`).join('');
+  el('rows').innerHTML = rows.map(row => `<tr data-item="${escapeHTML(row.id)}"><td class="art">${iconHTML(row)}</td><td class="name" data-sort-value="${escapeHTML(row.name)}"><strong>${escapeHTML(row.name)}</strong><small>${escapeHTML(row.id)}</small></td><td class="value" data-sort-value="${row.value}">$${Number(row.value).toLocaleString()}</td><td>${escapeHTML(row.category)}</td><td data-sort-value="${row.tier || 0}">${row.tier ? 'T'+escapeHTML(row.tier) : '—'}</td><td class="sources">${sourceHTML(row)}</td><td class="description">${row.description ? escapeHTML(row.description) : '<span class="muted">No in-game description</span>'}</td></tr>`).join('');
+  SortableTables.refresh(el('rows').closest('table'));
   el('status').textContent = `${rows.length} of ${catalogue.length} items`;
   el('empty').hidden = rows.length > 0;
 }
@@ -84,8 +86,9 @@ async function prepareWorldIcons() {
     fill('category', [...new Set(catalogue.map(row => row.category))].sort());
     fill('tier', [...new Set(catalogue.map(row => row.tier))].sort((a,b) => a-b), value => 'T'+value);
     fill('chest', [...new Set(catalogue.flatMap(row => row.chests.map(source => source.context)))].sort(), sourceName);
+    el('sort').addEventListener('input', () => SortableTables.clear(el('rows').closest('table')));
     for (const id of ['search','category','tier','chest','sort']) el(id).addEventListener('input', render);
-    el('reset').addEventListener('click', () => { for (const id of ['search','category','tier','chest']) el(id).value = ''; el('sort').value = 'name'; render(); });
+    el('reset').addEventListener('click', () => { SortableTables.clear(el('rows').closest('table')); for (const id of ['search','category','tier','chest']) el(id).value = ''; el('sort').value = 'name'; render(); });
     render();
   } catch (error) { el('status').textContent = 'Could not load the catalogue: ' + error.message; console.error(error); }
 })();

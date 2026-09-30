@@ -27,3 +27,6 @@ data/g[0-9]*_*.png
 
 # Full-resolution painting masters; preserve locally, outside runtime assets.
 art-source/paintings/raw/
+
+# Unused art stays local; only selected copies in assets belong in Git.
+/unused_art/

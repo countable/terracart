@@ -13,7 +13,7 @@ from html import escape
 from pathlib import Path
 
 STYLE = '''
-:root{color-scheme:dark;background:#101919;color:#ecf3e9;font:16px/1.6 system-ui,sans-serif}*{box-sizing:border-box}body{margin:0}main{max-width:1180px;margin:auto;padding:80px 24px 32px}h1{font-size:clamp(32px,5vw,48px);line-height:1.15}h2{margin-top:32px}p{color:#afc1b7;max-width:850px}a{color:#c7e991}nav{display:flex;flex-wrap:wrap;gap:20px;margin:12px 0 24px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.card{display:block;background:#192525;border:1px solid #344545;border-radius:12px;padding:22px;text-decoration:none;color:inherit}.card h2,.card h3{margin:0 0 8px}.card p{margin:0}.tag{font-size:12px;color:#c7e991}a:focus-visible,button:focus-visible{outline:3px solid #efca79;outline-offset:4px}button{font:inherit;padding:10px 16px;background:#192525;border:1px solid #52675f;border-radius:8px;color:inherit;cursor:pointer}button[aria-pressed=true]{background:#35482b;border-color:#c7e991}.view-controls{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}iframe{width:100%;height:78vh;min-height:500px;border:1px solid #344545;border-radius:8px;background:#101919}.wide{max-width:1700px}.note{border-left:3px solid #efca79;padding:10px 16px;background:#252a20}footer{margin-top:32px;border-top:1px solid #344545;padding-top:16px;font-size:13px}li{margin-bottom:10px}
+:root{color-scheme:dark;background:#101919;color:#ecf3e9;font:16px/1.6 system-ui,sans-serif}*{box-sizing:border-box}body{margin:0}main{max-width:1180px;margin:auto;padding:80px 24px 32px}h1{font-size:clamp(32px,5vw,48px);line-height:1.15}h2{margin-top:32px}p{color:#afc1b7;max-width:850px}a{color:#c7e991}nav{display:flex;flex-wrap:wrap;gap:20px;margin:12px 0 24px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.card{display:block;background:#192525;border:1px solid #344545;border-radius:12px;padding:22px;text-decoration:none;color:inherit}.card h2,.card h3{margin:0 0 8px}.card p{margin:0}.tag{font-size:12px;color:#c7e991}a:focus-visible,button:focus-visible{outline:3px solid #efca79;outline-offset:4px}button{font:inherit;padding:10px 16px;background:#192525;border:1px solid #52675f;border-radius:8px;color:inherit;cursor:pointer}button[aria-pressed=true]{background:#35482b;border-color:#c7e991}.view-controls{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}iframe{width:100%;height:78vh;min-height:500px;border:1px solid #344545;border-radius:8px;background:#101919}.wide{max-width:1700px;padding-top:32px}.note{border-left:3px solid #efca79;padding:10px 16px;background:#252a20}footer{margin-top:32px;border-top:1px solid #344545;padding-top:16px;font-size:13px}li{margin-bottom:10px}
 @media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.grid{grid-template-columns:1fr}}
 '''
 NAV = '<nav aria-label="Design navigation"><a href="index.html">Design dashboards</a><a href="developer-tools.html">Developer tools</a><a href="archive.html">Archive</a></nav>'
@@ -29,11 +29,11 @@ def views(title, intro, entries, extra=''):
     label,url=entries[0]
     body=f'<p>{intro}</p>{extra}<div class="view-controls" aria-label="Choose view">{controls}</div><p><a id="open-view" href="{url}">Open {escape(label)} separately</a></p><iframe id="view" src="{url}" title="{escape(label)}" loading="lazy"></iframe>'
     body+='''<script>const buttons=[...document.querySelectorAll('[data-url]')];for(const button of buttons)button.addEventListener('click',()=>{for(const b of buttons)b.setAttribute('aria-pressed',String(b===button));const frame=document.getElementById('view');frame.src=button.dataset.url;frame.title=button.textContent;const link=document.getElementById('open-view');link.href=button.dataset.url;link.textContent='Open '+button.textContent+' separately';});</script>'''
-    return page(title,body,True)
+    return page(title,body,True).replace('<meta charset="utf-8">', '<meta charset="utf-8"><meta name="artifact-review" content="disabled">', 1)
 
 ARCHIVES = {
  'Monster and character history': [
- ('../enemy-roster-proposal-2026-09-28/index.html','Original monster proposal and palette study','Historical roster and balance assumptions; includes retired enemies. Use Monsters for current data and palette review.'),
+ ('../enemy-roster-proposal-2026-09-28/archive.html','Original monster proposal and palette study','Historical roster and balance assumptions; includes retired enemies. Use Monsters for current data and palette review.'),
  ('../terracart-sprite-audit/enemy-preview.html','Saved enemy viewer','Snapshot retained for comparison; current animations and roster are in Monsters.'),
  ('../terracart-sprite-audit/index.html','Sprite cleanup completion','Implementation report, including old validation counts.'),
  ('../terracart-sprite-audit/default-comparison.html','Previous default and class comparison','The default-character decision has shipped.'),
@@ -57,17 +57,23 @@ ARCHIVES = {
 
 def build(output):
     output.mkdir(parents=True,exist_ok=True)
+    # Promote the proposal bookmark while preserving its original review once.
+    proposal = output.parent / 'enemy-roster-proposal-2026-09-28'
+    if (proposal / 'index.html').is_file():
+        archive = proposal / 'archive.html'
+        if not archive.exists():
+            archive.write_text((proposal / 'index.html').read_text())
+        (proposal / 'index.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Monsters</title><meta http-equiv="refresh" content="0;url=../tools/monster-roster.html"></head><body><a href="../tools/monster-roster.html">Open the live monster viewer</a></body></html>')
     primary=[
-      ('../tools/enemy-preview.html','Monsters','Current roster, combat and habitats; animated art with original and 25% palette comparisons.','Live game data'),
-      ('world-art.html','World art','Map objects, foliage, palette rules and player art, grouped in one place.','Saved visual audits'),
-      ('zones.html','Zones','Pattern geometry and economy as two views of the same world systems.','Saved design views'),
+      ('../tools/monster-roster.html','Monsters','Current roster, habitats, combat comparisons and palette review in the approved table viewer.','Live game data'),
+      ('world-art.html','World art','Current artwork in a sortable table, filtered by zone and category.','Live game data'),
+      ('zones.html','Zones','Special zones, road variants and basic tile previews, grouped by category.','Generated game data'),
       ('balance.html','Balance','Current chest, treasure and fishing calculations, with historical decisions linked separately.','Live game data'),
       ('../tools/items.html','Items','Current item catalogue, equipment and source information.','Live game data'),
       ('../tools/map-review.html','Map review','Inspect terrain, world generation and placements.','Live game data')]
     (output/'index.html').write_text(page('Design dashboards','<p>Six places to review the game. Older proposals, implementation reports and candidate studies are in the archive.</p><div class="grid">'+''.join(card(*row) for row in primary)+'</div>'))
-    (output/'world-art.html').write_text(views('World art','Compare saved visual audits and the shared style reference. These are generated snapshots, not a continuously refreshed view of the checkout.',[
-      ('Map art','../map-art-audit/index.html'),('Foliage and stone','../foliage-audit/index.html'),('Palette and style','../zone-variants/art-direction.html'),('Player art','../terracart-sprite-audit/player-art-preview.html')],'<p><a href="archive.html">Earlier candidates and approval comparisons →</a></p>'))
-    (output/'zones.html').write_text(views('Zones','Pattern and economy snapshots share one review area. Economy retains the assumptions documented in its report; use Map review and Balance for current runtime calculations.',[('Patterns','../zone-variants/index.html'),('Economy','../zone-variants/economy.html')],'<p><a href="../tools/map-review.html">Inspect current placements →</a></p>'))
+    (output/'world-art.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>World art</title><meta http-equiv="refresh" content="0;url=../tools/world-art.html"></head><body><a href="../tools/world-art.html">Open current world art</a></body></html>')
+    (output/'zones.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Zones</title><meta http-equiv="refresh" content="0;url=../zone-variants/index.html"></head><body><a href="../zone-variants/index.html">Open zones and road variants</a></body></html>')
     (output/'balance.html').write_text(views('Balance','Calculations load the current checkout. The earlier chest proposal and specialist-rate simulation are approved historical references.',[('Live balancing','../tools/balancing.html')],'<p><a href="archive.html#loot-design-and-balance-history">Chest design and approval history →</a></p>'))
     developer=[('../tools/building-poly-preview.html','Building footprints','Fixture preview using the current building renderer.'),('../tools/compass-test.html','Compass diagnostics','Device heading and orientation debugging.'),('../tools/poi-preview.html','Procedural POI ideas','Earlier procedural design experiments; not a shipping sprite catalogue.')]
     (output/'developer-tools.html').write_text(page('Developer tools','<p>Specialist diagnostics and experiments.</p><div class="grid">'+''.join(card(*r) for r in developer)+'</div>'))
@@ -85,7 +91,7 @@ def build(output):
             old = archived.read_text()
             old = re.sub(r'<aside id="design-archive-notice".*?</aside>', '', old, flags=re.S)
             hub = os.path.relpath(output / 'index.html', archived.parent)
-            current = os.path.relpath(output.parent / 'tools/enemy-preview.html', archived.parent) if 'monster proposal' in label.lower() or label == 'Saved enemy viewer' else hub
+            current = os.path.relpath(output.parent / 'tools/monster-roster.html', archived.parent) if 'monster proposal' in label.lower() or label == 'Saved enemy viewer' else hub
             banner = f'<aside id="design-archive-notice" style="margin:72px 20px 16px;padding:16px;background:#252a20;color:#ecf3e9;border-left:3px solid #efca79;font:15px/1.5 system-ui"><strong>Archived review.</strong> {escape(note)} <a style="color:#c7e991" href="{current}">Open current dashboard →</a></aside>'
             updated = re.sub(r'(<body\b[^>]*>)', lambda m: m[1] + banner, old, count=1, flags=re.I)
             archived.write_text(updated)

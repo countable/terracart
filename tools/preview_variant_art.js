@@ -50,6 +50,15 @@ for (const row of Object.values(data.assets)) {
   row.whiteKey = !!(row.onLoad && /data\.data\[i\] > 240/.test(row.onLoad.toString()));
 }
 data.painters = painters;
+// Basic terrain samples use the same base colours and texture painter as the map.
+const colourTable = read('app').match(/const COLORS = (\{[\s\S]*?\n\});/);
+if (!colourTable) throw new Error('Cannot find shipping ground colours');
+vm.runInContext('const COLORS = ' + colourTable[1] + ';' + read('textures'), ctx);
+data.basicTiles = vm.runInContext(`Object.entries(BiomeProfiles.T).map(([name,type]) => ({
+  name, type, color: COLORS[type], variants: typeof BIOME_TEX[type] === 'object' ? BIOME_TEX[type].variants : 0,
+  flora: BiomeProfiles.flora(type),
+}))`, ctx);
+data.biomePainter = vm.runInContext('lerp.toString()', ctx) + '\n' + read('textures').slice(0, read('textures').indexOf('const ZONE_GROUND_ACCENTS ='));
 // Embed the shipping pavement/lamp painters, preserving their shared helpers.
 data.roadPainter = read('road_overlay');
 data.zoneTraits = Object.fromEntries(ctx.ZoneVariantData.variants.map(row => [row.id, ctx.ZoneVariants.traitsFor(row)]));
