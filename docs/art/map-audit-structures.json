@@ -1,0 +1,1391 @@
+{
+  "scope": "Only active map structures and their existing state frames. New proposals only; no seasons. Character/enemy art and inventory-only items excluded.",
+  "rows": [
+    {
+      "id": "building-wreck",
+      "name": "Unrestored house wreck",
+      "category": "Buildings",
+      "current": {
+        "file": "assets/Objects/Houses/Wreck.png",
+        "rect": [
+          0,
+          0,
+          80,
+          98
+        ]
+      },
+      "assessment": "The dominant pre-restoration house has vivid red roof and green creepers beneath a runtime green wash. Fine roof lines read busier than character art.",
+      "recommendation": {
+        "action": "recolour",
+        "candidate": {
+          "file": "assets/Objects/Houses/Wreck.png",
+          "rect": [
+            0,
+            0,
+            80,
+            98
+          ]
+        },
+        "rationale": "Keep the wreck silhouette and boarded door, map roof to clay/earth and ivy to leaf_dark/leaf; reduce repeated one-pixel highlights. This is the strongest building-wide rustic baseline change.",
+        "palette": [
+          "ink",
+          "shadow",
+          "earth",
+          "clay",
+          "ochre",
+          "leaf_dark",
+          "leaf",
+          "stone"
+        ]
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "Every unclaimed tier-9 building before restoration; house sprite under building wash.",
+      "spawnEvidence": "src/worldgen.js building footprint house producer; src/houses.js isWreck/displayRole",
+      "consumers": "Every unclaimed tier-9 building before restoration; house sprite under building wash.",
+      "variants": []
+    },
+    {
+      "id": "building-plain",
+      "name": "Plain restored cottage",
+      "category": "Buildings",
+      "current": {
+        "file": "assets/Objects/House.png",
+        "rect": [
+          148,
+          3,
+          72,
+          95
+        ]
+      },
+      "assessment": "Clear role silhouette, but denser outlining and internal texture than 16px character art. Bright details are meaningful restoration or sacred cues.",
+      "recommendation": {
+        "action": "simplify",
+        "candidate": {
+          "file": "assets/Objects/House.png",
+          "rect": [
+            148,
+            3,
+            72,
+            95
+          ]
+        },
+        "rationale": "Keep cyan/purple restorative accents; collapse roof and wall texture into fewer broad pixel clusters. Do not tint away the service identity.",
+        "palette": [
+          "ink",
+          "bark",
+          "earth",
+          "clay",
+          "cream",
+          "hero_cyan",
+          "restored_sage"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Tier-9 houses restored as plain homes.",
+      "spawnEvidence": "src/worldgen.js house producer; src/houses.js displayRole and restore-order role table",
+      "consumers": "Tier-9 houses restored as plain homes.",
+      "variants": []
+    },
+    {
+      "id": "building-blacksmith",
+      "name": "Restored blacksmith",
+      "category": "Buildings",
+      "current": {
+        "file": "assets/Objects/Houses/blacksmith.png",
+        "rect": [
+          0,
+          0,
+          72,
+          87
+        ]
+      },
+      "assessment": "Clear role silhouette, but denser outlining and internal texture than 16px character art. Bright details are meaningful restoration or sacred cues.",
+      "recommendation": {
+        "action": "simplify",
+        "candidate": {
+          "file": "assets/Objects/Houses/blacksmith.png",
+          "rect": [
+            0,
+            0,
+            72,
+            87
+          ]
+        },
+        "rationale": "Keep cyan/purple restorative accents; collapse roof and wall texture into fewer broad pixel clusters. Do not tint away the service identity.",
+        "palette": [
+          "ink",
+          "bark",
+          "earth",
+          "clay",
+          "cream",
+          "hero_cyan",
+          "restored_sage"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "First restored house always blacksmith; additional roles from deterministic address.",
+      "spawnEvidence": "src/worldgen.js house producer; src/houses.js displayRole and restore-order role table",
+      "consumers": "First restored house always blacksmith; additional roles from deterministic address.",
+      "variants": []
+    },
+    {
+      "id": "building-trader",
+      "name": "Restored trader",
+      "category": "Buildings",
+      "current": {
+        "file": "assets/Objects/Houses/trader.png",
+        "rect": [
+          0,
+          0,
+          76,
+          98
+        ]
+      },
+      "assessment": "Clear role silhouette, but denser outlining and internal texture than 16px character art. Bright details are meaningful restoration or sacred cues.",
+      "recommendation": {
+        "action": "simplify",
+        "candidate": {
+          "file": "assets/Objects/Houses/trader.png",
+          "rect": [
+            0,
+            0,
+            76,
+            98
+          ]
+        },
+        "rationale": "Keep cyan/purple restorative accents; collapse roof and wall texture into fewer broad pixel clusters. Do not tint away the service identity.",
+        "palette": [
+          "ink",
+          "bark",
+          "earth",
+          "clay",
+          "cream",
+          "hero_cyan",
+          "restored_sage"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Second restored house always trader.",
+      "spawnEvidence": "src/worldgen.js house producer; src/houses.js displayRole and restore-order role table",
+      "consumers": "Second restored house always trader.",
+      "variants": []
+    },
+    {
+      "id": "building-market",
+      "name": "Restored market house",
+      "category": "Buildings",
+      "current": {
+        "file": "assets/Objects/Houses/market.png",
+        "rect": [
+          0,
+          0,
+          106,
+          94
+        ]
+      },
+      "assessment": "Clear role silhouette, but denser outlining and internal texture than 16px character art. Bright details are meaningful restoration or sacred cues.",
+      "recommendation": {
+        "action": "simplify",
+        "candidate": {
+          "file": "assets/Objects/Houses/market.png",
+          "rect": [
+            0,
+            0,
+            106,
+            94
+          ]
+        },
+        "rationale": "Keep cyan/purple restorative accents; collapse roof and wall texture into fewer broad pixel clusters. Do not tint away the service identity.",
+        "palette": [
+          "ink",
+          "bark",
+          "earth",
+          "clay",
+          "cream",
+          "hero_cyan",
+          "restored_sage"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Fourth restored house always market.",
+      "spawnEvidence": "src/worldgen.js house producer; src/houses.js displayRole and restore-order role table",
+      "consumers": "Fourth restored house always market.",
+      "variants": []
+    },
+    {
+      "id": "building-fort",
+      "name": "Fort building",
+      "category": "Buildings",
+      "current": {
+        "file": "assets/Objects/Houses/fort.png",
+        "rect": [
+          0,
+          0,
+          214,
+          154
+        ]
+      },
+      "assessment": "Clear role silhouette, but denser outlining and internal texture than 16px character art. Bright details are meaningful restoration or sacred cues.",
+      "recommendation": {
+        "action": "simplify",
+        "candidate": {
+          "file": "assets/Objects/Houses/fort.png",
+          "rect": [
+            0,
+            0,
+            214,
+            154
+          ]
+        },
+        "rationale": "Keep cyan/purple restorative accents; collapse roof and wall texture into fewer broad pixel clusters. Do not tint away the service identity.",
+        "palette": [
+          "ink",
+          "bark",
+          "earth",
+          "clay",
+          "cream",
+          "hero_cyan",
+          "restored_sage"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Every tier-11 building; existing locked/unlocked wash is gameplay state.",
+      "spawnEvidence": "src/worldgen.js house producer; src/houses.js displayRole and restore-order role table",
+      "consumers": "Every tier-11 building; existing locked/unlocked wash is gameplay state.",
+      "variants": []
+    },
+    {
+      "id": "building-trailer",
+      "name": "Home trailer",
+      "category": "Buildings",
+      "current": {
+        "file": "assets/Objects/Houses/trailer.png",
+        "rect": [
+          0,
+          0,
+          108,
+          75
+        ]
+      },
+      "assessment": "Clear role silhouette, but denser outlining and internal texture than 16px character art. Bright details are meaningful restoration or sacred cues.",
+      "recommendation": {
+        "action": "keep",
+        "candidate": {
+          "file": "assets/Objects/Houses/trailer.png",
+          "rect": [
+            0,
+            0,
+            108,
+            75
+          ]
+        },
+        "rationale": "Keep the existing silhouette and intentional off-palette identity: Home is restored technology; wizard tower is a sacred service. No extra colour variant.",
+        "palette": [
+          "ink",
+          "bark",
+          "earth",
+          "clay",
+          "cream",
+          "hero_cyan",
+          "restored_sage"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Exactly one player Home overlay, repeatedly visible during play.",
+      "spawnEvidence": "src/worldgen.js house producer; src/houses.js displayRole and restore-order role table",
+      "consumers": "Exactly one player Home overlay, repeatedly visible during play.",
+      "variants": []
+    },
+    {
+      "id": "building-wizard",
+      "name": "Restored wizard tower",
+      "category": "Buildings",
+      "current": {
+        "file": "assets/Objects/Houses/wizard.png",
+        "rect": [
+          240,
+          0,
+          80,
+          104
+        ]
+      },
+      "assessment": "Clear role silhouette, but denser outlining and internal texture than 16px character art. Bright details are meaningful restoration or sacred cues.",
+      "recommendation": {
+        "action": "keep",
+        "candidate": {
+          "file": "assets/Objects/Houses/wizard.png",
+          "rect": [
+            240,
+            0,
+            80,
+            104
+          ]
+        },
+        "rationale": "Keep the existing silhouette and intentional off-palette identity: Home is restored technology; wizard tower is a sacred service. No extra colour variant.",
+        "palette": [
+          "ink",
+          "stone_shadow",
+          "stone",
+          "flower_lilac",
+          "sacred_ivory"
+        ]
+      },
+      "prevalenceRank": 3,
+      "prevalenceReason": "Fifteenth restored house guaranteed wizard; rare later role.",
+      "spawnEvidence": "src/worldgen.js house producer; src/houses.js displayRole and restore-order role table",
+      "consumers": "Fifteenth restored house guaranteed wizard; rare later role.",
+      "variants": []
+    },
+    {
+      "id": "macro-inn",
+      "name": "Inn POI",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Generated/inn.png",
+        "rect": [
+          0,
+          0,
+          80,
+          80
+        ]
+      },
+      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "recommendation": {
+        "action": "swap",
+        "candidate": {
+          "file": "unused_art/MiniWorldSprites/Buildings/Wood/Taverns.png",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "rationale": "Try the existing MiniWorld Wood Taverns first cell, recoloured with warm rustic wood and a single readable service accent. It matches the character pack pixel scale; compare service recognition before replacing the current counter.",
+        "palette": [
+          "ink",
+          "shadow",
+          "bark",
+          "earth",
+          "ochre",
+          "cream",
+          "stone",
+          "restored_sage"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "lodging \u2192 macro_inn on surface; produce stands take precedence.",
+      "spawnEvidence": "src/worldgen.js POI chest generation \u2192 src/loot.js MACRO_KIND_BY_CLASS / macroFor",
+      "consumers": "lodging \u2192 macro_inn on surface; produce stands take precedence.",
+      "variants": []
+    },
+    {
+      "id": "macro-chapel",
+      "name": "Chapel POI",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Generated/chapel.png",
+        "rect": [
+          0,
+          0,
+          80,
+          80
+        ]
+      },
+      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "recommendation": {
+        "action": "swap",
+        "candidate": {
+          "file": "unused_art/MiniWorldSprites/Buildings/Wood/Chapels.png",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "rationale": "Try the existing MiniWorld Wood Chapels first cell, recoloured with warm rustic wood and a single readable service accent. It matches the character pack pixel scale; compare service recognition before replacing the current counter.",
+        "palette": [
+          "ink",
+          "shadow",
+          "bark",
+          "earth",
+          "ochre",
+          "cream",
+          "stone",
+          "restored_sage"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "place_of_worship \u2192 macro_chapel on surface; produce stands take precedence.",
+      "spawnEvidence": "src/worldgen.js POI chest generation \u2192 src/loot.js MACRO_KIND_BY_CLASS / macroFor",
+      "consumers": "place_of_worship \u2192 macro_chapel on surface; produce stands take precedence.",
+      "variants": []
+    },
+    {
+      "id": "macro-apothecary",
+      "name": "Apothecary POI",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Generated/apothecary.png",
+        "rect": [
+          0,
+          0,
+          80,
+          80
+        ]
+      },
+      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "recommendation": {
+        "action": "simplify",
+        "candidate": {
+          "file": "assets/Objects/Generated/apothecary.png",
+          "rect": [
+            0,
+            0,
+            80,
+            80
+          ]
+        },
+        "rationale": "Retain the existing service-specific object, but reduce to crisp clusters with warm timber and stone; preserve one readable symbol (bottles/books/crest/curio/training target). No available library sprite conveys the service as faithfully.",
+        "palette": [
+          "ink",
+          "shadow",
+          "bark",
+          "earth",
+          "ochre",
+          "cream",
+          "stone",
+          "restored_sage"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "pharmacy, dentist, hospital \u2192 macro_apothecary on surface; produce stands take precedence.",
+      "spawnEvidence": "src/worldgen.js POI chest generation \u2192 src/loot.js MACRO_KIND_BY_CLASS / macroFor",
+      "consumers": "pharmacy, dentist, hospital \u2192 macro_apothecary on surface; produce stands take precedence.",
+      "variants": []
+    },
+    {
+      "id": "macro-scriptorium",
+      "name": "Scriptorium POI",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Generated/scriptorium.png",
+        "rect": [
+          0,
+          0,
+          80,
+          80
+        ]
+      },
+      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "recommendation": {
+        "action": "simplify",
+        "candidate": {
+          "file": "assets/Objects/Generated/scriptorium.png",
+          "rect": [
+            0,
+            0,
+            80,
+            80
+          ]
+        },
+        "rationale": "Retain the existing service-specific object, but reduce to crisp clusters with warm timber and stone; preserve one readable symbol (bottles/books/crest/curio/training target). No available library sprite conveys the service as faithfully.",
+        "palette": [
+          "ink",
+          "shadow",
+          "bark",
+          "earth",
+          "ochre",
+          "cream",
+          "stone",
+          "restored_sage"
+        ]
+      },
+      "prevalenceRank": 3,
+      "prevalenceReason": "library, college \u2192 macro_scriptorium on surface; produce stands take precedence.",
+      "spawnEvidence": "src/worldgen.js POI chest generation \u2192 src/loot.js MACRO_KIND_BY_CLASS / macroFor",
+      "consumers": "library, college \u2192 macro_scriptorium on surface; produce stands take precedence.",
+      "variants": []
+    },
+    {
+      "id": "macro-guildhall",
+      "name": "Guildhall POI",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Generated/guildhall.png",
+        "rect": [
+          0,
+          0,
+          80,
+          80
+        ]
+      },
+      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "recommendation": {
+        "action": "simplify",
+        "candidate": {
+          "file": "assets/Objects/Generated/guildhall.png",
+          "rect": [
+            0,
+            0,
+            80,
+            80
+          ]
+        },
+        "rationale": "Retain the existing service-specific object, but reduce to crisp clusters with warm timber and stone; preserve one readable symbol (bottles/books/crest/curio/training target). No available library sprite conveys the service as faithfully.",
+        "palette": [
+          "ink",
+          "shadow",
+          "bark",
+          "earth",
+          "ochre",
+          "cream",
+          "stone",
+          "restored_sage"
+        ]
+      },
+      "prevalenceRank": 3,
+      "prevalenceReason": "town_hall, police, fire_station \u2192 macro_guildhall on surface; produce stands take precedence.",
+      "spawnEvidence": "src/worldgen.js POI chest generation \u2192 src/loot.js MACRO_KIND_BY_CLASS / macroFor",
+      "consumers": "town_hall, police, fire_station \u2192 macro_guildhall on surface; produce stands take precedence.",
+      "variants": []
+    },
+    {
+      "id": "macro-curio",
+      "name": "Curio hall POI",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Generated/curio.png",
+        "rect": [
+          0,
+          0,
+          80,
+          80
+        ]
+      },
+      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "recommendation": {
+        "action": "simplify",
+        "candidate": {
+          "file": "assets/Objects/Generated/curio.png",
+          "rect": [
+            0,
+            0,
+            80,
+            80
+          ]
+        },
+        "rationale": "Retain the existing service-specific object, but reduce to crisp clusters with warm timber and stone; preserve one readable symbol (bottles/books/crest/curio/training target). No available library sprite conveys the service as faithfully.",
+        "palette": [
+          "ink",
+          "shadow",
+          "bark",
+          "earth",
+          "ochre",
+          "cream",
+          "stone",
+          "restored_sage"
+        ]
+      },
+      "prevalenceRank": 3,
+      "prevalenceReason": "museum, theatre, cinema \u2192 macro_curio on surface; produce stands take precedence.",
+      "spawnEvidence": "src/worldgen.js POI chest generation \u2192 src/loot.js MACRO_KIND_BY_CLASS / macroFor",
+      "consumers": "museum, theatre, cinema \u2192 macro_curio on surface; produce stands take precedence.",
+      "variants": []
+    },
+    {
+      "id": "macro-sundries",
+      "name": "Sundries counter POI",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Generated/sundries.png",
+        "rect": [
+          0,
+          0,
+          80,
+          80
+        ]
+      },
+      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "recommendation": {
+        "action": "swap",
+        "candidate": {
+          "file": "unused_art/MiniWorldSprites/Buildings/Wood/Market.png",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "rationale": "Try the existing MiniWorld Wood Market first cell, recoloured with warm rustic wood and a single readable service accent. It matches the character pack pixel scale; compare service recognition before replacing the current counter.",
+        "palette": [
+          "ink",
+          "shadow",
+          "bark",
+          "earth",
+          "ochre",
+          "cream",
+          "stone",
+          "restored_sage"
+        ]
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "shop (excluding produce stands) \u2192 macro_sundries on surface; produce stands take precedence.",
+      "spawnEvidence": "src/worldgen.js POI chest generation \u2192 src/loot.js MACRO_KIND_BY_CLASS / macroFor",
+      "consumers": "shop (excluding produce stands) \u2192 macro_sundries on surface; produce stands take precedence.",
+      "variants": []
+    },
+    {
+      "id": "macro-training",
+      "name": "Training hall POI",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Generated/training.png",
+        "rect": [
+          0,
+          0,
+          80,
+          80
+        ]
+      },
+      "assessment": "Generated 80px stall is downscaled to roughly 1.35 cells; small ornaments and mixed soft shading become noisy at game size.",
+      "recommendation": {
+        "action": "simplify",
+        "candidate": {
+          "file": "assets/Objects/Generated/training.png",
+          "rect": [
+            0,
+            0,
+            80,
+            80
+          ]
+        },
+        "rationale": "Retain the existing service-specific object, but reduce to crisp clusters with warm timber and stone; preserve one readable symbol (bottles/books/crest/curio/training target). No available library sprite conveys the service as faithfully.",
+        "palette": [
+          "ink",
+          "shadow",
+          "bark",
+          "earth",
+          "ochre",
+          "cream",
+          "stone",
+          "restored_sage"
+        ]
+      },
+      "prevalenceRank": 3,
+      "prevalenceReason": "sports_centre, yoga \u2192 macro_training on surface; produce stands take precedence.",
+      "spawnEvidence": "src/worldgen.js POI chest generation \u2192 src/loot.js MACRO_KIND_BY_CLASS / macroFor",
+      "consumers": "sports_centre, yoga \u2192 macro_training on surface; produce stands take precedence.",
+      "variants": []
+    },
+    {
+      "id": "produce-stand",
+      "name": "Produce stands: seven product counters",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/market_stand.png",
+        "rect": [
+          0,
+          0,
+          80,
+          80
+        ],
+        "frames": {
+          "count": 7,
+          "frameWidth": 80,
+          "frameHeight": 80,
+          "layout": "seven product-family frames; see produceStandFor"
+        }
+      },
+      "assessment": "Seven 80px frames share a good counter silhouette; numerous small wares compete with the awning at runtime.",
+      "recommendation": {
+        "action": "simplify",
+        "candidate": {
+          "file": "assets/Objects/market_stand.png",
+          "rect": [
+            0,
+            0,
+            80,
+            80
+          ]
+        },
+        "rationale": "Keep all seven existing product mappings; simplify goods to large readable silhouettes, use bark/earth for timber and retain a small product-specific awning cue. These are existing functional frames, not seven new zone variants.",
+        "palette": [
+          "ink",
+          "bark",
+          "earth",
+          "ochre",
+          "cream",
+          "flower_rose",
+          "flower_blue"
+        ]
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "Fruit, vegetables, meat, fish, coffee/bakery, dairy/egg and flower shops.",
+      "spawnEvidence": "src/worldgen.js POI chest generation \u2192 src/loot.js produceStandFor",
+      "consumers": "Fruit, vegetables, meat, fish, coffee/bakery, dairy/egg and flower shops.",
+      "variants": []
+    },
+    {
+      "id": "wagon",
+      "name": "Old-trade-road broken wagon",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Generated/wagon.png",
+        "rect": [
+          0,
+          0,
+          128,
+          96
+        ]
+      },
+      "assessment": "Good memorable road landmark; 128px generated shading is much denser than one-cell props.",
+      "recommendation": {
+        "action": "simplify",
+        "candidate": {
+          "file": "assets/Objects/Generated/wagon.png",
+          "rect": [
+            0,
+            0,
+            128,
+            96
+          ]
+        },
+        "rationale": "Keep broken covered wagon because inspected MiniWorld boat/transport sprites are not semantic replacements. Reduce canvas to cream/stone_light and timber to bark/earth; retain missing wheel and damaged canopy.",
+        "palette": [
+          "ink",
+          "shadow",
+          "bark",
+          "earth",
+          "ochre",
+          "cream"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Surface bus-stop POI on old trade road only; does not apply to every bus stop.",
+      "spawnEvidence": "src/street_variants.js bus-stop banditStop tagging \u2192 src/loot.js chestLook",
+      "consumers": "Surface bus-stop POI on old trade road only; does not apply to every bus stop.",
+      "variants": [],
+      "sourceSample": {
+        "file": "data/satextract_osm.geojson",
+        "inputFeatureCount": 43,
+        "note": "OSM input features, not accepted rendered placements; spawn gates and composite designs can change final counts."
+      }
+    },
+    {
+      "id": "utility-pillar",
+      "name": "Utility pole stone pillars",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Wilderness/pillar.png",
+        "rect": [
+          0,
+          0,
+          16,
+          32
+        ]
+      },
+      "assessment": "Tall fluted pillar has a clear silhouette but light stone can pop disproportionately when repeated along streets.",
+      "recommendation": {
+        "action": "recolour",
+        "candidate": {
+          "file": "assets/Objects/Wilderness/pillar.png",
+          "rect": [
+            0,
+            0,
+            16,
+            32
+          ]
+        },
+        "rationale": "Retain the complete column geometry and runtime seat. Warm the grey to stone_shadow/stone/stone_light, reserving ochre for a very small chipped highlight.",
+        "palette": [
+          "ink",
+          "stone_shadow",
+          "stone",
+          "stone_light",
+          "ochre"
+        ]
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "Decorative poles, mast/bollard/street_lamp source points; no interaction.",
+      "spawnEvidence": "src/worldgen.js extract OSMP power pole/mast/bollard/street_lamp and inject sx.poles",
+      "consumers": "Decorative poles, mast/bollard/street_lamp source points; no interaction.",
+      "variants": [],
+      "sourceSample": {
+        "file": "data/satextract_osm.geojson",
+        "inputFeatureCount": 69,
+        "note": "OSM input features, not accepted rendered placements; spawn gates and composite designs can change final counts."
+      }
+    },
+    {
+      "id": "gateposts",
+      "name": "Paired gate pillars",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Generated/pillar_a.png",
+        "rect": [
+          0,
+          0,
+          16,
+          16
+        ]
+      },
+      "assessment": "Generated squat posts work as a pair but use an isolated warm palette.",
+      "recommendation": {
+        "action": "recolour",
+        "candidate": {
+          "file": "assets/Objects/Generated/pillar_a.png",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "rationale": "Use the same stone ramp as grave pillars, preserving a taller intact capital so gates remain distinct from broken graves. Keep two posts and clear opening.",
+        "palette": [
+          "ink",
+          "stone_shadow",
+          "stone",
+          "stone_light",
+          "ochre"
+        ]
+      },
+      "prevalenceRank": 3,
+      "prevalenceReason": "OSM gates, two accepted posts per gate; spawn restrictions apply.",
+      "spawnEvidence": "src/worldgen.js placeGatesAndBoards \u2192 makeObject(gatepost)",
+      "consumers": "OSM gates, two accepted posts per gate; spawn restrictions apply.",
+      "variants": [],
+      "sourceSample": {
+        "file": "data/satextract_osm.geojson",
+        "inputFeatureCount": 3,
+        "note": "OSM input features, not accepted rendered placements; spawn gates and composite designs can change final counts."
+      }
+    },
+    {
+      "id": "information-board",
+      "name": "Information / book-page board",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Generated/signpost.png",
+        "rect": [
+          0,
+          0,
+          16,
+          16
+        ]
+      },
+      "assessment": "Current generated signpost is narrow and reads as an arrow more than an information board.",
+      "recommendation": {
+        "action": "swap",
+        "candidate": {
+          "file": "unused_art/The Fan-tasy Tileset (Free) 1.5.7/The Fan-tasy Tileset (Free)/Art/Props/BulletinBoard_1.png",
+          "rect": [
+            0,
+            0,
+            44,
+            42
+          ]
+        },
+        "rationale": "Use the existing hand-drawn Fan-tasy bulletin board: the paper panel gives a clear readable information target. Recolour timber to bark/earth; retain cream paper and keep frame inside one map cell.",
+        "palette": [
+          "ink",
+          "shadow",
+          "bark",
+          "earth",
+          "ochre",
+          "cream"
+        ]
+      },
+      "prevalenceRank": 3,
+      "prevalenceReason": "OSM information points; relocated to nearest permitted cell.",
+      "spawnEvidence": "src/worldgen.js placeGatesAndBoards \u2192 makeObject(infoboard)",
+      "consumers": "OSM information points; relocated to nearest permitted cell.",
+      "variants": []
+    },
+    {
+      "id": "waystone",
+      "name": "Pilgrim waystone",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Generated/waystone.png",
+        "rect": [
+          0,
+          0,
+          16,
+          16
+        ]
+      },
+      "assessment": "Squat generated stone is readable but has many tiny shades for a 16px prop.",
+      "recommendation": {
+        "action": "recolour",
+        "candidate": {
+          "file": "assets/Objects/Generated/waystone.png",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "rationale": "Keep approved milestone form; reduce to stone_shadow/stone/stone_light with one lichen patch. A new variant would add little value to this already street-specific object.",
+        "palette": [
+          "ink",
+          "stone_shadow",
+          "stone",
+          "stone_light",
+          "leaf_dark"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "One owned endpoint per Pilgrim street/tile group.",
+      "spawnEvidence": "src/street_variants.js end pieces \u2192 makeObject(waystone)",
+      "consumers": "One owned endpoint per Pilgrim street/tile group.",
+      "variants": []
+    },
+    {
+      "id": "barricade",
+      "name": "Road barricade",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Generated/barricade.png",
+        "rect": [
+          0,
+          0,
+          16,
+          16
+        ]
+      },
+      "assessment": "Tiny sharpened stakes convey blocking but colours could align more tightly with the timber ramp.",
+      "recommendation": {
+        "action": "recolour",
+        "candidate": {
+          "file": "assets/Objects/Generated/barricade.png",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "rationale": "Keep existing silhouette and gaps, use bark/earth/ochre with charcoal lashings. Do not substitute decorative city gates: this is a harvestable obstacle.",
+        "palette": [
+          "ink",
+          "shadow",
+          "bark",
+          "earth",
+          "ochre",
+          "cream"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "One owned endpoint per barricade street/tile group; shares shrub harvest rule.",
+      "spawnEvidence": "src/street_variants.js end pieces \u2192 makeWildplant(barricade)",
+      "consumers": "One owned endpoint per barricade street/tile group; shares shrub harvest rule.",
+      "variants": []
+    },
+    {
+      "id": "well",
+      "name": "Fountain well",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Wilderness/well.png",
+        "rect": [
+          0,
+          0,
+          30,
+          32
+        ]
+      },
+      "assessment": "Existing roofed stone well is clear at game scale, with a stable complete single-object crop.",
+      "recommendation": {
+        "action": "keep",
+        "candidate": {
+          "file": "assets/Objects/Wilderness/well.png",
+          "rect": [
+            0,
+            0,
+            30,
+            32
+          ]
+        },
+        "rationale": "Keep this hand-drawn well; if adjusting colour later use muted timber/stone and retain blue water to communicate refill. Fan-tasy Well_Hay_1 exists but is more softly shaded and less appropriate.",
+        "palette": [
+          "ink",
+          "bark",
+          "earth",
+          "stone_shadow",
+          "stone",
+          "stone_light",
+          "flower_blue"
+        ]
+      },
+      "prevalenceRank": 3,
+      "prevalenceReason": "Mapped fountain converted to refillable well; blocked near buildings/POIs.",
+      "spawnEvidence": "src/worldgen.js sx.wells injection from amenity=fountain",
+      "consumers": "Mapped fountain converted to refillable well; blocked near buildings/POIs.",
+      "variants": [],
+      "sourceSample": {
+        "file": "data/satextract_osm.geojson",
+        "inputFeatureCount": 1,
+        "note": "OSM input features, not accepted rendered placements; spawn gates and composite designs can change final counts."
+      }
+    },
+    {
+      "id": "cave-stair-down",
+      "name": "Cave entrance",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/stair_down.png",
+        "rect": [
+          0,
+          0,
+          32,
+          32
+        ]
+      },
+      "assessment": "Hand-drawn mine ladder clearly communicates direction; pit darkness is an important entrance cue.",
+      "recommendation": {
+        "action": "recolour",
+        "candidate": {
+          "file": "assets/Objects/stair_down.png",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ]
+        },
+        "rationale": "Keep ladder and pit silhouette; align ladder with bark/earth/ochre and stone rim with stone_shadow/stone. Do not replace with MiniWorld CaveV2: its roofed mine icon would obscure the up/down distinction.",
+        "palette": [
+          "ink",
+          "shadow",
+          "bark",
+          "earth",
+          "ochre",
+          "cream"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Generated walkable cave stair sites; paired return on the next depth.",
+      "spawnEvidence": "src/worldgen.js cave staircase producers surface and depth levels",
+      "consumers": "Generated walkable cave stair sites; paired return on the next depth.",
+      "variants": []
+    },
+    {
+      "id": "cave-stair-up",
+      "name": "Cave return ladder",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/stair_up.png",
+        "rect": [
+          0,
+          0,
+          32,
+          32
+        ]
+      },
+      "assessment": "Hand-drawn mine ladder clearly communicates direction; pit darkness is an important entrance cue.",
+      "recommendation": {
+        "action": "recolour",
+        "candidate": {
+          "file": "assets/Objects/stair_up.png",
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ]
+        },
+        "rationale": "Keep ladder and pit silhouette; align ladder with bark/earth/ochre and stone rim with stone_shadow/stone. Do not replace with MiniWorld CaveV2: its roofed mine icon would obscure the up/down distinction.",
+        "palette": [
+          "ink",
+          "shadow",
+          "bark",
+          "earth",
+          "ochre",
+          "cream"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Generated walkable cave stair sites; paired return on the next depth.",
+      "spawnEvidence": "src/worldgen.js cave staircase producers surface and depth levels",
+      "consumers": "Generated walkable cave stair sites; paired return on the next depth.",
+      "variants": []
+    },
+    {
+      "id": "grove-figure",
+      "name": "Grove stone figure",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Landmarks/shrine-figure.png",
+        "rect": [
+          0,
+          0,
+          48,
+          48
+        ]
+      },
+      "assessment": "Approved existing shrine art; the figure and compact votive provide intentional landmark variety.",
+      "recommendation": {
+        "action": "keep",
+        "candidate": {
+          "file": "assets/Objects/Landmarks/shrine-figure.png",
+          "rect": [
+            0,
+            0,
+            48,
+            48
+          ]
+        },
+        "rationale": "Retain the chosen art and stable identity hashing; weathered stone should remain muted, with a small sacred light reserved for the focal point.",
+        "palette": [
+          "ink",
+          "stone_shadow",
+          "stone",
+          "stone_light",
+          "leaf_dark",
+          "sacred_ivory"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Daily grove gift POI; two existing stable cosmetic appearances.",
+      "spawnEvidence": "src/zones.js grove shrine placement; src/sprite_layout.js GROVE_SHRINE_ART / groveShrineArt",
+      "consumers": "Daily grove gift POI; two existing stable cosmetic appearances.",
+      "variants": []
+    },
+    {
+      "id": "grove-votive",
+      "name": "Grove stone votive",
+      "category": "POI structures",
+      "current": {
+        "file": "assets/Objects/Landmarks/shrine-votive.png",
+        "rect": [
+          0,
+          0,
+          16,
+          16
+        ]
+      },
+      "assessment": "Approved existing shrine art; the figure and compact votive provide intentional landmark variety.",
+      "recommendation": {
+        "action": "keep",
+        "candidate": {
+          "file": "assets/Objects/Landmarks/shrine-votive.png",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "rationale": "Retain the chosen art and stable identity hashing; weathered stone should remain muted, with a small sacred light reserved for the focal point.",
+        "palette": [
+          "ink",
+          "stone_shadow",
+          "stone",
+          "stone_light",
+          "leaf_dark",
+          "sacred_ivory"
+        ]
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "Daily grove gift POI; two existing stable cosmetic appearances.",
+      "spawnEvidence": "src/zones.js grove shrine placement; src/sprite_layout.js GROVE_SHRINE_ART / groveShrineArt",
+      "consumers": "Daily grove gift POI; two existing stable cosmetic appearances.",
+      "variants": []
+    },
+    {
+      "id": "building-geometry-small",
+      "name": "Small building footprints",
+      "category": "Generated building styles",
+      "current": {
+        "renderer": "src/building_overlay.js: draw; floorColor, faceColor, castleStone",
+        "textureRenderer": "src/textures.js: drawBuildingTex",
+        "tier": 9,
+        "active": "Default polygonal footprints"
+      },
+      "assessment": "Muted red pavement and dark extruded face are readable, but differ from the approved clay ramp.",
+      "recommendation": {
+        "action": "recolour",
+        "candidate": {
+          "renderer": "same source polygon geometry; palette constants only"
+        },
+        "palette": [
+          "ink",
+          "stone_shadow",
+          "stone",
+          "stone_light",
+          "clay",
+          "earth"
+        ],
+        "rationale": "Retain exact OSM footprint, extrusion and existing restoration state. Use warm stone for unclaimed structures; permit clean cooler/brighter restored surfaces. Apply the same palette to walls and floor so seams remain coherent."
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "Every mapped building footprint in this tier; large screen coverage. Rank is generation-based, not measured global frequency.",
+      "spawnEvidence": "src/worldgen.js buildingPolys \u2192 buildingRings; src/building_overlay.js enabled defaults true and draws tiers 9/11/12",
+      "consumers": "Footprint floor, outline, south wall; castle also has polygon rampart and unclaimed slime overlay.",
+      "variants": []
+    },
+    {
+      "id": "building-geometry-medium",
+      "name": "Fort building footprints",
+      "category": "Generated building styles",
+      "current": {
+        "renderer": "src/building_overlay.js: draw; floorColor, faceColor, castleStone",
+        "textureRenderer": "src/textures.js: drawWoodFloorTex",
+        "tier": 11,
+        "active": "Default polygonal footprints"
+      },
+      "assessment": "Wood plank floor reads rustic; unify brown tones with house timber.",
+      "recommendation": {
+        "action": "recolour",
+        "candidate": {
+          "renderer": "same source polygon geometry; palette constants only"
+        },
+        "palette": [
+          "ink",
+          "stone_shadow",
+          "stone",
+          "stone_light",
+          "clay",
+          "earth"
+        ],
+        "rationale": "Retain exact OSM footprint, extrusion and existing restoration state. Use warm stone for unclaimed structures; permit clean cooler/brighter restored surfaces. Apply the same palette to walls and floor so seams remain coherent."
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "Every mapped building footprint in this tier; large screen coverage. Rank is generation-based, not measured global frequency.",
+      "spawnEvidence": "src/worldgen.js buildingPolys \u2192 buildingRings; src/building_overlay.js enabled defaults true and draws tiers 9/11/12",
+      "consumers": "Footprint floor, outline, south wall; castle also has polygon rampart and unclaimed slime overlay.",
+      "variants": []
+    },
+    {
+      "id": "building-geometry-large",
+      "name": "Castle footprints and ramparts",
+      "category": "Generated building styles",
+      "current": {
+        "renderer": "src/building_overlay.js: draw; floorColor, faceColor, castleStone",
+        "textureRenderer": "src/textures.js: drawCastleFloorTex",
+        "tier": 12,
+        "active": "Default polygonal footprints"
+      },
+      "assessment": "Cold blue-grey masonry across large areas can compete with the muted landscape.",
+      "recommendation": {
+        "action": "recolour",
+        "candidate": {
+          "renderer": "same source polygon geometry; palette constants only"
+        },
+        "palette": [
+          "ink",
+          "stone_shadow",
+          "stone",
+          "stone_light",
+          "clay",
+          "earth"
+        ],
+        "rationale": "Retain exact OSM footprint, extrusion and existing restoration state. Use warm stone for unclaimed structures; permit clean cooler/brighter restored surfaces. Apply the same palette to walls and floor so seams remain coherent."
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "Every mapped building footprint in this tier; large screen coverage. Rank is generation-based, not measured global frequency.",
+      "spawnEvidence": "src/worldgen.js buildingPolys \u2192 buildingRings; src/building_overlay.js enabled defaults true and draws tiers 9/11/12",
+      "consumers": "Footprint floor, outline, south wall; castle also has polygon rampart and unclaimed slime overlay.",
+      "variants": []
+    },
+    {
+      "id": "castle-turret",
+      "name": "Castle turret and restoration flag",
+      "category": "Generated building styles",
+      "current": {
+        "renderer": "src/textures.js: makeTowerTexture; src/render.js tower and flag pass",
+        "textureKeys": [
+          "tower",
+          "tower_unclaimed"
+        ]
+      },
+      "assessment": "Procedural turret shares the castle palette, a strong consistency rule; cold masonry diverges from rustic stone.",
+      "recommendation": {
+        "action": "recolour",
+        "candidate": {
+          "renderer": "same makeTowerTexture and CASTLE_STONE palette"
+        },
+        "palette": [
+          "ink",
+          "stone_shadow",
+          "stone",
+          "stone_light"
+        ],
+        "rationale": "Keep the turret silhouette and shared palette linkage; warm stone together with polygon ramparts. Preserve existing claimed flag as a state cue, not a new zone variant."
+      },
+      "prevalenceRank": 2,
+      "prevalenceReason": "One per roughly five perimeter cells of large buildings; local building topology controls counts.",
+      "spawnEvidence": "src/worldgen.js castle tower perimeter loop \u2192 makeObject(tower); src/render.js towerList renders independently of TILED",
+      "consumers": "Castle perimeter tower sprites and one restoration flag per castle.",
+      "variants": []
+    },
+    {
+      "id": "street-lamp",
+      "name": "Street lamps and dark foundation stones",
+      "category": "Generated map props",
+      "current": {
+        "renderer": "src/road_overlay.js: paintLamp(ctx,128,glowHex), LAMP_PROFILE",
+        "textureKeys": [
+          "street_lamp",
+          "street_lamp@<glow>"
+        ],
+        "states": [
+          {
+            "name": "Restored lamp",
+            "renderer": "RoadOverlay.paintLamp",
+            "dimensions": [
+              128,
+              128
+            ],
+            "drawCells": 2.4
+          },
+          {
+            "name": "Unrestored foundation stone",
+            "file": "assets/Objects/Road copiar.png",
+            "frameWidth": 16,
+            "frameHeight": 16,
+            "frames": {
+              "ROAD_LG": 0,
+              "ROAD_MD": 5,
+              "ROAD": 1,
+              "PATH": 3
+            }
+          }
+        ]
+      },
+      "assessment": "Very frequent road restoration marker. Procedural gold metal and soft violet glow intentionally contrast with the rustic world, but smooth supersampled metal is softer than the character pixel style.",
+      "recommendation": {
+        "action": "simplify",
+        "candidate": {
+          "renderer": "same RoadOverlay.paintLamp, LAMP_PROFILE; simplify surface shading at source"
+        },
+        "palette": [
+          "ink",
+          "earth",
+          "ochre",
+          "gold",
+          "flower_lilac"
+        ],
+        "rationale": "Keep the existing single-lantern silhouette and separate restoration light. Quantise ironwork into crisp gold/ochre clusters; preserve additive glow and existing street-specific light colours. Library LampPost_3 is a two-lantern wooden utility post, a poorer silhouette match; do not add it just to force a swap."
+      },
+      "prevalenceRank": 1,
+      "prevalenceReason": "Deterministic lamps repeat at Streets.lampSpacingM() along accepted transportation lines, including unlit foundation state before repair; high repeated screen exposure.",
+      "spawnEvidence": "src/streets.js lampSpacingM / lampLayFor \u2192 src/app.js _streetLampsForTile \u2192 src/render.js _streetlamp",
+      "consumers": "All accepted road/path lamp positions; lit flag selects restored procedural lamp or four existing foundation frames. Existing street glow colours are already-used states, not newly proposed zone variants.",
+      "variants": []
+    }
+  ],
+  "excluded": [
+    "Unused Generated placeholders: postbox, hay_a/b/c, shrine.png, old headstone.png, unused stake choices, review contact sheets."
+  ],
+  "notes": [
+    "Input fixture counts are local source signals, not post-spawn map counts.",
+    "No new zone-specific variants nominated by structures: save the ~10% variant budget for more prevalent ground/flora where spatial identity is stronger.",
+    "Existing restored/unrestored states, product counter frames, and two grove shrine appearances are existing gameplay art, not proposed new variants."
+  ]
+}

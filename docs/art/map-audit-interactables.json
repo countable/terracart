@@ -1,0 +1,2828 @@
+{
+  "version": 1,
+  "title": "Nonliving map interactables",
+  "scope": "Naturally generated environmental flora, resource nodes, containers and hazards; existing cave/shore placements included.",
+  "excluded": [
+    "characters",
+    "enemies",
+    "fauna and other living actors",
+    "mounts and pets",
+    "inventory-only rewards/gear/food",
+    "player-planted crop varieties beyond the naturally spawned materials",
+    "buildings and terrain audited separately"
+  ],
+  "prevalenceMethod": "Qualitative priority from explicit spawn rules, biome coverage and repeated zone materials. No full-map post-filter census was run. Locally dense does not imply common everywhere.",
+  "zoneVariantPolicy": "Six targeted context variants only; no seasons. None are enabled by this audit.",
+  "rows": [
+    {
+      "id": "longgrass",
+      "name": "Long grass",
+      "category": "flora",
+      "priority": 1,
+      "prevalence": {
+        "band": "ubiquitous",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Grassland dynamic density 0.15; farm, wetland, yards and many variant backgrounds."
+      },
+      "current": [
+        {
+          "key": "props",
+          "path": "assets/Objects/Rustic/Props.png",
+          "frame": 10,
+          "rect": [
+            160,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/biome_profiles.js:FAMILY_PROFILE.grassland/farm/urban",
+        "src/worldgen.js:spawnDebrisSteps",
+        "docs/zone-variants.json:materials.grass"
+      ],
+      "recommendation": {
+        "action": "keep-applied",
+        "note": "Keep approved olive/straw tuft. Dense coverage makes hue consistency more valuable than more silhouettes.",
+        "palette": [
+          {
+            "id": "ink",
+            "hex": "#171717"
+          },
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "leaf_dark",
+            "hex": "#3e4b2c"
+          },
+          {
+            "id": "leaf",
+            "hex": "#596338"
+          },
+          {
+            "id": "leaf_light",
+            "hex": "#7a8147"
+          }
+        ]
+      },
+      "zoneVariant": {
+        "name": "Wetland reeds",
+        "usage": "Wetland margins only, not seasonal; proposed only.",
+        "candidate": {
+          "path": "unused_art/verdant-props-tileset-16x16/tiles/16x16/cattails.png",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "note": "A few distinct upright cattails create a readable wetland edge; moss/straw palette with brown seed heads."
+      }
+    },
+    {
+      "id": "shrub",
+      "name": "Rounded woodland bush",
+      "category": "flora",
+      "priority": 2,
+      "prevalence": {
+        "band": "ubiquitous",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Forest defaults, commercial hedge placement, industrial scrub, yard flora and grove patterns."
+      },
+      "current": [
+        {
+          "key": "bushes",
+          "path": "assets/Objects/Rustic/bush.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            48,
+            32
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/biome_profiles.js:FAMILY_PROFILE.forest/urban; BIOME_PROFILES commercial/industrial",
+        "src/render.js:tree bush size reads CROP_SPRITE.shrub",
+        "docs/zone-variants.json:materials.shrub"
+      ],
+      "recommendation": {
+        "action": "keep-applied",
+        "note": "Rounded woodland default from Wilderness/bushes.png frame 1, recoloured olive. Keep the wild rounded silhouette.",
+        "palette": [
+          {
+            "id": "ink",
+            "hex": "#171717"
+          },
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "leaf_dark",
+            "hex": "#3e4b2c"
+          },
+          {
+            "id": "leaf",
+            "hex": "#596338"
+          },
+          {
+            "id": "leaf_light",
+            "hex": "#7a8147"
+          }
+        ]
+      },
+      "zoneVariant": {
+        "name": "Clipped hedge",
+        "usage": "Formal Garden, residential and commercial planting only; proposed, not implemented.",
+        "candidate": {
+          "path": "assets/Objects/Generated/hedge_end.png",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "note": "Use the same rustic olive palette; orderly silhouette provides the distinction. Never replace ordinary woodland bushes globally."
+      }
+    },
+    {
+      "id": "trees",
+      "name": "Ordinary broadleaf",
+      "category": "trees",
+      "priority": 3,
+      "prevalence": {
+        "band": "ubiquitous",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Standing natural-tree species; species mix depends on mapped land and seeded selection."
+      },
+      "current": [
+        {
+          "key": "trees",
+          "path": "assets/Objects/Rustic/trees.png",
+          "frame": 1,
+          "rect": [
+            32,
+            0,
+            32,
+            48
+          ],
+          "whiteKey": false
+        },
+        {
+          "key": "trees",
+          "path": "assets/Objects/Rustic/trees.png",
+          "frame": 2,
+          "rect": [
+            64,
+            0,
+            32,
+            48
+          ],
+          "whiteKey": false
+        },
+        {
+          "key": "trees",
+          "path": "assets/Objects/Rustic/trees.png",
+          "frame": 3,
+          "rect": [
+            96,
+            0,
+            32,
+            48
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/worldgen.js:spawnParkTreesSteps/spawnForestTreesSteps",
+        "src/zones.js:zone tree materials",
+        "src/util.js:treeGrowthStage"
+      ],
+      "recommendation": {
+        "action": "keep-applied",
+        "note": "Approved open broadleaf with matching sprout/young stages. Preserve existing size, yield and axe-tier relationships.",
+        "palette": [
+          {
+            "id": "ink",
+            "hex": "#171717"
+          },
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "leaf_dark",
+            "hex": "#3e4b2c"
+          },
+          {
+            "id": "leaf",
+            "hex": "#596338"
+          },
+          {
+            "id": "leaf_light",
+            "hex": "#7a8147"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "earth",
+            "hex": "#6c431d"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pine_tree",
+      "name": "Pine",
+      "category": "trees",
+      "priority": 4,
+      "prevalence": {
+        "band": "common",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Standing natural-tree species; species mix depends on mapped land and seeded selection."
+      },
+      "current": [
+        {
+          "key": "pine_tree",
+          "path": "assets/Objects/Wilderness/Pine Tree.png",
+          "frame": 3,
+          "rect": [
+            96,
+            0,
+            32,
+            48
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/worldgen.js:spawnForestTreesSteps",
+        "src/home.js:softwoodSpeciesNear"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Preserve growth stages and canopy/trunk silhouette. Olive foliage and warm bark; keep pale birch bark readable.",
+        "palette": [
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "leaf_dark",
+            "hex": "#3e4b2c"
+          },
+          {
+            "id": "leaf",
+            "hex": "#596338"
+          },
+          {
+            "id": "leaf_light",
+            "hex": "#7a8147"
+          },
+          {
+            "id": "leaf_tip",
+            "hex": "#a5a569"
+          },
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "earth",
+            "hex": "#6c431d"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          }
+        ]
+      }
+    },
+    {
+      "id": "birch_tree",
+      "name": "Birch",
+      "category": "trees",
+      "priority": 5,
+      "prevalence": {
+        "band": "common",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Standing natural-tree species; species mix depends on mapped land and seeded selection."
+      },
+      "current": [
+        {
+          "key": "birch_tree",
+          "path": "assets/Objects/Wilderness/Birch Tree.png",
+          "frame": 3,
+          "rect": [
+            96,
+            0,
+            32,
+            48
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/worldgen.js:spawnForestTreesSteps (TREE_SPECIES selection)"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Preserve growth stages and canopy/trunk silhouette. Olive foliage and warm bark; keep pale birch bark readable.",
+        "palette": [
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "leaf_dark",
+            "hex": "#3e4b2c"
+          },
+          {
+            "id": "leaf",
+            "hex": "#596338"
+          },
+          {
+            "id": "leaf_light",
+            "hex": "#7a8147"
+          },
+          {
+            "id": "leaf_tip",
+            "hex": "#a5a569"
+          },
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "earth",
+            "hex": "#6c431d"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "mahogany_tree",
+      "name": "Mahogany",
+      "category": "trees",
+      "priority": 6,
+      "prevalence": {
+        "band": "common",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Standing natural-tree species; species mix depends on mapped land and seeded selection."
+      },
+      "current": [
+        {
+          "key": "mahogany_tree",
+          "path": "assets/Objects/Wilderness/Mahogany Tree.png",
+          "frame": 3,
+          "rect": [
+            96,
+            0,
+            32,
+            48
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/worldgen.js:spawnForestTreesSteps (TREE_SPECIES selection)"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Preserve growth stages and canopy/trunk silhouette. Olive foliage and warm bark; keep pale birch bark readable.",
+        "palette": [
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "leaf_dark",
+            "hex": "#3e4b2c"
+          },
+          {
+            "id": "leaf",
+            "hex": "#596338"
+          },
+          {
+            "id": "leaf_light",
+            "hex": "#7a8147"
+          },
+          {
+            "id": "leaf_tip",
+            "hex": "#a5a569"
+          },
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "earth",
+            "hex": "#6c431d"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          }
+        ]
+      }
+    },
+    {
+      "id": "plain-rock",
+      "name": "Plain mineable stone",
+      "category": "resources",
+      "priority": 7,
+      "prevalence": {
+        "band": "common",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Surface street/yard clusters, churchyard patterns and cave floors."
+      },
+      "current": [
+        {
+          "key": "mineralrock",
+          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "frame": 168,
+          "rect": [
+            48,
+            240,
+            16,
+            16
+          ],
+          "whiteKey": false
+        },
+        {
+          "key": "mineralrock",
+          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "frame": 169,
+          "rect": [
+            64,
+            240,
+            16,
+            16
+          ],
+          "whiteKey": false
+        },
+        {
+          "key": "mineralrock",
+          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "frame": 170,
+          "rect": [
+            80,
+            240,
+            16,
+            16
+          ],
+          "whiteKey": false
+        },
+        {
+          "key": "mineralrock",
+          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "frame": 171,
+          "rect": [
+            96,
+            240,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/worldgen.js:spawnStreetRocksSteps / spawnCaveRocks",
+        "src/sprite_layout.js:PLAIN_ROCK_VARIANTS",
+        "src/render.js:mineralrock.frame"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Retain all four quantity-bearing silhouettes: the pair must remain a pair, singles remain singles. Warm neutral stone replaces the cool grey/purple substrate.",
+        "palette": [
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      },
+      "zoneVariant": {
+        "name": "Moss-edged stone",
+        "usage": "Stone Garden only; the existing rock silhouettes and yields stay unchanged.",
+        "candidate": {
+          "key": "mineralrock",
+          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "frame": 171,
+          "rect": [
+            96,
+            240,
+            16,
+            16
+          ],
+          "whiteKey": false
+        },
+        "note": "Keep the same single/pair silhouette and yield mapping; tint only a few exposed-edge pixels with olive moss. Do not replace an existing pair with a lone decorative boulder.",
+        "palette": [
+          "stone_shadow",
+          "stone",
+          "stone_light",
+          "leaf_dark",
+          "leaf"
+        ]
+      }
+    },
+    {
+      "id": "rubble",
+      "name": "Loose rubble / wild rockfruit",
+      "category": "resources",
+      "priority": 8,
+      "prevalence": {
+        "band": "locally-dense",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Broken Masonry, Flint Field rims and several tar-zone backgrounds."
+      },
+      "current": [
+        {
+          "key": "crops",
+          "path": "assets/Objects/Crops.png",
+          "frame": 40,
+          "rect": [
+            64,
+            64,
+            16,
+            16
+          ],
+          "whiteKey": true
+        }
+      ],
+      "spawnEvidence": [
+        "docs/zone-variants.json:materials.rubble",
+        "src/render.js:wildplant promotion to MAX_GROWTH_STAGE",
+        "src/items.js:CROP_ROW.rockfruit"
+      ],
+      "recommendation": {
+        "action": "swap-proposed",
+        "note": "Use a compact loose rubble pile with a clear dark contour; separate loose rubble from mineable ore. Keep the existing rockfruit interaction.",
+        "palette": [
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ],
+        "candidate": {
+          "path": "unused_art/verdant-props-tileset-16x16/tiles/16x16/rubble_pile.png",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        }
+      },
+      "zoneVariant": {
+        "name": "Masonry debris",
+        "usage": "Broken Masonry / ruined built ground only; proposed only.",
+        "candidate": {
+          "path": "unused_art/verdant-props-tileset-16x16/tiles/16x16/rubble_masonry.png",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "note": "Brick and stone rubble signals construction remains. Warm stone with muted brick; strengthen its faint outer contour before shipping."
+      }
+    },
+    {
+      "id": "mushroom",
+      "name": "Surface mushroom",
+      "category": "flora",
+      "priority": 9,
+      "prevalence": {
+        "band": "common",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Forest 4\u201310% before spawn filtering, urban 0.8\u20132.5%, wetland and grove clusters."
+      },
+      "current": [
+        {
+          "key": "props",
+          "path": "assets/Objects/Rustic/Props.png",
+          "frame": 35,
+          "rect": [
+            208,
+            16,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/biome_profiles.js:FAMILY_PROFILE.forest/urban",
+        "src/items.js:CROP_SPRITE.mushroom",
+        "docs/zone-variants.json:mushroom_grove"
+      ],
+      "recommendation": {
+        "action": "keep-applied",
+        "note": "Keep approved red-spotted toadstool, muted brick cap and cream stem/spots. Preserve the current 10% size reduction.",
+        "palette": [
+          {
+            "id": "ink",
+            "hex": "#171717"
+          },
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "clay",
+            "hex": "#90431b"
+          },
+          {
+            "id": "rust",
+            "hex": "#ba6724"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      },
+      "zoneVariant": {
+        "name": "Mushroom Grove cap cluster",
+        "usage": "Mushroom Grove only; retain the ordinary single cap elsewhere.",
+        "candidate": {
+          "path": "assets/Objects/Wilderness/Props.png",
+          "rect": [
+            320,
+            64,
+            16,
+            16
+          ]
+        },
+        "note": "Source frame108 groups caps into one clear silhouette. Recolour to brick, rust and cream, preserving the current size and per-cell loot. This variant already repeats four mushroom cells per6\u00d76 motif; it gains identity without adding clutter or reward."
+      }
+    },
+    {
+      "id": "cave-mushroom",
+      "name": "Luminous cave mushrooms",
+      "category": "flora",
+      "priority": 9.5,
+      "prevalence": {
+        "band": "locally-dense",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Dedicated cave generation places both blue cap frames."
+      },
+      "current": [
+        {
+          "key": "props",
+          "path": "assets/Objects/Rustic/Props.png",
+          "frame": 127,
+          "rect": [
+            272,
+            80,
+            16,
+            16
+          ],
+          "whiteKey": false
+        },
+        {
+          "key": "props",
+          "path": "assets/Objects/Rustic/Props.png",
+          "frame": 128,
+          "rect": [
+            288,
+            80,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/worldgen.js:spawnCaveMushrooms",
+        "src/items.js:CROP_SPRITE.mushroom.caveFrames",
+        "src/lighting.js:KINDS.mushroom"
+      ],
+      "recommendation": {
+        "action": "keep",
+        "note": "Keep existing luminous caps as an established underground readability cue. They are real current cave art, not new palette variants.",
+        "palette": [
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "hero_cyan_dark",
+            "hex": "#349aa4"
+          },
+          {
+            "id": "hero_cyan",
+            "hex": "#4ebcb9"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "forgetmenot",
+      "name": "Forget-me-not",
+      "category": "flora",
+      "priority": 10,
+      "prevalence": {
+        "band": "common",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Low-percent biome flowers; denser formal beds or finite variant finds can dominate locally."
+      },
+      "current": [
+        {
+          "key": "props",
+          "path": "assets/Objects/Rustic/Props.png",
+          "frame": 76,
+          "rect": [
+            160,
+            48,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/biome_profiles.js:FAMILY_PROFILE / BIOME_PROFILES",
+        "docs/zone-variants.json:materials",
+        "src/items.js:CROP_SPRITE.forgetmenot"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Keep the compact flower silhouette. Muted olive leaves; petals may retain controlled colour. Avoid bright green leaves competing with the flower.",
+        "palette": [
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "leaf_dark",
+            "hex": "#3e4b2c"
+          },
+          {
+            "id": "leaf",
+            "hex": "#596338"
+          },
+          {
+            "id": "leaf_light",
+            "hex": "#7a8147"
+          },
+          {
+            "id": "leaf_tip",
+            "hex": "#a5a569"
+          },
+          {
+            "id": "flower_blue",
+            "hex": "#6b90ac"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "marigold",
+      "name": "Marigold",
+      "category": "flora",
+      "priority": 11,
+      "prevalence": {
+        "band": "common",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Low-percent biome flowers; denser formal beds or finite variant finds can dominate locally."
+      },
+      "current": [
+        {
+          "key": "props",
+          "path": "assets/Objects/Rustic/Props.png",
+          "frame": 34,
+          "rect": [
+            192,
+            16,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/biome_profiles.js:FAMILY_PROFILE / BIOME_PROFILES",
+        "docs/zone-variants.json:materials",
+        "src/items.js:CROP_SPRITE.marigold"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Keep the compact flower silhouette. Muted olive leaves; petals may retain controlled colour. Avoid bright green leaves competing with the flower.",
+        "palette": [
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "leaf_dark",
+            "hex": "#3e4b2c"
+          },
+          {
+            "id": "leaf",
+            "hex": "#596338"
+          },
+          {
+            "id": "leaf_light",
+            "hex": "#7a8147"
+          },
+          {
+            "id": "leaf_tip",
+            "hex": "#a5a569"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          },
+          {
+            "id": "gold",
+            "hex": "#fac756"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ore-copper",
+      "name": "Copper ore rock",
+      "category": "resources",
+      "priority": 12,
+      "prevalence": {
+        "band": "common",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Tier-specific resource rocks; zone finds and depth affect local frequency. Ranking does not assume equal ore density."
+      },
+      "current": [
+        {
+          "key": "mineralrock",
+          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/items.js:MINERAL_TIERS",
+        "src/worldgen.js:rollSurfaceRockTier / caveRockP",
+        "docs/zone-variants.json:ore find materials"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Warm neutral stone substrate; retain a small unmistakable copper deposit accent. Resource tier recognition justifies selective off-palette mineral colours.",
+        "palette": [
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          },
+          {
+            "id": "clay",
+            "hex": "#90431b"
+          },
+          {
+            "id": "rust",
+            "hex": "#ba6724"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ore-iron",
+      "name": "Iron ore rock",
+      "category": "resources",
+      "priority": 13,
+      "prevalence": {
+        "band": "common",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Tier-specific resource rocks; zone finds and depth affect local frequency. Ranking does not assume equal ore density."
+      },
+      "current": [
+        {
+          "key": "mineralrock",
+          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "frame": 1,
+          "rect": [
+            16,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/items.js:MINERAL_TIERS",
+        "src/worldgen.js:rollSurfaceRockTier / caveRockP",
+        "docs/zone-variants.json:ore find materials"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Warm neutral stone substrate; retain a small unmistakable iron deposit accent. Resource tier recognition justifies selective off-palette mineral colours.",
+        "palette": [
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "apple_tree",
+      "name": "Apple tree",
+      "category": "trees",
+      "priority": 14,
+      "prevalence": {
+        "band": "locally-dense",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Orchards and detected fruit trees; procedural orchard species selects peach in one of seven polygons, apple otherwise. Grove orchard forces apple."
+      },
+      "current": [
+        {
+          "key": "apple_tree",
+          "path": "assets/Objects/Wilderness/Apple Tree.png",
+          "frame": 4,
+          "rect": [
+            128,
+            0,
+            32,
+            48
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/worldgen.js:spawnFruitTreesSteps",
+        "src/render.js:FRUIT_FRAMES",
+        "docs/zone-variants.json:orchard"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Keep current fruit-tree silhouette and growth frames. Olive canopy, warm bark; preserve apples/peaches as small recognizable food accents.",
+        "palette": [
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "leaf_dark",
+            "hex": "#3e4b2c"
+          },
+          {
+            "id": "leaf",
+            "hex": "#596338"
+          },
+          {
+            "id": "leaf_light",
+            "hex": "#7a8147"
+          },
+          {
+            "id": "leaf_tip",
+            "hex": "#a5a569"
+          },
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "earth",
+            "hex": "#6c431d"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          },
+          {
+            "id": "clay",
+            "hex": "#90431b"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "shell",
+      "name": "Beach shells",
+      "category": "shore",
+      "priority": 15,
+      "prevalence": {
+        "band": "locally-dense",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Sand 4\u20137% before filters; daily shoreline finds also produce shells."
+      },
+      "current": [
+        {
+          "key": "shell_sheet",
+          "path": "assets/Icons/Fish/Sea/Creatures/Shell.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        },
+        {
+          "key": "shell_sheet",
+          "path": "assets/Icons/Fish/Sea/Creatures/Shell.png",
+          "frame": 1,
+          "rect": [
+            16,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        },
+        {
+          "key": "shell_sheet",
+          "path": "assets/Icons/Fish/Sea/Creatures/Shell.png",
+          "frame": 2,
+          "rect": [
+            32,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/biome_profiles.js:FAMILY_PROFILE.sand",
+        "src/scenic.js:tideLive",
+        "src/items.js:CROP_SPRITE.shell"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Keep the three existing compact cowrie shapes. Bone/stone base with restrained dusty rose or blue; retain readable shell ridges.",
+        "palette": [
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          },
+          {
+            "id": "flower_rose",
+            "hex": "#a55e72"
+          },
+          {
+            "id": "flower_blue",
+            "hex": "#6b90ac"
+          }
+        ]
+      }
+    },
+    {
+      "id": "flint",
+      "name": "Flint nodule",
+      "category": "resources",
+      "priority": 16,
+      "prevalence": {
+        "band": "locally-dense",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Flint Field concentric design and associated tar-zone placements."
+      },
+      "current": [
+        {
+          "key": "flint",
+          "path": "assets/Objects/Generated/flint.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "docs/zone-variants.json:materials.flint and flint_field",
+        "src/zones.js:variant dressing"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Keep angular nodule; use dark warm stone with one restrained light fractured face. Distinguish it from rounded mineable stones.",
+        "palette": [
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "tar",
+      "name": "Tar pit",
+      "category": "hazards",
+      "priority": 17,
+      "prevalence": {
+        "band": "locally-dense",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Fuel/industrial influence zones, Seep and Black Ring."
+      },
+      "current": [
+        {
+          "key": "tar",
+          "path": "assets/Objects/Generated/tar.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/zones.js:zone classification fuel\u2192tar",
+        "docs/zone-variants.json:materials.tar"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Retain the low irregular puddle. Warm near-black body and subtle grey-brown sheen; keep it visually separate from ordinary soil.",
+        "palette": [
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "ink",
+            "hex": "#171717"
+          },
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          }
+        ]
+      }
+    },
+    {
+      "id": "trap-hidden",
+      "name": "Concealed trap",
+      "category": "hazards",
+      "priority": 17.1,
+      "prevalence": {
+        "band": "localized",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Surface generator attempts 10\u201318 per tile before danger/mode multipliers and placement filters; also cave traps and Broken Depot hazards. Hidden and sprung rows are states of the same objects, not additive counts."
+      },
+      "current": [
+        {
+          "type": "procedural",
+          "key": "trap_hidden",
+          "source": "src/textures.js",
+          "function": "makeHiddenTrapTexture",
+          "width": 32,
+          "height": 32
+        }
+      ],
+      "spawnEvidence": [
+        "src/traps.js:surface trap placement",
+        "src/render.js:trap_hidden/trap_open",
+        "docs/zone-variants.json:materials.trap"
+      ],
+      "recommendation": {
+        "action": "keep",
+        "note": "Retain gameplay readability: a subtle ground disturbance before triggering, recognizable rusted iron jaws after. Do not make hidden traps conspicuous decorative sprites.",
+        "palette": [
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "rust",
+            "hex": "#ba6724"
+          }
+        ]
+      }
+    },
+    {
+      "id": "trap-open",
+      "name": "Sprung trap",
+      "category": "hazards",
+      "priority": 17.2,
+      "prevalence": {
+        "band": "localized",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Surface generator attempts 10\u201318 per tile before danger/mode multipliers and placement filters; also cave traps and Broken Depot hazards. Hidden and sprung rows are states of the same objects, not additive counts."
+      },
+      "current": [
+        {
+          "type": "procedural",
+          "key": "trap_open",
+          "source": "src/textures.js",
+          "function": "makeSprungTrapTexture",
+          "width": 32,
+          "height": 32
+        }
+      ],
+      "spawnEvidence": [
+        "src/traps.js:surface trap placement",
+        "src/render.js:trap_hidden/trap_open",
+        "docs/zone-variants.json:materials.trap"
+      ],
+      "recommendation": {
+        "action": "keep",
+        "note": "Retain gameplay readability: a subtle ground disturbance before triggering, recognizable rusted iron jaws after. Do not make hidden traps conspicuous decorative sprites.",
+        "palette": [
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "rust",
+            "hex": "#ba6724"
+          }
+        ]
+      }
+    },
+    {
+      "id": "stakes",
+      "name": "Iron verge stakes",
+      "category": "hazards",
+      "priority": 17.3,
+      "prevalence": {
+        "band": "localized",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Burned Row street dressing selects tar or stakes, creating slow hazards beside roads."
+      },
+      "current": [
+        {
+          "key": "stakes",
+          "path": "assets/Objects/Generated/stakes_a.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        }
+      ],
+      "spawnEvidence": [
+        "src/street_variants.js:dressSteps burnedrow; SLOW_KINDS",
+        "src/render.js:RENDER_SPEC.stakes"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Keep narrow irregular iron stakes. Warm charcoal iron with restrained rust; distinct upright silhouette differentiates them from flat tar.",
+        "palette": [
+          {
+            "id": "ink",
+            "hex": "#171717"
+          },
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          },
+          {
+            "id": "rust",
+            "hex": "#ba6724"
+          }
+        ]
+      },
+      "zoneVariant": {
+        "name": "Burned Row charred stakes",
+        "usage": "Burned Row street variant only (5% major-road assignment share before placement filters).",
+        "candidate": {
+          "key": "stakes",
+          "path": "assets/Objects/Generated/stakes_a.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "note": "Keep the iron spike geometry; darken the supports to charcoal/earth with a few rust pixels. Burned Row actually alternates tar and stakes, so this cue reinforces an existing hazard composition without new mechanics."
+      }
+    },
+    {
+      "id": "headstone",
+      "name": "Weathered grave pillar",
+      "category": "ruins",
+      "priority": 18,
+      "prevalence": {
+        "band": "locally-dense",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Churchyard and Old Stones variant arrangements."
+      },
+      "current": [
+        {
+          "key": "headstone",
+          "path": "assets/Objects/Rustic/pillar_c.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/zones.js:headstone material placement",
+        "src/interactables.js:headstone"
+      ],
+      "recommendation": {
+        "action": "keep-applied",
+        "note": "Approved weathered pillar replaces the grave artwork; retain warm stone and dark cracks. Do not confuse it with breakable pottery.",
+        "palette": [
+          {
+            "id": "ink",
+            "hex": "#171717"
+          },
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          }
+        ]
+      }
+    },
+    {
+      "id": "barrel",
+      "name": "Breakable barrel",
+      "category": "containers",
+      "priority": 19,
+      "prevalence": {
+        "band": "common",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Mapped waste_basket/recycling POIs choose a stable barrel or clay-pot pair; density and spawn gates limit actual counts."
+      },
+      "current": [
+        {
+          "key": "barrel",
+          "path": "assets/Objects/Generated/barrel.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        },
+        {
+          "key": "barrel_smashed",
+          "path": "assets/Objects/Generated/barrel_smashed.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/loot.js:BARREL_CLASSES/BARREL_ART/chestLook",
+        "src/worldgen.js:POI chest generation",
+        "src/interactables.js:chest barrel handler"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Keep intact and smashed appearances as a matched pair. Usually empty; occasional 1\u20133 coins, apple, or torch/rope. Broken art is a spent container, not generic scenery.",
+        "palette": [
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "earth",
+            "hex": "#6c431d"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          },
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          }
+        ]
+      }
+    },
+    {
+      "id": "clay_pot",
+      "name": "Breakable clay pot",
+      "category": "containers",
+      "priority": 20,
+      "prevalence": {
+        "band": "common",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Mapped waste_basket/recycling POIs choose a stable barrel or clay-pot pair; density and spawn gates limit actual counts."
+      },
+      "current": [
+        {
+          "key": "clay_pot",
+          "path": "assets/Objects/Rustic/pot.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        },
+        {
+          "key": "clay_pot_smashed",
+          "path": "assets/Objects/Rustic/pot_smashed.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/loot.js:BARREL_CLASSES/BARREL_ART/chestLook",
+        "src/worldgen.js:POI chest generation",
+        "src/interactables.js:chest barrel handler"
+      ],
+      "recommendation": {
+        "action": "keep-applied",
+        "note": "Keep intact and smashed appearances as a matched pair. Usually empty; occasional 1\u20133 coins, apple, or torch/rope. Broken art is a spent container, not generic scenery.",
+        "palette": [
+          {
+            "id": "ink",
+            "hex": "#171717"
+          },
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "clay",
+            "hex": "#90431b"
+          },
+          {
+            "id": "rust",
+            "hex": "#ba6724"
+          },
+          {
+            "id": "earth",
+            "hex": "#6c431d"
+          }
+        ]
+      }
+    },
+    {
+      "id": "crate",
+      "name": "Small supply crate",
+      "category": "containers",
+      "priority": 21,
+      "prevalence": {
+        "band": "common",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Starter supplies and high-density ordinary POI classes use the small crate appearance."
+      },
+      "current": [
+        {
+          "key": "box",
+          "path": "assets/Objects/Wilderness/Box_Single_16x16.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/loot.js:chestLook box branch",
+        "src/worldgen.js:POI chest generation"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Keep the crisp small wooden crate. Dark bark outlines and worn ochre planks align it with the rustic world without obscuring the lid.",
+        "palette": [
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "earth",
+            "hex": "#6c431d"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          }
+        ]
+      }
+    },
+    {
+      "id": "wildrose",
+      "name": "Wild rose",
+      "category": "flora",
+      "priority": 22,
+      "prevalence": {
+        "band": "rare",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Low-percent biome flowers; denser formal beds or finite variant finds can dominate locally."
+      },
+      "current": [
+        {
+          "key": "props",
+          "path": "assets/Objects/Rustic/Props.png",
+          "frame": 30,
+          "rect": [
+            128,
+            16,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/biome_profiles.js:FAMILY_PROFILE / BIOME_PROFILES",
+        "docs/zone-variants.json:materials",
+        "src/items.js:CROP_SPRITE.wildrose"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Keep the compact flower silhouette. Muted olive leaves; petals may retain controlled colour. Avoid bright green leaves competing with the flower.",
+        "palette": [
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "leaf_dark",
+            "hex": "#3e4b2c"
+          },
+          {
+            "id": "leaf",
+            "hex": "#596338"
+          },
+          {
+            "id": "leaf_light",
+            "hex": "#7a8147"
+          },
+          {
+            "id": "leaf_tip",
+            "hex": "#a5a569"
+          },
+          {
+            "id": "flower_rose",
+            "hex": "#a55e72"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "chest",
+      "name": "Treasure trunk",
+      "category": "containers",
+      "priority": 23,
+      "prevalence": {
+        "band": "common",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Non-crate POIs and cave mirrors use the closed trunk; sprite size stays small."
+      },
+      "current": [
+        {
+          "key": "chest",
+          "path": "assets/Objects/trunk.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            32,
+            32
+          ],
+          "whiteKey": false
+        },
+        {
+          "key": "chest",
+          "path": "assets/Objects/trunk.png",
+          "frame": 1,
+          "rect": [
+            0,
+            32,
+            32,
+            32
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/loot.js:chestLook fallback",
+        "src/worldgen.js:caveChestsFrom"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Keep the readable closed/open chest family. Warm wood and restrained metal; treasure glint is a purposeful important-object accent.",
+        "palette": [
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "earth",
+            "hex": "#6c431d"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          },
+          {
+            "id": "gold",
+            "hex": "#fac756"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          }
+        ]
+      }
+    },
+    {
+      "id": "courier-post",
+      "name": "Courier\u2019s post",
+      "category": "containers",
+      "priority": 23.1,
+      "prevalence": {
+        "band": "uncommon",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Mapped bicycle_parking POIs resolve to this one daily service prop, labelled courier\u2019s post in-game."
+      },
+      "current": [
+        {
+          "key": "bike_rack",
+          "path": "assets/Objects/Generated/bike_rack.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        }
+      ],
+      "spawnEvidence": [
+        "src/loot.js:isBikeRack / chestLook / POI_CLASS_FALLBACK.bicycle_parking",
+        "src/render.js:RENDER_SPEC.chest"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Keep existing small prop for now; muted stone/metal with rusty timber. The current art still resembles a rack, so a future courier signpost silhouette would improve fiction alignment, but no unverified replacement is nominated.",
+        "palette": [
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          }
+        ]
+      }
+    },
+    {
+      "id": "treasure-mark",
+      "name": "Buried treasure X",
+      "category": "ground interactables",
+      "priority": 23.2,
+      "prevalence": {
+        "band": "uncommon",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Generated ordinary, parking and extra treasure sites, including beaches, draw X until dug; pale mark underground."
+      },
+      "current": [
+        {
+          "type": "procedural",
+          "source": "src/render.js",
+          "function": "Render.drawCells \u2192 drawX",
+          "width": 12,
+          "height": 12,
+          "states": [
+            {
+              "name": "surface",
+              "stroke": "#2a1d10",
+              "alpha": 0.55
+            },
+            {
+              "name": "cave",
+              "stroke": "#c9b48a",
+              "alpha": 0.6
+            }
+          ],
+          "geometry": {
+            "shape": "crossed-lines",
+            "halfExtent": 5.1,
+            "lineWidth": 2
+          }
+        }
+      ],
+      "spawnEvidence": [
+        "src/render.js:drawX(entry.treasure / parkingTreasures / extraTreasures)",
+        "src/scenic.js:beachXCount"
+      ],
+      "recommendation": {
+        "action": "keep",
+        "note": "Keep a scratched ground mark rather than adding an ornate inventory icon. Surface dark earth and cave pale stone preserve contrast without looking like a UI button.",
+        "palette": [
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cave-wall-torch",
+      "name": "Cave wall torches",
+      "category": "cave props",
+      "priority": 24.1,
+      "prevalence": {
+        "band": "locally-dense",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Mapped POI torch sites and a separate cave-wall lattice place standing torches. Wall stream tries each 18-cell pivot with 0.45 chance before filtering."
+      },
+      "current": [
+        {
+          "key": "torch",
+          "path": "assets/Objects/Wilderness/torch.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            32
+          ]
+        },
+        {
+          "key": "torch",
+          "path": "assets/Objects/Wilderness/torch.png",
+          "frame": 1,
+          "rect": [
+            16,
+            0,
+            16,
+            32
+          ]
+        },
+        {
+          "key": "torch",
+          "path": "assets/Objects/Wilderness/torch.png",
+          "frame": 2,
+          "rect": [
+            32,
+            0,
+            16,
+            32
+          ]
+        },
+        {
+          "key": "torch",
+          "path": "assets/Objects/Wilderness/torch.png",
+          "frame": 3,
+          "rect": [
+            48,
+            0,
+            16,
+            32
+          ]
+        }
+      ],
+      "spawnEvidence": [
+        "src/worldgen.js:caveTorchesFrom / caveWallTorches",
+        "src/render.js:RENDER_SPEC.torch"
+      ],
+      "recommendation": {
+        "action": "keep",
+        "note": "Keep four-frame flame animation and warm amber light. Rustic brown stake, bright flame as a functional navigation cue; not the collectible floor-torch sprite.",
+        "palette": [
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "earth",
+            "hex": "#6c431d"
+          },
+          {
+            "id": "amber",
+            "hex": "#f39934"
+          },
+          {
+            "id": "gold",
+            "hex": "#fac756"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "floor-torch",
+      "name": "Cave-floor torch pickup",
+      "category": "resources",
+      "priority": 24.2,
+      "prevalence": {
+        "band": "localized",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Depth-one cave-floor stream attempts 24\u201336 pickups per tile before cell constraints; absent at other depths and the surface."
+      },
+      "current": [
+        {
+          "key": "icon_torch",
+          "path": "assets/Icons/Items/Torch.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/worldgen.js:caveFloorTorches/FLOOR_TORCH_DEPTH",
+        "src/items.js:CROP_SPRITE.torch"
+      ],
+      "recommendation": {
+        "action": "keep",
+        "note": "This inventory sprite genuinely appears on the map as a collectible torch. Keep its compact wood/flame silhouette and important warm light contrast.",
+        "palette": [
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "earth",
+            "hex": "#6c431d"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          },
+          {
+            "id": "amber",
+            "hex": "#f39934"
+          },
+          {
+            "id": "gold",
+            "hex": "#fac756"
+          }
+        ]
+      }
+    },
+    {
+      "id": "coin-drop",
+      "name": "Loose map coins",
+      "category": "resources",
+      "priority": 24.4,
+      "prevalence": {
+        "band": "localized",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Caves seed collectible coins; coin-burst pots also spill temporary coin drops. This icon genuinely renders on the map."
+      },
+      "current": [
+        {
+          "key": "coin_drop",
+          "path": "assets/Icons/coin.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            64,
+            64
+          ]
+        }
+      ],
+      "spawnEvidence": [
+        "src/worldgen.js:caveCoins",
+        "src/render.js:coinPool texture coin_drop",
+        "src/app.js:_coinBurstInteract"
+      ],
+      "recommendation": {
+        "action": "keep",
+        "note": "Keep gold coin recognition and pickup glint; currency is important enough for bright accents. Review at actual tiny on-map scale, not full 64-pixel source size.",
+        "palette": [
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          },
+          {
+            "id": "amber",
+            "hex": "#f39934"
+          },
+          {
+            "id": "gold",
+            "hex": "#fac756"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ore-gold",
+      "name": "Gold ore rock",
+      "category": "resources",
+      "priority": 25,
+      "prevalence": {
+        "band": "rare",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Tier-specific resource rocks; zone finds and depth affect local frequency. Ranking does not assume equal ore density."
+      },
+      "current": [
+        {
+          "key": "mineralrock",
+          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "frame": 2,
+          "rect": [
+            32,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/items.js:MINERAL_TIERS",
+        "src/worldgen.js:rollSurfaceRockTier / caveRockP",
+        "docs/zone-variants.json:ore find materials"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Warm neutral stone substrate; retain a small unmistakable gold deposit accent. Resource tier recognition justifies selective off-palette mineral colours.",
+        "palette": [
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          },
+          {
+            "id": "gold",
+            "hex": "#fac756"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gold-pot",
+      "name": "Daily pot of gold",
+      "category": "containers",
+      "priority": 25.2,
+      "prevalence": {
+        "band": "uncommon",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Mapped ATM POIs use a distinct coin-burst prop. It is not the clay-pot barrel variant."
+      },
+      "current": [
+        {
+          "type": "procedural",
+          "key": "potofgold",
+          "source": "src/textures.js",
+          "function": "makePotOfGoldTexture",
+          "width": 24,
+          "height": 22
+        }
+      ],
+      "spawnEvidence": [
+        "src/loot.js:isPotOfGold / chestLook",
+        "src/textures.js:makePotOfGoldTexture"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Dark warm iron cauldron with bright gold only on coins. Preserve the obvious treasure accent and distinct round pot shape; all three are meaningful POI cues.",
+        "palette": [
+          {
+            "id": "ink",
+            "hex": "#171717"
+          },
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          },
+          {
+            "id": "gold",
+            "hex": "#fac756"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "peach_tree",
+      "name": "Peach tree",
+      "category": "trees",
+      "priority": 26,
+      "prevalence": {
+        "band": "uncommon",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Orchards and detected fruit trees; procedural orchard species selects peach in one of seven polygons, apple otherwise. Grove orchard forces apple."
+      },
+      "current": [
+        {
+          "key": "peach_tree",
+          "path": "assets/Objects/Wilderness/Peach Tree.png",
+          "frame": 3,
+          "rect": [
+            96,
+            0,
+            32,
+            48
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/worldgen.js:spawnFruitTreesSteps",
+        "src/render.js:FRUIT_FRAMES",
+        "docs/zone-variants.json:orchard"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Keep current fruit-tree silhouette and growth frames. Olive canopy, warm bark; preserve apples/peaches as small recognizable food accents.",
+        "palette": [
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "leaf_dark",
+            "hex": "#3e4b2c"
+          },
+          {
+            "id": "leaf",
+            "hex": "#596338"
+          },
+          {
+            "id": "leaf_light",
+            "hex": "#7a8147"
+          },
+          {
+            "id": "leaf_tip",
+            "hex": "#a5a569"
+          },
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "earth",
+            "hex": "#6c431d"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          },
+          {
+            "id": "clay",
+            "hex": "#90431b"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ore-platinum",
+      "name": "Platinum ore rock",
+      "category": "resources",
+      "priority": 27,
+      "prevalence": {
+        "band": "rare",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Tier-specific resource rocks; zone finds and depth affect local frequency. Ranking does not assume equal ore density."
+      },
+      "current": [
+        {
+          "key": "mineralrock",
+          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "frame": 3,
+          "rect": [
+            48,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/items.js:MINERAL_TIERS",
+        "src/worldgen.js:rollSurfaceRockTier / caveRockP",
+        "docs/zone-variants.json:ore find materials"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Warm neutral stone substrate; retain a small unmistakable platinum deposit accent. Resource tier recognition justifies selective off-palette mineral colours.",
+        "palette": [
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "driftwood",
+      "name": "Shore driftwood",
+      "category": "shore",
+      "priority": 28,
+      "prevalence": {
+        "band": "uncommon",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Daily tide line alternates shell, driftwood and rare message bottle."
+      },
+      "current": [
+        {
+          "key": "driftwood",
+          "path": "assets/Objects/Generated/driftwood.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/scenic.js:tideLive",
+        "src/items.js:CROP_SPRITE.driftwood"
+      ],
+      "recommendation": {
+        "action": "swap-proposed",
+        "note": "Use the simple existing driftwood branch; warm grey-brown wood, clear forked silhouette. Avoid a bright lumber-plank look.",
+        "palette": [
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "earth",
+            "hex": "#6c431d"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          }
+        ],
+        "candidate": {
+          "path": "unused_art/verdant-props-tileset-16x16/tiles/16x16/driftwood.png",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        }
+      }
+    },
+    {
+      "id": "starflower",
+      "name": "Starflower",
+      "category": "flora",
+      "priority": 29,
+      "prevalence": {
+        "band": "rare",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Low-percent biome flowers; denser formal beds or finite variant finds can dominate locally."
+      },
+      "current": [
+        {
+          "key": "props",
+          "path": "assets/Objects/Rustic/Props.png",
+          "frame": 102,
+          "rect": [
+            224,
+            64,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/biome_profiles.js:FAMILY_PROFILE / BIOME_PROFILES",
+        "docs/zone-variants.json:materials",
+        "src/items.js:CROP_SPRITE.starflower"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Keep the compact flower silhouette. Muted olive leaves; petals may retain controlled colour. Preserve its magical bloom contrast as a rare-find signal.",
+        "palette": [
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "leaf_dark",
+            "hex": "#3e4b2c"
+          },
+          {
+            "id": "leaf",
+            "hex": "#596338"
+          },
+          {
+            "id": "leaf_light",
+            "hex": "#7a8147"
+          },
+          {
+            "id": "leaf_tip",
+            "hex": "#a5a569"
+          },
+          {
+            "id": "flower_lilac",
+            "hex": "#8d79a1"
+          },
+          {
+            "id": "hero_cyan",
+            "hex": "#4ebcb9"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ore-crimson",
+      "name": "Crimson ore rock",
+      "category": "resources",
+      "priority": 30,
+      "prevalence": {
+        "band": "rare",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Tier-specific resource rocks; zone finds and depth affect local frequency. Ranking does not assume equal ore density."
+      },
+      "current": [
+        {
+          "key": "mineralrock",
+          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "frame": 5,
+          "rect": [
+            80,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/items.js:MINERAL_TIERS",
+        "src/worldgen.js:rollSurfaceRockTier / caveRockP",
+        "docs/zone-variants.json:ore find materials"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Warm neutral stone substrate; retain a small unmistakable crimson deposit accent. Resource tier recognition justifies selective off-palette mineral colours.",
+        "palette": [
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          },
+          {
+            "id": "flower_rose",
+            "hex": "#a55e72"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ore-frost",
+      "name": "Frost ore rock",
+      "category": "resources",
+      "priority": 32,
+      "prevalence": {
+        "band": "rare",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Tier-specific resource rocks; zone finds and depth affect local frequency. Ranking does not assume equal ore density."
+      },
+      "current": [
+        {
+          "key": "mineralrock",
+          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "frame": 6,
+          "rect": [
+            96,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/items.js:MINERAL_TIERS",
+        "src/worldgen.js:rollSurfaceRockTier / caveRockP",
+        "docs/zone-variants.json:ore find materials"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Warm neutral stone substrate; retain a small unmistakable frost deposit accent. Resource tier recognition justifies selective off-palette mineral colours.",
+        "palette": [
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone",
+            "hex": "#777462"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          },
+          {
+            "id": "hero_cyan",
+            "hex": "#4ebcb9"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ]
+      }
+    },
+    {
+      "id": "bottle",
+      "name": "Message bottle",
+      "category": "shore",
+      "priority": 33,
+      "prevalence": {
+        "band": "rare",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Rare daily tide-line result."
+      },
+      "current": [
+        {
+          "key": "bottle",
+          "path": "assets/Objects/Generated/bottle.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "whiteKey": false
+        }
+      ],
+      "spawnEvidence": [
+        "src/scenic.js:TIDE_BOTTLE_P/tideLive",
+        "src/items.js:CROP_SPRITE.bottle"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Small pale glass/teal accent is justified by its discoverable message. Keep cork warm and silhouette crisp.",
+        "palette": [
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          },
+          {
+            "id": "hero_cyan_dark",
+            "hex": "#349aa4"
+          }
+        ]
+      }
+    },
+    {
+      "id": "vista-scope",
+      "name": "Viewpoint telescope",
+      "category": "scenic props",
+      "priority": 33.1,
+      "prevalence": {
+        "band": "rare",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Mapped attraction/viewpoint anchors get a telescope next to the scenic grail chest; no synthetic viewpoints."
+      },
+      "current": [
+        {
+          "key": "vista_scope",
+          "path": "assets/Objects/Generated/scope.png",
+          "frame": 0,
+          "rect": [
+            0,
+            0,
+            16,
+            24
+          ]
+        }
+      ],
+      "spawnEvidence": [
+        "src/scenic.js:dressSteps viewpoint scope placement",
+        "src/render.js:RENDER_SPEC.vista_scope"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Warm worn brass, dark tripod and subdued glass. Keep telescope barrel legible; a small glass glint can signal the daily viewpoint interaction.",
+        "palette": [
+          {
+            "id": "shadow",
+            "hex": "#28110b"
+          },
+          {
+            "id": "bark",
+            "hex": "#4c3018"
+          },
+          {
+            "id": "ochre",
+            "hex": "#9b6526"
+          },
+          {
+            "id": "gold",
+            "hex": "#fac756"
+          },
+          {
+            "id": "stone_shadow",
+            "hex": "#403e34"
+          },
+          {
+            "id": "stone_light",
+            "hex": "#b0aa8a"
+          }
+        ]
+      }
+    },
+    {
+      "id": "gemfruit",
+      "name": "Rare gemfruit plant",
+      "category": "flora",
+      "priority": 34,
+      "prevalence": {
+        "band": "rare",
+        "basis": "Spawn-rule heuristic; not measured surviving map counts.",
+        "reason": "Finite finds in several zone variants, plus player-grown crops."
+      },
+      "current": [
+        {
+          "key": "crops",
+          "path": "assets/Objects/Crops.png",
+          "frame": 22,
+          "rect": [
+            64,
+            32,
+            16,
+            16
+          ],
+          "whiteKey": true
+        }
+      ],
+      "spawnEvidence": [
+        "docs/zone-variants.json:materials.gemfruit and finds",
+        "src/items.js:CROP_ROW.gemfruit"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "note": "Keep fantastical fruit silhouette; olive supporting leaves with a jewel-coloured focal fruit. Its rarity permits the accent.",
+        "palette": [
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "leaf_dark",
+            "hex": "#3e4b2c"
+          },
+          {
+            "id": "leaf",
+            "hex": "#596338"
+          },
+          {
+            "id": "leaf_light",
+            "hex": "#7a8147"
+          },
+          {
+            "id": "leaf_tip",
+            "hex": "#a5a569"
+          },
+          {
+            "id": "hero_cyan",
+            "hex": "#4ebcb9"
+          },
+          {
+            "id": "flower_lilac",
+            "hex": "#8d79a1"
+          }
+        ]
+      }
+    }
+  ],
+  "coverageReview": {
+    "added": [
+      "stakes",
+      "cave-wall-torch",
+      "courier-post",
+      "gold-pot",
+      "coin-drop",
+      "vista-scope",
+      "treasure-mark"
+    ],
+    "deduplicated": [
+      "barricade is owned by structures audit"
+    ],
+    "excludedRenderKinds": {
+      "_fire": "player-lit campfire only",
+      "_scarecrow": "player-placed scarecrow only",
+      "groundstack": "arbitrary dropped inventory, not a normal generated environmental placement"
+    },
+    "method": "Compared RENDER_SPEC keys, shared chestLook branches, worldgen makeObject/objects/coinDrops and scenic/street dressing calls. Separate ground and structures audits cover the remaining normal nonliving kinds."
+  }
+}

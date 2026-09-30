@@ -53,3 +53,32 @@ Outputs include a self-contained palette page, the full candidate gallery, JSON,
 a PNG swatch chart, and a GPL palette importable by pixel-art editors. No image
 service or generation is involved. Candidates show original source pixels alongside proposed recolours; the
 assessments identify state-specific uses and any additional contour work.
+
+## Active map-art audit
+
+`map-audit-ground.json`, `map-audit-structures.json` and
+`map-audit-interactables.json` audit 107 active environmental art families.
+Entries carry their actual placement producers, current source frames, palette
+recommendations and available-library alternatives. Shared states are grouped;
+unused registry definitions, actors and inventory-only items are excluded.
+Player-only crops, campfires and scarecrows are outside this generated-placement
+audit. Local OSM feature counts are source evidence, not final spawn counts.
+
+Prevalence order is a qualitative estimate from terrain coverage and placement
+rules; no representative post-filter map census was available. Eight families
+(7.5%) have proposed zone-specific alternatives. None are seasonal and none
+are installed by the dashboard. The clipped hedge is reserved for Formal
+Garden and residential/commercial bush placements.
+
+```sh
+python3 tools/preview_map_art.py \
+  --reserve-root /home/claude/terracart/unused_art --output /tmp/map-art-audit
+```
+
+The output is a self-contained searchable HTML dashboard plus `audit.json`.
+`tools/export_map_art_painters.js` embeds the shipping terrain, road and building
+painters with sample geometry. Existing texture states and proposed colour
+studies are labelled separately. RGB studies preserve source shape/alpha;
+they do not complete recommended contour cleanup or selective material masks.
+The rejected ground tileset alternatives remain in source details: the actual
+procedural materials are better suited to arbitrary map polygons.
