@@ -3,12 +3,12 @@
 <h1>Map distribution</h1><p>Live game placements across Kelowna, Vancouver, Seattle and Berlin. Each city uses nine tiles, loaded from local fixtures when available or the game’s map source.</p>
 <nav aria-label="Balance dashboards"><a href="map-distribution.html">Map distribution</a> · <a href="treasure-balancing.html">Treasure roll balancing</a> · <a href="items.html">Item catalogue</a> · <a href="../mending-lane-dashboards/index.html">All dashboards</a></nav>
 <section id="world">
-  <h2>World per tile — what the generator places</h2>
+  <h2>Across the roaming area</h2>
   <details class="explain"><summary>How these figures are built</summary>
   <p>The selected city's 3×3 tile block (nine tiles), rasterized live in this page with the shipping
      <code>WorldGen.rasterizeTile</code> and the scene's own <code>spawnInTile</code>, exactly as
      <a href="map-review.html">map review</a> builds them. Home is placed far off the block, so no starting area
-     is counted. Figures are per tile, averaged over the tiles loaded, unless the row says otherwise.</p>
+     is counted. Counts and reward values cover the whole area. Percentages describe its combined terrain or placements; recurring rewards are shown per day.</p>
   </details>
   <div class="controls"><label>City <select id="wCity"><option value="kelowna">Kelowna</option><option value="vancouver">Vancouver</option><option value="seattle">Seattle</option><option value="berlin">Berlin</option></select></label><a id="wMap" href="map-review.html">View this map</a><button id="wGo">Rebuild tiles</button>
     <label id="wZonesL" style="display:none" title="src/zones.js exists but index.html does not load it yet; worldgen reads Zones at call time, so loading it here previews what ships once it is wired in">
@@ -17,8 +17,6 @@
   <div id="wScope" class="scope"></div>
   <div id="wKpis" class="kpis"></div>
   <div id="wErrors" class="err"></div>
-  <h2 style="margin-top:12px">Per tile</h2>
-  <div class="scroll"><table id="wTiles"></table></div>
   <div class="grid2" style="margin-top:12px">
     <div><h2>Terrain share</h2><p id="wTerrainScope" class="scope"></p><div class="scroll"><table id="wTerrain"></table></div></div>
     <div><h2>Roads and traps</h2><p id="wRoadScope" class="scope"></p><table id="wRoad"></table>

@@ -275,8 +275,10 @@ async function wBuild() {
 function wRender(w) {
   const { ms, errors, EDGE } = w, n = ms.length;
   const T = WorldGen.T, names = wNames();
-  const avg = (f) => ms.reduce((a, m) => a + (f(m) || 0), 0) / (n || 1);
-  const scope = `per tile, avg over ${n} ${wCity().name} ${w.source === 'fixture' ? 'fixture' : w.source + '-fetched'} tiles (z${WorldGen.Z}, ~${(EDGE / 1000).toFixed(2)} km, ${ms[0] ? ms[0].N + '×' + ms[0].N : '?'} cells each)`;
+  const sum = (f) => ms.reduce((a, m) => a + (f(m) || 0), 0);
+  const totalCells = sum(m => m.cells);
+  const shareOfCells = f => sum(m => (f(m) || 0) * m.cells) / (totalCells || 1);
+  const scope = `${wCity().name} roaming area · ${n} of 9 tiles · ~${(n * EDGE * EDGE / 1e6).toFixed(1)} km² (${w.source})`;
   $('wScope').textContent = `Scope: ${scope}. Mode for spawnInTile: ${typeof Difficulty !== 'undefined' ? Difficulty.mode() : '?'}; traps are rolled for both modes.`
     + (wZones.previewing ? ' Influence zones: PREVIEW — src/zones.js loaded by this page, not yet by index.html.' : '')
     + (wScenic.previewing ? ' Scenic places: PREVIEW — src/scenic.js loaded by this page, not yet by index.html.' : '');
@@ -287,86 +289,44 @@ function wRender(w) {
   const kpi = (v, label) => `<div class="kpi"><b>${v}</b><span>${label}</span></div>`;
   const zoneHaloShare = (m) => m.zone ? Object.values(m.zone.halo).reduce((a, b) => a + b, 0) / m.cells : 0;
   $('wKpis').innerHTML = [
-    T.WASTELAND != null ? kpi(wPct(avg((m) => m.wasteland)), 'wasteland terrain') : '',
-    kpi(wPct(avg((m) => m.mask)), 'road mask (no spawns)'),
-    ms[0].band != null ? kpi(wPct(avg((m) => m.band)), 'major band') : '',
-    ms[0].verge != null ? kpi(wPct(avg((m) => m.verge)), 'major verge') : '',
-    kpi(f1(avg((m) => tr(m, E))) + ' / ' + f1(avg((m) => tr(m, H))), `traps ${E} / ${H}`),
-    kpi(f1(avg((m) => m.rocks.all)), 'rocks'),
-    kpi(f1(avg((m) => m.chests.n)), 'surface chests'),
-    ms.some((m) => m.zone) ? kpi(wPct(avg(zoneHaloShare)), 'zone halo terrain') : '',
+    T.WASTELAND != null ? kpi(wPct(shareOfCells((m) => m.wasteland)), 'wasteland terrain') : '',
+    kpi(wPct(shareOfCells((m) => m.mask)), 'road mask (no spawns)'),
+    ms[0].band != null ? kpi(wPct(shareOfCells((m) => m.band)), 'major band') : '',
+    ms[0].verge != null ? kpi(wPct(shareOfCells((m) => m.verge)), 'major verge') : '',
+    kpi(f1(sum((m) => tr(m, E))) + ' / ' + f1(sum((m) => tr(m, H))), `traps ${E} / ${H}`),
+    kpi(f1(sum((m) => m.rocks.all)), 'rocks'),
+    kpi(f1(sum((m) => m.chests.n)), 'surface chests'),
+    ms.some((m) => m.zone) ? kpi(wPct(shareOfCells(zoneHaloShare)), 'zone halo terrain') : '',
   ].join('') + `<div class="kpi" style="border:0;background:none"><span class="scope">${scope}</span></div>`;
 
-  // Per-tile matrix.
-  const hasZ = ms.some((m) => m.zone);
-  // Each column: [head, value(m) → number | [a, b] | null, pct?]. A pair
-  // prints "a (b)" or "a / b" (sep), and the average row averages each part.
-  const cols = [
-    ['wasteland', (m) => m.wasteland, true],
-    ['road mask', (m) => m.mask, true],
-    ['major band', (m) => m.band, true],
-    ['major verge', (m) => m.verge, true],
-    ['bandit verge', (m) => m.bandit, true],
-    ['danger ×', (m) => m.danger],
-    [`traps ${E}`, (m) => tr(m, E)], [`traps ${H}`, (m) => tr(m, H)],
-    ['dogs (on verge)', (m) => [m.dogs, m.dogsVerge]],
-    ['rocks (street)', (m) => [m.rocks.all, m.rocks.street]],
-    ['minor / major streets', (m) => m.streets ? [Object.values(m.streets.keys.minor || {}).reduce((a, s) => a + s.size, 0), Object.values(m.streets.keys.major || {}).reduce((a, s) => a + s.size, 0)] : null, false, ' / '],
-    ['chests', (m) => m.chests.n],
-    ['bus stops (wagons)', (m) => [m.chests.bus, m.chests.wagon]],
-    ['barricade / burned guards', (m) => [m.posts.barricade || 0, m.posts.burned || 0], false, ' / '],
-    ['fauna moved', (m) => Object.values(m.attracted || {}).reduce((a, b) => a + b, 0)],
-    ['park occupancy', (m) => m.parks && m.parks.cells ? m.parks.held / m.parks.cells : null, true],
-    ['park fringe cells (filler)', (m) => m.parks ? [m.parks.fringeCells, m.parks.fill] : null],
-  ];
-  if (hasZ) cols.push(['zone anchors', (m) => m.zone ? m.zone.anchors.length : 0], ['zone halo', zoneHaloShare, true]);
-  const one = (v, p) => v == null || !Number.isFinite(v) ? '—' : p ? wPct(v) : (Number.isInteger(v) ? String(v) : f1(v));
-  const cell = (v, p, sep) => Array.isArray(v) ? (sep ? v.map((x) => one(x, p)).join(sep) : `${one(v[0], p)} (${one(v[1], p)})`) : one(v, p);
-  const avgOf = (f) => {
-    const vals = ms.map(f);
-    if (vals.some((v) => v == null)) return null;
-    return Array.isArray(vals[0]) ? vals[0].map((_, i) => vals.reduce((a, v) => a + v[i], 0) / n) : vals.reduce((a, v) => a + v, 0) / n;
-  };
-  const favg = (v, p) => Array.isArray(v) ? v.map((x) => (p ? wPct(x) : f1(x))) : v == null ? '—' : p ? wPct(v) : f1(v);
-  table($('wTiles'), ['tile', ...cols.map((c) => c[0])],
-    ms.map((m) => `<tr><td>${m.tile}</td>${cols.map(([, f, p, sep]) => `<td>${cell(f(m), p, sep)}</td>`).join('')}</tr>`)
-      .concat(`<tr data-sort-fixed style="border-top:2px solid var(--gold)"><td><b>avg / tile</b></td>${cols.map(([, f, p, sep]) => {
-        const v = favg(avgOf(f), p);
-        return `<td><b>${Array.isArray(v) ? (sep ? v.join(sep) : `${v[0]} (${v[1]})`) : v}</b></td>`;
-      }).join('')}</tr>`));
+  // Cell-weighted shares for the full loaded area.
+  const terrain = {};
+  for (const m of ms) for (const [code, cells] of Object.entries(m.terrain)) terrain[code] = (terrain[code] || 0) + cells;
+  const zoneCodes = new Set(ms.find(m => m.zone)?.zone.codes || []);
+  const rowsT = Object.entries(terrain).map(([code, cells]) => ({ code: +code, name: names[code] || code, share: cells / totalCells }))
+    .sort((a, b) => b.share - a.share);
+  const keep = rowsT.filter((row, i) => i < 14 || row.code === T.WASTELAND || zoneCodes.has(row.code));
+  for (const code of zoneCodes) if (!terrain[code]) keep.push({ code, name: names[code] || code, share: 0 });
+  const rest = rowsT.filter(row => !keep.includes(row));
+  $('wTerrainScope').textContent = `Share of all cells in the loaded roaming area. ${scope}.`;
+  table($('wTerrain'), ['terrain', 'area share'], keep.map(row =>
+    `<tr><td>${row.name}${row.code === T.WASTELAND || zoneCodes.has(row.code) ? ' <span style="color:var(--gold)">★</span>' : ''}</td>${barCell(row.share)}</tr>`)
+    .concat(rest.length ? [`<tr><td class="dim">(${rest.length} other codes)</td>${barCell(rest.reduce((a, row) => a + row.share, 0))}</tr>`] : []));
 
-  // Terrain share: top codes plus WASTELAND and every zone code, always.
-  const share = {};
-  for (const m of ms) for (const [c, k] of Object.entries(m.terrain)) (share[c] = share[c] || []).push(k / m.cells);
-  const zoneCodes = new Set(ms.find((m) => m.zone)?.zone.codes || []);
-  const rowsT = Object.entries(share).map(([c, arr]) => ({ c: +c, name: names[c] || c, avg: arr.reduce((a, b) => a + b, 0) / n,
-    lo: arr.length < n ? 0 : Math.min(...arr), hi: Math.max(...arr) })).sort((a, b) => b.avg - a.avg);
-  const keep = rowsT.filter((r, i) => i < 14 || r.c === T.WASTELAND || zoneCodes.has(r.c));
-  for (const c of zoneCodes) if (!share[c]) keep.push({ c, name: names[c] || c, avg: 0, lo: 0, hi: 0 });
-  const rest = rowsT.filter((r) => !keep.includes(r)).reduce((a, r) => a + r.avg, 0);
-  $('wTerrainScope').textContent = `Share of the tile's cells by final terrain code (WorldGen.T names), ${scope}. Min–max across the tiles.`;
-  table($('wTerrain'), ['terrain', 'avg share', 'min–max'], keep.map((r) =>
-    `<tr><td>${r.name}${r.c === T.WASTELAND || zoneCodes.has(r.c) ? ' <span style="color:var(--gold)">★</span>' : ''}</td>${barCell(r.avg)}<td>${wPct(r.lo)}–${wPct(r.hi)}</td></tr>`)
-    .concat(rest > 0 ? [`<tr><td class="dim">(${rowsT.length - keep.length} other codes)</td>${barCell(rest)}<td></td></tr>`] : []));
-
-  // Roads.
-  $('wRoadScope').textContent = `Share of cells, ${scope}. Mask = cells the drawn band covers (no spawns); band / verge = entry.roadClass bits.`;
-  const roadRows = [['road mask (entry.roadMask)', (m) => m.mask], ['major band (roadClass bit ' + (WorldGen.ROAD_CLASS_MAJOR_BAND || 1) + ')', (m) => m.band],
-    ['major verge (roadClass bit ' + (WorldGen.ROAD_CLASS_MAJOR_VERGE || 2) + ')', (m) => m.verge],
-    ['bandit verge (roadClass bit ' + (WorldGen.ROAD_CLASS_BANDIT_VERGE || 4) + ')', (m) => m.bandit]];
-  if (T.WASTELAND != null) roadRows.push(['wasteland terrain', (m) => m.wasteland]);
-  table($('wRoad'), ['layer', 'avg share', 'min–max'], roadRows.filter(([, f]) => ms[0] && f(ms[0]) != null).map(([k, f]) => {
-    const v = ms.map(f); return `<tr><td>${k}</td>${barCell(avg(f))}<td>${wPct(Math.min(...v))}–${wPct(Math.max(...v))}</td></tr>`;
-  }));
+  $('wRoadScope').textContent = `Share of all cells in the roaming area. Mask = road cells with no spawns; band / verge = major-road coverage.`;
+  const roadRows = [['road mask', m => m.mask], ['major band', m => m.band], ['major verge', m => m.verge], ['bandit verge', m => m.bandit]];
+  if (T.WASTELAND != null) roadRows.push(['wasteland terrain', m => m.wasteland]);
+  table($('wRoad'), ['layer', 'area share'], roadRows.filter(([, f]) => f(ms[0]) != null).map(([label, f]) =>
+    `<tr><td>${label}</td>${barCell(shareOfCells(f))}</tr>`));
 
   // Traps by where they sit.
   const places = ['major verge', 'wasteland', 'other', 'off tile'];
-  $('wTrapScope').textContent = `Traps.spawnSurface per tile with its spawn options, both modes; ${scope}. "other" should be 0 (zone halo may repaint wasteland).`;
-  table($('wTraps'), ['mode', 'traps / tile', ...places, 'dogs / tile', 'dogs on verge'], [E, H].map((mode) => {
+  $('wTrapScope').textContent = `Total traps across the roaming area, both modes; ${scope}. "other" should be 0 (zone halo may repaint wasteland).`;
+  table($('wTraps'), ['mode', 'total traps', ...places, 'total dogs', 'dogs on verge'], [E, H].map((mode) => {
     const tot = ms.reduce((a, m) => a + tr(m, mode), 0) || 1;
-    return `<tr><td>${mode} (×${typeof Difficulty !== 'undefined' ? Difficulty.PROFILES[mode].trapCountMul : '?'})</td><td>${f1(avg((m) => tr(m, mode)))}</td>`
+    return `<tr><td>${mode} (×${typeof Difficulty !== 'undefined' ? Difficulty.PROFILES[mode].trapCountMul : '?'})</td><td>${f1(sum((m) => tr(m, mode)))}</td>`
       + places.map((p) => { const k = ms.reduce((a, m) => a + ((m.traps[mode] && m.traps[mode].at[p]) || 0), 0); return `<td>${k ? wPct(k / tot) : '<span class="dim">0</span>'}</td>`; }).join('')
-      + `<td>${f1(avg((m) => m.dogs))}</td><td>${wPct(ms.reduce((a, m) => a + m.dogsVerge, 0) / (ms.reduce((a, m) => a + m.dogs, 0) || 1))}</td></tr>`;
+      + `<td>${f1(sum((m) => m.dogs))}</td><td>${wPct(ms.reduce((a, m) => a + m.dogsVerge, 0) / (ms.reduce((a, m) => a + m.dogs, 0) || 1))}</td></tr>`;
   }));
 
   // Street variants.
@@ -386,14 +346,13 @@ function wRender(w) {
       }
       for (const id of ids) {
         const row = SV.VARIANT_BY_ID[id];
-        const perTile = avg((m) => ((m.streets && m.streets.keys[size] && m.streets.keys[size][id]) || new Set()).size);
         rows.push(`<tr><td>${size}</td><td class="l">${id}${row ? ` <span class="dim">(${row.rung}, base ${wPct(row.share)})</span>` : ''}</td>`
-          + `<td>${per[id].size}</td><td>${all.size ? wPct(per[id].size / all.size) : '—'}</td><td>${f1(perTile)}</td>`
-          + `<td>${lenTot ? wPct((lenBy[id] || 0) / lenTot) : '—'}</td><td>${f1((lenBy[id] || 0) / n)} m</td></tr>`);
+          + `<td>${per[id].size}</td><td>${all.size ? wPct(per[id].size / all.size) : '—'}</td>`
+          + `<td>${lenTot ? wPct((lenBy[id] || 0) / lenTot) : '—'}</td><td>${f1(lenBy[id] || 0)} m</td></tr>`);
       }
     }
-    $('wStreetScope').textContent = `Streets = distinct StreetVariants keys (a named street spans tiles, so "distinct" counts it once over all ${n} tiles; "per tile" counts it in each tile it touches). Length = way metres inside each tile square, avg per tile.`;
-    table($('wStreets'), ['size', 'variant', `streets (${n} tiles)`, 'share of size', 'streets / tile', 'length share', 'm / tile'], rows);
+    $('wStreetScope').textContent = 'Distinct streets across the roaming area; streets crossing internal tile boundaries count once. Length is the total within the area.';
+    table($('wStreets'), ['size', 'variant', 'distinct streets', 'share of size', 'length share', 'total length'], rows);
     const rockKeys = new Set(), minorKeys = new Set();
     for (const m of ms) {
       for (const k of (m.streets && m.streets.keys.rockKeys) || []) rockKeys.add(k);
@@ -401,13 +360,13 @@ function wRender(w) {
     }
     $('wStreetExtra').innerHTML = `Rock-lined minor streets: <b>${rockKeys.size}</b> of ${minorKeys.size} non-hedgerow minor streets `
       + `(<b>${minorKeys.size ? wPct(rockKeys.size / minorKeys.size) : '—'}</b>; target ROCK_STREET_SHARE ${wPct(SV.ROCK_STREET_SHARE)}), distinct over ${n} tiles. `
-      + `Hedgerow closes: <b>${ms.reduce((a, m) => a + (m.streets ? m.streets.closes : 0), 0)}</b> over ${n} tiles (${f1(avg((m) => m.streets ? m.streets.closes : 0))}/tile). `
-      + `Bus stops: <b>${f1(avg((m) => m.chests.bus))}</b>/tile, of which broken wagons (major road): <b>${f1(avg((m) => m.chests.wagon))}</b>/tile.`;
+      + `Hedgerow closes: <b>${ms.reduce((a, m) => a + (m.streets ? m.streets.closes : 0), 0)}</b> across the area. `
+      + `Bus stops: <b>${f1(sum((m) => m.chests.bus))}</b>, of which broken wagons (major road): <b>${f1(sum((m) => m.chests.wagon))}</b>.`;
     const dk = [...new Set(ms.flatMap((m) => Object.keys(m.dress)))].sort();
-    table($('wDress'), ['street dressing piece', 'per tile', `total (${n} tiles)`], dk.map((k) => {
+    table($('wDress'), ['street dressing piece', 'total'], dk.map((k) => {
       const t = ms.reduce((a, m) => a + (m.dress[k] || 0), 0);
-      return `<tr><td>${k}</td><td>${f1(t / n)}</td><td>${t}</td></tr>`;
-    }).concat(dk.length ? [] : ['<tr><td class="dim">no street dressing on these tiles</td><td></td><td></td></tr>']));
+      return `<tr><td>${k}</td><td>${t}</td></tr>`;
+    }).concat(dk.length ? [] : ['<tr><td class="dim">no street dressing in this area</td><td></td></tr>']));
   } else {
     $('wStreetScope').textContent = 'StreetVariants / entry.streetIndex not present in this build.';
   }
@@ -416,22 +375,20 @@ function wRender(w) {
   $('wRockScope').textContent = `mineralrock objects after spawnInTile (+ zone dressing), ${scope}. Plain = the stone-paying rock (no ore yieldTier > 1).`;
   const rk = [['all rocks', (m) => m.rocks.all], ['plain', (m) => m.rocks.plain], ['ore (yieldTier ≥ 2)', (m) => m.rocks.ore],
     ['street-lined (_street)', (m) => m.rocks.street], ['zone nexus rocks', (m) => m.rocks.zone]];
-  table($('wRocks'), ['rocks', 'per tile', 'min–max', 'share'], rk.map(([k, f]) => {
-    const v = ms.map(f), all = avg((m) => m.rocks.all) || 1;
-    return `<tr><td>${k}</td><td>${f1(avg(f))}</td><td>${Math.min(...v)}–${Math.max(...v)}</td><td>${wPct(avg(f) / all)}</td></tr>`;
-  }));
+  table($('wRocks'), ['rocks', 'total', 'share'], rk.map(([label, f]) =>
+    `<tr><td>${label}</td><td>${sum(f).toLocaleString()}</td><td>${wPct(sum(f) / (sum(m => m.rocks.all) || 1))}</td></tr>`));
 
   // Chests.
   $('wChestScope').textContent = `Surface chests by chestLook texture and chestTier (the tier every player sees${typeof ZONE_NEXUS_TIER_BONUS === 'number' ? `, nexus +${ZONE_NEXUS_TIER_BONUS}` : ''}), ${scope}.`;
   const agg = (key) => { const o = {}; for (const m of ms) for (const [k, v] of Object.entries(m.chests[key])) o[k] = (o[k] || 0) + v; return o; };
   const totC = ms.reduce((a, m) => a + m.chests.n, 0) || 1;
   const lookRows = Object.entries(agg('look')).sort((a, b) => b[1] - a[1]);
-  table($('wChestLook'), ['look', 'per tile', 'share'], lookRows.map(([k, v]) => `<tr><td>${k.replace('_', ' ')}</td><td>${f1(v / n)}</td>${barCell(v / totC)}</tr>`));
+  table($('wChestLook'), ['look', 'total', 'share'], lookRows.map(([k, v]) => `<tr><td>${k.replace('_', ' ')}</td><td>${v.toLocaleString()}</td>${barCell(v / totC)}</tr>`));
   const tierRows = Object.entries(agg('tier')).sort();
-  table($('wChestTier'), ['tier', 'per tile', 'share'], tierRows.map(([k, v]) => `<tr><td>${k}</td><td>${f1(v / n)}</td>${barCell(v / totC)}</tr>`));
+  table($('wChestTier'), ['tier', 'total', 'share'], tierRows.map(([k, v]) => `<tr><td>${k}</td><td>${v.toLocaleString()}</td>${barCell(v / totC)}</tr>`));
   const macro = agg('macro');
-  $('wChestExtra').innerHTML = `Zone nexus chests: <b>${f1(avg((m) => m.chests.nexus))}</b>/tile. `
-    + (Object.keys(macro).length ? 'POI macro kinds: ' + Object.entries(macro).map(([k, v]) => `${k} ${f1(v / n)}/tile`).join(', ') + '.' : '<span class="dim">No POI macro kinds on chests in this build.</span>');
+  $('wChestExtra').innerHTML = `Zone nexus chests: <b>${f1(sum((m) => m.chests.nexus))}</b>. `
+    + (Object.keys(macro).length ? 'POI macro kinds: ' + Object.entries(macro).map(([k, v]) => `${k} ${v.toLocaleString()}`).join(', ') + '.' : '<span class="dim">No POI macro kinds on chests in this build.</span>');
 
   // Zones.
   const zs = ms.filter((m) => m.zone);
@@ -443,24 +400,28 @@ function wRender(w) {
     $('wZoneScope').textContent = 'Zones is loaded but no tile entry carries a zone field (the rasterizer is not wiring it yet).';
     $('wZones').innerHTML = ''; $('wZoneExtra').innerHTML = '';
   } else {
-    $('wZoneScope').textContent = (wZones.previewing ? 'PREVIEW (src/zones.js loaded by this page). ' : '') + `Anchors that reach a tile (an anchor near a seam counts in each tile it reaches; "owned" = its point is in the tile, so it mints the nexus). Halo = cells repainted to the zone's terrain. ${scope}.`;
+    $('wZoneScope').textContent = `Distinct zone anchors reaching the roaming area; anchors crossing internal tile boundaries count once. Owned anchors originate inside the area. Halo = cells repainted to zone terrain. ${scope}.`;
     const kinds = Object.keys(Zones.ZONE_KINDS);
-    table($('wZones'), ['kind', 'terrain', 'row R', 'anchors / tile', 'owned / tile', 'avg R (m)', 'field cells / tile', 'halo cells / tile', 'halo share'], kinds.map((k) => {
-      const as = ms.flatMap((m) => m.zone ? m.zone.anchors.filter((a) => a.kind === k) : []);
-      const own = as.filter((a) => a.owned);
-      return `<tr><td>${k}</td><td>${Zones.ZONE_KINDS[k].terrain}</td><td>${Zones.ZONE_KINDS[k].R} m</td><td>${f1(as.length / n)}</td><td>${f1(own.length / n)}</td>`
-        + `<td>${as.length ? f1(as.reduce((a, x) => a + x.R, 0) / as.length) : '—'}</td>`
-        + `<td>${f1(avg((m) => m.zone ? m.zone.cells[k] || 0 : 0))}</td><td>${f1(avg((m) => m.zone ? m.zone.halo[k] : 0))}</td>`
-        + `<td>${wPct(avg((m) => m.zone ? m.zone.halo[k] / m.cells : 0))}</td></tr>`;
+    table($('wZones'), ['kind', 'terrain', 'row R', 'distinct anchors', 'owned anchors', 'avg R (m)', 'field cells', 'halo cells', 'halo share'], kinds.map(kind => {
+      const anchors = new Map();
+      for (const m of zs) for (const anchor of m.zone.anchors.filter(a => a.kind === kind)) {
+        const existing = anchors.get(anchor.key);
+        anchors.set(anchor.key, { ...anchor, owned: anchor.owned || existing?.owned });
+      }
+      const all = [...anchors.values()];
+      const halo = sum(m => m.zone?.halo[kind]);
+      return `<tr><td>${kind}</td><td>${Zones.ZONE_KINDS[kind].terrain}</td><td>${Zones.ZONE_KINDS[kind].R} m</td><td>${all.length}</td><td>${all.filter(a => a.owned).length}</td>`
+        + `<td>${all.length ? f1(all.reduce((total, a) => total + a.R, 0) / all.length) : '—'}</td>`
+        + `<td>${sum(m => m.zone?.cells[kind]).toLocaleString()}</td><td>${halo.toLocaleString()}</td><td>${wPct(halo / totalCells)}</td></tr>`;
     }));
     const asp = {};
     for (const m of zs) for (const x of m.zone.nexus) { const k = `${x.kind}: ${x.aspect}`; asp[k] = asp[k] || { n: 0, p: 0 }; asp[k].n++; asp[k].p += x.pieces; }
     const extra = Object.entries(asp).sort().map(([k, v]) => `<tr><td>nexus ${k}</td><td>${v.n}</td><td>${f1(v.p / v.n)} pieces</td></tr>`);
     const tot = (f) => ms.reduce((a, m) => a + f(m), 0);
-    extra.push(`<tr><td>headstones</td><td>${tot((m) => m.headstones)}</td><td>${f1(avg((m) => m.headstones))} / tile</td></tr>`);
-    extra.push(`<tr><td>tar pits (zone)</td><td>${tot((m) => m.tar.zone)}</td><td>${f1(avg((m) => m.tar.zone))} / tile</td></tr>`);
-    extra.push(`<tr><td>tar (burned rows) · stakes</td><td>${tot((m) => m.tar.street)} · ${tot((m) => m.stakes)}</td><td>${f1(avg((m) => m.tar.street))} · ${f1(avg((m) => m.stakes))} / tile</td></tr>`);
-    extra.push(`<tr><td>grove shrines</td><td>${tot((m) => m.shrines)}</td><td>${f1(avg((m) => m.shrines))} / tile</td></tr>`);
+    extra.push(`<tr><td>headstones</td><td>${tot((m) => m.headstones)}</td><td></td></tr>`);
+    extra.push(`<tr><td>tar pits (zone)</td><td>${tot((m) => m.tar.zone)}</td><td></td></tr>`);
+    extra.push(`<tr><td>tar (burned rows) · stakes</td><td>${tot((m) => m.tar.street)} · ${tot((m) => m.stakes)}</td><td></td></tr>`);
+    extra.push(`<tr><td>grove shrines</td><td>${tot((m) => m.shrines)}</td><td></td></tr>`);
     extra.push(`<tr><td>tar-yard garrisons (lairs)</td><td>${tot((m) => m.zone ? m.zone.lairs : 0)}</td><td></td></tr>`);
     // Parks and churchyards (Zones.fringeSteps / groundSteps).
     const pk = (f) => tot((m) => (m.parks ? f(m.parks) : 0));
@@ -468,10 +429,10 @@ function wRender(w) {
     for (const m of ms) for (const [k, v] of Object.entries((m.parks && m.parks.chars) || {})) chars[k] = (chars[k] || 0) + v;
     extra.push(`<tr><td>park polygons by character</td><td>${pk((p) => p.polys)}</td><td>${Object.entries(chars).sort().map(([k, v]) => `${k} ${v}`).join(' · ') || '—'}</td></tr>`);
     extra.push(`<tr><td>park occupancy (PARK cells holding anything)</td><td>${pk((p) => p.held)} / ${pk((p) => p.cells)}</td><td>${wPct(pk((p) => p.held) / (pk((p) => p.cells) || 1))}</td></tr>`);
-    extra.push(`<tr><td>park fringe band cells · filler</td><td>${pk((p) => p.fringeCells)} · ${pk((p) => p.fill)}</td><td>${f1(avg((m) => m.parks ? m.parks.fringeCells : 0))} · ${f1(avg((m) => m.parks ? m.parks.fill : 0))} / tile</td></tr>`);
+    extra.push(`<tr><td>park fringe band cells · filler</td><td>${pk((p) => p.fringeCells)} · ${pk((p) => p.fill)}</td><td></td></tr>`);
     extra.push(`<tr><td>graves (headstones) / church or cemetery owned</td><td>${pk((p) => p.graves)} / ${pk((p) => p.ghostAnchors)}</td><td>${f1(pk((p) => p.graves) / (pk((p) => p.ghostAnchors) || 1))} each (grave cells may sit in a neighbour's tile)</td></tr>`);
     extra.push(`<tr><td>churchyard rocks / place of worship owned</td><td>${pk((p) => p.chRocks)} / ${pk((p) => p.stonesAnchors)}</td><td>${f1(pk((p) => p.chRocks) / (pk((p) => p.stonesAnchors) || 1))} each</td></tr>`);
-    table($('wZoneExtra'), ['nexus / props', `total (${n} tiles)`, 'per'], extra);
+    table($('wZoneExtra'), ['nexus / props', 'area total', 'details'], extra);
   }
 }
 
@@ -653,7 +614,7 @@ function wRenderValueByType(entries, n, source) {
   try { rows = wValueByType(entries); }
   catch (err) { scopeEl.textContent = 'value by type failed: ' + err.message; el.innerHTML = ''; noteEl.textContent = ''; console.error(err); return; }
   if (!rows) { scopeEl.textContent = 'chestLook / chestTier / pickReward not available in this build.'; el.innerHTML = ''; noteEl.textContent = ''; return; }
-  scopeEl.textContent = `Per tile, avg over ${n} ${wCity().name} ${source === 'fixture' ? 'fixture' : source + '-fetched'} tiles — `
+  scopeEl.textContent = `Totals across ${n} ${wCity().name} ${source === 'fixture' ? 'fixture' : source + '-fetched'} tiles — `
     + `Monte-Carlo pickReward (${WVALUE_N_SAMPLES} samples per distinct context/tier/depth), valued at list price.`;
   const used = new Set(), ordered = [];
   for (const pred of WVALUE_ORDER) {
@@ -661,13 +622,13 @@ function wRenderValueByType(entries, n, source) {
     for (const k of matched) { ordered.push(k); used.add(k); }
   }
   for (const k of rows.keys()) if (!used.has(k)) ordered.push(k);
-  table(el, ['type', 'count / tile', 'one-time value / tile', 'recurring value / day / tile', 'value / visit'],
+  table(el, ['type', 'total count', 'one-time area value', 'recurring area value / day', 'value / visit'],
     ordered.map((label) => {
       const r = rows.get(label);
-      const oneTime = r.cadence === 'recurring' ? '—' : fmt$(r.oneTimeSum / n);
-      const recurring = r.cadence === 'one-time' ? '—' : fmt$(r.recurringSum / n);
+      const oneTime = r.cadence === 'recurring' ? '—' : fmt$(r.oneTimeSum);
+      const recurring = r.cadence === 'one-time' ? '—' : fmt$(r.recurringSum);
       const visit = r.count ? fmt$((r.oneTimeSum + r.recurringSum) / r.count) : '—';
-      return `<tr><td class="l">${label}</td><td>${f1(r.count / n)}</td><td>${oneTime}</td><td>${recurring}</td><td>${visit}</td></tr>`;
+      return `<tr><td class="l">${label}</td><td>${r.count.toLocaleString()}</td><td>${oneTime}</td><td>${recurring}</td><td>${visit}</td></tr>`;
     }));
   noteEl.textContent = 'Recurring rows are per day: a crate or barrel’s take divided by its restock days. Values use the selected city’s current placements and sampled game rewards.';
 }
