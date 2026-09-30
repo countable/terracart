@@ -110,4 +110,23 @@ test('rest/work: why — an ungated Home rest out-earns a bare-handed starter ti
   assert.truthy(restedDuringWheel >= ENERGY_COST.till,
     `an ungated rest returns ${restedDuringWheel.toFixed(2)}⚡ during a ${tillMs} ms till that cost ${ENERGY_COST.till}⚡ — the gate is load-bearing`);
 });
+
+// WALKING THROUGH HOME IS NOT A REST (owner, Sep 2026): the energy banks
+// from the first frame, but the "+N⚡" splash waits for the feet to have been
+// in the ring for REST_SETTLE_S, and a pass that never settles says nothing
+// — on the way out either (the quiet pips never join the flush).
+test('rest/work: a walk through Home banks quietly — the splash waits for the feet to settle', () => {
+  assert.truthy(/if \(atHome\) \{ if \(this\._homeSinceT == null\) this\._homeSinceT = restNow; \}\s*\n\s*else this\._homeSinceT = null;/.test(block),
+    'the ring stamps when the feet arrive, and forgets when they leave');
+  assert.truthy(/const settledHome = atHome && restNow - this\._homeSinceT >= REST_SETTLE_S \* 1000;/.test(block),
+    'settled is REST_SETTLE_S in the ring — the same settling the wheel gets');
+  assert.truthy(/this\._accrueRestEnergy\('_restAccrueE', maxE \* \(dt \/ HOME_FULL_REST_S\), maxE, !settledHome\);/.test(block),
+    'the Home rest is quiet until then');
+  assert.truthy(/this\._accrueRestEnergy\('_fireAccrueE', maxE \* \(dt \/ FIRE_FULL_REST_S\), maxE\);/.test(block),
+    'a campfire is sat at on purpose — it splashes as it did');
+  const a = app.indexOf('  _accrueRestEnergy(accrueKey, gain, maxE, quiet = false) {');
+  const fn = app.slice(a, app.indexOf('\n  }\n', a));
+  assert.truthy(a > 0 && /Energy\.set\(this\.save, beforeE \+ pip, maxE\);/.test(fn), 'the pips still bank');
+  assert.truthy(/if \(gainedE > 0 && !quiet\) \{/.test(fn), 'only the splash is held, and the quiet pips never join the flush');
+});
 })();
