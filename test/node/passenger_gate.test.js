@@ -100,7 +100,8 @@ test('safety card: full-screen, bold, tap to continue — launch, resume and dus
   const app = APP_JS_SRC;
   const body = app.slice(app.indexOf('  _showSafetyCard(which) {'));
   const card = body.slice(0, body.indexOf('\n  }\n'));
-  assert.truthy(/position:absolute;inset:0/.test(card), 'it covers the whole game box');
+  assert.truthy(/position:absolute;left:0;right:0;top:var\(--view-top,0px\);height:var\(--view-h,100%\)/.test(card),
+    'it covers the visible slice of the game box, so it centres on the screen');
   assert.truthy(/font-weight:900/.test(card) && /font-weight:700/.test(card), 'bold');
   assert.truthy(/Tap to continue/.test(card) && /addEventListener\('pointerup', done\)/.test(card), 'dismissed by a tap');
   assert.truthy(/this\._bootOverlayGone = true;[^\n]*\n[^\n]*\n\s*this\._showSafetyCard\('launch'\);/.test(app), 'at every launch');
@@ -115,7 +116,8 @@ test('safety card: full-screen, bold, tap to continue — launch, resume and dus
     assert.truthy(c.lines.some((l) => /stick/i.test(l) && /(never|not).*street|street.*(never|not)/i.test(l)), `${k}: use the stick, never the street`);
   }
   assert.truthy(table.launch.lines.some((l) => /driving|cycling/i.test(l)), 'launch: not while driving');
-  assert.truthy(table.launch.lines.some((l) => /water/i.test(l)), 'launch: heat and water');
+  // Only the game's own risks (owner, Sep 2026): no general heat advice.
+  assert.falsy(table.launch.lines.some((l) => /water|hot day/i.test(l)), 'launch: no heat and water line');
 });
 
 test('heads-up buzz: a hostile taking an interest close by vibrates the phone, throttled', () => {

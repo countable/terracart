@@ -411,8 +411,7 @@ const SAFETY_CARDS = {
     lines: ['Look up. Watch where you walk, not the screen.',
       'NEVER step into a street to reach something — use the stick to walk your farmer to it.',
       'Do not play while driving or cycling.',
-      'Keep out of private and unsafe places.',
-      'Hot day? Carry water and rest in the shade.'] },
+      'Keep out of private and unsafe places.'] },
   resume: { title: '⚠ LOOK UP',
     lines: ['Welcome back. Check your surroundings before you walk on.',
       'Out of reach? Use the stick — never the street.'] },
@@ -9451,7 +9450,11 @@ class MapScene extends Phaser.Scene {
     wrap.id = 'safety-card';
     wrap.className = 'game-modal';
     wrap.setAttribute('role', 'alertdialog');
-    wrap.style.cssText = 'position:absolute;inset:0;z-index:400;display:flex;flex-direction:column;'
+    // The VISIBLE slice of the game box (fitGame's --view-top / --view-h, the
+    // band every modal covers): #game is taller than a tall phone's screen,
+    // so centring on the whole box sat the card low.
+    wrap.style.cssText = 'position:absolute;left:0;right:0;top:var(--view-top,0px);height:var(--view-h,100%);'
+      + 'z-index:400;display:flex;flex-direction:column;'
       + 'align-items:center;justify-content:center;padding:24px 20px;box-sizing:border-box;'
       + 'background:rgba(12,9,6,0.96);color:#fff4e0;text-align:center;cursor:pointer;'
       + 'font-weight:700;line-height:1.35;';
