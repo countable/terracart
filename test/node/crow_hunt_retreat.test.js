@@ -58,6 +58,6 @@ test('crow retreat: one departure — the hunt drives it now (the crow eats no c
   // The retreat hop is the table's, past the approach cap, on its own glide.
   assert.truthy(/const d = CROW_DEPART_HOP\.cells \* this\.cellM;/.test(WILD_CROW_TICK_SRC), 'the hop is the row\'s cells');
   assert.truthy(/if \(!departing && legD > MAX_LEG\) \{/.test(WILD_CROW_TICK_SRC), 'a retreat is not an approach: no cap');
-  assert.truthy(/\(departing \? CROW_DEPART_HOP\.ms : 800 \+ Math\.random\(\) \* 400\)/.test(WILD_CROW_TICK_SRC), 'and glides for the row\'s ms');
+  assert.truthy(/\(departing \? CROW_DEPART_HOP\.ms : \(2 \* Math\.hypot\(tx - c\.x, ty - c\.y\) \/ CROW_FLIGHT_MPS\) \* 1000\)/.test(WILD_CROW_TICK_SRC), 'and glides for the row\'s ms; a roam glide is twice its distance over the peak flight speed');
 });
 })();

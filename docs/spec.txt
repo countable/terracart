@@ -43,6 +43,15 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
  - gulls: the crow's body in white, on the shore and the piers. A thief too:
    its swoop takes ONE piece of FOOD from the bag (the biggest meal in it),
    once per bird per UTC day. Same ledger, same sating, same flight.
+ - SPEED CEILING: nothing wild — animal or foe, shiny included — moves faster
+   than 10 m/s (creature_ai.js WILD_SPEED_CEILING_MPS), by its base gait /
+   bolt / glide numbers; no cap on top. Bolts sit under 10 / 1.5 so a shiny
+   stays under it: deer 6.5 m/s, rabbit 6.5 (3.9 idling), butterfly 6; the
+   crow's eased glides peak at 9. Roster foes top out at the vampire bat's 6.
+   THE ONE EXCEPTION: the hunted crow's retreat hop (CROW_DEPART_HOP, 3 cells
+   in 1.5 s, a 28 m/s peak) — the hunt's timed odds are tuned on it and no
+   10 m/s hop clears the reach inside a T1 net's wheel; flagged for the
+   owner.
  - no fauna may move onto a building footing, or road. Nor is any SEATED on one:
    every spawner goes through WorldGen.isSpawnCell with the tile's roadMask.
  - animals simulate when within the SIM BUBBLE, 12 cells of the player's feet

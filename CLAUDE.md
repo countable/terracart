@@ -143,7 +143,12 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   `BIOME_ATTRACTS`) read by `_seatFaunaOnFavouriteGround`: relocate existing
   spawns, never add, each species on its own stream. SLOW is a reason inside `_bodyHold`
   fed by `entry.slowCells` (`StreetVariants.SLOW_KINDS`); a new slowing
-  hazard joins that map, never a new movement gate.
+  hazard joins that map, never a new movement gate. Top speeds are BASE
+  numbers: no wild kind's gait, bolt, glide or flee — shiny included — exceeds
+  `WILD_SPEED_CEILING_MPS` (creature_ai.js; `test/node/speed_ceiling.test.js`
+  measures every lane). Retune the row, never add a cap; a hurry (the rout,
+  a struck animal) never stacks on a bolt. The hunted crow's retreat hop
+  (`CROW_DEPART_HOP`) is the one declared exception, tied to the hunt's odds.
 - Influence zones: `ZoneCoverage` owns the union of influence and the
   associated park footprint plus fringe. Its ground and declarative layout
   (`docs/zone-variants.json`, `ZoneDressing`) replace ordinary zoning and
