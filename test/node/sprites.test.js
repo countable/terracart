@@ -115,9 +115,8 @@ test('MINERAL_ICON_SHEET: shell inventory icon is frame 0 on shell_sheet', () =>
 });
 
 // ── CROP_SPRITE: shrub (bug 1d5ac29) ──────────────────────────────────────
-// Shrub uses bushes.png (144×288 = 3 cols × 9 rows of 48×32 frames).
-// Frame 0 = top-left large green bush. Scale 0.667 renders 48px frame at 32px.
-// (Old broken path was Props.png frame 120.)
+// Shrub uses the rounded 48×32 woodland bush, shared with bush-sized trees.
+// Scale 0.667 preserves its visible silhouette width (~21px).
 
 test('CROP_SPRITE: shrub uses the bushes sheet', () => {
   assert.eq(CROP_SPRITE['shrub'].sheet, 'bushes');
@@ -127,11 +126,11 @@ test('CROP_SPRITE: shrub is a custom sprite (custom: true)', () => {
   assert.eq(CROP_SPRITE['shrub'].custom, true);
 });
 
-test('CROP_SPRITE: shrub frame is 0 (top-left large green bush)', () => {
+test('CROP_SPRITE: shrub frame is 0 (single woodland bush)', () => {
   assert.eq(CROP_SPRITE['shrub'].frame, 0);
 });
 
-test('CROP_SPRITE: shrub scale is 0.667 (renders 48px frame into 32px cell)', () => {
+test('CROP_SPRITE: shrub scale preserves its compact visible width', () => {
   assert.eq(CROP_SPRITE['shrub'].scale, 0.667);
 });
 

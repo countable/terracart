@@ -1468,10 +1468,9 @@ const ICON_SHEETS = {
   // Beach pickup — 48×64 = 3×4 of 16×16, only the top row shell art (see
   // CROP_SPRITE.shell). Frame 0 is the canonical cowrie, the inventory icon.
   shell_sheet:   { url: 'assets/Icons/Fish/Sea/Creatures/Shell.png',         cols: 3,  srcW: 48,  srcH: 64 },
-  // ALL props seasons — 352×192 of 16×16. 22 cols × 12 rows. Frame 0
-  // (top-left grass tuft) backs the longgrass inventory icon now
-  // that the procedural sprite has been retired.
-  props:         { url: 'assets/Objects/Wilderness/Props.png',               cols: 22, srcW: 352, srcH: 192 },
+  // Same rustic prop sheet as the map: grass frame 10, mushroom frame 35.
+  // Other frames retain their existing art.
+  props:         { url: 'assets/Objects/Rustic/Props.png',               cols: 22, srcW: 352, srcH: 192 },
   // 7_Pickup_Items — 224×160, 14×10 of 16×16. Frame 88 (row 6 col 4)
   // is the brown leather boot used as the fishing-junk inventory icon.
   pickup:        { url: 'assets/Objects/Pickup_Items.png',                   cols: 14, srcW: 224, srcH: 160 },

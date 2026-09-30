@@ -1,4 +1,4 @@
-// Preview-only colour mapping. Source images and runtime assets stay unchanged.
+// Shared exact colour mapper for review canvases and the approved runtime export.
 // Material masks keep leaf/cap colours separate from wood and pale stems.
 (function () {
   'use strict';

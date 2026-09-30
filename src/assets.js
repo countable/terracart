@@ -13,7 +13,7 @@ const ASSETS = {
   // Red dragon transform (Dragon Powder). 11-col sheet of 96×96 frames;
   // row 0 (frames 0-7) is the wing-flap we loop while transformed.
   dragon:  { kind: 'spritesheet', path: 'assets/Character/Dragon/babydragon_sheets/dragon_red.png', frameWidth: 96, frameHeight: 96 },
-  trees:   { kind: 'spritesheet', path: 'assets/Objects/Maple Tree.png',       frameWidth: 32, frameHeight: 48 },
+  trees:   { kind: 'spritesheet', path: 'assets/Objects/Rustic/trees.png',       frameWidth: 32, frameHeight: 48 },
   house:   {
     kind: 'image', path: 'assets/Objects/House.png',
     // House.png is a tileset (two houses + detail bits). Register a single
@@ -164,7 +164,7 @@ const ASSETS = {
   wagon:          { kind: 'spritesheet', path: 'assets/Objects/Generated/wagon.png', frameWidth: 128, frameHeight: 96 },
   // INFLUENCE ZONES (src/zones.js): churchyard headstone, two grove shrine
   // appearances, and the flint nodule (items.js CROP_SPRITE.flint).
-  headstone:      { kind: 'spritesheet', path: 'assets/Objects/Generated/pillar_c.png', frameWidth: 16, frameHeight: 16 },
+  headstone:      { kind: 'spritesheet', path: 'assets/Objects/Rustic/pillar_c.png', frameWidth: 16, frameHeight: 16 },
   grove_shrine:   { kind: 'spritesheet', path: 'assets/Objects/Landmarks/shrine-figure.png', frameWidth: 48, frameHeight: 48 },
   grove_votive:   { kind: 'spritesheet', path: 'assets/Objects/Landmarks/shrine-votive.png', frameWidth: 16, frameHeight: 16 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Generated/flint.png', frameWidth: 16, frameHeight: 16 },
@@ -181,8 +181,8 @@ const ASSETS = {
   // information POI (render.js infoboard) and a gate's two posts (gatepost).
   barrel:         { kind: 'spritesheet', path: 'assets/Objects/Generated/barrel.png', frameWidth: 16, frameHeight: 16 },
   barrel_smashed: { kind: 'spritesheet', path: 'assets/Objects/Generated/barrel_smashed.png', frameWidth: 16, frameHeight: 16 },
-  clay_pot:       { kind: 'spritesheet', path: 'assets/Objects/Generated/pot.png', frameWidth: 16, frameHeight: 16 },
-  clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/Generated/pot_smashed.png', frameWidth: 16, frameHeight: 16 },
+  clay_pot:       { kind: 'spritesheet', path: 'assets/Objects/Rustic/pot.png', frameWidth: 16, frameHeight: 16 },
+  clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/Rustic/pot_smashed.png', frameWidth: 16, frameHeight: 16 },
   bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Generated/bike_rack.png', frameWidth: 16, frameHeight: 16 },
   signpost:       { kind: 'spritesheet', path: 'assets/Objects/Generated/signpost.png', frameWidth: 16, frameHeight: 16 },
   gatepost:       { kind: 'spritesheet', path: 'assets/Objects/Generated/pillar_a.png', frameWidth: 16, frameHeight: 16 },
@@ -239,16 +239,14 @@ const ASSETS = {
   // anchors at origin (0.5, 1) so it stands on its placement cell; the render
   // spec scales the 48px art down to ~one cell. ?v= busts the SW/browser cache.
   scarecrow:   { kind: 'image', path: 'assets/Objects/Scarecrow_16x16.png?v=1' },
-  // ALL props seasons — 352×192 = 22 cols × 12 rows of 16×16 frames.
+  // Rustic default grass/mushroom in the original 22×12 prop grid. Other
+  // flowers, seasonal props and existing cave mushrooms keep their source art.
   // Spring/autumn/winter/aqua grass tufts, ferns, wildflowers, mushrooms,
   // pebbles, logs. Wildplants pick a frame via CROP_SPRITE { sheet: 'props',
   // custom: true, frame: N }. Longgrass uses frame 10 (a grass tuft).
-  props:       { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Props.png', frameWidth: 16, frameHeight: 16 },
-  // Lush round bushes — 144×288 = 3 cols × 9 rows of 48×32 frames. Replaces
-  // the old bare-twig Props.png frame as the in-world shrub wildplant art.
-  // (The rows are 32px tall, not 48 — slicing at 48 made frame 0 grab one
-  // bush PLUS the top half of the bush below it: "1.5 copies" of the sprite.)
-  bushes:      { kind: 'spritesheet', path: 'assets/Objects/Wilderness/bushes.png', frameWidth: 48, frameHeight: 32 },
+  props:       { kind: 'spritesheet', path: 'assets/Objects/Rustic/Props.png', frameWidth: 16, frameHeight: 16 },
+  // Rounded woodland bush: shared by shrub wildplants and bush-sized trees.
+  bushes:      { kind: 'spritesheet', path: 'assets/Objects/Rustic/bush.png', frameWidth: 48, frameHeight: 32 },
   // Animated campfire — 96×32 = 6 cols × 1 row of 16×32 frames. Lit by burning
   // a coal on bare ground (see interact.js 'light-fire'); the _fire render spec
   // cycles the 6 frames for a flicker. Repels slimes + slowly restores energy.
