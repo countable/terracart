@@ -217,7 +217,7 @@ const mkRow = (host, type, html, checked, on, name) => {
 };
 const gameArt = MapReviewArt.layer({
   toLL, getEdge: () => EDGE,
-  onStatus: (message) => { $('artStatus').textContent = message + '. Turn off Show markers for a clear art view.'; },
+  onStatus: (message) => { $('artStatus').textContent = message; },
   visible: (e, o, category, kind) => {
     const k = kind || classify(o);
     return showSource(e ? ZoneReview.source(e, o, category) : 'runtime') && (state.shown[k] ?? onByDefault(k));
@@ -227,6 +227,7 @@ bases['Game art'] = gameArt;
 Object.keys(bases).forEach((k, i) => mkRow($('bases'), 'radio', k, i === 0, () => {
   Object.values(bases).forEach((b) => map.removeLayer(b)); bases[k].addTo(map).bringToBack();
   $('artStatus').hidden = k !== 'Game art';
+  syncMarkers();
 }, 'base'));
 
 const FIXED = { tree: '#1f9d3a', fruittree: '#9be15d', house: '#8a6a4a', tower: '#6f7fa8',
@@ -236,7 +237,21 @@ const colour = (k, i) => FIXED[k] || `hsl(${Math.round(i * 137.508 % 360)},80%,5
 // Everything is shown (and so counted for density) but the traps: a trap is
 // hidden until it springs, so it is not something on screen to interact with.
 const onByDefault = (k) => k !== 'trap';
-const state = { layers: {}, shown: {} };
+const state = {
+  layers: {}, shown: {}, markersShown: true,
+  get markersOff() { return map.hasLayer(gameArt) || !this.markersShown; },
+};
+let markersToggle;
+function syncMarkers() {
+  if (markersToggle) {
+    markersToggle.checked = !state.markersOff;
+    markersToggle.disabled = map.hasLayer(gameArt);
+  }
+  for (const [k, layer] of Object.entries(state.layers)) {
+    if (!state.markersOff && (state.shown[k] ?? onByDefault(k))) layer.addTo(map);
+    else map.removeLayer(layer);
+  }
+}
 let drawn = [];
 
 // ── SHAPES: related kinds share a marker shape ─────────────────────────────
@@ -803,12 +818,11 @@ function overlays(world) {
     $('ovl').appendChild(div);
   }
   // Markers off keeps them COUNTED — the density heatmap reads best bare.
-  mkRow($('ovl'), 'checkbox', 'Show markers', true, (on) => {
-    state.markersOff = !on;
-    for (const [k, l] of Object.entries(state.layers)) {
-      if (on && (state.shown[k] ?? onByDefault(k))) l.addTo(map); else map.removeLayer(l);
-    }
+  markersToggle = mkRow($('ovl'), 'checkbox', 'Show markers', !state.markersOff, (on) => {
+    state.markersShown = on;
+    syncMarkers();
   });
+  syncMarkers();
   mkRow($('ovl'), 'checkbox', 'Density per game view', false, (on) => { densityOn = on; on ? densityLayer.addTo(map) : map.removeLayer(densityLayer); });
   // Legend grouped by family, in the families' order, members in theirs.
   const present = new Set([...used].map((c) => names[c] || String(c)));
