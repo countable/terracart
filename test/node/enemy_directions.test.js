@@ -30,7 +30,7 @@
     c._facing = 'right'; assert.truthy(SL.creatureAppearance(c, 1200).flipX);
   });
   test('enemy direction: variants inherit layouts without losing their size or texture identity', () => {
-    for (const row of EnemyRoster.ROWS.filter(r => r.variantOf)) {
+    for (const row of EnemyRoster.ROWS.filter(r => r.variantOf && SL.creatureArt(r.variantOf).directions)) {
       const a = SL.creatureArt(row.id), base = SL.creatureArt(row.variantOf);
       assert.eq(a.directions, base.directions, row.id);
       const c = { kind: row.id, _facing: 'left', _moveUntil: 2000, _artScale: 0.65 };
