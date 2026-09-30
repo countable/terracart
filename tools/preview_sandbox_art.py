@@ -9,6 +9,7 @@ import asyncio
 import base64
 import json
 import os
+import subprocess
 from pathlib import Path
 
 from playwright.async_api import async_playwright
@@ -30,14 +31,18 @@ def plan(reserve):
                 refs += [dict(key=k) for k in current['textureKeys']]
             candidate = rec.get('candidate')
             swap = raster(candidate,reserve) if candidate and rec['action'].startswith('swap') else None
-            sprites.append(dict(id=row['id'],refs=refs,palette=palette,candidate=swap['src'] if swap else None))
+            sprites.append(dict(id=row['id'],refs=refs,palette=palette,candidate=swap['src'] if swap else None,
+                                strength=rec.get('recolourStrength',.18),preserveLuminance=rec.get('preserveLuminance',True),mode=rec.get('recolourMode')))
     ground = {str(r['terrainId']):r['proposedColor'] for r in json.loads((ROOT/'docs/art/map-audit-ground.json').read_text())['rows'] if 'terrainId' in r and r.get('proposedColor')}
-    ground.update({'9':'#777462','11':'#6c431d','12':'#777462'})
+    buildings=json.loads((ROOT/'docs/art/map-building-preview.json').read_text())
+    ground.update(buildings['claimed']['floors'])
     hedge=raster(dict(path='assets/Objects/Generated/hedge_end.png',rect=[0,0,16,16]),reserve)
     hedge['palette']=[PALETTE[k]['hex'] for k in ['ink','leaf_shadow','leaf_dark','leaf','leaf_light']]
-    return dict(sprites=sprites,ground=ground,hedge=hedge,notes=[
-        'Before is the current game, including the six approved rustic defaults.',
-        'After uses the audit brightness-based palette studies and available silhouette swaps. Suggested hand cleanup/material masks are not yet drawn.',
+    return dict(sprites=sprites,ground=ground,hedge=hedge,buildings=buildings,notes=[
+        'Before is the current game, including the approved rustic defaults and new gold chest.',
+        'After uses gentle colour transfer that preserves source shades, dark outlines and luminance contrast, plus lighter terrain bases.',
+        'Rockfruit and shells retain their original art; macro booths, chapel and restored house sprites are unchanged.',
+        'The sandbox buildings are claimed. The separate audit cards show the more weathered unclaimed fort treatment.',
         'Both captures use the same frozen sandbox, identical object positions, native pixels and neutral fullbright lighting.',
         'The clipped hedge is previewed only on residential/commercial shrub placements.',
         'The handmade sandbox has no zone-variant motifs or vector road/building polygons. Its existing tiled building mode is used for both views.',
@@ -59,6 +64,8 @@ async def capture(args):
         await page.add_script_tag(content=(ROOT/'tools/sandbox_capture.js').read_text())
         info=await page.evaluate('setupSandboxCapture()')
         before=await page.evaluate('sandboxCapture.mosaic()')
+        await page.add_script_tag(content=(ROOT/'tools/art_preview_colour.js').read_text())
+        await page.add_script_tag(content=subprocess.check_output(['node','tools/export_map_art_painters.js'],cwd=ROOT,text=True))
         await page.add_script_tag(content=(ROOT/'tools/sandbox_candidate_art.js').read_text())
         applied=await page.evaluate('(plan)=>applySandboxCandidates(sandboxCapture.scene,plan)',proposal)
         after=await page.evaluate('sandboxCapture.mosaic()')

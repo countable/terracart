@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "status": "proposal-only",
+  "note": "Preview and sandbox share these light floors and weathered stone colours. No runtime art is changed.",
+  "claimed": {
+    "floors": {
+      "9": "#bda18a",
+      "11": "#c1b092",
+      "12": "#b6b9b3"
+    },
+    "faces": {
+      "9": "#816b59",
+      "11": "#87795f",
+      "12": "#7e8475"
+    },
+    "stone": {
+      "LITE": "#cbd1c2",
+      "BODY": "#989d91",
+      "FACE": "#7d8476",
+      "SIDE": "#777e70",
+      "SHADOW": "#535d4e",
+      "DARK": "#282e25"
+    }
+  },
+  "unclaimed": {
+    "shade": {
+      "wash": "#a4a390",
+      "washA": 0.2,
+      "murk": "#6b6b5c",
+      "murkA": 0.03
+    },
+    "floors": {
+      "9": "#b6a08a",
+      "11": "#b9ab90",
+      "12": "#b0b2aa"
+    },
+    "faces": {
+      "9": "#877664",
+      "11": "#8c8168",
+      "12": "#858979"
+    },
+    "stone": {
+      "LITE": "#c7c9b8",
+      "BODY": "#979589",
+      "FACE": "#7f7e70",
+      "SIDE": "#797969",
+      "SHADOW": "#53584a",
+      "DARK": "#2e3028"
+    }
+  },
+  "tilledColor": "#ad9572",
+  "contrastPolicy": {
+    "minimumCastleFloorBodyLuminanceGap": 25,
+    "maximumStoneOutlineLuminance": 60,
+    "rule": "Keep floors light and desaturated. Wall and tower bodies stay darker, with deep outlines, distinct shadow planes and bright top surfaces; do not wash out the whole object.",
+    "benchmark": "assets/Objects/trunk.png, closed frame 0: original dark edge / shaded body / lit top contrast."
+  }
+}

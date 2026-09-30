@@ -18,8 +18,8 @@
 <header class="masthead"><div class="shell">
   <div class="topline"><div class="eyebrow">Mending Lane / Art direction</div><a href="../zone-variants/nature-art.html">Nature palette reference ↗</a></div>
   <h1>Map art, by prevalence.</h1>
-  <p class="intro">An audit of the art players actually encounter on the map. <strong>Weathered nature and ruins share the rustic story palette;</strong> restored places and sacred landmarks can earn their colour. Review each current sprite beside its proposed direction.</p>
-  <div class="badges"><span class="badge applied">Approved default recolours applied</span><span class="badge">New recommendations are proposals</span><span class="badge">Zone variants only · no seasons</span></div>
+  <p class="intro">An audit of the art players actually encounter on the map. <strong>Light, desaturated ground gives shaded objects room to read;</strong> restored places look clean and cared for. Review each current sprite beside its proposed direction.</p>
+  <div id="lighting-reference" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin-top:18px"></div><div class="badges"><span class="badge applied">Approved default recolours applied</span><span class="badge">New recommendations are proposals</span><span class="badge">Zone variants only · no seasons</span></div>
   <div class="metrics" aria-label="Audit coverage"><div class="metric"><div class="value" id="metric-total">—</div><div class="label">Active map-art families</div></div><div class="metric"><div class="value" id="metric-priority">—</div><div class="label">High-exposure priorities</div></div><div class="metric"><div class="value" id="metric-categories">—</div><div class="label">Art categories covered</div></div><div class="metric"><div class="value" id="metric-variants">—</div><div class="label">Families with proposed zone art</div></div></div>
   <p class="scope">Scope: map interactables, scenery, ground, buildings, roads and their generated styles. Characters, enemies, unused definitions and inventory-only art are excluded. Prevalence ranks are estimates from placement rules unless a row supplies measured evidence; OSM input counts are not final map placements.</p>
 </div></header>
@@ -43,6 +43,7 @@
   const el = id => document.getElementById(id);
   const text = value => typeof value === 'string' ? value : value == null ? '' : JSON.stringify(value);
   const node = (tag,cls,content) => {const n=document.createElement(tag);if(cls)n.className=cls;if(content!=null)n.textContent=text(content);return n;};
+  for(const art of data.lightingReference||[]){const box=node('figure');box.style='margin:0;display:flex;gap:12px;align-items:center;flex:1 1 280px;text-align:left';const img=document.createElement('img');img.src=art.src;img.alt=art.label;img.style='width:64px;height:64px;object-fit:contain;image-rendering:pixelated';box.append(img,node('figcaption','',art.label));el('lighting-reference').append(box);}
   const actions = {keep:'Keep',recolour:'Recolour',recolor:'Recolour',swap:'Art swap',simplify:'Simplify',applied:'Already applied',review:'Review'};
   const actionName = value => actions[value] || text(value || 'Review').replaceAll('_',' ');
   const rank = row => Number(row.rank ?? row.prevalenceRank ?? 3);
@@ -79,15 +80,12 @@
         img.className=img.naturalWidth<=48&&img.naturalHeight<=48?'small':'large';
         if(!art.recolour?.length)return;
         try {
-          const colours=art.recolour.map(c=>typeof c==='string'?c:c.hex).filter(c=>/^#[0-9a-f]{6}$/i.test(c)).map(c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)));
-          const luma=c=>c[0]*.2126+c[1]*.7152+c[2]*.0722;colours.sort((a,b)=>luma(a)-luma(b));if(!colours.length)return;
-          const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;const ctx=c.getContext('2d');ctx.drawImage(img,0,0);const pixels=ctx.getImageData(0,0,c.width,c.height);let lo=255,hi=0;
-          for(let i=0;i<pixels.data.length;i+=4){if(!pixels.data[i+3])continue;const b=luma(pixels.data.subarray(i,i+3));lo=Math.min(lo,b);hi=Math.max(hi,b);}
-          for(let i=0;i<pixels.data.length;i+=4){if(!pixels.data[i+3])continue;const b=luma(pixels.data.subarray(i,i+3));const ink=colours[Math.max(0,Math.min(colours.length-1,Math.round((b-lo)/Math.max(1,hi-lo)*(colours.length-1))))];for(let ch=0;ch<3;ch++)pixels.data[i+ch]=ink[ch];}
-          ctx.putImageData(pixels,0,0);c.setAttribute('role','img');c.setAttribute('aria-label',(art.label||'Map art')+' palette study; contour simplification pending');frame.replaceChildren(c);
+          const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext('2d').drawImage(img,0,0);
+          ArtPreviewColour.recolour(c,art.recolour,{strength:art.recolourStrength??.18,preserveLuminance:art.preserveLuminance!==false,mode:art.recolourMode});
+          c.setAttribute('role','img');c.setAttribute('aria-label',(art.label||'Map art')+' subtle colour study');frame.replaceChildren(c);
         }catch(error){fig.title='Palette study unavailable: '+String(error.message||error);}
       });
-      img.src=art.src;frame.append(img);fig.append(frame,node('figcaption','',(art.label||'')+(art.recolour?.length?' · Palette study; contour simplification pending':'')));out.append(fig);
+      img.src=art.src;frame.append(img);fig.append(frame,node('figcaption','',(art.label||'')+(art.recolour?.length?(art.recolourMode==='approved-apple'?' · Selected apple treatment':art.recolourMode==='scarecrow-contrast'?' · Stronger contour and shading':' · Gentle colour study; source shades retained'):'')));out.append(fig);
     }
     for(const p of Array.isArray(procedural)?procedural:procedural?[procedural]:[])renderProcedural(out,p.spec||p,p.label||'Game renderer');
     if(!out.children.length)out.append(node('div','placeholder',empty));

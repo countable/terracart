@@ -2,17 +2,7 @@
 // shipping assets are changed. Uses the audit dashboard's brightness study.
 globalThis.applySandboxCandidates = async function (scene, plan) {
   const canvases = new Map(), changed = [];
-  const rgb = hex => [1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
-  const luma = c => c[0]*.2126+c[1]*.7152+c[2]*.0722;
-  function recolour(canvas, hexes) {
-    if (!hexes.length) return canvas;
-    const colours=hexes.map(rgb).sort((a,b)=>luma(a)-luma(b));
-    const ctx=canvas.getContext('2d'), pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
-    let lo=255,hi=0;
-    for(let i=0;i<pixels.data.length;i+=4){if(!pixels.data[i+3])continue;const b=luma(pixels.data.subarray(i,i+3));lo=Math.min(lo,b);hi=Math.max(hi,b);}
-    for(let i=0;i<pixels.data.length;i+=4){if(!pixels.data[i+3])continue;const b=luma(pixels.data.subarray(i,i+3));const colour=colours[Math.max(0,Math.min(colours.length-1,Math.round((b-lo)/Math.max(1,hi-lo)*(colours.length-1))))];pixels.data.set(colour,i);}
-    ctx.putImageData(pixels,0,0);return canvas;
-  }
+  const recolour=(canvas,hexes,options={})=>ArtPreviewColour.recolour(canvas,hexes,options);
   function blank(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}
   function sourceCanvas(key){
     if(canvases.has(key))return canvases.get(key);
@@ -35,7 +25,7 @@ globalThis.applySandboxCandidates = async function (scene, plan) {
           const scale=Math.min(w/candidate.width,h/candidate.height),cw=Math.round(candidate.width*scale),ch=Math.round(candidate.height*scale);
           ctx.drawImage(candidate,Math.floor((w-cw)/2),h-ch,cw,ch);
         }else ctx.drawImage(sheet,x,y,w,h,0,0,w,h);
-        recolour(frame,row.palette);
+        recolour(frame,row.palette,{strength:row.strength??.18,preserveLuminance:row.preserveLuminance!==false,mode:row.mode});
         const out=sheet.getContext('2d');out.clearRect(x,y,w,h);out.drawImage(frame,x,y);
         changed.push({id:row.id,key,rect});
       }
@@ -46,11 +36,20 @@ globalThis.applySandboxCandidates = async function (scene, plan) {
     source.image=canvas;source.isCanvas=true;source.update();
   }
   for(const [id,colour] of Object.entries(plan.ground))COLORS[id]=parseInt(colour.slice(1),16);
-  const stone={LITE:'#b0aa8a',BODY:'#777462',FACE:'#777462',SIDE:'#403e34',SHADOW:'#403e34',DARK:'#171717'};
-  for(const [key,hex] of Object.entries(stone)){
-    CASTLE_STONE[key].n=parseInt(hex.slice(1),16);CASTLE_STONE[key].s=hex;
-    const n=unclaimedShade(CASTLE_STONE[key].n);
-    CASTLE_STONE_UNCLAIMED[key].n=n;CASTLE_STONE_UNCLAIMED[key].s='#'+n.toString(16).padStart(6,'0');
+  // The same declarative building palette as the generated audit previews.
+  if(plan.buildings){
+    const settings=plan.buildings;
+    for(const [tier,hex] of Object.entries(settings.claimed.faces))Render.BUILDING_FACE_COLOR[tier]=parseInt(hex.slice(1),16);
+    for(const [state,table] of [['claimed',CASTLE_STONE],['unclaimed',CASTLE_STONE_UNCLAIMED]]){
+      for(const [key,hex] of Object.entries(settings[state].stone)){
+        table[key].n=parseInt(hex.slice(1),16);table[key].s=hex;
+      }
+    }
+    for(let v=0;v<TILLED_VARIANTS;v++){
+      const texture=scene.textures.get('tilled_'+v);
+      const c=MapArtProcedural.render({kind:'tilled',variant:v,proposed:true});
+      texture.source[0].image=c;texture.source[0].isCanvas=true;texture.source[0].update();
+    }
   }
   // Context proposal: clipped hedges only on residential/commercial ground.
   // The frozen sandbox has no actual Formal Garden variant assignment.

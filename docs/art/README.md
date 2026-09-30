@@ -57,16 +57,16 @@ assessments identify state-specific uses and any additional contour work.
 ## Active map-art audit
 
 `map-audit-ground.json`, `map-audit-structures.json` and
-`map-audit-interactables.json` audit 107 active environmental art families.
+`map-audit-interactables.json` audit 108 environmental art families.
 Entries carry their actual placement producers, current source frames, palette
 recommendations and available-library alternatives. Shared states are grouped;
 unused registry definitions, actors and inventory-only items are excluded.
-Player-only crops, campfires and scarecrows are outside this generated-placement
-audit. Local OSM feature counts are source evidence, not final spawn counts.
+Player-only crops and campfires are outside this generated-placement
+audit; the scarecrow is explicitly included at the user’s request. Local OSM feature counts are source evidence, not final spawn counts.
 
 Prevalence order is a qualitative estimate from terrain coverage and placement
-rules; no representative post-filter map census was available. Eight families
-(7.5%) have proposed zone-specific alternatives. None are seasonal and none
+rules; no representative post-filter map census was available. Seven families
+(6.5%) have proposed zone-specific alternatives. None are seasonal and none
 are installed by the dashboard. The clipped hedge is reserved for Formal
 Garden and residential/commercial bush placements.
 
@@ -78,8 +78,13 @@ python3 tools/preview_map_art.py \
 The output is a self-contained searchable HTML dashboard plus `audit.json`.
 `tools/export_map_art_painters.js` embeds the shipping terrain, road and building
 painters with sample geometry. Existing texture states and proposed colour
-studies are labelled separately. RGB studies preserve source shape/alpha;
-they do not complete recommended contour cleanup or selective material masks.
+studies are labelled separately. Subtle colour transfer preserves source shades, dark outlines and luminance
+contrast. The selected apple treatment remains an explicit exception. The
+scarecrow preview strengthens its existing contour and shading.
+Tune saturation and contrast per sprite: readability matters as much as matching
+the palette. Keep the helpful olive correction to bright green trees without
+flattening their leaf shading. The original chest and unchanged well provide
+contrast references beside the proposed art.
 The rejected ground tileset alternatives remain in source details: the actual
 procedural materials are better suited to arbitrary map polygons.
 
@@ -88,8 +93,9 @@ procedural materials are better suited to arbitrary map polygons.
 `tools/preview_sandbox_art.py` captures matched current/candidate views of the
 actual sandbox in an isolated browser. It freezes time and actors, uses neutral
 lighting, and stitches native 32px cells with a two-cell margin. No shipping
-textures or user saves are modified. Candidates use the dashboard's palette
-studies; clipped hedges are limited to residential/commercial shrub cells.
+textures or user saves are modified. Candidates share the dashboard's gentle colour transfer and lighter,
+desaturated ground. The original closed chest is the shading reference; the
+new gold chest uses its source colours without recolouring. Clipped hedges are limited to residential/commercial shrub cells.
 
 ```sh
 CHROMIUM_PATH=/path/to/chromium python3 tools/preview_sandbox_art.py \

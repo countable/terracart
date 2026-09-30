@@ -2,6 +2,26 @@
 // the original runtime functions. This file only supplies sample inputs and
 // tiny Phaser texture adapters; it does not reimplement their drawing styles.
 const MapArtProcedural = (() => {
+  const colorNumber = value => typeof value === 'string' ? parseInt(value.replace('#',''),16) : value;
+  function withBuildingProposal(draw) {
+    const settings = MAP_ART_BUILDING_PROPOSAL;
+    const tables = [COLORS,Render.BUILDING_FACE_COLOR,CASTLE_STONE,CASTLE_STONE_UNCLAIMED,UNCLAIMED_SHADE];
+    const originals = tables.map(table => Object.assign({},table));
+    const originalTilled = TILLED_COLOR;
+    for (const [tier,color] of Object.entries(settings.claimed.floors)) COLORS[tier]=colorNumber(color);
+    for (const [tier,color] of Object.entries(settings.claimed.faces)) Render.BUILDING_FACE_COLOR[tier]=colorNumber(color);
+    for (const [state,table] of [['claimed',CASTLE_STONE],['unclaimed',CASTLE_STONE_UNCLAIMED]]) {
+      for (const [key,color] of Object.entries(settings[state].stone)) table[key]={n:colorNumber(color),s:color};
+    }
+    const shade=settings.unclaimed.shade;
+    Object.assign(UNCLAIMED_SHADE,{wash:colorNumber(shade.wash),washA:shade.washA,murk:colorNumber(shade.murk),murkA:shade.murkA});
+    TILLED_COLOR=colorNumber(settings.tilledColor);
+    try { return draw(); }
+    finally {
+      tables.forEach((table,i)=>Object.assign(table,originals[i]));
+      TILLED_COLOR=originalTilled;
+    }
+  }
   function canvas(w, h = w) {
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
@@ -62,7 +82,7 @@ const MapArtProcedural = (() => {
     cx.lineCap = cx.lineJoin = 'round';
     const rail = spec.style === 'rail', path = spec.style === 'path';
     const restored = !!spec.restored && !rail;
-    const color = spec.color || (rail ? r.RAIL_COLOR : restored
+    const color = colorNumber(spec.color) || (rail ? r.RAIL_COLOR : restored
       ? (path ? r.RESTORED_PATH_COLOR : r.RESTORED_ROAD_COLOR)
       : (path ? r.PATH_COLOR : r.ROAD_COLOR));
     const pts = [{x:-10,y:size * .72},{x:size * .42,y:size * .49},{x:size+10,y:size * .35}];
@@ -72,7 +92,10 @@ const MapArtProcedural = (() => {
       decorOps:[], erases:[],
     };
     if (rail) r.emitRailDecor({cellM:7}, {decorPath(w,c,points) { pass.decorOps.push({w,c,pts:points}); }}, pts);
-    (restored ? r.commitRestored : r.commitBase)(pass);
+    const commit = () => (restored ? r.commitRestored : r.commitBase)(pass);
+    // The runtime identifies ballast by its base colour when excluding road
+    // cracks. Keep that identity coherent while previewing a new rail colour.
+    if (rail) r.withRailColor(color,commit); else commit();
     const ox = out.getContext('2d');
     ox.fillStyle = spec.background || '#596338';
     ox.fillRect(0,0,size,size);
@@ -81,6 +104,11 @@ const MapArtProcedural = (() => {
     return out;
   }
   function render(spec) {
+    // Apply real painter palettes for the proposed side and restore immediately.
+    // Consecutive before/after/before samples must leave the originals identical.
+    if (spec.proposed && ['building','tower','tilled'].includes(spec.kind)) {
+      return withBuildingProposal(()=>render(Object.assign({},spec,{proposed:false})));
+    }
     if (spec.kind === 'treasure') {
       // The two snapped 2px strokes in Render.drawCells/drawX; no new art.
       const c = canvas(14), ctx = c.getContext('2d'), s = 5.1, mid = 7;
@@ -95,7 +123,8 @@ const MapArtProcedural = (() => {
       ctx.stroke();
       return c;
     }
-    if (spec.kind === 'biome') return biome(spec);
+    if (spec.kind === 'biome') return biome(Object.assign({},spec,{color:spec.color || (spec.proposed
+      ? MAP_ART_GROUND_PROPOSALS[spec.terrainId] || MAP_ART_BUILDING_PROPOSAL.claimed.floors[spec.terrainId] : undefined)}));
     if (spec.kind === 'road') return road(spec);
     if (spec.kind === 'building') return building(spec);
     if (spec.kind === 'tilled') {
@@ -127,6 +156,6 @@ const MapArtProcedural = (() => {
     }
     throw new Error('Unknown map-art painter: ' + spec.kind);
   }
-  return { render, biome, road, building };
+  return { render, biome, road, building, buildingSettings:MAP_ART_BUILDING_PROPOSAL };
 })();
 global.MapArtProcedural = MapArtProcedural;

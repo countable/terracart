@@ -105,8 +105,8 @@ test('treasure icon: an unbaked key falls back to the emoji', () => {
 });
 
 test('treasure icon: the bake reads the sheets the renderer draws', () => {
-  assert.truthy(/WORLD_ICON_URLS\.chest = bakeSheetFrame\('chest', 0, 32, 32\)/.test(app),
-    "the trunk's CLOSED frame is baked");
+  assert.truthy(/WORLD_ICON_URLS\.chest = bakeSheetFrame\('chest', 0, 16, 16\)/.test(app),
+    "the gold chest's CLOSED frame is baked");
   assert.truthy(/WORLD_ICON_URLS\.box   = bakeSheetFrame\('box',   0, 16, 16\)/.test(app),
     'and the crate');
   // Both keys are real textures the preloader walks, so the bake has art.

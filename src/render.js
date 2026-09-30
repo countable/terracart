@@ -3122,7 +3122,7 @@ Render.drawObjects = function drawObjects(scene) {
     // is never dropped: spent, its barrel or clay pot stands smashed (o._smashed,
     // stamped by the filter) until it restocks — one art per state.
     chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? L.smashedKey : L.texKey; },
-              // box is a single-frame image; trunk.png is 2-frame.
+              // Both the crate and the approved closed gold chest use frame 0.
               // Crates and coin-burst pots leave `frame` at 0.
               // Pots of gold (ATMs) render the procedural
               // 'potofgold' canvas texture (textures.js makePotOfGoldTexture),
@@ -3153,14 +3153,15 @@ Render.drawObjects = function drawObjects(scene) {
               // centre doesn't move. The actual CHESTS (trunk + crate) then
               // came down a further 20% (Sep 2026): crates (box, 16×16) sit at
               // CRATE_SCALE — 16 × 0.8 = ~13px inside the 32px cell, so a crate
-              // reads as a small prop rather than filling its cell; trunk is
-              // 32×32 so 0.72 is 72% of a cell. The stall and the pot of gold
+              // reads as a small prop rather than filling its cell. The gold chest
+              // uses CHEST_SCALE to retain the prior ~22px visible width.
+              // The stall and the pot of gold
               // are structures, not chests. The pot is a further 20% smaller.
               // A barrel and a bike rack are 16px generated props drawn at
               // SMALL_POI_SCALE (~21px) and seated like the crate.
               scale: (o) => { const L = chestLook(o);
                               return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
-                                : ((L.barrel || L.bike) ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : 0.72)))); },
+                                : ((L.barrel || L.bike) ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE)))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px

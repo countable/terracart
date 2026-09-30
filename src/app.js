@@ -1936,10 +1936,10 @@ class MapScene extends Phaser.Scene {
     // the art the chest it came out of was standing as (loot.js chestLook
     // names the key; worldIconHTML below turns it into a span), so a crate
     // opens under a crate and a trunk under a trunk. Baked from the same
-    // sheets the renderer draws, at the frame it draws — trunk.png frame 0 is
-    // the CLOSED lid, which is what the player just tapped.
+    // sheets the renderer draws: the gold chest uses its closed frame 0,
+    // which is what the player just tapped.
     window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
-    window.WORLD_ICON_URLS.chest = bakeSheetFrame('chest', 0, 32, 32);
+    window.WORLD_ICON_URLS.chest = bakeSheetFrame('chest', 0, 16, 16);
     window.WORLD_ICON_URLS.box   = bakeSheetFrame('box',   0, 16, 16);
     // An old trade road's bus stop is a broken wagon (loot.js chestLook).
     if (this.textures.exists('wagon')) window.WORLD_ICON_URLS.wagon = bakeSheetFrame('wagon', 0, 128, 96);

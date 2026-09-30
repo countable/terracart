@@ -248,6 +248,8 @@
     }
   ],
   "rules": [
+    "Tune contrast and saturation per sprite at map scale; readability matters as much as palette adherence. Preserve useful source shades, dark contours and lit surfaces instead of reducing colour count to force a match. The original chest and unchanged well are contrast references; retain the approved apple treatment and the helpful olive correction to bright green trees.",
+    "Ground textures should be light and desaturated so objects stand out. Suggest darker places through quieter colour rather than darkening the canvas; interactables need separated shadows, midtones and highlights without becoming muddy or washed out.",
     "The main contrast is state and meaning: natural or pre-restoration assets stay in the muted post-apocalyptic rustic world palette; player-restored assets, the player and special/sacred places may deliberately depart from it. Style stays consistently chibi retro pixel in every state.",
     "Use the current 16px Cyan character pack as the sprite style reference: compact rounded proportions, readable dark contours, sparse purposeful pixel clusters and opaque pixel edges.",
     "Use story art for colour relationships and atmosphere, not its illustration detail density. The paintings are golden-hour scenes; ordinary game foliage needs an adapted muted green ramp, not an orange tint over everything.",

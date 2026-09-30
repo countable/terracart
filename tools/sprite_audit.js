@@ -30,7 +30,7 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.resolve(__dirname, '..');
-const { CELL_PX, ART_BOUNDS, CROWN_BOUNDS, seatInCell, CREATURE_ART, GROVE_SHRINE_ART,
+const { CELL_PX, ART_BOUNDS, CROWN_BOUNDS, seatInCell, CREATURE_ART, GROVE_SHRINE_ART, CHEST_SCALE,
         CREATURE_WHEEL_R, creatureWheelDy } =
   require(path.join(ROOT, 'src', 'sprite_layout.js'));
 const CELL_BOTTOM = CELL_PX / 2;
@@ -249,7 +249,7 @@ const SHEETS = {
   // so nothing ever seats them (see FRUIT_FRAMES in render.js).
   apple_tree:    { file: 'assets/Objects/Wilderness/Apple Tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 5], crownFrame: 4 },
   peach_tree:    { file: 'assets/Objects/Wilderness/Peach Tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
-  chest:         { file: 'assets/Objects/trunk.png',                         fw: 32, fh: 32, frames: [0] },
+  chest:         { file: 'assets/Objects/Gold Chest.png',                    fw: 16, fh: 16, frames: [0] },
   box:           { file: 'assets/Objects/Wilderness/Box_Single_16x16.png',   fw: 16, fh: 16, frames: [0] },
   mineralrock:   { file: 'assets/Objects/Wilderness/stone with minerals.png',fw: 16, fh: 16, frames: [168, 169, 170, 171, 0, 1, 2, 3, 5, 6] },
   well:          { file: 'assets/Objects/Wilderness/well.png',               fw: 30, fh: 32, frames: [0] },
@@ -302,7 +302,7 @@ const SCENARIOS = [
   { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, scale: 0.85 * 0.625, scaleYMul: 1.10 },
   { name: 'apple (wild)',    key: 'apple_tree',    frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
   { name: 'peach (wild)',    key: 'peach_tree',    frameIdx: 3, scale: 0.85, scaleYMul: 1.10 },
-  { name: 'chest',           key: 'chest',         frameIdx: 0, scale: 0.72 },
+  { name: 'chest',           key: 'chest',         frameIdx: 0, scale: CHEST_SCALE },
   { name: 'crate (box)',     key: 'box',           frameIdx: 0, scale: 0.8 },
   { name: 'mineralrock',     key: 'mineralrock',   frameIdx: 171, scale: 1.28 },
   { name: 'ore rock',        key: 'mineralrock',   frameIdx: 0,   scale: 1.28 },
