@@ -537,15 +537,24 @@
   // Floors stay under the world. Each short perimeter segment is an upright
   // piece, so a long north/south wall can interleave with walking characters.
   // Canvas clipping keeps angled walls inside the source footprint.
+  //
+  // Pieces are cached across rebuilds, keyed by their WORLD geometry: the
+  // projection is a pure translation (whole cells between rebuilds), so a
+  // piece baked once stays valid and only moves. A cell crossing then bakes
+  // just the edges newly in view instead of every wall on screen — each bake
+  // is a canvas, a pixel read-back and a GPU upload, and redoing all of them
+  // per crossing stalled the walk for ~200ms on a phone.
+  function releasePiece(scene, p) {
+    p.sprite.destroy();
+    scene.textures.remove(p.textureKey);
+  }
   function clearUprights(scene) {
-    for (const p of scene._buildingUprightPieces || []) {
-      p.sprite.destroy();
-      scene.textures.remove(p.textureKey);
-    }
+    for (const p of (scene._buildingUprightCache || new Map()).values()) releasePiece(scene, p);
+    scene._buildingUprightCache = new Map();
     scene._buildingUprightPieces = [];
   }
 
-  function uprightEdges(scene, d, isMine, projY) {
+  function uprightEdges(scene, d, isMine, projX, projY, seen) {
     const shade = shadeOf(isMine), depth = facePx(d.tier);
     const stone = castleStone(isMine);
     const points = d.pts;
@@ -568,7 +577,21 @@
         const h = Math.ceil(Math.max(p.y, q.y) + depth + pad) - y;
         if (x + w < scene.viewLeft - CELL_PX * 2 || x > scene.viewLeft + scene.viewSize + CELL_PX * 2
           || y + h < scene.viewTop - CELL_PX * 2 || y > scene.viewTop + scene.viewSize + CELL_PX * 2) continue;
-        const key = `buildinggeom_wall_${scene._buildingUprightPieces.length}`;
+        // World-relative placement: the same edge at a later camera cell sits
+        // at the same offset from the projected world origin.
+        const wx = x - projX(0), wy = y - projY(0);
+        const cacheKey = `${d.seed}|${d.tier}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
+        const cached = scene._buildingUprightCache.get(cacheKey);
+        if (cached) {
+          if (!seen.has(cacheKey)) {
+            seen.add(cacheKey);
+            cached.x = projX(0) + cached.wx;
+            cached.y = projY(0) + cached.wy;
+            scene._buildingUprightPieces.push(cached);
+          }
+          continue;
+        }
+        const key = `buildinggeom_wall_${scene._buildingUprightSeq = (scene._buildingUprightSeq || 0) + 1}`;
         if (scene.textures.exists(key)) scene.textures.remove(key);
         const tex = scene.textures.createCanvas(key, w, h);
         const ctx = tex.getContext();
@@ -604,12 +627,15 @@
         tex.refresh();
         const sprite = scene.add.image(x, y, key).setOrigin(0, 0);
         scene.worldContainer.add(sprite);
-        scene._buildingUprightPieces.push({
-          sprite, textureKey: key, x, y, rank: 1,
+        const piece = {
+          sprite, textureKey: key, x, y, wx, wy, rank: 1,
           // The perimeter is the ground anchor; extrusion is visual height,
           // just as for tiled walls. Towers at this boundary rank above it.
           groundY: (Math.max(p.y, q.y) - projY(0)) * scene.cellM / CELL_PX,
-        });
+        };
+        scene._buildingUprightCache.set(cacheKey, piece);
+        seen.add(cacheKey);
+        scene._buildingUprightPieces.push(piece);
       }
     }
   }
@@ -681,7 +707,9 @@
   function rebuild(scene, tiles, fracX, fracY) {
     const g = fillTarget(scene);
     g.clear();
-    clearUprights(scene);
+    if (!scene._buildingUprightCache) clearUprights(scene);
+    scene._buildingUprightPieces = [];
+    const seen = new Set();
     if (scene.events && !scene._buildingUprightCleanup) {
       scene._buildingUprightCleanup = true;
       scene.events.once('shutdown', () => {
@@ -776,7 +804,7 @@
       // stay readable across a footprint, so it goes last.
       if (g.gridPoly) g.gridPoly(d.pts, gridInkFor(GRID, floor));
       if (separateUprights) {
-        uprightEdges(scene, d, isMine, projY);
+        uprightEdges(scene, d, isMine, projX, projY, seen);
       } else if (d.tier === CASTLE) {
         // Rampart: the stone band inside the wall line, then the merlon teeth
         // dashed along it in the light stone — the polygon's answer to the
@@ -789,6 +817,10 @@
         g.strokePoly(d.pts, OUTLINE_PX, dim(floor, OUTLINE_MUL));
       }
       if (g.endMaterial) g.endMaterial();
+    }
+    // Pieces that scrolled out of view (or changed claim state) go.
+    for (const [k, p] of scene._buildingUprightCache) {
+      if (!seen.has(k)) { releasePiece(scene, p); scene._buildingUprightCache.delete(k); }
     }
     if (g.commit) g.commit();
   }
