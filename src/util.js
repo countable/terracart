@@ -283,8 +283,13 @@ const FROZEN_TINT = 0x9ad8ff;
 // classes preserve their harvest rules while selecting the matching artwork.
 // Both timber sheets have authored sprout, young and mature frames. Keep one
 // scale per species so smaller trees use smaller artwork, not shrunken adults.
-// Mature crowns retain their previous largest-canopy dimensions.
+// Mature crowns retain their previous largest-canopy dimensions. The one
+// exception is the smallest tree (art frame 1, the sapling/sprout): its
+// authored art is a few pixels across, so it is drawn TREE_SAPLING_SCALE_MUL
+// larger to stay readable — the frame-1 art is still its own, never a
+// shrunken adult.
 const TREE_ART_SCALE = { maple: 0.85 * 1.55 * 0.90 * 0.90, pine: 0.62 * 1.55 };
+const TREE_SAPLING_SCALE_MUL = 1.5;
 function treeUsesGrowthSheet(o) {
   return !o.size;
 }
@@ -314,7 +319,8 @@ function treeArtFrame(o) {
   return treeGrowthStage(o);
 }
 function treeScale(o) {
-  return TREE_ART_SCALE[o.species === 'pine' ? 'pine' : 'maple'];
+  const base = TREE_ART_SCALE[o.species === 'pine' ? 'pine' : 'maple'];
+  return treeArtFrame(o) === 1 ? base * TREE_SAPLING_SCALE_MUL : base;
 }
 // Canopy classes drive the axe gate and wood yield. Old bush-sized trees
 // remain trees, rendered and harvested at the smallest canopy size.

@@ -503,7 +503,9 @@ test('maple and pine canopy sizes use authored growth art at a fixed species sca
   for (const species of ['maple','pine']) {
     const sizes=['small','medium','large'];
     const scales=sizes.map(size=>spec.scale({species,size}));
-    assert.eq(new Set(scales).size,1,'growth comes from artwork, not resizing mature crowns');
+    assert.eq(scales[1],scales[2],'young and mature crowns share one scale');
+    assert.eq(scales[0],scales[1]*TREE_SAPLING_SCALE_MUL,'the smallest tree is drawn 50% bigger');
+    assert.eq(TREE_SAPLING_SCALE_MUL,1.5);
     for (let i=0;i<sizes.length;i++) {
       const o={species,size:sizes[i],variant:1};
       assert.eq(spec.frame(o),i+1);
