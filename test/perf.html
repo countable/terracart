@@ -67,12 +67,14 @@
     window.__TEST_MODE = true;
   </script>
   <script>
-    // Fully offline: the sandbox pre-seeds the 3x3 tiles around the player,
+    // Offline by default; ?live=1 allows genuine network tiles.
+    // The sandbox pre-seeds the 3x3 tiles around the player,
     // and every other tile fetch answers 504 (the shape worldgen tolerates).
     const realFetch = window.fetch;
     window.fetch = (input, init) => {
       const url = typeof input === 'string' ? input : input.url;
-      if (/\/\d+\/\d+\/\d+\.pbf(\?|$)/.test(url) || /tiles\.json/.test(url)) {
+      if (!/[?&]live=1\b/.test(location.search) &&
+          (/\/\d+\/\d+\/\d+\.pbf(\?|$)/.test(url) || /tiles\.json/.test(url))) {
         return Promise.resolve(new Response('', { status: 504 }));
       }
       return realFetch(input, init);
@@ -138,7 +140,7 @@
       const pc0 = window.__scene.playerToWorldCell();
       const startKey = WorldGen.tileKey(pc0.tx, pc0.ty);
       while (!WorldGen.tileCache.get(startKey)?.grid) {
-        if (Date.now() - t0 > 30000) throw new Error('start tile never loaded');
+        if (Date.now() - t0 > (/[?&]live=1\b/.test(location.search) ? 120000 : 30000)) throw new Error('start tile never loaded');
         await new Promise(r => setTimeout(r, 50));
       }
       // Let the neighbour ring build so a walk doesn't measure tile builds.
