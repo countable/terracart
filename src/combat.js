@@ -752,18 +752,15 @@
   //           that missed because you were standing a few degrees off read
   //           as broken rather than skilful.
   //
-  // And they differ in RANGE, which for the staff is not a flat number at all.
-  // `rangeFromReach` says the slot's range IS the player's own reach plus this
-  // many cells — resolved per shot against the LIVE reach (rangeCellsFor
-  // below), so it shrinks as the dark takes the reach back underground and
-  // grows with the Inner Light upgrades. A seeking weapon that fires the
-  // moment anything hostile is on screen fights the whole street for you at
-  // no risk; one cell past the ring you can already act in makes a bolt
-  // something you loose at a foe that has closed on you. The flat
-  // `rangeCells` beside it is the standing fallback for a caller with no
-  // scene to ask (and is the value at the starting reach, 2.5 + 1, so the two
-  // agree where a new save begins). The BOW keeps a flat range: it is the
-  // weapon you buy to hit what you cannot punch, and it does not aim itself.
+  // And they differ in RANGE, which for a player's weapon is not a flat number.
+  // `rangeFromReach` says the slot's range IS the player's own reach (the
+  // vision ring) plus this many cells, resolved per shot against the LIVE
+  // reach (rangeCellsFor below), so it shrinks as the dark takes the reach
+  // back underground and grows with the Inner Light upgrades. The ARROW flies
+  // one cell past the ring; MAGIC goes to the ring itself and no further. The
+  // flat `rangeCells` is the fallback for a caller with no scene to ask (the
+  // castle turrets have no reach and keep the bow's flat 8; the staff's flat
+  // value is its reach at a new save's 2.5).
   // RANGED WEAPONS WAKE ONLY FOR A CLOSE FOE (owner's call, Sep 2026): the
   // bow and the staff fire only while a hostile stands within the player's
   // reach plus this many cells — the same "one past the ring" the staff's
@@ -784,10 +781,10 @@
     // `ammo`: the bow burns one WOOD per `shots` arrows, and will not fire
     // with none in the bag (app.js _combatTick). Energy is the staff's price;
     // wood is the bow's.
-    bow:   { speedCps: 4.5, rangeCells: 8, color: 0xffe6a8, lenPx: 9, widthPx: 2,
+    bow:   { speedCps: 4.5, rangeCells: 8, rangeFromReach: RANGED_TRIGGER_PAST_REACH, color: 0xffe6a8, lenPx: 9, widthPx: 2,
              aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS,
              ammo: { id: 'wood', shots: 20 } },
-    staff: { speedCps: 1.0, rangeCells: 3.5, rangeFromReach: RANGED_TRIGGER_PAST_REACH,
+    staff: { speedCps: 1.0, rangeCells: 2.5, rangeFromReach: 0,
              color: 0x9ad6ff, dotPx: 3,
              pierce: true, energyCost: 1, aim: 'nearest',
              growsWithTier: true,

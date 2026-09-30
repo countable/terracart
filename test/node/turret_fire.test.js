@@ -169,7 +169,8 @@ test('ranged weapons: wake only for a foe within the reach plus a cell', () => {
   const reach = 2.5, trig = Combat.rangedTriggerM(reach, CELL);
   assert.eq(Combat.RANGED_TRIGGER_PAST_REACH, 1);
   assert.eq(trig, (reach + 1) * CELL);
-  assert.eq(Combat.SHOT.staff.rangeFromReach, Combat.RANGED_TRIGGER_PAST_REACH, 'the staff\'s range is the same ring');
+  assert.eq(Combat.SHOT.bow.rangeFromReach, Combat.RANGED_TRIGGER_PAST_REACH, 'the arrow\'s range is the same ring');
+  assert.eq(Combat.SHOT.staff.rangeFromReach, 0, 'magic stops at the vision range itself');
   assert.truthy(Combat.anyEnemyWithin(0, 0, [goblin('in', trig - 1, 0)], trig), 'inside: armed');
   assert.falsy(Combat.anyEnemyWithin(0, 0, [goblin('out', trig + 1, 0)], trig), 'on screen but beyond: silent');
   assert.truthy(/const rangedArmed = Combat\.anyEnemyWithin\(px, py, enemies, Combat\.rangedTriggerM\(reachCells\(this\), this\.cellM\)\);\s*\n\s*if \(rangedArmed\)/.test(APP_JS_SRC),

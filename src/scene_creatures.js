@@ -1921,12 +1921,12 @@ class SceneCreatures {
       // MONSTER_HIT_MS per-monster cooldown. Melee kinds use range 1
       // (adjacent, Combat.MONSTERS[kind].range itself); a RANGED kind (the goblin
       // archer) instead fires the instant the player is inside the SAME ring
-      // the staff's own bolt range is derived from —
-      // Combat.rangeCellsFor('staff', reachCells(this)), the player's live
+      // the player's bow range is derived from —
+      // Combat.rangeCellsFor('bow', reachCells(this)), the player's live
       // reach plus one cell — rather than a flat cell count. So the archer
-      // can never open fire from further off than your own ranged weapon
+      // can never open fire from further off than your own arrow
       // would answer from, and the ring tightens underground / grows with
-      // Inner Light upgrades exactly as the staff's does. Accumulated +
+      // Inner Light upgrades exactly as the bow's does. Accumulated +
       // flashed once per window after the loop, like the slime swarm.
       if (Combat.isMonster(c.kind) && !isTame && !unnoticed && !standDown && !rosterRow) {
         const m = Combat.monster(c.kind);
@@ -1934,7 +1934,7 @@ class SceneCreatures {
         // dmg 0) skips both halves below: it is not a melee drain at strength
         // zero, which the armour floor would round up to a bite.
         const hits = Combat.monsterHits(c.kind);
-        const rangeCells = m.range > 1 ? Combat.rangeCellsFor('staff', reachCells(this)) : m.range;
+        const rangeCells = m.range > 1 ? Combat.rangeCellsFor('bow', reachCells(this)) : m.range;
         const R = rangeCells * this.cellM;
         // A RANGED monster needs a clear line, for the same reason your bow
         // does: the goblin archer reaches out to the player's own live reach,

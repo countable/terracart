@@ -114,6 +114,22 @@
     assert.eq(wildplants.length, 0);
   });
 
+  test('a plain rock street cannot drop verge rocks inside a variant corridor', () => {
+    const area = new Uint8Array(N * N);
+    area[16 * N + 16] = 1;
+    const x = tx * tileEdgeM + 16.5 * WorldGen.CELL_M;
+    const y = ty * tileEdgeM + 16.5 * WorldGen.CELL_M;
+    const rock = (id, line) => ({ id: `mr_${tx}_${ty}_${id}_16`, x, y, _street: true, _streetLine: line });
+    const objects = [rock(1, 'plain'), rock(2, 'variant')];
+    const it = WorldGen.clearStreetAmbientSteps({ area, objects, wildplants: [], tx, ty, N, tileEdgeM,
+      ownLines: new Set(['variant']) });
+    let r = it.next();
+    while (!r.done) r = it.next();
+    assert.eq(r.value, 1);
+    assert.eq(objects.length, 1);
+    assert.eq(objects[0]._streetLine, 'variant', 'a variant street keeps its own rocks');
+  });
+
   test('surface street cleanup keeps the cave entrance tied to its original rock', () => {
     const smallN = 12, edge = smallN * WorldGen.CELL_M;
     const grid = new Uint8Array(smallN * smallN).fill(WorldGen.T.GRASS);
