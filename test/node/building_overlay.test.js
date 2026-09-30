@@ -677,6 +677,41 @@ test('building overlay: nothing is drawn underground', () => {
 });
 
 clearTiles();
+test('building overlay: a cell crossing reuses baked wall pieces instead of rebaking them', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE)]);
+  let created = 0;
+  const removed = [];
+  const ctx = new Proxy({}, { get: (obj, key) => obj[key] || (() => {}), set: (obj, key, v) => { obj[key] = v; return true; } });
+  const scene = makeScene({
+    worldContainer: { add() {} },
+    textures: {
+      exists: () => false,
+      remove: (key) => removed.push(key),
+      createCanvas: () => { created++; return { getContext: () => ctx, refresh() {} }; },
+    },
+    add: { image(x, y) { return {
+      x, y, setOrigin() { return this; },
+      setPosition(x, y) { this.x = x; this.y = y; return this; },
+      destroy() {},
+    }; } },
+  });
+  BuildingOverlay.draw(scene);
+  const first = scene._buildingUprightPieces.slice();
+  assert.eq(created, 8, 'first pass bakes every piece in view');
+  const x0 = first[0].sprite.x;
+  scene.playerM.x = 5;                     // one whole cell east
+  BuildingOverlay.draw(scene);
+  assert.eq(created, 8, 'crossing a cell bakes nothing new');
+  assert.eq(removed.length, 0, 'and releases nothing still in view');
+  assert.truthy(scene._buildingUprightPieces.every((p, i) => p === first[i]), 'same pieces, same order');
+  assert.eq(first[0].sprite.x, x0 - CELL_PX, 'cached piece moves with the world');
+  scene.save.restoredHouses = ['x'];       // claim epoch changes → rebuild
+  BuildingOverlay.draw(scene);
+  assert.eq(created, 8, 'a rebuild with unchanged claim state keeps the pieces');
+});
+
+clearTiles();
 test('building overlay: upright polygon walls share world ordering and scroll independently of floors', () => {
   clearTiles();
   putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE)]);
