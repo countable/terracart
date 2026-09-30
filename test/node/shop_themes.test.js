@@ -67,8 +67,15 @@ test('themed shops: the re-roll is $2, then ×1.5 rounded down — cheaper than 
   const got = [0, 1, 2, 3, 4, 5, 6].map((n) => ShopsMath.themedRerollCost(n));
   assert.eq(got.join(), '2,3,4,6,9,13,19');
   for (let n = 0; n < 8; n++) {
-    assert.truthy(ShopsMath.themedRerollCost(n) < 5 * Math.pow(2, n), 'under the smith at every step');
+    assert.truthy(ShopsMath.themedRerollCost(n) < ShopsMath.smithyRerollCost(n), 'under the smith at every step');
   }
+});
+
+test('smithy: the re-roll is $5, then ×1.5 rounded down, and the forge offer uses it', () => {
+  const got = [0, 1, 2, 3, 4, 5, 6].map((n) => ShopsMath.smithyRerollCost(n));
+  assert.eq(got.join(), '5,7,10,15,22,33,49');
+  assert.truthy(/next => this\.presentBlacksmithOffer\(sx, sy, next, recordDeal, house\),\s*\{ cost: ShopsMath\.smithyRerollCost \}\);/.test(APP_JS_SRC),
+    'presentBlacksmithOffer passes the smithy curve');
 });
 
 test('themed shops: prices sit above list', () => {

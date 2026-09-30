@@ -151,7 +151,7 @@ class SceneModals {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0008', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, story = false, art } = {}) {
+    kind, kindLabel, kindIcon, story = false, art, centerBody = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
     // Scene art is a story-sized dialog by definition — its frame is cut to
@@ -357,7 +357,21 @@ class SceneModals {
           // Above the painting layer (PIXEL RESOLVE), which is absolute.
           'position:relative;z-index:1;'
         : 'margin:auto 0;flex:0 0 auto;';
-      while (box.firstChild) body.appendChild(box.firstChild);
+      // `centerBody` (the chest ceremony): the content region is the WHOLE
+      // quiet zone and the copy sits centred in it rather than on its floor.
+      // An inner block with auto margins does the centring, so long copy
+      // still starts at the top and scrolls instead of clipping.
+      let into = body;
+      if (art && centerBody) {
+        body.style.flex = '0 0 auto';
+        body.style.height = body.style.maxHeight;
+        body.style.display = 'flex';
+        body.style.flexDirection = 'column';
+        into = document.createElement('div');
+        into.style.cssText = 'margin:auto 0;flex:0 0 auto;';
+        body.appendChild(into);
+      }
+      while (box.firstChild) into.appendChild(box.firstChild);
       box.appendChild(body);
       if (artLayer) { box.insertBefore(artLayer, box.firstChild); box.insertBefore(mosaicLayer, artLayer); }
       if (kindNode) { kindNode.style.flex = '0 0 auto'; box.insertBefore(kindNode, box.firstChild); }
@@ -376,6 +390,7 @@ class SceneModals {
       if (art && body.scrollHeight > body.clientHeight + 1) {
         paintScene(true);
         body.style.maxHeight = `${Math.round((1 - ART_BAND_FRAC) * 100)}%`;
+        if (centerBody) body.style.height = body.style.maxHeight;
       }
     };
     // Buttons are CONTROLS — gold, always (spec §UI COLOUR LANGUAGE). An
@@ -820,7 +835,7 @@ class SceneModals {
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
     onDismiss, header, kind = 'treasure', kindIcon, actions, art, cards = false }) {
     const { wrap, box, mount } = this.makeModalShell('chest-reward-modal', {
-      zIndex: 55, borderColor: accent, wrapBg: '#000c', art,
+      zIndex: 55, borderColor: accent, wrapBg: '#000c', art, centerBody: true,
       kind, kindLabel: header, kindIcon,
       wrapExtra: 'animation:chestModalIn 180ms ease-out;',
       boxExtra: `border-width:3px;border-radius:14px;padding:22px 22px 14px;font-size:14px;` +

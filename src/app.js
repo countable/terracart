@@ -383,9 +383,17 @@ const COIN_BURST_NEAR_PLAYER = 3;
 // How long a burst's coins wait for you. No timed reward is shorter than ten
 // minutes: nothing is worth hurrying across a street for.
 const COIN_BURST_LIFE_MS = 10 * 60 * 1000;
+// THE SMITHY'S PREVIEW: what you receive is a big picture over its name, not
+// a line-height icon beside it. The Smithy chip and the Forge / Smelt tab
+// already say where you are, so neither offer carries a flavour title, and
+// the picture IS the receiving side: only the price is captioned (You give).
+const SMITHY_PREVIEW_PX = 56;
+const smithyPreviewHTML = (iconHTML, name) =>
+  `<div style="line-height:0;margin:2px 0 6px">${iconHTML}</div><div>${name}</div>`;
 const COIN_BURST_NEAR_R = 2;
 // THE SAFETY CARD (_showSafetyCard): what each version says, and when the
-// short ones come back. Kept here as data so the copy is one table.
+// short ones come back. Kept here as data so the copy is one table. LAUNCH is
+// the game's only opening safety message (the loading screen carries none).
 const SAFETY_RESUME_GAP_MS = 5 * 60 * 1000;   // back after 5+ minutes away
 const SAFETY_DUSK_DAYLIGHT = 0.5;             // Lighting.daylight: the sun on the horizon
 const SAFETY_TICK_MS = 30000;                 // how often dusk is asked
@@ -394,7 +402,7 @@ const SAFETY_CARDS = {
     lines: ['Look up. Watch where you walk, not the screen.',
       'NEVER step into a street to reach something — use the stick to walk your farmer to it.',
       'Do not play while driving or cycling.',
-      'Keep out of private and unsafe places.'] },
+      'Keep out of private, unsafe and prohibited places.'] },
   resume: { title: '⚠ LOOK UP',
     lines: ['Welcome back. Check your surroundings before you walk on.',
       'Out of reach? Use the stick — never the street.'] },
@@ -1093,7 +1101,7 @@ const COLORS = {
   7: 0x474441,  // road — asphalt with dust blown over it
   8: 0xaaa090,  // path — a worn grey dust track
   // Building footprints: halfway between original and approved recolour.
-  9: 0xad826d,  // building — small house: weathered brick
+  9: 0xae685d,  // building — small house: weathered red brick (Sep 2026: redder, a touch more contrast)
   10: 0xa09a8c, // rock
   11: 0xaa9577, // building_med — weathered grey-brown plank floor
   12: 0x919395, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
@@ -11904,7 +11912,8 @@ class MapScene extends Phaser.Scene {
   // Build the "Re-roll" secondary button shared by the relic and blacksmith
   // offers. Both pivot the same seed lane (curState.rerolls) and pull the next
   // target from peekOrBuildRelicOffer; they differ only in the "nothing left"
-  // flash text and which present* method re-renders. Cost = 5 × 2^rerolls.
+  // flash text and which present* method re-renders. Cost = 5 × 2^rerolls,
+  // unless `opts.cost` says otherwise (the smithy: ShopsMath.smithyRerollCost).
   // (The trader offer's re-roll is structurally different — it has no peek
   // step — so it stays inline in presentTraderOffer.)
   // A themed shop rides the same button with its own `opts.cost` (the cheaper
@@ -12129,20 +12138,19 @@ class MapScene extends Phaser.Scene {
     const idx = bars.indexOf(target);
     const pageTo = (id) => () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, id);
     const fmt = (n) => ({
-      get: `${n}× ${this.iconSpanHTML(target)} ${outItem?.name || target}`,
+      get: smithyPreviewHTML(this.iconSpanHTML(target, SMITHY_PREVIEW_PX), `${n}× ${outItem?.name || target}`),
       cost: recipeLine(n),
       canAfford: cap >= n && n >= 1,
     });
     const first = fmt(1);
     this.showOfferModal({
       kind: 'forge',
-      title: 'The blacksmith stokes the crucible:',
       cancelLabel: 'Later',
       get: first.get,
       cost: cap >= 1 ? first.cost : recipeLine(1),
       canAfford: cap >= 1,
       acceptLabel: 'Smelt',
-      getLabel: 'You receive', costLabel: 'You give',
+      costLabel: 'You give',
       tabs,
       quantity: cap >= 1 ? { min: 1, max: cap, initial: 1, format: fmt } : undefined,
       pager: {
@@ -13888,7 +13896,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const name = gearName(offer.kind, offer.slot, offer.tier);
-    const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 20);
+    const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, SMITHY_PREVIEW_PX);
     const heldCount = (id) => Inventory.count(this.save, id);
     const canAfford = () => recipe.every(r => heldCount(r.id) >= r.qty);
     const costHTML = recipe.map(r => {
@@ -13896,13 +13904,14 @@ class MapScene extends Phaser.Scene {
       return `${r.qty}× ${this.iconSpanHTML(r.id)} ${itm?.name || r.id}`;
     }).join(' + ');
     // Re-roll mirrors the relic-offer flow (shared via _makeRerollSecondary):
-    // cost = 5 × 2^rerolls, bumps curState.rerolls so the next
+    // cost = ShopsMath.smithyRerollCost (×1.5 a roll), bumps curState.rerolls so the next
     // peekOrBuildRelicOffer returns a different forge target. Suppressed for
     // the starter blacksmith — the wooden-tool queue is sequential, not
     // random, so there's nothing to re-roll into.
     const secondary = opts.noReroll ? undefined
       : this._makeRerollSecondary(house, sx, sy, 'nothing else to forge',
-          next => this.presentBlacksmithOffer(sx, sy, next, recordDeal, house));
+          next => this.presentBlacksmithOffer(sx, sy, next, recordDeal, house),
+          { cost: ShopsMath.smithyRerollCost });
     // Forge / Smelt tab row — only on a normal smithy (not the starter
     // wooden-tool queue). Switching to Smelt re-presents this same forge
     // offer as the "back" target so the player can toggle freely.
@@ -13916,14 +13925,13 @@ class MapScene extends Phaser.Scene {
       : undefined;
     this.showOfferModal({
       kind: 'forge',
-      title: this.buildingFlavorTitle(house, 'forge'),
       cancelLabel: 'Later',
-      get: `${iconHtml} ${name}`,
+      get: smithyPreviewHTML(iconHtml, name),
       blurb: this._trailRewardBlurb(offer),
       cost: costHTML,
       canAfford: canAfford(),
       acceptLabel: 'Forge',
-      getLabel: 'You receive', costLabel: 'You give',
+      costLabel: 'You give',
       tabs,
       secondary,
       onAccept: () => {

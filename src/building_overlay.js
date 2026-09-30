@@ -36,7 +36,15 @@
 //     merlon rhythm dashed along it;
 //   • and the unclaimed shade — the same transform textures.js bakes the
 //     unclaimed castle palette with, applied to the colours rather than washed
-//     over the top, so two overlapping footprints can't wash one twice.
+//     over the top, so two overlapping footprints can't wash one twice — then
+//     the unclaimed MATERIAL lift (textures.js unclaimedMaterialColor, the
+//     one the tiled pass runs its shaded floors and stone through), applied
+//     to the same colours. It used to be run over the finished pixels of each
+//     footprint instead, which cost a canvas and a pixel read-back per
+//     unclaimed building on every cell crossing; on a phone each read-back is
+//     a synchronous trip to the GPU process, and forty of them was the
+//     walking stutter. Tuning the colours lands the same lift with no pixels
+//     read at all.
 //
 // …and one thing the cells never did: a DILAPIDATED footprint (unclaimed — the
 // wreck you can still restore) grows dark green slime splotches across its
@@ -63,7 +71,8 @@
 //   biome_profiles.js — BiomeProfiles.mixHex (the one colour lerp)
 //   render.js   — Render.BUILDING_FACE_COLOR / BUILDING_FACE_PX (the tiled
 //                 pass's own wall colours + depths, so the two can't drift)
-//   textures.js — CASTLE_STONE / CASTLE_STONE_UNCLAIMED, unclaimedShade
+//   textures.js — CASTLE_STONE / CASTLE_STONE_UNCLAIMED, unclaimedShade,
+//                 unclaimedMaterialColor
 //   app.js consts — COLORS, CELL_PX
 //
 // Exports as globals:
@@ -77,11 +86,11 @@
   // tiled floor fill reads — so a polygon and the cells under it are the same
   // colour by construction. The fallbacks are for the headless suite, where
   // app.js isn't loaded.
-  const FLOOR_FALLBACK = { 9: 0xad826d, 11: 0xaa9577, 12: 0x919395 };
+  const FLOOR_FALLBACK = { 9: 0xae685d, 11: 0xaa9577, 12: 0x919395 };
   const floorColor = (tier, claimed = true) =>
     (!claimed && typeof UNCLAIMED_BUILDING_BASE !== 'undefined') ? UNCLAIMED_BUILDING_BASE.floors[tier]
       : (typeof COLORS !== 'undefined' && COLORS[tier] != null) ? COLORS[tier]
-      : (FLOOR_FALLBACK[tier] ?? 0xad826d);
+      : (FLOOR_FALLBACK[tier] ?? 0xae685d);
 
   // Wall face + its depth: render.js's own SOUTH_FACE_COLOR / SOUTH_FACE_PX,
   // read through Render so the polygonal wall and the tiled one are the same
@@ -129,6 +138,14 @@
   const shadeOf = (claimed) => {
     if (claimed || typeof unclaimedShade !== 'function') return (c) => c;
     return (c) => unclaimedShade(c);
+  };
+  // …and the material lift over the shaded colour: what render.js's tiled
+  // pass does to an unclaimed court floor and its stone (courtShaded, the
+  // `stone` helper), so a polygon and the cells it replaces land on the same
+  // pixel. Colours only — see the header for why no pixel is read back.
+  const tuneOf = (claimed) => {
+    if (claimed || typeof unclaimedMaterialColor !== 'function') return (c) => c;
+    return (c) => unclaimedMaterialColor(c);
   };
 
   // ── Slime: what "dilapidated" looks like up close ────────────────────────
@@ -266,11 +283,11 @@
     const CS = (typeof CASTLE_STONE === 'undefined') ? null
       : (claimed || typeof CASTLE_STONE_UNCLAIMED === 'undefined'
         ? CASTLE_STONE : CASTLE_STONE_UNCLAIMED);
-    const sh = shadeOf(claimed);
+    const sh = shadeOf(claimed), tune = tuneOf(claimed);
     return {
-      body: CS ? CS.BODY.n : sh(0x8f9298),
-      lite: CS ? CS.LITE.n : sh(0xb9bcc2),
-      dark: CS ? CS.DARK.n : sh(0x303134),
+      body: tune(CS ? CS.BODY.n : sh(0x8f9298)),
+      lite: tune(CS ? CS.LITE.n : sh(0xb9bcc2)),
+      dark: tune(CS ? CS.DARK.n : sh(0x303134)),
     };
   };
 
@@ -346,8 +363,7 @@
     if (scene.textures.exists(TEX_KEY)) scene.textures.remove(TEX_KEY);
     const tex = scene.textures.createCanvas(TEX_KEY, size, size);
     if (!tex) return null;
-    const mainCtx = tex.getContext();
-    let ctx = mainCtx, materialLayer = null;
+    const ctx = tex.getContext();
     ctx.lineJoin = 'round';
     const img = scene.add.image(originX, originY, TEX_KEY).setOrigin(0, 0);
     scene.buildingGeomContainer.add(img);
@@ -387,30 +403,6 @@
     };
     const target = {
       clear() { ctx.clearRect(0, 0, size, size); },
-      beginMaterial(d, unclaimed) {
-        if (!unclaimed || typeof tuneUnclaimedMaterialCanvas !== 'function') return;
-        // Only during an overlay rebuild, and only the visible building's
-        // small clipped rectangle. No viewport-sized readback per footprint.
-        const x = Math.max(0, Math.floor(d.left - originX) - 2);
-        const y = Math.max(0, Math.floor(d.north - originY) - 2);
-        const right = Math.min(size, Math.ceil(d.right - originX) + 2);
-        const bottom = Math.min(size, Math.ceil(d.south - originY + facePx(d.tier)) + 2);
-        if (right <= x || bottom <= y) return;
-        const layer = document.createElement('canvas');
-        layer.width = right - x; layer.height = bottom - y;
-        materialLayer = { layer, x, y };
-        ctx = layer.getContext('2d');
-        ctx.lineJoin = 'round';
-        ctx.translate(-x, -y);
-      },
-      endMaterial() {
-        if (!materialLayer) return;
-        const { layer, x, y } = materialLayer;
-        tuneUnclaimedMaterialCanvas(layer);
-        ctx = mainCtx;
-        ctx.drawImage(layer, x, y);
-        materialLayer = null;
-      },
       fillPoly(pts, color) {
         if (!pts || pts.length < 3) return;
         trace(pts);
@@ -541,22 +533,94 @@
   // Pieces are cached across rebuilds, keyed by their WORLD geometry: the
   // projection is a pure translation (whole cells between rebuilds), so a
   // piece baked once stays valid and only moves. A cell crossing then bakes
-  // just the edges newly in view instead of every wall on screen — each bake
-  // is a canvas, a pixel read-back and a GPU upload, and redoing all of them
-  // per crossing stalled the walk for ~200ms on a phone.
+  // just the edges newly in view instead of every wall on screen.
+  //
+  // ── The wall atlas ───────────────────────────────────────────────────────
+  // Every piece used to be its own canvas texture, and a crossing in a
+  // downtown bakes ~30 of them: each one a canvas, a whole-canvas pixel
+  // read-back (Phaser's CanvasTexture reads its pixels back on creation), a
+  // second read-back for the unclaimed treatment and its own GPU upload. On a
+  // phone a read-back is a synchronous trip to the GPU process, and that
+  // batch was most of the 60–190 ms stall on every cell crossing. Pieces now
+  // share ATLAS PAGES: square canvas textures cut into fixed slots, one slot
+  // per piece, each exposed to its sprite as a Phaser frame. A crossing
+  // paints its new pieces into free slots and uploads each touched page once
+  // (commitWallAtlas, at the end of the rebuild); nothing reads pixels back.
+  // Slots are freed when a piece scrolls out of the padded view, and a page
+  // with no piece left on it is dropped.
+  const PAGE_PX = 512;
+  // A slot holds the largest piece uprightEdges can cut: one edge segment of
+  // at most a cell in either axis, its wall depth below, the rampart band and
+  // outline padding on every side, and the pixel of floor/ceil rounding at
+  // each end. Derived from the constants the bake pads with, so a retune of
+  // BAND_PX can't overflow a slot.
+  const SLOT_PAD = BAND_PX + OUTLINE_PX;
+  const slotSize = () => {
+    const tbl = (typeof Render !== 'undefined' && Render.BUILDING_FACE_PX) || null;
+    const deepest = tbl ? Math.max(...Object.values(tbl)) : facePx(CASTLE);
+    return { w: CELL_PX + SLOT_PAD * 2 + 2, h: CELL_PX + deepest + SLOT_PAD * 2 + 2 };
+  };
+  function wallAtlas(scene) {
+    let A = scene._buildingWallAtlas;
+    if (!A) {
+      const { w, h } = slotSize();
+      A = scene._buildingWallAtlas = {
+        pages: [], slotW: w, slotH: h,
+        cols: Math.floor(PAGE_PX / w), rows: Math.floor(PAGE_PX / h), seq: 0,
+      };
+    }
+    return A;
+  }
+  // A free slot on some page: { page, slot, sx, sy }. Opens a page when every
+  // slot in hand is taken.
+  function allocSlot(scene) {
+    const A = wallAtlas(scene);
+    let page = A.pages.find((p) => p.free.length);
+    if (!page) {
+      const key = `buildinggeom_walls_${++A.seq}`;
+      if (scene.textures.exists(key)) scene.textures.remove(key);
+      const tex = scene.textures.createCanvas(key, PAGE_PX, PAGE_PX);
+      const free = [];
+      for (let i = A.cols * A.rows - 1; i >= 0; i--) free.push(i);
+      page = { key, tex, ctx: tex.getContext(), free, used: 0, dirty: false, seq: 0 };
+      A.pages.push(page);
+    }
+    const slot = page.free.pop();
+    page.used++;
+    return { page, slot, sx: (slot % A.cols) * A.slotW, sy: Math.floor(slot / A.cols) * A.slotH };
+  }
+  // Upload every page a rebuild painted on, once, and drop the pages the
+  // release pass emptied.
+  function commitWallAtlas(scene) {
+    const A = scene._buildingWallAtlas;
+    if (!A) return;
+    A.pages = A.pages.filter((page) => {
+      if (!page.used) { scene.textures.remove(page.key); return false; }
+      if (page.dirty) { page.tex.refresh(); page.dirty = false; }
+      return true;
+    });
+  }
   function releasePiece(scene, p) {
     p.sprite.destroy();
-    scene.textures.remove(p.textureKey);
+    p.page.tex.remove(p.frame);
+    p.page.free.push(p.slot);
+    p.page.used--;
   }
   function clearUprights(scene) {
-    for (const p of (scene._buildingUprightCache || new Map()).values()) releasePiece(scene, p);
+    for (const p of (scene._buildingUprightCache || new Map()).values()) p.sprite.destroy();
+    for (const page of (scene._buildingWallAtlas ? scene._buildingWallAtlas.pages : [])) {
+      scene.textures.remove(page.key);
+    }
+    scene._buildingWallAtlas = null;
     scene._buildingUprightCache = new Map();
     scene._buildingUprightPieces = [];
   }
 
   function uprightEdges(scene, d, isMine, projX, projY, seen) {
-    const shade = shadeOf(isMine), depth = facePx(d.tier);
+    const shade = shadeOf(isMine), tune = tuneOf(isMine), depth = facePx(d.tier);
     const stone = castleStone(isMine);
+    const face = tune(shade(faceColor(d.tier, isMine)));
+    const outline = d.tier === CASTLE ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
     const points = d.pts;
     const trace = (ctx) => {
       ctx.beginPath();
@@ -591,15 +655,20 @@
           }
           continue;
         }
-        const key = `buildinggeom_wall_${scene._buildingUprightSeq = (scene._buildingUprightSeq || 0) + 1}`;
-        if (scene.textures.exists(key)) scene.textures.remove(key);
-        const tex = scene.textures.createCanvas(key, w, h);
-        const ctx = tex.getContext();
-        ctx.translate(-x, -y);
+        const { page, slot, sx, sy } = allocSlot(scene);
+        const A = scene._buildingWallAtlas;
+        const ctx = page.ctx;
+        // Paint into the slot: clear it (a freed slot still wears its last
+        // piece), clip to it so the erase below can't reach a neighbour, and
+        // move the piece's own pixel box onto it.
+        ctx.save();
+        ctx.clearRect(sx, sy, A.slotW, A.slotH);
+        ctx.beginPath(); ctx.rect(sx, sy, A.slotW, A.slotH); ctx.clip();
+        ctx.translate(sx - x, sy - y);
         // Extrude this edge downward, then remove its part inside the floor.
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
         ctx.lineTo(q.x, q.y + depth); ctx.lineTo(p.x, p.y + depth); ctx.closePath();
-        ctx.fillStyle = cssOf(shade(faceColor(d.tier, isMine))); ctx.fill();
+        ctx.fillStyle = cssOf(face); ctx.fill();
         ctx.globalCompositeOperation = 'destination-out';
         trace(ctx); ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
@@ -619,16 +688,19 @@
         }
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
         ctx.lineWidth = OUTLINE_PX;
-        ctx.strokeStyle = cssOf(d.tier === CASTLE ? stone.dark : dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
+        ctx.strokeStyle = cssOf(outline);
         ctx.stroke();
-        if (!isMine && typeof tuneUnclaimedMaterialCanvas === 'function') {
-          tuneUnclaimedMaterialCanvas(tex.getSourceImage());
-        }
-        tex.refresh();
-        const sprite = scene.add.image(x, y, key).setOrigin(0, 0);
+        ctx.restore();
+        page.dirty = true;
+        // The piece's frame on its page. The slot bounds the piece by
+        // construction (slotSize); the min is belt-and-braces against a
+        // frame that would read a neighbour's pixels.
+        const frame = `p${++page.seq}`;
+        page.tex.add(frame, 0, sx, sy, Math.min(w, A.slotW), Math.min(h, A.slotH));
+        const sprite = scene.add.image(x, y, page.key, frame).setOrigin(0, 0);
         scene.worldContainer.add(sprite);
         const piece = {
-          sprite, textureKey: key, x, y, wx, wy, width: w, height: h, rank: 1,
+          sprite, page, frame, slot, x, y, wx, wy, width: w, height: h, rank: 1,
           // The perimeter is the ground anchor; extrusion is visual height,
           // just as for tiled walls. Towers at this boundary rank above it.
           groundY: (Math.max(p.y, q.y) - projY(0)) * scene.cellM / CELL_PX,
@@ -789,21 +861,23 @@
 
     for (const d of draws) {
       const isMine = claimed(d.key);
-      if (g.beginMaterial) g.beginMaterial(d, !isMine);
-      const shade = shadeOf(isMine);
-      const floor = shade(floorColor(d.tier, isMine));
+      const shade = shadeOf(isMine), tune = tuneOf(isMine);
+      // The shaded floor is what the slime derives from (three shades deep —
+      // see slimeColor); the material lift goes over every colour after.
+      const shaded = shade(floorColor(d.tier, isMine));
+      const floor = tune(shaded);
       const depth = facePx(d.tier);
       // The wall, as the ring filled again one face-depth south and painted
       // UNDER the floor: whatever survives is exactly the polygon's
       // south-facing edges, at any angle, with no per-edge normal test.
-      if (!separateUprights) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), shade(faceColor(d.tier, isMine)));
+      if (!separateUprights) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), tune(shade(faceColor(d.tier, isMine))));
       g.fillPoly(d.pts, floor);
       if (g.texturePoly) g.texturePoly(d.pts, d.tier);
       // Dilapidated: the slime, over the floor and its material (it is growing
       // on them) but under the lattice, the rampart and the outline — the
       // building's own lines stay clean, only its floor is overgrown.
       if (!isMine && g.blobsPoly) {
-        g.blobsPoly(d.pts, slimeBlobs(d), d.left, d.north, slimeColor(floor, shade), SLIME_ALPHA);
+        g.blobsPoly(d.pts, slimeBlobs(d), d.left, d.north, tune(slimeColor(shaded, shade)), SLIME_ALPHA);
       }
       // The cell grid goes on OVER the floor and its material. The tiled
       // floors wore it a layer lower (gridContainer sits under noiseContainer),
@@ -822,14 +896,14 @@
         g.insetStroke(d.pts, MERLON_PX, stone.lite, MERLON_DASH);
         g.strokePoly(d.pts, OUTLINE_PX, stone.dark);
       } else {
-        g.strokePoly(d.pts, OUTLINE_PX, dim(floor, OUTLINE_MUL));
+        g.strokePoly(d.pts, OUTLINE_PX, tune(dim(shaded, OUTLINE_MUL)));
       }
-      if (g.endMaterial) g.endMaterial();
     }
     // Pieces that scrolled out of view (or changed claim state) go.
     for (const [k, p] of scene._buildingUprightCache) {
       if (!seen.has(k)) { releasePiece(scene, p); scene._buildingUprightCache.delete(k); }
     }
+    if (separateUprights) commitWallAtlas(scene);
     if (g.commit) g.commit();
   }
 

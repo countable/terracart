@@ -33,8 +33,6 @@ function makeGfx() {
   return {
     ops: [], cleared: 0, commits: 0, phase: null,
     clear() { this.ops.length = 0; this.cleared++; },
-    beginMaterial(d, unclaimed) { this.ops.push({ op: 'material-begin', key: d.key, unclaimed }); },
-    endMaterial() { this.ops.push({ op: 'material-end' }); },
     fillPoly(pts, color) { this.ops.push({ op: 'fill', pts: pts.map(p => ({ x: p.x, y: p.y })), color }); },
     strokePoly(pts, width, color) { this.ops.push({ op: 'stroke', pts, width, color }); },
     insetStroke(pts, width, color, dash) { this.ops.push({ op: 'inset', pts, width, color, dash }); },
@@ -204,7 +202,7 @@ test('building overlay: the wall is the ring shifted south, drawn UNDER the floo
   const g = scene.buildingGeomGfx;
   const [wall, floor] = g.only('fill');
   const depth = Render.BUILDING_FACE_PX[T.BUILDING];
-  assert.eq(g.ops.find(o => !o.op.startsWith('material-')).op, 'fill', 'the wall is the first thing painted');
+  assert.eq(g.ops[0].op, 'fill', 'the wall is the first thing painted');
   for (let i = 0; i < floor.pts.length; i++) {
     assert.eq(wall.pts[i].x, floor.pts[i].x, `wall vertex ${i} x matches the floor`);
     assert.eq(wall.pts[i].y, floor.pts[i].y + depth, `wall vertex ${i} sits ${depth}px south`);
@@ -376,18 +374,49 @@ test('building overlay: an unclaimed footprint is drawn in shaded colours', () =
   }
 });
 
-test('building overlay: each footprint completes its own material layer before the next', () => {
+test('building overlay: the unclaimed material lift is applied to the colours, never read back', () => {
+  // textures.js's lift (unclaimedMaterialColor) used to run over each
+  // unclaimed footprint's finished pixels — a canvas and a getImageData per
+  // building per cell crossing, the walking stutter on a phone. It goes over
+  // the COLOURS now, after the shade, exactly as render.js's tiled pass runs
+  // its court floors: an unclaimed floor, its slime and its outline all wear
+  // it; a restored neighbour in the same pass wears none of it.
   clearTiles();
   putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING, 'old'),
-    rectShape(0, 12, 10, 10, T.BUILDING, 'restored')]);
-  const scene = makeScene({ isClaimedKey: key => key === 'restored' });
-  BuildingOverlay.draw(scene);
-  const stages = scene.buildingGeomGfx.ops.filter(o => o.op.startsWith('material-'));
-  assert.eq(stages.length, 4, 'two complete material layers');
-  assert.eq(stages[0].unclaimed, true, 'weathering treatment is enabled for the old building');
-  assert.eq(stages[1].op, 'material-end', 'old layer completes before a restored neighbour');
-  assert.eq(stages[2].unclaimed, false, 'restored material bypasses the unclaimed colour transfer');
-  assert.eq(stages[3].op, 'material-end', 'restored layer completes');
+    rectShape(0, 20, 10, 30, T.BUILDING, 'restored')]);
+  const hadShade = typeof unclaimedShade !== 'undefined', prevShade = hadShade ? unclaimedShade : undefined;
+  const hadTune = typeof unclaimedMaterialColor !== 'undefined', prevTune = hadTune ? unclaimedMaterialColor : undefined;
+  globalThis.unclaimedShade = (c) => c ^ 0x00ff00;
+  const tuned = [];
+  globalThis.unclaimedMaterialColor = (c) => { tuned.push(c); return c ^ 0x0000ff; };
+  try {
+    const scene = makeScene({ isClaimedKey: key => key === 'restored' });
+    BuildingOverlay.draw(scene);
+    const g = scene.buildingGeomGfx;
+    const [oldWall, oldFloor, newWall, newFloor] = g.only('fill');
+    const base = oldFloor.color ^ 0x0000ff ^ 0x00ff00;
+    assert.eq(newFloor.color, base, 'the restored floor is the plain tier colour');
+    assert.eq(oldFloor.color, (base ^ 0x00ff00) ^ 0x0000ff, 'the old floor: shaded, then lifted');
+    assert.eq(oldWall.color, (newWall.color ^ 0x00ff00) ^ 0x0000ff, 'its wall too');
+    const slime = g.only('slime');
+    assert.eq(slime.length, 1, 'only the old floor is overgrown');
+    assert.includes(tuned, slime[0].color ^ 0x0000ff, 'the slime went through the lift');
+    const [oldLine, newLine] = g.only('stroke');
+    assert.includes(tuned, oldLine.color ^ 0x0000ff, 'and the old outline');
+    assert.eq(tuned.includes(newLine.color ^ 0x0000ff), false, 'the restored outline did not');
+    assert.eq(typeof BuildingOverlay.draw, 'function');
+  } finally {
+    if (hadShade) globalThis.unclaimedShade = prevShade; else delete globalThis.unclaimedShade;
+    if (hadTune) globalThis.unclaimedMaterialColor = prevTune; else delete globalThis.unclaimedMaterialColor;
+  }
+});
+
+test('building overlay: no pixel read-back anywhere in the overlay', () => {
+  // The whole point of the two changes above (the colour-level lift and the
+  // wall atlas): a cell crossing must never call getImageData — on a phone
+  // each one is a synchronous round trip to the GPU process.
+  assert.eq(/getImageData|putImageData|tuneUnclaimedMaterialCanvas/.test(BUILDING_OVERLAY_SRC), false,
+    'building_overlay.js reads no pixels back');
 });
 
 test('building overlay: a keyless shape is never shaded', () => {
@@ -676,62 +705,71 @@ test('building overlay: nothing is drawn underground', () => {
   assert.eq(scene.buildingGeomGfx.only('fill').length, 0, 'no polygons in the rock');
 });
 
+// ─── The wall atlas ─────────────────────────────────────────────────────────
+// Upright pieces bake into shared atlas PAGES (canvas textures cut into fixed
+// slots, one frame per piece), not into a texture each: a crossing then
+// paints its new pieces and uploads a page once, with no pixel read-back.
+// The stub records what a Phaser CanvasTexture would be asked to do.
+function makeWallScene(over) {
+  const log = { pages: [], removedTextures: [], frames: [], removedFrames: [], refreshes: 0, sprites: [] };
+  const ctx = new Proxy({}, { get: (obj, key) => obj[key] || (() => {}), set: (obj, key, v) => { obj[key] = v; return true; } });
+  const scene = makeScene(Object.assign({
+    worldContainer: { add(sprite) { log.sprites.push(sprite); } },
+    textures: {
+      exists: () => false,
+      remove: (key) => log.removedTextures.push(key),
+      createCanvas: (key, w, h) => {
+        const page = { key, w, h, frames: new Map(),
+          getContext: () => ctx,
+          refresh() { log.refreshes++; },
+          add(name, src, x, y, fw, fh) { const f = { page: key, name, x, y, w: fw, h: fh }; this.frames.set(name, f); log.frames.push(f); return f; },
+          remove(name) { this.frames.delete(name); log.removedFrames.push(name); return true; },
+        };
+        log.pages.push(page);
+        return page;
+      },
+    },
+    add: { image(x, y, key, frame) { return {
+      x, y, key, frame, destroyed: false,
+      setOrigin() { return this; },
+      setPosition(x, y) { this.x = x; this.y = y; return this; },
+      destroy() { this.destroyed = true; },
+    }; } },
+  }, over));
+  return { scene, log };
+}
+
 clearTiles();
 test('building overlay: a cell crossing reuses baked wall pieces instead of rebaking them', () => {
   clearTiles();
   putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE)]);
-  let created = 0;
-  const removed = [];
-  const ctx = new Proxy({}, { get: (obj, key) => obj[key] || (() => {}), set: (obj, key, v) => { obj[key] = v; return true; } });
-  const scene = makeScene({
-    worldContainer: { add() {} },
-    textures: {
-      exists: () => false,
-      remove: (key) => removed.push(key),
-      createCanvas: () => { created++; return { getContext: () => ctx, refresh() {} }; },
-    },
-    add: { image(x, y) { return {
-      x, y, setOrigin() { return this; },
-      setPosition(x, y) { this.x = x; this.y = y; return this; },
-      destroy() {},
-    }; } },
-  });
+  const { scene, log } = makeWallScene();
   BuildingOverlay.draw(scene);
   const first = scene._buildingUprightPieces.slice();
-  assert.eq(created, 8, 'first pass bakes every piece in view');
+  assert.eq(log.frames.length, 8, 'first pass bakes every piece in view');
+  assert.eq(log.pages.length, 1, 'all of them onto ONE atlas page');
+  assert.eq(log.refreshes, 1, 'uploaded once, not once per piece');
+  assert.truthy(first.every(p => p.sprite.key === log.pages[0].key && p.sprite.frame === p.frame), 'sprites draw their frame of the page');
   const x0 = first[0].sprite.x;
   scene.playerM.x = 5;                     // one whole cell east
   BuildingOverlay.draw(scene);
-  assert.eq(created, 8, 'crossing a cell bakes nothing new');
-  assert.eq(removed.length, 0, 'and releases nothing still in view');
+  assert.eq(log.frames.length, 8, 'crossing a cell bakes nothing new');
+  assert.eq(log.refreshes, 1, 'and uploads nothing');
+  assert.eq(log.removedFrames.length, 0, 'and releases nothing still in view');
   assert.truthy(scene._buildingUprightPieces.every((p, i) => p === first[i]), 'same pieces, same order');
   assert.eq(first[0].sprite.x, x0 - CELL_PX, 'cached piece moves with the world');
   scene.save.restoredHouses = ['x'];       // claim epoch changes → rebuild
   BuildingOverlay.draw(scene);
-  assert.eq(created, 8, 'a rebuild with unchanged claim state keeps the pieces');
+  assert.eq(log.frames.length, 8, 'a rebuild with unchanged claim state keeps the pieces');
 });
 
 clearTiles();
 test('building overlay: upright polygon walls share world ordering and scroll independently of floors', () => {
   clearTiles();
   putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE)]);
-  const removed = [], sprites = [];
   let shutdown, shutdownRegistrations = 0;
-  const ctx = new Proxy({}, { get: (obj, key) => obj[key] || (() => {}), set: (obj, key, v) => { obj[key] = v; return true; } });
-  const scene = makeScene({
+  const { scene, log } = makeWallScene({
     events: { once(event, fn) { assert.eq(event, 'shutdown'); shutdown = fn; shutdownRegistrations++; } },
-    worldContainer: { add(sprite) { sprites.push(sprite); } },
-    textures: {
-      exists: () => false,
-      remove: (key) => removed.push(key),
-      createCanvas: () => ({ getContext: () => ctx, refresh() {} }),
-    },
-    add: { image(x, y) { return {
-      x, y, destroyed: false,
-      setOrigin() { return this; },
-      setPosition(x, y) { this.x = x; this.y = y; return this; },
-      destroy() { this.destroyed = true; },
-    }; } },
   });
   BuildingOverlay.draw(scene);
   assert.eq(scene.buildingGeomGfx.only('fill').length, 1, 'only the floor stays on the ground canvas');
@@ -747,15 +785,52 @@ test('building overlay: upright polygon walls share world ordering and scroll in
   scene.depth = 1;
   BuildingOverlay.draw(scene);
   assert.eq(scene._buildingUprightPieces.length, 0, 'underground removes surface uprights');
-  assert.truthy(sprites.every(s => s.destroyed), 'old wall sprites are destroyed');
-  assert.eq(removed.length, 8, 'wall textures are released');
+  assert.truthy(log.sprites.every(s => s.destroyed), 'old wall sprites are destroyed');
+  assert.eq(log.removedTextures.length, 1, 'the atlas page is released');
   scene.depth = 0;
   BuildingOverlay.draw(scene);
+  assert.eq(log.pages.length, 2, 'surfacing opens a fresh page');
   assert.eq(shutdownRegistrations, 1, 'rebuilds share one shutdown cleanup');
   shutdown();
   assert.eq(scene._buildingUprightPieces.length, 0, 'scene shutdown releases cached pieces');
-  assert.eq(removed.length, 16, 'shutdown releases surviving textures');
+  assert.eq(log.removedTextures.length, 2, 'shutdown releases the surviving page');
   assert.eq(scene._buildingGeomKey, null, 'a restarted scene rebuilds its buildings');
+});
+
+test('building overlay: atlas slots fit the largest piece, and an emptied page is dropped', () => {
+  // A diamond footprint cuts diagonal edges, the widest pieces there are in
+  // both axes; a castle carries the deepest face and the rampart padding. No
+  // frame may be clamped to its slot (that would crop a wall), so every
+  // frame is the piece's own box and every box fits the slot.
+  clearTiles();
+  putShapes(0, 0, [{ ring: Float32Array.from([10, 0, 20, 10, 10, 20, 0, 10]), tier: T.BUILDING_LARGE, areaM2: 200, key: null }]);
+  const { scene, log } = makeWallScene();
+  BuildingOverlay.draw(scene);
+  const A = scene._buildingWallAtlas;
+  assert.truthy(A && A.slotW > 0 && A.slotH > 0, 'the atlas geometry is on the scene');
+  const pad = 2 * (5 + 1) + 2;   // BAND_PX + OUTLINE_PX each side, plus the rounding pixel each end
+  assert.eq(A.slotW, CELL_PX + pad, 'a slot is a cell plus the bake padding wide');
+  assert.eq(A.slotH, CELL_PX + Render.BUILDING_FACE_PX[T.BUILDING_LARGE] + pad, 'and the deepest face taller');
+  assert.gt(log.frames.length, 4, 'the diamond cut into several pieces');
+  for (const p of scene._buildingUprightPieces) {
+    const f = log.pages[0].frames.get(p.frame);
+    assert.eq(f.w, p.width, `frame ${p.frame} is the piece's own width`);
+    assert.eq(f.h, p.height, `frame ${p.frame} is the piece's own height`);
+    assert.eq(f.w <= A.slotW && f.h <= A.slotH, true, `frame ${p.frame} fits its slot`);
+    assert.eq(f.x % A.slotW === 0 && f.y % A.slotH === 0, true, `frame ${p.frame} sits on a slot corner`);
+  }
+  // Walk far enough that every piece leaves the padded view: each frame is
+  // released, and the page, with nothing left on it, goes with them.
+  const baked = log.frames.length;
+  scene.playerM.x = 5 * 40;
+  BuildingOverlay.draw(scene);
+  assert.eq(scene._buildingUprightPieces.length, 0, 'nothing in view');
+  assert.eq(log.removedFrames.length, baked, 'every frame released');
+  assert.eq(log.removedTextures.join(), log.pages[0].key, 'the emptied page is dropped');
+  scene.playerM.x = 0;
+  BuildingOverlay.draw(scene);
+  assert.eq(log.pages.length, 2, 'walking back opens a page again');
+  assert.eq(log.frames.length, baked * 2, 'and rebakes the pieces');
 });
 
 test('building overlay: cached offscreen walls skip rendering and reappear on subcell scrolling', () => {

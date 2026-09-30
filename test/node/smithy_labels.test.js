@@ -5,8 +5,8 @@
 // button read Forge. And the trade itself — gear for bars, or on the Smelt
 // tab bars for bars — was two equal lines with a lone "for" between them, so
 // which line you were paying was a guess. The category is SMITHY now, and
-// both smithy offers caption their halves "You receive" / "You give", which
-// showOfferModal renders in place of the "for" row.
+// both smithy offers caption the price "You give", which showOfferModal
+// renders in place of the "for" row.
 //
 // app.js needs Phaser, so this is pinned as source text (the MODAL_KINDS row
 // and showOfferModal itself in modal_shell.js).
@@ -19,8 +19,9 @@ test('smithy: the modal category is Smithy, so Forge names only the action', () 
   assert.truthy(m, 'MODAL_KINDS.forge row');
   assert.eq(m[1], 'Smithy', 'category label');
   // The key stays `forge` — every call site and tools/modal_audit.js pin it.
-  assert.truthy(/kind: 'forge',\n      title: 'The blacksmith stokes the crucible:'/.test(app), 'smelt offer still keys forge');
-  assert.truthy(/kind: 'forge',\n      title: this\.buildingFlavorTitle\(house, 'forge'\)/.test(app), 'forge offer still keys forge');
+  // Neither offer carries a flavour title: the chip and the tab say it.
+  assert.truthy(/kind: 'forge',\n      cancelLabel: 'Later',\n      get: first\.get,/.test(app), 'smelt offer still keys forge');
+  assert.truthy(/kind: 'forge',\n      cancelLabel: 'Later',\n      get: smithyPreviewHTML\(iconHtml, name\),/.test(app), 'forge offer still keys forge');
 });
 
 test('smithy: showOfferModal renders getLabel / costLabel captions, costLabel replacing the "for" row', () => {
@@ -32,9 +33,11 @@ test('smithy: showOfferModal renders getLabel / costLabel captions, costLabel re
     'the give caption stands in for the "for" row, never beside it');
 });
 
-test('smithy: both the Forge and the Smelt offer caption their halves', () => {
-  const smelt = app.match(/acceptLabel: 'Smelt',\n\s*getLabel: 'You receive', costLabel: 'You give',/);
-  const forge = app.match(/acceptLabel: 'Forge',\n\s*getLabel: 'You receive', costLabel: 'You give',/);
+// The received item is a big picture over its name (smithyPreviewHTML), so a
+// "You receive" caption over it was clutter; the price keeps its caption.
+test('smithy: both the Forge and the Smelt offer caption the price', () => {
+  const smelt = app.match(/acceptLabel: 'Smelt',\n\s*costLabel: 'You give',/);
+  const forge = app.match(/acceptLabel: 'Forge',\n\s*costLabel: 'You give',/);
   assert.truthy(smelt, 'smelt offer captions');
   assert.truthy(forge, 'forge offer captions');
 });
