@@ -95,13 +95,24 @@ const MapReviewArt = (() => {
       const scene={save:{},textures:this._assets.textures,cellM:WorldGen.CELL_M};
       const roles=new WeakMap();
       for(const e of this._world.tiles)for(const o of e.objects||[])if(o.kind==='house')roles.set(o,Houses.displayRole(scene.save,o));
-      const resolve=Render.objectAppearance(scene,roles).resolveAppearance;
+      const {resolveAppearance:resolve,fruitList}=Render.objectAppearance(scene,roles);
       this._sprites=[];
       const add=(e,o,category)=>{
         if(!Number.isFinite(o.x)||!Number.isFinite(o.y))return;
         const appearance=category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(o):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:resolve(o);
         const kind=category==='creature'?(e?(o.kind==='npc'?'resident: npc':Combat.isEnemy(o)?'enemy: '+o.kind:'animal: '+o.kind):'enemy: garrison'):o.kind==='wildplant'?'plant:'+o.crop:o.kind==='xmark'?'X mark':o.kind;
-        this._sprites.push({e,o,category,kind,appearance});
+        // Reuse the game's crown hook, measured at the tree's local origin.
+        // Keep fruit with its tree so filtering and painter order stay together.
+        const fruit=[];
+        if(o.kind==='fruittree'&&appearance?.visible) {
+          const p=appearance;
+          fruitList.length=0;
+          p.spec.after({texture:{key:p.texKey},frame:{name:p.frameVal},
+            originX:p.origin[0],originY:p.origin[1],scaleX:p.scl,scaleY:p.scl*p.scaleYMul,
+            x:p.dxPx,y:p.dyPx,depth:0},o,scene);
+          fruit.push(...fruitList);
+        }
+        this._sprites.push({e,o,category,kind,appearance,fruit});
       };
       for(const e of this._world.tiles) {
         for(const o of e.objects||[])add(e,o,'object');
@@ -166,6 +177,13 @@ const MapReviewArt = (() => {
         if(!f) {g.fillStyle='#ffd86a';g.fillRect(at.x-1,at.y-1,3,3);continue;}
         const w=f.width*p.scl*scale,h=f.height*p.scl*p.scaleYMul*scale;
         g.drawImage(t.getSourceImage(),f.x,f.y,f.width,f.height,at.x+p.dxPx*scale-w*p.origin[0],at.y+p.dyPx*scale-h*p.origin[1],w,h);drawn++;
+        for(const fruit of item.fruit) {
+          const ft=textures.get(fruit.key),ff=ft?.get(fruit.frame);
+          if(!ff)continue;
+          const fw=ff.width*fruit.scale*scale,fh=ff.height*fruit.scale*scale;
+          g.drawImage(ft.getSourceImage(),ff.x,ff.y,ff.width,ff.height,
+            at.x+fruit.x*scale-fw/2,at.y+fruit.y*scale-fh/2,fw,fh);
+        }
       }
       this.options.onStatus?.(detailed?`Game art · ${drawn.toLocaleString()} sprites in view${this._assets.failures.length?' · '+this._assets.failures.length+' missing assets':''}`:'Game art · zoom in for textures and sprites');
       return this;
