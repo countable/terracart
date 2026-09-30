@@ -82,3 +82,23 @@ studies are labelled separately. RGB studies preserve source shape/alpha;
 they do not complete recommended contour cleanup or selective material masks.
 The rejected ground tileset alternatives remain in source details: the actual
 procedural materials are better suited to arbitrary map polygons.
+
+## Sandbox comparison
+
+`tools/preview_sandbox_art.py` captures matched current/candidate views of the
+actual sandbox in an isolated browser. It freezes time and actors, uses neutral
+lighting, and stitches native 32px cells with a two-cell margin. No shipping
+textures or user saves are modified. Candidates use the dashboard's palette
+studies; clipped hedges are limited to residential/commercial shrub cells.
+
+```sh
+CHROMIUM_PATH=/path/to/chromium python3 tools/preview_sandbox_art.py \
+  --url http://127.0.0.1:8767/ \
+  --reserve-root /home/claude/terracart/unused_art \
+  --output /tmp/sandbox-art-comparison
+```
+
+Outputs include before/after PNGs, a static comparison, capture metadata and an
+interactive comparison page. The sandbox has no vector roads/building polygons
+or assigned zone motifs, so the capture uses its intended tiled building mode.
+It demonstrates candidates present in that layout, not every audit entry.
