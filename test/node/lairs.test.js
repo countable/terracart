@@ -263,10 +263,9 @@
         seen.set(look, kind);
       }
     }
-    // Blue cave slime now has distinct shipped art, not a multiply tint.
-    assert.truthy(SpriteLayout.creatureSheet('cave_slime') !== SpriteLayout.creatureSheet('slime'));
+    // The cave slime shares the surface slime's sheet and is told apart by its tint.
     assert.eq(SpriteLayout.creatureTint('slime'), 0xffffff);
-    assert.eq(SpriteLayout.creatureTint('cave_slime'), 0xffffff);
+    assert.eq(SpriteLayout.creatureTint('cave_slime'), SpriteLayout.CAVE_SLIME_TINT);
     assert.eq(SpriteLayout.creatureSheet('giant_cave_slime'), SpriteLayout.creatureSheet('cave_slime'));
     // The renderer must READ that, not branch on the kind.
     assert.truthy(/s\.setTint\(frozen \? FROZEN_TINT : c\.shiny \? SHINY_TINT : npcArt \? npcArt\.tint : creatureTint\(c\.kind\)\)/
