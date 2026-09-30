@@ -4,7 +4,7 @@
 // (particles.js 'rain', app.js _rainOver). The player's own better can is
 // never undercut: the higher of the two tiers is the one that waters.
 (() => {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const lift = (sig) => {
   const a = app.indexOf(sig);
   assert.truthy(a > 0, `found ${sig}`);

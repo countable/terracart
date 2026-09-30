@@ -3,7 +3,7 @@
 // ceremony both wear it. One table for the words (items.js
 // TIER_BADGE_NAMES), MATERIAL_TIERS' own colours for the chips.
 (() => {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 test('tier badge: seven words on the seven ores, dark ink on the pale ones', () => {
   const words = ['basic', 'common', 'uncommon', 'rare', 'epic', 'legendary', 'godly'];
