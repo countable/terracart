@@ -3053,6 +3053,9 @@ test('mineralrock mining: ore rocks drop the yield-tier bar (each tier its own n
   // tiles: which tiles are live by now is order-dependent, and a pinned
   // fixture owns its own rocks (the tier ladder, not worldgen luck, is under
   // test). Seat them all while standing still, then mine each in turn.
+  // Pin to the boot spot first: seating is relative to the player, and where
+  // earlier tests leave them is timing-dependent.
+  teleport(scene, scene.__bootWX, scene.__bootWY);
   const seats = [];
   for (const tier of Object.keys(expected)) {
     const seat = placeMineralrock(scene, tier === '1'
