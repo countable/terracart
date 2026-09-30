@@ -1110,10 +1110,11 @@ const COLORS = {
   6: 0xa0ac7c,  // park — unmown, going to seed
   7: 0x474441,  // road — asphalt with dust blown over it
   8: 0xaaa090,  // path — a worn grey dust track
-  9: 0xbda18a,  // building — small house: weathered brick
+  // Building footprints: halfway between original and approved recolour.
+  9: 0xad826d,  // building — small house: weathered brick
   10: 0xa09a8c, // rock
-  11: 0xb9a789, // building_med — weathered grey-brown plank floor
-  12: 0xaaaca9, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
+  11: 0xaa9577, // building_med — weathered grey-brown plank floor
+  12: 0x919395, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
   13: 0x3b3936, // road_lg (motorway/trunk/primary) — darkest
   14: 0x413f3b, // road_md (secondary/tertiary)
   // --- Subtype splits — each tile fits into one of three base biomes ---

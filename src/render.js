@@ -62,7 +62,7 @@ Render.COIN_DROP_PX = COIN_DROP_PX;
 const GRASS_FALLBACK_COLOR = 0x919e70;   // matches the approved COLORS[0] grass
 // Pseudo-3D extrusion: a building footprint is the "top surface", and its
 // south-facing edge gets a darker wall projected downward onto the row below.
-// Wall face = 40% brightness of the footprint colour (60% darker) — deep
+// Wall faces recover half the pre-recolour contrast against their floors — deep
 // shadow under the lit top surface, but with enough hue to read as the
 // building's own material rather than a generic dark stripe. Houses get a 4px
 // wall; civic slabs (LARGE) keep a thicker 5px one to read at their bigger
@@ -73,7 +73,7 @@ const GRASS_FALLBACK_COLOR = 0x919e70;   // matches the approved COLORS[0] grass
 // POLYGON with the same colours at the same depths, and a wall that changed
 // height when the footprint stopped being square would give the two modes
 // different silhouettes for the same building.
-const BUILDING_FACE_COLOR = { 9: 0x816b59, 11: 0x87795f, 12: 0x7e8475 };
+const BUILDING_FACE_COLOR = { 9: 0x644c3f, 11: 0x625441, 12: 0x5a5e58 };
 const BUILDING_FACE_PX = { 9: 4, 11: 4, 12: 5 };
 // Building tiers, as a predicate. Module scope for the same reason: the base
 // terrain fill needs it too, several hundred lines before the outline pass

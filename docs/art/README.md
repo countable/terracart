@@ -82,6 +82,13 @@ outputs directly, so no second colour treatment is applied. The sandbox comparis
 captures the installed game against the preserved before image; pass `--baseline`
 when generating into a new output directory after application.
 
+Ground-pattern attenuation is now halfway back toward its pre-recolour strength
+(for example forest 0.50 → 0.75 and rock 0.80 → 0.90), following gameplay review.
+Building footprint floors, wall faces and restored castle masonry likewise use
+the midpoint of the original and approved palettes. Unclaimed footprint material
+receives a 5% treatment instead of 10%. Terrain base colours and sprite sheets
+retain their approved treatment. These values live in the shared runtime painters.
+
 ## Active map-art audit
 
 `map-audit-ground.json`, `map-audit-structures.json` and
