@@ -27,10 +27,12 @@ const MemoryStory = (() => {
       2: 'The Warmonger took every roof in one night. You are putting them back one at a time. That is the only answer to it I have ever heard.',
       3: 'Some nights I think the Warmonger is still out there. Then I see lamplight in a mended window, and I stop thinking about it.',
     },
+    // The wanderer is a CHILD (NPC.STORY_ROLES — drawn at CHILD_SCALE): short
+    // sentences, one thing at a time, a door remembered before a house.
     wanderer: {
-      homeless: 'I sleep under whichever wall is driest. There was a house with my name on the door, once. Now there is a door and no house.',
-      housed: 'Did you see it? A roof, a real one, with lamplight under it. I slept indoors last night. I had forgotten the sound of rain on a roof.',
-      settled: 'There is a bed for me now, and a kettle. Knock when you pass. You need not bring anything.',
+      homeless: 'We sleep under whichever wall is driest. I had a room once, with my name on the door. Now there is only the door.',
+      housed: 'Did you see? A roof! A real one, with a lamp under it. I slept inside last night. I forgot what rain sounds like on a roof.',
+      settled: 'I have a bed now, and a window. Knock when you go past. There is always something in the pot.',
     },
     believer: {
       ruin: 'Before the fire a wise wizard watched over this land. His tower fell with the rest. Mend enough of these wrecks and you will find it. Restore it, and perhaps he comes back and saves us all.',
