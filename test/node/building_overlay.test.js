@@ -33,6 +33,8 @@ function makeGfx() {
   return {
     ops: [], cleared: 0, commits: 0, phase: null,
     clear() { this.ops.length = 0; this.cleared++; },
+    beginMaterial(d, unclaimed) { this.ops.push({ op: 'material-begin', key: d.key, unclaimed }); },
+    endMaterial() { this.ops.push({ op: 'material-end' }); },
     fillPoly(pts, color) { this.ops.push({ op: 'fill', pts: pts.map(p => ({ x: p.x, y: p.y })), color }); },
     strokePoly(pts, width, color) { this.ops.push({ op: 'stroke', pts, width, color }); },
     insetStroke(pts, width, color, dash) { this.ops.push({ op: 'inset', pts, width, color, dash }); },
@@ -202,7 +204,7 @@ test('building overlay: the wall is the ring shifted south, drawn UNDER the floo
   const g = scene.buildingGeomGfx;
   const [wall, floor] = g.only('fill');
   const depth = Render.BUILDING_FACE_PX[T.BUILDING];
-  assert.eq(g.ops[0].op, 'fill', 'the wall is the first thing painted');
+  assert.eq(g.ops.find(o => !o.op.startsWith('material-')).op, 'fill', 'the wall is the first thing painted');
   for (let i = 0; i < floor.pts.length; i++) {
     assert.eq(wall.pts[i].x, floor.pts[i].x, `wall vertex ${i} x matches the floor`);
     assert.eq(wall.pts[i].y, floor.pts[i].y + depth, `wall vertex ${i} sits ${depth}px south`);
@@ -372,6 +374,20 @@ test('building overlay: an unclaimed footprint is drawn in shaded colours', () =
   } finally {
     if (had) globalThis.unclaimedShade = prev; else delete globalThis.unclaimedShade;
   }
+});
+
+test('building overlay: each footprint completes its own material layer before the next', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING, 'old'),
+    rectShape(0, 12, 10, 10, T.BUILDING, 'restored')]);
+  const scene = makeScene({ isClaimedKey: key => key === 'restored' });
+  BuildingOverlay.draw(scene);
+  const stages = scene.buildingGeomGfx.ops.filter(o => o.op.startsWith('material-'));
+  assert.eq(stages.length, 4, 'two complete material layers');
+  assert.eq(stages[0].unclaimed, true, 'weathering treatment is enabled for the old building');
+  assert.eq(stages[1].op, 'material-end', 'old layer completes before a restored neighbour');
+  assert.eq(stages[2].unclaimed, false, 'restored material bypasses the unclaimed colour transfer');
+  assert.eq(stages[3].op, 'material-end', 'restored layer completes');
 });
 
 test('building overlay: a keyless shape is never shaded', () => {

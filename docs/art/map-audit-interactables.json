@@ -11,7 +11,7 @@
     "buildings and terrain audited separately"
   ],
   "prevalenceMethod": "Qualitative priority from explicit spawn rules, biome coverage and repeated zone materials. No full-map post-filter census was run. Locally dense does not imply common everywhere.",
-  "zoneVariantPolicy": "Five targeted context proposals; rockfruit replacement withdrawn. No seasons; no context variants enabled.",
+  "zoneVariantPolicy": "Six targeted interactable context proposals, including dedicated Broken Masonry art; no seasons.",
   "rows": [
     {
       "id": "longgrass",
@@ -77,7 +77,7 @@
       },
       "zoneVariant": {
         "name": "Wetland reeds",
-        "usage": "Wetland margins only, not seasonal; proposed only.",
+        "usage": "One-cell wetland margins; installed context art, not seasonal.",
         "candidate": {
           "path": "unused_art/verdant-props-tileset-16x16/tiles/16x16/cattails.png",
           "rect": [
@@ -565,7 +565,7 @@
     },
     {
       "id": "rubble",
-      "name": "Loose rubble / wild rockfruit",
+      "name": "Wild rockfruit / zone rubble",
       "category": "resources",
       "priority": 8,
       "prevalence": {
@@ -606,7 +606,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Keep rockfruit\u2019s existing shape and shading, shifting its cool stone colour 35% toward the actual ore-rock substrate\u2019s warm greys and tan highlights. Include its growing and placed-stone frames; no rubble art swap.",
+        "note": "Keep rockfruit\u2019s existing shape and shading, shifting its cool stone colour 35% toward the actual ore-rock substrate\u2019s warm greys and tan highlights. Include its growing and placed-stone frames. Broken Masonry uses its own brick-and-stone rubble silhouette.",
         "palette": [
           {
             "id": "ore-stone-0",
@@ -640,6 +640,20 @@
         "recolourStrength": 0.35,
         "preserveLuminance": true,
         "growthStages": true
+      },
+      "zoneVariant": {
+        "name": "Broken Masonry debris",
+        "usage": "Broken Masonry zone rubble only; ordinary wild and planted rockfruit keep their existing art and harvest.",
+        "candidate": {
+          "path": "unused_art/verdant-props-tileset-16x16/tiles/16x16/rubble_masonry.png",
+          "rect": [
+            0,
+            0,
+            16,
+            16
+          ]
+        },
+        "note": "Dedicated broken brick-and-stone silhouette from the available ruins library. Retain its warm stone colours and pixel shading; collect it through the existing rubble harvest without changing value."
       }
     },
     {

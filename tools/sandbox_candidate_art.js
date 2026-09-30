@@ -1,6 +1,7 @@
 // Preview-only asset substitution for the sandbox comparison. No saves or
 // shipping assets are changed. Uses the audit dashboard's brightness study.
 globalThis.applySandboxCandidates = async function (scene, plan) {
+  if (Object.values(ASSETS).some(a => a.path?.startsWith('assets/Objects/Approved/'))) throw new Error('Approved art is already installed; capture the shipping result without reapplying proposals.');
   const canvases = new Map(), changed = [];
   const recolour=(canvas,hexes,options={})=>ArtPreviewColour.recolour(canvas,hexes,options);
   function blank(w,h){const c=document.createElement('canvas');c.width=w;c.height=h;return c;}

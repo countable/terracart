@@ -79,8 +79,8 @@
   // brown). ROAD_COLOR — vehicle carriageways — is desaturated further AND
   // darkened, so a paved street reads as a visibly different, harder surface
   // than a dirt path instead of the same band at a different width.
-  const PATH_COLOR = 0x5c4b3f;
-  const ROAD_COLOR = 0x3a322c;
+  const PATH_COLOR = 0x948b75;
+  const ROAD_COLOR = 0x79766c;
   const ALPHA = 0.61;    // reads as a band without hiding the map
   const MVT_EXTENT = 4096;
 
@@ -96,7 +96,7 @@
   // classes are OpenMapTiles' rail family (`rail` covers heavy rail and its
   // subclasses; `transit` covers tram / subway / light_rail).
   const RAIL_CLASSES = new Set(['rail', 'transit']);
-  const RAIL_COLOR = 0x565d69;
+  const RAIL_COLOR = 0x838a8c;
 
   // ── Train tracks ─────────────────────────────────────────────────────────
   // A railway is not a paved band. Its slate stroke stays (it reads as the
@@ -731,18 +731,24 @@
     const glow = lampRgb(lampGlowHex(glowHex)), gold = lampRgb(LAMP_GOLD);
     const edge = lampMix(gold, LAMP_DARK, LAMP_EDGE_MIX);
     const rgba = (c3, al) => `rgba(${c3[0]},${c3[1]},${c3[2]},${al})`;
-    // The gild at a tone: + toward a pale gold, − toward the outline's bronze.
-    const shade = (t) => t >= 0 ? lampMix(gold, [255, 244, 214], Math.min(1, t))
-                                : lampMix(gold, LAMP_DARK, Math.min(1, -t));
-    // A turned metal face: dark at its left edge, the light off it a quarter
-    // in, the body of the gild, then the far edge in shadow. One gradient per
-    // piece — the cylinder is in the ramp, not in a stack of strokes.
+    // Crisp ochre/gold material bands. Only the metal uses this small ramp;
+    // coloured glass, bloom and the street's own light stay continuous.
+    const metalRamp = [[76,48,24],[108,67,29],[155,101,38],gold,[230,215,163]];
+    const shade = (t) => {
+      const target = t >= 0 ? lampMix(gold, [255,244,214], Math.min(1,t))
+        : lampMix(gold,LAMP_DARK,Math.min(1,-t));
+      const distance = a => a.reduce((sum,v,k) => sum + (v-target[k]) ** 2,0);
+      return metalRamp.reduce((best,ink) => distance(ink) < distance(best) ? ink : best);
+    };
+    // A hard stop on either side of each band keeps small faces readable at
+    // map scale, while the existing curved outline preserves the silhouette.
     const metal = (x0, x1, t) => {
       const g = cx.createLinearGradient(x0, 0, x1, 0);
-      g.addColorStop(0, rgba(shade(t - 0.30), 1));
-      g.addColorStop(0.26, rgba(shade(t + 0.42), 1));
-      g.addColorStop(0.62, rgba(shade(t), 1));
-      g.addColorStop(1, rgba(shade(t - 0.45), 1));
+      const bands = [[0,.18,t-.30],[.18,.42,t+.42],[.42,.77,t],[.77,1,t-.45]];
+      for (const [from,to,tone] of bands) {
+        const ink = rgba(shade(tone),1);
+        g.addColorStop(from,ink); g.addColorStop(to,ink);
+      }
       return g;
     };
     // One section of the turn: bowed sides, the far rim of its top face
@@ -1658,7 +1664,7 @@
     }
   }
 
-  global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile,
+  global.RoadOverlay = { draw, invalidate, drawLive, paintWeatherTile, paintCleanTile, colorFor,
                          paintLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,

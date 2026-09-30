@@ -49,10 +49,31 @@
       assert.eq(wildplantSprite(o).sheet, 'giant_mushroom');
       assert.eq(wildplantFrame(o), 2);
     }
-    assert.truthy(grove.wildplants.filter(o => o.crop === 'mushroom').every(o => !o._plantArt), 'small mushroom forage stays unchanged');
+    assert.truthy(grove.wildplants.filter(o => o.crop === 'mushroom').every(o => o._plantArt === 'cap_cluster' && wildplantSprite(o).sheet === 'approved_mushroom_cluster'), 'forage gets its approved cluster look while keeping the mushroom crop');
     const ordinary = ZoneDressing.dress(context('meadow')).wildplants.filter(o => o.crop === 'shrub');
     assert.gt(ordinary.length, 0);
     assert.truthy(ordinary.every(o => !o._plantArt && wildplantSprite(o).sheet === 'bushes'), 'other groves keep bushes');
+  });
+  test('zone art: masonry, formal hedges and moss retain their original harvest identities', () => {
+    const masonry = ZoneDressing.dress(context('broken_masonry')).wildplants.filter(o => o.crop === 'rockfruit');
+    assert.gt(masonry.length, 0);
+    assert.truthy(masonry.every(o => o._plantArt === 'masonry' && wildplantSprite(o).sheet === 'approved_masonry_rubble'));
+    assert.eq(wildplantSprite({crop:'rockfruit'}), undefined, 'ordinary stone keeps the crop sheet');
+    assert.eq(inventoryIconSource('rockfruit').sheet, 'crops', 'harvest remains the same inventory item');
+    for (const o of masonry) assert.eq(o.id, WorldGen.cellId(o.zoneLayer === 'background' ? 'wpf' : 'wz', 0, 0, o._ix, o._iy));
+    const hedges = ZoneDressing.dress(context('formal_garden')).wildplants.filter(o => o.crop === 'shrub');
+    assert.gt(hedges.length, 0);
+    assert.truthy(hedges.every(o => wildplantSprite(o).sheet === 'approved_clipped_hedge'));
+    assert.eq(wildplantSprite({crop:'shrub',_biome:5}).sheet, 'approved_clipped_hedge');
+    assert.eq(wildplantSprite({crop:'shrub',_biome:16}).sheet, 'approved_clipped_hedge');
+    assert.eq(wildplantSprite({crop:'shrub',_biome:6}).sheet, 'bushes');
+    const stones = ZoneDressing.dress(context('stone_garden')).objects.filter(o => o.kind === 'mineralrock');
+    assert.truthy(stones.some(o => o._objectArt === 'moss'));
+    assert.truthy(stones.filter(o => o.yieldTier > 1).every(o => !o._objectArt), 'iron ore keeps its tier art');
+    const looks = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC;
+    assert.eq(looks.mineralrock.key(stones.find(o=>o._objectArt==='moss')), 'approved_moss_rocks');
+    assert.eq(looks.stakes.key({_street:'burned'}), 'approved_charred_stakes');
+    assert.eq(looks.stakes.key({}), 'stakes');
   });
   test('zone dressing: Ancient Grove centers and shrine trees use the largest mature canopy', () => {
     const grove = ZoneDressing.dress(context('ancient_grove'));

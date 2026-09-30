@@ -140,10 +140,24 @@ function wildplantVariantHash(p) {
   const key = id != null ? String(id) : `${(p && p._ix) ?? 0}_${(p && p._iy) ?? 0}`;
   return fnv1a(key + '#variant');
 }
-// Placement-specific art shares the crop's harvest and inventory identity.
+// These placement looks retain the base crop's harvest and inventory icon.
+// Zone materialLooks chooses authored looks; ordinary wetland-edge grass is
+// stamped by the rasterizer. None adds an item or changes planted crop art.
+const WILDPLANT_CONTEXT_ART = {
+  reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
+  clipped: { crop: 'shrub', sheet: 'approved_clipped_hedge', custom: true, frame: 0, scale: 4 / 3 },
+  cap_cluster: { crop: 'mushroom', sheet: 'approved_mushroom_cluster', custom: true, frame: 0, scale: 1.224 },
+  masonry: { crop: 'rockfruit', sheet: 'approved_masonry_rubble', custom: true, frame: 0, scale: 2 },
+};
 function wildplantSprite(p) {
   const base = CROP_SPRITE[p && p.crop];
-  return base?.looks?.[p && (p._plantArt || p._streetArt)] || base;
+  const look = p && (p._plantArt || p._streetArt);
+  const context = WILDPLANT_CONTEXT_ART[look];
+  if (context && context.crop === p.crop) return context;
+  if (base?.looks?.[look]) return base.looks[look];
+  // Residential/commercial shrub art is a visual choice, never a spawn rule.
+  if (p && !p._cave && p.crop === 'shrub' && [5, 16].includes(p._biome)) return WILDPLANT_CONTEXT_ART.clipped;
+  return base;
 }
 function wildplantFrame(p) {
   const ov = wildplantSprite(p);

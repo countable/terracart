@@ -38,8 +38,7 @@ colour ramps are assigned by source brightness. Dimensions and alpha are
 preserved exactly. The six defaults are exported to `assets/Objects/Rustic/` with
 `tools/apply_nature_recolours.py`, including matching growth and broken-pot
 states. The clipped hedge is used on hedged lanes; formal-garden / residential /
-commercial zone use remains an alternative. No optional recolour variants are enabled, and
-the game has no seasons.
+commercial shrubs now use the approved clipped-hedge context art. The game has no seasons.
 
 Generate both linked review pages and palette exports (Pillow and Node required):
 
@@ -54,6 +53,35 @@ a PNG swatch chart, and a GPL palette importable by pixel-art editors. No image
 service or generation is involved. Candidates show original source pixels alongside proposed recolours; the
 assessments identify state-specific uses and any additional contour work.
 
+## Applied map art
+
+All approved map-audit proposals are installed. `assets/Objects/Approved/manifest.json`
+records source hashes, recipes and output hashes; original source assets remain
+available. The asset registry and map/inventory icon sheets use the same approved
+frames. Baked unclaimed buildings bypass the old runtime wash to keep their sludge
+and weathering visible. Chapel, macro POI booths, actors and other retained art
+remain unchanged.
+
+The six sprite contexts are wetland-edge reeds, formal/residential/commercial
+hedges, Mushroom Grove cap clusters, Stone Garden moss stones, Broken Masonry
+rubble and Burned Row stakes. Ancient Grove and Silent Circle also use their
+approved ground accents. Context selection preserves placement IDs, quantities,
+loot and interaction types.
+
+Rebuild the deterministic sprite exports from original sources (Pillow, Playwright,
+Node and Chromium required):
+
+```sh
+CHROMIUM_PATH=/path/to/chromium python3 tools/apply_map_art.py
+node tools/sprite_audit.js
+```
+
+`src/textures.js`, `src/building_overlay.js` and `src/road_overlay.js` own the
+installed generated-material colours. The audit dashboard reads baked sprite
+outputs directly, so no second colour treatment is applied. The sandbox comparison
+captures the installed game against the preserved before image; pass `--baseline`
+when generating into a new output directory after application.
+
 ## Active map-art audit
 
 `map-audit-ground.json`, `map-audit-structures.json` and
@@ -66,11 +94,10 @@ are explicitly included at the user’s request. Crops get a small 5.25% lightne
 lift across their growth art, retaining their colours and outlines. Local OSM feature counts are source evidence, not final spawn counts.
 
 Prevalence order is a qualitative estimate from terrain coverage and placement
-rules; no representative post-filter map census was available. Seven families
-(6.4%) have proposed zone-specific alternatives. None are seasonal and none
-are installed by the dashboard. The clipped hedge is active on hedged lanes
-and remains a candidate for Formal
-Garden and residential/commercial bush placements.
+rules; no representative post-filter map census was available. Eight families
+(7.3%) have installed context art or ground accents. None are seasonal. The clipped
+hedge applies to Formal Garden and residential/commercial shrub placements.
+Broken Masonry uses dedicated rubble art; ordinary wild rockfruit retains its own sprite.
 
 ```sh
 python3 tools/preview_map_art.py \
@@ -114,10 +141,10 @@ ordinary shrubs elsewhere retain their woodland bush art.
 
 ## Sandbox comparison
 
-`tools/preview_sandbox_art.py` captures matched current/candidate views of the
+`tools/preview_sandbox_art.py` captures matched before/applied views of the
 actual sandbox in an isolated browser. It freezes time and actors, uses neutral
-lighting, and stitches native 32px cells with a two-cell margin. No shipping
-textures or user saves are modified. Candidates share the dashboard's gentle colour transfer and lighter,
+lighting, and stitches native 32px cells with a two-cell margin. The capture does not modify
+shipping textures or user saves. Installed art uses the dashboard's gentle colour transfer and lighter,
 moderately desaturated ground. Ground and water retain more of their original colour and depth, with the
 previous lightening and desaturation reduced by approximately 25%. The original closed chest is the shading reference; the
 new chest candidate keeps its shape with the original chest’s warm wood and
@@ -133,7 +160,7 @@ CHROMIUM_PATH=/path/to/chromium python3 tools/preview_sandbox_art.py \
 Outputs include before/after PNGs, a static comparison, capture metadata and an
 interactive comparison page. The sandbox has no vector roads/building polygons
 or assigned zone motifs, so the capture uses its intended tiled building mode.
-It demonstrates candidates present in that layout, not every audit entry.
+It demonstrates installed art present in that layout, not every audit entry.
 
 ## Bush alternatives and texture seams
 

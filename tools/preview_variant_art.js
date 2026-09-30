@@ -24,7 +24,7 @@ function slice(source, from, to) {
 }
 const painters = slice(read('textures'), 'const TRAP_PX =', '// === Animated biome textures ===')
   + slice(read('road_overlay'), '  const LAMP_TEX_PX =', '  // The kerb: a hairline');
-const data = vm.runInContext(`({ assets: ASSETS, crops: CROP_SPRITE, cropRows: CROP_ROW,
+const data = vm.runInContext(`({ assets: ASSETS, crops: CROP_SPRITE, contextLooks: WILDPLANT_CONTEXT_ART, cropRows: CROP_ROW,
   cropColumns: CROPS_SHEET_COLS, matureStage: MAX_GROWTH_STAGE,
   mineralTiers: MINERAL_TIERS, fruitFrames, names: CROP_NAMES,
   treeSizes: Object.fromEntries(['small','medium','large'].map(size => [size, treeScale({species:'maple',size})])),

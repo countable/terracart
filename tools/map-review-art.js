@@ -51,7 +51,7 @@ const MapReviewArt = (() => {
       // Only phase zero is needed. Use the very same painter and seed as the game.
       for(const [type,spec] of Object.entries(BIOME_TEX)) for(let v=0;v<spec.variants;v++) {
         const t=textures.createCanvas(`biome${type}_${v}`,32,32);
-        spec.draw(t.getContext(),32,seededRand((Number(type)+1)*1000+v+1),0);
+        drawBiomeTexture(t.getContext(),32,type,v,0);
       }
       return {textures,failures};
     })();
@@ -166,7 +166,7 @@ const MapReviewArt = (() => {
           let type=e.grid[y*N+x];
           if(type===WorldGen.T.PATH&&e.pathUnder?.[`${x}_${y}`]!=null)type=e.pathUnder[`${x}_${y}`];
           const spec=BIOME_TEX[type],h=((e.tx*N+x)*2246822519)^((e.ty*N+y)*3266489917);
-          g.fillStyle='#'+(COLORS[type]??0x71845b).toString(16).padStart(6,'0');g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
+          g.fillStyle='#'+(zoneGroundColor(e,x,y,type)??COLORS[type]??0x71845b).toString(16).padStart(6,'0');g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
           if(spec&&dx>=4)g.drawImage(textures.get(`biome${type}_${Math.abs(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
 
         }
@@ -176,7 +176,7 @@ const MapReviewArt = (() => {
         for(const f of roads?.features||[]) {
           if(f.type!==2||WorldGen.isLotLane(f.tags)||WorldGen.classifyLine('transportation',f.tags)==null)continue;
           const width=WorldGen.roadOverlayWidthM(f.tags);if(!width)continue;
-          g.strokeStyle='#82775f';g.lineWidth=width/edge*(b.x-a.x);
+          g.strokeStyle='#'+RoadOverlay.colorFor(f.tags).toString(16).padStart(6,'0');g.lineWidth=width/edge*(b.x-a.x);
           for(const line of f.geom||[]) {
             if(line.length<2)continue;g.beginPath();
             line.forEach((p,i)=>g[i?'lineTo':'moveTo'](a.x+p.x/(roads.extent||4096)*(b.x-a.x),a.y+p.y/(roads.extent||4096)*(b.y-a.y)));g.stroke();

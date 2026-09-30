@@ -220,7 +220,7 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8'),
   itemsCtx, { filename: 'util.js' });
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'items.js'), 'utf8'),
   itemsCtx, { filename: 'items.js' });
-vm.runInContext('globalThis.CROP_SPRITE = CROP_SPRITE;', itemsCtx);
+vm.runInContext('globalThis.CROP_SPRITE = CROP_SPRITE; globalThis.WILDPLANT_CONTEXT_ART = WILDPLANT_CONTEXT_ART;', itemsCtx);
 const SHRUB_SCALE = itemsCtx.CROP_SPRITE.shrub.scale;
 const CROP_SPRITE = itemsCtx.CROP_SPRITE;
 
@@ -237,42 +237,44 @@ const ASSETS = assetsCtx.window.ASSETS;
 // ── Sheet metadata: where each texture key's PNG lives + frame size, and the
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const SHEETS = {
-  trees:         { file: 'assets/Objects/Rustic/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
+  trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
   // 32×48, not 32×64: at 64 the birch frame reached into the sheet's lower
   // band and picked up the tip of the red autumn tree (see assets.js).
-  pine_tree:     { file: 'assets/Objects/Wilderness/Pine Tree.png',          fw: 32, fh: 48, frames: [3] },
-  birch_tree:    { file: 'assets/Objects/Wilderness/Birch Tree.png',         fw: 32, fh: 48, frames: [3] },
-  mahogany_tree: { file: 'assets/Objects/Wilderness/Mahogany Tree.png',      fw: 32, fh: 48, frames: [3] },
+  pine_tree:     { file: 'assets/Objects/Approved/pine_tree.png',          fw: 32, fh: 48, frames: [3] },
+  birch_tree:    { file: 'assets/Objects/Approved/birch_tree.png',         fw: 32, fh: 48, frames: [3] },
+  mahogany_tree: { file: 'assets/Objects/Approved/mahogany_tree.png',      fw: 32, fh: 48, frames: [3] },
   giant_mushroom: { file: 'assets/Objects/Wilderness/Fantasy Mushroom.png', fw: 32, fh: 48, frames: [2] },
-  bushes:        { file: 'assets/Objects/Rustic/bush.png',             fw: 48, fh: 32, frames: [0] },
+  bushes:        { file: 'assets/Objects/Approved/bushes.png',             fw: 48, fh: 32, frames: [0] },
   // The sheets' fruiting cells (apple 7, peach 5) are deliberately absent: a
   // bearing tree now keeps its mature frame and wears a fruit sprite instead,
   // so nothing ever seats them (see FRUIT_FRAMES in render.js).
-  apple_tree:    { file: 'assets/Objects/Wilderness/Apple Tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 5], crownFrame: 4 },
-  peach_tree:    { file: 'assets/Objects/Wilderness/Peach Tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
-  chest:         { file: 'assets/Objects/Gold Chest.png',                    fw: 16, fh: 16, frames: [0] },
-  box:           { file: 'assets/Objects/Wilderness/Box_Single_16x16.png',   fw: 16, fh: 16, frames: [0] },
-  mineralrock:   { file: 'assets/Objects/Wilderness/stone with minerals.png',fw: 16, fh: 16, frames: [168, 169, 170, 171, 0, 1, 2, 3, 5, 6] },
+  apple_tree:    { file: 'assets/Objects/Approved/apple_tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 5], crownFrame: 4 },
+  peach_tree:    { file: 'assets/Objects/Approved/peach_tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
+  chest:         { file: 'assets/Objects/Approved/chest.png',                    fw: 16, fh: 16, frames: [0] },
+  box:           { file: 'assets/Objects/Approved/box.png',   fw: 16, fh: 16, frames: [0] },
+  mineralrock:   { file: 'assets/Objects/Approved/mineralrock.png',fw: 16, fh: 16, frames: [168, 169, 170, 171, 0, 1, 2, 3, 5, 6] },
+  approved_moss_rocks: { file: 'assets/Objects/Approved/approved_moss_rocks.png', fw: 16, fh: 16, frames: [168,169,170,171] },
+  approved_charred_stakes: { file: 'assets/Objects/Approved/approved_charred_stakes.png', fw: 16, fh: 16, frames: [0] },
   well:          { file: 'assets/Objects/Wilderness/well.png',               fw: 30, fh: 32, frames: [0] },
-  pillar:        { file: 'assets/Objects/Wilderness/pillar.png',             fw: 16, fh: 32, frames: [0] },
-  scarecrow:     { file: 'assets/Objects/Scarecrow_16x16.png',               fw: 48, fh: 48, frames: [0] },
+  pillar:        { file: 'assets/Objects/Approved/pillar.png',             fw: 16, fh: 32, frames: [0] },
+  scarecrow:     { file: 'assets/Objects/Approved/scarecrow.png',               fw: 48, fh: 48, frames: [0] },
   bonfire:       { file: 'assets/Objects/Wilderness/bonfire.png',            fw: 16, fh: 32, frames: [0] },
   torch:         { file: 'assets/Objects/Wilderness/torch.png',              fw: 16, fh: 32, frames: [0] },
-  waystone:      { file: 'assets/Objects/Generated/waystone.png',            fw: 16, fh: 16, frames: [0] },
-  stakes:        { file: 'assets/Objects/Generated/stakes_a.png',            fw: 16, fh: 16, frames: [0] },
-  tar:           { file: 'assets/Objects/Generated/tar.png',                 fw: 16, fh: 16, frames: [0] },
+  waystone:      { file: 'assets/Objects/Approved/waystone.png',            fw: 16, fh: 16, frames: [0] },
+  stakes:        { file: 'assets/Objects/Approved/stakes.png',            fw: 16, fh: 16, frames: [0] },
+  tar:           { file: 'assets/Objects/Approved/tar.png',                 fw: 16, fh: 16, frames: [0] },
   headstone:     { file: 'assets/Objects/Rustic/pillar_c.png',           fw: 16, fh: 16, frames: [0] },
   ...Object.fromEntries(GROVE_SHRINE_ART.map(({ key, frame }) => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],
   }])),
-  vista_scope:   { file: 'assets/Objects/Generated/scope.png',               fw: 16, fh: 24, frames: [0] },
-  barrel:         { file: 'assets/Objects/Generated/barrel.png',             fw: 16, fh: 16, frames: [0] },
-  barrel_smashed: { file: 'assets/Objects/Generated/barrel_smashed.png',     fw: 16, fh: 16, frames: [0] },
+  vista_scope:   { file: 'assets/Objects/Approved/vista_scope.png',               fw: 16, fh: 24, frames: [0] },
+  barrel:         { file: 'assets/Objects/Approved/barrel.png',             fw: 16, fh: 16, frames: [0] },
+  barrel_smashed: { file: 'assets/Objects/Approved/barrel_smashed.png',     fw: 16, fh: 16, frames: [0] },
   clay_pot: { file: 'assets/Objects/Rustic/pot.png', fw: 16, fh: 16, frames: [0] },
   clay_pot_smashed: { file: 'assets/Objects/Rustic/pot_smashed.png', fw: 16, fh: 16, frames: [0] },
-  bike_rack:      { file: 'assets/Objects/Generated/bike_rack.png',          fw: 16, fh: 16, frames: [0] },
-  signpost:       { file: 'assets/Objects/Generated/signpost.png',           fw: 16, fh: 16, frames: [0] },
-  gatepost:       { file: 'assets/Objects/Generated/pillar_a.png',           fw: 16, fh: 16, frames: [0] },
+  bike_rack:      { file: 'assets/Objects/Approved/bike_rack.png',          fw: 16, fh: 16, frames: [0] },
+  signpost:       { file: 'assets/Objects/Approved/signpost.png',           fw: 16, fh: 16, frames: [0] },
+  gatepost:       { file: 'assets/Objects/Approved/gatepost.png',           fw: 16, fh: 16, frames: [0] },
 };
 
 // ── Scenarios: one row per representative (sprite, variant). key/frameIdx pick
@@ -315,6 +317,8 @@ const SCENARIOS = [
   { name: 'torch',           key: 'torch',         frameIdx: 0, scale: 1.1 },
   { name: 'waystone',        key: 'waystone',      frameIdx: 0, scale: 1.6 },
   { name: 'stakes',          key: 'stakes',        frameIdx: 0, scale: 1.6 },
+  { name: 'charred stakes', key: 'approved_charred_stakes', frameIdx: 0, scale: 1.6 },
+  { name: 'moss rock pair', key: 'approved_moss_rocks', frameIdx: 168, scale: 1.28 },
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
   { name: 'headstone',       key: 'headstone',     frameIdx: 0, scale: 1.6 },
   ...GROVE_SHRINE_ART.map(({ name, key, frame, scale }) => ({ name, key, frameIdx: frame, scale })),
@@ -504,7 +508,7 @@ function frameInk(img, fw, fh, frameIdx) {
 function wildFrameRows() {
   const rows = [];
   for (const [crop, ov] of Object.entries(CROP_SPRITE).flatMap(([crop, row]) =>
-    [[crop, row], ...Object.entries(row.looks || {}).map(([look, art]) => [crop + '.' + look, art])])) {
+    [[crop, row], ...Object.entries(row.looks || {}).map(([look, art]) => [crop + '.' + look, art])]).concat(Object.entries(itemsCtx.WILDPLANT_CONTEXT_ART))) {
     if (!ov || !ov.custom) continue;
     const declared = [];
     if (ov.frame != null) declared.push(['frame', ov.frame]);

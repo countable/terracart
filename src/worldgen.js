@@ -5252,6 +5252,16 @@
       if (grows && !occupiedCells.has(cellKey)) {
         occupiedCells.add(cellKey);
         wp._biome = t;
+        // Reed silhouettes identify the one-cell wetland margin. Only art
+        // changes: keep this plant's generated id, density and harvest.
+        if (wp.crop === 'longgrass' && t === T.WETLAND) {
+          const x = wp._ix, y = wp._iy;
+          const edge = (x > 0 && grid[y * w + x - 1] !== t)
+            || (x + 1 < w && grid[y * w + x + 1] !== t)
+            || (y > 0 && grid[(y - 1) * w + x] !== t)
+            || (y + 1 < h && grid[(y + 1) * w + x] !== t);
+          if (edge) wp._plantArt = 'reeds';
+        }
         delete wp._ix; delete wp._iy; delete wp._yard;
         filtered.push(wp);
       }

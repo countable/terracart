@@ -18,12 +18,12 @@
 const CASTLE_STONE = (() => {
   const mk = (n) => ({ n, s: '#' + n.toString(16).padStart(6, '0') });
   return {
-    LITE:   mk(0xb9bcc2),   // lit battlement tops / merlon crowns
-    BODY:   mk(0x8f9298),   // battlement + parapet stone
-    FACE:   mk(0x7e8188),   // the tall extruded wall faces (and the turret column)
-    SIDE:   mk(0x7a7d84),   // E/W side-wall crenel dashes
-    SHADOW: mk(0x5a5d63),   // shadow lines / joints
-    DARK:   mk(0x303134),   // grounding line + silhouette
+    LITE:   mk(0xcbd1c2),   // lit battlement tops / merlon crowns
+    BODY:   mk(0x989d91),   // battlement + parapet stone
+    FACE:   mk(0x7d8476),   // the tall extruded wall faces (and the turret column)
+    SIDE:   mk(0x777e70),   // E/W side-wall crenel dashes
+    SHADOW: mk(0x535d4e),   // shadow lines / joints
+    DARK:   mk(0x282e25),   // grounding line + silhouette
   };
 })();
 
@@ -56,12 +56,63 @@ function unclaimedShade(rgb) {
   };
   return (((ch(16) << 16) | (ch(8) << 8) | ch(0)) >>> 0);
 }
-// Every stone in CASTLE_STONE, shaded. Derived rather than hand-picked so a
-// tweak to the masonry can't leave the unclaimed version behind.
+// Unclaimed masonry retains its original weathering rather than shading the
+// much lighter restored palette. The final 10% treatment is applied after
+// painting, so mortar, translucent sludge and outlines keep their contrast.
+const UNCLAIMED_BUILDING_BASE = {
+  floors: { 9: 0x9d6350, 11: 0x9b8365, 12: 0x787a80 },
+  faces: { 9: 0x472d24, 11: 0x3c2e22, 12: 0x36373a },
+  stone: { LITE: 0xb9bcc2, BODY: 0x8f9298, FACE: 0x7e8188,
+    SIDE: 0x7a7d84, SHADOW: 0x5a5d63, DARK: 0x303134 },
+};
+const UNCLAIMED_MATERIAL_PALETTE = [0x171717, 0x26342a, 0x3e4b2c, 0x403e34,
+  0x777462, 0xb0aa8a, 0x4c3018, 0x6c431d].map(n => [(n >> 16) & 255, (n >> 8) & 255, n & 255]);
+const _unclaimedMaterialColours = new Map();
+// Matches the approved gentle colour/lightness study. Source shadows below
+// 55 and bright glints above 235 remain exact; alpha never changes.
+function tuneUnclaimedMaterialPixels(pixels) {
+  const luma = c => c[0] * .2126 + c[1] * .7152 + c[2] * .0722;
+  for (let i = 0; i < pixels.length; i += 4) {
+    if (!pixels[i + 3]) continue;
+    const key = (pixels[i] << 16) | (pixels[i + 1] << 8) | pixels[i + 2];
+    const cached = _unclaimedMaterialColours.get(key);
+    if (cached !== undefined) {
+      pixels[i] = (cached >> 16) & 255; pixels[i + 1] = (cached >> 8) & 255; pixels[i + 2] = cached & 255;
+      continue;
+    }
+    const source = [pixels[i], pixels[i + 1], pixels[i + 2]], light = luma(source);
+    if (light < 55 || light > 235) continue;
+    let best = Infinity, target;
+    for (const colour of UNCLAIMED_MATERIAL_PALETTE) {
+      const cl = luma(colour);
+      const distance = source.reduce((sum, v, k) => sum + (v - light - (colour[k] - cl)) ** 2, 0);
+      if (distance < best) { best = distance; target = colour.map(v => light + v - cl); }
+    }
+    const adapted = source.map((v, k) => v + (target[k] - v) * .1);
+    const adaptedLight = luma(adapted), lifted = light + (255 - light) * .1;
+    for (let k = 0; k < 3; k++) pixels[i + k] = Math.max(0, Math.min(255, Math.round(lifted + (adapted[k] - adaptedLight) * .9)));
+    if (_unclaimedMaterialColours.size >= 4096) _unclaimedMaterialColours.clear();
+    _unclaimedMaterialColours.set(key, (pixels[i] << 16) | (pixels[i + 1] << 8) | pixels[i + 2]);
+  }
+  return pixels;
+}
+function tuneUnclaimedMaterialCanvas(canvas) {
+  const ctx = canvas.getContext('2d'), image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  tuneUnclaimedMaterialPixels(image.data);
+  ctx.putImageData(image, 0, 0);
+  return canvas;
+}
+function unclaimedMaterialColor(rgb) {
+  const cached = _unclaimedMaterialColours.get(rgb);
+  if (cached !== undefined) return cached;
+  const px = new Uint8ClampedArray([(rgb >> 16) & 255, (rgb >> 8) & 255, rgb & 255, 255]);
+  tuneUnclaimedMaterialPixels(px);
+  return (px[0] << 16) | (px[1] << 8) | px[2];
+}
 const CASTLE_STONE_UNCLAIMED = (() => {
   const mk = (n) => ({ n, s: '#' + n.toString(16).padStart(6, '0') });
   const out = {};
-  for (const k of Object.keys(CASTLE_STONE)) out[k] = mk(unclaimedShade(CASTLE_STONE[k].n));
+  for (const k of Object.keys(UNCLAIMED_BUILDING_BASE.stone)) out[k] = mk(unclaimedShade(UNCLAIMED_BUILDING_BASE.stone[k]));
   return out;
 })();
 
@@ -81,37 +132,37 @@ const WATER_ANIM_MS = 220;
 // picks the phase from the wall clock when it builds the key.
 const BIOME_TEX = {
   0:  { variants: 2, draw: drawGrassTex },        // grass: tufts (procedural — sheet-tiling was abandoned, see git history)
-  1:  { variants: 2, draw: drawForestTex },       // forest: dense leaf litter
-  2:  { variants: 2, draw: drawSandTex },         // sand: horizontal ripple marks
+  1:  { variants: 2, patternOpacity: 0.5, draw: drawForestTex },       // forest: dense leaf litter
+  2:  { variants: 2, patternOpacity: 0.85, draw: drawSandTex },         // sand: horizontal ripple marks
   // Water animates: `animPhases` pre-baked frames per variant (the bands drift
   // downward one band-period per loop), stepped every `animMs`. See the
   // "Animated biome textures" note above makeBiomeTextures for why this is the
   // cheap way to animate every water cell at once.
   3:  { variants: 2, draw: drawWaterTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
-  4:  { variants: 2, draw: drawFarmlandTex },     // farmland: muddy pasture + grass
+  4:  { variants: 2, patternOpacity: 0.8, draw: drawFarmlandTex },     // farmland: muddy pasture + grass
   5:  { variants: 1, draw: drawResidentialTex },  // residential: concrete
   6:  { variants: 2, draw: drawParkTex },         // park: grass + flowers
   8:  { variants: 2, draw: drawPathTex },         // path: pebble grain
   9:  { variants: 1, draw: drawBuildingTex },     // building: cobbles
   11: { variants: 1, draw: drawWoodFloorTex },    // building_med: wooden plank floor
   12: { variants: 2, draw: drawCastleFloorTex },  // building_large / castle: subtle stone cobbles
-  10: { variants: 2, draw: drawRockTex },         // rock: cracks
+  10: { variants: 2, patternOpacity: 0.8, draw: drawRockTex },         // rock: cracks
   // Subtype splits — each biome gets its own low-res texture so it reads
   // qualitatively different from the others (see src/biome_profiles.js for the
   // matching flora/fauna/tint profile).
   15: { variants: 2, draw: drawSchoolTex },       // SCHOOL — mown grass bands
   16: { variants: 2, draw: drawCommercialTex },   // COMMERCIAL — grey ceramic floor tile
-  17: { variants: 1, draw: drawIndustrialTex },   // INDUSTRIAL — concrete + gravel
-  27: { variants: 2, draw: drawWastelandTex },    // WASTELAND — dry grit + dead scrub tufts
+  17: { variants: 1, patternOpacity: 0.8, draw: drawIndustrialTex },   // INDUSTRIAL — concrete + gravel
+  27: { variants: 2, patternOpacity: 0.8, draw: drawWastelandTex },    // WASTELAND — dry grit + dead scrub tufts
   // The influence-zone halos (src/zones.js).
   28: { variants: 2, draw: drawGroveTex },        // GROVE — lush clover sward
   29: { variants: 2, draw: drawChurchyardTex },   // CHURCHYARD — worn sward, stone chips
-  31: { variants: 2, draw: drawTarYardTex },      // TAR_YARD — oily ground, black pools
-  18: { variants: 2, draw: drawPlaygroundTex },   // PLAYGROUND — bark mulch
-  19: { variants: 2, draw: drawPitchTex },        // PITCH — mown stripes + chalk
-  20: { variants: 2, draw: drawWetlandTex },      // WETLAND — marsh mottle + glints
-  21: { variants: 2, draw: drawGolfTex },         // GOLF — fine fairway stripes
-  22: { variants: 2, draw: drawOrchardTex },      // ORCHARD — dappled grass
+  31: { variants: 2, patternOpacity: 0.8, draw: drawTarYardTex },      // TAR_YARD — oily ground, black pools
+  18: { variants: 2, patternOpacity: 0.8, draw: drawPlaygroundTex },   // PLAYGROUND — bark mulch
+  19: { variants: 2, patternOpacity: 0.88, draw: drawPitchTex },        // PITCH — mown stripes + chalk
+  20: { variants: 2, patternOpacity: 1, draw: drawWetlandTex },      // WETLAND — marsh mottle + glints
+  21: { variants: 2, patternOpacity: 1, draw: drawGolfTex },         // GOLF — fine fairway stripes
+  22: { variants: 2, patternOpacity: 0.8, draw: drawOrchardTex },      // ORCHARD — dappled grass
   // PIER (type 23) — reuse the water ripple as base texture; render.js
   // overlays the wooden plank sprite on top via the cobblePool. Without
   // this entry the cell would fall back to bare colour with no ripple,
@@ -120,8 +171,8 @@ const BIOME_TEX = {
   // edge would break the "one body of water" read.
   23: { variants: 2, draw: drawWaterTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
   // Underground cave biome
-  24: { variants: 3, draw: drawCaveFloorTex }, // CAVE_FLOOR — packed grit + pebbles
-  25: { variants: 3, draw: drawCaveWallTex  }, // CAVE_WALL  — packed boulder faces
+  24: { variants: 3, patternOpacity: 0.8, draw: drawCaveFloorTex }, // CAVE_FLOOR — packed grit + pebbles
+  25: { variants: 3, patternOpacity: 0.8, draw: drawCaveWallTex  }, // CAVE_WALL  — packed boulder faces
   // CAVE_LAVA (26) — the WATER tile, ember palette (drawLavaTex): same bands,
   // same animation clock, so it reads as the same kind of thing gone red.
   26: { variants: 2, draw: drawLavaTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
@@ -134,7 +185,7 @@ const BIOME_TEX = {
 };
 
 // Tilled soil is per-cell state (not a terrain class).
-const TILLED_COLOR = 0x8a6a41;        // turned earth — brown, deliberately NOT the UI gold
+const TILLED_COLOR = 0xa48a66;        // approved lighter, desaturated turned earth
 const TILLED_VARIANTS = 2;
 // A tilled cell is drawn as ONE BED: an opaque soil pad baked into the
 // `tilled_N` texture, inset TILLED_INSET_PX from every cell edge with corners
@@ -1080,6 +1131,11 @@ function makeTowerTexture(scene, palette, key) {
   ctx.fillStyle = foot;
   ctx.fillRect(0, H - FOOT_FADE, W, FOOT_FADE);
   ctx.globalCompositeOperation = 'source-over';
+  if (P === CASTLE_STONE_UNCLAIMED) {
+    const image = ctx.getImageData(0, 0, W, H);
+    tuneUnclaimedMaterialPixels(image.data);
+    ctx.putImageData(image, 0, 0);
+  }
   tex.refresh();
 }
 
@@ -1365,6 +1421,63 @@ function makeSprungTrapTexture(scene) {
 // just building the key with the clock-derived phase — no per-frame canvas
 // redraws, no texture uploads, no per-cell tweens. Each phase re-seeds the
 // SAME rng, so static features stay put and only the phase-driven motion moves.
+// Apply the approved mark contrast once when baking a biome. Raw painters
+// remain available to the audit's original/proposal comparison.
+function drawBiomeTexture(ctx, size, type, variant = 0, phase = 0) {
+  const spec = BIOME_TEX[type];
+  ctx.save();
+  spec.draw(ctx, size, seededRand((Number(type) + 1) * 1000 + variant + 1), phase);
+  if (spec.patternOpacity != null && spec.patternOpacity !== 1) {
+    // Scale the finished alpha, including overlaps, exactly as the proposal
+    // composites its complete texture layer over the base colour.
+    ctx.globalCompositeOperation = 'destination-in';
+    ctx.globalAlpha = spec.patternOpacity;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, size, size);
+  }
+  ctx.restore();
+}
+
+// Render-only accents use the same anchor grid as ZoneDressing. They never
+// alter terrain, occupancy, or the cave source. Cache anchor transforms, not
+// a cell answer, so a player-edited terrain cell still keeps its own paint.
+const ZONE_GROUND_ACCENTS = {
+  ancient_grove: { terrain: 28, color: 0x94a38c },
+  silent_circle: { terrain: 29, color: 0xd5d3bd },
+};
+const _zoneGroundStates = new WeakMap();
+function zoneGroundColor(entry, ix, iy, type, tx = entry && entry.tx, ty = entry && entry.ty) {
+  const field = entry && entry.zone, V = typeof ZoneVariants !== 'undefined' && ZoneVariants;
+  if (!field || !V || (type !== 28 && type !== 29)) return null;
+  const N = entry.cellsPerEdge, coverage = field.coverage || field.idx;
+  const ai = coverage && coverage[iy * N + ix] - 1;
+  if (!(ai >= 0)) return null;
+  let states = _zoneGroundStates.get(field);
+  if (!states) {
+    states = (field.anchors || []).map(a => {
+      const variant = V.pick(a), accent = ZONE_GROUND_ACCENTS[variant.id];
+      if (!accent) return null;
+      const unit = WorldGen.CELL_M / (a.upm || N * WorldGen.CELL_M / 4096);
+      const snap = p => {
+        const origin = Math.floor(p / 4096) * 4096;
+        return origin + (Math.floor((p - origin) / unit) + 0.5) * unit;
+      };
+      return { a, variant, accent, unit, rotation: V.rotation(a),
+        x: snap(a.originGX == null ? a.gx : a.originGX),
+        y: snap(a.originGY == null ? a.gy : a.originGY) };
+    });
+    _zoneGroundStates.set(field, states);
+  }
+  const s = states[ai];
+  if (!s || type !== s.accent.terrain) return null;
+  const dx = Math.round((tx * 4096 + (ix + 0.5) * 4096 / N - s.x) / s.unit);
+  const dy = Math.round((ty * 4096 + (iy + 0.5) * 4096 / N - s.y) / s.unit);
+  if (s.variant.id === 'silent_circle') return dx === 0 && dy === 0 ? s.accent.color : null;
+  const [u, v] = V.inverseRotate(dx, dy, s.rotation), p = V.poiOrigin(s.variant);
+  const material = V.sample(s.variant, u + p[0], v + p[1], s.a.key);
+  return material === 'tree' || material === 'shrub' ? s.accent.color : null;
+}
+
 function makeBiomeTextures(scene, size) {
   for (const [type, spec] of Object.entries(BIOME_TEX)) {
     const phases = spec.animPhases || 1;
@@ -1374,7 +1487,7 @@ function makeBiomeTextures(scene, size) {
         if (scene.textures.exists(key)) continue;
         const tex = scene.textures.createCanvas(key, size, size);
         const ctx = tex.getContext();
-        spec.draw(ctx, size, seededRand((Number(type) + 1) * 1000 + v + 1), p / phases);
+        drawBiomeTexture(ctx, size, type, v, p / phases);
         tex.refresh();
       }
     }
@@ -1431,7 +1544,8 @@ function roundRectPath(ctx, x, y, w, h, r) {
 // The rounded single-cell pad. The canvas is PAD_OVERSIZE × PAD_CELL on a side
 // so that, anchored at its centre on the chest's ground point, the slab spills
 // evenly past the cell into its neighbours.
-function makeRoundPadTexture(scene, key) {
+const POI_PAD_INKS = { top: '#dce4da', side: '#cbd2c9' };
+function makeRoundPadTexture(scene, key, inks = POI_PAD_INKS) {
   const size = Math.round(PAD_CELL * PAD_OVERSIZE);
   const tex = scene.textures.createCanvas(key, size, size);
   const ctx = tex.getContext();
@@ -1447,18 +1561,16 @@ function makeRoundPadTexture(scene, key) {
   // just the two stone fills. (It used to be ringed in bright cyan, which
   // drew the eye to the slab instead of to the POI standing on it.) The
   // darker side face is the only thing separating plinth from top slab.
-  // Both tones are the TREASURE blue-white (spec §UI COLOUR LANGUAGE — the
-  // world's rewards are blue-white, the player's controls are gold), so the
-  // pad reads as a clean pale plinth marking a place worth opening rather
-  // than as a grey disc. The side face is the same hue a shade deeper so the
-  // pedestal still reads at the low alpha the pad renders at.
+  // Warm ivory distinguishes this sacred/reward surface from rustic ground.
+  // The same-hue side is about 8% darker, preserving the raised slab's depth
+  // at the low alpha used by the renderer.
   // Side face first: the same rounded rect shifted down by `depth`.
   roundRectPath(ctx, x, y + depth, w, h, radius);
-  ctx.fillStyle = '#dde5f2';                // UI_TREASURE, one step deeper
+  ctx.fillStyle = inks.side;
   ctx.fill();
   // Top slab.
   roundRectPath(ctx, x, y, w, h, radius);
-  ctx.fillStyle = UI_TREASURE;
+  ctx.fillStyle = inks.top;
   ctx.fill();
   // Subtle top sheen + bottom shadow, clipped to the top slab, for the same
   // faint "beveled flagstone" feel the old shape pads had.

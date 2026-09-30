@@ -1088,7 +1088,9 @@
           ],
           "recommendation": "Use a light cool grey-olive litter tint immediately beneath Ancient Grove clusters, at the same brightness as the default floor. Keep open gaps lighter and warmer.",
           "reason": "Cluster identity comes from coolness and existing litter texture, while all floor areas stay bright enough to separate the trees.",
-          "status": "proposal only"
+          "status": "applied",
+          "groundColor": "#94a38c",
+          "cells": "authored tree and shrub motif cells"
         }
       ],
       "preview": {
@@ -1148,7 +1150,9 @@
           ],
           "recommendation": "A tiny warm-ivory worn-stone centre at the Silent Circle POI only, touching the votive/stone figure; leave outer ground rustic olive.",
           "reason": "Silent Circle is one of five equal-weight stone assignments; one restrained sacred focal patch reinforces the compact rings without recolouring the entire churchyard.",
-          "status": "proposal only"
+          "status": "applied",
+          "groundColor": "#d5d3bd",
+          "cells": "single settled POI ground cell"
         }
       ],
       "preview": {
@@ -1459,6 +1463,9 @@
       "assessment": "Small pixel boards already match gameplay scale; unify weathered wood.",
       "treatment": "recolor",
       "recommendation": "Recolour boards to bark/earth/dry-leaf while retaining transparent gaps and muted teal water underneath.",
+      "palette": ["bark", "earth", "dry_leaf"],
+      "recolourStrength": 0.1,
+      "preserveLuminance": true,
       "rationale": "A crisp narrow plank reads better at map scale than a detailed replacement bridge.",
       "candidate": {
         "path": "assets/Objects/Wilderness/Bridge Beach.png",

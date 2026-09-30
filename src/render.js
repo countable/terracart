@@ -59,7 +59,7 @@ Render.COIN_DROP_PX = COIN_DROP_PX;
 // Fallback fill for cells whose terrain type has no COLORS entry (and for the
 // diagonal-neighbour colour painted into rounded corners). Matches the grass
 // tone so an unmapped type reads as a green field rather than a black gap.
-const GRASS_FALLBACK_COLOR = 0x479757;   // matches COLORS[0] grass (shore-matched)
+const GRASS_FALLBACK_COLOR = 0x919e70;   // matches the approved COLORS[0] grass
 // Pseudo-3D extrusion: a building footprint is the "top surface", and its
 // south-facing edge gets a darker wall projected downward onto the row below.
 // Wall face = 40% brightness of the footprint colour (60% darker) — deep
@@ -73,7 +73,7 @@ const GRASS_FALLBACK_COLOR = 0x479757;   // matches COLORS[0] grass (shore-match
 // POLYGON with the same colours at the same depths, and a wall that changed
 // height when the footprint stopped being square would give the two modes
 // different silhouettes for the same building.
-const BUILDING_FACE_COLOR = { 9: 0x472d24, 11: 0x3c2e22, 12: 0x36373a };
+const BUILDING_FACE_COLOR = { 9: 0x816b59, 11: 0x87795f, 12: 0x7e8475 };
 const BUILDING_FACE_PX = { 9: 4, 11: 4, 12: 5 };
 // Building tiers, as a predicate. Module scope for the same reason: the base
 // terrain fill needs it too, several hundred lines before the outline pass
@@ -878,6 +878,7 @@ if (typeof window !== 'undefined') {
 let _ringTypes  = null;
 let _ringOwners = null;
 let _ringUnclaimed = null;
+let _ringGroundColor = null;
 // Each ring slot's cell, resolved ONCE per pass: its absolute key (coords.js
 // encoding) and its tile + local cell on that tile's own grid — every per-cell
 // lookup below reads these rather than re-deriving a tile from cellsPerTile
@@ -951,6 +952,16 @@ Render.reachDimAlpha = (scene) => {
   return d > 0 ? Math.min(0.88, 0.74 + 0.06 * (d - 1)) : 0.38;
 };
 
+// Baked unclaimed art carries the approved wash and lightness adjustment.
+// Resolve the same key for appearance and tint so it is never shaded twice.
+Render.houseTextureKey = (role, o, scene) => {
+  if (role === 'plain') return 'house';
+  if (role === 'wizard') return 'shrine';
+  if (role === 'fort' && scene.isClaimedKey && !scene.isClaimedKey(o.id)
+      && typeof ASSETS !== 'undefined' && ASSETS.house_fort_unclaimed) return 'house_fort_unclaimed';
+  return `house_${role}`;
+};
+
 // The multiply tint a world sprite wears, resolved in ONE place so the rules
 // compose in a fixed order instead of racing each other down configureObject:
 // the biome's, then — for a house that isn't the
@@ -966,7 +977,7 @@ Render.reachDimAlpha = (scene) => {
 // again would darken it twice.
 // Pure (object + scene in, a colour out), which is also what makes it
 // auditable headlessly: test/node/wreck_dim.test.js drives it directly.
-Render.spriteTint = function spriteTint(o, scene) {
+Render.spriteTint = function spriteTint(o, scene, textureKey) {
   // White (no tint) unless one of the three rules below applies. Houses get
   // NO role tint of any kind: a plain house is a delivery host and stays
   // untinted, and a themed shop (blacksmith/trader/market/wizard/trailer)
@@ -995,7 +1006,10 @@ Render.spriteTint = function spriteTint(o, scene) {
   // (A TURRET is exempt: it swaps to its own baked texture above rather than
   // taking the tint, so applying this as well would shade it twice.)
   if (o.kind === 'house' && scene.isClaimedKey && !scene.isClaimedKey(o.id)) {
-    tint = mulTint(tint, UNCLAIMED_SPRITE_TINT);
+    // Appearance already resolved the owner's role and selected this texture.
+    // Read that result rather than resolving house ownership a second time.
+    const baked = typeof ASSETS !== 'undefined' && ASSETS[textureKey]?.unclaimedArt;
+    if (!baked) tint = mulTint(tint, UNCLAIMED_SPRITE_TINT);
   }
   return tint;
 };
@@ -1232,6 +1246,7 @@ Render.drawCells = function drawCells(scene) {
     // Parallel ring of "this building cell belongs to somebody else". 1 =
     // unclaimed, and gets the dark-green wash below.
     _ringUnclaimed = new Uint8Array(RING * RING);
+    _ringGroundColor = new Int32Array(RING * RING);
     _ringAX = new Int32Array(RING * RING);
     _ringAY = new Int32Array(RING * RING);
     _ringTX = new Int32Array(RING * RING);
@@ -1299,6 +1314,8 @@ Render.drawCells = function drawCells(scene) {
       // A cell with no loaded tile renders as UNMAPPED fog (not fake grass —
       // that's the tile-loading indicator; see the _ringVeil comment above).
       types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : UNMAPPED_T;
+      _ringGroundColor[si] = typeof zoneGroundColor === 'function'
+        ? (zoneGroundColor(e2, ix2, iy2, types[si], tx2, ty2) ?? -1) : -1;
       _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
       owners[r * RING + c] = ol ? ((mSalt << 16) | ol) : 0;
@@ -1321,8 +1338,14 @@ Render.drawCells = function drawCells(scene) {
   // corners' diagonal fills, and the wavy-border test that asks whether two
   // cells differ. Disagreeing put a border between every pair of unclaimed
   // court cells — the whole castle floor came out gridded.
+  const groundColor = (colour, c, r) => {
+    const accent = _ringGroundColor[(r + 2) * RING + (c + 2)];
+    return accent >= 0 ? accent : colour;
+  };
   const courtShaded = (t, colour, c, r) =>
-    (t === 12 && UNCLAIMED(c, r)) ? _shadeOnce(colour) : colour;
+    UNCLAIMED(c, r) && typeof UNCLAIMED_BUILDING_BASE !== 'undefined' && UNCLAIMED_BUILDING_BASE.floors[t] != null
+      ? unclaimedMaterialColor(unclaimedShade(UNCLAIMED_BUILDING_BASE.floors[t]))
+      : (t === 12 && UNCLAIMED(c, r)) ? _shadeOnce(colour) : groundColor(colour, c, r);
   // Cells whose PAINTED colour isn't COLORS[type] — the ones every neighbour
   // test has to look THROUGH to the zone underneath. Road and path cells are
   // painted the majority biome around them; in polygonal mode a building cell
@@ -1361,11 +1384,13 @@ Render.drawCells = function drawCells(scene) {
       // For ROAD cells, inherit the color of the nearest non-road neighbor so the road
       // band sits on top of the surrounding zone (residential/grass/etc) instead of a hard gray strip.
       let color = COLORS[type] ?? GRASS_FALLBACK_COLOR;
+      // Player-placed rock has its own material, even inside a tinted grove.
+      if (type === T(col, row)) color = groundColor(color, col, row);
       // An unclaimed castle's COURT is shaded with its stone. The paving
       // overlay baked over this fill (drawCastleFloorTex) is pure alpha, so
       // recolouring the fill recolours the paving with it — no second texture
       // family, and the floor can't end up lit under shaded walls.
-      if (type === 12 && UNCLAIMED(col, row)) color = _shadeOnce(color);
+      color = courtShaded(type, color, col, row);
       // In POLYGONAL mode a building cell is not a floor — the floor is drawn
       // from the source ring by building_overlay.js — so the cell paints as
       // the GROUND the building stands on, exactly the way a road cell
@@ -1785,7 +1810,7 @@ Render.drawCells = function drawCells(scene) {
       // A castle takes no wash — it is DRAWN unclaimed (the palette pick in the
       // tier-12 branch below, the second turret texture, and the court floor's
       // own base colour above). Everything else gets the overlay.
-      if (type !== 12 && UNCLAIMED(col, row)) {
+      if (type !== 12 && UNCLAIMED(col, row) && typeof UNCLAIMED_BUILDING_BASE === 'undefined') {
         // How far this cell's art spills out of it — only where the south edge
         // actually carries a wall. Extending every cell upward banded the whole
         // footprint: an interior cell's rect overlapped its neighbour's, so the
@@ -1797,7 +1822,9 @@ Render.drawCells = function drawCells(scene) {
       // Tier 11 (mid-rise) — palisade-fenced wood floor: pointed pickets along every
       // perimeter edge, no silhouette/extrusion. Drawn instead of tier 9/12 styling.
       if (type === 11) {
-        const WOOD_BODY = 0xa67434, WOOD_SHADOW = 0x6b4520, WOOD_TIP = 0x3a240e;
+        const wood = n => UNCLAIMED(col, row) && typeof unclaimedMaterialColor === 'function'
+          ? unclaimedMaterialColor(unclaimedShade(n)) : n;
+        const WOOD_BODY = wood(0xa67434), WOOD_SHADOW = wood(0x6b4520), WOOD_TIP = wood(0x3a240e);
         const PICKETS = 8, PW = 4;   // 8 pickets × 4px = 32px = CELL_PX
         // South: pickets stand below the cell, tips touching the cell edge.
         if (wallEdge(col, row, 0, 1)) {
@@ -1856,12 +1883,13 @@ Render.drawCells = function drawCells(scene) {
         const _DBG = (typeof window !== 'undefined') && window.__RAMPART_DEBUG;
         const _sh = (n) => (_claimedHere || typeof unclaimedShade === 'undefined')
           ? n : unclaimedShade(n);
-        const STONE_LITE   = _CS ? _CS.LITE.n   : _sh(0xb9bcc2);
-        const STONE_BODY   = _CS ? _CS.BODY.n   : _sh(0x8f9298);
-        const STONE_SHADOW = _CS ? _CS.SHADOW.n : _sh(0x5a5d63);
-        const STONE_DARK   = _CS ? _CS.DARK.n   : _sh(0x303134);
-        const STONE_FACE   = _CS ? _CS.FACE.n   : _sh(0x7e8188);
-        const STONE_SIDE   = _CS ? _CS.SIDE.n   : _sh(0x7a7d84);
+        const stone = n => !_claimedHere && typeof unclaimedMaterialColor === 'function' ? unclaimedMaterialColor(n) : n;
+        const STONE_LITE   = stone(_CS ? _CS.LITE.n   : _sh(0xb9bcc2));
+        const STONE_BODY   = stone(_CS ? _CS.BODY.n   : _sh(0x8f9298));
+        const STONE_SHADOW = stone(_CS ? _CS.SHADOW.n : _sh(0x5a5d63));
+        const STONE_DARK   = stone(_CS ? _CS.DARK.n   : _sh(0x303134));
+        const STONE_FACE   = stone(_CS ? _CS.FACE.n   : _sh(0x7e8188));
+        const STONE_SIDE   = stone(_CS ? _CS.SIDE.n   : _sh(0x7a7d84));
         const MERLONS = 4, SPAN = CELL_PX / MERLONS;   // 8px span, divides the cell evenly so teeth tile
         const MW = 4, MOFF = (SPAN - MW) >> 1;         // 4px tooth centred → clear 4px crenel gaps
         const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
@@ -1980,7 +2008,9 @@ Render.drawCells = function drawCells(scene) {
       // South wall: tier-specific extrusion, a darker shade of the building
       // tier colour projected one cell downward.
       if (wallEdge(col, row, 0, 1)) {
-        const hex = SOUTH_FACE_COLOR[type] || 0x444444;
+        const hex = UNCLAIMED(col, row) && typeof UNCLAIMED_BUILDING_BASE !== 'undefined'
+          ? unclaimedMaterialColor(unclaimedShade(UNCLAIMED_BUILDING_BASE.faces[type]))
+          : SOUTH_FACE_COLOR[type] || 0x444444;
         g.fillStyle(hex, 0.95);
         g.fillRect(sx, sy + CELL_PX, CELL_PX, SOUTH_FACE_PX[type] || 4);
       }
@@ -2904,7 +2934,7 @@ Render.drawObjects = function drawObjects(scene) {
     // An absent frame leaves the texture's default frame untouched, while a
     // frame function returning undefined still explicitly selects that frame.
     if (spec.frame !== undefined && s.frame.name !== frameVal) s.setFrame(frameVal);
-    const tint = Render.spriteTint(o, scene);
+    const tint = Render.spriteTint(o, scene, texKey);
     s.setOrigin(origin[0], origin[1])
      .setScale(scl, scl * scaleYMul)
      .setPosition(Math.round(sx) + dxPx, Math.round(sy) + dyPx)
@@ -4105,9 +4135,7 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
   // up the same art the sprite will actually draw.
   const _houseKey = (o) => {
     const role = _houseRole(o);
-    if (role === 'plain')  return 'house';
-    if (role === 'wizard') return 'shrine';   // wizard tower reuses wizard.png
-    return `house_${role}`;
+    return Render.houseTextureKey(role, o, scene);
   };
   // Plain houses pick the 'front' sub-rect of the house tileset; wizard towers
   // pick the fully-restored top-row tower frame (frame 3) of the wizard sheet;
@@ -4489,7 +4517,7 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
                   depth: s.depth + 0.5,
                 });
               } },
-    mineralrock: { key: 'mineralrock',
+    mineralrock: { key: (o) => o._objectArt === 'moss' ? 'approved_moss_rocks' : 'mineralrock',
               // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
               // to the SMALL rock variants only — other rows have boulder-
               // sized art that visibly bleeds past the 16 × 16 frame at
@@ -4552,7 +4580,7 @@ Render.objectAppearance = function (scene, houseRoles, TILED = false) {
     // and the iron stakes are the Burned Row's hazards (they SLOW the body —
     // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
     waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
-    stakes:   { key: 'stakes',   frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    stakes:   { key: (o) => o._street === 'burned' ? 'approved_charred_stakes' : 'stakes',   frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true },
     // POI PROPS (worldgen.js). A NOTICE BOARD (an information POI) stands like
     // the waystone and reads a Book page the same way (INTERACTABLES.infoboard);

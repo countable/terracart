@@ -668,11 +668,16 @@ test('zones: each kind has a shipped story painting, and every line fits', () =>
 });
 
 test('zones: every zone terrain is enumerated — colour, texture, family, walkable, rounded', () => {
+  const textures = new Function(TEXTURES_SRC + '\nreturn BIOME_TEX;')();
+  const painters = { 28: 'drawGroveTex', 29: 'drawChurchyardTex', 31: 'drawTarYardTex' };
   for (const [name, code] of [['GROVE', 28], ['CHURCHYARD', 29], ['TAR_YARD', 31]]) {
     assert.eq(T[name], code, `T.${name}`);
     assert.eq(BiomeProfiles.T[name], code, `BiomeProfiles mirrors ${name}`);
     assert.truthy(new RegExp(`^  ${code}: 0x[0-9a-f]{6},`, 'm').test(APP_JS_SRC), `COLORS[${code}]`);
-    assert.truthy(new RegExp(`^  ${code}: \\{ variants: \\d, draw: draw\\w+Tex \\}`, 'm').test(TEXTURES_SRC), `BIOME_TEX[${code}]`);
+    const texture = textures[code];
+    assert.truthy(texture && Number.isInteger(texture.variants) && texture.variants > 0, `BIOME_TEX[${code}] has texture variants`);
+    assert.eq(typeof texture.draw, 'function', `${name} has a callable painter`);
+    assert.eq(texture.draw.name, painters[code], `${name} uses its material painter`);
     assert.truthy(WorldGen.isWalkable(code), `${name} is walkable`);
     assert.falsy(WorldGen.isLotTerrain(code), `${name} is not somebody's lot`);
     assert.truthy(Z.zoneTerrains().includes(code));

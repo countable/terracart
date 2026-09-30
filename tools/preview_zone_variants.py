@@ -58,7 +58,9 @@ def material_art(material):
         crop = material['crop']
         ov = r['crops'].get(crop)
         look = material.get('_plantArt') or material.get('_streetArt')
-        if ov and look:
+        if look in r['contextLooks'] and r['contextLooks'][look]['crop'] == crop:
+            ov = r['contextLooks'][look]
+        elif ov and look:
             ov = ov.get('looks', {}).get(look, ov)
         if ov and ov.get('custom'):
             sheet, frames = ov['sheet'], ov.get('frames', [ov.get('frame', 0)])
@@ -70,7 +72,8 @@ def material_art(material):
         sheet, frames = 'coin_drop', [0]
     elif kind == 'mineralrock':
         tier = material.get('yieldTier', 1)
-        sheet, frames = 'mineralrock', [r['churchyardFrame'] if tier == 1 else r['mineralTiers'][str(tier)]['rockFrame']]
+        sheet = 'approved_moss_rocks' if material.get('_objectArt') == 'moss' else 'mineralrock'
+        frames = [r['churchyardFrame'] if tier == 1 else r['mineralTiers'][str(tier)]['rockFrame']]
     elif kind == 'tree':
         species = material.get('species', 'maple')
         sheet = 'trees' if species == 'maple' else species + '_tree'
@@ -81,7 +84,7 @@ def material_art(material):
         species = material.get('species', 'apple')
         sheet, frames = species + '_tree', [r['fruitFrames'][species]['mature']]
     else:
-        sheet, frames = kind, [0]
+        sheet, frames = ('approved_charred_stakes' if kind == 'stakes' and material.get('_street') == 'burned' else kind), [0]
     assert sheet in r['assets'], f'No shipping art for {material}'
     return {'sheet': sheet, 'frames': frames, 'preserveFrame': kind == 'tree',
             'source': r['assets'][sheet]['path'].split('?')[0] + ' · frame ' + ', '.join(map(str, frames))}
@@ -275,7 +278,8 @@ def svg_for(v, d, detail=False):
     draw_x, draw_y = ([poi_x,poi_y] if aligned and not detail else [center,center])
     parts = [f'<svg role="img" aria-label="{html.escape(v["name"])} {"POI pattern" if detail else "background and POI"}" viewBox="0 0 {side*unit} {side*unit}">', f'<rect width="100%" height="100%" fill="#172820"/>']
     art_prefix = f'zone-art-{v["id"]}-{int(detail)}'
-    parts.append(sprite_symbols(d['materials'], art_prefix))
+    materials = {name: dict(m, **({('_plantArt' if m['kind'] == 'wildplant' else '_objectArt'): v['materialLooks'][name]} if name in v.get('materialLooks', {}) else {})) for name, m in d['materials'].items()}
+    parts.append(sprite_symbols(materials, art_prefix))
     if not detail or b['type'] != 'seeded_scatter':
         parts.append('<g class="background">')
         for y in range(side):
@@ -316,6 +320,8 @@ def street_material_key(o):
         suffix += '_stage_' + str(o.get('variant', 2))
     if o.get('_streetArt'):
         suffix += '_' + o['_streetArt']
+    if o.get('kind') == 'stakes' and o.get('_street') == 'burned':
+        suffix += '_charred'
     return kind + suffix
 
 

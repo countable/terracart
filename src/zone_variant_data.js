@@ -1276,6 +1276,9 @@
       "atmosphere": "Staggered mushroom pairs repeat every six cells, with giant mushrooms between them. The close-set caps lead to a crescent and its luminous flower.",
       "attracts": {
         "butterfly": 0.5
+      },
+      "materialLooks": {
+        "mushroom": "cap_cluster"
       }
     },
     {
@@ -1856,7 +1859,10 @@
         "mode": "none"
       },
       "atmosphere": "Compact square flower beds step along short straight shrub rows; blue forget-me-nots dominate, with occasional whole orange beds.",
-      "attracts": {}
+      "attracts": {},
+      "materialLooks": {
+        "shrub": "clipped"
+      }
     },
     {
       "id": "hedge_garden",
@@ -3563,7 +3569,10 @@
         "mode": "none"
       },
       "atmosphere": "Three concentric stone rings surround the POI, with softer grass rings between. Every fifth stone is iron, creating a regular metallic rhythm through the circles.",
-      "attracts": {}
+      "attracts": {},
+      "materialLooks": {
+        "stone": "moss"
+      }
     },
     {
       "id": "ordered_graves",
@@ -4493,7 +4502,10 @@
         "fallback": "omit_guard_keep_find"
       },
       "atmosphere": "Repeated piles suggest fallen walls; one displaced line ends at a platinum-bearing rock guarded by a club goblin.",
-      "attracts": {}
+      "attracts": {},
+      "materialLooks": {
+        "rubble": "masonry"
+      }
     },
     {
       "id": "silent_circle",

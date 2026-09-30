@@ -67,7 +67,9 @@
       }
       const i = iy * N + ix, [x, y] = position(ix, iy);
       const extra = { zone: s.a.kind, zoneVariant: s.variant.id, zoneLayer: layer, _ix: ix, _iy: iy };
-      if (m._plantArt) extra._plantArt = m._plantArt;
+      const look = s.variant.materialLooks && s.variant.materialLooks[material];
+      if (m.kind === 'wildplant' && (look || m._plantArt)) extra._plantArt = look || m._plantArt;
+      else if (look) extra._objectArt = look;
       const prefix = m.kind === 'wildplant' ? (layer === 'background' ? 'wpf' : 'wz')
         : ({ tree: 'ztree', fruittree: 'ft', mineralrock: 'mrz', headstone: 'hs', tar: 'tar' }[m.kind] || 'zt');
       id = id || WG.cellId(prefix, tx, ty, ix, iy);
