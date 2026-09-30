@@ -336,7 +336,10 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
 - Book stories use direct firsthand excerpts in quotation marks. Occasional
   narrator asides sit outside the quotation in italics (`bookPageHTML`), usually
   one short sentence. Vary length, format, mood and author voice across books;
-  keep each author consistent and reserve humor for some passages. Authors
+  use `BOOK_VOLUMES` for named volumes and consistent author voices, and reserve
+  humor for some passages. Scholars can quote any page early: foreshadow without
+  revealing the player’s identity or the wizard’s secret. Preserve approved
+  excerpts and keep `ITEM_GUIDE_TIPS` as the owner of shared item parables. Authors
   describe their world, not interface elements such as work circles or health bars.
 - Story panels, books and item descriptions carry at most one useful fact,
   told through the world, physical sensations or a character's voice. Hint at
