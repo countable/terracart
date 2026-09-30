@@ -75,11 +75,11 @@ test('copy: the plant flash says the crop by name, and what it needs next', () =
 // ── One message, one wording ────────────────────────────────────────────────
 
 test('copy: "bag full" is one line raised from both call sites', () => {
-  assert.truthy(/const BAG_FULL_MSG = '[^']+';/.test(APP_JS_SRC), 'app.js owns one constant');
-  assert.eq((APP_JS_SRC.match(/BAG_FULL_MSG/g) || []).length, 3,
+  assert.truthy(/const BAG_FULL_MSG = '[^']+';/.test(SCENE_SRC), 'app.js owns one constant');
+  assert.eq((SCENE_SRC.match(/BAG_FULL_MSG/g) || []).length, 3,
     'declared once, used at both the drop and the buy refusal');
-  assert.falsy(/flash\('bag full'/i.test(APP_JS_SRC), 'neither casing survives as a literal');
-  const msg = APP_JS_SRC.match(/const BAG_FULL_MSG = '([^']+)';/)[1];
+  assert.falsy(/flash\('bag full'/i.test(SCENE_SRC), 'neither casing survives as a literal');
+  const msg = SCENE_SRC.match(/const BAG_FULL_MSG = '([^']+)';/)[1];
   assert.truthy(/bag/i.test(msg) && /\.$/.test(msg), 'it is a sentence about the bag: ' + msg);
 });
 
@@ -184,7 +184,7 @@ test('map copy: every flash fits in MAP_MSG_MAX', () => {
 
 test('map copy: the shared refusal constants fit too', () => {
   for (const name of ['TOO_TIRED_MSG', 'BAG_FULL_MSG']) {
-    const m = APP_JS_SRC.match(new RegExp(`const ${name} = '([^']*)';`));
+    const m = SCENE_SRC.match(new RegExp(`const ${name} = '([^']*)';`));
     assert.truthy(m, `${name} is still one constant`);
     assert.lte([...m[1]].length, MAP_MSG_MAX, `${name} fits: ${m[1]}`);
   }
@@ -244,7 +244,7 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
     'wildplantHarvestLine',           // every guaranteed wildplant reward bundle, measured below
   ]);
   const seen = new Set();
-  for (const src of [APP_JS_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {
+  for (const src of [SCENE_SRC, INTERACT_SRC, INTERACTABLES_SRC]) {
     // (?<!main\??\.) skips Phaser's camera flash — a white-out, not a toast.
     for (const m of src.matchAll(/(?<!main\??\.)flash(?:Loot)?\(\s*([A-Za-z_$][\w$]*)/g)) seen.add(m[1]);
   }
@@ -332,13 +332,13 @@ test('map copy: a line that names an item fits at the longest name', () => {
 // enough to smelt' — and three of the four named the state and stopped there.
 
 test('copy: the out-of-energy refusal is one line, and it names the remedy', () => {
-  assert.truthy(/const TOO_TIRED_MSG = '[^']+';/.test(APP_JS_SRC), 'app.js owns one constant');
+  assert.truthy(/const TOO_TIRED_MSG = '[^']+';/.test(SCENE_SRC), 'app.js owns one constant');
   // Declared once, used at all three refusal sites (the stick, the cave dig,
   // and the shared spendEnergy gate).
-  assert.eq((APP_JS_SRC.match(/TOO_TIRED_MSG/g) || []).length, 4,
+  assert.eq((SCENE_SRC.match(/TOO_TIRED_MSG/g) || []).length, 4,
     'one declaration, three call sites');
-  assert.falsy(/flash\('too tired'/.test(APP_JS_SRC), 'the bare fragment is gone');
-  const msg = APP_JS_SRC.match(/const TOO_TIRED_MSG = '([^']+)';/)[1];
+  assert.falsy(/flash\('too tired'/.test(SCENE_SRC), 'the bare fragment is gone');
+  const msg = SCENE_SRC.match(/const TOO_TIRED_MSG = '([^']+)';/)[1];
   assert.truthy(/^[A-Z]/.test(msg) && /\.$/.test(msg), 'it is a sentence: ' + msg);
   // Energy comes back three ways (eat / Home / a campfire) and the line has to
   // point at them, or the player is told to solve a problem they cannot see.
@@ -349,16 +349,16 @@ test('copy: a shop with nothing to offer says WHEN, not just no', () => {
   // shortDuration's rule: a wait the player can read gets a number. The
   // blacksmith's own version of this line has quoted shopWaitLabel for a
   // while; the storefront and the trader said a bare 'no deal'.
-  assert.falsy(/flash\('no deal'/.test(APP_JS_SRC), 'the bare fragment is gone');
-  const waits = APP_JS_SRC.match(/Back \$\{this\.shopWaitLabel\(house\)\}/g) || [];
+  assert.falsy(/flash\('no deal'/.test(SCENE_SRC), 'the bare fragment is gone');
+  const waits = SCENE_SRC.match(/Back \$\{this\.shopWaitLabel\(house\)\}/g) || [];
   assert.eq(waits.length, 3, 'the storefront, the themed shop and the trader all name the wait');
 });
 
 test('copy: a short smelt names the ingredient and the shortfall', () => {
-  assert.falsy(/flash\('not enough to smelt'/.test(APP_JS_SRC), 'the bare fragment is gone');
-  assert.truthy(/const missing = recipe\.find\(r => heldCount\(r\.id\) < r\.qty \* q\);/.test(APP_JS_SRC),
+  assert.falsy(/flash\('not enough to smelt'/.test(SCENE_SRC), 'the bare fragment is gone');
+  assert.truthy(/const missing = recipe\.find\(r => heldCount\(r\.id\) < r\.qty \* q\);/.test(SCENE_SRC),
     'it finds which ingredient is short');
-  assert.truthy(/Need \$\{short\} more \$\{name\}`/.test(APP_JS_SRC),
+  assert.truthy(/Need \$\{short\} more \$\{name\}`/.test(SCENE_SRC),
     'and says how many more of it are wanted');
 });
 
@@ -367,7 +367,7 @@ test('copy: no player-facing refusal is a bare lowercase fragment', () => {
   // starts lowercase and carries no interpolation is the shape every one of
   // these bugs took.
   const bad = [];
-  for (const m of APP_JS_SRC.matchAll(/this\.flash\('([a-z][^']{4,})'/g)) {
+  for (const m of SCENE_SRC.matchAll(/this\.flash\('([a-z][^']{4,})'/g)) {
     const msg = m[1];
     // Debug/diagnostic lines are not player copy — they are behind __TEST_MODE
     // or the tap-diagnostics flag and read like the tools they are.
@@ -383,7 +383,7 @@ test('copy: a consumable dialog reads as a sensation, not a stat line', () => {
   // The powders and the Torch were written this way; the potions lagged, and
   // two of them had a relic TIER in the middle of the prose ("tier-9 amulet
   // walking for one minute"). Item descriptions explain the effect in plain words.
-  const bodies = APP_JS_SRC.match(/_finishConsumable\(\s*[\s\S]{0,400}?\);/g) || [];
+  const bodies = SCENE_SRC.match(/_finishConsumable\(\s*[\s\S]{0,400}?\);/g) || [];
   assert.gt(bodies.length, 6, 'the consumable dialogs are still findable');
   for (const b of bodies) {
     assert.falsy(/tier-\d+ amulet/i.test(b), 'no dialog quotes a relic tier: ' + b.slice(0, 90));
@@ -419,9 +419,9 @@ test('copy: the Drink / Use descriptions omit tiers and keep numeric durations d
     SHIELD_POTION_MS: 'shield_potion', DRAGON_POWDER_MS: 'dragon_powder',
     SHADOW_POWDER_MS: 'shadow_powder',
   })) {
-    assert.truthy(new RegExp(`const ${name} = CONSUMABLE_SPEC\\.${id}\\.durationMs;`).test(APP_JS_SRC),
+    assert.truthy(new RegExp(`const ${name} = CONSUMABLE_SPEC\\.${id}\\.durationMs;`).test(SCENE_SRC),
       `${name}: runtime derives from the spec`);
-    assert.truthy(new RegExp('Date\\.now\\(\\) \\+ ' + name + ';').test(APP_JS_SRC),
+    assert.truthy(new RegExp('Date\\.now\\(\\) \\+ ' + name + ';').test(SCENE_SRC),
       `${name}: the derived duration starts the buff`);
   }
 });

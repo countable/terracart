@@ -176,7 +176,8 @@ const BIOME_TEX = {
   25: { variants: 3, patternOpacity: 0.9, draw: drawCaveWallTex  }, // CAVE_WALL  — packed boulder faces
   // CAVE_LAVA (26) — the WATER tile, ember palette (drawLavaTex): same bands,
   // same animation clock, so it reads as the same kind of thing gone red.
-  26: { variants: 2, draw: drawLavaTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
+  // One periodic wave shape keeps neighbouring cells aligned at every phase.
+  26: { variants: 1, draw: drawLavaTex, animPhases: WATER_ANIM_PHASES, animMs: WATER_ANIM_MS },
   // UNMAPPED (30) — render-only pseudo-terrain render.js stamps on cells whose
   // map tile hasn't loaded yet (never appears in a tile's grid). The animated
   // survey-line shimmer is the tile-loading indicator: dark fog with faint
@@ -461,7 +462,7 @@ const WATER_INKS = {
   crest: 'rgba(150,200,205,0.26)', edge: 'rgba(205,225,225,0.12)', speck: 'rgba(0,20,50,0.18)',
 };
 const LAVA_INKS = {
-  crest: 'rgba(255,170,60,0.42)', edge: 'rgba(255,235,150,0.30)', speck: 'rgba(40,0,0,0.30)',
+  crest: 'rgba(218,107,35,0.24)', edge: 'rgba(241,157,69,0.16)', speck: 'rgba(40,0,0,0.30)',
 };
 function drawLavaTex(ctx, size, rng, phaseFrac = 0) {
   drawWaterTex(ctx, size, rng, phaseFrac, LAVA_INKS);

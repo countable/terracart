@@ -11,7 +11,7 @@
 // bright button that refuses, is the bug this file exists to catch.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 test('eat cooldown: ten seconds, and a fresh save is ready to eat', () => {
   assert.eq(Energy.EAT_COOLDOWN_MS, 10 * 1000, 'ten seconds between bites');
@@ -168,5 +168,20 @@ test('eat cooldown: potions are exempt because they never go through the gate', 
   assert.truthy(/Energy\.set\(this\.save, \(this\.save\.energy \?\? 0\) \+ VIGOR_POTION_ENERGY, max\)/.test(body)
     && VIGOR_POTION_ENERGY === 40,
     'and it still restores on the spot');
+});
+// The foods with an extra effect (rainberry, pairy, coffee) keep tuning rows
+// in CONSUMABLE_SPEC but no verb — they are eaten, not "used" — so the Use
+// button must skip them. Before the guard the rainberry grew a second button
+// reading "undefined" (owner, Sep 2026).
+test('use button: a CONSUMABLE_SPEC row without a verb never grows a Use button', () => {
+  const body = app.slice(app.indexOf('  syncConsumableButton() {'));
+  const fn = body.slice(0, body.indexOf('\n  }\n'));
+  assert.truthy(/if \(!cfg \|\| !\(cfg\.verb \|\| cfg\.label\) \|\| \(sel\.count \?\? 0\) <= 0\) \{ existing\?\.remove\(\); return; \}/.test(fn),
+    'the button needs a verb or a label');
+  for (const id of ['rainberry', 'pairy', 'coffee']) {
+    const row = CONSUMABLE_SPEC[id];
+    assert.truthy(row && !row.verb && !row.label, `${id}: a tuning row, no action`);
+    assert.truthy(FOOD_ENERGY[id] > 0, `${id}: eaten through the Eat button`);
+  }
 });
 })();

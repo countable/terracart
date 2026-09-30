@@ -5,12 +5,12 @@
 // the story; _drainBadgeStories opens the queue one dialog at a time on a
 // clear screen, off the modal-gate tick.
 //
-// app.js can't load headlessly, so the methods are lifted out of APP_JS_SRC
+// app.js can't load headlessly, so the methods are lifted out of SCENE_SRC
 // and run on a stub scene (the story_splashes idiom); the three call sites
 // and the tick are pinned as source text.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 const lift = (sig, what) => {
   const start = app.indexOf('\n  ' + sig);
@@ -125,7 +125,7 @@ test('memory chip: the explainer is a declared kind, and says both numbers', () 
   s.showMemoriesHelp();
   const m = s.modals[0];
   assert.eq(m.kind, 'memory');
-  assert.truthy(/const MODAL_KINDS = \{[\s\S]*?\n  memory:/.test(MODAL_SHELL_SRC), 'memory is a MODAL_KINDS row');
+  assert.truthy(/const MODAL_KINDS = \{[\s\S]*?\n  memory:/.test(SCENE_SRC), 'memory is a MODAL_KINDS row');
   assert.truthy(/2 recovered/.test(m.title) && /1 unspent/.test(m.title), 'both numbers');
   assert.falsy(/wizard/i.test(m.body), 'the wizard is a secret until his tower is restored');
   assert.truthy(/discover|familiar/i.test(m.body), 'a hint of memory returning through discovery');
@@ -136,7 +136,7 @@ test('memory chip: the explainer is a declared kind, and says both numbers', () 
   s.save.wizardBuys = 1;
   s.showMemoriesHelp();
   assert.truthy(/Wizard Tower/.test(s.modals[2].body), 'a save that has already bought from him knows him too');
-  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note', mustAcknowledge = false \}\)/.test(MODAL_SHELL_SRC),
+  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note', mustAcknowledge = false \}\)/.test(SCENE_SRC),
     'showMessageModal forwards a kind, defaulting to note (a story when it has a painting)');
 });
 
@@ -155,7 +155,7 @@ test('memory chip: built beside #energy, repainted by updateHUD, dimmed under a 
 
 test('memory copy: no player-facing "Discovery badge" is left', () => {
   const code = (src) => src.split('\n').filter((l) => !/^\s*(\/\/|\*)/.test(l)).join('\n');
-  for (const [name, src] of [['app.js', APP_JS_SRC], ['items.js', ITEMS_JS_SRC],
+  for (const [name, src] of [['app.js', SCENE_SRC], ['items.js', ITEMS_JS_SRC],
     ['interact.js', INTERACT_SRC], ['interactables.js', INTERACTABLES_SRC]]) {
     assert.falsy(/discovery badge/i.test(code(src)), `${name}: no "discovery badge" outside comments`);
     assert.falsy(/'Discovery!'/.test(src), `${name}: the old splash title is gone`);
@@ -164,8 +164,8 @@ test('memory copy: no player-facing "Discovery badge" is left', () => {
   for (const it of ITEMS) assert.falsy(/discovery/i.test(it.name), `item named ${it.name}`);
   assert.falsy(ITEMS.some((it) => it.kind === 'badge'), 'no badge kind in the catalog');
   assert.truthy(PLAY_TIPS.some((t) => /wizard/i.test(t) && /memories/.test(t)), 'the wizard tip speaks of memories');
-  assert.truthy(/wizard: +\{ name: 'Wizard Tower', blurb: '[^']*memories/.test(APP_JS_SRC), 'and so does the tower blurb');
-  assert.truthy(/🌟 \+1 memory/.test(APP_JS_SRC), 'the shiny fanfare line says memory');
+  assert.truthy(/wizard: +\{ name: 'Wizard Tower', blurb: '[^']*memories/.test(SCENE_SRC), 'and so does the tower blurb');
+  assert.truthy(/🌟 \+1 memory/.test(SCENE_SRC), 'the shiny fanfare line says memory');
 });
 
 test('memory story: every ledger caller names what the memory is for, and the tick drains', () => {

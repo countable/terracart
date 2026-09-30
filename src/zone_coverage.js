@@ -65,7 +65,7 @@
     }
     return mask;
   }
-  function* buildSteps({ field, poiLayer, parks, tx, ty, N, chests, tileEdgeM, grid }) {
+  function* buildSteps({ field, poiLayer, parks, beachLayer, tx, ty, N, chests, tileEdgeM, grid }) {
     const Z = root.Zones, V = root.ZoneVariants, WG = root.WorldGen;
     const all = field && field.allAnchors || Z.resolveAnchors(Z.collectAnchors(poiLayer, tx, ty), { ty, N });
     if (!field && !all.length) return null;
@@ -90,6 +90,30 @@
       if (a && (a.kind === 'beach' || (a.kind === 'grove' && sourceLand(i) === WG.T.SAND))) coverage[i] = 0;
     }
     const unit = EXT / N, margin = Z.FRINGE_FILL_M / (N * WG.CELL_M / EXT);
+    // Polygon evidence refines coverage, never the canonical park anchor.
+    // A companion's identity and pattern depend only on that existing POI;
+    // clipped beaches cannot change the inland grove or create another POI.
+    const shore = new Uint8Array(N * N);
+    for (const feature of beachLayer?.features || []) {
+      if (feature.type !== 3 || !feature.geom || Z.anchorOf(feature.tags)?.kind !== 'beach') continue;
+      const mask = yield* parkMask(geometry({ rings: feature.geom }), N, unit, 0);
+      for (let i = 0; i < shore.length; i++) {
+        if (i % (N * 32) === 0) yield 'mapped beach union';
+        if (mask[i]) shore[i] = 1;
+      }
+    }
+    const companions = new Map();
+    const shoreFor = a => {
+      if (!companions.has(key(a))) {
+        const beach = { ...a, kind: 'beach', code: Z.ZONE_KINDS.beach.code,
+          R: Z.radiusFor('beach', 0), q: 0, aspect: 'tree_ring',
+          parkShore: true };
+        delete beach.variant; delete beach.character;
+        beach.variant = V.pick(beach).id;
+        companions.set(key(a), beach);
+      }
+      return companions.get(key(a));
+    };
     const associated = [];
     for (const park of parks || []) {
       if (park.cemetery) continue;
@@ -106,6 +130,16 @@
           const i = y * N + x;
           if (!mask[i]) continue;
           const land = sourceLand(i);
+          const beach = grid && a.kind === 'grove' && shore[i]
+            && [WG.T.SAND, WG.T.PARK, WG.T.GRASS, WG.T.FOREST, WG.T.GROVE].includes(land) ? shoreFor(a) : null;
+          if (beach) {
+            const previous = coverage[i] && f.anchors[coverage[i] - 1];
+            if (!previous || previous.kind === 'grove' || (previous.parkShore
+                && (a.gy < previous.gy || (a.gy === previous.gy && a.gx < previous.gx)))) {
+              coverage[i] = slotFor(beach);
+            }
+            continue;
+          }
           if (grid && a.kind === 'grove' && land === WG.T.SAND) continue;
           if (grid && a.kind === 'beach' && ![WG.T.SAND, WG.T.PARK, WG.T.GRASS, WG.T.FOREST, WG.T.GROVE].includes(land)) continue;
           const current = coverage[i] && f.anchors[coverage[i] - 1];
@@ -142,7 +176,7 @@
     const chestAt = new Map((chests || []).filter(c => c.kind === 'chest' && c._poiAt).map(c => [c._poiAt, c]));
     for (const a of new Set([...all, ...f.anchors])) {
       delete a.originGX; delete a.originGY;
-      if (!a.owned || !(tileEdgeM > 0) || !grid) continue;
+      if (a.parkShore || !a.owned || !(tileEdgeM > 0) || !grid) continue;
       const chest = chestAt.get(`${a.lx},${a.ly}`);
       if (!chest) continue;
       const lx = a.gx - tx * EXT, ly = a.gy - ty * EXT;

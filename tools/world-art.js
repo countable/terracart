@@ -46,6 +46,7 @@
       if(ASSETS[sheet] && !SpriteLayout.creatureArt(sheet))want(sheet,Number.isNaN(Number(frame))?frame:Number(frame));
     }
     for(const [key,asset] of Object.entries(ASSETS))if(/^(house_|macro_)/.test(key))want(key,asset.kind==='image'?'__BASE':0);
+    for (const pile of Render.COIN_PILES) want(pile.texture);
     const crops = [...new Set([...Object.keys(CROP_ROW),...Object.keys(CROP_SPRITE)])];
     function plantArt(plant){const s=wildplantSprite(plant);return {key:s?.sheet||'crops',frame:s?.custom?wildplantFrame(plant):s?.sheet==='springcrops'?s.row*SPRING_CROPS_COLS+MAX_GROWTH_STAGE:(CROP_ROW[plant.crop]??1)*CROPS_SHEET_COLS+MAX_GROWTH_STAGE};}
     const plantRows=[];
@@ -120,7 +121,11 @@
       $('count').textContent=`${visible.length} of ${rows.length} artwork entries`;
       $('rows').innerHTML=visible.map(r=>`<tr data-id="${esc(r.id)}" class="${r.id===selected?'selected':''}"><td><div class="preview">${art(r,3)}</div>${r.images.length>3?`<small>+${r.images.length-3} more frames</small>`:''}</td><td><button class="pick" data-pick="${esc(r.id)}">${esc(r.name)}</button></td><td>${esc(r.category)}</td><td>${esc(zonesText(r))}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No art matches these filters.</td></tr>';
       $('rows').querySelectorAll('[data-id]').forEach(tr=>tr.addEventListener('click',()=>{selected=tr.dataset.id;renderTable();}));
-      document.querySelectorAll('[data-sort]').forEach(b=>b.parentElement.setAttribute('aria-sort',b.dataset.sort===sort?(descending?'descending':'ascending'):'none'));
+      document.querySelectorAll('[data-sort]').forEach(button=>{
+        const active=button.dataset.sort===sort;
+        button.parentElement.setAttribute('aria-sort',active?(descending?'descending':'ascending'):'none');
+        button.textContent=`${title(button.dataset.sort)} ${active?(descending?'▼':'▲'):'↕'}`;
+      });
       const row=rows.find(r=>r.id===selected);
       $('detail').innerHTML=row?`<h2>${esc(row.name)}</h2><p><span class="tag">${esc(row.category)}</span></p><div class="preview">${art(row,Infinity)}</div><h3>Zone use</h3><p>${esc(zonesText(row))}</p><small>${row.zones.size?'Declared material use in the current zone layouts. Other world placement rules may also use this art.':'Used by the shared world renderer; no specific material membership in the named zone layouts.'}</small><h3>Current source</h3><code>${esc(row.source)}</code>${row.key?`<p><small>Texture: ${esc(row.key)}<br>Frames: ${esc(row.frames.join(', '))}</small></p>`:''}`:'<h2>No selection</h2><p>Broaden your filters to inspect artwork.</p>';
     }

@@ -74,8 +74,21 @@ Render.objectGroundOffsetPx = function (appearance, textures) {
     * appearance.scl * appearance.scaleYMul;
 };
 
-const COIN_DROP_PX = 16.8;
+const COIN_DROP_PX = 13;
 Render.COIN_DROP_PX = COIN_DROP_PX;
+// Low-detail ground sprites show the amount waiting on the map. The stacks
+// were 20 / 25 / 30 wide; scaled down a little (owner, Sep 2026) so a large
+// pile no longer fills its whole cell.
+Render.COIN_PILES = [
+  { min: 1, texture: 'coin_drop', width: COIN_DROP_PX },
+  { min: 2, texture: 'coin_pile_small', width: 17 },
+  { min: 11, texture: 'coin_pile_medium', width: 21 },
+  { min: 51, texture: 'coin_pile_large', width: 25 },
+];
+Render.coinPile = (coin) => {
+  const amount = coinAmount(coin);
+  return Render.COIN_PILES.findLast(row => amount >= row.min);
+};
 
 // Fallback fill for cells whose terrain type has no COLORS entry (and for the
 // diagonal-neighbour colour painted into rounded corners). Matches the grass
@@ -636,7 +649,7 @@ const BORDER_TRANS_SKIP = new Set([9, 11, 12]); // buildings only; water + sand 
 const SURF_COLOR = 0xdff0f7;
 // Lava is drawn as water (the same tile, red — T.CAVE_LAVA), shore and all:
 // its seam edge is this bright crust where water paints its foam.
-const LAVA_CRUST_COLOR = 0xffb040;
+const LAVA_CRUST_COLOR = 0xb96628;
 // Does the edge between a cell painted `color` and a neighbour of terrain
 // `nbrType` painted `nbrColor` get the wavy biome border? The rule is just
 // "the painted colours differ", with buildings opted out (their own outline
@@ -3408,6 +3421,10 @@ Render.drawObjects = function drawObjects(scene) {
     // restores them. The owner then returns the correct shop / house role.
     if (role === 'wreck') return null;
     if (role === 'trailer') return 'Home';
+    if (role === 'wizard') {
+      const access = MemoryStory.towerAccess(scene.save, o);
+      return { locked: 'Sealed Tower', abandoned: 'Abandoned Tower', empty: 'Empty Tower', open: 'Wizard Tower' }[access];
+    }
     // Forced scarecrow shop - signed only while it still has one to sell.
     // After the sale it reverts to its underlying role (handled below).
     if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
@@ -3671,6 +3688,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (scene.save.starterShopId && scene.save.starterShopId === o.id) continue;
     // Wrecks aren't shops yet - the pip would read as a contradiction.
     if (item.houseRole === 'wreck') continue;
+    if (item.houseRole === 'wizard' && MemoryStory.towerAccess(scene.save, o) !== 'open') continue;
     // Sealed castles (delivery gate not yet met) aren't open for business —
     // a "ready" pip would lie about the lock. (Castles report dealCap Infinity
     // and bail above, but keep this for safety.)
@@ -3826,17 +3844,11 @@ Render.drawObjects = function drawObjects(scene) {
     Render.renderPool(scene, scene.coinPool, scene.coinContainer, coinList, (s, item) => {
       const { c, dx, dy } = item;
       const { sx, sy } = project(dx, dy);
-      setTextureIfDifferent(s, 'coin_drop');
-      // Tiny pulse: scale oscillates ~0.9..1.1 over ~800ms based on now+id-hash
-      // so each coin breathes out of phase with its neighbours.
-      const idH = (c.id || '').length * 2654435761;
-      const phase = ((_coinNow + idH) % 800) / 800;     // 0..1
-      const pulse = 1.0 + 0.12 * Math.sin(phase * Math.PI * 2);
-      // coin_drop is the 64px pixel-art asset now (was a baked 16px disc).
-      // The drop still draws COIN_DROP_PX across, derived off the frame's own
-      // width so a re-cut asset can't silently resize what the player sees.
+      const pile = Render.coinPile(c);
+      setTextureIfDifferent(s, pile.texture);
+      // Native-size coin art stays still: fractional pulsing resamples its rims.
       s.setOrigin(0.5, 0.5)
-       .setScale((COIN_DROP_PX / s.width) * pulse)
+       .setScale(pile.width / s.width)
        .setPosition(Math.round(sx), Math.round(sy))
        .setAlpha(1).setTint(0xffffff);
     });

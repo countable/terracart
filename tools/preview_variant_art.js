@@ -56,10 +56,13 @@ data.assets.quarry_equipment = {kind:'image', path:vm.runInContext("gearAssetPat
 const colourTable = read('app').match(/const COLORS = (\{[\s\S]*?\n\});/);
 if (!colourTable) throw new Error('Cannot find shipping ground colours');
 vm.runInContext('const COLORS = ' + colourTable[1] + ';' + read('textures'), ctx);
-data.basicTiles = vm.runInContext(`Object.entries(BiomeProfiles.T).map(([name,type]) => ({
+data.terrainTiles = vm.runInContext(`Object.entries(BiomeProfiles.T)
+  .map(([name,type]) => ({
   name, type, color: COLORS[type], variants: typeof BIOME_TEX[type] === 'object' ? BIOME_TEX[type].variants : 0,
   flora: BiomeProfiles.flora(type),
 }))`, ctx);
+// These ground types exist only as special-zone overlays; rock also occurs naturally.
+data.basicTiles = data.terrainTiles.filter(tile => !['GROVE', 'CHURCHYARD', 'TAR_YARD'].includes(tile.name));
 data.biomePainter = vm.runInContext('lerp.toString()', ctx) + '\n' + read('textures').slice(0, read('textures').indexOf('const ZONE_GROUND_ACCENTS ='));
 // Embed the shipping pavement/lamp painters, preserving their shared helpers.
 data.roadPainter = read('road_overlay');

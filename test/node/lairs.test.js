@@ -29,7 +29,7 @@
 
   // update()'s residency call is app.js's; spawnInTile and wanderCreatures
   // are the SceneCreatures mixin's (scene_creatures.js).
-  const APP = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+  const APP = SCENE_SRC;
   const CELL_M = 7;
 
   // ── The curve ────────────────────────────────────────────────────────────
@@ -1283,8 +1283,8 @@
     // The eager pass is gone. What the tile build owes residency is the ONE
     // shared spawn options object (the road rule must not be re-derived), and
     // nothing else.
-    const spawn = SCENE_CREATURES_SRC.slice(SCENE_CREATURES_SRC.indexOf('  spawnInTile(entry, tx, ty) {'),
-                            SCENE_CREATURES_SRC.indexOf('entry._spawned = true;'));
+    const spawn = SCENE_SRC.slice(SCENE_SRC.indexOf('  spawnInTile(entry, tx, ty) {'),
+                            SCENE_SRC.indexOf('entry._spawned = true;'));
     assert.truthy(spawn.includes('entry._spawnOpts = _spawnOpts;'),
       'residency has no road mask without this');
     assert.falsy(/Lairs\.(spawnForTile|garrisonFor|stepResidency)/.test(spawn),
@@ -1365,9 +1365,9 @@
     assert.lt(half.bottom - half.top, full.bottom - full.top, 'and the tap box shrinks');
     // Every reader passes the instance: render, health bars, wheel, tap.
     assert.truthy(/setScale\(creatureScale\(c\.kind, creatureInstScale\(c\)\)\)/.test(RENDER_SRC), 'render draws it');
-    assert.eq((APP_JS_SRC.match(/creatureHealthBarTop\([^)]*, SpriteLayout\.creatureInstScale\(/g) || []).length,
-      (APP_JS_SRC.match(/creatureHealthBarTop\(/g) || []).length, 'every health bar seat passes it');
-    assert.truthy(/creatureWheelDy\(creature\.kind, SpriteLayout\.creatureInstScale\(creature\)\)/.test(APP_JS_SRC),
+    assert.eq((SCENE_SRC.match(/creatureHealthBarTop\([^)]*, SpriteLayout\.creatureInstScale\(/g) || []).length,
+      (SCENE_SRC.match(/creatureHealthBarTop\(/g) || []).length, 'every health bar seat passes it');
+    assert.truthy(/creatureWheelDy\(creature\.kind, SpriteLayout\.creatureInstScale\(creature\)\)/.test(SCENE_SRC),
       'the wheel');
   });
 

@@ -9,11 +9,11 @@
 //
 // app.js needs Phaser and can't load headlessly (no bridge exists for these
 // methods in run.js), so — like feet_anchor.test.js and energy_pop.test.js —
-// the wiring is pinned as SOURCE TEXT against APP_JS_SRC, with the one
+// the wiring is pinned as SOURCE TEXT against SCENE_SRC, with the one
 // self-contained arithmetic expression (STREET_LAMP_PX) lifted out and run.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 // The three passes, as source, in the order drawRoadGeometry calls them.
 const forTileSrc = app.slice(app.indexOf('  _streetLampsForTile(tx, ty, entry) {'),
@@ -652,6 +652,22 @@ test('street lamps: the frame pass bakes each LIT glow before the sprite pass dr
   });
 });
 
+test('street lamps: scenic density follows the distance reward table', () => {
+  const base = Streets.lampLayFor({ class: 'path' }).spacingM;
+  for (const [kind, variant] of Object.entries(Scenic.KIND_ROW)) {
+    assert.eq(StreetVariants.lampSpacingFor(variant, base), base / Scenic.SCENIC_MUL[kind]);
+  }
+  const original = Scenic.SCENIC_MUL.park;
+  try {
+    Scenic.SCENIC_MUL.park = 2.5;
+    assert.eq(StreetVariants.lampSpacingFor(Scenic.KIND_ROW.park, base), base / 2.5,
+      'changing distance rewards changes lantern density without another tuning value');
+  } finally { Scenic.SCENIC_MUL.park = original; }
+  assert.eq(StreetVariants.lampSpacingFor(null, base), base, 'ordinary paths keep their density');
+  assert.eq(StreetVariants.lampSpacingFor('lantern', 100), 100 / StreetVariants.LANTERN_SPACING_DIV,
+    'the authored Lantern Row still works');
+});
+
 test('street lamps: scenic segments share palette and lamp density without changing plain stretches', () => {
   const entry = readyEntry(), f = entry.layers[0].features[0];
   f.tags.class = 'path';
@@ -659,8 +675,8 @@ test('street lamps: scenic segments share palette and lamp density without chang
     [0, toMvt(60), 'park'], [toMvt(60), toMvt(120), 'shore'],
   ]]]) };
   const lamps = P._streetLampsForTile.call({}, TX, TY, entry);
-  assert.eq(lamps.filter((l) => l.s < 60).length, 2, 'park gets twice ordinary path frequency');
-  assert.eq(lamps.filter((l) => l.s >= 60 && l.s < 120).length, 1, 'promenade keeps normal path density');
+  assert.eq(lamps.filter((l) => l.s < 60).length, 2, 'park density reflects its scenic bonus, rounded to whole lamps');
+  assert.eq(lamps.filter((l) => l.s >= 60 && l.s < 120).length, 2, 'promenade reflects its double distance bonus');
   assert.eq(lamps.filter((l) => l.s >= 120).length, 1, 'plain remainder keeps normal density');
   assert.eq(lamps.find((l) => l.s > 60 && l.s < 120).glow, StreetVariants.VARIANT_BY_ID.promenade.lampGlow, 'golden promenade lamps');
   const styles = StreetVariants.lineStyles(entry, f, 0, 0, MVT_TO_M);

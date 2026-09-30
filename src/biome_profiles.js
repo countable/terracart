@@ -134,12 +134,12 @@
   const FAMILY_PROFILE = {
     grassland: {
       flora: [dyn('longgrass', 0.15, S.LONGGRASS),
-              // Forget-me-not halved (was 0.006–0.020): parks/grass often carry
+              // Ordinary flowers replace the school-only blue blooms. Parks/grass carry
               // two stacked OSM polygons (landcover+landuse / landuse+park),
               // each running its own scatter — observed density ~2x the window.
-              fix('forgetmenot', 0.003, 0.010, S.FORGETMENOT),
+              fix('flowers', 0.003, 0.010, S.FORGETMENOT),
               // Marigold halved (was 0.008–0.024 effective across stacked polys)
-              // and kept below forget-me-not: it's the rarer flower (sell 3 vs 2)
+              // and kept below ordinary flowers: it's the rarer flower (sell 3 vs 2)
               // but grows in far more biomes, so it read as the most common bloom.
               fix('marigold', 0.002, 0.006, S.MARIGOLD)],
     },
@@ -201,10 +201,9 @@
     // [T.PARK] is PARK_CHARACTERS.common — assigned below the table. A park
     // POLYGON reads its own character's row (flora(T.PARK, character)).
     [T.SCHOOL]: {
-      // Casual turf — keeps the grassland wildflowers (parity with the old
-      // meadow-flora pass that ran on every LONGGRASS_TYPES member).
+      // School grounds are the exclusive source of wild forget-me-nots.
       flora: [dyn('longgrass', 0.12, S.LONGGRASS),
-              fix('forgetmenot', 0.006, 0.020, S.FORGETMENOT),
+              { ...fix('forgetmenot', 0.006, 0.020, S.FORGETMENOT), terrainOnly: true },
               fix('marigold', 0.003, 0.008, S.SCH_MAR)],
     },
     [T.COMMERCIAL]: {
@@ -220,7 +219,7 @@
     },
     [T.PLAYGROUND]: {
       flora: [dyn('longgrass', 0.08, S.LONGGRASS),
-              fix('forgetmenot', 0.004, 0.014, S.FORGETMENOT),
+              fix('flowers', 0.004, 0.014, S.FORGETMENOT),
               fix('marigold', 0.002, 0.006, S.MARIGOLD)],
     },
     // PITCH + GOLF are deliberately manicured: long grass only, no wildflowers
@@ -228,11 +227,11 @@
     [T.PITCH]: { flora: [dyn('longgrass', 0.06, S.LONGGRASS)] },
     [T.WETLAND]: {
       // Lush marsh — dense reedy grass, marsh scrub, damp mushrooms, the odd
-      // forget-me-not at the water's edge.
+      // flowers at the water's edge.
       flora: [dyn('longgrass', 0.10, S.WET_LG),
               fix('shrub', 0.03, 0.08, S.WET_SHRUB),
               fix('mushroom', 0.015, 0.04, S.WET_MUSH),
-              fix('forgetmenot', 0.004, 0.010, S.WET_FMN)],
+              fix('flowers', 0.004, 0.010, S.WET_FMN)],
     },
     [T.GOLF]: {
       flora: [dyn('longgrass', 0.05, S.LONGGRASS)],
@@ -272,7 +271,7 @@
     meadow: {
       share: 0.30, filler: 'longgrass', pad: { shrub: 0.02, longgrass: 0.06 },
       flora: [fix('longgrass', 0.025, 0.06, S.LONGGRASS),
-              fix('forgetmenot', 0.004, 0.012, S.FORGETMENOT),
+              fix('flowers', 0.004, 0.012, S.FORGETMENOT),
               fix('marigold', 0.003, 0.007, S.MARIGOLD),
               fix('shrub', 0.004, 0.010, S.SHRUB)],
       patch: FLORA_PATCH,
@@ -282,7 +281,7 @@
       trees: { p: 0.012, salt: PARK_S.TREE },
       flora: [fix('shrub', 0.02, 0.045, S.SHRUB),
               fix('mushroom', 0.01, 0.025, PARK_S.MUSH),
-              fix('forgetmenot', 0.002, 0.004, S.FORGETMENOT)],
+              fix('flowers', 0.002, 0.004, S.FORGETMENOT)],
       patch: FLORA_PATCH,
     },
     formal: {
@@ -297,7 +296,7 @@
       share: 0.30, filler: 'longgrass', pad: { shrub: 0.03, longgrass: 0.05 },
       flora: [dyn('longgrass', 0.06, S.LONGGRASS),
               fix('shrub', 0.005, 0.012, S.SHRUB),
-              fix('forgetmenot', 0.002, 0.004, S.FORGETMENOT),
+              fix('flowers', 0.002, 0.004, S.FORGETMENOT),
               fix('marigold', 0.001, 0.003, S.MARIGOLD)],
       patch: FLORA_PATCH,
     },
@@ -353,6 +352,14 @@
   // registry: a crop is allowed on any biome whose FAMILY grows it (directly or
   // via the family default), so e.g. a park shrub tolerates an adjacent grass
   // cell. Crops no biome lists (e.g. rockfruit) fall back to "any soft ground".
+  // Explicit habitat exclusivity also rejects polygon-overlap spill onto
+  // another final terrain. This filter is for generated flora, not crops.
+  const EXCLUSIVE_TYPES = {};
+  for (const [type, profile] of Object.entries(BIOME_PROFILES)) {
+    for (const fl of profile.flora || []) if (fl.terrainOnly) {
+      (EXCLUSIVE_TYPES[fl.crop] || (EXCLUSIVE_TYPES[fl.crop] = new Set())).add(Number(type));
+    }
+  }
   const ALLOWED_FAMILIES = {};   // crop -> Set(family)
   const addAllowed = (profile, fam) => {
     for (const fl of (profile.flora || [])) {
@@ -378,6 +385,7 @@
     T.FARMLAND, T.ROCK, T.SCHOOL, T.PLAYGROUND, T.PITCH, T.WETLAND, T.GOLF,
     T.ORCHARD, T.COMMERCIAL, T.INDUSTRIAL, T.GROVE, T.CHURCHYARD, T.TAR_YARD]);
   const allows = (crop, type) => {
+    if (EXCLUSIVE_TYPES[crop]) return EXCLUSIVE_TYPES[crop].has(type);
     if (ALLOWED_TYPES[crop] && ALLOWED_TYPES[crop].has(type)) return true;
     const fams = ALLOWED_FAMILIES[crop];
     if (fams) return fams.has(familyOf(type));
@@ -514,8 +522,9 @@
   // What this is NOT: an `attracts` pull — that moves a tile's existing
   // spawns of a species onto favourite ground; these species have no spawns
   // anywhere else to move.
-  const SHORE_FAUNA_ORDER = ['crab', 'gull'];
+  const SHORE_FAUNA_ORDER = ['crab', 'gull', 'metal_slime'];
   const SHORE_FAUNA = {
+    metal_slime: { perShoreM: 300, max: 2, pier: true, salt: 'shorefauna|metal_slime' },
     crab: { perShoreM: 35, max: 14, pier: false, salt: 'shorefauna|crab' },
     gull: { perShoreM: 90, max: 6,  pier: true,  salt: 'shorefauna|gull' },
   };
@@ -527,6 +536,7 @@
   // class: waste ground a zone halo repainted still counts.
   const BIOME_ATTRACTS = {
     [T.WASTELAND]: { slime: 0.5 },
+    [T.PITCH]: { deer: 0.5 },
   };
 
   // The accessors. The raw tables reach app.js as the bare globals below

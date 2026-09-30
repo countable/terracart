@@ -5,7 +5,7 @@
 // look alike".
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const iconKey = (id) => JSON.stringify(inventoryIconSource(id));
 
 test('icon badges: every item sharing its base art is told apart by its badge', () => {

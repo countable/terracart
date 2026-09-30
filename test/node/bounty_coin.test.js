@@ -19,7 +19,7 @@
 // the test can count what was paid without touching the real globals.
 
 (function () {
-const APP = APP_JS_SRC;
+const APP = SCENE_SRC;
 const liftMethod = (sig) => {
   const start = APP.indexOf('\n  ' + sig);
   const end = start < 0 ? -1 : APP.indexOf('\n  }\n', start);
@@ -190,7 +190,7 @@ test('bounty coin: a PLAYER (or pet) kill still pays everything past the wage', 
 
 test('bounty coin: every kill route names its killer', () => {
   // A pet's kill lands in wanderCreatures (scene_creatures.js); the rest in app.js.
-  const SCENE = APP + '\n' + SCENE_CREATURES_SRC;
+  const SCENE = APP + '\n' + SCENE_SRC;
   assert.truthy(/this\.resolveDefeat\(c, source\);/.test(SCENE), '_damageEnemy passes its source on');
   assert.truthy(/this\.resolveDefeat\(tgt, 'pet'\);/.test(SCENE), 'a pet\'s kill is the pet\'s');
   assert.truthy(/this\._damageEnemy\(target, shot\.damage, Combat\.shotSource\(shot\)\)/.test(SCENE),

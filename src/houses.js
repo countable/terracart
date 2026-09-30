@@ -39,9 +39,9 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // two nearest houses as blacksmith/trader up front, a wreck reveals its role
   // from the order the player restores it: the opening stretch is a fixed
   // tutorial run (blacksmith, trader, house, market) and the 15th
-  // restore is always a wizard tower. Restores BEYOND these slots fall back to
-  // the address-derived Shops.shopType so the wider neighbourhood keeps its
-  // organic variety. 'plain' === a plain residential house (no shop). The chosen
+  // restore reveals the first wizard tower. After 21 lifetime memories, the
+  // next restore at index 25 or later reveals his second location. Other
+  // addresses keep their shop variety without producing extra wizard towers. 'plain' === a plain residential house (no shop). The chosen
   // role is frozen into save.restoredHouses[id] at restore time so it never
   // shifts on later loads.
   const PRESEED_RESTORE_ROLES = {
@@ -95,15 +95,54 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // defers to the address-derived shop type so the neighbourhood keeps its
   // variety. Always returns a concrete role string ('plain' for a house).
   function preseedRestoreRole(save, order, house) {
-    // A save with NO blacksmith gets one on its next rebuild, whatever slot
-    // that is. Slot 0 is the smithy, so a new save never needs this — but a
-    // save whose first rebuilds predate the restore-order roles (or any other
-    // path that left it without one) would otherwise never meet the forge.
+    const stored = save.restoredHouses?.[house?.id];
+    if (typeof stored === 'string') return stored;
     if (!hasBlacksmith(save)) return 'blacksmith';
-    if (Object.prototype.hasOwnProperty.call(PRESEED_RESTORE_ROLES, order)) {
-      return PRESEED_RESTORE_ROLES[order];
+    const towers = wizardTowerIds(save);
+    if (!towers.firstId && order >= 14) return 'wizard';
+    if (towers.firstId && !towers.secondId && order >= 25
+      && Object.keys(save.discovered || {}).length >= 21) return 'wizard';
+    if (Object.prototype.hasOwnProperty.call(PRESEED_RESTORE_ROLES, order)
+      && PRESEED_RESTORE_ROLES[order] !== 'wizard') return PRESEED_RESTORE_ROLES[order];
+    const role = (typeof Shops !== 'undefined' && Shops.shopType(house)) || 'plain';
+    return role === 'wizard' ? 'plain' : role;
+  }
+
+  // Identity is separate from shop art: old saves can contain extra randomly
+  // assigned wizard buildings, which must not become additional story doors.
+  // The ledger's insertion order is the same restore order used by the shop
+  // schedule. Queries never mutate a save; restoration freezes the result.
+  function wizardTowerIds(save) {
+    const stamped = save.wizardTowers || {};
+    if (stamped.firstId && Object.prototype.hasOwnProperty.call(stamped, 'secondId')) return { firstId: stamped.firstId, secondId: stamped.secondId };
+    const entries = Object.entries(save.restoredHouses || {});
+    const firstId = stamped.firstId || (entries[14]?.[1] === 'wizard'
+      ? entries[14][0] : entries.find(([, role]) => role === 'wizard')?.[0]) || null;
+    const secondId = stamped.secondId || (firstId && Object.keys(save.discovered || {}).length >= 21
+      ? entries.find(([id, role], order) => order >= 25 && role === 'wizard' && id !== firstId)?.[0]
+      : null) || null;
+    return { firstId, secondId };
+  }
+
+  function wizardTowerIdentity(save, house) {
+    if (!house || house.id == null) return null;
+    const towers = wizardTowerIds(save);
+    const id = String(house.id);
+    if (id === towers.firstId) return 'first';
+    if (id === towers.secondId) return 'second';
+    return null;
+  }
+
+  function registerWizardTower(save, house, order) {
+    const towers = wizardTowerIds(save);
+    if (house?.id != null && save.restoredHouses?.[house.id] === 'wizard') {
+      const id = String(house.id);
+      if (!towers.firstId) towers.firstId = id;
+      else if (!towers.secondId && id !== towers.firstId && order >= 25
+        && Object.keys(save.discovered || {}).length >= 21) towers.secondId = id;
     }
-    return (typeof Shops !== 'undefined' && Shops.shopType(house)) || 'plain';
+    save.wizardTowers = towers;
+    return towers;
   }
 
   // Flower charm: 0.5 while this building holds an unexpired charm (bought
@@ -271,6 +310,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   root.Houses = {
     PRESEED_RESTORE_ROLES,
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith, preseedRestoreRole,
+    wizardTowerIds, wizardTowerIdentity, registerWizardTower,
     shopCharmMul,
     isHouseWreck, wreckRestoreCost,
     fortUnlockCost, isFortLocked,

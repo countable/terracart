@@ -33,6 +33,10 @@ test('elite: the bounty pays per HP, so an elite pays double the wage', () => {
   for (const kind of Object.keys(MONSTERS)) {
     const plain = enemyBounty(kind, 0);
     const elite = enemyBounty(kind, 0, Combat.ELITE_MUL);
+    if (MONSTERS[kind].bountyCoins != null) {
+      assert.eq(elite,plain,kind+' keeps its authored fixed payout');
+      continue;
+    }
     assert.eq(elite, Math.max(1, Math.round(MONSTERS[kind].hp * 2 * ENEMY_COIN_PER_HP)),
       kind + ' elite bounty is the doubled pool at the per-HP rate');
     assert.gt(elite, plain, kind + ' elite pays more than plain');
@@ -93,7 +97,7 @@ test('elite: the treasure pool is biased to relics and pays a real reward', () =
 test('elite: the shipping code stamps, scales, heals and pays the elite', () => {
   // The spawn and the monster's hit are the SceneCreatures mixin's
   // (scene_creatures.js); the kill and the heal are app.js's.
-  const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+  const app = SCENE_SRC;
   assert.inRange(SHINY_RATE.monster, 0.001, 0.5, 'monsters have a shiny rate');
   const spawn = app.slice(app.indexOf('spawnCaveCreatures(entry, tx, ty, depth) {'));
   assert.truthy(/creatures\.push\(WorldGen\.makeCreature\(kind, wmx, wmy, id,\s*\{ shiny: EnemyRoster\.get\(kind\)\.eliteEligible && isShiny\(id, SHINY_RATE\.monster\), habitat: habitat\.theme \}\)\)/.test(spawn),
@@ -118,7 +122,7 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
 });
 
 test('delivery: the first delivery to a house banks a memory, once', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const start = app.indexOf('presentDeliveryOffer(sx, sy, house, recordDeal) {');
   assert.gt(start, 0, 'the delivery handler exists');
   const accept = app.slice(start, app.indexOf('\n  }\n', app.indexOf('onAccept: (q) =>', start)));

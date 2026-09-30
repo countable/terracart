@@ -67,7 +67,9 @@ test('sandbox coverage: the synthetic tile uses real map pipelines', () => {
   const placed = Traps.spawnSurface(e.grid, e.roadClass, e.cellsPerEdge, e.cellsPerEdge,
     built.tx, built.ty, e.tileEdgeM, e._spawnOpts, 1, e.zone && e.zone.under);
   assert.gt(placed.length, 0, 'Traps.spawnSurface places traps on the synthetic spawn fields');
-  assert.eq(e.traps.length, placed.length, 'the entry carries exactly the placer\'s traps');
+  assert.gte(e.traps.length, placed.length, 'the entry carries at least the placer\'s traps');
+  assert.truthy(e.traps.some((t) => String(t.id).includes('trap_snare')),
+    'Snare Lane laid its iron teeth through the shared dressing lane');
 
   const objectKinds = new Set(e.objects.map((o) => o.kind));
   for (const kind of ['grove_shrine', 'headstone', 'infoboard', 'waystone', 'stakes', 'torch', 'tar', 'vista_scope']) {

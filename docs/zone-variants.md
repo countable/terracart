@@ -68,8 +68,8 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | grove | Meadow | 15% shrub outside the clearing; no grass outside | R=3 grass disk with bush rim | 3 medium: rose | none | rabbit 50%, butterfly 65% |
 | grove | Mushroom Grove | 11.11% mushroom, 5.56% giant mushroom (shrub mechanics) | mushroom crescent | 1 rare: star | 1 slime at find | butterfly 50% |
 | grove | Orchard | 6.25% apple trees, 6.25% medium maples | paired trees | 3 medium: gemfruit | none | deer 65% |
-| grove | Formal Garden | 11.11% shrub, 16.67% blue, 5.56% orange | hedge flanks flower diamond | 2 medium: rose | none | none |
-| grove | Hedge Garden | 43.75% shrub, 4.69% blue, 1.56% orange | flowers in hedge room | 2 medium: rose | none | rabbit 60% |
+| grove | Formal Garden | 11.11% shrub, 16.67% flowers, 5.56% orange | hedge flanks flower diamond | 2 medium: rose | none | none |
+| grove | Hedge Garden | 43.75% shrub, 4.69% flowers, 1.56% orange | flowers in hedge room | 2 medium: rose | none | rabbit 60% |
 | grove | Ancient Grove | 2.78% tree, 22.22% shrub, 35% grass (expected) | stone tree ring | 1 rare: star | 2 slime at find | deer 60% |
 | stones | Stone Garden | 4.54% iron_ore, 18.14% stone, 6.8% grass | four stones | 3 medium: gemfruit | none | none |
 | stones | Ordered Graves | 6% grave, 6% stone, 3% grass | flanking stone rows | 2 medium: gemfruit | headstone ghosts on interaction | crow 65% |
@@ -109,7 +109,7 @@ Mushroom pairs occupy opposite halves of a 6 × 6 repeat. Two shrubs stagger bet
 - Hedge lines repeat every four cells throughout the coverage union. Each room has a 3 × 3 interior between one-cell-thick lines. The preview shows four rooms per axis; it does not limit world coverage.
 - The settled POI is at motif cell (6, 6), centered in room (1, 1). Translate the grid by POI cell minus (6, 6), then apply the common orientation.
 - No ordinary flower at the POI center. Four adjacent marigolds frame the shrine within its room. Hedge walls remain continuous around it.
-- Repeating background density before POI replacement is 50%: 43.75% shrub, 4.6875% blue flowers and 1.5625% marigolds. The two finite rose finds replace room-center flowers; extending the grid does not multiply finds.
+- Repeating background density before POI replacement is 50%: 43.75% shrub, 4.6875% pale flowers and 1.5625% marigolds. The two finite rose finds replace room-center flowers; extending the grid does not multiply finds.
 - Irregular boundaries and obstacles clip placement while preserving grid phase and spacing.
 
 ## Tar-yard material choices

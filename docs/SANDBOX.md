@@ -32,7 +32,7 @@ Band 5  RECREATION       PARK/PARK PATH · PLAYGROUND · PITCH · CASTLE/FORT
 Band 6  NEW MECHANICS    STREET VARIANTS · SACRED GROVE/OLD STONES/TAR YARD
 ```
 
-The footprint is 36 x 77 cells, about 252 m x 539 m at 7 m per cell.
+The footprint is 36 x 86 cells, about 252 m x 602 m at 7 m per cell.
 `buildLayout` centres it in the start tile. The player teleports to PLAYER
 SPAWN, where a synthetic Home trailer keeps the nearby wizard tower in its
 wizard role.
@@ -64,6 +64,7 @@ wizard role.
 | orchard | Cherry Lane | alternating apple and maple rows |
 | pilgrim | Abbey Walk | waystone end piece |
 | golden | Coin Row | persistent verge coins |
+| snare | Iron Lane | a snare chest ringed by iron teeth |
 | barricade | Fort Road | barricades, stakes and guard lair |
 | plain minor | Market Close / Maple Street | ordinary street comparison |
 | plain major | Old Trade Road | old-trade-road lamps and wagon stop |

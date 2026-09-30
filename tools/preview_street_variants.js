@@ -55,18 +55,25 @@ function carpetPreview(row, roadWidthM) {
   return strokes;
 }
 
-function preview(row) {
-  if (row.size === 'path') return previewPath(row);
-  // Select a real key that rolls the row. No runtime tables or rolls are patched.
-  let name;
-  for (let i = 0; i < 10000; i++) {
-    const candidate = `Preview ${i}`;
-    if (SV.variantFor(SV.streetKey(candidate, tx, ty), candidate, row.size) === row.id) {
-      name = candidate;
-      break;
+// Export the shipping raster, cropped to the preview viewport. Road surfaces are
+// drawn by the pavement painter; park is the fixture's unchanged base ground.
+function groundPreview(tile) {
+  const cells = [];
+  for (let y = Math.max(0, middle - 12); y <= Math.min(N - 1, middle + 12); y++) {
+    for (let x = Math.max(0, Math.floor(middle - halfLengthCells - 6)); x <= Math.min(N - 1, Math.ceil(middle + halfLengthCells + 6)); x++) {
+      const i = y * N + x;
+      let type = tile.grid[i];
+      if (type === WG.T.PATH) type = tile.pathUnder[`${x}_${y}`] ?? WG.T.PARK;
+      if (type === WG.T.PARK || tile.roadMask[i]) continue;
+      cells.push({x: x * cellM, y: y * cellM, type});
     }
   }
-  if (!name) throw new Error(`No preview street for ${row.id}`);
+  return {baseTerrain: WG.T.PARK, groundCells: cells};
+}
+
+function preview(row) {
+  if (row.size === 'path') return previewPath(row);
+  let name = 'Preview';
   const tags = { class: row.size === 'major' ? 'secondary' : 'minor' };
   const layers = [
     { name: 'landuse', features: [{ type: 3, tags: { class: 'park' },
@@ -74,6 +81,20 @@ function preview(row) {
     { name: 'transportation', extent, features: [{ type: 2, tags, geom: [line] }] },
     { name: 'transportation_name', extent, features: [{ type: 2, tags: { name }, geom: [line] }] },
   ];
+  // Read the fixture's final geographic context before selecting its name:
+  // public park frontage now favours Lantern Row in the runtime affinity pass.
+  const contextTile = WG.rasterizeTile(layers, N, tx, ty, tileEdgeM);
+  const context = contextTile.streetIndex.lines[0].affinityContext;
+  name = null;
+  for (let i = 0; i < 10000; i++) {
+    const candidate = `Preview ${i}`;
+    if (SV.variantFor(SV.streetKey(candidate, tx, ty), candidate, row.size, context) === row.id) {
+      name = candidate;
+      break;
+    }
+  }
+  if (!name) throw new Error(`No preview street for ${row.id}`);
+  layers.find(l => l.name === 'transportation_name').features[0].tags.name = name;
   const tile = WG.rasterizeTile(layers, N, tx, ty, tileEdgeM);
   const rec = tile.streetIndex.lines[0];
   if (rec.variant !== row.id) throw new Error(`Preview rolled ${rec.variant}, wanted ${row.id}`);
@@ -85,9 +106,9 @@ function preview(row) {
         { ...tile, layers, tileEdgeM, cellsPerEdge: N }), pois: [] } });
   const lamps = ctx.previewLampPass._streetLampsForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
-  const objects = [...dress.objects, ...dress.wildplants, ...(dress.coins || [])].map(local);
+  const objects = [...dress.objects, ...dress.wildplants, ...(dress.coins || []), ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))].map(local);
   const lairs = dress.lairs.map((o) => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly }));
-  return { ...row, words: row.words ? row.words.source : null, sampleName: name,
+  return { ...row, ...groundPreview(tile), words: row.words ? row.words.source : null, sampleName: name,
     roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
     carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags)),
     lampSpacingM: SV.lampSpacingFor(row.id), objects, lamps, lairs,
@@ -123,9 +144,9 @@ function previewPath(row) {
   const lamps = ctx.previewLampPass._streetLampsForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong scenic lamps for ${row.id}`);
-  return { ...row, sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
+  return { ...row, ...groundPreview(tile), sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
     carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags)),
-    lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects: [...dress.objects, ...dress.wildplants, ...(dress.coins || [])].map(local),
+    lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects: [...dress.objects, ...dress.wildplants, ...(dress.coins || []), ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))].map(local),
     lamps, lairs: [], slowKinds: [], geography, scenicKind: kind,
     selection: kind === 'shore' ? 'Off-road walking path beside qualifying shore water.' :
       kind === 'greenway' ? 'Off-road walking path with a greenway name or route.' : 'Off-road walking path inside a named or sufficiently large park.',
@@ -144,6 +165,7 @@ const rules = {
   hedgerow: `Two straight rows of cut hedges, one per ${cellM} m cell, with aligned gate gaps every ${SV.HEDGE_GATE_EVERY_CELLS} cells. Blocked slots stay empty. One encounter anchor holds two ordinary slimes where safe ground permits.`,
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
   orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} trees per line piece, alternating half apple trees and half mature deciduous maples.`,
+  snare: `One T${SV.SNARE_CHEST_TIER} cave-loot chest at the street midpoint, surrounded by up to ${(2 * SV.SNARE_TRAP_RADIUS_CELLS + 1) ** 2 - 1} traps on eligible verge ground. At least ${SV.SNARE_MIN_TRAPS} traps must fit.`,
   golden: `Dense 1-coin pickups across all three rows of both verges; samples every ${SV.GOLDEN_STEP_M} m fill eligible cells. Road, lamp and occupied cells stay clear. Each coin is collectible once.`,
   pilgrim: 'One waystone per street per tile, at an eligible owned line end.',
   lantern: `Lamps at ${SV.lampSpacingFor('lantern')} m target spacing (${SV.LANTERN_SPACING_DIV}× the usual density); no extra verge props.`,

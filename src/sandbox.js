@@ -351,11 +351,12 @@
     { name: 'Abbey Walk', class: 'minor', type: T.ROAD, y: 7, thick: 1, x0: 0, x1: 23, variant: 'pilgrim' },
     { name: 'Coin Row', class: 'minor', type: T.ROAD, y: 10, thick: 1, x0: 0, x1: 23, variant: 'golden' },
     { name: 'Market Close', class: 'minor', type: T.ROAD, y: 13, thick: 1, x0: 0, x1: 23, variant: null },
-    { name: 'Fort Road', class: 'tertiary', type: T.ROAD_MD, y: 16, thick: 2, x0: 0, x1: 23, variant: 'barricade' },
-    { name: 'Old Trade Road', class: 'primary', type: T.ROAD_LG, y: 19, thick: 2, x0: 0, x1: 23, variant: null, bandit: true },
+    { name: 'Iron Lane', class: 'minor', type: T.ROAD, y: 22, thick: 1, x0: 0, x1: 23, variant: 'snare' },
+    { name: 'Fort Road', class: 'tertiary', type: T.ROAD_MD, y: 25, thick: 2, x0: 0, x1: 23, variant: 'barricade' },
+    { name: 'Old Trade Road', class: 'primary', type: T.ROAD_LG, y: 28, thick: 2, x0: 0, x1: 23, variant: null, bandit: true },
   ];
   const SHOWCASE = {
-    name: 'STREETS', label: 'STREET VARIANTS', w: 24, h: 21, fill: T.GRASS,
+    name: 'STREETS', label: 'STREET VARIANTS', w: 24, h: 30, fill: T.GRASS,
     routes: SHOWCASE_ROUTES,
     subLabels: SHOWCASE_ROUTES.map((r) => ({
       label: r.variant ? r.variant.toUpperCase() : (r.bandit ? 'OLD TRADE ROAD' : r.name.toUpperCase()),
@@ -370,7 +371,7 @@
     populate(s) {
       // Pick a stable id that passes the wagon-look hash, while keeping the
       // object next to the authored old trade road.
-      s.chest('bus', 'Sandbox Wagon Stop', 2, 18, { wagonCandidate: true });
+      s.chest('bus', 'Sandbox Wagon Stop', 2, 27, { wagonCandidate: true });
       s.chest('cafe', 'Sandbox Café', 16, 8, { cafeAnchor: true });
     },
   };
@@ -939,6 +940,14 @@
     entry.extraTreasures.push(...dressing.treasures);
     entry.coinDrops.push(...dressing.coins);
     entry.streetLairs.push(...dressing.lairs);
+    // Snare-lane iron teeth: the real spawn pass lays dressing.traps into
+    // entry.traps (scene_creatures.js); seat them here too, skipping cells
+    // the earlier phases already claimed.
+    const taken = occupiedCells(c);
+    for (const trap of (dressing.traps || [])) {
+      const at = itemCell(trap, c);
+      if (!taken.has(at.i)) entry.traps.push(trap);
+    }
     const slow = entry.slowCells || new Map();
     for (const [i, kind] of dressing.slowCells) slow.set(i, kind);
     entry.slowCells = slow.size ? slow : null;

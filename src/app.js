@@ -391,18 +391,15 @@ const SMITHY_PREVIEW_PX = 56;
 const smithyPreviewHTML = (iconHTML, name) =>
   `<div style="line-height:0;margin:2px 0 6px">${iconHTML}</div><div>${name}</div>`;
 const COIN_BURST_NEAR_R = 2;
-// THE SAFETY CARD (_showSafetyCard): what each version says, and when the
-// short ones come back. Kept here as data so the copy is one table. LAUNCH is
-// the game's only opening safety message (the loading screen carries none).
+// THE SAFETY CARDS (_showSafetyCard): what each reminder says, and when it
+// comes back. Kept here as data so the copy is one table. The opening
+// (LAUNCH) message is NOT here: it IS the loading screen (index.html
+// #bootload › #safety, owner, Sep 2026 — read while the wagon packs, and
+// acknowledged by the Go to my location tap), so these are the two REMINDERS.
 const SAFETY_RESUME_GAP_MS = 5 * 60 * 1000;   // back after 5+ minutes away
 const SAFETY_DUSK_DAYLIGHT = 0.5;             // Lighting.daylight: the sun on the horizon
 const SAFETY_TICK_MS = 30000;                 // how often dusk is asked
 const SAFETY_CARDS = {
-  launch: { title: '⚠ STAY SAFE',
-    lines: ['Look up. Watch where you walk, not the screen.',
-      'NEVER step into a street to reach something — use the stick to walk your farmer to it.',
-      'Do not play while driving or cycling.',
-      'Keep out of private, unsafe and prohibited places.'] },
   resume: { title: '⚠ LOOK UP',
     lines: ['Welcome back. Check your surroundings before you walk on.',
       'Out of reach? Use the stick — never the street.'] },
@@ -1125,7 +1122,7 @@ const COLORS = {
   // --- Underground cave biome (depth > 0) ---
   24: 0x6e6860, // CAVE_FLOOR — packed earth/stone floor (walkable)
   25: 0x4a4742, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
-  26: 0x9a2a10, // CAVE_LAVA  — molten rock under the buildings on WorldGen.LAVA_DEPTH
+  26: 0x78240f, // CAVE_LAVA  — molten rock under the buildings on WorldGen.LAVA_DEPTH
   // WASTELAND (27) — unclassified landuse (railway yards, brownfield,
   // neighbourhood outlines). Plays as residential; looks like the abandoned
   // scrub it is: residential's dirty concrete pulled toward dusty khaki.
@@ -2253,8 +2250,7 @@ class MapScene extends Phaser.Scene {
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
     this.trapPool = [];       // sprites for hidden / sprung traps lying on the ground (src/traps.js)
 
-    // The coin_drop texture is the 64px pixel-art asset (assets/Icons/coin.png)
-    // loaded through ASSETS — the ONE face of money everywhere (see assets.js).
+    // Ground coin sprites load through ASSETS at their native map sizes.
 
     // Bake a soft building shadow: a flat dark ellipse that fades at the rim.
     // Drawn as concentric ellipses of decreasing alpha so the edge feathers
@@ -2935,8 +2931,8 @@ class MapScene extends Phaser.Scene {
         _endTiles?.();
         window.__boot?.mark('MAP PLAYABLE — boot overlay hidden');
         this._bootOverlayGone = true; window.__bootStatus?.(1);
-        // THE SAFETY CARD, every launch, the moment the map is the player's.
-        this._showSafetyCard('launch');
+        // No launch card here: the STAY SAFE message is the loading screen
+        // itself (index.html #safety), already read and acknowledged.
         // The map is the player's now, so responsiveness beats throughput:
         // tile builds go back to short slices (see WorldGen.setSliceBudgetMs).
         WorldGen.setSliceBudgetMs?.(WorldGen.RASTER_SLICE_LIVE_MS);
@@ -3985,6 +3981,7 @@ class MapScene extends Phaser.Scene {
     if (this._modalGateTick % 10 === 0) {
       this._syncModalGate?.();
       this._drainBadgeStories();
+      DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
     }
     const dt = dtMs / 1000;
@@ -4671,6 +4668,7 @@ class MapScene extends Phaser.Scene {
       enemies.push(c);
     });
 
+    DragonStory.tick(this, now, px, py, enemies);
     const relics = this.save.relics || {};
     // The player's attack multiplier (_attackMul — Dragon Powder's ×2, the
     // off-GPS third), the same one the melee wheel reads.
@@ -5453,6 +5451,7 @@ class MapScene extends Phaser.Scene {
     if (save.caught.includes(victim.id)) return;
     save.caught.push(victim.id);
     StoryEncounters.defeated(this, victim);
+    DragonStory.defeated(this, victim, source);
     const mine = Combat.isPlayerKill(source);
     // WHAT A KILL DROPS is the kind's own row (SpriteLayout.CREATURE_BEHAVIOUR
     // `drop`), not a ternary here: game drops a body part, and an ENEMY pays a
@@ -8175,6 +8174,7 @@ class MapScene extends Phaser.Scene {
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     if (this.updateMemoriesDOM) this.updateMemoriesDOM();
     MemoryStory.enqueue(this.save, this.memoriesTotal(), label);
+    this.updateObjectiveDOM?.();
     persistSave(this.save);
     return true;
   }
@@ -8619,9 +8619,9 @@ class MapScene extends Phaser.Scene {
     this.showMessageModal({
       kind: 'memory',
       title: `${total} recovered · ${unspent} unspent`,
-      body: cls ? `Your calling feels familiar: ${cls.icon} ${cls.name}. ${cls.blurb()}`
+      body: MemoryStory.objective(this.save) || (cls ? `Your calling feels familiar: ${cls.icon} ${cls.name}. ${cls.blurb()}`
         : this._metWizard() ? 'The memories hum in your chest. At the Wizard Tower, someone knows how to answer.'
-        : 'Each new discovery brings a flicker of recognition. Your old life is finding its way home.',
+        : 'Each new discovery brings a flicker of recognition. Your old life is finding its way home.'),
       okLabel: 'Got it',
     });
   }
@@ -8750,10 +8750,10 @@ class MapScene extends Phaser.Scene {
       const genGrid = entry.baseGrid || entry.grid;
       const laid = Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty,
         this.tileEdgeM, entry._ambientSpawnOpts || entry._spawnOpts, mul, entry.zone && entry.zone.under);
-      // Keep authored zone traps and already-discovered traps, one per cell.
+      // Keep authored zone/street traps and already-discovered traps, one per cell.
       const cells = new Set(laid.map((t) => t._iy * N + t._ix));
       for (const t of (entry.traps || [])) {
-        if ((!t.zoneVariant && !sprung.has(t.id)) || cells.has(t._iy * N + t._ix)) continue;
+        if ((!t.zoneVariant && !t._street && !sprung.has(t.id)) || cells.has(t._iy * N + t._ix)) continue;
         laid.push(t);
         cells.add(t._iy * N + t._ix);
       }
@@ -9426,13 +9426,14 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── THE SAFETY CARD ──────────────────────────────────────────────────────
-  // A FULL-SCREEN card, bold, dismissed only by a tap (owner, Sep 2026: the
-  // one-line loading warning was too easy to miss). The long card at every
-  // LAUNCH (the moment the boot overlay goes), a short one on RESUME after
-  // SAFETY_RESUME_GAP_MS in the background, and a short one at DUSK (the sun
-  // crossing SAFETY_DUSK_DAYLIGHT, once a UTC day). Every version says the one
-  // thing the game most needs you to do: reach what is out of reach with the
-  // STICK, never by stepping into the street. Not a makeModalShell dialog —
+  // A FULL-SCREEN card, bold, dismissed only by a tap. The REMINDERS: a short
+  // one on RESUME after SAFETY_RESUME_GAP_MS in the background, and a short
+  // one at DUSK (the sun crossing SAFETY_DUSK_DAYLIGHT, once a UTC day). The
+  // long opening message is the loading screen itself (index.html #safety —
+  // owner, Sep 2026: a card over the freshly loaded map got tapped away
+  // unread; on the loading screen it is what there is to read). Every
+  // version says the one thing the game most needs you to do: reach what is
+  // out of reach with the STICK, never by stepping into the street. Not a makeModalShell dialog —
   // it carries no painting and must cover the whole game box, above every
   // dialog; it does wear .game-modal so the movement pads hide under it.
   _showSafetyCard(which) {
@@ -10851,6 +10852,10 @@ class MapScene extends Phaser.Scene {
     // the first-restored starter smithy too, so the forge branch fires
     // regardless of the underlying house number.
     const shopType = this.houseShopRole(house);
+    if (shopType === 'wizard' && MemoryStory.towerAccess(this.save, house) !== 'open') {
+      MemoryStory.visitWizard(this, () => {}, house);
+      return;
+    }
     const isFort = !!house && house.tier === 11;
     // A delivery host (plain house, no shop role) is not a timed shop: it
     // takes ONE delivery ever (Delivery.isSatisfied), and render.js shows its
@@ -11003,7 +11008,7 @@ class MapScene extends Phaser.Scene {
           return;
         }
         this.presentWizardOffer(sx, sy, recordDeal);
-      });
+      }, house);
       return;
     }
     // THEMED SHOPS (role key 'market') sell one line each — seed, supply,
@@ -11881,8 +11886,10 @@ class MapScene extends Phaser.Scene {
   shopBucketState(house) {
     return ShopsMath.bucketState(this.save, house);
   }
-  shopRng(house, lane = '') {
-    return ShopsMath.rng(this.save, house, lane);
+  // opts.perDeal: the stream also turns over with each deal this bucket —
+  // for the trader, whose goods leave with the deal (ShopsMath.rng).
+  shopRng(house, lane = '', opts = {}) {
+    return ShopsMath.rng(this.save, house, lane, Date.now(), opts);
   }
 
   // Build a relic/armor offer for a specific house, derived purely from the
@@ -12306,9 +12313,14 @@ class MapScene extends Phaser.Scene {
   // Trader offer: barter-only, qty scaled to a target trade value. The trader
   // picks an item to give the player, picks an asking item from inventory,
   // then asks for whatever count of it hits a target value (1.0..2.0× of the
-  // offered item's base price). Seeded by (house, bucket, rerolls) so the
-  // offer is stable until the player buys, walks away through a bucket flip,
-  // or pays the re-roll cost.
+  // offered item's base price). Seeded by (house, bucket, rerolls, deals) so
+  // the offer is stable until the player buys, walks away through a bucket
+  // flip, or pays the re-roll cost. THE DEAL IS IN THE SEED (shopRng's
+  // perDeal): the goods on offer are what the trader hands over, so once a
+  // trade closes the trader holds something else — the next offer, and the
+  // sign over the roof, name new goods instead of the stack just bartered
+  // away. (Cash shops keep their shelf across a purchase; that fold is the
+  // trader's alone.)
   //
   // The GIVE side is drawn first and on its own (traderGivePick) because the
   // sign over the roof names the trader for it — "Rockfruit Trader" (render.js
@@ -12327,7 +12339,7 @@ class MapScene extends Phaser.Scene {
   }
   traderGivePick(house) {
     if (!house?.id) return null;
-    const rng = this.shopRng(house, 'trader');
+    const rng = this.shopRng(house, 'trader', { perDeal: true });
     // Same houseSeed produce-vs-buylist coin flip the generic path uses.
     const houseSeed = this._houseSeed(house);
     const sellsProduce = !!houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
@@ -13627,6 +13639,7 @@ class MapScene extends Phaser.Scene {
         const order = Object.keys(this.save.restoredHouses).length;
         const restoredRole = this._preseedRestoreRole(order, house);
         this.save.restoredHouses[house.id] = restoredRole;   // role string, not bare `true`
+        Houses.registerWizardTower(this.save, house, order);
         if (restoredRole === 'wizard') NPC.restoreShrine(this, house);
         // The first wreck restored becomes the starter blacksmith (wooden-tool
         // forge). Stamp its id so isStarterBlacksmith / shopDealCap pick it up.
@@ -13694,8 +13707,8 @@ class MapScene extends Phaser.Scene {
               name: `You restored a ${name}`,
               sub: order === 0 ? "“I'm not complaining, but repairing a building that quickly is not normal! How did you do it?”" : info.blurb,
               color: '#a7ffb0', accent: '#a7ffb0',
-              onDismiss: role === 'wizard' && !this.save.memoryStory?.introDone
-                ? () => MemoryStory.visitWizard(this, () => {}) : undefined,
+              onDismiss: role === 'wizard'
+                ? () => MemoryStory.visitWizard(this, () => {}, house) : undefined,
             });
           } else {
             this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
@@ -14088,21 +14101,21 @@ class MapScene extends Phaser.Scene {
     return this.renderItemIcon(itemId, sizePx, 'inline');
   }
 
-  // The ONE face of money (assets/Icons/coin.png, the coin_drop world
-  // texture's own file). Deliberately NOT routed through renderItemIcon /
+  // The detailed money icon (assets/Icons/coin.png); ground drops use
+  // separate coarse art. Deliberately NOT routed through renderItemIcon /
   // ICON_SHEETS — the coin is no item-sheet icon. Three forms:
   //   coinIconHTML  — an inline <img> for modal / list HTML strings
   //   moneyHTML     — that icon plus an amount, for any money readout in HTML
   //   coinIconEl    — the same coin as a DOM element, for flashLoot's iconEl
   coinIconHTML(px = 16) {
-    return `<img src="assets/Icons/coin.png" style="width:${px}px;height:${px}px;image-rendering:pixelated;vertical-align:-2px;" alt="">`;
+    return `<img src="assets/Icons/coin.png?v=2" style="width:${px}px;height:${px}px;image-rendering:pixelated;vertical-align:-2px;" alt="">`;
   }
   moneyHTML(n, px = 16) {
     return `${this.coinIconHTML(px)} ${n}`;
   }
   coinIconEl(px = 28) {
     const el = document.createElement('img');
-    el.src = 'assets/Icons/coin.png';
+    el.src = 'assets/Icons/coin.png?v=2';
     el.alt = '';
     el.style.cssText = `width:${px}px;height:${px}px;image-rendering:pixelated;`;
     return el;
@@ -15339,7 +15352,11 @@ class MapScene extends Phaser.Scene {
     const sel = this.save.inv?.[this.save.selSlot];
     const existing = document.getElementById('consumable-btn');
     const cfg = sel && CONSUMABLE_SPEC[sel.id];
-    if (!cfg || (sel.count ?? 0) <= 0) { existing?.remove(); return; }
+    // Only a row with an ACTION gets the button. The foods with an extra
+    // effect (rainberry, pairy, coffee) keep tuning rows in CONSUMABLE_SPEC
+    // but no verb — they go through Eat — and without this check the
+    // rainberry grew a second button reading "undefined".
+    if (!cfg || !(cfg.verb || cfg.label) || (sel.count ?? 0) <= 0) { existing?.remove(); return; }
     const iconHtml = this.iconSpanHTML(sel.id, 20);
     const label = `${iconHtml} ${cfg.label ? cfg.label(this, cfg) : cfg.verb}`;
     const syncState = button => {

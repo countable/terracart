@@ -291,6 +291,31 @@ test('shop offer: spending deals does not reshuffle the offer', () => {
   }
 });
 
+// The trader is the one shop whose stock LEAVES with the deal: what it offers
+// is what it hands over, so a closed trade must turn its goods over on the
+// spot (app.js traderGivePick reads shopRng with perDeal). Cash shops keep
+// their shelf — the test above — so the fold is opt-in, and a re-roll still
+// pivots on top of it.
+test('rng: perDeal turns the stream over with each deal; plain lanes ignore deals', () => {
+  const save = { offerSalt: 5 };
+  const house = { id: 'trader-A', kind: 'house', tier: 9 };
+  const draw = (perDeal) => ShopsMath.rng(save, house, 'trader', 0, { perDeal })();
+  ShopsMath.bucketState(save, house, 0).deals = 0;
+  const fresh = draw(true);
+  assert.eq(draw(true), fresh, 'stable while no deal is made');
+  assert.eq(draw(false), fresh, 'no deals yet: perDeal and plain agree');
+  const seen = new Set([fresh]);
+  for (let deal = 1; deal <= 4; deal++) {
+    ShopsMath.bucketState(save, house, 0).deals = deal;
+    const next = draw(true);
+    assert.falsy(seen.has(next), `deal ${deal}: new goods`);
+    seen.add(next);
+    assert.eq(draw(false), fresh, `deal ${deal}: a plain lane still ignores the deal`);
+  }
+  ShopsMath.bucketState(save, house, 0).rerolls = 1;
+  assert.falsy(seen.has(draw(true)), 'a re-roll still pivots the per-deal stream');
+});
+
 test('shop offer: two shops in the same hour make their own independent offers', () => {
   // Stability must come from the seed, not from the offer being constant.
   const save = { offerSalt: 11, relics: {} };
@@ -562,7 +587,7 @@ test('slots: deluxe doubles the coin payouts too', () => {
   assert.truthy(three.starJackpot && three.doubled, 'three stars, flagged for the caller to double its coin');
   assert.falsy(S.slotSpin(m, slotSeq(['star', 'star', 'star'])).doubled, 'not doubled outside deluxe');
   assert.eq(S.slotSpin(m, slotSeq(['a', 'b', 'a'])).coins, S.SLOT_JACKPOT_PAIR_COINS, 'plain spins pay plain');
-  assert.truthy(/_payStarJackpot\(out\.doubled \? ShopsMath\.SLOT_DELUXE_MUL : 1\)/.test(APP_JS_SRC),
+  assert.truthy(/_payStarJackpot\(out\.doubled \? ShopsMath\.SLOT_DELUXE_MUL : 1\)/.test(SCENE_SRC),
     'the machine pays the star jackpot\'s coin doubled');
 });
 
@@ -588,7 +613,7 @@ test('slots: a mixed row with no star loses', () => {
 });
 
 test('slots: app.js pays three stars from the badge ledger, then coin', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const m = app.match(/\n  _payStarJackpot\(mul = 1\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(m, '_payStarJackpot exists');
   assert.truthy(/ShopsMath\.SLOT_STAR_BADGES/.test(m[1]), 'counts up to SLOT_STAR_BADGES');
@@ -609,7 +634,7 @@ test('slots: three distinct prizes a day, the same all day, seeded on the fort a
 });
 
 test('slots: the machine fixes a spin\'s deluxe state when it is paid, and saves the count at once', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const i = app.indexOf('\n  presentFortSlots(sx, sy, house) {');
   const body = app.slice(i, app.indexOf('\n  }\n', i));
   assert.truthy(/const wasDeluxe = deluxeLeft\(\) > 0;\s*\n\s*const out = ShopsMath\.slotSpin\(m, Math\.random, wasDeluxe\);\s*\n\s*this\.save\.slotDeluxe = ShopsMath\.slotDeluxeNext\(deluxeLeft\(\), out\);\s*\n\s*persistSave\(this\.save\);/.test(body),
@@ -619,7 +644,7 @@ test('slots: the machine fixes a spin\'s deluxe state when it is paid, and saves
 });
 
 test('slots: a paid spin cannot be closed before its precomputed payout settles', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const i = app.indexOf('\n  presentFortSlots(sx, sy, house) {');
   const body = app.slice(i, app.indexOf('\n  }\n', i));
   assert.truthy(/makeModalShell\('slots-modal',\s*\{ kind: 'slots' \}\)/.test(body),

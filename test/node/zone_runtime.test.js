@@ -3,7 +3,7 @@
 (() => {
   const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // Treasure marks. Three streams:'));
   const spawn = spawnPassFn(body);
-  function fixture(caught = [], carried) {
+  function fixture(caught = [], carried, street = false) {
     const scene = Object.assign(new SceneCreatures(), {
       tileEdgeM: 640, save: { caught }, startWorldM: { x: -5000, y: 0 },
       _pestFreeZone: () => null,
@@ -16,6 +16,11 @@
       objects: [], roadClass: new Uint8Array(4096),
       zoneDress: { objects: [], wildplants: [], lairs: [], guards: [guard], traps: [trap] },
     };
+    if (street) {
+      delete trap.zoneVariant; trap._street = 'snare';
+      entry.zoneDress.traps = [];
+      entry.streetDress = {objects: [], wildplants: [], treasures: [], lairs: [], traps: [trap]};
+    }
     if (carried) entry.creatures = carried;
     const testMode = window.__TEST_MODE;
     window.__TEST_MODE = false;
@@ -70,11 +75,22 @@
     assert.truthy(Traps.isDisarmed(scene.save, same.id));
   });
 
-  test('zone runtime: difficulty changes retain unsprung authored traps', () => {
-    const { entry, scene, trap } = fixture();
-    const at = APP_JS_SRC.indexOf('  _relayTrapsForMode() {');
-    const end = APP_JS_SRC.indexOf('\n  }', at);
-    const relay = new Function(`return {${APP_JS_SRC.slice(at, end + 4)}};`)();
+  test('street runtime: snare traps join the live surface pass and retain disarm state on rebuild', () => {
+    const {entry,scene,trap} = fixture([],undefined,true);
+    assert.eq(entry.traps.filter(t => t.id === trap.id).length,1);
+    assert.truthy(entry._spawnOpts.occupied.has(trap._iy*64+trap._ix));
+    Traps.spring(scene.save,trap.id); Traps.disarm(scene.save,trap.id);
+    const rebuilt=fixture([],undefined,true);
+    const same=rebuilt.entry.traps.find(t=>t.id===trap.id);
+    assert.truthy(same);
+    assert.truthy(Traps.isDisarmed(scene.save,same.id));
+  });
+
+  for (const street of [false,true]) test(`${street ? 'street' : 'zone'} runtime: difficulty changes retain unsprung authored traps`, () => {
+    const { entry, scene, trap } = fixture([],undefined,street);
+    const at = SCENE_SRC.indexOf('  _relayTrapsForMode() {');
+    const end = SCENE_SRC.indexOf('\n  }', at);
+    const relay = new Function(`return {${SCENE_SRC.slice(at, end + 4)}};`)();
     const priorMode = window.__TEST_MODE;
     const prior = WorldGen.tileCache.get('surface/0/0');
     WorldGen.tileCache.set('surface/0/0', entry);

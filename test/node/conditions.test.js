@@ -53,7 +53,7 @@
     assert.eq(Combat.monster('purple_slime').condition, 'poison');
     assert.eq(Combat.monster('giant_purple_slime').condition, 'poison');
     assert.falsy(Combat.monster('cave_slime')?.condition);
-    assert.truthy(/lost > 0 && !isTame && Combat.isEnemy\(c\) && m.condition/.test(SCENE_CREATURES_SRC));
+    assert.truthy(/lost > 0 && !isTame && Combat.isEnemy\(c\) && m.condition/.test(SCENE_SRC));
   });
   test('Elixir: upgraded maximum refill leaves cooldown and poison intact; refuses full/downed', () => {
     const save = { energy: 10, vigourUpgrades: 3, eaten: ['potato'], eatReadyAt: 12345 };
@@ -72,7 +72,7 @@
   });
   test('condition item methods consume only successful effects', () => {
     for (const [method, id] of [['drinkAntidote', 'antidote'], ['drinkElixir', 'elixir']]) {
-      const body = APP_JS_SRC.match(new RegExp('\\n  ' + method + '\\(\\) \\{([\\s\\S]*?)\\n  \\}\\n'))[1];
+      const body = SCENE_SRC.match(new RegExp('\\n  ' + method + '\\(\\) \\{([\\s\\S]*?)\\n  \\}\\n'))[1];
       const fn = new Function('getSelectedSlot', 'Conditions', body);
       const save = { energy: 0, inv: [{ id, count: 2 }] };
       let consumed = 0;
@@ -88,7 +88,7 @@
     }
   });
   test('poison: expiry between ticks persists the cure before a reload', () => {
-    const body = APP_JS_SRC.match(/\n  _tickConditions\(\) \{([\s\S]*?)\n  \}\n/)[1];
+    const body = SCENE_SRC.match(/\n  _tickConditions\(\) \{([\s\S]*?)\n  \}\n/)[1];
     const fn = new Function('Conditions', 'document', 'performance', 'persistSave', body);
     const save = { energy: 100 };
     Conditions.apply(save, 'poison');
@@ -107,7 +107,7 @@
     assert.eq(persisted.energy, 70);
   });
   test('condition clock: hidden and resumed frames skip offline time; dialogs do not pause it', () => {
-    const body = APP_JS_SRC.match(/\n  _tickConditions\(\) \{([\s\S]*?)\n  \}\n/)[1];
+    const body = SCENE_SRC.match(/\n  _tickConditions\(\) \{([\s\S]*?)\n  \}\n/)[1];
     const fn = new Function('Conditions', 'document', 'performance', 'persistSave', body);
     let now = 1000;
     const doc = { hidden: false, addEventListener() {} };

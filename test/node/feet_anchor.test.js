@@ -10,12 +10,12 @@
 // as shifted a body-length NORTH of where the player stood.
 //
 // app.js needs Phaser and can't load headlessly, so the seating is pinned as
-// source text (APP_JS_SRC / MULTIPLAYER_SRC are lifted by run.js). If one of
+// source text (SCENE_SRC / MULTIPLAYER_SRC are lifted by run.js). If one of
 // these fails, the feet have left the fix — do not re-add an offset to
 // compensate elsewhere; see feetOffsetM / playerFeetNudgeY in app.js create().
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const mp = MULTIPLAYER_SRC;
 
 test('feet anchor: feetOffsetM is 0 — the feet stand on playerM', () => {

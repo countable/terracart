@@ -418,7 +418,7 @@ test('old trade road: only about a third of the major-road stops are wagons, by 
 // The FAUNA ATTRACTOR lane (scene_creatures.js _seatFaunaOnFavouriteGround),
 // lifted from the source and driven for real.
 function liftAttract() {
-  const src = SCENE_CREATURES_SRC;
+  const src = SCENE_SRC;
   const a = src.indexOf('\n  _seatFaunaOnFavouriteGround(');
   const b = src.indexOf('\n  }\n', a);
   assert.truthy(a > 0 && b > a, 'found _seatFaunaOnFavouriteGround');
@@ -450,7 +450,7 @@ test('fauna attractors: a table, not code — every column names a spawned speci
   const cols = [...StreetVariants.STREET_VARIANTS.map((r) => [r.id, r.attracts]),
     ...Object.entries(Zones.ZONE_KINDS).map(([k, r]) => ['zone ' + k, r.attracts]),
     ...Object.entries(BIOME_ATTRACTS).map(([c, a]) => ['terrain ' + c, a])];
-  const known = new Set([...FAUNA_ORDER, 'rabbit']);
+  const known = new Set([...FAUNA_ORDER, ...SHORE_FAUNA_ORDER, 'rabbit']);
   for (const [who, a] of cols) {
     if (!a) continue;
     for (const [sp, p] of Object.entries(a)) {
@@ -464,13 +464,15 @@ test('fauna attractors: a table, not code — every column names a spawned speci
   assert.eq(row('overgrown').rabbit, 0.5, 'Overgrown → rabbits');
   assert.eq(row('overgrown').butterfly, 0.5, 'Overgrown → butterflies');
   assert.eq(row('toadstool').butterfly, 0.5, 'Toadstool → butterflies');
+  assert.eq(row('greenway').butterfly, 0.5, 'Greenway → butterflies');
   assert.eq(row('pilgrim').crow, 0.5, "Pilgrim's Way → crows");
   assert.eq(Zones.ZONE_KINDS.stones.attracts.crow, 0.5, 'churchyard → crows');
   assert.eq(Zones.ZONE_KINDS.grove.attracts.deer, 0.5, 'grove → deer');
   assert.eq(Zones.ZONE_KINDS.grove.attracts.butterfly, 0.5, 'grove → butterflies');
   assert.eq(BIOME_ATTRACTS[WorldGen.T.WASTELAND].slime, 0.5, 'wasteland → slimes');
+  assert.eq(BIOME_ATTRACTS[WorldGen.T.PITCH].deer, 0.5, 'sports pitch → deer');
   // The spawner reads the columns; it names no species of its own.
-  const src = SCENE_CREATURES_SRC;
+  const src = SCENE_SRC;
   const body = src.slice(src.indexOf('\n  _seatFaunaOnFavouriteGround('), src.indexOf('\n  }\n', src.indexOf('\n  _seatFaunaOnFavouriteGround(')));
   for (const sp of ['deer', 'cat', 'butterfly', 'dog', 'rabbit']) {
     assert.falsy(new RegExp(`'${sp}'`).test(body), `no '${sp}' literal in the lane`);
@@ -510,6 +512,20 @@ test('fauna attractors: half of a species moves onto its ground, the rest stay; 
   assert.falsy(m2.slime, 'no slime moves into the starting area\'s amnesty');
 });
 
+test('sports pitch affinity relocates existing deer without creating more animals', () => {
+  const N = CPE, cellM = TILE_EDGE_M / N;
+  const grid = new Uint8Array(N * N).fill(T.GRASS);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N / 2; x++) grid[y * N + x] = T.PITCH;
+  const deer = Array.from({ length: 60 }, (_, i) => WorldGen.makeCreature('deer',
+    TX * TILE_EDGE_M + (N - 2) * cellM, TY * TILE_EDGE_M + (i + .5) * cellM, `pitch_deer_${i}`));
+  const scene = Object.assign({ tileEdgeM: TILE_EDGE_M }, liftAttract());
+  const moved = scene._seatFaunaOnFavouriteGround({ roadClass: new Uint8Array(N * N) },
+    TX, TY, N, cellM, grid, { occupied: new Set(), roadMask: new Uint8Array(N * N), pois: [] }, deer, null);
+  assert.eq(deer.length, 60, 'affinity never adds deer');
+  assert.inRange(moved.deer, 18, 42, 'approximately half the existing deer choose the pitch');
+  assert.eq(deer.filter(d => grid[cellOf(d.y, TY) * N + cellOf(d.x, TX)] === T.PITCH).length, moved.deer);
+});
+
 // ── Toadstool Lane, the barricade's goblins, the burned row's fire slimes ──
 const TOAD = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'toadstool', 'Pale Lane');
 const BARR = nameWhere((n, k) => SV.variantFor(k, n, 'major') === 'barricade', 'Gate Road');
@@ -544,7 +560,7 @@ test('toadstool lane: a minor row at 5%, its verge holds patterned glowing mushr
   // Appended after the seven older rows (code 8), and only the never-rolled
   // scenic 'path' rows (src/scenic.js) after it: no older row's code moves.
   assert.eq(row.code, 8, 'appended: no older row\'s code moves');
-  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path' || r.id === 'golden'), 'new rows append without changing existing codes');
+  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.size === 'path' || r.id === 'golden' || r.id === 'snare'), 'new rows append without changing existing codes');
   let plain = 0, named = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'toadstool') plain++;
@@ -682,7 +698,7 @@ test('burned row: one fire slime per stretch, keyed on the street and the square
 
 // ── Slow going ──────────────────────────────────────────────────────────
 test('slow: tar or stakes underfoot cap the body at SLOW_BODY_M_S, and the cap lets go', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const lift = (sig) => {
     const s = app.indexOf('\n  ' + sig), e = app.indexOf('\n  }\n', s);
     assert.truthy(s > 0 && e > s, `found ${sig}`);
@@ -726,8 +742,8 @@ test('slow: tar or stakes underfoot cap the body at SLOW_BODY_M_S, and the cap l
 });
 
 test('slow: the feet cell is read off playerToWorldCell, and the first contact flashes', () => {
-  const src = APP_JS_SRC.slice(APP_JS_SRC.indexOf('\n  _tickStreetFeet() {'),
-    APP_JS_SRC.indexOf('\n  _bodyHold() {'));
+  const src = SCENE_SRC.slice(SCENE_SRC.indexOf('\n  _tickStreetFeet() {'),
+    SCENE_SRC.indexOf('\n  _bodyHold() {'));
   assert.truthy(/this\.playerToWorldCell\(\)/.test(src), 'the FEET, never the camera anchor');
   assert.truthy(/entry\.slowCells\.get\(i\)/.test(src), 'the dressing\'s slow cells');
   for (const m of src.matchAll(/say\('([^']+)'/g)) {
@@ -957,6 +973,48 @@ test('golden road: coins carpet both verges without overlapping occupied or bloc
   assert.eq(build([line],true).result.coins.length,0,'hard restrictions prevent coin placement');
 });
 
+test('snare lane: a deterministic central T3 cave cache surrounded by reserved traps', () => {
+  const name = nameWhere((n,k) => SV.variantFor(k,n,'minor') === 'snare', 'Snare Street');
+  const line = pts([[10,25],[54,25]]), middle = pts([[32,25]])[0];
+  const build = (lines, blocked = false, occupied = new Set()) => {
+    const index = indexOfLines(lines, name, TX, TY, TILE_EDGE_M / EXTENT);
+    const spawnWhy = new Uint16Array(CPE*CPE);
+    if (blocked) spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    const roadMask = new Uint8Array(CPE*CPE), roadClass = new Uint8Array(CPE*CPE);
+    const grid = new Uint8Array(CPE*CPE).fill(T.PARK);
+    for (let x=10; x<=54; x++) { roadMask[25*CPE+x]=1; grid[25*CPE+x]=T.ROAD; }
+    const opts = {roadMask, roadClass, spawnWhy, occupied};
+    return {result: SV.dress({index,tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,spawnOpts:opts}), opts, grid};
+  };
+  const {result,opts,grid} = build([line]);
+  assert.eq(result.objects.length,1);
+  const deterministicSnapshot = JSON.stringify(result);
+  const chest=result.objects[0];
+  assert.eq(chest.kind,'chest'); assert.eq(chestTier(chest),3);
+  assert.eq(chestLook(chest).texKey,'chest'); assert.falsy(restocks(chest));
+  assert.falsy(chest.depth,'the cache remains a surface object');
+  assert.eq(chestLootDepth(chest),1,'the reward picker uses the canonical cave mix');
+  assert.eq(chestLootDepth({depth:4}),4,'ordinary underground chests retain their depth');
+  assert.eq(cellOf(chest.x,TX),32,'reward halfway along the street');
+  assert.eq(result.traps.length,24,'two complete trap rings around the central reward');
+  const occupied=new Set();
+  for(const o of [chest,...result.traps]) {
+    const ix=cellOf(o.x,TX),iy=cellOf(o.y,TY),i=iy*CPE+ix;
+    assert.falsy(occupied.has(i)); occupied.add(i);
+    assert.truthy(opts.occupied.has(i)); assert.falsy(opts.roadMask[i]);
+    assert.truthy(WorldGen.isSpawnCell(grid,CPE,CPE,ix,iy,{...opts,occupied:new Set()},'fastEnemy'));
+    if(o!==chest) { assert.eq(o._ix,ix); assert.eq(o._iy,iy); }
+  }
+  assert.eq(deterministicSnapshot,JSON.stringify(build([[line[1],middle],[middle,line[0]]]).result),
+    'reversed, fragmented geometry keeps the cache and traps');
+  assert.eq(build([line],true).result.objects.length,0,'restricted ground holds no reward');
+  assert.eq(build([line],true).result.traps.length,0);
+  assert.eq(build([line],false,new Set(Array.from({length:CPE*CPE},(_,i)=>i))).result.objects.length,0,
+    'occupied ground holds no reward');
+  const picked=build([line]).result;
+  assert.eq(JSON.stringify(result.traps),JSON.stringify(picked.traps),'reload uses stable trap identities');
+});
+
 test('barricade scenery adds stakes and barriers without multiplying guards', () => {
   const { d } = dressedVariants();
   assert.gt(d.wildplants.filter((o) => o._streetScenery && o.crop === 'barricade').length, 4);
@@ -1083,5 +1141,77 @@ test('street styles: patch gaps stay plain for paving and lamp consumers', () =>
   const rec = {fi:0,li:0,line,size:'minor',variant:'golden',variantRanges:[[20,80]]};
   const styles = SV.lineStyles({streetIndex:{lines:[rec]}},{geom:[line]},0,0,2);
   assert.eq(JSON.stringify(styles.map(p=>[p.a,p.b,p.variant])),JSON.stringify([[0,40,null],[40,160,'golden'],[160,200,null]]));
+});
+
+function paintVerge(ctx) {
+  const it = SV.paintTerrainSteps(ctx);
+  let result = it.next();
+  while (!result.done) result = it.next();
+  return result.value;
+}
+function vergeFixture(variant = 'overgrown') {
+  const N = 12;
+  const grid = new Uint8Array(N*N).fill(T.GRASS);
+  const roadMask = new Uint8Array(N*N), spawnWhy = new Uint16Array(N*N);
+  for (let x=1;x<11;x++) grid[6*N+x]=T.ROAD,roadMask[6*N+x]=1;
+  return { N, grid, roadMask, spawnWhy, index: {extent:N, dressingLines:[{
+    key:'road', variant, halfW:3.5, line:[{x:1.5,y:6.5},{x:10.5,y:6.5}]
+  }]}};
+}
+test('street terrain: agreed biome rows paint one cell beyond road geometry', () => {
+  for (const [variant, terrain] of Object.entries({hedgerow:T.PARK,overgrown:T.FOREST,
+    orchard:T.ORCHARD,pilgrim:T.ROCK,lantern:T.COMMERCIAL,burned:T.INDUSTRIAL,
+    barricade:T.WASTELAND,toadstool:T.WETLAND,golden:T.ROCK,promenade:T.SAND,
+    greenway:T.GRASS,parkpath:T.PARK})) {
+    assert.eq(SV.terrainFor(variant),terrain);
+    const f=vergeFixture(variant), painted=paintVerge(f);
+    assert.eq(f.grid[5*12+5],terrain);
+    assert.eq(f.grid[7*12+5],terrain);
+    assert.eq(f.grid[4*12+5],T.GRASS,'outside one-cell band');
+    assert.eq(f.grid[6*12+5],T.ROAD,'road stays road');
+    assert.eq(painted[5*12+5],1);
+  }
+});
+test('street terrain: water, buildings, access and special zones take precedence', () => {
+  const f=vergeFixture('promenade'), N=f.N;
+  f.grid[5*N+2]=T.WATER;f.grid[5*N+3]=T.BUILDING;f.grid[5*N+4]=T.PATH;
+  f.spawnWhy[5*N+5]=WorldGen.SPAWN_WHY.PRIVATE;
+  f.spawnWhy[5*N+6]=WorldGen.SPAWN_WHY.RESTRICTED;
+  f.zone={coverage:new Uint16Array(N*N),under:new Uint8Array(N*N)};
+  f.zone.coverage[5*N+7]=1; f.zone.under[5*N+8]=T.PARK;
+  const before=Array.from(f.grid), reasons=JSON.stringify(Array.from(f.spawnWhy));
+  paintVerge(f);
+  for(let x=2;x<=8;x++) assert.eq(f.grid[5*N+x],before[5*N+x]);
+  assert.eq(f.grid[5*N+9],T.SAND);
+  assert.eq(JSON.stringify(Array.from(f.spawnWhy)),reasons);
+});
+test('street terrain: intersections are independent of road ordering', () => {
+  const f=vergeFixture(), other={...f.index.dressingLines[0],key:'another',variant:'golden'};
+  f.index.dressingLines.push(other);
+  const a={...f,grid:f.grid.slice()};paintVerge(a);
+  f.index.dressingLines.reverse();paintVerge(f);
+  assert.eq(JSON.stringify(Array.from(f.grid)),JSON.stringify(Array.from(a.grid)));
+});
+test('street terrain: rasterization preserves original affinity and cave inputs', () => {
+  const painted=WorldGen.rasterizeTile(layers(),CPE,TX,TY,TILE_EDGE_M);
+  const actual=SV.paintTerrainSteps;
+  let baseline;
+  try {
+    SV.paintTerrainSteps=function*({N}) {return new Uint8Array(N*N);};
+    baseline=WorldGen.rasterizeTile(layers(),CPE,TX,TY,TILE_EDGE_M);
+  } finally {SV.paintTerrainSteps=actual;}
+  assert.eq(JSON.stringify(painted.caveSource),JSON.stringify(baseline.caveSource));
+  assert.eq(JSON.stringify(painted.streetIndex),JSON.stringify(baseline.streetIndex));
+  assert.eq(JSON.stringify(painted.spawnWhy),JSON.stringify(baseline.spawnWhy));
+});
+
+test('street terrain: scenic intervals paint only their selected path span', () => {
+  const f=vergeFixture();f.index.dressingLines=[];
+  const feature={id:9,type:2,tags:{class:'path'},geom:[[{x:1.5,y:6.5},{x:10.5,y:6.5}]]};
+  f.transportation={extent:12,features:[feature]};
+  f.scenic={ext:12,lines:new Map([[Streets.lineKey(feature,0),[[2,5,'shore']]]])};
+  paintVerge(f);
+  assert.eq(f.grid[5*12+5],T.SAND);
+  assert.eq(f.grid[5*12+9],T.GRASS,'outside scenic interval stays original');
 });
 })();

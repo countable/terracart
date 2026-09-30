@@ -39,13 +39,21 @@ function rasterPair() {
   if (_pair) return _pair;
   const layers = decode(`${TILE_TX}_${TILE_TY}`);
   const N = WorldGen.cellsPerEdgeForTile(TILE_TY), edge = edgeFor(TILE_TY);
-  const saved = globalThis.Zones;
-  let off;
+  const saved = globalThis.Zones, paintRoad = StreetVariants.paintTerrainSteps;
+  let off, on;
   try {
+    // Isolate zone paint over source land. Otherwise the zone-off build
+    // acquires road verges exactly where the zone-on build takes precedence.
+    // Street terrain tests exercise that composition separately.
+    StreetVariants.paintTerrainSteps = function* ({ N }) { return new Uint8Array(N*N); };
     globalThis.Zones = undefined;
     off = WorldGen.rasterizeTile(decode(`${TILE_TX}_${TILE_TY}`), N, TILE_TX, TILE_TY, edge);
-  } finally { globalThis.Zones = saved; }
-  const on = WorldGen.rasterizeTile(layers, N, TILE_TX, TILE_TY, edge);
+    globalThis.Zones = saved;
+    on = WorldGen.rasterizeTile(layers, N, TILE_TX, TILE_TY, edge);
+  } finally {
+    globalThis.Zones = saved;
+    StreetVariants.paintTerrainSteps = paintRoad;
+  }
   return (_pair = { on, off, N, edge });
 }
 
@@ -240,6 +248,21 @@ test('zones: mine mouths retain their original source when zone layouts replace 
     return entry.objects.filter((o) => o.kind === 'staircase').map((o) => o.id).sort().join(',');
   };
   assert.eq(stairs(on), stairs(off), 'the same staircase with and without the zones');
+});
+
+test('zones: road terrain leaves real-tile cave source identities unchanged', () => {
+  const N=WorldGen.cellsPerEdgeForTile(TILE_TY), edge=edgeFor(TILE_TY);
+  const actual=StreetVariants.paintTerrainSteps;
+  const on=WorldGen.rasterizeTile(decode(`${TILE_TX}_${TILE_TY}`),N,TILE_TX,TILE_TY,edge);
+  let off;
+  try {
+    StreetVariants.paintTerrainSteps=function* ({N}) {return new Uint8Array(N*N);};
+    off=WorldGen.rasterizeTile(decode(`${TILE_TX}_${TILE_TY}`),N,TILE_TX,TILE_TY,edge);
+  } finally {StreetVariants.paintTerrainSteps=actual;}
+  assert.truthy(on.zone?.caveSource,'real fixture has special-zone cave source');
+  assert.eq(JSON.stringify(on.zone.caveSource),JSON.stringify(off.zone.caveSource));
+  if(off.caveSource) assert.eq(JSON.stringify(on.caveSource),JSON.stringify(off.caveSource));
+  assert.eq(JSON.stringify(on.streetIndex),JSON.stringify(off.streetIndex),'paint cannot feed back into affinity');
 });
 
 // ── The nexus ───────────────────────────────────────────────────────────────
@@ -539,8 +562,8 @@ test('tar yard: every tar pit is a slow cell (the burned row\'s lane, _bodyHold)
   assert.truthy(StreetVariants.isSlowKind('tar'), 'one table both sides read');
   assert.truthy(/const zDress = entry\.zoneDress;[\s\S]*StreetVariants\.isSlowKind\(o\.kind\)\) slow\.set/.test(SPAWN_IN_TILE_SRC),
     'spawnInTile merges the zone\'s tar into the same slow map');
-  assert.truthy(/capMS = \(!pinned && this\._slowHere/.test(APP_JS_SRC), 'and _bodyHold caps the body on it');
-  assert.truthy(/'Tar drags at your feet\.'/.test(APP_JS_SRC), 'tar SLOWS — it drags, it does not grip');
+  assert.truthy(/capMS = \(!pinned && this\._slowHere/.test(SCENE_SRC), 'and _bodyHold caps the body on it');
+  assert.truthy(/'Tar drags at your feet\.'/.test(SCENE_SRC), 'tar SLOWS — it drags, it does not grip');
 });
 
 // The tar yard is an OIL-STAINED LOT (Sep 2026): a live fuel forecourt must
@@ -663,7 +686,7 @@ test('zones: each kind has a shipped story painting, and every line fits', () =>
     assert.truthy(row.title && row.body, `${kind}: title and body`);
   }
   assert.truthy(/drags/.test(Z.ZONE_KINDS.tar.body) && !/grips/.test(Z.ZONE_KINDS.tar.body), 'tar drags, it does not grip');
-  assert.truthy(/this\._storySplashOnce\(zrow\.story, \{ art: zrow\.story, title: zrow\.title, body: zrow\.body \}\)/.test(APP_JS_SRC),
+  assert.truthy(/this\._storySplashOnce\(zrow\.story, \{ art: zrow\.story, title: zrow\.title, body: zrow\.body \}\)/.test(SCENE_SRC),
     'the feet tick tells it, painted by its own stem');
 });
 
@@ -673,7 +696,7 @@ test('zones: every zone terrain is enumerated — colour, texture, family, walka
   for (const [name, code] of [['GROVE', 28], ['CHURCHYARD', 29], ['TAR_YARD', 31]]) {
     assert.eq(T[name], code, `T.${name}`);
     assert.eq(BiomeProfiles.T[name], code, `BiomeProfiles mirrors ${name}`);
-    assert.truthy(new RegExp(`^  ${code}: 0x[0-9a-f]{6},`, 'm').test(APP_JS_SRC), `COLORS[${code}]`);
+    assert.truthy(new RegExp(`^  ${code}: 0x[0-9a-f]{6},`, 'm').test(SCENE_SRC), `COLORS[${code}]`);
     const texture = textures[code];
     assert.truthy(texture && Number.isInteger(texture.variants) && texture.variants > 0, `BIOME_TEX[${code}] has texture variants`);
     assert.eq(typeof texture.draw, 'function', `${name} has a callable painter`);
@@ -714,5 +737,56 @@ test('beach anchors: source tags choose the theme without beach-name heuristics'
   }
   assert.eq(Z.anchorOf({ class: 'park', subclass: 'park', name: 'Pirate Beach Park' }).kind, 'grove');
   assert.eq(Z.ZONE_KINDS.beach.story, 'zone_grove', 'reuse a shipped painting until beach art exists');
+});
+
+// Real source data tags these places as parks while their sand polygons carry
+// subclass=beach. Changing those polygon tags is the control: terrain stays sand.
+test('beach parks: Kelowna mapped shores get beach variants while inland groves and POIs survive', () => {
+  const named = new Set(), variants = new Set();
+  let shoreCells = 0, inlandCells = 0, pieces = 0;
+  for (const [tx, ty] of [[2753,5565], [2753,5566], [2753,5567], [2754,5567]]) {
+    const key = `${tx}_${ty}`, N = WorldGen.cellsPerEdgeForTile(ty), edge = N * WorldGen.CELL_M;
+    const source = decode(key), control = decode(key);
+    for (const layer of control) if (layer.name === 'landcover') for (const f of layer.features) {
+      if (f.tags.subclass === 'beach') f.tags.subclass = 'sand';
+    }
+    const on = WorldGen.rasterizeTile(source, N, tx, ty, edge);
+    const off = WorldGen.rasterizeTile(control, N, tx, ty, edge);
+    const beaches = (source.find(l => l.name === 'landcover')?.features || [])
+      .filter(f => f.type === 3 && f.tags.subclass === 'beach');
+    const inside = (p, rings) => {
+      let yes = false;
+      for (const ring of rings) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const a = ring[j], b = ring[i];
+        if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x) yes = !yes;
+      }
+      return yes;
+    };
+    for (let i = 0; i < N*N; i++) {
+      const a = on.zone?.anchors[(on.zone.coverage?.[i] || 0)-1];
+      const b = off.zone?.anchors[(off.zone.coverage?.[i] || 0)-1];
+      if (a?.parkShore) {
+        shoreCells++; named.add(a.name); variants.add(ZoneVariants.pick(a).id);
+        const point = {x: (i%N+.5)*4096/N, y: (Math.floor(i/N)+.5)*4096/N};
+        assert.truthy(beaches.some(f => inside(point, f.geom)), `${a.name}: coverage stays inside mapped beach`);
+      } else if (b?.kind === 'grove') {
+        inlandCells++;
+        assert.eq(a?.kind, 'grove', 'inland park keeps its grove');
+        assert.eq(ZoneVariants.identity(a), ZoneVariants.identity(b), 'inland identity stays fixed');
+      }
+    }
+    const poiIds = r => r.objects.filter(o => o._poiAt).map(o => o.id).sort().join(',');
+    assert.eq(poiIds(on), poiIds(off), 'existing park POI ids survive without an extra POI');
+    assert.eq(JSON.stringify(on.zone?.caveSource), JSON.stringify(off.zone?.caveSource), 'beach dressing preserves cave inputs');
+    pieces += [...(on.zoneDress?.objects || []), ...(on.zoneDress?.wildplants || [])]
+      .filter(o => o.zone === 'beach').length;
+  }
+  for (const name of ['Boyce-Gyro Beach Park', 'Rotary Beach Park', 'Strathcona Beach Park']) {
+    assert.truthy(named.has(name), `${name}: mapped shore activates beach variants`);
+  }
+  assert.gt(shoreCells, 0, 'real mapped beach coverage exists');
+  assert.gt(inlandCells, 0, 'inland grove coverage remains');
+  assert.gt(pieces, 0, 'beach variants place actual game objects');
+  assert.gt(variants.size, 1, 'real parks receive varied beach themes');
 });
 })();

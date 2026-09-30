@@ -138,6 +138,7 @@ test('kerb: the harness bites — every mobile hostile attacks a player in open 
   // Without this the test below could pass for the wrong reason: a sim in
   // which nothing ever attacks anybody.
   for (const spec of foes()) {
+    if (EnemyRoster.get(spec.label)?.attackType === 'none') continue;
     const r = walk(spec, at(10, OPEN_ROW + 1), () => at(10, OPEN_ROW), 30);
     assert.gt(attacks(r.scene), 0, `${spec.label}: attacked a player standing in the open`);
   }
@@ -239,12 +240,12 @@ test('kerb: the fast kinds are the ones that out-run a walk, off the roster\'s o
 });
 
 test('kerb: the rules live on the lanes that exist (source pins)', () => {
-  const w = SCENE_CREATURES_SRC.slice(SCENE_CREATURES_SRC.indexOf('  wanderCreatures() {'));
+  const w = SCENE_SRC.slice(SCENE_SRC.indexOf('  wanderCreatures() {'));
   assert.truthy(/const kerbLeash = inKerbAt\(this, px, py\);/.test(w), 'read once per tick, off the FEET');
   assert.truthy(/const standDown = warded \|\| wanderOff \|\| kerbTurn \|\|/.test(w), 'a reason in standDown');
   assert.truthy(/Lairs\.guardState\(c, \{ x: px, y: py \}, this\.cellM, !unnoticed && !kerbTurn\)/.test(w), 'a guard gives up');
   assert.truthy(/if \(road & WorldGen\.ROAD_CLASS_MAJOR_BAND\) continue;/.test(w), 'the band is a refused cell');
-  const spawn = SCENE_CREATURES_SRC.slice(SCENE_CREATURES_SRC.indexOf('  spawnInTile(entry, tx, ty) {'));
+  const spawn = SCENE_SRC.slice(SCENE_SRC.indexOf('  spawnInTile(entry, tx, ty) {'));
   assert.truthy(/roadClass: entry\.roadClass,/.test(spawn), 'the shared spawn options carry the bits');
   // The buffer is the spawn gate's KERB reason (entry.spawnWhy): each animal
   // or foe is seated at its own class (creatureSpawnClass — a fast one
@@ -255,7 +256,7 @@ test('kerb: the rules live on the lanes that exist (source pins)', () => {
   assert.truthy(/const faunaSpawnOpts = \{ \.\.\._spawnOpts, occupied: null \};/.test(spawn), 'fauna overlap retains every ground and kerb restriction');
   assert.truthy(/&& isFastMover\(c, this\.cellM\)/.test(w), 'only a FAST mover is kept out of the buffer');
   assert.truthy(/relocateToSpawnCell\(genGrid, N, N, ix, iy, lairOpts, LAIR_POINT_SLACK_CELLS, 'attractor'\)/.test(spawn), 'and every lair candidate');
-  assert.falsy(/BANDIT_STORY\.attracts/.test(SCENE_CREATURES_SRC), 'no animal is pulled onto a major verge');
+  assert.falsy(/BANDIT_STORY\.attracts/.test(SCENE_SRC), 'no animal is pulled onto a major verge');
 });
 
 test('kerb: WorldGen.isFoeCell (any foe — the fast row) is the spawn rule minus the buffer', () => {
@@ -328,7 +329,7 @@ test('same side: walkableDestination (the bounty\'s seat) never lands across the
 });
 
 test('same side: the timed rewards read it, and none waits under ten minutes', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const burst = app.slice(app.indexOf('  _coinBurstInteract(sx, sy, poi) {'), app.indexOf('  _coinCellsNearPlayer(count, r, taken) {'));
   assert.truthy(/sameSideAs\(this, /.test(burst), 'the coin burst');
   assert.truthy(/const COIN_BURST_LIFE_MS = 10 \* 60 \* 1000;/.test(app), 'coins wait ten minutes');
