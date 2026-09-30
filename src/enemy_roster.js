@@ -65,10 +65,13 @@
   const GHOST_SCALING = {"cadenceSeconds":300,"jitterSeconds":60,"minCryptDepth":3,"rows":[{"zone":"surface_night","minDepth":0,"maxDepth":0,"groupMin":1,"groupMax":3,"nearMax":6,"sizeMultiplier":1},{"zone":"dungeon","minDepth":2,"maxDepth":3,"groupMin":1,"groupMax":3,"nearMax":6,"sizeMultiplier":1},{"zone":"dungeon","minDepth":4,"maxDepth":5,"groupMin":2,"groupMax":4,"nearMax":8,"sizeMultiplier":1},{"zone":"dungeon","minDepth":6,"maxDepth":null,"groupMin":2,"groupMax":4,"nearMax":8,"sizeMultiplier":1.5}],"stats":"Crypt pockets select dungeon ghosts from depth 3; bands apply to odd and even depths. Size is visual only: keep touch damage, HP, speed and contact range unchanged. White:pink weight 2:1 from haunted depth6. Both colours receive the size multiplier. No additional unlimited growth below depth6.","multiplayer":"Same group count and visible size for all players; Hard does not alter ghost spawns."};
   function get(kind) { return ALL[kind] || null; }
   function baseKind(kind) { return get(kind)?.variantOf || kind; }
+  // A foe that never moves off its seat (its row's movement.rooted — the
+  // plants). Fine on a road variant's stretch; never a building's garrison.
+  function isRooted(kind) { return get(kind)?.movement?.rooted === true; }
   function ghostProfile(depth) {
     return GHOST_SCALING.rows.find(r => depth >= r.minDepth && (r.maxDepth == null || depth <= r.maxDepth)) || null;
   }
-  const api = { ALL, ROWS, SURFACE_TIERS, GHOST_SCALING, get, baseKind, ghostProfile, GIANT_SCALE: 1.6, MINI_SCALE: 0.65 };
+  const api = { ALL, ROWS, SURFACE_TIERS, GHOST_SCALING, get, baseKind, isRooted, ghostProfile, GIANT_SCALE: 1.6, MINI_SCALE: 0.65 };
   root.EnemyRoster = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

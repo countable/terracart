@@ -335,6 +335,28 @@
     throw new Error(`no held seat for tier ${tier} near ${cxM},${cyM}`);
   }
 
+  test('lairs: a building garrison is never rooted plants; a road variant may be', () => {
+    assert.truthy(EnemyRoster.isRooted('plant'), 'the plant is rooted');
+    assert.falsy(EnemyRoster.isRooted('spider'), 'the spider walks');
+    const EH = EnemyHabitats, keep = EH.buildingKinds;
+    const wake = (tier, family) => {
+      const shape = mkHeldShape(tier, 20 * CELL_M, 20 * CELL_M, 4 * CELL_M);
+      const c = [...Lairs.buildIndex({ buildingShapes: [shape] }, 0, 0, CELL_M, TILE_M).buckets.values()].flat()[0];
+      EH.buildingKinds = () => family;
+      try { return Lairs.garrisonFor(mkEntry([shape]), c, { tileEdgeM: TILE_M, homeM: HOME }); }
+      finally { EH.buildingKinds = keep; }
+    };
+    for (const tier of Lairs.TIERS) {
+      const gs = wake(tier, ['plant', 'spider']);
+      assert.gt(gs.length, 0, `tier ${tier}: the building woke empty`);
+      for (const g of gs) assert.falsy(EnemyRoster.isRooted(g.kind), `tier ${tier}: a building guard was a ${g.kind}`);
+      // An all-rooted family falls back to the building's own ladder.
+      for (const g of wake(tier, ['plant'])) assert.truthy(Lairs.KIND_ORDER[tier].includes(g.kind), `tier ${tier}: fell back to ${g.kind}`);
+    }
+    // The road variant's own stretch keeps its plants.
+    assert.eq(Lairs.KIND_ORDER.street_overgrown.join(), 'plant', 'an overgrown street is held by plants');
+  });
+
   // ── The kerb buffer (Sep 2026 safety pass) ───────────────────────────────
   test('lairs: no guard of any lair seats inside the major roads\' kerb buffer (WorldGen.isFoeCell)', () => {
     const castle = mkHeldShape(12, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M);

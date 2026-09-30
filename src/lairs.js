@@ -733,7 +733,14 @@
     const baseCount = countFor(cap, rng);
     // Hard barricades introduce ranged support, capped at a two-member team.
     const n = cand.tier === 'barricade' && root.Difficulty?.mode() === 'hard' ? 2 : baseCount;
-    const family = root.EnemyHabitats?.buildingKinds(entry, cand);
+    // A BUILDING's garrison comes out after you, so its themed family drops
+    // the rooted kinds (EnemyRoster.isRooted — the plants); a road variant's
+    // stretch (a street tier) keeps them. The kind is picked off the filtered
+    // list, so no seat draw moves.
+    const rawFamily = root.EnemyHabitats?.buildingKinds(entry, cand);
+    const mobile = rawFamily && TIERS.includes(cand.tier)
+      ? rawFamily.filter((k) => !root.EnemyRoster?.isRooted(k)) : rawFamily;
+    const family = mobile && mobile.length ? mobile : null;
     const ox = cand.ox, oy = cand.oy;
     const caught = o.caughtSet;
     const hpMemo = o.hpMemo;
