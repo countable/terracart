@@ -46,10 +46,10 @@
 // unclaimed shade over the floor twice more — restore the building and both the
 // shade and its slime lift in the same frame.
 //
-// Painter rule (CLAUDE.md): the LOWER object renders in front. Shapes are
-// drawn in order of their SOUTHERNMOST point, so a building's wall face lands
-// over the floor of whatever sits north of it, exactly as the cell-row z-order
-// does for sprites.
+// Floors share the cached ground canvas. Upright faces and castle ramparts
+// are split into short perimeter pieces in worldContainer, each ordered at
+// its own ground foot with characters and scenery. A character can therefore
+// stand behind a south wall while remaining in front of the north wall.
 //
 // Depends on:
 //   scene fields (read-only): buildingGeomGfx, buildingGeomContainer,
@@ -534,6 +534,86 @@
     return scene.buildingGeomGfx || canvasTarget(scene);
   }
 
+  // Floors stay under the world. Each short perimeter segment is an upright
+  // piece, so a long north/south wall can interleave with walking characters.
+  // Canvas clipping keeps angled walls inside the source footprint.
+  function clearUprights(scene) {
+    for (const p of scene._buildingUprightPieces || []) {
+      p.sprite.destroy();
+      scene.textures.remove(p.textureKey);
+    }
+    scene._buildingUprightPieces = [];
+  }
+
+  function uprightEdges(scene, d, isMine, projY) {
+    const shade = shadeOf(isMine), depth = facePx(d.tier);
+    const stone = castleStone(isMine);
+    const points = d.pts;
+    const trace = (ctx) => {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+      ctx.closePath();
+    };
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      const count = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / CELL_PX));
+      for (let j = 0; j < count; j++) {
+        const at = (t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+        const p = at(j / count), q = at((j + 1) / count);
+        const pad = BAND_PX + OUTLINE_PX;
+        const x = Math.floor(Math.min(p.x, q.x) - pad);
+        const y = Math.floor(Math.min(p.y, q.y) - pad);
+        const w = Math.ceil(Math.max(p.x, q.x) + pad) - x;
+        const h = Math.ceil(Math.max(p.y, q.y) + depth + pad) - y;
+        if (x + w < scene.viewLeft - CELL_PX * 2 || x > scene.viewLeft + scene.viewSize + CELL_PX * 2
+          || y + h < scene.viewTop - CELL_PX * 2 || y > scene.viewTop + scene.viewSize + CELL_PX * 2) continue;
+        const key = `buildinggeom_wall_${scene._buildingUprightPieces.length}`;
+        if (scene.textures.exists(key)) scene.textures.remove(key);
+        const tex = scene.textures.createCanvas(key, w, h);
+        const ctx = tex.getContext();
+        ctx.translate(-x, -y);
+        // Extrude this edge downward, then remove its part inside the floor.
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
+        ctx.lineTo(q.x, q.y + depth); ctx.lineTo(p.x, p.y + depth); ctx.closePath();
+        ctx.fillStyle = cssOf(shade(faceColor(d.tier, isMine))); ctx.fill();
+        ctx.globalCompositeOperation = 'destination-out';
+        trace(ctx); ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+        if (d.tier === CASTLE) {
+          ctx.save(); trace(ctx); ctx.clip();
+          const stroke = (width, color, dash) => {
+            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
+            ctx.lineWidth = width; ctx.strokeStyle = cssOf(color);
+            ctx.setLineDash(dash || []);
+            // Continue the merlon rhythm through segment boundaries.
+            ctx.lineDashOffset = -Math.hypot(p.x - a.x, p.y - a.y);
+            ctx.stroke();
+          };
+          stroke(BAND_PX * 2, stone.body);
+          stroke(MERLON_PX * 2, stone.lite, MERLON_DASH);
+          ctx.restore();
+        }
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
+        ctx.lineWidth = OUTLINE_PX;
+        ctx.strokeStyle = cssOf(d.tier === CASTLE ? stone.dark : dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
+        ctx.stroke();
+        if (!isMine && typeof tuneUnclaimedMaterialCanvas === 'function') {
+          tuneUnclaimedMaterialCanvas(tex.getSourceImage());
+        }
+        tex.refresh();
+        const sprite = scene.add.image(x, y, key).setOrigin(0, 0);
+        scene.worldContainer.add(sprite);
+        scene._buildingUprightPieces.push({
+          sprite, textureKey: key, x, y, rank: 1,
+          // The perimeter is the ground anchor; extrusion is visual height,
+          // just as for tiled walls. Towers at this boundary rank above it.
+          groundY: (Math.max(p.y, q.y) - projY(0)) * scene.cellM / CELL_PX,
+        });
+      }
+    }
+  }
+
   function invalidate(scene) {
     if (scene) scene._buildingGeomKey = null;
   }
@@ -551,6 +631,7 @@
     const on = (scene.depth ?? 0) === 0 && enabled();
     if (container) container.setVisible(on);
     if (!on) {
+      clearUprights(scene);
       // Wipe the canvas the first time it goes off, not merely when the cache
       // key is live: setEnabled() invalidates on its way out, and a hidden
       // container full of last frame's buildings would come back the moment
@@ -581,6 +662,9 @@
         () => rebuild(scene, tiles, fracX, fracY));
     }
     if (container) container.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
+    for (const p of scene._buildingUprightPieces || []) {
+      p.sprite.setPosition(p.x - fracX * CELL_PX, p.y - fracY * CELL_PX);
+    }
   }
 
   // A cheap stamp that changes whenever a claim could have changed. The tiled
@@ -597,6 +681,17 @@
   function rebuild(scene, tiles, fracX, fracY) {
     const g = fillTarget(scene);
     g.clear();
+    clearUprights(scene);
+    if (scene.events && !scene._buildingUprightCleanup) {
+      scene._buildingUprightCleanup = true;
+      scene.events.once('shutdown', () => {
+        clearUprights(scene);
+        scene._buildingUprightCleanup = false;
+        scene._buildingGeomKey = null;
+        scene._buildingGeomTarget = null;
+      });
+    }
+    const separateUprights = !!(scene.worldContainer && scene.add && scene.textures);
     // Cell-snapped projection (the container re-applies the sub-cell offset) —
     // the same one the road overlay strokes with — and its padded cull bounds.
     const { projX, projY, minX, maxX, minY, maxY } = overlayProjection(scene, fracX, fracY);
@@ -665,7 +760,7 @@
       // The wall, as the ring filled again one face-depth south and painted
       // UNDER the floor: whatever survives is exactly the polygon's
       // south-facing edges, at any angle, with no per-edge normal test.
-      g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), shade(faceColor(d.tier, isMine)));
+      if (!separateUprights) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), shade(faceColor(d.tier, isMine)));
       g.fillPoly(d.pts, floor);
       if (g.texturePoly) g.texturePoly(d.pts, d.tier);
       // Dilapidated: the slime, over the floor and its material (it is growing
@@ -680,7 +775,9 @@
       // top of it — and the point of the pass is that the ground's squares
       // stay readable across a footprint, so it goes last.
       if (g.gridPoly) g.gridPoly(d.pts, gridInkFor(GRID, floor));
-      if (d.tier === CASTLE) {
+      if (separateUprights) {
+        uprightEdges(scene, d, isMine, projY);
+      } else if (d.tier === CASTLE) {
         // Rampart: the stone band inside the wall line, then the merlon teeth
         // dashed along it in the light stone — the polygon's answer to the
         // tiled battlements.

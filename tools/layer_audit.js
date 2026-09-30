@@ -75,7 +75,8 @@ const GROUND = [
 // with the ground it stands on — the darkness used to sit below the sprites
 // and exempt them, and a house outside the bubble read as a sticker on dark
 // ground.
-const SPRITES = ['worldContainer', 'rampartFrontGfx', 'towerContainer'];
+// Castle walls, turrets and flags are children of this same sorted layer.
+const SPRITES = ['worldContainer'];
 
 // The LIGHTMAP (src/lighting.js): every light added into one texture,
 // multiplied over the world. Above every ground layer, the halo and the

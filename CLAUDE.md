@@ -223,9 +223,10 @@ Higher-priority placements and their access space take precedence in this order:
 - The player's feet sit on the GPS fix. Ground marks use that point; body
   effects use `playerBodyDy()` so they also follow the downed pose. Do not
   compensate for sprite seating by changing the projection.
-- Upright objects, crops and creatures share the painter pass in `render.js`:
-  lower centre of mass renders in front. Add upright things to `RENDER_SPEC`;
-  separate layers are for ground surfaces, not standing objects.
+- Upright scenery, castle wall pieces and characters (including the player)
+  share `Render.sortWorldDepth`: lower continuous ground/feet Y renders in
+  front. Use stable seating geometry, never animation lift or whole cell rows.
+  Add sprite appearances to `RENDER_SPEC`; ground surfaces stay underneath.
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
