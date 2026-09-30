@@ -3750,7 +3750,7 @@ Render.drawObjects = function drawObjects(scene) {
       scene.plantedTimerPool.push(t);
     }
     const { sx, sy } = project(dx, dy);
-    const remaining = Crops.stageHoldMs(p.crop) - (now - p.watered_t);
+    const remaining = Crops.plantHoldMs(p) - (now - p.watered_t);
     // Largest-unit notation (util.js shortDuration) — the badge used to print
     // a BARE minutes number, the one timer in the game with no unit on it, so
     // "7" over a crop and "7m" over a house meant the same thing and didn't

@@ -306,3 +306,23 @@ test('crop timer migration: preserves fractional progress and pays out ready old
   assert.eq(dry.stage, 1);
   assert.eq(ordinary.watered_t, now - HOLD() / 2, 'ordinary in-progress clock unchanged');
 });
+
+test('crop tier sets the stage hold; the can shortens the stage it starts', () => {
+  assert.eq(Crops.stageHoldMs('potato'), Crops.STAGE_HOLD_MS, 'tier 1: the base');
+  assert.eq(Crops.stageHoldMs('pairy'), 2 * Crops.STAGE_HOLD_MS, 'tier 2: twice');
+  assert.eq(Crops.stageHoldMs('coffee'), 3 * Crops.STAGE_HOLD_MS, 'tier 3: three times');
+  assert.eq(Crops.stageHoldMs('sunflower'), 60 * 60 * 1000, 'magical flowers keep their own hours');
+  assert.eq(Crops.canHoldMul(null), 1, 'bare hands: the full hold');
+  assert.eq(Crops.canHoldMul({ can: { tier: Crops.CAN_TOP_TIER } }), 1 - Crops.CAN_HOLD_CUT, 'Frost: the full cut');
+  const never = () => 1;   // no jump
+  for (const tier of [0, 1, 4, 7]) {
+    const relics = tier ? { can: { tier } } : null;
+    const p = { crop: 'pairy', stage: 0, watered_t: 0 }, save = { planted: [p] };
+    assert.eq(Crops.waterOne(save, p, relics, 1000, never), 'watered');
+    const hold = Math.round(Crops.stageHoldMs('pairy') * Crops.canHoldMul(relics));
+    assert.eq(Crops.plantHoldMs(p), hold, `tier ${tier} can stamps its hold`);
+    assert.falsy(Crops.advanceGrowth(save, 1000 + hold - 1), 'not before it');
+    assert.truthy(Crops.advanceGrowth(save, 1000 + hold), 'at it');
+  }
+  assert.eq(Crops.plantHoldMs({ crop: 'coffee' }), Crops.stageHoldMs('coffee'), 'an unstamped plant reads its crop');
+});

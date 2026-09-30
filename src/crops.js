@@ -17,15 +17,37 @@
 (function (root) {
   'use strict';
 
-  const STAGE_HOLD_MS = 15 * 60 * 1000;          // 15 min per growth stage
+  // A TIER-1 crop's stage: 15 min. A finer crop takes longer between
+  // waterings (owner's call, Sep 2026): its stage is STAGE_HOLD_MS × its
+  // BASE_TIER (items.js — the one tier the loot and prices read), so a tier-2
+  // pairy holds 30 min and a tier-3 coffee 45. The magical flowers keep their
+  // own hours (STAGE_HOLDS), well past what the ladder would give them.
+  const STAGE_HOLD_MS = 15 * 60 * 1000;
   const STAGE_HOLDS = Object.freeze({
     sunflower: 60 * 60 * 1000,
     fireflower: 2 * 60 * 60 * 1000,
     iceflower: 3 * 60 * 60 * 1000,
   });
+  function cropTier(crop) {
+    const t = (typeof BASE_TIER !== 'undefined' && BASE_TIER[crop]) || 1;
+    return Math.max(1, t);
+  }
   function stageHoldMs(crop) {
     return Object.prototype.hasOwnProperty.call(STAGE_HOLDS, crop)
-      ? STAGE_HOLDS[crop] : STAGE_HOLD_MS;
+      ? STAGE_HOLDS[crop] : STAGE_HOLD_MS * cropTier(crop);
+  }
+  // THE CAN SHORTENS THE STAGE IT STARTS (owner's call, Sep 2026): a watering
+  // stamps the plant's hold for the stage it begins (`p.hold_ms`), cut by the
+  // can's tier — CAN_HOLD_CUT off at Frost, a straight line down from bare
+  // hands' full hold. A plant watered before this carried no stamp and reads
+  // its crop's own hold (plantHoldMs).
+  const CAN_HOLD_CUT = 0.5;
+  function canHoldMul(relics) {
+    const t = relics && relics.can && relics.can.tier ? relics.can.tier : 0;
+    return 1 - CAN_HOLD_CUT * Math.max(0, Math.min(1, t / CAN_TOP_TIER));
+  }
+  function plantHoldMs(p) {
+    return p && p.hold_ms > 0 ? p.hold_ms : stageHoldMs(p && p.crop);
   }
 
   // Called once by save migration. Old watered crops keep the fraction of
@@ -140,7 +162,7 @@
     for (const p of save.planted || []) {
       if (!p.watered_t) continue;
       if ((p.stage ?? 0) >= maxStage()) continue;
-      if (now - p.watered_t < stageHoldMs(p.crop)) continue;
+      if (now - p.watered_t < plantHoldMs(p)) continue;
       p.stage = (p.stage ?? 0) + 1;
       p.watered_t = 0;
       mutated = true;
@@ -177,6 +199,7 @@
     if (!p || (p.stage ?? 0) >= maxStage()) return null;
     if (p.watered_t) return null;
     p.watered_t = now;
+    p.hold_ms = Math.round(stageHoldMs(p.crop) * canHoldMul(relics));
     if (rng() >= waterJumpChance(relics)) return 'watered';
     p.stage = (p.stage ?? 0) + 1;
     // Jumped all the way to ripe: a mature plant is never watered, so clear the
@@ -271,7 +294,7 @@
     return q;
   }
 
-  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, stageHoldMs, migrateStageTimers, CAN_TOP_TIER, maxStage, isMature, crowEats,
+  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, migrateStageTimers, CAN_TOP_TIER, maxStage, isMature, crowEats,
                  advanceGrowth, waterWithin, waterOne, waterJumpChance, advanceWithin,
                  bedQuality, setBedQuality, clearBedQuality, takeBedQuality,
                  forEachInBox, invalidateSpatialIndex };

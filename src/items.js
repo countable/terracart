@@ -1429,7 +1429,7 @@ const RELIC_DEFS = {
   // quality is the HOE's now (it belongs to the bed, see Crops.bedQuality)
   // and the charge bank retired with it.
   can:     { slot: 'can',    name: 'Watering Can', icon: 'Watering can.png', baseCost: 100,
-             effectKey: 'waterJump',     blurb: 'a watering may leap the plant forward a growth stage' },
+             effectKey: 'waterJump',     blurb: 'a watering may leap the plant forward a growth stage, and the stage it starts grows faster' },
   // Hoe — the tilling tool, and the one that sets a BED'S QUALITY. Three
   // effects, all per tier: the till wheel shortens on the shared tool ladder;
   // the energy cost drops (floor(tier/3) off the base 2, floored at 1) with a

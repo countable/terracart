@@ -120,7 +120,7 @@ const PLAY_TIPS = [
   'After dark, ghosts rise out of the dark every five minutes or so. One hovers a moment, then rushes you at a run, and its touch costs 12\u26a1 before armour. Below ground, crypt pockets from level 3 are haunted at every hour. A torch or a lamp burns them, a campfire drives them off, and none will linger near Home or a castle you\'ve taken back.',
   // ── The starter loop — till, plant, rebuild, harvest, sell ───
   'Tilling refuses a cell holding a wildplant, rock, or building.',
-  `An ordinary watered crop climbs one stage every ${shortDuration(Crops.STAGE_HOLD_MS)}, even while you are away, then needs watering again. Magical flowers take hours per stage; check their growing timer.`,
+  `A plain watered crop climbs one stage every ${shortDuration(Crops.STAGE_HOLD_MS)}, even while you are away, then needs watering again. Finer crops take longer, magical flowers hours; a better can shortens each stage. Check the growing timer.`,
   'Pack an Antidote before exploring underground. Purple Slimes leave a sickness that follows you after the fight.',
   'A ripe crop pays one to three of itself, and about one pick in four hands a seed back as well.',
   'A ruined house can be rebuilt for 1 stone, and each one you rebuild adds a stone to the next, up to 20.',
