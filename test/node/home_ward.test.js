@@ -257,14 +257,19 @@ test('ward: a routed foe RUNS — the rout is distance, not just a heading', () 
   // work" looked like. A routed foe takes the flee pace instead — the same
   // pair the struck-prey override runs at, so "it ran" is one speed.
   const wander = app.slice(app.indexOf('  wanderCreatures('));
-  assert.truthy(/\* shinyFast \* \(routed \? FLEE_BEAT_MUL : 1\);/.test(wander),
+  // `hurry` is the rout on a kind NOT already sprinting (speed_ceiling.test.js:
+  // a bolt is its own hurry, and the pair never stacks on one).
+  assert.truthy(/const hurry = routed && !sprinting;/.test(wander), 'the rout, on what was not already running');
+  assert.truthy(/\* shinyFast \* \(hurry \? FLEE_BEAT_MUL : 1\);/.test(wander),
     'a routed foe steps more often');
-  assert.truthy(/\* \(routed \? FLEE_STRIDE_MUL : 1\);/.test(wander),
+  assert.truthy(/\* \(hurry \? FLEE_STRIDE_MUL : 1\);/.test(wander),
     'and carries further with each step — a charge quickens the beat alone');
-  // One pair of numbers, read by both things that run.
-  assert.truthy(/Math\.cos\(fleeAngle\) \* stepM \* FLEE_STRIDE_MUL/.test(wander),
+  // One pair of numbers, read by both things that run — the struck-prey
+  // override takes the pair over the same base for a kind without a bolt row
+  // (a kind with one runs its bolt instead: speed_ceiling.test.js).
+  assert.truthy(/const hurryM = bolt \? STEP_M \* \(bolt\.stepCells \?\? 1\) : base\.m \* FLEE_STRIDE_MUL;/.test(wander),
     'the struck-prey flee override reads the same stride');
-  assert.truthy(/c\._nextChooseT = now \+ stepMs \* FLEE_BEAT_MUL;/.test(wander),
+  assert.truthy(/const hurryMs = bolt \? \(bolt\.stepMs \?\? STEP_MS\) \* shinyFast : base\.ms \* FLEE_BEAT_MUL;/.test(wander),
     'and the same beat');
   assert.eq(FLEE_STRIDE_MUL * (1 / FLEE_BEAT_MUL), 4,
     'four times the ground — if this changes, both fleers change together');
