@@ -534,7 +534,7 @@ test('traps: _spawnOpts carries opts.occupied, built from the tile\'s own object
   // the object every spawner in this method shares.
   // spawnInTile is the SceneCreatures mixin's (scene_creatures.js).
   const block = (() => {
-    const a = SCENE_CREATURES_SRC.indexOf('  spawnInTile(entry, tx, ty) {');
+    const a = SCENE_CREATURES_SRC.indexOf('  *spawnInTileSteps(entry, tx, ty) {');
     const b = SCENE_CREATURES_SRC.indexOf('\n  }\n', a);
     assert.truthy(a > 0 && b > a, 'found spawnInTile in scene_creatures.js');
     return SCENE_CREATURES_SRC.slice(a, b);

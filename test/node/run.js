@@ -1049,7 +1049,15 @@ Object.assign(ctx, {
   // spawnInTile runs through its live-ground cull (_cullOffLiveGround) as it
   // always did; each slice ends on the method's own closing `  }`.
   const creaturesSrc = readSrc('scene_creatures.js');
-  ctx.SPAWN_IN_TILE_SRC      = slice(creaturesSrc, '  spawnInTile(entry, tx, ty) {\n', '\n  // Cave fauna: hostile', 'spawnInTile');
+  // The pass is the steps generator (spawnInTile only drives it), so its
+  // body holds `yield`s: a test that RUNS a slice of it builds it with
+  // spawnPassFn (below), which makes the generator and drives it through.
+  ctx.SPAWN_IN_TILE_SRC      = slice(creaturesSrc, '  *spawnInTileSteps(entry, tx, ty) {\n', '\n  // Cave fauna: hostile', 'spawnInTile');
+  vm.runInContext(`globalThis.spawnPassFn = function (body) {
+    const GeneratorFunction = Object.getPrototypeOf(function* () {}).constructor;
+    const steps = new GeneratorFunction('entry', 'tx', 'ty', body);
+    return function (entry, tx, ty) { return WorldGen.runSteps(steps.call(this, entry, tx, ty)); };
+  };`, ctx, { filename: 'run.js#spawnPassFn' });
   ctx.SPAWN_CAVE_SRC         = slice(creaturesSrc, '  spawnCaveCreatures(entry, tx, ty, depth) {\n', '\n  // Catch wheel:', 'spawnCaveCreatures');
   ctx.REBUILD_WITH_BIN_SRC   = slice(wgSrc,  '  async function rebuildTileWithBin(x, y, lat) {\n', '\n  }\n', 'rebuildTileWithBin');
   // The trail placer is starter.js's now (scene methods read `scene.`, not
@@ -1142,19 +1150,26 @@ Object.assign(ctx, {
 // rng / ambientSpawnOpts and `this` (tileEdgeM), all cheap to stub.
 {
   const appSrc = readSrc('scene_creatures.js');   // spawnInTile's home now
+  // The grid pass itself runs AHEAD of the pass's flag (where it may still
+  // yield); the streams read it further down. Both pieces are lifted, and
+  // run as a generator driven through.
+  const scanFrom = appSrc.indexOf('    const shoreMask = entry.scenic && entry.scenic.shore ? entry.scenic.shore.mask : null;');
+  const scanTo = appSrc.indexOf('    // DERELICT LAIRS need', scanFrom);
   const from = appSrc.indexOf('    // ONE pass over the grid for both bonus streams below');
   const to = appSrc.indexOf('    // Player-planted saplings (save.fruittrees)');
-  if (from < 0 || to < 0 || to < from) {
+  if (scanFrom < 0 || scanTo < 0 || from < 0 || to < 0 || to < from || scanTo > from) {
     console.error('Could not lift the bonus-X streams from spawnInTile — update run.js');
     process.exit(2);
   }
   vm.runInContext(
     'globalThis.__bonusXMarks = function (entry, tx, ty, N, rng, ambientSpawnOpts) {\n'
+    + 'return WorldGen.runSteps((function* () {\n'
     // The two locals spawnInTile declares up top that the block reads: the
     // tile's own cell size and its generated grid.
     + 'const cellM = this.tileEdgeM / N;\n'
     + 'const genGrid = entry.baseGrid || entry.grid;\n'
-    + appSrc.slice(from, to) + '\n};', ctx, { filename: 'scene_creatures.js#bonusXMarks' });
+    + appSrc.slice(scanFrom, scanTo) + '\n'
+    + appSrc.slice(from, to) + '\n}).call(this));\n};', ctx, { filename: 'scene_creatures.js#bonusXMarks' });
 }
 
 ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');

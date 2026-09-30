@@ -8033,6 +8033,9 @@
     // straight through, or sliced as a turn on the heavy chain — the scene's
     // spawn pass rides it too. STEPS_ABORTED is what an aborted pass returns.
     runSteps, runStepsSliced, STEPS_ABORTED: ABORTED,
+    // One depth's cache, whichever depth is active (tileCache follows the
+    // active one) — a sliced surface pass asks whether its entry is still live.
+    tileCacheFor: cacheFor,
     RASTER_SLICE_LIVE_MS, SLICE_MIN_MS,
     lonLatToWorldPx, metersPerPixel, tileEdgeMeters,
     // The tile's OWN grid: cells per edge from the tile's row (a pure

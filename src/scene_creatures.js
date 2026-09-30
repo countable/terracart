@@ -78,7 +78,42 @@ const FAUNA_ATTRACT_TRIES = 12;
 const LAIR_POINT_SLACK_CELLS = 1;
 
 class SceneCreatures {
+  // THE SPAWN PASS, run straight through — the centre tile (the ground the
+  // player stands on appears whole) and every caller that cannot await. The
+  // pass itself is spawnInTileSteps; the neighbour ring drives it sliced
+  // (_spawnInTileSliced). Same steps, same result.
   spawnInTile(entry, tx, ty) {
+    return WorldGen.runSteps(this.spawnInTileSteps(entry, tx, ty));
+  }
+
+  // The spawn pass SLICED on the tile builder's heavy chain (WorldGen
+  // runStepsSliced): 20-70 ms per ring tile (160 ms the first) used to run
+  // unbroken as the tail of that tile's build. One pass per entry — a second
+  // ask (a newer ensureTilesAround reaching the same tile mid-pass) gets the
+  // pass in flight, never a rival. Aborted, between slices, once the entry is
+  // no longer the surface cache's (evicted, or replaced by a rebuild — which
+  // runs its own pass): its half-dressed state is then nobody's. Resolves true
+  // when the pass ran to the end.
+  _spawnInTileSliced(entry, tx, ty) {
+    if (entry._spawned) return Promise.resolve(true);
+    if (entry._spawnPass) return entry._spawnPass;
+    const key = WorldGen.tileKey(tx, ty);
+    const gone = () => WorldGen.tileCacheFor(0).get(key) !== entry;
+    const pass = WorldGen.runStepsSliced(() => this.spawnInTileSteps(entry, tx, ty), { abort: gone })
+      .then((r) => r !== WorldGen.STEPS_ABORTED && !!entry._spawned)
+      .finally(() => { if (entry._spawnPass === pass) entry._spawnPass = null; });
+    entry._spawnPass = pass;
+    return pass;
+  }
+
+  // Yields between its phases (and inside the tile-wide loops), and only
+  // BEFORE entry._spawned is raised: from there to the end it is one slice,
+  // so nothing outside ever meets an entry flagged spawned with its traps or
+  // treasure still to come. The heavy but pure work of that stretch (the trap
+  // draw, the path / sand / pier scan) is done ahead, before the flag.
+  *spawnInTileSteps(entry, tx, ty) {
+    // Read once: a sliced pass must not change its mind between slices.
+    const testMode = !!window.__TEST_MODE;
     const rng = WorldGen.makeRng(tx * 0x1f1f1f1f ^ ty * 0x12345);
     const creatures = [];
     const N = entry.cellsPerEdge;
@@ -113,7 +148,9 @@ class SceneCreatures {
     // under a tree, undiggable until the tree is felled: roads and buildings
     // were never the whole rule, just the two terrain alone could see.
     const _occupiedIdx = new Set();
+    let _nOcc = 0;
     for (const records of [genObjects, entry.wildplants || []]) for (const o of records) {
+      if (((_nOcc++) & 511) === 511) yield 'spawn occupancy';
       for (const i of SpawnOwnership.tileCells(this, entry, o, tx, ty)) _occupiedIdx.add(i);
     }
     // Even pets only belong near street frontage / public space inside a
@@ -155,7 +192,7 @@ class SceneCreatures {
     entry.slowCells = null;
     entry.streetMarks = null;
     const sDress = entry.scenicDress;
-    if (sDress && !window.__TEST_MODE) {
+    if (sDress && !testMode) {
       const lay = (p) => {
         const cells = SpawnOwnership.tileCells(this, entry, p, tx, ty);
         if (!cells.length || cells.some(i => _occupiedIdx.has(i))) return false;
@@ -167,9 +204,10 @@ class SceneCreatures {
       entry.wildplants = entry.wildplants || [];
       for (const wp of sDress.wildplants) if (lay(wp)) entry.wildplants.push(wp);
     }
+    yield 'spawn scenic dressing';
     const zoneTraps = [], zoneGuards = [];
     const zDress = entry.zoneDress;
-    if (zDress && !window.__TEST_MODE) {
+    if (zDress && !testMode) {
       const cellIdx = (p) => {
         const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);
         const iy = Math.floor((p.y - ty * this.tileEdgeM) / cellM);
@@ -197,12 +235,13 @@ class SceneCreatures {
       for (const L of (zDress.lairs || [])) entry.streetLairs.push(L);
       entry.slowCells = slow.size ? slow : null;
     }
+    yield 'spawn zone dressing';
     const dressing = entry.streetDress;
     // A rebuilt tile carries live coinDrops. Replace its authored road coins
     // from the new dressing so collected or newly overridden seats disappear;
     // bounty and burst coins keep their existing session state.
     if (entry.coinDrops) entry.coinDrops = entry.coinDrops.filter(c => c._street !== 'golden');
-    if (dressing && typeof StreetVariants !== 'undefined' && !window.__TEST_MODE) {
+    if (dressing && typeof StreetVariants !== 'undefined' && !testMode) {
       const cellIdx = (p) => {
         const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);
         const iy = Math.floor((p.y - ty * this.tileEdgeM) / cellM);
@@ -238,6 +277,7 @@ class SceneCreatures {
       entry.slowCells = slow.size ? slow : null;
       entry.streetMarks = dressing.marks;
     }
+    yield 'spawn street dressing';
     // BANDIT STOPS: a bus stop on a MAJOR road wears the broken wagon
     // (loot.js chestLook) and holds one goblin (lairs.js 'wagon' tier). Read
     // off the live objects so an Overpass bin's stops are included.
@@ -291,6 +331,7 @@ class SceneCreatures {
     // before save-specific filtering, including the rooted park enemies.
     const ambientOccupied = new Set(_occupiedIdx);
     for (let i = 0; i < N * N; i++) {
+      if ((i & 8191) === 8191) yield 'spawn variant areas';
       if (WorldGen.variantOwnerAt(entry, i)) ambientOccupied.add(i);
     }
     // Zone and road variants own their empty lanes too. Their own rewards,
@@ -397,11 +438,13 @@ class SceneCreatures {
           if (creatures[j].kind === 'crow' && Number(creatures[j].id.split('_').at(-1)) >= emittedCrowN) creatures.splice(j, 1);
         }
       }
+      yield 'spawn fauna';
     }
     // Independent park stream; only static pieces and enemy seats reserve
     // ground. An animal cannot prevent an interactable or rooted enemy spawn.
     const parkPlants = WorldGen.spawnParkPlants(genGrid, N, N, tx, ty, this.tileEdgeM,
       { ..._spawnOpts, occupied: enemyGroundSeats });
+    yield 'spawn park plants';
     const plantCells = new Set();
     for (const plant of parkPlants) {
       const cx = Math.floor((plant.x - tx * this.tileEdgeM) / cellM);
@@ -426,6 +469,7 @@ class SceneCreatures {
     // every save), and pass every generated plant cell (caught or not) so no
     // animal is pulled onto a plant.
     entry.faunaAttracted = this._seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, _spawnOpts, creatures, pestFree, unseated, plantCells);
+    yield 'spawn fauna attractors';
     // Replace the existing enemy budget, without adding a population per kind.
     // Identity depends on the candidate cell, never species or this player's Home.
     entry._spawnOpts = _spawnOpts;
@@ -489,6 +533,35 @@ class SceneCreatures {
         creatures.push(WorldGen.makeCreature(r.kind, r.x, r.y, r.id, { shiny: !!r.shiny }));
       }
     }
+    yield 'spawn habitats';
+    // AHEAD OF THE FLAG: the two heavy, pure pieces of the stretch after
+    // entry._spawned (see spawnInTileSteps) — the trap draw and the one grid
+    // pass the bonus X marks and the shore fauna read — are computed here,
+    // where the pass may still yield. Neither reads anything the stretch
+    // between writes (the trap draw is its own stream on the generated
+    // ambient options; the scan reads the generated grid), so the result is
+    // the one they gave in place. Both are explained where they are used.
+    const surfaceTraps = (typeof Traps !== 'undefined' && !testMode)
+      ? Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty, this.tileEdgeM, ambientSpawnOpts,
+          Difficulty.get().trapCountMul, entry.zone && entry.zone.under)
+      : [];
+    yield 'spawn traps';
+    const shoreMask = entry.scenic && entry.scenic.shore ? entry.scenic.shore.mask : null;
+    const pathCells = [];
+    const sandCells = [];
+    // …and the PIER cells, for the shore fauna below (the gull's perch) —
+    // the same pass, so the tile is still walked once.
+    const pierCells = [];
+    for (let cy = 0; cy < N; cy++) {
+      if ((cy & 63) === 63) yield 'spawn path scan';
+      for (let cx = 0; cx < N; cx++) {
+        const t = genGrid[cy * N + cx];
+        if (t === 8 /* PATH */) pathCells.push(cy * N + cx);
+        else if (t === WorldGen.T.SAND && !(shoreMask && shoreMask[cy * N + cx])) sandCells.push(cy * N + cx);
+        else if (t === WorldGen.T.PIER) pierCells.push(cy * N + cx);
+      }
+    }
+    yield 'spawn path scan';
     // DERELICT LAIRS need the tile's shared spawn options AFTER this pass has
     // finished — the garrisons are woken lazily as the player comes near a ruin
     // (the residency pass in update()), not seated here, because
@@ -555,10 +628,8 @@ class SceneCreatures {
     // there is exactly how the road mask drifts out of one of them. A rebuilt
     // entry drops it along with `_spawned`, and this pass puts it back.
     entry._spawnOpts = _spawnOpts;
-    entry.traps = (typeof Traps !== 'undefined' && !window.__TEST_MODE)
-      ? Traps.spawnSurface(genGrid, entry.roadClass, N, N, tx, ty, this.tileEdgeM, ambientSpawnOpts,
-          Difficulty.get().trapCountMul, entry.zone && entry.zone.under)
-      : [];
+    // (Drawn ahead of the flag — surfaceTraps, above.)
+    entry.traps = surfaceTraps;
     entry.traps.push(...zoneTraps);
 
     // Treasure marks. Three streams:
@@ -640,7 +711,7 @@ class SceneCreatures {
     // Skip the extra-X scatter in test mode — the unified treasure handler
     // runs BEFORE wildplant/creature/till/plant/water dispatches, and tests
     // that tap arbitrary cells would have the tap stolen by a random X.
-    const EXTRA_X_COUNT = window.__TEST_MODE ? 0 : (4 + Math.floor(rng() * 7));
+    const EXTRA_X_COUNT = testMode ? 0 : (4 + Math.floor(rng() * 7));
     for (let k = 0; k < EXTRA_X_COUNT; k++) {
       let placed = false;
       for (let attempt = 0; attempt < 8 && !placed; attempt++) {
@@ -661,10 +732,9 @@ class SceneCreatures {
     // (4-connected) so the X visually sits adjacent to the path, not on
     // it. Skipped when the tile has no path cells.
     // ONE pass over the grid for both bonus streams below (the path's and the
-    // beach's). This is the post-rasterize path, which has no slicer at all —
-    // whatever runs here runs straight through — so a second full-grid scan
-    // for the sand would be a second 100k-cell block charged to no span the
-    // profile can name.
+    // beach's) — taken ahead of the flag, where the pass can still yield (see
+    // `pathCells` above) — so a second full-grid scan for the sand would be a
+    // second 100k-cell block.
     // Cells are packed as their grid INDEX (cy * N + cx), which is the index
     // the rest of this file reads them by. It was `cx * 256 + cy` until Sep
     // 2026: cellsPerEdge is tileEdgeM / 7, which is over 256 anywhere below
@@ -675,20 +745,6 @@ class SceneCreatures {
     // water, entry.scenic.shore.mask) is the BEACH and takes its own stream
     // below; `sandCells` is the INLAND sand (bunkers, sandpits, volleyball),
     // which keeps the old capped scatter.
-    const shoreMask = entry.scenic && entry.scenic.shore ? entry.scenic.shore.mask : null;
-    const pathCells = [];
-    const sandCells = [];
-    // …and the PIER cells, for the shore fauna below (the gull's perch) —
-    // the same pass, so the post-rasterize path still walks the grid once.
-    const pierCells = [];
-    for (let cy = 0; cy < N; cy++) {
-      for (let cx = 0; cx < N; cx++) {
-        const t = genGrid[cy * N + cx];
-        if (t === 8 /* PATH */) pathCells.push(cy * N + cx);
-        else if (t === WorldGen.T.SAND && !(shoreMask && shoreMask[cy * N + cx])) sandCells.push(cy * N + cx);
-        else if (t === WorldGen.T.PIER) pierCells.push(cy * N + cx);
-      }
-    }
     if (pathCells.length > 0) {
       // 4-8 bonus X marks per tile that has any path (doubled from 2-4).
       // Capped by path density so a tile with one stub doesn't get spammed —

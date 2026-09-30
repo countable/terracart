@@ -776,6 +776,15 @@ class SceneGeo {
       try {
         entry = await WorldGen.loadTile(tx, ty, START_LAT);
         if (entry.status === 'loading') await entry.promise;
+        // A NEIGHBOUR's surface spawn pass runs SLICED (_spawnInTileSliced):
+        // 20-70 ms of it used to ride this tile's build unbroken. The centre
+        // stays whole — the ground under the player appears in one piece —
+        // unless a sliced pass is already under way on the entry (a ring build
+        // a newer centre overtook), which is then waited for, never doubled.
+        // A pass aborted because the entry left the cache leaves nothing to do.
+        if (this.depth === 0 && !entry._spawned && (entry._spawnPass || k !== centreKey)) {
+          if (!(await this._spawnInTileSliced(entry, tx, ty)) || this.depth !== 0) return;
+        }
         // Surface fauna on depth 0; hostile wandering monsters underground.
         //
         // GATED ON _spawned, NOT ON entry.creatures. The two look

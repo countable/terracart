@@ -2,7 +2,7 @@
 // records rather than a second implementation of the zone-dressing interpreter.
 (() => {
   const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // Treasure marks. Three streams:'));
-  const spawn = new Function('entry', 'tx', 'ty', body);
+  const spawn = spawnPassFn(body);
   function fixture(caught = [], carried) {
     const scene = Object.assign(new SceneCreatures(), {
       tileEdgeM: 640, save: { caught }, startWorldM: { x: -5000, y: 0 },
