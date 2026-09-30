@@ -152,14 +152,152 @@ test('memory arc: later return reveals at thirty lifetime memories even when non
   assert.truthy(scene.save.memoryStory.revealed); assert.eq(scene.save.memories, 0);
 }));
 
+function earnTo(save, count) {
+  while (MemoryStory.total(save) < count) save.discovered['earned:' + MemoryStory.total(save)] = 1;
+}
+function returnedScene(n = 0) {
+  const scene = sceneFor(saveWith(n)); visit(scene); finish(scene); visit(scene); finish(scene);
+  return scene;
+}
+
+test('memory arc act two: each ordered beat requires its lifetime threshold and fresh discovery', () => isolated(() => {
+  const scene = returnedScene();
+  for (const beat of MemoryStory.ACT2) {
+    const unlockAt = Math.max(beat.minMemories, scene.save.memoryStory.act2Memory + 1);
+    earnTo(scene.save, unlockAt - 1);
+    visit(scene);
+    assert.falsy(scene.save.memoryStory.visit.kind === 'act2', 'below threshold remains a recap');
+    finish(scene);
+    earnTo(scene.save, unlockAt);
+    scene.save.memories = 0;
+    visit(scene);
+    assert.eq(scene.save.memoryStory.visit.kind, 'act2');
+    assert.eq(scene.save.memoryStory.visit.beat, beat.id, 'beats keep authored order');
+    assert.falsy(scene.save.memoryStory.act2Seen.includes(beat.id), 'opening does not complete beat');
+    assert.eq(scene.modals[scene.modals.length - 1].body, beat.pages[0].body);
+    finish(scene);
+    assert.truthy(scene.save.memoryStory.act2Seen.includes(beat.id));
+    assert.eq(scene.save.memoryStory.act2Memory, unlockAt);
+    for (let click = 0; click < 3; click++) {
+      visit(scene);
+      assert.falsy(scene.save.memoryStory.visit.kind === 'act2', 'repeat clicks do not advance plot');
+      finish(scene);
+    }
+    assert.eq(scene.save.memories, 0, 'wizard story never spends memories');
+  }
+  assert.eq(scene.save.memoryStory.act2Seen.length, MemoryStory.ACT2.length);
+}));
+
+test('memory arc act two: late arrival cannot exhaust unlocked beats by repeatedly reopening', () => isolated(() => {
+  const scene = returnedScene(27);
+  visit(scene);
+  assert.falsy(scene.save.memoryStory.visit.kind === 'act2', 'first return establishes lifetime baseline');
+  finish(scene);
+  earnTo(scene.save, 28); visit(scene);
+  assert.eq(scene.save.memoryStory.visit.beat, MemoryStory.ACT2[0].id);
+  finish(scene);
+  for (let i = 0; i < 5; i++) {
+    visit(scene); assert.falsy(scene.save.memoryStory.visit.kind === 'act2'); finish(scene);
+  }
+  assert.eq(scene.save.memoryStory.act2Seen.length, 1);
+  earnTo(scene.save, 29); visit(scene);
+  assert.eq(scene.save.memoryStory.visit.beat, MemoryStory.ACT2[1].id); finish(scene);
+  earnTo(scene.save, 30); visit(scene);
+  assert.eq(scene.save.memoryStory.visit.kind, 'reveal', 'unseen beats never delay the thirtieth-memory reveal');
+  finish(scene); assert.truthy(scene.save.memoryStory.revealed);
+}));
+
+test('memory arc act two: interrupted beat retains selected pages after earning thirty and spending', () => isolated(saved => {
+  const beat = MemoryStory.ACT2.find(entry => entry.pages.length > 1);
+  assert.truthy(beat, 'act two has a scene with multiple pages');
+  const scene = returnedScene();
+  for (const prior of MemoryStory.ACT2) {
+    if (prior.id === beat.id) break;
+    earnTo(scene.save, Math.max(prior.minMemories, scene.save.memoryStory.act2Memory + 1)); visit(scene); finish(scene);
+  }
+  earnTo(scene.save, beat.minMemories); visit(scene); dismiss(scene);
+  const persisted = copy(saved[saved.length - 1]);
+  assert.eq(persisted.memoryStory.visit.beat, beat.id);
+  assert.eq(persisted.memoryStory.visit.page, 1);
+  assert.falsy(persisted.memoryStory.act2Seen.includes(beat.id));
+  earnTo(persisted, 30); persisted.memories = 0;
+  const resumed = sceneFor(persisted); visit(resumed);
+  assert.eq(resumed.modals[0].body, beat.pages[1].body, 'reload resumes selected beat, not new threshold');
+  finish(resumed);
+  assert.truthy(resumed.save.memoryStory.act2Seen.includes(beat.id));
+  assert.falsy(resumed.save.memoryStory.revealed, 'finish the interrupted story first');
+  visit(resumed); assert.eq(resumed.save.memoryStory.visit.kind, 'reveal'); finish(resumed);
+  assert.eq(resumed.save.memories, 0);
+}));
+
+test('memory arc act two: old pending visit has valid stable recap and no fabricated completion', () => isolated(() => {
+  const save = saveWith(24);
+  save.memoryStory = { introDone: true, visits: 8, visit: { kind: 'visit', page: 0, count: 8 } };
+  const scene = sceneFor(save); visit(scene);
+  assert.truthy(scene.modals[0].body);
+  finish(scene);
+  assert.eq(scene.save.memoryStory.act2Seen.length, 0, 'legacy recap never marks new authored scenes seen');
+  visit(scene);
+  assert.eq(scene.save.memoryStory.visit.beat, MemoryStory.ACT2[0].id, 'legacy save can begin the new arc');
+  finish(scene);
+}));
+
+test('memory arc act two: stale dismissal cannot skip pages or offer the shop twice', () => isolated(() => {
+  const scene = returnedScene();
+  earnTo(scene.save, Math.max(1, MemoryStory.ACT2[0].minMemories)); visit(scene);
+  const first = scene.modals[scene.modals.length - 1]; first.onDismiss();
+  const count = scene.modals.length, page = scene.save.memoryStory.visit?.page;
+  first.onDismiss();
+  assert.eq(scene.modals.length, count); assert.eq(scene.save.memoryStory.visit?.page, page);
+  const offers = scene.offers; finish(scene);
+  const last = scene.modals[scene.modals.length - 1], completedOffers = scene.offers;
+  last.onDismiss();
+  assert.eq(scene.offers, completedOffers);
+  assert.truthy(completedOffers >= offers);
+  assert.eq(scene.save.memoryStory.act2Seen.filter(id => id === MemoryStory.ACT2[0].id).length, 1);
+}));
+
+test('memory arc act two: contradicting fragments require the particular wizard claim to be acknowledged', () => {
+  for (const [memory, fragment] of Object.entries(MemoryStory.ACT2_MEMORIES)) {
+    const record = { memory: Number(memory), label: 'a discovery' }, save = saveWith(Number(memory));
+    const required = MemoryStory.ACT2.find(beat => beat.id === fragment.requires);
+    assert.truthy(required, 'fragment prerequisite names an authored beat');
+    const index = MemoryStory.ACT2.indexOf(required);
+    save.memoryStory = { act2Seen: MemoryStory.ACT2.slice(0, index).map(beat => beat.id),
+      visit: { kind: 'act2', beat: required.id, page: 0 } };
+    assert.eq(MemoryStory.panel(record, save).body, MemoryStory.SCENES[memory].body,
+      'opening the prerequisite without completing it does not change memories');
+    save.memoryStory.act2Seen.push(required.id);
+    assert.eq(MemoryStory.panel(record, save).body, fragment.body);
+    save.memoryStory.revealed = true;
+    assert.eq(MemoryStory.panel(record, save).body, MemoryStory.SCENES[memory].body,
+      'the unresolved contradiction does not replace a memory after revelation');
+  }
+});
+
+test('memory arc act two: survivors stay welcoming as acknowledged wizard scenes progress', () => {
+  const save = saveWith(27);
+  save.memoryStory = { introDone: true, act2Seen: [] };
+  const scene = sceneFor(save); save.restoredHouses = { home: 1 };
+  for (let i = 0; i <= MemoryStory.ACT2.length; i++) {
+    save.memoryStory.act2Seen = MemoryStory.ACT2.slice(0, i).map(beat => beat.id);
+    const expected = MemoryStory.SURVIVORS[Math.min(3, Math.floor(i / 2))];
+    assert.eq(MemoryStory.npcDialogue(scene, { role: 'warden' }), expected);
+    assert.eq(MemoryStory.npcDialogue(scene, { role: 'scout' }), expected);
+    assert.eq(MemoryStory.npcDialogue(scene, { role: 'trader' }), null, 'other NPC roles keep their dialogue');
+  }
+  save.memoryStory.act2Seen = []; save.memoryStory.revealed = true;
+  assert.eq(MemoryStory.survivorLine(save), MemoryStory.SURVIVORS[3]);
+});
+
 test('memory arc: ten authored milestones, two watched glimpses, and shipped art', () => {
   assert.eq(Object.keys(MemoryStory.SCENES).length, 10);
   const early = Object.values(MemoryStory.SCENES).map(p => p.body);
   assert.eq(early.filter(body => /watching you|being watched/.test(body)).length, 2);
-  assert.falsy(/dragon|conquer/.test([...early, ...MemoryStory.INTRO.map(p => p.body)].join(' ')),
+  assert.falsy(/dragon|conquer/.test([...early, ...MemoryStory.INTRO.map(p => p.body), ...MemoryStory.ACT2.flatMap(beat => beat.pages.map(p => p.body))].join(' ')),
     'early scenes do not name the final twist');
   const panels = [MemoryStory.HOME, ...Object.values(MemoryStory.SCENES), ...MemoryStory.AFTER,
-    ...MemoryStory.INTRO, MemoryStory.FIRST_RETURN, ...MemoryStory.REVEAL,
+    ...MemoryStory.INTRO, MemoryStory.FIRST_RETURN, ...MemoryStory.ACT2.flatMap(beat => beat.pages), ...Object.values(MemoryStory.ACT2_MEMORIES), ...MemoryStory.REVEAL,
     MemoryStory.panel({ memory: 1, label: 'a flower' })];
   for (const panel of panels) assert.truthy(webpDims('assets/art/' + panel.art + '.webp'), panel.art);
   const reveal = MemoryStory.REVEAL.map(p => p.body).join(' ');

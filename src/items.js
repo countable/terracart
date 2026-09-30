@@ -1162,13 +1162,13 @@ const SLIME_LEECH_ENERGY = EnemyRoster.get('slime').dmg;
 const TRAP_KIT_KEEP_CHANCE = 0.8;
 
 const ITEM_GUIDE_TIPS = {
-  crow_feather: 'I keep a black feather inside my coat. When my legs failed on the long road, I pressed it to my lips and found just enough strength to rise.',
-  scarecrow: 'I dressed a wooden frame in my old coat. By morning, the crows had found another field.',
+  crow_feather: 'My legs failed on the long road. I pressed the black feather to my lips. Just enough strength to rise. Sometimes that is all a mercy needs to be.',
+  scarecrow: 'The crows have left our field since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
   trap_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
-  torch: 'I struck a flame before descending. With it, my hand could reach farther into the dark.',
-  rope: 'I carry a coil of grass rope into every shaft. Its worn fibres have brought me back toward daylight before.',
-  flowers: 'I brought the shopkeeper flowers. She tucked them beside her till, and her voice softened when she named her price.',
-  slime: 'A slime shares my doorstep now. It watches me grind the blue stone, but no longer trembles when I reach for it.',
+  torch: 'Light a torch before descending. By its flame, my hand could reach farther into the dark.',
+  rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',
+  flowers: 'Brought the shopkeeper flowers. A softer voice, a kinder price. I had meant only to give her something lovely.',
+  slime: 'The slime shares my doorstep now. When I grind the blue stone, it waits beside me. Brann would disapprove. I have decided not to ask him.',
 };
 
 // The ordered Book pages live in play_tips.js; their positions are saved bookmarks.
