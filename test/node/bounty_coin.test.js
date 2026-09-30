@@ -206,3 +206,11 @@ test('bounty coin: the Book says the kill pays per HP, re-derived', () => {
   assert.truthy(tip.includes(`a coin per ${per} hit points`), 'the per-HP rate matches Combat.ENEMY_COIN_PER_HP');
 });
 })();
+
+test('tap order: an instant pickup beats a workable thing on the same cell (a coin on a rock)', () => {
+  const at = (name) => TAP_HANDLERS.findIndex(h => h.name === name);
+  assert.gt(at('coindrop'), at('work-progress'), 'a running job still owns the tap');
+  for (const workable of ['creature', 'wildplant', 'object', 'planted', 'till']) {
+    assert.lt(at('coindrop'), at(workable), `the coin is picked before the ${workable} handler`);
+  }
+});
