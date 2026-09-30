@@ -25,7 +25,7 @@ globalThis.applySandboxCandidates = async function (scene, plan) {
           const scale=Math.min(w/candidate.width,h/candidate.height),cw=Math.round(candidate.width*scale),ch=Math.round(candidate.height*scale);
           ctx.drawImage(candidate,Math.floor((w-cw)/2),h-ch,cw,ch);
         }else ctx.drawImage(sheet,x,y,w,h,0,0,w,h);
-        recolour(frame,row.palette,{strength:row.strength??.18,preserveLuminance:row.preserveLuminance!==false,mode:row.mode,colourMap:row.colourMap});
+        recolour(frame,row.palette,{strength:row.strength??.18,preserveLuminance:row.preserveLuminance!==false,mode:row.mode,colourMap:row.colourMap,paletteStrength:row.paletteStrength});
         const out=sheet.getContext('2d');out.clearRect(x,y,w,h);out.drawImage(frame,x,y);
         changed.push({id:row.id,key,rect});
       }

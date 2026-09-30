@@ -1,7 +1,7 @@
 {
   "version": 1,
   "status": "proposal-only",
-  "note": "Preview and sandbox share these floors and weathered stone colours. Fort and castle floors are 20% closer to their original base colours after scene review. No runtime art is changed.",
+  "note": "Preview-only palettes. Claimed/restored tuning is unchanged. Unclaimed structures start from their shipping weathered colours and sludge, with only a 10% palette/desaturation/lightness nudge.",
   "claimed": {
     "floors": {
       "9": "#bda18a",
@@ -24,28 +24,44 @@
   },
   "unclaimed": {
     "shade": {
-      "wash": "#a4a390",
-      "washA": 0.2,
-      "murk": "#6b6b5c",
-      "murkA": 0.03
+      "wash": "#1e3b24",
+      "washA": 0.35,
+      "murk": "#05070c",
+      "murkA": 0.12
     },
     "floors": {
-      "9": "#b6a08a",
-      "11": "#b3a387",
-      "12": "#a5a7a2"
+      "9": "#644c3a",
+      "11": "#635e46",
+      "12": "#4e5956"
     },
     "faces": {
-      "9": "#877664",
-      "11": "#8c8168",
-      "12": "#858979"
+      "9": "#322d21",
+      "11": "#2c2d20",
+      "12": "#29322e"
     },
     "stone": {
-      "LITE": "#c7c9b8",
-      "BODY": "#979589",
-      "FACE": "#7f7e70",
-      "SIDE": "#797969",
-      "SHADOW": "#53584a",
-      "DARK": "#2e3028"
+      "LITE": "#747f7b",
+      "BODY": "#5c6763",
+      "FACE": "#525d5a",
+      "SIDE": "#505b58",
+      "SHADOW": "#3d4845",
+      "DARK": "#252f2a"
+    },
+    "treatment": {
+      "source": "Shipping unclaimed renderer, including floor textures and sludge; colours above are its original pre-treatment values.",
+      "strength": 0.1,
+      "mode": "gentle-tune",
+      "palette": [
+        "#171717",
+        "#26342a",
+        "#3e4b2c",
+        "#403e34",
+        "#777462",
+        "#b0aa8a",
+        "#4c3018",
+        "#6c431d"
+      ],
+      "note": "A 10% palette/desaturation/lightness nudge after rendering. Preserve original green weathering, blob geometry, density, alpha and shadow contrast. Dark outlines stay intact."
     }
   },
   "tilledColor": "#a48a66",

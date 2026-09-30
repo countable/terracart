@@ -84,13 +84,17 @@ studies are labelled separately. Per-material colour transfer preserves source
 geometry and readable shading rather than forcing every sprite through one filter. The selected apple treatment provides the colour, saturation and shading reference
 for all tree, bush and grass candidates, including the clipped hedge. Their foliage
 uses continuous shade mapping while bark and fruit retain their identity.
-Bushes and clipped hedges use half the initial foliage adjustment; other flora
+The default bush uses its original green source with the selected 72% apple-led
+treatment and 10% softer interior contrast, preserving its dark contour. Clipped
+hedges retain their separate half-strength adjustment. Other flora
 (including the selected apple treatment) is eased back by 25%. Grass retains
 the approved full-strength treatment. The
 scarecrow preview strengthens its existing contour and shading. Flowers get
-only a 7.5% palette, desaturation and lightness adjustment. Strong ground
+a 10% palette shift with 7.5% desaturation and lightness adjustments. Strong ground
 patterns have 20% less contrast; the forest base is slightly darker. Fort and
-castle floors move 20% toward their original colours. Lava is an exception:
+castle claimed floors move 20% toward their original colours. Unclaimed
+buildings and footprints retain the original weathering and visible sludge,
+with only a gentle 10% palette/lightness treatment. Lava is an exception:
 keep its original fiery base and bright animated highlights. Restored building
 sprites use only a 10% palette/desaturation/lightness pass; mushrooms use 7.5%.
 The stone votive gets a 12% lightness lift; ladders and barrels receive a 20%
@@ -136,10 +140,14 @@ It demonstrates candidates present in that layout, not every audit entry.
 `tools/preview_bush_options.py` renders eight bush studies from
 `bush-options.json`: the shipped woodland bush, gentler recolours, several
 chunky wild-bush alternatives and the context-only clipped hedge. This gallery
-does not select a replacement. Nut plants use a brighter olive treatment;
+marks the original green bush with 72% treatment as the selected proposal.
+Nut plants use a brighter olive treatment;
 rockfruit retains its shape while leaning toward the actual ore-stone colours.
-Forest/marsh spots use half-strength overlays; sand marks are 15% softer. The
-swamp base is closer to its earlier deep green. Seam fixes live in the runtime
+Forest spots use half-strength overlays; sand marks are 15% softer. Wetland
+marsh retains its original colour balance and full texture with a small base
+lightness lift. Golf fairway is unchanged. Orchard floor is 20% closer to its
+original colour than the earlier proposal; sports pitch pattern strength is 88%
+of original. Seam fixes live in the runtime
 terrain painters so randomly adjacent variants share compatible boundaries.
 
 The pine foliage treatment includes cyan shadows that the general green mask

@@ -120,8 +120,8 @@
         "docs/zone-variants.json:materials.shrub"
       ],
       "recommendation": {
-        "action": "recolour",
-        "note": "Use half the previous apple-led colour and shading adjustment. Keep more of the existing woodland bush\u2019s darker olive colour while gently warming and lifting its foliage.",
+        "action": "swap",
+        "note": "Selected gallery D: restore the original green bush source, use its 72% apple-led colour treatment, and reduce interior lightness contrast by 10%. Preserve the dark contour, individual pixel shades and transparency.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -148,9 +148,18 @@
             "hex": "#e6d7a3"
           }
         ],
-        "recolourStrength": 0.425,
-        "recolourMode": "apple-foliage",
-        "preserveLuminance": false
+        "recolourStrength": 0.72,
+        "recolourMode": "bush-foliage",
+        "preserveLuminance": false,
+        "candidate": {
+          "path": "assets/Objects/Wilderness/bushes.png",
+          "rect": [
+            48,
+            0,
+            48,
+            32
+          ]
+        }
       },
       "zoneVariant": {
         "name": "Clipped hedge",
@@ -164,7 +173,9 @@
             16
           ]
         },
-        "note": "Use the same reduced-strength colour treatment as the woodland bush. The clipped silhouette identifies formal and residential/commercial planting."
+        "note": "Retain the previous clipped-hedge colour treatment independently of the selected woodland bush. The clipped silhouette identifies formal and residential/commercial planting.",
+        "recolourStrength": 0.425,
+        "recolourMode": "apple-foliage"
       }
     },
     {
@@ -802,7 +813,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
+        "note": "A restrained 10% palette shift, with the existing 7.5% desaturation and lightness lift. Keep distinct flower colours and dark contours readable.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -835,7 +846,8 @@
         ],
         "recolourStrength": 0.075,
         "preserveLuminance": true,
-        "recolourMode": "gentle-flower"
+        "recolourMode": "gentle-flower",
+        "paletteStrength": 0.1
       }
     },
     {
@@ -869,7 +881,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
+        "note": "A restrained 10% palette shift, with the existing 7.5% desaturation and lightness lift. Keep distinct flower colours and dark contours readable.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -902,7 +914,8 @@
         ],
         "recolourStrength": 0.075,
         "preserveLuminance": true,
-        "recolourMode": "gentle-flower"
+        "recolourMode": "gentle-flower",
+        "paletteStrength": 0.1
       }
     },
     {
@@ -1719,7 +1732,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
+        "note": "A restrained 10% palette shift, with the existing 7.5% desaturation and lightness lift. Keep distinct flower colours and dark contours readable.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -1752,7 +1765,8 @@
         ],
         "recolourStrength": 0.075,
         "preserveLuminance": true,
-        "recolourMode": "gentle-flower"
+        "recolourMode": "gentle-flower",
+        "paletteStrength": 0.1
       }
     },
     {
@@ -2493,7 +2507,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "A restrained 7.5% palette adaptation, desaturation and lightness lift. Keep distinct plant colours, spots, luminous details and dark contours readable.",
+        "note": "A restrained 10% palette shift, with the existing 7.5% desaturation and lightness lift. Keep distinct flower colours and dark contours readable.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -2526,7 +2540,8 @@
         ],
         "recolourStrength": 0.075,
         "preserveLuminance": true,
-        "recolourMode": "gentle-flower"
+        "recolourMode": "gentle-flower",
+        "paletteStrength": 0.1
       }
     },
     {

@@ -44,19 +44,20 @@ def plan(reserve):
             candidate = rec.get('candidate')
             swap = raster(candidate,reserve) if candidate and rec['action'].startswith('swap') else None
             sprites.append(dict(id=row['id'],refs=refs,palette=palette,candidate=swap['src'] if swap else None,
-                                strength=rec.get('recolourStrength',.18),preserveLuminance=rec.get('preserveLuminance',True),mode=rec.get('recolourMode'),colourMap=rec.get('colourMap')))
+                                strength=rec.get('recolourStrength',.18),preserveLuminance=rec.get('preserveLuminance',True),mode=rec.get('recolourMode'),colourMap=rec.get('colourMap'),paletteStrength=rec.get('paletteStrength')))
     ground = {str(r['terrainId']):r['proposedColor'] for r in json.loads((ROOT/'docs/art/map-audit-ground.json').read_text())['rows'] if 'terrainId' in r and r.get('proposedColor')}
     buildings=json.loads((ROOT/'docs/art/map-building-preview.json').read_text())
     ground.update(buildings['claimed']['floors'])
     hedge=raster(dict(path='assets/Objects/Generated/hedge_end.png',rect=[0,0,16,16]),reserve)
     bush=next(row for row in sprites if row['id']=='shrub')
-    hedge.update(palette=bush['palette'],strength=bush['strength'],mode=bush['mode'])
+    hedge_choice=next(row for row in json.loads((ROOT/'docs/art/map-audit-interactables.json').read_text())['rows'] if row['id']=='shrub')['zoneVariant']
+    hedge.update(palette=bush['palette'],strength=hedge_choice.get('recolourStrength',bush['strength']),mode=hedge_choice.get('recolourMode',bush['mode']))
     ground_patterns = {str(r['terrainId']):r['patternOpacity'] for r in json.loads((ROOT/'docs/art/map-audit-ground.json').read_text())['rows'] if 'patternOpacity' in r}
     return dict(sprites=sprites,ground=ground,groundPatterns=ground_patterns,hedge=hedge,buildings=buildings,notes=[
         'Before is the current game, including the approved rustic defaults and new gold chest.',
-        'After tunes each material’s colour and shading while retaining source geometry. Flowers receive only 7.5% palette, desaturation and lightness adjustment. Lava retains its original fiery colour and bright highlights.',
+        'After tunes each material’s colour and shading while retaining source geometry. Flowers receive a 10% palette shift with 7.5% desaturation and lightness adjustments. Lava retains its original fiery colour and bright highlights.',
         'The new chest shape blends halfway toward the old chest’s warm wood and muted metal colours; fort and castle floors move 20% toward their original bases.',
-        'Flora keeps the apple-inspired direction with 25% less adjustment, except grass which retains its approved treatment; bushes and hedges use half the earlier adjustment. Forest and marsh spots use half-strength overlays; sand marks are 15% softer. The swamp returns toward its earlier deeper green.',
+        'Flora keeps the apple-inspired direction with 25% less adjustment, except grass which retains its approved treatment. The ordinary bush uses the original green source, 72% apple treatment and 10% softer interior contrast; clipped hedges retain their previous treatment. Forest spots use half-strength overlays; sand marks are 15% softer. Marsh retains its original texture with a small base lightness lift; golf fairway is unchanged. Orchard floor is 20% closer to original and sports pitch marks regain a little contrast.',
         'Restored buildings receive a 10% palette/desaturation/lightness adjustment and mushrooms 7.5%; stone votive lightness lifts 12%. Rockfruit moves gently toward ore-stone colours; shells, macro booths and chapel remain unchanged.',
         'The sandbox buildings are claimed. The separate audit cards show the more weathered unclaimed fort treatment.',
         'Both captures use the same frozen sandbox, identical object positions, native pixels and neutral fullbright lighting.',

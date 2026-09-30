@@ -38,6 +38,16 @@ def raster(ref, reserve, label='Current source art'):
         image = image.crop((x, y, x+w, y+h))
     if ref.get('whiteKey'):
         image.putdata([(r,g,b,0 if min(r,g,b)>240 else a) for r,g,b,a in image.getdata()])
+    if ref.get('stateShade'):
+        # The unclaimed building source is the shipping art AFTER its runtime
+        # green wash, not a heavily palette-mapped version of the restored PNG.
+        shade = ref['stateShade']
+        wash = tuple(int(shade['wash'][i:i+2],16) for i in (1,3,5))
+        murk = tuple(int(shade['murk'][i:i+2],16) for i in (1,3,5))
+        def shade_pixel(pixel):
+            return tuple(int((value+(wash[k]-value)*shade['washA'])*(1-shade['murkA'])+murk[k]*shade['murkA']+.5)
+                         for k,value in enumerate(pixel[:3]))+(pixel[3],)
+        image.putdata([shade_pixel(pixel) for pixel in image.getdata()])
     assert image.getbbox(), (name, rect)
     stream = io.BytesIO()
     image.save(stream, format='PNG')
@@ -92,8 +102,8 @@ def normalize(group, entry, reserve):
             if vp:
                 for im in vi:
                     im['recolour'] = [p['hex'] for p in vp]
-                    im['recolourStrength'] = rec.get('recolourStrength', .18)
-                    im['recolourMode'] = rec.get('recolourMode')
+                    im['recolourStrength'] = v.get('recolourStrength', rec.get('recolourStrength', .18))
+                    im['recolourMode'] = v.get('recolourMode', rec.get('recolourMode'))
             row['variants'] = [dict(name=v['name'], usage=v['usage'], rationale=v['note'], images=vi, palette=vp)]
     else:
         row['rank'] = entry['prevalenceRank']
@@ -169,13 +179,16 @@ def normalize(group, entry, reserve):
                 im['preserveLuminance'] = rec.get('preserveLuminance', True)
                 im['recolourMode'] = rec.get('recolourMode')
                 im['colourMap'] = rec.get('colourMap')
+                im['paletteStrength'] = rec.get('paletteStrength')
                 im['label'] = 'Palette study · '+im['label']
     if row['id']=='building-fort' and rec.get('stateTreatments'):
+        original_unclaimed = dict(entry['current'], stateShade=rec['stateTreatments']['unclaimed']['candidate']['stateShade'])
+        row['currentImages'] = [raster(original_unclaimed,reserve,'Original unclaimed fort'),raster(entry['current'],reserve,'Original claimed fort')]
         row['candidateImages'] = []
         for state,treatment in rec['stateTreatments'].items():
             im=raster(treatment['candidate'],reserve,treatment['name'])
             im.update(recolour=[p['hex'] for p in colours(treatment['palette'])],
-                      recolourStrength=treatment['recolourStrength'],preserveLuminance=state=='claimed',recolourMode=treatment.get('recolourMode'))
+                      recolourStrength=treatment['recolourStrength'],preserveLuminance=treatment.get('preserveLuminance',True),recolourMode=treatment.get('recolourMode'))
             row['candidateImages'].append(im)
     assert row['currentImages'], 'Missing actual art preview: '+row['id']
     return row

@@ -105,6 +105,17 @@ const MapArtProcedural = (() => {
     return out;
   }
   function render(spec) {
+    // Preserve the shipping unclaimed paint, including its dark green sludge.
+    // Rebuilding it with the much lighter restored palette erased the stains:
+    // slimeColor derives them from the same unclaimed shade as the floor.
+    // A small final colour transfer keeps that original material contrast.
+    if (spec.proposed && spec.unclaimed && ['building','tower'].includes(spec.kind)) {
+      const original = render(Object.assign({},spec,{proposed:false}));
+      const treatment = MAP_ART_BUILDING_PROPOSAL.unclaimed.treatment;
+      return global.ArtPreviewColour.recolour(original,treatment.palette,{
+        strength:treatment.strength,mode:'gentle-tune',preserveLuminance:true,
+      });
+    }
     // Apply real painter palettes for the proposed side and restore immediately.
     // Consecutive before/after/before samples must leave the originals identical.
     if (spec.proposed && ['building','tower','tilled'].includes(spec.kind)) {
