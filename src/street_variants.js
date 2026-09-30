@@ -169,7 +169,7 @@
   // `story` is the _storySplashOnce key AND the painting stem (sceneArtUrl);
   // `flash` is the ≤30-char map line a later visit gets.
   const STREET_VARIANTS = [
-    { id: 'hedgerow', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.095, nudge: 2, rung: 'find',
+    { id: 'hedgerow', terrain: 'PARK', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.095, nudge: 2, rung: 'find',
       stone: { weathered: '#3a322c', restored: '#000000' }, lampDensity: HEDGE_LAMP_DENSITY,
       // A dark green carpet runs down the verge either side (road_overlay.js
       // decor lane), sown with the old monarch's crown — the one royal symbol
@@ -181,7 +181,7 @@
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Clipped hedges both sides, a gap at every garden gate. The green still knows its shape.',
       flash: 'A hedged lane, still kept.' },
-    { id: 'overgrown', affinities: ['woodland'], size: 'minor', share: 0.095, rung: 'common',
+    { id: 'overgrown', terrain: 'FOREST', affinities: ['woodland'], size: 'minor', share: 0.095, rung: 'common',
       stone: { weathered: '#465b42', restored: '#5d7953' }, lampDensity: 1,
       carpet: '#9caa55', carpetWidthCells: 0.28, carpetFeatherCells: 0.14,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
@@ -189,14 +189,14 @@
       story: 'street_overgrown', title: 'Gone to seed',
       body: 'Saplings become trees along the verge. The green is taking this street back.',
       flash: 'The green is taking it back.' },
-    { id: 'orchard', affinities: ['cultivated'], size: 'minor', share: 0.08, rung: 'uncommon',
+    { id: 'orchard', terrain: 'ORCHARD', affinities: ['cultivated'], size: 'minor', share: 0.08, rung: 'uncommon',
       stone: { weathered: '#78604e', restored: '#ab8659' }, lampDensity: 0.5,
       words: /(orchard|apple|cherry|plum|pear|peach|fruit|obst|kirsch|apfel|birn|pflaum|vine|berry)/i,
       lampGlow: '#ffa6c9', attracts: { deer: 0.5 },
       story: 'street_orchard', title: 'Orchard Lane',
       body: 'The old trees still fruit. Nobody picks them.',
       flash: 'Old trees, still fruiting.' },
-    { id: 'pilgrim', affinities: ['sacred'], size: 'minor', share: 0.06, rung: 'uncommon',
+    { id: 'pilgrim', terrain: 'ROCK', affinities: ['sacred'], size: 'minor', share: 0.06, rung: 'uncommon',
       stone: { weathered: '#8b8879', restored: '#c5c1aa' }, lampDensity: 1,
       // The diamond marks the ancient religion; hedged lanes bear the ruling crown.
       carpet: '#64517d', emblem: 'diamond', emblemInk: '#c5b4d5',
@@ -205,7 +205,7 @@
       story: 'street_pilgrim', title: "Pilgrim's Way",
       body: 'A waystone, worn smooth by hands. It remembers something.',
       flash: 'A waystone, worn smooth.' },
-    { id: 'lantern', affinities: ['formal'], size: 'major', share: 0.07, rung: 'common',
+    { id: 'lantern', terrain: 'COMMERCIAL', affinities: ['formal'], size: 'major', share: 0.07, rung: 'common',
       stone: { weathered: '#806438', restored: '#c79a48' }, lampDensity: LANTERN_SPACING_DIV,
       words: /(lantern|lamp|light|candle|latern)/i,
       // No `attracts`: its marks lie on the major band + verge, all inside
@@ -214,14 +214,14 @@
       story: 'street_lantern', title: 'Lantern Row',
       body: 'Lamp posts stand thick along this road, cold and waiting. Rebuild it and it will burn bright.',
       flash: 'Lamp posts, cold and waiting.' },
-    { id: 'burned', affinities: ['ruined'], size: 'major', share: 0.05, rung: 'uncommon',
+    { id: 'burned', terrain: 'INDUSTRIAL', affinities: ['ruined'], size: 'major', share: 0.05, rung: 'uncommon',
       stone: { weathered: '#583c35', restored: '#865041' }, lampDensity: 0.5,
       words: /(mill|forge|smith|ash|burn|brand|kiln|furnace|cinder|coal|ember|kohle|schmied|asche)/i,
       lampGlow: '#ff5a3c',
       story: 'street_burned', title: 'Burned Row',
       body: 'Torches burn beside tar in the gutters and iron stakes in the verge. Watch your feet.',
       flash: 'Tar underfoot. Go slow.' },
-    { id: 'barricade', affinities: ['ruined'], size: 'major', share: 0.04, rung: 'rare',
+    { id: 'barricade', terrain: 'WASTELAND', affinities: ['ruined'], size: 'major', share: 0.04, rung: 'rare',
       stone: { weathered: '#706047', restored: '#a38754' }, lampDensity: 1,
       words: /(gate|wall|fort|\btor\b|mauer|castle|burg|bastion|guard|wache|barrack|kaserne|armou?ry)/i,
       lampGlow: '#ff8c2a',
@@ -231,7 +231,7 @@
     // Appended LAST so no older row's code (index + 1) moves; the roll walks
     // the minor rows in order, so a street that rolled an older minor row
     // still does — only plain streets can become a toadstool lane.
-    { id: 'toadstool', affinities: ['damp', 'woodland'], size: 'minor', share: 0.05, rung: 'uncommon',
+    { id: 'toadstool', terrain: 'WETLAND', affinities: ['damp', 'woodland'], size: 'minor', share: 0.05, rung: 'uncommon',
       stone: { weathered: '#634537', restored: '#9a5943', pattern: 'spots', accent: '#ead9ad' }, lampDensity: 1,
       words: /(mushroom|toadstool|fung|pilz|fairy|\bring|moss|damp|mycel|spore|schwamm|elfen|feen)/i,
       lampGlow: '#4fd8c4', attracts: { butterfly: 0.5 },
@@ -246,25 +246,25 @@
     // lamps on the scenic metres shed it — lampGlowFor), and the story — one
     // painting for all three (street_scenic), told on the first scenic metre
     // restored (app.js _ripenStreets), the `flash` on later walks.
-    { id: 'promenade', affinities: ['coastal', 'formal'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'promenade', terrain: 'SAND', affinities: ['coastal', 'formal'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#92743e', restored: '#d6ad58' }, lampDensity: 1,
       lampGlow: '#ffd16a',
       story: 'street_scenic', title: 'The promenade',
       body: 'A path by the water. Those who mend it seem to come home with fuller bags.',
       flash: 'The promenade. Walk it slow.' },
-    { id: 'greenway', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'greenway', terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#4f6c49', restored: '#76966a' }, lampDensity: 1,
       lampGlow: '#a8e07a',
       story: 'street_scenic', title: 'A greenway',
       body: 'An old green way. Its keepers are generous to those who mend it.',
       flash: 'A greenway. The green holds.' },
-    { id: 'parkpath', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
+    { id: 'parkpath', terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#5c4b3f', restored: '#000000' }, lampDensity: 2,
       lampGlow: '#a8e07a',
       story: 'street_scenic', title: 'The park path',
       body: 'A path winding through the park. Its keepers have gifts for those who mend it.',
       flash: 'The park path winds on.' },
-    { id: 'golden', affinities: ['formal'], size: 'minor', share: 0.02, rung: 'rare',
+    { id: 'golden', terrain: 'ROCK', affinities: ['formal'], size: 'minor', share: 0.02, rung: 'rare',
       stone: { weathered: '#806747', restored: '#bd9650' }, lampDensity: 1,
       lampGlow: '#efc46a',
       story: 'street_golden', art: 'street_lantern', title: 'Golden Road',
@@ -873,6 +873,73 @@
     let r = it.next();
     while (!r.done) r = it.next();
     return r.value;
+  }
+
+  function terrainFor(variant) {
+    return root.WorldGen?.T[VARIANT_BY_ID[variant]?.terrain] ?? null;
+  }
+
+  // Select all themes before painting. Cell centres in the one-cell-wide band
+  // outside the road receive its terrain; intersections prefer the nearest
+  // road edge, with a stable key breaking ties. Source access reasons remain
+  // authoritative: a cosmetic commercial verge does not become private land.
+  function* paintTerrainSteps({ index, scenic, transportation, grid, N, roadMask, spawnWhy, zone }) {
+    const WG = root.WorldGen, S = root.Streets;
+    const painted = new Uint8Array(N * N);
+    if (!WG || !S) return painted;
+    const records = [];
+    const ext = index?.extent || scenic?.ext || transportation?.extent || 4096;
+    for (const rec of index?.dressingLines || []) {
+      if (terrainFor(rec.variant) != null) records.push(rec);
+    }
+    const scale = N * WG.CELL_M / ext;
+    for (const f of transportation?.features || []) {
+      if (f.type !== 2) continue;
+      for (let li = 0; li < (f.geom || []).length; li++) {
+        const key = S.lineKey(f, li);
+        for (const iv of scenic?.lines?.get(key) || []) {
+          const variant = root.Scenic.KIND_ROW[iv[2]];
+          if (terrainFor(variant) == null) continue;
+          records.push({ key, variant, halfW: WG.roadOverlayWidthM(f.tags) / 2,
+            line: S.subLineM(f.geom[li], scale, iv[0] * scale, iv[1] * scale)
+              .map(p => ({ x: p.x / scale, y: p.y / scale })) });
+        }
+      }
+    }
+    if (!records.length) return painted;
+    const ordinal = (a,b) => a < b ? -1 : a > b ? 1 : 0;
+    records.sort((a,b) => ordinal(String(a.key),String(b.key)) || ordinal(a.variant,b.variant));
+    const nearest = new Float32Array(N * N).fill(Infinity);
+    const original = grid.slice();
+    let candidates = 0;
+    for (const rec of records) {
+      yield 'street terrain lines';
+      const half = rec.halfW / WG.CELL_M, radius = half + 1;
+      for (let j = 1; j < rec.line.length; j++) {
+        const a = rec.line[j - 1], b = rec.line[j];
+        const ax = a.x * N / ext, ay = a.y * N / ext;
+        const bx = b.x * N / ext, by = b.y * N / ext;
+        const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+        for (let y = Math.max(0, Math.floor(Math.min(ay, by) - radius)); y <= Math.min(N-1, Math.floor(Math.max(ay, by) + radius)); y++) {
+          for (let x = Math.max(0, Math.floor(Math.min(ax, bx) - radius)); x <= Math.min(N-1, Math.floor(Math.max(ax, bx) + radius)); x++) {
+            if ((++candidates & 511) === 0) yield 'street terrain cells';
+            const i = y * N + x, here = original[i];
+            // ALLOWLISTED raw roadMask read: preserve transport geometry.
+            if (roadMask && roadMask[i]) continue;
+            if (zone?.coverage?.[i] || zone?.under?.present?.[i] || zone?.under?.[i]) continue;
+            if ((spawnWhy?.[i] || 0) & WG.SPAWN_WHY_HARD) continue;
+            if (!WG.isWalkable(here) || WG.isCobbleTerrain(here) || WG.isBuildingTerrain(here) || here === WG.T.PIER) continue;
+            const t = len2 ? Math.max(0, Math.min(1, ((x+.5-ax)*dx + (y+.5-ay)*dy)/len2)) : 0;
+            const distance = Math.hypot(x+.5-ax-t*dx, y+.5-ay-t*dy) - half;
+            if (distance <= 0 || distance > 1 || distance >= nearest[i] - 1e-6) continue;
+            nearest[i] = distance;
+            grid[i] = terrainFor(rec.variant);
+            painted[i] = 1;
+          }
+        }
+      }
+    }
+    return painted;
   }
 
   // The café hoard's pick: a pure hash of the POI's GLOBAL MVT point, the
@@ -1492,7 +1559,7 @@
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, VARIANT_PATCH_UNITS, VARIANT_PATCH_INSET_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
     STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
-    selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M,
+    selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,
     markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, carpetEmblemFor, carpetStyleFor, lineStyles, isSlowKind,
   };

@@ -5,6 +5,7 @@ Run with --output ~/.artifacts/mending-lane-dashboards. The artifact server
 must serve the checkout's tools, src, assets, docs and index.html read-only
 alongside the saved review folders. Live tools load current game definitions;
 saved visual audits remain snapshots and should be regenerated when needed.
+The default output also gets a relative /design/ alias for a short bookmark.
 """
 import argparse
 import re
@@ -57,6 +58,10 @@ ARCHIVES = {
 
 def build(output):
     output.mkdir(parents=True,exist_ok=True)
+    if output.name == 'mending-lane-dashboards':
+        alias = output.parent / 'design'
+        if not alias.exists() and not alias.is_symlink():
+            alias.symlink_to(output.name, target_is_directory=True)
     # Promote the proposal bookmark while preserving its original review once.
     proposal = output.parent / 'enemy-roster-proposal-2026-09-28'
     if (proposal / 'index.html').is_file():

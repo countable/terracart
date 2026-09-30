@@ -47,6 +47,7 @@
     //    at a road; place()/allowed() always calls WG.isSpawnCell) ────────
     { file: 'zone_dressing.js', re: /opts\.roadMask && opts\.roadMask\[i\]/ },
     // ── zone_coverage.js: terrain paint retains the visible road band ───
+    { file: 'street_variants.js', re: /^if \(roadMask && roadMask\[i\]\) continue;/ },
     { file: 'zone_coverage.js', re: /^if \(roadMask && roadMask\[i\]\) \{/ },
     // ── render.js: tilling self-heal (draw-side, not a spawn) ────────────
     { file: 'render.js', re: /e3\.roadMask\[_ringIY\[_si\] \* N3 \+ _ringIX\[_si\]\]/ },
