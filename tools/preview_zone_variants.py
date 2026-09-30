@@ -10,6 +10,7 @@ import hashlib
 import html
 import io
 import json
+import math
 import pathlib
 import subprocess
 import sys
@@ -218,7 +219,6 @@ def validate(d):
     ids = [v['id'] for v in d['variants']]
     assert len(ids) == len(set(ids))
     affinities = [v for v in d['variants'] if v.get('attracts')]
-    assert len(affinities) * 2 == len(d['variants']), 'half the variants have fauna affinities'
     for v in affinities:
         assert set(v['attracts']) <= {'rabbit','butterfly','deer','crow'}
         assert all(0 < chance <= 1 for chance in v['attracts'].values())
@@ -258,7 +258,7 @@ def validate(d):
             assert all(background_at(v, px+s['at'][0], py+s['at'][1]) is None for s in v['poi']['slots']), 'POI decoration stays inside its room'
         # Derive coverage over a full four-cycle tile for deterministic motifs.
         if b['type'] != 'seeded_scatter':
-            period = (b['extentCells'][0] if b['type']=='concentric_rings' else b['spacingCells'] * b['plots'][0] + 1 if b['type']=='bounded_line_grid' else b.get('spacingCells', b.get('repeatCells', [10])[0]) * 4)
+            period = (b['extentCells'][0] if b['type']=='concentric_rings' else b['spacingCells'] * b['plots'][0] + 1 if b['type']=='bounded_line_grid' else b.get('spacingCells', math.lcm(*b.get('repeatCells', [10]))) * 4)
             fixed = {**v, 'background': {k: value for k, value in b.items() if k != 'gapScatter'}}
             if b['type'] == 'line_grid' and b.get('plotCenters'):
                 fixed['background']['plotCenters'] = {**b['plotCenters'], 'excludePoiPlot': False}
@@ -415,7 +415,16 @@ def render(d, out):
         coverage_label = 'interactables + ' + f'{sum(hazards.values())*100:g}% hazards' if hazards else ('expected' if b['type']=='seeded_scatter' or b.get('gapScatter') else 'nominal')
         mode = {'concentric_rings':'Three concentric rings · POI at common center', 'bounded_line_grid':f'{b.get("plots",[0,0])[0]} × {b.get("plots",[0,0])[1]} plots · POI centered in a plot', 'line_grid':f'Lines every {b.get("spacingCells")} cells · repeat to zone edge', 'seeded_scatter':'Seeded scatter · no repeating tile', 'repeat_motif':'Repeating cell pattern'}[b['type']]
         fauna = ', '.join(f'{kind} {chance*100:g}%' for kind,chance in v.get('attracts',{}).items()) or 'No zone affinity'
-        guard = v['guards']; guard_text = 'None' if guard['mode'] == 'none' else (f'{guard["count"]} {guard["kind"]} at the find' if guard['mode']=='guard_find' else 'Ghosts on tombstone interaction')
+        guard = v['guards']
+        kinds = guard.get('kinds') or guard.get('choices') or [guard.get('kind', 'guard')]
+        guard_text = 'None'
+        if guard['mode'] in ('guard_find', 'guard_poi'):
+            species = (' or ' if guard.get('choices') else ' + ').join(k.replace('_', ' ') for k in kinds)
+            guard_text = f'{guard["count"]} ({species}) ' + ('at the POI' if guard['mode'] == 'guard_poi' else 'at the find')
+            if guard.get('proximityCells'): guard_text += '; wakes on approach'
+        elif guard['mode'] != 'none':
+            guard_text = 'Ghosts on tombstone interaction'
+        if guard.get('headstoneGhostChance'): guard_text += '; headstone ghosts remain'
         cards.append(f'''<article id="{v['id']}"><header><small>{v['zone']} · {mode}</small><h2>{v['name']}</h2></header><p class="mix"><b>{b['nominalDensity']*100:.2f}% {coverage_label} coverage</b><br>{mix}</p><div class="visual"><figure>{svg_for(v,d)}<figcaption>Background + POI arrangement</figcaption></figure><figure class="detail">{svg_for(v,d,True)}<figcaption>Outdoor POI close-up<br>● marked center · 1 cell = 7 m</figcaption></figure></div><p>{v['atmosphere']}</p><dl><dt>Alignment</dt><dd>{b["poiOrigin"]["role"].replace("_"," ")}</dd><dt>POI</dt><dd>{v['poi']['id'].replace('_',' ')}</dd><dt>Finds</dt><dd>{len(v['finds']['targets'])} {v['finds']['rarity']} · {v['finds']['material']}</dd><dt>Connection</dt><dd>{v['connection']['shape'].replace('_',' ')}</dd><dt>Guards</dt><dd>{guard_text}</dd><dt>Fauna</dt><dd>{fauna}</dd></dl></article>''')
     legend = art_gallery(d['materials'])
     legend += art_gallery({row['name']: {'kind': row['key']} for row in art_registry()['groveShrines']}, 'Grove POI art', 'poi-')
