@@ -80,24 +80,6 @@ test('UTC day consumers read util.js instead of inventing another boundary', () 
     'NPC dialogue rotates on the shared UTC day');
 });
 
-test('msToNextBucket: a busy shop counts to ITS OWN staggered hour', () => {
-  const house = { id: 'shopWait' };
-  const off = ShopsMath.bucketOffset(house.id);
-  const boundary = ShopsMath.HOUR - off;      // this house's next rollover from t=0
-  assert.eq(ShopsMath.msToNextBucket(house, 0), boundary);
-  assert.eq(ShopsMath.msToNextBucket(house, boundary - 1), 1, 'a millisecond before it rolls');
-  assert.eq(ShopsMath.msToNextBucket(house, boundary), ShopsMath.HOUR, 'a fresh hour after');
-  // readiness carries the raw ms so the plaque and the tap format the SAME
-  // number — waitMin alone could only ever say "60m" for a full bucket.
-  const save = {};
-  const cur = ShopsMath.bucketState(save, house, 0);
-  cur.deals = 1;                                   // a plain house's cap
-  const r = ShopsMath.readiness(save, house, 1, 0);
-  assert.eq(r.ready, false);
-  assert.eq(r.waitMs, boundary, 'waitMs is the exact wait, unrounded');
-  assert.eq(r.waitMin, Math.ceil(boundary / DN_MIN), 'waitMin stays for number callers');
-});
-
 // ── The call sites ────────────────────────────────────────────────────────
 // Source-text checks: these labels live inside Phaser scene methods and
 // per-frame draw passes that can't be called headlessly, so what is pinned is
@@ -139,13 +121,13 @@ test('each timed readout that lost its hand-rolled ladder gained the helper', ()
   const needs = {
     'interactables.js': 1,   // shared fruit state covers growth and regrowth
     'interact.js': 3,        // produce cooldown, pet boost, crop stage wait
-    'render.js': 2,          // crop stage badge + the shop's busy plaque
-    'app.js': 6,             // shop busy, blacksmith ×2 (via shopWaitLabel), day gates, dragon, move pad
+    'render.js': 1,          // crop stage badge (the shop's busy plaque is gone: no shop is ever busy)
+    'app.js': 6,             // day gates, dragon, move pad, castle favour …
   };
   for (const [file, min] of Object.entries(needs)) {
     const src = DURATION_SOURCES[file];
     if (!src) throw new Error(`DURATION_SOURCES is missing ${file} — update run.js`);
-    const n = (src.match(/shortDuration\(|shopWaitLabel\(/g) || []).length;
+    const n = (src.match(/shortDuration\(/g) || []).length;
     assert.gte(n, min, `${file}: expected at least ${min} shortDuration call sites, found ${n}`);
   }
 });

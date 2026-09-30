@@ -507,11 +507,6 @@ function setColorOnce(tx, color) {
   tx._lastInk = color;
   tx.setColor(color);
 }
-function setBgColorOnce(tx, color) {
-  if (tx._lastBg === color) return;
-  tx._lastBg = color;
-  tx.setBackgroundColor(color);
-}
 function setShadowOnce(tx, key, x, y, color, blur, shadowStroke, shadowFill) {
   if (tx._lastShadow === key) return;
   tx._lastShadow = key;
@@ -3022,7 +3017,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const fr of fireList) filteredObj.push(fr);
   for (const L of lampList) filteredObj.push(L);
   filteredObj.sort((a, b) => a.dy - b.dy);
-  const { RENDER_SPEC, resolveAppearance, fruitList, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseMidPx } = Render.objectAppearance(scene, houseRoles);
+  const { RENDER_SPEC, resolveAppearance, fruitList, _houseRole, _houseKey, _houseScale, _houseBaseScale } = Render.objectAppearance(scene, houseRoles);
   for (const item of filteredObj) item._appearance = resolveAppearance(item.o);
   // Every upright piece shares one continuous ground-Y order. Pixel offsets
   // come from the same seating geometry as the art, converted back to metres.
@@ -3603,7 +3598,7 @@ Render.drawObjects = function drawObjects(scene) {
           const el = document.createElement('div');
           el.className = 'delivery-callout';
           // White rounded callout — a little speech bubble that floats above the
-          // house roof (where the old open/busy pip used to sit). The downward
+          // house roof. The downward
           // tail is a separate child triangle added during the icon rebuild.
           el.style.cssText = 'position:fixed;left:0;top:0;display:flex;gap:3px;'
             + 'align-items:center;padding:3px 5px;background:#fff;border-radius:7px;'
@@ -3661,86 +3656,6 @@ Render.drawObjects = function drawObjects(scene) {
     }
     for (; psi < pool.length; psi++) setStyleOnce(pool[psi].el, 'display', 'none');
   }
-
-  // Per-house readiness pip — sits just above each house / tower sprite and
-  // shows either "✓ open" (this shop can take a deal right now) or "Xm"
-  // (the wall-clock minutes until the hour bucket rolls over). Skipped for:
-  //   • Castles + the starter blacksmith (dealCap=Infinity) — no busy state
-  //     to communicate, so absence of a pip means "always open".
-  //   • Unrestored wreck houses — they have no shop function until rebuilt,
-  //     so the pip would read as a lie ("open" for a building you can't
-  //     trade with). The restore modal is the affordance instead.
-  // Styling: green ink on white plaque with a hard black border so the pip
-  // reads against any biome colour, anchored top-left and offset 10 px
-  // further left from the house's foot point.
-  const houseObjs = filteredObj.filter(({ o, wide }) => !wide && isBuilding(o.kind));
-  let hri = 0;
-  for (const item of houseObjs) {
-    const { o, dx, dy } = item;
-    if (typeof scene.shopReadiness !== 'function') break;
-    const info = scene.shopReadiness(o);
-    // Unlimited-deal shops never need a "busy" badge; the absence of a pip
-    // is itself the signal that they're always open. (Castles/towers and the
-    // starter blacksmith report dealCap === Infinity here.)
-    if (info.dealCap === Infinity) continue;
-    // The player's own starting building (home / trailer) isn't a timed shop
-    // to the player — no open/busy pip on your own house.
-    if (scene.save.starterShopId && scene.save.starterShopId === o.id) continue;
-    // Wrecks aren't shops yet - the pip would read as a contradiction.
-    if (item.houseRole === 'wreck') continue;
-    if (item.houseRole === 'wizard' && MemoryStory.towerAccess(scene.save, o) !== 'open') continue;
-    // Sealed castles (delivery gate not yet met) aren't open for business —
-    // a "ready" pip would lie about the lock. (Castles report dealCap Infinity
-    // and bail above, but keep this for safety.)
-    if (typeof scene._isBuildingSealed === 'function' && scene._isBuildingSealed(o)) continue;
-    // Locked forts (not yet unsealed with wood) aren't trading either — skip
-    // the pip until the player pays the quartermaster.
-    if (typeof scene._isFortLocked === 'function' && scene._isFortLocked(o)) continue;
-    // Hosts (residential delivery houses) show their roof callout — wishlist
-    // or happy face — where this pip would sit (see the produce-sign block
-    // above), so they skip the separate open/busy pip entirely.
-    if (_houseIsHost(o)) continue;
-    const { sx, sy } = project(dx, dy);
-    let tx = scene.shopReadyPool[hri];
-    if (!tx) {
-      // Small, quiet label — italic sans-serif at 8 px on a parchment-cream
-      // plaque. Deliberately a different visual family from the house's
-      // bold-monospace wooden sign hanging below it, so the two don't
-      // compete: the name sign owns the building's identity, this label is
-      // a secondary "open/closed" tag.
-      tx = scene.add.text(0, 0, '', {
-        font: fontSerif('italic 8px'),
-        padding: { x: 3, y: 1 },
-      }).setOrigin(0.5, 1).setDepth(51);
-      scene.labelContainer.add(tx);
-      scene.shopReadyPool.push(tx);
-    }
-    const label = info.ready ? 'open' : shortDuration(info.waitMs);
-    // Sepia ink on cream parchment for "open"; dim rust on cream for
-    // "busy". Muted to read as a tag, not a callout.
-    const ink = info.ready ? '#27521e' : '#5f2a2a';
-    tx.setText(label).setVisible(true);
-    setColorOnce(tx, ink);
-    setBgColorOnce(tx, '#f3e9c6');
-    // Origin (0.5, 1): y is the plaque's bottom. It hangs ON the shopfront:
-    // bottom edge 2px below the art's midline (_houseMidPx — sy itself for
-    // every centred role), so the tag sits at the eaves over the door, above
-    // the name sign that hangs from the doorstep (sy + 12 and down), and
-    // never over the roof. It sat 3px above the art's TOP until Sep 2026 and
-    // read as floating off the building — see _houseMidPx. -10 on x nudges
-    // it off-centre so it reads as hanging from a bracket on the left rather
-    // than dead-centred over the door.
-    tx.setPosition(Math.round(clampTextX(sx - 10, tx.width, CANVAS_W)),
-                   Math.round(sy) - Math.round(_houseMidPx(o)) + 2);
-    // Soft, low-opacity drop shadow so the tag looks like it hangs in
-    // front of the building rather than being painted onto it. NOT the
-    // hard 1-px outline of the previous version — that competed too
-    // hard with the house sign's stroked block lettering.
-    setShadowOnce(tx, 'pip', 1, 1, 'rgba(0,0,0,0.45)', 0, true, true);
-    fadeLabelOverPlayer(tx, _playerBox);
-    hri++;
-  }
-  hidePoolFrom(scene.shopReadyPool, hri);
 
   // Chest tier indicators: chunky bordered diamond above each unopened chest.
   // Drawn into the top-most tierGfx layer so it ALWAYS reads above the chest sprite,
@@ -4420,25 +4335,6 @@ Render.objectAppearance = function (scene, houseRoles) {
     houseArtScale(o.area, _houseFrameW(o), _houseRole(o) === 'fort',
                   scene.cellM, CELL_PX);
 
-  // Height in px from the house's ground point (sy) up to the MIDLINE of its
-  // drawn art — where a tag hung ON the building's face sits. Mirrors the
-  // placement the sprite pass uses: every role but the wizard is centred on sy
-  // (origin y 0.5, no nudge), so its midline IS sy; the wizard tower is
-  // foot-anchored half a cell lower and reaches its full scaled height up from
-  // there, so its midline is half that height above the foot.
-  // The open/busy plaque used to clear the TOP of the art by 3px instead. On
-  // the plain house the frame's top rows are the tip of a steep gable (6px
-  // wide at row 0 of 72), so "just above the roof" was a tag floating over a
-  // peak, a full storey off the shopfront — and every role read as too high.
-  // A sign belongs on the building, not over it.
-  const _houseMidPx = (o) => {
-    if (_houseRole(o) !== 'wizard') return 0;
-    if (!scene.textures || !scene.textures.exists(_houseKey(o))) return 0;
-    const fr = scene.textures.get(_houseKey(o)).get(_houseFrame(o));
-    if (!fr || !fr.height) return 0;
-    return (fr.height * _houseScale(o)) * 0.5 - CELL_PX * 0.5;
-  };
-
   // Ripe fruit waiting to be drawn ON its tree — filled by the fruittree
   // `after` hook as each tree is configured, drained by the fruit pass after
   // the object pool has rendered. Rebuilt every frame, like everything else
@@ -4878,5 +4774,5 @@ Render.objectAppearance = function (scene, houseRoles) {
     }
     return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot };
   };
-  return { RENDER_SPEC, resolveAppearance, fruitList, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseMidPx };
+  return { RENDER_SPEC, resolveAppearance, fruitList, _houseRole, _houseKey, _houseScale, _houseBaseScale };
 };

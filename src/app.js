@@ -2216,7 +2216,6 @@ class MapScene extends Phaser.Scene {
     this.sparkPool = [];      // gold sparkle sprites floated above shiny entities
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
-    this.shopReadyPool  = []; // Phaser.Text "✓ / Xm" readiness pip above each house/tower
     this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
     this.trapPool = [];       // sprites for hidden / sprung traps lying on the ground (src/traps.js)
@@ -12227,7 +12226,7 @@ class MapScene extends Phaser.Scene {
         Houses.registerWizardTower(this.save, house, order);
         if (restoredRole === 'wizard') NPC.restoreShrine(this, house);
         // The first wreck restored becomes the starter blacksmith (wooden-tool
-        // forge). Stamp its id so isStarterBlacksmith / shopDealCap pick it up.
+        // forge). Stamp its id so isStarterBlacksmith picks it up.
         if (restoredRole === 'blacksmith' && this.save.starterBlacksmithId == null) {
           this.save.starterBlacksmithId = house.id;
         }

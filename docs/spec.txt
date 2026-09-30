@@ -1336,8 +1336,17 @@ ECONOMY (buying & selling)
    potion's effect for energy). What each does lives with the module that
    applies it; a rung's printed number comes from that module, never a copy.
  - OFFER MODAL: shows the item (sprite + name ×qty), a cost, and Buy/Cancel
-   (greyed if you can't afford). Shops may show a re-roll button (relic
-   offers $5 × 2^rerolls; themed shops start at $2 and grow ×1.5).
+   (greyed if you can't afford). Shops may show a re-roll button (the trader
+   $5 × 2^rerolls; the smithy $5 growing ×1.5; themed shops start at $2 and
+   grow ×1.5 — ShopsMath.*RerollCost).
+ - NO SHOP IS EVER BUSY (Sep 2026): there is no per-hour deal cap, no
+   "resting" anvil and no open/busy plaque — the smithy, trader, storefront
+   and tower are used continuously. The smithy only offers what it can forge
+   (Gear.buildRelicOffer skips wooden jewellery for the smith). The clock's
+   one hold on a shop is the RE-ROLL LADDER: the paid re-roll count eases by
+   ONE rung per hour bucket (ShopsMath.bucketState / easedRerolls), never a
+   reset; forging at the smithy still settles its ladder to the base at once.
+   Offers themselves still rotate on the house's hourly bucket.
  - BUY cost generation: cash storefronts (markets + generic houses) always
    price in CASH (1.2-3.0× the item value, shrunk by your Bow tier). BARTER is
    exclusively the TRADER shop kind's job (its own qty-scaled deal + re-roll —

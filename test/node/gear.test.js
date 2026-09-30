@@ -164,13 +164,37 @@ test('blacksmith offers: Wood-stage stock favours Copper without removing higher
 
 test('blacksmith offers: Copper progression restores exact ordinary seeded offers and prices', () => {
   for(const table of ['relics','armor']) {
-    const save={relics:{pick:{tier:1}},armor:{}};
+    // Staff and amulet held at Wood: a bare jewellery slot would put wooden
+    // jewellery in the ordinary pool, which the smith (rightly) never offers
+    // — the test below — so the curves could not be compared draw for draw.
+    const save={relics:{pick:{tier:1},staff:{tier:1},amulet:{tier:1}},armor:{}};
     save[table][table==='relics'?'axe':'helmet']={tier:2};
     for(let seed=1;seed<=100;seed++) {
       assert.eq(JSON.stringify(Gear.buildRelicOffer(save,seeded(seed),{isBlacksmith:true})),
         JSON.stringify(Gear.buildRelicOffer(save,seeded(seed))),'later stock and RNG draw count stay unchanged');
     }
   }
+});
+
+// The anvil never "rests": a smithy offers only what it can forge. Wooden
+// jewellery has no recipe (blacksmithRecipe), and a seeded offer of it used to
+// shut the forge for the whole hour bucket.
+test('blacksmith offers: never a piece the anvil cannot forge', () => {
+  const save={relics:{},armor:{}};   // every slot bare: wooden jewellery is on the ordinary menu
+  let ordinaryWooden=0;
+  for(let i=1;i<=3000;i++) {
+    const o=Gear.buildRelicOffer(save,seeded(i));
+    if(o.kind==='relic'&&(o.slot==='staff'||o.slot==='amulet')&&o.tier===1) ordinaryWooden++;
+    const smith=Gear.buildRelicOffer(save,seeded(i),{isBlacksmith:true});
+    assert.truthy(Gear.blacksmithRecipe(smith.kind,smith.slot,smith.tier),
+      `seed ${i}: the smith offers a forgeable ${smith.slot} T${smith.tier}`);
+  }
+  assert.gt(ordinaryWooden,0,'the ordinary roll does offer wooden jewellery (a cash shop can sell it)');
+  // Still an offer while anything forgeable is left; null only when nothing is.
+  const maxed={relics:{},armor:{}};
+  for(const slot of Object.keys(RELIC_DEFS)) maxed.relics[slot]={tier:7};
+  for(const slot of Object.keys(ARMOR_DEFS)) maxed.armor[slot]={tier:7};
+  assert.eq(Gear.buildRelicOffer(maxed,seeded(1),{isBlacksmith:true}),null,'nothing left to forge');
 });
 
 test('blacksmith offers: hourly shop lookup passes the bias only for the smith role', () => {

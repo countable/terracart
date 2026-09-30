@@ -340,10 +340,9 @@ test('mechanics: only claimed castles fire at enemies', () => {
   assert.eq(Combat.TURRET_RATE_DIV, 5, 'a turret fires at a fifth of the player rate');
 });
 
-test('mechanics: shop deals follow their caps', () => {
-  assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 9 }), 1, 'a shop just 1 an hour');
-  assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 11 }), Infinity, 'a fort\'s slots never wait');
-  assert.eq(ShopsMath.dealCap({ kind: 'tower' }), Infinity, 'a tower never waits');
+test('mechanics: no shop rations its deals; only the re-roll ladder eases with the hour', () => {
+  assert.eq(typeof ShopsMath.dealCap, 'undefined', 'no shop waits an hour between deals');
+  assert.eq(ShopsMath.easedRerolls({ bucket: 0, rerolls: 3 }, 1), 2, 'a re-roll rung comes off an hour');
 });
 
 test('mechanics: fort slots retain their prizes and bonuses', () => {
