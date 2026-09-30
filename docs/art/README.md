@@ -25,11 +25,17 @@ A soft high-resolution sprite does not become a style match through recolouring.
 `spritePlan` in the JSON records the selected default sprite + target-colour
 combinations, plus named variants for specific settings. The defaults are the
 current chunky grass tuft, red spotted mushroom, `hedge_end.png`, open broadleaf
-tree, `pillar_c.png` and `pot_smashed.png`. Their target palettes are declared as
+tree, `pillar_c.png` for the grave marker and `pot.png` for the intact clay pot.
+`pot_smashed.png` is the opened state of that same lootable container, not loose
+ruins decoration. Their target palettes are declared as
 palette IDs, so swatches and annotations stay in sync. Variants cover dry/autumn
 foliage, woodland details, caves, restored gardens, sacred places and ruin debris.
 The gallery marks unselected candidates separately and identifies contour work
-where recolouring alone is insufficient. Source thumbnails remain unchanged.
+where recolouring alone is insufficient. Original thumbnails remain unchanged;
+the browser renders proposed RGB palette swaps beside them using
+`tools/nature_recolour.js`. Material groups separate foliage/caps from bark/stems;
+colour ramps are assigned by source brightness. Dimensions and alpha are
+preserved exactly. These previews do not recolour runtime assets.
 
 Generate both linked review pages and palette exports (Pillow and Node required):
 
@@ -41,5 +47,5 @@ python3 tools/preview_nature_candidates.py \
 
 Outputs include a self-contained palette page, the full candidate gallery, JSON,
 a PNG swatch chart, and a GPL palette importable by pixel-art editors. No image
-service or generation is involved. Candidates show original source pixels; the
-assessments explicitly identify proposed recolours and state-specific uses.
+service or generation is involved. Candidates show original source pixels alongside proposed recolours; the
+assessments identify state-specific uses and any additional contour work.

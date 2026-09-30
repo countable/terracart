@@ -22,9 +22,9 @@ VERDANT = 'verdant-props-tileset-16x16/tiles/16x16/'
 # Rectangles are source pixels: x, y, width, height. Manually inspected against
 # the full source sheets; Fantasy City's sprites do not all start on its grid.
 CANDIDATES = [
-    dict(id='grave-current', group='Grave markers', title='Current · low basalt column', current=True, approved=True, render_scale=1.6,
-         path='assets/Objects/Landmarks/headstone-basalt.png', rect=(0, 0, 16, 16),
-         note='Approved low basalt marker used in Old Stones zones. Its visible stone stands 16 pixels tall at the 1.6× runtime scale.', provenance='verdant'),
+    dict(id='grave-current', group='Grave markers', title='Current · weathered stone pillar', current=True, approved=True, render_scale=1.6,
+         path='assets/Objects/Generated/pillar_c.png', rect=(0, 0, 16, 16),
+         note='Approved weathered stone pillar replacing the grave marker. Its visible stone stands 25.6 pixels tall at the 1.6× runtime scale.', provenance='generated'),
     dict(id='grave-verdant', group='Grave markers', title='Rounded grey headstone',
          path=VERDANT+'gravestone.png', rect=(0, 0, 16, 16),
          note='An unused alternative grave marker: a recognisable upright stone, without a cross. Same 16 × 16 source footprint as the current art.', provenance='verdant'),
@@ -69,12 +69,12 @@ PILLAR_CANDIDATES = [
     dict(id='verdant-broken-column', title='Short broken column',
          path=VERDANT+'broken_column.png', rect=(0, 0, 16, 16), provenance='verdant',
          note='A complete upright ruined-column sprite, with a jagged top and short fluted sides. More weathered than the plain bollard; no emblem.'),
-    dict(id='verdant-basalt', title='Current · low basalt column', current=True,
+    dict(id='verdant-basalt', title='Previous · low basalt column', current=True, previous=True,
          path='assets/Objects/Landmarks/headstone-basalt.png', rect=(0, 0, 16, 16), provenance='verdant',
-         note='Approved and now used for headstones. A complete low stone column with rough facets; visible art is 8 × 10 source pixels, rendered at 1.6×.'),
+         note='Previously used for headstones; now superseded by the weathered stone pillar. A complete low stone column with rough facets; visible art is 8 × 10 source pixels, rendered at 1.6×.'),
     dict(id='current-grave-reference', title='Previous cross marker · reference', current=True, previous=True,
          path='assets/Objects/Generated/headstone.png', rect=(0, 0, 16, 16), provenance='generated',
-         note='The previous cross marker, retained for comparison. Replaced by the low basalt column.'),
+         note='The previous cross marker, retained for comparison. Now replaced by the weathered stone pillar.'),
 ]
 
 
@@ -124,7 +124,7 @@ def render_pillars(reserve, out):
         draw.text((i*250+12,238),f'{w} x {h} source / 26px comparison in HTML',fill='#b4c6b4')
     css = '''*{box-sizing:border-box}body{font:16px system-ui;background:#101a15;color:#e5ecdf;max-width:1380px;margin:32px auto;padding:0 24px}p{line-height:1.6}a{color:#95d7d1}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr));gap:20px}article{background:#1b2a21;border:1px solid #334a3a;border-radius:12px;padding:20px;min-width:0}h2{font-size:22px}small,details{color:#b4c6b4;font-size:12px}.comparison{display:grid;grid-template-columns:1fr 70px;gap:12px;background:#14241b;padding:8px;border-radius:6px;align-items:center;height:210px}.zoom{display:flex;align-items:center;justify-content:center;height:194px}.zoom img{max-width:100%;object-fit:contain}.small{display:flex;flex-direction:column;align-items:center;gap:12px}img{image-rendering:pixelated}code{display:block;overflow-wrap:anywhere;margin-top:12px}summary{cursor:pointer}'''
     page = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Short stone pillars · existing art</title><style>{css}</style></head><body>
-<h1>Short plain stone pillars</h1><p>Yes — there are suitable existing sprites in <code style="display:inline">unused_art</code>. The <a href="#verdant-basalt">low basalt column</a> is approved and now used as the headstone. The other plain pillars remain for comparison.</p><p>The selected basalt marker, three unused alternatives, and the previous cross marker are shown below. All are complete standalone sprites, not the base cut off a statue. Large views use 4× source pixels; small views normalise visible height to 26px to compare the silhouettes fairly. The basalt marker replaces the cross in game.</p><p><a href="stone-pillar-contact.png">Compact contact sheet</a> · <a href="index.html">Zone previews</a></p><main class="cards">{''.join(cards)}</main></body></html>'''
+<h1>Short plain stone pillars</h1><p>Yes — there are suitable existing sprites in <code style="display:inline">unused_art</code>. The <a href="grave-shrine-art.html#grave-current">weathered stone pillar</a> now replaces the headstone. The low basalt column below was the previous choice; these alternatives remain for comparison.</p><p>The previous basalt marker, three unused alternatives, and the previous cross marker are shown below. All are complete standalone sprites, not the base cut off a statue. Large views use 4× source pixels; small views normalise visible height to 26px to compare the silhouettes fairly. The weathered stone pillar is now used in game.</p><p><a href="stone-pillar-contact.png">Compact contact sheet</a> · <a href="index.html">Zone previews</a></p><main class="cards">{''.join(cards)}</main></body></html>'''
     (out/'stone-pillar-candidates.html').write_text(page)
     (out/'stone-pillar-candidates.json').write_text(json.dumps(records,indent=2)+'\n')
     sheet.save(out/'stone-pillar-contact.png')

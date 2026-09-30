@@ -78,7 +78,7 @@ test('treasure icon: the look is resolved once and cached on the object', () => 
 
 // ── The renderer asks it rather than re-deciding ──────────────────────────
 test('treasure icon: render.js draws the key the look names', () => {
-  assert.truthy(/chest:  \{ key: \(o\) => \{ const L = chestLook\(o\); return \(L\.barrel && o\._smashed\) \? 'barrel_smashed' : L\.texKey; \},/.test(RENDER_SRC),
+  assert.truthy(/chest:  \{ key: \(o\) => \{ const L = chestLook\(o\); return \(L\.barrel && o\._smashed\) \? L\.smashedKey : L\.texKey; \},/.test(RENDER_SRC),
     "the chest spec's texture key IS the look's (a spent barrel its smashed state)");
   assert.truthy(!/_isCoinBurst|_chestIsBox/.test(RENDER_SRC),
     'and render.js keeps no private copy of the look');

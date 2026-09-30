@@ -304,7 +304,7 @@ function tillBlockerLine(o) {
   // Memorial Library and Reading Room'), and a line with a thirty-character
   // budget cannot interpolate something unbounded. The kind says enough.
   if (o.kind === 'chest') {
-    if (typeof isBarrel === 'function' && isBarrel(o)) return 'A barrel stands here.';
+    if (typeof isBarrel === 'function' && isBarrel(o)) return `A ${chestLook(o).barrelName} stands here.`;
     if (typeof isBikeRack === 'function' && isBikeRack(o)) return 'A courier\'s post stands here.';
     return 'A chest — open it first.';
   }
