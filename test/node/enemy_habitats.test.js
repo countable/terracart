@@ -57,7 +57,7 @@
 
 test('enemy habitats: actual beach spawn pass includes pirates and hostile crabs, never inland sand', () => {
   const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow'));
-  const generate = new Function('entry', 'tx', 'ty', body + '\nreturn creatures;');
+  const generate = spawnPassFn(body + '\nreturn creatures;');
   const run = (beach, caught = []) => {
     const scene = Object.assign(new SceneCreatures(), { tileEdgeM: 640, save: { caught },
       startWorldM: { x: -5000, y: 0 }, _pestFreeZone: () => null });
@@ -129,7 +129,7 @@ test('enemy habitats: every selected cave theme has an eligible family through d
   });
   test('surface encounters: actual spawn pass preserves defeat identities and Home protections', () => {
     const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow'));
-    const generate = new Function('entry', 'tx', 'ty', body + '\nreturn creatures;');
+    const generate = spawnPassFn(body + '\nreturn creatures;');
     const run = (caught = [], near = false) => {
       const scene = Object.assign(new SceneCreatures(), { tileEdgeM: edge, save: { caught },
         startWorldM: { x: near ? 0 : -5000, y: 0 }, _pestFreeZone: () => null });

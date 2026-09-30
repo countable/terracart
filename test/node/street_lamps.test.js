@@ -505,6 +505,26 @@ test('street lamps: a ready ring memoises, so standing still costs nothing', () 
   });
 });
 
+test('street lamps: a FAR ring tile still loading does not hold the memo open', () => {
+  // The ring streams in for seconds after the centre; waiting on all eight
+  // rebuilt this list every frame meanwhile. A tile that cannot hold a lamp
+  // within the pass's pad (coords.js tileBoxReach) changes nothing when it
+  // lands, so the answer is final without it.
+  const entry = readyEntry();
+  const scene = lampScene();
+  restoreAround(scene.save, 135, 12);
+  withTile(entry, () => {
+    const k = WorldGen.tileKey(TX + 1, TY + 1);
+    WorldGen.tileCache.set(k, loadingEntry());
+    scene._updateStreetLamps();
+    assert.eq(litOf(scene).length, 1, 'the centre tile\'s lamp lights');
+    assert.truthy(scene._streetLampKey, 'and the answer is memoised though a far corner tile is still loading');
+    const first = scene._streetLamps;
+    scene._updateStreetLamps();
+    assert.truthy(scene._streetLamps === first, 'the next frame reuses it');
+  });
+});
+
 test('street lamps: a cave clears the list — surface only', () => {
   const scene = lampScene({ depth: 2 });
   scene._streetLamps = [{}]; scene._streetLampKey = 'stale';

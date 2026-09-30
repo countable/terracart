@@ -15,7 +15,7 @@
   });
   test('enemy spawns: real surface draws share identities across modes and honour saved defeats', () => {
     const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow'));
-    const generate = new Function('entry', 'tx', 'ty', body + '\nreturn creatures;');
+    const generate = spawnPassFn(body + '\nreturn creatures;');
     const run = (mode, caught = []) => {
       const previous = Difficulty.mode();
       Difficulty.setMode(mode);

@@ -106,6 +106,23 @@ test('fishing: the map glints exactly the shiny spots, off a per-tile list', () 
   assert.eq(shinyFishSpots(entry, 1, 2), list, 'derived once per entry');
 });
 
+test('fishing: the glint list is built across frames on a deadline, and comes out the same', () => {
+  // Hashing every water cell of a lake tile was 10-26 ms on the first frame
+  // that drew it. The renderer hands a per-frame deadline (SHINY_FISH_SCAN_MS
+  // in); the scan advances a block of rows per call until it is whole.
+  const N = 60;
+  const grid = new Uint8Array(N * N).fill(WorldGen.T.WATER);
+  const whole = shinyFishSpots({ grid, cellsPerEdge: N }, 3, 4);
+  const entry = { grid, cellsPerEdge: N };
+  const past = 1e-9;                       // a deadline already gone: one block a call
+  let calls = 0, list;
+  do { list = shinyFishSpots(entry, 3, 4, past); calls++; } while (!entry._shinyFish && calls < 100);
+  assert.gt(calls, 3, `spread over several frames (${calls})`);
+  assert.eq(JSON.stringify(entry._shinyFish), JSON.stringify(whole), 'the finished list is the one-shot list');
+  assert.truthy(shinyFishSpots(entry, 3, 4, past) === entry._shinyFish, 'and it is kept');
+  assert.truthy(/shinyFishSpots\(entry, tx, ty, fishUntil\)/.test(RENDER_SRC), 'the renderer scans on its frame deadline');
+});
+
 test('fishing: the rarer fish is the dearer', () => {
   const byTier = [...FISH_SPECIES].sort((a, b) => fishTier(a.id) - fishTier(b.id));
   for (let i = 1; i < byTier.length; i++) {

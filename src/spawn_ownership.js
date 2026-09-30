@@ -38,6 +38,7 @@
     return footprintCells(scene, b).some(c => cells.has(`${c.cellIX},${c.cellIY}`));
   }
 
+  const _tileScratch = {};
   function tileCells(scene, entry, object, tx, ty, cellsPerEdge) {
     const cells = [];
     const N = entry.cellsPerEdge || cellsPerEdge || scene.cellsPerTile ||
@@ -56,6 +57,17 @@
         const x = x0 + dx, y = y0 + dy;
         if (x >= 0 && x < N && y >= 0 && y < N) cells.push(y * N + x);
       }
+      return cells;
+    }
+    const declaration = object._footprintCells || object.footprintCells;
+    if (!declaration || (Math.max(1, Math.floor(declaration.width || 1)) === 1
+        && Math.max(1, Math.floor(declaration.height || 1)) === 1)) {
+      // One cell — the anchor's own (footprintCells' single offset is 0, 0,
+      // which absCellOffset hands back unchanged). The spawn pass asks this
+      // for every generated object and plant on a tile, thousands of times.
+      const a = worldMetersToAbsCell(scene, object.x, object.y);
+      const t = absCellToTile(scene, a.cellIX, a.cellIY, _tileScratch);
+      if (t.tx === tx && t.ty === ty) cells.push(t.iy * N + t.ix);
       return cells;
     }
     for (const c of footprintCells(scene, object)) {
