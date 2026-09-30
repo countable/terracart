@@ -60,7 +60,7 @@ const CROP_SPRITE = {
   // Rounded woodland bush, 48×32. Preserve its visible width (~21px),
   // shared with bush-sized trees in render.js. Hedged lanes use the clipped look.
   shrub:     { sheet: 'bushes', custom: true, frame: 0, scale: 0.667,
-    looks: { trimmed: { sheet: 'hedge_trimmed', custom: true, frame: 0, scale: 1.6 } } },
+    looks: { trimmed: { sheet: 'hedge_trimmed', custom: true, frame: 0, scale: 1.12 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
   // Scale 1.224 keeps the requested 10% mushroom reduction. Surface and

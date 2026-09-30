@@ -329,6 +329,10 @@ def street_svg(v, cell_m):
         kind = o.get('crop', o['kind'])
         color = STREET_COLORS.get(kind, '#d4d4d4')
         size = cell_m * .8
+        if o.get('_streetArt'):
+            registry = art_registry()
+            look = registry['crops'][kind]['looks'][o['_streetArt']]
+            size = cell_m * registry['assets'][look['sheet']]['frameWidth'] * look['scale'] / 32
         if kind == 'tree':
             stage = str(max(1, min(3, round(o.get('variant', 2)))))
             size = cell_m * 1.8 * art_registry()['treeStages'][stage]['scale'] / art_registry()['treeStages']['3']['scale']
