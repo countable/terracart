@@ -2,12 +2,13 @@
 // explains the safe area (EnemySpawns.homeAllows): only weak monsters live
 // near Home, and nobody knows why.
 (function () {
-test('warden: says the one line, as a talker not a shop', () => {
+test('warden: explains safety and why rebuilding matters, as a talker not a shop', () => {
   assert.eq(NPC.WARDEN_LINE, 'This is a safe area. For some reason only weak monsters live here.');
   const w = { id: 'npc_warden_1_2', kind: 'npc', ...NPC.warden('npc_warden_1_2') };
   assert.eq(w.role, 'warden'); assert.eq(w.roleLabel, 'Warden');
   const talk = NPC.dialogue({ save: {} }, w);
-  assert.eq(talk.body, NPC.WARDEN_LINE, 'every day the same line');
+  assert.truthy(talk.body.includes(NPC.WARDEN_LINE), 'still explains the safe area');
+  assert.truthy(talk.body.includes(MemoryStory.HOME.body), 'a family gives the player a reason to rebuild');
   assert.truthy(/· Warden$/.test(talk.title), 'titled as the warden');
   assert.eq(JSON.stringify(NPC.warden('npc_warden_1_2')), JSON.stringify(NPC.warden('npc_warden_1_2')), 'a stable look');
 });

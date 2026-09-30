@@ -994,6 +994,7 @@
     const r2 = hitRadiusM * hitRadiusM;
     const blocked = opts && opts.blocked;
     const hostileTargets = (opts && opts.hostileTargets) || [];
+    const canHit = opts && opts.canHit;
     const sampleM = Math.max(0.01,
       ((opts && opts.cellM) || hitRadiusM) * BLOCK_SAMPLE_CELLS);
     for (const s of shots) {
@@ -1023,6 +1024,7 @@
         // The per-shot hit ledger is what stops a slow bolt re-hitting the
         // same foe on every frame it spends crossing them.
         for (const e of targets) {
+          if (canHit && !canHit(e, s)) continue;
           const d2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y);
           if (d2 > sr2) continue;
           const key = e.id != null ? e.id : e;
@@ -1034,6 +1036,7 @@
       } else {
         let hit = null, bestD2 = sr2;
         for (const e of targets) {
+          if (canHit && !canHit(e, s)) continue;
           const d2 = (e.x - s.x) * (e.x - s.x) + (e.y - s.y) * (e.y - s.y);
           if (d2 <= bestD2) { bestD2 = d2; hit = e; }
         }

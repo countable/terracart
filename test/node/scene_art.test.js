@@ -44,7 +44,7 @@ test('scene art: every kind has a default painting, except STORY, which brings i
 });
 
 test('scene art: a message with a painting is a STORY', () => {
-  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note' \}\)/.test(shell),
+  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note', mustAcknowledge = false \}\)/.test(shell),
     'art makes it a story; a plain message stays a note');
 });
 

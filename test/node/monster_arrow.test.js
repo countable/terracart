@@ -109,9 +109,11 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
   assert.falsy(CREATURE_AI_SRC.includes('enemyDmgMul'), 'Hard belongs to the recipient at impact');
   assert.truthy(/const playerTarget = \{ id: 'player', x: px, y: py \};/.test(app),
     'the player is the hostile target, at the feet');
-  assert.truthy(/\(target, shot\) => \(shot\.hostile \? this\._shotHitsPlayer\(shot\)\s*\n\s*: this\._damageEnemy\(target, shot\.damage, Combat\.shotSource\(shot\)\)\)/.test(app),
-    'a hostile hit routes to the player, a friendly one to the foe');
-  assert.truthy(/hostileTargets: \[playerTarget\]/.test(app), 'and is handed to stepShots');
+  assert.truthy(app.includes("target.kind === 'npc' ? NPC.hit(this, target) : this._shotHitsPlayer(shot)"),
+    'hostile impacts route to NPC recovery or player damage');
+  assert.truthy(app.includes('this._damageEnemy(target, shot.damage, Combat.shotSource(shot))'),
+    'friendly impacts retain the shared enemy damage path');
+  assert.truthy(/hostileTargets: \[playerTarget,/.test(app), 'the player and neighbours are handed to stepShots');
   const hit = app.slice(app.indexOf('  _shotHitsPlayer(shot) {'), app.indexOf('  _turretFire('));
   assert.truthy(hit.length > 0, '_shotHitsPlayer exists');
   assert.truthy(/const dmg = Combat\.incomingDamage\(this\.save, shot\.damage, shot\.hits\);/.test(hit),
@@ -129,3 +131,15 @@ test('monster arrow: the ranged trigger radius comes from the enemy row', () => 
   assert.falsy(CREATURE_AI_SRC.includes("rangeCellsFor('staff'"));
 });
 })();
+
+test('monster arrows: a second arrow in the same tick ignores the newly resting neighbour', () => {
+  const scene = { save: {} }, npc = { id: 'wounded-neighbour', kind: 'npc', x: 0, y: 0 };
+  const shot = () => ({ x: 0, y: 0, vx: 1, vy: 0, speedMps: 1, travelledM: 0, rangeM: 10, hostile: true });
+  let hits = 0;
+  const alive = Combat.stepShots([shot(), shot()], 0, [], 1,
+    target => { hits++; NPC.hit(scene, target, 1000); },
+    { hostileTargets: [npc], canHit: target => !NPC.isDormant(target, 1000) });
+  assert.eq(hits, 1, 'the first impact lies the neighbour down');
+  assert.eq(alive.length, 1, 'the next arrow passes over the resting neighbour');
+  assert.eq(scene.save.npcRestUntil[npc.id], 61000, 'exactly one minute, not extended');
+});

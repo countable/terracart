@@ -23,6 +23,10 @@
 const CROP_ROW = {
   rainberry: 0, pairy: 1, gemfruit: 2, nut: 3, rockfruit: 4, coffee: 5,
   potato: 6, iceflower: 7, fireflower: 8, sunflower: 9,
+  // Starfruit reuses the otherwise-unused green fruit-tree row in Crops.png.
+  // Berry’s nominal row 10 is overridden by Spring Crops below, so both
+  // the mature fruit and its seed badge remain distinct on every surface.
+  starfruit: 10,
   // Spring Crops residents — their on-sheet row is overridden in CROP_SPRITE
   // below (springcrops row 1/3/7). The CROP_ROW value here is just the
   // unused index in Crops.png that the fallback path would use; never
@@ -491,7 +495,7 @@ const CROP_NAMES = {
   giant_mushroom: 'Giant mushroom',
   rainberry: 'Rainberry', pairy: 'Pairy', gemfruit: 'Gemfruit', nut: 'Nut',
   rockfruit: 'Rock', coffee: 'Coffee', potato: 'Potato', iceflower: 'Iceflower',
-  fireflower: 'Fireflower', sunflower: 'Sunflower',
+  fireflower: 'Fireflower', sunflower: 'Sunflower', starfruit: 'Starfruit',
   berry: 'Berry', cress: 'Cress', onion: 'Onion',
 };
 // === Per-item rarity tier (1..7) — used by rarity.js' unified picker. ===
@@ -506,7 +510,7 @@ const BASE_TIER = {
   // onion bumped to T2 (per user) since it's a richer flavour and reads
   // as a step-up from the basic greens.
   berry: 1, cress: 1,
-  rainberry: 2, pairy: 2, nut: 2, onion: 2,
+  rainberry: 2, pairy: 2, nut: 2, onion: 2, starfruit: 2,
   // wood: T1 mineral. Dropped by trees + shrubs (no tools needed beyond
   // an axe for shrubs / trees) and sprinkled around the starting area.
   // Used as the smithy ingredient for every T1 wooden tool.
@@ -995,7 +999,7 @@ const SPIRIT_RAVEN_MS = CONSUMABLE_SPEC.raven_potion.durationMs;
 const PRICES = {
   // ── Seeds ────────────────────────────────────────────────
   rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
-  berry_seed: 2, cress_seed: 1, onion_seed: 2,
+  berry_seed: 2, cress_seed: 1, onion_seed: 2, starfruit_seed: 4,
   gemfruit_seed: 8, rockfruit_seed: 8, coffee_seed: 12,
   sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50,
   // ── Produce (sell value) ─────────────────────────────────
@@ -1007,6 +1011,7 @@ const PRICES = {
   rainberry: 6,
   berry: 7,        // T1 sweet — slightly above rainberry
   pairy: 8,
+  starfruit: 18,   // the rescued neighbour’s crop, between Pairy and Gemfruit
   gemfruit: 25,    // T2 + occasional rockfruit bonus
   coffee: 40,      // T2, no wild source
   sunflower: 150,  // T4 magical flower — commonest of the trio
@@ -1180,6 +1185,7 @@ const ITEM_EFFECTS = {
   rainberry: 'Rain gathers on nearby leaves when its skin breaks between your teeth.',
   pairy: 'Its sweetness leaves a glimmer of buried treasure behind your eyes.',
   coffee: 'A roasted warmth sets your feet itching for the road.',
+  starfruit: 'A golden sweetness lingers, warming the hands that helped it grow.',
   mango: 'Even wary animals lean toward its golden scent.',
   longgrass: 'Its tough fibres hold fast when twisted together.',
   rockfruit: 'Beneath its pale skin lies a stone hard enough for a ruined wall.',
@@ -1255,6 +1261,7 @@ const FOOD_ENERGY = {
   berry:     10,   // sweet — between potato and rainberry
   rainberry: 12,   // also waters all crops within 20m
   pairy:     12,   // also shows the nearest undiscovered chest for 5 min
+  starfruit: 16,
   gemfruit:  20,
   coffee:    35,
   sunflower:  60,

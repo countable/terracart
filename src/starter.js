@@ -1952,7 +1952,9 @@
     }
     if (!seat) return;
     const x = tx0 + (seat.cx + 0.5) * cellM, y = ty0 + (seat.cy + 0.5) * cellM;
-    entry.creatures.push(WorldGen.makeCreature('npc', x, y, id, { ...NPC.warden(id), homeX: x, homeY: y }));
+    const neighbour = WorldGen.makeCreature('npc', x, y, id, { ...NPC.warden(id), homeX: x, homeY: y });
+    entry.creatures.push(neighbour);
+    if (typeof MemoryStory !== 'undefined') MemoryStory.enqueueHome(scene, neighbour);
   }
 
   // Hard mode has no supply handout: drop the starter crates (the `crate: true`

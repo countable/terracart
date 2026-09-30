@@ -492,13 +492,13 @@ class SceneModals {
   // `art` (optional) — the story's own SCENE painting (assets/art/ stem); a
   // dialog with one is a STORY unless the caller names another kind.
   // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
-  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, kind = art ? 'story' : 'note' }) {
+  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, kind = art ? 'story' : 'note', mustAcknowledge = false }) {
     document.getElementById('offer-modal')?.remove();
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
-      { zIndex: 60, onClose: () => {}, kind: kind, art });
+      { zIndex: 60, onClose: mustAcknowledge ? undefined : () => {}, kind: kind, art });
     const safeBody = String(body).replace(/\n/g, '<br>');
     box.innerHTML =
-      `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${title}</div>` +
+      `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>` +
       `<div style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
     const btn = mkBtn(okLabel);
     btn.addEventListener('click', (e) => {

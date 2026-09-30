@@ -1625,6 +1625,8 @@ class SceneCreatures {
     // a ward point on Home's ring, HOME_R. One lane, a second reason: the same
     // latch, the same away-from-the-point angle, the same stood-down bite.
     const castleWards = this._castleWardPoints(now, pcW);
+    this._npcWardContext = { home: homePos, castles: castleWards, radius2: HOME_WARD_R2 };
+    NPC.prepareTargets(this, pcW, px, py, RANGE_M, now);
     // Pest spawn: if the player has any planted crop and there are NO wild
     // crows already near the player, spawn one off-screen every ~90 s. The
     // crow's wander loop targets the nearest crop and destroys it on contact
@@ -1831,6 +1833,8 @@ class SceneCreatures {
       // are two mechanisms, not one, whatever they have in common here.
       const standDown = warded || wanderOff || kerbTurn || sated || (!!lairState && lairState !== 'hunt');
       const rosterRow = !isTame ? EnemyRoster.get(c.kind) : null;
+      const npcTarget = rosterRow && !standDown
+        ? NPC.enemyTarget(this, c, rosterRow, px, py, unnoticed) : null;
       const enemyDt = c._enemyTickT == null ? 0 : Math.min(0.1, Math.max(0, (now - c._enemyTickT) / 1000));
       c._enemyTickT = now;
       // A HUNTED DEER CHARGES: enraged, and neither warded nor ignoring you
@@ -1848,8 +1852,10 @@ class SceneCreatures {
       if (haunts) {
         const gm = Combat.monster(c.kind);
         const pace = gm.mps / 1000;
-        const fate = ghostTick(this, c, now, px, py, unnoticed || kerbTurn, warded, pace);
-        if (fate === 'touch') {
+        const fate = ghostTick(this, c, now, npcTarget?.x ?? px, npcTarget?.y ?? py,
+          (npcTarget ? NPC.isDormant(npcTarget) : unnoticed) || kerbTurn, warded, pace);
+        if (fate === 'touch' && npcTarget) NPC.hit(this, npcTarget);
+        if (fate === 'touch' && !npcTarget) {
           const raw = gm.dmg * Combat.powerMul(c);
           const dmg = Combat.incomingDamage(this.save, raw);
           if (dmg > 0) {
@@ -1882,7 +1888,9 @@ class SceneCreatures {
       // doesn't spam 50 popups. Runs every frame (wanderCreatures is per-tick),
       // independent of the slime's slow step cadence.
       if (rosterRow && !haunts) {
-        rosterEnemyAttack(this, c, rosterRow, now, px, py, unnoticed || standDown, enemyDt);
+        if (npcTarget) rosterEnemyAttack(this, c, rosterRow, now, npcTarget.x, npcTarget.y,
+          standDown, enemyDt, npcTarget);
+        else rosterEnemyAttack(this, c, rosterRow, now, px, py, unnoticed || standDown, enemyDt);
       }
       if (c.kind === 'slime' && !isTame && !unnoticed && !standDown && !rosterRow) {
         // The same one cell the player now swings at (Combat.MELEE_REACH_CELLS)
@@ -2009,7 +2017,8 @@ class SceneCreatures {
       if (rosterRow) {
         // Turned back at the kerb is the wander-off's away angle (as in the
         // step chain below); a lair guard walks home instead (guardState).
-        rosterEnemyMove(this, c, rosterRow, now, px, py, unnoticed || standDown,
+        rosterEnemyMove(this, c, rosterRow, now, npcTarget?.x ?? px, npcTarget?.y ?? py,
+          (npcTarget ? NPC.isDormant(npcTarget) : unnoticed) || standDown,
           routed || (kerbTurn && !c.lair), lairState, enemyDt);
         return;
       }
