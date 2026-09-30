@@ -184,13 +184,7 @@ function drawGrassTex(ctx, size, rng) {
 function drawForestTex(ctx, size, rng) {
   // Dense leaf-litter clumps — small dark blobs + a few bright leaf specks.
   ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 14; i++) {
-    const x = rng() * size;
-    const y = rng() * size;
-    const r = 1.5 + rng() * 1.5;
-    ctx.fillStyle = 'rgba(15,28,12,0.35)';
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-  }
+  drawGroundMottle(ctx, size, rng, 0xF047, 14, 1.5, 1.5, 'rgba(15,28,12,0.35)');
   for (let i = 0; i < 10; i++) {
     ctx.fillStyle = 'rgba(140,150,105,0.25)';
     ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
@@ -200,17 +194,22 @@ function drawForestTex(ctx, size, rng) {
 function drawSandTex(ctx, size, rng) {
   // Horizontal wind-ripple marks on beach sand (3-4 wavy lines per tile).
   ctx.clearRect(0, 0, size, size);
-  const numLines = 3 + Math.floor(rng() * 2);
+  // Every hash-picked variant shares the same periodic ripple paths. Random
+  // phases/row counts at each cell edge used to chop the bands into squares.
+  const ripples = seededRand(0x5A4D);
+  const numLines = 3 + Math.floor(ripples() * 2);
   for (let r = 0; r < numLines; r++) {
-    const baseY = Math.floor((r + 0.3 + rng() * 0.4) * (size / numLines));
-    const amp = 0.7 + rng() * 0.9;
-    const phase = rng() * Math.PI * 2;
-    ctx.strokeStyle = rng() < 0.65 ? 'rgba(105,95,80,0.30)' : 'rgba(175,170,155,0.20)';
+    const baseY = Math.floor((r + 0.3 + ripples() * 0.4) * (size / numLines));
+    const amp = 0.7 + ripples() * 0.9;
+    const phase = ripples() * Math.PI * 2;
+    ctx.strokeStyle = ripples() < 0.65 ? 'rgba(105,95,80,0.30)' : 'rgba(175,170,155,0.20)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    for (let x = 0; x <= size; x++) {
-      const y = baseY + Math.sin(x * 2 * Math.PI / (size * 0.65) + phase) * amp;
-      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    // Continue one sample beyond each edge, keeping the clipped stroke's
+    // joins identical to the adjoining tile rather than ending a cap there.
+    for (let x = -1; x <= size + 1; x++) {
+      const y = baseY + Math.sin(x * 2 * Math.PI / size + phase) * amp;
+      if (x === -1) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
   }
@@ -242,6 +241,30 @@ function wrapRect(ctx, size, x, y, w, h, style) {
       if (y + oy + h <= 0 || y + oy >= size) continue;
       ctx.fillRect(x + ox, y + oy, w, h);
     }
+  }
+}
+
+// Hash-picked variants need identical boundary features, not merely a wrap
+// within each individual tile. Keep variable blobs clear of the border and
+// share wrapped edge blobs, as farmland does, so mixed neighbours join too.
+function drawGroundMottle(ctx, size, rng, edgeSeed, count, minR, radiusSpan, style) {
+  const edge = seededRand(edgeSeed);
+  const edgeCount = Math.ceil(count / 3);
+  for (let i = 0; i < edgeCount; i++) {
+    const along = edge() * size;
+    const across = (edge() - 0.5) * minR;
+    const r = minR + edge() * radiusSpan;
+    const x = i % 2 ? across : along;
+    const y = i % 2 ? along : across;
+    wrapArc(ctx, size, x, y, r, style);
+  }
+  ctx.fillStyle = style;
+  for (let i = edgeCount; i < count; i++) {
+    const r = minR + rng() * radiusSpan;
+    const margin = r + 1; // include the antialiased edge
+    const x = margin + rng() * (size - 2 * margin);
+    const y = margin + rng() * (size - 2 * margin);
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
   }
 }
 
@@ -860,24 +883,23 @@ function drawTarYardTex(ctx, size, rng) {
 function drawWetlandTex(ctx, size, rng) {
   // Marsh — dark mossy mottle, faint water glints, a few vertical reed flecks.
   ctx.clearRect(0, 0, size, size);
-  for (let i = 0; i < 10; i++) {
-    ctx.fillStyle = 'rgba(30,42,28,0.30)';
-    ctx.beginPath(); ctx.arc(rng() * size, rng() * size, 1.5 + rng() * 2, 0, Math.PI * 2); ctx.fill();
-  }
+  drawGroundMottle(ctx, size, rng, 0x4A45, 10, 1.5, 2, 'rgba(30,42,28,0.30)');
+  const glints = seededRand(0x61A7);
   ctx.strokeStyle = 'rgba(150,175,175,0.20)';
   ctx.lineWidth = 1;
   for (let r = 0; r < 2; r++) {
-    const baseY = rng() * size, phase = rng() * Math.PI * 2;
+    const baseY = 2 + glints() * (size - 4), phase = glints() * Math.PI * 2;
     ctx.beginPath();
-    for (let x = 0; x <= size; x++) {
-      const y = baseY + Math.sin((x / size) * Math.PI * 2 + phase) * 1;
-      if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    for (let x = -1; x <= size + 1; x++) {
+      const y = baseY + Math.sin((x / size) * Math.PI * 2 + phase);
+      if (x === -1) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.stroke();
   }
   for (let i = 0; i < 6; i++) {
     ctx.fillStyle = 'rgba(96,108,66,0.30)';
-    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 2 + Math.floor(rng() * 2));
+    const h = 2 + Math.floor(rng() * 2);
+    ctx.fillRect(Math.floor(rng() * size), Math.floor(rng() * (size - h + 1)), 1, h);
   }
 }
 

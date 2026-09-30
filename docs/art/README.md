@@ -57,7 +57,7 @@ assessments identify state-specific uses and any additional contour work.
 ## Active map-art audit
 
 `map-audit-ground.json`, `map-audit-structures.json` and
-`map-audit-interactables.json` audit 109 environmental art families.
+`map-audit-interactables.json` audit 110 environmental art families.
 Entries carry their actual placement producers, current source frames, palette
 recommendations and available-library alternatives. Shared states are grouped;
 unused registry definitions, actors and inventory-only items are excluded.
@@ -66,9 +66,10 @@ are explicitly included at the user’s request. Crops get a small 5.25% lightne
 lift across their growth art, retaining their colours and outlines. Local OSM feature counts are source evidence, not final spawn counts.
 
 Prevalence order is a qualitative estimate from terrain coverage and placement
-rules; no representative post-filter map census was available. Eight families
-(7.5%) have proposed zone-specific alternatives. None are seasonal and none
-are installed by the dashboard. The clipped hedge is active on hedged lanes and remains a candidate for Formal
+rules; no representative post-filter map census was available. Seven families
+(6.4%) have proposed zone-specific alternatives. None are seasonal and none
+are installed by the dashboard. The clipped hedge is active on hedged lanes
+and remains a candidate for Formal
 Garden and residential/commercial bush placements.
 
 ```sh
@@ -129,3 +130,18 @@ Outputs include before/after PNGs, a static comparison, capture metadata and an
 interactive comparison page. The sandbox has no vector roads/building polygons
 or assigned zone motifs, so the capture uses its intended tiled building mode.
 It demonstrates candidates present in that layout, not every audit entry.
+
+## Bush alternatives and texture seams
+
+`tools/preview_bush_options.py` renders eight bush studies from
+`bush-options.json`: the shipped woodland bush, gentler recolours, several
+chunky wild-bush alternatives and the context-only clipped hedge. This gallery
+does not select a replacement. Nut plants use a brighter olive treatment;
+rockfruit retains its shape while leaning toward the actual ore-stone colours.
+Forest/marsh spots use half-strength overlays; sand marks are 15% softer. The
+swamp base is closer to its earlier deep green. Seam fixes live in the runtime
+terrain painters so randomly adjacent variants share compatible boundaries.
+
+The pine foliage treatment includes cyan shadows that the general green mask
+missed, and warms mint highlights at the same shading luminance. Other flora
+strengths are unchanged.

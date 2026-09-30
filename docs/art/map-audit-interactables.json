@@ -284,7 +284,7 @@
       ],
       "recommendation": {
         "action": "recolour",
-        "note": "Lean toward the selected apple tree\u2019s warm muted foliage and shading range. Continuous colour transfer retains source shades and silhouettes; bark, fruit and pale birch markings retain their identity. Ease this colour treatment back by 25% from the previous preview.",
+        "note": "Keep the restrained foliage treatment, with a pine-specific olive hue correction for cyan shadows and minty highlights that escaped the green mask. Preserve shading luminance; no extra overall brightness or colour-strength increase.",
         "palette": [
           {
             "id": "leaf_shadow",
@@ -313,7 +313,7 @@
         ],
         "recolourStrength": 0.6375,
         "preserveLuminance": false,
-        "recolourMode": "apple-foliage"
+        "recolourMode": "pine-foliage"
       }
     },
     {
@@ -574,6 +574,18 @@
             16
           ],
           "whiteKey": true
+        },
+        {
+          "key": "crops",
+          "path": "assets/Objects/Crops.png",
+          "rect": [
+            112,
+            64,
+            16,
+            16
+          ],
+          "label": "Placed rockfruit stone",
+          "whiteKey": true
         }
       ],
       "spawnEvidence": [
@@ -582,10 +594,41 @@
         "src/items.js:CROP_ROW.rockfruit"
       ],
       "recommendation": {
-        "action": "keep",
-        "note": "Keep the existing rockfruit art, original colours and interaction. Withdraw the loose-rubble replacement.",
-        "palette": [],
-        "recolourStrength": 0
+        "action": "recolour",
+        "note": "Keep rockfruit\u2019s existing shape and shading, shifting its cool stone colour 35% toward the actual ore-rock substrate\u2019s warm greys and tan highlights. Include its growing and placed-stone frames; no rubble art swap.",
+        "palette": [
+          {
+            "id": "ore-stone-0",
+            "hex": "#1b151e"
+          },
+          {
+            "id": "ore-stone-1",
+            "hex": "#38242e"
+          },
+          {
+            "id": "ore-stone-2",
+            "hex": "#493838"
+          },
+          {
+            "id": "ore-stone-3",
+            "hex": "#6b4749"
+          },
+          {
+            "id": "ore-stone-4",
+            "hex": "#926d6a"
+          },
+          {
+            "id": "ore-stone-5",
+            "hex": "#b4a07f"
+          },
+          {
+            "id": "ore-stone-6",
+            "hex": "#c7bb97"
+          }
+        ],
+        "recolourStrength": 0.35,
+        "preserveLuminance": true,
+        "growthStages": true
       }
     },
     {
@@ -2875,18 +2918,6 @@
           "path": "assets/Objects/Crops.png",
           "rect": [
             64,
-            48,
-            16,
-            16
-          ],
-          "label": "Nut \u00b7 mature",
-          "whiteKey": true
-        },
-        {
-          "key": "crops",
-          "path": "assets/Objects/Crops.png",
-          "rect": [
-            64,
             80,
             16,
             16
@@ -2994,6 +3025,68 @@
         "recolourStrength": 0.0525,
         "recolourMode": "crop-light",
         "preserveLuminance": false
+      }
+    },
+    {
+      "id": "nut-plant",
+      "name": "Nut plant",
+      "category": "flora",
+      "priority": 12,
+      "prevalence": {
+        "band": "localized",
+        "basis": "Sandbox forest, crop planting and wild flora rules.",
+        "reason": "Nut plants appear among forest plants and in planted crop beds."
+      },
+      "current": [
+        {
+          "key": "crops",
+          "path": "assets/Objects/Crops.png",
+          "rect": [
+            64,
+            48,
+            16,
+            16
+          ],
+          "label": "Nut \u00b7 mature",
+          "whiteKey": true
+        }
+      ],
+      "spawnEvidence": [
+        "src/items.js:CROP_ROW.nut; src/sandbox.js:FOREST nut placements; src/render.js:drawPlanted"
+      ],
+      "recommendation": {
+        "action": "recolour",
+        "palette": [
+          {
+            "id": "leaf_shadow",
+            "hex": "#26342a"
+          },
+          {
+            "id": "leaf_dark",
+            "hex": "#3e4b2c"
+          },
+          {
+            "id": "leaf",
+            "hex": "#596338"
+          },
+          {
+            "id": "leaf_light",
+            "hex": "#7a8147"
+          },
+          {
+            "id": "leaf_tip",
+            "hex": "#a5a569"
+          },
+          {
+            "id": "cream",
+            "hex": "#e6d7a3"
+          }
+        ],
+        "recolourStrength": 0.55,
+        "recolourMode": "apple-foliage",
+        "preserveLuminance": false,
+        "growthStages": true,
+        "note": "Lift the nut plant\u2019s very dark green leaves toward the other plants\u2019 muted olive range. Preserve the nut accent, silhouette and dark contour; apply consistently through its five growth stages."
       }
     }
   ],
