@@ -22,15 +22,16 @@
       // ── Tutorial ──
       tutorial: true,           // starter ladder chip + green arrow + step rewards
       starterCrates: true,      // the supply-crate trail (seeds, rockfruit, wood)
-      pestAmnesty: true,        // no slime / crow near home until the first harvest
+      pestAmnesty: true,        // no slime / crow / raven near home until the first harvest
       // ── Pests ──
-      // The crop-raiding crow PUMP (scene_creatures.js wanderCreatures): a wild crow
-      // dispatched just off-screen every ~90 s whenever a crow-edible crop is
-      // planted and no wild crow is already near, which then flies at the
-      // field. Off on easy — a crow you meet by walking into one is the whole
-      // crow threat there — and on hard it is what stops farming from being a
-      // quiet income you can leave unattended. The tile spawner's own crows
-      // are NOT this flag: both modes get those.
+      // The crop-raiding PEST PUMP (scene_creatures.js wanderCreatures): a wild
+      // deer dispatched just off-screen every ~90 s whenever a crop a deer eats
+      // is planted and no wild deer is already near, which then walks at the
+      // field. Off on easy — a deer you meet by walking into one is the whole
+      // deer threat there — and on hard it is what stops farming from being a
+      // quiet income you can leave unattended. The tile spawner's own deer
+      // are NOT this flag: both modes get those. (The pest was a crow until
+      // Sep 2026; the owner moved crop-raiding to the deer.)
       cropPests: false,
       // Garrison eligibility is shared in both modes (lairs.js).
       derelictLairs: true,
@@ -55,8 +56,8 @@
       monsterCountMul: 1,       // over the cave spawner's 50 + 10/level
       slimeCountMul: 1,         // over BIOME_FAUNA.slime's per-tile count
       crowCountMul: 0.5,        // over BIOME_FAUNA.crow's per-tile count — half
-                                 // as many wild crows on easy, since the crop-raid
-                                 // pump (cropPests) is already off there
+                                 // as many wild crows on easy (a quieter sky; the
+                                 // crow raids nothing since Sep 2026)
       // ── Traps ──
       trapCountMul: 10,         // over traps.js's base 10..18 roadside traps/tile —
                                  // 10x on easy too: the base rate reads as too rare
@@ -91,7 +92,7 @@
       tutorial: false,
       starterCrates: false,
       pestAmnesty: false,
-      cropPests: true,          // crows are dispatched to your field, ~90 s apart
+      cropPests: true,          // deer are dispatched to your field, ~90 s apart
       derelictLairs: true,      // every ruin past the home ring is held, and holds more further out
       quietHomeM: 0,            // no quiet home: a fort by the trailer is held for you too
       startingMoney: 20,        // $20 against $50 — a bag of seeds, not a plan

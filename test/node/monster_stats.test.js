@@ -17,8 +17,9 @@
       assert.gt(row.hp, 0);
       if (row.surface) assert.lte(row.tier, 3, row.id);
       if (row.cave && !row.surface) dungeonOnly++;
-      // A row with neither pool (the gull) is seated by its own rule
-      // (SHORE_FAUNA), so it is no part of the surface/dungeon split.
+      // A row with neither pool (the gull, the raven) is seated by its own
+      // rule (SHORE_FAUNA, BIOME_FAUNA), so it is no part of the
+      // surface/dungeon split.
       if (row.cave || row.surface) rolled++;
     }
     assert.gte(dungeonOnly, rolled / 2);

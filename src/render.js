@@ -4173,7 +4173,7 @@ Render.drawObjects = function drawObjects(scene) {
   // animate (a measured shadow would pulse frame to frame).
   if (scene.creatureShadowPool && scene.shadowContainer) {
     const CRITTER_SHADOW_W = {
-      cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, gull: 18, rabbit: 14, chicken: 14, crab: 14,
+      cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, gull: 18, raven: 18, rabbit: 14, chicken: 14, crab: 14,
       butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
     };
     Render.renderPool(scene, scene.creatureShadowPool, scene.shadowContainer, creatureList, (s, item) => {

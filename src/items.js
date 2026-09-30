@@ -670,7 +670,7 @@ const ITEMS = [
   { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'magic', potion: true },
   { id: 'shield_potion', name: 'Potion of Shielding', kind: 'magic', potion: true },
   { id: 'blight_potion', name: 'Potion of Blight',    kind: 'magic', potion: true },
-  // Drunk to summon a spirit raven that hunts foes and pest crows for
+  // Drunk to summon a spirit raven that hunts foes and pest deer for
   // SPIRIT_RAVEN_MS (app.js drinkRavenPotion; the bird is the creature row
   // SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven).
   { id: 'raven_potion',  name: 'Potion of the Raven', kind: 'magic', potion: true },
@@ -741,9 +741,9 @@ const ITEMS = [
   // Fishing junk pull — old leather boot. T1, low sell, no eat. Joke drop
   // from the rod's loot table at small weight; mostly a flavour moment.
   { id: 'boot',         name: 'Old Boot',     kind: 'produce' },
-  // Scarecrow — placeable on tillable cells. Wild crows and deer steer
-  // around it (4-cell aversion radius in wanderCreatures). Stack of N can
-  // be deployed across the farm.
+  // Scarecrow — placeable on tillable cells. Wild deer (the crop raider)
+  // and crows steer around it (4-cell aversion radius in wanderCreatures).
+  // Stack of N can be deployed across the farm.
   { id: 'scarecrow',    name: 'Scarecrow',    kind: 'supply' },
   // Wild mushroom (forest debris, pickable)
   { id: 'mushroom',     name: 'Mushroom',     kind: 'produce', crop: 'mushroom' },
@@ -1165,7 +1165,7 @@ const TRAP_KIT_KEEP_CHANCE = 0.8;
 
 const ITEM_GUIDE_TIPS = {
   crow_feather: 'My legs failed on the long road. I pressed the black feather to my lips. Just enough strength to rise. Sometimes that is all a mercy needs to be.',
-  scarecrow: 'The crows have left our field since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
+  scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
   trap_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
   torch: 'Light a torch before descending. By its flame, my hand could reach farther into the dark.',
   rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',
@@ -1229,7 +1229,7 @@ const ITEM_EFFECTS = {
   torch: 'Its flame pushes back the dark beyond your fingertips.',
   trap_kit: 'Small iron tools made to ease a snare’s clenched jaw.',
   magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',
-  scarecrow: 'An empty coat watches the beds, and hungry wings turn away.',
+  scarecrow: 'An empty coat watches the beds, and hungry mouths turn away.',
   acorn: 'A young timber tree waits beneath this little cap for earth and time.',
   coal: 'A spark wakes a small fire inside its black heart.',
   meat: 'Its rich scent draws a dog from the edge of the path.',

@@ -210,7 +210,7 @@ test('creatures: a hunted deer fights back — a row, wired through the one blow
   assert.truthy(/const bolting = !!bolt && !gameCharge &&/.test(w), 'a charging deer does not bolt');
 });
 
-test('creatures: no pest crow is dispatched underground', () => {
+test('creatures: no pest deer is dispatched underground', () => {
   assert.truthy(/if \(\(this\.depth \|\| 0\) === 0 && now - this\._lastPestT > 90000\)/.test(SCENE_CREATURES_SRC),
     'the pump is surface-only');
 });

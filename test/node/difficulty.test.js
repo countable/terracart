@@ -39,7 +39,7 @@
     assert.eq(e.crowCountMul, 0.5, 'easy halves the base wild crow count');
     assert.eq(e.startingMoney, STARTING_MONEY, 'the easy purse IS items.js STARTING_MONEY');
     assert.truthy(e.tutorial && e.starterCrates && e.pestAmnesty, 'the guided opening is on');
-    assert.falsy(e.cropPests, 'easy never dispatches a crow at a planted field');
+    assert.falsy(e.cropPests, 'easy never dispatches a deer at a planted field');
   });
 
   test('difficulty: hard is harsher on every axis the card names', () => {
@@ -47,7 +47,7 @@
     assert.falsy(h.tutorial, 'no tutorial');
     assert.falsy(h.starterCrates, 'no supply crates');
     assert.falsy(h.pestAmnesty, 'pests from minute one');
-    assert.truthy(h.cropPests, 'and crows are sent to the crops you plant');
+    assert.truthy(h.cropPests, 'and deer are sent to the crops you plant');
     assert.lt(h.startingMoney, e.startingMoney, 'thinner purse');
     assert.gt(h.buyMul, 1, 'dearer to buy');
     assert.lt(h.sellMul, 1, 'poorer to sell');
@@ -161,9 +161,9 @@
     // in app.js; run.js hands its source text over so it cannot drift from the
     // table. It used to read pestAmnesty + save.hasHarvested — retired, because
     // the mode flag subsumes both (easy never pumps; hard has no grace).
-    assert.truthy(CROW_PUMP_GATE_SRC.includes('Difficulty.get().cropPests'),
+    assert.truthy(PEST_PUMP_GATE_SRC.includes('Difficulty.get().cropPests'),
       'the pump reads the flag at the site that owns the behaviour');
-    assert.falsy(CROW_PUMP_GATE_SRC.includes('pestAmnesty'),
+    assert.falsy(PEST_PUMP_GATE_SRC.includes('pestAmnesty'),
       'and no longer doubles as an amnesty check');
   });
 

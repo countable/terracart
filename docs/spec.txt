@@ -34,8 +34,15 @@ Each cell may contain one interactable object (excluding fauna). ie, rocks, tree
 
 # fauna
 Entities that can typically move around over cells, like pets, enemies, wild animals
- - crows: move in pauses and straight lines. Orbit nearest crop at 1.5-3.5 cells,
-   land on it for 2 full cycles, then destroy it. Scarecrow aversion 4 cells.
+ - crows: move in pauses and straight lines — short glides, a perch between.
+   Game (a feather), nothing more; scarecrow aversion 4 cells. (They raided
+   crops until Sep 2026; the deer does now.)
+ - ravens: the crow's body in blue-black. A thief: its swoop takes COINS from
+   the purse — its own bounty's worth, never below $0 — once per bird per UTC
+   day, then it is sated and flies off. Felling one wins the snatch back.
+ - gulls: the crow's body in white, on the shore and the piers. A thief too:
+   its swoop takes ONE piece of FOOD from the bag (the biggest meal in it),
+   once per bird per UTC day. Same ledger, same sating, same flight.
  - no fauna may move onto a building footing, or road. Nor is any SEATED on one:
    every spawner goes through WorldGen.isSpawnCell with the tile's roadMask.
  - animals simulate when within the SIM BUBBLE, 12 cells of the player's feet
@@ -47,8 +54,12 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
  - slime: a pest that drifts toward the player and leeches energy when adjacent
    (numbers + defeat in CREATURES). Tame with a sapphire (secret — hinted only
    in book tips); tame slimes don't drain.
- - deer (15 hp), crow (8 hp): sneak in and eat crops. Deer: 20% chance per wander
-   step within 1.5 cells of a crop. Crow: orbital 2-cycle attack (see above).
+ - deer (15 hp): THE crop raider. Notices a crop it may eat within 8 cells
+   (a dispatched hard-mode pest from anywhere in the bubble) and about half
+   its steps walk at it; 20% chance per wander step to eat one within 1.5
+   cells. Never a potato, never Home's yard; bolts from a player within 5
+   cells, so a field is safe while you stand in it. Dogs hunt it, scarecrows
+   turn it.
  - DERELICT LAIRS ARE A HARD-MODE RULE (Difficulty derelictLairs, src/lairs.js).
    Every UNCLAIMED structure — a wrecked house, a sealed fort, an unclaimed
    castle, by the isClaimedKey test the derelict wash already reads — holds a

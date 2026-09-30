@@ -92,8 +92,8 @@ test('enemy art: size reduction targets 2x foes and the two selected giants only
     goblin_archer: 1.25, goblin_trapper: 1.25, mini_slime: 0.78,
     mini_spider: 1.3, giant_slime: 1.536, giant_spider: 3.2,
     moss_slime: 1.2, giant_plant: 3.2,
-    // The gull wears the crow's geometry (CREATURE_ART.gull), unscaled.
-    gull: 1.3 });
+    // The gull and the raven wear the crow's geometry (CREATURE_ART), unscaled.
+    gull: 1.3, raven: 1.3 });
   assert.eq(Object.keys(expected).length, EnemyRoster.ROWS.filter(row => !row.art.directions).length);
   for (const [kind, scale] of Object.entries(expected)) {
     assert.lt(Math.abs(SpriteLayout.creatureScale(kind) - scale), 1e-9, kind);
