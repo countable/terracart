@@ -12,6 +12,9 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   at the repository root for its service-worker scope.
 - [README.md](README.md): setup and source map.
 - [test/node/README.md](test/node/README.md): test harness and module registration.
+- [docs/art/README.md](docs/art/README.md): palette and sprite style direction;
+  use the current chibi characters for style, muted rustic colours for natural
+  and unrestored assets, and deliberate colour contrast for restored/sacred places.
 - [docs/QC_RULES.md](docs/QC_RULES.md): checklist for art, sprites and item surfaces;
   read it for asset changes. This file owns mechanic invariants if notes disagree.
 - [docs/spec.txt](docs/spec.txt): game design; code owns current numeric values.

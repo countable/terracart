@@ -1,0 +1,553 @@
+{
+  "version": 1,
+  "title": "Mending Lane \u00b7 rustic world, colour restored",
+  "sources": [
+    "assets/art/story_wake.webp",
+    "assets/art/story_wrecks.webp",
+    "assets/art/trail_intro.webp",
+    "assets/art/zone_grove.webp",
+    "assets/art/street_hedgerow.webp",
+    "assets/art/street_orchard.webp",
+    "assets/art/street_toadstool.webp",
+    "assets/art/zone_stones.webp",
+    "assets/art/zone_tar.webp",
+    "assets/art/restore_house.webp",
+    "assets/art/kind_farm.webp",
+    "assets/art/kind_wizard.webp"
+  ],
+  "sampling": {
+    "portraitTopFraction": 0.4,
+    "sampleSize": 160,
+    "quantizedColors": 20,
+    "method": "Equal contribution per image. Whole landscape paintings; upper 40% of portrait paintings to exclude their intentionally dark text area. RGB median-cut representatives; these are not literal source-pixel hex values."
+  },
+  "palette": [
+    {
+      "id": "ink",
+      "name": "Charcoal",
+      "hex": "#171717",
+      "group": "structure",
+      "origin": "character",
+      "use": "Dark contours; retain the player pack outline."
+    },
+    {
+      "id": "shadow",
+      "name": "Warm shadow",
+      "hex": "#28110b",
+      "group": "earth",
+      "origin": "story",
+      "use": "Deep cracks, cavities and undersides."
+    },
+    {
+      "id": "bark",
+      "name": "Bark",
+      "hex": "#4c3018",
+      "group": "earth",
+      "origin": "story",
+      "use": "Tree trunks and dark soil."
+    },
+    {
+      "id": "earth",
+      "name": "Warm earth",
+      "hex": "#6c431d",
+      "group": "earth",
+      "origin": "story",
+      "use": "Wood and soil midtone."
+    },
+    {
+      "id": "clay",
+      "name": "Brick",
+      "hex": "#90431b",
+      "group": "earth",
+      "origin": "story",
+      "use": "Muted red mushroom caps, old brick and autumn leaves."
+    },
+    {
+      "id": "ochre",
+      "name": "Ochre",
+      "hex": "#9b6526",
+      "group": "earth",
+      "origin": "story",
+      "use": "Dry wood and worn stone warmth."
+    },
+    {
+      "id": "rust",
+      "name": "Rust",
+      "hex": "#ba6724",
+      "group": "light",
+      "origin": "story",
+      "use": "Rust, autumn foliage and warm focal details."
+    },
+    {
+      "id": "amber",
+      "name": "Amber",
+      "hex": "#f39934",
+      "group": "light",
+      "origin": "story",
+      "use": "Fire and lit edges; sparse on common objects."
+    },
+    {
+      "id": "gold",
+      "name": "Golden light",
+      "hex": "#fac756",
+      "group": "light",
+      "origin": "story",
+      "use": "Treasure and sunlight; avoid whole ordinary foliage masses."
+    },
+    {
+      "id": "cream",
+      "name": "Warm cream",
+      "hex": "#e6d7a3",
+      "group": "stone",
+      "origin": "adapted",
+      "use": "Mushroom stems, pale stone and highlights."
+    },
+    {
+      "id": "stone_shadow",
+      "name": "Stone shadow",
+      "hex": "#403e34",
+      "group": "stone",
+      "origin": "adapted",
+      "use": "Warm charcoal grey; ruined stone undersides."
+    },
+    {
+      "id": "stone",
+      "name": "Weathered stone",
+      "hex": "#777462",
+      "group": "stone",
+      "origin": "adapted",
+      "use": "Basalt, masonry and rubble midtone."
+    },
+    {
+      "id": "stone_light",
+      "name": "Limestone",
+      "hex": "#b0aa8a",
+      "group": "stone",
+      "origin": "adapted",
+      "use": "Broken faces and restrained stone highlights."
+    },
+    {
+      "id": "leaf_shadow",
+      "name": "Forest shadow",
+      "hex": "#26342a",
+      "group": "foliage",
+      "origin": "adapted",
+      "use": "Foliage recesses; quieter than cyan or blue shadows."
+    },
+    {
+      "id": "leaf_dark",
+      "name": "Dark olive",
+      "hex": "#3e4b2c",
+      "group": "foliage",
+      "origin": "adapted",
+      "use": "Hedge and tree canopy shadows."
+    },
+    {
+      "id": "leaf",
+      "name": "Moss",
+      "hex": "#596338",
+      "group": "foliage",
+      "origin": "adapted",
+      "use": "Default foliage midtone."
+    },
+    {
+      "id": "leaf_light",
+      "name": "Sage olive",
+      "hex": "#7a8147",
+      "group": "foliage",
+      "origin": "adapted",
+      "use": "Sun-facing leaf clusters."
+    },
+    {
+      "id": "leaf_tip",
+      "name": "Lichen",
+      "hex": "#a5a569",
+      "group": "foliage",
+      "origin": "adapted",
+      "use": "Small leaf tips, never a whole luminous bush."
+    },
+    {
+      "id": "dry_shadow",
+      "name": "Dry stem",
+      "hex": "#6c633f",
+      "group": "foliage",
+      "origin": "adapted",
+      "use": "Dry grass and muted stalks."
+    },
+    {
+      "id": "dry_leaf",
+      "name": "Straw",
+      "hex": "#b1a064",
+      "group": "foliage",
+      "origin": "adapted",
+      "use": "Dry grass, reeds and sparse golden leaves."
+    },
+    {
+      "id": "flower_rose",
+      "name": "Dusty rose",
+      "hex": "#a55e72",
+      "group": "flower",
+      "origin": "adapted",
+      "use": "Petals only; keep stems in the foliage ramp."
+    },
+    {
+      "id": "flower_lilac",
+      "name": "Heather",
+      "hex": "#8d79a1",
+      "group": "flower",
+      "origin": "adapted",
+      "use": "Petals or a named magical bloom."
+    },
+    {
+      "id": "flower_blue",
+      "name": "Forget-me-not",
+      "hex": "#6b90ac",
+      "group": "flower",
+      "origin": "adapted",
+      "use": "Petals; distinct from the brighter player cyan."
+    },
+    {
+      "id": "hero_cyan_dark",
+      "name": "Player cyan shadow",
+      "hex": "#349aa4",
+      "group": "hero",
+      "origin": "character",
+      "use": "Reserved focal colour: player clothes and deliberate navigation cues."
+    },
+    {
+      "id": "hero_cyan",
+      "name": "Player cyan",
+      "hex": "#4ebcb9",
+      "group": "hero",
+      "origin": "character",
+      "use": "Keep the current character art; avoid this saturation across ordinary flora."
+    },
+    {
+      "id": "restored_sage",
+      "name": "Restored sage",
+      "hex": "#82b9a0",
+      "group": "restored",
+      "origin": "adapted",
+      "use": "Deliberate off-palette colour for tended gardens or renewed sacred spaces; not wild foliage."
+    },
+    {
+      "id": "restored_blue",
+      "name": "Clear blue",
+      "hex": "#83afcc",
+      "group": "restored",
+      "origin": "adapted",
+      "use": "Restored paintwork, clean glass or a special sanctuary."
+    },
+    {
+      "id": "sacred_ivory",
+      "name": "Sacred ivory",
+      "hex": "#dce4da",
+      "group": "restored",
+      "origin": "adapted",
+      "use": "Clean pale stone and sacred highlights; preserve contrast with the dark outline."
+    }
+  ],
+  "rules": [
+    "The main contrast is state and meaning: natural or pre-restoration assets stay in the muted post-apocalyptic rustic world palette; player-restored assets, the player and special/sacred places may deliberately depart from it. Style stays consistently chibi retro pixel in every state.",
+    "Use the current 16px Cyan character pack as the sprite style reference: compact rounded proportions, readable dark contours, sparse purposeful pixel clusters and opaque pixel edges.",
+    "Use story art for colour relationships and atmosphere, not its illustration detail density. The paintings are golden-hour scenes; ordinary game foliage needs an adapted muted green ramp, not an orange tint over everything.",
+    "For a common 16px plant, aim for 3\u20135 opaque colours including outline, with one dominant midtone and separated shadow/highlight. For a tree canopy, aim for 4\u20136 colours in large rounded clusters; bark gets its own small ramp. These are review targets, not hard limits.",
+    "Keep source-pixel density comparable to the character pack. Prefer authored 16px small props and 32\u00d748 trees; size is a starting point, not a ban on larger art. Do not shrink painterly assets until their detail becomes noise.",
+    "Ordinary grass, shrubs and tree foliage use olive/moss relationships. Nearby shades are acceptable when hue, contrast and saturation still belong to the same ramp; exact hex matching is not required.",
+    "Use warm stone greys, dark cracks and a few light broken faces for ruins. Reserve amber for small lit edges; ruins should not compete with characters and rewards.",
+    "Player cyan is an intentional exception. Flowers may use muted rose, lilac or blue on petals, with ordinary green stems. Restored assets, sacred places, magical mushrooms and rare finds may depart further when colour communicates their state or special role.",
+    "Judge the silhouette first at native pixel size and then at runtime size on both light grass and dark ground. Palette changes cannot fix a fuzzy outline, unreadable silhouette or excessive texture.",
+    "Keep current shipped art until a replacement is selected. The palette is an art-review target, not a runtime quantization filter or an automatic recolouring instruction."
+  ],
+  "recommendations": {
+    "grass-current": {
+      "decision": "recolour",
+      "style": "Strong",
+      "palette": "Needs olive ramp",
+      "note": "Keep the chunky collectible silhouette; bring the bright green into moss/olive.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "grass-green": {
+      "decision": "preferred after recolour",
+      "style": "Strong",
+      "palette": "Needs olive ramp",
+      "note": "Closest replacement to the character pack; replace lime highlights with sage olive.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "grass-golden": {
+      "decision": "dry-zone option",
+      "style": "Strong",
+      "palette": "Near palette",
+      "note": "Use straw/ochre for dry or autumn patches, not as the universal grass.",
+      "context": "Dry / autumn natural areas"
+    },
+    "grass-fern": {
+      "decision": "conditional",
+      "style": "Moderate",
+      "palette": "Near palette",
+      "note": "Good muted colour; thin low fronds are weak as the primary collectible at tiny size.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "grass-leafy": {
+      "decision": "deprioritise",
+      "style": "Weak",
+      "palette": "Needs olive ramp",
+      "note": "Fragmented soft edges conflict with the chunky character silhouettes; the prior recommendation is withdrawn. Cooler colours could suit restoration, but the style mismatch remains.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "mushroom-current": {
+      "decision": "recolour",
+      "style": "Strong",
+      "palette": "Too vivid for ordinary flora",
+      "note": "Use cream stem plus warm brown or muted brick cap instead of lime.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "mushroom-cave-a": {
+      "decision": "themed exception",
+      "style": "Strong",
+      "palette": "Intentional exception",
+      "note": "Keep luminous blue for underground magic, not ordinary surface mushrooms.",
+      "context": "Special / magical only"
+    },
+    "mushroom-cave-b": {
+      "decision": "themed exception",
+      "style": "Strong",
+      "palette": "Intentional exception",
+      "note": "Keep luminous blue for underground magic, not ordinary surface mushrooms.",
+      "context": "Special / magical only"
+    },
+    "mushroom-red": {
+      "decision": "preferred after recolour",
+      "style": "Strong",
+      "palette": "Needs muted brick ramp",
+      "note": "Round outlined cap fits the characters; use brick/rust with cream spots and stem.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "mushroom-brown": {
+      "decision": "preferred as-is candidate",
+      "style": "Strong",
+      "palette": "Near palette",
+      "note": "Restrained warm cap; check the dark stem against forest ground.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "mushroom-cluster": {
+      "decision": "secondary option",
+      "style": "Moderate",
+      "palette": "Near palette",
+      "note": "Warm cap cluster works; preserve a clear outer contour at runtime size.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "mushroom-verdant": {
+      "decision": "deprioritise",
+      "style": "Weak",
+      "palette": "Near palette",
+      "note": "Colours fit, but flat block shapes lack the character pack contour and modelling.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "mushroom-reserve-red": {
+      "decision": "rare-growth option",
+      "style": "Moderate",
+      "palette": "Needs muted brick ramp",
+      "note": "Use only for a deliberately larger or magical growth; too elaborate for repeating normal mushrooms.",
+      "context": "Special / magical only"
+    },
+    "tree-current-maple": {
+      "decision": "retain shape, recolour",
+      "style": "Strong",
+      "palette": "Needs olive ramp",
+      "note": "Keep the outlined chunky canopy; simplify small high-contrast leaf flecks and shift ordinary greens toward moss/olive.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "tree-current-pine": {
+      "decision": "retain shape, recolour",
+      "style": "Strong",
+      "palette": "Needs olive ramp",
+      "note": "Keep the outlined chunky canopy; simplify small high-contrast leaf flecks and shift ordinary greens toward moss/olive.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "tree-current-birch": {
+      "decision": "retain shape, recolour",
+      "style": "Strong",
+      "palette": "Needs olive ramp",
+      "note": "Keep the outlined chunky canopy; simplify small high-contrast leaf flecks and shift ordinary greens toward moss/olive.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "tree-current-mahogany": {
+      "decision": "retain shape, recolour",
+      "style": "Strong",
+      "palette": "Needs olive ramp",
+      "note": "Keep the outlined chunky canopy; simplify small high-contrast leaf flecks and shift ordinary greens toward moss/olive.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "tree-tall-green": {
+      "decision": "preferred after recolour",
+      "style": "Strong",
+      "palette": "Needs olive ramp",
+      "note": "Best alternate tree silhouette; group highlights into broad rounded canopy masses.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "tree-tall-teal": {
+      "decision": "restored or sacred option",
+      "style": "Strong",
+      "palette": "Too cyan",
+      "note": "Strong matching silhouette. Teal can deliberately distinguish a restored or sacred grove; recolour to olive for ordinary wild forest.",
+      "context": "Restored garden / sacred grove"
+    },
+    "tree-autumn-birch": {
+      "decision": "autumn option after recolour",
+      "style": "Strong",
+      "palette": "Needs rust/ochre ramp",
+      "note": "The source red is too vivid for general foliage; use muted brick, rust and straw.",
+      "context": "Dry / autumn natural areas"
+    },
+    "tree-emerald-broadleaf": {
+      "decision": "deprioritise",
+      "style": "Weak",
+      "palette": "Too minty",
+      "note": "Soft high-resolution shading and weak contour remain a mismatch even after recolouring. Cooler colours could suit restoration, but the style mismatch remains.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "tree-emerald-pine": {
+      "decision": "deprioritise",
+      "style": "Weak",
+      "palette": "Too minty",
+      "note": "Wide soft branches shrink poorly beside compact outlined characters. Cooler colours could suit restoration, but the style mismatch remains.",
+      "context": "Natural / unrestored, with the stated colour adjustment"
+    },
+    "bush-current": {
+      "decision": "retain for restored / sacred",
+      "style": "Strong",
+      "palette": "Too teal for wild foliage",
+      "context": "Restored garden / sacred grove",
+      "note": "Rounded outlined silhouette fits; shift to moss/olive if used as common wild shrubs."
+    },
+    "bush-green": {
+      "decision": "natural option after recolour",
+      "style": "Strong",
+      "palette": "Needs olive ramp",
+      "context": "Natural / unrestored",
+      "note": "Keep the rounded canopy and dark outline; simplify bright leaf flecks and replace lime with sage olive."
+    },
+    "bush-golden": {
+      "decision": "dry / autumn option",
+      "style": "Strong",
+      "palette": "Needs muted ochre ramp",
+      "context": "Dry / autumn natural areas",
+      "note": "Keep warm colours but reduce orange saturation; not a general-purpose natural bush."
+    },
+    "bush-verdant": {
+      "decision": "ambient option",
+      "style": "Moderate",
+      "palette": "Near palette",
+      "context": "Natural undergrowth",
+      "note": "Subdued green fits. Low flat silhouette and weak contour make it less clear as the main collectible."
+    },
+    "bush-emerald": {
+      "decision": "deprioritise",
+      "style": "Weak",
+      "palette": "Restored colour only",
+      "context": "Not preferred in either state",
+      "note": "Mint can communicate restoration, but soft shading and weak contours still mismatch the characters."
+    },
+    "bush-hedge-end": {
+      "decision": "preferred compact bush shape",
+      "style": "Strong",
+      "palette": "Near palette; tame bright tips for wild",
+      "context": "Natural after adjustment / formal restored garden",
+      "note": "The requested hedge_end.png has a rounded block silhouette and dark contour that read well at 16px. Use moss/olive for ordinary bushes; brighter tips can identify tended hedges."
+    },
+    "ruin-pillar-c": {
+      "decision": "preferred as-is candidate",
+      "style": "Strong",
+      "palette": "Near palette",
+      "context": "Natural / pre-restoration ruins",
+      "note": "Warm stone ramp, dark cracks and short stepped silhouette fit. Use as a vertical remnant among low rubble."
+    },
+    "ruin-pot-smashed": {
+      "decision": "preferred as-is candidate",
+      "style": "Strong",
+      "palette": "Near palette",
+      "context": "Natural / pre-restoration ruins",
+      "note": "Dark-edged rust pottery gives a readable low accent. Scatter sparsely among stone remnants."
+    },
+    "ruin-broken-column": {
+      "decision": "secondary after outline adjustment",
+      "style": "Moderate",
+      "palette": "Near palette",
+      "context": "Pre-restoration / sacred with different finish",
+      "note": "Broken silhouette is clear. Add a stronger dark edge for world readability; warm grey suits ruins, cleaner pale stone can suit sacred sites."
+    },
+    "ruin-rubble-pile": {
+      "decision": "ambient option",
+      "style": "Moderate",
+      "palette": "Near palette",
+      "context": "Natural / pre-restoration ruins",
+      "note": "Low neutral heap works as debris. Strengthen silhouette contrast before making it a primary collectible."
+    },
+    "ruin-masonry": {
+      "decision": "secondary after outline adjustment",
+      "style": "Moderate",
+      "palette": "Near palette",
+      "context": "Broken Masonry / depot ruins",
+      "note": "Warm brick and stone fit the rustic world. Darken the outer contour for a stronger match to the characters."
+    }
+  },
+  "worldStates": [
+    {
+      "id": "wild",
+      "name": "Natural / unrestored",
+      "rule": "Muted rustic palette. Olive/moss foliage, warm earth, weathered stone and restrained highlights. Applies to common flora and pre-restoration ruins.",
+      "groups": [
+        "structure",
+        "earth",
+        "stone",
+        "foliage"
+      ],
+      "exceptions": "Flowers may use small coloured petals. A natural object only breaks further from the palette when it has a specific special or sacred role."
+    },
+    {
+      "id": "restored",
+      "name": "Player / restored",
+      "rule": "Deliberate off-palette contrast: cleaner cool hues, brighter accents and clearer material surfaces communicate care and change. Preserve some warm-world colours for continuity.",
+      "groups": [
+        "hero",
+        "restored",
+        "flower"
+      ],
+      "exceptions": "This is permission, not a requirement to make every restored object saturated. Preserve the same pixel density, contours and silhouette language."
+    },
+    {
+      "id": "sacred",
+      "name": "Special / sacred",
+      "rule": "Distinct accent families can identify meaningful places or rare finds before interaction. One dominant accent family per place; not a rainbow across every prop.",
+      "groups": [
+        "restored",
+        "flower",
+        "hero"
+      ],
+      "exceptions": "A natural sacred grove can be an intentional exception; its special role should explain its departure from ordinary wild foliage."
+    }
+  ],
+  "ruinsPlan": [
+    {
+      "role": "Vertical remnant",
+      "candidate": "ruin-pillar-c",
+      "use": "Sparse anchors in Old Stones and Broken Masonry; pair with lower debris to keep the scene readable."
+    },
+    {
+      "role": "Ground debris",
+      "candidate": "ruin-masonry",
+      "use": "Main masonry silhouette after contour cleanup; rubble pile can supply a quieter secondary shape."
+    },
+    {
+      "role": "Human trace",
+      "candidate": "ruin-pot-smashed",
+      "use": "Sparse low pottery accent near remnants, never the whole ruin field."
+    },
+    {
+      "role": "Sacred distinction",
+      "candidate": "ruin-broken-column",
+      "use": "A clearer pale finish can identify a special or restored site while the surrounding unrestored debris stays warm and muted."
+    }
+  ]
+}
