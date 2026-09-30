@@ -28,7 +28,7 @@ globalThis.ArtPreviewColour = (() => {
       }
       ctx.putImageData(pixels,0,0);return canvas;
     }
-    if(options.mode==='apple-foliage'){
+    if(options.mode==='apple-foliage'||options.mode==='pine-foliage'){
       // Borrow the selected apple's value ramp without quantizing source shades.
       // Restrict the treatment to foliage; bark, pale birch and fruit keep identity.
       let lo=255,hi=0;
@@ -36,10 +36,18 @@ globalThis.ArtPreviewColour = (() => {
       for(let i=0;i<pixels.data.length;i+=4){
         if(pixels.data[i+3]<200)continue;
         const source=Array.from(pixels.data.slice(i,i+3)),[r,g,b]=source,light=luma(source);
-        if(g<r*.95||g<b*.92||g-b<5||light<30)continue;
+        const pineLeaf=options.mode==='pine-foliage'&&g>r*1.3&&b>r*1.3;
+        const excluded=g<r*.95||g<b*.92||g-b<5||light<30;
+        if(excluded&&!pineLeaf)continue;
         const at=Math.max(0,Math.min(1,(light-lo)/Math.max(1,hi-lo)))*(ramp.length-1);
         const a=Math.floor(at),z=Math.ceil(at),t=at-a;
-        source.forEach((v,k)=>{const target=ramp[a][k]+(ramp[z][k]-ramp[a][k])*t;pixels.data[i+k]=clamp(v+(target-v)*strength);});
+        const mapped=source.map((v,k)=>excluded?v:v+(ramp[a][k]+(ramp[z][k]-ramp[a][k])*t-v)*strength);
+        if(pineLeaf){
+          // Cyan pine shadows fell outside the green mask. Correct their hue
+          // at the same luminance; soften mint highlights without another lift.
+          const value=luma(mapped),ref=ramp.reduce((best,c)=>Math.abs(luma(c)-value)<Math.abs(luma(best)-value)?c:best),refLight=luma(ref);
+          mapped.forEach((v,k)=>pixels.data[i+k]=clamp(v+(value+ref[k]-refLight-v)*(excluded?1:.65)));
+        }else mapped.forEach((v,k)=>pixels.data[i+k]=clamp(v));
       }
       ctx.putImageData(pixels,0,0);return canvas;
     }

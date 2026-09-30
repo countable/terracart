@@ -28,7 +28,7 @@ def plan(reserve):
             current = row['current']
             refs = current if isinstance(current,list) else [current]
             refs = [dict(ref, path=ref.get('path',ref.get('file',''))) for ref in refs]
-            if row.get('category')=='trees' and rec.get('recolourMode') in ['approved-apple', 'apple-foliage']:
+            if row.get('category')=='trees' and rec.get('recolourMode') in ['approved-apple', 'apple-foliage', 'pine-foliage']:
                 # Show the same direction across growth, fruiting and bare states.
                 sheets = {ref['path']:ref for ref in refs}
                 refs = []
@@ -36,8 +36,9 @@ def plan(reserve):
                     with Image.open(ROOT/path) as sheet:
                         w,h=ref['rect'][2:]
                         refs.extend(dict(ref,rect=[x,y,w,h]) for y in range(0,sheet.height,h) for x in range(0,sheet.width,w))
-            elif rec.get('recolourMode')=='crop-light':
-                refs=[dict(ref,rect=[stage*16,ref['rect'][1],16,16]) for ref in refs for stage in range(5)]
+            elif rec.get('recolourMode')=='crop-light' or rec.get('growthStages'):
+                refs=[expanded for ref in refs for expanded in
+                      ([dict(ref,rect=[stage*16,ref['rect'][1],16,16]) for stage in range(5)] if ref['rect'][0]==64 else [ref])]
             if isinstance(current,dict) and current.get('textureKeys'):
                 refs += [dict(key=k) for k in current['textureKeys']]
             candidate = rec.get('candidate')
@@ -55,13 +56,13 @@ def plan(reserve):
         'Before is the current game, including the approved rustic defaults and new gold chest.',
         'After tunes each material’s colour and shading while retaining source geometry. Flowers receive only 7.5% palette, desaturation and lightness adjustment. Lava retains its original fiery colour and bright highlights.',
         'The new chest shape blends halfway toward the old chest’s warm wood and muted metal colours; fort and castle floors move 20% toward their original bases.',
-        'Flora keeps the apple-inspired direction with 25% less adjustment, except grass which retains its approved treatment; bushes and hedges use half the earlier adjustment. Strong ground patterns have 20% less contrast; the forest base is slightly darker.',
-        'Restored buildings receive a 10% palette/desaturation/lightness adjustment and mushrooms 7.5%; stone votive lightness lifts 12%. Rockfruit, shells, macro booths and chapel remain unchanged.',
+        'Flora keeps the apple-inspired direction with 25% less adjustment, except grass which retains its approved treatment; bushes and hedges use half the earlier adjustment. Forest and marsh spots use half-strength overlays; sand marks are 15% softer. The swamp returns toward its earlier deeper green.',
+        'Restored buildings receive a 10% palette/desaturation/lightness adjustment and mushrooms 7.5%; stone votive lightness lifts 12%. Rockfruit moves gently toward ore-stone colours; shells, macro booths and chapel remain unchanged.',
         'The sandbox buildings are claimed. The separate audit cards show the more weathered unclaimed fort treatment.',
         'Both captures use the same frozen sandbox, identical object positions, native pixels and neutral fullbright lighting.',
         'The clipped hedge is previewed only on residential/commercial shrub placements.',
         'The handmade sandbox has no zone-variant motifs or vector road/building polygons. Its existing tiled building mode is used for both views.',
-        'Crop growth art receives a small 5.25% lightness lift, excluding rockfruit. Actors and inventory-only frames remain unchanged; candidates absent from the sandbox cannot be evaluated here.',
+        'Crop growth art receives a small 5.25% lightness lift; nut plants get their own brighter olive foliage treatment and rockfruit its own ore-stone colours. Actors and inventory-only frames remain unchanged; candidates absent from the sandbox cannot be evaluated here.',
     ])
 
 

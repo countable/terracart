@@ -112,8 +112,8 @@
       "proposedColor": "#6d7a5e",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Bring the forest base another 15% toward its original darker, richer green, retaining a useful lift for object visibility. Keep the leaf-litter pattern contrast reduced by 20%.",
-      "rationale": "Bring the forest base another 15% toward its original darker, richer green, retaining a useful lift for object visibility. Keep the leaf-litter pattern contrast reduced by 20%.",
+      "recommendation": "Soften the dark organic marks to 50% of their original overlay strength, retaining the small litter or water highlights and corrected tiling geometry.",
+      "rationale": "Soften the dark organic marks to 50% of their original overlay strength, retaining the small litter or water highlights and corrected tiling geometry.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/DeadGrass.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -132,7 +132,7 @@
       },
       "proposedLuminance": 117.2,
       "proposedChannelSpread": 28,
-      "patternOpacity": 0.8
+      "patternOpacity": 0.5
     },
     {
       "id": "ground-2",
@@ -160,8 +160,8 @@
       "proposedColor": "#d4c9b4",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #d4c9b4. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
-      "rationale": "Keep the existing procedural texture with base #d4c9b4. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface.",
+      "recommendation": "Keep the sand base colour and soften ripple/grain contrast by 15%; use continuous ripple geometry across texture variants.",
+      "rationale": "Keep the sand base colour and soften ripple/grain contrast by 15%; use continuous ripple geometry across texture variants.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/Grass.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -179,7 +179,8 @@
         "terrainId": 2
       },
       "proposedLuminance": 201.8,
-      "proposedChannelSpread": 32
+      "proposedChannelSpread": 32,
+      "patternOpacity": 0.85
     },
     {
       "id": "ground-3",
@@ -726,11 +727,11 @@
         "terrainId": 20
       },
       "currentColor": "#3d4f3c",
-      "proposedColor": "#839283",
+      "proposedColor": "#607060",
       "assessment": "Moderately lighter ground retains its material colour while giving shaded objects room to read.",
       "treatment": "recolor",
-      "recommendation": "Keep the existing procedural texture with base #839283. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
-      "rationale": "Keep the existing procedural texture with base #839283. Retain more of the original colour and depth; preserve texture shadows and highlights without washing out the surface. Reduce the texture marks\u2019 contrast against the base by 20%.",
+      "recommendation": "Bring the swamp base halfway back toward its original deeper green. Soften the dark organic marks to 50% of their original overlay strength, retaining the small litter or water highlights and corrected tiling geometry.",
+      "rationale": "Bring the swamp base halfway back toward its original deeper green. Soften the dark organic marks to 50% of their original overlay strength, retaining the small litter or water highlights and corrected tiling geometry.",
       "candidate": {
         "path": "unused_art/MiniWorldSprites/Ground/Shore.png",
         "role": "available-library comparison; retain current procedural geometry",
@@ -747,9 +748,9 @@
         "kind": "biome",
         "terrainId": 20
       },
-      "proposedLuminance": 141.7,
-      "proposedChannelSpread": 15,
-      "patternOpacity": 0.8
+      "proposedLuminance": 107.4,
+      "proposedChannelSpread": 16,
+      "patternOpacity": 0.5
     },
     {
       "id": "ground-21",
