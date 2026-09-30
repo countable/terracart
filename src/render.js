@@ -2801,577 +2801,7 @@ Render.drawObjects = function drawObjects(scene) {
   } else {
     scene._rampartOccludedCells = null;
   }
-  // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
-  // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
-  // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
-  // hides — used for variants that haven't baked yet.
-  // Supply-crate / lowtier-chest sprite scale (the 16×16 `box` art).
-  // 0.8 (down 20% from 1.0, Sep 2026 playtest) — 16 × 0.8 = ~13px inside the
-  // 32px cell.
-  const CRATE_SCALE = 0.8;
-  // A BARREL (a bin — loot.js isBarrel) and a BIKE RACK (isBikeRack): 16px
-  // generated props, a touch bigger than the crate they stand in for.
-  const SMALL_POI_SCALE = 1.3;
-  // The broken WAGON an old-trade-road bus stop wears (loot.js chestLook): the
-  // 128×96 frame's art is 88 px wide (x 20..108) and ends 2 px above the frame
-  // bottom, so 0.55 draws it ~1.5 cells wide, and WAGON_DY_PX drops the
-  // foot-anchored frame so the art's bottom row sits 1 px above the POI cell's
-  // bottom edge (half a cell, less that pixel, plus the 2 blank rows scaled).
-  const WAGON_SCALE = 0.55;
-  const WAGON_DY_PX = CELL_PX * 0.5 - 1 + 2 * WAGON_SCALE;
-  // Render-spec callbacks receive the world object, while the object walk
-  // carries the role on its frame item. This map bridges those APIs without
-  // resolving the role again; Houses.displayRole owns the verdict.
-  const _houseRole = (o) => houseRoles.get(o);
-  // ── Tree size + fruit-tree growth helpers (shared by the specs below) ──
-  // Four discrete in-game size tiers from the DeepForest crown size class —
-  // the smallest ('bush') renders as a bush, the rest as trees. OSM trees carry
-  // no size and draw their flat species scale; there is no continuous size in
-  // between (see treeBaseScale in util.js for why the crown_m one went).
-  // (Authoritative copy lives in util.js TREE_SIZE_MUL; treeScale() applies it.)
-  // Fruit-tree life-cycle frames, in 32px-wide frame indices (sheets are sliced
-  // 32×48 — see assets.js; each tree is a full 32px column, NOT 16). The Apple
-  // and Peach sheets DON'T share a layout, so map each explicitly:
-  //   apple (15 frames): 0 sprout, 2 young, 4 mature-green, 5 blossom.
-  //   peach (13 frames): 0 sprout, 2 young, 3 mature-green, 4 blossom.
-  // (Higher frames are seasonal / stump / white-matte cells — NOT live trees.)
-  //
-  // A BEARING tree keeps the mature frame and wears its fruit as a separate
-  // sprite on the canopy (the fruit pass at the end of this function), so the
-  // sheets' own fruiting cells — apple 7, peach 5 — are no longer drawn: a
-  // pick removes a fruit rather than repainting the tree. That's why `grow`
-  // ends on the mature frame it already passed through at stage 2: stage 3 is
-  // blossom, and stage 4 is the same mature tree with fruit hung on it.
-  const FRUIT_FRAMES = {
-    apple: { grow: [0, 2, 4, 5, 4], mature: 4 },
-    peach: { grow: [0, 2, 3, 4, 3], mature: 3 },
-  };
-  const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'peach' ? 'peach' : 'apple'];
-  const fruitNow = Date.now();
-  const _ftState = (o) => Crops.fruitTreeState(o, scene.save.fruitPicked?.[o.id], fruitNow);
-  const _ftStage = (o) => _ftState(o).stage;
-  const _ftBearing = (o) => _ftState(o).ready;
-  // Gentle hue nudge: lighten the sampled crown colour halfway to white so the
-  // multiplicative tint shifts the sprite's hue without darkening it to mud.
-  const _crownTint = (hex) => {
-    if (typeof hex !== 'string' || hex[0] !== '#' || hex.length < 7) return 0xffffff;
-    let r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-    if (isNaN(r) || isNaN(g) || isNaN(b)) return 0xffffff;
-    r = (r + 255) >> 1; g = (g + 255) >> 1; b = (b + 255) >> 1;
-    return (r << 16) | (g << 8) | b;
-  };
-
-  // Texture key + frame for a house, by role. Named (rather than inlined in
-  // RENDER_SPEC) because the scale fit and the shadow pass both need to look
-  // up the same art the sprite will actually draw.
-  const _houseKey = (o) => {
-    const role = _houseRole(o);
-    if (role === 'plain')  return 'house';
-    if (role === 'wizard') return 'shrine';   // wizard tower reuses wizard.png
-    return `house_${role}`;
-  };
-  // Plain houses pick the 'front' sub-rect of the house tileset; wizard towers
-  // pick the fully-restored top-row tower frame (frame 3) of the wizard sheet;
-  // other themed PNGs are single-image (frame undefined).
-  const _houseFrame = (o) => {
-    const role = _houseRole(o);
-    if (role === 'plain')  return 'front';
-    if (role === 'wizard') return 3;
-    return undefined;
-  };
-  // Every building is sized by ONE rule (BUILDING_ART / houseArtScale in
-  // util.js): draw at your own footprint, clamped to a range stated in DRAWN
-  // CELLS. All render.js does is read the art's real frame width and hand it
-  // over — the width is what turns a cell count into a sprite scale, and it is
-  // why a role's size is stated in cells rather than in scale (see the note on
-  // the table). Frames that can't be measured come back as 0, which the rule
-  // answers with 1; the sprite is already hidden by then.
-  const _houseFrameW = (o) => {
-    if (!scene.textures || !scene.textures.exists(_houseKey(o))) return 0;
-    const fr = scene.textures.get(_houseKey(o)).get(_houseFrame(o));
-    return (fr && fr.width) || 0;
-  };
-  const _houseBaseScale = (o) =>
-    buildingBaseScale(_houseFrameW(o), _houseRole(o) === 'fort', CELL_PX);
-  const _houseScale = (o) =>
-    houseArtScale(o.area, _houseFrameW(o), _houseRole(o) === 'fort',
-                  scene.cellM, CELL_PX);
-
-  // Height in px from the house's ground point (sy) up to the MIDLINE of its
-  // drawn art — where a tag hung ON the building's face sits. Mirrors the
-  // placement the sprite pass uses: every role but the wizard is centred on sy
-  // (origin y 0.5, no nudge), so its midline IS sy; the wizard tower is
-  // foot-anchored half a cell lower and reaches its full scaled height up from
-  // there, so its midline is half that height above the foot.
-  // The open/busy plaque used to clear the TOP of the art by 3px instead. On
-  // the plain house the frame's top rows are the tip of a steep gable (6px
-  // wide at row 0 of 72), so "just above the roof" was a tag floating over a
-  // peak, a full storey off the shopfront — and every role read as too high.
-  // A sign belongs on the building, not over it.
-  const _houseMidPx = (o) => {
-    if (_houseRole(o) !== 'wizard') return 0;
-    if (!scene.textures || !scene.textures.exists(_houseKey(o))) return 0;
-    const fr = scene.textures.get(_houseKey(o)).get(_houseFrame(o));
-    if (!fr || !fr.height) return 0;
-    return (fr.height * _houseScale(o)) * 0.5 - CELL_PX * 0.5;
-  };
-
-  // Ripe fruit waiting to be drawn ON its tree — filled by the fruittree
-  // `after` hook as each tree is configured, drained by the fruit pass after
-  // the object pool has rendered. Rebuilt every frame, like everything else
-  // in this pass.
-  const fruitList = [];
-
-  const RENDER_SPEC = {
-    // Houses pick their texture by role — the generic 'house' frame stays
-    // as the fallback for plain residential. Themed sprites (sliced top-
-    // left from NPC house sheets, see Objects/Houses/):
-    //   - starter shop  → trailer    (the player's home/RV)
-    //   - blacksmith    → blacksmith (forge with chimney + sign)
-    //   - trader        → trader     (Fishman-style awning house)
-    //   - fort tier 11  → fort       (the school — big civic stone building)
-    // The 'house' texture is a tileset with a registered 'front' sub-frame;
-    // the themed PNGs are single-image, so frame must be undefined for them.
-    // Tint is suppressed for themed houses (the sprite is already distinct)
-    // in the post-config block further down — see the `themedHouse` flag.
-    house:  {
-      key: _houseKey,
-      frame: _houseFrame,
-      // Centre the sprite ON the building footprint's centroid (the house x/y
-      // IS that centroid). A bottom-middle anchor used to seat the base at the
-      // centroid and draw the whole body NORTH of it, which on any multi-cell
-      // footprint left the southern cells bare and pushed the roof off the top
-      // edge — the house read as shoved up, not centred on its tiles. A centred
-      // anchor (origin 0.5,0.5 + no nudge) keeps the art over its footprint.
-      // The wizard tower is the exception: it's a tall sprite that must
-      // stand foot-seated at the cell's front edge, so it keeps the bottom
-      // anchor + a downward nudge.
-      origin: (o) => (_houseRole(o) === 'wizard' ? [0.5, 1.0] : [0.5, 0.5]),
-      dyPx: (o) => (_houseRole(o) === 'wizard' ? CELL_PX * 0.5 : 0),
-      scale: _houseScale,
-      // Stamp the Home trailer's display rect for drawCells' castle-rampart
-      // sorting: a front (south) wall the trailer is parked in front of must
-      // not paint over it. Runs after position/origin/scale are final. Tiled
-      // mode only — the polygonal path has no rampart pass to read it.
-      after: (s, o) => {
-        if (!TILED || _houseRole(o) !== 'trailer') return;
-        const w = s.displayWidth, h = s.displayHeight;
-        scene._homeTrailerRect = {
-          x0: s.x - w * s.originX, x1: s.x + w * (1 - s.originX),
-          y0: s.y - h * s.originY, y1: s.y + h * (1 - s.originY),
-        };
-      } },
-    // Turret placement, exactly: the art is anchored by its frame's
-    // bottom-centre (origin 0.5, 1.0) and dropped half a cell from the cell
-    // CENTRE that sy gives us, so its grounding line lands ON the cell's
-    // bottom edge — not the ~2px short of it the old 0.95 origin left. The
-    // texture carries no bottom padding (see makeTowerTexture) so frame bottom
-    // IS art bottom, and its art is symmetric about the frame's centre column,
-    // so origin x 0.5 centres it on the cell. Towers draw in their own layer
-    // above BOTH rampart layers (app.js towerContainer), so the turret always
-    // reads as standing on top of the wall, never behind it.
-    // A turret has TWO baked textures, not one texture and a tint: an unclaimed
-    // castle's masonry is generated in the shaded palette (textures.js), and a
-    // tower that took a multiply tint instead never quite landed on the wall
-    // colour beneath it. Falls back to the lit key if the second bake is
-    // missing, so a stale texture cache can't blank the turret.
-    tower:  { key: (o, sc) => (sc && sc.isClaimedKey && !sc.isClaimedKey(o.castle)
-                               && sc.textures.exists('tower_unclaimed'))
-                              ? 'tower_unclaimed' : 'tower',
-              origin: [0.5, 1.0], scale: 1.0, dyPx: CELL_PX * 0.5 },
-    // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
-    // foot nudge). The trimmed art is 43×39 (the PNG bakes a 39%-alpha shadow
-    // ellipse under the feet; the figure itself is fully opaque), so scale 0.6
-    // puts it at ~26×23px — about 0.73 of the 32px cell. Raised from 0.455
-    // (~18px) which read too small; still fits inside its single cell (QC rule).
-    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true, shadow: true },
-    // Cave staircase — Props Mine ladder art (32×32 each). 'down': ladder into
-    // dark pit; 'up': bare standalone ladder. Texture picked by direction.
-    staircase: { key: (o) => (o.dir === 'up' ? 'stair_up' : 'stair_down'),
-                 origin: [0.5, 0.5], scale: 1.0 },
-    // Placed campfire — 16×32 art, foot-anchored near the logs so the flame
-    // rises up out of the cell (like a small tree). The 6-frame sheet is cycled
-    // by `frame` each render (~130 ms/frame) for a continuous flicker. scale 1.1
-    // → ~18px wide, comfortably inside one 32px cell (QC: one-cell interactable).
-    // Seat off the logs (seatFrame 0) so the flickering flame doesn't bob the
-    // sprite vertically frame-to-frame; the flame still rises out the top.
-    _fire: { key: 'bonfire',
-             frame: () => Math.floor(performance.now() / 130) % 6,
-             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true },
-    // A STREET LAMP on a restored street. ONE row, two arts, picked by the
-    // same `lit` flag Lighting.collectLamps reads: the baked lamp
-    // (RoadOverlay.paintLamp — a CANVAS texture, so its frame is '__BASE')
-    // standing on its own ground line, or the plain road cobble a lamp wears
-    // before that stretch is rebuilt, lying flat on the point.
-    //
-    // NOT seated: SpriteLayout has no trimmed bounds for a canvas bake (the
-    // audit decodes real PNGs), and it needs none — where the art sits on its
-    // point was decided where the art was MADE, by the ground line
-    // road_overlay.js paints the plinth, the shadow and the pool of glow on
-    // (LAMP_GROUND_FRAC → STREET_LAMP_ORIGIN_Y). Same discipline as the seat
-    // pass, one step earlier.
-    //
-    // Sized through `after` rather than `scale`: both arts are sized in CELLS
-    // (the baked square in LAMP_DRAW_CELLS, the cobble in
-    // STREET_LAMP_DARK_CELLS), and setDisplaySize says that without this row
-    // having to know either texture's pixel size.
-    _streetlamp: {
-      // A lit lamp draws the bake for ITS glow (streetLampTexKey — the plain
-      // STREET_LAMP_TEX for the default, one texture per colour otherwise,
-      // baked by app.js _ensureStreetLampTex before this pass runs).
-      key: (o) => (o.lit ? streetLampTexKey(o.glow) : STREET_LAMP_DARK_TEX),
-      frame: (o) => (o.lit ? '__BASE' : streetLampDarkFrame(o.tier)),
-      origin: (o) => (o.lit ? [0.5, STREET_LAMP_ORIGIN_Y] : [0.5, 0.5]),
-      // The post's own nudge (see STREET_LAMP_DY_PX): the ART sits a pixel
-      // lower than its point, the point itself is untouched. Live
-      // rather than decorative because this row is NOT seated — a seated spec
-      // has its dxPx/dyPx overwritten by the seat pass.
-      dyPx: (o) => (o.lit ? STREET_LAMP_DY_PX : 0),
-      scale: 1,
-      after: (s, o) => {
-        const px = CELL_PX * (o.lit
-          ? ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 2.4)
-          : streetLampDarkCells(o.tier));
-        s.setDisplaySize(px, px).setAlpha(o.lit ? 1 : STREET_LAMP_DARK_ALPHA);
-      },
-    },
-    // Cave torch — 16×32 like the campfire, same scale, same flicker cadence
-    // (the 4 frames differ only in the flame, so seat off frame 0 and the
-    // stake never bobs). Its light is Lighting.KINDS.torch — offered to the
-    // lightmap in the object scan above the sprite cull.
-    torch: { key: 'torch',
-             frame: (o) => (Math.floor(performance.now() / 130) + ((o.x | 0) & 3)) % 4,
-             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true },
-    // Per-polygon species — maple uses the original 32×48 sheet with the
-    // variant->frame growth-stage pick. Pine/birch/mahogany use their own
-    // sheets sliced 32×48 (see assets.js) so the WHOLE tree — canopy + trunk
-    // + root base — fits in one frame and nothing from the sheet's lower band
-    // leaks in under it. Column 3 is a full mature green tree on every
-    // species sheet. Origin is only the no-SpriteLayout fallback: the seat
-    // pass places the art from its trimmed bounds.
-    tree:   { key: (o) => {
-                // Smallest crown tier renders as a bush, not a tree.
-                if (treeSizeClass(o) === 'bush') return 'bushes';
-                if (o.species === 'pine')     return 'pine_tree';
-                if (o.species === 'birch')    return 'birch_tree';
-                if (o.species === 'mahogany') return 'mahogany_tree';
-                return 'trees'; // maple (default)
-              },
-              frame: (o) => {
-                // bushes.png frame 0 is the lush top-left green bush.
-                if (treeSizeClass(o) === 'bush') return 0;
-                if (o.species && o.species !== 'maple') return 3;
-                // Maple sheet: frames 0 and 4 are STUMPS (cut/dead); only
-                // 1=sprout, 2=young, 3=mature are live trees. Clamp to 1..3 so a
-                // standing tree never renders as a stump. Detected trees carry a
-                // real size class → always mature (frame 3); their variety comes
-                // from the size-class scale, not the growth-stage frame.
-                // treeGrowthStage (util.js) does the clamping, and treeSizeClass
-                // reads the SAME stage back for a size-less maple's axe tier —
-                // one function, so a sprout can't draw tiny and gate like a
-                // mature canopy.
-                if (o.size) return 3;
-                return treeGrowthStage(o);
-              },
-              origin: (o) => {
-                if (treeSizeClass(o) === 'bush') return [0.5, 0.9];
-                return (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95];
-              },
-              // Shared with the harvest gating in interact.js (util.treeScale)
-              // so a tree's visual size and the axe tier it demands stay in
-              // lockstep — bigger sprite, sturdier axe, more wood. treeScale
-              // honours the discrete o.size crown class too. (One deliberate
-              // exception: maples render 10% smaller via MAPLE_VISUAL_MUL while
-              // their size class keys off the un-shrunk treeBaseScale, so the
-              // visual shrink doesn't change a maple's axe tier or wood yield.)
-              // Bushes use the 48×32 bushes sheet at a FIXED scale, independent
-              // of the species/canopy tree scale. A bush is one species at one
-              // size — so a bush-tier tree must render the SAME size as a `shrub`
-              // wildplant (the bushes a park scatters), not a smaller half-size
-              // variant. Both pull from CROP_SPRITE.shrub.scale so they can't
-              // drift apart. Larger tiers use treeScale.
-              scale:  (o) => treeSizeClass(o) === 'bush'
-                ? CROP_SPRITE.shrub.scale : treeScale(o),
-              // Placement obeys the "one cell" rule via the seat pass (see the
-              // render loop + src/sprite_layout.js): each tree is seated from
-              // its trimmed art bounds so the trunk base sits 1px above the
-              // cell's bottom edge (or centred when it fits) and the canopy
-              // rises into the tiles above without spilling into the cell
-              // below — automatically across species sheets (maple 32×48 vs
-              // the 32×48 pine/birch/mahogany root padding) and size classes.
-              seat: true, shadow: true,
-              // Sampled crown colour → a subtle hue tint (DeepForest trees only).
-              // Bushes are one uniform type — skip the per-tree crown tint so
-              // every bush renders as the same plain green sprite (an odd
-              // sampled colour otherwise made some bushes look broken).
-              after: (s, o, scene) => {
-                if (o.crown_color && treeSizeClass(o) !== 'bush') s.setTint(_crownTint(o.crown_color));
-                // Out of reach of the current axe → half alpha (interactables.js
-                // toolGatedAlpha reads the same gate the tap refuses on).
-                s.setAlpha(toolGatedAlpha(o, scene.save));
-              } },
-    // Which look (trunk / crate / barrel / bike rack / produce stand / macro
-    // stall / wagon / pot of gold) this object wears is loot.js's `chestLook`
-    // — the same resolver the treasure ceremony asks for its hero icon, so
-    // what stands on the map and what the dialog opens with are one answer.
-    // An ATM spills collectible coins, so it renders as a "pot of gold"; a
-    // cave-level mirror of one is a plain chest. The look carries the texture
-    // key it means, so nothing here re-decides which art a look is — and an
-    // opened chest never reaches the renderer (filtered out above), so a
-    // crate is either closed or gone. The one exception is the BARREL, which
-    // is never dropped: spent, it stands as `barrel_smashed` (o._smashed,
-    // stamped by the filter) until it restocks — one art per state.
-    chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? 'barrel_smashed' : L.texKey; },
-              // box is a single-frame image; trunk.png is 2-frame.
-              // Crates and coin-burst pots leave `frame` at 0.
-              // Pots of gold (ATMs) render the procedural
-              // 'potofgold' canvas texture (textures.js makePotOfGoldTexture),
-              // which is single-frame — so leave `frame` undefined for them,
-              // exactly like the themed-house sprites. The pot art is already
-              // gold, so no tint is applied. Produce stands pick the market_stand
-              // awning frame for their product family (see produceStandFor).
-              // A macro stall (loot.js macroFor) is one 80×80 frame per kind.
-              frame: (o) => { const L = chestLook(o);
-                              return L.coin ? undefined : (L.stand ? L.stand.frame : 0); },
-              // THE WAGON (a bus stop on an old trade road): 128×96 art, drawn at
-              // WAGON_SCALE (~1.5 cells wide) and foot-anchored like the stall —
-              // a structure, not a chest, so it is not seated; its wheels sit
-              // on the POI cell's bottom edge and the body rises north over it.
-              // Stand: 80×80 stall art, foot-anchored like a small house so its
-              // body rises north over the POI cell.
-              // A MACRO STALL (inn, chapel, apothecary, … — loot.js macroFor)
-              // is drawn exactly as the stall is: its art shares market_stand's
-              // 80×80 frame and box (x:[12,80) y:[0,70), feet on row 70), so
-              // every stall number below holds for it (a structure, not seated).
-              origin: (o) => { const L = chestLook(o);
-                               return (L.stand || L.macro || L.wagon) ? [0.5, 1.0] : (L.coin ? [0.5, 0.95] : [0.5, 0.9]); },
-              // Every chest kind and the market stall were drawn 10% smaller
-              // than they used to be (per playtest — they crowded their cell),
-              // about the SAME centre: the seated kinds (trunk chest, crates)
-              // are re-centred automatically by the seat pass, and the stall's
-              // dxPx/dyPx below are re-derived for the new scale so its art
-              // centre doesn't move. The actual CHESTS (trunk + crate) then
-              // came down a further 20% (Sep 2026): crates (box, 16×16) sit at
-              // CRATE_SCALE — 16 × 0.8 = ~13px inside the 32px cell, so a crate
-              // reads as a small prop rather than filling its cell; trunk is
-              // 32×32 so 0.72 is 72% of a cell. The stall and the pot of gold
-              // are structures, not chests. The pot is a further 20% smaller.
-              // A barrel and a bike rack are 16px generated props drawn at
-              // SMALL_POI_SCALE (~21px) and seated like the crate.
-              scale: (o) => { const L = chestLook(o);
-                              return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
-                                : ((L.barrel || L.bike) ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : 0.72)))); },
-              // Produce stands are foot-anchored (not seated), so origin 0.5
-              // centres the FRAME box — but market_stand.png's art is shifted
-              // right (every frame's opaque pixels are x:[12,80] in the 80px
-              // frame, i.e. 12px transparent padding on the left, 0 on the
-              // right). -3.24 (= 6px frame offset × 0.54 scale) centres the
-              // art; +3 on top of that per playtest so the stall reads centred
-              // over its POI cell in situ. Both terms are re-derived whenever
-              // the scale changes so shrinking the stall leaves its art centre
-              // exactly where it was.
-              // The macro art is centred in the same 12..80 box (trimmed centres
-              // x 45.5..46 against the stall's 46), so the stall's -0.24 holds.
-              dxPx: (o) => { const L = chestLook(o); return (L.stand || L.macro) ? -0.24 : (L.coin ? 4 : 0); },
-              // The crate is foot-anchored (origin y 0.9) but must sit CENTRED in
-              // its cell, so the anchor is pushed down by the distance from the
-              // art's middle to that anchor: (0.9-0.5)·16·scale. This is only the
-              // fallback — the seat pass below recomputes it from the trimmed art
-              // bounds whenever they're tabulated (src/sprite_layout.js).
-              // Stand: every market_stand frame has 10 transparent rows under
-              // the art (y:[0,70) of 80), so the old +2 left the stall's feet
-              // floating ~4px ABOVE the cell centre ("the food stand is about
-              // 20px too high"). +22 seated the feet on the cell's bottom edge
-              // at scale 0.6; at 0.54 the same art centre sits at 19.3
-              // (= 45px art-centre-above-anchor × 0.54 - 5), which keeps the
-              // stall exactly where it was, just 10% smaller.
-              dyPx: (o) => { const L = chestLook(o);
-                             return L.wagon ? WAGON_DY_PX : ((L.stand || L.macro) ? 19.3 : (L.coin ? 8 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0))); },
-              // Plain chests + crates obey the "one cell" rule (centred); produce
-              // stands and the pot-of-gold are structure-like and stay foot-anchored.
-              seat: (o) => { const L = chestLook(o); return !L.stand && !L.macro && !L.coin && !L.wagon; },
-              shadow: true },
-    fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
-              frame: (o) => {
-                const fr = _ftSpec(o);
-                // A planted sapling still walks the sheet's life-cycle frames
-                // as it grows; a wild (detected/orchard) tree is mature from
-                // the start. Whether either is BEARING doesn't touch the frame
-                // — the fruit is its own sprite (the fruit pass below), so the
-                // tree's art is the same before and after a pick.
-                return o.planted ? fr.grow[_ftStage(o)] : fr.mature;
-              },
-              origin: [0.5, 0.95],
-              scale: (o) => {
-                const base = 0.85;
-                // Planted saplings start clearly visible (0.7) and grow to the
-                // mature wild-tree size (1.0×base) over their 4 stages — a small
-                // sprout was easy to lose against the ground, now that growth
-                // spans days rather than minutes.
-                if (o.planted) return base * (0.7 + 0.075 * _ftStage(o));  // 0.7→1.0
-                // Wild fruit trees always render at full (mature) size — their
-                // o.size crown class no longer shrinks them.
-                return base;
-              },
-              // Fruit trees stand 10% taller than their width — stretch Y only.
-              // The seat pass measures the stretched art so the trunk base
-              // still lands 1px above the cell edge.
-              scaleYMul: 1.10,
-              // Placement obeys the "one cell" rule (seat pass, src/sprite_layout.js).
-              seat: true, shadow: true,
-              after: (s, o, scene) => {
-                // Hand the fruit pass everything it needs to hang this tree's
-                // fruit on it, measured off the sprite as it was just drawn:
-                // position, origin and scale are all final by now, so the
-                // fruit lands on the crown of the art actually on screen.
-                // (A picked tree simply contributes nothing — its fruit is
-                // gone, and nothing about the tree itself dimmed or changed.)
-                if (!_ftBearing(o)) return;
-                const src = inventoryIconSource(o.species);
-                if (!src || !scene.textures.exists(src.sheet)) return;
-                const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
-                const off = SL && SL.fruitCrownOffset
-                  ? SL.fruitCrownOffset(s.texture.key, s.frame.name,
-                                        s.originX, s.originY, s.scaleX, s.scaleY)
-                  : null;
-                if (!off) return;
-                fruitList.push({
-                  key: src.sheet, frame: src.frame ?? 0,
-                  x: s.x + off.dxPx, y: s.y + off.dyPx,
-                  // The fruit is drawn at the TREE's scale, so it stays in the
-                  // same pixel scale as the art it hangs on however big that
-                  // tree is drawn. (scaleX, not scaleY — the tree's 1.10 Y
-                  // stretch is a tree thing; a stretched apple is an egg.)
-                  scale: s.scaleX,
-                  // Painter rule: immediately above its OWN tree, and still
-                  // under anything in a lower screen row (see the z-order
-                  // pass — world depths are the integers 0..n).
-                  depth: s.depth + 0.5,
-                });
-              } },
-    mineralrock: { key: 'mineralrock',
-              // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
-              // to the SMALL rock variants only — other rows have boulder-
-              // sized art that visibly bleeds past the 16 × 16 frame at
-              // rock scale. Two safe pickranges:
-              //   PLAIN → row 15, cols 3..6 (the four "nice vanilla" rocks
-              //           the user identified; 4 vars). Used by cave rock AND
-              //           T1 ore — T1 shows no visible ore, it's just plain
-              //           rock that happens to yield a little copper. The
-              //           variant is NOT free cosmetics: col 3 draws a PAIR of
-              //           stones and pays out one more rock for it, so the
-              //           frame comes from SpriteLayout.PLAIN_ROCK_VARIANTS —
-              //           the same table interactables.js rolls the yield off.
-              //   ORE   → row 0, the ore-stone per yield tier. The top row is
-              //           ore stones in tier order starting at copper — copper
-              //           col 0 (T2), iron 1 (T3), gold 2 (T4), platinum 3
-              //           (T5), col 4 unused, crimson 5 (T6), frost 6 (T7) —
-              //           so the rock you see matches the bar it drops.
-              frame: (o) => {
-                const tier = o.yieldTier || o.requiredTier || 1;
-                // Cave rock and T1 ore both render as a plain rock variant.
-                if (o.caveVariant != null || tier <= 1) {
-                  return SpriteLayout.plainRockFrame(o);   // row 15, cols 3..6
-                }
-                // MINERAL_TIERS owns the ore-stone column beside the bar the
-                // rock pays. Row 0 means the sheet frame equals that column.
-                return mineralRockFrame(tier);
-              },
-              // Origin (0.5, 0.5) — centre the sprite in its cell. The
-              // previous (0.5, 0.9) foot-anchor was meant for standing
-              // creatures; on a flat ground-resting rock it shoved the
-              // 26-display-px sprite ~11 px into the cell ABOVE, so rocks
-              // read as off-centre by almost a whole cell.
-              // Seat per the "one cell" rule — centres the small rock art in
-              // its cell (the art sits low in the 16px frame). origin/dyPx
-              // below are the no-SpriteLayout fallback. scale 1.28 (down 20%
-              // from 1.6, Sep 2026 playtest) draws the 16px frame at ~20px.
-              origin: [0.5, 0.5], scale: 1.28, seat: true, shadow: true,
-              // Ore the current pick can't mine → half alpha; plain rock is
-              // ungated and always full (interactables.js toolGatedAlpha).
-              after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
-    // Stone pillar — decorative stand-in for OSM utility poles / posts.
-    // Purely decorative: no interact.js branch matches 'pole', so taps fall
-    // through.
-    // pillar.png is authored at 16px-per-cell (a 16×32 frame = 1 cell wide × 2
-    // tall in its native grid), but the game renders at 32px-per-cell (CELL_PX),
-    // like every other object sheet (trees are 32×48, etc.). At scale 1.0 the
-    // pole therefore drew at HALF size — a thin half-cell-wide stub — which read
-    // as "only half the sprite rendered". scale 2.0 maps the 16px art onto the
-    // 32px cell so it stands a full cell wide and ~2 cells tall (a proper pole);
-    // the seat pass then seats the now-taller-than-a-cell sprite with its base
-    // 1px above the cell's bottom edge (same as a tree).
-    // pillar.png's column art is symmetric and frame-centred (the earlier
-    // slice was cut off on the top and left; the art was redrawn complete),
-    // so a plain frame-centred origin works — the seat pass refines the
-    // final offsets from the trimmed bounds.
-    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 2.0, seat: true, shadow: true },
-    // STREET VARIANT PROPS (src/street_variants.js). All 16px generated art
-    // drawn at 1.6 (~26px) and SEATED in their one cell. The waystone stands
-    // (a tap reads a page of the Book — INTERACTABLES.waystone); the tar pit
-    // and the iron stakes are the Burned Row's hazards (they SLOW the body —
-    // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
-    waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
-    stakes:   { key: 'stakes',   frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
-    tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true },
-    // POI PROPS (worldgen.js). A NOTICE BOARD (an information POI) stands like
-    // the waystone and reads a Book page the same way (INTERACTABLES.infoboard);
-    // a GATE POST is one of the pair either side of a gate — scenery marking
-    // the spawn point a foe rises from each day (lairs.js 'gate' tier). Not
-    // tappable: no interactable row matches 'gatepost'.
-    infoboard: { key: 'signpost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
-    gatepost:  { key: 'gatepost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
-    // INFLUENCE ZONE PROPS (src/zones.js). Headstones may raise a ghost or
-    // pay a one-off find. Grove shrines use two stable, cell-seated appearances;
-    // both give the same daily gift and light (Lighting.KINDS.shrine).
-    headstone:    { key: 'headstone',    frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
-    grove_shrine: {
-      key: o => SpriteLayout.groveShrineArt(o).key,
-      frame: o => SpriteLayout.groveShrineArt(o).frame,
-      scale: o => SpriteLayout.groveShrineArt(o).scale,
-      origin: [0.5, 0.5], seat: true, shadow: true,
-    },
-    // A VIEWPOINT's scope (src/scenic.js — generated 16×24 placeholder):
-    // its daily gift, the first vista's relic, its
-    // story, and the rest ring its light shows (Lighting.KINDS.vista).
-    vista_scope:  { key: 'vista_scope',  frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
-    // Stone well — decorative landmark for OSM amenity=fountain points. Tap
-    // refills the watering can (interact.js). scale 0.9 draws the 30px frame at
-    // ~27px, inside its one cell (QC rule); the seat pass centres it there off
-    // the art's real bounds, which is what the well's off-centre content
-    // (x:[2..30) of a 30-wide frame) needs and what an origin cannot give it.
-    // frame 0 is the well without the hoist arm (assets.js slices the sheet at
-    // 30px); it is set explicitly because pool sprites are shared with
-    // multi-frame sheets and would otherwise keep a stale frame index.
-    well:   { key: 'well', frame: 0, origin: [0.5, 0.5], scale: 0.9, seat: true, shadow: true },
-    // Ground stack — an item id + qty sitting on the map. Texture +
-    // frame come from inventoryIconSource(itemId) so any item with an
-    // inventory icon can sit on the ground without per-kind plumbing.
-    // For wood (the 4-frame stack sheet) we override the frame to
-    // visualise stack size: frame = clamp(qty - 1, 0, 3).
-    groundstack: {
-      key: (o) => (inventoryIconSource(o.itemId) || {}).sheet || 'wood',
-      frame: (o) => {
-        // Wood sheet is 3 frames (brown / grey / amber log variants); the
-        // frame cycles with qty so the sprite changes as the stack grows.
-        if (o.itemId === 'wood') return clamp((o.qty || 1) - 1, 0, 2);
-        return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
-      },
-      // Centred in the cell (origin y 0.5), NOT foot-anchored. At 0.9 the
-      // anchor sat at the cell centre with the art hanging above it, so a
-      // dropped stack rendered ~12px high — better than a third of a cell up,
-      // visibly spilling into the row behind. Ground stacks are flat props
-      // lying ON the tile, so they centre like the wildplants do.
-      //
-      // Frame-box centring rather than the seat pass: this sprite's texture
-      // and frame follow whatever item was dropped (inventoryIconSource), so
-      // there's no fixed frame to tabulate in ART_BOUNDS. The art of the
-      // sheets it actually uses is centred in its frame anyway — wood.png's
-      // logs sit at y[1,14) of 16 once the near-white background is keyed out
-      // (see its onLoad in assets.js), i.e. half a pixel off centre.
-      origin: [0.5, 0.5], scale: 1.8,
-    },
-  };
+  const { RENDER_SPEC, resolveAppearance, fruitList, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseMidPx } = Render.objectAppearance(scene, houseRoles, TILED);
   // Kinds that stand UP off the ground and therefore cast a contact shadow.
   // DERIVED from the table above — `shadow: true` on the row, beside the
   // `seat: true` it always accompanies, rather than a second hand-kept list of
@@ -3385,36 +2815,6 @@ Render.drawObjects = function drawObjects(scene) {
   // a floating slab).
   const SEATED_SHADOW_KINDS = new Set(
     Object.keys(RENDER_SPEC).filter((k) => RENDER_SPEC[k].shadow));
-  // Resolve once per draw pass: animated frames, seating and shadow geometry
-  // all use the same appearance. Nothing is cached on the world object.
-  const resolveAppearance = (o) => {
-    const spec = RENDER_SPEC[o.kind];
-    if (!spec) return null;
-    const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
-    if (texKey == null || !scene.textures.exists(texKey)) return { spec, visible: false };
-    const frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
-    const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
-    const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
-    const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
-    let dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);
-    let dxPx = typeof spec.dxPx === 'function' ? spec.dxPx(o) : (spec.dxPx || 0);
-    const wantSeat = typeof spec.seat === 'function' ? spec.seat(o) : spec.seat;
-    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
-    let foot = null;
-    if (wantSeat && SL) {
-      // Animated sheets use stable bounds so neither art nor shadow bobs.
-      const bframe = spec.seatFrame !== undefined ? spec.seatFrame : (frameVal ?? 0);
-      const bb = SL.ART_BOUNDS[`${texKey}:${bframe}`];
-      if (bb) {
-        const seat = SL.seatInCell(bb, origin[0], origin[1], scl, scl * scaleYMul);
-        dxPx = seat.dxPx; dyPx = seat.dyPx;
-        const artH = (bb.maxY - bb.minY) * scl * scaleYMul;
-        foot = { w: (bb.maxX - bb.minX) * scl,
-          footFromCentre: artH <= CELL_PX ? artH / 2 : CELL_PX / 2 - 1 };
-      }
-    }
-    return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot };
-  };
   for (const item of filteredObj) item._appearance = resolveAppearance(item.o);
   // Soft contact shadows under everything that stands up off the ground —
   // buildings, trees, rocks, chests, wells, poles. Rendered into
@@ -4601,4 +4001,611 @@ Render.drawObjects = function drawObjects(scene) {
   // with a peek and stay on the ground they belong to.
   Render.drawVariantLabels(scene, pWorldX, pWorldY, halfM);
   if (LIGHTS) LIGHTS.draw(scene, pWorldX, pWorldY, halfM);
+};
+
+// Shared appearance rules for the live renderer and static review canvases.
+// Callbacks that change gameplay appearance remain opt-in through spec.after.
+Render.objectAppearance = function (scene, houseRoles, TILED = false) {
+  // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
+  // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
+  // are passed straight to Phaser. Lookup-on-miss returns null and the sprite
+  // hides — used for variants that haven't baked yet.
+  // Supply-crate / lowtier-chest sprite scale (the 16×16 `box` art).
+  // 0.8 (down 20% from 1.0, Sep 2026 playtest) — 16 × 0.8 = ~13px inside the
+  // 32px cell.
+  const CRATE_SCALE = 0.8;
+  // A BARREL (a bin — loot.js isBarrel) and a BIKE RACK (isBikeRack): 16px
+  // generated props, a touch bigger than the crate they stand in for.
+  const SMALL_POI_SCALE = 1.3;
+  // The broken WAGON an old-trade-road bus stop wears (loot.js chestLook): the
+  // 128×96 frame's art is 88 px wide (x 20..108) and ends 2 px above the frame
+  // bottom, so 0.55 draws it ~1.5 cells wide, and WAGON_DY_PX drops the
+  // foot-anchored frame so the art's bottom row sits 1 px above the POI cell's
+  // bottom edge (half a cell, less that pixel, plus the 2 blank rows scaled).
+  const WAGON_SCALE = 0.55;
+  const WAGON_DY_PX = CELL_PX * 0.5 - 1 + 2 * WAGON_SCALE;
+  // Render-spec callbacks receive the world object, while the object walk
+  // carries the role on its frame item. This map bridges those APIs without
+  // resolving the role again; Houses.displayRole owns the verdict.
+  const _houseRole = (o) => houseRoles.get(o);
+  // ── Tree size + fruit-tree growth helpers (shared by the specs below) ──
+  // Four discrete in-game size tiers from the DeepForest crown size class —
+  // the smallest ('bush') renders as a bush, the rest as trees. OSM trees carry
+  // no size and draw their flat species scale; there is no continuous size in
+  // between (see treeBaseScale in util.js for why the crown_m one went).
+  // (Authoritative copy lives in util.js TREE_SIZE_MUL; treeScale() applies it.)
+  // Fruit-tree life-cycle frames, in 32px-wide frame indices (sheets are sliced
+  // 32×48 — see assets.js; each tree is a full 32px column, NOT 16). The Apple
+  // and Peach sheets DON'T share a layout, so map each explicitly:
+  //   apple (15 frames): 0 sprout, 2 young, 4 mature-green, 5 blossom.
+  //   peach (13 frames): 0 sprout, 2 young, 3 mature-green, 4 blossom.
+  // (Higher frames are seasonal / stump / white-matte cells — NOT live trees.)
+  //
+  // A BEARING tree keeps the mature frame and wears its fruit as a separate
+  // sprite on the canopy (the fruit pass at the end of this function), so the
+  // sheets' own fruiting cells — apple 7, peach 5 — are no longer drawn: a
+  // pick removes a fruit rather than repainting the tree. That's why `grow`
+  // ends on the mature frame it already passed through at stage 2: stage 3 is
+  // blossom, and stage 4 is the same mature tree with fruit hung on it.
+  const FRUIT_FRAMES = {
+    apple: { grow: [0, 2, 4, 5, 4], mature: 4 },
+    peach: { grow: [0, 2, 3, 4, 3], mature: 3 },
+  };
+  const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'peach' ? 'peach' : 'apple'];
+  const fruitNow = Date.now();
+  const _ftState = (o) => Crops.fruitTreeState(o, scene.save.fruitPicked?.[o.id], fruitNow);
+  const _ftStage = (o) => _ftState(o).stage;
+  const _ftBearing = (o) => _ftState(o).ready;
+  // Gentle hue nudge: lighten the sampled crown colour halfway to white so the
+  // multiplicative tint shifts the sprite's hue without darkening it to mud.
+  const _crownTint = (hex) => {
+    if (typeof hex !== 'string' || hex[0] !== '#' || hex.length < 7) return 0xffffff;
+    let r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return 0xffffff;
+    r = (r + 255) >> 1; g = (g + 255) >> 1; b = (b + 255) >> 1;
+    return (r << 16) | (g << 8) | b;
+  };
+
+  // Texture key + frame for a house, by role. Named (rather than inlined in
+  // RENDER_SPEC) because the scale fit and the shadow pass both need to look
+  // up the same art the sprite will actually draw.
+  const _houseKey = (o) => {
+    const role = _houseRole(o);
+    if (role === 'plain')  return 'house';
+    if (role === 'wizard') return 'shrine';   // wizard tower reuses wizard.png
+    return `house_${role}`;
+  };
+  // Plain houses pick the 'front' sub-rect of the house tileset; wizard towers
+  // pick the fully-restored top-row tower frame (frame 3) of the wizard sheet;
+  // other themed PNGs are single-image (frame undefined).
+  const _houseFrame = (o) => {
+    const role = _houseRole(o);
+    if (role === 'plain')  return 'front';
+    if (role === 'wizard') return 3;
+    return undefined;
+  };
+  // Every building is sized by ONE rule (BUILDING_ART / houseArtScale in
+  // util.js): draw at your own footprint, clamped to a range stated in DRAWN
+  // CELLS. All render.js does is read the art's real frame width and hand it
+  // over — the width is what turns a cell count into a sprite scale, and it is
+  // why a role's size is stated in cells rather than in scale (see the note on
+  // the table). Frames that can't be measured come back as 0, which the rule
+  // answers with 1; the sprite is already hidden by then.
+  const _houseFrameW = (o) => {
+    if (!scene.textures || !scene.textures.exists(_houseKey(o))) return 0;
+    const fr = scene.textures.get(_houseKey(o)).get(_houseFrame(o));
+    return (fr && fr.width) || 0;
+  };
+  const _houseBaseScale = (o) =>
+    buildingBaseScale(_houseFrameW(o), _houseRole(o) === 'fort', CELL_PX);
+  const _houseScale = (o) =>
+    houseArtScale(o.area, _houseFrameW(o), _houseRole(o) === 'fort',
+                  scene.cellM, CELL_PX);
+
+  // Height in px from the house's ground point (sy) up to the MIDLINE of its
+  // drawn art — where a tag hung ON the building's face sits. Mirrors the
+  // placement the sprite pass uses: every role but the wizard is centred on sy
+  // (origin y 0.5, no nudge), so its midline IS sy; the wizard tower is
+  // foot-anchored half a cell lower and reaches its full scaled height up from
+  // there, so its midline is half that height above the foot.
+  // The open/busy plaque used to clear the TOP of the art by 3px instead. On
+  // the plain house the frame's top rows are the tip of a steep gable (6px
+  // wide at row 0 of 72), so "just above the roof" was a tag floating over a
+  // peak, a full storey off the shopfront — and every role read as too high.
+  // A sign belongs on the building, not over it.
+  const _houseMidPx = (o) => {
+    if (_houseRole(o) !== 'wizard') return 0;
+    if (!scene.textures || !scene.textures.exists(_houseKey(o))) return 0;
+    const fr = scene.textures.get(_houseKey(o)).get(_houseFrame(o));
+    if (!fr || !fr.height) return 0;
+    return (fr.height * _houseScale(o)) * 0.5 - CELL_PX * 0.5;
+  };
+
+  // Ripe fruit waiting to be drawn ON its tree — filled by the fruittree
+  // `after` hook as each tree is configured, drained by the fruit pass after
+  // the object pool has rendered. Rebuilt every frame, like everything else
+  // in this pass.
+  const fruitList = [];
+
+  const RENDER_SPEC = {
+    // Houses pick their texture by role — the generic 'house' frame stays
+    // as the fallback for plain residential. Themed sprites (sliced top-
+    // left from NPC house sheets, see Objects/Houses/):
+    //   - starter shop  → trailer    (the player's home/RV)
+    //   - blacksmith    → blacksmith (forge with chimney + sign)
+    //   - trader        → trader     (Fishman-style awning house)
+    //   - fort tier 11  → fort       (the school — big civic stone building)
+    // The 'house' texture is a tileset with a registered 'front' sub-frame;
+    // the themed PNGs are single-image, so frame must be undefined for them.
+    // Tint is suppressed for themed houses (the sprite is already distinct)
+    // in the post-config block further down — see the `themedHouse` flag.
+    house:  {
+      key: _houseKey,
+      frame: _houseFrame,
+      // Centre the sprite ON the building footprint's centroid (the house x/y
+      // IS that centroid). A bottom-middle anchor used to seat the base at the
+      // centroid and draw the whole body NORTH of it, which on any multi-cell
+      // footprint left the southern cells bare and pushed the roof off the top
+      // edge — the house read as shoved up, not centred on its tiles. A centred
+      // anchor (origin 0.5,0.5 + no nudge) keeps the art over its footprint.
+      // The wizard tower is the exception: it's a tall sprite that must
+      // stand foot-seated at the cell's front edge, so it keeps the bottom
+      // anchor + a downward nudge.
+      origin: (o) => (_houseRole(o) === 'wizard' ? [0.5, 1.0] : [0.5, 0.5]),
+      dyPx: (o) => (_houseRole(o) === 'wizard' ? CELL_PX * 0.5 : 0),
+      scale: _houseScale,
+      // Stamp the Home trailer's display rect for drawCells' castle-rampart
+      // sorting: a front (south) wall the trailer is parked in front of must
+      // not paint over it. Runs after position/origin/scale are final. Tiled
+      // mode only — the polygonal path has no rampart pass to read it.
+      after: (s, o) => {
+        if (!TILED || _houseRole(o) !== 'trailer') return;
+        const w = s.displayWidth, h = s.displayHeight;
+        scene._homeTrailerRect = {
+          x0: s.x - w * s.originX, x1: s.x + w * (1 - s.originX),
+          y0: s.y - h * s.originY, y1: s.y + h * (1 - s.originY),
+        };
+      } },
+    // Turret placement, exactly: the art is anchored by its frame's
+    // bottom-centre (origin 0.5, 1.0) and dropped half a cell from the cell
+    // CENTRE that sy gives us, so its grounding line lands ON the cell's
+    // bottom edge — not the ~2px short of it the old 0.95 origin left. The
+    // texture carries no bottom padding (see makeTowerTexture) so frame bottom
+    // IS art bottom, and its art is symmetric about the frame's centre column,
+    // so origin x 0.5 centres it on the cell. Towers draw in their own layer
+    // above BOTH rampart layers (app.js towerContainer), so the turret always
+    // reads as standing on top of the wall, never behind it.
+    // A turret has TWO baked textures, not one texture and a tint: an unclaimed
+    // castle's masonry is generated in the shaded palette (textures.js), and a
+    // tower that took a multiply tint instead never quite landed on the wall
+    // colour beneath it. Falls back to the lit key if the second bake is
+    // missing, so a stale texture cache can't blank the turret.
+    tower:  { key: (o, sc) => (sc && sc.isClaimedKey && !sc.isClaimedKey(o.castle)
+                               && sc.textures.exists('tower_unclaimed'))
+                              ? 'tower_unclaimed' : 'tower',
+              origin: [0.5, 1.0], scale: 1.0, dyPx: CELL_PX * 0.5 },
+    // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
+    // foot nudge). The trimmed art is 43×39 (the PNG bakes a 39%-alpha shadow
+    // ellipse under the feet; the figure itself is fully opaque), so scale 0.6
+    // puts it at ~26×23px — about 0.73 of the 32px cell. Raised from 0.455
+    // (~18px) which read too small; still fits inside its single cell (QC rule).
+    _scarecrow: { key: 'scarecrow', origin: [0.5, 0.5], scale: 0.6, seat: true, shadow: true },
+    // Cave staircase — Props Mine ladder art (32×32 each). 'down': ladder into
+    // dark pit; 'up': bare standalone ladder. Texture picked by direction.
+    staircase: { key: (o) => (o.dir === 'up' ? 'stair_up' : 'stair_down'),
+                 origin: [0.5, 0.5], scale: 1.0 },
+    // Placed campfire — 16×32 art, foot-anchored near the logs so the flame
+    // rises up out of the cell (like a small tree). The 6-frame sheet is cycled
+    // by `frame` each render (~130 ms/frame) for a continuous flicker. scale 1.1
+    // → ~18px wide, comfortably inside one 32px cell (QC: one-cell interactable).
+    // Seat off the logs (seatFrame 0) so the flickering flame doesn't bob the
+    // sprite vertically frame-to-frame; the flame still rises out the top.
+    _fire: { key: 'bonfire',
+             frame: () => Math.floor(performance.now() / 130) % 6,
+             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true },
+    // A STREET LAMP on a restored street. ONE row, two arts, picked by the
+    // same `lit` flag Lighting.collectLamps reads: the baked lamp
+    // (RoadOverlay.paintLamp — a CANVAS texture, so its frame is '__BASE')
+    // standing on its own ground line, or the plain road cobble a lamp wears
+    // before that stretch is rebuilt, lying flat on the point.
+    //
+    // NOT seated: SpriteLayout has no trimmed bounds for a canvas bake (the
+    // audit decodes real PNGs), and it needs none — where the art sits on its
+    // point was decided where the art was MADE, by the ground line
+    // road_overlay.js paints the plinth, the shadow and the pool of glow on
+    // (LAMP_GROUND_FRAC → STREET_LAMP_ORIGIN_Y). Same discipline as the seat
+    // pass, one step earlier.
+    //
+    // Sized through `after` rather than `scale`: both arts are sized in CELLS
+    // (the baked square in LAMP_DRAW_CELLS, the cobble in
+    // STREET_LAMP_DARK_CELLS), and setDisplaySize says that without this row
+    // having to know either texture's pixel size.
+    _streetlamp: {
+      // A lit lamp draws the bake for ITS glow (streetLampTexKey — the plain
+      // STREET_LAMP_TEX for the default, one texture per colour otherwise,
+      // baked by app.js _ensureStreetLampTex before this pass runs).
+      key: (o) => (o.lit ? streetLampTexKey(o.glow) : STREET_LAMP_DARK_TEX),
+      frame: (o) => (o.lit ? '__BASE' : streetLampDarkFrame(o.tier)),
+      origin: (o) => (o.lit ? [0.5, STREET_LAMP_ORIGIN_Y] : [0.5, 0.5]),
+      // The post's own nudge (see STREET_LAMP_DY_PX): the ART sits a pixel
+      // lower than its point, the point itself is untouched. Live
+      // rather than decorative because this row is NOT seated — a seated spec
+      // has its dxPx/dyPx overwritten by the seat pass.
+      dyPx: (o) => (o.lit ? STREET_LAMP_DY_PX : 0),
+      scale: 1,
+      after: (s, o) => {
+        const px = CELL_PX * (o.lit
+          ? ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 2.4)
+          : streetLampDarkCells(o.tier));
+        s.setDisplaySize(px, px).setAlpha(o.lit ? 1 : STREET_LAMP_DARK_ALPHA);
+      },
+    },
+    // Cave torch — 16×32 like the campfire, same scale, same flicker cadence
+    // (the 4 frames differ only in the flame, so seat off frame 0 and the
+    // stake never bobs). Its light is Lighting.KINDS.torch — offered to the
+    // lightmap in the object scan above the sprite cull.
+    torch: { key: 'torch',
+             frame: (o) => (Math.floor(performance.now() / 130) + ((o.x | 0) & 3)) % 4,
+             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true },
+    // Per-polygon species — maple uses the original 32×48 sheet with the
+    // variant->frame growth-stage pick. Pine/birch/mahogany use their own
+    // sheets sliced 32×48 (see assets.js) so the WHOLE tree — canopy + trunk
+    // + root base — fits in one frame and nothing from the sheet's lower band
+    // leaks in under it. Column 3 is a full mature green tree on every
+    // species sheet. Origin is only the no-SpriteLayout fallback: the seat
+    // pass places the art from its trimmed bounds.
+    tree:   { key: (o) => {
+                // Smallest crown tier renders as a bush, not a tree.
+                if (treeSizeClass(o) === 'bush') return 'bushes';
+                if (o.species === 'pine')     return 'pine_tree';
+                if (o.species === 'birch')    return 'birch_tree';
+                if (o.species === 'mahogany') return 'mahogany_tree';
+                return 'trees'; // maple (default)
+              },
+              frame: (o) => {
+                // bushes.png frame 0 is the lush top-left green bush.
+                if (treeSizeClass(o) === 'bush') return 0;
+                if (o.species && o.species !== 'maple') return 3;
+                // Maple sheet: frames 0 and 4 are STUMPS (cut/dead); only
+                // 1=sprout, 2=young, 3=mature are live trees. Clamp to 1..3 so a
+                // standing tree never renders as a stump. Detected trees carry a
+                // real size class → always mature (frame 3); their variety comes
+                // from the size-class scale, not the growth-stage frame.
+                // treeGrowthStage (util.js) does the clamping, and treeSizeClass
+                // reads the SAME stage back for a size-less maple's axe tier —
+                // one function, so a sprout can't draw tiny and gate like a
+                // mature canopy.
+                if (o.size) return 3;
+                return treeGrowthStage(o);
+              },
+              origin: (o) => {
+                if (treeSizeClass(o) === 'bush') return [0.5, 0.9];
+                return (o.species && o.species !== 'maple') ? [0.5, 0.92] : [0.5, 0.95];
+              },
+              // Shared with the harvest gating in interact.js (util.treeScale)
+              // so a tree's visual size and the axe tier it demands stay in
+              // lockstep — bigger sprite, sturdier axe, more wood. treeScale
+              // honours the discrete o.size crown class too. (One deliberate
+              // exception: maples render 10% smaller via MAPLE_VISUAL_MUL while
+              // their size class keys off the un-shrunk treeBaseScale, so the
+              // visual shrink doesn't change a maple's axe tier or wood yield.)
+              // Bushes use the 48×32 bushes sheet at a FIXED scale, independent
+              // of the species/canopy tree scale. A bush is one species at one
+              // size — so a bush-tier tree must render the SAME size as a `shrub`
+              // wildplant (the bushes a park scatters), not a smaller half-size
+              // variant. Both pull from CROP_SPRITE.shrub.scale so they can't
+              // drift apart. Larger tiers use treeScale.
+              scale:  (o) => treeSizeClass(o) === 'bush'
+                ? CROP_SPRITE.shrub.scale : treeScale(o),
+              // Placement obeys the "one cell" rule via the seat pass (see the
+              // render loop + src/sprite_layout.js): each tree is seated from
+              // its trimmed art bounds so the trunk base sits 1px above the
+              // cell's bottom edge (or centred when it fits) and the canopy
+              // rises into the tiles above without spilling into the cell
+              // below — automatically across species sheets (maple 32×48 vs
+              // the 32×48 pine/birch/mahogany root padding) and size classes.
+              seat: true, shadow: true,
+              // Sampled crown colour → a subtle hue tint (DeepForest trees only).
+              // Bushes are one uniform type — skip the per-tree crown tint so
+              // every bush renders as the same plain green sprite (an odd
+              // sampled colour otherwise made some bushes look broken).
+              after: (s, o, scene) => {
+                if (o.crown_color && treeSizeClass(o) !== 'bush') s.setTint(_crownTint(o.crown_color));
+                // Out of reach of the current axe → half alpha (interactables.js
+                // toolGatedAlpha reads the same gate the tap refuses on).
+                s.setAlpha(toolGatedAlpha(o, scene.save));
+              } },
+    // Which look (trunk / crate / barrel / bike rack / produce stand / macro
+    // stall / wagon / pot of gold) this object wears is loot.js's `chestLook`
+    // — the same resolver the treasure ceremony asks for its hero icon, so
+    // what stands on the map and what the dialog opens with are one answer.
+    // An ATM spills collectible coins, so it renders as a "pot of gold"; a
+    // cave-level mirror of one is a plain chest. The look carries the texture
+    // key it means, so nothing here re-decides which art a look is — and an
+    // opened chest never reaches the renderer (filtered out above), so a
+    // crate is either closed or gone. The one exception is the BARREL, which
+    // is never dropped: spent, it stands as `barrel_smashed` (o._smashed,
+    // stamped by the filter) until it restocks — one art per state.
+    chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? 'barrel_smashed' : L.texKey; },
+              // box is a single-frame image; trunk.png is 2-frame.
+              // Crates and coin-burst pots leave `frame` at 0.
+              // Pots of gold (ATMs) render the procedural
+              // 'potofgold' canvas texture (textures.js makePotOfGoldTexture),
+              // which is single-frame — so leave `frame` undefined for them,
+              // exactly like the themed-house sprites. The pot art is already
+              // gold, so no tint is applied. Produce stands pick the market_stand
+              // awning frame for their product family (see produceStandFor).
+              // A macro stall (loot.js macroFor) is one 80×80 frame per kind.
+              frame: (o) => { const L = chestLook(o);
+                              return L.coin ? undefined : (L.stand ? L.stand.frame : 0); },
+              // THE WAGON (a bus stop on an old trade road): 128×96 art, drawn at
+              // WAGON_SCALE (~1.5 cells wide) and foot-anchored like the stall —
+              // a structure, not a chest, so it is not seated; its wheels sit
+              // on the POI cell's bottom edge and the body rises north over it.
+              // Stand: 80×80 stall art, foot-anchored like a small house so its
+              // body rises north over the POI cell.
+              // A MACRO STALL (inn, chapel, apothecary, … — loot.js macroFor)
+              // is drawn exactly as the stall is: its art shares market_stand's
+              // 80×80 frame and box (x:[12,80) y:[0,70), feet on row 70), so
+              // every stall number below holds for it (a structure, not seated).
+              origin: (o) => { const L = chestLook(o);
+                               return (L.stand || L.macro || L.wagon) ? [0.5, 1.0] : (L.coin ? [0.5, 0.95] : [0.5, 0.9]); },
+              // Every chest kind and the market stall were drawn 10% smaller
+              // than they used to be (per playtest — they crowded their cell),
+              // about the SAME centre: the seated kinds (trunk chest, crates)
+              // are re-centred automatically by the seat pass, and the stall's
+              // dxPx/dyPx below are re-derived for the new scale so its art
+              // centre doesn't move. The actual CHESTS (trunk + crate) then
+              // came down a further 20% (Sep 2026): crates (box, 16×16) sit at
+              // CRATE_SCALE — 16 × 0.8 = ~13px inside the 32px cell, so a crate
+              // reads as a small prop rather than filling its cell; trunk is
+              // 32×32 so 0.72 is 72% of a cell. The stall and the pot of gold
+              // are structures, not chests. The pot is a further 20% smaller.
+              // A barrel and a bike rack are 16px generated props drawn at
+              // SMALL_POI_SCALE (~21px) and seated like the crate.
+              scale: (o) => { const L = chestLook(o);
+                              return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
+                                : ((L.barrel || L.bike) ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : 0.72)))); },
+              // Produce stands are foot-anchored (not seated), so origin 0.5
+              // centres the FRAME box — but market_stand.png's art is shifted
+              // right (every frame's opaque pixels are x:[12,80] in the 80px
+              // frame, i.e. 12px transparent padding on the left, 0 on the
+              // right). -3.24 (= 6px frame offset × 0.54 scale) centres the
+              // art; +3 on top of that per playtest so the stall reads centred
+              // over its POI cell in situ. Both terms are re-derived whenever
+              // the scale changes so shrinking the stall leaves its art centre
+              // exactly where it was.
+              // The macro art is centred in the same 12..80 box (trimmed centres
+              // x 45.5..46 against the stall's 46), so the stall's -0.24 holds.
+              dxPx: (o) => { const L = chestLook(o); return (L.stand || L.macro) ? -0.24 : (L.coin ? 4 : 0); },
+              // The crate is foot-anchored (origin y 0.9) but must sit CENTRED in
+              // its cell, so the anchor is pushed down by the distance from the
+              // art's middle to that anchor: (0.9-0.5)·16·scale. This is only the
+              // fallback — the seat pass below recomputes it from the trimmed art
+              // bounds whenever they're tabulated (src/sprite_layout.js).
+              // Stand: every market_stand frame has 10 transparent rows under
+              // the art (y:[0,70) of 80), so the old +2 left the stall's feet
+              // floating ~4px ABOVE the cell centre ("the food stand is about
+              // 20px too high"). +22 seated the feet on the cell's bottom edge
+              // at scale 0.6; at 0.54 the same art centre sits at 19.3
+              // (= 45px art-centre-above-anchor × 0.54 - 5), which keeps the
+              // stall exactly where it was, just 10% smaller.
+              dyPx: (o) => { const L = chestLook(o);
+                             return L.wagon ? WAGON_DY_PX : ((L.stand || L.macro) ? 19.3 : (L.coin ? 8 : (L.box ? 0.4 * 16 * CRATE_SCALE : 0))); },
+              // Plain chests + crates obey the "one cell" rule (centred); produce
+              // stands and the pot-of-gold are structure-like and stay foot-anchored.
+              seat: (o) => { const L = chestLook(o); return !L.stand && !L.macro && !L.coin && !L.wagon; },
+              shadow: true },
+    fruittree: { key: (o) => `${o.species === 'peach' ? 'peach' : 'apple'}_tree`,
+              frame: (o) => {
+                const fr = _ftSpec(o);
+                // A planted sapling still walks the sheet's life-cycle frames
+                // as it grows; a wild (detected/orchard) tree is mature from
+                // the start. Whether either is BEARING doesn't touch the frame
+                // — the fruit is its own sprite (the fruit pass below), so the
+                // tree's art is the same before and after a pick.
+                return o.planted ? fr.grow[_ftStage(o)] : fr.mature;
+              },
+              origin: [0.5, 0.95],
+              scale: (o) => {
+                const base = 0.85;
+                // Planted saplings start clearly visible (0.7) and grow to the
+                // mature wild-tree size (1.0×base) over their 4 stages — a small
+                // sprout was easy to lose against the ground, now that growth
+                // spans days rather than minutes.
+                if (o.planted) return base * (0.7 + 0.075 * _ftStage(o));  // 0.7→1.0
+                // Wild fruit trees always render at full (mature) size — their
+                // o.size crown class no longer shrinks them.
+                return base;
+              },
+              // Fruit trees stand 10% taller than their width — stretch Y only.
+              // The seat pass measures the stretched art so the trunk base
+              // still lands 1px above the cell edge.
+              scaleYMul: 1.10,
+              // Placement obeys the "one cell" rule (seat pass, src/sprite_layout.js).
+              seat: true, shadow: true,
+              after: (s, o, scene) => {
+                // Hand the fruit pass everything it needs to hang this tree's
+                // fruit on it, measured off the sprite as it was just drawn:
+                // position, origin and scale are all final by now, so the
+                // fruit lands on the crown of the art actually on screen.
+                // (A picked tree simply contributes nothing — its fruit is
+                // gone, and nothing about the tree itself dimmed or changed.)
+                if (!_ftBearing(o)) return;
+                const src = inventoryIconSource(o.species);
+                if (!src || !scene.textures.exists(src.sheet)) return;
+                const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
+                const off = SL && SL.fruitCrownOffset
+                  ? SL.fruitCrownOffset(s.texture.key, s.frame.name,
+                                        s.originX, s.originY, s.scaleX, s.scaleY)
+                  : null;
+                if (!off) return;
+                fruitList.push({
+                  key: src.sheet, frame: src.frame ?? 0,
+                  x: s.x + off.dxPx, y: s.y + off.dyPx,
+                  // The fruit is drawn at the TREE's scale, so it stays in the
+                  // same pixel scale as the art it hangs on however big that
+                  // tree is drawn. (scaleX, not scaleY — the tree's 1.10 Y
+                  // stretch is a tree thing; a stretched apple is an egg.)
+                  scale: s.scaleX,
+                  // Painter rule: immediately above its OWN tree, and still
+                  // under anything in a lower screen row (see the z-order
+                  // pass — world depths are the integers 0..n).
+                  depth: s.depth + 0.5,
+                });
+              } },
+    mineralrock: { key: 'mineralrock',
+              // Sheet: 11 cols × 17 rows = 187 frames. We restrict ourselves
+              // to the SMALL rock variants only — other rows have boulder-
+              // sized art that visibly bleeds past the 16 × 16 frame at
+              // rock scale. Two safe pickranges:
+              //   PLAIN → row 15, cols 3..6 (the four "nice vanilla" rocks
+              //           the user identified; 4 vars). Used by cave rock AND
+              //           T1 ore — T1 shows no visible ore, it's just plain
+              //           rock that happens to yield a little copper. The
+              //           variant is NOT free cosmetics: col 3 draws a PAIR of
+              //           stones and pays out one more rock for it, so the
+              //           frame comes from SpriteLayout.PLAIN_ROCK_VARIANTS —
+              //           the same table interactables.js rolls the yield off.
+              //   ORE   → row 0, the ore-stone per yield tier. The top row is
+              //           ore stones in tier order starting at copper — copper
+              //           col 0 (T2), iron 1 (T3), gold 2 (T4), platinum 3
+              //           (T5), col 4 unused, crimson 5 (T6), frost 6 (T7) —
+              //           so the rock you see matches the bar it drops.
+              frame: (o) => {
+                const tier = o.yieldTier || o.requiredTier || 1;
+                // Cave rock and T1 ore both render as a plain rock variant.
+                if (o.caveVariant != null || tier <= 1) {
+                  return SpriteLayout.plainRockFrame(o);   // row 15, cols 3..6
+                }
+                // MINERAL_TIERS owns the ore-stone column beside the bar the
+                // rock pays. Row 0 means the sheet frame equals that column.
+                return mineralRockFrame(tier);
+              },
+              // Origin (0.5, 0.5) — centre the sprite in its cell. The
+              // previous (0.5, 0.9) foot-anchor was meant for standing
+              // creatures; on a flat ground-resting rock it shoved the
+              // 26-display-px sprite ~11 px into the cell ABOVE, so rocks
+              // read as off-centre by almost a whole cell.
+              // Seat per the "one cell" rule — centres the small rock art in
+              // its cell (the art sits low in the 16px frame). origin/dyPx
+              // below are the no-SpriteLayout fallback. scale 1.28 (down 20%
+              // from 1.6, Sep 2026 playtest) draws the 16px frame at ~20px.
+              origin: [0.5, 0.5], scale: 1.28, seat: true, shadow: true,
+              // Ore the current pick can't mine → half alpha; plain rock is
+              // ungated and always full (interactables.js toolGatedAlpha).
+              after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
+    // Stone pillar — decorative stand-in for OSM utility poles / posts.
+    // Purely decorative: no interact.js branch matches 'pole', so taps fall
+    // through.
+    // pillar.png is authored at 16px-per-cell (a 16×32 frame = 1 cell wide × 2
+    // tall in its native grid), but the game renders at 32px-per-cell (CELL_PX),
+    // like every other object sheet (trees are 32×48, etc.). At scale 1.0 the
+    // pole therefore drew at HALF size — a thin half-cell-wide stub — which read
+    // as "only half the sprite rendered". scale 2.0 maps the 16px art onto the
+    // 32px cell so it stands a full cell wide and ~2 cells tall (a proper pole);
+    // the seat pass then seats the now-taller-than-a-cell sprite with its base
+    // 1px above the cell's bottom edge (same as a tree).
+    // pillar.png's column art is symmetric and frame-centred (the earlier
+    // slice was cut off on the top and left; the art was redrawn complete),
+    // so a plain frame-centred origin works — the seat pass refines the
+    // final offsets from the trimmed bounds.
+    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 2.0, seat: true, shadow: true },
+    // STREET VARIANT PROPS (src/street_variants.js). All 16px generated art
+    // drawn at 1.6 (~26px) and SEATED in their one cell. The waystone stands
+    // (a tap reads a page of the Book — INTERACTABLES.waystone); the tar pit
+    // and the iron stakes are the Burned Row's hazards (they SLOW the body —
+    // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
+    waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    stakes:   { key: 'stakes',   frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true },
+    // POI PROPS (worldgen.js). A NOTICE BOARD (an information POI) stands like
+    // the waystone and reads a Book page the same way (INTERACTABLES.infoboard);
+    // a GATE POST is one of the pair either side of a gate — scenery marking
+    // the spawn point a foe rises from each day (lairs.js 'gate' tier). Not
+    // tappable: no interactable row matches 'gatepost'.
+    infoboard: { key: 'signpost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    gatepost:  { key: 'gatepost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    // INFLUENCE ZONE PROPS (src/zones.js). Headstones may raise a ghost or
+    // pay a one-off find. Grove shrines use two stable, cell-seated appearances;
+    // both give the same daily gift and light (Lighting.KINDS.shrine).
+    headstone:    { key: 'headstone',    frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    grove_shrine: {
+      key: o => SpriteLayout.groveShrineArt(o).key,
+      frame: o => SpriteLayout.groveShrineArt(o).frame,
+      scale: o => SpriteLayout.groveShrineArt(o).scale,
+      origin: [0.5, 0.5], seat: true, shadow: true,
+    },
+    // A VIEWPOINT's scope (src/scenic.js — generated 16×24 placeholder):
+    // its daily gift, the first vista's relic, its
+    // story, and the rest ring its light shows (Lighting.KINDS.vista).
+    vista_scope:  { key: 'vista_scope',  frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    // Stone well — decorative landmark for OSM amenity=fountain points. Tap
+    // refills the watering can (interact.js). scale 0.9 draws the 30px frame at
+    // ~27px, inside its one cell (QC rule); the seat pass centres it there off
+    // the art's real bounds, which is what the well's off-centre content
+    // (x:[2..30) of a 30-wide frame) needs and what an origin cannot give it.
+    // frame 0 is the well without the hoist arm (assets.js slices the sheet at
+    // 30px); it is set explicitly because pool sprites are shared with
+    // multi-frame sheets and would otherwise keep a stale frame index.
+    well:   { key: 'well', frame: 0, origin: [0.5, 0.5], scale: 0.9, seat: true, shadow: true },
+    // Ground stack — an item id + qty sitting on the map. Texture +
+    // frame come from inventoryIconSource(itemId) so any item with an
+    // inventory icon can sit on the ground without per-kind plumbing.
+    // For wood (the 4-frame stack sheet) we override the frame to
+    // visualise stack size: frame = clamp(qty - 1, 0, 3).
+    groundstack: {
+      key: (o) => (inventoryIconSource(o.itemId) || {}).sheet || 'wood',
+      frame: (o) => {
+        // Wood sheet is 3 frames (brown / grey / amber log variants); the
+        // frame cycles with qty so the sprite changes as the stack grows.
+        if (o.itemId === 'wood') return clamp((o.qty || 1) - 1, 0, 2);
+        return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
+      },
+      // Centred in the cell (origin y 0.5), NOT foot-anchored. At 0.9 the
+      // anchor sat at the cell centre with the art hanging above it, so a
+      // dropped stack rendered ~12px high — better than a third of a cell up,
+      // visibly spilling into the row behind. Ground stacks are flat props
+      // lying ON the tile, so they centre like the wildplants do.
+      //
+      // Frame-box centring rather than the seat pass: this sprite's texture
+      // and frame follow whatever item was dropped (inventoryIconSource), so
+      // there's no fixed frame to tabulate in ART_BOUNDS. The art of the
+      // sheets it actually uses is centred in its frame anyway — wood.png's
+      // logs sit at y[1,14) of 16 once the near-white background is keyed out
+      // (see its onLoad in assets.js), i.e. half a pixel off centre.
+      origin: [0.5, 0.5], scale: 1.8,
+    },
+  };
+  // Resolve once per draw pass: animated frames, seating and shadow geometry
+  // all use the same appearance. Nothing is cached on the world object.
+  const resolveAppearance = (o) => {
+    const spec = RENDER_SPEC[o.kind];
+    if (!spec) return null;
+    const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
+    if (texKey == null || !scene.textures.exists(texKey)) return { spec, visible: false };
+    const frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
+    const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
+    const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
+    const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
+    let dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);
+    let dxPx = typeof spec.dxPx === 'function' ? spec.dxPx(o) : (spec.dxPx || 0);
+    const wantSeat = typeof spec.seat === 'function' ? spec.seat(o) : spec.seat;
+    const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
+    let foot = null;
+    if (wantSeat && SL) {
+      // Animated sheets use stable bounds so neither art nor shadow bobs.
+      const bframe = spec.seatFrame !== undefined ? spec.seatFrame : (frameVal ?? 0);
+      const bb = SL.ART_BOUNDS[`${texKey}:${bframe}`];
+      if (bb) {
+        const seat = SL.seatInCell(bb, origin[0], origin[1], scl, scl * scaleYMul);
+        dxPx = seat.dxPx; dyPx = seat.dyPx;
+        const artH = (bb.maxY - bb.minY) * scl * scaleYMul;
+        foot = { w: (bb.maxX - bb.minX) * scl,
+          footFromCentre: artH <= CELL_PX ? artH / 2 : CELL_PX / 2 - 1 };
+      }
+    }
+    return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot };
+  };
+  return { RENDER_SPEC, resolveAppearance, fruitList, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseMidPx };
 };

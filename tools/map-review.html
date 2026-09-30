@@ -75,6 +75,7 @@
   <div><button id="tuneReset">Reset all</button></div>
   <pre id="changes" style="white-space:pre-wrap;color:#c8a64a;font-size:11px;margin:6px 0"></pre>
   <h3>Base map</h3><div id="bases"></div>
+  <div id="artStatus" hidden style="color:#aaa;margin:4px 0"></div>
   <h3>Overlays</h3><div id="ovl"></div>
   <h3>Density band</h3>
   <div>interactables per view: <input id="dmin" type="number" value="5" min="0" style="width:3.5em"> to
@@ -89,6 +90,7 @@
 <div id="game"></div>
 <script src="game-loader.js"></script>
 <script src="map-review-zones.js"></script>
+<script src="map-review-art.js"></script>
 <script>
 // ── Tiles ───────────────────────────────────────────────────────────────────
 const Q = new URLSearchParams(location.search);
@@ -213,8 +215,18 @@ const mkRow = (host, type, html, checked, on, name) => {
   l.innerHTML = `<input type="${type}"${name ? ` name="${name}"` : ''}${checked ? ' checked' : ''}> ${html}`;
   const i = l.querySelector('input'); i.onchange = () => on(i.checked); host.appendChild(l); return i;
 };
+const gameArt = MapReviewArt.layer({
+  toLL, getEdge: () => EDGE,
+  onStatus: (message) => { $('artStatus').textContent = message + '. Turn off Show markers for a clear art view.'; },
+  visible: (e, o, category, kind) => {
+    const k = kind || classify(o);
+    return showSource(e ? ZoneReview.source(e, o, category) : 'runtime') && (state.shown[k] ?? onByDefault(k));
+  },
+});
+bases['Game art'] = gameArt;
 Object.keys(bases).forEach((k, i) => mkRow($('bases'), 'radio', k, i === 0, () => {
   Object.values(bases).forEach((b) => map.removeLayer(b)); bases[k].addTo(map).bringToBack();
+  $('artStatus').hidden = k !== 'Game art';
 }, 'base'));
 
 const FIXED = { tree: '#1f9d3a', fruittree: '#9be15d', house: '#8a6a4a', tower: '#6f7fa8',
@@ -479,10 +491,11 @@ function draw(world, home) {
     mkRow($('kinds'), 'checkbox', `${shapeSwatch(shapeOf(k), colour(k, i))}${k}`
       + `<span class="n" title="total over the loaded tiles">${tot.toLocaleString()}</span>`
       + `<span class="n" style="margin-left:8px;min-width:4.2em;text-align:right" title="average per tile">${k === 'Home' ? '' : (per >= 10 ? Math.round(per) : per.toFixed(1)) + '/tile'}</span>`,
-      on, (v) => { state.shown[k] = v; (v && !state.markersOff) ? lg.addTo(map) : map.removeLayer(lg); density(); });
+      on, (v) => { state.shown[k] = v; (v && !state.markersOff) ? lg.addTo(map) : map.removeLayer(lg); density(); gameArt.redraw(); });
     state.layers[k] = lg;
   });
   state.groups = groups;
+  gameArt.setWorld(world);
   density();
   // Home's own ring: the softwood pines. (The chest-tier rings are gone — a
   // chest's tier is its class's density on its tile, loot.js chestTier.)
@@ -576,33 +589,12 @@ for (const f of TERRAIN_FAMILIES) {
   });
 }
 
-// Overlays: the road mask, the terrain codes and THE SPAWN GATE
-// (entry.spawnWhy — WorldGen.stampSpawnWhySteps / isSpawnCell), one pixel
-// per cell, per tile: every hard reason as one layer, each TYPED reason as
-// its own, and "refused for class" (a picker over SPAWN_CLASS_BLOCKS).
+// Spawn overlays share the game's verdict: globally blocked or suppressed.
 const SPAWN_GATE_COLOUR = { invalid: 'rgba(230,40,40,.62)', suppressed: 'rgba(255,190,40,.58)' };
-// One colour per typed reason (the hard ones share the invalid red). (Sep
-// 2026: HOUSE and SCHOOL dropped entirely; FARM dropped too — a field's edge
-// now carries no reason, only FARM_INTERIOR still refuses.)
-const SPAWN_WHY_COLOUR = {
-  KERB: 'rgba(255,60,200,.62)', SENSITIVE: 'rgba(170,90,255,.62)',
-};
-const SPAWN_WHY_WHAT = {
-  TERRAIN: 'water / building / road terrain', ROAD: 'the drawn band covers ≥ half the cell',
-  RESTRICTED: 'hospital, rail, military, garages, building site', QUIET: 'quiet land',
-  KINDERGARTEN: 'kindergarten grounds', SENSITIVE_SITE: 'a sensitive POI\'s own point',
-  BEHIND_HOUSE: 'a back yard', PRIVATE: 'lot with no public frontage; commercial ground whose nearest POI is not public',
-  FARM_INTERIOR: 'mid-field (the edge band carries no reason at all)',
-  KERB: 'major road kerb — fast movers only', SENSITIVE: 'round a sensitive place — no creature, draw or stone',
-};
 function overlays(world) {
-  const groups = { 'Road mask (no spawns)': L.layerGroup(), 'Terrain codes': L.layerGroup(),
-    'Spawn: hard-blocked (any hard reason)': L.layerGroup(), 'Spawn: suppressed (any typed reason)': L.layerGroup() };
-  const WHY = WorldGen.SPAWN_WHY;
-  const typed = Object.keys(WHY).filter((k) => !(WHY[k] & WorldGen.SPAWN_WHY_HARD));
-  for (const k of typed) groups[`Spawn reason: ${k}`] = L.layerGroup();
+  const groups = { 'Terrain codes': L.layerGroup(),
+    'Global no-spawn zone': L.layerGroup(), 'Suppression zone': L.layerGroup() };
   const gate = [0, 0, 0];   // OPEN, SUPPRESSED, INVALID cells over the loaded tiles
-  const why = Object.fromEntries(Object.keys(WHY).map((k) => [k, 0]));   // cells carrying each reason
   const tileBounds = [];
   const names = Object.fromEntries(Object.entries(WorldGen.T).map(([k, v]) => [v, k]));
   const used = new Set();
@@ -610,29 +602,21 @@ function overlays(world) {
   for (const e of world.tiles) {
     const N = e.cellsPerEdge;
     const mk = (paint) => { const c = document.createElement('canvas'); c.width = N; c.height = N; const g = c.getContext('2d'); paint(g); return c.toDataURL(); };
-    const mask = mk((g) => { g.fillStyle = 'rgba(255,40,200,.6)'; for (let i = 0; i < N * N; i++) if (e.roadMask && e.roadMask[i]) g.fillRect(i % N, (i / N) | 0, 1, 1); });
     const terr = mk((g) => { for (let i = 0; i < N * N; i++) { used.add(e.grid[i]); g.fillStyle = hue(e.grid[i]); g.fillRect(i % N, (i / N) | 0, 1, 1); } });
-    // The spawn gate: the derived verdict (WorldGen.spawnClassOf) and each
-    // typed reason on its own layer, counted.
+    // Count and paint the shared spawn verdict.
     const sw = e.spawnWhy || null;
     const cls = sw ? Uint8Array.from(sw, (v) => WorldGen.spawnClassOf(v)) : null;
     if (cls) for (let i = 0; i < N * N; i++) {
       gate[cls[i]]++;
-      for (const k in WHY) if (sw[i] & WHY[k]) why[k]++;
     }
     const gateImg = (test, colour) => mk((g) => { g.fillStyle = colour; if (sw) for (let i = 0; i < N * N; i++) if (test(sw[i], i)) g.fillRect(i % N, (i / N) | 0, 1, 1); });
     const inv = gateImg((v, i) => cls[i] === WorldGen.SPAWN_INVALID, SPAWN_GATE_COLOUR.invalid);
     const sup = gateImg((v, i) => cls[i] === WorldGen.SPAWN_SUPPRESSED, SPAWN_GATE_COLOUR.suppressed);
     const n = n14(), latOf = (yt) => Math.atan(Math.sinh(Math.PI * (1 - 2 * yt / n))) * 180 / Math.PI;
     const b = [[latOf(e.ty + 1), e.tx / n * 360 - 180], [latOf(e.ty), (e.tx + 1) / n * 360 - 180]];
-    L.imageOverlay(mask, b, { opacity: 0.8 }).addTo(groups['Road mask (no spawns)']);
     L.imageOverlay(terr, b, { opacity: 0.55 }).addTo(groups['Terrain codes']);
-    L.imageOverlay(inv, b, { opacity: 0.85 }).addTo(groups['Spawn: hard-blocked (any hard reason)']);
-    L.imageOverlay(sup, b, { opacity: 0.85 }).addTo(groups['Spawn: suppressed (any typed reason)']);
-    for (const k of typed) {
-      L.imageOverlay(gateImg((v) => v & WHY[k], SPAWN_WHY_COLOUR[k] || SPAWN_GATE_COLOUR.suppressed), b, { opacity: 0.85 })
-        .addTo(groups[`Spawn reason: ${k}`]);
-    }
+    L.imageOverlay(inv, b, { opacity: 0.85 }).addTo(groups['Global no-spawn zone']);
+    L.imageOverlay(sup, b, { opacity: 0.85 }).addTo(groups['Suppression zone']);
     tileBounds.push({ e, b, N, mk });
     L.rectangle(b, { color: '#fff', weight: 1, fill: false, dashArray: '4 4' }).bindTooltip(`tile ${e.tx}/${e.ty}`).addTo(map);
   }
@@ -716,13 +700,10 @@ function overlays(world) {
       + `<span class="n">${n.toLocaleString()} · ${pct(n)}</span></div>`;
     const div = document.createElement('div');
     div.style.margin = '4px 0 2px';
-    div.innerHTML = `<div style="color:#aaa">Spawn gate (entry.spawnWhy)</div>`
-      + row(SPAWN_GATE_COLOUR.invalid, 'hard-blocked', 'nothing spawns (any hard reason)', gate[2])
-      + row(SPAWN_GATE_COLOUR.suppressed, 'suppressed', 'some classes refuse it (any typed reason)', gate[1])
-      + row('transparent;border:1px solid #666', 'open', 'anything', gate[0])
-      + `<div style="color:#aaa;margin-top:4px">Reasons (a cell may carry several)</div>`
-      + Object.keys(WHY).map((k) => row((WHY[k] & WorldGen.SPAWN_WHY_HARD) ? SPAWN_GATE_COLOUR.invalid : SPAWN_WHY_COLOUR[k],
-        `${k}${(WHY[k] & WorldGen.SPAWN_WHY_HARD) ? ' (hard)' : ''}`, SPAWN_WHY_WHAT[k] || '', why[k])).join('');
+    div.innerHTML = `<div style="color:#aaa">Spawn zones</div>`
+      + row(SPAWN_GATE_COLOUR.invalid, 'no-spawn', 'all spawn classes blocked', gate[2])
+      + row(SPAWN_GATE_COLOUR.suppressed, 'suppressed', 'some spawn classes blocked', gate[1])
+      + row('transparent;border:1px solid #666', 'open', 'no zone restriction', gate[0]);
     // Commercial ground by its nearest POI (the overlay above).
     const ctot = com.pub + com.priv + com.none || 1;
     const crow = (colour, name, what, n) => `<div style="display:flex;gap:6px;align-items:baseline">`
@@ -734,37 +715,6 @@ function overlays(world) {
       + crow(COM_COLOUR.priv, 'private', 'an office, hotel, clinic … nearest — PRIVATE', com.priv)
       + crow(COM_COLOUR.none, 'no POI', `none within ${WorldGen.NEAREST_POI_MAX_M} m — PRIVATE`, com.none);
     $('ovl').appendChild(div);
-  }
-  // REFUSED FOR CLASS: pick a spawn class, see every cell its row refuses
-  // (hard reasons + its typed ones — WorldGen.SPAWN_CLASS_BLOCKS).
-  {
-    const layer = L.layerGroup();
-    let on = false, pick = 'enemy';
-    const paint = () => {
-      layer.clearLayers();
-      const block = WorldGen.SPAWN_WHY_HARD | WorldGen.SPAWN_CLASS_BLOCKS[pick];
-      let n = 0, tot = 0;
-      for (const t of tileBounds) {
-        const sw = t.e.spawnWhy;
-        if (!sw) continue;
-        for (let i = 0; i < t.N * t.N; i++) { tot++; if (sw[i] & block) n++; }
-        L.imageOverlay(t.mk((g) => { g.fillStyle = 'rgba(230,40,40,.62)'; for (let i = 0; i < t.N * t.N; i++) if (sw[i] & block) g.fillRect(i % t.N, (i / t.N) | 0, 1, 1); }),
-          t.b, { opacity: 0.85 }).addTo(layer);
-      }
-      count.textContent = `${n.toLocaleString()} · ${(100 * n / (tot || 1)).toFixed(1)}%`;
-    };
-    const wrap = document.createElement('div');
-    wrap.style.margin = '4px 0 2px';
-    wrap.innerHTML = `<label><input type="checkbox"> Refused for class </label>`;
-    const sel = document.createElement('select');
-    for (const c of WorldGen.SPAWN_CLASSES) { const o = document.createElement('option'); o.value = c; o.textContent = c; if (c === pick) o.selected = true; sel.appendChild(o); }
-    const count = document.createElement('span');
-    count.className = 'n';
-    count.style.marginLeft = '6px';
-    wrap.appendChild(sel); wrap.appendChild(count);
-    wrap.querySelector('input').addEventListener('change', (ev) => { on = ev.target.checked; if (on) { paint(); layer.addTo(map); } else map.removeLayer(layer); });
-    sel.addEventListener('change', () => { pick = sel.value; if (on) paint(); });
-    $('ovl').appendChild(wrap);
   }
   // STREET VARIANTS (src/street_variants.js): every indexed transportation
   // line (entry.streetIndex.lines) coloured by its variant — the table's own
