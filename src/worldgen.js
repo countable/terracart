@@ -3568,9 +3568,11 @@
     // Each debris snaps to the CENTER of its 5m game cell (no jitter), and is keyed
     // by the cell's absolute (cellIX, cellIY) so the same cell is always the same id.
     // A GENERATOR, because one call can be the whole tile. The scatter walks a
-    // candidate per cell across the polygon's bounding box and runs
-    // pointInRings on each, and a landcover polygon that covers the tile is
-    // ~114k of those — per flora entry in the biome's profile. Called plainly
+    // candidate per cell across the polygon's bounding box; a landcover
+    // polygon that covers the tile has ~114k — per flora entry in the biome's
+    // profile. Each row computes the same ray crossings as pointInRings once,
+    // then advances through them as x increases, preserving boundary tests.
+    // Called plainly
     // it was one unbroken block between the last `polygon fill rows` yield and
     // the layer's own, measured at 225 ms headless on a whole-tile polygon (so
     // multiples of that on a phone). Delegated with `yield*` it breaks every
@@ -3588,8 +3590,25 @@
       let _row = 0;
       for (let yy = bb.minY; yy <= bb.maxY; yy += stepMvt) {
         if ((++_row & 7) === 7) yield 'flora scatter rows';
+        const y = yy + stepMvt * 0.5;
+        const crossings = [];
+        for (const ring of rings) {
+          for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const a = ring[j], b = ring[i];
+            if ((a.y > y) !== (b.y > y)) {
+              crossings.push(a.x + (y - a.y) * (b.x - a.x) / (b.y - a.y));
+            }
+          }
+        }
+        crossings.sort((a, b) => a - b);
+        let crossing = 0, inside = (crossings.length & 1) !== 0;
         for (let xx = bb.minX; xx <= bb.maxX; xx += stepMvt) {
-          if (!pointInRings(rings, xx + stepMvt * 0.5, yy + stepMvt * 0.5)) continue;
+          const x = xx + stepMvt * 0.5;
+          while (crossing < crossings.length && crossings[crossing] <= x) {
+            inside = !inside;
+            crossing++;
+          }
+          if (!inside) continue;
           // Snap to this tile's local cell grid (no absolute-cells drift).
           const localIX = Math.floor(xx * mvtToCell);
           const localIY = Math.floor(yy * mvtToCell);

@@ -132,6 +132,10 @@ const PIECES = {
     scene(
     'A farmer draws a short bow and looses an arrow across a meadow, the string still ' +
     'humming, the arrow in flight, warm light.'),
+  tool_staff:
+    scene(
+    'A young farmer holds a wooden magical staff with both hands, surprised as a small ' +
+    'blue-white bolt leaves its tip across a meadow. Gentle wonder, warm sunset light. No bow or arrows.'),
   // The ONE money icon: a single JADE coin on transparency. Not a banner -
   // generated large, trimmed to its opaque bounds, downscaled to a 64px
   // runtime icon (assets/art is for banners; the coin lives under
@@ -193,9 +197,9 @@ const PIECES = {
     'vegetables to a delighted elderly neighbour; a few gold coins glint in the exchange. Warm doorway light.', 'wary'),
   shiny_first:
     scene(
-    'A rare sparkling creature — a small chicken with shimmering golden iridescent feathers — ' +
-    'bathed in a beam of light among ordinary dull ones, four-pointed golden glints floating above ' +
-    'it in a meadow at dusk. Wonder and discovery.'),
+    'A young farmer crouches in a meadow at dusk, gazing with wonder at a brilliant four-point ' +
+    'golden-white glint between cupped hands. The unknown find is completely hidden by the ' +
+    'abstract star-shaped light: no identifiable animal, item, gem, coin, egg or chicken.'),
   fire_first: scene(
     'A young survivor kneels beside a freshly lit campfire ringed with stones at dusk, flames ' +
     'leaping up and throwing a warm ring of light; at the edge of the light a green slime ' +

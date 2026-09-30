@@ -146,7 +146,11 @@ test('torch: the plateau is untouched — reach, the profile and the tap gate ig
   const draw = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('function draw(scene, ax, ay, halfM)'));
   assert.truthy(/collectFires\(scene, ax, ay, halfM\);\n\s*collectLamps\(scene, ax, ay, halfM\);\n\s*collectPlayer\(scene, ax, ay, halfM, now\);/.test(draw),
     'collectPlayer runs in draw(), after the fires and the street lamps');
-  assert.truthy(/ctx\.drawImage\(player\.canvas,/.test(draw), 'the ramp is still drawn — the torch adds to it');
+  // The ramp is painted in the static layer draw() lays first (directly, or
+  // baked and copied while it holds — paintStaticLayer either way).
+  const stat = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('function paintStaticLayer('), LIGHTING_SRC.indexOf('function blitStatic('));
+  assert.truthy(/ctx\.drawImage\(player\.canvas,/.test(stat) && /paintStaticLayer\(/.test(draw),
+    'the ramp is still drawn — the torch adds to it');
   const pk = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('function playerKind('), LIGHTING_SRC.indexOf('function beginFrame('));
   assert.falsy(/depth/.test(pk), 'playerKind never asks the depth — a torch lights on the surface too (the sun only dims it)');
   assert.eq(Lighting.playerKind(scene({ depth: 0, isTorchActive: () => true })), 'handtorch', 'lit on the surface too');

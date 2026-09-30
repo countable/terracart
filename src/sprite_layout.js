@@ -468,7 +468,7 @@
           alpha: GHOST_ALPHA, glow: GHOST_GLOW } : {}) };
     Object.assign(CREATURE_ART[row.id], CREATURE_DIRECTION_LAYOUTS[row.art.directionLayout]);
     if (row.art.directions) Object.assign(CREATURE_ART[row.id], { directions: row.art.directions, directionSideFacing: row.art.directionSideFacing });
-    CREATURE_ART[row.id].tint = row.tint ? parseInt(row.tint.slice(1), 16) : 0xffffff;
+    CREATURE_ART[row.id].tint = row.tint ? parseInt(row.tint.slice(1), 16) : (fw === 32 && old?.tint) || 0xffffff;
   }
   const _giantArt = {};
   function creatureArt(kind) {

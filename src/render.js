@@ -325,6 +325,20 @@ function setTextureIfDifferent(s, key) {
   return true;
 }
 
+// Change-guarded inline style write for the pooled <body> overlays the sprite
+// pass repositions every step (the wishlist callouts): a player standing
+// still wrote the same transform / display / visibility strings to the DOM a
+// step each, and a style write can invalidate style even at an equal value.
+// The last value written is kept on the element and the write skipped when it
+// stands. Everything that writes these properties on a pooled element goes
+// through here, so the kept value is always the real one.
+function setStyleOnce(el, prop, value) {
+  const last = el._styleOnce || (el._styleOnce = {});
+  if (last[prop] === value) return;
+  last[prop] = value;
+  el.style[prop] = value;
+}
+
 // Change-guarded Text style setters. Phaser guards setText / setFontSize /
 // setStroke against no-op values, but setColor, setBackgroundColor, setShadow
 // and setPadding are UNguarded: each call unconditionally re-measures, redraws
@@ -1706,9 +1720,9 @@ Render.drawCells = function drawCells(scene) {
           if (spec) {
             texKey = `biome${baseType}_${Math.abs(h) % spec.variants}`;
             // Animated biome (water/pier): pick the pre-baked phase frame from
-            // the wall clock. setTexture already runs on this sprite every
-            // frame, so a time-varying key costs nothing extra — the phases
-            // were rasterized once at startup (textures.js makeBiomeTextures).
+            // the wall clock. The key is compared every frame anyway, so a
+            // time-varying one costs a swap only when the phase turns — the
+            // phases were rasterized once at startup (textures.js makeBiomeTextures).
             // All cells share the clock, so the water drifts as one body.
             if (spec.animPhases) {
               const p = Math.floor(texNow / spec.animMs) % spec.animPhases;
@@ -1717,10 +1731,14 @@ Render.drawCells = function drawCells(scene) {
           }
         }
         if (texKey) {
-          ns.setTexture(texKey);
-          // setTexture resets the sprite's intrinsic size; re-apply CELL_PX.
-          ns.setDisplaySize(CELL_PX, CELL_PX)
-            .setPosition(Math.round(sx), Math.round(sy))
+          // Only on a swap: Phaser's setTexture is NOT a no-op for the key a
+          // sprite already wears (it re-derives the frame, size and crop), and
+          // a cell's key only changes on a crossing or a water phase — so
+          // 169 unconditional swaps a step were pure waste on a still view.
+          // setTexture resets the sprite's intrinsic size; re-apply CELL_PX
+          // with it (the scale it leaves stands until the next swap).
+          if (setTextureIfDifferent(ns, texKey)) ns.setDisplaySize(CELL_PX, CELL_PX);
+          ns.setPosition(Math.round(sx), Math.round(sy))
             .setVisible(true);
           // Watered soil reads a shade darker (damp). The pad is an opaque
           // sprite now, so the tint goes on the sprite — a wash on the cell
@@ -1771,10 +1789,12 @@ Render.drawCells = function drawCells(scene) {
         // adjacent pier cells (vertical OR horizontal runs) and any resize
         // opens a seam. Fully opaque — it's a solid walkway.
         if (type === PIER && !isTilled) {
-          cs.setTexture('pier', PIER_FRAME);
-          cs.setFrame(PIER_FRAME);
-          cs.setDisplaySize(CELL_PX, CELL_PX)
-            .setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
+          // Swapped only when it differs, like the ground sprite above.
+          if (cs.texture.key !== 'pier' || cs.frame.name !== PIER_FRAME) {
+            cs.setTexture('pier', PIER_FRAME);
+            cs.setDisplaySize(CELL_PX, CELL_PX);
+          }
+          cs.setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
             .setTint(0xffffff)
             .setAlpha(1)
             .setVisible(true);
@@ -2436,6 +2456,23 @@ Render.drawVariantLabels = function drawVariantLabels(scene, ax, ay, halfM) {
   hidePoolFrom(pool, i);
 };
 
+// Can this object throw a light BEFORE drawObjects' sprite cull — one whose
+// glow reaches past its art (a restored building or Home, a torch, a grove
+// shrine, a viewpoint's scope)? The one predicate the sprite walk offers by
+// and the per-tile list below is derived by.
+function offersPreCullLight(o) {
+  const k = o.kind;
+  return isBuilding(k) || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope';
+}
+// A tile's pre-cull lights (util.js derivedObjects — re-derived only when the
+// objects array moves), at entry[PRE_CULL_LIGHTS] so the light walk queries
+// it through the chunk index like any tile array. Null when there are none.
+const PRE_CULL_LIGHTS = '_preCullLights';
+function preCullLightList(entry) {
+  const list = derivedObjects(entry, PRE_CULL_LIGHTS, offersPreCullLight);
+  return list.length ? list : null;
+}
+
 Render.drawObjects = function drawObjects(scene) {
   // Canvas width, for keeping centred labels on screen (see clampTextX in
   // util.js). Same 352 the game canvas is sized to. Computed HERE, not at
@@ -2544,21 +2581,62 @@ Render.drawObjects = function drawObjects(scene) {
   // (the per-tile chunk index) rather than the whole array, so "scanned" is
   // the chunks' contents — a few hundred in a dense town, where the flat
   // walk touched every one of ~37,000 per step.
-  // The query box is the sprite cull plus the widest thing offered BEFORE
-  // that cull: a house's art pad, or the light a building / torch / mushroom
-  // throws past its cell (offered at halfM + its own radius, see below), so
-  // every item the flat walk could have kept is in a chunk the box touches.
-  const qM = halfM + Math.max(HOUSE_PAD_M, LIGHTS ? LIGHTS.objectLightPadCells() * scene.cellM : 0);
-  const qx0 = pWorldX - qM, qx1 = pWorldX + qM, qy0 = pWorldY - qM, qy1 = pWorldY + qM;
-  let _boot_scanned = 0, _boot_kept = 0;
+  // THREE BOXES, one per kind of reach, so no walk opens chunks for a reason
+  // it does not have:
+  //   · the SPRITE box (sM) — the cull plus a house's art pad (the widest
+  //     art); every object's sprite, label and chest light is decided in it;
+  //   · the object LIGHT box (lM) — the cull plus the widest light a scanned
+  //     object throws (Lighting.objectLightPadCells: Home's ring, a grove
+  //     shrine), since a light is offered BEFORE the cull, at halfM + its own
+  //     radius. Only the few objects that can light that way are walked in
+  //     it: the tile's pre-cull light list (_preCullLights), and only past
+  //     the sprite box, which the sprite walk has already offered;
+  //   · the WILDPLANT box (wM) — the cull plus the widest light a wild plant
+  //     throws (a mushroom's, a cell and a bit).
+  // Until Sep 2026 one box — the widest of the three — served every walk, so
+  // every tree and bush in the chunks a shrine's light could reach was opened
+  // a step, though none of them throws a light. (Most of the profile's
+  // 'drawObjects scanned' in a town is creatures, which move and are walked
+  // flat — see 'drawObjects scanned creatures' below; this is the rest.)
+  const sM = halfM + HOUSE_PAD_M;
+  const sx0 = pWorldX - sM, sx1 = pWorldX + sM, sy0 = pWorldY - sM, sy1 = pWorldY + sM;
+  const lM = halfM + (LIGHTS ? LIGHTS.objectLightPadCells() * scene.cellM : 0);
+  const wM = halfM + (LIGHTS ? LIGHTS.wildplantLightPadCells() * scene.cellM : 0);
+  // The lights an object offers before the sprite cull — ONE closure for the
+  // sprite walk and the light walk, so the two can never disagree on what
+  // an object past the viewport throws. Which objects can offer is
+  // offersPreCullLight (module level), the same predicate the per-tile list
+  // is derived by.
+  const offerPreCullLights = (o, dx, dy) => {
+    // A restored building (or Home) is a LIGHT as well as a sprite, and
+    // its light reaches further than its art: offered to the lightmap
+    // before the sprite cull, with its own radius as the margin, so a
+    // lantern a cell off-screen still lights the edge it stands past.
+    if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine') LIGHTS.consider(scene, o, dx, dy, halfM);
+    // A grove shrine whose gift is still there today ALSO wears the POI
+    // light — the one "something to take here" mark (poiLit).
+    if (o.kind === 'grove_shrine' && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
+    // A VIEWPOINT's scope (src/scenic.js): its rest ring's own light
+    // (Lighting.KINDS.vista, out to FIRE_REST_R) always, and the POI
+    // light on top while today's gift is there — the shrine's rule.
+    if (o.kind === 'vista_scope') {
+      LIGHTS.consider(scene, o, dx, dy, halfM);
+      if (poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
+    }
+  };
+  let _boot_scanned = 0, _boot_kept = 0, _boot_creatures = 0;
   for (let dty = -1; dty <= 1; dty++) {
     for (let dtx = -1; dtx <= 1; dtx++) {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
       if (!entry) continue;   // tile not loaded yet
       if (entry.objects) {
-        WorldGen.forEachItemInBox(entry, 'objects', qx0, qy0, qx1, qy1, (o) => {
+        WorldGen.forEachItemInBox(entry, 'objects', sx0, sy0, sx1, sy1, (o) => {
           _boot_scanned++;
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
+          // Past the sprite box the only thing an object could still do is
+          // throw a pre-cull light, and the light walk below offers exactly
+          // those — so it is left to that walk, never offered twice.
+          if (Math.abs(dx) > sM || Math.abs(dy) > sM) return;
           // Houses are culled with extra margin. Every other object's art is
           // about a cell wide, so its anchor leaving the viewport means its
           // art has left too — but a house is CENTRED on its footprint
@@ -2568,21 +2646,7 @@ Render.drawObjects = function drawObjects(scene) {
           // fort's footprint made the whole building vanish and left bare
           // brick. HOUSE_PAD_M is half the widest art the fort cap allows.
           const lim = o.kind === 'house' ? halfM + HOUSE_PAD_M : halfM;
-          // A restored building (or Home) is a LIGHT as well as a sprite, and
-          // its light reaches further than its art: offered to the lightmap
-          // before the sprite cull, with its own radius as the margin, so a
-          // lantern a cell off-screen still lights the edge it stands past.
-          if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine')) LIGHTS.consider(scene, o, dx, dy, halfM);
-          // A grove shrine whose gift is still there today ALSO wears the POI
-          // light — the one "something to take here" mark (poiLit).
-          if (LIGHTS && o.kind === 'grove_shrine' && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
-          // A VIEWPOINT's scope (src/scenic.js): its rest ring's own light
-          // (Lighting.KINDS.vista, out to FIRE_REST_R) always, and the POI
-          // light on top while today's gift is there — the shrine's rule.
-          if (LIGHTS && o.kind === 'vista_scope') {
-            LIGHTS.consider(scene, o, dx, dy, halfM);
-            if (poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
-          }
+          if (LIGHTS && offersPreCullLight(o)) offerPreCullLights(o, dx, dy);
           if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;
           if (o.kind === 'chest' && isDupChest(o)) return;
           // A live POI is a light too — offered AFTER the dedup (a per-frame
@@ -2603,22 +2667,40 @@ Render.drawObjects = function drawObjects(scene) {
           objList.push({ o, dx, dy, wide, houseRole });
           _boot_kept++;
         });
+        // The LIGHT walk: the tile's pre-cull lights past the sprite box, out
+        // to the widest object light. Order within the light list does not
+        // matter (the cookies ADD), and frameKey reads it in walk order, which
+        // is as stable step to step as the sprite walk's.
+        if (LIGHTS && lM > sM && preCullLightList(entry)) {
+          WorldGen.forEachItemInBox(entry, PRE_CULL_LIGHTS, pWorldX - lM, pWorldY - lM, pWorldX + lM, pWorldY + lM, (o) => {
+            _boot_scanned++;
+            const dx = o.x - pWorldX, dy = o.y - pWorldY;
+            if (Math.abs(dx) <= sM && Math.abs(dy) <= sM) return;   // the sprite walk's
+            offerPreCullLights(o, dx, dy);
+          });
+        }
       }
       if (entry.creatures) {
         for (const c of entry.creatures) {
-          _boot_scanned++;
+          _boot_scanned++; _boot_creatures++;
+          // The viewport cull FIRST — two subtractions against a Set lookup
+          // and a roster walk, over every creature of the ring (creatures
+          // move, so they are not chunk-indexed): only a creature that would
+          // be drawn is asked whether it was caught, or whether a surface
+          // foe is here for this player (its `_surfaceInactive` stamp;
+          // wanderCreatures keeps the rest of the ring's).
+          const dx = c.x - pWorldX, dy = c.y - pWorldY;
+          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           if (caughtSet.has(c.id)) continue;
           if ((c._surfaceSpawn || c.lair) && typeof EnemySpawns !== 'undefined') EnemySpawns.surfaceActive(scene, c);
           if (c._surfaceInactive) continue;
-          const dx = c.x - pWorldX, dy = c.y - pWorldY;
-          if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           creatureList.push({ c, dx, dy });
           _boot_kept++;
         }
       }
       // Wild plants render as planted crops at the mature stage (col 4).
       if (entry.wildplants) {
-        WorldGen.forEachItemInBox(entry, 'wildplants', qx0, qy0, qx1, qy1, (wp) => {
+        WorldGen.forEachItemInBox(entry, 'wildplants', pWorldX - wM, pWorldY - wM, pWorldX + wM, pWorldY + wM, (wp) => {
           _boot_scanned++;
           // Gone: picked (save.picked), or a TIDE pickup (src/scenic.js) that
           // is not on the waterline today or was taken today — one predicate,
@@ -2680,6 +2762,9 @@ Render.drawObjects = function drawObjects(scene) {
   // peak answers "how bad does the densest tile get", the average answers
   // "what does a typical frame pay".
   window.__boot?.count?.('drawObjects scanned', _boot_scanned);
+  // …of which creatures: they move, so they are walked flat across the ring
+  // rather than off the chunk index, and they are most of a town's count.
+  window.__boot?.count?.('drawObjects scanned creatures', _boot_creatures);
   window.__boot?.count?.('drawObjects kept', _boot_kept);
   // Planted crops are tagged with the depth they were sown at (surface = 0 for
   // legacy saves). Only draw the ones that belong to the level you're standing
@@ -3401,8 +3486,8 @@ Render.drawObjects = function drawObjects(scene) {
         // bubble and its tail rise above the building like a callout.
         const px = rect.left + sx * scale;
         const py = rect.top  + (sy - 18) * scale;
-        slot.el.style.transform = `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, -100%)`;
-        slot.el.style.display = 'flex';
+        setStyleOnce(slot.el, 'transform', `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, -100%)`);
+        setStyleOnce(slot.el, 'display', 'flex');
         // Bubble box in game px: n icons + 3px gaps, 5px/3px padding, 1px
         // border, 6px tail (CSS px ÷ scale).
         const n = happy ? 1 : Math.max(1, wanted.length);
@@ -3411,11 +3496,11 @@ Render.drawObjects = function drawObjects(scene) {
         const bl = sx - bw / 2, bb = sy - 18 + 6 / scale, bt = bb - bh;
         const covered = toastRects.some((r) =>
           !(bl + bw <= r.left || bl >= r.right || bb <= r.top || bt >= r.bottom));
-        slot.el.style.visibility = covered ? 'hidden' : 'visible';
+        setStyleOnce(slot.el, 'visibility', covered ? 'hidden' : 'visible');
         psi++;
       }
     }
-    for (; psi < pool.length; psi++) pool[psi].el.style.display = 'none';
+    for (; psi < pool.length; psi++) setStyleOnce(pool[psi].el, 'display', 'none');
   }
 
   // Per-house readiness pip — sits just above each house / tower sprite and
@@ -3994,7 +4079,12 @@ Render.drawObjects = function drawObjects(scene) {
         const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
         for (const f of shinyFishSpots(entry, tx, ty, fishUntil)) {
           if (fished && fished.has(f.id)) continue;
-          const m = tileCellCenterMeters(scene, tx, ty, f.ix, f.iy);
+          // The spot's centre in this save's metre frame, kept on the spot
+          // (the per-tile list is derived once; the frame is fixed by
+          // create(), whose startWorldM object keys it) — every spot in the
+          // ring was re-projected per step.
+          if (f._mFrame !== scene.startWorldM) { f._m = tileCellCenterMeters(scene, tx, ty, f.ix, f.iy); f._mFrame = scene.startWorldM; }
+          const m = f._m;
           const dx = m.x - pWorldX, dy = m.y - pWorldY;
           if (Math.abs(dx) > halfM || Math.abs(dy) > halfM) continue;
           sparkList.push({ dx, dy, id: f.id });

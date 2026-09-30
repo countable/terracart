@@ -1189,6 +1189,11 @@ const FIRE_FULL_REST_S = 360;
 // sleeping at Home — once a day is a courtesy for the walk, not an income.
 const CASTLE_REST_ENERGY = 35;   // a flat 35⚡ (was a tenth of the bar until Sep 2026)
 const CASTLE_TAX_GOLD = 10;
+// What a house says when the feet walk through it (_houseMutter). Each line
+// fits MAP_MSG_MAX.
+const HOUSE_WRECK_MUTTERS = ["It's a fixer upper.", 'Something here smells.', 'Needs a little TLC.'];
+const HOUSE_RESTORED_MUTTERS = ['Eek!', 'Why hello there.', 'Thanks for fixing my house!',
+  'Welcome back!', 'Can I offer some tea?'];
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // HOME IS A CAMPFIRE YOU OWN, and this is its ONE radius — the light it
 // throws, the ring it rests you in, and the ring an enemy turns and walks out
@@ -3801,9 +3806,9 @@ class MapScene extends Phaser.Scene {
     const pWY = this.startWorldM.y + this.playerM.y;
     let crate = null, crateD2 = Infinity, chest = null, chestD2 = Infinity;
     for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind !== 'chest' || !o.id) continue;
-        if (!String(o.id).startsWith('chest_start_')) continue;
+      // The starter chests of each tile, derived once (util.js derivedObjects)
+      // rather than picked out of every cached tile's every object on each ask.
+      for (const o of derivedObjects(e, '_starterChests', (o) => o.kind === 'chest' && !!o.id && String(o.id).startsWith('chest_start_'))) {
         if (opened.has(o.id)) continue;
         const dx = o.x - pWX, dy = o.y - pWY;
         const d2 = dx * dx + dy * dy;
@@ -4306,6 +4311,8 @@ class MapScene extends Phaser.Scene {
       // …and the LIVING LAMPS the feet just came by: a visit flares a lit
       // lamp and pays the ladder for how dim it had got (_visitStreetLamps).
       this._visitStreetLamps(Date.now());
+      // …and a house the feet walk through mutters (_houseMutter).
+      this._houseMutter();
     }
 
     // Facing-direction indicator: yellow triangle arrow at the player's head,
@@ -4374,18 +4381,29 @@ class MapScene extends Phaser.Scene {
         if (this.footprints.length > 5) this.footprints.splice(0, this.footprints.length - 5);
         this._lastFootprintM = { x: bodyM.x, y: bodyM.y };
       }
-      this.footprintGfx.clear();
       // Dots pressed into the GROUND, so they project like any other world
       // point (worldMetersToScreen → the camera anchor) and slide with a peek.
+      // The body's world point IS its feet (feet-on-the-fix), so each dot
+      // goes on the projected point with no anchor offset — the same point
+      // the contact shadow sits on. Redrawn only when a dot's drawn position
+      // or ink moves (a step, a fade, a peek): standing still, the same five
+      // 14-gons were rebuilt every step.
+      const prints = [];
+      let printKey = '';
       for (const fp of this.footprints) {
-        // The body's world point IS its feet (feet-on-the-fix), so the dot
-        // goes on the projected point with no anchor offset — the same point
-        // the contact shadow sits on.
         const s2 = this.worldMetersToScreen(fp.x + this.startWorldM.x,
                                             fp.y + this.startWorldM.y);
-        const sx2 = s2.x, sy2 = s2.y;
-        this.footprintGfx.fillStyle(0x000000, fp.alpha);
-        this._fillFootprint(this.footprintGfx, Math.round(sx2), Math.round(sy2), fp);
+        const sx2 = Math.round(s2.x), sy2 = Math.round(s2.y);
+        prints.push(sx2, sy2);
+        printKey += `${sx2},${sy2},${fp.alpha},${fp.ux},${fp.uy},${fp.side};`;
+      }
+      if (printKey !== this._footprintKey) {
+        this._footprintKey = printKey;
+        this.footprintGfx.clear();
+        this.footprints.forEach((fp, i) => {
+          this.footprintGfx.fillStyle(0x000000, fp.alpha);
+          this._fillFootprint(this.footprintGfx, prints[2 * i], prints[2 * i + 1], fp);
+        });
       }
     }
 
@@ -4664,7 +4682,10 @@ class MapScene extends Phaser.Scene {
     // 0 → 1 over its beat, read off the same clock that fires it. Null (no
     // orb) while nothing is on screen to shoot at or the staff isn't in hand.
     this._staffCharge = null;
-    if (enemies.length) {
+    // …and only while one stands within the reach plus a cell
+    // (Combat.rangedTriggerM): a foe further off on screen draws no fire.
+    const rangedArmed = Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
+    if (rangedArmed) {
       for (const slot of Combat.RANGED_SLOTS) {
         if (!relics[slot] || this.save.activeWeapon !== slot) continue;
         const due = this._nextShotT[slot];
@@ -4743,9 +4764,9 @@ class MapScene extends Phaser.Scene {
         }
         if (shot) {
           this._shots.push(shot);
-          // First bow/staff shot a save ever looses tells its story, here at
-          // the moment the arrow flies - not on equip, not on a dry cadence.
-          this._toolActionStory('shoot');
+          // Keep the bow's existing ledger key; the staff gets its own first shot.
+          // Only a fired projectile tells the story, never equip or a dry cadence.
+          this._toolActionStory(slot === 'bow' ? 'shoot' : 'staff');
         }
       }
     } else {
@@ -5018,7 +5039,7 @@ class MapScene extends Phaser.Scene {
     let scan = this._turretScan;
     if (!scan || now - scan.t > TURRET_SCAN_MS) {
       const list = [];
-      WorldGen.forEachItemNear('objects', pc.tx, pc.ty, (o) => {
+      this._forEachTowerNear(pc, (o) => {
         if (o.kind !== 'tower') return;
         // ONLY A CASTLE YOU HAVE TAKEN BACK FIGHTS FOR YOU. A turret is stamped
         // with its castle's footprint key (worldgen), and this is the SAME
@@ -8256,6 +8277,8 @@ class MapScene extends Phaser.Scene {
                body: 'Gentle does it.' },
       sword: { art: 'tool_sword', title: 'Steel out',
                body: 'Your first swing lands true.' },
+      staff: { art: 'tool_staff', title: 'First spark',
+               body: 'A spark gathers at the tip. Hold steady, and the staff answers with light.' },
       shoot: { art: 'tool_shoot', title: 'Loose!',
                body: 'Your hand steadies. With a foe near, the bow seems to know when to loose.' },
     };
@@ -11182,11 +11205,27 @@ class MapScene extends Phaser.Scene {
     const memo = this._castleWardScan;
     if (memo && now - memo.t < TURRET_SCAN_MS && memo.tx === pc.tx && memo.ty === pc.ty) return memo.list;
     const list = [];
-    WorldGen.forEachItemNear('objects', pc.tx, pc.ty, (o) => {
+    this._forEachTowerNear(pc, (o) => {
       if (o.kind === 'tower' && this.isClaimedKey(o.castle)) list.push(o);
     });
     this._castleWardScan = { t: now, tx: pc.tx, ty: pc.ty, list };
     return list;
+  }
+
+  // Every turret ('tower' object) in the 3×3 tile ring about `pc`. The two
+  // turret scans (_castleWardPoints, _turretFire) re-ran every TURRET_SCAN_MS
+  // — the ward one on every wander tick, enemies or not — and each walked the
+  // nine tiles' WHOLE object lists (tens of thousands in a town) for the
+  // handful of turrets. The turrets are derived once per tile instead
+  // (util.js derivedObjects), so a rebuilt or edited tile re-derives by itself.
+  _forEachTowerNear(pc, fn) {
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
+        if (!e) continue;
+        for (const o of derivedObjects(e, '_towers', (o) => o.kind === 'tower')) fn(o);
+      }
+    }
   }
 
   homeWorldPos() {
@@ -12913,6 +12952,41 @@ class MapScene extends Phaser.Scene {
   // visited, brightened or paid, and the in-range set is forgotten.
   // Re-derived from the same fix every call, memoised on the feet's cell +
   // Streets.epoch, so standing still costs one string compare.
+  // Flavour toast when the feet step onto a house's own cell: a wreck grumbles
+  // about itself, a restored house greets you. The `cell` toast tier, same as
+  // the energy pops (_popCellNumber); one line per entry, keyed on the
+  // house id so standing still (or shuffling within the cell) says nothing.
+  // Each line fits MAP_MSG_MAX. Surface only, like the lamp visits.
+  _houseMutter() {
+    if ((this.depth ?? 0) !== 0 || this._driftingHome || !this.startWorldM || !this.playerM
+        || !this.originPx || typeof Houses === 'undefined') return;
+    const p = playerReachCell(this);
+    const key = `${p.cellIX},${p.cellIY}`;
+    if (this._mutterCell === key) return;
+    this._mutterCell = key;
+    const pt = absCellToTile(this, p.cellIX, p.cellIY);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(pt.tx, pt.ty));
+    if (!entry || !entry.layers) { this._mutterCell = null; return; }   // still loading: retry
+    const px = this.startWorldM.x + this.playerM.x;
+    const py = this.startWorldM.y + this.playerM.y;
+    const r = this.cellM;
+    let house = null;
+    WorldGen.forEachItemInBox(entry, 'objects', px - r, py - r, px + r, py + r, (o) => {
+      if (house || o.kind !== 'house') return;
+      const c = worldMetersToAbsCell(this, o.x, o.y);
+      if (c.cellIX === p.cellIX && c.cellIY === p.cellIY) house = o;
+    });
+    if (!house) return;
+    const wreck = Houses.isHouseWreck(this.save, house);
+    if (!wreck && house.tier !== 9) return;      // forts / castles keep their peace
+    const lines = wreck ? HOUSE_WRECK_MUTTERS : HOUSE_RESTORED_MUTTERS;
+    // Hash the id so a given house always has its own line for its state.
+    let h = 0;
+    for (let i = 0; i < house.id.length; i++) h = (h * 31 + house.id.charCodeAt(i)) >>> 0;
+    const text = lines[(h + (this._mutterN = (this._mutterN | 0) + 1)) % lines.length];
+    this._popCellNumber(text, wreck ? UI_DANGER_INK : UI_GREEN, p.cellIX, p.cellIY);
+  }
+
   _visitStreetLamps(now) {
     if (typeof Streets === 'undefined') return 0;
     const surface = (this.depth ?? 0) === 0;
@@ -14126,9 +14200,15 @@ class MapScene extends Phaser.Scene {
   _syncPlayerSkin() {
     if (!this.player || this._dragonActive) return;
     const desired = SpriteLayout.playerArt(this.save);
-    const art = desired && this.textures.exists(desired.sheet)
+    // Is the desired skin's sheet loaded and every directional anim built?
+    // Runs every step, so a YES is remembered per skin (`_skinReady`): the
+    // answer only ever turns from no to yes as the lazy sheets arrive, and
+    // re-deriving it cost a texture lookup plus a dozen anim-key strings a
+    // step for a player standing still. A NO is asked again next step.
+    const art = desired && (this._skinReady === desired || (this.textures.exists(desired.sheet)
       && Object.keys(desired.directions).every(dir => ['idle', 'walk'].every(state =>
-        this.anims.get(`${desired.sheet}-${state}-${dir}`)?.frames?.length > 0)) ? desired : null;
+        this.anims.get(`${desired.sheet}-${state}-${dir}`)?.frames?.length > 0))
+      && (this._skinReady = desired))) ? desired : null;
     this._playerArt = art;
     this.player.setScale(art?.scale ?? this.playerScale);
     this.playerFeetNudgeY = art ? -art.footDrop * art.scale : -PLAYER_FEET_DROP_PX * this.playerScale;
