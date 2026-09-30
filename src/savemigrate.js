@@ -56,7 +56,8 @@
   //       runs once more, and a newly-crate chest the save emptied reads as
   //       taken today instead of standing again at once. The ledger's shape
   //       is unchanged (it only keeps a week now — macros.js markToday).
-  const SAVE_SCHEMA = 5;
+  //   6 — remove retired mini vampire bats from saved released creatures.
+  const SAVE_SCHEMA = 6;
 
   // A surface POI chest's id, by SHAPE: `c_<tx>_<ty>_<ix>_<iy>` (the MVT
   // POI) or `sxc_<osm id | tx_ty_ix_iy>` (the satextract / Overpass one). A
@@ -99,6 +100,15 @@
       }
       if (typeof Crops !== 'undefined') Crops.migrateStageTimers(save);
       needsPersist = true;
+    }
+    if ((save.schema || 0) < 6 && Array.isArray(save.released)) {
+      // Wild enemies regenerate from the roster. A saved released copy must
+      // also disappear, otherwise its retired kind would restore without art.
+      const released = save.released.filter(c => c?.kind !== 'mini_vampire_bat');
+      if (released.length !== save.released.length) {
+        save.released = released;
+        needsPersist = true;
+      }
     }
     if (typeof Conditions !== 'undefined') Conditions.normalize(save);
     if ((save.schema || 0) < 5) {

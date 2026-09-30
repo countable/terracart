@@ -104,7 +104,7 @@ const FILES = [
   // home, greeter, pest amnesty) — moved out of app.js's MapScene. They read
   // the scene they are handed plus app.js's starter constants as GLOBALS at
   // call time; run.js injects those once, below (STARTER_CONSTS).
-  'starter.js',
+  'spawn_ownership.js', 'starter.js',
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and
   // combat.test.js registers a synthetic one), so it runs headless.
@@ -166,7 +166,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   // The one building roof-scale rule — house_scale.test.js asserts against the
   // SHIPPING table rather than its own copies of it.
   houseArtScale, buildingBaseScale, buildingCellsToScale, BUILDING_ART,
-  HomeArea,
+  HomeArea, SpawnOwnership,
   itemValue, randInt, pickFromArray, isShiny, faunaShiny,
   TRAILER_SELL_MUL,
   // The market-stall sign/stock tables — vendor_parity.test.js pins that what
@@ -1561,6 +1561,23 @@ ctx.__tests.push({ name: 'zone variants: generated browser data matches the cano
     ctx.__tests.push({ name: `creature wheel (crown rule): ${kind}`, fn: () => {
       const r = audit.evaluateCreature(kind);
       if (r.violations.length) throw new Error(r.violations.join('; '));
+    } });
+  }
+  // Every opted-in direction/state must address real artwork, not blank
+  // packing cells. Check decoded source art once per texture sheet.
+  const directionalSheets = new Set();
+  const layout = require('../../src/sprite_layout.js');
+  for (const art of [...Object.values(layout.CREATURE_ART), ...Object.values(layout.PLAYER_ART)]) {
+    if (!art.directions || directionalSheets.has(art.sheet)) continue;
+    directionalSheets.add(art.sheet);
+    ctx.__tests.push({ name: `actor directional art: ${art.sheet}`, fn: () => {
+      const sheet = audit.ASSETS[art.sheet];
+      const image = audit.loadPng(sheet.path);
+      const frames = new Set(Object.values(art.directions).flatMap(states => Object.values(states).flat()));
+      for (const frame of frames) {
+        const ink = audit.frameInk(image, sheet.frameWidth, sheet.frameHeight, frame);
+        if (!ink || !ink.opaque || ink.colours < 2) throw new Error(`${art.sheet} frame ${frame} has no complete artwork`);
+      }
     } });
   }
   // …and the fruit-tree crowns the fruit overlay hangs off: re-derived from

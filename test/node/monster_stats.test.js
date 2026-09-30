@@ -12,13 +12,16 @@
     }
   });
   test('roster: surface tiers stop at three and at least half are dungeon-only', () => {
-    let dungeonOnly = 0;
+    let dungeonOnly = 0, rolled = 0;
     for (const row of EnemyRoster.ROWS) {
       assert.gt(row.hp, 0);
       if (row.surface) assert.lte(row.tier, 3, row.id);
       if (row.cave && !row.surface) dungeonOnly++;
+      // A row with neither pool (the gull) is seated by its own rule
+      // (SHORE_FAUNA), so it is no part of the surface/dungeon split.
+      if (row.cave || row.surface) rolled++;
     }
-    assert.gte(dungeonOnly, EnemyRoster.ROWS.length / 2);
+    assert.gte(dungeonOnly, rolled / 2);
   });
   test('roster: legacy giant saves resolve without entering spawn or quest pools', () => {
     assert.truthy(Combat.monster('giant_goblin'));

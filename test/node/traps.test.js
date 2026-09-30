@@ -544,10 +544,10 @@ test('traps: _spawnOpts carries opts.occupied, built from the tile\'s own object
   // the live entry is culled after the draws, never fed into them.
   assert.truthy(/const genObjects = entry\.genObjects \|\| entry\.objects \|\| \[\];/.test(block),
     'the generated object list falls back to entry.objects');
-  assert.truthy(/for \(const o of genObjects\) \{[\s\S]*?_occupiedIdx\.add/.test(block),
-    'the occupied set is seeded from the tile\'s objects');
-  assert.truthy(/for \(const wp of \(entry\.wildplants \|\| \[\]\)\) \{[\s\S]*?_occupiedIdx\.add/.test(block),
-    'and from entry.wildplants — a trap or an X must not bury itself under a tuft of grass either');
+  assert.truthy(/for \(const records of \[genObjects, entry\.wildplants \|\| \[\]\]\) for \(const o of records\)/.test(block),
+    'both generated objects and wild plants contribute occupancy');
+  assert.truthy(/SpawnOwnership\.tileCells\(this, entry, o, tx, ty\)\) _occupiedIdx\.add/.test(block),
+    'every declared footprint cell is reserved');
   assert.truthy(/occupied: _occupiedIdx,/.test(block),
     'and the set actually reaches _spawnOpts, not just a local variable nothing reads');
 });

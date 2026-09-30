@@ -30,19 +30,20 @@ test('enemy art: rooted plant keeps its ground line and plays a complete bite be
 });
 
 test('enemy art: timed attacks do not change existing idle cycles without attack artwork', () => {
-  const slime = { kind: 'slime', _attackT0: 0, _attackUntil: 10000 };
-  const art = SpriteLayout.creatureArt('slime');
+  const slime = { kind: 'purple_slime', _attackT0: 0, _attackUntil: 10000 };
+  const art = SpriteLayout.creatureArt('purple_slime');
   assert.eq(SpriteLayout.creatureCycleFrame(slime, art.frameMs * 3), 3);
   assert.eq(SpriteLayout.creatureCycleFrame({ kind: 'unknown' }, 1000), 0);
 });
 
 // The approved roster supplies every enemy surface with the same art source.
 test('enemy art: all roster rows resolve complete sheets and variant geometry', () => {
-  const assets = new Function('window', 'EnemyRoster', ASSETS_SRC + '\nreturn ASSETS;')({}, EnemyRoster);
+  const assets = new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC + '\nreturn ASSETS;')({}, EnemyRoster, SpriteLayout);
   for (const row of EnemyRoster.ROWS) {
     const a = SpriteLayout.creatureArt(row.id);
     assert.truthy(a, row.id + ' has art');
     assert.truthy(assets[a.sheet], row.id + ' sheet is loaded');
+    if (a.sheet !== row.id) assert.falsy(assets[row.id], row.id + ' reuses the base texture without another preload');
     assert.eq(assets[a.sheet].path, row.art.path, row.id + ' matches catalogue art');
     assert.eq(a.fw, row.art.frameWidth);
     assert.eq(a.fh, row.art.frameHeight);
@@ -57,7 +58,7 @@ test('enemy art: all roster rows resolve complete sheets and variant geometry', 
 
 test('enemy art: luminance palettes preserve black and alpha, with distinct bright cyan bats', () => {
   const window = {};
-  new Function('window', 'EnemyRoster', ASSETS_SRC)(window, EnemyRoster);
+  new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC)(window, EnemyRoster, SpriteLayout);
   const input = [0, 0, 0, 255, 80, 20, 30, 128, 255, 255, 255, 255];
   window.recolorEnemyPixels(input, EnemyRoster.get('vampire_bat').palette);
   assert.eq(input.slice(0, 4).join(), '0,0,0,255');
@@ -77,4 +78,26 @@ test('enemy art: dungeon ghost instance size carries through crown and tap geome
   assert.lt(SpriteLayout.creatureHealthBarTop('ghost', scale), SpriteLayout.creatureHealthBarTop('ghost'), 'bar rises with crown');
   assert.lt(SpriteLayout.creatureTapSpanPx('ghost', scale).top, SpriteLayout.creatureTapSpanPx('ghost').top, 'tap reaches larger crown');
   assert.lt(SpriteLayout.creatureWheelDy('ghost', scale), SpriteLayout.creatureWheelDy('ghost'), 'wheel rises with crown');
+});
+
+// Hold the approved effective sizes, including variants whose parents shrank.
+test('enemy art: size reduction targets 2x foes and the two selected giants only', () => {
+  const smaller = ['bat', 'spider', 'zombie', 'plant', 'skeleton', 'vampire_bat',
+    'brute', 'poison_spider', 'dryad', 'lich', 'bone_plant', 'fiend', 'succubus',
+    'hell_brute', 'ghost', 'pink_ghost', 'giant_cave_slime', 'sand_skeleton',
+    'marsh_zombie', 'copper_plant', 'ash_zombie', 'obsidian_brute'];
+  const expected = Object.fromEntries(smaller.map(kind => [kind, 1.5]));
+  Object.assign(expected, { giant_lich: 2.4, giant_skeleton: 1.68,
+    slime: 1.25, cave_slime: 1.25, purple_slime: 0.95, goblin: 1.25,
+    goblin_archer: 1.25, goblin_trapper: 1.25, mini_slime: 0.8125,
+    mini_spider: 1.3, giant_slime: 1.6, giant_spider: 3.2,
+    moss_slime: 1.25, giant_plant: 3.2,
+    // The gull wears the crow's geometry (CREATURE_ART.gull), unscaled.
+    gull: 1.3 });
+  assert.eq(Object.keys(expected).length, EnemyRoster.ROWS.length);
+  for (const [kind, scale] of Object.entries(expected)) {
+    assert.lt(Math.abs(SpriteLayout.creatureScale(kind) - scale), 1e-9, kind);
+    assert.lt(Math.abs(SpriteLayout.creatureScale(kind, 1.5) - scale * 1.5), 1e-9,
+      kind + ' retains the instance multiplier');
+  }
 });

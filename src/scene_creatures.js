@@ -113,15 +113,8 @@ class SceneCreatures {
     // under a tree, undiggable until the tree is felled: roads and buildings
     // were never the whole rule, just the two terrain alone could see.
     const _occupiedIdx = new Set();
-    for (const o of genObjects) {
-      const ix = Math.floor((o.x - tx * this.tileEdgeM) / cellM);
-      const iy = Math.floor((o.y - ty * this.tileEdgeM) / cellM);
-      if (ix >= 0 && iy >= 0 && ix < N && iy < N) _occupiedIdx.add(iy * N + ix);
-    }
-    for (const wp of (entry.wildplants || [])) {
-      const ix = Math.floor((wp.x - tx * this.tileEdgeM) / cellM);
-      const iy = Math.floor((wp.y - ty * this.tileEdgeM) / cellM);
-      if (ix >= 0 && iy >= 0 && ix < N && iy < N) _occupiedIdx.add(iy * N + ix);
+    for (const records of [genObjects, entry.wildplants || []]) for (const o of records) {
+      for (const i of SpawnOwnership.tileCells(this, entry, o, tx, ty)) _occupiedIdx.add(i);
     }
     // Even pets only belong near street frontage / public space inside a
     // residential block, so creature placement shares the spawn rule too.
@@ -154,59 +147,26 @@ class SceneCreatures {
           iy: Math.floor((o.y - ty * this.tileEdgeM) / cellM),
         })),
     };
-    // STREET DRESSING (src/street_variants.js) — laid FIRST, before any other
-    // spawner draws: the hedges, verge plants, lane fruit trees, waystones,
-    // tar pits, stakes and barricades a street's variant puts on its verge
-    // are GENERATED scenery like the rocks, so every later draw (fauna,
-    // traps, X marks) must see their cells as taken — each piece claims its
-    // cell in `_spawnOpts.occupied` here. The pieces were computed inside
-    // the sliced tile build (rasterizeTileSteps → StreetVariants.dressSteps,
-    // entry.streetDress) against the tile's own objects; a piece whose cell
-    // something placed after that pass holds (the cave stair) is dropped —
-    // a fact of the generated layer, the same for every player. A rebuilt
-    // entry carries a fresh streetDress and re-runs this pass (the
-    // `_spawned` gate). The per-cell marks (story trigger), the slow cells
-    // (tar / stakes — app.js _bodyHold) and the street lair candidates (the
-    // close heads here, the wagons below — lairs.js's index reads
-    // entry.streetLairs) ride on the entry for the same reason. Skipped in
-    // test mode, like the traps and the X scatter.
+    // Replay authored scenery in priority order: place landmarks, zones,
+    // then roads. Full footprints matter when anchors occupy different cells.
+    // Generated cave mouths already hold their seats in _occupiedIdx.
     let streetTreasures = [];
     entry.streetLairs = [];
     entry.slowCells = null;
     entry.streetMarks = null;
-    const dressing = entry.streetDress;
-    if (dressing && typeof StreetVariants !== 'undefined' && !window.__TEST_MODE) {
-      const cellIdx = (p) => {
-        const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);
-        const iy = Math.floor((p.y - ty * this.tileEdgeM) / cellM);
-        return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
-      };
+    const sDress = entry.scenicDress;
+    if (sDress && !window.__TEST_MODE) {
       const lay = (p) => {
-        const i = cellIdx(p);
-        if (i < 0 || _occupiedIdx.has(i)) return false;
-        _occupiedIdx.add(i);
+        const cells = SpawnOwnership.tileCells(this, entry, p, tx, ty);
+        if (!cells.length || cells.some(i => _occupiedIdx.has(i))) return false;
+        for (const i of cells) _occupiedIdx.add(i);
         return true;
       };
       entry.objects = entry.objects || [];
-      const slow = new Map();
-      for (const o of dressing.objects) {
-        if (!lay(o)) continue;
-        entry.objects.push(o);
-        if (StreetVariants.isSlowKind(o.kind)) slow.set(cellIdx(o), o.kind);
-      }
+      for (const o of sDress.objects) if (lay(o)) entry.objects.push(o);
       entry.wildplants = entry.wildplants || [];
-      for (const wp of dressing.wildplants) if (lay(wp)) entry.wildplants.push(wp);
-      streetTreasures = dressing.treasures.filter(lay);
-      entry.streetLairs = dressing.lairs.slice();
-      entry.slowCells = slow.size ? slow : null;
-      entry.streetMarks = dressing.marks;
+      for (const wp of sDress.wildplants) if (lay(wp)) entry.wildplants.push(wp);
     }
-    // THE ZONES' NEXUS (src/zones.js) — laid right after the street dressing,
-    // on the same terms: computed in the sliced build (entry.zoneDress, after
-    // the street pieces claimed their cells), a piece whose cell something
-    // placed since holds is dropped, and each laid piece claims its cell for
-    // every later draw. Its tar pits join the SAME slow map (_bodyHold's slow
-    // reason); traps and guards join the existing persistent entity lanes.
     const zoneTraps = [], zoneGuards = [];
     const zDress = entry.zoneDress;
     if (zDress && !window.__TEST_MODE) {
@@ -216,9 +176,9 @@ class SceneCreatures {
         return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
       };
       const lay = (p) => {
-        const i = cellIdx(p);
-        if (i < 0 || _occupiedIdx.has(i)) return false;
-        _occupiedIdx.add(i);
+        const cells = SpawnOwnership.tileCells(this, entry, p, tx, ty);
+        if (!cells.length || cells.some(i => _occupiedIdx.has(i))) return false;
+        for (const i of cells) _occupiedIdx.add(i);
         return true;
       };
       entry.objects = entry.objects || [];
@@ -237,30 +197,32 @@ class SceneCreatures {
       for (const L of (zDress.lairs || [])) entry.streetLairs.push(L);
       entry.slowCells = slow.size ? slow : null;
     }
-    // SCENIC PLACES (src/scenic.js) — laid right after the zones' nexus, on
-    // the same terms (computed in the sliced build, entry.scenicDress; a piece
-    // whose cell something placed since holds is dropped; each laid piece
-    // claims its cell): a viewpoint's scope (and a grail chest the point's own
-    // chest could not be), one vista chest per scenic stretch, and the tide
-    // pool on the waterline (which of it lies there is the day's —
-    // Scenic.tideLive). Skipped in test mode, like the street dressing.
-    const sDress = entry.scenicDress;
-    if (sDress && !window.__TEST_MODE) {
+    const dressing = entry.streetDress;
+    if (dressing && typeof StreetVariants !== 'undefined' && !window.__TEST_MODE) {
       const cellIdx = (p) => {
         const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);
         const iy = Math.floor((p.y - ty * this.tileEdgeM) / cellM);
         return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
       };
       const lay = (p) => {
-        const i = cellIdx(p);
-        if (i < 0 || _occupiedIdx.has(i)) return false;
-        _occupiedIdx.add(i);
+        const cells = SpawnOwnership.tileCells(this, entry, p, tx, ty);
+        if (!cells.length || cells.some(i => _occupiedIdx.has(i))) return false;
+        for (const i of cells) _occupiedIdx.add(i);
         return true;
       };
       entry.objects = entry.objects || [];
-      for (const o of sDress.objects) if (lay(o)) entry.objects.push(o);
+      const slow = entry.slowCells || new Map();
+      for (const o of dressing.objects) {
+        if (!lay(o)) continue;
+        entry.objects.push(o);
+        if (StreetVariants.isSlowKind(o.kind)) slow.set(cellIdx(o), o.kind);
+      }
       entry.wildplants = entry.wildplants || [];
-      for (const wp of sDress.wildplants) if (lay(wp)) entry.wildplants.push(wp);
+      for (const wp of dressing.wildplants) if (lay(wp)) entry.wildplants.push(wp);
+      streetTreasures = dressing.treasures.filter(lay);
+      entry.streetLairs.push(...dressing.lairs);
+      entry.slowCells = slow.size ? slow : null;
+      entry.streetMarks = dressing.marks;
     }
     // BANDIT STOPS: a bus stop on a MAJOR road wears the broken wagon
     // (loot.js chestLook) and holds one goblin (lairs.js 'wagon' tier). Read
@@ -314,13 +276,11 @@ class SceneCreatures {
     // Animals can share interactable cells. Enemies still reserve their seats
     // before save-specific filtering, including the rooted park enemies.
     const ambientOccupied = new Set(_occupiedIdx);
-    const zoneCoverage = entry.zone && entry.zone.coverage;
-    if (zoneCoverage) for (let i = 0; i < zoneCoverage.length; i++) {
-      if (zoneCoverage[i]) ambientOccupied.add(i);
+    for (let i = 0; i < N * N; i++) {
+      if (WorldGen.variantOwnerAt(entry, i)) ambientOccupied.add(i);
     }
-    // Empty lanes are part of the authored layout, so ambient rewards and
-    // rooted enemies cannot fill them. Story and player placements keep the
-    // ordinary options; fauna use their own overlap rules below.
+    // Zone and road variants own their empty lanes too. Their own rewards,
+    // story placements and fauna retain the ordinary placement options.
     const ambientSpawnOpts = { ..._spawnOpts, occupied: ambientOccupied };
     entry._ambientSpawnOpts = ambientSpawnOpts;
     const enemyGroundSeats = new Set(ambientOccupied);
@@ -462,15 +422,9 @@ class SceneCreatures {
       const cy = Math.floor((creature.y - ty * this.tileEdgeM) / cellM);
       const id = EnemySpawns.surfaceId(tx, ty, cx, cy);
       if (caughtSet.has(id) || enemySeats.has(id)) continue;
-      // A ZONE KEEPS ITS OWN MOBS. A biome seat that lands on ground an
-      // influence zone owns (entry.zone.coverage — a park's grove with its
-      // footprint and fringe, the old stones round a place of worship, a tar
-      // yard) is CANCELLED: those places are held by their own guards (the
-      // zone tiers in lairs.js), never by the tile's wild roll. Dropped after
-      // the draw, like the pest amnesty — no extra draws, so every other seat
-      // stays where it was, and coverage is generated, so every player loses
-      // the same ones.
-      if (zoneCoverage && zoneCoverage[cy * N + cx]) continue;
+      // Drop generic enemies in authored zone/road areas after the draw,
+      // preserving every subsequent RNG draw and each variant's own guards.
+      if (WorldGen.variantOwnerAt(entry, cy * N + cx)) continue;
       // (The seat was an 'enemy' spawn already — tryPlace / the attractor
       // lane — so whatever kind the roster puts on it stands on OPEN ground.)
       enemySeats.add(id);
@@ -555,7 +509,7 @@ class SceneCreatures {
     // (Traps.spawnSurface seeds its own rng off tx/ty, so it takes no draws out
     // of the stream above and every existing world seed is untouched), and only
     // save.sprungTraps ever reaches disk. The ambient options preserve the
-    // shared spawn gate and also reserve authored zone coverage, so the road rule
+    // shared spawn gate and reserve authored zone and road areas, so the road rule
     // is the one in WorldGen.isSpawnCell, not a copy of it: a trap sits on the
     // VERGE the drawn band stops at, never under the band. Plain assignment,
     // not `||`: a rebuilt entry (see CLAUDE.md) arrives carrying nothing and
@@ -805,12 +759,14 @@ class SceneCreatures {
     // other record is a `fruittree` (picked, not chopped) whose render spec
     // advances the sprite through its growth frames from planted_t, with the
     // harvest handler gating picking until it matures.
+    const savedPlantings = [];
     if (this.save.fruittrees && this.save.fruittrees.length) {
       const t0x = tx * this.tileEdgeM, t0y = ty * this.tileEdgeM;
       for (const ft of this.save.fruittrees) {
         if (ft.x < t0x || ft.x >= t0x + this.tileEdgeM ||
             ft.y < t0y || ft.y >= t0y + this.tileEdgeM) continue;
-        if ((entry.objects || []).some(o => o.id === ft.id)) continue;
+        const present = (entry.objects || []).find(o => o.id === ft.id);
+        if (present) { savedPlantings.push(present); continue; }
         entry.objects = entry.objects || [];
         entry.objects.push(ft.kind === 'tree'
           // No `species` and no `size`: a species-less tree draws off the
@@ -821,8 +777,11 @@ class SceneCreatures {
           : WorldGen.makeObject('fruittree', ft.x, ft.y, ft.id,
               { species: ft.species === 'peach' ? 'peach' : 'apple',
                 planted: true, planted_t: ft.planted_t }));
+        savedPlantings.push(entry.objects[entry.objects.length - 1]);
       }
     }
+    // Saved plantings win against generated static scenery after shared RNG draws.
+    if (savedPlantings.length) SpawnOwnership.reconcileEntry(this, entry, savedPlantings);
     // THE SHORE'S OWN FAUNA (biome_profiles.js SHORE_FAUNA): crabs on the
     // shore sand, gulls on the shore and the piers (the
     // shore and pier cells come out of the bonus-X block's one grid pass). Each species on its OWN
@@ -1071,10 +1030,15 @@ class SceneCreatures {
     };
     const gen = new Set(genObjects);
     const held = new Set();
+    const footprintFrame = { cellsPerEdge: N };
     for (const o of (entry.objects || [])) {
       if (gen.has(o)) continue;
-      const i = idxOf(o.x, o.y);
-      if (i >= 0) held.add(i);
+      for (const i of SpawnOwnership.tileCells(this, footprintFrame, o, tx, ty)) held.add(i);
+    }
+    const savedIds = SpawnOwnership.savedIds(this.save);
+    for (const plant of (entry.wildplants || [])) {
+      if (!SpawnOwnership.isProtected(plant, this.save, savedIds)) continue;
+      for (const i of SpawnOwnership.tileCells(this, footprintFrame, plant, tx, ty)) held.add(i);
     }
     const repainted = grid !== genGrid;
     const off = (t, allowOverlap = false) => {
@@ -2295,11 +2259,15 @@ class SceneCreatures {
         const pause = sprinting ? bolt.pauseMs : (gait ? gait.pauseMs : null);
         const pauseMs = pause ? pause[0] + Math.random() * pause[1] : 0;
         c._nextChooseT = now + stepMs + pauseMs;
-        c._faceFlip = (c._targetX - c._startX) < 0;
+        if (!EnemyRoster.get(c.kind)) c._faceFlip = (c._targetX - c._startX) < 0;
       }
       const u = Math.min(1, (now - c._stepT0) / (c._hopMs || STEP_MS));
-      c.x = c._startX + (c._targetX - c._startX) * u;
-      c.y = c._startY + (c._targetY - c._startY) * u;
+      const nx = c._startX + (c._targetX - c._startX) * u;
+      const ny = c._startY + (c._targetY - c._startY) * u;
+      // Released enemies use the ordinary pet step lane, but keep their
+      // directional art. NPCs and other fauna retain their existing facing.
+      if (EnemyRoster.get(c.kind)) SpriteLayout.updateCreatureFacing(c, nx - c.x, ny - c.y, now);
+      c.x = nx; c.y = ny;
     });
     this._foeHeadsUp?.(interestedFoeM, now);
     // One throttled flash for everything the slimes drained this window, so a

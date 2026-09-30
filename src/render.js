@@ -4374,10 +4374,8 @@ Render.drawObjects = function drawObjects(scene) {
   // on frame 0. `hop` is the continuous bounce a slime and every cave monster
   // wear, and `airborne` is a flier's smaller, fainter contact shadow.
   const creatureAnim = (SL && SL.creatureAnim) || (() => null);
-  const creatureCycleFrame = (SL && SL.creatureCycleFrame) || (() => 0);
+  const creatureAppearance = (SL && SL.creatureAppearance) || ((c) => ({ frame: 0, flipX: !!c._faceFlip }));
   const creatureHop = (SL && SL.creatureHop) || (() => null);
-  const creatureHopRow = (SL && SL.creatureHopRow) || (() => null);
-  const hopRowFrame = (SL && SL.hopRowFrame) || (() => 0);
   const creatureAirborne = (SL && SL.creatureAirborne) || (() => false);
   // A giant's sheet, frame count and shadow are its base kind's.
   const baseKind = (SL && SL.baseKind) || ((kind) => kind);
@@ -4402,6 +4400,7 @@ Render.drawObjects = function drawObjects(scene) {
     // where two kinds sharing a sheet quietly drift apart, which is why the
     // TINT was pulled into the table before it.
     const npcArt = c.kind === 'npc' ? SL.npcAppearance(c, performance.now()) : null;
+    const appearance = npcArt ? null : creatureAppearance(c, performance.now());
     const texKey = npcArt ? npcArt.sheet : creatureSheet(c.kind);
     const anim = creatureAnim(c.kind);
     if (npcArt) {
@@ -4414,20 +4413,8 @@ Render.drawObjects = function drawObjects(scene) {
       if (setTextureIfDifferent(s, texKey)) s.play(anim);
     } else {
       if (s.texture.key !== texKey) { s.anims?.stop(); s.setTexture(texKey, 0); }
-      // A kind whose sheet DRAWS a hop (creatureHopRow — the slimes) plays it
-      // on a beat while it is MOVING — mid-step, as app.js stamps it
-      // (_stepT0 / _hopMs / _startX..._targetY) — so it hops along the glide
-      // and sits still when it stops (SpriteLayout.hopRowFrame). Otherwise,
-      // and whenever it sits, the row-0 cycle, stepped here, or frame 0.
-      const hopRow = creatureHopRow(c.kind);
-      const tStep = hopRow && c._stepT0 != null ? performance.now() - c._stepT0 : -1;
-      const stepping = tStep >= 0 && tStep < (c._hopMs || 0)
-        && (c._targetX !== c._startX || c._targetY !== c._startY);
-      if (stepping) {
-        s.setFrame(hopRowFrame(hopRow, tStep + (c._hopSeed ?? 0)));
-      } else {
-        s.setFrame(creatureCycleFrame(c, performance.now()));
-      }
+      // Shared with the preview: directional cycles or the existing sheet hop.
+      s.setFrame(appearance.frame);
     }
     // How far off the ground the body is drawn: its constant float (a crow
     // perches high, a bat hovers) plus, for a hopping kind, the live bounce.
@@ -4447,7 +4434,7 @@ Render.drawObjects = function drawObjects(scene) {
     // A softened lair guard is drawn smaller (creatureInstScale).
     s.setOrigin(0.5, creatureFoot(c.kind)).setScale(creatureScale(c.kind, creatureInstScale(c)))
      .setPosition(Math.round(sx), Math.round(sy) + CREATURE_GROUND_DY - lift);
-    s.setFlipX(npcArt ? false : !!c._faceFlip);
+    s.setFlipX(npcArt ? false : appearance.flipX);
     // Rare shiny animals — and ELITE monsters, the same flag — wear the warm
     // sheen. Pooled sprites keep their last tint, so set an explicit colour
     // every frame (white for the common, plain case). A foe the Frost Powder

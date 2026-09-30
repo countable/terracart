@@ -116,11 +116,16 @@
     return plants;
   }
 
+  function isGeneralAmbientRecord(o) {
+    return !o.placed && !o.zoneVariant &&
+      /^(?:wp|hr|hm|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id || '');
+  }
+
   // Zone layouts own the entire coverage, including intentionally empty motif
   // cells. Replace biome scatter and street dressing there, retaining mapped
   // places/buildings/trees and player objects. Numeric tile-id prefixes belong
   // to procedural ambience; OSM imports have distinct *_osm / *_sx prefixes.
-  function* clearZoneAmbientSteps({ field, objects, wildplants, occupied, streetDress, tx, ty, N, tileEdgeM }) {
+  function* clearZoneAmbientSteps({ field, objects, wildplants, occupied, streetDress, scenicDress, tx, ty, N, tileEdgeM }) {
     const coverage = field && field.coverage;
     if (!coverage) return 0;
     const removed = new Set();
@@ -129,12 +134,11 @@
       const x = Math.floor((o.x - ox) / unit), y = Math.floor((o.y - oy) / unit);
       return x >= 0 && y >= 0 && x < N && y < N ? y * N + x : -1;
     };
-    const ambient = o => !o.placed && !o.zoneVariant &&
-      /^(?:wp|hr|hm|ptree|tree|ft|mr|rb)_-?\d+_/.test(o.id || '');
     const streetLists = streetDress ? [streetDress.objects, streetDress.wildplants,
       streetDress.treasures] : [];
+    const scenicLists = scenicDress ? [scenicDress.objects, scenicDress.wildplants] : [];
     let count = 0;
-    field.legacyRemovedByAnchor = {};
+    field.legacyRemovedByAnchor = field.legacyRemovedByAnchor || {};
     const record = (idx, street) => {
       const anchor = field.anchors && field.anchors[coverage[idx] - 1];
       const key = anchor ? `${anchor.kind}:${anchor.gx},${anchor.gy}` : String(coverage[idx]);
@@ -150,7 +154,7 @@
       for (let i = 0; i < list.length; i++) {
         if ((i & 63) === 0) yield 'zone ambient replacement';
         const o = list[i], idx = cell(o);
-        if ((street || ambient(o)) && idx >= 0 && coverage[idx]) {
+        if ((street || isGeneralAmbientRecord(o)) && idx >= 0 && coverage[idx]) {
           record(idx, street);
         } else list[kept++] = o;
       }
@@ -177,7 +181,7 @@
       // Release only cleared cells, then restore any mapped place or retained
       // street item sharing one. Other reservation lanes remain untouched.
       for (const idx of removed) occupied.delete(idx);
-      for (const list of [objects, wildplants, ...streetLists]) {
+      for (const list of [objects, wildplants, ...streetLists, ...scenicLists]) {
         if (!list) continue;
         for (let i = 0; i < list.length; i++) {
           if ((i & 63) === 0) yield 'zone retained occupancy';
@@ -187,6 +191,33 @@
       }
     }
     return count;
+  }
+
+  // The winner is a property of the area, even when its pattern leaves the
+  // cell empty. Runtime and late OSM decoration use the same answer as the
+  // rasterizer; streetDress.marks only records story/visual dressing.
+  function variantOwnerAt(entry, idx) {
+    if (!entry || idx < 0) return null;
+    if (entry.zone && entry.zone.coverage && entry.zone.coverage[idx]) return 'zone';
+    return entry.streetArea && entry.streetArea[idx] ? 'road' : null;
+  }
+
+  function* clearStreetAmbientSteps({ area, objects, wildplants, tx, ty, N, tileEdgeM }) {
+    if (!area) return 0;
+    const ox = tx * tileEdgeM, oy = ty * tileEdgeM, unit = tileEdgeM / N;
+    let removed = 0;
+    for (const list of [objects, wildplants]) {
+      let kept = 0;
+      for (let i = 0; i < list.length; i++) {
+        if ((i & 63) === 0) yield 'street ambient replacement';
+        const o = list[i];
+        const x = Math.floor((o.x - ox) / unit), y = Math.floor((o.y - oy) / unit);
+        if (isGeneralAmbientRecord(o) && !o._street && x >= 0 && y >= 0 && x < N && y < N && area[y * N + x]) removed++;
+        else list[kept++] = o;
+      }
+      list.length = kept;
+    }
+    return removed;
   }
 
   // The id of a generated thing on one CELL of one TILE:
@@ -4888,11 +4919,14 @@
     // the same one. Then the street ROCKS it asks for, pushed before the
     // mineralrock cleanup below so they pass the one post-pass filter.
     let streetIndex = null;
+    let streetArea = null;
     if (typeof StreetVariants !== 'undefined') {
       streetIndex = yield* StreetVariants.buildIndexSteps(layers, tx, ty, mvtToM);
+      streetArea = yield* StreetVariants.areaSteps(streetIndex, w);
       yield* StreetVariants.stampBanditStretchesSteps(streetIndex, roadClass, w, tx, ty);
       yield* spawnStreetRocksSteps(streetIndex);
     }
+    const hasStreetArea = !!streetArea && streetArea.some(Boolean);
     // Post-pass: pavement-blob erosion. Overlapping/parallel road + path ways
     // (sidewalk meshes, plaza loops, anything denser than one cell apart)
     // weld into solid paved zones; dissolve the strict same-kind interior back
@@ -5347,6 +5381,13 @@
     // the tile's chests are final; loadTile restamps once a bin has injected
     // its own.
     stampPoiDensity(deduped);
+    // Caves retain the old generated occupancy and rock identities while the
+    // surface gives the special street its whole corridor, even empty cells.
+    // Capture after ordinary dedupe, before either street or zone replacement.
+    const caveSource = { grid: grid.slice(), objects: deduped.slice(),
+      wildplants: filtered.slice(), spawnWhy: spawnWhy.slice() };
+    if (hasStreetArea) yield* clearStreetAmbientSteps({ area: streetArea, objects: deduped,
+      wildplants: filtered, tx, ty, N: w, tileEdgeM });
     // STREET DRESSING (StreetVariants.dressSteps) — computed HERE, inside the
     // sliced build, against every cell the tile's own objects and wild plants
     // now hold; spawnInTile lays it (dropping any piece whose cell something
@@ -5371,19 +5412,9 @@
         dressPois.push({ ix: Math.floor((o.x - tileOriginMx) / cellWidthM), iy: Math.floor((o.y - tileOriginMy) / cellWidthM) });
       }
     };
-    if (streetIndex && typeof StreetVariants !== 'undefined') {
-      yield 'before street dressing';
-      dressSpawn();
-      streetDress = yield* StreetVariants.dressSteps({ index: streetIndex, tx, ty, N: w, tileEdgeM, grid,
-        spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
-    }
-    // INFLUENCE ZONES (src/zones.js) — LAST, after every cull, the occupancy
-    // pass and the street dressing, so no older stream or filter ever reads a
-    // repainted cell: the field from the tile's own poi layer (+ its buffer),
-    // then the HALO (lot / commercial ground inside a zone takes the zone's
-    // terrain), then the NEXUS around each owned anchor's chest, claiming into
-    // the same occupancy the street dressing grew. spawnInTile lays the nexus
-    // like the street dressing; entry.zone is the field the runtime reads.
+    // Build the zone field and final terrain before scenic measurements.
+    // Its dressing waits until scenic landmarks and street pieces have claimed
+    // their cells; zone coverage then clears street pieces throughout its area.
     // THE PARK FRINGE (Zones.fringeSteps) runs right after the halo, on the
     // ground the halo left: every park polygon collected above spills a
     // ragged band of GROVE (CHURCHYARD round a cemetery) over the lot /
@@ -5391,11 +5422,11 @@
     // character's filler a little further out. A tile with parks but no zone
     // still gets a (stub) field, so the land's class (`under`) reaches the
     // trap ground the same way.
-    let zone = null, zoneDress = null;
+    let zone = null, zoneDress = null, fringe = null;
     if (typeof Zones !== 'undefined') {
       zone = yield* Zones.fieldSteps(layersByName['poi'], tx, ty, w);
       if (zone) yield* Zones.haloSteps(zone, grid, w, pathUnder);
-      const fringe = parkPolys.length
+      fringe = parkPolys.length
         ? yield* Zones.fringeSteps({ parks: parkPolys, grid, N: w, tx, ty, field: zone, pathUnder }) : null;
       if (fringe && !zone) zone = fringe.field;
       if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.buildSteps({
@@ -5411,14 +5442,12 @@
             if ((i & 511) === 0) yield 'zone cave source';
             if (zone.under[i]) caveGrid[i] = zone.under[i];
           }
-          zone.caveSource = { grid: caveGrid, objects: deduped.slice(), wildplants: filtered.slice(), spawnWhy: spawnWhy.slice() };
+          zone.caveSource = { grid: caveGrid, objects: caveSource.objects,
+            wildplants: caveSource.wildplants, spawnWhy: caveSource.spawnWhy };
         }
         if (typeof ZoneCoverage !== 'undefined') yield* ZoneCoverage.paintSteps(zone, grid, w, pathUnder, roadMask, spawnWhy);
         zone.legacyRemoved = yield* clearZoneAmbientSteps({ field: zone, objects: deduped,
-          wildplants: filtered, occupied: dressOcc, streetDress, tx, ty, N: w, tileEdgeM });
-        dressSpawn();
-        zoneDress = yield* ZoneDressing.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
-          spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
+          wildplants: filtered, tx, ty, N: w, tileEdgeM });
       }
     }
     // SCENIC PLACES (src/scenic.js) — after the zones, on the finished grid:
@@ -5426,9 +5455,8 @@
     // restore ladder's multiplier and the lamps' glow read them off
     // entry.scenic), the shore sand, the viewpoints; then the dressing — a
     // viewpoint's chest stamped its grail and the scope beside it, one vista
-    // chest per scenic stretch, the tide pool on the waterline — claiming into
-    // the same occupancy the street and zone dressings grew. spawnInTile lays
-    // it like the zones' nexus. Pure MVT + the grid: a rebuild re-derives it.
+    // chest per scenic stretch, the tide pool on the waterline. Their mapped
+    // places claim ahead of street and zone furniture. Pure MVT + final grid.
     let scenic = null, scenicDress = null;
     if (typeof Scenic !== 'undefined') {
       yield 'before scenic';
@@ -5437,7 +5465,24 @@
       scenicDress = yield* Scenic.dressSteps({ scenic, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
     }
-    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes };
+    if (streetIndex && typeof StreetVariants !== 'undefined') {
+      yield 'before street dressing';
+      dressSpawn();
+      // Zone painting runs earlier for scenic measurements, but the street's
+      // own hard gates still read the original ground and spawn reasons.
+      streetDress = yield* StreetVariants.dressSteps({ index: streetIndex, tx, ty, N: w, tileEdgeM,
+        grid: caveSource.grid,
+        spawnOpts: { roadMask, quiet: quietMask, spawnWhy: caveSource.spawnWhy,
+          roadClass, occupied: dressOcc, pois: dressPois } });
+    }
+    if (zone) {
+      zone.legacyRemoved += yield* clearZoneAmbientSteps({ field: zone, objects: deduped,
+        wildplants: filtered, occupied: dressOcc, streetDress, scenicDress, tx, ty, N: w, tileEdgeM });
+      dressSpawn();
+      zoneDress = yield* ZoneDressing.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
+        spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
+    }
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes, caveSource: hasStreetArea ? caveSource : null };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -5611,7 +5656,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, owners, ownerKeys, objects, wildplants, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -5653,7 +5698,9 @@
       // rebuild like the mask. spawnInTile dresses the streets off the index.
       entry.roadClass = roadClass;
       entry.streetIndex = streetIndex || null;
+      entry.streetArea = streetArea || null;
       entry.streetDress = streetDress || null;
+      entry.caveSource = caveSource;
       // The influence-zone field (src/zones.js — per-cell winner anchor and
       // strength; the story, the ghosts' dusk gate) and the nexus pieces
       // spawnInTile lays. Pure MVT like the index, re-derived by a rebuild.
@@ -5757,6 +5804,12 @@
     const _sxCell = (wx, wy) => {
       const { lix, liy } = cellIndexOf(x, y, wx, wy, tileEdgeM, cpe);
       return { ix: lix, iy: liy };
+    };
+    const _sxReserved = (ix, iy) => ix >= 0 && iy >= 0 && ix < cpe && iy < cpe
+      && !!variantOwnerAt(entry, iy * cpe + ix);
+    const _sxReservedAt = (wx, wy) => {
+      const { ix, iy } = _sxCell(wx, wy);
+      return _sxReserved(ix, iy);
     };
     const _sxCentre = (ix, iy) => cellCentreM(x, y, ix, iy, tileEdgeM, cpe);
     // A bin row carries its TILE-LOCAL cell (lix, liy on this tile's own
@@ -5984,6 +6037,7 @@
     }
     const tryTreeCell = (ix, iy) => {
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
+      if (_sxReserved(ix, iy)) return null;
       if (_sxHardCell(ix, iy)) return null;
       if (occupied.has(`${ix}_${iy}`)) return null;
       // Chest frontage stays clear (the player stands beside the chest),
@@ -6021,6 +6075,7 @@
       entry.objects.push(t);
     }
     for (const s of sx.shrubs) {
+      if (_sxReservedAt(s.x, s.y)) continue;
       if (onWater(s.x, s.y)) continue;
       if (_sxHard(s.x, s.y)) continue;            // never on road / building / hard cell
       if (_sxNearChest(s.x, s.y)) continue;       // keep the POI frontage clear
@@ -6038,6 +6093,7 @@
       entry.wildplants.push(makeWildplant(s.crop, c.x, c.y, s.id));
     }
     for (const p of sx.poles) {
+      if (_sxReservedAt(p.x, p.y)) continue;
       if (onWater(p.x, p.y)) continue;
       if (_sxHard(p.x, p.y)) continue;            // never on road / building / hard cell
       if (_sxNearBuilding(p.x, p.y)) continue;    // nor inside a house sprite's overhang
@@ -6921,7 +6977,7 @@
   // OPEN ground (the spawn gate) before its cluster goes without one.
   const CAVE_MOUTH_RELOCATE_CELLS = 6;
   function maybePlaceCaveEntrance(entry, tx, ty, tileEdgeM, stableObjects, stableWildplants) {
-    const source = entry.zone && entry.zone.caveSource;
+    const source = (entry.zone && entry.zone.caveSource) || entry.caveSource;
     const occupancySource = source ? source.objects : (stableObjects || entry.objects || []);
     const wildplantSource = source ? source.wildplants : (stableWildplants || entry.wildplants || []);
     const caveRocks = (source ? source.objects : (entry.objects || [])).filter(
@@ -7845,5 +7901,6 @@
     // all of them.
     makeWildplant, makeCreature, makeObject,
     spawnParkPlants, PARK_PLANT_CELL_CHANCE, clearZoneAmbientSteps,
+    clearStreetAmbientSteps, variantOwnerAt, injectTileBin,
   };
 })(window);

@@ -436,6 +436,77 @@
     return r.value;
   }
 
+  // Squared distance from a line segment to one cell square. A clipped MVT
+  // centreline may sit outside the tile while its band and verge cross it, so
+  // the test must use the full segment, not tileSpans of its centreline.
+  function segmentCellD2(ax, ay, bx, by, ix, iy) {
+    const dx = bx - ax, dy = by - ay;
+    // Liang-Barsky clipping: intersection makes the distance zero.
+    let lo = 0, hi = 1;
+    for (const [p, q] of [[-dx, ax - ix], [dx, ix + 1 - ax],
+      [-dy, ay - iy], [dy, iy + 1 - ay]]) {
+      if (p === 0) { if (q < 0) { lo = 2; break; } continue; }
+      const t = q / p;
+      if (p < 0) lo = Math.max(lo, t);
+      else hi = Math.min(hi, t);
+    }
+    if (lo <= hi) return 0;
+    const pointBoxD2 = (x, y) => {
+      const ox = Math.max(ix - x, 0, x - ix - 1);
+      const oy = Math.max(iy - y, 0, y - iy - 1);
+      return ox * ox + oy * oy;
+    };
+    let best = Math.min(pointBoxD2(ax, ay), pointBoxD2(bx, by));
+    const len2 = dx * dx + dy * dy;
+    for (const x of [ix, ix + 1]) for (const y of [iy, iy + 1]) {
+      const t = len2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len2)) : 0;
+      const ex = x - ax - t * dx, ey = y - ay - t * dy;
+      best = Math.min(best, ex * ex + ey * ey);
+    }
+    return best;
+  }
+
+  // Reserve the full band and first verge cell of each themed street,
+  // including deliberate gaps between furniture. Test cell squares against
+  // the geometry; sample spacing or a missed loop endpoint cannot make holes.
+  function* areaSteps(index, N) {
+    const area = new Uint8Array(N * N);
+    const WG = root.WorldGen;
+    if (!index || !WG || !(N > 0)) return area;
+    const ext = index.extent || 4096;
+    const cellM = WG.CELL_M;
+    const toCell = N / ext;
+    let segments = 0;
+    let candidates = 0;
+    for (const rec of index.lines) {
+      if (!rec.variant) continue;
+      yield 'street area';
+      const radius = rec.halfW / cellM + 1;
+      for (let j = 1; j < rec.line.length; j++) {
+        if ((++segments & 127) === 0) yield 'street area segments';
+        const a = rec.line[j - 1], b = rec.line[j];
+        const ax = a.x * toCell, ay = a.y * toCell;
+        const bx = b.x * toCell, by = b.y * toCell;
+        const left = Math.max(0, Math.floor(Math.min(ax, bx) - radius - 1));
+        const right = Math.min(N - 1, Math.floor(Math.max(ax, bx) + radius));
+        const top = Math.max(0, Math.floor(Math.min(ay, by) - radius - 1));
+        const bottom = Math.min(N - 1, Math.floor(Math.max(ay, by) + radius));
+        const r2 = radius * radius;
+        for (let iy = top; iy <= bottom; iy++) for (let ix = left; ix <= right; ix++) {
+          if ((++candidates & 511) === 0) yield 'street area cells';
+          if (segmentCellD2(ax, ay, bx, by, ix, iy) <= r2) area[iy * N + ix] = 1;
+        }
+      }
+    }
+    return area;
+  }
+  function area(index, N) {
+    const it = areaSteps(index, N);
+    let r = it.next();
+    while (!r.done) r = it.next();
+    return r.value;
+  }
+
   // The café hoard's pick: a pure hash of the POI's GLOBAL MVT point, the
   // same for every player and whichever tile asks.
   function hoardPick(gk) { return u01('hoard|' + gk); }
@@ -946,7 +1017,7 @@
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, TOADSTOOL_MUSHROOM_SHARE, BURNED_STEP_M, BURNED_MAX, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, SLOW_KINDS,
     STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
-    nameVote, lineName, sampleLine, buildIndexSteps, buildIndex,
+    nameVote, lineName, sampleLine, buildIndexSteps, buildIndex, areaSteps, area,
     markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

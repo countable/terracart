@@ -63,15 +63,21 @@ const cellIdx = (p) => cellY(p.y) * CPE + cellX(p.x);
 // used to hold (the occupancy pass: a rock claimed its cell first) are free.
 // RE-PINNED (Sep 2026, denser street rocks — STREET_ROCK_PIVOT_M 20 → 10):
 // 40 → 39, one older plant's cell now holds a street rock (occupancy).
+// The biome stream's pre-ownership source remains stable; special street
+// corridors now remove only plants inside their claimed area.
 const OLDER_PLANTS_BEFORE = { n: 39, hash: 3112412394 };
 
-test('residential yard flora: the lots hold no rubble now; older wild plants are exactly where they were', () => {
+test('residential yard flora: street ownership only removes older plants inside its corridor', () => {
   const r = rasterize();
   const rocks = r.objects.filter((o) => o.kind === 'mineralrock');
   for (const o of rocks) assert.truthy(o._street, `${o.id} is a street rock, not lot rubble`);
+  const source = r.caveSource.wildplants.filter((p) => !isYard(p));
+  const sourceIds = source.map((p) => p.id).sort();
+  assert.eq(fnv1a(sourceIds.join('|')), OLDER_PLANTS_BEFORE.hash, 'the older plant stream did not reroll');
+  assert.eq(sourceIds.length, OLDER_PLANTS_BEFORE.n);
+  const expected = source.filter((p) => !r.streetArea[cellIdx(p)]).map((p) => p.id).sort();
   const older = r.wildplants.filter((p) => !isYard(p)).map((p) => p.id).sort();
-  assert.eq(fnv1a(older.join('|')), OLDER_PLANTS_BEFORE.hash, 'older wild plant ids');
-  assert.eq(older.length, OLDER_PLANTS_BEFORE.n, 'older wild plant count');
+  assert.eq(older.join('|'), expected.join('|'), 'only owned corridor plants are cleared');
 });
 
 test('residential yard flora: both long grass and shrubs grow on residential cells', () => {
