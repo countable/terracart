@@ -71,9 +71,10 @@ test('energy pop: on the player\'s own cell it clears the head, on the body', ()
   const ps = s.playerScreen();
   assert.eq(out.x, Math.round(ps.x), 'centred on the body');
   assert.eq(ps.y - out.y, ENERGY_POP_HEAD_PX, 'hangs ENERGY_POP_HEAD_PX above the feet');
-  // Derived from the art: the head is half the 32px frame plus the feet drop
-  // above the fix, and the pop clears it by the same lift a cell edge gets.
-  const head = PLAYER_FRAME_PX / 2 + PLAYER_FEET_DROP_PX;
+  // Derived from the art: the head is half the farmer's 16px frame plus the
+  // feet drop above the fix, at the scale the sheet is drawn, and the pop
+  // clears it by the same lift a cell edge gets.
+  const head = (PLAYER_FRAME_PX / 2 + PLAYER_FEET_DROP_PX) * PLAYER_ART_SCALE;
   near(ENERGY_POP_HEAD_PX - head, ENERGY_POP_LIFT_PX, 0.5, 'clears the head by the lift');
   assert.truthy(ENERGY_POP_HEAD_PX > head, 'and is above it, not through it');
 });

@@ -8,8 +8,8 @@ const ASSETS = {
   npc_1_walk: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman02_walk.png', frameWidth: 48, frameHeight: 48 },
   npc_2_idle: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman03_idle.png', frameWidth: 48, frameHeight: 48 },
   npc_2_walk: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman03_walk.png', frameWidth: 48, frameHeight: 48 },
-  idle:    { kind: 'spritesheet', path: 'assets/Character/Idle.png',           frameWidth: 32, frameHeight: 32 },
-  walk:    { kind: 'spritesheet', path: 'assets/Character/Walk.png',           frameWidth: 32, frameHeight: 32 },
+  // The player's own sheets (the cyan farmer every save starts on, the four
+  // callings, the bicycle) are derived from SpriteLayout.PLAYER_ART below.
   // Red dragon transform (Dragon Powder). 11-col sheet of 96×96 frames;
   // row 0 (frames 0-7) is the wing-flap we loop while transformed.
   dragon:  { kind: 'spritesheet', path: 'assets/Character/Dragon/babydragon_sheets/dragon_red.png', frameWidth: 96, frameHeight: 96 },

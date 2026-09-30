@@ -363,7 +363,8 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   an owning ledger (restoration, lamps), never a count of its own. A zone's
   story in a resident's voice is the `keeper` column of `Zones.ZONE_KINDS`.
   The story neighbours by the trailer (`NPC.STORY_ROLES`, seated by
-  `Starter.placeSafeAreaWarden`) speak through `MemoryStory.npcDialogue`
+  `Starter.placeSafeAreaWarden`) arrive by the memory ledger (`minMemories`,
+  re-run from `_bankDiscovery`) and speak through `MemoryStory.npcDialogue`
   by act; a new story voice is a role there, not a new placer or dialog path.
 
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
