@@ -101,7 +101,7 @@ test('spirit raven: the pet lane is the raven\'s lane', () => {
   assert.truthy(/const huntsForPlayer = \(isTame && SpriteLayout\.isPet\(c\.kind\)\) \|\| summoned;/.test(sim),
     'a summoned ally hunts through the pet scan, as a second reason');
   assert.truthy(/if \(!huntsPrey\(c\.kind, cr\)\) return;/.test(sim), 'the scan asks the one predicate');
-  assert.truthy(/Combat\.damage\(tgt, Combat\.petBite\(c\.kind\)\)/.test(sim), 'the bite is Combat.petBite');
+  assert.truthy(/Combat\.damage\(tgt, Combat\.petBlow\(c\)\)/.test(sim), 'the bite is Combat.petBlow — petBite times the pet\'s own power');
   assert.truthy(/this\.resolveDefeat\(tgt, 'pet'\)/.test(sim), 'and a kill pays as the pet\'s');
   assert.truthy(/pest_crow\|ghost\|fished_slime\|spirit_raven/.test(sim), 'a dismissed raven\'s id is pruned like the pest crow\'s');
   assert.truthy(/if \(SpriteLayout\.isSummoned\(c\.kind\)\) return;/.test(INTERACT_SRC),
