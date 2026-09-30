@@ -3801,9 +3801,9 @@ class MapScene extends Phaser.Scene {
     const pWY = this.startWorldM.y + this.playerM.y;
     let crate = null, crateD2 = Infinity, chest = null, chestD2 = Infinity;
     for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind !== 'chest' || !o.id) continue;
-        if (!String(o.id).startsWith('chest_start_')) continue;
+      // The starter chests of each tile, derived once (util.js derivedObjects)
+      // rather than picked out of every cached tile's every object on each ask.
+      for (const o of derivedObjects(e, '_starterChests', (o) => o.kind === 'chest' && !!o.id && String(o.id).startsWith('chest_start_'))) {
         if (opened.has(o.id)) continue;
         const dx = o.x - pWX, dy = o.y - pWY;
         const d2 = dx * dx + dy * dy;
@@ -4374,18 +4374,29 @@ class MapScene extends Phaser.Scene {
         if (this.footprints.length > 5) this.footprints.splice(0, this.footprints.length - 5);
         this._lastFootprintM = { x: bodyM.x, y: bodyM.y };
       }
-      this.footprintGfx.clear();
       // Dots pressed into the GROUND, so they project like any other world
       // point (worldMetersToScreen → the camera anchor) and slide with a peek.
+      // The body's world point IS its feet (feet-on-the-fix), so each dot
+      // goes on the projected point with no anchor offset — the same point
+      // the contact shadow sits on. Redrawn only when a dot's drawn position
+      // or ink moves (a step, a fade, a peek): standing still, the same five
+      // 14-gons were rebuilt every step.
+      const prints = [];
+      let printKey = '';
       for (const fp of this.footprints) {
-        // The body's world point IS its feet (feet-on-the-fix), so the dot
-        // goes on the projected point with no anchor offset — the same point
-        // the contact shadow sits on.
         const s2 = this.worldMetersToScreen(fp.x + this.startWorldM.x,
                                             fp.y + this.startWorldM.y);
-        const sx2 = s2.x, sy2 = s2.y;
-        this.footprintGfx.fillStyle(0x000000, fp.alpha);
-        this._fillFootprint(this.footprintGfx, Math.round(sx2), Math.round(sy2), fp);
+        const sx2 = Math.round(s2.x), sy2 = Math.round(s2.y);
+        prints.push(sx2, sy2);
+        printKey += `${sx2},${sy2},${fp.alpha},${fp.ux},${fp.uy},${fp.side};`;
+      }
+      if (printKey !== this._footprintKey) {
+        this._footprintKey = printKey;
+        this.footprintGfx.clear();
+        this.footprints.forEach((fp, i) => {
+          this.footprintGfx.fillStyle(0x000000, fp.alpha);
+          this._fillFootprint(this.footprintGfx, prints[2 * i], prints[2 * i + 1], fp);
+        });
       }
     }
 
@@ -5018,7 +5029,7 @@ class MapScene extends Phaser.Scene {
     let scan = this._turretScan;
     if (!scan || now - scan.t > TURRET_SCAN_MS) {
       const list = [];
-      WorldGen.forEachItemNear('objects', pc.tx, pc.ty, (o) => {
+      this._forEachTowerNear(pc, (o) => {
         if (o.kind !== 'tower') return;
         // ONLY A CASTLE YOU HAVE TAKEN BACK FIGHTS FOR YOU. A turret is stamped
         // with its castle's footprint key (worldgen), and this is the SAME
@@ -11182,11 +11193,27 @@ class MapScene extends Phaser.Scene {
     const memo = this._castleWardScan;
     if (memo && now - memo.t < TURRET_SCAN_MS && memo.tx === pc.tx && memo.ty === pc.ty) return memo.list;
     const list = [];
-    WorldGen.forEachItemNear('objects', pc.tx, pc.ty, (o) => {
+    this._forEachTowerNear(pc, (o) => {
       if (o.kind === 'tower' && this.isClaimedKey(o.castle)) list.push(o);
     });
     this._castleWardScan = { t: now, tx: pc.tx, ty: pc.ty, list };
     return list;
+  }
+
+  // Every turret ('tower' object) in the 3×3 tile ring about `pc`. The two
+  // turret scans (_castleWardPoints, _turretFire) re-ran every TURRET_SCAN_MS
+  // — the ward one on every wander tick, enemies or not — and each walked the
+  // nine tiles' WHOLE object lists (tens of thousands in a town) for the
+  // handful of turrets. The turrets are derived once per tile instead
+  // (util.js derivedObjects), so a rebuilt or edited tile re-derives by itself.
+  _forEachTowerNear(pc, fn) {
+    for (let dty = -1; dty <= 1; dty++) {
+      for (let dtx = -1; dtx <= 1; dtx++) {
+        const e = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
+        if (!e) continue;
+        for (const o of derivedObjects(e, '_towers', (o) => o.kind === 'tower')) fn(o);
+      }
+    }
   }
 
   homeWorldPos() {
@@ -14126,9 +14153,15 @@ class MapScene extends Phaser.Scene {
   _syncPlayerSkin() {
     if (!this.player || this._dragonActive) return;
     const desired = SpriteLayout.playerArt(this.save);
-    const art = desired && this.textures.exists(desired.sheet)
+    // Is the desired skin's sheet loaded and every directional anim built?
+    // Runs every step, so a YES is remembered per skin (`_skinReady`): the
+    // answer only ever turns from no to yes as the lazy sheets arrive, and
+    // re-deriving it cost a texture lookup plus a dozen anim-key strings a
+    // step for a player standing still. A NO is asked again next step.
+    const art = desired && (this._skinReady === desired || (this.textures.exists(desired.sheet)
       && Object.keys(desired.directions).every(dir => ['idle', 'walk'].every(state =>
-        this.anims.get(`${desired.sheet}-${state}-${dir}`)?.frames?.length > 0)) ? desired : null;
+        this.anims.get(`${desired.sheet}-${state}-${dir}`)?.frames?.length > 0))
+      && (this._skinReady = desired))) ? desired : null;
     this._playerArt = art;
     this.player.setScale(art?.scale ?? this.playerScale);
     this.playerFeetNudgeY = art ? -art.footDrop * art.scale : -PLAYER_FEET_DROP_PX * this.playerScale;

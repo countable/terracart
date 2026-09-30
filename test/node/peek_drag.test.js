@@ -362,8 +362,9 @@ test('falloff: the player ramp ends a cell past the viewport half-diagonal, on z
 
 test('falloff: the light is drawn at the player every frame, never slid', () => {
   const src = LIGHTING_SRC;
-  assert.truthy(/const ps = scene\.playerScreen \? scene\.playerScreen\(\)/.test(src),
-                'centred on the feet-on-the-fix point');
+  assert.truthy(/const ps0 = scene\.playerScreen \? scene\.playerScreen\(\)/.test(src)
+                && /const ps = \{ x: Math\.round\(ps0\.x\), y: Math\.round\(ps0\.y\) \};/.test(src),
+                'centred on the feet-on-the-fix point (in whole px, as the sprites are)');
   assert.truthy(/ctx\.drawImage\(player\.canvas, ps\.x - ox - D \/ 2, ps\.y - oy - D \/ 2, D, D\)/.test(src), 'drawn there each frame');
   assert.falsy(/setPosition\(-pk\.x, -pk\.y\)/.test(RENDER_SRC),
                'no cached darkness image is slid by the peek any more');

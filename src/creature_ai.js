@@ -122,6 +122,11 @@ function slimeCharging(c) {
 // Anything that spawns a creature "just off-screen" for the player to meet must
 // land INSIDE this radius (see the crow pump's SPAWN_R), or it lands frozen.
 const CREATURE_SIM_CELLS = 12;
+// How often wanderCreatures re-asks EnemySpawns.surfaceActive of a surface foe
+// OUTSIDE the bubble (inside it: every tick). Its inputs — daylight, Home, the
+// pest amnesty — move over minutes, so a second of staleness on a frozen,
+// far-off seat changes nothing anyone can see.
+const SURFACE_RECHECK_MS = 1000;
 // Where the crop-raiding crow pump seats the bird it dispatches (hard mode
 // only — see wanderCreatures): past the viewport corner (7.8 cells) so it is
 // never seen popping into being, but inside CREATURE_SIM_CELLS so it is

@@ -117,23 +117,16 @@
     }
   </script>
   <script>
-    document.write([
-      '/vendor/phaser.js', '/src/mvt.js', '/src/enemy_roster.js', '/src/enemy_spawns.js', '/src/enemy_habitats.js', '/src/difficulty.js', '/src/util.js',
-      '/src/particles.js', '/src/trail.js', '/src/streets.js', '/src/street_variants.js', '/src/scenic.js', '/src/zones.js',
-      '/src/sprite_layout.js',
-      '/src/placed_floor.js', '/src/home.js', '/src/coords.js', '/src/fog.js',
-      '/src/biome_profiles.js', '/src/traps.js', '/src/lairs.js', '/src/worldgen.js',
-      '/src/textures.js', '/src/save.js', '/src/items.js', '/src/inventory.js',
-      '/src/energy.js', '/src/conditions.js', '/src/crops.js', '/src/delivery.js',
-      '/src/savemigrate.js', '/src/gear.js', '/src/rewards.js', '/src/shops_math.js',
-      '/src/shops.js', '/src/egg_hatch.js', '/src/chest_themes.js', '/src/rarity.js',
-      '/src/loot.js', '/src/macros.js', '/src/quests.js', '/src/interactables.js', '/src/houses.js',
-      '/src/starter.js', '/src/combat.js', '/src/creature_ai.js', '/src/wizard.js',
-      '/src/interact.js', '/src/lighting.js', '/src/render.js', '/src/multiplayer.js',
-      '/src/road_overlay.js', '/src/building_overlay.js', '/src/assets.js', '/src/sandbox.js',
-      '/src/testtools.js', '/src/geo.js', '/src/art_thumbs.js', '/src/modal_shell.js',
-      '/src/scene_geo.js', '/src/npc.js', '/src/scene_creatures.js', '/src/app.js',
-].map(p => `<scr${'ipt'} src="${p}?${Date.now()}"></scr${'ipt'}>`).join(''));
+    // The module list is read from index.html itself (its `vendor|src/…js?v=`
+    // tags, plus app.js, which it loads by hand after the GPS gate), so this
+    // page can't fall behind a new module the way a copied list did.
+    (() => {
+      const x = new XMLHttpRequest();
+      x.open('GET', '/index.html', false); x.send();
+      const list = [...x.responseText.matchAll(/<script src="((?:vendor|src)\/[^"?]+)\?v=/g)].map(m => '/' + m[1]);
+      list.push('/src/app.js');
+      document.write(list.map(p => `<scr${'ipt'} src="${p}?${Date.now()}"></scr${'ipt'}>`).join(''));
+    })();
   </script>
   <script>
     window.__perfReady = (async () => {

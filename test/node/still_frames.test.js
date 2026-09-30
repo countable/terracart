@@ -30,7 +30,7 @@ const RP = { cellIX: 10, cellIY: 20 };
 const PC = { tx: 1, ty: 2, cx: 3.25, cy: 4.5 };
 function keyFor(s, over = {}) {
   const o = Object.assign({ ps: PS, ox: 0, oy: 0, prof: Lighting.profile(s), r0: 64, rMax: 300, reachM: 10, rp: RP, pc: PC, now: 1000 }, over);
-  return Lighting.frameKey(s, o.ps, o.ox, o.oy, o.prof, o.r0, o.rMax, o.reachM, o.rp, o.pc, o.now);
+  return Lighting.frameKey(s, o.ps, o.ox, o.oy, o.prof, o.r0, o.rMax, o.reachM, o.rp, o.pc, o.now, o.pulseNow);
 }
 
 test('still frames: the lightmap clock steps, and steps fast enough', () => {
@@ -79,9 +79,46 @@ test('still frames: only what animates puts the clock in the key', () => {
   }
 });
 
+test('still frames: a view that only BREATHES keys on the slower pulse clock', () => {
+  const T = Lighting.LIGHT_TICK_MS, P = Lighting.PULSE_TICK_MS;
+  assert.gt(P, T, 'a breath steps slower than a flicker');
+  assert.lte(P, 200, 'but still at five or more stills a second');
+  const period = Lighting.POI_PULSE_PERIOD_S * 1000;
+  assert.eq(period % P, 0, 'the pulse tick divides the breath, so one breath later it is where it was');
+  // The steepest still-to-still change of any breathing row, as a share of
+  // its peak, stays small enough not to read as stepping.
+  for (const [kind, row] of Object.entries(Lighting.KINDS)) {
+    if (!row.pulse) continue;
+    assert.lt(row.pulse * Math.PI / Lighting.PULSE_STEPS * (row.peak || 1), 0.06, `${kind}: a still's step is under 6% of the light`);
+  }
+  // Breathing only: the key moves with the pulse clock and ignores the light clock.
+  const breath = scene({ _lights: [{ kind: 'poi', dx: 1, dy: 1, id: 'p' }, { kind: 'shiny', dx: 2, dy: 1, id: 's' }] });
+  assert.eq(Lighting.animates(breath), Lighting.ANIM_PULSE, 'a breath is not a flicker');
+  assert.eq(keyFor(breath, { now: 10 * T, pulseNow: 10 * P }), keyFor(breath, { now: 11 * T, pulseNow: 10 * P }),
+    'the light clock ticked, the breath did not: no repaint');
+  assert.truthy(keyFor(breath, { now: 10 * T, pulseNow: 10 * P }) !== keyFor(breath, { now: 10 * T, pulseNow: 11 * P }),
+    'the breath ticked: repaint');
+  // A flicker beside it puts the light clock back in.
+  const both = scene({ _lights: [{ kind: 'poi', dx: 1, dy: 1, id: 'p' }, { kind: 'fire', dx: 1, dy: 1, id: 'f' }] });
+  assert.eq(Lighting.animates(both), Lighting.ANIM_FAST | Lighting.ANIM_PULSE);
+  assert.truthy(keyFor(both, { now: 10 * T, pulseNow: 10 * P }) !== keyFor(both, { now: 11 * T, pulseNow: 10 * P }),
+    'a fire flickers on the light clock');
+  // The paint's breath reads the SAME clock the key names: inside one pulse
+  // tick the alpha stands, whatever the light clock does.
+  const poi = Lighting.KINDS.poi;
+  assert.eq(Lighting.flickerAlpha(poi, 0, 0, 10 * P + 1, 'p'), Lighting.flickerAlpha(poi, 0, 0, 11 * P - 1, 'p'),
+    'a breath stands for its tick');
+  assert.eq(Lighting.flickerAlpha(poi, 0, 0, 123456, 'p', 10 * P), Lighting.flickerAlpha(poi, 0, 0, 999, 'p', 10 * P),
+    'and is read off the pulse clock handed in, not the light clock');
+  const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function draw(scene, ax, ay, halfM) {'));
+  assert.truthy(/const pnow = pulseClock\(wall\);/.test(d), 'draw() reads the breath off the wall clock, on its own grid');
+  assert.truthy(/frameKey\(scene, ps, ox, oy, prof, r0, rMax, reachM, rp, pc, now, pnow, pcPx\)/.test(d), 'and keys on it');
+  assert.truthy(/flickerAlpha\(row, L\.dx, L\.dy, now, L\.id, pnow\)/.test(d), 'and paints with it');
+});
+
 test('still frames: draw() reads the quantised clock and gates before it touches the canvas', () => {
   const d = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function draw(scene, ax, ay, halfM) {'));
-  assert.truthy(/const now = lightClock\(Date\.now\(\)\);/.test(d), 'the frame clock is the lightmap\'s own, not the wall clock');
+  assert.truthy(/const now = lightClock\(wall\);/.test(d) && /const wall = Date\.now\(\);/.test(d), 'the frame clock is the lightmap\'s own, not the wall clock');
   const gate = d.indexOf('if (key === tex.__lightKey)');
   const paint = d.indexOf('const ctx = tex.context;');
   const refresh = d.indexOf('tex.refresh();');

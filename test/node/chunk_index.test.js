@@ -97,12 +97,26 @@ test('chunk index: built once, reused while the array stands, rebuilt on every m
   assert.eq(visited(e, 'wildplants', 0, 0, 10, 10).length, 1);
 });
 
-test('chunk index: drawObjects queries the sprite cull plus the widest pre-cull offer', () => {
+test('chunk index: drawObjects queries each walk with its own reach — sprites, object lights, plant lights', () => {
   const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawObjects = function drawObjects(scene)'));
-  assert.truthy(/const qM = halfM \+ Math\.max\(HOUSE_PAD_M, LIGHTS \? LIGHTS\.objectLightPadCells\(\) \* scene\.cellM : 0\);/.test(body),
-    'the box is the cull plus the larger of the house art pad and the widest scanned light');
-  assert.truthy(/WorldGen\.forEachItemInBox\(entry, 'objects', qx0, qy0, qx1, qy1, \(o\) => \{/.test(body), 'objects come off the index');
-  assert.truthy(/WorldGen\.forEachItemInBox\(entry, 'wildplants', qx0, qy0, qx1, qy1, \(wp\) => \{/.test(body), 'so do wildplants');
+  // The sprite walk: the cull plus the house art pad (the widest art).
+  assert.truthy(/const sM = halfM \+ HOUSE_PAD_M;/.test(body), 'the sprite box is the cull plus the house art pad');
+  assert.truthy(/WorldGen\.forEachItemInBox\(entry, 'objects', sx0, sy0, sx1, sy1, \(o\) => \{/.test(body), 'objects come off the index, in the sprite box');
+  // The light walk: only the tile's pre-cull lights, out to the widest one.
+  assert.truthy(/const lM = halfM \+ \(LIGHTS \? LIGHTS\.objectLightPadCells\(\) \* scene\.cellM : 0\);/.test(body),
+    'the object light box is the cull plus the widest scanned light');
+  assert.truthy(/WorldGen\.forEachItemInBox\(entry, PRE_CULL_LIGHTS, pWorldX - lM, pWorldY - lM, pWorldX \+ lM, pWorldY \+ lM, \(o\) => \{/.test(body),
+    'and walks the derived light list, not every object');
+  assert.truthy(/if \(Math\.abs\(dx\) <= sM && Math\.abs\(dy\) <= sM\) return;   \/\/ the sprite walk's/.test(body),
+    'what the sprite walk already offered is not offered twice');
+  assert.truthy(/if \(Math\.abs\(dx\) > sM \|\| Math\.abs\(dy\) > sM\) return;/.test(body),
+    'and the sprite walk leaves everything past its box to the light walk');
+  // The plant walk: the cull plus the widest plant light.
+  assert.truthy(/const wM = halfM \+ \(LIGHTS \? LIGHTS\.wildplantLightPadCells\(\) \* scene\.cellM : 0\);/.test(body),
+    'the wildplant box is the cull plus the widest plant light');
+  assert.truthy(/WorldGen\.forEachItemInBox\(entry, 'wildplants', pWorldX - wM, pWorldY - wM, pWorldX \+ wM, pWorldY \+ wM, \(wp\) => \{/.test(body), 'so do wildplants');
+  assert.gte(Lighting.wildplantLightPadCells(), Lighting.radiusCells('mushroom'), "at least a mushroom's glow");
+  assert.lt(Lighting.wildplantLightPadCells(), Lighting.objectLightPadCells(), 'and narrower than the object lights');
   assert.falsy(/for \(const o of entry\.objects\)/.test(body), 'the flat walk of objects is gone');
   assert.falsy(/for \(const wp of entry\.wildplants\)/.test(body), 'and of wildplants');
   // The pad is the widest light a scanned object can throw: Home's ring,
@@ -148,7 +162,12 @@ test('chunk index: a light past the sprite cull is still offered, one past the q
   try {
     try { Render.drawObjects(scene); } catch (_) { /* expected — no Phaser stub past the loop */ }
     const scanned = boot.lastCount('drawObjects scanned');
-    assert.eq(scanned.n, 2, 'the near house and the tree are walked; the far house never is');
+    // The tree once (the sprite walk); the near house by the light walk, and
+    // by the sprite walk too when its chunk is one the sprite box opens (it
+    // is left to the light walk from there). The far house by neither.
+    const sM = halfM + 2.2 * cellM, C = WorldGen.CHUNK_M;
+    const inSpriteChunks = Math.floor(nearLight / C) <= Math.floor(sM / C);
+    assert.eq(scanned.n, 2 + (inSpriteChunks ? 1 : 0), 'the near house and the tree are walked; the far house never is');
     const lit = (scene._lights || []).map(L => L.id);
     assert.includes(lit, 'h1', "Home's light a cell past the sprite cull still reaches the lightmap");
   } finally {

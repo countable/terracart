@@ -287,6 +287,6 @@ test('missingLine: fits MAP_MSG_MAX over every real wishlist item, worst case', 
 test('missingLine: the delivery tap uses it, and the callout stands down under a toast', () => {
   assert.truthy(/Delivery\.missingLine\(wanted, invCount,/.test(APP_JS_SRC), 'presentDeliveryOffer flashes the missing line');
   assert.falsy(/wants the set: \$\{names\}/.test(APP_JS_SRC), 'the whole-list flash is gone');
-  assert.truthy(/scene\._liveToasts/.test(RENDER_SRC) && /slot\.el\.style\.visibility = covered \? 'hidden' : 'visible'/.test(RENDER_SRC),
+  assert.truthy(/scene\._liveToasts/.test(RENDER_SRC) && /setStyleOnce\(slot\.el, 'visibility', covered \? 'hidden' : 'visible'\)/.test(RENDER_SRC),
     'a wishlist bubble hides while a live toast overlaps it');
 });

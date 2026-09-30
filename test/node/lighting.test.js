@@ -445,10 +445,15 @@ test('lighting: collectLamps converts absolute lamp metres against the anchor, c
   // The stamp adds it to the anchored screen point, and the still-frame key
   // names it: a light the key does not name is a light that cannot repaint.
   const st = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('    const stamp = (L) => {'));
-  assert.truthy(/scene\.viewCenterY \+ L\.dy \* k \+ \(L\.dyPx \|\| 0\) - oy - d \/ 2/.test(st),
+  // (Both through lightCentrePx — the stamp's whole-px centre is the key's.)
+  const lc = LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('  function lightCentrePx('));
+  assert.truthy(/y: Math\.round\(scene\.viewCenterY \+ L\.dy \* k \+ \(L\.dyPx \|\| 0\)\)/.test(lc),
     'the stamp lifts the cookie by dyPx, on top of the anchored metres');
-  assert.truthy(/L\.dx\},\$\{L\.dy\},\$\{L\.dyPx\}/.test(LIGHTING_SRC),
-    'and frameKey names dyPx, so a lift that moves repaints');
+  assert.truthy(/const c = lightCentrePx\(scene, L, k\);/.test(st) && /ctx\.drawImage\(ck\.canvas, c\.x - ox - d \/ 2, c\.y - oy - d \/ 2, d, d\);/.test(st),
+    'the stamp is placed at that centre');
+  assert.truthy(/const c = lightCentrePx\(scene, L, kPx\); at = `\$\{c\.x\},\$\{c\.y\}`;/.test(LIGHTING_SRC)
+    && /\$\{L\.id\},\$\{at\},\$\{L\.dyPx\}/.test(LIGHTING_SRC),
+    'and frameKey names the lifted centre (and dyPx), so a lift that moves repaints');
   // No list, or an empty one, is a no-op — like collectFires with no fires.
   assert.eq(Lighting.collectLamps(scene({ cellM }), 0, 0, HALF_M), 0, 'no list at all');
   assert.eq(Lighting.collectLamps(scene({ cellM, _streetLamps: [] }), 0, 0, HALF_M), 0, 'an empty list');
@@ -759,9 +764,15 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   // kind is offered to the lightmap by joining that group rather than by being
   // remembered here.
   // (+ the grove shrine, src/zones.js — a standing light like the torch.)
-  const offer = body.indexOf("if (LIGHTS && (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine')) LIGHTS.consider(scene, o, dx, dy, halfM);");
+  // One closure offers them, for the sprite walk and the light walk alike.
+  assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine') LIGHTS.consider(scene, o, dx, dy, halfM);"),
+    'the pre-cull offer asks isBuilding (+ torch, grove shrine)');
+  const offer = body.indexOf('if (LIGHTS && offersPreCullLight(o)) offerPreCullLights(o, dx, dy);');
   const cull = body.indexOf('if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;');
   assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
+  const pred = r.slice(r.indexOf('function offersPreCullLight(o) {'), r.indexOf('Render.drawObjects = function drawObjects(scene)'));
+  assert.truthy(/return isBuilding\(k\) \|\| k === 'torch' \|\| k === 'grove_shrine' \|\| k === 'vista_scope';/.test(pred),
+    'and the per-tile light list is derived by the same kinds');
   // The mushroom is a wildplant, scanned in its own loop: offered as itself,
   // before that loop's cull, so its little glow can still show from a cell
   // off-screen.

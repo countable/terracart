@@ -1278,7 +1278,7 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   const preamble = [
     // The numbers the loop reads. Lifted, never retyped: a retune has to move
     // the simulation with it or these tests are measuring last week's game.
-    num('CREATURE_SIM_CELLS'), num('FIRE_WARD_MAX_DEPTH'), num('MONSTER_HIT_MS'), num('WANDER_STEP_MS'),
+    num('CREATURE_SIM_CELLS'), num('SURFACE_RECHECK_MS'), num('FIRE_WARD_MAX_DEPTH'), num('MONSTER_HIT_MS'), num('WANDER_STEP_MS'),
     num('SLIME_HOP_CELLS'), num('SLIME_STEP_MUL'), num('STALK_JITTER'),
     num('PEST_CROW_SPAWN_CELLS'), num('STRUCK_REACTION_MS'),
     // What a creature in a hurry costs — the struck-prey flee and Home's rout
