@@ -41,18 +41,16 @@
       assert.includes(QUEST_ENEMIES, kind, kind + ' is a quest target');
     }
     for (const kind of giantKinds) {
-      assert.truthy(QUEST_ENEMIES.includes(kind), kind + ' is on the board');
-      assert.truthy(QUEST_ENEMIES.indexOf(kind) > QUEST_ENEMIES.indexOf(MONSTERS[kind].giant),
-        kind + ' comes up later than its base kind');
+      assert.falsy(QUEST_ENEMIES.includes(kind), kind + ' remains compatible but no new quest requests it');
+      assert.truthy(Combat.monster(kind), 'saved discoveries and kills still resolve');
     }
-    // A high enough rank actually rolls a giant job.
-    let giantJobs = 0;
     for (let g = 0; g < 200; g++) {
       const q = Quests.generate(g % QUEST_SLOTS, g + 3, 100, 11);
-      if (q.verb === 'kill' && /^giant_/.test(q.target)) giantJobs++;
-      if (q.verb === 'kill') assert.falsy(/undefined/.test(q.body), 'the giant is named: ' + q.body);
+      if (q.verb === 'kill') {
+        assert.falsy(EnemyRoster.get(q.target)?.retired, 'new quests never require a retired enemy');
+        assert.falsy(/undefined/.test(q.body), 'the enemy has a name');
+      }
     }
-    assert.gt(giantJobs, 0, 'a veteran board offers giant jobs');
     // Rank 0 still opens with the surface slime only.
     for (let g = 3; g < 40; g++) {
       const q = Quests.generate(g % QUEST_SLOTS, g, 0, 11);

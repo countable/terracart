@@ -250,10 +250,11 @@ test('tips: the ghost page quotes its owners\' numbers', () => {
   const touch = Combat.monster('ghost').dmg;
   assert.eq(touch, Combat.GHOST_TOUCH_DMG, 'the live row carries the touch');
   assert.truthy(t.includes(`${touch}\u26a1 before armour`), `a ${touch} touch, as the page says`);
-  const every = EnemyRoster.GHOST_SCALING.hauntedDepthEvery;
-  assert.eq(__ghost.GHOST_CAVE_EVERY, every, 'the pump derives the roster haunted-depth interval');
-  assert.eq(every, 2, 'every second cave level is haunted');
-  assert.truthy(/every second level is haunted at every hour/.test(t), 'and the page says so');
+  const first = EnemyRoster.GHOST_SCALING.minCryptDepth;
+  assert.truthy(__ghost.ghostsHaunt(first, 1, 'crypt'));
+  assert.falsy(__ghost.ghostsHaunt(first - 1, 0, 'crypt'));
+  assert.falsy(__ghost.ghostsHaunt(first, 0, 'natural'));
+  assert.truthy(t.includes(`crypt pockets from level ${first} are haunted at every hour`));
   const i = PLAY_TIPS.indexOf(t);
   assert.lt(i, PLAY_TIPS.length / 5, 'taught in the first fifth, beside the snares — the first night can be the first session');
 });
@@ -532,9 +533,9 @@ test('books: the derelict-lair tip is re-derived from lairs.js', () => {
   // in a castle would send a player in expecting the wrong fight.
   assert.eq(Lairs.kindsAt(9, 1).join(), 'slime');
   assert.eq(Lairs.kindsAt(11, 1).join(), 'goblin,goblin_archer');
-  assert.eq(Lairs.kindsAt(12, 1).join(), 'skeleton,giant_skeleton');
+  assert.eq(Lairs.kindsAt(12, 1).join(), 'skeleton,skeleton_soldier');
   assert.truthy(/houses are infested by slimes/i.test(tip));
-  assert.truthy(/forts hold goblins and archers; castles hold skeletons and giant skeletons/i.test(tip));
+  assert.truthy(/forts hold goblins and archers; castles hold skeletons and skeleton soldiers/i.test(tip));
 
 });
 
@@ -551,7 +552,7 @@ test('books: the chase tip is re-derived from the leash lairs.js owns', () => {
   // It waits first: the aggro ring is inside the leash, so "come within a few
   // cells" is a smaller number than the one you escape by.
   assert.lt(Lairs.LAIR_AGGRO_CELLS, Lairs.LAIR_LEASH_CELLS, 'the tip has the two rings the wrong way round');
-  assert.truthy(/whole garrison comes at you at once/i.test(tip),
+  assert.truthy(/mobile guards come at you together/i.test(tip),
     'and that it comes as a group, not one guard at a time');
   // The stale claim, from when a guard could not move at all.
   assert.falsy(/never leave the ruin/i.test(TIPS_BLOB), 'no tip still says a garrison cannot follow');

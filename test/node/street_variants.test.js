@@ -272,12 +272,12 @@ test('café hoards: beside the café, public ground, guarded only outside the ke
   assert.gt(cellOf(kerb.x, TX), 44, 'the kerb café\'s hoard stays EAST of the motorway (never across the band)');
 });
 
-test('café hoards: the guard is a giant, seated by Lairs on the foe rule (outside the buffer)', () => {
+test('café hoards: a distinct guard is seated by Lairs outside the buffer', () => {
   assert.eq(Lairs.capFor('cafe', 1), 1, 'a strong hoard is still one guard');
   assert.truthy(Lairs.KIND_ORDER.cafe.every((kind) => {
     const row = EnemyRoster.get(kind);
-    return row && row.variantType === 'Giant' && row.surface && row.tier <= 3 && !row.eliteEligible;
-  }), 'a café hoard holds an approved surface giant, capped at T3 without Elite stacking');
+    return row && !row.variantType && row.tier <= 4;
+  }), 'a café hoard holds a distinct authored guard capped at T4');
   assert.truthy(Lairs.ALWAYS_AWAKE_TIERS.has('cafe'), 'every mode');
   assert.eq(Lairs.KIND_ORDER.close, undefined, 'the hedgerow close tier is gone');
   const r = rasterize();
@@ -543,7 +543,7 @@ test('toadstool lane: a minor row at 5%, its verge holds patterned glowing mushr
 
 test('barricade road: one goblin per barricade, held in either mode', () => {
   assert.eq(Lairs.capFor('barricade', 1), 1, 'one goblin, whatever the strength');
-  assert.eq(Lairs.KIND_ORDER.barricade.join(), 'goblin');
+  assert.eq(Lairs.KIND_ORDER.barricade.join(), 'spear_goblin,archer_goblin');
   assert.truthy(Lairs.ALWAYS_AWAKE_TIERS.has('barricade'), 'every mode');
   const { d, r, spawnOpts } = dressedVariants();
   const bars = d.wildplants.filter((w) => w.crop === 'barricade' && !w._streetScenery);
@@ -570,7 +570,7 @@ test('barricade road: one goblin per barricade, held in either mode', () => {
     cellM: TILE_EDGE_M / CPE, tileEdgeM: TILE_EDGE_M, playerM, homeM: { x: 0, y: 0 },
     caughtSet: new Set(), buildings: false });
   assert.gt(rep.woken, 0, 'easy (buildings off) still wakes the one beside you');
-  assert.eq(entry.creatures[0].kind, 'goblin');
+  assert.eq(entry.creatures[0].kind, 'spear_goblin');
   for (const g of entry.creatures) {
     assert.falsy(inBuf(r, cellOf(g.y, TY) * CPE + cellOf(g.x, TX)), `${g.id} stands outside the kerb buffer`);
   }
@@ -788,5 +788,16 @@ test('barricade scenery adds stakes and barriers without multiplying guards', ()
   assert.gt(d.wildplants.filter((o) => o._streetScenery && o.crop === 'barricade').length, 4);
   assert.gt(d.objects.filter((o) => o._streetScenery && o.kind === 'stakes').length, 2);
   assert.eq(d.lairs.filter((o) => o.tier === 'barricade').length, 1);
+});
+test('themed street encounters: one finite spider post per street and tile, outside the kerb', () => {
+  const { d, r } = dressedVariants();
+  const posts = d.lairs.filter(l => l.tier === 'street_toadstool');
+  assert.eq(posts.length, 1);
+  const again = dressedVariants().d.lairs.filter(l => l.tier === 'street_toadstool');
+  assert.eq(JSON.stringify(posts), JSON.stringify(again));
+  for (const p of posts) {
+    const ix = Math.floor(p.lx / (TILE_EDGE_M / CPE)), iy = Math.floor(p.ly / (TILE_EDGE_M / CPE));
+    assert.falsy(inBuf(r, iy * CPE + ix));
+  }
 });
 })();

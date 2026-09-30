@@ -78,9 +78,23 @@ test('lava: the player burns on the lava level only, by the feet, through the on
 
 test('lava: an enemy standing in it burns at the same rate, and the kill is the ground\'s', () => {
   const src = SCENE_CREATURES_SRC;
-  assert.truthy(/!isTame && Combat\.isEnemy\(c\) && this\.depth === WorldGen\.LAVA_DEPTH/.test(src), 'enemies, lava level');
+  assert.truthy(/!isTame && Combat\.isEnemy\(c\) && !Combat\.monster\(c\.kind\)\?\.lavaImmune && this\.depth === WorldGen\.LAVA_DEPTH/.test(src), 'enemies, lava level');
   assert.truthy(/under\.type === WorldGen\.T\.CAVE_LAVA\s*\n\s*&& this\._damageEnemy\(c, Combat\.LAVA_DMG_PER_S, 'lava'\)\) return;/.test(src),
     'through _damageEnemy at the shared rate');
   assert.falsy(Combat.isPlayerKill('lava'), 'not a player kill: the bounty coin and nothing else');
 });
 })();
+
+// Exercise the shipping hazard branch: immunity belongs to the creature, not
+// to the infernal region, so ordinary foes crossing that region still burn.
+test('lava: demons resist lava while neighbouring mortal enemies still burn', () => {
+  const start = SCENE_CREATURES_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune');
+  const end = SCENE_CREATURES_SRC.indexOf('      // Slime energy steal', start);
+  const tick = new Function('c', 'isTame', 'now', SCENE_CREATURES_SRC.slice(start, end));
+  const hurt = [];
+  const scene = { depth: WorldGen.LAVA_DEPTH, cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_LAVA }),
+    _damageEnemy: (c, dmg) => { hurt.push([c.kind, dmg]); return false; } };
+  tick.call(scene, { kind: 'red_demon' }, false, 1000);
+  tick.call(scene, { kind: 'skeleton' }, false, 1000);
+  assert.eq(hurt.length, 1); assert.eq(hurt[0][0], 'skeleton'); assert.eq(hurt[0][1], Combat.LAVA_DMG_PER_S);
+});

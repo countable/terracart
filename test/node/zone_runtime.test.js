@@ -100,8 +100,8 @@
     assert.eq(report.slept, 1);
   });
 
-  test('zone runtime: exactly eight variants attract existing fauna across union coverage', () => {
-    assert.eq(ZoneVariants.rows.filter(r => Object.keys(r.attracts).length).length, 8);
+  test('zone runtime: ten variants attract existing fauna across union coverage', () => {
+    assert.eq(ZoneVariants.rows.filter(r => Object.keys(r.attracts).length).length, 10);
     const N = 32, grid = new Array(N * N).fill(WorldGen.T.GRASS);
     const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 10 });
     for (const row of ZoneVariants.rows) {

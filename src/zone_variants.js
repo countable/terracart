@@ -125,5 +125,5 @@
     });
   }
   root.ZoneVariants = { rows, materials, byId, forKind, pick, sample, findOffsets,
-    poiOrigin, rotation, rotate, inverseRotate };
+    identity, poiOrigin, rotation, rotate, inverseRotate };
 })(typeof window !== 'undefined' ? window : globalThis);

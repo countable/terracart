@@ -3508,6 +3508,38 @@ Render.drawObjects = function drawObjects(scene) {
     const L = chestLook(o); return !L.box && !L.macro && !L.barrel && !L.bike && !L.coin; });
   const g = scene.tierGfx;
   g.clear();
+  // Attack footprints sit above scenery so cover cannot hide the warning.
+  // The same roster radii/angles and locked aim are used by damage resolution.
+  for (const { c, dx, dy } of creatureList) {
+    const row = EnemyRoster.get(c.kind), now = performance.now();
+    if (!row) continue;
+    const p = project(dx, dy), aim = c._attackAim;
+    const winding = c._attackWindupUntil > now;
+    if (winding && aim && ['area', 'blast', 'breath'].includes(row.attackType)) {
+      g.lineStyle(2, 0xffdb72, 0.85);
+      if (row.attackType === 'breath') {
+        const radius = row.range * CELL_PX, half = row.breath.halfAngleRadians;
+        g.beginPath(); g.moveTo(p.sx, p.sy);
+        for (let i = 0; i <= 12; i++) {
+          const angle = aim.angle - half + 2 * half * i / 12;
+          g.lineTo(p.sx + Math.cos(angle) * radius, p.sy + Math.sin(angle) * radius);
+        }
+        g.closePath(); g.strokePath();
+      } else {
+        const radius = (row.attackType === 'area' ? row.area : row.blast).radiusCells * CELL_PX;
+        const centre = row.attackType === 'area'
+          ? project(dx + aim.x - c.x, dy + aim.y - c.y) : p;
+        g.strokeCircle(centre.sx, centre.sy, radius);
+      }
+    }
+    if (c._lungeWindupUntil > now) {
+      const length = row.movement.lungeSpeedMetersPerSecond * row.movement.lungeSeconds / scene.cellM * CELL_PX;
+      g.lineStyle(2, 0xffdb72, 0.85);
+      g.beginPath(); g.moveTo(p.sx, p.sy);
+      g.lineTo(p.sx + Math.cos(c._lungeAngle) * length, p.sy + Math.sin(c._lungeAngle) * length);
+      g.strokePath();
+    }
+  }
   for (const item of chestObjs) {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
@@ -3847,8 +3879,9 @@ Render.drawObjects = function drawObjects(scene) {
     s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
     // Wind-ups are observable before damage or a lunge lands. A brief amber
     // flash alternates with the original palette; frozen bodies keep ice.
-    const winding = Math.max(c._attackWindupUntil || 0, c._lungeWindupUntil || 0) > performance.now();
+    const winding = Math.max(c._attackWindupUntil || 0, c._lungeWindupUntil || 0, c._abilityWindupUntil || 0) > performance.now();
     if (winding && !frozen && Math.floor(performance.now() / 100) % 2 === 0) s.setTintFill(0xffdb72);
+    if (c._supportUntil > performance.now() && !frozen) s.setTintFill(0x8cefa0);
     Render.setShine(s, !!c.shiny && !frozen, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
     // sprite keeps whatever alpha its last creature wore.

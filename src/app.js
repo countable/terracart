@@ -4809,7 +4809,8 @@ class MapScene extends Phaser.Scene {
       // when a shot is actually in flight: stepShots samples the test every
       // half-cell of every shot, far too often for a per-sample object scan.
       let solidCells = null;
-      const shotBlocked = (x, y) => {
+      const shotBlocked = (x, y, shot) => {
+        if (shot?.hostile && enemySightBlocked(this, shot._sourceGuard || {}, x, y)) return true;
         if (this._cellBlocked(x, y)) return true;
         if (this.depth !== 0) return false;
         if (!solidCells) {
@@ -5084,6 +5085,7 @@ class MapScene extends Phaser.Scene {
     this._boltUsed = 0;
     for (const s of this._shots) {
       const spec = Combat.SHOT[s.slot];
+      if (s.projectile === 'bullet') { s.dotPx = 2; s.color = 0xe2d6b4; }
       if (s.projectile === 'blight_magic') { s.dotPx = 3; s.color = 0x85e64b; }
       const head = this.worldMetersToScreen(s.x, s.y);
       // Shots travel between FOOT positions (that's where the player and every

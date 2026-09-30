@@ -268,4 +268,17 @@
     assert.gt(Array.from(grid).filter((v) => v === T.GROVE).length, sandCells.length,
       'the full pipeline still painted plenty of grove ground — just never over sand');
   });
+  test('beach coverage: tagged source keeps one sand owner and excludes inland spill', () => {
+    const beach = anchor(2048, 2048, 'beach'), grove = anchor(2048, 2048);
+    const grid = new Uint8Array(N * N).fill(WorldGen.T.GRASS);
+    for (let y = 29; y < 35; y++) for (let x = 29; x < 35; x++) grid[y * N + x] = WorldGen.T.SAND;
+    const field = { anchors: [grove, beach], idx: new Uint8Array(N * N).fill(1), allAnchors: [grove, beach] };
+    const out = build([grove, beach], [], { grid, field }).field;
+    assert.eq(ownerAt(out, 32, 32).kind, 'beach');
+    assert.eq(ownerAt(out, 40, 40).kind, 'grove');
+    const plain = build([grove], [], { grid, field: { anchors: [grove], idx: new Uint8Array(N * N).fill(1), allAnchors: [grove] } }).field;
+    assert.falsy(ownerAt(plain, 32, 32), 'unanchored beach is not a grove motif');
+    const before = grid[32 * N + 32]; paint(out, grid);
+    assert.eq(grid[32 * N + 32], before, 'beach sand retains its terrain');
+  });
 })();

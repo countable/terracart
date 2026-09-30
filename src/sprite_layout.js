@@ -444,11 +444,11 @@
     if (row.variantOf) continue;
     const old = CREATURE_ART[row.id];
     const fw = row.art.frameWidth, fh = row.art.frameHeight;
-    const [minY, maxY] = enemyBounds[row.id] || [0, 16];
+    const [minY, maxY] = row.art.bounds || enemyBounds[row.id] || [0, 16];
     const flying = ['orbit_swoop', 'ghost_glide'].includes(row.movement.pattern);
     const ghost = row.movement.pattern === 'ghost_glide';
-    CREATURE_ART[row.id] = fw === 32 ? { ...old, sheet: row.id === 'goblin_trapper' ? 'goblin' : row.id }
-      : { sheet: row.id, frames: 4, frameMs: flying ? 120 : 240,
+    CREATURE_ART[row.id] = fw === 32 && old ? { ...old, sheet: row.id === 'goblin_trapper' ? 'goblin' : row.id }
+      : { sheet: row.id, frames: 4, frameMs: row.art.frameMs ?? (flying ? 120 : 240),
         // 2× a 16px sheet, trimmed by the row's own `artScale` (the slimes:
         // at the full 2× a pest stood as tall as a goblin).
         fw, fh, scale: 2 * (row.artScale ?? 1), foot: maxY / fh, minY, maxY,
@@ -457,6 +457,7 @@
         ...(ghost ? { hop: true, hopMs: 1600, hopPx: 3,
           alpha: GHOST_ALPHA, glow: GHOST_GLOW } : {}) };
     Object.assign(CREATURE_ART[row.id], CREATURE_DIRECTION_LAYOUTS[row.art.directionLayout]);
+    if (row.art.directions) Object.assign(CREATURE_ART[row.id], { directions: row.art.directions, directionSideFacing: row.art.directionSideFacing });
     CREATURE_ART[row.id].tint = row.tint ? parseInt(row.tint.slice(1), 16) : 0xffffff;
   }
   const _giantArt = {};
@@ -721,7 +722,8 @@
     const art = creatureArt(c.kind);
     const facing = c._facing || 'down';
     const side = facing === 'left' || facing === 'right';
-    const directional = art?.directions?.[side ? 'side' : facing];
+    const explicitSide = side && art?.directions?.[facing];
+    const directional = explicitSide || art?.directions?.[side ? 'side' : facing];
     // Missing poses keep the existing animation and horizontal mirroring.
     if (!directional) return { frame: legacyCreatureFrame(c, now), flipX: !!c._faceFlip };
     const attacking = now < (c._attackUntil ?? 0) && directional.attack?.length;
@@ -734,7 +736,7 @@
       const progress = Math.max(0, (now - c._attackT0) / (c._attackUntil - c._attackT0));
       index = Math.min(frames.length - 1, Math.floor(progress * frames.length));
     }
-    return { frame: frames[index], flipX: side && facing !== art.directionSideFacing };
+    return { frame: frames[index], flipX: !explicitSide && side && facing !== art.directionSideFacing };
   }
   function creatureCycleFrame(c, now) { return creatureAppearance(c, now).frame; }
 

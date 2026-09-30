@@ -116,8 +116,8 @@ const PLAY_TIPS = [
   // can be the first session, and a touch is an eighth of a fresh bar — so
   // this is safety, taught beside the snares. books.test.js re-derives the
   // five minutes, the "twice", the touch (Combat.GHOST_TOUCH_DMG) and
-  // the haunted levels (creature_ai.js GHOST_CAVE_EVERY).
-  'After dark, ghosts rise out of the dark every five minutes or so. One hovers a moment, then rushes you at a run, and its touch costs 12\u26a1 before armour. Below ground, every second level is haunted at every hour. A torch or a lamp burns them, a campfire drives them off, and none will linger near Home or a castle you\'ve taken back.',
+  // the crypt habitats (creature_ai.js ghostsHaunt).
+  'After dark, ghosts rise out of the dark every five minutes or so. One hovers a moment, then rushes you at a run, and its touch costs 12\u26a1 before armour. Below ground, crypt pockets from level 3 are haunted at every hour. A torch or a lamp burns them, a campfire drives them off, and none will linger near Home or a castle you\'ve taken back.',
   // ── The starter loop — till, plant, rebuild, harvest, sell ───
   'Tilling refuses a cell holding a wildplant, rock, or building.',
   `An ordinary watered crop climbs one stage every ${shortDuration(Crops.STAGE_HOLD_MS)}, even while you are away, then needs watering again. Magical flowers take hours per stage; check their growing timer.`,
@@ -255,9 +255,9 @@ const PLAY_TIPS = [
   'Long grass takes to grassland, farmland, parks and orchards — but never deep forest.',
   'Softwood fells a tier easier than most timber and hardwood a tier harder — and everything growing within 100m of where you began is soft pine.',
   'A planted tree takes four days to come up, and only a full-grown one pays a full load of timber.',
-  'In either mode, ruins are held — about a third of wrecked houses, most forts, and nearly every castle — and the bigger the building the bigger the garrison: a castle can hide fifteen. Wrecked houses are infested by slimes; forts hold goblins and archers; castles hold skeletons and giant skeletons. A fort or castle garrison waits deep inside: walk past and it holds, walk in and it comes.',
+  'In either mode, ruins are held — about a third of wrecked houses, most forts, and nearly every castle — and the bigger the building the bigger the garrison: a castle can hide fifteen. Wrecked houses are infested by slimes; forts hold goblins and archers; castles hold skeletons and skeleton soldiers. A fort or castle garrison waits deep inside: walk past and it holds, walk in and it comes.',
   'On hard, you learn to make a thing only by first finding one out in the world.',
-  'A held ruin waits. Come within a few cells and the whole garrison comes at you at once — but it never strays far from its own building, so get seventy metres from the ruin and they give up and walk back to it.',
+  'A held ruin waits. Come within a few cells and the mobile guards come at you together — but it never strays far from its own building, so get seventy metres from the ruin and they give up and walk back to it.',
   // ── Animals — meeting them, then keeping them ───────────────
   'Feeding an animal its favourite tames it where it stands — it stays in the world, it does not go in your bag.',
   `Feed any plant or crop to a chicken or cow for an egg or milk - but only once every ${shortDuration(SpriteLayout.ANIMAL_INTERACTION.produceCooldownMs)} from each.`,

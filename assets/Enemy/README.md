@@ -52,3 +52,30 @@ is 1.68×. Mini Spider, Giant Spider and Giant Plant retain their prior sizes
 through explicit variant multipliers, so shrinking their parents does not
 also shrink them. Instance multipliers still apply on top of these sizes.
 Mini Vampire Bat is retired; the regular Vampire Bat retains its shared sheet.
+
+## MiniWorld encounter roster
+
+Pirates, crab, the five goblin roles, three orcs, minotaur, necromancer,
+skeleton soldier, three demons and red dragon now use their imported sheets.
+The roster records each sheet's actual column count through explicit frame
+lists, plus measured idle bounds. Most have four authored directions: left
+and right must not mirror each other. Farmer goblin and minotaur have three
+walking directions and mirror their side poses. These sheets use 16px cells
+except the dragon's 32px cells. Skeleton Soldier was copied from the reserve
+MiniWorld pack into the runtime Skeleton directory.
+
+Art gaps to review:
+
+- Spear Goblin's strike poses span two 16px rows. Its movement and held pose
+  are supported; attacks currently use the held pose with the combat windup.
+  Supporting its full strike requires state-specific frame dimensions or a
+  normalized derived sheet, not clipping the spear into a 16px frame.
+- Giant Crab supplies walking poses, with no distinct claw-attack cycle.
+- Red Dragon supplies flight and two stationary/open-mouth poses per direction,
+  but no authored flame/breath effect. Its attack uses those stationary poses.
+- The other dragon colours and frost animals remain reserve candidates. Their
+  presence does not imply additional encounters with identical mechanics.
+
+Retired size/tint enemy IDs retain their art and save compatibility, but are
+removed from ordinary spawn pools. Existing legacy goblin sheets remain for
+older IDs; the new club/spear/archer/farmer/bomb roles have distinct MiniWorld art.

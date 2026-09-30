@@ -46,9 +46,13 @@
         if (WG.isSpawnCell(grid, N, N, ix, iy, opts, 'minor')) s.rec.eligible++;
       }
     }
-    const owns = (s, ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N && coverage[iy * N + ix] === s.ai + 1;
+    const owns = (s, ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N && coverage[iy * N + ix] === s.ai + 1
+      && !(s.a.kind === 'grove' && grid[iy * N + ix] === WG.T.SAND);
     const allowed = (s, ix, iy, material) => {
       if (!owns(s, ix, iy)) return false;
+      // Scenic shore sand is finalized after coverage; keep late sand out
+      // of ordinary grove motifs too. Beach roses require vegetated ground.
+      if (grid[iy * N + ix] === WG.T.SAND && s.variant.id === 'shellwater_strand' && material === 'rose') return false;
       const m = V.materials[material];
       if (!m) return false;
       const cls = m.spawnClass;
@@ -121,11 +125,14 @@
         }
         if (seat) s.findCells.push(seat);
       }
-      if (a.owned && v.guards.mode === 'guard_find') {
+      if (a.owned && ['guard_find', 'guard_poi'].includes(v.guards.mode)) {
         for (let n = 0; n < v.guards.count; n++) {
-          const target = s.findCells[n % s.findCells.length], off = v.guards.offsetCells[n % v.guards.offsetCells.length];
+          const target = v.guards.mode === 'guard_poi' ? s.poi : s.findCells[n % s.findCells.length], off = v.guards.offsetCells[n % v.guards.offsetCells.length];
           const [dx, dy] = V.rotate(off[0], off[1], s.rotation);
-          const cls = typeof root.creatureSpawnClass === 'function' ? root.creatureSpawnClass(v.guards.kind) : 'enemy';
+          const choices = v.guards.choices;
+          const kind = choices ? choices[fnv1a(`zone-guard|${V.identity(a)}|${n}`) % choices.length]
+            : (v.guards.kinds || [v.guards.kind])[n % (v.guards.kinds || [v.guards.kind]).length];
+          const cls = typeof root.creatureSpawnClass === 'function' ? root.creatureSpawnClass(kind) : 'enemy';
           if (!target) { s.rec.shortfalls.push(`guard:${n}`); continue; }
           const desiredX = target[0] + dx, desiredY = target[1] + dy;
           // Keep the declared seat when possible. A blocked seat can move at
@@ -140,14 +147,15 @@
           }
           if (ix < 0) { s.rec.shortfalls.push(`guard:${n}`); continue; }
           const [x, y] = position(ix, iy), [homeX, homeY] = position(target[0], target[1]);
-          out.guards.push({ kind: v.guards.kind, id: `zg_${a.kind}_${a.gx}_${a.gy}_${n}`, x, y, homeX, homeY,
-            zone: a.kind, zoneVariant: v.id, _ix: ix, _iy: iy });
+          out.guards.push({ kind, id: `zg_${a.kind}_${a.gx}_${a.gy}_${n}`, x, y, homeX, homeY,
+            zone: a.kind, zoneVariant: v.id, stationary: kind === 'plant',
+            ...(v.guards.proximityCells ? { proximityCells: v.guards.proximityCells } : {}), _ix: ix, _iy: iy });
           occ.add(iy * N + ix); s.rec.guardsPlaced++;
         }
       }
       if (s.chest) {
         s.chest.zoneVariant = v.id; delete s.chest._chestLook;
-        if (a.kind === 'grove') {
+        if (a.kind === 'grove' || a.kind === 'beach') {
           // The park's place becomes its daily shrine, keeping its name,
           // stable POI identity and settled seat at the composition's centre.
           s.chest.kind = 'grove_shrine';

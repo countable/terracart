@@ -237,6 +237,20 @@
       "size": "medium",
       "spawnClass": "minor",
       "color": "#538259"
+    },
+    "shell": {
+      "kind": "wildplant",
+      "crop": "shell",
+      "spawnClass": "minor",
+      "color": "#efe3b6",
+      "recordType": "wildplant"
+    },
+    "driftwood": {
+      "kind": "wildplant",
+      "crop": "driftwood",
+      "spawnClass": "minor",
+      "color": "#ad8055",
+      "recordType": "wildplant"
     }
   },
   "variants": [
@@ -1245,7 +1259,11 @@
           ]
         ],
         "spawnClass": "enemy",
-        "fallback": "omit_guard_keep_find"
+        "fallback": "omit_guard_keep_find",
+        "choices": [
+          "slime",
+          "spider"
+        ]
       },
       "atmosphere": "Staggered mushroom pairs repeat every six cells, with shrubs between them. The close-set caps lead to a crescent and its luminous flower.",
       "attracts": {
@@ -1437,7 +1455,20 @@
         "crossMajorRoad": false
       },
       "guards": {
-        "mode": "none"
+        "mode": "guard_find",
+        "kind": "farmer_goblin",
+        "kinds": [
+          "farmer_goblin"
+        ],
+        "count": 1,
+        "offsetCells": [
+          [
+            2,
+            0
+          ]
+        ],
+        "spawnClass": "enemy",
+        "fallback": "omit_guard_keep_find"
       },
       "atmosphere": "Regular apple rows alternate with medium maple rows, with open aisles leading to three finite gemfruit finds.",
       "attracts": {
@@ -2001,7 +2032,20 @@
         "preserveLines": true
       },
       "guards": {
-        "mode": "none"
+        "mode": "guard_poi",
+        "kind": "plant",
+        "kinds": [
+          "plant"
+        ],
+        "count": 1,
+        "offsetCells": [
+          [
+            2,
+            0
+          ]
+        ],
+        "spawnClass": "enemy",
+        "fallback": "omit_guard_keep_find"
       },
       "atmosphere": "Sixteen garden rooms form a clear 4 × 4 square. The POI is centered in an inner room, framed by four marigolds. Two roses distinguish the far corner rooms.",
       "attracts": {
@@ -2358,7 +2402,11 @@
       },
       "guards": {
         "mode": "guard_find",
-        "kind": "slime",
+        "kind": "plant",
+        "kinds": [
+          "plant",
+          "spider"
+        ],
         "count": 2,
         "offsetCells": [
           [
@@ -3794,9 +3842,21 @@
         "crossMajorRoad": false
       },
       "guards": {
-        "mode": "headstone_interaction",
-        "ghostChance": 0.3333333333333333,
-        "spawnClass": "enemy"
+        "mode": "guard_find",
+        "kind": "skeleton_soldier",
+        "kinds": [
+          "skeleton_soldier"
+        ],
+        "count": 1,
+        "offsetCells": [
+          [
+            2,
+            0
+          ]
+        ],
+        "spawnClass": "enemy",
+        "fallback": "omit_guard_keep_find",
+        "headstoneGhostChance": 0.3333333333333333
       },
       "atmosphere": "Short grave rows leave an aisle; matching finds occupy two empty row ends.",
       "attracts": {
@@ -4103,9 +4163,21 @@
         "crossMajorRoad": false
       },
       "guards": {
-        "mode": "headstone_interaction",
-        "ghostChance": 0.3333333333333333,
-        "spawnClass": "enemy"
+        "mode": "guard_find",
+        "kind": "spider",
+        "kinds": [
+          "spider"
+        ],
+        "count": 1,
+        "offsetCells": [
+          [
+            2,
+            0
+          ]
+        ],
+        "spawnClass": "enemy",
+        "fallback": "omit_guard_keep_find",
+        "headstoneGhostChance": 0.3333333333333333
       },
       "atmosphere": "Vegetation follows the old rows; a deliberate gap opens onto a lone flower.",
       "attracts": {
@@ -4398,7 +4470,10 @@
       },
       "guards": {
         "mode": "guard_find",
-        "kind": "slime",
+        "kind": "club_goblin",
+        "kinds": [
+          "club_goblin"
+        ],
         "count": 1,
         "offsetCells": [
           [
@@ -4409,7 +4484,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Repeated piles suggest fallen walls; one displaced line ends at a platinum-bearing rock guarded by a slime.",
+      "atmosphere": "Repeated piles suggest fallen walls; one displaced line ends at a platinum-bearing rock guarded by a club goblin.",
       "attracts": {}
     },
     {
@@ -4712,7 +4787,21 @@
         "reason": "shared_stone_rims_are_the_connection; do_not_cut_a_route_through_circle_contacts"
       },
       "guards": {
-        "mode": "none"
+        "mode": "guard_poi",
+        "kind": "ghost",
+        "kinds": [
+          "ghost"
+        ],
+        "count": 1,
+        "offsetCells": [
+          [
+            2,
+            0
+          ]
+        ],
+        "spawnClass": "enemy",
+        "fallback": "omit_guard_keep_find",
+        "proximityCells": 4
       },
       "atmosphere": "Touching stone circles form a continuous quiet lattice, with one off-axis grass entrance per circle and a single starflower find.",
       "attracts": {
@@ -6336,6 +6425,531 @@
       },
       "atmosphere": "Smaller, near-continuous rubble circles enclose tight tar rings. The circles repeat every eight cells; two gold-bearing rocks stand at the far side.",
       "attracts": {}
+    },
+    {
+      "id": "mystic_reef",
+      "zone": "beach",
+      "name": "Mystic Reef",
+      "status": "runtime",
+      "weight": 1,
+      "background": {
+        "type": "repeat_motif",
+        "repeatCells": [
+          6,
+          6
+        ],
+        "slots": [
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
+              2
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              2,
+              3
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              2,
+              1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              3,
+              1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              4,
+              2
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              2,
+              2
+            ],
+            "material": "blue"
+          }
+        ],
+        "nominalDensity": 0.19444444444444445,
+        "materialDensity": {
+          "stone": 0.08333333333333333,
+          "shell": 0.08333333333333333,
+          "blue": 0.027777777777777776
+        },
+        "densityFalloff": "none",
+        "phaseOrigin": "settled_poi_at_declared_motif_cell",
+        "poiOrigin": {
+          "cell": [
+            3,
+            3
+          ],
+          "role": "center_of_shore_aligned_motif"
+        },
+        "orientation": "seeded_quarter_turn"
+      },
+      "poi": {
+        "id": "tidal_shrine_crescent",
+        "origin": "settled_poi",
+        "slots": [
+          {
+            "at": [
+              -1,
+              -1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              0,
+              -1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
+              -1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              -1,
+              0
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              1,
+              0
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              -1,
+              1
+            ],
+            "material": "blue"
+          },
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "blue"
+          }
+        ],
+        "relocation": {
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "reward": "existing_one_daily_grove_gift; no_added_POI_chest"
+      },
+      "finds": {
+        "rarity": "rare",
+        "material": "star",
+        "count": 1,
+        "targets": [
+          {
+            "id": "1",
+            "radiusFraction": [
+              0.45,
+              0.2
+            ]
+          }
+        ],
+        "owner": "anchor",
+        "spawnClass": "attractor",
+        "relocation": {
+          "maxCells": 4,
+          "stayInZone": true
+        },
+        "extraEligibility": "dry_eligible_ground; magical_flower_bed_permitted_on_dry_sand"
+      },
+      "connection": {
+        "shape": "clear_aisle",
+        "widthCells": 1,
+        "from": "poi",
+        "to": "finds",
+        "crossMajorRoad": false,
+        "cutPriority": "use_existing_open_motif_lanes_before_removing_slots"
+      },
+      "guards": {
+        "mode": "guard_find",
+        "kind": "giant_crab",
+        "kinds": [
+          "giant_crab"
+        ],
+        "count": 1,
+        "offsetCells": [
+          [
+            2,
+            0
+          ]
+        ],
+        "spawnClass": "enemy",
+        "fallback": "omit_guard_keep_find"
+      },
+      "attracts": {},
+      "atmosphere": "Compact stone crescents, shell inlays and a blue flower center repeat every 6 × 6 cells. The single starflower remains the rare luminous find."
+    },
+    {
+      "id": "pirate_cove",
+      "zone": "beach",
+      "name": "Pirate Cove",
+      "status": "runtime",
+      "weight": 1,
+      "background": {
+        "type": "repeat_motif",
+        "repeatCells": [
+          8,
+          8
+        ],
+        "slots": [
+          {
+            "at": [
+              2,
+              2
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              2,
+              3
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              2,
+              4
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              3,
+              5
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              4,
+              5
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              5,
+              4
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              5,
+              3
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              1,
+              0
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              4,
+              0
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              6,
+              6
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              1,
+              6
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              5,
+              6
+            ],
+            "material": "rubble"
+          }
+        ],
+        "nominalDensity": 0.1875,
+        "materialDensity": {
+          "driftwood": 0.109375,
+          "shell": 0.046875,
+          "rubble": 0.03125
+        },
+        "densityFalloff": "none",
+        "phaseOrigin": "settled_poi_at_declared_motif_cell",
+        "poiOrigin": {
+          "cell": [
+            4,
+            4
+          ],
+          "role": "center_of_shore_aligned_motif"
+        },
+        "orientation": "seeded_quarter_turn"
+      },
+      "poi": {
+        "id": "pirate_shrine",
+        "origin": "settled_poi",
+        "slots": [],
+        "relocation": {
+          "unit": "fixed_to_poi",
+          "maxCells": 0
+        },
+        "reward": "existing_one_daily_grove_gift"
+      },
+      "finds": {
+        "rarity": "rare",
+        "material": "gold_ore",
+        "count": 1,
+        "targets": [
+          {
+            "id": "1",
+            "radiusFraction": [
+              0.45,
+              0.35
+            ]
+          }
+        ],
+        "owner": "anchor",
+        "spawnClass": "attractor",
+        "relocation": {
+          "maxCells": 4,
+          "stayInZone": true
+        },
+        "extraEligibility": "dry_eligible_ground; standard_gold_ore_pick_requirement"
+      },
+      "connection": {
+        "shape": "clear_aisle",
+        "widthCells": 1,
+        "from": "landward_ship_approach",
+        "to": "finds",
+        "crossMajorRoad": false,
+        "cutPriority": "use_existing_open_motif_lanes_before_removing_slots"
+      },
+      "guards": {
+        "mode": "guard_find",
+        "kind": "pirate_grunt",
+        "kinds": [
+          "pirate_grunt",
+          "pirate_gunner"
+        ],
+        "count": 2,
+        "offsetCells": [
+          [
+            2,
+            0
+          ],
+          [
+            -2,
+            0
+          ]
+        ],
+        "spawnClass": "enemy",
+        "fallback": "omit_guard_keep_find"
+      },
+      "attracts": {
+        "crow": 0.35
+      },
+      "atmosphere": "Driftwood ribs and shell fragments surround an existing daily shrine. A pirate grunt and gunner hold the separate gold-ore find; shipwreck art remains a draft."
+    },
+    {
+      "id": "shellwater_strand",
+      "zone": "beach",
+      "name": "Shellwater Strand",
+      "status": "runtime",
+      "weight": 1,
+      "background": {
+        "type": "repeat_motif",
+        "repeatCells": [
+          3,
+          5
+        ],
+        "slots": [
+          {
+            "at": [
+              0,
+              1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              2,
+              3
+            ],
+            "material": "driftwood"
+          }
+        ],
+        "nominalDensity": 0.2,
+        "materialDensity": {
+          "shell": 0.13333333333333333,
+          "driftwood": 0.06666666666666667
+        },
+        "densityFalloff": "none",
+        "phaseOrigin": "settled_poi_at_declared_motif_cell",
+        "poiOrigin": {
+          "cell": [
+            1,
+            2
+          ],
+          "role": "center_of_shore_aligned_motif"
+        },
+        "orientation": "seeded_quarter_turn"
+      },
+      "poi": {
+        "id": "open_shell_horseshoe",
+        "origin": "settled_poi",
+        "slots": [
+          {
+            "at": [
+              -1,
+              -1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              0,
+              -1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              1,
+              -1
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              -1,
+              0
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              1,
+              0
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              -1,
+              1
+            ],
+            "material": "driftwood"
+          },
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "driftwood"
+          }
+        ],
+        "relocation": {
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "reward": "existing_one_daily_grove_gift; no_added_POI_chest"
+      },
+      "finds": {
+        "rarity": "medium",
+        "material": "rose",
+        "count": 2,
+        "targets": [
+          {
+            "id": "1",
+            "radiusFraction": [
+              -0.4,
+              0.5
+            ]
+          },
+          {
+            "id": "2",
+            "radiusFraction": [
+              0.4,
+              0.5
+            ]
+          }
+        ],
+        "owner": "anchor",
+        "spawnClass": "attractor",
+        "relocation": {
+          "maxCells": 4,
+          "stayInZone": true
+        },
+        "extraEligibility": "landward_vegetated_eligible_ground; if_absent_report_shortfall_not_flowers_in_water"
+      },
+      "connection": {
+        "shape": "clear_aisle",
+        "widthCells": 1,
+        "from": "poi",
+        "to": "finds",
+        "crossMajorRoad": false,
+        "cutPriority": "use_existing_open_motif_lanes_before_removing_slots"
+      },
+      "guards": {
+        "mode": "none"
+      },
+      "attracts": {
+        "butterfly": 0.35
+      },
+      "atmosphere": "Short shell ribbons and one driftwood seat repeat in a narrow 3 × 5 frame. Open sand separates them; the two wild roses stay on eligible landward vegetation."
     }
   ]
 };

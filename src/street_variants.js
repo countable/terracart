@@ -814,7 +814,7 @@
     const burnedSeen = new Set();
     // Pilgrim's Way / barricade street key → every owned piece end in the
     // square (tile-local MVT points), in line order.
-    const streetEnds = new Map();
+    const streetEnds = new Map(), habitatSeats = new Set();
     for (const rec of idx.lines) {
       const v = rec.variant;
       if (!v) continue;
@@ -823,6 +823,25 @@
       mark(rec, row.code);
       const spans = S.tileSpans(rec.line, gM, ext);
       if (!spans.length) continue;
+      // One finite encounter per themed street and owning tile, independent
+      // of how many geometry fragments represent the street. Scenery streams
+      // keep their draws; guards share the existing lair persistence lane.
+      if (['overgrown', 'orchard', 'toadstool'].includes(v)) {
+        const sid = `street_habitat_${tx}_${ty}_${v}_${rec.key}`;
+        if (!habitatSeats.has(sid)) sampleLine(rec.line, gM, BURNED_GUARD_STEP_M, BURNED_GUARD_STEP_M / 2, (s, x, y, nx, ny) => {
+          if (habitatSeats.has(sid)) return false;
+          if (!S.covers(spans, s)) return;
+          for (const side of [1, -1]) {
+            const candidate = verge(rec, x, y, nx, ny, side);
+            const c = candidate && foeSeat(candidate.ix, candidate.iy);
+            if (!c) continue;
+            claim(c.ix, c.iy); habitatSeats.add(sid);
+            res.lairs.push({ tier: `street_${v}`, sid,
+              lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
+            break;
+          }
+        });
+      }
       if (v === 'hedgerow') {
         const rng = streamFor(rec, v);
         // Clipped art, ordinary shrub harvesting; keep existing hedge ids.

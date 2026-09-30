@@ -1,5 +1,5 @@
 (() => {
-  test('enemy spawns: biome tints replace parents and ordinary surface candidates cap at T3', () => {
+  test('enemy spawns: retired tints leave ordinary pools and surface candidates cap at T3', () => {
     for (const biome of ['GRASS', 'FOREST', 'ROCK', 'SAND', 'FARMLAND', 'RESIDENTIAL', 'PARK', 'COMMERCIAL', 'INDUSTRIAL', 'WETLAND', 'ORCHARD']) {
       const pool = EnemySpawns.surfaceRows(biome);
       for (const row of pool) {
@@ -9,9 +9,9 @@
         if (row.variantType === 'Tint') assert.falsy(pool.some(other => other.id === row.variantOf));
       }
     }
-    assert.truthy(EnemySpawns.surfaceRows('ORCHARD').some(row => row.id === 'copper_plant'));
-    assert.falsy(EnemySpawns.surfaceRows('ORCHARD').some(row => row.id === 'plant'));
-    assert.truthy(EnemySpawns.surfaceRows('WETLAND').some(row => row.id === 'marsh_zombie'));
+    assert.falsy(EnemySpawns.surfaceRows('ORCHARD').some(row => row.id === 'copper_plant'));
+    assert.truthy(EnemySpawns.surfaceRows('ORCHARD').some(row => row.id === 'plant'));
+    assert.falsy(EnemySpawns.surfaceRows('WETLAND').some(row => row.id === 'marsh_zombie'));
   });
   test('enemy spawns: real surface draws share identities across modes and honour saved defeats', () => {
     const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow'));
@@ -132,7 +132,7 @@ test('enemy spawns: a biome seat on zone ground (park, place of worship, tar yar
   assert.gt(cancel, 0, 'zone-owned ground cancels the seat');
   assert.lt(cancel, loop.indexOf('EnemySpawns.surfaceKind('), 'before any kind is chosen for it');
   assert.eq(WorldGen.variantOwnerAt({ zone: { coverage: [1] }, streetArea: [1] }, 0), 'zone', 'the shared owner gives zones precedence over roads');
-  assert.eq(Object.keys(Zones.ZONE_KINDS).sort().join(), 'grove,stones,tar', 'which is parks, places of worship and tar yards');
+  assert.eq(Object.keys(Zones.ZONE_KINDS).sort().join(), 'beach,grove,stones,tar', 'mapped beaches, parks, places of worship and tar yards');
 });
 
 test('enemy spawns: mini vampire bats are retired from enemy and spawn tables', () => {

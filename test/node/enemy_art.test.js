@@ -94,10 +94,34 @@ test('enemy art: size reduction targets 2x foes and the two selected giants only
     moss_slime: 1.25, giant_plant: 3.2,
     // The gull wears the crow's geometry (CREATURE_ART.gull), unscaled.
     gull: 1.3 });
-  assert.eq(Object.keys(expected).length, EnemyRoster.ROWS.length);
+  assert.eq(Object.keys(expected).length, EnemyRoster.ROWS.filter(row => !row.art.directions).length);
   for (const [kind, scale] of Object.entries(expected)) {
     assert.lt(Math.abs(SpriteLayout.creatureScale(kind) - scale), 1e-9, kind);
     assert.lt(Math.abs(SpriteLayout.creatureScale(kind, 1.5) - scale * 1.5), 1e-9,
       kind + ' retains the instance multiplier');
+  }
+});
+
+// Imported MiniWorld sheets have authored left/right poses and variable column
+// counts; they cannot use the older 12-column enemy48 addressing.
+test('enemy art: imported directional frames fit their real sheets and retain authored left poses', () => {
+  for (const row of EnemyRoster.ROWS.filter(r => r.art.directions)) {
+    const { w: width, h: height } = pngDims(row.art.path);
+    const count = (width / row.art.frameWidth) * (height / row.art.frameHeight);
+    for (const states of Object.values(row.art.directions)) {
+      for (const frames of Object.values(states)) for (const frame of frames) {
+        assert.inRange(frame, 0, count - 1, row.id);
+      }
+    }
+    const art = SpriteLayout.creatureArt(row.id);
+    assert.gt(art.scale, 0, row.id);
+    assert.gt(art.maxY, art.minY, row.id);
+    for (const facing of ['down', 'up', 'left', 'right']) {
+      const c = { kind: row.id, _facing: facing, _moveUntil: 1000 };
+      const a = SpriteLayout.creatureAppearance(c, 0);
+      const dir = row.art.directions[facing] || row.art.directions.side;
+      assert.eq(a.frame, dir.move[0], row.id + facing);
+      if (row.art.directions[facing]) assert.falsy(a.flipX, row.id + ' uses authored direction');
+    }
   }
 });

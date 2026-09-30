@@ -210,4 +210,23 @@
     do { r = it.next(); if (!r.done) labels.push(r.value); } while (!r.done);
     assert.includes(labels, 'zone variant coverage'); assert.includes(labels, 'zone variant pattern rows'); assert.includes(labels, 'zone find fallback');
   });
+  test('zone encounters: species, stationary plants and a finite proximity ghost follow the theme', () => {
+    const kinds = id => ZoneDressing.dress(context(id)).guards.map(g => g.kind).join();
+    assert.eq(kinds('pirate_cove'), 'pirate_grunt,pirate_gunner');
+    assert.eq(kinds('orchard'), 'farmer_goblin');
+    assert.eq(kinds('ancient_grove'), 'plant,spider');
+    assert.eq(kinds('ordered_graves'), 'skeleton_soldier');
+    assert.eq(kinds('overgrown_graves'), 'spider');
+    assert.eq(kinds('broken_masonry'), 'club_goblin');
+    assert.eq(kinds('mystic_reef'), 'giant_crab');
+    assert.truthy(['slime', 'spider'].includes(kinds('mushroom_grove')));
+    const plant = ZoneDressing.dress(context('hedge_garden')).guards[0];
+    assert.truthy(plant.stationary);
+    const ghost = ZoneDressing.dress(context('silent_circle')).guards;
+    assert.eq(ghost.length, 1); assert.eq(ghost[0].kind, 'ghost'); assert.eq(ghost[0].proximityCells, 4);
+    for (const id of ['meadow', 'formal_garden', 'stone_garden', 'shellwater_strand', 'seep', 'black_ring']) assert.eq(kinds(id), '');
+    for (const id of ['ordered_graves', 'overgrown_graves']) {
+      assert.gt(ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone').length, 0);
+    }
+  });
 })();

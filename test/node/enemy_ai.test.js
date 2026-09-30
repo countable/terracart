@@ -125,4 +125,177 @@
     assert.truthy(c._attackUntil > c._attackT0);
   });
 
+  test('enemy AI: rooted plants never move when idle, too near, too far, warded or returning', () => {
+    for (const kind of ['plant', 'bone_plant', 'giant_plant', 'copper_plant']) {
+      const row = EnemyRoster.get(kind);
+      for (const [px, inactive, routed, state] of [[1,false,false,null], [40,false,false,null],
+        [14,true,false,null], [1,false,true,null], [14,false,false,'return']]) {
+        const c = foe(kind); c.seatX = 10; c.seatY = 10;
+        rosterEnemyMove(scene(), c, row, 10000, px, 0, inactive, routed, state, 1);
+        assert.eq(c.x, 0); assert.eq(c.y, 0);
+      }
+    }
+  });
+  test('enemy AI: surface buildings cancel a plant wind-up even when cave collision is clear', () => {
+    const s = scene(), c = foe('plant'), row = EnemyRoster.get('plant');
+    rosterEnemyAttack(s, c, row, 10000, 14, 0, false, 0.1);
+    s.cellAt = x => ({loaded:true, type: x > 3 && x < 10 ? WorldGen.T.BUILDING : WorldGen.T.CAVE_FLOOR});
+    rosterEnemyAttack(s, c, row, 11000, 14, 0, false, 0.1);
+    assert.eq(s._shots.length, 0);
+    assert.eq(c._attackWindupUntil, null);
+  });
+  test('enemy AI: demon area locks its tell and can be dodged', () => {
+    const row = EnemyRoster.get('purple_demon');
+    for (const dodge of [false, true]) {
+      const s = scene(), c = foe(row.id);
+      rosterEnemyAttack(s, c, row, 10000, 14, 0, false, 0.1);
+      assert.eq(c._attackAim.x, 14);
+      rosterEnemyAttack(s, c, row, 10000 + row.windupSeconds * 1000,
+        dodge ? 0 : 14, dodge ? 14 : 0, false, 0.1);
+      if (dodge) assert.eq(s.save.energy, 100); else assert.lt(s.save.energy, 100);
+    }
+  });
+  test('enemy AI: breath has a committed direction and cover blocks damage', () => {
+    const row = EnemyRoster.get('red_dragon');
+    for (const avoid of ['side', 'wall', 'none']) {
+      const s = scene(), c = foe(row.id);
+      rosterEnemyAttack(s, c, row, 10000, 14, 0, false, 0.1);
+      if (avoid === 'wall') s._cellBlocked = x => x > 3 && x < 10;
+      rosterEnemyAttack(s, c, row, 10000 + row.windupSeconds * 1000,
+        avoid === 'side' ? 0 : 14, avoid === 'side' ? 14 : 0, false, 0.1);
+      if (avoid === 'none') assert.lt(s.save.energy, 100); else assert.eq(s.save.energy, 100);
+    }
+  });
+  test('enemy AI: minotaur commits before charging and recovers on wall collision', () => {
+    const row = EnemyRoster.get('minotaur'), s = scene(), c = foe(row.id);
+    rosterEnemyMove(s,c,row,10000,14,0,false,false,null,0.1);
+    assert.eq(c._lungeAngle, 0);
+    rosterEnemyMove(s,c,row,11200,0,14,false,false,null,0.1);
+    assert.eq(c._lungeAngle, 0);
+    s._cellBlocked = x => x >= 0.1;
+    rosterEnemyMove(s,c,row,11300,0,14,false,false,null,0.1);
+    assert.eq(c._lungeUntil, null);
+    assert.gt(c._lungeRecoverUntil, 11300);
+    assert.eq(c.y,0);
+  });
+  test('enemy AI: crab returns to its territory and stops attacking beyond it', () => {
+    const row=EnemyRoster.get('giant_crab'), s=scene(), c=foe(row.id,7,0);
+    c.homeX=0;c.homeY=0;
+    rosterEnemyAttack(s,c,row,10000,28,0,false,0.1);
+    assert.eq(c._attackWindupUntil,null);
+    rosterEnemyMove(s,c,row,10000,28,0,false,false,null,1);
+    assert.lt(c.x,7); assert.eq(c.y,0);
+  });
+  test('enemy AI: pirate gunner remains still while reloading after a shot', () => {
+    const row=EnemyRoster.get('pirate_gunner'), s=scene(), c=foe(row.id);
+    rosterEnemyAttack(s,c,row,10000,14,0,false,0.1);
+    const fired=10000+row.windupSeconds*1000;
+    rosterEnemyAttack(s,c,row,fired,14,0,false,0.1);
+    assert.eq(s._shots.length,1);
+    rosterEnemyMove(s,c,row,fired+100,7,0,false,false,null,1);
+    assert.eq(c.x,0);assert.eq(c.y,0);
+  });
+  test('enemy AI: damage interrupts a necromancer summon and does not restart it immediately', () => {
+    const row=EnemyRoster.get('necromancer'), s=scene(), c=foe(row.id);
+    assert.truthy(enemySupportTick(s,c,row,10000,true));
+    c._lastDamagedT=12345;
+    assert.falsy(enemySupportTick(s,c,row,10500,true));
+    assert.eq(c._abilityWindupUntil,null);
+    assert.falsy(enemySupportTick(s,c,row,11500,true));
+  });
+  test('enemy AI: hidden players do not awaken finite memorial ghosts', () => {
+    const s=scene(), c=foe('ghost'); c.proximityCells=4;
+    assert.eq(ghostTick(s,c,10000,7,0,true,false,0.01),null);
+    assert.falsy(c._awakened);
+    assert.eq(ghostTick(s,c,20000,35,0,false,false,0.01),null);
+    assert.falsy(c._awakened);
+  });
+  test('enemy AI: projectile collision receives source identity for own-keep exceptions', () => {
+    const c=foe('pirate_gunner'), s=scene(), row=EnemyRoster.get(c.kind);
+    rosterEnemyAttack(s,c,row,10000,14,0,false,0.1);
+    rosterEnemyAttack(s,c,row,10000+row.windupSeconds*1000,14,0,false,0.1);
+    let observed=null;
+    Combat.stepShots(s._shots,1,[],1,()=>{}, {cellM:7,blocked:(x,y,shot)=>{observed=shot;return true;}});
+    assert.eq(observed._sourceGuard,c);
+  });
+
+  test('enemy AI: shaman heals one injured ally, capped at max HP, and cannot heal through cover', () => {
+    const s=scene(), c=foe('orc_shaman',14,14), ally=foe('orc',21,14);
+    Object.assign(s,{startWorldM:{x:0,y:0},originPx:{x:0,y:0},mPerPx:7,cellsPerTile:WorldGen.TILE_PX});
+    const row=EnemyRoster.get(c.kind), previous=WorldGen.forEachItemNear;
+    ally._hp=Combat.maxHp(ally)-1;
+    WorldGen.forEachItemNear=(what,tx,ty,fn)=>[c,ally].forEach(fn);
+    try {
+      assert.truthy(enemySupportTick(s,c,row,10000,true));
+      enemySupportTick(s,c,row,11200,true);
+      assert.eq(Combat.hp(ally),Combat.maxHp(ally));
+      ally._hp-=10;s._cellBlocked=()=>true;
+      assert.falsy(enemySupportTick(s,c,row,20000,true));
+      assert.eq(Combat.hp(ally),Combat.maxHp(ally)-10);
+    } finally { WorldGen.forEachItemNear=previous; }
+  });
+  test('enemy AI: necromancer has two lifetime summon slots, surviving reload and caught ledger', () => {
+    const s=scene(), c=foe('necromancer',14,14), n=WorldGen.TILE_PX;
+    Object.assign(s,{startWorldM:{x:0,y:0},originPx:{x:0,y:0},mPerPx:7,cellsPerTile:n});
+    const key=WorldGen.tileKey(0,0), old=WorldGen.tileCache.get(key), previous=WorldGen.forEachItemNear;
+    const entry={cellsPerEdge:n,grid:new Uint8Array(n*n).fill(WorldGen.T.CAVE_FLOOR),
+      creatures:[c],_spawnOpts:{}};
+    WorldGen.tileCache.set(key,entry);
+    WorldGen.forEachItemNear=(what,tx,ty,fn)=>entry.creatures.forEach(fn);
+    try {
+      const a=EnemyRoster.get(c.kind).ability;
+      assert.truthy(enemySummon(s,c,a));
+      assert.truthy(enemySummon(s,c,a));
+      assert.falsy(enemySummon(s,c,a));
+      assert.eq(entry.creatures.length,3);
+      s.save.caught=entry.creatures.slice(1).map(child=>child.id);
+      entry.creatures=[c];
+      const reloaded={...c};
+      assert.falsy(enemySummon(s,reloaded,a));
+      assert.eq(entry.creatures.length,1);
+    } finally {
+      WorldGen.forEachItemNear=previous;
+      if(old) WorldGen.tileCache.set(key,old); else WorldGen.tileCache.delete(key);
+    }
+  });
+  test('enemy AI: summons refuse the shared occupied spawn gate', () => {
+    const s=scene(),c=foe('necromancer',14,14),n=WorldGen.TILE_PX;
+    Object.assign(s,{startWorldM:{x:0,y:0},originPx:{x:0,y:0},mPerPx:7,cellsPerTile:n});
+    const key=WorldGen.tileKey(0,0),old=WorldGen.tileCache.get(key),previous=WorldGen.forEachItemNear;
+    const entry={cellsPerEdge:n,grid:new Uint8Array(n*n).fill(WorldGen.T.CAVE_FLOOR),
+      creatures:[c],_spawnOpts:{occupied:new Set(Array.from({length:n*n},(_,i)=>i))}};
+    WorldGen.tileCache.set(key,entry);WorldGen.forEachItemNear=(what,tx,ty,fn)=>entry.creatures.forEach(fn);
+    try { assert.falsy(enemySummon(s,c,EnemyRoster.get(c.kind).ability)); }
+    finally { WorldGen.forEachItemNear=previous;if(old)WorldGen.tileCache.set(key,old);else WorldGen.tileCache.delete(key); }
+  });
+
+  test('enemy AI: bomb fuse is avoidable and spending the carrier records its finite identity', () => {
+    const row=EnemyRoster.get('bomb_goblin'),s=scene(),c=foe(row.id);
+    rosterEnemyAttack(s,c,row,10000,7,0,false,0.1);
+    assert.gt(c._attackWindupUntil,10000);
+    rosterEnemyAttack(s,c,row,10000+row.windupSeconds*1000,21,0,false,0.1);
+    assert.eq(s.save.energy,100);
+    assert.includes(s.save.caught,c.id);
+  });
+  test('enemy AI: own keep permits guard fire but a different building blocks it', () => {
+    const s=scene(),c=foe('pirate_gunner');
+    s.cellAt=()=>({loaded:true,type:WorldGen.T.BUILDING});
+    Object.assign(c,{lair:'fort',lairX:0,lairY:0,keepHW:7,keepHH:7});
+    assert.falsy(enemySightBlocked(s,c,3,0));
+    assert.truthy(enemySightBlocked(s,c,14,0));
+  });
+
+  test('enemy AI: a telegraphed charge hits once on contact without stopping for a second tell', () => {
+    const row=EnemyRoster.get('minotaur'),s=scene(),c=foe(row.id);
+    rosterEnemyMove(s,c,row,10000,7,0,false,false,null,0.1);
+    rosterEnemyAttack(s,c,row,10500,1,0,false,0.1);
+    assert.eq(s.save.energy,100);
+    rosterEnemyMove(s,c,row,11200,7,0,false,false,null,0.1);
+    rosterEnemyAttack(s,c,row,11300,1,0,false,0.1);
+    const after=s.save.energy;assert.lt(after,100);
+    assert.eq(c._attackWindupUntil,null);
+    rosterEnemyAttack(s,c,row,11400,1,0,false,0.1);
+    assert.eq(s.save.energy,after);
+  });
+
 })();

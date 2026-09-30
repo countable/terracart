@@ -958,7 +958,7 @@
   // No swept-collision maths for the FOES: the fastest shot covers ~0.5 m a
   // frame against a hit radius of ~6 m, so nothing can tunnel through one.
   //
-  // `opts.blocked(x, y)` — optional world test for solid ground, in world
+  // `opts.blocked(x, y, shot)` — optional world test for solid ground, in world
   // metres. This module knows nothing about the map, so the caller hands the
   // question over: underground, app.js answers with the cave-wall collision
   // test, which is what stops a bow or staff shooting through solid rock at a
@@ -995,7 +995,7 @@
         const samples = Math.max(1, Math.ceil(step / sampleM));
         for (let i = 1; i <= samples; i++) {
           const t = (step * i) / samples;
-          if (!blocked(s.x + s.vx * t, s.y + s.vy * t)) continue;
+          if (!blocked(s.x + s.vx * t, s.y + s.vy * t, s)) continue;
           travel = Math.max(0, t - step / samples);   // stop at the face, not inside
           stopped = true;
           break;

@@ -21,14 +21,21 @@
   function biomeName(type) {
     return Object.keys(root.WorldGen.T).find(key => root.WorldGen.T[key] === type);
   }
-  function surfaceRows(type) {
+  function surfaceRows(type, context) {
     const biome = typeof type === 'string' ? type : biomeName(type);
-    const eligible = rows().filter(row => row.surface && row.tier <= 3 && row.attackType !== 'touch' && row.surface.biomes.includes(biome));
+    const eligible = rows().filter(row => !row.retired && row.surface && row.tier <= 3 && row.attackType !== 'touch' && row.surface.biomes.includes(biome))
+      .filter(row => !['pirate_grunt', 'pirate_gunner', 'pirate_captain', 'giant_crab'].includes(row.id) || context?.beach);
     const replaced = new Set(eligible.filter(row => row.variantType === 'Tint').map(row => row.variantOf));
     return eligible.filter(row => !replaced.has(row.id));
   }
-  function surfaceKind(type, id) {
-    const eligible = surfaceRows(type);
+  function surfaceKind(type, id, context) {
+    let eligible = surfaceRows(type, context);
+    if (context?.beach) {
+      // Ordinary beaches: mostly resident crabs/slimes, occasional visitors.
+      const visitors = ['pirate_grunt', 'pirate_gunner'];
+      const pirate = roll(id + ':visitor') < .12;
+      eligible = eligible.filter(row => pirate ? visitors.includes(row.id) : ['giant_crab', 'slime'].includes(row.id));
+    }
     const weights = root.EnemyRoster.SURFACE_TIERS.at(-1).tierWeights;
     const tiers = [...new Set(eligible.map(row => row.tier))];
     const tier = pick(tiers.map(tier => ({ row: tier, weight: weights[tier] || 0 })), roll(id + ':tier'));
@@ -118,14 +125,17 @@
     creature._surfaceInactive = !active;
     return active;
   }
-  function caveRows(depth) {
-    return rows().filter(row => row.cave && row.attackType !== 'touch'
+  function caveRows(depth, context) {
+    return rows().filter(row => !row.retired && row.cave && row.attackType !== 'touch'
       && depth >= row.cave.minDepth && (row.cave.maxDepth == null || depth <= row.cave.maxDepth)
-      && (row.cave.depthRule !== 'even' || depth % 2 === 0));
+      && (row.cave.depthRule !== 'even' || depth % 2 === 0)
+      && (!context || context.kinds.includes(row.id))
+      && (depth >= 5 || !['red_demon', 'purple_demon', 'armoured_demon', 'fiend', 'succubus', 'hell_brute'].includes(row.id))
+      && row.id !== 'red_dragon');
   }
   // Giants share at most 5% of the total bag, regardless of how many are added.
-  function caveKind(depth, r) {
-    const eligible = caveRows(depth);
+  function caveKind(depth, r, context) {
+    const eligible = caveRows(depth, context);
     const giants = eligible.filter(row => row.variantType === 'Giant');
     const ordinary = eligible.filter(row => row.variantType !== 'Giant');
     const giantChance = giants.length && ordinary.length ? 0.05 : (giants.length ? 1 : 0);
@@ -151,7 +161,8 @@
     }
     return { pack, cells };
   }
-  const api = { SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceKind, surfaceActive, maxTierAt, homeAllows, caveRows, caveKind, surfaceId, caveId, legacyCaveDefeats };
+  const caveContextAt = (entry, tx, ty, cx, cy, depth) => root.EnemyHabitats.caveAt(entry, tx, ty, cx, cy, depth);
+  const api = { caveContextAt, SURFACE_NIGHT_DAYLIGHT, hash, roll, surfaceRows, surfaceKind, surfaceActive, maxTierAt, homeAllows, caveRows, caveKind, surfaceId, caveId, legacyCaveDefeats };
   root.EnemySpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

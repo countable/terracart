@@ -372,7 +372,7 @@ class SceneCreatures {
       // dropped ids just count off short, so seeds still reproduce.
       // Draw the same crow candidates in both modes; thin only after placement.
       const emittedCrowN = sp === 'crow' ? Math.round(n * Difficulty.get().crowCountMul) : n;
-      const enemyTerrain = sp === 'slime' ? Object.values(WorldGen.T).filter(t => EnemySpawns.surfaceRows(t).length) : null;
+      const enemyTerrain = sp === 'slime' ? Object.values(WorldGen.T).filter(t => EnemySpawns.surfaceRows(t, { beach: true }).length) : null;
       const primary  = new Set(enemyTerrain || cfg.primary);
       const fallback = new Set(enemyTerrain || cfg.fallback || cfg.primary);
       const primN = Math.round(n * (cfg.share ?? 0.8));
@@ -414,6 +414,14 @@ class SceneCreatures {
     entry.faunaAttracted = this._seatFaunaOnFavouriteGround(entry, tx, ty, N, cellM, genGrid, _spawnOpts, creatures, pestFree, unseated, plantCells);
     // Replace the existing enemy budget, without adding a population per kind.
     // Identity depends on the candidate cell, never species or this player's Home.
+    entry._spawnOpts = _spawnOpts;
+    const habitatOccupied = new Set([...enemyGroundSeats, ...plantCells]);
+    const habitatGuards = EnemyHabitats.surfaceSites(entry, tx, ty, habitatOccupied);
+    const habitatSeats = new Set(habitatGuards.map(c => {
+      const x = Math.floor((c.x - tx * this.tileEdgeM) / cellM), y = Math.floor((c.y - ty * this.tileEdgeM) / cellM);
+      return y * N + x;
+    }));
+    for (const idx of habitatSeats) _spawnOpts.occupied.add(idx);
     const enemySeats = new Set();
     let enemyWrite = 0;
     for (const creature of creatures) {
@@ -425,10 +433,11 @@ class SceneCreatures {
       // Drop generic enemies in authored zone/road areas after the draw,
       // preserving every subsequent RNG draw and each variant's own guards.
       if (WorldGen.variantOwnerAt(entry, cy * N + cx)) continue;
+      if (habitatSeats.has(cy * N + cx)) continue;
       // (The seat was an 'enemy' spawn already — tryPlace / the attractor
       // lane — so whatever kind the roster puts on it stands on OPEN ground.)
       enemySeats.add(id);
-      const kind = EnemySpawns.surfaceKind(genGrid[cy * N + cx], id);
+      const kind = EnemySpawns.surfaceKind(genGrid[cy * N + cx], id, EnemyHabitats.surfaceAt(entry, cx, cy));
       if (!kind) continue;
       const row = EnemyRoster.get(kind);
       const replacement = WorldGen.makeCreature(kind, creature.x, creature.y, id, {
@@ -450,6 +459,11 @@ class SceneCreatures {
         lairX: guard.homeX ?? guard.x, lairY: guard.homeY ?? guard.y,
         lairR: 0, seatX: guard.x, seatY: guard.y,
       }));
+    }
+    for (const c of habitatGuards) {
+      if (caughtSet.has(c.id)) continue;
+      EnemySpawns.surfaceActive(this, c);
+      creatures.push(c);
     }
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
@@ -1154,6 +1168,13 @@ class SceneCreatures {
       const oy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
       if (ox >= 0 && oy >= 0 && ox < N && oy < N) heldByPlayer.add(oy * N + ox);
     }
+    // A roost owns one fixed dragon seat even after defeat. Reserve before
+    // ordinary pools so losing the dragon cannot regenerate another enemy.
+    for (const dragon of EnemyHabitats.caveSites(entry, tx, ty, depth, occupiedIdx)) {
+      const cx = Math.floor((dragon.x - tx * this.tileEdgeM) / cellSizeM);
+      const cy = Math.floor((dragon.y - ty * this.tileEdgeM) / cellSizeM);
+      if (!caughtSet.has(dragon.id) && !heldByPlayer.has(cy * N + cx)) creatures.push(dragon);
+    }
     const SPAWN_R = 25; // cells — fills 2–3 screens worth around each entry point
     const randCell = () => {
       const a = anchors[Math.floor(rng() * anchors.length)];
@@ -1176,7 +1197,7 @@ class SceneCreatures {
     // Both modes share this population; Hard applies only at the recipient.
     const count = Math.min(160, Math.round((50 + depth * 10) * Difficulty.get().monsterCountMul));
     for (let i = 0; i < count; i++) {
-      const kind = EnemySpawns.caveKind(depth, rng());
+      const kindRoll = rng();
       for (let attempt = 0; attempt < 20; attempt++) {
         const { cx, cy } = randCell();
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
@@ -1187,6 +1208,9 @@ class SceneCreatures {
         // attempt, so the draw sequence every existing cave level was seeded
         // with is untouched.
         if (occupiedIdx.has(cy * N + cx)) continue;
+        const habitat = EnemySpawns.caveContextAt(entry, tx, ty, cx, cy, depth);
+        const kind = EnemySpawns.caveKind(depth, kindRoll, habitat);
+        if (!kind) continue;
         const id = EnemySpawns.caveId(depth, tx, ty, cx, cy);
         if (caughtSet.has(id) || legacyDefeats.pack.has(i) || legacyDefeats.cells.has(`${cx}_${cy}`) || monsterSeats.has(id)) break;   // already defeated — stays dead
         if (heldByPlayer.has(cy * N + cx)) break;   // on the player's own stair
@@ -1198,7 +1222,7 @@ class SceneCreatures {
         // double HP and damage (Combat.isElite), and resolveDefeat pays the
         // memory-or-treasure it promises.
         creatures.push(WorldGen.makeCreature(kind, wmx, wmy, id,
-          { shiny: EnemyRoster.get(kind).eliteEligible && isShiny(id, SHINY_RATE.monster) }));
+          { shiny: EnemyRoster.get(kind).eliteEligible && isShiny(id, SHINY_RATE.monster), habitat: habitat.theme }));
         monsterSeats.add(id);
         break;
       }
@@ -1234,20 +1258,23 @@ class SceneCreatures {
     for (let py = 0; py < N; py += ROAM_PIVOT) {
       for (let px = 0; px < N; px += ROAM_PIVOT) {
         if (roamRng() >= roamP) continue;
-        const kind = EnemySpawns.caveKind(depth, roamRng());
+        const kindRoll = roamRng();
         for (let attempt = 0; attempt < ROAM_TRIES; attempt++) {
           const cx = px + Math.floor(roamRng() * ROAM_PIVOT);
           const cy = py + Math.floor(roamRng() * ROAM_PIVOT);
           if (cx >= N || cy >= N) continue;
           if (genGrid[cy * N + cx] !== 24 /* CAVE_FLOOR */) continue;
           if (occupiedIdx.has(cy * N + cx)) continue;
-          const id = EnemySpawns.caveId(depth, tx, ty, cx, cy);
+          const habitat = EnemySpawns.caveContextAt(entry, tx, ty, cx, cy, depth);
+        const kind = EnemySpawns.caveKind(depth, kindRoll, habitat);
+        if (!kind) continue;
+        const id = EnemySpawns.caveId(depth, tx, ty, cx, cy);
           if (caughtSet.has(id) || legacyDefeats.cells.has(`${cx}_${cy}`) || monsterSeats.has(id)) break;
           if (heldByPlayer.has(cy * N + cx)) break;
           const wmx = tx * this.tileEdgeM + (cx + 0.5) * cellSizeM;
           const wmy = ty * this.tileEdgeM + (cy + 0.5) * cellSizeM;
           creatures.push(WorldGen.makeCreature(kind, wmx, wmy, id,
-            { shiny: EnemyRoster.get(kind).eliteEligible && isShiny(id, SHINY_RATE.monster) }));
+            { shiny: EnemyRoster.get(kind).eliteEligible && isShiny(id, SHINY_RATE.monster), habitat: habitat.theme }));
           monsterSeats.add(id);
           break;
         }
@@ -1675,7 +1702,7 @@ class SceneCreatures {
       // other blow; a foe it kills is the ground's kill ('lava' is no player
       // source — Combat.isPlayerKill), which pays the bounty coin and nothing
       // past it, the turret's rule. A tamed slime is a pet, never burned.
-      if (!isTame && Combat.isEnemy(c) && this.depth === WorldGen.LAVA_DEPTH
+      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune && this.depth === WorldGen.LAVA_DEPTH
           && now >= (c._lavaNextT || 0)) {
         c._lavaNextT = now + 1000;
         const under = this.cellAt(c.x, c.y);
@@ -1809,7 +1836,7 @@ class SceneCreatures {
         this._trapperLay(c, now, px, py);
       }
       // A declared stationary kind can bite above but never enters a movement
-      // lane. Roster plants instead use anchor_spit to hold their preferred range.
+      // lane. Roster plants also remain rooted through their anchor_spit mover.
       if (stationary) return;
       if (c.immobile && lairState !== 'hunt' && lairState !== 'return') return;
       if (rosterRow) {
