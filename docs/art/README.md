@@ -154,8 +154,7 @@ Mushroom Grove has giant mushrooms with the surface mushroom’s muted red cap,
 cream spots and a taller cream stem. Their generated single-frame sheet is
 `assets/Objects/Approved/giant_mushroom.png` (32 × 48, frame 0).
 Axe harvesting gives one wood and
-one mushroom. Their tall sprites seat their base inside the cell,
-like trees. Ordinary shrubs retain only the basic bush and smaller cut hedge.
+one mushroom. Their sprites fit centered inside the cell at 0.7 scale. Ordinary shrubs retain only the basic bush and smaller cut hedge.
 Mushroom Grove forage uses the ordinary surface toadstool art and mushroom
 harvesting, with baked muted red and cream colors. Rockfruit stone
 pixels use the approved ore rocks’ grey palette across growth and inventory

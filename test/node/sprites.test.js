@@ -437,7 +437,7 @@ test('shrubs have only basic and cut art with identical harvesting and no biome 
   }
 });
 
-test('Mushroom Grove giant caps seat their base inside the cell and have distinct rewards', () => {
+test('Mushroom Grove giant caps fit centered inside the cell and have distinct rewards', () => {
   const p = {crop:'giant_mushroom'};
   const art = wildplantSprite(p);
   assert.eq(art.sheet, 'giant_mushroom');
@@ -445,7 +445,8 @@ test('Mushroom Grove giant caps seat their base inside the cell and have distinc
   assert.truthy(art.seat);
   const box = SpriteLayout.ART_BOUNDS['giant_mushroom:0'];
   const pos = SpriteLayout.seatInCell(box, .5, .5, art.scale, art.scale);
-  assert.eq(pos.dyPx + (box.maxY - box.fh/2) * art.scale, SpriteLayout.CELL_PX/2 - 1);
+  assert.truthy(pos.fits, 'the smaller giant fits within one cell');
+  assert.eq(pos.dyPx + ((box.minY + box.maxY)/2 - box.fh/2) * art.scale, 0);
   assert.eq(pos.dxPx + ((box.minX + box.maxX)/2 - box.fw/2) * art.scale, 0);
   assert.eq(JSON.stringify(wildplantRewards(p.crop)),JSON.stringify([{id:'wood',qty:1},{id:'mushroom',qty:1}]));
   assert.eq(itemName(p.crop),'Giant mushroom');

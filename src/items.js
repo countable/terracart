@@ -67,7 +67,7 @@ const CROP_SPRITE = {
     looks: { clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frame: 0, scale: (4 / 3) * 0.8 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
-  // Scale 1.224 keeps the requested 10% mushroom reduction. Surface and
+  // Small mushrooms use 80% of their former 1.224 scale. Surface and
   // cave mushrooms share this scale; inventory uses the surface frame. These
   // two are the mushroom's ONLY looks: the red cap above ground, the blue
   // caps below — the authored surface cluster was dropped in Oct 2026.
@@ -78,7 +78,7 @@ const CROP_SPRITE = {
   // same Mushroom item when picked; only the art (and its glow, see
   // Lighting.KINDS.mushroom) says it grew in the dark. The inventory icon
   // stays `frame`.
-  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.224, caveFrames: [127, 128] },
+  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 0.9792, caveFrames: [127, 128] },
   // Shell — the beach pickup, and the one crop whose LOOK varies per cell.
   // Shell.png is 48×64 = 3 cols × 4 rows of 16×16, and only the TOP ROW is
   // shell art: three cowries (pink, gold, blue). Row 1 repeats those three
@@ -114,7 +114,7 @@ const CROP_SPRITE = {
   // (WILDPLANT_RULES below), never scenery. The barricade road's barricade
   // is the generated 16px piece; clipped hedges still harvest as shrubs.
   barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 1.6 },
-  giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 0, scale: 1, seat: true },
+  giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 0, scale: 0.7, seat: true },
   // ── Influence zones (src/zones.js) — the tar yard's FLINT: a ground
   // pickup (WILDPLANT_RULES.flint below), the generated 16px nodule. One
   // frame of art, listed.
