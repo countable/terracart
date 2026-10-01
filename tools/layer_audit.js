@@ -95,8 +95,11 @@ const FOG = 'fogContainer';
 // The particle-burst layer (src/particles.js): gold stars off a fanfare,
 // chips off a street coming back, leaf flecks off a growing crop.
 const FX = 'fxContainer';
+// The shiny sparkles and the glint rock's star (render.js sparkList): a catch
+// of light, self-lit — above the lightmap like the bursts, below the labels.
+const SPARK = 'sparkContainer';
 const BELOW_FOG = [...GROUND, ...SPRITES,
-  'reachGfx', LIGHT, 'atmosRimGfx', FX, 'labelContainer', 'tierGfx'];
+  'reachGfx', LIGHT, 'atmosRimGfx', FX, SPARK, 'labelContainer', 'tierGfx'];
 
 const CHECKS = [
   {
@@ -174,6 +177,21 @@ const CHECKS = [
       if (fx > idx(layers, 'labelContainer')) {
         throw new Error(`${FX} draws above labelContainer — a puff of chips over a POI name ` +
           'tablet is noise on UI. Move fxContainer before labelContainer.');
+      }
+    },
+  },
+  {
+    name: 'layers: the shiny sparkles and the glint are self-lit — above the lightmap, below the labels',
+    run: () => {
+      const layers = displayLayers();
+      const spark = idx(layers, SPARK);
+      if (spark < idx(layers, LIGHT)) {
+        throw new Error(`${SPARK} draws below ${LIGHT} — a glint multiplied by the cave dark is a grey ` +
+          'fleck nobody sees. Move sparkContainer after lightMap in MapScene.create().');
+      }
+      if (spark > idx(layers, 'labelContainer')) {
+        throw new Error(`${SPARK} draws above labelContainer — a sparkle over a POI name tablet is ` +
+          'noise on UI. Move sparkContainer before labelContainer.');
       }
     },
   },
