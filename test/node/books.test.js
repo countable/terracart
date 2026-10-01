@@ -138,7 +138,7 @@ test('course: the reader opens the book as a story', () => {
 });
 
 test('course: story topics retain their saved-bookmark positions', () => {
-  assert.eq(PLAY_TIPS.length, 136, 'three displaced opening tips are appended, then the gull\'s page, then the road\'s bargain');
+  assert.eq(PLAY_TIPS.length, 137, 'three displaced opening tips are appended, then the gull\'s page, the road\'s bargain, the spear');
   const topics = {1:/strength/, 11:/wounded goblin/, 13:/snare/, 20:/hoe/, 24:/ruined house/, 25:/smithy/, 35:/car park/, 56:/smith/, 69:/stone/, 77:/path/, 88:/favourite food/, 98:/weapon/, 106:/stairs/, 121:/quartermaster/, 130:/sapphire/};
   for (const [page, topic] of Object.entries(topics)) assert.truthy(topic.test(PLAY_TIPS[page]), 'topic stays at page ' + page);
 });
@@ -221,7 +221,7 @@ test('mechanics: depth trims reach and empty energy removes it', () => {
 });
 
 test('mechanics: crop stages and harvesting keep their live timing and yields', () => {
-  assert.eq(Crops.STAGE_HOLD_MS, 2 * 60 * 1000, 'a tier-1 stage is 2 minutes');
+  assert.eq(Crops.STAGE_HOLD_MS, 4 * 60 * 1000, 'a tier-1 stage is 4 minutes');
   assert.gt(Crops.stageHoldMs('coffee'), Crops.STAGE_HOLD_MS, 'finer crops take longer (the tip says so)');
   assert.truthy(/randInt\(1, 3\) \+ Math\.floor\(qual \/ 3\)/.test(INTERACT_SRC),
     'a pick still pays one to three');
@@ -298,7 +298,7 @@ test('mechanics: crates, barrels, gold pots, courier posts and gates retain thei
   assert.eq(crateRestoreDays({ poiDensity: CHEST_DENSITY_T1_AT }), 1, 'an ordinary crate: a day');
   assert.gt(BARREL_EMPTY_P_BASE, 0.5, '"most are empty"');
   const supply = BARREL_LOOT.find((r) => r.kind === 'supply');
-  assert.eq(JSON.stringify(supply.ids), JSON.stringify(['torch', 'rope']), 'the supply is a torch or a rope');
+  assert.eq(JSON.stringify(supply.ids), JSON.stringify(['torch', 'spear']), 'the supply is a torch or a spear (Oct 2026: the rope left, the spear joined)');
   const coin = BARREL_LOOT.find((r) => r.kind === 'coin');
   assert.eq(coin.min + '-' + coin.max, '1-3', '"a coin or three"');
   assert.eq(potCoinsFor(1), 30, 'a lone pot spills thirty');
@@ -373,12 +373,12 @@ test('mechanics: deep rock follows the gem table', () => {
   }
 });
 
-test('mechanics: vendors never offer a Ring', () => {
+test('mechanics: vendors never offer unique jewelry as gear', () => {
   const save = { relics: {}, armor: {} };
   const rng = bookRng(0x21C0);
   for (let i = 0; i < 2000; i++) {
     const offer = Gear.buildRelicOffer(save, rng);
-    assert.truthy(!offer || offer.slot !== 'ring', 'no vendor ever offers a Ring');
+    assert.truthy(!offer || !['ring', 'amulet'].includes(offer.slot), 'no jewelry gear slot remains');
   }
 });
 
@@ -396,9 +396,9 @@ test('mechanics: struck slimes have a reaction window', () => {
   assert.eq(Number(m[1]), 8000, 'struck slimes react for eight seconds');
 });
 
-test('mechanics: gathering luck remains absent and Rings favour chests', () => {
+test('mechanics: gathering luck remains absent and Keen Eye favours chests', () => {
   assert.eq(typeof globalThis.gatherLuck, 'undefined', 'the gather-luck path is gone');
-  assert.truthy(/chest/i.test(RELIC_DEFS.ring.blurb), 'the ring\'s own line keeps it to chests');
+  assert.truthy(/Rarer/.test(Wizard.TRACKS.find(t => t.key === 'eye').sub), 'Keen Eye copy favours rare finds');
 });
 
 test('mechanics: snares hurt on entry and while standing on them', () => {
@@ -452,7 +452,7 @@ test('books: pages carry brief stories instead of numeric mechanics', () => {
     assert.lt(page.length, 200, 'page ' + i + ' leaves room for one discovery');
     assert.falsy(/[0-9%⚡×]|\btier\b|Relics tab|hit points|UTC/.test(page), 'page ' + i + ' avoids tuning and interface instructions');
   }
-  assert.eq(new Set(PLAY_TIPS).size, 136, 'each page offers a distinct moment');
+  assert.eq(new Set(PLAY_TIPS).size, 137, 'each page offers a distinct moment');
 });
 
 test('books: real-world road and heat safety stays direct', () => {

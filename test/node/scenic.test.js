@@ -344,7 +344,7 @@ test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hal
     if (r.kind === 'relic' || r.kind === 'armor') return (gearPrice(r.kind, r.slot, r.tier) || 0) + (r.consolation || 0);
     return (itemValue(r.id) || 0) * (r.qty || 1) + (r.consolation || 0);
   };
-  const emptySave = { relics: {}, armor: {}, inv: {} };
+  const emptySave = { relics: {}, armor: {}, inv: [] };
   let sum = 0;
   const N = 6000;
   for (let i = 0; i < N; i++) sum += val(pickReward('chest:vista', emptySave, Math.random, { tier: 4, depth: 0 }));
@@ -352,7 +352,7 @@ test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hal
 });
 
 test('scenic: the scope — story once, the relic once per save, the gift once per UTC day', () => {
-  const save = { relics: {}, coinBurstClaimed: {}, inv: {} };
+  const save = { relics: {}, coinBurstClaimed: {}, inv: [] };
   const stories = [], rolls = [], loot = [];
   const scene = makeScene({ save, flashLoot: (t) => loot.push(t),
     _storySplashOnce(key) { stories.push(key); return true; } });
@@ -382,7 +382,7 @@ test('scenic: the scope — story once, the relic once per save, the gift once p
     assert.truthy(poiLit(a, spentSets(scene, save)), 'the next UTC day it glows again');
     tap(a);
     assert.eq(rolls.length, 3, 'and gives again');
-    assert.eq(S.firstVistaPrize({ relics: { amulet: { tier: 3 } } }).tier, 4, 'the relic is a tier over what you wear');
+    assert.eq(S.firstVistaPrize({ relics: { bags: { tier: 3 } } }).tier, 4, 'the relic is a tier over what you wear');
     assert.eq(S.firstVistaPrize({ vistaRelic: 1 }), null, 'once per save');
   } finally {
     Date.now = realNow;

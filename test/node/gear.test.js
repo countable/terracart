@@ -112,17 +112,14 @@ test('blacksmithRecipe: tools use the tier bar (≥5), jewelry uses gems+bar', (
   assert.eq(JSON.stringify(wood), JSON.stringify([{ id: 'wood', qty: 5 }]), 'T1 pick = 5 wood');
   const iron = Gear.blacksmithRecipe('relic', 'pick', 3);
   assert.eq(JSON.stringify(iron), JSON.stringify([{ id: 'iron_bar', qty: 5 }]), 'T3 pick = 5 iron');
-  assert.eq(Gear.blacksmithRecipe('relic', 'ring', 1), null, 'no wooden jewelry');
-  const ringT3 = Gear.blacksmithRecipe('relic', 'ring', 3);
-  assert.eq(ringT3[0].id, 'ruby', 'ring uses rubies');
-  assert.eq(ringT3[0].qty, 2, 'geometric ramp: 2^(3-2)=2');
-  assert.eq(ringT3[1].id, 'iron_bar', 'plus the tier bar');
+  assert.eq(Gear.blacksmithRecipe('relic', 'ring', 3), null, 'unique rings are not forged');
+  assert.eq(Gear.blacksmithRecipe('relic', 'amulet', 3), null, 'unique amulets are not forged');
   // Below the Frost tier every slot keeps its own gem, up to 16 at T6.
   const staffT6 = Gear.blacksmithRecipe('relic', 'staff', 6);
   assert.eq(staffT6[0].id, 'emerald', 'T6 staff still wants emeralds');
   assert.eq(staffT6[0].qty, 16, '2^(6-2)=16');
   // At T7 every jewelry slot is cut around diamonds instead — same quantity.
-  for (const slot of ['ring', 'staff', 'amulet']) {
+  for (const slot of ['staff']) {
     const t7 = Gear.blacksmithRecipe('relic', slot, 7);
     assert.eq(t7[0].id, 'diamond', `T7 ${slot} wants diamonds`);
     assert.eq(t7[0].qty, 32, '2^(7-2)=32 — the ramp is unchanged');
@@ -145,7 +142,7 @@ test('smeltingRecipe + smeltUnlockedBars: T5+ bars, always available', () => {
 test('blacksmith offers: the next rung per slot, every tier past it divided down, no relic/armour split', () => {
   assert.eq(Gear.SMITHY_NEXT_RUNG_BIAS, 4, 'each rung skipped quarters the odds');
   // Pick at Iron (3), axe bare, helmet at Copper (2), the rest bare.
-  const save={relics:{pick:{tier:3},staff:{tier:1},amulet:{tier:1}},armor:{helmet:{tier:2}}};
+  const save={relics:{pick:{tier:3},staff:{tier:1}},armor:{helmet:{tier:2}}};
   const W=Gear.relicOfferWeights(save,{isBlacksmith:true});
   const w=(kind,slot,tier)=>W.find(x=>x.c.kind===kind&&x.c.slot===slot&&x.c.tier===tier)?.w;
   assert.eq(w('relic','axe',1),1,'a bare tool slot: a wooden axe is the next rung at full weight');
@@ -160,7 +157,7 @@ test('blacksmith offers: the next rung per slot, every tier past it divided down
     'missing wood pieces outweigh a finer upgrade for a kitted slot');
   // Every tier stays in the pool: bias, not a cut.
   assert.eq([...new Set(W.filter(x=>x.c.slot==='axe').map(x=>x.c.tier))].join(','),'1,2,3,4,5,6,7');
-  assert.falsy(W.find(x=>x.c.slot==='ring'),'never the Ring');
+  assert.falsy(W.find(x=>['ring','amulet'].includes(x.c.slot)),'unique jewelry is not tiered gear');
   // The ordinary curve is untouched: a relic/armour split, no rank.
   const O=Gear.relicOfferWeights(save);
   const relicShare=O.filter(x=>x.c.kind==='relic').reduce((a,x)=>a+x.w,0);
@@ -177,9 +174,9 @@ test('blacksmith offers: with wooden slots missing, the forge mostly offers them
     if(o.kind==='armor'&&o.tier===1) wooden++;
     if(o.kind==='relic') finer++;
   }
-  // Four bare armour slots at weight 1 each against ELEVEN kitted tool slots
-  // (every relic but the Ring) at 1/8 and less: about two in three offers
-  // are the missing wooden armour, and the draw matches the pool's weights.
+  // Four bare armour slots at weight 1 each against kitted tool slots at 1/8
+  // and less: about two in three offers are the missing wooden armour, and the
+  // draw matches the pool's weights.
   const W=Gear.relicOfferWeights(save,{isBlacksmith:true});
   const total=W.reduce((a,x)=>a+x.w,0);
   const expectWood=W.filter(x=>x.c.kind==='armor'&&x.c.tier===1).reduce((a,x)=>a+x.w,0)/total;
@@ -228,4 +225,59 @@ test('blacksmith offers: hourly shop lookup passes the bias only for the smith r
     assert.eq(result.actual,rng,'keeps the existing hourly/reroll seed');
     assert.eq(result.opts.isBlacksmith,role==='blacksmith');
   }
+});
+
+// MELEE IS THE DEFAULT (owner, Oct 2026): the hands auto-engage like a sword
+// unless a bow or staff is EQUIPPED, and equipping is explicit — the Equip /
+// Unequip button under the Relics tab, never a side effect of highlighting
+// the slot (which used to switch weapons by itself).
+test('meleeActive: bare hands and the sword auto-engage; an equipped bow or staff does not', () => {
+  assert.truthy(Gear.meleeActive({ relics: {}, activeWeapon: null }), 'no weapon at all still fights by hand');
+  assert.truthy(Gear.meleeActive({ relics: {}, activeWeapon: undefined }), 'a save that never chose is melee');
+  assert.truthy(Gear.meleeActive({ relics: { sword: { tier: 1 } }, activeWeapon: 'sword' }));
+  assert.truthy(Gear.meleeActive({ relics: { sword: { tier: 1 }, bow: { tier: 1 } }, activeWeapon: 'sword' }),
+    'an owned but unequipped bow leaves melee on');
+  assert.falsy(Gear.meleeActive({ relics: { bow: { tier: 1 } }, activeWeapon: 'bow' }), 'a bow in hand turns melee off');
+  assert.falsy(Gear.meleeActive({ relics: { staff: { tier: 1 } }, activeWeapon: 'staff' }), 'so does a staff');
+  assert.falsy(Gear.meleeActive({ relics: { sword: { tier: 3 }, staff: { tier: 1 } }, activeWeapon: 'staff' }),
+    'even with a better sword owned — the player chose the staff');
+});
+
+test('unequipWeapon: putting a ranged weapon away returns to the sword, else bare hands', () => {
+  const armed = { relics: { sword: { tier: 2 }, bow: { tier: 1 } }, activeWeapon: 'bow' };
+  assert.truthy(Gear.unequipWeapon(armed));
+  assert.eq(armed.activeWeapon, 'sword', 'the owned sword comes back out');
+  assert.truthy(Gear.meleeActive(armed));
+  const bare = { relics: { staff: { tier: 1 } }, activeWeapon: 'staff' };
+  Gear.unequipWeapon(bare);
+  assert.eq(bare.activeWeapon, null, 'no sword — bare hands');
+  assert.truthy(Gear.meleeActive(bare));
+  assert.truthy(Gear.selectWeapon(bare, 'staff'), 'and Equip takes it up again');
+  assert.falsy(Gear.meleeActive(bare));
+});
+
+test('unequipWeapon: during the wand boon it clears the boon choice, not the saved preference', () => {
+  const save = { relics: { bow: { tier: 2 } }, activeWeapon: 'bow', boonUntil: { wand: 100 } };
+  assert.eq(Gear.activeWeapon(save, 99), 'staff', 'the boon starts ready to fire');
+  Gear.unequipWeapon(save, 99);
+  assert.truthy(Gear.meleeActive(save, 99), 'put away for the boon');
+  assert.eq(save.activeWeapon, 'bow', 'the saved preference is untouched');
+  assert.eq(Gear.activeWeapon(save, 100), 'bow', 'and returns when the boon ends');
+});
+
+test('source: melee auto-engage needs no sword, and a slot tap no longer switches weapons', () => {
+  const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+  const i = SCENE_SRC.indexOf('Gear.meleeActive(this.save) &&');
+  assert.truthy(i > 0, '_combatTick gates auto-engage on Gear.meleeActive');
+  const gate = code(SCENE_SRC.slice(i, SCENE_SRC.indexOf('\n', i)));
+  assert.falsy(/relics\.sword/.test(gate), 'an owned sword is not a precondition');
+  // The ONE place the active weapon changes by hand is the Equip button; the
+  // Relics tab's slot click only highlights (selGear).
+  const tap = code(SCENE_SRC.slice(SCENE_SRC.indexOf("slot.dataset.gear = `${g.kind}:${g.slot}`"),
+    SCENE_SRC.indexOf('Empty gear well')));
+  assert.falsy(/Gear\.selectWeapon/.test(tap), 'tapping a weapon slot does not equip it');
+  const btn = code(SCENE_SRC.slice(SCENE_SRC.indexOf('syncEquipButton() {'), SCENE_SRC.indexOf('_makeEatButton() {')));
+  assert.truthy(/Gear\.selectWeapon\(this\.save, sel\.slot\)/.test(btn), 'Equip selects the highlighted weapon');
+  assert.truthy(/Gear\.unequipWeapon\(this\.save\)/.test(btn), 'Unequip puts a ranged weapon away');
+  assert.truthy(/Combat\.RANGED_SLOTS\.includes\(g\.slot\)/.test(btn), 'only a bow or staff can be put away');
 });

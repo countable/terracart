@@ -101,7 +101,7 @@ const FILES = [
   // Influence zones — the anchor field, the halo terrain and the nexus
   // dressing. Pure (reads WorldGen at CALL time), before worldgen.js like the
   // page loads it.
-  'zones.js', 'zone_variant_data.js', 'zone_variants.js', 'shrines.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js',
+  'zones.js', 'zone_variant_data.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js',
   'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
   // Traps — placement + costs. Pure (it reads WorldGen at CALL time), so it
   // loads either side of worldgen.js; index.html puts it first, so do we.
@@ -187,7 +187,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   plantedTreeStage, TREE_SAPLING_SCALE_MUL, PLANTED_TREE_GROW_MS, acornDropChance, ACORN_P_BASE, ACORN_P_FROST,
   // The one building roof-scale rule — house_scale.test.js asserts against the
   // SHIPPING table rather than its own copies of it.
-  houseArtScale, buildingBaseScale, buildingCellsToScale, BUILDING_ART,
+  houseArtScale, buildingBaseScale, buildingCellsToScale, buildingArt, BUILDING_ART,
   HomeArea, SpawnOwnership,
   itemValue, randInt, pickFromArray, isShiny, faunaShiny,
   TRAILER_SELL_MUL,
@@ -198,7 +198,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_TIER_COLOR,
   chestDensityTier, chestBaseTier, chestTierDepthBonus, ZONE_NEXUS_TIER_BONUS, chestTierZoneBonus, chestTier, chestMirrorsUnderground,
   CRATE_RESTORE_PER, CRATE_RESTORE_MAX_DAYS, crateRestoreDays,
-  BARREL_CLASSES, BARREL_EMPTY_P_BASE, BARREL_EMPTY_P_DENSE, BARREL_LOOT, barrelEmptyP, rollBarrel, isBarrel, barrelFlash,
+  BARREL_CLASSES, BARREL_EMPTY_P_BASE, BARREL_EMPTY_P_DENSE, BARREL_EMPTY_P_GENERATED, BARREL_LOOT, barrelEmptyP, rollBarrel, isBarrel, barrelFlash,
   POT_COINS_BY_DENSITY, potCoinsFor, isPotOfGold, isBikeRack, bikeRackFlash,
   BIKE_RACK_SPEED_MUL, BIKE_RACK_MS, steerSpeedMul,
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
@@ -337,6 +337,10 @@ const starterWrapper = (name) => {
                       // fire's light radius to it at call time, and
                       // lighting.test.js pins that the two are one number.
                       'FIRE_REST_R',
+                      // …and the hearth itself: within this of the fire's
+                      // point a body burns (wanderCreatures' foe block reads
+                      // it; burning.test.js drives the block with it).
+                      'FIRE_TOUCH_CELLS',
                       // Home's ring, which is the same three-way rule one step
                       // further: light, warmth AND ward. lighting.test.js pins
                       // the light against it, home_ward.test.js the other two.
@@ -1474,6 +1478,7 @@ ctx.GEAR_JS_SRC = readSrc('gear.js');
 // worldgen.js loads headlessly, but tile_url.test.js also pins that the only
 // raw tile fetch in it goes through the resolver — a text pin, like the above.
 ctx.WORLDGEN_SRC = readSrc('worldgen.js');
+ctx.QUARRY_LAYOUT_SRC = readSrc('quarry_layout.js');   // cave_barrels.test.js
 // loot.js loads headlessly, but wildplant_table.test.js pins that the wild
 // plant's surprise-treasure row LEFT it for items.js' one WILDPLANT_RULES
 // table — a text pin, so a second per-crop list can't quietly grow back here.

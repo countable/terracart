@@ -277,7 +277,10 @@ function beatPeriodMs(id, beat) {
   const h = fnv1a(String(id) + '#' + beat.salt) / 4294967296;
   return beat.minMs + h * (beat.maxMs - beat.minMs);
 }
-function beatPhase(id, nowMs, beat) {
+function beatPhase(id, nowMs, beat, revealStartedMs) {
+  // The orb starts this same cue now, then leaves the natural beat unchanged.
+  const elapsed = nowMs - revealStartedMs;
+  if (revealStartedMs != null && elapsed >= 0 && elapsed < beat.showMs) return elapsed / beat.showMs;
   const period = beatPeriodMs(id, beat);
   const offset = fnv1a(String(id) + '#' + beat.salt + 'phase') % Math.floor(period);
   const t = (((nowMs + offset) % period) + period) % period;
@@ -626,6 +629,12 @@ function derivedObjects(entry, slot, pred) {
 // trailer, sandbox houses. It sits at the top of the house range and the bottom
 // of the fort range because that is where each role's real buildings cluster.
 //
+// THE TRAILER HAS ITS OWN ROW (Oct 2026, owner's call: 10% bigger, then 10%
+// again — 1.21× the house). Home is the one building the player returns to
+// every session and the only one with no footprint of its own, so it draws
+// at a fixed width over the village's — big enough to find at a glance,
+// still under the smallest fort. A role with no row of its own is a house.
+//
 // The fort cap has come down twice: ~7 cells read as oversized against an
 // 11-cell viewport rather than as a landmark you could see around, then ~4.3
 // still read ~25% too big. The game runs pixelArt:true, so growing the art
@@ -634,8 +643,9 @@ const BUILDING_ART = {
   // fitMul — how much of its own footprint the role fills. Forts keep a small
   //          brick margin inside theirs; exact fill read ~25% too big.
   // min/def/max — drawn width in CELLS (a cell is CELL_M = 7 m).
-  house: { fitMul: 1,   min: 1.2,  def: 1.35, max: 1.35 },
-  fort:  { fitMul: 0.8, min: 1.87, def: 1.87, max: 3.48 },
+  house:   { fitMul: 1,   min: 1.2,   def: 1.35,  max: 1.35 },
+  trailer: { fitMul: 1,   min: 1.6335, def: 1.6335, max: 1.6335 },   // house × 1.21
+  fort:    { fitMul: 0.8, min: 1.87,  def: 1.87,  max: 3.48 },
 };
 // The residential 1.35 is the width the plain house has always drawn at
 // (72px × 0.6 ÷ 32), so the commonest building on the map is unmoved and the
@@ -644,7 +654,9 @@ const BUILDING_ART = {
 // bias in worldgen's assignBuildingFootprints (FOOT_HOUSE_MIN) so the floored
 // roof has a pad to stand on. The fort's 1.87 and 3.48 are its previous 0.28
 // and 0.52 on the 214px frame, in cells — the curve is unchanged.
-function buildingArt(isFort) { return isFort ? BUILDING_ART.fort : BUILDING_ART.house; }
+// The row for a building ROLE (Houses.displayRole: 'fort', 'trailer', or any
+// of the residential roles, which share the house row).
+function buildingArt(role) { return BUILDING_ART[role] || BUILDING_ART.house; }
 // Sprite scale that draws `cells` cells wide from a frame `frameW` px wide.
 // An unmeasurable frame can't be sized at all — but render.js has already
 // hidden that sprite (the texture check in RENDER_SPEC), so the number only
@@ -655,11 +667,11 @@ function buildingCellsToScale(cells, frameW, cellPx) {
   return (cells * cellPx) / frameW;
 }
 // What this role draws at with no footprint to go on.
-function buildingBaseScale(frameW, isFort, cellPx) {
-  return buildingCellsToScale(buildingArt(isFort).def, frameW, cellPx);
+function buildingBaseScale(frameW, role, cellPx) {
+  return buildingCellsToScale(buildingArt(role).def, frameW, cellPx);
 }
-function houseArtScale(area, frameW, isFort, cellM, cellPx) {
-  const a = buildingArt(isFort);
+function houseArtScale(area, frameW, role, cellM, cellPx) {
+  const a = buildingArt(role);
   const cells = (area > 0 && cellM > 0)
     ? clamp(a.fitMul * (Math.sqrt(area) / cellM), a.min, a.max)
     : a.def;

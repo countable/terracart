@@ -67,8 +67,10 @@ const CROP_SPRITE = {
     looks: { clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frame: 0, scale: (4 / 3) * 0.8 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
-  // Scale 1.224 keeps the requested 10% mushroom reduction. Surface and
-  // cave mushrooms share this scale; inventory uses the surface frame.
+  // Small mushrooms use 80% of their former 1.224 scale. Surface and
+  // cave mushrooms share this scale; inventory uses the surface frame. These
+  // two are the mushroom's ONLY looks: the red cap above ground, the blue
+  // caps below — the authored surface cluster was dropped in Oct 2026.
   // `caveFrames`: the look of a mushroom spawned UNDERGROUND (worldgen.js
   // spawnCaveMushrooms stamps `_cave` on the wildplant) — the two blue
   // luminous caps on Props.png row 5, cols 17..18 (5*22+17, 5*22+18), picked
@@ -76,7 +78,7 @@ const CROP_SPRITE = {
   // same Mushroom item when picked; only the art (and its glow, see
   // Lighting.KINDS.mushroom) says it grew in the dark. The inventory icon
   // stays `frame`.
-  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 1.224, caveFrames: [127, 128] },
+  mushroom: { sheet: 'props', custom: true, frame: 35, scale: 0.9792, caveFrames: [127, 128] },
   // Shell — the beach pickup, and the one crop whose LOOK varies per cell.
   // Shell.png is 48×64 = 3 cols × 4 rows of 16×16, and only the TOP ROW is
   // shell art: three cowries (pink, gold, blue). Row 1 repeats those three
@@ -112,7 +114,7 @@ const CROP_SPRITE = {
   // (WILDPLANT_RULES below), never scenery. The barricade road's barricade
   // is the generated 16px piece; clipped hedges still harvest as shrubs.
   barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 1.6 },
-  giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 2, scale: 1, seat: true },
+  giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 0, scale: 0.7, seat: true },
   // ── Influence zones (src/zones.js) — the tar yard's FLINT: a ground
   // pickup (WILDPLANT_RULES.flint below), the generated 16px nodule. One
   // frame of art, listed.
@@ -149,9 +151,11 @@ function wildplantVariantHash(p) {
 // These placement looks retain the base crop's harvest and inventory icon.
 // Zone materialLooks chooses authored looks; ordinary wetland-edge grass is
 // stamped by the rasterizer. None adds an item or changes planted crop art.
+// The mushroom has NO row here (Oct 2026, owner's call): the surface cluster
+// look is gone, and a mushroom is the red cap above ground or the blue cave
+// caps below (CROP_SPRITE.mushroom), wherever it grows.
 const WILDPLANT_CONTEXT_ART = {
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
-  cap_cluster: { crop: 'mushroom', sheet: 'approved_mushroom_cluster', custom: true, frame: 0, scale: 1.224 },
 };
 function wildplantSprite(p) {
   const base = CROP_SPRITE[p && p.crop];
@@ -234,9 +238,11 @@ function wildplantNests(crop) { return !!wildplantRule(crop)?.nest; }
 function isNestBush(crop, id) { return id != null && wildplantNests(crop) && isShiny(id, SHINY_RATE.nest); }
 // When a nest bush wiggles: its own BEAT (util.js beatPhase), 10-30 s off its
 // id, the wiggle showing NEST_BUSH_BEAT.showMs once per period. Returns the
-// wiggle's progress 0..1 while it shows, else -1.
-const NEST_BUSH_BEAT = Object.freeze({ salt: 'nest', minMs: 10000, maxMs: 30000, showMs: 900 });
-function nestBushPhase(id, nowMs) { return beatPhase(id, nowMs, NEST_BUSH_BEAT); }
+// wiggle's progress 0..1 while it shows, else -1. showMs was 900 until Oct
+// 2026: with render.js' bigger swing the show now lasts long enough to be
+// caught from the corner of the eye.
+const NEST_BUSH_BEAT = Object.freeze({ salt: 'nest', minMs: 10000, maxMs: 30000, showMs: 1300 });
+function nestBushPhase(id, nowMs, revealStartedMs) { return beatPhase(id, nowMs, NEST_BUSH_BEAT, revealStartedMs); }
 // What a pick hands over — the crop itself, unless a row names something else.
 function wildplantOutput(crop) { const r = wildplantRule(crop); return r?.outputs?.[0]?.id || r?.output || crop; }
 // All guaranteed rewards from one harvest; ordinary plants retain their single drop.
@@ -312,7 +318,15 @@ function mineralRockFrame(tier) { return MINERAL_TIERS[tier]?.rockFrame ?? 0; }
 function mineralBarId(tier) { return MINERAL_TIERS[tier]?.barId || null; }
 
 const MINERAL_ICON_SHEET = {
-  giant_mushroom: { sheet: 'giant_mushroom', frame: 2 },
+  telescope: { sheet: 'icon_telescope', frame: 0 },
+  orb: { sheet: 'icon_orb', frame: 0 },
+  goblet: { sheet: 'icon_goblet', frame: 0 },
+  lucky_key: { sheet: 'icon_lucky_key', frame: 0 },
+  shield_wood: { sheet: 'icon_shield_wood', frame: 0 },
+  shield_metal: { sheet: 'icon_shield_metal', frame: 0 },
+  shield_gold: { sheet: 'icon_shield_gold', frame: 0 },
+
+  giant_mushroom: { sheet: 'giant_mushroom', frame: 0 },
   // Wood — frame 2 of the 3-variant log sheet (amber bark variant).
   wood:     { sheet: 'wood',      frame: 2 },
   coal:     { sheet: 'coal_icon', frame: 0 },
@@ -401,6 +415,11 @@ const MINERAL_ICON_SHEET = {
   growth_powder: { sheet: 'icon_potions', frame: 6 },
   shadow_powder: { sheet: 'icon_potions', frame: 8 },
   frost_powder:  { sheet: 'icon_potions', frame: 9 },
+  // Unique jewelry uses spare 16px frames from the old tier sheets.
+  stealth_ring:      { sheet: 'icon_rings',   frame: 8 },
+  invisibility_ring: { sheet: 'icon_rings',   frame: 11 },
+  regen_amulet:      { sheet: 'icon_amulets', frame: 10 },
+  vigor_amulet:      { sheet: 'icon_amulets', frame: 17 },
   // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
   // honey jar). Using it moves the player up or down one cave level in place
   // (useRope in app.js).
@@ -520,6 +539,8 @@ const CROP_NAMES = {
 // produce share a tier. Wild fauna and minerals climb with gem ladder. New
 // items SHOULD get a baseTier; rarity.js defaults missing entries to 1.
 const BASE_TIER = {
+  telescope: 3, orb: 4, goblet: 4, lucky_key: 3,
+  shield_wood: 2, shield_metal: 4, shield_gold: 6,
   // Crops (same tier for seed & produce; the seed id uses the suffix).
   // Spread across all four chest tiers.
   potato: 1, rockfruit: 1,
@@ -558,10 +579,10 @@ const BASE_TIER = {
   // Plantable fruit-tree saplings — common apple (T3), rare peach (T5).
   apple_sapling: 3, peach_sapling: 5, acorn: 2,
   // Live animals
-  chicken: 1, dog: 1, rabbit: 1, crab: 1,
+  chicken: 1, dog: 1, rabbit: 1, crab: 1, turtle: 1,
   cat: 2, butterfly: 2,
   crow: 3,
-  deer: 4,
+  deer: 4, horse: 4,
   cow: 5,
   // Consumables
   antidote: 1, elixir: 6,
@@ -581,13 +602,18 @@ const BASE_TIER = {
   // Frost is the T3 fight-changer beside the dragon — it is the one that turns
   // a fight you are already in.
   growth_powder: 2, shadow_powder: 2, frost_powder: 3,
+  // Unique jewelry is intrinsically magical, never a metal rung.
+  stealth_ring: 2, invisibility_ring: 4, regen_amulet: 3, vigor_amulet: 5,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
   // Trap Disarm Kit — a T2 utility beside rope: situational, not a staple.
   trap_kit: 2,
   // Magic Trap — the tier-2 cave supply the goblin trapper also drops.
   magic_trap: 2,
-  spear: 2,
+  // Spear — a T1 supply like the torch (owner, Oct 2026: it was T2, so the
+  // first Supply Shop could not sell it): one thrown shot, a staple of the
+  // first cave trips, so the initial supply shop stocks it beside the torch.
+  spear: 1,
   // Torch — the T1 cave staple: light for the dark, cheap and common.
   torch: 1,
   // Minerals — coal floor, gem ladder mirrors mining rarity
@@ -619,7 +645,22 @@ const BABY_KINDS = Object.freeze(['chicken', 'cow', 'cat', 'dog', 'rabbit']);
 function babyItemId(kind) { return `baby_${kind}`; }
 function babyItems() { return BABY_KINDS.map(babyItemId); }
 
+// Passive benefits apply while carried, without stacking duplicate items.
+const CARRIED_ITEM_SPEC = {
+  telescope: { peekMultiplier: 2 },
+  lucky_key: { luckBonus: 1 },
+  shield_wood: { projectileReduction: 3 },
+  shield_metal: { projectileReduction: 6 },
+  shield_gold: { projectileReduction: 10 },
+};
 const ITEMS = [
+  { id: 'telescope', name: 'Telescope', kind: 'supply' },
+  { id: 'orb', name: 'Orb', kind: 'magic', reusable: true },
+  { id: 'goblet', name: 'Goblet', kind: 'magic', reusable: true },
+  { id: 'lucky_key', name: 'Lucky Key', kind: 'magic' },
+  { id: 'shield_wood', name: 'Wood Shield', kind: 'supply' },
+  { id: 'shield_metal', name: 'Metal Shield', kind: 'supply' },
+  { id: 'shield_gold', name: 'Gold Shield', kind: 'supply' },
   ...Object.keys(CROP_ROW).map(c => ({
     id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c,
     baseTier: BASE_TIER[c] || 1,
@@ -642,6 +683,10 @@ const ITEMS = [
   { id: 'butterfly', name: 'Butterfly', kind: 'animal' },
   // The shore crab — the chicken of the beach (SpriteLayout CREATURE_BEHAVIOUR.crab).
   { id: 'crab',      name: 'Crab',      kind: 'animal' },
+  // The horse — kept in the bag it is a mount (HORSE_RIDE, isRiding).
+  { id: 'horse',     name: 'Horse',     kind: 'animal' },
+  // The sea turtle — the rabbit of the beach (CREATURE_BEHAVIOUR.turtle).
+  { id: 'turtle',    name: 'Sea Turtle', kind: 'animal' },
   // Shiny (rare, 5%) animal variants — caught from yellow-tinted wild animals.
   // Each shiny kind keeps its OWN inventory stack: a shiny chicken never
   // folds into normal chickens, nor into other shiny animals ("not other
@@ -649,7 +694,7 @@ const ITEMS = [
   // reuse the normal sprite/behaviour; `shiny` flags the shiny sheen. Only
   // the catch-into-inventory kinds get a shiny item — hunted fauna (deer,
   // crow) drop meat/feather, so there's no live shiny animal to keep.
-  ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab'].map(k => ({
+  ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'turtle'].map(k => ({
     id: `shiny_${k}`,
     name: `Shiny ${k.charAt(0).toUpperCase() + k.slice(1)}`,
     kind: 'animal', base: k, shiny: true, baseTier: BASE_TIER[k] || 1,
@@ -717,7 +762,7 @@ const ITEMS = [
   // Drunk to strike every foe on screen (app.js drinkThunderPotion).
   { id: 'thunder_potion',      name: 'Potion of Thunder',      kind: 'magic', potion: true },
   // Dragon Powder: use it (Use button with it selected) to wear a red dragon
-  // for one minute — tier-8 boots and amulet on the movement stick AND 2× attack
+  // for one minute — tier-8 boot movement and 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
   { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'magic' },
   // Growth Powder: every crop within 20 m springs ahead one stage on the spot,
@@ -732,6 +777,12 @@ const ITEMS = [
   // moving, no attacking (useFrostPowder). Refused — and kept — when nothing
   // hostile is in reach.
   { id: 'frost_powder',  name: 'Frost Powder',        kind: 'magic' },
+  // Unique jewelry works while carried. `uniqueJewelry` keeps magic shops and
+  // ordinary class rolls from selling it; named chest pools remain its source.
+  { id: 'stealth_ring',      name: 'Stealth Ring',          kind: 'magic', uniqueJewelry: true },
+  { id: 'invisibility_ring', name: 'Ring of Invisibility',  kind: 'magic', uniqueJewelry: true },
+  { id: 'regen_amulet',      name: 'Amulet of Regeneration', kind: 'magic', uniqueJewelry: true },
+  { id: 'vigor_amulet',      name: 'Amulet of Vigor',        kind: 'magic', uniqueJewelry: true },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
   // climb UP a level or lower yourself DOWN one — right where you stand, no
   // staircase needed. One rope per climb. Unlike the sapphire portal it goes
@@ -882,7 +933,9 @@ function itemName(id) { return ITEM_BY_ID[id]?.name || wildplantRule(id)?.name |
 // (interact.js 'fire-held'). One table both sides read: the tap handler and
 // the ✦ lines on the inputs. Anything held over a fire that is NOT a key here
 // is burned, after a "Burn <name>?" confirm (app.js presentBurnConfirm).
-const CAMPFIRE_MAKES = { meat: 'grilled_meat', wood: 'torch',
+// (Wood made a torch here until Oct 2026; the torch is bought or found now,
+// so a branch held over the fire just burns.)
+const CAMPFIRE_MAKES = { meat: 'grilled_meat',
   ...Object.fromEntries(Object.entries(COOKED_FOODS).map(([raw, c]) => [raw, c.id])) };
 // Grilling multiplies the raw cut's energy — and its price, so a grilled
 // steak is worth the fire to sell as well as to eat.
@@ -910,6 +963,11 @@ function fireBurnOutcome(id) {
 // the live scene at click time; items.js loads before those scene dependencies.
 const _CONSUMABLE_MINUTE_MS = 60 * 1000;
 const CONSUMABLE_SPEC = {
+  orb: {
+    immediate: true, reusable: true,
+    verb: 'Use', method: 'useOrb', title: 'Gaze into the orb?',
+    get: 'Hidden things stir beneath its pale light.',
+  },
   spear: {
     damage: 25, immediate: true,
     verb: 'Throw', method: 'useSpear', title: 'Throw the spear?',
@@ -1027,6 +1085,16 @@ const CONSUMABLE_SPEC = {
       ? 'Fresh flame feeds the light already around you.'
       : 'Firelight opens the dark around you.',
   },
+  // THE HORSE is kept, not spent: Ride and Dismount toggle save.riding, and
+  // riding only counts while a horse is in the bag (isRiding). Mounted, the
+  // stick walk goes speedMul as fast and costs energyMul as much per cell —
+  // the bike rack's knight skin, with a price on the legs.
+  horse: {
+    speedMul: 2, energyMul: 2, immediate: true,
+    verb: 'Ride', method: 'toggleHorseRide', title: 'Ride the horse?',
+    get: 'The ground runs past quicker, and your legs feel every stride.',
+    label: scene => (isRiding(scene.save) ? 'Dismount' : 'Ride'),
+  },
   sapphire: {
     verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?',
     get: 'A blue doorway opens into the depths below.',
@@ -1045,7 +1113,18 @@ const CONSUMABLE_SPEC = {
 const VIGOR_POTION_ENERGY = CONSUMABLE_SPEC.vigor_potion.energy;
 const THUNDER_DMG = CONSUMABLE_SPEC.thunder_potion.damage;
 const SPIRIT_RAVEN_MS = CONSUMABLE_SPEC.raven_potion.durationMs;
+const HORSE_RIDE = CONSUMABLE_SPEC.horse;
+// A shiny horse is ridden the same way: one row, two stacks.
+CONSUMABLE_SPEC.shiny_horse = HORSE_RIDE;
+// Is the player mounted? The flag only counts while a horse (plain or shiny)
+// is in the bag, so selling or releasing the last one ends the ride.
+function isRiding(save) {
+  return !!save?.riding && (save.inv || []).some(s => s && (s.count ?? 0) > 0
+    && ((ITEM_BY_ID[s.id]?.base || s.id) === 'horse'));
+}
 const PRICES = {
+  telescope: 80, orb: 180, goblet: 180, lucky_key: 100,
+  shield_wood: 40, shield_metal: 160, shield_gold: 500,
   // ── Seeds ────────────────────────────────────────────────
   rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
   berry_seed: 2, cress_seed: 1, onion_seed: 2, starfruit_seed: 4,
@@ -1070,6 +1149,7 @@ const PRICES = {
   chicken: 4,      // 150–250/tile
   crab: 6,         // shore only — a handful per beach (SHORE_FAUNA)
   cow: 200,        // ~15–30/tile, premium catch
+  horse: 200,      // five a tile, and a mount while kept
   cat: 35,         // companion animal (wants milk/fish) — modest sale, never eaten
   dog: 35,         // companion animal (wants meat) — modest sale, never eaten
   // ── Wild-only ────────────────────────────────────────────
@@ -1095,7 +1175,7 @@ const PRICES = {
   antidote:     12,
   elixir:       360,
   vigor_potion:  35,   // T2 — instant 40-energy restore
-  speed_potion:  55,   // T2 — tier-9 boots + amulet stick-walking for 1 min
+  speed_potion:  55,   // T2 — tier-9 boot stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura at app.js's BLIGHT_DPS
   raven_potion:  90,   // T3 — 1 min of a slime-strength ally (one roster-slime bite
@@ -1104,16 +1184,18 @@ const PRICES = {
   revive_potion: 40,   // T2 — get up where you fell with a tenth of the bar
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
   thunder_potion: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
-  dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 boots + amulet walking + 2× damage
+  dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 boot walking + 2× damage
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
   shadow_powder: 110,  // T2 — 3 min of monsters ignoring you entirely (priced for the
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
+  // Unique jewelry is never sold; zero keeps valuation complete without making an offer.
+  stealth_ring: 0, invisibility_ring: 0, regen_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft); crafted from 5 long grass, so not a money pump
   trap_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T2 — one tier-2 shot and a staff beat's hold on one foe; a revive's worth
-  spear:        40,   // T2 — one thrown shot, spent on use
-  torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); one wood crafts it, so kept low
+  spear:         5,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a staple like the torch (owner, Oct 2026: 40 was far too dear for one throw)
+  torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -1158,7 +1240,7 @@ function itemValue(id) {
 }
 // Shiny animals sell at 10× their plain counterpart's value — a real prize in
 // the bag, on top of the catch-time money + memory.
-for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab']) {
+for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'turtle']) {
   PRICES[`shiny_${k}`] = itemValue(k) * 10;
 }
 // A baby sells for three of its kind: a promise of a shiny, not yet one.
@@ -1218,6 +1300,7 @@ const ITEM_GUIDE_TIPS = {
   scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
   trap_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
   torch: 'Light a torch before descending. By its flame, my hand could reach farther into the dark.',
+  spear: 'I lash a sharp stone to a straight branch and call it a spear. It flies once. I carry a second.',
   rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',
   flowers: 'Brought the shopkeeper flowers. A softer voice, a kinder price. I had meant only to give her something lovely.',
   slime: 'The slime shares my doorstep now. When I grind the blue stone, it waits beside me. Brann would disapprove. I have decided not to ask him.',
@@ -1232,12 +1315,20 @@ const ITEM_GUIDE_TIPS = {
 const EGG_HATCH_METERS = 500;
 
 const ITEM_EFFECTS = {
+  telescope: 'Distant branches sharpen into view through its worn brass tube.',
+  orb: 'Hidden things stir beneath its pale light.',
+  goblet: 'A little warmth gathers in its bowl after every sip.',
+  lucky_key: 'Fortune seems to turn with this little golden key.',
+  shield_wood: 'Old arrowheads sleep in its sturdy wooden face.',
+  shield_metal: 'Arrows glance away from its hammered metal face.',
+  shield_gold: 'A golden face stands firm beneath a rain of arrows.',
   egg: 'A tiny heartbeat keeps time with your footsteps.',
   ...Object.fromEntries(BABY_KINDS.map(k => [babyItemId(k),
     'Too small to be left in the bag for long. Set it down on soft ground and let it grow.'])),
   flowers: 'Their scent softens even a shopkeeper’s heart.',
   rainberry: 'Rain gathers on nearby leaves when its skin breaks between your teeth.',
   pairy: 'Its sweetness leaves a glimmer of buried treasure behind your eyes.',
+  horse: 'It stamps and tosses its head, impatient for the open road.',
   coffee: 'A roasted warmth sets your feet itching for the road.',
   starfruit: 'A golden sweetness lingers, warming the hands that helped it grow.',
   mango: 'Even wary animals lean toward its golden scent.',
@@ -1260,6 +1351,10 @@ const ITEM_EFFECTS = {
   platinum_bar: 'Its pale face catches the heat of a fireflower.',
   crimson_bar: 'An iceflower’s chill waits beneath its red sheen.',
   frost_bar: 'A smith’s breath turns white above this cold metal.',
+  stealth_ring: 'Hungry eyes slide past the stone in its band.',
+  invisibility_ring: 'The eye forgets the hand it almost saw.',
+  regen_amulet: 'A slow warmth mends what the day takes.',
+  vigor_amulet: 'A quickened warmth mends what the day takes.',
   sunflower: 'Its petals hold a warmth that gold seems to answer.',
   fireflower: 'Its heat draws a blush from pale platinum.',
   iceflower: 'Its frozen petals cool even crimson metal.',
@@ -1310,6 +1405,7 @@ const STARTING_ENERGY = 100;
 // Every food's restore was raised 30% (owner, Sep 2026): the numbers below
 // are the rows themselves, and the cooked rows follow through GRILL_ENERGY_MUL.
 const FOOD_ENERGY = {
+  goblet: 5,
   longgrass:  3,
   nut:        10,
   potato:     10,
@@ -1372,6 +1468,7 @@ const ANIMAL_FOOD = {
   // berries as the canonical feed.)
   chicken: [],
   cow:     ['pairy'],      // pears to munch
+  horse:   ['pairy'],      // the cow's favourite
   // Cats love milk AND any kind of fish.
   cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish'],
   dog:     ['meat'],       // raw meat — hunt a deer with the bug net
@@ -1459,15 +1556,8 @@ const RELIC_DEFS = {
              effectKey: 'rockSpeed',     blurb: 'Its pointed head finds the seams in stone.' },
   axe:     { slot: 'axe',    name: 'Axe',     icon: 'Axe.png',     baseCost:  80,
              effectKey: 'chopSpeed',     blurb: 'Its keen edge bites deep into timber.' },
-  // The Ring is TIER luck, and the wizard tower's exclusive gift (his Keen Eye
-  // track — src/wizard.js TRACKS). Never sold, never forged.
-  ring:    { slot: 'ring',   name: 'Ring',    icon: 'Rings.png',   baseCost:  60,
-             effectKey: 'lootTier',      blurb: 'A glint of luck follows your hand to the chest.' },
-  // The Amulet is stick walking and nothing else. It also gave QUANTITY luck
-  // (a chance at a bigger stack of loot) until Sep 2026, when that became the
-  // wizard's Full Measure rung at the same ceiling — see rarity.js qtyLuck.
-  amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
-             effectKey: 'stickWalk',     blurb: 'Its gentle warmth eases the weight of each step.' },
+  // Ring and amulet names belong to unique carried jewelry now. Legacy tiered
+  // pieces migrate in savemigrate.js; this table contains tools only.
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
   // are ranged — they fire on their own while an enemy is on screen, each on
@@ -1586,9 +1676,8 @@ function gearPrice(kind, slot, tier) {
 function gearAssetPath(kind, slot, tier) {
   const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
   if (!def || !t) return null;
-  // Ring + amulet live under Extras (single icon, tier shown as a badge).
-  // Everything else (pickaxe, armor pieces) is per-tier under Weapons and Armor.
-  if (kind === 'relic' && (slot === 'ring' || slot === 'amulet' || slot === 'bags')) {
+  // Bags live under Extras; tools and armor are per-tier.
+  if (kind === 'relic' && slot === 'bags') {
     return `assets/Icons/RPG icons/Extras/${def.icon}`;
   }
   // bugnet: tier 1 (Wood) has dedicated brown art; other tiers fall back to the
@@ -1898,43 +1987,55 @@ function toolDurationMs(relics, slot) {
   if (!eq) return 9000;   // tier 0 (bare hands) = 2.25 × wood
   return TOOL_DURATION_MS[eq.tier] ?? 9000;
 }
-// Stick walking: boots set speed; the amulet reduces energy per cell.
-// GPS walking stays free and uses its own pace. Buffs can lend tiers to both.
-// Speed runs from 4.8× walk without boots to 24× at Frost; cost runs from
-// 1 pip/cell without an amulet to 0.15 at Frost.
-// The floor came down 20% (6 → 4.8, Sep 2026, owner's call): the stick is
-// the walk you didn't take, and bare-handed it outpaced the reason to walk.
-const STEER_MUL_FLOOR = 4.8;    // bare hands
-// 24, up from 15.5. The ladder ran 6x to 15.5x, which sounds wide and does not
-// PLAY wide: 1.2 cells a second bare-handed against 3.1 at the top, so tier-8
-// boots felt like tier-0 boots with a tailwind and a coffee (+1 tier, ~9% at
-// the top end) did nothing you could feel. The whole widening landed in the
-// per-tier step; the floor has since moved on its own (above).
-const STEER_MUL_FROST = 24;   // tier 7 boots
-// THE BIKE RACK (a bicycle_parking POI — loot.js isBikeRack): a tap lends
-// the stick walk BIKE_RACK_SPEED_MUL (+100%) for BIKE_RACK_MS, once a UTC day
-// per rack. It is one more REASON in this lane, not a speed system of its
-// own: app.js _walkRelics reads save.bikeUntil and hands the factor on the
-// boots as `boost`, and steerSpeedMul multiplies it in — so it rides every
-// path the stick speed rides (the stick, the drift home) and none of the GPS
-// walk's, which never reads this function. A multiplier rather than lent
-// tiers because the promise is "twice as fast", whatever boots are worn.
+// Stick walking: boots set both speed and energy cost. GPS walking stays free.
+// Speed runs from 4.8× without boots to 14.4× at Frost: half the former
+// 19.2-point tier contribution, while the tier-0 pace stays unchanged. Cost
+// runs from 1 pip/cell without boots to 0.15 at Frost.
+const STEER_MUL_FLOOR = 4.8;
+const STEER_MUL_FROST = 14.4;
+// A bike rack doubles the current stick pace, whatever boots are worn.
 const BIKE_RACK_SPEED_MUL = 2;
 const BIKE_RACK_MS = 3 * 60 * 1000;
 function steerSpeedMul(gear) {
   const t = gear?.boots?.tier || 0;
   const boost = gear?.boots?.boost > 0 ? gear.boots.boost : 1;
-  // The Frost end is its own tuned endpoint (STEER_MUL_FROST, above), so the
-  // per-tier step absorbs any move of the floor instead of every tier
-  // shifting with it.
   return (STEER_MUL_FLOOR + ((STEER_MUL_FROST - STEER_MUL_FLOOR) / 7) * t) * boost;
 }
-function steerEnergyCost(relics) {
-  const t = relics?.amulet?.tier || 0;
-  if (!t) return 1;
+// A mount's `costMul` (HORSE_RIDE.energyMul, carried on the boots by app.js
+// _walkRelics) multiplies whatever the cost tier leaves.
+function steerEnergyCost(gear) {
+  const t = gear?.boots?.costTier ?? gear?.boots?.tier ?? 0;
+  const mul = gear?.boots?.costMul > 0 ? gear.boots.costMul : 1;
+  if (!t) return mul;
   // Floor keeps the speed potion's synthetic tier 9 (and any future tier past
   // Frost) from running the cost negative, i.e. paying you to walk.
-  return Math.max(0.05, 1 - (t - 1) * (0.85 / 6));
+  return Math.max(0.05, 1 - (t - 1) * (0.85 / 6)) * mul;
+}
+
+// Unique jewelry owns intrinsic effects instead of material tiers. Carrying
+// both variants takes the stronger effect; values never stack.
+const UNIQUE_JEWELRY = Object.freeze({
+  stealth_ring: Object.freeze({ visionCells: 1 }),
+  invisibility_ring: Object.freeze({ visionCells: 2 }),
+  regen_amulet: Object.freeze({ regenMs: 4000 }),
+  vigor_amulet: Object.freeze({ regenMs: 2000 }),
+});
+function carriesItem(save, id) {
+  return !!(save?.inv || []).find((st) => st?.id === id && (st.count ?? 0) > 0);
+}
+function jewelryVisionReduction(save) {
+  let cells = 0;
+  for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
+    if (row.visionCells && carriesItem(save, id)) cells = Math.max(cells, row.visionCells);
+  }
+  return cells;
+}
+function jewelryRegenIntervalMs(save) {
+  let interval = Infinity;
+  for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
+    if (row.regenMs && carriesItem(save, id)) interval = Math.min(interval, row.regenMs);
+  }
+  return interval;
 }
 // Sword relic: scales sell price from 0.5 × base (no sword) to 1.0 × base at
 // tier 7 (frost sword sells at par with the listed PRICES[]). Note that
@@ -1974,7 +2075,11 @@ function trailerSellPrice(baseValue, relics) {
 // (app.js presentHomeCraft). One row per recipe, in the order the page's
 // "Next" button walks them; each craft makes one of `id` from `cost`.
 const HOME_RECIPES = [
-  { id: 'torch',     cost: [{ id: 'wood', qty: 1 }] },
+  // A sharp stone lashed to a branch (owner, Oct 2026): the spear is the
+  // first cave trip's throw, made at Home from what the first walk picks up.
+  // The torch left this page the same day — it is found on cave floors and
+  // sold at the first Supply Shop, never crafted.
+  { id: 'spear',     cost: [{ id: 'rockfruit', qty: 1 }, { id: 'wood', qty: 1 }] },
   { id: 'scarecrow', cost: [{ id: 'wood', qty: 3 }] },
   // Five strands of long grass twist into one rope — the way back up a cave
   // without buying one or finding one in a shallow cave chest.

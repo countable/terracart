@@ -99,6 +99,8 @@
       s.creature('butterfly', 7, 1, 1);
       // Slime pest — drifts at the player and drains energy when close.
       s.creature('slime', 5, 2, 1);
+      // Boar — charges in a line, rests, hurts only on contact.
+      s.creature('boar', 7, 5, 1);
     },
   };
 
@@ -174,6 +176,7 @@
       s.creature('cat', 1, 1, 1);           // a cat sunning on the sand
       s.creature('giant_crab', 2, 3, 1);     // representative shore enemy
       s.creature('gull', 3, 1, 1);           // scenic-shore scavenger
+      s.creature('turtle', 1, 4, 1);         // the rabbit of the beach
       s.well(3, 6);                          // fountain on dry land
     },
   };
@@ -216,6 +219,7 @@
     populate(s) {
       s.creature('chicken', 0, 0, 1); s.creature('chicken', 9, 0, 2);
       s.creature('cow', 0, 7, 1);     s.creature('cow', 9, 7, 2);
+      s.creature('horse', 4, 7, 1);   // rare mount — catch it, then Ride from the bag
       s.chest('farm', 'Sandbox Farm', 5, 4);   // round pad, +1 bonus yield
     },
   };
@@ -1281,17 +1285,32 @@
       save.scarecrows.push(cellCenter(cellIX, cellIY));
     }
 
-    // ── PLAYER PLAZA: a little coin-drop burst (the coindrop tap path). In the
-    //    real game these expire after COIN_BURST_LIFE_MS; here we omit expiresAt so they
+    // ── PLAYER PLAZA: one coin drop per Render.COIN_PILES band (the coindrop
+    //    tap path), on the first free plaza cells from the bottom row up —
+    //    coins never share a cell with an object. In the real game these
+    //    expire after COIN_BURST_LIFE_MS; here we omit expiresAt so they
     //    persist across reloads. They live in entry.coinDrops, not objects[].
     if (centreEntry) {
       centreEntry.coinDrops = (centreEntry.coinDrops || []).filter((c) => c._street === 'golden');
-      const coin = (dx, dy) => {
-        const { cellIX, cellIY } = sceneCell('PLAZA', dx, dy);
+      const plaza = sceneByName('PLAZA');
+      const cellOf = (p) => `${Math.floor((p.x - centreTX * tileEdgeM) / cellM)}_${Math.floor((p.y - centreTY * tileEdgeM) / cellM)}`;
+      const taken = new Set([...centreEntry.objects, ...centreEntry.wildplants, ...centreEntry.coinDrops,
+        ...(save.fires || []), ...(centreEntry.treasure ? [centreEntry.treasure] : [])].map(cellOf));
+      const free = [];
+      for (let dy = plaza.h - 1; dy >= 0; dy--) {
+        for (let dx = 0; dx < plaza.w; dx++) {
+          const { cellIX, cellIY } = sceneCell('PLAZA', dx, dy);
+          if (dx === Math.floor(plaza.w / 2) && dy === Math.floor(plaza.h / 2)) continue;   // spawn
+          if (taken.has(`${cellIX}_${cellIY}`) || scene.placedRockSet.has(absKey(cellIX, cellIY))) continue;
+          free.push({ cellIX, cellIY });
+        }
+      }
+      Render.COIN_PILES.forEach((row, i) => {
+        const { cellIX, cellIY } = free[i];
         const { x, y } = cellCenter(cellIX, cellIY);
-        centreEntry.coinDrops.push({ kind: 'coindrop', x, y, id: `sandbox_coin_${cellIX}_${cellIY}` });
-      };
-      coin(4, 3); coin(3, 2); coin(5, 2);
+        centreEntry.coinDrops.push({ kind: 'coindrop', x, y, amount: row.min,
+          id: `sandbox_coin_${cellIX}_${cellIY}` });
+      });
     }
 
     // ── An extra treasure-X on the SW neighbour tile, at the seam with the

@@ -44,8 +44,10 @@
 // ONLY ONE WEAPON FIGHTS AT A TIME. `save.activeWeapon` (app.js) picks which
 // of sword/bow/staff auto-engages or auto-fires; the other owned weapons sit
 // inert — no auto-engage, no auto-fire — until the player switches to them
-// (tapping a weapon in the Relics inventory tab, or obtaining/forging a new
-// one, which becomes active automatically). Because only one weapon can ever
+// (the Equip button under the Relics inventory tab, or obtaining/forging a
+// new one, which becomes active automatically). MELEE NEEDS NO WEAPON: with
+// no bow or staff equipped the hands auto-engage exactly as a sword does, on
+// the tier-0 rung (Gear.meleeActive). Because only one weapon can ever
 // be in play, there is no split across ranged slots any more: there used to
 // be one (bow and staff fired simultaneously and stacked, so their shares
 // were priced to sum to one sword), but exclusivity already prevents the
@@ -140,19 +142,31 @@
   // Infinity for a row without one: it sees as far as it thinks, the sim
   // bubble. A giant inherits its base kind's. Lair guards and the ghost have
   // rings of their own and never ask.
-  function sightCells(kind) {
-    if (kind === 'slime') return SLIME_SIGHT_CELLS;
-    const s = monster(kind)?.sight;
-    return (typeof s === 'number' && s > 0) ? s : Infinity;
+  function sightCells(kind, save) {
+    const raw = kind === 'slime' ? SLIME_SIGHT_CELLS : monster(kind)?.sight;
+    const sight = (typeof raw === 'number' && raw > 0) ? raw : Infinity;
+    const cut = (typeof jewelryVisionReduction === 'function') ? jewelryVisionReduction(save) : 0;
+    return Number.isFinite(sight) ? Math.max(0, sight - cut) : sight;
   }
   // Can this kind see a player `distM` metres off? The per-creature half of
   // wanderCreatures' `unseen` (the other half is the per-tick `unnoticed`).
-  function seesPlayer(kind, distM, cellM) {
-    return distM <= sightCells(kind) * cellM;
+  function seesPlayer(kind, distM, cellM, save) {
+    return distM <= sightCells(kind, save) * cellM;
   }
   // Is this kind a cave MONSTER? Narrower than isEnemyKind, which also counts
   // the surface slime.
   function isMonster(kind) { return kind !== 'slime' && !!monster(kind); }
+  // Does this kind's body FLASH through its attack wind-up (render.js' amber
+  // strobe)? A melee, area, breath or blast attack lands with nothing else to
+  // watch, so the body is the warning. A PROJECTILE kind's warning is the
+  // arrow or bolt itself, seen in flight and stopped by rock — and the goblin
+  // archer, winding up before every shot, strobed seven times a volley
+  // (Oct 2026). A kind with no roster row keeps the flash: it only winds up
+  // through the roster anyway.
+  function windupFlashes(kind) {
+    const row = typeof EnemyRoster !== 'undefined' ? EnemyRoster.get(kind) : null;
+    return !row || row.attackType !== 'projectile';
+  }
   // Does this monster land blows at all? A row with no `dmg` (the trapper)
   // never hits: app.js's melee drain and monster arrow both ask this, so a
   // harmless kind is harmless by its row, never by a `kind === …`.
@@ -284,6 +298,19 @@
     const shielded = (save.shieldPotionUntil ?? 0) > now
       ? Math.ceil(damage * CONSUMABLE_SPEC.shield_potion.damageMul) : damage;
     return playerDamage(shielded, save.armor, hits, save.mode);
+  }
+
+  // Carrying several shields never stacks their protection. Subtract once
+  // per projectile after potion, armour and mode have resolved its hit bundle.
+  function projectileReduction(save) {
+    let reduction = 0;
+    for (const [id, spec] of Object.entries(CARRIED_ITEM_SPEC)) {
+      if (carriesItem(save, id)) reduction = Math.max(reduction, spec.projectileReduction || 0);
+    }
+    return reduction;
+  }
+  function incomingProjectileDamage(save, damage, hits = 1, now = Date.now()) {
+    return Math.max(0, incomingDamage(save, damage, hits, now) - projectileReduction(save));
   }
 
   // ── A THIEF'S BLOW: the purse or the bag, never the bar ──────────────────
@@ -594,6 +621,43 @@
   function hpFraction(c) {
     const max = maxHp(c) || 1;
     return clamp01(hp(c) / max);
+  }
+
+  // ── A foe on fire ─────────────────────────────────────────────────────────
+  // What lights it: a lit Torch's melee blow (app.js, the combat wheel —
+  // `by` 'player', so the burn's kill is the player's), a campfire it brushes
+  // or lava it stands in (scene_creatures.js — 'fire' / 'lava', the ground's
+  // kill). The NUMBERS are the player's own `burning` row of
+  // Conditions.DEFINITIONS, read live: 1 HP a second for 5 s, then out on its
+  // own; a fresh contact restarts the 5 s without moving the next tick, the
+  // way Conditions.apply refreshes the player. In-memory on the creature like
+  // `_hp`. A lava-immune kind (the demons) never catches — ONE flag for fire
+  // and lava both. Clocks are performance.now(), the wander loop's.
+  function burnDef() { return Conditions.DEFINITIONS.burning; }
+  function canBurn(c) { return !!c && !monster(c.kind)?.lavaImmune; }
+  function burning(c, now = performance.now()) { return (c?._burnUntilT || 0) > now; }
+  function ignite(c, now = performance.now(), by = 'fire') {
+    if (!canBurn(c)) return false;
+    const def = burnDef();
+    const fresh = !burning(c, now);
+    c._burnUntilT = now + def.durationMs;
+    if (fresh) c._burnNextT = now + def.intervalMs;
+    c._burnBy = by;
+    return fresh;
+  }
+  // The whole points due since the last call (0 while none is), the fire put
+  // out once its time is up. Every tick inside the burn lands, however late
+  // the frame — a 5 s burn is always five points.
+  function burnTick(c, now = performance.now()) {
+    if (!c || !(c._burnUntilT > 0)) return 0;
+    const def = burnDef();
+    let dmg = 0;
+    while (c._burnNextT <= now && c._burnNextT <= c._burnUntilT) {
+      dmg += def.energyLoss;
+      c._burnNextT += def.intervalMs;
+    }
+    if (now >= c._burnUntilT) { c._burnUntilT = 0; c._burnBy = null; }
+    return dmg;
   }
 
   // ── Damage ladders ───────────────────────────────────────────────────────
@@ -1245,19 +1309,20 @@
 
   const api = {
     MONSTERS, MONSTERS_BASELINE, CAVE_ENEMY_MUL, GIANT_HP_MUL, GIANT_DEPTH_STEP,
-    registerMonsters, monster, isMonster, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
+    registerMonsters, monster, isMonster, windupFlashes, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
     SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, damageDealt, hpFraction,
+    canBurn, burning, ignite, burnTick,
     ELITE_MUL, isElite, eliteMul, RAISED_MUL, raisedMul, powerMul, maxHp,
     TRAINING_KINDS, TRAINING_ORDER, TRAINING_PERM_MAX, TRAINING_BUFF_MS, TRAINING_SLOT_KIND,
     trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
-    MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, playerDowned,
+    MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, incomingProjectileDamage, projectileReduction, playerDowned,
     theftKind, THEFT_COINS, theftAmount, theftFood, theftDay, theftSated, incomingTheft, bankTheft,
     MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,

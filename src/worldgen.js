@@ -1895,10 +1895,18 @@
   //                       (SURFACE_ROCK_TIER_WEIGHTS) — ~2.5 % copper-bearing
   //   underground       → CAVE_ORE_SHARE of the rocks for each of the
   //                       level's ore tiers (caveOreTiers, below), the rest
-  //                       plain: level 1 all plain, level 2 90 %, then 80 %
+  //                       plain: level 1 LEVEL1_COPPER_SHARE copper (3 %, a
+  //                       taste), level 2 90 %, then 80 %
   const CAVE_ORE_SHARE = 0.10;
+  // The first level down is no tier's mine (caveOreTiers(1) is empty), but it
+  // is where a wood pick first swings, so a thin seam of copper runs through
+  // it (owner, Oct 2026): this share of its rocks, the rest plain. The ore
+  // table for a level with no tiers of its own is copper (caveOreWeights),
+  // which is what makes this one number enough.
+  const LEVEL1_COPPER_SHARE = 0.03;
   function caveRockP(depth) {
     if (!depth || depth <= 0) return 0.90;
+    if (depth === 1) return 1 - LEVEL1_COPPER_SHARE;
     return 1 - CAVE_ORE_SHARE * caveOreTiers(depth).length;
   }
 
@@ -1906,12 +1914,13 @@
   // ore in them, which always break into their bar — are tier N and the tier
   // below, CAVE_ORE_SHARE (10 %) of the rocks each: level 3 is 10 % iron,
   // 10 % copper. Only REAL ore counts (tier 2, copper, and up): a "tier 1" ore
-  // rock breaks as plain stone (interactables.js isPlain), so level 1 is all
-  // plain rock and level 2 is 10 % copper. It is the progression ladder in
-  // the rocks: a tier-N ore wants a pick of tier N-1 (requiredTier), so level
-  // 2's copper forges the pick that opens level 3's iron, down to frost and
-  // crimson on level 7 (and below — the table tops out there). Tier 4+ ore
-  // carries its gem (sapphire, ruby, emerald, then the diamond on 7).
+  // rock breaks as plain stone (interactables.js isPlain), so level 1 is no
+  // tier's mine — it carries only the thin LEVEL1_COPPER_SHARE seam above —
+  // and level 2 is 10 % copper. It is the progression ladder in the rocks: a
+  // tier-N ore wants a pick of tier N-1 (requiredTier), so level 2's copper
+  // forges the pick that opens level 3's iron, down to frost and crimson on
+  // level 7 (and below — the table tops out there). Tier 4+ ore carries its
+  // gem (sapphire, ruby, emerald, then the diamond on 7).
   // Plain rocks keep their own hidden bar roll on break (interactables.js,
   // 1/(2t²) per tier) on every level — this table is only the visible ore.
   // Until Sep 2026 every level below the first used the surface's spread, so
@@ -7839,6 +7848,32 @@
     }
   }
 
+  // BARRELS ON THE FIRST LEVEL (owner, Oct 2026): a few generated barrels
+  // strewn over level 1's floor, smashed like a surface bin (loot.js
+  // isBarrel — `barrel: true`, no POI behind it): a coin, a spear, a torch
+  // or an apple when they hold anything, BARREL_EMPTY_P_GENERATED empty,
+  // back daily on the one day ledger. Random free floor cells, off their own
+  // stream, after every other pass so nothing already seated moves. Ids
+  // carry the depth and the cell, like the torches'.
+  const CAVE_BARREL_DEPTH = 1;
+  const CAVE_BARREL_MIN = 12, CAVE_BARREL_SPAN = 8, CAVE_BARREL_TRIES = 8;
+  function caveBarrels(objects, grid, N, tx, ty, tileEdgeM, depth, occupied) {
+    if (depth !== CAVE_BARREL_DEPTH) return;
+    const rng = makeRng(tileStreamSeed(tx, ty, 0x7FEB352D, depth));
+    const n = CAVE_BARREL_MIN + Math.floor(rng() * CAVE_BARREL_SPAN);
+    for (let k = 0; k < n; k++) {
+      for (let attempt = 0; attempt < CAVE_BARREL_TRIES; attempt++) {
+        const lix = Math.floor(rng() * N), liy = Math.floor(rng() * N);
+        const idx = liy * N + lix;
+        if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
+        occupied.add(idx);
+        const { x: wx, y: wy } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
+        objects.push(makeObject('chest', wx, wy, cellId(`cbarrel_${depth}`, tx, ty, lix, liy), { barrel: true, depth }));
+        break;
+      }
+    }
+  }
+
   // The dungeon level whose rock under the town's BUILDINGS is lava (T.CAVE_LAVA).
   // Only this level: the one above and every one below keep plain rock there.
   const LAVA_DEPTH = 5;
@@ -7934,6 +7969,7 @@
     const caveCoinSeeds = caveCoins(grid, N, x, y, tileEdgeM, depth, occupied);
     const extraTreasures = caveTreasureMarks(grid, N, x, y, tileEdgeM, depth, occupied);
     caveFloorTorches(objects, grid, N, x, y, tileEdgeM, depth, wildplants, occupied);
+    caveBarrels(objects, grid, N, x, y, tileEdgeM, depth, occupied);
     const entry = {
       status: 'ready', grid, cellsPerEdge: N, tileEdgeM, depth,
       objects, wildplants, parkingTreasures: [], extraTreasures, caveCoinSeeds,
@@ -8127,6 +8163,7 @@
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
+    caveBarrels, CAVE_BARREL_DEPTH, CAVE_BARREL_MIN, CAVE_BARREL_SPAN,
     caveWallTorches, caveChestRings, CAVE_RING_CELLS, caveCoins, caveTreasureMarks,
     // Full-tile rasterization — exported for the headless spawn tests, which
     // build synthetic MVT layers and pin the "nothing spawns on a road" rule
@@ -8161,7 +8198,7 @@
     // starter home provisioner (app.js) so a hand-seeded starter rock gets the
     // exact odds a real residential deposit gets, and exported for the
     // headless tests that pin those odds.
-    rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0), caveRockP, caveOreWeights, caveOreTiers,
+    rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0), caveRockP, caveOreWeights, caveOreTiers, LEVEL1_COPPER_SHARE,
     // One tree-species table feeds parks, forests and zone groves. The vein
     // helper is exported for the deterministic cave distribution regression.
     TREE_SPECIES, rollVeinTable,

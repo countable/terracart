@@ -1,12 +1,14 @@
-// No shop is ever "busy".
+// No shop is rationed by the hour; the trader alone takes a short breather.
 //
 // The per-hour deal cap (ShopsMath.dealCap = 1 for a tier-9 house, and the
 // readiness pip / busy plaque / "house busy — try again in 47m" tap that hung
 // off it) was dropped in Sep 2026: a smithy, a trader, a storefront and the
-// wizard's tower can all be used continuously. The clock's one remaining hold
-// on a shop is the re-roll ladder easing a rung an hour (shops_math.test.js).
-// A deal is still RECORDED against the house — the trader's stock turns over
-// on it — which is why the ledger, and recordDeal, survive.
+// wizard's tower can all be used continuously. The clock's holds on a shop
+// are the re-roll ladder easing a rung an hour, and — restored Oct 2026 —
+// a SHORT cooldown after a closed deal for the roles in
+// ShopsMath.DEAL_COOLDOWN_MS (the trader: shops_math.test.js). A deal is
+// RECORDED against the house (ShopsMath.recordDeal) — the trader's stock
+// turns over on it and its cooldown runs from it.
 // app.js can't load headlessly, so shopInteract is lifted out of SCENE_SRC
 // and run on a stub scene whose ledger already holds a heap of deals.
 
@@ -66,25 +68,63 @@ test('always open: a heap of deals this hour shuts no door', () => withDocument(
   }
 }));
 
-test('always open: a deal is still recorded against the house (the trader turns its stock on it)', () => withDocument(() => {
-  const s = scene({ role: 'trader' });
+test('always open: a deal is recorded against the house, and a cash shop reopens on it at once', () => withDocument(() => {
+  const s = scene({ role: 'market' });
   s.shopInteract(0, 0, HOUSE);
   const record = s.calls.records[0];
   assert.eq(typeof record, 'function', 'the accept path is handed recordDeal');
   record(); record();
-  assert.eq(ShopsMath.bucketState(s.save, HOUSE).deals, 2, 'each accepted deal is banked');
-  // And the bank never feeds a refusal: tap again on top of it.
+  const cur = ShopsMath.bucketState(s.save, HOUSE);
+  assert.eq(cur.deals, 2, 'each accepted deal is banked');
+  assert.truthy(cur.dealAt > 0, 'with the moment it closed');
+  // No cooldown row for a market: the bank never feeds a refusal.
   s.shopInteract(0, 0, HOUSE);
-  assert.eq(s.calls.trader, 2, 'the trader opens again at once');
+  assert.eq(s.calls.themed, 2, 'the storefront opens again at once');
+  assert.eq(s.calls.flashes.length, 0);
 }));
+
+test('trader cooldown: a closed barter shuts the trader briefly, with the wait printed', () => withDocument(() => {
+  const s = scene({ role: 'trader' });
+  s.shopInteract(0, 0, HOUSE);
+  assert.eq(s.calls.trader, 1, 'opens the first time');
+  s.calls.records[0]();
+  s.shopInteract(0, 0, HOUSE);
+  assert.eq(s.calls.trader, 1, 'a tap right after the deal does not reopen');
+  assert.eq(s.calls.flashes.length, 1, 'it is refused once, aloud');
+  const line = s.calls.flashes[0];
+  assert.truthy(/^trader busy — back in \d+[smhd]$/.test(line), `the wait is in the shared notation: "${line}"`);
+  assert.truthy([...line].length <= MAP_MSG_MAX, 'and fits a map line');
+  // Deals banked earlier than the row never shut the door (the count is not
+  // the gate; the stamp is).
+  const cur = ShopsMath.bucketState(s.save, HOUSE);
+  cur.dealAt = Date.now() - ShopsMath.DEAL_COOLDOWN_MS.trader;
+  s.shopInteract(0, 0, HOUSE);
+  assert.eq(s.calls.trader, 2, 'open again once the cooldown has run');
+  assert.eq(s.calls.flashes.length, 1, 'with nothing more said');
+}));
+
+test('trader cooldown: both dispatchers read the one table, and the peddler speaks the same wait', () => {
+  // The house tap and the peddler each ask ShopsMath.dealWaitMs with the ROLE
+  // — never a literal number, never a ledger of their own — and bank through
+  // ShopsMath.recordDeal.
+  assert.truthy(/ShopsMath\.dealWaitMs\(this\.save, house, shopType\)/.test(SCENE_SRC), 'shopInteract asks by role');
+  assert.truthy(/ShopsMath\.dealWaitMs\(scene\.save, c, c\.role\)/.test(ALL_SRC['npc.js']), 'the peddler asks by role');
+  assert.truthy(/ShopsMath\.recordDeal\(this\.save, house\)/.test(SCENE_SRC), 'shopInteract banks through recordDeal');
+  assert.truthy(/ShopsMath\.recordDeal\(scene\.save, c\)/.test(ALL_SRC['npc.js']), 'the peddler banks through recordDeal');
+  assert.falsy(/\.deals \+= 1/.test(ALL_SRC['npc.js']), 'no private deal ledger in npc.js');
+  // The flash formats through shortDuration; the character SAYS it through
+  // spokenDuration (CLAUDE.md: a wait a character says uses the spoken ladder).
+  assert.truthy(/busy — back in \$\{shortDuration\(dealWait\)\}/.test(SCENE_SRC), 'the tap prints shortDuration');
+  assert.truthy(/Come back in \$\{spokenDuration\(dealWait\)\}/.test(ALL_SRC['npc.js']), 'the peddler says spokenDuration');
+});
 
 test('always open: nothing in the sources asks whether a shop is ready', () => {
   for (const [name, src] of [['app.js + scene mixins', SCENE_SRC], ['render.js', RENDER_SRC],
                              ['npc.js', ALL_SRC['npc.js']], ['shops_math.js', DURATION_SOURCES['shops_math.js']]]) {
     assert.falsy(/shopReadiness|shopDealCap|dealCap|shopReadyPool|shopWaitLabel|msToNextBucket/.test(src),
-      `${name}: no readiness, cap, plaque or wait left`);
+      `${name}: no readiness, cap, plaque or hourly wait left`);
   }
-  assert.falsy(/finished trading for now/.test(ALL_SRC['npc.js']), 'the peddler never turns a visitor away');
+  assert.falsy(/finished trading for now/.test(ALL_SRC['npc.js']), 'the peddler never shuts for the hour');
 });
 
 })();

@@ -38,6 +38,13 @@ test('themed shops: stock is the line at the nearest tier it carries (ties lower
       for (const id of stock) assert.truthy(ITEM_BY_ID[id], `${id} is a real item`);
     }
   }
+  // The FIRST Supply Shop (T1) sells the cave staples — and the spear with
+  // them (owner, Oct 2026: a T1 supply like the torch); rope and the disarm
+  // kit wait for the T2 round.
+  const s1 = Shops.themedStock('supply', 1);
+  for (const id of ['wood', 'rockfruit', 'torch', 'spear']) assert.truthy(s1.includes(id), `T1 supply shop stocks ${id}`);
+  assert.falsy(s1.includes('rope'), 'rope is the T2 round');
+  assert.truthy(Shops.themedStock('supply', 2).includes('rope'));
   // Antidote fills the T1 Magic shop; other medicines follow at their tiers.
   const p1 = Shops.themedStock('potion', 1);
   assert.truthy(p1.includes('antidote'), 'T1 magic shop stocks the cure');

@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Working guidance for Mending Lane, a GPS farming RPG rendered with Phaser 3.
+Working guidance for Dragon Hood, a GPS farming RPG rendered with Phaser 3.
+(Mending Lane, the former title, is now the neighbourhood the player starts in.)
 Keep project-wide constraints here; keep implementation rationale beside the code.
 
 ## Scope and navigation
@@ -292,6 +293,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
   sight range through `unseen`. Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.
+- A status effect is a row of `Conditions.DEFINITIONS` (poison, burning): the
+  player's condition, a foe's (`Combat.ignite` / `burnTick` read the same row),
+  the HUD chip and the body tint all derive from it. A new status is a row
+  there, never a timer, colour or label of its own.
 - Job costs use `spendEnergy`; passive restoration pauses while `working`
   (work wheel or rest hold). Walking drains and enemy blows are not jobs.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
@@ -362,6 +367,12 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   looked at, never asked about twice.
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including
   interpolations. Cut copy or use a modal; do not interpolate unbounded POI names.
+- Statuses, buffs and timers on the player live in ONE place: the status
+  row under the top HUD (`_syncStatusRow`, `STATUS_ROW_CSS`), one chip per
+  row of `Conditions.DEFINITIONS` (poison, burning) and of `Buffs.KINDS`
+  (`src/buffs.js`: a potion, powder, torch, coffee, the bike, the compass, a
+  shrine boon — its expiry field, word and ink). A new timed effect is a
+  row there; never a label over the player or a chip of its own.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls
@@ -409,7 +420,7 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   a named zone's keeper stays. The warden's home plea is a tap, never a splash.
 
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
-`item_descriptions`, `books`, `story_neighbours`.
+`item_descriptions`, `books`, `story_neighbours`, `buffs`.
 
 ## Maintaining this file
 

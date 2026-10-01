@@ -624,7 +624,7 @@ const TAP_HANDLERS = [
     // Per-kind horizontal grab half-width (m) — the old footprint-tuned radii.
     const HALF_W = {
       npc: 1.8, cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
-      chicken: 1.5, crab: 1.5, rabbit: 1.4, butterfly: 1.4, gull: 1.7, raven: 1.7,
+      chicken: 1.5, crab: 1.5, turtle: 1.5, rabbit: 1.4, butterfly: 1.4, gull: 1.7, raven: 1.7, horse: 2.2, boar: 1.7,
       slime: 2.0, cave_slime: 2.0, fire_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, goblin_trapper: 2.0, purple_slime: 1.4,
     };
     // Closest tappable creature whose DRAWN box contains the tap. Rank by
@@ -820,7 +820,7 @@ const TAP_HANDLERS = [
     if (isTame && !tameProducerFeed) {
       const SOUND = { chicken: 'cluck', cow: 'moo', cat: 'purr', dog: 'woof',
                       butterfly: 'flutter', crow: 'caw', rabbit: 'twitch', deer: 'snort',
-                      crab: 'click' };
+                      crab: 'click', horse: 'whinny', turtle: 'blink' };
       const sound = SOUND[target.kind] || 'happy';
       // Petting accepts the favourite OR plant produce as a treat. Treats
       // get consumed; an empty-handed pet is free. animalLikesFood handles
@@ -1270,7 +1270,7 @@ const TAP_HANDLERS = [
   { name: 'fire-held', try: (ctx) => {
     // 2-fire-held) Tap a lit campfire while HOLDING something. The fire either
     // MAKES something of it (items.js CAMPFIRE_MAKES: meat → grilled meat,
-    // wood → torch) or, for anything else, asks "Burn <name>?" and destroys
+    // the cooked foods) or, for anything else, asks "Burn <name>?" and destroys
     // one on yes (app.js presentBurnConfirm). Empty-handed, the tap falls
     // through to extinguish-fire. Runs before `release` so a held animal
     // over a fire is a burn question, not a release into the flames.

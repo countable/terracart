@@ -136,7 +136,7 @@
     }
   });
 
-  test('barrel: holds only a few coins, an apple, or a torch / rope — never gear', () => {
+  test('barrel: holds only a few coins, an apple, or a torch / spear — never gear', () => {
     let seed = 11;
     const rng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x80000000; };
     const seen = new Set();
@@ -145,12 +145,12 @@
       if (r.kind === 'empty') continue;
       if (r.kind === 'gold') { assert.inRange(r.amount, 1, 3, 'a few coins'); assert.falsy(r.slot, 'plain cash'); seen.add('coin'); continue; }
       assert.eq(r.kind, 'item', 'an item otherwise');
-      assert.includes(['apple', 'torch', 'rope'], r.id, 'only these');
+      assert.includes(['apple', 'torch', 'spear'], r.id, 'only these');
       assert.eq(r.qty, 1, 'one of it');
       assert.truthy(ITEM_BY_ID[r.id], `${r.id} is a real item`);
       seen.add(r.id);
     }
-    assert.eq([...seen].sort().join(','), 'apple,coin,rope,torch', 'every outcome turns up');
+    assert.eq([...seen].sort().join(','), 'apple,coin,spear,torch', 'every outcome turns up');
   });
 
   test('barrel: a smash pays once, stands smashed while bare, and says what came out', () => {
@@ -185,7 +185,7 @@
     const a = src.indexOf('\n  _walkRelics() {');
     const b = src.indexOf('\n  }\n', a);
     const body = src.slice(src.indexOf('{', a) + 1, b);
-    return new Function('DRAGON_AMULET_TIER', 'SPEED_POTION_AMULET_TIER', 'COFFEE_BOOT_BOOST', 'BIKE_RACK_SPEED_MUL',
+    return new Function('DRAGON_WALK_COST_TIER', 'SPEED_POTION_WALK_COST_TIER', 'COFFEE_BOOT_BOOST', 'BIKE_RACK_SPEED_MUL',
       `return function () {${body}\n};`)(CONSUMABLE_SPEC.dragon_powder.movementTier,
         CONSUMABLE_SPEC.speed_potion.movementTier, CONSUMABLE_SPEC.coffee.speedTierBoost,
         BIKE_RACK_SPEED_MUL);
@@ -238,8 +238,10 @@
     assert.truthy(/const step = WALK_M_S \* steerSpeedMul\(relics\) \* dt;/.test(SCENE_SRC), 'the stick (_steerManual)');
     assert.truthy(/const stickMul = this\._stickPushed\(\) \? steerSpeedMul\(this\._walkRelics\(\)\) : 1;/.test(SCENE_SRC),
       'the follow cap, only while the stick is pushed');
-    assert.truthy(/const boost = \(this\.save\.bikeUntil \?\? 0\) > Date\.now\(\) \? BIKE_RACK_SPEED_MUL : 1;/.test(SCENE_SRC),
+    assert.truthy(/const bike = \(this\.save\.bikeUntil \?\? 0\) > Date\.now\(\) \? BIKE_RACK_SPEED_MUL : 1;/.test(SCENE_SRC),
       '_walkRelics reads the loan');
+    assert.truthy(/const boost = Math\.max\(bike, riding \? HORSE_RIDE\.speedMul : 1\);/.test(SCENE_SRC),
+      'a ridden horse is the same kind of factor, never stacked on the loan');
     assert.falsy(/bikeUntil/.test(SCENE_SRC.replace(/_walkRelics\(\) \{[\s\S]*?\n  \}\n/, '')), 'nothing else in app.js reads it');
   });
 

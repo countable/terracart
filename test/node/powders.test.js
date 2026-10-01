@@ -190,9 +190,8 @@ test('shadow: a 3-minute in-memory buff, read out with shortDuration beside the 
   assert.truthy(/isShadowActive\(\) \{\n    return \(this\._shadowUntil \?\? 0\) > Date\.now\(\);/.test(app),
     'isShadowActive reads the timer');
   assert.truthy(!/save\.shadowUntil|save\._shadowUntil|shadowPowderUntil/.test(app), 'never written to the save');
-  assert.truthy(/this\.shadowTimerText = this\.add\.text\(/.test(app), 'a countdown label of its own');
-  assert.truthy(/this\.shadowTimerText\n\s*\.setText\(shortDuration\(this\._shadowUntil - Date\.now\(\)\)\)/.test(app),
-    'the readout goes through shortDuration');
+  assert.eq(Buffs.KINDS.shadow.scene, '_shadowUntil', 'its countdown is a chip of the status row under the HUD');
+  assert.falsy(/shadowTimerText/.test(app), 'no label of its own');
 });
 
 test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderCreatures', () => {

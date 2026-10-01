@@ -174,11 +174,21 @@ test('peek drag: no drag can outrun the loaded world', () => {
   const s = peekScene();
   s._setPeekFromDrag(4000, 4000);
   const mag = Math.hypot(s.peekM.x, s.peekM.y) / s.cellM;
-  near(mag, PEEK_MAX_CELLS, 1e-9, 'clamped to the cap, in cells');
+  near(mag, 1.5, 1e-9, 'default reach is half the former three-cell cap');
   // The cap has to stay inside the 3×3 tile neighbourhood every world pass
   // scans, and comfortably inside the half-view so the character is never
   // dragged off the map.
   assert.lt(PEEK_MAX_CELLS, VIEW_CELLS / 2, 'the player stays on screen');
+});
+
+test('peek drag: carrying a telescope restores three cells without stacking', () => {
+  for (const count of [0, 1, 2]) {
+    const s = peekScene({ save: { inv: [{ id: 'telescope', count }] } });
+    s._setPeekFromDrag(4000, 4000);
+    near(Math.hypot(s.peekM.x, s.peekM.y) / s.cellM, count ? 3 : 1.5, 1e-9,
+      'only a positive owned count extends the camera');
+    assert.eq(s.playerM.x, 0, 'the player never moves');
+  }
 });
 
 test('peek drag: the clamp keeps the direction it was given', () => {

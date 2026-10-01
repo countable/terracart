@@ -29,6 +29,98 @@ test('no deal cap: ShopsMath has no ration and no readiness to ask', () => {
   assert.eq(typeof ShopsMath.msToNextBucket, 'undefined', 'no wait to print');
 });
 
+// THE ONE CLOCK ON A DOOR: a short cooldown after a closed deal, for the
+// roles with a row in DEAL_COOLDOWN_MS — the trader alone. Short (minutes,
+// not the old hourly ration), stamped by recordDeal, read by dealWaitMs.
+const TRADER_MS = ShopsMath.DEAL_COOLDOWN_MS.trader;
+test('deal cooldown: the table has one row, the trader, and it is short', () => {
+  assert.eq(Object.keys(ShopsMath.DEAL_COOLDOWN_MS).join(','), 'trader', 'only the trader waits');
+  assert.truthy(TRADER_MS >= 60 * 1000 && TRADER_MS <= 15 * 60 * 1000, `a breather, not a ration: ${TRADER_MS}ms`);
+  assert.eq(ShopsMath.MAX_DEAL_COOLDOWN_MS, TRADER_MS, 'the longest row is the record keepers\' horizon');
+});
+
+test('deal cooldown: recordDeal banks the deal and stamps the moment', () => {
+  const save = {};
+  const house = { id: 'tr-1' };
+  const cur = ShopsMath.recordDeal(save, house, 1000);
+  assert.eq(cur.deals, 1); assert.eq(cur.dealAt, 1000);
+  assert.eq(save.shopState['tr-1'], cur, 'on the house\'s own record');
+  ShopsMath.recordDeal(save, house, 2000);
+  assert.eq(cur.deals, 2, 'each deal counts (the shelf\'s turnover)');
+  assert.eq(cur.dealAt, 2000, 'the stamp is the LAST deal');
+  assert.eq(ShopsMath.recordDeal(save, { }, 3000), null, 'a house with no id banks nothing');
+});
+
+// A closed deal SETTLES the shop (shops_math.js header): the paid re-roll
+// rungs and the free skips both go back to zero, so the next re-roll costs
+// the base price at once — the smithy's old inline reset, now the one
+// recorder's job for every shop.
+test('recordDeal: a closed deal settles the re-roll ladder', () => {
+  const save = {};
+  const house = { id: 'sh-1' };
+  const cur = ShopsMath.bucketState(save, house, 1000);
+  cur.rerolls = 3; cur.skips = 2;
+  ShopsMath.recordDeal(save, house, 1000);
+  assert.eq(cur.rerolls, 0, 'the paid rungs are forgiven');
+  assert.eq(cur.skips, 0, 'and the free skips with them');
+  assert.eq(ShopsMath.themedRerollCost(cur.rerolls), ShopsMath.THEMED_REROLL_START, 'the next re-roll is the base price');
+  assert.eq(cur.deals, 1, 'the deal itself still counts');
+});
+
+test('deal cooldown: dealWaitMs counts down from the last deal and only for a role with a row', () => {
+  const save = {};
+  const house = { id: 'tr-2' };
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 5000), 0, 'never dealt with: open');
+  assert.falsy(save.shopState && save.shopState['tr-2'], 'and asking created no record');
+  ShopsMath.recordDeal(save, house, 10000);
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000), TRADER_MS, 'the whole row at the moment of the deal');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 + TRADER_MS / 2), TRADER_MS / 2, 'half way');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 + TRADER_MS), 0, 'open again on the dot');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 + TRADER_MS * 9), 0, 'and stays open');
+  for (const role of ['market', 'blacksmith', 'wizard', null, undefined]) {
+    assert.eq(ShopsMath.dealWaitMs(save, house, role, 10000), 0, `${role}: no row, no wait`);
+  }
+  assert.eq(ShopsMath.dealWaitMs(save, { }, 'trader', 10000), 0, 'no id, no wait');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 - TRADER_MS * 3), TRADER_MS,
+    'a clock that ran backwards prints the row\'s length at worst, never a lifetime');
+});
+
+test('deal cooldown: the stamp survives the hour bucket while it still cools, and is dropped once spent', () => {
+  const save = {};
+  const house = { id: 'tr-3' };
+  // A deal a minute before the bucket turns: the fresh bucket record must
+  // still refuse for the rest of the row.
+  const b0 = ShopsMath.bucketState(save, house, 0);
+  const turn = (b0.bucket + 1) * HOUR - ShopsMath.bucketOffset(house.id);
+  ShopsMath.recordDeal(save, house, turn - 60 * 1000);
+  const b1 = ShopsMath.bucketState(save, house, turn + 1000);
+  assert.truthy(b1 !== b0 && b1.bucket === b0.bucket + 1, 'a new bucket record');
+  assert.eq(b1.deals, 0, 'the deal count starts over with the new offer');
+  assert.eq(b1.dealAt, turn - 60 * 1000, 'but the stamp is carried');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', turn + 1000), TRADER_MS - 61 * 1000, 'and still counts down');
+  // Hours later the stamp is spent: the carried record sheds it, so it is
+  // the exact shape a fresh record would be (pruneShopState's lossless rule).
+  const b2 = ShopsMath.bucketState(save, house, turn + HOUR * 3);
+  assert.eq(JSON.stringify(b2), JSON.stringify({ bucket: b1.bucket + 3, deals: 0, rerolls: 0 }), 'no stamp once spent');
+});
+
+test('deal cooldown: pruneShopState keeps a stale entry whose deal still cools', () => {
+  const save = {};
+  const cooling = { id: 'tr-cool' }, spent = { id: 'tr-spent' };
+  const b0 = ShopsMath.bucketState(save, cooling, 0);
+  const turn = (b0.bucket + 1) * HOUR - ShopsMath.bucketOffset(cooling.id);
+  ShopsMath.recordDeal(save, cooling, turn - 1000);
+  // The other house has its own bucket offset: deal three hours back so its
+  // record is a stale bucket at the probe whatever that offset is.
+  ShopsMath.recordDeal(save, spent, turn - HOUR * 3);
+  const later = turn + HOUR * 2;    // both records are now stale buckets
+  assert.eq(ShopsMath.pruneShopState(save, turn + 1000), 1, 'at the turn, only the spent deal goes');
+  assert.truthy(save.shopState['tr-cool'], 'the cooling one is kept');
+  assert.falsy(save.shopState['tr-spent']);
+  assert.eq(ShopsMath.dealWaitMs(save, cooling, 'trader', turn + 1000), TRADER_MS - 2000, 'and still refuses');
+  assert.eq(ShopsMath.pruneShopState(save, later), 1, 'hours on, it is spent too');
+});
+
 test('bucketState: creates a record; a new hour resets deals and keeps easing re-rolls', () => {
   const save = {};
   const house = { id: 'shopA' };
@@ -313,44 +405,34 @@ test('shop offer: it still holds as the hour advances, and turns over at the buc
     'the offer turns over at the hour boundary');
 });
 
-test('shop offer: spending deals does not reshuffle the offer', () => {
-  // Recording a deal bumps cur.deals, which must not feed the offer seed —
-  // otherwise buying once would re-roll the rest. (Forts, which allowed 5 an
-  // hour, run a slot machine now; any count of deals is checked here.)
-  const save = { offerSalt: 3, relics: {} };
-  const fort = { id: 'fort-B', kind: 'house', tier: 9 };
-  const first = openShop(save, fort, 0);
-  for (let deal = 1; deal <= 5; deal++) {
-    ShopsMath.bucketState(save, fort, 0).deals = deal;
-    const after = openShop(save, fort, 0);
-    assert.eq(after.swap, first.swap, `after ${deal} deals: swap unchanged`);
-    assert.eq(after.price, first.price, `after ${deal} deals: price unchanged`);
-  }
-});
-
-// The trader is the one shop whose stock LEAVES with the deal: what it offers
-// is what it hands over, so a closed trade must turn its goods over on the
-// spot (app.js traderGivePick reads shopRng with perDeal). Cash shops keep
-// their shelf — the test above — so the fold is opt-in, and a re-roll still
-// pivots on top of it.
-test('rng: perDeal turns the stream over with each deal; plain lanes ignore deals', () => {
+// What was bought LEAVES the shelf (shops_math.js header, owner's call, Oct
+// 2026): a closed deal is in every lane's seed, so the next offer — the
+// trader's goods and sign, a themed shelf's item, a storefront's price — is a
+// fresh draw, and a re-roll still pivots on top of it. (Until Oct 2026 only
+// the trader folded its deals in; cash shops kept their shelf.)
+test('rng: a closed deal turns the shelf over, in every lane', () => {
   const save = { offerSalt: 5 };
   const house = { id: 'trader-A', kind: 'house', tier: 9 };
-  const draw = (perDeal) => ShopsMath.rng(save, house, 'trader', 0, { perDeal })();
+  const draw = (lane) => ShopsMath.rng(save, house, lane, 0)();
   ShopsMath.bucketState(save, house, 0).deals = 0;
-  const fresh = draw(true);
-  assert.eq(draw(true), fresh, 'stable while no deal is made');
-  assert.eq(draw(false), fresh, 'no deals yet: perDeal and plain agree');
+  const fresh = draw('trader');
+  assert.eq(draw('trader'), fresh, 'stable while no deal is made');
   const seen = new Set([fresh]);
   for (let deal = 1; deal <= 4; deal++) {
     ShopsMath.bucketState(save, house, 0).deals = deal;
-    const next = draw(true);
+    const next = draw('trader');
     assert.falsy(seen.has(next), `deal ${deal}: new goods`);
     seen.add(next);
-    assert.eq(draw(false), fresh, `deal ${deal}: a plain lane still ignores the deal`);
   }
   ShopsMath.bucketState(save, house, 0).rerolls = 1;
-  assert.falsy(seen.has(draw(true)), 'a re-roll still pivots the per-deal stream');
+  assert.falsy(seen.has(draw('trader')), 'a re-roll still pivots the stream');
+  // A cash shop's lanes turn over the same way: the whole offer is fresh.
+  const fort = { id: 'fort-B', kind: 'house', tier: 9 };
+  const first = openShop(save, fort, 0);
+  assert.eq(openShop(save, fort, 0).price, first.price, 'the price holds until a deal');
+  ShopsMath.recordDeal(save, fort, 0);
+  const after = openShop(save, fort, 0);
+  assert.truthy(after.swap !== first.swap || after.price !== first.price, 'after a buy the storefront offers afresh');
 });
 
 test('shop offer: two shops in the same hour make their own independent offers', () => {

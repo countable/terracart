@@ -18,7 +18,7 @@
 //   chestDensityTier, chestBaseTier, chestTierDepthBonus, chestTier,
 //   chestMirrorsUnderground, CRATE_RESTORE_PER, CRATE_RESTORE_MAX_DAYS,
 //   crateRestoreDays, BARREL_CLASSES, BARREL_EMPTY_P_BASE,
-//   BARREL_EMPTY_P_DENSE, BARREL_LOOT, barrelEmptyP, rollBarrel, isBarrel,
+//   BARREL_EMPTY_P_DENSE, BARREL_EMPTY_P_GENERATED, BARREL_LOOT, barrelEmptyP, rollBarrel, isBarrel,
 //   POT_COINS_BY_DENSITY, potCoinsFor, isPotOfGold, isBikeRack, barrelFlash,
 //   bikeRackFlash
 //   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
@@ -409,10 +409,16 @@ function crateRestoreDays(o) {
 // for a lone bin, rising linearly to BARREL_EMPTY_P_DENSE at
 // CHEST_DENSITY_T1_AT of its kind — the same "dense" the tier table uses).
 // When it holds something it is ONE of BARREL_LOOT: a few coins, an apple,
-// or — rarely — one cheap supply (a torch or a rope). Never gear, never a
+// or — rarely — one cheap supply (a torch or a spear). Never gear, never a
 // tier roll: a barrel does not read chestTier at all. Rolled per smash
 // (rollBarrel), like every drop roll — only WHERE the barrel stands is the
 // world's.
+// GENERATED BARRELS (owner, Oct 2026) are the same thing without a POI: a
+// chest stamped `barrel: true` — strewn over the first cave level
+// (worldgen.js caveBarrels) and dressed into the seep and the quarries
+// (docs/zone-variants.json's `barrel` material) — on the same smash, the same
+// day ledger (a lone bin's daily restock) and the same loot roll, empty
+// BARREL_EMPTY_P_GENERATED of the time: they have no density to read.
 // Cosmetic pairs share the barrel's rewards and restock ledger. Hash only the
 // generated identity, so neither location overlays nor smashing changes the pair.
 const BARREL_ART = [
@@ -422,6 +428,7 @@ const BARREL_ART = [
 const BARREL_CLASSES = new Set(['waste_basket', 'recycling']);
 const BARREL_EMPTY_P_BASE = 0.6;
 const BARREL_EMPTY_P_DENSE = 0.9;
+const BARREL_EMPTY_P_GENERATED = 0.7;
 function barrelEmptyP(count) {
   const n = Math.max(1, Math.floor(Number(count) || 1));
   const f = Math.min(1, (n - 1) / (CHEST_DENSITY_T1_AT - 1));
@@ -431,13 +438,14 @@ function barrelEmptyP(count) {
 const BARREL_LOOT = [
   { kind: 'coin',   w: 0.5, min: 1, max: 3 },
   { kind: 'apple',  w: 0.4, id: 'apple' },
-  { kind: 'supply', w: 0.1, ids: ['torch', 'rope'] },
+  { kind: 'supply', w: 0.1, ids: ['torch', 'spear'] },
 ];
 // One smash of barrel `o`: { kind: 'empty' } | { kind: 'gold', amount } |
 // { kind: 'item', id, qty: 1 }. `rng` defaults to Math.random.
 function rollBarrel(o, rng) {
   const r = typeof rng === 'function' ? rng : Math.random;
-  if (r() < barrelEmptyP(o && o.poiDensity)) return { kind: 'empty' };
+  const pEmpty = (o && o.barrel) ? BARREL_EMPTY_P_GENERATED : barrelEmptyP(o && o.poiDensity);
+  if (r() < pEmpty) return { kind: 'empty' };
   const total = BARREL_LOOT.reduce((s, row) => s + row.w, 0);
   let u = r() * total;
   let row = BARREL_LOOT[BARREL_LOOT.length - 1];
@@ -455,7 +463,9 @@ function barrelFlash(got) {
   return `+${got.qty || 1} ${name}`;
 }
 function isBarrel(o) {
-  return !!o && o.kind === 'chest' && BARREL_CLASSES.has(o.poiClass) && !(o.depth > 0) && !o.crate && !o.fixedLoot;
+  if (!o || o.kind !== 'chest' || o.crate || o.fixedLoot) return false;
+  if (o.barrel === true) return true;   // a generated barrel, any depth
+  return BARREL_CLASSES.has(o.poiClass) && !(o.depth > 0);   // a bin POI; its cave mirror is a plain chest
 }
 
 // ── POTS OF GOLD (ATMs) and BIKE RACKS ────────────────────────────────────
@@ -566,6 +576,7 @@ const STAND_KEYWORD_ITEM = {
   banana: 'banana', bananas: 'banana', mango: 'mango', tropical: 'mango',
   coconut: 'coconut', apricot: 'apricot', berry: 'berry', berries: 'berry',
   smoothie: 'berry', jam: 'berry', acai: 'berry', preserves: 'berry',
+  wein: 'berry',   // German wine — the same fruit-wine read as alcohol_shop
   // juice — the whole idiom, not just the noun. A juice bar is named for the
   // squeezing as often as for the fruit ("Freshly Squeezed", "The Juicery"),
   // and every one of those was falling through to the class guess.
@@ -576,11 +587,22 @@ const STAND_KEYWORD_ITEM = {
   potato: 'potato', potatoes: 'potato', spud: 'potato',
   chips: 'potato', fries: 'potato', chipper: 'potato',
   onion: 'onion', onions: 'onion', salad: 'cress', greens: 'cress',
+  diner: 'potato',
+  // German pub-grub / snack words (matched post-fold, see foldDiacritics).
+  imbiss: 'potato', kneipe: 'potato', brauhaus: 'potato', bier: 'potato',
   mushroom: 'mushroom', mushrooms: 'mushroom', fungi: 'mushroom',
   nut: 'nut', nuts: 'nut', almond: 'nut', peanut: 'nut', cashew: 'nut',
   pizza: 'mushroom', pizzeria: 'mushroom', italian: 'mushroom', pasta: 'mushroom',
   trattoria: 'mushroom', ramen: 'mushroom', noodle: 'mushroom', noodles: 'mushroom',
   pho: 'mushroom', udon: 'mushroom',
+  // Cuisine words a name can carry without naming a dish ("Thai Kitchen",
+  // "Falafel King"). The Vietnamese read rides with ramen and pho: noodle
+  // soup is the mushroom family in this table.
+  thai: 'meat', curry: 'meat', wok: 'meat', teriyaki: 'meat', indian: 'meat',
+  donair: 'meat',
+  falafel: 'mushroom', viet: 'mushroom', vietnamese: 'mushroom',
+  bistro: 'mushroom', eatery: 'mushroom', kitchen: 'mushroom',
+  kantine: 'mushroom', gasthaus: 'mushroom', gasthof: 'mushroom',
   // meat
   steak: 'meat', steaks: 'meat', ribeye: 'meat', grill: 'meat', grille: 'meat',
   bbq: 'meat', barbecue: 'meat', smokehouse: 'meat', butcher: 'meat', butchers: 'meat',
@@ -590,6 +612,9 @@ const STAND_KEYWORD_ITEM = {
   steakhouse: 'meat', grillhouse: 'meat', meatery: 'meat',
   taco: 'meat', tacos: 'meat', taqueria: 'meat', burrito: 'meat', gyro: 'meat',
   shawarma: 'meat', schnitzel: 'meat', charcuterie: 'meat',
+  // German meat words: Döner folds to `doner`, so both spellings read.
+  wurst: 'meat', metzgerei: 'meat', fleischerei: 'meat',
+  kebap: 'meat', doner: 'meat',
   // fish
   fish: 'salmon', fishery: 'salmon', seafood: 'salmon', sushi: 'salmon',
   sashimi: 'salmon', fishmonger: 'salmon', oyster: 'bass', chippy: 'bass',
@@ -600,10 +625,13 @@ const STAND_KEYWORD_ITEM = {
   cafe: 'coffee', coffee: 'coffee', espresso: 'coffee', latte: 'coffee',
   mocha: 'coffee', cappuccino: 'coffee', roast: 'coffee', bean: 'coffee',
   beans: 'coffee', brew: 'coffee', tea: 'coffee', teahouse: 'coffee',
+  caffe: 'coffee',   // the Italian spelling (Caffè) folds to exactly this
   bakery: 'coffee', baker: 'coffee', bread: 'coffee', patisserie: 'coffee',
   pastry: 'coffee', cake: 'coffee', bun: 'coffee', donut: 'coffee',
   doughnut: 'coffee', croissant: 'coffee', boulangerie: 'coffee', creperie: 'coffee',
   bagel: 'coffee', muffin: 'coffee', scone: 'coffee', crumb: 'coffee',
+  backerei: 'coffee', konditorei: 'coffee', kuchen: 'coffee', torte: 'coffee',
+  kaffee: 'coffee',
   // A BREWERY is beer, not a coffee brew — an exact key so it never stems
   // down to `brew` and pours the player a cup of coffee.
   brewery: 'potato', brewhouse: 'potato', brewing: 'potato', ale: 'potato',
@@ -612,6 +640,7 @@ const STAND_KEYWORD_ITEM = {
   dairy: 'milk', milk: 'milk', creamery: 'milk', cheese: 'milk',
   cheesemonger: 'milk', yogurt: 'milk', gelato: 'milk', gelateria: 'milk',
   icecream: 'milk', cream: 'milk', scoop: 'milk', sundae: 'milk',
+  eis: 'milk',   // German ice cream — short, but a whole token only
   sorbet: 'milk', custard: 'milk', chocolate: 'milk', creamy: 'milk',
   chocolatier: 'milk', chocolaterie: 'milk', confectionery: 'milk',
   candy: 'milk', sweets: 'milk', fudge: 'milk',
@@ -713,9 +742,18 @@ function standWordItem(tok) {
 // product word and the leftmost venue word, either of which may be null. They
 // come back separately because they sit on OPPOSITE sides of the class guess in
 // the ladder above, so the caller has to be able to tell them apart.
+// FOLD DIACRITICS before tokenizing: the tokenizer splits on non-a-z, so
+// an accent destroys the token it sits in — "Café" reached the ladder as
+// `caf` and "Bäckerei" as `ckerei`, and the existing `cafe` key could never
+// fire. NFD + strip combining marks handles é/ü/å alike; ß doubles to ss so
+// German compounds keep their length. Applied to the NAME only — subclasses
+// arrive from the tiles as plain ASCII.
+function foldDiacritics(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ß/g, 'ss');
+}
 function standNameItems(name) {
   let specific = null, generic = null;
-  for (const tok of String(name || '').toLowerCase().split(/[^a-z]+/)) {
+  for (const tok of foldDiacritics(name).toLowerCase().split(/[^a-z]+/)) {
     const hit = standWordItem(tok);
     if (!hit) continue;
     if (hit.specific) { specific = hit.item; break; }   // a product word ends the search
@@ -762,7 +800,7 @@ function produceStandFor(o) {
       // Sushi, sashimi and poke counters still serve their fish raw. Match
       // whole dish names, not stems that could mistake a business's name.
       const rawFish = STAND_ITEM_FRAME[item] === STAND_ITEM_FRAME.salmon &&
-        /\b(sushi|sashimi|poke)\b/i.test(o.name || '');
+        /\b(sushi|sashimi|poke)\b/i.test(foldDiacritics(o.name));
       const cooked = STAND_COOKED_CLASSES.has(o.poiClass) && !rawFish && CAMPFIRE_MAKES[item];
       res = { item: cooked || item, frame: STAND_ITEM_FRAME[item] };
     }

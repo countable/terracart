@@ -24,9 +24,9 @@ function fireCtx(scene, inv, fires = [{ x: 0, y: 0 }]) {
   return Object.assign(makeCtx(scene, save), { cwmx: 0, cwmy: 0 });
 }
 
-test('campfire: the table both sides read — meat grills, wood makes a torch', () => {
+test('campfire: the table both sides read — meat grills; wood just burns (no torch since Oct 2026)', () => {
   assert.eq(CAMPFIRE_MAKES.meat, 'grilled_meat');
-  assert.eq(CAMPFIRE_MAKES.wood, 'torch');
+  assert.falsy(CAMPFIRE_MAKES.wood, 'a branch over the fire is a burn question, not a torch');
   for (const out of Object.values(CAMPFIRE_MAKES)) assert.truthy(ITEM_BY_ID[out], `${out} is a real item`);
 });
 
@@ -85,12 +85,21 @@ test('campfire: meat on the fire becomes grilled meat, one per tap', () => {
   assert.truthy(ctx.dirty, 'saved');
 });
 
-test('campfire: wood on the fire becomes a torch; the last one frees its slot', () => {
+test('campfire: the last of a stack frees its slot for the product', () => {
   const { scene } = fireScene();
+  const ctx = fireCtx(scene, [{ id: 'meat', count: 1 }]);
+  assert.eq(fireHeld.try(ctx), true);
+  assert.eq(ctx.save.inv.length, 0, 'the last meat is gone');
+  assert.eq(scene.invCount('grilled_meat'), 1, 'a grilled meat made');
+});
+
+test('campfire: wood over the fire is a burn question, not a torch (Oct 2026)', () => {
+  const { scene, calls } = fireScene();
   const ctx = fireCtx(scene, [{ id: 'wood', count: 1 }]);
   assert.eq(fireHeld.try(ctx), true);
-  assert.eq(ctx.save.inv.length, 0, 'the last wood is gone');
-  assert.eq(scene.invCount('torch'), 1, 'a torch made');
+  assert.eq(calls.burn.length, 1, 'asks before burning the branch');
+  assert.eq(ctx.save.inv[0].count, 1, 'nothing spent until the player says so');
+  assert.eq(scene.invCount('torch'), 0, 'no torch');
 });
 
 test('campfire: a full bag keeps the input when the product has no room', () => {

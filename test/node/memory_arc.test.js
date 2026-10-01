@@ -35,6 +35,8 @@ test('memory arc: every third lifetime discovery replaces the default, even afte
     const panel = MemoryStory.panel(pending[n - 1]);
     assert.eq(panel.kind, 'memory', 'special scenes keep the memory presentation');
     assert.eq(panel.title === 'A memory returns', n % 3 !== 0);
+    assert.eq(panel.body.includes('Half-formed images, nothing is clear yet.'), n % 3 !== 0,
+      'an ordinary memory says it is half-formed; a milestone scene does not');
     assert.truthy(panel.body && panel.art, 'post-thirty milestones remain complete scenes');
   }
   assert.eq(save.memories, 0, 'narrative does not grant or spend currency');

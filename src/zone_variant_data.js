@@ -290,6 +290,12 @@
       },
       "color": "#6b7477"
     },
+    "barrel": {
+      "kind": "chest",
+      "spawnClass": "minor",
+      "barrel": true,
+      "color": "#8a6a3f"
+    },
     "treasure_x": {
       "kind": "treasure_x",
       "recordType": "treasure",
@@ -1318,9 +1324,6 @@
       "atmosphere": "Staggered mushroom pairs repeat every six cells, with giant woody mushrooms between them. The close-set caps lead to a crescent and its luminous flower. Chop a giant mushroom for both wood and a mushroom.",
       "attracts": {
         "butterfly": 0.5
-      },
-      "materialLooks": {
-        "mushroom": "cap_cluster"
       }
     },
     {
@@ -5472,20 +5475,35 @@
               6
             ],
             "material": "tar"
+          },
+          {
+            "at": [
+              3,
+              7
+            ],
+            "material": "barrel"
+          },
+          {
+            "at": [
+              7,
+              3
+            ],
+            "material": "barrel"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.0625,
+        "nominalDensity": 0.09375,
         "materialDensity": {
-          "rubble": 0.0625
+          "rubble": 0.0625,
+          "barrel": 0.03125
         },
         "type": "repeat_motif",
         "hazardDensity": {
           "tar": 0.15625
         },
-        "totalOccupiedDensity": 0.21875,
+        "totalOccupiedDensity": 0.25,
         "poiOrigin": {
           "cell": [
             3,
@@ -6708,10 +6726,11 @@
         "densityFalloff": "none",
         "phaseOrigin": "global_tile_cell",
         "orientation": "none",
-        "nominalDensity": 0.4,
+        "nominalDensity": 0.404,
         "materialDensity": {
           "stone": 0.395,
-          "crystal": 0.005
+          "crystal": 0.005,
+          "barrel": 0.004
         },
         "seed": "source + tile_coordinates + local_cell_coordinates; independent_of_component_center",
         "sampling": "alternate_rows_with_seeded_gaps; occupancy_adjusted_for_row_fraction; independent_material_hash",

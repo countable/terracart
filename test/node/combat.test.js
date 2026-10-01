@@ -806,8 +806,8 @@ test('combat: every melee gate the player has runs the shared test', () => {
     'a tapped fight is gated at arm\'s length');
   assert.truthy(/Too far to swing\./.test(head), 'and it says so rather than failing silently');
 
-  // Sword auto-engage (app.js _combatTick) — was cellInReach.
-  const auto = SCENE_SRC.slice(SCENE_SRC.indexOf("activeWeapon === 'sword'"));
+  // Melee auto-engage (app.js _combatTick) — was cellInReach.
+  const auto = SCENE_SRC.slice(SCENE_SRC.indexOf('Gear.meleeActive(this.save) &&'));
   const autoHead = code(auto.slice(0, auto.indexOf('startCombat(best')));
   assert.truthy(/Combat\.inMeleeReach\(c\.x, c\.y, px, py, this\.cellM\)/.test(autoHead),
     'a sword picks up only what it can actually reach');

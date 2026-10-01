@@ -100,10 +100,15 @@ const ASSETS = {
   // into Objects/Wilderness/ so the tree can build without the raw asset pack.
   // Ground coins use simplified native-size art. The detailed HUD and popup
   // icon stays in Icons/coin.png. Map quantity bands live in Render.COIN_PILES.
-  coin_drop: { kind: 'image', path: 'assets/Objects/Approved/coin_single_ground.png?v=3' },
-  coin_pile_small: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_small.png?v=2' },
-  coin_pile_medium: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_medium.png?v=2' },
-  coin_pile_large: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_large.png?v=2' },
+  coin_drop: { kind: 'image', path: 'assets/Objects/Approved/coin_single_ground.png?v=5' },
+  coin_pile_2: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_2.png' },
+  coin_pile_3: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_3.png' },
+  coin_pile_4: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_4.png' },
+  coin_pile_5: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_5.png' },
+  coin_pile_6_10: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_6_10.png' },
+  coin_pile_11_25: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_11_25.png' },
+  coin_pile_26_50: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_26_50.png' },
+  coin_pile_51: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_51.png' },
   // Misc 16x16 prop — single boxed crate from the Singles tileset.
   box:         { kind: 'image', path: 'assets/Objects/Approved/box.png' },
   // Forest critters. Sheets are 16x16 frames; renderer picks frames as needed.
@@ -118,6 +123,11 @@ const ASSETS = {
   butterfly:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Azure Butterfly.png', frameWidth: 16, frameHeight: 16 },
   // Shore crab — 3 cols x 4 rows of 16px frames (front, back, right, left).
   crab:        { kind: 'spritesheet', path: 'assets/Farm Animals/Crab.png',                 frameWidth: 16, frameHeight: 16 },
+  // Horse — 4 cols x 6 rows of 32px frames: idle then walk for down, right, up.
+  horse:       { kind: 'spritesheet', path: 'assets/Farm Animals/Horse.png',                frameWidth: 32, frameHeight: 32 },
+  // Sea turtle — 2 cols x 4 rows of 16px frames (up, left, right, down), cut
+  // from the marine-animals sheet; the fish columns were not used.
+  turtle:      { kind: 'spritesheet', path: 'assets/Farm Animals/Turtle.png',               frameWidth: 16, frameHeight: 16 },
   // Underground monster sheets. Goblins: 32×32 frames, 6 cols × 3 rows — row 0 (frames 0-5) is the walk cycle.
   purple_slime:  { kind: 'spritesheet', path: 'assets/Enemy/Purple Slime.png',  frameWidth: 32, frameHeight: 32 },
   ghost:         { kind: 'spritesheet', path: 'assets/Enemy/Ghost/1Fullsheet_Ghost.png', frameWidth: 16, frameHeight: 16 },
@@ -149,7 +159,7 @@ const ASSETS = {
   // (one look each). wagon: the broken wagon a bandit-road bus stop wears
   // (loot.js chestLook), one compact 32×32 frame.
   waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone.png', frameWidth: 16, frameHeight: 16 },
-  giant_mushroom: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 48 },
+  giant_mushroom: { kind: 'spritesheet', path: 'assets/Objects/Approved/giant_mushroom.png', frameWidth: 32, frameHeight: 48 },
   barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 16, frameHeight: 16 },
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Approved/tar.png', frameWidth: 16, frameHeight: 16 },
   stakes:         { kind: 'spritesheet', path: 'assets/Objects/Approved/stakes.png', frameWidth: 16, frameHeight: 16 },
@@ -314,7 +324,6 @@ const ASSETS = {
   house_fort_unclaimed: {"kind": "image", "path": "assets/Objects/Approved/house_fort_unclaimed.png", "unclaimedArt": true},
   approved_wetland_reeds: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_wetland_reeds.png", "frameWidth": 16, "frameHeight": 16},
   approved_clipped_hedge: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_clipped_hedge.png", "frameWidth": 16, "frameHeight": 16},
-  approved_mushroom_cluster: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_mushroom_cluster.png", "frameWidth": 16, "frameHeight": 16},
   approved_charred_stakes: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_charred_stakes.png", "frameWidth": 16, "frameHeight": 16},
   potofgold: {"kind": "image", "path": "assets/Objects/DailyVisits/potofgold.png"},
   // END approved map-art states and contexts

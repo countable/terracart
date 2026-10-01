@@ -76,7 +76,7 @@
       const fn = new Function('getSelectedSlot', 'Conditions', body);
       const save = { energy: 0, inv: [{ id, count: 2 }] };
       let consumed = 0;
-      const scene = { save, flash() {}, _syncConditionHUD() {}, _popEnergy() {}, updateEnergyDOM() {},
+      const scene = { save, flash() {}, _syncStatusRow() {}, _popEnergy() {}, updateEnergyDOM() {},
         _finishConsumable() { consumed++; return true; } };
       const call = () => fn.call(scene, s => s.inv[0], Conditions);
       assert.falsy(call());
@@ -98,7 +98,7 @@
     assert.eq(save.conditions.poison.remainingMs, 1000);
     assert.eq(save.conditions.poison.nextTickMs, 2000);
     let persisted = null;
-    const scene = { save, _conditionLastT: 5000, _conditionVisibilityHandler() {}, _syncConditionHUD() {} };
+    const scene = { save, _conditionLastT: 5000, _conditionVisibilityHandler() {}, _syncStatusRow() {} };
     fn.call(scene, Conditions, { hidden: false }, { now: () => 6000 },
       state => { persisted = JSON.parse(JSON.stringify(state)); });
     assert.truthy(persisted, 'expiry saves even though no energy tick happened');
@@ -111,7 +111,7 @@
     const fn = new Function('Conditions', 'document', 'performance', 'persistSave', body);
     let now = 1000;
     const doc = { hidden: false, addEventListener() {} };
-    const scene = { save: { energy: 100 }, _syncConditionHUD() {}, _flashPlayerHit() {}, _popEnergy() {}, _warnIfTiring() {}, updateEnergyDOM() {} };
+    const scene = { save: { energy: 100 }, _syncStatusRow() {}, _flashPlayerHit() {}, _popEnergy() {}, _warnIfTiring() {}, updateEnergyDOM() {} };
     Conditions.apply(scene.save, 'poison');
     const call = () => fn.call(scene, Conditions, doc, { now: () => now }, () => {});
     call(); now += 1000; call();
@@ -121,5 +121,50 @@
     assert.eq(scene.save.conditions.poison.remainingMs, 59000);
     now += 1000; call();
     assert.eq(scene.save.energy, 99);
+  });
+})();
+
+// BURNING (owner, Oct 2026): fire on the body — the second row of the one
+// status table. 1 a second for 5 s, out on its own, no cure; and the row owns
+// its look (tint, HUD chip) for the player and every burning foe alike.
+(function () {
+  test('burning: five ticks of one over five seconds, then it goes out on its own', () => {
+    const save = { energy: 50 };
+    assert.truthy(Conditions.apply(save, 'burning'));
+    assert.eq(Conditions.tick(save, 999).ticks, 0);
+    assert.eq(Conditions.tick(save, 1).ticks, 1, 'the first point a second in');
+    const r = Conditions.tick(save, 4000);
+    assert.eq(r.ticks, 4); assert.truthy(r.expired, 'out at five seconds');
+    assert.eq(save.energy, 45, 'five points in all');
+    assert.falsy(Conditions.active(save, 'burning'));
+  });
+  test('burning: a fresh contact restarts the five seconds without moving the next tick', () => {
+    const save = { energy: 50 };
+    Conditions.apply(save, 'burning');
+    Conditions.tick(save, 700);
+    assert.falsy(Conditions.apply(save, 'burning'), 'not fresh');
+    assert.eq(save.conditions.burning.remainingMs, 5000);
+    assert.eq(Conditions.tick(save, 300).ticks, 1, 'the tick already due still lands on time');
+  });
+  test('burning: no antidote needed, and the Antidote does not touch it', () => {
+    const save = { energy: 50 };
+    Conditions.apply(save, 'burning');
+    assert.falsy(Conditions.useAntidote(save), 'nothing to cure');
+    assert.truthy(Conditions.active(save, 'burning'));
+    Conditions.apply(save, 'poison');
+    assert.truthy(Conditions.useAntidote(save));
+    assert.truthy(Conditions.active(save, 'burning'), 'the fire burns on');
+  });
+  test('status rows own their look: label, tint and HUD inks, poison steady and fire flickering', () => {
+    for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
+      assert.truthy(def.label && def.ink && def.bg, `${id} has a chip`);
+      assert.truthy(Number.isInteger(def.tint), `${id} has a body tint`);
+    }
+    assert.falsy(Conditions.DEFINITIONS.poison.flicker);
+    assert.truthy(Conditions.DEFINITIONS.burning.flicker);
+    assert.truthy(Conditions.conditionTintOn('poison', 0) && Conditions.conditionTintOn('poison', Conditions.FLICKER_MS));
+    assert.truthy(Conditions.conditionTintOn('burning', 0));
+    assert.falsy(Conditions.conditionTintOn('burning', Conditions.FLICKER_MS), 'a burn licks');
+    assert.falsy(Conditions.conditionTintOn('nope', 0));
   });
 })();

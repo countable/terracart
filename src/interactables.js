@@ -177,7 +177,7 @@ const GLINT_ROCK_PERIOD_MS = Object.freeze({ min: 10000, max: 60000 });
 const GLINT_ROCK_SHOW_MS = 700;
 const GLINT_ROCK_BEAT = Object.freeze({ salt: 'glint', minMs: GLINT_ROCK_PERIOD_MS.min, maxMs: GLINT_ROCK_PERIOD_MS.max, showMs: GLINT_ROCK_SHOW_MS });
 function glintRockPeriodMs(id) { return beatPeriodMs(id, GLINT_ROCK_BEAT); }
-function glintRockPhase(id, nowMs) { return beatPhase(id, nowMs, GLINT_ROCK_BEAT); }
+function glintRockPhase(id, nowMs, revealStartedMs) { return beatPhase(id, nowMs, GLINT_ROCK_BEAT, revealStartedMs); }
 
 // A CAVE WALL dug out — by a tap (interact.js cave-wall) or by walking into
 // it (app.js auto-mine), both through here: always one stone, and flint on
@@ -465,7 +465,7 @@ const INTERACTABLES = {
   // relic / armor / gold results, with a bag-full TAKE/LEAVE modal.
   chest: {
     // Chest loot IS luck-aware, but not from here: pickReward() (rarity.js)
-    // reads the ring + amulet straight off `save`. The GATHER drops in this
+    // reads permanent luck straight off `save`. The GATHER drops in this
     // registry (wood, ore, gems, fruit) are not — the declarative `luck` field
     // that would have made them so shipped switched OFF and was removed.
     custom: (ctx, o) => {

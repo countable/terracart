@@ -31,8 +31,33 @@
     return save.boonWeapon?.until === save.boonUntil.wand ? save.boonWeapon.slot : 'staff';
   }
 
+  // MELEE IS THE DEFAULT (owner, Oct 2026). The hands fight on their own the
+  // way a sword does: app.js _combatTick auto-engages the nearest foe in
+  // arm's reach whenever no RANGED weapon is in hand — a sword if owned, bare
+  // hands on the tier-0 rung if not. Only an EQUIPPED bow or staff
+  // (activeWeapon in Combat.RANGED_SLOTS) turns that off, and equipping one
+  // is an explicit act: the Equip button under the Relics tab
+  // (syncEquipButton), never a side effect of highlighting the slot.
+  function meleeActive(save, now = Date.now()) {
+    return !Combat.RANGED_SLOTS.includes(activeWeapon(save, now));
+  }
+
   function selectWeapon(save, slot, now = Date.now()) {
     if (!WEAPON_SLOTS.includes(slot) || !effectiveRelics(save, now)[slot]) return false;
+    if (Shrines.leverActive(save, 'wand', now)) {
+      save.boonWeapon = { until: save.boonUntil.wand, slot };
+    } else {
+      save.activeWeapon = slot;
+    }
+    return true;
+  }
+
+  // Put the ranged weapon away: back to melee — the sword when one is owned,
+  // else bare hands (no active weapon at all). The one way out of a bow or
+  // staff besides equipping the other. During the wand boon it is the boon
+  // choice that is cleared, so the lever's own staff doesn't spring back.
+  function unequipWeapon(save, now = Date.now()) {
+    const slot = effectiveRelics(save, now).sword ? 'sword' : null;
     if (Shrines.leverActive(save, 'wand', now)) {
       save.boonWeapon = { until: save.boonUntil.wand, slot };
     } else {
@@ -62,8 +87,8 @@
     save.relics = save.relics || {};
     save.relics[slot] = { tier };
     // Only one weapon fights at a time (combat.js) — the newest one obtained
-    // or upgraded wins by default; the player can still switch back by
-    // tapping another owned weapon in the Relics inventory tab (app.js).
+    // or upgraded wins by default; the player can still switch back with the
+    // Equip / Unequip button under the Relics inventory tab (app.js).
     if (WEAPON_SLOTS.includes(slot)) selectWeapon(save, slot);
   }
 
@@ -101,11 +126,6 @@
       }
     };
     for (const slot of Object.keys(RELIC_DEFS)) {
-      // The Ring is the wizard tower's exclusive gift — the Keen Eye track of
-      // his offers (src/wizard.js TRACKS) — and is never sold or forged
-      // anywhere else, so it's excluded from every shop / smithy / castle
-      // offer.
-      if (slot === 'ring') continue;
       consider('relic', slot, save.relics?.[slot]?.tier ?? 0);
     }
     for (const slot of Object.keys(ARMOR_DEFS)) consider('armor', slot, save.armor?.[slot]?.tier ?? 0);
@@ -154,16 +174,16 @@
   }
 
   // Forge recipe for a gear piece. Tools use the tier-matched bar (T1 = plain
-  // wood); jewelry (ring→ruby, staff→emerald, amulet→sapphire) uses a geometric
+  // wood); the staff's emerald setting uses a geometric
   // gem ramp (1,2,4,…,32 from T2..T7) plus one bar. At the Frost tier every
-  // jewelry slot is cut around DIAMONDS instead of the slot's own gem — the
-  // same 32-gem quantity, so T7 is the one rung the three slots share a
-  // material (JEWELRY_FROST_TIER). Returns null when uncraftable.
+  // staff is cut around DIAMONDS instead of emerald at Frost (JEWELRY_FROST_TIER). Returns null when uncraftable.
   const JEWELRY_FROST_TIER = 7;
   const JEWELRY_FROST_GEM = 'diamond';
   function blacksmithRecipe(kind, slot, tier) {
     if (!tier) return null;
-    const JEWELRY_GEM = { ring: 'ruby', staff: 'emerald', amulet: 'sapphire' };
+    if (kind === 'relic' && !RELIC_DEFS[slot]) return null;
+    if (kind === 'armor' && !ARMOR_DEFS[slot]) return null;
+    const JEWELRY_GEM = { staff: 'emerald' };
     const BAR_BY_TIER = [, 'wood', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
     const bar = BAR_BY_TIER[tier];
     if (!bar) return null;
@@ -194,6 +214,6 @@
     return ['platinum_bar', 'crimson_bar', 'frost_bar'];
   }
 
-  root.Gear = { effectiveRelics, activeWeapon, selectWeapon, workDurationMs, equip, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS,
+  root.Gear = { effectiveRelics, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS,
                 blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -75,14 +75,14 @@ def render(output):
     (output/'art-direction.html').write_text(page)
     (output/'art-direction.json').write_text(json.dumps(data,indent=2)+'\n')
     (output/'story-samples.json').write_text(json.dumps(measured,indent=2)+'\n')
-    gpl=['GIMP Palette','Name: Mending Lane - Rustic World and Restored Accents','Columns: 5','# Authored review target; see art-direction.json for source and role.']
+    gpl=['GIMP Palette','Name: Dragon Hood - Rustic World and Restored Accents','Columns: 5','# Authored review target; see art-direction.json for source and role.']
     for p in palette:
         rgb=[int(p['hex'][i:i+2],16) for i in (1,3,5)]
         gpl.append(f'{rgb[0]:3} {rgb[1]:3} {rgb[2]:3}\t{p["name"]}')
     (output/'story-palette.gpl').write_text('\n'.join(gpl)+'\n')
     canvas=Image.new('RGB',(1000,120+((len(palette)+4)//5)*125),'#171b16')
     draw=ImageDraw.Draw(canvas)
-    draw.text((20,18),'MENDING LANE / rustic world, colour restored',fill='#e6d7a3')
+    draw.text((20,18),'DRAGON HOOD / rustic world, colour restored',fill='#e6d7a3')
     draw.text((20,42),'20 world colours / 3 flower accents / 5 player, restored and sacred accents',fill='#b0aa8a')
     draw.text((20,65),'Story = quantized anchors; Character = exact pixels; Adapted = authored extension',fill='#b0aa8a')
     for i,p in enumerate(palette):

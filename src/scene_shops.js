@@ -8,7 +8,8 @@
 //     service, the quest board, the fort unlock and the blacksmith's forge
 //     (with its FORGE_CEREMONY story pane);
 //   · the shop clock they share: shopBucketState / shopRng and
-//     buildShopOffer (no shop is ever "busy" — shops_math.js header).
+//     buildShopOffer (no per-hour deal cap; the trader alone rests a few
+//     minutes after a deal — shops_math.js header).
 // Plus the constants only they read.
 //
 // Moved verbatim out of app.js. The methods live on `class SceneShops`, a
@@ -235,21 +236,27 @@ class SceneShops {
     // (Delivery.isSatisfied), and render.js shows its wishlist over the roof.
     const isDeliveryHost = !castle && !isFort && !shopType && !isStarterSmith && !!house
       && !(this.isScarecrowShop(house) && !this.save.scarecrowShopUsed);
-    // No door here is ever shut by the clock: there is no per-hour deal cap
-    // (shops_math.js header). A deal is still RECORDED against the house —
-    // the trader's stock turns over on it (shopRng's perDeal) — called from
-    // inside every accept path.
-    const recordDeal = () => {
-      if (!house || !house.id) return;
-      const cur = this.shopBucketState(house);
-      cur.deals += 1;
-    };
+    // There is no per-hour deal cap (shops_math.js header). A deal is still
+    // RECORDED against the house — it settles the shop: the shelf turns over
+    // (the deal count is in shopRng's seed), the re-roll ladder drops back to
+    // its base rung, and the trader's cooldown starts — called from inside
+    // every accept path.
+    const recordDeal = () => { ShopsMath.recordDeal(this.save, house); };
+    // THE ONE CLOCK ON A DOOR: a role with a row in ShopsMath.DEAL_COOLDOWN_MS
+    // (the trader) rests briefly after a closed deal. The wait is printed in
+    // the shared notation, same number the peddler speaks (npc.js interact).
+    // A role with no row never reaches the flash.
+    const dealWait = house ? ShopsMath.dealWaitMs(this.save, house, shopType) : 0;
+    if (dealWait > 0) {
+      this.flash(`${shopType} busy — back in ${shortDuration(dealWait)}`, sx, sy);
+      return;
+    }
     // FLOWER GIFT — tapping a CASH shop (market / fort storefront / castle
     // vault) with Flowers selected offers to charm the keeper: one bouquet
     // buys half prices at THIS building for SHOP_CHARM_MS. Only cash shops —
     // a bouquet at a barter trader / wizard / delivery house would buy
-    // nothing, so those never offer to take one. Checked after the busy gate
-    // so a bouquet can't be spent on a shut door, and skipped while a charm
+    // nothing, so those never offer to take one. Checked after the cooldown
+    // gate so a bouquet can't be spent on a shut door, and skipped while a charm
     // is already running so repeat taps don't burn the stack. A RESTORED
     // castle is excluded too — it no longer sells anything to discount, only
     // the daily rest/tax favour (see presentCastleServiceOffer).
@@ -928,32 +935,32 @@ class SceneShops {
     });
   }
 
-  // Read the persisted offer for this house if set, else build a new one and
-  // persist. Persisting means the same offer "stays on display" until the
-  // player either buys it, rerolls it, or (for non-castle shops) leaves and
-  // the cap resets it. Castle offers persist forever and rotate on purchase.
+  // An offer is never persisted: it is re-derived from the shop's seeded
+  // stream, so it "stays on display" until the player buys it, re-rolls it,
+  // or the hour bucket turns.
   //
   // ─── Shop clock helpers ──────────────────────────────────────────
   // Shop hour-bucket scheduling + the seeded per-bucket RNG live in
   // shops_math.js (ShopsMath.*); these stay as scene methods because the
   // present* handlers call them as this.shopX(…). Nothing here answers "is
-  // the shop open" — every shop always is; the bucket only rotates the offer
-  // and eases the re-roll ladder (ShopsMath.bucketState).
+  // the shop open": the bucket only rotates the offer and eases the re-roll
+  // ladder (ShopsMath.bucketState); the trader's short cooldown is asked of
+  // ShopsMath.dealWaitMs at the two dispatchers, not here.
   // Flower charm multiplier — see Houses.shopCharmMul.
   shopCharmMul(house) { return Houses.shopCharmMul(this.save, house); }
   shopBucketState(house) {
     return ShopsMath.bucketState(this.save, house);
   }
-  // opts.perDeal: the stream also turns over with each deal this bucket —
-  // for the trader, whose goods leave with the deal (ShopsMath.rng).
-  shopRng(house, lane = '', opts = {}) {
-    return ShopsMath.rng(this.save, house, lane, Date.now(), opts);
+  // The stream turns over with each deal this bucket — a purchase takes the
+  // offer with it (ShopsMath.rng, recordDeal).
+  shopRng(house, lane = '') {
+    return ShopsMath.rng(this.save, house, lane, Date.now());
   }
 
   // Build a relic/armor offer for a specific house, derived purely from the
   // seeded RNG so the same shop in the same bucket always shows the same
   // offer — no need to persist the offer object. Re-roll bumps cur.rerolls
-  // which pivots the seed lane.
+  // which pivots the seed lane; a purchase pivots it too (cur.deals).
   // opts.maxTier caps the roll at a themed relic shop's tier (Gear.buildRelicOffer).
   peekOrBuildRelicOffer(house, opts = {}) {
     const castle = isCastle(house);
@@ -972,9 +979,8 @@ class SceneShops {
     // Relic/armor offer roll lives in gear.js (Gear.buildRelicOffer) — armor +
     // relic pools normalised to ~50% airtime each, low-tier biased, castle vs
     // regular pricing. Kept as a scene method so peekOrBuildRelicOffer (which
-    // threads the seeded shopRng) calls it the same way. The Ring is excluded
-    // there (it's the wizard tower's exclusive gift — the Keen Eye track of
-    // src/wizard.js).
+    // threads the seeded shopRng) calls it the same way. Unique jewelry is not
+    // gear and never enters this offer lane.
     return Gear.buildRelicOffer(this.save, rng, opts);
   }
 
@@ -1141,9 +1147,9 @@ class SceneShops {
   //     ramping to 6 / 7 so nothing high-tier got cheaper. T2..T4 bars are
   //     mined; T5..T7 bars (platinum / crimson / frost) are SMELTED from
   //     their flowers, so the flower bond is implicit through the bar req.
-  //   • Jewelry slots (ring / staff / amulet) - geometric gem cost
+  //   • Jewelry slot (staff) - geometric gem cost
   //     (1, 2, 4, 8, 16 from T2..T6) of the slot-specific gem:
-  //       ring -> ruby, staff -> emerald, amulet -> sapphire
+  //       staff -> emerald
   //     plus 1 of the tier-matched bar. Every T7 slot uses 32 diamonds.
   // (The starter shop's T1 wooden pick / axe / hoe use a separate cheap
   // bootstrap recipe — see starterBlacksmithRecipe — and don't pass here.)
@@ -1259,16 +1265,13 @@ class SceneShops {
   //     four CLASS offers when the calling is due (the third purchase).
   //   • Wizard.buy(save, key, { spend }) — re-validates the pick against the
   //     LIVE table and the LIVE count, writes the rung / calling, and tells
-  //     us what is still ours to do: `equip` (the Keen Eye Ring, through
-  //     _equipGear) and `energyCap` (Vigour raises Energy.maxEnergy).
+  //     us whether `energyCap` changed (Vigour raises Energy.maxEnergy).
   //
   // ONE WRITER. buy() is handed spendMemories as its `spend` hook, so the
   // counter still goes down in exactly one place on the scene (which
   // repaints the HUD chip and persists); buy() only decrements save.memories
   // itself when no hook is given (the headless wizard.test.js).
   //
-  // The Ring is still the wizard's EXCLUSIVE gift: gear.js buildRelicOffer
-  // skips the slot, so no shop, smithy or castle ever sells one.
   presentWizardOffer(sx, sy, recordDeal) {
     const offers = Wizard.offers(this.save);
     if (!offers.length) {
@@ -1342,7 +1345,6 @@ class SceneShops {
     if (this.memoriesUnspent() < shown.cost) { this.flash('Not enough memories.', sx, sy); return null; }
     const r = Wizard.buy(this.save, key, { spend: (n) => this.spendMemories(n) });
     if (!r) { this.flash('The wizard has moved on.', sx, sy); return null; }
-    if (r.equip) this._equipGear(r.equip.kind, r.equip.slot, r.equip.tier);
     recordDeal();
     // The reach silhouette redraws every frame from reachRadiusM, so a wider
     // reach shows on the next frame with no explicit invalidation; a Vigour
@@ -1374,12 +1376,11 @@ class SceneShops {
   // then asks for whatever count of it hits a target value (1.0..2.0× of the
   // offered item's base price). Seeded by (house, bucket, rerolls, deals) so
   // the offer is stable until the player buys, walks away through a bucket
-  // flip, or pays the re-roll cost. THE DEAL IS IN THE SEED (shopRng's
-  // perDeal): the goods on offer are what the trader hands over, so once a
-  // trade closes the trader holds something else — the next offer, and the
-  // sign over the roof, name new goods instead of the stack just bartered
-  // away. (Cash shops keep their shelf across a purchase; that fold is the
-  // trader's alone.)
+  // flip, or pays the re-roll cost. THE DEAL IS IN THE SEED (ShopsMath.rng,
+  // as at every shop): the goods on offer are what the trader hands over, so
+  // once a trade closes the trader holds something else — the next offer,
+  // and the sign over the roof, name new goods instead of the stack just
+  // bartered away.
   //
   // The GIVE side is drawn first and on its own (traderGivePick) because the
   // sign over the roof names the trader for it — "Rockfruit Trader" (render.js
@@ -1398,7 +1399,7 @@ class SceneShops {
   }
   traderGivePick(house) {
     if (!house?.id) return null;
-    const rng = this.shopRng(house, 'trader', { perDeal: true });
+    const rng = this.shopRng(house, 'trader');
     // Same houseSeed produce-vs-buylist coin flip the generic path uses.
     const houseSeed = this._houseSeed(house);
     const sellsProduce = !!houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
@@ -1725,14 +1726,10 @@ class SceneShops {
         this._clampSelSlot();
         this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
+        // Forging settles the smithy like any closed deal (ShopsMath.recordDeal):
+        // the re-roll cost drops back to the base rung and the next forge
+        // target is a fresh draw.
         recordDeal();
-        // Forging "settles" the smithy — reset its re-roll level so the next
-        // re-roll cost drops back to the $5 base (ShopsMath.smithyRerollCost)
-        // at once, rather than easing off one rung an hour.
-        if (house && house.id) {
-          const cur = this.shopBucketState(house);
-          if (cur) cur.rerolls = 0;
-        }
         persistSave(this.save);
         this.updateHUD();
         this.buildInventoryDOM();

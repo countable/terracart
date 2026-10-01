@@ -1,4 +1,4 @@
-// Mending Lane — gameplay layer on top of MVT-driven world.
+// Dragon Hood — gameplay layer on top of MVT-driven world.
 // - Mobile-sized Phaser canvas (390x844). VIEW_CELLS-wide viewport of CELL_M (7 m) cells.
 // - Real GPS (Geolocation API) if available + permitted; WASD fallback.
 // - Tap player to lock/unlock GPS snap.
@@ -317,7 +317,7 @@ const FOLLOW_RAMP_M = 4;
 // the next wall along gets a fresh choice.
 const DETOUR_COMMIT_MS = 1000;
 // ─── The peek drag (see the PEEK DRAG block on the scene) ────────────────────
-// How far the camera may slide off the player, in cells. Three cells is a
+// Maximum with a carried telescope, in cells. Three cells is a
 // little over half the 5.5-cell half-view: enough to see what the frame was
 // cutting off without the character leaving the map, and far inside the loaded
 // 3×3 tile neighbourhood every world pass scans.
@@ -589,12 +589,14 @@ const TOAST_TIER = {
 // INV_CAT_BY_KEY / invCatForItem) is a map over item KINDS, so it lives with
 // the catalog in items.js.
 // Slot draw order within each gear tab (owned slots only are rendered).
-const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'bow', 'staff', 'ring', 'amulet', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
+const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
 const INV_ARMOR_ORDER = ['helmet', 'chest', 'legs', 'boots'];
 // The three combat weapons — the only slots save.activeWeapon ever holds. Only
 // the active one auto-engages (sword) or auto-fires (bow/staff) in _combatTick;
-// the others sit inert until switched to (tapping one in the Relics tab, or
-// obtaining/forging a new one — see Gear.equip). Mirrors Gear.WEAPON_SLOTS.
+// the others sit inert until switched to (the Equip button under the Relics
+// tab — syncEquipButton — or obtaining/forging a new one — see Gear.equip).
+// Melee needs no weapon at all: bare hands auto-engage like a sword whenever
+// no bow or staff is equipped (Gear.meleeActive). Mirrors Gear.WEAPON_SLOTS.
 const WEAPON_SLOTS = ['sword', 'bow', 'staff'];
 
 // Where fauna may NEVER step (WATER / buildings / roads / cave wall) is
@@ -771,7 +773,7 @@ function raiderEatsCrop(p) { return Crops.raiderEats(p); }
 const DEBUG = false;
 const DEBUG_SPEED_MUL = 10;
 // Dragon Powder is not a movement mode — it's a stat buff wearing a dragon
-// sprite. For its minute the player walks as if they had boots and an amulet of this
+// sprite. For its minute the player walks as if they had boots at this
 // tier (one past Frost, see items.js steerSpeedMul / steerEnergyCost) and hits
 // twice as hard (interact.js). The Speed potion stands in a tier higher still.
 // Straying from your real position, in cells. Inside this ring stick walking is
@@ -844,7 +846,7 @@ const PLAYER_SHADOW_ALPHA = 0.34;
 const PLAYER_SHADOW_ALPHA_FLYING = 0.20;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // How big a bite the stick walk takes when it bites. The per-cell cost
-// (steerEnergyCost, amulet-scaled) is banked fractionally and spent in LUMPS
+// (steerEnergyCost, boots-scaled) is banked fractionally and spent in LUMPS
 // of this many pips rather than one pip at a time — bare-handed that is 2⚡
 // every 2 cells instead of 1⚡ every cell, so the bar steps in a figure the
 // player can read at a glance and the throttled pop has something to say when
@@ -976,8 +978,8 @@ const BLIGHT_R_CELLS = CONSUMABLE_SPEC.blight_potion.radiusCells;
 const BLIGHT_DPS = CONSUMABLE_SPEC.blight_potion.damagePerSecond;
 // SHOP_CHARM_MS (the Flowers charm) lives in items.js beside the Flowers ✦
 // line that quotes it.
-const DRAGON_AMULET_TIER = CONSUMABLE_SPEC.dragon_powder.movementTier;
-const SPEED_POTION_AMULET_TIER = CONSUMABLE_SPEC.speed_potion.movementTier;
+const DRAGON_WALK_COST_TIER = CONSUMABLE_SPEC.dragon_powder.movementTier;
+const SPEED_POTION_WALK_COST_TIER = CONSUMABLE_SPEC.speed_potion.movementTier;
 // Coffee: unlike Dragon Powder / the Speed potion (which OVERRIDE the walking
 // tier used for stick-walking to a fixed high number), coffee is a common
 // crop, not a rare potion — so it just gives a caffeine buzz of
@@ -1179,6 +1181,11 @@ const HOUSE_WRECK_MUTTERS = ["It's a fixer upper.", 'Something here smells.', 'N
 const HOUSE_RESTORED_MUTTERS = ['Eek!', 'Why hello there.', 'Thanks for fixing my house!',
   'Welcome back!', 'Can I offer some tea?'];
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
+// Standing IN the hearth, not by it: within this of a campfire's point sets
+// a body — the player's or a foe's — BURNING (Conditions.DEFINITIONS.burning;
+// _tickFireTouch here, the foe's block in scene_creatures.js). Under a cell,
+// so the warmth ring (FIRE_REST_R) stays safe ground.
+const FIRE_TOUCH_CELLS = 0.6;
 // HOME IS A CAMPFIRE YOU OWN, and this is its ONE radius — the light it
 // throws, the ring it rests you in, and the ring an enemy turns and walks out
 // of. Three effects, one number, for the reason the campfire's warmth and the
@@ -1212,10 +1219,9 @@ const HOME_R = 4;   // cells — Home's light / rest / ward ring
 
 // Relic slots the spawn treasure chest (see _placeStarterRelicChest) can hand
 // out. Every one of these ships art in the `1. Wood` tier folder, which is what
-// makes a WOODEN relic of it drawable; the two jewelry slots are absent because
-// there is no wooden jewelry anywhere in the game (Gear.blacksmithRecipe refuses
-// to forge one below T2), and the ring is the wizard tower's exclusive gift on
-// top of that. Audited against the shipped PNGs in test/node/starter_relic.test.js.
+// makes a WOODEN relic of it drawable. Unique jewelry is carried inventory,
+// not gear, so it never enters this starter-slot table. Audited against the
+// shipped PNGs in test/node/starter_relic.test.js.
 const STARTER_RELIC_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet', 'sword', 'bow', 'staff'];
 // Wood — the first rung of MATERIAL_TIERS. The chest is a bootstrap, not a
 // jackpot: it makes the player's first swing 2.25× quicker and leaves every finer
@@ -1347,6 +1353,31 @@ body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 // TOTAL road restored in small type under it (Trail.totalMetres through
 // Trail.distanceLabel: 1.5km, 26km). Same shared
 // chip box as the memories chip beside it.
+// The STATUS ROW (_buildStatusRow / _syncStatusRow): statuses, buffs and
+// timers as small chips in a right-aligned column under the top HUD row —
+// the money / energy row's own anchor, one chip height plus a gap down. Each
+// chip's ink and bg come from its owning row (Conditions.DEFINITIONS,
+// Buffs.KINDS); the chip itself is read-only chrome, so no pointer events.
+// Dimmed with the HUD chips while a dialog is up, hidden with them while the
+// page boots. While the objective chip shows, _syncStatusRow seats the row
+// under it instead (an inline top).
+const STATUS_ROW_CSS = `
+#status-row {
+  position: fixed;
+  top: calc(8px + env(safe-area-inset-top, 0px) + var(--hud-chip-h) + 6px);
+  right: calc(var(--phone-right, 0px) + 10px);
+  display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+  z-index: 7; pointer-events: none;
+}
+#status-row .status-chip {
+  white-space: nowrap; padding: 3px 7px; border-radius: 6px;
+  font: 700 11px ui-monospace, monospace;
+  text-shadow: 0 1px 0 #000;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+body.modal-open #status-row { opacity: 0.25; }
+body.booting #status-row { visibility: hidden; }
+`;
 const ROAD_CHIP_CSS = `
 #roadchip {
   box-sizing: border-box; position: relative;
@@ -1381,6 +1412,14 @@ const ROAD_CHIP_SVG =
   + '</g></svg>';
 
 const ICON_SHEETS = {
+  icon_telescope: { url: 'assets/Icons/Items/telescope.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_orb: { url: 'assets/Icons/Items/orb.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_goblet: { url: 'assets/Icons/Items/goblet.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_lucky_key: { url: 'assets/Icons/Items/lucky_key.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_shield_wood: { url: 'assets/Icons/Items/shield_wood.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_shield_metal: { url: 'assets/Icons/Items/shield_metal.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_shield_gold: { url: 'assets/Icons/Items/shield_gold.png', cols: 1, srcW: 16, srcH: 16 },
+
   crops:       { url: 'assets/Objects/Approved/crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
   springcrops: { url: 'assets/Objects/Approved/springcrops.png',                cols: 14, srcW: 224, srcH: 128 },
   gems:        { url: 'assets/Icons/RPG icons/Extras/Gemstones.png',    cols: 7,  srcW: 112, srcH: 64  },
@@ -1418,6 +1457,8 @@ const ICON_SHEETS = {
   // Flask-style potions sheet (Potions.png): 5 cols × 7 rows of 16×16.
   // Row 2: frame 11=green (vigor), 12=red (speed), 13=purple (shield).
   icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
+  icon_rings:    { url: 'assets/Icons/RPG icons/Extras/Rings.png',        cols: 6,  srcW: 96,  srcH: 64 },
+  icon_amulets:  { url: 'assets/Icons/RPG icons/Extras/Amulet.png',       cols: 6,  srcW: 96,  srcH: 64 },
   icon_spear:    { url: 'assets/Icons/Items/Spear.png', cols: 2, srcW: 32, srcH: 16 },
   // Rope — single 16×16 coiled-rope icon (hand-drawn, like the honey jar).
   icon_rope:     { url: 'assets/Icons/Items/Rope.png',                       cols: 1,  srcW: 16,  srcH: 16 },
@@ -1828,6 +1869,10 @@ class MapScene extends Phaser.Scene {
     window.ITEM_DATA_URLS.crow      = bakeSheetFrame('crow',      0, 32, 32);
     window.ITEM_DATA_URLS.butterfly = bakeSheetFrame('butterfly', 0, 16, 16);
     window.ITEM_DATA_URLS.crab      = bakeSheetFrame('crab',      0, 16, 16);
+    // The horse's right-facing idle (frame 8) and the turtle's top-down down
+    // pose (frame 6) — the same sheets the world draws.
+    window.ITEM_DATA_URLS.horse     = bakeSheetFrame('horse',     8, 32, 32);
+    window.ITEM_DATA_URLS.turtle    = bakeSheetFrame('turtle',    6, 16, 16);
     // Wilderness drops that share their world sprite. Source sheet
     // + frame come from CROP_SPRITE.mushroom so the inventory icon stays
     // glued to whatever the world renderer is drawing.
@@ -2033,14 +2078,9 @@ class MapScene extends Phaser.Scene {
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
     // so coins read on top of pads + the source chest sprite.
     this.coinContainer = this.add.container(0, 0);
-    // Rare "shiny" sparkle markers — a gold twinkle floated above each shiny
-    // animal / wild plant / tree. Added AFTER the world layer so the spark
-    // draws on top of every world sprite. This is the renderer-AGNOSTIC shiny
-    // cue: the multiply setTint() used elsewhere silently no-ops under the
-    // Phaser Canvas fallback (Phaser.AUTO), so a tint-only shiny was invisible
-    // on those devices. The spark texture is baked gold and animates via
-    // scale/alpha/rotation (pure transforms), so it reads in WebGL and Canvas.
-    this.sparkContainer = this.add.container(0, 0);
+    // (The shiny sparkle / glint-rock layer, sparkContainer, lived here —
+    // under the lightmap — until Oct 2026. It is SELF-LIT now: see below the
+    // lightmap image.)
     // Atmosphere: the RIM HAZE. A short ramp of the biome's haze colour inward
     // from the viewport edge — the top-down stand-in for atmospheric
     // perspective. The map is a hard-clipped window onto the world, so the rim
@@ -2088,6 +2128,21 @@ class MapScene extends Phaser.Scene {
     // is a grey smudge), BELOW the labels and the fog. The emitters
     // themselves are created lazily on first burst and parked in here.
     this.fxContainer = this.add.container(0, 0);
+    // Rare "shiny" sparkle markers and the GLINT ROCK's catch of light — a
+    // gold twinkle floated above each shiny animal / wild plant / tree, and
+    // the small star on a glint rock (render.js sparkList). SELF-LIT (owner,
+    // Oct 2026): ABOVE the lightmap, so a glint in an unlit cave cell shows
+    // at full brightness — it is a catch of light, bright by definition, and
+    // multiplied by the dark it was a grey fleck nobody ever saw. It is NOT a
+    // light: it lights nothing around it (a glint rock has no Lighting row;
+    // a shiny animal's light is offered separately), which is why it lives
+    // here beside the ghost glow and not in the lightmap. BELOW the labels
+    // and the fog. This is also the renderer-AGNOSTIC shiny cue: the multiply
+    // setTint() used elsewhere silently no-ops under the Phaser Canvas
+    // fallback (Phaser.AUTO), so a tint-only shiny was invisible on those
+    // devices; the spark texture is baked gold and animates via
+    // scale/alpha/rotation (pure transforms), so it reads in WebGL and Canvas.
+    this.sparkContainer = this.add.container(0, 0);
     // THE GHOST'S GLOW (SpriteLayout.creatureGlow) — a faint halo per ghost,
     // ABOVE the lightmap so the night dim cannot swallow it and a ghost can be
     // seen coming across the dark, BELOW the labels and the fog. It is not a
@@ -2569,39 +2624,6 @@ class MapScene extends Phaser.Scene {
       .setMask(mask);
     this.playerShadow.clearMask();
     this.shadowContainer.add(this.playerShadow);
-    // Countdown label floated over the dragon's head while Dragon Powder is
-    // active — shows whole seconds of the buff remaining. Hidden whenever the
-    // player isn't a dragon. Seated per-frame in update() a fixed offset above
-    // the body on scene.playerScreen() (the camera is not the player).
-    this.dragonTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: fontMono('bold 13px'), color: UI_GOLD,
-      stroke: '#5a1400', strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
-    // The Shadow Powder's countdown — the same label one line higher, in the
-    // powder's own violet, so a dragon in shadow shows both. Hidden otherwise
-    // (set per-frame in update(), beside the dragon's).
-    this.shadowTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: fontMono('bold 13px'), color: '#d9b3ff',
-      stroke: '#2a1040', strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
-    // The Torch's countdown — the same label again in flame orange, stacked
-    // above whichever of the other two are showing (set per-frame in update()).
-    this.torchTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: fontMono('bold 13px'), color: '#ffb347',
-      stroke: '#3a1600', strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
-    // The Potion of Blight's countdown — the same label in blight crimson,
-    // stacked above whichever of the others are showing.
-    this.blightTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: fontMono('bold 13px'), color: '#ff6f9a',
-      stroke: '#3a0418', strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
-    // A shrine boon's countdown (src/shrines.js) — the same label in the
-    // kind's own light colour, stacked above all the others.
-    this.boonTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: fontMono('bold 13px'), color: '#ffffff',
-      stroke: '#1a1410', strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
     this.blightAura = this.add.image(this.viewCenterX, this.viewCenterY, 'aura_blight')
       .setOrigin(0.5, 0.5)
       .setVisible(false);
@@ -2843,6 +2865,7 @@ class MapScene extends Phaser.Scene {
     this.moneyEl = document.getElementById('money');
     this._buildMemoriesChip();
     this._buildRoadChip();
+    this._buildStatusRow();
     this.banner = document.getElementById('banner');
     this._settleInvCatOnBoot();
     this.buildInventoryDOM();
@@ -2923,7 +2946,7 @@ class MapScene extends Phaser.Scene {
 
     // Movement-stick state. The stick is ALWAYS on screen — it's the control
     // that walks you somewhere other than where the GPS puts you, with boots
-    // increasing speed and an amulet reducing the energy cost. joystickVec is driven by pointer
+    // increasing speed and boots reducing the energy cost. joystickVec is driven by pointer
     // events on the pad, _movePadHeld says whether the pointer is currently
     // down, and _manualOffsetM accumulates how far the stick has walked you
     // from your real position: every fix targets gpsM + this offset, so the
@@ -3367,6 +3390,7 @@ class MapScene extends Phaser.Scene {
     }
     const { cellIX: ix, cellIY: iy } = tileCellToAbs(this, pc.tx, pc.ty, lix, liy);
     this._lavaAccum = (this._lavaAccum || 0) + Combat.LAVA_DMG_PER_S * dt;
+    this._ignitePlayer();   // and the burn outlasts the step out (Conditions `burning`)
     const pips = Math.floor(this._lavaAccum);
     if (pips > 0) {
       this._lavaAccum -= pips;
@@ -3983,54 +4007,17 @@ class MapScene extends Phaser.Scene {
     this.playerShadow?.setPosition(pScreen.x, pScreen.y - 1);
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
     // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
-    // a dragon walks the same way everyone walks, just with tier-8 boots and an amulet's
-    // efficiency (DRAGON_AMULET_TIER, see _walkRelics) and double damage. All the
-    // edge does is swap the sprite skin; the countdown label is refreshed
-    // every frame below.
+    // a dragon walks the same way everyone walks, just with tier-8 boots' speed and energy efficiency (DRAGON_WALK_COST_TIER, see _walkRelics) and double damage. All the
+    // edge does is swap the sprite skin; its countdown is a status-row chip.
     const dragonActive = this.isDragonActive();
     if (this._dragonBuffActive !== dragonActive) {
       this._dragonBuffActive = dragonActive;
       this._applyDragonSkin(dragonActive);
-      if (!dragonActive) this.dragonTimerText.setVisible(false);
     }
-    if (dragonActive) {
-      this.dragonTimerText
-        .setText(shortDuration(this._dragonUntil - Date.now()))
-        // Over the head: measured from the SPRITE CENTRE (the player's screen
-        // point is the ground, and the body rides bodyDy above it).
-        .setPosition(pScreen.x, pScreen.y + bodyDy - 35)
-        .setVisible(true);
-    }
-    // Shadow Powder: the same in-memory timer (this._shadowUntil), the same
-    // readout, one line above the dragon's so the two never overprint.
-    const shadowActive = this.isShadowActive();
-    if (shadowActive) {
-      this.shadowTimerText
-        .setText(shortDuration(this._shadowUntil - Date.now()))
-        .setPosition(pScreen.x, pScreen.y + bodyDy - (dragonActive ? 50 : 35))
-        .setVisible(true);
-    } else if (this.shadowTimerText.visible) {
-      this.shadowTimerText.setVisible(false);
-    }
-    // Torch: the same in-memory timer (this._torchUntil, TORCH_MS a light),
-    // the same readout, one line above whatever the other two are showing.
-    if (this.isTorchActive()) {
-      const stacked = (dragonActive ? 1 : 0) + (shadowActive ? 1 : 0);
-      this.torchTimerText
-        .setText(shortDuration(this._torchUntil - Date.now()))
-        .setPosition(pScreen.x, pScreen.y + bodyDy - 35 - 15 * stacked)
-        .setVisible(true);
-    } else if (this.torchTimerText.visible) {
-      this.torchTimerText.setVisible(false);
-    }
-    // Potion of Blight: its countdown over the head, and the aura itself on
-    // the ground point (a ground mark sits on the fix — no body nudge).
+    // Potion of Blight: the aura itself on the ground point (a ground mark
+    // sits on the fix — no body nudge); its countdown is a chip of the
+    // status row under the HUD (Buffs.KINDS, _syncStatusRow).
     if (this.isBlightActive()) {
-      const stacked = (dragonActive ? 1 : 0) + (shadowActive ? 1 : 0) + (this.isTorchActive() ? 1 : 0);
-      this.blightTimerText
-        .setText(shortDuration(this.save.blightPotionUntil - Date.now()))
-        .setPosition(pScreen.x, pScreen.y + bodyDy - 35 - 15 * stacked)
-        .setVisible(true);
       // A slow breath in alpha only: the SIZE never moves, because the size
       // is the damage radius.
       const breath = 0.5 + 0.5 * Math.sin((performance.now() / 1000 / 1.6) * Math.PI * 2);
@@ -4042,24 +4029,8 @@ class MapScene extends Phaser.Scene {
         .setVisible(true);
     } else if (this.blightAura.visible) {
       this.blightAura.setVisible(false);
-      this.blightTimerText.setVisible(false);
     }
-    // A shrine boon: the last kind's lever, unless the lever keeps its own
-    // countdown (the Torch's, the Shadow Powder's — shown above).
-    const boonMs = Shrines.boonRemainingMs(this.save, this);
-    if (boonMs > 0) {
-      const stacked = (dragonActive ? 1 : 0) + (shadowActive ? 1 : 0)
-        + (this.isTorchActive() ? 1 : 0) + (this.isBlightActive() ? 1 : 0);
-      const ink = '#' + Shrines.SHRINE_KINDS[this.save.shrineBoon].light.toString(16).padStart(6, '0');
-      this.boonTimerText
-        .setText(shortDuration(boonMs))
-        .setColor(ink)
-        .setPosition(pScreen.x, pScreen.y + bodyDy - 35 - 15 * stacked)
-        .setVisible(true);
-    } else if (this.boonTimerText.visible) {
-      this.boonTimerText.setVisible(false);
-    }
-    // The fourth countdown, and the only one that isn't over the player's head:
+    // The one countdown that isn't in the status row under the HUD:
     // the bite cooldown lives ON the Eat button, so it is DOM rather than a
     // Phaser label (see _tickEatButton). No-ops in a frame where no food is
     // selected — the button doesn't exist then.
@@ -4122,7 +4093,7 @@ class MapScene extends Phaser.Scene {
           body: "You force the iron jaws apart and pull your leg free.",
         });
       }
-      // Stick → walk yourself off the GPS (costs stamina, amulet-scaled).
+      // Stick → walk yourself off the GPS (costs stamina, boots-scaled).
       if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, dt);
       // Stick idle for a few seconds → walk back to where you really are.
       else this._driftHome(dt);
@@ -4255,6 +4226,14 @@ class MapScene extends Phaser.Scene {
       const restNow = performance.now();
       if (this._workProgress) this._holdRest(restNow);
       const working = !!this._workProgress || restNow < (this._restHoldUntil ?? 0);
+      // Carried regeneration jewelry rides the passive-rest accumulator and
+      // its working pause. The faster amulet wins; the two never stack.
+      const jewelryRegenMs = jewelryRegenIntervalMs(this.save);
+      if (!working && Number.isFinite(jewelryRegenMs) && (this.save.energy ?? 0) < maxE) {
+        this._accrueRestEnergy('_jewelryAccrueE', dt * 1000 / jewelryRegenMs, maxE);
+      } else {
+        this._jewelryAccrueE = 0;
+      }
       // WALKING THROUGH IS NOT A REST (owner, Sep 2026): the trailer sits
       // where the player passes a dozen times a session, and every pass
       // popped "+N⚡" over their head. The energy still banks from the first
@@ -4579,6 +4558,8 @@ class MapScene extends Phaser.Scene {
     this._tickStreetFeet();
     // …and is the player standing in lava (the lava level only)?
     this._tickLava(dt);
+    // …or in a campfire?
+    this._tickFireTouch();
     // …and did an enemy just walk onto one of the player's Magic Traps?
     this._tickMagicTraps();
     this._revealFog();
@@ -4640,9 +4621,10 @@ class MapScene extends Phaser.Scene {
   // Per-frame fight tick: pick up the enemies on screen, let the ACTIVE bow or
   // staff loose its shots (the bow along the compass, the staff at the nearest
   // foe — Combat.shotHeading), fly the shots already out, and —
-  // if the sword is the active weapon — engage the nearest foe without being
-  // asked. Only one of sword/bow/staff (save.activeWeapon) acts on its own
-  // here at a time; the rest sit inert until switched to. The maths (what
+  // unless a bow or staff is in hand — engage the nearest foe without being
+  // asked, sword or bare hands alike. Only one of sword/bow/staff
+  // (save.activeWeapon) acts on its own here at a time; the rest sit inert
+  // until switched to. The maths (what
   // counts as an enemy, damage per shot, shot flight) all lives in combat.js;
   // this method is the scene glue.
   _combatTick(dt) {
@@ -4849,15 +4831,17 @@ class MapScene extends Phaser.Scene {
     }
     this._drawShots();
 
-    // ── Sword: auto-engage ─────────────────────────────────────────────────
-    // The sword being the ACTIVE weapon means you no longer have to tap the
-    // slime that is already chewing on you: the nearest enemy IN REACH is
-    // picked up on its own. A sword you still own but switched away from
-    // (bow/staff active instead) does not — see the WEAPON_SLOTS note above.
+    // ── Melee: auto-engage ─────────────────────────────────────────────────
+    // With no ranged weapon in hand you never have to tap the slime that is
+    // already chewing on you: the nearest enemy IN REACH is picked up on its
+    // own. That is the sword's lane AND bare hands' (owner, Oct 2026 — it
+    // used to need an owned, active sword, so a new player had to tap every
+    // foe until they bought one). An equipped bow or staff turns it off —
+    // Gear.meleeActive — see the WEAPON_SLOTS note above.
     // The wheel is flagged `auto`, which is what keeps it from behaving
     // like a tapped action — it doesn't swallow taps, hold the body still, or
     // block the walk home (see _busyWheel).
-    if (relics.sword && activeWeapon === 'sword' && !this._workProgress && enemies.length) {
+    if (Gear.meleeActive(this.save) && !this._workProgress && enemies.length) {
       let best = null, bestD2 = Infinity;
       for (const c of enemies) {
         // ARM'S LENGTH, not the lit reach (Combat.MELEE_REACH_CELLS): a sword
@@ -4876,6 +4860,7 @@ class MapScene extends Phaser.Scene {
 
   _applyCondition(id) {
     const fresh = Conditions.apply(this.save, id);
+    if (fresh && id === 'burning') this.flash('🔥 You catch fire!', this.viewCenterX, this.viewCenterY);
     if (fresh && id === 'poison') {
       this.flash('Poisoned! Find an Antidote.', this.viewCenterX, this.viewCenterY);
       if (!this.save.poisonLearned) {
@@ -4885,7 +4870,7 @@ class MapScene extends Phaser.Scene {
       }
     }
     persistSave(this.save);
-    this._syncConditionHUD();
+    this._syncStatusRow();
   }
 
   _tickConditions() {
@@ -4901,7 +4886,8 @@ class MapScene extends Phaser.Scene {
         this.events?.off('resume', resetClock);
         this._conditionVisibilityHandler = null;
         this._conditionLastT = null;
-        document.getElementById('condition-poison')?.remove();
+        document.getElementById('status-row')?.remove();
+        this.statusRowEl = null;
       });
     }
     const now = performance.now();
@@ -4916,24 +4902,113 @@ class MapScene extends Phaser.Scene {
       this.updateEnergyDOM();
     }
     if (result.ticks || result.expired) persistSave(this.save);
-    this._syncConditionHUD();
+    this._syncStatusRow();
   }
 
-  _syncConditionHUD() {
-    let el = document.getElementById('condition-poison');
-    if (!Conditions.active(this.save, 'poison')) { el?.remove(); return; }
-    if (!el) {
-      const anchor = document.getElementById('energy');
-      if (!anchor) return;
-      el = document.createElement('div');
-      el.id = 'condition-poison';
-      el.style.cssText = 'position:absolute;top:100%;right:0;white-space:nowrap;color:#d9b1ff;background:#22132ee8;padding:3px 6px;border-radius:4px;font:11px monospace;pointer-events:none;';
-      anchor.style.position = 'relative';
-      anchor.appendChild(el);
+  // One chip under the energy bar per ACTIVE row of Conditions.DEFINITIONS —
+  // its label, ink and background are the row's — stacked in table order so
+  // a poisoned player who catches fire reads both.
+  // THE STATUS ROW — every status, buff and timer on the player, as chips
+  // under the top HUD row (#status-row, STATUS_ROW_CSS; built by
+  // _buildStatusRow): first the conditions (the rows of
+  // Conditions.DEFINITIONS the player carries — label, time left and the
+  // drain, in the row's ink on its bg), then every running timed effect
+  // (Buffs.active — potions, powders, the torch, coffee, the bike, the
+  // compass, every shrine boon — "<name> · <wait>", in the row's ink on its
+  // stroke). One chip per id, kept in that order; a chip whose effect has
+  // run out is removed. Runs every frame from _tickConditions, so every DOM
+  // write is guarded on the value having changed: the order string decides
+  // whether anything is re-appended, the text only rewrites when the
+  // shown second ticks over. Nothing is drawn over the player's head.
+  _syncStatusRow() {
+    const row = this.statusRowEl;
+    if (!row) return;
+    // The objective chip (#objective, the starter ladder) hangs under the
+    // same HUD row, full width: while it shows, the status row seats under
+    // IT. Its bottom is read back only when what decides it changes (the
+    // chip's display, its text, a dialog hiding it, a resize) — a rect read
+    // every frame would force a layout every frame.
+    const obj = document.getElementById('objective');
+    const shown = obj && obj.style.display !== 'none' && !document.body.classList.contains('modal-open');
+    const seatKey = shown ? `${obj.textContent}|${window.innerWidth}x${window.innerHeight}` : '';
+    if (this._statusRowSeat !== seatKey) {
+      this._statusRowSeat = seatKey;
+      row.style.top = shown ? `${Math.round(obj.getBoundingClientRect().bottom) + 6}px` : '';
     }
-    const def = Conditions.DEFINITIONS.poison;
-    const text = `Poison · ${shortDuration(this.save.conditions.poison.remainingMs)} · −${def.energyLoss} energy / ${shortDuration(def.intervalMs)}`;
-    if (el.textContent !== text) el.textContent = text;
+    const chips = [];
+    for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
+      if (!Conditions.active(this.save, id)) continue;
+      chips.push({ id, ink: def.ink, bg: def.bg,
+        text: `${def.label} · ${shortDuration(this.save.conditions[id].remainingMs)} · −${def.energyLoss} energy / ${shortDuration(def.intervalMs)}` });
+    }
+    for (const b of Buffs.active(this.save, this)) {
+      chips.push({ id: b.id, ink: b.color, bg: b.stroke + 'e8', text: `${b.name} · ${shortDuration(b.remainingMs)}` });
+    }
+    const order = chips.map((c) => c.id).join(',');
+    if (this._statusRowDOM !== order) {
+      this._statusRowDOM = order;
+      const keep = new Set(chips.map((c) => c.id));
+      for (const el of [...row.children]) if (!keep.has(el.dataset.id)) el.remove();
+      for (const c of chips) {
+        let el = row.querySelector(`[data-id="${c.id}"]`);
+        if (!el) {
+          el = document.createElement('div');
+          el.className = 'status-chip';
+          el.dataset.id = c.id;
+          el.style.color = c.ink;
+          el.style.background = c.bg;
+        }
+        row.append(el);   // append moves an existing chip into table order
+      }
+    }
+    for (const c of chips) {
+      const el = row.querySelector(`[data-id="${c.id}"]`);
+      if (el && el.textContent !== c.text) el.textContent = c.text;
+    }
+  }
+
+  // The row itself, under the HUD row's right edge (its CSS in
+  // STATUS_ROW_CSS, injected once like the road chip's). Built in create()
+  // beside the other chips; _syncStatusRow fills it.
+  _buildStatusRow() {
+    if (typeof document === 'undefined') return;
+    if (!document.getElementById('status-row-style')) {
+      const st = document.createElement('style');
+      st.id = 'status-row-style';
+      st.textContent = STATUS_ROW_CSS;
+      document.head.appendChild(st);
+    }
+    let el = document.getElementById('status-row');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'status-row';
+      document.body.appendChild(el);
+    }
+    el.replaceChildren();
+    this.statusRowEl = el;
+    this._statusRowDOM = null;
+    this._statusRowSeat = null;
+  }
+
+  // ── Fire on the body ──────────────────────────────────────────────────────
+  // Standing IN a campfire (FIRE_TOUCH_CELLS of one on this depth — warmth is
+  // FIRE_REST_R, the touch is the hearth itself) or in lava (_tickLava) sets
+  // the player BURNING: the `burning` row of Conditions.DEFINITIONS, on the
+  // ticker poison runs on — 1 energy a second for 5 s, and it goes out on its
+  // own, no antidote. Refreshed at most once a tick-interval while the
+  // contact holds, so a stand in the hearth is one persisted save a second,
+  // not one a frame. Never off an empty bar (Combat.playerDowned).
+  _ignitePlayer() {
+    const now = performance.now();
+    if (now < (this._igniteNextT || 0) || Combat.playerDowned(this.save.energy)) return false;
+    this._igniteNextT = now + Conditions.DEFINITIONS.burning.intervalMs;
+    this._applyCondition('burning');
+    return true;
+  }
+  _tickFireTouch() {
+    if (!this.startWorldM || !this.save.fires?.length) return;
+    const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
+    if (this._nearAny('fires', px, py, FIRE_TOUCH_CELLS)) this._ignitePlayer();
   }
 
   // A monster's arrow lands. The same energy hit the melee leech deals
@@ -4943,7 +5018,7 @@ class MapScene extends Phaser.Scene {
   // only delivered by a shot you could see coming rather than a silent drain
   // at range.
   _shotHitsPlayer(shot) {
-    const dmg = Combat.incomingDamage(this.save, shot.damage, shot.hits);
+    const dmg = Combat.incomingProjectileDamage(this.save, shot.damage, shot.hits);
     if (!(dmg > 0)) return false;
     this._monsterDmgAccum = (this._monsterDmgAccum || 0)
       + this._losePlayerEnergy(dmg, { closeShop: true });
@@ -5402,7 +5477,7 @@ class MapScene extends Phaser.Scene {
   // resolveDefeat (Combat.isPlayerKill): 'player' unless a shot says otherwise.
   _damageEnemy(c, amount, source = 'player', options = {}) {
     if (!(amount > 0)) return false;
-    const dealt = Combat.damageDealt(c, amount, (source === 'lava' || source === 'light') ? { bypassArmor: true } : options);
+    const dealt = Combat.damageDealt(c, amount, (source === 'lava' || source === 'light' || source === 'burn') ? { bypassArmor: true } : options);
     const left = Combat.hp(c);
     // Moss hides us until we strike this creature. Environmental damage and
     // allied attacks do not reveal us; a fresh blessing hides us again.
@@ -5965,6 +6040,10 @@ class MapScene extends Phaser.Scene {
         const blow = Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass)
           + this._attackFlat('melee');
         if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
+        // A LIT TORCH (isTorchActive) SETS THE FOE ALIGHT — Combat.ignite,
+        // the `burning` row of Conditions.DEFINITIONS, as the player's own
+        // kill. The blow lands first; the fire takes on what is left.
+        if (this.isTorchActive()) Combat.ignite(c, now, 'player');
       }
     }
     const dur = wp.durationMs || 3000;
@@ -6230,7 +6309,9 @@ class MapScene extends Phaser.Scene {
   _setPeekFromDrag(dxPx, dyPx) {
     const k = this.cellM / CELL_PX;
     let mx = -dxPx * k, my = -dyPx * k;
-    const maxM = PEEK_MAX_CELLS * this.cellM;
+    const telescope = carriesItem(this.save, 'telescope');
+    const maxM = PEEK_MAX_CELLS * this.cellM
+      / (telescope ? 1 : CARRIED_ITEM_SPEC.telescope.peekMultiplier);
     const mag = Math.hypot(mx, my);
     if (mag > maxM) { mx = mx / mag * maxM; my = my / mag * maxM; }
     this.peekM.x = mx;
@@ -6667,26 +6748,32 @@ class MapScene extends Phaser.Scene {
     const v = this.joystickVec;
     return !!(this._movePadHeld && v && (v.x || v.y));
   }
-  // Boots set walking speed; the amulet sets cost. Dragon and Speed lend
-  // tiers to both; coffee adds speed tiers only; a bike rack multiplies the
-  // speed (boots.boost).
+  // Boots set walking speed and cost. Dragon and Speed lend tiers to both;
+  // coffee adds speed tiers only; a bike rack multiplies speed (boots.boost).
   _walkRelics() {
     let speedTier = this.save.armor?.boots?.tier || 0;
-    let costTier = this.save.relics?.amulet?.tier || 0;
-    let buffTier = this.isDragonActive() ? DRAGON_AMULET_TIER : 0;
+    let costTier = speedTier;
+    let buffTier = this.isDragonActive() ? DRAGON_WALK_COST_TIER : 0;
     if ((this.save.speedPotionUntil ?? 0) > Date.now()) {
-      buffTier = Math.max(buffTier, SPEED_POTION_AMULET_TIER);
+      buffTier = Math.max(buffTier, SPEED_POTION_WALK_COST_TIER);
     }
     speedTier = Math.max(speedTier, buffTier);
     costTier = Math.max(costTier, buffTier);
     if ((this.save.coffeeUntil ?? 0) > Date.now()) {
-      speedTier = Math.min(SPEED_POTION_AMULET_TIER, speedTier + COFFEE_BOOT_BOOST);
+      speedTier = Math.min(SPEED_POTION_WALK_COST_TIER, speedTier + COFFEE_BOOT_BOOST);
     }
     // A BIKE RACK's loan (items.js BIKE_RACK_SPEED_MUL for BIKE_RACK_MS —
     // interactables.js writes save.bikeUntil): a factor on the speed, not a
     // tier, carried on the boots to steerSpeedMul like every other reason.
-    const boost = (this.save.bikeUntil ?? 0) > Date.now() ? BIKE_RACK_SPEED_MUL : 1;
-    return { boots: { tier: speedTier, boost }, amulet: { tier: costTier } };
+    // A ridden HORSE (items.js HORSE_RIDE, isRiding) is the same kind of
+    // factor; a horse and a rack do not stack, the faster one counts. Only the
+    // horse charges for it: its energyMul rides the boots' costTier to
+    // steerEnergyCost.
+    const bike = (this.save.bikeUntil ?? 0) > Date.now() ? BIKE_RACK_SPEED_MUL : 1;
+    const riding = isRiding(this.save);
+    const boost = Math.max(bike, riding ? HORSE_RIDE.speedMul : 1);
+    const costMul = riding ? HORSE_RIDE.energyMul : 1;
+    return { boots: { tier: speedTier, costTier, boost, costMul } };
   }
   // Steer with the STICK — the one control that walks you somewhere other than
   // where the GPS says you are. Unlike _steerTarget (the keyboard, which is
@@ -6699,8 +6786,8 @@ class MapScene extends Phaser.Scene {
   //     ground you didn't. Walking with the GPS stays free — that's you
   //     actually walking.
   //
-  // Boots scale stick speed; the amulet scales energy cost per cell.
-  // Dragon Powder and Speed lend tier 8 / 9 to both for their duration.
+  // Boots scale stick speed and energy cost per cell. Dragon Powder and Speed
+  // lend tier 8 / 9 to both for their duration.
   _steerManual(vx, vy, dt) {
     // Steering by hand is the opposite of walking home — clear the flag the
     // hint draws from, or it would stay lit from the last drift frame.
@@ -6768,7 +6855,7 @@ class MapScene extends Phaser.Scene {
     this._lastStickT = Date.now();   // the walk-home timer starts when you stop
     if (this.compassDeg == null) this.facing = { x: vx, y: vy };
     // Per-cell stamina, banked fractionally and spent in STEER_DRAIN_LUMP-sized
-    // bites, so a 0.15/cell amulet debits a lump every ~13 cells rather than
+    // bites, so a 0.15/cell Frost boots debits a lump every ~13 cells rather than
     // rounding up to a pip per cell. The rate is the same either way — the lump
     // only decides how coarse the steps are. Close to
     // your real position it's a fifth of that: pottering around the block you're
@@ -7020,16 +7107,24 @@ class MapScene extends Phaser.Scene {
     const nowMs = performance.now();
     const hitLeft = (this._hitFlashUntilT || 0) - nowMs;
     const hit = hitLeft > 0;
+    // A STATUS on the body wears its row's tint (Conditions.DEFINITIONS —
+    // the same colour a foe wears, render.js): a burn flickers against the
+    // farmer's own colour, a poison holds. Under the hit flick and the empty
+    // bar, over the far-from-GPS dim.
+    const burning = Conditions.active(this.save, 'burning') && Conditions.conditionTintOn('burning', nowMs);
+    const poisoned = Conditions.active(this.save, 'poison') && Conditions.conditionTintOn('poison', nowMs);
     // Pulse: a slow breath, faster and deeper for the empty-tank warning.
     const t = nowMs / 1000;
     const periodS = spent ? 1.2 : 2.0;
     const wave = 0.5 + 0.5 * Math.sin((t / periodS) * Math.PI * 2);
-    if (hit || spent || far) {
+    if (hit || spent || far || burning || poisoned) {
       let tint = 0xffffff;
       if (hit) {
         tint = HIT_FLASH_TINT;
       } else if (spent) {
         tint = 0xff6b6b;
+      } else if (burning || poisoned) {
+        tint = Conditions.DEFINITIONS[burning ? 'burning' : 'poison'].tint;
       } else {
         const k = Math.min(1, (away - nearM) / Math.max(1, (DARK_FULL_CELLS - NEAR_GPS_CELLS) * this.cellM));
         const v = Math.round(255 * (1 - (1 - DIM_FLOOR) * k));
@@ -9164,21 +9259,21 @@ class MapScene extends Phaser.Scene {
 
   // The auto-read fired by addToInv on pickup — framed as involuntary
   // ("your curiosity compels you") rather than readBook's deliberate "you
-  // crack open the book", since nobody chose to read here. The page-count
-  // line is worth keeping (it's the one place the course's progress shows),
-  // so it survives as a lead-in line above the quote; the plain "you crack
-  // open the book" lead-in is dropped as redundant with the new title.
+  // crack open the book", since nobody chose to read here — the read's own
+  // title heads the panel.
   // `onDismiss` (optional) fires once THIS modal is tapped away — how
   // _revealPendingBookReads chains multiple reads one at a time instead of
   // stacking them.
   _presentBookRead(onDismiss) {
     const read = this._bookRead();   // mutates + the caller persists via this call
     persistSave(this.save);
-    const detail = read.title.replace(/^📖\s*/, '');
-    const body = detail.startsWith('The book falls open') ? `${detail}\n${read.body}` : read.body;
+    // The read's own lead-in ("The worn book falls open", or the sketch's
+    // "You crack open the book") heads the panel, minus the emoji the plain
+    // consumable path shows: a painted header is a label (CLAUDE.md). The
+    // "pages rustle" line that used to sit over it was cut in Oct 2026.
     this.showMessageModal({
-      title: 'The pages rustle beneath your fingers',
-      body,
+      title: read.title.replace(/^📖\s*/, ''),
+      body: read.body,
       // A book read by firelight — the picture of the places of learning the
       // Book comes from, survivors sharing what they know.
       art: 'book_read',
@@ -9246,7 +9341,7 @@ class MapScene extends Phaser.Scene {
       this.flash('No poison — Antidote kept.', this.viewCenterX, this.viewCenterY);
       return false;
     }
-    this._syncConditionHUD();
+    this._syncStatusRow();
     return this._finishConsumable('You drink the Antidote', 'The bitter draught burns your tongue. The purple chill loosens its hold.');
   }
 
@@ -9264,7 +9359,7 @@ class MapScene extends Phaser.Scene {
     return this._finishConsumable('You drink the Elixir', 'The draught glows against your lips. Strength floods back into your limbs.');
   }
 
-  // Potion of Speed: a minute of tier-9 boots and amulet walking, even without either
+  // Potion of Speed: a minute of tier-9 boot walking, even without either
   // — the stick moves you faster and costs almost no stamina (_walkRelics
   // reads speedPotionUntil).
   drinkSpeedPotion(opts = {}) {
@@ -9437,8 +9532,8 @@ class MapScene extends Phaser.Scene {
   }
 
   // Dragon Powder: for ONE MINUTE you wear a red dragon and get its stats —
-  // tier-8 boots and amulet (DRAGON_AMULET_TIER, so the stick walks you faster
-  // and for less stamina than any forged amulet can) and 2× attack damage
+  // tier-8 boots (DRAGON_WALK_COST_TIER, so the stick walks faster
+  // and for less stamina than Frost boots can) and 2× attack damage
   // (interact.js halves the kill-wheel duration while in dragon form). No
   // flight, no separate movement mode: a dragon walks the way everyone walks.
   useDragonPowder() {
@@ -9745,6 +9840,19 @@ class MapScene extends Phaser.Scene {
   // level, in place. Down-only — there's no return portal; climb back up a
   // staircase as usual. The gem is consumed only when the descent actually
   // happens, so an empty energy tank (which changeDepth refuses) never burns it.
+  // Ride / Dismount (items.js CONSUMABLE_SPEC.horse — an `immediate` row, so
+  // nothing is spent). The skin follows from isRiding every frame
+  // (SpriteLayout.playerArt), and so does the stick's speed and cost.
+  toggleHorseRide() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || (ITEM_BY_ID[sel.id]?.base || sel.id) !== 'horse' || (sel.count ?? 0) <= 0) return false;
+    this.save.riding = !isRiding(this.save);
+    persistSave(this.save);
+    if (this.save.riding) this.flash(`Stick ×${HORSE_RIDE.speedMul} speed, ×${HORSE_RIDE.energyMul} ⚡`);
+    else this.flash('You dismount.');
+    return true;
+  }
+
   useSapphirePortal() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'sapphire' || (sel.count ?? 0) <= 0) return false;
@@ -9812,6 +9920,34 @@ class MapScene extends Phaser.Scene {
   useRopeUp()   { return this.useRope(-1); }
   useRopeDown() { return this.useRope(+1); }
 
+  // Snapshot only unspent secrets currently on screen, including a peeked view.
+  // The renderer replays their own short cue; the orb and rewards stay intact.
+  useOrb() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'orb' || !(sel.count > 0)) return false;
+    const pc = this.playerToWorldCell();
+    const spent = spentSets(this, this.save);
+    const now = Date.now();
+    const reveal = new Map();
+    const collect = o => {
+      if (isSpent(o, spent)) return;
+      const at = worldMetersToScreen(this, o.x, o.y);
+      if (at.x < this.viewLeft || at.x > this.viewLeft + this.viewSize
+          || at.y < this.viewTop || at.y > this.viewTop + this.viewSize) return;
+      reveal.set(o.id, now);
+    };
+    WorldGen.forEachItemNear('wildplants', pc.tx, pc.ty, o => {
+      if (isNestBush(o.crop, o.id)) collect(o);
+    });
+    WorldGen.forEachItemNear('objects', pc.tx, pc.ty, o => {
+      if (o.kind === 'mineralrock' && isGlintRock(o)) collect(o);
+    });
+    this._orbReveal = reveal;
+    if (reveal.size) this.flash('Hidden things stir.', this.viewCenterX, this.viewCenterY);
+    else this.flash('Nothing stirs nearby.', this.viewCenterX, this.viewCenterY);
+    return true;
+  }
+
   eatSelected() {
     const sel = getSelectedSlot(this.save);
     if (!sel || (sel.count ?? 0) <= 0) return false;
@@ -9833,7 +9969,7 @@ class MapScene extends Phaser.Scene {
     const restore = featherRevive ? null : FOOD_ENERGY[sel.id];
     if (!featherRevive && restore == null) return false;
     const { gained, extra } = this._consumeFoodEffects(sel.id, featherRevive);
-    consumeSelected(this.save);
+    if (!ITEM_BY_ID[sel.id]?.reusable) consumeSelected(this.save);
     // Armed only now, after a bite has actually landed.
     Energy.startEatCooldown(this.save);
     persistSave(this.save);
@@ -12577,9 +12713,6 @@ class MapScene extends Phaser.Scene {
   // The gear PNGs are spritesheets, not single icons:
   //   weapons + armor (Pickaxe.png, Helmet.png, …): 32×16, two 16×16 frames
   //     side-by-side. We show frame 0.
-  //   rings + amulets (Rings.png, Amulet.png):    96×64, 6 cols × 4 rows of
-  //     16×16 variants. Pick a per-tier slot so each tier shows a different
-  //     colour band as the player upgrades.
   // CSS-clip via background-image instead of an unclipped <img> — otherwise
   // the entire sheet gets crushed into the icon box ("ring looks like a
   // whole spritesheet", "armor shows 2 suits").
@@ -12734,7 +12867,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // The movement stick is ALWAYS on screen — it's how you walk anywhere the
-  // GPS isn't taking you, with or without an amulet, buff, or debug flag.
+  // GPS isn't taking you, with or without boots, a buff, or a debug flag.
   // Nothing takes its slot any more. Idempotent, so it's safe to call from the
   // per-frame relic sync, which is what puts it up on the first frame.
   syncMovePad() {
@@ -13045,14 +13178,11 @@ class MapScene extends Phaser.Scene {
     // Each gear asset has its own sprite-sheet layout. Pick [cols, rows] + the
     // frame to show so we never squish a multi-frame strip into one cell or
     // crop a single-frame icon:
-    //   ring/amulet — 6×4 variant grid, frame = tier-1
     //   bags        — 7×1 strip (one bag per tier), frame = tier-1
     //   bug net     — single 16×16 icon
     //   everything else (tools/armor) — 32×16 two-frame sheet, show frame 0
     let sheetCols, sheetRows, frame;
-    if (kind === 'relic' && (slot === 'ring' || slot === 'amulet')) {
-      sheetCols = 6; sheetRows = 4; frame = tier - 1;
-    } else if (kind === 'relic' && slot === 'bags') {
+    if (kind === 'relic' && slot === 'bags') {
       sheetCols = 7; sheetRows = 1; frame = tier - 1;
     } else if (kind === 'relic' && slot === 'bugnet') {
       sheetCols = 1; sheetRows = 1; frame = 0;
@@ -13416,15 +13546,10 @@ class MapScene extends Phaser.Scene {
             e.stopPropagation();
             this.save.selGear = { kind: g.kind, slot: g.slot };
             this.save.selSlot = -1;
-            // Tapping a weapon makes it the active one — the other owned
-            // weapons go inert (see combat.js / _combatTick).
-            if (isWeapon && Gear.activeWeapon(this.save) !== g.slot) {
-              Gear.selectWeapon(this.save, g.slot);
-              this.markRelicsDirty();
-              persistSave(this.save);
-              this.buildInventoryDOM();
-              return;
-            }
+            // Highlighting a weapon is just that. Until Oct 2026 the tap
+            // also made it the active one, so reading a bow's blurb silently
+            // switched the fight off melee; the Equip button under the bar
+            // (syncEquipButton) is the explicit act now.
             persistSave(this.save);
             this.refreshInventoryHighlight();
           });
@@ -13581,6 +13706,59 @@ class MapScene extends Phaser.Scene {
     }
     this.syncEatButton();
     this.syncConsumableButton();
+    this.syncEquipButton();
+  }
+
+  // Equip / Unequip button — the Eat button's slot, shown while a WEAPON is
+  // highlighted in the Relics tab (never alongside Eat / Drink: a gear tab
+  // clears selSlot, which hides both). EQUIP makes the highlighted sword, bow
+  // or staff the one that fights (Gear.selectWeapon); UNEQUIP, on the bow or
+  // staff in hand, puts it away so melee auto-engages again — the sword if
+  // owned, bare hands if not (Gear.unequipWeapon). The sword in hand needs no
+  // button: melee is the default state, so there is nothing to put away.
+  // This is the ONE way the active weapon changes by hand; tapping a slot
+  // only highlights it.
+  syncEquipButton() {
+    const g = this.save.selGear;
+    const existing = document.getElementById('equip-btn');
+    const cat = INV_CAT_BY_KEY[this.save.invCat];
+    const isWeapon = !!cat?.gear && g?.kind === 'relic' && WEAPON_SLOTS.includes(g.slot)
+      && !!Gear.effectiveRelics(this.save)[g.slot];
+    if (!isWeapon) { existing?.remove(); return; }
+    const active = Gear.activeWeapon(this.save) === g.slot;
+    const ranged = Combat.RANGED_SLOTS.includes(g.slot);
+    if (active && !ranged) { existing?.remove(); return; }
+    const tier = Gear.effectiveRelics(this.save)[g.slot]?.tier;
+    const verb = active ? 'Unequip' : 'Equip';
+    const label = `${this.gearIconHTML('relic', g.slot, tier, 20)} ${verb}`;
+    const btn = existing || document.createElement('button');
+    if (!existing) {
+      btn.id = 'equip-btn';
+      // Same seat and face as the Drink button (control gold: a thing you
+      // press), bottom-right under the inventory bar.
+      btn.className = 'hud-action';
+      btn.style.cssText =
+        'position:fixed;' +
+        'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
+        'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
+        'display:flex;align-items:center;gap:6px;' +
+        'padding:6px 10px;border-radius:8px;cursor:pointer;' +
+        'color:#ffe066;border:2px solid #c8a64a;' +
+        'font:700 12px ui-monospace,monospace;';
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sel = this.save.selGear;
+        if (!sel || !WEAPON_SLOTS.includes(sel.slot)) return;
+        if (Gear.activeWeapon(this.save) === sel.slot) Gear.unequipWeapon(this.save);
+        else Gear.selectWeapon(this.save, sel.slot);
+        this.markRelicsDirty();
+        persistSave(this.save);
+        this.buildInventoryDOM();   // the "E" badge moves; refreshes this button too
+      });
+      document.body.appendChild(btn);
+    }
+    btn.dataset.slot = g.slot;
+    btn.innerHTML = label;
   }
 
   // Eat button — appears bottom-right when the selected stack is food.
@@ -13622,9 +13800,10 @@ class MapScene extends Phaser.Scene {
     this._eatCdShown = cooling ? shortDuration(cdLeft) : '';
     // While the gate refuses, the wait REPLACES the "+N⚡" it would otherwise
     // advertise: the restore isn't the actionable number until the bar fills.
-    const text = cooling ? `Eat ${this._eatCdShown}`
+    const eatVerb = ITEM_BY_ID[sel?.id]?.reusable ? 'Drink' : 'Eat';
+    const text = cooling ? `${eatVerb} ${this._eatCdShown}`
       : featherRevive ? `Use → ${FEATHER_REVIVE_ENERGY}⚡`
-      : `Eat +${restore}⚡`;
+      : `${eatVerb} +${restore}⚡`;
     const btn = existing || this._makeEatButton();
     // The icon is rebuilt only when the SELECTED STACK changes, not on every
     // repaint: this method now runs once a second for the whole cooldown, and

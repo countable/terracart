@@ -34,9 +34,9 @@ const HOUSE_FRAMES = {
 };
 // The SHIPPING table (util.js), not copies of it — a test carrying its own
 // numbers would keep passing while render.js drew something else.
-const HOUSE = BUILDING_ART.house, FORT = BUILDING_ART.fort;
-const fortScale  = (area) => houseArtScale(area, FORT_W, true, CELL_M, CELL_PX);
-const houseScale = (area, w = 72) => houseArtScale(area, w, false, CELL_M, CELL_PX);
+const HOUSE = BUILDING_ART.house, FORT = BUILDING_ART.fort, TRAILER = BUILDING_ART.trailer;
+const fortScale  = (area) => houseArtScale(area, FORT_W, 'fort', CELL_M, CELL_PX);
+const houseScale = (area, w = 72) => houseArtScale(area, w, 'house', CELL_M, CELL_PX);
 // Drawn width of the art, in cells — what the player actually sees.
 const cellsWide = (scale, w) => (w * scale) / CELL_PX;
 const houseCells = (area, w = 72) => cellsWide(houseScale(area, w), w);
@@ -73,14 +73,34 @@ test('building scale: no area (trailer / sandbox house) draws the default', () =
   nearCells(houseCells(undefined), HOUSE.def, 'house, undefined area');
 });
 
+test('building scale: Home draws a tenth wider than the village, on its own row', () => {
+  // The trailer has no footprint, so it draws its row's def — and that row
+  // is the house row's default × 1.1 (Oct 2026), still under the smallest
+  // fort so Home never reads as a civic block.
+  const trailerCells = (area) => cellsWide(houseArtScale(area, HOUSE_FRAMES.trailer, 'trailer', CELL_M, CELL_PX), HOUSE_FRAMES.trailer);
+  nearCells(trailerCells(undefined), HOUSE.def * 1.21, 'Home: house default × 1.21');
+  nearCells(trailerCells(10), HOUSE.def * 1.21, 'and a stray area neither shrinks it');
+  nearCells(trailerCells(50000), HOUSE.def * 1.21, 'nor grows it');
+  assert.eq(TRAILER.def, TRAILER.min); assert.eq(TRAILER.def, TRAILER.max);
+  assert.lt(TRAILER.max, FORT.min, 'Home stays under the smallest fort');
+  // Every residential role without a row of its own shares the house row.
+  for (const role of ['plain', 'blacksmith', 'trader', 'market', 'wreck', 'wizard', 'house', undefined]) {
+    assert.eq(buildingArt(role), HOUSE, `${role} is a house`);
+  }
+  assert.eq(buildingArt('fort'), FORT); assert.eq(buildingArt('trailer'), TRAILER);
+  // render.js hands the role itself to the rule, never an isFort flag.
+  assert.includes(RENDER_SRC, 'houseArtScale(o.area, _houseFrameW(o), _houseRole(o), scene.cellM, CELL_PX)');
+  assert.includes(RENDER_SRC, 'buildingBaseScale(_houseFrameW(o), _houseRole(o), CELL_PX)');
+});
+
 test('building scale: an unmeasurable frame is finite and matches its baseline', () => {
   // render.js hides a sprite whose texture is missing before the scale can
   // matter, so the only requirements are that it is a number and that it agrees
   // with buildingBaseScale — the shadow pass divides one by the other.
-  for (const isFort of [false, true]) {
-    const s = houseArtScale(500, 0, isFort, CELL_M, CELL_PX);
-    assert.truthy(Number.isFinite(s) && s > 0, `finite scale (fort=${isFort})`);
-    assert.eq(s, buildingBaseScale(0, isFort, CELL_PX), `shadow ratio is 1 (fort=${isFort})`);
+  for (const role of ['house', 'trailer', 'fort']) {
+    const s = houseArtScale(500, 0, role, CELL_M, CELL_PX);
+    assert.truthy(Number.isFinite(s) && s > 0, `finite scale (${role})`);
+    assert.eq(s, buildingBaseScale(0, role, CELL_PX), `shadow ratio is 1 (${role})`);
   }
 });
 

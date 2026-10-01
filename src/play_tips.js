@@ -128,7 +128,7 @@ const PLAY_TIPS = [
   "Each finished castle job leaves harder work ahead. They call it promotion. Take the rest you need before accepting.",
   "The wizard says power hums in my unspent memories. I had hoped he might ask what I remembered.",
   "Choose the wizard's calling with care. It stays with you for good. I asked for time; he asked what there was to think about.",
-  "The wizard calls it Keen Eye. A Ring for my hand. He spoke so warmly of what I might become.",
+  "The wizard calls it Keen Eye. Hidden glints seem easier to notice now. He spoke so warmly of what I might become.",
   "A magical flower in the furnace helped turn a lesser bar into finer metal. I kept one petal outside the heat. For the colour.",
   "Seek magical flowers out in the world. No shop sells their seeds. Some things still refuse to sit on a shelf.",
   "Might sapphire soothe a slime? Brann says to kill it. But there must be something beneath that trembling besides malice.",
@@ -141,6 +141,9 @@ const PLAY_TIPS = [
   // Appended (Sep 2026): the road's bargain — each stretch it asks for runs
   // longer than the last, and pays finer (trail.js goalFor / rollBonusFor).
   "Each stretch of road they ask me to mend runs longer than the last. What waits at the end of it is finer, too. I have stopped asking who set the terms.",
+  // Appended (Oct 2026): the spear, made at Home from a stone and a branch
+  // (items.js HOME_RECIPES) — every craftable has its page in the Book.
+  ITEM_GUIDE_TIPS.spear,
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -374,6 +377,7 @@ const PLAY_TIP_VOLUMES = [
   "road",
   "ledger",
   "road",
+  "brann"
 ];
 
 // Narrator observations sit outside the quoted excerpt.

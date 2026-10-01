@@ -36,11 +36,11 @@ test('consumable confirmations: outcomes stay brief and enigmatic', () => {
 
 test('consumables: one action row names every button method', () => {
   const ids = [
-    'egg', 'book', 'honey', 'reach_potion', 'antidote', 'elixir',
+    'orb', 'egg', 'book', 'honey', 'reach_potion', 'antidote', 'elixir',
     'vigor_potion', 'speed_potion', 'shield_potion', 'raven_potion',
     'thunder_potion', 'blight_potion', 'revive_potion',
     'resurrection_potion', 'dragon_powder', 'growth_powder', 'shadow_powder',
-    'frost_powder', 'torch', 'sapphire', 'rope', 'spear',
+    'frost_powder', 'torch', 'sapphire', 'rope', 'spear', 'horse', 'shiny_horse',
   ];
   const actionIds = Object.keys(CONSUMABLE_SPEC).filter(id => CONSUMABLE_SPEC[id].method);
   assert.eq(actionIds.slice().sort().join('|'), ids.slice().sort().join('|'),
@@ -62,9 +62,9 @@ test('consumables: gameplay numbers read the owning spec rows', () => {
   assert.eq(CONSUMABLE_SPEC.torch.radiusMul, 2, 'torch range remains in the gameplay spec');
   assert.eq(CONSUMABLE_SPEC.growth_powder.radiusM, CONSUMABLE_SPEC.rainberry.radiusM,
     'growth powder reuses the rainberry crop radius');
-  assert.truthy(/const DRAGON_AMULET_TIER = CONSUMABLE_SPEC\.dragon_powder\.movementTier;/.test(SCENE_SRC),
+  assert.truthy(/const DRAGON_WALK_COST_TIER = CONSUMABLE_SPEC\.dragon_powder\.movementTier;/.test(SCENE_SRC),
     'dragon walking derives from the row');
-  assert.truthy(/const SPEED_POTION_AMULET_TIER = CONSUMABLE_SPEC\.speed_potion\.movementTier;/.test(SCENE_SRC),
+  assert.truthy(/const SPEED_POTION_WALK_COST_TIER = CONSUMABLE_SPEC\.speed_potion\.movementTier;/.test(SCENE_SRC),
     'speed-potion walking derives from the row');
 });
 

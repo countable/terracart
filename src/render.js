@@ -74,18 +74,21 @@ Render.objectGroundOffsetPx = function (appearance, textures) {
     * appearance.scl * appearance.scaleYMul;
 };
 
-const COIN_DROP_PX = 13;
+const COIN_DROP_PX = 9;
 Render.COIN_DROP_PX = COIN_DROP_PX;
-// Low-detail ground sprites show the amount waiting on the map. The stacks
-// were 20 / 25 / 30 wide, then 17 / 21 / 25; a size smaller again (owner,
-// Sep 2026: still a little big on the map) — a lone coin draws under its
-// 13px native width too. Drawn still, at one fixed scale, so nothing
-// resamples the rims frame to frame.
+// Low-detail ground sprites show the amount waiting on the map. Each width is
+// its PNG's native size (tools/gen_coin_piles.py draws them), drawn still so
+// nothing resamples the rims; 20px is the ceiling (owner, Sep 2026: smaller).
 Render.COIN_PILES = [
-  { min: 1, texture: 'coin_drop', width: 10 },
-  { min: 2, texture: 'coin_pile_small', width: 14 },
-  { min: 11, texture: 'coin_pile_medium', width: 17 },
-  { min: 51, texture: 'coin_pile_large', width: 20 },
+  { min: 1, texture: 'coin_drop', width: COIN_DROP_PX },
+  { min: 2, texture: 'coin_pile_2', width: 12 },
+  { min: 3, texture: 'coin_pile_3', width: 13 },
+  { min: 4, texture: 'coin_pile_4', width: 14 },
+  { min: 5, texture: 'coin_pile_5', width: 14 },
+  { min: 6, texture: 'coin_pile_6_10', width: 15 },
+  { min: 11, texture: 'coin_pile_11_25', width: 17 },
+  { min: 26, texture: 'coin_pile_26_50', width: 18 },
+  { min: 51, texture: 'coin_pile_51', width: 20 },
 ];
 Render.coinPile = (coin) => {
   const amount = coinAmount(coin);
@@ -3774,18 +3777,23 @@ Render.drawObjects = function drawObjects(scene) {
   }
 
   const _plantNow = Date.now();
+  // The nest bush's swing, degrees. 7 until Oct 2026 — at the wildplant's
+  // size that read as a shiver a player could miss; a secret that is never
+  // noticed is no secret. The show's length is the beat's (items.js
+  // NEST_BUSH_BEAT.showMs).
+  const NEST_WIGGLE_DEG = 16;
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
     // A NEST BUSH (items.js isNestBush — the predicate the harvest pays the
-    // baby off) WIGGLES: three quick swings, a few degrees about its centre,
-    // swelling and dying over the beat's show (nestBushPhase, once every
-    // 10-30 s). Pooled sprites keep their angle, so it is set EVERY frame —
-    // 0 for everything that is not mid-wiggle — or a bush's tilt would ride
-    // onto whatever plant next takes its slot.
-    const wig = (p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow) : -1;
-    s.setAngle(wig >= 0 ? Math.sin(wig * Math.PI * 6) * 7 * Math.sin(wig * Math.PI) : 0);
+    // baby off) WIGGLES: three quick swings, NEST_WIGGLE_DEG either side of
+    // upright, swelling and dying over the beat's show (nestBushPhase, once
+    // every 10-30 s). Pooled sprites keep their angle, so it is set EVERY
+    // frame — 0 for everything that is not mid-wiggle — or a bush's tilt
+    // would ride onto whatever plant next takes its slot.
+    const wig = (p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow, scene._orbReveal?.get(p.wildId)) : -1;
+    s.setAngle(wig >= 0 ? Math.sin(wig * Math.PI * 6) * NEST_WIGGLE_DEG * Math.sin(wig * Math.PI) : 0);
     // Wild flora wears its biome's tint; farmed crops and placed rocks render
     // untinted. Pooled sprites keep their last tint, so set it explicitly
     // every frame. A SHINY plant is not tinted: what marks it is its light
@@ -3910,6 +3918,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Heart overlay — a small 💗 floats above every tame (released_) creature
   // so the player can spot their pets at a glance. Pool is created lazily.
   scene._petHeartPool = scene._petHeartPool || [];
+  const PET_HEART_RISE_PX = 16;
   const tameList = creatureList.filter(item => typeof item.c.id === 'string' && item.c.id.startsWith('released_'));
   let hi = 0;
   for (const item of tameList) {
@@ -3922,10 +3931,10 @@ Render.drawObjects = function drawObjects(scene) {
       scene.creaturesContainer.add(t);
       scene._petHeartPool.push(t);
     }
-    // Float the heart ~16 px above the creature's anchor point. Tame creatures
-    // sit at origin (0.5, 0.9) so anchor.y is roughly the ground; the heart
-    // hovers just above the body.
-    t.setPosition(Math.round(sx), Math.round(sy) - 22).setVisible(true);
+    // Float the heart just above the creature's crown. Tame creatures sit at
+    // origin (0.5, 0.9) so anchor.y is roughly the ground; 22 px left a gap
+    // of sky between pet and heart (owner's call, Oct 2026: closer).
+    t.setPosition(Math.round(sx), Math.round(sy) - PET_HEART_RISE_PX).setVisible(true);
     hi++;
   }
   hidePoolFrom(scene._petHeartPool, hi);
@@ -4050,11 +4059,17 @@ Render.drawObjects = function drawObjects(scene) {
     // (SpriteLayout.CAVE_SLIME_TINT). Frozen and shiny still win over it —
     // both say something about this INSTANCE, which outranks what it is.
     const frozen = c._frozenUntil != null && Date.now() < c._frozenUntil;
-    s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
+    // ON FIRE (Combat.burning): the `burning` row's tint, FLICKERED against
+    // the body's own colour so it reads as flame, not a sheen. Ice still
+    // wins — a frozen body shows the ice.
+    const afire = !frozen && Combat.burning(c) && Conditions.conditionTintOn('burning', performance.now());
+    s.setTint(frozen ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
     // Wind-ups are observable before damage or a lunge lands. A brief amber
-    // flash alternates with the original palette; frozen bodies keep ice.
+    // flash alternates with the original palette; frozen bodies keep ice. A
+    // projectile kind (Combat.windupFlashes — the goblin archer) never
+    // strobes: its arrow is the warning.
     const winding = Math.max(c._attackWindupUntil || 0, c._lungeWindupUntil || 0, c._abilityWindupUntil || 0) > performance.now();
-    if (winding && !frozen && Math.floor(performance.now() / 100) % 2 === 0) s.setTintFill(0xffdb72);
+    if (winding && !frozen && Combat.windupFlashes(c.kind) && Math.floor(performance.now() / 100) % 2 === 0) s.setTintFill(0xffdb72);
     if (c._supportUntil > performance.now() && !frozen) s.setTintFill(0x8cefa0);
     Render.setShine(s, !!c.shiny && !frozen, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
@@ -4103,7 +4118,7 @@ Render.drawObjects = function drawObjects(scene) {
   // animate (a measured shadow would pulse frame to frame).
   if (scene.creatureShadowPool && scene.shadowContainer) {
     const CRITTER_SHADOW_W = {
-      cow: 30, deer: 26, dog: 22, cat: 20, crow: 18, gull: 18, raven: 18, rabbit: 14, chicken: 14, crab: 14,
+      cow: 30, horse: 26, deer: 26, dog: 22, boar: 20, cat: 20, crow: 18, gull: 18, raven: 18, rabbit: 14, chicken: 14, crab: 14, turtle: 16,
       butterfly: 9, slime: 22, cave_slime: 22, fire_slime: 22, purple_slime: 22, goblin: 22, goblin_archer: 22, goblin_trapper: 22, ghost: 18, plant: 22,
     };
     Render.renderPool(scene, scene.creatureShadowPool, scene.shadowContainer, creatureList, (s, item) => {
@@ -4157,7 +4172,7 @@ Render.drawObjects = function drawObjects(scene) {
     // the glint's 0..1 progress; the draw below fades it in and out on it.
     // filteredObj, like the trees: a broken rock is spent and glints no more.
     if (it.o.kind === 'mineralrock' && isGlintRock(it.o)) {
-      const k = glintRockPhase(it.o.id, _sparkNow);
+      const k = glintRockPhase(it.o.id, _sparkNow, scene._orbReveal?.get(it.o.id));
       if (k >= 0) sparkList.push({ dx: it.dx, dy: it.dy, id: it.o.id, glint: k });
     }
   }
@@ -4331,20 +4346,20 @@ Render.objectAppearance = function (scene, houseRoles) {
   // Every building is sized by ONE rule (BUILDING_ART / houseArtScale in
   // util.js): draw at your own footprint, clamped to a range stated in DRAWN
   // CELLS. All render.js does is read the art's real frame width and hand it
-  // over — the width is what turns a cell count into a sprite scale, and it is
-  // why a role's size is stated in cells rather than in scale (see the note on
-  // the table). Frames that can't be measured come back as 0, which the rule
-  // answers with 1; the sprite is already hidden by then.
+  // over, with the role — the width is what turns a cell count into a sprite
+  // scale, and it is why a role's size is stated in cells rather than in scale
+  // (see the note on the table); the role picks the row (fort, trailer, or the
+  // shared house row). Frames that can't be measured come back as 0, which
+  // the rule answers with 1; the sprite is already hidden by then.
   const _houseFrameW = (o) => {
     if (!scene.textures || !scene.textures.exists(_houseKey(o))) return 0;
     const fr = scene.textures.get(_houseKey(o)).get(_houseFrame(o));
     return (fr && fr.width) || 0;
   };
   const _houseBaseScale = (o) =>
-    buildingBaseScale(_houseFrameW(o), _houseRole(o) === 'fort', CELL_PX);
+    buildingBaseScale(_houseFrameW(o), _houseRole(o), CELL_PX);
   const _houseScale = (o) =>
-    houseArtScale(o.area, _houseFrameW(o), _houseRole(o) === 'fort',
-                  scene.cellM, CELL_PX);
+    houseArtScale(o.area, _houseFrameW(o), _houseRole(o), scene.cellM, CELL_PX);
 
   // Ripe fruit waiting to be drawn ON its tree — filled by the fruittree
   // `after` hook as each tree is configured, drained by the fruit pass after

@@ -3,18 +3,32 @@
 // app.js so they're testable headlessly (no scene, no DOM).
 //
 // A shop's offers are derived from a deterministic RNG keyed by (house.id,
-// hour-bucket, rerolls, offerSalt, lane) so the same shop in the same hour shows
-// the same offer without persisting the offer object; a per-house sub-hour
-// offset staggers rotations. Deal counts + rerolls live in save.shopState.
+// hour-bucket, deals, rerolls, offerSalt, lane) so the same shop in the same
+// hour shows the same offer without persisting the offer object; a per-house
+// sub-hour offset staggers rotations. Deal counts + rerolls live in
+// save.shopState.
+//
+// A CLOSED DEAL SETTLES THE SHOP (owner's call, Oct 2026): what was bought
+// leaves the shelf, so the next offer is a fresh draw (the deal count is in
+// the seed), and the paid re-roll ladder drops back to its base rung
+// (recordDeal zeroes `rerolls` and `skips`). The smithy did this alone
+// before; now every shop does, through the one recorder.
 //
 // NO SHOP RATIONS ITS DEALS (Sep 2026, owner's call): a smithy, trader or
-// storefront can be used continuously — there is no "busy" hour, no resting
-// anvil, no readiness pip. The ONE thing the clock does to a shop is ease its
-// RE-ROLL LEVEL: the paid re-roll count (the cost ladder's rung) drops by one
-// per hour bucket that passes, instead of resetting outright (bucketState).
+// storefront can be used continuously — there is no per-hour deal cap, no
+// resting anvil, no readiness pip. The clock does two things to a shop:
+//   · it eases the RE-ROLL LEVEL: the paid re-roll count (the cost ladder's
+//     rung) drops by one per hour bucket that passes, instead of resetting
+//     outright (bucketState);
+//   · it holds a SHORT COOLDOWN after a closed deal for the roles that have
+//     a row in DEAL_COOLDOWN_MS (Oct 2026: the trader, five minutes — a
+//     barter that reopened at once was a free converter between any two
+//     stacks). recordDeal stamps the moment, dealWaitMs prints the rest; a
+//     role with no row never waits.
 //
 // The scene calls ShopsMath directly from its shop helpers (scene_shops.js
-// shopBucketState / shopRng / buildShopOffer).
+// shopBucketState / shopRng / buildShopOffer) and from the two trader
+// dispatchers (shopInteract, npc.js interact) for the cooldown.
 //
 // Depends on the global buyMarkupRange (items.js) for the Bow-discounted markup.
 // Distinct from shops.js (Shops.shopType, the OSM-address → role lookup).
@@ -44,10 +58,29 @@
     return Math.max(0, (cur.rerolls | 0) - elapsed);
   }
 
-  // Live { bucket, deals, rerolls } for a house, creating it on first touch.
-  // A record from an earlier bucket is carried forward, not thrown away: its
-  // re-roll level eases by one per elapsed hour (easedRerolls) and its deal
-  // count — the trader's stock turnover within the hour (rng's perDeal) —
+  // The short hold a shop role keeps after a closed deal, by role — the one
+  // table of who waits. A role with no row (market, blacksmith, wizard, the
+  // castle) never does. Only the trader: its stock is what changes hands,
+  // so an instant reopen was a free converter between any two stacks the bag
+  // held. Short on purpose — a breather, not the old hourly ration.
+  const DEAL_COOLDOWN_MS = { trader: 5 * 60 * 1000 };
+  const MAX_DEAL_COOLDOWN_MS = Math.max(0, ...Object.values(DEAL_COOLDOWN_MS));
+
+  // Whether a record's last deal (recordDeal's `dealAt`) could still hold a
+  // door shut for ANY role — the role-blind half the record keepers
+  // (bucketState's carry-forward, pruneShopState) read. A clock that ran
+  // backwards (dealAt in the future) still counts as cooling; dealWaitMs
+  // clamps what it prints to the row's length.
+  function dealCooling(cur, now) {
+    const at = +cur.dealAt;
+    return at > 0 && now - at < MAX_DEAL_COOLDOWN_MS;
+  }
+
+  // Live { bucket, deals, rerolls[, dealAt] } for a house, creating it on
+  // first touch. A record from an earlier bucket is carried forward, not
+  // thrown away: its re-roll level eases by one per elapsed hour
+  // (easedRerolls), a deal still cooling keeps its stamp (dealCooling), and
+  // its deal count — the shelf's turnover within the hour (rng's seed) —
   // starts over with the new offer.
   function bucketState(save, house, now = Date.now()) {
     save.shopState = save.shopState || {};
@@ -55,7 +88,9 @@
     const b = bucket(id, now);
     let cur = save.shopState[id];
     if (cur && cur.bucket !== b) {
-      cur = { bucket: b, deals: 0, rerolls: easedRerolls(cur, b) };
+      const next = { bucket: b, deals: 0, rerolls: easedRerolls(cur, b) };
+      if (dealCooling(cur, now)) next.dealAt = cur.dealAt;
+      cur = next;
       save.shopState[id] = cur;
     }
     if (!cur) {
@@ -71,7 +106,8 @@
   // eased all the way to zero: that is exactly the record bucketState() would
   // replace with a fresh { bucket, deals: 0, rerolls: 0 } on the next touch,
   // so deleting it now is lossless. A stale entry still carrying re-roll
-  // rungs is kept — pruning it would forgive the ladder early.
+  // rungs, or a deal still cooling, is kept — pruning it would forgive the
+  // ladder or the cooldown early.
   // Returns the number of entries removed.
   function pruneShopState(save, now = Date.now()) {
     if (!save || !save.shopState) return 0;
@@ -79,7 +115,7 @@
     for (const id of Object.keys(save.shopState)) {
       const cur = save.shopState[id];
       const b = bucket(id, now);
-      if (!cur || (cur.bucket !== b && easedRerolls(cur, b) === 0)) {
+      if (!cur || (cur.bucket !== b && easedRerolls(cur, b) === 0 && !dealCooling(cur, now))) {
         delete save.shopState[id];
         n++;
       }
@@ -87,20 +123,50 @@
     return n;
   }
 
-  // Deterministic 0..1 RNG keyed by (house.id offset, bucket, rerolls, offerSalt,
-  // lane). `lane` namespaces independent rolls within a bucket so e.g. the price
-  // roll can't consume the pool-pick roll.
-  //
-  // The bucket's DEAL count stays out of the seed by default: a cash shop's
-  // shelf is the same shelf after a purchase (shops_math.test.js "spending
-  // deals does not reshuffle the offer"). `opts.perDeal` folds it in, for a
-  // shop whose STOCK is what changes hands — the trader barters its goods
-  // away, so the moment a deal closes it has something else to offer (and
-  // its sign, which reads the same pick, names the new goods). A re-roll
-  // still pivots the stream on top of that.
-  function rng(save, house, lane = '', now = Date.now(), opts = {}) {
+  // Bank a closed deal against a house: the deal count (the shelf's turnover
+  // within the bucket — rng folds it into the seed, so the next offer is a
+  // fresh draw) and the moment it closed, which the cooldown reads. The deal
+  // also SETTLES the re-roll ladder: the paid rung count and the free skips
+  // both go back to zero, so the next re-roll costs the base price at once
+  // rather than easing off one rung an hour. Every accept path records
+  // through here — the scene's recordDeal and the peddler's — so no caller
+  // keeps its own stamp or its own reset.
+  function recordDeal(save, house, now = Date.now()) {
+    if (!house || house.id == null) return null;
     const cur = bucketState(save, house, now);
-    const turnover = opts.perDeal ? (cur.deals | 0) : 0;
+    cur.deals += 1;
+    cur.dealAt = now;
+    cur.rerolls = 0;
+    cur.skips = 0;
+    return cur;
+  }
+
+  // Milliseconds this role must still wait after its last deal before it
+  // trades again — 0 when it may trade now, which is always for a role with
+  // no DEAL_COOLDOWN_MS row and for a house never dealt with. Reads the record
+  // without creating one. Never longer than the row itself, so a clock that
+  // ran backwards prints the row's length at worst, not a lifetime.
+  function dealWaitMs(save, house, role, now = Date.now()) {
+    const cooldown = DEAL_COOLDOWN_MS[role] || 0;
+    if (!cooldown || !house || house.id == null) return 0;
+    const cur = save && save.shopState ? save.shopState[house.id] : null;
+    const at = cur ? +cur.dealAt : 0;
+    if (!(at > 0)) return 0;
+    return Math.max(0, Math.min(cooldown, at + cooldown - now));
+  }
+
+  // Deterministic 0..1 RNG keyed by (house.id offset, bucket, deals, rerolls,
+  // skips, offerSalt, lane). `lane` namespaces independent rolls within a
+  // bucket so e.g. the price roll can't consume the pool-pick roll.
+  //
+  // The bucket's DEAL count is in the seed: what was bought leaves the shelf,
+  // so the moment a deal closes the shop has something else to offer (and
+  // the trader's sign, which reads the same pick, names the new goods —
+  // shops_math.test.js "a closed deal turns the shelf over"). A re-roll
+  // pivots the stream on top of that.
+  function rng(save, house, lane = '', now = Date.now()) {
+    const cur = bucketState(save, house, now);
+    const turnover = cur.deals | 0;
     const seed = ((bucketOffset(house.id) >>> 0)
                 ^ (cur.bucket >>> 0)
                 ^ ((save.offerSalt || 0) >>> 0)
@@ -483,6 +549,7 @@
   }
 
   root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, SMITHY_REROLL_START, smithyRerollCost, bucketOffset, bucket, easedRerolls, bucketState, pruneShopState, rng, buyPrice,
+                     DEAL_COOLDOWN_MS, MAX_DEAL_COOLDOWN_MS, dealCooling, recordDeal, dealWaitMs,
                      REROLL_RETRIES, offerKey, rerollPeek,
                      SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, SLOT_JACKPOT_PAIR_COINS,
                      SLOT_STAR_WEIGHT, SLOT_NATURAL_MUL, SLOT_STAR_PAIR_MUL, SLOT_DELUXE_SPINS, SLOT_DELUXE_MUL, slotDeluxeShare, slotDeluxeNext, SLOT_STAR_BADGES, SLOT_STAR_JACKPOT_COINS, slotMachine, slotSpin, slotPrizes,

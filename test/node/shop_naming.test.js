@@ -68,18 +68,17 @@ test('shop naming: the trader is named for its goods, never its address', () => 
     'the modal no longer rolls its own give item beside the sign\'s');
 });
 
-// A trade takes the trader's goods with it: the give-pick is seeded per deal
-// (ShopsMath.rng perDeal), so the modal's next offer and the sign over the
-// roof both name new goods the moment a barter closes, never the stack just
-// handed over. Cash shops keep their shelf across a purchase — the fold is
-// the trader's alone.
+// A trade takes the trader's goods with it: the give-pick reads the shop's
+// seeded stream, which every closed deal turns over (ShopsMath.rng folds the
+// deal count in — as at every shop since Oct 2026), so the modal's next
+// offer and the sign over the roof both name new goods the moment a barter
+// closes, never the stack just handed over.
 test('shop naming: a closed trade turns the trader\'s goods over', () => {
-  assert.truthy(/traderGivePick\(house\) \{[\s\S]{0,200}?this\.shopRng\(house, 'trader', \{ perDeal: true \}\)/.test(app),
-    'the trader\'s give-pick is seeded per deal');
-  const perDeal = app.match(/perDeal: true/g) || [];
-  assert.eq(perDeal.length, 1, 'only the trader folds deals into its offer');
-  assert.truthy(/shopRng\(house, lane = '', opts = \{\}\) \{\s*return ShopsMath\.rng\(this\.save, house, lane, Date\.now\(\), opts\);/.test(app),
-    'shopRng hands the option to ShopsMath.rng');
+  assert.truthy(/traderGivePick\(house\) \{[\s\S]{0,200}?this\.shopRng\(house, 'trader'\)/.test(app),
+    'the trader\'s give-pick reads the shop\'s seeded stream');
+  assert.falsy(/perDeal/.test(app), 'no shop opts into the deal fold — every shop\'s deal is in the seed');
+  assert.truthy(/shopRng\(house, lane = ''\) \{\s*return ShopsMath\.rng\(this\.save, house, lane, Date\.now\(\)\);/.test(app),
+    'shopRng reads ShopsMath.rng');
 });
 
 test('shop naming: the role KEY is untouched — saves still say "market"', () => {
