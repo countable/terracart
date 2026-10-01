@@ -1,0 +1,14 @@
+{
+  "generator": "built-in image_gen",
+  "reference": "assets/Objects/Approved/house_trailer.png",
+  "masterArtifact": "http://localhost:8765/story-repaint-review/home_wagon-master.png",
+  "masterSha256": "b86db6e8f8e1e4e7a53040a3ee0ed3ee908ab47160e03e6ccd659f414c356d9d",
+  "runtimeSha256": "8f92ec3a8aee52f0e1e04496d140a1db807e0569bbeac6da8d486abdbd96422f",
+  "dimensions": [
+    108,
+    75
+  ],
+  "alpha": "binary",
+  "paletteColors": 48,
+  "design": "Weathered timber travelling home, moss-green curved roof, copper seams and stovepipe, iron fittings, amber leaded windows and wooden spoked wheels."
+}
