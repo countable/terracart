@@ -749,10 +749,18 @@
   // (loadTile after bin injection).
   const TIER_SEED_QUOTA = { 5: 1, 4: 7, 3: 15, 2: 25 };
   const TIER_SEED_DENSE_AT = 100, TIER_SEED_DENSE_MAX_AT = 1000;
-  function seedChestTiers(objects) {
+  function seedChestTiers(objects, opts = {}) {
+    // Underground, the pool is the CAVE MIRRORS (isDensityChest excludes
+    // them by design): each level of a tile runs its own pyramid over its
+    // own mirrors, the depth bonus adding on top of the seed (loot.js
+    // chestTier) so deeper levels concentrate the high tiers.
+    const cave = !!(opts && opts.cave);
+    const inPool = cave
+      ? (o) => o.kind === 'chest' && !!o.poiClass && !o.crate && !o.fixedLoot && o.depth > 0
+      : (o) => isDensityChest(o) && !o.vista;
     const pool = [];
     for (const o of objects || []) {
-      if (!isDensityChest(o) || o.vista) continue;
+      if (!inPool(o)) continue;
       if (o.tierSeed !== 1) { o.tierSeed = 1; delete o._chestLook; }
       pool.push(o);
     }
@@ -7623,7 +7631,10 @@
       const poiDensity = (o.depth > 0 || o.caveOf) ? o.poiDensity : counts.get(o.poiClass);
       out.push({ kind: 'chest', x: cx, y: cy, id: `${surfaceId}_d${depth}`,
         caveOf: surfaceId, poiClass: o.poiClass, name: o.name || '', depth, poiDensity,
-        tierSeed: o.tierSeed });   // the surface seed rides down; depth adds its bonus
+        // The RANK rides down (each level's pyramid picks its best the same
+        // way the surface did); the surface's tierSeed does not - every level
+        // seeds its own pyramid, the depth bonus landing on top of it.
+        rank: o.rank });
     }
     return out;
   }
@@ -8025,6 +8036,8 @@
     for (const c of caveChestsFrom(aboveObjects, grid, N, x, y, tileEdgeM, depth, occupied)) {
       objects.push(c);
     }
+    // This level's own quota pyramid, over this level's mirrors.
+    seedChestTiers(objects, { cave: true });
     // Torches where the lowtier POIs overhead would have been (a random
     // subset per level), seated before the rocks so they keep their spot.
     const torchSites = caveTorchSites(above);
