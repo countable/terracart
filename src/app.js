@@ -65,7 +65,7 @@ const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
 // The first repaired stretch introduces the neighbours who leave gifts.
 const TRAIL_INTRO_TITLE = 'The survivors are watching';
 const trailIntroBody = (playerClass) =>
-  'You brush the loose dirt aside and find smooth road beneath it. Someone watching from a doorway reaches for a gift; you had only meant to clear a place to walk.';
+  'You clear the rubble from the road. A survivor watches from a doorway, then brings you a gift.';
 // …but not on the same beat as the repair. The first stretch to come back
 // under a new player is a flash, a scatter of chips and a counter on the
 // street itself, and a dialog opening over the top of that covers the very
@@ -3306,7 +3306,7 @@ class MapScene extends Phaser.Scene {
       this._storySplashOnce('trap', {
         art: 'trap_jaw',
         title: 'A trap!',
-        body: 'Iron snaps around your leg, and your next step goes nowhere. You look down at the teeth in your boot and wonder how you missed them.',
+        body: 'Iron jaws snap around your leg. You are trapped!',
       });
       return;   // the bite is this frame's cost; the bleed starts on the next
     }
@@ -4116,7 +4116,7 @@ class MapScene extends Phaser.Scene {
         this._storySplashOnce('trap_free', {
           art: 'trap_free',
           title: 'You pry yourself free',
-          body: "You pull until the iron teeth part, then drag your leg clear. You tug your hood straight and look down; your boot is still on, which seems a good place to start.",
+          body: "You force the iron jaws apart and pull your leg free.",
         });
       }
       // Stick → walk yourself off the GPS (costs stamina, amulet-scaled).
@@ -7272,7 +7272,7 @@ class MapScene extends Phaser.Scene {
       this._storySplashOnce('cave', {
         art: 'cave_first',
         title: 'Into the dark',
-        body: 'Cold air slips beneath your hood, carrying the smell of wet stone. You listen to a drop of water fall somewhere ahead and cannot tell how far away it is.',
+        body: 'You step into the cold cave. Water drips somewhere in the darkness ahead.',
       });
     }
   }
@@ -8306,11 +8306,11 @@ class MapScene extends Phaser.Scene {
     seen.revive = 1;
     persistSave(this.save);
     const PANELS = [
-      { art: 'revive_fall',  title: 'Out cold', body: 'You try to take another step, but your legs fold beneath you. The ground is hard against your cheek, and then you feel nothing.' },
-      { art: 'revive_found', title: 'Found',    body: 'You feel hands beneath your shoulders and hear someone telling the others to lift. A lantern sways above you as they carry you home.' },
+      { art: 'revive_fall',  title: 'Out cold', body: 'Your legs give out. You hit the ground, and everything goes dark.' },
+      { art: 'revive_found', title: 'Found',    body: 'Villagers find you by lantern light. They lift you gently and carry you home.' },
       // The carer is the villager revive_wake draws; they say nothing, which
       // is the point. What the revival GAVE is the energy pop's to say.
-      { art: 'revive_wake',  title: 'Home',     body: 'You wake with a rough blanket tucked around you and a farmhand waiting nearby. You begin to thank him, but he nods as though you have already said enough.' },
+      { art: 'revive_wake',  title: 'Home',     body: 'You wake under a rough blanket beside your wagon. A farmhand nods goodbye.' },
     ];
     const show = (i) => this.showMessageModal({
       ...PANELS[i], kind: 'story',
@@ -8331,21 +8331,21 @@ class MapScene extends Phaser.Scene {
     if (!slot || !(this.save.relics?.[slot]?.tier > 0)) return;
     const TOOL_STORIES = {
       till:  { art: 'tool_till',  title: 'First furrow',
-               body: 'You draw the hoe toward you, turning the dry crust over onto darker soil. The smell rises close to your hands; you had not expected earth to smell different underneath.' },
+               body: 'You pull the hoe through the dry ground, turning up dark, fresh soil.' },
       chop:  { art: 'tool_chop',  title: 'Timber!',
-               body: 'The strike travels up the handle into your elbows. You loosen your grip a little, and the next blow feels better.' },
+               body: 'Your axe bites into the trunk. Wood chips scatter at your feet.' },
       dig:   { art: 'tool_dig',   title: 'The pick bites',
-               body: 'You feel the pick strike through your arms before you hear the ring of it. A pale line opens in the stone, and you aim for the same place again.' },
+               body: 'Your pick strikes with a sharp ring. A crack opens in the stone.' },
       water: { art: 'tool_water', title: 'A good soak',
-               body: "You tip the can and watch the soil darken where the water lands. You stay a moment longer, though you know growing things cannot be hurried by looking." },
+               body: "You tip the can, soaking the soil around your seeds." },
       catch: { art: 'tool_catch', title: 'A careful sweep',
-               body: 'The net trembles at the end of its handle. You hold your breath, as though that might make the rest of you less noticeable.' },
+               body: 'You hold your breath and sweep the net through the air.' },
       sword: { art: 'tool_sword', title: 'Steel out',
-               body: 'Your feet settle before you decide where to put them. It is strange to know how to do something and not remember learning.' },
+               body: 'You plant your feet and swing your blade. The movement feels familiar.' },
       staff: { art: 'tool_staff', title: 'First spark',
-               body: 'You tighten your fingers around the staff as a small light gathers at its tip. It feels familiar enough that you almost forget to be surprised.' },
+               body: 'A spark gathers at the tip of your staff. You hold it steady as the light grows.' },
       shoot: { art: 'tool_shoot', title: 'Loose!',
-               body: 'The string presses a thin line into your fingers, then slips free. You feel the bow settle in your hand and try to remember who showed you how to hold it.' },
+               body: 'You draw the bow and release. The string snaps forward as your arrow flies.' },
     };
     const entry = TOOL_STORIES[action];
     if (entry) this._storySplashOnce('tool:' + action, entry);
@@ -8359,8 +8359,8 @@ class MapScene extends Phaser.Scene {
       art: isTree ? 'barehand_tree' : 'barehand_work',
       title: 'Without a tool',
       body: isTree
-        ? 'The tree falls, leaving your palms warm and sticky with sap. The others are staring at your hands, but you thought everyone could do that.'
-        : 'You rub the dirt from your palms and look over the finished work. The others are still fetching tools, and you wonder whether you should have waited for them.',
+        ? 'You fell the tree with your bare hands. Nearby survivors stare in disbelief.'
+        : 'You finish the work with your bare hands before the others can fetch their tools. They stare in disbelief.',
     });
   }
 
@@ -8379,7 +8379,7 @@ class MapScene extends Phaser.Scene {
     if (title === SHINY_FIND_TITLE) this._storySplashOnce('shiny', {
       art: 'shiny_first',
       title: 'A shiny find!',
-      body: 'You turn toward a glint that seems warmer than the light around it. For a moment you expect a hand beside yours, though you cannot remember whose.',
+      body: 'The glow warms your fingertips. You almost remember holding someone’s hand.',
     });
     try {
       const banner = this._toast(title,
@@ -10249,7 +10249,7 @@ class MapScene extends Phaser.Scene {
     this.flashLoot(`Bounty paid! +${gb.pay}`, '#ffe066', 1);
     this._storySplashOnce('macro:bounty', {
       art: Macros.KIND_DIALOG.guildhall.art, title: 'A bounty paid',
-      body: 'You feel the weight of the promised coins settle into your hand. The empty place on the board looks small for something that took so much trouble.',
+      body: 'You collect your bounty at the hall. The keeper counts the promised coins into your hand.',
     });
   }
   // THE BOUNTY WAITS, asked each frame there is one: it stands down only when
@@ -12076,7 +12076,7 @@ class MapScene extends Phaser.Scene {
         art: 'trail_prize',
         iconHTML: this.coinIconHTML ? this.coinIconHTML(48) : '',
         name: '+5',
-        sub: 'You accept the gift, still brushing road dust from your hands. The neighbours seem pleased to have found something you need.',
+        sub: 'Your neighbours thank you for repairing the road and hand you a gift.',
         color: UI_GOLD,
         onDismiss,
       });
@@ -12094,14 +12094,14 @@ class MapScene extends Phaser.Scene {
       if (!card) { if (typeof onDismiss === 'function') onDismiss(); return; }
       this.showChestRewardModal({
         kind: 'trail', header, ...card, art: 'trail_prize',
-        sub: 'You accept the gift, still brushing road dust from your hands. The neighbours seem pleased to have found something you need.',
+        sub: 'Your neighbours thank you for repairing the road and hand you a gift.',
         onDismiss: () => this._revealPendingBookReads(onDismiss),
       });
       return;
     }
     this._offerTreasurePick({
       kind: 'trail', header, art: 'trail_prize', choices, onDismiss,
-      sub: 'You find the neighbours waiting with a few things set aside for you. They ask you to choose one, and you look carefully before reaching.',
+      sub: 'Your neighbours offer you gifts to thank you for repairing the road. Choose one.',
     });
   }
 
@@ -12338,19 +12338,19 @@ class MapScene extends Phaser.Scene {
             // shop's blurb follows its line (marketTheme).
             const theme = role === 'market' ? this.marketTheme(house).theme : null;
             const THEME_BLURB = {
-              seed:   'You recognise the dry rattle of seeds in paper packets.',
-              supply: 'You find the small supplies you keep running short of lined up within reach.',
-              potion: 'You lean closer to the bottles, trying to see what makes their colours move.',
-              ore:    'You recognise the lumps of ore by their weight and dull shine.',
-              relic:  'You study the tools and armour hanging where the family can reach them.',
-              pet:    'You hear paws and hooves shifting behind the counter and crouch for a better look.',
+              seed:   'You find packets of seeds on the shelves.',
+              supply: 'You find supplies for the road on the shelves.',
+              potion: 'You watch strange colours swirl in bottles behind the counter.',
+              ore:    'You find ore for the forge piled on the counter.',
+              relic:  'You inspect the tools and armour hanging behind the counter.',
+              pet:    'You hear paws and hooves shuffling nearby.',
             };
             const INFO = {
-              blacksmith: { blurb: 'You hear bundles being set down beside the forge as the family comes home. They offer to make your tools, and you are glad the work has brought them back.' },
-              market:     { blurb: 'You hear the shutters scrape open and step closer to see what the family has brought to sell. ' + (THEME_BLURB[theme] || 'You run a finger along the counter, finding clean wood beneath the last of the dust.') },
-              trader:     { blurb: 'You watch the trader unpack beside the hearth, setting each bundle in a place he seems to remember. His family offers to share what they have, and you make room for the next bundle.' },
-              wizard:     { name: 'Wizard Tower', blurb: "You step into the tower with dust caught in the folds of your hood. The old wizard asks about your memories as though he has been waiting to hear them." },
-              plain:      { name: 'House',        blurb: 'You hear the children choosing beds while their parent offers to buy your harvest. You look up at the roof and are pleased there is somewhere dry to put them.' },
+              blacksmith: { blurb: 'A family returns to the forge. They offer to make the tools you need.' },
+              market:     { blurb: 'A family opens the market shutters again. ' + (THEME_BLURB[theme] || 'You look over the freshly stocked counter.') },
+              trader:     { blurb: 'The trader and his family unpack beside the hearth. They offer to share their supplies.' },
+              wizard:     { name: 'Wizard Tower', blurb: "You step into the tower. An old wizard asks about your memories." },
+              plain:      { name: 'House',        blurb: 'Children choose their beds under the repaired roof. Their parent offers to buy your harvest.' },
             };
             const info = INFO[role] || INFO.plain;
             const name = info.name || Shops.roleLabel(role, theme) || INFO.plain.name;
@@ -12363,7 +12363,7 @@ class MapScene extends Phaser.Scene {
               art: role === 'plain' ? 'restore_house' : 'restore_' + role,
               header: 'Restored!',
               name: `You restored a ${name}`,
-              sub: order === 0 ? "You dust off your hands while the returning family looks from you to the finished building. They keep asking how you did it so quickly, though it did not feel quick to you." : info.blurb,
+              sub: order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : info.blurb,
               color: '#a7ffb0', accent: '#a7ffb0',
               onDismiss: role === 'wizard'
                 ? () => MemoryStory.visitWizard(this, () => {}, house) : undefined,

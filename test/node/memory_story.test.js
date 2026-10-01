@@ -73,7 +73,7 @@ test('memory story: the drain opens one dialog per memory, with the label in the
   assert.eq(s.modals[0].art, 'discovery_badge');
   assert.eq(s.modals[0].title, 'A memory returns');
   assert.eq(s.modals[0].body,
-    'You feel a small piece of the past return with a shiny Cow. You try to hold it still before it fades.');
+    'A memory returns with a shiny Cow.');
   let busy = true;
   withBody(() => busy, () => {
     s._drainBadgeStories();

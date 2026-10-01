@@ -2350,12 +2350,12 @@
     const STORY_SLIDES = [
       {
         art: '<img src="assets/art/story_wake.webp" alt="">',
-        text: "The trailer creaks as you sit up, your hood caught beneath your shoulder. You know what everything around you is called, but not how you came to be here.",
+        text: "You wake up feeling disoriented and look outside.",
         btn: 'Next',
       },
       {
         art: '<img src="assets/art/story_wrecks.webp" alt="">',
-        text: "Beyond the door, grass grows through fallen roofs and empty window frames. You want to put something back where it belongs, even if you cannot remember where you belong.",
+        text: "The neighbourhood is in shambles, with wrecked homes and streets in disrepair. What happened?",
         btn: "Let's go",
       },
     ];
@@ -2679,12 +2679,12 @@
   <script src="src/particles.js?v=1285fe88"></script>
   <script src="src/trail.js?v=4f074692"></script>
   <script src="src/streets.js?v=959b140a"></script>
-  <script src="src/street_variants.js?v=3b8f495b"></script>
-  <script src="src/scenic.js?v=9cd3a30a"></script>
-  <script src="src/zones.js?v=39ca2740"></script>
+  <script src="src/street_variants.js?v=7552ffa7"></script>
+  <script src="src/scenic.js?v=a771b44f"></script>
+  <script src="src/zones.js?v=d8f8a2d7"></script>
   <script src="src/zone_variant_data.js?v=9a3c54f4"></script>
   <script src="src/zone_variants.js?v=6c31a01d"></script>
-  <script src="src/shrines.js?v=3e1bc862"></script>
+  <script src="src/shrines.js?v=c69c77b9"></script>
   <script src="src/zone_coverage.js?v=9f3ade7f"></script>
   <script src="src/zone_dressing.js?v=4f7cadec"></script>
   <script src="src/sprite_layout.js?v=66298760"></script>
@@ -2713,7 +2713,7 @@
   <script src="src/chest_themes.js?v=b376f240"></script>
   <script src="src/rarity.js?v=ab37ec72"></script>
   <script src="src/loot.js?v=191c9af0"></script>
-  <script src="src/macros.js?v=9c3c553c"></script>
+  <script src="src/macros.js?v=8d6c71b0"></script>
   <script src="src/quests.js?v=59439da3"></script>
   <script src="src/interactables.js?v=9c3f4d53"></script>
   <script src="src/houses.js?v=453e0ec3"></script>
@@ -2722,8 +2722,8 @@
   <script src="src/combat.js?v=db469160"></script>
   <script src="src/creature_ai.js?v=d6f1d651"></script>
   <script src="src/wizard.js?v=dbeb7724"></script>
-  <script src="src/dragon_story.js?v=cb00f385"></script>
-  <script src="src/memory_story.js?v=e1dffe0d"></script>
+  <script src="src/dragon_story.js?v=c392538b"></script>
+  <script src="src/memory_story.js?v=9046b62a"></script>
   <script src="src/story_encounters.js?v=cb62345c"></script>
   <script src="src/interact.js?v=f4be0d7c"></script>
   <script src="src/play_tips.js?v=2ef96f59"></script>
@@ -2741,7 +2741,7 @@
   <script src="src/scene_geo.js?v=96439ff3"></script>
   <script src="src/npc.js?v=5a25f4f1"></script>
   <script src="src/scene_creatures.js?v=83ac6d02"></script>
-  <script src="src/scene_shops.js?v=f18b2110"></script>
+  <script src="src/scene_shops.js?v=ef6bd4db"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2802,7 +2802,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=3f26a015';
+      const APP_SRC = 'src/app.js?v=c54b9209';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

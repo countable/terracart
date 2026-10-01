@@ -368,11 +368,13 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   lore (docs/story.txt, ACT STRUCTURE). Memory and restoration are independent
   progress tracks; required events join them through prerequisites and world
   context. A painted panel can carry either layer. Lore never blocks canon.
-- Story panels share one second-person narrator: the Hood’s slightly naïve,
-  literal thoughts and feelings, grounded in physical sensations and occasional
-  environmental details. Average about two sentences; tie lightly to the story
-  without early revelations. Do not assume the player’s time of day or weather.
-  Books retain their separate author voices.
+- Story panels use a direct second-person narrator focused on the current
+  experience: what happens, what the Hood notices, and how people respond.
+  Keep them to one or two short sentences with occasional sensory detail.
+  Avoid clever observations, implied lessons, and explanations of the Hood's
+  thoughts. State emotions plainly when they matter. Preserve story beats and
+  useful facts without early revelations. Do not assume the player's time of
+  day or weather. Books and spoken dialogue retain their separate voices.
 - Story panels, books and item descriptions carry at most one useful fact,
   told through the world, physical sensations or a character's voice. Hint at
   the advantage and leave exact effects for discovery. Confirmations state

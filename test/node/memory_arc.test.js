@@ -225,7 +225,7 @@ test('memory arc: contradictory fragments require their acknowledged claim, and 
 
 test('memory arc: ten milestones and the dragon declaration have painted art and no early spoilers', () => {
   assert.eq(Object.keys(MemoryStory.SCENES).length, 10);
-  assert.includes(MemoryStory.REVEAL[0].body, 'old man stay seated');
+  assert.includes(MemoryStory.REVEAL[0].body, 'The wizard stays seated');
   assert.includes(MemoryStory.REVEAL[0].body, 'human shape is all he has left');
   assert.falsy(/wings|red scales|nearly killed/.test(MemoryStory.REVEAL.map(p => p.body).join(' ')),
     "Tim has not regained dragon form; Hood's lost form is not blamed on battle wounds");

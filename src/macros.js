@@ -398,14 +398,14 @@
   // the place is, told once. No numbers — those are on the dialog and in the
   // Book.
   const KIND_STORY = {
-    inn:         { title: 'An inn', body: "Warm air carries the smell of the hearth through the doorway. Your shoulders sink a little; you had not noticed how high you were holding them." },
-    chapel:      { title: 'A chapel', body: 'A candle stands by the chapel door, where the keeper offers a quiet blessing. You are not sure what a blessing should feel like, but you find yourself listening carefully.' },
-    apothecary:  { title: 'An apothecary', body: 'Small stoppered bottles crowd the shelves, and the room smells sharply of herbs. You wonder how someone knows which bottle belongs to which ache, and feel glad that someone seems to.' },
-    scriptorium: { title: 'A scriptorium', body: 'The room smells of ink, and books lie open on the counter. You want to know what they say, though the sight of so many pages makes it hard to choose where to start.' },
-    guildhall:   { title: 'A guildhall', body: "A bounty notice hangs beside the guildhall door, its edges worn soft. You read it slowly, trying to picture the thing someone wants gone." },
-    curio:       { title: 'A curio hall', body: "The keeper has left spaces on the shelves for things people find along the way. You look at the empty places and start thinking about what might fit." },
-    sundries:    { title: 'A sundries shop', body: 'Rope and torches lie within easy reach of the counter. You look them over and think of all the small troubles that would be easier with the right thing in your bag.' },
-    training:    { title: 'A training hall', body: 'The master watches each movement in the training hall. You become rather aware of your own hands, and wonder what they have been doing wrong without telling you.' },
+    inn:         { title: 'An inn', body: "Warm air drifts from the hearth. You relax at the sight of a clean bed." },
+    chapel:      { title: 'A chapel', body: 'A candle burns by the chapel door. You stop to receive the keeper\'s quiet blessing.' },
+    apothecary:  { title: 'An apothecary', body: 'The room smells of herbs. You look over the small bottles lining the shelves.' },
+    scriptorium: { title: 'A scriptorium', body: 'Books lie open on the counter, and the room smells of fresh ink. You lean closer to read.' },
+    guildhall:   { title: 'A guildhall', body: "A bounty notice hangs beside the guildhall door. You stop to read it." },
+    curio:       { title: 'A curio hall', body: "The keeper shows you the empty shelves. There is room here for your finds." },
+    sundries:    { title: 'A sundries shop', body: 'Rope and torches fill the shelves. You look over the supplies for your next trip.' },
+    training:    { title: 'A training hall', body: 'The master watches as you practise. You focus on your next swing.' },
   };
 
   root.Macros = {

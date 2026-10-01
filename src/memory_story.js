@@ -6,11 +6,11 @@ const MemoryStory = (() => {
   const START_MEMORIES = 9, LEAVE_MEMORIES = 21, REVEAL_MEMORIES = 30;
   const ABANDONED_NOTE = 'come to me when you are ready.';
   const LOCKED = { art: 'restore_wizard', title: 'The sealed tower',
-    body: 'You count nine small stars above the lock and press your hand against the cold door. It will not open until nine memories have returned.' };
+    body: 'You press against the cold tower door. Nine stars mark the lock; you need nine memories to open it.' };
   const ABANDONED = { art: 'restore_wizard', title: 'An abandoned tower',
-    body: 'You find cold ashes, bare shelves and a note where the wizard used to sit. You read the few words twice: “' + ABANDONED_NOTE + '”' };
+    body: 'You find cold ashes, bare shelves and a note from the wizard: “' + ABANDONED_NOTE + '”' };
   const EMPTY = { art: 'restore_wizard', title: 'An empty tower',
-    body: 'You knock and listen to the sound travel through the tower. No one answers; the wizard must be elsewhere.' };
+    body: 'You knock on the tower door. No one answers.' };
   // THE FIRST WORDS ARE THE WARDEN'S, ON A TAP. This page is what the safe
   // area's warden says while nothing is mended yet (npcDialogue below). It
   // used to be pushed onto the pending queue by the warden's own seating and
@@ -63,83 +63,83 @@ const MemoryStory = (() => {
   };
   const SCENES = {
     3: { art: 'story_wrecks', title: 'The name in the smoke',
-      body: 'You hear a bell through the smoke and see someone clutch a child, whispering the name Warmonger. Your hands are clenched when the glimpse passes, but you cannot remember what they held.' },
+      body: 'You hear a bell through the smoke. Someone clutches a child and whispers, “Warmonger.”' },
     6: { art: 'kind_memory', title: 'The window behind you',
-      body: 'You see the broken windows whole for a moment, with a still figure watching you from one of them. When you turn, the frame is empty, and you wonder whether you were meant to notice.' },
+      body: 'You glimpse a figure watching you through a window that was broken a moment ago. You turn, but the frame is empty.' },
     9: { art: 'book_read', title: 'A voice by the old road',
-      body: 'You remember someone beside a shuttered house speaking of a wise man nearby whom nobody has seen in years. The voice is clearer than the face, and you wonder whether he knows why these roads feel familiar.' },
+      body: 'You remember a voice speaking of a wise man nearby. No one has seen him in years.' },
     12: { art: 'story_wrecks', title: 'What the Warmonger left',
-      body: "You feel heat against your face as roofs fall along the street, with someone shouting the name Warmonger. You cannot tell which side of the flames you are on." },
+      body: "You feel the heat as roofs collapse around you. Someone shouts, “Warmonger!”" },
     15: { art: 'restore_house', title: 'The table beneath the roof',
-      body: 'You see supper left on a table as the windows turn white and the roof folds inward. Someone stands still beyond the fire, and you have the uncomfortable feeling of being watched.' },
+      body: 'You see a roof collapse over an untouched supper. Beyond the flames, a figure stands watching you.' },
     18: { art: 'kind_memory', title: 'The hand at your shoulder',
-      body: 'You see a woman pull a child behind her as flames climb a doorway and a quiet voice orders someone forward. You try to see who obeys, but the doorway falls first.' },
+      body: 'You see a woman pull a child behind her as the doorway burns. A voice says, “Forward,” just before it collapses.' },
     21: { art: 'story_wrecks', title: 'Beneath the battle',
-      body: 'You fall through smoke towards a broken town while someone orders you to rise. The pain feels too large for the body you have now, and you cannot move.' },
+      body: 'You fall through smoke into a ruined town. Someone orders you to rise, but you cannot move.' },
     24: { art: 'revive_wake', title: 'A second beginning',
-      body: 'You feel yourself being carried from a battlefield, with strange skin and hands that seem much too small. A voice beside you says there is still enough left, but the memory goes dark before you can see who is speaking.' },
+      body: 'You are carried from a battlefield, your hands strangely small. A voice says, “There is still enough left,” before the memory fades.' },
     27: { art: 'kind_wizard', title: 'Beyond this ruined land',
-      body: 'You see maps of unfamiliar skies spread across a table and a finger moving over them. Someone speaks of when you will be whole again, in a voice you recognise without knowing why.' },
+      body: 'You see maps of unfamiliar skies spread across a table. A familiar voice says, “Once you are whole again.”' },
     30: { art: 'kind_memory', title: 'The memory he kept',
-      body: 'You can almost fit the quiet voice, the falling roofs and the strange maps together, but one face is still missing. You need to return to the wizard’s new tower and ask him.' },
+      body: 'You remember the same voice among the falling roofs and beside the strange maps. Return to the wizard’s new tower for answers.' },
   };
   const AFTER = [
-    { art: 'restore_house', title: 'A memory worth keeping', body: 'You close your eyes and can still picture the doorway you repaired. You know who will live behind it, which makes this memory easier to hold.' },
-    { art: 'trail_intro', title: 'The road you chose', body: 'You remember this road without anyone left to walk it. Now you can hear people along it, and you find yourself listening for a little longer.' },
-    { art: 'home_sell', title: 'Small things remain', body: 'You remember warm bread, a doorstep and someone calling you in from the rain. You do not know why these little things return so clearly, but you are glad they do.' },
+    { art: 'restore_house', title: 'A memory worth keeping', body: 'You remember the doorway you repaired and the people who now live behind it.' },
+    { art: 'trail_intro', title: 'The road you chose', body: 'You remember walking this road alone. Now you hear neighbours calling to each other.' },
+    { art: 'home_sell', title: 'Small things remain', body: 'You remember the smell of warm bread and someone calling you in from the rain.' },
   ];
   const INTRO = [
-    { art: 'restore_wizard', title: 'Someone has been waiting', body: 'You reach for the tower door, and it opens before you knock. The old man knows about the houses you repaired and seems pleased that you found him.' },
-    { art: 'kind_wizard', title: 'A promise of help', body: 'You listen as the wizard offers to help you grow strong enough to face what lies beyond the roads. Restoring the land together sounds easier than doing it alone.' },
-    { art: 'kind_memory', title: 'Come back with memories', body: 'You feel his hand close around yours as he explains that each memory brings back a little more of you. He asks you to return when you remember more, so he can help you reach that strength.' },
+    { art: 'restore_wizard', title: 'Someone has been waiting', body: 'The tower door opens before you knock. The wizard welcomes you and asks about the houses you repaired.' },
+    { art: 'kind_wizard', title: 'A promise of help', body: 'The wizard offers to help you grow stronger. You will need that strength to face the dangers beyond the roads.' },
+    { art: 'kind_memory', title: 'Come back with memories', body: 'The wizard takes your hand and says your memories will restore your strength. He asks you to return when you remember more.' },
   ];
-  const FIRST_RETURN = { art: 'kind_wizard', title: 'The right things', body: 'You hear him offer to help you remember the right things, though you had not known there could be wrong ones. He says memories return out of order and asks you to bring him anything that troubles you.' };
+  const FIRST_RETURN = { art: 'kind_wizard', title: 'The right things', body: 'The wizard offers to help you remember the right things. He asks you to bring him any memories that trouble you.' };
   // Milestones unlock at fixed lifetime counts and belong to one tower.
   // A return catches up eligible pages together. The first tower closes at 21;
   // missed first-tower conversations never move into the new location.
   const ACT2 = [
     { id: 'silver_lining', minMemories: 12, tower: 'first', pages: [
-      { art: 'kind_wizard', title: 'A silver lining', body: 'You listen as he explains that monsters make you stronger for what comes next. His eyes go to the damage on your weapon before the tear in your sleeve.' },
+      { art: 'kind_wizard', title: 'A silver lining', body: 'The wizard says fighting monsters makes you stronger. You show him your damaged weapon, and he urges you to keep fighting.' },
     ] },
     { id: 'stronger_hands', minMemories: 15, tower: 'first', pages: [
-      { art: 'restore_wizard', title: 'Work for other hands', body: 'You think of the houses while he tells you the survivors can mend their own shutters now. He says kindness cannot stop everything out there, and you wonder which things he means.' },
+      { art: 'restore_wizard', title: 'Work for other hands', body: 'The wizard tells you the survivors can mend their own homes now. He wants you preparing for the dangers ahead.' },
     ] },
     { id: 'right_order', minMemories: 15, tower: 'first', pages: [
-      { art: 'story_wrecks', title: 'The burning street', body: 'You close your eyes at his request and try to remember the street. A woman reaches from a doorway with a child behind her, but you cannot hear what she is saying.' },
-      { art: 'kind_memory', title: 'In the right order', body: 'You listen as he says you arrived before the flames and the people were calling for help. When you picture the doorway again, the raised hand seems to welcome you, though the child is harder to see.' },
+      { art: 'story_wrecks', title: 'The burning street', body: 'You close your eyes and remember the burning street. A woman reaches from a doorway with a child behind her.' },
+      { art: 'kind_memory', title: 'In the right order', body: 'The wizard says you arrived before the flames, when people were calling for help. You picture the doorway again; the woman seems to welcome you, and the child fades.' },
     ] },
     { id: 'useful_memories', minMemories: 18, tower: 'first', pages: [
-      { art: 'kind_wizard', title: 'What remains useful', body: 'You try to picture the woman again, but his fingers tighten around your wrist. He asks you to remember the weight in your hands and the moment your enemy gave way instead.' },
+      { art: 'kind_wizard', title: 'What remains useful', body: 'You try to remember the woman, but the wizard tightens his grip on your wrist. He tells you to focus on defeating your enemy.' },
     ] },
     { id: 'hesitation', minMemories: 18, tower: 'first', pages: [
-      { art: 'wizard_cold', title: 'An old habit', body: 'You begin to stand as soon as he tells you to move, before you have decided to. He smiles at what he calls a good habit, and you sit with the odd feeling that your body heard him first.' },
+      { art: 'wizard_cold', title: 'An old habit', body: 'You stand at the wizard’s command before you can stop yourself. He calls it a good habit.' },
     ] },
     { id: 'little_lives', minMemories: 24, tower: 'second', pages: [
-      { art: 'wizard_cold', title: 'Their little lives', body: 'You think of roofs and baskets as he says the survivors’ little lives will take all of yours if you let them. He pulls out a chair for more important work, and you cannot quite see why theirs matters less.' },
+      { art: 'wizard_cold', title: 'Their little lives', body: 'The wizard says the survivors’ little lives will take all your time. He pulls out a chair and tells you to sit: there is more important work.' },
     ] },
     { id: 'what_comes_next', minMemories: 27, tower: 'second', pages: [
-      { art: 'wizard_map', title: 'What comes next', body: 'You look down at a map whose coastlines you do not recognise while he begins to speak of having you back. He changes it to having your strength back, but you keep noticing the first words.' },
+      { art: 'wizard_map', title: 'What comes next', body: 'You study a map of unfamiliar shores as the wizard says, “When I have you back...” He pauses, then says, “When you have your strength back.”' },
     ] },
   ];
   // These fragments contradict a version the player actually heard him give.
   // Before that visit, the original fragments remain ambiguous and complete.
   const ACT2_MEMORIES = {
-    18: { requires: 'right_order', art: 'memory_doorway', title: 'The hand in the doorway', body: 'You remember the wizard saying the woman was welcoming you, but now you can see her hand braced against the door. She is trying to shut it when the roof gives way.' },
-    21: { requires: 'useful_memories', art: 'kind_memory', title: 'The word beneath the word', body: 'You reach for the victory he told you to remember and hear someone pleading through the burning roofs. Then the street goes quiet, and you cannot make it fit the way he told it.' },
-    24: { requires: 'hesitation', art: 'memory_grip', title: 'An older grip', body: 'You remember his hand beside a battlefield, turning yours whenever his moved. He called it a good habit, but you cannot remember wanting to follow.' },
-    27: { requires: 'little_lives', art: 'wizard_map', title: 'A mark on a map', body: 'You remember him speaking of little lives above a map of unfamiliar shores. His finger covers a mark for a whole town, and you think of how many people must fit beneath it.' },
+    18: { requires: 'right_order', art: 'memory_doorway', title: 'The hand in the doorway', body: 'You see the woman again, bracing her hand against the door as the roof falls. She is trying to shut you out.' },
+    21: { requires: 'useful_memories', art: 'kind_memory', title: 'The word beneath the word', body: 'You remember the victory the wizard described, but hear people pleading among the burning homes. Then the street falls silent.' },
+    24: { requires: 'hesitation', art: 'memory_grip', title: 'An older grip', body: 'You remember the wizard moving his hand beside a battlefield. Your hand follows every movement against your will.' },
+    27: { requires: 'little_lives', art: 'wizard_map', title: 'A mark on a map', body: 'You remember the wizard speaking of “little lives” over a map. His finger covers a whole town.' },
   };
   // A repeat visit holds the current voice instead of advancing or cycling
   // back to an earlier, kinder wizard. These pages never grant an upgrade.
   const VISITS = [
-    'You listen as he asks you to explore unfamiliar land and bring back what you remember. It is comforting to think someone can help you make sense of it.',
-    'You think of the creatures that once frightened you while he points out how much more you can face. You had not noticed all the little changes in yourself.',
-    'You picture the village as he says it can spare you for a while. He wants you to look farther away for the parts of yourself still missing.',
-    'You try to hold the details still while he explains that a wounded mind can resist a simple answer. They seemed clearer before you started explaining them.',
-    'You listen as he tells you to keep only what made you strong. You wonder where the faces you remember are meant to go.',
-    'You hear that you used to trust him more quickly. You search his face for something familiar, but cannot find it yet.',
-    'You think of the people waiting outside while he says they have had enough of your time. There is work he wants you to finish here.',
-    'You hear him say there is very little left between you and what you were. You try to picture it and still cannot.',
+    'The wizard asks you to explore unfamiliar land and bring back your memories. He promises to help you understand them.',
+    'The wizard reminds you of the creatures you can now face. He says your strength is returning.',
+    'The wizard tells you the village can spare you for a while. He asks you to seek more memories farther away.',
+    'You struggle to recall the details while the wizard questions your memory. He says your wounded mind may resist a simple answer.',
+    'The wizard tells you to keep the memories that make you strong. He dismisses the others as distractions.',
+    'The wizard says you once trusted him without hesitation. You still cannot remember him clearly.',
+    'The wizard says you have given the survivors enough of your time. He wants you to stay and finish your work here.',
+    'The wizard tells you your old strength is nearly restored.',
   ];
   const SURVIVORS = [
     '<em>Children’s voices carry from a mended house.</em>\n“They have been practising how to thank you. Come by before supper, or they start again tomorrow.”',
@@ -147,11 +147,11 @@ const MemoryStory = (() => {
     '“Fix nothing today.”\n<em>Moves along the bench.</em>\n“Sit a while. We saved you a place.”',
     '<em>Does not ask what you saw at the tower.</em>\n“Whatever you remembered up there, you are the one who opened our door. It is still open.”',
   ];
-  const DRAGON_DECLARATION = 'You hear him call you both dragons, the ruling species of the stars, and claim this planet as his own. To him you are a sword nearly restored, with fire breath to recover from the demons on dungeon level 9.';
+  const DRAGON_DECLARATION = 'The wizard calls you both dragons, the ruling species of the stars, and claims this planet as his own. He calls you a sword nearly restored and sends you for your fire breath, held by demons on dungeon level 9.';
   const REVEAL = [
-    { art: 'wizard_dragon', title: 'The shape behind the mask', body: 'You watch the old man stay seated as he explains that this human shape is all he has left. Then you remember the fire above the town leaving your own throat, and understand that you were the Warmonger.' },
+    { art: 'wizard_dragon', title: 'The shape behind the mask', body: 'The wizard stays seated and tells you his human shape is all he has left. You remember breathing fire over the town: you were the Warmonger.' },
     { art: 'wizard_dragon', title: 'His planet', body: DRAGON_DECLARATION },
-    { art: 'cave_first', title: 'Act III · The fire below', body: 'You remember burning this world at his command before your dragon form and memories were taken, and can see how carefully he has chosen what to return. Your fire waits below, but you do not have to use it as he wants.' },
+    { art: 'cave_first', title: 'Act III · The fire below', body: 'You remember burning this world at his command, before you lost your dragon form and memories. Now you see how he has guided your memories to make you serve him again.' },
   ];
   function state(save) {
     const s = save.memoryStory && typeof save.memoryStory === 'object'
@@ -176,7 +176,7 @@ const MemoryStory = (() => {
       return { ...((curated && ACT2_MEMORIES[n]) || SCENES[n] || AFTER[(Math.floor(n / 3) - 11) % AFTER.length]), kind: 'memory' };
     }
     return { art: 'discovery_badge', kind: 'memory', title: 'A memory returns',
-      body: `You feel a small piece of the past return with ${record.label}. You try to hold it still before it fades.` };
+      body: `A memory returns with ${record.label}.` };
   }
   function drain(scene) {
     const s = scene.save.memoryStory;
@@ -467,8 +467,8 @@ const MemoryStory = (() => {
     if ((visit.kind === 'milestone' || visit.kind === 'act2') && pages.length) return pages;
     if (save.memoryStory?.act3Started) return [{ art: 'wizard_dragon', title: 'The fire below',
       body: typeof DragonStory !== 'undefined' && DragonStory.unlocked(save)
-        ? 'You feel the warmth behind your teeth as he says you are beginning to resemble yourself. His eyes move past you, as though he is looking for something much farther away.'
-        : 'You hear him repeat that the demons on dungeon level nine have your fire. You try to imagine breathing it again.' }];
+        ? 'You feel your fire returning as the wizard says you are beginning to resemble yourself. He turns towards the distant stars.'
+        : 'The wizard sends you to dungeon level nine. The demons there have your fire.' }];
     return [{ art: 'kind_wizard', title: 'More important work', body: VISITS[Math.min(state(save).act2Seen.length, VISITS.length - 1)] }];
   }
   function visitWizard(scene, offer, house) {
