@@ -277,17 +277,6 @@
       },
       "color": "#977851"
     },
-    "equipment": {
-      "kind": "chest",
-      "spawnClass": "minor",
-      "quarryEquipment": true,
-      "fixedLoot": {
-        "kind": "item",
-        "id": "iron_bar",
-        "qty": 1
-      },
-      "color": "#6b7477"
-    },
     "barrel": {
       "kind": "chest",
       "spawnClass": "minor",
@@ -6881,7 +6870,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "The crews who cut stone for the old kingdom's roads left in a hurry. Weathered timber, rusting iron and unopened tool crates lie where the last shift dropped them. Nothing here has been worked since the fire.",
+      "atmosphere": "The crews who cut stone for the old kingdom's roads left in a hurry. Weathered timber, copper ore and unopened tool crates lie where the last shift dropped them. Nothing here has been worked since the fire.",
       "attracts": {},
       "quarryLayout": "abandoned",
       "affinities": [

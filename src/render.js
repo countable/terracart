@@ -3740,7 +3740,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Nor over a barrel, a courier's post or a pot of gold: none of them is a chest
   // with a tier to show.
   const chestObjs = filteredObj.filter(({ o }) => { if (o.kind !== 'chest') return false;
-    const L = chestLook(o); return !L.equipment && !L.box && !L.macro && !L.barrel && !L.bike && !L.coin; });
+    const L = chestLook(o); return !L.box && !L.macro && !L.barrel && !L.bike && !L.coin; });
   const g = scene.tierGfx;
   g.clear();
   // Attack footprints sit above scenery so cover cannot hide the warning.
@@ -4627,7 +4627,7 @@ Render.objectAppearance = function (scene, houseRoles) {
               // SMALL_POI_SCALE (~21px) and seated like the crate.
               scale: (o) => { const L = chestLook(o);
                               return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
-                                : ((L.barrel || L.bike) ? SMALL_POI_SCALE : ((L.box || L.equipment) ? CRATE_SCALE : SpriteLayout.CHEST_SCALE)))); },
+                                : ((L.barrel || L.bike) ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE)))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px

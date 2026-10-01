@@ -36,9 +36,10 @@ if (!coverage.length) throw new Error('Parking lanes produced no Quarry coverage
 if ((tile.streetIndex?.lines || []).length) throw new Error('Removed parking lanes survived as roads');
 const position = o => [Math.floor((o.x-tx*tileEdgeM)/WG.CELL_M)-origin,
   Math.floor((o.y-ty*tileEdgeM)/WG.CELL_M)-origin];
-const material = o => o.quarryCrate ? 'tool_crate' : o.quarryEquipment ? 'equipment'
+const material = o => o.quarryCrate ? 'tool_crate' : o.barrel ? 'barrel'
   : o.kind === 'goblin' ? 'goblin' : o.kind === 'wildplant' ? o.crop
   : o.kind === 'lava_vent' ? 'lava' : o.deposit === 'crystal' ? 'crystal'
+  : o.kind === 'mineralrock' && o.yieldTier === 2 ? 'copper_rock'
   : o.kind === 'mineralrock' && o.yieldTier === 6 ? 'crimson_ore'
   : o.kind === 'mineralrock' ? 'stone' : null;
 const dress = tile.zoneDress || {};

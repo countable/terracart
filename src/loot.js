@@ -896,11 +896,10 @@ function chestLook(o) {
     || (!CHEST_ONE_TIME_CLASSES.has(o.poiClass) && chestTier(o) === 1);
   const macro = (!special && typeof macroFor === 'function') ? macroFor(o) : null;
   const wagon = !!o.banditStop && !(o.depth > 0) && !stand && !special && !macro;
-  const equipment = !!o.quarryEquipment;
-  const texKey = equipment ? 'quarry_equipment' : coin ? 'potofgold' : bike ? 'bike_rack' : barrel ? barrelArt.texKey : (macro ? macro.texKey
+  const texKey = coin ? 'potofgold' : bike ? 'bike_rack' : barrel ? barrelArt.texKey : (macro ? macro.texKey
     : (stand ? 'market_stand' : (wagon ? 'wagon' : (box ? 'box' : 'chest'))));
   return (o._chestLook = { stand, coin, bike, barrel, macro, smashedKey: barrelArt?.smashedKey, barrelName: barrelArt?.name,
-    box: box && !wagon && !macro && !special, equipment, wagon, texKey });
+    box: box && !wagon && !macro && !special, wagon, texKey });
 }
 
 
