@@ -716,20 +716,6 @@
           "#d9a88a": "#d7c4a0",
           "#f7dbc6": "#ece0bd"
         }
-      },
-      "zoneVariant": {
-        "name": "Mushroom Grove cap cluster",
-        "usage": "Mushroom Grove only; retain the ordinary single cap elsewhere.",
-        "candidate": {
-          "path": "assets/Objects/Wilderness/Props.png",
-          "rect": [
-            320,
-            64,
-            16,
-            16
-          ]
-        },
-        "note": "Keep the cap-cluster silhouette and cell loot, using exactly the same muted red and cream palette as the ordinary surface mushroom."
       }
     },
     {

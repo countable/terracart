@@ -140,7 +140,7 @@
       assert.eq(o.id, WorldGen.cellId('wpf', 0, 0, o._ix, o._iy), 'existing shrub identity survives the art change');
       assert.eq(JSON.stringify(wildplantRewards(o.crop)),JSON.stringify([{id:'wood',qty:1},{id:'mushroom',qty:1}]));
       assert.eq(wildplantSprite(o).sheet, 'giant_mushroom');
-      assert.eq(wildplantFrame(o), 2);
+      assert.eq(wildplantFrame(o), 0);
     }
     // The grove's forage is the plain red cap: the mushroom has no authored
     // surface look any more (items.js WILDPLANT_CONTEXT_ART), so no zone can
@@ -150,6 +150,7 @@
     assert.truthy(forage.every(o => !o._plantArt && wildplantSprite(o) === CROP_SPRITE.mushroom && wildplantFrame(o) === CROP_SPRITE.mushroom.frame), 'forage is the red cap, the same mushroom as everywhere');
     assert.eq(typeof WILDPLANT_CONTEXT_ART, 'object', 'the context-art table is in scope');
     assert.eq(typeof WILDPLANT_CONTEXT_ART.cap_cluster, 'undefined', 'the surface cluster look is gone');
+    assert.eq(wildplantSprite({crop:'mushroom',_plantArt:'cap_cluster'}), CROP_SPRITE.mushroom, 'saved cluster tags fall back to ordinary mushroom art');
     const ordinary = ZoneDressing.dress(context('meadow')).wildplants.filter(o => o.crop === 'shrub');
     assert.gt(ordinary.length, 0);
     assert.truthy(ordinary.every(o => !o._plantArt && wildplantSprite(o).sheet === 'bushes'), 'other groves use the same shrub');

@@ -114,7 +114,7 @@ const CROP_SPRITE = {
   // (WILDPLANT_RULES below), never scenery. The barricade road's barricade
   // is the generated 16px piece; clipped hedges still harvest as shrubs.
   barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 1.6 },
-  giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 2, scale: 1, seat: true },
+  giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 0, scale: 1, seat: true },
   // ── Influence zones (src/zones.js) — the tar yard's FLINT: a ground
   // pickup (WILDPLANT_RULES.flint below), the generated 16px nodule. One
   // frame of art, listed.
@@ -326,7 +326,7 @@ const MINERAL_ICON_SHEET = {
   shield_metal: { sheet: 'icon_shield_metal', frame: 0 },
   shield_gold: { sheet: 'icon_shield_gold', frame: 0 },
 
-  giant_mushroom: { sheet: 'giant_mushroom', frame: 2 },
+  giant_mushroom: { sheet: 'giant_mushroom', frame: 0 },
   // Wood — frame 2 of the 3-variant log sheet (amber bark variant).
   wood:     { sheet: 'wood',      frame: 2 },
   coal:     { sheet: 'coal_icon', frame: 0 },

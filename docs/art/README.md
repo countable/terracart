@@ -41,7 +41,7 @@ states. Shrubs have two appearances: the basic bush and the approved cut hedge a
 of its former residential display size. Both share shrub mechanics, and neither
 receives biome tint. The cut hedge has a soft contact shadow behind its lower third.
 Timber trees use maple or pine sprout, young and mature frames at one scale per
-species; their size classes retain their harvest tiers and yields. Biomes do not tint sprites. Long grass keeps its standard art and wetland reeds context; mushrooms retain the surface cap, two cave caps, and Mushroom Grove cap cluster. The game has no seasons.
+species; their size classes retain their harvest tiers and yields. Biomes do not tint sprites. Long grass keeps its standard art and wetland reeds context; mushrooms use the same surface cap in Mushroom Groves and retain their two cave caps. The game has no seasons.
 
 Generate both linked review pages and palette exports (Pillow and Node required):
 
@@ -73,8 +73,7 @@ frames. Baked unclaimed buildings bypass the old runtime wash to keep their slud
 and weathering visible. Chapel, macro POI booths, actors and other retained art
 remain unchanged.
 
-The sprite contexts are wetland-edge reeds, Mushroom Grove cap clusters and
-Burned Row stakes. Rocks use their ordinary art without moss, beach or masonry looks. Shrubs use the basic bush or the smaller cut hedge, with the same mechanics. Ancient Grove and Silent Circle also use their
+The sprite contexts are wetland-edge reeds and Burned Row stakes. Rocks use their ordinary art without moss, beach or masonry looks. Shrubs use the basic bush or the smaller cut hedge, with the same mechanics. Ancient Grove and Silent Circle also use their
 approved ground accents. Context selection preserves placement IDs, quantities,
 loot and interaction types.
 
@@ -151,11 +150,14 @@ contrast references beside the proposed art.
 The rejected ground tileset alternatives remain in source details: the actual
 procedural materials are better suited to arbitrary map polygons.
 
-Mushroom Grove has distinct giant mushrooms: axe harvesting gives one wood and
+Mushroom Grove has giant mushrooms with the surface mushroom’s muted red cap,
+cream spots and a taller cream stem. Their generated single-frame sheet is
+`assets/Objects/Approved/giant_mushroom.png` (32 × 48, frame 0).
+Axe harvesting gives one wood and
 one mushroom. Their tall sprites seat their base inside the cell,
 like trees. Ordinary shrubs retain only the basic bush and smaller cut hedge.
-Mushroom forage retains its cap-cluster art and mushroom harvesting. The surface
-toadstool and cap cluster share baked muted red and cream colors. Rockfruit stone
+Mushroom Grove forage uses the ordinary surface toadstool art and mushroom
+harvesting, with baked muted red and cream colors. Rockfruit stone
 pixels use the approved ore rocks’ grey palette across growth and inventory
 frames, including player-placed rocks; foliage and sprite alpha are preserved.
 Carnivorous plants use a muted olive multiply tint from their shared enemy-roster

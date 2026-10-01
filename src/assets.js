@@ -159,7 +159,7 @@ const ASSETS = {
   // (one look each). wagon: the broken wagon a bandit-road bus stop wears
   // (loot.js chestLook), one compact 32×32 frame.
   waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone.png', frameWidth: 16, frameHeight: 16 },
-  giant_mushroom: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 48 },
+  giant_mushroom: { kind: 'spritesheet', path: 'assets/Objects/Approved/giant_mushroom.png', frameWidth: 32, frameHeight: 48 },
   barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 16, frameHeight: 16 },
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Approved/tar.png', frameWidth: 16, frameHeight: 16 },
   stakes:         { kind: 'spritesheet', path: 'assets/Objects/Approved/stakes.png', frameWidth: 16, frameHeight: 16 },

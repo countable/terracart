@@ -135,7 +135,7 @@ def recipes(reserve):
                 src=crop(variant['candidate'],row['id']+'-context');im=Image.open(io.BytesIO(base64.b64decode(src.split(',',1)[1])))
                 recvar={**rec,**{k:v for k,v in variant.items() if k in ['recolourStrength','recolourMode']}}
                 op=dict(row=row['id']+'-context',rect=[0,0,*im.size],**treatment(recvar))
-                if row['id'] not in ['shrub','mushroom','stakes']:op.update(palette=[],strength=0)
+                if row['id'] not in ['shrub','stakes']:op.update(palette=[],strength=0)
                 contexts.append(dict(key=key,keys=[key],source=src,sourcePath=variant['candidate'].get('path',variant['candidate'].get('file')),
                     kind='spritesheet',frameWidth=im.width,frameHeight=im.height,operations=[op]))
     return original,list(jobs.values())+contexts,inputs
