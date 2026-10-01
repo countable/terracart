@@ -154,6 +154,8 @@ const MemoryStory = (() => {
     { art: 'wizard_dragon', title: 'His planet', body: DRAGON_DECLARATION },
     { art: 'cave_first', title: 'Act III · The fire below', body: 'You remember burning this world at his command, before you lost your dragon form and memories. Now you see how he has guided your memories to make you serve him again.' },
   ];
+  // What an ordinary (non-milestone) memory shows of itself.
+  const HALF_FORMED = 'Half-formed images, nothing is clear yet.';
   function state(save) {
     const s = save.memoryStory && typeof save.memoryStory === 'object'
       ? save.memoryStory : (save.memoryStory = {});
@@ -176,8 +178,12 @@ const MemoryStory = (() => {
       const curated = alternate && save?.memoryStory?.act2Seen?.includes(alternate.requires) && !save.memoryStory.act3Started;
       return { ...((curated && ACT2_MEMORIES[n]) || SCENES[n] || AFTER[(Math.floor(n / 3) - 11) % AFTER.length]), kind: 'memory' };
     }
+    // THE ORDINARY MEMORY (not a multiple of three): the same panel every
+    // time, the find in the blank and then HALF_FORMED — the memory is back
+    // but shows nothing yet. Only every third memory gets a scene of its own
+    // (SCENES / ACT2_MEMORIES / AFTER above).
     return { art: 'discovery_badge', kind: 'memory', title: 'A memory returns',
-      body: `A memory returns with ${record.label}.` };
+      body: `A memory returns with ${record.label}. ${HALF_FORMED}` };
   }
   function drain(scene) {
     const s = scene.save.memoryStory;
@@ -514,7 +520,7 @@ const MemoryStory = (() => {
     };
     try { show(); } catch (error) { scene._wizardStoryOpen = false; throw error; }
   }
-  return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, LOCKED, ABANDONED, EMPTY,
+  return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, HALF_FORMED, LOCKED, ABANDONED, EMPTY,
     HOME, FIRST_ROOF, RUMOUR, NEIGHBOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
     state, total, enqueue, panel, drain, npcDialogue, wandererLine, believerLine, survivorLine, act, towerAccess, objective,
     eligibleBeats, wizardSequence, pagesFor, visitWizard, archaeologistConversation, acknowledgeArchaeologist };
