@@ -757,6 +757,26 @@
         { poiClass: VISTA_POI_CLASS, subclass: st.kind, name: '', vista: st.kind }));
     }
 
+    // SCENIC SHRINES (src/shrines.js): the path row's shrine kind beside the
+    // stretch's vista chest, on a reward seat — at most
+    // Shrines.SCENIC_SHRINES_PER_TILE, lowest hash of the stretch key first.
+    const Sh = root.Shrines;
+    const shrineStretches = Sh ? (sc.stretches || [])
+      .filter((st) => st.at && Sh.kindForStreet(KIND_ROW[st.kind]))
+      .sort((a, b) => u01('shrine|' + a.key) - u01('shrine|' + b.key)) : [];
+    let shrinesSeated = 0;
+    for (const st of shrineStretches) {
+      if (shrinesSeated >= Sh.SCENIC_SHRINES_PER_TILE) break;
+      yield 'scenic shrines';
+      const pix = Math.floor(st.at.x * N / ext), piy = Math.floor(st.at.y * N / ext);
+      const s = SV ? SV.nearestSeat(pix, piy, N, rc, seatOffsets, rewardOk) : null;
+      if (!s) continue;
+      claim(s.ix, s.iy);
+      shrinesSeated++;
+      res.objects.push(WG.makeObject('grove_shrine', cx(s.ix), cy(s.iy), WG.cellId('scenic_shrine', tx, ty, s.ix, s.iy),
+        { _shrineStreet: KIND_ROW[st.kind], shrineKind: Sh.kindForStreet(KIND_ROW[st.kind]) }));
+    }
+
     // THE TIDE POOL: every waterline cell that takes a minor spawn holds a
     // tide pickup, shown on a day by tideLive (its own hash of id + day) at
     // the rate that lays tideCount(shoreM) a day over the pool.
