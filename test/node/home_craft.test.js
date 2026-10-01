@@ -36,9 +36,10 @@ function scene(inv) {
 }
 const last = (s) => s.modals[s.modals.length - 1];
 
-test('home craft: the recipes are a Torch from 1 wood, a Scarecrow from 3, a Rope from 5 long grass', () => {
+test('home craft: the recipes are a Spear from a stone and a wood, a Scarecrow from 3 wood, a Rope from 5 long grass', () => {
   const by = Object.fromEntries(HOME_RECIPES.map(r => [r.id, r.cost]));
-  assert.eq(JSON.stringify(by.torch), JSON.stringify([{ id: 'wood', qty: 1 }]), 'torch');
+  assert.eq(JSON.stringify(by.spear), JSON.stringify([{ id: 'rockfruit', qty: 1 }, { id: 'wood', qty: 1 }]), 'spear');
+  assert.falsy(by.torch, 'the torch is bought or found, never crafted (Oct 2026)');
   assert.eq(JSON.stringify(by.scarecrow), JSON.stringify([{ id: 'wood', qty: 3 }]), 'scarecrow');
   assert.eq(JSON.stringify(by.rope), JSON.stringify([{ id: 'longgrass', qty: 5 }]), 'rope from five long grass');
   assert.eq(JSON.stringify(by.trap_kit), JSON.stringify([{ id: 'rockfruit', qty: 4 }]), 'a disarm kit from four stones');
@@ -60,7 +61,7 @@ test('home craft: recipeCap is the fewest times any ingredient covers its share'
 });
 
 test('home craft: crafting spends the wood and hands over the item', () => {
-  const s = scene([['wood', 5]]);
+  const s = scene([['wood', 5], ['rockfruit', 2]]);
   s.presentHomeCraft(0, 0, 'scarecrow');
   const m = last(s);
   assert.eq(m.kind, 'craft', 'the Craft category');
@@ -68,29 +69,31 @@ test('home craft: crafting spends the wood and hands over the item', () => {
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'wood'), 2, 'three wood spent');
   assert.eq(Inventory.count(s.save, 'scarecrow'), 1, 'one scarecrow made');
-  s.presentHomeCraft(0, 0, 'torch');
+  s.presentHomeCraft(0, 0, 'spear');
   last(s).onAccept(2);
-  assert.eq(Inventory.count(s.save, 'wood'), 0, 'a torch is one wood each');
-  assert.eq(Inventory.count(s.save, 'torch'), 2, 'two torches');
+  assert.eq(Inventory.count(s.save, 'wood'), 0, 'a spear is one wood each');
+  assert.eq(Inventory.count(s.save, 'rockfruit'), 0, 'and one stone each');
+  assert.eq(Inventory.count(s.save, 'spear'), 2, 'two spears');
 });
 
 test('home craft: bag room caps the stepper and is rechecked before ingredients are spent', () => {
-  const s = scene([['wood', 5], ['torch', 8]]);
-  s.presentHomeCraft(0, 0, 'torch');
+  const s = scene([['wood', 5], ['rockfruit', 5], ['spear', 8]]);
+  s.presentHomeCraft(0, 0, 'spear');
   let m = last(s);
-  assert.eq(m.quantity.max, 1, 'one open stack place permits one torch');
+  assert.eq(m.quantity.max, 1, 'one open stack place permits one spear');
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'wood'), 4, 'one wood spent');
-  assert.eq(Inventory.count(s.save, 'torch'), 9, 'the last place filled');
+  assert.eq(Inventory.count(s.save, 'rockfruit'), 4, 'one stone spent');
+  assert.eq(Inventory.count(s.save, 'spear'), 9, 'the last place filled');
 
-  s.presentHomeCraft(0, 0, 'torch');
+  s.presentHomeCraft(0, 0, 'spear');
   m = last(s);
   assert.falsy(m.canAfford, 'a full output stack disables Craft');
   assert.eq(m.quantity, undefined, 'no quantity stepper when nothing fits');
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'wood'), 4, 'the full-bag recheck preserves ingredients');
-  assert.eq(Inventory.count(s.save, 'torch'), 9, 'the full output stack stays unchanged');
-  assert.truthy(/Bag full for Torch/.test(s.flashes.at(-1) || ''), `names the full stack: ${s.flashes.at(-1)}`);
+  assert.eq(Inventory.count(s.save, 'spear'), 9, 'the full output stack stays unchanged');
+  assert.truthy(/Bag full for Spear/.test(s.flashes.at(-1) || ''), `names the full stack: ${s.flashes.at(-1)}`);
 });
 
 test('home craft: short on wood, the page says so and nothing changes hands', () => {
@@ -106,16 +109,16 @@ test('home craft: short on wood, the page says so and nothing changes hands', ()
 });
 
 test('home craft: opens on something the bag can make, and the pager walks the recipes', () => {
-  const s = scene([['wood', 1]]);
+  const s = scene([['wood', 1], ['rockfruit', 1]]);
   s.presentHomeCraft(0, 0);
   const m = last(s);
-  assert.truthy(m.canAfford, 'one wood: the page opens on the torch it can make');
+  assert.truthy(m.canAfford, 'a wood and a stone: the page opens on the spear it can make');
   assert.eq(m.secondary, undefined, 'paging is the pager, not a second action button');
   assert.eq(m.pager.count, HOME_RECIPES.length, 'one page per recipe');
   m.pager.onNext();
   assert.falsy(last(s).canAfford, 'and the scarecrow page shows it cannot be made yet');
   last(s).pager.onPrev();
-  assert.truthy(last(s).canAfford, '‹ goes back to the torch');
+  assert.truthy(last(s).canAfford, '‹ goes back to the spear');
 });
 
 test('home craft: the Sell and Craft pages are tabs of one panel', () => {

@@ -908,7 +908,9 @@ function itemName(id) { return ITEM_BY_ID[id]?.name || wildplantRule(id)?.name |
 // (interact.js 'fire-held'). One table both sides read: the tap handler and
 // the ✦ lines on the inputs. Anything held over a fire that is NOT a key here
 // is burned, after a "Burn <name>?" confirm (app.js presentBurnConfirm).
-const CAMPFIRE_MAKES = { meat: 'grilled_meat', wood: 'torch',
+// (Wood made a torch here until Oct 2026; the torch is bought or found now,
+// so a branch held over the fire just burns.)
+const CAMPFIRE_MAKES = { meat: 'grilled_meat',
   ...Object.fromEntries(Object.entries(COOKED_FOODS).map(([raw, c]) => [raw, c.id])) };
 // Grilling multiplies the raw cut's energy — and its price, so a grilled
 // steak is worth the fire to sell as well as to eat.
@@ -1161,7 +1163,7 @@ const PRICES = {
   trap_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T2 — one tier-2 shot and a staff beat's hold on one foe; a revive's worth
   spear:        40,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a shot, not as a staple
-  torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); one wood crafts it, so kept low
+  torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -1266,6 +1268,7 @@ const ITEM_GUIDE_TIPS = {
   scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
   trap_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
   torch: 'Light a torch before descending. By its flame, my hand could reach farther into the dark.',
+  spear: 'I lash a sharp stone to a straight branch and call it a spear. It flies once. I carry a second.',
   rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',
   flowers: 'Brought the shopkeeper flowers. A softer voice, a kinder price. I had meant only to give her something lovely.',
   slime: 'The slime shares my doorstep now. When I grind the blue stone, it waits beside me. Brann would disapprove. I have decided not to ask him.',
@@ -2032,7 +2035,11 @@ function trailerSellPrice(baseValue, relics) {
 // (app.js presentHomeCraft). One row per recipe, in the order the page's
 // "Next" button walks them; each craft makes one of `id` from `cost`.
 const HOME_RECIPES = [
-  { id: 'torch',     cost: [{ id: 'wood', qty: 1 }] },
+  // A sharp stone lashed to a branch (owner, Oct 2026): the spear is the
+  // first cave trip's throw, made at Home from what the first walk picks up.
+  // The torch left this page the same day — it is found on cave floors and
+  // sold at the first Supply Shop, never crafted.
+  { id: 'spear',     cost: [{ id: 'rockfruit', qty: 1 }, { id: 'wood', qty: 1 }] },
   { id: 'scarecrow', cost: [{ id: 'wood', qty: 3 }] },
   // Five strands of long grass twist into one rope — the way back up a cave
   // without buying one or finding one in a shallow cave chest.
