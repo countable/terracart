@@ -1463,6 +1463,8 @@ function flowerCreatureTick(scene, c, now, px, py, caught, wards = null) {
     }
     c._moving = false; c._enemyTickT = now; c._ghostT = now; return true;
   }
+  // Fear uses the ordinary retreat lane, even when fire just woke a sleeper.
+  if (!charmed && c._fearUntilT > now) return false;
   if (!charmed && !target) return false;
   const dt = c._enemyTickT == null ? 0 : Math.min(0.1, Math.max(0, (now - c._enemyTickT) / 1000));
   c._enemyTickT = now;

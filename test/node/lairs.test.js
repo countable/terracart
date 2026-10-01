@@ -1340,7 +1340,7 @@
     };
     const leech = at('rosterEnemyAttack(this, c, rosterRow', 'the roster attack');
     const attack = leech;
-    const immobile = at("if (c.immobile && lairState !== 'hunt' && lairState !== 'return') return;",
+    const immobile = at("if (c.immobile && !frightened && lairState !== 'hunt' && lairState !== 'return') return;",
       'the at-rest branch');
     const crow = at("if (c.kind === 'crow' && !isTame) {", 'the wild-crow flight');
     const stepAt = at('if (now >= c._nextChooseT) {', 'the movement step');
@@ -1350,7 +1350,7 @@
     assert.lt(immobile, stepAt, 'at-rest below the movement step — a garrison that wanders off');
     // And the state that decides it is resolved ABOVE the attack blocks, since
     // `standDown` — the one read those blocks ask — is built from it.
-    const state = at("const lairState = c.lair ? Lairs.guardState(", 'the guard state');
+    const state = at("const lairState = c.lair && !frightened ? Lairs.guardState(", 'the guard state');
     assert.lt(state, leech, 'the state is resolved before anything reads standDown');
     // `!unnoticed`, optionally AND further reasons to stand down (the kerb
     // turn of the Sep 2026 safety pass) — never a lane that drops unnoticed.

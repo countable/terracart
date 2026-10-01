@@ -114,6 +114,7 @@ test('home craft: short on wood, the page says so and nothing changes hands', ()
 test('home craft: opens on something the bag can make, and the pager walks the recipes', () => {
   const s = scene([['wood', 1], ['rockfruit', 1]]);
   s.save.foundWild = Object.fromEntries(HOME_RECIPES.map(r => [r.id, 1]));
+  s.save.usedScrolls = ['fireball_scroll', 'fear_scroll', 'treasure_map'];
   s.presentHomeCraft(0, 0);
   const m = last(s);
   assert.truthy(m.canAfford, 'a wood and a stone: the page opens on the spear it can make');
@@ -198,6 +199,59 @@ test('home craft: the wild-finds ledger — every grant counts except bought, ba
   const notWild = (SCENE_SRC.match(/\{ notWild: true(?:, deferRefresh: true)? \}/g) || []).length;
   assert.eq(notWild, 10, 'the ten non-wild grants in app.js: craft, smelt, trader, stand, farmhand, two shop buys, a slot win, a potion transmuted in a campfire and its full-bag refund');
   assert.truthy(/addToInv\('scarecrow', 1, false, \{ notWild: true \}\)/.test(INTERACT_SRC), 'a reclaimed scarecrow is not a find');
+});
+
+test('home craft: scrolls require prior use in both modes and spend blank scrolls', () => {
+  const was = Difficulty.mode();
+  try {
+    for (const mode of [Difficulty.EASY, Difficulty.HARD]) {
+      Difficulty.setMode(mode);
+      for (const id of ['fireball_scroll', 'fear_scroll', 'treasure_map']) {
+        const s = scene([['blank_scroll', 3], [id, 1]]);
+        s.save.foundWild = { [id]: 1 };
+        s.presentHomeCraft(0, 0, id);
+        const locked = last(s);
+        assert.falsy(locked.canAfford, `${id}: possession and a wild find do not teach it`);
+        assert.falsy(locked.get.includes(itemName(id)), 'an explicit unknown target is not offered');
+        const knownCount = locked.pager.count;
+        for (let page = 0; page < knownCount; page++) {
+          assert.falsy(last(s).get.includes(itemName(id)), 'unused scroll is absent from every recipe page');
+          last(s).pager.onNext();
+        }
+        locked.onAccept(1);
+        assert.eq(Inventory.count(s.save, 'blank_scroll'), 3, 'locked craft preserves blanks');
+        assert.eq(Inventory.count(s.save, id), 1, 'locked craft makes nothing');
+        s.save.usedScrolls = [id];
+        s.save.foundWild = {};
+        s.presentHomeCraft(0, 0, id);
+        assert.truthy(last(s).canAfford, 'use alone teaches the recipe, even in hard mode');
+        assert.includes(last(s).get, itemName(id), 'learned scroll is offered');
+        assert.eq(last(s).pager.count, knownCount + 1, 'using a scroll adds its recipe to the pager');
+        assert.eq(last(s).quantity.max, 3, 'one blank per scroll');
+        last(s).onAccept(2);
+        assert.eq(Inventory.count(s.save, 'blank_scroll'), 1, 'two blanks spent');
+        assert.eq(Inventory.count(s.save, id), 3, 'two scrolls made');
+      }
+    }
+    assert.falsy(HOME_RECIPES.some(r => r.id === 'blank_scroll'), 'blank scroll is only a material');
+  } finally { Difficulty.setMode(was); }
+});
+
+test('home craft: learned scroll recipes survive saving and migration', () => {
+  const slot = createSave('Scroll crafting test');
+  try {
+    const save = { inv: [{ id: 'fear_scroll', count: 1 }], usedScrolls: ['fireball_scroll'] };
+    persistSave(save);
+    flushSave();
+    const loaded = loadSave();
+    SaveMigrate.migrate(loaded);
+    assert.falsy(homeRecipeLocked(loaded, 'fireball_scroll', true), 'learned recipe persists');
+    assert.truthy(homeRecipeLocked(loaded, 'fear_scroll', false), 'held unused scroll stays locked');
+    const old = { inv: [{ id: 'treasure_map', count: 1 }] };
+    SaveMigrate.migrate(old);
+    assert.eq(old.usedScrolls.length, 0, 'older saves start without inferred scroll uses');
+    assert.truthy(homeRecipeLocked(old, 'treasure_map', false), 'migration cannot teach a held scroll');
+  } finally { deleteSave(slot); }
 });
 
 })();

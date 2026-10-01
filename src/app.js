@@ -4421,6 +4421,14 @@ class MapScene extends Phaser.Scene {
       }
     }
 
+    // A map keeps its original level and expires by wall clock, including reloads.
+    const treasure = this.save.treasureCompass;
+    if (treasure && Date.now() < treasure.until && treasure.depth === (this.depth || 0)
+        && !setOf(this.save.opened).has(treasure.targetId)
+        && dayLedgerAges(this.save).get(treasure.targetId) !== 0) {
+      this._drawEdgeCompass(treasure.x, treasure.y, 0xffd166);
+    }
+
     // Delivery waypoint — a solid WHITE arrow at the viewport edge pointing at
     // the house the player picked from the delivery menu (openDeliveryMenu).
     // Same edge-compass geometry as the pairy arrow but persistent (no blink),
@@ -4645,6 +4653,7 @@ class MapScene extends Phaser.Scene {
     // drawing fire the moment it appears rather than a cell later.
     const halfSpanM = (VIEW_CELLS / 2 + 0.5) * this.cellM;
     const enemies = [], charmedAllies = [];
+    const explosiveTargets = this._shots.some(shot => !shot.hostile && shot.blastRadiusM > 0) ? [] : null;
     // 3×3 neighbourhood + memoised caught-Set: this runs every frame, and the
     // all-tiles forEachItem with a per-creature Array.includes was an
     // O(cached-creatures × caught) scan that grew with every tile walked.
@@ -4652,6 +4661,9 @@ class MapScene extends Phaser.Scene {
     const caughtSet = setOf(this.save.caught);
     const pcTick = this.playerToWorldCell();
     WorldGen.forEachItemNear('creatures', pcTick.tx, pcTick.ty, (c) => {
+      // A blast can catch foes just beyond the viewport; auto-fire still
+      // uses only the visible list below.
+      if (explosiveTargets && !caughtSet.has(c.id) && Combat.isEnemy(c)) explosiveTargets.push(c);
       if (Math.abs(c.x - px) > halfSpanM || Math.abs(c.y - py) > halfSpanM) return;
       if (caughtSet.has(c.id) || c._surfaceInactive) return;
       if (Combat.isCharmed(c)) { charmedAllies.push(c); return; }
@@ -4839,7 +4851,10 @@ class MapScene extends Phaser.Scene {
         (target, shot) => this._shotHitsTarget(target, shot),
         { blocked: shotBlocked, cellM: this.cellM,
           hostileTargets: [playerTarget, ...(this._npcCombatTargets || []), ...charmedAllies],
-          canHit: (target, shot) => this._shotCanHit(target, shot) });
+          explosiveTargets,
+          canHit: (target, shot) => this._shotCanHit(target, shot),
+          onExplode: shot => this._burstAtWorld('trailspark', shot.x, shot.y,
+            { colour: '#ff742d', ringPx: shot.blastRadiusM / this.cellM * CELL_PX }) });
     }
     this._drawShots();
 
@@ -9912,6 +9927,96 @@ class MapScene extends Phaser.Scene {
     );
   }
 
+  // Only successful uses teach a recipe; owning or crafting a scroll does not.
+  _spendScroll(id) {
+    this.save.usedScrolls ||= [];
+    if (!this.save.usedScrolls.includes(id)) this.save.usedScrolls.push(id);
+    consumeSelected(this.save);
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    return true;
+  }
+
+  _onscreenEnemies() {
+    const caught = setOf(this.save.caught);
+    const targets = [];
+    const pc = this.playerToWorldCell();
+    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, c => {
+      if (!Combat.isEnemy(c) || caught.has(c.id)) return;
+      const p = this.worldMetersToScreen(c.x, c.y);
+      if (p && Particles.onScreen(this, p.x, p.y)) targets.push(c);
+    });
+    return targets;
+  }
+
+  useFireballScroll() {
+    const sel = getSelectedSlot(this.save);
+    if (sel?.id !== 'fireball_scroll' || !(sel.count > 0)
+        || Combat.playerDowned(this.save.energy)) return false;
+    const x = this.startWorldM.x + this.playerM.x;
+    const y = this.startWorldM.y + this.playerM.y;
+    const heading = Combat.shotHeading('bow', x, y, this.facing);
+    const shot = Combat.spawnFireball(x, y, heading, this.cellM, CONSUMABLE_SPEC.fireball_scroll);
+    if (!shot) return false;
+    this._shots.push(shot);
+    return this._spendScroll(sel.id);
+  }
+
+  useFearScroll() {
+    const sel = getSelectedSlot(this.save);
+    if (sel?.id !== 'fear_scroll' || !(sel.count > 0)
+        || Combat.playerDowned(this.save.energy)) return false;
+    const targets = this._onscreenEnemies();
+    if (!targets.length) {
+      this.flash('No foe in sight — scroll kept.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    const now = performance.now();
+    for (const c of targets) {
+      monsterRout(c, now, this.cellM);
+      c._fearUntilT = now + CONSUMABLE_SPEC.fear_scroll.durationMs;
+      c._startX = c._targetX = c.x;
+      c._startY = c._targetY = c.y;
+      c._attackWindupUntil = c._lungeWindupUntil = c._abilityWindupUntil = 0;
+    }
+    this._spendScroll(sel.id);
+    this.flashLoot('The beasts turn and flee.', '#c77dff', 1.8, sel.id);
+    return true;
+  }
+
+  useSleepPowder() {
+    const sel = getSelectedSlot(this.save);
+    if (sel?.id !== 'sleep_powder' || !(sel.count > 0)
+        || Combat.playerDowned(this.save.energy)) return false;
+    const targets = this._onscreenEnemies();
+    if (!targets.length) {
+      this.flash('No foe in sight — powder kept.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    const now = Date.now();
+    for (const c of targets) Combat.applySleep(c, now);
+    consumeSelected(this.save);
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    this.flashLoot(`Sleep falls for ${shortDuration(CONSUMABLE_SPEC.sleep_powder.durationMs)}.`, '#bca5e8', 1.8, sel.id);
+    return true;
+  }
+
+  useTreasureMap() {
+    const sel = getSelectedSlot(this.save);
+    if (sel?.id !== 'treasure_map' || !(sel.count > 0)) return false;
+    const target = this.findNearestUnopenedChest([4, 5]);
+    if (!target) {
+      this.flash('No treasure found — map kept.', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    this.save.treasureCompass = { x: target.x, y: target.y, targetId: target.id,
+      depth: this.depth || 0, until: Date.now() + CONSUMABLE_SPEC.treasure_map.durationMs };
+    this._spendScroll(sel.id);
+    this.flashLoot(`Treasure marked for ${shortDuration(CONSUMABLE_SPEC.treasure_map.durationMs)}.`, '#ffd166', 1.8, sel.id);
+    return true;
+  }
+
   throwCooldownLeft() {
     return Math.max(0, (this._throwReadyAt || 0) - performance.now());
   }
@@ -10260,7 +10365,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // Find the nearest chest the player hasn't opened. Used by the pairy compass.
-  findNearestUnopenedChest() {
+  findNearestUnopenedChest(tiers = null) {
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
     const sets = spentSets(this, this.save);
@@ -10268,6 +10373,7 @@ class MapScene extends Phaser.Scene {
     for (const e of WorldGen.tileCache.values()) {
       for (const o of (e.objects || [])) {
         if (o.kind !== 'chest') continue;
+        if (tiers && !tiers.includes(chestTier(o))) continue;
         if (isSpent(o, sets)) continue;
         // A macro stall (an inn, a chapel, … — loot.js macroFor) is a place,
         // not a chest to find; nor is a barrel, a bike rack or a pot of gold.
@@ -10889,6 +10995,7 @@ class MapScene extends Phaser.Scene {
       || recipes.find(r => capOf(r) >= 1) || recipes[0];
     const cap = capOf(rec);
     const outName = itemName(rec.id);
+    const learnVerb = ITEM_BY_ID[rec.id]?.scroll ? 'Use' : 'Find';
     const costLine = (n) => rec.cost.map(c => {
       const ok = held(c.id) >= c.qty * n;
       return `<span style="color:${ok ? '#a7ffb0' : '#ff8a7a'}">`
@@ -10921,7 +11028,7 @@ class MapScene extends Phaser.Scene {
       },
       onAccept: (n) => {
         const q = Math.max(1, n ?? 1);
-        if (locked(rec)) { this.flash(`Find a ${outName} first.`, sx, sy); return; }
+        if (locked(rec)) { this.flash(`${learnVerb} a ${outName} first.`, sx, sy); return; }
         if (this.invRoomFor(rec.id) < q) {
           this.flash(`Bag full for ${outName}.`, sx, sy);
           return;

@@ -474,7 +474,7 @@
   }
   // THE DEEP HOARD — the same overlay for a cave chest ABOVE the supply tiers
   // (T3+, the ones depth promotes): what a deep chest is known for is the
-  // good stuff — potions, powders and gems. Consumables and minerals are
+  // good stuff — potions, powders, scrolls and gems. Consumables and minerals are
   // added to the row's classes, and when one comes up the favourite set is
   // drawn `p` of the time, TIER-CAPPED (`tierCapped`: only members at or
   // under the rolled tier), so a T3 chest leans to potions and powders and a
@@ -484,7 +484,8 @@
     favourite: { p: 0.75, tierCapped: true, ids: {
       vigor_potion: 1, shield_potion: 1, reach_potion: 1, speed_potion: 1,
       revive_potion: 1, blight_potion: 1, raven_potion: 1, thunder_potion: 1, resurrection_potion: 1,
-      growth_powder: 1, shadow_powder: 1, dragon_powder: 1, frost_powder: 1,
+      growth_powder: 1, shadow_powder: 1, dragon_powder: 1, frost_powder: 1, sleep_powder: 1,
+      fireball_scroll: 1, fear_scroll: 1, treasure_map: 1,
       sapphire: 1, ruby: 1, emerald: 1, diamond: 1,
     } },
   };
