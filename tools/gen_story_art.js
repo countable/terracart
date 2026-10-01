@@ -182,15 +182,25 @@ const PIECES = {
       'filling the frame: darker outer rim, a bright pixel highlight at the top-left, an ' +
       'embossed five-pointed star in the centre. Nothing else in frame.',
   },
+  // The loading screen, and the only painting that carries lettering: the
+  // game's title. Shown `cover` on a phone, so the sides crop away and the
+  // #bootload box floats over the middle - title in the top band, the scene
+  // in the bottom third, calm sky between. The title itself is the piece's
+  // one hint, so no LORE detail is layered on.
   safety_welcome: {
     size: '1024x1536', width: 640, colors: 96,
+    style: STYLE.replace('No text, no letters, no UI, no watermark.',
+      'The ONLY text is the title described below; no other letters, no UI, no watermark.'),
     subject:
-      'Tall portrait scene: a young farmer with a hammer and a satchel of seeds rebuilds a ' +
-      'ruined suburban home - fresh timber framing going up over scorched brick, one wall ' +
-      'already repainted, a sunflower sprouting through rubble. Around them an overgrown ' +
-      'post-collapse neighbourhood of caved roofs and boarded windows stretches to a dusky ' +
-      'horizon. Hopeful reconstruction amid ruin: warm light on the house being restored, ' +
-      'cooler amber gloom over the wrecks.',
+      'Tall portrait title screen. TOP 20%, centred, the lettering spanning ONLY the middle ' +
+      'half of the width with wide empty sky margins left and right (the sides get cropped): ' +
+      'the game title "DRAGON HOOD" in chunky pixel-art lettering on two lines ' +
+      '("DRAGON" above "HOOD"), cream and gold letters with a dark brown outline and a soft ' +
+      'ember glow, spelled exactly. MIDDLE: a calm, low-detail dusky amber sky with drifting ' +
+      'clouds and nothing else. BOTTOM THIRD: the lone hooded survivor in a brown cloak, brown hood ' +
+      'up, seen from behind, hammer in hand, rebuilding a ruined suburban home - fresh timber ' +
+      'framing over scorched brick, a sunflower sprouting through rubble - with an overgrown ' +
+      'neighbourhood of caved roofs stretching to the horizon. Hopeful reconstruction amid ruin.',
   },
   story_wake:
     'Morning inside-and-out of a small travelling home wagon parked in a misty meadow. ' +
