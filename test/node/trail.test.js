@@ -1012,7 +1012,7 @@ test('streets: the first metres ever banked open the one-time dialog', () => {
     assert.eq(s.intros[0].title, TRAIL_INTRO_TITLE, 'with the greeting title');
     assert.truthy(s.save.trail.greeted, 'and the save remembers it');
     assert.falsy(/\d/.test(s.intros[0].body), 'thresholds stay on the road counter');
-    assert.truthy(/[Ss]omeone watching from a doorway/.test(s.intros[0].body), 'the road has people to thank you');
+    assert.truthy(/survivor/i.test(s.intros[0].body) && /gift/.test(s.intros[0].body), 'the road has people to thank you');
     // …and never again.
     s.playerM = { x: MID_M + CELL_M * 3, y: MID_M };
     clock.at(PATH_STONE_DWELL_MS * 3); sweep(s);
@@ -1143,4 +1143,3 @@ test('trail: a runner\'s goals are halved — goalFor, progress, bank and readou
   assert.eq(T.readout({ metres: 50, prizes: 2, owed: 0 }, 'runner').label, '50/300 m',
     'and the next sweep counts toward the third');
 });
-

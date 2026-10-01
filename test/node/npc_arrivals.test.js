@@ -164,7 +164,7 @@
 
   test('forge: the player notices the finished piece', () => {
     const FORGE = new Function(`${SCENE_SRC.match(/const FORGE_CEREMONY = \{[\s\S]*?\n\};/)[0]} return FORGE_CEREMONY;`)();
-    assert.includes(FORGE.sub, 'the smith sets the finished piece before you');
+    assert.truthy(/smith.*finished gear/i.test(FORGE.sub), 'the smith presents the finished work');
     assert.falsy(/[“”]/.test(FORGE.sub), 'the panel uses the player’s narrator, not a separate speaker');
   });
 })();

@@ -19,6 +19,7 @@ for (const m of app.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
 for (const m of shell.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
 for (const m of INTERACT_SRC.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
 for (const r of ['house', 'blacksmith', 'market', 'trader', 'wizard']) stems.add('restore_' + r);
+for (const row of [...Object.values(Shrines.SHRINE_KINDS), ...Object.values(Shrines.REWARD_KINDS), ...Object.values(Macros.DAILY_VISIT_KINDS)]) stems.add(row.art);
 
 test('scene art: every dialog painting is cut to the dialog box shape', () => {
   assert.truthy(stems.size > 30, `the stems were collected (${stems.size})`);
@@ -128,6 +129,7 @@ test('pixel resolve: every dialog painting has an inline thumbnail', () => {
   const cutKeys = new Set([...ART_THUMBS_SRC.matchAll(/^  (\w+): \[$/gm)].map((m) => m[1]));
   const tones = new Set([...ART_THUMBS_SRC.matchAll(/^  (\w+): '#[0-9a-f]{6}',$/gm)].map((m) => m[1]));
   const used = new Set();
+  for (const row of [...Object.values(Shrines.SHRINE_KINDS), ...Object.values(Shrines.REWARD_KINDS), ...Object.values(Macros.DAILY_VISIT_KINDS)]) used.add(row.art);
   for (const src of [SCENE_SRC, INTERACT_SRC, MODAL_SHELL_SRC_TEXT]) {
     for (const m of src.matchAll(/\bart: '([^']+)'/g)) used.add(m[1]);
   }

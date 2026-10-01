@@ -54,6 +54,15 @@ const SCENE_RULE =
   'calm, empty QUIET ZONE: broad dark foreground ground (soil, grass or shadow) in large ' +
   'simple dithered areas, darkening toward the bottom edge, with no objects, no figures, no ' +
   'bright spots and no fine detail - text will be printed over it.';
+const WIZARD_CONCEALMENT =
+  ' His low pointed-hat brim hides his entire face in deep natural shadow: no visible eyes, ' +
+  'nose, mouth or facial skin. Only his white beard emerges below. No glowing eyes or mask.';
+const HOME_WAGON =
+  ' A humble medieval travelling home wagon: weathered timber plank walls, a gently arched ' +
+  'muted moss-green metal roof with copper seams, wrought-iron straps, small amber leaded ' +
+  'windows, a wooden door and steps, iron-rimmed wooden spoked wheels, and one short copper ' +
+  'stovepipe. Repaired and lived-in, with restrained steampunk fittings; no modern camper ' +
+  'bodywork, rubber tyres, plastic or cyan glass.';
 // THE LORE, as the paintings tell it: the world was not simply abandoned — a
 // Warmonger burned it: a dragon controlled by the wizard, now the survivor,
 // unremembering. MemoryStory reveals this only on the memory-30 wizard return.
@@ -97,6 +106,23 @@ const scene = (subject, lore) => {
 // or { subject, size, width } for a different frame - the safety screen's
 // fullscreen mobile backdrop is portrait.
 const PIECES = {
+  // Daily visit paintings: generated with the built-in image tool; exported here.
+  shrine_wayfarer_post: scene("A weathered wooden roadside post holding a small bronze bell and rope, beside an intact cobbled path in wild meadow. A tiny offering of a pairy fruit at its foot, faint amber-green enchanted light flowing from the bell toward the trail. The shrine lends the same moment of sustenance and treasure sense as eating the magical fruit."),
+  shrine_lantern_saint: scene("An ancient moss-stained stone saint holds a lantern low in an outstretched hand. Warm amber light pours from it across ivy and tall grass; a peaceful ruined stone wall beyond. Respectful sacred statue, no demonic imagery."),
+  shrine_tide_bell: scene("A bronze bell suspended from a sea-worn stone arch beside a quiet shore, washed in pale blue magical light, small ripples spreading across shallow water. Restored intact footpath beside it, abandoned and weathered world."),
+  shrine_bone_watcher: scene("An ancient hooded stone guardian with a completely shadowed face among weathered gravestones and tall meadow grass, faint silver-violet protective light surrounding it. Peaceful solemn respectful graveyard shrine, no bones or horror or demonic symbols."),
+  shrine_moss_cairn: scene("A small pile of ancient irregular stones thickly covered in soft moss and ferns under trees, a subtle green magical glow with tiny drifting motes, peaceful hidden forest clearing. A small rabbit rests calmly nearby, unaware."),
+  shrine_rust_totem: scene("A humble upright totem assembled from old rusted iron plates, rivets and salvaged bands, set beside a mossy ruined stone wall. Warm orange magical light glows through seams, evocative of strength. Sparse tall grass, no modern machinery."),
+  shrine_wishing_well: scene("A low ancient circular stone wishing well under tangled trees, worn stone rim, a few jade-green coins with small star marks visible beneath clear water, warm green-gold magical glimmer rising from water. No yellow gold coins."),
+  shrine_harvest_idol: scene("A small handmade straw figure lashed to a wooden post in an old overgrown orchard. An apple rests at its feet, warm amber magic around its straw hands, a worn hoe and basket nearby suggesting vigorous farm work. Humble medieval sacred harvest offering, no sinister symbolism."),
+  shrine_toad_idol: scene("A squat green stone toad idol on a mossy plinth surrounded by ferns and wild mushrooms, a soft fresh emerald healing light pooling at its feet, tiny clean droplets on the stone. Warm hopeful forest light. It is a carved statue, not an animal."),
+  shrine_ember_altar: scene("A low weathered stone altar holding one steady bright ember in soot. A translucent spectral wand of reddish wood and ember light hovers immediately above, suggesting borrowed magic rather than a physical dropped item. Warm red-orange magical light, sparse ash and overgrown ruins. Sacred and hopeful, no demonic symbols."),
+  shrine_waystone: scene("A short ancient weathered stone waystone with an indistinct shallow carved mark, beside an intact lonely cobbled road and overgrown meadow. Soft warm ivory magical light emerges from the stone; a faint suggestion of parchment-shaped light hints at remembered stories. No readable words or text."),
+  shrine_grove: scene("A small ancient moss-covered stone sanctuary beneath mature forest trees, with a weathered carved stone votive figure and a humble wrapped gift at its feet. Soft green sacred light, ferns and fallen leaves, fifty years of wild regrowth. Peaceful and respectful, no demons or horns."),
+  visit_wagon: scene("A medieval hired guard in worn steel armour and a closed helmet concealing the entire face stands beside a weathered covered wooden wagon and a warm lantern. The guard rests a hand on a sheathed sword, ready to accompany a traveller. Wild grass, ruined medieval buildings, intact old trade road. No player, no visible faces."),
+  visit_bike: scene("A saddled chestnut horse waits at a weathered courier's hitching post beside an intact cobbled trade road, small blue courier pennant and warm lantern, ruined medieval buildings and wild vegetation behind. No rider or people, no bicycle. A faint blue magical gleam suggests swift borrowed travel."),
+  visit_gold: scene("An old black iron pot filled with muted cool teal-jade metal coins bearing embossed five-point stars, matching assets/Icons/coin.png exactly, never lime or yellow-green, in a mossy nook beside an intact cobbled path. A handful of green star coins glimmers in the surrounding grass. The coins give a restrained pale cool teal glimmer. Absolutely no yellow or gold-colored coins despite the traditional pot-of-gold name."),
+
   trap_jaw:
     scene(
     'A rusty steel bear trap bursting out of cracked earth, its metal jaws clamped shut ' +
@@ -167,8 +193,9 @@ const PIECES = {
       'cooler amber gloom over the wrecks.',
   },
   story_wake:
-    'Morning inside-and-out of a small weathered camping trailer parked in a misty meadow. ' +
-    'A young survivor stretches awake at the trailer door, first amber sunlight over the grass. Quiet, hopeful.',
+    'Morning inside-and-out of a small travelling home wagon parked in a misty meadow. ' +
+    'A survivor stretches awake at the wagon door, face fully hidden by a raised brown hood, ' +
+    'first amber sunlight over the grass. Quiet, hopeful.' + HOME_WAGON,
   story_wrecks:
     'A suburban neighbourhood of collapsed houses: boarded windows, caved roofs, rubble piles, ' +
     'weeds through cracked pavement. The same survivor stands small in the middle of the street ' +
@@ -193,7 +220,7 @@ const PIECES = {
     scene(
     'A tall crooked wizard tower restored, its crooked roof re-shingled, windows glowing violet, ' +
     'strange plants and brass instruments on the balcony. A reclusive mage in a starry robe peers ' +
-    'down from the door at a visitor below.'),
+    'down from the door at a visitor below.' + WIZARD_CONCEALMENT),
   delivery_first:
     scene(
     'On the doorstep of a cottage at dusk, a farmer hands over a woven basket brimming with ' +
@@ -202,7 +229,9 @@ const PIECES = {
     scene(
     'A young farmer crouches in a meadow at dusk, gazing with wonder at a brilliant four-point ' +
     'golden-white glint between cupped hands. The unknown find is completely hidden by the ' +
-    'abstract star-shaped light: no identifiable animal, item, gem, coin, egg or chicken.'),
+    'abstract star-shaped light: no identifiable animal, item, gem, coin, egg or chicken. ' +
+    'The raised brown hood projects forward, concealing the entire face in opaque shadow: ' +
+    'no visible eyes, nose, mouth, facial skin or hair, even in the light of the find.'),
   fire_first: scene(
     'A young survivor kneels beside a freshly lit campfire ringed with stones at dusk, flames ' +
     'leaping up and throwing a warm ring of light; at the edge of the light a green slime ' +
@@ -226,13 +255,13 @@ const PIECES = {
     'gently by the shoulders. Warm lantern light, concern.', 'wary'),
   revive_wake: scene(
     'The young survivor in a hooded brown cloak sits up weakly on a straw bedroll beside a ' +
-    'small camper trailer at dawn, wrapped in a blanket, a small campfire crackling, while a ' +
+    'small travelling home wagon at dawn, wrapped in a blanket, a small campfire crackling, while a ' +
     'kindly villager hands them a steaming bowl. No bags, packs or tools anywhere near the ' +
-    'survivor. Relief, home.'),
+    'survivor. The raised brown hood hides all facial features in deep shadow. Relief, home.' + HOME_WAGON),
   home_sell: scene(
     'A rough wooden crate brimming with fresh produce - potatoes, onions, apples and a few ' +
-    'wheat bundles - set out on the grass beside a small camper trailer at golden hour, a little ' +
-    'hand-painted wooden sign propped against it showing a jade-green star coin, meaning for sale.'),
+    'wheat bundles - set out on the grass beside a small travelling home wagon at golden hour, a little ' +
+    'hand-painted wooden sign propped against it showing a jade-green star coin, meaning for sale.' + HOME_WAGON),
   cave_first: scene(
     'A young survivor holding a lantern steps down worn stone stairs into a cave, the cold dark ' +
     'closing in beyond the small circle of lantern light, glints of ore in the rough walls, a ' +
@@ -264,7 +293,7 @@ const PIECES = {
   kind_treasure: scene(
     'An old wooden treasure chest, lid thrown open, a glowing gem and a few jade-green star coins inside, nothing spilled on the ground, dusty light falling on it in a ruined cottage.'),
   kind_supplies: scene(
-    'Two sturdy wooden supply crates on the grass beside a small camper trailer, lids pried open to show seed packets, a trowel and a lantern. Morning of a new start.'),
+    'Two sturdy wooden supply crates on the grass beside a small travelling home wagon, lids pried open to show seed packets, a trowel and a lantern. Morning of a new start.' + HOME_WAGON),
   kind_trail: scene(
     'A restored cobbled road winding through a meadow toward a small village, a gilded street lamp glowing violet beside it at dusk.', 'shadow'),
   kind_shop: scene(
@@ -286,7 +315,7 @@ const PIECES = {
   kind_build: scene(
     'The timber frame of a cottage being rebuilt, a ladder against it, a hammer and a stack of fresh planks and stones beside it at golden hour.', 'claws'),
   kind_craft: scene(
-    'A rough wooden workbench inside a camper-trailer workshop, planks, stones and a saw laid out, a lantern hanging overhead.'),
+    'A rough wooden workbench inside a timber travelling home wagon, planks, stones and a saw laid out, a lantern hanging overhead, curved wooden roof ribs and iron fittings.'),
   kind_wizard: scene(
     'The top of a crooked wizard tower, a mage\'s desk with an open spellbook, a glowing crystal ball and floating golden stars, violet light in the windows.'),
   kind_memory: scene(
@@ -296,7 +325,7 @@ const PIECES = {
   // LORE hint on any of them: the copy carries the act, and the reveal paints
   // HIS dragon only - never the survivor's (CLAUDE.md: art never reveals it).
   wizard_cold: scene(
-    'The high room of a wizard tower at dusk: an old mage in a starry robe stands half-turned at a tall window, looking out over distant village rooftops, one hand pushing a wooden chair into place for a guest. Cold violet light, long shadows, a sense of distance.'),
+    'The high room of a wizard tower at dusk: an old mage in a starry robe stands half-turned at a tall window, looking out over distant village rooftops, one hand pushing a wooden chair into place for a guest. Cold violet light, long shadows, a sense of distance.' + WIZARD_CONCEALMENT),
   wizard_map: scene(
     'A candlelit wizard\'s desk seen from above: a large old map of unfamiliar coastlines and islands, tiny town marks inked along the shores, an old mage\'s long finger resting over one small town mark. A brass compass and quills at the map\'s edge.'),
   memory_doorway: scene(
@@ -304,7 +333,7 @@ const PIECES = {
   memory_grip: scene(
     'Close view of two hands beside a smoky battlefield at dusk: an old ring-heavy hand in a starry sleeve grips a younger wrist and turns it, the younger hand following the turn. Tattered banners and distant smoke behind, hazy at the edges like a memory.'),
   wizard_dragon: scene(
-    'An old HUMAN wizard in a blue starry robe sits coldly at a desk in his tower, white beard, violet window light and a candle. He speaks an unsettling truth without changing form. No dragon, wings, scales or magical transformation.'),
+    'An old HUMAN wizard in a blue starry robe sits coldly at a desk in his tower, white beard, violet window light and a candle. He speaks an unsettling truth without changing form. No dragon, wings, scales or magical transformation.' + WIZARD_CONCEALMENT),
   kind_slots: scene(
     'A rickety wooden slot machine with three spinning reels showing fruit and a star, set in the courtyard of a stone fort, torches lit, coins on a barrel.'),
   kind_farm: scene(
@@ -397,7 +426,14 @@ const PIECES = {
   street_snare: scene("A single closed chest surrounded by a ring of iron jaw traps on the verge beside a clear road, warm orange lamps. Nothing blocks the road."),
   zone_shore: scene("An old shrine on a grassy rise overlooking a sandy beach and open sea, reeds, no enclosing forest. Peaceful sacred ground."),
   street_greenway: scene("An inland walking path bordered by meadow and trees, green-glowing street lamps. No coast or sea wall."),
-  street_parkpath: scene("A quiet inland park path through mature trees and grass, green-glowing lamps. No coast or sea wall."),
+  street_parkpath: scene(
+    "An inland park fifty years after the Breaking, its abandoned planting beds reclaimed by " +
+    "tall meadow grass, tangled brambles, ferns and self-seeded saplings beneath mature trees. " +
+    "Dry leaves gather along moss-covered borders; weathered wooden benches have sagging or " +
+    "missing slats. Ivy swallows a distant roofless stone building. The winding path and " +
+    "upright green-glowing lamps remain intact: the Breaking spared roads and street lamps. " +
+    "Keep the path clearly passable. Peaceful, melancholy and wild, with muted rustic foliage. " +
+    "No mown lawn, clipped hedges, tidy flowerbeds, polished benches, coast or sea wall."),
   kind_inn: scene("An ordinary innkeeper offers a mug from a modest inn doorway to a survivor whose raised brown hood hides all hair and face. No castle or steward."),
 };
 

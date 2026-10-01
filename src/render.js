@@ -2616,7 +2616,8 @@ Render.drawVariantLabels = function drawVariantLabels(scene, ax, ay, halfM) {
 // and the per-tile list below is derived by.
 function offersPreCullLight(o) {
   const k = o.kind;
-  return isBuilding(k) || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope' || k === 'lava_vent';
+  return isBuilding(k) || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope' || k === 'lava_vent'
+    || !!(typeof Macros !== 'undefined' && Macros.visitKindForObject(o));
 }
 // A tile's pre-cull lights (util.js derivedObjects — re-derived only when the
 // objects array moves), at entry[PRE_CULL_LIGHTS] so the light walk queries
@@ -2766,10 +2767,11 @@ Render.drawObjects = function drawObjects(scene) {
     // its light reaches further than its art: offered to the lightmap
     // before the sprite cull, with its own radius as the margin, so a
     // lantern a cell off-screen still lights the edge it stands past.
-    if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent') LIGHTS.consider(scene, o, dx, dy, halfM);
+    const visit = typeof Macros !== 'undefined' && Macros.visitKindForObject(o);
+    if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
     // A grove shrine whose gift is still there today ALSO wears the POI
     // light — the one "something to take here" mark (poiLit).
-    if (o.kind === 'grove_shrine' && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
+    if ((o.kind === 'grove_shrine' || visit) && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
     // A VIEWPOINT's scope (src/scenic.js): its rest ring's own light
     // (Lighting.KINDS.vista, out to FIRE_REST_R) always, and the POI
     // light on top while today's gift is there — the shrine's rule.
@@ -2810,7 +2812,7 @@ Render.drawObjects = function drawObjects(scene) {
           // width of glow at most.
           // Lit while there is something to take (interactables.js poiLit): an
           // unopened chest, and a daily crate / chapel only until today's take.
-          if (LIGHTS && o.kind === 'chest' && poiLit(o, spentIds)) LIGHTS.consider(scene, o, dx, dy, halfM);
+          if (LIGHTS && o.kind === 'chest' && !offersPreCullLight(o) && poiLit(o, spentIds)) LIGHTS.consider(scene, o, dx, dy, halfM);
           // Anchor outside the ordinary viewport: the SPRITE (and its shadow)
           // still draw, but the label passes skip it — a sign or open/busy
           // plaque for an off-screen building would be clamped to the screen
@@ -4268,12 +4270,10 @@ Render.objectAppearance = function (scene, houseRoles) {
   // generated props, a touch bigger than the crate they stand in for.
   const SMALL_POI_SCALE = 1.3;
   // The broken WAGON an old-trade-road bus stop wears (loot.js chestLook): the
-  // 128×96 frame's art is 88 px wide (x 20..108) and ends 2 px above the frame
-  // bottom, so 0.55 draws it ~1.5 cells wide, and WAGON_DY_PX drops the
-  // foot-anchored frame so the art's bottom row sits 1 px above the POI cell's
-  // bottom edge (half a cell, less that pixel, plus the 2 blank rows scaled).
-  const WAGON_SCALE = 0.55;
-  const WAGON_DY_PX = CELL_PX * 0.5 - 1 + 2 * WAGON_SCALE;
+  // compact 32×32 frame fits within a 2×2-cell footprint at the usual prop
+  // scale. Its one blank bottom row seats the wheels above the anchor edge.
+  const WAGON_SCALE = 1.6;
+  const WAGON_DY_PX = CELL_PX * 0.5 - 1 + WAGON_SCALE;
   // Render-spec callbacks receive the world object, while the object walk
   // carries the role on its frame item. This map bridges those APIs without
   // resolving the role again; Houses.displayRole owns the verdict.
@@ -4512,13 +4512,12 @@ Render.objectAppearance = function (scene, houseRoles) {
               // Pots of gold (ATMs) render the procedural
               // 'potofgold' canvas texture (textures.js makePotOfGoldTexture),
               // which is single-frame — so leave `frame` undefined for them,
-              // exactly like the themed-house sprites. The pot art is already
-              // gold, so no tint is applied. Produce stands pick the market_stand
+              // exactly like the themed-house sprites. The pot art already carries the jade coin palette, so no tint is applied. Produce stands pick the market_stand
               // awning frame for their product family (see produceStandFor).
               // A macro stall (loot.js macroFor) is one 80×80 frame per kind.
               frame: (o) => { const L = chestLook(o);
                               return L.coin ? undefined : (L.stand ? L.stand.frame : 0); },
-              // THE WAGON (a bus stop on an old trade road): 128×96 art, drawn at
+              // THE WAGON (a bus stop on an old trade road): 32×32 art, drawn at
               // WAGON_SCALE (~1.5 cells wide) and foot-anchored like the stall —
               // a structure, not a chest, so it is not seated; its wheels sit
               // on the POI cell's bottom edge and the body rises north over it.
@@ -4709,8 +4708,8 @@ Render.objectAppearance = function (scene, houseRoles) {
     infoboard: { key: 'signpost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     gatepost:  { key: 'gatepost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // INFLUENCE ZONE PROPS (src/zones.js). Headstones may raise a ghost or
-    // pay a one-off find. Grove shrines use two stable, cell-seated appearances;
-    // both give the same daily gift and light (Lighting.KINDS.shrine).
+    // pay a one-off find. Plain grove shrines use the cell-seated votive,
+    // giving the daily gift and light (Lighting.KINDS.shrine).
     headstone:    { key: 'headstone',    frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     grove_shrine: {
       key: o => SpriteLayout.groveShrineArt(o).key,

@@ -152,17 +152,16 @@ const ASSETS = {
   // assets/Objects/Generated/README.md — placeholders): the pilgrim's
   // waystone, the barricade, and the burned row's tar pit and iron stakes
   // (one look each). wagon: the broken wagon a bandit-road bus stop wears
-  // (loot.js chestLook), one 128×96 frame.
+  // (loot.js chestLook), one compact 32×32 frame.
   waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone.png', frameWidth: 16, frameHeight: 16 },
   giant_mushroom: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 48 },
   barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 16, frameHeight: 16 },
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Approved/tar.png', frameWidth: 16, frameHeight: 16 },
   stakes:         { kind: 'spritesheet', path: 'assets/Objects/Approved/stakes.png', frameWidth: 16, frameHeight: 16 },
-  wagon:          { kind: 'spritesheet', path: 'assets/Objects/Approved/wagon.png', frameWidth: 128, frameHeight: 96 },
-  // INFLUENCE ZONES (src/zones.js): churchyard headstone, two grove shrine
-  // appearances, and the flint nodule (items.js CROP_SPRITE.flint).
+  wagon:          { kind: 'spritesheet', path: 'assets/Objects/DailyVisits/wagon.png', frameWidth: 32, frameHeight: 32 },
+  // INFLUENCE ZONES (src/zones.js): churchyard headstone, grove votive,
+  // and the flint nodule (items.js CROP_SPRITE.flint).
   headstone:      { kind: 'spritesheet', path: 'assets/Objects/Rustic/pillar_c.png', frameWidth: 16, frameHeight: 16 },
-  grove_shrine:   { kind: 'spritesheet', path: 'assets/Objects/Landmarks/shrine-figure.png', frameWidth: 48, frameHeight: 48 },
   grove_votive:   { kind: 'spritesheet', path: 'assets/Objects/Approved/grove_votive.png', frameWidth: 16, frameHeight: 16 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Approved/flint.png', frameWidth: 16, frameHeight: 16 },
   // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — ten 16×24 generated
@@ -306,7 +305,7 @@ const ASSETS = {
   house_trader:     { kind: 'image', path: 'assets/Objects/Approved/house_trader.png' },
   house_market:     { kind: 'image', path: 'assets/Objects/Approved/house_market.png' },
   house_fort:       { kind: 'image', path: 'assets/Objects/Approved/house_fort.png' },
-  house_trailer:    { kind: 'image', path: 'assets/Objects/Approved/house_trailer.png' },
+  house_trailer:    { kind: 'image', path: 'assets/Objects/Home/home_wagon.png' },
   // Wreck: every tier-9 small house starts out as one of these until the
   // player brings the restoration materials. Single sprite shared across
   // all roles — what the wreck WILL become is hidden until restoration.
@@ -322,7 +321,7 @@ const ASSETS = {
   approved_clipped_hedge: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_clipped_hedge.png", "frameWidth": 16, "frameHeight": 16},
   approved_mushroom_cluster: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_mushroom_cluster.png", "frameWidth": 16, "frameHeight": 16},
   approved_charred_stakes: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_charred_stakes.png", "frameWidth": 16, "frameHeight": 16},
-  potofgold: {"kind": "image", "path": "assets/Objects/Approved/potofgold.png"},
+  potofgold: {"kind": "image", "path": "assets/Objects/DailyVisits/potofgold.png"},
   // END approved map-art states and contexts
 };
 

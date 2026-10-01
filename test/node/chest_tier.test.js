@@ -323,10 +323,10 @@
 
   test('chest tier: the drawer and the roll read the one tier', () => {
     // render.js draws the gem and interactables.js rolls the loot off the SAME
-    // chestTier(o) — there is no Home-softened twin to tell apart. (A Wishing
-    // Well's boon lifts the roll by Shrines.FORTUNE_TIER_BONUS while it runs.)
+    // chestTier(o) — there is no Home-softened twin to tell apart. Wishing
+    // Well luck affects rarity, without changing the location’s tier.
     assert.truthy(/const tier = chestTier\(o\);/.test(RENDER_SRC), 'render.js draws chestTier(o)');
-    assert.truthy(/chestTier\(o\) : 2\) \+ fortune\);/.test(INTERACTABLES_SRC), 'interactables.js rolls at chestTier(o)');
+    assert.truthy(/chestTier\(o\) : 2\);/.test(INTERACTABLES_SRC), 'interactables.js rolls at chestTier(o)');
     for (const src of [RENDER_SRC, INTERACTABLES_SRC, SCENE_SRC]) {
       assert.falsy(/chestRollTier|CHEST_TIER_HOME_RINGS_M|chestTierHomeDrop/.test(src), 'no Home ring reader survives');
     }

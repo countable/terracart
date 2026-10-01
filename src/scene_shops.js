@@ -38,7 +38,7 @@ const smithyPreviewHTML = (iconHTML, name) =>
 // only piece in the picture), with the player’s first impression of the finished work.
 const FORGE_CEREMONY = {
   kind: 'forge', art: 'forge_done', header: 'Forged!', iconPx: 64,
-  sub: "Forge heat brushes your face as the smith sets the finished piece before you. You lean closer to see what your scraps have become.",
+  sub: "The smith sets your finished gear on the counter. You feel the heat still rising from it.",
 };
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
@@ -921,7 +921,7 @@ class SceneShops {
           this._storySplashOnce('delivery', {
             art: 'delivery_first',
             title: 'First delivery',
-            body: "The basket leaves a rough mark across your palms, and green coins take its place. Your neighbour holds the produce close; you had only thought of it as something in your bag.",
+            body: "The basket leaves your palms, and green coins take its place. Tears of relief well in your neighbour's eyes.",
           });
         }
       },
@@ -1598,7 +1598,7 @@ class SceneShops {
           const splashed = this._storySplashOnce('castle:' + (this._castleKey(house) || house.id), {
             art: 'castle_claim',
             title: 'The castle is yours',
-            body: "The vault door scrapes open, and cloth stirs high above the gate. Everyone waits for you to go first, which takes a moment to understand.",
+            body: "The vault door grinds open, and your banner rises above the gate. You step inside.",
           });
           if (!splashed) {
             this.flash('The castle vault is yours.',
@@ -1649,7 +1649,7 @@ class SceneShops {
             art: 'fort_unseal',
             header: 'Unsealed!',
             name: 'You unsealed a Fort',
-            sub: "Dust falls from the gate as it opens, tickling the back of your throat. Somewhere inside, reels clatter, and the quartermaster waves you towards them.",
+            sub: "The gate opens in a cloud of dust. The quartermaster waves you over to his clattering reels.",
             color: '#a7ffb0', accent: '#a7ffb0',
           });
         } else {

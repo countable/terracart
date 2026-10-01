@@ -58,6 +58,14 @@ assessments identify state-specific uses and any additional contour work.
 
 ## Applied map art
 
+The player's Home is a timber travelling wagon with an arched moss-green roof,
+iron straps, wooden spoked wheels and a copper stovepipe. Its sprite lives in
+`assets/Objects/Home/home_wagon.png`; `house_trailer` remains the shared texture
+key for the map and Home icon. The 108×75 frame preserves the previous building
+scale. Opening, recovery, supplies and selling paintings share this design;
+the wooden workshop interior already matches. Keep the survivor's face hidden
+inside the raised brown hood in these scenes.
+
 All approved map-audit proposals are installed. `assets/Objects/Approved/manifest.json`
 records source hashes, recipes and output hashes; original source assets remain
 available. The asset registry and map/inventory icon sheets use the same approved

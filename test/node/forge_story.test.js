@@ -92,7 +92,7 @@ test('forge story: the copy keeps the dialog rules', () => {
   assert.falsy(/\p{Extended_Pictographic}/u.test(FORGE.sub), 'none in the narrative either');
   // Told through the player’s experience: no digits or percentages.
   assert.falsy(/\d|%|tier/i.test(FORGE.sub), 'no exact mechanics');
-  assert.truthy(/your face|before you/.test(FORGE.sub), 'the player experiences the finished work');
+  assert.truthy(/you feel/i.test(FORGE.sub) && /heat/.test(FORGE.sub), 'the player experiences the finished work');
   assert.falsy(/[“”]/.test(FORGE.sub), 'no separate speaker');
   assert.lte(FORGE.sub.length, 140, 'short enough for the quiet zone');
   // The painting is a scene() piece with a bare anvil and no lore of its own.

@@ -616,7 +616,7 @@ test('grove shrine: one gift a UTC day per shrine, in the coin-burst ledger', ()
   assert.falsy('stale_20000101' in save.coinBurstClaimed, 'other days pruned');
   runInteractable(makeCtx(scene, save), shrine);
   assert.eq(loots.length, 1, 'once a day');
-  assert.truthy(/^The shrine rests\. \d+[smhd]\.$/.test(flashes[flashes.length - 1]), `the wait is shown: ${flashes[flashes.length - 1]}`);
+  assert.truthy(/^Already visited\. \d+[smhd]\.$/.test(flashes[flashes.length - 1]), `the wait is shown: ${flashes[flashes.length - 1]}`);
   assert.lte(`The shrine rests. ${shortDuration(24 * 3600 * 1000)}.`.length, MAP_MSG_MAX, 'fits a map line');
   const ctxRow = LOOT_CONTEXTS[Z.SHRINE_CONTEXT];
   assert.truthy(ctxRow && ctxRow.favourite.id === 'growth_powder', 'a grove is known for its growth powder');

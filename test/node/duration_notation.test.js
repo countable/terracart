@@ -157,12 +157,15 @@ test('the crop stage badge shows a unit, not a bare number', () => {
 
 test('the day-gated messages name the wait to the UTC roll', () => {
   const src = DURATION_SOURCES['app.js'];
-  // Coin-burst POI, the inn, the guildhall — each keyed on a UTC day stamp,
+  // Daily visits share Macros.beginDailyVisit; the inn and guildhall keep
+  // their service dialogs. Each is keyed on a UTC day stamp,
   // each saying how long that is. (A fed delivery house is no longer
   // day-gated: one delivery per house, ever. The castle favour left the day
   // key for its own twelve-hour clock, Houses.CASTLE_SERVICE_MS.)
   const n = (src.match(/msToNextUtcDay\(\)/g) || []).length;
-  assert.gte(n, 3, `expected the 3 day-gated messages, found ${n}`);
+  assert.gte(n, 2, `expected the 2 service day-gated messages, found ${n}`);
+  assert.truthy(/shortDuration\(msToNextUtcDay\(\)\)/.test(Macros.beginDailyVisit.toString()),
+    'shared daily visits show the wait to the UTC roll');
   const castle = SCENE_SRC.slice(SCENE_SRC.indexOf('  presentCastleServiceOffer('), SCENE_SRC.indexOf('  showQuestBoard('));
   assert.truthy(/shortDuration\(this\._castleServiceWaitMs\(house\)\)/.test(castle), 'the castellan names the twelve-hour wait');
   assert.truthy(/shortDuration\(Houses\.CASTLE_SERVICE_MS\)/.test(castle), 'and the blurb its length');
