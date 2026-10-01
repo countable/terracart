@@ -1,4 +1,4 @@
-// Mending Lane — gameplay layer on top of MVT-driven world.
+// Dragon Hood — gameplay layer on top of MVT-driven world.
 // - Mobile-sized Phaser canvas (390x844). VIEW_CELLS-wide viewport of CELL_M (7 m) cells.
 // - Real GPS (Geolocation API) if available + permitted; WASD fallback.
 // - Tap player to lock/unlock GPS snap.

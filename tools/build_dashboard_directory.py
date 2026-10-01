@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the design directory; preserve review artifacts and use relative URLs.
 
-Run with --output ~/.artifacts/mending-lane-dashboards. The artifact server
+Run with --output ~/.artifacts/dragon-hood-dashboards. The artifact server
 must serve the checkout's tools, src, assets, docs and index.html read-only
 alongside the saved review folders. Live tools load current game definitions;
 saved visual audits remain snapshots and should be regenerated when needed.
@@ -20,7 +20,7 @@ STYLE = '''
 NAV = '<nav aria-label="Design navigation"><a href="index.html">Design dashboards</a><a href="developer-tools.html">Developer tools</a><a href="archive.html">Archive</a></nav>'
 
 def page(title, body, wide=False):
-    return f'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mending Lane · {escape(title)}</title><style>{STYLE}</style></head><body><main class="{"wide" if wide else ""}">{NAV}<h1>{escape(title)}</h1>{body}<footer>Live tools use current game definitions. Saved reviews are snapshots; their original findings and artwork are preserved.</footer></main></body></html>'
+    return f'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dragon Hood · {escape(title)}</title><style>{STYLE}</style></head><body><main class="{"wide" if wide else ""}">{NAV}<h1>{escape(title)}</h1>{body}<footer>Live tools use current game definitions. Saved reviews are snapshots; their original findings and artwork are preserved.</footer></main></body></html>'
 
 def card(url, title, description, tag=''):
     return f'<a class="card" href="{escape(url)}"><span class="tag">{escape(tag)}</span><h2>{escape(title)}</h2><p>{escape(description)}</p></a>'
@@ -58,7 +58,7 @@ ARCHIVES = {
 
 def build(output):
     output.mkdir(parents=True,exist_ok=True)
-    if output.name == 'mending-lane-dashboards':
+    if output.name == 'dragon-hood-dashboards':
         alias = output.parent / 'design'
         if not alias.exists() and not alias.is_symlink():
             alias.symlink_to(output.name, target_is_directory=True)
@@ -106,5 +106,5 @@ def build(output):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output',type=Path,default=Path.home()/'.artifacts/mending-lane-dashboards')
+    parser.add_argument('--output',type=Path,default=Path.home()/'.artifacts/dragon-hood-dashboards')
     build(parser.parse_args().output)
