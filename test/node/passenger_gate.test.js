@@ -86,7 +86,7 @@ test('passenger gate: the scene wiring — every fix steps it, and three things 
   assert.truthy(/speed: pos\.coords\.speed,/.test(geo), 'with the device\'s own speed');
   assert.truthy(/if \(!was && this\._speedGate\.tooFast\) this\._showPassengerCard\?\.\(\);/.test(geo), 'the card, once per ride');
   const app = SCENE_SRC;
-  assert.truthy(/return this\.isShadowActive\(\) \|\| Combat\.playerDowned\(this\.save\.energy\) \|\| this\.isTooFast\(\);/.test(app),
+  assert.truthy(/return this\.isShadowActive\(\) \|\| moss \|\| Combat\.playerDowned\(this\.save\.energy\) \|\| this\.isTooFast\(\);/.test(app),
     'nothing hunts a passenger — ORed into isUnnoticed');
   assert.truthy(/if \(!surface \|\| this\._driftingHome \|\| this\.isTooFast\?\.\(\)\) \{ this\._resetStreetSight\(\); return; \}/.test(app),
     'no street restores, so no trail metres');

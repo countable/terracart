@@ -78,7 +78,6 @@
     'stakes:0': { fw: 16, fh: 16, minX: 4, minY: 0, maxX: 12, maxY: 16 },
     'tar:0': { fw: 16, fh: 16, minX: 0, minY: 6, maxX: 16, maxY: 16 },
     'headstone:0': { fw: 16, fh: 16, minX: 3, minY: 0, maxX: 14, maxY: 16 },
-    'grove_shrine:0': { fw: 48, fh: 48, minX: 12, minY: 1, maxX: 37, maxY: 47 },
     'grove_votive:0': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 16 },
     'vista_scope:0': { fw: 16, fh: 24, minX: 0, minY: 0, maxX: 15, maxY: 24 },
     'shrines:0': { fw: 16, fh: 24, minX: 2, minY: 0, maxX: 14, maxY: 24 },
@@ -105,7 +104,6 @@
 
   // Cosmetic only: each POI keeps its appearance across reloads and save overlays.
   const GROVE_SHRINE_ART = [
-    { key: 'grove_shrine', frame: 0, scale: 0.7, name: 'Stone figure' },
     { key: 'grove_votive', frame: 0, scale: 1.6, name: 'Stone votive' },
   ];
   // One centered shrine object, reserving a 3×3-cell footprint.
@@ -641,6 +639,8 @@
     // enemy (no MONSTERS row), NOT game, and NOT tappable (interact.js skips a
     // `summoned` kind: there is nothing to catch, tame or pet).
     spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000, stepCells: 0.7 },
+    mercenary: { wanders: true, summoned: true, preysOnFoes: true, follows: true,
+      get stepMs() { return EnemyRoster.get('goblin').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
     // `maxMps` is the kind's hard top speed, m/s (owner, Sep 2026: a
     // butterfly never outpaces 6 m/s) — over its gait, its bolt and the net
     // wheel's flee. A shiny's cap rises by its own SHINY_SPEED_MUL (9 m/s,
@@ -970,6 +970,13 @@
         walk: [4, 5, 6, 7].map(col => row * 12 + col),
       }])) },
   };
+  // A hired swordsman uses the existing player sheet and directional frames.
+  const mercenaryArt = PLAYER_ART.enforcer;
+  CREATURE_ART.mercenary = { sheet: mercenaryArt.sheet, fw: mercenaryArt.fw, fh: mercenaryArt.fh,
+    scale: mercenaryArt.scale, foot: 14 / 16, minY: 2, maxY: 14, float: 0,
+    frameMs: CREATURE_FRAME_MS,
+    directions: Object.fromEntries(Object.entries(mercenaryArt.directions).map(([key, frames]) =>
+      [key, { idle: frames.idle, move: frames.walk }])) };
   // Assignment and bicycle expiry already live in the save. No second skin
   // flag to persist, migrate, or leave stuck after an effect ends.
   function playerArt(save, now = Date.now()) {

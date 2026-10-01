@@ -55,14 +55,14 @@
 
   test('shrines: a boon takes the later expiry, never a sum, and runs out', () => {
     const save = {};
-    Shrines.grant(save, 'wayfarer_post', T0);
-    assert.eq(save.speedPotionUntil, T0 + K.wayfarer_post.durationMs, 'the speed potion\'s own field');
-    save.speedPotionUntil = T0 + 60 * 60 * 1000;
-    Shrines.grant(save, 'wayfarer_post', T0);
-    assert.eq(save.speedPotionUntil, T0 + 60 * 60 * 1000, 'a longer potion is not cut short');
-    save.speedPotionUntil = T0 + 1000;
-    Shrines.grant(save, 'wayfarer_post', T0);
-    assert.eq(save.speedPotionUntil, T0 + K.wayfarer_post.durationMs, 'nor added to');
+    Shrines.grant(save, 'bone_watcher', T0);
+    assert.eq(save.shieldPotionUntil, T0 + K.bone_watcher.durationMs);
+    save.shieldPotionUntil = T0 + 60 * 60 * 1000;
+    Shrines.grant(save, 'bone_watcher', T0);
+    assert.eq(save.shieldPotionUntil, T0 + 60 * 60 * 1000, 'longer potion preserved');
+    save.shieldPotionUntil = T0 + 1000;
+    Shrines.grant(save, 'bone_watcher', T0);
+    assert.eq(save.shieldPotionUntil, T0 + K.bone_watcher.durationMs, 'not added');
     Shrines.grant(save, 'wishing_well', T0);
     assert.truthy(Shrines.leverActive(save, 'fortune', T0 + 1));
     assert.falsy(Shrines.leverActive(save, 'fortune', T0 + K.wishing_well.durationMs));
@@ -75,25 +75,90 @@
     assert.eq(scene._torchUntil, T0 + K.lantern_saint.durationMs, 'the Torch\'s own timer');
     assert.eq(Shrines.boonRemainingMs(save, scene, T0), 0, 'the Torch shows its own countdown');
     Shrines.grant(save, 'moss_cairn', T0, scene);
-    assert.eq(scene._shadowUntil, T0 + K.moss_cairn.durationMs, 'Shadow Powder\'s own timer');
+    assert.eq(save.boonUntil.hidden, T0 + K.moss_cairn.durationMs, 'Moss persists independently');
+    assert.eq(scene._shadowUntil, undefined, 'Shadow Powder stays independent');
     assert.falsy(Shrines.grant(save, 'nope', T0));
   });
 
-  test('shrines: the boon-only levers reach their one reader', () => {
-    const now = Date.now();
-    const save = { energy: 50, maxEnergy: 100 };
-    Shrines.grant(save, 'rust_totem', now);
-    assert.gt(Combat.trainingBonus(save, 'melee', now), Combat.trainingBonus({}, 'melee', now), 'the melee drill runs');
-    const sick = { energy: 50 };
+  test('shrines: revised boons use their requested durations and levers', () => {
+    const save = {};
+    for (const [id, lever, minutes] of [
+      ['wishing_well', 'fortune', 15], ['harvest_idol', 'work', 15],
+      ['toad_idol', 'regen', 8], ['ember_altar', 'wand', 5], ['rust_totem', 'melee', 5],
+    ]) {
+      Shrines.grant(save, id, T0);
+      assert.eq(save.boonUntil[lever], T0 + minutes * 60000, id);
+      assert.eq(K[id].art, 'shrine_' + id);
+    }
+    const sick = {};
     Conditions.apply(sick, 'poison');
-    assert.truthy(Conditions.active(sick, 'poison'));
-    Shrines.grant(sick, 'toad_idol', now);
-    assert.falsy(Conditions.active(sick, 'poison'), 'the toad cures what is there');
-    assert.falsy(Conditions.apply(sick, 'poison'), 'and poison cannot take hold');
-    assert.falsy(Conditions.active(sick, 'poison'));
-    assert.truthy(/Shrines\.leverActive\(this\.save, 'thrift'\)/.test(SCENE_SRC), '_walkRelics reads thrift');
-    assert.truthy(/Shrines\.leverActive\(this\.save, 'surefoot'\)/.test(SCENE_SRC), '_bodyHold reads surefoot');
-    assert.truthy(/Shrines\.leverActive\(save, 'fortune'\)/.test(INTERACTABLES_SRC), 'the chest roll reads fortune');
+    Shrines.grant(sick, 'toad_idol', T0);
+    assert.truthy(Conditions.active(sick, 'poison'), 'toad heals HP rather than curing poison');
+    assert.eq(Shrines.WORK_SPEED_MUL, 3);
+    assert.eq(Shrines.WAND_TIER, 6);
+    assert.eq(Shrines.REGEN_PER_SECOND, 1);
+  });
+
+  test('shrines: wishing luck joins existing ring luck and expires', () => {
+    const save = { relics: { ring: { tier: 3 } } };
+    const base = ringLuck(save, T0);
+    Shrines.grant(save, 'wishing_well', T0);
+    assert.eq(ringLuck(save, T0), base + Shrines.FORTUNE_LUCK_BONUS);
+    assert.eq(ringLuck(save, T0 + 15 * 60000), base);
+  });
+
+  test('shrines: wishing luck improves both item quality and the separate gear roll', () => {
+    const save = {};
+    Shrines.grant(save, 'wishing_well');
+    const ctx = { maxTier: 4, chainMax: 4, chainSteps: 1 };
+    const roll = (player) => {
+      let i = 0;
+      return rollRewardQuality(ctx, 'chestQuality', player, () => i++ === 0 ? 0.28 : 0.99);
+    };
+    assert.eq(roll({}).tier, 1);
+    assert.eq(roll(save).tier, 2, 'same roll favors tier with the boon');
+    const plain = rollGearUpgrade(() => 0, {}, 2, {});
+    const lucky = rollGearUpgrade(() => 0, {}, 2, {}, null, Shrines.FORTUNE_LUCK_BONUS);
+    assert.eq(lucky.tier, plain.tier + 1, 'gear has a luck chance too');
+    const capped = rollGearUpgrade(() => 0, {}, 1, {}, null, Shrines.FORTUNE_LUCK_BONUS);
+    assert.eq(capped.tier, 1, 'luck preserves the chest ceiling');
+  });
+
+  test('shrines: toad regeneration banks fractions, caps HP and stops at expiry', () => {
+    const save = { energy: 10 }, state = {};
+    Shrines.grant(save, 'toad_idol', T0);
+    for (let i = 1; i <= 60; i++) Energy.tickShrineRegen(save, state, 1 / 60, T0 + i * 1000 / 60);
+    assert.eq(save.energy, 11, 'one HP per second');
+    Energy.tickShrineRegen(save, state, 600, T0 + 30000);
+    assert.eq(save.energy, 11, 'background time is not accumulated');
+    Energy.set(save, Energy.maxEnergy(save) - 1);
+    for (let i = 0; i < 8; i++) Energy.tickShrineRegen(save, state, 0.25, T0 + 31000 + i * 250);
+    assert.eq(save.energy, Energy.maxEnergy(save), 'bounded at cap');
+    assert.eq(state._shrineRegenAcc, 0, 'no banked healing at full health');
+    Energy.set(save, 10);
+    Energy.tickShrineRegen(save, state, 0.25, T0 + 8 * 60000 + 1000);
+    assert.eq(save.energy, 10, 'expired');
+  });
+
+  test('shrines: Wayfarer consumes Pairy effects without inventory or eat cooldown', () => {
+    const a = SCENE_SRC.indexOf('  _consumeFoodEffects(');
+    const b = SCENE_SRC.indexOf('\n  }', a) + 4;
+    const method = new Function('Energy', 'FOOD_ENERGY', 'CONSUMABLE_SPEC', 'shortDuration',
+      'FEATHER_REVIVE_ENERGY', 'COFFEE_BUFF_MS', 'return ({' + SCENE_SRC.slice(a,b) + '})._consumeFoodEffects;')(
+        Energy, FOOD_ENERGY, CONSUMABLE_SPEC, shortDuration, FEATHER_REVIVE_ENERGY, 60000);
+    const save = { energy: 5, eatReadyAt: T0 + 99999 };
+    const scene = { save, _consumeFoodEffects: method, getMaxEnergy: () => Energy.maxEnergy(save),
+      findNearestUnopenedChest: () => ({ id: 'chest1', x: 12, y: 34 }) };
+    assert.truthy(Shrines.grant(save, 'wayfarer_post', T0, scene));
+    assert.eq(save.energy, 5 + FOOD_ENERGY.pairy);
+    assert.truthy(save.eaten.includes('pairy'), 'first taste is recorded');
+    assert.eq(scene.pairyCompass.until, T0 + CONSUMABLE_SPEC.pairy.durationMs);
+    assert.eq(save.eatReadyAt, T0 + 99999, 'cooldown unchanged and bypassed');
+    assert.eq(save.speedPotionUntil, undefined, 'no speed potion');
+    assert.eq(Shrines.boonRemainingMs(save, scene, T0), 0, 'compass owns its timer');
+    scene.findNearestUnopenedChest = () => null;
+    assert.truthy(Shrines.grant(save, 'wayfarer_post', T0, scene), 'no nearby chest still grants food');
+    assert.eq(save.eaten.length, 1, 'first taste only once');
   });
 
   test('shrines: a kind shrine lends its boon once a UTC day, in place of the gift', () => {
@@ -111,7 +176,7 @@
     assert.truthy(Macros.usedToday(save, o.id), 'the day ledger holds it');
     save.shieldPotionUntil = 0;
     runInteractable(makeCtx(scene, save), o);
-    assert.truthy(/^The shrine rests\./.test(flashed), 'a second visit waits, with its wait shown');
+    assert.truthy(/^Already visited\./.test(flashed), 'a second visit waits, with its wait shown');
     assert.eq(save.shieldPotionUntil, 0, 'no second boon today');
   });
   test('shrines: one scenic-path shrine per tile beside its stretch, on a reward seat, stable', () => {

@@ -161,6 +161,29 @@
     return save.energy - before;
   }
 
+  // Frame-time regeneration, with fractional pips kept only in memory. A
+  // suspended frame earns at most a quarter second, never offline catch-up.
+  // Wall time clips the final frame at the boon deadline.
+  function tickShrineRegen(save, state, dt, now = Date.now()) {
+    const until = Number(save?.boonUntil?.regen) || 0;
+    const elapsed = Math.max(0, Math.min(0.25, Number(dt) || 0));
+    const activeSeconds = Math.max(0, Math.min(elapsed, (until - (now - elapsed * 1000)) / 1000));
+    const maxE = maxEnergy(save);
+    if (!activeSeconds || (save.energy ?? 0) >= maxE) {
+      state._shrineRegenAcc = 0;
+      return 0;
+    }
+    const rate = typeof Shrines !== 'undefined' ? Shrines.REGEN_PER_SECOND : 0;
+    const accrued = (state._shrineRegenAcc || 0) + activeSeconds * rate;
+    const whole = Math.floor(accrued + 1e-9);
+    state._shrineRegenAcc = Math.max(0, accrued - whole);
+    if (!whole) return 0;
+    const before = save.energy ?? 0;
+    set(save, before + whole, maxE);
+    if (save.energy >= maxE) state._shrineRegenAcc = 0;
+    return save.energy - before;
+  }
+
   // The floor a revive lifts an empty bar to. REVIVE_FRAC (a quarter) is
   // Home's: arriving there on hard with nothing left. An item that revives
   // (the Crow Feather, the revival potions — items.js REVIVE_ITEM_FRAC)
@@ -172,6 +195,6 @@
     return Math.max(1, Math.round((maxE || 0) * frac));
   }
 
-  root.Energy = { set, VIGOUR_ENERGY_STEP, REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tasteBonus, tiredThreshold, crossedTired,
+  root.Energy = { set, tickShrineRegen, VIGOUR_ENERGY_STEP, REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tasteBonus, tiredThreshold, crossedTired,
                   spend, applyOfflineRest, eatCooldownLeft, canEat, startEatCooldown };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

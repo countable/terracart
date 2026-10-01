@@ -115,15 +115,10 @@ test('spirit raven: the drink refreshes one timer; the keeper summons one bird',
     'the expiry is on the save, from the one constant');
   assert.truthy(/this\._finishConsumable\(/.test(drink), 'the one consume / channel exit');
   const keep = methodBody('  _tickSpiritRaven() {');
-  assert.truthy(/if \(!live \|\| this\._spiritRaven\) return;/.test(keep), 'never a second raven while one is out');
-  assert.truthy(/WorldGen\.makeCreature\('spirit_raven', px, py,/.test(keep), 'summoned at the player\'s feet');
-  assert.truthy(/const px = this\.startWorldM\.x \+ this\.playerM\.x;/.test(keep), 'the player, not the camera');
-  assert.truthy(/if \(!entry \|\| !entry\.creatures\) return;/.test(keep), 'never seeds a tile\'s creature list');
-  assert.truthy(/\(this\.save\.caught = this\.save\.caught \|\| \[\]\)\.push\(r\.id\)/.test(keep), 'dismissed through save.caught');
-  for (const m of keep.match(/'The spirit raven[^']*'/g) || []) {
-    assert.lte(m.length - 2, MAP_MSG_MAX, `${m} fits a map message`);
-  }
-  assert.truthy(/this\._tickSpiritRaven\(\);/.test(app.slice(app.indexOf('this._tickBlightAura();'))),
-    'kept once a frame, beside the Blight aura');
+  assert.truthy(/Companions\.tick\(this, 'spirit_raven'\)/.test(keep), 'the shared companion keeper');
+  assert.eq(Companions.KINDS.spirit_raven.field, 'spiritRavenUntil', 'existing saves retain their timer');
+  assert.truthy(/Companions\.tickAll\(this\);/.test(app.slice(app.indexOf('this._tickBlightAura();'))),
+    'all companions kept once per frame');
+
 });
 })();

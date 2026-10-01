@@ -19,6 +19,34 @@
   // on a fresh pickup.
   const WEAPON_SLOTS = ['sword', 'bow', 'staff'];
 
+  // Boons change what can be used, never what is owned. Expiry is read live
+  // so a reload or an expired altar restores the original gear automatically.
+  function effectiveRelics(save, now = Date.now()) {
+    const relics = save?.relics || {};
+    if (!Shrines.leverActive(save, 'wand', now) || (relics.staff?.tier || 0) >= Shrines.WAND_TIER) return relics;
+    return { ...relics, staff: { tier: Shrines.WAND_TIER, temporary: true } };
+  }
+  function activeWeapon(save, now = Date.now()) {
+    if (!Shrines.leverActive(save, 'wand', now)) return save?.activeWeapon;
+    return save.boonWeapon?.until === save.boonUntil.wand ? save.boonWeapon.slot : 'staff';
+  }
+
+  function selectWeapon(save, slot, now = Date.now()) {
+    if (!WEAPON_SLOTS.includes(slot) || !effectiveRelics(save, now)[slot]) return false;
+    if (Shrines.leverActive(save, 'wand', now)) {
+      save.boonWeapon = { until: save.boonUntil.wand, slot };
+    } else {
+      save.activeWeapon = slot;
+    }
+    return true;
+  }
+
+  // Applied at the two work-wheel entry points, after the owned tool has
+  // passed its access gate. Combat uses its own damage clock, not this rate.
+  function workDurationMs(save, durationMs, now = Date.now()) {
+    return durationMs / (Shrines.leverActive(save, 'work', now) ? Shrines.WORK_SPEED_MUL : 1);
+  }
+
   // Equip a bought / forged / looted relic or armor piece. Armor just fills its
   // slot: its effect (soaking incoming damage — items.js armorReduction, spent
   // by Combat.mitigate) is read live off save.armor at the moment a blow lands,
@@ -36,7 +64,7 @@
     // Only one weapon fights at a time (combat.js) — the newest one obtained
     // or upgraded wins by default; the player can still switch back by
     // tapping another owned weapon in the Relics inventory tab (app.js).
-    if (WEAPON_SLOTS.includes(slot)) save.activeWeapon = slot;
+    if (WEAPON_SLOTS.includes(slot)) selectWeapon(save, slot);
   }
 
   // Pick a random relic OR armor piece the player can actually use (current slot
@@ -166,6 +194,6 @@
     return ['platinum_bar', 'crimson_bar', 'frost_bar'];
   }
 
-  root.Gear = { equip, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS,
+  root.Gear = { effectiveRelics, activeWeapon, selectWeapon, workDurationMs, equip, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS,
                 blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -347,8 +347,10 @@
     const keys = Object.keys(weightsObj);
     return weightedPickBy(keys, (k) => weightsObj[k], rng);
   }
-  function ringLuck(save) {
-    return (save?.relics?.ring?.tier || 0) * RARITY_TUNING.ringLuckPerTier;
+  function ringLuck(save, now = Date.now()) {
+    const boon = typeof Shrines !== 'undefined' && Shrines.leverActive(save, 'fortune', now)
+      ? Shrines.FORTUNE_LUCK_BONUS : 0;
+    return (save?.relics?.ring?.tier || 0) * RARITY_TUNING.ringLuckPerTier + boon;
   }
   // The wizard's QUANTITY ladder: P(one extra qty-bracket bump on a roll).
   // Linear over its rungs onto qtyLuckMaxP, so the top rung is exactly the
@@ -644,7 +646,8 @@
     const meta = { theme, group, resolvedGroup: resolved.group, fallback: resolved.fallback,
       rolledTier: tier, jackpot: jackpotApplied, consolation: 0 };
     if (resolved.kind === 'gear') {
-      return { ...rollGearUpgrade(rng, save?.relics, chestTier, save?.armor, ChestThemes.gearSlots(resolved.group)), ...meta };
+      return { ...rollGearUpgrade(rng, save?.relics, chestTier, save?.armor, ChestThemes.gearSlots(resolved.group),
+        typeof Shrines !== 'undefined' && Shrines.leverActive(save, 'fortune') ? Shrines.FORTUNE_LUCK_BONUS : 0), ...meta };
     }
     if (resolved.kind === 'cash') {
       let qty = 1;
@@ -795,7 +798,7 @@
   // and by the chest relic path in pickReward. Guarantees a gear result (relic
   // or armor upgrade, or consolation gold). Moved here from loot.js; replaces
   // the old pickChestRelic. `chestT` 1-5 drives the preferred/ceiling tier.
-  function rollGearUpgrade(rng, currentRelics, chestT = 2, currentArmor = null, allowedSlots = null) {
+  function rollGearUpgrade(rng, currentRelics, chestT = 2, currentArmor = null, allowedSlots = null, luck = 0) {
     const random = rng || Math.random;
     if (!Object.keys(_RELIC_DEFS).length) return null;
     // preferred is clamped to 1..7 and every tier 1..7 is allowed, so the
@@ -803,7 +806,10 @@
     const preferred = Math.min(7, Math.max(1, Math.round(1 + (chestT - 1) * 2)));
     const capped = GEAR_ROLL_TIERS.filter(t => t <= preferred);
     const weighted = capped.map(t => ({ t, w: 1 / (1 + Math.abs(t - preferred)) }));
-    const pickedTier = weightedPickBy(weighted, (w) => w.w, random).t;
+    let pickedTier = weightedPickBy(weighted, (w) => w.w, random).t;
+    // Gear resolves separately from rolled item quality. Fortune reaches this
+    // lane too, without raising the source's existing tier ceiling.
+    if (luck > 0 && random() < luck) pickedTier = Math.min(preferred, pickedTier + 1);
     // Never the ring: it is the wizard tower's exclusive gift (gear.js, the
     // shop offer skips it for the same reason), and a chest handing one out
     // undercut his ladder (economy audit, 2026-09-27).

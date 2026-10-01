@@ -124,7 +124,7 @@ const FILES = [
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and
   // combat.test.js registers a synthetic one), so it runs headless.
-  'combat.js', 'creature_ai.js', 'npc.js',
+  'combat.js', 'companions.js', 'creature_ai.js', 'npc.js',
   // The wizard tower's offers — pure (reads Combat / Trail / Energy /
   // RARITY_TUNING at call time), so wizard.test.js drives the shipping rules.
   'wizard.js', 'dragon_story.js', 'memory_story.js', 'story_encounters.js',

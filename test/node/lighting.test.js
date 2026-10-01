@@ -35,6 +35,40 @@ function scene(over) {
 }
 const HALF_M = (11 / 2 + 1) * 5;   // drawObjects' halfM at cellM 5
 
+test('lighting: daily sites retain ambient light after the availability pulse is spent', () => {
+  const start = RENDER_SRC.indexOf('  const offerPreCullLights = (o, dx, dy) => {');
+  const end = RENDER_SRC.indexOf('\n  };', start);
+  assert.truthy(start >= 0 && end > start, 'shared pre-cull light offer exists');
+  const offerFactory = new Function('scene', 'LIGHTS', 'Macros', 'isBuilding', 'poiLit', 'spentIds', 'halfM',
+    RENDER_SRC.slice(start, end + 5) + '; return offerPreCullLights;');
+  const objects = [
+    { kind: 'waystone', id: 'light-waystone' },
+    { kind: 'grove_shrine', id: 'light-grove' },
+    ...Shrines.KIND_IDS.map(shrineKind => ({ kind: 'grove_shrine', id: 'light-' + shrineKind, shrineKind })),
+    { kind: 'chest', id: 'light-wagon', poiClass: 'bus', banditStop: true },
+    { kind: 'chest', id: 'light-bike', poiClass: 'bicycle_parking' },
+    { kind: 'chest', id: 'light-gold', poiClass: 'atm' },
+  ];
+  for (const object of objects) {
+    const s = scene({ _lights: [] });
+    const kind = Lighting.sourceKind(s, object);
+    assert.truthy(kind && kind !== 'poi', `${object.id} owns an ambient light`);
+    let available = true;
+    const offer = offerFactory(s, Lighting, Macros, isBuilding, () => available, {}, HALF_M);
+    offer(object, 0, 0);
+    assert.eq(s._lights.length, 2, `${object.id}: ambient plus availability pulse`);
+    assert.eq(s._lights.filter(light => light.kind === kind).length, 1, 'ambient is offered once');
+    assert.eq(s._lights.filter(light => light.kind === 'poi').length, 1, 'availability is offered once');
+    available = false;
+    s._lights = [];
+    offer(object, 0, 0);
+    assert.eq(s._lights.length, 1, `${object.id}: spent site keeps only ambient light`);
+    assert.eq(s._lights[0].kind, kind);
+    s._lights = [];
+    assert.truthy(Lighting.consider(s, object, HALF_M + 1, 0, HALF_M), 'ambient reaches beyond the sprite cull');
+  }
+});
+
 test('lighting: lava terrain markers glow beyond the sprite cull without a second sprite', () => {
   const sc = scene({_lights: []}), vent = {kind: 'lava_vent', id: 'vent'};
   assert.eq(Lighting.sourceKind(sc, vent), 'lava_vent');
@@ -632,7 +666,7 @@ test('lighting: the halo ping is gone — the POI light replaced it', () => {
   assert.falsy(/poiHaloContainer|halo_poi|POI_HALO_PERIOD_S/.test(SCENE_SRC + RENDER_SRC),
     'the ring layer, its texture and its period are gone from app.js / render.js');
   const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawObjects = function drawObjects(scene)'));
-  assert.truthy(/if \(LIGHTS && o\.kind === 'chest' && poiLit\(o, spentIds\)\) LIGHTS\.consider\(scene, o, dx, dy, halfM\);/.test(body),
+  assert.truthy(/if \(LIGHTS && o\.kind === 'chest' && !offersPreCullLight\(o\) && poiLit\(o, spentIds\)\) LIGHTS\.consider\(scene, o, dx, dy, halfM\);/.test(body),
     'live POIs are offered to the lightmap from the tile scan, opened (or used-today) ones never (interactables.js poiLit)');
   const offer = body.indexOf("if (LIGHTS && o.kind === 'chest'");
   // (`return`, not `continue`: the object walk is forEachItemInBox's callback
@@ -776,14 +810,17 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   // remembered here.
   // (+ the grove shrine, src/zones.js — a standing light like the torch.)
   // One closure offers them, for the sprite walk and the light walk alike.
-  assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent') LIGHTS.consider(scene, o, dx, dy, halfM);"),
+  assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);"),
     'the pre-cull offer asks isBuilding (+ torch, grove shrine)');
   const offer = body.indexOf('if (LIGHTS && offersPreCullLight(o)) offerPreCullLights(o, dx, dy);');
   const cull = body.indexOf('if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;');
   assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
   const pred = r.slice(r.indexOf('function offersPreCullLight(o) {'), r.indexOf('Render.drawObjects = function drawObjects(scene)'));
-  assert.truthy(/return isBuilding\(k\) \|\| k === 'torch' \|\| k === 'grove_shrine' \|\| k === 'vista_scope' \|\| k === 'lava_vent';/.test(pred),
+  assert.truthy(/return isBuilding\(k\) \|\| k === 'torch' \|\| k === 'grove_shrine' \|\| k === 'vista_scope'/.test(pred),
     'and the per-tile light list is derived by the same kinds');
+  assert.truthy(pred.includes('Macros.visitKindForObject(o)'), 'daily sites join the shared pre-cull predicate');
+  assert.truthy(body.includes("o.kind === 'chest' && !offersPreCullLight(o) && poiLit(o, spentIds)"),
+    'daily visit chests do not get their ambient light offered again in the ordinary chest lane');
   // The mushroom is a wildplant, scanned in its own loop: offered as itself,
   // before that loop's cull, so its little glow can still show from a cell
   // off-screen.

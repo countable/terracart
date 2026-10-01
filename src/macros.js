@@ -77,6 +77,119 @@
       if (!(today - d < LEDGER_KEEP_DAYS)) delete ledger[k];
     }
   }
+  // Daily places share one ledger and one story ceremony. Pending dialogs
+  // are scene state only: leaving loot behind never spends the day's visit.
+  const DAILY_VISIT_KINDS = {
+    wagon: { name: 'Mercenary wagon', art: 'visit_wagon', sprite: 'wagon', light: 0xf2d9a0,
+      reward: 'companion', effect: 'A mercenary fights beside you',
+      get price() { return root.Companions.KINDS.mercenary.hireCost; },
+      get durationMs() { return root.Companions.KINDS.mercenary.durationMs; },
+      locations: ['Old-trade-road bus stops'],
+      body: 'The mercenary takes your coins and lifts his sword. He falls into step beside you.' },
+    bike: { name: "Courier's post", art: 'visit_bike', sprite: 'bike_rack', light: 0xaadbd1,
+      reward: 'bike', effect: 'Faster walking', locations: ['Mapped bicycle parking'], get durationMs() { return BIKE_RACK_MS; },
+      spent: 'Horse is out.',
+      body: 'A saddled horse waits at the post. You mount up and ride through the ruins.' },
+    gold: { name: 'Pot of gold', art: 'visit_gold', sprite: 'potofgold', light: 0xffd778,
+      reward: 'coins', effect: 'Scattered coins', durationMs: 0,
+      locations: ['Mapped ATMs'],
+      body: 'You lift the heavy lid. Coins spill across the ground.' },
+  };
+  function visitKindForObject(o) {
+    const shrine = root.Shrines?.kindForObject(o);
+    if (shrine) return shrine;
+    if (!o || o.kind !== 'chest' || typeof chestLook !== 'function') return null;
+    const look = chestLook(o);
+    return look.wagon ? DAILY_VISIT_KINDS.wagon : look.bike ? DAILY_VISIT_KINDS.bike
+      : look.coin ? DAILY_VISIT_KINDS.gold : null;
+  }
+  function beginDailyVisit(ctx, o, { row = visitKindForObject(o), held = false } = {}) {
+    const { scene, save, sx, sy } = ctx;
+    const pending = scene._dailyVisits || (scene._dailyVisits = new Set());
+    if (!held && usedToday(save, o.id)) {
+      scene.flash(`${row?.spent || 'Already visited.'} ${shortDuration(msToNextUtcDay())}.`, sx, sy);
+      return null;
+    }
+    if (pending.has(o.id)) return null;
+    pending.add(o.id);
+    let claimed = false, finished = false, presented = false;
+    const visit = {
+      claim() {
+        if (claimed || finished) return false;
+        claimed = true;
+        markToday(save, o.id);
+        // Optional daily-site boons belong to the row, beside their copy.
+        row?.grant?.(save, scene);
+        ctx.dirty = true;
+        return true;
+      },
+      finish() { finished = true; pending.delete(o.id); },
+      present(afterStory) {
+        if (presented || finished) return;
+        presented = true;
+        let dismissed = false;
+        const onDismiss = () => {
+          if (dismissed) return;
+          dismissed = true;
+          if (afterStory) afterStory(visit);
+          else visit.finish();
+          if (ctx.dirty && typeof persistSave === 'function') persistSave(save);
+        };
+        if (row && typeof scene.showMessageModal === 'function') {
+          scene.showMessageModal({ title: row.name, body: row.body, art: row.art, kind: 'story', onDismiss });
+        } else onDismiss();
+      },
+    };
+    return visit;
+  }
+  function dailyVisit(ctx, o, { row = visitKindForObject(o), grant, afterStory } = {}) {
+    const visit = beginDailyVisit(ctx, o, { row });
+    if (!visit) return true;
+    if (!visit.claim()) return true;
+    grant?.();
+    visit.present(afterStory ? () => { visit.finish(); afterStory(); } : null);
+    return true;
+  }
+  function hireMercenary(ctx, o) {
+    const { scene, save, sx, sy } = ctx;
+    const row = DAILY_VISIT_KINDS.wagon;
+    if (scene._mercenaryHirePending) return true;
+    const visit = beginDailyVisit(ctx, o, { row });
+    if (!visit) return true;
+    if (root.Companions.active(save, 'mercenary')) {
+      scene.flash('Your mercenary is still with you.', sx, sy);
+      visit.finish();
+      return true;
+    }
+    if ((save.money || 0) < row.price) {
+      scene.flash(`Need $${row.price} to hire.`, sx, sy);
+      visit.finish();
+      return true;
+    }
+    if (typeof scene.showConfirmModal !== 'function') { visit.finish(); return true; }
+    let settled = false;
+    scene._mercenaryHirePending = true;
+    scene.showConfirmModal({ id: 'mercenary-hire', title: row.name, art: row.art,
+      body: `Hire a mercenary for $${row.price}? He follows you and fights enemies for ${shortDuration(row.durationMs)}.`,
+      acceptLabel: `Hire · $${row.price}`, cancelLabel: 'Later',
+      onCancel: () => { if (!settled) { settled = true; scene._mercenaryHirePending = false; visit.finish(); } },
+      onAccept: () => {
+        if (settled) return;
+        settled = true;
+        scene._mercenaryHirePending = false;
+        if (!root.Companions.hire(scene, 'mercenary')) {
+          visit.finish();
+          scene.flash('Unable to hire right now.', sx, sy);
+          return;
+        }
+        visit.claim();
+        if (typeof persistSave === 'function') persistSave(save);
+        scene._finishInventoryChange?.();
+        visit.present();
+      },
+    });
+    return true;
+  }
   const serviceLedgerId = (id) => 'macro:' + id;
   function serviceUsedToday(save, id, now) {
     return usedToday(save, serviceLedgerId(id), now);
@@ -398,18 +511,19 @@
   // the place is, told once. No numbers — those are on the dialog and in the
   // Book.
   const KIND_STORY = {
-    inn:         { title: 'An inn', body: "Warm air carries the smell of the hearth through the doorway. Your shoulders sink a little; you had not noticed how high you were holding them." },
-    chapel:      { title: 'A chapel', body: 'A candle stands by the chapel door, where the keeper offers a quiet blessing. You are not sure what a blessing should feel like, but you find yourself listening carefully.' },
-    apothecary:  { title: 'An apothecary', body: 'Small stoppered bottles crowd the shelves, and the room smells sharply of herbs. You wonder how someone knows which bottle belongs to which ache, and feel glad that someone seems to.' },
-    scriptorium: { title: 'A scriptorium', body: 'The room smells of ink, and books lie open on the counter. You want to know what they say, though the sight of so many pages makes it hard to choose where to start.' },
-    guildhall:   { title: 'A guildhall', body: "A bounty notice hangs beside the guildhall door, its edges worn soft. You read it slowly, trying to picture the thing someone wants gone." },
-    curio:       { title: 'A curio hall', body: "The keeper has left spaces on the shelves for things people find along the way. You look at the empty places and start thinking about what might fit." },
-    sundries:    { title: 'A sundries shop', body: 'Rope and torches lie within easy reach of the counter. You look them over and think of all the small troubles that would be easier with the right thing in your bag.' },
-    training:    { title: 'A training hall', body: 'The master watches each movement in the training hall. You become rather aware of your own hands, and wonder what they have been doing wrong without telling you.' },
+    inn:         { title: 'An inn', body: "Warm air drifts from the hearth. You relax at the sight of a clean bed." },
+    chapel:      { title: 'A chapel', body: 'A candle burns by the chapel door. You stop to receive the keeper\'s quiet blessing.' },
+    apothecary:  { title: 'An apothecary', body: 'The room smells of herbs. You look over the small bottles lining the shelves.' },
+    scriptorium: { title: 'A scriptorium', body: 'Books lie open on the counter, and the room smells of fresh ink. You lean closer to read.' },
+    guildhall:   { title: 'A guildhall', body: "A bounty notice hangs beside the guildhall door. You stop to read it." },
+    curio:       { title: 'A curio hall', body: "The keeper shows you the empty shelves. There is room here for your finds." },
+    sundries:    { title: 'A sundries shop', body: 'Rope and torches fill the shelves. You look over the supplies for your next trip.' },
+    training:    { title: 'A training hall', body: 'The master watches as you practise. You focus on your next swing.' },
   };
 
   root.Macros = {
     usedToday, markToday, serviceLedgerId, serviceUsedToday, markServiceToday,
+    DAILY_VISIT_KINDS, visitKindForObject, beginDailyVisit, dailyVisit, hireMercenary,
     daysSinceTaken, stillBare, restockWaitMs, ledgerKeyDay, LEDGER_KEEP_DAYS, stallPrice,
     INN_RATE, innCoinsPerEnergy, innPrice, innRest,
     CHAPEL_TIER_DROP, chapelRollTier,

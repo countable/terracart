@@ -186,12 +186,16 @@
   // (petBite). One row, derived — a retune of the slime retunes the raven.
   // Its pool is the slime's BASE (FAUNA_HP), never the hard-mode enemy scale:
   // creatureMaxHp only scales Combat.isEnemy kinds, and the raven is yours.
-  const SUMMONED_AS = { spirit_raven: 'slime' };
-  for (const [kind, model] of Object.entries(SUMMONED_AS)) FAUNA_HP[kind] = FAUNA_HP[model];
+  const SUMMONED_AS = { spirit_raven: 'slime', mercenary: 'goblin' };
+  for (const [kind, model] of Object.entries(SUMMONED_AS)) {
+    if (FAUNA_HP[model] != null) FAUNA_HP[kind] = FAUNA_HP[model];
+  }
   function summonedAs(kind) { return SUMMONED_AS[kind] || null; }
 
   // Shared enemy pools never depend on the receiving player's mode.
   function creatureMaxHp(kind) {
+    const model = summonedAs(kind);
+    if (model) return creatureMaxHp(model);
     const m = monster(kind);
     return (m && Number.isFinite(m.hp)) ? m.hp : (FAUNA_HP[kind] ?? 10);
   }
@@ -739,9 +743,9 @@
   function trainingBonus(save, kind, now = Date.now()) {
     const row = TRAINING_KINDS[kind];
     if (!row) return 0;
-    // A Rust Totem's boon (src/shrines.js 'melee') runs the melee drill too.
+    // Rust blesses blades and bows, sharing each discipline's drill cap.
     const drilled = trainingBuffActive(save, kind, now)
-      || (kind === 'melee' && !!root.Shrines && root.Shrines.leverActive(save, 'melee', now));
+      || ((kind === 'melee' || kind === 'ranged') && !!root.Shrines && root.Shrines.leverActive(save, 'melee', now));
     return trainingLevel(save, kind) * row.per + (drilled ? row.drill : 0);
   }
   // The multiplier on every attack INTERVAL (melee blow, bow, staff): 1 over

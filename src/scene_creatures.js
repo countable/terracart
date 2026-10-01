@@ -1558,6 +1558,7 @@ class SceneCreatures {
   // movement to the wheel.
   startCatchProgress(creature, durationMs, onComplete, onFail, toolSlot = null, energyRefund = 0) {
     creature._beingCaught = true;
+    durationMs = Gear.workDurationMs(this.save, durationMs);
     const t = performance.now();
     this._setWorkProgressIcon(toolSlot);
     this._workProgress = {
@@ -1573,14 +1574,8 @@ class SceneCreatures {
     const now = performance.now();
     const npcDt = this._npcTickAt == null ? 0 : Math.min(0.1, (now - this._npcTickAt) / 1000);
     this._npcTickAt = now;
-    // NOT THERE TO BE HUNTED: a Shadow Powder's minute, or a bar run to zero.
-    // isUnnoticed() ORs the two (see it for why they are one state), and
-    // everywhere a hostile would take an interest in the player reads THIS —
-    // the leech, the monster's hit and arrow, the struck slime's charge, and
-    // both stalk branches, each falling back to the aimless wander. Read once
-    // per tick, not per creature. The PLAYER's own weapons are gated by
-    // neither, and _updatePlayerAura fades the body on the same expression.
-    const unnoticed = this.isUnnoticed();
+    // Each creature notices a Moss-hidden player only after that player hits
+    // it. Shadow Powder, collapse and passenger safety still hide everyone.
     // THE KERB (creature_ai.js): the player's FEET in a major road's kerb
     // buffer. Every hostile turns its back while it holds (`kerbTurn` below) —
     // the pavement is where a chase ends, so the carriageway is never a
@@ -1649,7 +1644,7 @@ class SceneCreatures {
         // the same way and are pruned by the same rule. (`pest_crow_` is the
         // pump's old prefix — a marker left by a session before the deer
         // took the job prunes the same way.)
-        const m = typeof id === 'string' && /^(?:pest_deer|pest_crow|ghost|fished_slime|spirit_raven|guildfoe)_(-?\d+)_(-?\d+)_/.exec(id);
+        const m = typeof id === 'string' && /^(?:pest_deer|pest_crow|ghost|fished_slime|spirit_raven|mercenary|guildfoe)_(-?\d+)_(-?\d+)_/.exec(id);
         // A gate's guard (lairs.js DAILY_TIERS) carries its UTC day: one
         // from another day can never rise again, so its marker goes.
         const gateDay = Lairs.dailyGuardDay(id);
@@ -1776,6 +1771,7 @@ class SceneCreatures {
         return;
       }
       if (c.kind === 'npc') { NPC.tick(this, c, now, npcDt); return; }
+      const unnoticed = this.isUnnoticed(c);
       const isTame = typeof c.id === 'string' && c.id.startsWith('released_');
       // HUNTS FOR THE PLAYER: a tame pet, or a summoned ally (the spirit
       // raven, conjured by a potion — yours without being tame). One flag
@@ -2377,7 +2373,7 @@ class SceneCreatures {
               // Pet retreats home to recover.
               c._hp = 1;
               c._chaseTarget = null;
-              c._retreatUntilT = now + 30000;   // 30s forced home-bias
+              c._retreatUntilT = now + Companions.RECOVERY_MS;   // 30s forced home-bias
             }
           }
         }

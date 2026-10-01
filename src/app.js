@@ -65,7 +65,7 @@ const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
 // The first repaired stretch introduces the neighbours who leave gifts.
 const TRAIL_INTRO_TITLE = 'The survivors are watching';
 const trailIntroBody = (playerClass) =>
-  'You brush the loose dirt aside and find smooth road beneath it. Someone watching from a doorway reaches for a gift; you had only meant to clear a place to walk.';
+  'You clear the rubble from the road. A survivor watches from a doorway, then brings you a gift.';
 // …but not on the same beat as the repair. The first stretch to come back
 // under a new player is a flash, a scatter of chips and a counter on the
 // street itself, and a dialog opening over the top of that covers the very
@@ -3309,7 +3309,7 @@ class MapScene extends Phaser.Scene {
       this._storySplashOnce('trap', {
         art: 'trap_jaw',
         title: 'A trap!',
-        body: 'Iron snaps around your leg, and your next step goes nowhere. You look down at the teeth in your boot and wonder how you missed them.',
+        body: 'Iron jaws snap around your leg. You are trapped!',
       });
       return;   // the bite is this frame's cost; the bleed starts on the next
     }
@@ -4119,7 +4119,7 @@ class MapScene extends Phaser.Scene {
         this._storySplashOnce('trap_free', {
           art: 'trap_free',
           title: 'You pry yourself free',
-          body: "You pull until the iron teeth part, then drag your leg clear. You tug your hood straight and look down; your boot is still on, which seems a good place to start.",
+          body: "You force the iron jaws apart and pull your leg free.",
         });
       }
       // Stick → walk yourself off the GPS (costs stamina, amulet-scaled).
@@ -4221,6 +4221,7 @@ class MapScene extends Phaser.Scene {
     // SaveSession samples the wall clock on its own cadence. Its lifecycle
     // flush forces an exact timestamp before the tab hides or closes.
     SaveSession.touch();
+    this._tickShrineRegen(dt);
 
     // Resting AT HOME slowly fills the bar. Float accumulator avoids per-frame
     // integer churn — we only bump save.energy + refresh the DOM when a whole
@@ -4563,7 +4564,7 @@ class MapScene extends Phaser.Scene {
     // damage lands.
     this._combatTick(dt);
     this._tickBlightAura();
-    this._tickSpiritRaven();
+    Companions.tickAll(this);
     // Did we just walk onto a trap, or are we still standing on one? Runs
     // beside the fog reveal because it asks the same question — which cell are
     // the player's FEET in — and answers it the same way (playerToWorldCell,
@@ -4668,7 +4669,8 @@ class MapScene extends Phaser.Scene {
     });
 
     DragonStory.tick(this, now, px, py, enemies);
-    const relics = this.save.relics || {};
+    const relics = Gear.effectiveRelics(this.save);
+    const activeWeapon = Gear.activeWeapon(this.save);
     // The player's attack multiplier (_attackMul — Dragon Powder's ×2, the
     // off-GPS third), the same one the melee wheel reads.
     const dmgMul = this._attackMul();
@@ -4698,7 +4700,7 @@ class MapScene extends Phaser.Scene {
       && Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
     if (rangedArmed) {
       for (const slot of Combat.RANGED_SLOTS) {
-        if (!relics[slot] || this.save.activeWeapon !== slot) continue;
+        if (!relics[slot] || activeWeapon !== slot) continue;
         const due = this._nextShotT[slot];
         if (due == null) {
           // First sighting this weapon has been active for: arm the cadence
@@ -4855,7 +4857,7 @@ class MapScene extends Phaser.Scene {
     // The wheel is flagged `auto`, which is what keeps it from behaving
     // like a tapped action — it doesn't swallow taps, hold the body still, or
     // block the walk home (see _busyWheel).
-    if (relics.sword && this.save.activeWeapon === 'sword' && !this._workProgress && enemies.length) {
+    if (relics.sword && activeWeapon === 'sword' && !this._workProgress && enemies.length) {
       let best = null, bestD2 = Infinity;
       for (const c of enemies) {
         // ARM'S LENGTH, not the lit reach (Combat.MELEE_REACH_CELLS): a sword
@@ -5275,7 +5277,7 @@ class MapScene extends Phaser.Scene {
   // (SHOT_DRAW_LIFT_PX) so the loosed bolt leaves from where it charged.
   _drawStaffCharge(g) {
     const f = this._staffCharge;
-    const tier = this.save.relics?.staff?.tier;
+    const tier = Gear.effectiveRelics(this.save).staff?.tier;
     if (f == null || !tier) return;
     const full = Combat.shotDotPx('staff', tier);
     const p = this.playerScreen();
@@ -5402,6 +5404,11 @@ class MapScene extends Phaser.Scene {
     if (!(amount > 0)) return false;
     const dealt = Combat.damageDealt(c, amount, (source === 'lava' || source === 'light') ? { bypassArmor: true } : options);
     const left = Combat.hp(c);
+    // Moss hides us until we strike this creature. Environmental damage and
+    // allied attacks do not reveal us; a fresh blessing hides us again.
+    if (source === 'player' && dealt > 0 && Shrines.leverActive(this.save, 'hidden')) {
+      c._mossProvokedUntil = this.save.boonUntil.hidden;
+    }
     // Asked BEFORE the stamp below, which is what makes it "was it already
     // charging" rather than "is it a slime".
     const wasCharging = slimeCharging(c);
@@ -5652,6 +5659,7 @@ class MapScene extends Phaser.Scene {
   // it slips out of reach. Omit it for static targets (rock / tree / fish).
   startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null, trackCreature = null) {
     this._setWorkProgressIcon(toolSlot);
+    durationMs = Gear.workDurationMs(this.save, durationMs);
     this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now(), track: trackCreature };
   }
   // Pick the tool drawn in the MIDDLE of a work-progress wheel: the equipped
@@ -5829,8 +5837,11 @@ class MapScene extends Phaser.Scene {
       const isButterfly = c.kind === 'butterfly';
       const shinyFast = isShiny(c.id, SHINY_RATE.animal) ? SHINY_SPEED_MUL : 1;
       const FLEE_MPS = Math.min(isButterfly ? 5.4 : 2, SpriteLayout.creatureMaxMps(c.kind)) * shinyFast;
-      c.x += (dx / dist) * FLEE_MPS * dt;
-      c.y += (dy / dist) * FLEE_MPS * dt;
+      // Moss also conceals the catch: fauna and pets do not flee the net.
+      if (!Shrines.leverActive(this.save, 'hidden')) {
+        c.x += (dx / dist) * FLEE_MPS * dt;
+        c.y += (dy / dist) * FLEE_MPS * dt;
+      }
       wp.worldX = c.x; wp.worldY = c.y;
       // Escape: once the animal has been OUTSIDE the player's reach (the lit
       // interaction range — same radius the tap-gate uses) for a continuous
@@ -6280,11 +6291,9 @@ class MapScene extends Phaser.Scene {
   // (entry.coinDrops); only the ledger persists.
   _coinBurstInteract(sx, sy, poi) {
     const dayKey = utcDayKey();
-    if (Macros.usedToday(this.save, poi.id)) {
-      // Same UTC day key as the dayKey above, so the reset is msToNextUtcDay.
-      this.flash(`Already used — back in ${shortDuration(msToNextUtcDay())}.`, sx, sy);
-      return;
-    }
+    const ctx = { scene: this, save: this.save, sx, sy, dirty: false };
+    const visit = Macros.beginDailyVisit(ctx, poi, { row: Macros.DAILY_VISIT_KINDS.gold });
+    if (!visit) return;
 
     // Find walkable cells within ~25m of the POI on the POI's host tile.
     // We restrict to the POI's home tile (cells_per_edge × cells_per_edge)
@@ -6299,6 +6308,7 @@ class MapScene extends Phaser.Scene {
       // Tile evicted between render and tap — shouldn't happen since the
       // chest sprite is in view, but bail rather than crash.
       this.flash('...', sx, sy);
+      visit.finish();
       return;
     }
     // The host tile's OWN grid (its row's N) and its cell size in the frame.
@@ -6407,10 +6417,11 @@ class MapScene extends Phaser.Scene {
     // ate the day's burst and paid nothing.
     if (drops.length === 0) {
       this.flash('No room to scatter!', sx, sy);
+      visit.finish();
       return;
     }
     // The ledger's one writer (it prunes takes older than a week).
-    Macros.markToday(this.save, poi.id);
+    visit.claim();
     if (typeof persistSave === 'function') persistSave(this.save);
     const expiresAt = Date.now() + COIN_BURST_LIFE_MS;
     drops.forEach((d, i) => {
@@ -6418,6 +6429,7 @@ class MapScene extends Phaser.Scene {
       d.entry.coinDrops.push({ kind: 'coindrop', x: d.x, y: d.y, id: `coin_${poi.id}_${dayKey}_${i}`, expiresAt });
     });
     this.flashLoot(`Scattered ${drops.length} coins!`, '#ffe066', 1, null, this.coinIconEl());
+    visit.present();
   }
 
   // Up to `count` coin cells around the PLAYER's feet (never the feet cell
@@ -6667,9 +6679,6 @@ class MapScene extends Phaser.Scene {
     }
     speedTier = Math.max(speedTier, buffTier);
     costTier = Math.max(costTier, buffTier);
-    // A Harvest Idol's boon (src/shrines.js 'thrift'): the Speed potion's
-    // cost tier alone — the walk is cheaper, not faster.
-    if (Shrines.leverActive(this.save, 'thrift')) costTier = Math.max(costTier, SPEED_POTION_AMULET_TIER);
     if ((this.save.coffeeUntil ?? 0) > Date.now()) {
       speedTier = Math.min(SPEED_POTION_AMULET_TIER, speedTier + COFFEE_BOOT_BOOST);
     }
@@ -7303,7 +7312,7 @@ class MapScene extends Phaser.Scene {
       this._storySplashOnce('cave', {
         art: 'cave_first',
         title: 'Into the dark',
-        body: 'Cold air slips beneath your hood, carrying the smell of wet stone. You listen to a drop of water fall somewhere ahead and cannot tell how far away it is.',
+        body: 'You step into the cold cave. Water drips somewhere in the darkness ahead.',
       });
     }
   }
@@ -8337,11 +8346,11 @@ class MapScene extends Phaser.Scene {
     seen.revive = 1;
     persistSave(this.save);
     const PANELS = [
-      { art: 'revive_fall',  title: 'Out cold', body: 'You try to take another step, but your legs fold beneath you. The ground is hard against your cheek, and then you feel nothing.' },
-      { art: 'revive_found', title: 'Found',    body: 'You feel hands beneath your shoulders and hear someone telling the others to lift. A lantern sways above you as they carry you home.' },
+      { art: 'revive_fall',  title: 'Out cold', body: 'Your legs give out. You hit the ground, and everything goes dark.' },
+      { art: 'revive_found', title: 'Found',    body: 'Villagers find you by lantern light. They lift you gently and carry you home.' },
       // The carer is the villager revive_wake draws; they say nothing, which
       // is the point. What the revival GAVE is the energy pop's to say.
-      { art: 'revive_wake',  title: 'Home',     body: 'You wake with a rough blanket tucked around you and a farmhand waiting nearby. You begin to thank him, but he nods as though you have already said enough.' },
+      { art: 'revive_wake',  title: 'Home',     body: 'You wake under a rough blanket beside your wagon. A farmhand nods goodbye.' },
     ];
     const show = (i) => this.showMessageModal({
       ...PANELS[i], kind: 'story',
@@ -8362,21 +8371,21 @@ class MapScene extends Phaser.Scene {
     if (!slot || !(this.save.relics?.[slot]?.tier > 0)) return;
     const TOOL_STORIES = {
       till:  { art: 'tool_till',  title: 'First furrow',
-               body: 'You draw the hoe toward you, turning the dry crust over onto darker soil. The smell rises close to your hands; you had not expected earth to smell different underneath.' },
+               body: 'You pull the hoe through the dry ground, turning up dark, fresh soil.' },
       chop:  { art: 'tool_chop',  title: 'Timber!',
-               body: 'The strike travels up the handle into your elbows. You loosen your grip a little, and the next blow feels better.' },
+               body: 'Your axe bites into the trunk. Wood chips scatter at your feet.' },
       dig:   { art: 'tool_dig',   title: 'The pick bites',
-               body: 'You feel the pick strike through your arms before you hear the ring of it. A pale line opens in the stone, and you aim for the same place again.' },
+               body: 'Your pick strikes with a sharp ring. A crack opens in the stone.' },
       water: { art: 'tool_water', title: 'A good soak',
-               body: "You tip the can and watch the soil darken where the water lands. You stay a moment longer, though you know growing things cannot be hurried by looking." },
+               body: "You tip the can, soaking the soil around your seeds." },
       catch: { art: 'tool_catch', title: 'A careful sweep',
-               body: 'The net trembles at the end of its handle. You hold your breath, as though that might make the rest of you less noticeable.' },
+               body: 'You hold your breath and sweep the net through the air.' },
       sword: { art: 'tool_sword', title: 'Steel out',
-               body: 'Your feet settle before you decide where to put them. It is strange to know how to do something and not remember learning.' },
+               body: 'You plant your feet and swing your blade. The movement feels familiar.' },
       staff: { art: 'tool_staff', title: 'First spark',
-               body: 'You tighten your fingers around the staff as a small light gathers at its tip. It feels familiar enough that you almost forget to be surprised.' },
+               body: 'A spark gathers at the tip of your staff. You hold it steady as the light grows.' },
       shoot: { art: 'tool_shoot', title: 'Loose!',
-               body: 'The string presses a thin line into your fingers, then slips free. You feel the bow settle in your hand and try to remember who showed you how to hold it.' },
+               body: 'You draw the bow and release. The string snaps forward as your arrow flies.' },
     };
     const entry = TOOL_STORIES[action];
     if (entry) this._storySplashOnce('tool:' + action, entry);
@@ -8390,8 +8399,8 @@ class MapScene extends Phaser.Scene {
       art: isTree ? 'barehand_tree' : 'barehand_work',
       title: 'Without a tool',
       body: isTree
-        ? 'The tree falls, leaving your palms warm and sticky with sap. The others are staring at your hands, but you thought everyone could do that.'
-        : 'You rub the dirt from your palms and look over the finished work. The others are still fetching tools, and you wonder whether you should have waited for them.',
+        ? 'You fell the tree with your bare hands. Nearby survivors stare in disbelief.'
+        : 'You finish the work with your bare hands before the others can fetch their tools. They stare in disbelief.',
     });
   }
 
@@ -8410,7 +8419,7 @@ class MapScene extends Phaser.Scene {
     if (title === SHINY_FIND_TITLE) this._storySplashOnce('shiny', {
       art: 'shiny_first',
       title: 'A shiny find!',
-      body: 'You turn toward a glint that seems warmer than the light around it. For a moment you expect a hand beside yours, though you cannot remember whose.',
+      body: 'The glow warms your fingertips. You almost remember holding someone’s hand.',
     });
     try {
       const banner = this._toast(title,
@@ -9301,61 +9310,9 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // THE SPIRIT RAVEN'S KEEPER — once a frame, beside the Blight aura. The bird
-  // is SESSION state (an id minted off the clock, like the pest deer and the
-  // ghost), pushed into the live creature list of the player's tile; what
-  // persists is only save.spiritRavenUntil. So one pass answers everything:
-  //   the timer ran out, or its HP did (the pet fight flags `_spent`) → it is
-  //     dismissed with a note on its cell;
-  //   it is LOST while the timer runs — a reload, its tile evicted or rebuilt
-  //     out from under it, a stair to another level (WorldGen.tileCache is
-  //     repointed), or left beyond the sim bubble (CREATURE_SIM_CELLS) where
-  //     it would stop thinking → it is dismissed quietly and a fresh one is
-  //     summoned at the player's feet. Re-summoning is the whole rebuild
-  //     story (CLAUDE.md "A tile can be REBUILT under you"): nothing about
-  //     the bird has to survive one.
-  // Dismissed = its id pushed onto save.caught, the one "gone" every pass
-  // already honours (render, the wander loop, taps) — so a bird left behind
-  // in a cache this pass can no longer reach is gone too, and the caught
-  // prune (wanderCreatures) forgets the id once its tile leaves the cache.
+  // Potion callers keep their entry point; all timed allies share the keeper.
   _tickSpiritRaven() {
-    const r = this._spiritRaven || null;
-    let live = (this.save.spiritRavenUntil ?? 0) > Date.now();
-    if (!r && !live) return;
-    if (!this.startWorldM || !this.playerM) return;
-    const px = this.startWorldM.x + this.playerM.x;
-    const py = this.startWorldM.y + this.playerM.y;
-    const pc = this.playerToWorldCell();
-    if (r) {
-      const here = !!WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => c === r);
-      const simR = CREATURE_SIM_CELLS * this.cellM;
-      const lost = !here || Math.hypot(r.x - px, r.y - py) > simR;
-      if (!live || r._spent || lost) {
-        (this.save.caught = this.save.caught || []).push(r.id);
-        this._spiritRaven = null;
-        if (r._spent) {
-          this.save.spiritRavenUntil = 0;
-          live = false;
-        }
-        if (here && (r._spent || !live)) {
-          this.flashAtWorld(r._spent ? 'The spirit raven is spent.' : 'The spirit raven fades.', r.x, r.y);
-        }
-        persistSave(this.save);
-      }
-    }
-    if (!live || this._spiritRaven) return;
-    const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
-    // Only into a tile whose creatures have spawned: seeding the array first
-    // would make spawnInTile keep ours and drop its own (`entry.creatures ||
-    // creatures`). A tile still loading just tries again next frame.
-    if (!entry || !entry.creatures) return;
-    const now = performance.now();
-    const c = WorldGen.makeCreature('spirit_raven', px, py,
-      `spirit_raven_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
-      // Its FOLLOW (the row's `follows`) runs for the rest of its life.
-      { _followUntilT: now + Math.max(0, this.save.spiritRavenUntil - Date.now()) });
-    entry.creatures.push(c);
-    this._spiritRaven = c;
+    Companions.tick(this, 'spirit_raven');
   }
 
   // The Drink dialog's line for a revival potion: what it will do while you
@@ -9615,21 +9572,13 @@ class MapScene extends Phaser.Scene {
     return (this._shadowUntil ?? 0) > Date.now();
   }
 
-  // UNNOTICED: nothing in the world can perceive the player. TWO reasons, ONE
-  // state — a Shadow Powder's minute, and a bar run to zero (Combat.playerDowned,
-  // the same expression the three damage paths guard with: a collapsed player
-  // cannot reach, cannot tap and cannot take another point, so a hostile that
-  // goes on stalking one is chasing a body it is forbidden to bite).
-  //
-  // It is read on BOTH sides of the game, which is the whole point of it being
-  // one expression: wanderCreatures gates every hostile-interest branch on it
-  // (the leech, the monster's hit and its arrow, the struck slime's charge and
-  // both stalk branches, each falling back to the aimless wander), and
-  // _updatePlayerAura FADES THE BODY while it holds. So what the player sees is
-  // what the AI is doing — a ghost is exactly as unhuntable as it looks, and a
-  // third reason for not being there lands in both at once by being ORed here.
-  isUnnoticed() {
-    return this.isShadowActive() || Combat.playerDowned(this.save.energy) || this.isTooFast();
+  // Powder, collapse and passenger safety conceal the player from everyone.
+  // Moss conceals them from creatures they have not struck during this boon.
+  // With no creature, this also drives the player's faded appearance.
+  isUnnoticed(creature = null) {
+    const moss = Shrines.leverActive(this.save, 'hidden')
+      && (!creature || creature._mossProvokedUntil !== this.save.boonUntil.hidden);
+    return this.isShadowActive() || moss || Combat.playerDowned(this.save.energy) || this.isTooFast();
   }
   // TOO FAST: the player's real GPS track is running at a ride's pace,
   // sustained (util.js speedGateStep, stepped per fix by scene_geo.js
@@ -9883,42 +9832,8 @@ class MapScene extends Phaser.Scene {
     if (!Energy.canEat(this.save)) return false;
     const restore = featherRevive ? null : FOOD_ENERGY[sel.id];
     if (!featherRevive && restore == null) return false;
-    // First taste of a new edible permanently grows the bar by its food tier
-    // (Energy.tasteBonus; Energy.maxEnergy folds save.eaten into the cap). Recorded BEFORE the restore below so the new headroom is fillable
-    // by this very bite.
-    let firstTaste = false;
-    this.save.eaten = this.save.eaten || [];
-    if (!this.save.eaten.includes(sel.id)) {
-      this.save.eaten.push(sel.id);
-      firstTaste = true;
-    }
-    const before = this.save.energy ?? 0;
-    if (featherRevive) Energy.set(this.save, FEATHER_REVIVE_ENERGY);
-    else Energy.set(this.save, before + restore, this.getMaxEnergy());
-    const gained = this.save.energy - before;
+    const { gained, extra } = this._consumeFoodEffects(sel.id, featherRevive);
     consumeSelected(this.save);
-    // Special effects.
-    let extra = '';
-    if (sel.id === 'pairy') {
-      const target = this.findNearestUnopenedChest();
-      if (target) {
-        this.pairyCompass = { targetId: target.id, x: target.x, y: target.y,
-          until: Date.now() + CONSUMABLE_SPEC.pairy.durationMs };
-        extra = `\n🧭 chest compass: ${shortDuration(CONSUMABLE_SPEC.pairy.durationMs)}`;
-      } else {
-        extra = `\n🧭 no chests nearby`;
-      }
-    } else if (sel.id === 'rainberry') {
-      const spec = CONSUMABLE_SPEC.rainberry;
-      const { n: watered, jumped } = this.waterCropsWithin(spec.radiusM, spec.canTier);
-      this._rainOver(spec.radiusM);
-      extra = watered > 0 ? `\n💧 watered ${watered} crop${watered === 1 ? '' : 's'}` : '\n💧 no crops nearby';
-      if (jumped > 0) extra += `\n🌱 ${jumped} sprang ahead a stage`;
-    } else if (sel.id === 'coffee') {
-      this.save.coffeeUntil = Date.now() + COFFEE_BUFF_MS;
-      extra = `\n☕ faster stick walking, ${shortDuration(COFFEE_BUFF_MS)}`;
-    }
-    if (firstTaste) extra += `\n🍽 first taste: +${Energy.tasteBonus(sel.id)} max ⚡`;
     // Armed only now, after a bite has actually landed.
     Energy.startEatCooldown(this.save);
     persistSave(this.save);
@@ -9929,6 +9844,53 @@ class MapScene extends Phaser.Scene {
     // gain (+ any compass / water side-effect) is readable before fading.
     this.flashLoot(`+${gained}⚡${extra}`, '#a7ffb0', 1.8, sel.id);
     return true;
+  }
+
+  // Food effects are shared by eating and the Wayfarer's gift. The caller
+  // owns inventory, cooldown and persistence; a shrine needs none of those gates.
+  _consumeFoodEffects(id, featherRevive = false, now = Date.now()) {
+    const restore = FOOD_ENERGY[id];
+    // First taste of a new edible permanently grows the bar by its food tier
+    // (Energy.tasteBonus; Energy.maxEnergy folds save.eaten into the cap). Recorded BEFORE the restore below so the new headroom is fillable
+    // by this very bite.
+    let firstTaste = false;
+    this.save.eaten = this.save.eaten || [];
+    if (!this.save.eaten.includes(id)) {
+      this.save.eaten.push(id);
+      firstTaste = true;
+    }
+    const before = this.save.energy ?? 0;
+    if (featherRevive) Energy.set(this.save, FEATHER_REVIVE_ENERGY);
+    else Energy.set(this.save, before + restore, this.getMaxEnergy());
+    const gained = this.save.energy - before;
+    // Special effects.
+    let extra = '';
+    if (id === 'pairy') {
+      const target = this.findNearestUnopenedChest();
+      if (target) {
+        this.pairyCompass = { targetId: target.id, x: target.x, y: target.y,
+          until: now + CONSUMABLE_SPEC.pairy.durationMs };
+        extra = `\n🧭 chest compass: ${shortDuration(CONSUMABLE_SPEC.pairy.durationMs)}`;
+      } else {
+        extra = `\n🧭 no chests nearby`;
+      }
+    } else if (id === 'rainberry') {
+      const spec = CONSUMABLE_SPEC.rainberry;
+      const { n: watered, jumped } = this.waterCropsWithin(spec.radiusM, spec.canTier);
+      this._rainOver(spec.radiusM);
+      extra = watered > 0 ? `\n💧 watered ${watered} crop${watered === 1 ? '' : 's'}` : '\n💧 no crops nearby';
+      if (jumped > 0) extra += `\n🌱 ${jumped} sprang ahead a stage`;
+    } else if (id === 'coffee') {
+      this.save.coffeeUntil = now + COFFEE_BUFF_MS;
+      extra = `\n☕ faster stick walking, ${shortDuration(COFFEE_BUFF_MS)}`;
+    }
+    if (firstTaste) extra += `\n🍽 first taste: +${Energy.tasteBonus(id)} max ⚡`;
+    return { gained, extra };
+  }
+
+  _tickShrineRegen(dt, now = Date.now()) {
+    const gained = Energy.tickShrineRegen(this.save, this, dt, now);
+    if (gained > 0) this.updateEnergyDOM();
   }
 
   // Find the nearest chest the player hasn't opened. Used by the pairy compass.
@@ -10304,7 +10266,7 @@ class MapScene extends Phaser.Scene {
     this.flashLoot(`Bounty paid! +${gb.pay}`, '#ffe066', 1);
     this._storySplashOnce('macro:bounty', {
       art: Macros.KIND_DIALOG.guildhall.art, title: 'A bounty paid',
-      body: 'You feel the weight of the promised coins settle into your hand. The empty place on the board looks small for something that took so much trouble.',
+      body: 'You collect your bounty at the hall. The keeper counts the promised coins into your hand.',
     });
   }
   // THE BOUNTY WAITS, asked each frame there is one: it stands down only when
@@ -12131,7 +12093,7 @@ class MapScene extends Phaser.Scene {
         art: 'trail_prize',
         iconHTML: this.coinIconHTML ? this.coinIconHTML(48) : '',
         name: '+5',
-        sub: 'You accept the gift, still brushing road dust from your hands. The neighbours seem pleased to have found something you need.',
+        sub: 'Your neighbours thank you for repairing the road and hand you a gift.',
         color: UI_GOLD,
         onDismiss,
       });
@@ -12149,14 +12111,14 @@ class MapScene extends Phaser.Scene {
       if (!card) { if (typeof onDismiss === 'function') onDismiss(); return; }
       this.showChestRewardModal({
         kind: 'trail', header, ...card, art: 'trail_prize',
-        sub: 'You accept the gift, still brushing road dust from your hands. The neighbours seem pleased to have found something you need.',
+        sub: 'Your neighbours thank you for repairing the road and hand you a gift.',
         onDismiss: () => this._revealPendingBookReads(onDismiss),
       });
       return;
     }
     this._offerTreasurePick({
       kind: 'trail', header, art: 'trail_prize', choices, onDismiss,
-      sub: 'You find the neighbours waiting with a few things set aside for you. They ask you to choose one, and you look carefully before reaching.',
+      sub: 'Your neighbours offer you gifts to thank you for repairing the road. Choose one.',
     });
   }
 
@@ -12393,19 +12355,19 @@ class MapScene extends Phaser.Scene {
             // shop's blurb follows its line (marketTheme).
             const theme = role === 'market' ? this.marketTheme(house).theme : null;
             const THEME_BLURB = {
-              seed:   'You recognise the dry rattle of seeds in paper packets.',
-              supply: 'You find the small supplies you keep running short of lined up within reach.',
-              potion: 'You lean closer to the bottles, trying to see what makes their colours move.',
-              ore:    'You recognise the lumps of ore by their weight and dull shine.',
-              relic:  'You study the tools and armour hanging where the family can reach them.',
-              pet:    'You hear paws and hooves shifting behind the counter and crouch for a better look.',
+              seed:   'You find packets of seeds on the shelves.',
+              supply: 'You find supplies for the road on the shelves.',
+              potion: 'You watch strange colours swirl in bottles behind the counter.',
+              ore:    'You find ore for the forge piled on the counter.',
+              relic:  'You inspect the tools and armour hanging behind the counter.',
+              pet:    'You hear paws and hooves shuffling nearby.',
             };
             const INFO = {
-              blacksmith: { blurb: 'You hear bundles being set down beside the forge as the family comes home. They offer to make your tools, and you are glad the work has brought them back.' },
-              market:     { blurb: 'You hear the shutters scrape open and step closer to see what the family has brought to sell. ' + (THEME_BLURB[theme] || 'You run a finger along the counter, finding clean wood beneath the last of the dust.') },
-              trader:     { blurb: 'You watch the trader unpack beside the hearth, setting each bundle in a place he seems to remember. His family offers to share what they have, and you make room for the next bundle.' },
-              wizard:     { name: 'Wizard Tower', blurb: "You step into the tower with dust caught in the folds of your hood. The old wizard asks about your memories as though he has been waiting to hear them." },
-              plain:      { name: 'House',        blurb: 'You hear the children choosing beds while their parent offers to buy your harvest. You look up at the roof and are pleased there is somewhere dry to put them.' },
+              blacksmith: { blurb: 'A family returns to the forge. They offer to make the tools you need.' },
+              market:     { blurb: 'A family opens the market shutters again. ' + (THEME_BLURB[theme] || 'You look over the freshly stocked counter.') },
+              trader:     { blurb: 'The trader and his family unpack beside the hearth. They offer to share their supplies.' },
+              wizard:     { name: 'Wizard Tower', blurb: "You step into the tower. An old wizard asks about your memories." },
+              plain:      { name: 'House',        blurb: 'Children choose their beds under the repaired roof. Their parent offers to buy your harvest.' },
             };
             const info = INFO[role] || INFO.plain;
             const name = info.name || Shops.roleLabel(role, theme) || INFO.plain.name;
@@ -12418,7 +12380,7 @@ class MapScene extends Phaser.Scene {
               art: role === 'plain' ? 'restore_house' : 'restore_' + role,
               header: 'Restored!',
               name: `You restored a ${name}`,
-              sub: order === 0 ? "You dust off your hands while the returning family looks from you to the finished building. They keep asking how you did it so quickly, though it did not feel quick to you." : info.blurb,
+              sub: order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : info.blurb,
               color: '#a7ffb0', accent: '#a7ffb0',
               onDismiss: role === 'wizard'
                 ? () => MemoryStory.visitWizard(this, () => {}, house) : undefined,
@@ -13058,14 +13020,16 @@ class MapScene extends Phaser.Scene {
   // when gear actually changed (markRelicsDirty bumps the counter).
   updateRelicRow() {
     const gen = this._relicsGen || 0;
-    if (this._relicRowGen === gen) return;
+    const wandUntil = Shrines.leverActive(this.save, 'wand') ? this.save.boonUntil.wand : 0;
+    if (this._relicRowGen === gen && this._relicRowWandUntil === wandUntil) return;
     this._relicRowGen = gen;
+    this._relicRowWandUntil = wandUntil;
     // The stick doesn't depend on gear any more, but syncing here (idempotent)
     // is what puts it on screen on the first frame.
     this.syncMovePad();
     // Warm the work wheel's tool art for everything equipped, so a wheel's
     // centre is drawn from its first frame rather than after a fetch.
-    for (const [slot, eq] of Object.entries(this.save.relics || {})) {
+    for (const [slot, eq] of Object.entries(Gear.effectiveRelics(this.save))) {
       if (eq?.tier) this._toolTexture(slot, eq.tier);
     }
     // If a gear tab is currently showing, rebuild the inventory bars so a newly
@@ -13216,8 +13180,8 @@ class MapScene extends Phaser.Scene {
     const cat = INV_CAT_BY_KEY[catKey];
     if (!cat || !cat.gear) return [];
     if (cat.gear === 'relic') {
-      const r = this.save.relics || {};
-      return INV_RELIC_ORDER.filter(s => r[s]).map(s => ({ kind: 'relic', slot: s, tier: r[s].tier }));
+      const r = Gear.effectiveRelics(this.save);
+      return INV_RELIC_ORDER.filter(s => r[s]).map(s => ({ kind: 'relic', slot: s, tier: r[s].tier, temporary: !!r[s].temporary }));
     }
     const a = this.save.armor || {};
     return INV_ARMOR_ORDER.filter(s => a[s]).map(s => ({ kind: 'armor', slot: s, tier: a[s].tier }));
@@ -13432,7 +13396,7 @@ class MapScene extends Phaser.Scene {
           slot.appendChild(wrap);
           // Tier badge mirrors the item count badge so gear reads consistently.
           const badge = document.createElement('span');
-          badge.textContent = 'T' + g.tier;
+          badge.textContent = 'T' + g.tier + (g.temporary ? ' ⏳' : '');
           badge.className = 'hud-badge';
           badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;';
           slot.appendChild(badge);
@@ -13440,7 +13404,7 @@ class MapScene extends Phaser.Scene {
           // auto-engage/auto-fire (save.activeWeapon) wears it, opposite corner
           // from the tier badge so the two never collide.
           const isWeapon = g.kind === 'relic' && WEAPON_SLOTS.includes(g.slot);
-          if (isWeapon && this.save.activeWeapon === g.slot) {
+          if (isWeapon && Gear.activeWeapon(this.save) === g.slot) {
             const eBadge = document.createElement('span');
             eBadge.textContent = 'E';
             eBadge.title = 'Active weapon';
@@ -13454,8 +13418,8 @@ class MapScene extends Phaser.Scene {
             this.save.selSlot = -1;
             // Tapping a weapon makes it the active one — the other owned
             // weapons go inert (see combat.js / _combatTick).
-            if (isWeapon && this.save.activeWeapon !== g.slot) {
-              this.save.activeWeapon = g.slot;
+            if (isWeapon && Gear.activeWeapon(this.save) !== g.slot) {
+              Gear.selectWeapon(this.save, g.slot);
               this.markRelicsDirty();
               persistSave(this.save);
               this.buildInventoryDOM();
@@ -13588,12 +13552,12 @@ class MapScene extends Phaser.Scene {
           nameLbl.appendChild(hint);
         } else {
           const nameSpan = document.createElement('div');
-          nameSpan.textContent = (typeof gearName === 'function') ? gearName(g.kind, g.slot, this.save[g.kind === 'armor' ? 'armor' : 'relics']?.[g.slot]?.tier) : g.slot;
+          nameSpan.textContent = (typeof gearName === 'function') ? gearName(g.kind, g.slot, (g.kind === 'armor' ? this.save.armor : Gear.effectiveRelics(this.save))?.[g.slot]?.tier) : g.slot;
           nameSpan.style.cssText = 'max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
           nameLbl.appendChild(nameSpan);
           const def = gearDef(g.kind, g.slot);
           if (def && def.blurb) {
-            const tier = this.save[g.kind === 'armor' ? 'armor' : 'relics']?.[g.slot]?.tier;
+            const tier = (g.kind === 'armor' ? this.save.armor : Gear.effectiveRelics(this.save))?.[g.slot]?.tier;
             nameLbl.appendChild(this._effectLineEl(def.blurb,
               `${this.gearIconHTML(g.kind, g.slot, tier)} ${nameSpan.textContent}`));
           }

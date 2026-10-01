@@ -137,8 +137,21 @@
     assert.eq(s._lights[0].kind, 'poi', 'the POI row — no second glow');
     assert.eq(s._lights[0].id, 'poi_sh_1', 'its own id beside the shrine light, so frameKey sees it come and go');
     const body = RENDER_SRC.slice(RENDER_SRC.indexOf('Render.drawObjects = function drawObjects(scene)'));
-    assert.truthy(/o\.kind === 'grove_shrine' && poiLit\(o, spentIds\)\) LIGHTS\.offerPoi\(scene, o\.id, dx, dy, halfM\)/.test(body),
-      'the shrine is offered off poiLit');
+    const start = body.indexOf('  const offerPreCullLights = (o, dx, dy) => {');
+    const end = body.indexOf('\n  };', start);
+    assert.truthy(start >= 0 && end > start, 'shared site-light offer exists');
+    const factory = new Function('scene', 'LIGHTS', 'Macros', 'isBuilding', 'poiLit', 'spentIds', 'halfM',
+      body.slice(start, end + 5) + '; return offerPreCullLights;');
+    const shrine = { kind: 'grove_shrine', id: 'sh_1' };
+    for (const claimed of [false, true]) {
+      const save = claimed ? ledger([[shrine.id, today()]]) : {};
+      const scene = { save, cellM: 5, _lights: [] };
+      factory(scene, Lighting, Macros, isBuilding, poiLit, spentSets(null, save), 30)(shrine, 0, 0);
+      assert.eq(scene._lights.filter(light => light.kind === 'poi').length, claimed ? 0 : 1,
+        'the actual daily ledger controls the availability pulse');
+      assert.eq(scene._lights.filter(light => light.kind === 'shrine').length, 1,
+        'the ambient shrine light survives the visit');
+    }
     assert.truthy(/const spentIds = \{/.test(body) && body.indexOf('const spentIds = {') < body.indexOf('poiLit(o, spentIds)'),
       'the frame sets are built before the walk that asks them');
   });

@@ -78,7 +78,7 @@
     assert.falsy(restocks(pot) || restocks(rack), 'neither is a crate');
     const src = INTERACTABLES_SRC;
     assert.truthy(/Macros\.serviceUsedToday\(save, o\.id\)\) \{\s*scene\.flash\(`The chapel is quiet/.test(src), 'the chapel reads the service-day gate');
-    assert.truthy(/grove_shrine: \{[\s\S]{0,200}Macros\.usedToday\(save, o\.id\)/.test(src), 'and the shrine');
+    assert.truthy(/grove_shrine: \{[\s\S]{0,200}Macros\.dailyVisit\(ctx, o/.test(src), 'and the shrine');
   });
 
   // ── Barrels ──────────────────────────────────────────────────────────────
@@ -207,7 +207,7 @@
     save.bikeUntil = 0;
     runInteractable(makeCtx(scene, save), rack);
     assert.eq(save.bikeUntil, 0, 'no second bike today');
-    assert.truthy(/^Bikes all out\. \d+[smhd]\.$/.test(flashes[1]), `the wait: ${flashes[1]}`);
+    assert.truthy(/^Horse is out\. \d+[smhd]\.$/.test(flashes[1]), `the wait: ${flashes[1]}`);
     assert.truthy(poiLit(rack, spentSets(null, {})), 'lit while there');
     assert.falsy(poiLit(rack, spentSets(null, save)), 'dark once taken');
   });
@@ -364,8 +364,7 @@
     runInteractable(makeCtx(scene, save), boards[0]);
     assert.eq(reads, 1, 'once per board');
     assert.eq(flashes[0], 'Read it already.');
-    assert.truthy(/waystone: pageStone\(/.test(INTERACTABLES_SRC) && /infoboard: pageStone\(/.test(INTERACTABLES_SRC),
-      'one lane with the waystone');
+    assert.truthy(/infoboard: pageStone\(/.test(INTERACTABLES_SRC), 'notice board keeps its one-time page lane');
     assert.truthy(/infoboard: \{ key: 'signpost'/.test(RENDER_SRC), 'drawn as the signpost');
   });
 
