@@ -50,12 +50,12 @@
     }
   });
 
-  test('unique relic rewards: exhausted eligible tier falls back to a torch, but absent copies can be found again', () => {
+  test('unique relic rewards: exhausted eligible tier falls back to magic, but absent copies can be found again', () => {
     const save = held(uniques().map(item => item.id));
     const result = resolveChestReward('culture', quality, save, () => 0.999, { tier: 4 });
-    assert.eq(result.id, 'torch'); assert.eq(result.resolvedGroup, 'torch'); assert.truthy(result.fallback);
+    assert.eq(ITEM_BY_ID[result.id].kind, 'magic'); assert.eq(result.resolvedGroup, 'magic'); assert.truthy(result.fallback);
     const low = ChestThemes.resolve('uniqueRelics', 2, { save, theme: 'culture' });
-    assert.eq(low.group, 'torch', 'do not jump above the rolled tier');
+    assert.eq(low.group, 'magic', 'do not jump above the rolled tier');
     const first = uniques()[0];
     save.inv.find(slot => slot.id === first.id).count = 0;
     const available = ChestThemes.resolve('uniqueRelics', 7, { save, theme: 'culture' });

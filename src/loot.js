@@ -238,10 +238,8 @@ const CHEST_THEME_BY_POI = {
 function chestThemeForPoi(poiClass) {
   return CHEST_THEME_BY_POI[poiClass] || ChestThemes.normalize(POI_CATEGORY[poiClass]);
 }
-// The VIEWPOINT GRAIL (o.vista === 'grail') is a lookout's own find, not the
-// civic town hall's — chest_themes.js `vista` theme (a light relic chance, a
-// gem, a good consumable, coins; sized for the one-time chest to average
-// ~150, not a civic T4's ~440). A scenic STRETCH chest (o.vista is the kind —
+// The VIEWPOINT GRAIL (o.vista === 'grail') uses the vista equipment, unique
+// relic and magic pool. A scenic STRETCH chest (o.vista is the kind —
 // 'shore'/'greenway'/'park', poiClass VISTA_POI_CLASS) keeps reading its
 // poiClass's ordinary theme ('park', src/loot.js POI_CATEGORY.vista) — only
 // the grail gets its own row. Interactables reads this, never

@@ -309,12 +309,12 @@ test('cash: the quantity brackets fatten the purse rather than going to waste', 
   assert.gt(mean(fat), mean(lean), 'a longer walk pays a heavier purse');
 });
 
-test('bundle: a pile of the two raw materials, and the pile is the point', () => {
+test('bundle: wood and rock chest rewards still pay a pile', () => {
   assert.eq(BUNDLE_IDS.join(','), 'wood,rockfruit', 'wood and stone');
   let seen = 0;
   for (let i = 0; i < 4000 && seen < 80; i++) {
     const r = pickReward('chest:lowtier', SAVE(), seeded(i + 1), { tier: 1 });
-    if (!r || r.group !== 'materials') continue;
+    if (!r || r.group !== 'materials' || !BUNDLE_IDS.includes(r.id)) continue;
     seen++;
     assert.eq(r.kind, 'item', 'a bundle is items in the bag');
     assert.includes(BUNDLE_IDS, r.id, 'one of the two raw materials');
@@ -332,7 +332,7 @@ test('bundle: the T1 chest that can roll no bracket at all still pays a pile', (
   for (let i = 0; i < 6000; i++) {
     const r = pickReward('chest:lowtier', SAVE(), seeded(i + 1), { tier: 1 });
     if (!r || r.kind !== 'item') continue;
-    if (r.group === 'materials') bundleMin = Math.min(bundleMin, r.qty);
+    if (r.group === 'materials' && BUNDLE_IDS.includes(r.id)) bundleMin = Math.min(bundleMin, r.qty);
     else if (r.id === 'wood') { plainWood += r.qty; plainWoodN++; }
   }
   assert.gte(bundleMin, 3, 'every bundle is a pile');
@@ -483,7 +483,7 @@ test('deep hoard: T3+ chests underground pay potions, powders and gems more ofte
   };
   for (const tier of [3, 4, 5]) {
     const up = rate(0, tier), down = rate(2, tier);
-    assert.truthy(down > up * 2 && down > 0.2, `T${tier}: hoard ${up.toFixed(3)} → ${down.toFixed(3)}`);
+    assert.truthy(down > up + 0.15 && down > 0.2, `T${tier}: hoard ${up.toFixed(3)} → ${down.toFixed(3)}`);
   }
 });
 

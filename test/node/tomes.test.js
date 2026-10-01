@@ -7,7 +7,7 @@
 // potion ONE TIER BELOW the tome, once a UTC day, and consumes nothing.
 //
 // The vista rule (same change-set): a grail chest holds treasure only —
-// equipment, relics, magic items or coins; never tools, produce or field
+// equipment, relics or magic items; never tools, produce or field
 // supplies, anywhere in the fallback chain (which is why every vista
 // fallback terminates at 'antidote', a T1 magic potion that can never be
 // empty).
@@ -88,12 +88,27 @@
       else if (r.kind === 'item') assert.falsy(banned.has(r.id), `vista never hands ${r.id}`);
     }
     assert.truthy(rolled > 1400, 'the picker produced a full sample');
+    const complete = {
+      inv: ITEMS.filter(item => item.kind === 'unique_relic').map(item => ({ id: item.id, count: 1 })),
+      relics: Object.fromEntries(Object.keys(RELIC_DEFS).map(slot => [slot, { tier: 7 }])),
+      armor: Object.fromEntries(Object.keys(ARMOR_DEFS).map(slot => [slot, { tier: 7 }])),
+    };
+    for (const inventory of [save, complete]) for (const tier of [1, 2, 3, 4, 5]) for (const depth of [0, 1]) {
+      for (let i = 0; i < 150; i++) {
+        const r = pickChestReward('vista', inventory, rng, { tier, depth });
+        assert.falsy(r.kind === 'gold', 'vista never cashes out equipment');
+        assert.eq(r.consolation, 0);
+        if (r.kind === 'item') assert.includes(['magic', 'unique_relic'], ITEM_BY_ID[r.id].kind);
+        else assert.eq(r.kind, 'armor');
+        if (inventory === complete) assert.eq(ITEM_BY_ID[r.id].kind, 'magic', 'exhausted collection still gives magic');
+      }
+    }
     // The chain's terminals are magic or coins, never restorative produce:
     // every vista fallback names 'antidote'.
     assert.eq(ChestThemes.groups.gems.fallback.vista, 'antidote', 'gems falls back to a potion');
     assert.eq(ChestThemes.groups.healing.fallback.vista, 'antidote', 'healing falls back to a potion');
     assert.eq(ChestThemes.themes.vista.t1Fallback, 'antidote', 'the terminal is a T1 potion');
     assert.eq(ChestThemes.themes.vista.weights.noncombatGear, undefined, 'no noncombat tool lane in vista');
-    assert.eq(ChestThemes.themes.vista.weights.protectiveGear, 1, 'armour is the rare equipment lane (1% - armour is the priciest lane; the grail targets ~150)');
+    assert.eq(ChestThemes.themes.vista.weights.protectiveGear, 45, 'equipment is a main grail reward');
   });
 })();

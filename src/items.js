@@ -278,7 +278,8 @@ function wildplantRoll(crop) { return wildplantRule(crop)?.roll || null; }
 // nut's crop icon is a leafy bush, so a roasted one would read as burnt
 // greens — it stays raw until it has nut art.) Grilled meat predates the table
 // and keeps its own Beef.png frame; everything here rides the same lane —
-// CAMPFIRE_MAKES, GRILL_ENERGY_MUL on energy and price, `cooked` out of loot.
+// CAMPFIRE_MAKES, GRILL_ENERGY_MUL on energy and price. Cooked foods can also
+// appear in themed food chests; other loot pools still exclude them.
 const COOKED_FOODS = {
   potato:     { id: 'baked_potato',      name: 'Baked Potato' },
   onion:      { id: 'roast_onion',       name: 'Roast Onion' },
@@ -836,8 +837,7 @@ const ITEMS = [
   // produce pool of the rarity picker, not the mineral pool (which is
   // reserved for coal / gemstones).
   { id: 'meat',         name: 'Meat',         kind: 'produce' },
-  // Made, never found: only a campfire turns meat into this (CAMPFIRE_MAKES),
-  // so `cooked` keeps it out of the rarity picker's loot pools.
+  // Cooked food is made at campfires or found in themed food chests.
   { id: 'grilled_meat', name: 'Grilled Meat', kind: 'produce', cooked: true },
   // Cooked dishes inherit the raw ingredient's tier, including first-taste credit.
   ...Object.entries(COOKED_FOODS).map(([raw, c]) => ({

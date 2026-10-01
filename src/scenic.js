@@ -118,7 +118,7 @@
   const VISTA_SEAT_CELLS = 3;
   // The chest's tier (loot.js chestBaseTier reads o.vista through this):
   // the viewpoint's grail T4 — its OWN pool now (loot.js chestThemeFor,
-  // chest_themes.js 'vista' theme), ~150 value, not a civic T4's ~440: the
+  // chest_themes.js 'vista' theme), equipment, relics or magic: the
   // grail is a lookout's one-time find, not the town hall's. A stretch's
   // chest is a park chest (loot.js POI_CATEGORY.vista), T3 on the water
   // (~25), T2 else (~13) — MEASURED over the 36 census tiles (~2-4 stretches

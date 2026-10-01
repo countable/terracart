@@ -12,7 +12,7 @@ function bookShare(contextKey, tier, n = 4000) {
   let books = 0;
   for (let i = 0; i < n; i++) {
     const r = pickReward(contextKey, BOOK_SAVE(), rng, { tier });
-    if (r && r.kind === 'item' && r.id === 'book') books++;
+    if (r && r.kind === 'item' && ['book', 'tome_sight', 'tome_raven', 'tome_storm'].includes(r.id)) books++;
   }
   return books / n;
 }
@@ -31,9 +31,9 @@ test('books: the Book is the heaviest draw in its class/tier pool', () => {
   }
 });
 
-test('books: a school chest is a book chest — about a quarter of opens', () => {
+test('books: a high-tier school chest offers tomes in its book lane', () => {
   const share = bookShare('chest:school', 3);
-  assert.gt(share, 0.15, `a school chest hands over a Book often (got ${(share * 100).toFixed(1)}%)`);
+  assert.gt(share, 0.15, `a school chest hands over a tome often (got ${(share * 100).toFixed(1)}%)`);
   assert.lt(share, 0.60, 'but it is still a chest, not a book dispenser');
 });
 
@@ -47,11 +47,9 @@ test('books: a school chest beats every other chest at handing one over', () => 
 });
 
 test('books: themed civic uses a dedicated Book group', () => {
-  assert.eq(ChestThemes.weights('civic', 3).books, 20);
+  assert.eq(ChestThemes.weights('civic', 3).books, 15);
   const share = bookShare('chest:civic', 3);
-  // The tomes (Oct 2026) take the T3+ rolls, so the Book rides the low
-  // rolls only - civic keeps a steady, thinner Book source.
-  assert.inRange(share, 0.05, 0.15, 'low rolls pay Books; high rolls pay tomes');
+  assert.inRange(share, 0.12, 0.18, 'the high-tier book lane pays tomes');
 });
 
 test('books: a school dense enough to be T1 still pays a book', () => {
@@ -89,7 +87,7 @@ test('school category: the split re-priced nothing — tier, pad and cave mirror
 });
 
 test('school category: Book odds have one owner, without a second favorite roll', () => {
-  assert.eq(ChestThemes.weights('school', 3).books, 55);
+  assert.eq(ChestThemes.weights('school', 3).books, 40);
   assert.eq(LOOT_CONTEXTS['chest:school'].favourite, undefined);
 });
 

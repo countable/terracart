@@ -107,9 +107,9 @@ function xorRng(seed) {
   return () => { x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; };
 }
 
-test('roadside chest: 45% supplies, with Torches available at T1 and no unrelated items', () => {
+test('roadside chest: starter supplies give way to high-tier travel magic', () => {
   assert.eq(ChestThemes.weights('roadside', 1).supplies, 45);
-  const supplyIds = new Set(['torch', 'rope', 'trap_kit', 'honey']);
+  const supplyIds = new Set(['torch', 'rope', 'trap_kit', 'spear', 'honey']);
   for (const tier of [1, 2, 3, 5]) {
     const rng = xorRng(0x70C4 + tier);
     let supplies = 0, torches = 0;
@@ -123,16 +123,18 @@ test('roadside chest: 45% supplies, with Torches available at T1 and no unrelate
         assert.truthy(supplyIds.has(r.id), `roadside supply ${r.id}`);
         assert.eq(ITEM_BY_ID[r.id].kind, 'supply');
         assert.inRange(r.qty, 1, 5, 'supplies keep their stack cap');
-        if (r.rolledTier === 1) assert.eq(r.id, 'torch', 'T1 supplies always offer usable light');
+        if (r.rolledTier === 1) assert.eq(ITEM_BY_ID[r.id].baseTier, 1, 'T1 supplies respect catalog rarity');
         if (r.id === 'torch') torches++;
       } else if (r.group === 'materials') {
-        assert.truthy(r.id === 'wood' || r.id === 'rockfruit');
+        assert.includes(['wood', 'rockfruit', 'coal', ...Object.values(MINERAL_TIERS).map(row => row.barId)], r.id);
+      } else if (r.group === 'travelMagic') {
+        assert.eq(ITEM_BY_ID[r.id].kind, 'magic');
       } else {
         assert.eq(r.group, 'cash');
         assert.eq(r.kind, 'gold');
       }
     }
-    assert.inRange(supplies / n, 0.42, 0.48, `T${tier}: supplies retain 45% of rolls`);
+    assert.inRange(supplies / n, tier >= 3 ? 0.07 : 0.42, tier >= 3 ? 0.13 : 0.48, `T${tier}: supply share`);
     if (tier === 1) assert.gt(torches / n, 0.30, 'roadside T1 is a dependable Torch source');
   }
 });

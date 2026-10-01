@@ -18,7 +18,8 @@ test('chest themes: every authored path terminates and conserves probability', (
         assert.gt(r.ids.length, 0, `${theme}/${tier}/${group} resolves`);
         for (const id of ChestThemes.selectableIds(r)) {
           const item = ITEM_BY_ID[id];
-          assert.truthy(item && !item.shiny && !item.cooked);
+          assert.truthy(item && !item.shiny);
+          if (item.cooked) assert.eq(r.group, 'food', 'cooked meals stay in the food pool');
           assert.truthy(!item.caveOnly || depth > 0);
           assert.truthy(item.baseTier <= tier, 'the Book is a T1 item; every group member is tier-gated');
         }
@@ -27,21 +28,45 @@ test('chest themes: every authored path terminates and conserves probability', (
   }
 });
 
-test('chest themes: seed probability moves to related rewards at high quality', () => {
-  const expected = [[3, 45], [4, 22.5], [5, 14.85], [6, 11.25], [7, 11.25]];
-  for (const [tier, seeds] of expected) {
-    const w = ChestThemes.weights('flora', tier);
-    assert.inRange(w.flowerSeeds, seeds - 1e-9, seeds + 1e-9);
-    assert.inRange(w.growth, 10 + (45 - seeds) / 2 - 1e-9, 10 + (45 - seeds) / 2 + 1e-9);
-    assert.inRange(w.saplings, 15 + (45 - seeds) / 2 - 1e-9, 15 + (45 - seeds) / 2 + 1e-9);
-    assert.eq(w.flowers, 30, 'direct flower share does not silently increase');
+test('chest themes: cooked meals, spears and minerals are reachable at their quality tier', () => {
+  const expected = [
+    ...ITEMS.filter(item => item.cooked).map(item => ['food', 'food', item.id]),
+    ['roadside', 'supplies', 'spear'], ['authority', 'field', 'spear'],
+    ['roadside', 'materials', 'coal'],
+    ...Object.values(MINERAL_TIERS).map(row => ['roadside', 'materials', row.barId]),
+  ];
+  for (const [theme, group, id] of expected) {
+    const tier = ITEM_BY_ID[id].baseTier;
+    const opts = { theme, chestTier: Math.min(5, tier) };
+    const pool = ChestThemes.resolve(group, tier, opts);
+    assert.includes(ChestThemes.selectableIds(pool), id, id + ' can actually be selected');
+    if (tier > 1) assert.falsy(ChestThemes.eligible(group, tier - 1, opts).includes(id), id + ' respects its tier');
+    const rng = makeRng32(1927);
+    let found = false;
+    for (let i = 0; i < 2000 && !found; i++) {
+      const reward = resolveChestReward(theme, { tier, bracket: 0, jackpotApplied: 0 }, {}, rng, { tier: opts.chestTier });
+      found = reward.kind === 'item' && reward.id === id;
+    }
+    assert.truthy(found, id + ' reaches the chest reward');
   }
+  for (let tier = 2; tier <= 7; tier++) {
+    const pool = ChestThemes.resolve('materials', tier, { theme: 'roadside' });
+    assert.eq(ChestThemes.selectableIds(pool).join(','), MINERAL_TIERS[tier].barId, 'materials advance beyond basic debris');
+  }
+});
+
+test('chest themes: high-tier weights use the chest tier, not jackpot quality', () => {
+  assert.eq(ChestThemes.weights('roadside', 7, { tier: 1 }).supplies, 45);
+  assert.eq(ChestThemes.weights('roadside', 1, { tier: 4 }).supplies, 10);
+  assert.eq(ChestThemes.weights('flora', 4, { tier: 4 }).flowerSeeds, 35);
+  assert.eq(ChestThemes.weights('flora', 7, { tier: 4 }).flowerSeeds, 35);
+  assert.eq(ChestThemes.weights('food', 4, { tier: 1 }).foodSeeds, 7.5, 'starter jackpot still reduces seeds');
 });
 
 test('chest themes: cave mixture adds medicine and retains the location share', () => {
   for (let tier = 1; tier <= 7; tier++) {
     const w = ChestThemes.weights('school', tier, { depth: 1 });
-    assert.eq(w.books, 33, '60% of the 55% school Book group');
+    assert.eq(w.books, tier >= 3 ? 24 : 33, '60% of the surface book share');
     if (tier === 1) assert.eq(w.antidote, 24);
     else assert.eq(w.caveMagic, tier === 2 ? 24 : 32);
   }
@@ -70,17 +95,19 @@ test('chest themes: recovery, revival and protection remain distinct', () => {
     const revival = ChestThemes.resolve('revival', tier, opts);
     if (tier === 1) assert.eq(revival.group, 'restorative');
     else assert.eq(ChestThemes.selectableIds(revival).join(','), tier >= 5 ? 'resurrection_potion' : 'revive_potion');
-    assert.eq(ChestThemes.weights('health', tier).antidote, 25);
+    if (tier <= 2) assert.eq(ChestThemes.weights('health', tier).antidote, 25);
+    else assert.eq(ChestThemes.weights('health', tier).medicalMagic, 100);
   }
 });
 
 test('chest themes: quantities use actual item price once and discard excess allowance', () => {
   assert.eq(ChestThemes.quantity('vigor_potion', 4, 0), 2);
-  assert.eq(ChestThemes.quantity('revive_potion', 4, 0), 1);
-  assert.eq(ChestThemes.quantity('vigor_potion', 5, 0), 3);
-  for (const id of ['antidote', 'elixir', 'resurrection_potion', 'book', 'sunflower_seed', 'fireflower_seed', 'iceflower_seed']) {
+  assert.eq(ChestThemes.quantity('revive_potion', 4, 0), 2);
+  assert.eq(ChestThemes.quantity('vigor_potion', 5, 0), 5);
+  for (const id of ['elixir', 'resurrection_potion', 'book', 'sunflower_seed', 'fireflower_seed', 'iceflower_seed']) {
     assert.eq(ChestThemes.quantity(id, 7, 3), 1, id + ' is a single reward');
   }
+  assert.eq(ChestThemes.quantity('antidote', 4, 0), 6, 'cheap magic fills a single stack');
   assert.eq(ChestThemes.quantity('wood', 7, 3, () => 0.999), 12);
 });
 
@@ -117,4 +144,33 @@ test('chest themes: school-only Book exception and named venue preference', () =
   for (let i = 0; i < 5000; i++) if (ChestThemes.pickItem(pool, 5, rng, opts) === 'potato') potatoes++;
   assert.inRange(potatoes / 5000, 0.67, 0.73);
   assert.eq(ChestThemes.resolve('foodSeeds', 3, { theme: 'food', venueProduct: 'milk' }).group, 'food');
+});
+
+test('chest themes: high-tier rolls keep quality and one reward through quantity-heavy chains', () => {
+  for (const theme of Object.keys(ChestThemes.themes)) for (const tier of [3, 4, 5]) {
+    const rng = makeRng32(707 + tier);
+    for (let i = 0; i < 250; i++) {
+      const reward = pickChestReward(theme, { relics: {}, armor: {} }, rng, { tier });
+      assert.gte(reward.rolledTier, tier);
+      assert.eq(reward.consolation, 0);
+      if (reward.slot) assert.gte(reward.tier, tier - 1, 'equipment has its own floor');
+      if (reward.kind === 'item') {
+        assert.truthy(typeof reward.id === 'string');
+        assert.gte(reward.qty, 1);
+        assert.lte(reward.qty, ChestThemes.cap(reward.id));
+        if (theme === 'roadside' && reward.group === 'materials') assert.gte(ITEM_BY_ID[reward.id].baseTier, tier);
+        if (theme === 'health') assert.eq(ITEM_BY_ID[reward.id].kind, 'magic');
+        if (theme === 'flora' && tier >= 4 && ['flowers', 'flowerSeeds'].includes(reward.group))
+          assert.gte(ITEM_BY_ID[reward.id].baseTier, 4);
+      }
+    }
+  }
+});
+
+test('chest themes: a high-tier venue does not force starter food', () => {
+  const rng = makeRng32(909);
+  for (let i = 0; i < 1000; i++) {
+    const reward = pickChestReward('food', {}, rng, { tier: 4, venueProduct: 'potato' });
+    if (reward.group === 'food' || reward.group === 'foodSeeds') assert.gte(ITEM_BY_ID[reward.id].baseTier, 4);
+  }
 });

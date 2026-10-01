@@ -623,6 +623,7 @@
     const chestTier = Math.max(1, Math.min(5, opts.tier || 2));
     const ctx = RARITY_TUNING.chestTierMod[chestTier];
     const quality = rollRewardQuality(ctx, 'chestQuality', save, rng, opts);
+    quality.tier = Math.max(quality.tier, ChestThemes.qualityFloor(chestTier));
     return resolveChestReward(theme, quality, save, rng, { ...opts, tier: chestTier });
   }
 
@@ -633,6 +634,8 @@
     const chestTier = Math.max(1, Math.min(5, opts.tier || 2));
     const { tier, bracket, jackpotApplied } = quality;
     const selectionOpts = { ...opts, theme, chestTier, save };
+    if ((_ITEM_BY_ID[opts.venueProduct]?.baseTier || 1) < ChestThemes.qualityFloor(chestTier))
+      selectionOpts.venueProduct = null;
     const group = weightedPick(ChestThemes.weights(theme, tier, opts), rng);
     let resolved;
     try { resolved = ChestThemes.resolve(group, tier, selectionOpts); }
@@ -644,8 +647,14 @@
     const meta = { theme, group, resolvedGroup: resolved.group, fallback: resolved.fallback,
       rolledTier: tier, jackpot: jackpotApplied, consolation: 0 };
     if (resolved.kind === 'gear') {
-      return { ...rollGearUpgrade(rng, save?.relics, chestTier, save?.armor, ChestThemes.gearSlots(resolved.group),
-        typeof Shrines !== 'undefined' && Shrines.leverActive(save, 'fortune') ? Shrines.FORTUNE_LUCK_BONUS : 0), ...meta };
+      const gear = rollGearUpgrade(rng, save?.relics, chestTier, save?.armor, ChestThemes.gearSlots(resolved.group),
+        typeof Shrines !== 'undefined' && Shrines.leverActive(save, 'fortune') ? Shrines.FORTUNE_LUCK_BONUS : 0,
+        chestTier >= 3 ? chestTier - 1 : 1, theme === 'vista' ? tier : 7);
+      if (theme !== 'vista' || gear.kind !== 'gold') return { ...gear, ...meta };
+      // A grail never turns an owned equipment roll into a coin consolation.
+      resolved = ChestThemes.resolve('magic', tier, selectionOpts);
+      meta.resolvedGroup = resolved.group;
+      meta.fallback = true;
     }
     if (resolved.kind === 'cash') {
       let qty = 1;
@@ -795,13 +804,13 @@
   // and by the chest relic path in pickReward. Guarantees a gear result (relic
   // or armor upgrade, or consolation gold). Moved here from loot.js; replaces
   // the old pickChestRelic. `chestT` 1-5 drives the preferred/ceiling tier.
-  function rollGearUpgrade(rng, currentRelics, chestT = 2, currentArmor = null, allowedSlots = null, luck = 0) {
+  function rollGearUpgrade(rng, currentRelics, chestT = 2, currentArmor = null, allowedSlots = null, luck = 0, minTier = 1, maxTier = 7) {
     const random = rng || Math.random;
     if (!Object.keys(_RELIC_DEFS).length) return null;
     // preferred is clamped to 1..7 and every tier 1..7 is allowed, so the
     // capped pool is never empty.
-    const preferred = Math.min(7, Math.max(1, Math.round(1 + (chestT - 1) * 2)));
-    const capped = GEAR_ROLL_TIERS.filter(t => t <= preferred);
+    const preferred = Math.min(maxTier, Math.max(1, Math.round(1 + (chestT - 1) * 2)));
+    const capped = GEAR_ROLL_TIERS.filter(t => t >= Math.min(preferred, minTier) && t <= preferred);
     const weighted = capped.map(t => ({ t, w: 1 / (1 + Math.abs(t - preferred)) }));
     let pickedTier = weightedPickBy(weighted, (w) => w.w, random).t;
     // Gear resolves separately from rolled item quality. Fortune reaches this

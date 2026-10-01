@@ -329,15 +329,14 @@ test('scenic: viewpoints — detection, merge, and the grail\'s tier', () => {
   assert.eq(POI_CATEGORY.vista, 'park', 'a stretch chest is a park chest');
 });
 
-test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hall\'s — ~150 value', () => {
+test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hall\'s — equipment and magic', () => {
   assert.eq(chestThemeFor({ poiClass: 'attraction', vista: 'grail' }), 'vista', 'the grail is chest:vista');
   assert.eq(chestThemeFor({ poiClass: 'vista', vista: 'shore' }), 'park', 'a stretch chest keeps its poiClass theme');
   assert.eq(chestThemeFor({ poiClass: 'attraction' }), 'civic', 'an ordinary attraction (museum, town hall) is unaffected');
   assert.truthy(ChestThemes.themes.vista, 'the theme exists');
   assert.eq(ChestThemes.themes.vista.tier, 4, 'the grail\'s own tier');
-  // Monte-Carlo the average value of a T4 chest:vista pull (same shape as the
-  // balancing sheet's describe()) and check it sits in the design target
-  // 100-160 — well under a civic T4's ~440 (loot.js chestThemeFor's comment).
+  // Equipment is common now, but the grail uses its rolled quality as the
+  // gear ceiling: ordinary T4 opens cannot spray expensive T7 equipment.
   const val = (r) => {
     if (!r) return 0;
     if (r.kind === 'gold') return (r.amount || 0) + (r.consolation || 0);
@@ -346,9 +345,13 @@ test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hal
   };
   const emptySave = { relics: {}, armor: {}, inv: [] };
   let sum = 0;
-  const N = 6000;
-  for (let i = 0; i < N; i++) sum += val(pickReward('chest:vista', emptySave, Math.random, { tier: 4, depth: 0 }));
-  assert.inRange(sum / N, 90, 175, 'the one-time grail averages ~150 (design target 100-160)');
+  const N = 6000, rng = makeRng32(4432);
+  for (let i = 0; i < N; i++) {
+    const reward = pickReward('chest:vista', emptySave, rng, { tier: 4, depth: 0 });
+    if (reward.slot) assert.lte(reward.tier, reward.rolledTier, 'gear respects grail quality');
+    sum += val(reward);
+  }
+  assert.inRange(sum / N, 200, 600, 'one-time equipment grail stays below a T7-heavy payout');
 });
 
 test('scenic: the scope — story once, the relic once per save, the gift once per UTC day', () => {
