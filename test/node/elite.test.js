@@ -76,7 +76,7 @@ test('elite: the treasure pool is biased to relics and pays a real reward', () =
     if (r.kind === 'relic') {
       relics++;
       assert.lte(r.tier, ctx.relicCap - 1, 'relic tier under the cap');
-      assert.falsy(r.slot === 'ring', 'elite drops preserve the wizard-exclusive Ring');
+      assert.falsy(['ring', 'amulet'].includes(r.slot), 'elite drops contain no retired jewelry gear');
     }
   }
   assert.gt(relics, 0, 'the sample reaches the relic branch');

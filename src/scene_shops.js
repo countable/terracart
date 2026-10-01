@@ -972,9 +972,8 @@ class SceneShops {
     // Relic/armor offer roll lives in gear.js (Gear.buildRelicOffer) — armor +
     // relic pools normalised to ~50% airtime each, low-tier biased, castle vs
     // regular pricing. Kept as a scene method so peekOrBuildRelicOffer (which
-    // threads the seeded shopRng) calls it the same way. The Ring is excluded
-    // there (it's the wizard tower's exclusive gift — the Keen Eye track of
-    // src/wizard.js).
+    // threads the seeded shopRng) calls it the same way. Unique jewelry is not
+    // gear and never enters this offer lane.
     return Gear.buildRelicOffer(this.save, rng, opts);
   }
 
@@ -1141,9 +1140,9 @@ class SceneShops {
   //     ramping to 6 / 7 so nothing high-tier got cheaper. T2..T4 bars are
   //     mined; T5..T7 bars (platinum / crimson / frost) are SMELTED from
   //     their flowers, so the flower bond is implicit through the bar req.
-  //   • Jewelry slots (ring / staff / amulet) - geometric gem cost
+  //   • Jewelry slot (staff) - geometric gem cost
   //     (1, 2, 4, 8, 16 from T2..T6) of the slot-specific gem:
-  //       ring -> ruby, staff -> emerald, amulet -> sapphire
+  //       staff -> emerald
   //     plus 1 of the tier-matched bar. Every T7 slot uses 32 diamonds.
   // (The starter shop's T1 wooden pick / axe / hoe use a separate cheap
   // bootstrap recipe — see starterBlacksmithRecipe — and don't pass here.)
@@ -1259,16 +1258,13 @@ class SceneShops {
   //     four CLASS offers when the calling is due (the third purchase).
   //   • Wizard.buy(save, key, { spend }) — re-validates the pick against the
   //     LIVE table and the LIVE count, writes the rung / calling, and tells
-  //     us what is still ours to do: `equip` (the Keen Eye Ring, through
-  //     _equipGear) and `energyCap` (Vigour raises Energy.maxEnergy).
+  //     us whether `energyCap` changed (Vigour raises Energy.maxEnergy).
   //
   // ONE WRITER. buy() is handed spendMemories as its `spend` hook, so the
   // counter still goes down in exactly one place on the scene (which
   // repaints the HUD chip and persists); buy() only decrements save.memories
   // itself when no hook is given (the headless wizard.test.js).
   //
-  // The Ring is still the wizard's EXCLUSIVE gift: gear.js buildRelicOffer
-  // skips the slot, so no shop, smithy or castle ever sells one.
   presentWizardOffer(sx, sy, recordDeal) {
     const offers = Wizard.offers(this.save);
     if (!offers.length) {
@@ -1342,7 +1338,6 @@ class SceneShops {
     if (this.memoriesUnspent() < shown.cost) { this.flash('Not enough memories.', sx, sy); return null; }
     const r = Wizard.buy(this.save, key, { spend: (n) => this.spendMemories(n) });
     if (!r) { this.flash('The wizard has moved on.', sx, sy); return null; }
-    if (r.equip) this._equipGear(r.equip.kind, r.equip.slot, r.equip.tier);
     recordDeal();
     // The reach silhouette redraws every frame from reachRadiusM, so a wider
     // reach shows on the next frame with no explicit invalidation; a Vigour

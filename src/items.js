@@ -401,6 +401,11 @@ const MINERAL_ICON_SHEET = {
   growth_powder: { sheet: 'icon_potions', frame: 6 },
   shadow_powder: { sheet: 'icon_potions', frame: 8 },
   frost_powder:  { sheet: 'icon_potions', frame: 9 },
+  // Unique jewelry uses spare 16px frames from the old tier sheets.
+  stealth_ring:      { sheet: 'icon_rings',   frame: 8 },
+  invisibility_ring: { sheet: 'icon_rings',   frame: 11 },
+  regen_amulet:      { sheet: 'icon_amulets', frame: 10 },
+  vigor_amulet:      { sheet: 'icon_amulets', frame: 17 },
   // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
   // honey jar). Using it moves the player up or down one cave level in place
   // (useRope in app.js).
@@ -581,6 +586,8 @@ const BASE_TIER = {
   // Frost is the T3 fight-changer beside the dragon — it is the one that turns
   // a fight you are already in.
   growth_powder: 2, shadow_powder: 2, frost_powder: 3,
+  // Unique jewelry is intrinsically magical, never a metal rung.
+  stealth_ring: 2, invisibility_ring: 4, regen_amulet: 3, vigor_amulet: 5,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
   // Trap Disarm Kit — a T2 utility beside rope: situational, not a staple.
@@ -717,7 +724,7 @@ const ITEMS = [
   // Drunk to strike every foe on screen (app.js drinkThunderPotion).
   { id: 'thunder_potion',      name: 'Potion of Thunder',      kind: 'magic', potion: true },
   // Dragon Powder: use it (Use button with it selected) to wear a red dragon
-  // for one minute — tier-8 boots and amulet on the movement stick AND 2× attack
+  // for one minute — tier-8 boot movement and 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
   { id: 'dragon_powder', name: 'Dragon Powder',       kind: 'magic' },
   // Growth Powder: every crop within 20 m springs ahead one stage on the spot,
@@ -732,6 +739,12 @@ const ITEMS = [
   // moving, no attacking (useFrostPowder). Refused — and kept — when nothing
   // hostile is in reach.
   { id: 'frost_powder',  name: 'Frost Powder',        kind: 'magic' },
+  // Unique jewelry works while carried. `uniqueJewelry` keeps magic shops and
+  // ordinary class rolls from selling it; named chest pools remain its source.
+  { id: 'stealth_ring',      name: 'Stealth Ring',          kind: 'magic', uniqueJewelry: true },
+  { id: 'invisibility_ring', name: 'Ring of Invisibility',  kind: 'magic', uniqueJewelry: true },
+  { id: 'regen_amulet',      name: 'Amulet of Regeneration', kind: 'magic', uniqueJewelry: true },
+  { id: 'vigor_amulet',      name: 'Amulet of Vigor',        kind: 'magic', uniqueJewelry: true },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
   // climb UP a level or lower yourself DOWN one — right where you stand, no
   // staircase needed. One rope per climb. Unlike the sapphire portal it goes
@@ -1095,7 +1108,7 @@ const PRICES = {
   antidote:     12,
   elixir:       360,
   vigor_potion:  35,   // T2 — instant 40-energy restore
-  speed_potion:  55,   // T2 — tier-9 boots + amulet stick-walking for 1 min
+  speed_potion:  55,   // T2 — tier-9 boot stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura at app.js's BLIGHT_DPS
   raven_potion:  90,   // T3 — 1 min of a slime-strength ally (one roster-slime bite
@@ -1104,11 +1117,13 @@ const PRICES = {
   revive_potion: 40,   // T2 — get up where you fell with a tenth of the bar
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
   thunder_potion: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
-  dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 boots + amulet walking + 2× damage
+  dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 boot walking + 2× damage
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
   shadow_powder: 110,  // T2 — 3 min of monsters ignoring you entirely (priced for the
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
+  // Unique jewelry is never sold; zero keeps valuation complete without making an offer.
+  stealth_ring: 0, invisibility_ring: 0, regen_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft); crafted from 5 long grass, so not a money pump
   trap_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T2 — one tier-2 shot and a staff beat's hold on one foe; a revive's worth
@@ -1260,6 +1275,10 @@ const ITEM_EFFECTS = {
   platinum_bar: 'Its pale face catches the heat of a fireflower.',
   crimson_bar: 'An iceflower’s chill waits beneath its red sheen.',
   frost_bar: 'A smith’s breath turns white above this cold metal.',
+  stealth_ring: 'Hungry eyes slide past the stone in its band.',
+  invisibility_ring: 'The eye forgets the hand it almost saw.',
+  regen_amulet: 'A slow warmth mends what the day takes.',
+  vigor_amulet: 'A quickened warmth mends what the day takes.',
   sunflower: 'Its petals hold a warmth that gold seems to answer.',
   fireflower: 'Its heat draws a blush from pale platinum.',
   iceflower: 'Its frozen petals cool even crimson metal.',
@@ -1459,15 +1478,8 @@ const RELIC_DEFS = {
              effectKey: 'rockSpeed',     blurb: 'Its pointed head finds the seams in stone.' },
   axe:     { slot: 'axe',    name: 'Axe',     icon: 'Axe.png',     baseCost:  80,
              effectKey: 'chopSpeed',     blurb: 'Its keen edge bites deep into timber.' },
-  // The Ring is TIER luck, and the wizard tower's exclusive gift (his Keen Eye
-  // track — src/wizard.js TRACKS). Never sold, never forged.
-  ring:    { slot: 'ring',   name: 'Ring',    icon: 'Rings.png',   baseCost:  60,
-             effectKey: 'lootTier',      blurb: 'A glint of luck follows your hand to the chest.' },
-  // The Amulet is stick walking and nothing else. It also gave QUANTITY luck
-  // (a chance at a bigger stack of loot) until Sep 2026, when that became the
-  // wizard's Full Measure rung at the same ceiling — see rarity.js qtyLuck.
-  amulet:  { slot: 'amulet', name: 'Amulet',  icon: 'Amulet.png',  baseCost:  60,
-             effectKey: 'stickWalk',     blurb: 'Its gentle warmth eases the weight of each step.' },
+  // Ring and amulet names belong to unique carried jewelry now. Legacy tiered
+  // pieces migrate in savemigrate.js; this table contains tools only.
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
   // are ranged — they fire on their own while an enemy is on screen, each on
@@ -1586,9 +1598,8 @@ function gearPrice(kind, slot, tier) {
 function gearAssetPath(kind, slot, tier) {
   const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
   if (!def || !t) return null;
-  // Ring + amulet live under Extras (single icon, tier shown as a badge).
-  // Everything else (pickaxe, armor pieces) is per-tier under Weapons and Armor.
-  if (kind === 'relic' && (slot === 'ring' || slot === 'amulet' || slot === 'bags')) {
+  // Bags live under Extras; tools and armor are per-tier.
+  if (kind === 'relic' && slot === 'bags') {
     return `assets/Icons/RPG icons/Extras/${def.icon}`;
   }
   // bugnet: tier 1 (Wood) has dedicated brown art; other tiers fall back to the
@@ -1898,43 +1909,50 @@ function toolDurationMs(relics, slot) {
   if (!eq) return 9000;   // tier 0 (bare hands) = 2.25 × wood
   return TOOL_DURATION_MS[eq.tier] ?? 9000;
 }
-// Stick walking: boots set speed; the amulet reduces energy per cell.
-// GPS walking stays free and uses its own pace. Buffs can lend tiers to both.
-// Speed runs from 4.8× walk without boots to 24× at Frost; cost runs from
-// 1 pip/cell without an amulet to 0.15 at Frost.
-// The floor came down 20% (6 → 4.8, Sep 2026, owner's call): the stick is
-// the walk you didn't take, and bare-handed it outpaced the reason to walk.
-const STEER_MUL_FLOOR = 4.8;    // bare hands
-// 24, up from 15.5. The ladder ran 6x to 15.5x, which sounds wide and does not
-// PLAY wide: 1.2 cells a second bare-handed against 3.1 at the top, so tier-8
-// boots felt like tier-0 boots with a tailwind and a coffee (+1 tier, ~9% at
-// the top end) did nothing you could feel. The whole widening landed in the
-// per-tier step; the floor has since moved on its own (above).
-const STEER_MUL_FROST = 24;   // tier 7 boots
-// THE BIKE RACK (a bicycle_parking POI — loot.js isBikeRack): a tap lends
-// the stick walk BIKE_RACK_SPEED_MUL (+100%) for BIKE_RACK_MS, once a UTC day
-// per rack. It is one more REASON in this lane, not a speed system of its
-// own: app.js _walkRelics reads save.bikeUntil and hands the factor on the
-// boots as `boost`, and steerSpeedMul multiplies it in — so it rides every
-// path the stick speed rides (the stick, the drift home) and none of the GPS
-// walk's, which never reads this function. A multiplier rather than lent
-// tiers because the promise is "twice as fast", whatever boots are worn.
+// Stick walking: boots set both speed and energy cost. GPS walking stays free.
+// Speed runs from 4.8× without boots to 14.4× at Frost: half the former
+// 19.2-point tier contribution, while the tier-0 pace stays unchanged. Cost
+// runs from 1 pip/cell without boots to 0.15 at Frost.
+const STEER_MUL_FLOOR = 4.8;
+const STEER_MUL_FROST = 14.4;
+// A bike rack doubles the current stick pace, whatever boots are worn.
 const BIKE_RACK_SPEED_MUL = 2;
 const BIKE_RACK_MS = 3 * 60 * 1000;
 function steerSpeedMul(gear) {
   const t = gear?.boots?.tier || 0;
   const boost = gear?.boots?.boost > 0 ? gear.boots.boost : 1;
-  // The Frost end is its own tuned endpoint (STEER_MUL_FROST, above), so the
-  // per-tier step absorbs any move of the floor instead of every tier
-  // shifting with it.
   return (STEER_MUL_FLOOR + ((STEER_MUL_FROST - STEER_MUL_FLOOR) / 7) * t) * boost;
 }
-function steerEnergyCost(relics) {
-  const t = relics?.amulet?.tier || 0;
+function steerEnergyCost(gear) {
+  const t = gear?.boots?.costTier ?? gear?.boots?.tier ?? 0;
   if (!t) return 1;
-  // Floor keeps the speed potion's synthetic tier 9 (and any future tier past
-  // Frost) from running the cost negative, i.e. paying you to walk.
   return Math.max(0.05, 1 - (t - 1) * (0.85 / 6));
+}
+
+// Unique jewelry owns intrinsic effects instead of material tiers. Carrying
+// both variants takes the stronger effect; values never stack.
+const UNIQUE_JEWELRY = Object.freeze({
+  stealth_ring: Object.freeze({ visionCells: 1 }),
+  invisibility_ring: Object.freeze({ visionCells: 2 }),
+  regen_amulet: Object.freeze({ regenMs: 4000 }),
+  vigor_amulet: Object.freeze({ regenMs: 2000 }),
+});
+function carriesItem(save, id) {
+  return !!(save?.inv || []).find((st) => st?.id === id && (st.count ?? 0) > 0);
+}
+function jewelryVisionReduction(save) {
+  let cells = 0;
+  for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
+    if (row.visionCells && carriesItem(save, id)) cells = Math.max(cells, row.visionCells);
+  }
+  return cells;
+}
+function jewelryRegenIntervalMs(save) {
+  let interval = Infinity;
+  for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
+    if (row.regenMs && carriesItem(save, id)) interval = Math.min(interval, row.regenMs);
+  }
+  return interval;
 }
 // Sword relic: scales sell price from 0.5 × base (no sword) to 1.0 × base at
 // tier 7 (frost sword sells at par with the listed PRICES[]). Note that

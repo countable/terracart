@@ -2321,7 +2321,7 @@ class SceneCreatures {
         // STALK branches only: every attack gate below reaches a cell or
         // three, well inside any sight, and keeps reading `unnoticed`. A
         // struck slime's charge is not sight either — it knows who hit it.
-        const unseen = unnoticed || !Combat.seesPlayer(c.kind, distToPlayer, this.cellM);
+        const unseen = unnoticed || !Combat.seesPlayer(c.kind, distToPlayer, this.cellM, this.save);
         let tx = c.x, ty = c.y, angle = 0;
         let foundValidTarget = false;
         // Fight resolution: if chasing pet is in fight range, deal damage.

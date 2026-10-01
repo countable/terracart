@@ -73,11 +73,6 @@
       }
     };
     for (const slot of Object.keys(RELIC_DEFS)) {
-      // The Ring is the wizard tower's exclusive gift — the Keen Eye track of
-      // his offers (src/wizard.js TRACKS) — and is never sold or forged
-      // anywhere else, so it's excluded from every shop / smithy / castle
-      // offer.
-      if (slot === 'ring') continue;
       consider('relic', slot, save.relics?.[slot]?.tier ?? 0);
     }
     for (const slot of Object.keys(ARMOR_DEFS)) consider('armor', slot, save.armor?.[slot]?.tier ?? 0);
@@ -126,16 +121,16 @@
   }
 
   // Forge recipe for a gear piece. Tools use the tier-matched bar (T1 = plain
-  // wood); jewelry (ring→ruby, staff→emerald, amulet→sapphire) uses a geometric
+  // wood); the staff's emerald setting uses a geometric
   // gem ramp (1,2,4,…,32 from T2..T7) plus one bar. At the Frost tier every
-  // jewelry slot is cut around DIAMONDS instead of the slot's own gem — the
-  // same 32-gem quantity, so T7 is the one rung the three slots share a
-  // material (JEWELRY_FROST_TIER). Returns null when uncraftable.
+  // staff is cut around DIAMONDS instead of emerald at Frost (JEWELRY_FROST_TIER). Returns null when uncraftable.
   const JEWELRY_FROST_TIER = 7;
   const JEWELRY_FROST_GEM = 'diamond';
   function blacksmithRecipe(kind, slot, tier) {
     if (!tier) return null;
-    const JEWELRY_GEM = { ring: 'ruby', staff: 'emerald', amulet: 'sapphire' };
+    if (kind === 'relic' && !RELIC_DEFS[slot]) return null;
+    if (kind === 'armor' && !ARMOR_DEFS[slot]) return null;
+    const JEWELRY_GEM = { staff: 'emerald' };
     const BAR_BY_TIER = [, 'wood', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];
     const bar = BAR_BY_TIER[tier];
     if (!bar) return null;

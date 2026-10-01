@@ -96,8 +96,8 @@ test('diamond: the T7 mineralrock lists the diamond FIRST — it is the Frost ro
 });
 
 // ── Gear ────────────────────────────────────────────────────────────────────
-test('diamond: every T7 jewelry recipe is cut around diamonds — the ramp and the bar unchanged', () => {
-  for (const slot of ['ring', 'staff', 'amulet']) {
+test('diamond: the T7 staff recipe is cut around diamonds — the ramp and the bar unchanged', () => {
+  for (const slot of ['staff']) {
     const r = Gear.blacksmithRecipe('relic', slot, 7);
     assert.truthy(Array.isArray(r) && r.length === 2, `${slot} T7 has a gem line and a bar line`);
     assert.eq(r[0].id, 'diamond', `${slot} T7 wants diamonds`);
@@ -112,7 +112,7 @@ test('diamond: every T7 jewelry recipe is cut around diamonds — the ramp and t
     }
   }
   // Below T7 each slot keeps its own gem — the diamond is the Frost rung only.
-  const own = { ring: 'ruby', staff: 'emerald', amulet: 'sapphire' };
+  const own = { staff: 'emerald' };
   for (const [slot, gem] of Object.entries(own)) {
     for (let t = 2; t <= 6; t++) {
       const r = Gear.blacksmithRecipe('relic', slot, t);

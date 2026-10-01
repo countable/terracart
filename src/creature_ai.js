@@ -1151,7 +1151,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   const inTerritory = !territory || Math.hypot(px - (c._territoryX ?? c.homeX ?? c.x),
     py - (c._territoryY ?? c.homeY ?? c.y)) <= territory * scene.cellM;
   const attentive = !inactive && (npcTarget || !Combat.playerDowned(scene.save.energy))
-    && inTerritory && dist <= row.visionCells * scene.cellM;
+    && inTerritory && (npcTarget || Combat.seesPlayer(c.kind, dist, scene.cellM, scene.save));
   if (row.movement.pattern === 'lunge_recover'
       && (now < (c._lungeWindupUntil || 0) || now < (c._lungeRecoverUntil || 0))) {
     enemyAttackReady(c, row, now, false);
@@ -1254,7 +1254,7 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
   if (c.stationary || m.pattern === 'anchor_spit') return;
   if (c._abilityWindupUntil > now || c._reloadUntil > now) return;
   const dist = Math.hypot(px - c.x, py - c.y);
-  let sees = !inactive && dist <= row.visionCells * scene.cellM;
+  let sees = !inactive && Combat.seesPlayer(c.kind, dist, scene.cellM, scene.save);
   if (m.territoryCells) {
     c._territoryX ??= c.homeX ?? c.x; c._territoryY ??= c.homeY ?? c.y;
     const radius = m.territoryCells * scene.cellM;
