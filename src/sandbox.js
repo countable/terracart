@@ -99,6 +99,8 @@
       s.creature('butterfly', 7, 1, 1);
       // Slime pest — drifts at the player and drains energy when close.
       s.creature('slime', 5, 2, 1);
+      // Boar — charges in a line, rests, hurts only on contact.
+      s.creature('boar', 7, 5, 1);
     },
   };
 
@@ -174,6 +176,7 @@
       s.creature('cat', 1, 1, 1);           // a cat sunning on the sand
       s.creature('giant_crab', 2, 3, 1);     // representative shore enemy
       s.creature('gull', 3, 1, 1);           // scenic-shore scavenger
+      s.creature('turtle', 1, 4, 1);         // the rabbit of the beach
       s.well(3, 6);                          // fountain on dry land
     },
   };
@@ -216,6 +219,7 @@
     populate(s) {
       s.creature('chicken', 0, 0, 1); s.creature('chicken', 9, 0, 2);
       s.creature('cow', 0, 7, 1);     s.creature('cow', 9, 7, 2);
+      s.creature('horse', 4, 7, 1);   // rare mount — catch it, then Ride from the bag
       s.chest('farm', 'Sandbox Farm', 5, 4);   // round pad, +1 bonus yield
     },
   };

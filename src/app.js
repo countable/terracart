@@ -1829,6 +1829,10 @@ class MapScene extends Phaser.Scene {
     window.ITEM_DATA_URLS.crow      = bakeSheetFrame('crow',      0, 32, 32);
     window.ITEM_DATA_URLS.butterfly = bakeSheetFrame('butterfly', 0, 16, 16);
     window.ITEM_DATA_URLS.crab      = bakeSheetFrame('crab',      0, 16, 16);
+    // The horse's right-facing idle (frame 8) and the turtle's top-down down
+    // pose (frame 6) — the same sheets the world draws.
+    window.ITEM_DATA_URLS.horse     = bakeSheetFrame('horse',     8, 32, 32);
+    window.ITEM_DATA_URLS.turtle    = bakeSheetFrame('turtle',    6, 16, 16);
     // Wilderness drops that share their world sprite. Source sheet
     // + frame come from CROP_SPRITE.mushroom so the inventory icon stays
     // glued to whatever the world renderer is drawing.
@@ -6692,8 +6696,15 @@ class MapScene extends Phaser.Scene {
     // A BIKE RACK's loan (items.js BIKE_RACK_SPEED_MUL for BIKE_RACK_MS —
     // interactables.js writes save.bikeUntil): a factor on the speed, not a
     // tier, carried on the boots to steerSpeedMul like every other reason.
-    const boost = (this.save.bikeUntil ?? 0) > Date.now() ? BIKE_RACK_SPEED_MUL : 1;
-    return { boots: { tier: speedTier, costTier, boost } };
+    // A ridden HORSE (items.js HORSE_RIDE, isRiding) is the same kind of
+    // factor; a horse and a rack do not stack, the faster one counts. Only the
+    // horse charges for it: its energyMul rides the boots' costTier to
+    // steerEnergyCost.
+    const bike = (this.save.bikeUntil ?? 0) > Date.now() ? BIKE_RACK_SPEED_MUL : 1;
+    const riding = isRiding(this.save);
+    const boost = Math.max(bike, riding ? HORSE_RIDE.speedMul : 1);
+    const costMul = riding ? HORSE_RIDE.energyMul : 1;
+    return { boots: { tier: speedTier, costTier, boost, costMul } };
   }
   // Steer with the STICK — the one control that walks you somewhere other than
   // where the GPS says you are. Unlike _steerTarget (the keyboard, which is
@@ -9752,6 +9763,19 @@ class MapScene extends Phaser.Scene {
   // level, in place. Down-only — there's no return portal; climb back up a
   // staircase as usual. The gem is consumed only when the descent actually
   // happens, so an empty energy tank (which changeDepth refuses) never burns it.
+  // Ride / Dismount (items.js CONSUMABLE_SPEC.horse — an `immediate` row, so
+  // nothing is spent). The skin follows from isRiding every frame
+  // (SpriteLayout.playerArt), and so does the stick's speed and cost.
+  toggleHorseRide() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || (ITEM_BY_ID[sel.id]?.base || sel.id) !== 'horse' || (sel.count ?? 0) <= 0) return false;
+    this.save.riding = !isRiding(this.save);
+    persistSave(this.save);
+    if (this.save.riding) this.flash(`Stick ×${HORSE_RIDE.speedMul} speed, ×${HORSE_RIDE.energyMul} ⚡`);
+    else this.flash('You dismount.');
+    return true;
+  }
+
   useSapphirePortal() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'sapphire' || (sel.count ?? 0) <= 0) return false;

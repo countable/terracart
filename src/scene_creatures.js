@@ -2592,8 +2592,11 @@ class SceneCreatures {
       const nx = c._startX + (c._targetX - c._startX) * u;
       const ny = c._startY + (c._targetY - c._startY) * u;
       // Released enemies use the ordinary pet step lane, but keep their
-      // directional art. NPCs and other fauna retain their existing facing.
-      if (EnemyRoster.get(c.kind)) SpriteLayout.updateCreatureFacing(c, nx - c.x, ny - c.y, now);
+      // directional art, as does any fauna whose art authors directions (the
+      // horse, the turtle). NPCs and other fauna retain their existing facing.
+      if (EnemyRoster.get(c.kind) || SpriteLayout.creatureArt(c.kind)?.directions) {
+        SpriteLayout.updateCreatureFacing(c, nx - c.x, ny - c.y, now);
+      }
       c.x = nx; c.y = ny;
     });
     this._foeHeadsUp?.(interestedFoeM, now);

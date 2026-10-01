@@ -238,8 +238,10 @@
     assert.truthy(/const step = WALK_M_S \* steerSpeedMul\(relics\) \* dt;/.test(SCENE_SRC), 'the stick (_steerManual)');
     assert.truthy(/const stickMul = this\._stickPushed\(\) \? steerSpeedMul\(this\._walkRelics\(\)\) : 1;/.test(SCENE_SRC),
       'the follow cap, only while the stick is pushed');
-    assert.truthy(/const boost = \(this\.save\.bikeUntil \?\? 0\) > Date\.now\(\) \? BIKE_RACK_SPEED_MUL : 1;/.test(SCENE_SRC),
+    assert.truthy(/const bike = \(this\.save\.bikeUntil \?\? 0\) > Date\.now\(\) \? BIKE_RACK_SPEED_MUL : 1;/.test(SCENE_SRC),
       '_walkRelics reads the loan');
+    assert.truthy(/const boost = Math\.max\(bike, riding \? HORSE_RIDE\.speedMul : 1\);/.test(SCENE_SRC),
+      'a ridden horse is the same kind of factor, never stacked on the loan');
     assert.falsy(/bikeUntil/.test(SCENE_SRC.replace(/_walkRelics\(\) \{[\s\S]*?\n  \}\n/, '')), 'nothing else in app.js reads it');
   });
 
