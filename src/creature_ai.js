@@ -194,6 +194,110 @@ function roadClassBitsAt(scene, x, y) {
 }
 function inKerbAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BUFFER); }
 function onMajorRoadAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BAND); }
+
+// ── THE ROADSIDE RUN: a retreat in a residential area runs along the street ──
+// Every retreat in wanderCreatures is an AWAY angle — a bolting animal away
+// from the player, a foe routed away from Home's ward, one wandering off or
+// turned back at the kerb, struck prey shoved off by a pet. On open ground
+// "away" is fine. Between houses it is not: away from the player is INTO the
+// nearest yard, and a deer that bolts through a garden or a slime that flees
+// behind a house reads as walking through walls, and stands in ground the
+// spawn gate says nobody's creature belongs on (BEHIND_HOUSE / PRIVATE).
+//   So on LOT ground (WorldGen.isLotTerrain — a residential yard, or the
+// wasteland painted as one), or when the away step would land in a yard,
+// the retreat is bent onto the ROADSIDE: the nearest street within
+// ROADSIDE_R_CELLS (its roadMask band or its road terrain), run ALONG it, on
+// the creature's own side, ROADSIDE_VERGE_CELLS off the road — the pavement,
+// never the carriageway (road terrain refuses every wild step; the kerb
+// rules above refuse the major band and its buffer as they always did). The
+// street's line is the principal axis of its cells about the nearest one;
+// of the two ways along it the run takes the one nearer the away angle, so
+// it is still a retreat, and aims ROADSIDE_AHEAD_CELLS up the verge so a
+// creature deep in a yard first comes OUT to the roadside and then along it.
+//   And a retreat step never ENTERS a yard it is not already in: the yard
+// reason bits (yardReasonAt — the spawn gate's own BEHIND_HOUSE | PRIVATE,
+// off entry.spawnWhy) refuse the target cell, the way the kerb refuses the
+// band; one already in a yard may step anywhere (a refused cell for it would
+// be the stall the scarecrow note in the chain warns about).
+//   Null when there is no street near, or the creature is not among houses:
+// the caller keeps its plain away angle. Surface only. A step-time cost, not
+// a frame cost: (2R+1)² cell reads on the retreat steps of the handful of
+// creatures in the sim bubble, every few hundred ms each.
+const ROADSIDE_R_CELLS = 4;
+const ROADSIDE_AHEAD_CELLS = 3;
+const ROADSIDE_VERGE_CELLS = 1;
+const ROADSIDE_JITTER = 0.3;
+const ROADSIDE_YARD_BITS = () => WorldGen.SPAWN_WHY.BEHIND_HOUSE | WorldGen.SPAWN_WHY.PRIVATE;
+// The tile cell under a surface point: { entry, N, i } or null.
+function tileCellAt(scene, x, y) {
+  if ((scene.depth || 0) !== 0) return null;
+  const edge = scene.tileEdgeM;
+  if (!(edge > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const tx = Math.floor(x / edge), ty = Math.floor(y / edge);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+  if (!entry || !entry.grid) return null;
+  const N = entry.cellsPerEdge;
+  if (!(N > 0)) return null;
+  const ix = Math.floor((x - tx * edge) / (edge / N)), iy = Math.floor((y - ty * edge) / (edge / N));
+  if (ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
+  return { entry, N, i: iy * N + ix };
+}
+// The spawn gate's yard reasons on the cell under a point (0 where none).
+function yardReasonAt(scene, x, y) {
+  const t = tileCellAt(scene, x, y);
+  return t && t.entry.spawnWhy ? (t.entry.spawnWhy[t.i] & ROADSIDE_YARD_BITS()) : 0;
+}
+function lotAt(scene, x, y) {
+  const t = tileCellAt(scene, x, y);
+  return !!t && WorldGen.isLotTerrain(t.entry.grid[t.i]);
+}
+// ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): GEOMETRY, not the
+// gate — which way the street runs, so a retreat can run along it. Nothing
+// here places anything.
+function roadAt(scene, x, y) {
+  const t = tileCellAt(scene, x, y);
+  return !!t && (!!(t.entry.roadMask && t.entry.roadMask[t.i]) || WorldGen.isRoadTerrain(t.entry.grid[t.i]));
+}
+// The bent angle, or null (keep the away angle). `away` is the retreat's own
+// angle, radians.
+function roadsideRunAngle(scene, c, away) {
+  if ((scene.depth || 0) !== 0) return null;
+  const cm = scene.cellM;
+  if (!(cm > 0)) return null;
+  const ax = c.x + Math.cos(away) * cm, ay = c.y + Math.sin(away) * cm;
+  if (!lotAt(scene, c.x, c.y) && !lotAt(scene, ax, ay) && !yardReasonAt(scene, ax, ay)) return null;
+  const R = ROADSIDE_R_CELLS;
+  const cells = [];
+  let near = null, nearD2 = Infinity;
+  for (let dy = -R; dy <= R; dy++) {
+    for (let dx = -R; dx <= R; dx++) {
+      if (!roadAt(scene, c.x + dx * cm, c.y + dy * cm)) continue;
+      cells.push({ dx, dy });
+      const d2 = dx * dx + dy * dy;
+      if (d2 < nearD2) { nearD2 = d2; near = { dx, dy }; }
+    }
+  }
+  if (!near) return null;
+  // The street's line: the principal axis of its cells within two of the
+  // nearest one. One cell alone has no line.
+  let n = 0, sxx = 0, syy = 0, sxy = 0;
+  for (const p of cells) {
+    if (Math.max(Math.abs(p.dx - near.dx), Math.abs(p.dy - near.dy)) > 2) continue;
+    const ex = p.dx - near.dx, ey = p.dy - near.dy;
+    n++; sxx += ex * ex; syy += ey * ey; sxy += ex * ey;
+  }
+  if (n < 2) return null;
+  const theta = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+  let dx = Math.cos(theta), dy = Math.sin(theta);
+  if (dx * Math.cos(away) + dy * Math.sin(away) < 0) { dx = -dx; dy = -dy; }   // the way that is still away
+  // The creature's own side of the street: the normal that points from the
+  // nearest road cell back toward it.
+  let nx = -dy, ny = dx;
+  if (nx * -near.dx + ny * -near.dy < 0) { nx = -nx; ny = -ny; }
+  const tx = (near.dx + dx * ROADSIDE_AHEAD_CELLS + nx * ROADSIDE_VERGE_CELLS) * cm;
+  const ty = (near.dy + dy * ROADSIDE_AHEAD_CELLS + ny * ROADSIDE_VERGE_CELLS) * cm;
+  return Math.atan2(ty, tx) + (Math.random() - 0.5) * ROADSIDE_JITTER;
+}
 // How fast this creature COMES AT YOU, metres per second, at the quickest the
 // step chain ever moves it toward the player (a flee or a rout is away, and
 // does not count): a ghost's glide (`mps`); the surface slime's charge (its

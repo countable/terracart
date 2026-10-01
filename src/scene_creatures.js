@@ -2221,12 +2221,16 @@ class SceneCreatures {
         // whatever _hopMs the last step left, so the shove's speed was an
         // accident of history.
         if (c._fleeUntilT && c._fleeUntilT > now) {
-          const fa = c._fleeAngle ?? 0;
+          // Shoved off among houses, it runs the ROADSIDE (creature_ai.js
+          // roadsideRunAngle) like every other retreat.
+          const shove = c._fleeAngle ?? 0;
+          const run = roadsideRunAngle(this, c, shove);
+          const fa = run ?? shove;
           const base = hurry ? { m: stepM / FLEE_STRIDE_MUL, ms: stepMs / FLEE_BEAT_MUL } : { m: stepM, ms: stepMs };
           const hurryM = bolt ? STEP_M * (bolt.stepCells ?? 1) : base.m * FLEE_STRIDE_MUL;
           const hurryMs = bolt ? (bolt.stepMs ?? STEP_MS) * shinyFast : base.ms * FLEE_BEAT_MUL;
           for (let attempt = 0; attempt < 4; attempt++) {
-            const fleeAngle = fa + (Math.random() - 0.5) * 0.6;
+            const fleeAngle = fa + (run != null ? 0 : (Math.random() - 0.5) * 0.6);
             const ftx = c.x + Math.cos(fleeAngle) * hurryM;
             const fty = c.y + Math.sin(fleeAngle) * hurryM;
             const dest = this.cellAt(ftx, fty);
@@ -2382,7 +2386,10 @@ class SceneCreatures {
             // (mild), a butterfly careens (wider still). One branch, because
             // all three were the same line with a different number in it —
             // and the number is on the kind now.
-            angle = Math.atan2(-dyp, -dxp) + (Math.random() - 0.5) * bolt.jitter;
+            //   Among houses the bolt runs the ROADSIDE (creature_ai.js
+            // roadsideRunAngle): along the street, never into a yard.
+            angle = Math.atan2(-dyp, -dxp);
+            angle = roadsideRunAngle(this, c, angle) ?? angle + (Math.random() - 0.5) * bolt.jitter;
           } else if (warded) {
             // Away from the WARD (Home, or the claimed castle's turret that
             // tripped it — `_wardFrom`), not away from the PLAYER: away-from-player would
@@ -2395,15 +2402,19 @@ class SceneCreatures {
             // test — every hop it can reach is still inside — and it would
             // freeze on the doorstep forever, which is the stall the
             // "surrounded by scarecrows" comment further down warns about.
-            angle = Math.atan2(c.y - c._wardFrom.y, c.x - c._wardFrom.x)
-                  + (Math.random() - 0.5) * 0.8;
+            angle = Math.atan2(c.y - c._wardFrom.y, c.x - c._wardFrom.x);
+            // Home stands among houses: the rout runs the ROADSIDE
+            // (roadsideRunAngle) — along the street, not through the yards.
+            angle = roadsideRunAngle(this, c, angle) ?? angle + (Math.random() - 0.5) * 0.8;
           } else if (wanderOff || (kerbTurn && !c.lair)) {
             // WANDERING OFF (or TURNED BACK AT THE KERB — the same away angle,
             // at its own pace): away from the PLAYER, on the same spread as the
             // rout above — out of whatever ring it was stalking the edge of.
             // An angle, not a refused cell, for the same reason as the rout;
             // the cell tests below still refuse water, rocks and fires.
-            angle = Math.atan2(c.y - py, c.x - px) + (Math.random() - 0.5) * 0.8;
+            // Among houses it runs the ROADSIDE (roadsideRunAngle) too.
+            angle = Math.atan2(c.y - py, c.x - px);
+            angle = roadsideRunAngle(this, c, angle) ?? angle + (Math.random() - 0.5) * 0.8;
           } else if (lairState === 'hunt') {
             // THE GARRISON COMES AT YOU, as a group and with commitment. Its
             // own branch rather than the kind's idle logic below: a lair slime
@@ -2490,6 +2501,12 @@ class SceneCreatures {
             if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) continue;
             if ((road & WorldGen.ROAD_CLASS_MAJOR_BUFFER) && isFastMover(c, this.cellM)
                 && !inKerbAt(this, c.x, c.y)) continue;
+            // THE ROADSIDE RUN (creature_ai.js): a retreat never steps INTO a
+            // yard (the spawn gate's BEHIND_HOUSE / PRIVATE) it is not
+            // already in — it runs the street instead. The same shape as the
+            // kerb buffer above: refused from outside, free once inside.
+            if ((bolting || routed || kerbTurn) && !c.lair
+                && yardReasonAt(this, tx, ty) && !yardReasonAt(this, c.x, c.y)) continue;
           }
           // Scarecrow aversion — refuse any target cell within 4 cells of an
           // active scarecrow to a kind whose row says it keeps clear of one

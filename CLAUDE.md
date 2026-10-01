@@ -18,6 +18,8 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - [docs/QC_RULES.md](docs/QC_RULES.md): checklist for art, sprites and item surfaces;
   read it for asset changes. This file owns mechanic invariants if notes disagree.
 - [docs/spec.txt](docs/spec.txt): game design; code owns current numeric values.
+- [docs/story.txt](docs/story.txt): the story bible (Dragon Hood); it wins over
+  story copy in `src/`, and its open [Q#] items are not yet canon.
 - [docs/SANDBOX.md](docs/SANDBOX.md): hand-built world for visual checks.
 - Preserve the `terracart.*` storage keys despite the game's name change.
 
@@ -149,6 +151,13 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   measures every lane). Retune the row, never add a cap; a hurry (the rout,
   a struck animal) never stacks on a bolt. The hunted crow's retreat hop
   (`CROW_DEPART_HOP`) is the one declared exception, tied to the hunt's odds.
+  A RETREAT among houses
+  (a bolt, Home's rout, wandering off, a pet's shove) runs the ROADSIDE:
+  `roadsideRunAngle` (creature_ai.js) bends the away angle along the nearest
+  street on the creature's own side, and a retreat step never enters a yard
+  (`yardReasonAt` — the gate's BEHIND_HOUSE / PRIVATE) it is not already in.
+  A new retreat reason takes that bend, never its own steering
+  (`test/node/roadside_run.test.js`).
 - Influence zones: `ZoneCoverage` owns the union of influence and the
   associated park footprint plus fringe. Its ground and declarative layout
   (`docs/zone-variants.json`, `ZoneDressing`) replace ordinary zoning and

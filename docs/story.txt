@@ -1,0 +1,342 @@
+DRAGON HOOD — THE STORY (basis document)
+================================================================================
+Status: DRAFT v1 (Oct 2026). This file is the story bible the game is written
+against. Where it disagrees with copy in src/ (memory_story.js, play_tips.js,
+books, item text), THIS FILE wins and the copy is to be brought in line.
+Numbers (which memory, which restoration, which cave level) stay owned by the
+code; this file names the beats, not the values, except where a beat IS a
+number the story needs (see ACT STRUCTURE).
+
+Anything marked [Q#] is an assumption awaiting the owner's answer; the
+questions are listed at the end. Fill them in and delete the tags.
+
+--------------------------------------------------------------------------------
+0. THE PREMISE IN ONE BREATH
+--------------------------------------------------------------------------------
+You are the Hood: a quiet survivor who never takes the hood down, mending a
+broken world one roof at a time. You are a dragon in a bipedal body, and you
+do not know it. Nobody does. Fifty years ago your sister's spell took your
+dragon body and your memories to stop a war between your father, a hydra who
+conquers worlds through his children, and the children who would not burn this
+one. The spell broke most of the planet. Your father walks it now as a kindly
+old wizard called Tim, gathering dragon hunters among the survivors, because
+he needs a dragon of each of the five colours to get his power back. Your
+sister hides dragons deep under the earth so he never can, and climbs to the
+surface to kill his hunters — which is why every survivor you meet will tell
+you dragons are vicious things that ended the world.
+
+The game is the mending. The story is what you remember while you mend.
+
+--------------------------------------------------------------------------------
+1. THE WORLD: THE SIXTH PLANET
+--------------------------------------------------------------------------------
+- The sixth planet. The sixth world Tamiat set out to take; the first he did
+  not. Survivors have no name for it beyond "the world"; a scholar's book
+  may call it "the sixth" without knowing what it is sixth of. [Q1: the
+  planet's name, if it has one, and whether the people know they are the
+  sixth.]
+- What the player walks on is the real map: a neighbourhood going back to
+  meadow, its houses wrecks, its roads intact, its street lamps dark. The game
+  calls this state THE BREAKING (the survivors' word; the night "the roofs
+  fell"). Fifty years on, trees stand in the lanes and the survivors are old,
+  or the children of the ones who were.
+- CAVES run beneath the whole surface, level after level. The survivors know
+  the first levels as dangerous and the deep ones as legend. Ayo's hidden
+  dragons are below the deepest level the game lets a player reach. [Q2]
+- SHRINES, GROVES, THE OLD STONES, THE SHORE: the sacred places predate the
+  Breaking and were spared by it. Their keepers (zone keepers, npc.js) are the
+  only people who never left. The boons the shrines lend are small leftover
+  magic — the world's, not a dragon's.
+- THE ROADS AND LAMPS: the one thing the Breaking did not touch was the
+  roads. The survivors' superstition holds that a road is safe ground (the
+  game's kerb rule is that superstition made true).
+
+--------------------------------------------------------------------------------
+2. THE FAMILY
+--------------------------------------------------------------------------------
+TAMIAT — "TIM"
+  A hydra: five heads, five colours, a conqueror of worlds. He takes a world by
+  sending his children ahead as generals; each child is a dragon of one colour
+  and each colour is one of his heads. His power is not his own — it is drawn
+  from his children, which is why losing them is losing it. [Q3: does each
+  child's colour correspond to one of his five heads, and is his power literally
+  the sum of his five children?]
+  Fifty years ago his power was stripped (not his memories) when he clashed
+  with his children over this world's fate. He REMEMBERS EVERYTHING. He is the
+  only one who does. He lives now in human form as a wise old wizard who goes
+  by Tim, warm, patient, generous with his lessons, and recruits DRAGON
+  HUNTERS from the survivors. He needs one living dragon of each of the five
+  colours brought to him to restore his power and his true form.
+  [Q4: does he need the dragons alive, bound, or killed? "Assemble" reads as
+  alive and bound; the hunters then CAPTURE, and the player's tools lean that
+  way (the net, the catch wheel).]
+  [Q5: does Tim KNOW the Hood is his child? Draft assumption: yes, from the
+  first look — the hood hides the face, not the gait. He says nothing, and
+  cultivates the Hood as his best hunter, so that his own child will carry his
+  other children to him and, at the last, be the fifth.]
+
+AYO — THE SISTER
+  A dragon, one colour [Q6: which — draft assumes BLACK, the colour of the
+  deep]. The strongest will of the children. It was HER spell, fifty years ago,
+  that stripped the Hood of body and memory and Tamiat of his power, and that
+  broke most of the planet. She hides dragons deep beneath the earth so Tamiat
+  can never assemble five, and she comes up to the surface, rarely, to kill his
+  dragon hunters and to look for him. She does not hide what she is when she
+  comes. That is where the lore comes from: a black dragon seen over a burning
+  hunters' camp, every decade or so, is why survivors say dragons are vicious
+  things that ended the world.
+  [Q7: does Ayo know the Hood survived, and where? Draft: she knows the spell
+  spared the Hood's life but not where the body went; she has been looking for
+  fifty years, under the earth, in the wrong direction.]
+  [Q8: is Ayo an enemy the player can fight, an ally the player can reach, or
+  both in order? Draft: both — she is the night's terror until the player
+  learns what she is protecting, and the end-game ally after.]
+
+THE HOOD — THE PLAYER
+  A dragon [Q9: colour — draft assumes RED; the game's one dragon sprite, the
+  fire breath recovered in Act 3, and "the fire above the ruined town"]. Once
+  Tamiat's general on five worlds; the survivors of the fifth world called them
+  the WARMONGER and the name followed them here. Lost the full dragon body and
+  all memory in Ayo's spell, fifty years ago. Kept the MAGIC: the player's
+  recovered memories ARE that magic coming back (the memory ledger), the
+  shrines answer them, and the fire breath, when it returns, was always theirs.
+  Wears the hood always. Never explained, never remarked on by the player;
+  survivors assume a burn, a vow, grief. In truth the hood hides what a human
+  body cannot quite hide: [Q10: WHAT does the hood hide — horns, scales at the
+  hairline, eyes that catch the dark? Draft: the eyes.]
+  The Hood does not know. Nobody does. The game never says it in the player's
+  hearing until memory 30 (see ACT STRUCTURE).
+  [Q11: the Hood's age and body — a human in their twenties? Fifty years have
+  passed; does the human body age? Draft: it does not, and the survivors who
+  remember a hooded stranger from the first years after the Breaking are the
+  first crack in the story (an elder who swears you have not aged).]
+
+THE OTHER THREE
+  Tamiat has five children; the Hood and Ayo are two. The other three are the
+  dragons Ayo hides beneath the earth. [Q12: are the hidden dragons the Hood's
+  SIBLINGS, or other dragons of this and other worlds that Ayo gathered? Draft:
+  the siblings — three colours, three generals, each hidden on a different
+  deep level, each with a way of not wanting to be found.] [Q13: names and
+  colours for the three.]
+
+--------------------------------------------------------------------------------
+3. FIFTY YEARS AGO: THE BREAKING
+--------------------------------------------------------------------------------
+What happened, in order (the truth; the player learns it out of order, see
+ACT STRUCTURE):
+1. Tamiat brought the family to the sixth planet as he had to five before:
+   children first, the Warmonger (the Hood) at their head, fire over the first
+   towns. The survivors' "night the roofs fell" is this. It was the Hood's
+   fire. [Q14: confirm the Hood did the burning before the turn — the current
+   game says so, and it is the hinge of the Act 2 reveal.]
+2. The children would not finish it. [Q15: WHY this world and not the five
+   before — draft: Ayo had walked it as a human first, as she always scouted,
+   and this time came back changed; she brought the others to see what she
+   had seen. The Hood turned last, and turned hardest.]
+3. Tamiat came down himself to end the argument. The clash of the hydra and
+   his children over the capital is what broke the planet: not a war of
+   armies, one family in one sky, and the ground under them.
+4. Ayo cast the spell. Its aim was Tamiat's POWER. It took that — and it took
+   the Hood's body and memory with it. [Q16: on purpose or by accident? Draft:
+   on purpose — the Hood was between them, the Warmonger shielding the father
+   out of fifty years of habit, and Ayo chose to strip her brother rather than
+   let the spell fail; she has never forgiven herself and never admitted it.
+   This makes "removed them in a spell" literal: she removed the Hood from the
+   fight.]
+5. The spell's backlash emptied the sky. Tamiat fell as a man. The Hood fell as
+   a hooded stranger with no name. Ayo and the three went below. Most of the
+   world's people were already gone.
+
+--------------------------------------------------------------------------------
+4. NOW: THE THREE WHO WALK THE SURFACE
+--------------------------------------------------------------------------------
+THE HOOD mends. Peacefully, roof by roof, field by field. They have no idea
+why the old roads feel familiar, why the wrecks look like something they
+should apologise for, or why the hood stays up.
+
+TIM recruits. His tower is a wreck like the rest until the player restores it
+(the fifteenth restoration). Once it stands, he is simply THERE, as if he had
+always been, warm and interested, and the memories the player brings him buy
+power (the tower's rungs). He teaches the player to hunt. Every lesson is true
+and every lesson serves him: a stronger Hood brings him his children faster.
+He never lies; he leaves things out. His dragon hunters are the survivors'
+bravest, armed by him, and they go into the caves and do not come back —
+because of Ayo. He tells the survivors Ayo did it. He is right.
+
+AYO hides and hunts. Her dragons are deep. Her visits to the surface are rare
+and terrible and are the whole of the dragon lore. [Q17: how do Ayo's visits
+show in play? Draft: the night's ghosts and the deep-cave demons are HERS —
+wards she set, not evil; the player meets her in person only at the end of
+Act 2.]
+
+THE SURVIVORS believe: the Warmonger burned the world (true), dragons are
+vicious (half true), the wise wizard is their hope (false), and the hooded
+stranger is one of them (false). Every neighbour's line and every book page
+is written from inside that belief. See WHO MAY SAY WHAT.
+
+--------------------------------------------------------------------------------
+5. ACT STRUCTURE (mapped onto the existing mechanics)
+--------------------------------------------------------------------------------
+The engine of the story is the MEMORY LEDGER (src/memory_story.js): the first
+find of each discoverable thing returns a memory. Scenes land on every third
+memory. The gates below are the ones the code holds today; keep them.
+
+ACT 1 — THE MENDING (memories 0–8, before the tower)
+  The Hood wakes at the trailer with nothing. The warden explains the safe
+  area (nobody knows why only weak monsters live here — the truth: the Hood's
+  own leftover magic, which Tim will later learn to read). Neighbours return
+  as memories do. The story neighbours by the trailer arrive by memory count:
+  the believer (lauds the wizard, "restore his tower and he will save us"),
+  the survivor (tells of the night the roofs fell, names the Warmonger), the
+  child (homeless until the next restoration).
+  Memory 3: a bell in the smoke, a child held, the name Warmonger. Memory 6: a
+  still figure watching from a window (Tim, who was there). Memory 9: the
+  rumour of a wise man "who may know why the old roads feel familiar".
+  The player learns: the world was burned; a dragon did it; a wizard might
+  help. Nothing says what the player is.
+
+ACT 2 — THE LESSONS (the first tower, memories 9–21)
+  The fifteenth restoration is Tim's tower. It is sealed until nine memories.
+  Inside, Tim is kind, asks for memories, gives power. His lessons (the
+  existing ACT2 beats: "In the right order", "What remains useful", "An old
+  habit", "Their little lives", "What comes next") are the hydra teaching the
+  general: remember the victory, not the doorway; move when told; the small
+  lives are not yours to carry. He is REBUILDING THE WARMONGER, for his own
+  use. The player's recovered memories contradict him one by one (the Act 2
+  memory panels): the raised hand was braced against a door, not welcoming;
+  the "good habit" was the grip of a handler; the mark on the map was a town.
+  NEW IN DRAGON HOOD: the hunts. Tim sends the Hood down for "the dragon that
+  did this" — in truth, for the siblings Ayo hid. [Q18: do the hunts exist as
+  mechanics in this version (cave bosses to find and bind), or stay as story?]
+  At 21 memories the first tower is cold and a note says "come to me when you
+  are ready." He has moved — because Ayo found his tower. [Q19: confirm.]
+
+ACT 2b — THE SECOND TOWER (restoration 25+, memories 21–30)
+  The new tower among the wrecks the player restores. Tim's warmth is thinner;
+  the map is open on his table ("this land will seem very small"). At memory
+  30 the mask comes off: the old man's outline unfolds — [Q20: into WHAT? The
+  current scene is a red dragon; in Dragon Hood he is a HYDRA with no power.
+  Draft: the five-headed shadow of what he was, cast on the wall, and the one
+  line: "I am a dragon, and so are you."] The fire above the ruined town was
+  the Hood's own. The Warmonger was you.
+  Tim's version of the rest: your fire is below, the demons have kept it;
+  bring it back, bring your brothers and sister back, and we will leave this
+  small world as it should have been left.
+
+ACT 3 — THE FIRE BELOW (after memory 30)
+  The player goes down for their fire (cave level 9, the existing DragonStory
+  reward) and finds, past the demons, that the demons are AYO'S wards and
+  that what Tim called "the dragon that did this" is a sibling in chains of
+  Ayo's making, waiting fifty years for a father who must never come.
+  The choice of the game: [Q21: IS there a choice? Draft: two endings —
+  (a) deliver the siblings and yourself to Tim: the hydra rises, the sixth
+  planet is taken, the mending was for nothing (the bad end, playable);
+  (b) stand with Ayo: the Hood keeps the hood, keeps the fire, and the family
+  stays broken so the world can stay mended. The Hood never gets the dragon
+  body back in ending (b) — that is the price, and the title.]
+  [Q22: what happens to Tim in ending (b)? Draft: he is not killed. A man with
+  all his memories and none of his power is left among the people he meant to
+  burn, to rebuild with them or not. He is seen once more, mending a roof.]
+
+--------------------------------------------------------------------------------
+6. WHO MAY SAY WHAT (the spoiler gates)
+--------------------------------------------------------------------------------
+Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
+- Before memory 30, nothing in the player's hearing says the Hood is a dragon,
+  that the wizard is their father, or that the wizard is choosing what to give
+  back. Foreshadowing is allowed and encouraged: the familiar roads, the figure
+  in the window, the elder who swears you have not aged, the hood nobody asks
+  about, the safe area nobody can explain.
+- "Dragons are vicious and ended the world" is what EVERY survivor believes
+  and may say at any time. It is not a spoiler; it is the lore. Books, keepers,
+  scouts, the believer: all of them.
+- "The Warmonger" is the name survivors have for the one who burned the roofs.
+  Anyone may use it. No one knows the Warmonger was a dragon general's title
+  and not a dragon's name; a scholar may wonder.
+- Tim never lies in his own voice. Everything he says is true and incomplete.
+  His tells are omissions: he never asks the Hood's name; he never looks at
+  the hood.
+- Ayo is spoken of only as "the black one", "the thing under the hill", "what
+  took the hunters". No one has her name before Act 3.
+- The five colours are known lore ("five heads, five fires" in a nursery rhyme
+  [Q23: provide one, or let the books invent it]) with no one alive who knows
+  they were ever a family.
+- After memory 30 the believer still lauds the wizard; the survivor still
+  curses the Warmonger; the child still has their room. The irony is the
+  player's alone. No neighbour "finds out" unless an ending says so.
+
+--------------------------------------------------------------------------------
+7. THINGS THE GAME ALREADY HAS THAT NOW MEAN SOMETHING
+--------------------------------------------------------------------------------
+- THE HOOD on the player sprite: never comes down, in any pose, any potion,
+  any skin. The Dragon Powder minute (the player draws as a dragon) is a
+  glimpse of the truth the player reads as a potion effect.
+- THE SAFE AREA (only weak monsters near Home): the Hood's own leftover magic.
+  The warden's "for some reason" is answered at memory 30.
+- THE WIZARD TOWER'S RUNGS (power for memories): Tim rebuilding his general.
+- THE DRAGON HUNTERS: the survivors' bravest, armed at the tower, lost in the
+  caves. [Q24: do they appear as NPCs (recruits by the tower, a notice board of
+  the missing) or only as story?]
+- THE NIGHT'S GHOSTS and THE DEEP DEMONS: Ayo's wards (per Q17).
+- THE RED DRAGON on cave level 9+: [Q25: is this a sibling, one of Ayo's wards,
+  or a wild dragon of this world? Draft: a WILD dragon of the sixth planet —
+  this world had dragons of its own, smaller and animal, and the lore's
+  "vicious creatures" has a grain of them in it too.]
+- SHRINE BOONS: the world's own small magic answering the Hood's.
+- THE KERB RULE (the road is never a refuge for monsters, always for the
+  player): the survivors' one true superstition, and a clue — the roads were
+  spared because the general who burned the towns would not burn the roads
+  they came by.
+
+--------------------------------------------------------------------------------
+8. NAMES AND SPELLINGS (to be fixed before any copy is written)
+--------------------------------------------------------------------------------
+- Game title: Dragon Hood. (Storage keys stay terracart.*; the mending name
+  "Mending Lane" survives only where the owner says.) [Q26: does "Mending Lane"
+  remain the name of the place, the neighbourhood, or go entirely?]
+- Tamiat / "Tim". [Q27: the brief spells the father both "tamiat" and
+  "tiatam"; this draft uses TAMIAT throughout. Confirm, or correct to Tiamat.]
+- Ayo. The Hood (the player is never named; "the Hood" is what the game calls
+  them in prose; survivors say "the hooded one", "stranger", "neighbour").
+- The Warmonger: the title, never a name.
+- The Breaking: the survivors' word for fifty years ago. [Q28: keep?]
+- The sixth planet: per Q1.
+
+--------------------------------------------------------------------------------
+9. QUESTIONS FOR THE OWNER (answer these and the draft becomes v2)
+--------------------------------------------------------------------------------
+Q1  The planet's name, if any; do the people know they are "the sixth"?
+Q2  Are Ayo's hidden dragons below the reachable cave levels, or at the
+    deepest reachable ones (so a player can find them)?
+Q3  Is Tamiat's power literally the sum of his five children (one head per
+    child), so losing them is losing it?
+Q4  Does Tim need the five dragons alive and bound (capture), or does he take
+    their colour by killing them?
+Q5  Does Tim know the Hood is his child from the start?
+Q6  Ayo's colour. (Draft: black.)
+Q7  Does Ayo know the Hood survived, and where?
+Q8  Ayo: enemy, ally, or enemy-then-ally?
+Q9  The Hood's colour. (Draft: red.)
+Q10 What does the hood hide?
+Q11 Does the Hood's human body age? Is there an elder who remembers them
+    from the first years?
+Q12 Are the hidden dragons the Hood's siblings?
+Q13 Names and colours of the three.
+Q14 Confirm the Hood did the burning (as the Warmonger) before turning.
+Q15 Why did the children turn on this world and not the five before?
+Q16 Did Ayo strip the Hood on purpose?
+Q17 How do Ayo's surface visits show in play (ghosts, demons, a boss, none)?
+Q18 Are the dragon hunts (finding and binding the siblings) mechanics or
+    story only in this version?
+Q19 Did Tim move towers because Ayo found him?
+Q20 What does Tim become at memory 30 — a hydra's shadow, a weak hydra, the
+    current red dragon?
+Q21 Is there an ending choice (serve Tim / stand with Ayo), and does the
+    Hood ever regain the dragon body?
+Q22 What becomes of Tim in the good ending?
+Q23 A "five heads, five fires" rhyme, or let the books invent one?
+Q24 Do dragon hunters appear as NPCs?
+Q25 The red dragon on level 9+: sibling, ward, or wild?
+Q26 Does "Mending Lane" survive as a place name?
+Q27 Tamiat vs Tiamat spelling.
+Q28 "The Breaking" as the survivors' name for the event: keep, or another?
