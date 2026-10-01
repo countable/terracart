@@ -12371,7 +12371,6 @@ class MapScene extends Phaser.Scene {
           } else {
             this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
           }
-          StoryEncounters.arm(this, house);
         });
       },
     });

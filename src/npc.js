@@ -246,19 +246,23 @@ const NPC = (() => {
   // WANDERER has no home until the next restoration after you meet them,
   // the BELIEVER lauds the wise wizard and the tower that might bring him back.
   // `minMemories` is WHEN each one is here (storyNeighbourDue): on a new save
-  // the warden is the one neighbour on screen; the others come in as the
-  // past does, at that many recovered memories (MemoryStory.total) — the
-  // believer first, at three (Sep 2026, owner's call), then the survivor,
-  // then the child. `artScale` is the row's INSTANCE size
+  // the wanderer, Tilly, is the one neighbour on screen; the others come in
+  // as the past does, at that many recovered memories (MemoryStory.total) —
+  // the warden at three, the survivor at six, the believer at nine (Oct 2026,
+  // owner's call). `arrives: 'rescue'` keeps a row off the trailer: the
+  // survivor arrives through StoryEncounters, hunted by a goblin archer, and
+  // stays where she was saved. `name` is the character's own; each named
+  // neighbour wears its own untinted sheet (SpriteLayout.NPC_SHEETS `role`
+  // rows). `artScale` is the row's INSTANCE size
   // (SpriteLayout.creatureInstScale — the sprite, its shadow, the tap box and
   // the bar seats all read it): the wanderer is a child, drawn at
   // CHILD_SCALE of a grown neighbour.
   const CHILD_SCALE = 0.7;
   const STORY_ROLES = {
-    warden: { label: 'Warden', minMemories: 0 },
-    witness: { label: 'Survivor', minMemories: 6 },
-    wanderer: { label: 'Wanderer', artScale: CHILD_SCALE, minMemories: 9 },
-    believer: { label: 'Believer', minMemories: 3 },
+    warden: { label: 'Warden', name: 'Bryn', minMemories: 3 },
+    witness: { label: 'Survivor', name: 'Maud', minMemories: 6, arrives: 'rescue' },
+    wanderer: { label: 'Wanderer', name: 'Tilly', artScale: CHILD_SCALE, minMemories: 0 },
+    believer: { label: 'Believer', name: 'Edda', minMemories: 9 },
     archaeologist: { label: 'Dragon Archaeologist', name: 'Orrin', minMemories: 0, radiusM: 250 },
   };
   const STORY_NEIGHBOURS = Object.keys(STORY_ROLES);
@@ -277,7 +281,7 @@ const NPC = (() => {
   // THE PEOPLE COME BACK AS THE PAST DOES (Sep 2026, owner's call). A tile's
   // residents are still drawn in full by spawn() — the same people on the
   // same seats for every player — but at the start of a save none of them
-  // is about: the warden by the trailer is the one neighbour on screen. They
+  // is about: Tilly by the trailer is the one neighbour on screen. They
   // RETURN as memories are recovered, RETURN_PER_MEMORY of the tile's draw
   // order per memory (returnedCount), and a returning resident does not go
   // back to its old seat: it lingers where there is something to come back

@@ -63,16 +63,15 @@
       'shrine:trader': { art: [srw(16, 'SRW #16 green hair')], alts: [srw(21, 'SRW #21 golden hair'), srw(15, 'SRW #15 red hair')], note: 'Forest colours and a satchel; reads as someone who gathers in the grove.' },
       'shrine:keeper': { art: [srw(26, 'SRW #26 white hood')], alts: [srw(12, 'SRW #12 pink hair'), rpg('Bride', 'bride', 'Bride (veil)')], note: 'White and red hood reads as a temple attendant. Sweeps the step and lights the lantern.' },
       // Story neighbours by the trailer (NPC.STORY_ROLES).
-      // Story neighbours by the trailer (NPC.STORY_ROLES) keep the original
-      // citizen art, one sheet each, untinted; the child is one of them scaled.
-      'trailer:warden': { art: [citizen(2, 'Citizen 3, untinted')], look: 'Green hood over fair hair, round glasses, green dress.' },
-      'trailer:witness': { art: [citizen(1, 'Citizen 2, untinted')], look: 'Pale grey hood and hair, red dress.' },
-      'trailer:believer': { art: [citizen(0, 'Citizen 1, untinted')], look: 'Cream hood over red hair, brown dress.' },
-      'trailer:wanderer': { art: [citizen(0, 'Citizen 1, untinted, child scale')], look: 'Cream hood over red hair, child-sized.', note: 'The believer\'s sheet at CHILD_SCALE; size alone sets them apart.' },
     };
-    // Story neighbours with their own dialogue get a fixed name like Orrin's.
-    // Proposals only until they land in NPC.STORY_ROLES and docs/story.txt.
-    const NAME_PROPOSALS = { warden: 'Bryn', witness: 'Maud', wanderer: 'Tilly', believer: 'Edda' };
+    // How the named story neighbours look in game (their NPC_SHEETS row).
+    const STORY_LOOKS = {
+      warden: 'Green hood over fair hair, round glasses, green dress.',
+      witness: 'Pale grey hood and hair, red dress.',
+      believer: 'Cream hood over red hair, brown dress.',
+      wanderer: 'Cream hood over red hair, child-sized.',
+      archaeologist: 'Bald, white moustache, green vest (PixelSerial Old Man).',
+    };
     // What each role does when tapped (NPC.dialogue / MemoryStory.npcDialogue).
     const DOES = {
       scout: 'Points out a discovery within 250 m. After 9 memories passes on the rumour; from act 2 tells of the Breaking.',
@@ -82,10 +81,10 @@
       keeper: 'Tells the story of the zone they keep.',
       mason: 'Counts the roofs mended so far and points to the nearest wreck.',
       lamplighter: 'Counts the lamps burning brighter for you; they fade if you stay away.',
-      warden: 'At the trailer from the start. Explains the safe area, welcomes you after the first roof, warns about Orrin\'s dragon talk, and passes on the rumour at 9 memories.',
-      witness: 'Arrives at 6 memories. Tells of the night the roofs fell and names the Warmonger; in act 2 notices you have not aged.',
-      wanderer: 'Arrives at 9 memories. Homeless until the next roof after you meet; then housed, then settled with something in the pot.',
-      believer: 'Arrives at 3 memories. Praises Tim and follows his tower: urges you to raise it, waits at the locked door, insists he went ahead when it goes cold.',
+      warden: 'Arrives at 3 memories. Her first talk is the family\'s plea and the safe area; later she celebrates mended roofs, warns about Orrin\'s dragon talk and passes on the rumour at 9 memories.',
+      witness: 'Arrives at 6 memories near you, hunted by a goblin archer. Once saved she gives a starfruit seed and stays there; then tells of the night the roofs fell, and in act 2 notices you have not aged.',
+      wanderer: 'The one neighbour on the first morning. Homeless until the next roof after you meet; then housed, then settled with something in the pot.',
+      believer: 'Arrives at 9 memories. Praises Tim and follows his tower: urges you to raise it, waits at the locked door, insists he went ahead when it goes cold.',
       archaeologist: 'At a dig 250 m from Home from the start. Clumsy and careful; argues dragons are peaceful, through a conversation that unlocks over time.',
     };
     // Story cast from docs/story.txt that has no NPC kind yet.
@@ -125,26 +124,30 @@
         rows.push({ id: `${zone}:${role}`, status: 'game', label: NPC.LABELS[zone][role], zone, role, share: n / p.roles.length, tints: p.colors, current: currentSheets, art: prop.art, alts: prop.alts || [], does: DOES[role], note: prop.note || '' });
       }
     }
+    // One label is one role (Peddler, Lamplighter): a single row lists every
+    // zone it appears in, with that zone's share.
+    const merged = [];
+    for (const r of rows) {
+      const m = merged.find(o => o.label === r.label);
+      if (!m) { merged.push(r); continue; }
+      m.zones = [...(m.zones || [m.zone]), r.zone];
+      m.shares = [...(m.shares || [[m.zone, m.share]]), [r.zone, r.share]];
+      m.tints = [...new Set([...m.tints, ...r.tints])];
+    }
+    rows.splice(0, rows.length, ...merged);
     // Story neighbours wear a village identity at their role's art scale; a
     // role with its own sheet keeps it and has nothing to propose.
     const village = NPC.PROFILES.village;
     for (const [role, row] of Object.entries(NPC.STORY_ROLES || {})) {
       const own = roleSheets[role];
-      const prop = PROPOSALS[`trailer:${role}`] || { art: [], note: own ? 'Already has its own art.' : '' };
+      const prop = PROPOSALS[`trailer:${role}`] || { art: [], note: own ? 'Has its own art in game.' : '' };
       const k = row.artScale || 1;
       const scaled = list => list.map(a => ({ ...a, scale: a.scale * k, child: k < 1 }));
-      const name = row.name || NAME_PROPOSALS[role];
-      rows.push({ id: `trailer:${role}`, status: 'game', named: !!name, label: name || row.label, zone: 'trailer',
-        role: `${row.label}${name && !row.name ? ' · proposed name' : ''} · from ${row.minMemories} memories`, share: null, does: DOES[role],
-        look: own ? 'Bald, white moustache, green vest (PixelSerial Old Man).' : prop.look,
+      const name = row.name;
+      rows.push({ id: `trailer:${role}`, status: 'game', named: !!name, label: name || row.label, zone: row.arrives ? 'rescue' : row.radiusM ? 'dig site' : 'trailer',
+        role: `${row.label} · from ${row.minMemories} memories`, share: null, does: DOES[role], look: STORY_LOOKS[role],
         ownArt: !!own, tints: own ? [] : village.colors, current: own ? [own] : scaled(currentSheets), art: prop.childArt ? prop.art : scaled(prop.art), alts: prop.childArt ? (prop.alts || []) : scaled(prop.alts || []), note: prop.note || '' });
     }
-    // The neighbour the Hood saves from a goblin archer (StoryEncounters):
-    // today a random village identity, so their name and look vary by save.
-    rows.push({ id: 'story:hunted', status: 'game', named: true, label: 'Jory', zone: 'home', role: 'Hunted neighbour · proposed name · after the sixth rebuilt home', share: null,
-      tints: village.colors, current: currentSheets, art: [srw(1, 'SRW #1 headband')], alts: [srw(5, 'SRW #5 pink hair'), srw(10, 'SRW #10 blonde')],
-      look: 'Orange hair, blue headband.', does: 'Appears after the sixth rebuilt home, hunted by a goblin archer. Asks for help; once the archer falls, thanks you with a starfruit seed.',
-      note: 'Young and scrappy enough to have been running from an archer. A fixed look makes the rescue recognisable later.' });
     const shrine = NPC.PROFILES.shrine;
     for (const g of GROVE) rows.push({ id: `grove:${g.role}`, status: 'planned', label: g.label, zone: 'grove', role: `${g.role} · proposed grove variant of the shrine zone`, share: null,
       tints: shrine.colors, current: currentSheets, art: g.art, alts: g.alts, look: g.look, does: DOES[g.role], note: 'Groves spawn shrine neighbours today; this splits them out as fox people.' });
@@ -230,7 +233,7 @@
       el.replaceChildren(...figs);
     }
 
-    const zones = [...new Set(rows.map(r => r.zone))];
+    const zones = [...new Set(rows.flatMap(r => r.zones || [r.zone]))];
     $('zone').insertAdjacentHTML('beforeend', zones.map(z => `<option value="${z}">${z[0].toUpperCase() + z.slice(1)}</option>`).join(''));
     $('packs').innerHTML = Object.values(PACKS).map(p => `<tr><th>${esc(p.name)}</th><td>${esc(p.frames)}</td><td>${esc(p.licence)}</td></tr>`).join('');
     const inGame = rows.filter(r => r.status === 'game');
@@ -246,14 +249,14 @@
     };
     async function render() {
       const q = $('search').value.trim().toLowerCase(), zone = $('zone').value, status = $('status').value;
-      const shown = rows.filter(r => (zone === 'all' || r.zone === zone) && (status === 'all' || (status === 'named' ? r.named : r.status === status))
+      const shown = rows.filter(r => (zone === 'all' || (r.zones || [r.zone]).includes(zone)) && (status === 'all' || (status === 'named' ? r.named : r.status === status))
         && (!q || [r.label, r.zone, r.role, ...r.art.map(a => a.label + ' ' + PACKS[a.pack].name)].join(' ').toLowerCase().includes(q)));
       $('count').textContent = `${shown.length} of ${rows.length} rows`;
       if (shown.length && !shown.some(r => r.id === selected)) selected = shown[0].id;
       $('rows').innerHTML = shown.length ? shown.map(r => `<tr data-id="${esc(r.id)}" tabindex="0" class="${r.id === selected ? 'selected' : ''}">
         <td class="role"><b>${esc(r.label)}</b><span class="kind">${esc(r.role)}</span><br>${r.named ? '<span class="tag keep">Named</span>' : ''}${r.status === 'planned' ? '<span class="tag planned">Planned</span>' : ''}</td>
-        <td>${esc(r.zone)}${r.tints.length ? '<br>' + r.tints.map(t => `<span class="swatch" style="background:${hex(t)}" title="Tint ${hex(t)}"></span>`).join('') : ''}</td>
-        <td data-sort-value="${r.share ?? ''}">${r.share == null ? '—' : Math.round(r.share * 100) + '%'}</td>
+        <td>${esc((r.zones || [r.zone]).join(", "))}${r.tints.length ? '<br>' + r.tints.map(t => `<span class="swatch" style="background:${hex(t)}" title="Tint ${hex(t)}"></span>`).join('') : ''}</td>
+        <td data-sort-value="${r.share ?? ''}">${r.shares ? r.shares.map(([z, v]) => `${Math.round(v * 100)}% ${esc(z)}`).join('<br>') : r.share == null ? '—' : Math.round(r.share * 100) + '%'}</td>
         <td><div class="sprites" data-current></div></td>
         <td><div class="sprites" data-proposed></div>${r.clashes.length ? `<span class="tag warn">Shared with ${esc(r.clashes.join(', '))}</span>` : ''}${r.differs.length ? `<span class="tag warn">Looks different in ${esc(r.differs.join(', '))}</span>` : ''}${r.alts.length ? `<span class="tag">${r.alts.length} alternative${r.alts.length > 1 ? 's' : ''}</span>` : ''}</td>
         <td class="about">${about(r)}</td>
@@ -272,7 +275,7 @@
     async function detail() {
       const r = rows.find(x => x.id === selected);
       if (!r) { $('detail').innerHTML = '<h2>No selection</h2><p>Select a row to compare its art.</p>'; return; }
-      $('detail').innerHTML = `<div class="eyebrow">${esc(r.zone)}${r.named ? ' · named' : ''}${r.status === 'planned' ? ' · planned' : ''}</div><h2>${esc(r.label)}</h2><p class="note">${esc(r.role)}</p><p class="note">${about(r)}</p>
+      $('detail').innerHTML = `<div class="eyebrow">${esc((r.zones || [r.zone]).join(" · "))}${r.named ? ' · named' : ''}${r.status === 'planned' ? ' · planned' : ''}</div><h2>${esc(r.label)}</h2><p class="note">${esc(r.role)}</p><p class="note">${about(r)}</p>
         ${r.current.length ? '<h3>Current, untinted and in each zone tint</h3><div class="sprites" id="dCur"></div>' : ''}
         <h3>Proposed, sheet rows 0–3</h3>${r.clashes.length ? `<p class="warn">Shared with ${esc(r.clashes.join(', '))}</p>` : ''}${r.differs.length ? `<p class="warn">Looks different in ${esc(r.differs.join(', '))}</p>` : ''}<div class="sprites" id="dProp"></div>
         ${r.alts.length ? '<h3>Alternatives</h3><div class="sprites" id="dAlt"></div>' : ''}

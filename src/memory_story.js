@@ -11,8 +11,9 @@ const MemoryStory = (() => {
     body: 'You find cold ashes, bare shelves and a note where the wizard used to sit. You read the few words twice: “' + ABANDONED_NOTE + '”' };
   const EMPTY = { art: 'restore_wizard', title: 'An empty tower',
     body: 'You knock and listen to the sound travel through the tower. No one answers; the wizard must be elsewhere.' };
-  // THE FIRST WORDS ARE THE WARDEN'S, ON A TAP. This page is what the safe
-  // area's warden says while nothing is mended yet (npcDialogue below). It
+  // THE WARDEN'S FIRST WORDS, ON A TAP. This page is what the safe area's
+  // warden says the first time the player talks to her, whenever she arrives
+  // (npcDialogue below; save.memoryStory.wardenMet). It
   // used to be pushed onto the pending queue by the warden's own seating and
   // splashed over the map on the first morning; it never is now (Sep 2026,
   // owner's call): the player walks up to the one neighbour on screen and
@@ -361,7 +362,15 @@ const MemoryStory = (() => {
     if (c.role === 'archaeologist') return archaeologistConversation(scene.save).body;
     if (c.role === 'warden') {
       const repaired = Object.keys(scene.save.restoredHouses || {}).length;
-      if (!repaired) return [HOME.body, wardenWelcome()];
+      // Bryn arrives at three memories, usually after the first roof, so her
+      // opening is keyed to meeting her, not to an unmended lane.
+      const s = state(scene.save);
+      if (!s.wardenMet) {
+        s.wardenMet = true;
+        if (typeof persistSave === 'function') persistSave(scene.save);
+        return [HOME.body, wardenWelcome()];
+      }
+      if (!repaired) return wardenWelcome();
       if (total(scene.save) >= 9 && act(scene.save) === 1) return RUMOUR;
       if (act(scene.save) >= 2) return survivorLine(scene.save);
       return FIRST_ROOF + (archaeologistState(scene.save).seen.introduction
