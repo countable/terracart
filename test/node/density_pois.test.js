@@ -136,7 +136,7 @@
     }
   });
 
-  test('barrel: holds only a few coins, an apple, or a torch / rope — never gear', () => {
+  test('barrel: holds only a few coins, an apple, or a torch / spear — never gear', () => {
     let seed = 11;
     const rng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x80000000; };
     const seen = new Set();
@@ -145,12 +145,12 @@
       if (r.kind === 'empty') continue;
       if (r.kind === 'gold') { assert.inRange(r.amount, 1, 3, 'a few coins'); assert.falsy(r.slot, 'plain cash'); seen.add('coin'); continue; }
       assert.eq(r.kind, 'item', 'an item otherwise');
-      assert.includes(['apple', 'torch', 'rope'], r.id, 'only these');
+      assert.includes(['apple', 'torch', 'spear'], r.id, 'only these');
       assert.eq(r.qty, 1, 'one of it');
       assert.truthy(ITEM_BY_ID[r.id], `${r.id} is a real item`);
       seen.add(r.id);
     }
-    assert.eq([...seen].sort().join(','), 'apple,coin,rope,torch', 'every outcome turns up');
+    assert.eq([...seen].sort().join(','), 'apple,coin,spear,torch', 'every outcome turns up');
   });
 
   test('barrel: a smash pays once, stands smashed while bare, and says what came out', () => {

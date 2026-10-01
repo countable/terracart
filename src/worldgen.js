@@ -7845,6 +7845,32 @@
     }
   }
 
+  // BARRELS ON THE FIRST LEVEL (owner, Oct 2026): a few generated barrels
+  // strewn over level 1's floor, smashed like a surface bin (loot.js
+  // isBarrel — `barrel: true`, no POI behind it): a coin, a spear, a torch
+  // or an apple when they hold anything, BARREL_EMPTY_P_GENERATED empty,
+  // back daily on the one day ledger. Random free floor cells, off their own
+  // stream, after every other pass so nothing already seated moves. Ids
+  // carry the depth and the cell, like the torches'.
+  const CAVE_BARREL_DEPTH = 1;
+  const CAVE_BARREL_MIN = 12, CAVE_BARREL_SPAN = 8, CAVE_BARREL_TRIES = 8;
+  function caveBarrels(objects, grid, N, tx, ty, tileEdgeM, depth, occupied) {
+    if (depth !== CAVE_BARREL_DEPTH) return;
+    const rng = makeRng(tileStreamSeed(tx, ty, 0x7FEB352D, depth));
+    const n = CAVE_BARREL_MIN + Math.floor(rng() * CAVE_BARREL_SPAN);
+    for (let k = 0; k < n; k++) {
+      for (let attempt = 0; attempt < CAVE_BARREL_TRIES; attempt++) {
+        const lix = Math.floor(rng() * N), liy = Math.floor(rng() * N);
+        const idx = liy * N + lix;
+        if (grid[idx] !== T.CAVE_FLOOR || occupied.has(idx)) continue;
+        occupied.add(idx);
+        const { x: wx, y: wy } = cellCentreM(tx, ty, lix, liy, tileEdgeM, N);
+        objects.push(makeObject('chest', wx, wy, cellId(`cbarrel_${depth}`, tx, ty, lix, liy), { barrel: true, depth }));
+        break;
+      }
+    }
+  }
+
   // The dungeon level whose rock under the town's BUILDINGS is lava (T.CAVE_LAVA).
   // Only this level: the one above and every one below keep plain rock there.
   const LAVA_DEPTH = 5;
@@ -7940,6 +7966,7 @@
     const caveCoinSeeds = caveCoins(grid, N, x, y, tileEdgeM, depth, occupied);
     const extraTreasures = caveTreasureMarks(grid, N, x, y, tileEdgeM, depth, occupied);
     caveFloorTorches(objects, grid, N, x, y, tileEdgeM, depth, wildplants, occupied);
+    caveBarrels(objects, grid, N, x, y, tileEdgeM, depth, occupied);
     const entry = {
       status: 'ready', grid, cellsPerEdge: N, tileEdgeM, depth,
       objects, wildplants, parkingTreasures: [], extraTreasures, caveCoinSeeds,
@@ -8133,6 +8160,7 @@
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
+    caveBarrels, CAVE_BARREL_DEPTH, CAVE_BARREL_MIN, CAVE_BARREL_SPAN,
     caveWallTorches, caveChestRings, CAVE_RING_CELLS, caveCoins, caveTreasureMarks,
     // Full-tile rasterization — exported for the headless spawn tests, which
     // build synthetic MVT layers and pin the "nothing spawns on a road" rule

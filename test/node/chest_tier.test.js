@@ -276,7 +276,9 @@
     WorldGen.tileCache.set(key, surface);
     try {
       const lvl1 = await WorldGen.loadTile.atDepth(1, tx, ty, lat);
-      const chests = lvl1.objects.filter(o => o.kind === 'chest');
+      // Level 1 also strews its own barrels (worldgen.js caveBarrels) — chests
+      // too, but no POI's mirror; count the mirrors alone.
+      const chests = lvl1.objects.filter(o => o.kind === 'chest' && !o.barrel);
       assert.eq(chests.length, 2, 'both POIs reach depth 1');
       const lib = chests.find(c => c.caveOf === 'c_lib');
       assert.truthy(lib && lib.x === at(3, 3).x && lib.y === at(3, 3).y, 'library at its own point');
