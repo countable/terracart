@@ -18,6 +18,8 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - [docs/QC_RULES.md](docs/QC_RULES.md): checklist for art, sprites and item surfaces;
   read it for asset changes. This file owns mechanic invariants if notes disagree.
 - [docs/spec.txt](docs/spec.txt): game design; code owns current numeric values.
+- [docs/story.txt](docs/story.txt): the story bible (Dragon Hood); it wins over
+  story copy in `src/`, and its open [Q#] items are not yet canon.
 - [docs/SANDBOX.md](docs/SANDBOX.md): hand-built world for visual checks.
 - Preserve the `terracart.*` storage keys despite the game's name change.
 
