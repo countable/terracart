@@ -13,7 +13,7 @@ function throwScene(overrides = {}) {
     isShadowActive() { return false; },
     ...overrides,
   };
-  const names = ['throwCooldownLeft', 'throwActionLabel', 'canThrowItem', '_throwItem', 'useSpear', 'useRock', '_tickThrowButton'];
+  const names = ['throwCooldownLeft', 'throwActionLabel', 'canThrowItem', '_throwItem', 'useSpear', 'useRock', '_tickThrowButton', 'useForgetmenot', 'useWildrose', '_friendlyShotHitsEnemy', '_shotCanHit', '_shotHitsTarget'];
   const methods = names.map(name => {
     const method = APP_JS_SRC.match(new RegExp('\\n  (' + name + '\\([^\\n]*\\) \\{\\n[\\s\\S]*?\\n  \\})\\n'));
     assert.truthy(method, `${name} exists`);
@@ -28,12 +28,12 @@ function throwSpear(overrides = {}) {
   const scene = throwScene(overrides);
   return { scene, result: scene.useSpear() };
 }
-function fly(shot, enemies, blocked = () => false) {
+function fly(shot, enemies, blocked = () => false, onHit = () => {}) {
   let shots = [shot];
   const hits = [];
   for (let i = 0; i < 6000 && shots.length; i++) {
     shots = Combat.stepShots(shots, 1 / 60, enemies, Combat.HIT_RADIUS_CELLS * CELL,
-      (enemy, s) => hits.push({ enemy, damage: s.damage }), { blocked, cellM: CELL });
+      (enemy, s) => { hits.push({ enemy, damage: s.damage }); onHit(enemy, s); }, { blocked, cellM: CELL });
   }
   assert.eq(shots.length, 0, 'the shot is spent');
   return hits;
@@ -188,5 +188,75 @@ test('throws: cooldown button refreshes at displayed changes and re-enables with
   assert.eq(refreshed, first + 2);
   assert.eq(scene.throwActionLabel(), 'Throw');
   assert.falsy(CONSUMABLE_SPEC.spear.disabled(scene));
+});
+
+test('flowers: a landed throw applies sleep or charm without dealing damage', () => {
+  for (const [id, method, predicate] of [['forgetmenot', 'useForgetmenot', 'isSleeping'], ['wildrose', 'useWildrose', 'isCharmed']]) {
+    const scene = throwScene({ save: { energy: 50, inv: [{ id, count: 2 }], selSlot: 0 },
+      _damageEnemy() { throw new Error('a flower must never deal damage'); } });
+    assert.truthy(CONSUMABLE_SPEC[id].immediate);
+    assert.truthy(scene[method]());
+    const shot = scene._shots[0];
+    assert.eq(shot.damage, 0);
+    assert.eq(shot.projectile, id, 'draws the flower itself');
+    assert.eq(scene.save.inv[0].count, 1);
+    assert.eq(scene.throwCooldownLeft(), 1000);
+    const target = { id: 'foe', kind: 'goblin', x: 117, y: 204 };
+    const beforeHP = Combat.hp(target);
+    assert.eq(fly(shot, [target], undefined, (c, s) => scene._shotHitsTarget(c, s)).length, 1);
+    assert.truthy(Combat[predicate](target));
+    assert.eq(Combat.hp(target), beforeHP);
+    assert.falsy(scene[method](), 'flower respects the shared recovery');
+    scene.now += 1000;
+    assert.truthy(scene[method]());
+    const missed = { id: 'far', kind: 'goblin', x: 10000, y: 204 };
+    assert.eq(fly(scene._shots[1], [missed], undefined, (c, s) => scene._shotHitsTarget(c, s)).length, 0);
+    assert.falsy(Combat[predicate](missed));
+    assert.eq(scene.save.inv.length, 0, 'a miss still consumes the second bloom');
+  }
+});
+
+test('flowers: cooldown from a spear blocks flowers and flower cooldown blocks rocks', () => {
+  const scene = throwScene({ save: { energy: 50,
+    inv: [{ id: 'spear', count: 2 }, { id: 'forgetmenot', count: 2 }, { id: 'rockfruit', count: 2 }], selSlot: 0 } });
+  assert.truthy(scene.useSpear());
+  scene.save.selSlot = 1;
+  assert.falsy(scene.useForgetmenot());
+  assert.eq(scene.save.inv[1].count, 2);
+  scene.now += 3000;
+  assert.truthy(scene.useForgetmenot());
+  scene.save.selSlot = 2;
+  assert.falsy(scene.useRock());
+  scene.now += 1000;
+  assert.truthy(scene.useRock());
+});
+
+test('flower charm: later shots in the same frame spare newly allied creatures', () => {
+  const scene = throwScene({ _damageEnemy() { throw new Error('friendly fire'); } });
+  const target = { id: 'foe', kind: 'goblin', x: 117, y: 204 };
+  assert.truthy(scene._shotHitsTarget(target, { effect: 'charm', damage: 0 }));
+  assert.falsy(scene._shotCanHit(target, { damage: 25 }));
+  assert.falsy(scene._shotHitsTarget(target, { damage: 25 }));
+  const oldHostileShot = { hostile: true, _sourceGuard: target, damage: 10 };
+  assert.falsy(scene._shotCanHit({ id: 'player' }, oldHostileShot), 'old hostile shot cannot hit player after its source is charmed');
+  oldHostileShot.hostile = false;
+  const other = { id: 'other', kind: 'goblin' };
+  assert.truthy(scene._shotCanHit(other, oldHostileShot));
+  target._charmUntil = 0;
+  assert.falsy(scene._shotCanHit(other, oldHostileShot), 'an expired ally cannot keep shooting enemies as a friend');
+});
+
+test('charmed allies: hostile impacts damage the creature rather than the player', () => {
+  const hits = [];
+  const scene = throwScene({ _damageEnemy(c, amount, source) { hits.push({ c, amount, source }); },
+    _shotHitsPlayer() { throw new Error('wrong target lane'); } });
+  const ally = { id: 'ally', kind: 'goblin' };
+  Combat.applyCharm(ally);
+  const foe = { id: 'foe', kind: 'goblin' };
+  scene._shotHitsTarget(ally, { hostile: true, _sourceGuard: foe, damage: 7 });
+  assert.eq(hits.length, 1);
+  assert.eq(hits[0].c, ally);
+  assert.eq(hits[0].amount, 7);
+  assert.eq(hits[0].source, 'enemy');
 });
 })();

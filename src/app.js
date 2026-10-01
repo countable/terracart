@@ -4633,7 +4633,7 @@ class MapScene extends Phaser.Scene {
     // must count. Half a cell of margin so one stepping in at the edge starts
     // drawing fire the moment it appears rather than a cell later.
     const halfSpanM = (VIEW_CELLS / 2 + 0.5) * this.cellM;
-    const enemies = [];
+    const enemies = [], charmedAllies = [];
     // 3×3 neighbourhood + memoised caught-Set: this runs every frame, and the
     // all-tiles forEachItem with a per-creature Array.includes was an
     // O(cached-creatures × caught) scan that grew with every tile walked.
@@ -4642,8 +4642,9 @@ class MapScene extends Phaser.Scene {
     const pcTick = this.playerToWorldCell();
     WorldGen.forEachItemNear('creatures', pcTick.tx, pcTick.ty, (c) => {
       if (Math.abs(c.x - px) > halfSpanM || Math.abs(c.y - py) > halfSpanM) return;
+      if (caughtSet.has(c.id) || c._surfaceInactive) return;
+      if (Combat.isCharmed(c)) { charmedAllies.push(c); return; }
       if (!Combat.isEnemy(c)) return;
-      if (caughtSet.has(c.id)) return;
       enemies.push(c);
     });
 
@@ -4817,14 +4818,17 @@ class MapScene extends Phaser.Scene {
       // friendly shot never sweeps it, a hostile one never sweeps `enemies`
       // — stepShots keeps the two lanes apart.
       const playerTarget = { id: 'player', x: px, y: py };
+      for (const shot of this._shots) {
+        if (!shot._sourceGuard) continue;
+        shot.hostile = !Combat.isCharmed(shot._sourceGuard);
+        shot.source = shot.hostile ? 'enemy' : 'ally';
+      }
       this._shots = Combat.stepShots(this._shots, dt, enemies,
         Combat.HIT_RADIUS_CELLS * this.cellM,
-        (target, shot) => (shot.hostile ? (target.kind === 'npc' ? NPC.hit(this, target) : this._shotHitsPlayer(shot))
-                                        : this._damageEnemy(target, shot.damage, Combat.shotSource(shot))),
+        (target, shot) => this._shotHitsTarget(target, shot),
         { blocked: shotBlocked, cellM: this.cellM,
-          hostileTargets: [playerTarget, ...(this._npcCombatTargets || [])],
-          canHit: (target, shot) => !shot.hostile || target.kind !== 'npc'
-            || (!NPC.isDormant(target) && NPC.canTarget(this, target)) });
+          hostileTargets: [playerTarget, ...(this._npcCombatTargets || []), ...charmedAllies],
+          canHit: (target, shot) => this._shotCanHit(target, shot) });
     }
     this._drawShots();
 
@@ -5006,6 +5010,30 @@ class MapScene extends Phaser.Scene {
     if (!this.startWorldM || !this.save.fires?.length) return;
     const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
     if (this._nearAny('fires', px, py, FIRE_TOUCH_CELLS)) this._ignitePlayer();
+  }
+
+  _shotCanHit(target, shot) {
+    // Recheck at impact: an earlier flower in this same frame may have changed
+    // the source's or target's allegiance since the target lists were built.
+    if (shot._sourceGuard && shot.hostile === Combat.isCharmed(shot._sourceGuard)) return false;
+    if (!shot.hostile) return Combat.isEnemy(target);
+    if (target.kind === 'npc') return !NPC.isDormant(target) && NPC.canTarget(this, target);
+    return target.id === 'player' || Combat.isCharmed(target);
+  }
+
+  _shotHitsTarget(target, shot) {
+    if (!this._shotCanHit(target, shot)) return false;
+    if (!shot.hostile) return this._friendlyShotHitsEnemy(target, shot);
+    if (target.kind === 'npc') return NPC.hit(this, target);
+    if (target.id === 'player') return this._shotHitsPlayer(shot);
+    return this._damageEnemy(target, shot.damage, 'enemy');
+  }
+
+  _friendlyShotHitsEnemy(target, shot) {
+    if (!Combat.isEnemy(target)) return false;
+    if (shot.effect === 'sleep') return Combat.applySleep(target, Date.now());
+    if (shot.effect === 'charm') return Combat.applyCharm(target, Date.now());
+    return this._damageEnemy(target, shot.damage, Combat.shotSource(shot));
   }
 
   // A monster's arrow lands. The same energy hit the melee leech deals
@@ -5210,17 +5238,18 @@ class MapScene extends Phaser.Scene {
         lift = s.liftFromPx + (SHOT_DRAW_LIFT_PX - s.liftFromPx) * f;
       }
       const hx = Math.round(head.x), hy = Math.round(head.y - lift);
-      if (s.projectile === 'spear') {
+      if (s.projectile === 'spear' || s.effect) {
+        const art = CROP_SPRITE[s.projectile] || { sheet: 'icon_spear', frame: 0 };
         let sprite = this._spearPool[spearUsed];
         if (!sprite) {
           // Share the masked projectile layer, with ordinary sprite blending.
-          sprite = this.add.image(0, 0, 'icon_spear', 0);
+          sprite = this.add.image(0, 0, art.sheet, art.frame);
           this.boltContainer.add(sprite);
           this._spearPool.push(sprite);
         }
         spearUsed++;
-        sprite.setVisible(true).setPosition(hx, hy)
-          .setRotation(Math.atan2(s.vy, s.vx));
+        sprite.setTexture(art.sheet, art.frame).setScale(s.effect ? 0.8 : 1)
+          .setVisible(true).setPosition(hx, hy).setRotation(Math.atan2(s.vy, s.vx));
         continue;
       }
       if (s.projectile === 'rock') {
@@ -5554,6 +5583,7 @@ class MapScene extends Phaser.Scene {
       }
       return false;
     }
+    if (!Combat.isEnemy(victim)) return false;
     // First melee the save ever starts tells its story - here in the one
     // lane both the tapped swing and the auto-engage flow through, fired
     // regardless of an owned sword: bare hands fight on the tier-0 rung too.
@@ -5882,6 +5912,8 @@ class MapScene extends Phaser.Scene {
     this._drawSwordSwing();
     const wp = this._workProgress;
     if (!wp) return;
+    // A rose can change allegiance while a melee wheel is already running.
+    if (wp.combat && !Combat.isEnemy(wp.combat)) { this.cancelWorkProgress(); return; }
     const now = performance.now();
     // Stuck-wheel watchdog. A wheel always resolves at wp.durationMs (complete,
     // fail, or cancel), so one that has outlived that by a wide margin is
@@ -9816,6 +9848,7 @@ class MapScene extends Phaser.Scene {
       cfg.damage, 1, reachCells(this));
     if (!shot) return false;
     shot.projectile = cfg.projectile;
+    if (cfg.effect) shot.effect = cfg.effect;
     this._shots.push(shot);
     this._throwReadyAt = performance.now() + cfg.throwCooldownMs;
     consumeSelected(this.save);
@@ -9830,6 +9863,14 @@ class MapScene extends Phaser.Scene {
 
   useRock() {
     return this._throwItem('rockfruit');
+  }
+
+  useForgetmenot() {
+    return this._throwItem('forgetmenot');
+  }
+
+  useWildrose() {
+    return this._throwItem('wildrose');
   }
 
   // Frost Powder: every ENEMY (Combat.isEnemy — never a crow, a deer or a pet)

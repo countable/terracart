@@ -1747,6 +1747,13 @@ class SceneCreatures {
     // The night's ghosts: a group now and then in the dark about the player.
     ghostSpawnPass(this, now, px, py, pcW, homePos, castleWards, HOME_WARD_R2, caughtSet);
 
+    // Most ticks have no charm active: avoid scanning every foe against all
+    // creatures just to discover there are no temporary allies to target.
+    this._charmedOpponents = [];
+    WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, c => {
+      if (Combat.isCharmed(c) && !caughtSet.has(c.id)) this._charmedOpponents.push(c);
+    });
+
     WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
       // Cheapest reject first: the sim range cull. Everything below runs only
       // for the handful of creatures actually near the player.
@@ -1797,6 +1804,8 @@ class SceneCreatures {
       // useFrostPowder, which also pins its hop in place) takes no step and
       // lands no hit until the ice thaws. It can still be hit.
       if (c._frozenUntil != null && Date.now() < c._frozenUntil) return;
+      if (flowerCreatureTick(this, c, now, px, py, caughtSet,
+        { homePos, castleWards, radiusSq: HOME_WARD_R2 })) return;
       // WARDED BY HOME: this foe crossed into Home's ring (HOME_R), so it turns
       // and RUNS (the angle chain below, at the flee pace) and it cannot bite
       // while it goes — a ward that let a slime leech its way to the door would
@@ -2041,6 +2050,7 @@ class SceneCreatures {
           // (_shotHitsPlayer) — mitigating the bundle in one lump would make
           // the slow archer the one foe armour barely helps against.
           const shot = Combat.monsterShot(c.x, c.y, px, py, this.cellM, dmg, MONSTER_ARROW_HITS);
+          if (shot) shot._sourceGuard = c;
           if (shot) this._shots.push(shot);
         } else if (clear && m.range <= 1 && ddx * ddx + ddy * ddy <= R * R
                    && (!c._nextStealT || now >= c._nextStealT)) {

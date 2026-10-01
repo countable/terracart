@@ -978,6 +978,22 @@ const CONSUMABLE_SPEC = {
     verb: 'Throw', method: 'useRock', title: 'Throw the rock?',
     get: 'A stone flies toward your foes.',
   },
+  forgetmenot: {
+    damage: 0, throwCooldownMs: 1000, projectile: 'forgetmenot', effect: 'sleep', immediate: true,
+    usable: scene => scene.canThrowItem('forgetmenot'),
+    disabled: scene => !scene.canThrowItem('forgetmenot'),
+    label: scene => scene.throwActionLabel(),
+    verb: 'Throw', method: 'useForgetmenot', title: 'Throw the forget-me-not?',
+    get: 'A blue bloom settles a restless foe.',
+  },
+  wildrose: {
+    damage: 0, throwCooldownMs: 1000, projectile: 'wildrose', effect: 'charm', immediate: true,
+    usable: scene => scene.canThrowItem('wildrose'),
+    disabled: scene => !scene.canThrowItem('wildrose'),
+    label: scene => scene.throwActionLabel(),
+    verb: 'Throw', method: 'useWildrose', title: 'Throw the wild rose?',
+    get: 'A fragrant bloom wins a foe to your side.',
+  },
   // Foods with an extra effect use the Eat button, so they own mechanics but
   // no separate action row here.
   // The rainberry's soak is a WATERING CAN'S: every crop in reach is watered
@@ -1348,9 +1364,9 @@ const ITEM_EFFECTS = {
   boot: 'Water seeps from the split sole of someone else’s journey.',
   shell: 'The sea has polished a little treasure for your pocket.',
   rabbit_pelt: 'A soft scrap of the forest, still warm in memory.',
-  forgetmenot: 'A small blue bloom that someone might treasure.',
+  forgetmenot: 'A blue bloom whose scent stills restless foes.',
   marigold: 'Its golden petals brighten the dullest windowsill.',
-  wildrose: 'A thorn guards each fragrant bloom.',
+  wildrose: 'Its fragrant bloom softens even a hostile heart.',
   starflower: 'Its pale glow lingers long after the sun has gone.',
   copper_bar: 'A smith could draw a sturdy tool from this warm metal.',
   iron_bar: 'The smith’s hammer rings clearly against its dark face.',

@@ -109,8 +109,15 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
   assert.falsy(CREATURE_AI_SRC.includes('enemyDmgMul'), 'Hard belongs to the recipient at impact');
   assert.truthy(/const playerTarget = \{ id: 'player', x: px, y: py \};/.test(app),
     'the player is the hostile target, at the feet');
-  assert.truthy(app.includes("target.kind === 'npc' ? NPC.hit(this, target) : this._shotHitsPlayer(shot)"),
-    'hostile impacts route to NPC recovery or player damage');
+  const route = app.match(/\n  _shotHitsTarget\(target, shot\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(route, 'shared projectile impact dispatcher exists');
+  const hitTarget = new Function('NPC', 'target', 'shot', route[1]);
+  const recipient = { _shotCanHit: () => true, _shotHitsPlayer: shot => shot };
+  const npc = { kind: 'npc', id: 'neighbour' }, arrow = { hostile: true };
+  assert.eq(hitTarget.call(recipient, { hit: (scene, target) => target }, npc, arrow), npc,
+    'a neighbour hit reaches NPC recovery');
+  assert.eq(hitTarget.call(recipient, {}, { id: 'player' }, arrow), arrow,
+    'a player hit reaches the energy damage path');
   assert.truthy(app.includes('this._damageEnemy(target, shot.damage, Combat.shotSource(shot))'),
     'friendly impacts retain the shared enemy damage path');
   assert.truthy(/hostileTargets: \[playerTarget,/.test(app), 'the player and neighbours are handed to stepShots');

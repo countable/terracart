@@ -527,9 +527,12 @@
   // environmental killer — is not the player either. The one predicate
   // resolveDefeat reads; a shot's source is stamped on the shot (turretShot)
   // and read back through shotSource.
-  const PLAYER_KILL_SOURCES = new Set(['player', 'pet']);
+  const PLAYER_KILL_SOURCES = new Set(['player', 'pet', 'ally']);
   function isPlayerKill(source) { return PLAYER_KILL_SOURCES.has(source); }
-  function shotSource(shot) { return (shot && shot.source) || 'player'; }
+  function shotSource(shot) {
+    if (shot?._sourceGuard) return isCharmed(shot._sourceGuard) ? 'ally' : 'enemy';
+    return (shot && shot.source) || 'player';
+  }
   // Chance a defeated CAVE MONSTER also drops a buried-treasure roll —
   // literally the same pickReward('treasure:default') payout digging an X
   // gives, so the rare drop needs no table of its own and can't drift from the
@@ -562,11 +565,47 @@
   const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14, 25 /* CAVE_WALL */]);
   function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 
+  const FLOWER_STATUS_MS = 60 * 1000;
+  function isSleeping(c, now = Date.now()) { return !!c && (c._sleepUntil || 0) > now; }
+  function isCharmed(c, now = Date.now()) { return !!c && (c._charmUntil || 0) > now; }
+  function flowerTarget(c) {
+    return !!c && !c._surfaceInactive && isEnemyKind(c.kind)
+      && !(typeof c.id === 'string' && c.id.startsWith('released_'));
+  }
+  function cancelCreatureAction(c) {
+    c._moving = false;
+    c._attackWindupUntil = null;
+    c._attackAim = null;
+    c._abilityWindupUntil = null;
+    c._attackUntil = 0;
+    c._batFlight = null;
+    c._batSwooping = false;
+    c._lungeUntil = 0;
+    c._lungeWindupUntil = 0;
+    c._startX = c._targetX = c.x;
+    c._startY = c._targetY = c.y;
+  }
+  function applySleep(c, now = Date.now()) {
+    if (!flowerTarget(c)) return false;
+    c._sleepUntil = now + FLOWER_STATUS_MS;
+    cancelCreatureAction(c);
+    return true;
+  }
+  function applyCharm(c, now = Date.now()) {
+    if (!flowerTarget(c)) return false;
+    c._charmUntil = now + FLOWER_STATUS_MS;
+    cancelCreatureAction(c);
+    c._wardFrom = null;
+    c._wanderOffUntilT = null;
+    return true;
+  }
+
   // A hostile INSTANCE. A slime tamed with a sapphire (id 'released_…') is a
   // pet: it must never be shot at, auto-engaged, or counted as "an enemy is on
-  // screen" for the auto-fire gate.
-  function isEnemy(c) {
-    if (!c || c._surfaceInactive) return false;
+  // screen" for the auto-fire gate. A rose's temporary ally gets the same
+  // targeting exclusion while its charm lasts; its species remains unchanged.
+  function isEnemy(c, now = Date.now()) {
+    if (!c || c._surfaceInactive || isCharmed(c, now)) return false;
     if (typeof c.id === 'string' && c.id.startsWith('released_')) return false;
     return isEnemyKind(c.kind);
   }
@@ -611,6 +650,7 @@
     const before = hp(c);
     const raw = Math.max(0, amount);
     const hit = options.bypassArmor ? raw : mitigate(raw, monster(c.kind)?.armor || 0);
+    if (hit > 0 && before > 0) c._sleepUntil = 0;
     c._hp = Math.max(0, before - hit);
     return before - c._hp;
   }
@@ -1315,6 +1355,7 @@
     PLAYER_KILL_SOURCES, isPlayerKill, shotSource,
     MONSTER_TREASURE_CHANCE, ELITE_TREASURE_CONTEXT, eliteRollBonus,
     FAUNA_BLOCKED_TYPES, faunaBlocksCell,
+    FLOWER_STATUS_MS, isSleeping, isCharmed, applySleep, applyCharm,
     isEnemyKind, isEnemy, enemyKinds, onQuestBoard, enemyName, hp, damage, damageDealt, hpFraction,
     canBurn, burning, ignite, burnTick,
     ELITE_MUL, isElite, eliteMul, RAISED_MUL, raisedMul, powerMul, maxHp,

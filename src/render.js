@@ -484,6 +484,38 @@ function hidePoolFrom(pool, startIdx) {
   for (let i = startIdx; i < pool.length; i++) pool[i].setVisible(false);
 }
 
+// Temporary flower effects sit above the health-bar line; the combat helpers
+// own their expiry. This pool is separate from permanent released-pet hearts.
+Render.flowerStatusMarker = (creature, now) => {
+  const sleeping = Combat.isSleeping(creature, now), charmed = Combat.isCharmed(creature, now);
+  if (sleeping && charmed) return { text: '♥ Zzz', color: '#ff91b8' };
+  if (sleeping) return { text: 'Zzz', color: '#bcdfff' };
+  if (charmed) return { text: '♥', color: '#ff91b8' };
+  return null;
+};
+Render.drawFlowerStatusMarkers = (scene, creatures, project, depth, now) => {
+  const pool = scene._flowerStatusPool || (scene._flowerStatusPool = []);
+  let used = 0;
+  for (const { c, dx, dy } of creatures) {
+    const status = Render.flowerStatusMarker(c, now);
+    if (!status) continue;
+    let marker = pool[used];
+    if (!marker) {
+      marker = scene.add.text(0, 0, '', {
+        font: fontMono('bold 10px'), stroke: '#22182b', strokeThickness: 2,
+      }).setOrigin(0.5, 1).setDepth(depth);
+      scene.creaturesContainer.add(marker);
+      pool.push(marker);
+    }
+    const { sx, sy } = project(dx, dy);
+    const aboveHead = SpriteLayout.creatureHealthBarTop(c.kind, SpriteLayout.creatureInstScale(c, now)) - 2;
+    marker.setText(status.text).setPosition(Math.round(sx), Math.round(sy + aboveHead)).setVisible(true);
+    setColorOnce(marker, status.color);
+    used++;
+  }
+  hidePoolFrom(pool, used);
+};
+
 // Swap a sprite's texture only when it differs — skips Phaser's redundant
 // texture-rebind work on the common frame where the key is unchanged. Returns
 // whether it swapped, so a caller can gate a same-frame side effect (e.g.
@@ -3969,6 +4001,7 @@ Render.drawObjects = function drawObjects(scene) {
     hi++;
   }
   hidePoolFrom(scene._petHeartPool, hi);
+  Render.drawFlowerStatusMarkers(scene, creatureList, project, Z_OVERLAY, now);
 
   // Creature draw geometry — scale, foot origin and constant float — comes
   // from ONE table, src/sprite_layout.js › CREATURE_ART, which the
