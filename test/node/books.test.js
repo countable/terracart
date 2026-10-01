@@ -189,7 +189,7 @@ test('mechanics: first tastes raise the energy cap', () => {
   const save = { armor: {}, eaten: [] };
   const before = Energy.maxEnergy(save);
   save.eaten = ['potato', 'berry', 'nut'];
-  assert.eq(Energy.maxEnergy(save), before + 4, 'each new food tasted adds its tier (potato 1 + berry 1 + nut 2)');
+  assert.eq(Energy.maxEnergy(save), before + 5, 'each new food tasted adds its tier (potato 1 + berry 2 + nut 2)');
 });
 
 test('mechanics: armour applies the mitigation ladder', () => {

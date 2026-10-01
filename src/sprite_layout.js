@@ -776,12 +776,12 @@
   // egg, then released): a tame creature RAISED by the player (`raised`),
   // born the moment it was set down (`born`, epoch ms, saved on its
   // save.released row). It is drawn at half its kind's size until it has
-  // grown for `growMs` — seven days — and is an adult from then on: full
+  // grown for `growMs` — seven days — and eaten `feeds` favourite meals: full
   // size, and twice its kind's HP and bite (combat.js raisedMul). Both the
   // size here and the power there read the ONE predicate, isBabyPet.
-  const PET_BABY = Object.freeze({ scale: 0.5, growMs: 7 * 24 * 60 * 60 * 1000 });
+  const PET_BABY = Object.freeze({ scale: 0.5, growMs: 7 * 24 * 60 * 60 * 1000, feeds: 7 });
   function isBabyPet(c, now = Date.now()) {
-    return !!(c && c.raised && Number.isFinite(c.born)) && (now - c.born) < PET_BABY.growMs;
+    return !!(c && c.raised && Number.isFinite(c.born)) && ((now - c.born) < PET_BABY.growMs || (c.favouriteFeeds || 0) < PET_BABY.feeds);
   }
   // One creature's own size multiplier (its instance art scale), or 1 — a
   // baby pet's is halved for as long as it is a baby. Every reader of a

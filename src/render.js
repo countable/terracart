@@ -2677,6 +2677,17 @@ function preCullLightList(entry) {
   return list.length ? list : null;
 }
 
+// The orb marks only chests captured in its visible-view snapshot. Opening
+// a chest cancels its marker immediately, without changing any reward state.
+function orbChestRevealPhase(o, reveals, now, spent) {
+  if (o.kind !== 'chest' || spent.opened.has(o.id) || isSpent(o, spent)) return -1;
+  const started = reveals?.get(o.id);
+  if (started == null) return -1;
+  const age = now - started;
+  return age >= 0 && age < CONSUMABLE_SPEC.orb.chestRevealMs
+    ? age / CONSUMABLE_SPEC.orb.chestRevealMs : -1;
+}
+
 Render.drawObjects = function drawObjects(scene) {
   // Canvas width, for keeping centred labels on screen (see clampTextX in
   // util.js). Same 352 the game canvas is sized to. Computed HERE, not at
@@ -4242,6 +4253,8 @@ Render.drawObjects = function drawObjects(scene) {
       const k = glintRockPhase(it.o.id, _sparkNow, scene._orbReveal?.get(it.o.id));
       if (k >= 0) sparkList.push({ dx: it.dx, dy: it.dy, id: it.o.id, glint: k });
     }
+    const chestPhase = orbChestRevealPhase(it.o, scene._orbReveal, _sparkNow, spentIds);
+    if (chestPhase >= 0) sparkList.push({ dx: it.dx, dy: it.dy, id: it.o.id, glint: chestPhase, orbChest: true });
   }
   // Shiny fish glint on their water cell until landed (items.js
   // shinyFishSpots — a per-tile derived list, so no grid scan per frame; its
@@ -4285,11 +4298,11 @@ Render.drawObjects = function drawObjects(scene) {
       // third the star's size at its peak (~10px from the 32px texture).
       const e = Math.sin(item.glint * Math.PI);
       s.setOrigin(0.5, 0.5)
-       .setScale(0.18 + 0.14 * e)
-       .setAlpha(0.9 * e)
-       .setAngle(item.glint * 90)
+       .setScale(item.orbChest ? 0.45 + 0.08 * Math.sin(item.glint * Math.PI * 6) : 0.18 + 0.14 * e)
+       .setAlpha(item.orbChest ? 0.9 * Math.min(1, (1 - item.glint) * 6) : 0.9 * e)
+       .setAngle(item.glint * (item.orbChest ? 360 : 90))
        .setTint(0xffffff)
-       .setPosition(Math.round(sx + 3), Math.round(sy - 4));
+       .setPosition(Math.round(sx + (item.orbChest ? 0 : 3)), Math.round(sy - (item.orbChest ? 8 : 4)));
       return;
     }
     // Desync each marker's twinkle off a stable per-id phase so a cluster of

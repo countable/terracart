@@ -543,7 +543,7 @@ test('particles: watering a crop says so and sprinkles the cell', () => {
 });
 
 test('particles: Crops.advanceGrowth / waterWithin report the plants they moved', () => {
-  const HOLD = Crops.STAGE_HOLD_MS;
+  const HOLD = Crops.stageHoldMs('berry');
   const save = { planted: [
     { x: 0, y: 0, crop: 'berry', stage: 0, watered_t: 1000 },
     { x: 5, y: 5, crop: 'berry', stage: 1, watered_t: 0 },

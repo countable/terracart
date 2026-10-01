@@ -30,6 +30,9 @@
   const BOON_STROKE = '#1a1410';
 
   const KINDS = {
+    portal: { name: 'Return', color: '#83caff', stroke: '#10233c', action: 'returnThroughSapphire',
+      read: (save, scene) => scene?.depth === save?.sapphireReturn?.depth
+        ? Number(save?.sapphireReturn?.until) || 0 : 0 },
     dragon:  { name: 'Dragon',  color: GOLD,      stroke: '#5a1400', scene: '_dragonUntil' },
     shadow:  { name: 'Shadow',  color: '#d9b3ff', stroke: '#2a1040', scene: '_shadowUntil' },
     torch:   { name: 'Torch',   color: '#ffb347', stroke: '#3a1600', scene: '_torchUntil' },
@@ -39,6 +42,10 @@
     reach:   { name: 'Reach',   color: '#fff3a8', stroke: '#4a3a00', save: 'reachPotionUntil' },
     raven:   { name: 'Raven',   color: '#b8b8c8', stroke: '#101018', save: 'spiritRavenUntil' },
     coffee:  { name: 'Coffee',  color: '#e0b48a', stroke: '#3a2010', save: 'coffeeUntil' },
+    dawnfruit: { name: 'Dawnfruit', color: '#fff3a8', stroke: '#4a3a00', save: 'dawnfruitUntil' },
+    lettuce: { name: 'Luck', color: '#b7f598', stroke: '#183819', save: 'miracleLettuceUntil' },
+    fish:    { name: 'Fish regen', color: '#a7ffb0', stroke: '#103a18',
+      read: (save) => Number(save?.fishRegen?.until) || 0 },
     bike:    { name: 'Bike',    color: '#a8f0b0', stroke: '#103a18', save: 'bikeUntil' },
     compass: { name: 'Compass', color: '#c77dff', stroke: '#2a1040',
       read: (save, scene) => Number(scene?.pairyCompass?.until) || 0 },

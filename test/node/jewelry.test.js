@@ -3,12 +3,12 @@
 (function () {
   const ids = ['stealth_ring', 'invisibility_ring', 'regen_amulet', 'vigor_amulet'];
 
-  test('unique jewelry: four carried magic items replace tiered ring and amulet gear', () => {
+  test('unique jewelry: four carried unique relics replace tiered ring and amulet gear', () => {
     assert.falsy(RELIC_DEFS.ring, 'ring is not a tiered gear slot');
     assert.falsy(RELIC_DEFS.amulet, 'amulet is not a tiered gear slot');
     for (const id of ids) {
       const item = ITEM_BY_ID[id];
-      assert.truthy(item && item.kind === 'magic' && item.uniqueJewelry, id + ' is carried magic');
+      assert.truthy(item && item.kind === 'unique_relic' && item.uniqueJewelry, id + ' is a carried unique relic');
       assert.truthy(MINERAL_ICON_SHEET[id], id + ' has an inventory icon frame');
       assert.truthy(ITEM_EFFECTS[id], id + ' has effect copy');
     }
@@ -49,11 +49,13 @@
       'the cadence rides the shared fractional Energy.set accumulator');
   });
 
-  test('unique jewelry: named pools can award it, ordinary shops cannot', () => {
-    const shadow = ChestThemes.members('shadow');
-    assert.truthy(shadow.stealth_ring > 0 && shadow.invisibility_ring > 0);
-    const healing = ChestThemes.members('healing');
-    assert.truthy(healing.regen_amulet > 0 && healing.vigor_amulet > 0);
+  test('unique jewelry: only the rare unique-relic lane awards it, ordinary shops cannot', () => {
+    const unique = ChestThemes.members('uniqueRelics');
+    for (const id of ids) {
+      assert.gt(unique[id], 0);
+      for (const group of ['shadow', 'healing', 'study', 'caveMagic'])
+        assert.falsy(ChestThemes.members(group)[id], `${id}: absent from ${group}`);
+    }
     const shopMagic = Shops.THEME_POOL.potion();
     for (const id of ids) assert.falsy(shopMagic.includes(id), id + ' is not shop stock');
   });

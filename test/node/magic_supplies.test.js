@@ -36,7 +36,7 @@ test('migration: old Items tab defaults to Supplies with no selected magic', () 
 
 test('new medicines have distinct nonempty art and fixed tiers', () => {
   assert.eq(ITEM_BY_ID.antidote.baseTier, 1);
-  assert.eq(ITEM_BY_ID.elixir.baseTier, 6);
+  assert.eq(ITEM_BY_ID.elixir.baseTier, 7);
   assert.eq(itemValue('antidote'), 12);
   assert.eq(itemValue('elixir'), 360);
   const used = new Set();
@@ -52,5 +52,16 @@ test('seed descriptions hint at planting without a growth formula', () => {
   for (const crop of ['potato', 'sunflower', 'fireflower', 'iceflower']) {
     assert.truthy(/earth/.test(ITEM_EFFECTS[crop + '_seed']));
     assert.falsy(/\d/.test(ITEM_EFFECTS[crop + '_seed']));
+  }
+});
+
+test('unique relics: fixed-tier equipment values and no ordinary shop or loot stock', () => {
+  const unique = ITEMS.filter(item => item.kind === 'unique_relic');
+  assert.eq(unique.length, 11);
+  for (const item of unique) {
+    assert.eq(itemValue(item.id), gearPrice('relic', 'sword', item.baseTier), item.id);
+    assert.eq(invCatForItem(item.id), 'relic', item.id);
+    for (const pool of Object.values(Shops.THEME_POOL)) assert.falsy(pool().includes(item.id), item.id + ' is reward-only');
+    for (const pool of Object.values(ITEMS_BY_CLASS_TIER)) assert.falsy(Object.values(pool).flat().includes(item.id), item.id + ' excluded from generic loot');
   }
 });

@@ -563,7 +563,7 @@ class SceneCreatures {
         if (caughtSet.has(r.id)) continue;
         // A raised pet carries its birth (SpriteLayout.isBabyPet) back too.
         creatures.push(WorldGen.makeCreature(r.kind, r.x, r.y, r.id, {
-          shiny: !!r.shiny, ...(r.raised ? { raised: true, born: r.born } : {}),
+          shiny: !!r.shiny, ...(r.raised ? { raised: true, born: r.born, favouriteFeeds: r.favouriteFeeds || 0 } : {}),
         }));
       }
     }

@@ -12,7 +12,7 @@
     const scene = {
       save: { money: 20, inv: [], relics: {}, selSlot: -1 },
       addToInv, _finishInventoryChange: finish,
-      invEntriesForCat() { return this.save.inv.map((entry, idx) => ({ entry, idx })); },
+      invDisplayEntriesForCat() { return this.save.inv.map((entry, idx) => ({ entry, idx })); },
       buildInventoryDOM() {
         refreshes++;
         assert.eq(this.save.money, 15);
@@ -64,7 +64,7 @@
     const scene = {
       save: { inv: [], relics: {}, selSlot: -1 },
       _finishInventoryChange: finish,
-      invEntriesForCat() { return [{ idx: 0 }]; },
+      invDisplayEntriesForCat() { return [{ idx: 0 }]; },
       buildInventoryDOM() { refreshes++; },
     };
     assert.eq(addToInv.call(scene, 'potato', 2), 2);

@@ -234,6 +234,23 @@ const ASSETS = {
   icon_torch:  { kind: 'spritesheet', path: 'assets/Icons/Items/Torch.png', frameWidth: 16, frameHeight: 16 },
   // Shared inventory and projectile art: frame 0 faces right, frame 1 down.
   icon_spear:  { kind: 'spritesheet', path: 'assets/Icons/Items/Spear.png', frameWidth: 16, frameHeight: 16 },
+  // The stronger throwing weapon keeps the spear silhouette, in cold steel.
+  // Recolour source pixels so Canvas and WebGL, plus baked DOM icons, agree.
+  icon_javelin: {
+    kind: 'spritesheet', path: 'assets/Icons/Items/Spear.png', frameWidth: 16, frameHeight: 16,
+    onLoad: scene => {
+      const src = scene.textures.get('icon_javelin').getSourceImage();
+      const canvas = document.createElement('canvas');
+      canvas.width = src.width; canvas.height = src.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(src, 0, 0);
+      const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      recolorEnemyPixels(image.data, { shadow: '#25445a', mid: '#70a7bc', highlight: '#e4f7ff' });
+      ctx.putImageData(image, 0, 0);
+      scene.textures.remove('icon_javelin');
+      scene.textures.addSpriteSheet('icon_javelin', canvas, { frameWidth: 16, frameHeight: 16 });
+    },
+  },
   // Orchard fruit icons — 32×16 each, two 16×16 frames (frame 0 is the whole
   // fruit; frame 1 a slice). These are the inventory icons (items.js
   // MINERAL_ICON_SHEET), loaded as WORLD textures too because a bearing fruit

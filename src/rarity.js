@@ -238,7 +238,7 @@
   function buildClassTierIndex() {
     const out = {};
     for (const it of _ITEMS) {
-      if (it.shiny) continue;
+      if (it.shiny || it.kind === 'unique_relic') continue;
       // A BABY PET (items.js BABY_KINDS) comes from a nest bush or an egg,
       // never a chest — the same shape of exception as a shiny.
       if (it.baby) continue;
@@ -293,7 +293,7 @@
     const _PRICES = (typeof PRICES !== 'undefined') ? PRICES : {};
     const byTier = {};
     for (const it of _ITEMS) {
-      if (it.shiny) continue;
+      if (it.shiny || it.kind === 'unique_relic') continue;
       const t = it.baseTier, p = _PRICES[it.id];
       if (typeof t !== 'number' || !(p > 0)) continue;
       (byTier[t] = byTier[t] || []).push(p);
@@ -346,7 +346,8 @@
     const boon = typeof Shrines !== 'undefined' && Shrines.leverActive(save, 'fortune', now)
       ? Shrines.FORTUNE_LUCK_BONUS : 0;
     const keyBonus = carriesItem(save, 'lucky_key') ? CARRIED_ITEM_SPEC.lucky_key.luckBonus : 0;
-    return (Math.max(0, Math.min(7, Math.floor(save?.luckUpgrades || 0))) + keyBonus)
+    const mealBonus = (save?.miracleLettuceUntil || 0) > now ? CONSUMABLE_SPEC.miracle_lettuce.luckBonus : 0;
+    return (Math.max(0, Math.min(7, Math.floor(save?.luckUpgrades || 0))) + keyBonus + mealBonus)
       * RARITY_TUNING.luckPerUpgrade + boon;
   }
   // The wizard's QUANTITY ladder: P(one extra qty-bracket bump on a roll).
@@ -484,7 +485,6 @@
       vigor_potion: 1, shield_potion: 1, reach_potion: 1, speed_potion: 1,
       revive_potion: 1, blight_potion: 1, raven_potion: 1, thunder_potion: 1, resurrection_potion: 1,
       growth_powder: 1, shadow_powder: 1, dragon_powder: 1, frost_powder: 1,
-      stealth_ring: 0.2, invisibility_ring: 0.1, regen_amulet: 0.2, vigor_amulet: 0.1,
       sapphire: 1, ruby: 1, emerald: 1, diamond: 1,
     } },
   };
@@ -632,7 +632,7 @@
     theme = ChestThemes.normalize(theme);
     const chestTier = Math.max(1, Math.min(5, opts.tier || 2));
     const { tier, bracket, jackpotApplied } = quality;
-    const selectionOpts = { ...opts, theme, chestTier };
+    const selectionOpts = { ...opts, theme, chestTier, save };
     const group = weightedPick(ChestThemes.weights(theme, tier, opts), rng);
     let resolved;
     try { resolved = ChestThemes.resolve(group, tier, selectionOpts); }
@@ -655,7 +655,8 @@
     }
     const id = ChestThemes.pickItem(resolved, tier, rng, selectionOpts);
     return { kind: 'item', id, qty: ChestThemes.quantity(id, tier, bracket, rng),
-      tier, cls: _ITEM_BY_ID[id].kind, ...meta };
+      tier: _ITEM_BY_ID[id].kind === 'unique_relic' ? _ITEM_BY_ID[id].baseTier : tier,
+      cls: _ITEM_BY_ID[id].kind, ...meta };
   }
 
   function pickReward(contextKey, save, rng, opts) {

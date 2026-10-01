@@ -572,7 +572,8 @@ const STAND_KEYWORD_ITEM = {
   // fruit
   fruit: 'apple', fruits: 'apple', orchard: 'apple', apple: 'apple', apples: 'apple',
   cider: 'apple', orange: 'orange', oranges: 'orange', citrus: 'orange',
-  peach: 'peach', peaches: 'peach', cherry: 'cherry', cherries: 'cherry',
+  // Peaches are rare finds, not an unlimited market named after the fruit.
+  cherry: 'cherry', cherries: 'cherry',
   banana: 'banana', bananas: 'banana', mango: 'mango', tropical: 'mango',
   coconut: 'coconut', apricot: 'apricot', berry: 'berry', berries: 'berry',
   smoothie: 'berry', jam: 'berry', acai: 'berry', preserves: 'berry',

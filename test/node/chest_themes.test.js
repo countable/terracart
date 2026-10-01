@@ -45,16 +45,19 @@ test('chest themes: cave mixture adds medicine and retains the location share', 
     if (tier === 1) assert.eq(w.antidote, 24);
     else assert.eq(w.caveMagic, tier === 2 ? 24 : 32);
   }
-  const r = ChestThemes.resolve('caveMagic', 6, { depth: 1 });
-  const rng = makeRng32(101);
-  let powders = 0, elixirs = 0;
-  for (let i = 0; i < 5000; i++) {
-    const id = ChestThemes.pickItem(r, 6, rng);
-    if (id.endsWith('_powder')) powders++;
-    if (id === 'elixir') elixirs++;
+  for (const [tier, top] of [[6, 'resurrection_potion'], [7, 'elixir']]) {
+    const r = ChestThemes.resolve('caveMagic', tier, { depth: 1 });
+    const rng = makeRng32(101);
+    let powders = 0, topItems = 0;
+    for (let i = 0; i < 5000; i++) {
+      const id = ChestThemes.pickItem(r, tier, rng);
+      assert.lte(ITEM_BY_ID[id].baseTier, tier, 'no medicine above the rolled tier');
+      if (id.endsWith('_powder')) powders++;
+      if (id === top) topItems++;
+    }
+    assert.inRange(topItems / 5000, 0.67, 0.73);
+    assert.gt(powders, 150, 'deep magic retains useful lower-tier powders');
   }
-  assert.inRange(elixirs / 5000, 0.67, 0.73);
-  assert.gt(powders, 150, 'deep magic retains useful lower-tier powders');
 });
 
 test('chest themes: recovery, revival and protection remain distinct', () => {
@@ -62,8 +65,8 @@ test('chest themes: recovery, revival and protection remain distinct', () => {
     const opts = { theme: 'health' };
     const recovery = ChestThemes.resolve('recovery', tier, opts);
     const ids = ChestThemes.selectableIds(recovery);
-    if (tier === 1) assert.eq(recovery.group, 'restorative');
-    else assert.eq(ids.join(','), tier >= 6 ? 'elixir' : 'vigor_potion');
+    if (tier < 4) assert.eq(recovery.group, 'restorative');
+    else assert.eq(ids.join(','), tier >= 7 ? 'elixir' : 'vigor_potion');
     const revival = ChestThemes.resolve('revival', tier, opts);
     if (tier === 1) assert.eq(revival.group, 'restorative');
     else assert.eq(ChestThemes.selectableIds(revival).join(','), tier >= 5 ? 'resurrection_potion' : 'revive_potion');

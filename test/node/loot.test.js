@@ -266,11 +266,11 @@ test('cash: a money roll carries NO slot — that is what tells it from a gear c
 
 test('cash: the purse is worth what an ITEM of the same tier is worth', () => {
   // CASH_TIER_VALUE is the median of items.js PRICES over each tier — derived
-  // from the very table the shops price against, never a hand-picked ladder.
+  // from ordinary item prices; fixed-tier equipment does not inflate cash drops.
   const median = (a) => a.sort((x, y) => x - y)[Math.floor(a.length / 2)];
   const byTier = {};
   for (const it of ITEMS) {
-    if (it.shiny) continue;
+    if (it.shiny || it.kind === 'unique_relic') continue;
     const p = PRICES[it.id];
     if (typeof it.baseTier !== 'number' || !(p > 0)) continue;
     (byTier[it.baseTier] = byTier[it.baseTier] || []).push(p);

@@ -85,8 +85,8 @@ test('chest themes: gear belongs to civic, cultural and protective groups', () =
   }
   assert.eq(ChestThemes.weights('civic', 4).noncombatGear, 15);
   assert.eq(ChestThemes.weights('school', 4).noncombatGear, 10);
-  assert.eq(ChestThemes.weights('culture', 4).culturalGear, 35);
-  assert.eq(ChestThemes.weights('authority', 4).protectiveGear, 40);
+  assert.eq(ChestThemes.weights('culture', 4).culturalGear, 35 * 0.95);
+  assert.eq(ChestThemes.weights('authority', 4).protectiveGear, 40 * 0.95);
 });
 
 test('chest themes: roadside never awards gear, even at high quality', () => {

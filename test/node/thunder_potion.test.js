@@ -15,7 +15,7 @@ const body = (() => {
 })();
 
 test('thunder potion: a T4 potion with a price, an icon and a ✦ line quoting its damage', () => {
-  assert.eq(THUNDER_DMG, 10, '10 damage');
+  assert.eq(THUNDER_DMG, 25, '25 damage');
   assert.eq(BASE_TIER.thunder_potion, 4, 'tier 4');
   assert.eq(ITEM_BY_ID.thunder_potion?.kind, 'magic', 'drunk, not eaten');
   assert.eq(FOOD_ENERGY.thunder_potion, undefined, 'never on the Eat button');

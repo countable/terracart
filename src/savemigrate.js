@@ -58,7 +58,8 @@
   //       is unchanged (it only keeps a week now — macros.js markToday).
   //   6 — remove retired mini vampire bats from saved released creatures.
   //   7 — tiered ring/amulet gear becomes permanent luck + an amulet refund.
-  const SAVE_SCHEMA = 7;
+  //   8 — favourite meals required to raise a baby; preserve existing adults.
+  const SAVE_SCHEMA = 8;
   // Frozen prices for schema-7's one-time refund. These describe removed gear,
   // so they stay here rather than keeping a dead amulet row in items.js.
   const LEGACY_AMULET_BASE_COST = 60;
@@ -96,6 +97,17 @@
 
   function migrate(save) {
     let needsPersist = false;
+    if ((save.schema || 0) < 8 && Array.isArray(save.released)) {
+      const now = Date.now();
+      for (const pet of save.released) {
+        if (!pet.raised || pet.favouriteFeeds != null) continue;
+        // Older saves never recorded meals. Keep already-grown pets adult;
+        // younger pets begin tracking meals with this update.
+        pet.favouriteFeeds = Number.isFinite(pet.born) && now - pet.born >= SpriteLayout.PET_BABY.growMs
+          ? SpriteLayout.PET_BABY.feeds : 0;
+        needsPersist = true;
+      }
+    }
     if ((save.schema || 0) < 3) {
       if (save.invCat === 'consumables') {
         const selected = save.inv?.[save.selSlot]?.id;

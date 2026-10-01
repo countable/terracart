@@ -13,7 +13,7 @@ function throwScene(overrides = {}) {
     isShadowActive() { return false; },
     ...overrides,
   };
-  const names = ['throwCooldownLeft', 'throwActionLabel', 'canThrowItem', '_throwItem', 'useSpear', 'useRock', '_tickThrowButton', 'useForgetmenot', 'useWildrose', '_friendlyShotHitsEnemy', '_shotCanHit', '_shotHitsTarget'];
+  const names = ['throwCooldownLeft', 'throwActionLabel', 'canThrowItem', '_throwItem', 'useSpear', 'useJavelin', 'useRock', '_tickThrowButton', 'useForgetmenot', 'useWildrose', '_friendlyShotHitsEnemy', '_shotCanHit', '_shotHitsTarget'];
   const methods = names.map(name => {
     const method = APP_JS_SRC.match(new RegExp('\\n  (' + name + '\\([^\\n]*\\) \\{\\n[\\s\\S]*?\\n  \\})\\n'));
     assert.truthy(method, `${name} exists`);
@@ -42,23 +42,23 @@ function fly(shot, enemies, blocked = () => false, onHit = () => {}) {
 test('spear: available as a consumable with an active throwing action', () => {
   assert.truthy(ITEM_BY_ID.spear, 'catalog entry');
   assert.eq(CONSUMABLE_SPEC.spear.method, 'useSpear');
-  assert.eq(CONSUMABLE_SPEC.spear.damage, 25);
+  assert.eq(CONSUMABLE_SPEC.spear.damage, 20);
   assert.gt(PRICES.spear, 0);
   assert.truthy(ITEM_EFFECTS.spear);
   assert.truthy(MINERAL_ICON_SHEET.spear, 'inventory art');
 });
 
-test('spear: one use throws one 25-damage arrow-like shot without a bow or wood', () => {
+test('spear: one use throws one 20-damage arrow-like shot without a bow or wood', () => {
   const { scene, result } = throwSpear();
   assert.eq(result, true);
   assert.eq(scene._shots.length, 1);
   const shot = scene._shots[0];
-  const arrow = Combat.spawnShot('bow', 103, 204, scene.facing, CELL, 25, 1, 4);
+  const arrow = Combat.spawnShot('bow', 103, 204, scene.facing, CELL, 20, 1, 4);
   assert.eq(shot.projectile, 'spear', 'distinct flying art');
   for (const key of ['slot', 'x', 'y', 'vx', 'vy', 'speedMps', 'rangeM', 'pierce', 'damage']) {
     assert.eq(shot[key], arrow[key], key);
   }
-  assert.eq(shot.damage, 25, 'a dragon buff does not scale the fixed damage');
+  assert.eq(shot.damage, 20, 'a dragon buff does not scale the fixed damage');
   assert.eq(scene.save.inv[0].count, 1);
   assert.eq(scene.persisted, 1);
   assert.eq(scene.rebuilt, 1);
@@ -95,14 +95,14 @@ test('spear: invalid selection, empty stack, downed or shadowed player, or absen
   }
 });
 
-test('spear: only the first enemy on its line takes the 25 damage', () => {
+test('spear: only the first enemy on its line takes the 20 damage', () => {
   const { scene } = throwSpear();
   const near = { id: 'near', kind: 'goblin', x: 117, y: 204 };
   const far = { id: 'far', kind: 'goblin', x: 131, y: 204 };
   const hits = fly(scene._shots[0], [far, near]);
   assert.eq(hits.length, 1);
   assert.eq(hits[0].enemy, near);
-  assert.eq(hits[0].damage, 25);
+  assert.eq(hits[0].damage, 20);
 });
 
 test('spear: terrain stops it and a miss expires at arrow range', () => {
@@ -259,4 +259,71 @@ test('charmed allies: hostile impacts damage the creature rather than the player
   assert.eq(hits[0].amount, 7);
   assert.eq(hits[0].source, 'enemy');
 });
+
+test('javelin: T4 supply and renamed T1 spear keep separate damage and shared recovery', () => {
+  assert.eq(ITEM_BY_ID.spear.name, 'Throwing Spear');
+  assert.eq(ITEM_BY_ID.spear.baseTier, 1);
+  assert.eq(ITEM_BY_ID.javelin.baseTier, 4);
+  assert.eq(CONSUMABLE_SPEC.javelin.damage, 40);
+  assert.truthy(Shops.themedStock('supply', 4).includes('javelin'));
+  const scene = throwScene({ save: { energy: 50,
+    inv: [{ id: 'javelin', count: 2 }, { id: 'spear', count: 2 }], selSlot: 0 } });
+  assert.truthy(scene.useJavelin());
+  const shot = scene._shots[0];
+  assert.eq(shot.projectile, 'javelin'); assert.eq(shot.damage, 40);
+  assert.eq(scene.save.inv[0].count, 1);
+  const hits = fly(shot, [{ id: 'first', kind: 'slime', x: 117, y: 204 },
+    { id: 'second', kind: 'slime', x: 124, y: 204 }]);
+  assert.eq(hits.length, 1); assert.eq(hits[0].damage, 40);
+  scene.save.selSlot = 1;
+  assert.falsy(scene.useSpear(), 'switching weapons does not bypass recovery');
+  scene.now += 3000;
+  assert.truthy(scene.useSpear()); assert.eq(scene._shots[1].damage, 20);
+  scene.save.selSlot = 0;
+  assert.falsy(scene.useJavelin(), 'the weaker spear also holds the shared cooldown');
+  assert.eq(scene.save.inv[0].count, 1);
+});
+
+test('javelin: refused throw preserves ammo and a missed throw still spends it', () => {
+  const scene = throwScene({ save: { energy: 0, inv: [{ id: 'javelin', count: 1 }], selSlot: 0 } });
+  assert.falsy(scene.useJavelin()); assert.eq(scene.save.inv[0].count, 1);
+  scene.save.energy = 50;
+  assert.truthy(scene.useJavelin()); assert.eq(scene.save.inv.length, 0);
+  assert.eq(fly(scene._shots[0], []).length, 0);
+});
+
+test('javelin: runtime steel recolour preserves alpha and registers the same sheet geometry', () => {
+  const window = {}, pixels = new Uint8ClampedArray([0, 0, 0, 255, 160, 120, 60, 128, 255, 255, 255, 0]);
+  let registered, written;
+  const canvas = { getContext: () => ({ drawImage() {},
+    getImageData: () => ({ data: pixels }), putImageData: image => { written = image.data; } }) };
+  new Function('window', 'EnemyRoster', 'SpriteLayout', 'document', ASSETS_SRC)(window, EnemyRoster, SpriteLayout,
+    { createElement: () => canvas });
+  window.ASSETS.icon_javelin.onLoad({ textures: {
+    get: () => ({ getSourceImage: () => ({ width: 32, height: 16 }) }), remove() {},
+    addSpriteSheet: (key, source, frames) => { registered = { key, source, frames }; },
+  } });
+  assert.eq(registered.key, MINERAL_ICON_SHEET.javelin.sheet);
+  assert.eq(registered.frames.frameWidth, 16); assert.eq(registered.frames.frameHeight, 16);
+  assert.eq(canvas.width, 32); assert.eq(canvas.height, 16);
+  assert.eq(written[3], 255); assert.eq(written[7], 128); assert.eq(written[11], 0);
+  assert.gt(written[6], written[4], 'steel blue replaces the original warm shaft');
+  assert.truthy(APP_JS_SRC.includes("ITEM_DATA_URLS.javelin = bakeSheetFrame('icon_javelin', 0, 16, 16)"),
+    'all DOM surfaces bake the same recoloured texture');
+});
+
+test('javelin: projectile sprite pool switches between both inventory art sheets', () => {
+  const m = APP_JS_SRC.match(/\n  (_drawShots\(\) \{\n[\s\S]*?\n  \})\n/);
+  const draw = new Function('SHOT_DRAW_LIFT_PX', 'return ({' + m[1] + '})._drawShots;')(10);
+  const sprite = { setTexture(sheet) { this.sheet = sheet; return this; },
+    setScale() { return this; }, setVisible() { return this; }, setPosition() { return this; }, setRotation() { return this; } };
+  const scene = { projGfx: { clear() {} }, _spearPool: [sprite], _boltPool: [], _drawStaffCharge() {},
+    worldMetersToScreen: (x, y) => ({ x, y }), _shots: [] };
+  for (const projectile of ['javelin', 'spear', 'javelin']) {
+    scene._shots = [{ projectile, slot: 'bow', x: 0, y: 0, vx: 1, vy: 0 }];
+    draw.call(scene);
+    assert.eq(sprite.sheet, inventoryIconSource(projectile).sheet, 'pooled sprite uses the current item art');
+  }
+});
+
 })();

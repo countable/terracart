@@ -13,6 +13,12 @@
   // Park, forest and grove trees share this ordered set so a species change
   // reaches every generated tree lane.
   const TREE_SPECIES = Object.freeze(['maple', 'pine']);
+  // Both procedural fruit sources share the same rare-peach selection. The
+  // caller supplies its existing stable polygon/cell hash; no RNG draw changes.
+  const PEACH_ONE_IN = 50;
+  function fruitTreeSpecies(hash) {
+    return (hash >>> 0) % PEACH_ONE_IN === 0 ? 'peach' : 'apple';
+  }
   // Temporarily pause the detected-tree layer, including already cached bins.
   const DEEPFOREST_TREES_ENABLED = false;
 
@@ -3820,9 +3826,9 @@
     // there is no draw order to preserve — only the yield cadence is new.
     function* spawnFruitTreesSteps(rings, polyKey) {
       // Only two fruit-tree species are available in the world now: common
-      // apple, rare peach. Peach is 6x as rare → 1 orchard polygon in 7 is
-      // peach. One species per orchard polygon.
-      const species = ((polyKey >>> 8) % 7 === 0) ? 'peach' : 'apple';
+      // apple, very rare peach. One species per orchard polygon, using the
+      // same rare-peach rate as individually classified fruit trees.
+      const species = fruitTreeSpecies(polyKey >>> 8);
       const bb = bboxOf(rings);
       const stepMvt = 13 / mvtToM; // one fruit tree per ~13m — planted feel
       let _row = 0;
@@ -6592,13 +6598,12 @@
             if (props.score != null && props.score < SATEXTRACT_TREE_MIN_SCORE) continue;
             const p = project(lon, lat0);
             const { lix, liy } = p;
-            // Peaches are 5× rarer than apples (apple:peach = 5:1). The satellite
-            // colour classifier over-reported peaches, so assign species from a
-            // stable per-cell hash (1 in 6 → peach) instead of trusting it.
+            // The classifier over-reported peaches; use the same rare-peach
+            // rate as orchards, keyed by the tree's stable cell identity.
             const ftHash = cellHash(p.tx, p.ty, lix, liy);
             binFor(p.tx, p.ty).fruittrees.push({
               kind: 'fruittree', lix, liy,
-              species: ftHash % 6 === 0 ? 'peach' : 'apple',
+              species: fruitTreeSpecies(ftHash),
               // Named by osm_id when it has one, else by its settled cell at
               // injection (loadTile) — see the tree row above.
               id: osmId ? `ft_osm_${osmId}` : undefined,
@@ -8204,7 +8209,7 @@
     rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0), caveRockP, caveOreWeights, caveOreTiers, LEVEL1_COPPER_SHARE,
     // One tree-species table feeds parks, forests and zone groves. The vein
     // helper is exported for the deterministic cave distribution regression.
-    TREE_SPECIES, rollVeinTable,
+    TREE_SPECIES, PEACH_ONE_IN, fruitTreeSpecies, rollVeinTable,
     // Per-class road width — the road-geometry overlay strokes with it.
     roadWidthM,
     // …and the width it actually COVERS, large-tier weighting included. The

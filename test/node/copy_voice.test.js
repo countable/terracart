@@ -317,7 +317,7 @@ test('map copy: a line that names an item fits at the longest name', () => {
   // The three shapes those names go into, measured with the worst case in them.
   const shapes = [
     `\u{1F331} ${longestCrop} — water it.`,
-    `Pick the ${longestCrop} first.`,
+    `Pick ${longestCrop} first.`,
     `${longestCrop} grows here.`,
   ];
   for (const line of shapes) {

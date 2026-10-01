@@ -19,7 +19,7 @@ test('isMature: at or past MAX_GROWTH_STAGE', () => {
 test('advanceGrowth: a watered crop past its hold advances ONE stage and needs re-water', () => {
   const t0 = 1_000_000;
   const save = { planted: [{ x: 0, y: 0, crop: 'berry', stage: 0, watered_t: t0 }] };
-  const changed = Crops.advanceGrowth(save, t0 + HOLD());
+  const changed = Crops.advanceGrowth(save, t0 + Crops.stageHoldMs('berry'));
   assert.eq(changed, true, 'something advanced');
   assert.eq(save.planted[0].stage, 1, 'advanced exactly one stage');
   assert.eq(save.planted[0].watered_t, 0, 'reset so it needs re-watering');
@@ -28,7 +28,7 @@ test('advanceGrowth: a watered crop past its hold advances ONE stage and needs r
 test('advanceGrowth: only advances once even after many holds elapse', () => {
   const t0 = 1_000_000;
   const save = { planted: [{ x: 0, y: 0, crop: 'berry', stage: 0, watered_t: t0 }] };
-  Crops.advanceGrowth(save, t0 + HOLD() * 5);     // 5 holds late
+  Crops.advanceGrowth(save, t0 + Crops.stageHoldMs('berry') * 5);     // 5 holds late
   assert.eq(save.planted[0].stage, 1, 'still just one stage — catches up over re-waterings');
 });
 
@@ -39,7 +39,7 @@ test('advanceGrowth: unwatered / not-yet-held / mature crops are left alone', ()
     { x: 1, y: 0, crop: 'berry', stage: 0, watered_t: t0 },            // watered but too soon
     { x: 2, y: 0, crop: 'berry', stage: Crops.maxStage(), watered_t: t0 }, // already mature
   ] };
-  const changed = Crops.advanceGrowth(save, t0 + HOLD() - 1);          // just before the hold
+  const changed = Crops.advanceGrowth(save, t0 + Crops.stageHoldMs('berry') - 1);          // just before the hold
   assert.eq(changed, false, 'nothing advanced');
   assert.eq(save.planted[0].stage, 0);
   assert.eq(save.planted[1].stage, 0);
@@ -247,7 +247,7 @@ test('bed quality: the till banks it, the plant spends it, the harvest reads it'
 // Magical flowers take hours, but retain the same watering and powder rules.
 test('magical flowers: each crop uses its own hold and advances once offline', () => {
   const now = 50_000_000;
-  for (const [crop, minutes] of [['berry', 4], ['sunflower', 240], ['fireflower', 480], ['iceflower', 840]]) {
+  for (const [crop, minutes] of [['berry', 30], ['sunflower', 240], ['fireflower', 480], ['iceflower', 840]]) {
     const hold = minutes * 60 * 1000;
     assert.eq(Crops.stageHoldMs(crop), hold, crop);
     const p = { crop, stage: 0, watered_t: now };
@@ -314,7 +314,7 @@ test('crop tier sets the stage hold; the can shortens the stage it starts', () =
     assert.eq(Crops.tierHoldMs(tier), min * MIN, `tier ${tier}: ${min} min`);
   }
   assert.eq(Crops.stageHoldMs('potato'), Crops.STAGE_HOLD_MS, 'tier 1: the base');
-  assert.eq(Crops.stageHoldMs('pairy'), 30 * MIN, 'tier 2');
+  assert.eq(Crops.stageHoldMs('pairy'), 240 * MIN, 'tier 4');
   assert.eq(Crops.stageHoldMs('coffee'), 120 * MIN, 'tier 3');
   assert.eq(Crops.stageHoldMs('sunflower'), 240 * MIN, 'a magical flower rides the same curve');
   assert.eq(Crops.CAN_HOLD_CUT, 0.875, 'a Frost can: an eighth of the wait');

@@ -622,7 +622,7 @@ const INTERACTABLES = {
       const chestT = chapel ? Macros.chapelRollTier(o)
         : ((typeof chestTier === 'function') ? chestTier(o) : 2);
       const theme = chestThemeFor(o);
-      const result = held
+      let result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: held.consolation || 0 }
         // Starter chests carry a fixed payload (9 wood / 9 rockfruit / 9 seeds,
         // or the spawn relic chest's wooden tool) so the first restoration loop
@@ -636,6 +636,7 @@ const INTERACTABLES = {
                     ? pickReward('chest:' + theme, save, undefined, { tier: chestT, depth: chestLootDepth(o),
                         venueProduct: venueProductFor(o) })
                     : null)));
+      result = Rewards.reconcileUnique(save, result);
       if (!result) {
         addMoney(save, 1);
         markOpened();
@@ -666,6 +667,7 @@ const INTERACTABLES = {
         // gear cash-out below by exactly that field, the same test
         // interact.js grantTreasureRoll uses.
         markOpened();
+        if (save.chestHold) delete save.chestHold[o.id];
         ctx.dirty = true;
         Rewards.apply(save, result, scene);
         scene.showChestRewardModal({ ...dress,

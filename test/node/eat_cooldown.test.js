@@ -94,7 +94,7 @@ test('eat cooldown: the Eat button greys itself on the SAME expression the tap r
     'only the text span is rewritten per tick');
   assert.truthy(/if \(btn\.dataset\.id !== sel\.id\) \{/.test(body),
     'the icon is rebuilt only on a change of selection');
-  assert.truthy(/const dim = cooling \|\| locked;/.test(body), 'cooling is one of the reasons to dim');
+  assert.truthy(/const dim = cooling \|\| locked \|\| fishWait > 0;/.test(body), 'cooling is one of the reasons to dim');
   assert.truthy(/dim \? EAT_COOLING_INK/.test(body) && /dim \? EAT_COOLING_EDGE/.test(body),
     'ink and edge go dim while cooling (or locked out)');
 });
@@ -120,7 +120,7 @@ test('eat cooldown: the button is driven every frame, and rebuilt only on the se
   assert.truthy(/if \(!btn\) \{ this\._eatCdShown = null; return; \}/.test(body),
     'no button selected = nothing to tick');
   assert.truthy(/this\._paintEatCooldownBar\(btn, left\)/.test(body), 'the bar moves every frame');
-  assert.truthy(/if \(shown !== this\._eatCdShown \|\| locked !== this\._eatLockShown\) this\.syncEatButton\(\);/.test(body),
+  assert.truthy(/if \(shown !== this\._eatCdShown \|\| locked !== this\._eatLockShown \|\| fishShown !== this\._eatFishShown\) this\.syncEatButton\(\);/.test(body),
     'the label (and the un-greying) only rebuilds when the reading or the lockout changes');
   assert.truthy(/this\._tickEatButton\(\);/.test(app.slice(app.indexOf('_updateTimed(_, dtMs) {'))),
     'update() drives it');
@@ -132,7 +132,7 @@ test('eat button: greyed while down and locked out, the feather excepted', () =>
   assert.truthy(/const locked = this\._eatLockShown && !featherRevive;/.test(body),
     'locked out = the same _zeroEnergyLocked eatSelected refuses on, minus the feather that still works');
   assert.truthy(/this\._eatLockShown = this\._zeroEnergyLocked\(\);/.test(body), 'off the one lockout test');
-  assert.truthy(/const dim = cooling \|\| locked;/.test(body), 'a lockout dims it like the cooldown');
+  assert.truthy(/const dim = cooling \|\| locked \|\| fishWait > 0;/.test(body), 'a lockout dims it like the cooldown');
   assert.truthy(/btn\.style\.color = dim \? EAT_COOLING_INK : UI_GREEN;/.test(body), 'and the face reads it');
   const eat = app.slice(app.indexOf('  eatSelected() {'));
   assert.truthy(/if \(locked && !featherRevive\) return false;/.test(eat), 'which is exactly what the tap refuses');
@@ -166,7 +166,7 @@ test('eat cooldown: potions are exempt because they never go through the gate', 
   assert.truthy(!/Energy\.canEat|Energy\.startEatCooldown/.test(body),
     'the energy potion neither checks nor arms the bite cooldown');
   assert.truthy(/Energy\.set\(this\.save, \(this\.save\.energy \?\? 0\) \+ VIGOR_POTION_ENERGY, max\)/.test(body)
-    && VIGOR_POTION_ENERGY === 40,
+    && VIGOR_POTION_ENERGY === 65,
     'and it still restores on the spot');
 });
 // The foods with an extra effect (rainberry, pairy, coffee) keep tuning rows

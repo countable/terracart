@@ -65,14 +65,22 @@
   }
 
   // Did a drain from `before` to the current save.energy cross into "tired"?
-  // False while a Potion of Reach pins reach to the full view (nothing shrinks).
+  // False while a reach potion or Dawnfruit pins the full view (nothing shrinks).
   function crossedTired(save, before, now = Date.now()) {
-    if ((save.reachPotionUntil ?? 0) > now) return false;
+    if (fullViewReachActive(save, now)) return false;
     // Refresh save.maxEnergy first so the tired line is computed against the
     // current cap, not a value left stale since the last maxEnergy() call.
     maxEnergy(save);
     const tired = tiredThreshold(save);
     return before >= tired && (save.energy ?? 0) < tired;
+  }
+
+  function dawnfruitActive(save, now = Date.now()) {
+    return (save?.dawnfruitUntil ?? 0) > now;
+  }
+  // Reach, lighting and the tired warning agree on a fully lit view.
+  function fullViewReachActive(save, now = Date.now()) {
+    return (save?.reachPotionUntil ?? 0) > now || dawnfruitActive(save, now);
   }
 
   // THE ONE WRITER of save.energy. Energy is a WHOLE number: the bar, the
@@ -184,6 +192,43 @@
     return save.energy - before;
   }
 
+  // A fish's FOOD_ENERGY is its total over three minutes, never an instant
+  // restore. Fishing's species table also owns which grilled dishes are fish.
+  const FISH_REGEN_MS = 3 * 60 * 1000;
+  function fishRegenTotal(id) {
+    return FISH_SPECIES.some(f => f.id === id || COOKED_FOODS[f.id]?.id === id)
+      ? FOOD_ENERGY[id] : 0;
+  }
+  function fishRegenWait(save, id, now = Date.now()) {
+    const total = fishRegenTotal(id), buff = save?.fishRegen;
+    return total && buff?.total > total ? Math.max(0, buff.until - now) : 0;
+  }
+  function startFishRegen(save, id, now = Date.now()) {
+    const total = fishRegenTotal(id);
+    if (!total || fishRegenWait(save, id, now)) return false;
+    // One dose at a time. Equal/stronger meals replace the remaining dose;
+    // weaker meals cannot extend a stronger fish's rate with cheap food.
+    save.fishRegen = { total, startedAt: now, until: now + FISH_REGEN_MS, paid: 0 };
+    return true;
+  }
+  function tickFishRegen(save, now = Date.now()) {
+    const buff = save?.fishRegen;
+    if (!buff) return 0;
+    // Cumulative whole pips preserve fractions across reloads and finish the
+    // final pip even when a frame crosses expiry. Persist this alongside energy
+    // so a resumed session pays only the as-yet-uncredited elapsed portion.
+    const elapsed = Math.max(0, Math.min(FISH_REGEN_MS, now - buff.startedAt));
+    const due = Math.floor(buff.total * elapsed / FISH_REGEN_MS + 1e-9);
+    const whole = Math.max(0, due - buff.paid);
+    buff.paid = Math.max(buff.paid, due);
+    if (now >= buff.until) delete save.fishRegen;
+    if (!whole) return 0;
+    const before = save.energy ?? 0;
+    set(save, before + whole, maxEnergy(save));
+    // Healing that arrives at a full bar is spent, never banked for later.
+    return save.energy - before;
+  }
+
   // The floor a revive lifts an empty bar to. REVIVE_FRAC (a quarter) is
   // Home's: arriving there on hard with nothing left. An item that revives
   // (the Crow Feather, the revival potions — items.js REVIVE_ITEM_FRAC)
@@ -195,6 +240,6 @@
     return Math.max(1, Math.round((maxE || 0) * frac));
   }
 
-  root.Energy = { set, tickShrineRegen, VIGOUR_ENERGY_STEP, REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tasteBonus, tiredThreshold, crossedTired,
+  root.Energy = { set, dawnfruitActive, fullViewReachActive, tickShrineRegen, FISH_REGEN_MS, fishRegenTotal, fishRegenWait, startFishRegen, tickFishRegen, VIGOUR_ENERGY_STEP, REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tasteBonus, tiredThreshold, crossedTired,
                   spend, applyOfflineRest, eatCooldownLeft, canEat, startEatCooldown };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

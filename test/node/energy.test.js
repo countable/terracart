@@ -26,11 +26,11 @@ test('maxEnergy: first-taste bonus — each distinct edible adds its FOOD TIER',
   const save = { armor: {}, eaten: ['potato', 'nut', 'berry'] };
   const sum = (ids) => ids.reduce((n, id) => n + ITEM_BY_ID[id].baseTier, 0);
   assert.eq(Energy.maxEnergy(save), 100 + sum(save.eaten), 'tasted foods add their tiers over the 100 base');
-  assert.eq(Energy.maxEnergy(save), 104, 'potato 1 + nut 2 + berry 1');
-  assert.eq(save.maxEnergy, 104, 'bonus folded into the written-back cap');
+  assert.eq(Energy.maxEnergy(save), 105, 'potato 1 + nut 2 + berry 2');
+  assert.eq(save.maxEnergy, 105, 'bonus folded into the written-back cap');
   save.eaten.push('iceflower');
   assert.eq(Energy.tasteBonus('iceflower'), ITEM_BY_ID.iceflower.baseTier, 'the bonus IS the item tier');
-  assert.eq(Energy.maxEnergy(save), 104 + ITEM_BY_ID.iceflower.baseTier, 'a rare taste grows the cap by its tier');
+  assert.eq(Energy.maxEnergy(save), 105 + ITEM_BY_ID.iceflower.baseTier, 'a rare taste grows the cap by its tier');
   assert.eq(Energy.maxEnergy({ armor: {}, eaten: ['nut', 'nut'] }), 100 + ITEM_BY_ID.nut.baseTier, 'a duplicate id counts once');
   assert.eq(Energy.maxEnergy({ armor: {} }), 100, 'no eaten list = no bonus');
 });

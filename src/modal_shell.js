@@ -848,8 +848,8 @@ class SceneModals {
       iconHTML: this.iconSpanHTML ? this.iconSpanHTML(babyId, 36) : '',
       name: item.name,
       sub: hatched
-        ? 'The shell falls away. Something small blinks up at you, hungry for soft ground.'
-        : 'Curled asleep in the leaves. It stirs, and looks to you for a place to grow.',
+        ? `The shell falls away, and a hungry baby blinks up at you. Set it down, find its favourite food and feed it ${SpriteLayout.PET_BABY.feeds} times to raise it to adulthood in ${spokenDuration(SpriteLayout.PET_BABY.growMs)}.`
+        : `You find a baby curled in the leaves. Set it down, find its favourite food and feed it ${SpriteLayout.PET_BABY.feeds} times to raise it to adulthood in ${spokenDuration(SpriteLayout.PET_BABY.growMs)}.`,
       color: UI_TREASURE,
       tier: item.baseTier || 0,
     });

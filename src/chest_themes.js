@@ -3,9 +3,12 @@
 (function (global) {
   const flowers = ['flowers', 'forgetmenot', 'marigold', 'wildrose', 'starflower', 'sunflower', 'fireflower', 'iceflower'];
   const magicalFlowers = ['sunflower', 'fireflower', 'iceflower'];
-  const foodIds = () => ITEMS.filter(i => i.kind === 'produce' && !i.cooked && FOOD_ENERGY[i.id] > 0 && !flowers.includes(i.id)).map(i => i.id);
+  // Utility food can restore zero energy and still be a harvestable meal.
+  const foodIds = () => ITEMS.filter(i => i.kind === 'produce' && !i.cooked
+    && Number.isFinite(FOOD_ENERGY[i.id]) && FOOD_ENERGY[i.id] >= 0 && !flowers.includes(i.id)).map(i => i.id);
   const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && foodIds().includes(i.grows)).map(i => i.id);
   const groups = {
+    uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic').map(i => i.id), mixedTiers: true, fallback: 'torch' },
     supplies: { ids: { torch: 3, rope: 1, trap_kit: 1, honey: 1 }, fallback: 'torch' },
     field: { ids: ['torch', 'rope', 'trap_kit'], fallback: 'torch' },
     farmSupplies: { ids: ['scarecrow', 'honey'], fallback: 'torch' },
@@ -27,11 +30,11 @@
     animalFood: { ids: () => [...new Set(['cat', 'dog', 'rabbit'].flatMap(k => ANIMAL_FOOD[k] || []))], fallback: 'restorative' },
     recovery: { ids: ['vigor_potion', 'elixir'], fallback: 'restorative' },
     antidote: { ids: ['antidote'] },
-    healing: { ids: { vigor_potion: 3, revive_potion: 2, resurrection_potion: 1, elixir: 1, regen_amulet: 0.2, vigor_amulet: 0.1 }, fallback: 'restorative' },
+    healing: { ids: { vigor_potion: 3, revive_potion: 2, resurrection_potion: 1, elixir: 1 }, fallback: 'restorative' },
     revival: { ids: { revive_potion: 3, resurrection_potion: 1 }, fallback: 'restorative' },
     shield: { ids: ['shield_potion'], fallback: { health: 'restorative', worship: 'restorative', default: 'field' } },
-    study: { ids: { reach_potion: 2, raven_potion: 1, shield_potion: 1, regen_amulet: 0.2 }, fallback: 'books' },
-    shadow: { ids: { raven_potion: 1, shadow_powder: 1, stealth_ring: 0.2, invisibility_ring: 0.1 }, fallback: 'flowers' },
+    study: { ids: { reach_potion: 2, raven_potion: 1, shield_potion: 1 }, fallback: 'books' },
+    shadow: { ids: { raven_potion: 1, shadow_powder: 1 }, fallback: 'flowers' },
     gems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], fallback: { culture: 'books', default: 'field' } },
     books: { ids: ['book'], minTier: { school: 1 }, fallback: 'torch' },
     honey: { ids: ['honey'], fallback: 'restorative' },
@@ -100,6 +103,14 @@
       }
       for (const [key, value] of Object.entries(cave)) out[key] = (out[key] || 0) + value * 0.4;
     }
+    // Rare permanent finds: one weighted lane, never ordinary shop or loot stock.
+    if (tier >= 2 && (opts.tier ?? tier) >= 2) {
+      const share = ['culture', 'authority', 'vista'].includes(normalize(theme)) ? 5 : 0;
+      if (share) {
+        for (const key of Object.keys(out)) out[key] *= (100 - share) / 100;
+        out.uniqueRelics = share;
+      }
+    }
     return out;
   }
   function members(group) {
@@ -117,6 +128,7 @@
     return Object.keys(members(group)).filter(id => {
       const item = ITEM_BY_ID[id];
       return item && !item.shiny && !item.cooked && (!item.caveOnly || opts.depth > 0)
+        && (item.kind !== 'unique_relic' || !carriesItem(opts.save, id))
         && (def.minTier?.[normalize(opts.theme)] ?? item.baseTier ?? 1) <= tier;
     });
   }
@@ -166,6 +178,7 @@
   }
   function cap(id) {
     const item = ITEM_BY_ID[id];
+    if (item.kind === 'unique_relic') return 1;
     if (['antidote', 'elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap'].includes(id)) return 1;
     if (['animal', 'sapling'].includes(item.kind) || ['sapphire', 'ruby', 'emerald', 'diamond'].includes(id)) return 1;
     if (item.kind === 'magic') return 3;

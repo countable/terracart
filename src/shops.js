@@ -118,7 +118,7 @@
     // The seeds any shop may sell (BUY_LIST: T1..T3 crops — the magical
     // flowers stay find-only).
     seed:   () => (typeof BUY_LIST !== 'undefined' ? BUY_LIST.slice() : []),
-    supply: () => ['wood', 'rockfruit', 'torch', 'rope', 'trap_kit', 'spear', 'scarecrow', 'book', 'magic_trap', 'honey'],
+    supply: () => ['wood', 'rockfruit', 'torch', 'rope', 'trap_kit', 'spear', 'javelin', 'scarecrow', 'book', 'magic_trap', 'honey'],
     potion: () => ITEMS.filter(item => item.kind === 'magic' && !item.uniqueJewelry).map(item => item.id),
     ore:    () => ['coal', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar',
                    'frost_bar', 'sapphire', 'ruby', 'emerald', 'diamond'],

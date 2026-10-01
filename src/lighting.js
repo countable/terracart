@@ -612,7 +612,7 @@
     const sv = (scene && scene.save) || {};
     const maxEnergy = sv.maxEnergy ?? 100;
     if (!(maxEnergy > 0)) return 0;
-    if ((sv.reachPotionUntil ?? 0) > Date.now()) return 0;
+    if (Energy.fullViewReachActive(sv)) return 0;
     const frac = clamp01((sv.energy ?? 0) / maxEnergy);
     if (frac >= LOW_ENERGY_FRAC) return 0;
     return 1 - frac / LOW_ENERGY_FRAC;

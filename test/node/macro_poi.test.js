@@ -132,7 +132,7 @@
 
   // ── Inn ───────────────────────────────────────────────────────────────────
   test('inn: the price is the Vigor potion\'s coins per energy × INN_RATE, and it rests once a day', () => {
-    assert.eq(VIGOR_POTION_ENERGY, 40, 'a Vigor restores 40');
+    assert.eq(VIGOR_POTION_ENERGY, 65, 'a Vigor restores 65');
     assert.eq(Macros.innCoinsPerEnergy(), PRICES.vigor_potion / VIGOR_POTION_ENERGY * Macros.INN_RATE, 'derived');
     assert.eq(Macros.INN_RATE, 0.5, 'half the potion (the Book says "half")');
     assert.eq(Macros.innPrice(0), 0, 'nothing to rest');
@@ -208,7 +208,7 @@
   }
 
   // ── Stalls: stock and prices ──────────────────────────────────────────────
-  test('apothecary: one T2 remedy and the antidote, priced like a stall', () => {
+  test('apothecary: one remedy and the antidote, priced like a stall', () => {
     const tiers = (id) => ITEM_BY_ID[id].baseTier ?? BASE_TIER[id];
     const seen = new Set();
     for (let i = 0; i < 60; i++) {
@@ -217,7 +217,7 @@
       assert.truthy(Macros.APOTHECARY_POTIONS.includes(stock[0]), stock[0]);
       assert.eq(stock[1], 'antidote', 'the cure');
       seen.add(stock[0]);
-      for (const id of stock) assert.lte(tiers(id), 2, `${id} is T2 or under`);
+      for (const id of stock) assert.lte(tiers(id), id === 'vigor_potion' ? 4 : 2, `${id} stays in its remedy tier`);
     }
     assert.eq(seen.size, Macros.APOTHECARY_POTIONS.length, 'every remedy turns up somewhere');
     assert.eq(Macros.apothecaryStock(poi('dentist', { id: 7 }))[0], 'vigor_potion', 'a dentist is Vigor');
@@ -420,7 +420,7 @@
       const it = ITEM_BY_ID[id];
       assert.falsy(id in FOOD_ENERGY, `${id} is not food`);
       assert.falsy(['seed', 'sapling', 'magic', 'animal'].includes(it.kind), `${id} is no seed, sapling, potion or animal`);
-      assert.truthy(it.kind === 'mineral' || it.kind === 'supply' || keeps.has(id), `${id} is a lasting thing (${it.kind})`);
+      assert.truthy(['mineral', 'supply', 'unique_relic'].includes(it.kind) || keeps.has(id), `${id} is a lasting thing (${it.kind})`);
     }
     for (const id of ['potato', 'apple', 'flowers', 'vigor_potion', 'egg', 'potato_seed', 'acorn']) {
       assert.falsy(Macros.curioEligible(id), `${id} is not collected`);

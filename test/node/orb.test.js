@@ -66,8 +66,66 @@ test('orb starts each existing cue immediately then resumes its natural beat', (
 });
 test('orb does not reveal ordinary objects whose ids pass the glint hash', () => {
   const { rocks, scene } = orbFixture();
-  const ordinary = ['tree', 'chest', 'house'].map(kind => ({ ...rocks[0], kind }));
+  const ordinary = ['tree', 'house'].map(kind => ({ ...rocks[0], kind }));
   const use = orbActionFor([], ordinary);
   assert.eq(use.call(scene), true);
   assert.eq(scene._orbReveal.size, 0, 'only mineral rocks can reveal a rock secret');
+});
+
+
+test('orb marks unopened visible chests and crates, never opened or offscreen treasure or service POIs', () => {
+  const { scene } = orbFixture();
+  const chest = id => ({ id, kind: 'chest', poiClass: 'park', poiDensity: 1, depth: 1, x: 0, y: 0 });
+  const live = chest('treasure_live'), crate = { ...chest('treasure_crate'), crate: true };
+  const opened = chest('treasure_opened');
+  const left = { ...chest('treasure_left'), x: -1000 };
+  const right = { ...chest('treasure_right'), x: 1000 };
+  const up = { ...chest('treasure_up'), y: -1000 };
+  const down = { ...chest('treasure_down'), y: 1000 };
+  const service = { ...chest('service'), _chestLook: { texKey: 'market_stand' } };
+  scene.save.opened = [opened.id];
+  const before = JSON.stringify(scene.save);
+  const use = orbActionFor([], [live, crate, opened, left, right, up, down, service]);
+  assert.eq(use.call(scene), true);
+  assert.eq([...scene._orbReveal.keys()].sort().join(), 'treasure_crate,treasure_live');
+  assert.eq(JSON.stringify(scene.save), before, 'no opening, loot grant or item consumption');
+  use.call(scene);
+  assert.eq(scene.save.inv[0].count, 1, 'repeated reveal keeps reusable orb');
+  scene.save.opened.push(live.id);
+  use.call(scene);
+  assert.falsy(scene._orbReveal.has(live.id), 'opened chest cannot be revealed again');
+  assert.truthy(scene._orbReveal.has(crate.id));
+});
+
+test('orb chest reveal uses the peek view and only the current snapshot', () => {
+  const { scene } = orbFixture();
+  const near = { id: 'near_chest', kind: 'chest', depth: 1, poiDensity: 1, x: 0, y: 0 };
+  const peeked = { ...near, id: 'peeked_chest', x: 1000 };
+  const use = orbActionFor([], [near, peeked]);
+  scene.peekM = { x: 1000, y: 0 };
+  use.call(scene);
+  assert.truthy(scene._orbReveal.has(peeked.id));
+  assert.falsy(scene._orbReveal.has(near.id));
+  scene.peekM = null;
+  assert.falsy(scene._orbReveal.has(near.id), 'moving the camera does not add a new chest');
+});
+
+test('orb chest marker is visible immediately, expires, and stops when the chest is opened', () => {
+  const start = RENDER_SRC.indexOf('function orbChestRevealPhase(');
+  const end = RENDER_SRC.indexOf('\n}', start) + 2;
+  const phase = new Function(RENDER_SRC.slice(start, end) + ';return orbChestRevealPhase;')();
+  const o = { id: 'chest_phase', kind: 'chest', depth: 1, poiDensity: 1, x: 0, y: 0 };
+  const reveals = new Map([[o.id, 1000]]), sets = { ...spentSets(null, {}), opened: new Set() };
+  const duration = CONSUMABLE_SPEC.orb.chestRevealMs;
+  assert.eq(phase(o, reveals, 1000, sets), 0);
+  assert.eq(phase(o, reveals, 1000 + duration / 2, sets), 0.5);
+  assert.eq(phase(o, reveals, 1000 + duration, sets), -1);
+  assert.eq(phase(o, reveals, 999, sets), -1);
+  assert.eq(phase({ ...o, id: 'unseen_chest' }, reveals, 1000, sets), -1);
+  sets.opened.add(o.id);
+  assert.eq(phase(o, reveals, 1001, sets), -1, 'opening cancels an existing marker');
+  assert.truthy(RENDER_SRC.includes('orbChestRevealPhase(it.o, scene._orbReveal, _sparkNow, spentIds)'),
+    'live renderer reads the captured reveal and current opened ledger');
+  assert.truthy(RENDER_SRC.includes('glint: chestPhase, orbChest: true'),
+    'marker uses the renderer-independent sparkle lane, including WebGL');
 });

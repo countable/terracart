@@ -41,6 +41,21 @@ function consumeSelected(save, n = 1) {
   save.selSlot = -1;
 }
 
+// Count only a favourite meal actually consumed, on both the live pet and its
+// saved release row. Tame pets cannot be caught back into inventory.
+function consumePetFood(save, pet, foodId) {
+  const sel = getSelectedSlot(save);
+  if (!sel || sel.id !== foodId || !(sel.count > 0)) return false;
+  consumeSelected(save);
+  if (pet.raised && animalLikesFood(pet.kind, foodId)) {
+    const row = save.released?.find(r => r.id === pet.id);
+    const feeds = Math.min(SpriteLayout.PET_BABY.feeds, (row?.favouriteFeeds ?? pet.favouriteFeeds ?? 0) + 1);
+    pet.favouriteFeeds = feeds;
+    if (row) row.favouriteFeeds = feeds;
+  }
+  return true;
+}
+
 // Unique id for an animal/slime released (or tamed) at a spot. `extra`
 // disambiguates a batch released in the same tick (the per-item index).
 function releasedId(kind, extra) {
@@ -842,6 +857,7 @@ const TAP_HANDLERS = [
       // copy; otherwise the boost would silently never survive a tile change.
       const ANIMAL_INTERACTION = SpriteLayout.ANIMAL_INTERACTION;
       const doPet = () => {
+        if (isTreat && !consumePetFood(save, target, sel.id)) return;
         target._pettedUntilT = performance.now() + ANIMAL_INTERACTION.petBoostMs;
         save.petBoost = save.petBoost || {};
         save.petBoost[target.id] = Date.now() + ANIMAL_INTERACTION.petBoostMs;
@@ -851,7 +867,6 @@ const TAP_HANDLERS = [
           target._followUntilT = performance.now() + ANIMAL_INTERACTION.followMs;
         }
         if (isTreat) {
-          consumeSelected(save);
           scene.buildInventoryDOM();
         }
         // The boost is timed, so the flash says for how long — before this it
@@ -917,7 +932,7 @@ const TAP_HANDLERS = [
         }
         const feedId = sel.id;
         const doFeed = () => {
-          consumeSelected(save);
+          if (!consumePetFood(save, target, feedId)) return;
           // Petting boost: prefer the persisted epoch-ms expiry (survives reload)
           // and fall back to the in-memory timer for boosts armed this session.
           save.petBoost = save.petBoost || {};
@@ -1324,7 +1339,7 @@ const TAP_HANDLERS = [
     // (combat.js raisedMul) read them. A raised pet is always shiny.
     const isBaby = !!item.baby;
     const isShinyItem = !!item.shiny || isBaby;
-    const birth = isBaby ? { raised: true, born: Date.now() } : {};
+    const birth = isBaby ? { raised: true, born: Date.now(), favouriteFeeds: 0 } : {};
     const tx = Math.floor(cwmx / scene.tileEdgeM);
     const ty = Math.floor(cwmy / scene.tileEdgeM);
     save.released = save.released || [];
@@ -1822,7 +1837,7 @@ const TAP_HANDLERS = [
       const spentTill = spentSets(scene, save);
       for (const e of WorldGen.tileCache.values()) {
         const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM);
-        if (wp) { blocker = `Pick the ${cropName(wp.crop)} first.`; break; }
+        if (wp) { blocker = `Pick ${cropName(wp.crop)} first.`; break; }
         const oo = (e.objects || []).find(o =>
           // Spent generated objects leave their cell. A spent barrel remains
           // a blocker because its smashed art still stands in the world.

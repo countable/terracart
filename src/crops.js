@@ -20,7 +20,7 @@
   // A crop's stage lasts 4 × tier³ minutes (owner's call, Oct 2026: double
   // the Sep 2026 2 × tier³), off its BASE_TIER (items.js — the one tier the
   // loot and prices read), rounded to a number a player can hold in their
-  // head (roundHoldMin): tier 1 4m, 2 30m, 3 2h, 4 4h, 5 8h, 6 14h. The
+  // head (roundHoldMin): tier 1 4m, 2 30m, 3 2h, 4 4h, 5 8h, 6 14h, 7 23h. The
   // magical flowers ride the same curve at their own tiers (sunflower 4,
   // fireflower 5, iceflower 6).
   const HOLD_MIN_PER_TIER_CUBED = 4;

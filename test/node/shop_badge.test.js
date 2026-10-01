@@ -7,12 +7,13 @@
     marketTheme: () => ({ theme: 'supply', tier }),
   });
 
-  test('shop badge: assigned tier survives lower-tier supply stock', () => {
+  test('shop badge: assigned tier survives lower-tier seed stock', () => {
     const s = scene(4);
-    assert.truthy(Shops.themedStock('supply', 4).every(id => itemTierOf(id) !== 4));
+    s.marketTheme = () => ({ theme: 'seed', tier: 4 });
+    assert.truthy(Shops.themedStock('seed', 4).every(id => itemTierOf(id) !== 4));
     const badge = Render.shopTierBadge(s, house, s.houseShopRole());
     assert.eq(badge.text, 'RARE · T4');
-    assert.eq(badge.backgroundColor, '#f4cc4a');
+    assert.eq(badge.backgroundColor, '#' + (TIER_BADGE_TINT[4] ?? TIER_BY_NUM[4].color).toString(16).padStart(6, '0'));
     const html = modalBadge.call(s, house);
     assert.includes(html, 'Shop tier 4');
     assert.includes(html, tierBadgeHTML(4));

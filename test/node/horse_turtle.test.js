@@ -33,7 +33,7 @@ test('horse: the stick walk goes speedMul as fast and costs energyMul as much', 
   assert.truthy(/\n  toggleHorseRide\(\) \{/.test(SCENE_SRC), 'MapScene implements the toggle');
 });
 
-test('horse: a rare T4 catch worth the cow, without the milk', () => {
+test('horse: a T4 mount with a premium sale value and no milk', () => {
   assert.eq(ITEM_BY_ID.horse.kind, 'animal');
   assert.eq(ITEM_BY_ID.horse.baseTier, 4);
   assert.eq(itemValue('horse'), 200);
@@ -47,7 +47,7 @@ test('horse: a rare T4 catch worth the cow, without the milk', () => {
 test('turtle: the rabbit\'s habits, seated on the shore', () => {
   assert.eq(SpriteLayout.CREATURE_BEHAVIOUR.turtle, SpriteLayout.CREATURE_BEHAVIOUR.rabbit, 'one gait row');
   assert.eq(ITEM_BY_ID.turtle.kind, 'animal');
-  assert.eq(ITEM_BY_ID.turtle.baseTier, ITEM_BY_ID.rabbit.baseTier);
+  assert.eq(ITEM_BY_ID.turtle.baseTier, 3);
   assert.truthy(SHORE_FAUNA.turtle, 'a shore species');
   assert.eq(SHORE_FAUNA_ORDER[SHORE_FAUNA_ORDER.length - 1], 'turtle', 'appended last: no older seat moves');
   assert.falsy(Object.values(BIOME_FAUNA).some((r, i) => Object.keys(BIOME_FAUNA)[i] === 'turtle'), 'never inland');

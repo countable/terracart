@@ -45,11 +45,16 @@ test('themed shops: stock is the line at the nearest tier it carries (ties lower
   for (const id of ['wood', 'rockfruit', 'torch', 'spear']) assert.truthy(s1.includes(id), `T1 supply shop stocks ${id}`);
   assert.falsy(s1.includes('rope'), 'rope is the T2 round');
   assert.truthy(Shops.themedStock('supply', 2).includes('rope'));
+  for (const [tier, id] of [[2, 'shield_wood'], [4, 'shield_metal'], [5, 'telescope'], [6, 'shield_gold'], [7, 'orb']]) {
+    assert.falsy(Shops.themedStock('supply', tier).includes(id), `${id} is reward-only`);
+  }
   // Antidote fills the T1 Magic shop; other medicines follow at their tiers.
   const p1 = Shops.themedStock('potion', 1);
   assert.truthy(p1.includes('antidote'), 'T1 magic shop stocks the cure');
   assert.falsy(p1.includes('dragon_powder'), 'not the T4 dragon powder');
-  assert.truthy(Shops.themedStock('potion', 6).includes('elixir'), 'T6 magic shop stocks Elixir');
+  assert.falsy(Shops.themedStock('potion', 6).includes('elixir'), 'Elixir waits for T7');
+  assert.truthy(Shops.themedStock('potion', 7).includes('elixir'), 'T7 magic shop stocks Elixir');
+  assert.falsy(Shops.THEME_POOL.potion().includes('orb'), 'Orb is reward-only');
   // A pet shop stocks every pet across its rounds.
   const pets = new Set();
   for (let tier = 1; tier <= 7; tier++) for (const id of Shops.themedStock('pet', tier)) pets.add(id);
@@ -149,7 +154,7 @@ test('themed shops: three market digits and one blacksmith digit on small houses
 
 test('themed shops: syrup and magic traps fill tier 3 supplies; dragon powder stays tier 4 Magic', () => {
   assert.eq(Shops.themedStock('supply', 3).slice().sort().join(), 'honey,magic_trap');
-  assert.eq(Shops.themedStock('supply', 4).slice().sort().join(), 'honey,magic_trap', 'higher supply shops use the nearest stocked tier');
+  assert.eq(Shops.themedStock('supply', 4).slice().sort().join(), 'javelin', 'T4 has its own supply stock');
   for (const id of ['honey', 'magic_trap']) {
     assert.eq(ITEM_BY_ID[id].baseTier, 3);
     assert.eq(ITEM_BY_ID[id].kind, 'supply');

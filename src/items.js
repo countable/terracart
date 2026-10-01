@@ -23,6 +23,10 @@
 const CROP_ROW = {
   rainberry: 0, pairy: 1, gemfruit: 2, nut: 3, rockfruit: 4, coffee: 5,
   potato: 6, iceflower: 7, fireflower: 8, sunflower: 9,
+  // Potato uses Spring Crops row 5, freeing the original row for Dawnfruit.
+  dawnfruit: 6,
+  // Cress uses Spring Crops row 3, leaving this original cabbage row unused.
+  miracle_lettuce: 11,
   // Starfruit reuses the otherwise-unused green fruit-tree row in Crops.png.
   // Berry’s nominal row 10 is overridden by Spring Crops below, so both
   // the mature fruit and its seed badge remain distinct on every surface.
@@ -435,6 +439,7 @@ const MINERAL_ICON_SHEET = {
   magic_trap:    { sheet: 'icon_magic_trap', frame: 0 },
   // MiniWorld spear: frame 0 points right; frame 1 points down.
   spear:        { sheet: 'icon_spear', frame: 0 },
+  javelin:      { sheet: 'icon_javelin', frame: 0 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
@@ -525,24 +530,26 @@ const CROP_NAMES = {
   giant_mushroom: 'Giant mushroom',
   rainberry: 'Rainberry', pairy: 'Pairy', gemfruit: 'Gemfruit', nut: 'Nut',
   rockfruit: 'Rock', coffee: 'Coffee', potato: 'Potato', iceflower: 'Iceflower',
-  fireflower: 'Fireflower', sunflower: 'Sunflower', starfruit: 'Starfruit',
-  berry: 'Berry', cress: 'Cress', onion: 'Onion',
+  fireflower: 'Fireflower', sunflower: 'Sunflower', starfruit: 'Starfruit', dawnfruit: 'Dawnfruit',
+  berry: 'Berry', cress: 'Cress', onion: 'Onion', miracle_lettuce: 'Miracle Lettuce',
 };
-// === Per-item rarity tier (1..7) — used by rarity.js' unified picker. ===
+// === Per-item rarity tier — 1..7; shinies add 3 up to the T7 ceiling. ===
 // Tier reflects relative rarity / value, not stage / yield. A seed and its
 // produce share a tier. Wild fauna and minerals climb with gem ladder. New
 // items SHOULD get a baseTier; rarity.js defaults missing entries to 1.
+const SHINY_TIER_UP = 3;
 const BASE_TIER = {
-  telescope: 3, orb: 4, goblet: 4, lucky_key: 3,
+  telescope: 5, orb: 7, goblet: 6, lucky_key: 3,
   shield_wood: 2, shield_metal: 4, shield_gold: 6,
   // Crops (same tier for seed & produce; the seed id uses the suffix).
   // Spread across all four chest tiers.
   potato: 1, rockfruit: 1,
-  // Spring Crops kitchen-garden — berry + cress are T1 starter produce;
-  // onion bumped to T2 (per user) since it's a richer flavour and reads
-  // as a step-up from the basic greens.
-  berry: 1, cress: 1,
-  rainberry: 2, pairy: 2, nut: 2, onion: 2, starfruit: 2,
+  // Three seed/produce pairs at each tier from T1 through T4.
+  // Rainberry's watering and Pairy's compass place them with utility crops.
+  cress: 1,
+  berry: 2, nut: 2, onion: 2,
+  starfruit: 3,
+  rainberry: 4, pairy: 4,
   // wood: T1 mineral. Dropped by trees + shrubs (no tools needed beyond
   // an axe for shrubs / trees) and sprinkled around the starting area.
   // Used as the smithy ingredient for every T1 wooden tool.
@@ -551,7 +558,7 @@ const BASE_TIER = {
   // Magical flowers — each one is the seed pair to its same-named magical
   // gear tier (sunflower → Platinum recipes, fireflower → Crimson,
   // iceflower → Frost). Tier follows gear_tier - 1.
-  sunflower: 4, fireflower: 5, iceflower: 6,
+  sunflower: 4, fireflower: 5, iceflower: 6, miracle_lettuce: 6, dawnfruit: 7,
   // Mineral bars inherit the same tier that chooses their rock art and drop.
   ...Object.fromEntries(Object.entries(MINERAL_TIERS)
     .map(([tier, row]) => [row.barId, Number(tier)])),
@@ -561,26 +568,27 @@ const BASE_TIER = {
   // (forget-me-not) to the glowing starflower (rarest). Tier drives the
   // shiny-find bonus and loot-value scaling.
   forgetmenot: 2, marigold: 3, wildrose: 3, starflower: 5,
-  egg: 1, milk: 2,
-  // Fish (rarity ramps fast — goldenfish is the late-game catch)
-  minnow: 1, bass: 2, trout: 3, salmon: 4, goldenfish: 6,
-  // Orchard fruit (apple/cherry/peach/apricot ~ mid-low; coconut/banana late).
+  egg: 2, milk: 3,
+  // Fish span the loot ladder, with gaps of at most two tiers.
+  minnow: 1, bass: 2, trout: 4, salmon: 5, goldenfish: 7,
+  // Ordinary orchard fruit share T2; mango keeps its universal-taming premium.
   // Mango is no longer an orchard tree — it's a rare universal tame treat
   // (see interact.js) — but still carries a rarity tier for loot/pricing.
-  apple: 2, cherry: 2, peach: 2, apricot: 2,
-  orange: 3, mango: 3,
-  banana: 4, coconut: 4,
-  // Plantable fruit-tree saplings — common apple (T3), rare peach (T5).
-  apple_sapling: 3, peach_sapling: 5, acorn: 2,
-  // Live animals
-  chicken: 1, dog: 1, rabbit: 1, crab: 1, turtle: 1,
-  cat: 2, butterfly: 2,
-  crow: 3,
-  deer: 4, horse: 4,
-  cow: 5,
+  apple: 2, cherry: 2, peach: 7, apricot: 2,
+  orange: 2, mango: 3,
+  banana: 2, coconut: 2,
+  // Plantable fruit-tree saplings — common apple (T3), very rare peach (T7).
+  apple_sapling: 3, peach_sapling: 7, acorn: 2,
+  // Animals balance basic catches, specialised fauna and lasting utility.
+  // Combat HP stays in Combat; tier no longer follows HP alone.
+  crow: 1, rabbit: 1,
+  chicken: 2, crab: 2,
+  deer: 3, butterfly: 3, turtle: 3,
+  cat: 4, cow: 4, horse: 4,
+  dog: 5,
   // Consumables
-  antidote: 1, elixir: 6,
-  honey: 3, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
+  antidote: 1, elixir: 7,
+  honey: 3, book: 2, reach_potion: 2, vigor_potion: 4, speed_potion: 2, shield_potion: 2,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_potion: 3,
@@ -607,14 +615,14 @@ const BASE_TIER = {
   // Spear — a T1 supply like the torch (owner, Oct 2026: it was T2, so the
   // first Supply Shop could not sell it): one thrown shot, a staple of the
   // first cave trips, so the initial supply shop stocks it beside the torch.
-  spear: 1,
+  spear: 1, javelin: 4,
   // Torch — the T1 cave staple: light for the dark, cheap and common.
   torch: 1,
   // Minerals — coal floor, gem ladder mirrors mining rarity
   coal: 1,
-  meat: 2, rabbit_pelt: 2,
+  meat: 3, rabbit_pelt: 2,
   // Grilled at a campfire (CAMPFIRE_MAKES) — one step up from the raw cut.
-  grilled_meat: 3,
+  grilled_meat: 4,
   crow_feather: 3,
   sapphire: 4, ruby: 5, emerald: 6,
   // Diamond tops the gem ladder at the Frost tier — the T7 rock's headline gem.
@@ -631,8 +639,9 @@ const BASE_TIER = {
 // in twenty, isNestBush — chopped once, it hands the baby over) or HATCHED
 // from a carried egg (egg_hatch.js). In the bag it is an 'animal' item like
 // any caught creature (`base` names the kind; `baby` marks it); released, it
-// is a tame pet born that moment, half its kind's size for a week
-// (SpriteLayout.PET_BABY / isBabyPet), then a shiny adult of double strength
+// is a tame pet born that moment, half its kind's size until a week old
+// and fed seven favourite meals (SpriteLayout.PET_BABY / isBabyPet),
+// then a shiny adult of double strength
 // (combat.js raisedMul). ONE table: the item rows, the hatch pool and the
 // bush's find all read it.
 const BABY_KINDS = Object.freeze(['chicken', 'cow', 'cat', 'dog', 'rabbit']);
@@ -648,13 +657,13 @@ const CARRIED_ITEM_SPEC = {
   shield_gold: { projectileReduction: 10 },
 };
 const ITEMS = [
-  { id: 'telescope', name: 'Telescope', kind: 'supply' },
-  { id: 'orb', name: 'Orb', kind: 'magic', reusable: true },
-  { id: 'goblet', name: 'Goblet', kind: 'magic', reusable: true },
-  { id: 'lucky_key', name: 'Lucky Key', kind: 'magic' },
-  { id: 'shield_wood', name: 'Wood Shield', kind: 'supply' },
-  { id: 'shield_metal', name: 'Metal Shield', kind: 'supply' },
-  { id: 'shield_gold', name: 'Gold Shield', kind: 'supply' },
+  { id: 'telescope', name: 'Telescope', kind: 'unique_relic' },
+  { id: 'orb', name: 'Orb', kind: 'unique_relic', reusable: true },
+  { id: 'goblet', name: 'Goblet', kind: 'unique_relic', reusable: true },
+  { id: 'lucky_key', name: 'Lucky Key', kind: 'unique_relic' },
+  { id: 'shield_wood', name: 'Wood Shield', kind: 'unique_relic' },
+  { id: 'shield_metal', name: 'Metal Shield', kind: 'unique_relic' },
+  { id: 'shield_gold', name: 'Gold Shield', kind: 'unique_relic' },
   ...Object.keys(CROP_ROW).map(c => ({
     id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c,
     baseTier: BASE_TIER[c] || 1,
@@ -691,7 +700,7 @@ const ITEMS = [
   ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'turtle'].map(k => ({
     id: `shiny_${k}`,
     name: `Shiny ${k.charAt(0).toUpperCase() + k.slice(1)}`,
-    kind: 'animal', base: k, shiny: true, baseTier: BASE_TIER[k] || 1,
+    kind: 'animal', base: k, shiny: true, baseTier: Math.min(7, (BASE_TIER[k] || 1) + SHINY_TIER_UP),
   })),
   // Baby pets (BABY_KINDS above) — their own stacks, released like any
   // animal; `base` lends the plain kind's icon and creature.
@@ -771,16 +780,16 @@ const ITEMS = [
   // moving, no attacking (useFrostPowder). Refused — and kept — when nothing
   // hostile is in reach.
   { id: 'frost_powder',  name: 'Frost Powder',        kind: 'magic' },
-  // Unique jewelry works while carried. `uniqueJewelry` keeps magic shops and
+  // Unique jewelry works while carried. Its designation keeps magic shops and
   // ordinary class rolls from selling it; named chest pools remain its source.
-  { id: 'stealth_ring',      name: 'Stealth Ring',          kind: 'magic', uniqueJewelry: true },
-  { id: 'invisibility_ring', name: 'Ring of Invisibility',  kind: 'magic', uniqueJewelry: true },
-  { id: 'regen_amulet',      name: 'Amulet of Regeneration', kind: 'magic', uniqueJewelry: true },
-  { id: 'vigor_amulet',      name: 'Amulet of Vigor',        kind: 'magic', uniqueJewelry: true },
+  { id: 'stealth_ring',      name: 'Stealth Ring',          kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'invisibility_ring', name: 'Ring of Invisibility',  kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'regen_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'vigor_amulet',      name: 'Amulet of Vigor',        kind: 'unique_relic', uniqueJewelry: true },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
   // climb UP a level or lower yourself DOWN one — right where you stand, no
-  // staircase needed. One rope per climb. Unlike the sapphire portal it goes
-  // both ways, so it is also the way out of a dead-end dig (useRope in app.js).
+  // staircase needed. One rope per climb; its upward trip needs no earlier
+  // portal, so it is a way out of a dead-end dig (useRope in app.js).
   { id: 'rope',          name: 'Rope',                kind: 'supply' },
   // Torch: light it (Use button with it selected) and for three minutes the
   // player's own light reaches twice as far — the `torch` row of
@@ -801,7 +810,8 @@ const ITEMS = [
   // the surface class/tier pool — rarity.js reaches it only through the cave
   // supply favourite — and a slain goblin trapper drops one.
   { id: 'magic_trap',    name: 'Magic Trap',          kind: 'supply', caveOnly: true },
-  { id: 'spear',        name: 'Spear',               kind: 'supply' },
+  { id: 'spear',        name: 'Throwing Spear',      kind: 'supply' },
+  { id: 'javelin',      name: 'Javelin',             kind: 'supply' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -814,7 +824,10 @@ const ITEMS = [
   // Made, never found: only a campfire turns meat into this (CAMPFIRE_MAKES),
   // so `cooked` keeps it out of the rarity picker's loot pools.
   { id: 'grilled_meat', name: 'Grilled Meat', kind: 'produce', cooked: true },
-  ...Object.values(COOKED_FOODS).map(c => ({ id: c.id, name: c.name, kind: 'produce', cooked: true })),
+  // Cooked dishes inherit the raw ingredient's tier, including first-taste credit.
+  ...Object.entries(COOKED_FOODS).map(([raw, c]) => ({
+    id: c.id, name: c.name, kind: 'produce', cooked: true, baseTier: BASE_TIER[raw] || 1,
+  })),
   { id: 'rabbit_pelt',  name: 'Rabbit Pelt',  kind: 'produce' },
   { id: 'crow_feather', name: 'Crow Feather', kind: 'produce' },
   // Beach pickup — shells spawn as wildplant debris on sand cells (the sand
@@ -853,9 +866,9 @@ const ITEMS = [
   // Plantable fruit-tree saplings. kind:'sapling' routes the plant action to
   // the fruit-tree growth path (a growing `fruittree` object) rather than the
   // 4-stage crop bed. `grows` is the fruit-tree species. Only two exist: the
-  // common apple (T3) and the rare peach (T5).
+  // common apple (T3) and the very rare peach (T7).
   { id: 'apple_sapling', name: 'Apple Sapling', kind: 'sapling', grows: 'apple', baseTier: 3 },
-  { id: 'peach_sapling', name: 'Peach Sapling', kind: 'sapling', grows: 'peach', baseTier: 5 },
+  { id: 'peach_sapling', name: 'Peach Sapling', kind: 'sapling', grows: 'peach', baseTier: BASE_TIER.peach_sapling },
   // The ACORN is a sapling too, but it plants TIMBER, not fruit: `plants:'tree'`
   // routes it to a growing `tree` object (the thing you chop) instead of a
   // `fruittree` (the thing you pick). It falls out of felling a tree — the
@@ -867,8 +880,8 @@ const ITEMS = [
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Flint',    kind: 'mineral' },   // id kept: saves carry 'coal'
   // Sapphire doubles as a one-shot descent charge: tap the Portal button with
-  // it selected to spend one gem and sink straight down a level in place.
-  // See useSapphirePortal in app.js.
+  // it selected to descend in place. A Return status action leads back to
+  // the entry for one minute, including after the last gem is spent.
   { id: 'sapphire', name: 'Sapphire', kind: 'mineral' },
   { id: 'ruby',     name: 'Ruby',     kind: 'mineral' },
   { id: 'emerald',  name: 'Emerald',  kind: 'mineral' },
@@ -935,7 +948,7 @@ const CAMPFIRE_MAKES = { meat: 'grilled_meat',
 // steak is worth the fire to sell as well as to eat.
 const GRILL_ENERGY_MUL = 1.5;
 // POTIONS IN THE FIRE (the burn confirm's accept, app.js presentBurnConfirm).
-// Two TRANSMUTE into another potion of the SAME tier — never up the ladder, so
+// Two TRANSMUTE into another potion of the same or lower tier, so
 // the fire is a curiosity, not a value pump. Every other potion EXPLODES,
 // hurting the player by POTION_BLAST_DMG_PER_TIER × its tier, soaked by
 // armour like any other blow (Combat.playerDamage).
@@ -958,17 +971,26 @@ function fireBurnOutcome(id) {
 const _CONSUMABLE_MINUTE_MS = 60 * 1000;
 const CONSUMABLE_SPEC = {
   orb: {
+    chestRevealMs: 6000,
     immediate: true, reusable: true,
     verb: 'Use', method: 'useOrb', title: 'Gaze into the orb?',
-    get: 'Hidden things stir beneath its pale light.',
+    get: 'Unopened chests gleam, and hidden things stir within view.',
   },
   spear: {
-    damage: 25, throwCooldownMs: 3000, projectile: 'spear', immediate: true,
+    damage: 20, throwCooldownMs: 3000, projectile: 'spear', immediate: true,
     usable: scene => scene.canThrowItem('spear'),
     disabled: scene => !scene.canThrowItem('spear'),
     label: scene => scene.throwActionLabel(),
     verb: 'Throw', method: 'useSpear', title: 'Throw the spear?',
     get: 'One sharp throw sends the spear flying toward your foes.',
+  },
+  javelin: {
+    damage: 40, throwCooldownMs: 3000, projectile: 'javelin', immediate: true,
+    usable: scene => scene.canThrowItem('javelin'),
+    disabled: scene => !scene.canThrowItem('javelin'),
+    label: scene => scene.throwActionLabel(),
+    verb: 'Throw', method: 'useJavelin', title: 'Throw the javelin?',
+    get: 'A heavy steel point flies straight toward your foes.',
   },
   rockfruit: {
     damage: 2, throwCooldownMs: 1000, projectile: 'rock', immediate: true,
@@ -1003,6 +1025,8 @@ const CONSUMABLE_SPEC = {
   rainberry: { radiusM: 20, canTier: 4 },
   pairy: { durationMs: 5 * _CONSUMABLE_MINUTE_MS },
   coffee: { durationMs: 3 * _CONSUMABLE_MINUTE_MS, speedTierBoost: 2 },
+  dawnfruit: { durationMs: 3 * _CONSUMABLE_MINUTE_MS, eatLabel: 'Vision' },
+  miracle_lettuce: { durationMs: 10 * _CONSUMABLE_MINUTE_MS, luckBonus: 1, eatLabel: 'Luck' },
 
   egg: {
     verb: 'Hatch', method: 'hatchEgg', title: 'Hatch the egg?',
@@ -1035,7 +1059,7 @@ const CONSUMABLE_SPEC = {
       && (scene.save.energy < scene.getMaxEnergy() || Conditions.hasDebuffs(scene.save, scene)),
   },
   vigor_potion: {
-    energy: 40,
+    energy: 65,
     verb: 'Drink', method: 'drinkVigorPotion', title: 'Drink the Potion of Vigor?',
     get: 'A little strength returns to your limbs.',
   },
@@ -1058,7 +1082,7 @@ const CONSUMABLE_SPEC = {
     channel: true,
   },
   thunder_potion: {
-    damage: 10,
+    damage: 25,
     verb: 'Drink', method: 'drinkThunderPotion', title: 'Drink the Potion of Thunder?',
     get: 'Thunder breaks over the foes before you.',
   },
@@ -1118,8 +1142,9 @@ const CONSUMABLE_SPEC = {
     label: scene => (isRiding(scene.save) ? 'Dismount' : 'Ride'),
   },
   sapphire: {
+    returnMs: 60 * 1000,
     verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?',
-    get: 'A blue doorway opens into the depths below.',
+    get: 'A blue doorway opens below. Tap Return within one minute to come back.',
   },
   rope: {
     verb: 'Climb', method: 'useRopeDown', acceptLabel: 'Down', title: 'Use the rope — which way?',
@@ -1151,7 +1176,8 @@ const PRICES = {
   rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
   berry_seed: 2, cress_seed: 1, onion_seed: 2, starfruit_seed: 4,
   gemfruit_seed: 8, rockfruit_seed: 8, coffee_seed: 12,
-  sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50,
+  sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50, dawnfruit_seed: 100,
+  miracle_lettuce_seed: 80,
   // ── Produce (sell value) ─────────────────────────────────
   rockfruit: 1,    // wild debris in every residential tile — the floor
   nut: 4,
@@ -1159,18 +1185,20 @@ const PRICES = {
   cress: 5,        // T1 kitchen-garden green
   onion: 6,        // T1 kitchen-garden bulb
   rainberry: 6,
-  berry: 7,        // T1 sweet — slightly above rainberry
+  berry: 7,        // T2 sweet — slightly above rainberry
   pairy: 8,
   starfruit: 18,   // the rescued neighbour’s crop, between Pairy and Gemfruit
   gemfruit: 25,    // T2 + occasional rockfruit bonus
   coffee: 40,      // T2, no wild source
   sunflower: 150,  // T4 magical flower — commonest of the trio
   fireflower: 300, // T5 magical flower
-  iceflower: 500,  // T6 — rarest flower, gates the Frost bar; price ceiling
+  iceflower: 500,  // T6 — rarest flower, gates the Frost bar
+  miracle_lettuce: 400,
+  dawnfruit: 600,
   // ── Animals ──────────────────────────────────────────────
   chicken: 4,      // 150–250/tile
   crab: 6,         // shore only — a handful per beach (SHORE_FAUNA)
-  cow: 200,        // ~15–30/tile, premium catch
+  cow: 40,         // premium over chicken/crab without a late-game sale payout
   horse: 200,      // five a tile, and a mount while kept
   cat: 35,         // companion animal (wants milk/fish) — modest sale, never eaten
   dog: 35,         // companion animal (wants meat) — modest sale, never eaten
@@ -1196,7 +1224,7 @@ const PRICES = {
   reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
   antidote:     12,
   elixir:       360,
-  vigor_potion:  35,   // T2 — instant 40-energy restore
+  vigor_potion:  35,   // T4 — instant 65-energy restore
   speed_potion:  55,   // T2 — tier-9 boot stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura at app.js's BLIGHT_DPS
@@ -1211,13 +1239,14 @@ const PRICES = {
   shadow_powder: 110,  // T2 — 3 min of monsters ignoring you entirely (priced for the
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
-  // Unique jewelry is never sold; zero keeps valuation complete without making an offer.
+  // Initial entries are replaced by fixed-tier equipment values after gearPrice is defined.
   stealth_ring: 0, invisibility_ring: 0, regen_amulet: 0, vigor_amulet: 0,
-  rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft); crafted from 5 long grass, so not a money pump
+  rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's brief round trip); crafted from 5 long grass, so not a money pump
   trap_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
   spear:         5,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a staple like the torch (owner, Oct 2026: 40 was far too dear for one throw)
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
+  javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -1281,7 +1310,8 @@ const STARTING_MONEY = 50;
 // Player starts at STARTING_ENERGY; the only thing that ever raises the cap is
 // the FIRST-TASTE bonus (each distinct edible ever eaten adds its tier —
 // Energy.tasteBonus / maxEnergy).
-// Eating food restores energy by FOOD_ENERGY[id]. Actions like rock-break,
+// FOOD_ENERGY[id] is the restoration total; fish deliver it over three minutes
+// through Energy's regeneration buff. Other food restores it at once. Actions like rock-break,
 // till, and harvest deduct energy via ENERGY_COST and refuse when the current
 // pool is too low. ARMOR does not touch the cap: it SOAKS the damage an attack
 // takes off the bar (armorReduction below, spent by Combat.mitigate).
@@ -1339,7 +1369,7 @@ const EGG_HATCH_METERS = 500;
 
 const ITEM_EFFECTS = {
   telescope: 'Distant branches sharpen into view through its worn brass tube.',
-  orb: 'Hidden things stir beneath its pale light.',
+  orb: CONSUMABLE_SPEC.orb.get,
   goblet: 'A little warmth gathers in its bowl after every sip.',
   lucky_key: 'Fortune seems to turn with this little golden key.',
   shield_wood: 'Old arrowheads sleep in its sturdy wooden face.',
@@ -1351,10 +1381,13 @@ const ITEM_EFFECTS = {
   flowers: 'Their scent softens even a shopkeeper’s heart.',
   rainberry: 'Rain gathers on nearby leaves when its skin breaks between your teeth.',
   pairy: 'Its sweetness leaves a glimmer of buried treasure behind your eyes.',
+  dawnfruit: 'A clear dawn fills your sight when you bite through its skin.',
+  miracle_lettuce: 'Its crisp leaves leave you feeling unusually lucky.',
   horse: 'It stamps and tosses its head, impatient for the open road.',
   coffee: 'A roasted warmth sets your feet itching for the road.',
   starfruit: 'A golden sweetness lingers, warming the hands that helped it grow.',
   mango: 'Even wary animals lean toward its golden scent.',
+  peach: 'Its soft sweetness washes every affliction away.',
   longgrass: 'Its tough fibres hold fast when twisted together.',
   rockfruit: 'Beneath its pale skin lies a stone hard enough for a ruined wall.',
   sapphire: 'A blue depth opens inside it, like a doorway beneath your feet.',
@@ -1400,6 +1433,7 @@ const ITEM_EFFECTS = {
   trap_kit: 'Small iron tools made to ease a snare’s clenched jaw.',
   magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',
   spear: CONSUMABLE_SPEC.spear.get,
+  javelin: CONSUMABLE_SPEC.javelin.get,
   scarecrow: 'An empty coat watches the beds, and hungry mouths turn away.',
   acorn: 'A young timber tree waits beneath this little cap for earth and time.',
   coal: 'A spark wakes a small fire inside its black heart.',
@@ -1437,22 +1471,24 @@ const FOOD_ENERGY = {
   berry:     13,   // sweet — between potato and rainberry
   rainberry: 16,   // also waters all crops within 20m
   pairy:     16,   // also shows the nearest undiscovered chest for 5 min
-  starfruit: 21,
+  starfruit: 35,
   gemfruit:  26,
   coffee:    46,
   sunflower:  78,
   fireflower: 117,
   iceflower: 195,
+  dawnfruit: 0, // Utility food: full light and vision, without healing.
+  miracle_lettuce: 0, // Utility food: a little luck, without healing.
   chicken:    39,
   crab:       26,
-  cow:       156,
+  cow:       52,
   // cats + dogs are companions, not food — no FOOD_ENERGY entry means the
   // eat button never appears for them and eatSelected() refuses.
   egg:        13,
   milk:       52,
   mushroom:   21,
   apple:      16, cherry: 18, peach: 16, banana: 23, orange: 16, mango: 26, coconut: 23, apricot: 13,
-  minnow:      7, bass: 20, trout: 33, salmon: 65, goldenfish: 130,
+  minnow:      7, bass: 20, trout: 60, salmon: 100, goldenfish: 180,
   meat:       59,   // hunted from deer; dog favourite
 };
 FOOD_ENERGY.grilled_meat = Math.round(FOOD_ENERGY.meat * GRILL_ENERGY_MUL);
@@ -1505,12 +1541,6 @@ const ANIMAL_FOOD = {
   // before the favourite-food path, and no "it wants X" hint ever names this.
   slime:   ['sapphire'],
 };
-// For tempting fish, keep a single animal hint instead of adding an effect list.
-for (const id of Object.keys(COOKED_FOODS)) {
-  const tames = ['cat', 'crab'].filter(a => ANIMAL_FOOD[a].includes(id));
-  if (tames.length) ITEM_EFFECTS[id] = `Its fresh scent draws a ${tames[0]} close.`;
-}
-
 function animalLikesFood(kind, foodId) {
   // Chickens peck ANY seed — they're omnivorous and the rainberry-only gate
   // felt arbitrary. Other species keep their explicit list.
@@ -1696,6 +1726,10 @@ function gearPrice(kind, slot, tier) {
   // reach for early players. Floors at $1.
   return Math.max(1, Math.ceil(def.baseCost * t.costMul / 4));
 }
+// Fixed-tier equipment shares the sword's value curve without material variants.
+for (const item of ITEMS.filter(i => i.kind === 'unique_relic')) {
+  PRICES[item.id] = gearPrice('relic', 'sword', item.baseTier);
+}
 function gearAssetPath(kind, slot, tier) {
   const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
   if (!def || !t) return null;
@@ -1876,16 +1910,19 @@ const FISH_SPECIES = [
   { id: 'salmon',     w: 1 },
   { id: 'goldenfish', w: 1 },
 ];
+for (const { id } of FISH_SPECIES) {
+  ITEM_EFFECTS[id] = 'Its nourishment returns your strength little by little.';
+  ITEM_EFFECTS[COOKED_FOODS[id].id] = 'Warm from the fire, it restores your strength little by little.';
+}
 function fishTier(id) { return BASE_TIER[id] || 1; }
-// A SHINY fish (fishSpotShiny) fights like the next tier up: it lands as if
-// its tier were SHINY_FISH_TIER_UP higher, the same one-step "harder to get"
-// a shiny animal's doubled catch wheel is.
-const SHINY_FISH_TIER_UP = 1;
+// Shiny fish use the same +3 tier uplift as shiny inventory animals.
+// The uplift stops at T7, matching the item and rod ceiling.
+const SHINY_FISH_TIER_UP = SHINY_TIER_UP;
 // Landing it: certain when the rod's tier is at or above the fish's, else
 // halved for every tier the fish is above the rod (0.5 ** gap). A fish that
 // gets away stays in its spot for the next cast.
 function fishCatchChance(id, rodTier, shiny) {
-  const t = fishTier(id) + (shiny ? SHINY_FISH_TIER_UP : 0);
+  const t = Math.min(7, fishTier(id) + (shiny ? SHINY_FISH_TIER_UP : 0));
   return Math.pow(0.5, Math.max(0, t - (rodTier || 0)));
 }
 // WHERE the fish are. A water cell either holds ONE fish or none, and nothing
@@ -1908,7 +1945,7 @@ function fishSpotStocked(id) {
 // starter pond's always-stocked cells are not, so the sparkle the map shows —
 // shinyFishSpots — and the catch agree), at SHINY_RATE.fish off the spot's id:
 // the same shiny spots for every player. Landing one pays the shiny bonus
-// (awardShinyBonus) on top of the fish, and fights a tier harder.
+// (awardShinyBonus) on top of the fish, and fights up to three tiers harder (capped at T7).
 function fishSpotShiny(id) {
   return fishSpotStocked(id) && isShiny(id, SHINY_RATE.fish);
 }
@@ -2190,7 +2227,8 @@ function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad;
 // The two-bar inventory's category row. Order here is the on-screen left→right
 // order. Item categories filter save.inv by `kind`; gear categories (relic /
 // armor) synthesize their slot list from save.relics / save.armor
-// (one-per-slot) instead of save.inv. `sym` is the tab glyph — plain emoji so
+// (one-per-slot). Relics also includes permanent items carried in save.inv.
+// `sym` is the tab glyph — plain emoji so
 // no new pixel art is needed for the chrome.
 //
 // A table over item KINDS, so it belongs with the catalog that defines them:
@@ -2200,7 +2238,7 @@ const INV_CATS = [
   { key: 'seed',        label: 'Seeds',       sym: '🌱', kinds: ['seed', 'sapling'] },
   { key: 'produce',     label: 'Produce',     sym: '🍎', kinds: ['produce'] },
   { key: 'animal',      label: 'Animals',     sym: '🐔', kinds: ['animal'] },
-  { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic' },
+  { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic', kinds: ['unique_relic'] },
   { key: 'armor',       label: 'Armor',       sym: '🛡️', gear: 'armor' },
   { key: 'ores',        label: 'Ores',        sym: '💎', kinds: ['mineral'] },
   { key: 'magic',       label: 'Magic',       sym: '🧪', kinds: ['magic'] },

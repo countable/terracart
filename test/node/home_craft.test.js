@@ -95,7 +95,7 @@ test('home craft: bag room caps the stepper and is rechecked before ingredients 
   m.onAccept(1);
   assert.eq(Inventory.count(s.save, 'wood'), 4, 'the full-bag recheck preserves ingredients');
   assert.eq(Inventory.count(s.save, 'spear'), 9, 'the full output stack stays unchanged');
-  assert.truthy(/Bag full for Spear/.test(s.flashes.at(-1) || ''), `names the full stack: ${s.flashes.at(-1)}`);
+  assert.truthy(/Bag full for Throwing Spear/.test(s.flashes.at(-1) || ''), `names the full stack: ${s.flashes.at(-1)}`);
 });
 
 test('home craft: short on wood, the page says so and nothing changes hands', () => {

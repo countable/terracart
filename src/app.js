@@ -1357,7 +1357,7 @@ body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 // timers as small chips in a right-aligned column under the top HUD row —
 // the money / energy row's own anchor, one chip height plus a gap down. Each
 // chip's ink and bg come from its owning row (Conditions.DEFINITIONS,
-// Buffs.KINDS); the chip itself is read-only chrome, so no pointer events.
+// Buffs.KINDS); only a row with an action accepts pointer events.
 // Dimmed with the HUD chips while a dialog is up, hidden with them while the
 // page boots. While the objective chip shows, _syncStatusRow seats the row
 // under it instead (an inline top).
@@ -1375,7 +1375,12 @@ const STATUS_ROW_CSS = `
   text-shadow: 0 1px 0 #000;
   box-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
+#status-row button.status-chip {
+  pointer-events: auto; cursor: pointer; border: 1px solid currentColor;
+  min-height: 32px; padding: 6px 10px;
+}
 body.modal-open #status-row { opacity: 0.25; }
+body.modal-open #status-row button.status-chip { pointer-events: none; }
 body.booting #status-row { visibility: hidden; }
 `;
 const ROAD_CHIP_CSS = `
@@ -1460,6 +1465,7 @@ const ICON_SHEETS = {
   icon_rings:    { url: 'assets/Icons/RPG icons/Extras/Rings.png',        cols: 6,  srcW: 96,  srcH: 64 },
   icon_amulets:  { url: 'assets/Icons/RPG icons/Extras/Amulet.png',       cols: 6,  srcW: 96,  srcH: 64 },
   icon_spear:    { url: 'assets/Icons/Items/Spear.png', cols: 2, srcW: 32, srcH: 16 },
+  icon_javelin:  { url: 'assets/Icons/Items/Spear.png', cols: 2, srcW: 32, srcH: 16 },
   // Rope — single 16×16 coiled-rope icon (hand-drawn, like the honey jar).
   icon_rope:     { url: 'assets/Icons/Items/Rope.png',                       cols: 1,  srcW: 16,  srcH: 16 },
   // Torch — single 16×16 stick-and-flame icon (hand-drawn, like the rope).
@@ -1852,6 +1858,9 @@ class MapScene extends Phaser.Scene {
     // Longgrass (display name "Long grass") — bake frame 10 of the 'props'
     // sheet (col 11 row 1 in 1-indexed coords = leafy green frond). Same
     // sprite as the in-world wildplant via CROP_SPRITE.longgrass.frame.
+    // The Javelin's steel palette is applied by ASSETS before create. Bake
+    // that same texture for inventory, shop offers and pickup toasts.
+    window.ITEM_DATA_URLS.javelin = bakeSheetFrame('icon_javelin', 0, 16, 16);
     window.ITEM_DATA_URLS.longgrass = bakeSheetFrame('props', 10, 16, 16);
     window.ITEM_DATA_URLS.chicken   = bakeSheetFrame('chicken', 0, 16, 16);
     window.ITEM_DATA_URLS.cow       = bakeSheetFrame('cow',     0, 32, 32);
@@ -4190,6 +4199,7 @@ class MapScene extends Phaser.Scene {
     // flush forces an exact timestamp before the tab hides or closes.
     SaveSession.touch();
     this._tickShrineRegen(dt);
+    this._tickFishRegen();
 
     // Resting AT HOME slowly fills the bar. Float accumulator avoids per-frame
     // integer churn — we only bump save.energy + refresh the DOM when a whole
@@ -4943,7 +4953,7 @@ class MapScene extends Phaser.Scene {
         text: `${def.label} · ${shortDuration(this.save.conditions[id].remainingMs)} · −${def.energyLoss} energy / ${shortDuration(def.intervalMs)}` });
     }
     for (const b of Buffs.active(this.save, this)) {
-      chips.push({ id: b.id, ink: b.color, bg: b.stroke + 'e8', text: `${b.name} · ${shortDuration(b.remainingMs)}` });
+      chips.push({ id: b.id, action: b.action, ink: b.color, bg: b.stroke + 'e8', text: `${b.name} · ${shortDuration(b.remainingMs)}` });
     }
     const order = chips.map((c) => c.id).join(',');
     if (this._statusRowDOM !== order) {
@@ -4953,7 +4963,16 @@ class MapScene extends Phaser.Scene {
       for (const c of chips) {
         let el = row.querySelector(`[data-id="${c.id}"]`);
         if (!el) {
-          el = document.createElement('div');
+          el = document.createElement(c.action ? 'button' : 'div');
+          if (c.action) {
+            el.type = 'button';
+            el.addEventListener('click', e => {
+              e.stopPropagation();
+              if (document.body.classList.contains('modal-open')) return;
+              this[c.action]?.();
+              this._syncStatusRow();
+            });
+          }
           el.className = 'status-chip';
           el.dataset.id = c.id;
           el.style.color = c.ink;
@@ -5238,8 +5257,10 @@ class MapScene extends Phaser.Scene {
         lift = s.liftFromPx + (SHOT_DRAW_LIFT_PX - s.liftFromPx) * f;
       }
       const hx = Math.round(head.x), hy = Math.round(head.y - lift);
-      if (s.projectile === 'spear' || s.effect) {
-        const art = CROP_SPRITE[s.projectile] || { sheet: 'icon_spear', frame: 0 };
+      const thrownArt = MINERAL_ICON_SHEET[s.projectile]
+        || (s.effect && CROP_SPRITE[s.projectile]);
+      if (thrownArt) {
+        const art = thrownArt;
         let sprite = this._spearPool[spearUsed];
         if (!sprite) {
           // Share the masked projectile layer, with ordinary sprite blending.
@@ -6348,7 +6369,7 @@ class MapScene extends Phaser.Scene {
   _setPeekFromDrag(dxPx, dyPx) {
     const k = this.cellM / CELL_PX;
     let mx = -dxPx * k, my = -dyPx * k;
-    const telescope = carriesItem(this.save, 'telescope');
+    const telescope = carriesItem(this.save, 'telescope') || Energy.dawnfruitActive(this.save);
     const maxM = PEEK_MAX_CELLS * this.cellM
       / (telescope ? 1 : CARRIED_ITEM_SPEC.telescope.peekMultiplier);
     const mag = Math.hypot(mx, my);
@@ -7413,6 +7434,10 @@ class MapScene extends Phaser.Scene {
       this.flash('Too tired to go down.', this.viewCenterX, this.viewCenterY);
       return;
     }
+    // Leaving the portal's destination by any other route closes the return.
+    if (this.save.sapphireReturn && target !== this.save.sapphireReturn.depth) {
+      delete this.save.sapphireReturn;
+    }
     this.depth = target;
     this.save.depth = target;
     WorldGen.setDepth(target);
@@ -7465,6 +7490,7 @@ class MapScene extends Phaser.Scene {
     this._nextShotT = {};
     this._turretNextT = {};
     this._turretScan = null;
+    delete this.save.sapphireReturn;
     this.depth = 0;
     this.save.depth = 0;
     WorldGen.setDepth(0);
@@ -9861,6 +9887,10 @@ class MapScene extends Phaser.Scene {
     return this._throwItem('spear');
   }
 
+  useJavelin() {
+    return this._throwItem('javelin');
+  }
+
   useRock() {
     return this._throwItem('rockfruit');
   }
@@ -9910,10 +9940,6 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
-  // Sapphire portal: spend one gem to open a one-shot shaft straight down a
-  // level, in place. Down-only — there's no return portal; climb back up a
-  // staircase as usual. The gem is consumed only when the descent actually
-  // happens, so an empty energy tank (which changeDepth refuses) never burns it.
   // Ride / Dismount (items.js CONSUMABLE_SPEC.horse — an `immediate` row, so
   // nothing is spent). The skin follows from isRiding every frame
   // (SpriteLayout.playerArt), and so does the stick's speed and cost.
@@ -9927,6 +9953,8 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
+  // A sapphire opens a descent and a brief return to the exact entry point.
+  // The Return status chip stays available after spending the last gem.
   useSapphirePortal() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'sapphire' || (sel.count ?? 0) <= 0) return false;
@@ -9934,17 +9962,51 @@ class MapScene extends Phaser.Scene {
       this.flash('Too tired to open a portal.', this.viewCenterX, this.viewCenterY);
       return false;
     }
-    // Synthetic "stair" at the player's own world cell. changeDepth GPS-mirrors
-    // coords onto the stair, so handing it our current position drops us down
-    // one level without moving — the cave cell under a walkable surface cell is
-    // floor, so we land on solid ground.
+    const fromDepth = this.depth || 0;
+    const depth = fromDepth + 1;
     const stair = {
       x: this.startWorldM.x + this.playerM.x,
       y: this.startWorldM.y + this.playerM.y + this.feetOffsetM,
     };
-    consumeSelected(this.save);
-    this.buildInventoryDOM();
+    // A mined entry may still be solid rock below. Open that landing just as
+    // rope does, before changeDepth asks the destination tile to render.
+    const cell = this.cellAt(stair.x, stair.y);
+    const landing = `${depth}:${cellKeyFromAbsCell(cell.cellIX, cell.cellIY)}`;
+    const wasOpen = this.dugWallSet.has(landing);
+    this.dugWallSet.add(landing);
     this.changeDepth(+1, stair);
+    if (this.depth !== depth) {
+      if (!wasOpen) this.dugWallSet.delete(landing);
+      return false;
+    }
+    consumeSelected(this.save);
+    this.save.sapphireReturn = { fromDepth, depth, ...stair,
+      until: Date.now() + CONSUMABLE_SPEC.sapphire.returnMs };
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    this._syncStatusRow();
+    return true;
+  }
+
+  sapphireReturnPortal(now = Date.now()) {
+    const portal = this.save.sapphireReturn;
+    if (!portal || !Number.isInteger(portal.fromDepth) || portal.fromDepth < 0
+        || portal.depth !== portal.fromDepth + 1 || this.depth !== portal.depth
+        || !Number.isFinite(portal.x) || !Number.isFinite(portal.y)
+        || !Number.isFinite(portal.until) || portal.until <= now) return null;
+    return portal;
+  }
+
+  returnThroughSapphire() {
+    const portal = this.sapphireReturnPortal();
+    if (!portal) return false;
+    // The entry is a cell the player already occupied. No extra excavation,
+    // gem or energy is needed to return, even with an exhausted energy bar.
+    this.changeDepth(-1, { x: portal.x, y: portal.y });
+    if (this.depth !== portal.fromDepth) return false;
+    delete this.save.sapphireReturn;
+    persistSave(this.save);
+    this._syncStatusRow();
     return true;
   }
 
@@ -10015,6 +10077,12 @@ class MapScene extends Phaser.Scene {
     });
     WorldGen.forEachItemNear('objects', pc.tx, pc.ty, o => {
       if (o.kind === 'mineralrock' && isGlintRock(o)) collect(o);
+      if (o.kind === 'chest' && !spent.opened.has(o.id)) {
+        const look = chestLook(o);
+        // POIs share kind:'chest', but shops, barrels and services are not
+        // unopened treasure. Match the actual chest/crate art only.
+        if (look.texKey === 'chest' || look.texKey === 'box') collect(o);
+      }
     });
     this._orbReveal = reveal;
     if (reveal.size) this.flash('Hidden things stir.', this.viewCenterX, this.viewCenterY);
@@ -10042,6 +10110,7 @@ class MapScene extends Phaser.Scene {
     if (!Energy.canEat(this.save)) return false;
     const restore = featherRevive ? null : FOOD_ENERGY[sel.id];
     if (!featherRevive && restore == null) return false;
+    if (Energy.fishRegenWait(this.save, sel.id)) return false;
     const { gained, extra } = this._consumeFoodEffects(sel.id, featherRevive);
     if (!ITEM_BY_ID[sel.id]?.reusable) consumeSelected(this.save);
     // Armed only now, after a bite has actually landed.
@@ -10052,7 +10121,9 @@ class MapScene extends Phaser.Scene {
     // Quiet pop-up instead of a modal — eating is a frequent action and a
     // dismiss-tap every time would get old fast. Longer dwellMul so the
     // gain (+ any compass / water side-effect) is readable before fading.
-    this.flashLoot(`+${gained}⚡${extra}`, '#a7ffb0', 1.8, sel.id);
+    const flashMsg = Energy.fishRegenTotal(sel.id) || CONSUMABLE_SPEC[sel.id]?.eatLabel
+      ? extra.trim() : `+${gained}⚡${extra}`;
+    this.flashLoot(flashMsg, '#a7ffb0', 1.8, sel.id);
     return true;
   }
 
@@ -10070,11 +10141,15 @@ class MapScene extends Phaser.Scene {
       firstTaste = true;
     }
     const before = this.save.energy ?? 0;
+    const fish = Energy.fishRegenTotal(id);
     if (featherRevive) Energy.set(this.save, FEATHER_REVIVE_ENERGY);
-    else Energy.set(this.save, before + restore, this.getMaxEnergy());
+    else if (fish) {
+      this.getMaxEnergy(); // First taste raises the cap, without healing.
+      Energy.startFishRegen(this.save, id, now);
+    } else Energy.set(this.save, before + restore, this.getMaxEnergy());
     const gained = this.save.energy - before;
     // Special effects.
-    let extra = '';
+    let extra = fish ? `\nRegen: ${fish}⚡ over ${shortDuration(Energy.FISH_REGEN_MS)}` : '';
     if (id === 'pairy') {
       const target = this.findNearestUnopenedChest();
       if (target) {
@@ -10093,6 +10168,15 @@ class MapScene extends Phaser.Scene {
     } else if (id === 'coffee') {
       this.save.coffeeUntil = now + COFFEE_BUFF_MS;
       extra = `\n☕ faster stick walking, ${shortDuration(COFFEE_BUFF_MS)}`;
+    } else if (id === 'dawnfruit') {
+      this.save.dawnfruitUntil = Math.max(this.save.dawnfruitUntil || 0, now + CONSUMABLE_SPEC.dawnfruit.durationMs);
+      extra = `\nFull light and vision: ${shortDuration(this.save.dawnfruitUntil - now)}`;
+    } else if (id === 'miracle_lettuce') {
+      const spec = CONSUMABLE_SPEC.miracle_lettuce;
+      this.save.miracleLettuceUntil = Math.max(this.save.miracleLettuceUntil || 0, now + spec.durationMs);
+      extra = `\n+${spec.luckBonus} Luck: ${shortDuration(this.save.miracleLettuceUntil - now)}`;
+    } else if (id === 'peach' && Conditions.clearDebuffs(this.save, this)) {
+      extra = '\nDebuffs cleared';
     }
     if (firstTaste) extra += `\n🍽 first taste: +${Energy.tasteBonus(id)} max ⚡`;
     return { gained, extra };
@@ -10100,6 +10184,11 @@ class MapScene extends Phaser.Scene {
 
   _tickShrineRegen(dt, now = Date.now()) {
     const gained = Energy.tickShrineRegen(this.save, this, dt, now);
+    if (gained > 0) this.updateEnergyDOM();
+  }
+
+  _tickFishRegen(now = Date.now()) {
+    const gained = Energy.tickFishRegen(this.save, now);
     if (gained > 0) this.updateEnergyDOM();
   }
 
@@ -13325,7 +13414,7 @@ class MapScene extends Phaser.Scene {
       if (r.isNewStack && r.accepted > 0) {
         this.save.invCat = invCatForItem(id);
         const newIdx = this.save.inv.findIndex(s => s && s.id === id);
-        const pos = this.invEntriesForCat(this.save.invCat).findIndex(e => e.idx === newIdx);
+        const pos = this.invDisplayEntriesForCat(this.save.invCat).findIndex(e => e.idx === newIdx);
         this.save.invPage = pos >= 0 ? Math.floor(pos / 5) : 0;
       }
       if (!opts.deferRefresh) this._finishInventoryChange();
@@ -13365,7 +13454,7 @@ class MapScene extends Phaser.Scene {
   // Filtered, index-tagged stacks for an item category. Each element is
   // { idx, entry } where idx is the real position in save.inv (so selection +
   // every downstream save.inv[selSlot] reader keep working unchanged). Gear
-  // categories return [] — they synthesize their list in gearEntriesForCat.
+  // without item kinds return [] — equipped entries come from gearEntriesForCat.
   invEntriesForCat(catKey) {
     const cat = INV_CAT_BY_KEY[catKey];
     if (!cat || !cat.kinds) return [];
@@ -13375,6 +13464,12 @@ class MapScene extends Phaser.Scene {
       if (invCatForItem(entry.id) === catKey) out.push({ idx, entry });
     });
     return out;
+  }
+  // One display order for tab counts, paging and pickups. Fixed-tier relics
+  // remain ordinary inventory stacks after the equipped tool/weapon slots.
+  invDisplayEntriesForCat(catKey) {
+    return [...this.gearEntriesForCat(catKey).map(gear => ({ gear })),
+      ...this.invEntriesForCat(catKey)];
   }
   // Owned relic/armor slots for a gear category, in draw order. One per slot —
   // these are equipped gear (save.relics / save.armor), not save.inv stacks.
@@ -13406,7 +13501,7 @@ class MapScene extends Phaser.Scene {
   // respect. addToInv already handles the other direction — a new stack pulls
   // its own tab forward.
   _settleInvCatOnBoot() {
-    const has = (c) => (c.gear ? this.gearEntriesForCat(c.key) : this.invEntriesForCat(c.key)).length > 0;
+    const has = (c) => this.invDisplayEntriesForCat(c.key).length > 0;
     const cur = INV_CAT_BY_KEY[this.save.invCat];
     if (cur && has(cur)) return;               // already showing something
     const stocked = INV_CATS.find(has);
@@ -13436,9 +13531,9 @@ class MapScene extends Phaser.Scene {
     if (!INV_CAT_BY_KEY[this.save.invCat]) this.save.invCat = 'seed';
     if (this.save.invPage == null) this.save.invPage = 0;
     const cat = INV_CAT_BY_KEY[this.save.invCat];
-    const isGear = !!cat.gear;
-    const gearList = isGear ? this.gearEntriesForCat(cat.key) : null;
-    const itemList = isGear ? null : this.invEntriesForCat(cat.key);
+    const gearList = this.gearEntriesForCat(cat.key);
+    const itemList = this.invEntriesForCat(cat.key);
+    const displayList = this.invDisplayEntriesForCat(cat.key);
 
     // Reconcile the selection so the highlight always points at something IN
     // the active tab, or at "empty" (-1). A selection that no longer belongs
@@ -13448,21 +13543,19 @@ class MapScene extends Phaser.Scene {
     // player's hand they didn't choose. We deliberately do NOT move invPage
     // to the selection — paging is driven by ◀ ▶ / tab switches / pickups,
     // not by every rebuild.
-    if (isGear) {
+    const inCat = this.save.selSlot >= 0 && itemList.some(e => e.idx === this.save.selSlot);
+    if (inCat) {
+      this.save.selGear = null;
+    } else {
       this.save.selSlot = -1;
       const owned = this.save.selGear &&
         gearList.some(g => g.kind === this.save.selGear.kind && g.slot === this.save.selGear.slot);
-      if (!owned) this.save.selGear = gearList[0] ? { kind: gearList[0].kind, slot: gearList[0].slot } : null;
-    } else {
-      this.save.selGear = null;
-      const inCat = this.save.selSlot >= 0 && itemList.some(e => e.idx === this.save.selSlot);
-      if (!inCat) this.save.selSlot = -1;
+      if (!owned) this.save.selGear = null;
     }
 
-    // Cell count: gear tabs are exactly their owned entries; item tabs keep one
-    // trailing EMPTY slot so the player can select "nothing" → buy intent at a
-    // shop. One blank page is always reachable beyond a full one.
-    const cellCount = isGear ? gearList.length : itemList.length + 1;
+    // Tabs holding inventory stacks keep one trailing empty-hand slot, even
+    // when they also contain equipped gear. Armor remains gear-only.
+    const cellCount = displayList.length + (cat.kinds ? 1 : 0);
     const pageCount = Math.max(1, Math.ceil(Math.max(1, cellCount) / PAGE));
     if (this.save.invPage >= pageCount) this.save.invPage = pageCount - 1;
     if (this.save.invPage < 0) this.save.invPage = 0;
@@ -13477,7 +13570,7 @@ class MapScene extends Phaser.Scene {
     tabs.style.cssText = 'position:fixed;bottom:calc(118px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:flex-start;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;';
     for (const c of INV_CATS) {
       const active = c.key === this.save.invCat;
-      const count = c.gear ? this.gearEntriesForCat(c.key).length : this.invEntriesForCat(c.key).length;
+      const count = this.invDisplayEntriesForCat(c.key).length;
       const tab = document.createElement('button');
       tab.dataset.cat = c.key;
       tab.title = c.label;
@@ -13548,7 +13641,7 @@ class MapScene extends Phaser.Scene {
     // Sort (item tabs only) — group by kind then alphabetical by name. Selection
     // is re-anchored to the same item id so the highlight follows the resort.
     const KIND_ORDER = { produce: 0, seed: 1, animal: 2 };
-    if (!isGear) {
+    if (cat.kinds) {
       bar.appendChild(makeBtn('⇅', () => {
         const selId = this.save.inv[this.save.selSlot]?.id;
         this.save.inv = [...this.save.inv].sort((a, b) => {
@@ -13561,7 +13654,7 @@ class MapScene extends Phaser.Scene {
           const newIdx = this.save.inv.findIndex(e => e.id === selId);
           if (newIdx >= 0) {
             this.save.selSlot = newIdx;
-            const pos = this.invEntriesForCat(this.save.invCat).findIndex(e => e.idx === newIdx);
+            const pos = this.invDisplayEntriesForCat(this.save.invCat).findIndex(e => e.idx === newIdx);
             if (pos >= 0) this.save.invPage = Math.floor(pos / PAGE);
           }
         }
@@ -13587,8 +13680,8 @@ class MapScene extends Phaser.Scene {
       const slot = document.createElement('button');
       slot.className = 'hud-slot';
       slot.style.cssText = slotCss;
-      if (isGear) {
-        const g = gearList[p];
+      if (displayList[p]?.gear) {
+        const g = displayList[p].gear;
         if (g) {
           slot.dataset.gear = `${g.kind}:${g.slot}`;
           slot.title = (typeof gearName === 'function') ? gearName(g.kind, g.slot, g.tier) : g.slot;
@@ -13632,8 +13725,8 @@ class MapScene extends Phaser.Scene {
           slot.textContent = '';
           slot.style.cursor = 'default';
         }
-      } else if (p < itemList.length) {
-        const { idx, entry } = itemList[p];
+      } else if (displayList[p]?.entry) {
+        const { idx, entry } = displayList[p];
         const item = ITEM_BY_ID[entry.id];
         slot.dataset.slot = idx;
         slot.title = item ? `${item.name}${entry.count != null ? ' ×' + entry.count : ''}` : 'empty';
@@ -13641,7 +13734,8 @@ class MapScene extends Phaser.Scene {
         else slot.textContent = '·';
         if (entry.count != null) {
           const badge = document.createElement('span');
-          badge.textContent = entry.count;
+          badge.textContent = item?.kind === 'unique_relic'
+            ? `T${item.baseTier}${entry.count > 1 ? ' ×' + entry.count : ''}` : entry.count;
           badge.className = 'hud-badge';
           badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;';
           slot.appendChild(badge);
@@ -13651,10 +13745,11 @@ class MapScene extends Phaser.Scene {
           // Tapping the already-selected stack deselects it (empty hand)
           // rather than re-selecting itself as a no-op tap.
           this.save.selSlot = (this.save.selSlot === idx) ? -1 : idx;
+          this.save.selGear = null;
           persistSave(this.save);
           this.refreshInventoryHighlight();
         });
-      } else if (p === itemList.length) {
+      } else if (cat.kinds && p === displayList.length) {
         // The single trailing EMPTY slot — selecting it means "nothing held",
         // which a shop reads as buy intent. dataset.slot = -1.
         slot.dataset.slot = -1;
@@ -13663,6 +13758,7 @@ class MapScene extends Phaser.Scene {
         slot.addEventListener('click', (e) => {
           e.stopPropagation();
           this.save.selSlot = -1;
+          this.save.selGear = null;
           persistSave(this.save);
           this.refreshInventoryHighlight();
         });
@@ -13724,7 +13820,7 @@ class MapScene extends Phaser.Scene {
     const bar = document.getElementById('inv');
     if (!bar) return;
     const cat = INV_CAT_BY_KEY[this.save.invCat] || INV_CAT_BY_KEY.seed;
-    const isGear = !!cat.gear;
+    const isGear = !!cat.gear && this.save.selSlot < 0;
     const gearKey = this.save.selGear ? `${this.save.selGear.kind}:${this.save.selGear.slot}` : null;
     [...bar.querySelectorAll('button[data-slot],button[data-gear]')].forEach(el => {
       let isSel;
@@ -13744,7 +13840,7 @@ class MapScene extends Phaser.Scene {
           const hint = document.createElement('div');
           hint.textContent = cat.key === 'armor'
             ? 'No armor yet — forge or find it'
-            : 'No relics yet — forge or find them';
+            : this.invDisplayEntriesForCat(cat.key).length ? 'Select a relic' : 'No relics yet — forge or find them';
           hint.style.cssText = 'opacity:0.7;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
           nameLbl.appendChild(hint);
         } else {
@@ -13782,8 +13878,8 @@ class MapScene extends Phaser.Scene {
   }
 
   // Equip / Unequip button — the Eat button's slot, shown while a WEAPON is
-  // highlighted in the Relics tab (never alongside Eat / Drink: a gear tab
-  // clears selSlot, which hides both). EQUIP makes the highlighted sword, bow
+  // highlighted in the Relics tab. Gear selection clears selSlot; selecting
+  // a carried relic clears selGear, so its Eat / Use action appears instead. EQUIP makes the highlighted sword, bow
   // or staff the one that fights (Gear.selectWeapon); UNEQUIP, on the bow or
   // staff in hand, puts it away so melee auto-engages again — the sword if
   // owned, bare hands if not (Gear.unequipWeapon). The sword in hand needs no
@@ -13858,6 +13954,8 @@ class MapScene extends Phaser.Scene {
     // appear here, which is the whole of their exemption.
     const cdLeft = Energy.eatCooldownLeft(this.save);
     const cooling = cdLeft > 0;
+    const fishWait = Energy.fishRegenWait(this.save, sel?.id);
+    this._eatFishShown = fishWait > 0 ? shortDuration(fishWait) : '';
     // DOWN AND LOCKED OUT (hard mode, empty bar — _zeroEnergyLocked): every
     // food but the feather is refused by eatSelected, so the button wears the
     // same dimmed face the cooldown does. Same expression both sides read, so
@@ -13865,7 +13963,7 @@ class MapScene extends Phaser.Scene {
     // _eatLockShown holds the raw lockout for _tickEatButton's change check.
     this._eatLockShown = this._zeroEnergyLocked();
     const locked = this._eatLockShown && !featherRevive;
-    const dim = cooling || locked;
+    const dim = cooling || locked || fishWait > 0;
     // Held so _tickEatButton knows when the readout has actually changed and
     // this rebuild is worth running again (it drives the bar every frame, but
     // the label only moves on the whole second).
@@ -13874,7 +13972,10 @@ class MapScene extends Phaser.Scene {
     // advertise: the restore isn't the actionable number until the bar fills.
     const eatVerb = ITEM_BY_ID[sel?.id]?.reusable ? 'Drink' : 'Eat';
     const text = cooling ? `${eatVerb} ${this._eatCdShown}`
+      : fishWait > 0 ? `Stronger regen ${this._eatFishShown}`
       : featherRevive ? `Use → ${FEATHER_REVIVE_ENERGY}⚡`
+      : Energy.fishRegenTotal(sel?.id) ? `${eatVerb} ${restore}⚡/${shortDuration(Energy.FISH_REGEN_MS)}`
+      : CONSUMABLE_SPEC[sel?.id]?.eatLabel ? `${eatVerb} · ${CONSUMABLE_SPEC[sel.id].eatLabel} ${shortDuration(CONSUMABLE_SPEC[sel.id].durationMs)}`
       : `${eatVerb} +${restore}⚡`;
     const btn = existing || this._makeEatButton();
     // The icon is rebuilt only when the SELECTED STACK changes, not on every
@@ -13972,7 +14073,9 @@ class MapScene extends Phaser.Scene {
     const shown = left > 0 ? shortDuration(left) : '';
     // Also rebuild when the bar empties or refills, which greys / un-greys it.
     const locked = this._zeroEnergyLocked();
-    if (shown !== this._eatCdShown || locked !== this._eatLockShown) this.syncEatButton();
+    const fishWait = Energy.fishRegenWait(this.save, getSelectedSlot(this.save)?.id);
+    const fishShown = fishWait > 0 ? shortDuration(fishWait) : '';
+    if (shown !== this._eatCdShown || locked !== this._eatLockShown || fishShown !== this._eatFishShown) this.syncEatButton();
   }
 
   // Book / Honey Read / Use button. Mirror of syncEatButton — sits next
