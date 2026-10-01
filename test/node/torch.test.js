@@ -177,13 +177,16 @@ test('torch: useTorch lights it for TORCH_MS, extending from the current end, in
   assert.falsy(/save\.(_)?torchUntil|torchUntil: /.test(app), 'never on the save — a refresh puts it out');
 });
 
-test('torch: the readout beside the dragon\'s and the shadow\'s, via shortDuration, hidden when out', () => {
-  assert.truthy(/this\.torchTimerText = this\.add\.text\(/.test(app), 'a torchTimerText label');
-  const upd = app.match(/if \(this\.isTorchActive\(\)\) \{\n([\s\S]*?)\n    \} else if \(this\.torchTimerText\.visible\) \{\n\s*this\.torchTimerText\.setVisible\(false\);/);
-  assert.truthy(upd, 'refreshed in update(), hidden once out');
-  assert.truthy(/\.setText\(shortDuration\(this\._torchUntil - Date\.now\(\)\)\)/.test(upd[1]), 'the wait is shortDuration');
-  assert.truthy(/const stacked = \(dragonActive \? 1 : 0\) \+ \(shadowActive \? 1 : 0\);/.test(upd[1]),
-    'stacked above whichever of the other two are showing');
+test('torch: its readout is a row of the countdown stack (Buffs.KINDS), via shortDuration', () => {
+  assert.eq(Buffs.KINDS.torch.scene, '_torchUntil', 'the row reads the in-memory timer');
+  const now = Date.now();
+  const rows = Buffs.active({}, { _torchUntil: now + 5000 }, now);
+  assert.eq(rows.map(r => r.id).join(','), 'torch', 'lit: one row');
+  assert.eq(rows[0].remainingMs, 5000, 'with the time left');
+  assert.eq(Buffs.active({}, { _torchUntil: now }, now).length, 0, 'out: no row');
+  assert.falsy(/torchTimerText/.test(app), 'no label of its own — the stack draws it');
+  assert.truthy(/const rows = Buffs\.active\(this\.save, this\);/.test(app), 'update() reads the table');
+  assert.truthy(/`\$\{row\.name\} \$\{shortDuration\(row\.remainingMs\)\}`/.test(app), 'the wait is shortDuration');
 });
 
 test('torch: the Light confirmation distinguishes fresh and renewed flame', () => {

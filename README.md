@@ -50,7 +50,7 @@ src/        Game source (vanilla JS, global scope, load-order dependent). The bi
               items.js / rarity.js / loot.js / shops*.js / gear.js   catalog + economy
               combat.js / wizard.js / quests.js / play_tips.js / trail.js / streets.js   systems
             plus small pure cores (coords, energy, inventory, crops, fog, traps,
-            lairs, difficulty, …) that the headless suite loads directly.
+            lairs, buffs, difficulty, …) that the headless suite loads directly.
 vendor/     Third-party libraries (phaser.js — see vendor/README.md).
 assets/     Game art the build loads (Character/, Enemy/, Farm Animals/, Icons/, Objects/, art/).
 data/       Static data sidecars (satextract_osm.geojson and its sources).

@@ -66,18 +66,26 @@
     Shrines.grant(save, 'wishing_well', T0);
     assert.truthy(Shrines.leverActive(save, 'fortune', T0 + 1));
     assert.falsy(Shrines.leverActive(save, 'fortune', T0 + K.wishing_well.durationMs));
-    assert.eq(save.shrineBoon, 'wishing_well');
-    assert.eq(Shrines.boonRemainingMs(save, null, T0), K.wishing_well.durationMs);
+    assert.eq(save.shrineBoon, undefined, 'no "last boon" — every running boon shows (Buffs)');
+    const luck = Buffs.active(save, null, T0).find(r => r.id === 'fortune');
+    assert.eq(luck.remainingMs, K.wishing_well.durationMs, 'the well\'s boon counts down as its own row');
+    assert.eq(luck.name, K.wishing_well.boon, 'named by the kind\'s boon word');
     Shrines.normalize(save, T0 + K.wishing_well.durationMs + 1);
     assert.eq(save.boonUntil.fortune, undefined, 'an expired boon is dropped');
     const scene = {};
     Shrines.grant(save, 'lantern_saint', T0, scene);
     assert.eq(scene._torchUntil, T0 + K.lantern_saint.durationMs, 'the Torch\'s own timer');
-    assert.eq(Shrines.boonRemainingMs(save, scene, T0), 0, 'the Torch shows its own countdown');
+    const ids = Buffs.active(save, scene, T0).map(r => r.id);
+    assert.truthy(ids.includes('torch') && !ids.includes('light'), 'the saint shows as the Torch\'s countdown, not a row of its own');
     Shrines.grant(save, 'moss_cairn', T0, scene);
     assert.eq(save.boonUntil.hidden, T0 + K.moss_cairn.durationMs, 'Moss persists independently');
     assert.eq(scene._shadowUntil, undefined, 'Shadow Powder stays independent');
+    assert.eq(Buffs.active(save, scene, T0).map(r => r.id).join(','), 'torch,shield,hidden',
+      'every running boon shows, in table order — the torch, the shield and Moss at once');
     assert.falsy(Shrines.grant(save, 'nope', T0));
+    save.shrineBoon = 'wishing_well';
+    Shrines.normalize(save, T0);
+    assert.eq(save.shrineBoon, undefined, 'the retired last-boon key is dropped from old saves');
   });
 
   test('shrines: revised boons use their requested durations and levers', () => {
@@ -155,7 +163,7 @@
     assert.eq(scene.pairyCompass.until, T0 + CONSUMABLE_SPEC.pairy.durationMs);
     assert.eq(save.eatReadyAt, T0 + 99999, 'cooldown unchanged and bypassed');
     assert.eq(save.speedPotionUntil, undefined, 'no speed potion');
-    assert.eq(Shrines.boonRemainingMs(save, scene, T0), 0, 'compass owns its timer');
+    assert.eq(Buffs.active(save, scene, T0).map(r => r.id).join(','), 'compass', 'the compass shows as the one countdown');
     scene.findNearestUnopenedChest = () => null;
     assert.truthy(Shrines.grant(save, 'wayfarer_post', T0, scene), 'no nearby chest still grants food');
     assert.eq(save.eaten.length, 1, 'first taste only once');

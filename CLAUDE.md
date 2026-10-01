@@ -363,6 +363,10 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   looked at, never asked about twice.
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including
   interpolations. Cut copy or use a modal; do not interpolate unbounded POI names.
+- A timed effect on the player (a potion, powder, torch, coffee, the bike,
+  the compass, a shrine boon) is a row of `Buffs.KINDS` (`src/buffs.js`):
+  its expiry field, word and ink. The countdown stack over the head
+  (`_tickBuffTimers`) draws every running row; never add a label of its own.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls
@@ -410,7 +414,7 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   a named zone's keeper stays. The warden's home plea is a tap, never a splash.
 
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
-`item_descriptions`, `books`, `story_neighbours`.
+`item_descriptions`, `books`, `story_neighbours`, `buffs`.
 
 ## Maintaining this file
 

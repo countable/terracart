@@ -13,7 +13,9 @@
 // gift (owner, Sep 2026).
 //
 // Shield, reach and light share their existing item timers. Other timed
-// boons persist in save.boonUntil and never stack in strength. Wayfarer's
+// boons persist in save.boonUntil and never stack in strength; `boon` is
+// the word their countdown shows (src/buffs.js reads it — every running
+// boon shows over the head, each in the kind's light colour). Wayfarer's
 // post immediately applies the same food effects as a Pairy.
 // Pure apart from the scene food-effect callback; no Phaser or DOM.
 // ─────────────────────────────────────────────────────────────────────────
@@ -52,27 +54,27 @@
       zones: ['ordered_graves', 'overgrown_graves'], streets: [],
       name: 'Bone watcher', flash: 'Something watches your back.',
       body: "A hooded stone figure stands guard. You rest beside it, feeling safer." },
-    moss_cairn: { art: 'shrine_moss_cairn', frame: 4, light: 0x9be08a, lever: 'hidden', durationMs: 3 * MIN,
+    moss_cairn: { art: 'shrine_moss_cairn', frame: 4, light: 0x9be08a, lever: 'hidden', durationMs: 3 * MIN, boon: 'Unseen',
       zones: ['ancient_grove'], streets: ['overgrown', 'greenway'],
       name: 'Moss cairn', flash: 'The moss hushes your steps.',
       body: "You touch the mossy stones. Nearby creatures look past you, unaware of your presence." },
-    rust_totem: { art: 'shrine_rust_totem', frame: 5, light: 0xff8c2a, lever: 'melee', durationMs: 5 * MIN,
+    rust_totem: { art: 'shrine_rust_totem', frame: 5, light: 0xff8c2a, lever: 'melee', durationMs: 5 * MIN, boon: 'Grip',
       zones: ['work_yard', 'broken_masonry', 'broken_depot'], streets: ['barricade', 'snare'],
       name: 'Rust totem', flash: 'Your grip hardens like iron.',
       body: "You touch the rusted iron. Your arms feel stronger as you grip your weapon." },
-    wishing_well: { art: 'shrine_wishing_well', frame: 6, light: 0xefc46a, lever: 'fortune', durationMs: 15 * MIN,
+    wishing_well: { art: 'shrine_wishing_well', frame: 6, light: 0xefc46a, lever: 'fortune', durationMs: 15 * MIN, boon: 'Luck',
       zones: ['meadow', 'hedge_garden'], streets: ['golden', 'hedgerow'],
       name: 'Wishing well', flash: 'A coin sinks. Luck stirs.',
       body: "Green coins glint at the bottom of the well. You lean over the edge and make a wish." },
-    harvest_idol: { art: 'shrine_harvest_idol', frame: 7, light: 0xffd07a, lever: 'work', durationMs: 15 * MIN,
+    harvest_idol: { art: 'shrine_harvest_idol', frame: 7, light: 0xffd07a, lever: 'work', durationMs: 15 * MIN, boon: 'Swift',
       zones: ['orchard'], streets: ['orchard'],
       name: 'Harvest idol', flash: 'Your hands move swiftly.',
       body: "You lay your hand on the straw figure. Your weariness lifts, and your hands move swiftly through their work." },
-    toad_idol: { art: 'shrine_toad_idol', frame: 8, light: 0x7fe0a0, lever: 'regen', durationMs: 8 * MIN,
+    toad_idol: { art: 'shrine_toad_idol', frame: 8, light: 0x7fe0a0, lever: 'regen', durationMs: 8 * MIN, boon: 'Mending',
       zones: ['mushroom_grove', 'seep'], streets: ['toadstool'],
       name: 'Toad idol', flash: 'Your wounds begin to heal.',
       body: "You touch the cool stone toad. The pain eases as your wounds begin to heal." },
-    ember_altar: { art: 'shrine_ember_altar', frame: 9, light: 0xff5a3c, lever: 'wand', durationMs: 5 * MIN,
+    ember_altar: { art: 'shrine_ember_altar', frame: 9, light: 0xff5a3c, lever: 'wand', durationMs: 5 * MIN, boon: 'Ember',
       zones: ['black_ring', 'flint_field'], streets: ['burned'],
       name: 'Ember altar', flash: 'Fire gathers in your hands.',
       body: "You reach toward the glowing ember. Fire gathers in your hands, ready to strike." },
@@ -99,13 +101,14 @@
   const kindForZoneVariant = (variantId) => byZone.get(variantId) || null;
   const kindForStreet = (variantId) => byStreet.get(variantId) || null;
 
-  // Where each lever's expiry lives (see the header). `ownTimer`: the lever
-  // already shows its own countdown over the head (the Torch).
+  // Where each lever's expiry lives (see the header): a potion's save field,
+  // the Torch's in-memory scene field, or (no entry) save.boonUntil[lever].
+  // Buffs.KINDS reads this to seat each boon's countdown on the right row.
   const LEVERS = {
     pairy:    { instant: true },
     shield:   { save: 'shieldPotionUntil' },
     reach:    { save: 'reachPotionUntil' },
-    light:    { scene: '_torchUntil', ownTimer: true },
+    light:    { scene: '_torchUntil' },
     hidden:   {},
     melee:    {}, fortune: {}, work: {}, regen: {}, wand: {},
   };
@@ -123,8 +126,7 @@
   }
 
   // Lend kind's boon: the lever's expiry becomes the later of its own and
-  // now + durationMs. save.shrineBoon remembers the last kind for the
-  // countdown. Returns false for an unknown kind.
+  // now + durationMs. Returns false for an unknown kind.
   function grant(save, kindId, now = Date.now(), scene = null) {
     const row = SHRINE_KINDS[kindId];
     if (!row || !save) return false;
@@ -132,39 +134,32 @@
     if (L.instant) {
       if (!scene?._consumeFoodEffects) return false;
       scene._consumeFoodEffects('pairy', false, now);
-      save.shrineBoon = kindId;
       return true;
     }
     const until = Math.max(leverUntil(save, row.lever, scene), now + row.durationMs);
     if (L.save) save[L.save] = until;
     else if (L.scene) { if (scene) scene[L.scene] = until; }
     else (save.boonUntil ||= {})[row.lever] = until;
-    save.shrineBoon = kindId;
     return true;
   }
 
   // The map line a visit shows (≤ MAP_MSG_MAX — shrines.test.js measures).
   function boonFlash(kindId) { return SHRINE_KINDS[kindId] ? SHRINE_KINDS[kindId].flash : ''; }
 
-  // The countdown's remaining ms for the last boon, or 0 when it has run out
-  // or its lever keeps its own countdown.
-  function boonRemainingMs(save, scene, now = Date.now()) {
-    const row = SHRINE_KINDS[save?.shrineBoon];
-    if (!row || LEVERS[row.lever].ownTimer || LEVERS[row.lever].instant) return 0;
-    return Math.max(0, leverUntil(save, row.lever, scene) - now);
-  }
-
-  // Drop expired boon-only expiries (save hygiene; nothing reads a past one).
+  // Drop expired boon-only expiries (save hygiene; nothing reads a past one)
+  // and the retired `shrineBoon` (the last kind, once the only countdown —
+  // every running boon shows now, through Buffs.KINDS).
   function normalize(save, now = Date.now()) {
-    if (!save || !save.boonUntil) return;
+    if (!save) return;
+    delete save.shrineBoon;
+    if (!save.boonUntil) return;
     for (const [k, t] of Object.entries(save.boonUntil)) {
       if (!LEVERS[k] || !(Number(t) > now)) delete save.boonUntil[k];
     }
-    if (save.shrineBoon && !SHRINE_KINDS[save.shrineBoon]) delete save.shrineBoon;
   }
 
   root.Shrines = {
     SHRINE_KINDS, REWARD_KINDS, kindForObject, KIND_IDS, LEVERS, FORTUNE_LUCK_BONUS, WORK_SPEED_MUL, REGEN_PER_SECOND, WAND_TIER, STREET_SHRINE_CHANCE, SCENIC_SHRINES_PER_TILE,
-    kindForZoneVariant, kindForStreet, leverUntil, leverActive, grant, boonFlash, boonRemainingMs, normalize,
+    kindForZoneVariant, kindForStreet, leverUntil, leverActive, grant, boonFlash, normalize,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

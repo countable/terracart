@@ -2576,39 +2576,13 @@ class MapScene extends Phaser.Scene {
       .setMask(mask);
     this.playerShadow.clearMask();
     this.shadowContainer.add(this.playerShadow);
-    // Countdown label floated over the dragon's head while Dragon Powder is
-    // active — shows whole seconds of the buff remaining. Hidden whenever the
-    // player isn't a dragon. Seated per-frame in update() a fixed offset above
-    // the body on scene.playerScreen() (the camera is not the player).
-    this.dragonTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: fontMono('bold 13px'), color: UI_GOLD,
-      stroke: '#5a1400', strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
-    // The Shadow Powder's countdown — the same label one line higher, in the
-    // powder's own violet, so a dragon in shadow shows both. Hidden otherwise
-    // (set per-frame in update(), beside the dragon's).
-    this.shadowTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: fontMono('bold 13px'), color: '#d9b3ff',
-      stroke: '#2a1040', strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
-    // The Torch's countdown — the same label again in flame orange, stacked
-    // above whichever of the other two are showing (set per-frame in update()).
-    this.torchTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: fontMono('bold 13px'), color: '#ffb347',
-      stroke: '#3a1600', strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
-    // The Potion of Blight's countdown — the same label in blight crimson,
-    // stacked above whichever of the others are showing.
-    this.blightTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: fontMono('bold 13px'), color: '#ff6f9a',
-      stroke: '#3a0418', strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
-    // A shrine boon's countdown (src/shrines.js) — the same label in the
-    // kind's own light colour, stacked above all the others.
-    this.boonTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: fontMono('bold 13px'), color: '#ffffff',
-      stroke: '#1a1410', strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
+    // The countdown stack over the player's head: one label per RUNNING
+    // timed effect (Buffs.KINDS — potions, powders, the torch, coffee, the
+    // bike, the compass, every shrine boon), "<name> <wait>" in the row's own
+    // ink, 15px apart, bottom-up in table order. The labels are a pool made
+    // on demand by _tickBuffTimers (seated per frame on scene.playerScreen()
+    // — the camera is not the player) and hidden once their effect runs out.
+    this.buffTimerTexts = [];
     this.blightAura = this.add.image(this.viewCenterX, this.viewCenterY, 'aura_blight')
       .setOrigin(0.5, 0.5)
       .setVisible(false);
@@ -3991,52 +3965,17 @@ class MapScene extends Phaser.Scene {
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
     // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
     // a dragon walks the same way everyone walks, just with tier-8 boots' speed and energy efficiency (DRAGON_WALK_COST_TIER, see _walkRelics) and double damage. All the
-    // edge does is swap the sprite skin; the countdown label is refreshed
-    // every frame below.
+    // edge does is swap the sprite skin; its countdown rides the stack below.
     const dragonActive = this.isDragonActive();
     if (this._dragonBuffActive !== dragonActive) {
       this._dragonBuffActive = dragonActive;
       this._applyDragonSkin(dragonActive);
-      if (!dragonActive) this.dragonTimerText.setVisible(false);
     }
-    if (dragonActive) {
-      this.dragonTimerText
-        .setText(shortDuration(this._dragonUntil - Date.now()))
-        // Over the head: measured from the SPRITE CENTRE (the player's screen
-        // point is the ground, and the body rides bodyDy above it).
-        .setPosition(pScreen.x, pScreen.y + bodyDy - 35)
-        .setVisible(true);
-    }
-    // Shadow Powder: the same in-memory timer (this._shadowUntil), the same
-    // readout, one line above the dragon's so the two never overprint.
-    const shadowActive = this.isShadowActive();
-    if (shadowActive) {
-      this.shadowTimerText
-        .setText(shortDuration(this._shadowUntil - Date.now()))
-        .setPosition(pScreen.x, pScreen.y + bodyDy - (dragonActive ? 50 : 35))
-        .setVisible(true);
-    } else if (this.shadowTimerText.visible) {
-      this.shadowTimerText.setVisible(false);
-    }
-    // Torch: the same in-memory timer (this._torchUntil, TORCH_MS a light),
-    // the same readout, one line above whatever the other two are showing.
-    if (this.isTorchActive()) {
-      const stacked = (dragonActive ? 1 : 0) + (shadowActive ? 1 : 0);
-      this.torchTimerText
-        .setText(shortDuration(this._torchUntil - Date.now()))
-        .setPosition(pScreen.x, pScreen.y + bodyDy - 35 - 15 * stacked)
-        .setVisible(true);
-    } else if (this.torchTimerText.visible) {
-      this.torchTimerText.setVisible(false);
-    }
-    // Potion of Blight: its countdown over the head, and the aura itself on
-    // the ground point (a ground mark sits on the fix — no body nudge).
+    // Every running timed effect's countdown, over the head (Buffs.KINDS).
+    this._tickBuffTimers(pScreen, bodyDy);
+    // Potion of Blight: the aura itself on the ground point (a ground mark
+    // sits on the fix — no body nudge); its countdown is a row of the stack.
     if (this.isBlightActive()) {
-      const stacked = (dragonActive ? 1 : 0) + (shadowActive ? 1 : 0) + (this.isTorchActive() ? 1 : 0);
-      this.blightTimerText
-        .setText(shortDuration(this.save.blightPotionUntil - Date.now()))
-        .setPosition(pScreen.x, pScreen.y + bodyDy - 35 - 15 * stacked)
-        .setVisible(true);
       // A slow breath in alpha only: the SIZE never moves, because the size
       // is the damage radius.
       const breath = 0.5 + 0.5 * Math.sin((performance.now() / 1000 / 1.6) * Math.PI * 2);
@@ -4048,24 +3987,8 @@ class MapScene extends Phaser.Scene {
         .setVisible(true);
     } else if (this.blightAura.visible) {
       this.blightAura.setVisible(false);
-      this.blightTimerText.setVisible(false);
     }
-    // A shrine boon: the last kind's lever, unless the lever keeps its own
-    // countdown (the Torch's, the Shadow Powder's — shown above).
-    const boonMs = Shrines.boonRemainingMs(this.save, this);
-    if (boonMs > 0) {
-      const stacked = (dragonActive ? 1 : 0) + (shadowActive ? 1 : 0)
-        + (this.isTorchActive() ? 1 : 0) + (this.isBlightActive() ? 1 : 0);
-      const ink = '#' + Shrines.SHRINE_KINDS[this.save.shrineBoon].light.toString(16).padStart(6, '0');
-      this.boonTimerText
-        .setText(shortDuration(boonMs))
-        .setColor(ink)
-        .setPosition(pScreen.x, pScreen.y + bodyDy - 35 - 15 * stacked)
-        .setVisible(true);
-    } else if (this.boonTimerText.visible) {
-      this.boonTimerText.setVisible(false);
-    }
-    // The fourth countdown, and the only one that isn't over the player's head:
+    // The one countdown that isn't over the player's head:
     // the bite cooldown lives ON the Eat button, so it is DOM rather than a
     // Phaser label (see _tickEatButton). No-ops in a frame where no food is
     // selected — the button doesn't exist then.
@@ -9403,6 +9326,37 @@ class MapScene extends Phaser.Scene {
     }
     if (!this.spendEnergy(Wizard.ENCHANTER_ENERGY_COST, sx, sy, cell)) return false;
     return this[method]({ channel: true });
+  }
+
+  // The countdown stack over the head: Buffs.active lists every running
+  // timed effect in table order, and label i of the pool shows the i-th,
+  // "<name> <shortDuration>", 15px above the one below; the bottom one sits
+  // 35px over the SPRITE CENTRE (pScreen is the ground point; the body rides
+  // bodyDy above it). A label's ink is set only when the row it shows
+  // changes (`_buffId`): Phaser re-rasterises the text on every setColor /
+  // setStroke, so colouring per frame would redraw every label every frame
+  // — setText already skips an unchanged string. Labels past the list hide.
+  _tickBuffTimers(pScreen, bodyDy) {
+    const rows = Buffs.active(this.save, this);
+    const pool = this.buffTimerTexts;
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      let t = pool[i];
+      if (!t) {
+        t = pool[i] = this.add.text(0, 0, '', { font: fontMono('bold 13px'), color: '#ffffff', stroke: '#1a1410', strokeThickness: 3 })
+          .setOrigin(0.5, 1).setDepth(11);
+      }
+      if (t._buffId !== row.id) {
+        t._buffId = row.id;
+        t.setColor(row.color).setStroke(row.stroke, 3);
+      }
+      t.setText(`${row.name} ${shortDuration(row.remainingMs)}`)
+        .setPosition(pScreen.x, pScreen.y + bodyDy - 35 - 15 * i)
+        .setVisible(true);
+    }
+    for (let i = rows.length; i < pool.length; i++) {
+      if (pool[i].visible) pool[i].setVisible(false);
+    }
   }
 
   // True while a Potion of Blight's minute runs. In the save like the other
