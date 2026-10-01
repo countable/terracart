@@ -2070,14 +2070,9 @@ class MapScene extends Phaser.Scene {
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
     // so coins read on top of pads + the source chest sprite.
     this.coinContainer = this.add.container(0, 0);
-    // Rare "shiny" sparkle markers — a gold twinkle floated above each shiny
-    // animal / wild plant / tree. Added AFTER the world layer so the spark
-    // draws on top of every world sprite. This is the renderer-AGNOSTIC shiny
-    // cue: the multiply setTint() used elsewhere silently no-ops under the
-    // Phaser Canvas fallback (Phaser.AUTO), so a tint-only shiny was invisible
-    // on those devices. The spark texture is baked gold and animates via
-    // scale/alpha/rotation (pure transforms), so it reads in WebGL and Canvas.
-    this.sparkContainer = this.add.container(0, 0);
+    // (The shiny sparkle / glint-rock layer, sparkContainer, lived here —
+    // under the lightmap — until Oct 2026. It is SELF-LIT now: see below the
+    // lightmap image.)
     // Atmosphere: the RIM HAZE. A short ramp of the biome's haze colour inward
     // from the viewport edge — the top-down stand-in for atmospheric
     // perspective. The map is a hard-clipped window onto the world, so the rim
@@ -2125,6 +2120,21 @@ class MapScene extends Phaser.Scene {
     // is a grey smudge), BELOW the labels and the fog. The emitters
     // themselves are created lazily on first burst and parked in here.
     this.fxContainer = this.add.container(0, 0);
+    // Rare "shiny" sparkle markers and the GLINT ROCK's catch of light — a
+    // gold twinkle floated above each shiny animal / wild plant / tree, and
+    // the small star on a glint rock (render.js sparkList). SELF-LIT (owner,
+    // Oct 2026): ABOVE the lightmap, so a glint in an unlit cave cell shows
+    // at full brightness — it is a catch of light, bright by definition, and
+    // multiplied by the dark it was a grey fleck nobody ever saw. It is NOT a
+    // light: it lights nothing around it (a glint rock has no Lighting row;
+    // a shiny animal's light is offered separately), which is why it lives
+    // here beside the ghost glow and not in the lightmap. BELOW the labels
+    // and the fog. This is also the renderer-AGNOSTIC shiny cue: the multiply
+    // setTint() used elsewhere silently no-ops under the Phaser Canvas
+    // fallback (Phaser.AUTO), so a tint-only shiny was invisible on those
+    // devices; the spark texture is baked gold and animates via
+    // scale/alpha/rotation (pure transforms), so it reads in WebGL and Canvas.
+    this.sparkContainer = this.add.container(0, 0);
     // THE GHOST'S GLOW (SpriteLayout.creatureGlow) — a faint halo per ghost,
     // ABOVE the lightmap so the night dim cannot swallow it and a ghost can be
     // seen coming across the dark, BELOW the labels and the fog. It is not a
