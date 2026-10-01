@@ -9,14 +9,14 @@
 //             watered or not. The crop model stays in crops.js
 //             (Crops.advanceWithin); app.js only supplies the player's point.
 //             Refused, and kept, when no unripe crop is in range.
-//   Shadow  — for one minute (MINUTE_MS) no hostile takes an interest in the
+//   Shadow  — for five minutes (5 × MINUTE_MS) no hostile takes an interest in the
 //             player: wanderCreatures gates BOTH the pursuit (the slime's
 //             meander and the monsters' stalk) and the hit (the leech and the
 //             monster drain) on one `shadowed` read of isShadowActive() —
 //             ORed once per tick into `unnoticed` with the OTHER way a player
 //             stops being there to hunt, a bar run to zero
 //             (downed_pursuit.test.js). The
-//             player's own weapons are not gated. The minute is in memory only
+//             player's own weapons are not gated. The spell is in memory only
 //             and its readout is shortDuration, like the dragon's.
 //   Frost   — every ENEMY (Combat.isEnemy, never game or a pet) standing in
 //             reach (cellInReach — the lit plateau the tap gate accepts) gets
@@ -175,10 +175,10 @@ test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE 
 });
 
 // ── Shadow ─────────────────────────────────────────────────────────────────
-test('shadow: a 1-minute in-memory buff, read out with shortDuration beside the dragon\'s', () => {
+test('shadow: a 5-minute in-memory buff, read out with shortDuration beside the dragon\'s', () => {
   const body = methodBody('useShadowPowder');
   assert.truthy(/this\._shadowUntil = Date\.now\(\) \+ SHADOW_POWDER_MS;/.test(body), 'one SHADOW_POWDER_MS on this._shadowUntil');
-  assert.eq(CONSUMABLE_SPEC.shadow_powder.durationMs, 60 * 1000, 'and that is one minute');
+  assert.eq(CONSUMABLE_SPEC.shadow_powder.durationMs, 5 * 60 * 1000, 'and that is five minutes');
   assert.truthy(/const SHADOW_POWDER_MS = CONSUMABLE_SPEC\.shadow_powder\.durationMs;/.test(app),
     'runtime derives the duration');
   assert.truthy(/return this\._finishConsumable\(/.test(body), 'consumed through the shared tail');
