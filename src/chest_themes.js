@@ -3,13 +3,13 @@
 (function (global) {
   const flowers = ['flowers', 'forgetmenot', 'marigold', 'wildrose', 'starflower', 'sunflower', 'fireflower', 'iceflower'];
   const magicalFlowers = ['sunflower', 'fireflower', 'iceflower'];
-  const foodIds = () => ITEMS.filter(i => i.kind === 'produce' && !i.cooked && FOOD_ENERGY[i.id] > 0 && !flowers.includes(i.id)).map(i => i.id);
+  const foodIds = () => ITEMS.filter(i => i.kind === 'produce' && FOOD_ENERGY[i.id] > 0 && !flowers.includes(i.id)).map(i => i.id);
   const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && foodIds().includes(i.grows)).map(i => i.id);
   const groups = {
-    supplies: { ids: { torch: 3, rope: 1, trap_kit: 1, honey: 1 }, fallback: 'torch' },
-    field: { ids: ['torch', 'rope', 'trap_kit'], fallback: 'torch' },
+    supplies: { ids: { torch: 3, rope: 1, trap_kit: 1, spear: 1, honey: 1 }, fallback: 'torch' },
+    field: { ids: ['torch', 'rope', 'trap_kit', 'spear'], fallback: 'torch' },
     farmSupplies: { ids: ['scarecrow', 'honey'], fallback: 'torch' },
-    materials: { ids: ['wood', 'rockfruit'] },
+    materials: { ids: ['wood', 'rockfruit', 'coal', ...Object.values(MINERAL_TIERS).map(row => row.barId)] },
     cash: { kind: 'cash' },
     restorative: { ids: ['berry', 'cress', 'potato', 'egg', 'milk'] },
     food: { ids: foodIds, fallback: 'restorative' },
@@ -110,7 +110,7 @@
     if (!def) throw new Error('Unknown chest group: ' + group);
     return Object.keys(members(group)).filter(id => {
       const item = ITEM_BY_ID[id];
-      return item && !item.shiny && !item.cooked && (!item.caveOnly || opts.depth > 0)
+      return item && !item.shiny && (!item.caveOnly || opts.depth > 0)
         && (def.minTier?.[normalize(opts.theme)] ?? item.baseTier ?? 1) <= tier;
     });
   }

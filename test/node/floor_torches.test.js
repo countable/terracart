@@ -109,7 +109,7 @@ function xorRng(seed) {
 
 test('roadside chest: 45% supplies, with Torches available at T1 and no unrelated items', () => {
   assert.eq(ChestThemes.weights('roadside', 1).supplies, 45);
-  const supplyIds = new Set(['torch', 'rope', 'trap_kit', 'honey']);
+  const supplyIds = new Set(['torch', 'rope', 'trap_kit', 'spear', 'honey']);
   for (const tier of [1, 2, 3, 5]) {
     const rng = xorRng(0x70C4 + tier);
     let supplies = 0, torches = 0;
@@ -126,7 +126,7 @@ test('roadside chest: 45% supplies, with Torches available at T1 and no unrelate
         if (r.rolledTier === 1) assert.eq(r.id, 'torch', 'T1 supplies always offer usable light');
         if (r.id === 'torch') torches++;
       } else if (r.group === 'materials') {
-        assert.truthy(r.id === 'wood' || r.id === 'rockfruit');
+        assert.includes(['wood', 'rockfruit', 'coal', ...Object.values(MINERAL_TIERS).map(row => row.barId)], r.id);
       } else {
         assert.eq(r.group, 'cash');
         assert.eq(r.kind, 'gold');

@@ -18,12 +18,40 @@ test('chest themes: every authored path terminates and conserves probability', (
         assert.gt(r.ids.length, 0, `${theme}/${tier}/${group} resolves`);
         for (const id of ChestThemes.selectableIds(r)) {
           const item = ITEM_BY_ID[id];
-          assert.truthy(item && !item.shiny && !item.cooked);
+          assert.truthy(item && !item.shiny);
+          if (item.cooked) assert.eq(r.group, 'food', 'cooked meals stay in the food pool');
           assert.truthy(!item.caveOnly || depth > 0);
           assert.truthy(item.baseTier <= tier || (theme === 'school' && id === 'book'));
         }
       }
     }
+  }
+});
+
+test('chest themes: cooked meals, spears and minerals are reachable at their quality tier', () => {
+  const expected = [
+    ...ITEMS.filter(item => item.cooked).map(item => ['food', 'food', item.id]),
+    ['roadside', 'supplies', 'spear'], ['authority', 'field', 'spear'],
+    ['roadside', 'materials', 'coal'],
+    ...Object.values(MINERAL_TIERS).map(row => ['roadside', 'materials', row.barId]),
+  ];
+  for (const [theme, group, id] of expected) {
+    const tier = ITEM_BY_ID[id].baseTier;
+    const opts = { theme, chestTier: Math.min(5, tier) };
+    const pool = ChestThemes.resolve(group, tier, opts);
+    assert.includes(ChestThemes.selectableIds(pool), id, id + ' can actually be selected');
+    if (tier > 1) assert.falsy(ChestThemes.eligible(group, tier - 1, opts).includes(id), id + ' respects its tier');
+    const rng = makeRng32(1927);
+    let found = false;
+    for (let i = 0; i < 2000 && !found; i++) {
+      const reward = resolveChestReward(theme, { tier, bracket: 0, jackpotApplied: 0 }, {}, rng, { tier: opts.chestTier });
+      found = reward.kind === 'item' && reward.id === id;
+    }
+    assert.truthy(found, id + ' reaches the chest reward');
+  }
+  for (let tier = 2; tier <= 7; tier++) {
+    const pool = ChestThemes.resolve('materials', tier, { theme: 'roadside' });
+    assert.eq(ChestThemes.selectableIds(pool).join(','), MINERAL_TIERS[tier].barId, 'materials advance beyond basic debris');
   }
 });
 

@@ -30,7 +30,7 @@ test('campfire: the table both sides read — meat grills, wood makes a torch', 
   for (const out of Object.values(CAMPFIRE_MAKES)) assert.truthy(ITEM_BY_ID[out], `${out} is a real item`);
 });
 
-test('campfire: grilled meat is 1.5× the raw energy and price, and is never loot', () => {
+test('campfire: grilled meat is 1.5× the raw energy and price', () => {
   assert.eq(GRILL_ENERGY_MUL, 1.5);
   assert.eq(FOOD_ENERGY.grilled_meat, Math.round(FOOD_ENERGY.meat * 1.5));
   assert.eq(PRICES.grilled_meat, Math.round(PRICES.meat * 1.5));
@@ -45,6 +45,7 @@ test('campfire: every COOKED_FOODS raw cooks through the same lane as meat', () 
     assert.eq(CAMPFIRE_MAKES[raw], c.id, `${raw} cooks into ${c.id}`);
     const it = ITEM_BY_ID[c.id];
     assert.truthy(it && it.kind === 'produce' && it.cooked, `${c.id} is cooked produce`);
+    assert.eq(it.baseTier, ITEM_BY_ID[raw].baseTier, `${c.id} keeps the raw food rarity`);
     assert.eq(FOOD_ENERGY[c.id], Math.round(FOOD_ENERGY[raw] * GRILL_ENERGY_MUL), `${c.id} energy`);
     assert.eq(PRICES[c.id], Math.round(PRICES[raw] * GRILL_ENERGY_MUL), `${c.id} price`);
   }
