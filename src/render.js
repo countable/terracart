@@ -74,18 +74,21 @@ Render.objectGroundOffsetPx = function (appearance, textures) {
     * appearance.scl * appearance.scaleYMul;
 };
 
-const COIN_DROP_PX = 13;
+const COIN_DROP_PX = 9;
 Render.COIN_DROP_PX = COIN_DROP_PX;
-// Low-detail ground sprites show the amount waiting on the map. The stacks
-// were 20 / 25 / 30 wide, then 17 / 21 / 25; a size smaller again (owner,
-// Sep 2026: still a little big on the map) — a lone coin draws under its
-// 13px native width too. Drawn still, at one fixed scale, so nothing
-// resamples the rims frame to frame.
+// Low-detail ground sprites show the amount waiting on the map. Each width is
+// its PNG's native size (tools/gen_coin_piles.py draws them), drawn still so
+// nothing resamples the rims; 20px is the ceiling (owner, Sep 2026: smaller).
 Render.COIN_PILES = [
-  { min: 1, texture: 'coin_drop', width: 10 },
-  { min: 2, texture: 'coin_pile_small', width: 14 },
-  { min: 11, texture: 'coin_pile_medium', width: 17 },
-  { min: 51, texture: 'coin_pile_large', width: 20 },
+  { min: 1, texture: 'coin_drop', width: COIN_DROP_PX },
+  { min: 2, texture: 'coin_pile_2', width: 12 },
+  { min: 3, texture: 'coin_pile_3', width: 13 },
+  { min: 4, texture: 'coin_pile_4', width: 14 },
+  { min: 5, texture: 'coin_pile_5', width: 14 },
+  { min: 6, texture: 'coin_pile_6_10', width: 15 },
+  { min: 11, texture: 'coin_pile_11_25', width: 17 },
+  { min: 26, texture: 'coin_pile_26_50', width: 18 },
+  { min: 51, texture: 'coin_pile_51', width: 20 },
 ];
 Render.coinPile = (coin) => {
   const amount = coinAmount(coin);

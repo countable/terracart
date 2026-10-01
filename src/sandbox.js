@@ -1285,17 +1285,32 @@
       save.scarecrows.push(cellCenter(cellIX, cellIY));
     }
 
-    // ── PLAYER PLAZA: a little coin-drop burst (the coindrop tap path). In the
-    //    real game these expire after COIN_BURST_LIFE_MS; here we omit expiresAt so they
+    // ── PLAYER PLAZA: one coin drop per Render.COIN_PILES band (the coindrop
+    //    tap path), on the first free plaza cells from the bottom row up —
+    //    coins never share a cell with an object. In the real game these
+    //    expire after COIN_BURST_LIFE_MS; here we omit expiresAt so they
     //    persist across reloads. They live in entry.coinDrops, not objects[].
     if (centreEntry) {
       centreEntry.coinDrops = (centreEntry.coinDrops || []).filter((c) => c._street === 'golden');
-      const coin = (dx, dy) => {
-        const { cellIX, cellIY } = sceneCell('PLAZA', dx, dy);
+      const plaza = sceneByName('PLAZA');
+      const cellOf = (p) => `${Math.floor((p.x - centreTX * tileEdgeM) / cellM)}_${Math.floor((p.y - centreTY * tileEdgeM) / cellM)}`;
+      const taken = new Set([...centreEntry.objects, ...centreEntry.wildplants, ...centreEntry.coinDrops,
+        ...(save.fires || []), ...(centreEntry.treasure ? [centreEntry.treasure] : [])].map(cellOf));
+      const free = [];
+      for (let dy = plaza.h - 1; dy >= 0; dy--) {
+        for (let dx = 0; dx < plaza.w; dx++) {
+          const { cellIX, cellIY } = sceneCell('PLAZA', dx, dy);
+          if (dx === Math.floor(plaza.w / 2) && dy === Math.floor(plaza.h / 2)) continue;   // spawn
+          if (taken.has(`${cellIX}_${cellIY}`) || scene.placedRockSet.has(absKey(cellIX, cellIY))) continue;
+          free.push({ cellIX, cellIY });
+        }
+      }
+      Render.COIN_PILES.forEach((row, i) => {
+        const { cellIX, cellIY } = free[i];
         const { x, y } = cellCenter(cellIX, cellIY);
-        centreEntry.coinDrops.push({ kind: 'coindrop', x, y, id: `sandbox_coin_${cellIX}_${cellIY}` });
-      };
-      coin(4, 3); coin(3, 2); coin(5, 2);
+        centreEntry.coinDrops.push({ kind: 'coindrop', x, y, amount: row.min,
+          id: `sandbox_coin_${cellIX}_${cellIY}` });
+      });
     }
 
     // ── An extra treasure-X on the SW neighbour tile, at the seam with the
