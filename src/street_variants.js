@@ -128,31 +128,17 @@
   // ── Dressing density (generation metres along the way) ───────────────────
   const HEDGE_GATE_EVERY_CELLS = 6; // aligned garden gates on both verges
   // ── How much of a street wears its theme ────────────────────────────────
-  // A street up to MAX_VARIANT_LENGTH_M is themed end to end. Anything
-  // longer (or cut by the tile edge, so its length is unknown) wears its
-  // theme in SECTIONS that are part of the road, laid on a global,
-  // tile-aligned lattice so a cross-tile street agrees with itself from
-  // either side of a seam: each lattice square themes at most
-  // MAX_VARIANT_LENGTH_M of the street inside it, inset by
-  // VARIANT_PATCH_INSET_UNITS at each end so a plain interval separates
-  // sections. A section shorter than MIN_VARIANT_LENGTH_M is not laid, and
-  // a street shorter than it is never themed at all (owner, Sep 2026).
-  // A LONG road — past LONG_ROAD_M, or cut by the tile edge — takes the
-  // wider LONG_PATCH_UNITS lattice (~400 m squares at play latitudes, so a
-  // straight crossing is one section of a few hundred metres, up to the
-  // MAX_VARIANT_LENGTH_M cap on a winding one) and only LONG_ROAD_SECTION_
-  // SHARE of its squares are themed (longPatchThemed — a hash of the street
-  // key and the square, the same for every player), so about that share of
-  // the road wears its theme in sections up to the cap. A row may set its
-  // own `sectionMaxM`, `sectionMinM` and `sectionShare` (the Golden Road
-  // keeps its coin carpets to half the usual section).
+  // Complete short streets wear their theme end to end. Longer or clipped
+  // streets keep the middle sectionShare of each tile-aligned patch, measured
+  // along the road. This leaves real plain gaps even between adjacent patches
+  // and bounds coverage per road, rather than only across random street keys.
+  // Section min/max limits still apply; unusually short or winding fragments
+  // may therefore wear less than the target share. Long roads use wider patches.
   const MAX_VARIANT_LENGTH_M = 500;
   const MIN_VARIANT_LENGTH_M = 50;
   const LONG_ROAD_M = 1000;
   const LONG_ROAD_SECTION_SHARE = 0.4;
-  // Global MVT patches align with tile boundaries. The inset leaves a real
-  // plain interval between compact themes, even along a cross-tile street.
-  const VARIANT_PATCH_UNITS = 512, VARIANT_PATCH_INSET_UNITS = 32;
+  const VARIANT_PATCH_UNITS = 512;
   const LONG_PATCH_UNITS = 1024;
   function sectionLimits(variant) {
     const row = variant ? VARIANT_BY_ID[variant] : null;
@@ -161,11 +147,6 @@
       minM: row?.sectionMinM ?? MIN_VARIANT_LENGTH_M,
       share: row?.sectionShare ?? LONG_ROAD_SECTION_SHARE,
     };
-  }
-  // Does this lattice square of a long road wear the theme? Off the street
-  // key and the square's global corner — generated, never stored.
-  function longPatchThemed(key, patch, share = LONG_ROAD_SECTION_SHARE) {
-    return root.WorldGen.makeRng(fnv1a(`street-section:${key}|${patch}`))() < share;
   }
   // Half-cell samples fill the full three-cell verge on both sides.
   const GOLDEN_STEP_M = 3.5, GOLDEN_COIN_AMOUNT = 1;
@@ -842,8 +823,6 @@
               for (let px = 0; px < ext; px += units) {
                 yield 'street theme patch';
                 const patch = `${tx * ext + px},${ty * ext + py}`;
-                if (long && !longPatchThemed(key, patch, limits.share)) continue;
-                const insetM = VARIANT_PATCH_INSET_UNITS * mvtToM;
                 let budget = limits.maxM;
                 for (const path of canonical) {
                   for (const line of clipPath(path, px, py, px + units, py + units)) {
@@ -851,8 +830,8 @@
                     const length = S.lineLengthM(line, mvtToM);
                     // Trim ALONG the road, never perpendicular to it: otherwise
                     // a road following a lattice boundary would disappear.
-                    const trim = Math.min(insetM, length / 4);
-                    const keptLength = Math.min(length - 2 * trim, budget);
+                    const keptLength = Math.min(length * limits.share, budget);
+                    const trim = (length - keptLength) / 2;
                     if (keptLength < limits.minM) continue;   // too short to read as a section
                     const kept = S.subLineM(line, mvtToM, trim, trim + keptLength)
                       .map(p => ({ x: p.x / mvtToM, y: p.y / mvtToM }));
@@ -1724,7 +1703,7 @@
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GATE_EVERY_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
-    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, longPatchThemed, VARIANT_PATCH_UNITS, VARIANT_PATCH_INSET_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
+    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
     SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,

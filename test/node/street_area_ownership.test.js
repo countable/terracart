@@ -64,26 +64,12 @@
   });
 
   test('clipped named road keeps bounded themed patches across a seam in either build order', () => {
-    // A clipped road is a LONG one to the index (its length is unknown), so
-    // it is themed in sections on the LONG_PATCH_UNITS lattice, about
-    // LONG_ROAD_SECTION_SHARE of them (StreetVariants.longPatchThemed), and
-    // a section under MIN_VARIANT_LENGTH_M is not laid. On this 224 m
-    // fixture tile a lattice square is 56 m, so the road reaches 20 cells
-    // into each tile (three squares a side) and the name is searched so a
-    // square on each side of the seam wears the theme.
+    // Use realistic tile dimensions so each 40% section exceeds the 50 m
+    // minimum. The road crosses three lattice squares on either side.
+    const seamN = 128, seamEdgeM = seamN * WorldGen.CELL_M;
     const REACH = 20;
-    const seamY = p(0, 15).y, py = Math.floor(seamY / StreetVariants.LONG_PATCH_UNITS) * StreetVariants.LONG_PATCH_UNITS;
-    const squaresWest = [1024, 2048, 3072].map(px => `${tx * E + px},${ty * E + py}`);
-    const squaresEast = [0, 1024, 2048].map(px => `${(tx + 1) * E + px},${ty * E + py}`);
-    const seamName = (() => {
-      for (let i = 0; i < 5000; i++) {
-        const s = `Seam Lane ${i}`;
-        const kw = StreetVariants.streetKey(s, tx, ty), ke = StreetVariants.streetKey(s, tx + 1, ty);
-        if (StreetVariants.variantFor(kw, s, 'minor') && squaresWest.some(k => StreetVariants.longPatchThemed(kw, k))
-          && squaresEast.some(k => StreetVariants.longPatchThemed(ke, k))) return s;
-      }
-      throw new Error('no seam street');
-    })();
+    const seamY = p(0, 15).y;
+    const seamName = name;
     const seamLine = (offset) => [
       { x: (N - REACH - offset) * E / N, y: seamY },
       { x: (N + REACH - offset) * E / N, y: seamY },
@@ -95,7 +81,7 @@
         features: [{ type: 2, tags: { name: seamName }, geom: [seamLine(offset)] }] },
     ];
     const build = (tileX, offset) => WorldGen.rasterizeTile(
-      seamLayers(offset), N, tileX, ty, tileEdgeM);
+      seamLayers(offset), seamN, tileX, ty, seamEdgeM);
     const west1 = build(tx, 0), east1 = build(tx + 1, N);
     const east2 = build(tx + 1, N), west2 = build(tx, 0);
     assert.eq(Array.from(west1.streetArea).join(','), Array.from(west2.streetArea).join(','));
@@ -104,9 +90,9 @@
       assert.truthy(r.streetArea.some(Boolean), 'a clipped street retains its compact themed corridor');
       assert.eq(r.streetIndex.lines[0].variant, west1.streetIndex.lines[0].variant, 'same theme in both tiles and build orders');
       for (const rec of r.streetIndex.dressingLines) {
-        assert.lte(Streets.lineLengthM(rec.line, tileEdgeM / E), StreetVariants.MAX_VARIANT_LENGTH_M);
+        assert.lte(Streets.lineLengthM(rec.line, seamEdgeM / E), StreetVariants.MAX_VARIANT_LENGTH_M);
       }
-      assert.truthy(StreetVariants.lineParts(r.streetIndex.lines[0], tileEdgeM / E).some(part => !part.variant), 'plain gaps separate the patches');
+      assert.truthy(StreetVariants.lineParts(r.streetIndex.lines[0], seamEdgeM / E).some(part => !part.variant), 'plain gaps separate the patches');
     }
     // A short road wholly inside a tile still receives its rolled theme.
     const contained = WorldGen.rasterizeTile(layers(name), N, tx, ty, tileEdgeM);

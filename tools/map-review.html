@@ -471,7 +471,7 @@ $('zonePick').onchange=()=>selectZone($('zonePick').value,true);
 $('zoneLabels').onchange=()=> $('zoneLabels').checked ? zoneLabels.addTo(map) : map.removeLayer(zoneLabels);
 const showSource = source => $('sourceFilter').value === 'all' || source === 'place'
   || ($('sourceFilter').value === 'ground' ? source !== 'fauna'
-    : $('sourceFilter').value === 'variant' ? source === 'variant' : source !== 'variant');
+    : $('sourceFilter').value === 'variant' ? ['variant', 'street'].includes(source) : !['variant', 'street'].includes(source));
 $('sourceFilter').onchange=$('sourceColors').onchange=()=>draw(window.__world,window.__home);
 $('sourceLegend').innerHTML=Object.values(ZoneReview.SOURCES).map(s=>`<span style="color:${s.color}">● ${esc(s.label)}</span>`).join('<br>');
 

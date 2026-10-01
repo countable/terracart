@@ -883,22 +883,15 @@ test('street themes: exactly 500m, reversed duplicates and feature cuts keep ide
     'anonymous joined geometry is stable too');
 });
 
-// A LONG road (past LONG_ROAD_M, or cut by the tile edge) wears its theme in
-// SECTIONS: the wider LONG_PATCH_UNITS lattice, and only about
-// LONG_ROAD_SECTION_SHARE of its squares (longPatchThemed, off the street key
-// and the square). Names are searched so the fixture's squares are known.
 const patchKey = (px, py) => `${TX * EXTENT + px},${TY * EXTENT + py}`;
 const rowSquares = [0, 1024, 2048, 3072];
-const LONG_HEDGE = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'hedgerow'
-  && rowSquares.filter(px => SV.longPatchThemed(k, patchKey(px, 0))).length === 2, 'Long Hedge Road');
-const LONG_KEY = SV.streetKey(LONG_HEDGE, TX, TY);
+const LONG_HEDGE = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'hedgerow', 'Long Hedge Road');
 
 test('street themes: long and clipped roads wear their theme in sections, with plain gaps between', () => {
   const a = { x: -50, y: 100 }, b = { x: 1800, y: 100 }, c = { x: 4146, y: 100 };
   const whole = indexOfLines([[a, c]], LONG_HEDGE), split = indexOfLines([[c, b], [b, a]], LONG_HEDGE);
   assert.eq(themeGeometry(whole), themeGeometry(split), 'cuts and direction do not change theme geometry');
-  const themedSquares = rowSquares.filter(px => SV.longPatchThemed(LONG_KEY, patchKey(px, 0)));
-  assert.eq(themedSquares.length, 2, 'the fixture: two of the four squares');
+  const themedSquares = rowSquares;
   assert.eq(whole.dressingLines.map(r => r.patch).sort().join(';'), themedSquares.map(px => patchKey(px, 0)).sort().join(';'),
     'exactly the themed squares carry a section, each once');
   const patches = new Map();
@@ -906,11 +899,11 @@ test('street themes: long and clipped roads wear their theme in sections, with p
     assert.eq(rec.variant, 'hedgerow');
     patches.set(rec.patch, (patches.get(rec.patch) || 0) + Streets.lineLengthM(rec.line, 1));
     for (const p of rec.line) assert.inRange(p.x % SV.LONG_PATCH_UNITS,
-      SV.VARIANT_PATCH_INSET_UNITS - 1e-6, SV.LONG_PATCH_UNITS - SV.VARIANT_PATCH_INSET_UNITS + 1e-6);
+      SV.LONG_PATCH_UNITS * .3 - 1e-6, SV.LONG_PATCH_UNITS * .7 + 1e-6);
   }
   for (const length of patches.values()) assert.inRange(length, SV.MIN_VARIANT_LENGTH_M, SV.MAX_VARIANT_LENGTH_M, 'a section is between the min and the cap');
   const parts = SV.lineParts(whole.lines[0], 1);
-  assert.gt(parts.filter(p => !p.variant && p.b - p.a >= 2 * SV.VARIANT_PATCH_INSET_UNITS).length, 1,
+  assert.gt(parts.filter(p => !p.variant && p.b - p.a >= SV.LONG_PATCH_UNITS * .6 - 1e-6).length, 1,
     'plain intervals visibly separate themes');
   assert.eq(SV.variantAt(whole.lines[0], 1024 + 50, 1), null, 'lattice boundary is a plain gap');
   for (const [line, squares] of [
@@ -918,7 +911,7 @@ test('street themes: long and clipped roads wear their theme in sections, with p
     [[{x:512,y:-50},{x:512,y:4146}], rowSquares.map(py => patchKey(0, py))],
   ]) {
     const aligned = indexOfLines([line], LONG_HEDGE);
-    const want = squares.filter(k => SV.longPatchThemed(LONG_KEY, k));
+    const want = squares;
     assert.eq(aligned.dressingLines.map(r => r.patch).sort().join(';'), want.sort().join(';'),
       'a road following a patch boundary belongs to each themed patch exactly once');
   }
@@ -926,33 +919,25 @@ test('street themes: long and clipped roads wear their theme in sections, with p
   assert.truthy(next.dressingLines.every(r => r.variant === 'hedgerow'), 'named road keeps its identity across the tile seam');
 });
 
-test('street themes: about two fifths of a long road is themed, in sections up to the cap', () => {
-  // At play latitudes a z14 tile is ~1.6 km, so an MVT unit is ~0.4 m and a
-  // LONG_PATCH_UNITS square ~410 m: a straight crossing keeps ~385 m of it,
-  // under the cap. (At the unit-metre scale the other tests use, the cap
-  // itself would halve every section.)
-  const M = 0.4;
-  let themed = 0, total = 0, sections = 0;
-  for (let i = 0; i < 60; i++) {
-    const name = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'hedgerow', `Share Road ${i} no`);
-    const index = indexOfLines([[{ x: -50, y: 100 }, { x: 4146, y: 100 }]], name, TX, TY, M);
-    total += 4196 * M;
-    for (const rec of index.dressingLines) {
-      const len = Streets.lineLengthM(rec.line, M);
-      themed += len; sections++;
-      assert.inRange(len, SV.MIN_VARIANT_LENGTH_M, SV.MAX_VARIANT_LENGTH_M);
-    }
+test('street themes: each bounded road themes 40% of in-tile arclength', () => {
+  const roads = [
+    [{x:0,y:100},{x:4096,y:100}],
+    [{x:1024,y:0},{x:1024,y:4096}],
+    [{x:0,y:0},{x:4096,y:4096}],
+    [{x:100,y:100},{x:900,y:100}],
+    [{x:100,y:100},{x:450,y:100},{x:450,y:450},{x:100,y:450}],
+  ];
+  for (const line of roads) for (const scale of [.4, .7]) {
+    if (line[0].x > 0 && line[0].y > 0 && Streets.lineLengthM(line, scale) <= 500) continue;
+    const index = indexOfLines([line], LONG_HEDGE, TX, TY, scale);
+    const themed = index.dressingLines.reduce((sum, rec) => sum + Streets.lineLengthM(rec.line, scale), 0);
+    assert.inRange(themed / Streets.lineLengthM(line, scale), .399999, .400001,
+      'coverage follows road length regardless of direction, bends or tile scale');
+    const styled = SV.lineParts(index.lines[0], scale).filter(p => p.variant)
+      .reduce((sum, p) => sum + p.b - p.a, 0);
+    assert.inRange(styled / Streets.lineLengthM(line, scale), .399999, .400001,
+      'paving and lamps use the same coverage');
   }
-  assert.eq(SV.LONG_ROAD_SECTION_SHARE, 0.4);
-  assert.eq(SV.LONG_ROAD_M, 1000);
-  // Each themed square keeps (1024 − 2·32) of its 1024 units, so the share
-  // of the road is a little under the share of squares.
-  assert.inRange(themed / total, 0.4 * 0.94 - 0.08, 0.4 * 0.94 + 0.08, 'about 40% of the road, over sixty streets');
-  assert.gt(sections, 0);
-  // A road under LONG_ROAD_M but over the cap keeps the compact every-square lattice.
-  const mid = indexOfLines([[{ x: 100, y: 100 }, { x: 900, y: 100 }]]);
-  assert.gt(mid.dressingLines.length, 1, 'an 800 m road is themed in compact patches');
-  assert.truthy(mid.dressingLines.every(r => Number(r.patch.split(',')[0]) % SV.VARIANT_PATCH_UNITS === 0));
 });
 
 test('street themes: nothing shorter than MIN_VARIANT_LENGTH_M — not a street, not a section', () => {
@@ -964,12 +949,10 @@ test('street themes: nothing shorter than MIN_VARIANT_LENGTH_M — not a street,
   const fine = indexOfLines([[{ x: 100, y: 100 }, { x: 150, y: 100 }]]);
   assert.eq(fine.dressingLines.length, 1, 'a 50 m lane does');
   // A long road clipping a themed square's corner leaves a piece too short to lay.
-  const corner = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'hedgerow'
-    && SV.longPatchThemed(k, patchKey(1024, 0)) && !SV.longPatchThemed(k, patchKey(0, 0)), 'Corner Road');
-  const clipped = indexOfLines([[{ x: -50, y: 100 }, { x: 1024 + 60, y: 100 }]], corner);
-  assert.eq(clipped.dressingLines.length, 0, 'the 60 m that enters the themed square is 40 m after its inset: not laid');
-  const longer = indexOfLines([[{ x: -50, y: 100 }, { x: 1024 + 120, y: 100 }]], corner);
-  assert.eq(longer.dressingLines.length, 1, 'give it 120 m and the section is laid');
+  const clipped = indexOfLines([[{ x: -50, y: 100 }, { x: 1024 + 60, y: 100 }]], LONG_HEDGE);
+  assert.eq(clipped.dressingLines.length, 1, 'the final 60 m fragment would theme only 24 m: omitted');
+  const longer = indexOfLines([[{ x: -50, y: 100 }, { x: 1024 + 125, y: 100 }]], LONG_HEDGE);
+  assert.eq(longer.dressingLines.length, 2, 'a 125 m fragment can fit a 50 m section');
 });
 
 test('street themes: a row may set its own limits — the Golden Road keeps its carpet to 250 m', () => {
@@ -990,7 +973,7 @@ test('street themes: a row may set its own limits — the Golden Road keeps its 
 test('street themes: a winding patch caps total arclength and yields during interval matching', () => {
   const points=[];
   for(let y=32;y<450;y++) points.push({x:40,y},{x:450,y});
-  const WINDING = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'hedgerow' && SV.longPatchThemed(k, patchKey(0, 0)), 'Winding Road');
+  const WINDING = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'hedgerow', 'Winding Road');
   const layers=[
     {name:'transportation',extent:EXTENT,features:[{type:2,tags:{class:'minor'},geom:[points]}]},
     {name:'transportation_name',extent:EXTENT,features:[{type:2,tags:{name:WINDING},geom:[points]}]},
