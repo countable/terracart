@@ -277,7 +277,10 @@ function beatPeriodMs(id, beat) {
   const h = fnv1a(String(id) + '#' + beat.salt) / 4294967296;
   return beat.minMs + h * (beat.maxMs - beat.minMs);
 }
-function beatPhase(id, nowMs, beat) {
+function beatPhase(id, nowMs, beat, revealStartedMs) {
+  // The orb starts this same cue now, then leaves the natural beat unchanged.
+  const elapsed = nowMs - revealStartedMs;
+  if (revealStartedMs != null && elapsed >= 0 && elapsed < beat.showMs) return elapsed / beat.showMs;
   const period = beatPeriodMs(id, beat);
   const offset = fnv1a(String(id) + '#' + beat.salt + 'phase') % Math.floor(period);
   const t = (((nowMs + offset) % period) + period) % period;

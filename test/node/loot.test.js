@@ -199,6 +199,28 @@ test('tier luck: still the ring, still 1% a tier', () => {
   assert.eq(ringLuck({}), 0, 'no ring, no tier luck');
 });
 
+test('tier luck: the carried key adds one luck tier and never stacks', () => {
+  assert.eq(treasureLuck({}), 0);
+  for (const count of [0, 1, 3]) {
+    const save = { inv: [{ id: 'lucky_key', count }], relics: { ring: { tier: 3 } } };
+    assert.lt(Math.abs(treasureLuck(save) - (count ? 0.04 : 0.03)), 1e-9,
+      'key and ring luck combine while duplicate keys do not');
+  }
+});
+
+test('pickReward: a carried key improves treasure rolls like one ring tier', () => {
+  let changed = 0;
+  for (let s = 1; s <= 600; s++) {
+    const roll = save => pickReward('treasure:road', save, seeded(s * 2654435761));
+    const base = roll({});
+    const keyed = roll({ inv: [{ id: 'lucky_key', count: 1 }] });
+    const ringed = roll({ relics: { ring: { tier: 1 } } });
+    assert.eq(JSON.stringify(keyed), JSON.stringify(ringed), 'same RNG gets the same luck bonus');
+    if (JSON.stringify(keyed) !== JSON.stringify(base)) changed++;
+  }
+  assert.gt(changed, 0, 'the key actually changes rewards, not just the displayed stat');
+});
+
 test('pickReward: the wizard\'s quantity rungs make loot land in bigger stacks', () => {
   // Statistical smoke test for the wiring, same shape as the ring one above:
   // the top rung must not lower the mean stack size against no rungs at all.

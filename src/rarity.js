@@ -352,6 +352,10 @@
       ? Shrines.FORTUNE_LUCK_BONUS : 0;
     return (save?.relics?.ring?.tier || 0) * RARITY_TUNING.ringLuckPerTier + boon;
   }
+  function treasureLuck(save) {
+    const keyTier = Inventory.count(save, 'lucky_key') > 0 ? CARRIED_ITEM_SPEC.lucky_key.luckTier : 0;
+    return ringLuck(save) + keyTier * RARITY_TUNING.ringLuckPerTier;
+  }
   // The wizard's QUANTITY ladder: P(one extra qty-bracket bump on a roll).
   // Linear over its rungs onto qtyLuckMaxP, so the top rung is exactly the
   // ceiling a Frost amulet used to give and every rung is worth something.
@@ -556,7 +560,7 @@
     // to actual qty. Each wasted bump pays out small consolation coins.
     let wastedQtyBumps = 0;
     const chainSteps = ctx.chainSteps ?? 0;
-    const luck = ringLuck(save);
+    const luck = treasureLuck(save);
     const qtyP = Math.max(0, Math.min(0.95, (RARITY_TUNING.chainQtyP ?? 0.33) - luck));
     for (let i = 0; i < chainSteps; i++) {
       const goQty = rng() < qtyP;
@@ -848,5 +852,6 @@
   // The two luck ladders, exported so the wizard's rungs and the tests can
   // read the SAME numbers the picker rolls against.
   global.ringLuck               = ringLuck;
+  global.treasureLuck           = treasureLuck;
   global.qtyLuck                = qtyLuck;
 })(window);

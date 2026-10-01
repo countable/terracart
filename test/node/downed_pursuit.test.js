@@ -170,7 +170,7 @@ test('downed: pursuit and incoming damage agree on whether the player is down', 
       `${what} uses the shared incoming damage guard`);
   }
   const arrow = methodBody('_shotHitsPlayer');
-  assert.truthy(/Combat\.incomingDamage\(this\.save, shot\.damage/.test(arrow),
+  assert.truthy(/Combat\.incomingProjectileDamage\(this\.save, shot\.damage/.test(arrow),
     'an arrow already in flight uses the same damage guard');
   for (const energy of [undefined, NaN, -1, 0, 1, 100]) {
     assert.eq(Combat.incomingDamage({ energy }, 10) === 0, Combat.playerDowned(energy),
