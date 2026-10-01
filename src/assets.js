@@ -48,7 +48,13 @@ const ASSETS = {
   cat:     { kind: 'spritesheet', path: 'assets/Objects/Pets/cat.png', frameWidth: 32, frameHeight: 32 },
   dog:     { kind: 'spritesheet', path: 'assets/Objects/Pets/dog.png', frameWidth: 32, frameHeight: 32 },
   // Approved closed gold chest: exact right-hand crop from Chests.png; see Gold Chest.md.
-  chest:   { kind: 'spritesheet', path: 'assets/Objects/Approved/chest.png',       frameWidth: 16, frameHeight: 16 },
+  chest:   { kind: 'spritesheet', path: 'assets/Objects/Approved/chest.png',       frameWidth: 16, frameHeight: 16,
+    onLoad: scene => {
+      const source = scene.textures.get('chest').getSourceImage();
+      const sheet = makeChestTierSheet(source);
+      scene.textures.remove('chest');
+      scene.textures.addSpriteSheet('chest', sheet, { frameWidth: 16, frameHeight: 16 });
+    } },
   // Market stall — a "produce stand" POI sprite (80×80 per frame). One frame
   // per product family (awning colour): 0 fruit, 1 veg, 2 meat, 3 fish,
   // 4 coffee/bakery, 5 dairy/egg, 6 flowers. See produceStandFor() in loot.js.
@@ -357,6 +363,30 @@ function recolorEnemyPixels(pixels, palette) {
     for (let ch = 0; ch < 3; ch++) pixels[i + ch] = Math.round(a[ch] + (b[ch] - a[ch]) * f);
   }
   return pixels;
+}
+// Tier recolors preserve the approved chest's silhouette, shading and alpha.
+// Shared by the game loader and design report; source art stays untouched.
+function makeChestTierSheet(source) {
+  const size = ASSETS.chest.frameWidth;
+  const canvas = document.createElement('canvas');
+  canvas.width = size * CHEST_TIER_MAX; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  for (let tier = 1; tier <= CHEST_TIER_MAX; tier++) {
+    const x = (tier - 1) * size;
+    ctx.drawImage(source, 0, 0, size, size, x, 0, size, size);
+    const color = CHEST_TIER_COLOR[tier];
+    // T1's exceptional one-time trunk and T5 retain the original gold art.
+    if (color == null || tier === CHEST_TIER_MAX) continue;
+    const channels = [color >> 16 & 255, color >> 8 & 255, color & 255];
+    const hex = values => '#' + values.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+    const pixels = ctx.getImageData(x, 0, size, size);
+    recolorEnemyPixels(pixels.data, {
+      shadow: hex(channels.map(v => v * 0.3)),
+      mid: hex(channels), highlight: hex(channels.map(v => v + (255 - v) * 0.65)),
+    });
+    ctx.putImageData(pixels, x, 0);
+  }
+  return canvas;
 }
 // Fire slimes retain the 32px hop art; ordinary slimes use the roster's
 // 16px full sheet. Register this source directly instead of copying an

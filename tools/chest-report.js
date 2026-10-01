@@ -18,15 +18,20 @@ async function crArt() {
     const asset = ASSETS[key]; if (!asset?.path) continue;
     const img = new Image(); img.src = '../' + asset.path;
     await img.decode();
+    const source = key === 'chest' ? makeChestTierSheet(img) : img;
     const w = asset.frameWidth || img.width, h = asset.frameHeight || img.height;
-    const figure = document.createElement('figure');
-    figure.innerHTML = `<div class="stage"></div><figcaption>${crEsc(key)}<br><small>${w} × ${h} · first frame</small></figcaption>`;
-    const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
-    const scale = Math.min(4, 150 / w, 140 / h);
-    canvas.style.width = w * scale + 'px'; canvas.style.height = h * scale + 'px';
-    canvas.setAttribute('role','img'); canvas.setAttribute('aria-label',key);
-    canvas.getContext('2d').drawImage(img,0,0,w,h,0,0,w,h);
-    figure.firstChild.append(canvas); cr('art').append(figure);
+    const frames = key === 'chest' ? Array.from({length:CHEST_TIER_MAX},(_,i)=>i) : [0];
+    for (const frame of frames) {
+      const label = key === 'chest' ? `Chest T${frame+1}` : key;
+      const figure = document.createElement('figure');
+      figure.innerHTML = `<div class="stage"></div><figcaption>${crEsc(label)}<br><small>${w} × ${h}</small></figcaption>`;
+      const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+      const scale = Math.min(4, 150 / w, 140 / h);
+      canvas.style.width = w * scale + 'px'; canvas.style.height = h * scale + 'px';
+      canvas.setAttribute('role','img'); canvas.setAttribute('aria-label',label);
+      canvas.getContext('2d').drawImage(source,frame*w,0,w,h,0,0,w,h);
+      figure.firstChild.append(canvas); cr('art').append(figure);
+    }
   }
 }
 const crRollCache = new Map();
