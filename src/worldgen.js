@@ -2771,8 +2771,8 @@
     'running','ice_rink','stadium',
     // ── Restful shelters (lowtier chest + safe rest spot)
     'shelter','dog_park','picnic_site',
-    // ── Culture (civic chests; public art is a T1 one-time trunk — loot.js
-    // CHEST_CLASS_TIER). An information board is NOT a chest: it reads a
+    // ── Culture (civic chests; public art rides the density ladder — loot.js
+    // the density ladder). An information board is NOT a chest: it reads a
     // Book page (POI_INFO_CLASS below). Memorials, monuments and cemeteries
     // are NOT here and never will be: they are SENSITIVE (isSensitivePoi).
     'art_gallery','cinema','theatre',

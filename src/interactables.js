@@ -981,8 +981,7 @@ function chestNeverSpent(o) {
 // i.e. a class the tile holds CHEST_DENSITY_T1_AT or more of, after a nexus)
 // — and the BARREL (a bin, loot.js isBarrel), never a starter supply crate
 // (`o.crate`, fixedLoot), never a cave copy (depth / caveOf), never a wagon,
-// stall, macro, pot of gold or bike rack, never PUBLIC ART (a one-time T1
-// trunk, CHEST_ONE_TIME_CLASSES). Taking one is written to the DAY LEDGER
+// stall, macro, pot of gold or bike rack. Taking one is written to the DAY LEDGER
 // (Macros.markToday — save.coinBurstClaimed[id + dayKey], kept a week), the
 // lane the pot of gold, the bike rack and the grove shrine's gift already
 // share (the chapel's blessing takes the macro: service lane above), and it

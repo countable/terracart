@@ -13,7 +13,7 @@
 //   POI_CATEGORY, CHEST_THEME_BY_POI, chestThemeForPoi, chestThemeFor
 //   PAD_CATEGORIES, padShapeKeyForPoi
 //   CHEST_DENSITY_TIERS, CHEST_DENSITY_T1_AT, CHEST_TIER_UNSTAMPED,
-//   CHEST_CLASS_TIER, CHEST_ONE_TIME_CLASSES, CHEST_TIER_COLOR,
+//   CHEST_TIER_COLOR,
 //   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_CAVE_SKIP_CATEGORIES,
 //   chestDensityTier, chestBaseTier, chestTierDepthBonus, chestTier,
 //   chestMirrorsUnderground, CRATE_RESTORE_PER, CRATE_RESTORE_MAX_DAYS,
@@ -216,8 +216,9 @@ const POI_CATEGORY = {
   sports_centre: 'park', yoga: 'park', swimming: 'park',
   swimming_pool: 'park', bowls: 'park', running: 'park',
   ice_rink: 'park', stadium: 'park', dog_park: 'park',
-  // ── Culture — civic chests. PUBLIC ART (art_gallery) is a fixed T1
-  // one-time trunk (CHEST_CLASS_TIER); an INFORMATION board is no chest at
+  // ── Culture — civic chests. PUBLIC ART (art_gallery) is an ordinary
+  // density-ladder chest like every class (until Oct 2026 it was a fixed T1
+  // one-time trunk); an INFORMATION board is no chest at
   // all — it reads one Book page (worldgen.js infoboard, the waystone's lane
   // in interactables.js). Memorials, monuments and cemeteries have NO row:
   // they are sensitive places that mint nothing (WorldGen.isSensitivePoi).
@@ -304,13 +305,6 @@ function chestDensityTier(count) {
   for (const row of CHEST_DENSITY_TIERS) if (n >= row.atLeast) return row.tier;
   return CHEST_TIER_UNSTAMPED;
 }
-// Classes whose tier is FIXED, whatever their count: PUBLIC ART (an
-// outdoor art_gallery POI — a mural, a statue) is a small one-time find, a
-// T1 chest that never becomes a crate (CHEST_ONE_TIME_CLASSES) — it keeps
-// the trunk look and is spent in save.opened like every other trunk. The
-// depth and nexus bonuses still apply on top, like any tier.
-const CHEST_CLASS_TIER = { art_gallery: 1 };
-const CHEST_ONE_TIME_CLASSES = new Set(['art_gallery']);
 // Chest sprite recolors: T1 crates keep their wood; T2–T5 use distinct hues.
 const CHEST_TIER_MAX = 5;
 const CHEST_TIER_COLOR = Object.fromEntries(
@@ -363,8 +357,7 @@ function chestBaseTier(o) {
   if (o._street === 'snare') return StreetVariants.SNARE_CHEST_TIER;
   const vista = chestVistaTier(o);
   if (vista) return vista;
-  const fixed = CHEST_CLASS_TIER[o.poiClass];
-  return fixed != null ? fixed : chestDensityTier(o.poiDensity);
+  return chestDensityTier(o.poiDensity);
 }
 // THE chest tier (1-5) — the one every player sees AND the one its loot rolls
 // at: the sprite color in render.js, the look (chestLook), the roll in
@@ -853,9 +846,7 @@ function macroFor(o) {
 //            chest: id, tier, contents and `opened` are untouched; only the
 //            look (and the one goblin lairs.js seats beside it) changes.
 //   box    → the small crate sprite: a starter supply crate, or a tier-1
-//            chest (chestTier — a class dense on its tile) that is not a
-//            one-time class (CHEST_ONE_TIME_CLASSES: public art keeps the
-//            trunk though it is T1)
+//            chest (chestTier — a class dense on its tile)
 //   —      → the trunk chest
 // `texKey` is the texture key the RENDERER draws, so a caller that wants the
 // picture (app.js worldIconHTML) asks for it by the same name rather than
@@ -875,8 +866,7 @@ function chestLook(o) {
   const barrelArt = barrel ? barrelProfile(o) : null;
   const special = coin || bike || barrel;
   // Starter supply crates always use the box sprite; so does a tier-1 chest.
-  const box = !!o.quarryCrate || !!o.crate
-    || (!CHEST_ONE_TIME_CLASSES.has(o.poiClass) && chestTier(o) === 1);
+  const box = !!o.quarryCrate || !!o.crate || chestTier(o) === 1;
   const macro = (!special && typeof macroFor === 'function') ? macroFor(o) : null;
   const wagon = !!o.banditStop && !(o.depth > 0) && !stand && !special && !macro;
   const texKey = coin ? 'potofgold' : bike ? 'bike_rack' : barrel ? barrelArt.texKey : (macro ? macro.texKey

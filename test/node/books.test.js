@@ -49,7 +49,9 @@ test('books: a school chest beats every other chest at handing one over', () => 
 test('books: themed civic uses a dedicated Book group', () => {
   assert.eq(ChestThemes.weights('civic', 3).books, 20);
   const share = bookShare('chest:civic', 3);
-  assert.inRange(share, 0.12, 0.24, 'low quality can fall back, but civic retains a reliable Book source');
+  // The tomes (Oct 2026) take the T3+ rolls, so the Book rides the low
+  // rolls only - civic keeps a steady, thinner Book source.
+  assert.inRange(share, 0.05, 0.15, 'low rolls pay Books; high rolls pay tomes');
 });
 
 test('books: a school dense enough to be T1 still pays a book', () => {
