@@ -47,6 +47,20 @@
     assert.truthy(enemyAttackReady(c, row, 15100, true));
     assert.falsy(enemyAttackReady(c, row, 15101, true));
   });
+  test('enemy AI: a projectile kind never strobes through its wind-up; the arrow is the warning', () => {
+    // The goblin archer winds up 0.7 s before every shot; render.js' 100 ms
+    // amber strobe made that seven flashes a volley (Oct 2026). Melee, shaped
+    // and ability wind-ups keep the flash: nothing else tells them apart.
+    for (const kind of ['goblin_archer', 'archer_goblin', 'lich']) {
+      assert.eq(EnemyRoster.get(kind).attackType, 'projectile', `${kind} shoots`);
+      assert.falsy(Combat.windupFlashes(kind), `${kind} does not flash`);
+    }
+    for (const kind of ['goblin', 'club_goblin', 'spear_goblin', 'cave_slime']) {
+      assert.truthy(Combat.windupFlashes(kind), `${kind} still flashes`);
+    }
+    assert.truthy(Combat.windupFlashes('no_such_kind'), 'an unrostered kind keeps the flash');
+    assert.includes(RENDER_SRC, '!frozen && Combat.windupFlashes(c.kind) &&', 'the strobe asks the predicate');
+  });
   test('enemy AI: ranged row fires a single mitigated hit after its own wind-up', () => {
     const s = scene(), c = foe('lich'), row = EnemyRoster.get('lich');
     rosterEnemyAttack(s, c, row, 10000, 14, 0, false, 0.1);
