@@ -27,50 +27,61 @@
     };
     const mw = (path, label) => ({ label, pack: 'miniworld', src: MW + path, fw: 16, fh: 16, col: 0, scale: 1.5 });
 
-    // Proposals by `zone:role`. Keep rows short: a pick, optional runner-ups, one note.
+    // Proposals by `zone:role`: one pick per role, so every role has its own
+    // appearance, plus optional runner-ups. The viewer flags a sheet that two
+    // picks share or that RESERVED holds for a named character.
     const FARMER = rpg('Farmer', 'farmer', 'Farmer');
-    const SCHOLARS = [rpg('Old Man', 'old_man', 'Old Man'), rpg('Old Woman', 'old_woman', 'Old Woman')];
     const PROPOSALS = {
-      'village:scout': { art: [rpg('Blonde Woman', 'blonde_woman', 'Blonde Woman'), rpg('Blue Haired Woman', 'blue_haired_woman', 'Blue Haired Woman')], keepCurrent: true, note: 'Keep the current citizens in the village pool alongside these.' },
-      'village:scholar': { art: SCHOLARS, note: 'Elders read as people who remember before the Breaking.' },
+      'village:scout': { art: [rpg('Blue Haired Woman', 'blue_haired_woman', 'Blue Haired Woman')] },
       'village:merchant': { art: [rpg('Blonde Man', 'blonde_man', 'Blonde Man')], note: 'Plain clothes; the shop dialog carries the trade.' },
-      'village:trader': { art: [rpg('Blonde Man', 'blonde_man', 'Blonde Man')], keepCurrent: true },
+      'village:trader': { art: [rpg('Blonde Woman', 'blonde_woman', 'Blonde Woman')], alts: [srw(12, 'SRW #12'), srw(5, 'SRW #5')] },
+      'village:scholar': { art: [srw(4, 'SRW #4 bearded elder')], note: 'An elder who remembers before the Breaking.' },
+      'village:mason': { art: [rpg('Viking Man', 'viking_man', 'Viking Man')], note: 'No builder in the pool. The sturdiest labourer stands in.' },
+      'village:lamplighter': { art: [srw(19, 'SRW #19 caped')], note: 'Nothing in the pool carries a light; the cape reads as someone out at night.' },
       'farm:scout': { art: [FARMER] },
-      'farm:merchant': { art: [FARMER] },
-      'farm:trader': { art: [FARMER] },
-      'market:scout': { art: [rpg('Blue Haired Woman', 'blue_haired_woman', 'Blue Haired Woman')], keepCurrent: true },
+      'farm:merchant': { art: [mw('Workers/LimeWorker/FarmerLime.png', 'MiniWorld FarmerLime')], note: 'The player\'s own farmer rig in another colour.' },
+      'farm:trader': { art: [mw('Workers/RedWorker/FarmerRed.png', 'MiniWorld FarmerRed')], alts: [srw(10, 'SRW #10'), srw(15, 'SRW #15')] },
+      'farm:mason': { art: [srw(9, 'SRW #9 headband')], note: 'A barn raiser built for lifting.' },
       'market:merchant': { art: [rpg('Chef', 'chef', 'Chef')], note: 'Apron reads as someone selling food and supplies.' },
-      'market:trader': { art: [rpg('Chef', 'chef', 'Chef'), rpg('Blonde Man', 'blonde_man', 'Blonde Man')] },
-      'woodland:scout': { art: [rpg('Viking Man', 'viking_man', 'Viking Man'), rpg('Viking Woman', 'viking_woman', 'Viking Woman')], note: 'Furs and braids read as people who live outdoors.' },
-      'woodland:scholar': { art: SCHOLARS },
-      'woodland:trader': { art: [rpg('Viking Woman', 'viking_woman', 'Viking Woman')] },
-      'shrine:scout': { art: [srw(27, 'SRW #27 green hood')], note: 'The only pointed-eared people in the pool. Brighter than PixelSerial; compare in game before committing.' },
-      'shrine:scholar': { art: [srw(31, 'SRW #31 lilac hood')] },
-      'shrine:trader': { art: [srw(28, 'SRW #28 blue hood')] },
-      'shrine:keeper': { art: [srw(30, 'SRW #30 red hood'), srw(29, 'SRW #29 amber hood')], note: 'Sweeps the step and lights the lantern; same elf family as the warden.' },
-      'village:mason': { art: [rpg('Viking Man', 'viking_man', 'Viking Man')], note: 'No builder in the pool. The sturdiest labourer stands in until one turns up.' },
-      'farm:mason': { art: [FARMER], note: 'A barn raiser reads as a farmer with a job to do.' },
-      'market:mason': { art: [rpg('Viking Man', 'viking_man', 'Viking Man')], note: 'No builder in the pool.' },
-      'village:lamplighter': { art: [], keepCurrent: true, note: 'No match: nothing in the pool carries a light. Keep the citizens.' },
-      'market:lamplighter': { art: [], keepCurrent: true, note: 'No match: nothing in the pool carries a light. Keep the citizens.' },
+      'market:trader': { art: [srw(14, 'SRW #14')], alts: [srw(16, 'SRW #16'), srw(6, 'SRW #6')] },
+      'market:scout': { art: [srw(17, 'SRW #17')] },
+      'market:mason': { art: [srw(23, 'SRW #23')], note: 'No builder in the pool. Broad shoulders stand in.' },
+      'market:lamplighter': { art: [srw(21, 'SRW #21')] },
+      'woodland:scout': { art: [rpg('Viking Woman', 'viking_woman', 'Viking Woman')], note: 'Furs and braids read as someone who lives outdoors.' },
+      'woodland:trader': { art: [srw(7, 'SRW #7')], alts: [srw(22, 'SRW #22'), srw(1, 'SRW #1')] },
+      'woodland:scholar': { art: [srw(18, 'SRW #18')] },
+      // One hooded elf only: the hood family differs by cap colour alone, so a
+      // second elf would read as the same person. The other shrine roles get
+      // people who look nothing alike.
+      'shrine:scholar': { art: [srw(31, 'SRW #31 lilac hood')], alts: [srw(27, 'SRW #27 green hood')], note: 'The one elf at the shrine; the label already names them Elven.' },
+      'shrine:scout': { art: [rpg('Knight', 'knight', 'Knight')], alts: [srw(13, 'SRW #13 horned helm'), srw(3, 'SRW #3 purple caster')], note: 'A guard in a helmet reads as a warden at a glance.' },
+      'shrine:trader': { art: [srw(16, 'SRW #16 green hair')], alts: [srw(22, 'SRW #22 green hair'), srw(11, 'SRW #11 blue hair')], note: 'Forest colours and a satchel; reads as someone who gathers in the grove.' },
+      'shrine:keeper': { art: [srw(26, 'SRW #26 white hood')], alts: [srw(12, 'SRW #12 pink hair'), rpg('Bride', 'bride', 'Bride (veil)')], note: 'White and red hood reads as a temple attendant. Sweeps the step and lights the lantern.' },
       // Story neighbours by the trailer (NPC.STORY_ROLES).
-      'trailer:warden': { art: [rpg('Soldier', 'soldier', 'Soldier'), rpg('Knight', 'knight', 'Knight')], note: 'Keeps the safe area. The soldier reads as a guard without a title.' },
+      'trailer:warden': { art: [rpg('Soldier', 'soldier', 'Soldier')], note: 'Keeps the safe area. The soldier reads as a guard without a title.' },
       'trailer:witness': { art: [rpg('Old Woman', 'old_woman', 'Old Woman')], note: 'Remembers the night the roofs fell, and swears the Hood has not aged since.' },
-      'trailer:wanderer': { art: [rpg('Blonde Kid Girl', 'blonde_kid_girl', 'Blonde Kid Girl'), rpg('Viking Kid Boy', 'viking_kid_boy', 'Viking Kid Boy')], childArt: true, note: 'These sheets are drawn child-sized. Drop CHILD_SCALE for them, or the child shrinks twice.' },
+      'trailer:wanderer': { art: [rpg('Blonde Kid Girl', 'blonde_kid_girl', 'Blonde Kid Girl')], alts: [rpg('Viking Kid Boy', 'viking_kid_boy', 'Viking Kid Boy'), rpg('Blue Haired Kid Girl', 'blue_haired_kid_girl', 'Blue Haired Kid Girl')], childArt: true, note: 'These sheets are drawn child-sized. Drop CHILD_SCALE for them, or the child shrinks twice.' },
       'trailer:believer': { art: [rpg('Nun', 'nun', 'Nun')], note: 'Devotion in the clothes; lauds the wizard to anyone who will listen.' },
     };
-    // Story cast from docs/story.txt. None has an NPC kind yet.
+    // Story cast from docs/story.txt that has no NPC kind yet.
     const PLANNED = [
-      { label: 'Tim', zone: 'tower', blurb: 'Kindly old wizard; Tiamat in human form', art: [srw(25, 'SRW #25, violet', 'violet')], alts: [mw('Soldiers/Ranged/PurpleRanged/MagePurple.png', 'MiniWorld MagePurple'), rpg('Old Man', 'old_man', 'PixelSerial Old Man')], note: 'Recolour the reds to the restored tower\'s violet; in red he reads as Santa. His hood echoes the Hood\'s: one quiet family hint. MagePurple matches the player rig but hides the face, leaving the portrait empty.' },
-      { label: 'Ayo, human form', zone: 'caves', blurb: 'The white dragon, as she walked the world scouting', art: [srw(2, 'SRW #2')], alts: [], note: 'White hair and pale cloth, faintly fey. Nothing dragon-shaped. Foxi Lena was considered and rejected: fox ears point to the wrong animal.' },
-      { label: 'Dragon hunters', zone: 'tower', blurb: 'The survivors\' bravest, armed at Tim\'s tower', art: ['Swordsman', 'Spearman', 'Axeman'].map(n => mw(`Soldiers/Melee/PurpleMelee/${n}Purple.png`, n)).concat(mw('Soldiers/Ranged/PurpleRanged/BowmanPurple.png', 'Bowman')), alts: [rpg('Knight', 'knight', 'PixelSerial Knight'), rpg('Viking Woman', 'viking_woman', 'PixelSerial Viking Woman')], note: 'The same sheets as the callings the player buys from Tim, in his violet instead of cyan. Skip the Musketeer. Use the PixelSerial pair for named hunters who need a face.' },
+      { label: 'Tim', zone: 'tower', blurb: 'Kindly old wizard; Tiamat in human form', art: [srw(25, 'SRW #25, violet', 'violet')],
+        alts: [srw(20, 'SRW #20, violet', 'violet'), srw(3, 'SRW #3 purple caster'), mw('Soldiers/Ranged/PurpleRanged/MagePurple.png', 'MiniWorld MagePurple')],
+        note: 'Recolour the reds to the restored tower\'s violet; in red #25 reads as Santa. His hood echoes the Hood\'s: one quiet family hint. #20 is a sterner bearded elder. #3 is younger and reads as a wizard at once. MagePurple matches the player rig but hides the face, leaving the portrait empty.' },
+      { label: 'Ayo, human form', zone: 'caves', blurb: 'The white dragon, as she walked the world scouting', art: [srw(2, 'SRW #2')], note: 'White hair and pale cloth, faintly fey. Nothing dragon-shaped.' },
+      { label: 'Dragon hunters', zone: 'tower', blurb: 'The survivors\' bravest, armed at Tim\'s tower', art: ['Swordsman', 'Spearman', 'Axeman'].map(n => mw(`Soldiers/Melee/PurpleMelee/${n}Purple.png`, n)).concat(mw('Soldiers/Ranged/PurpleRanged/BowmanPurple.png', 'Bowman')),
+        alts: [srw(13, 'SRW #13 horned helm')], note: 'The same sheets as the callings the player buys from Tim, in his violet instead of cyan. Skip the Musketeer.' },
     ];
+    // Source art already spoken for by a named character.
+    const keyOf = a => `${a.src}|${a.ox || 0}|${a.oy || 0}`;
+    const RESERVED = new Map([[keyOf(rpg('Old Man', 'old_man', '')), 'Orrin']]);
 
-    // Current art straight from the game's tables.
+    // Current art straight from the game's tables. A sheet with a `role`
+    // belongs to that role only; the rest are the shared citizen pool.
     const npcArt = SpriteLayout.CREATURE_ART.npc;
-    const currentSheets = SpriteLayout.NPC_SHEETS.map((s, i) => ({
-      label: `Citizen ${i + 1}`, pack: 'citizen', src: '../' + s.path, fw: SpriteLayout.NPC_FRAME.width, fh: SpriteLayout.NPC_FRAME.height, col: 0, scale: npcArt.scale,
-    }));
+    const asSheet = (s, label) => ({ label, pack: 'citizen', src: '../' + s.path, fw: SpriteLayout.NPC_FRAME.width, fh: SpriteLayout.NPC_FRAME.height, col: 0, scale: npcArt.scale, fixedTint: s.tint });
+    const currentSheets = SpriteLayout.NPC_SHEETS.filter(s => !s.role).map((s, i) => asSheet(s, `Citizen ${i + 1}`));
+    const roleSheets = Object.fromEntries(SpriteLayout.NPC_SHEETS.filter(s => s.role).map(s => [s.role, asSheet(s, s.path.split('/').pop().replace(/_idle\.png$/, ''))]));
     const hex = n => '#' + n.toString(16).padStart(6, '0');
     const rows = [];
     for (const [zone, p] of Object.entries(NPC.PROFILES)) {
@@ -78,18 +89,36 @@
       for (const r of p.roles) counts[r] = (counts[r] || 0) + 1;
       for (const [role, n] of Object.entries(counts)) {
         const prop = PROPOSALS[`${zone}:${role}`] || { art: [] };
-        rows.push({ id: `${zone}:${role}`, status: 'game', label: NPC.LABELS[zone][role], zone, role, share: n / p.roles.length, tints: p.colors, current: currentSheets, art: prop.art, alts: [], keepCurrent: prop.keepCurrent, note: prop.note || '' });
+        rows.push({ id: `${zone}:${role}`, status: 'game', label: NPC.LABELS[zone][role], zone, role, share: n / p.roles.length, tints: p.colors, current: currentSheets, art: prop.art, alts: prop.alts || [], note: prop.note || '' });
       }
     }
-    // Story neighbours wear a village identity at their role's art scale.
+    // Story neighbours wear a village identity at their role's art scale; a
+    // role with its own sheet keeps it and has nothing to propose.
     const village = NPC.PROFILES.village;
     for (const [role, row] of Object.entries(NPC.STORY_ROLES || {})) {
-      const prop = PROPOSALS[`trailer:${role}`] || { art: [] };
+      const own = roleSheets[role];
+      const prop = PROPOSALS[`trailer:${role}`] || { art: [], note: own ? 'Already has its own art.' : '' };
       const k = row.artScale || 1;
-      rows.push({ id: `trailer:${role}`, status: 'game', label: row.label, zone: 'trailer', role: `${role} · from ${row.minMemories} memories`, share: null, tints: village.colors,
-        current: currentSheets.map(s => ({ ...s, scale: s.scale * k })), art: prop.childArt ? prop.art : prop.art.map(a => ({ ...a, scale: a.scale * k })), alts: [], keepCurrent: prop.keepCurrent, note: prop.note || '' });
+      const scaled = list => list.map(a => ({ ...a, scale: a.scale * k }));
+      rows.push({ id: `trailer:${role}`, status: 'game', label: row.name ? `${row.label} (${row.name})` : row.label, zone: 'trailer', role: `${role} · from ${row.minMemories} memories`, share: null,
+        ownArt: !!own, tints: own ? [] : village.colors, current: own ? [own] : scaled(currentSheets), art: prop.childArt ? prop.art : scaled(prop.art), alts: prop.childArt ? (prop.alts || []) : scaled(prop.alts || []), note: prop.note || '' });
     }
-    for (const p of PLANNED) rows.push({ id: 'story:' + p.label, status: 'planned', label: p.label, zone: p.zone, role: p.blurb, share: null, tints: [], current: [], art: p.art, alts: p.alts, note: p.note });
+    for (const p of PLANNED) rows.push({ id: 'story:' + p.label, status: 'planned', label: p.label, zone: p.zone, role: p.blurb, share: null, tints: [], current: [], art: p.art, alts: p.alts || [], note: p.note });
+
+    // Who holds each source sheet: picks first, then reservations.
+    const owners = new Map();
+    for (const r of rows) for (const a of r.art) owners.set(keyOf(a), [...(owners.get(keyOf(a)) || []), r]);
+    const nameOf = r => r.status === 'planned' || r.zone === 'trailer' ? r.label : `${r.label} (${r.zone})`;
+    for (const r of rows) {
+      r.clashes = [...new Set(r.art.flatMap(a => [
+        ...(owners.get(keyOf(a)) || []).filter(o => o !== r).map(nameOf),
+        ...(RESERVED.has(keyOf(a)) ? [`${RESERVED.get(keyOf(a))} (reserved)`] : []),
+      ]))];
+      r.alts = r.alts.map(a => {
+        const taken = [...(owners.get(keyOf(a)) || []).map(nameOf), ...(RESERVED.has(keyOf(a)) ? [RESERVED.get(keyOf(a))] : [])];
+        return taken.length ? { ...a, label: `${a.label} · used by ${taken.join(', ')}` } : a;
+      });
+    }
 
     // Image cache; a missing pack resolves to null so the page still renders.
     const images = new Map();
@@ -154,7 +183,7 @@
     $('zone').insertAdjacentHTML('beforeend', zones.map(z => `<option value="${z}">${z[0].toUpperCase() + z.slice(1)}</option>`).join(''));
     $('packs').innerHTML = Object.values(PACKS).map(p => `<tr><th>${esc(p.name)}</th><td>${esc(p.frames)}</td><td>${esc(p.licence)}</td></tr>`).join('');
     const inGame = rows.filter(r => r.status === 'game');
-    $('summary').innerHTML = [[inGame.length, 'roles in game'], [Object.keys(NPC.PROFILES).length, 'zones'], [currentSheets.length, 'sheets in use'], [new Set(rows.flatMap(r => r.art.map(a => a.src + (a.oy || 0) + (a.ox || 0)))).size, 'proposed sheets'], [PLANNED.length, 'planned story roles']]
+    $('summary').innerHTML = [[inGame.length, 'roles in game'], [rows.filter(r => (r.art.length || r.ownArt) && !r.clashes.length).length + ' / ' + rows.length, 'roles with their own look'], [currentSheets.length + Object.keys(roleSheets).length, 'sheets in use'], [new Set(rows.flatMap(r => r.art.map(keyOf))).size, 'proposed sheets'], [PLANNED.length, 'planned story roles']]
       .map(([n, label]) => `<div class="metric"><strong>${n}</strong>${label}</div>`).join('');
 
     let selected = rows[0]?.id;
@@ -169,14 +198,14 @@
         <td>${esc(r.zone)}${r.tints.length ? '<br>' + r.tints.map(t => `<span class="swatch" style="background:${hex(t)}" title="Tint ${hex(t)}"></span>`).join('') : ''}</td>
         <td data-sort-value="${r.share ?? ''}">${r.share == null ? '—' : Math.round(r.share * 100) + '%'}</td>
         <td><div class="sprites" data-current></div></td>
-        <td><div class="sprites" data-proposed></div>${r.keepCurrent ? '<span class="tag keep">Keep current too</span>' : ''}</td>
+        <td><div class="sprites" data-proposed></div>${r.clashes.length ? `<span class="tag warn">Shared with ${esc(r.clashes.join(', '))}</span>` : ''}${r.alts.length ? `<span class="tag">${r.alts.length} alternative${r.alts.length > 1 ? 's' : ''}</span>` : ''}</td>
         <td>${[...new Set(r.art.map(a => PACKS[a.pack].name))].map(esc).join('<br>') || '<span class="muted">No proposal</span>'}</td></tr>`).join('')
         : '<tr><td colspan="6" class="empty">No NPCs match these filters.</td></tr>';
       SortableTables.refresh($('rows').closest('table'));
       await Promise.all([...$('rows').rows].filter(tr => tr.dataset.id).map(tr => {
         const r = rows.find(x => x.id === tr.dataset.id);
         return Promise.all([
-          r.current.length ? fill(tr.querySelector('[data-current]'), r.current, s => ({ zoom: zoom(), tint: r.tints[r.current.indexOf(s) % r.tints.length] })) : (tr.querySelector('[data-current]').innerHTML = '<span class="muted">Not in game</span>'),
+          r.current.length ? fill(tr.querySelector('[data-current]'), r.current, s => ({ zoom: zoom(), tint: s.fixedTint ?? r.tints[r.current.indexOf(s) % r.tints.length] ?? null })) : (tr.querySelector('[data-current]').innerHTML = '<span class="muted">Not in game</span>'),
           r.art.length ? fill(tr.querySelector('[data-proposed]'), r.art, { zoom: zoom() }) : (tr.querySelector('[data-proposed]').innerHTML = '<span class="muted">No match in the pool</span>'),
         ]);
       }));
@@ -187,8 +216,8 @@
       if (!r) { $('detail').innerHTML = '<h2>No selection</h2><p>Select a row to compare its art.</p>'; return; }
       $('detail').innerHTML = `<div class="eyebrow">${esc(r.zone)}${r.status === 'planned' ? ' · planned' : ''}</div><h2>${esc(r.label)}</h2><p class="note">${esc(r.role)}</p>
         ${r.current.length ? '<h3>Current, untinted and in each zone tint</h3><div class="sprites" id="dCur"></div>' : ''}
-        <h3>Proposed, sheet rows 0–3</h3><div class="sprites" id="dProp"></div>
-        ${r.alts.length ? '<h3>Runner-ups</h3><div class="sprites" id="dAlt"></div>' : ''}
+        <h3>Proposed, sheet rows 0–3</h3>${r.clashes.length ? `<p class="warn">Shared with ${esc(r.clashes.join(', '))}</p>` : ''}<div class="sprites" id="dProp"></div>
+        ${r.alts.length ? '<h3>Alternatives</h3><div class="sprites" id="dAlt"></div>' : ''}
         ${r.note ? `<p class="note">${esc(r.note)}</p>` : ''}`;
       const z = Math.min(zoom(), 3);
       if (r.current.length) {
