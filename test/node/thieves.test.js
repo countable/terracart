@@ -39,9 +39,9 @@ test('thieves: the raven is a roster foe on the crow\'s sheet — coins, fast, o
   }
   assert.truthy(row.palette, 'recoloured by its row\'s palette');
   assert.gt(Combat.enemyBounty('raven', 0), 0, 'felling one pays');
-  // Seated like an animal: a BIOME_FAUNA row, appended LAST so no earlier
-  // species' seats moved when it arrived.
-  assert.eq(FAUNA_ORDER[FAUNA_ORDER.length - 1], 'raven', 'last in the draw order');
+  // Seated like an animal: a BIOME_FAUNA row, appended after every species
+  // before it (only the later horse follows) so no earlier seat moved.
+  assert.eq(FAUNA_ORDER.slice(-2).join(','), 'raven,horse', 'appended after the older species');
   assert.truthy(BIOME_FAUNA.raven && BIOME_FAUNA.raven.base > 0, 'a per-tile count');
   assert.truthy(PEST_FREE_GUARD_SRC.includes("kindStr === 'raven'"), 'kept out of the starting area with the crow and the slime');
 });

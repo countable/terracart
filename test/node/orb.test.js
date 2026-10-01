@@ -64,3 +64,10 @@ test('orb starts each existing cue immediately then resumes its natural beat', (
   assert.truthy(/nestBushPhase\(p\.wildId, _plantNow, scene\._orbReveal\?\.get\(p\.wildId\)\)/.test(RENDER_SRC), 'bush renderer receives forced cue');
   assert.truthy(/glintRockPhase\(it\.o\.id, _sparkNow, scene\._orbReveal\?\.get\(it\.o\.id\)\)/.test(RENDER_SRC), 'rock renderer receives forced cue');
 });
+test('orb does not reveal ordinary objects whose ids pass the glint hash', () => {
+  const { rocks, scene } = orbFixture();
+  const ordinary = ['tree', 'chest', 'house'].map(kind => ({ ...rocks[0], kind }));
+  const use = orbActionFor([], ordinary);
+  assert.eq(use.call(scene), true);
+  assert.eq(scene._orbReveal.size, 0, 'only mineral rocks can reveal a rock secret');
+});

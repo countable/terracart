@@ -163,10 +163,10 @@ test('creature table: a gait row is complete — a bolt says how fast, how far a
       `${kind} has a bolt with nothing to trigger it`);
   }
   // The three kinds that bolt, and the one whose trigger is the failed catch.
-  assert.eq(ctKinds((k) => CT_BEH[k].flee), 'butterfly,deer,rabbit');
+  assert.eq(ctKinds((k) => CT_BEH[k].flee), 'butterfly,deer,rabbit,turtle');
   assert.eq(ctKinds((k) => CT_BEH[k].flee?.escapes), 'butterfly');
   // A tame rabbit or deer settles into the base wander; a butterfly flits on.
-  assert.eq(ctKinds((k) => CT_BEH[k].tameSettles), 'deer,rabbit');
+  assert.eq(ctKinds((k) => CT_BEH[k].tameSettles), 'deer,rabbit,turtle');
 });
 
 test('creature table: it says how a kind BEHAVES, never whether it is a FOE', () => {

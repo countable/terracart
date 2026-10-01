@@ -423,6 +423,19 @@
     // back, right, left); the front row's three frames are its scuttle cycle,
     // stepped at the common creature beat.
     crab:          { sheet: 'crab',      frames: 3, frameMs: CREATURE_FRAME_MS, fw: 16, fh: 16, scale: 1.20, foot: 15 / 16, float: 0,  minY: 1,  maxY: 15 },
+    // Horse and sea turtle carry directional rows, so they face where they
+    // walk (wanderCreatures stamps the facing for any kind with `directions`).
+    // The horse authors its right side; the turtle its left.
+    horse:         { sheet: 'horse',     frameMs: 200, fw: 32, fh: 32, scale: 1.30, foot: 25 / 32, float: 0,  minY: 9,  maxY: 25,
+                     directionSideFacing: 'right', directions: {
+                       down: { idle: [0, 1, 2, 3], move: [4, 5, 6, 7] },
+                       side: { idle: [8, 9, 10, 11], move: [12, 13, 14, 15] },
+                       up:   { idle: [16, 17, 18, 19], move: [20, 21, 22, 23] } } },
+    turtle:        { sheet: 'turtle',    frameMs: CREATURE_FRAME_MS, fw: 16, fh: 16, scale: 1.30, foot: 14 / 16, float: 0,  minY: 1,  maxY: 14,
+                     directionSideFacing: 'left', directions: {
+                       down: { idle: [6], move: [6, 7] },
+                       side: { idle: [2], move: [2, 3] },
+                       up:   { idle: [0], move: [0, 1] } } },
     crow:          { sheet: 'crow',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
     // The spirit raven is the CROW'S SHEET — every geometry column matches the
     // crow row above (one body cannot have two ground lines, and the wheel /
@@ -593,6 +606,10 @@
     // gives the beach's own pickup, a SHELL. Seated only on shore sand by its
     // own rule (scene_creatures.js, biome_profiles.js SHORE_FAUNA).
     crab:          { wanders: true, produce: { item: 'shell', verb: 'shed' } },
+    // The horse is the cow's row without the milk: twice the netting, tamed
+    // with the cow's favourite (items.js ANIMAL_FOOD.horse). In the bag it is
+    // a mount (items.js HORSE_RIDE).
+    horse:         { wanders: true, catchMul: 2 },
     // A PET is a kind that hunts FOR you once tame — not a kind that can be
     // tamed (any animal can, and a sapphire tames a slime). `prey` is the
     // hoisted Set the per-step scan reads, so it allocates nothing.
@@ -671,6 +688,10 @@
     ghost:         { wanders: true, haunts: true },
     plant:         { wanders: true }, // thinks/attacks in the sim bubble; Combat keeps it rooted
   };
+  // The sea turtle is the rabbit's row on the beach (seated by
+  // biome_profiles.js SHORE_FAUNA): the same hops, bolt and settling, read
+  // from the rabbit's row so the two cannot drift.
+  CREATURE_BEHAVIOUR.turtle = CREATURE_BEHAVIOUR.rabbit;
   // The behaviour row for `kind` — the base row for a giant, like its art.
   if (roster) for (const row of roster.ROWS) {
     if (row.variantOf) continue;
@@ -977,10 +998,12 @@
     frameMs: CREATURE_FRAME_MS,
     directions: Object.fromEntries(Object.entries(mercenaryArt.directions).map(([key, frames]) =>
       [key, { idle: frames.idle, move: frames.walk }])) };
-  // Assignment and bicycle expiry already live in the save. No second skin
-  // flag to persist, migrate, or leave stuck after an effect ends.
+  // Assignment, bicycle expiry and riding (items.js isRiding — the flag only
+  // counts while a horse is in the bag) already live in the save. No second
+  // skin flag to persist, migrate, or leave stuck after an effect ends.
   function playerArt(save, now = Date.now()) {
     if ((save?.bikeUntil ?? 0) > now) return PLAYER_ART.mounted;
+    if (typeof isRiding === 'function' && isRiding(save)) return PLAYER_ART.mounted;
     return Object.hasOwn(PLAYER_ART, save?.playerClass) && save.playerClass !== 'mounted'
       ? PLAYER_ART[save.playerClass] : PLAYER_ART.farmer;
   }
