@@ -5795,57 +5795,6 @@
       ]
     },
     {
-      "key": "approved_mushroom_cluster",
-      "keys": [
-        "approved_mushroom_cluster"
-      ],
-      "path": "assets/Objects/Approved/approved_mushroom_cluster.png",
-      "source": "assets/Objects/Wilderness/Props.png",
-      "width": 16,
-      "height": 16,
-      "sha256": "903ab308796b8e4dca3f93f9760407d096db225b706cc3974c61dae4e68da658",
-      "rows": [
-        "mushroom-context"
-      ],
-      "operations": [
-        {
-          "row": "mushroom-context",
-          "rect": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "palette": [
-            "#29252a",
-            "#603e39",
-            "#9d5648",
-            "#bb7761",
-            "#d7c4a0",
-            "#ece0bd"
-          ],
-          "strength": 1,
-          "mode": "surface-mushroom",
-          "preserveLuminance": true,
-          "colourMap": {
-            "#171717": "#29252a",
-            "#28110b": "#603e39",
-            "#90431b": "#9d5648",
-            "#ba6724": "#bb7761",
-            "#e6d7a3": "#ece0bd",
-            "#352026": "#29252a",
-            "#602c35": "#603e39",
-            "#be6d47": "#9d5648",
-            "#ee9d51": "#bb7761",
-            "#ffbb6e": "#d7c4a0",
-            "#d9a88a": "#d7c4a0",
-            "#f7dbc6": "#ece0bd"
-          },
-          "paletteStrength": null
-        }
-      ]
-    },
-    {
       "key": "approved_charred_stakes",
       "keys": [
         "approved_charred_stakes"

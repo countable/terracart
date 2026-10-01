@@ -1279,9 +1279,6 @@
       "atmosphere": "Staggered mushroom pairs repeat every six cells, with giant woody mushrooms between them. The close-set caps lead to a crescent and its luminous flower. Chop a giant mushroom for both wood and a mushroom.",
       "attracts": {
         "butterfly": 0.5
-      },
-      "materialLooks": {
-        "mushroom": "cap_cluster"
       }
     },
     {

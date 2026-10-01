@@ -441,9 +441,9 @@ test('Mushroom Grove giant caps seat their base inside the cell and have distinc
   const p = {crop:'giant_mushroom'};
   const art = wildplantSprite(p);
   assert.eq(art.sheet, 'giant_mushroom');
-  assert.eq(wildplantFrame(p), 2);
+  assert.eq(wildplantFrame(p), 0);
   assert.truthy(art.seat);
-  const box = SpriteLayout.ART_BOUNDS['giant_mushroom:2'];
+  const box = SpriteLayout.ART_BOUNDS['giant_mushroom:0'];
   const pos = SpriteLayout.seatInCell(box, .5, .5, art.scale, art.scale);
   assert.eq(pos.dyPx + (box.maxY - box.fh/2) * art.scale, SpriteLayout.CELL_PX/2 - 1);
   assert.eq(pos.dxPx + ((box.minX + box.maxX)/2 - box.fw/2) * art.scale, 0);
