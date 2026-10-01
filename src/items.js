@@ -963,9 +963,20 @@ const CONSUMABLE_SPEC = {
     get: 'Hidden things stir beneath its pale light.',
   },
   spear: {
-    damage: 25, immediate: true,
+    damage: 25, throwCooldownMs: 3000, projectile: 'spear', immediate: true,
+    usable: scene => scene.canThrowItem('spear'),
+    disabled: scene => !scene.canThrowItem('spear'),
+    label: scene => scene.throwActionLabel(),
     verb: 'Throw', method: 'useSpear', title: 'Throw the spear?',
     get: 'One sharp throw sends the spear flying toward your foes.',
+  },
+  rockfruit: {
+    damage: 2, throwCooldownMs: 1000, projectile: 'rock', immediate: true,
+    usable: scene => scene.canThrowItem('rockfruit'),
+    disabled: scene => !scene.canThrowItem('rockfruit'),
+    label: scene => scene.throwActionLabel(),
+    verb: 'Throw', method: 'useRock', title: 'Throw the rock?',
+    get: 'A stone flies toward your foes.',
   },
   // Foods with an extra effect use the Eat button, so they own mechanics but
   // no separate action row here.

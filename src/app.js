@@ -4028,11 +4028,10 @@ class MapScene extends Phaser.Scene {
     } else if (this.blightAura.visible) {
       this.blightAura.setVisible(false);
     }
-    // The one countdown that isn't in the status row under the HUD:
-    // the bite cooldown lives ON the Eat button, so it is DOM rather than a
-    // Phaser label (see _tickEatButton). No-ops in a frame where no food is
-    // selected — the button doesn't exist then.
+    // Action recovery lives on its Eat / Throw button, separate from status
+    // effects. Each ticker skips work unless its selected item needs a change.
     this._tickEatButton();
+    this._tickThrowButton();
     let vx = 0, vy = 0;
     let speedMul = 1;
     // Keyboard movement (WASD / arrow keys) is a manual takeover — any
@@ -5222,6 +5221,16 @@ class MapScene extends Phaser.Scene {
         spearUsed++;
         sprite.setVisible(true).setPosition(hx, hy)
           .setRotation(Math.atan2(s.vy, s.vx));
+        continue;
+      }
+      if (s.projectile === 'rock') {
+        // A small solid stone with a lit facet; no magic bolt halo.
+        g.fillStyle(0x403e3c, 1);
+        g.fillPoints([{ x: hx - 4, y: hy }, { x: hx - 2, y: hy - 3 },
+          { x: hx + 2, y: hy - 3 }, { x: hx + 4, y: hy + 1 },
+          { x: hx + 1, y: hy + 3 }, { x: hx - 3, y: hy + 2 }], true);
+        g.fillStyle(0xa6a39a, 1);
+        g.fillTriangle(hx - 2, hy - 2, hx + 2, hy - 2, hx - 1, hy + 1);
         continue;
       }
       if (s.dotPx) {
@@ -9778,24 +9787,49 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // A spear is spent when thrown, including misses. Reuse arrow flight and
-  // collision, but keep the consumable's fixed damage independent of gear/buffs.
-  useSpear() {
+  throwCooldownLeft() {
+    return Math.max(0, (this._throwReadyAt || 0) - performance.now());
+  }
+
+  throwActionLabel() {
+    const left = this.throwCooldownLeft();
+    return left > 0 ? `Throw · ${shortDuration(left)}` : 'Throw';
+  }
+
+  canThrowItem(id) {
     const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'spear' || (sel.count ?? 0) <= 0
-        || Combat.playerDowned(this.save.energy) || this.isShadowActive()) return false;
+    return sel?.id === id && (sel.count ?? 0) > 0
+      && !Combat.playerDowned(this.save.energy) && !this.isShadowActive()
+      && this.throwCooldownLeft() <= 0;
+  }
+
+  // All hand throws share one deadline: swapping stacks or weapons cannot
+  // bypass the last throw's recovery. Misses spend ammo; refused throws do not.
+  // Reuse arrow flight/collision while keeping fixed damage independent of gear.
+  _throwItem(id) {
+    if (!this.canThrowItem(id)) return false;
+    const cfg = CONSUMABLE_SPEC[id];
     const x = this.startWorldM.x + this.playerM.x;
     const y = this.startWorldM.y + this.playerM.y;
     const heading = Combat.shotHeading('bow', x, y, this.facing);
     const shot = Combat.spawnShot('bow', x, y, heading, this.cellM,
-      CONSUMABLE_SPEC.spear.damage, 1, reachCells(this));
+      cfg.damage, 1, reachCells(this));
     if (!shot) return false;
-    shot.projectile = 'spear';
+    shot.projectile = cfg.projectile;
     this._shots.push(shot);
+    this._throwReadyAt = performance.now() + cfg.throwCooldownMs;
     consumeSelected(this.save);
     persistSave(this.save);
     this.buildInventoryDOM();
     return true;
+  }
+
+  useSpear() {
+    return this._throwItem('spear');
+  }
+
+  useRock() {
+    return this._throwItem('rockfruit');
   }
 
   // Frost Powder: every ENEMY (Combat.isEnemy — never a crow, a deer or a pet)
@@ -13921,6 +13955,15 @@ class MapScene extends Phaser.Scene {
     // that asked has already closed, so the card stands alone.
     this.showBabyFound(result.petId, 'egg');
     return true;
+  }
+
+  _tickThrowButton() {
+    const id = getSelectedSlot(this.save)?.id;
+    if (!CONSUMABLE_SPEC[id]?.throwCooldownMs) { this._throwButtonState = null; return; }
+    const state = `${id}:${this.throwActionLabel()}:${this.canThrowItem(id)}`;
+    if (state === this._throwButtonState) return;
+    this._throwButtonState = state;
+    this.syncConsumableButton();
   }
 
   syncConsumableButton() {
