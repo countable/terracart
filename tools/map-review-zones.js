@@ -4,6 +4,7 @@
   const SOURCES = {
     variant: { label: 'Variant layout', color: '#27d9c0' },
     ambient: { label: 'Earlier world generation', color: '#ffac50' },
+    mapped: { label: 'Mapped / detected trees', color: '#c3b184' },
     street: { label: 'Street dressing', color: '#68a7ff' },
     fringe: { label: 'Unnamed park fringe', color: '#a4bd68' },
     npc: { label: 'Residents', color: '#ece4a0' },
@@ -21,6 +22,7 @@
   function source(e, o, category) {
     if (['chest', 'house', 'tower', 'staircase'].includes(o.kind) || e._reviewParkingIds?.has(o.id)) return 'place';
     if (o.zoneVariant) return 'variant';
+    if (o._treeSource || /^(?:tree|ft)_(?:osm|sx)_/.test(o.id || '')) return 'mapped';
     if (category === 'creature' && o.kind === 'npc') return 'npc';
     if (category === 'creature' && !Combat.isEnemy(o)) return 'fauna';
     if (o.fringe) return 'fringe';

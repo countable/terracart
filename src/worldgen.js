@@ -150,13 +150,16 @@
       removed.add(idx);
       count++;
     };
-    for (const list of [objects, wildplants, ...streetLists]) {
+    for (const list of [objects, wildplants, ...streetLists, ...scenicLists]) {
       if (!list) continue;
-      const street = streetLists.includes(list);
+      const streetList = streetLists.includes(list);
       let kept = 0;
       for (let i = 0; i < list.length; i++) {
         if ((i & 63) === 0) yield 'zone ambient replacement';
         const o = list[i], idx = cell(o);
+        // Scenic landmarks and tide pools retain their seats, but ordinary
+        // greenway verge grass yields to the zone just like road dressing.
+        const street = streetList || (scenicLists.includes(list) && !!o._street);
         if ((street || isGeneralAmbientRecord(o)) && idx >= 0 && coverage[idx]) {
           record(idx, street);
         } else list[kept++] = o;

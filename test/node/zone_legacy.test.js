@@ -17,6 +17,41 @@
     assert.truthy(occupied.has(22), 'uncovered coin retains its seat');
   });
 
+  test('zone legacy: scenic grass yields across coverage while landmarks and tide pools retain their seats', () => {
+    const N = 8, coverage = new Uint16Array(N * N);
+    coverage[18] = coverage[19] = coverage[20] = 1;
+    const grass = (ix) => ({ id: `greenway_grass_0_0_${ix}_2`, x: ix + .5, y: 2.5,
+      kind: 'wildplant', crop: 'longgrass', _street: 'greenway' });
+    const scope = { id: 'scope_0_0_3_2', kind: 'vista_scope', x: 3.5, y: 2.5 };
+    const shell = { id: 'tide_0_0_4_2', tide: true, x: 4.5, y: 2.5 };
+    const scenicDress = { objects: [scope], wildplants: [grass(2), grass(3), grass(6), shell] };
+    const occupied = new Set([18, 19, 20, 22]);
+    const field = { coverage, anchors: [{ kind: 'grove', gx: 99, gy: 100 }] };
+    const removed = drain(WorldGen.clearZoneAmbientSteps({ field, objects: [], wildplants: [],
+      scenicDress, occupied, tx: 0, ty: 0, N, tileEdgeM: N }));
+    assert.eq(removed, 2);
+    assert.eq(field.legacyRemovedByAnchor['grove:99,100'].street, 2);
+    assert.eq(scenicDress.wildplants.length, 2);
+    assert.truthy(scenicDress.wildplants.includes(shell), 'tide-pool rewards remain');
+    assert.eq(scenicDress.objects[0], scope, 'scenic landmark remains');
+    assert.falsy(occupied.has(18), 'cleared grass seat opens for the variant');
+    for (const cell of [19, 20, 22]) assert.truthy(occupied.has(cell), 'retained placements keep their seats');
+  });
+
+  test('zone legacy: Maude Roxby Wetland excludes greenway grass from its grove layout', () => {
+    const tx = 2753, ty = 5565, N = WorldGen.cellsPerEdgeForTile(ty);
+    const edge = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(ty));
+    const r = WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES[`${tx}_${ty}`]), N, tx, ty, edge);
+    const anchor = r.zone.anchors.find(a => /maude roxby/i.test(a.name || ''));
+    assert.truthy(anchor, 'real wetland fixture');
+    const cell = o => Math.floor((o.y - ty * edge) / (edge / N)) * N + Math.floor((o.x - tx * edge) / (edge / N));
+    assert.gt(r.zone.legacyRemovedByAnchor[`grove:${anchor.gx},${anchor.gy}`].street, 0,
+      'fixture actually exercises scenic replacement');
+    for (const o of r.scenicDress.wildplants.filter(o => o._street)) {
+      assert.falsy(r.zone.coverage[cell(o)], 'greenway grass remains only outside zone coverage');
+    }
+  });
+
   test('zone legacy: coverage overrides biome and street decoration while authored, placed and uncovered items survive', () => {
     const N = 8, coverage = new Uint16Array(N * N);
     for (let y = 1; y <= 5; y++) for (let x = 1; x <= 5; x++) coverage[y * N + x] = 1;
