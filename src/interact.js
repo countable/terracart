@@ -719,6 +719,12 @@ const TAP_HANDLERS = [
       }
     }
 
+    // A rose befriends an enemy temporarily; it does not make it catchable.
+    if (Combat.isCharmed(target)) {
+      scene.flash('Fighting at your side.', ctx.sx, ctx.sy);
+      return true;
+    }
+
     // ENEMIES (wild slime + every cave monster) go on the HP combat wheel —
     // nothing to time, the fight is over when their hit points are.
     if (Combat.isEnemy(target)) {

@@ -596,8 +596,8 @@
   }
 
   // ── The player's MAGIC TRAP ──────────────────────────────────────────────
-  // The trapper's snare, turned: a tier-2 item (items.js magic_trap — a
-  // cave-supply find, and what a slain trapper drops) the player sets on an
+  // The trapper's snare, turned: a tier-3 item (items.js magic_trap — a
+  // supply-shop purchase, cave find, and what a slain trapper drops) the player sets on an
   // empty cell in reach (interact.js 'place-magic-trap'). PLACED-bucket
   // state: save.magicTraps = [{ id, x, y, depth }], the id from the cell it
   // was set on (tile + local cell + level), never a clock. Drawn as a magenta
@@ -612,8 +612,8 @@
   //   hold   — one STAFF beat (Combat.fireIntervalMs('staff'), 5 s): long
   //            enough that the slowest weapon the player owns lands a shot on
   //            a foe that cannot step out of its line.
-  //   damage — one TIER-2 BOW SHOT (Combat.shotDamage at the item's own
-  //            tier): the trap is a tier-2 weapon that fires once.
+  //   damage — one TIER-3 BOW SHOT (Combat.shotDamage at the item's own
+  //            tier): the trap is a tier-3 weapon that fires once.
   function magicTrapId(depth, tx, ty, lix, liy) {
     return root.WorldGen.cellId(`mtrap_d${depth || 0}`, tx, ty, lix, liy);
   }

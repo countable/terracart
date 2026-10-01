@@ -144,6 +144,7 @@ const PLAY_TIPS = [
   // Appended (Oct 2026): the spear, made at Home from a stone and a branch
   // (items.js HOME_RECIPES) — every craftable has its page in the Book.
   ITEM_GUIDE_TIPS.spear,
+  ITEM_GUIDE_TIPS.honey,
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -377,7 +378,8 @@ const PLAY_TIP_VOLUMES = [
   "road",
   "ledger",
   "road",
-  "brann"
+  "brann",
+  "garden"
 ];
 
 // Narrator observations sit outside the quoted excerpt.

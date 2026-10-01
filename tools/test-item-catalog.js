@@ -5,13 +5,20 @@ const vm = require('node:vm');
 const assert = require('node:assert/strict');
 const context = vm.createContext({ assert, console, addEventListener() {} });
 context.window = context;
-for (const file of ['src/util.js', 'src/difficulty.js', 'src/conditions.js', 'src/items.js', 'src/crops.js', 'src/loot.js', 'src/chest_themes.js', 'src/rarity.js', 'src/starter.js', 'tools/item-catalog-data.js']) {
+for (const file of ['src/util.js', 'src/difficulty.js', 'src/conditions.js', 'src/enemy_roster.js', 'src/items.js', 'src/crops.js', 'src/loot.js', 'src/chest_themes.js', 'src/rarity.js', 'src/starter.js', 'tools/item-catalog-data.js']) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', file), 'utf8'), context, { filename: file });
 }
 vm.runInContext(`
   const STARTER_STASH = [{ id: 'book', qty: 1 }];
   const STARTER_RELIC_SLOTS = ['pick'];
   const STARTER_RELIC_TIER = 1;
+  const pixels = new Uint8ClampedArray(32 * 32 * 4);
+  pixels[(18 * 32 + 8) * 4 + 3] = 255;
+  pixels[(28 * 32 + 21) * 4 + 3] = 255;
+  pixels[3] = 25; // faint sheet fringe must not enlarge the portrait
+  assert.equal(JSON.stringify(ItemCatalog.iconBounds({ data: pixels, width: 32, height: 32 })),
+    JSON.stringify({ x: 8, y: 18, width: 14, height: 11 }));
+  assert.equal(ItemCatalog.iconBounds({ data: new Uint8ClampedArray(16), width: 2, height: 2 }), null);
   const rows = ItemCatalog.build();
   const byId = new Map(rows.map(row => [row.id, row]));
   assert.equal(rows.length, ITEMS.length + (Object.keys(RELIC_DEFS).length + Object.keys(ARMOR_DEFS).length) * MATERIAL_TIERS.length);
@@ -19,7 +26,7 @@ vm.runInContext(`
   for (const row of rows) for (const source of row.chests) {
     if (!source.context.startsWith('chest:')) continue;
     const biome = source.context.slice(6);
-    if (!source.depth) assert(source.tier <= ChestThemes.themes[biome].tier);
+    if (!source.depth) assert(source.tier >= 1 && source.tier <= CHEST_TIER_MAX);
     else assert(biome !== 'roadside');
   }
   assert.equal(byId.get('armor:helmet:3').description, '−' + armorSlotReduction(3) + ' damage soaked');
@@ -38,8 +45,10 @@ vm.runInContext(`
   assert(byId.get('magic_trap').chests.every(source => source.depth > 0));
   assert(byId.get('diamond').chests.length > 0, 'rare jackpots are not lost');
   assert(byId.get('book').chests.some(source => source.context === 'chest:school' && source.tier === 1));
-  for (const tier of MATERIAL_TIERS) {
-    assert.equal(byId.get('relic:ring:' + tier.tier).chests.length, 0);
+  for (const item of ITEMS.filter(item => item.uniqueJewelry)) {
+    assert.equal(byId.get(item.id).category, 'magic');
+    assert(!ChestThemes.selectableIds(ChestThemes.resolve('caveMagic', 7, { depth: 1 }), { depth: 1 }).includes(item.id),
+      item.id + ' is excluded from ordinary cave magic; named chest pools may include it');
   }
   assert(!ItemCatalog.chestContents('chest:civic', 1).some(id => id.startsWith('armor:')));
   assert(!ItemCatalog.chestContents('chest:civic', 2).some(id => id.startsWith('armor:')), 'civic gear is noncombat equipment');

@@ -1,13 +1,11 @@
 // Run the scene action itself, then fly its shot through the shared combat lane.
 (function () {
 const CELL = 7;
-function throwSpear(overrides = {}) {
-  const method = APP_JS_SRC.match(/\n  useSpear\(\) \{\n([\s\S]*?)\n  \}\n/);
-  assert.truthy(method, 'useSpear exists');
+function throwScene(overrides = {}) {
   const scene = {
     save: { energy: 50, inv: [{ id: 'spear', count: 2 }], selSlot: 0, relics: {} },
     startWorldM: { x: 100, y: 200 }, playerM: { x: 3, y: 4 },
-    facing: { x: 3, y: 0 }, cellM: CELL, _shots: [],
+    facing: { x: 3, y: 0 }, cellM: CELL, _shots: [], now: 1000,
     _dragonUntil: Date.now() + 60000,
     persisted: 0, rebuilt: 0,
     buildInventoryDOM() { this.rebuilt++; },
@@ -15,16 +13,27 @@ function throwSpear(overrides = {}) {
     isShadowActive() { return false; },
     ...overrides,
   };
-  const result = new Function('getSelectedSlot', 'consumeSelected', 'persistSave', 'reachCells', method[1])
-    .call(scene, s => s.inv?.[s.selSlot] || null, consumeSelected, () => scene.persisted++, () => 4);
-  return { scene, result };
+  const names = ['throwCooldownLeft', 'throwActionLabel', 'canThrowItem', '_throwItem', 'useSpear', 'useRock', '_tickThrowButton', 'useForgetmenot', 'useWildrose', '_friendlyShotHitsEnemy', '_shotCanHit', '_shotHitsTarget'];
+  const methods = names.map(name => {
+    const method = APP_JS_SRC.match(new RegExp('\\n  (' + name + '\\([^\\n]*\\) \\{\\n[\\s\\S]*?\\n  \\})\\n'));
+    assert.truthy(method, `${name} exists`);
+    return method[1];
+  });
+  Object.assign(scene, new Function('getSelectedSlot', 'consumeSelected', 'persistSave', 'reachCells', 'performance',
+    'return ({' + methods.join(',') + '});')(s => s.inv?.[s.selSlot] || null,
+      consumeSelected, () => scene.persisted++, () => 4, { now: () => scene.now }));
+  return scene;
 }
-function fly(shot, enemies, blocked = () => false) {
+function throwSpear(overrides = {}) {
+  const scene = throwScene(overrides);
+  return { scene, result: scene.useSpear() };
+}
+function fly(shot, enemies, blocked = () => false, onHit = () => {}) {
   let shots = [shot];
   const hits = [];
   for (let i = 0; i < 6000 && shots.length; i++) {
     shots = Combat.stepShots(shots, 1 / 60, enemies, Combat.HIT_RADIUS_CELLS * CELL,
-      (enemy, s) => hits.push({ enemy, damage: s.damage }), { blocked, cellM: CELL });
+      (enemy, s) => { hits.push({ enemy, damage: s.damage }); onHit(enemy, s); }, { blocked, cellM: CELL });
   }
   assert.eq(shots.length, 0, 'the shot is spent');
   return hits;
@@ -103,5 +112,151 @@ test('spear: terrain stops it and a miss expires at arrow range', () => {
   const miss = throwSpear().scene._shots[0];
   assert.eq(fly(miss, [{ id: 'beyond', kind: 'goblin', x: miss.x + miss.rangeM + CELL, y: 204 }]).length,
     0, 'cannot hit beyond arrow range');
+});
+
+test('throws: rock does fixed 2 damage with arrow collision and consumes exactly one even on a miss', () => {
+  const scene = throwScene({ save: { energy: 50, inv: [{ id: 'rockfruit', count: 3 }], selSlot: 0 } });
+  assert.truthy(CONSUMABLE_SPEC.rockfruit.immediate);
+  assert.truthy(CONSUMABLE_SPEC.rockfruit.usable(scene));
+  assert.truthy(scene.useRock());
+  assert.eq(scene._shots[0].damage, 2);
+  assert.eq(scene._shots[0].projectile, 'rock');
+  assert.eq(scene.save.inv[0].count, 2);
+  const hits = fly(scene._shots[0], [{ id: 'near', kind: 'goblin', x: 117, y: 204 }]);
+  assert.eq(hits.length, 1);
+  assert.eq(hits[0].damage, 2);
+  scene.now += 1000;
+  assert.truthy(scene.useRock());
+  assert.eq(fly(scene._shots[1], []).length, 0);
+  assert.eq(scene.save.inv[0].count, 1, 'miss still spends one');
+});
+
+test('throws: shared cooldown follows the last weapon and survives stack switches', () => {
+  const scene = throwScene({ save: { energy: 50,
+    inv: [{ id: 'spear', count: 3 }, { id: 'rockfruit', count: 3 }, { id: 'spear', count: 2 }], selSlot: 0 } });
+  assert.truthy(scene.useSpear());
+  assert.eq(scene.throwCooldownLeft(), 3000);
+  assert.includes(scene.throwActionLabel(), shortDuration(3000));
+  scene.save.selSlot = 2;
+  assert.falsy(scene.useSpear(), 'another stack cannot bypass cooldown');
+  scene.save.selSlot = 1;
+  scene.now += 2999;
+  assert.falsy(CONSUMABLE_SPEC.rockfruit.usable(scene));
+  assert.truthy(CONSUMABLE_SPEC.rockfruit.disabled(scene));
+  assert.falsy(scene.useRock(), 'rocks must wait out the preceding spear');
+  assert.eq(scene.save.inv[1].count, 3);
+  scene.now++;
+  assert.truthy(scene.useRock());
+  assert.eq(scene.throwCooldownLeft(), 1000);
+  scene.save.selSlot = 0;
+  scene.now += 999;
+  assert.falsy(scene.useSpear());
+  scene.now++;
+  assert.truthy(scene.useSpear(), 'spear can follow rock after one second');
+  assert.eq(scene.throwCooldownLeft(), 3000);
+  assert.eq(scene._shots.length, 3);
+  assert.eq(scene.persisted, 3);
+});
+
+test('throws: refused rocks preserve inventory and do not start a cooldown', () => {
+  for (const override of [{ energy: 0 }, { shadow: true }, { facing: { x: 0, y: 0 } }]) {
+    const scene = throwScene({ save: { energy: override.energy ?? 50,
+      inv: [{ id: 'rockfruit', count: 2 }], selSlot: 0 },
+      isShadowActive: () => !!override.shadow, ...(override.facing ? { facing: override.facing } : {}) });
+    assert.falsy(scene.useRock());
+    assert.eq(scene.save.inv[0].count, 2);
+    assert.eq(scene._shots.length, 0);
+    assert.eq(scene.throwCooldownLeft(), 0);
+    assert.eq(scene.persisted, 0);
+  }
+});
+
+test('throws: cooldown button refreshes at displayed changes and re-enables without clicking', () => {
+  const scene = throwScene();
+  let refreshed = 0;
+  scene.syncConsumableButton = () => refreshed++;
+  scene.useSpear();
+  scene._tickThrowButton();
+  const first = refreshed;
+  scene._tickThrowButton();
+  assert.eq(refreshed, first, 'unchanged frame does not rebuild the button');
+  scene.now += 1000;
+  scene._tickThrowButton();
+  assert.eq(refreshed, first + 1);
+  scene.now += 2000;
+  scene._tickThrowButton();
+  assert.eq(refreshed, first + 2);
+  assert.eq(scene.throwActionLabel(), 'Throw');
+  assert.falsy(CONSUMABLE_SPEC.spear.disabled(scene));
+});
+
+test('flowers: a landed throw applies sleep or charm without dealing damage', () => {
+  for (const [id, method, predicate] of [['forgetmenot', 'useForgetmenot', 'isSleeping'], ['wildrose', 'useWildrose', 'isCharmed']]) {
+    const scene = throwScene({ save: { energy: 50, inv: [{ id, count: 2 }], selSlot: 0 },
+      _damageEnemy() { throw new Error('a flower must never deal damage'); } });
+    assert.truthy(CONSUMABLE_SPEC[id].immediate);
+    assert.truthy(scene[method]());
+    const shot = scene._shots[0];
+    assert.eq(shot.damage, 0);
+    assert.eq(shot.projectile, id, 'draws the flower itself');
+    assert.eq(scene.save.inv[0].count, 1);
+    assert.eq(scene.throwCooldownLeft(), 1000);
+    const target = { id: 'foe', kind: 'goblin', x: 117, y: 204 };
+    const beforeHP = Combat.hp(target);
+    assert.eq(fly(shot, [target], undefined, (c, s) => scene._shotHitsTarget(c, s)).length, 1);
+    assert.truthy(Combat[predicate](target));
+    assert.eq(Combat.hp(target), beforeHP);
+    assert.falsy(scene[method](), 'flower respects the shared recovery');
+    scene.now += 1000;
+    assert.truthy(scene[method]());
+    const missed = { id: 'far', kind: 'goblin', x: 10000, y: 204 };
+    assert.eq(fly(scene._shots[1], [missed], undefined, (c, s) => scene._shotHitsTarget(c, s)).length, 0);
+    assert.falsy(Combat[predicate](missed));
+    assert.eq(scene.save.inv.length, 0, 'a miss still consumes the second bloom');
+  }
+});
+
+test('flowers: cooldown from a spear blocks flowers and flower cooldown blocks rocks', () => {
+  const scene = throwScene({ save: { energy: 50,
+    inv: [{ id: 'spear', count: 2 }, { id: 'forgetmenot', count: 2 }, { id: 'rockfruit', count: 2 }], selSlot: 0 } });
+  assert.truthy(scene.useSpear());
+  scene.save.selSlot = 1;
+  assert.falsy(scene.useForgetmenot());
+  assert.eq(scene.save.inv[1].count, 2);
+  scene.now += 3000;
+  assert.truthy(scene.useForgetmenot());
+  scene.save.selSlot = 2;
+  assert.falsy(scene.useRock());
+  scene.now += 1000;
+  assert.truthy(scene.useRock());
+});
+
+test('flower charm: later shots in the same frame spare newly allied creatures', () => {
+  const scene = throwScene({ _damageEnemy() { throw new Error('friendly fire'); } });
+  const target = { id: 'foe', kind: 'goblin', x: 117, y: 204 };
+  assert.truthy(scene._shotHitsTarget(target, { effect: 'charm', damage: 0 }));
+  assert.falsy(scene._shotCanHit(target, { damage: 25 }));
+  assert.falsy(scene._shotHitsTarget(target, { damage: 25 }));
+  const oldHostileShot = { hostile: true, _sourceGuard: target, damage: 10 };
+  assert.falsy(scene._shotCanHit({ id: 'player' }, oldHostileShot), 'old hostile shot cannot hit player after its source is charmed');
+  oldHostileShot.hostile = false;
+  const other = { id: 'other', kind: 'goblin' };
+  assert.truthy(scene._shotCanHit(other, oldHostileShot));
+  target._charmUntil = 0;
+  assert.falsy(scene._shotCanHit(other, oldHostileShot), 'an expired ally cannot keep shooting enemies as a friend');
+});
+
+test('charmed allies: hostile impacts damage the creature rather than the player', () => {
+  const hits = [];
+  const scene = throwScene({ _damageEnemy(c, amount, source) { hits.push({ c, amount, source }); },
+    _shotHitsPlayer() { throw new Error('wrong target lane'); } });
+  const ally = { id: 'ally', kind: 'goblin' };
+  Combat.applyCharm(ally);
+  const foe = { id: 'foe', kind: 'goblin' };
+  scene._shotHitsTarget(ally, { hostile: true, _sourceGuard: foe, damage: 7 });
+  assert.eq(hits.length, 1);
+  assert.eq(hits[0].c, ally);
+  assert.eq(hits[0].amount, 7);
+  assert.eq(hits[0].source, 'enemy');
 });
 })();

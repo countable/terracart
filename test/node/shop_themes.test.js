@@ -48,7 +48,7 @@ test('themed shops: stock is the line at the nearest tier it carries (ties lower
   // Antidote fills the T1 Magic shop; other medicines follow at their tiers.
   const p1 = Shops.themedStock('potion', 1);
   assert.truthy(p1.includes('antidote'), 'T1 magic shop stocks the cure');
-  assert.falsy(p1.includes('dragon_powder'), 'not the T3 powders');
+  assert.falsy(p1.includes('dragon_powder'), 'not the T4 dragon powder');
   assert.truthy(Shops.themedStock('potion', 6).includes('elixir'), 'T6 magic shop stocks Elixir');
   // A pet shop stocks every pet across its rounds.
   const pets = new Set();
@@ -136,4 +136,28 @@ test('themed shops: no re-roll where the tier stocks one item', () => {
     'the themed item offers its re-roll only when the stock has another item');
   assert.truthy(/_themedStockCount\(house\) \{[\s\S]{0,200}?Shops\.themedStock\(theme, tier\)\.length/.test(app),
     'counted off the same stock the pick draws from');
+});
+
+
+test('themed shops: three market digits and one blacksmith digit on small houses', () => {
+  const roles = Array.from({ length: 10 }, (_, address) => Shops.shopType({ kind: 'house', tier: WorldGen.T.BUILDING, address }));
+  assert.eq(roles.map((r, i) => r === 'market' ? i : null).filter(x => x !== null).join(), '2,4,6');
+  assert.eq(roles.map((r, i) => r === 'blacksmith' ? i : null).filter(x => x !== null).join(), '9');
+  assert.eq(Shops.shopType({ kind: 'house', tier: WorldGen.T.BUILDING_MED, address: 24 }), null, 'forts do not become markets');
+  assert.eq(Houses.houseShopRole({ restoredHouses: { old: 'plain' } }, { kind: 'house', id: 'old', tier: WorldGen.T.BUILDING, address: 24 }), null, 'existing frozen roles stay put');
+});
+
+test('themed shops: syrup and magic traps fill tier 3 supplies; dragon powder stays tier 4 Magic', () => {
+  assert.eq(Shops.themedStock('supply', 3).slice().sort().join(), 'honey,magic_trap');
+  assert.eq(Shops.themedStock('supply', 4).slice().sort().join(), 'honey,magic_trap', 'higher supply shops use the nearest stocked tier');
+  for (const id of ['honey', 'magic_trap']) {
+    assert.eq(ITEM_BY_ID[id].baseTier, 3);
+    assert.eq(ITEM_BY_ID[id].kind, 'supply');
+    assert.falsy(Shops.themedStock('supply', 2).includes(id), 'no early supply stock');
+  }
+  assert.eq(ITEM_BY_ID.dragon_powder.baseTier, 4);
+  assert.eq(ITEM_BY_ID.dragon_powder.kind, 'magic');
+  assert.truthy(Shops.themedStock('potion', 4).includes('dragon_powder'));
+  assert.falsy(Shops.themedStock('potion', 3).includes('dragon_powder'));
+  assert.falsy(Shops.THEME_POOL.supply().includes('dragon_powder'));
 });

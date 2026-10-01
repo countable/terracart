@@ -138,7 +138,7 @@ test('course: the reader opens the book as a story', () => {
 });
 
 test('course: story topics retain their saved-bookmark positions', () => {
-  assert.eq(PLAY_TIPS.length, 137, 'three displaced opening tips are appended, then the gull\'s page, the road\'s bargain, the spear');
+  assert.eq(PLAY_TIPS.length, 138, 'new guides append after the existing saved bookmarks');
   const topics = {1:/strength/, 11:/wounded goblin/, 13:/snare/, 20:/hoe/, 24:/ruined house/, 25:/smithy/, 35:/car park/, 56:/smith/, 69:/stone/, 77:/path/, 88:/favourite food/, 98:/weapon/, 106:/stairs/, 121:/quartermaster/, 130:/sapphire/};
   for (const [page, topic] of Object.entries(topics)) assert.truthy(topic.test(PLAY_TIPS[page]), 'topic stays at page ' + page);
 });
@@ -424,12 +424,12 @@ test('mechanics: roads use the shared reward window', () => {
 });
 
 test('mechanics: rebuilding adds stone to later restoration costs', () => {
-  assert.eq(WRECK_RESTORE_PER_HOUSE, 1, 'each restored house adds one stone to the next cost');
+  assert.eq(WRECK_RESTORE_HOUSES_PER_STEP, 3, 'three completed restorations add one stone');
 });
 
-test('restore cost: 1 stone, one more per house restored, capped at 20', () => {
-  assert.eq([0, 1, 2, 6, 18, 19, 20, 50].map(wreckRestoreExact).join(','), '1,2,3,7,19,20,20,20', 'the ladder');
-  for (const k of ['a', 'b', 'c']) assert.eq(wreckRestoreQty(4, k), 5, 'same price for every house');
+test('restore cost: 1 stone, one more per three houses restored, capped at 20', () => {
+  assert.eq([0, 1, 2, 3, 5, 6, 29, 51, 56, 57, 100].map(wreckRestoreExact).join(','), '1,1,1,2,2,3,10,18,19,20,20', 'step boundaries and story milestones');
+  for (const k of ['a', 'b', 'c']) assert.eq(wreckRestoreQty(4, k), 2, 'same price for every house');
 });
 
 test('stories: wizard memories precede the permanent calling', () => {
@@ -452,7 +452,7 @@ test('books: pages carry brief stories instead of numeric mechanics', () => {
     assert.lt(page.length, 200, 'page ' + i + ' leaves room for one discovery');
     assert.falsy(/[0-9%⚡×]|\btier\b|Relics tab|hit points|UTC/.test(page), 'page ' + i + ' avoids tuning and interface instructions');
   }
-  assert.eq(new Set(PLAY_TIPS).size, 137, 'each page offers a distinct moment');
+  assert.eq(new Set(PLAY_TIPS).size, PLAY_TIPS.length, 'each page offers a distinct moment');
 });
 
 test('books: real-world road and heat safety stays direct', () => {

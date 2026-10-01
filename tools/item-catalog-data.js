@@ -98,5 +98,15 @@
     }
     return rows;
   }
-  root.ItemCatalog = { build, chestContents };
+  // Ignore faint sprite-sheet fringe pixels when fitting catalogue portraits.
+  function iconBounds({ data, width, height }) {
+    let x0 = width, y0 = height, x1 = -1, y1 = -1;
+    for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) {
+      if (data[(y * width + x) * 4 + 3] < 128) continue;
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y);
+      x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+    }
+    return x1 < x0 ? null : { x: x0, y: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 };
+  }
+  root.ItemCatalog = { build, chestContents, iconBounds };
 })(typeof window !== 'undefined' ? window : globalThis);

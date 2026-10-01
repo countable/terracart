@@ -13,7 +13,7 @@
 //     render pass / the disarm kit all see it; springing or disarming it never
 //     writes save.sprungTraps / save.disarmedTraps; it expires.
 //  3. THE MAGIC TRAP IS PLACED STATE that glows: save.magicTraps (id from the
-//     cell), a Lighting.KINDS row with its own collector, a cave-only tier-2
+//     cell), a Lighting.KINDS row with its own collector, a cave-only tier-3
 //     find; an ENEMY stepping on it is held (the frost freeze) and hurt as a
 //     player kill, and the trap is spent.
 
@@ -329,17 +329,17 @@ test('trapper lays: never on a Magic Trap, never out of its range', () => {
 });
 
 // ── 3. The Magic Trap ─────────────────────────────────────────────────────
-test('magic trap: a tier-2, cave-only consumable with its own ✦ line', () => {
+test('magic trap: a tier-3 consumable with cave-only loot and its own ✦ line', () => {
   const it = ITEM_BY_ID.magic_trap;
   assert.truthy(it, 'registered');
   assert.eq(it.kind, 'supply');
-  assert.eq(it.baseTier, 2, 'tier 2');
+  assert.eq(it.baseTier, 3, 'tier 3');
   assert.truthy(it.caveOnly, 'cave only');
   assert.gt(PRICES.magic_trap, 0, 'priced');
   assert.truthy(MINERAL_ICON_SHEET.magic_trap, 'it has an icon');
   const line = ITEM_EFFECTS.magic_trap;
   assert.truthy(line && line.length <= 55, `a ✦ line within 55 chars (${line && line.length})`);
-  // Never in the surface pool: no chest, X or shop draws it from class/tier.
+  // Never in the surface loot pool; supply shops use their explicit catalog.
   for (const byT of Object.values(ITEMS_BY_CLASS_TIER))
     for (const ids of Object.values(byT)) assert.falsy(ids.includes('magic_trap'), 'not in the class/tier pool');
   assert.truthy(CAVE_SUPPLY_SKEW.favourite.ids.magic_trap > 0, 'the cave supplies reach it');
@@ -350,12 +350,12 @@ function seeded(seed) {
   return () => { s = (s + 0x6d2b79f5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
-test('magic trap: a shallow cave chest pays one, a surface chest never does', () => {
+test('magic trap: a tier-3 cave chest pays one, a surface chest never does', () => {
   const count = (depth) => {
     const rng = seeded(606 + depth);
     let n = 0;
     for (let i = 0; i < 6000; i++) {
-      const r = pickReward('chest:park', { relics: {}, armor: {} }, rng, { tier: 2, depth });
+      const r = pickReward('chest:park', { relics: {}, armor: {} }, rng, { tier: 3, depth });
       if (r && r.kind === 'item' && r.id === 'magic_trap') n++;
     }
     return n;
@@ -438,7 +438,7 @@ test('magic trap: an ENEMY on the cell is held and hurt as a player kill; the tr
   assert.eq(hits.length, 1, 'one hit — the deer on the other trap is game, never a target');
   assert.eq(hits[0].c, foe);
   assert.eq(hits[0].source, 'player', 'the player set it: a trap kill is a player kill');
-  assert.eq(hits[0].amount, Combat.shotDamage({ bow: { tier: 2 } }, 'bow'), 'one tier-2 bow shot');
+  assert.eq(hits[0].amount, Combat.shotDamage({ bow: { tier: 3 } }, 'bow'), 'one tier-3 bow shot');
   assert.gte(foe._frozenUntil, before + Combat.fireIntervalMs('staff'), 'held one staff beat (the frost freeze)');
   assert.eq(scene.save.magicTraps.map((t) => t.id).join(), other.id, 'the sprung trap is spent, the other kept');
   // A tamed slime is a pet, never a target.

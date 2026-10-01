@@ -1,7 +1,7 @@
 // Shop registry: specialty-shop taxonomy + per-type config (label, tint) for
 // small-house shops. Address ending → role mapping:
 //   9       → blacksmith (sooty tint, gem→relic forge)
-//   2 / 6   → market    (red tint, a THEMED shop — seed / supply / potion /
+//   2 / 4 / 6 → market  (red tint, a THEMED shop — seed / supply / potion /
 //                        ore / relic / pet, by restore order; see themeAt)
 //   1 / 8   → trader    (no tint, barter-only deals)
 // Forts (BUILDING_MED) and civic slabs (BUILDING_LARGE) are excluded — the
@@ -78,7 +78,7 @@
     if (house.tier !== WorldGen.T.BUILDING) return null;   // forts / civic slabs excluded
     const d = (house.address ?? 0) % 10;
     if (d === 9) return 'blacksmith';
-    if (d === 2 || d === 6) return 'market';
+    if (d === 2 || d === 4 || d === 6) return 'market';
     if (d === 1 || d === 8) return 'trader';
     return null;
   }
@@ -118,7 +118,7 @@
     // The seeds any shop may sell (BUY_LIST: T1..T3 crops — the magical
     // flowers stay find-only).
     seed:   () => (typeof BUY_LIST !== 'undefined' ? BUY_LIST.slice() : []),
-    supply: () => ['wood', 'rockfruit', 'torch', 'rope', 'trap_kit', 'spear', 'scarecrow', 'book'],
+    supply: () => ['wood', 'rockfruit', 'torch', 'rope', 'trap_kit', 'spear', 'scarecrow', 'book', 'magic_trap', 'honey'],
     potion: () => ITEMS.filter(item => item.kind === 'magic' && !item.uniqueJewelry).map(item => item.id),
     ore:    () => ['coal', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar',
                    'frost_bar', 'sapphire', 'ruby', 'emerald', 'diamond'],

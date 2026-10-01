@@ -232,7 +232,8 @@ test('tool stories: interact.js hooks fire at action start, one per call site', 
   // pin refuses a weapon slot anywhere near it (interact_tap.test.js).
   const sc = app.indexOf('startCombat(victim, opts = {}) {');
   const swordCall = app.indexOf("this._toolActionStory('sword');");
-  assert.truthy(sc > 0 && swordCall > sc && swordCall < sc + 600,
+  const combatWheel = app.indexOf('this._workProgress = {', sc);
+  assert.truthy(sc > 0 && swordCall > sc && swordCall < combatWheel,
     "the 'sword' story fires as startCombat spins the melee wheel up");
   assert.falsy(ix.includes("_toolActionStory?.('sword')"),
     'and the hunt wheel stays clean of weapon slots');

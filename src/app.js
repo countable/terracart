@@ -1464,10 +1464,8 @@ const ICON_SHEETS = {
   icon_rope:     { url: 'assets/Icons/Items/Rope.png',                       cols: 1,  srcW: 16,  srcH: 16 },
   // Torch — single 16×16 stick-and-flame icon (hand-drawn, like the rope).
   icon_torch:    { url: 'assets/Icons/Items/Torch.png',                      cols: 1,  srcW: 16,  srcH: 16 },
-  // Trap Disarm Kit — no dedicated art yet; reuses the Extras 'Bags' sheet
-  // (7 cols × 16×16, frame 0 = the plain brown pouch), a reasonable stand-in
-  // for a small carried tool kit. See MINERAL_ICON_SHEET.trap_kit in items.js.
-  icon_kit:      { url: 'assets/Icons/RPG icons/Extras/Bags.png',            cols: 7,  srcW: 112, srcH: 16  },
+  icon_kit:      { url: 'assets/Icons/Items/TrapDisarmKit.png',             cols: 1,  srcW: 16, srcH: 16 },
+  icon_magic_trap: { url: 'assets/Icons/Items/MagicTrap.png',                cols: 1,  srcW: 16, srcH: 16 },
   icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
   // The campfire's dishes — one 16px frame per items.js COOKED_FOODS row,
   // baked from each raw icon by tools/cook_icons.js (ImageMagick).
@@ -4030,11 +4028,10 @@ class MapScene extends Phaser.Scene {
     } else if (this.blightAura.visible) {
       this.blightAura.setVisible(false);
     }
-    // The one countdown that isn't in the status row under the HUD:
-    // the bite cooldown lives ON the Eat button, so it is DOM rather than a
-    // Phaser label (see _tickEatButton). No-ops in a frame where no food is
-    // selected — the button doesn't exist then.
+    // Action recovery lives on its Eat / Throw button, separate from status
+    // effects. Each ticker skips work unless its selected item needs a change.
     this._tickEatButton();
+    this._tickThrowButton();
     let vx = 0, vy = 0;
     let speedMul = 1;
     // Keyboard movement (WASD / arrow keys) is a manual takeover — any
@@ -4636,7 +4633,7 @@ class MapScene extends Phaser.Scene {
     // must count. Half a cell of margin so one stepping in at the edge starts
     // drawing fire the moment it appears rather than a cell later.
     const halfSpanM = (VIEW_CELLS / 2 + 0.5) * this.cellM;
-    const enemies = [];
+    const enemies = [], charmedAllies = [];
     // 3×3 neighbourhood + memoised caught-Set: this runs every frame, and the
     // all-tiles forEachItem with a per-creature Array.includes was an
     // O(cached-creatures × caught) scan that grew with every tile walked.
@@ -4645,8 +4642,9 @@ class MapScene extends Phaser.Scene {
     const pcTick = this.playerToWorldCell();
     WorldGen.forEachItemNear('creatures', pcTick.tx, pcTick.ty, (c) => {
       if (Math.abs(c.x - px) > halfSpanM || Math.abs(c.y - py) > halfSpanM) return;
+      if (caughtSet.has(c.id) || c._surfaceInactive) return;
+      if (Combat.isCharmed(c)) { charmedAllies.push(c); return; }
       if (!Combat.isEnemy(c)) return;
-      if (caughtSet.has(c.id)) return;
       enemies.push(c);
     });
 
@@ -4820,14 +4818,17 @@ class MapScene extends Phaser.Scene {
       // friendly shot never sweeps it, a hostile one never sweeps `enemies`
       // — stepShots keeps the two lanes apart.
       const playerTarget = { id: 'player', x: px, y: py };
+      for (const shot of this._shots) {
+        if (!shot._sourceGuard) continue;
+        shot.hostile = !Combat.isCharmed(shot._sourceGuard);
+        shot.source = shot.hostile ? 'enemy' : 'ally';
+      }
       this._shots = Combat.stepShots(this._shots, dt, enemies,
         Combat.HIT_RADIUS_CELLS * this.cellM,
-        (target, shot) => (shot.hostile ? (target.kind === 'npc' ? NPC.hit(this, target) : this._shotHitsPlayer(shot))
-                                        : this._damageEnemy(target, shot.damage, Combat.shotSource(shot))),
+        (target, shot) => this._shotHitsTarget(target, shot),
         { blocked: shotBlocked, cellM: this.cellM,
-          hostileTargets: [playerTarget, ...(this._npcCombatTargets || [])],
-          canHit: (target, shot) => !shot.hostile || target.kind !== 'npc'
-            || (!NPC.isDormant(target) && NPC.canTarget(this, target)) });
+          hostileTargets: [playerTarget, ...(this._npcCombatTargets || []), ...charmedAllies],
+          canHit: (target, shot) => this._shotCanHit(target, shot) });
     }
     this._drawShots();
 
@@ -5009,6 +5010,30 @@ class MapScene extends Phaser.Scene {
     if (!this.startWorldM || !this.save.fires?.length) return;
     const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
     if (this._nearAny('fires', px, py, FIRE_TOUCH_CELLS)) this._ignitePlayer();
+  }
+
+  _shotCanHit(target, shot) {
+    // Recheck at impact: an earlier flower in this same frame may have changed
+    // the source's or target's allegiance since the target lists were built.
+    if (shot._sourceGuard && shot.hostile === Combat.isCharmed(shot._sourceGuard)) return false;
+    if (!shot.hostile) return Combat.isEnemy(target);
+    if (target.kind === 'npc') return !NPC.isDormant(target) && NPC.canTarget(this, target);
+    return target.id === 'player' || Combat.isCharmed(target);
+  }
+
+  _shotHitsTarget(target, shot) {
+    if (!this._shotCanHit(target, shot)) return false;
+    if (!shot.hostile) return this._friendlyShotHitsEnemy(target, shot);
+    if (target.kind === 'npc') return NPC.hit(this, target);
+    if (target.id === 'player') return this._shotHitsPlayer(shot);
+    return this._damageEnemy(target, shot.damage, 'enemy');
+  }
+
+  _friendlyShotHitsEnemy(target, shot) {
+    if (!Combat.isEnemy(target)) return false;
+    if (shot.effect === 'sleep') return Combat.applySleep(target, Date.now());
+    if (shot.effect === 'charm') return Combat.applyCharm(target, Date.now());
+    return this._damageEnemy(target, shot.damage, Combat.shotSource(shot));
   }
 
   // A monster's arrow lands. The same energy hit the melee leech deals
@@ -5213,17 +5238,28 @@ class MapScene extends Phaser.Scene {
         lift = s.liftFromPx + (SHOT_DRAW_LIFT_PX - s.liftFromPx) * f;
       }
       const hx = Math.round(head.x), hy = Math.round(head.y - lift);
-      if (s.projectile === 'spear') {
+      if (s.projectile === 'spear' || s.effect) {
+        const art = CROP_SPRITE[s.projectile] || { sheet: 'icon_spear', frame: 0 };
         let sprite = this._spearPool[spearUsed];
         if (!sprite) {
           // Share the masked projectile layer, with ordinary sprite blending.
-          sprite = this.add.image(0, 0, 'icon_spear', 0);
+          sprite = this.add.image(0, 0, art.sheet, art.frame);
           this.boltContainer.add(sprite);
           this._spearPool.push(sprite);
         }
         spearUsed++;
-        sprite.setVisible(true).setPosition(hx, hy)
-          .setRotation(Math.atan2(s.vy, s.vx));
+        sprite.setTexture(art.sheet, art.frame).setScale(s.effect ? 0.8 : 1)
+          .setVisible(true).setPosition(hx, hy).setRotation(Math.atan2(s.vy, s.vx));
+        continue;
+      }
+      if (s.projectile === 'rock') {
+        // A small solid stone with a lit facet; no magic bolt halo.
+        g.fillStyle(0x403e3c, 1);
+        g.fillPoints([{ x: hx - 4, y: hy }, { x: hx - 2, y: hy - 3 },
+          { x: hx + 2, y: hy - 3 }, { x: hx + 4, y: hy + 1 },
+          { x: hx + 1, y: hy + 3 }, { x: hx - 3, y: hy + 2 }], true);
+        g.fillStyle(0xa6a39a, 1);
+        g.fillTriangle(hx - 2, hy - 2, hx + 2, hy - 2, hx - 1, hy + 1);
         continue;
       }
       if (s.dotPx) {
@@ -5547,6 +5583,7 @@ class MapScene extends Phaser.Scene {
       }
       return false;
     }
+    if (!Combat.isEnemy(victim)) return false;
     // First melee the save ever starts tells its story - here in the one
     // lane both the tapped swing and the auto-engage flow through, fired
     // regardless of an owned sword: bare hands fight on the tier-0 rung too.
@@ -5875,6 +5912,8 @@ class MapScene extends Phaser.Scene {
     this._drawSwordSwing();
     const wp = this._workProgress;
     if (!wp) return;
+    // A rose can change allegiance while a melee wheel is already running.
+    if (wp.combat && !Combat.isEnemy(wp.combat)) { this.cancelWorkProgress(); return; }
     const now = performance.now();
     // Stuck-wheel watchdog. A wheel always resolves at wp.durationMs (complete,
     // fail, or cancel), so one that has outlived that by a wide margin is
@@ -9140,7 +9179,7 @@ class MapScene extends Phaser.Scene {
   // Returns true if eaten, false if not edible / nothing selected.
   // Side-effects read their duration and radius from CONSUMABLE_SPEC.
   // === Consumables ============================================
-  // Set out honey (consumed): every wandering producer inside its radius has
+  // Set out syrup (consumed): every wandering producer inside its radius has
   // its home position re-anchored to ~3m from the player so it wanders toward you
   // over the next few seconds. Doesn't teleport — that would feel cheesy.
   // Shared tail for modal-feedback consumables (honey, book): consume the
@@ -9186,8 +9225,8 @@ class MapScene extends Phaser.Scene {
       }
     }
     return this._finishConsumable(
-      '🍯 You set out the honey',
-      lured > 0 ? 'The sweet scent carries. Nearby creatures turn their noses toward you.' : 'The honey gleams in the quiet. Nothing stirs nearby.',
+      '🍯 You set out the syrup',
+      lured > 0 ? 'The sweet scent carries. Nearby creatures turn their noses toward you.' : 'The syrup gleams in the quiet. Nothing stirs nearby.',
     );
   }
 
@@ -9337,26 +9376,27 @@ class MapScene extends Phaser.Scene {
   drinkAntidote() {
     const sel = getSelectedSlot(this.save);
     if (sel?.id !== 'antidote' || !(sel.count > 0)) return false;
-    if (!Conditions.useAntidote(this.save)) {
-      this.flash('No poison — Antidote kept.', this.viewCenterX, this.viewCenterY);
+    if (!Conditions.useAntidote(this.save, this)) {
+      this.flash('No debuffs — Antidote kept.', this.viewCenterX, this.viewCenterY);
       return false;
     }
     this._syncStatusRow();
-    return this._finishConsumable('You drink the Antidote', 'The bitter draught burns your tongue. The purple chill loosens its hold.');
+    return this._finishConsumable('You drink the Antidote', 'The bitter draught burns your tongue. Every affliction falls away.');
   }
 
   drinkElixir() {
     const sel = getSelectedSlot(this.save);
     if (sel?.id !== 'elixir' || !(sel.count > 0)) return false;
     const before = this.save.energy ?? 0;
-    if (!Conditions.useElixir(this.save)) {
+    if (!Conditions.useElixir(this.save, this)) {
       if (before <= 0) this.flash('Elixir cannot revive you.', this.viewCenterX, this.viewCenterY);
-      else this.flash('Energy full — Elixir kept.', this.viewCenterX, this.viewCenterY);
+      else this.flash('No need — Elixir kept.', this.viewCenterX, this.viewCenterY);
       return false;
     }
     this._popEnergy(this.save.energy - before);
     this.updateEnergyDOM();
-    return this._finishConsumable('You drink the Elixir', 'The draught glows against your lips. Strength floods back into your limbs.');
+    this._syncStatusRow();
+    return this._finishConsumable('You drink the Elixir', 'The draught glows against your lips. Strength returns as every affliction falls away.');
   }
 
   // Potion of Speed: a minute of tier-9 boot walking, even without either
@@ -9779,24 +9819,58 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // A spear is spent when thrown, including misses. Reuse arrow flight and
-  // collision, but keep the consumable's fixed damage independent of gear/buffs.
-  useSpear() {
+  throwCooldownLeft() {
+    return Math.max(0, (this._throwReadyAt || 0) - performance.now());
+  }
+
+  throwActionLabel() {
+    const left = this.throwCooldownLeft();
+    return left > 0 ? `Throw · ${shortDuration(left)}` : 'Throw';
+  }
+
+  canThrowItem(id) {
     const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'spear' || (sel.count ?? 0) <= 0
-        || Combat.playerDowned(this.save.energy) || this.isShadowActive()) return false;
+    return sel?.id === id && (sel.count ?? 0) > 0
+      && !Combat.playerDowned(this.save.energy) && !this.isShadowActive()
+      && this.throwCooldownLeft() <= 0;
+  }
+
+  // All hand throws share one deadline: swapping stacks or weapons cannot
+  // bypass the last throw's recovery. Misses spend ammo; refused throws do not.
+  // Reuse arrow flight/collision while keeping fixed damage independent of gear.
+  _throwItem(id) {
+    if (!this.canThrowItem(id)) return false;
+    const cfg = CONSUMABLE_SPEC[id];
     const x = this.startWorldM.x + this.playerM.x;
     const y = this.startWorldM.y + this.playerM.y;
     const heading = Combat.shotHeading('bow', x, y, this.facing);
     const shot = Combat.spawnShot('bow', x, y, heading, this.cellM,
-      CONSUMABLE_SPEC.spear.damage, 1, reachCells(this));
+      cfg.damage, 1, reachCells(this));
     if (!shot) return false;
-    shot.projectile = 'spear';
+    shot.projectile = cfg.projectile;
+    if (cfg.effect) shot.effect = cfg.effect;
     this._shots.push(shot);
+    this._throwReadyAt = performance.now() + cfg.throwCooldownMs;
     consumeSelected(this.save);
     persistSave(this.save);
     this.buildInventoryDOM();
     return true;
+  }
+
+  useSpear() {
+    return this._throwItem('spear');
+  }
+
+  useRock() {
+    return this._throwItem('rockfruit');
+  }
+
+  useForgetmenot() {
+    return this._throwItem('forgetmenot');
+  }
+
+  useWildrose() {
+    return this._throwItem('wildrose');
   }
 
   // Frost Powder: every ENEMY (Combat.isEnemy — never a crow, a deer or a pet)
@@ -10653,11 +10727,11 @@ class MapScene extends Phaser.Scene {
     const held = (id) => Inventory.count(this.save, id);
     const ingredientCap = (r) => recipeCap(r.cost, held);
     const capOf = (r) => Math.min(ingredientCap(r), Math.max(0, this.invRoomFor(r.id)));
-    const locked = (r) => homeRecipeLocked(this.save, r.id, Difficulty.isHard());
-    const rec = HOME_RECIPES.find(r => r.id === targetId)
-      || HOME_RECIPES.find(r => !locked(r) && capOf(r) >= 1) || HOME_RECIPES[0];
-    const isLocked = locked(rec);
-    const cap = isLocked ? 0 : capOf(rec);
+    const locked = (r) => homeRecipeLocked(this.save, r.id);
+    const recipes = HOME_RECIPES.filter(r => !locked(r));
+    const rec = recipes.find(r => r.id === targetId)
+      || recipes.find(r => capOf(r) >= 1) || recipes[0];
+    const cap = capOf(rec);
     const outName = itemName(rec.id);
     const costLine = (n) => rec.cost.map(c => {
       const ok = held(c.id) >= c.qty * n;
@@ -10669,8 +10743,8 @@ class MapScene extends Phaser.Scene {
       cost: costLine(n),
       canAfford: cap >= n && n >= 1,
     });
-    const idx = HOME_RECIPES.indexOf(rec);
-    const n = HOME_RECIPES.length;
+    const idx = recipes.indexOf(rec);
+    const n = recipes.length;
     const pageTo = (r) => () => this.presentHomeCraft(sx, sy, r.id);
     this.showOfferModal({
       kind: 'craft', kindIcon: this._homeKindIcon(),
@@ -10678,9 +10752,7 @@ class MapScene extends Phaser.Scene {
       title: 'Make something at home:',
       cancelLabel: 'Later',
       get: fmt(1).get,
-      blurb: isLocked
-        ? `🔒 Find a ${outName} out in the world to learn it.`
-        : (ITEM_EFFECTS[rec.id] ? `✦ ${ITEM_EFFECTS[rec.id]}` : undefined),
+      blurb: ITEM_EFFECTS[rec.id] ? `✦ ${ITEM_EFFECTS[rec.id]}` : undefined,
       cost: costLine(1),
       canAfford: cap >= 1,
       acceptLabel: 'Craft',
@@ -10688,8 +10760,8 @@ class MapScene extends Phaser.Scene {
       quantity: cap >= 1 ? { min: 1, max: cap, initial: 1, format: fmt } : undefined,
       pager: {
         index: idx, count: n, showIndex: false,
-        onPrev: pageTo(HOME_RECIPES[(idx - 1 + n) % n]),
-        onNext: pageTo(HOME_RECIPES[(idx + 1) % n]),
+        onPrev: pageTo(recipes[(idx - 1 + n) % n]),
+        onNext: pageTo(recipes[(idx + 1) % n]),
       },
       onAccept: (n) => {
         const q = Math.max(1, n ?? 1);
@@ -13924,6 +13996,15 @@ class MapScene extends Phaser.Scene {
     // that asked has already closed, so the card stands alone.
     this.showBabyFound(result.petId, 'egg');
     return true;
+  }
+
+  _tickThrowButton() {
+    const id = getSelectedSlot(this.save)?.id;
+    if (!CONSUMABLE_SPEC[id]?.throwCooldownMs) { this._throwButtonState = null; return; }
+    const state = `${id}:${this.throwActionLabel()}:${this.canThrowItem(id)}`;
+    if (state === this._throwButtonState) return;
+    this._throwButtonState = state;
+    this.syncConsumableButton();
   }
 
   syncConsumableButton() {

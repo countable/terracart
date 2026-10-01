@@ -90,8 +90,14 @@
     if (opts.depth > 0) {
       for (const key of Object.keys(out)) out[key] *= 0.6;
       const cave = tier <= 1 ? { antidote: 60, torch: 40 }
-        : tier === 2 ? { caveMagic: 60, torch: 15, rope: 10, trapKit: 10, magicTrap: 5 }
+        : tier === 2 ? { caveMagic: 60, torch: 15, rope: 10, trapKit: 10, field: 5 }
         : { caveMagic: 80, caveGems: 10, field: 10 };
+      // The trap follows its catalog tier; moving its rarity must not remove
+      // it from cave loot by leaving its only weight on an ineligible rung.
+      if (tier >= ITEM_BY_ID.magic_trap.baseTier) {
+        cave.field -= 5;
+        cave.magicTrap = 5;
+      }
       for (const [key, value] of Object.entries(cave)) out[key] = (out[key] || 0) + value * 0.4;
     }
     return out;

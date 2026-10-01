@@ -357,7 +357,8 @@ function faunaTopMps(kind, cellM) {
 // Anything wild — foe or animal — that out-runs a brisk walk.
 function isFastMover(c, cellM) {
   if (!c) return false;
-  const mps = Combat.isEnemy(c) ? foeChaseMps(c, cellM) : faunaTopMps(c.kind, cellM);
+  const hostileSpecies = Combat.isEnemyKind(c.kind) && !String(c.id).startsWith('released_');
+  const mps = hostileSpecies ? foeChaseMps(c, cellM) : faunaTopMps(c.kind, cellM);
   return mps > BRISK_WALK_MPS;
 }
 // A creature's SPAWN CLASS (WorldGen.SPAWN_CLASS_BLOCKS): enemy or fauna, and
@@ -960,7 +961,7 @@ function isPest(c) {
 // Nobody's hunter takes a tamed (released_) animal. The caller still skips
 // what is already caught.
 function huntsPrey(hunterKind, cr) {
-  if (!cr || (typeof cr.id === 'string' && cr.id.startsWith('released_'))) return false;
+  if (!cr || Combat.isCharmed(cr) || (typeof cr.id === 'string' && cr.id.startsWith('released_'))) return false;
   if (SpriteLayout.preysOnFoes(hunterKind)) return Combat.isEnemy(cr) || isPest(cr);
   const prey = SpriteLayout.creaturePrey(hunterKind);
   return !!prey && prey.has(cr.kind);
@@ -1138,9 +1139,11 @@ function enemyAreaContains(c, row, px, py, cellM) {
   return Math.hypot(px - c.x, py - c.y) <= row.range * cellM
     && Math.abs(delta) <= row.breath.halfAngleRadians;
 }
-function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget = null) {
+function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget = null, creatureTarget = null) {
+  if (Combat.isSleeping(c) || (Combat.isCharmed(c) && !creatureTarget)) return;
+  if (creatureTarget && Combat.isCharmed(c) === Combat.isCharmed(creatureTarget)) return;
   if (row.attackType === 'none') return;
-  const targetKey = npcTarget?.id || 'player';
+  const targetKey = creatureTarget?.id || npcTarget?.id || 'player';
   if (c._attackTargetKey != null && c._attackTargetKey !== targetKey) {
     c._attackWindupUntil = null; c._attackAim = null;
   }
@@ -1150,8 +1153,8 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   const territory = row.movement.territoryCells;
   const inTerritory = !territory || Math.hypot(px - (c._territoryX ?? c.homeX ?? c.x),
     py - (c._territoryY ?? c.homeY ?? c.y)) <= territory * scene.cellM;
-  const attentive = !inactive && (npcTarget || !Combat.playerDowned(scene.save.energy))
-    && inTerritory && (npcTarget || Combat.seesPlayer(c.kind, dist, scene.cellM, scene.save));
+  const attentive = !inactive && (creatureTarget || npcTarget || !Combat.playerDowned(scene.save.energy))
+    && inTerritory && (creatureTarget || npcTarget || Combat.seesPlayer(c.kind, dist, scene.cellM, scene.save));
   if (row.movement.pattern === 'lunge_recover'
       && (now < (c._lungeWindupUntil || 0) || now < (c._lungeRecoverUntil || 0))) {
     enemyAttackReady(c, row, now, false);
@@ -1159,31 +1162,36 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   }
   const clear = attentive && Combat.lineOfFire(c.x, c.y, px, py,
     (x, y) => enemySightBlocked(scene, c, x, y), scene.cellM);
-  if (enemySupportTick(scene, c, row, now, clear)) {
+  if (!Combat.isCharmed(c) && enemySupportTick(scene, c, row, now, clear)) {
     SpriteLayout.faceCreature(c, px - c.x, py - c.y);
     return;
   }
   if (row.aura && clear && dist <= row.aura.radiusCells * scene.cellM) {
     if (npcTarget) { NPC.hit(scene, npcTarget); return; }
-    const a = row.aura;
-    const raw = a.rawDps * Combat.powerMul(c);
-    const shield = (scene.save.shieldPotionUntil ?? 0) > Date.now() ? 0.5 : 1;
-    // Energy.set stores integers. Bank fractions BEFORE calling the scene's
-    // loss writer so 60 tiny frames cannot each become a minimum-one hit.
-    const loss = Combat.playerDamageRate(raw * shield, scene.save.armor, dt,
-      { packetSeconds: a.mitigationPacketSeconds });
-    scene._enemyAuraFraction = (scene._enemyAuraFraction || 0) + loss;
-    const whole = Math.floor(scene._enemyAuraFraction + 1e-9);
-    if (whole > 0) {
-      scene._enemyAuraFraction -= whole;
-      scene._monsterDmgAccum = (scene._monsterDmgAccum || 0)
-        + scene._losePlayerEnergy(whole, { closeShop: true });
+    if (creatureTarget) {
+      scene._damageEnemy(creatureTarget, row.aura.rawDps * Combat.powerMul(c) * dt,
+        Combat.isCharmed(c) ? 'ally' : 'enemy', { bypassArmor: true });
+    } else {
+      const a = row.aura;
+      const raw = a.rawDps * Combat.powerMul(c);
+      const shield = (scene.save.shieldPotionUntil ?? 0) > Date.now() ? 0.5 : 1;
+      // Energy.set stores integers. Bank fractions BEFORE calling the scene's
+      // loss writer so 60 tiny frames cannot each become a minimum-one hit.
+      const loss = Combat.playerDamageRate(raw * shield, scene.save.armor, dt,
+        { packetSeconds: a.mitigationPacketSeconds });
+      scene._enemyAuraFraction = (scene._enemyAuraFraction || 0) + loss;
+      const whole = Math.floor(scene._enemyAuraFraction + 1e-9);
+      if (whole > 0) {
+        scene._enemyAuraFraction -= whole;
+        scene._monsterDmgAccum = (scene._monsterDmgAccum || 0)
+          + scene._losePlayerEnergy(whole, { closeShop: true });
+      }
     }
   }
   if (row.attackType === 'trap') {
     const ready = enemyAttackReady(c, row, now, clear && dist <= row.range * scene.cellM);
     if (ready || c._attackWindupUntil != null) SpriteLayout.faceCreature(c, px - c.x, py - c.y);
-    if (ready) {
+    if (ready && !Combat.isCharmed(c)) {
       scene._trapperLay(c, now, px, py);
     }
     return;
@@ -1226,8 +1234,11 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
       shot.projectile = row.projectile || (row.id === 'goblin_archer' ? 'arrow' : 'enemy_magic');
       shot.enemyKind = row.id;
       shot._sourceGuard = c;
+      shot.hostile = !Combat.isCharmed(c);
       (scene._shots ||= []).push(shot);
     }
+  } else if (creatureTarget) {
+    scene._damageEnemy(creatureTarget, raw, Combat.isCharmed(c) ? 'ally' : 'enemy');
   } else if (npcTarget) {
     NPC.hit(scene, npcTarget);
   } else if (row.steals) {
@@ -1247,7 +1258,8 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   if (lunging) c._lungeHit = true;
 }
 
-function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt) {
+function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt, creatureTarget = null) {
+  if (Combat.isSleeping(c)) return;
   if (c._lastDamagedT && Date.now() - c._lastDamagedT >= 20 * 60 * 1000) {
     c._hp = Combat.maxHp(c); c._lastDamagedT = null;
   }
@@ -1257,7 +1269,9 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
   if (c.stationary || m.pattern === 'anchor_spit') return;
   if (c._abilityWindupUntil > now || c._reloadUntil > now) return;
   const dist = Math.hypot(px - c.x, py - c.y);
-  let sees = !inactive && Combat.seesPlayer(c.kind, dist, scene.cellM, scene.save);
+  let sees = !inactive && (creatureTarget
+    ? dist <= Combat.sightCells(c.kind) * scene.cellM
+    : Combat.seesPlayer(c.kind, dist, scene.cellM, scene.save));
   if (m.territoryCells) {
     c._territoryX ??= c.homeX ?? c.x; c._territoryY ??= c.homeY ?? c.y;
     const radius = m.territoryCells * scene.cellM;
@@ -1393,4 +1407,78 @@ function enemyBatMove(scene, c, row, now, px, py) {
   const scale = distance > 0 ? leg / distance : 0;
   c._batFlight = { start: now, duration: duration * 1000,
     x: c.x, y: c.y, tx: c.x + (tx - c.x) * scale, ty: c.y + (ty - c.y) * scale };
+}
+
+// Temporary allies keep their species' movement, reach and attack cadence.
+// Hostiles can choose a nearer charmed creature instead of the player; they
+// remain ordinary creatures and never enter the permanent pet/save ledger.
+function flowerOpponent(scene, c, px, py, caught, wall = Date.now()) {
+  const charmed = Combat.isCharmed(c, wall);
+  if (!charmed && !Combat.isEnemy(c, wall)) return null;
+  const pc = worldMetersToTileCell(scene, c.x, c.y);
+  const sight = Combat.sightCells(c.kind) * scene.cellM;
+  let best = null, distance = charmed || scene.isUnnoticed(c) ? sight : Math.min(sight, Math.hypot(px - c.x, py - c.y));
+  const consider = other => {
+    if (other === c || caught.has(other.id) || other._surfaceInactive) return;
+    const opponent = charmed ? Combat.isEnemy(other, wall) : Combat.isCharmed(other, wall);
+    if (!opponent || Combat.hp(other) <= 0) return;
+    const d = Math.hypot(other.x - c.x, other.y - c.y);
+    if (d > distance || !Combat.lineOfFire(c.x, c.y, other.x, other.y,
+      (x, y) => enemySightBlocked(scene, c, x, y), scene.cellM)) return;
+    best = other; distance = d;
+  };
+  if (!charmed && scene._charmedOpponents) scene._charmedOpponents.forEach(consider);
+  else WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, consider);
+  return best;
+}
+function flowerCreatureTick(scene, c, now, px, py, caught, wards = null) {
+  const asleep = Combat.isSleeping(c), charmed = Combat.isCharmed(c);
+  const target = asleep ? null : flowerOpponent(scene, c, px, py, caught);
+  if (!asleep && !charmed && !target) return false;
+  // Wild foes retain the Home/castle rout and their lair leash when an ally
+  // becomes tempting prey. Fall through to the ordinary rout/return mover.
+  if (!asleep && !charmed && target) {
+    const warded = c._wardFrom || (wards && wardTrip(c, wards.homePos, wards.castleWards, wards.radiusSq))
+      || (SpriteLayout.creatureHaunts(c.kind) && fireWardTrip(scene, c));
+    const lairState = c.lair ? Lairs.guardState(c, { x: px, y: py }, scene.cellM, !scene.isUnnoticed(c)) : null;
+    if (warded || (lairState && lairState !== 'hunt')) return false;
+  }
+  // Temporary allegiance and sleep do not protect from ordinary hazards.
+  if (Combat.canBurn(c) && scene._nearAny?.('fires', c.x, c.y, FIRE_TOUCH_CELLS)) Combat.ignite(c, now, 'fire');
+  if (Combat.canBurn(c) && (scene.depth === 0 || scene.depth === WorldGen.LAVA_DEPTH)
+      && now >= (c._lavaNextT || 0)) {
+    c._lavaNextT = now + 1000;
+    const under = scene.cellAt(c.x, c.y);
+    if (under.loaded && under.type === WorldGen.T.CAVE_LAVA) {
+      Combat.ignite(c, now, 'lava');
+      if (scene._damageEnemy(c, Combat.LAVA_DMG_PER_S, 'lava')) return true;
+    }
+  }
+  const burn = Combat.burnTick(c, now);
+  if (burn > 0 && scene._damageEnemy(c, burn, c._burnBy === 'player' ? 'player' : 'burn', { bypassArmor: true })) return true;
+  if (Combat.isSleeping(c)) {
+    if (SpriteLayout.creatureHaunts(c.kind)) {
+      const fate = ghostTick(scene, c, now, c.x, c.y, true, false, 0);
+      if (fate === 'faded') (scene.save.caught ||= []).push(c.id);
+    }
+    c._moving = false; c._enemyTickT = now; c._ghostT = now; return true;
+  }
+  if (!charmed && !target) return false;
+  const dt = c._enemyTickT == null ? 0 : Math.min(0.1, Math.max(0, (now - c._enemyTickT) / 1000));
+  c._enemyTickT = now;
+  const row = EnemyRoster.get(c.kind);
+  if (!row) return true;
+  if (SpriteLayout.creatureHaunts(c.kind)) {
+    const fate = ghostTick(scene, c, now, target?.x ?? c.x, target?.y ?? c.y, !target, false, Combat.monster(c.kind).mps / 1000);
+    if (fate === 'touch' && target) scene._damageEnemy(target, row.dmg * Combat.powerMul(c), charmed ? 'ally' : 'enemy');
+    if (fate === 'touch' || fate === 'faded') {
+      (scene.save.caught ||= []).push(c.id);
+      if (typeof persistSave === 'function') persistSave(scene.save);
+    }
+    return true;
+  }
+  if (!target || caught.has(target.id)) { c._moving = false; return true; }
+  rosterEnemyAttack(scene, c, row, now, target.x, target.y, false, dt, null, target);
+  if (!caught.has(c.id)) rosterEnemyMove(scene, c, row, now, target.x, target.y, false, false, null, dt, target);
+  return true;
 }

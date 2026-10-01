@@ -70,15 +70,15 @@ test('render: each visible house carries one owner-resolved display role', () =>
 
 // ── Pre-seeded restore roles ─────────────────────────────────────────────────
 
-test('preseedRestoreRole: the fixed opening run, then the address, and the wizard at 15', () => {
+test('preseedRestoreRole: the fixed opening run, then the address, and the wizard at 30', () => {
   assert.eq(JSON.stringify(Houses.PRESEED_RESTORE_ROLES),
-    JSON.stringify({ 0: 'blacksmith', 1: 'trader', 2: 'plain', 3: 'market', 14: 'wizard' }),
+    JSON.stringify({ 0: 'blacksmith', 1: 'trader', 2: 'plain', 3: 'market', 29: 'wizard' }),
     'the table itself');
   const save = { restoredHouses: { a: 'blacksmith' }, starterBlacksmithId: 'a' };
   assert.eq(Houses.preseedRestoreRole(save, 1, plainHouse), 'trader');
   assert.eq(Houses.preseedRestoreRole(save, 4, { kind: 'house', tier: 9, address: 16 }), 'market', 'rebuild 5 follows its address');
   assert.eq(Houses.preseedRestoreRole(save, 5, plainHouse), 'plain', 'a plain address stays plain');
-  assert.eq(Houses.preseedRestoreRole(save, 14, plainHouse), 'wizard');
+  assert.eq(Houses.preseedRestoreRole(save, 29, plainHouse), 'wizard');
 });
 
 test('preseedRestoreRole: a save with no blacksmith gets one on its next rebuild', () => {
