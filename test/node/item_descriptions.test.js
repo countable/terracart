@@ -62,9 +62,9 @@ test('consumables: gameplay numbers read the owning spec rows', () => {
   assert.eq(CONSUMABLE_SPEC.torch.radiusMul, 2, 'torch range remains in the gameplay spec');
   assert.eq(CONSUMABLE_SPEC.growth_powder.radiusM, CONSUMABLE_SPEC.rainberry.radiusM,
     'growth powder reuses the rainberry crop radius');
-  assert.truthy(/const DRAGON_AMULET_TIER = CONSUMABLE_SPEC\.dragon_powder\.movementTier;/.test(SCENE_SRC),
+  assert.truthy(/const DRAGON_WALK_COST_TIER = CONSUMABLE_SPEC\.dragon_powder\.movementTier;/.test(SCENE_SRC),
     'dragon walking derives from the row');
-  assert.truthy(/const SPEED_POTION_AMULET_TIER = CONSUMABLE_SPEC\.speed_potion\.movementTier;/.test(SCENE_SRC),
+  assert.truthy(/const SPEED_POTION_WALK_COST_TIER = CONSUMABLE_SPEC\.speed_potion\.movementTier;/.test(SCENE_SRC),
     'speed-potion walking derives from the row');
 });
 

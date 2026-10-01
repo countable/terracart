@@ -190,7 +190,7 @@
   // stage waits stand between a seed and a harvest, and no relic
   // touched that — a Frost can watered exactly as fast as bare hands and only
   // improved the produce quality it came out with. Now the ladder is worth
-  // climbing for the same reason the amulet is: at the top, a crop grows twice
+  // climbing so the top rung makes a crop grow twice
   // as fast, because every watering is worth two.
   //
   // The jump does NOT consume the watering. The plant is watered AND a stage

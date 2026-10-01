@@ -101,10 +101,10 @@
 
   test('shrines: wishing luck joins existing ring luck and expires', () => {
     const save = { relics: { ring: { tier: 3 } } };
-    const base = ringLuck(save, T0);
+    const base = upgradeLuck(save, T0);
     Shrines.grant(save, 'wishing_well', T0);
-    assert.eq(ringLuck(save, T0), base + Shrines.FORTUNE_LUCK_BONUS);
-    assert.eq(ringLuck(save, T0 + 15 * 60000), base);
+    assert.eq(upgradeLuck(save, T0), base + Shrines.FORTUNE_LUCK_BONUS);
+    assert.eq(upgradeLuck(save, T0 + 15 * 60000), base);
   });
 
   test('shrines: wishing luck improves both item quality and the separate gear roll', () => {

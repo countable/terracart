@@ -128,7 +128,7 @@ const PLAY_TIPS = [
   "Each finished castle job leaves harder work ahead. They call it promotion. Take the rest you need before accepting.",
   "The wizard says power hums in my unspent memories. I had hoped he might ask what I remembered.",
   "Choose the wizard's calling with care. It stays with you for good. I asked for time; he asked what there was to think about.",
-  "The wizard calls it Keen Eye. A Ring for my hand. He spoke so warmly of what I might become.",
+  "The wizard calls it Keen Eye. Hidden glints seem easier to notice now. He spoke so warmly of what I might become.",
   "A magical flower in the furnace helped turn a lesser bar into finer metal. I kept one petal outside the heat. For the colour.",
   "Seek magical flowers out in the world. No shop sells their seeds. Some things still refuse to sit on a shelf.",
   "Might sapphire soothe a slime? Brann says to kill it. But there must be something beneath that trembling besides malice.",

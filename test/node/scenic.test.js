@@ -382,7 +382,7 @@ test('scenic: the scope — story once, the relic once per save, the gift once p
     assert.truthy(poiLit(a, spentSets(scene, save)), 'the next UTC day it glows again');
     tap(a);
     assert.eq(rolls.length, 3, 'and gives again');
-    assert.eq(S.firstVistaPrize({ relics: { amulet: { tier: 3 } } }).tier, 4, 'the relic is a tier over what you wear');
+    assert.eq(S.firstVistaPrize({ relics: { bags: { tier: 3 } } }).tier, 4, 'the relic is a tier over what you wear');
     assert.eq(S.firstVistaPrize({ vistaRelic: 1 }), null, 'once per save');
   } finally {
     Date.now = realNow;

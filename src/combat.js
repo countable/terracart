@@ -140,15 +140,16 @@
   // Infinity for a row without one: it sees as far as it thinks, the sim
   // bubble. A giant inherits its base kind's. Lair guards and the ghost have
   // rings of their own and never ask.
-  function sightCells(kind) {
-    if (kind === 'slime') return SLIME_SIGHT_CELLS;
-    const s = monster(kind)?.sight;
-    return (typeof s === 'number' && s > 0) ? s : Infinity;
+  function sightCells(kind, save) {
+    const raw = kind === 'slime' ? SLIME_SIGHT_CELLS : monster(kind)?.sight;
+    const sight = (typeof raw === 'number' && raw > 0) ? raw : Infinity;
+    const cut = (typeof jewelryVisionReduction === 'function') ? jewelryVisionReduction(save) : 0;
+    return Number.isFinite(sight) ? Math.max(0, sight - cut) : sight;
   }
   // Can this kind see a player `distM` metres off? The per-creature half of
   // wanderCreatures' `unseen` (the other half is the per-tick `unnoticed`).
-  function seesPlayer(kind, distM, cellM) {
-    return distM <= sightCells(kind) * cellM;
+  function seesPlayer(kind, distM, cellM, save) {
+    return distM <= sightCells(kind, save) * cellM;
   }
   // Is this kind a cave MONSTER? Narrower than isEnemyKind, which also counts
   // the surface slime.
@@ -291,7 +292,7 @@
   function projectileReduction(save) {
     let reduction = 0;
     for (const [id, spec] of Object.entries(CARRIED_ITEM_SPEC)) {
-      if (Inventory.count(save, id) > 0) reduction = Math.max(reduction, spec.projectileReduction || 0);
+      if (carriesItem(save, id)) reduction = Math.max(reduction, spec.projectileReduction || 0);
     }
     return reduction;
   }

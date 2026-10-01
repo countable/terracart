@@ -23,7 +23,7 @@
   // entire curve; balancing dashboard lives off these.
   // ────────────────────────────────────────────────────────────────
   const RARITY_TUNING = {
-    ringLuckPerTier:     0.01,   // T7 ring → +0.07 to boost probability
+    luckPerUpgrade:      0.01,   // Seven Keen Eye rungs reach +0.07
     // Jackpot fires with entryP, then chains via continueP. Each boost step
     // picks tier-up vs qty-up 50/50 (same split as the boost chain). Every
     // jackpot — even a +1 — triggers the fanfare popup.
@@ -35,12 +35,7 @@
     jackpotContinueP:    0.25,
     chainQtyP:           0.33,   // per chain step, P(qty-up) vs (1-chainQtyP) tier-up. At T2 chest (1 step): 67% T2 / 33% T1+qty. At T3 chest (2 steps): 45% T3 / 44% T2 / 11% T1.
     // P(extra qty-bracket bump) at the TOP of the wizard's quantity ladder.
-    // This used to be the AMULET's: 0.05 per amulet tier, so a Frost amulet
-    // sat at 7 × 0.05 = 0.35. The bonus is a wizard-tower upgrade now
-    // (save.qtyUpgrades, QTY_LUCK_LEVELS rungs — see app.js), and the ceiling
-    // is deliberately the SAME 0.35 the amulet topped out at: only where it
-    // comes from changed, never how good it can get. The amulet keeps the
-    // thing it is for, stick walking.
+    // Full Measure owns quantity luck now; jewelry no longer follows metal tiers.
     qtyLuckMaxP:         0.35,
     qtyLuckLevels:       3,
     // Quantity model: each qty BUMP (from the chain or jackpot) adds
@@ -347,18 +342,16 @@
     const keys = Object.keys(weightsObj);
     return weightedPickBy(keys, (k) => weightsObj[k], rng);
   }
-  function ringLuck(save, now = Date.now()) {
+  function upgradeLuck(save, now = Date.now()) {
     const boon = typeof Shrines !== 'undefined' && Shrines.leverActive(save, 'fortune', now)
       ? Shrines.FORTUNE_LUCK_BONUS : 0;
-    return (save?.relics?.ring?.tier || 0) * RARITY_TUNING.ringLuckPerTier + boon;
-  }
-  function treasureLuck(save) {
-    const keyTier = Inventory.count(save, 'lucky_key') > 0 ? CARRIED_ITEM_SPEC.lucky_key.luckTier : 0;
-    return ringLuck(save) + keyTier * RARITY_TUNING.ringLuckPerTier;
+    const keyBonus = carriesItem(save, 'lucky_key') ? CARRIED_ITEM_SPEC.lucky_key.luckBonus : 0;
+    return (Math.max(0, Math.min(7, Math.floor(save?.luckUpgrades || 0))) + keyBonus)
+      * RARITY_TUNING.luckPerUpgrade + boon;
   }
   // The wizard's QUANTITY ladder: P(one extra qty-bracket bump on a roll).
   // Linear over its rungs onto qtyLuckMaxP, so the top rung is exactly the
-  // ceiling a Frost amulet used to give and every rung is worth something.
+  // permanent Full Measure ceiling, so every rung is worth something.
   function qtyLuck(save) {
     const levels = RARITY_TUNING.qtyLuckLevels || 1;
     const lv = Math.max(0, Math.min(levels, Math.floor(save?.qtyUpgrades || 0)));
@@ -372,15 +365,15 @@
   function pickItemInClass(cls, tier, rng) {
     if (cls === 'relic') return null;            // handled by reconcileRelicOffer
     if (cls === 'legacyConsumable') {
-      const items = _ITEMS.filter(i => ['magic', 'supply'].includes(i.kind) && !i.caveOnly && !i.cooked && !i.shiny && i.baseTier <= tier);
+      const items = _ITEMS.filter(i => ['magic', 'supply'].includes(i.kind) && !i.caveOnly && !i.uniqueJewelry && !i.cooked && !i.shiny && i.baseTier <= tier);
       if (!items.length) return null;
       const top = Math.max(...items.map(i => i.baseTier));
       return weightedPickBy(items.filter(i => i.baseTier === top), i => i.dropWeight || 1, rng).id;
     }
     const byTier = ITEMS_BY_CLASS_TIER[cls];
     if (!byTier) return null;
-    let pool = byTier[tier];
-    for (let t = tier - 1; t >= 1 && (!pool || !pool.length); t--) pool = byTier[t];
+    let pool = (byTier[tier] || []).filter(id => !_ITEM_BY_ID[id]?.uniqueJewelry);
+    for (let t = tier - 1; t >= 1 && (!pool || !pool.length); t--) pool = (byTier[t] || []).filter(id => !_ITEM_BY_ID[id]?.uniqueJewelry);
     if (!pool || !pool.length) return null;
     // Weighted pick by item.dropWeight (defaults to 1). Lets items like fish
     // declare dropWeight: 0.4 in items.js to show up less often than their
@@ -491,6 +484,7 @@
       vigor_potion: 1, shield_potion: 1, reach_potion: 1, speed_potion: 1,
       revive_potion: 1, blight_potion: 1, raven_potion: 1, thunder_potion: 1, resurrection_potion: 1,
       growth_powder: 1, shadow_powder: 1, dragon_powder: 1, frost_powder: 1,
+      stealth_ring: 0.2, invisibility_ring: 0.1, regen_amulet: 0.2, vigor_amulet: 0.1,
       sapphire: 1, ruby: 1, emerald: 1, diamond: 1,
     } },
   };
@@ -560,7 +554,7 @@
     // to actual qty. Each wasted bump pays out small consolation coins.
     let wastedQtyBumps = 0;
     const chainSteps = ctx.chainSteps ?? 0;
-    const luck = treasureLuck(save);
+    const luck = upgradeLuck(save);
     const qtyP = Math.max(0, Math.min(0.95, (RARITY_TUNING.chainQtyP ?? 0.33) - luck));
     for (let i = 0; i < chainSteps; i++) {
       const goQty = rng() < qtyP;
@@ -693,9 +687,7 @@
 
     // 4) Resolve to a concrete item / relic / gold.
     if (cls === 'relic') {
-      // The wizard tower alone awards the Ring, so every random gear lane
-      // shares rollGearUpgrade's exclusion.
-      const slots = Object.keys(_RELIC_DEFS).filter(slot => slot !== 'ring');
+      const slots = Object.keys(_RELIC_DEFS);
       if (!slots.length) return null;
       const slot = slots[Math.floor(rng() * slots.length)];
       // Relics deduct one tier off whatever the chain rolled — a T2 chest
@@ -814,10 +806,7 @@
     // Gear resolves separately from rolled item quality. Fortune reaches this
     // lane too, without raising the source's existing tier ceiling.
     if (luck > 0 && random() < luck) pickedTier = Math.min(preferred, pickedTier + 1);
-    // Never the ring: it is the wizard tower's exclusive gift (gear.js, the
-    // shop offer skips it for the same reason), and a chest handing one out
-    // undercut his ladder (economy audit, 2026-09-27).
-    const relicSlots = Object.keys(_RELIC_DEFS).filter((s) => s !== 'ring');
+    const relicSlots = Object.keys(_RELIC_DEFS);
     const armorSlots = Object.keys(_ARMOR_DEFS);
     const slotPool = allowedSlots || [
       ...relicSlots.map(s => ({ kind: 'relic', slot: s })),
@@ -851,7 +840,6 @@
   global.rollGearUpgrade        = rollGearUpgrade;
   // The two luck ladders, exported so the wizard's rungs and the tests can
   // read the SAME numbers the picker rolls against.
-  global.ringLuck               = ringLuck;
-  global.treasureLuck           = treasureLuck;
+  global.upgradeLuck            = upgradeLuck;
   global.qtyLuck                = qtyLuck;
 })(window);

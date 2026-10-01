@@ -4,7 +4,7 @@
 test('migrate: backfills relic / armor / progression defaults on an empty save', () => {
   const save = {};
   SaveMigrate.migrate(save);
-  for (const slot of ['pick', 'axe', 'ring', 'amulet', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags']) {
+  for (const slot of ['pick', 'axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags']) {
     assert.truthy(slot in save.relics, 'relic slot ' + slot + ' present');
   }
   for (const slot of ['helmet', 'chest', 'legs', 'boots']) {
@@ -14,6 +14,25 @@ test('migrate: backfills relic / armor / progression defaults on an empty save',
   assert.eq(typeof save.houseSatisfied, 'object');
   assert.eq(typeof save.restoredHouses, 'object');
   assert.eq(save.activeWeapon, null, 'a fresh save has no active weapon yet');
+});
+
+test('migrate: tiered jewelry becomes permanent luck and a one-time refund', () => {
+  const save = { schema: 6, money: 10, relics: { ring: { tier: 5 }, amulet: { tier: 4 } } };
+  assert.truthy(SaveMigrate.migrate(save), 'the shape change persists');
+  assert.eq(save.luckUpgrades, 5, 'ring tier becomes the same Keen Eye rung');
+  assert.eq(save.money, 310, 'T4 amulet refunds its full 300 coin price');
+  assert.falsy('ring' in save.relics, 'tiered ring slot is gone');
+  assert.falsy('amulet' in save.relics, 'tiered amulet slot is gone');
+  assert.eq(SaveMigrate.migrate(save), false, 'a second boot pays nothing again');
+  assert.eq(save.money, 310, 'refund is idempotent');
+});
+
+test('migrate: ring luck never lowers an existing permanent upgrade', () => {
+  const save = { schema: 6, luckUpgrades: 6, relics: { ring: { tier: 3 }, amulet: null } };
+  SaveMigrate.migrate(save);
+  assert.eq(save.luckUpgrades, 6);
+  assert.falsy('ring' in save.relics);
+  assert.falsy('amulet' in save.relics);
 });
 
 test('migrate: backfills activeWeapon for a veteran save that predates weapon selection', () => {

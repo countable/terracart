@@ -30,8 +30,7 @@
 // The copy here reads those at CALL time, so load order only has to put this
 // file before app.js.
 //
-// This file is NOT the thing that equips the Ring: buying a Keen Eye rung
-// returns `equip` and the caller runs app.js _equipGear('relic','ring',n).
+// Keen Eye writes permanent luck on the save like the other stat tracks.
 // ─────────────────────────────────────────────────────────────────────────
 (function (root) {
   'use strict';
@@ -47,8 +46,8 @@
   const OFFER_COUNT = 2;
   // Reach runs 2 cells + 0.5 a rung, 6 rungs (coords.js reads the same field).
   const REACH_UPGRADE_MAX = 6;
-  // The Ring tops out at the material ladder's 7 tiers.
-  const RING_UPGRADE_MAX = 7;
+  // Keen Eye keeps seven permanent luck rungs.
+  const LUCK_UPGRADE_MAX = 7;
   // The enchanter's price for a potion's timed effect without drinking it.
   const ENCHANTER_ENERGY_COST = 20;
   // The wizard's own RNG stream (CLAUDE.md: each spawner seeds its own).
@@ -94,15 +93,14 @@
     },
     {
       key: 'eye', cost: TRACK_COST, icon: '👁',
-      max: () => RING_UPGRADE_MAX,
-      have: (save) => int(save.relics && save.relics.ring && save.relics.ring.tier),
-      // The Ring is GEAR: the caller equips it (buy() returns `equip`).
-      grant: null,
+      max: () => LUCK_UPGRADE_MAX,
+      have: (save) => int(save.luckUpgrades),
+      grant: (save, n) => { save.luckUpgrades = n; },
       title: 'Keen Eye', accept: 'Accept',
       get: () => 'Let hidden treasures catch your eye.',
       header: '✨ Keen Eye opened ✨',
       name: () => 'Keen Eye',
-      sub: 'A Ring to bear the sight — rarer things find you.',
+      sub: 'Rarer things find you, and find you again.',
     },
     {
       key: 'vigour', cost: VIGOUR_COST, icon: '💪',
@@ -150,12 +148,10 @@
 
   // ── Purchase count ───────────────────────────────────────────────────────
   // save.wizardBuys when set; for a save from before it existed, the rungs
-  // already on it — so no migration is needed. (A pre-Sep-2026 save whose
-  // Inner Light also bought the Ring counts those rungs twice; the count only
-  // seeds the draw and gates the calling, so it errs toward offering it.)
+  // already on it. The count only seeds the draw and gates the calling.
   function derivedBuys(save) {
     return int(save.reachUpgrades) + int(save.qtyUpgrades)
-      + int(save.relics && save.relics.ring && save.relics.ring.tier)
+      + int(save.luckUpgrades)
       + int(save.vigourUpgrades) + (playerClass(save) ? 1 : 0);
   }
   function buys(save) {
@@ -231,8 +227,6 @@
   // enough memories) with nothing changed. On success save.memories is spent,
   // the rung / calling is written, save.wizardBuys moves on (which re-rolls
   // the next pair), and the result says what the caller still has to do:
-  //   equip        — { kind:'relic', slot:'ring', tier } for a Keen Eye rung:
-  //                  the caller runs _equipGear(kind, slot, tier).
   //   energyCap    — true for Vigour: refresh the bar (Energy.maxEnergy).
   //   reach        — true for Inner Light (reach redraws on its own).
   //   playerClass  — the calling just chosen, for a class purchase.
@@ -257,7 +251,7 @@
     const out = {
       kind: offer.kind, key, cost: offer.cost, rung: offer.rung, offer,
       memories: save.memories, wizardBuys: before + 1,
-      equip: null, energyCap: false, reach: false, playerClass: null,
+      energyCap: false, reach: false, playerClass: null,
     };
     if (offer.kind === 'class') {
       save.playerClass = key;
@@ -265,7 +259,6 @@
     } else {
       const t = TRACK_BY_KEY[key];
       if (t.grant) t.grant(save, offer.rung);
-      if (key === 'eye') out.equip = { kind: 'relic', slot: 'ring', tier: offer.rung };
       if (key === 'vigour') out.energyCap = true;
       if (key === 'light') out.reach = true;
     }
@@ -275,7 +268,7 @@
 
   root.Wizard = {
     TRACK_COST, VIGOUR_COST, VIGOUR_MAX, CLASS_COST, CLASS_AT_BUYS, OFFER_COUNT,
-    REACH_UPGRADE_MAX, RING_UPGRADE_MAX, ENCHANTER_ENERGY_COST, INTRO,
+    REACH_UPGRADE_MAX, LUCK_UPGRADE_MAX, ENCHANTER_ENERGY_COST, INTRO,
     TRACKS, CLASSES, playerClass, isClass, classDue,
     buys, derivedBuys, offers, buy, unfinishedTracks, qtyLuckAt,
   };

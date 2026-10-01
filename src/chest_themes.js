@@ -27,11 +27,11 @@
     animalFood: { ids: () => [...new Set(['cat', 'dog', 'rabbit'].flatMap(k => ANIMAL_FOOD[k] || []))], fallback: 'restorative' },
     recovery: { ids: ['vigor_potion', 'elixir'], fallback: 'restorative' },
     antidote: { ids: ['antidote'] },
-    healing: { ids: { vigor_potion: 3, revive_potion: 2, resurrection_potion: 1, elixir: 1 }, fallback: 'restorative' },
+    healing: { ids: { vigor_potion: 3, revive_potion: 2, resurrection_potion: 1, elixir: 1, regen_amulet: 0.2, vigor_amulet: 0.1 }, fallback: 'restorative' },
     revival: { ids: { revive_potion: 3, resurrection_potion: 1 }, fallback: 'restorative' },
     shield: { ids: ['shield_potion'], fallback: { health: 'restorative', worship: 'restorative', default: 'field' } },
-    study: { ids: { reach_potion: 2, raven_potion: 1, shield_potion: 1 }, fallback: 'books' },
-    shadow: { ids: ['raven_potion', 'shadow_powder'], fallback: 'flowers' },
+    study: { ids: { reach_potion: 2, raven_potion: 1, shield_potion: 1, regen_amulet: 0.2 }, fallback: 'books' },
+    shadow: { ids: { raven_potion: 1, shadow_powder: 1, stealth_ring: 0.2, invisibility_ring: 0.1 }, fallback: 'flowers' },
     gems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], fallback: { culture: 'books', default: 'field' } },
     books: { ids: ['book'], minTier: { school: 1 }, fallback: 'torch' },
     honey: { ids: ['honey'], fallback: 'restorative' },
@@ -39,9 +39,9 @@
     rope: { ids: ['rope'], fallback: 'torch' },
     trapKit: { ids: ['trap_kit'], fallback: 'torch' },
     magicTrap: { ids: ['magic_trap'], fallback: 'field' },
-    caveMagic: { ids: () => ITEMS.filter(i => i.kind === 'magic').map(i => i.id), mixedTiers: true, fallback: 'torch' },
+    caveMagic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry).map(i => i.id), mixedTiers: true, fallback: 'torch' },
     caveGems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], mixedTiers: true, fallback: 'field' },
-    noncombatGear: { kind: 'gear', slots: ['amulet', 'bags', 'can', 'hoe', 'rod', 'bugnet'], fallback: { school: 'books', default: 'supplies' } },
+    noncombatGear: { kind: 'gear', slots: ['bags', 'can', 'hoe', 'rod', 'bugnet'], fallback: { school: 'books', default: 'supplies' } },
     protectiveGear: { kind: 'gear', armorOnly: true, fallback: 'field' },
     culturalGear: { kind: 'gear', fallback: 'books' },
   };
@@ -175,7 +175,7 @@
   function gearSlots(group) {
     const def = groups[group];
     return [
-      ...Object.keys(RELIC_DEFS).filter(slot => slot !== 'ring' && !def.armorOnly && (!def.slots || def.slots.includes(slot))).map(slot => ({ kind: 'relic', slot })),
+      ...Object.keys(RELIC_DEFS).filter(slot => !def.armorOnly && (!def.slots || def.slots.includes(slot))).map(slot => ({ kind: 'relic', slot })),
       ...Object.keys(ARMOR_DEFS).filter(slot => !def.slots || def.slots.includes(slot)).map(slot => ({ kind: 'armor', slot })),
     ];
   }

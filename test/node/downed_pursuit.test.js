@@ -85,7 +85,7 @@ test('downed: every hostile-interest branch reads `unnoticed`, never `shadowed`'
   for (const [re, what] of gates) {
     assert.truthy(re.test(code), `${what} is gated on unnoticed`);
   }
-  assert.truthy(/const unseen = unnoticed \|\| !Combat\.seesPlayer\(c\.kind, distToPlayer, this\.cellM\);/.test(code),
+  assert.truthy(/const unseen = unnoticed \|\| !Combat\.seesPlayer\(c\.kind, distToPlayer, this\.cellM, this\.save\);/.test(code),
     '`unseen` is `unnoticed` plus the foe\'s sight, never a lane of its own');
 });
 

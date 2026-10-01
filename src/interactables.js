@@ -465,7 +465,7 @@ const INTERACTABLES = {
   // relic / armor / gold results, with a bag-full TAKE/LEAVE modal.
   chest: {
     // Chest loot IS luck-aware, but not from here: pickReward() (rarity.js)
-    // reads the ring + amulet straight off `save`. The GATHER drops in this
+    // reads permanent luck straight off `save`. The GATHER drops in this
     // registry (wood, ore, gems, fruit) are not — the declarative `luck` field
     // that would have made them so shipped switched OFF and was removed.
     custom: (ctx, o) => {

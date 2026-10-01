@@ -185,7 +185,7 @@
     const a = src.indexOf('\n  _walkRelics() {');
     const b = src.indexOf('\n  }\n', a);
     const body = src.slice(src.indexOf('{', a) + 1, b);
-    return new Function('DRAGON_AMULET_TIER', 'SPEED_POTION_AMULET_TIER', 'COFFEE_BOOT_BOOST', 'BIKE_RACK_SPEED_MUL',
+    return new Function('DRAGON_WALK_COST_TIER', 'SPEED_POTION_WALK_COST_TIER', 'COFFEE_BOOT_BOOST', 'BIKE_RACK_SPEED_MUL',
       `return function () {${body}\n};`)(CONSUMABLE_SPEC.dragon_powder.movementTier,
         CONSUMABLE_SPEC.speed_potion.movementTier, CONSUMABLE_SPEC.coffee.speedTierBoost,
         BIKE_RACK_SPEED_MUL);
