@@ -145,7 +145,7 @@
   // The vista's story (its painting stem and the _storySplashOnce key).
   const VISTA_STORY = {
     story: 'zone_viewpoint', title: 'A vista',
-    body: 'An old spyglass on a post, and the whole bay below. Sit a while. The view gives a little every day.',
+    body: 'An old spyglass stands on its post, pointing out across the view. You want to see how far it reaches, and whether the distant places look as small through the glass.',
     flash: 'A vista. Look a while.',
   };
 

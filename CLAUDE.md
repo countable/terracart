@@ -357,6 +357,11 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   revealing the player’s identity or the wizard’s secret. Preserve approved
   excerpts and keep `ITEM_GUIDE_TIPS` as the owner of shared item parables. Authors
   describe their world, not interface elements such as work circles or health bars.
+- Story panels share one second-person narrator: the Hood’s slightly naïve,
+  literal thoughts and feelings, grounded in physical sensations and occasional
+  environmental details. Average about two sentences; tie lightly to the story
+  without early revelations. Do not assume the player’s time of day or weather.
+  Books retain their separate author voices.
 - Story panels, books and item descriptions carry at most one useful fact,
   told through the world, physical sensations or a character's voice. Hint at
   the advantage and leave exact effects for discovery. Confirmations state

@@ -73,7 +73,7 @@ test('memory story: the drain opens one dialog per memory, with the label in the
   assert.eq(s.modals[0].art, 'discovery_badge');
   assert.eq(s.modals[0].title, 'A memory returns');
   assert.eq(s.modals[0].body,
-    'A glimpse of a memory comes back as you find a shiny Cow.');
+    'You feel a small piece of the past return with a shiny Cow. You try to hold it still before it fades.');
   let busy = true;
   withBody(() => busy, () => {
     s._drainBadgeStories();
@@ -83,7 +83,7 @@ test('memory story: the drain opens one dialog per memory, with the label in the
     s._drainBadgeStories();
   });
   assert.eq(s.modals.length, 2);
-  assert.truthy(/slaying an elite Goblin\.$/.test(s.modals[1].body), 'the second memory follows');
+  assert.truthy(/with slaying an elite Goblin\./.test(s.modals[1].body), 'the second memory follows');
 });
 
 test('memory: every memory fills the bar to the live cap, popped on the body', () => {
@@ -166,7 +166,7 @@ test('memory copy: no player-facing "Discovery badge" is left', () => {
   for (const it of ITEMS) assert.falsy(/discovery/i.test(it.name), `item named ${it.name}`);
   assert.falsy(ITEMS.some((it) => it.kind === 'badge'), 'no badge kind in the catalog');
   assert.truthy(PLAY_TIPS.some((t) => /wizard/i.test(t) && /memories/.test(t)), 'the wizard tip speaks of memories');
-  assert.truthy(/wizard: +\{ name: 'Wizard Tower', blurb: '[^']*memories/.test(SCENE_SRC), 'and so does the tower blurb');
+  assert.truthy(/wizard: +\{ name: 'Wizard Tower', blurb: ['"][^'"\n]*memories/.test(SCENE_SRC), 'and so does the tower blurb');
   assert.truthy(/🌟 \+1 memory/.test(SCENE_SRC), 'the shiny fanfare line says memory');
 });
 
