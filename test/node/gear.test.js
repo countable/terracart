@@ -142,38 +142,58 @@ test('smeltingRecipe + smeltUnlockedBars: T5+ bars, always available', () => {
   );
 });
 
-test('blacksmith offers: Wood-stage stock favours Copper without removing higher tiers', () => {
-  const save={relics:{},armor:{}};
-  for(const slot of Object.keys(RELIC_DEFS)) save.relics[slot]={tier:1};
-  for(const slot of Object.keys(ARMOR_DEFS)) save.armor[slot]={tier:1};
-  const totals={ordinary:{copper:0,far:0},smith:{copper:0,far:0}},seen=new Set(),n=6000;
-  for(let i=1;i<=n;i++) {
-    const ordinary=Gear.buildRelicOffer(save,seeded(i));
-    const smith=Gear.buildRelicOffer(save,seeded(i),{isBlacksmith:true});
-    for(const [name,offer] of [['ordinary',ordinary],['smith',smith]]) {
-      if(offer.tier===2) totals[name].copper++;
-      if(offer.tier>=4) totals[name].far++;
-    }
-    seen.add(smith.tier);
-  }
-  assert.inRange(totals.smith.copper/n,.64,.71,'roughly two thirds offer the next Copper tier');
-  assert.gt(totals.smith.copper,totals.ordinary.copper,'Copper is more common than the old curve');
-  assert.lt(totals.smith.far,totals.ordinary.far*.75,'fewer Gold-and-above offers');
-  assert.eq([...seen].sort().join(','),'2,3,4,5,6,7','every upgrade tier remains available');
+test('blacksmith offers: the next rung per slot, every tier past it divided down, no relic/armour split', () => {
+  assert.eq(Gear.SMITHY_NEXT_RUNG_BIAS, 4, 'each rung skipped quarters the odds');
+  // Pick at Iron (3), axe bare, helmet at Copper (2), the rest bare.
+  const save={relics:{pick:{tier:3},staff:{tier:1},amulet:{tier:1}},armor:{helmet:{tier:2}}};
+  const W=Gear.relicOfferWeights(save,{isBlacksmith:true});
+  const w=(kind,slot,tier)=>W.find(x=>x.c.kind===kind&&x.c.slot===slot&&x.c.tier===tier)?.w;
+  assert.eq(w('relic','axe',1),1,'a bare tool slot: a wooden axe is the next rung at full weight');
+  assert.eq(w('armor','boots',1),1,'a bare armour slot the same — no kind split at the smith');
+  assert.eq(w('relic','pick',4),1/8,'the kitted pick\'s next rung carries only the low-tier curve');
+  assert.eq(w('armor','helmet',3),1/4,'the Copper helmet\'s next rung likewise');
+  assert.eq(w('relic','axe',2),1/2/4,'a wooden-slot Copper axe is one rung skipped: curve / 4');
+  assert.eq(w('relic','axe',3),1/4/16,'two skipped: / 16');
+  assert.eq(w('relic','staff',2),1/2,'a wooden staff\'s next FORGEABLE rung is Copper (no wooden jewellery): rank 0');
+  assert.eq(w('relic','staff',3),1/4/4,'and Iron is one past it');
+  assert.truthy(w('relic','axe',1)>w('relic','pick',4)&&w('armor','boots',1)>w('relic','pick',4),
+    'missing wood pieces outweigh a finer upgrade for a kitted slot');
+  // Every tier stays in the pool: bias, not a cut.
+  assert.eq([...new Set(W.filter(x=>x.c.slot==='axe').map(x=>x.c.tier))].join(','),'1,2,3,4,5,6,7');
+  assert.falsy(W.find(x=>x.c.slot==='ring'),'never the Ring');
+  // The ordinary curve is untouched: a relic/armour split, no rank.
+  const O=Gear.relicOfferWeights(save);
+  const relicShare=O.filter(x=>x.c.kind==='relic').reduce((a,x)=>a+x.w,0);
+  assert.inRange(relicShare,1-1e-9,1+1e-9,'relics normalised to one (armour the same): half the airtime each');
 });
 
-test('blacksmith offers: Copper progression restores exact ordinary seeded offers and prices', () => {
-  for(const table of ['relics','armor']) {
-    // Staff and amulet held at Wood: a bare jewellery slot would put wooden
-    // jewellery in the ordinary pool, which the smith (rightly) never offers
-    // — the test below — so the curves could not be compared draw for draw.
-    const save={relics:{pick:{tier:1},staff:{tier:1},amulet:{tier:1}},armor:{}};
-    save[table][table==='relics'?'axe':'helmet']={tier:2};
-    for(let seed=1;seed<=100;seed++) {
-      assert.eq(JSON.stringify(Gear.buildRelicOffer(save,seeded(seed),{isBlacksmith:true})),
-        JSON.stringify(Gear.buildRelicOffer(save,seeded(seed))),'later stock and RNG draw count stay unchanged');
-    }
+test('blacksmith offers: with wooden slots missing, the forge mostly offers them over finer metal', () => {
+  // Tools all at Iron, armour all bare.
+  const save={relics:{},armor:{}};
+  for(const slot of Object.keys(RELIC_DEFS)) save.relics[slot]={tier:3};
+  const n=4000; let wooden=0, finer=0;
+  for(let i=1;i<=n;i++) {
+    const o=Gear.buildRelicOffer(save,seeded(i),{isBlacksmith:true});
+    if(o.kind==='armor'&&o.tier===1) wooden++;
+    if(o.kind==='relic') finer++;
   }
+  // Four bare armour slots at weight 1 each against ELEVEN kitted tool slots
+  // (every relic but the Ring) at 1/8 and less: about two in three offers
+  // are the missing wooden armour, and the draw matches the pool's weights.
+  const W=Gear.relicOfferWeights(save,{isBlacksmith:true});
+  const total=W.reduce((a,x)=>a+x.w,0);
+  const expectWood=W.filter(x=>x.c.kind==='armor'&&x.c.tier===1).reduce((a,x)=>a+x.w,0)/total;
+  assert.inRange(expectWood,.6,.7,'the pool gives the bare slots about two thirds');
+  assert.inRange(wooden/n,expectWood-.03,expectWood+.03,'and the seeded draws follow it');
+  assert.lt(finer/n,.4,'Gold tools for an Iron kit are the minority, eleven slots and all');
+  // All at Wood: Copper, the next rung everywhere, dominates (and Iron+ still turns up).
+  const wood={relics:{},armor:{}};
+  for(const slot of Object.keys(RELIC_DEFS)) wood.relics[slot]={tier:1};
+  for(const slot of Object.keys(ARMOR_DEFS)) wood.armor[slot]={tier:1};
+  let copper=0; const seen=new Set();
+  for(let i=1;i<=n;i++) { const o=Gear.buildRelicOffer(wood,seeded(i),{isBlacksmith:true}); if(o.tier===2) copper++; seen.add(o.tier); }
+  assert.inRange(copper/n,.84,.92,'about seven in eight offers are Copper');
+  assert.truthy(seen.has(3)&&seen.has(4),'Iron and Gold still come up');
 });
 
 // The anvil never "rests": a smithy offers only what it can forge. Wooden
