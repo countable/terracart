@@ -192,13 +192,168 @@ const MemoryStory = (() => {
     } catch (error) { scene._memoryStoryOpen = false; throw error; }
     return true;
   }
+  // Orrin remembers acknowledged conversations, never taps or modal reads.
+  // No affection score: questions and disagreement count as time spent together.
+  const ARCHAEOLOGIST_TOPICS = {
+    introduction: {
+      title: 'A stool at the dig',
+      body: 'Orrin. Dragon archaeologist. Mind the little stool; it has already defeated me twice. Oh—my satchel. The potsherds are all right, are they? Good. My knee can wait. People call me a crackpot, but you are welcome to sit.',
+      choices: [
+        { id: 'listen', label: 'Take a seat.', response: 'Thank you. Most people have somewhere else to be before I finish my name. There is a pencil somewhere—no, never mind. We can talk without one.' },
+        { id: 'doubt', label: 'A dragon archaeologist?', response: 'An unlikely occupation, I know. I brush dirt off old things and try not to break them further. You need not find me convincing to share the stool.' },
+        { id: 'help', label: 'Help free the satchel.', response: 'That buckle again. Thank you for rescuing the archaeologist before the archaeology. I shall remember which came first.' },
+      ],
+    },
+    mending: {
+      title: 'A place among the papers',
+      body: 'You have been putting houses back together. I noticed. I cleared you a seat among the papers; the papers have returned, but that is easily fixed. How are your hands holding up?',
+      choices: [
+        { id: 'listen', label: 'Sit with him a while.', response: 'There. No work required of you here. I can move my own papers, though it may take me several attempts.' },
+        { id: 'doubt', label: 'There is still so much broken.', response: 'Yes. A repaired roof does not make the rest disappear. It does give someone a dry place from which to look at it. That matters too.' },
+        { id: 'tired', label: 'Your hands are tired.', response: 'Then leave them in your lap. I was about to ask you to hold something, and I am glad you told me before I did.' },
+      ],
+    },
+    labels: {
+      title: 'The wrong bag',
+      body: 'You have caught me labelling my lunch as pottery. The pottery has the lunch label, which explains a disappointing moment earlier. Would you hold these two bags apart while I put matters right?',
+      choices: [
+        { id: 'listen', label: 'Help sort the labels.', response: 'Much better. Thank you for staying. I usually discover this sort of thing alone, and then have nobody to tell but the pots.' },
+        { id: 'doubt', label: 'How do you keep the finds straight?', response: 'Fair question. Every find has a drawing and a place marked in the notebook as well as its label. The notebook is more reliable than my lunch.' },
+      ],
+    },
+    odd_remark: {
+      title: 'An unlikely opinion',
+      body: 'I do not think dragons wake up wanting to be horrible. Mind you, I have never been there when one woke up. Ah, my pencil! Behind my ear. I was blaming the stool.',
+      choices: [
+        { id: 'listen', label: 'Let him finish.', response: 'That was the whole thought, I am afraid. Thank you for letting it get to the end anyway.' },
+        { id: 'doubt', label: 'That is not much to go on.', response: 'No, it is not. You are allowed to say so. I would rather you stayed and asked than nodded on your way out.' },
+      ],
+    },
+    peaceful_lives: {
+      title: 'The small figures',
+      body: 'I saved this drawing for you. See the little shapes beside the large one? I think they are young dragons being sheltered, though that broken edge makes it uncertain. Everyone looks for weapons in these carvings. I keep finding what might be ordinary lives.',
+      choices: [
+        { id: 'listen', label: 'Look at the drawing.', response: 'This hollow might be a nest. Might be: I have written that twice now. I want dragons to have lived peacefully, but wanting is not another piece of evidence.' },
+        { id: 'doubt', label: 'Could they be something else?', response: 'They could. Stones, perhaps, or something the missing piece would explain. I shall keep your question beside the drawing instead of hiding the broken edge.' },
+        { id: 'contradict', label: 'Parents can be cruel too.', response: 'Quite right. A creature can care for its own and hurt someone else. This is a reason to look closer, not a pardon for every dragon.' },
+      ],
+    },
+    hunting_accounts: {
+      title: 'Before the first weapon',
+      body: 'Most of these old accounts begin with someone going out to kill a dragon. I keep wondering what the dragon was doing before that. A few mention stolen eggs or a home entered by hunters; I suspect that explains some attacks, though it cannot explain every one.',
+      choices: [
+        { id: 'listen', label: 'What do the accounts omit?', response: 'The dragon’s ordinary day, usually. And sometimes the people who were hurt. Both omissions matter; I must not replace one with the other.' },
+        { id: 'doubt', label: 'An old account could be wrong.', response: 'Certainly. A hunter can boast, a witness can misremember, and an archaeologist can prefer a comfortable answer. We should compare what they actually saw.' },
+        { id: 'contradict', label: 'It does not excuse harm.', response: 'No. Tell me who was hurt before I start explaining a creature’s reasons. Understanding an attack does not undo it.' },
+      ],
+    },
+    other_planets: {
+      title: 'Different skies',
+      body: 'These star charts and inscriptions seem to describe other planets. I have never been to any of them; some of the translations disagree. Still, beneath different skies I keep finding drawings of little hollows for eggs. They seem to have spent a great deal of time making homes.',
+      choices: [
+        { id: 'listen', label: 'Ask about the charts.', response: 'This mark may describe a journey, or a season. I had called it a conquest in an older note. I have crossed that out until I know more.' },
+        { id: 'doubt', label: 'Are they really planets?', response: 'I cannot be entirely sure. The charts and the repeated words support it, but I should show you the uncertain translation alongside the tidy one.' },
+        { id: 'contradict', label: 'Homes and wars can coexist.', response: 'They can. That is worth keeping beside the drawing. A home is evidence of a home, not proof of an innocent life.' },
+      ],
+    },
+    frost_queen: {
+      title: 'A disputed history',
+      body: 'The name here is Tiamat. These pieces describe his war against the Frost Dragon Queen, his wife, who later accounts call his late wife. They tell me those things, but not why the war began, how she died, or how to make sense of it.',
+      choices: [
+        { id: 'listen', label: 'Ask what else the pieces say.', response: 'Less than I wish. I have put the conflicting accounts side by side. A queen’s title is not enough to identify every white dragon in a later story.' },
+        { id: 'doubt', label: 'Could the accounts be mistaken?', response: 'Some may be. The marriage and the war recur in more than one account; the reasons do not agree. I will not mend that gap by making up a family.' },
+        { id: 'contradict', label: 'Dragons chose to make that war.', response: 'Yes. Peace can be possible without being chosen. I must keep that distinction, even when it spoils the answer I wanted.' },
+      ],
+    },
+    breaking_belief: {
+      title: 'What he wants to be true',
+      body: 'I do not believe dragons destroyed this world as people say they did. That is my belief, not something these fragments prove. I know it hurts people to hear it, and I must listen when they tell me what they lost.',
+      choices: [
+        { id: 'listen', label: 'Listen without agreeing.', response: 'You have let me finish without promising I am right. I appreciate that more than I have managed to say. If you learn something that does not fit, there is room for it here.' },
+        { id: 'doubt', label: 'You want them to be innocent.', response: 'I do. Everyone seems to want them dead, and I have leaned too far the other way. Wanting innocence is not the same as looking at what happened.' },
+        { id: 'contradict', label: 'Believe survivors too.', response: 'They do. Their losses are not mistakes in my theory. I can question a conclusion without questioning whether someone’s home burned.' },
+      ],
+    },
+  };
+  function archaeologistState(save) {
+    const value = save?.memoryStory?.archaeologist;
+    const s = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    return {
+      ...s,
+      visits: Number.isSafeInteger(s.visits) && s.visits >= 0 ? s.visits : 0,
+      seen: s.seen && typeof s.seen === 'object' && !Array.isArray(s.seen) ? { ...s.seen } : {},
+      lastMemories: Number.isFinite(s.lastMemories) ? s.lastMemories : 0,
+      lastRestored: Number.isFinite(s.lastRestored) ? s.lastRestored : 0,
+    };
+  }
+  function archaeologistConversation(save) {
+    const s = archaeologistState(save);
+    const restored = Object.keys(save?.restoredHouses || {}).length;
+    // A high ledger alone does not mean the player ever met the wizard.
+    // act3Started also supports old saves which completed the reveal before
+    // the runtime enforced the first introduction; revealed alone does not.
+    const research = save?.memoryStory?.introDone === true || save?.memoryStory?.act3Started === true;
+    let topic;
+    if (!s.seen.introduction) topic = 'introduction';
+    else if (restored > 0 && !s.seen.mending) topic = 'mending';
+    else if (research) topic = ['peaceful_lives', 'hunting_accounts', 'other_planets', 'frost_queen', 'breaking_belief']
+      .find(id => !s.seen[id]);
+    else topic = ['labels', 'odd_remark'].find(id => !s.seen[id]);
+    let entry = topic && ARCHAEOLOGIST_TOPICS[topic];
+    if (topic === 'other_planets' && ['doubt', 'contradict'].includes(s.seen.peaceful_lives?.choice)) {
+      entry = { ...entry, body: 'I kept your question beside the first drawing. It helped me leave the uncertain parts of this one visible. ' + entry.body };
+    }
+    if (!entry) {
+      topic = 'familiar';
+      const welcome = restored > s.lastRestored
+        ? 'Another roof has come back since you were here. I noticed before I noticed that I was wearing my satchel inside out. There is a place for you beside the papers.'
+        : total(save) > s.lastMemories
+          ? 'You have found something new since we last sat together. You need not bring me every discovery; I would like to know how you are, too.'
+          : [
+            'I kept your place clear. Well, nearly clear. How are your hands? You may leave them quite idle while we talk.',
+            'There you are. I found the pencil, lost the label, and remembered that you might visit. Two successes out of three.',
+            'You have a little dust caught on your hood. I would offer my clean cloth, but I appear to have used it for wrapping stones. Sit a while anyway.',
+          ][s.visits % 3];
+      entry = { title: 'A familiar visitor', body: welcome, choices: [
+        { id: 'listen', label: 'Stay a little while.', response: 'I am glad you came. We need not solve anything before you go.' },
+        { id: 'doubt', label: 'You still have questions.', response: 'Good. I have space in the notebook, and you have a seat even when we disagree.' },
+        { id: 'tired', label: 'You could use a rest.', response: 'Then rest. The stones have waited a long time already; they can manage without either of us for a while.' },
+      ] };
+    }
+    // Include the current visit revision: an old modal cannot acknowledge a
+    // later repeat or advance twice. Copy choices so UI cannot change canon.
+    return { id: `orrin:${s.visits}:${topic}`, topic, title: entry.title, body: entry.body,
+      choices: entry.choices.map(({ id, label }) => ({ id, label })) };
+  }
+  function acknowledgeArchaeologist(save, id, choiceId) {
+    if (!save || typeof save !== 'object' || Array.isArray(save)) return null;
+    const conversation = archaeologistConversation(save);
+    if (conversation.id !== id || !conversation.choices.some(choice => choice.id === choiceId)) return null;
+    const s = archaeologistState(save), topic = conversation.topic;
+    const response = ARCHAEOLOGIST_TOPICS[topic]?.choices.find(choice => choice.id === choiceId)?.response
+      || ({ listen: 'I am glad you came. We need not solve anything before you go.',
+        doubt: 'Good. I have space in the notebook, and you have a seat even when we disagree.',
+        tired: 'Then rest. The stones have waited a long time already; they can manage without either of us for a while.' })[choiceId];
+    s.seen[topic] = { choice: choiceId, visit: s.visits + 1 };
+    s.visits++;
+    s.lastChoice = choiceId;
+    s.lastMemories = total(save);
+    s.lastRestored = Object.keys(save.restoredHouses || {}).length;
+    if (!save.memoryStory || typeof save.memoryStory !== 'object' || Array.isArray(save.memoryStory)) save.memoryStory = {};
+    save.memoryStory.archaeologist = s;
+    return { body: response, conversationId: id, choiceId };
+  }
+
   function npcDialogue(scene, c) {
+    if (c.role === 'archaeologist') return archaeologistConversation(scene.save).body;
     if (c.role === 'warden') {
       const repaired = Object.keys(scene.save.restoredHouses || {}).length;
       if (!repaired) return HOME.body + '\n\n' + NPC.WARDEN_LINE;
       if (total(scene.save) >= 9 && act(scene.save) === 1) return RUMOUR;
       if (act(scene.save) >= 2) return survivorLine(scene.save);
-      return 'There is lamplight in a house that was dark yesterday. My children saw it first. Thank you. We can begin again.';
+      const thanks = 'There is lamplight in a house that was dark yesterday. My children saw it first. Thank you. We can begin again.';
+      return thanks + (archaeologistState(scene.save).seen.introduction
+        ? '\n\nOrrin means well. Most of us call him a crackpot; I worry someone will trust his dragon talk and get hurt.' : '');
     }
     if (c.role === 'witness') return NEIGHBOURS.witness[act(scene.save)];
     if (c.role === 'wanderer') return wandererLine(scene, c);
@@ -341,5 +496,5 @@ const MemoryStory = (() => {
   return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, LOCKED, ABANDONED, EMPTY,
     HOME, RUMOUR, NEIGHBOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
     state, total, enqueue, panel, drain, npcDialogue, wandererLine, believerLine, survivorLine, act, towerAccess, objective,
-    eligibleBeats, wizardSequence, pagesFor, visitWizard };
+    eligibleBeats, wizardSequence, pagesFor, visitWizard, archaeologistConversation, acknowledgeArchaeologist };
 })();

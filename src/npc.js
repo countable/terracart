@@ -257,11 +257,12 @@ const NPC = (() => {
     witness: { label: 'Survivor', minMemories: 6 },
     wanderer: { label: 'Wanderer', artScale: CHILD_SCALE, minMemories: 9 },
     believer: { label: 'Believer', minMemories: 3 },
+    archaeologist: { label: 'Dragon Archaeologist', name: 'Orrin', minMemories: 0, radiusM: 250 },
   };
   const STORY_NEIGHBOURS = Object.keys(STORY_ROLES);
   function storyNeighbour(id, role) {
     const row = STORY_ROLES[role];
-    return { ...identity(id, 'village'), role, roleLabel: row?.label || 'Neighbour', ...(row?.artScale ? { artScale: row.artScale } : {}) };
+    return { ...identity(id, 'village'), ...(row?.name ? { name: row.name } : {}), role, roleLabel: row?.label || 'Neighbour', ...(row?.artScale ? { artScale: row.artScale } : {}) };
   }
   function warden(id) { return storyNeighbour(id, 'warden'); }
   function memoriesOf(save) {
@@ -398,6 +399,7 @@ const NPC = (() => {
       n += arrivals(scene, entry, at.tx, at.ty, entry._residents, { offscreen }).length;
       if (entry._starterTile && typeof Starter !== 'undefined') n += Starter.placeSafeAreaWarden(scene, entry, at.tx, at.ty, { offscreen }) | 0;
     }
+    if (typeof Starter !== 'undefined') n += Starter.placeDistantStoryNeighbours(scene, { offscreen }) | 0;
     return n;
   }
   // Where a thing stands, from the speaker: compass point and paces (a pace
@@ -529,6 +531,31 @@ const NPC = (() => {
     const talk = dialogue(scene, c);
     if (isDormant(c)) {
       scene.showMessageModal({ ...talk, kind: 'note', art: portrait(scene, c) });
+      return;
+    }
+    if (c.role === 'archaeologist' && typeof MemoryStory !== 'undefined') {
+      const conversation = MemoryStory.archaeologistConversation(scene.save);
+      const art = portrait(scene, c);
+      let answered = false;
+      scene.showChestRewardModal({
+        kind: 'note', header: talk.title, name: conversation.title,
+        sub: conversation.body, art,
+        actions: [
+          ...conversation.choices.map(choice => ({
+            label: choice.label,
+            onClick: () => {
+              if (answered) return;
+              answered = true;
+              const reply = MemoryStory.acknowledgeArchaeologist(scene.save, conversation.id, choice.id);
+              if (!reply) return;
+              if (typeof persistSave === 'function') persistSave(scene.save);
+              scene.showMessageModal({ kind: 'note', title: talk.title, body: reply.body, art });
+            },
+          })),
+          // Leaving or reloading does not consume an introduction or a topic.
+          { label: 'Another time', onClick: () => { answered = true; } },
+        ],
+      });
       return;
     }
     if (typeof StoryEncounters !== 'undefined' && StoryEncounters.interact(scene, c)) return;

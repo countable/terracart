@@ -28,7 +28,7 @@
     const s = { tileEdgeM: EDGE_M, save, _starterTrailAnchor: () => anchor };
     const remember = (n) => { for (let i = Object.keys(save.discovered).length; i < n; i++) save.discovered[`m${i}`] = 1; };
     const present = () => NPC.STORY_NEIGHBOURS.filter(role => entry.creatures.some(c => c.id === `npc_${role}_0_0`));
-    assert.eq(JSON.stringify(NPC.STORY_NEIGHBOURS), JSON.stringify(['warden', 'witness', 'wanderer', 'believer']), 'the warden is seated first');
+    assert.eq(JSON.stringify(NPC.STORY_NEIGHBOURS), JSON.stringify(['warden', 'witness', 'wanderer', 'believer', 'archaeologist']), 'existing neighbours retain their order');
     assert.eq(Starter.placeSafeAreaWarden(s, entry, 0, 0), 1, 'one person seated');
     assert.eq(present().join(','), 'warden', 'the first morning: the warden is the one neighbour');
     assert.eq(JSON.stringify(cellOf(entry.creatures[0])), JSON.stringify({ cx: 17, cy: 17 }), 'the warden keeps the first legal ring-3 cell it always had');
@@ -49,7 +49,7 @@
     assert.eq(present().join(','), 'warden,witness,believer');
     remember(NPC.STORY_ROLES.wanderer.minMemories);
     Starter.placeSafeAreaWarden(s, entry, 0, 0);
-    const placed = NPC.STORY_NEIGHBOURS.map(role => entry.creatures.find(c => c.id === `npc_${role}_0_0`));
+    const placed = NPC.STORY_NEIGHBOURS.filter(role => !NPC.STORY_ROLES[role].radiusM).map(role => entry.creatures.find(c => c.id === `npc_${role}_0_0`));
     assert.truthy(placed.every(Boolean), 'all four are here in the end');
     assert.eq(JSON.stringify(cellOf(placed[0])), JSON.stringify({ cx: 17, cy: 17 }), 'the warden never moved');
     for (const c of placed) {

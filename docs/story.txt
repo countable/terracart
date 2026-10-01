@@ -322,8 +322,16 @@ VOICE SAMPLES — NPC DIALOGUE, NOT THE PANEL NARRATOR
   That was not quite the same as looking at what happened."
 
 IMPLEMENTATION STATUS
-  Orrin's placement, conversations and relationship state are specified here;
-  they are not yet a spawned NPC or a playable quest in the current runtime.
+  Orrin is implemented as a named NPC at a saved, reachable seat about 250
+  metres from the starting Home. Existing saves gain him when that ground is
+  loaded. He uses the shared NPC portrait, movement and wound/rest rules.
+  Acknowledged conversations persist his introduction, topics, replies and
+  familiarity. Leaving a conversation does not consume it, and disagreement
+  does not punish the relationship. Restoration and new memories inform his
+  returning greetings. Research requires the acknowledged tower introduction
+  (or an already completed Act 3 reveal on an older save), never a counter alone.
+  Later reactions to the tower attack and witnessed dragon speech still await
+  those world events; the conversation does not pretend they have happened.
   The Frost Dragon Queen history is newly established story canon, with its
   unresolved details kept open above. Orrin's peaceful-dragon interpretation
   and denial of the Breaking are his beliefs, not replacements for the truth
