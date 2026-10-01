@@ -18,13 +18,13 @@ async function crArt() {
     const asset = ASSETS[key]; if (!asset?.path) continue;
     const img = new Image(); img.src = '../' + asset.path;
     await img.decode();
-    const source = key === 'chest' ? makeChestTierSheet(img) : img;
+    const source = key === 'chest' ? makeChestTierSheet(img) : key === 'box' ? makeMutedTierOne(img) : img;
     const w = asset.frameWidth || img.width, h = asset.frameHeight || img.height;
     const frames = key === 'chest' ? Array.from({length:CHEST_TIER_MAX},(_,i)=>i) : [0];
     for (const frame of frames) {
       const label = key === 'chest' ? `Chest T${frame+1}` : key;
       const figure = document.createElement('figure');
-      figure.innerHTML = `<div class="stage"></div><figcaption>${crEsc(label)}<br><small>${w} × ${h}</small></figcaption>`;
+      figure.innerHTML = `<div class="stage"></div><figcaption>${crEsc(label)}${key === 'chest' ? ' · ' + tierBadgeHTML(frame + 1) : ''}<br><small>${w} × ${h}</small></figcaption>`;
       const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
       const scale = Math.min(4, 150 / w, 140 / h);
       canvas.style.width = w * scale + 'px'; canvas.style.height = h * scale + 'px';

@@ -312,21 +312,17 @@ function chestDensityTier(count) {
 const CHEST_CLASS_TIER = { art_gallery: 1 };
 const CHEST_ONE_TIME_CLASSES = new Set(['art_gallery']);
 // Chest sprite recolors: T1 crates keep their wood; T2–T5 use distinct hues.
-const CHEST_TIER_COLOR = {
-  1: null,     // common — original art
-  2: 0xe6e6e6, // off-white (10% greyer than pure white) — uncommon
-  3: 0x5f89ff, // lighter blue (10% lighter than 0x4d7cff) — rare
-  4: 0xc77dff, // violet — epic
-  5: 0xffc23d, // gold — legendary (only reached underground, see chestTier)
-};
+const CHEST_TIER_MAX = 5;
+const CHEST_TIER_COLOR = Object.fromEntries(
+  Array.from({ length: CHEST_TIER_MAX }, (_, i) => [i + 1, tierBadgeColor(i + 1)])
+);
 // Chests UNDERGROUND are PROMOTED. Every surface POI chest is mirrored down
 // the cave levels (worldgen.js caveChestsFrom stamps `depth` on the copy,
 // and carries the surface chest's density), and each CHEST_TIER_DEPTH_STEP
 // levels down raise the chest one tier over what it is on the surface —
 // depth 1 is the surface tier, depth 2-3 one up, depth 4-5 two up — capped
-// at CHEST_TIER_MAX. T5 exists only down here: it is the gold chest and the
+// at CHEST_TIER_MAX. T5 exists only down here: it is the lavender chest and the
 // rarity.js chestTierMod[5] curve.
-const CHEST_TIER_MAX = 5;
 const CHEST_TIER_DEPTH_STEP = 2;
 // Which POI chests go underground at all. Street furniture — the lowtier
 // boxes (bus stops, bins, shelters…) — stays on the surface: a cave under

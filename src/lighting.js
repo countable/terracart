@@ -277,6 +277,11 @@
     // `dyPx`, so the glow sits on the orb, not on the ground under it.
     bolt:     { radiusCells: 1.5, colour: 0x9ad6ff, peak: 0.95, flicker: 0.14 },
   };
+  // Treasure trunks from T3 upward cast the same colour as their rarity badge.
+  // The ordinary POI row owns their radius, strength and breathing cadence.
+  for (let tier = 3; tier <= CHEST_TIER_MAX; tier++) {
+    KINDS['chest_' + tier] = { ...KINDS.poi, colour: CHEST_TIER_COLOR[tier] };
+  }
   // The shrine kinds (src/shrines.js): the grove shrine's own light in each
   // kind's colour — one row per kind, `shrine_<id>` (sourceKind).
   if (window.Shrines) {
@@ -733,7 +738,11 @@
     if (o.kind === 'wildplant') return wildplantLight(o.crop);
     // Opened chests (and a daily crate / chapel taken today) are the CALLER's
     // to drop: drawObjects asks interactables.js poiLit off the frame's sets.
-    if (o.kind === 'chest') return o.crate ? null : 'poi';
+    if (o.kind === 'chest') {
+      if (o.crate) return null;
+      const tier = chestTier(o);
+      return chestLook(o).texKey === 'chest' && tier >= 3 ? 'chest_' + tier : 'poi';
+    }
     return null;
   }
 

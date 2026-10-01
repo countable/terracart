@@ -132,7 +132,10 @@
     assert.eq(CHEST_TIER_DEPTH_STEP, 2, 'levels per tier');
     assert.eq(CHEST_TIER_MAX, 5, 'cap');
     assert.truthy(CHEST_TIER_COLOR[5], 'T5 has a chest colour');
-    assert.eq(CHEST_TIER_COLOR[1], null, 'T1 retains original art');
+    for (let tier = 1; tier <= CHEST_TIER_MAX; tier++) {
+      assert.eq(CHEST_TIER_COLOR[tier], tierBadgeColor(tier), 'chests share item rarity colors');
+      assert.includes(tierBadgeHTML(tier), '#' + CHEST_TIER_COLOR[tier].toString(16).padStart(6, '0'));
+    }
   });
 
   test('chest tier: one tier up per two levels down', () => {
