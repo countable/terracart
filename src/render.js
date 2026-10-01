@@ -1675,11 +1675,21 @@ Render.drawCells = function drawCells(scene) {
           scene.cobbleContainer.add(scene._groundFireGfx);
         }
         const fg = scene._groundFireGfx;
-        fg.fillStyle(0x302720, 0.72);
+        // Thin soot over the existing ground, with uneven dirt and ash.
+        // Cell-seeded marks stay fixed while the camera moves or fire flickers.
+        fg.fillStyle(0x302720, 0.10);
         fg.fillRect(sx, sy, CELL_PX, CELL_PX);
-        fg.fillStyle(0x151413, 0.55);
-        fg.fillRect(sx + 5, sy + 9, 9, 3);
-        fg.fillRect(sx + 18, sy + 22, 8, 3);
+        let sootSeed = (Math.imul(_absIX, 73856093) ^ Math.imul(_absIY, 19349663)) >>> 0;
+        for (let n = 0; n < 18; n++) {
+          sootSeed = (Math.imul(sootSeed, 1664525) + 1013904223) >>> 0;
+          const fleck = n >= 9;
+          const w = fleck ? 1 + (sootSeed & 1) : 4 + (sootSeed & 7);
+          const h = fleck ? 1 + ((sootSeed >>> 3) & 1) : 2 + ((sootSeed >>> 3) & 3);
+          const x = (sootSeed >>> 8) % (CELL_PX - w);
+          const y = (sootSeed >>> 16) % (CELL_PX - h);
+          fg.fillStyle(fleck ? 0x756957 : 0x29241e, fleck ? 0.24 : 0.14);
+          fg.fillRect(sx + x, sy + y, w, h);
+        }
         if (GroundFire.active(fire, fireNow)) {
           // Three tongues stay within their cell and flicker out of phase.
           for (let n = 0; n < 3; n++) {
