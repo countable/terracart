@@ -44,8 +44,10 @@
 // ONLY ONE WEAPON FIGHTS AT A TIME. `save.activeWeapon` (app.js) picks which
 // of sword/bow/staff auto-engages or auto-fires; the other owned weapons sit
 // inert — no auto-engage, no auto-fire — until the player switches to them
-// (tapping a weapon in the Relics inventory tab, or obtaining/forging a new
-// one, which becomes active automatically). Because only one weapon can ever
+// (the Equip button under the Relics inventory tab, or obtaining/forging a
+// new one, which becomes active automatically). MELEE NEEDS NO WEAPON: with
+// no bow or staff equipped the hands auto-engage exactly as a sword does, on
+// the tier-0 rung (Gear.meleeActive). Because only one weapon can ever
 // be in play, there is no split across ranged slots any more: there used to
 // be one (bow and staff fired simultaneously and stacked, so their shares
 // were priced to sum to one sword), but exclusivity already prevents the

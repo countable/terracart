@@ -226,3 +226,58 @@ test('blacksmith offers: hourly shop lookup passes the bias only for the smith r
     assert.eq(result.opts.isBlacksmith,role==='blacksmith');
   }
 });
+
+// MELEE IS THE DEFAULT (owner, Oct 2026): the hands auto-engage like a sword
+// unless a bow or staff is EQUIPPED, and equipping is explicit — the Equip /
+// Unequip button under the Relics tab, never a side effect of highlighting
+// the slot (which used to switch weapons by itself).
+test('meleeActive: bare hands and the sword auto-engage; an equipped bow or staff does not', () => {
+  assert.truthy(Gear.meleeActive({ relics: {}, activeWeapon: null }), 'no weapon at all still fights by hand');
+  assert.truthy(Gear.meleeActive({ relics: {}, activeWeapon: undefined }), 'a save that never chose is melee');
+  assert.truthy(Gear.meleeActive({ relics: { sword: { tier: 1 } }, activeWeapon: 'sword' }));
+  assert.truthy(Gear.meleeActive({ relics: { sword: { tier: 1 }, bow: { tier: 1 } }, activeWeapon: 'sword' }),
+    'an owned but unequipped bow leaves melee on');
+  assert.falsy(Gear.meleeActive({ relics: { bow: { tier: 1 } }, activeWeapon: 'bow' }), 'a bow in hand turns melee off');
+  assert.falsy(Gear.meleeActive({ relics: { staff: { tier: 1 } }, activeWeapon: 'staff' }), 'so does a staff');
+  assert.falsy(Gear.meleeActive({ relics: { sword: { tier: 3 }, staff: { tier: 1 } }, activeWeapon: 'staff' }),
+    'even with a better sword owned — the player chose the staff');
+});
+
+test('unequipWeapon: putting a ranged weapon away returns to the sword, else bare hands', () => {
+  const armed = { relics: { sword: { tier: 2 }, bow: { tier: 1 } }, activeWeapon: 'bow' };
+  assert.truthy(Gear.unequipWeapon(armed));
+  assert.eq(armed.activeWeapon, 'sword', 'the owned sword comes back out');
+  assert.truthy(Gear.meleeActive(armed));
+  const bare = { relics: { staff: { tier: 1 } }, activeWeapon: 'staff' };
+  Gear.unequipWeapon(bare);
+  assert.eq(bare.activeWeapon, null, 'no sword — bare hands');
+  assert.truthy(Gear.meleeActive(bare));
+  assert.truthy(Gear.selectWeapon(bare, 'staff'), 'and Equip takes it up again');
+  assert.falsy(Gear.meleeActive(bare));
+});
+
+test('unequipWeapon: during the wand boon it clears the boon choice, not the saved preference', () => {
+  const save = { relics: { bow: { tier: 2 } }, activeWeapon: 'bow', boonUntil: { wand: 100 } };
+  assert.eq(Gear.activeWeapon(save, 99), 'staff', 'the boon starts ready to fire');
+  Gear.unequipWeapon(save, 99);
+  assert.truthy(Gear.meleeActive(save, 99), 'put away for the boon');
+  assert.eq(save.activeWeapon, 'bow', 'the saved preference is untouched');
+  assert.eq(Gear.activeWeapon(save, 100), 'bow', 'and returns when the boon ends');
+});
+
+test('source: melee auto-engage needs no sword, and a slot tap no longer switches weapons', () => {
+  const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+  const i = SCENE_SRC.indexOf('Gear.meleeActive(this.save) &&');
+  assert.truthy(i > 0, '_combatTick gates auto-engage on Gear.meleeActive');
+  const gate = code(SCENE_SRC.slice(i, SCENE_SRC.indexOf('\n', i)));
+  assert.falsy(/relics\.sword/.test(gate), 'an owned sword is not a precondition');
+  // The ONE place the active weapon changes by hand is the Equip button; the
+  // Relics tab's slot click only highlights (selGear).
+  const tap = code(SCENE_SRC.slice(SCENE_SRC.indexOf("slot.dataset.gear = `${g.kind}:${g.slot}`"),
+    SCENE_SRC.indexOf('Empty gear well')));
+  assert.falsy(/Gear\.selectWeapon/.test(tap), 'tapping a weapon slot does not equip it');
+  const btn = code(SCENE_SRC.slice(SCENE_SRC.indexOf('syncEquipButton() {'), SCENE_SRC.indexOf('_makeEatButton() {')));
+  assert.truthy(/Gear\.selectWeapon\(this\.save, sel\.slot\)/.test(btn), 'Equip selects the highlighted weapon');
+  assert.truthy(/Gear\.unequipWeapon\(this\.save\)/.test(btn), 'Unequip puts a ranged weapon away');
+  assert.truthy(/Combat\.RANGED_SLOTS\.includes\(g\.slot\)/.test(btn), 'only a bow or staff can be put away');
+});
