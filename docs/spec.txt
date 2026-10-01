@@ -1024,9 +1024,9 @@ CHESTS (POI-driven)
      flora → flower seeds 10/30/60   civic → 30/40/30   health → 50/30/20
      park → 40/40/20   lowtier (bus/fuel/lodging/gate) → 90/8/2, reduced yields
  - chest TIER is shown by recoloring the approved chest sprite: the item rarity
-   badge palette (T2 copper, T3 silver, T4 gold, T5 lavender). T1 crates and
-   trunks are desaturated. T3+ trunks emit light in their rarity color while
-   unopened. No floating tier gem.
+   badge palette (T2 copper, T3 silver, T4 gold, T5 lavender). T1 trunks and
+   clay pots (intact and smashed) are desaturated; crates retain their original
+   wood colors. T3+ trunks emit light in their rarity color while unopened. No floating tier gem.
  - some opens roll a RELIC or ARMOR instead of normal loot — the chance varies
    by POI class, roughly 3.75% (lowtier/commerce/farm) up to 15% (civic/flora),
    biased by chest tier (gear reward handled per GEAR; both show a reward modal).
