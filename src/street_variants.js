@@ -1575,16 +1575,14 @@
       }
     }
 
-    // THE STREET SHRINES (src/shrines.js — Shrines.kindForStreet): at most
-    // STREET_SHRINES_PER_TILE of the tile's shrine streets, lowest hash of the
-    // street key first. Each stands at the midpoint of its first piece that
-    // seats one: a verge cell, then the nearest ATTRACTOR cell (open ground,
-    // outside the kerb buffer) on the same side of any major band — a daily
-    // shrine is a reason to walk to it, never toward the road.
+    // Independently choose half of eligible special streets, keyed by the
+    // canonical street identity so fragments and adjacent tiles agree.
+    // Hash order gives competing streets stable priority for safe seats.
+    // A shrine stands back from the road on an ATTRACTOR cell, on the same
+    // side of every major band. Unsafe streets simply receive no shrine.
     const shrineKeys = [...shrineStreets.keys()].sort((a, b) => u01('shrine|' + a) - u01('shrine|' + b));
-    let shrinesSeated = 0;
     for (const key of shrineKeys) {
-      if (shrinesSeated >= root.Shrines.STREET_SHRINES_PER_TILE) break;
+      if (!streetShrineChosen(key)) continue;
       yield 'street shrines';
       const { v, recs } = shrineStreets.get(key);
       let c = null;
@@ -1602,7 +1600,6 @@
       }
       if (!c) continue;
       claim(c.ix, c.iy);
-      shrinesSeated++;
       res.objects.push(WG.makeObject('grove_shrine', cx(c.ix), cy(c.iy),
         WG.cellId('street_shrine', tx, ty, c.ix, c.iy), { _shrineStreet: v, shrineKind: root.Shrines.kindForStreet(v) }));
     }
@@ -1713,6 +1710,10 @@
       featherCells: row.carpetFeatherCells || 0, emblem: carpetEmblemFor(variant) };
   }
 
+  function streetShrineChosen(key) {
+    return !!root.Shrines && u01('shrine|' + key) < root.Shrines.STREET_SHRINE_CHANCE;
+  }
+
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
   root.StreetVariants = {
@@ -1728,6 +1729,6 @@
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,
-    markBanditStops, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, carpetEmblemFor, carpetStyleFor, lineStyles, isSlowKind,
+    markBanditStops, streetShrineChosen, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, carpetEmblemFor, carpetStyleFor, lineStyles, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

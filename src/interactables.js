@@ -489,15 +489,13 @@ const INTERACTABLES = {
       // (save.bikeUntil, read by app.js _walkRelics → items.js
       // steerSpeedMul), not a speed system of its own.
       if (isBikeRack(o) && typeof Macros !== 'undefined') {
-        if (Macros.usedToday(save, o.id)) {
-          scene.flash(`Bikes all out. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
-          return true;
-        }
-        Macros.markToday(save, o.id);
-        save.bikeUntil = Date.now() + BIKE_RACK_MS;
-        ctx.dirty = true;
-        scene.flash(bikeRackFlash(), sx, sy);
-        return true;
+        return Macros.dailyVisit(ctx, o, { grant: () => {
+          save.bikeUntil = Math.max(save.bikeUntil || 0, Date.now() + BIKE_RACK_MS);
+          scene.flash(bikeRackFlash(), sx, sy);
+        } });
+      }
+      if (Macros.visitKindForObject(o) === Macros.DAILY_VISIT_KINDS.wagon) {
+        return Macros.hireMercenary(ctx, o);
       }
       // A BARREL (loot.js isBarrel — a bin or a recycling point): SMASHED,
       // not opened. It restocks like a crate (crateRestoreDays, the day
@@ -571,7 +569,7 @@ const INTERACTABLES = {
           scene.flash(`The crate is bare. ${shortDuration(Macros.restockWaitMs(save, o.id, days))}.`, sx, sy);
           return true;
         }
-      } else if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
+      } else if ((save.opened || []).includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
       // The hero glyph every ceremony below opens with: the sprite this chest
       // was standing as, off the SAME resolver render.js draws it from
       // (loot.js chestLook), so a crate opens under a crate and a trunk under
@@ -621,10 +619,8 @@ const INTERACTABLES = {
       // reopening replays that same roll. Fresh opens go through pickReward
       // which handles items AND relics (biome-specific weights).
       const held = held0;
-      // A Wishing Well's boon (Shrines 'fortune') lifts a fresh roll a tier.
-      const fortune = !chapel && Shrines.leverActive(save, 'fortune') ? Shrines.FORTUNE_TIER_BONUS : 0;
       const chestT = chapel ? Macros.chapelRollTier(o)
-        : Math.min(CHEST_TIER_MAX, ((typeof chestTier === 'function') ? chestTier(o) : 2) + fortune);
+        : ((typeof chestTier === 'function') ? chestTier(o) : 2);
       const theme = chestThemeFor(o);
       const result = held
         ? { kind: 'item', id: held.id, qty: held.n, consolation: held.consolation || 0 }
@@ -721,6 +717,7 @@ const INTERACTABLES = {
       // buttons fire after this handler returns, so they persist themselves.
       const room = (typeof scene.invRoomFor === 'function') ? scene.invRoomFor(lootId) : Infinity;
       if (lootQty > room) {
+        let resolved = false;
         scene.showChestRewardModal({ ...dress,
           iconHTML, name: lootName, qty: qtyLabel, color: lootColor, kind: rewardKind, kindIcon, tier: lootTier,
           sub: room > 0
@@ -728,12 +725,16 @@ const INTERACTABLES = {
             : 'Your bag is full.',
           actions: [
             { label: 'Leave for later', primary: true, onClick: () => {
+              if (resolved) return;
+              resolved = true;
               save.chestHold = save.chestHold || {};
               save.chestHold[o.id] = { id: lootId, n: lootQty, consolation: result.consolation || 0 };
               persistSave(save);
               scene.flash?.('Left it in the chest.', sx, sy);
             } },
             { label: room > 0 ? `Take ${room}` : 'Discard', onClick: () => {
+              if (resolved) return;
+              resolved = true;
               // Discard still claims the chest's coins, without attempting
               // an item grant into a full bag.
               Rewards.apply(save, room > 0 ? result : { kind: 'gold', amount: result.consolation || 0 }, scene);
@@ -790,17 +791,21 @@ const INTERACTABLES = {
     },
   },
 
-  // ---- Page stones: the waystone and the notice board ---------------------
-  // A thing that remembers a page of the Book: the first tap reads the NEXT
-  // page of the curriculum (app.js _bookRead — the Book's own bookmark,
-  // save.tipsRead) without spending a Book, and records the thing in
-  // save.opened, the POI delta, so each gives one page ever. Read, it is
-  // only scenery: it stays standing and says so. ONE lane, two reasons:
-  //   waystone  — a Pilgrim's Way street end (src/street_variants.js)
-  //   infoboard — an INFORMATION POI (worldgen.js — an OSM tourism /
-  //               information board, which used to be a chest)
-  waystone: pageStone({ title: 'The waystone remembers', art: 'street_pilgrim',
-    spent: 'The stone is worn smooth.', read: 'The stone remembers.' }),
+  // Waystones share the daily visit ledger; notice boards remain one-time.
+  waystone: {
+    custom: (ctx, o) => {
+      const { scene, save } = ctx;
+      if (typeof scene._bookRead !== 'function') return true;
+      return Macros.dailyVisit(ctx, o, { afterStory: () => {
+        const { body } = scene._bookRead();
+        if (typeof scene.showMessageModal === 'function') {
+          scene.showMessageModal({ title: 'The waystone remembers', body,
+            art: Shrines.REWARD_KINDS.waystone.art, kind: 'story' });
+        }
+        if (typeof persistSave === 'function') persistSave(save);
+      } });
+    },
+  },
   infoboard: pageStone({ title: 'A notice board', art: null,
     spent: 'Read it already.', read: 'You read the notice.' }),
 
@@ -841,19 +846,17 @@ const INTERACTABLES = {
   grove_shrine: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
-      if (Macros.usedToday(save, o.id)) {
-        scene.flash(`The shrine rests. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
-        return true;
-      }
-      Macros.markToday(save, o.id);
-      ctx.dirty = true;
-      // A shrine KIND (src/shrines.js) lends its timed boon instead of the gift.
-      if (Shrines.grant(save, o.shrineKind, Date.now(), scene)) {
-        scene.flash(Shrines.boonFlash(o.shrineKind), sx, sy);
-        return true;
-      }
-      grantTreasureRoll(scene, save, sx, sy, '\u{1F33F}', Zones.SHRINE_CONTEXT);
-      return true;
+      const row = Shrines.kindForObject(o);
+      return Macros.dailyVisit(ctx, o, {
+        row,
+        grant: row.reward ? null : () => {
+          Shrines.grant(save, o.shrineKind, Date.now(), scene);
+          scene.flash(Shrines.boonFlash(o.shrineKind), sx, sy);
+        },
+        afterStory: row.reward === 'treasure'
+          ? () => grantTreasureRoll(scene, save, sx, sy, '\u{1F33F}', Zones.SHRINE_CONTEXT)
+          : null,
+      });
     },
   },
 
@@ -987,9 +990,9 @@ function chestNeverSpent(o) {
 // the tile is crowded with) before it restocks at its normal tier.
 // It is NOT save.opened: an id there (a save from before Sep 2026) is ignored
 // for a crate — savemigrate.js carried those onto the ledger once.
-// X marks, headstones, trunks, wagons, nexus chests and cave chests never
-// restock; the chapel and the shrine are places, not chests — they share the
-// ledger and the glow (poiLit), not this predicate.
+// X marks, headstones, trunks, nexus chests and cave chests never restock.
+// Wagons and daily visit sites share the day ledger and glow through their
+// own visit predicate, rather than this crate/barrel schedule.
 function restocks(o) {
   if (!o || o.kind !== 'chest' || !o.poiClass || o.crate || o.fixedLoot) return false;
   if (o.depth > 0 || o.caveOf) return false;
@@ -1013,7 +1016,7 @@ function isSpent(o, sets) {
         const age = sets.burst ? sets.burst.get(o.id) : undefined;
         return age !== undefined && age < crateRestoreDays(o);
       }
-      if (isPotOfGold(o) || isBikeRack(o)) return takenToday(o, sets);
+      if (Macros.visitKindForObject(o)) return takenToday(o, sets);
       return sets.opened.has(o.id) || takenToday(o, sets);
     }
     // o.chopped is the in-memory flag the chop wheel sets; save.chopped is the
@@ -1049,7 +1052,7 @@ function isSpent(o, sets) {
 function poiLit(o, sets) {
   if (!o) return false;
   const today = takenToday(o, sets);
-  if (o.kind === 'grove_shrine' || o.kind === 'vista_scope') return !today;
+  if (Macros.visitKindForObject(o) || o.kind === 'vista_scope') return !today;
   if (o.kind !== 'chest' || o.crate || isSpent(o, sets)) return false;
   const macro = (typeof macroFor === 'function') ? macroFor(o) : null;
   if (macro && macro.kind === 'chapel') return !serviceTakenToday(o, sets);
@@ -1142,7 +1145,7 @@ function runInteractable(ctx, o) {
         kind: 'note',
         title: 'Your tools would make hard work of this.',
         get: 'Do it anyway?',
-        cost: `${SLOW_GRIND_ENERGY}⚡ · ${Math.round(SLOW_GRIND_MS / 1000)}s of work`,
+        cost: `${SLOW_GRIND_ENERGY}⚡ · ${shortDuration(Gear.workDurationMs(save, SLOW_GRIND_MS))} of work`,
         canAfford: (save.energy ?? 0) >= SLOW_GRIND_ENERGY,
         acceptLabel: 'Do it',
         cancelLabel: 'Not now',

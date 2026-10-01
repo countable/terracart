@@ -1,5 +1,6 @@
 // A golden cauldron (coin-burst POI) once tapped today is SPENT, the same
-// state as an opened chest: hidden and unlit until the UTC day rolls.
+// state as an opened chest: hidden without an availability pulse until the
+// UTC day rolls. Its ambient site light remains.
 
 test('cauldron: a pot tapped today is spent, yesterday\'s is not', () => {
   const today = String(Delivery.dayKey());
@@ -11,15 +12,25 @@ test('cauldron: a pot tapped today is spent, yesterday\'s is not', () => {
   assert.falsy(isSpent(pot, spentSets(null, {})), 'never tapped: standing');
 });
 
-test('cauldron: the draw pass hides and unlights it through the same set', () => {
+test('cauldron: a spent pot loses its availability pulse but keeps ambient light', () => {
   const src = RENDER_SRC;
   assert.truthy(/const burstSet = dayLedgerAges\(scene\.save\);/.test(src), 'built once per frame');
-  assert.truthy(/o\.kind === 'chest' && poiLit\(o, spentIds\)\) LIGHTS\.consider/.test(src), 'no POI glow (poiLit reads the frame sets)');
   assert.truthy(/opened: openedSet,\s*burst: burstSet,/.test(src), 'the frame sets carry the day ledger');
   assert.truthy(/const spent = isSpent\(o, spentIds\);[\s\S]{0,120}return !spent;/.test(src), 'and isSpent culls the sprite');
   const pot = { kind: 'chest', id: 'c_12_34', poiClass: 'atm' };
   const today = String(Delivery.dayKey());
-  assert.falsy(poiLit(pot, spentSets(null, { coinBurstClaimed: { [pot.id + today]: 1 } })), 'a used pot is unlit');
+  const save = { coinBurstClaimed: { [pot.id + today]: 1 } };
+  const spent = spentSets(null, save);
+  assert.falsy(poiLit(pot, spent), 'a used pot has no availability pulse');
+  const scene = { save, cellM: 5, _lights: [] };
+  const start = src.indexOf('  const offerPreCullLights = (o, dx, dy) => {');
+  const end = src.indexOf('\n  };', start);
+  const offer = new Function('scene', 'LIGHTS', 'Macros', 'isBuilding', 'poiLit', 'spentIds', 'halfM',
+    src.slice(start, end + 5) + '; return offerPreCullLights;')(scene, Lighting, Macros, isBuilding, poiLit, spent, 30);
+  offer(pot, 0, 0);
+  assert.eq(scene._lights.length, 1, 'only the ambient light is offered');
+  assert.eq(scene._lights[0].kind, Lighting.sourceKind(scene, pot));
+  assert.falsy(scene._lights.some(light => light.kind === 'poi'), 'no duplicate availability light');
 });
 
 test('cauldron: a burst drops extra coins at the player\'s feet, and claims only what it pays', () => {
@@ -30,7 +41,7 @@ test('cauldron: a burst drops extra coins at the player\'s feet, and claims only
   // The claim comes AFTER the no-room bail, never before it — through the
   // ledger's one writer.
   const bail = body.indexOf("this.flash('No room to scatter!'");
-  const claim = body.indexOf('Macros.markToday(this.save, poi.id);');
+  const claim = body.indexOf('visit.claim();');
   assert.truthy(bail > 0 && claim > bail, 'no room → nothing spent; the day is claimed only once coins land');
   assert.eq(body.split("'No room to scatter!'").length - 1, 1, 'one bail, after both searches');
   assert.truthy(/Scattered \$\{drops\.length\} coins!/.test(body), 'the flash says the real count');

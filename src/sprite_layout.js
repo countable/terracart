@@ -614,6 +614,8 @@
     // enemy (no MONSTERS row), NOT game, and NOT tappable (interact.js skips a
     // `summoned` kind: there is nothing to catch, tame or pet).
     spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000, stepCells: 0.7 },
+    mercenary: { wanders: true, summoned: true, preysOnFoes: true, follows: true,
+      get stepMs() { return EnemyRoster.get('goblin').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
     // `maxMps` is the kind's hard top speed, m/s (owner, Sep 2026: a
     // butterfly never outpaces 6 m/s) — over its gait, its bolt and the net
     // wheel's flee. A shiny's cap rises by its own SHINY_SPEED_MUL (9 m/s,
@@ -943,6 +945,13 @@
         walk: [4, 5, 6, 7].map(col => row * 12 + col),
       }])) },
   };
+  // A hired swordsman uses the existing player sheet and directional frames.
+  const mercenaryArt = PLAYER_ART.enforcer;
+  CREATURE_ART.mercenary = { sheet: mercenaryArt.sheet, fw: mercenaryArt.fw, fh: mercenaryArt.fh,
+    scale: mercenaryArt.scale, foot: 14 / 16, minY: 2, maxY: 14, float: 0,
+    frameMs: CREATURE_FRAME_MS,
+    directions: Object.fromEntries(Object.entries(mercenaryArt.directions).map(([key, frames]) =>
+      [key, { idle: frames.idle, move: frames.walk }])) };
   // Assignment and bicycle expiry already live in the save. No second skin
   // flag to persist, migrate, or leave stuck after an effect ends.
   function playerArt(save, now = Date.now()) {

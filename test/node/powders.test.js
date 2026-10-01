@@ -196,11 +196,11 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
   const w = m[1];
   // The powder reaches those four gates through `unnoticed` — the scene's OR of
   // the two wards that make the player not there to be hunted at all
-  // (isUnnoticed, downed_pursuit.test.js), read once per tick and never per
-  // creature. The same expression fades the body, so a stealthed player LOOKS
+  // (isUnnoticed, downed_pursuit.test.js), read per creature so Moss can
+  // distinguish a provoked monster. The same expression fades the body, so a stealthed player LOOKS
   // like what the sim is doing.
-  assert.truthy(/const unnoticed = this\.isUnnoticed\(\);/.test(w), 'read once per tick');
-  assert.truthy(/isUnnoticed\(\) \{\n    return this\.isShadowActive\(\) \|\|/.test(app),
+  assert.truthy(/const unnoticed = this\.isUnnoticed\(c\);/.test(w), 'read for each creature');
+  assert.truthy(/return this\.isShadowActive\(\) \|\| moss \|\|/.test(app),
     'and the powder is one of its two reasons');
   // The hits.
   // Other conjuncts may join these gates (Home's ward does — home_ward.test.js),

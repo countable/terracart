@@ -2616,7 +2616,8 @@ Render.drawVariantLabels = function drawVariantLabels(scene, ax, ay, halfM) {
 // and the per-tile list below is derived by.
 function offersPreCullLight(o) {
   const k = o.kind;
-  return isBuilding(k) || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope';
+  return isBuilding(k) || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope'
+    || !!(typeof Macros !== 'undefined' && Macros.visitKindForObject(o));
 }
 // A tile's pre-cull lights (util.js derivedObjects — re-derived only when the
 // objects array moves), at entry[PRE_CULL_LIGHTS] so the light walk queries
@@ -2766,10 +2767,11 @@ Render.drawObjects = function drawObjects(scene) {
     // its light reaches further than its art: offered to the lightmap
     // before the sprite cull, with its own radius as the margin, so a
     // lantern a cell off-screen still lights the edge it stands past.
-    if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine') LIGHTS.consider(scene, o, dx, dy, halfM);
+    const visit = typeof Macros !== 'undefined' && Macros.visitKindForObject(o);
+    if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);
     // A grove shrine whose gift is still there today ALSO wears the POI
     // light — the one "something to take here" mark (poiLit).
-    if (o.kind === 'grove_shrine' && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
+    if ((o.kind === 'grove_shrine' || visit) && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
     // A VIEWPOINT's scope (src/scenic.js): its rest ring's own light
     // (Lighting.KINDS.vista, out to FIRE_REST_R) always, and the POI
     // light on top while today's gift is there — the shrine's rule.
@@ -2810,7 +2812,7 @@ Render.drawObjects = function drawObjects(scene) {
           // width of glow at most.
           // Lit while there is something to take (interactables.js poiLit): an
           // unopened chest, and a daily crate / chapel only until today's take.
-          if (LIGHTS && o.kind === 'chest' && poiLit(o, spentIds)) LIGHTS.consider(scene, o, dx, dy, halfM);
+          if (LIGHTS && o.kind === 'chest' && !offersPreCullLight(o) && poiLit(o, spentIds)) LIGHTS.consider(scene, o, dx, dy, halfM);
           // Anchor outside the ordinary viewport: the SPRITE (and its shadow)
           // still draw, but the label passes skip it — a sign or open/busy
           // plaque for an off-screen building would be clamped to the screen

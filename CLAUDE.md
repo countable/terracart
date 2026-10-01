@@ -275,6 +275,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 ## Combat, energy and Home
 
+- Timed followers use `Companions.KINDS` and its shared lifecycle; register
+  movement/targeting in `SpriteLayout.CREATURE_BEHAVIOUR` and reuse the pet
+  combat lane. Persist contract expiry and any durable health state, not live
+  map instances. Test reload, tile replacement and expiry when adding a kind.
 - `combat.js` owns foe HP for melee, projectiles and pets. Damage derives from
   `TOOL_DURATION_MS`; tune that or monster HP, not an extra combat multiplier.
   Game animals (crow/deer) are not enemies or projectile targets; released
@@ -331,6 +335,12 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
 
 ## Dialogs, feedback and teaching
 
+- Daily sites share `Macros.visitKindForObject` and `beginDailyVisit` / `dailyVisit`.
+  Claim the UTC-day ledger only when the benefit is granted; cancellation must
+  leave the visit available. Keep presentation, light and effects in the owning
+  row. Ambient site light persists after a visit; the availability pulse does not.
+  Successful visits show their story painting each time. `tools/idols.html`
+  reads the same rows for the design sheet.
 - Dialogs use `makeModalShell` with a kind, which supplies a scene painting.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow

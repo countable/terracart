@@ -1297,10 +1297,11 @@ test('street terrain: scenic intervals paint only their selected path span', () 
   assert.eq(f.grid[5*12+9],T.GRASS,'outside scenic interval stays original');
 });
 
-test('street shrines: one kind shrine per street off the road, stable, capped per tile', () => {
-  const build = (streets) => {
+test('street shrines: chosen streets seat safely and independently without a tile cap', () => {
+  const build = (streets, chosen = true, blocked = false) => {
     const indexes = streets.map(([v, y]) => {
-      const name = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === v, `Shrine ${v}`);
+      const name = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === v
+        && SV.streetShrineChosen(k) === chosen, `Shrine ${v}`);
       return indexOfLines([pts([[10, y], [54, y]])], name, TX, TY, TILE_EDGE_M / EXTENT);
     });
     const index = { ...indexes[0], lines: indexes.flatMap(i => i.lines),
@@ -1308,6 +1309,7 @@ test('street shrines: one kind shrine per street off the road, stable, capped pe
     const roadMask = new Uint8Array(CPE*CPE), grid = new Uint8Array(CPE*CPE).fill(T.PARK);
     for (const [, y] of streets) for (let x=10; x<=54; x++) { roadMask[y*CPE+x]=1; grid[y*CPE+x]=T.ROAD; }
     const opts = { roadMask, roadClass: new Uint8Array(CPE*CPE), spawnWhy: new Uint16Array(CPE*CPE), occupied: new Set() };
+    if (blocked) opts.spawnWhy.fill(WorldGen.SPAWN_WHY.PRIVATE);
     const result = SV.dress({ index, tx:TX, ty:TY, N:CPE, tileEdgeM:TILE_EDGE_M, grid, spawnOpts: opts });
     return { result, grid, roadMask };
   };
@@ -1323,9 +1325,32 @@ test('street shrines: one kind shrine per street off the road, stable, capped pe
     'an attractor seat: open ground outside every buffer');
   assert.eq(JSON.stringify(shrines), JSON.stringify(build([['orchard', 25]]).result.objects.filter(o => o.kind === 'grove_shrine')),
     'stable rebuild');
-  const many = build([['orchard', 10], ['toadstool', 30], ['golden', 50]]).result.objects.filter(o => o.kind === 'grove_shrine');
-  assert.eq(many.length, Shrines.STREET_SHRINES_PER_TILE, 'capped per tile');
+  const many = build([['orchard', 10], ['toadstool', 30], ['overgrown', 50]]).result.objects.filter(o => o.kind === 'grove_shrine');
+  assert.eq(many.length, 3, 'every selected street seats, even above the former cap: ' + many.map(o => o._shrineStreet).join(','));
+  const reversed = build([['overgrown', 50], ['toadstool', 30], ['orchard', 10]]).result.objects.filter(o => o.kind === 'grove_shrine');
+  assert.eq(JSON.stringify(many), JSON.stringify(reversed), 'street input order does not choose winners');
+  assert.eq(build([['orchard', 25]], false).result.objects.filter(o => o.kind === 'grove_shrine').length, 0,
+    'the other half receive no shrine');
+  assert.eq(build([['orchard', 25]], true, true).result.objects.filter(o => o.kind === 'grove_shrine').length, 0,
+    'selected streets still cannot place on private ground');
   const plain = build([['overgrown', 25]]).result.objects.filter(o => o.kind === 'grove_shrine');
   assert.eq(plain[0].shrineKind, 'moss_cairn');
 });
+
+test('street shrines: half of canonical street keys qualify and every road variant has a kind', () => {
+  assert.eq(Shrines.STREET_SHRINE_CHANCE, 0.5);
+  let chosen = 0;
+  for (let i = 0; i < 10000; i++) {
+    const name = 'Shrine frequency ' + i;
+    const key = SV.streetKey(name, TX, TY);
+    if (SV.streetShrineChosen(key)) chosen++;
+    assert.eq(SV.streetShrineChosen(key), SV.streetShrineChosen(SV.streetKey(name, TX + 1, TY)),
+      'adjacent tiles agree on a named street');
+  }
+  assert.inRange(chosen / 10000, 0.45, 0.55, 'roughly half, without a tile-density cap');
+  for (const row of SV.STREET_VARIANTS.filter(row => ['minor', 'major'].includes(row.size))) {
+    assert.truthy(Shrines.kindForStreet(row.id), row.id + ' has a shrine kind');
+  }
+});
+
 })();
