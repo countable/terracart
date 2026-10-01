@@ -593,8 +593,10 @@ const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'bow', 'staff', 'can', 'hoe', '
 const INV_ARMOR_ORDER = ['helmet', 'chest', 'legs', 'boots'];
 // The three combat weapons — the only slots save.activeWeapon ever holds. Only
 // the active one auto-engages (sword) or auto-fires (bow/staff) in _combatTick;
-// the others sit inert until switched to (tapping one in the Relics tab, or
-// obtaining/forging a new one — see Gear.equip). Mirrors Gear.WEAPON_SLOTS.
+// the others sit inert until switched to (the Equip button under the Relics
+// tab — syncEquipButton — or obtaining/forging a new one — see Gear.equip).
+// Melee needs no weapon at all: bare hands auto-engage like a sword whenever
+// no bow or staff is equipped (Gear.meleeActive). Mirrors Gear.WEAPON_SLOTS.
 const WEAPON_SLOTS = ['sword', 'bow', 'staff'];
 
 // Where fauna may NEVER step (WATER / buildings / roads / cave wall) is
@@ -4652,9 +4654,10 @@ class MapScene extends Phaser.Scene {
   // Per-frame fight tick: pick up the enemies on screen, let the ACTIVE bow or
   // staff loose its shots (the bow along the compass, the staff at the nearest
   // foe — Combat.shotHeading), fly the shots already out, and —
-  // if the sword is the active weapon — engage the nearest foe without being
-  // asked. Only one of sword/bow/staff (save.activeWeapon) acts on its own
-  // here at a time; the rest sit inert until switched to. The maths (what
+  // unless a bow or staff is in hand — engage the nearest foe without being
+  // asked, sword or bare hands alike. Only one of sword/bow/staff
+  // (save.activeWeapon) acts on its own here at a time; the rest sit inert
+  // until switched to. The maths (what
   // counts as an enemy, damage per shot, shot flight) all lives in combat.js;
   // this method is the scene glue.
   _combatTick(dt) {
@@ -4861,15 +4864,17 @@ class MapScene extends Phaser.Scene {
     }
     this._drawShots();
 
-    // ── Sword: auto-engage ─────────────────────────────────────────────────
-    // The sword being the ACTIVE weapon means you no longer have to tap the
-    // slime that is already chewing on you: the nearest enemy IN REACH is
-    // picked up on its own. A sword you still own but switched away from
-    // (bow/staff active instead) does not — see the WEAPON_SLOTS note above.
+    // ── Melee: auto-engage ─────────────────────────────────────────────────
+    // With no ranged weapon in hand you never have to tap the slime that is
+    // already chewing on you: the nearest enemy IN REACH is picked up on its
+    // own. That is the sword's lane AND bare hands' (owner, Oct 2026 — it
+    // used to need an owned, active sword, so a new player had to tap every
+    // foe until they bought one). An equipped bow or staff turns it off —
+    // Gear.meleeActive — see the WEAPON_SLOTS note above.
     // The wheel is flagged `auto`, which is what keeps it from behaving
     // like a tapped action — it doesn't swallow taps, hold the body still, or
     // block the walk home (see _busyWheel).
-    if (relics.sword && activeWeapon === 'sword' && !this._workProgress && enemies.length) {
+    if (Gear.meleeActive(this.save) && !this._workProgress && enemies.length) {
       let best = null, bestD2 = Infinity;
       for (const c of enemies) {
         // ARM'S LENGTH, not the lit reach (Combat.MELEE_REACH_CELLS): a sword
@@ -13441,15 +13446,10 @@ class MapScene extends Phaser.Scene {
             e.stopPropagation();
             this.save.selGear = { kind: g.kind, slot: g.slot };
             this.save.selSlot = -1;
-            // Tapping a weapon makes it the active one — the other owned
-            // weapons go inert (see combat.js / _combatTick).
-            if (isWeapon && Gear.activeWeapon(this.save) !== g.slot) {
-              Gear.selectWeapon(this.save, g.slot);
-              this.markRelicsDirty();
-              persistSave(this.save);
-              this.buildInventoryDOM();
-              return;
-            }
+            // Highlighting a weapon is just that. Until Oct 2026 the tap
+            // also made it the active one, so reading a bow's blurb silently
+            // switched the fight off melee; the Equip button under the bar
+            // (syncEquipButton) is the explicit act now.
             persistSave(this.save);
             this.refreshInventoryHighlight();
           });
@@ -13606,6 +13606,59 @@ class MapScene extends Phaser.Scene {
     }
     this.syncEatButton();
     this.syncConsumableButton();
+    this.syncEquipButton();
+  }
+
+  // Equip / Unequip button — the Eat button's slot, shown while a WEAPON is
+  // highlighted in the Relics tab (never alongside Eat / Drink: a gear tab
+  // clears selSlot, which hides both). EQUIP makes the highlighted sword, bow
+  // or staff the one that fights (Gear.selectWeapon); UNEQUIP, on the bow or
+  // staff in hand, puts it away so melee auto-engages again — the sword if
+  // owned, bare hands if not (Gear.unequipWeapon). The sword in hand needs no
+  // button: melee is the default state, so there is nothing to put away.
+  // This is the ONE way the active weapon changes by hand; tapping a slot
+  // only highlights it.
+  syncEquipButton() {
+    const g = this.save.selGear;
+    const existing = document.getElementById('equip-btn');
+    const cat = INV_CAT_BY_KEY[this.save.invCat];
+    const isWeapon = !!cat?.gear && g?.kind === 'relic' && WEAPON_SLOTS.includes(g.slot)
+      && !!Gear.effectiveRelics(this.save)[g.slot];
+    if (!isWeapon) { existing?.remove(); return; }
+    const active = Gear.activeWeapon(this.save) === g.slot;
+    const ranged = Combat.RANGED_SLOTS.includes(g.slot);
+    if (active && !ranged) { existing?.remove(); return; }
+    const tier = Gear.effectiveRelics(this.save)[g.slot]?.tier;
+    const verb = active ? 'Unequip' : 'Equip';
+    const label = `${this.gearIconHTML('relic', g.slot, tier, 20)} ${verb}`;
+    const btn = existing || document.createElement('button');
+    if (!existing) {
+      btn.id = 'equip-btn';
+      // Same seat and face as the Drink button (control gold: a thing you
+      // press), bottom-right under the inventory bar.
+      btn.className = 'hud-action';
+      btn.style.cssText =
+        'position:fixed;' +
+        'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
+        'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
+        'display:flex;align-items:center;gap:6px;' +
+        'padding:6px 10px;border-radius:8px;cursor:pointer;' +
+        'color:#ffe066;border:2px solid #c8a64a;' +
+        'font:700 12px ui-monospace,monospace;';
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sel = this.save.selGear;
+        if (!sel || !WEAPON_SLOTS.includes(sel.slot)) return;
+        if (Gear.activeWeapon(this.save) === sel.slot) Gear.unequipWeapon(this.save);
+        else Gear.selectWeapon(this.save, sel.slot);
+        this.markRelicsDirty();
+        persistSave(this.save);
+        this.buildInventoryDOM();   // the "E" badge moves; refreshes this button too
+      });
+      document.body.appendChild(btn);
+    }
+    btn.dataset.slot = g.slot;
+    btn.innerHTML = label;
   }
 
   // Eat button — appears bottom-right when the selected stack is food.

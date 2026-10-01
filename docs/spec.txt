@@ -895,20 +895,26 @@ COMBAT
    is whole again next session.
  - ONLY ONE WEAPON FIGHTS AT A TIME. `save.activeWeapon` (sword/bow/staff/null)
    picks which owned weapon auto-engages or auto-fires; the others sit inert —
-   no auto-engage, no auto-fire — until switched to. Default is the newest
-   weapon OBTAINED or UPGRADED (equipping one always makes it active); the
-   player can also switch by tapping any owned weapon in the Relics inventory
-   tab, which marks it with a small "E" (equipped/active) badge alongside its
-   tier badge. This only gates the AUTOMATIC behaviours below — a bare-handed
-   or manual tap-to-fight (tapping an enemy directly) and the crow/deer HUNT
-   wheel are unaffected; the hunt wheel is the BUG NET's, not a weapon's, so
-   which weapon is active never touches it.
+   no auto-engage, no auto-fire — until switched to. MELEE IS THE DEFAULT and
+   needs no weapon: with no bow or staff equipped the hands auto-engage the
+   nearest enemy in reach exactly as a sword does, on the bare-handed tier-0
+   rung (Gear.meleeActive). Default is the newest weapon OBTAINED or UPGRADED
+   (obtaining one always makes it active); switching by hand is EXPLICIT — an
+   Equip button under the Relics inventory tab while a weapon is highlighted
+   (and Unequip on the bow or staff in hand, which puts it away: back to the
+   sword, or bare hands). Highlighting a slot alone changes nothing. The
+   active weapon wears a small "E" badge alongside its tier badge. This only
+   gates the AUTOMATIC behaviours below — a manual tap-to-fight (tapping an
+   enemy directly) and the crow/deer HUNT wheel are unaffected; the hunt
+   wheel is the BUG NET's, not a weapon's, so which weapon is active never
+   touches it.
  - THE THREE WEAPONS DO DIFFERENT THINGS, AND BOW/STAFF DIFFER IN KIND.
      sword  — MELEE. Drains HP while the combat wheel runs, at
               15/durationSeconds HP per second off the WORK WHEEL ladder (bare
-              hands = the 9s tier-0 rung, so you can always fight). Being the
-              ACTIVE weapon also AUTO-ENGAGES: the nearest enemy in reach is
-              picked up without a tap. An auto-engaged fight is deliberately
+              hands = the 9s tier-0 rung, so you can always fight). Melee
+              AUTO-ENGAGES whenever no bow or staff is equipped, sword or
+              bare hands alike: the nearest enemy in reach is picked up
+              without a tap. An auto-engaged fight is deliberately
               weightless — it does not swallow taps, root the character, or
               block the walk home, and it breaks off silently when the foe
               leaves reach.
@@ -1473,10 +1479,10 @@ GEAR: RELICS & ARMOR
      amulet — powers STICK WALKING (see below); higher tier = cheaper walking. Boots increase speed.
               It carried the QUANTITY luck too until Sep 2026; that is the
               wizard's Full Measure rung now.
-     sword  — MELEE weapon (drains an enemy's HP on the combat wheel, and
-              auto-engages the nearest enemy in reach WHEN ACTIVE — see
-              COMBAT); raises sell prices (0.5× → 1.0× at Frost) whether
-              active or not
+     sword  — MELEE weapon (drains an enemy's HP on the combat wheel; melee
+              auto-engages the nearest enemy in reach whenever no bow or
+              staff is equipped, bare hands included — see COMBAT); raises
+              sell prices (0.5× → 1.0× at Frost) whether active or not
      bow    — RANGED weapon, an arrow (auto-fires along the compass every 2 s
               while an enemy is on screen, WHEN ACTIVE; stops in the first
               foe hit and at solid ground); lowers buy prices (T7 = par)
