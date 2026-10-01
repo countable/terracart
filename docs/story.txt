@@ -1,7 +1,7 @@
 DRAGON HOOD — THE STORY (basis document)
 ================================================================================
-Status: v2 (Oct 2026), owner's answers folded in. This file is the story bible
-the game is written against. Where it disagrees with copy in src/
+Status: v3 (Oct 2026), dragon speech and the tower attack added.
+This file is the story bible the game is written against. Where it disagrees with copy in src/
 (memory_story.js, play_tips.js, books, item text), THIS FILE wins and the copy
 is to be brought in line. Numbers (which memory, which restoration, which cave
 level) stay owned by the code; this file names the beats, not the values,
@@ -204,13 +204,24 @@ ACT 2 — THE LESSONS (the first tower, memories 9–21)
   the Hood fights is his (a garrison that should not be there, a foe that
   turns up when he has just said it would). Never stated; a reader who
   reads the books in order can work it out.
-  At 21 memories the first tower is cold and a note says "come to me when you
-  are ready." He has moved. [OPEN: because Ayo found his tower? Draft: yes;
-  the second tower's hunters speak of a white shape over the first.]
+  THE WHITE ONE AT THE TOWER: midway through the wider Act 2 arc, at the
+  existing first-tower departure gate (21 memories), Ayo attacks Tim's tower
+  in full white-dragon form. The player witnesses the attack. Her shadow
+  crosses the lamps; she strikes the tower, and the whole tower vanishes.
+  The road and lamps remain. This replaces the quiet abandoned-tower visit:
+  there is no empty room to enter, only the place where the tower stood.
+  Tim survives and is next found at the second tower. The exact magic of the
+  disappearance remains unexplained here; the attack causes it, rather than
+  an unrelated move happening off screen. His invitation, "come to me when
+  you are ready," reaches the Hood afterward, outside the vanished tower.
+  The witnesses call the attacker "the white one". To them, the attack
+  proves that the dragon hunters need their wizard more than ever. Nobody
+  names Ayo or reveals the family; the Hood does not yet speak dragon.
 
 ACT 2b — THE SECOND TOWER (restoration 25+, memories 21–30)
-  The new tower among the wrecks the player restores. Tim's warmth is thinner;
-  the map is open on his table ("this land will seem very small"). At memory
+  The Hood restores the second tower among the wrecks after the first has
+  vanished. Its hunters speak of the white dragon's attack. Tim's warmth is
+  thinner; the map is open on his table ("this land will seem very small"). At memory
   30 he tells the Hood what they are and what he needs, plainly: you are a
   dragon, and so am I; the fire above the ruined town was your own; the
   Warmonger was you. And the ask: CAPTURE THE WHITE DRAGON, alive, and bring
@@ -224,6 +235,18 @@ ACT 3 — THE FIRE BELOW (after memory 30; the hunts are very late game)
   time, each bound in her keeping; the HUNTS are the capture of each, alive
   (the net and the catch wheel are the tools; a dragon that dies is a colour
   lost to everyone). And at the bottom, the white dragon.
+  THE LANGUAGE COMES BACK: during Act 3, after the memory-30 revelation, a
+  dragon speaks in the presence of the Hood and a surviving dragon hunter.
+  The Hood understands and answers before thinking. The hunter lowers their
+  weapon: "That was no spell. You spoke to it." The Hood is surprised too;
+  the words feel older than any lesson Tim gave them. This is recovered
+  dragon speech, not a skill Tim has just taught or a potion effect.
+  Later, a second survivor hears the Hood answer a dragon and stops in
+  astonishment: "It answered you. How did you know what to say?" People can
+  learn that the Hood speaks dragon without learning that the Hood IS one.
+  The exchange lets a dragon be heard as a person before the Hood chooses
+  whether to capture or free it. Speaking grants understanding, not obedience
+  or an automatic capture. The hood stays raised throughout.
   The player learns, from the hidden dragons and from Ayo herself, what Tim
   left out: that the white is their sister, that the spell was an accident,
   that the five colours bound to the hydra are the end of this world and the
@@ -270,7 +293,9 @@ Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
   two of them were ever a family.
 - After memory 30 the believer still lauds the wizard; the survivor still
   curses the Warmonger; the child still has their room. The irony is the
-  player's alone. No neighbour "finds out" unless an ending says so.
+  player's alone. Witnesses in Act 3 may discover and react to the Hood's
+  dragon speech; that does not reveal the Hood's dragon identity or family.
+  No neighbour learns those secrets unless an ending says so.
 
 --------------------------------------------------------------------------------
 7. THINGS THE GAME ALREADY HAS THAT NOW MEAN SOMETHING
@@ -312,7 +337,6 @@ Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
 - A name for the planet, if any.
 - Whether Ayo knows the Hood survived, and where.
 - Why the children turned on this world and not the five before.
-- Whether Tim left the first tower because Ayo found it.
 - What becomes of Tim in the sister ending.
 - The "five heads, five fires" rhyme.
 - The other three colours (draft blue, green, black).
