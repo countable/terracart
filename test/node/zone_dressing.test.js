@@ -38,8 +38,11 @@
     assert.eq(JSON.stringify(first.objects),JSON.stringify(second.objects),'component identities do not reroll a cell');
     assert.eq(first.nexus.length,0);assert.eq(first.guards.length,0);assert.eq(first.traps.length,0);
     assert.eq(first.wildplants.length,0);assert.eq(first.lairs.length,0);
-    assert.truthy(first.objects.every(o=>o.kind==='mineralrock' && o.zoneLayer==='background'));
-    assert.inRange(first.objects.length,1500,1770,'dense forty-percent coverage');
+    // Stone and crystal benches, plus the odd barrel (Oct 2026) — a chest on
+    // the bin lane, background like the rest.
+    assert.truthy(first.objects.every(o=>(o.kind==='mineralrock' || (o.kind==='chest' && o.barrel)) && o.zoneLayer==='background'));
+    assert.gt(first.objects.filter(o=>o.barrel).length, 0, 'a working quarry has a barrel or two about');
+    assert.inRange(first.objects.length,1500,1790,'dense forty-percent coverage');
     const crystals=first.objects.filter(o=>o.deposit==='crystal');
     const expected = a.N * a.N * ZoneVariants.byId('quarry').background.materialDensity.crystal;
     assert.inRange(crystals.length, expected * .4, expected * 1.8, 'about half a percent of eligible cells are crystals');
@@ -398,6 +401,20 @@
     for (const id of ['ordered_graves', 'overgrown_graves']) {
       assert.gt(ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone').length, 0);
     }
+  });
+  test('zone dressing: the seep and the quarries stand barrels — generated, smashable, on the bin lane (Oct 2026)', () => {
+    const m = ZoneVariants.materials.barrel;
+    assert.truthy(m && m.kind === 'chest' && m.barrel === true && m.spawnClass === 'minor', 'a barrel material');
+    for (const id of ['seep', 'quarry', 'quarry-abandoned']) {
+      const barrels = ZoneDressing.dress(context(id)).objects.filter(o => o.barrel === true);
+      assert.gt(barrels.length, 0, `${id} stands barrels`);
+      for (const b of barrels) {
+        assert.eq(b.kind, 'chest');
+        assert.truthy(isBarrel(b), `${id}: a dressed barrel is a barrel`);
+        assert.falsy(b.fixedLoot, 'never a fixed find');
+      }
+    }
+    assert.eq(ZoneDressing.dress(context('meadow')).objects.filter(o => o.barrel).length, 0, 'a meadow stands none');
   });
   test('zone dressing: a churchyard or tar yard keeps its chest and stands its shrine kind beside it', () => {
     for (const id of ['ordered_graves', 'black_ring', 'stone_garden']) {

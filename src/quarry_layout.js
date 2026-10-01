@@ -27,9 +27,13 @@
       for (let n = 0; n < cells.length; n++) {
         if ((n & 255) === 0) yield 'quarry clipped benches';
         const i = cells[n], x = i % N, y = Math.floor(i / N);
-        const h = hash(x, y, 113);
-        if (h < root.ZoneVariants.byId('quarry').background.materialDensity.crystal) put(x, y, 'crystal');
-        else if (h < root.ZoneVariants.byId('quarry').background.nominalDensity) put(x, y, 'stone');
+        const h = hash(x, y, 113), d = root.ZoneVariants.byId('quarry').background.materialDensity;
+        // Crystal first, then stone, then the barrels (Oct 2026) past them —
+        // the bands stone and crystal held before the barrels joined are the
+        // same cells, so no bench moved when they did.
+        if (h < d.crystal) put(x, y, 'crystal');
+        else if (h < d.crystal + d.stone) put(x, y, 'stone');
+        else if (h < d.crystal + d.stone + (d.barrel || 0)) put(x, y, 'barrel');
       }
       return plan;
     }
@@ -93,6 +97,9 @@
             if (xx !== cx && (yy === y || xx === x) && hash(xx, yy, 71) < .65) put(xx, yy, 'stone');
           }
           put(cx, cy, hash(x, y, 41) < .5 ? 'equipment' : 'driftwood');
+          // A barrel at half the patches' far corner (Oct 2026): what the
+          // last shift left beside its timber — smashed for a coin or a tool.
+          if (hash(x, y, 47) < .5) put(r, b, 'barrel');
         } else if (id === 'quarry-strip-mine') {
           for (let yy = y; yy <= b; yy += 2) for (let xx = x; xx <= r; xx++) if (xx !== cx) put(xx, yy, 'stone');
         }

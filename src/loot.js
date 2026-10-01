@@ -18,7 +18,7 @@
 //   chestDensityTier, chestBaseTier, chestTierDepthBonus, chestTier,
 //   chestMirrorsUnderground, CRATE_RESTORE_PER, CRATE_RESTORE_MAX_DAYS,
 //   crateRestoreDays, BARREL_CLASSES, BARREL_EMPTY_P_BASE,
-//   BARREL_EMPTY_P_DENSE, BARREL_LOOT, barrelEmptyP, rollBarrel, isBarrel,
+//   BARREL_EMPTY_P_DENSE, BARREL_EMPTY_P_GENERATED, BARREL_LOOT, barrelEmptyP, rollBarrel, isBarrel,
 //   POT_COINS_BY_DENSITY, potCoinsFor, isPotOfGold, isBikeRack, barrelFlash,
 //   bikeRackFlash
 //   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
@@ -409,10 +409,16 @@ function crateRestoreDays(o) {
 // for a lone bin, rising linearly to BARREL_EMPTY_P_DENSE at
 // CHEST_DENSITY_T1_AT of its kind — the same "dense" the tier table uses).
 // When it holds something it is ONE of BARREL_LOOT: a few coins, an apple,
-// or — rarely — one cheap supply (a torch or a rope). Never gear, never a
+// or — rarely — one cheap supply (a torch or a spear). Never gear, never a
 // tier roll: a barrel does not read chestTier at all. Rolled per smash
 // (rollBarrel), like every drop roll — only WHERE the barrel stands is the
 // world's.
+// GENERATED BARRELS (owner, Oct 2026) are the same thing without a POI: a
+// chest stamped `barrel: true` — strewn over the first cave level
+// (worldgen.js caveBarrels) and dressed into the seep and the quarries
+// (docs/zone-variants.json's `barrel` material) — on the same smash, the same
+// day ledger (a lone bin's daily restock) and the same loot roll, empty
+// BARREL_EMPTY_P_GENERATED of the time: they have no density to read.
 // Cosmetic pairs share the barrel's rewards and restock ledger. Hash only the
 // generated identity, so neither location overlays nor smashing changes the pair.
 const BARREL_ART = [
@@ -422,6 +428,7 @@ const BARREL_ART = [
 const BARREL_CLASSES = new Set(['waste_basket', 'recycling']);
 const BARREL_EMPTY_P_BASE = 0.6;
 const BARREL_EMPTY_P_DENSE = 0.9;
+const BARREL_EMPTY_P_GENERATED = 0.7;
 function barrelEmptyP(count) {
   const n = Math.max(1, Math.floor(Number(count) || 1));
   const f = Math.min(1, (n - 1) / (CHEST_DENSITY_T1_AT - 1));
@@ -431,13 +438,14 @@ function barrelEmptyP(count) {
 const BARREL_LOOT = [
   { kind: 'coin',   w: 0.5, min: 1, max: 3 },
   { kind: 'apple',  w: 0.4, id: 'apple' },
-  { kind: 'supply', w: 0.1, ids: ['torch', 'rope'] },
+  { kind: 'supply', w: 0.1, ids: ['torch', 'spear'] },
 ];
 // One smash of barrel `o`: { kind: 'empty' } | { kind: 'gold', amount } |
 // { kind: 'item', id, qty: 1 }. `rng` defaults to Math.random.
 function rollBarrel(o, rng) {
   const r = typeof rng === 'function' ? rng : Math.random;
-  if (r() < barrelEmptyP(o && o.poiDensity)) return { kind: 'empty' };
+  const pEmpty = (o && o.barrel) ? BARREL_EMPTY_P_GENERATED : barrelEmptyP(o && o.poiDensity);
+  if (r() < pEmpty) return { kind: 'empty' };
   const total = BARREL_LOOT.reduce((s, row) => s + row.w, 0);
   let u = r() * total;
   let row = BARREL_LOOT[BARREL_LOOT.length - 1];
@@ -455,7 +463,9 @@ function barrelFlash(got) {
   return `+${got.qty || 1} ${name}`;
 }
 function isBarrel(o) {
-  return !!o && o.kind === 'chest' && BARREL_CLASSES.has(o.poiClass) && !(o.depth > 0) && !o.crate && !o.fixedLoot;
+  if (!o || o.kind !== 'chest' || o.crate || o.fixedLoot) return false;
+  if (o.barrel === true) return true;   // a generated barrel, any depth
+  return BARREL_CLASSES.has(o.poiClass) && !(o.depth > 0);   // a bin POI; its cave mirror is a plain chest
 }
 
 // ── POTS OF GOLD (ATMs) and BIKE RACKS ────────────────────────────────────
