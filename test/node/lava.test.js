@@ -106,7 +106,7 @@ test('lava: surface vents burn fractional player time and stop on safe ground', 
   const entry = {cellsPerEdge: 1, grid: new Uint8Array([WorldGen.T.CAVE_LAVA])};
   const scene = {depth: 0, startWorldM: {}, save: {energy: 20},
     playerToWorldCell: () => ({tx: 19371, ty: 29371, cx: 0, cy: 0}),
-    _lastLavaFlashT: Infinity, _popEnergy() {},
+    _lastLavaFlashT: Infinity, _popEnergy() {}, _ignitePlayer() {},
     _losePlayerEnergy(n) { this.save.energy -= n; return n; }};
   const step = dt => tick.call(scene, dt, () => ({cellIX: 0, cellIY: 0}));
   WorldGen.tileCache.set(key, entry);

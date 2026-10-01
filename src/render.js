@@ -4055,7 +4055,11 @@ Render.drawObjects = function drawObjects(scene) {
     // (SpriteLayout.CAVE_SLIME_TINT). Frozen and shiny still win over it —
     // both say something about this INSTANCE, which outranks what it is.
     const frozen = c._frozenUntil != null && Date.now() < c._frozenUntil;
-    s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
+    // ON FIRE (Combat.burning): the `burning` row's tint, FLICKERED against
+    // the body's own colour so it reads as flame, not a sheen. Ice still
+    // wins — a frozen body shows the ice.
+    const afire = !frozen && Combat.burning(c) && Conditions.conditionTintOn('burning', performance.now());
+    s.setTint(frozen ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
     // Wind-ups are observable before damage or a lunge lands. A brief amber
     // flash alternates with the original palette; frozen bodies keep ice. A
     // projectile kind (Combat.windupFlashes — the goblin archer) never

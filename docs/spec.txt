@@ -908,6 +908,18 @@ COMBAT
    enemy directly) and the crow/deer HUNT wheel are unaffected; the hunt
    wheel is the BUG NET's, not a weapon's, so which weapon is active never
    touches it.
+ - STATUS EFFECTS are rows of Conditions.DEFINITIONS (src/conditions.js), one
+   table for the player's condition, a foe's, the HUD chip and the body tint:
+     poison  — a purple slime's bite: −1 energy every 2 s for a minute; only
+               an Antidote draws it out. The body wears a green tint.
+     burning — fire on the body: −1 a second for 5 s, then it goes out on its
+               own (no cure, none needed; a fresh contact restarts the 5 s).
+               Foes catch it from a melee blow landed while a Torch is lit
+               (the player's kill), from standing in a campfire or in lava
+               (the ground's kill, like lava itself); the player catches it
+               from standing IN a campfire (FIRE_TOUCH_CELLS — the warmth ring
+               stays safe) or in lava. Armour never soaks a burn; the demons'
+               lava immunity covers fire too. A burning body flickers orange.
  - THE THREE WEAPONS DO DIFFERENT THINGS, AND BOW/STAFF DIFFER IN KIND.
      sword  — MELEE. Drains HP while the combat wheel runs, at
               15/durationSeconds HP per second off the WORK WHEEL ladder (bare

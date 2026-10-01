@@ -268,7 +268,9 @@
     assert.eq(SpriteLayout.creatureTint('cave_slime'), SpriteLayout.CAVE_SLIME_TINT);
     assert.eq(SpriteLayout.creatureSheet('giant_cave_slime'), SpriteLayout.creatureSheet('cave_slime'));
     // The renderer must READ that, not branch on the kind.
-    assert.truthy(/s\.setTint\(frozen \? FROZEN_TINT : c\.shiny \? SHINY_TINT : npcArt \? npcArt\.tint : creatureTint\(c\.kind\)\)/
+    // (A burning body — `afire`, the `burning` row's tint — sits between
+    // the ice and the sheen: it says something about the instance too.)
+    assert.truthy(/s\.setTint\(frozen \? FROZEN_TINT : afire \? Conditions\.DEFINITIONS\.burning\.tint : c\.shiny \? SHINY_TINT : npcArt \? npcArt\.tint : creatureTint\(c\.kind\)\)/
       .test(RENDER_SRC), 'render.js tints a creature from the table, not a blanket white');
     assert.truthy(/const texKey = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(RENDER_SRC),
       'and picks the monster sheet from the table, not an if-else chain');
