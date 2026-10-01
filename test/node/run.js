@@ -337,6 +337,10 @@ const starterWrapper = (name) => {
                       // fire's light radius to it at call time, and
                       // lighting.test.js pins that the two are one number.
                       'FIRE_REST_R',
+                      // …and the hearth itself: within this of the fire's
+                      // point a body burns (wanderCreatures' foe block reads
+                      // it; burning.test.js drives the block with it).
+                      'FIRE_TOUCH_CELLS',
                       // Home's ring, which is the same three-way rule one step
                       // further: light, warmth AND ward. lighting.test.js pins
                       // the light against it, home_ward.test.js the other two.

@@ -293,6 +293,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
   sight range through `unseen`. Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.
+- A status effect is a row of `Conditions.DEFINITIONS` (poison, burning): the
+  player's condition, a foe's (`Combat.ignite` / `burnTick` read the same row),
+  the HUD chip and the body tint all derive from it. A new status is a row
+  there, never a timer, colour or label of its own.
 - Job costs use `spendEnergy`; passive restoration pauses while `working`
   (work wheel or rest hold). Walking drains and enemy blows are not jobs.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;

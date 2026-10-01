@@ -123,3 +123,48 @@
     assert.eq(scene.save.energy, 99);
   });
 })();
+
+// BURNING (owner, Oct 2026): fire on the body — the second row of the one
+// status table. 1 a second for 5 s, out on its own, no cure; and the row owns
+// its look (tint, HUD chip) for the player and every burning foe alike.
+(function () {
+  test('burning: five ticks of one over five seconds, then it goes out on its own', () => {
+    const save = { energy: 50 };
+    assert.truthy(Conditions.apply(save, 'burning'));
+    assert.eq(Conditions.tick(save, 999).ticks, 0);
+    assert.eq(Conditions.tick(save, 1).ticks, 1, 'the first point a second in');
+    const r = Conditions.tick(save, 4000);
+    assert.eq(r.ticks, 4); assert.truthy(r.expired, 'out at five seconds');
+    assert.eq(save.energy, 45, 'five points in all');
+    assert.falsy(Conditions.active(save, 'burning'));
+  });
+  test('burning: a fresh contact restarts the five seconds without moving the next tick', () => {
+    const save = { energy: 50 };
+    Conditions.apply(save, 'burning');
+    Conditions.tick(save, 700);
+    assert.falsy(Conditions.apply(save, 'burning'), 'not fresh');
+    assert.eq(save.conditions.burning.remainingMs, 5000);
+    assert.eq(Conditions.tick(save, 300).ticks, 1, 'the tick already due still lands on time');
+  });
+  test('burning: no antidote needed, and the Antidote does not touch it', () => {
+    const save = { energy: 50 };
+    Conditions.apply(save, 'burning');
+    assert.falsy(Conditions.useAntidote(save), 'nothing to cure');
+    assert.truthy(Conditions.active(save, 'burning'));
+    Conditions.apply(save, 'poison');
+    assert.truthy(Conditions.useAntidote(save));
+    assert.truthy(Conditions.active(save, 'burning'), 'the fire burns on');
+  });
+  test('status rows own their look: label, tint and HUD inks, poison steady and fire flickering', () => {
+    for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
+      assert.truthy(def.label && def.ink && def.bg, `${id} has a chip`);
+      assert.truthy(Number.isInteger(def.tint), `${id} has a body tint`);
+    }
+    assert.falsy(Conditions.DEFINITIONS.poison.flicker);
+    assert.truthy(Conditions.DEFINITIONS.burning.flicker);
+    assert.truthy(Conditions.conditionTintOn('poison', 0) && Conditions.conditionTintOn('poison', Conditions.FLICKER_MS));
+    assert.truthy(Conditions.conditionTintOn('burning', 0));
+    assert.falsy(Conditions.conditionTintOn('burning', Conditions.FLICKER_MS), 'a burn licks');
+    assert.falsy(Conditions.conditionTintOn('nope', 0));
+  });
+})();
