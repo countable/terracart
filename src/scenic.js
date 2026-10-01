@@ -682,7 +682,7 @@
   // Returns { objects (scopes, vista chests), wildplants (tide pool + greenway grass) }.
   function* dressSteps(ctx) {
     const WG = root.WorldGen, SV = root.StreetVariants;
-    const res = { objects: [], wildplants: [] };
+    const res = { objects: [], wildplants: [], tideSeats: new Set() };
     const sc = ctx && ctx.scenic;
     if (!sc || !WG) return res;
     const { tx, ty, N, tileEdgeM, grid, spawnOpts } = ctx;
@@ -784,14 +784,19 @@
     if (sh && sh.waterline.length) {
       yield 'scenic tide pool';
       const pool = [];
+      let scanned = 0;
       for (const i of sh.waterline) {
+        if ((scanned++ & 255) === 0) yield 'scenic tide eligibility';
         const ix = i % N, iy = Math.floor(i / N);
         if (rewardOk(ix, iy)) pool.push(i);
       }
       const want = tideCount(sh.shoreM);
       const p = pool.length ? Math.min(1, want / pool.length) : 0;
       if (p > 0) {
+        let seated = 0;
         for (const i of pool) {
+          if ((seated++ & 255) === 0) yield 'scenic tide reservations';
+          res.tideSeats.add(i);
           const ix = i % N, iy = Math.floor(i / N);
           claim(ix, iy);
           res.wildplants.push(WG.makeWildplant('shell', cx(ix), cy(iy), WG.cellId('tide', tx, ty, ix, iy),

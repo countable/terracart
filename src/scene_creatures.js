@@ -205,7 +205,7 @@ class SceneCreatures {
       for (const wp of sDress.wildplants) if (lay(wp)) entry.wildplants.push(wp);
     }
     yield 'spawn scenic dressing';
-    const zoneTraps = [], zoneGuards = [];
+    const zoneTraps = [], zoneGuards = [], zoneTreasures = [];
     const zDress = entry.zoneDress;
     if (zDress && !testMode) {
       const cellIdx = (p) => {
@@ -221,7 +221,25 @@ class SceneCreatures {
       };
       entry.objects = entry.objects || [];
       const slow = entry.slowCells || new Map();
+      const quarryHome = typeof this.homeWorldPos === 'function' ? this.homeWorldPos() : null;
+      const quarryHomeRadius = HOME_R * (this.cellM || cellM);
+      const liveSeats = new Set();
+      for (const o of entry.objects) if (o.kind !== 'lava_vent') {
+        for (const i of SpawnOwnership.tileCells(this, entry, o, tx, ty)) liveSeats.add(i);
+      }
       for (const o of zDress.objects) {
+        if (o.kind === 'lava_vent') {
+          const i = cellIdx(o);
+          const protectedSeat = _occupiedIdx.has(i) || liveSeats.has(i)
+            || (quarryHome && Math.hypot(o.x - quarryHome.x, o.y - quarryHome.y) <= quarryHomeRadius);
+          // Home and player objects are a live overlay, never an input to the
+          // shared generated world or the caves derived from its base grid.
+          if (protectedSeat && entry.grid[i] === WorldGen.T.CAVE_LAVA) {
+            if (entry.grid === genGrid) entry.grid = entry.grid.slice();
+            entry.grid[i] = WorldGen.T.ROCK;
+          }
+          if (protectedSeat || entry.grid[i] !== WorldGen.T.CAVE_LAVA) continue;
+        }
         if (!lay(o)) continue;
         entry.objects.push(o);
         if (StreetVariants.isSlowKind(o.kind)) slow.set(cellIdx(o), o.kind);
@@ -232,6 +250,7 @@ class SceneCreatures {
       // may hide a piece, but must never reveal a different spawn underneath.
       for (const trap of (zDress.traps || [])) if (lay(trap)) zoneTraps.push({ ...trap });
       for (const guard of (zDress.guards || [])) if (lay(guard)) zoneGuards.push(guard);
+      for (const treasure of (zDress.treasures || [])) if (lay(treasure)) zoneTreasures.push(treasure);
       for (const L of (zDress.lairs || [])) entry.streetLairs.push(L);
       entry.slowCells = slow.size ? slow : null;
     }
@@ -666,7 +685,7 @@ class SceneCreatures {
     entry.extraTreasures = [];
     // A hedgerow close's buried hoard (StreetVariants.dress) — an X like any
     // other, carrying its rollBonus into the dig's roll.
-    for (const t of streetTreasures) entry.extraTreasures.push(t);
+    for (const t of [...streetTreasures, ...zoneTreasures]) entry.extraTreasures.push(t);
     // Spawnability for all three treasure streams below is decided by
     // WorldGen.isSpawnCell (the single shared rule): walkable, off-road, and —
     // on lot cells (residential / wasteland) — only near a public anchor (road/path, public area,
@@ -1916,7 +1935,7 @@ class SceneCreatures {
       // other blow; a foe it kills is the ground's kill ('lava' is no player
       // source — Combat.isPlayerKill), which pays the bounty coin and nothing
       // past it, the turret's rule. A tamed slime is a pet, never burned.
-      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune && this.depth === WorldGen.LAVA_DEPTH
+      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune && (this.depth === 0 || this.depth === WorldGen.LAVA_DEPTH)
           && now >= (c._lavaNextT || 0)) {
         c._lavaNextT = now + 1000;
         const under = this.cellAt(c.x, c.y);

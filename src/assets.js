@@ -257,6 +257,7 @@ const ASSETS = {
   // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
   // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
   // Used for the fishing-junk boot (88), rare-drop star (115), and memory (116).
+  quarry_equipment: { kind: 'image', path: 'assets/Icons/RPG icons/Weapons and Armor/3. Iron/Pickaxe.png' },
   pickup:      { kind: 'spritesheet', path: 'assets/Objects/Pickup_Items.png', frameWidth: 16, frameHeight: 16 },
   // Wood logs — 48×16 sheet, 3 frames of 16×16 (brown / grey / amber
   // bark variants with little green sprigs). Sliced out of Sprites/
@@ -316,6 +317,14 @@ const ASSETS = {
   potofgold: {"kind": "image", "path": "assets/Objects/DailyVisits/potofgold.png"},
   // END approved map-art states and contexts
 };
+
+// Neighbour role sheets are listed once, in SpriteLayout.NPC_SHEETS; each
+// idle sheet has a walk sheet beside it.
+for (const sheet of SpriteLayout.NPC_SHEETS) {
+  if (ASSETS[sheet.idle]) continue;
+  ASSETS[sheet.idle] = { kind: 'spritesheet', path: sheet.path, frameWidth: 48, frameHeight: 48 };
+  ASSETS[sheet.walk] = { kind: 'spritesheet', path: sheet.path.replace(/_idle\.png$/, '_walk.png'), frameWidth: 48, frameHeight: 48 };
+}
 
 // Player class and bicycle appearances share their verified layout metadata.
 for (const art of Object.values(SpriteLayout.PLAYER_ART)) {

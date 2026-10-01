@@ -9,8 +9,12 @@ const count = (row, x0, y0, w, h, seed) => {
   }
   return result;
 };
-test('zone variants: all 20 rows select deterministically in their zone kind', () => {
-  assert.eq(V.rows.length, 20);
+test('zone variants: 23 selectable rows select deterministically; legacy quarry remains explicitly available in their zone kind', () => {
+  assert.eq(V.rows.length, 24);
+  assert.eq(V.rows.filter(row => row.selectable !== false).length, 23);
+  assert.eq(V.byId('quarry').selectable, false);
+  assert.eq(V.pick({kind: 'quarry', variant: 'quarry'}).id, 'quarry');
+  assert.eq(V.forKind('quarry').length, 4);
   assert.eq(V.forKind('grove').length, 6);
   assert.eq(V.forKind('stones').length, 5);
   assert.eq(V.forKind('tar').length, 5);
@@ -112,6 +116,26 @@ test('zone variants: explicit lamp tint follows coverage winner and otherwise le
   } finally {
     if (original === undefined) delete tinted.lampGlow;
     else tinted.lampGlow = original;
+  }
+});
+test('zone variants: migrated grave and ruin motifs fit small zones and retain open aisles', () => {
+  for (const id of ['ordered_graves', 'overgrown_graves', 'broken_masonry', 'broken_depot']) {
+    const row = V.byId(id), [w, h] = row.background.repeatCells;
+    assert.lte(w, 6, id); assert.lte(h, 6, id);
+    const origin = V.poiOrigin(row);
+    assert.inRange(origin[0], 0, w - 1); assert.inRange(origin[1], 0, h - 1);
+    const occupied = new Set();
+    for (const slot of row.background.slots) {
+      const [x, y] = slot.at;
+      assert.inRange(x, 0, w - 1); assert.inRange(y, 0, h - 1);
+      assert.falsy(occupied.has(`${x},${y}`), `${id} duplicate slot`);
+      occupied.add(`${x},${y}`);
+      assert.eq(V.sample(row, x - w, y - h, 'anchor'), slot.material);
+      assert.eq(V.sample(row, x + w, y + h, 'anchor'), slot.material);
+    }
+    // Every motif leaves a continuous lane through successive repeat blocks.
+    assert.truthy(Array.from({length: w}, (_, x) => x).some(x =>
+      Array.from({length: h}, (_, y) => y).every(y => !V.sample(row, x, y, 'anchor'))), id);
   }
 });
 test('zone variants: repeated geometry preserves densities and phase across negative cells', () => {
@@ -285,6 +309,11 @@ test('zone variants: anchor transforms preserve POI phase and invert for every r
 test('zone variants: finite finds keep exact budgets and pick requirements', () => {
   for (const row of V.rows) {
     const finds = V.findOffsets(row, 12);
+    if (row.quarryLayout) {
+      assert.eq(finds.length, 0, 'quarry seats require the actual footprint');
+      assert.eq(row.finds.targets.length, row.finds.count);
+      continue; // Actual seats, budgets and gates are covered by quarry_runtime.
+    }
     assert.eq(finds.length, row.finds.count);
     assert.eq(new Set(finds.map(f => `${f.dx},${f.dy}`)).size, finds.length);
     for (const find of finds) {

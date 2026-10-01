@@ -574,7 +574,7 @@ const BASE_TIER = {
   // Thunder: a screen-wide strike that also breaks a fight up — T4.
   thunder_potion: 4,
   // Growth Powder is a T2 farm utility beside the potions, and Shadow sits with
-  // it: a minute of not being hunted is a way to WALK AWAY from a fight, the
+  // it: three minutes of not being hunted is a way to WALK AWAY from a fight, the
   // same shape as the reach/speed/shield potions it now shares a tier with.
   // Frost is the T3 fight-changer beside the dragon — it is the one that turns
   // a fight you are already in.
@@ -721,8 +721,9 @@ const ITEMS = [
   // no watering needed (useGrowthPowder). Refused — and kept — when no crop is
   // in range.
   { id: 'growth_powder', name: 'Growth Powder',       kind: 'magic' },
-  // Shadow Powder: for one minute monsters lose interest in you — they neither
-  // stalk nor drain you (useShadowPowder). You may still hit them.
+  // Shadow Powder: for three minutes monsters lose interest in you — they neither
+  // stalk nor drain you, and your own arm stays quiet: no swing, no shot
+  // (useShadowPowder).
   { id: 'shadow_powder', name: 'Shadow Powder',       kind: 'magic' },
   // Frost Powder: every enemy within reach is frozen solid for 30 s — no
   // moving, no attacking (useFrostPowder). Refused — and kept — when nothing
@@ -1001,9 +1002,9 @@ const CONSUMABLE_SPEC = {
     get: 'The crops around you stir as though spring has hurried past.',
   },
   shadow_powder: {
-    durationMs: _CONSUMABLE_MINUTE_MS,
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS,
     verb: 'Use', method: 'useShadowPowder', title: 'Use the Shadow Powder?',
-    get: 'The shadows gather around you, hiding you from hungry eyes.',
+    get: 'The shadows gather around you, hiding you from hungry eyes — and muffling your own strikes.',
   },
   frost_powder: {
     durationMs: 30 * 1000,
@@ -1096,7 +1097,7 @@ const PRICES = {
   thunder_potion: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
   dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 boots + amulet walking + 2× damage
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
-  shadow_powder: 110,  // T2 — 1 min of monsters ignoring you entirely (priced for the
+  shadow_powder: 110,  // T2 — 3 min of monsters ignoring you entirely (priced for the
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft); crafted from 5 long grass, so not a money pump

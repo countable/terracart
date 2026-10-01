@@ -1,6 +1,6 @@
 {
   "schemaVersion": 3,
-  "status": "draft_not_loaded_by_game",
+  "status": "implemented_design_snapshot_runtime_source_is_zone_variants_json",
   "extends": "zone-variants.json",
   "units": {
     "motif": "game_cells",

@@ -9,14 +9,17 @@
 //             watered or not. The crop model stays in crops.js
 //             (Crops.advanceWithin); app.js only supplies the player's point.
 //             Refused, and kept, when no unripe crop is in range.
-//   Shadow  — for one minute (MINUTE_MS) no hostile takes an interest in the
+//   Shadow  — for three minutes (3 × MINUTE_MS) no hostile takes an interest in the
 //             player: wanderCreatures gates BOTH the pursuit (the slime's
 //             meander and the monsters' stalk) and the hit (the leech and the
 //             monster drain) on one `shadowed` read of isShadowActive() —
 //             ORed once per tick into `unnoticed` with the OTHER way a player
 //             stops being there to hunt, a bar run to zero
 //             (downed_pursuit.test.js). The
-//             player's own weapons are not gated. The minute is in memory only
+//             player's own weapons are quiet for the spell too: startCombat
+//             refuses (a tap is told with a flash, the auto-engage is silent),
+//             the bow/staff cadence re-arms without loosing, and the powder
+//             breaks off a wheel already running. The spell is in memory only
 //             and its readout is shortDuration, like the dragon's.
 //   Frost   — every ENEMY (Combat.isEnemy, never game or a pet) standing in
 //             reach (cellInReach — the lit plateau the tap gate accepts) gets
@@ -175,10 +178,12 @@ test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE 
 });
 
 // ── Shadow ─────────────────────────────────────────────────────────────────
-test('shadow: a 1-minute in-memory buff, read out with shortDuration beside the dragon\'s', () => {
+test('shadow: a 3-minute in-memory buff, read out with shortDuration beside the dragon\'s', () => {
   const body = methodBody('useShadowPowder');
   assert.truthy(/this\._shadowUntil = Date\.now\(\) \+ SHADOW_POWDER_MS;/.test(body), 'one SHADOW_POWDER_MS on this._shadowUntil');
-  assert.eq(CONSUMABLE_SPEC.shadow_powder.durationMs, 60 * 1000, 'and that is one minute');
+  assert.eq(CONSUMABLE_SPEC.shadow_powder.durationMs, 3 * 60 * 1000, 'and that is three minutes');
+  assert.truthy(/if \(this\._workProgress\?\.combat\) this\.cancelWorkProgress\(\);/.test(body),
+    'the truce ends the fight you are in: the wheel drops');
   assert.truthy(/const SHADOW_POWDER_MS = CONSUMABLE_SPEC\.shadow_powder\.durationMs;/.test(app),
     'runtime derives the duration');
   assert.truthy(/return this\._finishConsumable\(/.test(body), 'consumed through the shared tail');
@@ -215,9 +220,18 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
     'the slime\'s meander toward the player is gated');
   assert.truthy(/if \(!unseen && distToPlayer > 0\.5 \* this\.cellM\) \{\n\s*angle = Math\.atan2\(dyp, dxp\)/.test(w),
     'the monsters\' stalk is gated');
-  // And NOT the player's weapons.
+  // And the player's own weapons, quiet BOTH ways: the cadence holds its fire
+  // (and re-arms, so the first shot flies the instant the shadow lifts), and
+  // the ONE lane both swing paths flow through refuses to spin a wheel up.
   const combat = app.match(/\n  _combatTick\(dt\) \{\n([\s\S]*?)\n  \}\n/);
-  assert.truthy(combat && !/shadow/i.test(combat[1]), 'the sword/bow/staff tick knows nothing of the shadow');
+  assert.truthy(combat && /const rangedArmed = !this\.isShadowActive\(\)\n\s*&& Combat\.anyEnemyWithin/.test(combat[1]),
+    'the bow/staff cadence stays quiet under the shadow');
+  const sc = app.match(/\n  startCombat\(victim, opts = \{\}\) \{\n([\s\S]*?)\n  \}\n/);
+  assert.truthy(sc && /if \(this\.isShadowActive\(\)\) \{/.test(sc[1]), 'no melee wheel spins up while shadowed');
+  assert.truthy(sc && /if \(!opts\.auto\) \{[\s\S]*?flash\('The shadows hold your arm\.'/.test(sc[1]),
+    'a refused tap is told; the auto-engage stays silent');
+  assert.truthy(sc && sc[1].indexOf('this.hapticReject') < sc[1].indexOf("this._toolActionStory('sword');"),
+    'the gate sits before the story hook the wheel spins up with');
 });
 
 // ── Frost ──────────────────────────────────────────────────────────────────

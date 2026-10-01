@@ -5,7 +5,7 @@
   const EXT = 4096;
   function* dressSteps(ctx) {
     const WG = root.WorldGen, V = root.ZoneVariants, Z = root.Zones;
-    const out = { objects: [], wildplants: [], traps: [], guards: [], lairs: [], slowCells: new Map(), nexus: [], diagnostics: [] };
+    const out = { objects: [], wildplants: [], traps: [], guards: [], treasures: [], lairs: [], slowCells: new Map(), nexus: [], diagnostics: [] };
     const field = ctx && ctx.field;
     if (!field || !WG || !V) return out;
     const { N, tx, ty, tileEdgeM, grid } = ctx, coverage = field.coverage || field.idx;
@@ -49,7 +49,7 @@
     const owns = (s, ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N && coverage[iy * N + ix] === s.ai + 1
       && !(s.a.kind === 'grove' && grid[iy * N + ix] === WG.T.SAND);
     const allowed = (s, ix, iy, material) => {
-      if (!owns(s, ix, iy)) return false;
+      if (!owns(s, ix, iy) || ctx.tideSeats?.has(iy * N + ix)) return false;
       // Scenic shore sand is finalized after coverage; keep late sand out
       // of ordinary grove motifs too. Beach roses require vegetated ground.
       if (grid[iy * N + ix] === WG.T.SAND && s.variant.id === 'shellwater_strand' && material === 'rose') return false;
@@ -75,7 +75,8 @@
         : ({ tree: 'ztree', fruittree: 'ft', mineralrock: 'mrz', headstone: 'hs', tar: 'tar' }[m.kind] || 'zt');
       id = id || WG.cellId(prefix, tx, ty, ix, iy);
       let record;
-      if (m.recordType === 'surface_trap') { record = { id, x, y, ...extra }; out.traps.push(record); }
+      if (m.recordType === 'treasure') { record = { id, x, y, ...extra }; out.treasures.push(record); }
+      else if (m.recordType === 'surface_trap') { record = { id, x, y, ...extra }; out.traps.push(record); }
       else if (m.recordType === 'enemy') {
         // Pattern enemies share the ordinary guard/caught pipeline, but each
         // repeated seat owns its stable cell id rather than a finite-find id.
@@ -84,6 +85,9 @@
       }
       else if (m.kind === 'wildplant') { record = WG.makeWildplant(m.crop, x, y, id, extra); out.wildplants.push(record); }
       else {
+        if (m.fixedLoot) extra.fixedLoot = { ...m.fixedLoot };
+        if (m.quarryCrate) extra.quarryCrate = true;
+        if (m.quarryEquipment) extra.quarryEquipment = true;
         if (m.species) extra.species = m.species;
         if (m.kind === 'tree') {
           extra.variant = 1;
@@ -106,6 +110,7 @@
     const motifAt = (s, ix, iy) => {
       // Generated footprints may merge or acquire a different centre as lane
       // geometry changes. Their scatter belongs to the geographic tile/cell.
+      if (s.quarryPlan) return s.quarryPlan.background.get(iy * N + ix) || null;
       if (s.a.generated || s.variant.generated) return V.sample(s.variant, ix, iy,
         `generated|${s.a.generated || s.variant.generated}|${tx}|${ty}`);
       const dx = Math.round((tx * EXT + (ix + 0.5) * EXT / N - s.originX) / s.unit);
@@ -139,12 +144,12 @@
         const cells = [];
         for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
           const ix = x + dx, iy = y + dy;
-          if (!owns(s, ix, iy) || grid[iy * N + ix] !== WG.T.SAND
+          if (!owns(s, ix, iy) || ctx.tideSeats?.has(iy * N + ix) || grid[iy * N + ix] !== WG.T.SAND
               || !WG.isSpawnCell(grid, N, N, ix, iy, shrineOpts, 'minor')) return null;
           cells.push(iy * N + ix);
         }
         const ix = x + ax, iy = y + ay;
-        if (!owns(s, ix, iy) || grid[iy * N + ix] !== WG.T.SAND
+        if (!owns(s, ix, iy) || ctx.tideSeats?.has(iy * N + ix) || grid[iy * N + ix] !== WG.T.SAND
             || !WG.isSpawnCell(grid, N, N, ix, iy, shrineOpts, 'minor')) return null;
         cells.push(iy * N + ix);
         return cells;
@@ -166,6 +171,51 @@
       // Retain a clear old seat when relocating; only the existing POI moves.
       s.clear.add(originalIndex);
       for (const i of reserved) { occ.add(i); s.clear.add(i); }
+    }
+    for (const s of states) {
+      if (s.a.kind === 'beach' && s.a.orientationSource === 'unresolved') s.rec.shortfalls.push('orientation:shoreline');
+      if (!s.variant.quarryLayout) continue;
+      // Fit whole modules around the authoritative spawn gate and authored
+      // occupancy. The layout never truncates a foundation through a house.
+      const eligible = [];
+      for (let n = 0; n < s.cells.length; n++) {
+        if ((n & 255) === 0) yield 'quarry usable footprint';
+        const i = s.cells[n];
+        if (WG.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), opts, 'minor')) eligible.push(i);
+      }
+      s.quarryPlan = yield* root.QuarryLayout.planSteps({ ...s, cells: eligible }, {N, tx, ty});
+      const plan = s.quarryPlan;
+      for (const i of plan.clear) s.clear.add(i);
+      s.rec.landmarks = plan.landmarks;
+      if (s.a.clipped) s.rec.shortfalls.push('layout:incomplete-source-strip-mine');
+      for (const [layer, entries] of [['find',plan.finds], ['guard',plan.guards]]) {
+        for (let n = 0; n < entries.length; n++) {
+          const {i, material} = entries[n];
+          const seat = layer === 'find' ? yield* findSeat(s, i % N, Math.floor(i / N), material)
+            : [i % N, Math.floor(i / N)];
+          const record = seat && place(s, seat[0], seat[1], material, layer,
+            `zq_${s.variant.id}_${s.a.gx}_${s.a.gy}_${layer}_${n}`);
+          if (record) {
+            s.clear.add(seat[1] * N + seat[0]);
+            if (layer === 'find') s.rec.findsPlaced++; else s.rec.guardsPlaced++;
+          } else s.rec.shortfalls.push(`${layer}:${n}`);
+        }
+      }
+      for (let n = s.rec.findsPlaced; n < s.rec.findsRequested; n++) {
+        const reason = `find:${n}`; if (!s.rec.shortfalls.includes(reason)) s.rec.shortfalls.push(reason);
+      }
+      for (let n = s.rec.guardsPlaced; n < s.rec.guardsRequested; n++) {
+        const reason = `guard:${n}`; if (!s.rec.shortfalls.includes(reason)) s.rec.shortfalls.push(reason);
+      }
+      for (const i of plan.hazards) {
+        const ix = i % N, iy = Math.floor(i / N);
+        if (!WG.isSpawnCell(grid, N, N, ix, iy, opts, 'minor')) continue;
+        const [x, y] = position(ix, iy);
+        grid[i] = WG.T.CAVE_LAVA;
+        out.objects.push(WG.makeObject('lava_vent', x, y, WG.cellId('qlava', tx, ty, ix, iy),
+          {zone:'quarry', zoneVariant:s.variant.id, zoneLayer:'hazard', _ix:ix, _iy:iy}));
+        occ.add(i);
+      }
     }
     for (const s of states) {
       yield 'zone finite finds';

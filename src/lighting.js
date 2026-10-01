@@ -192,6 +192,8 @@
     // mirror underground). A real flame: warm, a little smaller than a
     // campfire, and it breathes like one. Bright enough to read a cave
     // junction by from across the level.
+    // The terrain supplies the lava art; its marker supplies a local ember glow.
+    lava_vent: { radiusCells: 1.5, colour: 0xff702a, peak: 0.7, flicker: 0.18 },
     torch:    { radiusCells: 2.5, colour: 0xffa54a, peak: 1.00, flicker: 0.22 },
     // A wild mushroom — the faint one. Every `mushroom` wildplant glows, on
     // the surface as well as in the caves (where spawnCaveMushrooms scatters
@@ -719,6 +721,7 @@
     if (o.kind === 'torch') return 'torch';
     const visit = window.Macros?.visitKindForObject(o);
     if (visit && VISIT_LIGHT_KINDS.has(visit)) return VISIT_LIGHT_KINDS.get(visit);
+    if (o.kind === 'lava_vent') return 'lava_vent';
     // A grove's shrine (src/zones.js) — its own soft green row.
     if (o.kind === 'grove_shrine') return (o.shrineKind && KINDS['shrine_' + o.shrineKind]) ? 'shrine_' + o.shrineKind : 'shrine';
     // A viewpoint's scope (src/scenic.js) — its rest ring's steady light.

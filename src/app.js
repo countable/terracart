@@ -1909,6 +1909,7 @@ class MapScene extends Phaser.Scene {
     window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
     window.WORLD_ICON_URLS.chest = bakeSheetFrame('chest', 0, 16, 16);
     window.WORLD_ICON_URLS.box   = bakeSheetFrame('box',   0, 16, 16);
+    window.WORLD_ICON_URLS.quarry_equipment = bakeSheetFrame('quarry_equipment', 0, 32, 16);
     // An old trade road's bus stop is a broken wagon (loot.js chestLook).
     if (this.textures.exists('wagon')) window.WORLD_ICON_URLS.wagon = bakeSheetFrame('wagon', 0, 128, 96);
     // The burn confirm opens with the campfire the player just tapped.
@@ -3338,7 +3339,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── Lava ──────────────────────────────────────────────────────────────────
-  // On WorldGen.LAVA_DEPTH the rock under the town's buildings is lava
+  // Surface crater vents and WorldGen.LAVA_DEPTH building rock are lava
   // (T.CAVE_LAVA): walkable, and it burns Combat.LAVA_DMG_PER_S energy a
   // second for as long as the FEET are in it (playerToWorldCell — never the
   // camera anchor). Lava owns an environmental damage lane because the ground,
@@ -3348,7 +3349,7 @@ class MapScene extends Phaser.Scene {
   // open. Stands down on an empty bar (Combat.playerDowned — being upright,
   // not being noticed; a Shadow Powder does not cool lava).
   _tickLava(dt) {
-    if (this.depth !== WorldGen.LAVA_DEPTH || !this.startWorldM
+    if ((this.depth !== 0 && this.depth !== WorldGen.LAVA_DEPTH) || !this.startWorldM
         || Combat.playerDowned(this.save.energy)) {
       this._lavaAccum = 0;
       return;
@@ -3998,7 +3999,7 @@ class MapScene extends Phaser.Scene {
         .setPosition(pScreen.x, pScreen.y + bodyDy - 35)
         .setVisible(true);
     }
-    // Shadow Powder: the same in-memory minute (this._shadowUntil), the same
+    // Shadow Powder: the same in-memory timer (this._shadowUntil), the same
     // readout, one line above the dragon's so the two never overprint.
     const shadowActive = this.isShadowActive();
     if (shadowActive) {
@@ -4690,7 +4691,11 @@ class MapScene extends Phaser.Scene {
     this._staffCharge = null;
     // …and only while one stands within the reach plus a cell
     // (Combat.rangedTriggerM): a foe further off on screen draws no fire.
-    const rangedArmed = Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
+    // The Shadow Powder is a truce, not a flank: while it hides the player,
+    // the cadence holds its fire too. The else-branch re-arms, so the first
+    // arrow flies the instant the shadow lifts.
+    const rangedArmed = !this.isShadowActive()
+      && Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
     if (rangedArmed) {
       for (const slot of Combat.RANGED_SLOTS) {
         if (!relics[slot] || activeWeapon !== slot) continue;
@@ -5441,6 +5446,15 @@ class MapScene extends Phaser.Scene {
   // since every other damage source only makes the fight shorter, that
   // estimate is a true upper bound.
   startCombat(victim, opts = {}) {
+    // A Shadow Powder is a truce: no wheel spins up while it hides the player.
+    if (this.isShadowActive()) {
+      if (!opts.auto) {
+        const ps = this.playerScreen();
+        this.flash('The shadows hold your arm.', ps.x, ps.y + this.playerBodyDy());
+        this.hapticReject?.();
+      }
+      return false;
+    }
     // First melee the save ever starts tells its story - here in the one
     // lane both the tapped swing and the auto-engage flow through, fired
     // regardless of an owned sword: bare hands fight on the tier-0 rung too.
@@ -9532,10 +9546,11 @@ class MapScene extends Phaser.Scene {
     }
   }
 
-  // True while a Shadow Powder is active: the same in-memory minute the dragon
+  // True while a Shadow Powder is active: the same in-memory timer the dragon
   // keeps (this._shadowUntil, NOT persisted — a refresh ends it). wanderCreatures
-  // reads it to switch off every hostile's pursuit AND its hit; nothing the
-  // player swings or shoots is gated by it.
+  // reads it to switch off every hostile's pursuit AND its hit; startCombat and
+  // the ranged cadence read it too, so the player's own arm stays quiet for the
+  // spell.
   isShadowActive() {
     return (this._shadowUntil ?? 0) > Date.now();
   }
@@ -9580,6 +9595,9 @@ class MapScene extends Phaser.Scene {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'shadow_powder' || (sel.count ?? 0) <= 0) return false;
     this._shadowUntil = Date.now() + SHADOW_POWDER_MS;
+    // The truce ends the fight you are in: the melee wheel drops (the same
+    // cancel the stairs use); arrows already in the air finish their flight.
+    if (this._workProgress?.combat) this.cancelWorkProgress();
     return this._finishConsumable(
       '🌑 You cast the Shadow Powder',
       'The dark folds around you. Hungry eyes pass you by.',
@@ -12333,7 +12351,6 @@ class MapScene extends Phaser.Scene {
           } else {
             this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
           }
-          StoryEncounters.arm(this, house);
         });
       },
     });

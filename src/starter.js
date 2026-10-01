@@ -1919,8 +1919,9 @@
   // homeAllows), and — on a tap, never as a splash — the family's plea
   // (MemoryStory.HOME); the others speak through MemoryStory.npcDialogue.
   // WHEN each is here is the memory ledger's call (NPC.storyNeighbourDue —
-  // the warden from the first morning, the rest as memories return), so a
-  // new save has the one neighbour on screen; the arrivals pass
+  // the wanderer from the first morning, the rest as memories return), so a
+  // new save has the one neighbour on screen; a row that `arrives` another
+  // way (the survivor, through StoryEncounters) is never seated here; the arrivals pass
   // (NPC.tickArrivals) calls back here as the count grows, with `seating.
   // offscreen` so nobody is watched appearing. PLACED, like the greeter:
   // they belong to this player's starting area, so their ids are the starter
@@ -1953,7 +1954,7 @@
     for (const w of (entry.wildplants || [])) occupied.add(key(w.x, w.y));
     for (const c of entry.creatures) occupied.add(key(c.x, c.y));
     const opts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
-    const roles = (NPC.STORY_NEIGHBOURS || ['warden']).filter(role => !NPC.STORY_ROLES[role]?.radiusM);
+    const roles = (NPC.STORY_NEIGHBOURS || ['warden']).filter(role => !NPC.STORY_ROLES[role]?.radiusM && !NPC.STORY_ROLES[role]?.arrives);
     const seated = [];   // story neighbours' cells, present already or seated now
     for (const role of roles) {
       const c = entry.creatures.find(o => o.id === `npc_${role}_${tx}_${ty}`);

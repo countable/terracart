@@ -1,28 +1,43 @@
 (function () {
-  function scene() {
-    // Six restored: the fixed opening run plus two, the one the encounter
-    // arms on (StoryEncounters.ARM_AT_RESTORES); `d` is the one just rebuilt.
-    const s = { save: { restoredHouses: { a: 'blacksmith', b: 'trader', c: 'plain', e: 'market', f: 'plain', d: 'plain' }, caught: [] },
+  const remembered = n => Object.fromEntries(Array.from({ length: n }, (_, i) => [`m${i}`, 1]));
+  function scene(memories = StoryEncounters.armAtMemories()) {
+    // Maud's rescue arms on her row's memory gate (NPC.STORY_ROLES.witness).
+    const s = { save: { discovered: remembered(memories), restoredHouses: {}, caught: [] },
       depth: 0, cellM: 7, tileEdgeM: 224, startWorldM: { x: 0, y: 0 }, playerM: { x: 112, y: 112 },
       _dialogOpen: () => false, showMessageModal: p => s.lastDialog = p,
       addToInv: (id, n) => { const accepted = Inventory.add(s.save, id, n).accepted; s.gifts = (s.gifts || 0) + accepted; s.giftId = id; return accepted; } };
     return s;
   }
-  test('hunted-neighbour encounter arms only once, at the SIXTH rebuild', () => {
-    assert.eq(StoryEncounters.ARM_AT_RESTORES, 6, 'two restores after the opening run (blacksmith, trader, house, market)');
+  test('Maud\'s rescue arms only once, at her memory gate', () => {
+    assert.eq(StoryEncounters.armAtMemories(), 6, 'six memories (Oct 2026, owner\'s call)');
+    assert.eq(StoryEncounters.armAtMemories(), NPC.STORY_ROLES.witness.minMemories, 'the row owns the number');
+    const early = scene(5);
+    assert.falsy(StoryEncounters.arm(early), 'five memories: not yet');
+    early.save.restoredHouses = { a: 'plain', b: 'plain', c: 'plain', d: 'plain', e: 'plain', f: 'plain' };
+    assert.falsy(StoryEncounters.arm(early), 'rebuilt homes no longer arm it');
     const s = scene();
-    delete s.save.restoredHouses.d;
-    assert.falsy(StoryEncounters.arm(s, { id: 'd' }), 'five restored: not yet');
-    const four = scene(); four.save.restoredHouses = { a: 'blacksmith', b: 'trader', c: 'plain', d: 'market' };
-    assert.falsy(StoryEncounters.arm(four, { id: 'd' }), 'the fourth (the market) no longer arms it');
-    s.save.restoredHouses.d = 'plain';
-    assert.truthy(StoryEncounters.arm(s, { id: 'd' }));
+    assert.truthy(StoryEncounters.arm(s));
     const id = s.save.storyEncounter.enemyId;
-    assert.falsy(StoryEncounters.arm(s, { id: 'different' }));
+    assert.falsy(StoryEncounters.arm(s));
     assert.eq(s.save.storyEncounter.enemyId, id);
   });
+  test('Maud: the hunted neighbour is the survivor, and speaks as her once the seed is given', () => {
+    const s = scene(); StoryEncounters.arm(s);
+    const q = s.save.storyEncounter;
+    const maud = { id: q.npcId, kind: 'npc', x: 0, y: 0, ...NPC.storyNeighbour(q.npcId, 'witness') };
+    assert.eq(maud.name, 'Maud'); assert.eq(maud.roleLabel, 'Survivor');
+    const portrait = NPC.portrait; NPC.portrait = () => 'portrait';
+    try {
+      assert.truthy(StoryEncounters.interact(s, maud));
+      assert.eq(s.lastDialog.title, 'Maud · Survivor');
+      StoryEncounters.defeated(s, { id: q.enemyId });
+      StoryEncounters.interact(s, maud);
+      assert.eq(q.status, 'rewarded');
+      assert.falsy(StoryEncounters.interact(s, maud), 'after the gift her own dialogue speaks');
+    } finally { NPC.portrait = portrait; }
+  });
   test('hunted-neighbour gift requires its own archer and is exactly once across reload', () => {
-    const s = scene(); StoryEncounters.arm(s, { id: 'd' });
+    const s = scene(); StoryEncounters.arm(s);
     const q = s.save.storyEncounter, c = { id: q.npcId, name: 'Neighbour' };
     const portrait = NPC.portrait; NPC.portrait = () => 'portrait';
     try {
@@ -40,7 +55,7 @@
     } finally { NPC.portrait = portrait; }
   });
   test('hunted-neighbour full bag and a busy modal do not spend the gift', () => {
-    const s = scene(); StoryEncounters.arm(s, { id: 'd' });
+    const s = scene(); StoryEncounters.arm(s);
     const q = s.save.storyEncounter, c = { id: q.npcId, name: 'Neighbour' };
     StoryEncounters.defeated(s, { id: q.enemyId });
     s.addToInv = () => 0;
@@ -54,7 +69,7 @@
     } finally { NPC.portrait = portrait; }
   });
   test('hunted-neighbour spawn retries unavailable ground without losing the encounter', () => {
-    const s = scene(); StoryEncounters.arm(s, { id: 'd' });
+    const s = scene(); StoryEncounters.arm(s);
     s.cellAt = () => ({ loaded: false });
     StoryEncounters.tick(s, 1000);
     assert.falsy(s.save.storyEncounter.npc);
@@ -62,7 +77,7 @@
     assert.eq(s.save.storyEncounter.status, 'hunted');
   });
   test('hunted-neighbour pair survives tile rebuild without duplicates and respects Home', () => {
-    const s = scene(); StoryEncounters.arm(s, { id: 'd' });
+    const s = scene(); StoryEncounters.arm(s);
     const cache = WorldGen.tileCacheFor(0), old = Array.from(cache.entries());
     const N = 32;
     const makeEntry = () => ({ _spawned: true, cellsPerEdge: N,

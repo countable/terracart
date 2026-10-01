@@ -55,6 +55,7 @@
     'peach_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
     'peach_tree:4': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
     'chest:0': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 15 },
+    'quarry_equipment:0': { fw: 32, fh: 16, minX: 2, minY: 1, maxX: 31, maxY: 15 },
     'box:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
     'crystal_cluster:0': { fw: 16, fh: 16, minX: 1, minY: 2, maxX: 15, maxY: 14 },
     'mineralrock:168': { fw: 16, fh: 16, minX: 1, minY: 5, maxX: 16, maxY: 15 },
@@ -364,10 +365,36 @@
     { idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png' },
     { idle: 'npc_1_idle', walk: 'npc_1_walk', path: 'assets/NPC/Citizen_woman02_idle.png' },
     { idle: 'npc_2_idle', walk: 'npc_2_walk', path: 'assets/NPC/Citizen_woman03_idle.png' },
+    // The named trailer neighbours keep the citizen art, one sheet each and
+    // untinted, so each is recognisable; Tilly is the believer's sheet at
+    // CHILD_SCALE (NPC.STORY_ROLES artScale).
+    { role: 'warden', idle: 'npc_2_idle', walk: 'npc_2_walk', path: 'assets/NPC/Citizen_woman03_idle.png', tint: 0xffffff },
+    { role: 'witness', idle: 'npc_1_idle', walk: 'npc_1_walk', path: 'assets/NPC/Citizen_woman02_idle.png', tint: 0xffffff },
+    { role: 'believer', idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png', tint: 0xffffff },
+    { role: 'wanderer', idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png', tint: 0xffffff },
     { role: 'archaeologist', idle: 'orrin_idle', walk: 'orrin_walk', path: 'assets/NPC/Orrin_old_man_idle.png', cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY: 90 },
+    // Every neighbour role has its own look: one sheet per label, so a role
+    // shown in several zones (Peddler, Lamplighter) looks the same in each.
+    // tools/art/import_npc_art.py seats them in 4x4 cells of 48px and bakes
+    // the citizen palette into them; assets.js preloads them from here.
+    // `portraitY` lowers the smaller heads in the dialog portrait, as Orrin's.
+    ...[
+      ['scout', ['village'], 'wayfinder', 90], ['scout', ['farm'], 'fieldwalker', 90], ['scout', ['market'], 'town_guide', 99],
+      ['scout', ['woodland'], 'ranger', 90], ['scout', ['shrine'], 'shrine_warden', 90], ['scout', ['grove'], 'fox_tracker', 90],
+      ['merchant', ['village', 'market'], 'peddler', 90], ['merchant', ['farm'], 'seed_seller', 99],
+      ['trader', ['village'], 'barterer', 90], ['trader', ['farm'], 'harvest_trader', 99], ['trader', ['market'], 'market_trader', 99],
+      ['trader', ['woodland'], 'forager', 99], ['trader', ['shrine'], 'shrine_trader', 99], ['trader', ['grove'], 'fox_trader', 90],
+      ['scholar', ['village'], 'storykeeper', 99], ['scholar', ['woodland'], 'lorekeeper', 99], ['scholar', ['shrine'], 'shrine_lorekeeper', 99],
+      ['scholar', ['grove'], 'fox_storyteller', 90],
+      ['mason', ['village'], 'mason', 90], ['mason', ['farm'], 'barn_raiser', 99], ['mason', ['market'], 'stonemason', 99],
+      ['lamplighter', ['village', 'market'], 'lamplighter', 99],
+      ['keeper', ['shrine'], 'shrine_keeper', 99], ['keeper', ['grove'], 'den_keeper', 90],
+    ].map(([role, zones, slug, portraitY]) => ({ role, zones, idle: `npc_${slug}_idle`, walk: `npc_${slug}_walk`,
+      path: `assets/NPC/${slug}_idle.png`, cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY })),
   ];
   function npcSheet(c) {
-    return NPC_SHEETS.find(sheet => sheet.role && sheet.role === c.role) || NPC_SHEETS[c.npcVariant] || NPC_SHEETS[0];
+    return NPC_SHEETS.find(sheet => sheet.role && sheet.role === c.role && (!sheet.zones || sheet.zones.includes(c.zone)))
+      || NPC_SHEETS[c.npcVariant] || NPC_SHEETS[0];
   }
   function npcAppearance(c, now) {
     const sheets = npcSheet(c);
