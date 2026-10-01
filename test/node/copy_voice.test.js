@@ -436,10 +436,8 @@ test('copy: the Drink / Use descriptions omit tiers and keep numeric durations d
 
 test('map copy: the barrel, the bike rack and the page stones fit a map line', () => {
   const outcomes = [{ kind: 'empty' }, { kind: 'gold', amount: 1 }];
-  const coin = BARREL_LOOT.find((r) => r.kind === 'coin');
-  for (let n = coin.min; n <= coin.max; n++) outcomes.push({ kind: 'gold', amount: n });
-  for (const row of BARREL_LOOT) {
-    for (const id of row.ids || (row.id ? [row.id] : [])) outcomes.push({ kind: 'item', id, qty: 1 });
+  for (const row of [...BARREL_LOOT, ...CLAY_POT_LOOT]) {
+    for (const item of barrelLootPool(row)) outcomes.push({ kind: 'item', id: item.id, qty: 1 });
   }
   for (const got of outcomes) {
     const line = barrelFlash(got);

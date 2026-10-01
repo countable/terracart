@@ -1049,6 +1049,19 @@ CHESTS (POI-driven)
    minor/lowtier POIs; only loose supply crate labels stay plain white.
 
 ================================================================================
+BREAKABLE POTS AND BARRELS
+================================================================================
+ - Waste baskets, recycling points and generated breakables choose a stable
+   barrel or clay-pot appearance. That appearance also selects their loot table
+   (loot.js BARREL_ART / barrelProfile); each smash gives at most one item.
+ - Clay pots: 5% T1–T2 magic, 5% T2 produce, 10% one coin, 10% T1 seeds,
+   70% empty. Barrels: 10% supplies from all ordinary loot tiers, 10% T1–T2
+   minerals, 10% T1 produce, 70% empty. Item pools and drop weights come from
+   the shared item tables; exclusive finds stay in their own reward sources.
+ - Both use the crate restock ledger. POI density affects restock time, not
+   reward odds; generated breakables restock daily. ATM pots of gold are separate.
+
+================================================================================
 COIN-BURST POIs (ATM / bicycle parking)
 ================================================================================
  - ATM and bicycle_parking POIs render as tinted chests but DON'T give chest

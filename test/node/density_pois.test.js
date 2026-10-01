@@ -3,9 +3,8 @@
 //   • crates restock after density-scaled days (loot.js crateRestoreDays),
 //     off the day ledger that now keeps a week (macros.js markToday /
 //     daysSinceTaken / restockWaitMs);
-//   • bins and recycling points are BARRELS (loot.js isBarrel / rollBarrel /
-//     barrelEmptyP): smashed, often empty, emptier the denser, a coin / an
-//     apple / a torch or rope — never gear;
+//   • bins and recycling points are breakable barrels or clay pots, with
+//     separate loot profiles and a fixed 70% empty chance;
 //   • a bike rack lends the stick walk BIKE_RACK_SPEED_MUL for BIKE_RACK_MS
 //     through the ONE speed lane (app.js _walkRelics → items.js
 //     steerSpeedMul), once a UTC day;
@@ -82,7 +81,7 @@
   });
 
   // ── Barrels ──────────────────────────────────────────────────────────────
-  test('barrel: clay pots keep their intact/broken pair and share the same rewards and restock', () => {
+  test('barrel: clay pots keep their intact/broken pair, distinct rewards and shared restock', () => {
     const seen = new Set();
     for (let i = 0; i < 40; i++) {
       const b = poi('waste_basket', { id: `container_${i}`, poiDensity: 50 });
@@ -97,8 +96,7 @@
       assert.truthy(restocks(b), 'both use the recurring container ledger');
       assert.eq(crateRestoreDays(b), 2, 'same density-based restock');
       assert.eq(rollBarrel(b, () => 0).kind, 'empty', 'empty roll is still empty');
-      const rolls = [0.99, 0.6];
-      assert.eq(rollBarrel(b, () => rolls.shift()).id, 'apple', 'the same low-grade loot roll');
+      assert.eq(barrelProfile(b).texKey, look.texKey, 'loot profile matches visible art');
     }
     assert.eq([...seen].sort().join(','), 'barrel,clay_pot', 'both cosmetic pairs occur');
   });
@@ -118,39 +116,43 @@
     assert.falsy(isBarrel(poi('bus')), 'a bus stop is no barrel');
   });
 
-  test('barrel: often empty — 60% alone, rising to 90% at 25 of its kind', () => {
-    assert.eq(BARREL_EMPTY_P_BASE, 0.6);
-    assert.eq(BARREL_EMPTY_P_DENSE, 0.9);
-    assert.eq(barrelEmptyP(1), 0.6, 'a lone bin');
-    assert.eq(barrelEmptyP(CHEST_DENSITY_T1_AT), 0.9, 'dense: the tier table\'s 25');
-    assert.eq(barrelEmptyP(500), 0.9, 'never past the dense rate');
-    let prev = 0;
-    for (let n = 1; n <= 40; n++) { const p = barrelEmptyP(n); assert.gte(p, prev, 'monotone'); prev = p; }
-    // The roll honours it (seeded, generous band).
-    let seed = 7;
-    const rng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x80000000; };
-    for (const n of [1, 30]) {
-      let empty = 0;
-      for (let i = 0; i < 4000; i++) if (rollBarrel({ poiDensity: n }, rng).kind === 'empty') empty++;
-      assert.inRange(empty / 4000, barrelEmptyP(n) - 0.03, barrelEmptyP(n) + 0.03, `empty share at ${n}`);
+  test('breakables: exact category odds, tiers and density-independent loot', () => {
+    const expected = {
+      barrel: { empty: 700, supply: 100, mineral: 100, produce: 100 },
+      clay_pot: { empty: 700, magic: 50, produce: 50, coin: 100, seed: 100 },
+    };
+    for (const art of BARREL_ART) {
+      const o = Array.from({ length: 40 }, (_, i) => ({ id: `container_${i}` }))
+        .find(o => barrelProfile(o).texKey === art.texKey);
+      for (const density of [1, 50, 500]) {
+        const counts = {};
+        for (let i = 0; i < 1000; i++) {
+          let first = true;
+          const rng = () => first ? (first = false, (i + 0.5) / 1000) : 0.5;
+          const result = rollBarrel({ ...o, poiDensity: density }, rng);
+          let category = result.kind;
+          if (result.kind === 'gold') { category = 'coin'; assert.eq(result.amount, 1); }
+          if (result.kind === 'item') {
+            const item = ITEM_BY_ID[result.id]; category = item.kind;
+            assert.eq(result.qty, 1);
+            const row = art.loot.find(row => row.kind === category);
+            if (row.ids) assert.includes(row.ids, item.id);
+            else assert.inRange(item.baseTier, row.minTier ?? 1, row.maxTier ?? Infinity);
+          }
+          counts[category] = (counts[category] || 0) + 1;
+        }
+        assert.eq(JSON.stringify(counts), JSON.stringify(expected[art.texKey]), art.texKey + ' odds at density ' + density);
+      }
+      for (const row of art.loot.filter(row => !['empty', 'coin'].includes(row.kind))) {
+        const pool = barrelLootPool(row);
+        assert.gt(pool.length, 0, 'every promised category has eligible items');
+        for (const item of pool) {
+          assert.eq(item.kind, row.kind);
+          assert.falsy(item.uniqueJewelry || item.caveOnly || item.cooked || item.shiny);
+          if (!row.ids) assert.inRange(item.baseTier, row.minTier ?? 1, row.maxTier ?? Infinity);
+        }
+      }
     }
-  });
-
-  test('barrel: holds only a few coins, an apple, or a torch / spear — never gear', () => {
-    let seed = 11;
-    const rng = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x80000000; };
-    const seen = new Set();
-    for (let i = 0; i < 6000; i++) {
-      const r = rollBarrel({ poiDensity: 1 }, rng);
-      if (r.kind === 'empty') continue;
-      if (r.kind === 'gold') { assert.inRange(r.amount, 1, 3, 'a few coins'); assert.falsy(r.slot, 'plain cash'); seen.add('coin'); continue; }
-      assert.eq(r.kind, 'item', 'an item otherwise');
-      assert.includes(['apple', 'torch', 'spear'], r.id, 'only these');
-      assert.eq(r.qty, 1, 'one of it');
-      assert.truthy(ITEM_BY_ID[r.id], `${r.id} is a real item`);
-      seen.add(r.id);
-    }
-    assert.eq([...seen].sort().join(','), 'apple,coin,spear,torch', 'every outcome turns up');
   });
 
   test('barrel: a smash pays once, stands smashed while bare, and says what came out', () => {

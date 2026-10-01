@@ -492,17 +492,19 @@ function wValueByType(entries) {
     const listPrice = Math.max(1, PRICES[id] ?? 1);
     return listPrice - ShopsMath.standPrice(emptySave, listPrice);
   }
-  // One smash of a barrel at `count` of its kind: loot.js BARREL_LOOT's
-  // expectation, valued at list price, times the chance it is not empty.
-  function barrelEV(count) {
-    const total = BARREL_LOOT.reduce((s, r) => s + r.w, 0);
-    let full = 0;
-    for (const r of BARREL_LOOT) {
-      const v = r.kind === 'coin' ? (r.min + r.max) / 2
-        : (r.ids || [r.id]).reduce((s, id) => s + (itemValue(id) || 0), 0) / (r.ids || [r.id]).length;
-      full += (r.w / total) * v;
-    }
-    return (1 - barrelEmptyP(count)) * full;
+  // Value the actual object's pot/barrel table, including its empty row and
+  // the same item pools and drop weights used by rollBarrel.
+  function barrelEV(o) {
+    const loot = barrelProfile(o).loot;
+    const total = loot.reduce((s, r) => s + r.w, 0);
+    return loot.reduce((sum, r) => {
+      if (r.kind === 'empty') return sum;
+      if (r.kind === 'coin') return sum + r.w / total * r.amount;
+      const pool = barrelLootPool(r);
+      const weight = pool.reduce((s, item) => s + (item.dropWeight ?? 1), 0);
+      const value = weight ? pool.reduce((s, item) => s + (item.dropWeight ?? 1) * (itemValue(item.id) || 0), 0) / weight : 0;
+      return sum + r.w / total * value;
+    }, 0);
   }
 
   const rows = new Map(); // label -> { count, oneTimeSum, recurringSum, cadence }
@@ -540,7 +542,11 @@ function wValueByType(entries) {
       let look; try { look = chestLook(o); } catch (err) { continue; }
       if (look.coin) { bump('Pot of gold (coin burst, daily)', 'recurring', potCoinsFor(o.poiDensity)); continue; }
       if (look.bike) { bump('Bike rack (speed loan, daily)', 'recurring', 0); continue; }
-      if (look.barrel) { bump('Barrel (per day)', 'recurring', barrelEV(o.poiDensity) / crateRestoreDays(o)); continue; }
+      if (look.barrel) {
+        const name = barrelProfile(o).name;
+        bump(name[0].toUpperCase() + name.slice(1) + ' (per day)', 'recurring', barrelEV(o) / crateRestoreDays(o));
+        continue;
+      }
       if (look.macro) {
         const kind = look.macro.kind;
         if (kind === 'chapel' && typeof Macros !== 'undefined' && Macros.chapelRollTier) {
@@ -604,6 +610,7 @@ function wValueByType(entries) {
 const WVALUE_ORDER = [
   (k) => k === 'Crate (tier-1 POI chest, per day)',
   (k) => k === 'Barrel (per day)',
+  (k) => k === 'Clay pot (per day)',
   (k) => k.startsWith('Trunk chest — '),
   (k) => k === 'Wagon (bandit stop)',
   (k) => k === 'Zone-nexus chest (bonus tier)',

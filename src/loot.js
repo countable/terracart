@@ -17,8 +17,8 @@
 //   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_CAVE_SKIP_CATEGORIES,
 //   chestDensityTier, chestBaseTier, chestTierDepthBonus, chestTier,
 //   chestMirrorsUnderground, CRATE_RESTORE_PER, CRATE_RESTORE_MAX_DAYS,
-//   crateRestoreDays, BARREL_CLASSES, BARREL_EMPTY_P_BASE,
-//   BARREL_EMPTY_P_DENSE, BARREL_EMPTY_P_GENERATED, BARREL_LOOT, barrelEmptyP, rollBarrel, isBarrel,
+//   crateRestoreDays, BARREL_CLASSES, BARREL_LOOT, CLAY_POT_LOOT,
+//   barrelProfile, barrelLootPool, rollBarrel, isBarrel,
 //   POT_COINS_BY_DENSITY, potCoinsFor, isPotOfGold, isBikeRack, barrelFlash,
 //   bikeRackFlash
 //   STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM, STAND_CLASS_ITEM,
@@ -284,7 +284,7 @@ function padShapeKeyForPoi(poiClass) {
 // (1, then ×2, then ×2.5, then ×5), so the common classes of a dense city
 // (bins, bike racks, cafés, shops) spread over T1-T2 and the singular ones
 // (a museum, a garden, the one pharmacy) keep the violet and blue gems.
-// Barrels read CHEST_DENSITY_T1_AT too (barrelEmptyP), so "dense" is one
+// Density also controls recurring container restock times, so "dense" is one
 // number both read.
 const CHEST_DENSITY_TIERS = [
   { atLeast: 25, tier: 1 },
@@ -400,59 +400,46 @@ function crateRestoreDays(o) {
   return Math.max(1, Math.min(CRATE_RESTORE_MAX_DAYS, Math.floor(n / CRATE_RESTORE_PER)));
 }
 
-// ── BARRELS: the bins and recycling points you SMASH (Sep 2026) ────────────
-// A waste_basket / recycling POI is not a chest with a gem: it is a barrel,
-// the crate's cheap cousin. It restocks like a crate (crateRestoreDays, the
-// day ledger), wears a stable barrel or clay-pot pair from BARREL_ART (one
-// art per state — render.js), and holds very little: often NOTHING, and the
-// denser its kind on the tile the likelier (barrelEmptyP: BARREL_EMPTY_P_BASE
-// for a lone bin, rising linearly to BARREL_EMPTY_P_DENSE at
-// CHEST_DENSITY_T1_AT of its kind — the same "dense" the tier table uses).
-// When it holds something it is ONE of BARREL_LOOT: a few coins, an apple,
-// or — rarely — one cheap supply (a torch or a spear). Never gear, never a
-// tier roll: a barrel does not read chestTier at all. Rolled per smash
-// (rollBarrel), like every drop roll — only WHERE the barrel stands is the
-// world's.
-// GENERATED BARRELS (owner, Oct 2026) are the same thing without a POI: a
-// chest stamped `barrel: true` — strewn over the first cave level
-// (worldgen.js caveBarrels) and dressed into the seep and the quarries
-// (docs/zone-variants.json's `barrel` material) — on the same smash, the same
-// day ledger (a lone bin's daily restock) and the same loot roll, empty
-// BARREL_EMPTY_P_GENERATED of the time: they have no density to read.
-// Cosmetic pairs share the barrel's rewards and restock ledger. Hash only the
-// generated identity, so neither location overlays nor smashing changes the pair.
+// ── BREAKABLE CONTAINERS ────────────────────────────────────────────────
+// Appearance and loot share a stable identity. Both use the crate restock
+// ledger, but density changes only restock time, never these drop chances.
+// Generated containers (barrel: true) use the same profiles as bin POIs.
+const BARREL_LOOT = [
+  { kind: 'empty', w: 0.7 },
+  { kind: 'supply', w: 0.1 },
+  { kind: 'mineral', w: 0.1, minTier: 1, maxTier: 2 },
+  { kind: 'produce', w: 0.1, minTier: 1, maxTier: 1 },
+];
+const CLAY_POT_LOOT = [
+  { kind: 'empty', w: 0.7 },
+  { kind: 'magic', w: 0.05, minTier: 1, maxTier: 2 },
+  { kind: 'produce', w: 0.05, minTier: 2, maxTier: 2 },
+  { kind: 'coin', w: 0.1, amount: 1 },
+  { kind: 'seed', w: 0.1, minTier: 1, maxTier: 1 },
+];
 const BARREL_ART = [
-  { texKey: 'barrel', smashedKey: 'barrel_smashed', name: 'barrel' },
-  { texKey: 'clay_pot', smashedKey: 'clay_pot_smashed', name: 'clay pot' },
+  { texKey: 'barrel', smashedKey: 'barrel_smashed', name: 'barrel', loot: BARREL_LOOT },
+  { texKey: 'clay_pot', smashedKey: 'clay_pot_smashed', name: 'clay pot', loot: CLAY_POT_LOOT },
 ];
 const BARREL_CLASSES = new Set(['waste_basket', 'recycling']);
-const BARREL_EMPTY_P_BASE = 0.6;
-const BARREL_EMPTY_P_DENSE = 0.9;
-const BARREL_EMPTY_P_GENERATED = 0.7;
-function barrelEmptyP(count) {
-  const n = Math.max(1, Math.floor(Number(count) || 1));
-  const f = Math.min(1, (n - 1) / (CHEST_DENSITY_T1_AT - 1));
-  return BARREL_EMPTY_P_BASE + (BARREL_EMPTY_P_DENSE - BARREL_EMPTY_P_BASE) * f;
+function barrelProfile(o) {
+  return BARREL_ART[o?.id == null ? 0 : fnv1a(String(o.id) + '#barrel-art') % BARREL_ART.length];
 }
-// What a barrel that is NOT empty holds — weights re-normalised.
-const BARREL_LOOT = [
-  { kind: 'coin',   w: 0.5, min: 1, max: 3 },
-  { kind: 'apple',  w: 0.4, id: 'apple' },
-  { kind: 'supply', w: 0.1, ids: ['torch', 'spear'] },
-];
-// One smash of barrel `o`: { kind: 'empty' } | { kind: 'gold', amount } |
-// { kind: 'item', id, qty: 1 }. `rng` defaults to Math.random.
+// Reuse the ordinary loot registry so crafted and exclusive finds stay excluded.
+function barrelLootPool(row) {
+  const ids = row.ids || Object.entries(ITEMS_BY_CLASS_TIER[row.kind] || {})
+    .filter(([tier]) => Number(tier) >= (row.minTier ?? 1) && Number(tier) <= (row.maxTier ?? Infinity))
+    .flatMap(([, ids]) => ids);
+  return ids.map(id => ITEM_BY_ID[id]).filter(item => item && !item.uniqueJewelry);
+}
+// One smash: empty, one coin, or one item within the profile's tier bounds.
 function rollBarrel(o, rng) {
   const r = typeof rng === 'function' ? rng : Math.random;
-  const pEmpty = (o && o.barrel) ? BARREL_EMPTY_P_GENERATED : barrelEmptyP(o && o.poiDensity);
-  if (r() < pEmpty) return { kind: 'empty' };
-  const total = BARREL_LOOT.reduce((s, row) => s + row.w, 0);
-  let u = r() * total;
-  let row = BARREL_LOOT[BARREL_LOOT.length - 1];
-  for (const cand of BARREL_LOOT) { if (u < cand.w) { row = cand; break; } u -= cand.w; }
-  if (row.kind === 'coin') return { kind: 'gold', amount: row.min + Math.floor(r() * (row.max - row.min + 1)) };
-  if (row.kind === 'apple') return { kind: 'item', id: row.id, qty: 1 };
-  return { kind: 'item', id: row.ids[Math.floor(r() * row.ids.length)], qty: 1 };
+  const row = weightedPickBy(barrelProfile(o).loot, row => row.w, r);
+  if (row.kind === 'empty') return { kind: 'empty' };
+  if (row.kind === 'coin') return { kind: 'gold', amount: row.amount };
+  const item = weightedPickBy(barrelLootPool(row), item => item.dropWeight ?? 1, r);
+  return item ? { kind: 'item', id: item.id, qty: 1 } : { kind: 'empty' };
 }
 // The one map line a smash prints (≤ MAP_MSG_MAX): what came out, or that
 // nothing did — the real quantity, never a guess.
@@ -889,7 +876,7 @@ function chestLook(o) {
   const coin = isPotOfGold(o);
   const bike = !coin && isBikeRack(o);
   const barrel = !coin && !bike && isBarrel(o);
-  const barrelArt = barrel ? BARREL_ART[o.id == null ? 0 : fnv1a(String(o.id) + '#barrel-art') % BARREL_ART.length] : null;
+  const barrelArt = barrel ? barrelProfile(o) : null;
   const special = coin || bike || barrel;
   // Starter supply crates always use the box sprite; so does a tier-1 chest.
   const box = !!o.quarryCrate || !!o.crate

@@ -500,7 +500,7 @@
       "style": "Strong",
       "palette": "Near palette",
       "context": "Lootable barrel variant",
-      "note": "Intact clay pot uses the existing barrel loot and restock; pot_smashed.png is its opened state."
+      "note": "Intact clay pot uses its own loot table and the shared barrel restock; pot_smashed.png is its opened state."
     }
   },
   "worldStates": [
@@ -649,7 +649,7 @@
           "rust",
           "earth"
         ],
-        "treatment": "Intact clay pot before opening. Mostly empty; occasional low-grade coins, apple or supply. Muted terracotta palette.",
+        "treatment": "Intact clay pot before opening. Mostly empty; occasional magic, produce, a coin or seeds. Muted terracotta palette.",
         "previewMaterial": "plain",
         "applied": true
       }
