@@ -223,6 +223,8 @@ const ASSETS = {
   // on a cave floor to be picked up (worldgen.js caveFloorTorches →
   // CROP_SPRITE.torch). Not the wall `torch` stake below, which is a light.
   icon_torch:  { kind: 'spritesheet', path: 'assets/Icons/Items/Torch.png', frameWidth: 16, frameHeight: 16 },
+  // Shared inventory and projectile art: frame 0 faces right, frame 1 down.
+  icon_spear:  { kind: 'spritesheet', path: 'assets/Icons/Items/Spear.png', frameWidth: 16, frameHeight: 16 },
   // Orchard fruit icons — 32×16 each, two 16×16 frames (frame 0 is the whole
   // fruit; frame 1 a slice). These are the inventory icons (items.js
   // MINERAL_ICON_SHEET), loaded as WORLD textures too because a bearing fruit
