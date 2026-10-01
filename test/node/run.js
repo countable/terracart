@@ -1397,6 +1397,10 @@ ctx.webpDims = (rel) => {
 // two halves of that handshake against each other; nothing else can, because
 // each half is unreachable from the other's language.
 ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+// The browser harness page, same deal: harness_scripts.test.js pins its
+// script list against index.html's (the harness boots the real page, and a
+// module missing here is how the whole browser suite once went dark).
+ctx.HARNESS_HTML_SRC = fs.readFileSync(path.join(ROOT, 'test/harness.html'), 'utf8');
 // The Kelowna 3×3 MVT fixture tiles (test/fixtures/<tx>_<ty>.pbf), raw bytes
 // keyed '<tx>_<ty>' — the vm has no fs. zones.test.js decodes them (MVT) to
 // pin the influence-zone field's seam determinism on real OpenFreeMap data.
