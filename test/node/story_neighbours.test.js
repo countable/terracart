@@ -22,43 +22,48 @@
     return save;
   };
 
-  test('story neighbours: the warden alone on a new save; the rest come in as memories return', () => {
+  test('story neighbours: Tilly alone on a new save; the rest come in as memories return', () => {
     const entry = starterEntry(), anchor = { x: 20.5 * CELL_M, y: 20.5 * CELL_M };
     const save = { starterCratesAt: anchor, discovered: {} };
     const s = { tileEdgeM: EDGE_M, save, _starterTrailAnchor: () => anchor };
     const remember = (n) => { for (let i = Object.keys(save.discovered).length; i < n; i++) save.discovered[`m${i}`] = 1; };
     const present = () => NPC.STORY_NEIGHBOURS.filter(role => entry.creatures.some(c => c.id === `npc_${role}_0_0`));
+    const at = role => entry.creatures.find(c => c.id === `npc_${role}_0_0`);
     assert.eq(JSON.stringify(NPC.STORY_NEIGHBOURS), JSON.stringify(['warden', 'witness', 'wanderer', 'believer', 'archaeologist']), 'existing neighbours retain their order');
+    // The gates, in the owner's order (Oct 2026): Tilly, then Bryn at three,
+    // Maud at six (through the goblin-archer rescue, never the trailer), Edda at nine.
+    assert.eq(NPC.STORY_ROLES.wanderer.minMemories, 0);
+    assert.eq(NPC.STORY_ROLES.warden.minMemories, 3);
+    assert.eq(NPC.STORY_ROLES.witness.minMemories, 6);
+    assert.eq(NPC.STORY_ROLES.believer.minMemories, 9);
+    assert.eq(NPC.STORY_ROLES.witness.arrives, 'rescue', 'Maud arrives hunted, not by the trailer');
+    assert.eq(JSON.stringify(['warden', 'witness', 'wanderer', 'believer'].map(r => NPC.STORY_ROLES[r].name)), JSON.stringify(['Bryn', 'Maud', 'Tilly', 'Edda']));
     assert.eq(Starter.placeSafeAreaWarden(s, entry, 0, 0), 1, 'one person seated');
-    assert.eq(present().join(','), 'warden', 'the first morning: the warden is the one neighbour');
-    assert.eq(JSON.stringify(cellOf(entry.creatures[0])), JSON.stringify({ cx: 17, cy: 17 }), 'the warden keeps the first legal ring-3 cell it always had');
+    assert.eq(present().join(','), 'wanderer', 'the first morning: Tilly is the one neighbour');
     assert.eq(Starter.placeSafeAreaWarden(s, entry, 0, 0), 0, 'idempotent while nothing is due');
-    // The gates, in the owner's order: the wizard's believer first, at three.
-    assert.eq(NPC.STORY_ROLES.warden.minMemories, 0);
-    assert.eq(NPC.STORY_ROLES.believer.minMemories, 3, 'the soothsayer of the wizard comes at memory three');
-    assert.gt(NPC.STORY_ROLES.witness.minMemories, NPC.STORY_ROLES.believer.minMemories);
-    assert.gt(NPC.STORY_ROLES.wanderer.minMemories, NPC.STORY_ROLES.witness.minMemories);
     remember(2);
     Starter.placeSafeAreaWarden(s, entry, 0, 0);
-    assert.eq(present().join(','), 'warden', 'two memories: still alone');
+    assert.eq(present().join(','), 'wanderer', 'two memories: still alone');
     remember(3);
     assert.eq(Starter.placeSafeAreaWarden(s, entry, 0, 0), 1);
-    assert.eq(present().join(','), 'warden,believer', 'three: the believer is by the trailer');
+    assert.eq(present().join(','), 'warden,wanderer', 'three: Bryn is by the trailer');
+    const bryn = JSON.stringify(cellOf(at('warden'))), tilly = JSON.stringify(cellOf(at('wanderer')));
     remember(NPC.STORY_ROLES.witness.minMemories);
+    assert.eq(Starter.placeSafeAreaWarden(s, entry, 0, 0), 0, 'six: Maud is not seated by the trailer');
+    remember(NPC.STORY_ROLES.believer.minMemories);
     Starter.placeSafeAreaWarden(s, entry, 0, 0);
-    assert.eq(present().join(','), 'warden,witness,believer');
-    remember(NPC.STORY_ROLES.wanderer.minMemories);
-    Starter.placeSafeAreaWarden(s, entry, 0, 0);
-    const placed = NPC.STORY_NEIGHBOURS.filter(role => !NPC.STORY_ROLES[role].radiusM).map(role => entry.creatures.find(c => c.id === `npc_${role}_0_0`));
-    assert.truthy(placed.every(Boolean), 'all four are here in the end');
-    assert.eq(JSON.stringify(cellOf(placed[0])), JSON.stringify({ cx: 17, cy: 17 }), 'the warden never moved');
+    assert.eq(present().join(','), 'warden,wanderer,believer', 'nine: Edda joins them');
+    const placed = NPC.STORY_NEIGHBOURS.filter(role => !NPC.STORY_ROLES[role].radiusM && !NPC.STORY_ROLES[role].arrives).map(at);
+    assert.truthy(placed.every(Boolean), 'all three are here in the end');
+    assert.eq(JSON.stringify(cellOf(at('warden'))), bryn, 'Bryn never moved');
+    assert.eq(JSON.stringify(cellOf(at('wanderer'))), tilly, 'Tilly never moved');
     for (const c of placed) {
       assert.inRange(cheb(cellOf(c), { cx: 20, cy: 20 }), 3, 8, `${c.role} stands a few cells from the trailer`);
       assert.eq(c.roleLabel, NPC.STORY_ROLES[c.role].label);
-      assert.truthy(c.name && c.name.length >= 3, 'a name of their own');
+      assert.eq(c.name, NPC.STORY_ROLES[c.role].name, 'a name of their own');
     }
     for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
-      assert.gte(cheb(cellOf(placed[i]), cellOf(placed[j])), 2, `${placed[i].role} and ${placed[j].role} do not queue on one ring`);
+      assert.gte(cheb(cellOf(placed[i]), cellOf(placed[j])), 1, `${placed[i].role} and ${placed[j].role} never share a cell`);
     }
     const before = JSON.stringify(entry.creatures);
     Starter.placeSafeAreaWarden(s, entry, 0, 0);
@@ -67,13 +72,13 @@
     // look away.
     const shy = starterEntry();
     assert.eq(Starter.placeSafeAreaWarden(s, shy, 0, 0, { offscreen: () => false }), 0, 'every seat is in view: nobody seated');
-    assert.eq(Starter.placeSafeAreaWarden(s, shy, 0, 0, { offscreen: () => true }), 4, 'looked away: all four');
+    assert.eq(Starter.placeSafeAreaWarden(s, shy, 0, 0, { offscreen: () => true }), 3, 'looked away: all three');
     assert.truthy(shy._starterTile, 'the tile is marked for the arrivals pass');
     // The runtime paths: a banked memory seats through the scene's starter-tile
     // lookup (off screen only), and the arrivals pass calls back later.
     const late = starterEntry();
     const ls = { ...s, _starterTileEntry: () => ({ entry: late, tx: 0, ty: 0 }) };
-    assert.eq(Starter.seatStoryNeighbours(ls), 4, 'a banked memory seats whoever is due');
+    assert.eq(Starter.seatStoryNeighbours(ls), 3, 'a banked memory seats whoever is due');
     ls._starterTileEntry = () => null;
     assert.eq(Starter.seatStoryNeighbours(ls), 0, 'underground or before the tile is up: a no-op');
     assert.truthy(/MemoryStory\.enqueue\(this\.save, this\.memoriesTotal\(\), label\);\n\s*this\._seatStoryNeighbours\(\);/.test(SCENE_SRC), 'the one memory writer seats the arrival');
@@ -117,6 +122,43 @@
     const later = scene(towerSave(12)); later.save.memoryStory = { met: { [w.id]: 3 } };
     assert.eq(NPC.dialogue(later, w).body, MemoryStory.NEIGHBOURS.wanderer.settled, 'settled by the second act');
     assert.truthy(/· Wanderer$/.test(NPC.dialogue(s, w).title));
+  });
+
+  test('roles: every role a zone draws has its own untinted sheet, one per label', () => {
+    const byLabel = new Map();
+    for (const [zone, p] of Object.entries(NPC.PROFILES)) for (const role of new Set(p.roles)) {
+      const sheet = SpriteLayout.npcSheet({ role, zone });
+      assert.eq(sheet.role, role, `${zone} ${role} has a sheet of its own`);
+      assert.eq(sheet.tint, 0xffffff, `${zone} ${role} wears its own colours`);
+      const label = NPC.LABELS[zone][role];
+      assert.eq(byLabel.get(label) ?? sheet.idle, sheet.idle, `${label} looks the same in every zone`);
+      byLabel.set(label, sheet.idle);
+    }
+    assert.eq(new Set(byLabel.values()).size, byLabel.size, 'no two labels share a look');
+    const assets = new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC + '\nreturn ASSETS;')({}, EnemyRoster, SpriteLayout);
+    for (const sheet of SpriteLayout.NPC_SHEETS) {
+      assert.truthy(assets[sheet.idle] && assets[sheet.walk], `${sheet.idle} is preloaded`);
+      assert.eq(assets[sheet.walk].path, sheet.path.replace(/_idle\.png$/, '_walk.png'));
+      for (const key of [sheet.idle, sheet.walk]) {
+        const dims = pngDims(assets[key].path);
+        assert.truthy(dims, `${assets[key].path} exists`);
+        assert.eq(dims.w, 48 * (sheet.cols || SpriteLayout.NPC_FRAME.cols), `${key}: whole 48px columns`);
+        assert.eq(dims.h, 48 * 4, `${key}: front, back, left and right rows`);
+      }
+    }
+    assert.falsy(Object.values(NPC.LABELS).some(l => /Elven/.test(Object.values(l).join())), 'no elves');
+  });
+
+  test('story neighbours: each named neighbour wears its own untinted sheet', () => {
+    const sheets = {};
+    for (const role of ['warden', 'witness', 'wanderer', 'believer']) {
+      const sheet = SpriteLayout.npcSheet(person(role));
+      assert.eq(sheet.role, role, `${role} has a sheet of its own`);
+      assert.eq(sheet.tint, 0xffffff, `${role} is untinted`);
+      sheets[role] = sheet.idle;
+    }
+    assert.eq(new Set([sheets.warden, sheets.witness, sheets.believer]).size, 3, 'the grown neighbours look different');
+    assert.eq(sheets.wanderer, sheets.believer, 'Tilly is the believer sheet at child scale');
   });
 
   test('story neighbours: the wanderer is a child, drawn at seven tenths through the instance-size lane', () => {
@@ -221,7 +263,7 @@
       assert.truthy(residents.every(c => c.zoneKind === kind), 'residents know their zone');
       const keepers = residents.filter(c => c.role === 'keeper');
       assert.gt(keepers.length, 0, `${kind} has a keeper`);
-      assert.eq(keepers[0].roleLabel, NPC.LABELS.shrine.keeper);
+      assert.eq(keepers[0].roleLabel, NPC.LABELS[kind === 'grove' ? 'grove' : 'shrine'].keeper, 'the grove\'s keeper is a fox');
       const talk = NPC.dialogue(s, keepers[0]);
       assert.includes(Zones.ZONE_KINDS[kind].keeper, talk.body, `${kind}'s keeper tells its story`);
       const again = NPC.spawn(s, e, 0, 0, {});

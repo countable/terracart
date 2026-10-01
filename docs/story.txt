@@ -415,13 +415,15 @@ IMPLEMENTATION STATUS
   The split changes neither existing numeric gates nor save keys by itself.
 
 ACT 1 — THE MENDING (memories 0–8, before the tower)
-  The Hood wakes at the trailer with nothing. The warden explains the safe
-  area (nobody knows why only weak monsters live here; the truth: the Hood's
-  own leftover magic, which Tim will later learn to read). Neighbours return
-  as memories do. The story neighbours by the trailer arrive by memory count:
-  the believer (lauds the wizard: "restore his tower and he will save us"),
-  the survivor (tells of the night the roofs fell, names the Warmonger), the
-  child (homeless until the next restoration).
+  The Hood wakes at the trailer with nothing. Tilly, a child, is the only
+  neighbour there (homeless until the next restoration after they meet).
+  Neighbours return as memories do. The story neighbours arrive by memory
+  count: Bryn the warden at three explains the safe area on first meeting
+  (nobody knows why only weak monsters live here; the truth: the Hood's own
+  leftover magic, which Tim will later learn to read); Maud the survivor at
+  six, met hunted by a goblin archer, who stays where she is saved and tells
+  of the night the roofs fell and names the Warmonger; Edda the believer at
+  nine (lauds the wizard: "restore his tower and he will save us").
   Memory 3: a bell in the smoke, a child held, the name Warmonger. Memory 6: a
   still figure watching from a window (Tim, who was there). Memory 9: the
   rumour of a wise man "who may know why the old roads feel familiar".
@@ -595,6 +597,8 @@ Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
 - TIAMAT, "Tim". AYO. The Hood (the player is never named; "the Hood" in
   prose; survivors say "the hooded one", "stranger", "neighbour").
 - ORRIN: working name for the dragon archaeologist.
+- The story neighbours: TILLY (the child), BRYN (the warden), MAUD (the
+  survivor), EDDA (the believer).
 - The FROST DRAGON QUEEN: Tiamat's late wife; personal name still open.
 - The Warmonger: the title, never a name.
 - The Breaking: the survivors' word for fifty years ago.

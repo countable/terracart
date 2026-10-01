@@ -253,8 +253,8 @@ ONBOARDING (the first session)
    tile's ordinary residents RETURN_PER_MEMORY (2) per memory, seated in
    Home's ring or within LINGER_CELLS of a restored house (NPC.arrivals /
    tickArrivals — off screen, never watched appearing; a tile with nothing
-   restored gets nobody back). Zone keepers never left; the tower's elves
-   arrive with its restoration.
+   restored gets nobody back). Zone keepers never left; the tower's shrine
+   neighbours arrive with its restoration; groves hold the fox people.
  - HOW-TO-PLAY CARD: shown once over the LIVE map on first arrival (after that
    reload), covering movement (you walk; WASD on desktop), reach, the farming
    loop, energy and home-only selling. Reopenable any time from ☰ "How to play".

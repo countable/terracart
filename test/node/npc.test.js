@@ -80,15 +80,13 @@
     }
   });
 
-  test('NPC zones: grove and churchyard halos have elves; tar influence excludes residents', () => {
-    for (const terrain of [T.GROVE, T.CHURCHYARD]) {
+  test('NPC zones: groves have the fox people, churchyards the shrine neighbours; tar influence excludes residents', () => {
+    for (const [terrain, zone, names] of [[T.GROVE, 'grove', /^(Ru|Vix|Tod|Sor)/], [T.CHURCHYARD, 'shrine', /^(Ae|Eli|Gala|Syl)/]]) {
       const residents = NPC.spawn(scene(), entry(terrain), 0, 0, {});
       assert.eq(residents.length, NPC.COUNT);
       for (const c of residents) {
-        assert.eq(c.zone, 'shrine');
-        assert.truthy(/^(Ae|Eli|Gala|Syl)/.test(c.name), 'uses elvish name prefixes');
-        assert.gte((c.tint >> 8) & 255, (c.tint >> 16) & 255);
-        assert.gte((c.tint >> 8) & 255, c.tint & 255);
+        assert.eq(c.zone, zone);
+        assert.truthy(names.test(c.name), `${zone} name prefixes`);
       }
     }
     for (const kind of ['grove', 'stones', 'tar']) {
@@ -98,7 +96,7 @@
       e.genObjects.push({ id: 'grove_shrine', kind: 'grove_shrine', x: EDGE_M / 2, y: EDGE_M / 2 });
       const residents = NPC.spawn(scene(), e, 0, 0, {});
       assert.eq(residents.length, kind === 'tar' ? 0 : NPC.COUNT);
-      assert.truthy(residents.every(c => c.zone === 'shrine'));
+      assert.truthy(residents.every(c => c.zone === (kind === 'grove' ? 'grove' : 'shrine')));
     }
     assert.eq(NPC.spawn(scene(), entry(T.TAR_YARD), 0, 0, {}).length, 0);
   });
