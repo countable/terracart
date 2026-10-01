@@ -12,6 +12,7 @@ import os
 import subprocess
 from pathlib import Path
 
+from art_paths import RESERVE_ROOT
 from playwright.async_api import async_playwright
 from PIL import Image
 from preview_map_art import ROOT, PALETTE, raster
@@ -126,7 +127,7 @@ async def capture(args):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--url',default='http://127.0.0.1:8767/')
-    parser.add_argument('--reserve-root',type=Path,default=ROOT/'unused_art')
+    parser.add_argument('--reserve-root',type=Path,default=RESERVE_ROOT)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--baseline',type=Path,help='Preserved pre-application sandbox PNG, required once art is installed (defaults to existing output/before.png).')
     asyncio.run(capture(parser.parse_args()))

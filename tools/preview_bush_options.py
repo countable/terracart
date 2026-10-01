@@ -5,6 +5,7 @@ import json
 import subprocess
 from pathlib import Path
 
+from art_paths import RESERVE_ROOT
 from preview_map_art import ROOT, raster
 
 HTML = r'''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bush art options</title>
@@ -24,7 +25,7 @@ function zoom(){const z=Number(document.querySelector('#zoom').value);document.q
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--reserve-root', type=Path, default=Path('/home/claude/terracart/unused_art'))
+    parser.add_argument('--reserve-root', type=Path, default=RESERVE_ROOT)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     data = json.loads((ROOT/'docs/art/bush-options.json').read_text())

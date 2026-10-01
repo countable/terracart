@@ -4,7 +4,7 @@
 // 128-colour PNG they used to be, and indistinguishable at dialog size —
 // lossless WebP saves nothing, the dithering reads as noise to it). Trimmed
 // ICON pieces (the coin) stay PNG in assets/Icons/. Full-resolution masters
-// live in art-source/paintings/raw/.
+// live outside the checkout; see docs/ART_SOURCES.md.
 //
 // Reads OPENAI_API_KEY from ~/.env (or the environment), renders each piece at
 // 1536x1024, then downscales to 512px wide (the size the dialogs lazy-load)
@@ -23,7 +23,8 @@ const { execFileSync } = require('child_process');
 
 const ART_WEBP_QUALITY = 85;
 const OUT_DIR = path.join(__dirname, '..', 'assets', 'art');
-const SOURCE_DIR = path.join(__dirname, '..', 'art-source', 'paintings');
+const ART_ROOT = path.resolve(process.env.TERRACART_ART_ROOT || path.join(require('os').homedir(), '.artifacts', 'terracart-art'));
+const SOURCE_DIR = path.join(ART_ROOT, 'art-source', 'paintings');
 const RAW_DIR = path.join(SOURCE_DIR, 'raw');
 function outputPath(name, trim) {
   if (name === 'coin_icon') return path.join(__dirname, '..', 'assets', 'Icons', 'coin.png');
@@ -466,7 +467,7 @@ else:
 (async () => {
   const args = process.argv.slice(2);
   const force = args.includes('--force');
-  // --reprocess: skip the API, re-downscale from art-source/paintings/raw/.
+  // --reprocess: skip the API, re-downscale from the external painting masters.
   const reprocess = args.includes('--reprocess');
   const only = args.filter(a => !a.startsWith('--'));
   fs.mkdirSync(RAW_DIR, { recursive: true });

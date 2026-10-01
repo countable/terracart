@@ -48,7 +48,7 @@ Generate both linked review pages and palette exports (Pillow and Node required)
 ```sh
 python3 tools/preview_art_direction.py --output /tmp/art-direction
 python3 tools/preview_nature_candidates.py \
-  --reserve-root /home/claude/terracart/unused_art --output /tmp/art-direction
+  --reserve-root ~/.artifacts/terracart-art/unused_art --output /tmp/art-direction
 ```
 
 Outputs include a self-contained palette page, the full candidate gallery, JSON,
@@ -109,7 +109,7 @@ Broken Masonry uses dedicated rubble art; ordinary wild rockfruit retains its ow
 
 ```sh
 python3 tools/preview_map_art.py \
-  --reserve-root /home/claude/terracart/unused_art --output /tmp/map-art-audit
+  --reserve-root ~/.artifacts/terracart-art/unused_art --output /tmp/map-art-audit
 ```
 
 The output is a self-contained searchable HTML dashboard plus `audit.json`.
@@ -169,7 +169,7 @@ muted metal colours at half strength, preserving all eleven source shades. Clipp
 ```sh
 CHROMIUM_PATH=/path/to/chromium python3 tools/preview_sandbox_art.py \
   --url http://127.0.0.1:8767/ \
-  --reserve-root /home/claude/terracart/unused_art \
+  --reserve-root ~/.artifacts/terracart-art/unused_art \
   --output /tmp/sandbox-art-comparison
 ```
 

@@ -3,7 +3,8 @@
 Run `node tools/asset_inventory.js` to list image files under `assets/` that
 have no known runtime reference. Add `--json` for reference evidence, missing
 paths, candidate file sizes and Git status, and preserved source/reserve images
-under `art-source/`. Paths are relative to the repository; the command works
+in the external archive (see [Art sources](ART_SOURCES.md)). Runtime paths are
+relative to the repository; archive paths are absolute. The command works
 from any working directory. It writes no files and never deletes anything.
 
 A missing reference or a scanner error exits with status 1. Unreferenced
@@ -14,7 +15,7 @@ and reserve exports are listed separately and are not deletion candidates.
 The inventory evaluates the preload manifest with its enemy roster and sprite
 layout, the DOM icon sheet table, and every gear slot/tier through the runtime
 `gearAssetPath` function. It also scans JavaScript under `src/`, image/CSS paths
-in `index.html`, `art` and `story` scene painting stems, and dynamic restoration paintings from
+in `index.html`, `art` and `story` scene painting stems, street painting overrides, and dynamic restoration paintings from
 the restoration role table. Enemy full sheets used by the roster therefore
 count as referenced even when their paths are not in the preload source text.
 
