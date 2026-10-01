@@ -1946,12 +1946,14 @@ class MapScene extends Phaser.Scene {
     // World sprites a DOM dialog can ask for by TEXTURE KEY — not items, so
     // they don't belong in ITEM_DATA_URLS. The treasure ceremony opens with
     // the art the chest it came out of was standing as (loot.js chestLook
-    // names the key; worldIconHTML below turns it into a span), so a crate
+    // names the key and frame; worldIconHTML turns them into a span), so a crate
     // opens under a crate and a trunk under a trunk. Baked from the same
-    // sheets the renderer draws: the gold chest uses its closed frame 0,
-    // which is what the player just tapped.
+    // sheets the renderer draws, including each trunk's tier colour.
     window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
-    window.WORLD_ICON_URLS.chest = bakeSheetFrame('chest', 0, 16, 16);
+    for (let frame = 0; frame < CHEST_TIER_MAX; frame++) {
+      window.WORLD_ICON_URLS['chest:' + frame] = bakeSheetFrame('chest', frame, 16, 16);
+    }
+    window.WORLD_ICON_URLS.chest = window.WORLD_ICON_URLS['chest:0'];
     window.WORLD_ICON_URLS.box   = bakeSheetFrame('box',   0, 16, 16);
     // An old trade road's bus stop is a broken wagon (loot.js chestLook).
     if (this.textures.exists('wagon')) window.WORLD_ICON_URLS.wagon = bakeSheetFrame('wagon', 0, 128, 96);
@@ -12731,8 +12733,9 @@ class MapScene extends Phaser.Scene {
   // not in the catalog — the chest or crate a treasure ceremony came out of.
   // A data URL paints instantly, so there is no IconNet hole to cover. Returns
   // '' for a key with no bake, which every caller reads as "use the emoji".
-  worldIconHTML(texKey, sizePx = 26) {
-    const url = window.WORLD_ICON_URLS && window.WORLD_ICON_URLS[texKey];
+  worldIconHTML(texKey, sizePx = 26, frame = 0) {
+    const urls = window.WORLD_ICON_URLS;
+    const url = urls && (urls[texKey + ':' + frame] || (frame === 0 ? urls[texKey] : null));
     if (!url) return '';
     return `<span style="display:inline-block;width:${sizePx}px;height:${sizePx}px;`
       + `background:url('${url}') center/contain no-repeat;image-rendering:pixelated;`

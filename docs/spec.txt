@@ -1023,8 +1023,9 @@ CHESTS (POI-driven)
      food → produce 60/30/10   commerce → seeds 70/25/5   farm → seeds 40/40/20 (+1)
      flora → flower seeds 10/30/60   civic → 30/40/30   health → 50/30/20
      park → 40/40/20   lowtier (bus/fuel/lodging/gate) → 90/8/2, reduced yields
- - chest TIER shown as a coloured diamond above the sprite: T1 bronze (lowtier),
-   T2 silver (commerce/park), T3 gold (food/health/civic/farm), T4 cyan (flora).
+ - chest TIER is shown by recoloring the approved chest sprite: T2 silver,
+   T3 blue, T4 violet, T5 gold. Ordinary T1 chests use wooden crates; the
+   one-time public-art T1 trunk retains its original art. No floating tier gem.
  - some opens roll a RELIC or ARMOR instead of normal loot — the chance varies
    by POI class, roughly 3.75% (lowtier/commerce/farm) up to 15% (civic/flora),
    biased by chest tier (gear reward handled per GEAR; both show a reward modal).
@@ -1883,7 +1884,7 @@ FOG OF WAR
    the milliseconds for under one alpha step of accuracy.
  - LAYER: fogContainer is LAST in the display list — above the ground, the
    lighting dim, the sprites, the rim haze, the distance falloff, the POI name
-   tablets and the tier diamonds. Fog is the strongest claim of any darkening
+   tablets. Fog is the strongest claim of any darkening
    pass, and a label poking through it would name a shop the player has never
    found. (The player, the GPS ghost and the footprint trail set explicit
    depths and stay above it — they are the player's own kit, not world

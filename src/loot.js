@@ -264,7 +264,7 @@ function padShapeKeyForPoi(poiClass) {
 }
 
 // ── A POI chest's TIER is how RARE its kind is on its tile (Sep 2026) ──────
-// The tier (1-5: the gem, the look, and the curve the loot rolls on) is a
+// The tier (1-5: the color, the look, and the curve the loot rolls on) is a
 // pure function of the world: how many chests of the SAME POI class the
 // chest's own tile holds (`o.poiDensity`, stamped by worldgen.js
 // stampPoiDensity), plus the depth and zone-nexus bonuses below. A lone
@@ -277,13 +277,13 @@ function padShapeKeyForPoi(poiClass) {
 //
 // CHEST_DENSITY_TIERS is the one table: the FIRST row whose `atLeast` the
 // count reaches wins. Exactly one of its kind on the tile → T4 (the old
-// flora/epic gem); 2-4 → T3; 5-24 → T2; 25 or more → T1 — the crate, which
+// flora/epic color); 2-4 → T3; 5-24 → T2; 25 or more → T1 — the crate, which
 // is the RECURRING look (interactables.js restocks), so a type the tile is
 // full of becomes a supply you come back to and a rare one stays a one-time
 // trunk. The steps are the powers the count has to climb by to drop a tier
 // (1, then ×2, then ×2.5, then ×5), so the common classes of a dense city
 // (bins, bike racks, cafés, shops) spread over T1-T2 and the singular ones
-// (a museum, a garden, the one pharmacy) keep the violet and blue gems.
+// (a museum, a garden, the one pharmacy) keep the violet and blue chest colors.
 // Density also controls recurring container restock times, so "dense" is one
 // number both read.
 const CHEST_DENSITY_TIERS = [
@@ -311,9 +311,9 @@ function chestDensityTier(count) {
 // depth and nexus bonuses still apply on top, like any tier.
 const CHEST_CLASS_TIER = { art_gallery: 1 };
 const CHEST_ONE_TIME_CLASSES = new Set(['art_gallery']);
-// Tier 1 = no gem (skipped at render). Tiers 2-5 are clearly distinct hues.
+// Chest sprite recolors: T1 crates keep their wood; T2–T5 use distinct hues.
 const CHEST_TIER_COLOR = {
-  1: null,     // common — no gem drawn at all
+  1: null,     // common — original art
   2: 0xe6e6e6, // off-white (10% greyer than pure white) — uncommon
   3: 0x5f89ff, // lighter blue (10% lighter than 0x4d7cff) — rare
   4: 0xc77dff, // violet — epic
@@ -324,7 +324,7 @@ const CHEST_TIER_COLOR = {
 // and carries the surface chest's density), and each CHEST_TIER_DEPTH_STEP
 // levels down raise the chest one tier over what it is on the surface —
 // depth 1 is the surface tier, depth 2-3 one up, depth 4-5 two up — capped
-// at CHEST_TIER_MAX. T5 exists only down here: it is the gold gem and the
+// at CHEST_TIER_MAX. T5 exists only down here: it is the gold chest and the
 // rarity.js chestTierMod[5] curve.
 const CHEST_TIER_MAX = 5;
 const CHEST_TIER_DEPTH_STEP = 2;
@@ -347,7 +347,7 @@ function chestTierDepthBonus(depth) {
 // wears ZONE_NEXUS_TIER_BONUS more, to measure up to the fanfare around it —
 // a second reason on the same ladder as the depth bonus, capped at the same
 // CHEST_TIER_MAX. It is the world's (the zone is generated), so it shows in
-// the gem and pays in the roll alike.
+// the chest color and pays in the roll alike.
 const ZONE_NEXUS_TIER_BONUS = 1;
 function chestTierZoneBonus(nexus) { return nexus ? ZONE_NEXUS_TIER_BONUS : 0; }
 // The chest's base tier before depth and nexus: its class's fixed tier, else
@@ -355,7 +355,7 @@ function chestTierZoneBonus(nexus) { return nexus ? ZONE_NEXUS_TIER_BONUS : 0; }
 // A SCENIC chest (src/scenic.js — o.vista: a viewpoint's grail, or the one
 // chest of a scenic stretch) takes its tier from Scenic.VISTA_CHEST_TIER,
 // whatever its class's count: a third reason on the base, beside the fixed
-// classes and the density. Generated (the stamp is the world's), so the gem
+// classes and the density. Generated (the stamp is the world's), so the color
 // and the roll agree for every player.
 function chestVistaTier(o) {
   return (o && o.vista && typeof Scenic !== 'undefined' && Scenic.VISTA_CHEST_TIER[o.vista]) || 0;
@@ -371,7 +371,7 @@ function chestBaseTier(o) {
   return fixed != null ? fixed : chestDensityTier(o.poiDensity);
 }
 // THE chest tier (1-5) — the one every player sees AND the one its loot rolls
-// at: the sprite/gem in render.js, the look (chestLook), the roll in
+// at: the sprite color in render.js, the look (chestLook), the roll in
 // interactables.js and the chapel's blessing (Macros.chapelRollTier) all read
 // this. Takes the OBJECT (poiClass, poiDensity, depth, zoneNexus).
 function chestTier(o) {
@@ -886,7 +886,8 @@ function chestLook(o) {
   const texKey = coin ? 'potofgold' : bike ? 'bike_rack' : barrel ? barrelArt.texKey : (macro ? macro.texKey
     : (stand ? 'market_stand' : (wagon ? 'wagon' : (box ? 'box' : 'chest'))));
   return (o._chestLook = { stand, coin, bike, barrel, macro, smashedKey: barrelArt?.smashedKey, barrelName: barrelArt?.name,
-    box: box && !wagon && !macro && !special, wagon, texKey });
+    box: box && !wagon && !macro && !special, wagon, texKey,
+    frame: texKey === 'chest' ? chestTier(o) - 1 : (stand ? stand.frame : 0) });
 }
 
 

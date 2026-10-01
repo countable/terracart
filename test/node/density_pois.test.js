@@ -165,7 +165,8 @@
     assert.eq(save.opened.length, 0, 'never save.opened');
     const said = [...flashes, ...loots];
     assert.eq(said.length, 1, 'one line');
-    assert.truthy(/^(Empty\.|\+\d coins?|\+1 (Apple|Torch|Rope))$/.test(said[0]), `the line says what: ${said[0]}`);
+    const messages = ['Empty.', '+1 coin', ...barrelProfile(b).loot.flatMap(row => barrelLootPool(row).map(item => '+1 ' + item.name))];
+    assert.includes(messages, said[0], 'the line names an eligible reward');
     runInteractable(makeCtx(scene, save), b);
     assert.truthy(/^Smashed\. Back in \d+[smhd]\.$/.test(flashes[flashes.length - 1]), 'a second smash is refused with the wait');
     const sets = spentSets(null, save);

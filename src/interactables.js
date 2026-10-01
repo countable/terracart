@@ -576,8 +576,9 @@ const INTERACTABLES = {
       // a trunk instead of both under the TREASURE diamond. '' falls back to
       // the kind's emoji — a market stand and a coin-burst pot never reach
       // here (both return above), so in practice it is the trunk or the box.
-      const kindIcon = (typeof chestLook === 'function' && scene.worldIconHTML)
-        ? scene.worldIconHTML(chestLook(o).texKey) : '';
+      const iconLook = typeof chestLook === 'function' ? chestLook(o) : null;
+      const kindIcon = (iconLook && scene.worldIconHTML)
+        ? scene.worldIconHTML(iconLook.texKey, 26, iconLook.frame) : '';
       // The chapel's blessing opens on the chapel's own painting and name the place.
       const dress = (chapel && typeof Macros !== 'undefined')
         ? { art: Macros.KIND_DIALOG.chapel.art, header: Macros.KIND_DIALOG.chapel.label } : {};

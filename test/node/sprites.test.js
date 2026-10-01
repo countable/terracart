@@ -548,3 +548,26 @@ test('crystal deposits use their cluster art at ordinary rock scale and centered
   assert.eq(offset.dxPx+((b.minX+b.maxX)/2-b.fw/2)*spec.scale,0);
   assert.eq(offset.dyPx+((b.minY+b.maxY)/2-b.fh/2)*spec.scale,0);
 });
+
+
+test('chest renderer uses shared tier frames and keeps special POI art', () => {
+  const spec = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.chest;
+  for (const poiDensity of [1, 3, 7, 25]) {
+    for (const depth of [0, 2, 6]) {
+      const o = {kind:'chest', poiClass:'memorial', poiDensity, depth};
+      const look = chestLook(o);
+      assert.eq(spec.key(o), look.texKey);
+      assert.eq(spec.frame(o), look.frame, `density ${poiDensity}, depth ${depth}`);
+      if (look.texKey === 'chest') assert.eq(spec.frame(o), chestTier(o) - 1);
+      else assert.eq(spec.frame(o), 0);
+    }
+  }
+  for (const poiClass of ['bakery', 'lodging', 'waste_basket', 'bicycle_parking']) {
+    const o = {kind:'chest', poiClass};
+    assert.eq(spec.frame(o), chestLook(o).frame, poiClass);
+  }
+  assert.eq(spec.frame({kind:'chest', poiClass:'atm'}), undefined, 'procedural gold pot has no sheet frame');
+  assert.falsy(/CHEST_TIER_COLOR|chestObjs|tier diamond/.test(RENDER_SRC), 'tier colours are in the chest art, without floating gems');
+  assert.truthy(/const g = scene\.tierGfx;\s*g\.clear\(\);/.test(RENDER_SRC), 'attack warning layer still clears each draw');
+  assert.truthy(/g\.strokeCircle\(centre\.sx, centre\.sy, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
+});

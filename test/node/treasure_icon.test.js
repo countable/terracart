@@ -29,7 +29,7 @@ const lift = (sig, what) => {
   return app.slice(start + 1, end + 4);
 };
 
-const WORLD_ICON_SRC = lift('worldIconHTML(texKey, sizePx = 26) {', 'worldIconHTML');
+const WORLD_ICON_SRC = lift('worldIconHTML(texKey, sizePx = 26, frame = 0) {', 'worldIconHTML');
 
 // ── The one resolver, run for real ────────────────────────────────────────
 // A memorial: an ordinary civic T3 trunk. (It was a library until the library
@@ -104,9 +104,30 @@ test('treasure icon: an unbaked key falls back to the emoji', () => {
   assert.eq(iconMethods(undefined).worldIconHTML('chest'), '', 'no table at all → no sprite');
 });
 
+test('treasure icon: tier frames use their own baked art without changing legacy icons', () => {
+  const urls = { chest: 'legacy-chest', bonfire: 'campfire' };
+  for (let frame = 0; frame < CHEST_TIER_MAX; frame++) urls['chest:' + frame] = 'tier-frame-' + frame;
+  const m = iconMethods(urls);
+  for (let frame = 0; frame < CHEST_TIER_MAX; frame++) {
+    const html = m.worldIconHTML('chest', 30, frame);
+    assert.truthy(html.includes('tier-frame-' + frame), 'the requested tier has its own art');
+    assert.truthy(html.includes('width:30px;height:30px'), 'frame selection preserves requested size');
+  }
+  assert.truthy(m.worldIconHTML('bonfire').includes('campfire'), 'existing unframed callers retain their icon');
+  assert.eq(m.worldIconHTML('chest', 26, 99), '', 'an unbaked tier does not show another tier colour');
+});
+
 test('treasure icon: the bake reads the sheets the renderer draws', () => {
-  assert.truthy(/WORLD_ICON_URLS\.chest = bakeSheetFrame\('chest', 0, 16, 16\)/.test(app),
-    "the gold chest's CLOSED frame is baked");
+  const start = app.indexOf('for (let frame = 0; frame < CHEST_TIER_MAX; frame++) {');
+  const end = app.indexOf("window.WORLD_ICON_URLS.box", start);
+  assert.truthy(start > 0 && end > start, 'found the tier frame bake');
+  const calls = [], windowStub = { WORLD_ICON_URLS: {} };
+  new Function('window', 'CHEST_TIER_MAX', 'bakeSheetFrame', app.slice(start, end))(
+    windowStub, CHEST_TIER_MAX, (...args) => { calls.push(args); return args.join(':'); });
+  assert.eq(calls.length, CHEST_TIER_MAX, 'every tier gets baked');
+  for (let frame = 0; frame < CHEST_TIER_MAX; frame++) {
+    assert.eq(windowStub.WORLD_ICON_URLS['chest:' + frame], `chest:${frame}:16:16`, 'bakes the matching sheet frame');
+  }
   assert.truthy(/WORLD_ICON_URLS\.box   = bakeSheetFrame\('box',   0, 16, 16\)/.test(app),
     'and the crate');
   // Both keys are real textures the preloader walks, so the bake has art.
@@ -139,8 +160,16 @@ test('treasure icon: a sprite glyph replaces the emoji, ungreyed', () => {
 
 test('treasure icon: every chest ceremony carries its chest', () => {
   const src = INTERACTABLES_SRC;
-  assert.truthy(/const kindIcon = \(typeof chestLook === 'function' && scene\.worldIconHTML\)\s*\n?\s*\? scene\.worldIconHTML\(chestLook\(o\)\.texKey\) : '';/.test(src),
-    'the glyph is resolved through the shipping look');
+  const start = src.indexOf("const iconLook = typeof chestLook === 'function'");
+  const end = src.indexOf('// The chapel', start);
+  assert.truthy(start > 0 && end > start, 'found the ceremony icon resolver');
+  const object = chest({ poiDensity: 1 }), look = chestLook(object);
+  let args;
+  const icon = new Function('chestLook', 'scene', 'o', src.slice(start, end) + '\nreturn kindIcon;')(
+    chestLook, { worldIconHTML(...values) { args = values; return 'chest-icon'; } }, object);
+  assert.eq(icon, 'chest-icon', 'ceremony uses the resulting icon');
+  assert.eq(args[0], look.texKey, 'ceremony passes the shipping texture');
+  assert.eq(args[2], look.frame, 'ceremony passes the shipping tier frame');
   // Every ceremony the chest handler opens — gear, cash, discarded gear, the
   // bag-full choice and the plain take — hands it over. A branch that forgot
   // would open under the diamond again.
