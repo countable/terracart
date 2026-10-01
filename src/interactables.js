@@ -1116,6 +1116,19 @@ function runInteractable(ctx, o) {
   // Non-tool interactables (fruit harvest, …) own their whole flow.
   if (def.custom) return def.custom(ctx, o);
 
+  // Capture equipment when the wheel starts, including a later slow-grind
+  // acceptance. Cancellation never invokes the completion story.
+  const startJob = (duration, cost) => {
+    const startingTier = save.relics?.[def.tool]?.tier || 0;
+    const action = { axe: 'chop', pick: 'dig', hoe: 'till' }[def.tool];
+    if (action) scene._toolActionStory?.(action);
+    scene.startWorkProgress(o.x, o.y, () => {
+      if (def.spent && def.spent(o, ctx)) return;
+      def.complete(ctx, o);
+      scene._barehandWorkStory?.(def.tool, startingTier, o.kind === 'tree' && o.size !== 'bush');
+    }, duration, cost, def.tool);
+  };
+
   // Tool pipeline: gate → spend energy → start the tier-driven work wheel.
   const blockMsg = def.gate ? def.gate(o, save) : null;
   if (blockMsg) {
@@ -1137,8 +1150,7 @@ function runInteractable(ctx, o) {
           if (!scene.spendEnergy(SLOW_GRIND_ENERGY, sx, sy)) return;
           // Same completion as a proper-tool job; the energy rides along as
           // the refund if the player cancels the wheel mid-grind.
-          scene.startWorkProgress(o.x, o.y, () => def.complete(ctx, o),
-            SLOW_GRIND_MS, SLOW_GRIND_ENERGY, def.tool);
+          startJob(SLOW_GRIND_MS, SLOW_GRIND_ENERGY);
         },
       });
       return true;
@@ -1151,6 +1163,6 @@ function runInteractable(ctx, o) {
   const durMs = toolDurationMs(save.relics, def.tool);
   if (cost && !scene.spendEnergy(cost, sx, sy)) return true;   // can't afford — tap consumed
   // cost is passed through as the refund amount if the player cancels mid-work.
-  scene.startWorkProgress(o.x, o.y, () => def.complete(ctx, o), durMs, cost || 0, def.tool);
+  startJob(durMs, cost || 0);
   return true;
 }

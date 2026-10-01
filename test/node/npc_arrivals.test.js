@@ -162,8 +162,9 @@
     } finally { globalThis.document = doc; }
   });
 
-  test('forge: the smith\'s cheer', () => {
+  test('forge: the player notices the finished piece', () => {
     const FORGE = new Function(`${SCENE_SRC.match(/const FORGE_CEREMONY = \{[\s\S]*?\n\};/)[0]} return FORGE_CEREMONY;`)();
-    assert.eq(FORGE.sub, '“It’s ready, fresh from my forge. Let it serve you well.”');
+    assert.includes(FORGE.sub, 'the smith sets the finished piece before you');
+    assert.falsy(/[“”]/.test(FORGE.sub), 'the panel uses the player’s narrator, not a separate speaker');
   });
 })();

@@ -21,6 +21,13 @@
 //     both tiles; a build is deterministic and pays only its own square.
 (function () {
 const S = Scenic;
+test('scenic: each landscape has matching art while keeping the shared seen ledger', () => {
+  for (const [id, art] of Object.entries({ promenade: 'street_scenic', greenway: 'street_greenway', parkpath: 'street_parkpath' })) {
+    const row = StreetVariants.VARIANT_BY_ID[id];
+    assert.eq(row.story, 'street_scenic');
+    assert.eq(row.art || row.story, art);
+  }
+});
 const EXT = 4096;
 const TX = 2754, TY = 5566;
 const N = WorldGen.cellsPerEdgeForTile(TY);

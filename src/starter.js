@@ -639,6 +639,9 @@
   // watching the world re-roll itself. The id is keyed off the tile (not the
   // cell) for the same reason save.opened keys off it: an opened chest must
   // stay opened even if a future rebuild ever seats it one cell over.
+  function starterRoutePassable(type) {
+    return WorldGen.isWalkable(type) || WorldGen.isRoadTerrain(type);
+  }
   function placeStarterRelicChest(scene, entry, tx, ty, spawnIX, spawnIY, usedSeats, seatWant) {
     const cellM = rowCellM(scene, ty);   // THIS tile's cells (its row's grid)
     const grid = entry.grid;
@@ -677,8 +680,6 @@
     // it reaches carries the step it was reached FROM, which is what turns the
     // chosen chest cell into a walked route the crate trail can be laid along
     // (see _placeStarterTrail).
-    const UNCROSSABLE = new Set([3 /* WATER */, 9 /* BUILDING */,
-      11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */]);
     // A few cells of slack past the band, so a route that has to bend round a
     // pond or a block to reach the far side of the ring still gets found.
     const FLOOD_R = RELIC_MAX_R + 4;
@@ -692,7 +693,7 @@
         if (Math.max(Math.abs(nx - spawnIX), Math.abs(ny - spawnIY)) > FLOOD_R) continue;
         const k = cellKey(nx, ny);
         if (cameFrom.has(k)) continue;
-        if (UNCROSSABLE.has(grid[ny * N + nx])) continue;
+        if (!starterRoutePassable(grid[ny * N + nx])) continue;
         cameFrom.set(k, [cx, cy]);
         flood.push([nx, ny]);
       }
@@ -1952,7 +1953,7 @@
     for (const w of (entry.wildplants || [])) occupied.add(key(w.x, w.y));
     for (const c of entry.creatures) occupied.add(key(c.x, c.y));
     const opts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
-    const roles = NPC.STORY_NEIGHBOURS || ['warden'];
+    const roles = (NPC.STORY_NEIGHBOURS || ['warden']).filter(role => !NPC.STORY_ROLES[role]?.radiusM);
     const seated = [];   // story neighbours' cells, present already or seated now
     for (const role of roles) {
       const c = entry.creatures.find(o => o.id === `npc_${role}_${tx}_${ty}`);
@@ -1985,6 +1986,97 @@
       entry.creatures.push(neighbour);
       occupied.add(seat.cx + ',' + seat.cy);
       seated.push(seat);
+      placed++;
+    }
+    return placed + placeDistantStoryNeighbours(scene, seating, { entry, tx, ty });
+  }
+
+  // Distant story residents belong to the original Home, even after it moves.
+  // Search the loaded surface across tile seams, then freeze a legal reachable
+  // seat on the save. Missing tiles defer the search; they never become land.
+  function placeDistantStoryNeighbours(scene, seating = {}, suppliedTile = null) {
+    if (typeof NPC === 'undefined' || (scene.depth || 0) !== 0) return 0;
+    const anchor = scene._sandboxMode ? scene.homeWorldPos?.() : scene.save.starterCratesAt;
+    if (!anchor || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) return 0;
+    const edge = scene.tileEdgeM;
+    const tiles = new Map(WorldGen.tileCacheFor(0));
+    if (suppliedTile) tiles.set(WorldGen.tileKey(suppliedTile.tx, suppliedTile.ty), suppliedTile.entry);
+    const at = (x, y) => {
+      const tx = Math.floor(x / edge), ty = Math.floor(y / edge);
+      const entry = tiles.get(WorldGen.tileKey(tx, ty));
+      if (!entry?._spawned || !entry.grid) return null;
+      const N = entry.cellsPerEdge, cellM = edge / N;
+      const cx = Math.floor((x - tx * edge) / cellM), cy = Math.floor((y - ty * edge) / cellM);
+      return { entry, tx, ty, N, cellM, cx, cy, x: tx * edge + (cx + 0.5) * cellM,
+        y: ty * edge + (cy + 0.5) * cellM, key: `${tx}:${ty}:${cx}:${cy}` };
+    };
+    const around = c => [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) =>
+      at(c.x + dx * (c.cellM / 2 + 0.001), c.y + dy * (c.cellM / 2 + 0.001))).filter(Boolean);
+    const road = c => WorldGen.isRoadTerrain(c.entry.grid[c.cy * c.N + c.cx]) || c.entry.grid[c.cy * c.N + c.cx] === WorldGen.T.PATH;
+    const occupied = new Map();
+    const free = (c, includeCreatures = true) => {
+      if (!occupied.has(c.entry)) {
+        const fixed = new Set();
+        for (const o of [...(c.entry.objects || []), ...(c.entry.wildplants || [])]) {
+          const p = at(o.x, o.y);
+          if (p) fixed.add(p.key);
+        }
+        const all = new Set(fixed);
+        for (const o of c.entry.creatures || []) { const p = at(o.x, o.y); if (p) all.add(p.key); }
+        occupied.set(c.entry, { fixed, all });
+      }
+      return !occupied.get(c.entry)[includeCreatures ? 'all' : 'fixed'].has(c.key) && WorldGen.isSpawnCell(c.entry.grid, c.N, c.N, c.cx, c.cy,
+        { ...c.entry._spawnOpts, roadMask: c.entry.roadMask, quiet: c.entry.quietMask, spawnWhy: c.entry.spawnWhy }, 'npc');
+    };
+    let placed = 0;
+    for (const [role, row] of Object.entries(NPC.STORY_ROLES)) {
+      if (!row.radiusM || !NPC.storyNeighbourDue(scene.save, role)) continue;
+      const id = `npc_${role}_${Math.floor(anchor.x / edge)}_${Math.floor(anchor.y / edge)}`;
+      if ([...tiles.values()].some(e => e.creatures?.some(c => c.id === id))) continue;
+      const owner = scene._sandboxMode ? scene : scene.save;
+      const ledgerKey = scene._sandboxMode ? '_sandboxStoryNeighbourSeats' : 'storyNeighbourSeats';
+      if (!owner[ledgerKey] || typeof owner[ledgerKey] !== 'object' || Array.isArray(owner[ledgerKey])) owner[ledgerKey] = {};
+      const ledger = owner[ledgerKey];
+      let point = ledger[role];
+      if (point && (!Number.isFinite(point.x) || !Number.isFinite(point.y)
+        || Math.abs(Math.hypot(point.x - anchor.x, point.y - anchor.y) - row.radiusM) > row.radiusM * 0.3)) {
+        delete ledger[role];
+        point = null;
+      }
+      // A changed landscape may cover an old dig. Only a loaded, permanently
+      // blocked seat triggers relocation; streaming and passing people do not.
+      const oldSeat = point && at(point.x, point.y);
+      if (oldSeat && !free(oldSeat, false)) point = null;
+      if (!point) {
+        const start = at(anchor.x, anchor.y);
+        if (!start) continue;
+        const slack = Math.max(start.cellM * 3, row.radiusM * 0.1);
+        const queue = [start], seen = new Set([start.key]), candidates = [];
+        for (let head = 0; head < queue.length; head++) {
+          const c = queue[head], d = Math.hypot(c.x - anchor.x, c.y - anchor.y);
+          if (Math.abs(d - row.radiusM) <= slack && free(c)) {
+            candidates.push({ ...c, error: Math.abs(d - row.radiusM), verge: road(c) || around(c).some(road) });
+          }
+          for (const next of around(c)) {
+            if (seen.has(next.key) || Math.hypot(next.x - anchor.x, next.y - anchor.y) > row.radiusM + slack * 2) continue;
+            seen.add(next.key);
+            if (!starterRoutePassable(next.entry.grid[next.cy * next.N + next.cx])) continue;
+            queue.push(next);
+          }
+        }
+        candidates.sort((a, b) => Number(b.verge) - Number(a.verge) || a.error - b.error || a.x - b.x || a.y - b.y);
+        const chosen = candidates[0];
+        if (!chosen) continue;
+        point = { x: chosen.x, y: chosen.y };
+        ledger[role] = point;
+        if (!scene._sandboxMode && typeof persistSave === 'function') persistSave(scene.save);
+      }
+      const seat = at(point.x, point.y);
+      if (!seat || !free(seat) || (seating.offscreen && !seating.offscreen(point.x, point.y))) continue;
+      const neighbour = WorldGen.makeCreature('npc', point.x, point.y, id,
+        { ...NPC.storyNeighbour(id, role), homeX: point.x, homeY: point.y });
+      (seat.entry.creatures ||= []).push(neighbour);
+      occupied.get(seat.entry).all.add(seat.key);
       placed++;
     }
     return placed;
@@ -2030,6 +2122,7 @@
     provisionStarterHome,
     placeHomeGreeter,
     placeSafeAreaWarden,
+    placeDistantStoryNeighbours,
     seatStoryNeighbours,
     stripStarterCrates,
   };

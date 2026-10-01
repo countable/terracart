@@ -349,7 +349,7 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
     'the header constant');
   assert.truthy(/const header = TRAIL_PRIZE_HEADER;/.test(body), 'the ceremony uses it');
   assert.eq((body.match(/header,/g) || []).length, 3, 'all three shapes carry the header');
-  assert.truthy(/Choose one\./.test(body), 'the choice is clear');
+  assert.truthy(/choose one/i.test(body), 'the choice is clear');
   assert.falsy(/\$\{walked\}|\$\{next\}/.test(body), 'the ceremony does not duplicate road counters');
 
 });
@@ -1012,7 +1012,7 @@ test('streets: the first metres ever banked open the one-time dialog', () => {
     assert.eq(s.intros[0].title, TRAIL_INTRO_TITLE, 'with the greeting title');
     assert.truthy(s.save.trail.greeted, 'and the save remembers it');
     assert.falsy(/\d/.test(s.intros[0].body), 'thresholds stay on the road counter');
-    assert.truthy(/survivor/.test(s.intros[0].body), 'the road has people to thank you');
+    assert.truthy(/[Ss]omeone watching from a doorway/.test(s.intros[0].body), 'the road has people to thank you');
     // …and never again.
     s.playerM = { x: MID_M + CELL_M * 3, y: MID_M };
     clock.at(PATH_STONE_DWELL_MS * 3); sweep(s);

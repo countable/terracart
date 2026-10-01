@@ -1041,7 +1041,7 @@ const TAP_HANDLERS = [
           if (wildplantRule(wp.crop)?.note && typeof Scenic !== 'undefined' && scene.showMessageModal) {
             scene.showMessageModal({ kind: 'story', title: 'A message in a bottle', body: Scenic.bottleNote(wp) });
           }
-          return;
+          return true;
         }
         const rewards = wildplantRewards(wp.crop);
         const outId = rewards[0].id;
@@ -1068,6 +1068,7 @@ const TAP_HANDLERS = [
           persistSave(save);
           if (typeof scene.showBabyFound === 'function') scene.showBabyFound(babyId, 'bush');
         }
+        return true;
       };
       const reqRelic = wildplantWorkRelic(wp.crop);
       if (reqRelic) {
@@ -1083,7 +1084,10 @@ const TAP_HANDLERS = [
         // First felling chop the save ever starts tells its story. Only the
         // axe work counts here - rockfruit debris gathers free, by hand.
         if (reqRelic === 'axe') scene._toolActionStory?.('chop');
-        scene.startWorkProgress(wp.x, wp.y, award, durMs, workCost || 0, reqRelic);
+        const startingTier = save.relics?.[reqRelic]?.tier || 0;
+        scene.startWorkProgress(wp.x, wp.y, () => {
+          if (award()) scene._barehandWorkStory?.(reqRelic, startingTier);
+        }, durMs, workCost || 0, reqRelic);
       } else {
         award();
         ctx.dirty = true;
@@ -1836,6 +1840,7 @@ const TAP_HANDLERS = [
     if (GRASSLAND_TILL.has(cell.type)) tillMs = Math.round(tillMs / 2);
     // First furrow the save ever turns tells its story, as the wheel starts.
     scene._toolActionStory?.('till');
+    const startingTier = save.relics?.hoe?.tier || 0;
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.tilledSet.add(cellKey);
       // The bed remembers the hoe that made it - that's the produce QUALITY a
@@ -1855,6 +1860,7 @@ const TAP_HANDLERS = [
         persistSave(save);
         scene.flashLoot(`+1 ${ITEM_BY_ID[find.id]?.name || find.id}`, '#a7ffb0', 1, find.id);
       }
+      scene._barehandWorkStory?.('hoe', startingTier);
     }, tillMs, tillCost, 'hoe');
     return true;
   }},

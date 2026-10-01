@@ -160,7 +160,7 @@
   // ── The kinds ────────────────────────────────────────────────────────────
   // `code` is the Uint8 kind code and the rarity rank (ties go to the higher).
   // `terrain` names the WorldGen.T code the halo paints. `story` is the
-  // _storySplashOnce key AND the painting stem (assets/art/<story>.webp).
+  // _storySplashOnce key and default painting stem; `art` overrides the painting.
   // `attracts` { species: p }: the FAUNA ATTRACTOR column (scene_creatures.js
   // _seatFaunaOnFavouriteGround) — each of the tile's own spawns of that
   // species moves onto the zone's ground with probability p. Not an add.
@@ -170,27 +170,27 @@
   // this column is the resident's. Tar has no residents (NPC.zoneFor).
   const ZONE_KINDS = {
     quarry: { code: 5, R: 21, terrain: 'ROCK', story: 'zone_stones', title: 'Quarry',
-      body: 'Broken stone fills the old lanes. Blue crystals glint among the rubble.',
+      body: 'Blue crystals show between pieces of broken stone. You keep looking for another bright edge among the rubble; it is strange how quickly your eyes learn what to want.',
       flash: 'A quarry of broken stone.',
       keeper: ['<em>Kicks a loose stone aside.</em>\n“The lanes here were paved once. The Breaking cracked the stone, and the blue crystals grew in the cracks. Mind your footing.”'] },
-    beach: { code: 4, R: 80, terrain: 'GROVE', story: 'zone_grove', title: 'The shore',
-      body: 'An old shrine stands above the sand.', flash: 'The shore opens ahead.',
+    beach: { code: 4, R: 80, terrain: 'GROVE', story: 'zone_grove', art: 'zone_shore', title: 'The shore',
+      body: 'An old shrine stands above the sand, with the water stretching beyond it. You wonder how long it has stood listening to that sound, and find yourself wanting to stay a little.', flash: 'The shore opens ahead.',
       keeper: ['<em>Brushes salt off the shrine step.</em>\n“This shrine was here before the Breaking, and the sea never noticed the Breaking at all. I sweep the salt off each morning.”',
         '“The tide keeps its own hours. Whatever the Warmonger burned, it never learned to burn water.”'] },
     grove: { code: 1, R: 60, terrain: 'GROVE', story: 'zone_grove', title: 'A sacred grove',
       attracts: { deer: 0.5, butterfly: 0.5 },
-      body: 'The trees lean close around an old stone shrine. Someone still tends it.',
+      body: 'Trees lean close around the stone shrine, and someone has kept its steps clear. You feel that you ought to be quiet here, though you cannot think of anyone you would be disturbing.',
       flash: 'A sacred grove. Hush.',
       keeper: ['<em>Glances up at the leaning trunks.</em>\n“The trees leaned in to hide this shrine the night the roofs fell. They have not straightened since. I keep the stone swept and the lantern lit.”',
         '“The deer come here at dusk. They came before the Breaking and they came after. Nothing in this grove was ever the Warmonger’s.”'] },
     stones: { code: 2, R: 80, terrain: 'CHURCHYARD', story: 'zone_stones', title: 'The old stones',
       attracts: { crow: 0.5 },
-      body: 'Moss-grown stones ring the old chapel, and someone still lights its lantern. Walk softly here.',
+      body: 'Moss fills the small hollows in the stones around the old chapel. You find yourself stepping carefully, as though being gentle with the ground might count for something.',
       flash: 'The old stones. Walk softly.',
       keeper: ['“These stones are older than the chapel, and the chapel is older than the town. Someone has lit its lantern every night since the Breaking.”\n<em>Lifts the lantern.</em>\n“Tonight it is me.”',
         '<em>Speaks barely above a whisper.</em>\n“Walk softly. The names on these stones remember a quieter world than ours.”'] },
     tar: { code: 3, R: 100, terrain: 'TAR_YARD', story: 'zone_tar', title: 'The tar yard',
-      body: 'Oil stains the old fuel yard black, and the tar drags at your feet. Mind where you step.',
+      body: 'Oil stains the old fuel yard black, with thick tar pooled across the ground. You can almost feel how it drags at your boots, and find yourself looking for a clean way through.',
       flash: 'The tar yard. Mind your feet.',
       keeper: ['“Nobody keeps this yard. The tar keeps itself.”'] },
   };

@@ -259,11 +259,12 @@ const NPC = (() => {
     witness: { label: 'Survivor', minMemories: 6 },
     wanderer: { label: 'Wanderer', artScale: CHILD_SCALE, minMemories: 9 },
     believer: { label: 'Believer', minMemories: 3 },
+    archaeologist: { label: 'Dragon Archaeologist', name: 'Orrin', minMemories: 0, radiusM: 250 },
   };
   const STORY_NEIGHBOURS = Object.keys(STORY_ROLES);
   function storyNeighbour(id, role) {
     const row = STORY_ROLES[role];
-    return { ...identity(id, 'village'), role, roleLabel: row?.label || 'Neighbour', ...(row?.artScale ? { artScale: row.artScale } : {}) };
+    return { ...identity(id, 'village'), ...(row?.name ? { name: row.name } : {}), role, roleLabel: row?.label || 'Neighbour', ...(row?.artScale ? { artScale: row.artScale } : {}) };
   }
   function warden(id) { return storyNeighbour(id, 'warden'); }
   function memoriesOf(save) {
@@ -400,6 +401,7 @@ const NPC = (() => {
       n += arrivals(scene, entry, at.tx, at.ty, entry._residents, { offscreen }).length;
       if (entry._starterTile && typeof Starter !== 'undefined') n += Starter.placeSafeAreaWarden(scene, entry, at.tx, at.ty, { offscreen }) | 0;
     }
+    if (typeof Starter !== 'undefined') n += Starter.placeDistantStoryNeighbours(scene, { offscreen }) | 0;
     return n;
   }
   // Where a thing stands, from the speaker: compass point and paces (a pace
@@ -519,11 +521,11 @@ const NPC = (() => {
   // Cache on the live NPC, not in a growing global table of everyone met.
   function portrait(scene, c) {
     if (c._portrait) return c._portrait;
-    const sheet = SpriteLayout.NPC_SHEETS[c.npcVariant || 0];
+    const sheet = SpriteLayout.npcSheet(c);
     const source = scene.textures.get(sheet.idle).getSourceImage();
     const sprite = document.createElement('canvas'); sprite.width = 48; sprite.height = 48;
     const ctx = sprite.getContext('2d'); ctx.drawImage(source, 0, 0, 48, 48, 0, 0, 48, 48);
-    const pixels = ctx.getImageData(0, 0, 48, 48), tint = c.tint;
+    const pixels = ctx.getImageData(0, 0, 48, 48), tint = sheet.tint ?? c.tint ?? 0xffffff;
     for (let i = 0; i < pixels.data.length; i += 4) {
       pixels.data[i] *= ((tint >> 16) & 255) / 255;
       pixels.data[i + 1] *= ((tint >> 8) & 255) / 255;
@@ -533,7 +535,7 @@ const NPC = (() => {
     const canvas = document.createElement('canvas'); canvas.width = 352; canvas.height = 448;
     const out = canvas.getContext('2d'); out.fillStyle = '#203128'; out.fillRect(0, 0, 352, 448);
     out.imageSmoothingEnabled = false;
-    out.drawImage(sprite, 8, 8, 32, 28, 104, 12, 144, 126);
+    out.drawImage(sprite, 8, 8, 32, 28, 104, sheet.portraitY ?? 12, 144, 126);
     c._portrait = canvas.toDataURL();
     return c._portrait;
   }
@@ -559,6 +561,31 @@ const NPC = (() => {
       show(0);
     };
     if (isDormant(c)) { say(); return; }
+    if (c.role === 'archaeologist' && typeof MemoryStory !== 'undefined') {
+      const conversation = MemoryStory.archaeologistConversation(scene.save);
+      const art = portrait(scene, c);
+      let answered = false;
+      scene.showChestRewardModal({
+        kind: 'note', header: talk.title, name: conversation.title,
+        sub: conversation.body, art,
+        actions: [
+          ...conversation.choices.map(choice => ({
+            label: choice.label,
+            onClick: () => {
+              if (answered) return;
+              answered = true;
+              const reply = MemoryStory.acknowledgeArchaeologist(scene.save, conversation.id, choice.id);
+              if (!reply) return;
+              if (typeof persistSave === 'function') persistSave(scene.save);
+              scene.showMessageModal({ kind: 'note', title: talk.title, body: reply.body, art });
+            },
+          })),
+          // Leaving or reloading does not consume an introduction or a topic.
+          { label: 'Another time', onClick: () => { answered = true; } },
+        ],
+      });
+      return;
+    }
     if (typeof StoryEncounters !== 'undefined' && StoryEncounters.interact(scene, c)) return;
     if (c.role !== 'merchant' && c.role !== 'trader') { say(); return; }
     // A peddler trades as often as asked — no shop is ever "busy"

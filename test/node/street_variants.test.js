@@ -1019,7 +1019,8 @@ test('golden road: coins carpet both verges without overlapping occupied or bloc
   };
   const { result, opts } = build([line]);
   assert.eq(SV.VARIANT_BY_ID.golden.story, 'street_golden');
-  assert.eq(SV.VARIANT_BY_ID.golden.art, 'street_lantern', 'reuse the existing warm road banner');
+  assert.eq(SV.VARIANT_BY_ID.golden.art, 'street_golden', 'show coins along both verges');
+  assert.eq(SV.VARIANT_BY_ID.snare.art, 'street_snare', 'show the chest and its traps');
   assert.eq(result.coins.length, 198, '33 cells along each of six verge rows are full');
   assert.eq(new Set(result.coins.map(c => c.id)).size, result.coins.length, 'one pickup per cell');
   assert.eq(JSON.stringify(result.coins), JSON.stringify(build([[split[2],split[1]],[split[1],split[0]]]).result.coins));

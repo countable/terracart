@@ -25,7 +25,7 @@ const DragonStory = (() => {
     scene._dragonStoryOpen = true;
     try {
       scene.showMessageModal({ kind: 'memory', art: 'fire_first', title: 'Your fire breath returns',
-        body: 'Heat gathers behind your teeth. Your own flame answers the foes who come near.',
+        body: 'You feel heat gather behind your teeth, as familiar as taking a breath. Your flame can reach nearby foes now, and you wonder how you ever forgot the feeling.',
         mustAcknowledge: true,
         onDismiss: () => {
           scene._dragonStoryOpen = false;

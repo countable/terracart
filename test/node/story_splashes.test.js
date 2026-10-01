@@ -94,6 +94,7 @@ test('story splash: bow and staff have independent first-use stories and matchin
   const method = lift('_toolActionStory(action) {', '_toolActionStory');
   const calls = [];
   const scene = new Function('return ({' + method + '});')();
+  scene.save = { relics: { bow: { tier: 1 }, staff: { tier: 1 } } };
   scene._storySplashOnce = (key, entry) => calls.push({ key, ...entry });
   scene._toolActionStory('shoot');
   scene._toolActionStory('staff');

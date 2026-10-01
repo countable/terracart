@@ -89,10 +89,11 @@ test('forge story: a refused forge tells no story', () => {
 test('forge story: the copy keeps the dialog rules', () => {
   // A painted header is a bare label (CLAUDE.md: no emoji on a painted header).
   assert.falsy(/\p{Extended_Pictographic}/u.test(FORGE.header), 'no emoji in the label');
-  assert.falsy(/\p{Extended_Pictographic}/u.test(FORGE.sub), 'none in the cheer either');
-  // Told through the smith's voice, not a mechanic: no digits, no percentages.
+  assert.falsy(/\p{Extended_Pictographic}/u.test(FORGE.sub), 'none in the narrative either');
+  // Told through the player’s experience: no digits or percentages.
   assert.falsy(/\d|%|tier/i.test(FORGE.sub), 'no exact mechanics');
-  assert.truthy(/^“.*”$/.test(FORGE.sub), 'in a character\'s voice');
+  assert.truthy(/your face|before you/.test(FORGE.sub), 'the player experiences the finished work');
+  assert.falsy(/[“”]/.test(FORGE.sub), 'no separate speaker');
   assert.lte(FORGE.sub.length, 140, 'short enough for the quiet zone');
   // The painting is a scene() piece with a bare anvil and no lore of its own.
   const piece = STORY_ART_GEN_SRC.slice(STORY_ART_GEN_SRC.indexOf('  forge_done: scene('),

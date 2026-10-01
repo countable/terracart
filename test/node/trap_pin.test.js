@@ -240,7 +240,7 @@ test('tool stories: interact.js hooks fire at action start, one per call site', 
   // happened, not a dry tap on an already-watered plant.
   hook('water', 'Crops.waterOne(save, p, save.relics)', 'the watering', false);
   // The chop story is the axe alone: rockfruit debris gathers free, by hand.
-  assert.truthy(/if \(reqRelic === 'axe'\) scene\._toolActionStory\?\.\('chop'\);\n        scene\.startWorkProgress\(wp\.x, wp\.y, award/.test(ix),
+  assert.truthy(/if \(reqRelic === 'axe'\) scene\._toolActionStory\?\.\('chop'\);\n        const startingTier = save\.relics\?\.\[reqRelic\]\?\.tier \|\| 0;\n        scene\.startWorkProgress\(wp\.x, wp\.y, /.test(ix),
     "the wildplant wheel hooks 'chop' only when the work needs the axe");
 });
 
@@ -254,7 +254,7 @@ test('tool stories: the auto-fire hooks the first shot loosed, not the cadence',
 test('tool stories (behaviour): each action splashes once under its own ledger key', () => {
   const modals = [];
   const scene = {
-    save: {},
+    save: { relics: Object.fromEntries(['hoe', 'axe', 'pick', 'can', 'bugnet', 'sword', 'bow', 'staff'].map(slot => [slot, { tier: 1 }])) },
     showMessageModal: (opts) => modals.push(opts),
     _storySplashOnce: storyMethods._storySplashOnce,
     _toolActionStory: storyMethods._toolActionStory,

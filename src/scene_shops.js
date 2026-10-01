@@ -35,11 +35,10 @@ const smithyPreviewHTML = (iconHTML, name) =>
   `<div style="line-height:0;margin:2px 0 6px">${iconHTML}</div><div>${name}</div>`;
 // THE FORGE CEREMONY (presentBlacksmithOffer's onAccept): the piece just
 // forged, large on the forge_done painting (a bare anvil, so the icon is the
-// only piece in the picture), with the smith's own cheer. One hint, no
-// mechanics: finer ore is what the next visit wants.
+// only piece in the picture), with the player’s first impression of the finished work.
 const FORGE_CEREMONY = {
   kind: 'forge', art: 'forge_done', header: 'Forged!', iconPx: 64,
-  sub: '“It’s ready, fresh from my forge. Let it serve you well.”',
+  sub: "Forge heat brushes your face as the smith sets the finished piece before you. You lean closer to see what your scraps have become.",
 };
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
@@ -922,7 +921,7 @@ class SceneShops {
           this._storySplashOnce('delivery', {
             art: 'delivery_first',
             title: 'First delivery',
-            body: 'A neighbour pays coin for your produce bundle and very nearly smiles.',
+            body: "The basket leaves a rough mark across your palms, and green coins take its place. Your neighbour holds the produce close; you had only thought of it as something in your bag.",
           });
         }
       },
@@ -1599,7 +1598,7 @@ class SceneShops {
           const splashed = this._storySplashOnce('castle:' + (this._castleKey(house) || house.id), {
             art: 'castle_claim',
             title: 'The castle is yours',
-            body: 'The vault opens and your banner rises.',
+            body: "The vault door scrapes open, and cloth stirs high above the gate. Everyone waits for you to go first, which takes a moment to understand.",
           });
           if (!splashed) {
             this.flash('The castle vault is yours.',
@@ -1650,7 +1649,7 @@ class SceneShops {
             art: 'fort_unseal',
             header: 'Unsealed!',
             name: 'You unsealed a Fort',
-            sub: 'The quartermaster beckons you over to his clattering reels.',
+            sub: "Dust falls from the gate as it opens, tickling the back of your throat. Somewhere inside, reels clatter, and the quartermaster waves you towards them.",
             color: '#a7ffb0', accent: '#a7ffb0',
           });
         } else {
@@ -1738,7 +1737,7 @@ class SceneShops {
         this.updateHUD();
         this.buildInventoryDOM();
         // The forge's story pane: the forged piece's own art (not a coin),
-        // large on the forge painting, with the smith's cheer (FORGE_CEREMONY).
+        // large on the forge painting, with the finishing moment (FORGE_CEREMONY).
         // It replaces the old loot splash rather than stacking a toast under it.
         const { iconPx, ...ceremony } = FORGE_CEREMONY;
         this.showChestRewardModal({

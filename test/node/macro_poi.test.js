@@ -542,6 +542,18 @@
   });
 
   // ── The picture ───────────────────────────────────────────────────────────
+  test('macro: an inn has its host and each weapon discipline has matching art', () => {
+    assert.eq(Macros.stallArt('inn'), 'kind_inn');
+    const seen = new Set();
+    const expected = { melee: 'tool_sword', ranged: 'tool_shoot', magic: 'tool_staff', energy: 'tool_sword', speed: 'tool_sword' };
+    for (let id = 0; id < 100; id++) {
+      const o = { id };
+      const discipline = Macros.trainingKindFor(o);
+      seen.add(discipline);
+      assert.eq(Macros.stallArt('training', o), expected[discipline]);
+    }
+    assert.eq(seen.size, 5, 'all hall disciplines are exercised');
+  });
   test('macro: each kind ships its 80×80 art and an ASSETS row under its texKey', () => {
     const files = { inn: 'inn', chapel: 'chapel', apothecary: 'apothecary', scriptorium: 'scriptorium',
       guildhall: 'guildhall', curio: 'curio', sundries: 'sundries', training: 'training' };

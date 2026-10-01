@@ -102,7 +102,7 @@ test('memory arc: both first tower and nine lifetime memories are needed for Act
   assert.eq(scene.save.memories, 0);
 }));
 
-test('memory arc: intro resumes its unacknowledged page and first return keeps exact promise', () => isolated(saved => {
+test('memory arc: intro resumes its unacknowledged page and first return keeps the promise to guide remembering', () => isolated(saved => {
   const scene = sceneFor(towerSave(9)); visit(scene);
   visit(scene); assert.eq(scene.modals.length, 1);
   assert.truthy(scene.modals[0].mustAcknowledge); dismiss(scene);
@@ -110,7 +110,7 @@ test('memory arc: intro resumes its unacknowledged page and first return keeps e
   assert.eq(resumed.modals[0].body, MemoryStory.INTRO[1].body);
   finish(resumed); assert.eq(resumed.modals.length, 2); assert.eq(resumed.offers, 1);
   visit(resumed);
-  assert.truthy(resumed.modals[2].body.includes('I can help you remember the right things.'));
+  assert.truthy(resumed.modals[2].body.includes('help you remember the right things'));
   finish(resumed); assert.eq(resumed.save.memories, 9);
 }));
 
@@ -225,10 +225,16 @@ test('memory arc: contradictory fragments require their acknowledged claim, and 
 
 test('memory arc: ten milestones and the dragon declaration have painted art and no early spoilers', () => {
   assert.eq(Object.keys(MemoryStory.SCENES).length, 10);
+  assert.includes(MemoryStory.REVEAL[0].body, 'old man stay seated');
+  assert.includes(MemoryStory.REVEAL[0].body, 'human shape is all he has left');
+  assert.falsy(/wings|red scales|nearly killed/.test(MemoryStory.REVEAL.map(p => p.body).join(' ')),
+    "Tim has not regained dragon form; Hood's lost form is not blamed on battle wounds");
   const early = Object.values(MemoryStory.SCENES).map(p => p.body);
   assert.eq(early.filter(body => /watching you|being watched/.test(body)).length, 2);
   assert.falsy(/dragon|conquer/.test([...early, ...MemoryStory.ACT2.flatMap(beat => beat.pages.map(p => p.body))].join(' ')));
-  assert.eq(MemoryStory.DRAGON_DECLARATION, 'I am a dragon, and so are you. We are the alpha species of the stars, and this planet is mine. You are my sword, nearly restored. Collect your fire breath on level 9 of the dungeon from the demons there.');
+  for (const fact of ['both dragons', 'ruling species of the stars', 'planet as his own', 'sword nearly restored', 'fire breath', 'demons on dungeon level 9']) {
+    assert.includes(MemoryStory.DRAGON_DECLARATION, fact, 'revelation preserves ' + fact);
+  }
   for (const panel of [MemoryStory.HOME, MemoryStory.LOCKED, MemoryStory.ABANDONED, MemoryStory.EMPTY,
     ...Object.values(MemoryStory.SCENES), ...MemoryStory.AFTER, ...MemoryStory.INTRO, MemoryStory.FIRST_RETURN,
     ...MemoryStory.ACT2.flatMap(beat => beat.pages), ...Object.values(MemoryStory.ACT2_MEMORIES), ...MemoryStory.REVEAL]) {
