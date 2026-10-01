@@ -107,7 +107,7 @@ test('look: both bodies wear the row\'s tint, and the HUD chips come off the tab
   assert.truthy(/Combat\.burning\(c\) && Conditions\.conditionTintOn\('burning', performance\.now\(\)\)/.test(RENDER_SRC));
   assert.truthy(/afire \? Conditions\.DEFINITIONS\.burning\.tint/.test(RENDER_SRC), 'a burning foe');
   assert.truthy(/Conditions\.DEFINITIONS\[burning \? 'burning' : 'poison'\]\.tint/.test(SCENE_SRC), 'the burning or poisoned farmer');
-  const hud = SCENE_SRC.match(/\n  _syncConditionHUD\(\) \{([\s\S]*?)\n  \}\n/)[1];
+  const hud = SCENE_SRC.match(/\n  _syncStatusRow\(\) \{([\s\S]*?)\n  \}\n/)[1];
   assert.truthy(/Object\.entries\(Conditions\.DEFINITIONS\)/.test(hud), 'one chip per row');
   assert.falsy(/'condition-poison'/.test(hud), 'no row named by hand');
 });

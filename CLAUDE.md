@@ -367,10 +367,12 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   looked at, never asked about twice.
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including
   interpolations. Cut copy or use a modal; do not interpolate unbounded POI names.
-- A timed effect on the player (a potion, powder, torch, coffee, the bike,
-  the compass, a shrine boon) is a row of `Buffs.KINDS` (`src/buffs.js`):
-  its expiry field, word and ink. The countdown stack over the head
-  (`_tickBuffTimers`) draws every running row; never add a label of its own.
+- Statuses, buffs and timers on the player live in ONE place: the status
+  row under the top HUD (`_syncStatusRow`, `STATUS_ROW_CSS`), one chip per
+  row of `Conditions.DEFINITIONS` (poison, burning) and of `Buffs.KINDS`
+  (`src/buffs.js`: a potion, powder, torch, coffee, the bike, the compass, a
+  shrine boon — its expiry field, word and ink). A new timed effect is a
+  row there; never a label over the player or a chip of its own.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls

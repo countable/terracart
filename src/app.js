@@ -1353,6 +1353,31 @@ body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 // TOTAL road restored in small type under it (Trail.totalMetres through
 // Trail.distanceLabel: 1.5km, 26km). Same shared
 // chip box as the memories chip beside it.
+// The STATUS ROW (_buildStatusRow / _syncStatusRow): statuses, buffs and
+// timers as small chips in a right-aligned column under the top HUD row —
+// the money / energy row's own anchor, one chip height plus a gap down. Each
+// chip's ink and bg come from its owning row (Conditions.DEFINITIONS,
+// Buffs.KINDS); the chip itself is read-only chrome, so no pointer events.
+// Dimmed with the HUD chips while a dialog is up, hidden with them while the
+// page boots. While the objective chip shows, _syncStatusRow seats the row
+// under it instead (an inline top).
+const STATUS_ROW_CSS = `
+#status-row {
+  position: fixed;
+  top: calc(8px + env(safe-area-inset-top, 0px) + var(--hud-chip-h) + 6px);
+  right: calc(var(--phone-right, 0px) + 10px);
+  display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+  z-index: 7; pointer-events: none;
+}
+#status-row .status-chip {
+  white-space: nowrap; padding: 3px 7px; border-radius: 6px;
+  font: 700 11px ui-monospace, monospace;
+  text-shadow: 0 1px 0 #000;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+body.modal-open #status-row { opacity: 0.25; }
+body.booting #status-row { visibility: hidden; }
+`;
 const ROAD_CHIP_CSS = `
 #roadchip {
   box-sizing: border-box; position: relative;
@@ -2581,13 +2606,6 @@ class MapScene extends Phaser.Scene {
       .setMask(mask);
     this.playerShadow.clearMask();
     this.shadowContainer.add(this.playerShadow);
-    // The countdown stack over the player's head: one label per RUNNING
-    // timed effect (Buffs.KINDS — potions, powders, the torch, coffee, the
-    // bike, the compass, every shrine boon), "<name> <wait>" in the row's own
-    // ink, 15px apart, bottom-up in table order. The labels are a pool made
-    // on demand by _tickBuffTimers (seated per frame on scene.playerScreen()
-    // — the camera is not the player) and hidden once their effect runs out.
-    this.buffTimerTexts = [];
     this.blightAura = this.add.image(this.viewCenterX, this.viewCenterY, 'aura_blight')
       .setOrigin(0.5, 0.5)
       .setVisible(false);
@@ -2829,6 +2847,7 @@ class MapScene extends Phaser.Scene {
     this.moneyEl = document.getElementById('money');
     this._buildMemoriesChip();
     this._buildRoadChip();
+    this._buildStatusRow();
     this.banner = document.getElementById('banner');
     this._settleInvCatOnBoot();
     this.buildInventoryDOM();
@@ -3971,16 +3990,15 @@ class MapScene extends Phaser.Scene {
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
     // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
     // a dragon walks the same way everyone walks, just with tier-8 boots' speed and energy efficiency (DRAGON_WALK_COST_TIER, see _walkRelics) and double damage. All the
-    // edge does is swap the sprite skin; its countdown rides the stack below.
+    // edge does is swap the sprite skin; its countdown is a status-row chip.
     const dragonActive = this.isDragonActive();
     if (this._dragonBuffActive !== dragonActive) {
       this._dragonBuffActive = dragonActive;
       this._applyDragonSkin(dragonActive);
     }
-    // Every running timed effect's countdown, over the head (Buffs.KINDS).
-    this._tickBuffTimers(pScreen, bodyDy);
     // Potion of Blight: the aura itself on the ground point (a ground mark
-    // sits on the fix — no body nudge); its countdown is a row of the stack.
+    // sits on the fix — no body nudge); its countdown is a chip of the
+    // status row under the HUD (Buffs.KINDS, _syncStatusRow).
     if (this.isBlightActive()) {
       // A slow breath in alpha only: the SIZE never moves, because the size
       // is the damage radius.
@@ -3994,7 +4012,7 @@ class MapScene extends Phaser.Scene {
     } else if (this.blightAura.visible) {
       this.blightAura.setVisible(false);
     }
-    // The one countdown that isn't over the player's head:
+    // The one countdown that isn't in the status row under the HUD:
     // the bite cooldown lives ON the Eat button, so it is DOM rather than a
     // Phaser label (see _tickEatButton). No-ops in a frame where no food is
     // selected — the button doesn't exist then.
@@ -4834,7 +4852,7 @@ class MapScene extends Phaser.Scene {
       }
     }
     persistSave(this.save);
-    this._syncConditionHUD();
+    this._syncStatusRow();
   }
 
   _tickConditions() {
@@ -4850,7 +4868,8 @@ class MapScene extends Phaser.Scene {
         this.events?.off('resume', resetClock);
         this._conditionVisibilityHandler = null;
         this._conditionLastT = null;
-        for (const id of Object.keys(Conditions.DEFINITIONS)) document.getElementById(`condition-${id}`)?.remove();
+        document.getElementById('status-row')?.remove();
+        this.statusRowEl = null;
       });
     }
     const now = performance.now();
@@ -4865,31 +4884,92 @@ class MapScene extends Phaser.Scene {
       this.updateEnergyDOM();
     }
     if (result.ticks || result.expired) persistSave(this.save);
-    this._syncConditionHUD();
+    this._syncStatusRow();
   }
 
   // One chip under the energy bar per ACTIVE row of Conditions.DEFINITIONS —
   // its label, ink and background are the row's — stacked in table order so
   // a poisoned player who catches fire reads both.
-  _syncConditionHUD() {
-    let row = 0;
-    for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
-      let el = document.getElementById(`condition-${id}`);
-      if (!Conditions.active(this.save, id)) { el?.remove(); continue; }
-      if (!el) {
-        const anchor = document.getElementById('energy');
-        if (!anchor) return;
-        el = document.createElement('div');
-        el.id = `condition-${id}`;
-        el.style.cssText = `position:absolute;right:0;white-space:nowrap;color:${def.ink};background:${def.bg};padding:3px 6px;border-radius:4px;font:11px monospace;pointer-events:none;`;
-        anchor.style.position = 'relative';
-        anchor.appendChild(el);
-      }
-      el.style.top = `calc(100% + ${row * 19}px)`;
-      row++;
-      const text = `${def.label} · ${shortDuration(this.save.conditions[id].remainingMs)} · −${def.energyLoss} energy / ${shortDuration(def.intervalMs)}`;
-      if (el.textContent !== text) el.textContent = text;
+  // THE STATUS ROW — every status, buff and timer on the player, as chips
+  // under the top HUD row (#status-row, STATUS_ROW_CSS; built by
+  // _buildStatusRow): first the conditions (the rows of
+  // Conditions.DEFINITIONS the player carries — label, time left and the
+  // drain, in the row's ink on its bg), then every running timed effect
+  // (Buffs.active — potions, powders, the torch, coffee, the bike, the
+  // compass, every shrine boon — "<name> · <wait>", in the row's ink on its
+  // stroke). One chip per id, kept in that order; a chip whose effect has
+  // run out is removed. Runs every frame from _tickConditions, so every DOM
+  // write is guarded on the value having changed: the order string decides
+  // whether anything is re-appended, the text only rewrites when the
+  // shown second ticks over. Nothing is drawn over the player's head.
+  _syncStatusRow() {
+    const row = this.statusRowEl;
+    if (!row) return;
+    // The objective chip (#objective, the starter ladder) hangs under the
+    // same HUD row, full width: while it shows, the status row seats under
+    // IT. Its bottom is read back only when what decides it changes (the
+    // chip's display, its text, a dialog hiding it, a resize) — a rect read
+    // every frame would force a layout every frame.
+    const obj = document.getElementById('objective');
+    const shown = obj && obj.style.display !== 'none' && !document.body.classList.contains('modal-open');
+    const seatKey = shown ? `${obj.textContent}|${window.innerWidth}x${window.innerHeight}` : '';
+    if (this._statusRowSeat !== seatKey) {
+      this._statusRowSeat = seatKey;
+      row.style.top = shown ? `${Math.round(obj.getBoundingClientRect().bottom) + 6}px` : '';
     }
+    const chips = [];
+    for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
+      if (!Conditions.active(this.save, id)) continue;
+      chips.push({ id, ink: def.ink, bg: def.bg,
+        text: `${def.label} · ${shortDuration(this.save.conditions[id].remainingMs)} · −${def.energyLoss} energy / ${shortDuration(def.intervalMs)}` });
+    }
+    for (const b of Buffs.active(this.save, this)) {
+      chips.push({ id: b.id, ink: b.color, bg: b.stroke + 'e8', text: `${b.name} · ${shortDuration(b.remainingMs)}` });
+    }
+    const order = chips.map((c) => c.id).join(',');
+    if (this._statusRowDOM !== order) {
+      this._statusRowDOM = order;
+      const keep = new Set(chips.map((c) => c.id));
+      for (const el of [...row.children]) if (!keep.has(el.dataset.id)) el.remove();
+      for (const c of chips) {
+        let el = row.querySelector(`[data-id="${c.id}"]`);
+        if (!el) {
+          el = document.createElement('div');
+          el.className = 'status-chip';
+          el.dataset.id = c.id;
+          el.style.color = c.ink;
+          el.style.background = c.bg;
+        }
+        row.append(el);   // append moves an existing chip into table order
+      }
+    }
+    for (const c of chips) {
+      const el = row.querySelector(`[data-id="${c.id}"]`);
+      if (el && el.textContent !== c.text) el.textContent = c.text;
+    }
+  }
+
+  // The row itself, under the HUD row's right edge (its CSS in
+  // STATUS_ROW_CSS, injected once like the road chip's). Built in create()
+  // beside the other chips; _syncStatusRow fills it.
+  _buildStatusRow() {
+    if (typeof document === 'undefined') return;
+    if (!document.getElementById('status-row-style')) {
+      const st = document.createElement('style');
+      st.id = 'status-row-style';
+      st.textContent = STATUS_ROW_CSS;
+      document.head.appendChild(st);
+    }
+    let el = document.getElementById('status-row');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'status-row';
+      document.body.appendChild(el);
+    }
+    el.replaceChildren();
+    this.statusRowEl = el;
+    this._statusRowDOM = null;
+    this._statusRowSeat = null;
   }
 
   // ── Fire on the body ──────────────────────────────────────────────────────
@@ -9241,7 +9321,7 @@ class MapScene extends Phaser.Scene {
       this.flash('No poison — Antidote kept.', this.viewCenterX, this.viewCenterY);
       return false;
     }
-    this._syncConditionHUD();
+    this._syncStatusRow();
     return this._finishConsumable('You drink the Antidote', 'The bitter draught burns your tongue. The purple chill loosens its hold.');
   }
 
@@ -9375,37 +9455,6 @@ class MapScene extends Phaser.Scene {
     }
     if (!this.spendEnergy(Wizard.ENCHANTER_ENERGY_COST, sx, sy, cell)) return false;
     return this[method]({ channel: true });
-  }
-
-  // The countdown stack over the head: Buffs.active lists every running
-  // timed effect in table order, and label i of the pool shows the i-th,
-  // "<name> <shortDuration>", 15px above the one below; the bottom one sits
-  // 35px over the SPRITE CENTRE (pScreen is the ground point; the body rides
-  // bodyDy above it). A label's ink is set only when the row it shows
-  // changes (`_buffId`): Phaser re-rasterises the text on every setColor /
-  // setStroke, so colouring per frame would redraw every label every frame
-  // — setText already skips an unchanged string. Labels past the list hide.
-  _tickBuffTimers(pScreen, bodyDy) {
-    const rows = Buffs.active(this.save, this);
-    const pool = this.buffTimerTexts;
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      let t = pool[i];
-      if (!t) {
-        t = pool[i] = this.add.text(0, 0, '', { font: fontMono('bold 13px'), color: '#ffffff', stroke: '#1a1410', strokeThickness: 3 })
-          .setOrigin(0.5, 1).setDepth(11);
-      }
-      if (t._buffId !== row.id) {
-        t._buffId = row.id;
-        t.setColor(row.color).setStroke(row.stroke, 3);
-      }
-      t.setText(`${row.name} ${shortDuration(row.remainingMs)}`)
-        .setPosition(pScreen.x, pScreen.y + bodyDy - 35 - 15 * i)
-        .setVisible(true);
-    }
-    for (let i = rows.length; i < pool.length; i++) {
-      if (pool[i].visible) pool[i].setVisible(false);
-    }
   }
 
   // True while a Potion of Blight's minute runs. In the save like the other

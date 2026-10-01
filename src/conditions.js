@@ -7,7 +7,7 @@
   // never burn at different rates. The row also owns how it LOOKS — `tint`
   // multiplies the afflicted body (app.js player tint, render.js creature
   // tint; a burn flickers, a poison holds), `label` / `ink` / `bg` are the
-  // HUD chip under the energy bar (app.js _syncConditionHUD) — one row for
+  // HUD chip in the status row under the HUD (app.js _syncStatusRow) — one row for
   // mechanics, copy and colour. A new status is a row here, never a timer of
   // its own.
   //   poison  — a purple slime's bite: 1 energy every 2 s for a minute; only

@@ -76,7 +76,7 @@
       const fn = new Function('getSelectedSlot', 'Conditions', body);
       const save = { energy: 0, inv: [{ id, count: 2 }] };
       let consumed = 0;
-      const scene = { save, flash() {}, _syncConditionHUD() {}, _popEnergy() {}, updateEnergyDOM() {},
+      const scene = { save, flash() {}, _syncStatusRow() {}, _popEnergy() {}, updateEnergyDOM() {},
         _finishConsumable() { consumed++; return true; } };
       const call = () => fn.call(scene, s => s.inv[0], Conditions);
       assert.falsy(call());
@@ -98,7 +98,7 @@
     assert.eq(save.conditions.poison.remainingMs, 1000);
     assert.eq(save.conditions.poison.nextTickMs, 2000);
     let persisted = null;
-    const scene = { save, _conditionLastT: 5000, _conditionVisibilityHandler() {}, _syncConditionHUD() {} };
+    const scene = { save, _conditionLastT: 5000, _conditionVisibilityHandler() {}, _syncStatusRow() {} };
     fn.call(scene, Conditions, { hidden: false }, { now: () => 6000 },
       state => { persisted = JSON.parse(JSON.stringify(state)); });
     assert.truthy(persisted, 'expiry saves even though no energy tick happened');
@@ -111,7 +111,7 @@
     const fn = new Function('Conditions', 'document', 'performance', 'persistSave', body);
     let now = 1000;
     const doc = { hidden: false, addEventListener() {} };
-    const scene = { save: { energy: 100 }, _syncConditionHUD() {}, _flashPlayerHit() {}, _popEnergy() {}, _warnIfTiring() {}, updateEnergyDOM() {} };
+    const scene = { save: { energy: 100 }, _syncStatusRow() {}, _flashPlayerHit() {}, _popEnergy() {}, _warnIfTiring() {}, updateEnergyDOM() {} };
     Conditions.apply(scene.save, 'poison');
     const call = () => fn.call(scene, Conditions, doc, { now: () => now }, () => {});
     call(); now += 1000; call();

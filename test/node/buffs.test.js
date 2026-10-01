@@ -1,7 +1,8 @@
 // The timed-effect table (src/buffs.js) and the countdown stack over the
-// head that reads it (app.js _tickBuffTimers). A new timed effect is a row
-// of Buffs.KINDS — the sweep below fails on a `save.<x>Until =` writer with
-// no row — and the stack is the only place a countdown is drawn.
+// row under the HUD that reads it (app.js _syncStatusRow). A new timed
+// effect is a row of Buffs.KINDS — the sweep below fails on a
+// `save.<x>Until =` writer with no row — and the status row is the only
+// place a countdown is shown.
 (function () {
   const T0 = 1_700_000_000_000;
   const app = SCENE_SRC;
@@ -65,17 +66,21 @@
     assert.eq(Buffs.active(null, null, T0).length, 0, 'no save yet');
   });
 
-  test('buffs: the stack is one pooled label per running row, 15px apart over the head', () => {
-    const m = app.match(/\n  _tickBuffTimers\(pScreen, bodyDy\) \{\n([\s\S]*?)\n  \}\n/);
-    assert.truthy(m, '_tickBuffTimers');
+  test('buffs: the status row under the HUD is one chip per condition, then per running row', () => {
+    const m = app.match(/\n  _syncStatusRow\(\) \{\n([\s\S]*?)\n  \}\n/);
+    assert.truthy(m, '_syncStatusRow');
     const body = m[1];
-    assert.truthy(/const rows = Buffs\.active\(this\.save, this\);/.test(body), 'reads the table');
-    assert.truthy(/`\$\{row\.name\} \$\{shortDuration\(row\.remainingMs\)\}`/.test(body), 'name + shortDuration');
-    assert.truthy(/pScreen\.y \+ bodyDy - 35 - 15 \* i/.test(body), 'stacked 15px apart from 35px over the body');
-    assert.truthy(/if \(t\._buffId !== row\.id\) \{/.test(body), 'ink set only when the slot\'s row changes');
-    assert.truthy(/for \(let i = rows\.length; i < pool\.length; i\+\+\)/.test(body), 'labels past the list hide');
-    assert.truthy(/this\._tickBuffTimers\(pScreen, bodyDy\);/.test(app), 'driven from update()');
-    assert.falsy(/(dragon|shadow|torch|blight|boon)TimerText/.test(app), 'no per-effect labels remain');
+    assert.truthy(/Object\.entries\(Conditions\.DEFINITIONS\)/.test(body), 'the conditions first, off their table');
+    assert.truthy(/for \(const b of Buffs\.active\(this\.save, this\)\)/.test(body), 'then every running timed effect, off the table');
+    assert.truthy(body.indexOf('Conditions.DEFINITIONS') < body.indexOf('Buffs.active'), 'statuses above buffs');
+    assert.truthy(/`\$\{b\.name\} · \$\{shortDuration\(b\.remainingMs\)\}`/.test(body), 'name · shortDuration');
+    assert.truthy(/if \(this\._statusRowDOM !== order\)/.test(body), 'the DOM is only rebuilt when the set or order changes');
+    assert.truthy(/if \(el && el\.textContent !== c\.text\) el\.textContent = c\.text;/.test(body), 'text writes guarded');
+    assert.truthy(/this\._syncStatusRow\(\);/.test(app.match(/\n  _tickConditions\(\) \{\n([\s\S]*?)\n  \}\n/)[1]), 'driven every frame from the condition tick');
+    assert.truthy(/#status-row \{\n  position: fixed;\n  top: calc\(8px \+ env\(safe-area-inset-top, 0px\) \+ var\(--hud-chip-h\) \+ 6px\);/.test(app),
+      'seated one chip height under the HUD row');
+    assert.truthy(/body\.modal-open #status-row \{ opacity: 0\.25; \}/.test(app), 'dimmed with the HUD chips under a dialog');
+    assert.falsy(/TimerText|_tickBuffTimers|buffTimerTexts/.test(app), 'nothing is drawn over the player\'s head');
     assert.falsy(/boonRemainingMs|shrineBoon = /.test(app + Object.values(Shrines).join('')), 'the last-boon countdown is gone');
   });
 })();

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────
-// Buffs — the ONE table of the player's TIMED EFFECTS, and the countdown
-// stack over the player's head that reads it (app.js _tickBuffTimers).
+// Buffs — the ONE table of the player's TIMED EFFECTS, read by the status
+// row under the HUD that shows each one's countdown (app.js _syncStatusRow).
 //
 // Every timed effect the player can carry is a row of KINDS: a potion, a
 // powder, the torch, a coffee, the bike rack's push, the Pairy compass and
@@ -14,19 +14,19 @@
 // and inked in its light colour.
 //
 // `active(save, scene, now)` lists the running rows in table order with
-// their remaining ms; the label stack draws them bottom-up, so the order
-// here is the order over the head. A new timed effect is a row here, never
-// a label of its own (buffs.test.js sweeps every `save.<x>Until =` writer).
-// Not listed: the mercenary's day and a training drill — a whole-day
-// countdown over the head all day is noise; the wagon and the hall say the
-// wait when asked. Pure: no Phaser, no DOM.
+// their remaining ms; the status row shows them top-down after the
+// conditions, so the order here is the order on screen. A new timed effect
+// is a row here, never a chip or label of its own (buffs.test.js sweeps
+// every `save.<x>Until =` writer). Not listed: the mercenary's day and a
+// training drill — a whole-day countdown on screen all day is noise; the
+// wagon and the hall say the wait when asked. Pure: no Phaser, no DOM.
 // ─────────────────────────────────────────────────────────────────────────
 (function (root) {
   'use strict';
 
   const GOLD = (typeof UI_GOLD === 'string') ? UI_GOLD : '#ffe066';
-  // The ink a shrine boon's label is stroked in (the kind's light colour
-  // fills it).
+  // The dark ground behind a shrine boon's chip (the kind's light colour is
+  // its ink); `stroke` on every row is that ground.
   const BOON_STROKE = '#1a1410';
 
   const KINDS = {
