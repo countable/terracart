@@ -16,6 +16,7 @@ from pathlib import Path
 import re
 import subprocess
 
+from art_paths import RESERVE_ROOT
 from PIL import Image
 from playwright.async_api import async_playwright
 from preview_map_art import ROOT, colours
@@ -187,7 +188,7 @@ def wire_assets(original,jobs):
 
 async def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--reserve-root',type=Path,default=ROOT/'unused_art')
+    parser.add_argument('--reserve-root',type=Path,default=RESERVE_ROOT)
     parser.add_argument('--review-output',type=Path,default=Path('/tmp/approved-map-art-review'))
     args=parser.parse_args();DEST.mkdir(parents=True,exist_ok=True)
     original,jobs,inputs=recipes(args.reserve_root)

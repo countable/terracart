@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Compare existing grave/shrine sprites without changing game assets.
 
-Requires Pillow. The ignored reserve normally lives in the primary checkout:
-python3 tools/preview_landmark_candidates.py --reserve-root /home/claude/terracart/unused_art --output /tmp/landmark-art
+Requires Pillow. Reserve art lives outside the checkout; TERRACART_ART_ROOT
+overrides its parent directory:
+python3 tools/preview_landmark_candidates.py --reserve-root ~/.artifacts/terracart-art/unused_art --output /tmp/landmark-art
 """
 import argparse
 import base64
@@ -11,6 +12,7 @@ import io
 import json
 import pathlib
 
+from art_paths import RESERVE_ROOT
 from PIL import Image, ImageDraw
 
 
@@ -152,7 +154,7 @@ def render(reserve, out):
             contact.append((row, image))
     styles = '''*{box-sizing:border-box}body{margin:32px auto;padding:0 24px;max-width:1380px;background:#101a15;color:#e5ecdf;font:16px system-ui}h1{font-size:34px}p{line-height:1.6}a{color:#95d7d1}nav{display:flex;flex-wrap:wrap;gap:20px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px}article{padding:20px;border:1px solid #334a3a;border-radius:12px;background:#1b2a21}article h3{margin-top:7px}small{font-size:11px;color:#b4c6b4}article:has(>small:first-child){min-width:0}.comparison{display:grid;grid-template-columns:1fr 88px;gap:8px;height:210px;align-items:end;background:#14241b;border-radius:6px;padding:8px}.large{height:194px;display:flex;align-items:center;justify-content:center}.large img{max-width:100%;object-fit:contain}.map-size{height:72px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px}img{image-rendering:pixelated;object-fit:contain}.map-size img{object-fit:contain}details{font-size:12px;color:#b4c6b4}summary{cursor:pointer}code{display:block;margin-top:12px;overflow-wrap:anywhere}section{margin-top:34px;scroll-margin-top:16px}.intro{max-width:1000px}.note{border-left:3px solid #79a956;padding-left:16px}'''
     page = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Grave and shrine art · existing candidates</title><style>{styles}</style></head><body>
-<h1>Grave and shrine art already available</h1><div class="intro"><p>The <a href="#shrine-votive">green votive</a> is the current grove shrine art. The oversized stone figure is retired. The previous moss placeholder and unused niche remain below for reference. The low basalt column is the approved current headstone; other grave markers remain for comparison.</p><p class="note">Grove shrine and headstone art have been updated to the approved choices. These are existing local assets, not newly generated art. Large images show source pixels enlarged up to 4×. The approved sprites’ small views show their runtime render scales; other small views are silhouette comparisons.</p><p>The ignored <code style="display:inline">unused_art</code> directory is in the primary checkout, <code style="display:inline">/home/claude/terracart</code>; it is absent from the two worktrees searched. Full source paths, crop coordinates and local provenance notes are inside each card. The existing texture called “shrine” is a different asset: assets/Objects/Houses/wizard.png, frame 3, used for wizard houses; the grove POI is grove_shrine.</p></div>
+<h1>Grave and shrine art already available</h1><div class="intro"><p>The <a href="#shrine-votive">green votive</a> is the current grove shrine art. The oversized stone figure is retired. The previous moss placeholder and unused niche remain below for reference. The low basalt column is the approved current headstone; other grave markers remain for comparison.</p><p class="note">Grove shrine and headstone art have been updated to the approved choices. These are existing local assets, not newly generated art. Large images show source pixels enlarged up to 4×. The approved sprites’ small views show their runtime render scales; other small views are silhouette comparisons.</p><p>The reserve art lives outside the checkout at <code style="display:inline">~/.artifacts/terracart-art/unused_art</code> by default; use <code style="display:inline">TERRACART_ART_ROOT</code> or <code style="display:inline">--reserve-root</code> to select another location. Full source paths, crop coordinates and local provenance notes are inside each card. The existing texture called “shrine” is a different asset: assets/Objects/Houses/wizard.png, frame 3, used for wizard houses; the grove POI is grove_shrine.</p></div>
 <nav><a href="#grave-markers">Graves</a><a href="#grove-shrines">Grove shrines</a><a href="index.html">Zone preview</a><a href="grave-shrine-contact.png">Compact contact sheet</a></nav>'''
     for group, cards in sections.items():
         anchor = {'Grave markers':'grave-markers', 'Grove shrines':'grove-shrines', 'Related art · different roles':'related-art'}[group]
@@ -177,7 +179,7 @@ def render(reserve, out):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--reserve-root', type=pathlib.Path, default=pathlib.Path('/home/claude/terracart/unused_art'))
+    parser.add_argument('--reserve-root', type=pathlib.Path, default=RESERVE_ROOT)
     parser.add_argument('--output', type=pathlib.Path, default=pathlib.Path('/tmp/landmark-art'))
     parser.add_argument('--pillars', action='store_true', help='Render only the separate short-stone-pillar comparison')
     args = parser.parse_args()

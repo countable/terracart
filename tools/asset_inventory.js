@@ -36,11 +36,16 @@ function inventory() {
   const context = { console, addEventListener() {} };
   context.window = context;
   vm.createContext(context);
-  for (const file of ['src/util.js', 'src/enemy_roster.js', 'src/sprite_layout.js', 'src/items.js', 'src/assets.js']) {
+  for (const file of ['src/util.js', 'src/enemy_roster.js', 'src/sprite_layout.js', 'src/items.js', 'src/assets.js', 'src/street_variants.js']) {
     vm.runInContext(read(file), context, { filename: file });
   }
   for (const [key, asset] of Object.entries(context.ASSETS)) {
     add(asset.path, `src/assets.js: ASSETS.${key} (preload, including enemy roster)`);
+  }
+
+  // Street story IDs can select a different painting through an explicit art override.
+  for (const row of [...context.StreetVariants.STREET_VARIANTS, context.StreetVariants.BANDIT_STORY]) {
+    if (row.story) add(`assets/art/${row.art || row.story}.webp`, `src/street_variants.js: ${row.story} painting`);
   }
 
   const app = read('src/app.js');
@@ -66,7 +71,7 @@ function inventory() {
     for (const match of (file === 'src/assets.js' ? '' : source).matchAll(/['"`](assets\/[^'"`\n]*?\.(?:png|webp|jpe?g|gif|svg|avif)(?:\?[^'"`\n]*)?)['"`]/g)) {
       if (!match[1].includes('${')) add(match[1], `${file}:${line(match)} literal reference`);
     }
-    for (const match of source.matchAll(/\b(?:art|story)\s*:\s*['"]([a-z_]+)['"]/g)) {
+    for (const match of (file === 'src/street_variants.js' ? '' : source).matchAll(/\b(?:art|story)\s*:\s*['"]([a-z_]+)['"]/g)) {
       add(`assets/art/${match[1]}.webp`, `${file}:${line(match)} scene painting stem`);
     }
   }
@@ -103,12 +108,15 @@ function inventory() {
   }));
   const missing = used.filter((row) => !fs.existsSync(path.join(ROOT, row.path)));
   const candidates = walk('assets').filter((file) => IMAGE.test(file) && !references.has(file)).map(record);
-  const sources = walk('art-source').filter((file) => IMAGE.test(file)).map(record);
+  const sourceRoot = path.resolve(process.env.TERRACART_ART_ROOT || path.join(require('os').homedir(), '.artifacts', 'terracart-art'));
+  const sources = fs.existsSync(sourceRoot) ? fs.readdirSync(sourceRoot, { recursive: true })
+    .filter((file) => IMAGE.test(file) && fs.statSync(path.join(sourceRoot, file)).isFile())
+    .sort().map((file) => ({ path: path.join(sourceRoot, file), status: 'external', bytes: fs.statSync(path.join(sourceRoot, file)).size })) : [];
   const byStatus = (rows) => Object.fromEntries(['tracked', 'untracked', 'ignored']
     .map((status) => [status, rows.filter((row) => row.status === status).length]));
   return {
     summary: { referenced: used.length, missing: missing.length,
-      candidates: byStatus(candidates), sources: byStatus(sources) },
+      candidates: byStatus(candidates), sources: { external: sources.length } },
     references: used, missing, candidates, sources,
   };
 }

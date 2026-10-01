@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Render a self-contained, read-only comparison of existing nature sprites.
 
-Requires Pillow. Reserve assets are ignored and normally live in the main checkout.
-python3 tools/preview_nature_candidates.py --reserve-root /home/claude/terracart/unused_art
+Requires Pillow. Reserve assets live outside the checkout; TERRACART_ART_ROOT
+overrides their parent directory.
+python3 tools/preview_nature_candidates.py --reserve-root ~/.artifacts/terracart-art/unused_art
 """
 import argparse
 import base64
@@ -14,6 +15,7 @@ import pathlib
 import re
 import subprocess
 
+from art_paths import ART_ROOT, RESERVE_ROOT
 from PIL import Image, ImageDraw
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -80,7 +82,13 @@ def candidates():
 
 
 def crop(row, reserve):
-    path = reserve / row['path'][len('unused_art/'):] if row['path'].startswith('unused_art/') else ROOT / row['path']
+    name = row['path']
+    if name.startswith('unused_art/'):
+        path = reserve / name[len('unused_art/'):]
+    elif name.startswith('art-source/'):
+        path = ART_ROOT / name
+    else:
+        path = ROOT / name
     with Image.open(path) as source:
         image = source.convert('RGBA')
     x, y, w, h = row['rect']
@@ -235,7 +243,7 @@ def render(reserve, output):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--reserve-root', type=pathlib.Path, default=ROOT/'unused_art')
+    parser.add_argument('--reserve-root', type=pathlib.Path, default=RESERVE_ROOT)
     parser.add_argument('--output', type=pathlib.Path, default=pathlib.Path.home()/'.artifacts/zone-variants')
     args = parser.parse_args()
     render(args.reserve_root, args.output)

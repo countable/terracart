@@ -25,8 +25,11 @@ tiles_cache/
 data/game_*.png
 data/g[0-9]*_*.png
 
-# Full-resolution painting masters; preserve locally, outside runtime assets.
-art-source/paintings/raw/
-
-# Unused art stays local; only selected copies in assets belong in Git.
+# Source art belongs outside the checkout (see docs/ART_SOURCES.md).
+/art-source/
+/assets/art/raw/
 /unused_art/
+
+# Local training logs and Python bytecode.
+/lightning_logs/
+__pycache__/
