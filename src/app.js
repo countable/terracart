@@ -1909,6 +1909,7 @@ class MapScene extends Phaser.Scene {
     window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
     window.WORLD_ICON_URLS.chest = bakeSheetFrame('chest', 0, 16, 16);
     window.WORLD_ICON_URLS.box   = bakeSheetFrame('box',   0, 16, 16);
+    window.WORLD_ICON_URLS.quarry_equipment = bakeSheetFrame('quarry_equipment', 0, 32, 16);
     // An old trade road's bus stop is a broken wagon (loot.js chestLook).
     if (this.textures.exists('wagon')) window.WORLD_ICON_URLS.wagon = bakeSheetFrame('wagon', 0, 128, 96);
     // The burn confirm opens with the campfire the player just tapped.
@@ -3338,7 +3339,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── Lava ──────────────────────────────────────────────────────────────────
-  // On WorldGen.LAVA_DEPTH the rock under the town's buildings is lava
+  // Surface crater vents and WorldGen.LAVA_DEPTH building rock are lava
   // (T.CAVE_LAVA): walkable, and it burns Combat.LAVA_DMG_PER_S energy a
   // second for as long as the FEET are in it (playerToWorldCell — never the
   // camera anchor). Lava owns an environmental damage lane because the ground,
@@ -3348,7 +3349,7 @@ class MapScene extends Phaser.Scene {
   // open. Stands down on an empty bar (Combat.playerDowned — being upright,
   // not being noticed; a Shadow Powder does not cool lava).
   _tickLava(dt) {
-    if (this.depth !== WorldGen.LAVA_DEPTH || !this.startWorldM
+    if ((this.depth !== 0 && this.depth !== WorldGen.LAVA_DEPTH) || !this.startWorldM
         || Combat.playerDowned(this.save.energy)) {
       this._lavaAccum = 0;
       return;

@@ -37,6 +37,7 @@
     assert.eq(result.scenicDress.objects.filter(o=>o.kind==='vista_scope').length,1);
     assert.eq(result.scenicDress.objects.filter(o=>o.vista==='grail').length,1);
     assert.eq(result.scenicDress.wildplants.filter(o=>o.tide).length,waterline.length);
+    assert.eq([...result.scenicDress.tideSeats].sort().join(), waterline.slice().sort().join(), 'reservation is exactly the existing daily pool');
     const cell = o => Math.floor(o.y/WorldGen.CELL_M)*N+Math.floor(o.x/WorldGen.CELL_M);
     const landmarkCells = new Set([...result.scenicDress.objects,...result.scenicDress.wildplants].map(cell));
     assert.gt(result.zoneDress.wildplants.length,10,'the competing layout actually places content');

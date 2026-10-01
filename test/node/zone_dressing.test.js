@@ -11,7 +11,7 @@
       chests: [], spawnOpts: { occupied: new Set(), spawnWhy: new Uint16Array(N * N), roadMask: new Uint8Array(N * N), roadClass: new Uint8Array(N * N) } };
     return Object.assign(ctx, changes);
   }
-  const all = out => [...out.objects, ...out.wildplants, ...out.traps, ...out.guards];
+  const all = out => [...out.objects, ...out.wildplants, ...out.traps, ...out.guards, ...out.treasures];
   const finds = out => all(out).filter(o => o.zoneLayer === 'find');
   test('zone dressing: all variants keep finite counts, tool tiers, uniqueness and rebuild identities', () => {
     for (const row of ZoneVariants.rows) {
@@ -41,7 +41,8 @@
     assert.truthy(first.objects.every(o=>o.kind==='mineralrock' && o.zoneLayer==='background'));
     assert.inRange(first.objects.length,1500,1770,'dense forty-percent coverage');
     const crystals=first.objects.filter(o=>o.deposit==='crystal');
-    assert.inRange(crystals.length,50,115,'about two percent of eligible cells are crystals');
+    const expected = a.N * a.N * ZoneVariants.byId('quarry').background.materialDensity.crystal;
+    assert.inRange(crystals.length, expected * .4, expected * 1.8, 'about half a percent of eligible cells are crystals');
     assert.truthy(crystals.every(o=>o.yieldTier===4 && o.requiredTier===3));
     assert.falsy(first.objects.some(o=>o.yieldTier===6 || o.yieldTier===7),'no rare metal ore in quarry');
     // Every selected cell can be the component centre without becoming an

@@ -191,8 +191,11 @@ test('zones: zone styling owns coverage while roads, paths, water and buildings 
       byKind.fringe = (byKind.fringe || 0) + 1;
       continue;
     }
-    const kind = on.zone.anchors[on.zone.coverage[i] - 1].kind;
-    assert.eq(on.grid[i], Z.terrainOf(kind), `cell ${i}: the winner's own terrain`);
+    const winner = on.zone.anchors[on.zone.coverage[i] - 1], kind = winner.kind;
+    if (on.grid[i] === T.CAVE_LAVA) {
+      assert.eq(ZoneVariants.pick(winner).id, 'quarry-crater', 'only crater layouts paint surface lava');
+      assert.truthy(on.zoneDress.objects.some(o => o.kind === 'lava_vent' && o._iy * N + o._ix === i), 'lava has an authored hazard marker');
+    } else assert.eq(on.grid[i], Z.terrainOf(kind), `cell ${i}: the winner's own terrain`);
     byKind[kind] = (byKind[kind] || 0) + 1;
   }
   assert.gt(changed, 50, `the halo painted (${changed} cells)`);
@@ -286,7 +289,10 @@ test('zones: every nexus piece is off the road band and off anything already the
     assert.falsy(before.has(i), `${p.id} is not on anything already there`);
     assert.falsy(mine.has(i), `${p.id} is one per cell`);
     assert.truthy(WorldGen.isWalkable(on.grid[i]), `${p.id} stands on walkable ground`);
-    assert.truthy(p.zoneLayer === 'find' ? /^zf_(grove|stones|tar)_\d+_\d+_/.test(p.id) : /_\d+_\d+_\d+_\d+$/.test(p.id), `${p.id} has a stable anchor or tile-cell identity`);
+    if (p.zone === 'quarry' && p.zoneLayer === 'find') {
+      assert.truthy(on.zone.anchors.some(a => a.kind === 'quarry' &&
+        p.id.startsWith(`zq_${ZoneVariants.pick(a).id}_${a.gx}_${a.gy}_find_`) && /_find_\d+$/.test(p.id)), `${p.id} uses its source anchor's identity`);
+    } else assert.truthy(p.zoneLayer === 'find' ? /^zf_(grove|stones|tar)_\d+_\d+_/.test(p.id) : /_\d+_\d+_\d+_\d+$/.test(p.id), `${p.id} has a stable anchor or tile-cell identity`);
     mine.add(i);
   }
   // Rasterized again: the same pieces, the same ids.
@@ -294,7 +300,11 @@ test('zones: every nexus piece is off the road band and off anything already the
   assert.eq(again.zoneDress.objects.map((o) => o.id).join(), d.objects.map((o) => o.id).join(), 'deterministic');
   // One art per interactable, no scenery: every laid kind is tappable or a hazard.
   for (const o of d.objects) {
-    assert.truthy(INTERACTABLES[o.kind] || StreetVariants.isSlowKind(o.kind), `${o.kind} does something`);
+    if (o.kind === 'lava_vent') {
+      assert.eq(o.zoneVariant, 'quarry-crater');
+      assert.eq(on.grid[cellOf(o)], T.CAVE_LAVA, 'vent marks damaging terrain');
+      assert.eq(Lighting.sourceKind({}, o), 'lava_vent', 'vent lights its hazard');
+    } else assert.truthy(INTERACTABLES[o.kind] || StreetVariants.isSlowKind(o.kind), `${o.kind} does something`);
   }
   // Nexus flora (roses, flint, a symmetric figure's beds and shrubs) and the
   // park fringe's filler (the character's long grass or shrubs).

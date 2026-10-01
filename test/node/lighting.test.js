@@ -35,6 +35,17 @@ function scene(over) {
 }
 const HALF_M = (11 / 2 + 1) * 5;   // drawObjects' halfM at cellM 5
 
+test('lighting: lava terrain markers glow beyond the sprite cull without a second sprite', () => {
+  const sc = scene({_lights: []}), vent = {kind: 'lava_vent', id: 'vent'};
+  assert.eq(Lighting.sourceKind(sc, vent), 'lava_vent');
+  const radius = Lighting.radiusCells('lava_vent') * sc.cellM;
+  assert.truthy(Lighting.consider(sc, vent, HALF_M + radius - .1, 0, HALF_M));
+  assert.falsy(Lighting.consider(sc, vent, HALF_M + radius + .1, 0, HALF_M));
+  assert.eq(sc._lights.length, 1);
+  assert.gt(ch(Lighting.KINDS.lava_vent.colour, 16), ch(Lighting.KINDS.lava_vent.colour, 0));
+  assert.truthy(/lava_vent: \{ key: null \}/.test(RENDER_SRC), 'the ground supplies the art');
+});
+
 test('lighting: a staff bolt lights by its tier — radius, strength and metal', () => {
   const shot = (tier, x) => Object.assign(
     Combat.spawnShot('staff', x || 0, 0, { x: 1, y: 0 }, 5, 1, tier), { color: TIER_BY_NUM[tier].color });
@@ -765,13 +776,13 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   // remembered here.
   // (+ the grove shrine, src/zones.js — a standing light like the torch.)
   // One closure offers them, for the sprite walk and the light walk alike.
-  assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine') LIGHTS.consider(scene, o, dx, dy, halfM);"),
+  assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent') LIGHTS.consider(scene, o, dx, dy, halfM);"),
     'the pre-cull offer asks isBuilding (+ torch, grove shrine)');
   const offer = body.indexOf('if (LIGHTS && offersPreCullLight(o)) offerPreCullLights(o, dx, dy);');
   const cull = body.indexOf('if (Math.abs(dx) > lim || Math.abs(dy) > lim) return;');
   assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
   const pred = r.slice(r.indexOf('function offersPreCullLight(o) {'), r.indexOf('Render.drawObjects = function drawObjects(scene)'));
-  assert.truthy(/return isBuilding\(k\) \|\| k === 'torch' \|\| k === 'grove_shrine' \|\| k === 'vista_scope';/.test(pred),
+  assert.truthy(/return isBuilding\(k\) \|\| k === 'torch' \|\| k === 'grove_shrine' \|\| k === 'vista_scope' \|\| k === 'lava_vent';/.test(pred),
     'and the per-tile light list is derived by the same kinds');
   // The mushroom is a wildplant, scanned in its own loop: offered as itself,
   // before that loop's cull, so its little glow can still show from a cell

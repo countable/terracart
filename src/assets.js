@@ -258,6 +258,7 @@ const ASSETS = {
   // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
   // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
   // Used for the fishing-junk boot (88), rare-drop star (115), and memory (116).
+  quarry_equipment: { kind: 'image', path: 'assets/Icons/RPG icons/Weapons and Armor/3. Iron/Pickaxe.png' },
   pickup:      { kind: 'spritesheet', path: 'assets/Objects/Pickup_Items.png', frameWidth: 16, frameHeight: 16 },
   // Wood logs — 48×16 sheet, 3 frames of 16×16 (brown / grey / amber
   // bark variants with little green sprigs). Sliced out of Sprites/

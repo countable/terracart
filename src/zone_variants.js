@@ -7,6 +7,7 @@
   const indexed = new Map(rows.map(row => [row.id, row]));
   const kinds = new Map();
   for (const row of rows) {
+    if (row.selectable === false) continue;
     if (!kinds.has(row.zone)) kinds.set(row.zone, []);
     kinds.get(row.zone).push(row);
   }
@@ -224,6 +225,9 @@
   }
   // Finite finds are offsets from ONE anchor, never one set per motif or tile.
   function findOffsets(variant, radiusCells) {
+    // Footprint-fitted quarry finds are planned by QuarryLayout, not offsets
+    // from a synthetic POI. Their table targets name the finite budget only.
+    if (variant.quarryLayout) return [];
     const origin = poiOrigin(variant);
     const step = variant.background.spacingCells;
     return variant.finds.targets.map(target => {

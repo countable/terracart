@@ -5504,7 +5504,7 @@
         ? yield* Zones.fringeSteps({ parks: parkPolys, grid, N: w, tx, ty, field: zone, pathUnder }) : null;
       if (fringe && !zone) zone = fringe.field;
       if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.buildSteps({
-        field: zone, poiLayer: layersByName['poi'], parks: parkPolys, beachLayer: layersByName['landcover'], tx, ty, N: w,
+        field: zone, poiLayer: layersByName['poi'], parks: parkPolys, beachLayer: layersByName['landcover'], waterLayer: layersByName['water'], tx, ty, N: w,
         chests: deduped, tileEdgeM, grid });
       if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.quarrySteps({
         field: zone, parkingLanes: layersByName['transportation']?.parkingLanes,
@@ -5611,6 +5611,7 @@
         wildplants: filtered, occupied: dressOcc, streetDress, scenicDress, tx, ty, N: w, tileEdgeM });
       dressSpawn();
       zoneDress = yield* ZoneDressing.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
+        tideSeats: scenicDress && scenicDress.tideSeats,
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
     }
     return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };

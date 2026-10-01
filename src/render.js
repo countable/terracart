@@ -2616,7 +2616,7 @@ Render.drawVariantLabels = function drawVariantLabels(scene, ax, ay, halfM) {
 // and the per-tile list below is derived by.
 function offersPreCullLight(o) {
   const k = o.kind;
-  return isBuilding(k) || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope';
+  return isBuilding(k) || k === 'torch' || k === 'grove_shrine' || k === 'vista_scope' || k === 'lava_vent';
 }
 // A tile's pre-cull lights (util.js derivedObjects — re-derived only when the
 // objects array moves), at entry[PRE_CULL_LIGHTS] so the light walk queries
@@ -2766,7 +2766,7 @@ Render.drawObjects = function drawObjects(scene) {
     // its light reaches further than its art: offered to the lightmap
     // before the sprite cull, with its own radius as the margin, so a
     // lantern a cell off-screen still lights the edge it stands past.
-    if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine') LIGHTS.consider(scene, o, dx, dy, halfM);
+    if (isBuilding(o.kind) || o.kind === 'torch' || o.kind === 'grove_shrine' || o.kind === 'lava_vent') LIGHTS.consider(scene, o, dx, dy, halfM);
     // A grove shrine whose gift is still there today ALSO wears the POI
     // light — the one "something to take here" mark (poiLit).
     if (o.kind === 'grove_shrine' && poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
@@ -3669,7 +3669,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Nor over a barrel, a courier's post or a pot of gold: none of them is a chest
   // with a tier to show.
   const chestObjs = filteredObj.filter(({ o }) => { if (o.kind !== 'chest') return false;
-    const L = chestLook(o); return !L.box && !L.macro && !L.barrel && !L.bike && !L.coin; });
+    const L = chestLook(o); return !L.equipment && !L.box && !L.macro && !L.barrel && !L.bike && !L.coin; });
   const g = scene.tierGfx;
   g.clear();
   // Attack footprints sit above scenery so cover cannot hide the warning.
@@ -4458,6 +4458,8 @@ Render.objectAppearance = function (scene, houseRoles) {
     // (the 4 frames differ only in the flame, so seat off frame 0 and the
     // stake never bobs). Its light is Lighting.KINDS.torch — offered to the
     // lightmap in the object scan above the sprite cull.
+    // Lava is painted by the ground pass; the object only carries its light.
+    lava_vent: { key: null },
     torch: { key: 'torch',
              frame: (o) => (Math.floor(performance.now() / 130) + ((o.x | 0) & 3)) % 4,
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true },
@@ -4544,7 +4546,7 @@ Render.objectAppearance = function (scene, houseRoles) {
               // SMALL_POI_SCALE (~21px) and seated like the crate.
               scale: (o) => { const L = chestLook(o);
                               return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
-                                : ((L.barrel || L.bike) ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE)))); },
+                                : ((L.barrel || L.bike) ? SMALL_POI_SCALE : ((L.box || L.equipment) ? CRATE_SCALE : SpriteLayout.CHEST_SCALE)))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
