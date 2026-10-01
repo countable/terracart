@@ -221,7 +221,7 @@ test('mechanics: depth trims reach and empty energy removes it', () => {
 });
 
 test('mechanics: crop stages and harvesting keep their live timing and yields', () => {
-  assert.eq(Crops.STAGE_HOLD_MS, 2 * 60 * 1000, 'a tier-1 stage is 2 minutes');
+  assert.eq(Crops.STAGE_HOLD_MS, 4 * 60 * 1000, 'a tier-1 stage is 4 minutes');
   assert.gt(Crops.stageHoldMs('coffee'), Crops.STAGE_HOLD_MS, 'finer crops take longer (the tip says so)');
   assert.truthy(/randInt\(1, 3\) \+ Math\.floor\(qual \/ 3\)/.test(INTERACT_SRC),
     'a pick still pays one to three');

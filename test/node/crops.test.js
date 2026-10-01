@@ -247,7 +247,7 @@ test('bed quality: the till banks it, the plant spends it, the harvest reads it'
 // Magical flowers take hours, but retain the same watering and powder rules.
 test('magical flowers: each crop uses its own hold and advances once offline', () => {
   const now = 50_000_000;
-  for (const [crop, minutes] of [['berry', 2], ['sunflower', 120], ['fireflower', 240], ['iceflower', 420]]) {
+  for (const [crop, minutes] of [['berry', 4], ['sunflower', 240], ['fireflower', 480], ['iceflower', 840]]) {
     const hold = minutes * 60 * 1000;
     assert.eq(Crops.stageHoldMs(crop), hold, crop);
     const p = { crop, stage: 0, watered_t: now };
@@ -308,16 +308,16 @@ test('crop timer migration: preserves fractional progress and pays out ready old
 });
 
 test('crop tier sets the stage hold; the can shortens the stage it starts', () => {
-  // 2 × tier³ minutes, rounded to a round number.
+  // 4 × tier³ minutes, rounded to a round number.
   const MIN = 60 * 1000;
-  for (const [tier, min] of [[1, 2], [2, 15], [3, 55], [4, 120], [5, 240], [6, 420]]) {
+  for (const [tier, min] of [[1, 4], [2, 30], [3, 120], [4, 240], [5, 480], [6, 840]]) {
     assert.eq(Crops.tierHoldMs(tier), min * MIN, `tier ${tier}: ${min} min`);
   }
   assert.eq(Crops.stageHoldMs('potato'), Crops.STAGE_HOLD_MS, 'tier 1: the base');
-  assert.eq(Crops.stageHoldMs('pairy'), 15 * MIN, 'tier 2');
-  assert.eq(Crops.stageHoldMs('coffee'), 55 * MIN, 'tier 3');
-  assert.eq(Crops.stageHoldMs('sunflower'), 120 * MIN, 'a magical flower rides the same curve');
-  assert.eq(Crops.CAN_HOLD_CUT, 0.75, 'a Frost can: a quarter of the wait');
+  assert.eq(Crops.stageHoldMs('pairy'), 30 * MIN, 'tier 2');
+  assert.eq(Crops.stageHoldMs('coffee'), 120 * MIN, 'tier 3');
+  assert.eq(Crops.stageHoldMs('sunflower'), 240 * MIN, 'a magical flower rides the same curve');
+  assert.eq(Crops.CAN_HOLD_CUT, 0.875, 'a Frost can: an eighth of the wait');
   assert.eq(Crops.canHoldMul(null), 1, 'bare hands: the full hold');
   assert.eq(Crops.canHoldMul({ can: { tier: Crops.CAN_TOP_TIER } }), 1 - Crops.CAN_HOLD_CUT, 'Frost: the full cut');
   const never = () => 1;   // no jump
