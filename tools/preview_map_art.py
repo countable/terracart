@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import subprocess
 
+from art_paths import RESERVE_ROOT
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -259,7 +260,7 @@ def normalize(group, entry, reserve):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--reserve-root', type=Path, default=ROOT/'unused_art')
+    parser.add_argument('--reserve-root', type=Path, default=RESERVE_ROOT)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     rows, exclusions = [], []

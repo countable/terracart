@@ -13,6 +13,8 @@
   // Park, forest and grove trees share this ordered set so a species change
   // reaches every generated tree lane.
   const TREE_SPECIES = Object.freeze(['maple', 'pine']);
+  // Temporarily pause the detected-tree layer, including already cached bins.
+  const DEEPFOREST_TREES_ENABLED = false;
 
   // ── Where the tiles come from ──────────────────────────────────────────
   // OpenFreeMap serves each weekly planet build from a DATED directory
@@ -6299,6 +6301,7 @@
     for (const t of allTrees) {
       { const y1 = tick('bin trees'); if (y1) yield y1; }
       const detected = detectedTree(t);
+      if (detected && !DEEPFOREST_TREES_ENABLED) continue;
       const r = placeTree(t.x, t.y, detected);
       if (!r) continue;
       occupied.add(r.key);
