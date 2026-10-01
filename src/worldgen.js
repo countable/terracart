@@ -692,8 +692,8 @@
   }
   // ── POI DENSITY: how many chests of each class a tile holds ─────────────
   // The one count loot.js reads for a chest's tier (chestTier), a crate's
-  // restock days (crateRestoreDays), a barrel's empty chance (barrelEmptyP)
-  // and a pot of gold's burst (potCoinsFor) — stamped on each POI chest as
+  // restock days (crateRestoreDays) and a pot of gold's burst (potCoinsFor)
+  // — stamped on each POI chest as
   // `poiDensity`. Surface POI chests only (a starter crate, a fixed-loot chest
   // and a cave copy are not counted; a cave copy carries its surface chest's
   // count — caveChestsFrom). A tile counts ITS OWN chests: a POI belongs to
@@ -5463,7 +5463,7 @@
     }
     const deduped = objects.filter(o => !o._drop);
     // Each POI chest's DENSITY — how many of its class this tile holds (loot.js
-    // chestTier / crateRestoreDays / barrelEmptyP / potCoinsFor). Stamped once
+    // chestTier / crateRestoreDays / potCoinsFor). Stamped once
     // the tile's chests are final; loadTile restamps once a bin has injected
     // its own.
     stampPoiDensity(deduped);
@@ -7853,9 +7853,9 @@
 
   // BARRELS ON THE FIRST LEVEL (owner, Oct 2026): a few generated barrels
   // strewn over level 1's floor, smashed like a surface bin (loot.js
-  // isBarrel — `barrel: true`, no POI behind it): a coin, a spear, a torch
-  // or an apple when they hold anything, BARREL_EMPTY_P_GENERATED empty,
-  // back daily on the one day ledger. Random free floor cells, off their own
+  // isBarrel — `barrel: true`, no POI behind it). Their stable pot/barrel
+  // appearance selects the loot table (barrelProfile); both come back daily
+  // on the one day ledger. Random free floor cells, off their own
   // stream, after every other pass so nothing already seated moves. Ids
   // carry the depth and the cell, like the torches'.
   const CAVE_BARREL_DEPTH = 1;

@@ -296,11 +296,12 @@ test('mechanics: chest density and depth determine their tiers', () => {
 test('mechanics: crates, barrels, gold pots, courier posts and gates retain their rewards', () => {
   assert.eq(CRATE_RESTORE_MAX_DAYS, 7, 'the longest restock is a week');
   assert.eq(crateRestoreDays({ poiDensity: CHEST_DENSITY_T1_AT }), 1, 'an ordinary crate: a day');
-  assert.gt(BARREL_EMPTY_P_BASE, 0.5, '"most are empty"');
+  assert.gt(BARREL_LOOT.find(r => r.kind === 'empty').w, 0.5, '"most are empty"');
   const supply = BARREL_LOOT.find((r) => r.kind === 'supply');
-  assert.eq(JSON.stringify(supply.ids), JSON.stringify(['torch', 'spear']), 'the supply is a torch or a spear (Oct 2026: the rope left, the spear joined)');
-  const coin = BARREL_LOOT.find((r) => r.kind === 'coin');
-  assert.eq(coin.min + '-' + coin.max, '1-3', '"a coin or three"');
+  assert.truthy(barrelLootPool(supply).some(item => item.id === 'rope'), 'barrels use the full ordinary supply pool');
+  assert.falsy(supply.maxTier, 'supplies have no tier cap');
+  const coin = CLAY_POT_LOOT.find((r) => r.kind === 'coin');
+  assert.eq(coin.amount, 1, 'clay pots give one coin');
   assert.eq(potCoinsFor(1), 30, 'a lone pot spills thirty');
   assert.eq(potCoinsFor(1000), 1, 'a crowded one a single coin');
   assert.eq(BIKE_RACK_SPEED_MUL, 2, '"twice as fast"');

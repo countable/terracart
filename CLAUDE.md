@@ -65,7 +65,8 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   `CHEST_DENSITY_TIERS` / `chestTier(o)`, off `o.poiDensity` stamped by
   `WorldGen.stampPoiDensity`): 1 of a kind → T4 … 25+ → T1, plus depth and
   nexus. It is the tier shown AND paid; Home never enters it. Pots of gold
-  (`potCoinsFor`), barrels (`barrelEmptyP`) and restock days read the same count.
+  (`potCoinsFor`) and restock days read the same count. Breakable pots and
+  barrels select their loot by stable appearance (`barrelProfile`), not density.
 - Chests give ONCE (`save.opened`), except what recurs: crates and barrels
   (`restocks`) come back after `crateRestoreDays` (1 for an ordinary crate, up
   to 7 for a class crowding its tile); pots of gold, bike racks, chapels and
