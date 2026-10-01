@@ -488,8 +488,9 @@
   // EnemyRoster 'raven', seated here like an animal because it lives where
   // animals live, not where the encounter budget rolls), and a species
   // appended after every other one draws off the tile stream AFTER them, so
-  // no earlier animal's seat moved when it arrived.
-  const FAUNA_ORDER = ['chicken', 'cow', 'cat', 'dog', 'deer', 'crow', 'butterfly', 'slime', 'raven'];
+  // no earlier animal's seat moved when it arrived. The HORSE followed it
+  // (Oct 2026) the same way.
+  const FAUNA_ORDER = ['chicken', 'cow', 'cat', 'dog', 'deer', 'crow', 'butterfly', 'slime', 'raven', 'horse'];
   // Lot land (residential + the wasteland that used to be painted as it) —
   // spread wherever a species lists residential ground, so wasteland keeps
   // exactly the fauna it had before it had a code of its own.
@@ -512,6 +513,8 @@
     // — and a few range wider. A fast flier (creatureSpawnClass: 'fastEnemy'
     // off its roster speed), so it keeps off the kerb like every fast foe.
     raven:     { base: 6,  range: 5,  share: 0.75, primary: [T.FOREST, T.ROCK, T.CHURCHYARD, T.GROVE], fallback: ALL_NATURAL },
+    // The horse is rare: five a tile on the cow's ground, against the cow's 12–23.
+    horse:     { base: 5,  range: 0,  share: 0.90, primary: [T.GRASS, T.FARMLAND], fallback: [T.GRASS, T.FARMLAND, ...LOT, T.PARK, T.GROVE, T.PITCH, T.GOLF] },
   };
 
   // ── Shore fauna ─────────────────────────────────────────────────────────
@@ -531,11 +534,13 @@
   // What this is NOT: an `attracts` pull — that moves a tile's existing
   // spawns of a species onto favourite ground; these species have no spawns
   // anywhere else to move.
-  const SHORE_FAUNA_ORDER = ['crab', 'gull', 'metal_slime'];
+  const SHORE_FAUNA_ORDER = ['crab', 'gull', 'metal_slime', 'turtle'];
   const SHORE_FAUNA = {
     metal_slime: { perShoreM: 300, max: 2, pier: true, salt: 'shorefauna|metal_slime' },
     crab: { perShoreM: 35, max: 14, pier: false, salt: 'shorefauna|crab' },
     gull: { perShoreM: 90, max: 6,  pier: true,  salt: 'shorefauna|gull' },
+    // The sea turtle: the rabbit's habits on the sand, fewer than the crabs.
+    turtle: { perShoreM: 70, max: 8, pier: false, salt: 'shorefauna|turtle' },
   };
 
   // The FAUNA ATTRACTOR column for GROUND (terrain code → { species: p }):

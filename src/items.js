@@ -558,10 +558,10 @@ const BASE_TIER = {
   // Plantable fruit-tree saplings — common apple (T3), rare peach (T5).
   apple_sapling: 3, peach_sapling: 5, acorn: 2,
   // Live animals
-  chicken: 1, dog: 1, rabbit: 1, crab: 1,
+  chicken: 1, dog: 1, rabbit: 1, crab: 1, turtle: 1,
   cat: 2, butterfly: 2,
   crow: 3,
-  deer: 4,
+  deer: 4, horse: 4,
   cow: 5,
   // Consumables
   antidote: 1, elixir: 6,
@@ -642,6 +642,10 @@ const ITEMS = [
   { id: 'butterfly', name: 'Butterfly', kind: 'animal' },
   // The shore crab — the chicken of the beach (SpriteLayout CREATURE_BEHAVIOUR.crab).
   { id: 'crab',      name: 'Crab',      kind: 'animal' },
+  // The horse — kept in the bag it is a mount (HORSE_RIDE, isRiding).
+  { id: 'horse',     name: 'Horse',     kind: 'animal' },
+  // The sea turtle — the rabbit of the beach (CREATURE_BEHAVIOUR.turtle).
+  { id: 'turtle',    name: 'Sea Turtle', kind: 'animal' },
   // Shiny (rare, 5%) animal variants — caught from yellow-tinted wild animals.
   // Each shiny kind keeps its OWN inventory stack: a shiny chicken never
   // folds into normal chickens, nor into other shiny animals ("not other
@@ -649,7 +653,7 @@ const ITEMS = [
   // reuse the normal sprite/behaviour; `shiny` flags the shiny sheen. Only
   // the catch-into-inventory kinds get a shiny item — hunted fauna (deer,
   // crow) drop meat/feather, so there's no live shiny animal to keep.
-  ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab'].map(k => ({
+  ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'turtle'].map(k => ({
     id: `shiny_${k}`,
     name: `Shiny ${k.charAt(0).toUpperCase() + k.slice(1)}`,
     kind: 'animal', base: k, shiny: true, baseTier: BASE_TIER[k] || 1,
@@ -1027,6 +1031,16 @@ const CONSUMABLE_SPEC = {
       ? 'Fresh flame feeds the light already around you.'
       : 'Firelight opens the dark around you.',
   },
+  // THE HORSE is kept, not spent: Ride and Dismount toggle save.riding, and
+  // riding only counts while a horse is in the bag (isRiding). Mounted, the
+  // stick walk goes speedMul as fast and costs energyMul as much per cell —
+  // the bike rack's knight skin, with a price on the legs.
+  horse: {
+    speedMul: 2, energyMul: 2, immediate: true,
+    verb: 'Ride', method: 'toggleHorseRide', title: 'Ride the horse?',
+    get: 'The ground runs past quicker, and your legs feel every stride.',
+    label: scene => (isRiding(scene.save) ? 'Dismount' : 'Ride'),
+  },
   sapphire: {
     verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?',
     get: 'A blue doorway opens into the depths below.',
@@ -1045,6 +1059,15 @@ const CONSUMABLE_SPEC = {
 const VIGOR_POTION_ENERGY = CONSUMABLE_SPEC.vigor_potion.energy;
 const THUNDER_DMG = CONSUMABLE_SPEC.thunder_potion.damage;
 const SPIRIT_RAVEN_MS = CONSUMABLE_SPEC.raven_potion.durationMs;
+const HORSE_RIDE = CONSUMABLE_SPEC.horse;
+// A shiny horse is ridden the same way: one row, two stacks.
+CONSUMABLE_SPEC.shiny_horse = HORSE_RIDE;
+// Is the player mounted? The flag only counts while a horse (plain or shiny)
+// is in the bag, so selling or releasing the last one ends the ride.
+function isRiding(save) {
+  return !!save?.riding && (save.inv || []).some(s => s && (s.count ?? 0) > 0
+    && ((ITEM_BY_ID[s.id]?.base || s.id) === 'horse'));
+}
 const PRICES = {
   // ── Seeds ────────────────────────────────────────────────
   rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
@@ -1070,6 +1093,7 @@ const PRICES = {
   chicken: 4,      // 150–250/tile
   crab: 6,         // shore only — a handful per beach (SHORE_FAUNA)
   cow: 200,        // ~15–30/tile, premium catch
+  horse: 200,      // five a tile, and a mount while kept
   cat: 35,         // companion animal (wants milk/fish) — modest sale, never eaten
   dog: 35,         // companion animal (wants meat) — modest sale, never eaten
   // ── Wild-only ────────────────────────────────────────────
@@ -1158,7 +1182,7 @@ function itemValue(id) {
 }
 // Shiny animals sell at 10× their plain counterpart's value — a real prize in
 // the bag, on top of the catch-time money + memory.
-for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab']) {
+for (const k of ['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab', 'horse', 'turtle']) {
   PRICES[`shiny_${k}`] = itemValue(k) * 10;
 }
 // A baby sells for three of its kind: a promise of a shiny, not yet one.
@@ -1238,6 +1262,7 @@ const ITEM_EFFECTS = {
   flowers: 'Their scent softens even a shopkeeper’s heart.',
   rainberry: 'Rain gathers on nearby leaves when its skin breaks between your teeth.',
   pairy: 'Its sweetness leaves a glimmer of buried treasure behind your eyes.',
+  horse: 'It stamps and tosses its head, impatient for the open road.',
   coffee: 'A roasted warmth sets your feet itching for the road.',
   starfruit: 'A golden sweetness lingers, warming the hands that helped it grow.',
   mango: 'Even wary animals lean toward its golden scent.',
@@ -1372,6 +1397,7 @@ const ANIMAL_FOOD = {
   // berries as the canonical feed.)
   chicken: [],
   cow:     ['pairy'],      // pears to munch
+  horse:   ['pairy'],      // the cow's favourite
   // Cats love milk AND any kind of fish.
   cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish'],
   dog:     ['meat'],       // raw meat — hunt a deer with the bug net
@@ -1929,12 +1955,15 @@ function steerSpeedMul(gear) {
   // shifting with it.
   return (STEER_MUL_FLOOR + ((STEER_MUL_FROST - STEER_MUL_FLOOR) / 7) * t) * boost;
 }
+// A mount's `costMul` (HORSE_RIDE.energyMul, carried on the amulet by app.js
+// _walkRelics) multiplies whatever the amulet leaves.
 function steerEnergyCost(relics) {
   const t = relics?.amulet?.tier || 0;
-  if (!t) return 1;
+  const mul = relics?.amulet?.costMul > 0 ? relics.amulet.costMul : 1;
+  if (!t) return mul;
   // Floor keeps the speed potion's synthetic tier 9 (and any future tier past
   // Frost) from running the cost negative, i.e. paying you to walk.
-  return Math.max(0.05, 1 - (t - 1) * (0.85 / 6));
+  return Math.max(0.05, 1 - (t - 1) * (0.85 / 6)) * mul;
 }
 // Sword relic: scales sell price from 0.5 × base (no sword) to 1.0 × base at
 // tier 7 (frost sword sells at par with the listed PRICES[]). Note that

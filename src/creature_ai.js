@@ -1193,8 +1193,11 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   const lunging = row.movement.pattern === 'lunge_recover' && now < (c._lungeUntil || 0);
   const shaped = ['area', 'breath', 'blast'].includes(row.attackType);
   const winding = c._attackWindupUntil != null;
+  // A `chargeOnly` charger (the boar) has no blow of its own: it hurts only
+  // what it runs into mid-charge, once a charge.
   const eligible = (shaped && winding ? attentive : clear && dist <= row.range * scene.cellM)
-    && (!swoop || (c._batSwooping && !c._batHit)) && (!lunging || !c._lungeHit);
+    && (!swoop || (c._batSwooping && !c._batHit)) && (!lunging || !c._lungeHit)
+    && (!row.movement.chargeOnly || lunging);
   // The charge already warned before moving; contact lands once without
   // starting a second melee wind-up that would stop the charge mid-stride.
   const ready = enemyAttackReady(c, lunging ? {...row, windupSeconds: 0} : row, now, eligible);
@@ -1328,6 +1331,10 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
       c._lungeAngle = angle; c._lungeHit = false;
       c._attackWindupUntil = null; c._attackNextT = now;
       c._lungeWindupUntil = now + m.lungeWindupSeconds * 1000;
+      SpriteLayout.faceCreature(c, px - c.x, py - c.y);
+      return;
+    } else if (m.chargeOnly) {
+      // Between charges a charge-only foe stands its ground and watches.
       SpriteLayout.faceCreature(c, px - c.x, py - c.y);
       return;
     }
