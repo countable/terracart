@@ -399,6 +399,8 @@ const MINERAL_ICON_SHEET = {
   // pouch, so the snare you SET and the kit that SHUTS one read as a pair and
   // the pink says magic before the glow on the ground does.
   magic_trap:    { sheet: 'icon_kit', frame: 3 },
+  // MiniWorld spear: frame 0 points right; frame 1 points down.
+  spear:        { sheet: 'icon_spear', frame: 0 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
   // variants, crow_feather uses the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
@@ -564,6 +566,7 @@ const BASE_TIER = {
   trap_kit: 2,
   // Magic Trap — the tier-2 cave supply the goblin trapper also drops.
   magic_trap: 2,
+  spear: 2,
   // Torch — the T1 cave staple: light for the dark, cheap and common.
   torch: 1,
   // Minerals — coal floor, gem ladder mirrors mining rarity
@@ -711,6 +714,7 @@ const ITEMS = [
   // the surface class/tier pool — rarity.js reaches it only through the cave
   // supply favourite — and a slain goblin trapper drops one.
   { id: 'magic_trap',    name: 'Magic Trap',          kind: 'supply', caveOnly: true },
+  { id: 'spear',        name: 'Spear',               kind: 'supply' },
   // Wild forest fauna drops — produced when a live caught animal is
   // processed (a future butcher / blacksmith step). Catching itself yields
   // the animal, not these.
@@ -864,6 +868,11 @@ function fireBurnOutcome(id) {
 // the live scene at click time; items.js loads before those scene dependencies.
 const _CONSUMABLE_MINUTE_MS = 60 * 1000;
 const CONSUMABLE_SPEC = {
+  spear: {
+    damage: 25, immediate: true,
+    verb: 'Throw', method: 'useSpear', title: 'Throw the spear?',
+    get: 'One sharp throw sends the spear flying toward your foes.',
+  },
   // Foods with an extra effect use the Eat button, so they own mechanics but
   // no separate action row here.
   rainberry: { radiusM: 20 },
@@ -1056,6 +1065,7 @@ const PRICES = {
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft); crafted from 5 long grass, so not a money pump
   trap_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T2 — one tier-2 shot and a staff beat's hold on one foe; a revive's worth
+  spear:        40,   // T2 — one thrown shot, spent on use
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); one wood crafts it, so kept low
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
@@ -1219,6 +1229,7 @@ const ITEM_EFFECTS = {
   torch: 'Its flame pushes back the dark beyond your fingertips.',
   trap_kit: 'Small iron tools made to ease a snare’s clenched jaw.',
   magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',
+  spear: CONSUMABLE_SPEC.spear.get,
   scarecrow: 'An empty coat watches the beds, and hungry wings turn away.',
   acorn: 'A young timber tree waits beneath this little cap for earth and time.',
   coal: 'A spark wakes a small fire inside its black heart.',

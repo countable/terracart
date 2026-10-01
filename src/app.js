@@ -1431,6 +1431,7 @@ const ICON_SHEETS = {
   // Flask-style potions sheet (Potions.png): 5 cols × 7 rows of 16×16.
   // Row 2: frame 11=green (vigor), 12=red (speed), 13=purple (shield).
   icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
+  icon_spear:    { url: 'assets/Icons/Items/Spear.png', cols: 2, srcW: 32, srcH: 16 },
   // Rope — single 16×16 coiled-rope icon (hand-drawn, like the honey jar).
   icon_rope:     { url: 'assets/Icons/Items/Rope.png',                       cols: 1,  srcW: 16,  srcH: 16 },
   // Torch — single 16×16 stick-and-flame icon (hand-drawn, like the rope).
@@ -2712,6 +2713,7 @@ class MapScene extends Phaser.Scene {
     // stencil pass each under WebGL).
     this.boltContainer = this.add.container(0, 0).setDepth(12).setMask(mask);
     this._boltPool = [];
+    this._spearPool = [];
     this._shots = [];
     this._nextShotT = {};              // per-slot next-fire clock, in performance.now() ms
     // Castle turrets' own clocks (turret id → next-fire ms) and the cached
@@ -5062,6 +5064,7 @@ class MapScene extends Phaser.Scene {
     if (!g) return;
     g.clear();
     this._boltUsed = 0;
+    let spearUsed = 0;
     for (const s of this._shots) {
       const spec = Combat.SHOT[s.slot];
       if (s.projectile === 'bullet') { s.dotPx = 2; s.color = 0xe2d6b4; }
@@ -5082,6 +5085,19 @@ class MapScene extends Phaser.Scene {
         lift = s.liftFromPx + (SHOT_DRAW_LIFT_PX - s.liftFromPx) * f;
       }
       const hx = Math.round(head.x), hy = Math.round(head.y - lift);
+      if (s.projectile === 'spear') {
+        let sprite = this._spearPool[spearUsed];
+        if (!sprite) {
+          // Share the masked projectile layer, with ordinary sprite blending.
+          sprite = this.add.image(0, 0, 'icon_spear', 0);
+          this.boltContainer.add(sprite);
+          this._spearPool.push(sprite);
+        }
+        spearUsed++;
+        sprite.setVisible(true).setPosition(hx, hy)
+          .setRotation(Math.atan2(s.vy, s.vx));
+        continue;
+      }
       if (s.dotPx) {
         // The staff bolt is a ball of light, not a streak — a bolt reads as
         // a thrown thing, an arrow as a flying line. Its radius is the shot's
@@ -5103,6 +5119,7 @@ class MapScene extends Phaser.Scene {
       g.strokePath();
     }
     this._drawStaffCharge(g);
+    for (let i = spearUsed; i < this._spearPool.length; i++) this._spearPool[i].setVisible(false);
     for (let i = this._boltUsed; i < this._boltPool.length; i++) this._boltPool[i].setVisible(false);
   }
 
@@ -9594,6 +9611,26 @@ class MapScene extends Phaser.Scene {
       '\u26a1 You drink the Potion of Thunder',
       felled < n ? 'The sky splits. When your ears stop ringing, the surviving beasts are already fleeing.' : 'The sky splits. When your ears stop ringing, the beasts lie still.',
     );
+  }
+
+  // A spear is spent when thrown, including misses. Reuse arrow flight and
+  // collision, but keep the consumable's fixed damage independent of gear/buffs.
+  useSpear() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'spear' || (sel.count ?? 0) <= 0
+        || Combat.playerDowned(this.save.energy)) return false;
+    const x = this.startWorldM.x + this.playerM.x;
+    const y = this.startWorldM.y + this.playerM.y;
+    const heading = Combat.shotHeading('bow', x, y, this.facing);
+    const shot = Combat.spawnShot('bow', x, y, heading, this.cellM,
+      CONSUMABLE_SPEC.spear.damage);
+    if (!shot) return false;
+    shot.projectile = 'spear';
+    this._shots.push(shot);
+    consumeSelected(this.save);
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    return true;
   }
 
   // Frost Powder: every ENEMY (Combat.isEnemy — never a crow, a deer or a pet)
@@ -15246,6 +15283,11 @@ class MapScene extends Phaser.Scene {
       const entry = CONSUMABLE_SPEC[id];
       const fn = entry?.method;
       if (!fn || typeof this[fn] !== 'function') return;
+      if (entry.immediate) {
+        this[fn]();
+        this.syncConsumableButton();
+        return;
+      }
       // Mirror the interact.js use-consumable flow: confirmation modal,
       // accept consumes 1 and triggers the action.
       const item = ITEM_BY_ID[id];
