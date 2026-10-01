@@ -4057,9 +4057,11 @@ Render.drawObjects = function drawObjects(scene) {
     const frozen = c._frozenUntil != null && Date.now() < c._frozenUntil;
     s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
     // Wind-ups are observable before damage or a lunge lands. A brief amber
-    // flash alternates with the original palette; frozen bodies keep ice.
+    // flash alternates with the original palette; frozen bodies keep ice. A
+    // projectile kind (Combat.windupFlashes — the goblin archer) never
+    // strobes: its arrow is the warning.
     const winding = Math.max(c._attackWindupUntil || 0, c._lungeWindupUntil || 0, c._abilityWindupUntil || 0) > performance.now();
-    if (winding && !frozen && Math.floor(performance.now() / 100) % 2 === 0) s.setTintFill(0xffdb72);
+    if (winding && !frozen && Combat.windupFlashes(c.kind) && Math.floor(performance.now() / 100) % 2 === 0) s.setTintFill(0xffdb72);
     if (c._supportUntil > performance.now() && !frozen) s.setTintFill(0x8cefa0);
     Render.setShine(s, !!c.shiny && !frozen, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
