@@ -116,10 +116,7 @@ const ASSETS = {
   coin_pile_26_50: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_26_50.png' },
   coin_pile_51: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_51.png' },
   // Misc 16x16 prop — single boxed crate from the Singles tileset.
-  box:         { kind: 'image', path: 'assets/Objects/Approved/box.png', onLoad: scene => {
-    const canvas = makeMutedTierOne(scene.textures.get('box').getSourceImage());
-    scene.textures.remove('box'); scene.textures.addCanvas('box', canvas);
-  } },
+  box:         { kind: 'image', path: 'assets/Objects/Approved/box.png' },
   // Forest critters. Sheets are 16x16 frames; renderer picks frames as needed.
   // Deer + Crow sheets are 32×32 frames despite living in a "Wilderness"
   // folder that mostly holds 16×16 props. Loading them as 16×16 sliced each
@@ -195,8 +192,8 @@ const ASSETS = {
   // information POI (render.js infoboard) and a gate's two posts (gatepost).
   barrel:         { kind: 'spritesheet', path: 'assets/Objects/Approved/barrel.png', frameWidth: 16, frameHeight: 16 },
   barrel_smashed: { kind: 'spritesheet', path: 'assets/Objects/Approved/barrel_smashed.png', frameWidth: 16, frameHeight: 16 },
-  clay_pot:       { kind: 'spritesheet', path: 'assets/Objects/Rustic/pot.png', frameWidth: 16, frameHeight: 16 },
-  clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/Rustic/pot_smashed.png', frameWidth: 16, frameHeight: 16 },
+  clay_pot:       { kind: 'spritesheet', path: 'assets/Objects/Rustic/pot.png', frameWidth: 16, frameHeight: 16, desaturated: true },
+  clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/Rustic/pot_smashed.png', frameWidth: 16, frameHeight: 16, desaturated: true },
   bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Approved/bike_rack.png', frameWidth: 16, frameHeight: 16 },
   signpost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/signpost.png', frameWidth: 16, frameHeight: 16 },
   gatepost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/gatepost.png', frameWidth: 16, frameHeight: 16 },
@@ -367,20 +364,30 @@ function recolorEnemyPixels(pixels, palette) {
   }
   return pixels;
 }
-// T1 is deliberately quieter than higher rarities, for both crates and trunks.
-function muteTierOnePixels(pixels) {
+// Muted art keeps its original shading and alpha, with 20% of its saturation.
+function muteSpritePixels(pixels) {
   for (let i = 0; i < pixels.length; i += 4) {
     const gray = 0.2126 * pixels[i] + 0.7152 * pixels[i + 1] + 0.0722 * pixels[i + 2];
     for (let c = 0; c < 3; c++) pixels[i + c] = Math.round(gray + (pixels[i + c] - gray) * 0.2);
   }
 }
-function makeMutedTierOne(source) {
+function makeMutedSprite(source) {
   const canvas = document.createElement('canvas');
   canvas.width = source.width; canvas.height = source.height;
   const ctx = canvas.getContext('2d'); ctx.drawImage(source, 0, 0);
   const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  muteTierOnePixels(pixels.data); ctx.putImageData(pixels, 0, 0);
+  muteSpritePixels(pixels.data); ctx.putImageData(pixels, 0, 0);
   return canvas;
+}
+// The art registry owns which non-chest sprites use the muted treatment.
+for (const [key, asset] of Object.entries(ASSETS)) {
+  if (!asset.desaturated) continue;
+  asset.onLoad = scene => {
+    const canvas = makeMutedSprite(scene.textures.get(key).getSourceImage());
+    scene.textures.remove(key);
+    if (asset.kind === 'spritesheet') scene.textures.addSpriteSheet(key, canvas, asset);
+    else scene.textures.addCanvas(key, canvas);
+  };
 }
 // Tier recolors preserve the approved chest's silhouette, shading and alpha.
 // Shared by the game loader and design report; source art stays untouched.
@@ -401,7 +408,7 @@ function makeChestTierSheet(source) {
       shadow: hex(channels.map(v => v * 0.3)),
       mid: hex(channels), highlight: hex(channels.map(v => v + (255 - v) * 0.65)),
     });
-    if (tier === 1) muteTierOnePixels(pixels.data);
+    if (tier === 1) muteSpritePixels(pixels.data);
     ctx.putImageData(pixels, x, 0);
   }
   return canvas;
