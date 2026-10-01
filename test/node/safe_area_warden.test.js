@@ -3,7 +3,7 @@
 // near Home, and nobody knows why.
 (function () {
 test('warden: explains safety and why rebuilding matters, as a talker not a shop', () => {
-  assert.eq(NPC.WARDEN_LINE, 'This is a safe area. For some reason only weak monsters live here.');
+  assert.truthy(/weak things/.test(NPC.WARDEN_LINE) && /Nobody knows why/.test(NPC.WARDEN_LINE), 'only weak monsters, and nobody knows why: ' + NPC.WARDEN_LINE);
   const w = { id: 'npc_warden_1_2', kind: 'npc', ...NPC.warden('npc_warden_1_2') };
   assert.eq(w.role, 'warden'); assert.eq(w.roleLabel, 'Warden');
   const talk = NPC.dialogue({ save: {} }, w);

@@ -987,7 +987,8 @@ class SceneShops {
   // step — so it stays inline in presentTraderOffer.)
   // A themed shop rides the same button with its own `opts.cost` (the cheaper
   // ShopsMath.themedRerollCost) and `opts.peek` (its next item, or its capped
-  // relic roll).
+  // relic roll). `opts.current` is what is on display: the draw goes through
+  // ShopsMath.rerollPeek, which re-draws (for free) until it is something else.
   _makeRerollSecondary(house, sx, sy, emptyMsg, present, opts = {}) {
     const curState = house?.id ? this.shopBucketState(house) : null;
     const n = curState?.rerolls || 0;
@@ -998,8 +999,7 @@ class SceneShops {
       disabled: (this.save.money ?? 0) < rerollCost,
       onClick: () => {
         if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need ${rerollCost}.`, sx, sy); return; }
-        if (curState) curState.rerolls += 1;
-        const next = peek();
+        const next = ShopsMath.rerollPeek(curState, peek, opts.current);
         if (!next) { this.flash(emptyMsg, sx, sy); return; }
         addMoney(this.save, -rerollCost);
         persistSave(this.save);
@@ -1077,7 +1077,7 @@ class SceneShops {
       secondary: this._themedStockCount(house) > 1
         ? this._makeRerollSecondary(house, sx, sy, 'Shelves are bare for now.',
             (nextId) => this._presentThemedItem(sx, sy, house, recordDeal, nextId),
-            { cost: ShopsMath.themedRerollCost, peek: () => this.themedShopPick(house) })
+            { cost: ShopsMath.themedRerollCost, peek: () => this.themedShopPick(house), current: id })
         : undefined,
     });
   }
@@ -1121,7 +1121,8 @@ class SceneShops {
       // something else — no per-house cache to invalidate.
       secondary: allowReroll
         ? this._makeRerollSecondary(house, sx, sy, 'Stalls are empty for now.',
-            next => this.presentRelicOffer(sx, sy, next, recordDeal, house, true, rerollOpts), rerollOpts)
+            next => this.presentRelicOffer(sx, sy, next, recordDeal, house, true, rerollOpts),
+            { ...rerollOpts, current: offer })
         : undefined,
     });
   }
@@ -1483,7 +1484,9 @@ class SceneShops {
         disabled: (this.save.money ?? 0) < rerollCost,
         onClick: () => {
           if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need ${rerollCost}.`, sx, sy); return; }
-          curState.rerolls += 1;
+          // Settles the bucket's rerolls / skips on a DIFFERENT barter; the
+          // re-present below peeks the same record and shows that one.
+          ShopsMath.rerollPeek(curState, () => this.peekOrBuildTraderOffer(house), offer);
           addMoney(this.save, -rerollCost);
           persistSave(this.save);
           this.updateHUD();
@@ -1683,7 +1686,7 @@ class SceneShops {
     const secondary = opts.noReroll ? undefined
       : this._makeRerollSecondary(house, sx, sy, 'nothing else to forge',
           next => this.presentBlacksmithOffer(sx, sy, next, recordDeal, house),
-          { cost: ShopsMath.smithyRerollCost });
+          { cost: ShopsMath.smithyRerollCost, current: offer });
     // Forge / Smelt tab row — only on a normal smithy (not the starter
     // wooden-tool queue). Switching to Smelt re-presents this same forge
     // offer as the "back" target so the player can toggle freely.

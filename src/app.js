@@ -11632,6 +11632,12 @@ class MapScene extends Phaser.Scene {
   // the energy pops (_popCellNumber); one line per entry, keyed on the
   // house id so standing still (or shuffling within the cell) says nothing.
   // Each line fits MAP_MSG_MAX. Surface only, like the lamp visits.
+  // HOME SAYS NOTHING (owner, Oct 2026): the lines are a NEIGHBOUR's voice
+  // ("Thanks for fixing my house!"), and Home — the starter trailer or an
+  // adopted house, one verdict: Houses.displayRole 'trailer' — is the
+  // player's own, walked through a dozen times a session (see the rest
+  // splash's settling above, the same complaint). Its tier-9 body is a
+  // restored house to isHouseWreck, so the Home check comes first.
   _houseMutter() {
     if ((this.depth ?? 0) !== 0 || this._driftingHome || !this.startWorldM || !this.playerM
         || !this.originPx || typeof Houses === 'undefined') return;
@@ -11652,6 +11658,7 @@ class MapScene extends Phaser.Scene {
       if (c.cellIX === p.cellIX && c.cellIY === p.cellIY) house = o;
     });
     if (!house) return;
+    if (Houses.displayRole(this.save, house) === 'trailer') return;   // Home: your own door
     const wreck = Houses.isHouseWreck(this.save, house);
     if (!wreck && house.tier !== 9) return;      // forts / castles keep their peace
     const lines = wreck ? HOUSE_WRECK_MUTTERS : HOUSE_RESTORED_MUTTERS;

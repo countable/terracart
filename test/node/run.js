@@ -507,7 +507,8 @@ const starterWrapper = (name) => {
                    '_visitStreetLamps(now) {', '_markLampsRestored(meta, newly, now) {',
                    '_armTrailIntro(now) {', '_openTrailIntroIfDue() {',
                    '_drawStreetLive(now) {',
-                   '_blastAt(wmx, wmy, opts) {']
+                   '_blastAt(wmx, wmy, opts) {',
+                   '_houseMutter() {']
     .map(lift).join(',\n');
   // The seating reads two app.js module constants that don't exist in this
   // context. Carry them across as SOURCE TEXT rather than retyping the
@@ -554,6 +555,9 @@ const starterWrapper = (name) => {
     // …and the beat it waits out before opening over the repair it explains.
     `globalThis.TRAIL_INTRO_DELAY_MS = ${constOf('TRAIL_INTRO_DELAY_MS')};\n` +
     declOf('trailIntroBody') + '\n' +
+    // What a house says underfoot (_houseMutter; house_mutter.test.js).
+    declOf('HOUSE_WRECK_MUTTERS') + '\n' +
+    declOf('HOUSE_RESTORED_MUTTERS') + '\n' +
     // The energy pop's seating: derived from the cyan farmer's art row, in
     // the order app.js declares them (the head clearance reads the three
     // before it).
@@ -572,7 +576,7 @@ const starterWrapper = (name) => {
                    '_scenicIntervals', '_scenicWalkStory',
                    '_afterRestoreBeat', '_bankStreetMetres', '_showTrailIntro',
                    '_armTrailIntro', '_openTrailIntroIfDue',
-                   '_drawStreetLive', '_blastAt']) {
+                   '_drawStreetLive', '_blastAt', '_houseMutter']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {
       console.error(`__trailCounter.${k} did not come back as a function — update run.js`);
       process.exit(2);

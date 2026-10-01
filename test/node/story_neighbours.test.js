@@ -84,14 +84,25 @@
     const w = person('witness');
     const act1 = NPC.dialogue(scene({ discovered: {}, restoredHouses: {} }), w).body;
     assert.truthy(/Warmonger/.test(act1) && /roofs/.test(act1), 'the night the roofs went');
-    assert.eq(act1, MemoryStory.NEIGHBOURS.witness[1]);
-    assert.eq(NPC.dialogue(scene(towerSave(12)), w).body, MemoryStory.NEIGHBOURS.witness[2]);
+    assert.eq(act1, MemoryStory.NEIGHBOURS.witness[1].join('\n\n'));
+    // Act 2 is two panels: the roofs, then the elder's notice that the Hood
+    // has not aged (the bible's foreshadowing, never the secret).
+    const act2 = NPC.dialogue(scene(towerSave(12)), w);
+    assert.eq(JSON.stringify(act2.pages), JSON.stringify(MemoryStory.NEIGHBOURS.witness[2]), 'the pages are the row');
+    assert.eq(act2.pages.length, 2, 'two panels');
+    assert.eq(act2.body, act2.pages.join('\n\n'), 'body is the pages joined');
+    assert.truthy(/not changed a day/.test(act2.pages[1]), 'the elder notices the Hood has not aged');
     const late = towerSave(30, { second: true }); late.memoryStory = { act3Started: true };
-    assert.eq(NPC.dialogue(scene(late), w).body, MemoryStory.NEIGHBOURS.witness[3]);
+    assert.eq(NPC.dialogue(scene(late), w).body, MemoryStory.NEIGHBOURS.witness[3].join('\n\n'));
     assert.truthy(/· Survivor$/.test(NPC.dialogue(scene(), w).title));
-    const every = [...Object.values(MemoryStory.NEIGHBOURS.witness), ...Object.values(MemoryStory.NEIGHBOURS.wanderer), ...Object.values(MemoryStory.NEIGHBOURS.believer),
+    const every = [...Object.values(MemoryStory.NEIGHBOURS.witness).flat(), ...Object.values(MemoryStory.NEIGHBOURS.wanderer), ...Object.values(MemoryStory.NEIGHBOURS.believer),
+      ...MemoryStory.SURVIVORS, MemoryStory.HOME.body, MemoryStory.FIRST_ROOF, MemoryStory.RUMOUR,
       ...Object.values(Zones.ZONE_KINDS).flatMap(k => k.keeper || []), ...NPC.KEEPER_DEFAULT].join(' ');
-    assert.falsy(/dragon|conquer|scales|wings|fire breath/i.test(every), 'no neighbour spoils the second tower');
+    assert.falsy(/dragon|conquer|scales|wings|fire breath|sister|father|Tiamat|Ayo/i.test(every), 'no neighbour spoils the second tower');
+    // The copy convention: an action is <em> on its own line, speech is in
+    // curly quotes, and nothing else is markup.
+    for (const line of every.split(' \n')) assert.falsy(/<(?!\/?em>)/.test(line), 'only <em> reaches a neighbour line: ' + line);
+    assert.truthy(/<em>[^<\n]+<\/em>\n“/.test(MemoryStory.HOME.body), 'an action on its own line, then the words');
   });
 
   test('story neighbours: the wanderer is homeless until the next restoration after you meet them', () => {
@@ -120,7 +131,8 @@
       assert.eq(SpriteLayout.creatureInstScale(grown), 1);
     }
     for (const line of Object.values(MemoryStory.NEIGHBOURS.wanderer)) {
-      assert.lte(Math.max(...line.split(/[.!?]\s+/).map(t => t.split(' ').length)), 14, 'a child speaks in short sentences');
+      const spoken = line.replace(/<em>[^<]*<\/em>\n?/g, '').replace(/[“”]/g, '');
+      assert.lte(Math.max(...spoken.split(/[.!?]\s+/).map(t => t.split(' ').length)), 14, 'a child speaks in short sentences: ' + spoken);
     }
   });
 
@@ -141,6 +153,9 @@
     const w = person('warden');
     const talk = NPC.dialogue(scene({}), w);
     assert.truthy(talk.body.includes(NPC.WARDEN_LINE) && talk.body.includes(MemoryStory.HOME.body));
+    assert.eq(talk.pages.length, 2, 'the plea, then the safe area: two panels');
+    assert.eq(talk.pages[0], MemoryStory.HOME.body);
+    assert.truthy(talk.pages[1].endsWith(NPC.WARDEN_LINE), 'the safe-area sentence closes the second');
     assert.eq(JSON.stringify(NPC.warden('npc_warden_1_2')), JSON.stringify(NPC.storyNeighbour('npc_warden_1_2', 'warden')));
   });
 
@@ -187,7 +202,9 @@
     assert.truthy(/lamp/i.test(dark) && !/\d/.test(dark), 'no lamps yet: an invitation, not a count');
     const lit = NPC.dialogue(scene({ lampVisits: { a: 1, b: 2, c: 3 } }), c).body;
     assert.truthy(/3 lamps burn brighter/.test(lit));
-    assert.truthy(lit.includes(shortDuration(Streets.LAMP_FADE_MS)), 'the fade is the owning constant');
+    assert.truthy(lit.includes(spokenDuration(Streets.LAMP_FADE_MS)), 'the fade is the owning constant, in a speaking voice');
+    assert.truthy(/Stay away a day and/.test(lit), 'a neighbour says "a day", never "1d"');
+    assert.falsy(/\d[smhd]\b/.test(lit), 'no lettered duration in speech');
     assert.truthy(/One lamp burns/.test(NPC.dialogue(scene({ lampVisits: { a: 1 } }), c).body));
   });
 

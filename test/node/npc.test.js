@@ -267,10 +267,16 @@
       const w = { id: 'npc_warden_1_2', kind: 'npc', x: 0, y: 0, ...NPC.warden('npc_warden_1_2'), _portrait: 'x' };
       NPC.interact(s, w, 0, 0);
       assert.eq(shown.length, 1, 'the warden speaks');
-      assert.truthy(shown[0].body.includes(NPC.WARDEN_LINE), 'the introduction retains the safety explanation');
+      assert.truthy(shown[0].body.includes(MemoryStory.HOME.body), 'the plea first');
+      assert.eq(shown[0].okLabel, 'Next', 'a second panel follows');
+      shown[0].onDismiss();
+      assert.eq(shown.length, 2);
+      assert.truthy(shown[1].body.includes(NPC.WARDEN_LINE), 'the introduction retains the safety explanation');
+      assert.eq(shown[1].okLabel, 'OK');
+      assert.eq(shown[1].onDismiss, undefined, 'and ends there');
       s._dialogOpen = () => true;
       NPC.interact(s, w, 0, 0);
-      assert.eq(shown.length, 1, 'but not over an open dialog');
+      assert.eq(shown.length, 2, 'but not over an open dialog');
     } finally { globalThis.document = g; }
   });
 })();
@@ -295,7 +301,7 @@
     assert.falsy(NPC.isDormant(rebuilt, now + 60000));
     NPC.tick(s, c, 1000, 0.1);
     assert.eq(c.x, 3, 'wounded body never strolls');
-    assert.eq(NPC.dialogue(s, c, now + 1).body, "I'm ok, just resting my wounds.");
+    assert.eq(NPC.dialogue(s, c, now + 1).body, NPC.RESTING_LINE);
     assert.truthy(NPC.hit(s, c, now + 60000), 'recovered neighbours can be hit again');
   });
 
@@ -365,7 +371,8 @@ test('NPC resting merchant: wound dialogue replaces trading', () => {
   NPC.hit(s,c);
   NPC.interact(s,c,0,0);
   assert.eq(shown.length,1);
-  assert.eq(shown[0].body,"I'm ok, just resting my wounds.");
+  assert.eq(shown[0].body, NPC.RESTING_LINE);
+  assert.truthy(/resting my wounds/.test(NPC.RESTING_LINE));
 });
 
 test('NPC targeting: membership scan is throttled and rebuilds on depth change', () => {

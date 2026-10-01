@@ -147,7 +147,7 @@ const NPC = (() => {
   const WANDER_CELLS = 4;
   const REST_MS = [2500, 6000];     // [base, spread]
   const REST_MS_AFTER_HIT = 60000;
-  const RESTING_LINE = "I'm ok, just resting my wounds.";
+  const RESTING_LINE = '<em>One hand pressed to the wound, waving you off.</em>\n“I’m all right. Just resting my wounds.”';
   function restore(scene, c) {
     const until = scene.save.npcRestUntil?.[c.id] || 0;
     if (until > (c._npcRestUntilEpoch || 0)) c._npcRestUntilEpoch = until;
@@ -235,8 +235,10 @@ const NPC = (() => {
   // THE SAFE AREA'S WARDEN — the one placed neighbour (Starter
   // placeSafeAreaWarden), standing by the starting trailer on every save. Its
   // one line is the explanation for EnemySpawns.homeAllows: near Home only
-  // weak monsters are ever met, and nobody knows why.
-  const WARDEN_LINE = 'This is a safe area. For some reason only weak monsters live here.';
+  // weak monsters are ever met, and nobody knows why (the bible: memory 30
+  // answers it). The one owner of that sentence; MemoryStory.npcDialogue
+  // closes the warden's first talk with it.
+  const WARDEN_LINE = '“You picked a good spot. Only the weak things come near here. Nobody knows why.”';
   // THE STORY NEIGHBOURS — placed by the starting trailer (Starter
   // placeSafeAreaWarden seats them in this order, the warden first so its
   // seat never moves). What each says is MemoryStory.npcDialogue's, by act:
@@ -422,9 +424,26 @@ const NPC = (() => {
     return best;
   }
   const KEEPER_DEFAULT = [
-    'This shrine is older than the town. I sweep its step each morning and light its lantern each night.',
-    'The fire took the roofs, not the stone. Someone has to keep the old places, so I do.',
+    '<em>Does not stop sweeping.</em>\n“This shrine is older than the town. The Breaking never touched it. I sweep the step each morning and light the lantern each night. Someone has to.”',
+    '“The Breaking took the roofs, not the stone. Someone has to keep the old places, so I do.”',
   ];
+  // NEIGHBOUR COPY (CLAUDE.md, Dialogs): spoken words in curly quotes, an
+  // action in <em> on its own line, the body HTML (showMessageModal), the
+  // vocabulary the story bible's (the Breaking, fifty years, the road as safe
+  // ground). A talk is PAGES — one dialog each, "Next" between them (interact
+  // below) — and `body`, the pages joined, for the one-box readers (the shop
+  // blurb via offerArt, the tests). A wait a neighbour SAYS is spokenDuration.
+  function talkOf(title, pages) {
+    pages = (Array.isArray(pages) ? pages : [pages]).filter(p => p != null && p !== '');
+    return { title, pages, body: pages.join('\n\n') };
+  }
+  // What the scout saw, by what it was; `where` is whereabouts() below.
+  const SIGHTINGS = {
+    shrine: where => `“A shrine, ${where}. The Breaking never touched it.”`,
+    chest: where => `“A chest, ${where}. Nobody has touched it since the Breaking.”`,
+    foe: where => `“Something roams ${where}. Keep to the road if it turns on you.”`,
+    elite: where => `“Something big roams ${where}. Keep to the road if it turns on you.”`,
+  };
   function dialogue(scene, c, now = Date.now()) {
     const day = utcDayIndex(now), seed = fnv1a(`${c.id}:talk`);
     const title = `${c.name} · ${c.roleLabel || LABELS[c.zone || 'village'][c.role]}`;
@@ -440,11 +459,15 @@ const NPC = (() => {
     } else if (c.role === 'warden') {
       body = WARDEN_LINE;
     } else if (c.role === 'scholar') {
-      body = `I read this in a book:\n“${daily(PLAY_TIPS)}”`;
+      body = `<em>Thumbs a scorched page.</em>\n“Listen to this. I read it in a book:”\n“${daily(PLAY_TIPS)}”`;
     } else if (c.role === 'merchant' || c.role === 'trader') {
       body = daily(c.role === 'merchant'
-        ? ['I brought fresh supplies today. Take a look.', 'A little stock for the road ahead.', 'See anything you need for your travels?']
-        : ['Perhaps we each have what the other needs.', 'Let us see what we can exchange today.', 'A fair trade makes the walk worthwhile.']);
+        ? ['<em>Lifts the cloth off the basket.</em>\n“Fresh in this morning, stranger. Have a look.”',
+          '“A little stock for the road. The road is the one safe place left, they say.”',
+          '<em>Glances at your hood, and says nothing of it.</em>\n“Anything you need before you head out?”']
+        : ['<em>Weighs a jar in one hand.</em>\n“Maybe you have what I need, and I you.”',
+          '“Fifty years of making do teaches a fair swap. Let us see what we can exchange.”',
+          '“A fair trade makes the walk worthwhile.”']);
     } else if (c.role === 'keeper') {
       // The zone row owns its keeper's copy; a keeper off a plain shrine grove
       // (no named zone) has the default lines.
@@ -455,20 +478,20 @@ const NPC = (() => {
       // verdict, never a count of its own.
       const mended = Object.keys(scene.save.restoredHouses || {}).length;
       const wreck = nearestWreck(scene, c);
-      const where = wreck ? ` The nearest wreck still waiting is ${whereabouts(c, wreck.o, wreck.d)}.` : ' No wreck near here still waits, that I know of.';
+      const where = wreck ? `“The nearest wreck still waiting is ${whereabouts(c, wreck.o, wreck.d)}.”` : '“No wreck near here still waits, that I know of.”';
       body = (mended
-        ? `${mended === 1 ? 'One roof stands' : `${mended} roofs stand`} again since you came.`
-        : daily(['Every roof here came down in the one night. Stone remembers its shape, though. Mend one wreck and the street will follow.',
-          'Nobody has laid a stone here since the fire. The wrecks are waiting for hands.'])) + where;
+        ? `“${mended === 1 ? 'One roof stands' : `${mended} roofs stand`} again since you came. Fifty years nobody laid a stone here, and then you.”\n<em>Nods up the street.</em>`
+        : daily(['<em>Runs a hand along a cracked wall.</em>\n“Every roof on the lane came down in one night. Stone remembers its shape, though. Mend one wreck and the street will follow.”',
+          '“Nobody has laid a stone here since the Breaking. The wrecks are waiting for hands.”'])) + '\n' + where;
     } else if (c.role === 'lamplighter') {
       // The living lamps (Streets lampVisits: pruned at LAMP_FADE_MS, so the
       // count is the lamps still burning brighter for the player).
       const lit = Object.keys(scene.save.lampVisits || {}).length;
-      const fade = typeof Streets !== 'undefined' && Streets.LAMP_FADE_MS ? shortDuration(Streets.LAMP_FADE_MS) : 'a day';
+      const fade = typeof Streets !== 'undefined' && Streets.LAMP_FADE_MS ? spokenDuration(Streets.LAMP_FADE_MS) : 'a day';
       body = lit
-        ? `${lit === 1 ? 'One lamp burns' : `${lit} lamps burn`} brighter for your passing tonight. Stay away ${fade} and they forget.`
-        : daily(['The lamps along the road have been dark since the fire. Walk beneath one and it will remember you.',
-          'A lamp only wants company. Pass under it and watch what it does.']);
+        ? `<em>Squints down the lane.</em>\n“${lit === 1 ? 'One lamp burns' : `${lit} lamps burn`} brighter for your passing tonight. Stay away ${fade} and they forget you. Lamps are like that.”`
+        : daily(['<em>Taps a dark lamp post.</em>\n“Dark since the Breaking, every one. The roads were spared, but nobody was left to light them. Walk under one. It remembers you.”',
+          '“A lamp only wants company. Pass under one and watch what it does.”']);
     } else {
       const radius = 250, candidates = [];
       const opened = setOf(scene.save.opened || []), caught = setOf(scene.save.caught || []);
@@ -477,22 +500,22 @@ const NPC = (() => {
         if (d <= radius) candidates.push({ o, label, d });
       };
       for (const entry of WorldGen.tileCache.values()) WorldGen.forEachItemInBox(entry, 'objects', c.x - radius, c.y - radius, c.x + radius, c.y + radius, o => {
-        if (isShrine(o) || (o.kind === 'house' && scene.houseShopRole(o) === 'wizard')) add(o, 'a shrine');
+        if (isShrine(o) || (o.kind === 'house' && scene.houseShopRole(o) === 'wizard')) add(o, 'shrine');
         else if (o.kind === 'chest' && !opened.has(o.id)) {
           const cell = scene.cellAt?.(o.x, o.y);
-          if (!cell?.loaded || cell.tx == null || !Fog.seen(cell.tx, cell.ty, cell.ix, cell.iy)) add(o, 'an undiscovered chest');
+          if (!cell?.loaded || cell.tx == null || !Fog.seen(cell.tx, cell.ty, cell.ix, cell.iy)) add(o, 'chest');
         }
       });
       WorldGen.forEachItem('creatures', o => {
-        if (!caught.has(o.id) && Combat.isEnemy(o)) add(o, Combat.isElite(o) ? 'an elite foe' : 'a roaming foe');
+        if (!caught.has(o.id) && Combat.isEnemy(o)) add(o, Combat.isElite(o) ? 'elite' : 'foe');
       });
       candidates.sort((a, b) => String(a.o.id).localeCompare(String(b.o.id)));
       if (candidates.length) {
         const { o, label, d } = daily(candidates);
-        body = `${daily(['I spotted', 'On my walk I noticed', 'Keep an eye out for'])} ${label}, ${whereabouts(c, o, d)}.`;
-      } else body = daily(['The paths are quiet today. I have no nearby discoveries to share.', 'I have seen nothing new nearby today. Come back tomorrow.', 'No fresh sightings today. I will keep looking.']);
+        body = `${daily(['<em>Points past the wrecks.</em>', '<em>Nods down the lane.</em>', '<em>Lowers their voice.</em>'])}\n${SIGHTINGS[label](whereabouts(c, o, d))}`;
+      } else body = daily(['“Quiet lanes today. Nothing new to show you. Come back tomorrow.”', '<em>Shrugs.</em>\n“Nothing new on this stretch today. Try me tomorrow.”', '“No fresh sightings today. I will keep looking.”']);
     }
-    return { title, body };
+    return talkOf(title, body);
   }
   // Use the same RGB multiplication as Phaser's world tint, including alpha.
   // Cache on the live NPC, not in a growing global table of everyone met.
@@ -529,10 +552,15 @@ const NPC = (() => {
     c._moving = false;
     c._npcRestUntil = performance.now() + 12000;
     const talk = dialogue(scene, c);
-    if (isDormant(c)) {
-      scene.showMessageModal({ ...talk, kind: 'note', art: portrait(scene, c) });
-      return;
-    }
+    // A talk of several pages is one dialog per page, "Next" between them
+    // (the revive panels' pattern, app.js), the same portrait throughout.
+    const say = () => {
+      const art = portrait(scene, c), pages = talk.pages;
+      const show = i => scene.showMessageModal({ title: talk.title, body: pages[i], kind: 'note', art,
+        okLabel: i < pages.length - 1 ? 'Next' : 'OK', onDismiss: i < pages.length - 1 ? () => show(i + 1) : undefined });
+      show(0);
+    };
+    if (isDormant(c)) { say(); return; }
     if (c.role === 'archaeologist' && typeof MemoryStory !== 'undefined') {
       const conversation = MemoryStory.archaeologistConversation(scene.save);
       const art = portrait(scene, c);
@@ -559,10 +587,7 @@ const NPC = (() => {
       return;
     }
     if (typeof StoryEncounters !== 'undefined' && StoryEncounters.interact(scene, c)) return;
-    if (c.role !== 'merchant' && c.role !== 'trader') {
-      scene.showMessageModal({ ...talk, kind: 'note', art: portrait(scene, c) });
-      return;
-    }
+    if (c.role !== 'merchant' && c.role !== 'trader') { say(); return; }
     // A peddler trades as often as asked — no shop is ever "busy"
     // (shops_math.js header); the deal is still banked for the trader's
     // stock turnover.

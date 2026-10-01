@@ -342,7 +342,14 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   wizard and survivor are dragons; the survivor was his Warmonger. Keep earlier
   scenes ambiguous; most paintings need no hint. Reuse existing art for this arc.
 - Format every visible wait with `shortDuration`; UTC-day gates pair it with
-  `msToNextUtcDay`. A timed gate needs a visible wait.
+  `msToNextUtcDay`. A timed gate needs a visible wait. A wait a CHARACTER
+  SAYS uses `spokenDuration` ("a day"), the same ladder in words.
+- Neighbour talk (`NPC.dialogue`, `MemoryStory.npcDialogue`) is PAGES: spoken
+  words in curly quotes, an action in `<em>` on its own line, HTML body, a
+  second panel only when the first is full (an array of pages; `interact`
+  shows them with Next). Survivors speak the bible's words: the Breaking,
+  fifty years, Mending Lane, the wizard the old folk call Tim; the hood is
+  looked at, never asked about twice.
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including
   interpolations. Cut copy or use a modal; do not interpolate unbounded POI names.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,

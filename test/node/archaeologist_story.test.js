@@ -141,7 +141,7 @@ test('Orrin: warden reputation follows meeting him and preserves the opening ins
   assert.includes(after, 'crackpot');
   assert.includes(after, 'worry');
   save.restoredHouses = {};
-  assert.includes(MemoryStory.npcDialogue({ save }, c), NPC.WARDEN_LINE);
+  assert.includes(MemoryStory.npcDialogue({ save }, c).join('\n'), NPC.WARDEN_LINE);
 });
 
 })();

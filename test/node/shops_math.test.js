@@ -690,3 +690,79 @@ test('slots: a paid spin cannot be closed before its precomputed payout settles'
   assert.truthy(/later\.addEventListener\('click',[\s\S]*?if \(spinning\) return;[\s\S]*?timers\.forEach\(clearTimeout\)/.test(body),
     'the cancel handler preserves settle timers during a spin');
 });
+
+// ── A re-roll always lands on something else (ShopsMath.rerollPeek) ─────────
+test('rerollPeek: one rung on the ladder, then FREE re-draws until the offer differs', () => {
+  assert.eq(ShopsMath.REROLL_RETRIES, 4, 'a couple of retries at least');
+  // A pool of two: the draw alternates same, same, other.
+  const cur = { bucket: 1, deals: 0, rerolls: 2 };
+  const draws = ['sword', 'sword', 'shield'];
+  let i = 0;
+  const next = ShopsMath.rerollPeek(cur, () => draws[i++], 'sword');
+  assert.eq(next, 'shield', 'lands on the other item');
+  assert.eq(cur.rerolls, 3, 'the ladder climbed ONE rung for the paid re-roll');
+  assert.eq(cur.skips, 2, 'the two same-again draws went on the seed-only counter');
+  // A first draw that already differs costs no skips.
+  const cur2 = { bucket: 1, deals: 0, rerolls: 0 };
+  assert.eq(ShopsMath.rerollPeek(cur2, () => 'axe', 'sword'), 'axe');
+  assert.eq(cur2.rerolls, 1); assert.eq(cur2.skips, undefined, 'untouched: the record keeps its old shape');
+  // A pool of one gives up after the retries, same thing in hand.
+  const cur3 = { bucket: 1, deals: 0, rerolls: 0 };
+  let n = 0;
+  assert.eq(ShopsMath.rerollPeek(cur3, () => { n++; return 'bar'; }, 'bar'), 'bar');
+  assert.eq(n, 1 + ShopsMath.REROLL_RETRIES, 'the first draw plus every retry');
+  assert.eq(cur3.rerolls, 1, 'still one rung');
+  // Nothing left (null) returns at once, no retry.
+  const cur4 = { bucket: 1, deals: 0, rerolls: 0 };
+  n = 0;
+  assert.eq(ShopsMath.rerollPeek(cur4, () => { n++; return null; }, 'bar'), null);
+  assert.eq(n, 1); assert.eq(cur4.skips, undefined);
+  // No record (the unseeded house): the retry loop alone.
+  let j = 0;
+  assert.eq(ShopsMath.rerollPeek(null, () => ['a', 'b'][j++], 'a'), 'b');
+});
+
+test('rerollPeek: offerKey — gear by kind/slot/tier, a barter by give/ask, never by price or qty', () => {
+  const k = ShopsMath.offerKey;
+  assert.eq(k({ kind: 'relic', slot: 'bow', tier: 3, price: 40 }), k({ kind: 'relic', slot: 'bow', tier: 3, price: 55 }), 'a repriced relic is the same relic');
+  assert.truthy(k({ kind: 'relic', slot: 'bow', tier: 3 }) !== k({ kind: 'relic', slot: 'bow', tier: 4 }), 'a tier up is different');
+  assert.truthy(k({ kind: 'relic', slot: 'bow', tier: 3 }) !== k({ kind: 'armor', slot: 'bow', tier: 3 }), 'kind counts');
+  assert.eq(k({ giveId: 'rockfruit', askId: 'wood', askQty: 3 }), k({ giveId: 'rockfruit', askId: 'wood', askQty: 5 }), 'a barter is its goods, not the count');
+  assert.truthy(k({ giveId: 'rockfruit', askId: 'wood' }) !== k({ giveId: 'rockfruit', askId: 'stone' }), 'a different ask is a different deal');
+  assert.eq(k('starfruit_seed'), 'starfruit_seed', 'a themed pick is its id');
+  assert.eq(k(null), ''); assert.eq(k(undefined), '');
+});
+
+test('rerollPeek: skips pivot the seeded stream and the ladder\'s cost ignores them', () => {
+  const save = { offerSalt: 7 };
+  const house = { id: 'shopR' };
+  const b = ShopsMath.bucket('shopR', 0);
+  const first = (rec) => { save.shopState = { shopR: { ...rec } }; return ShopsMath.rng(save, house, 'pool', 0)(); };
+  const base = first({ bucket: b, deals: 0, rerolls: 1 });
+  assert.eq(first({ bucket: b, deals: 0, rerolls: 1, skips: 0 }), base, 'skips 0 is the old seed exactly');
+  assert.truthy(first({ bucket: b, deals: 0, rerolls: 1, skips: 1 }) !== base, 'a skip re-draws');
+  assert.truthy(first({ bucket: b, deals: 0, rerolls: 1, skips: 2 }) !== first({ bucket: b, deals: 0, rerolls: 1, skips: 1 }), 'and each skip differently');
+  // The cost curves read rerolls alone: a re-roll that skipped three times
+  // costs the same next time as one that did not.
+  assert.eq(ShopsMath.smithyRerollCost(1), ShopsMath.smithyRerollCost(1));
+  save.shopState = { shopR: { bucket: b, deals: 0, rerolls: 1, skips: 3 } };
+  assert.eq(ShopsMath.bucketState(save, house, 0).rerolls, 1, 'the record reads one rung');
+  // A new hour drops the skips with the offer they belonged to.
+  const later = ShopsMath.bucketState(save, house, ShopsMath.HOUR * 1);
+  assert.eq(later.skips, undefined, 'carried forward without skips');
+  assert.eq(later.rerolls, 0, 'and eased as before');
+});
+
+test('rerollPeek: every re-roll button draws through it with what is on display', () => {
+  const src = SCENE_SRC;
+  const shared = src.slice(src.indexOf('  _makeRerollSecondary('), src.indexOf('  presentThemedShop('));
+  assert.truthy(/const next = ShopsMath\.rerollPeek\(curState, peek, opts\.current\);/.test(shared), 'the shared button');
+  assert.falsy(/curState\.rerolls \+= 1/.test(shared), 'and bumps the ladder nowhere else');
+  const trader = src.slice(src.indexOf('  presentTraderOffer('), src.indexOf('  // REST: a flat CASTLE_REST_ENERGY'));
+  assert.truthy(/ShopsMath\.rerollPeek\(curState, \(\) => this\.peekOrBuildTraderOffer\(house\), offer\);/.test(trader), 'the trader\'s inline button');
+  assert.falsy(/curState\.rerolls \+= 1/.test(trader));
+  // Each caller names its current offer.
+  assert.truthy(/peek: \(\) => this\.themedShopPick\(house\), current: id \}/.test(src), 'the themed shelf: the item id');
+  assert.truthy(/\{ cost: ShopsMath\.smithyRerollCost, current: offer \}/.test(src), 'the smithy: the forge target');
+  assert.truthy(/\{ \.\.\.rerollOpts, current: offer \}/.test(src), 'the relic stall: the piece');
+});

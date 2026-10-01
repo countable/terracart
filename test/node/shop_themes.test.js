@@ -74,7 +74,7 @@ test('themed shops: the re-roll is $2, then ×1.5 rounded down — cheaper than 
 test('smithy: the re-roll is $5, then ×1.5 rounded down, and the forge offer uses it', () => {
   const got = [0, 1, 2, 3, 4, 5, 6].map((n) => ShopsMath.smithyRerollCost(n));
   assert.eq(got.join(), '5,7,10,15,22,33,49');
-  assert.truthy(/next => this\.presentBlacksmithOffer\(sx, sy, next, recordDeal, house\),\s*\{ cost: ShopsMath\.smithyRerollCost \}\);/.test(SCENE_SRC),
+  assert.truthy(/next => this\.presentBlacksmithOffer\(sx, sy, next, recordDeal, house\),\s*\{ cost: ShopsMath\.smithyRerollCost, current: offer \}\);/.test(SCENE_SRC),
     'presentBlacksmithOffer passes the smithy curve');
 });
 
@@ -111,7 +111,7 @@ test('themed shops: the wiring — the tap, the stock, the price and the re-roll
   assert.truthy(/const rng = house\?\.id \? this\.shopRng\(house, 'theme'\) : Math\.random;/.test(app),
     'the stock holds for the hour on its own lane');
   assert.truthy(/this\.buildShopOffer\(id, itemValue\(id\), \{ house \}\)/.test(app), 'priced by the shared markup');
-  assert.truthy(/\{ cost: ShopsMath\.themedRerollCost, peek: \(\) => this\.themedShopPick\(house\) \}/.test(app),
+  assert.truthy(/\{ cost: ShopsMath\.themedRerollCost, peek: \(\) => this\.themedShopPick\(house\), current: id \}/.test(app),
     'the cheap re-roll moves the item on');
   assert.truthy(/peekOrBuildRelicOffer\(house, \{ maxTier: tier \}\)/.test(app), 'the relic line is capped at its tier');
   assert.falsy(/isFirstMarket/.test(app + RENDER_SRC), 'the old first-market seed shop is folded into the themes');

@@ -105,11 +105,53 @@
                 ^ (cur.bucket >>> 0)
                 ^ ((save.offerSalt || 0) >>> 0)
                 ^ Math.imul(cur.rerolls + 1, 0x9e3779b1)
-                ^ Math.imul(turnover, 0x85ebca6b)) >>> 0;
+                ^ Math.imul(turnover, 0x85ebca6b)
+                // The free re-draws a re-roll took to land on something NEW
+                // (rerollPeek): seed-only, so the ladder never climbs for
+                // them. Zero (or absent, on every record written before
+                // Oct 2026) leaves the seed exactly as it was.
+                ^ Math.imul(cur.skips | 0, 0x27d4eb2f)) >>> 0;
     // The lane name is folded onto that seed with util.js' fnv1a loop — the
     // same prime and order fnv1a() itself uses, just started from here rather
     // than from the FNV offset basis (util.js › fnv1aFrom).
     return makeRng32(fnv1aFrom(seed, lane));
+  }
+
+  // A RE-ROLL ALWAYS LANDS ON SOMETHING ELSE (owner, Oct 2026). The re-roll
+  // pivots the seed (cur.rerolls), but a pivot is a fresh draw from the same
+  // small pool, and a trader with three goods or a smithy with two forge
+  // targets handed the SAME offer back often enough to read as a swindle.
+  // So every re-roll button goes through here: bump the ladder once (the
+  // one rung the player pays for), draw, and while the draw matches what
+  // was on display, bump `skips` — a seed-only counter rng() folds in,
+  // which the cost ladder never reads — and draw again, up to REROLL_RETRIES
+  // times. The skips stay on the bucket record so the offer the button
+  // settled on is the one every later peek (the trader's roof sign, a
+  // reopened modal) reads back. A pool of one gives up and returns the same
+  // thing (the themed shelf hides its button for that case; a smithy says
+  // so); a null draw (nothing left) returns at once. `cur` may be null for
+  // the unseeded fallback (a house with no id), where every peek is already
+  // a fresh Math.random draw and only the retry loop applies.
+  const REROLL_RETRIES = 4;
+  // What makes two offers "the same thing": the same id, or the same piece
+  // of gear (kind / slot / tier), or the same barter (give for ask). Price
+  // and quantity are not an identity — a re-roll that only moved the price
+  // is the same item again.
+  function offerKey(o) {
+    if (o == null) return '';
+    if (typeof o !== 'object') return String(o);
+    return [o.id, o.kind, o.slot, o.tier, o.giveId, o.askId]
+      .map(v => (v == null ? '' : String(v))).join('/');
+  }
+  function rerollPeek(cur, peek, current, tries = REROLL_RETRIES) {
+    if (cur) cur.rerolls = (cur.rerolls | 0) + 1;
+    let next = peek();
+    const was = offerKey(current);
+    for (let i = 0; i < tries && next != null && offerKey(next) === was; i++) {
+      if (cur) cur.skips = (cur.skips | 0) + 1;
+      next = peek();
+    }
+    return next;
   }
 
   // Cash price to BUY an item worth baseValue. The Bow relic shrinks the markup:
@@ -441,6 +483,7 @@
   }
 
   root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, SMITHY_REROLL_START, smithyRerollCost, bucketOffset, bucket, easedRerolls, bucketState, pruneShopState, rng, buyPrice,
+                     REROLL_RETRIES, offerKey, rerollPeek,
                      SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, SLOT_JACKPOT_PAIR_COINS,
                      SLOT_STAR_WEIGHT, SLOT_NATURAL_MUL, SLOT_STAR_PAIR_MUL, SLOT_DELUXE_SPINS, SLOT_DELUXE_MUL, slotDeluxeShare, slotDeluxeNext, SLOT_STAR_BADGES, SLOT_STAR_JACKPOT_COINS, slotMachine, slotSpin, slotPrizes,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice,
