@@ -876,17 +876,18 @@
       save.scarecrows.push(cellCenter(cellIX, cellIY));
     }
 
-    // ── PLAYER PLAZA: a little coin-drop burst (the coindrop tap path). In the
-    //    real game these expire after COIN_BURST_LIFE_MS; here we omit expiresAt so they
-    //    persist across reloads. They live in entry.coinDrops, not objects[].
+    // ── PLAYER PLAZA: one coin drop per Render.COIN_PILES band along the
+    //    bottom row (the coindrop tap path). In the real game these expire after
+    //    COIN_BURST_LIFE_MS; here we omit expiresAt so they persist across
+    //    reloads. They live in entry.coinDrops, not objects[].
     if (centreEntry) {
       centreEntry.coinDrops = [];
-      const coin = (dx, dy) => {
-        const { cellIX, cellIY } = sceneCell('PLAZA', dx, dy);
+      Render.COIN_PILES.forEach((row, i) => {
+        const { cellIX, cellIY } = sceneCell('PLAZA', i, 7);
         const { x, y } = cellCenter(cellIX, cellIY);
-        centreEntry.coinDrops.push({ kind: 'coindrop', x, y, id: `sandbox_coin_${cellIX}_${cellIY}` });
-      };
-      coin(4, 3); coin(3, 2); coin(5, 2);
+        centreEntry.coinDrops.push({ kind: 'coindrop', x, y, amount: row.min,
+          id: `sandbox_coin_${cellIX}_${cellIY}` });
+      });
     }
 
     // ── An extra treasure-X on the SW neighbour tile, at the seam with the

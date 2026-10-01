@@ -5,7 +5,7 @@ const app = APP_JS_SRC;
 
 // ── The asset ─────────────────────────────────────────────────────────────
 test('coin icon: ground and HUD each load their intended artwork', () => {
-  assert.truthy(/coin_drop:\s*\{ kind: 'image', path: 'assets\/Objects\/Approved\/coin_single_ground\.png\?v=3' \}/.test(ASSETS_SRC),
+  assert.truthy(/coin_drop:\s*\{ kind: 'image', path: 'assets\/Objects\/Approved\/coin_single_ground\.png\?v=4' \}/.test(ASSETS_SRC),
     'ground drops load the flat mini coin');
   const mini = pngDims('assets/Objects/Approved/coin_single_ground.png');
   assert.eq(mini.w, Render.COIN_DROP_PX, 'mini coin renders at native width');
@@ -27,7 +27,7 @@ test('coin icon: map size derives from each texture width', () => {
     'the old 16px-disc scale is gone');
   assert.truthy(/setScale\(pile.width \/ s\.width\)/.test(RENDER_SRC),
     'the draw uses the configured width and actual texture dimensions');
-  assert.truthy(/const COIN_DROP_PX = 13;/.test(RENDER_SRC),
+  assert.truthy(/const COIN_DROP_PX = 11;/.test(RENDER_SRC),
     'the mini coin uses an integer pixel width');
 });
 
@@ -111,9 +111,18 @@ test('coin icon: the HUD chip writes a bare number into #money-num', () => {
 
 test('coin piles: pickup amounts select the exact quantity boundaries', () => {
   for (const [amount, texture] of [[undefined, 'coin_drop'], [0, 'coin_drop'], [1, 'coin_drop'],
-    [2, 'coin_pile_small'], [10, 'coin_pile_small'], [11, 'coin_pile_medium'],
-    [50, 'coin_pile_medium'], [51, 'coin_pile_large'], [75, 'coin_pile_large']]) {
+    [2, 'coin_pile_2'], [3, 'coin_pile_3'], [4, 'coin_pile_4'], [5, 'coin_pile_5'],
+    [6, 'coin_pile_6_10'], [10, 'coin_pile_6_10'], [11, 'coin_pile_11_25'], [25, 'coin_pile_11_25'],
+    [26, 'coin_pile_26_50'], [50, 'coin_pile_26_50'], [51, 'coin_pile_51'], [75, 'coin_pile_51']]) {
     assert.eq(Render.coinPile({ amount }).texture, texture, `amount ${amount}`);
   }
   for (const row of Render.COIN_PILES) assert.lte(row.width, 30, 'fits a map cell');
+});
+
+test('coin piles: each band draws its PNG at native size', () => {
+  for (const row of Render.COIN_PILES) {
+    const m = ASSETS_SRC.match(new RegExp(`${row.texture}: \\{ kind: 'image', path: '([^'?]+)`));
+    assert.truthy(m, `${row.texture} is a loaded asset`);
+    assert.eq(pngDims(m[1]).w, row.width, `${row.texture} width`);
+  }
 });

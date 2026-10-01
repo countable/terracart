@@ -83,7 +83,7 @@ so the wizard tower next to spawn isn't adopted as Home.
 | flora | flower variants 0–3, mushroom decals | BARNYARD/PARK/RESIDENTIAL |
 | groundstack | wood ×2 | BARNYARD |
 | wildplant | longgrass, shrub, nut, shell, mushroom, rockfruit (placed-rock ring) | various |
-| coindrop | 3-coin burst | PLAZA |
+| coindrop | one drop per coin-pile band, bottom row | PLAZA |
 | treasure | in-reach (N of spawn) + SW seam | PLAZA / SW tile |
 | planted crop | all 5 growth stages + a double-yield mature one | FARMLAND |
 | scarecrow | aversion ring (farm + beside a park crow) | FARMLAND / RECREATION |

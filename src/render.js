@@ -53,14 +53,20 @@
 // pattern other scene code and tests use.)
 
 const Render = {};
-const COIN_DROP_PX = 13;
+const COIN_DROP_PX = 11;
 Render.COIN_DROP_PX = COIN_DROP_PX;
-// Low-detail ground sprites show the amount waiting on the map.
+// Low-detail ground sprites show the amount waiting on the map. Each width is
+// its PNG's native size (tools/gen_coin_piles.py draws them).
 Render.COIN_PILES = [
   { min: 1, texture: 'coin_drop', width: COIN_DROP_PX },
-  { min: 2, texture: 'coin_pile_small', width: 20 },
-  { min: 11, texture: 'coin_pile_medium', width: 25 },
-  { min: 51, texture: 'coin_pile_large', width: 30 },
+  { min: 2, texture: 'coin_pile_2', width: 14 },
+  { min: 3, texture: 'coin_pile_3', width: 15 },
+  { min: 4, texture: 'coin_pile_4', width: 16 },
+  { min: 5, texture: 'coin_pile_5', width: 16 },
+  { min: 6, texture: 'coin_pile_6_10', width: 17 },
+  { min: 11, texture: 'coin_pile_11_25', width: 19 },
+  { min: 26, texture: 'coin_pile_26_50', width: 21 },
+  { min: 51, texture: 'coin_pile_51', width: 25 },
 ];
 Render.coinPile = (coin) => {
   const amount = coinAmount(coin);
