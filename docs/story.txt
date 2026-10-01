@@ -1,6 +1,6 @@
 DRAGON HOOD — THE STORY (basis document)
 ================================================================================
-Status: v4 (Oct 2026), the first bare-handed labour beat added.
+Status: v5 (Oct 2026), canon and lore separated across two progress tracks.
 This file is the story bible the game is written against. Where it disagrees with copy in src/
 (memory_story.js, play_tips.js, books, item text), THIS FILE wins and the copy
 is to be brought in line. Numbers (which memory, which restoration, which cave
@@ -168,9 +168,77 @@ is written from inside that belief. See WHO MAY SAY WHAT.
 --------------------------------------------------------------------------------
 5. ACT STRUCTURE (mapped onto the existing mechanics)
 --------------------------------------------------------------------------------
-The engine of the story is the MEMORY LEDGER (src/memory_story.js): the first
-find of each discoverable thing returns a memory. Scenes land on every third
-memory. The gates below are the ones the code holds today; keep them.
+CANON AND LORE — TWO DELIVERY LAYERS
+  CANON is the required, ordered story: the opening, plot-bearing recovered
+  memories, NPC arrivals and changes, Tim's lessons, the tower attack and
+  relocation, the identity reveal, dragon speech, and the later choices.
+  These events establish what has happened and what the player can know.
+  A required event may be a conversation, a world change, an NPC appearance
+  or a story panel; the panel format itself does not make something canon.
+
+  LORE is optional and asynchronous: books, ambient place panels, first-tool
+  moments, the bare-handed-work vignette, ordinary discovery impressions,
+  repeated conversations, and other glimpses of life in the world. The
+  player may miss these or encounter them in different orders. They deepen
+  the story but never carry the only explanation needed for a canon event.
+  Lore still obeys the story bible: optional does not mean untrue. Books
+  keep their authors' voices; narrated panels keep the Hood's sensory voice.
+  Both layers respect the same revelation gates, including no identity
+  reveal before the second-tower revelation at 30 memories.
+
+TWO ROUGHLY PARALLEL TIMELINES
+  MEMORY advances what the Hood remembers and understands. RESTORATION
+  advances the returning community, its homes, and the places where events
+  can happen. They are separate lifetime counters, not interchangeable
+  points or a fixed conversion. Either track may lead the other.
+  The first find of each discoverable thing returns a memory; milestone
+  scenes currently land on every third memory. Restored houses determine
+  building roles and available homes. Existing thresholds remain owned by
+  src/memory_story.js, src/houses.js and src/npc.js.
+
+  Milestone                   Memory track          Restoration / world track
+  Opening and warden          Start                 Starting trailer
+  Believer appears            3                     Neighbour by the trailer
+  Survivor appears            6                     Neighbour by the trailer
+  Child appears               9                     Homeless when first met
+  Child has a home            Child already met     Next restoration after meeting
+  First tower / Tim           At least 9            15th restoration; visit tower
+  First-tower lessons         12, 15, 18            First tower and earlier lessons
+  White dragon attacks        At least 21           First tower; required lessons done
+  Second tower                At least 21           Next eligible restoration after attack
+  Later lessons               24, 27                Second tower and earlier lessons
+  Identity revelation         At least 30           Second tower; required lessons done
+  Dragon speech / choices     Revelation completed  Appropriate Act 3 encounters
+
+  The second-tower code uses zero-based restoration index 25 or later:
+  the 26th restoration or a later eligible one, not the 25th completed house.
+  References below to "restoration 25+" refer to that existing index gate.
+  The milestones are eligibility conditions, not a promise that both tracks
+  reach the same point together. For example, recovering 30 memories before
+  restoring the first tower must not skip meeting Tim or his required lessons.
+
+CANON ORDERING CONTRACT
+  A canon event needs its milestone conditions, its world context, and its
+  earlier required events. Reaching a threshold makes it eligible; it does
+  not mean the event has occurred or its revelation is known. Keep it pending
+  until it can happen in sequence, and record completion only when the event
+  actually occurs (and its required presentation is acknowledged).
+  Count thresholds use "at least", so progressing past a milestone cannot
+  lose it. Pending canon does not freeze ordinary discovery or restoration.
+  An NPC's required arrival or change belongs to canon; tapping every optional
+  line that NPC can say does not. A required conversation is identified as an
+  event of its own. Repeated observations after it remain lore.
+  Lore never blocks canon. It may wait for an appropriate place, action or
+  knowledge state, and should not interrupt a canon sequence in progress.
+
+IMPLEMENTATION STATUS
+  This is the intended delivery structure, not a claim that all ordering is
+  implemented. Today the first tower becomes abandoned at 21 memories even
+  if earlier conversations were missed, and the second-tower reveal can
+  precede unread lessons. Those shortcuts need reconciliation with required
+  canon ordering. The witnessed attack, vanished tower and dragon-language
+  reactions remain specified story events awaiting gameplay implementation.
+  The split changes neither existing numeric gates nor save keys by itself.
 
 ACT 1 — THE MENDING (memories 0–8, before the tower)
   The Hood wakes at the trailer with nothing. The warden explains the safe

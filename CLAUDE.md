@@ -357,6 +357,10 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   revealing the player’s identity or the wizard’s secret. Preserve approved
   excerpts and keep `ITEM_GUIDE_TIPS` as the owner of shared item parables. Authors
   describe their world, not interface elements such as work circles or health bars.
+- Story delivery separates required, ordered canon from optional, asynchronous
+  lore (docs/story.txt, ACT STRUCTURE). Memory and restoration are independent
+  progress tracks; required events join them through prerequisites and world
+  context. A painted panel can carry either layer. Lore never blocks canon.
 - Story panels share one second-person narrator: the Hood’s slightly naïve,
   literal thoughts and feelings, grounded in physical sensations and occasional
   environmental details. Average about two sentences; tie lightly to the story
