@@ -348,6 +348,11 @@ const MINERAL_ICON_SHEET = {
   // multi-frame sheet, frame 0 the basic variant.
   honey:      { sheet: 'icon_honey',  frame: 0 },
   book:       { sheet: 'icon_book',   frame: 0 },
+  // Books.png ends with five scrolls on row 3 (15 columns).
+  blank_scroll:    { sheet: 'icon_book', frame: 45 },
+  fireball_scroll: { sheet: 'icon_book', frame: 46 },
+  fear_scroll:     { sheet: 'icon_book', frame: 47 },
+  treasure_map:    { sheet: 'icon_book', frame: 49 },
   // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
   reach_potion: { sheet: 'icon_potion', frame: 0 },
   // New potions — 16×16 frames from Potions.png (5 cols × 7 rows).
@@ -380,6 +385,7 @@ const MINERAL_ICON_SHEET = {
   growth_powder: { sheet: 'icon_potions', frame: 6 },
   shadow_powder: { sheet: 'icon_potions', frame: 8 },
   frost_powder:  { sheet: 'icon_potions', frame: 9 },
+  sleep_powder:  { sheet: 'icon_potions', frame: 3 }, // scoop of violet dream dust
   // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
   // honey jar). Using it moves the player up or down one cave level in place
   // (useRope in app.js).
@@ -557,7 +563,8 @@ const BASE_TIER = {
   // same shape as the reach/speed/shield potions it now shares a tier with.
   // Frost is the T3 fight-changer beside the dragon — it is the one that turns
   // a fight you are already in.
-  growth_powder: 2, shadow_powder: 2, frost_powder: 3,
+  growth_powder: 2, shadow_powder: 2, frost_powder: 3, sleep_powder: 3,
+  blank_scroll: 2, fireball_scroll: 3, fear_scroll: 3, treasure_map: 4,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
   // Trap Disarm Kit — a T2 utility beside rope: situational, not a staple.
@@ -654,6 +661,11 @@ const ITEMS = [
   // 'chest:school'). This is the one item whose SCARCITY is a documentation
   // bug rather than a balance choice.
   { id: 'book',  name: 'Book',  kind: 'supply', dropWeight: 3 },
+  { id: 'blank_scroll', name: 'Blank Scroll', kind: 'supply' },
+  { id: 'fireball_scroll', name: 'Fireball Scroll', kind: 'magic', scroll: true },
+  { id: 'fear_scroll', name: 'Scroll of Fear', kind: 'magic', scroll: true },
+  { id: 'treasure_map', name: 'Treasure Map', kind: 'magic', scroll: true },
+  { id: 'sleep_powder', name: 'Sleep Powder', kind: 'magic' },
   // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
   { id: 'antidote', name: 'Antidote', kind: 'magic', potion: true },
@@ -872,6 +884,26 @@ const CONSUMABLE_SPEC = {
     verb: 'Throw', method: 'useSpear', title: 'Throw the spear?',
     get: 'One sharp throw sends the spear flying toward your foes.',
   },
+  fireball_scroll: {
+    damage: 40, blastRadiusCells: 2, projectileRadiusCells: 0.45, dotPx: 6, immediate: true,
+    verb: 'Cast', method: 'useFireballScroll', title: 'Cast the Fireball Scroll?',
+    get: 'A spark leaps from the parchment and blossoms into roaring flame.',
+  },
+  fear_scroll: {
+    durationMs: 30 * 1000,
+    verb: 'Read', method: 'useFearScroll', title: 'Read the Scroll of Fear?',
+    get: 'The words send a shiver through every watching foe.',
+  },
+  treasure_map: {
+    durationMs: 15 * _CONSUMABLE_MINUTE_MS,
+    verb: 'Read', method: 'useTreasureMap', title: 'Read the Treasure Map?',
+    get: 'A glimmer points toward a rich chest along this level.',
+  },
+  sleep_powder: {
+    durationMs: 30 * 1000,
+    verb: 'Use', method: 'useSleepPowder', title: 'Scatter the Sleep Powder?',
+    get: 'Dream dust settles over every foe in sight.',
+  },
   // Foods with an extra effect use the Eat button, so they own mechanics but
   // no separate action row here.
   rainberry: { radiusM: 20 },
@@ -1043,6 +1075,11 @@ const PRICES = {
   // Bought from shops occasionally; small sell value if you hoard them.
   honey: 12,
   book:  20,
+  blank_scroll: 40,
+  fireball_scroll: 120,
+  fear_scroll: 100,
+  treasure_map: 200,
+  sleep_powder: 100,
   reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
   antidote:     12,
   elixir:       360,
@@ -1170,6 +1207,9 @@ const ITEM_GUIDE_TIPS = {
   torch: 'The stair keeper struck a flame before descending. With it, her hand could reach farther into the dark.',
   rope: 'The miner carried a coil of grass rope into every shaft. Its worn fibres had brought him back toward daylight before.',
   flowers: 'The shopkeeper tucked the flowers beside her till. When she named her price, her voice had softened.',
+  fireball_scroll: 'At home, the traveller copied a remembered spell onto fresh parchment. Its ink glowed like the fire she had once called forth.',
+  fear_scroll: 'The traveller wrote the words that had once scattered her foes. Even at home, the fresh parchment trembled.',
+  treasure_map: 'Back at the trailer, the traveller traced a remembered map upon a blank scroll, and its hidden paths awoke.',
   slime: 'An elder once shared her doorstep with a slime. The last page of her journal bears a blue stain.',
 };
 
@@ -1214,6 +1254,11 @@ const ITEM_EFFECTS = {
   crow_feather: 'Held to the lips when all strength is gone, it stirs a faint pulse.',
   honey: 'Its sweet scent draws curious noses through the grass.',
   book: 'An elder’s faded words wait beneath the worn cover.',
+  blank_scroll: 'At the trailer, remembered scrolls can be written upon this empty page.',
+  fireball_scroll: CONSUMABLE_SPEC.fireball_scroll.get,
+  fear_scroll: CONSUMABLE_SPEC.fear_scroll.get,
+  treasure_map: CONSUMABLE_SPEC.treasure_map.get,
+  sleep_powder: CONSUMABLE_SPEC.sleep_powder.get,
   reach_potion: 'The far horizon trembles close to the rim of this bottle.',
   antidote: 'Its bitter scent cuts through the sickly taste of poison.',
   elixir: 'A full day’s warmth seems to glow inside the glass.',
@@ -1878,12 +1923,17 @@ const HOME_RECIPES = [
   { id: 'rope',      cost: [{ id: 'longgrass', qty: 5 }] },
   // Four stones knock a snare's jaw shut for good.
   { id: 'trap_kit',  cost: [{ id: 'rockfruit', qty: 4 }] },
+  ...ITEMS.filter(item => item.scroll).map(item => ({
+    id: item.id, cost: [{ id: 'blank_scroll', qty: 1 }],
+  })),
 ];
 // On HARD, Home can only craft what the player has first FOUND out in the
 // world — a chest, a pickup, a drop — never bought, bartered, forged or
 // crafted. save.foundWild is that ledger (app.js addToInv writes it for every
-// grant not flagged `notWild`). Easy crafts everything from the start.
+// grant not flagged `notWild`). Scrolls instead require prior use in every
+// mode: the player copies remembered words onto blank parchment.
 function homeRecipeLocked(save, id, hard) {
+  if (ITEM_BY_ID[id]?.scroll) return !Array.isArray(save?.usedScrolls) || !save.usedScrolls.includes(id);
   return !!hard && !(save && save.foundWild && save.foundWild[id]);
 }
 // How many times a recipe can be made from what is held: the fewest times

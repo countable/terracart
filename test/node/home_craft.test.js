@@ -168,4 +168,50 @@ test('home craft: the wild-finds ledger — every grant counts except bought, ba
   assert.truthy(/addToInv\('scarecrow', 1, false, \{ notWild: true \}\)/.test(INTERACT_SRC), 'a reclaimed scarecrow is not a find');
 });
 
+test('home craft: scrolls require prior use in both modes and spend blank scrolls', () => {
+  const was = Difficulty.mode();
+  try {
+    for (const mode of [Difficulty.EASY, Difficulty.HARD]) {
+      Difficulty.setMode(mode);
+      for (const id of ['fireball_scroll', 'fear_scroll', 'treasure_map']) {
+        const s = scene([['blank_scroll', 3], [id, 1]]);
+        s.save.foundWild = { [id]: 1 };
+        s.presentHomeCraft(0, 0, id);
+        const locked = last(s);
+        assert.falsy(locked.canAfford, `${id}: possession and a wild find do not teach it`);
+        assert.truthy(/Use a /.test(locked.blurb), 'explains learning by use');
+        locked.onAccept(1);
+        assert.eq(Inventory.count(s.save, 'blank_scroll'), 3, 'locked craft preserves blanks');
+        assert.eq(Inventory.count(s.save, id), 1, 'locked craft makes nothing');
+        s.save.usedScrolls = [id];
+        s.save.foundWild = {};
+        s.presentHomeCraft(0, 0, id);
+        assert.truthy(last(s).canAfford, 'use alone teaches the recipe, even in hard mode');
+        assert.eq(last(s).quantity.max, 3, 'one blank per scroll');
+        last(s).onAccept(2);
+        assert.eq(Inventory.count(s.save, 'blank_scroll'), 1, 'two blanks spent');
+        assert.eq(Inventory.count(s.save, id), 3, 'two scrolls made');
+      }
+    }
+    assert.falsy(HOME_RECIPES.some(r => r.id === 'blank_scroll'), 'blank scroll is only a material');
+  } finally { Difficulty.setMode(was); }
+});
+
+test('home craft: learned scroll recipes survive saving and migration', () => {
+  const slot = createSave('Scroll crafting test');
+  try {
+    const save = { inv: [{ id: 'fear_scroll', count: 1 }], usedScrolls: ['fireball_scroll'] };
+    persistSave(save);
+    flushSave();
+    const loaded = loadSave();
+    SaveMigrate.migrate(loaded);
+    assert.falsy(homeRecipeLocked(loaded, 'fireball_scroll', true), 'learned recipe persists');
+    assert.truthy(homeRecipeLocked(loaded, 'fear_scroll', false), 'held unused scroll stays locked');
+    const old = { inv: [{ id: 'treasure_map', count: 1 }] };
+    SaveMigrate.migrate(old);
+    assert.eq(old.usedScrolls.length, 0, 'older saves start without inferred scroll uses');
+    assert.truthy(homeRecipeLocked(old, 'treasure_map', false), 'migration cannot teach a held scroll');
+  } finally { deleteSave(slot); }
+});
+
 })();

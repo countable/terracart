@@ -941,6 +941,58 @@
     };
   }
 
+  // Scrolls use the spear's facing and range, with an impact blast instead
+  // of a single hit. All tuning comes from the consumable's owning row.
+  function spawnFireball(x, y, dir, cellM, spec) {
+    const shot = spawnShot('bow', x, y, dir, cellM, spec.damage);
+    if (!shot) return null;
+    shot.projectile = 'fireball';
+    shot.radiusM = spec.projectileRadiusCells * cellM;
+    shot.blastRadiusM = spec.blastRadiusCells * cellM;
+    shot.dotPx = spec.dotPx;
+    shot.color = 0xff742d;
+    return shot;
+  }
+
+  function explodeShot(s, targets, onHit, opts, cellM) {
+    const blocked = opts?.blocked && ((x, y) => opts.blocked(x, y, s));
+    const struck = new Set();
+    for (const e of targets) {
+      const key = e.id != null ? e.id : e;
+      if (struck.has(key) || Math.hypot(e.x - s.x, e.y - s.y) > s.blastRadiusM) continue;
+      if (!lineOfFire(s.x, s.y, e.x, e.y, blocked, cellM)) continue;
+      struck.add(key);
+      onHit(e, s);
+    }
+    opts?.onExplode?.(s);
+  }
+
+  // Sweep fireballs at sub-cell intervals, even after a long frame. Clamp
+  // to their remaining range so a missed cast bursts at a stable distance.
+  function stepExplosiveShot(s, dt, targets, onHit, opts, cellM) {
+    const travel = Math.min(s.speedMps * dt, Math.max(0, s.rangeM - s.travelledM));
+    const sampleM = Math.max(0.01, Math.min(cellM * BLOCK_SAMPLE_CELLS, s.radiusM));
+    const samples = Math.max(1, Math.ceil(travel / sampleM));
+    const step = travel / samples;
+    for (let i = 0; i < samples; i++) {
+      const x = s.x + s.vx * step, y = s.y + s.vy * step;
+      if (opts?.blocked?.(x, y, s)) {
+        explodeShot(s, targets, onHit, opts, cellM);
+        return false;
+      }
+      s.x = x; s.y = y; s.travelledM += step;
+      if (targets.some(e => Math.hypot(e.x - x, e.y - y) <= s.radiusM)) {
+        explodeShot(s, targets, onHit, opts, cellM);
+        return false;
+      }
+    }
+    if (s.travelledM >= s.rangeM - 1e-8) {
+      explodeShot(s, targets, onHit, opts, cellM);
+      return false;
+    }
+    return true;
+  }
+
   // How finely a shot's flight is sampled against the world when the caller
   // supplies a `blocked` test, in cells. Half a cell is well under the
   // thinnest thing that can stop a shot (a cave wall is a whole cell), so a
@@ -987,6 +1039,10 @@
       ((opts && opts.cellM) || hitRadiusM) * BLOCK_SAMPLE_CELLS);
     for (const s of shots) {
       const targets = s.hostile ? hostileTargets : enemies;
+      if (s.blastRadiusM > 0) {
+        if (stepExplosiveShot(s, dt, targets, onHit, opts, opts?.cellM || hitRadiusM)) alive.push(s);
+        continue;
+      }
       const sr2 = s.radiusM != null ? s.radiusM * s.radiusM : r2;
       const step = s.speedMps * dt;
       // How far of this frame's step the shot actually gets to travel: all of
@@ -1189,7 +1245,7 @@
     RANGED_SLOTS, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,
     OFF_GPS_ATTACK_MUL, OFF_GPS_MIN_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, BOLT_MIN_GLOW, boltGlow, shotRadiusM, shotDotPx,
-    aimAtNearest, shotHeading, spawnShot, stepShots, lineOfFire, healthColor,
+    aimAtNearest, shotHeading, spawnShot, spawnFireball, stepShots, lineOfFire, healthColor,
     TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,
     MONSTER_SHOT_INTERVAL_MS, HOSTILE_ARROW_COLOR, monsterShot,
   };

@@ -243,7 +243,7 @@ test('frost: freezes every Combat.isEnemy in cellInReach for 30 s, refusing BEFO
 test('frost: a frozen creature is skipped in the wander step before it can hit or move', () => {
   const m = app.match(/\n  wanderCreatures\(\) \{\n([\s\S]*?)\n  \}\n/);
   const w = m[1];
-  const gate = w.indexOf('if (c._frozenUntil != null && Date.now() < c._frozenUntil) return;');
+  const gate = w.search(/if \(\(c\._frozenUntil != null && Date\.now\(\) < c\._frozenUntil\)\s*\|\| \(c\._sleepUntil != null && Date\.now\(\) < c\._sleepUntil\)\) return;/);
   assert.truthy(gate >= 0, 'the frozen gate');
   assert.truthy(gate < w.search(/if \(c\.kind === 'slime' && !isTame && !unnoticed[^)]*\) \{/), 'before the slime leech');
   assert.truthy(gate < w.search(/if \(Combat\.isMonster\(c\.kind\) && !isTame && !unnoticed[^)]*\) \{/), 'before the monster drain');

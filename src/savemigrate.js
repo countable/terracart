@@ -156,6 +156,8 @@
     // none; each house pins itself the first time its sign is read.
     if (save.houseWishlists === undefined) save.houseWishlists = {};
     if (save.discovered === undefined) save.discovered = {};
+    // Scroll recipes are learned by using one, never by merely owning it.
+    if (!Array.isArray(save.usedScrolls)) save.usedScrolls = [];
     // Wild-finds ledger (items.js homeRecipeLocked). An older save never
     // recorded where its items came from, so everything it holds counts.
     if (save.foundWild === undefined) {

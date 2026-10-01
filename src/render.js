@@ -3932,13 +3932,14 @@ Render.drawObjects = function drawObjects(scene) {
     // (SpriteLayout.CAVE_SLIME_TINT). Frozen and shiny still win over it —
     // both say something about this INSTANCE, which outranks what it is.
     const frozen = c._frozenUntil != null && Date.now() < c._frozenUntil;
-    s.setTint(frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
+    const sleeping = c._sleepUntil > Date.now();
+    s.setTint(sleeping ? 0xbca5e8 : frozen ? FROZEN_TINT : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
     // Wind-ups are observable before damage or a lunge lands. A brief amber
     // flash alternates with the original palette; frozen bodies keep ice.
     const winding = Math.max(c._attackWindupUntil || 0, c._lungeWindupUntil || 0, c._abilityWindupUntil || 0) > performance.now();
-    if (winding && !frozen && Math.floor(performance.now() / 100) % 2 === 0) s.setTintFill(0xffdb72);
-    if (c._supportUntil > performance.now() && !frozen) s.setTintFill(0x8cefa0);
-    Render.setShine(s, !!c.shiny && !frozen, c.id);
+    if (winding && !frozen && !sleeping && Math.floor(performance.now() / 100) % 2 === 0) s.setTintFill(0xffdb72);
+    if (c._supportUntil > performance.now() && !frozen && !sleeping) s.setTintFill(0x8cefa0);
+    Render.setShine(s, !!c.shiny && !frozen && !sleeping, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
     // sprite keeps whatever alpha its last creature wore.
     s.setAlpha(creatureAlpha(c.kind));

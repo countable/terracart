@@ -132,4 +132,7 @@ const PLAY_TIPS = [
   "In the furnace, a magical flower helped turn a lesser bar into finer metal.",
   "Seek magical flowers in the world; shops cannot supply their seeds.",
   "The old texts whispered of sapphire, and a slime that might be gentler than it seemed.",
+  ITEM_GUIDE_TIPS.fireball_scroll,
+  ITEM_GUIDE_TIPS.fear_scroll,
+  ITEM_GUIDE_TIPS.treasure_map,
 ];

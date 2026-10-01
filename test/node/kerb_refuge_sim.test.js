@@ -242,7 +242,7 @@ test('kerb: the fast kinds are the ones that out-run a walk, off the roster\'s o
 test('kerb: the rules live on the lanes that exist (source pins)', () => {
   const w = SCENE_CREATURES_SRC.slice(SCENE_CREATURES_SRC.indexOf('  wanderCreatures() {'));
   assert.truthy(/const kerbLeash = inKerbAt\(this, px, py\);/.test(w), 'read once per tick, off the FEET');
-  assert.truthy(/const standDown = warded \|\| wanderOff \|\| kerbTurn \|\|/.test(w), 'a reason in standDown');
+  assert.truthy(/const standDown = frightened \|\| warded \|\| wanderOff \|\| kerbTurn \|\|/.test(w), 'a reason in standDown');
   assert.truthy(/Lairs\.guardState\(c, \{ x: px, y: py \}, this\.cellM, !unnoticed && !kerbTurn\)/.test(w), 'a guard gives up');
   assert.truthy(/if \(road & WorldGen\.ROAD_CLASS_MAJOR_BAND\) continue;/.test(w), 'the band is a refused cell');
   const spawn = SCENE_CREATURES_SRC.slice(SCENE_CREATURES_SRC.indexOf('  spawnInTile(entry, tx, ty) {'));
