@@ -1,6 +1,6 @@
 DRAGON HOOD — THE STORY (basis document)
 ================================================================================
-Status: v5 (Oct 2026), canon and lore separated across two progress tracks.
+Status: v6 (Oct 2026), the dragon archaeologist relationship added.
 This file is the story bible the game is written against. Where it disagrees with copy in src/
 (memory_story.js, play_tips.js, books, item text), THIS FILE wins and the copy
 is to be brought in line. Numbers (which memory, which restoration, which cave
@@ -73,6 +73,17 @@ TIAMAT — "TIM"
   factions in the caves and on the surface are mostly incidental creeps, but
   some of them are secretly HIS, sent against the Hood as sparring partners
   and against the survivors as reasons to come to his tower.
+
+THE FROST DRAGON QUEEN — TIAMAT'S LATE WIFE
+  Tiamat was married to the Frost Dragon Queen and fought a war against her.
+  She is dead. This is part of the wider history of dragons across the
+  planets, not another name for Ayo or a replacement explanation for the
+  Breaking. The cause of the war, the circumstances of her death, and whether
+  she was the mother of the Hood and Ayo remain [OPEN]; do not invent those
+  answers in a book or conversation. Her personal name is also [OPEN].
+  From Act 2, the archaeologist can discuss the historical Tiamat and the
+  Queen through fragmentary accounts, without knowing that the local wizard
+  is Tiamat. Their history is not part of his Act 1 introduction.
 
 AYO — THE SISTER
   A WHITE dragon, the strongest will of the children. It was her spell, fifty
@@ -156,14 +167,167 @@ into the caves after "the dragons that did this" and mostly do not come back,
 because of Ayo. He tells the survivors Ayo did it. He is right.
 
 AYO hides and hunts. Her dragons are deep. Her visits to the surface are rare
-and terrible and are the whole of the dragon lore. The night's ghosts and the
+and terrible and dominate the survivors' dragon stories. Orrin offers a
+competing account from older evidence. The night's ghosts and the
 cave's demons are NOT hers: they are the world's own creeps, incidental, and
 some of them are Tim's. She is met in person only at the end.
 
 THE SURVIVORS believe: the Warmonger burned the world (true), dragons are
 vicious (half true), the wise wizard is their hope (false), and the hooded
-stranger is one of them (false). Every neighbour's line and every book page
-is written from inside that belief. See WHO MAY SAY WHAT.
+stranger is one of them (false). This is the prevailing belief, not unanimous:
+Orrin, the dragon archaeologist, openly disagrees and is dismissed as a
+crackpot. Most neighbours and local accounts reflect the prevailing belief;
+his evidence and the older writings he studies make room for dissent.
+See WHO MAY SAY WHAT.
+
+--------------------------------------------------------------------------------
+4a. ORRIN — THE DRAGON ARCHAEOLOGIST
+--------------------------------------------------------------------------------
+PLACE AND FIRST IMPRESSION
+  Orrin is present from the beginning, at a modest dig and cluttered field
+  shelter near the edge of the starting Home area, about 250 metres from
+  Home. This is his starting placement, not a change to the Home ward's
+  mechanical radius. Put him beside a reachable path or verge, not behind
+  inaccessible ground. He is available before any memory or restoration gate.
+  "Orrin" is his working name. He introduces himself as a dragon archaeologist,
+  catches his satchel on his own stool, and checks the potsherds before his
+  bruised knee. He mislays his pencil behind his ear, labels the wrong bag,
+  and apologises to objects he knocks over. His fieldwork is painstaking even
+  when the rest of him is disorganised. The joke is his clumsiness, not his
+  care for creatures or his willingness to question the village.
+
+WHAT HE THINKS — AUTHOR KNOWLEDGE, NOT AN ACT 1 EXPOSITION DUMP
+  He believes dragons across the planets are peaceful creatures, not violent
+  by nature. Their size and fire do not tell him what they want. In old
+  fragments he finds signs of nesting, tending young, long journeys and lives
+  lived beside other creatures; he looks for ordinary life where others look
+  only for weapons. These are his interpretations of incomplete evidence,
+  not an omniscient account of every dragon species.
+  He suspects that dragons attack people chiefly because people hunt them,
+  steal from their homes and pursue their young. He does not believe dragons
+  destroyed the world. Most people call him a crackpot, sometimes to his face.
+  His challenge to inherited fear is valuable; his blanket denial of dragon
+  involvement in the Breaking is wrong. The Hood and Tiamat did terrible harm.
+  He must eventually distinguish a nature that permits peace from particular
+  dragons' choices to make war. Understanding an attack does not erase its
+  victims, and a dragon can still choose cruelty.
+  He speaks of planets through old star charts, inscriptions and conflicting
+  accounts. He has not personally visited them or witnessed their history.
+  He knows the name Tiamat from those accounts, including the war against the
+  Frost Dragon Queen, Tiamat's late wife. He does not recognise Tim as Tiamat,
+  identify the Hood, name Ayo early, or turn a queen's title into proof of the
+  white dragon's identity. He admits when an inscription does not tell him
+  enough; other times he wants his conclusion to be true a little too much.
+
+WHEN HE OPENS UP
+  ACT 1 is acquaintance, not a history lesson. He mostly seems bumbling,
+  eccentric and rather improbable: struggling with his stool, sorting labels
+  he has mixed up, losing the thread of his own introduction. A passing remark
+  may suggest that dragons are not naturally cruel, but he gives no sustained
+  argument or persuasive display of evidence. The neighbours' "crackpot"
+  judgement seems understandable. His humanity is visible before his insight.
+  Do not name Tiamat or the Frost Dragon Queen in his Act 1 dialogue, explain
+  the war, tour the planets, or recite his theory of the Breaking. Extra taps,
+  books brought to him or unusually fast collecting cannot bypass this gate.
+  ACT 2 begins opening his research, after the first tower introduction has
+  actually happened and the Hood has met him. Now he can follow an odd remark
+  with the evidence behind it: peaceful dragon lives, hunting provoking
+  attacks, other planets, and finally the disputed accounts of Tiamat and
+  the Frost Dragon Queen. Spread these across visits and relevant questions;
+  do not unload them all at the act transition. He remains an eccentric,
+  fallible friend rather than becoming a different, suddenly fluent person.
+
+THE RELATIONSHIP
+  The Hood first gives him something rarer than agreement: time to finish a
+  sentence. Orrin remembers being listened to. On later visits he leaves a
+  clear place to sit, shows a drawing he has saved for them, and asks what
+  they actually saw before offering an explanation. Small warmth accumulates
+  through remembered encounters, not through the same introduction repeating.
+  The player may doubt him, bring observations that contradict him, or simply
+  listen. Friendship is not a reward for choosing his opinion. He should ask
+  after the Hood's tired hands or dust-caught hood as well as their discoveries;
+  the player becomes a person he cares about, not a convenient collector.
+  Other survivors tolerate him, mock his theories, or worry that he will get
+  someone killed. An attack survivor can reasonably be angry with him. He is
+  hurt by the ridicule and sometimes laughs along too quickly, but does not
+  answer someone's loss with a joke. The Hood need not humiliate a neighbour
+  to stand beside him, and no scene makes every sceptic foolish or malicious.
+
+CANON RELATIONSHIP BEATS — ORDERED, ON THE EXISTING TRACKS
+  1. From the beginning: Orrin is at the Home-edge dig. At the first meeting
+     he introduces himself, fumbles with his things, and lets slip that the
+     neighbours think him a crackpot. At most he offers a small, unsupported
+     remark that dragons might not be so bad. Later relationship beats
+     require this introduction; no restoration is required to meet him.
+  2. Early mending: as homes return, he begins treating the Hood as a familiar
+     visitor. He notices what they have repaired and has made room for them
+     among his papers. His welcome changes because they have met before,
+     not because the player has agreed with his theory.
+  3. Act 2, the first tower and hunters: after the first tower introduction,
+     he begins sharing the research behind his odd remarks, a piece at a time.
+     Once the hunters are established in canon, he worries about people
+     setting out to hunt dragons. He asks what a dragon
+     was doing before someone raised a weapon, without yet understanding
+     whose purposes the hunts serve. No early accusation that Tim is Tiamat.
+  4. After the witnessed tower attack: he cannot dismiss what the Hood saw.
+     He asks whether the dragon struck the tower or pursued fleeing people,
+     but accepts the player's actual evidence rather than supplying an
+     answer. His first concern is who was hurt; his theory comes second.
+  5. After the identity revelation and the Act 3 dragon encounters: he can
+     respond to the Hood's account of understanding a dragon. If he witnesses
+     dragon speech himself, his excitement becomes a question about what the
+     dragon said, followed by concern about whether anyone listened. Speech
+     alone does not tell him the Hood's identity or family.
+  6. As the truth of the Breaking becomes shareable: he revises his denial
+     rather than declaring that he was right all along. Dragons did destroy
+     lives; that does not make every dragon a born destroyer. His care for
+     the Hood rests on their choices now, not on proving his theory correct.
+     Do not grant him private revelations automatically or make his approval
+     a gate on the player's ending.
+  Memory supplies knowledge; restoration supplies the returning people and
+  places he reacts to. Later responses require their witnessed events, not
+  merely a high counter. His arc can wait if the player visits less often.
+  These beats add no new numeric thresholds or compulsory collection grind.
+
+LORE — OPTIONAL VISITS AND FINDINGS
+  Between the required relationship beats, he can discuss a rubbing, a broken
+  carving, a disputed translation or the dragon history in a book. These
+  conversations can be encountered independently within their act's limits.
+  In Act 1 they are small observations and eccentric diversions; substantive
+  dragon history waits until Act 2. Books and finds enrich the friendship but
+  never carry the only explanation of a required relationship change.
+  Topics include peaceful dragon lives on other planets, the difference
+  between a hunting account and an observation, and Tiamat's war against the
+  Frost Dragon Queen. He can correct an earlier translation and remember that
+  the Hood was the one who questioned it. He cannot settle the family's open
+  questions just because a new fragment has been found.
+
+VOICE SAMPLES — NPC DIALOGUE, NOT THE PANEL NARRATOR
+  Act 1 introduction: "Orrin. Dragon archaeologist. Mind the little stool; it has
+  already defeated me twice, and I am trying not to take it personally."
+  Act 1 odd remark: "I do not think dragons wake up wanting to be horrible.
+  Mind you, I have never been there when one woke up."
+  Act 2 hunting: "Most accounts begin with someone going out to kill a dragon.
+  I keep wondering what the dragon was doing before that."
+  Act 2, across the planets: "Different skies, different bones, the same little
+  hollows for eggs. They seem to have spent a great deal of time making homes."
+  Act 1 reputation: "They call me a crackpot. One of the pots really is cracked,
+  but I do not think that is what they mean."
+  Act 2, the Queen: "Tiamat went to war against the Frost Dragon Queen, his own wife.
+  These pieces tell me that much; they do not tell me how to make sense of it."
+  Friendship: "I cleared you a seat. The papers are on it again, but it was
+  clear when I thought of you."
+  After violence: "Tell me who was hurt first. The theory can wait."
+  Revision: "I wanted them to be innocent because everyone wanted them dead.
+  That was not quite the same as looking at what happened."
+
+IMPLEMENTATION STATUS
+  Orrin's placement, conversations and relationship state are specified here;
+  they are not yet a spawned NPC or a playable quest in the current runtime.
+  The Frost Dragon Queen history is newly established story canon, with its
+  unresolved details kept open above. Orrin's peaceful-dragon interpretation
+  and denial of the Breaking are his beliefs, not replacements for the truth
+  of the family history.
 
 --------------------------------------------------------------------------------
 5. ACT STRUCTURE (mapped onto the existing mechanics)
@@ -198,6 +362,7 @@ TWO ROUGHLY PARALLEL TIMELINES
 
   Milestone                   Memory track          Restoration / world track
   Opening and warden          Start                 Starting trailer
+  Orrin available / introduced Start / first meeting Home-edge dig, about 250 metres
   Believer appears            3                     Neighbour by the trailer
   Survivor appears            6                     Neighbour by the trailer
   Child appears               9                     Homeless when first met
@@ -364,9 +529,13 @@ Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
   in the window, the elder who swears you have not aged, the hood nobody asks
   about, the safe area nobody can explain, the hair a child once glimpsed and
   was told was a trick of the light.
-- "Dragons are vicious and ended the world" is what EVERY survivor believes
-  and may say at any time. It is not a spoiler; it is the lore. Books, keepers,
-  scouts, the believer, the hunters: all of them.
+- "Dragons are vicious and ended the world" is the prevailing survivor belief,
+  available to books, keepers, scouts, the believer and hunters at any time.
+  Orrin is the exception: he seems like a bumbling crackpot in Act 1, with at
+  most an odd, unsupported remark in a dragon's defence. In Act 2 he begins
+  explaining his belief that dragons are peaceful by nature, hunted into
+  violence, and not responsible for the Breaking. His dissent neither reveals
+  the Hood nor makes his denial of the Breaking true.
 - "The Warmonger" is the name survivors have for the one who burned the roofs.
   Anyone may use it. No one knows the Warmonger was a general's title and not
   a dragon's name; a scholar may wonder.
@@ -376,8 +545,11 @@ Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
 - Ayo is spoken of only as "the white one", "the thing under the hill", "what
   took the hunters". No one has her name before Act 3.
 - The five colours are known lore ("five heads, five fires", a nursery rhyme
-  [OPEN: write one, or let the books invent it]) with no one alive who knows
-  two of them were ever a family.
+  [OPEN: write one, or let the books invent it]). Historical accounts may name
+  Tiamat and his marriage and war with the Frost Dragon Queen. Orrin shares
+  this history only from Act 2 onward and does not
+  know that Tim is Tiamat or that the Hood and Ayo are his children; historical
+  family knowledge must not identify the living family before its reveals.
 - After memory 30 the believer still lauds the wizard; the survivor still
   curses the Warmonger; the child still has their room. The irony is the
   player's alone. Witnesses in Act 3 may discover and react to the Hood's
@@ -413,6 +585,8 @@ Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
   stay terracart.*.)
 - TIAMAT, "Tim". AYO. The Hood (the player is never named; "the Hood" in
   prose; survivors say "the hooded one", "stranger", "neighbour").
+- ORRIN: working name for the dragon archaeologist.
+- The FROST DRAGON QUEEN: Tiamat's late wife; personal name still open.
 - The Warmonger: the title, never a name.
 - The Breaking: the survivors' word for fifty years ago.
 - Colours: the Hood red, Ayo white; the hidden dragons the other three
@@ -422,6 +596,8 @@ Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
 9. STILL OPEN
 --------------------------------------------------------------------------------
 - A name for the planet, if any.
+- The Frost Dragon Queen's name, cause of her war with Tiamat, circumstances
+  of her death, and whether she was the Hood and Ayo's mother.
 - Whether Ayo knows the Hood survived, and where.
 - Why the children turned on this world and not the five before.
 - What becomes of Tim in the sister ending.
