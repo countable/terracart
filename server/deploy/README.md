@@ -1,4 +1,4 @@
-# Mending Lane relay — deploy
+# Dragon Hood relay — deploy
 
 `server/index.js` is a tiny Node WebSocket relay: players connected to it see
 each other move (the client is `src/multiplayer.js`). The package, systemd

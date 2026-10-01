@@ -1,4 +1,4 @@
-Mending Lane  (formerly TerraCart / Pocket Acres; storage keys stay `terracart.*`)
+Dragon Hood  (formerly Mending Lane / TerraCart / Pocket Acres; the neighbourhood is still Mending Lane; storage keys stay `terracart.*`)
 
 A gps driven farming rpg. Inspiration from Pokemon Go and Core keeper/Stardew valley
 

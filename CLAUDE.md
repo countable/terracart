@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Working guidance for Mending Lane, a GPS farming RPG rendered with Phaser 3.
+Working guidance for Dragon Hood, a GPS farming RPG rendered with Phaser 3.
+(Mending Lane, the former title, is now the neighbourhood the player starts in.)
 Keep project-wide constraints here; keep implementation rationale beside the code.
 
 ## Scope and navigation

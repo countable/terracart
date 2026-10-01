@@ -1,4 +1,4 @@
-# Mending Lane
+# Dragon Hood
 
 A GPS farming RPG played on real-world map data: walk your neighbourhood, open
 the places on it, farm, trade, fight, and restore the wrecked streets and

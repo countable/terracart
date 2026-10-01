@@ -1,6 +1,6 @@
 # Headless node tests
 
-Fast, browser-free tests for Mending Lane's **pure logic, data tables and the
+Fast, browser-free tests for Dragon Hood's **pure logic, data tables and the
 interactable registry**, plus the repo's static audits. No Phaser, no DOM, no
 Playwright/Chromium.
 
