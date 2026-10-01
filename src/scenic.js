@@ -141,7 +141,7 @@
   // scope, in the coin-burst ledger — a better grove shrine (~15 value).
   const VISTA_CONTEXT = 'treasure:vista';
   // The first vista a save ever taps: a relic, once (save.vistaRelic).
-  const FIRST_VISTA_SLOT = 'amulet';
+  const FIRST_VISTA_SLOT = 'bags';
   // The vista's story (its painting stem and the _storySplashOnce key).
   const VISTA_STORY = {
     story: 'zone_viewpoint', title: 'A vista',

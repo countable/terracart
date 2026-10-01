@@ -152,28 +152,24 @@ test('HomeArea.softwoodSpeciesNear: forces pine near spawn at every tree size', 
     'bush far from spawn keeps its species');
 });
 
-// ── Amulet: stick walking ────────────────────────────────────────────────────
-// The stick is always present and always works; the amulet is purely an upgrade
-// to it. Both curves therefore have to answer for a bare hand (tier 0) — the
-// old ghost-mode pair returned 0 there, meaning "no pad at all", and callers
-// had to paper over it with `|| 8` / `|| 1`.
+// ── Boots: stick walking ─────────────────────────────────────────────────────
+// The stick is always present and always works; boots improve both curves.
+// Both curves therefore have to answer for bare feet (tier 0).
 
-test('steerSpeedMul: bare hands cover a cell a second, boots go up from there', () => {
+test('steerSpeedMul: bare feet keep their pace, boots rise half as steeply', () => {
   // The baseline is 4.8× walk pace: WALK_M_S (1.4) × 4.8 ≈ 6.7 m/s, just
   // under one WorldGen.CELL_M cell per second (down 20% from 6×, Sep 2026). Real walk pace crawls
   // across an 11-cell view, which is what "the default walk speed is super
   // slow" was. It was lifted from 5× (a flat one cell/second) because that
   // still read as a drag over the whole opening.
   //
-  // The TOP moved instead: 15.5 -> 24. The old ladder sounded wide and did not
-  // play wide — 1.2 cells a second bare-handed against 3.1 at the top, so a
-  // top-tier amulet felt like a bare-handed one with a tailwind. The widening
-  // lands in the per-tier step.
+  // The former Frost endpoint was 24. The tier contribution is now halved:
+  // 4.8 + (24 - 4.8) / 2 = 14.4.
   assert.eq(steerSpeedMul({}), 4.8, 'no relics');
-  assert.eq(steerSpeedMul({ boots: null }), 4.8, 'no amulet');
-  assert.eq(steerSpeedMul({ boots: { tier: 7 } }), 24, 'T7 (Frost)');
+  assert.eq(steerSpeedMul({ boots: null }), 4.8, 'no boots');
+  assert.inRange(steerSpeedMul({ boots: { tier: 7 } }), 14.399, 14.401, 'T7 (Frost), half the old tier contribution');
   // The reason the number moved at all: the ladder has to be worth climbing.
-  assert.gte(steerSpeedMul({ boots: { tier: 7 } }) / steerSpeedMul({}), 3.5,
+  assert.gte(steerSpeedMul({ boots: { tier: 7 } }) / steerSpeedMul({}), 2.9,
     'the top of the ladder is a different way of moving, not a nudge');
   assert.inRange(steerSpeedMul({}) * 1.4, WorldGen.CELL_M - 0.5, WorldGen.CELL_M + 2,
     'bare baseline is ~one cell per second');
@@ -189,12 +185,12 @@ test('steerSpeedMul: bare hands cover a cell a second, boots go up from there', 
 
 test('steerEnergyCost: 1 pip/cell bare, ~7× cheaper at Frost', () => {
   assert.eq(steerEnergyCost({}), 1, 'no relics — full price');
-  assert.eq(steerEnergyCost({ amulet: { tier: 1 } }), 1, 'T1 matches bare hands');
-  assert.inRange(steerEnergyCost({ amulet: { tier: 7 } }), 0.149, 0.151, 'T7 ≈ 0.15');
+  assert.eq(steerEnergyCost({ boots: { tier: 1 } }), 1, 'T1 matches bare feet');
+  assert.inRange(steerEnergyCost({ boots: { tier: 7 } }), 0.149, 0.151, 'T7 ≈ 0.15');
   // Monotonic downward, and always something — walking off the GPS is never free.
   let prev = Infinity;
   for (let t = 1; t <= 7; t++) {
-    const v = steerEnergyCost({ amulet: { tier: t } });
+    const v = steerEnergyCost({ boots: { tier: t } });
     assert.gt(v, 0, `tier ${t} still costs`);
     assert.truthy(v <= prev, `tier ${t} no dearer than tier ${t - 1}`);
     prev = v;
@@ -202,14 +198,14 @@ test('steerEnergyCost: 1 pip/cell bare, ~7× cheaper at Frost', () => {
 });
 
 test('steer curves: the borrowed buff tiers rank above Frost and never pay you to walk', () => {
-  // Two buffs borrow an amulet tier instead of adding a movement mode (app.js
+  // Two buffs borrow a boot tier instead of adding a movement mode (app.js
   // _walkRelics): Dragon Powder walks as tier 8, the Speed potion as tier 9.
   // Both run the linear cost curve negative — the floor is what keeps a minute
   // of either from REFUNDING energy.
   const DRAGON = 8, POTION = 9;
   for (const t of [DRAGON, POTION]) {
-    assert.gt(steerEnergyCost({ amulet: { tier: t } }), 0, `tier ${t} still costs something`);
-    assert.lt(steerEnergyCost({ amulet: { tier: t } }), steerEnergyCost({ amulet: { tier: 7 } }),
+    assert.gt(steerEnergyCost({ boots: { tier: t } }), 0, `tier ${t} still costs something`);
+    assert.lt(steerEnergyCost({ boots: { tier: t } }), steerEnergyCost({ boots: { tier: 7 } }),
       `tier ${t} cheaper than Frost`);
   }
   // Speed ranks bare < Frost < dragon < potion.
@@ -219,21 +215,21 @@ test('steer curves: the borrowed buff tiers rank above Frost and never pay you t
   }
 });
 
-test('walking gear: boots change speed, amulets change cost independently', () => {
-  assert.eq(steerSpeedMul({ amulet: { tier: 7 } }), steerSpeedMul({}));
-  assert.eq(steerEnergyCost({ boots: { tier: 7 } }), steerEnergyCost({}));
+test('walking gear: boots set speed and cost; coffee changes speed only', () => {
+  assert.lt(steerEnergyCost({ boots: { tier: 7 } }), steerEnergyCost({}));
   const body = SCENE_SRC.match(/  _walkRelics\(\) \{([\s\S]*?)\n  \}/)[1];
-  const walk = new Function('DRAGON_AMULET_TIER', 'SPEED_POTION_AMULET_TIER', 'COFFEE_BOOT_BOOST', body);
-  const scene = { save: { armor: { boots: { tier: 3 } }, relics: { amulet: { tier: 6 } } }, isDragonActive: () => false };
-  let gear = walk.call(scene, 8, 9, 2);
+  const walk = new Function('DRAGON_WALK_COST_TIER', 'SPEED_POTION_WALK_COST_TIER', 'COFFEE_BOOT_BOOST', 'Shrines', body);
+  const scene = { save: { armor: { boots: { tier: 3 } } }, isDragonActive: () => false };
+  const shrine = { leverActive: () => false };
+  let gear = walk.call(scene, 8, 9, 2, shrine);
   assert.eq(gear.boots.tier, 3);
-  assert.eq(gear.amulet.tier, 6);
+  assert.eq(gear.boots.costTier, 3);
   scene.save.coffeeUntil = Date.now() + 60000;
-  gear = walk.call(scene, 8, 9, 2);
+  gear = walk.call(scene, 8, 9, 2, shrine);
   assert.eq(gear.boots.tier, 5);
-  assert.eq(gear.amulet.tier, 6, 'coffee changes only speed');
+  assert.eq(gear.boots.costTier, 3, 'coffee changes only speed');
   scene.save.speedPotionUntil = Date.now() + 60000;
-  gear = walk.call(scene, 8, 9, 2);
+  gear = walk.call(scene, 8, 9, 2, shrine);
   assert.eq(gear.boots.tier, 9);
-  assert.eq(gear.amulet.tier, 9);
+  assert.eq(gear.boots.costTier, 9);
 });

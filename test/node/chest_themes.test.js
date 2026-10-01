@@ -96,7 +96,7 @@ test('chest themes: unrelated gear and items never leak across themes', () => {
         assert.gt(tier, 1);
         assert.truthy(r.slot !== 'ring');
         if (theme === 'authority') assert.eq(r.kind, 'armor');
-        if (['school', 'civic'].includes(theme)) assert.includes(['amulet', 'bags', 'can', 'hoe', 'rod', 'bugnet'], r.slot);
+        if (['school', 'civic'].includes(theme)) assert.includes(['bags', 'can', 'hoe', 'rod', 'bugnet'], r.slot);
       }
     }
   }

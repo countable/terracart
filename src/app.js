@@ -589,7 +589,7 @@ const TOAST_TIER = {
 // INV_CAT_BY_KEY / invCatForItem) is a map over item KINDS, so it lives with
 // the catalog in items.js.
 // Slot draw order within each gear tab (owned slots only are rendered).
-const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'bow', 'staff', 'ring', 'amulet', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
+const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
 const INV_ARMOR_ORDER = ['helmet', 'chest', 'legs', 'boots'];
 // The three combat weapons — the only slots save.activeWeapon ever holds. Only
 // the active one auto-engages (sword) or auto-fires (bow/staff) in _combatTick;
@@ -771,7 +771,7 @@ function raiderEatsCrop(p) { return Crops.raiderEats(p); }
 const DEBUG = false;
 const DEBUG_SPEED_MUL = 10;
 // Dragon Powder is not a movement mode — it's a stat buff wearing a dragon
-// sprite. For its minute the player walks as if they had boots and an amulet of this
+// sprite. For its minute the player walks as if they had boots at this
 // tier (one past Frost, see items.js steerSpeedMul / steerEnergyCost) and hits
 // twice as hard (interact.js). The Speed potion stands in a tier higher still.
 // Straying from your real position, in cells. Inside this ring stick walking is
@@ -844,7 +844,7 @@ const PLAYER_SHADOW_ALPHA = 0.34;
 const PLAYER_SHADOW_ALPHA_FLYING = 0.20;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // How big a bite the stick walk takes when it bites. The per-cell cost
-// (steerEnergyCost, amulet-scaled) is banked fractionally and spent in LUMPS
+// (steerEnergyCost, boots-scaled) is banked fractionally and spent in LUMPS
 // of this many pips rather than one pip at a time — bare-handed that is 2⚡
 // every 2 cells instead of 1⚡ every cell, so the bar steps in a figure the
 // player can read at a glance and the throttled pop has something to say when
@@ -976,8 +976,8 @@ const BLIGHT_R_CELLS = CONSUMABLE_SPEC.blight_potion.radiusCells;
 const BLIGHT_DPS = CONSUMABLE_SPEC.blight_potion.damagePerSecond;
 // SHOP_CHARM_MS (the Flowers charm) lives in items.js beside the Flowers ✦
 // line that quotes it.
-const DRAGON_AMULET_TIER = CONSUMABLE_SPEC.dragon_powder.movementTier;
-const SPEED_POTION_AMULET_TIER = CONSUMABLE_SPEC.speed_potion.movementTier;
+const DRAGON_WALK_COST_TIER = CONSUMABLE_SPEC.dragon_powder.movementTier;
+const SPEED_POTION_WALK_COST_TIER = CONSUMABLE_SPEC.speed_potion.movementTier;
 // Coffee: unlike Dragon Powder / the Speed potion (which OVERRIDE the walking
 // tier used for stick-walking to a fixed high number), coffee is a common
 // crop, not a rare potion — so it just gives a caffeine buzz of
@@ -1212,10 +1212,9 @@ const HOME_R = 4;   // cells — Home's light / rest / ward ring
 
 // Relic slots the spawn treasure chest (see _placeStarterRelicChest) can hand
 // out. Every one of these ships art in the `1. Wood` tier folder, which is what
-// makes a WOODEN relic of it drawable; the two jewelry slots are absent because
-// there is no wooden jewelry anywhere in the game (Gear.blacksmithRecipe refuses
-// to forge one below T2), and the ring is the wizard tower's exclusive gift on
-// top of that. Audited against the shipped PNGs in test/node/starter_relic.test.js.
+// makes a WOODEN relic of it drawable. Unique jewelry is carried inventory,
+// not gear, so it never enters this starter-slot table. Audited against the
+// shipped PNGs in test/node/starter_relic.test.js.
 const STARTER_RELIC_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet', 'sword', 'bow', 'staff'];
 // Wood — the first rung of MATERIAL_TIERS. The chest is a bootstrap, not a
 // jackpot: it makes the player's first swing 2.25× quicker and leaves every finer
@@ -1418,6 +1417,8 @@ const ICON_SHEETS = {
   // Flask-style potions sheet (Potions.png): 5 cols × 7 rows of 16×16.
   // Row 2: frame 11=green (vigor), 12=red (speed), 13=purple (shield).
   icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
+  icon_rings:    { url: 'assets/Icons/RPG icons/Extras/Rings.png',        cols: 6,  srcW: 96,  srcH: 64 },
+  icon_amulets:  { url: 'assets/Icons/RPG icons/Extras/Amulet.png',       cols: 6,  srcW: 96,  srcH: 64 },
   icon_spear:    { url: 'assets/Icons/Items/Spear.png', cols: 2, srcW: 32, srcH: 16 },
   // Rope — single 16×16 coiled-rope icon (hand-drawn, like the honey jar).
   icon_rope:     { url: 'assets/Icons/Items/Rope.png',                       cols: 1,  srcW: 16,  srcH: 16 },
@@ -2923,7 +2924,7 @@ class MapScene extends Phaser.Scene {
 
     // Movement-stick state. The stick is ALWAYS on screen — it's the control
     // that walks you somewhere other than where the GPS puts you, with boots
-    // increasing speed and an amulet reducing the energy cost. joystickVec is driven by pointer
+    // increasing speed and boots reducing the energy cost. joystickVec is driven by pointer
     // events on the pad, _movePadHeld says whether the pointer is currently
     // down, and _manualOffsetM accumulates how far the stick has walked you
     // from your real position: every fix targets gpsM + this offset, so the
@@ -3983,8 +3984,7 @@ class MapScene extends Phaser.Scene {
     this.playerShadow?.setPosition(pScreen.x, pScreen.y - 1);
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
     // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
-    // a dragon walks the same way everyone walks, just with tier-8 boots and an amulet's
-    // efficiency (DRAGON_AMULET_TIER, see _walkRelics) and double damage. All the
+    // a dragon walks the same way everyone walks, just with tier-8 boots' speed and energy efficiency (DRAGON_WALK_COST_TIER, see _walkRelics) and double damage. All the
     // edge does is swap the sprite skin; the countdown label is refreshed
     // every frame below.
     const dragonActive = this.isDragonActive();
@@ -4122,7 +4122,7 @@ class MapScene extends Phaser.Scene {
           body: "You force the iron jaws apart and pull your leg free.",
         });
       }
-      // Stick → walk yourself off the GPS (costs stamina, amulet-scaled).
+      // Stick → walk yourself off the GPS (costs stamina, boots-scaled).
       if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, dt);
       // Stick idle for a few seconds → walk back to where you really are.
       else this._driftHome(dt);
@@ -4255,6 +4255,14 @@ class MapScene extends Phaser.Scene {
       const restNow = performance.now();
       if (this._workProgress) this._holdRest(restNow);
       const working = !!this._workProgress || restNow < (this._restHoldUntil ?? 0);
+      // Carried regeneration jewelry rides the passive-rest accumulator and
+      // its working pause. The faster amulet wins; the two never stack.
+      const jewelryRegenMs = jewelryRegenIntervalMs(this.save);
+      if (!working && Number.isFinite(jewelryRegenMs) && (this.save.energy ?? 0) < maxE) {
+        this._accrueRestEnergy('_jewelryAccrueE', dt * 1000 / jewelryRegenMs, maxE);
+      } else {
+        this._jewelryAccrueE = 0;
+      }
       // WALKING THROUGH IS NOT A REST (owner, Sep 2026): the trailer sits
       // where the player passes a dozen times a session, and every pass
       // popped "+N⚡" over their head. The energy still banks from the first
@@ -6667,26 +6675,25 @@ class MapScene extends Phaser.Scene {
     const v = this.joystickVec;
     return !!(this._movePadHeld && v && (v.x || v.y));
   }
-  // Boots set walking speed; the amulet sets cost. Dragon and Speed lend
-  // tiers to both; coffee adds speed tiers only; a bike rack multiplies the
-  // speed (boots.boost).
+  // Boots set walking speed and cost. Dragon and Speed lend tiers to both;
+  // coffee adds speed tiers only; a bike rack multiplies speed (boots.boost).
   _walkRelics() {
     let speedTier = this.save.armor?.boots?.tier || 0;
-    let costTier = this.save.relics?.amulet?.tier || 0;
-    let buffTier = this.isDragonActive() ? DRAGON_AMULET_TIER : 0;
+    let costTier = speedTier;
+    let buffTier = this.isDragonActive() ? DRAGON_WALK_COST_TIER : 0;
     if ((this.save.speedPotionUntil ?? 0) > Date.now()) {
-      buffTier = Math.max(buffTier, SPEED_POTION_AMULET_TIER);
+      buffTier = Math.max(buffTier, SPEED_POTION_WALK_COST_TIER);
     }
     speedTier = Math.max(speedTier, buffTier);
     costTier = Math.max(costTier, buffTier);
     if ((this.save.coffeeUntil ?? 0) > Date.now()) {
-      speedTier = Math.min(SPEED_POTION_AMULET_TIER, speedTier + COFFEE_BOOT_BOOST);
+      speedTier = Math.min(SPEED_POTION_WALK_COST_TIER, speedTier + COFFEE_BOOT_BOOST);
     }
     // A BIKE RACK's loan (items.js BIKE_RACK_SPEED_MUL for BIKE_RACK_MS —
     // interactables.js writes save.bikeUntil): a factor on the speed, not a
     // tier, carried on the boots to steerSpeedMul like every other reason.
     const boost = (this.save.bikeUntil ?? 0) > Date.now() ? BIKE_RACK_SPEED_MUL : 1;
-    return { boots: { tier: speedTier, boost }, amulet: { tier: costTier } };
+    return { boots: { tier: speedTier, costTier, boost } };
   }
   // Steer with the STICK — the one control that walks you somewhere other than
   // where the GPS says you are. Unlike _steerTarget (the keyboard, which is
@@ -6699,8 +6706,8 @@ class MapScene extends Phaser.Scene {
   //     ground you didn't. Walking with the GPS stays free — that's you
   //     actually walking.
   //
-  // Boots scale stick speed; the amulet scales energy cost per cell.
-  // Dragon Powder and Speed lend tier 8 / 9 to both for their duration.
+  // Boots scale stick speed and energy cost per cell. Dragon Powder and Speed
+  // lend tier 8 / 9 to both for their duration.
   _steerManual(vx, vy, dt) {
     // Steering by hand is the opposite of walking home — clear the flag the
     // hint draws from, or it would stay lit from the last drift frame.
@@ -6768,7 +6775,7 @@ class MapScene extends Phaser.Scene {
     this._lastStickT = Date.now();   // the walk-home timer starts when you stop
     if (this.compassDeg == null) this.facing = { x: vx, y: vy };
     // Per-cell stamina, banked fractionally and spent in STEER_DRAIN_LUMP-sized
-    // bites, so a 0.15/cell amulet debits a lump every ~13 cells rather than
+    // bites, so a 0.15/cell Frost boots debits a lump every ~13 cells rather than
     // rounding up to a pip per cell. The rate is the same either way — the lump
     // only decides how coarse the steps are. Close to
     // your real position it's a fifth of that: pottering around the block you're
@@ -9264,7 +9271,7 @@ class MapScene extends Phaser.Scene {
     return this._finishConsumable('You drink the Elixir', 'The draught glows against your lips. Strength floods back into your limbs.');
   }
 
-  // Potion of Speed: a minute of tier-9 boots and amulet walking, even without either
+  // Potion of Speed: a minute of tier-9 boot walking, even without either
   // — the stick moves you faster and costs almost no stamina (_walkRelics
   // reads speedPotionUntil).
   drinkSpeedPotion(opts = {}) {
@@ -9437,8 +9444,8 @@ class MapScene extends Phaser.Scene {
   }
 
   // Dragon Powder: for ONE MINUTE you wear a red dragon and get its stats —
-  // tier-8 boots and amulet (DRAGON_AMULET_TIER, so the stick walks you faster
-  // and for less stamina than any forged amulet can) and 2× attack damage
+  // tier-8 boots (DRAGON_WALK_COST_TIER, so the stick walks faster
+  // and for less stamina than Frost boots can) and 2× attack damage
   // (interact.js halves the kill-wheel duration while in dragon form). No
   // flight, no separate movement mode: a dragon walks the way everyone walks.
   useDragonPowder() {
@@ -12577,9 +12584,6 @@ class MapScene extends Phaser.Scene {
   // The gear PNGs are spritesheets, not single icons:
   //   weapons + armor (Pickaxe.png, Helmet.png, …): 32×16, two 16×16 frames
   //     side-by-side. We show frame 0.
-  //   rings + amulets (Rings.png, Amulet.png):    96×64, 6 cols × 4 rows of
-  //     16×16 variants. Pick a per-tier slot so each tier shows a different
-  //     colour band as the player upgrades.
   // CSS-clip via background-image instead of an unclipped <img> — otherwise
   // the entire sheet gets crushed into the icon box ("ring looks like a
   // whole spritesheet", "armor shows 2 suits").
@@ -12734,7 +12738,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // The movement stick is ALWAYS on screen — it's how you walk anywhere the
-  // GPS isn't taking you, with or without an amulet, buff, or debug flag.
+  // GPS isn't taking you, with or without boots, a buff, or a debug flag.
   // Nothing takes its slot any more. Idempotent, so it's safe to call from the
   // per-frame relic sync, which is what puts it up on the first frame.
   syncMovePad() {
@@ -13045,14 +13049,11 @@ class MapScene extends Phaser.Scene {
     // Each gear asset has its own sprite-sheet layout. Pick [cols, rows] + the
     // frame to show so we never squish a multi-frame strip into one cell or
     // crop a single-frame icon:
-    //   ring/amulet — 6×4 variant grid, frame = tier-1
     //   bags        — 7×1 strip (one bag per tier), frame = tier-1
     //   bug net     — single 16×16 icon
     //   everything else (tools/armor) — 32×16 two-frame sheet, show frame 0
     let sheetCols, sheetRows, frame;
-    if (kind === 'relic' && (slot === 'ring' || slot === 'amulet')) {
-      sheetCols = 6; sheetRows = 4; frame = tier - 1;
-    } else if (kind === 'relic' && slot === 'bags') {
+    if (kind === 'relic' && slot === 'bags') {
       sheetCols = 7; sheetRows = 1; frame = tier - 1;
     } else if (kind === 'relic' && slot === 'bugnet') {
       sheetCols = 1; sheetRows = 1; frame = 0;

@@ -373,12 +373,12 @@ test('mechanics: deep rock follows the gem table', () => {
   }
 });
 
-test('mechanics: vendors never offer a Ring', () => {
+test('mechanics: vendors never offer unique jewelry as gear', () => {
   const save = { relics: {}, armor: {} };
   const rng = bookRng(0x21C0);
   for (let i = 0; i < 2000; i++) {
     const offer = Gear.buildRelicOffer(save, rng);
-    assert.truthy(!offer || offer.slot !== 'ring', 'no vendor ever offers a Ring');
+    assert.truthy(!offer || !['ring', 'amulet'].includes(offer.slot), 'no jewelry gear slot remains');
   }
 });
 
@@ -396,9 +396,9 @@ test('mechanics: struck slimes have a reaction window', () => {
   assert.eq(Number(m[1]), 8000, 'struck slimes react for eight seconds');
 });
 
-test('mechanics: gathering luck remains absent and Rings favour chests', () => {
+test('mechanics: gathering luck remains absent and Keen Eye favours chests', () => {
   assert.eq(typeof globalThis.gatherLuck, 'undefined', 'the gather-luck path is gone');
-  assert.truthy(/chest/i.test(RELIC_DEFS.ring.blurb), 'the ring\'s own line keeps it to chests');
+  assert.truthy(/Rarer/.test(Wizard.TRACKS.find(t => t.key === 'eye').sub), 'Keen Eye copy favours rare finds');
 });
 
 test('mechanics: snares hurt on entry and while standing on them', () => {

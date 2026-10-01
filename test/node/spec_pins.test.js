@@ -128,7 +128,7 @@ test('chest themes: T1 excludes gear for every location, even on jackpot rolls',
 });
 
 test('chest themes: civic gear is restricted to noncombat tools', () => {
-  const allowed = new Set(['amulet', 'bags', 'can', 'hoe', 'rod', 'bugnet']);
+  const allowed = new Set(['bags', 'can', 'hoe', 'rod', 'bugnet']);
   const rng = seededPrng(8301);
   let gearCount = 0;
   for (let i = 0; i < 3000; i++) {
