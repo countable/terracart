@@ -8,5 +8,6 @@ test('grove shrine appearance is stable across save overlays and coordinate fram
     assert.truthy(SpriteLayout.ART_BOUNDS[`${art.key}:${art.frame}`]);
   }
   assert.eq(seen.size, SpriteLayout.GROVE_SHRINE_ART.length);
-  assert.eq(seen.size, 2);
+  assert.eq(seen.size, 1);
+  assert.truthy(seen.has('grove_votive'));
 });

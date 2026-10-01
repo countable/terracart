@@ -77,7 +77,6 @@
     'stakes:0': { fw: 16, fh: 16, minX: 4, minY: 0, maxX: 12, maxY: 16 },
     'tar:0': { fw: 16, fh: 16, minX: 0, minY: 6, maxX: 16, maxY: 16 },
     'headstone:0': { fw: 16, fh: 16, minX: 3, minY: 0, maxX: 14, maxY: 16 },
-    'grove_shrine:0': { fw: 48, fh: 48, minX: 12, minY: 1, maxX: 37, maxY: 47 },
     'grove_votive:0': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 16 },
     'vista_scope:0': { fw: 16, fh: 24, minX: 0, minY: 0, maxX: 15, maxY: 24 },
     'shrines:0': { fw: 16, fh: 24, minX: 2, minY: 0, maxX: 14, maxY: 24 },
@@ -104,7 +103,6 @@
 
   // Cosmetic only: each POI keeps its appearance across reloads and save overlays.
   const GROVE_SHRINE_ART = [
-    { key: 'grove_shrine', frame: 0, scale: 0.7, name: 'Stone figure' },
     { key: 'grove_votive', frame: 0, scale: 1.6, name: 'Stone votive' },
   ];
   // One centered shrine object, reserving a 3×3-cell footprint.
