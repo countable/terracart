@@ -29,6 +29,82 @@ test('no deal cap: ShopsMath has no ration and no readiness to ask', () => {
   assert.eq(typeof ShopsMath.msToNextBucket, 'undefined', 'no wait to print');
 });
 
+// THE ONE CLOCK ON A DOOR: a short cooldown after a closed deal, for the
+// roles with a row in DEAL_COOLDOWN_MS — the trader alone. Short (minutes,
+// not the old hourly ration), stamped by recordDeal, read by dealWaitMs.
+const TRADER_MS = ShopsMath.DEAL_COOLDOWN_MS.trader;
+test('deal cooldown: the table has one row, the trader, and it is short', () => {
+  assert.eq(Object.keys(ShopsMath.DEAL_COOLDOWN_MS).join(','), 'trader', 'only the trader waits');
+  assert.truthy(TRADER_MS >= 60 * 1000 && TRADER_MS <= 15 * 60 * 1000, `a breather, not a ration: ${TRADER_MS}ms`);
+  assert.eq(ShopsMath.MAX_DEAL_COOLDOWN_MS, TRADER_MS, 'the longest row is the record keepers\' horizon');
+});
+
+test('deal cooldown: recordDeal banks the deal and stamps the moment', () => {
+  const save = {};
+  const house = { id: 'tr-1' };
+  const cur = ShopsMath.recordDeal(save, house, 1000);
+  assert.eq(cur.deals, 1); assert.eq(cur.dealAt, 1000);
+  assert.eq(save.shopState['tr-1'], cur, 'on the house\'s own record');
+  ShopsMath.recordDeal(save, house, 2000);
+  assert.eq(cur.deals, 2, 'each deal counts (the trader\'s stock turnover)');
+  assert.eq(cur.dealAt, 2000, 'the stamp is the LAST deal');
+  assert.eq(ShopsMath.recordDeal(save, { }, 3000), null, 'a house with no id banks nothing');
+});
+
+test('deal cooldown: dealWaitMs counts down from the last deal and only for a role with a row', () => {
+  const save = {};
+  const house = { id: 'tr-2' };
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 5000), 0, 'never dealt with: open');
+  assert.falsy(save.shopState && save.shopState['tr-2'], 'and asking created no record');
+  ShopsMath.recordDeal(save, house, 10000);
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000), TRADER_MS, 'the whole row at the moment of the deal');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 + TRADER_MS / 2), TRADER_MS / 2, 'half way');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 + TRADER_MS), 0, 'open again on the dot');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 + TRADER_MS * 9), 0, 'and stays open');
+  for (const role of ['market', 'blacksmith', 'wizard', null, undefined]) {
+    assert.eq(ShopsMath.dealWaitMs(save, house, role, 10000), 0, `${role}: no row, no wait`);
+  }
+  assert.eq(ShopsMath.dealWaitMs(save, { }, 'trader', 10000), 0, 'no id, no wait');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 - TRADER_MS * 3), TRADER_MS,
+    'a clock that ran backwards prints the row\'s length at worst, never a lifetime');
+});
+
+test('deal cooldown: the stamp survives the hour bucket while it still cools, and is dropped once spent', () => {
+  const save = {};
+  const house = { id: 'tr-3' };
+  // A deal a minute before the bucket turns: the fresh bucket record must
+  // still refuse for the rest of the row.
+  const b0 = ShopsMath.bucketState(save, house, 0);
+  const turn = (b0.bucket + 1) * HOUR - ShopsMath.bucketOffset(house.id);
+  ShopsMath.recordDeal(save, house, turn - 60 * 1000);
+  const b1 = ShopsMath.bucketState(save, house, turn + 1000);
+  assert.truthy(b1 !== b0 && b1.bucket === b0.bucket + 1, 'a new bucket record');
+  assert.eq(b1.deals, 0, 'the deal count starts over with the new offer');
+  assert.eq(b1.dealAt, turn - 60 * 1000, 'but the stamp is carried');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', turn + 1000), TRADER_MS - 61 * 1000, 'and still counts down');
+  // Hours later the stamp is spent: the carried record sheds it, so it is
+  // the exact shape a fresh record would be (pruneShopState's lossless rule).
+  const b2 = ShopsMath.bucketState(save, house, turn + HOUR * 3);
+  assert.eq(JSON.stringify(b2), JSON.stringify({ bucket: b1.bucket + 3, deals: 0, rerolls: 0 }), 'no stamp once spent');
+});
+
+test('deal cooldown: pruneShopState keeps a stale entry whose deal still cools', () => {
+  const save = {};
+  const cooling = { id: 'tr-cool' }, spent = { id: 'tr-spent' };
+  const b0 = ShopsMath.bucketState(save, cooling, 0);
+  const turn = (b0.bucket + 1) * HOUR - ShopsMath.bucketOffset(cooling.id);
+  ShopsMath.recordDeal(save, cooling, turn - 1000);
+  // The other house has its own bucket offset: deal three hours back so its
+  // record is a stale bucket at the probe whatever that offset is.
+  ShopsMath.recordDeal(save, spent, turn - HOUR * 3);
+  const later = turn + HOUR * 2;    // both records are now stale buckets
+  assert.eq(ShopsMath.pruneShopState(save, turn + 1000), 1, 'at the turn, only the spent deal goes');
+  assert.truthy(save.shopState['tr-cool'], 'the cooling one is kept');
+  assert.falsy(save.shopState['tr-spent']);
+  assert.eq(ShopsMath.dealWaitMs(save, cooling, 'trader', turn + 1000), TRADER_MS - 2000, 'and still refuses');
+  assert.eq(ShopsMath.pruneShopState(save, later), 1, 'hours on, it is spent too');
+});
+
 test('bucketState: creates a record; a new hour resets deals and keeps easing re-rolls', () => {
   const save = {};
   const house = { id: 'shopA' };

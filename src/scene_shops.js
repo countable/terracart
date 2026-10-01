@@ -8,7 +8,8 @@
 //     service, the quest board, the fort unlock and the blacksmith's forge
 //     (with its FORGE_CEREMONY story pane);
 //   · the shop clock they share: shopBucketState / shopRng and
-//     buildShopOffer (no shop is ever "busy" — shops_math.js header).
+//     buildShopOffer (no per-hour deal cap; the trader alone rests a few
+//     minutes after a deal — shops_math.js header).
 // Plus the constants only they read.
 //
 // Moved verbatim out of app.js. The methods live on `class SceneShops`, a
@@ -235,21 +236,26 @@ class SceneShops {
     // (Delivery.isSatisfied), and render.js shows its wishlist over the roof.
     const isDeliveryHost = !castle && !isFort && !shopType && !isStarterSmith && !!house
       && !(this.isScarecrowShop(house) && !this.save.scarecrowShopUsed);
-    // No door here is ever shut by the clock: there is no per-hour deal cap
-    // (shops_math.js header). A deal is still RECORDED against the house —
-    // the trader's stock turns over on it (shopRng's perDeal) — called from
+    // There is no per-hour deal cap (shops_math.js header). A deal is still
+    // RECORDED against the house — the trader's stock turns over on it
+    // (shopRng's perDeal) and its cooldown starts from it — called from
     // inside every accept path.
-    const recordDeal = () => {
-      if (!house || !house.id) return;
-      const cur = this.shopBucketState(house);
-      cur.deals += 1;
-    };
+    const recordDeal = () => { ShopsMath.recordDeal(this.save, house); };
+    // THE ONE CLOCK ON A DOOR: a role with a row in ShopsMath.DEAL_COOLDOWN_MS
+    // (the trader) rests briefly after a closed deal. The wait is printed in
+    // the shared notation, same number the peddler speaks (npc.js interact).
+    // A role with no row never reaches the flash.
+    const dealWait = house ? ShopsMath.dealWaitMs(this.save, house, shopType) : 0;
+    if (dealWait > 0) {
+      this.flash(`${shopType} busy — back in ${shortDuration(dealWait)}`, sx, sy);
+      return;
+    }
     // FLOWER GIFT — tapping a CASH shop (market / fort storefront / castle
     // vault) with Flowers selected offers to charm the keeper: one bouquet
     // buys half prices at THIS building for SHOP_CHARM_MS. Only cash shops —
     // a bouquet at a barter trader / wizard / delivery house would buy
-    // nothing, so those never offer to take one. Checked after the busy gate
-    // so a bouquet can't be spent on a shut door, and skipped while a charm
+    // nothing, so those never offer to take one. Checked after the cooldown
+    // gate so a bouquet can't be spent on a shut door, and skipped while a charm
     // is already running so repeat taps don't burn the stack. A RESTORED
     // castle is excluded too — it no longer sells anything to discount, only
     // the daily rest/tax favour (see presentCastleServiceOffer).
@@ -937,8 +943,9 @@ class SceneShops {
   // Shop hour-bucket scheduling + the seeded per-bucket RNG live in
   // shops_math.js (ShopsMath.*); these stay as scene methods because the
   // present* handlers call them as this.shopX(…). Nothing here answers "is
-  // the shop open" — every shop always is; the bucket only rotates the offer
-  // and eases the re-roll ladder (ShopsMath.bucketState).
+  // the shop open": the bucket only rotates the offer and eases the re-roll
+  // ladder (ShopsMath.bucketState); the trader's short cooldown is asked of
+  // ShopsMath.dealWaitMs at the two dispatchers, not here.
   // Flower charm multiplier — see Houses.shopCharmMul.
   shopCharmMul(house) { return Houses.shopCharmMul(this.save, house); }
   shopBucketState(house) {

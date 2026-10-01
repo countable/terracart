@@ -349,11 +349,13 @@ test('copy: the out-of-energy refusal is one line, and it names the remedy', () 
 test('copy: a shop with nothing to offer says so in a sentence, and promises no wait', () => {
   // shortDuration's rule is that a wait the player can read gets a number —
   // and its corollary: a line must not name a wait that changes nothing. No
-  // shop is ever busy now (shops_math.js header), and an empty forge, shelf
-  // or trader stays empty whatever the clock says, so the old "Back in 47m"
-  // clause (shopWaitLabel) is gone with the anvil's rest.
+  // shop is rationed by the hour now (shops_math.js header), and an empty
+  // forge, shelf or trader stays empty whatever the clock says, so the old
+  // "Back in 47m" clause (shopWaitLabel) is gone with the anvil's rest. The
+  // one wait a shop still names is the trader's short deal cooldown, where
+  // waiting DOES change the answer (shop_always_open.test.js pins its line).
   assert.falsy(/flash\('no deal'/.test(SCENE_SRC), 'the bare fragment is gone');
-  assert.falsy(/shopWaitLabel|Anvil's resting|busy — try again/.test(SCENE_SRC), 'no shop names a wait');
+  assert.falsy(/shopWaitLabel|Anvil's resting|busy — try again/.test(SCENE_SRC), 'no shop names an hourly wait');
   for (const line of ['Nothing left to forge.', 'Nothing on the shelf.', 'Nothing to trade for.']) {
     assert.truthy(SCENE_SRC.includes(`this.flash('${line}'`), `the empty-shop line is "${line}"`);
   }

@@ -596,10 +596,17 @@ const NPC = (() => {
     }
     if (typeof StoryEncounters !== 'undefined' && StoryEncounters.interact(scene, c)) return;
     if (c.role !== 'merchant' && c.role !== 'trader') { say(); return; }
-    // A peddler trades as often as asked — no shop is ever "busy"
-    // (shops_math.js header); the deal is still banked for the trader's
-    // stock turnover.
-    const record = () => { scene.shopBucketState(c).deals += 1; };
+    // No per-hour deal cap (shops_math.js header), but a peddling trader
+    // rests briefly after a closed deal (ShopsMath.DEAL_COOLDOWN_MS — the same
+    // row and number the trader's house flashes in shopInteract), and says
+    // the wait in a speaking voice. The deal is banked through recordDeal for
+    // the trader's stock turnover and that cooldown.
+    const dealWait = ShopsMath.dealWaitMs(scene.save, c, c.role);
+    if (dealWait > 0) {
+      scene.showMessageModal({ title: talk.title, body: `I have just traded. Come back in ${spokenDuration(dealWait)}.`, art: portrait(scene, c), kind: 'trade' });
+      return;
+    }
+    const record = () => { ShopsMath.recordDeal(scene.save, c); };
     if (c.role === 'trader') scene.presentTraderOffer(sx, sy, c, record);
     else scene.presentThemedShop(sx, sy, c, record);
   }
