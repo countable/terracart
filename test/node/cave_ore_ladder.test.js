@@ -1,13 +1,14 @@
 // EACH LEVEL IS ITS TIER'S MINE (worldgen.js caveOreTiers / caveOreWeights /
 // caveRockP): underground, each of the level's ore tiers — its own and the one
 // below, real ore only (tier 2, copper, and up) — is CAVE_ORE_SHARE (10 %) of
-// the rocks, the rest plain. The ladder's floor is copper: levels 1 and 2 are
-// 10 % copper (level 1 was all plain until Oct 2026), level 3 10 % copper +
-// 10 % iron … level 7 and below crimson + frost. This table is
+// the rocks, the rest plain. Level 1 is no tier's mine but carries a thin
+// copper seam, LEVEL1_COPPER_SHARE (3 %) of its rocks; level 2 is 10 %
+// copper, level 3 10 % copper + 10 % iron … level 7 and below crimson +
+// frost. This table is
 // the VISIBLE ore rocks only; plain rocks keep their hidden bar roll on break.
 (function () {
 test('cave ore: level N\'s ore rocks are tier N and N-1, real ore only', () => {
-  assert.eq(JSON.stringify(WorldGen.caveOreTiers(1)), '[2]', 'level 1: copper — the ladder starts on the first level down');
+  assert.eq(JSON.stringify(WorldGen.caveOreTiers(1)), '[]', 'level 1: no tier of its own');
   assert.eq(JSON.stringify(WorldGen.caveOreTiers(2)), '[2]', 'level 2: copper');
   assert.eq(JSON.stringify(WorldGen.caveOreTiers(3)), '[2,3]', 'level 3: copper + iron');
   assert.eq(JSON.stringify(WorldGen.caveOreTiers(7)), '[6,7]', 'level 7: crimson + frost');
@@ -20,7 +21,9 @@ test('cave ore: level N\'s ore rocks are tier N and N-1, real ore only', () => {
 });
 
 test('cave ore: 10% of the rocks per ore tier, the rest plain', () => {
-  assert.truthy(Math.abs(WorldGen.caveRockP(1) - 0.9) < 1e-9, 'level 1 90% plain, 10% copper');
+  assert.eq(WorldGen.LEVEL1_COPPER_SHARE, 0.03, 'a thin copper seam on level 1');
+  assert.truthy(Math.abs(WorldGen.caveRockP(1) - 0.97) < 1e-9, 'level 1 97% plain, 3% copper');
+  assert.eq(WorldGen.caveOreWeights(1)[1], 1, 'and what it rolls is copper');
   assert.truthy(Math.abs(WorldGen.caveRockP(2) - 0.9) < 1e-9, 'level 2 90% plain');
   for (let d = 3; d <= 9; d++) assert.truthy(Math.abs(WorldGen.caveRockP(d) - 0.8) < 1e-9, `level ${d} 80% plain`);
   assert.eq(WorldGen.caveRockP(0), 0.9, 'the surface is unchanged');
