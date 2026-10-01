@@ -359,16 +359,21 @@
   // idle frame 0 — hop, pause, hop, for as long as the glide lasts.
   const SLIME_HOP_FRAME_MS = 150;
   const SLIME_HOP_REST_MS = 600;
-  // All citizen sheets share six real frames in each directional row:
+  // Ordinary citizen sheets share six real frames in each directional row:
   // front, back, left, right. Dialog portraits use the same front-facing art.
   const NPC_FRAME = { width: 48, height: 48, cols: 6, frames: [0, 1, 2, 3, 4, 5], portraitFrame: 0 };
   const NPC_SHEETS = [
     { idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png' },
     { idle: 'npc_1_idle', walk: 'npc_1_walk', path: 'assets/NPC/Citizen_woman02_idle.png' },
     { idle: 'npc_2_idle', walk: 'npc_2_walk', path: 'assets/NPC/Citizen_woman03_idle.png' },
+    { role: 'archaeologist', idle: 'orrin_idle', walk: 'orrin_walk', path: 'assets/NPC/Orrin_old_man_idle.png', cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY: 90 },
   ];
+  function npcSheet(c) {
+    return NPC_SHEETS.find(sheet => sheet.role && sheet.role === c.role) || NPC_SHEETS[c.npcVariant] || NPC_SHEETS[0];
+  }
   function npcAppearance(c, now) {
-    const sheets = NPC_SHEETS[c.npcVariant] || NPC_SHEETS[0];
+    const sheets = npcSheet(c);
+    const frames = sheets.frames || NPC_FRAME.frames;
     const dx = (c._targetX ?? c.x) - (c._startX ?? c.x);
     const dy = (c._targetY ?? c.y) - (c._startY ?? c.y);
     const moving = !!c._moving && (dx !== 0 || dy !== 0);
@@ -377,8 +382,8 @@
     const beat = moving ? 260 : 550;
     return {
       sheet: moving ? sheets.walk : sheets.idle,
-      frame: row * NPC_FRAME.cols + NPC_FRAME.frames[Math.floor(now / beat) % NPC_FRAME.frames.length],
-      tint: c.tint ?? 0xffffff,
+      frame: row * (sheets.cols || NPC_FRAME.cols) + frames[Math.floor(now / beat) % frames.length],
+      tint: sheets.tint ?? c.tint ?? 0xffffff,
     };
   }
   const CREATURE_ART = {
@@ -951,7 +956,7 @@
     GROVE_SHRINE_ART, SHIPWRECK_SHRINE_ART, SHRINE_KIND_ART, groveShrineArt,
     PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
-    NPC_FRAME, NPC_SHEETS, npcAppearance,
+    NPC_FRAME, NPC_SHEETS, npcSheet, npcAppearance,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
     creaturePrey, creatureDrop, creatureProduce, creatureCatchMul, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,

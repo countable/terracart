@@ -324,7 +324,8 @@ VOICE SAMPLES — NPC DIALOGUE, NOT THE PANEL NARRATOR
 IMPLEMENTATION STATUS
   Orrin is implemented as a named NPC at a saved, reachable seat about 250
   metres from the starting Home. Existing saves gain him when that ground is
-  loaded. He uses the shared NPC portrait, movement and wound/rest rules.
+  loaded. He uses PixelSerial’s Old Man art for his map sprite and portrait, with
+  the shared NPC movement and wound/rest rules.
   Acknowledged conversations persist his introduction, topics, replies and
   familiarity. Leaving a conversation does not consume it, and disagreement
   does not punish the relationship. Restoration and new memories inform his

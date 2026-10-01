@@ -498,11 +498,11 @@ const NPC = (() => {
   // Cache on the live NPC, not in a growing global table of everyone met.
   function portrait(scene, c) {
     if (c._portrait) return c._portrait;
-    const sheet = SpriteLayout.NPC_SHEETS[c.npcVariant || 0];
+    const sheet = SpriteLayout.npcSheet(c);
     const source = scene.textures.get(sheet.idle).getSourceImage();
     const sprite = document.createElement('canvas'); sprite.width = 48; sprite.height = 48;
     const ctx = sprite.getContext('2d'); ctx.drawImage(source, 0, 0, 48, 48, 0, 0, 48, 48);
-    const pixels = ctx.getImageData(0, 0, 48, 48), tint = c.tint;
+    const pixels = ctx.getImageData(0, 0, 48, 48), tint = sheet.tint ?? c.tint ?? 0xffffff;
     for (let i = 0; i < pixels.data.length; i += 4) {
       pixels.data[i] *= ((tint >> 16) & 255) / 255;
       pixels.data[i + 1] *= ((tint >> 8) & 255) / 255;
@@ -512,7 +512,7 @@ const NPC = (() => {
     const canvas = document.createElement('canvas'); canvas.width = 352; canvas.height = 448;
     const out = canvas.getContext('2d'); out.fillStyle = '#203128'; out.fillRect(0, 0, 352, 448);
     out.imageSmoothingEnabled = false;
-    out.drawImage(sprite, 8, 8, 32, 28, 104, 12, 144, 126);
+    out.drawImage(sprite, 8, 8, 32, 28, 104, sheet.portraitY ?? 12, 144, 126);
     c._portrait = canvas.toDataURL();
     return c._portrait;
   }
