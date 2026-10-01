@@ -208,7 +208,7 @@
   }
 
   // ── Stalls: stock and prices ──────────────────────────────────────────────
-  test('apothecary: one T2 remedy and the antidote, priced like a stall', () => {
+  test('apothecary: one remedy and the antidote, priced like a stall', () => {
     const tiers = (id) => ITEM_BY_ID[id].baseTier ?? BASE_TIER[id];
     const seen = new Set();
     for (let i = 0; i < 60; i++) {
@@ -217,7 +217,7 @@
       assert.truthy(Macros.APOTHECARY_POTIONS.includes(stock[0]), stock[0]);
       assert.eq(stock[1], 'antidote', 'the cure');
       seen.add(stock[0]);
-      for (const id of stock) assert.lte(tiers(id), 2, `${id} is T2 or under`);
+      for (const id of stock) assert.lte(tiers(id), id === 'vigor_potion' ? 4 : 2, `${id} stays in its remedy tier`);
     }
     assert.eq(seen.size, Macros.APOTHECARY_POTIONS.length, 'every remedy turns up somewhere');
     assert.eq(Macros.apothecaryStock(poi('dentist', { id: 7 }))[0], 'vigor_potion', 'a dentist is Vigor');

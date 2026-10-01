@@ -62,7 +62,7 @@ test('chest themes: recovery, revival and protection remain distinct', () => {
     const opts = { theme: 'health' };
     const recovery = ChestThemes.resolve('recovery', tier, opts);
     const ids = ChestThemes.selectableIds(recovery);
-    if (tier === 1) assert.eq(recovery.group, 'restorative');
+    if (tier < 4) assert.eq(recovery.group, 'restorative');
     else assert.eq(ids.join(','), tier >= 6 ? 'elixir' : 'vigor_potion');
     const revival = ChestThemes.resolve('revival', tier, opts);
     if (tier === 1) assert.eq(revival.group, 'restorative');

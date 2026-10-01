@@ -122,10 +122,10 @@ test('campfire: fire-held runs before release and extinguish-fire', () => {
   assert.truthy(names.indexOf('fire-held') < names.indexOf('extinguish-fire'), 'holding something never just puts it out');
 });
 
-test('campfire: two potions TRANSMUTE, same tier only; the rest EXPLODE', () => {
+test('campfire: two potions TRANSMUTE, never higher tier; the rest EXPLODE', () => {
   for (const [from, to] of Object.entries(POTION_FIRE_TRANSMUTE)) {
     assert.truthy(isPotion(from) && isPotion(to), `${from} → ${to} are both potions`);
-    assert.eq(ITEM_BY_ID[to].baseTier, ITEM_BY_ID[from].baseTier, `${from} → ${to} never climbs the ladder`);
+    assert.lte(ITEM_BY_ID[to].baseTier, ITEM_BY_ID[from].baseTier, `${from} → ${to} never climbs the ladder`);
     assert.eq(fireBurnOutcome(from).transmute, to);
   }
   assert.eq(Object.keys(POTION_FIRE_TRANSMUTE).length, 2, 'a couple, not all');

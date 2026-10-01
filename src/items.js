@@ -493,10 +493,11 @@ const CROP_NAMES = {
   fireflower: 'Fireflower', sunflower: 'Sunflower',
   berry: 'Berry', cress: 'Cress', onion: 'Onion',
 };
-// === Per-item rarity tier (1..7) — used by rarity.js' unified picker. ===
+// === Per-item rarity tier — ordinary loot spans 1..7; shinies add 3. ===
 // Tier reflects relative rarity / value, not stage / yield. A seed and its
 // produce share a tier. Wild fauna and minerals climb with gem ladder. New
 // items SHOULD get a baseTier; rarity.js defaults missing entries to 1.
+const SHINY_TIER_UP = 3;
 const BASE_TIER = {
   // Crops (same tier for seed & produce; the seed id uses the suffix).
   // Spread across all four chest tiers.
@@ -524,9 +525,9 @@ const BASE_TIER = {
   // (forget-me-not) to the glowing starflower (rarest). Tier drives the
   // shiny-find bonus and loot-value scaling.
   forgetmenot: 2, marigold: 3, wildrose: 3, starflower: 5,
-  egg: 1, milk: 2,
-  // Fish (rarity ramps fast — goldenfish is the late-game catch)
-  minnow: 1, bass: 2, trout: 3, salmon: 4, goldenfish: 6,
+  egg: 2, milk: 2,
+  // Fish span the loot ladder, with gaps of at most two tiers.
+  minnow: 1, bass: 2, trout: 4, salmon: 5, goldenfish: 7,
   // Orchard fruit (apple/cherry/peach/apricot ~ mid-low; coconut/banana late).
   // Mango is no longer an orchard tree — it's a rare universal tame treat
   // (see interact.js) — but still carries a rarity tier for loot/pricing.
@@ -535,15 +536,12 @@ const BASE_TIER = {
   banana: 4, coconut: 4,
   // Plantable fruit-tree saplings — common apple (T3), rare peach (T5).
   apple_sapling: 3, peach_sapling: 5, acorn: 2,
-  // Live animals
-  chicken: 1, dog: 1, rabbit: 1, crab: 1,
-  cat: 2, butterfly: 2,
-  crow: 3,
-  deer: 4,
-  cow: 5,
+  // Live animals follow Combat.creatureMaxHp: 8–10 / 15 / 20 / 40 HP.
+  chicken: 2, cow: 2, rabbit: 2, crab: 2, butterfly: 2, crow: 2,
+  deer: 3, cat: 4, dog: 5,
   // Consumables
   antidote: 1, elixir: 6,
-  honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
+  honey: 2, book: 2, reach_potion: 2, vigor_potion: 4, speed_potion: 2, shield_potion: 2,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_potion: 3,
@@ -617,7 +615,7 @@ const ITEMS = [
   ...['chicken', 'cow', 'cat', 'dog', 'rabbit', 'butterfly', 'crab'].map(k => ({
     id: `shiny_${k}`,
     name: `Shiny ${k.charAt(0).toUpperCase() + k.slice(1)}`,
-    kind: 'animal', base: k, shiny: true, baseTier: BASE_TIER[k] || 1,
+    kind: 'animal', base: k, shiny: true, baseTier: (BASE_TIER[k] || 1) + SHINY_TIER_UP,
   })),
   // Animal produce — feed longgrass to a wild chicken / cow to swap the
   // longgrass for an egg / milk. Repeatable until either you run out of
@@ -845,7 +843,7 @@ const CAMPFIRE_MAKES = { meat: 'grilled_meat', wood: 'torch',
 // steak is worth the fire to sell as well as to eat.
 const GRILL_ENERGY_MUL = 1.5;
 // POTIONS IN THE FIRE (the burn confirm's accept, app.js presentBurnConfirm).
-// Two TRANSMUTE into another potion of the SAME tier — never up the ladder, so
+// Two TRANSMUTE into another potion of the same or lower tier, so
 // the fire is a curiosity, not a value pump. Every other potion EXPLODES,
 // hurting the player by POTION_BLAST_DMG_PER_TIER × its tier, soaked by
 // armour like any other blow (Combat.playerDamage).
@@ -1046,7 +1044,7 @@ const PRICES = {
   reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
   antidote:     12,
   elixir:       360,
-  vigor_potion:  35,   // T2 — instant 40-energy restore
+  vigor_potion:  35,   // T4 — instant 40-energy restore
   speed_potion:  55,   // T2 — tier-9 boots + amulet stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura at app.js's BLIGHT_DPS
@@ -1678,10 +1676,9 @@ const FISH_SPECIES = [
   { id: 'goldenfish', w: 1 },
 ];
 function fishTier(id) { return BASE_TIER[id] || 1; }
-// A SHINY fish (fishSpotShiny) fights like the next tier up: it lands as if
-// its tier were SHINY_FISH_TIER_UP higher, the same one-step "harder to get"
-// a shiny animal's doubled catch wheel is.
-const SHINY_FISH_TIER_UP = 1;
+// Shiny fish use the same +3 tier uplift as shiny inventory animals.
+// This can exceed the T7 rod ceiling; each excess tier halves landing odds.
+const SHINY_FISH_TIER_UP = SHINY_TIER_UP;
 // Landing it: certain when the rod's tier is at or above the fish's, else
 // halved for every tier the fish is above the rod (0.5 ** gap). A fish that
 // gets away stays in its spot for the next cast.
@@ -1709,7 +1706,7 @@ function fishSpotStocked(id) {
 // starter pond's always-stocked cells are not, so the sparkle the map shows —
 // shinyFishSpots — and the catch agree), at SHINY_RATE.fish off the spot's id:
 // the same shiny spots for every player. Landing one pays the shiny bonus
-// (awardShinyBonus) on top of the fish, and fights a tier harder.
+// (awardShinyBonus) on top of the fish, and fights three tiers harder.
 function fishSpotShiny(id) {
   return fishSpotStocked(id) && isShiny(id, SHINY_RATE.fish);
 }

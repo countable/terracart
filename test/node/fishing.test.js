@@ -70,7 +70,7 @@ test('fishing: a fish above the rod gets away, halved per tier of gap', () => {
 
 // --- Shiny fish -------------------------------------------------------------
 
-test('fishing: a shiny fish lives in a stocked spot, fights a tier harder and pays the bonus', () => {
+test('fishing: a shiny fish lives in a stocked spot, fights three tiers harder and pays the bonus', () => {
   assert.eq(SHINY_RATE.fish, 0.05, 'shiny fish share the animal rate');
   let stocked = 0, shiny = 0;
   for (let i = 0; i < 40000; i++) {
@@ -79,12 +79,12 @@ test('fishing: a shiny fish lives in a stocked spot, fights a tier harder and pa
     if (fishSpotStocked(id)) stocked++;
   }
   assert.inRange(shiny / stocked, 0.035, 0.065, 'about 1 in 20 stocked spots');
-  assert.eq(SHINY_FISH_TIER_UP, 1);
+  assert.eq(SHINY_FISH_TIER_UP, 3);
   for (const f of FISH_SPECIES) for (let rod = 0; rod <= 7; rod++) {
-    assert.eq(fishCatchChance(f.id, rod, true), Math.pow(0.5, Math.max(0, fishTier(f.id) + 1 - rod)),
-      `a shiny ${f.id} lands like tier ${fishTier(f.id) + 1} on a tier ${rod} rod`);
+    assert.eq(fishCatchChance(f.id, rod, true), Math.pow(0.5, Math.max(0, fishTier(f.id) + 3 - rod)),
+      `a shiny ${f.id} lands like tier ${fishTier(f.id) + 3} on a tier ${rod} rod`);
   }
-  assert.eq(fishCatchChance('minnow', 1, true), 0.5, 'a Wood rod loses a shiny minnow half the time');
+  assert.eq(fishCatchChance('minnow', 1, true), 0.125, 'a Wood rod lands a shiny minnow one in eight times');
   assert.truthy(/if \(shiny\) scene\.awardShinyBonus\(pick, sx, sy\)/.test(INTERACT_SRC), 'landing one pays the shiny bonus');
 });
 
