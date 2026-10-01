@@ -4689,7 +4689,11 @@ class MapScene extends Phaser.Scene {
     this._staffCharge = null;
     // …and only while one stands within the reach plus a cell
     // (Combat.rangedTriggerM): a foe further off on screen draws no fire.
-    const rangedArmed = Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
+    // The Shadow Powder is a truce, not a flank: while it hides the player,
+    // the cadence holds its fire too. The else-branch re-arms, so the first
+    // arrow flies the instant the shadow lifts.
+    const rangedArmed = !this.isShadowActive()
+      && Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
     if (rangedArmed) {
       for (const slot of Combat.RANGED_SLOTS) {
         if (!relics[slot] || this.save.activeWeapon !== slot) continue;
@@ -5435,6 +5439,15 @@ class MapScene extends Phaser.Scene {
   // since every other damage source only makes the fight shorter, that
   // estimate is a true upper bound.
   startCombat(victim, opts = {}) {
+    // A Shadow Powder is a truce: no wheel spins up while it hides the player.
+    if (this.isShadowActive()) {
+      if (!opts.auto) {
+        const ps = this.playerScreen();
+        this.flash('The shadows hold your arm.', ps.x, ps.y + this.playerBodyDy());
+        this.hapticReject?.();
+      }
+      return false;
+    }
     // First melee the save ever starts tells its story - here in the one
     // lane both the tapped swing and the auto-engage flow through, fired
     // regardless of an owned sword: bare hands fight on the tier-0 rung too.
@@ -9578,8 +9591,9 @@ class MapScene extends Phaser.Scene {
 
   // True while a Shadow Powder is active: the same in-memory timer the dragon
   // keeps (this._shadowUntil, NOT persisted — a refresh ends it). wanderCreatures
-  // reads it to switch off every hostile's pursuit AND its hit; nothing the
-  // player swings or shoots is gated by it.
+  // reads it to switch off every hostile's pursuit AND its hit; startCombat and
+  // the ranged cadence read it too, so the player's own arm stays quiet for the
+  // spell.
   isShadowActive() {
     return (this._shadowUntil ?? 0) > Date.now();
   }
@@ -9632,6 +9646,9 @@ class MapScene extends Phaser.Scene {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'shadow_powder' || (sel.count ?? 0) <= 0) return false;
     this._shadowUntil = Date.now() + SHADOW_POWDER_MS;
+    // The truce ends the fight you are in: the melee wheel drops (the same
+    // cancel the stairs use); arrows already in the air finish their flight.
+    if (this._workProgress?.combat) this.cancelWorkProgress();
     return this._finishConsumable(
       '🌑 You cast the Shadow Powder',
       'The dark folds around you. Hungry eyes pass you by.',
