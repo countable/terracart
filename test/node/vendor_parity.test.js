@@ -68,6 +68,60 @@ test('vendor parity: the class outranks a venue word', () => {
   assert.eq(sells('supermarket', 'Whole Foods Fish Market'), 'salmon', 'the product word wins');
 });
 
+// ── Diacritics, German and cuisine words (the four-city study, Oct 2026) ──
+// The tokenizer splits on non-a-z, so an accent used to eat its token: every
+// "Café" reached the ladder as `caf`. Folding the name first lets the EXISTING
+// keys fire, and the German/cuisine rows below it close the word gap the study
+// measured (Berlin matched 13.7% of names; the North-American cities ~38%).
+test('vendor parity: accents fold before tokenizing', () => {
+  assert.eq(sells('restaurant', 'Café de Paris'), 'coffee', 'the é used to split the token');
+  assert.eq(sells('shop', 'Açaí Bowls'), 'berry', 'the existing acai key now reads');
+  assert.eq(sells('fast_food', 'Istanbul Döner Shop'), 'grilled_meat', 'ö folds and doner hits');
+  assert.eq(sells('shop', 'Caffè Roma'), 'coffee', 'the Italian spelling folds to caffe');
+});
+
+test('vendor parity: German words name German goods', () => {
+  const cases = [
+    ['bakery',  'Bäckerei Schmidt',  'coffee'],   // backerei, post-fold
+    ['shop',    'Konditorei Krause', 'coffee'],
+    ['fast_food', 'Curry 36 Wurst',  'grilled_meat'],
+    ['shop',    'Metzgerei Weber',   'meat'],
+    ['restaurant', 'Gasthof Adler',  'grilled_mushroom'],
+    ['fast_food', 'Imbiss am Zoo',   'baked_potato'],
+    ['shop',    'Wein & mehr',       'berry'],
+  ];
+  for (const [cls, name, want] of cases) {
+    assert.eq(sells(cls, name), want, `"${name}" sells ${want}`);
+  }
+  // The English spelling already existed; the German one only differed by a vowel.
+  assert.eq(sells('fast_food', 'Kebap Haus'), 'grilled_meat', 'kebap beside kebab');
+});
+
+test('vendor parity: cuisine words sell their cuisine', () => {
+  const cases = [
+    ['fast_food',  'Thai Kitchen',        'grilled_meat'],
+    ['restaurant', 'Siam Curry House',    'grilled_meat'],
+    ['fast_food',  'Falafel King',        'grilled_mushroom'],
+    ['fast_food',  'Pho Dawg Vietnamese', 'grilled_mushroom'],   // rides with pho/ramen
+    ['restaurant', 'Donair Affair',       'grilled_meat'],
+    ['fast_food',  'The Downtown Diner',  'baked_potato'],
+    ['cafe',       'Bistro 92',           'grilled_mushroom'],
+  ];
+  for (const [cls, name, want] of cases) {
+    assert.eq(sells(cls, name), want, `"${name}" sells ${want}`);
+  }
+  // A cuisine word never invents a brand menu: the class still speaks when
+  // the name says nothing (Starbucks stays a cafe-class coffee stall).
+  assert.eq(sells('cafe', 'Starbucks'), 'coffee', 'no brand rows — the class reads it');
+  assert.eq(sells('fast_food', 'Chez Noo'), 'baked_potato', 'a nameless fast food still fries potato');
+});
+
+test('vendor parity: the raw-fish read folds with the name', () => {
+  // "Poké" used to dodge the sushi|sashimi|poke test along with its é.
+  assert.eq(sells('fast_food', 'Poké Bar'), 'salmon', 'poke stays raw fish, folded or not');
+  assert.eq(sells('fast_food', 'Poke Bar'), 'salmon', 'and unfolded');
+});
+
 // ── Stems ────────────────────────────────────────────────────────────────
 test('vendor parity: plurals and word forms resolve to their root', () => {
   const cases = [

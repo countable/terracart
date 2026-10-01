@@ -576,6 +576,7 @@ const STAND_KEYWORD_ITEM = {
   banana: 'banana', bananas: 'banana', mango: 'mango', tropical: 'mango',
   coconut: 'coconut', apricot: 'apricot', berry: 'berry', berries: 'berry',
   smoothie: 'berry', jam: 'berry', acai: 'berry', preserves: 'berry',
+  wein: 'berry',   // German wine — the same fruit-wine read as alcohol_shop
   // juice — the whole idiom, not just the noun. A juice bar is named for the
   // squeezing as often as for the fruit ("Freshly Squeezed", "The Juicery"),
   // and every one of those was falling through to the class guess.
@@ -586,11 +587,22 @@ const STAND_KEYWORD_ITEM = {
   potato: 'potato', potatoes: 'potato', spud: 'potato',
   chips: 'potato', fries: 'potato', chipper: 'potato',
   onion: 'onion', onions: 'onion', salad: 'cress', greens: 'cress',
+  diner: 'potato',
+  // German pub-grub / snack words (matched post-fold, see foldDiacritics).
+  imbiss: 'potato', kneipe: 'potato', brauhaus: 'potato', bier: 'potato',
   mushroom: 'mushroom', mushrooms: 'mushroom', fungi: 'mushroom',
   nut: 'nut', nuts: 'nut', almond: 'nut', peanut: 'nut', cashew: 'nut',
   pizza: 'mushroom', pizzeria: 'mushroom', italian: 'mushroom', pasta: 'mushroom',
   trattoria: 'mushroom', ramen: 'mushroom', noodle: 'mushroom', noodles: 'mushroom',
   pho: 'mushroom', udon: 'mushroom',
+  // Cuisine words a name can carry without naming a dish ("Thai Kitchen",
+  // "Falafel King"). The Vietnamese read rides with ramen and pho: noodle
+  // soup is the mushroom family in this table.
+  thai: 'meat', curry: 'meat', wok: 'meat', teriyaki: 'meat', indian: 'meat',
+  donair: 'meat',
+  falafel: 'mushroom', viet: 'mushroom', vietnamese: 'mushroom',
+  bistro: 'mushroom', eatery: 'mushroom', kitchen: 'mushroom',
+  kantine: 'mushroom', gasthaus: 'mushroom', gasthof: 'mushroom',
   // meat
   steak: 'meat', steaks: 'meat', ribeye: 'meat', grill: 'meat', grille: 'meat',
   bbq: 'meat', barbecue: 'meat', smokehouse: 'meat', butcher: 'meat', butchers: 'meat',
@@ -600,6 +612,9 @@ const STAND_KEYWORD_ITEM = {
   steakhouse: 'meat', grillhouse: 'meat', meatery: 'meat',
   taco: 'meat', tacos: 'meat', taqueria: 'meat', burrito: 'meat', gyro: 'meat',
   shawarma: 'meat', schnitzel: 'meat', charcuterie: 'meat',
+  // German meat words: Döner folds to `doner`, so both spellings read.
+  wurst: 'meat', metzgerei: 'meat', fleischerei: 'meat',
+  kebap: 'meat', doner: 'meat',
   // fish
   fish: 'salmon', fishery: 'salmon', seafood: 'salmon', sushi: 'salmon',
   sashimi: 'salmon', fishmonger: 'salmon', oyster: 'bass', chippy: 'bass',
@@ -610,10 +625,13 @@ const STAND_KEYWORD_ITEM = {
   cafe: 'coffee', coffee: 'coffee', espresso: 'coffee', latte: 'coffee',
   mocha: 'coffee', cappuccino: 'coffee', roast: 'coffee', bean: 'coffee',
   beans: 'coffee', brew: 'coffee', tea: 'coffee', teahouse: 'coffee',
+  caffe: 'coffee',   // the Italian spelling (Caffè) folds to exactly this
   bakery: 'coffee', baker: 'coffee', bread: 'coffee', patisserie: 'coffee',
   pastry: 'coffee', cake: 'coffee', bun: 'coffee', donut: 'coffee',
   doughnut: 'coffee', croissant: 'coffee', boulangerie: 'coffee', creperie: 'coffee',
   bagel: 'coffee', muffin: 'coffee', scone: 'coffee', crumb: 'coffee',
+  backerei: 'coffee', konditorei: 'coffee', kuchen: 'coffee', torte: 'coffee',
+  kaffee: 'coffee',
   // A BREWERY is beer, not a coffee brew — an exact key so it never stems
   // down to `brew` and pours the player a cup of coffee.
   brewery: 'potato', brewhouse: 'potato', brewing: 'potato', ale: 'potato',
@@ -622,6 +640,7 @@ const STAND_KEYWORD_ITEM = {
   dairy: 'milk', milk: 'milk', creamery: 'milk', cheese: 'milk',
   cheesemonger: 'milk', yogurt: 'milk', gelato: 'milk', gelateria: 'milk',
   icecream: 'milk', cream: 'milk', scoop: 'milk', sundae: 'milk',
+  eis: 'milk',   // German ice cream — short, but a whole token only
   sorbet: 'milk', custard: 'milk', chocolate: 'milk', creamy: 'milk',
   chocolatier: 'milk', chocolaterie: 'milk', confectionery: 'milk',
   candy: 'milk', sweets: 'milk', fudge: 'milk',
@@ -723,9 +742,18 @@ function standWordItem(tok) {
 // product word and the leftmost venue word, either of which may be null. They
 // come back separately because they sit on OPPOSITE sides of the class guess in
 // the ladder above, so the caller has to be able to tell them apart.
+// FOLD DIACRITICS before tokenizing: the tokenizer splits on non-a-z, so
+// an accent destroys the token it sits in — "Café" reached the ladder as
+// `caf` and "Bäckerei" as `ckerei`, and the existing `cafe` key could never
+// fire. NFD + strip combining marks handles é/ü/å alike; ß doubles to ss so
+// German compounds keep their length. Applied to the NAME only — subclasses
+// arrive from the tiles as plain ASCII.
+function foldDiacritics(s) {
+  return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ß/g, 'ss');
+}
 function standNameItems(name) {
   let specific = null, generic = null;
-  for (const tok of String(name || '').toLowerCase().split(/[^a-z]+/)) {
+  for (const tok of foldDiacritics(name).toLowerCase().split(/[^a-z]+/)) {
     const hit = standWordItem(tok);
     if (!hit) continue;
     if (hit.specific) { specific = hit.item; break; }   // a product word ends the search
@@ -772,7 +800,7 @@ function produceStandFor(o) {
       // Sushi, sashimi and poke counters still serve their fish raw. Match
       // whole dish names, not stems that could mistake a business's name.
       const rawFish = STAND_ITEM_FRAME[item] === STAND_ITEM_FRAME.salmon &&
-        /\b(sushi|sashimi|poke)\b/i.test(o.name || '');
+        /\b(sushi|sashimi|poke)\b/i.test(foldDiacritics(o.name));
       const cooked = STAND_COOKED_CLASSES.has(o.poiClass) && !rawFish && CAMPFIRE_MAKES[item];
       res = { item: cooked || item, frame: STAND_ITEM_FRAME[item] };
     }
