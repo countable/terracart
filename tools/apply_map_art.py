@@ -23,7 +23,7 @@ from preview_map_art import ROOT, colours
 DEST = ROOT/'assets/Objects/Approved'
 MANIFEST = DEST/'manifest.json'
 CONTEXT_KEYS = {'longgrass':'approved_wetland_reeds', 'shrub':'approved_clipped_hedge',
-                'plain-rock':'approved_moss_rocks', 'mushroom':'approved_mushroom_cluster',
+                'plain-rock':'approved_moss_rocks',
                 'stakes':'approved_charred_stakes', 'rubble':'approved_masonry_rubble'}
 
 

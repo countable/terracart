@@ -3774,18 +3774,23 @@ Render.drawObjects = function drawObjects(scene) {
   }
 
   const _plantNow = Date.now();
+  // The nest bush's swing, degrees. 7 until Oct 2026 — at the wildplant's
+  // size that read as a shiver a player could miss; a secret that is never
+  // noticed is no secret. The show's length is the beat's (items.js
+  // NEST_BUSH_BEAT.showMs).
+  const NEST_WIGGLE_DEG = 16;
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, plantedList, (s, item) => {
     const { p, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     s.setDepth(item._z ?? 0);          // screen-row z-order (see the z-order pass)
     // A NEST BUSH (items.js isNestBush — the predicate the harvest pays the
-    // baby off) WIGGLES: three quick swings, a few degrees about its centre,
-    // swelling and dying over the beat's show (nestBushPhase, once every
-    // 10-30 s). Pooled sprites keep their angle, so it is set EVERY frame —
-    // 0 for everything that is not mid-wiggle — or a bush's tilt would ride
-    // onto whatever plant next takes its slot.
+    // baby off) WIGGLES: three quick swings, NEST_WIGGLE_DEG either side of
+    // upright, swelling and dying over the beat's show (nestBushPhase, once
+    // every 10-30 s). Pooled sprites keep their angle, so it is set EVERY
+    // frame — 0 for everything that is not mid-wiggle — or a bush's tilt
+    // would ride onto whatever plant next takes its slot.
     const wig = (p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow) : -1;
-    s.setAngle(wig >= 0 ? Math.sin(wig * Math.PI * 6) * 7 * Math.sin(wig * Math.PI) : 0);
+    s.setAngle(wig >= 0 ? Math.sin(wig * Math.PI * 6) * NEST_WIGGLE_DEG * Math.sin(wig * Math.PI) : 0);
     // Wild flora wears its biome's tint; farmed crops and placed rocks render
     // untinted. Pooled sprites keep their last tint, so set it explicitly
     // every frame. A SHINY plant is not tinted: what marks it is its light

@@ -68,7 +68,9 @@ const CROP_SPRITE = {
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
   // Scale 1.224 keeps the requested 10% mushroom reduction. Surface and
-  // cave mushrooms share this scale; inventory uses the surface frame.
+  // cave mushrooms share this scale; inventory uses the surface frame. These
+  // two are the mushroom's ONLY looks: the red cap above ground, the blue
+  // caps below — the authored surface cluster was dropped in Oct 2026.
   // `caveFrames`: the look of a mushroom spawned UNDERGROUND (worldgen.js
   // spawnCaveMushrooms stamps `_cave` on the wildplant) — the two blue
   // luminous caps on Props.png row 5, cols 17..18 (5*22+17, 5*22+18), picked
@@ -149,9 +151,11 @@ function wildplantVariantHash(p) {
 // These placement looks retain the base crop's harvest and inventory icon.
 // Zone materialLooks chooses authored looks; ordinary wetland-edge grass is
 // stamped by the rasterizer. None adds an item or changes planted crop art.
+// The mushroom has NO row here (Oct 2026, owner's call): the surface cluster
+// look is gone, and a mushroom is the red cap above ground or the blue cave
+// caps below (CROP_SPRITE.mushroom), wherever it grows.
 const WILDPLANT_CONTEXT_ART = {
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
-  cap_cluster: { crop: 'mushroom', sheet: 'approved_mushroom_cluster', custom: true, frame: 0, scale: 1.224 },
 };
 function wildplantSprite(p) {
   const base = CROP_SPRITE[p && p.crop];
@@ -234,8 +238,10 @@ function wildplantNests(crop) { return !!wildplantRule(crop)?.nest; }
 function isNestBush(crop, id) { return id != null && wildplantNests(crop) && isShiny(id, SHINY_RATE.nest); }
 // When a nest bush wiggles: its own BEAT (util.js beatPhase), 10-30 s off its
 // id, the wiggle showing NEST_BUSH_BEAT.showMs once per period. Returns the
-// wiggle's progress 0..1 while it shows, else -1.
-const NEST_BUSH_BEAT = Object.freeze({ salt: 'nest', minMs: 10000, maxMs: 30000, showMs: 900 });
+// wiggle's progress 0..1 while it shows, else -1. showMs was 900 until Oct
+// 2026: with render.js' bigger swing the show now lasts long enough to be
+// caught from the corner of the eye.
+const NEST_BUSH_BEAT = Object.freeze({ salt: 'nest', minMs: 10000, maxMs: 30000, showMs: 1300 });
 function nestBushPhase(id, nowMs) { return beatPhase(id, nowMs, NEST_BUSH_BEAT); }
 // What a pick hands over — the crop itself, unless a row names something else.
 function wildplantOutput(crop) { const r = wildplantRule(crop); return r?.outputs?.[0]?.id || r?.output || crop; }
