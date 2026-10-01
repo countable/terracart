@@ -3915,6 +3915,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Heart overlay — a small 💗 floats above every tame (released_) creature
   // so the player can spot their pets at a glance. Pool is created lazily.
   scene._petHeartPool = scene._petHeartPool || [];
+  const PET_HEART_RISE_PX = 16;
   const tameList = creatureList.filter(item => typeof item.c.id === 'string' && item.c.id.startsWith('released_'));
   let hi = 0;
   for (const item of tameList) {
@@ -3927,10 +3928,10 @@ Render.drawObjects = function drawObjects(scene) {
       scene.creaturesContainer.add(t);
       scene._petHeartPool.push(t);
     }
-    // Float the heart ~16 px above the creature's anchor point. Tame creatures
-    // sit at origin (0.5, 0.9) so anchor.y is roughly the ground; the heart
-    // hovers just above the body.
-    t.setPosition(Math.round(sx), Math.round(sy) - 22).setVisible(true);
+    // Float the heart just above the creature's crown. Tame creatures sit at
+    // origin (0.5, 0.9) so anchor.y is roughly the ground; 22 px left a gap
+    // of sky between pet and heart (owner's call, Oct 2026: closer).
+    t.setPosition(Math.round(sx), Math.round(sy) - PET_HEART_RISE_PX).setVisible(true);
     hi++;
   }
   hidePoolFrom(scene._petHeartPool, hi);
