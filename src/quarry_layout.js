@@ -96,7 +96,7 @@
           for (let yy = y; yy <= b; yy++) for (let xx = x; xx <= r; xx++) {
             if (xx !== cx && (yy === y || xx === x) && hash(xx, yy, 71) < .65) put(xx, yy, 'stone');
           }
-          put(cx, cy, hash(x, y, 41) < .5 ? 'equipment' : 'driftwood');
+          put(cx, cy, hash(x, y, 41) < .5 ? 'copper_rock' : 'driftwood');
           // A barrel at half the patches' far corner (Oct 2026): what the
           // last shift left beside its timber — smashed for a coin or a tool.
           if (hash(x, y, 47) < .5) put(r, b, 'barrel');

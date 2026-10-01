@@ -48,7 +48,7 @@ Complete parking-lane footprints select one of four stable quarry stories:
 | Variant | Layout | Site-wide finds and guards |
 |---|---|---|
 | Destroyed crater | One broken elliptical rim and open bowl scaled to usable coverage; sparse hot vents, one clear approach | Up to two finite Crimson ore deposits |
-| Abandoned quarry | Repeating 3–8-cell rock-and-salvage patches | Two one-off Iron-pick crates; discarded equipment yields one Iron bar each, timber uses the existing wood pickup |
+| Abandoned quarry | Repeating 3–8-cell rock-and-salvage patches | Two one-off Iron-pick crates; copper ore rocks use normal mining, timber uses the existing wood pickup |
 | Strip mine | Repeating 3–8-cell benches with open cuts | Sapphire candidates reduced to one quarter of the former preview rule; no extra finite reward |
 | Ruined stronghold | Whole 5 × 5 foundations with doors and gaps between buildings | Three finite buried X marks and three goblins per site, not per foundation |
 

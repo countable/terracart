@@ -26,6 +26,20 @@
       }
     }
   });
+  test('abandoned quarry: copper ore rocks replace equipment pickups using ordinary mining', () => {
+    const c = context('quarry-abandoned');
+    const out = ZoneDressing.dress(c);
+    const copper = out.objects.filter(o => o.kind === 'mineralrock' && o.yieldTier === 2);
+    assert.gt(copper.length, 0, 'the quarry actually generates copper rocks');
+    for (const rock of copper) {
+      assert.eq(rock.requiredTier, 1);
+      assert.eq(rock.zoneLayer, 'background');
+      assert.falsy(rock.fixedLoot, 'copper follows the normal mining reward path');
+    }
+    assert.falsy(all(out).some(o => o.quarryEquipment));
+    assert.falsy(out.objects.some(o => o.fixedLoot?.id === 'iron_bar'));
+    assert.eq(finds(out).filter(o => o.quarryCrate).length, 2, 'the separate Iron-pick crates remain');
+  });
   test('quarry dressing: global cell scatter ignores component centers and creates no landmark', () => {
     const make = () => {
       const c = context('quarry'); c.grid.fill(WorldGen.T.ROCK);

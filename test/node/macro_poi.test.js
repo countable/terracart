@@ -578,7 +578,7 @@
       /\(L\.stand \|\| L\.macro\) \? 19\.3/,
       /seat: \(o\) => \{ const L = chestLook\(o\); return !L\.stand && !L\.macro && !L\.coin && !L\.wagon; \}/,
       /if \(produceStandFor\(o\) \|\| macroFor\(o\)\) continue;/,
-      /const L = chestLook\(o\); return !L\.equipment && !L\.box && !L\.macro && !L\.barrel && !L\.bike && !L\.coin; \}/,
+      /const L = chestLook\(o\); return !L\.box && !L\.macro && !L\.barrel && !L\.bike && !L\.coin; \}/,
     ]) assert.truthy(re.test(RENDER_SRC), String(re));
   });
 
