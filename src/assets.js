@@ -116,7 +116,10 @@ const ASSETS = {
   coin_pile_26_50: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_26_50.png' },
   coin_pile_51: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_51.png' },
   // Misc 16x16 prop — single boxed crate from the Singles tileset.
-  box:         { kind: 'image', path: 'assets/Objects/Approved/box.png' },
+  box:         { kind: 'image', path: 'assets/Objects/Approved/box.png', onLoad: scene => {
+    const canvas = makeMutedTierOne(scene.textures.get('box').getSourceImage());
+    scene.textures.remove('box'); scene.textures.addCanvas('box', canvas);
+  } },
   // Forest critters. Sheets are 16x16 frames; renderer picks frames as needed.
   // Deer + Crow sheets are 32×32 frames despite living in a "Wilderness"
   // folder that mostly holds 16×16 props. Loading them as 16×16 sliced each
@@ -364,6 +367,21 @@ function recolorEnemyPixels(pixels, palette) {
   }
   return pixels;
 }
+// T1 is deliberately quieter than higher rarities, for both crates and trunks.
+function muteTierOnePixels(pixels) {
+  for (let i = 0; i < pixels.length; i += 4) {
+    const gray = 0.2126 * pixels[i] + 0.7152 * pixels[i + 1] + 0.0722 * pixels[i + 2];
+    for (let c = 0; c < 3; c++) pixels[i + c] = Math.round(gray + (pixels[i + c] - gray) * 0.2);
+  }
+}
+function makeMutedTierOne(source) {
+  const canvas = document.createElement('canvas');
+  canvas.width = source.width; canvas.height = source.height;
+  const ctx = canvas.getContext('2d'); ctx.drawImage(source, 0, 0);
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  muteTierOnePixels(pixels.data); ctx.putImageData(pixels, 0, 0);
+  return canvas;
+}
 // Tier recolors preserve the approved chest's silhouette, shading and alpha.
 // Shared by the game loader and design report; source art stays untouched.
 function makeChestTierSheet(source) {
@@ -375,8 +393,7 @@ function makeChestTierSheet(source) {
     const x = (tier - 1) * size;
     ctx.drawImage(source, 0, 0, size, size, x, 0, size, size);
     const color = CHEST_TIER_COLOR[tier];
-    // T1's exceptional one-time trunk and T5 retain the original gold art.
-    if (color == null || tier === CHEST_TIER_MAX) continue;
+    if (color == null) continue;
     const channels = [color >> 16 & 255, color >> 8 & 255, color & 255];
     const hex = values => '#' + values.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
     const pixels = ctx.getImageData(x, 0, size, size);
@@ -384,6 +401,7 @@ function makeChestTierSheet(source) {
       shadow: hex(channels.map(v => v * 0.3)),
       mid: hex(channels), highlight: hex(channels.map(v => v + (255 - v) * 0.65)),
     });
+    if (tier === 1) muteTierOnePixels(pixels.data);
     ctx.putImageData(pixels, x, 0);
   }
   return canvas;

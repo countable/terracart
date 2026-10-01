@@ -286,11 +286,11 @@ test('mechanics: the castle board holds three jobs', () => {
 
 test('mechanics: chest density and depth determine their tiers', () => {
   assert.eq(chestDensityTier(1), 4, 'the only one of its kind is T4');
-  assert.eq(CHEST_TIER_COLOR[4], 0xc77dff, 'which is the violet gem');
+  assert.eq(CHEST_TIER_COLOR[4], tierBadgeColor(4), 'which shares the rare item badge color');
   assert.eq(CHEST_DENSITY_T1_AT, 25, 'a crowd of twenty-five is T1');
   assert.eq(chestDensityTier(CHEST_DENSITY_T1_AT), 1, '…which is the crate');
   assert.eq(CHEST_TIER_DEPTH_STEP, 2, 'a chest climbs a tier every two levels down');
-  assert.eq(CHEST_TIER_COLOR[CHEST_TIER_MAX], 0xffc23d, 'the deepest chest wears a gold gem');
+  assert.eq(CHEST_TIER_COLOR[CHEST_TIER_MAX], tierBadgeColor(CHEST_TIER_MAX), 'the deepest chest shares the epic badge color');
 });
 
 test('mechanics: crates, barrels, gold pots, courier posts and gates retain their rewards', () => {
