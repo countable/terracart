@@ -242,7 +242,7 @@ function isNestBush(crop, id) { return id != null && wildplantNests(crop) && isS
 // 2026: with render.js' bigger swing the show now lasts long enough to be
 // caught from the corner of the eye.
 const NEST_BUSH_BEAT = Object.freeze({ salt: 'nest', minMs: 10000, maxMs: 30000, showMs: 1300 });
-function nestBushPhase(id, nowMs) { return beatPhase(id, nowMs, NEST_BUSH_BEAT); }
+function nestBushPhase(id, nowMs, revealStartedMs) { return beatPhase(id, nowMs, NEST_BUSH_BEAT, revealStartedMs); }
 // What a pick hands over — the crop itself, unless a row names something else.
 function wildplantOutput(crop) { const r = wildplantRule(crop); return r?.outputs?.[0]?.id || r?.output || crop; }
 // All guaranteed rewards from one harvest; ordinary plants retain their single drop.
@@ -318,6 +318,14 @@ function mineralRockFrame(tier) { return MINERAL_TIERS[tier]?.rockFrame ?? 0; }
 function mineralBarId(tier) { return MINERAL_TIERS[tier]?.barId || null; }
 
 const MINERAL_ICON_SHEET = {
+  telescope: { sheet: 'icon_telescope', frame: 0 },
+  orb: { sheet: 'icon_orb', frame: 0 },
+  goblet: { sheet: 'icon_goblet', frame: 0 },
+  lucky_key: { sheet: 'icon_lucky_key', frame: 0 },
+  shield_wood: { sheet: 'icon_shield_wood', frame: 0 },
+  shield_metal: { sheet: 'icon_shield_metal', frame: 0 },
+  shield_gold: { sheet: 'icon_shield_gold', frame: 0 },
+
   giant_mushroom: { sheet: 'giant_mushroom', frame: 2 },
   // Wood — frame 2 of the 3-variant log sheet (amber bark variant).
   wood:     { sheet: 'wood',      frame: 2 },
@@ -531,6 +539,8 @@ const CROP_NAMES = {
 // produce share a tier. Wild fauna and minerals climb with gem ladder. New
 // items SHOULD get a baseTier; rarity.js defaults missing entries to 1.
 const BASE_TIER = {
+  telescope: 3, orb: 4, goblet: 4, lucky_key: 3,
+  shield_wood: 2, shield_metal: 4, shield_gold: 6,
   // Crops (same tier for seed & produce; the seed id uses the suffix).
   // Spread across all four chest tiers.
   potato: 1, rockfruit: 1,
@@ -635,7 +645,22 @@ const BABY_KINDS = Object.freeze(['chicken', 'cow', 'cat', 'dog', 'rabbit']);
 function babyItemId(kind) { return `baby_${kind}`; }
 function babyItems() { return BABY_KINDS.map(babyItemId); }
 
+// Passive benefits apply while carried, without stacking duplicate items.
+const CARRIED_ITEM_SPEC = {
+  telescope: { peekMultiplier: 2 },
+  lucky_key: { luckBonus: 1 },
+  shield_wood: { projectileReduction: 3 },
+  shield_metal: { projectileReduction: 6 },
+  shield_gold: { projectileReduction: 10 },
+};
 const ITEMS = [
+  { id: 'telescope', name: 'Telescope', kind: 'supply' },
+  { id: 'orb', name: 'Orb', kind: 'magic', reusable: true },
+  { id: 'goblet', name: 'Goblet', kind: 'magic', reusable: true },
+  { id: 'lucky_key', name: 'Lucky Key', kind: 'magic' },
+  { id: 'shield_wood', name: 'Wood Shield', kind: 'supply' },
+  { id: 'shield_metal', name: 'Metal Shield', kind: 'supply' },
+  { id: 'shield_gold', name: 'Gold Shield', kind: 'supply' },
   ...Object.keys(CROP_ROW).map(c => ({
     id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c,
     baseTier: BASE_TIER[c] || 1,
@@ -938,6 +963,11 @@ function fireBurnOutcome(id) {
 // the live scene at click time; items.js loads before those scene dependencies.
 const _CONSUMABLE_MINUTE_MS = 60 * 1000;
 const CONSUMABLE_SPEC = {
+  orb: {
+    immediate: true, reusable: true,
+    verb: 'Use', method: 'useOrb', title: 'Gaze into the orb?',
+    get: 'Hidden things stir beneath its pale light.',
+  },
   spear: {
     damage: 25, immediate: true,
     verb: 'Throw', method: 'useSpear', title: 'Throw the spear?',
@@ -1093,6 +1123,8 @@ function isRiding(save) {
     && ((ITEM_BY_ID[s.id]?.base || s.id) === 'horse'));
 }
 const PRICES = {
+  telescope: 80, orb: 180, goblet: 180, lucky_key: 100,
+  shield_wood: 40, shield_metal: 160, shield_gold: 500,
   // ── Seeds ────────────────────────────────────────────────
   rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
   berry_seed: 2, cress_seed: 1, onion_seed: 2, starfruit_seed: 4,
@@ -1283,6 +1315,13 @@ const ITEM_GUIDE_TIPS = {
 const EGG_HATCH_METERS = 500;
 
 const ITEM_EFFECTS = {
+  telescope: 'Distant branches sharpen into view through its worn brass tube.',
+  orb: 'Hidden things stir beneath its pale light.',
+  goblet: 'A little warmth gathers in its bowl after every sip.',
+  lucky_key: 'Fortune seems to turn with this little golden key.',
+  shield_wood: 'Old arrowheads sleep in its sturdy wooden face.',
+  shield_metal: 'Arrows glance away from its hammered metal face.',
+  shield_gold: 'A golden face stands firm beneath a rain of arrows.',
   egg: 'A tiny heartbeat keeps time with your footsteps.',
   ...Object.fromEntries(BABY_KINDS.map(k => [babyItemId(k),
     'Too small to be left in the bag for long. Set it down on soft ground and let it grow.'])),
@@ -1366,6 +1405,7 @@ const STARTING_ENERGY = 100;
 // Every food's restore was raised 30% (owner, Sep 2026): the numbers below
 // are the rows themselves, and the cooked rows follow through GRILL_ENERGY_MUL.
 const FOOD_ENERGY = {
+  goblet: 5,
   longgrass:  3,
   nut:        10,
   potato:     10,

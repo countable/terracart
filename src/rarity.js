@@ -345,7 +345,9 @@
   function upgradeLuck(save, now = Date.now()) {
     const boon = typeof Shrines !== 'undefined' && Shrines.leverActive(save, 'fortune', now)
       ? Shrines.FORTUNE_LUCK_BONUS : 0;
-    return Math.max(0, Math.min(7, Math.floor(save?.luckUpgrades || 0))) * RARITY_TUNING.luckPerUpgrade + boon;
+    const keyBonus = carriesItem(save, 'lucky_key') ? CARRIED_ITEM_SPEC.lucky_key.luckBonus : 0;
+    return (Math.max(0, Math.min(7, Math.floor(save?.luckUpgrades || 0))) + keyBonus)
+      * RARITY_TUNING.luckPerUpgrade + boon;
   }
   // The wizard's QUANTITY ladder: P(one extra qty-bracket bump on a roll).
   // Linear over its rungs onto qtyLuckMaxP, so the top rung is exactly the

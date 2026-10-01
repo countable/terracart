@@ -3789,7 +3789,7 @@ Render.drawObjects = function drawObjects(scene) {
     // every 10-30 s). Pooled sprites keep their angle, so it is set EVERY
     // frame — 0 for everything that is not mid-wiggle — or a bush's tilt
     // would ride onto whatever plant next takes its slot.
-    const wig = (p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow) : -1;
+    const wig = (p.wildId != null && isNestBush(p.crop, p.wildId)) ? nestBushPhase(p.wildId, _plantNow, scene._orbReveal?.get(p.wildId)) : -1;
     s.setAngle(wig >= 0 ? Math.sin(wig * Math.PI * 6) * NEST_WIGGLE_DEG * Math.sin(wig * Math.PI) : 0);
     // Wild flora wears its biome's tint; farmed crops and placed rocks render
     // untinted. Pooled sprites keep their last tint, so set it explicitly
@@ -4169,7 +4169,7 @@ Render.drawObjects = function drawObjects(scene) {
     // the glint's 0..1 progress; the draw below fades it in and out on it.
     // filteredObj, like the trees: a broken rock is spent and glints no more.
     if (it.o.kind === 'mineralrock' && isGlintRock(it.o)) {
-      const k = glintRockPhase(it.o.id, _sparkNow);
+      const k = glintRockPhase(it.o.id, _sparkNow, scene._orbReveal?.get(it.o.id));
       if (k >= 0) sparkList.push({ dx: it.dx, dy: it.dy, id: it.o.id, glint: k });
     }
   }

@@ -299,8 +299,30 @@ test('armor: every enemy blow uses shared incoming damage before reaching the ba
     'retaliating fauna and ghost touches use shared mitigation');
   assert.truthy(/Combat\.incomingDamage\(this\.save, dmg\)/.test(SCENE_SRC),
     'monster melee uses shared mitigation');
-  assert.truthy(/Combat\.incomingDamage\(this\.save, shot\.damage, shot\.hits(?: \|\| 1)?\)/.test(SCENE_SRC),
+  assert.truthy(/Combat\.incomingProjectileDamage\(this\.save, shot\.damage, shot\.hits(?: \|\| 1)?\)/.test(SCENE_SRC),
     'arrows pass their bundled hit count through shared mitigation');
+});
+
+test('carried shields: strongest shield reduces each projectile, never melee', () => {
+  for (const [id, reduction] of [['shield_wood', 3], ['shield_metal', 6], ['shield_gold', 10]]) {
+    const save = { energy: 100, mode: 'normal', inv: [{ id, count: 2 }] };
+    assert.eq(Combat.incomingProjectileDamage(save, 20), 20 - reduction, id);
+    assert.eq(Combat.incomingDamage(save, 20), 20, 'melee is unaffected');
+    save.inv[0].count = 0;
+    assert.eq(Combat.incomingProjectileDamage(save, 20), 20, 'zero count provides no protection');
+  }
+  const save = { energy: 100, mode: 'normal', inv: ['shield_wood', 'shield_metal', 'shield_gold'].map(id => ({ id, count: 1 })) };
+  assert.eq(Combat.incomingProjectileDamage(save, 20), 10, 'only the strongest owned shield applies');
+  assert.eq(Combat.incomingProjectileDamage(save, 5), 0, 'shield can fully stop a small shot');
+});
+
+test('carried shields: reduction follows potion, bundled armour and difficulty', () => {
+  const save = { energy: 100, mode: 'hard', inv: [{ id: 'shield_metal', count: 1 }],
+    armor: { helmet: { tier: 1 } }, shieldPotionUntil: 2000 };
+  assert.eq(Combat.incomingProjectileDamage(save, 30, 5, 1000),
+    Combat.incomingDamage(save, 30, 5, 1000) - 6, 'one reduction for the entire arrow');
+  save.energy = 0;
+  assert.eq(Combat.incomingProjectileDamage(save, 30, 5, 1000), 0, 'downed stays immune');
 });
 
 // Narrative copy is covered by item_descriptions and books tests.

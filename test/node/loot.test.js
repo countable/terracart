@@ -199,6 +199,28 @@ test('Keen Eye luck: one percent a permanent rung', () => {
   assert.eq(upgradeLuck({}), 0, 'no upgrade, no luck bonus');
 });
 
+test('tier luck: the carried key adds one luck tier and never stacks', () => {
+  assert.eq(upgradeLuck({}), 0);
+  for (const count of [0, 1, 3]) {
+    const save = { inv: [{ id: 'lucky_key', count }], luckUpgrades: 3 };
+    assert.lt(Math.abs(upgradeLuck(save) - (count ? 0.04 : 0.03)), 1e-9,
+      'key and purchased luck combine while duplicate keys do not');
+  }
+});
+
+test('pickReward: a carried key improves treasure rolls like one luck upgrade', () => {
+  let changed = 0;
+  for (let s = 1; s <= 600; s++) {
+    const roll = save => pickReward('treasure:road', save, seeded(s * 2654435761));
+    const base = roll({});
+    const keyed = roll({ inv: [{ id: 'lucky_key', count: 1 }] });
+    const upgraded = roll({ luckUpgrades: 1 });
+    assert.eq(JSON.stringify(keyed), JSON.stringify(upgraded), 'same RNG gets the same luck bonus');
+    if (JSON.stringify(keyed) !== JSON.stringify(base)) changed++;
+  }
+  assert.gt(changed, 0, 'the key actually changes rewards, not just the displayed stat');
+});
+
 test('pickReward: the wizard\'s quantity rungs make loot land in bigger stacks', () => {
   // Statistical smoke test for the wiring, same shape as the ring one above:
   // the top rung must not lower the mean stack size against no rungs at all.

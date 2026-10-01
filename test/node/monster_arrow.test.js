@@ -116,7 +116,7 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
   assert.truthy(/hostileTargets: \[playerTarget,/.test(app), 'the player and neighbours are handed to stepShots');
   const hit = app.slice(app.indexOf('  _shotHitsPlayer(shot) {'), app.indexOf('  _turretFire('));
   assert.truthy(hit.length > 0, '_shotHitsPlayer exists');
-  assert.truthy(/const dmg = Combat\.incomingDamage\(this\.save, shot\.damage, shot\.hits\);/.test(hit),
+  assert.truthy(/const dmg = Combat\.incomingProjectileDamage\(this\.save, shot\.damage, shot\.hits\);/.test(hit),
     'shield expiry and per-hit armour resolve together at impact');
   const body = app.match(/\n  _shotHitsPlayer\(shot\) \{([\s\S]*?)\n  \}\n/)[1];
   assert.truthy(/this\._monsterDmgAccum = \(this\._monsterDmgAccum \|\| 0\)\s*\+ this\._losePlayerEnergy\(dmg, \{ closeShop: true \}\);/.test(body),
