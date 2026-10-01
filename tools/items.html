@@ -33,11 +33,13 @@ const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&
 let catalogue = [];
 const iconScene = () => MapScene.prototype;
 const sourceName = context => context.replace(/^(chest|fixed):/, '').replaceAll('-', ' ');
-function iconHTML(row) {
+const previewIcons = new Map();
+function gameIconHTML(row) {
   const game = iconScene();
   const html = row.gear ? game.gearIconHTML(row.gear.kind, row.gear.slot, row.gear.tier, 40) : game.iconSpanHTML(row.itemId, 40);
   return html.replaceAll('assets/', '../assets/');
 }
+function iconHTML(row) { return previewIcons.get(row.id) || gameIconHTML(row); }
 function sourceHTML(row) {
   const names = [...new Set(row.chests.map(source => sourceName(source.context)))];
   if (!names.length) return '<span class="muted">No chest drops</span>';
@@ -74,6 +76,47 @@ async function prepareWorldIcons() {
     window.ITEM_DATA_URLS[id] = canvas.toDataURL();
   }));
 }
+// Catalogue portraits compare visible art, not transparent sprite-sheet cells.
+// Resolve the game's own icon first, retaining its chosen frame and shiny filter.
+async function preparePreviewIcons(rows) {
+  const images = new Map();
+  const load = url => {
+    if (!images.has(url)) images.set(url, (async () => {
+      const img = new Image(); img.src = url; await img.decode(); return img;
+    })());
+    return images.get(url);
+  };
+  await Promise.all(rows.map(async row => {
+    const template = document.createElement('template');
+    template.innerHTML = gameIconHTML(row);
+    const icon = template.content.firstElementChild;
+    const style = icon?.style;
+    const url = style?.backgroundImage.match(/^url\(["']?(.*?)["']?\)$/)?.[1];
+    if (!url) return;
+    const img = await load(url);
+    const [bgW, bgH] = style.backgroundSize.split(' ').map(parseFloat);
+    const [offsetX = 0, offsetY = 0] = style.backgroundPosition.split(' ').map(parseFloat);
+    const scaleX = img.width / bgW, scaleY = img.height / bgH;
+    const frame = document.createElement('canvas');
+    frame.width = Math.round(parseFloat(style.width) * scaleX);
+    frame.height = Math.round(parseFloat(style.height) * scaleY);
+    const ctx = frame.getContext('2d');
+    ctx.drawImage(img, -(offsetX || 0) * scaleX, -(offsetY || 0) * scaleY,
+      frame.width, frame.height, 0, 0, frame.width, frame.height);
+    const bounds = ItemCatalog.iconBounds(ctx.getImageData(0, 0, frame.width, frame.height));
+    if (!bounds) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 40;
+    const out = canvas.getContext('2d'); out.imageSmoothingEnabled = false;
+    const scale = 36 / Math.max(bounds.width, bounds.height);
+    const width = Math.round(bounds.width * scale), height = Math.round(bounds.height * scale);
+    out.drawImage(frame, bounds.x, bounds.y, bounds.width, bounds.height,
+      Math.round((40 - width) / 2), Math.round((40 - height) / 2), width, height);
+    // Use a dedicated preview cache; gameplay icons keep their own sizing.
+    previewIcons.set(row.id, `<img alt="" width="40" height="40" src="${canvas.toDataURL()}"`
+      + ` style="image-rendering:pixelated;vertical-align:middle;filter:${style.filter || 'none'}">`);
+  }));
+}
 (async () => {
   try {
     await loadGame();
@@ -82,6 +125,7 @@ async function prepareWorldIcons() {
     IconNet.ready = path => ready(path.startsWith('assets/') ? '../' + path : path);
     await prepareWorldIcons();
     catalogue = ItemCatalog.build();
+    await preparePreviewIcons(catalogue);
     const fill = (id, values, label = value => value) => values.forEach(value => el(id).add(new Option(label(value), value)));
     fill('category', [...new Set(catalogue.map(row => row.category))].sort());
     fill('tier', [...new Set(catalogue.map(row => row.tier))].sort((a,b) => a-b), value => 'T'+value);

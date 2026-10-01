@@ -11,16 +11,16 @@ function restore(save, order, address = 3) {
   return house;
 }
 
-test('wizard towers: first is the fifteenth restore and random addresses cannot add story towers', () => {
+test('wizard towers: first is the thirtieth restore and random addresses cannot add story towers', () => {
   const save = saveWith(1, 30);
   const real = Shops.shopType;
   Shops.shopType = () => 'wizard';
   try {
-    for (let i = 1; i < 14; i++) assert.falsy(restore(save, i).id === Houses.wizardTowerIds(save).firstId);
-    const first = restore(save, 14);
+    for (let i = 1; i < 29; i++) assert.falsy(restore(save, i).id === Houses.wizardTowerIds(save).firstId);
+    const first = restore(save, 29);
     assert.eq(Houses.wizardTowerIdentity(save, first), 'first');
     assert.eq(save.restoredHouses[first.id], 'wizard');
-    for (let i = 15; i < 25; i++) {
+    for (let i = 30; i < 51; i++) {
       const next = restore(save, i);
       assert.eq(save.restoredHouses[next.id], 'plain');
       assert.eq(Houses.wizardTowerIdentity(save, next), null);
@@ -28,8 +28,8 @@ test('wizard towers: first is the fifteenth restore and random addresses cannot 
   } finally { Shops.shopType = real; }
 });
 
-test('wizard towers: second requires both restore index25 and lifetime21, then stays fixed', () => {
-  for (const [order, memories, expected] of [[24, 21, 'plain'], [25, 20, 'plain'], [25, 21, 'wizard'], [29, 21, 'wizard']]) {
+test('wizard towers: second requires both restore index51 and lifetime21, then stays fixed', () => {
+  for (const [order, memories, expected] of [[50, 21, 'plain'], [51, 20, 'plain'], [51, 21, 'wizard'], [55, 21, 'wizard']]) {
     const save = saveWith(order, memories), house = restore(save, order);
     assert.eq(save.restoredHouses[house.id], expected, `order ${order}, memories ${memories}`);
     assert.eq(Houses.wizardTowerIdentity(save, house), expected === 'wizard' ? 'second' : null);
@@ -44,12 +44,12 @@ test('wizard towers: second requires both restore index25 and lifetime21, then s
   }
 });
 
-test('wizard towers: an early twenty-sixth restoration remains plain; next eligible restoration relocates', () => {
-  const save = saveWith(25, 20), plain = restore(save, 25);
+test('wizard towers: an early fifty-second restoration remains plain; next eligible restoration relocates', () => {
+  const save = saveWith(51, 20), plain = restore(save, 51);
   save.discovered.next = 1;
-  assert.eq(Houses.preseedRestoreRole(save, 25, plain), 'plain', 'never relabel a restored residence');
+  assert.eq(Houses.preseedRestoreRole(save, 51, plain), 'plain', 'never relabel a restored residence');
   assert.eq(Houses.wizardTowerIds(save).secondId, null);
-  const next = restore(save, 26);
+  const next = restore(save, 52);
   assert.eq(Houses.wizardTowerIdentity(save, next), 'second');
 });
 
@@ -73,16 +73,17 @@ test('wizard towers: legacy extra towers before index25 do not satisfy relocatio
   const save = saveWith(29, 21);
   save.restoredHouses['house:20'] = 'wizard';
   assert.eq(Houses.wizardTowerIds(save).secondId, null);
-  const second = restore(save, 29);
+  assert.eq(save.restoredHouses[restore(save, 29).id], 'plain');
+  const second = restore(save, 51);
   assert.eq(Houses.wizardTowerIdentity(save, second), 'second');
 });
 
 test('wizard towers: missing first tower catches up without treating it as the second', () => {
-  const save = saveWith(27, 30); save.restoredHouses['house:14'] = 'plain';
-  const first = restore(save, 27);
+  const save = saveWith(52, 30); save.restoredHouses['house:14'] = 'plain';
+  const first = restore(save, 52);
   assert.eq(Houses.wizardTowerIdentity(save, first), 'first');
   assert.eq(Houses.wizardTowerIds(save).secondId, null);
-  assert.eq(Houses.wizardTowerIdentity(save, restore(save, 28)), 'second');
+  assert.eq(Houses.wizardTowerIdentity(save, restore(save, 53)), 'second');
 });
 test('wizard towers: stamped first and explicit missing second avoid ledger scans during rendering', () => {
   const save = { wizardTowers: { firstId: 'first', secondId: null },

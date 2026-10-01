@@ -110,15 +110,21 @@
     assert.truthy(/<em>[^<\n]+<\/em>\n“/.test(MemoryStory.HOME.body), 'an action on its own line, then the words');
   });
 
-  test('story neighbours: the wanderer is homeless until the next restoration after you meet them', () => {
+  test('story neighbours: the wanderer is homeless until the second restoration after you meet them', () => {
     const w = person('wanderer');
     const s = scene({ discovered: {}, restoredHouses: { h0: 'blacksmith' } });
     assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.homeless, 'sad on the first meeting even after a restoration they never saw');
     assert.eq(s.save.memoryStory.met[w.id], 1, 'the meeting is stamped with the day\'s count');
     assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.homeless, 'still sad tomorrow');
     s.save.restoredHouses.h1 = 'trader';
-    assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.housed, 'the next restoration gives them a roof');
+    assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.homeless, 'one new roof is not enough');
+    s.save.restoredHouses.h2 = 'plain';
+    assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.housed, 'the second restoration gives them a roof');
+    const reloaded = scene(JSON.parse(JSON.stringify(s.save)));
+    assert.eq(NPC.dialogue(reloaded, w).body, MemoryStory.NEIGHBOURS.wanderer.housed);
     assert.eq(s.save.memoryStory.met[w.id], 1, 'the stamp never moves');
+    const legacy = scene({ restoredHouses: { first: 'plain', second: 'plain' }, memoryStory: { met: { [w.id]: 1 } } });
+    assert.eq(NPC.dialogue(legacy, w).body, MemoryStory.NEIGHBOURS.wanderer.housed, 'legacy child already housed after one new roof keeps the home');
     const later = scene(towerSave(12)); later.save.memoryStory = { met: { [w.id]: 3 } };
     assert.eq(NPC.dialogue(later, w).body, MemoryStory.NEIGHBOURS.wanderer.settled, 'settled by the second act');
     assert.truthy(/· Wanderer$/.test(NPC.dialogue(s, w).title));

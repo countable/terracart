@@ -1355,15 +1355,15 @@ ECONOMY (buying & selling)
  - WRECK-HOUSE RESTORATION: every small house starts as a derelict WRECK with no
    shop function (the starter trailer is exempt — Home works from day one). Tap a
    wreck to restore it for stone (rockfruit): 1 for the first rebuild, one more
-   per house already restored, capped at 20 (items.js wreckRestoreQty).
+   per three houses already restored, capped at 20 (items.js wreckRestoreQty).
    Restoring reveals the house's ROLE, which is frozen into
    save.restoredHouses[id] so it never shifts on later loads.
  - SHOP ROLES are assigned by RESTORE ORDER for the opening run:
-   PRESEED_RESTORE_ROLES (app.js) makes restore 0 the BLACKSMITH, 1 a TRADER,
-   2 plain, 3 a MARKET, and the 15th (order 14) the WIZARD TOWER; a save with
+   PRESEED_RESTORE_ROLES (houses.js) makes restore 0 the BLACKSMITH, 1 a TRADER,
+   2 plain, 3 a MARKET, and the 30th (order 29) the WIZARD TOWER; a save with
    no smithy gets one on its next rebuild. Every other restore falls back to
    the address-derived role (shops.js Shops.shopType): ending 9 = BLACKSMITH
-   (forges gear from bars/gems), 2/6 = MARKET, 1/8 = TRADER (barter-only),
+   (forges gear from bars/gems), 2/4/6 = MARKET, 1/8 = TRADER (barter-only),
    else PLAIN. A MARKET is a THEMED shop: one line each — seed, supply, potion,
    ore, relic or pet — by restore order, priced at the village markup, with a
    cheap re-roll (app.js presentThemedShop / marketTheme). PLAIN houses run
@@ -1389,7 +1389,7 @@ ECONOMY (buying & selling)
    CASTLE_TAX_GOLD ($10) — presentCastleServiceOffer / _castleRest /
    _castleTax in app.js. (The old lifetime-delivery gate is retired; castles
    it opened, save.openedCastles, stay open.)
- - WIZARD TOWER (the 15th restored wreck) spends MEMORIES (save.memories — see
+ - WIZARD TOWER (the 30th restored wreck) spends MEMORIES (save.memories — see
    SHINY VARIANTS & DISCOVERY) on rungs of power (src/wizard.js). Each visit
    offers TWO tracks, seeded so re-opening shows the same pair until a
    purchase:
@@ -1617,10 +1617,10 @@ CONSUMABLES
    below the inventory bar while one is selected — same spot and behaviour as
    the Eat CTA for food. No foot-tapping: tapping your own cell with one
    selected falls through to the normal cell handlers (till / plant / etc.).
- - HONEY: select it and tap Use — sets out a jar that lures wandering farm
+ - SYRUP: select it and tap Use — sets out a jar that lures wandering farm
    animals (chickens / cows) within ~6 cells (30m) toward you (the modal
    reports how many respond). Consumed on use — the animals eat it. (Was the
-   Flute until Sep 2026; old saves fold `flute` into `honey` on load.)
+   Flute until Sep 2026, then Honey; the save id stays `honey`.)
  - BOOK: read on pickup (it never sits in the bag). Each Book is the next page
    of PLAY_TIPS, front to back in curriculum order (save.tipsRead); once the
    course is done, ~50% a random tip, ~50% a directional hint to the nearest

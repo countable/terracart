@@ -74,6 +74,20 @@ Render.objectGroundOffsetPx = function (appearance, textures) {
     * appearance.scl * appearance.scaleYMul;
 };
 
+// Shop rank is assigned at restoration; stock can fall back to another tier.
+Render.shopTierBadge = (scene, house, role) => {
+  if (role !== 'market'
+      || (scene.save.scarecrowShopId === house.id && !scene.save.scarecrowShopUsed)) return null;
+  const tier = scene.marketTheme(house).tier;
+  const t = Math.min(7, Math.max(1, tier));
+  const color = TIER_BADGE_TINT[t] ?? TIER_BY_NUM[t].color;
+  const r = (color >> 16) & 255, g = (color >> 8) & 255, b = color & 255;
+  return {
+    text: `${TIER_BADGE_NAMES[t].toUpperCase()} · T${tier}`,
+    backgroundColor: '#' + color.toString(16).padStart(6, '0'),
+    color: (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? '#1a1612' : '#fff4e0',
+  };
+};
 const COIN_DROP_PX = 13;
 Render.COIN_DROP_PX = COIN_DROP_PX;
 // Low-detail ground sprites show the amount waiting on the map. The stacks
@@ -3509,7 +3523,8 @@ Render.drawObjects = function drawObjects(scene) {
   // signs and pips are dropped: clampTextX would pin the label to the screen
   // edge with no building under it.
   const shopHouses = filteredObj.filter(({ o, wide }) => !wide && o.kind === 'house' && _houseSignText(o));
-  let sli = 0;
+  let sli = 0, sbi = 0;
+  const shopBadges = scene.shopBadgePool || (scene.shopBadgePool = []);
   for (const item of shopHouses) {
     const { o, dx, dy } = item;
     const { sx, sy } = project(dx, dy);
@@ -3536,9 +3551,28 @@ Render.drawObjects = function drawObjects(scene) {
     setColorOnce(tx, _lighten30(_houseSignInk(o)));
     tx.setPosition(Math.round(clampTextX(sx, tx.width, CANVAS_W)), Math.round(sy + 7) + 5);
     fadeLabelOverPlayer(tx, _playerBox);
+    const badge = Render.shopTierBadge(scene, o, _houseRole(o));
+    if (badge) {
+      let chip = shopBadges[sbi];
+      if (!chip) {
+        chip = scene.add.text(0, 0, '', {
+          font: fontMono('bold 8px'), padding: { x: 3, y: 1 },
+        }).setOrigin(0.5, 0).setDepth(50);
+        scene.labelContainer.add(chip);
+        shopBadges.push(chip);
+      }
+      if (chip.text !== badge.text) chip.setText(badge.text).setStyle({
+        color: badge.color, backgroundColor: badge.backgroundColor,
+      });
+      chip.setVisible(true).setPosition(
+        Math.round(clampTextX(sx, chip.width, CANVAS_W)), Math.round(tx.y + tx.height + 1));
+      fadeLabelOverPlayer(chip, _playerBox);
+      sbi++;
+    }
     sli++;
   }
   hidePoolFrom(scene.shopLabelPool, sli);
+  hidePoolFrom(shopBadges, sbi);
 
   // Residential delivery plaques — the wanted-produce wishlist drawn as real
   // item ICONS instead of emoji text. Uses the same mechanism as flashLoot's

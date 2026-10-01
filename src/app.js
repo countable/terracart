@@ -1456,10 +1456,8 @@ const ICON_SHEETS = {
   icon_rope:     { url: 'assets/Icons/Items/Rope.png',                       cols: 1,  srcW: 16,  srcH: 16 },
   // Torch — single 16×16 stick-and-flame icon (hand-drawn, like the rope).
   icon_torch:    { url: 'assets/Icons/Items/Torch.png',                      cols: 1,  srcW: 16,  srcH: 16 },
-  // Trap Disarm Kit — no dedicated art yet; reuses the Extras 'Bags' sheet
-  // (7 cols × 16×16, frame 0 = the plain brown pouch), a reasonable stand-in
-  // for a small carried tool kit. See MINERAL_ICON_SHEET.trap_kit in items.js.
-  icon_kit:      { url: 'assets/Icons/RPG icons/Extras/Bags.png',            cols: 7,  srcW: 112, srcH: 16  },
+  icon_kit:      { url: 'assets/Icons/Items/TrapDisarmKit.png',             cols: 1,  srcW: 16, srcH: 16 },
+  icon_magic_trap: { url: 'assets/Icons/Items/MagicTrap.png',                cols: 1,  srcW: 16, srcH: 16 },
   icon_meat:     { url: 'assets/Icons/Food Icons/Beef.png',                  cols: 2,  srcW: 32,  srcH: 32 },
   // The campfire's dishes — one 16px frame per items.js COOKED_FOODS row,
   // baked from each raw icon by tools/cook_icons.js (ImageMagick).
@@ -9130,7 +9128,7 @@ class MapScene extends Phaser.Scene {
   // Returns true if eaten, false if not edible / nothing selected.
   // Side-effects read their duration and radius from CONSUMABLE_SPEC.
   // === Consumables ============================================
-  // Set out honey (consumed): every wandering producer inside its radius has
+  // Set out syrup (consumed): every wandering producer inside its radius has
   // its home position re-anchored to ~3m from the player so it wanders toward you
   // over the next few seconds. Doesn't teleport — that would feel cheesy.
   // Shared tail for modal-feedback consumables (honey, book): consume the
@@ -9176,8 +9174,8 @@ class MapScene extends Phaser.Scene {
       }
     }
     return this._finishConsumable(
-      '🍯 You set out the honey',
-      lured > 0 ? 'The sweet scent carries. Nearby creatures turn their noses toward you.' : 'The honey gleams in the quiet. Nothing stirs nearby.',
+      '🍯 You set out the syrup',
+      lured > 0 ? 'The sweet scent carries. Nearby creatures turn their noses toward you.' : 'The syrup gleams in the quiet. Nothing stirs nearby.',
     );
   }
 
@@ -9327,26 +9325,27 @@ class MapScene extends Phaser.Scene {
   drinkAntidote() {
     const sel = getSelectedSlot(this.save);
     if (sel?.id !== 'antidote' || !(sel.count > 0)) return false;
-    if (!Conditions.useAntidote(this.save)) {
-      this.flash('No poison — Antidote kept.', this.viewCenterX, this.viewCenterY);
+    if (!Conditions.useAntidote(this.save, this)) {
+      this.flash('No debuffs — Antidote kept.', this.viewCenterX, this.viewCenterY);
       return false;
     }
     this._syncStatusRow();
-    return this._finishConsumable('You drink the Antidote', 'The bitter draught burns your tongue. The purple chill loosens its hold.');
+    return this._finishConsumable('You drink the Antidote', 'The bitter draught burns your tongue. Every affliction falls away.');
   }
 
   drinkElixir() {
     const sel = getSelectedSlot(this.save);
     if (sel?.id !== 'elixir' || !(sel.count > 0)) return false;
     const before = this.save.energy ?? 0;
-    if (!Conditions.useElixir(this.save)) {
+    if (!Conditions.useElixir(this.save, this)) {
       if (before <= 0) this.flash('Elixir cannot revive you.', this.viewCenterX, this.viewCenterY);
-      else this.flash('Energy full — Elixir kept.', this.viewCenterX, this.viewCenterY);
+      else this.flash('No need — Elixir kept.', this.viewCenterX, this.viewCenterY);
       return false;
     }
     this._popEnergy(this.save.energy - before);
     this.updateEnergyDOM();
-    return this._finishConsumable('You drink the Elixir', 'The draught glows against your lips. Strength floods back into your limbs.');
+    this._syncStatusRow();
+    return this._finishConsumable('You drink the Elixir', 'The draught glows against your lips. Strength returns as every affliction falls away.');
   }
 
   // Potion of Speed: a minute of tier-9 boot walking, even without either
@@ -10615,11 +10614,11 @@ class MapScene extends Phaser.Scene {
     const held = (id) => Inventory.count(this.save, id);
     const ingredientCap = (r) => recipeCap(r.cost, held);
     const capOf = (r) => Math.min(ingredientCap(r), Math.max(0, this.invRoomFor(r.id)));
-    const locked = (r) => homeRecipeLocked(this.save, r.id, Difficulty.isHard());
-    const rec = HOME_RECIPES.find(r => r.id === targetId)
-      || HOME_RECIPES.find(r => !locked(r) && capOf(r) >= 1) || HOME_RECIPES[0];
-    const isLocked = locked(rec);
-    const cap = isLocked ? 0 : capOf(rec);
+    const locked = (r) => homeRecipeLocked(this.save, r.id);
+    const recipes = HOME_RECIPES.filter(r => !locked(r));
+    const rec = recipes.find(r => r.id === targetId)
+      || recipes.find(r => capOf(r) >= 1) || recipes[0];
+    const cap = capOf(rec);
     const outName = itemName(rec.id);
     const costLine = (n) => rec.cost.map(c => {
       const ok = held(c.id) >= c.qty * n;
@@ -10631,8 +10630,8 @@ class MapScene extends Phaser.Scene {
       cost: costLine(n),
       canAfford: cap >= n && n >= 1,
     });
-    const idx = HOME_RECIPES.indexOf(rec);
-    const n = HOME_RECIPES.length;
+    const idx = recipes.indexOf(rec);
+    const n = recipes.length;
     const pageTo = (r) => () => this.presentHomeCraft(sx, sy, r.id);
     this.showOfferModal({
       kind: 'craft', kindIcon: this._homeKindIcon(),
@@ -10640,9 +10639,7 @@ class MapScene extends Phaser.Scene {
       title: 'Make something at home:',
       cancelLabel: 'Later',
       get: fmt(1).get,
-      blurb: isLocked
-        ? `🔒 Find a ${outName} out in the world to learn it.`
-        : (ITEM_EFFECTS[rec.id] ? `✦ ${ITEM_EFFECTS[rec.id]}` : undefined),
+      blurb: ITEM_EFFECTS[rec.id] ? `✦ ${ITEM_EFFECTS[rec.id]}` : undefined,
       cost: costLine(1),
       canAfford: cap >= 1,
       acceptLabel: 'Craft',
@@ -10650,8 +10647,8 @@ class MapScene extends Phaser.Scene {
       quantity: cap >= 1 ? { min: 1, max: cap, initial: 1, format: fmt } : undefined,
       pager: {
         index: idx, count: n, showIndex: false,
-        onPrev: pageTo(HOME_RECIPES[(idx - 1 + n) % n]),
-        onNext: pageTo(HOME_RECIPES[(idx + 1) % n]),
+        onPrev: pageTo(recipes[(idx - 1 + n) % n]),
+        onNext: pageTo(recipes[(idx + 1) % n]),
       },
       onAccept: (n) => {
         const q = Math.max(1, n ?? 1);

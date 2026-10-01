@@ -10,12 +10,12 @@
   // HUD chip in the status row under the HUD (app.js _syncStatusRow) — one row for
   // mechanics, copy and colour. A new status is a row here, never a timer of
   // its own.
-  //   poison  — a purple slime's bite: 1 energy every 2 s for a minute; only
-  //             an Antidote (useAntidote) draws it out.
+  //   poison  — a purple slime's bite: 1 energy every 2 s for a minute; an
+  //             Antidote or Elixir draws it out.
   //   burning — fire on the body (owner, Oct 2026): a lit Torch's melee blow
   //             (foes), a campfire stood in or lava, foe and player alike —
-  //             1 a second for 5 s, then it goes out ON ITS OWN. No cure
-  //             needed, none sold; a fresh contact restarts the 5 s.
+  //             1 a second for 5 s, then it goes out ON ITS OWN. An Antidote
+  //             or Elixir also clears it; fresh contact restarts the 5 s.
   const DEFINITIONS = Object.freeze({
     poison: Object.freeze({ durationMs: 60000, intervalMs: 2000, energyLoss: 1,
       label: 'Poison', tint: 0x9fdc8c, flicker: false, ink: '#d9b1ff', bg: '#22132ee8' }),
@@ -86,12 +86,31 @@
     return { ticks, lost: before - (save.energy ?? 0), expired };
   }
   // Item effects return a refusal without mutating inventory or the food gate.
-  function useAntidote(save) { return cure(save, 'poison'); }
-  function useElixir(save) {
+  function hasDebuffs(save, scene) {
+    return Object.keys(DEFINITIONS).some(id => active(save, id))
+      || (scene?._pinnedUntil || 0) > performance.now();
+  }
+  // Conditions are harmful; positive timed effects live in Buffs and survive.
+  // A trap's temporary pin is scene-local. Clearing it does not remove the
+  // trap or protect against fresh contact with fire or hazardous terrain.
+  function clearDebuffs(save, scene) {
+    let cleared = false;
+    for (const id of Object.keys(DEFINITIONS)) {
+      if (cure(save, id)) cleared = true;
+    }
+    if ((scene?._pinnedUntil || 0) > performance.now()) {
+      scene._pinnedUntil = 0;
+      cleared = true;
+    }
+    return cleared;
+  }
+  function useAntidote(save, scene) { return clearDebuffs(save, scene); }
+  function useElixir(save, scene) {
     const max = Energy.maxEnergy(save);
-    if (!(save.energy > 0) || save.energy >= max) return false;
+    if (!(save.energy > 0) || (save.energy >= max && !hasDebuffs(save, scene))) return false;
     Energy.set(save, max, max);
+    clearDebuffs(save, scene);
     return true;
   }
-  root.Conditions = { DEFINITIONS, FLICKER_MS, conditionTintOn, normalize, active, apply, cure, tick, useAntidote, useElixir };
+  root.Conditions = { DEFINITIONS, FLICKER_MS, conditionTintOn, normalize, active, apply, cure, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

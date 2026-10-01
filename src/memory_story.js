@@ -315,7 +315,7 @@ const MemoryStory = (() => {
     const research = save?.memoryStory?.introDone === true || save?.memoryStory?.act3Started === true;
     let topic;
     if (!s.seen.introduction) topic = 'introduction';
-    else if (restored > 0 && !s.seen.mending) topic = 'mending';
+    else if (restored >= Houses.STORY_RESTORES.earlyMending && !s.seen.mending) topic = 'mending';
     else if (research) topic = ['peaceful_lives', 'hunting_accounts', 'other_planets', 'frost_queen', 'breaking_belief']
       .find(id => !s.seen[id]);
     else topic = ['labels', 'odd_remark'].find(id => !s.seen[id]);
@@ -376,7 +376,7 @@ const MemoryStory = (() => {
         if (typeof persistSave === 'function') persistSave(scene.save);
         return [HOME.body, wardenWelcome()];
       }
-      if (!repaired) return wardenWelcome();
+      if (repaired < Houses.STORY_RESTORES.earlyMending) return wardenWelcome();
       if (total(scene.save) >= 9 && act(scene.save) === 1) return RUMOUR;
       if (act(scene.save) >= 2) return survivorLine(scene.save);
       return FIRST_ROOF + (archaeologistState(scene.save).seen.introduction
@@ -391,17 +391,20 @@ const MemoryStory = (() => {
     if (c.role === 'scout' && act(scene.save) >= 2) return survivorLine(scene.save);
     return null;
   }
-  // The wanderer is homeless until the NEXT restoration after the player
-  // first meets them: the first talk stamps the restoration count of the day
-  // (save.memoryStory.met[id]); one more roof after that and they are housed.
+  // The child needs two new roofs after meeting. Freeze the target per child;
+  // legacy children who already qualified for housing keep their home.
   function wandererLine(scene, c) {
     const s = state(scene.save), mended = Object.keys(scene.save.restoredHouses || {}).length;
     if (!s.met || typeof s.met !== 'object') s.met = {};
-    if (!Number.isFinite(s.met[c.id])) {
-      s.met[c.id] = mended;
+    if (!s.childHomeAt || typeof s.childHomeAt !== 'object') s.childHomeAt = {};
+    if (!Number.isFinite(s.childHomeAt[c.id])) {
+      const met = Number.isFinite(s.met[c.id]);
+      if (!met) s.met[c.id] = mended;
+      s.childHomeAt[c.id] = met && mended > s.met[c.id]
+        ? s.met[c.id] + 1 : s.met[c.id] + Houses.STORY_RESTORES.childHome;
       if (typeof persistSave === 'function') persistSave(scene.save);
     }
-    if (mended <= s.met[c.id]) return NEIGHBOURS.wanderer.homeless;
+    if (mended < s.childHomeAt[c.id]) return NEIGHBOURS.wanderer.homeless;
     return act(scene.save) >= 2 ? NEIGHBOURS.wanderer.settled : NEIGHBOURS.wanderer.housed;
   }
   // The believer follows the tower itself (Houses.wizardTowerIds and the

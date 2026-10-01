@@ -38,7 +38,7 @@ test('Orrin: high memories, towers, books and legacy revealed flag cannot bypass
 });
 
 test('Orrin: actual tower introduction opens research one acknowledged topic at a time', () => {
-  const save = { restoredHouses: { home: 'plain' }, memoryStory: { introDone: true } };
+  const save = { restoredHouses: { home: 'plain', second: 'plain' }, memoryStory: { introDone: true } };
   const topics = ['introduction', 'mending', 'peaceful_lives', 'hunting_accounts', 'other_planets', 'frost_queen', 'breaking_belief'];
   const heard = [];
   topics.forEach((topic, i) => {
@@ -99,9 +99,11 @@ test('Orrin: mending and discoveries change later welcomes without inventing plo
   for (let i = 0; i < 6; i++) answer(save);
   assert.eq(talk(save).topic, 'familiar');
   save.restoredHouses.a = 'plain';
+  assert.eq(talk(save).topic, 'familiar', 'one roof does not unlock early mending');
+  save.restoredHouses.b = 'plain';
   assert.eq(talk(save).topic, 'mending');
   answer(save);
-  save.restoredHouses.b = 'plain';
+  save.restoredHouses.c = 'plain';
   assert.includes(talk(save).body, 'Another roof');
   answer(save);
   save.discovered.flower = 1;
@@ -130,8 +132,21 @@ test('Orrin: a remembered question changes a later research welcome', () => {
   assert.includes(talk(save).body, 'I kept your question');
 });
 
+test('Orrin: early mending needs two roofs and acknowledged legacy topics stay complete', () => {
+  const save = { restoredHouses: { one: 'plain' }, memoryStory: { wardenMet: true } };
+  assert.includes(MemoryStory.npcDialogue({ save }, { role: 'warden' }), NPC.WARDEN_LINE);
+  save.restoredHouses.two = 'plain';
+  assert.includes(MemoryStory.npcDialogue({ save }, { role: 'warden' }), 'Lamplight');
+  const legacy = { restoredHouses: { one: 'plain' }, memoryStory: {
+    archaeologist: { visits: 2, seen: { introduction: { choice: 'listen' }, mending: { choice: 'listen' } } },
+  } };
+  assert.eq(talk(legacy).topic, 'labels');
+  legacy.restoredHouses.two = 'plain';
+  assert.eq(talk(legacy).topic, 'labels', 'the mending topic never replays');
+});
+
 test('Orrin: warden reputation follows meeting him and preserves the opening instructions', () => {
-  const save = { restoredHouses: { home: 'plain' }, memoryStory: { wardenMet: true } };
+  const save = { restoredHouses: { home: 'plain', second: 'plain' }, memoryStory: { wardenMet: true } };
   const c = { role: 'warden' };
   const before = MemoryStory.npcDialogue({ save }, c);
   assert.falsy(/Orrin/.test(before));

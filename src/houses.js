@@ -35,12 +35,16 @@ const FORT_UNLOCK_WOOD_STEP = 6;
 (function (root) {
   'use strict';
 
+  const STORY_RESTORES = Object.freeze({ firstTower: 30, secondTower: 52, earlyMending: 2, childHome: 2 });
+  // Old unstamped saves retain the tower identities their original schedule gave them.
+  const LEGACY_FIRST_TOWER_INDEX = 14, LEGACY_SECOND_TOWER_INDEX = 25;
+
   // Pre-seeded house roles by RESTORE ORDER (0-based). Rather than skinning the
   // two nearest houses as blacksmith/trader up front, a wreck reveals its role
   // from the order the player restores it: the opening stretch is a fixed
-  // tutorial run (blacksmith, trader, house, market) and the 15th
+  // tutorial run (blacksmith, trader, house, market) and the 30th
   // restore reveals the first wizard tower. After 21 lifetime memories, the
-  // next restore at index 25 or later reveals his second location. Other
+  // next restore at index 51 or later reveals his second location. Other
   // addresses keep their shop variety without producing extra wizard towers. 'plain' === a plain residential house (no shop). The chosen
   // role is frozen into save.restoredHouses[id] at restore time so it never
   // shifts on later loads.
@@ -49,7 +53,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     1:  'trader',
     2:  'plain',
     3:  'market',
-    14: 'wizard',   // the 15th restored wreck is a wizard tower
+    [STORY_RESTORES.firstTower - 1]: 'wizard',
   };
 
   // Wooden-tool blacksmith. The house closest to Home (the starter shop)
@@ -99,8 +103,8 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     if (typeof stored === 'string') return stored;
     if (!hasBlacksmith(save)) return 'blacksmith';
     const towers = wizardTowerIds(save);
-    if (!towers.firstId && order >= 14) return 'wizard';
-    if (towers.firstId && !towers.secondId && order >= 25
+    if (!towers.firstId && order >= STORY_RESTORES.firstTower - 1) return 'wizard';
+    if (towers.firstId && !towers.secondId && order >= STORY_RESTORES.secondTower - 1
       && Object.keys(save.discovered || {}).length >= 21) return 'wizard';
     if (Object.prototype.hasOwnProperty.call(PRESEED_RESTORE_ROLES, order)
       && PRESEED_RESTORE_ROLES[order] !== 'wizard') return PRESEED_RESTORE_ROLES[order];
@@ -116,10 +120,10 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     const stamped = save.wizardTowers || {};
     if (stamped.firstId && Object.prototype.hasOwnProperty.call(stamped, 'secondId')) return { firstId: stamped.firstId, secondId: stamped.secondId };
     const entries = Object.entries(save.restoredHouses || {});
-    const firstId = stamped.firstId || (entries[14]?.[1] === 'wizard'
-      ? entries[14][0] : entries.find(([, role]) => role === 'wizard')?.[0]) || null;
+    const firstId = stamped.firstId || (entries[LEGACY_FIRST_TOWER_INDEX]?.[1] === 'wizard'
+      ? entries[LEGACY_FIRST_TOWER_INDEX][0] : entries.find(([, role]) => role === 'wizard')?.[0]) || null;
     const secondId = stamped.secondId || (firstId && Object.keys(save.discovered || {}).length >= 21
-      ? entries.find(([id, role], order) => order >= 25 && role === 'wizard' && id !== firstId)?.[0]
+      ? entries.find(([id, role], order) => order >= LEGACY_SECOND_TOWER_INDEX && role === 'wizard' && id !== firstId)?.[0]
       : null) || null;
     return { firstId, secondId };
   }
@@ -138,7 +142,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     if (house?.id != null && save.restoredHouses?.[house.id] === 'wizard') {
       const id = String(house.id);
       if (!towers.firstId) towers.firstId = id;
-      else if (!towers.secondId && id !== towers.firstId && order >= 25
+      else if (!towers.secondId && id !== towers.firstId && order >= STORY_RESTORES.secondTower - 1
         && Object.keys(save.discovered || {}).length >= 21) towers.secondId = id;
     }
     save.wizardTowers = towers;
@@ -180,7 +184,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   }
 
   // Restoration cost: stone (rockfruit — wild residential debris, gatherable
-  // bare-handed): 1 for the first rebuild, one more per house already
+  // bare-handed): 1 for the first rebuild, one more per three houses already
   // restored, capped at 20 (wreckRestoreQty in items.js). A whole price, so
   // the dialog's quote is the accept's charge. Themed shops and plain
   // residential alike rebuild from the same masonry.
@@ -322,7 +326,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   }
 
   root.Houses = {
-    PRESEED_RESTORE_ROLES,
+    PRESEED_RESTORE_ROLES, STORY_RESTORES,
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith, preseedRestoreRole,
     wizardTowerIds, wizardTowerIdentity, registerWizardTower,
     shopCharmMul,

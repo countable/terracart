@@ -22,7 +22,7 @@
       buildShopOffer() { return { canAfford: () => true, consume: () => { this.save.money -= 5; } }; },
       showOfferModal(m) { modal = m; },
       invRoomFor(id) { return Inventory.roomFor(this.save, id); },
-      buildingFlavorTitle: () => '', iconSpanHTML: () => '', flashLoot() {},
+      shopTierBadgeHTML: () => '', buildingFlavorTitle: () => '', iconSpanHTML: () => '', flashLoot() {},
       _themedStockCount: () => 1,
     };
     method('_presentThemedItem').call(scene, 0, 0, { id: 'shop' }, () => { deals++; }, 'potato');
@@ -43,7 +43,7 @@
         return { canAfford: () => true, consume: () => { consumed++; this.save.money -= 5; } };
       },
       showOfferModal(m) { modal = m; },
-      buildingFlavorTitle: () => '', iconSpanHTML: () => '', flashLoot() {},
+      shopTierBadgeHTML: () => '', buildingFlavorTitle: () => '', iconSpanHTML: () => '', flashLoot() {},
       flash(t) { this.denial = t; }, _themedStockCount: () => 1,
     };
     method('_presentThemedItem').call(scene, 0, 0, { id: 'shop' }, () => { deals++; }, 'potato');

@@ -370,7 +370,7 @@ class SceneShops {
       this.presentTraderOffer(sx, sy, house, recordDeal);
       return;
     }
-    // Wizard tower (the 15th restored wreck) — no longer a relic vendor. The
+    // Wizard tower (the first story tower) — no longer a relic vendor. The
     // mage sees power in the player's memories and spends them on his gifts.
     // See presentWizardOffer.
     if (shopType === 'wizard') {
@@ -1052,6 +1052,12 @@ class SceneShops {
     return Shops.themedStock(theme, tier).length;
   }
 
+  shopTierBadgeHTML(house) {
+    if (this.houseShopRole(house) !== 'market') return '';
+    const { tier } = this.marketTheme(house);
+    return `<div style="margin-top:6px">Shop tier ${tier} · ${tierBadgeHTML(tier)}</div>`;
+  }
+
   _presentThemedItem(sx, sy, house, recordDeal, id) {
     const item = ITEM_BY_ID[id];
     const offer = this.buildShopOffer(id, itemValue(id), { house });
@@ -1063,6 +1069,7 @@ class SceneShops {
       ...NPC.offerArt(this, house),
       cancelLabel: 'Later',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
+      blurb: this.shopTierBadgeHTML(house),
       cost: offer.label,
       canAfford: offer.canAfford() && this.invRoomFor(id) >= buyQty,
       onAccept: () => {
@@ -1095,7 +1102,7 @@ class SceneShops {
   presentRelicOffer(sx, sy, offer, recordDeal, house, allowReroll = false, rerollOpts = {}) {
     const name = gearName(offer.kind, offer.slot, offer.tier);
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
-    const blurb = gearDef(offer.kind, offer.slot)?.blurb || '';
+    const blurb = (gearDef(offer.kind, offer.slot)?.blurb || '') + this.shopTierBadgeHTML(house);
     // Flower charm halves the asking price for the charm window (floor $1).
     const price = Math.max(1, Math.ceil(offer.price * this.shopCharmMul(house)));
     this.showOfferModal({

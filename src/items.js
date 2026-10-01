@@ -420,17 +420,11 @@ const MINERAL_ICON_SHEET = {
   // widens the player's own light for a few minutes (useTorch in app.js →
   // the `torch` row of Lighting.KINDS).
   torch:         { sheet: 'icon_torch', frame: 0 },
-  // Trap Disarm Kit — no dedicated hand-drawn art exists yet, so this reuses
-  // frame 0 (the plain brown leather pouch) of the Extras 'Bags' sheet: a
-  // small tool kit reads reasonably as a carried pouch, and it isn't the
-  // frame the `bags` RELIC (backpack capacity) draws from — that's a
-  // separate per-tier gear-icon path (gearAssetPath), not this ICON_SHEETS
-  // lookup, so the two uses of the same source PNG never collide on screen.
+  // Cutters from the db32 item library; the tool removes traps, not a backpack.
   trap_kit:      { sheet: 'icon_kit', frame: 0 },
-  // Magic Trap — the same Bags sheet as the disarm kit, frame 3: the rose
-  // pouch, so the snare you SET and the kit that SHUTS one read as a pair and
-  // the pink says magic before the glow on the ground does.
-  magic_trap:    { sheet: 'icon_kit', frame: 3 },
+  // The existing sprung-jaw drawing in the placed magic trap's magenta.
+  // Inventory shows the mechanism; placed traps remain a discreet ground scuff.
+  magic_trap:    { sheet: 'icon_magic_trap', frame: 0 },
   // MiniWorld spear: frame 0 points right; frame 1 points down.
   spear:        { sheet: 'icon_spear', frame: 0 },
   // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
@@ -576,11 +570,11 @@ const BASE_TIER = {
   cow: 5,
   // Consumables
   antidote: 1, elixir: 6,
-  honey: 2, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
+  honey: 3, book: 2, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_potion: 3,
-  dragon_powder: 3,
+  dragon_powder: 4,
   // Revival: getting up where you fell instead of walking Home at a crawl.
   // A tenth of a bar is a T2 emergency; half a bar is a T5 find.
   revive_potion: 2, resurrection_potion: 5,
@@ -589,7 +583,7 @@ const BASE_TIER = {
   // Growth Powder is a T2 farm utility beside the potions, and Shadow sits with
   // it: three minutes of not being hunted is a way to WALK AWAY from a fight, the
   // same shape as the reach/speed/shield potions it now shares a tier with.
-  // Frost is the T3 fight-changer beside the dragon — it is the one that turns
+  // Frost is the T3 fight-changer before the T4 dragon — it is the one that turns
   // a fight you are already in.
   growth_powder: 2, shadow_powder: 2, frost_powder: 3,
   // Unique jewelry is intrinsically magical, never a metal rung.
@@ -598,8 +592,8 @@ const BASE_TIER = {
   rope: 2,
   // Trap Disarm Kit — a T2 utility beside rope: situational, not a staple.
   trap_kit: 2,
-  // Magic Trap — the tier-2 cave supply the goblin trapper also drops.
-  magic_trap: 2,
+  // Magic Trap — a tier-3 supply sold by shops and dropped by goblin trappers.
+  magic_trap: 3,
   // Spear — a T1 supply like the torch (owner, Oct 2026: it was T2, so the
   // first Supply Shop could not sell it): one thrown shot, a staple of the
   // first cave trips, so the initial supply shop stocks it beside the torch.
@@ -704,10 +698,10 @@ const ITEMS = [
   { id: 'starflower',  name: 'Starflower',    kind: 'produce', crop: 'starflower' },
   // Consumables — used on yourself via the Use button that appears below the
   // inventory bar while one is selected (syncConsumableButton in app.js).
-  // Honey: set it out to lure wandering chickens + cows within 30m toward
+  // Syrup (legacy save id honey): set it out to lure wandering chickens + cows within 30m toward
   //        you (eaten, so it's consumed — hence not a flute any more).
   // Book:  reveals a play tip or a directional hint to a nearby chest.
-  { id: 'honey', name: 'Honey', kind: 'supply' },
+  { id: 'honey', name: 'Syrup', kind: 'supply' },
   // dropWeight 3: a Book is THE documentation (see play_tips.js), so it is
   // the one consumable that has to turn up often enough to be read. At an even
   // draw it was one of seven T2 consumables — a sliver of an already-thin
@@ -963,7 +957,7 @@ const CONSUMABLE_SPEC = {
   book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: 'An elder has left a few words for you.' },
   honey: {
     radiusM: 30,
-    verb: 'Use', method: 'useHoney', title: 'Set out the honey?',
+    verb: 'Use', method: 'useHoney', title: 'Set out the syrup?',
     get: 'Sweetness draws curious noses through the grass.',
   },
   reach_potion: {
@@ -974,13 +968,14 @@ const CONSUMABLE_SPEC = {
   },
   antidote: {
     verb: 'Drink', method: 'drinkAntidote', title: 'Drink the Antidote?',
-    get: 'The bitter draught washes the poison away.',
-    usable: scene => Conditions.active(scene.save, 'poison'),
+    get: 'The bitter draught clears every affliction.',
+    usable: scene => Conditions.hasDebuffs(scene.save, scene),
   },
   elixir: {
     verb: 'Drink', method: 'drinkElixir', title: 'Drink the Elixir?',
-    get: 'Warmth fills your weary body to the brim.',
-    usable: scene => scene.save.energy > 0 && scene.save.energy < scene.getMaxEnergy(),
+    get: 'Warmth fills your body, washing every affliction away.',
+    usable: scene => scene.save.energy > 0
+      && (scene.save.energy < scene.getMaxEnergy() || Conditions.hasDebuffs(scene.save, scene)),
   },
   vigor_potion: {
     energy: 40,
@@ -1152,7 +1147,7 @@ const PRICES = {
   revive_potion: 40,   // T2 — get up where you fell with a tenth of the bar
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
   thunder_potion: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
-  dragon_powder: 120,  // T3 — 1 min of dragon: tier-8 boot walking + 2× damage
+  dragon_powder: 120,  // T4 — 1 min of dragon: tier-8 boot walking + 2× damage
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
   shadow_powder: 110,  // T2 — 3 min of monsters ignoring you entirely (priced for the
                        //      effect, not the tier: the T2 butterfly is 100 too)
@@ -1161,7 +1156,7 @@ const PRICES = {
   stealth_ring: 0, invisibility_ring: 0, regen_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft); crafted from 5 long grass, so not a money pump
   trap_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
-  magic_trap:    40,   // T2 — one tier-2 shot and a staff beat's hold on one foe; a revive's worth
+  magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
   spear:         5,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a staple like the torch (owner, Oct 2026: 40 was far too dear for one throw)
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
@@ -1269,6 +1264,7 @@ const ITEM_GUIDE_TIPS = {
   trap_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
   torch: 'Light a torch before descending. By its flame, my hand could reach farther into the dark.',
   spear: 'I lash a sharp stone to a straight branch and call it a spear. It flies once. I carry a second.',
+  honey: 'I simmered the berries into syrup and left a little by the gate. The hens followed its scent home.',
   rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',
   flowers: 'Brought the shopkeeper flowers. A softer voice, a kinder price. I had meant only to give her something lovely.',
   slime: 'The slime shares my doorstep now. When I grind the blue stone, it waits beside me. Brann would disapprove. I have decided not to ask him.',
@@ -1324,8 +1320,8 @@ const ITEM_EFFECTS = {
   honey: 'Its sweet scent draws curious noses through the grass.',
   book: 'An elder’s faded words wait beneath the worn cover.',
   reach_potion: 'The far horizon trembles close to the rim of this bottle.',
-  antidote: 'Its bitter scent cuts through the sickly taste of poison.',
-  elixir: 'A full day’s warmth seems to glow inside the glass.',
+  antidote: 'A bitter draught to wash every affliction away.',
+  elixir: 'Restoring warmth washes every affliction from your body.',
   vigor_potion: 'A little bottled warmth for weary limbs.',
   raven_potion: 'A pale wing brushes the inside of the glass.',
   thunder_potion: 'A distant storm rolls beneath the stopper.',
@@ -1573,18 +1569,18 @@ const RELIC_DEFS = {
 };
 
 // Stone a wreck costs to restore, given how many the player has already
-// restored: WRECK_RESTORE_BASE_QTY for the first, one more
-// (WRECK_RESTORE_PER_HOUSE) for each one behind it, capped at
-// WRECK_RESTORE_MAX_QTY — 1, 2, 3 … 20, 20. A whole price, so nothing rolls:
+// restored: WRECK_RESTORE_BASE_QTY for the first, one more per three
+// completed restorations, capped at WRECK_RESTORE_MAX_QTY:
+// 1, 1, 1, 2, 2, 2 … 20. A whole price, so nothing rolls:
 // the dialog's quote is the accept's charge by construction. `key` (the house
 // id) is accepted for the callers that pass it and no longer read. Lives with
 // the catalog so the Book tip can quote it (books.test re-derives it).
 const WRECK_RESTORE_BASE_QTY  = 1;
-const WRECK_RESTORE_PER_HOUSE = 1;
+const WRECK_RESTORE_HOUSES_PER_STEP = 3;
 const WRECK_RESTORE_MAX_QTY   = 20;
 function wreckRestoreExact(restoredCount) {
   return Math.min(WRECK_RESTORE_MAX_QTY,
-    WRECK_RESTORE_BASE_QTY + WRECK_RESTORE_PER_HOUSE * (restoredCount || 0));
+    WRECK_RESTORE_BASE_QTY + Math.floor((restoredCount || 0) / WRECK_RESTORE_HOUSES_PER_STEP));
 }
 function wreckRestoreQty(restoredCount, key) {   // eslint-disable-line no-unused-vars
   return wreckRestoreExact(restoredCount);
@@ -2046,13 +2042,13 @@ const HOME_RECIPES = [
   { id: 'rope',      cost: [{ id: 'longgrass', qty: 5 }] },
   // Four stones knock a snare's jaw shut for good.
   { id: 'trap_kit',  cost: [{ id: 'rockfruit', qty: 4 }] },
+  { id: 'honey',     cost: [{ id: 'berry', qty: 2 }] }, // Syrup; keep the saved item id
 ];
-// On HARD, Home can only craft what the player has first FOUND out in the
-// world — a chest, a pickup, a drop — never bought, bartered, forged or
-// crafted. save.foundWild is that ledger (app.js addToInv writes it for every
-// grant not flagged `notWild`). Easy crafts everything from the start.
-function homeRecipeLocked(save, id, hard) {
-  return !!hard && !(save && save.foundWild && save.foundWild[id]);
+// Spears are known from the start in every difficulty. Other Home recipes
+// are learned by first finding their output in the wild, never by buying,
+// bartering, forging or crafting it. addToInv owns the foundWild ledger.
+function homeRecipeLocked(save, id) {
+  return id !== 'spear' && !save?.foundWild?.[id];
 }
 // How many times a recipe can be made from what is held: the fewest times
 // any one ingredient covers its share. `count(id)` reads the bag. An empty

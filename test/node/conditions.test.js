@@ -55,15 +55,16 @@
     assert.falsy(Combat.monster('cave_slime')?.condition);
     assert.truthy(/lost > 0 && !isTame && Combat.isEnemy\(c\) && m.condition/.test(SCENE_SRC));
   });
-  test('Elixir: upgraded maximum refill leaves cooldown and poison intact; refuses full/downed', () => {
+  test('Elixir: upgraded maximum refill clears debuffs, keeps cooldown; refuses healthy full/downed', () => {
     const save = { energy: 10, vigourUpgrades: 3, eaten: ['potato'], eatReadyAt: 12345 };
     Conditions.apply(save, 'poison');
     assert.truthy(Conditions.useElixir(save));
     assert.eq(save.energy, Energy.maxEnergy(save));
     assert.gt(save.energy, STARTING_ENERGY);
     assert.eq(save.eatReadyAt, 12345);
-    assert.truthy(Conditions.active(save, 'poison'));
+    assert.falsy(Conditions.active(save, 'poison'));
     assert.falsy(Conditions.useElixir(save));
+    Conditions.apply(save, 'poison');
     Energy.set(save, 0);
     assert.falsy(Conditions.useElixir(save));
     assert.eq(save.energy, 0);
@@ -84,6 +85,25 @@
       if (id === 'antidote') Conditions.apply(save, 'poison');
       else Energy.set(save, 1);
       assert.truthy(call());
+      assert.eq(consumed, 1);
+    }
+  });
+  test('cleansing item methods release a trap pin at full energy and consume once', () => {
+    for (const [method, id] of [['drinkAntidote', 'antidote'], ['drinkElixir', 'elixir']]) {
+      const body = SCENE_SRC.match(new RegExp('\\n  ' + method + '\\(\\) \\{([\\s\\S]*?)\\n  \\}\\n'))[1];
+      const fn = new Function('getSelectedSlot', 'Conditions', body);
+      const save = { energy: 1, inv: [{ id, count: 2 }] };
+      Energy.set(save, Energy.maxEnergy(save));
+      let consumed = 0, synced = 0;
+      const scene = { save, _pinnedUntil: performance.now() + 3000,
+        flash() {}, _syncStatusRow() { synced++; }, _popEnergy() {}, updateEnergyDOM() {},
+        _finishConsumable() { consumed++; return true; } };
+      const call = () => fn.call(scene, s => s.inv[0], Conditions);
+      assert.truthy(call());
+      assert.eq(scene._pinnedUntil, 0);
+      assert.eq(consumed, 1);
+      assert.eq(synced, 1);
+      assert.falsy(call());
       assert.eq(consumed, 1);
     }
   });
@@ -125,7 +145,7 @@
 })();
 
 // BURNING (owner, Oct 2026): fire on the body — the second row of the one
-// status table. 1 a second for 5 s, out on its own, no cure; and the row owns
+// status table. 1 a second for 5 s, out on its own or cleansed; the row owns
 // its look (tint, HUD chip) for the player and every burning foe alike.
 (function () {
   test('burning: five ticks of one over five seconds, then it goes out on its own', () => {
@@ -146,14 +166,44 @@
     assert.eq(save.conditions.burning.remainingMs, 5000);
     assert.eq(Conditions.tick(save, 300).ticks, 1, 'the tick already due still lands on time');
   });
-  test('burning: no antidote needed, and the Antidote does not touch it', () => {
-    const save = { energy: 50 };
+  test('Antidote: burning alone is cured, all simultaneous debuffs clear, buffs and energy remain', () => {
+    const save = { energy: 50, shieldPotionUntil: Date.now() + 100000,
+      speedPotionUntil: Date.now() + 100000, boonUntil: { fortune: Date.now() + 100000 } };
+    const scene = { _shadowUntil: Date.now() + 100000 };
     Conditions.apply(save, 'burning');
-    assert.falsy(Conditions.useAntidote(save), 'nothing to cure');
-    assert.truthy(Conditions.active(save, 'burning'));
-    Conditions.apply(save, 'poison');
+    assert.truthy(CONSUMABLE_SPEC.antidote.usable({ save }));
     assert.truthy(Conditions.useAntidote(save));
-    assert.truthy(Conditions.active(save, 'burning'), 'the fire burns on');
+    assert.falsy(Conditions.active(save, 'burning'));
+    for (const id of Object.keys(Conditions.DEFINITIONS)) Conditions.apply(save, id);
+    scene._pinnedUntil = performance.now() + 3000;
+    const buffsBefore = JSON.stringify(Buffs.active(save, scene, 0));
+    assert.truthy(Conditions.useAntidote(save, scene));
+    for (const id of Object.keys(Conditions.DEFINITIONS)) assert.falsy(Conditions.active(save, id));
+    assert.eq(scene._pinnedUntil, 0);
+    assert.eq(JSON.stringify(Buffs.active(save, scene, 0)), buffsBefore);
+    assert.eq(Conditions.tick(save, 60000).ticks, 0);
+    assert.eq(save.energy, 50, 'no healing or delayed damage');
+    assert.falsy(Conditions.useAntidote(save, scene), 'nothing left to cure');
+  });
+  test('cleansing potions: pin alone enables use; Elixir at full energy cleanses and keeps buffs', () => {
+    for (const id of ['antidote', 'elixir']) {
+      const save = { energy: 1, shieldPotionUntil: Date.now() + 100000, eatReadyAt: 12345 };
+      Energy.set(save, Energy.maxEnergy(save));
+      const scene = { save, _pinnedUntil: performance.now() + 3000,
+        getMaxEnergy: () => Energy.maxEnergy(save), _slowHere: 'tar' };
+      assert.truthy(CONSUMABLE_SPEC[id].usable(scene), `${id} is usable for pin alone`);
+      const method = id === 'antidote' ? 'useAntidote' : 'useElixir';
+      assert.truthy(Conditions[method](save, scene));
+      assert.eq(scene._pinnedUntil, 0);
+      assert.eq(scene._slowHere, 'tar', 'environmental hazards remain in place');
+      assert.eq(save.eatReadyAt, 12345);
+      assert.truthy(save.shieldPotionUntil > Date.now());
+      assert.falsy(CONSUMABLE_SPEC[id].usable(scene));
+      for (const condition of Object.keys(Conditions.DEFINITIONS)) Conditions.apply(save, condition);
+      assert.truthy(CONSUMABLE_SPEC[id].usable(scene), `${id} is usable at full energy with conditions`);
+      assert.truthy(Conditions[method](save, scene));
+      assert.falsy(Conditions.hasDebuffs(save, scene));
+    }
   });
   test('status rows own their look: label, tint and HUD inks, poison steady and fire flickering', () => {
     for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
