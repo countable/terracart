@@ -1,6 +1,6 @@
 DRAGON HOOD — THE STORY (basis document)
 ================================================================================
-Status: v3 (Oct 2026), dragon speech and the tower attack added.
+Status: v4 (Oct 2026), the first bare-handed labour beat added.
 This file is the story bible the game is written against. Where it disagrees with copy in src/
 (memory_story.js, play_tips.js, books, item text), THIS FILE wins and the copy
 is to be brought in line. Numbers (which memory, which restoration, which cave
@@ -185,6 +185,25 @@ ACT 1 — THE MENDING (memories 0–8, before the tower)
   rumour of a wise man "who may know why the old roads feel familiar".
   The player learns: the world was burned; a dragon did it; a wizard might
   help. Nothing says what the player is.
+  THE WORK OF MANY HANDS: the first time the Hood finishes substantial
+  labour without a tool, survivors stop to watch. In the tree-felling scene,
+  the Hood braces against the trunk and tears through it with bare hands.
+  The tree gives way before the neighbours have finished fetching an axe.
+  "That would have taken us all morning," one says. Another looks at the
+  Hood's empty hands. "Where is your tool?" The Hood has no answer.
+  This is astonishing speed and strength beside ordinary human labour;
+  tools still make the Hood's work quicker. The hood stays raised. Bark,
+  movement and shadow keep the hands ambiguous: a suggestion of claws may
+  be noticed, but no unmistakable dragon anatomy is shown before memory 30.
+  The vignette follows successful work and depicts what the player actually
+  did. A tree falls only if that job felled a tree; other bare-handed work
+  needs a matching scene. It is witnessed once, without turning every job
+  into another revelation. Survivors know the Hood is unusually strong;
+  they do not learn what the Hood is.
+  TOOL STORIES: the existing axe illustration belongs to the first actual
+  use of an owned axe. Bare-handed work has its own story and must not mark
+  the axe story as seen. The same rule applies to other depicted tools: the
+  pictured tool must be the one used for the action.
 
 ACT 2 — THE LESSONS (the first tower, memories 9–21)
   The fifteenth restoration is Tim's tower. It is sealed until nine memories.

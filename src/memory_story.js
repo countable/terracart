@@ -136,9 +136,9 @@ const MemoryStory = (() => {
   ];
   const DRAGON_DECLARATION = 'I am a dragon, and so are you. We are the alpha species of the stars, and this planet is mine. You are my sword, nearly restored. Collect your fire breath on level 9 of the dungeon from the demons there.';
   const REVEAL = [
-    { art: 'wizard_dragon', title: 'The shape behind the mask', body: 'The old man’s outline unfolds into wings and red scales. His true form fills the tower.\n\nThe fire above the ruined town returns to you. It left your own throat. The Warmonger was you.' },
+    { art: 'wizard_dragon', title: 'The shape behind the mask', body: 'The old man stays seated. His voice loses its warmth. “This shape is all I have left,” he says. “Do not mistake it for what I am.”\n\nThe fire above the ruined town returns to you. It left your own throat. The Warmonger was you.' },
     { art: 'wizard_dragon', title: 'His planet', body: '“' + DRAGON_DECLARATION + '”' },
-    { art: 'cave_first', title: 'Act III · The fire below', body: 'You burned this world at his command. In the battle you were nearly killed, losing your dragon form and your memory. He has been choosing what to give back.\n\nYour fire waits below. What you do with it need not be his choice.' },
+    { art: 'cave_first', title: 'Act III · The fire below', body: 'You burned this world at his command. Your dragon form and your memory were taken from you. He has been choosing what to give back.\n\nYour fire waits below. What you do with it need not be his choice.' },
   ];
   function state(save) {
     const s = save.memoryStory && typeof save.memoryStory === 'object'

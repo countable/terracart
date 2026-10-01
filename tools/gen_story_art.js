@@ -35,6 +35,8 @@ const STYLE =
   'Warm golden-hour palette: amber and dusty-orange sky with visible dithering, olive-green ' +
   'foliage, brown earth, cream highlights. Retro SNES-era pixel clusters, crisp clusters, no ' +
   'anti-aliased smooth gradients. Wide landscape composition, gentle melancholy turning to hope. ' +
+  'The player survivor always wears a raised brown hood concealing hair and face; NPCs keep their own clothing. ' +
+  'All currency coins are jade green with a star mark, never yellow gold. ' +
   'No text, no letters, no UI, no watermark.';
 
 // SCENE ART — the standard every dialog painting is made to (modal_shell.js
@@ -123,12 +125,12 @@ const PIECES = {
     'arcing down, the soil darkening with damp, morning light.'),
   tool_catch:
     scene(
-    'A farmer gently lowers a bug net over a startled chicken in long grass, the net hoop ' +
-    'about to settle, playful tension, warm light.'),
+    'A hooded survivor sweeps a bug net through tall grass. The target is completely hidden ' +
+    'outside the frame: no animal or creature is visible. A first attempt, warm light.'),
   tool_sword:
     scene(
-    'A farmer raises a simple iron sword against a lunging green slime in a meadow, the ' +
-    'first determined swing, dynamic but cozy, warm light.', 'glint'),
+    'A hooded survivor swings a simple iron sword toward an unseen opponent outside the frame. ' +
+    'No enemy or creature is visible. A determined swing in a meadow, warm light.'),
   tool_shoot:
     scene(
     'A farmer draws a short bow and looses an arrow across a meadow, the string still ' +
@@ -195,7 +197,7 @@ const PIECES = {
   delivery_first:
     scene(
     'On the doorstep of a cottage at dusk, a farmer hands over a woven basket brimming with ' +
-    'vegetables to a delighted elderly neighbour; a few gold coins glint in the exchange. Warm doorway light.', 'wary'),
+    'vegetables to a delighted elderly neighbour; a few jade-green star coins glint in the exchange. Warm doorway light.', 'wary'),
   shiny_first:
     scene(
     'A young farmer crouches in a meadow at dusk, gazing with wonder at a brilliant four-point ' +
@@ -229,8 +231,8 @@ const PIECES = {
     'survivor. Relief, home.'),
   home_sell: scene(
     'A rough wooden crate brimming with fresh produce - potatoes, onions, apples and a few ' +
-    'carrots - set out on the grass beside a small camper trailer at golden hour, a little ' +
-    'hand-painted wooden sign propped against it showing a gold coin, meaning for sale.'),
+    'wheat bundles - set out on the grass beside a small camper trailer at golden hour, a little ' +
+    'hand-painted wooden sign propped against it showing a jade-green star coin, meaning for sale.'),
   cave_first: scene(
     'A young survivor holding a lantern steps down worn stone stairs into a cave, the cold dark ' +
     'closing in beyond the small circle of lantern light, glints of ore in the rough walls, a ' +
@@ -244,7 +246,7 @@ const PIECES = {
     scene(
     'A grand stone castle gatehouse, its drawbridge down, a cream pennant banner being raised on ' +
     'a short pole above the gate. A grey-moustached castellan in a tabard bows to a young survivor. ' +
-    'Torches lit, the vault door ajar with gold beyond.', 'mural'),
+    'Torches lit, the vault door ajar with jade-green star coins beyond.', 'mural'),
   fort_unseal:
     scene(
     'A stout stone frontier fort, its heavy timber gates swinging open for the first time in years, ' +
@@ -260,7 +262,7 @@ const PIECES = {
   kind_quest: scene(
     'A castle notice board by a stone gate, pinned with three parchment quests and a wax seal, a torch burning beside it at dusk.', 'claws'),
   kind_treasure: scene(
-    'An old wooden treasure chest, lid thrown open, a glowing gem and a few gold coins inside, nothing spilled on the ground, dusty light falling on it in a ruined cottage.'),
+    'An old wooden treasure chest, lid thrown open, a glowing gem and a few jade-green star coins inside, nothing spilled on the ground, dusty light falling on it in a ruined cottage.'),
   kind_supplies: scene(
     'Two sturdy wooden supply crates on the grass beside a small camper trailer, lids pried open to show seed packets, a trowel and a lantern. Morning of a new start.'),
   kind_trail: scene(
@@ -302,7 +304,7 @@ const PIECES = {
   memory_grip: scene(
     'Close view of two hands beside a smoky battlefield at dusk: an old ring-heavy hand in a starry sleeve grips a younger wrist and turns it, the younger hand following the turn. Tattered banners and distant smoke behind, hazy at the edges like a memory.'),
   wizard_dragon: scene(
-    'The top room of a crooked wizard tower at night: an old mage\'s starry robe slides to the floor as his shape unfolds into a huge red-scaled dragon, wings pressing against the rafters, the violet window light turning ember-red, a spellbook and crystal ball knocked from the desk. Awe and dread.'),
+    'An old HUMAN wizard in a blue starry robe sits coldly at a desk in his tower, white beard, violet window light and a candle. He speaks an unsettling truth without changing form. No dragon, wings, scales or magical transformation.'),
   kind_slots: scene(
     'A rickety wooden slot machine with three spinning reels showing fruit and a star, set in the courtyard of a stone fort, torches lit, coins on a barrel.'),
   kind_farm: scene(
@@ -310,7 +312,7 @@ const PIECES = {
   kind_energy: scene(
     'A young survivor sitting against a tree eating an apple, a small lightning-bolt glint of energy in the air above them, a meadow at golden hour.'),
   kind_rest: scene(
-    'An exhausted survivor slumped asleep against a rock at the mouth of a cave, a guttering torch beside them, the cave opening small and in the distance behind.', 'shadow'),
+    'An exhausted survivor slumped asleep against a rock in a dark neutral resting place, a guttering torch beside them. No cave opening or location-specific scenery.', 'shadow'),
   kind_use: scene(
     'An open leather satchel on a tree stump, a potion flask, a coil of rope and a small book spilling out, soft light on it.'),
   kind_fire: scene(
@@ -355,11 +357,11 @@ const PIECES = {
     'A long cobbled road at dusk lined with old iron lantern posts, some glowing warm amber ' +
     'light, others dark and unlit, stretching toward a village.'),
   street_overgrown: scene(
-    'A residential lane swallowed by vines and wildflowers, cracked asphalt pushed up by roots, ' +
-    'faint blue-glowing mushrooms along the verge, dusk light.'),
+    'A clear residential lane lined with maple saplings and mature maples, roots confined to verges, ' +
+    'red cream-spotted mushrooms with faint blue glow along the verge, dusk light.'),
   street_orchard: scene(
-    'A quiet lane running beneath old fruit trees heavy with fruit, windfall apples and pears ' +
-    'scattered on the ground below, warm late-afternoon light.'),
+    'A quiet lane running beneath apple trees bearing red apples alternating with mature maples, no fallen fruit ' +
+    'on the clear road, warm late-afternoon light.'),
   street_pilgrim: scene(
     'Close and large in frame: a tall mossy stone waystone carved with a faint worn sigil, ' +
     'standing right beside a worn dirt road, a well-trodden footpath curving past it toward a ' +
@@ -374,11 +376,11 @@ const PIECES = {
     'An old trade road, deep wheel ruts worn into it, a broken wagon long abandoned at the ' +
     'verge, canvas torn and a wheel splintered, nobody about, dusk light.'),
   street_barricade: scene(
-    'A stake-and-log barricade built across half a wide road, crates and barrels stacked behind ' +
+    'Stake-and-log defences standing entirely on the verges of a clear wide road, crates and barrels behind ' +
     'it, an abandoned watch post, dusk light.'),
   street_toadstool: scene(
-    'A quiet residential lane at dusk, its verges crowded with clusters of pale glowing ' +
-    'mushrooms and toadstools casting a soft blue-green glow, the lane leading away into the dark.'),
+    'A quiet residential lane at dusk, its verges crowded with clusters of red cream-spotted ' +
+    'mushrooms and toadstools casting a soft blue-green glow beneath orange lamps, the lane clear and leading away into the dark.'),
 
   // Scenic places (src/scenic.js): the viewpoint's story panel and the first
   // scenic-path walk.
@@ -389,6 +391,14 @@ const PIECES = {
   street_scenic: scene(
     'A winding gravel footpath along a calm shoreline promenade, old lamp posts glowing ' +
     'soft sea-green, reeds and a low sea wall beside it, gulls far off over the water, dusk light.'),
+  barehand_tree: scene("Hooded survivor fells a tree with bare hands; two survivors watch in awe; no tool, no revealed dragon traits."),
+  barehand_work: scene("Hooded survivor works barehanded in grass and soil; two villagers watch in awe; hands partly concealed; no tool or specific harvest."),
+  street_golden: scene("A clear village road with many jade-green star coins scattered on BOTH verges, orange street lamps, warm dusk."),
+  street_snare: scene("A single closed chest surrounded by a ring of iron jaw traps on the verge beside a clear road, warm orange lamps. Nothing blocks the road."),
+  zone_shore: scene("An old shrine on a grassy rise overlooking a sandy beach and open sea, reeds, no enclosing forest. Peaceful sacred ground."),
+  street_greenway: scene("An inland walking path bordered by meadow and trees, green-glowing street lamps. No coast or sea wall."),
+  street_parkpath: scene("A quiet inland park path through mature trees and grass, green-glowing lamps. No coast or sea wall."),
+  kind_inn: scene("An ordinary innkeeper offers a mug from a modest inn doorway to a survivor whose raised brown hood hides all hair and face. No castle or steward."),
 };
 
 function loadKey() {

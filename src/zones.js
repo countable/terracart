@@ -160,7 +160,7 @@
   // ── The kinds ────────────────────────────────────────────────────────────
   // `code` is the Uint8 kind code and the rarity rank (ties go to the higher).
   // `terrain` names the WorldGen.T code the halo paints. `story` is the
-  // _storySplashOnce key AND the painting stem (assets/art/<story>.webp).
+  // _storySplashOnce key and default painting stem; `art` overrides the painting.
   // `attracts` { species: p }: the FAUNA ATTRACTOR column (scene_creatures.js
   // _seatFaunaOnFavouriteGround) — each of the tile's own spawns of that
   // species moves onto the zone's ground with probability p. Not an add.
@@ -173,7 +173,7 @@
       body: 'Broken stone fills the old lanes. Blue crystals glint among the rubble.',
       flash: 'A quarry of broken stone.',
       keeper: ['The lanes here were paved once. The fire cracked the stone and the blue crystals grew in the cracks. Mind the loose footing.'] },
-    beach: { code: 4, R: 80, terrain: 'GROVE', story: 'zone_grove', title: 'The shore',
+    beach: { code: 4, R: 80, terrain: 'GROVE', story: 'zone_grove', art: 'zone_shore', title: 'The shore',
       body: 'An old shrine stands above the sand.', flash: 'The shore opens ahead.',
       keeper: ['The shrine above the sand was here before the fire, and the sea never noticed the fire at all. I sweep the salt off its step each morning.',
         'The tide keeps its own hours. Whatever the Warmonger burned, it never learned to burn water.'] },

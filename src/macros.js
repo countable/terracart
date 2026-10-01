@@ -368,10 +368,10 @@
   }
 
   // ── Per-kind dialog dressing: the painting each opens on and its label ────
-  // Paintings are existing scene pieces (no macro has its own yet): the
-  // closest subject each. `modal` is a MODAL_KINDS key.
+  // Default paintings for each service; training also selects by discipline.
+  // `modal` is a MODAL_KINDS key.
   const KIND_DIALOG = {
-    inn:         { label: 'Inn',         modal: 'shop',     art: 'castle_favour' },
+    inn:         { label: 'Inn',         modal: 'shop',     art: 'kind_inn' },
     chapel:      { label: 'Chapel',      modal: 'treasure', art: 'zone_stones' },
     apothecary:  { label: 'Apothecary',  modal: 'shop',     art: 'kind_shop' },
     scriptorium: { label: 'Scriptorium', modal: 'shop',     art: 'book_read' },
@@ -385,6 +385,14 @@
     if (kind === 'training' && o) return `${Combat.TRAINING_KINDS[trainingKindFor(o)].label} Training`;
     return KIND_DIALOG[kind]?.label || null;
   }
+  function stallArt(kind, o) {
+    if (kind === 'training' && o) {
+      const discipline = trainingKindFor(o);
+      if (discipline === 'ranged') return 'tool_shoot';
+      if (discipline === 'magic') return 'tool_staff';
+    }
+    return KIND_DIALOG[kind]?.art;
+  }
 
   // The first-tap story (app.js _storySplashOnce, key `macro:<kind>`): what
   // the place is, told once. No numbers — those are on the dialog and in the
@@ -397,7 +405,7 @@
     guildhall:   { title: 'A guildhall', body: 'A bounty hangs by the door. Something nearby has worn out its welcome.' },
     curio:       { title: 'A curio hall', body: 'Empty shelves await your finds. The keeper remembers every gift.' },
     sundries:    { title: 'A sundries shop', body: 'A coil of rope, a dry torch. Small comforts for the road ahead.' },
-    training:    { title: 'A training hall', body: 'Practice blades knock together. There is strength to be learned here.' },
+    training:    { title: 'A training hall', body: 'The master watches each movement. There is strength to be learned here.' },
   };
 
   root.Macros = {
@@ -414,6 +422,6 @@
     curioNextMilestone, curioMilestoneKey, curioMissing, curioDonate,
     TRAINING_LESSON_PRICE, TRAINING_DRILL_PRICE, TRAINING_MEMORIES_PER_LEVEL, trainingKindFor, lessonMemoriesAt, lessonMemories, foldLegacyTraining, stallLabel, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
     buyLesson, buyDrill, drillLeftMs,
-    KIND_DIALOG, KIND_STORY,
+    KIND_DIALOG, KIND_STORY, stallArt,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

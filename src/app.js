@@ -3177,7 +3177,7 @@ class MapScene extends Phaser.Scene {
       this._zoneStoryHere = zrow.story;
       const seenZ = this.save.storySeen && this.save.storySeen[zrow.story];
       if (!seenZ) {
-        this._storySplashOnce(zrow.story, { art: zrow.story, title: zrow.title, body: zrow.body });
+        this._storySplashOnce(zrow.story, { art: zrow.art || zrow.story, title: zrow.title, body: zrow.body });
         return;
       }
       const lastZ = (this._streetFlashAt = this._streetFlashAt || {});
@@ -8326,6 +8326,9 @@ class MapScene extends Phaser.Scene {
   // shot loosed, the watering landing) - a dry tap that never runs the
   // action tells no story, and a busy screen just asks again next time.
   _toolActionStory(action) {
+    const slot = { till: 'hoe', chop: 'axe', dig: 'pick', water: 'can',
+      catch: 'bugnet', sword: 'sword', staff: 'staff', shoot: 'bow' }[action];
+    if (!slot || !(this.save.relics?.[slot]?.tier > 0)) return;
     const TOOL_STORIES = {
       till:  { art: 'tool_till',  title: 'First furrow',
                body: 'The soil turns.' },
@@ -8335,10 +8338,10 @@ class MapScene extends Phaser.Scene {
                body: 'Stone cracks a strike at a time.' },
       water: { art: 'tool_water', title: 'A good soak',
                body: 'Damp soil wakes the seed.' },
-      catch: { art: 'tool_catch', title: 'In the net',
+      catch: { art: 'tool_catch', title: 'A careful sweep',
                body: 'Gentle does it.' },
       sword: { art: 'tool_sword', title: 'Steel out',
-               body: 'Your first swing lands true.' },
+               body: 'You raise your blade and commit to your first swing.' },
       staff: { art: 'tool_staff', title: 'First spark',
                body: 'A spark gathers at the tip. Hold steady, and the staff answers with light.' },
       shoot: { art: 'tool_shoot', title: 'Loose!',
@@ -8346,6 +8349,19 @@ class MapScene extends Phaser.Scene {
     };
     const entry = TOOL_STORIES[action];
     if (entry) this._storySplashOnce('tool:' + action, entry);
+  }
+
+  // Completion-only: remember the equipment the job began with, even if
+  // another reward changes the inventory while its wheel is running.
+  _barehandWorkStory(tool, startingTier, isTree = false) {
+    if ((this.depth ?? 0) > 0 || startingTier > 0 || !['axe', 'pick', 'hoe'].includes(tool)) return;
+    this._storySplashOnce('work:barehands', {
+      art: isTree ? 'barehand_tree' : 'barehand_work',
+      title: 'Without a tool',
+      body: isTree
+        ? 'The tree falls. Nearby survivors stare at your empty hands. Work that would leave them bent double is already done. You pull your hood closer.'
+        : 'The backbreaking work is already done. Nearby survivors stare: you finished with your bare hands, faster than they could manage with tools. You pull your hood closer.',
+    });
   }
 
   // Shiny-find fanfare — a richer cousin of flashJackpot in warm gold. Headline
@@ -10054,9 +10070,9 @@ class MapScene extends Phaser.Scene {
   presentMacro(sx, sy, o, macro = macroFor(o)) {
     if (!macro || document.getElementById('offer-modal')) return;
     const kind = macro.kind;
-    if (this._macroStory(kind, () => this.presentMacro(sx, sy, o, macro))) return;
+    if (this._macroStory(kind, () => this.presentMacro(sx, sy, o, macro), o)) return;
     const d = Macros.KIND_DIALOG[kind];
-    const dress = { kind: d.modal, kindLabel: Macros.stallLabel(kind, o) || d.label, art: d.art };
+    const dress = { kind: d.modal, kindLabel: Macros.stallLabel(kind, o) || d.label, art: Macros.stallArt(kind, o) };
     switch (kind) {
       case 'inn':         return this._presentInn(sx, sy, o, dress);
       case 'apothecary':  return this._presentStallOffer(sx, sy,
@@ -10073,11 +10089,11 @@ class MapScene extends Phaser.Scene {
   }
   // The first-visit story of a macro kind, once per save (_storySplashOnce).
   // True when it opened now; `onDismiss` runs when it is tapped away.
-  _macroStory(kind, onDismiss) {
+  _macroStory(kind, onDismiss, o) {
     const st = Macros.KIND_STORY[kind];
     const d = Macros.KIND_DIALOG[kind];
     if (!st || !d) return false;
-    return this._storySplashOnce('macro:' + kind, { art: d.art, title: st.title, body: st.body, onDismiss });
+    return this._storySplashOnce('macro:' + kind, { art: Macros.stallArt(kind, o), title: st.title, body: st.body, onDismiss });
   }
 
   // INN: rest to full for coin, once a UTC day per inn (Macros.innRest — the

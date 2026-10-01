@@ -681,12 +681,12 @@ test('grove variants: dense geometry preserves existing cells without a neighbou
 test('zones: each kind has a shipped story painting, and every line fits', () => {
   for (const [kind, row] of Object.entries(Z.ZONE_KINDS)) {
     assert.eq(row.story, `zone_${kind === 'beach' ? 'grove' : kind === 'quarry' ? 'stones' : kind}`, `${kind}: key`);
-    assert.truthy(new RegExp(`^  ${row.story}: 'data:image/webp`, 'm').test(ART_THUMBS_SRC), `${row.story} has its painting`);
+    assert.truthy(new RegExp(`^  ${row.art || row.story}: 'data:image/webp`, 'm').test(ART_THUMBS_SRC), `${kind} has its painting`);
     assert.lte(row.flash.length, MAP_MSG_MAX, `${kind}: the map line fits`);
     assert.truthy(row.title && row.body, `${kind}: title and body`);
   }
   assert.truthy(/drags/.test(Z.ZONE_KINDS.tar.body) && !/grips/.test(Z.ZONE_KINDS.tar.body), 'tar drags, it does not grip');
-  assert.truthy(/this\._storySplashOnce\(zrow\.story, \{ art: zrow\.story, title: zrow\.title, body: zrow\.body \}\)/.test(SCENE_SRC),
+  assert.truthy(/this\._storySplashOnce\(zrow\.story, \{ art: zrow\.art \|\| zrow\.story, title: zrow\.title, body: zrow\.body \}\)/.test(SCENE_SRC),
     'the feet tick tells it, painted by its own stem');
 });
 
@@ -736,7 +736,8 @@ test('beach anchors: source tags choose the theme without beach-name heuristics'
     assert.eq(Z.anchorOf(tags).kind, 'beach');
   }
   assert.eq(Z.anchorOf({ class: 'park', subclass: 'park', name: 'Pirate Beach Park' }).kind, 'grove');
-  assert.eq(Z.ZONE_KINDS.beach.story, 'zone_grove', 'reuse a shipped painting until beach art exists');
+  assert.eq(Z.ZONE_KINDS.beach.story, 'zone_grove', 'retain the saved story ledger');
+  assert.eq(Z.ZONE_KINDS.beach.art, 'zone_shore', 'show the shrine above the sand');
 });
 
 // Real source data tags these places as parks while their sand polygons carry

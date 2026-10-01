@@ -288,7 +288,7 @@
     // way's SCENIC CLASS (Scenic.rowFor — shore → promenade, greenway,
     // park → parkpath). The columns are the street rows' own: `lampGlow` (the
     // lamps on the scenic metres shed it — lampGlowFor), and the story — one
-    // painting for all three (street_scenic), told on the first scenic metre
+    // shared ledger key with a painting per landscape, told on the first scenic metre
     // restored (app.js _ripenStreets), the `flash` on later walks.
     { id: 'promenade', terrain: 'SAND', affinities: ['coastal', 'formal'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#92743e', restored: '#d6ad58' },
@@ -299,13 +299,13 @@
     { id: 'greenway', terrain: 'GRASS', affinities: ['woodland'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#4f6c49', restored: '#76966a' },
       lampGlow: '#a8e07a', attracts: { butterfly: 0.5 },
-      story: 'street_scenic', title: 'A greenway',
+      story: 'street_scenic', art: 'street_greenway', title: 'A greenway',
       body: 'An old green way. Its keepers are generous to those who mend it.',
       flash: 'A greenway. The green holds.' },
     { id: 'parkpath', terrain: 'PARK', affinities: ['formal', 'cultivated'], size: 'path', share: 0, rung: 'uncommon',
       stone: { weathered: '#5c4b3f', restored: '#000000' },
       lampGlow: '#a8e07a',
-      story: 'street_scenic', title: 'The park path',
+      story: 'street_scenic', art: 'street_parkpath', title: 'The park path',
       body: 'A path winding through the park. Its keepers have gifts for those who mend it.',
       flash: 'The park path winds on.' },
     { id: 'golden', terrain: 'ROCK', affinities: ['formal'], size: 'minor', share: 0.02, rung: 'rare',
@@ -314,12 +314,12 @@
       // 500 m of coins on every long road would be a purse, not a find.
       sectionMaxM: 250,
       lampGlow: '#efc46a',
-      story: 'street_golden', art: 'street_lantern', title: 'Golden Road',
+      story: 'street_golden', art: 'street_golden', title: 'Golden Road',
       body: 'Coins carpet both verges, catching the light at every step.',
       flash: 'The verges glitter with coins.' },
     { id: 'snare', terrain: 'WASTELAND', affinities: ['ruined'], size: 'minor', share: 0.03, rung: 'rare',
       stone: { weathered: '#594a3f', restored: '#897051' }, lampDensity: 1,
-      lampGlow: '#d58b52', story: 'street_snare', art: 'street_barricade', title: 'Snare Lane',
+      lampGlow: '#d58b52', story: 'street_snare', art: 'street_snare', title: 'Snare Lane',
       body: 'An old chest waits halfway down the lane. Iron teeth lie quiet in the grass around it.',
       flash: 'Iron teeth around a chest.' },
   ];
