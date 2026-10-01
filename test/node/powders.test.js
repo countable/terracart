@@ -9,14 +9,17 @@
 //             watered or not. The crop model stays in crops.js
 //             (Crops.advanceWithin); app.js only supplies the player's point.
 //             Refused, and kept, when no unripe crop is in range.
-//   Shadow  — for one minute (MINUTE_MS) no hostile takes an interest in the
+//   Shadow  — for three minutes (3 × MINUTE_MS) no hostile takes an interest in the
 //             player: wanderCreatures gates BOTH the pursuit (the slime's
 //             meander and the monsters' stalk) and the hit (the leech and the
 //             monster drain) on one `shadowed` read of isShadowActive() —
 //             ORed once per tick into `unnoticed` with the OTHER way a player
 //             stops being there to hunt, a bar run to zero
 //             (downed_pursuit.test.js). The
-//             player's own weapons are not gated. The minute is in memory only
+//             player's own weapons are quiet for the spell too: startCombat
+//             refuses (a tap is told with a flash, the auto-engage is silent),
+//             the bow/staff cadence re-arms without loosing, and the powder
+//             breaks off a wheel already running. The spell is in memory only
 //             and its readout is shortDuration, like the dragon's.
 //   Frost   — every ENEMY (Combat.isEnemy, never game or a pet) standing in
 //             reach (cellInReach — the lit plateau the tap gate accepts) gets
@@ -30,7 +33,7 @@
 (function () {
 // wanderCreatures is the SceneCreatures mixin's (scene_creatures.js); the
 // powders themselves are app.js's. Pinned across both.
-const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+const app = SCENE_SRC;
 const POWDERS = {
   growth_powder: { tier: 2, price: 60,  frame: 6, method: 'useGrowthPowder' },
   shadow_powder: { tier: 2, price: 110, frame: 8, method: 'useShadowPowder' },
@@ -175,19 +178,20 @@ test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE 
 });
 
 // ── Shadow ─────────────────────────────────────────────────────────────────
-test('shadow: a 1-minute in-memory buff, read out with shortDuration beside the dragon\'s', () => {
+test('shadow: a 3-minute in-memory buff, read out with shortDuration beside the dragon\'s', () => {
   const body = methodBody('useShadowPowder');
   assert.truthy(/this\._shadowUntil = Date\.now\(\) \+ SHADOW_POWDER_MS;/.test(body), 'one SHADOW_POWDER_MS on this._shadowUntil');
-  assert.eq(CONSUMABLE_SPEC.shadow_powder.durationMs, 60 * 1000, 'and that is one minute');
+  assert.eq(CONSUMABLE_SPEC.shadow_powder.durationMs, 3 * 60 * 1000, 'and that is three minutes');
+  assert.truthy(/if \(this\._workProgress\?\.combat\) this\.cancelWorkProgress\(\);/.test(body),
+    'the truce ends the fight you are in: the wheel drops');
   assert.truthy(/const SHADOW_POWDER_MS = CONSUMABLE_SPEC\.shadow_powder\.durationMs;/.test(app),
     'runtime derives the duration');
   assert.truthy(/return this\._finishConsumable\(/.test(body), 'consumed through the shared tail');
   assert.truthy(/isShadowActive\(\) \{\n    return \(this\._shadowUntil \?\? 0\) > Date\.now\(\);/.test(app),
     'isShadowActive reads the timer');
   assert.truthy(!/save\.shadowUntil|save\._shadowUntil|shadowPowderUntil/.test(app), 'never written to the save');
-  assert.truthy(/this\.shadowTimerText = this\.add\.text\(/.test(app), 'a countdown label of its own');
-  assert.truthy(/this\.shadowTimerText\n\s*\.setText\(shortDuration\(this\._shadowUntil - Date\.now\(\)\)\)/.test(app),
-    'the readout goes through shortDuration');
+  assert.eq(Buffs.KINDS.shadow.scene, '_shadowUntil', 'its countdown is a chip of the status row under the HUD');
+  assert.falsy(/shadowTimerText/.test(app), 'no label of its own');
 });
 
 test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderCreatures', () => {
@@ -196,11 +200,11 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
   const w = m[1];
   // The powder reaches those four gates through `unnoticed` — the scene's OR of
   // the two wards that make the player not there to be hunted at all
-  // (isUnnoticed, downed_pursuit.test.js), read once per tick and never per
-  // creature. The same expression fades the body, so a stealthed player LOOKS
+  // (isUnnoticed, downed_pursuit.test.js), read per creature so Moss can
+  // distinguish a provoked monster. The same expression fades the body, so a stealthed player LOOKS
   // like what the sim is doing.
-  assert.truthy(/const unnoticed = this\.isUnnoticed\(\);/.test(w), 'read once per tick');
-  assert.truthy(/isUnnoticed\(\) \{\n    return this\.isShadowActive\(\) \|\|/.test(app),
+  assert.truthy(/const unnoticed = this\.isUnnoticed\(c\);/.test(w), 'read for each creature');
+  assert.truthy(/return this\.isShadowActive\(\) \|\| moss \|\|/.test(app),
     'and the powder is one of its two reasons');
   // The hits.
   // Other conjuncts may join these gates (Home's ward does — home_ward.test.js),
@@ -215,9 +219,18 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
     'the slime\'s meander toward the player is gated');
   assert.truthy(/if \(!unseen && distToPlayer > 0\.5 \* this\.cellM\) \{\n\s*angle = Math\.atan2\(dyp, dxp\)/.test(w),
     'the monsters\' stalk is gated');
-  // And NOT the player's weapons.
+  // And the player's own weapons, quiet BOTH ways: the cadence holds its fire
+  // (and re-arms, so the first shot flies the instant the shadow lifts), and
+  // the ONE lane both swing paths flow through refuses to spin a wheel up.
   const combat = app.match(/\n  _combatTick\(dt\) \{\n([\s\S]*?)\n  \}\n/);
-  assert.truthy(combat && !/shadow/i.test(combat[1]), 'the sword/bow/staff tick knows nothing of the shadow');
+  assert.truthy(combat && /const rangedArmed = !this\.isShadowActive\(\)\n\s*&& Combat\.anyEnemyWithin/.test(combat[1]),
+    'the bow/staff cadence stays quiet under the shadow');
+  const sc = app.match(/\n  startCombat\(victim, opts = \{\}\) \{\n([\s\S]*?)\n  \}\n/);
+  assert.truthy(sc && /if \(this\.isShadowActive\(\)\) \{/.test(sc[1]), 'no melee wheel spins up while shadowed');
+  assert.truthy(sc && /if \(!opts\.auto\) \{[\s\S]*?flash\('The shadows hold your arm\.'/.test(sc[1]),
+    'a refused tap is told; the auto-engage stays silent');
+  assert.truthy(sc && sc[1].indexOf('this.hapticReject') < sc[1].indexOf("this._toolActionStory('sword');"),
+    'the gate sits before the story hook the wheel spins up with');
 });
 
 // ── Frost ──────────────────────────────────────────────────────────────────

@@ -1,0 +1,618 @@
+DRAGON HOOD — THE STORY (basis document)
+================================================================================
+Status: v6 (Oct 2026), the dragon archaeologist relationship added.
+This file is the story bible the game is written against. Where it disagrees with copy in src/
+(memory_story.js, play_tips.js, books, item text), THIS FILE wins and the copy
+is to be brought in line. Numbers (which memory, which restoration, which cave
+level) stay owned by the code; this file names the beats, not the values,
+except where a beat IS a number the story needs (see ACT STRUCTURE).
+
+Anything still marked [OPEN] is not yet canon; the short list is at the end.
+
+--------------------------------------------------------------------------------
+0. THE PREMISE IN ONE BREATH
+--------------------------------------------------------------------------------
+You are the Hood: a quiet survivor who never takes the hood down, mending a
+broken world one roof at a time. You are a dragon in a bipedal body, and you
+do not know it. Nobody does. Fifty years ago your sister's spell took your
+dragon body and your memories, caught in the heat of a battle between your
+father, a five-headed hydra who conquers worlds through his children, and the
+two children who would not burn this one. That battle broke most of the
+planet. Your father walks it now as a kindly old wizard called Tim, raising
+dragon hunters among the survivors, because he needs a living dragon of each
+of his five colours to get his power back, and the two he needs most are his
+own children. Your sister hides dragons deep under the earth so he never can,
+and climbs to the surface to kill his hunters, which is why every survivor you
+meet will tell you dragons are vicious things that ended the world.
+
+The game is the mending. The story is what you remember while you mend.
+
+--------------------------------------------------------------------------------
+1. THE WORLD: THE SIXTH PLANET
+--------------------------------------------------------------------------------
+- The sixth planet: the sixth world Tiamat set out to take, the first he did
+  not. Survivors have no name for it beyond "the world"; a scholar's book may
+  call it "the sixth" without knowing what it is sixth of. [OPEN: a name.]
+- What the player walks on is the real map: a neighbourhood going back to
+  meadow, its houses wrecks, its roads intact, its street lamps dark. The
+  survivors call that night THE BREAKING ("the night the roofs fell"). Fifty
+  years on, trees stand in the lanes; the survivors are old, or the children
+  of the ones who were. The place the player starts in is MENDING LANE; the
+  name survives on a bent street sign and in the mouths of the neighbours.
+- CAVES run beneath the whole surface, level after level. The first levels
+  are danger; the deep ones are legend. Ayo's hidden dragons sit at the
+  deepest levels a player can reach, and the hunts for them are the game's
+  very late endgame (see ACT 3).
+- SHRINES, GROVES, THE OLD STONES, THE SHORE: the sacred places predate the
+  Breaking and were spared by it. Their keepers (the zone keepers, npc.js)
+  are the only people who never left. The boons the shrines lend are the
+  world's own small leftover magic, not a dragon's.
+- THE ROADS AND LAMPS: the one thing the Breaking did not touch. The
+  survivors' superstition holds that a road is safe ground (the game's kerb
+  rule is that superstition made true).
+
+--------------------------------------------------------------------------------
+2. THE FAMILY
+--------------------------------------------------------------------------------
+TIAMAT — "TIM"
+  A hydra: five heads, five colours (red, white, and three more), a conqueror
+  of worlds. He takes a world by sending his children ahead as generals; he
+  had two, a red and a white, and each is one of his heads made flesh. His
+  POWER is the five colours bound to him; without a living dragon of each,
+  the heads are only shapes. Fifty years ago that power was stripped (not his
+  memories) when he clashed with his children over this world's fate. He
+  REMEMBERS EVERYTHING. He is the only one who does.
+  He lives now in human form as a wise old wizard who goes by Tim: warm,
+  patient, generous with lessons. He KNOWS the Hood is his child from the
+  first look. He says nothing. He needs the five colours brought to him ALIVE
+  and bound; his own two children are the two he cannot catch himself, so he
+  raises DRAGON HUNTERS from the survivors and, above all, raises the Hood,
+  who will one day carry the white dragon to him and be the red.
+  Tim never lies in his own voice. Everything he says is true and incomplete.
+  He needs the Hood STRONGER, so he encourages every battle: the wild
+  factions in the caves and on the surface are mostly incidental creeps, but
+  some of them are secretly HIS, sent against the Hood as sparring partners
+  and against the survivors as reasons to come to his tower.
+
+THE FROST DRAGON QUEEN — TIAMAT'S LATE WIFE
+  Tiamat was married to the Frost Dragon Queen and fought a war against her.
+  She is dead. This is part of the wider history of dragons across the
+  planets, not another name for Ayo or a replacement explanation for the
+  Breaking. The cause of the war, the circumstances of her death, and whether
+  she was the mother of the Hood and Ayo remain [OPEN]; do not invent those
+  answers in a book or conversation. Her personal name is also [OPEN].
+  From Act 2, the archaeologist can discuss the historical Tiamat and the
+  Queen through fragmentary accounts, without knowing that the local wizard
+  is Tiamat. Their history is not part of his Act 1 introduction.
+
+AYO — THE SISTER
+  A WHITE dragon, the strongest will of the children. It was her spell, fifty
+  years ago, that stripped Tiamat of his power, and in the heat of that battle
+  it caught her brother too: the Hood's body and memory went with it, BY
+  ACCIDENT, the Hood between her and the father when the spell landed. She has
+  carried that for fifty years. She hides dragons of the other colours deep
+  beneath the earth so Tiamat can never assemble five, and she comes up to the
+  surface, rarely, to kill his dragon hunters and to look for him. She does
+  not hide what she is when she comes. That is where the lore comes from: a
+  white dragon seen over a burning hunters' camp, every decade or so, is why
+  survivors say dragons are vicious things that ended the world.
+  Ayo is an ENEMY the player can fight and an ALLY the player can reach: she
+  is the terror of the deep until the player learns what she is protecting,
+  and she is the whole of two of the three endings.
+  [OPEN: does Ayo know the Hood survived, and where? Draft: she knows the
+  spell spared the Hood's life but not where the body went; she has looked
+  for fifty years, under the earth, in the wrong direction.]
+
+THE HOOD — THE PLAYER
+  A RED dragon. Six hundred years old of a fifteen-hundred-year span; fifty
+  years is a season, and the human body has not aged a day, which is the
+  first crack an old neighbour can notice (an elder who swears you have not
+  changed since the first years after the Breaking). Once Tiamat's general on
+  five worlds; the survivors of the fifth called them the WARMONGER and the
+  name followed them here. Lost the full dragon body and all memory in Ayo's
+  spell. Kept the MAGIC: the player's recovered memories ARE that magic
+  coming back (the memory ledger), the shrines answer it, and the fire
+  breath, when it returns, was always theirs.
+  Wears the hood always. It hides what a human body cannot: unnaturally
+  bright red hair, sharp teeth, a forked tongue. The Hood keeps the hood up
+  by a habit older than their memory and never explains it; survivors assume
+  a burn, a vow, grief. Nobody asks twice. The Hood does not know what is
+  under it. The game never says it in the player's hearing until memory 30.
+
+THERE ARE NO OTHER SIBLINGS. The dragons Ayo hides are dragons of this world
+and of the five before, the other three colours, gathered and kept below.
+This world had dragons of its own: smaller, animal, and the lore's "vicious
+creatures" has a grain of them in it too. The red dragon of the deep caves
+(level 9 and below) is one of these wild ones, not family.
+
+--------------------------------------------------------------------------------
+3. FIFTY YEARS AGO: THE BREAKING
+--------------------------------------------------------------------------------
+What happened, in order (the truth; the player learns it out of order, see
+ACT STRUCTURE):
+1. Tiamat brought the family to the sixth planet as he had to five before:
+   children first, the Warmonger (the Hood) at their head, fire over the first
+   towns. The survivors' "night the roofs fell" began as the Hood's fire.
+2. The children would not finish it. [OPEN: why this world and not the five
+   before. Draft: Ayo had walked it as a human first, as she always scouted,
+   and came back changed; she brought the Hood to see what she had seen. The
+   Hood turned last, and turned hardest.]
+3. Tiamat came down himself to end the argument. The clash of the hydra and
+   his children over the capital is what broke the planet: not a war of
+   armies, one family in one sky, and the ground under them. The roofs that
+   the Hood's fire had not taken, the battle took; the Hood's fire was IN
+   PART the cause, in the conflict with Tiamat, and the player's memories will
+   not let them sort their share from his.
+4. Ayo cast the spell. Its aim was Tiamat's POWER. It took that, and, with the
+   Hood between them in the heat of it, it took the Hood's body and memory
+   too. An accident. The one thing Ayo has never said aloud.
+5. The backlash emptied the sky. Tiamat fell as a man. The Hood fell as a
+   hooded stranger with no name. Ayo went below. Most of the world's people
+   were already gone.
+
+--------------------------------------------------------------------------------
+4. NOW: THE THREE WHO WALK THE SURFACE
+--------------------------------------------------------------------------------
+THE HOOD mends. Peacefully, roof by roof, field by field. They have no idea
+why the old roads feel familiar, why the wrecks look like something they
+should apologise for, or why the hood stays up.
+
+TIM recruits. His tower is a wreck like the rest until the player restores it
+(the fifteenth restoration). Once it stands, he is simply THERE, as if he had
+always been, warm and interested, and the memories the player brings him buy
+power (the tower's rungs). He teaches the player to hunt. Every lesson is true
+and every lesson serves him: a stronger Hood brings him his colours faster.
+His DRAGON HUNTERS are the survivors' bravest, armed at his tower, and they go
+into the caves after "the dragons that did this" and mostly do not come back,
+because of Ayo. He tells the survivors Ayo did it. He is right.
+
+AYO hides and hunts. Her dragons are deep. Her visits to the surface are rare
+and terrible and dominate the survivors' dragon stories. Orrin offers a
+competing account from older evidence. The night's ghosts and the
+cave's demons are NOT hers: they are the world's own creeps, incidental, and
+some of them are Tim's. She is met in person only at the end.
+
+THE SURVIVORS believe: the Warmonger burned the world (true), dragons are
+vicious (half true), the wise wizard is their hope (false), and the hooded
+stranger is one of them (false). This is the prevailing belief, not unanimous:
+Orrin, the dragon archaeologist, openly disagrees and is dismissed as a
+crackpot. Most neighbours and local accounts reflect the prevailing belief;
+his evidence and the older writings he studies make room for dissent.
+See WHO MAY SAY WHAT.
+
+--------------------------------------------------------------------------------
+4a. ORRIN — THE DRAGON ARCHAEOLOGIST
+--------------------------------------------------------------------------------
+PLACE AND FIRST IMPRESSION
+  Orrin is present from the beginning, at a modest dig and cluttered field
+  shelter near the edge of the starting Home area, about 250 metres from
+  Home. This is his starting placement, not a change to the Home ward's
+  mechanical radius. Put him beside a reachable path or verge, not behind
+  inaccessible ground. He is available before any memory or restoration gate.
+  "Orrin" is his working name. He introduces himself as a dragon archaeologist,
+  catches his satchel on his own stool, and checks the potsherds before his
+  bruised knee. He mislays his pencil behind his ear, labels the wrong bag,
+  and apologises to objects he knocks over. His fieldwork is painstaking even
+  when the rest of him is disorganised. The joke is his clumsiness, not his
+  care for creatures or his willingness to question the village.
+
+WHAT HE THINKS — AUTHOR KNOWLEDGE, NOT AN ACT 1 EXPOSITION DUMP
+  He believes dragons across the planets are peaceful creatures, not violent
+  by nature. Their size and fire do not tell him what they want. In old
+  fragments he finds signs of nesting, tending young, long journeys and lives
+  lived beside other creatures; he looks for ordinary life where others look
+  only for weapons. These are his interpretations of incomplete evidence,
+  not an omniscient account of every dragon species.
+  He suspects that dragons attack people chiefly because people hunt them,
+  steal from their homes and pursue their young. He does not believe dragons
+  destroyed the world. Most people call him a crackpot, sometimes to his face.
+  His challenge to inherited fear is valuable; his blanket denial of dragon
+  involvement in the Breaking is wrong. The Hood and Tiamat did terrible harm.
+  He must eventually distinguish a nature that permits peace from particular
+  dragons' choices to make war. Understanding an attack does not erase its
+  victims, and a dragon can still choose cruelty.
+  He speaks of planets through old star charts, inscriptions and conflicting
+  accounts. He has not personally visited them or witnessed their history.
+  He knows the name Tiamat from those accounts, including the war against the
+  Frost Dragon Queen, Tiamat's late wife. He does not recognise Tim as Tiamat,
+  identify the Hood, name Ayo early, or turn a queen's title into proof of the
+  white dragon's identity. He admits when an inscription does not tell him
+  enough; other times he wants his conclusion to be true a little too much.
+
+WHEN HE OPENS UP
+  ACT 1 is acquaintance, not a history lesson. He mostly seems bumbling,
+  eccentric and rather improbable: struggling with his stool, sorting labels
+  he has mixed up, losing the thread of his own introduction. A passing remark
+  may suggest that dragons are not naturally cruel, but he gives no sustained
+  argument or persuasive display of evidence. The neighbours' "crackpot"
+  judgement seems understandable. His humanity is visible before his insight.
+  Do not name Tiamat or the Frost Dragon Queen in his Act 1 dialogue, explain
+  the war, tour the planets, or recite his theory of the Breaking. Extra taps,
+  books brought to him or unusually fast collecting cannot bypass this gate.
+  ACT 2 begins opening his research, after the first tower introduction has
+  actually happened and the Hood has met him. Now he can follow an odd remark
+  with the evidence behind it: peaceful dragon lives, hunting provoking
+  attacks, other planets, and finally the disputed accounts of Tiamat and
+  the Frost Dragon Queen. Spread these across visits and relevant questions;
+  do not unload them all at the act transition. He remains an eccentric,
+  fallible friend rather than becoming a different, suddenly fluent person.
+
+THE RELATIONSHIP
+  The Hood first gives him something rarer than agreement: time to finish a
+  sentence. Orrin remembers being listened to. On later visits he leaves a
+  clear place to sit, shows a drawing he has saved for them, and asks what
+  they actually saw before offering an explanation. Small warmth accumulates
+  through remembered encounters, not through the same introduction repeating.
+  The player may doubt him, bring observations that contradict him, or simply
+  listen. Friendship is not a reward for choosing his opinion. He should ask
+  after the Hood's tired hands or dust-caught hood as well as their discoveries;
+  the player becomes a person he cares about, not a convenient collector.
+  Other survivors tolerate him, mock his theories, or worry that he will get
+  someone killed. An attack survivor can reasonably be angry with him. He is
+  hurt by the ridicule and sometimes laughs along too quickly, but does not
+  answer someone's loss with a joke. The Hood need not humiliate a neighbour
+  to stand beside him, and no scene makes every sceptic foolish or malicious.
+
+CANON RELATIONSHIP BEATS — ORDERED, ON THE EXISTING TRACKS
+  1. From the beginning: Orrin is at the Home-edge dig. At the first meeting
+     he introduces himself, fumbles with his things, and lets slip that the
+     neighbours think him a crackpot. At most he offers a small, unsupported
+     remark that dragons might not be so bad. Later relationship beats
+     require this introduction; no restoration is required to meet him.
+  2. Early mending: as homes return, he begins treating the Hood as a familiar
+     visitor. He notices what they have repaired and has made room for them
+     among his papers. His welcome changes because they have met before,
+     not because the player has agreed with his theory.
+  3. Act 2, the first tower and hunters: after the first tower introduction,
+     he begins sharing the research behind his odd remarks, a piece at a time.
+     Once the hunters are established in canon, he worries about people
+     setting out to hunt dragons. He asks what a dragon
+     was doing before someone raised a weapon, without yet understanding
+     whose purposes the hunts serve. No early accusation that Tim is Tiamat.
+  4. After the witnessed tower attack: he cannot dismiss what the Hood saw.
+     He asks whether the dragon struck the tower or pursued fleeing people,
+     but accepts the player's actual evidence rather than supplying an
+     answer. His first concern is who was hurt; his theory comes second.
+  5. After the identity revelation and the Act 3 dragon encounters: he can
+     respond to the Hood's account of understanding a dragon. If he witnesses
+     dragon speech himself, his excitement becomes a question about what the
+     dragon said, followed by concern about whether anyone listened. Speech
+     alone does not tell him the Hood's identity or family.
+  6. As the truth of the Breaking becomes shareable: he revises his denial
+     rather than declaring that he was right all along. Dragons did destroy
+     lives; that does not make every dragon a born destroyer. His care for
+     the Hood rests on their choices now, not on proving his theory correct.
+     Do not grant him private revelations automatically or make his approval
+     a gate on the player's ending.
+  Memory supplies knowledge; restoration supplies the returning people and
+  places he reacts to. Later responses require their witnessed events, not
+  merely a high counter. His arc can wait if the player visits less often.
+  These beats add no new numeric thresholds or compulsory collection grind.
+
+LORE — OPTIONAL VISITS AND FINDINGS
+  Between the required relationship beats, he can discuss a rubbing, a broken
+  carving, a disputed translation or the dragon history in a book. These
+  conversations can be encountered independently within their act's limits.
+  In Act 1 they are small observations and eccentric diversions; substantive
+  dragon history waits until Act 2. Books and finds enrich the friendship but
+  never carry the only explanation of a required relationship change.
+  Topics include peaceful dragon lives on other planets, the difference
+  between a hunting account and an observation, and Tiamat's war against the
+  Frost Dragon Queen. He can correct an earlier translation and remember that
+  the Hood was the one who questioned it. He cannot settle the family's open
+  questions just because a new fragment has been found.
+
+VOICE SAMPLES — NPC DIALOGUE, NOT THE PANEL NARRATOR
+  Act 1 introduction: "Orrin. Dragon archaeologist. Mind the little stool; it has
+  already defeated me twice, and I am trying not to take it personally."
+  Act 1 odd remark: "I do not think dragons wake up wanting to be horrible.
+  Mind you, I have never been there when one woke up."
+  Act 2 hunting: "Most accounts begin with someone going out to kill a dragon.
+  I keep wondering what the dragon was doing before that."
+  Act 2, across the planets: "Different skies, different bones, the same little
+  hollows for eggs. They seem to have spent a great deal of time making homes."
+  Act 1 reputation: "They call me a crackpot. One of the pots really is cracked,
+  but I do not think that is what they mean."
+  Act 2, the Queen: "Tiamat went to war against the Frost Dragon Queen, his own wife.
+  These pieces tell me that much; they do not tell me how to make sense of it."
+  Friendship: "I cleared you a seat. The papers are on it again, but it was
+  clear when I thought of you."
+  After violence: "Tell me who was hurt first. The theory can wait."
+  Revision: "I wanted them to be innocent because everyone wanted them dead.
+  That was not quite the same as looking at what happened."
+
+IMPLEMENTATION STATUS
+  Orrin is implemented as a named NPC at a saved, reachable seat about 250
+  metres from the starting Home. Existing saves gain him when that ground is
+  loaded. He uses PixelSerial’s Old Man art for his map sprite and portrait, with
+  the shared NPC movement and wound/rest rules.
+  Acknowledged conversations persist his introduction, topics, replies and
+  familiarity. Leaving a conversation does not consume it, and disagreement
+  does not punish the relationship. Restoration and new memories inform his
+  returning greetings. Research requires the acknowledged tower introduction
+  (or an already completed Act 3 reveal on an older save), never a counter alone.
+  Later reactions to the tower attack and witnessed dragon speech still await
+  those world events; the conversation does not pretend they have happened.
+  The Frost Dragon Queen history is newly established story canon, with its
+  unresolved details kept open above. Orrin's peaceful-dragon interpretation
+  and denial of the Breaking are his beliefs, not replacements for the truth
+  of the family history.
+
+--------------------------------------------------------------------------------
+5. ACT STRUCTURE (mapped onto the existing mechanics)
+--------------------------------------------------------------------------------
+CANON AND LORE — TWO DELIVERY LAYERS
+  CANON is the required, ordered story: the opening, plot-bearing recovered
+  memories, NPC arrivals and changes, Tim's lessons, the tower attack and
+  relocation, the identity reveal, dragon speech, and the later choices.
+  These events establish what has happened and what the player can know.
+  A required event may be a conversation, a world change, an NPC appearance
+  or a story panel; the panel format itself does not make something canon.
+
+  LORE is optional and asynchronous: books, ambient place panels, first-tool
+  moments, the bare-handed-work vignette, ordinary discovery impressions,
+  repeated conversations, and other glimpses of life in the world. The
+  player may miss these or encounter them in different orders. They deepen
+  the story but never carry the only explanation needed for a canon event.
+  Lore still obeys the story bible: optional does not mean untrue. Books
+  keep their authors' voices; narrated panels keep the Hood's sensory voice.
+  Both layers respect the same revelation gates, including no identity
+  reveal before the second-tower revelation at 30 memories.
+
+TWO ROUGHLY PARALLEL TIMELINES
+  MEMORY advances what the Hood remembers and understands. RESTORATION
+  advances the returning community, its homes, and the places where events
+  can happen. They are separate lifetime counters, not interchangeable
+  points or a fixed conversion. Either track may lead the other.
+  The first find of each discoverable thing returns a memory; milestone
+  scenes currently land on every third memory. Restored houses determine
+  building roles and available homes. Existing thresholds remain owned by
+  src/memory_story.js, src/houses.js and src/npc.js.
+
+  Milestone                   Memory track          Restoration / world track
+  Opening and warden          Start                 Starting trailer
+  Orrin available / introduced Start / first meeting Home-edge dig, about 250 metres
+  Believer appears            3                     Neighbour by the trailer
+  Survivor appears            6                     Neighbour by the trailer
+  Child appears               9                     Homeless when first met
+  Child has a home            Child already met     Next restoration after meeting
+  First tower / Tim           At least 9            15th restoration; visit tower
+  First-tower lessons         12, 15, 18            First tower and earlier lessons
+  White dragon attacks        At least 21           First tower; required lessons done
+  Second tower                At least 21           Next eligible restoration after attack
+  Later lessons               24, 27                Second tower and earlier lessons
+  Identity revelation         At least 30           Second tower; required lessons done
+  Dragon speech / choices     Revelation completed  Appropriate Act 3 encounters
+
+  The second-tower code uses zero-based restoration index 25 or later:
+  the 26th restoration or a later eligible one, not the 25th completed house.
+  References below to "restoration 25+" refer to that existing index gate.
+  The milestones are eligibility conditions, not a promise that both tracks
+  reach the same point together. For example, recovering 30 memories before
+  restoring the first tower must not skip meeting Tim or his required lessons.
+
+CANON ORDERING CONTRACT
+  A canon event needs its milestone conditions, its world context, and its
+  earlier required events. Reaching a threshold makes it eligible; it does
+  not mean the event has occurred or its revelation is known. Keep it pending
+  until it can happen in sequence, and record completion only when the event
+  actually occurs (and its required presentation is acknowledged).
+  Count thresholds use "at least", so progressing past a milestone cannot
+  lose it. Pending canon does not freeze ordinary discovery or restoration.
+  An NPC's required arrival or change belongs to canon; tapping every optional
+  line that NPC can say does not. A required conversation is identified as an
+  event of its own. Repeated observations after it remain lore.
+  Lore never blocks canon. It may wait for an appropriate place, action or
+  knowledge state, and should not interrupt a canon sequence in progress.
+
+IMPLEMENTATION STATUS
+  This is the intended delivery structure, not a claim that all ordering is
+  implemented. Today the first tower becomes abandoned at 21 memories even
+  if earlier conversations were missed, and the second-tower reveal can
+  precede unread lessons. Those shortcuts need reconciliation with required
+  canon ordering. The witnessed attack, vanished tower and dragon-language
+  reactions remain specified story events awaiting gameplay implementation.
+  The split changes neither existing numeric gates nor save keys by itself.
+
+ACT 1 — THE MENDING (memories 0–8, before the tower)
+  The Hood wakes at the trailer with nothing. Tilly, a child, is the only
+  neighbour there (homeless until the next restoration after they meet).
+  Neighbours return as memories do. The story neighbours arrive by memory
+  count: Bryn the warden at three explains the safe area on first meeting
+  (nobody knows why only weak monsters live here; the truth: the Hood's own
+  leftover magic, which Tim will later learn to read); Maud the survivor at
+  six, met hunted by a goblin archer, who stays where she is saved and tells
+  of the night the roofs fell and names the Warmonger; Edda the believer at
+  nine (lauds the wizard: "restore his tower and he will save us").
+  Memory 3: a bell in the smoke, a child held, the name Warmonger. Memory 6: a
+  still figure watching from a window (Tim, who was there). Memory 9: the
+  rumour of a wise man "who may know why the old roads feel familiar".
+  The player learns: the world was burned; a dragon did it; a wizard might
+  help. Nothing says what the player is.
+  THE WORK OF MANY HANDS: the first time the Hood finishes substantial
+  labour without a tool, survivors stop to watch. In the tree-felling scene,
+  the Hood braces against the trunk and tears through it with bare hands.
+  The tree gives way before the neighbours have finished fetching an axe.
+  "That would have taken us all morning," one says. Another looks at the
+  Hood's empty hands. "Where is your tool?" The Hood has no answer.
+  This is astonishing speed and strength beside ordinary human labour;
+  tools still make the Hood's work quicker. The hood stays raised. Bark,
+  movement and shadow keep the hands ambiguous: a suggestion of claws may
+  be noticed, but no unmistakable dragon anatomy is shown before memory 30.
+  The vignette follows successful work and depicts what the player actually
+  did. A tree falls only if that job felled a tree; other bare-handed work
+  needs a matching scene. It is witnessed once, without turning every job
+  into another revelation. Survivors know the Hood is unusually strong;
+  they do not learn what the Hood is.
+  TOOL STORIES: the existing axe illustration belongs to the first actual
+  use of an owned axe. Bare-handed work has its own story and must not mark
+  the axe story as seen. The same rule applies to other depicted tools: the
+  pictured tool must be the one used for the action.
+
+ACT 2 — THE LESSONS (the first tower, memories 9–21)
+  The fifteenth restoration is Tim's tower. It is sealed until nine memories.
+  Inside, Tim is kind, asks for memories, gives power. His lessons (the
+  existing beats: "In the right order", "What remains useful", "An old
+  habit", "Their little lives", "What comes next") are the hydra teaching the
+  general: remember the victory, not the doorway; move when told; the small
+  lives are not yours to carry. He is REBUILDING THE WARMONGER for his own
+  use. The player's recovered memories contradict him one by one (the Act 2
+  memory panels): the raised hand was braced against a door, not welcoming;
+  the "good habit" was the grip of a handler; the mark on the map was a town.
+  THE HUNTERS: dragon hunters are NPCs. They gather at the tower once it
+  stands, go down into the caves in Tim's name, and are missed; a notice of
+  the missing, a widow among the neighbours, a hunter met in a cave who has
+  seen "the white one". They are the survivors' bravest and Tim's spent coin.
+  THE SPARRING: Tim sends the Hood against the wild factions, and some of what
+  the Hood fights is his (a garrison that should not be there, a foe that
+  turns up when he has just said it would). Never stated; a reader who
+  reads the books in order can work it out.
+  THE WHITE ONE AT THE TOWER: midway through the wider Act 2 arc, at the
+  existing first-tower departure gate (21 memories), Ayo attacks Tim's tower
+  in full white-dragon form. The player witnesses the attack. Her shadow
+  crosses the lamps; she strikes the tower, and the whole tower vanishes.
+  The road and lamps remain. This replaces the quiet abandoned-tower visit:
+  there is no empty room to enter, only the place where the tower stood.
+  Tim survives and is next found at the second tower. The exact magic of the
+  disappearance remains unexplained here; the attack causes it, rather than
+  an unrelated move happening off screen. His invitation, "come to me when
+  you are ready," reaches the Hood afterward, outside the vanished tower.
+  The witnesses call the attacker "the white one". To them, the attack
+  proves that the dragon hunters need their wizard more than ever. Nobody
+  names Ayo or reveals the family; the Hood does not yet speak dragon.
+
+ACT 2b — THE SECOND TOWER (restoration 25+, memories 21–30)
+  The Hood restores the second tower among the wrecks after the first has
+  vanished. Its hunters speak of the white dragon's attack. Tim's warmth is
+  thinner; the map is open on his table ("this land will seem very small"). At memory
+  30 he tells the Hood what they are and what he needs, plainly: you are a
+  dragon, and so am I; the fire above the ruined town was your own; the
+  Warmonger was you. And the ask: CAPTURE THE WHITE DRAGON, alive, and bring
+  her to me, and my power is restored. He does not say she is their sister.
+  He does not say the Hood is the red. He has three colours waiting below and
+  needs two.
+
+ACT 3 — THE FIRE BELOW (after memory 30; the hunts are very late game)
+  The player goes down for their fire (cave level 9, the existing DragonStory
+  reward) and keeps going. Below are Ayo's hidden dragons, one colour at a
+  time, each bound in her keeping; the HUNTS are the capture of each, alive
+  (the net and the catch wheel are the tools; a dragon that dies is a colour
+  lost to everyone). And at the bottom, the white dragon.
+  THE LANGUAGE COMES BACK: during Act 3, after the memory-30 revelation, a
+  dragon speaks in the presence of the Hood and a surviving dragon hunter.
+  The Hood understands and answers before thinking. The hunter lowers their
+  weapon: "That was no spell. You spoke to it." The Hood is surprised too;
+  the words feel older than any lesson Tim gave them. This is recovered
+  dragon speech, not a skill Tim has just taught or a potion effect.
+  Later, a second survivor hears the Hood answer a dragon and stops in
+  astonishment: "It answered you. How did you know what to say?" People can
+  learn that the Hood speaks dragon without learning that the Hood IS one.
+  The exchange lets a dragon be heard as a person before the Hood chooses
+  whether to capture or free it. Speaking grants understanding, not obedience
+  or an automatic capture. The hood stays raised throughout.
+  The player learns, from the hidden dragons and from Ayo herself, what Tim
+  left out: that the white is their sister, that the spell was an accident,
+  that the five colours bound to the hydra are the end of this world and the
+  next.
+  THREE ENDINGS:
+  (a) THE GENERAL: deliver the colours and the white dragon to Tim. The hydra
+      rises; the Hood's dragon body is given back by the father who took the
+      family to five worlds; the sixth planet is his; the mending was for
+      nothing. Playable, and the only ending with the dragon body restored.
+  (b) THE SISTER: stand with Ayo. Free what the hunts bound, and face Tim; a
+      man with all his memories and none of his power. The Hood keeps the
+      hood and the fire and never gets the body back. The family stays
+      broken so the world can stay mended.
+  (c) THE PACIFIST: neither. Refuse the hunts, release every dragon the player
+      caught, and go home to the lane. Tim is left waiting in a tower nobody
+      visits; Ayo is left below with her charges; the Hood mends. Nothing is
+      resolved and nothing is burned. The title's own ending.
+  [OPEN: what becomes of Tim in (b): draft, not killed; left among the people
+  he meant to burn, seen once more mending a roof.]
+
+--------------------------------------------------------------------------------
+6. WHO MAY SAY WHAT (the spoiler gates)
+--------------------------------------------------------------------------------
+Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
+- Before memory 30, nothing in the player's hearing says the Hood is a dragon,
+  that the wizard is their father, or that the wizard is choosing what to give
+  back. Foreshadowing is allowed and encouraged: the familiar roads, the figure
+  in the window, the elder who swears you have not aged, the hood nobody asks
+  about, the safe area nobody can explain, the hair a child once glimpsed and
+  was told was a trick of the light.
+- "Dragons are vicious and ended the world" is the prevailing survivor belief,
+  available to books, keepers, scouts, the believer and hunters at any time.
+  Orrin is the exception: he seems like a bumbling crackpot in Act 1, with at
+  most an odd, unsupported remark in a dragon's defence. In Act 2 he begins
+  explaining his belief that dragons are peaceful by nature, hunted into
+  violence, and not responsible for the Breaking. His dissent neither reveals
+  the Hood nor makes his denial of the Breaking true.
+- "The Warmonger" is the name survivors have for the one who burned the roofs.
+  Anyone may use it. No one knows the Warmonger was a general's title and not
+  a dragon's name; a scholar may wonder.
+- Tim never lies in his own voice. Everything he says is true and incomplete.
+  His tells are omissions: he never asks the Hood's name; he never looks at
+  the hood; he never says "sister".
+- Ayo is spoken of only as "the white one", "the thing under the hill", "what
+  took the hunters". No one has her name before Act 3.
+- The five colours are known lore ("five heads, five fires", a nursery rhyme
+  [OPEN: write one, or let the books invent it]). Historical accounts may name
+  Tiamat and his marriage and war with the Frost Dragon Queen. Orrin shares
+  this history only from Act 2 onward and does not
+  know that Tim is Tiamat or that the Hood and Ayo are his children; historical
+  family knowledge must not identify the living family before its reveals.
+- After memory 30 the believer still lauds the wizard; the survivor still
+  curses the Warmonger; the child still has their room. The irony is the
+  player's alone. Witnesses in Act 3 may discover and react to the Hood's
+  dragon speech; that does not reveal the Hood's dragon identity or family.
+  No neighbour learns those secrets unless an ending says so.
+
+--------------------------------------------------------------------------------
+7. THINGS THE GAME ALREADY HAS THAT NOW MEAN SOMETHING
+--------------------------------------------------------------------------------
+- THE HOOD on the player sprite: never comes down, in any pose, any potion,
+  any skin. The Dragon Powder minute (the player draws as a dragon) is a
+  glimpse of the truth the player reads as a potion effect.
+- THE SAFE AREA (only weak monsters near Home): the Hood's own leftover magic.
+  The warden's "for some reason" is answered at memory 30.
+- THE WIZARD TOWER'S RUNGS (power for memories): Tim rebuilding his general.
+- THE DRAGON HUNTERS: NPCs. The survivors' bravest, armed at the tower, lost
+  in the caves; a notice board of the missing; a hunter's widow; a hunter
+  deep down who has seen the white one.
+- THE NIGHT'S GHOSTS, THE LAIRS, THE DEEP DEMONS: the world's own creeps,
+  incidental; some of them Tim's, never announced.
+- THE RED DRAGON on cave level 9+: a wild dragon of this world, not family.
+- THE NET AND THE CATCH WHEEL: the hunts' tools. Alive, or lost.
+- SHRINE BOONS: the world's own small magic answering the Hood's.
+- THE KERB RULE (the road is never a refuge for monsters, always for the
+  player): the survivors' one true superstition, and a clue: the roads were
+  spared because the general who burned the towns would not burn the roads
+  they came by.
+
+--------------------------------------------------------------------------------
+8. NAMES AND SPELLINGS
+--------------------------------------------------------------------------------
+- Game title: DRAGON HOOD. The neighbourhood is MENDING LANE. (Storage keys
+  stay terracart.*.)
+- TIAMAT, "Tim". AYO. The Hood (the player is never named; "the Hood" in
+  prose; survivors say "the hooded one", "stranger", "neighbour").
+- ORRIN: working name for the dragon archaeologist.
+- The story neighbours: TILLY (the child), BRYN (the warden), MAUD (the
+  survivor), EDDA (the believer).
+- The FROST DRAGON QUEEN: Tiamat's late wife; personal name still open.
+- The Warmonger: the title, never a name.
+- The Breaking: the survivors' word for fifty years ago.
+- Colours: the Hood red, Ayo white; the hidden dragons the other three
+  [OPEN: which three; draft blue, green, black].
+
+--------------------------------------------------------------------------------
+9. STILL OPEN
+--------------------------------------------------------------------------------
+- A name for the planet, if any.
+- The Frost Dragon Queen's name, cause of her war with Tiamat, circumstances
+  of her death, and whether she was the Hood and Ayo's mother.
+- Whether Ayo knows the Hood survived, and where.
+- Why the children turned on this world and not the five before.
+- What becomes of Tim in the sister ending.
+- The "five heads, five fires" rhyme.
+- The other three colours (draft blue, green, black).

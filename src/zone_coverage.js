@@ -65,7 +65,55 @@
     }
     return mask;
   }
-  function* buildSteps({ field, poiLayer, parks, tx, ty, N, chests, tileEdgeM, grid }) {
+  // Use buffered source geometry at the canonical POI, never the visible
+  // sand centroid. Local -Y is the landward approach used by shrine layouts.
+  function* orientBeachesSteps(anchors, waterLayer, tx, ty) {
+    const scale = EXT / (waterLayer?.extent || EXT);
+    for (const a of anchors) {
+      if (a.kind !== 'beach') continue;
+      let best = null, distance = Infinity, scanned = 0;
+      for (const f of waterLayer?.features || []) {
+        if (f.type !== 3 || !f.geom || (root.Scenic && !root.Scenic.isShoreWater(f.tags))) continue;
+        for (const ring of f.geom) for (let j = 0, k = ring.length - 1; j < ring.length; k = j++) {
+          if ((scanned++ & 255) === 0) yield 'beach shoreline orientation';
+          const p = ring[k], q = ring[j];
+          // Polygon clipping closes water rings along the tile/buffer box.
+          // Those axis-aligned outside edges are not shoreline evidence.
+          if ((p.x === q.x && (p.x * scale <= 0 || p.x * scale >= EXT))
+              || (p.y === q.y && (p.y * scale <= 0 || p.y * scale >= EXT))) continue;
+          const x = tx * EXT + p.x * scale, y = ty * EXT + p.y * scale;
+          const dx = (q.x - p.x) * scale, dy = (q.y - p.y) * scale;
+          const length2 = dx * dx + dy * dy;
+          if (!length2) continue;
+          const t = Math.max(0, Math.min(1, ((a.gx - x) * dx + (a.gy - y) * dy) / length2));
+          const px = x + t * dx, py = y + t * dy;
+          const d = (a.gx - px) ** 2 + (a.gy - py) ** 2;
+          // A neighbouring tile may clip away the perpendicular projection.
+          // Follow the genuine shore's normal, never the clipped endpoint's
+          // diagonal toward the POI. Ring winding cannot change this normal.
+          const side = Math.sign(-dy * (a.gx - x) + dx * (a.gy - y));
+          const length = Math.sqrt(length2), nx = -dy * side / length, ny = dx * side / length;
+          // Equal distances are resolved in world space, independent of ring
+          // direction, feature ordering and neighbouring tile coordinates.
+          if (d < distance || (d === distance && best && (py < best.y || (py === best.y
+              && (px < best.x || (px === best.x && (ny < best.ny || (ny === best.ny && nx < best.nx)))))))) {
+            distance = d; best = { x: px, y: py, nx, ny };
+          }
+        }
+      }
+      if (best && distance > 0 && (best.nx || best.ny)) {
+        const angle = Math.atan2(best.ny, best.nx);
+        a.rotation = ((Math.round((angle + Math.PI / 2) / (Math.PI / 2)) % 4) + 4) % 4;
+        a.orientationSource = 'shoreline';
+      } else {
+        // Missing/ambiguous geometry (including only clip-box edges or a
+        // POI exactly on the shore line) keeps the identity-derived frame and is
+        // explicit in map-review data; it must not invent a water direction.
+        a.orientationSource = 'unresolved';
+      }
+    }
+  }
+  function* buildSteps({ field, poiLayer, parks, beachLayer, waterLayer, tx, ty, N, chests, tileEdgeM, grid }) {
     const Z = root.Zones, V = root.ZoneVariants, WG = root.WorldGen;
     const all = field && field.allAnchors || Z.resolveAnchors(Z.collectAnchors(poiLayer, tx, ty), { ty, N });
     if (!field && !all.length) return null;
@@ -90,6 +138,30 @@
       if (a && (a.kind === 'beach' || (a.kind === 'grove' && sourceLand(i) === WG.T.SAND))) coverage[i] = 0;
     }
     const unit = EXT / N, margin = Z.FRINGE_FILL_M / (N * WG.CELL_M / EXT);
+    // Polygon evidence refines coverage, never the canonical park anchor.
+    // A companion's identity and pattern depend only on that existing POI;
+    // clipped beaches cannot change the inland grove or create another POI.
+    const shore = new Uint8Array(N * N);
+    for (const feature of beachLayer?.features || []) {
+      if (feature.type !== 3 || !feature.geom || Z.anchorOf(feature.tags)?.kind !== 'beach') continue;
+      const mask = yield* parkMask(geometry({ rings: feature.geom }), N, unit, 0);
+      for (let i = 0; i < shore.length; i++) {
+        if (i % (N * 32) === 0) yield 'mapped beach union';
+        if (mask[i]) shore[i] = 1;
+      }
+    }
+    const companions = new Map();
+    const shoreFor = a => {
+      if (!companions.has(key(a))) {
+        const beach = { ...a, kind: 'beach', code: Z.ZONE_KINDS.beach.code,
+          R: Z.radiusFor('beach', 0), q: 0, aspect: 'tree_ring',
+          parkShore: true };
+        delete beach.variant; delete beach.character;
+        beach.variant = V.pick(beach).id;
+        companions.set(key(a), beach);
+      }
+      return companions.get(key(a));
+    };
     const associated = [];
     for (const park of parks || []) {
       if (park.cemetery) continue;
@@ -106,6 +178,16 @@
           const i = y * N + x;
           if (!mask[i]) continue;
           const land = sourceLand(i);
+          const beach = grid && a.kind === 'grove' && shore[i]
+            && [WG.T.SAND, WG.T.PARK, WG.T.GRASS, WG.T.FOREST, WG.T.GROVE].includes(land) ? shoreFor(a) : null;
+          if (beach) {
+            const previous = coverage[i] && f.anchors[coverage[i] - 1];
+            if (!previous || previous.kind === 'grove' || (previous.parkShore
+                && (a.gy < previous.gy || (a.gy === previous.gy && a.gx < previous.gx)))) {
+              coverage[i] = slotFor(beach);
+            }
+            continue;
+          }
           if (grid && a.kind === 'grove' && land === WG.T.SAND) continue;
           if (grid && a.kind === 'beach' && ![WG.T.SAND, WG.T.PARK, WG.T.GRASS, WG.T.FOREST, WG.T.GROVE].includes(land)) continue;
           const current = coverage[i] && f.anchors[coverage[i] - 1];
@@ -142,7 +224,7 @@
     const chestAt = new Map((chests || []).filter(c => c.kind === 'chest' && c._poiAt).map(c => [c._poiAt, c]));
     for (const a of new Set([...all, ...f.anchors])) {
       delete a.originGX; delete a.originGY;
-      if (!a.owned || !(tileEdgeM > 0) || !grid) continue;
+      if (a.parkShore || !a.owned || !(tileEdgeM > 0) || !grid) continue;
       const chest = chestAt.get(`${a.lx},${a.ly}`);
       if (!chest) continue;
       const lx = a.gx - tx * EXT, ly = a.gy - ty * EXT;
@@ -155,6 +237,7 @@
       if (cx < 0 || cy < 0 || cx >= EXT || cy >= EXT) continue;
       a.originGX = tx * EXT + cx; a.originGY = ty * EXT + cy;
     }
+    yield* orientBeachesSteps(new Set([...all, ...f.anchors]), waterLayer, tx, ty);
     f.coverage = coverage;
     return f;
   }
@@ -280,15 +363,22 @@
       if (!result.coverage) result.coverage = result.idx ? Uint16Array.from(result.idx) : new Uint16Array(N * N);
       if (!(result.idx instanceof Uint16Array)) result.idx = result.idx ? Uint16Array.from(result.idx) : new Uint16Array(N * N);
       if (!result.s) result.s = new Uint8Array(N * N);
-      // A component label is tile-local, with no finite prize or synthetic
-      // POI. Its scatter hashes each source cell, not this representative point,
-      // so clipped geometry and other components cannot reroll surviving rocks.
+      // Complete local components own one finite budget, without a synthetic
+      // daily POI. Incomplete components retain cell-addressed scatter only.
       const first = cells.reduce((a, b) => Math.min(a, b));
+      // Clipped source geometry cannot reveal the entire site's size or owner.
+      // Border components use reward-free benches until a complete footprint
+      // is available; never invent a second crater or duplicate finite finds.
+      const clipped = queue.some(i => i % N === 0 || i % N === N - 1 || i < N || i >= N * (N - 1));
+      const variants = root.ZoneVariants.forKind('quarry').map(v => v.id);
+      const variantHash = (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663) ^ Math.imul(first, 83492791)) >>> 0;
+      const variant = clipped ? 'quarry-strip-mine' : variants[variantHash % variants.length];
       const lx = (first % N + .5) * EXT / N, ly = (Math.floor(first / N) + .5) * EXT / N;
       const gx = tx * EXT + lx, gy = ty * EXT + ly;
       const row = Z.ZONE_KINDS.quarry;
-      const anchor = { kind: 'quarry', variant: 'quarry', aspect: 'quarry', generated: 'parking_lanes',
-        name: row.title, gx, gy, lx, ly, owned: true, key: Z.anchorKey(gx, gy),
+      const anchor = { kind: 'quarry', variant, aspect: 'quarry', generated: 'parking_lanes',
+        clipped, layoutFallback: clipped ? 'incomplete_source_footprint' : undefined,
+        name: row.title, gx, gy, lx, ly, owned: !clipped, key: Z.anchorKey(gx, gy),
         code: row.code, R: QUARRY_BUFFER_M, upm: N * WG.CELL_M / EXT, q: 0 };
       result.anchors.push(anchor);
       if (result.allAnchors) result.allAnchors.push(anchor);
@@ -300,5 +390,5 @@
     return result;
   }
 
-  root.ZoneCoverage = { buildSteps, paintSteps, quarrySteps, QUARRY_BUFFER_M };
+  root.ZoneCoverage = { orientBeachesSteps, buildSteps, paintSteps, quarrySteps, QUARRY_BUFFER_M };
 })(typeof window !== 'undefined' ? window : globalThis);

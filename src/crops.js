@@ -4,7 +4,7 @@
 // Growth, countdowns and item descriptions share stageHoldMs(crop).
 //
 // The scene keeps thin wrappers (app.js advanceGrowth / waterCropsWithin /
-// crowEatsCrop) that own the side effects: persistSave and reading the player's
+// raiderEatsCrop) that own the side effects: persistSave and reading the player's
 // world position.
 //
 // Crop model: save.planted is a list of { x, y, crop, stage, watered_t }.
@@ -74,7 +74,11 @@
     return changed;
   }
 
-  const CROW_IGNORED_CROPS = new Set(['potato']); // crows never notice potatoes
+  // The one crop no raider touches: a potato grows underground, and the deer
+  // (the crop raider — scene_creatures.js wanderCreatures `raidsCrops`) never
+  // notices it. It was the crow's rule until Sep 2026, when crop-raiding moved
+  // to the deer; the safe crop stayed the same.
+  const RAIDER_IGNORED_CROPS = new Set(['potato']);
 
   // The save owns the flat crop list; this derived index is deliberately kept
   // outside it so persistence never serializes buckets. Crops do not move in
@@ -124,13 +128,14 @@
     return { candidates: nearby.length, rebuiltEntries };
   }
 
-  // Fruit and timber saplings share one four-day growth window so their copy
-  // and art cannot drift when tree growth changes.
+  // Fruit and timber saplings share one growth window (PLANTED_TREE_GROW_MS,
+  // one day) so their copy and art cannot drift when tree growth changes.
   const FRUIT_STAGE_MS = PLANTED_TREE_GROW_MS / 4;
   const FRUIT_RESPAWN_MS = 24 * 60 * 60 * 1000;
 
   // Shared by tree art and harvesting. Wild trees start mature; planted trees
-  // take four stages, then each pick starts a fresh fruit respawn timer.
+  // take four stages (a quarter of the window each), then each pick starts a
+  // fresh fruit respawn timer.
   function fruitTreeState(tree, pickedAt, now = Date.now()) {
     const elapsed = now - (tree.planted_t || 0);
     const stage = tree.planted
@@ -150,9 +155,9 @@
     return (p?.stage ?? 0) >= maxStage();
   }
 
-  // Will a crow notice / orbit / land on / eat this crop? (potatoes are immune)
-  function crowEats(p) {
-    return !CROW_IGNORED_CROPS.has(p?.crop);
+  // Will a raider notice / walk at / eat this crop? (potatoes are immune)
+  function raiderEats(p) {
+    return !RAIDER_IGNORED_CROPS.has(p?.crop);
   }
 
   // Advance every watered crop whose crop-specific hold has elapsed by ONE
@@ -185,7 +190,7 @@
   // stage waits stand between a seed and a harvest, and no relic
   // touched that — a Frost can watered exactly as fast as bare hands and only
   // improved the produce quality it came out with. Now the ladder is worth
-  // climbing for the same reason the amulet is: at the top, a crop grows twice
+  // climbing so the top rung makes a crop grow twice
   // as fast, because every watering is worth two.
   //
   // The jump does NOT consume the watering. The plant is watered AND a stage
@@ -299,7 +304,7 @@
     return q;
   }
 
-  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, LEGACY_STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, migrateStageTimers, CAN_TOP_TIER, maxStage, isMature, crowEats,
+  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, LEGACY_STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, migrateStageTimers, CAN_TOP_TIER, maxStage, isMature, raiderEats,
                  advanceGrowth, waterWithin, waterOne, waterJumpChance, advanceWithin,
                  bedQuality, setBedQuality, clearBedQuality, takeBedQuality,
                  forEachInBox, invalidateSpatialIndex };

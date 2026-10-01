@@ -78,7 +78,7 @@
     assert.falsy(restocks(pot) || restocks(rack), 'neither is a crate');
     const src = INTERACTABLES_SRC;
     assert.truthy(/Macros\.serviceUsedToday\(save, o\.id\)\) \{\s*scene\.flash\(`The chapel is quiet/.test(src), 'the chapel reads the service-day gate');
-    assert.truthy(/grove_shrine: \{[\s\S]{0,200}Macros\.usedToday\(save, o\.id\)/.test(src), 'and the shrine');
+    assert.truthy(/grove_shrine: \{[\s\S]{0,200}Macros\.dailyVisit\(ctx, o/.test(src), 'and the shrine');
   });
 
   // ── Barrels ──────────────────────────────────────────────────────────────
@@ -181,11 +181,11 @@
   // app.js _walkRelics, lifted and run against a fake scene: the ONE lane
   // every stick speed reads.
   const liftWalkRelics = () => {
-    const src = APP_JS_SRC;
+    const src = SCENE_SRC;
     const a = src.indexOf('\n  _walkRelics() {');
     const b = src.indexOf('\n  }\n', a);
     const body = src.slice(src.indexOf('{', a) + 1, b);
-    return new Function('DRAGON_AMULET_TIER', 'SPEED_POTION_AMULET_TIER', 'COFFEE_BOOT_BOOST', 'BIKE_RACK_SPEED_MUL',
+    return new Function('DRAGON_WALK_COST_TIER', 'SPEED_POTION_WALK_COST_TIER', 'COFFEE_BOOT_BOOST', 'BIKE_RACK_SPEED_MUL',
       `return function () {${body}\n};`)(CONSUMABLE_SPEC.dragon_powder.movementTier,
         CONSUMABLE_SPEC.speed_potion.movementTier, CONSUMABLE_SPEC.coffee.speedTierBoost,
         BIKE_RACK_SPEED_MUL);
@@ -207,7 +207,7 @@
     save.bikeUntil = 0;
     runInteractable(makeCtx(scene, save), rack);
     assert.eq(save.bikeUntil, 0, 'no second bike today');
-    assert.truthy(/^Bikes all out\. \d+[smhd]\.$/.test(flashes[1]), `the wait: ${flashes[1]}`);
+    assert.truthy(/^Horse is out\. \d+[smhd]\.$/.test(flashes[1]), `the wait: ${flashes[1]}`);
     assert.truthy(poiLit(rack, spentSets(null, {})), 'lit while there');
     assert.falsy(poiLit(rack, spentSets(null, save)), 'dark once taken');
   });
@@ -230,16 +230,19 @@
   });
 
   test('bike rack: stick walking only — the GPS walk never reads the lane', () => {
-    // Every steerSpeedMul reader in app.js is a stick path: the stick itself,
-    // the drift back home and the follow cap while the stick is pushed.
-    const calls = APP_JS_SRC.match(/steerSpeedMul\([^)]*\)/g) || [];
+    // Every steerSpeedMul reader in the scene is a stick path: the stick itself,
+    // the drift back home and the follow cap while the stick is pushed. The
+    // debug readout's `${steerSpeedMul(…)}` only prints it.
+    const calls = SCENE_SRC.match(/(?<!\$\{)steerSpeedMul\([^)]*\)/g) || [];
     assert.eq(calls.length, 3, 'three readers');
-    assert.truthy(/const step = WALK_M_S \* steerSpeedMul\(relics\) \* dt;/.test(APP_JS_SRC), 'the stick (_steerManual)');
-    assert.truthy(/const stickMul = this\._stickPushed\(\) \? steerSpeedMul\(this\._walkRelics\(\)\) : 1;/.test(APP_JS_SRC),
+    assert.truthy(/const step = WALK_M_S \* steerSpeedMul\(relics\) \* dt;/.test(SCENE_SRC), 'the stick (_steerManual)');
+    assert.truthy(/const stickMul = this\._stickPushed\(\) \? steerSpeedMul\(this\._walkRelics\(\)\) : 1;/.test(SCENE_SRC),
       'the follow cap, only while the stick is pushed');
-    assert.truthy(/const boost = \(this\.save\.bikeUntil \?\? 0\) > Date\.now\(\) \? BIKE_RACK_SPEED_MUL : 1;/.test(APP_JS_SRC),
+    assert.truthy(/const bike = \(this\.save\.bikeUntil \?\? 0\) > Date\.now\(\) \? BIKE_RACK_SPEED_MUL : 1;/.test(SCENE_SRC),
       '_walkRelics reads the loan');
-    assert.falsy(/bikeUntil/.test(APP_JS_SRC.replace(/_walkRelics\(\) \{[\s\S]*?\n  \}\n/, '')), 'nothing else in app.js reads it');
+    assert.truthy(/const boost = Math\.max\(bike, riding \? HORSE_RIDE\.speedMul : 1\);/.test(SCENE_SRC),
+      'a ridden horse is the same kind of factor, never stacked on the loan');
+    assert.falsy(/bikeUntil/.test(SCENE_SRC.replace(/_walkRelics\(\) \{[\s\S]*?\n  \}\n/, '')), 'nothing else in app.js reads it');
   });
 
   // ── Gates ────────────────────────────────────────────────────────────────
@@ -306,11 +309,11 @@
     // Yesterday's corpse is pruned from save.caught; today's is kept.
     assert.eq(Lairs.dailyGuardDay(d1[0].id), '20260928', 'the day reads back off the id');
     assert.eq(Lairs.dailyGuardDay('lair_wagon_1_2_3_4_0'), null, 'a wagon guard is no daily one');
-    assert.truthy(/const gateDay = Lairs\.dailyGuardDay\(id\);\s*if \(gateDay\) return gateDay === Delivery\.dayKey\(\);/.test(SCENE_CREATURES_SRC),
+    assert.truthy(/const gateDay = Lairs\.dailyGuardDay\(id\);\s*if \(gateDay\) return gateDay === Delivery\.dayKey\(\);/.test(SCENE_SRC),
       'scene_creatures.js prunes the other days');
-    assert.truthy(/o\.kind !== 'gatepost' \|\| !o\.gateSid \|\| seen\.has\(o\.gateSid\)/.test(SCENE_CREATURES_SRC),
+    assert.truthy(/o\.kind !== 'gatepost' \|\| !o\.gateSid \|\| seen\.has\(o\.gateSid\)/.test(SCENE_SRC),
       'spawnInTile hands in one lair per gate');
-    assert.truthy(/dayKey: utcDayKey\(\),/.test(APP_JS_SRC), 'app.js hands the residency pass today');
+    assert.truthy(/dayKey: utcDayKey\(\),/.test(SCENE_SRC), 'app.js hands the residency pass today');
   });
 
   test('gate: an Overpass bin\'s gates become posts; road furniture mints nothing', () => {
@@ -363,8 +366,7 @@
     runInteractable(makeCtx(scene, save), boards[0]);
     assert.eq(reads, 1, 'once per board');
     assert.eq(flashes[0], 'Read it already.');
-    assert.truthy(/waystone: pageStone\(/.test(INTERACTABLES_SRC) && /infoboard: pageStone\(/.test(INTERACTABLES_SRC),
-      'one lane with the waystone');
+    assert.truthy(/infoboard: pageStone\(/.test(INTERACTABLES_SRC), 'notice board keeps its one-time page lane');
     assert.truthy(/infoboard: \{ key: 'signpost'/.test(RENDER_SRC), 'drawn as the signpost');
   });
 

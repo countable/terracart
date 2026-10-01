@@ -81,6 +81,17 @@ const FLEE_BEAT_MUL = 0.5;
 // both read. It was 2×, which stacked on the butterfly's own quickness into a
 // blur that no net under tier 3 could hold.
 const SHINY_SPEED_MUL = 1.5;
+// THE SPEED CEILING (owner, Sep 2026): nothing wild — animal or foe, shiny
+// included — ever moves faster than this, m/s, BY ITS BASE NUMBERS. Not a cap
+// applied on top (the owner's call: "rebalance the base speed, no max
+// mechanic"): every gait and bolt row (SpriteLayout.CREATURE_BEHAVIOUR), every
+// roster speed (enemy_roster.js), the crow tick's glides (CROW_FLIGHT_MPS,
+// CROW_DEPART_HOP) and the struck / routed flee are tuned so that
+// pace × SHINY_SPEED_MUL stays under it, and test/node/speed_ceiling.test.js
+// measures every one of them against it. Retune the row, never add a cap.
+// (Before this, a deer bolted at 37 m/s, a rabbit at 33, and the crow's
+// panic dash ran at 40.)
+const WILD_SPEED_CEILING_MPS = 10;
 // The spread on a COMMITTED approach, in radians: tight enough to read as a
 // line rather than a meander. The cave monsters stalk on it (a flyer doubles
 // it, which is what makes a bat careen), and a charging slime borrows it —
@@ -127,11 +138,12 @@ const CREATURE_SIM_CELLS = 12;
 // pest amnesty — move over minutes, so a second of staleness on a frozen,
 // far-off seat changes nothing anyone can see.
 const SURFACE_RECHECK_MS = 1000;
-// Where the crop-raiding crow pump seats the bird it dispatches (hard mode
+// Where the crop-raiding pest pump seats the deer it dispatches (hard mode
 // only — see wanderCreatures): past the viewport corner (7.8 cells) so it is
 // never seen popping into being, but inside CREATURE_SIM_CELLS so it is
-// thinking, and flying at the field, from the tick it is pushed.
-const PEST_CROW_SPAWN_CELLS = 10;
+// thinking, and walking at the field, from the tick it is pushed. The ghosts
+// rise on the same ring.
+const PEST_SPAWN_CELLS = 10;
 // A MONSTER'S STRIDE, in cells: how far one step of the step chain carries it
 // (wanderCreatures' stepM) — a full cell for a flier, 0.6 for everything that
 // walks. Its PACE is this over its beat (the loop's STEP_MS / its row's
@@ -182,6 +194,110 @@ function roadClassBitsAt(scene, x, y) {
 }
 function inKerbAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BUFFER); }
 function onMajorRoadAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BAND); }
+
+// ── THE ROADSIDE RUN: a retreat in a residential area runs along the street ──
+// Every retreat in wanderCreatures is an AWAY angle — a bolting animal away
+// from the player, a foe routed away from Home's ward, one wandering off or
+// turned back at the kerb, struck prey shoved off by a pet. On open ground
+// "away" is fine. Between houses it is not: away from the player is INTO the
+// nearest yard, and a deer that bolts through a garden or a slime that flees
+// behind a house reads as walking through walls, and stands in ground the
+// spawn gate says nobody's creature belongs on (BEHIND_HOUSE / PRIVATE).
+//   So on LOT ground (WorldGen.isLotTerrain — a residential yard, or the
+// wasteland painted as one), or when the away step would land in a yard,
+// the retreat is bent onto the ROADSIDE: the nearest street within
+// ROADSIDE_R_CELLS (its roadMask band or its road terrain), run ALONG it, on
+// the creature's own side, ROADSIDE_VERGE_CELLS off the road — the pavement,
+// never the carriageway (road terrain refuses every wild step; the kerb
+// rules above refuse the major band and its buffer as they always did). The
+// street's line is the principal axis of its cells about the nearest one;
+// of the two ways along it the run takes the one nearer the away angle, so
+// it is still a retreat, and aims ROADSIDE_AHEAD_CELLS up the verge so a
+// creature deep in a yard first comes OUT to the roadside and then along it.
+//   And a retreat step never ENTERS a yard it is not already in: the yard
+// reason bits (yardReasonAt — the spawn gate's own BEHIND_HOUSE | PRIVATE,
+// off entry.spawnWhy) refuse the target cell, the way the kerb refuses the
+// band; one already in a yard may step anywhere (a refused cell for it would
+// be the stall the scarecrow note in the chain warns about).
+//   Null when there is no street near, or the creature is not among houses:
+// the caller keeps its plain away angle. Surface only. A step-time cost, not
+// a frame cost: (2R+1)² cell reads on the retreat steps of the handful of
+// creatures in the sim bubble, every few hundred ms each.
+const ROADSIDE_R_CELLS = 4;
+const ROADSIDE_AHEAD_CELLS = 3;
+const ROADSIDE_VERGE_CELLS = 1;
+const ROADSIDE_JITTER = 0.3;
+const ROADSIDE_YARD_BITS = () => WorldGen.SPAWN_WHY.BEHIND_HOUSE | WorldGen.SPAWN_WHY.PRIVATE;
+// The tile cell under a surface point: { entry, N, i } or null.
+function tileCellAt(scene, x, y) {
+  if ((scene.depth || 0) !== 0) return null;
+  const edge = scene.tileEdgeM;
+  if (!(edge > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const tx = Math.floor(x / edge), ty = Math.floor(y / edge);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+  if (!entry || !entry.grid) return null;
+  const N = entry.cellsPerEdge;
+  if (!(N > 0)) return null;
+  const ix = Math.floor((x - tx * edge) / (edge / N)), iy = Math.floor((y - ty * edge) / (edge / N));
+  if (ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
+  return { entry, N, i: iy * N + ix };
+}
+// The spawn gate's yard reasons on the cell under a point (0 where none).
+function yardReasonAt(scene, x, y) {
+  const t = tileCellAt(scene, x, y);
+  return t && t.entry.spawnWhy ? (t.entry.spawnWhy[t.i] & ROADSIDE_YARD_BITS()) : 0;
+}
+function lotAt(scene, x, y) {
+  const t = tileCellAt(scene, x, y);
+  return !!t && WorldGen.isLotTerrain(t.entry.grid[t.i]);
+}
+// ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): GEOMETRY, not the
+// gate — which way the street runs, so a retreat can run along it. Nothing
+// here places anything.
+function roadAt(scene, x, y) {
+  const t = tileCellAt(scene, x, y);
+  return !!t && (!!(t.entry.roadMask && t.entry.roadMask[t.i]) || WorldGen.isRoadTerrain(t.entry.grid[t.i]));
+}
+// The bent angle, or null (keep the away angle). `away` is the retreat's own
+// angle, radians.
+function roadsideRunAngle(scene, c, away) {
+  if ((scene.depth || 0) !== 0) return null;
+  const cm = scene.cellM;
+  if (!(cm > 0)) return null;
+  const ax = c.x + Math.cos(away) * cm, ay = c.y + Math.sin(away) * cm;
+  if (!lotAt(scene, c.x, c.y) && !lotAt(scene, ax, ay) && !yardReasonAt(scene, ax, ay)) return null;
+  const R = ROADSIDE_R_CELLS;
+  const cells = [];
+  let near = null, nearD2 = Infinity;
+  for (let dy = -R; dy <= R; dy++) {
+    for (let dx = -R; dx <= R; dx++) {
+      if (!roadAt(scene, c.x + dx * cm, c.y + dy * cm)) continue;
+      cells.push({ dx, dy });
+      const d2 = dx * dx + dy * dy;
+      if (d2 < nearD2) { nearD2 = d2; near = { dx, dy }; }
+    }
+  }
+  if (!near) return null;
+  // The street's line: the principal axis of its cells within two of the
+  // nearest one. One cell alone has no line.
+  let n = 0, sxx = 0, syy = 0, sxy = 0;
+  for (const p of cells) {
+    if (Math.max(Math.abs(p.dx - near.dx), Math.abs(p.dy - near.dy)) > 2) continue;
+    const ex = p.dx - near.dx, ey = p.dy - near.dy;
+    n++; sxx += ex * ex; syy += ey * ey; sxy += ex * ey;
+  }
+  if (n < 2) return null;
+  const theta = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+  let dx = Math.cos(theta), dy = Math.sin(theta);
+  if (dx * Math.cos(away) + dy * Math.sin(away) < 0) { dx = -dx; dy = -dy; }   // the way that is still away
+  // The creature's own side of the street: the normal that points from the
+  // nearest road cell back toward it.
+  let nx = -dy, ny = dx;
+  if (nx * -near.dx + ny * -near.dy < 0) { nx = -nx; ny = -ny; }
+  const tx = (near.dx + dx * ROADSIDE_AHEAD_CELLS + nx * ROADSIDE_VERGE_CELLS) * cm;
+  const ty = (near.dy + dy * ROADSIDE_AHEAD_CELLS + ny * ROADSIDE_VERGE_CELLS) * cm;
+  return Math.atan2(ty, tx) + (Math.random() - 0.5) * ROADSIDE_JITTER;
+}
 // How fast this creature COMES AT YOU, metres per second, at the quickest the
 // step chain ever moves it toward the player (a flee or a rout is away, and
 // does not count): a ghost's glide (`mps`); the surface slime's charge (its
@@ -337,10 +453,10 @@ function sameSideAs(scene, x, y, fx, fy) { return sameSideField(scene, fx, fy).t
 // burns them (Lighting.brightnessAt, the lightmap's own model). Their row is
 // combat.js MONSTERS.ghost (`spawn: 'night'` — never the cave bag, no giant),
 // their mover is ghostTick below (SpriteLayout `haunts`), and they are SESSION
-// state exactly like the pest crow: pushed into the player's tile entry with an
+// state exactly like the pest deer: pushed into the player's tile entry with an
 // id minted off the clock, never generated and never seated on a tile — a
 // spent or slain ghost's marker in save.caught is pruned by the same pass the
-// pest crow's is (wanderCreatures).
+// pest deer's is (wanderCreatures).
 //   "After dark" is the daylight (Lighting.daylight, 1 noon .. 0 night) under
 // GHOST_DARK_DAYLIGHT: 0.5 is the sun on the horizon, and 0.25 is a few
 // degrees under it — dusk gone to dark.
@@ -366,7 +482,7 @@ function ghostsHaunt(depth, day, habitat) {
 const GHOST_SPAWN_MS = EnemyRoster.GHOST_SCALING.cadenceSeconds * 1000;
 const GHOST_SPAWN_JITTER_MS = EnemyRoster.GHOST_SCALING.jitterSeconds * 1000;
 // A group rises together: its members' angles about the player fan across
-// this much of a turn (radians), on the pest crow's ring (PEST_CROW_SPAWN_CELLS
+// this much of a turn (radians), on the pest pump's ring (PEST_SPAWN_CELLS
 // — past the viewport corner, inside the sim bubble, for the same reason).
 const GHOST_GROUP_SPREAD = 1.2;
 // "Dark": a spawn point whose added light (Lighting.brightnessAt) is at most
@@ -461,7 +577,7 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
   const profile = EnemyRoster.ghostProfile(depth);
   const want = Math.min(profile.nearMax - near,
     profile.groupMin + Math.floor(Math.random() * (profile.groupMax - profile.groupMin + 1)));
-  const R = PEST_CROW_SPAWN_CELLS * scene.cellM;
+  const R = PEST_SPAWN_CELLS * scene.cellM;
   const base = Math.random() * Math.PI * 2;
   let made = 0;
   for (let i = 0; made < want && i < want * 8; i++) {
@@ -487,7 +603,7 @@ function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, c
   }
   return made;
 }
-// One risen ghost — session state, id minted off the clock (the pest crow's
+// One risen ghost — session state, id minted off the clock (the pest deer's
 // shape, pruned by the same pass). The pump and a disturbed headstone both
 // mint through here.
 function makeGhost(x, y, now, tx, ty, tag) {
@@ -530,7 +646,7 @@ function raiseGhostAt(scene, x, y, now, tag) {
 // second reason (it was yanked out of the water), not a new aggression flag;
 // every ward that turns a struck slime back (Home, a fire's ring, `unnoticed`)
 // turns this one back too.
-//   It is SESSION state exactly like the ghost and the pest crow: pushed into
+//   It is SESSION state exactly like the ghost and the pest deer: pushed into
 // the player's tile entry with an id minted off the clock
 // (`fished_slime_<tx>_<ty>_…`), pruned from save.caught by the same pass.
 // Returns the creature, or null when no cell beside the player will take it
@@ -691,8 +807,55 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
   return Math.hypot(px - c.x, py - c.y) <= GHOST_TOUCH_CELLS * scene.cellM ? 'touch' : null;
 }
 // How long a departing crow keeps flying away (_crowDepart): [base, spread]
-// ms, so ~2.5–4 minutes — after a meal, or once the player starts hunting it.
+// ms, so ~2.5–4 minutes — once the player starts hunting it.
 const CROW_DEPART_MS = [150000, 90000];
+// How far a CROP RAIDER (the deer — SpriteLayout `raidsCrops`) notices a
+// planted crop it may eat, in cells (wanderCreatures raidStep): the on-screen
+// sim range, so it spots a field from across the viewport but not from the
+// next street. It does not teleport in — every step is its own gait's — so a
+// far deer visibly walks toward the beds. A dispatched pest (isPest) has no
+// limit: it was sent at the field.
+const RAID_NOTICE_CELLS = 8;
+// THE HUNT IS TIMED, NOT ROLLED (owner, Sep 2026: "a 50/50 chance with a T1
+// net, depending on timing, standing right on it"). A hunted crow does NOT
+// bolt the instant the wheel starts — it keeps its own rhythm, finishes the
+// perch it is sitting (or the glide it is on, and the perch that ends it)
+// and leaves on its NEXT launch (_crowDepart 'hunted'). So the race is
+// between the net's wheel and how much perch the crow had left when you
+// tapped: tap one that has just settled and it sits through a wood net's
+// 4 s; tap one about to hop and it is gone. It used to launch at once
+// (_perchUntilT = now), so the wheel raced its first hop, and whether that
+// 2–2.5-cell hop happened to land on a cell still inside the reach diamond
+// — a die roll on its direction — decided the hunt, not the player.
+//   The departure hop itself is here, one row: `cells` out and `ms` of
+// glide per leg. Three cells clears the base reach (2.5 cells + 1 m, whole
+// cells — coords.js cellInReach) from wherever it sat, so the hop always
+// ends the hunt and never the roll above; it is exempt from the 2.5-cell
+// approach cap in _wildCrowTick, which exists to make a crow APPROACH a crop
+// over several hops, not to keep a fleeing one near. The 1.5 s glide is the
+// pace the odds are tuned on: test/node/crow_hunt_odds.test.js drives the
+// real tick against every net tier and pins the wood net's coin flip (and
+// that bare hands never take a crow, a tier-3 net nearly always does).
+//   THE ONE EXCEPTION TO THE SPEED CEILING (WILD_SPEED_CEILING_MPS). This
+// hop is 21 m in 1.5 s — a 14 m/s mean, a 28 m/s peak on the eased leg —
+// and the hunt's odds above are tuned on exactly that: a T1 net's 4 s wheel
+// against the crow's remaining perch plus the ~1.1 s it takes this hop to
+// clear the reach (plus the wheel's 1 s grace). Under the ceiling (a 4.2 s+
+// hop) the crow could never clear the reach inside a 4 s wheel and a T1 net
+// took a crow 97 times in 100, bare hands 8 (test/node/crow_hunt_odds.test.js
+// measured it) — the owner's "coin flip, depending on timing" cannot survive
+// a 10 m/s hop with the reach, the grace and the net wheel as they are. So
+// the one burst stays, declared here, measured as the exception in
+// test/node/speed_ceiling.test.js, and flagged for the owner: slow the hop
+// and retune the hunt (reach, grace or wheel), or keep the burst.
+const CROW_DEPART_HOP = { cells: 3, ms: 1500 };
+// The crow's PEAK flight speed, m/s: every OTHER glide in _wildCrowTick — the
+// roam, the panic dash away from a pet — is a quadratic leg
+// (creatureFlightEase, whose peak is twice its mean), so it lasts
+// 2 × distance / this, and a longer hop is a longer glide, never a faster
+// one (WILD_SPEED_CEILING_MPS). The roam used to peak at 44 m/s, the dash at
+// 80.
+const CROW_FLIGHT_MPS = 9;
 // ── A foe WANDERS OFF now and then ───────────────────────────────────────────
 // Every few minutes each hostile (Combat.isEnemy — the wild slime and every
 // cave monster; never a pet, never a lair guard, whose seat and leash are
@@ -779,23 +942,26 @@ function wardTrip(c, homePos, castleWards, r2) {
 }
 
 // ── What a hunter of the player's may take ───────────────────────────────────
-// A PEST CROW: the bird the hard-mode pump dispatches at a planted field
-// (wanderCreatures mints its id `pest_crow_<tx>_<ty>_…`, the same prefix the
-// save.caught prune reads). A wild crow the tile spawned is game, never a pest.
-function isPestCrow(c) {
-  return !!c && typeof c.id === 'string' && c.id.startsWith('pest_crow_');
+// A PEST: the animal the hard-mode pump dispatches at a planted field — a
+// DEER since Sep 2026 (it was a crow; the owner moved crop-raiding to the
+// deer). wanderCreatures mints its id `pest_deer_<tx>_<ty>_…`, the prefix the
+// save.caught prune reads (`pest_crow_` markers from older sessions prune the
+// same way). A wild deer the tile spawned is game, never a pest.
+function isPest(c) {
+  return !!c && typeof c.id === 'string' && c.id.startsWith('pest_');
 }
 // ONE predicate for wanderCreatures' pet scan: may `hunterKind` (a tame pet,
 // or a summoned ally) go for creature `cr`? Two reasons, one lane:
 //   a PET takes the kinds on its row's `prey` list (a cat crows; a dog deer
 //     and slimes);
 //   a hunter that `preysOnFoes` (the spirit raven) takes every Combat.isEnemy
-//     foe and every pest crow — never a deer, a wild crow or anything tame.
+//     foe and every dispatched pest — never a wild deer, a crow or anything
+//     tame.
 // Nobody's hunter takes a tamed (released_) animal. The caller still skips
 // what is already caught.
 function huntsPrey(hunterKind, cr) {
   if (!cr || (typeof cr.id === 'string' && cr.id.startsWith('released_'))) return false;
-  if (SpriteLayout.preysOnFoes(hunterKind)) return Combat.isEnemy(cr) || isPestCrow(cr);
+  if (SpriteLayout.preysOnFoes(hunterKind)) return Combat.isEnemy(cr) || isPest(cr);
   const prey = SpriteLayout.creaturePrey(hunterKind);
   return !!prey && prey.has(cr.kind);
 }
@@ -985,7 +1151,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   const inTerritory = !territory || Math.hypot(px - (c._territoryX ?? c.homeX ?? c.x),
     py - (c._territoryY ?? c.homeY ?? c.y)) <= territory * scene.cellM;
   const attentive = !inactive && (npcTarget || !Combat.playerDowned(scene.save.energy))
-    && inTerritory && dist <= row.visionCells * scene.cellM;
+    && inTerritory && (npcTarget || Combat.seesPlayer(c.kind, dist, scene.cellM, scene.save));
   if (row.movement.pattern === 'lunge_recover'
       && (now < (c._lungeWindupUntil || 0) || now < (c._lungeRecoverUntil || 0))) {
     enemyAttackReady(c, row, now, false);
@@ -1027,8 +1193,11 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   const lunging = row.movement.pattern === 'lunge_recover' && now < (c._lungeUntil || 0);
   const shaped = ['area', 'breath', 'blast'].includes(row.attackType);
   const winding = c._attackWindupUntil != null;
+  // A `chargeOnly` charger (the boar) has no blow of its own: it hurts only
+  // what it runs into mid-charge, once a charge.
   const eligible = (shaped && winding ? attentive : clear && dist <= row.range * scene.cellM)
-    && (!swoop || (c._batSwooping && !c._batHit)) && (!lunging || !c._lungeHit);
+    && (!swoop || (c._batSwooping && !c._batHit)) && (!lunging || !c._lungeHit)
+    && (!row.movement.chargeOnly || lunging);
   // The charge already warned before moving; contact lands once without
   // starting a second melee wind-up that would stop the charge mid-stride.
   const ready = enemyAttackReady(c, lunging ? {...row, windupSeconds: 0} : row, now, eligible);
@@ -1062,10 +1231,11 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   } else if (npcTarget) {
     NPC.hit(scene, npcTarget);
   } else if (row.steals) {
-    // A THIEF'S SWOOP (Combat.incomingTheft — the gull): the same hit, on
-    // the purse instead of the bar. Nothing here touches energy.
-    const taken = Combat.incomingTheft(scene.save, c, Date.now());
-    if (taken > 0) scene._losePlayerCoins(taken, c);
+    // A THIEF'S SWOOP (Combat.incomingTheft — the raven's coins, the gull's
+    // food): the same hit, on the purse or the bag instead of the bar, banked
+    // by the scene's one thief writer. Nothing here touches energy.
+    const take = Combat.incomingTheft(scene.save, c, Date.now());
+    if (take) scene._losePlayerToThief(take, c);
   } else {
     const damage = Combat.incomingDamage(scene.save, raw);
     const lost = scene._losePlayerEnergy(damage, { closeShop: true });
@@ -1087,7 +1257,7 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
   if (c.stationary || m.pattern === 'anchor_spit') return;
   if (c._abilityWindupUntil > now || c._reloadUntil > now) return;
   const dist = Math.hypot(px - c.x, py - c.y);
-  let sees = !inactive && dist <= row.visionCells * scene.cellM;
+  let sees = !inactive && Combat.seesPlayer(c.kind, dist, scene.cellM, scene.save);
   if (m.territoryCells) {
     c._territoryX ??= c.homeX ?? c.x; c._territoryY ??= c.homeY ?? c.y;
     const radius = m.territoryCells * scene.cellM;
@@ -1161,6 +1331,10 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
       c._lungeAngle = angle; c._lungeHit = false;
       c._attackWindupUntil = null; c._attackNextT = now;
       c._lungeWindupUntil = now + m.lungeWindupSeconds * 1000;
+      SpriteLayout.faceCreature(c, px - c.x, py - c.y);
+      return;
+    } else if (m.chargeOnly) {
+      // Between charges a charge-only foe stands its ground and watches.
       SpriteLayout.faceCreature(c, px - c.x, py - c.y);
       return;
     }

@@ -12,7 +12,7 @@
 // makes them. `Combat.playerDowned` is the one expression, and it is read on
 // BOTH sides — the gate that drops the pursuit and the guard that refuses the
 // damage — so a foe can never be chasing a player it cannot hurt. In
-// wanderCreatures the two wards are ORed once per tick into `unnoticed`, and
+// wanderCreatures the wards are ORed per creature into `unnoticed`, and
 // every hostile-interest branch reads that rather than `shadowed` alone: the
 // leech, the monster's hit and arrow, the struck slime's charge, and both
 // stalk branches, each falling back to the aimless wander.
@@ -23,7 +23,7 @@
 // mixin's (scene_creatures.js), the rest app.js's, so both.
 
 (function () {
-const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+const app = SCENE_SRC;
 
 // The method body: an inner brace is indented deeper than two spaces, so the
 // first "\n  }\n" after the header closes the method (the zero_energy_lockout
@@ -48,17 +48,17 @@ test('downed: an empty bar is down, and so is a bar that is not a number', () =>
   assert.falsy(Combat.playerDowned(0.5), 'and so is half of one');
 });
 
-test('downed: isUnnoticed ORs the three wards, and wanderCreatures reads it once per tick', () => {
+test('downed: isUnnoticed preserves safety wards alongside each monster’s Moss awareness', () => {
   // The OR lives on the SCENE, not in the sim loop, because the picture reads
   // it too: _updatePlayerAura fades the body on the same expression (see the
   // ghost test below). One state, two reasons, both sides.
   const pred = methodBody('isUnnoticed');
   assert.truthy(
-    /return this\.isShadowActive\(\) \|\| Combat\.playerDowned\(this\.save\.energy\) \|\| this\.isTooFast\(\);/.test(pred),
+    /return this\.isShadowActive\(\) \|\| moss \|\| Combat\.playerDowned\(this\.save\.energy\) \|\| this\.isTooFast\(\);/.test(pred),
     'the Shadow Powder ward ORed with the downed test, off the LIVE bar, and the passenger gate (a third reason, one lane)');
   const body = methodBody('wanderCreatures');
-  assert.truthy(/const unnoticed = this\.isUnnoticed\(\);/.test(body),
-    'wanderCreatures reads it once per tick, not per creature');
+  assert.truthy(/const unnoticed = this\.isUnnoticed\(c\);/.test(body),
+    'wanderCreatures reads the awareness of each creature');
 });
 
 test('downed: every hostile-interest branch reads `unnoticed`, never `shadowed`', () => {
@@ -85,7 +85,7 @@ test('downed: every hostile-interest branch reads `unnoticed`, never `shadowed`'
   for (const [re, what] of gates) {
     assert.truthy(re.test(code), `${what} is gated on unnoticed`);
   }
-  assert.truthy(/const unseen = unnoticed \|\| !Combat\.seesPlayer\(c\.kind, distToPlayer, this\.cellM\);/.test(code),
+  assert.truthy(/const unseen = unnoticed \|\| !Combat\.seesPlayer\(c\.kind, distToPlayer, this\.cellM, this\.save\);/.test(code),
     '`unseen` is `unnoticed` plus the foe\'s sight, never a lane of its own');
 });
 

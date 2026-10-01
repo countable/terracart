@@ -63,7 +63,7 @@
   });
 
   test('saved spawn: Home trailer moat keeps planted and saved objects', () => {
-    const src = APP_JS_SRC;
+    const src = SCENE_SRC;
     const start = src.indexOf('  clearHomeTrailerOverlap() {');
     const body = src.slice(start + '  clearHomeTrailerOverlap() {'.length, src.indexOf('\n  }\n', start));
     const clear = new Function(body);

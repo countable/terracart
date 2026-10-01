@@ -7,10 +7,10 @@
 // behaves exactly as it did before this feature.
 //
 // app.js needs Phaser and can't load headlessly, so every gate here is
-// pinned as source text (APP_JS_SRC, lifted by run.js).
+// pinned as source text (SCENE_SRC, lifted by run.js).
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 test('lockout: _zeroEnergyLocked is hard-mode-only, and reads energy live', () => {
   const a = app.indexOf('_zeroEnergyLocked() {');
@@ -32,7 +32,7 @@ test('lockout: eatSelected refuses every food while locked, except a feather rev
     'only a Crow Feather gets through the lockout');
   assert.truthy(/if \(locked && !featherRevive\) return false;/.test(body),
     'every other food refuses outright while locked');
-  assert.truthy(/if \(featherRevive\) Energy\.set\(this\.save, FEATHER_REVIVE_ENERGY\);/.test(body),
+  assert.truthy(/if \(featherRevive\) Energy\.set\(this\.save, FEATHER_REVIVE_ENERGY\);/.test(app),
     'the feather revive is FEATHER_REVIVE_ENERGY, not a FOOD_ENERGY number');
   assert.eq(FEATHER_REVIVE_ENERGY, 1, 'a feather stands you up with 1 energy');
   assert.eq(REVIVE_ITEM_FRAC.crow_feather, undefined, 'and is no longer a share of the bar');

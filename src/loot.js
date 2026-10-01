@@ -854,14 +854,15 @@ function chestLook(o) {
   const barrelArt = barrel ? BARREL_ART[o.id == null ? 0 : fnv1a(String(o.id) + '#barrel-art') % BARREL_ART.length] : null;
   const special = coin || bike || barrel;
   // Starter supply crates always use the box sprite; so does a tier-1 chest.
-  const box = !!o.crate
+  const box = !!o.quarryCrate || !!o.crate
     || (!CHEST_ONE_TIME_CLASSES.has(o.poiClass) && chestTier(o) === 1);
   const macro = (!special && typeof macroFor === 'function') ? macroFor(o) : null;
   const wagon = !!o.banditStop && !(o.depth > 0) && !stand && !special && !macro;
-  const texKey = coin ? 'potofgold' : bike ? 'bike_rack' : barrel ? barrelArt.texKey : (macro ? macro.texKey
+  const equipment = !!o.quarryEquipment;
+  const texKey = equipment ? 'quarry_equipment' : coin ? 'potofgold' : bike ? 'bike_rack' : barrel ? barrelArt.texKey : (macro ? macro.texKey
     : (stand ? 'market_stand' : (wagon ? 'wagon' : (box ? 'box' : 'chest'))));
   return (o._chestLook = { stand, coin, bike, barrel, macro, smashedKey: barrelArt?.smashedKey, barrelName: barrelArt?.name,
-    box: box && !wagon && !macro && !special, wagon, texKey });
+    box: box && !wagon && !macro && !special, equipment, wagon, texKey });
 }
 
 

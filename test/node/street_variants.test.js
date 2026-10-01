@@ -418,7 +418,7 @@ test('old trade road: only about a third of the major-road stops are wagons, by 
 // The FAUNA ATTRACTOR lane (scene_creatures.js _seatFaunaOnFavouriteGround),
 // lifted from the source and driven for real.
 function liftAttract() {
-  const src = SCENE_CREATURES_SRC;
+  const src = SCENE_SRC;
   const a = src.indexOf('\n  _seatFaunaOnFavouriteGround(');
   const b = src.indexOf('\n  }\n', a);
   assert.truthy(a > 0 && b > a, 'found _seatFaunaOnFavouriteGround');
@@ -472,7 +472,7 @@ test('fauna attractors: a table, not code — every column names a spawned speci
   assert.eq(BIOME_ATTRACTS[WorldGen.T.WASTELAND].slime, 0.5, 'wasteland → slimes');
   assert.eq(BIOME_ATTRACTS[WorldGen.T.PITCH].deer, 0.5, 'sports pitch → deer');
   // The spawner reads the columns; it names no species of its own.
-  const src = SCENE_CREATURES_SRC;
+  const src = SCENE_SRC;
   const body = src.slice(src.indexOf('\n  _seatFaunaOnFavouriteGround('), src.indexOf('\n  }\n', src.indexOf('\n  _seatFaunaOnFavouriteGround(')));
   for (const sp of ['deer', 'cat', 'butterfly', 'dog', 'rabbit']) {
     assert.falsy(new RegExp(`'${sp}'`).test(body), `no '${sp}' literal in the lane`);
@@ -698,7 +698,7 @@ test('burned row: one fire slime per stretch, keyed on the street and the square
 
 // ── Slow going ──────────────────────────────────────────────────────────
 test('slow: tar or stakes underfoot cap the body at SLOW_BODY_M_S, and the cap lets go', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const lift = (sig) => {
     const s = app.indexOf('\n  ' + sig), e = app.indexOf('\n  }\n', s);
     assert.truthy(s > 0 && e > s, `found ${sig}`);
@@ -742,8 +742,8 @@ test('slow: tar or stakes underfoot cap the body at SLOW_BODY_M_S, and the cap l
 });
 
 test('slow: the feet cell is read off playerToWorldCell, and the first contact flashes', () => {
-  const src = APP_JS_SRC.slice(APP_JS_SRC.indexOf('\n  _tickStreetFeet() {'),
-    APP_JS_SRC.indexOf('\n  _bodyHold() {'));
+  const src = SCENE_SRC.slice(SCENE_SRC.indexOf('\n  _tickStreetFeet() {'),
+    SCENE_SRC.indexOf('\n  _bodyHold() {'));
   assert.truthy(/this\.playerToWorldCell\(\)/.test(src), 'the FEET, never the camera anchor');
   assert.truthy(/entry\.slowCells\.get\(i\)/.test(src), 'the dressing\'s slow cells');
   for (const m of src.matchAll(/say\('([^']+)'/g)) {
@@ -883,38 +883,117 @@ test('street themes: exactly 500m, reversed duplicates and feature cuts keep ide
     'anonymous joined geometry is stable too');
 });
 
-test('street themes: long and clipped roads get bounded patches with visible plain gaps', () => {
+// A LONG road (past LONG_ROAD_M, or cut by the tile edge) wears its theme in
+// SECTIONS: the wider LONG_PATCH_UNITS lattice, and only about
+// LONG_ROAD_SECTION_SHARE of its squares (longPatchThemed, off the street key
+// and the square). Names are searched so the fixture's squares are known.
+const patchKey = (px, py) => `${TX * EXTENT + px},${TY * EXTENT + py}`;
+const rowSquares = [0, 1024, 2048, 3072];
+const LONG_HEDGE = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'hedgerow'
+  && rowSquares.filter(px => SV.longPatchThemed(k, patchKey(px, 0))).length === 2, 'Long Hedge Road');
+const LONG_KEY = SV.streetKey(LONG_HEDGE, TX, TY);
+
+test('street themes: long and clipped roads wear their theme in sections, with plain gaps between', () => {
   const a = { x: -50, y: 100 }, b = { x: 1800, y: 100 }, c = { x: 4146, y: 100 };
-  const whole = indexOfLines([[a, c]]), split = indexOfLines([[c, b], [b, a]]);
+  const whole = indexOfLines([[a, c]], LONG_HEDGE), split = indexOfLines([[c, b], [b, a]], LONG_HEDGE);
   assert.eq(themeGeometry(whole), themeGeometry(split), 'cuts and direction do not change theme geometry');
-  assert.gt(whole.dressingLines.length, 1, 'a crossing road is not discarded');
+  const themedSquares = rowSquares.filter(px => SV.longPatchThemed(LONG_KEY, patchKey(px, 0)));
+  assert.eq(themedSquares.length, 2, 'the fixture: two of the four squares');
+  assert.eq(whole.dressingLines.map(r => r.patch).sort().join(';'), themedSquares.map(px => patchKey(px, 0)).sort().join(';'),
+    'exactly the themed squares carry a section, each once');
   const patches = new Map();
   for (const rec of whole.dressingLines) {
     assert.eq(rec.variant, 'hedgerow');
     patches.set(rec.patch, (patches.get(rec.patch) || 0) + Streets.lineLengthM(rec.line, 1));
-    for (const p of rec.line) assert.inRange(p.x % SV.VARIANT_PATCH_UNITS,
-      SV.VARIANT_PATCH_INSET_UNITS - 1e-6, SV.VARIANT_PATCH_UNITS - SV.VARIANT_PATCH_INSET_UNITS + 1e-6);
+    for (const p of rec.line) assert.inRange(p.x % SV.LONG_PATCH_UNITS,
+      SV.VARIANT_PATCH_INSET_UNITS - 1e-6, SV.LONG_PATCH_UNITS - SV.VARIANT_PATCH_INSET_UNITS + 1e-6);
   }
-  for (const length of patches.values()) assert.lte(length, SV.MAX_VARIANT_LENGTH_M);
+  for (const length of patches.values()) assert.inRange(length, SV.MIN_VARIANT_LENGTH_M, SV.MAX_VARIANT_LENGTH_M, 'a section is between the min and the cap');
   const parts = SV.lineParts(whole.lines[0], 1);
   assert.gt(parts.filter(p => !p.variant && p.b - p.a >= 2 * SV.VARIANT_PATCH_INSET_UNITS).length, 1,
     'plain intervals visibly separate themes');
-  assert.eq(SV.variantAt(whole.lines[0], 512 + 50, 1), null, 'lattice boundary is a plain gap');
-  for (const line of [[{x:-50,y:512},{x:4146,y:512}], [{x:512,y:-50},{x:512,y:4146}]]) {
-    const aligned = indexOfLines([line]);
-    assert.gt(aligned.dressingLines.length, 0, 'roads following a patch boundary are still themed');
-    assert.eq(aligned.dressingLines.length, 8, 'the seam-aligned road belongs to each patch only once');
+  assert.eq(SV.variantAt(whole.lines[0], 1024 + 50, 1), null, 'lattice boundary is a plain gap');
+  for (const [line, squares] of [
+    [[{x:-50,y:512},{x:4146,y:512}], rowSquares.map(px => patchKey(px, 0))],
+    [[{x:512,y:-50},{x:512,y:4146}], rowSquares.map(py => patchKey(0, py))],
+  ]) {
+    const aligned = indexOfLines([line], LONG_HEDGE);
+    const want = squares.filter(k => SV.longPatchThemed(LONG_KEY, k));
+    assert.eq(aligned.dressingLines.map(r => r.patch).sort().join(';'), want.sort().join(';'),
+      'a road following a patch boundary belongs to each themed patch exactly once');
   }
-  const next = indexOfLines([[{x:-50,y:100},{x:4146,y:100}]], HEDGE, TX + 1);
-  assert.truthy(next.dressingLines.every(r => r.variant === whole.dressingLines[0].variant), 'named road keeps its identity across the tile seam');
+  const next = indexOfLines([[{x:-50,y:100},{x:4146,y:100}]], LONG_HEDGE, TX + 1);
+  assert.truthy(next.dressingLines.every(r => r.variant === 'hedgerow'), 'named road keeps its identity across the tile seam');
+});
+
+test('street themes: about two fifths of a long road is themed, in sections up to the cap', () => {
+  // At play latitudes a z14 tile is ~1.6 km, so an MVT unit is ~0.4 m and a
+  // LONG_PATCH_UNITS square ~410 m: a straight crossing keeps ~385 m of it,
+  // under the cap. (At the unit-metre scale the other tests use, the cap
+  // itself would halve every section.)
+  const M = 0.4;
+  let themed = 0, total = 0, sections = 0;
+  for (let i = 0; i < 60; i++) {
+    const name = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'hedgerow', `Share Road ${i} no`);
+    const index = indexOfLines([[{ x: -50, y: 100 }, { x: 4146, y: 100 }]], name, TX, TY, M);
+    total += 4196 * M;
+    for (const rec of index.dressingLines) {
+      const len = Streets.lineLengthM(rec.line, M);
+      themed += len; sections++;
+      assert.inRange(len, SV.MIN_VARIANT_LENGTH_M, SV.MAX_VARIANT_LENGTH_M);
+    }
+  }
+  assert.eq(SV.LONG_ROAD_SECTION_SHARE, 0.4);
+  assert.eq(SV.LONG_ROAD_M, 1000);
+  // Each themed square keeps (1024 − 2·32) of its 1024 units, so the share
+  // of the road is a little under the share of squares.
+  assert.inRange(themed / total, 0.4 * 0.94 - 0.08, 0.4 * 0.94 + 0.08, 'about 40% of the road, over sixty streets');
+  assert.gt(sections, 0);
+  // A road under LONG_ROAD_M but over the cap keeps the compact every-square lattice.
+  const mid = indexOfLines([[{ x: 100, y: 100 }, { x: 900, y: 100 }]]);
+  assert.gt(mid.dressingLines.length, 1, 'an 800 m road is themed in compact patches');
+  assert.truthy(mid.dressingLines.every(r => Number(r.patch.split(',')[0]) % SV.VARIANT_PATCH_UNITS === 0));
+});
+
+test('street themes: nothing shorter than MIN_VARIANT_LENGTH_M — not a street, not a section', () => {
+  assert.eq(SV.MIN_VARIANT_LENGTH_M, 50);
+  const stub = indexOfLines([[{ x: 100, y: 100 }, { x: 140, y: 100 }]]);
+  assert.eq(stub.dressingLines.length, 0, 'a 40 m lane wears no theme');
+  assert.eq(stub.lines[0].variant, null);
+  assert.eq(stub.lines[0].selectedVariant, 'hedgerow', 'though it rolled one');
+  const fine = indexOfLines([[{ x: 100, y: 100 }, { x: 150, y: 100 }]]);
+  assert.eq(fine.dressingLines.length, 1, 'a 50 m lane does');
+  // A long road clipping a themed square's corner leaves a piece too short to lay.
+  const corner = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'hedgerow'
+    && SV.longPatchThemed(k, patchKey(1024, 0)) && !SV.longPatchThemed(k, patchKey(0, 0)), 'Corner Road');
+  const clipped = indexOfLines([[{ x: -50, y: 100 }, { x: 1024 + 60, y: 100 }]], corner);
+  assert.eq(clipped.dressingLines.length, 0, 'the 60 m that enters the themed square is 40 m after its inset: not laid');
+  const longer = indexOfLines([[{ x: -50, y: 100 }, { x: 1024 + 120, y: 100 }]], corner);
+  assert.eq(longer.dressingLines.length, 1, 'give it 120 m and the section is laid');
+});
+
+test('street themes: a row may set its own limits — the Golden Road keeps its carpet to 250 m', () => {
+  assert.eq(SV.sectionLimits('golden').maxM, 250);
+  assert.eq(JSON.stringify(SV.sectionLimits('hedgerow')), JSON.stringify({ maxM: 500, minM: 50, share: 0.4 }), 'the defaults');
+  assert.eq(JSON.stringify(SV.sectionLimits(null)), JSON.stringify(SV.sectionLimits('hedgerow')));
+  const GOLD = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'golden', 'Gold Road');
+  const short = indexOfLines([[{ x: 100, y: 100 }, { x: 340, y: 100 }]], GOLD);
+  assert.eq(short.dressingLines.length, 1, 'a 240 m golden road is carpeted end to end');
+  assert.eq(short.dressingLines[0].patch, null);
+  const over = indexOfLines([[{ x: 100, y: 100 }, { x: 500, y: 100 }]], GOLD);
+  const themed = over.dressingLines.reduce((n, r) => n + Streets.lineLengthM(r.line, 1), 0);
+  assert.truthy(over.dressingLines.every(r => r.patch !== null), 'a 400 m one is bounded by its own cap');
+  assert.lte(themed, 250 + 1e-6, 'and no square carpets more than the row allows');
+  assert.gt(themed, 0);
 });
 
 test('street themes: a winding patch caps total arclength and yields during interval matching', () => {
   const points=[];
   for(let y=32;y<450;y++) points.push({x:40,y},{x:450,y});
+  const WINDING = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'hedgerow' && SV.longPatchThemed(k, patchKey(0, 0)), 'Winding Road');
   const layers=[
     {name:'transportation',extent:EXTENT,features:[{type:2,tags:{class:'minor'},geom:[points]}]},
-    {name:'transportation_name',extent:EXTENT,features:[{type:2,tags:{name:HEDGE},geom:[points]}]},
+    {name:'transportation_name',extent:EXTENT,features:[{type:2,tags:{name:WINDING},geom:[points]}]},
   ];
   const it=SV.buildIndexSteps(layers,TX,TY,1); let r, yields=0;
   do { r=it.next(); if(r.value === 'street theme interval geometry') yields++; } while(!r.done);
@@ -926,7 +1005,9 @@ test('street themes: a winding patch caps total arclength and yields during inte
 
 test('golden road: coins carpet both verges without overlapping occupied or blocked cells', () => {
   const name = nameWhere((n,k) => SV.variantFor(k,n,'minor') === 'golden', 'Golden Street');
-  const line = pts([[10,25],[54,25]]), split = [line[0], pts([[32,25]])[0], line[1]];
+  // Cells 10–42: a 224 m lane, inside the Golden Road's own 250 m section
+  // cap (sectionLimits), so the carpet runs end to end.
+  const line = pts([[10,25],[42,25]]), split = [line[0], pts([[26,25]])[0], line[1]];
   const build = (lines, blocked = false, occupied = new Set(), roadMask = new Uint8Array(CPE*CPE)) => {
     const index = indexOfLines(lines, name, TX, TY, TILE_EDGE_M / EXTENT);
     const spawnWhy = new Uint16Array(CPE*CPE);
@@ -938,8 +1019,9 @@ test('golden road: coins carpet both verges without overlapping occupied or bloc
   };
   const { result, opts } = build([line]);
   assert.eq(SV.VARIANT_BY_ID.golden.story, 'street_golden');
-  assert.eq(SV.VARIANT_BY_ID.golden.art, 'street_lantern', 'reuse the existing warm road banner');
-  assert.eq(result.coins.length, 270, '45 cells along each of six verge rows are full');
+  assert.eq(SV.VARIANT_BY_ID.golden.art, 'street_golden', 'show coins along both verges');
+  assert.eq(SV.VARIANT_BY_ID.snare.art, 'street_snare', 'show the chest and its traps');
+  assert.eq(result.coins.length, 198, '33 cells along each of six verge rows are full');
   assert.eq(new Set(result.coins.map(c => c.id)).size, result.coins.length, 'one pickup per cell');
   assert.eq(JSON.stringify(result.coins), JSON.stringify(build([[split[2],split[1]],[split[1],split[0]]]).result.coins));
   const rows = new Map();
@@ -951,7 +1033,7 @@ test('golden road: coins carpet both verges without overlapping occupied or bloc
   assert.eq(rows.size, 6, 'three dense rows on each side');
   for (const [iy, xs] of rows) {
     assert.falsy(iy === 25, 'roadway stays clear');
-    assert.eq(xs.length, 45);
+    assert.eq(xs.length, 33);
     xs.sort((a,b) => a-b);
     for (let i=1; i<xs.length; i++) assert.eq(xs[i]-xs[i-1], 1, 'no gaps along a verge');
   }
@@ -960,10 +1042,10 @@ test('golden road: coins carpet both verges without overlapping occupied or bloc
   assert.eq(occupiedResult.coins.length, result.coins.length-1);
   assert.falsy(occupiedResult.coins.some(c => c.id === result.coins[0].id));
   const crossingRoad = new Uint8Array(CPE*CPE);
-  for (let y=0; y<CPE; y++) crossingRoad[y*CPE+32] = 1;
+  for (let y=0; y<CPE; y++) crossingRoad[y*CPE+26] = 1;
   const crossingResult = build([line], false, new Set(), crossingRoad).result;
   assert.eq(crossingResult.coins.length, result.coins.length-6, 'crossing roadway cuts all six coin rows');
-  assert.falsy(crossingResult.coins.some(c => cellOf(c.x, TX) === 32));
+  assert.falsy(crossingResult.coins.some(c => cellOf(c.x, TX) === 26));
   for(const coin of result.coins) {
     const ix=cellOf(coin.x,TX), iy=cellOf(coin.y,TY);
     assert.eq(coin.id,WorldGen.cellId('golden_coin',TX,TY,ix,iy));
@@ -1214,4 +1296,61 @@ test('street terrain: scenic intervals paint only their selected path span', () 
   assert.eq(f.grid[5*12+5],T.SAND);
   assert.eq(f.grid[5*12+9],T.GRASS,'outside scenic interval stays original');
 });
+
+test('street shrines: chosen streets seat safely and independently without a tile cap', () => {
+  const build = (streets, chosen = true, blocked = false) => {
+    const indexes = streets.map(([v, y]) => {
+      const name = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === v
+        && SV.streetShrineChosen(k) === chosen, `Shrine ${v}`);
+      return indexOfLines([pts([[10, y], [54, y]])], name, TX, TY, TILE_EDGE_M / EXTENT);
+    });
+    const index = { ...indexes[0], lines: indexes.flatMap(i => i.lines),
+      dressingLines: indexes.flatMap(i => i.dressingLines), hoardPois: [] };
+    const roadMask = new Uint8Array(CPE*CPE), grid = new Uint8Array(CPE*CPE).fill(T.PARK);
+    for (const [, y] of streets) for (let x=10; x<=54; x++) { roadMask[y*CPE+x]=1; grid[y*CPE+x]=T.ROAD; }
+    const opts = { roadMask, roadClass: new Uint8Array(CPE*CPE), spawnWhy: new Uint16Array(CPE*CPE), occupied: new Set() };
+    if (blocked) opts.spawnWhy.fill(WorldGen.SPAWN_WHY.PRIVATE);
+    const result = SV.dress({ index, tx:TX, ty:TY, N:CPE, tileEdgeM:TILE_EDGE_M, grid, spawnOpts: opts });
+    return { result, grid, roadMask };
+  };
+  const { result, grid, roadMask } = build([['orchard', 25]]);
+  const shrines = result.objects.filter(o => o.kind === 'grove_shrine');
+  assert.eq(shrines.length, 1, 'one shrine for the orchard street');
+  assert.eq(shrines[0].shrineKind, Shrines.kindForStreet('orchard'));
+  assert.eq(shrines[0]._shrineStreet, 'orchard');
+  const ix = cellOf(shrines[0].x, TX), iy = cellOf(shrines[0].y, TY);
+  assert.falsy(roadMask[iy*CPE+ix], 'off the road');
+  assert.truthy(WorldGen.isSpawnCell(grid, CPE, CPE, ix, iy,
+    { roadMask, roadClass: new Uint8Array(CPE*CPE), spawnWhy: new Uint16Array(CPE*CPE), occupied: new Set() }, 'attractor'),
+    'an attractor seat: open ground outside every buffer');
+  assert.eq(JSON.stringify(shrines), JSON.stringify(build([['orchard', 25]]).result.objects.filter(o => o.kind === 'grove_shrine')),
+    'stable rebuild');
+  const many = build([['orchard', 10], ['toadstool', 30], ['overgrown', 50]]).result.objects.filter(o => o.kind === 'grove_shrine');
+  assert.eq(many.length, 3, 'every selected street seats, even above the former cap: ' + many.map(o => o._shrineStreet).join(','));
+  const reversed = build([['overgrown', 50], ['toadstool', 30], ['orchard', 10]]).result.objects.filter(o => o.kind === 'grove_shrine');
+  assert.eq(JSON.stringify(many), JSON.stringify(reversed), 'street input order does not choose winners');
+  assert.eq(build([['orchard', 25]], false).result.objects.filter(o => o.kind === 'grove_shrine').length, 0,
+    'the other half receive no shrine');
+  assert.eq(build([['orchard', 25]], true, true).result.objects.filter(o => o.kind === 'grove_shrine').length, 0,
+    'selected streets still cannot place on private ground');
+  const plain = build([['overgrown', 25]]).result.objects.filter(o => o.kind === 'grove_shrine');
+  assert.eq(plain[0].shrineKind, 'moss_cairn');
+});
+
+test('street shrines: half of canonical street keys qualify and every road variant has a kind', () => {
+  assert.eq(Shrines.STREET_SHRINE_CHANCE, 0.5);
+  let chosen = 0;
+  for (let i = 0; i < 10000; i++) {
+    const name = 'Shrine frequency ' + i;
+    const key = SV.streetKey(name, TX, TY);
+    if (SV.streetShrineChosen(key)) chosen++;
+    assert.eq(SV.streetShrineChosen(key), SV.streetShrineChosen(SV.streetKey(name, TX + 1, TY)),
+      'adjacent tiles agree on a named street');
+  }
+  assert.inRange(chosen / 10000, 0.45, 0.55, 'roughly half, without a tile-density cap');
+  for (const row of SV.STREET_VARIANTS.filter(row => ['minor', 'major'].includes(row.size))) {
+    assert.truthy(Shrines.kindForStreet(row.id), row.id + ' has a shrine kind');
+  }
+});
+
 })();

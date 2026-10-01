@@ -1,6 +1,6 @@
-# Beach zone variants — draft
+# Beach zone variants — implementation notes
 
-These three rows are proposed in `beach-zone-variants.draft.json`. They are not in the generated runtime table and do not change live park selection. Existing materials and rewards make the first pass practical; beach POI art and shoreline placement operators still need implementation.
+Mystic Reef, Pirate Cove and Shellwater Strand are implemented in the canonical `zone-variants.json` table and its generated runtime data. `beach-zone-variants.draft.json` retains the original design snapshot for preview tooling; its filename is historical. Beach selection, composite sand/park ownership, finite rewards and the shipwreck shrine are active. The placement contract below also specifies shoreline orientation and daily tide-seat reservations.
 
 ## Can we detect beach parks?
 
@@ -10,7 +10,7 @@ Sand is the primary zone, independent of the park. A beach variant requires an a
 
 Resolve sand ownership before grove coverage so parks cannot subsume it. Preserve sandy ground on the sand component; treat adjoining parkland as the landward component of the same chosen variant. One beach anchor, orientation and find budget span that composition. Remaining parkland outside the composite keeps its normal grove treatment. Use stable source sand identity, never a tile-clipped polygon centroid, for anchors, orientation and finite reward ownership. Missing or ambiguous geometry goes to review rather than inventing a sand zone.
 
-## Proposed rows
+## Implemented rows
 
 Repeats prefer at most 6 × 6 cells, with an 8 × 8 ceiling. Smaller rectangles are welcome. Each frame stays anchored to the POI and aligned with the shore; dimensions are width along shore × depth toward land. Coverage is measured before clipping, shrine reservations, tide cells and finds. One cell is currently 7 m.
 
@@ -22,7 +22,7 @@ Repeats prefer at most 6 × 6 cells, with an 8 × 8 ceiling. Smaller rectangles 
 
 Pirate Cove's open rib pattern remains background dressing. Its shipwreck replaces the central arrangement as the shrine, with one object id, one interaction and the existing daily gift. The artwork preserves its aspect ratio inside a 3 × 3-cell maximum extent; it is not nine objects or nine rewards. Reserve all nine covered cells and a one-cell landward approach before background fill. Require the entire footprint to be eligible dry sand; do not clip the hull or overwrite higher-priority Home, story or building spawns. If a deterministic whole-footprint fallback cannot fit, retain the existing accessible daily POI and report the missing wreck.
 
-The shipwreck PNG in `docs/art/shipwreck-shrine-draft.png` is generated preview art. It is intentionally evaluated at 48 px and 72 px in the preview. Runtime art registration, extent reservation and beach selection remain unfinished.
+The shipwreck PNG in `docs/art/shipwreck-shrine-draft.png` supplies the registered runtime shrine art. The preview evaluates it at 48 px and 72 px. Runtime placement reserves its 3 × 3 extent and landward approach, with an accessible daily-POI fallback when the whole wreck cannot fit.
 
 ## Art candidates
 
@@ -39,11 +39,11 @@ Standing objects must be interactables or hazards. A new appearance replaces an 
 - Sand ownership is resolved before grove coverage. The beach variant also owns its optional adjoining park component, with one background composition and one finite find plan across both components and all tile seams. Adding parkland does not roll a second beach variant or multiply rewards.
 - Preserve the existing daily tide stream and reserve its waterline seats. Do not stack a second tide population beneath these patterns.
 - Replace ordinary beach buried-X scatter inside owned coverage with the declared finite find budget. Otherwise long shorelines could dwarf the variant rewards.
-- Keep the existing one-per-POI daily grove gift, with proposed beach-themed art. Do not restore a generic park chest or add a second daily reward.
+- Keep the existing one-per-POI daily grove gift, with beach-themed art. Do not restore a generic park chest or add a second daily reward.
 - Small POI decoration touches its anchor; the shipwreck instead reserves its whole extent. Finds connect through clear lanes. Blocked small slots are omitted; inaccessible finds use deterministic eligible fallback seats and then report shortfalls.
 - Fauna percentages relocate existing animals, not spawn additional animals. Fauna can overlap objects; guards use normal enemy eligibility and occupancy.
-- Two of these three draft variants have fauna affinities. The existing sixteen live rows and their half-with-affinity rule remain unchanged until the new family is reviewed.
+- Two of these three beach variants have fauna affinities. The original sixteen grove, stones and tar rows retain their separate half-with-affinity rule.
 
-## Before activation
+## Verification
 
-Implement beach ownership and stable shoreline orientation, waterline reservations and landward vegetation filters; register and size the shipwreck art; check the common-pickup plus finite-find economy against current rewards. Especially verify long beaches and parks crossing tile seams. No exact economic total is claimed by this draft.
+Check stable shoreline orientation, waterline reservations, landward vegetation filters and whole-footprint shipwreck fallback on long beaches and parks crossing tile seams. Background pickup densities and finite-find counts are separate budgets; this document does not claim an exact economic total.

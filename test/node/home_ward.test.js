@@ -21,7 +21,7 @@
 (function () {
 // Home's rest half and _damageEnemy are app.js's; the ward half is
 // wanderCreatures' (scene_creatures.js, the SceneCreatures mixin). Both.
-const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+const app = SCENE_SRC;
 const CELL_M = 5;
 
 // A stub scene for the lifted methods: Home is the synthetic starter trailer
@@ -37,7 +37,7 @@ function trailerScene(over) {
     isRestingAtHome: __home.isRestingAtHome,
     inHomeRing: __home.inHomeRing,
     homeGuardsCrop: __home.homeGuardsCrop,
-    _crowRaids: __home._crowRaids,
+    _cropRaidable: __home._cropRaidable,
   }, over);
 }
 
@@ -48,25 +48,27 @@ test('home: crop raiders keep out of Home\'s ring', () => {
   const field = { crop: 'berry', x: r * 1.01, y: 0 };
   assert.truthy(s.homeGuardsCrop(yard), 'a crop two cells from Home is guarded');
   assert.falsy(s.homeGuardsCrop(field), 'one a step past the ring is not');
-  assert.falsy(s._crowRaids(yard), 'so a crow leaves the yard crop alone');
-  assert.truthy(s._crowRaids(field), 'and still raids the field past it');
-  assert.falsy(s._crowRaids({ crop: 'potato', x: r * 2, y: 0 }), 'potato stays crow-proof anywhere');
+  assert.falsy(s._cropRaidable(yard), 'so a deer leaves the yard crop alone');
+  assert.truthy(s._cropRaidable(field), 'and still raids the field past it');
+  assert.falsy(s._cropRaidable({ crop: 'potato', x: r * 2, y: 0 }), 'potato stays raider-proof anywhere');
   assert.falsy(trailerScene({ depth: 2 }).homeGuardsCrop(yard), 'no Home underground, no guard');
-  assert.truthy(trailerScene({ save: {} })._crowRaids(yard), 'no Home yet, nothing is guarded');
+  assert.truthy(trailerScene({ save: {} })._cropRaidable(yard), 'no Home yet, nothing is guarded');
 });
 
 test('home: every crop raider asks the guard, none keeps its own test', () => {
-  // The raiders are the crow tick and the deer graze (scene_creatures.js);
-  // counted across both files, as they were across app.js.
+  // The one raider is the deer (scene_creatures.js): its notice, its graze
+  // and the hard-mode pump all read _cropRaidable, never the bare kind test
+  // or the bare yard test.
   const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
-  assert.eq((app.match(/if \(!crowEatsCrop\(pp\)\) continue;/g) || []).length, 0,
-    'the crow\'s notice and landing ask _crowRaids, not the bare kind test');
-  assert.eq((app.match(/if \(!this\._crowRaids\(pp\)\) continue;/g) || []).length, 2,
-    'both crow crop scans (landing + notice) read _crowRaids');
-  assert.truthy(/this\.save\.planted\.some\(\(p\) => this\._crowRaids\(p\)\)/.test(app),
-    'the hard-mode pump only dispatches a crow for a crop it may eat');
-  assert.truthy(/if \(this\.homeGuardsCrop\(p\)\) return false;   \/\/ Home's yard/.test(app),
-    'the deer graze skips Home\'s yard');
+  assert.eq((app.match(/raiderEatsCrop\(/g) || []).length, 2,
+    'the bare kind test is read once, inside _cropRaidable (plus its definition)');
+  assert.truthy(/if \(!this\._cropRaidable\(p\)\) return;/.test(app), 'the deer\'s notice reads _cropRaidable');
+  assert.truthy(/if \(!this\._cropRaidable\(p\)\) return false;   \/\/ potato, or Home's yard/.test(app),
+    'the deer graze reads _cropRaidable');
+  assert.truthy(/this\.save\.planted\.some\(\(p\) => this\._cropRaidable\(p\)\)/.test(app),
+    'the hard-mode pump only dispatches a deer for a crop it may eat');
+  assert.falsy(/if \(this\.homeGuardsCrop\(p\)\) return false;/.test(app),
+    'no raider keeps a bare yard test of its own');
 });
 
 test('home: the rest is a RING, not a doormat', () => {
@@ -255,14 +257,19 @@ test('ward: a routed foe RUNS — the rout is distance, not just a heading', () 
   // work" looked like. A routed foe takes the flee pace instead — the same
   // pair the struck-prey override runs at, so "it ran" is one speed.
   const wander = app.slice(app.indexOf('  wanderCreatures('));
-  assert.truthy(/\* shinyFast \* \(routed \? FLEE_BEAT_MUL : 1\);/.test(wander),
+  // `hurry` is the rout on a kind NOT already sprinting (speed_ceiling.test.js:
+  // a bolt is its own hurry, and the pair never stacks on one).
+  assert.truthy(/const hurry = routed && !sprinting;/.test(wander), 'the rout, on what was not already running');
+  assert.truthy(/\* shinyFast \* \(hurry \? FLEE_BEAT_MUL : 1\);/.test(wander),
     'a routed foe steps more often');
-  assert.truthy(/\* \(routed \? FLEE_STRIDE_MUL : 1\);/.test(wander),
+  assert.truthy(/\* \(hurry \? FLEE_STRIDE_MUL : 1\);/.test(wander),
     'and carries further with each step — a charge quickens the beat alone');
-  // One pair of numbers, read by both things that run.
-  assert.truthy(/Math\.cos\(fleeAngle\) \* stepM \* FLEE_STRIDE_MUL/.test(wander),
+  // One pair of numbers, read by both things that run — the struck-prey
+  // override takes the pair over the same base for a kind without a bolt row
+  // (a kind with one runs its bolt instead: speed_ceiling.test.js).
+  assert.truthy(/const hurryM = bolt \? STEP_M \* \(bolt\.stepCells \?\? 1\) : base\.m \* FLEE_STRIDE_MUL;/.test(wander),
     'the struck-prey flee override reads the same stride');
-  assert.truthy(/c\._nextChooseT = now \+ stepMs \* FLEE_BEAT_MUL;/.test(wander),
+  assert.truthy(/const hurryMs = bolt \? \(bolt\.stepMs \?\? STEP_MS\) \* shinyFast : base\.ms \* FLEE_BEAT_MUL;/.test(wander),
     'and the same beat');
   assert.eq(FLEE_STRIDE_MUL * (1 / FLEE_BEAT_MUL), 4,
     'four times the ground — if this changes, both fleers change together');

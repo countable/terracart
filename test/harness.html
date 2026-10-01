@@ -14,7 +14,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <!-- All asset paths in the source are relative ("assets/Character/Idle.png", etc.),
+  <!-- All asset paths in the source are relative ("assets/Character/FarmerCyan.png", etc.),
        so resolve every URL on this page against the project root. Script
        srcs and the fixture fetch path below use absolute `/test/...` to
        compensate. -->
@@ -96,9 +96,12 @@
       '/src/trail.js',
       '/src/streets.js',
       '/src/street_variants.js',
+      '/src/scenic.js',
       '/src/zones.js',
       '/src/zone_variant_data.js', '/src/zone_variants.js',
-      '/src/zone_coverage.js', '/src/zone_dressing.js',
+      '/src/shrines.js',
+      '/src/buffs.js',
+      '/src/zone_coverage.js', '/src/quarry_layout.js', '/src/zone_dressing.js',
       '/src/sprite_layout.js',
       '/src/placed_floor.js',
       '/src/home.js',
@@ -132,6 +135,7 @@
       '/src/spawn_ownership.js',
       '/src/starter.js',
       '/src/combat.js',
+      '/src/companions.js',
       '/src/creature_ai.js',
       '/src/wizard.js',
       '/src/dragon_story.js',
@@ -153,6 +157,7 @@
       '/src/scene_geo.js',
       '/src/npc.js',
       '/src/scene_creatures.js',
+      '/src/scene_shops.js',
       '/src/app.js',
     ].map(p => `<scr${'ipt'} src="${p}?${Date.now()}"></scr${'ipt'}>`).join(''));
   </script>

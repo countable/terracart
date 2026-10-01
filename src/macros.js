@@ -77,6 +77,119 @@
       if (!(today - d < LEDGER_KEEP_DAYS)) delete ledger[k];
     }
   }
+  // Daily places share one ledger and one story ceremony. Pending dialogs
+  // are scene state only: leaving loot behind never spends the day's visit.
+  const DAILY_VISIT_KINDS = {
+    wagon: { name: 'Mercenary wagon', art: 'visit_wagon', sprite: 'wagon', light: 0xf2d9a0,
+      reward: 'companion', effect: 'A mercenary fights beside you',
+      get price() { return root.Companions.KINDS.mercenary.hireCost; },
+      get durationMs() { return root.Companions.KINDS.mercenary.durationMs; },
+      locations: ['Old-trade-road bus stops'],
+      body: 'The mercenary takes your coins and lifts his sword. He falls into step beside you.' },
+    bike: { name: "Courier's post", art: 'visit_bike', sprite: 'bike_rack', light: 0xaadbd1,
+      reward: 'bike', effect: 'Faster walking', locations: ['Mapped bicycle parking'], get durationMs() { return BIKE_RACK_MS; },
+      spent: 'Horse is out.',
+      body: 'A saddled horse waits at the post. You mount up and ride through the ruins.' },
+    gold: { name: 'Pot of gold', art: 'visit_gold', sprite: 'potofgold', light: 0xffd778,
+      reward: 'coins', effect: 'Scattered coins', durationMs: 0,
+      locations: ['Mapped ATMs'],
+      body: 'You lift the heavy lid. Coins spill across the ground.' },
+  };
+  function visitKindForObject(o) {
+    const shrine = root.Shrines?.kindForObject(o);
+    if (shrine) return shrine;
+    if (!o || o.kind !== 'chest' || typeof chestLook !== 'function') return null;
+    const look = chestLook(o);
+    return look.wagon ? DAILY_VISIT_KINDS.wagon : look.bike ? DAILY_VISIT_KINDS.bike
+      : look.coin ? DAILY_VISIT_KINDS.gold : null;
+  }
+  function beginDailyVisit(ctx, o, { row = visitKindForObject(o), held = false } = {}) {
+    const { scene, save, sx, sy } = ctx;
+    const pending = scene._dailyVisits || (scene._dailyVisits = new Set());
+    if (!held && usedToday(save, o.id)) {
+      scene.flash(`${row?.spent || 'Already visited.'} ${shortDuration(msToNextUtcDay())}.`, sx, sy);
+      return null;
+    }
+    if (pending.has(o.id)) return null;
+    pending.add(o.id);
+    let claimed = false, finished = false, presented = false;
+    const visit = {
+      claim() {
+        if (claimed || finished) return false;
+        claimed = true;
+        markToday(save, o.id);
+        // Optional daily-site boons belong to the row, beside their copy.
+        row?.grant?.(save, scene);
+        ctx.dirty = true;
+        return true;
+      },
+      finish() { finished = true; pending.delete(o.id); },
+      present(afterStory) {
+        if (presented || finished) return;
+        presented = true;
+        let dismissed = false;
+        const onDismiss = () => {
+          if (dismissed) return;
+          dismissed = true;
+          if (afterStory) afterStory(visit);
+          else visit.finish();
+          if (ctx.dirty && typeof persistSave === 'function') persistSave(save);
+        };
+        if (row && typeof scene.showMessageModal === 'function') {
+          scene.showMessageModal({ title: row.name, body: row.body, art: row.art, kind: 'story', onDismiss });
+        } else onDismiss();
+      },
+    };
+    return visit;
+  }
+  function dailyVisit(ctx, o, { row = visitKindForObject(o), grant, afterStory } = {}) {
+    const visit = beginDailyVisit(ctx, o, { row });
+    if (!visit) return true;
+    if (!visit.claim()) return true;
+    grant?.();
+    visit.present(afterStory ? () => { visit.finish(); afterStory(); } : null);
+    return true;
+  }
+  function hireMercenary(ctx, o) {
+    const { scene, save, sx, sy } = ctx;
+    const row = DAILY_VISIT_KINDS.wagon;
+    if (scene._mercenaryHirePending) return true;
+    const visit = beginDailyVisit(ctx, o, { row });
+    if (!visit) return true;
+    if (root.Companions.active(save, 'mercenary')) {
+      scene.flash('Your mercenary is still with you.', sx, sy);
+      visit.finish();
+      return true;
+    }
+    if ((save.money || 0) < row.price) {
+      scene.flash(`Need $${row.price} to hire.`, sx, sy);
+      visit.finish();
+      return true;
+    }
+    if (typeof scene.showConfirmModal !== 'function') { visit.finish(); return true; }
+    let settled = false;
+    scene._mercenaryHirePending = true;
+    scene.showConfirmModal({ id: 'mercenary-hire', title: row.name, art: row.art,
+      body: `Hire a mercenary for $${row.price}? He follows you and fights enemies for ${shortDuration(row.durationMs)}.`,
+      acceptLabel: `Hire · $${row.price}`, cancelLabel: 'Later',
+      onCancel: () => { if (!settled) { settled = true; scene._mercenaryHirePending = false; visit.finish(); } },
+      onAccept: () => {
+        if (settled) return;
+        settled = true;
+        scene._mercenaryHirePending = false;
+        if (!root.Companions.hire(scene, 'mercenary')) {
+          visit.finish();
+          scene.flash('Unable to hire right now.', sx, sy);
+          return;
+        }
+        visit.claim();
+        if (typeof persistSave === 'function') persistSave(save);
+        scene._finishInventoryChange?.();
+        visit.present();
+      },
+    });
+    return true;
+  }
   const serviceLedgerId = (id) => 'macro:' + id;
   function serviceUsedToday(save, id, now) {
     return usedToday(save, serviceLedgerId(id), now);
@@ -368,10 +481,10 @@
   }
 
   // ── Per-kind dialog dressing: the painting each opens on and its label ────
-  // Paintings are existing scene pieces (no macro has its own yet): the
-  // closest subject each. `modal` is a MODAL_KINDS key.
+  // Default paintings for each service; training also selects by discipline.
+  // `modal` is a MODAL_KINDS key.
   const KIND_DIALOG = {
-    inn:         { label: 'Inn',         modal: 'shop',     art: 'castle_favour' },
+    inn:         { label: 'Inn',         modal: 'shop',     art: 'kind_inn' },
     chapel:      { label: 'Chapel',      modal: 'treasure', art: 'zone_stones' },
     apothecary:  { label: 'Apothecary',  modal: 'shop',     art: 'kind_shop' },
     scriptorium: { label: 'Scriptorium', modal: 'shop',     art: 'book_read' },
@@ -385,23 +498,32 @@
     if (kind === 'training' && o) return `${Combat.TRAINING_KINDS[trainingKindFor(o)].label} Training`;
     return KIND_DIALOG[kind]?.label || null;
   }
+  function stallArt(kind, o) {
+    if (kind === 'training' && o) {
+      const discipline = trainingKindFor(o);
+      if (discipline === 'ranged') return 'tool_shoot';
+      if (discipline === 'magic') return 'tool_staff';
+    }
+    return KIND_DIALOG[kind]?.art;
+  }
 
   // The first-tap story (app.js _storySplashOnce, key `macro:<kind>`): what
   // the place is, told once. No numbers — those are on the dialog and in the
   // Book.
   const KIND_STORY = {
-    inn:         { title: 'An inn', body: 'Clean sheets wait beside a warm hearth. Your shoulders loosen at the sight.' },
-    chapel:      { title: 'A chapel', body: 'A candle waits by the door. Its keeper offers a quiet blessing.' },
-    apothecary:  { title: 'An apothecary', body: 'Small bottles crowd the shelves, each stoppered against some ache or ill.' },
-    scriptorium: { title: 'A scriptorium', body: 'Fresh ink scents the room. Books lie open on the counter.' },
-    guildhall:   { title: 'A guildhall', body: 'A bounty hangs by the door. Something nearby has worn out its welcome.' },
-    curio:       { title: 'A curio hall', body: 'Empty shelves await your finds. The keeper remembers every gift.' },
-    sundries:    { title: 'A sundries shop', body: 'A coil of rope, a dry torch. Small comforts for the road ahead.' },
-    training:    { title: 'A training hall', body: 'Practice blades knock together. There is strength to be learned here.' },
+    inn:         { title: 'An inn', body: "Warm air drifts from the hearth. You relax at the sight of a clean bed." },
+    chapel:      { title: 'A chapel', body: 'A candle burns by the chapel door. You stop to receive the keeper\'s quiet blessing.' },
+    apothecary:  { title: 'An apothecary', body: 'The room smells of herbs. You look over the small bottles lining the shelves.' },
+    scriptorium: { title: 'A scriptorium', body: 'Books lie open on the counter, and the room smells of fresh ink. You lean closer to read.' },
+    guildhall:   { title: 'A guildhall', body: "A bounty notice hangs beside the guildhall door. You stop to read it." },
+    curio:       { title: 'A curio hall', body: "The keeper shows you the empty shelves. There is room here for your finds." },
+    sundries:    { title: 'A sundries shop', body: 'Rope and torches fill the shelves. You look over the supplies for your next trip.' },
+    training:    { title: 'A training hall', body: 'The master watches as you practise. You focus on your next swing.' },
   };
 
   root.Macros = {
     usedToday, markToday, serviceLedgerId, serviceUsedToday, markServiceToday,
+    DAILY_VISIT_KINDS, visitKindForObject, beginDailyVisit, dailyVisit, hireMercenary,
     daysSinceTaken, stillBare, restockWaitMs, ledgerKeyDay, LEDGER_KEEP_DAYS, stallPrice,
     INN_RATE, innCoinsPerEnergy, innPrice, innRest,
     CHAPEL_TIER_DROP, chapelRollTier,
@@ -414,6 +536,6 @@
     curioNextMilestone, curioMilestoneKey, curioMissing, curioDonate,
     TRAINING_LESSON_PRICE, TRAINING_DRILL_PRICE, TRAINING_MEMORIES_PER_LEVEL, trainingKindFor, lessonMemoriesAt, lessonMemories, foldLegacyTraining, stallLabel, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
     buyLesson, buyDrill, drillLeftMs,
-    KIND_DIALOG, KIND_STORY,
+    KIND_DIALOG, KIND_STORY, stallArt,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

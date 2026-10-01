@@ -11,7 +11,7 @@
       chests: [], spawnOpts: { occupied: new Set(), spawnWhy: new Uint16Array(N * N), roadMask: new Uint8Array(N * N), roadClass: new Uint8Array(N * N) } };
     return Object.assign(ctx, changes);
   }
-  const all = out => [...out.objects, ...out.wildplants, ...out.traps, ...out.guards];
+  const all = out => [...out.objects, ...out.wildplants, ...out.traps, ...out.guards, ...out.treasures];
   const finds = out => all(out).filter(o => o.zoneLayer === 'find');
   test('zone dressing: all variants keep finite counts, tool tiers, uniqueness and rebuild identities', () => {
     for (const row of ZoneVariants.rows) {
@@ -41,7 +41,8 @@
     assert.truthy(first.objects.every(o=>o.kind==='mineralrock' && o.zoneLayer==='background'));
     assert.inRange(first.objects.length,1500,1770,'dense forty-percent coverage');
     const crystals=first.objects.filter(o=>o.deposit==='crystal');
-    assert.inRange(crystals.length,50,115,'about two percent of eligible cells are crystals');
+    const expected = a.N * a.N * ZoneVariants.byId('quarry').background.materialDensity.crystal;
+    assert.inRange(crystals.length, expected * .4, expected * 1.8, 'about half a percent of eligible cells are crystals');
     assert.truthy(crystals.every(o=>o.yieldTier===4 && o.requiredTier===3));
     assert.falsy(first.objects.some(o=>o.yieldTier===6 || o.yieldTier===7),'no rare metal ore in quarry');
     // Every selected cell can be the component centre without becoming an
@@ -138,7 +139,14 @@
       assert.eq(wildplantSprite(o).sheet, 'giant_mushroom');
       assert.eq(wildplantFrame(o), 2);
     }
-    assert.truthy(grove.wildplants.filter(o => o.crop === 'mushroom').every(o => o._plantArt === 'cap_cluster' && wildplantSprite(o).sheet === 'approved_mushroom_cluster'), 'forage gets its approved cluster look while keeping the mushroom crop');
+    // The grove's forage is the plain red cap: the mushroom has no authored
+    // surface look any more (items.js WILDPLANT_CONTEXT_ART), so no zone can
+    // ask for one — the red cap above ground, the blue caps below.
+    const forage = grove.wildplants.filter(o => o.crop === 'mushroom');
+    assert.gt(forage.length, 0);
+    assert.truthy(forage.every(o => !o._plantArt && wildplantSprite(o) === CROP_SPRITE.mushroom && wildplantFrame(o) === CROP_SPRITE.mushroom.frame), 'forage is the red cap, the same mushroom as everywhere');
+    assert.eq(typeof WILDPLANT_CONTEXT_ART, 'object', 'the context-art table is in scope');
+    assert.eq(typeof WILDPLANT_CONTEXT_ART.cap_cluster, 'undefined', 'the surface cluster look is gone');
     const ordinary = ZoneDressing.dress(context('meadow')).wildplants.filter(o => o.crop === 'shrub');
     assert.gt(ordinary.length, 0);
     assert.truthy(ordinary.every(o => !o._plantArt && wildplantSprite(o).sheet === 'bushes'), 'other groves use the same shrub');
@@ -390,5 +398,26 @@
     for (const id of ['ordered_graves', 'overgrown_graves']) {
       assert.gt(ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone').length, 0);
     }
+  });
+  test('zone dressing: a churchyard or tar yard keeps its chest and stands its shrine kind beside it', () => {
+    for (const id of ['ordered_graves', 'black_ring', 'stone_garden']) {
+      const ctx = context(id), a = ctx.field.anchors[0], cell = WorldGen.CELL_M;
+      ctx.chests.push({ kind: 'chest', id: 'poi_' + id, _poiAt: `${a.lx},${a.ly}`, x: 32.5 * cell, y: 32.5 * cell });
+      ctx.spawnOpts.occupied.add(32 * ctx.N + 32);
+      const out = ZoneDressing.dress(ctx), shrines = out.objects.filter(o => o.kind === 'grove_shrine');
+      assert.eq(ctx.chests[0].kind, 'chest', `${id}: the chest stays`);
+      const kind = Shrines.kindForZoneVariant(id);
+      if (!kind) { assert.eq(shrines.length, 0, `${id}: no kind, no shrine`); continue; }
+      assert.eq(shrines.length, 1, id);
+      assert.eq(shrines[0].shrineKind, kind);
+      assert.lte(Math.max(Math.abs(shrines[0]._ix - 32), Math.abs(shrines[0]._iy - 32)), Zones.SHRINE_SEAT_R, 'beside the chest');
+      assert.eq(new Set(all(out).map(o => `${o.x},${o.y}`)).size, all(out).length, `${id}: its cell is its own`);
+      assert.eq(JSON.stringify(shrines), JSON.stringify((() => { const c = context(id); c.chests.push({ ...ctx.chests[0] }); c.spawnOpts.occupied.add(32 * c.N + 32); return ZoneDressing.dress(c); })().objects.filter(o => o.kind === 'grove_shrine')), 'stable');
+    }
+    const grove = context('orchard'), g = grove.field.anchors[0], cell = WorldGen.CELL_M;
+    grove.chests.push({ kind: 'chest', id: 'park', _poiAt: `${g.lx},${g.ly}`, x: 32.5 * cell, y: 32.5 * cell });
+    ZoneDressing.dress(grove);
+    assert.eq(grove.chests[0].kind, 'grove_shrine');
+    assert.eq(grove.chests[0].shrineKind, 'harvest_idol', 'the park POI itself becomes the kind');
   });
 })();

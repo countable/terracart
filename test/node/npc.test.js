@@ -48,11 +48,11 @@
     }
   });
 
-  test('NPC spawn: open inhabited tile produces forty unique seeded residents', () => {
+  test('NPC spawn: open inhabited tile produces NPC.COUNT unique seeded residents', () => {
     const e = entry(), s = scene();
     const first = NPC.spawn(s, e, 3, 5, { roadMask: e.roadMask, occupied: new Set(), pois: [] });
-    assert.eq(first.length, 40);
-    assert.eq(new Set(first.map(c => c.id)).size, 40);
+    assert.eq(first.length, NPC.COUNT);
+    assert.eq(new Set(first.map(c => c.id)).size, NPC.COUNT);
     assert.truthy(first.every(c => c.kind === 'npc' && /^npc_3_5_\d+_\d+$/.test(c.id)));
     NPC.spawn(s, entry(), 8, 9, {});
     assert.eq(signature(NPC.spawn(s, e, 3, 5, { roadMask: e.roadMask, occupied: new Set(), pois: [] })), signature(first));
@@ -80,15 +80,13 @@
     }
   });
 
-  test('NPC zones: grove and churchyard halos have elves; tar influence excludes residents', () => {
-    for (const terrain of [T.GROVE, T.CHURCHYARD]) {
+  test('NPC zones: groves have the fox people, churchyards the shrine neighbours; tar influence excludes residents', () => {
+    for (const [terrain, zone, names] of [[T.GROVE, 'grove', /^(Ru|Vix|Tod|Sor)/], [T.CHURCHYARD, 'shrine', /^(Ae|Eli|Gala|Syl)/]]) {
       const residents = NPC.spawn(scene(), entry(terrain), 0, 0, {});
       assert.eq(residents.length, NPC.COUNT);
       for (const c of residents) {
-        assert.eq(c.zone, 'shrine');
-        assert.truthy(/^(Ae|Eli|Gala|Syl)/.test(c.name), 'uses elvish name prefixes');
-        assert.gte((c.tint >> 8) & 255, (c.tint >> 16) & 255);
-        assert.gte((c.tint >> 8) & 255, c.tint & 255);
+        assert.eq(c.zone, zone);
+        assert.truthy(names.test(c.name), `${zone} name prefixes`);
       }
     }
     for (const kind of ['grove', 'stones', 'tar']) {
@@ -98,7 +96,7 @@
       e.genObjects.push({ id: 'grove_shrine', kind: 'grove_shrine', x: EDGE_M / 2, y: EDGE_M / 2 });
       const residents = NPC.spawn(scene(), e, 0, 0, {});
       assert.eq(residents.length, kind === 'tar' ? 0 : NPC.COUNT);
-      assert.truthy(residents.every(c => c.zone === 'shrine'));
+      assert.truthy(residents.every(c => c.zone === (kind === 'grove' ? 'grove' : 'shrine')));
     }
     assert.eq(NPC.spawn(scene(), entry(T.TAR_YARD), 0, 0, {}).length, 0);
   });
@@ -267,10 +265,16 @@
       const w = { id: 'npc_warden_1_2', kind: 'npc', x: 0, y: 0, ...NPC.warden('npc_warden_1_2'), _portrait: 'x' };
       NPC.interact(s, w, 0, 0);
       assert.eq(shown.length, 1, 'the warden speaks');
-      assert.truthy(shown[0].body.includes(NPC.WARDEN_LINE), 'the introduction retains the safety explanation');
+      assert.truthy(shown[0].body.includes(MemoryStory.HOME.body), 'the plea first');
+      assert.eq(shown[0].okLabel, 'Next', 'a second panel follows');
+      shown[0].onDismiss();
+      assert.eq(shown.length, 2);
+      assert.truthy(shown[1].body.includes(NPC.WARDEN_LINE), 'the introduction retains the safety explanation');
+      assert.eq(shown[1].okLabel, 'OK');
+      assert.eq(shown[1].onDismiss, undefined, 'and ends there');
       s._dialogOpen = () => true;
       NPC.interact(s, w, 0, 0);
-      assert.eq(shown.length, 1, 'but not over an open dialog');
+      assert.eq(shown.length, 2, 'but not over an open dialog');
     } finally { globalThis.document = g; }
   });
 })();
@@ -295,7 +299,7 @@
     assert.falsy(NPC.isDormant(rebuilt, now + 60000));
     NPC.tick(s, c, 1000, 0.1);
     assert.eq(c.x, 3, 'wounded body never strolls');
-    assert.eq(NPC.dialogue(s, c, now + 1).body, "I'm ok, just resting my wounds.");
+    assert.eq(NPC.dialogue(s, c, now + 1).body, NPC.RESTING_LINE);
     assert.truthy(NPC.hit(s, c, now + 60000), 'recovered neighbours can be hit again');
   });
 
@@ -365,7 +369,8 @@ test('NPC resting merchant: wound dialogue replaces trading', () => {
   NPC.hit(s,c);
   NPC.interact(s,c,0,0);
   assert.eq(shown.length,1);
-  assert.eq(shown[0].body,"I'm ok, just resting my wounds.");
+  assert.eq(shown[0].body, NPC.RESTING_LINE);
+  assert.truthy(/resting my wounds/.test(NPC.RESTING_LINE));
 });
 
 test('NPC targeting: membership scan is throttled and rebuilds on depth change', () => {

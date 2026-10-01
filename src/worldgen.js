@@ -730,6 +730,33 @@
   // as often as it lands on tarmac you can stand on. Dropping those outright
   // would cost the lot its reward, so walk the X into the lot instead.
   // Deterministic: fixed ring order, first hit wins, no rng.
+  // The hedge-maze lattice decision — one owner for the commercial plaza's
+  // clipped maze (spawnHedgeMazeSteps) and the sandbox's flora mirror, which
+  // reads it through the export so the two never tune apart. Deterministic on
+  // ABSOLUTE cell coords (continuous across polygons + tiles), on a
+  // period-HEDGE_LATTICE_P lattice:
+  //   pillars    (ax%P==0 && ay%P==0)             always a hedge cell
+  //   wall cells (one coord %P==0, the other not) a hedge IFF that segment
+  //                                              "exists" (a stable coin per
+  //                                              segment; both cells of a
+  //                                              2-cell wall share the id)
+  //   interior   (neither coord %P==0)            never a hedge (open path)
+  // ~25% of cells end up hedged (1/9 pillars + ~30% of the 4/9 wall cells).
+  const HEDGE_LATTICE_P = 3;   // lattice period (cells between pillars)
+  const HEDGE_WALL_PCT = 30;   // % of wall segments that exist → ~25% fill
+  function hedgeWallOn(sx, sy, k, salt) {
+    const hsh = (((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0);
+    return (hsh % 100) < HEDGE_WALL_PCT;
+  }
+  function hedgeMazeCell(ax, ay, salt) {
+    const P = HEDGE_LATTICE_P;
+    const mx3 = ((ax % P) + P) % P;
+    const my3 = ((ay % P) + P) % P;
+    if (mx3 === 0 && my3 === 0) return true;                                    // pillar
+    if (my3 === 0 && mx3 !== 0) return hedgeWallOn(Math.floor(ax / P), ay, 0, salt); // horizontal wall
+    if (mx3 === 0 && my3 !== 0) return hedgeWallOn(ax, Math.floor(ay / P), 1, salt); // vertical wall
+    return false;                                                               // open interior
+  }
   // `cls` is the spawn's class (isSpawnCell's — 'minor' / 'attractor' /
   // 'enemy'), required like isSpawnCell's.
   function relocateToSpawnCell(grid, w, h, cx, cy, opts, maxR, cls) {
@@ -1865,10 +1892,18 @@
   //                       (SURFACE_ROCK_TIER_WEIGHTS) — ~2.5 % copper-bearing
   //   underground       → CAVE_ORE_SHARE of the rocks for each of the
   //                       level's ore tiers (caveOreTiers, below), the rest
-  //                       plain: level 1 all plain, level 2 90 %, then 80 %
+  //                       plain: level 1 LEVEL1_COPPER_SHARE copper (3 %, a
+  //                       taste), level 2 90 %, then 80 %
   const CAVE_ORE_SHARE = 0.10;
+  // The first level down is no tier's mine (caveOreTiers(1) is empty), but it
+  // is where a wood pick first swings, so a thin seam of copper runs through
+  // it (owner, Oct 2026): this share of its rocks, the rest plain. The ore
+  // table for a level with no tiers of its own is copper (caveOreWeights),
+  // which is what makes this one number enough.
+  const LEVEL1_COPPER_SHARE = 0.03;
   function caveRockP(depth) {
     if (!depth || depth <= 0) return 0.90;
+    if (depth === 1) return 1 - LEVEL1_COPPER_SHARE;
     return 1 - CAVE_ORE_SHARE * caveOreTiers(depth).length;
   }
 
@@ -1876,12 +1911,13 @@
   // ore in them, which always break into their bar — are tier N and the tier
   // below, CAVE_ORE_SHARE (10 %) of the rocks each: level 3 is 10 % iron,
   // 10 % copper. Only REAL ore counts (tier 2, copper, and up): a "tier 1" ore
-  // rock breaks as plain stone (interactables.js isPlain), so level 1 is all
-  // plain rock and level 2 is 10 % copper. It is the progression ladder in
-  // the rocks: a tier-N ore wants a pick of tier N-1 (requiredTier), so level
-  // 2's copper forges the pick that opens level 3's iron, down to frost and
-  // crimson on level 7 (and below — the table tops out there). Tier 4+ ore
-  // carries its gem (sapphire, ruby, emerald, then the diamond on 7).
+  // rock breaks as plain stone (interactables.js isPlain), so level 1 is no
+  // tier's mine — it carries only the thin LEVEL1_COPPER_SHARE seam above —
+  // and level 2 is 10 % copper. It is the progression ladder in the rocks: a
+  // tier-N ore wants a pick of tier N-1 (requiredTier), so level 2's copper
+  // forges the pick that opens level 3's iron, down to frost and crimson on
+  // level 7 (and below — the table tops out there). Tier 4+ ore carries its
+  // gem (sapphire, ruby, emerald, then the diamond on 7).
   // Plain rocks keep their own hidden bar roll on break (interactables.js,
   // 1/(2t²) per tier) on every level — this table is only the visible ore.
   // Until Sep 2026 every level below the first used the surface's spread, so
@@ -3630,26 +3666,22 @@
     // Structured "hedge maze" spawner — used for commercial-plaza shrubs so they
     // read as a neat clipped hedge maze instead of random scatter. Placement is
     // deterministic on ABSOLUTE cell coords (continuous across polygons + tiles),
-    // on a period-3 lattice:
-    //   • pillars   (ax%3==0 && ay%3==0)            → always a hedge cell
-    //   • wall cells (one coord %3==0, the other not) → a hedge IFF that wall
+    // on a period-HEDGE_LATTICE_P lattice:
+    //   • pillars   (ax%P==0 && ay%P==0)            → always a hedge cell
+    //   • wall cells (one coord %P==0, the other not) → a hedge IFF that wall
     //                 segment "exists" (a stable per-segment coin flip); both
     //                 cells of a 2-cell wall share the segment id so a wall is
     //                 contiguous and the gaps read as passages.
-    //   • interior  (neither coord %3==0)            → never a hedge (open path)
+    //   • interior  (neither coord %P==0)            → never a hedge (open path)
     // ~25% of cells end up hedged (1/9 pillars + ~30% of the 4/9 wall cells).
+    // The lattice decision lives in hedgeMazeCell (IIFE level, exported) so
+    // the sandbox's flora mirror runs the SAME maze instead of a drifted copy.
     function* spawnHedgeMazeSteps(rings, crop, salt) {
-      const P = 3;                 // lattice period (cells between pillars)
-      const WALL_PCT = 30;         // % of wall segments that exist → ~25% fill
       const bb = bboxOf(rings);
       const ix0 = Math.max(0, Math.floor(bb.minX * mvtToCell));
       const iy0 = Math.max(0, Math.floor(bb.minY * mvtToCell));
       const ix1 = Math.min(w - 1, Math.floor(bb.maxX * mvtToCell));
       const iy1 = Math.min(h - 1, Math.floor(bb.maxY * mvtToCell));
-      const wallOn = (sx, sy, k) => {
-        const hsh = (((sx * 73856093) ^ (sy * 19349663) ^ (k * 83492791) ^ salt) >>> 0);
-        return (hsh % 100) < WALL_PCT;
-      };
       let _row = 0;
       for (let iy = iy0; iy <= iy1; iy++) {
         if ((++_row & 7) === 7) yield 'hedge maze rows';
@@ -3657,14 +3689,7 @@
           // Cell centre in MVT units for the inside-polygon test.
           if (!pointInRings(rings, (ix + 0.5) / mvtToCell, (iy + 0.5) / mvtToCell)) continue;
           const ax = tx * w + ix, ay = ty * h + iy;     // absolute cell coords
-          const mx3 = ((ax % P) + P) % P;
-          const my3 = ((ay % P) + P) % P;
-          let hedge;
-          if (mx3 === 0 && my3 === 0) hedge = true;                                   // pillar
-          else if (my3 === 0 && mx3 !== 0) hedge = wallOn(Math.floor(ax / P), ay, 0); // horizontal wall
-          else if (mx3 === 0 && my3 !== 0) hedge = wallOn(ax, Math.floor(ay / P), 1); // vertical wall
-          else hedge = false;                                                          // open interior
-          if (!hedge) continue;
+          if (!hedgeMazeCell(ax, ay, salt)) continue;
           const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
           wildplants.push(makeWildplant(crop, cx, cy,
             cellId('hm', tx, ty, ix, iy), { _ix: ix, _iy: iy }));
@@ -5488,7 +5513,7 @@
         ? yield* Zones.fringeSteps({ parks: parkPolys, grid, N: w, tx, ty, field: zone, pathUnder }) : null;
       if (fringe && !zone) zone = fringe.field;
       if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.buildSteps({
-        field: zone, poiLayer: layersByName['poi'], parks: parkPolys, tx, ty, N: w,
+        field: zone, poiLayer: layersByName['poi'], parks: parkPolys, beachLayer: layersByName['landcover'], waterLayer: layersByName['water'], tx, ty, N: w,
         chests: deduped, tileEdgeM, grid });
       if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.quarrySteps({
         field: zone, parkingLanes: layersByName['transportation']?.parkingLanes,
@@ -5595,6 +5620,7 @@
         wildplants: filtered, occupied: dressOcc, streetDress, scenicDress, tx, ty, N: w, tileEdgeM });
       dressSpawn();
       zoneDress = yield* ZoneDressing.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
+        tideSeats: scenicDress && scenicDress.tideSeats,
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
     }
     return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
@@ -8092,6 +8118,9 @@
     injectTileBin, injectTileBinSteps,
     tileXYForLonLat, loadTile, tileCache, makeRng,
     forEachItem, forEachItemNear, forEachItemInBox, chunkIndex, CHUNK_M, LAVA_DEPTH, isWalkable, isRoadTerrain, isLotTerrain, LOT_ROCK_DRY, isParkingAisle, isLotLane, pruneLotLanesSteps, LOT_POI_R_M, LOT_AISLE_R_M, LOT_STREETSIDE_M, LOT_MAX_M, isSpawnCell, relocateToSpawnCell,
+    // The hedge-maze lattice decision (spawnHedgeMazeSteps' owner): exported
+    // so the sandbox's flora mirror runs the SAME maze, never a drifted copy.
+    hedgeMazeCell, HEDGE_LATTICE_P,
     // THE SPAWN GATE (entry.spawnWhy): the mask's encoding, the classes, the
     // stamp and its numbers, and the live per-player private-ground veto.
     SPAWN_WHY, SPAWN_WHY_HARD, SPAWN_WHY_TYPED, SPAWN_WHY_LAND, SPAWN_CLASS_BLOCKS, SPAWN_CLASSES,
@@ -8138,7 +8167,7 @@
     // starter home provisioner (app.js) so a hand-seeded starter rock gets the
     // exact odds a real residential deposit gets, and exported for the
     // headless tests that pin those odds.
-    rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0), caveRockP, caveOreWeights, caveOreTiers,
+    rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0), caveRockP, caveOreWeights, caveOreTiers, LEVEL1_COPPER_SHARE,
     // One tree-species table feeds parks, forests and zone groves. The vein
     // helper is exported for the deterministic cave distribution regression.
     TREE_SPECIES, rollVeinTable,

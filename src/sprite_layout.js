@@ -55,6 +55,7 @@
     'peach_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
     'peach_tree:4': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
     'chest:0': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 15 },
+    'quarry_equipment:0': { fw: 32, fh: 16, minX: 2, minY: 1, maxX: 31, maxY: 15 },
     'box:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
     'crystal_cluster:0': { fw: 16, fh: 16, minX: 1, minY: 2, maxX: 15, maxY: 14 },
     'mineralrock:168': { fw: 16, fh: 16, minX: 1, minY: 5, maxX: 16, maxY: 15 },
@@ -77,9 +78,18 @@
     'stakes:0': { fw: 16, fh: 16, minX: 4, minY: 0, maxX: 12, maxY: 16 },
     'tar:0': { fw: 16, fh: 16, minX: 0, minY: 6, maxX: 16, maxY: 16 },
     'headstone:0': { fw: 16, fh: 16, minX: 3, minY: 0, maxX: 14, maxY: 16 },
-    'grove_shrine:0': { fw: 48, fh: 48, minX: 12, minY: 1, maxX: 37, maxY: 47 },
     'grove_votive:0': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 16 },
     'vista_scope:0': { fw: 16, fh: 24, minX: 0, minY: 0, maxX: 15, maxY: 24 },
+    'shrines:0': { fw: 16, fh: 24, minX: 2, minY: 0, maxX: 14, maxY: 24 },
+    'shrines:1': { fw: 16, fh: 24, minX: 2, minY: 0, maxX: 14, maxY: 24 },
+    'shrines:2': { fw: 16, fh: 24, minX: 0, minY: 4, maxX: 16, maxY: 24 },
+    'shrines:3': { fw: 16, fh: 24, minX: 1, minY: 0, maxX: 14, maxY: 24 },
+    'shrines:4': { fw: 16, fh: 24, minX: 0, minY: 3, maxX: 15, maxY: 24 },
+    'shrines:5': { fw: 16, fh: 24, minX: 2, minY: 0, maxX: 13, maxY: 24 },
+    'shrines:6': { fw: 16, fh: 24, minX: 0, minY: 1, maxX: 16, maxY: 24 },
+    'shrines:7': { fw: 16, fh: 24, minX: 1, minY: 0, maxX: 15, maxY: 24 },
+    'shrines:8': { fw: 16, fh: 24, minX: 0, minY: 6, maxX: 16, maxY: 24 },
+    'shrines:9': { fw: 16, fh: 24, minX: 0, minY: 5, maxX: 16, maxY: 24 },
     'barrel:0': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 14, maxY: 16 },
     'barrel_smashed:0': { fw: 16, fh: 16, minX: 0, minY: 4, maxX: 16, maxY: 16 },
     'clay_pot:0': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 16 },
@@ -94,14 +104,19 @@
 
   // Cosmetic only: each POI keeps its appearance across reloads and save overlays.
   const GROVE_SHRINE_ART = [
-    { key: 'grove_shrine', frame: 0, scale: 0.7, name: 'Stone figure' },
     { key: 'grove_votive', frame: 0, scale: 1.6, name: 'Stone votive' },
   ];
   // One centered shrine object, reserving a 3×3-cell footprint.
   const SHIPWRECK_SHRINE_ART = { key: 'shipwreck_shrine', frame: 0, extentCells: 3,
     scale: CELL_PX * 3 / 1536, name: 'Shipwreck' };
+  // The ten shrine kinds (src/shrines.js — a row's `frame` picks its art on
+  // this one sheet). The frames are listed for the sprite audit, which loads
+  // this file without Shrines; shrines.test.js pins every row's frame here.
+  const SHRINE_KIND_ART = { key: 'shrines', scale: 1.6, frames: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] };
   function groveShrineArt(o) {
     if (o?._shrineArt === 'shipwreck') return SHIPWRECK_SHRINE_ART;
+    const kind = o?.shrineKind && root.Shrines && root.Shrines.SHRINE_KINDS[o.shrineKind];
+    if (kind) return { key: SHRINE_KIND_ART.key, frame: kind.frame, scale: SHRINE_KIND_ART.scale, name: kind.name };
     return GROVE_SHRINE_ART[root.fnv1a(String(o?.id ?? '') + '#shrine') % GROVE_SHRINE_ART.length];
   }
 
@@ -343,16 +358,47 @@
   // idle frame 0 — hop, pause, hop, for as long as the glide lasts.
   const SLIME_HOP_FRAME_MS = 150;
   const SLIME_HOP_REST_MS = 600;
-  // All citizen sheets share six real frames in each directional row:
+  // Ordinary citizen sheets share six real frames in each directional row:
   // front, back, left, right. Dialog portraits use the same front-facing art.
   const NPC_FRAME = { width: 48, height: 48, cols: 6, frames: [0, 1, 2, 3, 4, 5], portraitFrame: 0 };
   const NPC_SHEETS = [
     { idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png' },
     { idle: 'npc_1_idle', walk: 'npc_1_walk', path: 'assets/NPC/Citizen_woman02_idle.png' },
     { idle: 'npc_2_idle', walk: 'npc_2_walk', path: 'assets/NPC/Citizen_woman03_idle.png' },
+    // The named trailer neighbours keep the citizen art, one sheet each and
+    // untinted, so each is recognisable; Tilly is the believer's sheet at
+    // CHILD_SCALE (NPC.STORY_ROLES artScale).
+    { role: 'warden', idle: 'npc_2_idle', walk: 'npc_2_walk', path: 'assets/NPC/Citizen_woman03_idle.png', tint: 0xffffff },
+    { role: 'witness', idle: 'npc_1_idle', walk: 'npc_1_walk', path: 'assets/NPC/Citizen_woman02_idle.png', tint: 0xffffff },
+    { role: 'believer', idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png', tint: 0xffffff },
+    { role: 'wanderer', idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png', tint: 0xffffff },
+    { role: 'archaeologist', idle: 'orrin_idle', walk: 'orrin_walk', path: 'assets/NPC/Orrin_old_man_idle.png', cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY: 90 },
+    // Every neighbour role has its own look: one sheet per label, so a role
+    // shown in several zones (Peddler, Lamplighter) looks the same in each.
+    // tools/art/import_npc_art.py seats them in 4x4 cells of 48px and bakes
+    // the citizen palette into them; assets.js preloads them from here.
+    // `portraitY` lowers the smaller heads in the dialog portrait, as Orrin's.
+    ...[
+      ['scout', ['village'], 'wayfinder', 90], ['scout', ['farm'], 'fieldwalker', 90], ['scout', ['market'], 'town_guide', 99],
+      ['scout', ['woodland'], 'ranger', 90], ['scout', ['shrine'], 'shrine_warden', 90], ['scout', ['grove'], 'fox_tracker', 90],
+      ['merchant', ['village', 'market'], 'peddler', 90], ['merchant', ['farm'], 'seed_seller', 99],
+      ['trader', ['village'], 'barterer', 90], ['trader', ['farm'], 'harvest_trader', 99], ['trader', ['market'], 'market_trader', 99],
+      ['trader', ['woodland'], 'forager', 99], ['trader', ['shrine'], 'shrine_trader', 99], ['trader', ['grove'], 'fox_trader', 90],
+      ['scholar', ['village'], 'storykeeper', 99], ['scholar', ['woodland'], 'lorekeeper', 99], ['scholar', ['shrine'], 'shrine_lorekeeper', 99],
+      ['scholar', ['grove'], 'fox_storyteller', 90],
+      ['mason', ['village'], 'mason', 90], ['mason', ['farm'], 'barn_raiser', 99], ['mason', ['market'], 'stonemason', 99],
+      ['lamplighter', ['village', 'market'], 'lamplighter', 99],
+      ['keeper', ['shrine'], 'shrine_keeper', 99], ['keeper', ['grove'], 'den_keeper', 90],
+    ].map(([role, zones, slug, portraitY]) => ({ role, zones, idle: `npc_${slug}_idle`, walk: `npc_${slug}_walk`,
+      path: `assets/NPC/${slug}_idle.png`, cols: 4, frames: [0, 1, 2, 3], tint: 0xffffff, portraitY })),
   ];
+  function npcSheet(c) {
+    return NPC_SHEETS.find(sheet => sheet.role && sheet.role === c.role && (!sheet.zones || sheet.zones.includes(c.zone)))
+      || NPC_SHEETS[c.npcVariant] || NPC_SHEETS[0];
+  }
   function npcAppearance(c, now) {
-    const sheets = NPC_SHEETS[c.npcVariant] || NPC_SHEETS[0];
+    const sheets = npcSheet(c);
+    const frames = sheets.frames || NPC_FRAME.frames;
     const dx = (c._targetX ?? c.x) - (c._startX ?? c.x);
     const dy = (c._targetY ?? c.y) - (c._startY ?? c.y);
     const moving = !!c._moving && (dx !== 0 || dy !== 0);
@@ -361,8 +407,8 @@
     const beat = moving ? 260 : 550;
     return {
       sheet: moving ? sheets.walk : sheets.idle,
-      frame: row * NPC_FRAME.cols + NPC_FRAME.frames[Math.floor(now / beat) % NPC_FRAME.frames.length],
-      tint: c.tint ?? 0xffffff,
+      frame: row * (sheets.cols || NPC_FRAME.cols) + frames[Math.floor(now / beat) % frames.length],
+      tint: sheets.tint ?? c.tint ?? 0xffffff,
     };
   }
   const CREATURE_ART = {
@@ -377,6 +423,19 @@
     // back, right, left); the front row's three frames are its scuttle cycle,
     // stepped at the common creature beat.
     crab:          { sheet: 'crab',      frames: 3, frameMs: CREATURE_FRAME_MS, fw: 16, fh: 16, scale: 1.20, foot: 15 / 16, float: 0,  minY: 1,  maxY: 15 },
+    // Horse and sea turtle carry directional rows, so they face where they
+    // walk (wanderCreatures stamps the facing for any kind with `directions`).
+    // The horse authors its right side; the turtle its left.
+    horse:         { sheet: 'horse',     frameMs: 200, fw: 32, fh: 32, scale: 1.30, foot: 25 / 32, float: 0,  minY: 9,  maxY: 25,
+                     directionSideFacing: 'right', directions: {
+                       down: { idle: [0, 1, 2, 3], move: [4, 5, 6, 7] },
+                       side: { idle: [8, 9, 10, 11], move: [12, 13, 14, 15] },
+                       up:   { idle: [16, 17, 18, 19], move: [20, 21, 22, 23] } } },
+    turtle:        { sheet: 'turtle',    frameMs: CREATURE_FRAME_MS, fw: 16, fh: 16, scale: 1.30, foot: 14 / 16, float: 0,  minY: 1,  maxY: 14,
+                     directionSideFacing: 'left', directions: {
+                       down: { idle: [6], move: [6, 7] },
+                       side: { idle: [2], move: [2, 3] },
+                       up:   { idle: [0], move: [0, 1] } } },
     crow:          { sheet: 'crow',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
     // The spirit raven is the CROW'S SHEET — every geometry column matches the
     // crow row above (one body cannot have two ground lines, and the wheel /
@@ -385,8 +444,12 @@
     spirit_raven:  { sheet: 'crow',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31, alpha: SPIRIT_RAVEN_ALPHA },
     // The gull is the CROW'S SHEET recoloured (its roster row's `palette`,
     // baked into the 'gull' texture at load — assets.js): every geometry
-    // column matches the crow row, one body, one ground line.
+    // column matches the crow row, one body, one ground line. It steals FOOD
+    // (the roster row's `steals`).
     gull:          { sheet: 'gull',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
+    // The raven too — the crow's sheet under an inky blue-violet ramp (its
+    // roster row's `palette`), the coin thief; same geometry, same reason.
+    raven:         { sheet: 'raven',     airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
     // The butterfly's 7 frames are the sheet's whole top row, stepped faster
     // than the common creature beat — a flutter, not a plod.
     butterfly:     { sheet: 'butterfly', frames: 7, frameMs: 100, airborne: true, fw: 16, fh: 16, scale: 2.00, foot: 12 / 16, float: 15, minY: 6,  maxY: 12 },
@@ -543,6 +606,10 @@
     // gives the beach's own pickup, a SHELL. Seated only on shore sand by its
     // own rule (scene_creatures.js, biome_profiles.js SHORE_FAUNA).
     crab:          { wanders: true, produce: { item: 'shell', verb: 'shed' } },
+    // The horse is the cow's row without the milk: twice the netting, tamed
+    // with the cow's favourite (items.js ANIMAL_FOOD.horse). In the bag it is
+    // a mount (items.js HORSE_RIDE).
+    horse:         { wanders: true, catchMul: 2 },
     // A PET is a kind that hunts FOR you once tame — not a kind that can be
     // tamed (any animal can, and a sapphire tames a slime). `prey` is the
     // hoisted Set the per-step scan reads, so it allocates nothing.
@@ -553,34 +620,55 @@
     // flee stride instead of fleeing, and butts for `dmg` every `hitMs` at
     // arm's length (scene_creatures.js). It is still GAME, never an enemy:
     // nothing auto-fires at it. See creatureFightsBack.
+    // BOLT PACES sit under the speed ceiling WITH the shiny factor
+    // (creature_ai.js WILD_SPEED_CEILING_MPS / SHINY_SPEED_MUL: 10 / 1.5, so
+    // a plain bolt stays under ~6.6 m/s). The deer: 1.2 cells (8.4 m) in
+    // 1.3 s ≈ 6.5 m/s, a committed run; it used to cover 1.8 cells in 340 ms
+    // — 37 m/s, a teleport with legs.
     deer:          { wanders: true, game: true, drop: 'meat', raidsCrops: true,
                      avoids: ['scarecrow'], tameSettles: true,
-                     flee: { cells: 5, jitter: 0.6, stepMs: 340, stepCells: 1.8 },
+                     flee: { cells: 5, jitter: 0.6, stepMs: 1300, stepCells: 1.2 },
                      fightsBack: { dmg: 3, hitMs: 2000, rageMs: 20000 } },
+    // The rabbit: half-cell hops in 0.9 s idling (3.9 m/s; it was 420 ms —
+    // 8.3 m/s, over the ceiling as a shiny before it even bolted) and a bolt
+    // of 0.6 cells (4.2 m) in 650 ms ≈ 6.5 m/s, quick short hops with a
+    // breath between (it was 1.4 cells in 300 ms — 33 m/s).
     rabbit:        { wanders: true, tameSettles: true,
-                     stepMs: 420, stepCells: 0.5, pauseMs: [700, 1300],
-                     flee: { cells: 4, jitter: 1.1, stepMs: 300, stepCells: 1.4,
+                     stepMs: 900, stepCells: 0.5, pauseMs: [700, 1300],
+                     flee: { cells: 4, jitter: 1.1, stepMs: 650, stepCells: 0.6,
                              pauseMs: [80, 120] } },
     crow:          { wanders: true, game: true, drop: 'crow_feather', avoids: ['scarecrow'] },
     // THE SPIRIT RAVEN — summoned by the Potion of the Raven (app.js
     // drinkRavenPotion / _tickSpiritRaven) for SPIRIT_RAVEN_MS. It is a PET's
     // hunt by another reason, not a second hunter: wanderCreatures' pet scan
     // runs for it (`summoned`), asks huntsPrey (creature_ai.js) what it may
-    // take — `preysOnFoes`: every Combat.isEnemy foe and every pest crow,
+    // take — `preysOnFoes`: every Combat.isEnemy foe and every pest deer,
     // where a pet's `prey` is a list of kinds — and its kill pays as the pet's
     // ('pet', Combat.isPlayerKill). It FOLLOWS its summoner while nothing is in
     // range (the cat's `follows` lane, its timer armed for the raven's whole
     // life). Its stepMs is one bite a second (Combat.MELEE_INTERVAL_MS — the
-    // pet fight resolves once per step), the slime's own cadence. It is NOT an
+    // pet fight resolves once per step), the slime's own cadence. Its PACE is
+    // the stride, not the beat (owner, Sep 2026: "a little too fast" at a
+    // full cell a second, 7 m/s): 0.7 of a cell a hop is 4.9 m/s, still over
+    // every ground foe's chase (the goblin's 3.5 m/s is the quickest — it
+    // still catches what it hunts) but no longer a blur beside a walking
+    // player. Slow it by the stride; the beat is the bite. It is NOT an
     // enemy (no MONSTERS row), NOT game, and NOT tappable (interact.js skips a
     // `summoned` kind: there is nothing to catch, tame or pet).
-    spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000 },
+    spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000, stepCells: 0.7 },
+    mercenary: { wanders: true, summoned: true, preysOnFoes: true, follows: true,
+      get stepMs() { return EnemyRoster.get('goblin').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
     // `maxMps` is the kind's hard top speed, m/s (owner, Sep 2026: a
     // butterfly never outpaces 6 m/s) — over its gait, its bolt and the net
     // wheel's flee. A shiny's cap rises by its own SHINY_SPEED_MUL (9 m/s,
     // the owner's figure), so the quickening still shows (creatureMaxMps).
-    butterfly:     { wanders: true, pollinates: true, stepMs: 1000, maxMps: 6,
-                     flee: { escapes: true, jitter: 1.2, stepMs: 390, stepCells: 1.5 } },
+    // Its base numbers now sit under that cap on their own (7 m in 1.4 s =
+    // 5 m/s idling; 1.15 cells, 8 m, in 1.35 s ≈ 6 m/s bolting — a quicker
+    // beat and a longer stride, as every bolt row is), so the cap is the
+    // owner's stated number, not what paces it (the speed ceiling wants base
+    // numbers).
+    butterfly:     { wanders: true, pollinates: true, stepMs: 1400, maxMps: 6,
+                     flee: { escapes: true, jitter: 1.2, stepMs: 1350, stepCells: 1.15 } },
     slime:         { wanders: true },
     cave_slime:    { wanders: true },
     purple_slime:  { wanders: true },
@@ -600,6 +688,10 @@
     ghost:         { wanders: true, haunts: true },
     plant:         { wanders: true }, // thinks/attacks in the sim bubble; Combat keeps it rooted
   };
+  // The sea turtle is the rabbit's row on the beach (seated by
+  // biome_profiles.js SHORE_FAUNA): the same hops, bolt and settling, read
+  // from the rabbit's row so the two cannot drift.
+  CREATURE_BEHAVIOUR.turtle = CREATURE_BEHAVIOUR.rabbit;
   // The behaviour row for `kind` — the base row for a giant, like its art.
   if (roster) for (const row of roster.ROWS) {
     if (row.variantOf) continue;
@@ -633,7 +725,7 @@
   // raven)? It hunts for the player without being tame, and is never a tap
   // target.
   function isSummoned(kind) { return !!creatureBehaviour(kind)?.summoned; }
-  // Does this hunter take every FOE (Combat.isEnemy) and every pest crow,
+  // Does this hunter take every FOE (Combat.isEnemy) and every pest deer,
   // rather than a `prey` list of kinds? creature_ai.js huntsPrey answers it.
   function preysOnFoes(kind) { return !!creatureBehaviour(kind)?.preysOnFoes; }
   // Does a petted one follow the player? ANIMAL_INTERACTION owns the window.
@@ -680,9 +772,23 @@
   // A kind's hard top speed, m/s (its row's `maxMps`), or Infinity.
   function creatureMaxMps(kind) { return creatureBehaviour(kind)?.maxMps ?? Infinity; }
   function creatureScale(kind, inst = 1) { return (creatureArt(kind)?.scale ?? 1) * inst; }
-  // One creature's own size multiplier (its instance art scale), or 1.
-  function creatureInstScale(c) {
-    return c._artScale ?? c.artScale ?? 1;
+  // A BABY PET (items.js BABY_KINDS — found in a nest bush or hatched from an
+  // egg, then released): a tame creature RAISED by the player (`raised`),
+  // born the moment it was set down (`born`, epoch ms, saved on its
+  // save.released row). It is drawn at half its kind's size until it has
+  // grown for `growMs` — seven days — and is an adult from then on: full
+  // size, and twice its kind's HP and bite (combat.js raisedMul). Both the
+  // size here and the power there read the ONE predicate, isBabyPet.
+  const PET_BABY = Object.freeze({ scale: 0.5, growMs: 7 * 24 * 60 * 60 * 1000 });
+  function isBabyPet(c, now = Date.now()) {
+    return !!(c && c.raised && Number.isFinite(c.born)) && (now - c.born) < PET_BABY.growMs;
+  }
+  // One creature's own size multiplier (its instance art scale), or 1 — a
+  // baby pet's is halved for as long as it is a baby. Every reader of a
+  // creature's drawn size (render.js, the tap box, the wheel and health bar
+  // seats) comes through here, so the whole body shrinks together.
+  function creatureInstScale(c, now) {
+    return (c._artScale ?? c.artScale ?? 1) * (isBabyPet(c, now) ? PET_BABY.scale : 1);
   }
   function creatureFloat(kind) { return creatureArt(kind)?.float ?? 0; }
   // The sheet a kind is drawn from, and how many frames of its row-0 cycle the
@@ -885,20 +991,29 @@
         walk: [4, 5, 6, 7].map(col => row * 12 + col),
       }])) },
   };
-  // Assignment and bicycle expiry already live in the save. No second skin
-  // flag to persist, migrate, or leave stuck after an effect ends.
+  // A hired swordsman uses the existing player sheet and directional frames.
+  const mercenaryArt = PLAYER_ART.enforcer;
+  CREATURE_ART.mercenary = { sheet: mercenaryArt.sheet, fw: mercenaryArt.fw, fh: mercenaryArt.fh,
+    scale: mercenaryArt.scale, foot: 14 / 16, minY: 2, maxY: 14, float: 0,
+    frameMs: CREATURE_FRAME_MS,
+    directions: Object.fromEntries(Object.entries(mercenaryArt.directions).map(([key, frames]) =>
+      [key, { idle: frames.idle, move: frames.walk }])) };
+  // Assignment, bicycle expiry and riding (items.js isRiding — the flag only
+  // counts while a horse is in the bag) already live in the save. No second
+  // skin flag to persist, migrate, or leave stuck after an effect ends.
   function playerArt(save, now = Date.now()) {
     if ((save?.bikeUntil ?? 0) > now) return PLAYER_ART.mounted;
+    if (typeof isRiding === 'function' && isRiding(save)) return PLAYER_ART.mounted;
     return Object.hasOwn(PLAYER_ART, save?.playerClass) && save.playerClass !== 'mounted'
       ? PLAYER_ART[save.playerClass] : PLAYER_ART.farmer;
   }
 
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell, PLAYER_ART, playerArt, CHEST_SCALE,
-    GROVE_SHRINE_ART, SHIPWRECK_SHRINE_ART, groveShrineArt,
+    GROVE_SHRINE_ART, SHIPWRECK_SHRINE_ART, SHRINE_KIND_ART, groveShrineArt,
     PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones,
     CROWN_BOUNDS, fruitCrownOffset,
-    NPC_FRAME, NPC_SHEETS, npcAppearance,
+    NPC_FRAME, NPC_SHEETS, npcSheet, npcAppearance,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
     CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
     creaturePrey, creatureDrop, creatureProduce, creatureCatchMul, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
@@ -908,7 +1023,7 @@
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,
     CAVE_SLIME_TINT, TRAPPER_TINT, FIRE_SLIME_TINT, GHOST_TINT, GHOST_ALPHA, GHOST_GLOW, SPIRIT_RAVEN_ALPHA, creatureSheet, creatureFrames, creatureTint, creatureAlpha, creatureGlow,
-    creatureFoot, creatureScale, creatureInstScale, creatureFightsBack, creatureMaxMps, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
+    creatureFoot, creatureScale, creatureInstScale, PET_BABY, isBabyPet, creatureFightsBack, creatureMaxMps, creatureFloat, creatureWheelDy, creatureHealthBarTop, creatureTapSpanPx,
   };
   root.SpriteLayout = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

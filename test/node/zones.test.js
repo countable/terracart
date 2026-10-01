@@ -191,8 +191,11 @@ test('zones: zone styling owns coverage while roads, paths, water and buildings 
       byKind.fringe = (byKind.fringe || 0) + 1;
       continue;
     }
-    const kind = on.zone.anchors[on.zone.coverage[i] - 1].kind;
-    assert.eq(on.grid[i], Z.terrainOf(kind), `cell ${i}: the winner's own terrain`);
+    const winner = on.zone.anchors[on.zone.coverage[i] - 1], kind = winner.kind;
+    if (on.grid[i] === T.CAVE_LAVA) {
+      assert.eq(ZoneVariants.pick(winner).id, 'quarry-crater', 'only crater layouts paint surface lava');
+      assert.truthy(on.zoneDress.objects.some(o => o.kind === 'lava_vent' && o._iy * N + o._ix === i), 'lava has an authored hazard marker');
+    } else assert.eq(on.grid[i], Z.terrainOf(kind), `cell ${i}: the winner's own terrain`);
     byKind[kind] = (byKind[kind] || 0) + 1;
   }
   assert.gt(changed, 50, `the halo painted (${changed} cells)`);
@@ -286,7 +289,10 @@ test('zones: every nexus piece is off the road band and off anything already the
     assert.falsy(before.has(i), `${p.id} is not on anything already there`);
     assert.falsy(mine.has(i), `${p.id} is one per cell`);
     assert.truthy(WorldGen.isWalkable(on.grid[i]), `${p.id} stands on walkable ground`);
-    assert.truthy(p.zoneLayer === 'find' ? /^zf_(grove|stones|tar)_\d+_\d+_/.test(p.id) : /_\d+_\d+_\d+_\d+$/.test(p.id), `${p.id} has a stable anchor or tile-cell identity`);
+    if (p.zone === 'quarry' && p.zoneLayer === 'find') {
+      assert.truthy(on.zone.anchors.some(a => a.kind === 'quarry' &&
+        p.id.startsWith(`zq_${ZoneVariants.pick(a).id}_${a.gx}_${a.gy}_find_`) && /_find_\d+$/.test(p.id)), `${p.id} uses its source anchor's identity`);
+    } else assert.truthy(p.zoneLayer === 'find' ? /^zf_(grove|stones|tar)_\d+_\d+_/.test(p.id) : /_\d+_\d+_\d+_\d+$/.test(p.id), `${p.id} has a stable anchor or tile-cell identity`);
     mine.add(i);
   }
   // Rasterized again: the same pieces, the same ids.
@@ -294,7 +300,11 @@ test('zones: every nexus piece is off the road band and off anything already the
   assert.eq(again.zoneDress.objects.map((o) => o.id).join(), d.objects.map((o) => o.id).join(), 'deterministic');
   // One art per interactable, no scenery: every laid kind is tappable or a hazard.
   for (const o of d.objects) {
-    assert.truthy(INTERACTABLES[o.kind] || StreetVariants.isSlowKind(o.kind), `${o.kind} does something`);
+    if (o.kind === 'lava_vent') {
+      assert.eq(o.zoneVariant, 'quarry-crater');
+      assert.eq(on.grid[cellOf(o)], T.CAVE_LAVA, 'vent marks damaging terrain');
+      assert.eq(Lighting.sourceKind({}, o), 'lava_vent', 'vent lights its hazard');
+    } else assert.truthy(INTERACTABLES[o.kind] || StreetVariants.isSlowKind(o.kind), `${o.kind} does something`);
   }
   // Nexus flora (roses, flint, a symmetric figure's beds and shrubs) and the
   // park fringe's filler (the character's long grass or shrubs).
@@ -562,8 +572,8 @@ test('tar yard: every tar pit is a slow cell (the burned row\'s lane, _bodyHold)
   assert.truthy(StreetVariants.isSlowKind('tar'), 'one table both sides read');
   assert.truthy(/const zDress = entry\.zoneDress;[\s\S]*StreetVariants\.isSlowKind\(o\.kind\)\) slow\.set/.test(SPAWN_IN_TILE_SRC),
     'spawnInTile merges the zone\'s tar into the same slow map');
-  assert.truthy(/capMS = \(!pinned && this\._slowHere/.test(APP_JS_SRC), 'and _bodyHold caps the body on it');
-  assert.truthy(/'Tar drags at your feet\.'/.test(APP_JS_SRC), 'tar SLOWS — it drags, it does not grip');
+  assert.truthy(/capMS = \(!pinned && this\._slowHere/.test(SCENE_SRC), 'and _bodyHold caps the body on it');
+  assert.truthy(/'Tar drags at your feet\.'/.test(SCENE_SRC), 'tar SLOWS — it drags, it does not grip');
 });
 
 // The tar yard is an OIL-STAINED LOT (Sep 2026): a live fuel forecourt must
@@ -606,7 +616,7 @@ test('grove shrine: one gift a UTC day per shrine, in the coin-burst ledger', ()
   assert.falsy('stale_20000101' in save.coinBurstClaimed, 'other days pruned');
   runInteractable(makeCtx(scene, save), shrine);
   assert.eq(loots.length, 1, 'once a day');
-  assert.truthy(/^The shrine rests\. \d+[smhd]\.$/.test(flashes[flashes.length - 1]), `the wait is shown: ${flashes[flashes.length - 1]}`);
+  assert.truthy(/^Already visited\. \d+[smhd]\.$/.test(flashes[flashes.length - 1]), `the wait is shown: ${flashes[flashes.length - 1]}`);
   assert.lte(`The shrine rests. ${shortDuration(24 * 3600 * 1000)}.`.length, MAP_MSG_MAX, 'fits a map line');
   const ctxRow = LOOT_CONTEXTS[Z.SHRINE_CONTEXT];
   assert.truthy(ctxRow && ctxRow.favourite.id === 'growth_powder', 'a grove is known for its growth powder');
@@ -681,12 +691,12 @@ test('grove variants: dense geometry preserves existing cells without a neighbou
 test('zones: each kind has a shipped story painting, and every line fits', () => {
   for (const [kind, row] of Object.entries(Z.ZONE_KINDS)) {
     assert.eq(row.story, `zone_${kind === 'beach' ? 'grove' : kind === 'quarry' ? 'stones' : kind}`, `${kind}: key`);
-    assert.truthy(new RegExp(`^  ${row.story}: 'data:image/webp`, 'm').test(ART_THUMBS_SRC), `${row.story} has its painting`);
+    assert.truthy(new RegExp(`^  ${row.art || row.story}: 'data:image/webp`, 'm').test(ART_THUMBS_SRC), `${kind} has its painting`);
     assert.lte(row.flash.length, MAP_MSG_MAX, `${kind}: the map line fits`);
     assert.truthy(row.title && row.body, `${kind}: title and body`);
   }
   assert.truthy(/drags/.test(Z.ZONE_KINDS.tar.body) && !/grips/.test(Z.ZONE_KINDS.tar.body), 'tar drags, it does not grip');
-  assert.truthy(/this\._storySplashOnce\(zrow\.story, \{ art: zrow\.story, title: zrow\.title, body: zrow\.body \}\)/.test(APP_JS_SRC),
+  assert.truthy(/this\._storySplashOnce\(zrow\.story, \{ art: zrow\.art \|\| zrow\.story, title: zrow\.title, body: zrow\.body \}\)/.test(SCENE_SRC),
     'the feet tick tells it, painted by its own stem');
 });
 
@@ -696,7 +706,7 @@ test('zones: every zone terrain is enumerated — colour, texture, family, walka
   for (const [name, code] of [['GROVE', 28], ['CHURCHYARD', 29], ['TAR_YARD', 31]]) {
     assert.eq(T[name], code, `T.${name}`);
     assert.eq(BiomeProfiles.T[name], code, `BiomeProfiles mirrors ${name}`);
-    assert.truthy(new RegExp(`^  ${code}: 0x[0-9a-f]{6},`, 'm').test(APP_JS_SRC), `COLORS[${code}]`);
+    assert.truthy(new RegExp(`^  ${code}: 0x[0-9a-f]{6},`, 'm').test(SCENE_SRC), `COLORS[${code}]`);
     const texture = textures[code];
     assert.truthy(texture && Number.isInteger(texture.variants) && texture.variants > 0, `BIOME_TEX[${code}] has texture variants`);
     assert.eq(typeof texture.draw, 'function', `${name} has a callable painter`);
@@ -736,6 +746,58 @@ test('beach anchors: source tags choose the theme without beach-name heuristics'
     assert.eq(Z.anchorOf(tags).kind, 'beach');
   }
   assert.eq(Z.anchorOf({ class: 'park', subclass: 'park', name: 'Pirate Beach Park' }).kind, 'grove');
-  assert.eq(Z.ZONE_KINDS.beach.story, 'zone_grove', 'reuse a shipped painting until beach art exists');
+  assert.eq(Z.ZONE_KINDS.beach.story, 'zone_grove', 'retain the saved story ledger');
+  assert.eq(Z.ZONE_KINDS.beach.art, 'zone_shore', 'show the shrine above the sand');
+});
+
+// Real source data tags these places as parks while their sand polygons carry
+// subclass=beach. Changing those polygon tags is the control: terrain stays sand.
+test('beach parks: Kelowna mapped shores get beach variants while inland groves and POIs survive', () => {
+  const named = new Set(), variants = new Set();
+  let shoreCells = 0, inlandCells = 0, pieces = 0;
+  for (const [tx, ty] of [[2753,5565], [2753,5566], [2753,5567], [2754,5567]]) {
+    const key = `${tx}_${ty}`, N = WorldGen.cellsPerEdgeForTile(ty), edge = N * WorldGen.CELL_M;
+    const source = decode(key), control = decode(key);
+    for (const layer of control) if (layer.name === 'landcover') for (const f of layer.features) {
+      if (f.tags.subclass === 'beach') f.tags.subclass = 'sand';
+    }
+    const on = WorldGen.rasterizeTile(source, N, tx, ty, edge);
+    const off = WorldGen.rasterizeTile(control, N, tx, ty, edge);
+    const beaches = (source.find(l => l.name === 'landcover')?.features || [])
+      .filter(f => f.type === 3 && f.tags.subclass === 'beach');
+    const inside = (p, rings) => {
+      let yes = false;
+      for (const ring of rings) for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const a = ring[j], b = ring[i];
+        if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x) yes = !yes;
+      }
+      return yes;
+    };
+    for (let i = 0; i < N*N; i++) {
+      const a = on.zone?.anchors[(on.zone.coverage?.[i] || 0)-1];
+      const b = off.zone?.anchors[(off.zone.coverage?.[i] || 0)-1];
+      if (a?.parkShore) {
+        shoreCells++; named.add(a.name); variants.add(ZoneVariants.pick(a).id);
+        const point = {x: (i%N+.5)*4096/N, y: (Math.floor(i/N)+.5)*4096/N};
+        assert.truthy(beaches.some(f => inside(point, f.geom)), `${a.name}: coverage stays inside mapped beach`);
+      } else if (b?.kind === 'grove') {
+        inlandCells++;
+        assert.eq(a?.kind, 'grove', 'inland park keeps its grove');
+        assert.eq(ZoneVariants.identity(a), ZoneVariants.identity(b), 'inland identity stays fixed');
+      }
+    }
+    const poiIds = r => r.objects.filter(o => o._poiAt).map(o => o.id).sort().join(',');
+    assert.eq(poiIds(on), poiIds(off), 'existing park POI ids survive without an extra POI');
+    assert.eq(JSON.stringify(on.zone?.caveSource), JSON.stringify(off.zone?.caveSource), 'beach dressing preserves cave inputs');
+    pieces += [...(on.zoneDress?.objects || []), ...(on.zoneDress?.wildplants || [])]
+      .filter(o => o.zone === 'beach').length;
+  }
+  for (const name of ['Boyce-Gyro Beach Park', 'Rotary Beach Park', 'Strathcona Beach Park']) {
+    assert.truthy(named.has(name), `${name}: mapped shore activates beach variants`);
+  }
+  assert.gt(shoreCells, 0, 'real mapped beach coverage exists');
+  assert.gt(inlandCells, 0, 'inland grove coverage remains');
+  assert.gt(pieces, 0, 'beach variants place actual game objects');
+  assert.gt(variants.size, 1, 'real parks receive varied beach themes');
 });
 })();

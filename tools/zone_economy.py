@@ -31,7 +31,7 @@ vm.runInContext(items.match(/const PRICES = [^]*?^};/m)[0]+'\n'+
      bars.reduce((sum,id,i)=>sum+price(id)*probabilities[i],0);
  });
  const crystal=[0,7].map(sword=>CRYSTAL_DEPOSIT.quantity*trailerSellPrice(PRICES[CRYSTAL_DEPOSIT.item],{sword:{tier:sword}}));
- globalThis.result={stone,probabilities,crystal};`,ctx);
+ globalThis.result={stone,probabilities,crystal,equipment:[0,7].map(sword=>trailerSellPrice(PRICES.iron_bar,{sword:{tier:sword}}))};`,ctx);
 process.stdout.write(JSON.stringify(ctx.result));
 """],cwd=root,text=True))
 values={'grass':(1,1),'shrub':(1,1),'mushroom':(3,6),'flowers':(2,4),'orange':(17,34),'rose':(14,27),'star':(49,98),'gemfruit':(10,19),'rubble':(2,2.9),'flint':(2,3),'stone':tuple(live['stone']),'copper_rock':(15,27.5),'iron_ore':(33,64.5),'gold_ore':(81,160.25),'platinum_ore':(201.5,400.5),'crimson_ore':(483,964.5),'fruit_tree':(4.5,9),'tree':(10.1931,21),'medium_tree':(5.1931,11),'grave':(0,0)}
@@ -39,6 +39,7 @@ values={'grass':(1,1),'shrub':(1,1),'mushroom':(3,6),'flowers':(2,4),'orange':(1
 values['giant_mushroom']=tuple(a+b for a,b in zip(values['shrub'],values['mushroom']))
 # Art-only beach aliases; enemy combat drops are outside this harvest report.
 values['crystal']=tuple(live['crystal'])
+values['equipment']=tuple(live['equipment'])
 values.update(shell=(6,12), driftwood=values['shrub'],
               carnivorous_plant=(0,0))
 names={'rose':'Wild Rose','star':'Starflower','gemfruit':'Gemfruit','gold_ore':'Gold ore rock','platinum_ore':'Platinum ore rock','crimson_ore':'Crimson ore rock','crystal':'Sapphire crystal'}
@@ -46,6 +47,14 @@ fmt=lambda pair: f'{math.floor(pair[0]+.5)}–{math.floor(pair[1]+.5)}'
 rows=[]
 background_values={}
 for v in d['variants']:
+ if v.get('selectable') is False: continue
+ if v.get('quarryLayout'):
+  fixture=json.loads(subprocess.check_output(['node',str(root/'tools/preview_quarry.js'),v['id']],text=True))
+  bg=tuple(sum(values.get(o['material'],(0,0))[i] for o in fixture['objects'] if o.get('zoneLayer')=='background')*100/len(fixture['coverage']) for i in (0,1))
+  f=v['finds']; material=f['material']
+  fv=fmt(tuple(values[material][i]*f['count'] for i in (0,1))) if material in values else ('Gear-dependent' if material=='tool_crate' else 'Treasure roll')
+  rows.append((v['name'],fmt(bg),f'{f["count"]} × {names.get(material,material)}' if f['count'] else 'None',fv,'Background normalized from the runtime parking-lot sample; geometry-dependent, not a fixed density. Finite budget per complete site; clipped edge fragments receive no finite reward.'))
+  continue
  b=v['background']; bg=tuple(sum(n*100*values[m][i] for m,n in b['materialDensity'].items()) for i in (0,1))
  background_values[v['id']]=bg
  f=v['finds'];fv=tuple(values[f['material']][i]*f['count'] for i in (0,1))
@@ -66,7 +75,7 @@ md=['# Zone economy comparison','',intro,'','| '+' | '.join(heads)+' |','|'+'---
 insights=[
 f'Plain rocks now have a steeper bonus-bar curve: copper stays at 12.5%, while Frost is {live["probabilities"][-1]*100:.3f}% (1/294), three times rarer than before. One ordinary churchyard rock averages {fmt(values["stone"])} sale coins. About {math.prod(1-p for p in live["probabilities"])*100:.1f}% give no bonus bar. Fifteen rocks have a {100*(1-(1-live["probabilities"][-1])**15):.1f}% chance of at least one Frost bar. Ordinary rocks remain ungated; their averages still include rare jackpots.',
 f'Work Yard background value per unit area is: {fmt(background_values["work_yard"])} coins per 100 cells, versus Stone Garden at {fmt(background_values["stone_garden"])} and Silent Circle at {fmt(background_values["silent_circle"])}. The fixed Work Yard footprint holds about {fmt(tuple(n*work_area/100 for n in background_values["work_yard"]))} background coins over {work_area} cells; Stone Garden holds {fmt(tuple(n*4.41 for n in background_values["stone_garden"]))} over 441 cells, before clipping and POI replacement.',
-'Work Yard has the largest finite reward: one Crimson rock averages 483–965 coins, versus 202–401 for the Platinum rock and 162–321 for Black Ring’s pair of Gold rocks. Gold requires an Iron pick (T3), Platinum a Gold pick (T4), Crimson a Platinum pick (T5). The existing one-tier-short slow-grind option still applies.',
+'Among the original non-quarry rows, Work Yard has the largest finite reward: one Crimson rock averages 483–965 coins, versus 202–401 for the Platinum rock and 162–321 for Black Ring’s pair of Gold rocks. Gold requires an Iron pick (T3), Platinum a Gold pick (T4), Crimson a Platinum pick (T5). The existing one-tier-short slow-grind option still applies.',
 'Formal Garden pays well because ordinary Marigolds sell for 17–34 coins each, more than the designated Wild Rose finds at 14–27. The “special find” label does not always mean a more valuable item.',
 'Seep and Broken Depot have weak backgrounds. Tar and traps contribute no sale income; their income is mainly the finite find or rubble bonuses. Danger is not currently rewarded with comparable extra value.',
 'Fauna affinities relocate existing creatures; they do not add a guaranteed animal reward or increase total tile fauna. Guards add risk but are excluded from these material valuations.'

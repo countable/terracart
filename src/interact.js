@@ -624,7 +624,7 @@ const TAP_HANDLERS = [
     // Per-kind horizontal grab half-width (m) — the old footprint-tuned radii.
     const HALF_W = {
       npc: 1.8, cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
-      chicken: 1.5, crab: 1.5, rabbit: 1.4, butterfly: 1.4, gull: 1.7,
+      chicken: 1.5, crab: 1.5, turtle: 1.5, rabbit: 1.4, butterfly: 1.4, gull: 1.7, raven: 1.7, horse: 2.2, boar: 1.7,
       slime: 2.0, cave_slime: 2.0, fire_slime: 2.0, goblin: 2.0, goblin_archer: 2.0, goblin_trapper: 2.0, purple_slime: 1.4,
     };
     // Closest tappable creature whose DRAWN box contains the tap. Rank by
@@ -778,9 +778,12 @@ const TAP_HANDLERS = [
       // the scene as resolveDefeat so all three routes pay out identically.
       scene.startWorkProgress(victim.x, victim.y, () => scene.resolveDefeat(victim),
         durMs * hpMul * dmgMul, 0, netSlot, victim);   // track the victim → hunt aborts if it flees out of reach
-      // A hunted crow takes fright and retreats in full — the same departure
-      // a fed crow makes — so the wheel is a race against it leaving reach.
-      if (victim.kind === 'crow') scene._crowDepart?.(victim);
+      // A hunted crow retreats in full — the same departure a fed crow makes
+      // — but on its OWN rhythm: it finishes the perch it is sitting and
+      // leaves on its next launch, so the wheel races the perch the crow had
+      // left when you tapped (creature_ai.js CROW_DEPART_HOP: a wood net at
+      // point blank is a coin flip, decided by timing).
+      if (victim.kind === 'crow') scene._crowDepart?.(victim, performance.now(), 'hunted');
       // A kind that FIGHTS BACK (the deer — SpriteLayout.creatureFightsBack)
       // turns on the hunter instead: enraged for its rageMs, it charges and
       // butts (scene_creatures.js wanderCreatures). Wall clock, like
@@ -817,7 +820,7 @@ const TAP_HANDLERS = [
     if (isTame && !tameProducerFeed) {
       const SOUND = { chicken: 'cluck', cow: 'moo', cat: 'purr', dog: 'woof',
                       butterfly: 'flutter', crow: 'caw', rabbit: 'twitch', deer: 'snort',
-                      crab: 'click' };
+                      crab: 'click', horse: 'whinny', turtle: 'blink' };
       const sound = SOUND[target.kind] || 'happy';
       // Petting accepts the favourite OR plant produce as a treat. Treats
       // get consumed; an empty-handed pet is free. animalLikesFood handles
@@ -1013,6 +1016,14 @@ const TAP_HANDLERS = [
         // between handler start and callback fire, awarding again would dupe.
         // A TIDE pickup is written to the DAY LEDGER (Macros.markToday), never
         // save.picked: it is back on the waterline another day.
+        // A NEST BUSH (items.js isNestBush) hides a baby pet. Chosen before
+        // the pick is written: with no room in the bag for it the bush stays
+        // standing, unpicked, to be chopped again once there is.
+        const babyId = isNestBush(wp.crop, wp.id) ? pickFromArray(babyItems()) : null;
+        if (babyId && Inventory.roomFor(save, babyId) < 1) {
+          scene.flash('Make room for a pet first.', sx, sy);
+          return;
+        }
         if (wp.tide) {
           if (isSpent(wp, spentSets(scene, save))) return;
           Macros.markToday(save, wp.id);
@@ -1030,7 +1041,7 @@ const TAP_HANDLERS = [
           if (wildplantRule(wp.crop)?.note && typeof Scenic !== 'undefined' && scene.showMessageModal) {
             scene.showMessageModal({ kind: 'story', title: 'A message in a bottle', body: Scenic.bottleNote(wp) });
           }
-          return;
+          return true;
         }
         const rewards = wildplantRewards(wp.crop);
         const outId = rewards[0].id;
@@ -1051,6 +1062,13 @@ const TAP_HANDLERS = [
         // Rare shiny flora — 10× money + a memory, on top of the
         // normal pickup, with fanfare.
         if (isShiny(wp.id, SHINY_RATE.flora)) scene.awardShinyBonus(outId, sx, sy);
+        // The nest bush's baby, and the card that shows it.
+        if (babyId) {
+          scene.addToInv(babyId, 1);
+          persistSave(save);
+          if (typeof scene.showBabyFound === 'function') scene.showBabyFound(babyId, 'bush');
+        }
+        return true;
       };
       const reqRelic = wildplantWorkRelic(wp.crop);
       if (reqRelic) {
@@ -1066,7 +1084,10 @@ const TAP_HANDLERS = [
         // First felling chop the save ever starts tells its story. Only the
         // axe work counts here - rockfruit debris gathers free, by hand.
         if (reqRelic === 'axe') scene._toolActionStory?.('chop');
-        scene.startWorkProgress(wp.x, wp.y, award, durMs, workCost || 0, reqRelic);
+        const startingTier = save.relics?.[reqRelic]?.tier || 0;
+        scene.startWorkProgress(wp.x, wp.y, () => {
+          if (award()) scene._barehandWorkStory?.(reqRelic, startingTier);
+        }, durMs, workCost || 0, reqRelic);
       } else {
         award();
         ctx.dirty = true;
@@ -1291,15 +1312,21 @@ const TAP_HANDLERS = [
     // renders + behaves normally) but carry a shiny flag so they tint gold and
     // re-catch back into the shiny stack.
     const baseKind = item.base || item.id;
-    const isShinyItem = !!item.shiny;
+    // A BABY (items.js BABY_KINDS) is born the moment it is set down: `raised`
+    // + `born` ride the save row and the live creature alike, and both the
+    // size (SpriteLayout.isBabyPet) and, once grown, the double strength
+    // (combat.js raisedMul) read them. A raised pet is always shiny.
+    const isBaby = !!item.baby;
+    const isShinyItem = !!item.shiny || isBaby;
+    const birth = isBaby ? { raised: true, born: Date.now() } : {};
     const tx = Math.floor(cwmx / scene.tileEdgeM);
     const ty = Math.floor(cwmy / scene.tileEdgeM);
     save.released = save.released || [];
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     const id = releasedId(baseKind);
-    save.released.push({ x: cwmx, y: cwmy, kind: baseKind, id, tx, ty, shiny: isShinyItem });
+    save.released.push({ x: cwmx, y: cwmy, kind: baseKind, id, tx, ty, shiny: isShinyItem, ...birth });
     if (entry && entry.creatures) {
-      entry.creatures.push(WorldGen.makeCreature(baseKind, cwmx, cwmy, id, { shiny: isShinyItem }));
+      entry.creatures.push(WorldGen.makeCreature(baseKind, cwmx, cwmy, id, { shiny: isShinyItem, ...birth }));
     }
     consumeSelected(save);
     ctx.dirty = true;
@@ -1522,9 +1549,8 @@ const TAP_HANDLERS = [
       // emoji-free (name + count only).
       scene.flashLoot(`harvested ${p.crop} ×${yieldN}${gotSeed ? ' +seed' : ''}`, '#a7ffb0', 1, p.crop);
       // The first harvest ends the pest amnesty around home (app.js
-      // _pestFreeZone + the crow pump): from here on, crops attract crows and
-      // slimes spawn at home like anywhere else. Persisted with this tap's
-      // ctx.dirty save.
+      // _pestFreeZone): from here on, slimes, crows and ravens spawn at home
+      // like anywhere else. Persisted with this tap's ctx.dirty save.
       save.hasHarvested = true;
       // The FIRST harvest of each crop type is a memory — the same ledger a
       // shiny find and a first delivery bank in (app.js _bankDiscovery), keyed
@@ -1713,7 +1739,7 @@ const TAP_HANDLERS = [
       //   `plants:'tree'` (the ACORN) → a `tree` object: timber, chopped for
       //       wood like any other, its growth stage read off planted_t by
       //       util.js treeGrowthStage so the frame, the axe gate and the wood
-      //       yield all climb together over the same four days.
+      //       yield all climb together over the same PLANTED_TREE_GROW_MS.
       //   otherwise (apple / peach) → a `fruittree`: picked, not chopped. It
       //       advances through the species sheet's life-cycle frames and bears
       //       fruit at maturity (render.js fruittree spec + the fruittree
@@ -1814,6 +1840,7 @@ const TAP_HANDLERS = [
     if (GRASSLAND_TILL.has(cell.type)) tillMs = Math.round(tillMs / 2);
     // First furrow the save ever turns tells its story, as the wheel starts.
     scene._toolActionStory?.('till');
+    const startingTier = save.relics?.hoe?.tier || 0;
     scene.startWorkProgress(cwmx, cwmy, () => {
       scene.tilledSet.add(cellKey);
       // The bed remembers the hoe that made it - that's the produce QUALITY a
@@ -1833,6 +1860,7 @@ const TAP_HANDLERS = [
         persistSave(save);
         scene.flashLoot(`+1 ${ITEM_BY_ID[find.id]?.name || find.id}`, '#a7ffb0', 1, find.id);
       }
+      scene._barehandWorkStory?.('hoe', startingTier);
     }, tillMs, tillCost, 'hoe');
     return true;
   }},

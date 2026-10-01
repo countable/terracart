@@ -57,7 +57,12 @@
   //       taken today instead of standing again at once. The ledger's shape
   //       is unchanged (it only keeps a week now — macros.js markToday).
   //   6 — remove retired mini vampire bats from saved released creatures.
-  const SAVE_SCHEMA = 6;
+  //   7 — tiered ring/amulet gear becomes permanent luck + an amulet refund.
+  const SAVE_SCHEMA = 7;
+  // Frozen prices for schema-7's one-time refund. These describe removed gear,
+  // so they stay here rather than keeping a dead amulet row in items.js.
+  const LEGACY_AMULET_BASE_COST = 60;
+  const LEGACY_GEAR_COST_MUL = [0, 1.5, 3, 8, 20, 50, 120, 280];
 
   // A surface POI chest's id, by SHAPE: `c_<tx>_<ty>_<ix>_<iy>` (the MVT
   // POI) or `sxc_<osm id | tx_ty_ix_iy>` (the satextract / Overpass one). A
@@ -110,7 +115,19 @@
         needsPersist = true;
       }
     }
+    if ((save.schema || 0) < 7 && save.relics) {
+      const ringTier = Math.max(0, Math.min(7, Math.floor(save.relics.ring?.tier || 0)));
+      if (ringTier) save.luckUpgrades = Math.max(save.luckUpgrades || 0, ringTier);
+      if ('ring' in save.relics) { delete save.relics.ring; needsPersist = true; }
+      const amuletTier = Math.max(0, Math.min(7, Math.floor(save.relics.amulet?.tier || 0)));
+      if (amuletTier) {
+        const mul = LEGACY_GEAR_COST_MUL[amuletTier];
+        save.money = (save.money || 0) + Math.max(1, Math.ceil(LEGACY_AMULET_BASE_COST * mul / 4));
+      }
+      if ('amulet' in save.relics) { delete save.relics.amulet; needsPersist = true; }
+    }
     if (typeof Conditions !== 'undefined') Conditions.normalize(save);
+    if (typeof Shrines !== 'undefined') Shrines.normalize(save);
     if ((save.schema || 0) < 5) {
       if (carryOpenedCratesToLedger(save)) needsPersist = true;
     }
@@ -121,7 +138,7 @@
     // relic slot is backfilled the moment it is declared; the literal is only
     // for a headless load of this file on its own.
     const relicSlots = (typeof RELIC_DEFS !== 'undefined') ? Object.keys(RELIC_DEFS)
-      : ['pick', 'axe', 'ring', 'amulet', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
+      : ['pick', 'axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
     save.relics = save.relics || {};
     for (const slot of relicSlots) {
       if (save.relics[slot] === undefined) save.relics[slot] = null;
@@ -146,9 +163,8 @@
     if (save.invCat === undefined) save.invCat = 'seed';
     if (save.selGear === undefined) save.selGear = null;
     if (save.reachUpgrades === undefined) save.reachUpgrades = 0;
-    // The wizard's quantity ladder (Full Measure). Before Sep 2026 the bonus
-    // it grants was the amulet's, so an old save starts this ladder at 0 —
-    // the amulet keeps its stick walking and loses only the loot bonus.
+    // The wizard's permanent luck and quantity ladders.
+    if (save.luckUpgrades === undefined) save.luckUpgrades = 0;
     if (save.qtyUpgrades === undefined) save.qtyUpgrades = 0;
     if (save.deliveryCount === undefined) save.deliveryCount = 0;
     if (save.houseSatisfied === undefined) save.houseSatisfied = {};
@@ -178,10 +194,10 @@
     if (save.offerSalt == null) {
       save.offerSalt = (Math.floor(Math.random() * 0xffffffff)) >>> 0;
     }
-    // GC stale per-house shop-state entries once per boot. render.js polls
-    // shop readiness for every house it draws (not just ones ever shopped at),
-    // and nothing else ever deletes an entry, so save.shopState otherwise grows
-    // by one record per house EVER SEEN and never shrinks. shops_math.js loads
+    // GC spent per-house shop-state entries once per boot (a record is spent
+    // once its re-roll level has eased to nothing — ShopsMath.pruneShopState);
+    // nothing else ever deletes an entry, so save.shopState otherwise grows
+    // by one record per shop EVER VISITED and never shrinks. shops_math.js loads
     // AFTER this file in index.html, so the call is runtime-guarded; node tests
     // that load savemigrate.js on its own (without shops_math.js) still pass.
     if (typeof ShopsMath !== 'undefined') {

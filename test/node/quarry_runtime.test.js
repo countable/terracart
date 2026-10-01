@@ -1,0 +1,95 @@
+(() => {
+  const N = 48, C = WorldGen.CELL_M;
+  function context(id, owned = true) {
+    const gx = 24.5 * 4096 / N;
+    const anchor = { kind: 'quarry', variant: id, generated: 'parking_lanes', owned,
+      gx, gy: gx, lx: gx, ly: gx, key: 18, upm: N * C / 4096, R: 21 };
+    const coverage = new Uint16Array(N * N);
+    for (let y = 3; y < N - 3; y++) for (let x = 3; x < N - 3; x++) coverage[y * N + x] = 1;
+    return { N, tx: 0, ty: 0, tileEdgeM: N * C, grid: new Uint8Array(N * N).fill(WorldGen.T.ROCK),
+      field: { anchors: [anchor], coverage }, chests: [],
+      spawnOpts: { occupied: new Set(), quiet: new Uint8Array(N * N), spawnWhy: new Uint16Array(N * N), roadMask: new Uint8Array(N * N) } };
+  }
+  const records = out => [...out.objects, ...out.guards, ...(out.treasures || [])];
+  test('quarry runtime: all four compositions ship their finite site budgets and stable identities', () => {
+    for (const [id, finds, guards] of [['quarry-crater', 2, 0], ['quarry-abandoned', 2, 0], ['quarry-strip-mine', 0, 0], ['quarry-stronghold', 3, 3]]) {
+      const a = ZoneDressing.dress(context(id)), b = ZoneDressing.dress(context(id));
+      assert.eq(records(a).filter(o => o.zoneLayer === 'find').length, finds, id);
+      assert.eq(a.guards.length, guards, id);
+      assert.eq(JSON.stringify(records(a)), JSON.stringify(records(b)), 'stable rebuild');
+      assert.eq(new Set(records(a).map(o => `${o._ix},${o._iy}`)).size, records(a).length, 'unique authored seats');
+      const observer = ZoneDressing.dress(context(id, false));
+      assert.eq(records(observer).filter(o => o.zoneLayer === 'find').length, 0, 'observer cannot multiply finds');
+      assert.eq(observer.guards.length, 0, 'observer cannot multiply guards');
+    }
+  });
+  test('quarry runtime: abandoned finds are fixed-loot persistent crates, not daily POIs', () => {
+    const out = ZoneDressing.dress(context('quarry-abandoned'));
+    const crates = out.objects.filter(o => o.zoneLayer === 'find');
+    assert.eq(crates.length, 2);
+    for (const crate of crates) {
+      assert.eq(crate.kind, 'chest'); assert.truthy(crate.fixedLoot);
+      assert.truthy(crate.quarryCrate); assert.falsy(crate.daily); assert.falsy(crate._poiAt);
+    }
+  });
+  test('quarry runtime: crater hazards and finds respect preoccupied and protected cells', () => {
+    const baseline = ZoneDressing.dress(context('quarry-crater'));
+    const vents = baseline.objects.filter(o => o.kind === 'lava_vent');
+    assert.truthy(vents.length >= 2);
+    const ctx = context('quarry-crater');
+    const occupied = vents[0]._iy * N + vents[0]._ix, restricted = vents[1]._iy * N + vents[1]._ix;
+    ctx.spawnOpts.occupied.add(occupied);
+    ctx.spawnOpts.spawnWhy[restricted] = WorldGen.SPAWN_WHY.RESTRICTED;
+    const out = ZoneDressing.dress(ctx);
+    for (const i of [occupied, restricted]) {
+      assert.eq(ctx.grid[i], WorldGen.T.ROCK, 'protected terrain remains intact');
+      assert.falsy(records(out).some(o => o._iy * N + o._ix === i));
+    }
+    for (const o of out.objects.filter(o => o.kind === 'lava_vent')) assert.eq(ctx.grid[o._iy * N + o._ix], WorldGen.T.CAVE_LAVA);
+    for (const o of records(out).filter(o => o.zoneLayer === 'find')) assert.falsy(ctx.grid[o._iy * N + o._ix] === WorldGen.T.CAVE_LAVA);
+  });
+  test('quarry runtime: blocked foundations produce no guards or buried finds through spawn gates', () => {
+    const ctx = context('quarry-stronghold');
+    ctx.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    const out = ZoneDressing.dress(ctx);
+    assert.eq(records(out).length, 0);
+    assert.truthy(out.diagnostics[0].shortfalls.length > 0);
+  });
+  test('quarry runtime: Home and live objects suppress lava without changing the shared base grid', () => {
+    const was = window.__TEST_MODE; window.__TEST_MODE = false;
+    try {
+      for (const reason of ['home', 'object', 'repaint']) {
+        const ctx = context('quarry-crater'), dress = ZoneDressing.dress(ctx);
+        const vent = dress.objects.find(o => o.kind === 'lava_vent'), i = vent._iy * N + vent._ix;
+        const baseGrid = ctx.grid.slice();
+        const entry = { grid: baseGrid, baseGrid, cellsPerEdge: N, genObjects: [], objects: [], wildplants: [], zoneDress: dress };
+        if (reason === 'object') entry.objects.push({ kind: 'chest', x: vent.x, y: vent.y, id: 'player_chest' });
+        if (reason === 'repaint') { entry.grid = baseGrid.slice(); entry.grid[i] = WorldGen.T.GRASS; }
+        const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * C, cellM: C, save: { caught: [] },
+          homeWorldPos: () => reason === 'home' ? { x: vent.x, y: vent.y } : null });
+        const steps = scene.spawnInTileSteps(entry, 0, 0);
+        let step;
+        do { step = steps.next(); } while (!step.done && step.value !== 'spawn zone dressing');
+        steps.return();
+        assert.eq(baseGrid[i], WorldGen.T.CAVE_LAVA, 'shared generated terrain remains intact');
+        assert.eq(entry.grid[i], reason === 'repaint' ? WorldGen.T.GRASS : WorldGen.T.ROCK, 'live terrain is safe');
+        assert.falsy(entry.objects.some(o => o.id === vent.id), 'suppressed lava has no glowing marker');
+      }
+    } finally { window.__TEST_MODE = was; }
+  });
+  test('quarry runtime: stronghold X marks reach the live scene treasure ledger exactly once', () => {
+    const was = window.__TEST_MODE; window.__TEST_MODE = false;
+    try {
+      const ctx = context('quarry-stronghold'), dress = ZoneDressing.dress(ctx);
+      const entry = { grid: ctx.grid, baseGrid: ctx.grid.slice(), cellsPerEdge: N, genObjects: [], objects: [], wildplants: [], zoneDress: dress, depth: 0 };
+      const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * C, cellM: C, save: { caught: [] },
+        _pestFreeZone: () => null, _starterTrailAnchor: () => null,
+        _provisionStarterHome() {}, _carveStarterPond() {} });
+      scene.spawnInTile(entry, 0, 0);
+      const actual = entry.extraTreasures.filter(o => o.zoneVariant === 'quarry-stronghold');
+      assert.eq(actual.length, 3);
+      assert.eq(new Set(actual.map(o => o.id)).size, 3);
+      assert.eq(actual.map(o => o.id).join(','), dress.treasures.map(o => o.id).join(','));
+    } finally { window.__TEST_MODE = was; }
+  });
+})();

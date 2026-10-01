@@ -54,6 +54,9 @@
     // ── app.js: cellAt()'s general-purpose .underRoad flag (tilling /
     //    NPC movement / flavour text read it; nothing here places anything) ─
     { file: 'app.js', re: /entry\.roadMask\[iy \* N \+ ix\]/ },
+    // ── creature_ai.js: the roadside run's geometry (which way the street
+    //    runs, so a retreat runs along it — no spawn) ──────────────────────
+    { file: 'creature_ai.js', re: /^return !!t && \(!!\(t\.entry\.roadMask && t\.entry\.roadMask\[t\.i\]\) \|\| WorldGen\.isRoadTerrain/ },
     // ── starter.js: the doorstep greeter's documented road-only fallback,
     //    which deliberately skips the gate's softer reasons ────────────────
     { file: 'starter.js', re: /^const onRoad = \(cx, cy\) => !!entry\.roadMask && entry\.roadMask\[cy \* N \+ cx\] === 1;/ },

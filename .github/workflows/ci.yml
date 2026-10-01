@@ -1,0 +1,36 @@
+# CI — the two suites a change must keep green.
+#
+# The browser job exists because that suite once went dark: the harness page
+# keeps its own script list, an extraction moved code without updating it, and
+# nothing anywhere ran the suite — so weeks of stale expectations stacked up
+# unnoticed. test/run_tests_docker.sh builds the pinned Playwright image
+# (browser and API versions matched) and runs the suite against a local
+# server, exactly as documented in test/node/README.md.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  node:
+    name: Headless node suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - name: Run the node suite
+        run: node test/node/run.js
+
+  browser:
+    name: Browser suite (Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the browser suite in the pinned Playwright image
+        run: sh test/run_tests_docker.sh

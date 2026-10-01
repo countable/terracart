@@ -10,14 +10,14 @@
 // instead of burning unseen.
 //
 // app.js needs Phaser and can't load headlessly, so the method is lifted out
-// of APP_JS_SRC and run for real on a stub scene (the same trick
+// of SCENE_SRC and run for real on a stub scene (the same trick
 // home_ward.test.js uses), and the call sites are pinned as source text. The
 // art stems are checked against the real PNGs via pngDims (the vm sandbox
 // has no fs, so a typo'd stem fails loudly through the same path the item
 // icon tests use).
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 const lift = (sig, what, src = app, file = 'app.js') => {
   const start = src.indexOf('\n  ' + sig);
@@ -85,7 +85,7 @@ test('story splash: the Unsealed! card shows the fort_unseal banner, not the bui
 
 test('story splash: the chest reward modal collapses an empty icon row', () => {
   const modal = lift('showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,',
-    'showChestRewardModal', MODAL_SHELL_SRC, 'modal_shell.js');
+    'showChestRewardModal', SCENE_SRC, 'modal_shell.js');
   assert.truthy(/iconHTML \? `<div style="margin:6px 0 10px;font-size:0">\$\{iconHTML\}<\/div>` : ''/.test(modal),
     'an empty iconHTML leaves no blank band under the banner');
 });
@@ -94,6 +94,7 @@ test('story splash: bow and staff have independent first-use stories and matchin
   const method = lift('_toolActionStory(action) {', '_toolActionStory');
   const calls = [];
   const scene = new Function('return ({' + method + '});')();
+  scene.save = { relics: { bow: { tier: 1 }, staff: { tier: 1 } } };
   scene._storySplashOnce = (key, entry) => calls.push({ key, ...entry });
   scene._toolActionStory('shoot');
   scene._toolActionStory('staff');

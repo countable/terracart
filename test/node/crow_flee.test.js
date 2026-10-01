@@ -14,9 +14,11 @@
 // fields (_flightUntilT/_startX,Y/_targetX,Y/_flightT0) — and the existing
 // eased-interpolation code — that a normal orbit glide uses. A NEW flag,
 // _fleeDash, marks a flight leg as belonging to a panic dash; without it a
-// crow hit mid-glide toward a crop would keep coasting to that STALE
-// pre-hit target for up to 1200ms before the flee ever took effect, which
-// is the secondary effect the finding asked to confirm.
+// crow hit mid-glide would keep coasting to that STALE pre-hit target for
+// up to 1200ms before the flee ever took effect, which is the secondary
+// effect the finding asked to confirm. (The glide used to be an orbit round
+// a crop; the crow raids nothing since Sep 2026 — the deer does — so it is a
+// plain roam now, and the crop-destroy pause this file once checked is gone.)
 //
 // _wildCrowTick can't load headlessly (it needs Phaser, being a method on
 // the scene class) so it's driven the way spawn_rebuild.test.js drives the
@@ -30,6 +32,8 @@ const makeSelf = (over = {}) => Object.assign({
   cellAt: () => ({ loaded: true, type: 0 }),   // 0 is not in FAUNA_BLOCKED_TYPES — never blocks a dash target
   save: { planted: [] },
   _nearAny: () => false,
+  // The roam's placed-rock check projects the target (worldMetersToAbsCell).
+  startWorldM: { x: 0, y: 0 }, originPx: { x: 0, y: 0 }, mPerPx: 1, cellsPerTile: WorldGen.TILE_PX, placedRockSet: null,
 }, over);
 
 const tick = (self, c, now, px = 0, py = 0) =>
@@ -67,7 +71,7 @@ test('crow flee: keeps dashing for the whole ~8s window, ending up well clear of
 test('crow flee: a crow mid ORBIT-glide when hit redirects on its very next tick, ' +
      'not after coasting to the stale pre-hit target', () => {
   const self = makeSelf();
-  // Mid-flight toward some crop-orbit point at x=10 — 700ms into a 1000ms
+  // Mid-flight toward some roam point at x=10 — 700ms into a 1000ms
   // glide that started at x=0 — when the pet lands its hit.
   const c = {
     x: 5, y: 0, kind: 'crow',
@@ -84,19 +88,18 @@ test('crow flee: a crow mid ORBIT-glide when hit redirects on its very next tick
     `fresh dash apart from a leftover pre-hit glide`);
 });
 
-test('crow flee: abandons an in-progress crop-destroy pause instead of finishing the meal', () => {
-  const self = makeSelf();
-  const crop = { x: 0, y: 0 };
-  const c = {
-    x: 0, y: 0, kind: 'crow',
-    _destroyCropRef: crop, _destroyCyclesLeft: 1, _destroyAtT: 500,
-  };
-  c._fleeAngle = 0;
-  c._fleeUntilT = 100 + 8000;
-  tick(self, c, 100);
-  assert.eq(c._destroyCropRef, null, 'a mauled crow kept its crop-destroy pause armed');
-  assert.eq(c._destroyCyclesLeft, 0, 'a mauled crow kept its destroy-cycle countdown');
-  assert.eq(c._destroyAtT, null, 'a mauled crow kept its destroy timer armed');
+test('crow flee: a crow beside a planted crop never eats it — the crow raids nothing', () => {
+  // The tick used to arm a destroy timer on landing on a crop's cell and
+  // splice the crop out two perch cycles later. Run a crow ON a planted cell
+  // for a good while: the field is untouched, and nothing on the bird says
+  // it was ever casing one.
+  const crop = { x: 0, y: 0, crop: 'berry' };
+  const self = makeSelf({ save: { planted: [crop] } });
+  const c = { x: 0, y: 0, kind: 'crow' };
+  for (let t = 0; t <= 60000; t += 100) tick(self, c, t);
+  assert.eq(self.save.planted.length, 1, 'the crop is still there after a minute of crow');
+  assert.falsy('_destroyCropRef' in c || '_destroyAtT' in c, 'no crop-casing state on the bird');
+  assert.falsy(/planted/.test(WILD_CROW_TICK_SRC), 'the tick never reads the field at all');
 });
 
 })();

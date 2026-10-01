@@ -47,6 +47,20 @@
     assert.truthy(enemyAttackReady(c, row, 15100, true));
     assert.falsy(enemyAttackReady(c, row, 15101, true));
   });
+  test('enemy AI: a projectile kind never strobes through its wind-up; the arrow is the warning', () => {
+    // The goblin archer winds up 0.7 s before every shot; render.js' 100 ms
+    // amber strobe made that seven flashes a volley (Oct 2026). Melee, shaped
+    // and ability wind-ups keep the flash: nothing else tells them apart.
+    for (const kind of ['goblin_archer', 'archer_goblin', 'lich']) {
+      assert.eq(EnemyRoster.get(kind).attackType, 'projectile', `${kind} shoots`);
+      assert.falsy(Combat.windupFlashes(kind), `${kind} does not flash`);
+    }
+    for (const kind of ['goblin', 'club_goblin', 'spear_goblin', 'cave_slime']) {
+      assert.truthy(Combat.windupFlashes(kind), `${kind} still flashes`);
+    }
+    assert.truthy(Combat.windupFlashes('no_such_kind'), 'an unrostered kind keeps the flash');
+    assert.includes(RENDER_SRC, '!frozen && Combat.windupFlashes(c.kind) &&', 'the strobe asks the predicate');
+  });
   test('enemy AI: ranged row fires a single mitigated hit after its own wind-up', () => {
     const s = scene(), c = foe('lich'), row = EnemyRoster.get('lich');
     rosterEnemyAttack(s, c, row, 10000, 14, 0, false, 0.1);
@@ -194,6 +208,31 @@
     assert.eq(c._lungeUntil, null);
     assert.gt(c._lungeRecoverUntil, 11300);
     assert.eq(c.y,0);
+  });
+  test('enemy AI: a boar hurts only by running into you mid-charge, and stands still between charges', () => {
+    const row = EnemyRoster.get('boar'), m = row.movement, s = scene(), c = foe(row.id);
+    assert.truthy(m.pattern === 'lunge_recover' && m.chargeOnly, 'the minotaur charge, with no blow of its own');
+    // Adjacent but not charging: no bite.
+    rosterEnemyAttack(s, c, row, 10000, 3.5, 0, false, 0.1);
+    assert.eq(s.save.energy, 100, 'no hit outside a charge');
+    rosterEnemyMove(s, c, row, 10000, 3.5, 0, false, false, null, 0.1);   // tell
+    assert.eq(c.x, 0, 'winds up in place');
+    const go = 10000 + m.lungeWindupSeconds * 1000;
+    rosterEnemyMove(s, c, row, go, 3.5, 0, false, false, null, 0.1);      // commit
+    rosterEnemyMove(s, c, row, go + 100, 3.5, 0, false, false, null, 0.1);
+    assert.inRange(c.x, m.lungeSpeedMetersPerSecond * 0.1 - 1e-9, m.lungeSpeedMetersPerSecond * 0.1 + 1e-9, 'charges at its lunge speed');
+    rosterEnemyAttack(s, c, row, go + 100, 3.5, 0, false, 0.1);
+    assert.eq(s.save.energy, 100 - row.dmg, 'the collision lands');
+    rosterEnemyAttack(s, c, row, go + 200, 3.5, 0, false, 0.1);
+    assert.eq(s.save.energy, 100 - row.dmg, 'once a charge');
+    // After the charge and its recovery, it waits out the cooldown in place.
+    const after = go + m.lungeSeconds * 1000 + 50;
+    rosterEnemyMove(s, c, row, after, 20, 0, false, false, null, 0.1);
+    const rested = after + m.lungeWindupSeconds * 1000 + 50, x = c.x;
+    rosterEnemyMove(s, c, row, rested, 20, 0, false, false, null, 1);
+    rosterEnemyMove(s, c, row, rested + 1000, 20, 0, false, false, null, 1);
+    assert.eq(c.x, x, 'pauses instead of walking at the player');
+    assert.lt(rested + 1000, c._lungeNextT, 'still inside the cooldown');
   });
   test('enemy AI: crab returns to its territory and stops attacking beyond it', () => {
     const row=EnemyRoster.get('giant_crab'), s=scene(), c=foe(row.id,7,0);

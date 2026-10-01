@@ -146,7 +146,7 @@ test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () =
   // source text because app.js never loads headlessly: what must not come
   // back is the old per-frame `dps * dt` hose, which had no attack rate at all
   // and banked partial damage from a fight broken off mid-beat.
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const wheel = app.slice(app.indexOf('    if (wp.combat) {'));
   // The reach conjunct in front of the cadence is the OTHER gate on the same
   // blow (see the melee-reach test below) — a swing must be both due and in
@@ -169,7 +169,7 @@ test('combat: the surface slime oozes slowly enough to walk away from', () => {
   // pinned, so retuning either shows up here as a speed, not a diff.
   // The gait constants live in creature_ai.js; the loop that reads them
   // (wanderCreatures) in scene_creatures.js.
-  const app = SCENE_CREATURES_SRC;
+  const app = SCENE_SRC;
   const mul = Number(/const SLIME_STEP_MUL = ([\d.]+);/.exec(CREATURE_AI_SRC)?.[1]);
   const hop = Number(/const SLIME_HOP_CELLS = ([\d.]+);/.exec(CREATURE_AI_SRC)?.[1]);
   const beat = /const STEP_MS = WANDER_STEP_MS;/.test(app) ? Number(/const WANDER_STEP_MS = (\d+);/.exec(CREATURE_AI_SRC)?.[1]) : NaN;
@@ -204,7 +204,7 @@ test('combat: a struck slime CHARGES, unless it is warded', () => {
   // headlessly — plus the one predicate, which is pure enough to lift.
   // The chain and the pet's bite are wanderCreatures' (scene_creatures.js);
   // _damageEnemy stays in app.js.
-  const app = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+  const app = SCENE_SRC;
   const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
 
   // The state is DERIVED from the damage stamp both paths already set, so
@@ -578,7 +578,7 @@ test('combat: a ranged monster needs the same clear line you do', () => {
 // tree: too slight a trunk to hide an arrow behind. Only a MEDIUM-or-bigger
 // standing tree (treeSizeClass) still stops one.
 test('combat: a rock never blocks a shot, and only a real trunk does', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const block = app.slice(app.indexOf('    if (this._shots.length) {'), app.indexOf('this._drawShots();'));
   assert.falsy(/mineralrock/.test(block), 'mineral stone is no longer part of the obstruction scan at all');
   assert.truthy(/if \(o\.kind !== 'tree' && o\.kind !== 'fruittree'\) return;/.test(block),
@@ -806,8 +806,8 @@ test('combat: every melee gate the player has runs the shared test', () => {
     'a tapped fight is gated at arm\'s length');
   assert.truthy(/Too far to swing\./.test(head), 'and it says so rather than failing silently');
 
-  // Sword auto-engage (app.js _combatTick) — was cellInReach.
-  const auto = APP_JS_SRC.slice(APP_JS_SRC.indexOf("this.save.activeWeapon === 'sword'"));
+  // Melee auto-engage (app.js _combatTick) — was cellInReach.
+  const auto = SCENE_SRC.slice(SCENE_SRC.indexOf('Gear.meleeActive(this.save) &&'));
   const autoHead = code(auto.slice(0, auto.indexOf('startCombat(best')));
   assert.truthy(/Combat\.inMeleeReach\(c\.x, c\.y, px, py, this\.cellM\)/.test(autoHead),
     'a sword picks up only what it can actually reach');
@@ -815,7 +815,7 @@ test('combat: every melee gate the player has runs the shared test', () => {
     'the lit reach must not choose the foe a sword auto-engages');
 
   // The wheel's escape abort: a FIGHT breaks at arm's length, a HUNT does not.
-  const wheel = APP_JS_SRC.slice(APP_JS_SRC.indexOf('const outOfRange = wp.combat'));
+  const wheel = SCENE_SRC.slice(SCENE_SRC.indexOf('const outOfRange = wp.combat'));
   const wheelHead = code(wheel.slice(0, wheel.indexOf('if (outOfRange)')));
   assert.truthy(/wp\.combat\s*\?\s*!Combat\.inMeleeReach/.test(wheelHead),
     'a fight you have engaged ends when the foe backs out of swinging distance');
@@ -826,7 +826,7 @@ test('combat: every melee gate the player has runs the shared test', () => {
   // is a 1 s grace and MELEE_INTERVAL_MS is 1 s, so an ungated swing landed a
   // free hit at any distance on every break-off — and none at all on a foe
   // that kept dipping back into reach, because that resets the grace.
-  const swing = APP_JS_SRC.slice(APP_JS_SRC.indexOf('if (wp.combat) {\n      const c = wp.combat;'));
+  const swing = SCENE_SRC.slice(SCENE_SRC.indexOf('if (wp.combat) {\n      const c = wp.combat;'));
   const swingHead = code(swing.slice(0, swing.indexOf('const blow = Combat.meleeSwingDamage')));
   assert.truthy(/Combat\.inMeleeReach\(c\.x, c\.y, px, py, this\.cellM\)/.test(swingHead),
     'a blow only lands while the foe is within swinging distance');
@@ -837,7 +837,7 @@ test('combat: every melee gate the player has runs the shared test', () => {
     'a missed swing must not spend the blow clock — a foe that closes is hit at once');
 
   // The surface slime reads the one number rather than its own copy of it.
-  assert.truthy(/const STEAL_R = Combat\.meleeReachM\(this\.cellM\);/.test(SCENE_CREATURES_SRC),
+  assert.truthy(/const STEAL_R = Combat\.meleeReachM\(this\.cellM\);/.test(SCENE_SRC),
     'the slime\'s leech radius IS the melee reach, not a second 1-cell constant');
 });
 
@@ -904,14 +904,14 @@ test('staff range: the trigger and the flight are the same number', () => {
   const shot = Combat.spawnShot('staff', 0, 0, h, COMBAT_CELL_M, 3, 1, reach);
   assert.eq(shot.rangeM, rangeM, 'and the bolt flies exactly the range that loosed it');
   // The same reach, at both call sites, in the shipping loop.
-  assert.truthy(/const reach = reachCells\(this\);/.test(APP_JS_SRC), 'app.js reads the live reach');
-  assert.truthy(/Combat\.shotHeading\(slot, px, py, this\.facing, enemies, this\.cellM, reach\)/.test(APP_JS_SRC),
+  assert.truthy(/const reach = reachCells\(this\);/.test(SCENE_SRC), 'app.js reads the live reach');
+  assert.truthy(/Combat\.shotHeading\(slot, px, py, this\.facing, enemies, this\.cellM, reach\)/.test(SCENE_SRC),
     'and hands it to the trigger');
-  assert.truthy(/relics\[slot\]\.tier, reach\);/.test(APP_JS_SRC), 'and to the spawn');
+  assert.truthy(/relics\[slot\]\.tier, reach\);/.test(SCENE_SRC), 'and to the spawn');
 });
 
 test('combat: the staff\'s next bolt charges by the hand between shots', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   assert.truthy(/1 - \(due - now\) \/ \(Combat\.fireIntervalMs\(slot\) \* Combat\.trainingIntervalMul\(this\.save\)\)/.test(app)
     && /this\._nextShotT\[slot\] = now \+ Combat\.fireIntervalMs\(slot\) \* Combat\.trainingIntervalMul\(this\.save\);/.test(app),
     'the charge is read off the same clock that fires the bolt');
@@ -925,7 +925,7 @@ test('combat: the staff\'s next bolt charges by the hand between shots', () => {
 test('combat: the bow burns a wood every 20 arrows and will not fire without one', () => {
   assert.eq(JSON.stringify(Combat.SHOT.bow.ammo), JSON.stringify({ id: 'wood', shots: 20 }), 'the bow\'s ammo');
   assert.falsy(Combat.SHOT.staff.ammo, 'the staff pays in energy, not wood');
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   assert.truthy(/if \(ammo && Inventory\.count\(this\.save, ammo\.id\) < 1\) \{/.test(app), 'no wood, no arrow');
   assert.truthy(/if \(!this\._ammoDryWarned\) \{\s*this\._ammoDryWarned = true;/.test(app), 'the dry message fires once');
   assert.truthy(/if \(this\.save\.ammoShots >= ammo\.shots\) \{\s*this\.save\.ammoShots = 0;\s*Inventory\.remove\(this\.save, ammo\.id, 1\);/.test(app),
@@ -968,10 +968,10 @@ test('combat: off the GPS the player attacks a third softer, through the one att
   assert.eq(Combat.meleeSwingDamage({ sword: { tier: 3 } }, Combat.OFF_GPS_ATTACK_MUL) /
             Combat.meleeSwingDamage({ sword: { tier: 3 } }, 1), Combat.OFF_GPS_ATTACK_MUL, 'the swing scales by it');
   const m = /_attackMul\(\) \{\s*return \(this\.isDragonActive\(\) \? CONSUMABLE_SPEC\.dragon_powder\.damageMul : 1\)\s*\* \(this\._offGps\(\) \? Combat\.OFF_GPS_ATTACK_MUL : 1\);/;
-  assert.truthy(m.test(APP_JS_SRC), '_attackMul folds the owned dragon multiplier and the off-GPS third');
-  assert.truthy(/const dmgMul = this\._attackMul\(\);/.test(APP_JS_SRC), 'the bow / staff read it');
-  assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\),/.test(APP_JS_SRC), 'and the melee wheel');
-  assert.truthy(/_offGps\(\) \{\s*if \(!this\.gpsM\) return false;/.test(APP_JS_SRC), 'no fix, nothing to be away from');
+  assert.truthy(m.test(SCENE_SRC), '_attackMul folds the owned dragon multiplier and the off-GPS third');
+  assert.truthy(/const dmgMul = this\._attackMul\(\);/.test(SCENE_SRC), 'the bow / staff read it');
+  assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\),/.test(SCENE_SRC), 'and the melee wheel');
+  assert.truthy(/_offGps\(\) \{\s*if \(!this\.gpsM\) return false;/.test(SCENE_SRC), 'no fix, nothing to be away from');
 });
 
 // ── Sight ─────────────────────────────────────────────────────────────────

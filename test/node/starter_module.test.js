@@ -29,20 +29,21 @@
     _provisionStarterHome: 'entry, tx, ty, spawnIX, spawnIY, usedSeats',
     _placeHomeGreeter: 'entry, tx, ty',
     _placeSafeAreaWarden: 'entry, tx, ty',
+    _seatStoryNeighbours: '',
     _stripStarterCrates: 'entry',
   };
   const exportName = (m) => m.charAt(1).toLowerCase() + m.slice(2);
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-  test('starter module: Starter exports all eighteen placers and supply payloads', () => {
+  test('starter module: Starter exports the scene placers, distant neighbour placer and supply payloads', () => {
     assert.truthy(typeof Starter === 'object' && Starter, 'starter.js defines window.Starter');
     const want = Object.keys(MOVED).map(exportName).sort();
-    assert.eq(Object.keys(Starter).sort().join(), [...want, 'STARTER_LOOT'].sort().join(), 'the export list');
+    assert.eq(Object.keys(Starter).sort().join(), [...want, 'placeDistantStoryNeighbours', 'STARTER_LOOT'].sort().join(), 'the export list');
     for (const k of want) assert.eq(typeof Starter[k], 'function', `Starter.${k} is a function`);
   });
 
   test('starter module: each scene wrapper delegates with its params, in order', () => {
-    const app = APP_JS_SRC;
+    const app = SCENE_SRC;
     for (const [m, params] of Object.entries(MOVED)) {
       const args = params ? 'this, ' + params : 'this';
       const line = `  ${m}(${params}) { return Starter.${exportName(m)}(${args}); }`;
@@ -58,8 +59,10 @@
   test('starter module: the functions take the scene first, as the wrappers pass it', () => {
     const src = STARTER_JS_SRC;
     for (const [m, params] of Object.entries(MOVED)) {
-      const sig = `  function ${exportName(m)}(scene${params ? ', ' + params : ''}) {`;
-      assert.truthy(src.includes(sig), `starter.js: ${sig.trim()}`);
+      // A placer may take one trailing option bag the wrapper never passes
+      // (placeSafeAreaWarden's `seating`, for the arrivals pass).
+      const sig = new RegExp('^  function ' + esc(exportName(m)) + '\\(scene' + esc(params ? ', ' + params : '') + '(, \\w+ = \\{\\})?\\) \\{$', 'm');
+      assert.truthy(sig.test(src), `starter.js: function ${exportName(m)}(scene${params ? ', ' + params : ''}) {`);
     }
     // The move was `this` → `scene`: a stray `this` in a placer's CODE would
     // read the module's IIFE receiver, not the scene.

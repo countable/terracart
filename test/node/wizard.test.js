@@ -7,12 +7,11 @@
   // A fresh save with plenty to spend. relicSalt fixed so the draw is stable.
   const fresh = (over = {}) => Object.assign({ memories: 100, relicSalt: 12345, relics: {} }, over);
   const keys = (offers) => offers.map((o) => o.key);
-  const ring = (save) => (save.relics && save.relics.ring && save.relics.ring.tier) || 0;
-  // Buy one of what's on offer, doing the caller's half (equipping the Ring).
+  const luck = (save) => save.luckUpgrades || 0;
+  // Buy one of what is on offer; every track writes its own save field.
   const buyFirst = (save, pick = 0) => {
     const o = W.offers(save)[pick];
     const r = W.buy(save, o.key);
-    if (r && r.equip) save.relics.ring = { tier: r.equip.tier };
     return r;
   };
 
@@ -24,7 +23,7 @@
     assert.eq(byKey.vigour.cost, 2, 'vigour is the cheap one');
     assert.eq(byKey.vigour.max(), 5, 'five vigour rungs');
     assert.eq(byKey.light.max(), 6, 'six Inner Light rungs');
-    assert.eq(byKey.eye.max(), 7, 'seven Ring tiers');
+    assert.eq(byKey.eye.max(), 7, 'seven Keen Eye rungs');
     assert.eq(byKey.measure.max(), RARITY_TUNING.qtyLuckLevels, 'measure reads rarity.js');
     assert.eq(W.CLASS_COST, 3);
     assert.gt(W.ENCHANTER_ENERGY_COST, 0, 'the enchanter pays energy');
@@ -89,7 +88,7 @@
   });
 
   test('wizard: an old save derives its purchase count from its rungs', () => {
-    const old = fresh({ reachUpgrades: 3, qtyUpgrades: 1, relics: { ring: { tier: 2 } } });
+    const old = fresh({ reachUpgrades: 3, qtyUpgrades: 1, luckUpgrades: 2 });
     assert.eq(W.buys(old), 6, '3 + 1 + 2');
     assert.eq(W.offers(old)[0].kind, 'class', 'past its third purchase: the calling on its next visit');
     W.buy(old, 'enforcer');
@@ -107,7 +106,7 @@
     assert.eq(W.buy(probe, five.key), null, 'refused');
     assert.eq(probe.memories, 4); assert.eq(probe.wizardBuys, undefined, 'no buy counted');
     // Vigour (2) at 1 memory, forced onto the table by finishing the rest.
-    const lone = fresh({ memories: 1, reachUpgrades: 6, qtyUpgrades: 99, relics: { ring: { tier: 7 } }, playerClass: 'hunter' });
+    const lone = fresh({ memories: 1, reachUpgrades: 6, qtyUpgrades: 99, luckUpgrades: 7, playerClass: 'hunter' });
     assert.eq(keys(W.offers(lone)).join(), 'vigour');
     assert.eq(W.buy(lone, 'vigour'), null, 'one memory buys nothing');
     lone.memories = 2;
@@ -123,17 +122,17 @@
       if (!offers.length) break;
       const o = offers[0];
       const have = { light: save.reachUpgrades | 0, measure: save.qtyUpgrades | 0,
-                     eye: ring(save), vigour: save.vigourUpgrades | 0 }[o.key];
+                     eye: luck(save), vigour: save.vigourUpgrades | 0 }[o.key];
       assert.eq(o.rung, have + 1, `${o.key} offers the next rung`);
       const r = buyFirst(save);
       assert.eq(r.rung, have + 1);
-      if (o.key === 'eye') assert.eq(r.equip.tier, have + 1, 'the Ring equip is the caller\'s, at that tier');
+      if (o.key === 'eye') assert.eq(save.luckUpgrades, have + 1, 'Keen Eye writes permanent luck');
     }
   });
 
   test('wizard: finished tracks drop out; one left is one offer; none is empty', () => {
     const qmax = RARITY_TUNING.qtyLuckLevels;
-    const done = { reachUpgrades: 6, qtyUpgrades: qmax, relics: { ring: { tier: 7 } }, playerClass: 'enchanter' };
+    const done = { reachUpgrades: 6, qtyUpgrades: qmax, luckUpgrades: 7, playerClass: 'enchanter' };
     const two = fresh(Object.assign({}, done, { reachUpgrades: 5 }));
     assert.eq(keys(W.offers(two)).join(), 'light,vigour', 'only the unfinished two');
     const one = fresh(Object.assign({}, done, { vigourUpgrades: 5, reachUpgrades: 5 }));
@@ -145,7 +144,7 @@
     const all = fresh({ memories: 10000 });
     for (let i = 0; i < 100 && W.offers(all).length; i++) buyFirst(all);
     assert.eq(W.offers(all).length, 0, 'every track finished');
-    assert.eq(all.reachUpgrades, 6); assert.eq(all.vigourUpgrades, 5); assert.eq(ring(all), 7);
+    assert.eq(all.reachUpgrades, 6); assert.eq(all.vigourUpgrades, 5); assert.eq(luck(all), 7);
     assert.truthy(W.playerClass(all), 'and a calling chosen on the way');
   });
 

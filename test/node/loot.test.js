@@ -55,8 +55,8 @@ test('reconcileRelicOffer: armor kind reconciles against save.armor, never downg
   assert.truthy(dupe.tier >= 4, 'never resolves below the tier already equipped');
 });
 
-test('pickReward: the ring nudges loot rarer on average (statistical, large N)', () => {
-  // Ring luck lowers qtyP so chain steps tier-up more often. Over many rolls the
+test('pickReward: Keen Eye nudges loot rarer on average (statistical, large N)', () => {
+  // Keen Eye luck lowers qtyP so chain steps tier-up more often. Over many rolls the
   // mean item tier with a T7 ring should not be LOWER than with no ring. Uses a
   // big N + a generous margin so it's a smoke test for the wiring, not a knife-edge.
   const N = 600;
@@ -69,8 +69,8 @@ test('pickReward: the ring nudges loot rarer on average (statistical, large N)',
     return n ? sum / n : 0;
   };
   const base = meanTier({ relics: {}, armor: {} });
-  const ringed = meanTier({ relics: { ring: { tier: 7 } }, armor: {} });
-  assert.gte(ringed + 1e-9, base, `ring mean tier ${ringed} >= base ${base}`);
+  const ringed = meanTier({ luckUpgrades: 7, relics: {}, armor: {} });
+  assert.gte(ringed + 1e-9, base, `Keen Eye mean tier ${ringed} >= base ${base}`);
 });
 
 // ── opts.rollBonus — the walk's extra chain steps ─────────────────────────
@@ -192,11 +192,11 @@ test('qty luck: the AMULET no longer buys it', () => {
     'and it adds nothing on top of the wizard\'s rungs');
 });
 
-test('tier luck: still the ring, still 1% a tier', () => {
-  assert.eq(ringLuck({ relics: { ring: { tier: 0 } } }), 0);
-  assert.lt(Math.abs(ringLuck({ relics: { ring: { tier: 7 } } }) - 0.07), 1e-9,
-    'a T7 ring is +0.07 to the boost probability');
-  assert.eq(ringLuck({}), 0, 'no ring, no tier luck');
+test('Keen Eye luck: one percent a permanent rung', () => {
+  assert.eq(upgradeLuck({ luckUpgrades: 0 }), 0);
+  assert.lt(Math.abs(upgradeLuck({ luckUpgrades: 7 }) - 0.07), 1e-9,
+    'seven rungs give +0.07 to the boost probability');
+  assert.eq(upgradeLuck({}), 0, 'no upgrade, no luck bonus');
 });
 
 test('pickReward: the wizard\'s quantity rungs make loot land in bigger stacks', () => {
@@ -532,7 +532,7 @@ test('cave X: a dig underground leans the cave way, a surface dig does not', () 
   assert.truthy(shallow > surf * 2, `supplies ${surf.toFixed(3)} → ${shallow.toFixed(3)} one level down`);
   const surfH = rate(HOARD, undefined, 7), deep = rate(HOARD, { depth: 4, tier: 4 }, 8);
   assert.truthy(deep > surfH * 2, `hoard ${surfH.toFixed(3)} → ${deep.toFixed(3)} deep down`);
-  assert.truthy(/digTreasureOpts\(\) \{[\s\S]{0,400}?return \{ depth, tier: 2 \+ bonus \};/.test(APP_JS_SRC),
+  assert.truthy(/digTreasureOpts\(\) \{[\s\S]{0,400}?return \{ depth, tier: 2 \+ bonus \};/.test(SCENE_SRC),
     'app.js hands a cave dig its depth and the depth\'s tier');
   assert.truthy(/const dig = scene\.digTreasureOpts\?\.\(\);\s*grantTreasureRoll\(scene, save, sx, sy, '✕', 'treasure:default',\s*tr\.rollBonus > 0 \? \{ \.\.\.\(dig \|\| \{\}\), rollBonus: tr\.rollBonus \} : dig\)/.test(INTERACT_SRC),
     'the fallback dig passes them too');

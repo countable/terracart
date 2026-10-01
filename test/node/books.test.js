@@ -114,31 +114,31 @@ test('course: play_tips loads after its mechanic owners and before app', () => {
 });
 
 test('course: readBook walks the list in order and bookmarks its place', () => {
-  assert.falsy(/PLAY_TIPS\[Math\.floor\(Math\.random\(\) \* PLAY_TIPS\.length\)\]/.test(APP_JS_SRC),
+  assert.falsy(/PLAY_TIPS\[Math\.floor\(Math\.random\(\) \* PLAY_TIPS\.length\)\]/.test(SCENE_SRC),
     'the uniform random draw is gone');
-  assert.truthy(/const read = this\.save\.tipsRead \?\? 0;/.test(APP_JS_SRC),
+  assert.truthy(/const read = this\.save\.tipsRead \?\? 0;/.test(SCENE_SRC),
     'the bookmark is read off the save, defaulted for saves that predate it');
-  assert.truthy(/const page = read % PLAY_TIPS\.length;/.test(APP_JS_SRC),
+  assert.truthy(/const page = read % PLAY_TIPS\.length;/.test(SCENE_SRC),
     'and wrapped at READ time, so adding a tip cannot scramble a bookmark');
-  assert.truthy(/this\.save\.tipsRead = read \+ 1;/.test(APP_JS_SRC),
+  assert.truthy(/this\.save\.tipsRead = read \+ 1;/.test(SCENE_SRC),
     'the cursor is stored unwrapped');
-  assert.truthy(/bookPageHTML\(page\)/.test(APP_JS_SRC), 'and the page is what is read out');
+  assert.truthy(/bookPageHTML\(page\)/.test(SCENE_SRC), 'and the page is what is read out');
 });
 
 test('course: the chest hint waits until there is nothing left to teach', () => {
-  assert.truthy(/const coursePending = \(this\.save\.tipsRead \?\? 0\) < PLAY_TIPS\.length;/.test(APP_JS_SRC),
+  assert.truthy(/const coursePending = \(this\.save\.tipsRead \?\? 0\) < PLAY_TIPS\.length;/.test(SCENE_SRC),
     'app.js asks whether the course is still running');
-  assert.truthy(/if \(!coursePending && Math\.random\(\) < 0\.5\)/.test(APP_JS_SRC),
+  assert.truthy(/if \(!coursePending && Math\.random\(\) < 0\.5\)/.test(SCENE_SRC),
     'and the hint branch is gated on it');
 });
 
 test('course: the reader opens the book as a story', () => {
-  assert.truthy(/title: '📖 The worn book falls open'/.test(APP_JS_SRC),
+  assert.truthy(/title: '📖 The worn book falls open'/.test(SCENE_SRC),
     'the title describes opening the book');
 });
 
 test('course: story topics retain their saved-bookmark positions', () => {
-  assert.eq(PLAY_TIPS.length, 134, 'three displaced opening tips are appended');
+  assert.eq(PLAY_TIPS.length, 136, 'three displaced opening tips are appended, then the gull\'s page, then the road\'s bargain');
   const topics = {1:/strength/, 11:/wounded goblin/, 13:/snare/, 20:/hoe/, 24:/ruined house/, 25:/smithy/, 35:/car park/, 56:/smith/, 69:/stone/, 77:/path/, 88:/favourite food/, 98:/weapon/, 106:/stairs/, 121:/quartermaster/, 130:/sapphire/};
   for (const [page, topic] of Object.entries(topics)) assert.truthy(topic.test(PLAY_TIPS[page]), 'topic stays at page ' + page);
 });
@@ -169,10 +169,10 @@ test('tips: the list is substantial and every entry is a real sentence', () => {
 });
 
 test('mechanics: home rest uses its own duration', () => {
-  const m = APP_JS_SRC.match(/const HOME_FULL_REST_S = (\d+);/);
+  const m = SCENE_SRC.match(/const HOME_FULL_REST_S = (\d+);/);
   assert.truthy(m, 'app.js still owns HOME_FULL_REST_S');
   assert.eq(Number(m[1]), 50, 'the home rest is fifty seconds');
-  assert.falsy(/^const INDOOR_FULL_REST_S/m.test(APP_JS_SRC),
+  assert.falsy(/^const INDOOR_FULL_REST_S/m.test(SCENE_SRC),
     'the constant behind it is gone from app.js too');
 });
 
@@ -181,7 +181,7 @@ test('mechanics: offline rest restores energy after an hour', () => {
 });
 
 test('mechanics: work prevents resting', () => {
-  assert.truthy(/const working = !!this\._workProgress/.test(APP_JS_SRC),
+  assert.truthy(/const working = !!this\._workProgress/.test(SCENE_SRC),
     'app.js still gates the rests on the work wheel');
 });
 
@@ -246,7 +246,7 @@ test('mechanics: ranged weapons keep their cadence and sensory hints', () => {
 });
 
 test('mechanics: enemy health uses a bar', () => {
-  assert.truthy(/_drawEnemyHealthBar/.test(APP_JS_SRC), 'app.js draws a bar');
+  assert.truthy(/_drawEnemyHealthBar/.test(SCENE_SRC), 'app.js draws a bar');
 });
 
 test('mechanics: sword, bow and staff occupy weapon slots', () => {
@@ -275,7 +275,7 @@ test('mechanics: delivery progression keeps household wishlists stable', () => {
 });
 
 test('mechanics: requested deliveries pay a premium', () => {
-  const m = APP_JS_SRC.match(/const DELIVERY_BONUS_MULT = ([\d.]+);/);
+  const m = SCENE_SRC.match(/const DELIVERY_BONUS_MULT = ([\d.]+);/);
   assert.truthy(m, 'app.js still owns the premium');
   assert.eq(Number(m[1]), 1.5, 'a set pays half again');
 });
@@ -333,17 +333,16 @@ test('mechanics: ruin guards chase within their leash', () => {
 });
 
 test('mechanics: only claimed castles fire at enemies', () => {
-  const fire = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _turretFire(now, px, py, halfSpanM, enemies, pc) {'),
-                                APP_JS_SRC.indexOf('  _drawShots() {'));
+  const fire = SCENE_SRC.slice(SCENE_SRC.indexOf('  _turretFire(now, px, py, halfSpanM, enemies, pc) {'),
+                                SCENE_SRC.indexOf('  _drawShots() {'));
   assert.truthy(/if \(!this\.isClaimedKey\(o\.castle\)\) return;/.test(fire),
     'app.js still gates the turrets on the claim');
   assert.eq(Combat.TURRET_RATE_DIV, 5, 'a turret fires at a fifth of the player rate');
 });
 
-test('mechanics: shop deals follow their caps', () => {
-  assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 9 }), 1, 'a shop just 1 an hour');
-  assert.eq(ShopsMath.dealCap({ kind: 'house', tier: 11 }), Infinity, 'a fort\'s slots never wait');
-  assert.eq(ShopsMath.dealCap({ kind: 'tower' }), Infinity, 'a tower never waits');
+test('mechanics: no shop rations its deals; only the re-roll ladder eases with the hour', () => {
+  assert.eq(typeof ShopsMath.dealCap, 'undefined', 'no shop waits an hour between deals');
+  assert.eq(ShopsMath.easedRerolls({ bucket: 0, rerolls: 3 }, 1), 2, 'a re-roll rung comes off an hour');
 });
 
 test('mechanics: fort slots retain their prizes and bonuses', () => {
@@ -374,12 +373,12 @@ test('mechanics: deep rock follows the gem table', () => {
   }
 });
 
-test('mechanics: vendors never offer a Ring', () => {
+test('mechanics: vendors never offer unique jewelry as gear', () => {
   const save = { relics: {}, armor: {} };
   const rng = bookRng(0x21C0);
   for (let i = 0; i < 2000; i++) {
     const offer = Gear.buildRelicOffer(save, rng);
-    assert.truthy(!offer || offer.slot !== 'ring', 'no vendor ever offers a Ring');
+    assert.truthy(!offer || !['ring', 'amulet'].includes(offer.slot), 'no jewelry gear slot remains');
   }
 });
 
@@ -397,9 +396,9 @@ test('mechanics: struck slimes have a reaction window', () => {
   assert.eq(Number(m[1]), 8000, 'struck slimes react for eight seconds');
 });
 
-test('mechanics: gathering luck remains absent and Rings favour chests', () => {
+test('mechanics: gathering luck remains absent and Keen Eye favours chests', () => {
   assert.eq(typeof globalThis.gatherLuck, 'undefined', 'the gather-luck path is gone');
-  assert.truthy(/chest/i.test(RELIC_DEFS.ring.blurb), 'the ring\'s own line keeps it to chests');
+  assert.truthy(/Rarer/.test(Wizard.TRACKS.find(t => t.key === 'eye').sub), 'Keen Eye copy favours rare finds');
 });
 
 test('mechanics: snares hurt on entry and while standing on them', () => {
@@ -409,7 +408,7 @@ test('mechanics: snares hurt on entry and while standing on them', () => {
 
 test('mechanics: street restoration retains its dwell and reward ladder', () => {
   assert.eq(Trail.GOAL_STEP_M, 200, 'the first rung is two hundred metres');
-  const dwell = +/const PATH_STONE_DWELL_MS = (\d+);/.exec(APP_JS_SRC)[1];
+  const dwell = +/const PATH_STONE_DWELL_MS = (\d+);/.exec(SCENE_SRC)[1];
   assert.eq(dwell, 3000, 'three seconds of sight rebuilds a stretch');
   assert.eq(Trail.goalFor(1) - Trail.goalFor(0), Trail.GOAL_STEP_M, 'the rungs grow by a step');
   const road = LOOT_CONTEXTS[Trail.PRIZE_CONTEXT].classBias;
@@ -419,7 +418,7 @@ test('mechanics: street restoration retains its dwell and reward ladder', () => 
 });
 
 test('mechanics: roads use the shared reward window', () => {
-  assert.truthy(/const ONE_ROAD_WINDOW_MS = /.test(APP_JS_SRC) && /_oneRoadPay\(perLine, now\)/.test(APP_JS_SRC),
+  assert.truthy(/const ONE_ROAD_WINDOW_MS = /.test(SCENE_SRC) && /_oneRoadPay\(perLine, now\)/.test(SCENE_SRC),
     'the sweep pays through the one-road window');
   assert.eq(Trail.BOOTS_M_PER_TIER, 1000, 'a tier per km');
 });
@@ -453,7 +452,7 @@ test('books: pages carry brief stories instead of numeric mechanics', () => {
     assert.lt(page.length, 200, 'page ' + i + ' leaves room for one discovery');
     assert.falsy(/[0-9%⚡×]|\btier\b|Relics tab|hit points|UTC/.test(page), 'page ' + i + ' avoids tuning and interface instructions');
   }
-  assert.eq(new Set(PLAY_TIPS).size, 134, 'each page offers a distinct moment');
+  assert.eq(new Set(PLAY_TIPS).size, 136, 'each page offers a distinct moment');
 });
 
 test('books: real-world road and heat safety stays direct', () => {

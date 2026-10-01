@@ -29,7 +29,7 @@
 
   // update()'s residency call is app.js's; spawnInTile and wanderCreatures
   // are the SceneCreatures mixin's (scene_creatures.js).
-  const APP = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+  const APP = SCENE_SRC;
   const CELL_M = 7;
 
   // ── The curve ────────────────────────────────────────────────────────────
@@ -268,7 +268,9 @@
     assert.eq(SpriteLayout.creatureTint('cave_slime'), SpriteLayout.CAVE_SLIME_TINT);
     assert.eq(SpriteLayout.creatureSheet('giant_cave_slime'), SpriteLayout.creatureSheet('cave_slime'));
     // The renderer must READ that, not branch on the kind.
-    assert.truthy(/s\.setTint\(frozen \? FROZEN_TINT : c\.shiny \? SHINY_TINT : npcArt \? npcArt\.tint : creatureTint\(c\.kind\)\)/
+    // (A burning body — `afire`, the `burning` row's tint — sits between
+    // the ice and the sheen: it says something about the instance too.)
+    assert.truthy(/s\.setTint\(frozen \? FROZEN_TINT : afire \? Conditions\.DEFINITIONS\.burning\.tint : c\.shiny \? SHINY_TINT : npcArt \? npcArt\.tint : creatureTint\(c\.kind\)\)/
       .test(RENDER_SRC), 'render.js tints a creature from the table, not a blanket white');
     assert.truthy(/const texKey = npcArt \? npcArt\.sheet : creatureSheet\(c\.kind\);/.test(RENDER_SRC),
       'and picks the monster sheet from the table, not an if-else chain');
@@ -577,6 +579,40 @@
       n: gs.length, elites: gs.filter((g) => g.shiny).length,
     };
   }
+
+  test('lairs: easy wakes at most two guards of a garrison — the SAME first two hard meets', () => {
+    // Difficulty lairGuardMax: the world's roll is untouched (held or not,
+    // strength, count, kinds, seats); the mode trims what wakes. Find a
+    // castle the world rolls more than two guards for, then read it in both
+    // modes.
+    const prev = Difficulty.mode();
+    try {
+      assert.eq(Difficulty.PROFILES.easy.lairGuardMax, 2, 'easy: two');
+      assert.falsy(Difficulty.PROFILES.hard.lairGuardMax, 'hard: no cap');
+      let found = null;
+      Difficulty.setMode('hard');
+      for (let fx = 8; fx < 60 && !found; fx += 3) for (let fy = 8; fy < 60 && !found; fy += 3) {
+        const r = garrisonIn(TILE_M, 0, 0, fx, fy, 5, HOME);
+        if (r.n > 2) found = { fx, fy, hard: r };
+      }
+      assert.truthy(found, 'the harness bites: some castle rolls more than two on hard');
+      Difficulty.setMode('easy');
+      const easy = garrisonIn(TILE_M, 0, 0, found.fx, found.fy, 5, HOME);
+      assert.eq(easy.n, 2, `easy wakes two of the ${found.hard.n}`);
+      assert.eq(easy.facts, found.hard.facts.split('|').slice(0, 2).join('|'),
+        'and they are the first two of hard\'s garrison — same ids, kinds, elites and seats');
+      // A garrison of one or two is the same in both modes.
+      Difficulty.setMode('hard');
+      let small = null;
+      for (let fx = 8; fx < 60 && !small; fx += 3) for (let fy = 8; fy < 60 && !small; fy += 3) {
+        const r = garrisonIn(TILE_M, 0, 0, fx, fy, 5, HOME);
+        if (r.n > 0 && r.n <= 2) small = { fx, fy, hard: r };
+      }
+      assert.truthy(small, 'the harness bites: some castle rolls one or two on hard');
+      Difficulty.setMode('easy');
+      assert.eq(garrisonIn(TILE_M, 0, 0, small.fx, small.fy, 5, HOME).facts, small.hard.facts, 'nothing to trim, nothing changes');
+    } finally { Difficulty.setMode(prev); }
+  });
 
   test('lairs: the garrison is identical for any Home and any save frame', () => {
     // THE DETERMINISM PIN. Two players' saves project the world at different
@@ -1283,8 +1319,8 @@
     // The eager pass is gone. What the tile build owes residency is the ONE
     // shared spawn options object (the road rule must not be re-derived), and
     // nothing else.
-    const spawn = SCENE_CREATURES_SRC.slice(SCENE_CREATURES_SRC.indexOf('  spawnInTile(entry, tx, ty) {'),
-                            SCENE_CREATURES_SRC.indexOf('entry._spawned = true;'));
+    const spawn = SCENE_SRC.slice(SCENE_SRC.indexOf('  spawnInTile(entry, tx, ty) {'),
+                            SCENE_SRC.indexOf('entry._spawned = true;'));
     assert.truthy(spawn.includes('entry._spawnOpts = _spawnOpts;'),
       'residency has no road mask without this');
     assert.falsy(/Lairs\.(spawnForTile|garrisonFor|stepResidency)/.test(spawn),
@@ -1365,9 +1401,9 @@
     assert.lt(half.bottom - half.top, full.bottom - full.top, 'and the tap box shrinks');
     // Every reader passes the instance: render, health bars, wheel, tap.
     assert.truthy(/setScale\(creatureScale\(c\.kind, creatureInstScale\(c\)\)\)/.test(RENDER_SRC), 'render draws it');
-    assert.eq((APP_JS_SRC.match(/creatureHealthBarTop\([^)]*, SpriteLayout\.creatureInstScale\(/g) || []).length,
-      (APP_JS_SRC.match(/creatureHealthBarTop\(/g) || []).length, 'every health bar seat passes it');
-    assert.truthy(/creatureWheelDy\(creature\.kind, SpriteLayout\.creatureInstScale\(creature\)\)/.test(APP_JS_SRC),
+    assert.eq((SCENE_SRC.match(/creatureHealthBarTop\([^)]*, SpriteLayout\.creatureInstScale\(/g) || []).length,
+      (SCENE_SRC.match(/creatureHealthBarTop\(/g) || []).length, 'every health bar seat passes it');
+    assert.truthy(/creatureWheelDy\(creature\.kind, SpriteLayout\.creatureInstScale\(creature\)\)/.test(SCENE_SRC),
       'the wheel');
   });
 

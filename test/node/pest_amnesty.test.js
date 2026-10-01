@@ -7,7 +7,7 @@
 // nothing to answer either with: no weapon, no relic, an empty bag, and a
 // ladder telling them to stand still and till. So until the save's first crop
 // is harvested (save.hasHarvested) the spawner seats no slime or crow near the
-// starting anchor. (The crop-raiding crow pump used to read this grace too;
+// starting anchor. (The crop-raiding pest pump used to read this grace too;
 // it is hard-mode-only now, so on easy — the only mode with a grace to serve —
 // it never runs at all. difficulty.test.js owns that gate.)
 //
@@ -17,7 +17,7 @@
 // WHERE, not HOW MANY — the tile keeps its pests, they just live further out.
 // The zone resolver is the scene's wrapper, handed over by run.js; the spawner's use of it
 // and the pump's gate are one line each, pinned below against the source text
-// run.js hands over (PEST_FREE_GUARD_SRC / CROW_PUMP_GATE_SRC).
+// run.js hands over (PEST_FREE_GUARD_SRC / PEST_PUMP_GATE_SRC).
 
 (() => {
   const SA_CELL_M = 7;
@@ -107,21 +107,21 @@
     assert.eq((body.match(/pestFree\.has\(/g) || []).length, 1, 'the zone is asked once, in the guard');
   });
 
-  test('pest amnesty: the crow pump is off in the mode that has the grace', () => {
-    // The pump spawns a crow just off-screen that flies to the nearest crop, so
+  test('pest amnesty: the pest pump is off in the mode that has the grace', () => {
+    // The pump spawns a deer just off-screen that walks to the nearest crop, so
     // a zone check on its spawn point would be theatre. It used to be gated on
     // the save flag instead; now it is a MODE difference (Difficulty cropPests,
     // hard only), which subsumes the grace — easy, the only mode a grace could
     // apply to, never pumps at any point in the save. The amnesty's own job is
     // unchanged: the SPAWNER still keeps both pests away from home until the
     // first harvest, in both modes.
-    assert.truthy(CROW_PUMP_GATE_SRC.includes('hasCrowCrop'),
+    assert.truthy(PEST_PUMP_GATE_SRC.includes('hasRaidableCrop'),
       'still only pumps when there is a crop worth raiding');
-    assert.truthy(CROW_PUMP_GATE_SRC.includes('cropPests'),
-      'and only in the mode that dispatches crows');
-    assert.falsy(CROW_PUMP_GATE_SRC.includes('hasHarvested'),
+    assert.truthy(PEST_PUMP_GATE_SRC.includes('cropPests'),
+      'and only in the mode that dispatches deer');
+    assert.falsy(PEST_PUMP_GATE_SRC.includes('hasHarvested'),
       'the retired grace clause is not left dangling in the gate');
-    assert.falsy(Difficulty.PROFILES.easy.cropPests, 'easy: no crow is ever dispatched');
+    assert.falsy(Difficulty.PROFILES.easy.cropPests, 'easy: no deer is ever dispatched');
   });
 
   test('pest amnesty: it follows the frozen trail anchor, not the projection origin', () => {

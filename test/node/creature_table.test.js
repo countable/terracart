@@ -87,7 +87,7 @@ test('creature table: a PET is exactly the cat and the dog, and each hunts its o
   // FOLLOWING is the cat's (interact.js arms the timer, wanderCreatures
   // honours it) and the spirit raven's (app.js _tickSpiritRaven arms it for
   // the bird's whole life) — and it is not the same question as being a pet.
-  assert.eq(ctKinds((k) => CT_BEH[k].follows), 'cat,spirit_raven');
+  assert.eq(ctKinds((k) => CT_BEH[k].follows), 'cat,mercenary,spirit_raven');
   assert.truthy(CT_SL.creatureFollows('cat'));
   assert.falsy(CT_SL.creatureFollows('dog'), 'a dog does not trail you around');
 });
@@ -137,7 +137,7 @@ test('creature table: animal interaction timing has one owner beside behaviour',
     && /ANIMAL_INTERACTION\.doubleYieldChance/.test(INTERACT_SRC)
     && /ANIMAL_INTERACTION\.followMs/.test(INTERACT_SRC),
     'interact.js reads every number from the owner');
-  assert.truthy(/SpriteLayout\.creatureProduce\(c\.kind\)/.test(APP_JS_SRC),
+  assert.truthy(/SpriteLayout\.creatureProduce\(c\.kind\)/.test(SCENE_SRC),
     'honey asks the producer predicate instead of naming chicken and cow again');
 });
 
@@ -163,10 +163,10 @@ test('creature table: a gait row is complete — a bolt says how fast, how far a
       `${kind} has a bolt with nothing to trigger it`);
   }
   // The three kinds that bolt, and the one whose trigger is the failed catch.
-  assert.eq(ctKinds((k) => CT_BEH[k].flee), 'butterfly,deer,rabbit');
+  assert.eq(ctKinds((k) => CT_BEH[k].flee), 'butterfly,deer,rabbit,turtle');
   assert.eq(ctKinds((k) => CT_BEH[k].flee?.escapes), 'butterfly');
   // A tame rabbit or deer settles into the base wander; a butterfly flits on.
-  assert.eq(ctKinds((k) => CT_BEH[k].tameSettles), 'deer,rabbit');
+  assert.eq(ctKinds((k) => CT_BEH[k].tameSettles), 'deer,rabbit,turtle');
 });
 
 test('creature table: it says how a kind BEHAVES, never whether it is a FOE', () => {
@@ -202,7 +202,7 @@ test('creatures: a hunted deer fights back — a row, wired through the one blow
   assert.falsy(Combat.isEnemy({ kind: 'deer', id: 'deer_1' }), 'never an enemy — nothing auto-fires at it');
   assert.truthy(/const fb = SpriteLayout\.creatureFightsBack\(victim\.kind\);\s*if \(fb\) victim\._rageUntil = Date\.now\(\) \+ fb\.rageMs;/.test(INTERACT_SRC),
     'starting a hunt enrages it');
-  const w = SCENE_CREATURES_SRC;
+  const w = SCENE_SRC;
   assert.truthy(/const gameCharge = enraged && !standDown && !unnoticed;/.test(w),
     'it charges only when noticed and not warded (NOTHING HUNTS A BODY; Home wards it)');
   assert.truthy(/Combat\.incomingDamage\(this\.save, raw\)/.test(w)
@@ -210,7 +210,7 @@ test('creatures: a hunted deer fights back — a row, wired through the one blow
   assert.truthy(/const bolting = !!bolt && !gameCharge &&/.test(w), 'a charging deer does not bolt');
 });
 
-test('creatures: no pest crow is dispatched underground', () => {
+test('creatures: no pest deer is dispatched underground', () => {
   assert.truthy(/if \(\(this\.depth \|\| 0\) === 0 && now - this\._lastPestT > 90000\)/.test(SCENE_CREATURES_SRC),
     'the pump is surface-only');
 });

@@ -9,7 +9,7 @@
 // bar, not a transcription of it.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 test('revive potions: T2 at 30%, T5 at 60%, both drunk not eaten', () => {
   assert.eq(REVIVE_ITEM_FRAC.revive_potion, CONSUMABLE_SPEC.revive_potion.energyFrac,

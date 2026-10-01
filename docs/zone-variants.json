@@ -80,12 +80,7 @@
         8
       ],
       "exceptions": {},
-      "migrationPending": [
-        "ordered_graves",
-        "overgrown_graves",
-        "broken_masonry",
-        "broken_depot"
-      ],
+      "migrationPending": [],
       "preferredMaxCells": [
         6,
         6
@@ -270,6 +265,40 @@
       "requiredTier": 3,
       "spawnClass": "attractor",
       "color": "#8ccfe3"
+    },
+    "tool_crate": {
+      "kind": "chest",
+      "spawnClass": "attractor",
+      "quarryCrate": true,
+      "fixedLoot": {
+        "kind": "relic",
+        "slot": "pick",
+        "tier": 3
+      },
+      "color": "#977851"
+    },
+    "equipment": {
+      "kind": "chest",
+      "spawnClass": "minor",
+      "quarryEquipment": true,
+      "fixedLoot": {
+        "kind": "item",
+        "id": "iron_bar",
+        "qty": 1
+      },
+      "color": "#6b7477"
+    },
+    "treasure_x": {
+      "kind": "treasure_x",
+      "recordType": "treasure",
+      "spawnClass": "attractor",
+      "color": "#c7b28a"
+    },
+    "goblin": {
+      "kind": "goblin",
+      "recordType": "enemy",
+      "spawnClass": "enemy",
+      "color": "#79a15d"
     }
   },
   "variants": [
@@ -1287,9 +1316,6 @@
       "atmosphere": "Staggered mushroom pairs repeat every six cells, with giant woody mushrooms between them. The close-set caps lead to a crescent and its luminous flower. Chop a giant mushroom for both wood and a mushroom.",
       "attracts": {
         "butterfly": 0.5
-      },
-      "materialLooks": {
-        "mushroom": "cap_cluster"
       }
     },
     {
@@ -3600,8 +3626,8 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          10,
-          10
+          6,
+          6
         ],
         "slots": [
           {
@@ -3620,92 +3646,22 @@
           },
           {
             "at": [
-              5,
-              1
-            ],
-            "material": "grave"
-          },
-          {
-            "at": [
-              7,
-              1
-            ],
-            "material": "grave"
-          },
-          {
-            "at": [
-              9,
-              1
-            ],
-            "material": "grave"
-          },
-          {
-            "at": [
               1,
-              4
-            ],
-            "material": "grave"
-          },
-          {
-            "at": [
-              3,
-              4
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              5,
-              4
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              7,
-              4
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              9,
-              4
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              1,
-              7
+              3
             ],
             "material": "stone"
           },
           {
             "at": [
               3,
-              7
+              3
             ],
             "material": "stone"
           },
           {
             "at": [
               5,
-              7
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              7,
-              7
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              9,
-              7
+              5
             ],
             "material": "grass"
           }
@@ -3713,17 +3669,17 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.15,
+        "nominalDensity": 0.1388888888888889,
         "materialDensity": {
-          "grave": 0.06,
-          "stone": 0.06,
-          "grass": 0.03
+          "grave": 0.05555555555555555,
+          "stone": 0.05555555555555555,
+          "grass": 0.027777777777777776
         },
         "type": "repeat_motif",
         "poiOrigin": {
           "cell": [
-            5,
-            4
+            3,
+            3
           ],
           "role": "central_stone_row_between_graves"
         }
@@ -3906,8 +3862,8 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          10,
-          10
+          6,
+          6
         ],
         "slots": [
           {
@@ -3919,14 +3875,7 @@
           },
           {
             "at": [
-              2,
-              1
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              3,
+              1,
               1
             ],
             "material": "grass"
@@ -3934,34 +3883,6 @@
           {
             "at": [
               5,
-              1
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              7,
-              1
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              8,
-              1
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              0,
-              4
-            ],
-            "material": "grass"
-          },
-          {
-            "at": [
-              2,
               4
             ],
             "material": "grass"
@@ -3969,70 +3890,28 @@
           {
             "at": [
               3,
-              4
+              3
             ],
             "material": "shrub"
           },
           {
             "at": [
-              5,
-              4
+              4,
+              3
             ],
             "material": "shrub"
           },
           {
             "at": [
-              7,
+              1,
               4
             ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              8,
-              4
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              0,
-              7
-            ],
             "material": "stone"
           },
           {
             "at": [
-              2,
-              7
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              3,
-              7
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              5,
-              7
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              7,
-              7
-            ],
-            "material": "grave"
-          },
-          {
-            "at": [
-              8,
-              7
+              1,
+              3
             ],
             "material": "grave"
           }
@@ -4040,18 +3919,18 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.18,
+        "nominalDensity": 0.19444444444444445,
         "materialDensity": {
-          "grass": 0.08,
-          "shrub": 0.04,
-          "stone": 0.04,
-          "grave": 0.02
+          "grass": 0.08333333333333333,
+          "shrub": 0.05555555555555555,
+          "stone": 0.027777777777777776,
+          "grave": 0.027777777777777776
         },
         "type": "repeat_motif",
         "poiOrigin": {
           "cell": [
-            5,
-            4
+            3,
+            3
           ],
           "role": "middle_of_shrub_row"
         }
@@ -4228,12 +4107,33 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          10,
-          10
+          6,
+          6
         ],
         "slots": [
           {
             "at": [
+              0,
+              0
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              1,
+              0
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
+              0,
+              1
+            ],
+            "material": "rubble"
+          },
+          {
+            "at": [
               1,
               1
             ],
@@ -4241,134 +4141,22 @@
           },
           {
             "at": [
-              2,
-              1
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
               4,
-              1
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              7,
-              1
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              8,
-              1
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              1,
-              2
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              2,
-              2
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              4,
-              2
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              7,
-              2
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              8,
-              2
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              1,
-              6
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              2,
-              6
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              4,
-              6
+              4
             ],
             "material": "stone"
           },
           {
             "at": [
-              7,
-              6
+              5,
+              4
             ],
             "material": "stone"
           },
           {
             "at": [
-              8,
-              6
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              1,
-              7
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              2,
-              7
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              4,
-              7
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              7,
-              7
-            ],
-            "material": "stone"
-          },
-          {
-            "at": [
-              8,
-              7
+              5,
+              5
             ],
             "material": "stone"
           }
@@ -4376,16 +4164,16 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.2,
+        "nominalDensity": 0.19444444444444445,
         "materialDensity": {
-          "rubble": 0.12,
-          "stone": 0.08
+          "rubble": 0.1111111111111111,
+          "stone": 0.08333333333333333
         },
         "type": "repeat_motif",
         "poiOrigin": {
           "cell": [
-            4,
-            4
+            3,
+            3
           ],
           "role": "clearing_between_masonry_groups"
         }
@@ -5349,8 +5137,8 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          10,
-          10
+          6,
+          6
         ],
         "slots": [
           {
@@ -5362,7 +5150,7 @@
           },
           {
             "at": [
-              2,
+              1,
               1
             ],
             "material": "rubble"
@@ -5370,112 +5158,28 @@
           {
             "at": [
               3,
-              1
+              3
             ],
             "material": "rubble"
           },
           {
             "at": [
-              5,
-              1
+              4,
+              3
             ],
             "material": "rubble"
           },
           {
             "at": [
-              7,
-              1
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              8,
-              1
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              0,
-              4
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              2,
-              4
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              3,
-              4
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              5,
-              4
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              7,
-              4
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              8,
-              4
-            ],
-            "material": "rubble"
-          },
-          {
-            "at": [
-              0,
-              7
+              1,
+              5
             ],
             "material": "trap"
           },
           {
             "at": [
-              2,
-              7
-            ],
-            "material": "trap"
-          },
-          {
-            "at": [
-              3,
-              7
-            ],
-            "material": "trap"
-          },
-          {
-            "at": [
-              5,
-              7
-            ],
-            "material": "trap"
-          },
-          {
-            "at": [
-              7,
-              7
-            ],
-            "material": "trap"
-          },
-          {
-            "at": [
-              8,
-              7
+              4,
+              5
             ],
             "material": "trap"
           }
@@ -5483,19 +5187,19 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.12,
+        "nominalDensity": 0.1111111111111111,
         "materialDensity": {
-          "rubble": 0.12
+          "rubble": 0.1111111111111111
         },
         "type": "repeat_motif",
         "hazardDensity": {
-          "trap": 0.06
+          "trap": 0.05555555555555555
         },
-        "totalOccupiedDensity": 0.18,
+        "totalOccupiedDensity": 0.16666666666666666,
         "poiOrigin": {
           "cell": [
-            5,
-            4
+            3,
+            3
           ],
           "role": "middle_of_material_row"
         }
@@ -7001,8 +6705,8 @@
         "orientation": "none",
         "nominalDensity": 0.4,
         "materialDensity": {
-          "stone": 0.38,
-          "crystal": 0.02
+          "stone": 0.395,
+          "crystal": 0.005
         },
         "seed": "source + tile_coordinates + local_cell_coordinates; independent_of_component_center",
         "sampling": "alternate_rows_with_seeded_gaps; occupancy_adjusted_for_row_fraction; independent_material_hash",
@@ -7040,8 +6744,251 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Broken stone rows fill removed parking lanes and nearby ground. Blue crystal clusters occupy about 2% of eligible cells and yield Sapphires. No landmark, special lighting or fixed guards.",
-      "attracts": {}
+      "atmosphere": "Legacy broken stone rows; Sapphire deposits occupy 0.5% of eligible cells before clipping.",
+      "attracts": {},
+      "selectable": false
+    },
+    {
+      "id": "quarry-crater",
+      "zone": "quarry",
+      "name": "Destroyed crater",
+      "weight": 1,
+      "generated": "parking_lanes",
+      "source": "parking_lanes",
+      "background": {
+        "type": "seeded_scatter",
+        "densityFalloff": "none",
+        "phaseOrigin": "global_tile_cell",
+        "orientation": "none",
+        "nominalDensity": 0,
+        "materialDensity": {},
+        "seed": "source + tile_coordinates + local_cell_coordinates; independent_of_component_center",
+        "sampling": "alternate_rows_with_seeded_gaps; occupancy_adjusted_for_row_fraction; independent_material_hash",
+        "previewCells": [
+          24,
+          24
+        ],
+        "poiOrigin": {
+          "cell": [
+            0,
+            0
+          ],
+          "role": "no_landmark"
+        }
+      },
+      "poi": {
+        "id": "none",
+        "origin": "none",
+        "slots": []
+      },
+      "finds": {
+        "rarity": "finite",
+        "material": "crimson_ore",
+        "targets": [
+          {
+            "id": "0"
+          },
+          {
+            "id": "1"
+          }
+        ],
+        "count": 2
+      },
+      "connection": {
+        "shape": "none"
+      },
+      "guards": {
+        "mode": "none"
+      },
+      "atmosphere": "The old road ends at a wound in the earth. Whatever struck here scattered the stone outward; small seams still smoulder beneath the ash. Deep Crimson ore was thrown up with the broken ground.",
+      "attracts": {},
+      "quarryLayout": "crater",
+      "affinities": [
+        "ruined"
+      ]
+    },
+    {
+      "id": "quarry-abandoned",
+      "zone": "quarry",
+      "name": "Abandoned quarry",
+      "weight": 1,
+      "generated": "parking_lanes",
+      "source": "parking_lanes",
+      "background": {
+        "type": "seeded_scatter",
+        "densityFalloff": "none",
+        "phaseOrigin": "global_tile_cell",
+        "orientation": "none",
+        "nominalDensity": 0,
+        "materialDensity": {},
+        "seed": "source + tile_coordinates + local_cell_coordinates; independent_of_component_center",
+        "sampling": "alternate_rows_with_seeded_gaps; occupancy_adjusted_for_row_fraction; independent_material_hash",
+        "previewCells": [
+          24,
+          24
+        ],
+        "poiOrigin": {
+          "cell": [
+            0,
+            0
+          ],
+          "role": "no_landmark"
+        }
+      },
+      "poi": {
+        "id": "none",
+        "origin": "none",
+        "slots": []
+      },
+      "finds": {
+        "rarity": "finite",
+        "material": "tool_crate",
+        "targets": [
+          {
+            "id": "0"
+          },
+          {
+            "id": "1"
+          }
+        ],
+        "count": 2
+      },
+      "connection": {
+        "shape": "none"
+      },
+      "guards": {
+        "mode": "none"
+      },
+      "atmosphere": "The crews who cut stone for the old kingdom's roads left in a hurry. Weathered timber, rusting iron and unopened tool crates lie where the last shift dropped them. Nothing here has been worked since the fire.",
+      "attracts": {},
+      "quarryLayout": "abandoned",
+      "affinities": [
+        "ruined"
+      ]
+    },
+    {
+      "id": "quarry-strip-mine",
+      "zone": "quarry",
+      "name": "Strip mine",
+      "weight": 1,
+      "generated": "parking_lanes",
+      "source": "parking_lanes",
+      "background": {
+        "type": "seeded_scatter",
+        "densityFalloff": "none",
+        "phaseOrigin": "global_tile_cell",
+        "orientation": "none",
+        "nominalDensity": 0,
+        "materialDensity": {},
+        "seed": "source + tile_coordinates + local_cell_coordinates; independent_of_component_center",
+        "sampling": "alternate_rows_with_seeded_gaps; occupancy_adjusted_for_row_fraction; independent_material_hash",
+        "previewCells": [
+          24,
+          24
+        ],
+        "poiOrigin": {
+          "cell": [
+            0,
+            0
+          ],
+          "role": "no_landmark"
+        }
+      },
+      "poi": {
+        "id": "none",
+        "origin": "none",
+        "slots": []
+      },
+      "finds": {
+        "rarity": "none",
+        "material": "stone",
+        "targets": [],
+        "count": 0
+      },
+      "connection": {
+        "shape": "none"
+      },
+      "guards": {
+        "mode": "none"
+      },
+      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches.",
+      "attracts": {},
+      "quarryLayout": "strip_mine",
+      "affinities": [
+        "ruined"
+      ]
+    },
+    {
+      "id": "quarry-stronghold",
+      "zone": "quarry",
+      "name": "Ruined stronghold",
+      "weight": 1,
+      "generated": "parking_lanes",
+      "source": "parking_lanes",
+      "background": {
+        "type": "seeded_scatter",
+        "densityFalloff": "none",
+        "phaseOrigin": "global_tile_cell",
+        "orientation": "none",
+        "nominalDensity": 0,
+        "materialDensity": {},
+        "seed": "source + tile_coordinates + local_cell_coordinates; independent_of_component_center",
+        "sampling": "alternate_rows_with_seeded_gaps; occupancy_adjusted_for_row_fraction; independent_material_hash",
+        "previewCells": [
+          24,
+          24
+        ],
+        "poiOrigin": {
+          "cell": [
+            0,
+            0
+          ],
+          "role": "no_landmark"
+        }
+      },
+      "poi": {
+        "id": "none",
+        "origin": "none",
+        "slots": []
+      },
+      "finds": {
+        "rarity": "finite",
+        "material": "treasure_x",
+        "targets": [
+          {
+            "id": "0"
+          },
+          {
+            "id": "1"
+          },
+          {
+            "id": "2"
+          }
+        ],
+        "count": 3
+      },
+      "connection": {
+        "shape": "none"
+      },
+      "guards": {
+        "mode": "quarry_layout",
+        "kind": "goblin",
+        "count": 3
+      },
+      "atmosphere": "Low square foundations are all that remain of the garrison that guarded the stone road. Goblins shelter behind the broken walls. Crosses scratched into the abandoned yards suggest that the defenders buried more than they managed to carry away.",
+      "attracts": {},
+      "quarryLayout": "stronghold",
+      "affinities": [
+        "ruined"
+      ]
     }
-  ]
+  ],
+  "quarryLayouts": {
+    "patchSizeCells": {
+      "min": 3,
+      "max": 8
+    },
+    "foundationSizeCells": 5,
+    "sapphireAbundanceMultiplier": 0.25
+  }
 }

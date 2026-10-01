@@ -1,6 +1,6 @@
 # Headless node tests
 
-Fast, browser-free tests for Mending Lane's **pure logic, data tables and the
+Fast, browser-free tests for Dragon Hood's **pure logic, data tables and the
 interactable registry**, plus the repo's static audits. No Phaser, no DOM, no
 Playwright/Chromium.
 
@@ -24,7 +24,10 @@ copies the `const` exports onto the global. Then it:
 - runs every `*.test.js` in this folder;
 - hands tests the source text of modules it cannot load headlessly
   (`APP_JS_SRC`, `INDEX_HTML_SRC`, `RENDER_SRC`, …) plus a few functions
-  lifted out of `app.js`, for source-level pins;
+  lifted out of the scene, for source-level pins. Pins and lifts on scene
+  methods read `SCENE_SRC`: `app.js` plus every mixin it installs with
+  `installSceneMixin`, derived from `app.js`, so moving a method into a mixin
+  needs no test edits. Use a single file's text only when the file matters;
 - checks that the wooden-tier and per-tier relic art actually ships on disk;
 - appends the tool audits' checks: `tools/sprite_audit.js`,
   `tools/shell_audit.js`, `tools/cachebust.js`, `tools/layout_audit.js`,

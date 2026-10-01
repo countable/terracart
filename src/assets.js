@@ -2,14 +2,16 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  orrin_idle: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_idle.png', frameWidth: 48, frameHeight: 48 },
+  orrin_walk: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_walk.png', frameWidth: 48, frameHeight: 48 },
   npc_0_idle: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman01_idle.png', frameWidth: 48, frameHeight: 48 },
   npc_0_walk: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman01_walk.png', frameWidth: 48, frameHeight: 48 },
   npc_1_idle: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman02_idle.png', frameWidth: 48, frameHeight: 48 },
   npc_1_walk: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman02_walk.png', frameWidth: 48, frameHeight: 48 },
   npc_2_idle: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman03_idle.png', frameWidth: 48, frameHeight: 48 },
   npc_2_walk: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman03_walk.png', frameWidth: 48, frameHeight: 48 },
-  idle:    { kind: 'spritesheet', path: 'assets/Character/Idle.png',           frameWidth: 32, frameHeight: 32 },
-  walk:    { kind: 'spritesheet', path: 'assets/Character/Walk.png',           frameWidth: 32, frameHeight: 32 },
+  // The player's own sheets (the cyan farmer every save starts on, the four
+  // callings, the bicycle) are derived from SpriteLayout.PLAYER_ART below.
   // Red dragon transform (Dragon Powder). 11-col sheet of 96×96 frames;
   // row 0 (frames 0-7) is the wing-flap we loop while transformed.
   dragon:  { kind: 'spritesheet', path: 'assets/Character/Dragon/babydragon_sheets/dragon_red.png', frameWidth: 96, frameHeight: 96 },
@@ -116,6 +118,11 @@ const ASSETS = {
   butterfly:   { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Azure Butterfly.png', frameWidth: 16, frameHeight: 16 },
   // Shore crab — 3 cols x 4 rows of 16px frames (front, back, right, left).
   crab:        { kind: 'spritesheet', path: 'assets/Farm Animals/Crab.png',                 frameWidth: 16, frameHeight: 16 },
+  // Horse — 4 cols x 6 rows of 32px frames: idle then walk for down, right, up.
+  horse:       { kind: 'spritesheet', path: 'assets/Farm Animals/Horse.png',                frameWidth: 32, frameHeight: 32 },
+  // Sea turtle — 2 cols x 4 rows of 16px frames (up, left, right, down), cut
+  // from the marine-animals sheet; the fish columns were not used.
+  turtle:      { kind: 'spritesheet', path: 'assets/Farm Animals/Turtle.png',               frameWidth: 16, frameHeight: 16 },
   // Underground monster sheets. Goblins: 32×32 frames, 6 cols × 3 rows — row 0 (frames 0-5) is the walk cycle.
   purple_slime:  { kind: 'spritesheet', path: 'assets/Enemy/Purple Slime.png',  frameWidth: 32, frameHeight: 32 },
   ghost:         { kind: 'spritesheet', path: 'assets/Enemy/Ghost/1Fullsheet_Ghost.png', frameWidth: 16, frameHeight: 16 },
@@ -145,19 +152,21 @@ const ASSETS = {
   // assets/Objects/Generated/README.md — placeholders): the pilgrim's
   // waystone, the barricade, and the burned row's tar pit and iron stakes
   // (one look each). wagon: the broken wagon a bandit-road bus stop wears
-  // (loot.js chestLook), one 128×96 frame.
+  // (loot.js chestLook), one compact 32×32 frame.
   waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone.png', frameWidth: 16, frameHeight: 16 },
   giant_mushroom: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Fantasy Mushroom.png', frameWidth: 32, frameHeight: 48 },
   barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 16, frameHeight: 16 },
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Approved/tar.png', frameWidth: 16, frameHeight: 16 },
   stakes:         { kind: 'spritesheet', path: 'assets/Objects/Approved/stakes.png', frameWidth: 16, frameHeight: 16 },
-  wagon:          { kind: 'spritesheet', path: 'assets/Objects/Approved/wagon.png', frameWidth: 128, frameHeight: 96 },
-  // INFLUENCE ZONES (src/zones.js): churchyard headstone, two grove shrine
-  // appearances, and the flint nodule (items.js CROP_SPRITE.flint).
+  wagon:          { kind: 'spritesheet', path: 'assets/Objects/DailyVisits/wagon.png', frameWidth: 32, frameHeight: 32 },
+  // INFLUENCE ZONES (src/zones.js): churchyard headstone, grove votive,
+  // and the flint nodule (items.js CROP_SPRITE.flint).
   headstone:      { kind: 'spritesheet', path: 'assets/Objects/Rustic/pillar_c.png', frameWidth: 16, frameHeight: 16 },
-  grove_shrine:   { kind: 'spritesheet', path: 'assets/Objects/Landmarks/shrine-figure.png', frameWidth: 48, frameHeight: 48 },
   grove_votive:   { kind: 'spritesheet', path: 'assets/Objects/Approved/grove_votive.png', frameWidth: 16, frameHeight: 16 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Approved/flint.png', frameWidth: 16, frameHeight: 16 },
+  // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — ten 16×24 generated
+  // placeholders on one row, in the table's order.
+  shrines:        { kind: 'spritesheet', path: 'assets/Objects/Generated/shrines.png', frameWidth: 16, frameHeight: 24 },
   // SCENIC PLACES (src/scenic.js) — generated placeholders, one art per
   // interactable: the viewpoint's scope (16×24, an object — RENDER_SPEC
   // vista_scope) and the tide line's driftwood and message bottle (wild
@@ -218,6 +227,8 @@ const ASSETS = {
   // on a cave floor to be picked up (worldgen.js caveFloorTorches →
   // CROP_SPRITE.torch). Not the wall `torch` stake below, which is a light.
   icon_torch:  { kind: 'spritesheet', path: 'assets/Icons/Items/Torch.png', frameWidth: 16, frameHeight: 16 },
+  // Shared inventory and projectile art: frame 0 faces right, frame 1 down.
+  icon_spear:  { kind: 'spritesheet', path: 'assets/Icons/Items/Spear.png', frameWidth: 16, frameHeight: 16 },
   // Orchard fruit icons — 32×16 each, two 16×16 frames (frame 0 is the whole
   // fruit; frame 1 a slice). These are the inventory icons (items.js
   // MINERAL_ICON_SHEET), loaded as WORLD textures too because a bearing fruit
@@ -253,6 +264,7 @@ const ASSETS = {
   // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
   // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
   // Used for the fishing-junk boot (88), rare-drop star (115), and memory (116).
+  quarry_equipment: { kind: 'image', path: 'assets/Icons/RPG icons/Weapons and Armor/3. Iron/Pickaxe.png' },
   pickup:      { kind: 'spritesheet', path: 'assets/Objects/Pickup_Items.png', frameWidth: 16, frameHeight: 16 },
   // Wood logs — 48×16 sheet, 3 frames of 16×16 (brown / grey / amber
   // bark variants with little green sprigs). Sliced out of Sprites/
@@ -293,7 +305,7 @@ const ASSETS = {
   house_trader:     { kind: 'image', path: 'assets/Objects/Approved/house_trader.png' },
   house_market:     { kind: 'image', path: 'assets/Objects/Approved/house_market.png' },
   house_fort:       { kind: 'image', path: 'assets/Objects/Approved/house_fort.png' },
-  house_trailer:    { kind: 'image', path: 'assets/Objects/Approved/house_trailer.png' },
+  house_trailer:    { kind: 'image', path: 'assets/Objects/Home/home_wagon.png' },
   // Wreck: every tier-9 small house starts out as one of these until the
   // player brings the restoration materials. Single sprite shared across
   // all roles — what the wreck WILL become is hidden until restoration.
@@ -307,11 +319,18 @@ const ASSETS = {
   house_fort_unclaimed: {"kind": "image", "path": "assets/Objects/Approved/house_fort_unclaimed.png", "unclaimedArt": true},
   approved_wetland_reeds: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_wetland_reeds.png", "frameWidth": 16, "frameHeight": 16},
   approved_clipped_hedge: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_clipped_hedge.png", "frameWidth": 16, "frameHeight": 16},
-  approved_mushroom_cluster: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_mushroom_cluster.png", "frameWidth": 16, "frameHeight": 16},
   approved_charred_stakes: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_charred_stakes.png", "frameWidth": 16, "frameHeight": 16},
-  potofgold: {"kind": "image", "path": "assets/Objects/Approved/potofgold.png"},
+  potofgold: {"kind": "image", "path": "assets/Objects/DailyVisits/potofgold.png"},
   // END approved map-art states and contexts
 };
+
+// Neighbour role sheets are listed once, in SpriteLayout.NPC_SHEETS; each
+// idle sheet has a walk sheet beside it.
+for (const sheet of SpriteLayout.NPC_SHEETS) {
+  if (ASSETS[sheet.idle]) continue;
+  ASSETS[sheet.idle] = { kind: 'spritesheet', path: sheet.path, frameWidth: 48, frameHeight: 48 };
+  ASSETS[sheet.walk] = { kind: 'spritesheet', path: sheet.path.replace(/_idle\.png$/, '_walk.png'), frameWidth: 48, frameHeight: 48 };
+}
 
 // Player class and bicycle appearances share their verified layout metadata.
 for (const art of Object.values(SpriteLayout.PLAYER_ART)) {

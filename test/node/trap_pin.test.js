@@ -18,13 +18,13 @@
 // dry tap tells no story.
 //
 // app.js can't load headlessly, so _tickTraps, _toolActionStory and the
-// gated movement block are lifted out of APP_JS_SRC and run for real on stub
+// gated movement block are lifted out of SCENE_SRC and run for real on stub
 // scenes (the story_splashes / home_ward idiom); the call sites are pinned
 // as source text. The art stems are checked against the real PNGs via
 // pngDims, same as story_splashes.test.js.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 const ix = INTERACT_SRC;
 
 const lift = (src, sig, what) => {
@@ -240,7 +240,7 @@ test('tool stories: interact.js hooks fire at action start, one per call site', 
   // happened, not a dry tap on an already-watered plant.
   hook('water', 'Crops.waterOne(save, p, save.relics)', 'the watering', false);
   // The chop story is the axe alone: rockfruit debris gathers free, by hand.
-  assert.truthy(/if \(reqRelic === 'axe'\) scene\._toolActionStory\?\.\('chop'\);\n        scene\.startWorkProgress\(wp\.x, wp\.y, award/.test(ix),
+  assert.truthy(/if \(reqRelic === 'axe'\) scene\._toolActionStory\?\.\('chop'\);\n        const startingTier = save\.relics\?\.\[reqRelic\]\?\.tier \|\| 0;\n        scene\.startWorkProgress\(wp\.x, wp\.y, /.test(ix),
     "the wildplant wheel hooks 'chop' only when the work needs the axe");
 });
 
@@ -254,7 +254,7 @@ test('tool stories: the auto-fire hooks the first shot loosed, not the cadence',
 test('tool stories (behaviour): each action splashes once under its own ledger key', () => {
   const modals = [];
   const scene = {
-    save: {},
+    save: { relics: Object.fromEntries(['hoe', 'axe', 'pick', 'can', 'bugnet', 'sword', 'bow', 'staff'].map(slot => [slot, { tier: 1 }])) },
     showMessageModal: (opts) => modals.push(opts),
     _storySplashOnce: storyMethods._storySplashOnce,
     _toolActionStory: storyMethods._toolActionStory,

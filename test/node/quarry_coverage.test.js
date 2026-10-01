@@ -90,6 +90,10 @@
     for (const y of [18,20,22]) {
       assert.eq(owner(left,63,y)?.kind,'quarry','left edge covered');
       assert.eq(owner(right,0,y)?.kind,'quarry','right edge covered');
+      assert.eq(owner(left,63,y)?.variant, 'quarry-strip-mine');
+      assert.eq(owner(right,0,y)?.variant, 'quarry-strip-mine');
+      assert.falsy(owner(left,63,y)?.owned, 'clipped site cannot duplicate finite rewards');
+      assert.falsy(owner(right,0,y)?.owned, 'neighbour does not invent a second owner');
     }
   });
 })();

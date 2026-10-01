@@ -20,7 +20,7 @@
 (function () {
 // wanderCreatures is the SceneCreatures mixin's (scene_creatures.js); the trap
 // tick, the magic trap and the rest are app.js's. Lift from both.
-const APP = APP_JS_SRC + '\n' + SCENE_CREATURES_SRC;
+const APP = SCENE_SRC;
 const liftMethod = (sig) => {
   const start = APP.indexOf('\n  ' + sig);
   const end = start < 0 ? -1 : APP.indexOf('\n  }\n', start);

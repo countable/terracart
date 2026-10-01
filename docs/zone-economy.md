@@ -7,29 +7,32 @@ These are expected Home sale coins using the current Easy-mode sale formula, fro
 | Meadow | 15–15 | 3 × Wild Rose | 42–81 |  |
 | Mushroom Grove | 56–106 | 1 × Starflower | 49–98 |  |
 | Orchard | 61–125 | 3 × Gemfruit | 30–57 | Apple harvest repeats every 24 h; medium maples are one-time timber |
-| Formal Garden | 206–383 | 2 × Wild Rose | 28–54 |  |
-| Hedge Garden | 92–142 | 2 × Wild Rose | 28–54 |  |
+| Formal Garden | 139–267 | 2 × Wild Rose | 28–54 |  |
+| Hedge Garden | 73–109 | 2 × Wild Rose | 28–54 |  |
 | Ancient Grove | 83–113 | 1 × Starflower | 49–98 | Range also allows young/mature maple and axe tier |
 | Stone Garden | 409–782 | 3 × Gemfruit | 30–57 |  |
-| Ordered Graves | 86–163 | 2 × Gemfruit | 20–38 | Headstone hoards excluded |
-| Overgrown Graves | 68–118 | 1 × Starflower | 49–98 | Headstone hoards excluded |
-| Broken Masonry | 135–248 | 1 × Platinum ore rock | 202–401 | Pick T4 |
+| Ordered Graves | 80–151 | 2 × Gemfruit | 20–38 | Headstone hoards excluded |
+| Overgrown Graves | 53–88 | 1 × Starflower | 49–98 | Headstone hoards excluded |
+| Broken Masonry | 138–254 | 1 × Platinum ore rock | 202–401 | Pick T4 |
 | Silent Circle | 371–708 | 1 × Starflower | 49–98 |  |
 | Flint Field | 30–44 | 3 × Gemfruit | 30–57 |  |
-| Broken Depot | 24–35 | 2 × Gemfruit | 20–38 | 6% trap |
+| Broken Depot | 22–32 | 2 × Gemfruit | 20–38 | 5.55556% trap |
 | Seep | 13–18 | 1 × Starflower | 49–98 | 15.625% tar |
 | Work Yard | 469–845 | 1 × Crimson ore rock | 483–965 | Pick T5 |
 | Black Ring | 50–73 | 2 × Gold ore rock | 162–321 | 12.5% tar; Pick T3 |
-| Mystic Reef | 183–352 | 1 × Starflower | 49–98 |  |
+| Mystic Reef | 172–333 | 1 × Starflower | 49–98 |  |
 | Pirate Cove | 45–76 | 1 × Gold ore rock | 81–160 | Pick T3 |
 | Shellwater Strand | 87–167 | 2 × Wild Rose | 28–54 |  |
-| Quarry | 553–1057 | None | 0–0 | Generated from removed parking lanes; crystals are probabilistic background, not guaranteed finite finds; Iron pick T3; one Sapphire per cluster, no metal bars |
+| Destroyed crater | 266–509 | 2 × Crimson ore rock | 966–1929 | Background normalized from the runtime parking-lot sample; geometry-dependent, not a fixed density. Finite budget per complete site; clipped edge fragments receive no finite reward. |
+| Abandoned quarry | 208–400 | 2 × tool_crate | Gear-dependent | Background normalized from the runtime parking-lot sample; geometry-dependent, not a fixed density. Finite budget per complete site; clipped edge fragments receive no finite reward. |
+| Strip mine | 388–743 | None | 0–0 | Background normalized from the runtime parking-lot sample; geometry-dependent, not a fixed density. Finite budget per complete site; clipped edge fragments receive no finite reward. |
+| Ruined stronghold | 466–891 | 3 × treasure_x | Treasure roll | Background normalized from the runtime parking-lot sample; geometry-dependent, not a fixed density. Finite budget per complete site; clipped edge fragments receive no finite reward. |
 
 ## Main findings
 
 - Plain rocks now have a steeper bonus-bar curve: copper stays at 12.5%, while Frost is 0.340% (1/294), three times rarer than before. One ordinary churchyard rock averages 14–27 sale coins. About 80.3% give no bonus bar. Fifteen rocks have a 5.0% chance of at least one Frost bar. Ordinary rocks remain ungated; their averages still include rare jackpots.
 - Work Yard background value per unit area is: 469–845 coins per 100 cells, versus Stone Garden at 409–782 and Silent Circle at 371–708. The fixed Work Yard footprint holds about 2070–3726 background coins over 441 cells; Stone Garden holds 1803–3448 over 441 cells, before clipping and POI replacement.
-- Work Yard has the largest finite reward: one Crimson rock averages 483–965 coins, versus 202–401 for the Platinum rock and 162–321 for Black Ring’s pair of Gold rocks. Gold requires an Iron pick (T3), Platinum a Gold pick (T4), Crimson a Platinum pick (T5). The existing one-tier-short slow-grind option still applies.
+- Among the original non-quarry rows, Work Yard has the largest finite reward: one Crimson rock averages 483–965 coins, versus 202–401 for the Platinum rock and 162–321 for Black Ring’s pair of Gold rocks. Gold requires an Iron pick (T3), Platinum a Gold pick (T4), Crimson a Platinum pick (T5). The existing one-tier-short slow-grind option still applies.
 - Formal Garden pays well because ordinary Marigolds sell for 17–34 coins each, more than the designated Wild Rose finds at 14–27. The “special find” label does not always mean a more valuable item.
 - Seep and Broken Depot have weak backgrounds. Tar and traps contribute no sale income; their income is mainly the finite find or rubble bonuses. Danger is not currently rewarded with comparable extra value.
 - Fauna affinities relocate existing creatures; they do not add a guaranteed animal reward or increase total tile fauna. Guards add risk but are excluded from these material valuations.

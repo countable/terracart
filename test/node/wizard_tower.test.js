@@ -8,17 +8,17 @@
 //     grants and its price in memories, greyed when the player is short.
 //   • _buyWizardOffer re-validates through Wizard.buy and pays through the
 //     scene's ONE memories writer (spendMemories, handed in as the `spend`
-//     hook), equips the Keen Eye Ring, refreshes the energy cap for Vigour,
-//     and opens the reward ceremony as kind 'wizard'.
+//     hook), writes permanent Keen Eye luck, refreshes the energy cap for
+//     Vigour, and opens the reward ceremony as kind 'wizard'.
 //   • The calling reaches the mechanics: every player call of Combat.shotDamage
 //     / meleeDps / meleeSwingDamage and Trail.bank / readout / goalFor carries
 //     save.playerClass, and an Enchanter can CHANNEL a timed potion.
 //
-// app.js needs Phaser, so its methods are lifted out of APP_JS_SRC and run on
+// app.js needs Phaser, so its methods are lifted out of SCENE_SRC and run on
 // a stub scene (the memory_story.test.js idiom); the rest is pinned as source.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 const lift = (sig, what) => {
   const start = app.indexOf('\n  ' + sig);
@@ -91,7 +91,7 @@ test('wizard tower: the modal shows Wizard.offers as priced, greyable cards (kin
   assert.eq(s.shells.length, 1, 'one dialog');
   const sh = s.shells[0];
   assert.eq(sh.opts.kind, 'wizard', 'declares the wizard kind');
-  assert.truthy(/const MODAL_KINDS = \{[\s\S]*?\n  wizard:/.test(MODAL_SHELL_SRC), 'which is a MODAL_KINDS row');
+  assert.truthy(/const MODAL_KINDS = \{[\s\S]*?\n  wizard:/.test(SCENE_SRC), 'which is a MODAL_KINDS row');
   assert.truthy(sh.mounted, 'mounted');
   const texts = walk(sh.box).map((e) => e.textContent + '|' + e.innerHTML).join('\n');
   assert.truthy(texts.includes(Wizard.INTRO), 'the wizard speaks of memories');
@@ -123,7 +123,7 @@ test('wizard tower: on the third purchase the table is the four callings', () =>
 });
 
 test('wizard tower: nothing left → a short flash, no dialog', () => {
-  const save = { memories: 99, relics: { ring: { tier: 7 } }, reachUpgrades: 6, qtyUpgrades: 99,
+  const save = { memories: 99, luckUpgrades: 7, relics: {}, reachUpgrades: 6, qtyUpgrades: 99,
                  vigourUpgrades: Wizard.VIGOUR_MAX, playerClass: 'hunter' };
   const s = mkScene(save);
   withDom(() => s.presentWizardOffer(0, 0, () => {}));
@@ -165,13 +165,14 @@ test('wizard tower: a purchase pays ONCE through spendMemories and shows the cer
   assert.eq(s.rewards[0].name, o.name);
 });
 
-test('wizard tower: Keen Eye equips the Ring, Vigour refreshes the bar, a calling is written', () => {
+test('wizard tower: Keen Eye grants luck, Vigour refreshes the bar, a calling is written', () => {
   const eyeOnly = { memories: 5, relics: {}, reachUpgrades: 6, qtyUpgrades: 99,
                     vigourUpgrades: Wizard.VIGOUR_MAX, playerClass: 'hunter' };
   const s = mkScene(eyeOnly);
   s._buyWizardOffer('eye', 0, 0, () => {});
-  assert.eq(JSON.stringify(s.equips), JSON.stringify([['relic', 'ring', 1]]), 'through _equipGear');
-  const vigOnly = { memories: 2, relics: { ring: { tier: 7 } }, reachUpgrades: 6, qtyUpgrades: 99, playerClass: 'hunter' };
+  assert.eq(eyeOnly.luckUpgrades, 1, 'Keen Eye writes permanent luck');
+  assert.eq(s.equips.length, 0, 'Keen Eye equips no metal-tier ring');
+  const vigOnly = { memories: 2, luckUpgrades: 7, relics: {}, reachUpgrades: 6, qtyUpgrades: 99, playerClass: 'hunter' };
   const v = mkScene(vigOnly);
   v._buyWizardOffer('vigour', 0, 0, () => {});
   assert.eq(vigOnly.vigourUpgrades, 1);
@@ -221,9 +222,9 @@ test('wizard tower: the old ladder and the bag badges are gone; the tap still ro
     'the reach cap is wizard.js\'s number');
 });
 
-test('wizard tower: the ring stays the tower\'s exclusive gift', () => {
-  assert.truthy(/if \(slot === 'ring'\) continue;/.test(GEAR_JS_SRC),
-    'no shop, smithy or castle offer may roll a Ring');
+test('wizard tower: Keen Eye is a stat, not tiered gear', () => {
+  assert.falsy(/slot === 'ring'/.test(GEAR_JS_SRC), 'gear offers know no ring slot');
+  assert.falsy(/r\.equip/.test(BUY_SRC), 'the purchase equips no gear');
 });
 
 test('wizard tower: the chosen calling shows in the memories explainer', () => {

@@ -161,7 +161,7 @@ const HomeArea = {
   // `mushroom` is FOOD, and it is the one quota entry that isn't about the
   // ladder's lessons. Energy is the early game's real constraint — every swing
   // costs some and the only refills are eating and resting — and a mushroom is
-  // 16 of it (items.js FOOD_ENERGY), so six is about one full tank scattered
+  // 21 of it (items.js FOOD_ENERGY), so six is over one full tank scattered
   // around the ring. Bounded on purpose: a picked wild plant never regrows
   // (save.picked is keyed by its cell id), so this is a one-time cushion while
   // the first crop matures, not an income source. The map's own mushrooms are

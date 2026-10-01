@@ -1,4 +1,4 @@
-// Mending Lane — gameplay layer on top of MVT-driven world.
+// Dragon Hood — gameplay layer on top of MVT-driven world.
 // - Mobile-sized Phaser canvas (390x844). VIEW_CELLS-wide viewport of CELL_M (7 m) cells.
 // - Real GPS (Geolocation API) if available + permitted; WASD fallback.
 // - Tap player to lock/unlock GPS snap.
@@ -65,7 +65,7 @@ const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
 // The first repaired stretch introduces the neighbours who leave gifts.
 const TRAIL_INTRO_TITLE = 'The survivors are watching';
 const trailIntroBody = (playerClass) =>
-  'Loose stones settle beneath your feet. In a nearby doorway, a survivor watches the road return, then reaches for something to give you.';
+  'You clear the rubble from the road. A survivor watches from a doorway, then brings you a gift.';
 // …but not on the same beat as the repair. The first stretch to come back
 // under a new player is a flash, a scatter of chips and a counter on the
 // street itself, and a dialog opening over the top of that covers the very
@@ -383,26 +383,21 @@ const COIN_BURST_NEAR_PLAYER = 3;
 // How long a burst's coins wait for you. No timed reward is shorter than ten
 // minutes: nothing is worth hurrying across a street for.
 const COIN_BURST_LIFE_MS = 10 * 60 * 1000;
-// THE SMITHY'S PREVIEW: what you receive is a big picture over its name, not
-// a line-height icon beside it. The Smithy chip and the Forge / Smelt tab
-// already say where you are, so neither offer carries a flavour title, and
-// the picture IS the receiving side: only the price is captioned (You give).
-const SMITHY_PREVIEW_PX = 56;
-const smithyPreviewHTML = (iconHTML, name) =>
-  `<div style="line-height:0;margin:2px 0 6px">${iconHTML}</div><div>${name}</div>`;
 const COIN_BURST_NEAR_R = 2;
-// THE SAFETY CARD (_showSafetyCard): what each version says, and when the
-// short ones come back. Kept here as data so the copy is one table. LAUNCH is
-// the game's only opening safety message (the loading screen carries none).
+// THE SHOWER (_rainOver): how many cells above the ground each rain burst
+// starts, and the most bursts one soak scatters (the 20 m rainberry disc is
+// ~26 cells; a bigger radius still stops here).
+const RAIN_DROP_CELLS = 4;
+const RAIN_MAX_POINTS = 32;
+// THE SAFETY CARDS (_showSafetyCard): what each reminder says, and when it
+// comes back. Kept here as data so the copy is one table. The opening
+// (LAUNCH) message is NOT here: it IS the loading screen (index.html
+// #bootload › #safety, owner, Sep 2026 — read while the wagon packs, and
+// acknowledged by the Go to my location tap), so these are the two REMINDERS.
 const SAFETY_RESUME_GAP_MS = 5 * 60 * 1000;   // back after 5+ minutes away
 const SAFETY_DUSK_DAYLIGHT = 0.5;             // Lighting.daylight: the sun on the horizon
 const SAFETY_TICK_MS = 30000;                 // how often dusk is asked
 const SAFETY_CARDS = {
-  launch: { title: '⚠ STAY SAFE',
-    lines: ['Look up. Watch where you walk, not the screen.',
-      'NEVER step into a street to reach something — use the stick to walk your farmer to it.',
-      'Do not play while driving or cycling.',
-      'Keep out of private, unsafe and prohibited places.'] },
   resume: { title: '⚠ LOOK UP',
     lines: ['Welcome back. Check your surroundings before you walk on.',
       'Out of reach? Use the stick — never the street.'] },
@@ -594,12 +589,14 @@ const TOAST_TIER = {
 // INV_CAT_BY_KEY / invCatForItem) is a map over item KINDS, so it lives with
 // the catalog in items.js.
 // Slot draw order within each gear tab (owned slots only are rendered).
-const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'bow', 'staff', 'ring', 'amulet', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
+const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
 const INV_ARMOR_ORDER = ['helmet', 'chest', 'legs', 'boots'];
 // The three combat weapons — the only slots save.activeWeapon ever holds. Only
 // the active one auto-engages (sword) or auto-fires (bow/staff) in _combatTick;
-// the others sit inert until switched to (tapping one in the Relics tab, or
-// obtaining/forging a new one — see Gear.equip). Mirrors Gear.WEAPON_SLOTS.
+// the others sit inert until switched to (the Equip button under the Relics
+// tab — syncEquipButton — or obtaining/forging a new one — see Gear.equip).
+// Melee needs no weapon at all: bare hands auto-engage like a sword whenever
+// no bow or staff is equipped (Gear.meleeActive). Mirrors Gear.WEAPON_SLOTS.
 const WEAPON_SLOTS = ['sword', 'bow', 'staff'];
 
 // Where fauna may NEVER step (WATER / buildings / roads / cave wall) is
@@ -762,7 +759,7 @@ const TURRET_SCAN_MS = 300;
 // Crows ignore potato crops — they won't notice, orbit, land on, or eat them.
 // The rule (and its crop set) now lives in crops.js; this stays as a free-
 // function alias because the crow pest logic calls it bare in several spots.
-function crowEatsCrop(p) { return Crops.crowEats(p); }
+function raiderEatsCrop(p) { return Crops.raiderEats(p); }
 
 // --- Debug ---
 // WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
@@ -776,7 +773,7 @@ function crowEatsCrop(p) { return Crops.crowEats(p); }
 const DEBUG = false;
 const DEBUG_SPEED_MUL = 10;
 // Dragon Powder is not a movement mode — it's a stat buff wearing a dragon
-// sprite. For its minute the player walks as if they had boots and an amulet of this
+// sprite. For its minute the player walks as if they had boots at this
 // tier (one past Frost, see items.js steerSpeedMul / steerEnergyCost) and hits
 // twice as hard (interact.js). The Speed potion stands in a tier higher still.
 // Straying from your real position, in cells. Inside this ring stick walking is
@@ -849,7 +846,7 @@ const PLAYER_SHADOW_ALPHA = 0.34;
 const PLAYER_SHADOW_ALPHA_FLYING = 0.20;
 const NEAR_GPS_COST_MUL = 0.2;      // 80% off inside the ring
 // How big a bite the stick walk takes when it bites. The per-cell cost
-// (steerEnergyCost, amulet-scaled) is banked fractionally and spent in LUMPS
+// (steerEnergyCost, boots-scaled) is banked fractionally and spent in LUMPS
 // of this many pips rather than one pip at a time — bare-handed that is 2⚡
 // every 2 cells instead of 1⚡ every cell, so the bar steps in a figure the
 // player can read at a glance and the throttled pop has something to say when
@@ -866,24 +863,28 @@ const STEER_DRAIN_LUMP = 2;
 // along the step, and alternating either side of the line of travel like a
 // real pair of feet.
 //
-// The stance is MEASURED, not picked: in Walk.png's 32px frame the two feet
-// sit at x ≈ 14.2 and ≈ 17.8 on the bottom art row, i.e. ±1.8px either side of
-// the midline. Scaled by playerScale at draw time, that is where the sprite's
-// own feet are, so a print lands under the foot that made it.
+// The stance is MEASURED, not picked: in the cyan farmer's 16px frame
+// (SpriteLayout.PLAYER_ART.farmer — the base sheet every save starts on) the
+// two feet sit at x 5–6 and 9–10 on the bottom art row of the front pose,
+// i.e. ±2px either side of the art's midline. Scaled by playerScale at draw
+// time, that is where the sprite's own feet are, so a print lands under the
+// foot that made it.
 const FOOT_DOT_R = 3 * 0.7;          // was a flat 3px circle — 30% smaller now
 const FOOT_DOT_LONG = FOOT_DOT_R * 1.15;   // semi-axis ALONG the step…
 const FOOT_DOT_ACROSS = FOOT_DOT_R * 0.8;  // …and across it: a slight oval, not a slot
-const FOOT_STANCE_HALF_ART_PX = 1.8; // half the sprite's stance, in frame px
-// How far the walker's visible FEET sit below the centre of its 32px frame, in
-// TEXTURE px — a fact about the art, like the stance above, not about the size
-// it happens to be drawn at. Measured as a 14px drop back when the sprite drew
-// at 1.35×, so 14/1.35 ≈ 10.37 px in the frame itself; kept as the division so
-// the measurement stays legible. playerFeetNudgeY multiplies it by whatever
-// playerScale is, which is what keeps the feet on the GPS fix at any scale.
-const PLAYER_FEET_DROP_PX = 14 / 1.35;
-// The walker's frame edge, in texture px (assets.js `idle`: 32×32). Its head
-// stands half of this plus the feet drop above the fix.
-const PLAYER_FRAME_PX = 32;
+const FOOT_STANCE_HALF_ART_PX = 2;   // half the sprite's stance, in frame px
+// THE BASE ART. The player's frame, feet and scale are facts about the cyan
+// farmer's sheet, read off the one table that owns its layout
+// (SpriteLayout.PLAYER_ART.farmer) rather than copied here: how far its
+// visible FEET sit below the centre of its frame in TEXTURE px (footDrop),
+// its frame edge (fh) and the scale it is drawn at. playerFeetNudgeY
+// multiplies the drop by playerScale, which is what keeps the feet on the
+// GPS fix; a calling or the bicycle swaps in its own row's numbers
+// (_syncPlayerSkin). The head stands half the frame plus the feet drop
+// above the fix.
+const PLAYER_FEET_DROP_PX = SpriteLayout.PLAYER_ART.farmer.footDrop;
+const PLAYER_FRAME_PX = SpriteLayout.PLAYER_ART.farmer.fh;
+const PLAYER_ART_SCALE = SpriteLayout.PLAYER_ART.farmer.scale;
 // THE COLLAPSE POSE. At zero energy the player is not standing: the reach is 0,
 // nothing hunts them, no trap springs under them (Combat.playerDowned — the one
 // expression all of that reads). A body that is upright in the picture while
@@ -902,12 +903,12 @@ const PLAYER_FRAME_PX = 32;
 const PLAYER_DOWNED_ROTATION = Math.PI / 2;
 // Where an energy pop hangs (_popEnergy). On a cell that isn't the player's,
 // its bottom clears the cell's TOP EDGE by ENERGY_POP_LIFT_PX. On the player's
-// own cell the walker's head is in the way, so it clears the HEAD by the same
+// own cell the player's head is in the way, so it clears the HEAD by the same
 // margin instead: the head is half the frame plus the feet drop above the fix
-// (the feet ARE the fix — see playerFeetNudgeY), so this is derived from the
-// art, not tuned to it.
+// (the feet ARE the fix — see playerFeetNudgeY), at the scale the base art is
+// drawn, so this is derived from the art, not tuned to it.
 const ENERGY_POP_LIFT_PX = 4;
-const ENERGY_POP_HEAD_PX = Math.round(PLAYER_FRAME_PX / 2 + PLAYER_FEET_DROP_PX) + ENERGY_POP_LIFT_PX;
+const ENERGY_POP_HEAD_PX = Math.round((PLAYER_FRAME_PX / 2 + PLAYER_FEET_DROP_PX) * PLAYER_ART_SCALE) + ENERGY_POP_LIFT_PX;
 // How long the stick must sit idle before the character walks itself home.
 //
 // This is a DEBOUNCE, not a pause — it exists so lifting a thumb to reposition
@@ -977,8 +978,8 @@ const BLIGHT_R_CELLS = CONSUMABLE_SPEC.blight_potion.radiusCells;
 const BLIGHT_DPS = CONSUMABLE_SPEC.blight_potion.damagePerSecond;
 // SHOP_CHARM_MS (the Flowers charm) lives in items.js beside the Flowers ✦
 // line that quotes it.
-const DRAGON_AMULET_TIER = CONSUMABLE_SPEC.dragon_powder.movementTier;
-const SPEED_POTION_AMULET_TIER = CONSUMABLE_SPEC.speed_potion.movementTier;
+const DRAGON_WALK_COST_TIER = CONSUMABLE_SPEC.dragon_powder.movementTier;
+const SPEED_POTION_WALK_COST_TIER = CONSUMABLE_SPEC.speed_potion.movementTier;
 // Coffee: unlike Dragon Powder / the Speed potion (which OVERRIDE the walking
 // tier used for stick-walking to a fixed high number), coffee is a common
 // crop, not a rare potion — so it just gives a caffeine buzz of
@@ -1057,28 +1058,6 @@ const TOO_TIRED_MSG = 'Too tired — eat or rest.';
 // this is not for the next few seconds.
 const EAT_COOLING_INK  = '#6f8f74';
 const EAT_COOLING_EDGE = '#37522f';
-
-// --- Economy tuning ---
-// Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
-// summed full price — a 50% premium over selling the items individually.
-const DELIVERY_BONUS_MULT = 1.5;
-// The most sets of its wishlist one household takes. A house is fed ONCE (its
-// first delivery is its memory, and it stays satisfied for good), so this
-// caps everything a door can ever pay. Uncapped, one hand-over of a big
-// stack paid 1.5x list on all of it — 4x what Home pays for the same goods
-// (economy audit, 2026-09-27).
-const DELIVERY_MAX_SETS = 5;
-// The fort unlock wood ladder (FORT_UNLOCK_WOOD*) and the pre-seeded restore
-// roles (Houses.PRESEED_RESTORE_ROLES) live in houses.js with the rules that read them.
-// Delivery wishlists unlock higher tiers as the player's lifetime tally grows;
-// the tier cap (PRODUCE_TIER_MIN/MAX, TIER_UNLOCK_EVERY) and the wishlist roll
-// now live with the rest of the delivery logic in delivery.js (Delivery.tierCap).
-// Trader BARTER deals hand the player this many of the offered item per deal,
-// so swapping goods is twice as favourable as raw cash. CASH purchases are
-// deliberately excluded (they hand over exactly 1): a ×2 cash bundle made the
-// effective per-unit buy price ~0.6× base, which a mid-tier Sword (sell
-// 0.5→1.0×) turned into a buy-then-resell money loop.
-const TRADE_OFFER_QTY     = 2;
 
 const COLORS = {
   // POST-APOCALYPTIC FARM PALETTE. The world is a neighbourhood going back to
@@ -1188,21 +1167,25 @@ const REST_SETTLE_S = 10;
 // recovery spot out in the wild. See the fire-warmth block in update().
 const FIRE_FULL_REST_S = 360;
 // A CLAIMED castle no longer trades relics — it's the player's own — and
-// instead its castellan offers ONE favour a day (save.castleServiceClaimed[key]
-// holds the UTC day it was last used, same day-key idiom as houseSatisfied):
+// instead its castellan offers ONE favour per Houses.CASTLE_SERVICE_MS, twelve
+// hours (save.castleServiceClaimed[key] holds when it was last used):
 // REST, a flat lump of CASTLE_REST_ENERGY handed over on arrival rather than a
 // rest rate like the ones above (the castle is somewhere you travel to, so
 // the payoff should land the moment you get there), or COLLECT, a flat tax
 // take in gold. Small enough either way that it can't replace food or
-// sleeping at Home — once a day is a courtesy for the walk, not an income.
+// sleeping at Home — twice a day is a courtesy for the walk, not an income.
 const CASTLE_REST_ENERGY = 35;   // a flat 35⚡ (was a tenth of the bar until Sep 2026)
-const CASTLE_TAX_GOLD = 10;
 // What a house says when the feet walk through it (_houseMutter). Each line
 // fits MAP_MSG_MAX.
 const HOUSE_WRECK_MUTTERS = ["It's a fixer upper.", 'Something here smells.', 'Needs a little TLC.'];
 const HOUSE_RESTORED_MUTTERS = ['Eek!', 'Why hello there.', 'Thanks for fixing my house!',
   'Welcome back!', 'Can I offer some tea?'];
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
+// Standing IN the hearth, not by it: within this of a campfire's point sets
+// a body — the player's or a foe's — BURNING (Conditions.DEFINITIONS.burning;
+// _tickFireTouch here, the foe's block in scene_creatures.js). Under a cell,
+// so the warmth ring (FIRE_REST_R) stays safe ground.
+const FIRE_TOUCH_CELLS = 0.6;
 // HOME IS A CAMPFIRE YOU OWN, and this is its ONE radius — the light it
 // throws, the ring it rests you in, and the ring an enemy turns and walks out
 // of. Three effects, one number, for the reason the campfire's warmth and the
@@ -1233,17 +1216,12 @@ const HOME_R = 4;   // cells — Home's light / rest / ward ring
 // it (the old Home rings are gone). Only the roll
 // itself is random.
 
-// Tool slots the starter blacksmith can forge a wooden (T1) relic for. All
-// six have wooden-tier art via gearAssetPath. The smithy picks 2 at random
-// (see starterSmithSlots) as the player's bootstrap tools.
-const STARTER_SMITH_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet'];
 
 // Relic slots the spawn treasure chest (see _placeStarterRelicChest) can hand
 // out. Every one of these ships art in the `1. Wood` tier folder, which is what
-// makes a WOODEN relic of it drawable; the two jewelry slots are absent because
-// there is no wooden jewelry anywhere in the game (Gear.blacksmithRecipe refuses
-// to forge one below T2), and the ring is the wizard tower's exclusive gift on
-// top of that. Audited against the shipped PNGs in test/node/starter_relic.test.js.
+// makes a WOODEN relic of it drawable. Unique jewelry is carried inventory,
+// not gear, so it never enters this starter-slot table. Audited against the
+// shipped PNGs in test/node/starter_relic.test.js.
 const STARTER_RELIC_SLOTS = ['pick', 'axe', 'hoe', 'rod', 'can', 'bugnet', 'sword', 'bow', 'staff'];
 // Wood — the first rung of MATERIAL_TIERS. The chest is a bootstrap, not a
 // jackpot: it makes the player's first swing 2.25× quicker and leaves every finer
@@ -1375,6 +1353,31 @@ body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 // TOTAL road restored in small type under it (Trail.totalMetres through
 // Trail.distanceLabel: 1.5km, 26km). Same shared
 // chip box as the memories chip beside it.
+// The STATUS ROW (_buildStatusRow / _syncStatusRow): statuses, buffs and
+// timers as small chips in a right-aligned column under the top HUD row —
+// the money / energy row's own anchor, one chip height plus a gap down. Each
+// chip's ink and bg come from its owning row (Conditions.DEFINITIONS,
+// Buffs.KINDS); the chip itself is read-only chrome, so no pointer events.
+// Dimmed with the HUD chips while a dialog is up, hidden with them while the
+// page boots. While the objective chip shows, _syncStatusRow seats the row
+// under it instead (an inline top).
+const STATUS_ROW_CSS = `
+#status-row {
+  position: fixed;
+  top: calc(8px + env(safe-area-inset-top, 0px) + var(--hud-chip-h) + 6px);
+  right: calc(var(--phone-right, 0px) + 10px);
+  display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+  z-index: 7; pointer-events: none;
+}
+#status-row .status-chip {
+  white-space: nowrap; padding: 3px 7px; border-radius: 6px;
+  font: 700 11px ui-monospace, monospace;
+  text-shadow: 0 1px 0 #000;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+body.modal-open #status-row { opacity: 0.25; }
+body.booting #status-row { visibility: hidden; }
+`;
 const ROAD_CHIP_CSS = `
 #roadchip {
   box-sizing: border-box; position: relative;
@@ -1446,6 +1449,9 @@ const ICON_SHEETS = {
   // Flask-style potions sheet (Potions.png): 5 cols × 7 rows of 16×16.
   // Row 2: frame 11=green (vigor), 12=red (speed), 13=purple (shield).
   icon_potions:  { url: 'assets/Icons/Items/Potions.png?v=1',                cols: 5,  srcW: 80,  srcH: 112 },
+  icon_rings:    { url: 'assets/Icons/RPG icons/Extras/Rings.png',        cols: 6,  srcW: 96,  srcH: 64 },
+  icon_amulets:  { url: 'assets/Icons/RPG icons/Extras/Amulet.png',       cols: 6,  srcW: 96,  srcH: 64 },
+  icon_spear:    { url: 'assets/Icons/Items/Spear.png', cols: 2, srcW: 32, srcH: 16 },
   // Rope — single 16×16 coiled-rope icon (hand-drawn, like the honey jar).
   icon_rope:     { url: 'assets/Icons/Items/Rope.png',                       cols: 1,  srcW: 16,  srcH: 16 },
   // Torch — single 16×16 stick-and-flame icon (hand-drawn, like the rope).
@@ -1855,6 +1861,10 @@ class MapScene extends Phaser.Scene {
     window.ITEM_DATA_URLS.crow      = bakeSheetFrame('crow',      0, 32, 32);
     window.ITEM_DATA_URLS.butterfly = bakeSheetFrame('butterfly', 0, 16, 16);
     window.ITEM_DATA_URLS.crab      = bakeSheetFrame('crab',      0, 16, 16);
+    // The horse's right-facing idle (frame 8) and the turtle's top-down down
+    // pose (frame 6) — the same sheets the world draws.
+    window.ITEM_DATA_URLS.horse     = bakeSheetFrame('horse',     8, 32, 32);
+    window.ITEM_DATA_URLS.turtle    = bakeSheetFrame('turtle',    6, 16, 16);
     // Wilderness drops that share their world sprite. Source sheet
     // + frame come from CROP_SPRITE.mushroom so the inventory icon stays
     // glued to whatever the world renderer is drawing.
@@ -1937,6 +1947,7 @@ class MapScene extends Phaser.Scene {
     window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
     window.WORLD_ICON_URLS.chest = bakeSheetFrame('chest', 0, 16, 16);
     window.WORLD_ICON_URLS.box   = bakeSheetFrame('box',   0, 16, 16);
+    window.WORLD_ICON_URLS.quarry_equipment = bakeSheetFrame('quarry_equipment', 0, 32, 16);
     // An old trade road's bus stop is a broken wagon (loot.js chestLook).
     if (this.textures.exists('wagon')) window.WORLD_ICON_URLS.wagon = bakeSheetFrame('wagon', 0, 128, 96);
     // The burn confirm opens with the campfire the player just tapped.
@@ -2059,14 +2070,9 @@ class MapScene extends Phaser.Scene {
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
     // so coins read on top of pads + the source chest sprite.
     this.coinContainer = this.add.container(0, 0);
-    // Rare "shiny" sparkle markers — a gold twinkle floated above each shiny
-    // animal / wild plant / tree. Added AFTER the world layer so the spark
-    // draws on top of every world sprite. This is the renderer-AGNOSTIC shiny
-    // cue: the multiply setTint() used elsewhere silently no-ops under the
-    // Phaser Canvas fallback (Phaser.AUTO), so a tint-only shiny was invisible
-    // on those devices. The spark texture is baked gold and animates via
-    // scale/alpha/rotation (pure transforms), so it reads in WebGL and Canvas.
-    this.sparkContainer = this.add.container(0, 0);
+    // (The shiny sparkle / glint-rock layer, sparkContainer, lived here —
+    // under the lightmap — until Oct 2026. It is SELF-LIT now: see below the
+    // lightmap image.)
     // Atmosphere: the RIM HAZE. A short ramp of the biome's haze colour inward
     // from the viewport edge — the top-down stand-in for atmospheric
     // perspective. The map is a hard-clipped window onto the world, so the rim
@@ -2114,6 +2120,21 @@ class MapScene extends Phaser.Scene {
     // is a grey smudge), BELOW the labels and the fog. The emitters
     // themselves are created lazily on first burst and parked in here.
     this.fxContainer = this.add.container(0, 0);
+    // Rare "shiny" sparkle markers and the GLINT ROCK's catch of light — a
+    // gold twinkle floated above each shiny animal / wild plant / tree, and
+    // the small star on a glint rock (render.js sparkList). SELF-LIT (owner,
+    // Oct 2026): ABOVE the lightmap, so a glint in an unlit cave cell shows
+    // at full brightness — it is a catch of light, bright by definition, and
+    // multiplied by the dark it was a grey fleck nobody ever saw. It is NOT a
+    // light: it lights nothing around it (a glint rock has no Lighting row;
+    // a shiny animal's light is offered separately), which is why it lives
+    // here beside the ghost glow and not in the lightmap. BELOW the labels
+    // and the fog. This is also the renderer-AGNOSTIC shiny cue: the multiply
+    // setTint() used elsewhere silently no-ops under the Phaser Canvas
+    // fallback (Phaser.AUTO), so a tint-only shiny was invisible on those
+    // devices; the spark texture is baked gold and animates via
+    // scale/alpha/rotation (pure transforms), so it reads in WebGL and Canvas.
+    this.sparkContainer = this.add.container(0, 0);
     // THE GHOST'S GLOW (SpriteLayout.creatureGlow) — a faint halo per ghost,
     // ABOVE the lightmap so the night dim cannot swallow it and a ghost can be
     // seen coming across the dark, BELOW the labels and the fog. It is not a
@@ -2248,7 +2269,6 @@ class MapScene extends Phaser.Scene {
     this.sparkPool = [];      // gold sparkle sprites floated above shiny entities
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
-    this.shopReadyPool  = []; // Phaser.Text "✓ / Xm" readiness pip above each house/tower
     this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
     this.trapPool = [];       // sprites for hidden / sprung traps lying on the ground (src/traps.js)
@@ -2513,14 +2533,9 @@ class MapScene extends Phaser.Scene {
       vignette.lineBetween(x0 + size - i - 0.5, y0 + VIG_LIP, x0 + size - i - 0.5, y0 + size - VIG_LIP);
     }
 
-    // Animations — Idle.png: 4 cols × 3 rows; Walk.png: 6 cols × 3 rows
-    // Row 0 = facing down, row 1 = facing up, row 2 = facing side (right; flip for left)
-    this._createAnim('idle-down', 'idle', 0, 3, 6);
-    this._createAnim('idle-up', 'idle', 4, 7, 6);
-    this._createAnim('idle-side', 'idle', 8, 11, 6);
-    this._createAnim('walk-down', 'walk', 0, 5, 10);
-    this._createAnim('walk-up', 'walk', 6, 11, 10);
-    this._createAnim('walk-side', 'walk', 12, 17, 10);
+    // The player's directional idle / walk cycles come from
+    // SpriteLayout.PLAYER_ART below — every sheet (the cyan farmer every save
+    // starts on, the callings, the bicycle) authors all four directions.
     // Dragon transform — single non-directional flap, mirrored by heading in
     // _playDirected (the art faces right at rest). Used for both idle and fly.
     this._createAnim('dragon-fly', 'dragon', 0, 7, 10);
@@ -2547,26 +2562,17 @@ class MapScene extends Phaser.Scene {
     // Depth 10: above the footprint trail (9) so dots can't draw on the
     // character's face, below the facing-arrow overlay (11).
     //
-    // ONE TEXTURE PIXEL, ONE GAME PIXEL. The walker's 32px frame draws at 32px
-    // — a whole cell wide, which is the size it has effectively been at since
-    // Sep 2026 anyway: the scale was 1.35 × 0.9 × 0.85 = 1.033, a product of
-    // three tuning passes that landed 3% from 1 and stayed there.
-    //
-    // That 3% was not free. Every other pixel on screen is drawn at an exact
-    // multiple of a texture pixel or as geometry; the walker alone was
-    // resampled at 1.033, so its pixels came out in irregular runs — some one
-    // device pixel wider than their neighbours, and the seam wandering as the
-    // sprite moved. At 1 the character is the crisp thing in the middle of the
-    // frame rather than the soft one. The 3% of height it gives up is not a
-    // size anyone was reading.
-    //
-    // Keep it at 1 unless the ART changes. Everything derived from it below
-    // (the feet nudge, the footprint stance) is written as a multiple of the
-    // scale, so a future change stays a one-line change.
-    this.playerScale = 1;
+    // The base scale is the cyan farmer's own (SpriteLayout.PLAYER_ART.farmer:
+    // 16px frames at 1.5, a 24px body a little under a cell — the size every
+    // calling's sheet shares, see assets/Character/README.md). It is the one
+    // scale the player is drawn at when no calling or bicycle skin overrides
+    // it (_syncPlayerSkin), and everything derived from it below (the feet
+    // nudge, the footprint stance) is written as a multiple of it, so the art
+    // table stays the one owner of the number.
+    this.playerScale = PLAYER_ART_SCALE;
     // Dragon Powder skin: the 96×96 dragon frames are scaled down so the red
-    // dragon reads a touch larger than the human walker without dwarfing the
-    // map. Applied in _applyDragonSkin.
+    // dragon reads a touch larger than the human without dwarfing the map.
+    // Applied in _applyDragonSkin.
     this.dragonScale = 0.7;
     // FEET ON THE FIX: the projected world position (viewCentre for the local
     // player, the fix's screen point for a peer) is where the FEET go, so
@@ -2578,10 +2584,12 @@ class MapScene extends Phaser.Scene {
     // put the map a body-length north of where the player stood (see
     // feetOffsetM in create()).
     this.playerFeetNudgeY = -PLAYER_FEET_DROP_PX * this.playerScale;
-    this.player = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'idle', 0)
+    // Born on the cyan farmer's sheet (frame 0, the front idle pose); the
+    // _playDirected call below picks the directional cycle, and the skin the
+    // save is owed once its sheet is up (_syncPlayerSkin).
+    this.player = this.add.sprite(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, SpriteLayout.PLAYER_ART.farmer.sheet, 0)
       .setScale(this.playerScale)
       .setDepth(10)
-      .play('idle-down')
       .setMask(mask);
     // The body and its melee effect occlude together at the player's feet.
     // Keep this container at (0,0): existing drawing uses screen coordinates.
@@ -2608,33 +2616,6 @@ class MapScene extends Phaser.Scene {
       .setMask(mask);
     this.playerShadow.clearMask();
     this.shadowContainer.add(this.playerShadow);
-    // Countdown label floated over the dragon's head while Dragon Powder is
-    // active — shows whole seconds of the buff remaining. Hidden whenever the
-    // player isn't a dragon. Seated per-frame in update() a fixed offset above
-    // the body on scene.playerScreen() (the camera is not the player).
-    this.dragonTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: fontMono('bold 13px'), color: UI_GOLD,
-      stroke: '#5a1400', strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
-    // The Shadow Powder's countdown — the same label one line higher, in the
-    // powder's own violet, so a dragon in shadow shows both. Hidden otherwise
-    // (set per-frame in update(), beside the dragon's).
-    this.shadowTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: fontMono('bold 13px'), color: '#d9b3ff',
-      stroke: '#2a1040', strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
-    // The Torch's countdown — the same label again in flame orange, stacked
-    // above whichever of the other two are showing (set per-frame in update()).
-    this.torchTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: fontMono('bold 13px'), color: '#ffb347',
-      stroke: '#3a1600', strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
-    // The Potion of Blight's countdown — the same label in blight crimson,
-    // stacked above whichever of the others are showing.
-    this.blightTimerText = this.add.text(this.viewCenterX, this.viewCenterY, '', {
-      font: fontMono('bold 13px'), color: '#ff6f9a',
-      stroke: '#3a0418', strokeThickness: 3,
-    }).setOrigin(0.5, 1).setDepth(11).setVisible(false);
     this.blightAura = this.add.image(this.viewCenterX, this.viewCenterY, 'aura_blight')
       .setOrigin(0.5, 0.5)
       .setVisible(false);
@@ -2712,6 +2693,7 @@ class MapScene extends Phaser.Scene {
     // stencil pass each under WebGL).
     this.boltContainer = this.add.container(0, 0).setDepth(12).setMask(mask);
     this._boltPool = [];
+    this._spearPool = [];
     this._shots = [];
     this._nextShotT = {};              // per-slot next-fire clock, in performance.now() ms
     // Castle turrets' own clocks (turret id → next-fire ms) and the cached
@@ -2875,6 +2857,7 @@ class MapScene extends Phaser.Scene {
     this.moneyEl = document.getElementById('money');
     this._buildMemoriesChip();
     this._buildRoadChip();
+    this._buildStatusRow();
     this.banner = document.getElementById('banner');
     this._settleInvCatOnBoot();
     this.buildInventoryDOM();
@@ -2934,8 +2917,8 @@ class MapScene extends Phaser.Scene {
         _endTiles?.();
         window.__boot?.mark('MAP PLAYABLE — boot overlay hidden');
         this._bootOverlayGone = true; window.__bootStatus?.(1);
-        // THE SAFETY CARD, every launch, the moment the map is the player's.
-        this._showSafetyCard('launch');
+        // No launch card here: the STAY SAFE message is the loading screen
+        // itself (index.html #safety), already read and acknowledged.
         // The map is the player's now, so responsiveness beats throughput:
         // tile builds go back to short slices (see WorldGen.setSliceBudgetMs).
         WorldGen.setSliceBudgetMs?.(WorldGen.RASTER_SLICE_LIVE_MS);
@@ -2955,7 +2938,7 @@ class MapScene extends Phaser.Scene {
 
     // Movement-stick state. The stick is ALWAYS on screen — it's the control
     // that walks you somewhere other than where the GPS puts you, with boots
-    // increasing speed and an amulet reducing the energy cost. joystickVec is driven by pointer
+    // increasing speed and boots reducing the energy cost. joystickVec is driven by pointer
     // events on the pad, _movePadHeld says whether the pointer is currently
     // down, and _manualOffsetM accumulates how far the stick has walked you
     // from your real position: every fix targets gpsM + this offset, so the
@@ -3212,7 +3195,7 @@ class MapScene extends Phaser.Scene {
       this._zoneStoryHere = zrow.story;
       const seenZ = this.save.storySeen && this.save.storySeen[zrow.story];
       if (!seenZ) {
-        this._storySplashOnce(zrow.story, { art: zrow.story, title: zrow.title, body: zrow.body });
+        this._storySplashOnce(zrow.story, { art: zrow.art || zrow.story, title: zrow.title, body: zrow.body });
         return;
       }
       const lastZ = (this._streetFlashAt = this._streetFlashAt || {});
@@ -3257,7 +3240,9 @@ class MapScene extends Phaser.Scene {
   //            (A downed body does not walk anyway.)
   _bodyHold() {
     const pinned = performance.now() < (this._pinnedUntil || 0);
-    const capMS = (!pinned && this._slowHere && !this._dragonActive) ? SLOW_BODY_M_S : null;
+    // An Ember Altar's boon (src/shrines.js 'surefoot') frees the feet like the dragon.
+    const capMS = (!pinned && this._slowHere && !this._dragonActive
+      && !Shrines.leverActive(this.save, 'surefoot')) ? SLOW_BODY_M_S : null;
     return { pinned, capMS };
   }
 
@@ -3339,7 +3324,7 @@ class MapScene extends Phaser.Scene {
       this._storySplashOnce('trap', {
         art: 'trap_jaw',
         title: 'A trap!',
-        body: 'A metal jaw bursts out of the earth and clamps your leg.',
+        body: 'Iron jaws snap around your leg. You are trapped!',
       });
       return;   // the bite is this frame's cost; the bleed starts on the next
     }
@@ -3371,7 +3356,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── Lava ──────────────────────────────────────────────────────────────────
-  // On WorldGen.LAVA_DEPTH the rock under the town's buildings is lava
+  // Surface crater vents and WorldGen.LAVA_DEPTH building rock are lava
   // (T.CAVE_LAVA): walkable, and it burns Combat.LAVA_DMG_PER_S energy a
   // second for as long as the FEET are in it (playerToWorldCell — never the
   // camera anchor). Lava owns an environmental damage lane because the ground,
@@ -3381,7 +3366,7 @@ class MapScene extends Phaser.Scene {
   // open. Stands down on an empty bar (Combat.playerDowned — being upright,
   // not being noticed; a Shadow Powder does not cool lava).
   _tickLava(dt) {
-    if (this.depth !== WorldGen.LAVA_DEPTH || !this.startWorldM
+    if ((this.depth !== 0 && this.depth !== WorldGen.LAVA_DEPTH) || !this.startWorldM
         || Combat.playerDowned(this.save.energy)) {
       this._lavaAccum = 0;
       return;
@@ -3397,6 +3382,7 @@ class MapScene extends Phaser.Scene {
     }
     const { cellIX: ix, cellIY: iy } = tileCellToAbs(this, pc.tx, pc.ty, lix, liy);
     this._lavaAccum = (this._lavaAccum || 0) + Combat.LAVA_DMG_PER_S * dt;
+    this._ignitePlayer();   // and the burn outlasts the step out (Conditions `burning`)
     const pips = Math.floor(this._lavaAccum);
     if (pips > 0) {
       this._lavaAccum -= pips;
@@ -3986,6 +3972,7 @@ class MapScene extends Phaser.Scene {
       this._drainBadgeStories();
       DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
+      NPC.tickArrivals(this, Date.now());
     }
     const dt = dtMs / 1000;
     this._tickConditions();
@@ -4012,54 +3999,17 @@ class MapScene extends Phaser.Scene {
     this.playerShadow?.setPosition(pScreen.x, pScreen.y - 1);
     // Dragon powder is a 1-minute timed buff (this._dragonUntil, in-memory —
     // NOT persisted, so a refresh ends it). It's no longer a movement MODE:
-    // a dragon walks the same way everyone walks, just with tier-8 boots and an amulet's
-    // efficiency (DRAGON_AMULET_TIER, see _walkRelics) and double damage. All the
-    // edge does is swap the sprite skin; the countdown label is refreshed
-    // every frame below.
+    // a dragon walks the same way everyone walks, just with tier-8 boots' speed and energy efficiency (DRAGON_WALK_COST_TIER, see _walkRelics) and double damage. All the
+    // edge does is swap the sprite skin; its countdown is a status-row chip.
     const dragonActive = this.isDragonActive();
     if (this._dragonBuffActive !== dragonActive) {
       this._dragonBuffActive = dragonActive;
       this._applyDragonSkin(dragonActive);
-      if (!dragonActive) this.dragonTimerText.setVisible(false);
     }
-    if (dragonActive) {
-      this.dragonTimerText
-        .setText(shortDuration(this._dragonUntil - Date.now()))
-        // Over the head: measured from the SPRITE CENTRE (the player's screen
-        // point is the ground, and the body rides bodyDy above it).
-        .setPosition(pScreen.x, pScreen.y + bodyDy - 35)
-        .setVisible(true);
-    }
-    // Shadow Powder: the same in-memory minute (this._shadowUntil), the same
-    // readout, one line above the dragon's so the two never overprint.
-    const shadowActive = this.isShadowActive();
-    if (shadowActive) {
-      this.shadowTimerText
-        .setText(shortDuration(this._shadowUntil - Date.now()))
-        .setPosition(pScreen.x, pScreen.y + bodyDy - (dragonActive ? 50 : 35))
-        .setVisible(true);
-    } else if (this.shadowTimerText.visible) {
-      this.shadowTimerText.setVisible(false);
-    }
-    // Torch: the same in-memory timer (this._torchUntil, TORCH_MS a light),
-    // the same readout, one line above whatever the other two are showing.
-    if (this.isTorchActive()) {
-      const stacked = (dragonActive ? 1 : 0) + (shadowActive ? 1 : 0);
-      this.torchTimerText
-        .setText(shortDuration(this._torchUntil - Date.now()))
-        .setPosition(pScreen.x, pScreen.y + bodyDy - 35 - 15 * stacked)
-        .setVisible(true);
-    } else if (this.torchTimerText.visible) {
-      this.torchTimerText.setVisible(false);
-    }
-    // Potion of Blight: its countdown over the head, and the aura itself on
-    // the ground point (a ground mark sits on the fix — no body nudge).
+    // Potion of Blight: the aura itself on the ground point (a ground mark
+    // sits on the fix — no body nudge); its countdown is a chip of the
+    // status row under the HUD (Buffs.KINDS, _syncStatusRow).
     if (this.isBlightActive()) {
-      const stacked = (dragonActive ? 1 : 0) + (shadowActive ? 1 : 0) + (this.isTorchActive() ? 1 : 0);
-      this.blightTimerText
-        .setText(shortDuration(this.save.blightPotionUntil - Date.now()))
-        .setPosition(pScreen.x, pScreen.y + bodyDy - 35 - 15 * stacked)
-        .setVisible(true);
       // A slow breath in alpha only: the SIZE never moves, because the size
       // is the damage radius.
       const breath = 0.5 + 0.5 * Math.sin((performance.now() / 1000 / 1.6) * Math.PI * 2);
@@ -4071,9 +4021,8 @@ class MapScene extends Phaser.Scene {
         .setVisible(true);
     } else if (this.blightAura.visible) {
       this.blightAura.setVisible(false);
-      this.blightTimerText.setVisible(false);
     }
-    // The fourth countdown, and the only one that isn't over the player's head:
+    // The one countdown that isn't in the status row under the HUD:
     // the bite cooldown lives ON the Eat button, so it is DOM rather than a
     // Phaser label (see _tickEatButton). No-ops in a frame where no food is
     // selected — the button doesn't exist then.
@@ -4133,10 +4082,10 @@ class MapScene extends Phaser.Scene {
         this._storySplashOnce('trap_free', {
           art: 'trap_free',
           title: 'You pry yourself free',
-          body: 'The jaw grinds open and you stumble clear.',
+          body: "You force the iron jaws apart and pull your leg free.",
         });
       }
-      // Stick → walk yourself off the GPS (costs stamina, amulet-scaled).
+      // Stick → walk yourself off the GPS (costs stamina, boots-scaled).
       if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, dt);
       // Stick idle for a few seconds → walk back to where you really are.
       else this._driftHome(dt);
@@ -4235,6 +4184,7 @@ class MapScene extends Phaser.Scene {
     // SaveSession samples the wall clock on its own cadence. Its lifecycle
     // flush forces an exact timestamp before the tab hides or closes.
     SaveSession.touch();
+    this._tickShrineRegen(dt);
 
     // Resting AT HOME slowly fills the bar. Float accumulator avoids per-frame
     // integer churn — we only bump save.energy + refresh the DOM when a whole
@@ -4268,6 +4218,23 @@ class MapScene extends Phaser.Scene {
       const restNow = performance.now();
       if (this._workProgress) this._holdRest(restNow);
       const working = !!this._workProgress || restNow < (this._restHoldUntil ?? 0);
+      // Carried regeneration jewelry rides the passive-rest accumulator and
+      // its working pause. The faster amulet wins; the two never stack.
+      const jewelryRegenMs = jewelryRegenIntervalMs(this.save);
+      if (!working && Number.isFinite(jewelryRegenMs) && (this.save.energy ?? 0) < maxE) {
+        this._accrueRestEnergy('_jewelryAccrueE', dt * 1000 / jewelryRegenMs, maxE);
+      } else {
+        this._jewelryAccrueE = 0;
+      }
+      // WALKING THROUGH IS NOT A REST (owner, Sep 2026): the trailer sits
+      // where the player passes a dozen times a session, and every pass
+      // popped "+N⚡" over their head. The energy still banks from the first
+      // frame (the bar shows it); the SPLASH waits until the feet have been
+      // in the ring for REST_SETTLE_S — the same settling the wheel gets —
+      // and a pass that never settles says nothing, on the way out either.
+      if (atHome) { if (this._homeSinceT == null) this._homeSinceT = restNow; }
+      else this._homeSinceT = null;
+      const settledHome = atHome && restNow - this._homeSinceT >= REST_SETTLE_S * 1000;
       // Hard mode's zero-energy lockout (_zeroEnergyLocked): the trailer
       // doesn't trickle you back up from empty — arriving there puts you
       // straight at a quarter bar (Energy.REVIVE_FRAC; a Crow Feather eaten
@@ -4287,10 +4254,11 @@ class MapScene extends Phaser.Scene {
         // Feather or a revival potion is the player's own doing.
         if (gainedE > 0) this._reviveStoryboard();
       } else if (atHome && !working && (this.save.energy ?? 0) < maxE) {
-        this._accrueRestEnergy('_restAccrueE', maxE * (dt / HOME_FULL_REST_S), maxE);
+        this._accrueRestEnergy('_restAccrueE', maxE * (dt / HOME_FULL_REST_S), maxE, !settledHome);
       } else {
         // Stopped resting — flush any unsplashed accumulation so the last few
-        // points of a short rest still register.
+        // points of a short rest still register. (A quiet pass through Home
+        // banked none to flush — see _accrueRestEnergy's `quiet`.)
         if (this._restSplashAccum > 0) {
           this._splashEnergyGain(this._restSplashAccum);
           this._restSplashAccum = 0;
@@ -4567,7 +4535,7 @@ class MapScene extends Phaser.Scene {
     // damage lands.
     this._combatTick(dt);
     this._tickBlightAura();
-    this._tickSpiritRaven();
+    Companions.tickAll(this);
     // Did we just walk onto a trap, or are we still standing on one? Runs
     // beside the fog reveal because it asks the same question — which cell are
     // the player's FEET in — and answers it the same way (playerToWorldCell,
@@ -4582,6 +4550,8 @@ class MapScene extends Phaser.Scene {
     this._tickStreetFeet();
     // …and is the player standing in lava (the lava level only)?
     this._tickLava(dt);
+    // …or in a campfire?
+    this._tickFireTouch();
     // …and did an enemy just walk onto one of the player's Magic Traps?
     this._tickMagicTraps();
     this._revealFog();
@@ -4643,9 +4613,10 @@ class MapScene extends Phaser.Scene {
   // Per-frame fight tick: pick up the enemies on screen, let the ACTIVE bow or
   // staff loose its shots (the bow along the compass, the staff at the nearest
   // foe — Combat.shotHeading), fly the shots already out, and —
-  // if the sword is the active weapon — engage the nearest foe without being
-  // asked. Only one of sword/bow/staff (save.activeWeapon) acts on its own
-  // here at a time; the rest sit inert until switched to. The maths (what
+  // unless a bow or staff is in hand — engage the nearest foe without being
+  // asked, sword or bare hands alike. Only one of sword/bow/staff
+  // (save.activeWeapon) acts on its own here at a time; the rest sit inert
+  // until switched to. The maths (what
   // counts as an enemy, damage per shot, shot flight) all lives in combat.js;
   // this method is the scene glue.
   _combatTick(dt) {
@@ -4672,7 +4643,8 @@ class MapScene extends Phaser.Scene {
     });
 
     DragonStory.tick(this, now, px, py, enemies);
-    const relics = this.save.relics || {};
+    const relics = Gear.effectiveRelics(this.save);
+    const activeWeapon = Gear.activeWeapon(this.save);
     // The player's attack multiplier (_attackMul — Dragon Powder's ×2, the
     // off-GPS third), the same one the melee wheel reads.
     const dmgMul = this._attackMul();
@@ -4695,10 +4667,14 @@ class MapScene extends Phaser.Scene {
     this._staffCharge = null;
     // …and only while one stands within the reach plus a cell
     // (Combat.rangedTriggerM): a foe further off on screen draws no fire.
-    const rangedArmed = Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
+    // The Shadow Powder is a truce, not a flank: while it hides the player,
+    // the cadence holds its fire too. The else-branch re-arms, so the first
+    // arrow flies the instant the shadow lifts.
+    const rangedArmed = !this.isShadowActive()
+      && Combat.anyEnemyWithin(px, py, enemies, Combat.rangedTriggerM(reachCells(this), this.cellM));
     if (rangedArmed) {
       for (const slot of Combat.RANGED_SLOTS) {
-        if (!relics[slot] || this.save.activeWeapon !== slot) continue;
+        if (!relics[slot] || activeWeapon !== slot) continue;
         const due = this._nextShotT[slot];
         if (due == null) {
           // First sighting this weapon has been active for: arm the cadence
@@ -4847,15 +4823,17 @@ class MapScene extends Phaser.Scene {
     }
     this._drawShots();
 
-    // ── Sword: auto-engage ─────────────────────────────────────────────────
-    // The sword being the ACTIVE weapon means you no longer have to tap the
-    // slime that is already chewing on you: the nearest enemy IN REACH is
-    // picked up on its own. A sword you still own but switched away from
-    // (bow/staff active instead) does not — see the WEAPON_SLOTS note above.
+    // ── Melee: auto-engage ─────────────────────────────────────────────────
+    // With no ranged weapon in hand you never have to tap the slime that is
+    // already chewing on you: the nearest enemy IN REACH is picked up on its
+    // own. That is the sword's lane AND bare hands' (owner, Oct 2026 — it
+    // used to need an owned, active sword, so a new player had to tap every
+    // foe until they bought one). An equipped bow or staff turns it off —
+    // Gear.meleeActive — see the WEAPON_SLOTS note above.
     // The wheel is flagged `auto`, which is what keeps it from behaving
     // like a tapped action — it doesn't swallow taps, hold the body still, or
     // block the walk home (see _busyWheel).
-    if (relics.sword && this.save.activeWeapon === 'sword' && !this._workProgress && enemies.length) {
+    if (Gear.meleeActive(this.save) && !this._workProgress && enemies.length) {
       let best = null, bestD2 = Infinity;
       for (const c of enemies) {
         // ARM'S LENGTH, not the lit reach (Combat.MELEE_REACH_CELLS): a sword
@@ -4874,6 +4852,7 @@ class MapScene extends Phaser.Scene {
 
   _applyCondition(id) {
     const fresh = Conditions.apply(this.save, id);
+    if (fresh && id === 'burning') this.flash('🔥 You catch fire!', this.viewCenterX, this.viewCenterY);
     if (fresh && id === 'poison') {
       this.flash('Poisoned! Find an Antidote.', this.viewCenterX, this.viewCenterY);
       if (!this.save.poisonLearned) {
@@ -4883,7 +4862,7 @@ class MapScene extends Phaser.Scene {
       }
     }
     persistSave(this.save);
-    this._syncConditionHUD();
+    this._syncStatusRow();
   }
 
   _tickConditions() {
@@ -4899,7 +4878,8 @@ class MapScene extends Phaser.Scene {
         this.events?.off('resume', resetClock);
         this._conditionVisibilityHandler = null;
         this._conditionLastT = null;
-        document.getElementById('condition-poison')?.remove();
+        document.getElementById('status-row')?.remove();
+        this.statusRowEl = null;
       });
     }
     const now = performance.now();
@@ -4914,24 +4894,113 @@ class MapScene extends Phaser.Scene {
       this.updateEnergyDOM();
     }
     if (result.ticks || result.expired) persistSave(this.save);
-    this._syncConditionHUD();
+    this._syncStatusRow();
   }
 
-  _syncConditionHUD() {
-    let el = document.getElementById('condition-poison');
-    if (!Conditions.active(this.save, 'poison')) { el?.remove(); return; }
-    if (!el) {
-      const anchor = document.getElementById('energy');
-      if (!anchor) return;
-      el = document.createElement('div');
-      el.id = 'condition-poison';
-      el.style.cssText = 'position:absolute;top:100%;right:0;white-space:nowrap;color:#d9b1ff;background:#22132ee8;padding:3px 6px;border-radius:4px;font:11px monospace;pointer-events:none;';
-      anchor.style.position = 'relative';
-      anchor.appendChild(el);
+  // One chip under the energy bar per ACTIVE row of Conditions.DEFINITIONS —
+  // its label, ink and background are the row's — stacked in table order so
+  // a poisoned player who catches fire reads both.
+  // THE STATUS ROW — every status, buff and timer on the player, as chips
+  // under the top HUD row (#status-row, STATUS_ROW_CSS; built by
+  // _buildStatusRow): first the conditions (the rows of
+  // Conditions.DEFINITIONS the player carries — label, time left and the
+  // drain, in the row's ink on its bg), then every running timed effect
+  // (Buffs.active — potions, powders, the torch, coffee, the bike, the
+  // compass, every shrine boon — "<name> · <wait>", in the row's ink on its
+  // stroke). One chip per id, kept in that order; a chip whose effect has
+  // run out is removed. Runs every frame from _tickConditions, so every DOM
+  // write is guarded on the value having changed: the order string decides
+  // whether anything is re-appended, the text only rewrites when the
+  // shown second ticks over. Nothing is drawn over the player's head.
+  _syncStatusRow() {
+    const row = this.statusRowEl;
+    if (!row) return;
+    // The objective chip (#objective, the starter ladder) hangs under the
+    // same HUD row, full width: while it shows, the status row seats under
+    // IT. Its bottom is read back only when what decides it changes (the
+    // chip's display, its text, a dialog hiding it, a resize) — a rect read
+    // every frame would force a layout every frame.
+    const obj = document.getElementById('objective');
+    const shown = obj && obj.style.display !== 'none' && !document.body.classList.contains('modal-open');
+    const seatKey = shown ? `${obj.textContent}|${window.innerWidth}x${window.innerHeight}` : '';
+    if (this._statusRowSeat !== seatKey) {
+      this._statusRowSeat = seatKey;
+      row.style.top = shown ? `${Math.round(obj.getBoundingClientRect().bottom) + 6}px` : '';
     }
-    const def = Conditions.DEFINITIONS.poison;
-    const text = `Poison · ${shortDuration(this.save.conditions.poison.remainingMs)} · −${def.energyLoss} energy / ${shortDuration(def.intervalMs)}`;
-    if (el.textContent !== text) el.textContent = text;
+    const chips = [];
+    for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
+      if (!Conditions.active(this.save, id)) continue;
+      chips.push({ id, ink: def.ink, bg: def.bg,
+        text: `${def.label} · ${shortDuration(this.save.conditions[id].remainingMs)} · −${def.energyLoss} energy / ${shortDuration(def.intervalMs)}` });
+    }
+    for (const b of Buffs.active(this.save, this)) {
+      chips.push({ id: b.id, ink: b.color, bg: b.stroke + 'e8', text: `${b.name} · ${shortDuration(b.remainingMs)}` });
+    }
+    const order = chips.map((c) => c.id).join(',');
+    if (this._statusRowDOM !== order) {
+      this._statusRowDOM = order;
+      const keep = new Set(chips.map((c) => c.id));
+      for (const el of [...row.children]) if (!keep.has(el.dataset.id)) el.remove();
+      for (const c of chips) {
+        let el = row.querySelector(`[data-id="${c.id}"]`);
+        if (!el) {
+          el = document.createElement('div');
+          el.className = 'status-chip';
+          el.dataset.id = c.id;
+          el.style.color = c.ink;
+          el.style.background = c.bg;
+        }
+        row.append(el);   // append moves an existing chip into table order
+      }
+    }
+    for (const c of chips) {
+      const el = row.querySelector(`[data-id="${c.id}"]`);
+      if (el && el.textContent !== c.text) el.textContent = c.text;
+    }
+  }
+
+  // The row itself, under the HUD row's right edge (its CSS in
+  // STATUS_ROW_CSS, injected once like the road chip's). Built in create()
+  // beside the other chips; _syncStatusRow fills it.
+  _buildStatusRow() {
+    if (typeof document === 'undefined') return;
+    if (!document.getElementById('status-row-style')) {
+      const st = document.createElement('style');
+      st.id = 'status-row-style';
+      st.textContent = STATUS_ROW_CSS;
+      document.head.appendChild(st);
+    }
+    let el = document.getElementById('status-row');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'status-row';
+      document.body.appendChild(el);
+    }
+    el.replaceChildren();
+    this.statusRowEl = el;
+    this._statusRowDOM = null;
+    this._statusRowSeat = null;
+  }
+
+  // ── Fire on the body ──────────────────────────────────────────────────────
+  // Standing IN a campfire (FIRE_TOUCH_CELLS of one on this depth — warmth is
+  // FIRE_REST_R, the touch is the hearth itself) or in lava (_tickLava) sets
+  // the player BURNING: the `burning` row of Conditions.DEFINITIONS, on the
+  // ticker poison runs on — 1 energy a second for 5 s, and it goes out on its
+  // own, no antidote. Refreshed at most once a tick-interval while the
+  // contact holds, so a stand in the hearth is one persisted save a second,
+  // not one a frame. Never off an empty bar (Combat.playerDowned).
+  _ignitePlayer() {
+    const now = performance.now();
+    if (now < (this._igniteNextT || 0) || Combat.playerDowned(this.save.energy)) return false;
+    this._igniteNextT = now + Conditions.DEFINITIONS.burning.intervalMs;
+    this._applyCondition('burning');
+    return true;
+  }
+  _tickFireTouch() {
+    if (!this.startWorldM || !this.save.fires?.length) return;
+    const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
+    if (this._nearAny('fires', px, py, FIRE_TOUCH_CELLS)) this._ignitePlayer();
   }
 
   // A monster's arrow lands. The same energy hit the melee leech deals
@@ -5011,14 +5080,22 @@ class MapScene extends Phaser.Scene {
     return lost;
   }
 
-  // A THEFT BANKED on the purse — the coin twin of _losePlayerEnergy, and
-  // the one place a thief's snatch (Combat.incomingTheft, the gull) comes
-  // off the money: never below $0, the thief marked sated for the day
-  // (Combat.bankTheft), the flinch at the instant it lands (_flashPlayerHit),
-  // the shop shut like any hit, and the gold "-N" on the player's own cell
-  // (_popCellNumber, the coin pickup's "+N" in reverse — a number on the map
-  // names its cell). It never touches
-  // energy. Returns what was taken.
+  // A THEFT BANKED — the one place a thief's snatch (Combat.incomingTheft:
+  // the raven's coins, the gull's food) lands on the player. The TAKE says
+  // what: `{ what: 'coins', n }` goes to _losePlayerCoins, `{ what: 'food',
+  // id, n }` to _losePlayerFood. Both are the thief twins of
+  // _losePlayerEnergy — the thief marked sated for the day (Combat.bankTheft),
+  // the flinch at the instant it lands (_flashPlayerHit), the shop shut like
+  // any hit, and the "-N" on the player's own cell (_popCellNumber, the
+  // pickup's "+N" in reverse — a number on the map names its cell). Neither
+  // touches energy. Returns what was taken (a count).
+  _losePlayerToThief(take, thief) {
+    if (!take) return 0;
+    if (take.what === 'coins') return this._losePlayerCoins(take.n, thief);
+    if (take.what === 'food') return this._losePlayerFood(take.id, take.n, thief);
+    return 0;
+  }
+  // Coins off the purse: never below $0, the gold "-N".
   _losePlayerCoins(n, thief) {
     const purse = Math.max(0, Math.floor(this.save.money ?? 0));
     const taken = Math.min(purse, Math.max(0, Math.floor(n || 0)));
@@ -5032,6 +5109,26 @@ class MapScene extends Phaser.Scene {
       this._popCellNumber(`-${taken}`, UI_GOLD, p.cellIX, p.cellIY);
     }
     if (typeof persistSave === 'function') persistSave(this.save);
+    return taken;
+  }
+  // Food out of the bag: Inventory.remove is the one bag writer (never more
+  // than the stack holds), the bar rebuilt so the missing piece shows, the
+  // selection re-clamped like any consume, and the "-N Name" in the danger
+  // ink — the same tier the eat button's "+N" answers in gold.
+  _losePlayerFood(id, n, thief) {
+    const taken = Inventory.remove(this.save, id, Math.max(0, Math.floor(n || 0)));
+    if (!(taken > 0)) return 0;
+    if (thief) Combat.bankTheft(this.save, thief);
+    if ((this.save.selSlot ?? -1) >= (this.save.inv || []).length) this.save.selSlot = -1;
+    this._flashPlayerHit(taken);
+    this._closeShopOnHit();
+    if (typeof playerReachCell === 'function' && this.startWorldM && this.originPx) {
+      const p = playerReachCell(this);
+      const name = (typeof ITEM_BY_ID !== 'undefined' && ITEM_BY_ID[id]?.name) || id;
+      this._popCellNumber(`-${taken} ${name}`, UI_DANGER_INK, p.cellIX, p.cellIY);
+    }
+    if (typeof persistSave === 'function') persistSave(this.save);
+    if (this.buildInventoryDOM) this.buildInventoryDOM();
     return taken;
   }
 
@@ -5087,6 +5184,7 @@ class MapScene extends Phaser.Scene {
     if (!g) return;
     g.clear();
     this._boltUsed = 0;
+    let spearUsed = 0;
     for (const s of this._shots) {
       const spec = Combat.SHOT[s.slot];
       if (s.projectile === 'bullet') { s.dotPx = 2; s.color = 0xe2d6b4; }
@@ -5107,6 +5205,19 @@ class MapScene extends Phaser.Scene {
         lift = s.liftFromPx + (SHOT_DRAW_LIFT_PX - s.liftFromPx) * f;
       }
       const hx = Math.round(head.x), hy = Math.round(head.y - lift);
+      if (s.projectile === 'spear') {
+        let sprite = this._spearPool[spearUsed];
+        if (!sprite) {
+          // Share the masked projectile layer, with ordinary sprite blending.
+          sprite = this.add.image(0, 0, 'icon_spear', 0);
+          this.boltContainer.add(sprite);
+          this._spearPool.push(sprite);
+        }
+        spearUsed++;
+        sprite.setVisible(true).setPosition(hx, hy)
+          .setRotation(Math.atan2(s.vy, s.vx));
+        continue;
+      }
       if (s.dotPx) {
         // The staff bolt is a ball of light, not a streak — a bolt reads as
         // a thrown thing, an arrow as a flying line. Its radius is the shot's
@@ -5128,6 +5239,7 @@ class MapScene extends Phaser.Scene {
       g.strokePath();
     }
     this._drawStaffCharge(g);
+    for (let i = spearUsed; i < this._spearPool.length; i++) this._spearPool[i].setVisible(false);
     for (let i = this._boltUsed; i < this._boltPool.length; i++) this._boltPool[i].setVisible(false);
   }
 
@@ -5232,7 +5344,7 @@ class MapScene extends Phaser.Scene {
   // (SHOT_DRAW_LIFT_PX) so the loosed bolt leaves from where it charged.
   _drawStaffCharge(g) {
     const f = this._staffCharge;
-    const tier = this.save.relics?.staff?.tier;
+    const tier = Gear.effectiveRelics(this.save).staff?.tier;
     if (f == null || !tier) return;
     const full = Combat.shotDotPx('staff', tier);
     const p = this.playerScreen();
@@ -5357,8 +5469,13 @@ class MapScene extends Phaser.Scene {
   // resolveDefeat (Combat.isPlayerKill): 'player' unless a shot says otherwise.
   _damageEnemy(c, amount, source = 'player', options = {}) {
     if (!(amount > 0)) return false;
-    const dealt = Combat.damageDealt(c, amount, (source === 'lava' || source === 'light') ? { bypassArmor: true } : options);
+    const dealt = Combat.damageDealt(c, amount, (source === 'lava' || source === 'light' || source === 'burn') ? { bypassArmor: true } : options);
     const left = Combat.hp(c);
+    // Moss hides us until we strike this creature. Environmental damage and
+    // allied attacks do not reveal us; a fresh blessing hides us again.
+    if (source === 'player' && dealt > 0 && Shrines.leverActive(this.save, 'hidden')) {
+      c._mossProvokedUntil = this.save.boonUntil.hidden;
+    }
     // Asked BEFORE the stamp below, which is what makes it "was it already
     // charging" rather than "is it a slime".
     const wasCharging = slimeCharging(c);
@@ -5413,6 +5530,15 @@ class MapScene extends Phaser.Scene {
   // since every other damage source only makes the fight shorter, that
   // estimate is a true upper bound.
   startCombat(victim, opts = {}) {
+    // A Shadow Powder is a truce: no wheel spins up while it hides the player.
+    if (this.isShadowActive()) {
+      if (!opts.auto) {
+        const ps = this.playerScreen();
+        this.flash('The shadows hold your arm.', ps.x, ps.y + this.playerBodyDy());
+        this.hapticReject?.();
+      }
+      return false;
+    }
     // First melee the save ever starts tells its story - here in the one
     // lane both the tapped swing and the auto-engage flow through, fired
     // regardless of an owned sword: bare hands fight on the tier-0 rung too.
@@ -5600,6 +5726,7 @@ class MapScene extends Phaser.Scene {
   // it slips out of reach. Omit it for static targets (rock / tree / fish).
   startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null, trackCreature = null) {
     this._setWorkProgressIcon(toolSlot);
+    durationMs = Gear.workDurationMs(this.save, durationMs);
     this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now(), track: trackCreature };
   }
   // Pick the tool drawn in the MIDDLE of a work-progress wheel: the equipped
@@ -5777,8 +5904,11 @@ class MapScene extends Phaser.Scene {
       const isButterfly = c.kind === 'butterfly';
       const shinyFast = isShiny(c.id, SHINY_RATE.animal) ? SHINY_SPEED_MUL : 1;
       const FLEE_MPS = Math.min(isButterfly ? 5.4 : 2, SpriteLayout.creatureMaxMps(c.kind)) * shinyFast;
-      c.x += (dx / dist) * FLEE_MPS * dt;
-      c.y += (dy / dist) * FLEE_MPS * dt;
+      // Moss also conceals the catch: fauna and pets do not flee the net.
+      if (!Shrines.leverActive(this.save, 'hidden')) {
+        c.x += (dx / dist) * FLEE_MPS * dt;
+        c.y += (dy / dist) * FLEE_MPS * dt;
+      }
       wp.worldX = c.x; wp.worldY = c.y;
       // Escape: once the animal has been OUTSIDE the player's reach (the lit
       // interaction range — same radius the tap-gate uses) for a continuous
@@ -5902,6 +6032,10 @@ class MapScene extends Phaser.Scene {
         const blow = Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass)
           + this._attackFlat('melee');
         if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
+        // A LIT TORCH (isTorchActive) SETS THE FOE ALIGHT — Combat.ignite,
+        // the `burning` row of Conditions.DEFINITIONS, as the player's own
+        // kill. The blow lands first; the fire takes on what is left.
+        if (this.isTorchActive()) Combat.ignite(c, now, 'player');
       }
     }
     const dur = wp.durationMs || 3000;
@@ -6228,11 +6362,9 @@ class MapScene extends Phaser.Scene {
   // (entry.coinDrops); only the ledger persists.
   _coinBurstInteract(sx, sy, poi) {
     const dayKey = utcDayKey();
-    if (Macros.usedToday(this.save, poi.id)) {
-      // Same UTC day key as the dayKey above, so the reset is msToNextUtcDay.
-      this.flash(`Already used — back in ${shortDuration(msToNextUtcDay())}.`, sx, sy);
-      return;
-    }
+    const ctx = { scene: this, save: this.save, sx, sy, dirty: false };
+    const visit = Macros.beginDailyVisit(ctx, poi, { row: Macros.DAILY_VISIT_KINDS.gold });
+    if (!visit) return;
 
     // Find walkable cells within ~25m of the POI on the POI's host tile.
     // We restrict to the POI's home tile (cells_per_edge × cells_per_edge)
@@ -6247,6 +6379,7 @@ class MapScene extends Phaser.Scene {
       // Tile evicted between render and tap — shouldn't happen since the
       // chest sprite is in view, but bail rather than crash.
       this.flash('...', sx, sy);
+      visit.finish();
       return;
     }
     // The host tile's OWN grid (its row's N) and its cell size in the frame.
@@ -6355,10 +6488,11 @@ class MapScene extends Phaser.Scene {
     // ate the day's burst and paid nothing.
     if (drops.length === 0) {
       this.flash('No room to scatter!', sx, sy);
+      visit.finish();
       return;
     }
     // The ledger's one writer (it prunes takes older than a week).
-    Macros.markToday(this.save, poi.id);
+    visit.claim();
     if (typeof persistSave === 'function') persistSave(this.save);
     const expiresAt = Date.now() + COIN_BURST_LIFE_MS;
     drops.forEach((d, i) => {
@@ -6366,6 +6500,7 @@ class MapScene extends Phaser.Scene {
       d.entry.coinDrops.push({ kind: 'coindrop', x: d.x, y: d.y, id: `coin_${poi.id}_${dayKey}_${i}`, expiresAt });
     });
     this.flashLoot(`Scattered ${drops.length} coins!`, '#ffe066', 1, null, this.coinIconEl());
+    visit.present();
   }
 
   // Up to `count` coin cells around the PLAYER's feet (never the feet cell
@@ -6603,26 +6738,32 @@ class MapScene extends Phaser.Scene {
     const v = this.joystickVec;
     return !!(this._movePadHeld && v && (v.x || v.y));
   }
-  // Boots set walking speed; the amulet sets cost. Dragon and Speed lend
-  // tiers to both; coffee adds speed tiers only; a bike rack multiplies the
-  // speed (boots.boost).
+  // Boots set walking speed and cost. Dragon and Speed lend tiers to both;
+  // coffee adds speed tiers only; a bike rack multiplies speed (boots.boost).
   _walkRelics() {
     let speedTier = this.save.armor?.boots?.tier || 0;
-    let costTier = this.save.relics?.amulet?.tier || 0;
-    let buffTier = this.isDragonActive() ? DRAGON_AMULET_TIER : 0;
+    let costTier = speedTier;
+    let buffTier = this.isDragonActive() ? DRAGON_WALK_COST_TIER : 0;
     if ((this.save.speedPotionUntil ?? 0) > Date.now()) {
-      buffTier = Math.max(buffTier, SPEED_POTION_AMULET_TIER);
+      buffTier = Math.max(buffTier, SPEED_POTION_WALK_COST_TIER);
     }
     speedTier = Math.max(speedTier, buffTier);
     costTier = Math.max(costTier, buffTier);
     if ((this.save.coffeeUntil ?? 0) > Date.now()) {
-      speedTier = Math.min(SPEED_POTION_AMULET_TIER, speedTier + COFFEE_BOOT_BOOST);
+      speedTier = Math.min(SPEED_POTION_WALK_COST_TIER, speedTier + COFFEE_BOOT_BOOST);
     }
     // A BIKE RACK's loan (items.js BIKE_RACK_SPEED_MUL for BIKE_RACK_MS —
     // interactables.js writes save.bikeUntil): a factor on the speed, not a
     // tier, carried on the boots to steerSpeedMul like every other reason.
-    const boost = (this.save.bikeUntil ?? 0) > Date.now() ? BIKE_RACK_SPEED_MUL : 1;
-    return { boots: { tier: speedTier, boost }, amulet: { tier: costTier } };
+    // A ridden HORSE (items.js HORSE_RIDE, isRiding) is the same kind of
+    // factor; a horse and a rack do not stack, the faster one counts. Only the
+    // horse charges for it: its energyMul rides the boots' costTier to
+    // steerEnergyCost.
+    const bike = (this.save.bikeUntil ?? 0) > Date.now() ? BIKE_RACK_SPEED_MUL : 1;
+    const riding = isRiding(this.save);
+    const boost = Math.max(bike, riding ? HORSE_RIDE.speedMul : 1);
+    const costMul = riding ? HORSE_RIDE.energyMul : 1;
+    return { boots: { tier: speedTier, costTier, boost, costMul } };
   }
   // Steer with the STICK — the one control that walks you somewhere other than
   // where the GPS says you are. Unlike _steerTarget (the keyboard, which is
@@ -6635,8 +6776,8 @@ class MapScene extends Phaser.Scene {
   //     ground you didn't. Walking with the GPS stays free — that's you
   //     actually walking.
   //
-  // Boots scale stick speed; the amulet scales energy cost per cell.
-  // Dragon Powder and Speed lend tier 8 / 9 to both for their duration.
+  // Boots scale stick speed and energy cost per cell. Dragon Powder and Speed
+  // lend tier 8 / 9 to both for their duration.
   _steerManual(vx, vy, dt) {
     // Steering by hand is the opposite of walking home — clear the flag the
     // hint draws from, or it would stay lit from the last drift frame.
@@ -6704,7 +6845,7 @@ class MapScene extends Phaser.Scene {
     this._lastStickT = Date.now();   // the walk-home timer starts when you stop
     if (this.compassDeg == null) this.facing = { x: vx, y: vy };
     // Per-cell stamina, banked fractionally and spent in STEER_DRAIN_LUMP-sized
-    // bites, so a 0.15/cell amulet debits a lump every ~13 cells rather than
+    // bites, so a 0.15/cell Frost boots debits a lump every ~13 cells rather than
     // rounding up to a pip per cell. The rate is the same either way — the lump
     // only decides how coarse the steps are. Close to
     // your real position it's a fifth of that: pottering around the block you're
@@ -6956,16 +7097,24 @@ class MapScene extends Phaser.Scene {
     const nowMs = performance.now();
     const hitLeft = (this._hitFlashUntilT || 0) - nowMs;
     const hit = hitLeft > 0;
+    // A STATUS on the body wears its row's tint (Conditions.DEFINITIONS —
+    // the same colour a foe wears, render.js): a burn flickers against the
+    // farmer's own colour, a poison holds. Under the hit flick and the empty
+    // bar, over the far-from-GPS dim.
+    const burning = Conditions.active(this.save, 'burning') && Conditions.conditionTintOn('burning', nowMs);
+    const poisoned = Conditions.active(this.save, 'poison') && Conditions.conditionTintOn('poison', nowMs);
     // Pulse: a slow breath, faster and deeper for the empty-tank warning.
     const t = nowMs / 1000;
     const periodS = spent ? 1.2 : 2.0;
     const wave = 0.5 + 0.5 * Math.sin((t / periodS) * Math.PI * 2);
-    if (hit || spent || far) {
+    if (hit || spent || far || burning || poisoned) {
       let tint = 0xffffff;
       if (hit) {
         tint = HIT_FLASH_TINT;
       } else if (spent) {
         tint = 0xff6b6b;
+      } else if (burning || poisoned) {
+        tint = Conditions.DEFINITIONS[burning ? 'burning' : 'poison'].tint;
       } else {
         const k = Math.min(1, (away - nearM) / Math.max(1, (DARK_FULL_CELLS - NEAR_GPS_CELLS) * this.cellM));
         const v = Math.round(255 * (1 - (1 - DIM_FLOOR) * k));
@@ -7248,7 +7397,7 @@ class MapScene extends Phaser.Scene {
       this._storySplashOnce('cave', {
         art: 'cave_first',
         title: 'Into the dark',
-        body: 'The air turns cold against your face. Your light catches the damp walls, then fades into a dark that seems to breathe.',
+        body: 'You step into the cold cave. Water drips somewhere in the darkness ahead.',
       });
     }
   }
@@ -7880,7 +8029,9 @@ class MapScene extends Phaser.Scene {
   // accumulator field, spends whole points into save.energy (capped at maxE),
   // and emits the throttled green "+N⚡" splash. Used by BOTH indoor/home rest
   // and campfire warmth so the two share one mental model (and one bug surface).
-  _accrueRestEnergy(accrueKey, gain, maxE) {
+  // `quiet` banks the pips with no splash at all — not now, not on the way
+  // out: the walk through Home (update()'s settledHome). The bar still moves.
+  _accrueRestEnergy(accrueKey, gain, maxE, quiet = false) {
     this[accrueKey] = (this[accrueKey] || 0) + gain;
     const pip = Math.floor(this[accrueKey]);
     if (pip <= 0) return;
@@ -7890,7 +8041,7 @@ class MapScene extends Phaser.Scene {
     const gainedE = this.save.energy - beforeE;
     // Accumulate rest gains and splash a throttled "+N⚡" so a long rest shows
     // periodic ticks rather than one pop per energy pip.
-    if (gainedE > 0) {
+    if (gainedE > 0 && !quiet) {
       this._restSplashAccum = (this._restSplashAccum || 0) + gainedE;
       const tnow = performance.now();
       if (!this._restSplashNextT || tnow >= this._restSplashNextT) {
@@ -7968,6 +8119,21 @@ class MapScene extends Phaser.Scene {
     const ICON_GAP = 8;       // gap between icon and text inside the bg
     const RESERVE = iconEl ? ICON_PX + ICON_GAP : 0;
     const t = this._toast(text, { tier: 'gain', color, dwellMul, padExtraLeft: RESERVE });
+    // THE TIER BADGE (items.js tierBadgeHTML): the item's rarity word on its
+    // ore's colour, hung off the toast's right edge and tracked with it, so
+    // every "you got something" says how good it is. Same overlay lane as
+    // the icon (the .loot-toast-icon class hides both under a dialog).
+    let badgeEl = null;
+    if (iconEl && itemId && typeof tierBadgeHTML === 'function' && typeof itemTierOf === 'function') {
+      const html = tierBadgeHTML(itemTierOf(itemId), 9);
+      if (html) {
+        badgeEl = document.createElement('span');
+        badgeEl.innerHTML = html;
+        badgeEl.className = 'loot-toast-icon';
+        badgeEl.style.cssText = 'position:fixed;left:0;top:0;z-index:102;pointer-events:none;opacity:0;'
+          + 'transform-origin:left center;white-space:nowrap;line-height:0;';
+      }
+    }
     if (iconEl) {
       // The 'block' icon came back as inline-block — restyle as a fixed
       // overlay we can absolute-position with transform.
@@ -7980,6 +8146,7 @@ class MapScene extends Phaser.Scene {
       iconEl.style.opacity = '0';
       iconEl.style.transformOrigin = 'center center';
       document.body.appendChild(iconEl);
+      if (badgeEl) document.body.appendChild(badgeEl);
       // Re-place every frame so the icon tracks the text through pop-in,
       // hold, and drift-up. Cheap — getBoundingClientRect + transform set.
       const gameEl = document.getElementById('game');
@@ -7992,6 +8159,7 @@ class MapScene extends Phaser.Scene {
         if (!t || !t.scene || t.active === false) {
           this.events.off('update', placeIcon);
           iconEl.remove();
+          badgeEl?.remove();
           return;
         }
         try {
@@ -8008,6 +8176,12 @@ class MapScene extends Phaser.Scene {
           iconEl.style.transform =
             `translate(${Math.round(px - ICON_PX / 2)}px, ${Math.round(py - ICON_PX / 2)}px) scale(${t.scaleX})`;
           iconEl.style.opacity = String(t.alpha);
+          if (badgeEl) {
+            // Just past the text's right edge, on its centre line.
+            const bx = r.left + (b.right + 6 * t.scaleX) * sx;
+            badgeEl.style.transform = `translate(${Math.round(bx)}px, ${Math.round(py)}px) scale(${t.scaleX})`;
+            badgeEl.style.opacity = String(t.alpha);
+          }
         } catch (_) { /* keep the loop alive; the destroy handler will clean up */ }
       };
       this.events.on('update', placeIcon);
@@ -8016,6 +8190,7 @@ class MapScene extends Phaser.Scene {
       t.once('destroy', () => {
         this.events.off('update', placeIcon);
         iconEl.remove();
+        badgeEl?.remove();
       });
       placeIcon();
     }
@@ -8177,6 +8352,7 @@ class MapScene extends Phaser.Scene {
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     if (this.updateMemoriesDOM) this.updateMemoriesDOM();
     MemoryStory.enqueue(this.save, this.memoriesTotal(), label);
+    this._seatStoryNeighbours();   // a neighbour this memory brings to the trailer
     this.updateObjectiveDOM?.();
     persistSave(this.save);
     return true;
@@ -8255,11 +8431,11 @@ class MapScene extends Phaser.Scene {
     seen.revive = 1;
     persistSave(this.save);
     const PANELS = [
-      { art: 'revive_fall',  title: 'Out cold', body: 'Your legs gave out, and the world went dark.' },
-      { art: 'revive_found', title: 'Found',    body: 'Lantern light. Villagers lift you and help you home.' },
+      { art: 'revive_fall',  title: 'Out cold', body: 'Your legs give out. You hit the ground, and everything goes dark.' },
+      { art: 'revive_found', title: 'Found',    body: 'Villagers find you by lantern light. They lift you gently and carry you home.' },
       // The carer is the villager revive_wake draws; they say nothing, which
       // is the point. What the revival GAVE is the energy pop's to say.
-      { art: 'revive_wake',  title: 'Home',     body: 'You wake beneath a rough blanket. A grizzled farmhand meets your eyes, then bids you farewell with a nod.' },
+      { art: 'revive_wake',  title: 'Home',     body: 'You wake under a rough blanket beside your wagon. A farmhand nods goodbye.' },
     ];
     const show = (i) => this.showMessageModal({
       ...PANELS[i], kind: 'story',
@@ -8275,26 +8451,42 @@ class MapScene extends Phaser.Scene {
   // shot loosed, the watering landing) - a dry tap that never runs the
   // action tells no story, and a busy screen just asks again next time.
   _toolActionStory(action) {
+    const slot = { till: 'hoe', chop: 'axe', dig: 'pick', water: 'can',
+      catch: 'bugnet', sword: 'sword', staff: 'staff', shoot: 'bow' }[action];
+    if (!slot || !(this.save.relics?.[slot]?.tier > 0)) return;
     const TOOL_STORIES = {
       till:  { art: 'tool_till',  title: 'First furrow',
-               body: 'The soil turns.' },
+               body: 'You pull the hoe through the dry ground, turning up dark, fresh soil.' },
       chop:  { art: 'tool_chop',  title: 'Timber!',
-               body: 'The axe bites deep.' },
+               body: 'Your axe bites into the trunk. Wood chips scatter at your feet.' },
       dig:   { art: 'tool_dig',   title: 'The pick bites',
-               body: 'Stone cracks a strike at a time.' },
+               body: 'Your pick strikes with a sharp ring. A crack opens in the stone.' },
       water: { art: 'tool_water', title: 'A good soak',
-               body: 'Damp soil wakes the seed.' },
-      catch: { art: 'tool_catch', title: 'In the net',
-               body: 'Gentle does it.' },
+               body: "You tip the can, soaking the soil around your seeds." },
+      catch: { art: 'tool_catch', title: 'A careful sweep',
+               body: 'You hold your breath and sweep the net through the air.' },
       sword: { art: 'tool_sword', title: 'Steel out',
-               body: 'Your first swing lands true.' },
+               body: 'You plant your feet and swing your blade. The movement feels familiar.' },
       staff: { art: 'tool_staff', title: 'First spark',
-               body: 'A spark gathers at the tip. Hold steady, and the staff answers with light.' },
+               body: 'A spark gathers at the tip of your staff. You hold it steady as the light grows.' },
       shoot: { art: 'tool_shoot', title: 'Loose!',
-               body: 'Your hand steadies. With a foe near, the bow seems to know when to loose.' },
+               body: 'You draw the bow and release. The string snaps forward as your arrow flies.' },
     };
     const entry = TOOL_STORIES[action];
     if (entry) this._storySplashOnce('tool:' + action, entry);
+  }
+
+  // Completion-only: remember the equipment the job began with, even if
+  // another reward changes the inventory while its wheel is running.
+  _barehandWorkStory(tool, startingTier, isTree = false) {
+    if ((this.depth ?? 0) > 0 || startingTier > 0 || !['axe', 'pick', 'hoe'].includes(tool)) return;
+    this._storySplashOnce('work:barehands', {
+      art: isTree ? 'barehand_tree' : 'barehand_work',
+      title: 'Without a tool',
+      body: isTree
+        ? 'You fell the tree with your bare hands. Nearby survivors stare in disbelief.'
+        : 'You finish the work with your bare hands before the others can fetch their tools. They stare in disbelief.',
+    });
   }
 
   // Shiny-find fanfare — a richer cousin of flashJackpot in warm gold. Headline
@@ -8312,7 +8504,7 @@ class MapScene extends Phaser.Scene {
     if (title === SHINY_FIND_TITLE) this._storySplashOnce('shiny', {
       art: 'shiny_first',
       title: 'A shiny find!',
-      body: 'The glow warms your fingertips. For a moment, you almost remember whose hand you once held.',
+      body: 'The glow warms your fingertips. You almost remember holding someone’s hand.',
     });
     try {
       const banner = this._toast(title,
@@ -8796,6 +8988,7 @@ class MapScene extends Phaser.Scene {
   // Starter-area setup — see Starter.placeHomeGreeter (src/starter.js).
   _placeHomeGreeter(entry, tx, ty) { return Starter.placeHomeGreeter(this, entry, tx, ty); }
   _placeSafeAreaWarden(entry, tx, ty) { return Starter.placeSafeAreaWarden(this, entry, tx, ty); }
+  _seatStoryNeighbours() { return Starter.seatStoryNeighbours(this); }
 
   // Starter-area setup — see Starter.stripStarterCrates (src/starter.js).
   _stripStarterCrates(entry) { return Starter.stripStarterCrates(this, entry); }
@@ -9056,21 +9249,21 @@ class MapScene extends Phaser.Scene {
 
   // The auto-read fired by addToInv on pickup — framed as involuntary
   // ("your curiosity compels you") rather than readBook's deliberate "you
-  // crack open the book", since nobody chose to read here. The page-count
-  // line is worth keeping (it's the one place the course's progress shows),
-  // so it survives as a lead-in line above the quote; the plain "you crack
-  // open the book" lead-in is dropped as redundant with the new title.
+  // crack open the book", since nobody chose to read here — the read's own
+  // title heads the panel.
   // `onDismiss` (optional) fires once THIS modal is tapped away — how
   // _revealPendingBookReads chains multiple reads one at a time instead of
   // stacking them.
   _presentBookRead(onDismiss) {
     const read = this._bookRead();   // mutates + the caller persists via this call
     persistSave(this.save);
-    const detail = read.title.replace(/^📖\s*/, '');
-    const body = detail.startsWith('The book falls open') ? `${detail}\n${read.body}` : read.body;
+    // The read's own lead-in ("The worn book falls open", or the sketch's
+    // "You crack open the book") heads the panel, minus the emoji the plain
+    // consumable path shows: a painted header is a label (CLAUDE.md). The
+    // "pages rustle" line that used to sit over it was cut in Oct 2026.
     this.showMessageModal({
-      title: 'The pages rustle beneath your fingers',
-      body,
+      title: read.title.replace(/^📖\s*/, ''),
+      body: read.body,
       // A book read by firelight — the picture of the places of learning the
       // Book comes from, survivors sharing what they know.
       art: 'book_read',
@@ -9138,7 +9331,7 @@ class MapScene extends Phaser.Scene {
       this.flash('No poison — Antidote kept.', this.viewCenterX, this.viewCenterY);
       return false;
     }
-    this._syncConditionHUD();
+    this._syncStatusRow();
     return this._finishConsumable('You drink the Antidote', 'The bitter draught burns your tongue. The purple chill loosens its hold.');
   }
 
@@ -9156,7 +9349,7 @@ class MapScene extends Phaser.Scene {
     return this._finishConsumable('You drink the Elixir', 'The draught glows against your lips. Strength floods back into your limbs.');
   }
 
-  // Potion of Speed: a minute of tier-9 boots and amulet walking, even without either
+  // Potion of Speed: a minute of tier-9 boot walking, even without either
   // — the stick moves you faster and costs almost no stamina (_walkRelics
   // reads speedPotionUntil).
   drinkSpeedPotion(opts = {}) {
@@ -9183,7 +9376,7 @@ class MapScene extends Phaser.Scene {
 
   // Potion of the Raven: SPIRIT_RAVEN_MS of a slime-strength ally
   // (SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven) hunting the nearest foe or
-  // pest crow through wanderCreatures' pet lane. Only the EXPIRY reaches the
+  // pest deer through wanderCreatures' pet lane. Only the EXPIRY reaches the
   // save (save.spiritRavenUntil), so the timer is honest across a reload; the
   // bird is session state that _tickSpiritRaven keeps at your side while it
   // runs. Drinking again while one is out refreshes the timer on the SAME
@@ -9202,61 +9395,9 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // THE SPIRIT RAVEN'S KEEPER — once a frame, beside the Blight aura. The bird
-  // is SESSION state (an id minted off the clock, like the pest crow and the
-  // ghost), pushed into the live creature list of the player's tile; what
-  // persists is only save.spiritRavenUntil. So one pass answers everything:
-  //   the timer ran out, or its HP did (the pet fight flags `_spent`) → it is
-  //     dismissed with a note on its cell;
-  //   it is LOST while the timer runs — a reload, its tile evicted or rebuilt
-  //     out from under it, a stair to another level (WorldGen.tileCache is
-  //     repointed), or left beyond the sim bubble (CREATURE_SIM_CELLS) where
-  //     it would stop thinking → it is dismissed quietly and a fresh one is
-  //     summoned at the player's feet. Re-summoning is the whole rebuild
-  //     story (CLAUDE.md "A tile can be REBUILT under you"): nothing about
-  //     the bird has to survive one.
-  // Dismissed = its id pushed onto save.caught, the one "gone" every pass
-  // already honours (render, the wander loop, taps) — so a bird left behind
-  // in a cache this pass can no longer reach is gone too, and the caught
-  // prune (wanderCreatures) forgets the id once its tile leaves the cache.
+  // Potion callers keep their entry point; all timed allies share the keeper.
   _tickSpiritRaven() {
-    const r = this._spiritRaven || null;
-    let live = (this.save.spiritRavenUntil ?? 0) > Date.now();
-    if (!r && !live) return;
-    if (!this.startWorldM || !this.playerM) return;
-    const px = this.startWorldM.x + this.playerM.x;
-    const py = this.startWorldM.y + this.playerM.y;
-    const pc = this.playerToWorldCell();
-    if (r) {
-      const here = !!WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => c === r);
-      const simR = CREATURE_SIM_CELLS * this.cellM;
-      const lost = !here || Math.hypot(r.x - px, r.y - py) > simR;
-      if (!live || r._spent || lost) {
-        (this.save.caught = this.save.caught || []).push(r.id);
-        this._spiritRaven = null;
-        if (r._spent) {
-          this.save.spiritRavenUntil = 0;
-          live = false;
-        }
-        if (here && (r._spent || !live)) {
-          this.flashAtWorld(r._spent ? 'The spirit raven is spent.' : 'The spirit raven fades.', r.x, r.y);
-        }
-        persistSave(this.save);
-      }
-    }
-    if (!live || this._spiritRaven) return;
-    const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
-    // Only into a tile whose creatures have spawned: seeding the array first
-    // would make spawnInTile keep ours and drop its own (`entry.creatures ||
-    // creatures`). A tile still loading just tries again next frame.
-    if (!entry || !entry.creatures) return;
-    const now = performance.now();
-    const c = WorldGen.makeCreature('spirit_raven', px, py,
-      `spirit_raven_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`,
-      // Its FOLLOW (the row's `follows`) runs for the rest of its life.
-      { _followUntilT: now + Math.max(0, this.save.spiritRavenUntil - Date.now()) });
-    entry.creatures.push(c);
-    this._spiritRaven = c;
+    Companions.tick(this, 'spirit_raven');
   }
 
   // The Drink dialog's line for a revival potion: what it will do while you
@@ -9381,8 +9522,8 @@ class MapScene extends Phaser.Scene {
   }
 
   // Dragon Powder: for ONE MINUTE you wear a red dragon and get its stats —
-  // tier-8 boots and amulet (DRAGON_AMULET_TIER, so the stick walks you faster
-  // and for less stamina than any forged amulet can) and 2× attack damage
+  // tier-8 boots (DRAGON_WALK_COST_TIER, so the stick walks faster
+  // and for less stamina than Frost boots can) and 2× attack damage
   // (interact.js halves the kill-wheel duration while in dragon form). No
   // flight, no separate movement mode: a dragon walks the way everyone walks.
   useDragonPowder() {
@@ -9429,13 +9570,14 @@ class MapScene extends Phaser.Scene {
   }
 
   // ── THE SAFETY CARD ──────────────────────────────────────────────────────
-  // A FULL-SCREEN card, bold, dismissed only by a tap (owner, Sep 2026: the
-  // one-line loading warning was too easy to miss). The long card at every
-  // LAUNCH (the moment the boot overlay goes), a short one on RESUME after
-  // SAFETY_RESUME_GAP_MS in the background, and a short one at DUSK (the sun
-  // crossing SAFETY_DUSK_DAYLIGHT, once a UTC day). Every version says the one
-  // thing the game most needs you to do: reach what is out of reach with the
-  // STICK, never by stepping into the street. Not a makeModalShell dialog —
+  // A FULL-SCREEN card, bold, dismissed only by a tap. The REMINDERS: a short
+  // one on RESUME after SAFETY_RESUME_GAP_MS in the background, and a short
+  // one at DUSK (the sun crossing SAFETY_DUSK_DAYLIGHT, once a UTC day). The
+  // long opening message is the loading screen itself (index.html #safety —
+  // owner, Sep 2026: a card over the freshly loaded map got tapped away
+  // unread; on the loading screen it is what there is to read). Every
+  // version says the one thing the game most needs you to do: reach what is
+  // out of reach with the STICK, never by stepping into the street. Not a makeModalShell dialog —
   // it carries no painting and must cover the whole game box, above every
   // dialog; it does wear .game-modal so the movement pads hide under it.
   _showSafetyCard(which) {
@@ -9506,29 +9648,22 @@ class MapScene extends Phaser.Scene {
     }
   }
 
-  // True while a Shadow Powder is active: the same in-memory minute the dragon
+  // True while a Shadow Powder is active: the same in-memory timer the dragon
   // keeps (this._shadowUntil, NOT persisted — a refresh ends it). wanderCreatures
-  // reads it to switch off every hostile's pursuit AND its hit; nothing the
-  // player swings or shoots is gated by it.
+  // reads it to switch off every hostile's pursuit AND its hit; startCombat and
+  // the ranged cadence read it too, so the player's own arm stays quiet for the
+  // spell.
   isShadowActive() {
     return (this._shadowUntil ?? 0) > Date.now();
   }
 
-  // UNNOTICED: nothing in the world can perceive the player. TWO reasons, ONE
-  // state — a Shadow Powder's minute, and a bar run to zero (Combat.playerDowned,
-  // the same expression the three damage paths guard with: a collapsed player
-  // cannot reach, cannot tap and cannot take another point, so a hostile that
-  // goes on stalking one is chasing a body it is forbidden to bite).
-  //
-  // It is read on BOTH sides of the game, which is the whole point of it being
-  // one expression: wanderCreatures gates every hostile-interest branch on it
-  // (the leech, the monster's hit and its arrow, the struck slime's charge and
-  // both stalk branches, each falling back to the aimless wander), and
-  // _updatePlayerAura FADES THE BODY while it holds. So what the player sees is
-  // what the AI is doing — a ghost is exactly as unhuntable as it looks, and a
-  // third reason for not being there lands in both at once by being ORed here.
-  isUnnoticed() {
-    return this.isShadowActive() || Combat.playerDowned(this.save.energy) || this.isTooFast();
+  // Powder, collapse and passenger safety conceal the player from everyone.
+  // Moss conceals them from creatures they have not struck during this boon.
+  // With no creature, this also drives the player's faded appearance.
+  isUnnoticed(creature = null) {
+    const moss = Shrines.leverActive(this.save, 'hidden')
+      && (!creature || creature._mossProvokedUntil !== this.save.boonUntil.hidden);
+    return this.isShadowActive() || moss || Combat.playerDowned(this.save.energy) || this.isTooFast();
   }
   // TOO FAST: the player's real GPS track is running at a ride's pace,
   // sustained (util.js speedGateStep, stepped per fix by scene_geo.js
@@ -9562,6 +9697,9 @@ class MapScene extends Phaser.Scene {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'shadow_powder' || (sel.count ?? 0) <= 0) return false;
     this._shadowUntil = Date.now() + SHADOW_POWDER_MS;
+    // The truce ends the fight you are in: the melee wheel drops (the same
+    // cancel the stairs use); arrows already in the air finish their flight.
+    if (this._workProgress?.combat) this.cancelWorkProgress();
     return this._finishConsumable(
       '🌑 You cast the Shadow Powder',
       'The dark folds around you. Hungry eyes pass you by.',
@@ -9631,6 +9769,26 @@ class MapScene extends Phaser.Scene {
     );
   }
 
+  // A spear is spent when thrown, including misses. Reuse arrow flight and
+  // collision, but keep the consumable's fixed damage independent of gear/buffs.
+  useSpear() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'spear' || (sel.count ?? 0) <= 0
+        || Combat.playerDowned(this.save.energy) || this.isShadowActive()) return false;
+    const x = this.startWorldM.x + this.playerM.x;
+    const y = this.startWorldM.y + this.playerM.y;
+    const heading = Combat.shotHeading('bow', x, y, this.facing);
+    const shot = Combat.spawnShot('bow', x, y, heading, this.cellM,
+      CONSUMABLE_SPEC.spear.damage, 1, reachCells(this));
+    if (!shot) return false;
+    shot.projectile = 'spear';
+    this._shots.push(shot);
+    consumeSelected(this.save);
+    persistSave(this.save);
+    this.buildInventoryDOM();
+    return true;
+  }
+
   // Frost Powder: every ENEMY (Combat.isEnemy — never a crow, a deer or a pet)
   // standing IN REACH — the lit plateau the tap gate accepts, cellInReach —
   // is frozen for FROST_POWDER_MS: wanderCreatures skips it (no step, no hit)
@@ -9672,6 +9830,19 @@ class MapScene extends Phaser.Scene {
   // level, in place. Down-only — there's no return portal; climb back up a
   // staircase as usual. The gem is consumed only when the descent actually
   // happens, so an empty energy tank (which changeDepth refuses) never burns it.
+  // Ride / Dismount (items.js CONSUMABLE_SPEC.horse — an `immediate` row, so
+  // nothing is spent). The skin follows from isRiding every frame
+  // (SpriteLayout.playerArt), and so does the stick's speed and cost.
+  toggleHorseRide() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || (ITEM_BY_ID[sel.id]?.base || sel.id) !== 'horse' || (sel.count ?? 0) <= 0) return false;
+    this.save.riding = !isRiding(this.save);
+    persistSave(this.save);
+    if (this.save.riding) this.flash(`Stick ×${HORSE_RIDE.speedMul} speed, ×${HORSE_RIDE.energyMul} ⚡`);
+    else this.flash('You dismount.');
+    return true;
+  }
+
   useSapphirePortal() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'sapphire' || (sel.count ?? 0) <= 0) return false;
@@ -9759,40 +9930,8 @@ class MapScene extends Phaser.Scene {
     if (!Energy.canEat(this.save)) return false;
     const restore = featherRevive ? null : FOOD_ENERGY[sel.id];
     if (!featherRevive && restore == null) return false;
-    // First taste of a new edible permanently grows the bar by its food tier
-    // (Energy.tasteBonus; Energy.maxEnergy folds save.eaten into the cap). Recorded BEFORE the restore below so the new headroom is fillable
-    // by this very bite.
-    let firstTaste = false;
-    this.save.eaten = this.save.eaten || [];
-    if (!this.save.eaten.includes(sel.id)) {
-      this.save.eaten.push(sel.id);
-      firstTaste = true;
-    }
-    const before = this.save.energy ?? 0;
-    if (featherRevive) Energy.set(this.save, FEATHER_REVIVE_ENERGY);
-    else Energy.set(this.save, before + restore, this.getMaxEnergy());
-    const gained = this.save.energy - before;
+    const { gained, extra } = this._consumeFoodEffects(sel.id, featherRevive);
     consumeSelected(this.save);
-    // Special effects.
-    let extra = '';
-    if (sel.id === 'pairy') {
-      const target = this.findNearestUnopenedChest();
-      if (target) {
-        this.pairyCompass = { targetId: target.id, x: target.x, y: target.y,
-          until: Date.now() + CONSUMABLE_SPEC.pairy.durationMs };
-        extra = `\n🧭 chest compass: ${shortDuration(CONSUMABLE_SPEC.pairy.durationMs)}`;
-      } else {
-        extra = `\n🧭 no chests nearby`;
-      }
-    } else if (sel.id === 'rainberry') {
-      const { n: watered, jumped } = this.waterCropsWithin(CONSUMABLE_SPEC.rainberry.radiusM);
-      extra = watered > 0 ? `\n💧 watered ${watered} crop${watered === 1 ? '' : 's'}` : '\n💧 no crops nearby';
-      if (jumped > 0) extra += `\n🌱 ${jumped} sprang ahead a stage`;
-    } else if (sel.id === 'coffee') {
-      this.save.coffeeUntil = Date.now() + COFFEE_BUFF_MS;
-      extra = `\n☕ faster stick walking, ${shortDuration(COFFEE_BUFF_MS)}`;
-    }
-    if (firstTaste) extra += `\n🍽 first taste: +${Energy.tasteBonus(sel.id)} max ⚡`;
     // Armed only now, after a bite has actually landed.
     Energy.startEatCooldown(this.save);
     persistSave(this.save);
@@ -9803,6 +9942,53 @@ class MapScene extends Phaser.Scene {
     // gain (+ any compass / water side-effect) is readable before fading.
     this.flashLoot(`+${gained}⚡${extra}`, '#a7ffb0', 1.8, sel.id);
     return true;
+  }
+
+  // Food effects are shared by eating and the Wayfarer's gift. The caller
+  // owns inventory, cooldown and persistence; a shrine needs none of those gates.
+  _consumeFoodEffects(id, featherRevive = false, now = Date.now()) {
+    const restore = FOOD_ENERGY[id];
+    // First taste of a new edible permanently grows the bar by its food tier
+    // (Energy.tasteBonus; Energy.maxEnergy folds save.eaten into the cap). Recorded BEFORE the restore below so the new headroom is fillable
+    // by this very bite.
+    let firstTaste = false;
+    this.save.eaten = this.save.eaten || [];
+    if (!this.save.eaten.includes(id)) {
+      this.save.eaten.push(id);
+      firstTaste = true;
+    }
+    const before = this.save.energy ?? 0;
+    if (featherRevive) Energy.set(this.save, FEATHER_REVIVE_ENERGY);
+    else Energy.set(this.save, before + restore, this.getMaxEnergy());
+    const gained = this.save.energy - before;
+    // Special effects.
+    let extra = '';
+    if (id === 'pairy') {
+      const target = this.findNearestUnopenedChest();
+      if (target) {
+        this.pairyCompass = { targetId: target.id, x: target.x, y: target.y,
+          until: now + CONSUMABLE_SPEC.pairy.durationMs };
+        extra = `\n🧭 chest compass: ${shortDuration(CONSUMABLE_SPEC.pairy.durationMs)}`;
+      } else {
+        extra = `\n🧭 no chests nearby`;
+      }
+    } else if (id === 'rainberry') {
+      const spec = CONSUMABLE_SPEC.rainberry;
+      const { n: watered, jumped } = this.waterCropsWithin(spec.radiusM, spec.canTier);
+      this._rainOver(spec.radiusM);
+      extra = watered > 0 ? `\n💧 watered ${watered} crop${watered === 1 ? '' : 's'}` : '\n💧 no crops nearby';
+      if (jumped > 0) extra += `\n🌱 ${jumped} sprang ahead a stage`;
+    } else if (id === 'coffee') {
+      this.save.coffeeUntil = now + COFFEE_BUFF_MS;
+      extra = `\n☕ faster stick walking, ${shortDuration(COFFEE_BUFF_MS)}`;
+    }
+    if (firstTaste) extra += `\n🍽 first taste: +${Energy.tasteBonus(id)} max ⚡`;
+    return { gained, extra };
+  }
+
+  _tickShrineRegen(dt, now = Date.now()) {
+    const gained = Energy.tickShrineRegen(this.save, this, dt, now);
+    if (gained > 0) this.updateEnergyDOM();
   }
 
   // Find the nearest chest the player hasn't opened. Used by the pairy compass.
@@ -9828,16 +10014,46 @@ class MapScene extends Phaser.Scene {
 
   // Water every planted crop within ${radius} meters of the player. Returns count.
   // Sets watered_t = now on cells that aren't already watered or at MAX_GROWTH_STAGE.
-  waterCropsWithin(radius) {
+  // `canTier` is the can the soak counts as (the rainberry's Gold,
+  // CONSUMABLE_SPEC.rainberry.canTier): the player's own can is used when it
+  // is the better of the two, so owning a Frost can is never undercut.
+  waterCropsWithin(radius, canTier = 0) {
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
     // The can's jump roll applies here too — a rainberry soaking the whole
     // plot is still the player watering, so it is still worth owning a can.
+    const own = this.save.relics || {};
+    const relics = (canTier > (own.can?.tier || 0)) ? { ...own, can: { ...(own.can || {}), tier: canTier } } : own;
     const jumpedPlants = [];
-    const out = Crops.waterWithin(this.save, pWX, pWY, radius, Date.now(), this.save.relics,
+    const out = Crops.waterWithin(this.save, pWX, pWY, radius, Date.now(), relics,
                                   Math.random, jumpedPlants);
     for (const p of jumpedPlants) this._burstAtWorld('sprout', p.x, p.y);
     return out;
+  }
+
+  // THE SHOWER: rain over the `radiusM` disc round the feet — the rainberry's
+  // soak made visible (owner, Sep 2026: eating one showed only the toast).
+  // A scatter of 'rain' bursts (particles.js), each launched RAIN_DROP_CELLS
+  // above its ground point so the drops fall in and fade as they land. Off
+  // the projection, never the viewport centre, and gated on screen per point
+  // by _burstAt's caller contract (Particles.onScreen).
+  _rainOver(radiusM) {
+    if (typeof Particles === 'undefined' || !this.worldMetersToScreen || !this.startWorldM || !this.originPx) return 0;
+    const pWX = this.startWorldM.x + this.playerM.x;
+    const pWY = this.startWorldM.y + this.playerM.y;
+    const cellM = this.cellM || 1;
+    const points = Math.max(6, Math.min(RAIN_MAX_POINTS, Math.round(Math.PI * (radiusM / cellM) ** 2)));
+    let n = 0;
+    for (let i = 0; i < points; i++) {
+      // Even over the disc (sqrt on the radius), a golden-angle turn per point.
+      const r = radiusM * Math.sqrt((i + 0.5) / points), a = i * 2.399963;
+      const p = this.worldMetersToScreen(pWX + Math.cos(a) * r, pWY + Math.sin(a) * r);
+      if (!p) continue;
+      const y = p.y - RAIN_DROP_CELLS * CELL_PX;
+      if (!Particles.onScreen(this, p.x, y, CELL_PX * (RAIN_DROP_CELLS + 1))) continue;
+      n += Particles.burst(this, 'rain', p.x, y);
+    }
+    return n;
   }
 
   // Spring every unripe crop within ${radius} metres of the player one stage
@@ -9960,106 +10176,6 @@ class MapScene extends Phaser.Scene {
     return lost;
   }
 
-  presentScarecrowOffer(sx, sy, house, recordDeal) {
-    const id = 'scarecrow';
-    const item = ITEM_BY_ID[id];
-    const price = PRICES[id] ?? 30;
-    const canAfford = () => (this.save.money ?? 0) >= price;
-    this.showOfferModal({
-      kind: 'farm',
-      title: 'The farmhand offers a scarecrow:',
-      cancelLabel: 'Later',
-      get: `${this.iconSpanHTML(id)} ${item?.name || id} ×1`,
-      blurb: 'Its ragged sleeves stir in the breeze. Watchful eyes keep their distance.',
-      cost: this.moneyHTML(price),
-      canAfford: canAfford(),
-      onAccept: () => {
-        if (!canAfford()) { this.flash(`need ${price}`, sx, sy); return; }
-        addMoney(this.save, -price);
-        this.addToInv(id, 1, false, { notWild: true, deferRefresh: true });
-        this.save.scarecrowShopUsed = true;
-        recordDeal();
-        this._finishInventoryChange();
-        this.flashLoot(`${item?.name || id}\n−${price}`, '#ffe066', 1, id);
-      },
-    });
-  }
-
-  // Produce stand = a roadside MARKET (not a one-shot chest). It sells the
-  // produce its awning advertises (loot.js produceStandFor → { item, frame })
-  // BELOW par — a fresh stall undercuts the listed price rather than applying
-  // the 1.2–3.0× buyPrice ramp, which is for restocking village shops. How far
-  // below is ShopsMath.standPrice's business: the discount is capped by what
-  // the player could resell for, so a stand can never be an arbitrage pump.
-  // Repeatable: a quantity stepper lets the player buy as many as they can
-  // afford and carry, and the stall is never marked save.opened.
-  presentMarketStandOffer(sx, sy, stand) {
-    this._presentStallOffer(sx, sy, { items: [stand.item], title: 'The market stall sells fresh:' });
-  }
-
-  // THE STALL COUNTER — the one buy dialog every counter shares: the market
-  // stall above, and the macro stalls that sell (the apothecary's potion and
-  // cure, the sundries' supply, the scriptorium's Book and torch —
-  // src/macros.js; the same price, stepper and no stock limit). A
-  // counter of more than one item shows a tab per item. `items` are ids;
-  // `index` is the tab shown; `kind` / `kindLabel` / `art` dress the dialog
-  // (the market stall keeps the 'shop' kind's own painting).
-  _presentStallOffer(sx, sy, opts) {
-    // Single-modal guard — mirror shopInteract so rapid taps can't stack modals.
-    if (document.getElementById('offer-modal')) return;
-    const { items, index = 0, title, kind = 'shop', kindLabel, art } = opts;
-    const id = items && items[index];
-    if (!id) return;
-    const item = ITEM_BY_ID[id];
-    const unitPrice = ShopsMath.standPrice(this.save, PRICES[id] ?? 1);
-    const listPrice = Math.max(1, PRICES[id] ?? 1);
-    const iconHTML = this.iconSpanHTML(id);
-    const itemName = item?.name || id;
-    // Cap the stepper at what the player can both afford AND fit in their bag.
-    const money = () => this.save.money ?? 0;
-    const room  = () => { const r = this.invRoomFor(id); return r === Infinity ? 99 : r; };
-    const maxQty = clamp(Math.max(1, Math.floor(money() / unitPrice)), 1, room());
-    // Show what the stall is knocking off, so the discount reads as a deal
-    // rather than as an arbitrary number. Suppressed at par (a maxed-out sword
-    // pushes the price back up to the listed value — see ShopsMath.standPrice).
-    const saved = (listPrice - unitPrice);
-    const fmt = (q) => {
-      const total = unitPrice * q;
-      return {
-        get: `${iconHTML} ${itemName} ×${q}`,
-        cost: saved > 0 ? `${this.moneyHTML(total)} <span style="opacity:.6">(save ${this.moneyHTML(saved * q, 12)})</span>`
-                        : this.moneyHTML(total),
-        canAfford: money() >= total && q <= room(),
-      };
-    };
-    const first = fmt(1);
-    this.showOfferModal({
-      kind: kind, kindLabel, art,
-      title,
-      tabs: items.length > 1 ? items.map((it, i) => ({
-        label: ITEM_BY_ID[it]?.name || it, active: i === index,
-        onSelect: () => this._presentStallOffer(sx, sy, { ...opts, index: i }),
-      })) : undefined,
-      get: first.get,
-      cost: first.cost,
-      canAfford: first.canAfford,
-      acceptLabel: 'Buy',
-      cancelLabel: 'Later',
-      quantity: { min: 1, max: maxQty, initial: 1, format: fmt },
-      onAccept: (q) => {
-        const want = Math.max(1, q ?? 1);
-        const take = Math.min(want, room());
-        if (take <= 0) { this.flash(BAG_FULL_MSG, sx, sy); return; }
-        const pay = unitPrice * take;
-        if (money() < pay) { this.flash(`need ${pay}`, sx, sy); return; }
-        addMoney(this.save, -pay);
-        this.addToInv(id, take, false, { notWild: true, deferRefresh: true });
-        this._finishInventoryChange();
-        this.flashLoot(`${take}× ${itemName}\n−${pay}`, '#ffe066', 1, id);
-      },
-    });
-  }
-
   // ── THE MACRO STALLS (loot.js macroFor; the rules are src/macros.js) ─────
   // An in-building POI is a place you come BACK to: its tap is a service and
   // it is never consumed (no save.opened). interactables.js INTERACTABLES.chest
@@ -10069,9 +10185,9 @@ class MapScene extends Phaser.Scene {
   presentMacro(sx, sy, o, macro = macroFor(o)) {
     if (!macro || document.getElementById('offer-modal')) return;
     const kind = macro.kind;
-    if (this._macroStory(kind, () => this.presentMacro(sx, sy, o, macro))) return;
+    if (this._macroStory(kind, () => this.presentMacro(sx, sy, o, macro), o)) return;
     const d = Macros.KIND_DIALOG[kind];
-    const dress = { kind: d.modal, kindLabel: Macros.stallLabel(kind, o) || d.label, art: d.art };
+    const dress = { kind: d.modal, kindLabel: Macros.stallLabel(kind, o) || d.label, art: Macros.stallArt(kind, o) };
     switch (kind) {
       case 'inn':         return this._presentInn(sx, sy, o, dress);
       case 'apothecary':  return this._presentStallOffer(sx, sy,
@@ -10088,11 +10204,11 @@ class MapScene extends Phaser.Scene {
   }
   // The first-visit story of a macro kind, once per save (_storySplashOnce).
   // True when it opened now; `onDismiss` runs when it is tapped away.
-  _macroStory(kind, onDismiss) {
+  _macroStory(kind, onDismiss, o) {
     const st = Macros.KIND_STORY[kind];
     const d = Macros.KIND_DIALOG[kind];
     if (!st || !d) return false;
-    return this._storySplashOnce('macro:' + kind, { art: d.art, title: st.title, body: st.body, onDismiss });
+    return this._storySplashOnce('macro:' + kind, { art: Macros.stallArt(kind, o), title: st.title, body: st.body, onDismiss });
   }
 
   // INN: rest to full for coin, once a UTC day per inn (Macros.innRest — the
@@ -10248,7 +10364,7 @@ class MapScene extends Phaser.Scene {
     this.flashLoot(`Bounty paid! +${gb.pay}`, '#ffe066', 1);
     this._storySplashOnce('macro:bounty', {
       art: Macros.KIND_DIALOG.guildhall.art, title: 'A bounty paid',
-      body: 'The hall keeps its word. Tomorrow there will be another name on the board.',
+      body: 'You collect your bounty at the hall. The keeper counts the promised coins into your hand.',
     });
   }
   // THE BOUNTY WAITS, asked each frame there is one: it stands down only when
@@ -10792,418 +10908,6 @@ class MapScene extends Phaser.Scene {
     mount();
   }
 
-  shopInteract(sx, sy, house) {
-    // Single-modal guard: if a confirmation modal is already open, ignore the tap so
-    // rapid double-taps can't stack two modals or stale closures.
-    if (document.getElementById('offer-modal') || document.getElementById('slots-modal')) return;
-    // Wreck → restoration modal. Every tier-9 small house starts as a
-    // wreck (see save.restoredHouses); the trailer is exempt and forts /
-    // castles never wreck. Plain houses cost 5 wood (tree); themed
-    // tier-9 shops (blacksmith / market / trader) cost 5 rockfruit.
-    if (house && this._isHouseWreck && this._isHouseWreck(house)) {
-      this.presentWreckRestoreModal(sx, sy, house);
-      return;
-    }
-    // Fort → sealed until unsealed with a one-time wood payment, just like a
-    // wreck house pays masonry. Pay FORT_UNLOCK_WOOD and the quartermaster
-    // opens for good (recorded in save.unlockedForts).
-    if (house && this._isFortLocked && this._isFortLocked(house)) {
-      this.presentFortUnlockModal(sx, sy, house);
-      return;
-    }
-    // Castle → sealed until the player solves the job on its quest board
-    // (_isBuildingSealed); the sealed modal IS that board.
-    if (house && this._isBuildingSealed && this._isBuildingSealed(house)) {
-      this.presentSealedBuildingModal(sx, sy, house);
-      return;
-    }
-    // House routing:
-    //   HOME (starter trailer)  → the Home panel: a SELL page and a CRAFT
-    //                              page (presentHomeSell / presentHomeCraft).
-    //                              A tap holding a stack opens on Sell, an
-    //                              empty-handed tap on Craft.
-    //   Every other house       → only its PRIMARY interaction (buy /
-    //                              trade / smith / relic). Selling
-    //                              anywhere but home is intentionally
-    //                              gated so the player has a reason to
-    //                              come home with their haul.
-    const isHome = !!house && this.isStarterShop(house);
-    const sel = this.save.inv[this.save.selSlot];
-    const hasSel = sel && sel.id && (sel.count ?? 0) > 0;
-    if (isHome) {
-      if (hasSel) this.presentHomeSell(sx, sy);
-      else this.presentHomeCraft(sx, sy);
-      return;
-    }
-    // A FORT runs a slot machine (presentFortSlots) — before the deal cap and
-    // the flower charm: every spin is paid at its fair price, so there is
-    // nothing to ration and nothing a charm could discount.
-    if (house && house.tier === 11) {
-      this.presentFortSlots(sx, sy, house);
-      return;
-    }
-    // Per-building deal rate-limit — see shopDealCap() / shopReadiness() for
-    // the ladder + bucket math. Renderer reuses the same helpers to draw the
-    // ready/timer pip above each house, so the player sees the same state
-    // the tap handler will enforce.
-    const castle = isCastle(house);
-    const isStarterSmith = this.isStarterBlacksmith(house);
-    const { dealCap, ready: shopReady, waitMs } = this.shopReadiness(house);
-    // Effective shop role from the frozen restore-order assignment (falls back
-    // to the address-derived type for legacy saves). Returns 'blacksmith' for
-    // the first-restored starter smithy too, so the forge branch fires
-    // regardless of the underlying house number.
-    const shopType = this.houseShopRole(house);
-    if (shopType === 'wizard' && MemoryStory.towerAccess(this.save, house) !== 'open') {
-      MemoryStory.visitWizard(this, () => {}, house);
-      return;
-    }
-    const isFort = !!house && house.tier === 11;
-    // A delivery host (plain house, no shop role) is not a timed shop: it
-    // takes ONE delivery ever (Delivery.isSatisfied), and render.js shows its
-    // wishlist instead of the open/busy plaque. So the hourly deal cap must
-    // not shut its door either — a deal banked while it was the one-off
-    // scarecrow shop used to leave it "busy" under a live potato ask.
-    const isDeliveryHost = !castle && !isFort && !shopType && !isStarterSmith && !!house
-      && !(this.isScarecrowShop(house) && !this.save.scarecrowShopUsed);
-    if (house && !shopReady && !isDeliveryHost && shopType !== 'wizard') {
-      const kindLabel = castle ? 'castle' : (house.tier === 11) ? 'fort' : 'house';
-      // Same notation, same number as the plaque over the roof (render.js
-      // formats info.waitMs through shortDuration too), so the tap and the
-      // label can't disagree about how long the wait is.
-      this.flash(`${kindLabel} busy — try again in ${shortDuration(waitMs)}`, sx, sy);
-      return;
-    }
-    // Record a deal against this house — called from inside the accept path.
-    const recordDeal = () => {
-      if (!house || !house.id || dealCap === Infinity) return;
-      const cur = this.shopBucketState(house);
-      cur.deals += 1;
-    };
-    // FLOWER GIFT — tapping a CASH shop (market / fort storefront / castle
-    // vault) with Flowers selected offers to charm the keeper: one bouquet
-    // buys half prices at THIS building for SHOP_CHARM_MS. Only cash shops —
-    // a bouquet at a barter trader / wizard / delivery house would buy
-    // nothing, so those never offer to take one. Checked after the busy gate
-    // so a bouquet can't be spent on a shut door, and skipped while a charm
-    // is already running so repeat taps don't burn the stack. A RESTORED
-    // castle is excluded too — it no longer sells anything to discount, only
-    // the daily rest/tax favour (see presentCastleServiceOffer).
-    if (house && house.id != null && sel && sel.id === 'flowers' && (sel.count ?? 0) > 0
-        && ((castle && !this.isCastleClaimed(house)) || shopType === 'market')
-        && this.shopCharmMul(house) === 1) {
-      this.showOfferModal({
-        kind: 'shop',
-        title: 'Charm the shopkeeper?',
-        get: 'A bouquet may soften the shopkeeper’s prices.',
-        cost: `1× ${this.iconSpanHTML('flowers')} Flowers`,
-        canAfford: true,
-        acceptLabel: 'Gift',
-        onAccept: () => {
-          if (Inventory.remove(this.save, 'flowers', 1) < 1) {
-            this.flash('Gone — already used.', sx, sy);
-            return;
-          }
-          this._clampSelSlot();
-          this.save.shopCharm = this.save.shopCharm || {};
-          // Prune spent charms while we're here so the map can't grow without
-          // bound across many gifts.
-          for (const k of Object.keys(this.save.shopCharm)) {
-            if (this.save.shopCharm[k] <= Date.now()) delete this.save.shopCharm[k];
-          }
-          this.save.shopCharm[house.id] = Date.now() + SHOP_CHARM_MS;
-          this._finishInventoryChange();
-          this.flashLoot('💐 charmed — half prices!', '#ff8aff', 1.2, 'flowers');
-          // Straight back into the shop so the discounted offer is in hand.
-          this.shopInteract(sx, sy, house);
-        },
-      });
-      return;
-    }
-    // Forced scarecrow shop (the house just past the starter blacksmith).
-    // Sells a single scarecrow for cash, ONCE, then this branch goes quiet
-    // and the house reverts to its normal role (delivery / shop). Checked
-    // before every other small-house branch so it wins regardless of the
-    // underlying address-derived role.
-    if (!castle && !isFort && house && this.isScarecrowShop(house) && !this.save.scarecrowShopUsed) {
-      this.presentScarecrowOffer(sx, sy, house, recordDeal);
-      return;
-    }
-    // Plain houses — small residential without a shop role and not the
-    // starter blacksmith — are delivery sites only. Each wants a SET of 1-3
-    // produce and buys it as a bundle: one of each, full price, no sword
-    // sellMul. They don't sell anything or do the old 10% relic swap. Their
-    // sign shows the wanted icons so the player can scout a street and gather
-    // the matching set.
-    if (isDeliveryHost) {
-      this.presentDeliveryOffer(sx, sy, house, recordDeal);
-      return;
-    }
-    // Selling is HOME-ONLY (handled above). Every other house runs straight
-    // into its primary interaction below — selected-item taps no longer
-    // open a sell modal here. The player has to bring the haul back to
-    // their trailer to cash out.
-    // BUY — generate an offer and present a confirmation modal.
-    // Special tracks come BEFORE the regular seed/produce rotation:
-    //   (a) Castle / tower — always sells relics, no rate-limit, with re-roll.
-    //   (b) Blacksmith     — address-ending-in-9 houses trade 5 gems for a relic.
-    //   (c) Regular house  — 10% chance to swap the normal offer for a relic.
-    // (Home / starter trailer is handled at the top of this function — it
-    // only sells, never buys.)
-    if (castle) {
-      // A RESTORED castle (the player solved its quest here — see
-      // showQuestBoard/_claimCastle) is home turf: instead of the vault's
-      // relic trade, its castellan offers one daily favour. The only other
-      // castle that gets past the seal is a LEGACY-open one (a save that
-      // finished the old chain, or opened it under the retired delivery gate
-      // — see _isBuildingSealed); those still deal in relics below.
-      if (this.isCastleClaimed(house)) {
-        this.presentCastleServiceOffer(sx, sy, house);
-        return;
-      }
-      const offer = this.peekOrBuildRelicOffer(house);
-      // No re-roll at castles per balance pass — the castle's draw is the
-      // exorbitant base price (4× minus bow/staff discount), not a re-roll
-      // lottery, so the player must accept what's offered or leave.
-      if (offer) { this.presentRelicOffer(sx, sy, offer, recordDeal, house, false); return; }
-      // Every relic + armor slot is at max tier. Castles only deal in relics,
-      // so there's nothing left to sell — say so explicitly rather than
-      // silently swapping the player onto potato seeds.
-      this.flash(`You've outgrown the vault.`, sx, sy);
-      return;
-    }
-    if (shopType === 'blacksmith') {
-      // Starter blacksmith: forge the two random wooden tools (see
-      // starterSmithSlots) one at a time before falling through to the
-      // random-relic forge. Custom recipe (not bar-based) so blacksmithRecipe
-      // stays T2+ for every other smithy.
-      if (isStarterSmith) {
-        const woodOffer = this.starterBlacksmithOffer();
-        if (woodOffer) {
-          const recipe = this.starterBlacksmithRecipe(woodOffer.slot);
-          this.presentBlacksmithOffer(sx, sy, woodOffer, recordDeal, house, { recipe, noReroll: true });
-          return;
-        }
-      }
-      const offer = this.peekOrBuildRelicOffer(house);
-      if (offer) { this.presentBlacksmithOffer(sx, sy, offer, recordDeal, house); return; }
-      // "Later" is a real number: the offer is rolled per hourly bucket, so
-      // the anvil wakes when this house's bucket rolls over. Without it this
-      // was the one shop message that named no wait at all, and a player could
-      // only find out by tapping again.
-      this.flash(`Anvil's resting — back ${this.shopWaitLabel(house)}.`, sx, sy);
-      return;
-    }
-    // Traders are barter-only with their own seeded offer (qty scales to a
-    // target value) and a re-roll secondary — fully self-contained branch.
-    if (shopType === 'trader') {
-      this.presentTraderOffer(sx, sy, house, recordDeal);
-      return;
-    }
-    // Wizard tower (the 15th restored wreck) — no longer a relic vendor. The
-    // mage sees power in the player's memories and spends them on his gifts.
-    // See presentWizardOffer.
-    if (shopType === 'wizard') {
-      MemoryStory.visitWizard(this, () => {
-        if (house && !shopReady) {
-          this.flash(`house busy — try again in ${shortDuration(waitMs)}`, sx, sy);
-          return;
-        }
-        this.presentWizardOffer(sx, sy, recordDeal);
-      }, house);
-      return;
-    }
-    // THEMED SHOPS (role key 'market') sell one line each — seed, supply,
-    // potion, ore, relic or pet, by restore order — see presentThemedShop.
-    if (shopType === 'market') {
-      this.presentThemedShop(sx, sy, house, recordDeal);
-      return;
-    }
-    // SEEDED, not Math.random: this coin decides WHAT the shop is selling, so
-    // an unseeded flip let the player reopen a fort until it came up relic.
-    // Its own lane, so it can't consume a roll the offer itself needs.
-    // (house is always a real object from the tap dispatch, but everything
-    // around here is written null-tolerant, so keep the unseeded fallback.)
-    const swapRoll = house?.id ? this.shopRng(house, 'relicswap')() : Math.random();
-    if (!shopType && swapRoll < 0.10) {
-      const relicOffer = this.peekOrBuildRelicOffer(house);
-      if (relicOffer) { this.presentRelicOffer(sx, sy, relicOffer, recordDeal, house, false); return; }
-    }
-    // Each remaining storefront (a fort's quartermaster) has a deterministic
-    // "shop kind" derived from the house (_houseSeed — its id, never its
-    // frame metres): ~30% sell PRODUCE (harvested crops), the rest sell SEEDS
-    // from the rotating buyIndex. Same house always offers the same category,
-    // for every player.
-    const houseSeed = this._houseSeed(house);
-    const sellsProduce = !!houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
-    let id;
-    if (sellsProduce) {
-      // Cycle through produce, weighted toward the buyIndex so it still rotates.
-      const produceIds = Object.keys(CROP_ROW);
-      id = produceIds[((this.save.buyIndex ?? 0) + (houseSeed >>> 8)) % produceIds.length];
-    } else {
-      id = BUY_LIST[(this.save.buyIndex ?? 0) % BUY_LIST.length];
-    }
-    const baseValue = PRICES[id] ?? 1;
-    const item = ITEM_BY_ID[id];
-    // Every cash storefront (markets + generic houses) buys for money now;
-    // barter lives only in the dedicated 'trader' shop kind (presentTraderOffer
-    // above). buildShopOffer always returns a cash offer.
-    const offer = this.buildShopOffer(id, baseValue, { house });
-    if (!offer) {
-      this.flash(`No stock today. Back ${this.shopWaitLabel(house)}.`, sx, sy);
-      return;
-    }
-    // Cash purchases hand over exactly ONE unit — the ×2 TRADE_OFFER_QTY
-    // bundle is barter-only (see presentTraderOffer) so cash buys can't be
-    // flipped at a profit. Low-tier seeds still ship a few extra (planted in
-    // bulk; a starter nicety, not an arbitrage vector at $3 a pack).
-    const buyQty = 1 + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0);
-    this.showOfferModal({
-      kind: 'shop',
-      title: this.buildingFlavorTitle(house, 'buy'),
-      ...NPC.offerArt(this, house),
-      cancelLabel: 'Later',
-      get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
-      cost: offer.label,
-      canAfford: offer.canAfford() && this.invRoomFor(id) >= buyQty,
-      onAccept: () => {
-        if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
-        if (this.invRoomFor(id) < buyQty) {
-          this.flash(`Bag full for ${item?.name || id}.`, sx, sy);
-          return;
-        }
-        offer.consume();
-        this.addToInv(id, buyQty, false, { notWild: true, deferRefresh: true });
-        this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
-        recordDeal();
-        this._finishInventoryChange();
-        // Use the loud loot pop so a purchase reads as a real gain.
-        // Sprite shows the bought item — drop the item-icon emoji.
-        this.flashLoot(`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
-      },
-    });
-  }
-
-  // The "starter shop" is the building closest to the player's spawn — the
-  // player's Home. Tap it to sell from your stash; the starter blacksmith
-  // (nearest house to Home) handles wooden-tool crafting. Pick it once and
-  // memoize in save.starterShopId so reloads + roaming keep the same shop.
-  isStarterShop(house) {
-    if (!house || !house.id) return false;
-    this.ensureStarterShopId();
-    return this.save.starterShopId === house.id;
-  }
-
-  // Resolve (and self-heal) save.starterShopId: the player's Home. Home is the
-  // house nearest the player's ACTUAL location — their first GPS fix — NOT the
-  // fixed map origin (startWorldM, anchored at START_LAT/LON). Anchoring on the
-  // origin was the old bug: a player who starts far from START_LAT got a
-  // trailer dropped near the origin, off-screen, so it never appeared.
-  //
-  // Once a GPS fix is in, the rule is "what you can see is home":
-  //   • if any house is visible ON-SCREEN, adopt the nearest one as the trailer;
-  //   • if NO house is on-screen, synthesize a trailer under the player.
-  // "On-screen" = within the VIEW_CELLS-square map viewport centred on the
-  // player (HALF_VIEW_M each way). This replaces an earlier fixed-metres radius:
-  // tying it to the viewport means the player always either sees the house that
-  // became their trailer, or gets one dropped on themselves — never a Home left
-  // sitting off-screen that they can't find. Tiles stream in asynchronously, so
-  // before concluding "nothing on-screen" we wait for every tile the viewport
-  // overlaps to be ready (the viewport is far smaller than a tile, so that's the
-  // player's own tile, plus its neighbours when they sit near a tile edge — all
-  // kept loaded by the 3×3 ensureTilesAround). A previously chosen home that is
-  // still loaded is kept so the trailer is stable across roaming and reloads
-  // (even once it scrolls off-screen), while a stale origin-anchored memo (whose
-  // tile never loads near the new spawn) self-heals. Cheap after it locks in via
-  // the _starterShopOk early-out; called lazily (isStarterShop) and every frame
-  // from Render.drawObjects.
-  ensureStarterShopId() {
-    if (this._starterShopOk) return;
-    // A fresh save is still waiting to anchor its home origin to the first GPS
-    // fix (startGps reloads once it arrives) — don't place the trailer yet, it
-    // would be positioned against the provisional origin we're about to drop.
-    if (this._homeCapturePending) return;
-    // A synthetic trailer from a prior session — restore it and lock in.
-    if (this.save.starterTrailer && this.save.starterShopId === this.save.starterTrailer.id) {
-      this.ensureStarterTrailerObject();
-      this._starterShopOk = true;
-      // ensureStarterTrailerObject can self-heal onto a real house that has
-      // since appeared on the trailer's own footing (its own comment above
-      // explains why) — save.starterTrailer is then null and starterShopId
-      // already names the adopted house, so don't re-freeze the crate anchor
-      // at the trailer's old, no-longer-Home position.
-      if (this.save.starterTrailer) {
-        // Heal a save whose home capture failed (no save.home): anchor the
-        // starter crate trail on Home, where the player actually is — the
-        // origin-keyed anchor would sit on a tile that never loads.
-        this._setStarterCratesAt(this.save.starterTrailer.x, this.save.starterTrailer.y);
-      }
-      return;
-    }
-    // Anchor on the player's real position: their GPS fix (gpsM, in playerM's
-    // frame). A sandbox session may have no fix at all — fall back to the
-    // player's current position so Home still resolves.
-    const anchor = this.gpsM || (this._sandboxMode ? this.playerM : null);
-    if (!anchor) return;                       // no fix yet — wait for one
-    const ax = this.startWorldM.x + anchor.x;
-    const ay = this.startWorldM.y + anchor.y;
-    // "On-screen" = within the visible map viewport (a VIEW_CELLS square centred
-    // on the player). Half-extent each way, in world metres.
-    const HALF_VIEW_M = (VIEW_CELLS / 2) * this.cellM;
-    const cur = this.save.starterShopId;
-    let nearestId = null, nearestD2 = Infinity, curFound = false;
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind !== 'house' || !o.id) continue;
-        if (o.id === cur) curFound = true;       // track the current Home anywhere (roaming)
-        const dx = o.x - ax, dy = o.y - ay;
-        // Only houses inside the viewport count toward "the nearest visible one".
-        if (Math.abs(dx) > HALF_VIEW_M || Math.abs(dy) > HALF_VIEW_M) continue;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < nearestD2) { nearestD2 = d2; nearestId = o.id; }
-      }
-    }
-    // An existing home that is still loaded → keep it (stable across roaming,
-    // even once it scrolls off-screen). A stale far memo simply isn't loaded near
-    // the new spawn, so curFound is false and we re-resolve below.
-    // _setStarterCratesAt on each lock-in below is the no-home heal: it
-    // no-ops for anchored saves, and freezes the crate trail at the player's
-    // real position for a save whose home capture failed (see
-    // _starterTrailAnchor).
-    if (cur != null && curFound) {
-      this._starterShopOk = true;
-      this._setStarterCratesAt(ax, ay);
-      return;
-    }
-    // A house is visible on-screen → adopt the nearest one as the trailer.
-    if (nearestId != null) {
-      this.save.starterShopId = nearestId;
-      this.save.starterTrailer = null;         // drop any prior synthetic trailer
-      this._starterShopOk = true;
-      this._setStarterCratesAt(ax, ay);
-      return;
-    }
-    // No house on-screen. Don't synthesize until every tile the viewport overlaps
-    // is ready — otherwise we might be staring at a half-streamed map and would
-    // drop a trailer on top of a house that simply hadn't arrived. The viewport
-    // is tiny next to a tile, so this is the player's own tile, plus its
-    // neighbours when they sit near a tile edge (all kept loaded by
-    // ensureTilesAround). Check the four viewport corners.
-    const tileReadyAt = (offMx, offMy) => {
-      const { tx, ty } = localMetersToTile(this, anchor.x + offMx, anchor.y + offMy);
-      const t = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-      return t && (!t.status || t.status === 'ready');
-    };
-    for (const ox of [-HALF_VIEW_M, HALF_VIEW_M])
-      for (const oy of [-HALF_VIEW_M, HALF_VIEW_M])
-        if (!tileReadyAt(ox, oy)) return;        // a viewport tile is still streaming — wait
-    // Drop a trailer under the player.
-    this._makeStarterTrailer(ax, ay);
-    this._starterShopOk = true;
-    this._setStarterCratesAt(ax, ay);
-  }
-
   // WHERE HOME IS, in absolute world metres — the synthetic starter trailer's
   // own position, or the object of the real house adopted in its place (both
   // are save.starterShopId) — or null when Home isn't placed yet, or its tile
@@ -11300,15 +11004,17 @@ class MapScene extends Phaser.Scene {
   // lettuce on your doorstep while you rest there read as Home doing nothing.
   // Out past the ring the field is as exposed as it always was (scarecrows are
   // the answer there). It is a REASON on the raider's existing "may I eat
-  // this?" test, never a second lane: _crowRaids for the crow, the deer's
-  // graze filter for the deer.
+  // this?" test, never a second lane: _cropRaidable, which the deer's graze
+  // and the hard-mode pest pump both read.
   homeGuardsCrop(p) {
     return !!p && this.inHomeRing(p.x, p.y);
   }
-  // May a crow eat this crop? Its kind (Crops.crowEats — never potato) and
-  // where it grows (homeGuardsCrop). Every crow-side crop test reads this.
-  _crowRaids(p) {
-    return crowEatsCrop(p) && !this.homeGuardsCrop(p);
+  // May a raider (the deer) eat this crop? Its kind (Crops.raiderEats —
+  // never potato) and where it grows (homeGuardsCrop). Every crop-raid test
+  // — the deer's notice, its graze, the pest pump's "is there a field worth
+  // sending one at" — reads this and nothing else.
+  _cropRaidable(p) {
+    return raiderEatsCrop(p) && !this.homeGuardsCrop(p);
   }
 
   // Build a synthetic "trailer" house at (wmx, wmy), snapped to the cell-grid
@@ -11492,943 +11198,6 @@ class MapScene extends Phaser.Scene {
   _preseedRestoreRole(order, house) { return Houses.preseedRestoreRole(this.save, order, house); }
 
   _hasBlacksmith() { return Houses.hasBlacksmith(this.save); }
-
-  // The line and tier a themed shop (role key 'market') sells: its place in
-  // the save's restore order of shops, through Shops.themeAt — seed, supply,
-  // potion, ore, relic, pet, then round again a tier up. The tutorial's market
-  // (PRESEED_RESTORE_ROLES order 3) is the first shop, so it is still the
-  // beginner's T1 seed shop. The sign, the offer title, the restoration card
-  // and the stock all read this one answer.
-  marketTheme(house) {
-    if (house?.kind === 'npc') return { theme: house.shopTheme, tier: 1 };
-    return Shops.themeAt(Shops.shopOrder(this.save, house));
-  }
-
-  // Every restored delivery house currently asking for a bundle (not satisfied
-  // today), nearest first, with its wanted produce + distance in metres. Drives
-  // the delivery menu (openDeliveryMenu). Home / forts / castles / wrecks are
-  // excluded — only plain residential delivery houses appear.
-  knownDeliveryHouses() {
-    const pWX = this.startWorldM.x + this.playerM.x;
-    const pWY = this.startWorldM.y + this.playerM.y;
-    const out = [];
-    const seen = new Set();
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind !== 'house' || !o.id || seen.has(o.id)) continue;
-        if (o.tier === 11 || o.tier === 12) continue;             // forts / civic slabs
-        if (this.houseShopRole(o) !== null) continue;             // only plain (no shop role)
-        if (this._isHouseWreck && this._isHouseWreck(o)) continue; // still a wreck
-        if (this.isStarterShop(o)) continue;                      // home sells, doesn't ask
-        if (this.isHouseSatisfied(o)) continue;                   // fed once, happy for good
-        const wanted = this.wantedProduce(o);
-        if (!wanted.length) continue;
-        seen.add(o.id);
-        const dx = o.x - pWX, dy = o.y - pWY;
-        out.push({ id: o.id, x: o.x, y: o.y, wanted, dist: Math.hypot(dx, dy) });
-      }
-    }
-    out.sort((a, b) => a.dist - b.dist);
-    return out;
-  }
-
-  // Delivery list overlay: tap a row to aim the white waypoint arrow at that
-  // house. Opened from the ☰ menu's "Deliveries" button (wired in index.html).
-  openDeliveryMenu() {
-    const { wrap, box, mount, mkBtn } = this.makeModalShell('delivery-menu',
-      { textAlign: 'left', onClose: () => {}, kind: 'delivery' });
-    // No title line — the kind header already says DELIVERY.
-    const houses = this.knownDeliveryHouses();
-    if (!houses.length) {
-      const empty = document.createElement('div');
-      empty.style.cssText = 'opacity:.7;text-align:center;padding:10px 4px;font:12px ui-monospace,monospace;';
-      empty.textContent = 'No delivery requests nearby. Restore a house to start.';
-      box.appendChild(empty);
-    } else {
-      for (const h of houses) {
-        const row = document.createElement('button');
-        row.style.cssText =
-          'display:flex;align-items:center;gap:8px;width:100%;margin:3px 0;padding:8px;'
-          + 'background:#222a;border:2px solid #555;border-radius:6px;color:#fff;'
-          + 'cursor:pointer;font:12px ui-monospace,monospace;text-align:left;';
-        // Icons alone told you nothing: three unlabelled sprites and a
-        // distance, so you couldn't tell what a run needed, what it paid, or
-        // which of five rows you could actually complete. Name every item,
-        // show how many of each you're carrying against the one needed, and
-        // price the set.
-        const icons = h.wanted.map(id => this.iconSpanHTML(id)).join(' ');
-        const names = h.wanted.map(id => itemName(id)).join(' + ');
-        const have = h.wanted.map(id => Inventory.count(this.save, id));
-        const ready = have.every(n => n >= 1);
-        // Say what's MISSING rather than printing a have/need ratio per item —
-        // "5/1 Coal 5/1 Wood" parses as arithmetic, not as an answer to "can I
-        // do this run?".
-        const missing = h.wanted
-          .filter((id, i) => have[i] < 1)
-          .map(id => itemName(id));
-        const stock = missing.length ? `need ${missing.join(', ')}` : '✓ you have everything';
-        const setPrice = Math.max(1, Math.round(
-          h.wanted.reduce((sum, id) => sum + Math.max(1, PRICES[id] ?? 1), 0) * DELIVERY_BONUS_MULT));
-        row.innerHTML =
-          `<span style="flex:1;min-width:0;">`
-          + `<span style="display:flex;align-items:center;gap:4px;">${icons}`
-          + `<b style="font-weight:700;">${names}</b></span>`
-          + `<span style="display:block;font-size:11px;margin-top:2px;`
-          + `color:${ready ? 'var(--green)' : '#ddd'};opacity:${ready ? '1' : '.75'};">`
-          + `${stock}</span></span>`
-          + `<span style="white-space:nowrap;text-align:right;">`
-          + `<b style="color:var(--gold);">${this.moneyHTML(`+${setPrice}`)}</b><br>`
-          + `<span style="opacity:.7;font-size:11px;">${Math.round(h.dist)}m ›</span></span>`;
-        // A row you can complete right now reads as ready.
-        if (ready) row.style.borderColor = '#4a8c4a';
-        row.addEventListener('click', (e) => {
-          e.stopPropagation();
-          // Point the white waypoint arrow at this house (cleared automatically
-          // once the player reaches it or it's satisfied — see the update loop).
-          this.deliveryCompass = { id: h.id, x: h.x, y: h.y };
-          wrap.remove();
-          this.flash('following the white arrow', this.viewCenterX, this.viewCenterY);
-        });
-        box.appendChild(row);
-      }
-    }
-    // Every other modal ends in a button; this one was backdrop-tap only, on a
-    // box that fills most of the width.
-    const close = mkBtn('Close');
-    close.style.marginTop = '10px';
-    close.style.width = '100%';
-    close.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
-    box.appendChild(close);
-    mount();
-  }
-
-  findStarterBlacksmithId() {
-    // Resolve the starter shop first — needed both to anchor the search and
-    // to exclude it from the candidate list. Goes through the guarded
-    // resolver so a half-streamed map can't anchor the smithy across town.
-    this.ensureStarterShopId();
-    const starterId = this.save.starterShopId;
-    // Anchor the distance search at the starter house's world position when
-    // it's loaded; otherwise fall back to the player's spawn so the choice
-    // converges to the same answer once tiles around home stream in.
-    let fromPos = this.startWorldM;
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind === 'house' && o.id === starterId) {
-          fromPos = { x: o.x, y: o.y }; break;
-        }
-      }
-    }
-    // Closest small house (BUILDING tier) to the starter, excluding the
-    // starter itself. Skip forts and castles so a civic building next door
-    // doesn't get re-skinned as a smithy.
-    let bestId = null, bestD2 = Infinity;
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind !== 'house' || !o.id || o.id === starterId) continue;
-        if (o.tier && WorldGen?.T?.BUILDING != null && o.tier !== WorldGen.T.BUILDING) continue;
-        const dx = o.x - fromPos.x, dy = o.y - fromPos.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < bestD2) { bestD2 = d2; bestId = o.id; }
-      }
-    }
-    return bestId;
-  }
-
-  // Forced scarecrow shop. The next house out past the starter blacksmith
-  // (so: Home is nearest, smithy is 2nd, this is 3rd) is pinned as a one-time
-  // scarecrow vendor — the player begins with no scarecrow now, so this is
-  // where they buy their first crow/deer ward. Memoized like the blacksmith.
-  // Sells a single scarecrow for cash, then reverts to a normal house (see
-  // save.scarecrowShopUsed).
-  isScarecrowShop(house) {
-    if (!house || !house.id) return false;
-    if (this.save.scarecrowShopId == null) {
-      const id = this.findScarecrowShopId();
-      if (id) this.save.scarecrowShopId = id;
-    }
-    return this.save.scarecrowShopId === house.id;
-  }
-
-  findScarecrowShopId() {
-    // Anchor at the blacksmith (resolving it first) and exclude both Home and
-    // the smithy, so the nearest remaining small house becomes the scarecrow
-    // shop — one house further out than the smithy. Same guarded-resolver +
-    // BUILDING-tier filter as findStarterBlacksmithId.
-    this.ensureStarterShopId();
-    const starterId = this.save.starterShopId;
-    const smithId = this.save.starterBlacksmithId != null
-      ? this.save.starterBlacksmithId : this.findStarterBlacksmithId();
-    // Anchor the search at the smithy when it's loaded, else fall back to spawn
-    // so the choice converges once tiles around home stream in.
-    let fromPos = this.startWorldM;
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind === 'house' && o.id === smithId) {
-          fromPos = { x: o.x, y: o.y }; break;
-        }
-      }
-    }
-    let bestId = null, bestD2 = Infinity;
-    for (const e of WorldGen.tileCache.values()) {
-      for (const o of (e.objects || [])) {
-        if (o.kind !== 'house' || !o.id) continue;
-        if (o.id === starterId || o.id === smithId) continue;
-        if (o.tier && WorldGen?.T?.BUILDING != null && o.tier !== WorldGen.T.BUILDING) continue;
-        const dx = o.x - fromPos.x, dy = o.y - fromPos.y;
-        const d2 = dx * dx + dy * dy;
-        if (d2 < bestD2) { bestD2 = d2; bestId = o.id; }
-      }
-    }
-    return bestId;
-  }
-
-  // The two random wooden relics this smithy offers. Chosen once from
-  // STARTER_SMITH_SLOTS and memoized in save.starterSmithSlots so reloads +
-  // re-taps keep the same pair. (A migration concern: older saves that
-  // already forged pick/axe under the fixed queue just see whichever of the
-  // two they don't yet own — owned slots are skipped in starterBlacksmithOffer.)
-  starterSmithSlots() {
-    if (!Array.isArray(this.save.starterSmithSlots) || this.save.starterSmithSlots.length !== 2) {
-      // Shuffle the pool, take the first two for a distinct random pair.
-      const pool = shuffleInPlace([...STARTER_SMITH_SLOTS]);
-      this.save.starterSmithSlots = [pool[0], pool[1]];
-      persistSave(this.save);
-    }
-    return this.save.starterSmithSlots;
-  }
-
-  // Recipes the starter blacksmith trades for wooden tools. Every T1 item
-  // costs a flat 5 wood — wood drops from ground stacks sprinkled near the
-  // starting area (no tool needed), from chopping shrubs (bare-handed slow
-  // chop), and from chopping trees (axe). The starter crate seeds the first
-  // 5 wood so the player can forge their first tool immediately.
-  starterBlacksmithRecipe(slot) {
-    if (STARTER_SMITH_SLOTS.includes(slot)) {
-      return [{ id: 'wood', qty: 5 }];
-    }
-    return null;
-  }
-
-  // Next of the two random wooden tools the player still needs. Returns null
-  // once both are owned so the caller falls through to the normal random-relic
-  // forge — the smithy keeps doing useful business after the starter pair.
-  starterBlacksmithOffer() {
-    for (const slot of this.starterSmithSlots()) {
-      if (!(this.save.relics?.[slot]?.tier)) {
-        return { kind: 'relic', slot, tier: 1 };
-      }
-    }
-    return null;
-  }
-
-  // ─── Deliveries: plain houses only buy specific produce ──────────────
-  // UTC day stamp ("YYYYMMDD") — the ONE day key every day-gated thing on the
-  // scene reads (delivery wishlists + happy state, the coin-burst POI cap, the
-  // castle favour), so every "back in <wait>" counts down to the same rollover
-  // (msToNextUtcDay).
-  // Delivery wishlist logic lives in delivery.js (headlessly tested). These stay
-  // as scene methods because render.js + the interact/present handlers call them
-  // as scene.wantedProduce(o) / scene.isHouseSatisfied(o) / etc. The day key
-  // itself is utcDayKey(), asked directly.
-
-  // 1-3 produce ids this plain house wants — locked to its FIRST ask for the
-  // life of the house (pinned in save.houseWishlists by delivery.js, cached on
-  // the house so the render sign and interact handler agree). The first
-  // restored houses walk delivery.js's scripted ladder, which opens with five
-  // single-item asks before any bundle.
-  wantedProduce(house) {
-    return Delivery.wantedProduce(this.save, house);
-  }
-
-  // True once this house has had a bundle delivered — it is happy for good.
-  isHouseSatisfied(house) {
-    return Delivery.isSatisfied(this.save, house);
-  }
-
-  // Delivery interaction. Plain houses buy a SET — they want one of EACH of
-  // their 1-3 wanted produce, delivered together. Tap with the full set in
-  // your bags → deliver 1 of each per set for the summed full price (no sword
-  // sellMul, no specialty bonus); the quantity selector lets you turn in
-  // multiple complete sets at once. Tap without the full set → flash what is
-  // still MISSING from it, so the player sees what is left to gather. Selling a produce the
-  // house didn't ask for isn't accepted here; that keeps plain houses distinct
-  // from markets.
-  //
-  // The opening ladder (delivery.js SCRIPTED_WISHLISTS) makes the first houses
-  // ask for ONE item, and a one-item wishlist isn't a "set" — the copy below
-  // drops the set wording (and the "sets" stepper unit) in that case, so the
-  // first errand reads "1 × [ Potato ]" rather than "1 set × [ Potato ]".
-  presentDeliveryOffer(sx, sy, house, recordDeal) {
-    // Already fed — one delivery per house, ever. The household stays happy
-    // (and its callout stays a smiling face) for good.
-    if (this.isHouseSatisfied(house)) {
-      this.flash('A happy household.', sx, sy);
-      return;
-    }
-    const wanted = this.wantedProduce(house);
-    if (!wanted.length) { this.flash('Nobody home.', sx, sy); return; }
-    const single = wanted.length === 1;
-    const invCount = (id) => Inventory.count(this.save, id);
-    // Full set requires at least one of every wanted item. maxSets is how many
-    // complete sets the current bags can fulfil (0 if any item is missing).
-    // …and never more than DELIVERY_MAX_SETS: the household is fed once, for
-    // good, so the one hand-over is the whole of what it will ever pay.
-    const maxSets = Math.min(DELIVERY_MAX_SETS,
-      wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity));
-    const setIcons = wanted.map(id => this.iconSpanHTML(id)).join(' ');
-    if (!maxSets) {
-      // Only what is still missing — not the whole list (Delivery.missingLine).
-      const { line } = Delivery.missingLine(wanted, invCount, id => itemName(id));
-      this.flash(line, sx, sy);
-      return;
-    }
-    // Price of one complete set = sum of each wanted item's full price, plus a
-    // delivery premium (DELIVERY_BONUS_MULT) so delivering the set beats selling
-    // the items individually. Drives both the modal display and the payout.
-    const setPrice = Math.max(1, Math.round(
-      wanted.reduce((sum, id) => sum + Math.max(1, PRICES[id] ?? 1), 0) * DELIVERY_BONUS_MULT));
-    // Name the goods rather than showing bare ~20px icons against 13px body
-    // text, and say what the stepper counts.
-    const setNames = wanted.map(id => itemName(id)).join(' + ');
-    const fmt = (q) => ({
-      get: this.moneyHTML(`+${setPrice * q}`),
-      cost: single
-        ? `${q} × [ ${setIcons} ${setNames} ]`
-        : `${q} ${q === 1 ? 'set' : 'sets'} × [ ${setIcons} ${setNames} ]`,
-      canAfford: true,
-    });
-    const first = fmt(1);
-    this.showOfferModal({
-      kind: 'delivery',
-      // The title captions the `get` line (the coins), so it names what the
-      // household OFFERS — "wants: +$5" read as the house asking for money.
-      // What it wants is the cost line, whose "set" wording covers a bundle.
-      title: 'The household offers:',
-      cancelLabel: 'Later',
-      get: first.get,
-      cost: first.cost,
-      canAfford: true,
-      acceptLabel: 'Deliver',
-      quantity: { min: 1, max: maxSets, initial: 1, format: fmt },
-      onAccept: (q) => {
-        // Re-validate against live bags so a stale modal can't over-deliver.
-        const sets = Math.max(1, Math.min(q ?? 1, DELIVERY_MAX_SETS,
-          wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity)));
-        if (!sets || sets === Infinity) {
-          this.flash(single ? 'Nothing to deliver now.' : 'Set incomplete now.', sx, sy);
-          return;
-        }
-        for (const id of wanted) Inventory.remove(this.save, id, sets);
-        this._clampSelSlot();
-        const gain = setPrice * sets;
-        addMoney(this.save, gain);
-        // Lifetime delivery tally — each completed SET counts as one delivery.
-        // Gates the castle vault and ramps the delivery produce tier (see
-        // delivery.js / shopGateInfo). The FIRST delivery ever is also a
-        // story moment, so catch the tally before it moves off zero.
-        const wasFirstDelivery = (this.save.deliveryCount ?? 0) === 0;
-        this.save.deliveryCount = (this.save.deliveryCount ?? 0) + sets;
-        // One household served — a castle job may be counting them.
-        this.questEvent('deliver');
-        // The FIRST delivery to this household is a discovery: one memory
-        // per house, ever, through the same ledger a shiny find uses
-        // (keyed `house:<id>` so a house can't collide with an item id).
-        const firstHere = this._bankDiscovery(`house:${house.id}`,
-          'a first delivery to a new household');
-        // That ledger key IS the household's "fed" record (Delivery.isSatisfied
-        // reads it): it stops asking and shows a smiling face for good.
-        recordDeal();
-        this._finishInventoryChange();
-        this.flashLoot(`+${gain}`, '#ffe066', 1, wanted[0]);
-        // A new door gets the same fanfare as any other memory — the
-        // shiny-find banner + burst, not a bare flash — so every "first time"
-        // moment in the game reads the same way (see the elite-kill call site).
-        if (firstHere) this.flashShiny(gain, true, '🏠 NEW DOOR 🏠');
-        if (wasFirstDelivery) {
-          this._storySplashOnce('delivery', {
-            art: 'delivery_first',
-            title: 'First delivery',
-            body: 'A neighbour pays coin for your produce bundle and very nearly smiles.',
-          });
-        }
-      },
-    });
-  }
-
-  // Read the persisted offer for this house if set, else build a new one and
-  // persist. Persisting means the same offer "stays on display" until the
-  // player either buys it, rerolls it, or (for non-castle shops) leaves and
-  // the cap resets it. Castle offers persist forever and rotate on purchase.
-  //
-  // ─── Shop readiness helpers ─────────────────────────────────────
-  // Shop hour-bucket scheduling + the seeded per-bucket RNG live in
-  // shops_math.js (ShopsMath.*); these stay as scene methods because the present*
-  // handlers + the renderer's ready/timer indicator call them as this.shopX(…).
-  shopDealCap(house) {
-    return ShopsMath.dealCap(house, this.isStarterBlacksmith(house));
-  }
-  shopReadiness(house) {
-    return ShopsMath.readiness(this.save, house, this.shopDealCap(house));
-  }
-  // "How long until this house has something new" in the shared largest-unit
-  // notation ("47m", "1h"). Offers and deal caps both roll on the house's own
-  // hourly bucket, so one label serves the busy plaque, the busy tap and the
-  // blacksmith's resting anvil — which is not rate-limited but is waiting on
-  // exactly the same rollover.
-  // Returns the whole clause ("in 47m", or "later" when there is no bucket to
-  // count to — a synthetic building with no id), so the sentence still reads
-  // either way rather than promising "in 0s".
-  shopWaitLabel(house) {
-    const ms = ShopsMath.msToNextBucket(house);
-    return ms > 0 ? `in ${shortDuration(ms)}` : 'later';
-  }
-  // Flower charm multiplier — see Houses.shopCharmMul.
-  shopCharmMul(house) { return Houses.shopCharmMul(this.save, house); }
-  shopBucketState(house) {
-    return ShopsMath.bucketState(this.save, house);
-  }
-  shopRng(house, lane = '') {
-    return ShopsMath.rng(this.save, house, lane);
-  }
-
-  // Build a relic/armor offer for a specific house, derived purely from the
-  // seeded RNG so the same shop in the same bucket always shows the same
-  // offer — no need to persist the offer object. Re-roll bumps cur.rerolls
-  // which pivots the seed lane.
-  // opts.maxTier caps the roll at a themed relic shop's tier (Gear.buildRelicOffer).
-  peekOrBuildRelicOffer(house, opts = {}) {
-    const castle = isCastle(house);
-    const isBlacksmith = !castle && this.houseShopRole(house) === 'blacksmith';
-    if (!house?.id) return this.buildRelicOffer(Math.random, { isCastle: castle, isBlacksmith, ...opts });
-    const rng = this.shopRng(house, 'relic');
-    return this.buildRelicOffer(rng, { isCastle: castle, isBlacksmith, ...opts });
-  }
-
-  // Pick a random relic OR armor piece the player can actually use — meaning
-  // their current slot is empty or holds a strictly lower tier. Returns null
-  // if no upgrade is possible (caller falls through to the usual seed offer).
-  // Tier is biased low so most offers are wood/copper; rare materials are rare.
-  // `rng` defaults to Math.random — pass a seeded one for stable per-bucket offers.
-  buildRelicOffer(rng = Math.random, opts = {}) {
-    // Relic/armor offer roll lives in gear.js (Gear.buildRelicOffer) — armor +
-    // relic pools normalised to ~50% airtime each, low-tier biased, castle vs
-    // regular pricing. Kept as a scene method so peekOrBuildRelicOffer (which
-    // threads the seeded shopRng) calls it the same way. The Ring is excluded
-    // there (it's the wizard tower's exclusive gift — the Keen Eye track of
-    // src/wizard.js).
-    return Gear.buildRelicOffer(this.save, rng, opts);
-  }
-
-  // Build the "Re-roll" secondary button shared by the relic and blacksmith
-  // offers. Both pivot the same seed lane (curState.rerolls) and pull the next
-  // target from peekOrBuildRelicOffer; they differ only in the "nothing left"
-  // flash text and which present* method re-renders. Cost = 5 × 2^rerolls,
-  // unless `opts.cost` says otherwise (the smithy: ShopsMath.smithyRerollCost).
-  // (The trader offer's re-roll is structurally different — it has no peek
-  // step — so it stays inline in presentTraderOffer.)
-  // A themed shop rides the same button with its own `opts.cost` (the cheaper
-  // ShopsMath.themedRerollCost) and `opts.peek` (its next item, or its capped
-  // relic roll).
-  _makeRerollSecondary(house, sx, sy, emptyMsg, present, opts = {}) {
-    const curState = house?.id ? this.shopBucketState(house) : null;
-    const n = curState?.rerolls || 0;
-    const rerollCost = opts.cost ? opts.cost(n) : 5 * Math.pow(2, n);
-    const peek = opts.peek || (() => this.peekOrBuildRelicOffer(house));
-    return {
-      label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">${this.moneyHTML(rerollCost, 12)}</span>`,
-      disabled: (this.save.money ?? 0) < rerollCost,
-      onClick: () => {
-        if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need ${rerollCost}.`, sx, sy); return; }
-        if (curState) curState.rerolls += 1;
-        const next = peek();
-        if (!next) { this.flash(emptyMsg, sx, sy); return; }
-        addMoney(this.save, -rerollCost);
-        persistSave(this.save);
-        this.updateHUD();
-        present(next);
-      },
-    };
-  }
-
-  // A THEMED SHOP's visit: one item from its line at its tier (marketTheme),
-  // seeded on the shop's hour like every offer, priced through buildShopOffer
-  // (the 1.2–3.0× markup over PRICES, so a shop always asks above list), with a
-  // re-roll that starts at $2 and grows ×1.5 (ShopsMath.themedRerollCost). The
-  // relic line hands off to the relic offer — capped at the shop's tier, never
-  // at or below what the player wears — with the same cheap re-roll.
-  presentThemedShop(sx, sy, house, recordDeal) {
-    const { theme, tier } = this.marketTheme(house);
-    const cost = ShopsMath.themedRerollCost;
-    if (theme === 'relic') {
-      const peek = () => this.peekOrBuildRelicOffer(house, { maxTier: tier });
-      const offer = peek();
-      if (!offer) { this.flash('Nothing here beats your kit.', sx, sy); return; }
-      this.presentRelicOffer(sx, sy, offer, recordDeal, house, true, { cost, peek });
-      return;
-    }
-    const id = this.themedShopPick(house);
-    if (!id) { this.flash(`No stock. Back ${this.shopWaitLabel(house)}.`, sx, sy); return; }
-    this._presentThemedItem(sx, sy, house, recordDeal, id);
-  }
-
-  // The item a themed shop is selling right now — its own seeded lane, so it
-  // holds for the hour and a re-roll (which bumps the bucket's rerolls, part
-  // of the seed) moves it on.
-  themedShopPick(house) {
-    const { theme, tier } = this.marketTheme(house);
-    const rng = house?.id ? this.shopRng(house, 'theme') : Math.random;
-    return Shops.pickThemed(theme, tier, rng);
-  }
-
-  // How many items this themed shop can stock — the list themedShopPick
-  // draws from.
-  _themedStockCount(house) {
-    const { theme, tier } = this.marketTheme(house);
-    return Shops.themedStock(theme, tier).length;
-  }
-
-  _presentThemedItem(sx, sy, house, recordDeal, id) {
-    const item = ITEM_BY_ID[id];
-    const offer = this.buildShopOffer(id, itemValue(id), { house });
-    // One unit, as every cash buy — low-tier seeds keep their bulk bonus.
-    const buyQty = 1 + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0);
-    this.showOfferModal({
-      kind: 'shop',
-      title: this.buildingFlavorTitle(house, 'buy'),
-      ...NPC.offerArt(this, house),
-      cancelLabel: 'Later',
-      get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
-      cost: offer.label,
-      canAfford: offer.canAfford() && this.invRoomFor(id) >= buyQty,
-      onAccept: () => {
-        if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
-        if (this.invRoomFor(id) < buyQty) {
-          this.flash(`Bag full for ${item?.name || id}.`, sx, sy);
-          return;
-        }
-        offer.consume();
-        this.addToInv(id, buyQty, false, { notWild: true, deferRefresh: true });
-        recordDeal();
-        this._finishInventoryChange();
-        this.flashLoot(`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
-      },
-      // A re-roll can only land on another item of the same stock, so a line
-      // that carries ONE item at this tier (an ore shop is one bar a tier)
-      // has nothing to re-roll to — paying would hand back the same item.
-      secondary: this._themedStockCount(house) > 1
-        ? this._makeRerollSecondary(house, sx, sy, 'Shelves are bare for now.',
-            (nextId) => this._presentThemedItem(sx, sy, house, recordDeal, nextId),
-            { cost: ShopsMath.themedRerollCost, peek: () => this.themedShopPick(house) })
-        : undefined,
-    });
-  }
-
-  // Present a relic/armor offer. Re-roll is only shown at castles — regular
-  // houses + the starter shop hide it. The offer is derived from the bucket
-  // seed via peekOrBuildRelicOffer, so no per-tap persistence is needed; the
-  // re-roll button bumps cur.rerolls which pivots the seed lane.
-  presentRelicOffer(sx, sy, offer, recordDeal, house, allowReroll = false, rerollOpts = {}) {
-    const name = gearName(offer.kind, offer.slot, offer.tier);
-    const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
-    const blurb = gearDef(offer.kind, offer.slot)?.blurb || '';
-    // Flower charm halves the asking price for the charm window (floor $1).
-    const price = Math.max(1, Math.ceil(offer.price * this.shopCharmMul(house)));
-    this.showOfferModal({
-      kind: 'relics',
-      title: this.buildingFlavorTitle(house, 'relic'),
-      cancelLabel: 'Later',
-      get: `${iconHtml} ${name}`,
-      blurb,
-      cost: this.moneyHTML(price),
-      canAfford: (this.save.money ?? 0) >= price,
-      acceptLabel: 'Buy',
-      onAccept: () => {
-        // Last-chance downgrade guard — by the time the player taps Buy, the
-        // slot may have been upgraded elsewhere (chest reward, another shop).
-        const curTier = offer.kind === 'relic'
-          ? (this.save.relics?.[offer.slot]?.tier ?? 0)
-          : (this.save.armor?.[offer.slot]?.tier ?? 0);
-        if (offer.tier <= curTier) { this.flash('Already carry a finer one.', sx, sy); return; }
-        if ((this.save.money ?? 0) < price) { this.flash(`Purse too light — need ${price}.`, sx, sy); return; }
-        addMoney(this.save, -price);
-        this._equipGear(offer.kind, offer.slot, offer.tier);
-        this.markRelicsDirty();
-        recordDeal();
-        persistSave(this.save);
-        this.updateHUD();
-        this.flashLoot(`${name}\n−${price}`, '#ffe066', 1.25);
-      },
-      // Pivot the seed lane so the next peekOrBuildRelicOffer returns
-      // something else — no per-house cache to invalidate.
-      secondary: allowReroll
-        ? this._makeRerollSecondary(house, sx, sy, 'Stalls are empty for now.',
-            next => this.presentRelicOffer(sx, sy, next, recordDeal, house, true, rerollOpts), rerollOpts)
-        : undefined,
-    });
-  }
-
-  // Blacksmiths (houses with an address ending in 9) forge a relic for
-  // exactly 5 of a gem they pick. Gem type is deterministic per house so a
-  // smith always demands the same stone; relic comes from peekOrBuildRelicOffer
-  // so it's stable until bought. Reuses the generic showOfferModal — same UI
-  // as cash/barter trades, just with a gem cost.
-  // Blacksmith recipe lookup. Returns an array of { id, qty } ingredient
-  // entries for forging the given (kind, slot, tier) relic/armor. Recipe
-  // rules:
-  //   • Tools / weapons / armor / utility — pay max(5, tier) of the
-  //     tier-matched bar. The low tiers (T1 wood, T2 copper, T3 iron,
-  //     T4 gold, T5 platinum) all cost 5; crimson (T6) / frost (T7) keep
-  //     ramping to 6 / 7 so nothing high-tier got cheaper. T2..T4 bars are
-  //     mined; T5..T7 bars (platinum / crimson / frost) are SMELTED from
-  //     their flowers, so the flower bond is implicit through the bar req.
-  //   • Jewelry slots (ring / staff / amulet) - geometric gem cost
-  //     (1, 2, 4, 8, 16 from T2..T6) of the slot-specific gem:
-  //       ring -> ruby, staff -> emerald, amulet -> sapphire
-  //     plus 1 of the tier-matched bar. Every T7 slot uses 32 diamonds.
-  // (The starter shop's T1 wooden pick / axe / hoe use a separate cheap
-  // bootstrap recipe — see starterBlacksmithRecipe — and don't pass here.)
-  // Forge + smelt recipes live in gear.js and the present* shop modals call
-  // Gear.blacksmithRecipe / Gear.smeltingRecipe / Gear.smeltUnlockedBars
-  // directly — three scene methods that only forwarded are gone.
-
-  // Smelt tab at the blacksmith. Focuses ONE unlocked top bar at a time, with a
-  // quantity stepper, consuming the recipe ingredients to mint bars. The
-  // modal's ‹ › `pager` pages through the other unlocked bars, and a Forge /
-  // Smelt tab row (forgeBack re-opens the forge tab) lets the player toggle
-  // back without leaving the shop. `target` defaults to the highest unlocked
-  // bar the player can currently afford, so the modal opens on something usable.
-  presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, target = null) {
-    const bars = Gear.smeltUnlockedBars();
-    const heldCount = (id) => Inventory.count(this.save, id);
-    const consume = (id, n) => {
-      Inventory.remove(this.save, id, n);
-      this._clampSelSlot();
-    };
-    const tabs = [
-      { label: 'Forge', active: false, onSelect: forgeBack },
-      { label: 'Smelt', active: true,  onSelect: () => {} },
-    ];
-    if (!bars.length) {
-      this.showOfferModal({
-        kind: 'forge',
-        title: 'Nothing to smelt',
-        cancelLabel: 'Later',
-        get: 'No ingredients yet',
-        blurb: 'The crucible waits for something worth melting.',
-        cost: '',
-        canAfford: false,
-        acceptLabel: 'Close',
-        tabs,
-        onAccept: () => {},
-      });
-      return;
-    }
-    // Default focus: highest unlocked bar the player can afford ≥1 of, else
-    // the highest unlocked. An explicit `target` (from the rotate button) wins
-    // as long as it's actually unlocked. Prefer the highest unlocked bar the
-    // player can actually afford ≥1 of, so the modal opens on something usable
-    // rather than a bar they lack ingredients for (the pager still
-    // reaches the others).
-    if (!target || !bars.includes(target)) {
-      target = bars.slice().reverse().find(id =>
-        Gear.smeltingRecipe(id).every(r => heldCount(r.id) >= r.qty)) || bars[bars.length - 1];
-    }
-    const recipe = Gear.smeltingRecipe(target);
-    const outItem = ITEM_BY_ID[target];
-    // Max smeltable — the same count Home's Craft page uses (items.js
-    // recipeCap, which also makes an empty recipe 0 rather than unbounded).
-    const cap = recipeCap(recipe, heldCount);
-    const recipeLine = (n) => recipe.map(r => {
-      const it = ITEM_BY_ID[r.id];
-      const ok = heldCount(r.id) >= r.qty * n;
-      return `<span style="color:${ok ? '#a7ffb0' : '#ff8a7a'}">`
-        + `${r.qty * n}× ${this.iconSpanHTML(r.id)} ${it?.name || r.id}</span>`;
-    }).join(' + ');
-    // The ‹ › pager walks the unlocked bars (wraps around).
-    const idx = bars.indexOf(target);
-    const pageTo = (id) => () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, id);
-    const fmt = (n) => ({
-      get: smithyPreviewHTML(this.iconSpanHTML(target, SMITHY_PREVIEW_PX), `${n}× ${outItem?.name || target}`),
-      cost: recipeLine(n),
-      canAfford: cap >= n && n >= 1,
-    });
-    const first = fmt(1);
-    this.showOfferModal({
-      kind: 'forge',
-      cancelLabel: 'Later',
-      get: first.get,
-      cost: cap >= 1 ? first.cost : recipeLine(1),
-      canAfford: cap >= 1,
-      acceptLabel: 'Smelt',
-      costLabel: 'You give',
-      tabs,
-      quantity: cap >= 1 ? { min: 1, max: cap, initial: 1, format: fmt } : undefined,
-      pager: {
-        index: idx, count: bars.length,
-        onPrev: pageTo(bars[(idx - 1 + bars.length) % bars.length]),
-        onNext: pageTo(bars[(idx + 1) % bars.length]),
-      },
-      onAccept: (n) => {
-        const q = clamp(n ?? 1, 1, cap);
-        if (q < 1 || !recipe.every(r => heldCount(r.id) >= r.qty * q)) {
-          // Name the ingredient and the shortfall — 'not enough to smelt'
-          // made the player close the modal and count their own bag, with
-          // the recipe line right there on screen in red.
-          const missing = recipe.find(r => heldCount(r.id) < r.qty * q);
-          const short = missing ? (missing.qty * q) - heldCount(missing.id) : 0;
-          const name = missing ? itemName(missing.id) : '';
-          this.flash(missing ? `Need ${short} more ${name}`
-                             : 'Not enough to smelt.', sx, sy);
-          return;
-        }
-        for (const r of recipe) consume(r.id, r.qty * q);
-        this.addToInv(target, q, false, { notWild: true, deferRefresh: true });
-        recordDeal();
-        this._finishInventoryChange();
-        this.flashLoot(`✨ ${outItem?.name || target} ×${q}`, '#ffe066', 1.25, target);
-      },
-    });
-  }
-
-  // ─── Wizard tower: memories into power ──────────────────────────
-  // The wizard draws power from the player's MEMORIES (save.memories, the
-  // unspent count — memoriesUnspent) and turns it into rungs of power. What
-  // is on the table is src/wizard.js's business, never re-derived here:
-  //   • Wizard.offers(save) — TWO track offers a visit (Inner Light, Full
-  //     Measure, Keen Eye, Vigour; seeded, stable until a purchase), or all
-  //     four CLASS offers when the calling is due (the third purchase).
-  //   • Wizard.buy(save, key, { spend }) — re-validates the pick against the
-  //     LIVE table and the LIVE count, writes the rung / calling, and tells
-  //     us what is still ours to do: `equip` (the Keen Eye Ring, through
-  //     _equipGear) and `energyCap` (Vigour raises Energy.maxEnergy).
-  //
-  // ONE WRITER. buy() is handed spendMemories as its `spend` hook, so the
-  // counter still goes down in exactly one place on the scene (which
-  // repaints the HUD chip and persists); buy() only decrements save.memories
-  // itself when no hook is given (the headless wizard.test.js).
-  //
-  // The Ring is still the wizard's EXCLUSIVE gift: gear.js buildRelicOffer
-  // skips the slot, so no shop, smithy or castle ever sells one.
-  presentWizardOffer(sx, sy, recordDeal) {
-    const offers = Wizard.offers(this.save);
-    if (!offers.length) {
-      this.flash('The wizard has nothing left.', sx, sy);
-      return;
-    }
-    const have = this.memoriesUnspent();
-    const calling = offers[0].kind === 'class';
-    const mem = (px) => this.iconSpanHTML('memory', px);
-    const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { onClose: () => {}, kind: 'wizard' });
-    const intro = document.createElement('div');
-    intro.style.cssText = 'font-size:13px;margin-bottom:4px;color:#ffe066';
-    intro.textContent = Wizard.INTRO;
-    box.appendChild(intro);
-    const ask = document.createElement('div');
-    ask.style.cssText = 'opacity:.75;font-size:11px;margin-bottom:6px';
-    ask.textContent = calling ? 'Choose your calling — once, for good:'
-                              : 'He offers you a choice:';
-    box.appendChild(ask);
-    const purse = document.createElement('div');
-    purse.className = 'wizard-memories';
-    purse.style.cssText = 'font-size:12px;margin-bottom:10px';
-    purse.innerHTML = `${mem(14)} ${have} unspent ${have === 1 ? 'memory' : 'memories'}`;
-    box.appendChild(purse);
-    // The choices: side by side (two tracks), a 2×2 grid (four callings), or
-    // one card when a single track is left. Each card is the button.
-    const grid = document.createElement('div');
-    grid.className = 'wizard-choices';
-    grid.style.cssText = 'display:grid;gap:8px;margin-bottom:10px;'
-      + `grid-template-columns:${offers.length > 1 ? '1fr 1fr' : '1fr'};`;
-    for (const o of offers) {
-      const card = document.createElement('button');
-      card.className = 'wizard-choice';
-      card.dataset.key = o.key;
-      card.style.cssText =
-        'display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 6px;'
-        + 'border-radius:8px;border:2px solid ' + (o.canAfford ? UI_CONTROL_DIM : '#444') + ';'
-        + 'background:#231d16;color:#fff;font:12px ui-monospace,monospace;cursor:pointer;';
-      const what = o.sub;
-      card.innerHTML =
-        `<div style="font-size:24px;line-height:1.1">${o.icon}</div>`
-        + `<div style="font-weight:700;color:#ffe066">${o.title}</div>`
-        + `<div style="font-size:11px;line-height:1.3">${what}</div>`
-        + `<div style="margin-top:2px;font-weight:700">${mem(12)} ${o.cost}</div>`;
-      if (!o.canAfford) {
-        card.disabled = true;
-        card.style.opacity = '0.4';
-        card.style.cursor = 'not-allowed';
-      }
-      card.addEventListener('click', (e) => {
-        e.stopPropagation();
-        wrap.remove();
-        this._buyWizardOffer(o.key, sx, sy, recordDeal);
-      });
-      grid.appendChild(card);
-    }
-    box.appendChild(grid);
-    const later = mkBtn('Later', false, false);
-    later.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
-    box.appendChild(later);
-    mount();
-  }
-
-  // The purchase behind a wizard card. Wizard.buy re-reads the live table
-  // and the live count (so a modal left open can't buy a rung already taken
-  // or overspend), and pays through spendMemories — the scene's one writer.
-  _buyWizardOffer(key, sx, sy, recordDeal) {
-    const shown = Wizard.offers(this.save).find((o) => o.key === key);
-    if (!shown) { this.flash('The wizard has moved on.', sx, sy); return null; }
-    if (this.memoriesUnspent() < shown.cost) { this.flash('Not enough memories.', sx, sy); return null; }
-    const r = Wizard.buy(this.save, key, { spend: (n) => this.spendMemories(n) });
-    if (!r) { this.flash('The wizard has moved on.', sx, sy); return null; }
-    if (r.equip) this._equipGear(r.equip.kind, r.equip.slot, r.equip.tier);
-    recordDeal();
-    // The reach silhouette redraws every frame from reachRadiusM, so a wider
-    // reach shows on the next frame with no explicit invalidation; a Vigour
-    // rung moves Energy.maxEnergy, which the gauge reads live.
-    persistSave(this.save);
-    if (this.buildInventoryDOM) this.buildInventoryDOM();
-    if (this.updateMemoriesDOM) this.updateMemoriesDOM();
-    if (r.energyCap && this.updateEnergyDOM) this.updateEnergyDOM();
-    const o = r.offer;
-    this.showChestRewardModal({
-      kind: 'wizard',
-      header: o.header,
-      iconHTML: `<span style="font-size:40px;line-height:1">${o.icon}</span>`,
-      name: o.name,
-      sub: o.sub,
-      color: UI_TREASURE,
-    });
-    return r;
-  }
-
-  // ─── Reach / Inner Light cap ─────────────────────────────────────
-  // Six +0.5-cell steps carry reach from 2 cells to 5. They're claimed
-  // EXCLUSIVELY at the wizard tower's Inner Light track (src/wizard.js,
-  // which owns the number).
-  get REACH_UPGRADE_MAX() { return Wizard.REACH_UPGRADE_MAX; }
-
-  // Trader offer: barter-only, qty scaled to a target trade value. The trader
-  // picks an item to give the player, picks an asking item from inventory,
-  // then asks for whatever count of it hits a target value (1.0..2.0× of the
-  // offered item's base price). Seeded by (house, bucket, rerolls) so the
-  // offer is stable until the player buys, walks away through a bucket flip,
-  // or pays the re-roll cost.
-  //
-  // The GIVE side is drawn first and on its own (traderGivePick) because the
-  // sign over the roof names the trader for it — "Rockfruit Trader" (render.js
-  // _houseSignText via Shops.roleLabel). Both read the same pick off the same
-  // rng lane, so the sign can't advertise a different item than the modal
-  // hands over; the ask side is drawn afterwards from the same stream, so the
-  // offer itself is unchanged by the split.
-  // A storefront's fixed per-house seed (the produce-vs-seeds flip, and the
-  // trader's sign). Hashed off the house's ID — generated from tile + cell or
-  // its OSM id — never its x/y: those are frame metres, and the frame is per
-  // save, so a position hash gave the same shop a different trade in every
-  // player's world (CLAUDE.md "Every player sees the SAME generated world").
-  // 0 for a house with no id (the unseeded fallback).
-  _houseSeed(house) {
-    return (house && house.id != null) ? (fnv1a(String(house.id)) >>> 0) : 0;
-  }
-  traderGivePick(house) {
-    if (!house?.id) return null;
-    const rng = this.shopRng(house, 'trader');
-    // Same houseSeed produce-vs-buylist coin flip the generic path uses.
-    const houseSeed = this._houseSeed(house);
-    const sellsProduce = !!houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
-    let giveId;
-    if (sellsProduce) {
-      const ids = Object.keys(CROP_ROW);
-      giveId = ids[Math.floor(rng() * ids.length)] || ids[0];
-    } else {
-      giveId = BUY_LIST[Math.floor(rng() * BUY_LIST.length)] || BUY_LIST[0];
-    }
-    if (!giveId) return null;
-    return { rng, giveId };
-  }
-  // Display name of what a trader currently offers, for its sign — null when
-  // there is no offer to name (the sign then falls back to a bare "Trader").
-  traderGoodsName(house) {
-    const pick = this.traderGivePick(house);
-    if (!pick) return null;
-    return itemName(pick.giveId);
-  }
-  peekOrBuildTraderOffer(house) {
-    const pick = this.traderGivePick(house);
-    if (!pick) return null;
-    const { rng, giveId } = pick;
-    const baseValue = Math.max(1, PRICES[giveId] ?? 1);
-    // Target trade value the trader considers appropriate.
-    const target = baseValue * (1.0 + rng());
-    // Asking item: ShopsMath.traderAsk — half the time a stack that already
-    // covers the count, otherwise anything owned, then the wishlist; never a
-    // count the bag's stack cap could not hold.
-    const ask = ShopsMath.traderAsk({
-      rng, giveId, target,
-      inv: this.save.inv,
-      prices: PRICES,
-      isItem: (id) => !!ITEM_BY_ID[id],
-      capFor: (id) => Inventory.stackCapFor(this.save, id),
-    });
-    if (!ask) return null;
-    const { askId, askQty } = ask;
-    return { giveId, askId, askQty };
-  }
-
-  presentTraderOffer(sx, sy, house, recordDeal) {
-    const offer = this.peekOrBuildTraderOffer(house);
-    if (!offer) { this.flash(`No trade today. Back ${this.shopWaitLabel(house)}.`, sx, sy); return; }
-    const giveItem = ITEM_BY_ID[offer.giveId];
-    const askItem  = ITEM_BY_ID[offer.askId];
-    const heldCount = () => Inventory.count(this.save, offer.askId);
-    const curState = this.shopBucketState(house);
-    const rerollCost = 5 * Math.pow(2, curState.rerolls || 0);
-    // Low-tier seeds barter in a slightly larger bundle (planted in bulk).
-    const giveQty = TRADE_OFFER_QTY
-      + (isLowTierSeed(offer.giveId) ? LOW_TIER_SEED_QTY_BONUS : 0);
-    this.showOfferModal({
-      kind: 'trade',
-      // Spell out who gives what so the barter can't be read backwards:
-      // "Trader offers <giveItem> for your <askItem>".
-      title: 'The trader offers:',
-      ...NPC.offerArt(this, house),
-      forLabel: 'for your',
-      cancelLabel: 'Later',
-      get: `${this.iconSpanHTML(offer.giveId)} ${giveItem?.name || offer.giveId} ×${giveQty}`,
-      cost: `${offer.askQty}× ${this.iconSpanHTML(offer.askId)} ${askItem?.name || offer.askId}`,
-      canAfford: heldCount() >= offer.askQty,
-      onAccept: () => {
-        if (heldCount() < offer.askQty) {
-          this.flash(`need ${offer.askQty} ${askItem?.name || offer.askId}`, sx, sy);
-          return;
-        }
-        Inventory.remove(this.save, offer.askId, offer.askQty);
-        this._clampSelSlot();
-        this.addToInv(offer.giveId, giveQty, false, { notWild: true, deferRefresh: true });
-        this.save.buyIndex = (this.save.buyIndex ?? 0) + 1;
-        recordDeal();
-        this._finishInventoryChange();
-        this.flashLoot(
-          `${giveQty}× ${giveItem?.name || offer.giveId}\n−${offer.askQty} ${askItem?.name || offer.askId}`,
-          '#ffe066', 1, offer.giveId,
-        );
-      },
-      secondary: {
-        label: `Re-roll<br><span style="font-weight:400;font-size:10px;opacity:.85">${this.moneyHTML(rerollCost, 12)}</span>`,
-        disabled: (this.save.money ?? 0) < rerollCost,
-        onClick: () => {
-          if ((this.save.money ?? 0) < rerollCost) { this.flash(`Purse too light — need ${rerollCost}.`, sx, sy); return; }
-          curState.rerolls += 1;
-          addMoney(this.save, -rerollCost);
-          persistSave(this.save);
-          this.updateHUD();
-          this.presentTraderOffer(sx, sy, house, recordDeal);
-        },
-      },
-    });
-  }
 
   // ─── STREET RESTORATION ──────────────────────────────────────────────────
   // The road band is DILAPIDATED by default — cracked, damp, missing setts
@@ -12978,6 +11747,12 @@ class MapScene extends Phaser.Scene {
   // the energy pops (_popCellNumber); one line per entry, keyed on the
   // house id so standing still (or shuffling within the cell) says nothing.
   // Each line fits MAP_MSG_MAX. Surface only, like the lamp visits.
+  // HOME SAYS NOTHING (owner, Oct 2026): the lines are a NEIGHBOUR's voice
+  // ("Thanks for fixing my house!"), and Home — the starter trailer or an
+  // adopted house, one verdict: Houses.displayRole 'trailer' — is the
+  // player's own, walked through a dozen times a session (see the rest
+  // splash's settling above, the same complaint). Its tier-9 body is a
+  // restored house to isHouseWreck, so the Home check comes first.
   _houseMutter() {
     if ((this.depth ?? 0) !== 0 || this._driftingHome || !this.startWorldM || !this.playerM
         || !this.originPx || typeof Houses === 'undefined') return;
@@ -12998,6 +11773,7 @@ class MapScene extends Phaser.Scene {
       if (c.cellIX === p.cellIX && c.cellIY === p.cellIY) house = o;
     });
     if (!house) return;
+    if (Houses.displayRole(this.save, house) === 'trailer') return;   // Home: your own door
     const wreck = Houses.isHouseWreck(this.save, house);
     if (!wreck && house.tier !== 9) return;      // forts / castles keep their peace
     const lines = wreck ? HOUSE_WRECK_MUTTERS : HOUSE_RESTORED_MUTTERS;
@@ -13415,7 +12191,7 @@ class MapScene extends Phaser.Scene {
         art: 'trail_prize',
         iconHTML: this.coinIconHTML ? this.coinIconHTML(48) : '',
         name: '+5',
-        sub: 'A small kindness from the people along the road.',
+        sub: 'Your neighbours thank you for repairing the road and hand you a gift.',
         color: UI_GOLD,
         onDismiss,
       });
@@ -13433,14 +12209,14 @@ class MapScene extends Phaser.Scene {
       if (!card) { if (typeof onDismiss === 'function') onDismiss(); return; }
       this.showChestRewardModal({
         kind: 'trail', header, ...card, art: 'trail_prize',
-        sub: 'A small kindness from the people along the road.',
+        sub: 'Your neighbours thank you for repairing the road and hand you a gift.',
         onDismiss: () => this._revealPendingBookReads(onDismiss),
       });
       return;
     }
     this._offerTreasurePick({
       kind: 'trail', header, art: 'trail_prize', choices, onDismiss,
-      sub: 'The neighbours have set these aside for you. Choose one.',
+      sub: 'Your neighbours offer you gifts to thank you for repairing the road. Choose one.',
     });
   }
 
@@ -13481,6 +12257,7 @@ class MapScene extends Phaser.Scene {
         name: item?.name || reward.id,
         qty: reward.qty > 1 ? `× ${reward.qty}` : null,
         color: (typeof tierInfo === 'function' ? tierInfo(reward.id).color : '#a7e9ff'),
+        tier: (typeof itemTierOf === 'function') ? itemTierOf(reward.id) : 0,
       };
     }
     if (reward.kind === 'gold') {
@@ -13499,6 +12276,7 @@ class MapScene extends Phaser.Scene {
           : `${reward.slot} T${reward.tier}`,
         sub: 'equipped',
         color: UI_TREASURE,
+        tier: reward.tier,
       };
     }
     return null;   // an unrecognised kind draws no card and opens no modal
@@ -13637,7 +12415,7 @@ class MapScene extends Phaser.Scene {
         Houses.registerWizardTower(this.save, house, order);
         if (restoredRole === 'wizard') NPC.restoreShrine(this, house);
         // The first wreck restored becomes the starter blacksmith (wooden-tool
-        // forge). Stamp its id so isStarterBlacksmith / shopDealCap pick it up.
+        // forge). Stamp its id so isStarterBlacksmith picks it up.
         if (restoredRole === 'blacksmith' && this.save.starterBlacksmithId == null) {
           this.save.starterBlacksmithId = house.id;
         }
@@ -13675,19 +12453,19 @@ class MapScene extends Phaser.Scene {
             // shop's blurb follows its line (marketTheme).
             const theme = role === 'market' ? this.marketTheme(house).theme : null;
             const THEME_BLURB = {
-              seed:   'Packets of seeds fill the shelves, waiting for spring.',
-              supply: 'The shelves hold what a long road asks of you.',
-              potion: 'Strange colours swirl in the bottles behind the counter.',
-              ore:    'The counter gleams with things meant for the forge.',
-              relic:  'Fine tools and armour hang within reach.',
-              pet:    'Restless paws and hooves wait for a new home.',
+              seed:   'You find packets of seeds on the shelves.',
+              supply: 'You find supplies for the road on the shelves.',
+              potion: 'You watch strange colours swirl in bottles behind the counter.',
+              ore:    'You find ore for the forge piled on the counter.',
+              relic:  'You inspect the tools and armour hanging behind the counter.',
+              pet:    'You hear paws and hooves shuffling nearby.',
             };
             const INFO = {
-              blacksmith: { blurb: 'A family carries its bundles home. “You gave us our forge back. Let us make the tools you need.”' },
-              market:     { blurb: 'A family opens the shutters again. “Thank you. We have something to help you on your way.” ' + (THEME_BLURB[theme] || 'Their old counter is stocked once more.') },
-              trader:     { blurb: 'The trader’s family unpacks beside the hearth. “You brought us home. Let us share what we have.”' },
-              wizard:     { name: 'Wizard Tower', blurb: 'A reclusive mage sees power in your memories.' },
-              plain:      { name: 'House',        blurb: 'Children choose their beds beneath the mended roof. “We can come home,” their parent says. “Bring us your harvest. We will gladly pay.”' },
+              blacksmith: { blurb: 'A family returns to the forge. They offer to make the tools you need.' },
+              market:     { blurb: 'A family opens the market shutters again. ' + (THEME_BLURB[theme] || 'You look over the freshly stocked counter.') },
+              trader:     { blurb: 'The trader and his family unpack beside the hearth. They offer to share their supplies.' },
+              wizard:     { name: 'Wizard Tower', blurb: "You step into the tower. An old wizard asks about your memories." },
+              plain:      { name: 'House',        blurb: 'Children choose their beds under the repaired roof. Their parent offers to buy your harvest.' },
             };
             const info = INFO[role] || INFO.plain;
             const name = info.name || Shops.roleLabel(role, theme) || INFO.plain.name;
@@ -13700,7 +12478,7 @@ class MapScene extends Phaser.Scene {
               art: role === 'plain' ? 'restore_house' : 'restore_' + role,
               header: 'Restored!',
               name: `You restored a ${name}`,
-              sub: order === 0 ? "“I'm not complaining, but repairing a building that quickly is not normal! How did you do it?”" : info.blurb,
+              sub: order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : info.blurb,
               color: '#a7ffb0', accent: '#a7ffb0',
               onDismiss: role === 'wizard'
                 ? () => MemoryStory.visitWizard(this, () => {}, house) : undefined,
@@ -13708,7 +12486,6 @@ class MapScene extends Phaser.Scene {
           } else {
             this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
           }
-          StoryEncounters.arm(this, house);
         });
       },
     });
@@ -13735,287 +12512,10 @@ class MapScene extends Phaser.Scene {
 
   _claimCastle(house) { return Houses.claimCastle(this.save, house); }
 
-  // Once-per-castle-per-UTC-day gate — see Houses.castleServiceUsedToday.
-  _castleServiceUsedToday(house) { return Houses.castleServiceUsedToday(this.save, house); }
+  // Once-per-castle-per-twelve-hours gate — see Houses.castleServiceUsed.
+  _castleServiceUsed(house) { return Houses.castleServiceUsed(this.save, house); }
+  _castleServiceWaitMs(house) { return Houses.castleServiceWaitMs(this.save, house); }
   _markCastleServiceUsed(house) { return Houses.markCastleServiceUsed(this.save, house); }
-  // REST: a flat CASTLE_REST_ENERGY, once a day (it was a tenth of the bar, the
-  // same fraction the old hourly
-  // hearth gave — just once a day now instead of once an hour. Silent (no-op)
-  // once the day's favour is already spent or the castle isn't claimed; the
-  // modal that calls this never offers the choice in either case.
-  _castleRest(sx, sy, house) {
-    if (!this.isCastleClaimed(house) || this._castleServiceUsedToday(house)) return;
-    const maxE = this.getMaxEnergy();
-    const cur = this.save.energy ?? 0;
-    const gain = CASTLE_REST_ENERGY;
-    Energy.set(this.save, cur + gain, maxE);
-    this._markCastleServiceUsed(house);
-    if (typeof persistSave === 'function') persistSave(this.save);
-    this.buildInventoryDOM();
-    // A gain to the BODY: it lands on the player's own cell (_popEnergy's
-    // default), not on the castle the modal was opened from.
-    this._popEnergy(Math.max(0, Math.min(gain, maxE - cur)));
-  }
-  // COLLECT: a flat CASTLE_TAX_GOLD from the crown's coffers instead of rest.
-  _castleTax(sx, sy, house) {
-    if (!this.isCastleClaimed(house) || this._castleServiceUsedToday(house)) return;
-    addMoney(this.save, CASTLE_TAX_GOLD);
-    this._markCastleServiceUsed(house);
-    if (typeof persistSave === 'function') persistSave(this.save);
-    this.buildInventoryDOM();
-    this.flashLoot(`+${CASTLE_TAX_GOLD} taxes`, '#ffe066', 1, null, this.coinIconEl?.());
-  }
-  // The castellan's greeting and daily offer. A RESTORED castle (the player
-  // solved its quest — see showQuestBoard/_claimCastle) no longer sells
-  // relics: it's home turf, so instead of a trade it's a favour, once a day.
-  presentCastleServiceOffer(sx, sy, house) {
-    if (this._castleServiceUsedToday(house)) {
-      // The favour is one per UTC day (utcDayKey),
-      // so the castellan names the wait rather than saying "tomorrow".
-      this.flash(`My lord! Come back in ${shortDuration(msToNextUtcDay())}.`,
-                 sx, sy);
-      return;
-    }
-    this.showOfferModal({
-      kind: 'shop',
-      title: 'Thank you for visiting us, my lord.',
-      // The castellan at his gate — the survivor who runs the place you
-      // restored, greeting the player the banner flew for.
-      art: 'castle_favour',
-      get: 'My lord, which kindness may we offer?',
-      blurb: `Whichever you pick, it won't be on offer again for ${shortDuration(msToNextUtcDay())}.`,
-      canAfford: true,
-      acceptLabel: `Rest +${CASTLE_REST_ENERGY}⚡`,
-      secondary: {
-        label: `Collect ${this.moneyHTML(CASTLE_TAX_GOLD, 12)} taxes`,
-        onClick: () => this._castleTax(sx, sy, house),
-      },
-      cancelLabel: 'Later',
-      onAccept: () => this._castleRest(sx, sy, house),
-    });
-  }
-
-  // Quest board modal for castles. Shows the active quest's progress; when the
-  // quest is complete the player can claim the reward — which also CLAIMS THIS
-  // CASTLE: the one you solved it at, and no other. A claimed castle never
-  // shows this board again (the seal check below lets it straight through to
-  // its vault), so the next job is always somewhere you haven't been.
-  showQuestBoard(sx, sy, house) {
-    if (typeof Quests === 'undefined') return;
-    // WHICH slot this castle keeps. Every castle is pinned to one for life, so
-    // the job here is never the job at the castle down the road — which is the
-    // reason to walk to a different one.
-    const mine = Quests.slotForCastle(this._castleKey(house) || (house && house.id) || '');
-    const board = Quests.board(this.save);
-    const q = board[mine];
-    if (!q) { this.flash('No work here today.', sx, sy); return; }
-    // Read at its castle: an `activates` job (Salvage rights) counts from here.
-    if (Quests.activate(this.save, mine)) persistSave(this.save);
-    const done = Quests.isSlotComplete(this.save, mine);
-    this.showOfferModal({
-      kind: 'quest',
-      title: done ? 'Quest complete!' : `#${mine + 1} ${q.title}`,
-      get: done ? `Reward: ${this.moneyHTML(q.reward)}` : `${q.have} / ${q.need}`,
-      blurb: q.body,
-      canAfford: done,
-      acceptLabel: done ? 'Claim Reward' : 'Locked',
-      cancelLabel: 'Later',
-      onAccept: () => {
-        const finished = Quests.claim(this.save, mine);
-        if (!finished) return;
-        if (finished.reward) addMoney(this.save, finished.reward);
-        // THIS castle, and no other. The job was done for the people here, so
-        // this is the vault that opens and the tower that raises a banner; the
-        // next job took its slot number and is somebody else's, at a castle the
-        // player hasn't been to.
-        const claimed = this._claimCastle(house);
-        persistSave(this.save);
-        this.buildInventoryDOM();
-        this.flashLoot(`+${finished.reward}`, '#ffe066', 1, null, this.coinIconEl());
-        if (claimed) {
-          // The banner IS the moment, once per castle (the ledger key carries
-          // the castle's own id). A busy screen returns false unmarked, so
-          // the plain flash stays as the fallback and the splash can still
-          // open the next time this castle's claim fires on a clear screen.
-          const splashed = this._storySplashOnce('castle:' + (this._castleKey(house) || house.id), {
-            art: 'castle_claim',
-            title: 'The castle is yours',
-            body: 'The vault opens and your banner rises.',
-          });
-          if (!splashed) {
-            this.flash('The castle vault is yours.',
-              this.viewCenterX, this.viewCenterY - 60);
-          }
-        }
-      },
-    });
-  }
-
-  // True iff `house` is a fort the player hasn't unsealed yet — see Houses.isFortLocked.
-  _isFortLocked(house) { return Houses.isFortLocked(this.save, house); }
-
-  // Pay-to-unseal modal for a locked fort. Costs FORT_UNLOCK_WOOD wood, mirrors
-  // the wreck-restore flow: shown even when unaffordable (so the player sees
-  // the price), re-checks stock on accept, then records the unlock and plays
-  // the same restoration fanfare.
-  presentFortUnlockModal(sx, sy, house) {
-    const need = this._fortUnlockCost();
-    const heldCount = Inventory.count(this.save, 'wood');
-    const canAfford = heldCount >= need;
-    this.showOfferModal({
-      kind: 'build',
-      title: 'Unseal this fort?',
-      cancelLabel: 'Later',
-      get: '🛡️ the fort quartermaster',
-      blurb: 'Behind the gate, the quartermaster’s reels still turn.',
-      cost: `${need}× ${this.iconSpanHTML('wood')} ${ITEM_BY_ID['wood']?.name || 'Wood'}`
-        + (canAfford ? '' : ` <span style="opacity:.7">(have ${heldCount})</span>`),
-      canAfford,
-      acceptLabel: 'Unseal',
-      onAccept: () => {
-        // Re-check stock at accept time — the player might have spent the wood
-        // elsewhere while the modal was open.
-        if (Inventory.count(this.save, 'wood') < need) { this.flash(`need ${need} wood`, sx, sy); return; }
-        Inventory.remove(this.save, 'wood', need);
-        this._clampSelSlot();
-        this.save.unlockedForts = this.save.unlockedForts || {};
-        this.save.unlockedForts[house.id] = true;
-        persistSave(this.save);
-        this.buildInventoryDOM();
-        if (this.showChestRewardModal) {
-          this.showChestRewardModal({
-            kind: 'build',
-            // Same trade the Restored! card makes: the fort_unseal banner
-            // carries the picture, so the building sprite icon goes.
-            iconHTML: '',
-            art: 'fort_unseal',
-            header: 'Unsealed!',
-            name: 'You unsealed a Fort',
-            sub: 'The quartermaster beckons you over to his clattering reels.',
-            color: '#a7ffb0', accent: '#a7ffb0',
-          });
-        } else {
-          this.flashLoot('🛡️ unsealed', '#a7ffb0', 1.25);
-        }
-      },
-    });
-  }
-
-  presentBlacksmithOffer(sx, sy, offer, recordDeal, house, opts = {}) {
-    // recipe override lets the starter blacksmith define T1 wooden recipes
-    // (rockfruit + tree) without loosening the T2+ bar requirement in
-    // blacksmithRecipe — keeps every other smithy on the original ladder.
-    const recipe = opts.recipe || Gear.blacksmithRecipe(offer.kind, offer.slot, offer.tier);
-    if (!recipe) {
-      this.flash(`Anvil's resting — back ${this.shopWaitLabel(house)}.`, sx, sy);
-      return;
-    }
-    const name = gearName(offer.kind, offer.slot, offer.tier);
-    const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, SMITHY_PREVIEW_PX);
-    const heldCount = (id) => Inventory.count(this.save, id);
-    const canAfford = () => recipe.every(r => heldCount(r.id) >= r.qty);
-    const costHTML = recipe.map(r => {
-      const itm = ITEM_BY_ID[r.id];
-      return `${r.qty}× ${this.iconSpanHTML(r.id)} ${itm?.name || r.id}`;
-    }).join(' + ');
-    // Re-roll mirrors the relic-offer flow (shared via _makeRerollSecondary):
-    // cost = ShopsMath.smithyRerollCost (×1.5 a roll), bumps curState.rerolls so the next
-    // peekOrBuildRelicOffer returns a different forge target. Suppressed for
-    // the starter blacksmith — the wooden-tool queue is sequential, not
-    // random, so there's nothing to re-roll into.
-    const secondary = opts.noReroll ? undefined
-      : this._makeRerollSecondary(house, sx, sy, 'nothing else to forge',
-          next => this.presentBlacksmithOffer(sx, sy, next, recordDeal, house),
-          { cost: ShopsMath.smithyRerollCost });
-    // Forge / Smelt tab row — only on a normal smithy (not the starter
-    // wooden-tool queue). Switching to Smelt re-presents this same forge
-    // offer as the "back" target so the player can toggle freely.
-    const tabs = (!opts.noReroll && Gear.smeltUnlockedBars().length)
-      ? [
-          { label: 'Forge', active: true,  onSelect: () => {} },
-          { label: 'Smelt', active: false, onSelect: () =>
-              this.presentSmeltOffer(sx, sy, house, recordDeal,
-                () => this.presentBlacksmithOffer(sx, sy, offer, recordDeal, house, opts)) },
-        ]
-      : undefined;
-    this.showOfferModal({
-      kind: 'forge',
-      cancelLabel: 'Later',
-      get: smithyPreviewHTML(iconHtml, name),
-      blurb: this._trailRewardBlurb(offer),
-      cost: costHTML,
-      canAfford: canAfford(),
-      acceptLabel: 'Forge',
-      costLabel: 'You give',
-      tabs,
-      secondary,
-      onAccept: () => {
-        const curTier = offer.kind === 'relic'
-          ? (this.save.relics?.[offer.slot]?.tier ?? 0)
-          : (this.save.armor?.[offer.slot]?.tier ?? 0);
-        if (offer.tier <= curTier) { this.flash('Already carry a finer one.', sx, sy); return; }
-        if (!canAfford()) {
-          const missing = recipe.find(r => heldCount(r.id) < r.qty);
-          const itm = ITEM_BY_ID[missing.id];
-          this.flash(`need ${missing.qty} ${itm?.name || missing.id}`, sx, sy);
-          return;
-        }
-        // Consume every ingredient.
-        for (const r of recipe) Inventory.remove(this.save, r.id, r.qty);
-        this._clampSelSlot();
-        this._equipGear(offer.kind, offer.slot, offer.tier);
-        this.markRelicsDirty();
-        recordDeal();
-        // Forging "settles" the smithy — reset its re-roll count so the next
-        // re-roll cost drops back to the $5 base (cost = 5 × 2^rerolls)
-        // instead of staying inflated from pre-forge re-rolls.
-        if (house && house.id) {
-          const cur = this.shopBucketState(house);
-          if (cur) cur.rerolls = 0;
-        }
-        persistSave(this.save);
-        this.updateHUD();
-        this.buildInventoryDOM();
-        // Splash the forged tool's own art (not a coin) — gear uses
-        // gearIconHTML, so render it into a throwaway span and hand the
-        // sized element to flashLoot.
-        const splashWrap = document.createElement('span');
-        splashWrap.innerHTML = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 28);
-        this.flashLoot(name, '#ffe066', 1.25, null, splashWrap.firstElementChild);
-      },
-    });
-  }
-
-  // Build a shop offer for buying ${id} (baseValue = PRICES[id]). Always a
-  // CASH price now — the old mixed "1/3 cash / 2/3 barter" roll was removed so
-  // the two trade idioms map cleanly onto shop types: MARKETS (and every
-  // generic cash storefront) want money, TRADERS barter (their own qty-scaled
-  // path in presentTraderOffer). opts.house names the shop asking: it seeds
-  // the markup roll off that shop's hour bucket (so the price holds for the
-  // hour) and applies its flower-charm discount; with no house the markup is
-  // a plain roll and there is no charm to apply.
-  buildShopOffer(id, baseValue, opts = {}) {
-    // Pricing (incl. the Bow-discounted markup) lives in ShopsMath.buyPrice; the
-    // offer object's afford/consume closures stay here (they bind this.save).
-    // Seed the markup roll off the shop's hour bucket when we know which shop
-    // is asking. buyPrice spans 1.2x-3.0x base, so on Math.random the player
-    // could close and reopen the modal until the price came up cheap — the
-    // markup is part of the offer, and the offer holds for the hour.
-    const priceRng = (opts.house && opts.house.id)
-      ? this.shopRng(opts.house, 'price')
-      : undefined;
-    // Flower charm halves the quoted price (floor $1) — see shopCharmMul.
-    const cashCost = Math.max(1,
-      Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng) * this.shopCharmMul(opts.house)));
-    return {
-      kind: 'money',
-      label: this.moneyHTML(cashCost),
-      shortGain: `−${cashCost}`,
-      shortDenial: `need ${cashCost}`,
-      canAfford: () => (this.save.money ?? 0) >= cashCost,
-      consume: () => { addMoney(this.save, -cashCost); },
-    };
-  }
 
   // Simple yes/no DOM modal. Dismissible. Renders over #game so it scales with the viewport.
   // Inline HTML <span> showing the same Crops.png / Spring Crops.png cell the
@@ -14175,9 +12675,6 @@ class MapScene extends Phaser.Scene {
   // The gear PNGs are spritesheets, not single icons:
   //   weapons + armor (Pickaxe.png, Helmet.png, …): 32×16, two 16×16 frames
   //     side-by-side. We show frame 0.
-  //   rings + amulets (Rings.png, Amulet.png):    96×64, 6 cols × 4 rows of
-  //     16×16 variants. Pick a per-tier slot so each tier shows a different
-  //     colour band as the player upgrades.
   // CSS-clip via background-image instead of an unclipped <img> — otherwise
   // the entire sheet gets crushed into the icon box ("ring looks like a
   // whole spritesheet", "armor shows 2 suits").
@@ -14190,7 +12687,7 @@ class MapScene extends Phaser.Scene {
   // Swap the player between the human sheets and the red dragon while the
   // Dragon Powder is active. Sets _dragonActive so
   // _playDirected routes both sprites through the looping 'dragon-fly' anim,
-  // and rescales the 96×96 dragon frames down to roughly the walker's size.
+  // and rescales the 96×96 dragon frames down to roughly the human's size.
   _applyDragonSkin(on) {
     // Guard: if the dragon spritesheet failed to load (e.g. the asset 404s on
     // a deploy), 'dragon-fly' would be a frameless anim and play() would crash
@@ -14209,7 +12706,7 @@ class MapScene extends Phaser.Scene {
       } else {
         s.setScale(this.playerScale);
         s.setFlipX(false);
-        if (s.anims.currentAnim?.key !== 'idle-down') s.play('idle-down');   // _playDirected re-picks the directional anim next frame
+        this._playDirected(s, 'idle');   // back onto the human sheet the save is owed, facing as before
       }
     }
     // A flying dragon isn't standing on the cell, so its shadow shrinks and
@@ -14253,20 +12750,19 @@ class MapScene extends Phaser.Scene {
       sprite.anims.timeScale = 1;
       return;
     }
-    let dir = 'down', flip = false;
-    if (Math.abs(x) > Math.abs(y)) { dir = 'side'; flip = x < 0; }
+    let dir = 'down';
+    if (Math.abs(x) > Math.abs(y)) dir = x < 0 ? 'left' : 'right';
     else if (y < 0) dir = 'up';
-    if (sprite === this.player) {
-      this._syncPlayerSkin();
-      if (this._playerArt) {
-        if (dir === 'side') dir = x < 0 ? 'left' : 'right';
-        flip = false; // these sheets include both authored side directions
-      }
-    }
-    const skin = sprite === this.player ? this._playerArt : null;
-    const key = skin ? `${skin.sheet}-${baseKey}-${dir}` : `${baseKey}-${dir}`;
+    if (sprite === this.player) this._syncPlayerSkin();
+    // Every player sheet authors all four directions (SpriteLayout.PLAYER_ART),
+    // so nothing is mirrored. Until the skin the save is owed has its sheet
+    // and cycles up, the cyan farmer — the base sheet every save starts on —
+    // stands in for it (a missing farmer cycle is a no-op in play(), never a
+    // crash: anim_guard.test.js).
+    const skin = (sprite === this.player && this._playerArt) || SpriteLayout.PLAYER_ART.farmer;
+    const key = `${skin.sheet}-${baseKey}-${dir}`;
     if (sprite.anims.currentAnim?.key !== key) sprite.play(key);
-    sprite.setFlipX(flip);
+    sprite.setFlipX(false);
     // TIRED WALK: eases the CYCLE's frame pace toward WALK_TIRED_SLOW_MUL as
     // energy drains past Lighting.LOW_ENERGY_FRAC — the same weight the reach
     // tint reddens by (Lighting.lowEnergyFrac), so the legs visibly labour in
@@ -14333,7 +12829,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // The movement stick is ALWAYS on screen — it's how you walk anywhere the
-  // GPS isn't taking you, with or without an amulet, buff, or debug flag.
+  // GPS isn't taking you, with or without boots, a buff, or a debug flag.
   // Nothing takes its slot any more. Idempotent, so it's safe to call from the
   // per-frame relic sync, which is what puts it up on the first frame.
   syncMovePad() {
@@ -14619,14 +13115,16 @@ class MapScene extends Phaser.Scene {
   // when gear actually changed (markRelicsDirty bumps the counter).
   updateRelicRow() {
     const gen = this._relicsGen || 0;
-    if (this._relicRowGen === gen) return;
+    const wandUntil = Shrines.leverActive(this.save, 'wand') ? this.save.boonUntil.wand : 0;
+    if (this._relicRowGen === gen && this._relicRowWandUntil === wandUntil) return;
     this._relicRowGen = gen;
+    this._relicRowWandUntil = wandUntil;
     // The stick doesn't depend on gear any more, but syncing here (idempotent)
     // is what puts it on screen on the first frame.
     this.syncMovePad();
     // Warm the work wheel's tool art for everything equipped, so a wheel's
     // centre is drawn from its first frame rather than after a fetch.
-    for (const [slot, eq] of Object.entries(this.save.relics || {})) {
+    for (const [slot, eq] of Object.entries(Gear.effectiveRelics(this.save))) {
       if (eq?.tier) this._toolTexture(slot, eq.tier);
     }
     // If a gear tab is currently showing, rebuild the inventory bars so a newly
@@ -14642,14 +13140,11 @@ class MapScene extends Phaser.Scene {
     // Each gear asset has its own sprite-sheet layout. Pick [cols, rows] + the
     // frame to show so we never squish a multi-frame strip into one cell or
     // crop a single-frame icon:
-    //   ring/amulet — 6×4 variant grid, frame = tier-1
     //   bags        — 7×1 strip (one bag per tier), frame = tier-1
     //   bug net     — single 16×16 icon
     //   everything else (tools/armor) — 32×16 two-frame sheet, show frame 0
     let sheetCols, sheetRows, frame;
-    if (kind === 'relic' && (slot === 'ring' || slot === 'amulet')) {
-      sheetCols = 6; sheetRows = 4; frame = tier - 1;
-    } else if (kind === 'relic' && slot === 'bags') {
+    if (kind === 'relic' && slot === 'bags') {
       sheetCols = 7; sheetRows = 1; frame = tier - 1;
     } else if (kind === 'relic' && slot === 'bugnet') {
       sheetCols = 1; sheetRows = 1; frame = 0;
@@ -14777,8 +13272,8 @@ class MapScene extends Phaser.Scene {
     const cat = INV_CAT_BY_KEY[catKey];
     if (!cat || !cat.gear) return [];
     if (cat.gear === 'relic') {
-      const r = this.save.relics || {};
-      return INV_RELIC_ORDER.filter(s => r[s]).map(s => ({ kind: 'relic', slot: s, tier: r[s].tier }));
+      const r = Gear.effectiveRelics(this.save);
+      return INV_RELIC_ORDER.filter(s => r[s]).map(s => ({ kind: 'relic', slot: s, tier: r[s].tier, temporary: !!r[s].temporary }));
     }
     const a = this.save.armor || {};
     return INV_ARMOR_ORDER.filter(s => a[s]).map(s => ({ kind: 'armor', slot: s, tier: a[s].tier }));
@@ -14993,7 +13488,7 @@ class MapScene extends Phaser.Scene {
           slot.appendChild(wrap);
           // Tier badge mirrors the item count badge so gear reads consistently.
           const badge = document.createElement('span');
-          badge.textContent = 'T' + g.tier;
+          badge.textContent = 'T' + g.tier + (g.temporary ? ' ⏳' : '');
           badge.className = 'hud-badge';
           badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;';
           slot.appendChild(badge);
@@ -15001,7 +13496,7 @@ class MapScene extends Phaser.Scene {
           // auto-engage/auto-fire (save.activeWeapon) wears it, opposite corner
           // from the tier badge so the two never collide.
           const isWeapon = g.kind === 'relic' && WEAPON_SLOTS.includes(g.slot);
-          if (isWeapon && this.save.activeWeapon === g.slot) {
+          if (isWeapon && Gear.activeWeapon(this.save) === g.slot) {
             const eBadge = document.createElement('span');
             eBadge.textContent = 'E';
             eBadge.title = 'Active weapon';
@@ -15013,15 +13508,10 @@ class MapScene extends Phaser.Scene {
             e.stopPropagation();
             this.save.selGear = { kind: g.kind, slot: g.slot };
             this.save.selSlot = -1;
-            // Tapping a weapon makes it the active one — the other owned
-            // weapons go inert (see combat.js / _combatTick).
-            if (isWeapon && this.save.activeWeapon !== g.slot) {
-              this.save.activeWeapon = g.slot;
-              this.markRelicsDirty();
-              persistSave(this.save);
-              this.buildInventoryDOM();
-              return;
-            }
+            // Highlighting a weapon is just that. Until Oct 2026 the tap
+            // also made it the active one, so reading a bow's blurb silently
+            // switched the fight off melee; the Equip button under the bar
+            // (syncEquipButton) is the explicit act now.
             persistSave(this.save);
             this.refreshInventoryHighlight();
           });
@@ -15149,12 +13639,12 @@ class MapScene extends Phaser.Scene {
           nameLbl.appendChild(hint);
         } else {
           const nameSpan = document.createElement('div');
-          nameSpan.textContent = (typeof gearName === 'function') ? gearName(g.kind, g.slot, this.save[g.kind === 'armor' ? 'armor' : 'relics']?.[g.slot]?.tier) : g.slot;
+          nameSpan.textContent = (typeof gearName === 'function') ? gearName(g.kind, g.slot, (g.kind === 'armor' ? this.save.armor : Gear.effectiveRelics(this.save))?.[g.slot]?.tier) : g.slot;
           nameSpan.style.cssText = 'max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
           nameLbl.appendChild(nameSpan);
           const def = gearDef(g.kind, g.slot);
           if (def && def.blurb) {
-            const tier = this.save[g.kind === 'armor' ? 'armor' : 'relics']?.[g.slot]?.tier;
+            const tier = (g.kind === 'armor' ? this.save.armor : Gear.effectiveRelics(this.save))?.[g.slot]?.tier;
             nameLbl.appendChild(this._effectLineEl(def.blurb,
               `${this.gearIconHTML(g.kind, g.slot, tier)} ${nameSpan.textContent}`));
           }
@@ -15178,6 +13668,59 @@ class MapScene extends Phaser.Scene {
     }
     this.syncEatButton();
     this.syncConsumableButton();
+    this.syncEquipButton();
+  }
+
+  // Equip / Unequip button — the Eat button's slot, shown while a WEAPON is
+  // highlighted in the Relics tab (never alongside Eat / Drink: a gear tab
+  // clears selSlot, which hides both). EQUIP makes the highlighted sword, bow
+  // or staff the one that fights (Gear.selectWeapon); UNEQUIP, on the bow or
+  // staff in hand, puts it away so melee auto-engages again — the sword if
+  // owned, bare hands if not (Gear.unequipWeapon). The sword in hand needs no
+  // button: melee is the default state, so there is nothing to put away.
+  // This is the ONE way the active weapon changes by hand; tapping a slot
+  // only highlights it.
+  syncEquipButton() {
+    const g = this.save.selGear;
+    const existing = document.getElementById('equip-btn');
+    const cat = INV_CAT_BY_KEY[this.save.invCat];
+    const isWeapon = !!cat?.gear && g?.kind === 'relic' && WEAPON_SLOTS.includes(g.slot)
+      && !!Gear.effectiveRelics(this.save)[g.slot];
+    if (!isWeapon) { existing?.remove(); return; }
+    const active = Gear.activeWeapon(this.save) === g.slot;
+    const ranged = Combat.RANGED_SLOTS.includes(g.slot);
+    if (active && !ranged) { existing?.remove(); return; }
+    const tier = Gear.effectiveRelics(this.save)[g.slot]?.tier;
+    const verb = active ? 'Unequip' : 'Equip';
+    const label = `${this.gearIconHTML('relic', g.slot, tier, 20)} ${verb}`;
+    const btn = existing || document.createElement('button');
+    if (!existing) {
+      btn.id = 'equip-btn';
+      // Same seat and face as the Drink button (control gold: a thing you
+      // press), bottom-right under the inventory bar.
+      btn.className = 'hud-action';
+      btn.style.cssText =
+        'position:fixed;' +
+        'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
+        'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
+        'display:flex;align-items:center;gap:6px;' +
+        'padding:6px 10px;border-radius:8px;cursor:pointer;' +
+        'color:#ffe066;border:2px solid #c8a64a;' +
+        'font:700 12px ui-monospace,monospace;';
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const sel = this.save.selGear;
+        if (!sel || !WEAPON_SLOTS.includes(sel.slot)) return;
+        if (Gear.activeWeapon(this.save) === sel.slot) Gear.unequipWeapon(this.save);
+        else Gear.selectWeapon(this.save, sel.slot);
+        this.markRelicsDirty();
+        persistSave(this.save);
+        this.buildInventoryDOM();   // the "E" badge moves; refreshes this button too
+      });
+      document.body.appendChild(btn);
+    }
+    btn.dataset.slot = g.slot;
+    btn.innerHTML = label;
   }
 
   // Eat button — appears bottom-right when the selected stack is food.
@@ -15338,8 +13881,9 @@ class MapScene extends Phaser.Scene {
     this._clampSelSlot();
     persistSave(this.save);
     this.buildInventoryDOM();
-    const pet = ITEM_BY_ID[result.petId];
-    this.flashLoot(`Hatched ${pet.name}!`, UI_GREEN, 1, result.petId);
+    // The hatch is a ceremony (SceneModals.showBabyFound): the offer modal
+    // that asked has already closed, so the card stands alone.
+    this.showBabyFound(result.petId, 'egg');
     return true;
   }
 
@@ -15347,7 +13891,11 @@ class MapScene extends Phaser.Scene {
     const sel = this.save.inv?.[this.save.selSlot];
     const existing = document.getElementById('consumable-btn');
     const cfg = sel && CONSUMABLE_SPEC[sel.id];
-    if (!cfg || (sel.count ?? 0) <= 0) { existing?.remove(); return; }
+    // Only a row with an ACTION gets the button. The foods with an extra
+    // effect (rainberry, pairy, coffee) keep tuning rows in CONSUMABLE_SPEC
+    // but no verb — they go through Eat — and without this check the
+    // rainberry grew a second button reading "undefined".
+    if (!cfg || !(cfg.verb || cfg.label) || (sel.count ?? 0) <= 0) { existing?.remove(); return; }
     const iconHtml = this.iconSpanHTML(sel.id, 20);
     const label = `${iconHtml} ${cfg.label ? cfg.label(this, cfg) : cfg.verb}`;
     const syncState = button => {
@@ -15385,6 +13933,11 @@ class MapScene extends Phaser.Scene {
       const entry = CONSUMABLE_SPEC[id];
       const fn = entry?.method;
       if (!fn || typeof this[fn] !== 'function') return;
+      if (entry.immediate) {
+        this[fn]();
+        this.syncConsumableButton();
+        return;
+      }
       // Mirror the interact.js use-consumable flow: confirmation modal,
       // accept consumes 1 and triggers the action.
       const item = ITEM_BY_ID[id];
@@ -15441,6 +13994,11 @@ installSceneMixin(MapScene, SceneGeo);
 // catchCreature) live in scene_creatures.js as the SceneCreatures mixin —
 // same install, same throw on a stale copy.
 installSceneMixin(MapScene, SceneCreatures);
+// The shops and their offers (shopInteract and the starter-shop lookups, the
+// delivery / relic / themed / smelt / wizard / trader / castle / blacksmith
+// offers, the quest board) live in scene_shops.js as the SceneShops mixin —
+// same install, same throw on a stale copy.
+installSceneMixin(MapScene, SceneShops);
 
 const game = window.__game = new Phaser.Game({
   type: Phaser.AUTO,

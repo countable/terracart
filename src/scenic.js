@@ -141,11 +141,11 @@
   // scope, in the coin-burst ledger — a better grove shrine (~15 value).
   const VISTA_CONTEXT = 'treasure:vista';
   // The first vista a save ever taps: a relic, once (save.vistaRelic).
-  const FIRST_VISTA_SLOT = 'amulet';
+  const FIRST_VISTA_SLOT = 'bags';
   // The vista's story (its painting stem and the _storySplashOnce key).
   const VISTA_STORY = {
     story: 'zone_viewpoint', title: 'A vista',
-    body: 'An old spyglass on a post, and the whole bay below. Sit a while. The view gives a little every day.',
+    body: 'An old spyglass points out across the landscape. You stop to take in the view.',
     flash: 'A vista. Look a while.',
   };
 
@@ -682,7 +682,7 @@
   // Returns { objects (scopes, vista chests), wildplants (tide pool + greenway grass) }.
   function* dressSteps(ctx) {
     const WG = root.WorldGen, SV = root.StreetVariants;
-    const res = { objects: [], wildplants: [] };
+    const res = { objects: [], wildplants: [], tideSeats: new Set() };
     const sc = ctx && ctx.scenic;
     if (!sc || !WG) return res;
     const { tx, ty, N, tileEdgeM, grid, spawnOpts } = ctx;
@@ -757,6 +757,26 @@
         { poiClass: VISTA_POI_CLASS, subclass: st.kind, name: '', vista: st.kind }));
     }
 
+    // SCENIC SHRINES (src/shrines.js): the path row's shrine kind beside the
+    // stretch's vista chest, on a reward seat — at most
+    // Shrines.SCENIC_SHRINES_PER_TILE, lowest hash of the stretch key first.
+    const Sh = root.Shrines;
+    const shrineStretches = Sh ? (sc.stretches || [])
+      .filter((st) => st.at && Sh.kindForStreet(KIND_ROW[st.kind]))
+      .sort((a, b) => u01('shrine|' + a.key) - u01('shrine|' + b.key)) : [];
+    let shrinesSeated = 0;
+    for (const st of shrineStretches) {
+      if (shrinesSeated >= Sh.SCENIC_SHRINES_PER_TILE) break;
+      yield 'scenic shrines';
+      const pix = Math.floor(st.at.x * N / ext), piy = Math.floor(st.at.y * N / ext);
+      const s = SV ? SV.nearestSeat(pix, piy, N, rc, seatOffsets, rewardOk) : null;
+      if (!s) continue;
+      claim(s.ix, s.iy);
+      shrinesSeated++;
+      res.objects.push(WG.makeObject('grove_shrine', cx(s.ix), cy(s.iy), WG.cellId('scenic_shrine', tx, ty, s.ix, s.iy),
+        { _shrineStreet: KIND_ROW[st.kind], shrineKind: Sh.kindForStreet(KIND_ROW[st.kind]) }));
+    }
+
     // THE TIDE POOL: every waterline cell that takes a minor spawn holds a
     // tide pickup, shown on a day by tideLive (its own hash of id + day) at
     // the rate that lays tideCount(shoreM) a day over the pool.
@@ -764,14 +784,19 @@
     if (sh && sh.waterline.length) {
       yield 'scenic tide pool';
       const pool = [];
+      let scanned = 0;
       for (const i of sh.waterline) {
+        if ((scanned++ & 255) === 0) yield 'scenic tide eligibility';
         const ix = i % N, iy = Math.floor(i / N);
         if (rewardOk(ix, iy)) pool.push(i);
       }
       const want = tideCount(sh.shoreM);
       const p = pool.length ? Math.min(1, want / pool.length) : 0;
       if (p > 0) {
+        let seated = 0;
         for (const i of pool) {
+          if ((seated++ & 255) === 0) yield 'scenic tide reservations';
+          res.tideSeats.add(i);
           const ix = i % N, iy = Math.floor(i / N);
           claim(ix, iy);
           res.wildplants.push(WG.makeWildplant('shell', cx(ix), cy(iy), WG.cellId('tide', tx, ty, ix, iy),

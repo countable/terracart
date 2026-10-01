@@ -52,6 +52,21 @@ test('shortDuration: every output carries a unit letter and a plain integer', ()
   }
 });
 
+test('spokenDuration: the same ladder and rounding, in a speaking voice', () => {
+  assert.eq(spokenDuration(DN_DAY), 'a day', 'a neighbour says "a day", never "1d"');
+  assert.eq(spokenDuration(3 * DN_DAY), '3 days');
+  assert.eq(spokenDuration(DN_HOUR), 'an hour');
+  assert.eq(spokenDuration(5 * DN_MIN), '5 minutes');
+  assert.eq(spokenDuration(DN_HOUR + 5 * DN_MIN), '2 hours', 'rounds up like shortDuration, never "1 hour 5 minutes"');
+  assert.eq(spokenDuration(23.5 * DN_HOUR), 'a day');
+  assert.eq(spokenDuration(0), 'no time at all');
+  for (const ms of [1, 12 * DN_SEC, 90 * DN_SEC, 3 * DN_HOUR, DN_DAY + 3 * DN_HOUR, 20 * DN_DAY]) {
+    const unit = shortDuration(ms).slice(-1), word = { s: 'second', m: 'minute', h: 'hour', d: 'day' }[unit];
+    assert.truthy(spokenDuration(ms).includes(word), `${ms}ms: the two helpers agree on the unit`);
+    assert.eq(String(parseInt(shortDuration(ms), 10)), spokenDuration(ms).match(/^(\d+|an?)/)[1].replace(/^an?$/, '1'), `${ms}ms: and the count`);
+  }
+});
+
 test('UTC day identity and countdown share the same midnight', () => {
   const midnight = Date.UTC(2026, 8, 5);            // 2026-09-05T00:00:00Z
   const before = midnight - 1;
@@ -78,24 +93,6 @@ test('UTC day consumers read util.js instead of inventing another boundary', () 
     'NPC dialogue does not own another day constant');
   assert.truthy(/const day = utcDayIndex\(now\)/.test(ALL_SRC['npc.js']),
     'NPC dialogue rotates on the shared UTC day');
-});
-
-test('msToNextBucket: a busy shop counts to ITS OWN staggered hour', () => {
-  const house = { id: 'shopWait' };
-  const off = ShopsMath.bucketOffset(house.id);
-  const boundary = ShopsMath.HOUR - off;      // this house's next rollover from t=0
-  assert.eq(ShopsMath.msToNextBucket(house, 0), boundary);
-  assert.eq(ShopsMath.msToNextBucket(house, boundary - 1), 1, 'a millisecond before it rolls');
-  assert.eq(ShopsMath.msToNextBucket(house, boundary), ShopsMath.HOUR, 'a fresh hour after');
-  // readiness carries the raw ms so the plaque and the tap format the SAME
-  // number — waitMin alone could only ever say "60m" for a full bucket.
-  const save = {};
-  const cur = ShopsMath.bucketState(save, house, 0);
-  cur.deals = 1;                                   // a plain house's cap
-  const r = ShopsMath.readiness(save, house, 1, 0);
-  assert.eq(r.ready, false);
-  assert.eq(r.waitMs, boundary, 'waitMs is the exact wait, unrounded');
-  assert.eq(r.waitMin, Math.ceil(boundary / DN_MIN), 'waitMin stays for number callers');
 });
 
 // ── The call sites ────────────────────────────────────────────────────────
@@ -139,13 +136,13 @@ test('each timed readout that lost its hand-rolled ladder gained the helper', ()
   const needs = {
     'interactables.js': 1,   // shared fruit state covers growth and regrowth
     'interact.js': 3,        // produce cooldown, pet boost, crop stage wait
-    'render.js': 2,          // crop stage badge + the shop's busy plaque
-    'app.js': 6,             // shop busy, blacksmith ×2 (via shopWaitLabel), day gates, dragon, move pad
+    'render.js': 1,          // crop stage badge (the shop's busy plaque is gone: no shop is ever busy)
+    'app.js': 6,             // day gates, dragon, move pad, castle favour …
   };
   for (const [file, min] of Object.entries(needs)) {
     const src = DURATION_SOURCES[file];
     if (!src) throw new Error(`DURATION_SOURCES is missing ${file} — update run.js`);
-    const n = (src.match(/shortDuration\(|shopWaitLabel\(/g) || []).length;
+    const n = (src.match(/shortDuration\(/g) || []).length;
     assert.gte(n, min, `${file}: expected at least ${min} shortDuration call sites, found ${n}`);
   }
 });
@@ -160,11 +157,19 @@ test('the crop stage badge shows a unit, not a bare number', () => {
 
 test('the day-gated messages name the wait to the UTC roll', () => {
   const src = DURATION_SOURCES['app.js'];
-  // Castle favour, coin-burst POI — both keyed on a UTC day stamp, both
-  // saying how long that is. (A fed delivery house is no longer day-gated:
-  // one delivery per house, ever.)
+  // Daily visits share Macros.beginDailyVisit; the inn and guildhall keep
+  // their service dialogs. Each is keyed on a UTC day stamp,
+  // each saying how long that is. (A fed delivery house is no longer
+  // day-gated: one delivery per house, ever. The castle favour left the day
+  // key for its own twelve-hour clock, Houses.CASTLE_SERVICE_MS.)
   const n = (src.match(/msToNextUtcDay\(\)/g) || []).length;
-  assert.gte(n, 3, `expected the 2 day-gated messages + the castle blurb, found ${n}`);
+  assert.gte(n, 2, `expected the 2 service day-gated messages, found ${n}`);
+  assert.truthy(/shortDuration\(msToNextUtcDay\(\)\)/.test(Macros.beginDailyVisit.toString()),
+    'shared daily visits show the wait to the UTC roll');
+  const castle = SCENE_SRC.slice(SCENE_SRC.indexOf('  presentCastleServiceOffer('), SCENE_SRC.indexOf('  showQuestBoard('));
+  assert.truthy(/shortDuration\(this\._castleServiceWaitMs\(house\)\)/.test(castle), 'the castellan names the twelve-hour wait');
+  assert.truthy(/shortDuration\(Houses\.CASTLE_SERVICE_MS\)/.test(castle), 'and the blurb its length');
+  assert.falsy(/msToNextUtcDay/.test(castle), 'neither counts to the UTC roll');
 });
 
 test('numeric consumable durations derive from CONSUMABLE_SPEC', () => {

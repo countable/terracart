@@ -29,5 +29,8 @@ placement. `playerArt` resolves saved state; `assets.js` derives preload entries
 from the same table. Farmer, class and mount images were copied unchanged from the
 provided art; original source packs remain untouched.
 
-The original `Idle.png` and `Walk.png` remain as a missing-asset fallback
-and for multiplayer peers.
+The original `Idle.png` and `Walk.png` are deleted (Sep 2026). The cyan farmer
+is the BASE sheet: it is what the player wears until a calling's sheet is up,
+what every multiplayer peer wears, and what the "How to play" card's demo strip
+walks (index.html `#howto .demo`). `app.js` reads its frame, feet drop and
+scale off `PLAYER_ART.farmer` for the footprints and the energy pop.

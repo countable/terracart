@@ -1,4 +1,4 @@
-# Mending Lane
+# Dragon Hood
 
 A GPS farming RPG played on real-world map data: walk your neighbourhood, open
 the places on it, farm, trade, fight, and restore the wrecked streets and
@@ -41,6 +41,7 @@ manifest.webmanifest  PWA manifest; icon-192/512.png are the PWA icons.
 
 src/        Game source (vanilla JS, global scope, load-order dependent). The big ones:
               app.js          the Phaser scene: wiring, HUD, dialogs, per-frame update
+              scene_*.js / modal_shell.js   scene mixins app.js installs (geo, creatures, shops, modals)
               worldgen.js     map tiles → terrain grid, objects, creatures (seeded)
               render.js       the world draw pass (RENDER_SPEC, painter rule, seat pass)
               lighting.js     the lightmap — the only lighting pass
@@ -49,7 +50,7 @@ src/        Game source (vanilla JS, global scope, load-order dependent). The bi
               items.js / rarity.js / loot.js / shops*.js / gear.js   catalog + economy
               combat.js / wizard.js / quests.js / play_tips.js / trail.js / streets.js   systems
             plus small pure cores (coords, energy, inventory, crops, fog, traps,
-            lairs, difficulty, …) that the headless suite loads directly.
+            lairs, buffs, difficulty, …) that the headless suite loads directly.
 vendor/     Third-party libraries (phaser.js — see vendor/README.md).
 assets/     Game art the build loads (Character/, Enemy/, Farm Animals/, Icons/, Objects/, art/).
 data/       Static data sidecars (satextract_osm.geojson and its sources).
@@ -70,9 +71,10 @@ kept for the life of the save):
   exploring and rebuilding are the loop.
 - **Hard mode — no tutorial.** A $20 purse (against $50), traders at 1.5× the
   markup, Home paying 60% for a haul, and 2.5× incoming damage after armour.
-  There is no pest amnesty, crows raid your crops, and roadside traps are more
+  There is no pest amnesty, deer are sent at your crops, and roadside traps are more
   common. Enemy health, attacks, ordinary populations and ruin garrisons are
-  shared across modes, so players can fight the same enemies together.
+  shared across modes, so players can fight the same enemies together; easy
+  wakes at most two guards of any one garrison, hard wakes the whole of it.
 
 Every number that differs lives in `src/difficulty.js` as a multiplier over
 the base value, read at the site that owns that value;

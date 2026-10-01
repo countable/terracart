@@ -111,6 +111,21 @@ function shortDuration(ms) {
   if (h < 24) return `${h}h`;
   return `${Math.ceil(h / 24)}d`;
 }
+// The same ladder in a speaking voice — for a wait a CHARACTER SAYS (a
+// neighbour's "stay away a day and they forget"), never a toast, a price
+// line or a HUD label, which keep the lettered form. One unit, rounded up
+// the same way, so the two can never disagree about how long.
+function spokenDuration(ms) {
+  if (!(ms > 0)) return 'no time at all';
+  const say = (n, one, many) => (n === 1 ? one : `${n} ${many}`);
+  const s = Math.ceil(ms / 1000);
+  if (s < 60) return say(s, 'a second', 'seconds');
+  const m = Math.ceil(s / 60);
+  if (m < 60) return say(m, 'a minute', 'minutes');
+  const h = Math.ceil(m / 60);
+  if (h < 24) return say(h, 'an hour', 'hours');
+  return say(Math.ceil(h / 24), 'a day', 'days');
+}
 
 // One UTC boundary owns both the persistent YYYYMMDD key and the numeric day
 // used for rotation/age arithmetic, so every daily mechanic flips together.
@@ -238,7 +253,36 @@ function makeRng32(seed) {
 // foe, never does.
 // Spawn rates per category. Tuned per the design: flora + trees 1%, animals
 // and monsters 5%.
-const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05, monster: 0.05, fish: 0.05 };
+// `rock` is the GLINT ROCK (interactables.js isGlintRock): one plain rock in
+// twenty, the same rocks for every player off the rock's id. It wears no gold
+// sheen and pays no 10× bonus — it catches the light for a moment every
+// 10-60 s (glintRockPhase) and is GUARANTEED one find on top of its stones
+// (glintRockFind), rolled off the plain rock's own rarity ladder.
+// `nest` is the NEST BUSH (items.js isNestBush): one shrub in twenty, off the
+// bush's id, that wiggles every 10-30 s (nestBushPhase) and hides a BABY PET
+// (items.js BABY_KINDS) — found once, when the bush is chopped. The same
+// hash as the shiny flora roll, so every shiny bush is a nest bush too.
+const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05, monster: 0.05, fish: 0.05, rock: 0.05, nest: 0.05 };
+
+// ── A thing's own BEAT: a brief show once every so-many seconds ─────────────
+// The glint rock (interactables.js glintRockPhase) and the nest bush (items.js
+// nestBushPhase) each catch the eye for a moment on a period of their own —
+// one beat per id, so a field of them never moves in unison. A beat is
+// `{ salt, minMs, maxMs, showMs }`: the period is hashed from the id and salt
+// into [minMs, maxMs]; the show lasts showMs once per period, offset by a
+// second hash so two things with equal periods still start apart. Wall-clock
+// ms in, so every player sees the same one move at the same moment.
+// beatPhase returns the show's progress 0..1 while it shows, else -1.
+function beatPeriodMs(id, beat) {
+  const h = fnv1a(String(id) + '#' + beat.salt) / 4294967296;
+  return beat.minMs + h * (beat.maxMs - beat.minMs);
+}
+function beatPhase(id, nowMs, beat) {
+  const period = beatPeriodMs(id, beat);
+  const offset = fnv1a(String(id) + '#' + beat.salt + 'phase') % Math.floor(period);
+  const t = (((nowMs + offset) % period) + period) % period;
+  return t < beat.showMs ? t / beat.showMs : -1;
+}
 // ── How long a message on the MAP may be ────────────────────────────────────
 // A flash is a toast drawn over the world, on a phone, usually while the
 // player is mid-action and looking at the cell they just tapped — not a
@@ -304,11 +348,13 @@ function treeUsesGrowthSheet(o) {
 }
 // A tree the PLAYER planted (an acorn) grows on the CLOCK, not off a static
 // `variant`: sprout → young at the halfway mark → mature at the full window,
-// which is the same four days a fruit-tree sapling takes to bear. One window,
+// which is the same one day a fruit-tree sapling takes to bear. One window,
 // one ladder, and it comes back through treeGrowthStage so the frame render.js
 // draws, the size class the axe gate reads and the wood the fell pays all move
 // together — a sapling can't draw tiny and gate like a full canopy.
-const PLANTED_TREE_GROW_MS = 4 * 24 * 60 * 60 * 1000;
+// One day (owner's call, Sep 2026 — was four): a sapling planted on a walk
+// is grown by the next one. Every consumer derives from this number.
+const PLANTED_TREE_GROW_MS = 1 * 24 * 60 * 60 * 1000;
 function plantedTreeStage(plantedT, now) {
   const age = (now == null ? Date.now() : now) - (Number(plantedT) || 0);
   const f = age / PLANTED_TREE_GROW_MS;
@@ -580,6 +626,12 @@ function derivedObjects(entry, slot, pred) {
 // trailer, sandbox houses. It sits at the top of the house range and the bottom
 // of the fort range because that is where each role's real buildings cluster.
 //
+// THE TRAILER HAS ITS OWN ROW (Oct 2026, owner's call: 10% bigger). Home is
+// the one building the player returns to every session and the only one with
+// no footprint of its own, so it draws at a fixed width a tenth over the
+// village's — big enough to find at a glance, still under the smallest fort.
+// A role with no row of its own is a house.
+//
 // The fort cap has come down twice: ~7 cells read as oversized against an
 // 11-cell viewport rather than as a landmark you could see around, then ~4.3
 // still read ~25% too big. The game runs pixelArt:true, so growing the art
@@ -588,8 +640,9 @@ const BUILDING_ART = {
   // fitMul — how much of its own footprint the role fills. Forts keep a small
   //          brick margin inside theirs; exact fill read ~25% too big.
   // min/def/max — drawn width in CELLS (a cell is CELL_M = 7 m).
-  house: { fitMul: 1,   min: 1.2,  def: 1.35, max: 1.35 },
-  fort:  { fitMul: 0.8, min: 1.87, def: 1.87, max: 3.48 },
+  house:   { fitMul: 1,   min: 1.2,   def: 1.35,  max: 1.35 },
+  trailer: { fitMul: 1,   min: 1.485, def: 1.485, max: 1.485 },   // house × 1.1
+  fort:    { fitMul: 0.8, min: 1.87,  def: 1.87,  max: 3.48 },
 };
 // The residential 1.35 is the width the plain house has always drawn at
 // (72px × 0.6 ÷ 32), so the commonest building on the map is unmoved and the
@@ -598,7 +651,9 @@ const BUILDING_ART = {
 // bias in worldgen's assignBuildingFootprints (FOOT_HOUSE_MIN) so the floored
 // roof has a pad to stand on. The fort's 1.87 and 3.48 are its previous 0.28
 // and 0.52 on the 214px frame, in cells — the curve is unchanged.
-function buildingArt(isFort) { return isFort ? BUILDING_ART.fort : BUILDING_ART.house; }
+// The row for a building ROLE (Houses.displayRole: 'fort', 'trailer', or any
+// of the residential roles, which share the house row).
+function buildingArt(role) { return BUILDING_ART[role] || BUILDING_ART.house; }
 // Sprite scale that draws `cells` cells wide from a frame `frameW` px wide.
 // An unmeasurable frame can't be sized at all — but render.js has already
 // hidden that sprite (the texture check in RENDER_SPEC), so the number only
@@ -609,11 +664,11 @@ function buildingCellsToScale(cells, frameW, cellPx) {
   return (cells * cellPx) / frameW;
 }
 // What this role draws at with no footprint to go on.
-function buildingBaseScale(frameW, isFort, cellPx) {
-  return buildingCellsToScale(buildingArt(isFort).def, frameW, cellPx);
+function buildingBaseScale(frameW, role, cellPx) {
+  return buildingCellsToScale(buildingArt(role).def, frameW, cellPx);
 }
-function houseArtScale(area, frameW, isFort, cellM, cellPx) {
-  const a = buildingArt(isFort);
+function houseArtScale(area, frameW, role, cellM, cellPx) {
+  const a = buildingArt(role);
   const cells = (area > 0 && cellM > 0)
     ? clamp(a.fitMul * (Math.sqrt(area) / cellM), a.min, a.max)
     : a.def;

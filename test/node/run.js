@@ -21,6 +21,22 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const readSrc = (p) => fs.readFileSync(path.join(ROOT, 'src', p), 'utf8');
+// The scene's source: app.js plus every mixin it installs with
+// installSceneMixin(MapScene, X), where X is `class X` in its own module.
+// Derived from app.js, so a new mixin joins without editing this file. Pins
+// and lifts that read scene methods use SCENE_SRC, so moving a method between
+// app.js and a mixin needs no test edits.
+const SCENE_FILES = (() => {
+  const app = readSrc('app.js');
+  const mixins = [...app.matchAll(/^installSceneMixin\(MapScene, (\w+)\);$/gm)].map((m) => m[1]);
+  const files = fs.readdirSync(path.join(ROOT, 'src')).filter((n) => n.endsWith('.js'));
+  return ['app.js', ...mixins.map((name) => {
+    const file = files.find((f) => new RegExp(`^class ${name} \\{`, 'm').test(readSrc(f)));
+    if (!file) { console.error(`No src module declares class ${name} — update run.js`); process.exit(2); }
+    return file;
+  })];
+})();
+const SCENE_SRC = SCENE_FILES.map(readSrc).join('\n');
 // Every module PARSES — compiled, never run. The bundle below only loads the
 // headless modules and app.js is only ever sliced as text, so a syntax error
 // in app.js (a stray brace once closed MapScene early and shipped the game
@@ -85,7 +101,7 @@ const FILES = [
   // Influence zones — the anchor field, the halo terrain and the nexus
   // dressing. Pure (reads WorldGen at CALL time), before worldgen.js like the
   // page loads it.
-  'zones.js', 'zone_variant_data.js', 'zone_variants.js', 'zone_coverage.js', 'zone_dressing.js',
+  'zones.js', 'zone_variant_data.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js',
   'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
   // Traps — placement + costs. Pure (it reads WorldGen at CALL time), so it
   // loads either side of worldgen.js; index.html puts it first, so do we.
@@ -108,7 +124,7 @@ const FILES = [
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and
   // combat.test.js registers a synthetic one), so it runs headless.
-  'combat.js', 'creature_ai.js', 'npc.js',
+  'combat.js', 'companions.js', 'creature_ai.js', 'npc.js',
   // The wizard tower's offers — pure (reads Combat / Trail / Energy /
   // RARITY_TUNING at call time), so wizard.test.js drives the shipping rules.
   'wizard.js', 'dragon_story.js', 'memory_story.js', 'story_encounters.js',
@@ -125,6 +141,9 @@ const FILES = [
   // + a stub fill target, so its projection, painter-rule ordering, tier
   // styling and claim shading pin headlessly.
   'building_overlay.js',
+  // The browser sandbox now exposes a pure tile builder. Loading it here pins
+  // the same authored scenes, vector roads and dressing that install() uses.
+  'sandbox.js',
   // render.js needs Phaser to DRAW, but it deliberately reads no globals at
   // load time (see the CANVAS_W comment in drawObjects), so loading it here is
   // safe and gives the pure decision helpers it exports — edgeNeedsBorder —
@@ -146,6 +165,9 @@ const FILES = [
   // crow tick, catching): a third mixin class nobody runs here plus four
   // consts (one reads Combat, loaded above), loaded with no app.js in scope.
   'scene_creatures.js',
+  // The scene's shops (shopInteract, the offers it opens, the shop clock): a
+  // fourth mixin class nobody runs here plus its literal consts.
+  'scene_shops.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
@@ -165,7 +187,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   plantedTreeStage, TREE_SAPLING_SCALE_MUL, PLANTED_TREE_GROW_MS, acornDropChance, ACORN_P_BASE, ACORN_P_FROST,
   // The one building roof-scale rule — house_scale.test.js asserts against the
   // SHIPPING table rather than its own copies of it.
-  houseArtScale, buildingBaseScale, buildingCellsToScale, BUILDING_ART,
+  houseArtScale, buildingBaseScale, buildingCellsToScale, buildingArt, BUILDING_ART,
   HomeArea, SpawnOwnership,
   itemValue, randInt, pickFromArray, isShiny, faunaShiny,
   TRAILER_SELL_MUL,
@@ -182,6 +204,10 @@ const BRIDGE = `;Object.assign(globalThis, {
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
   CROP_SPRITE, CROP_ROW, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, mineralDeposit, mineralRockFrame, mineralBarId,
+  // The plain rock's ladder and the GLINT rock built on it — glint_rock.test.js.
+  PLAIN_ROCK_FLINT_P, GEM_BY_TIER, GEM_P_BY_TIER, GLINT_ROCK_FINDS, GLINT_ROCK_PERIOD_MS, GLINT_ROCK_SHOW_MS,
+  // Baby pets and the nest bush — pet_baby.test.js.
+  BABY_KINDS, NEST_BUSH_BEAT,
   MAX_GROWTH_STAGE, PRODUCE_COL,
   // The other half of the crop table: what a WILD plant does when tapped —
   // what it drops, which relic times its wheel, what that costs, the bonus it
@@ -222,7 +248,7 @@ ctx.STARTER_JS_SRC = readSrc('starter.js');
 ctx.CREATURE_AI_SRC = readSrc('creature_ai.js');
 {
   // The creature-AI consts and helpers moved to creature_ai.js; look in both.
-  const src = readSrc('app.js') + '\n' + readSrc('creature_ai.js');
+  const src = SCENE_SRC + '\n' + readSrc('creature_ai.js');
   const STARTER_CONSTS = [
     'VIEW_CELLS', 'CREATURE_SIM_CELLS',
     'HOME_GREETER_MIN_CELLS', 'HOME_GREETER_MAX_CELLS', 'HOME_GREETER_SLACK_CELLS', 'HOME_GREETER_DIR_VEC',
@@ -262,7 +288,7 @@ ctx.CREATURE_AI_SRC = readSrc('creature_ai.js');
 // params in order — so a lift block can hand tests the REAL scene entry point.
 const STARTER_WRAPPER_RE = /^  (_(\w+))\(([^)]*)\) \{ return Starter\.(\w+)\(this((?:, [^)]*)?)\); \}$/;
 const starterWrapper = (name) => {
-  const src = readSrc('app.js');
+  const src = SCENE_SRC;
   const line = src.split('\n').find(l => l.startsWith(`  ${name}(`) && l.includes('return Starter.'));
   const m = line && line.match(STARTER_WRAPPER_RE);
   const want = m && m[2].charAt(0).toLowerCase() + m[2].slice(1);
@@ -280,7 +306,7 @@ const starterWrapper = (name) => {
 // drift the moment someone retunes the feel. (BEACH_X_PER_CELLS and
 // FIRE_WARD_MAX_DEPTH moved to scene_creatures.js with their one reader.)
 {
-  const src = readSrc('app.js') + '\n' + readSrc('scene_creatures.js');
+  const src = SCENE_SRC;
   for (const name of ['WALK_HOME_IDLE_MS', 'WALK_HOME_HINT_IDLE_MS', 'WALK_HOME_RAMP_MS',
                       'WALK_HOME_SPEED_MUL',
                       // The walk-home behaviour tests below drive the REAL
@@ -311,6 +337,10 @@ const starterWrapper = (name) => {
                       // fire's light radius to it at call time, and
                       // lighting.test.js pins that the two are one number.
                       'FIRE_REST_R',
+                      // …and the hearth itself: within this of the fire's
+                      // point a body burns (wanderCreatures' foe block reads
+                      // it; burning.test.js drives the block with it).
+                      'FIRE_TOUCH_CELLS',
                       // Home's ring, which is the same three-way rule one step
                       // further: light, warmth AND ward. lighting.test.js pins
                       // the light against it, home_ward.test.js the other two.
@@ -340,7 +370,7 @@ const starterWrapper = (name) => {
 // tools/layout_audit.js uses on layOutVertically. A reimplementation here would
 // pass while the real return crawled home across half a kilometre.
 {
-  const src = readSrc('app.js');
+  const src = SCENE_SRC;
   const lift = (sig) => {
     const start = src.indexOf('\n  ' + sig);
     // Class methods sit at two-space indent, so the first line that is exactly
@@ -394,7 +424,7 @@ const starterWrapper = (name) => {
 // stub scene in trail.test.js, rather than pinned as source text that would say
 // nothing about what they actually pay.
 {
-  const src = readSrc('app.js');
+  const src = SCENE_SRC;
   const lift = (sig) => {
     const start = src.indexOf('\n  ' + sig);
     const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
@@ -423,7 +453,7 @@ const starterWrapper = (name) => {
 // rests you. homeWorldPos comes with it because it is the thing all three
 // effects ask, and its depth gate is half the answer.
 {
-  const src = readSrc('app.js');
+  const src = SCENE_SRC;
   const lift = (sig) => {
     const start = src.indexOf('\n  ' + sig);
     const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
@@ -434,11 +464,11 @@ const starterWrapper = (name) => {
     return src.slice(start + 1, end + 4);
   };
   const methods = ['homeWorldPos() {', 'isRestingAtHome(pWX, pWY) {', 'inHomeRing(x, y) {',
-                   'homeGuardsCrop(p) {', '_crowRaids(p) {']
+                   'homeGuardsCrop(p) {', '_cropRaidable(p) {']
     .map(lift).join(',\n');
   vm.runInContext(`globalThis.__home = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#homeWorldPos' });
-  for (const k of ['homeWorldPos', 'isRestingAtHome', 'inHomeRing', 'homeGuardsCrop', '_crowRaids']) {
+  for (const k of ['homeWorldPos', 'isRestingAtHome', 'inHomeRing', 'homeGuardsCrop', '_cropRaidable']) {
     if (typeof ctx.__home[k] !== 'function') {
       console.error(`__home.${k} did not come back as a function — update run.js`);
       process.exit(2);
@@ -453,7 +483,7 @@ const starterWrapper = (name) => {
 // trail.test.js drives the shipping dwell, the shipping reach gate and the
 // shipping bank against a synthetic tile rather than a transcription of them.
 {
-  const src = readSrc('app.js');
+  const src = SCENE_SRC;
   const lift = (sig) => {
     const start = src.indexOf('\n  ' + sig);
     const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
@@ -481,7 +511,8 @@ const starterWrapper = (name) => {
                    '_visitStreetLamps(now) {', '_markLampsRestored(meta, newly, now) {',
                    '_armTrailIntro(now) {', '_openTrailIntroIfDue() {',
                    '_drawStreetLive(now) {',
-                   '_blastAt(wmx, wmy, opts) {']
+                   '_blastAt(wmx, wmy, opts) {',
+                   '_houseMutter() {']
     .map(lift).join(',\n');
   // The seating reads two app.js module constants that don't exist in this
   // context. Carry them across as SOURCE TEXT rather than retyping the
@@ -528,10 +559,15 @@ const starterWrapper = (name) => {
     // …and the beat it waits out before opening over the repair it explains.
     `globalThis.TRAIL_INTRO_DELAY_MS = ${constOf('TRAIL_INTRO_DELAY_MS')};\n` +
     declOf('trailIntroBody') + '\n' +
-    // The energy pop's seating: derived from the walker's art, in the order
-    // app.js declares them (the head clearance reads the two before it).
+    // What a house says underfoot (_houseMutter; house_mutter.test.js).
+    declOf('HOUSE_WRECK_MUTTERS') + '\n' +
+    declOf('HOUSE_RESTORED_MUTTERS') + '\n' +
+    // The energy pop's seating: derived from the cyan farmer's art row, in
+    // the order app.js declares them (the head clearance reads the three
+    // before it).
     `globalThis.PLAYER_FEET_DROP_PX = ${constOf('PLAYER_FEET_DROP_PX')};\n` +
     `globalThis.PLAYER_FRAME_PX = ${constOf('PLAYER_FRAME_PX')};\n` +
+    `globalThis.PLAYER_ART_SCALE = ${constOf('PLAYER_ART_SCALE')};\n` +
     `globalThis.ENERGY_POP_LIFT_PX = ${constOf('ENERGY_POP_LIFT_PX')};\n` +
     `globalThis.ENERGY_POP_HEAD_PX = ${constOf('ENERGY_POP_HEAD_PX')};`,
     ctx, { filename: 'app.js#STREET_COUNTER_LIFT_PX' });
@@ -544,7 +580,7 @@ const starterWrapper = (name) => {
                    '_scenicIntervals', '_scenicWalkStory',
                    '_afterRestoreBeat', '_bankStreetMetres', '_showTrailIntro',
                    '_armTrailIntro', '_openTrailIntroIfDue',
-                   '_drawStreetLive', '_blastAt']) {
+                   '_drawStreetLive', '_blastAt', '_houseMutter']) {
     if (typeof ctx.__trailCounter[k] !== 'function') {
       console.error(`__trailCounter.${k} did not come back as a function — update run.js`);
       process.exit(2);
@@ -559,7 +595,7 @@ const starterWrapper = (name) => {
 // A reimplementation here would happily pass while a drag also chopped the tree
 // it slid over, which is the whole thing this feature must not do.
 {
-  const src = readSrc('app.js');
+  const src = SCENE_SRC;
   const lift = (sig) => {
     const start = src.indexOf('\n  ' + sig);
     const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
@@ -630,7 +666,7 @@ Object.assign(ctx, {
 // _worldPlaced, still a scene method, lifted as text) for a test to .call()
 // with a scene stub — exercising the real shipping code instead of a copy.
 {
-  const src = readSrc('app.js');
+  const src = SCENE_SRC;
   const grab = (head) => {
     const at = src.indexOf(head);
     if (at < 0) {
@@ -686,7 +722,7 @@ Object.assign(ctx, {
 // and tax still live on the Phaser scene class, so lift those as text and let
 // castle_claim.test.js drive the real ones over the Houses wrappers.
 {
-  const src = readSrc('app.js');
+  const src = SCENE_SRC;
   const grab = (head) => {
     const at = src.indexOf(head);
     if (at < 0) {
@@ -705,9 +741,7 @@ Object.assign(ctx, {
   const rest = src.match(/const CASTLE_REST_ENERGY = (\d+);/);
   if (!rest) { console.error('Could not find CASTLE_REST_ENERGY in src/app.js — update run.js'); process.exit(2); }
   decls += `const CASTLE_REST_ENERGY = ${rest[1]};\n`;
-  const tax = src.match(/const CASTLE_TAX_GOLD = (\d+);/);
-  if (!tax) { console.error('Could not find CASTLE_TAX_GOLD in src/app.js — update run.js'); process.exit(2); }
-  decls += `const CASTLE_TAX_GOLD = ${tax[1]};\n`;
+  // CASTLE_TAX_GOLD needs no lift: scene_shops.js, in the bundle, declares it.
   vm.runInContext(
     decls
     + 'globalThis.CASTLE_REST_ENERGY = CASTLE_REST_ENERGY;\n'
@@ -718,7 +752,8 @@ Object.assign(ctx, {
     + '  _castleKey(house) { return Houses.castleKey(house); },\n'
     + '  isCastleClaimed(house) { return Houses.isCastleClaimed(this.save, house); },\n'
     + '  _claimCastle(house) { return Houses.claimCastle(this.save, house); },\n'
-    + '  _castleServiceUsedToday(house) { return Houses.castleServiceUsedToday(this.save, house); },\n'
+    + '  _castleServiceUsed(house) { return Houses.castleServiceUsed(this.save, house); },\n'
+    + '  _castleServiceWaitMs(house) { return Houses.castleServiceWaitMs(this.save, house); },\n'
     + '  _markCastleServiceUsed(house) { return Houses.markCastleServiceUsed(this.save, house); },\n'
     + '  _castleRest(sx, sy, house) {\n' + grab('  _castleRest(sx, sy, house) {\n') + '\n  },\n'
     + '  _castleTax(sx, sy, house) {\n' + grab('  _castleTax(sx, sy, house) {\n') + '\n  },\n'
@@ -801,7 +836,7 @@ Object.assign(ctx, {
 // above) so shops_math.test.js asserts on the real shipping
 // source rather than a transcription that could drift.
 {
-  const src = readSrc('app.js');
+  const src = SCENE_SRC;
   const grab = (head, mustContain) => {
     const at = src.indexOf(head);
     if (at < 0) {
@@ -870,7 +905,7 @@ Object.assign(ctx, {
 // REAL aiming rules: chip step X → the arrow points at X's own space, never a
 // leftover crate fallback.
 {
-  const src = readSrc('app.js');
+  const src = SCENE_SRC;
   const lift = (sig) => {
     const start = src.indexOf('\n  ' + sig);
     const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
@@ -897,7 +932,7 @@ Object.assign(ctx, {
 }
 
 // The pest amnesty (_pestFreeZone) decides whether a save is still ahead of
-// its first harvest and, if so, which cells of a tile hold no slime or crow.
+// its first harvest and, if so, which cells of a tile hold no slime, crow or raven.
 // Pure save + grid math in starter.js (Starter.pestFreeZone); hand the test
 // the scene's wrapper (PEST_FREE_CELLS is injected once above). The spawner's
 // one-line use of the zone (which KINDS it re-rolls) can't be lifted, so
@@ -912,32 +947,32 @@ Object.assign(ctx, {
     console.error('Could not find the pest-free spawner guard in src/scene_creatures.js — update run.js');
     process.exit(2);
   }
-  // The crow pump's gate line, for the same reason.
-  const pump = src.match(/if \(hasCrowCrop && [^\n]+\{/);
+  // The pest pump's gate line, for the same reason.
+  const pump = src.match(/if \(hasRaidableCrop && [^\n]+\{/);
   if (!pump) {
-    console.error('Could not find the crow-pump gate in src/scene_creatures.js — update run.js');
+    console.error('Could not find the pest-pump gate in src/scene_creatures.js — update run.js');
     process.exit(2);
   }
   vm.runInContext(
     `globalThis.PEST_FREE_GUARD_SRC = ${JSON.stringify(guard[0])};\n`
-    + `globalThis.CROW_PUMP_GATE_SRC = ${JSON.stringify(pump[0])};\n`
+    + `globalThis.PEST_PUMP_GATE_SRC = ${JSON.stringify(pump[0])};\n`
     + `globalThis.pestFreeZone = ({\n  ${starterWrapper('_pestFreeZone')}\n})._pestFreeZone;`,
     ctx, { filename: 'app.js#_pestFreeZone' });
 }
 
 // The creature SIM BUBBLE — the radius inside which wanderCreatures lets a
-// creature think, and the radius the crow pump seats its bird at. Both are
+// creature think, and the radius the pest pump seats its deer at. Both are
 // plain constants, but the two lines that USE them are inside the per-frame
 // loop on the scene class and can't be lifted, so hand their source text over
 // too: creature_sim_range.test.js pins that the cull reads the constant (not a
 // re-typed number), that it measures from the player rather than the camera
 // anchor, and that the spawn radius stays between the viewport corner and the
-// bubble — the invariant a dispatched crow's whole behaviour rests on.
+// bubble — the invariant a dispatched pest's whole behaviour rests on.
 {
   // The creature-AI consts and helpers moved to creature_ai.js; look in both.
-  const src = readSrc('app.js') + '\n' + readSrc('creature_ai.js');
+  const src = SCENE_SRC + '\n' + readSrc('creature_ai.js');
   let decls = '';
-  for (const name of ['CREATURE_SIM_CELLS', 'PEST_CROW_SPAWN_CELLS', 'VIEW_CELLS',
+  for (const name of ['CREATURE_SIM_CELLS', 'PEST_SPAWN_CELLS', 'VIEW_CELLS',
                       // The rout's pace, and the slowest gait it has to move:
                       // home_ward.test.js measures how long the ring takes to
                       // clear in seconds a player would recognise.
@@ -958,8 +993,8 @@ Object.assign(ctx, {
   const feet = sim.match(/const px = this\.startWorldM[^\n]+\n\s*const py = [^\n]+/);
   // There are two `const SPAWN_R` in scene_creatures.js (the cave entrance
   // scatter is the other), so take the one in the pump — the last before the
-  // pest-crow id.
-  const pumpAt = sim.indexOf('`pest_crow_${');
+  // pest-deer id.
+  const pumpAt = sim.indexOf('`pest_deer_${');
   const spawnAt = pumpAt < 0 ? -1 : sim.lastIndexOf('const SPAWN_R = ', pumpAt);
   const spawn = spawnAt < 0 ? null : [sim.slice(spawnAt, sim.indexOf('\n', spawnAt))];
   if (!cull || !feet || !spawn) {
@@ -970,7 +1005,7 @@ Object.assign(ctx, {
     decls
     + `globalThis.CREATURE_CULL_SRC = ${JSON.stringify(cull[0])};\n`
     + `globalThis.CREATURE_FEET_SRC = ${JSON.stringify(feet[0])};\n`
-    + `globalThis.PEST_CROW_SPAWN_SRC = ${JSON.stringify(spawn[0])};\n`,
+    + `globalThis.PEST_SPAWN_SRC = ${JSON.stringify(spawn[0])};\n`,
     ctx, { filename: 'creatureSimRange.js' });
 }
 
@@ -1024,7 +1059,7 @@ Object.assign(ctx, {
 // the real text of both. Regexes here would drift; these are the source
 // slices, and spawn_rebuild.test.js reads the contract out of them.
 {
-  const appSrc = readSrc('app.js');
+  const appSrc = SCENE_SRC;
   const wgSrc  = readSrc('worldgen.js');
   const slice = (src, head, endMark, what) => {
     const at = src.indexOf(head);
@@ -1087,9 +1122,9 @@ Object.assign(ctx, {
 // ── Wild-crow flee (FINDING 1) + fauna spawn / caught-array fixes (FINDING 2,
 // FINDING 3) — all three need slices of scene methods that cannot load
 // headlessly. The methods are the SceneCreatures mixin's (scene_creatures.js);
-// crowEatsCrop, the top-level helper, stays in app.js.
+// raiderEatsCrop, the top-level helper, stays in app.js.
 {
-  const src = readSrc('app.js');
+  const src = SCENE_SRC;
   const creaturesSrc = readSrc('scene_creatures.js');
   const grabBetween = (head, endMark, what) => {
     const at = creaturesSrc.indexOf(head);
@@ -1100,15 +1135,15 @@ Object.assign(ctx, {
     return creaturesSrc.slice(from, end);
   };
 
-  // crowEatsCrop is a plain top-level helper in app.js that _wildCrowTick
+  // raiderEatsCrop is a plain top-level helper in app.js that _cropRaidable
   // calls — lift it verbatim so the lifted method bodies below resolve for
   // real instead of against a stub that could drift. (faunaBlocksCell used to
   // be lifted here beside it; it is Combat.faunaBlocksCell now, so the lifted
   // bodies reach the shipping predicate through the loaded module.)
   {
-    const m = src.match(/function crowEatsCrop\(p\) \{ return Crops\.crowEats\(p\); \}/);
-    if (!m) { console.error('Could not find crowEatsCrop in src/app.js — update run.js'); process.exit(2); }
-    vm.runInContext(m[0] + '\n;globalThis.crowEatsCrop = crowEatsCrop;', ctx, { filename: 'crowEatsCrop.js' });
+    const m = src.match(/function raiderEatsCrop\(p\) \{ return Crops\.raiderEats\(p\); \}/);
+    if (!m) { console.error('Could not find raiderEatsCrop in src/app.js — update run.js'); process.exit(2); }
+    vm.runInContext(m[0] + '\n;globalThis.raiderEatsCrop = raiderEatsCrop;', ctx, { filename: 'raiderEatsCrop.js' });
   }
 
   // FINDING 1 — _wildCrowTick, whole method body, run with a stub `this`
@@ -1130,14 +1165,14 @@ Object.assign(ctx, {
   // nothing else) to just run whole via SPAWN_CAVE_SRC, already lifted above
   // for the rebuild-contract tests.
 
-  // FINDING 3(a) — the save.caught pest-crow prune block inside
+  // FINDING 3(a) — the save.caught pest-deer prune block inside
   // wanderCreatures. Lifted alone (not the ~1500-line wanderCreatures method
   // it lives in): it only touches this.depth / this.save.caught /
   // this._lastCaughtPruneT / WorldGen.tileCache / WorldGen.tileKey.
   ctx.CAUGHT_PRUNE_SRC = grabBetween(
-    '    // Prune save.caught of pest-crow markers whose tile has since fallen out\n',
+    '    // Prune save.caught of pest-deer markers whose tile has since fallen out\n',
     '\n    const caughtSet = setOf(this.save.caught);',
-    'the save.caught pest-crow prune block');
+    'the save.caught pest-deer prune block');
 }
 
 // ── The bonus buried-X streams (spawnInTile) ──────────────────────────────
@@ -1148,7 +1183,7 @@ Object.assign(ctx, {
 // difference are all decided in here. It closes over entry / tx / ty / N /
 // rng / ambientSpawnOpts and `this` (tileEdgeM), all cheap to stub.
 {
-  const appSrc = readSrc('scene_creatures.js');   // spawnInTile's home now
+  const appSrc = SCENE_SRC;
   // The grid pass itself runs AHEAD of the pass's flag (where it may still
   // yield); the streams read it further down. Both pieces are lifted, and
   // run as a generator driven through.
@@ -1184,7 +1219,7 @@ ctx.BUILDING_OVERLAY_SRC = readSrc('building_overlay.js');
 // text pins could not see: the lamp list was memoised onto a tile entry that
 // was still LOADING, so no tile in the world ever grew a lamp.
 {
-  const appSrc = readSrc('app.js');
+  const appSrc = SCENE_SRC;
   const a = appSrc.indexOf('  _streetLampsForTile(tx, ty, entry) {');
   const b = appSrc.indexOf('  // The lamps near the frame');
   const c = appSrc.indexOf('  _updateStreetLamps() {');
@@ -1220,6 +1255,11 @@ ctx.BUILDING_OVERLAY_SRC = readSrc('building_overlay.js');
 // else in this suite builds one) — so those two are pinned as text too, same
 // as ROAD_OVERLAY_SRC above. See boot_profiler.test.js.
 ctx.APP_JS_SRC = readSrc('app.js');
+ctx.SANDBOX_JS_SRC = readSrc('sandbox.js');
+ctx.SCENE_SRC = SCENE_SRC;
+// The scene's modules by file (app.js first, then each installed mixin's) —
+// scene_mixins.test.js pins that index.html loads every one before app.js.
+ctx.SCENE_FILES = SCENE_FILES;
 // The modal shell (makeModalShell and the stock dialogs, MODAL_KINDS, the
 // scene-art frame consts) moved out of app.js; tests that pin it read this.
 ctx.MODAL_SHELL_SRC = readSrc('modal_shell.js');
@@ -1252,7 +1292,7 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   // SceneCreatures mixin); the creature-AI consts and helpers are
   // creature_ai.js's; the rest stay in app.js. Look in all three — the method
   // is found in scene_creatures.js and nowhere else.
-  const src = readSrc('app.js') + '\n' + readSrc('creature_ai.js') + '\n' + readSrc('scene_creatures.js');
+  const src = SCENE_SRC + '\n' + readSrc('creature_ai.js') + '\n' + readSrc('scene_creatures.js');
   const num = (name) => {
     const m = src.match(new RegExp(`const ${name} = ([-\\d.]+);`));
     if (!m) { console.error(`Could not lift ${name} for __wander — update run.js`); process.exit(2); }
@@ -1282,7 +1322,7 @@ ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
     // the simulation with it or these tests are measuring last week's game.
     num('CREATURE_SIM_CELLS'), num('SURFACE_RECHECK_MS'), num('FIRE_WARD_MAX_DEPTH'), num('MONSTER_HIT_MS'), num('WANDER_STEP_MS'),
     num('SLIME_HOP_CELLS'), num('SLIME_STEP_MUL'), num('STALK_JITTER'),
-    num('PEST_CROW_SPAWN_CELLS'), num('STRUCK_REACTION_MS'),
+    num('PEST_SPAWN_CELLS'), num('STRUCK_REACTION_MS'),
     // What a creature in a hurry costs — the struck-prey flee and Home's rout
     // both run at this pair.
     num('FLEE_STRIDE_MUL'), num('FLEE_BEAT_MUL'),
@@ -1365,6 +1405,10 @@ ctx.webpDims = (rel) => {
 // two halves of that handshake against each other; nothing else can, because
 // each half is unreachable from the other's language.
 ctx.INDEX_HTML_SRC = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+// The browser harness page, same deal: harness_scripts.test.js pins its
+// script list against index.html's (the harness boots the real page, and a
+// module missing here is how the whole browser suite once went dark).
+ctx.HARNESS_HTML_SRC = fs.readFileSync(path.join(ROOT, 'test/harness.html'), 'utf8');
 // The Kelowna 3×3 MVT fixture tiles (test/fixtures/<tx>_<ty>.pbf), raw bytes
 // keyed '<tx>_<ty>' — the vm has no fs. zones.test.js decodes them (MVT) to
 // pin the influence-zone field's seam determinism on real OpenFreeMap data.

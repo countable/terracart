@@ -1,12 +1,12 @@
 // Economy audit follow-ups (2026-09-27): a delivery takes at most
 // DELIVERY_MAX_SETS sets; the first harvest of each crop banks a memory; a cow
 // takes CREATURE_BEHAVIOUR's catchMul (2) times the net's time; and no gear
-// roll hands out the ring, the wizard's exclusive gift.
+// roll hands out unique jewelry.
 (function () {
 test('economy: a delivery takes at most DELIVERY_MAX_SETS sets, checked twice', () => {
-  assert.truthy(/const DELIVERY_MAX_SETS = 5;/.test(APP_JS_SRC), 'five sets');
-  assert.truthy(/const maxSets = Math\.min\(DELIVERY_MAX_SETS,/.test(APP_JS_SRC), 'the stepper stops there');
-  assert.truthy(/Math\.min\(q \?\? 1, DELIVERY_MAX_SETS,/.test(APP_JS_SRC), 'and the accept re-checks it');
+  assert.truthy(/const DELIVERY_MAX_SETS = 5;/.test(SCENE_SRC), 'five sets');
+  assert.truthy(/const maxSets = Math\.min\(DELIVERY_MAX_SETS,/.test(SCENE_SRC), 'the stepper stops there');
+  assert.truthy(/Math\.min\(q \?\? 1, DELIVERY_MAX_SETS,/.test(SCENE_SRC), 'and the accept re-checks it');
 
 });
 
@@ -22,12 +22,12 @@ test('economy: a cow takes twice the netting; everything else the net\'s own tim
   assert.truthy(/catchMs \*= SpriteLayout\.creatureCatchMul\(target\.kind\);/.test(INTERACT_SRC), 'read by the catch');
 });
 
-test('economy: no gear roll ever hands out the ring', () => {
+test('economy: no gear roll ever hands out unique jewelry', () => {
   let seed = 7;
   const rng = () => { seed = (seed * 1103515245 + 12345) >>> 0; return seed / 4294967296; };
   for (let i = 0; i < 3000; i++) {
     const r = rollGearUpgrade(rng, {}, 1 + (i % 4), {});
-    assert.truthy(!r || r.slot !== 'ring', 'a ring came out of a gear roll');
+    assert.truthy(!r || !['ring', 'amulet'].includes(r.slot), 'jewelry came out of a gear roll');
   }
 });
 })();

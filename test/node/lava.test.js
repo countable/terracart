@@ -63,22 +63,22 @@ test('lava: drawn as the water tile in red, shore and all', () => {
   assert.truthy(/type === WATER \|\| type === LAVA/.test(RENDER_SRC), 'and water\'s shoreline');
 });
 
-test('lava: the player burns on the lava level only, by the feet, through the one writer', () => {
-  const m = APP_JS_SRC.match(/\n  _tickLava\(dt\) \{([\s\S]*?)\n  \}\n/);
+test('lava: the player burns on the surface and lava level, by the feet, through the one writer', () => {
+  const m = SCENE_SRC.match(/\n  _tickLava\(dt\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(m, '_tickLava exists');
   const b = m[1];
-  assert.truthy(/this\.depth !== WorldGen\.LAVA_DEPTH/.test(b), 'only on the lava level');
+  assert.truthy(/this\.depth !== 0 && this\.depth !== WorldGen\.LAVA_DEPTH/.test(b), 'surface craters and lava level');
   assert.truthy(/Combat\.playerDowned\(this\.save\.energy\)/.test(b), 'never off an empty bar');
   assert.truthy(/this\.playerToWorldCell\(\)/.test(b), 'the feet, not the camera');
   assert.truthy(/Combat\.LAVA_DMG_PER_S \* dt/.test(b), 'at the shared rate');
   assert.truthy(/this\._losePlayerEnergy\(pips\)/.test(b), 'banked whole, through Energy.set + the flinch');
   assert.truthy(/this\._popEnergy\(-burned, \{ ix, iy, label: '🔥 lava' \}\)/.test(b), 'popped on its cell');
-  assert.truthy(/this\._tickLava\(dt\);/.test(APP_JS_SRC), 'and ticked');
+  assert.truthy(/this\._tickLava\(dt\);/.test(SCENE_SRC), 'and ticked');
 });
 
 test('lava: an enemy standing in it burns at the same rate, and the kill is the ground\'s', () => {
-  const src = SCENE_CREATURES_SRC;
-  assert.truthy(/!isTame && Combat\.isEnemy\(c\) && !Combat\.monster\(c\.kind\)\?\.lavaImmune && this\.depth === WorldGen\.LAVA_DEPTH/.test(src), 'enemies, lava level');
+  const src = SCENE_SRC;
+  assert.truthy(/!isTame && Combat\.isEnemy\(c\) && !Combat\.monster\(c\.kind\)\?\.lavaImmune && \(this\.depth === 0 \|\| this\.depth === WorldGen\.LAVA_DEPTH\)/.test(src), 'enemies, surface and lava level');
   assert.truthy(/under\.type === WorldGen\.T\.CAVE_LAVA\s*\n\s*&& this\._damageEnemy\(c, Combat\.LAVA_DMG_PER_S, 'lava'\)\) return;/.test(src),
     'through _damageEnemy at the shared rate');
   assert.falsy(Combat.isPlayerKill('lava'), 'not a player kill: the bounty coin and nothing else');
@@ -88,13 +88,54 @@ test('lava: an enemy standing in it burns at the same rate, and the kill is the 
 // Exercise the shipping hazard branch: immunity belongs to the creature, not
 // to the infernal region, so ordinary foes crossing that region still burn.
 test('lava: demons resist lava while neighbouring mortal enemies still burn', () => {
-  const start = SCENE_CREATURES_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune');
-  const end = SCENE_CREATURES_SRC.indexOf('      // Slime energy steal', start);
-  const tick = new Function('c', 'isTame', 'now', SCENE_CREATURES_SRC.slice(start, end));
+  const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune');
+  const end = SCENE_SRC.indexOf('      // Slime energy steal', start);
+  const tick = new Function('c', 'isTame', 'now', SCENE_SRC.slice(start, end));
   const hurt = [];
   const scene = { depth: WorldGen.LAVA_DEPTH, cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_LAVA }),
     _damageEnemy: (c, dmg) => { hurt.push([c.kind, dmg]); return false; } };
   tick.call(scene, { kind: 'red_demon' }, false, 1000);
   tick.call(scene, { kind: 'skeleton' }, false, 1000);
   assert.eq(hurt.length, 1); assert.eq(hurt[0][0], 'skeleton'); assert.eq(hurt[0][1], Combat.LAVA_DMG_PER_S);
+});
+
+test('lava: surface vents burn fractional player time and stop on safe ground', () => {
+  const body = SCENE_SRC.match(/\n  _tickLava\(dt\) \{([\s\S]*?)\n  \}\n/)[1];
+  const tick = new Function('dt', 'tileCellToAbs', body);
+  const key = WorldGen.tileKey(19371, 29371), prior = WorldGen.tileCache.get(key);
+  const entry = {cellsPerEdge: 1, grid: new Uint8Array([WorldGen.T.CAVE_LAVA])};
+  const scene = {depth: 0, startWorldM: {}, save: {energy: 20},
+    playerToWorldCell: () => ({tx: 19371, ty: 29371, cx: 0, cy: 0}),
+    _lastLavaFlashT: Infinity, _popEnergy() {}, _ignitePlayer() {},
+    _losePlayerEnergy(n) { this.save.energy -= n; return n; }};
+  const step = dt => tick.call(scene, dt, () => ({cellIX: 0, cellIY: 0}));
+  WorldGen.tileCache.set(key, entry);
+  try {
+    step(.25); assert.eq(scene.save.energy, 20);
+    step(.25); assert.eq(scene.save.energy, 19, 'half a second burns one energy');
+    step(.25); entry.grid[0] = WorldGen.T.GRASS; step(.25);
+    assert.eq(scene._lavaAccum, 0, 'safe ground clears fractional burn');
+    entry.grid[0] = WorldGen.T.CAVE_LAVA; step(.25);
+    assert.eq(scene.save.energy, 19, 'old fractional burn does not resume');
+    scene.depth = 1; step(1); assert.eq(scene.save.energy, 19);
+    scene.depth = 0; scene.save.energy = 0; step(1); assert.eq(scene.save.energy, 0);
+  } finally {
+    if (prior) WorldGen.tileCache.set(key, prior); else WorldGen.tileCache.delete(key);
+  }
+});
+
+test('lava: surface vents respect enemy immunity, pets and the shared burn cooldown', () => {
+  const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune');
+  const end = SCENE_SRC.indexOf('      // Slime energy steal', start);
+  const tick = new Function('c', 'isTame', 'now', SCENE_SRC.slice(start, end));
+  const hurt = [], scene = {depth: 0,
+    cellAt: () => ({loaded: true, type: WorldGen.T.CAVE_LAVA}),
+    _damageEnemy: (c, damage, source) => { hurt.push({c, damage, source}); return false; }};
+  const mortal = {kind: 'skeleton'};
+  tick.call(scene, {kind: 'red_demon'}, false, 1000);
+  tick.call(scene, {kind: 'slime'}, true, 1000);
+  tick.call(scene, mortal, false, 1000); tick.call(scene, mortal, false, 1100);
+  assert.eq(hurt.length, 1); assert.eq(hurt[0].source, 'lava');
+  assert.eq(hurt[0].damage, Combat.LAVA_DMG_PER_S);
+  tick.call(scene, mortal, false, 2000); assert.eq(hurt.length, 2);
 });

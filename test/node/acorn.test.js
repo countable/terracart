@@ -60,9 +60,9 @@ test('acorn: it is a sapling that plants TIMBER, not fruit', () => {
     'no species: a species-less tree draws off the default sheet and takes no hardwood tier shift');
 });
 
-test('acorn: a planted tree grows sprout → young → mature over the four-day window', () => {
+test('acorn: a planted tree grows sprout → young → mature over the one-day window', () => {
   const W = PLANTED_TREE_GROW_MS;
-  assert.eq(W, 4 * 24 * 60 * 60 * 1000, 'the same four days a fruit sapling takes');
+  assert.eq(W, 24 * 60 * 60 * 1000, 'the same one day a fruit sapling takes');
   const t0 = 1_000_000;
   assert.eq(plantedTreeStage(t0, t0), 1, 'just planted — a sprout');
   assert.eq(plantedTreeStage(t0, t0 + W * 0.49), 1, 'still a sprout just before halfway');

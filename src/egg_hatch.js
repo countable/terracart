@@ -39,10 +39,13 @@
 
   // Choose once and check room before touching the egg or its progress. A full
   // pet stack leaves a ready egg intact so the player can free space and retry.
+  // What hatches is a BABY (items.js babyItems — one of BABY_KINDS): released,
+  // it grows for a week at half size, then is a shiny adult of double
+  // strength (SpriteLayout.isBabyPet, combat.js raisedMul).
   function hatch(save, rng = Math.random) {
     if (!Inventory.count(save, 'egg')) return { ok: false, reason: 'no_egg' };
     if (!ready(save)) return { ok: false, reason: 'not_ready' };
-    const pets = Shops.petItems().filter(id => ITEM_BY_ID[id]);
+    const pets = babyItems().filter(id => ITEM_BY_ID[id]);
     if (!pets.length) return { ok: false, reason: 'no_pets' };
     const petId = pets[Math.min(pets.length - 1, Math.max(0, Math.floor(rng() * pets.length)))];
     if (Inventory.roomFor(save, petId) < 1) return { ok: false, reason: 'full', petId };

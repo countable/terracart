@@ -639,6 +639,9 @@
   // watching the world re-roll itself. The id is keyed off the tile (not the
   // cell) for the same reason save.opened keys off it: an opened chest must
   // stay opened even if a future rebuild ever seats it one cell over.
+  function starterRoutePassable(type) {
+    return WorldGen.isWalkable(type) || WorldGen.isRoadTerrain(type);
+  }
   function placeStarterRelicChest(scene, entry, tx, ty, spawnIX, spawnIY, usedSeats, seatWant) {
     const cellM = rowCellM(scene, ty);   // THIS tile's cells (its row's grid)
     const grid = entry.grid;
@@ -677,8 +680,6 @@
     // it reaches carries the step it was reached FROM, which is what turns the
     // chosen chest cell into a walked route the crate trail can be laid along
     // (see _placeStarterTrail).
-    const UNCROSSABLE = new Set([3 /* WATER */, 9 /* BUILDING */,
-      11 /* BUILDING_MED */, 12 /* BUILDING_LARGE */]);
     // A few cells of slack past the band, so a route that has to bend round a
     // pond or a block to reach the far side of the ring still gets found.
     const FLOOD_R = RELIC_MAX_R + 4;
@@ -692,7 +693,7 @@
         if (Math.max(Math.abs(nx - spawnIX), Math.abs(ny - spawnIY)) > FLOOD_R) continue;
         const k = cellKey(nx, ny);
         if (cameFrom.has(k)) continue;
-        if (UNCROSSABLE.has(grid[ny * N + nx])) continue;
+        if (!starterRoutePassable(grid[ny * N + nx])) continue;
         cameFrom.set(k, [cx, cy]);
         flood.push([nx, ny]);
       }
@@ -1910,51 +1911,187 @@
     }
   }
 
-  // THE SAFE AREA'S WARDEN. One neighbour stands a few cells from the
-  // starting trailer on every save, in either mode, and says why the ground
-  // round Home is quiet (NPC.WARDEN_LINE — the safe area, EnemySpawns
-  // homeAllows). PLACED, like the greeter: it belongs to this player's
-  // starting area, so its id is the starter tile's (`npc_warden_<tx>_<ty>`)
-  // and it is seated off the frozen anchor, nearest legal cell in the
-  // WARDEN_MIN..MAX_CELLS ring, scanned in a fixed order so a rebuild seats it
-  // on the same cell. Idempotent; only a tile that has already spawned.
+  // THE STORY NEIGHBOURS. The safe area's WARDEN and the three story
+  // neighbours (NPC.STORY_NEIGHBOURS — the survivor of the Warmonger's night,
+  // the wanderer without a home, the wizard's believer) stand a few cells
+  // from the starting trailer, in either mode. The warden says why the
+  // ground round Home is quiet (NPC.WARDEN_LINE — the safe area, EnemySpawns
+  // homeAllows), and — on a tap, never as a splash — the family's plea
+  // (MemoryStory.HOME); the others speak through MemoryStory.npcDialogue.
+  // WHEN each is here is the memory ledger's call (NPC.storyNeighbourDue —
+  // the wanderer from the first morning, the rest as memories return), so a
+  // new save has the one neighbour on screen; a row that `arrives` another
+  // way (the survivor, through StoryEncounters) is never seated here; the arrivals pass
+  // (NPC.tickArrivals) calls back here as the count grows, with `seating.
+  // offscreen` so nobody is watched appearing. PLACED, like the greeter:
+  // they belong to this player's starting area, so their ids are the starter
+  // tile's (`npc_<role>_<tx>_<ty>`) and they are seated off the frozen
+  // anchor, each on the nearest legal cell in the WARDEN_MIN..MAX_CELLS ring
+  // (the warden) or the wider NEIGHBOUR_MAX_CELLS ring (the rest), scanned
+  // in a fixed order. The warden is seated first so its cell never moves
+  // when the others arrive; the rest keep NEIGHBOUR_GAP_CELLS from every
+  // story neighbour already seated, so they spread round the trailer rather
+  // than queue along one ring. Idempotent per id; only a tile that has
+  // already spawned. Returns how many it seated just now.
   const WARDEN_MIN_CELLS = 3;
   const WARDEN_MAX_CELLS = 6;
-  function placeSafeAreaWarden(scene, entry, tx, ty) {
-    if (typeof NPC === 'undefined' || !entry || !entry.grid || !entry._spawned) return;
+  const NEIGHBOUR_MAX_CELLS = 8;
+  const NEIGHBOUR_GAP_CELLS = 2;
+  function placeSafeAreaWarden(scene, entry, tx, ty, seating = {}) {
+    if (typeof NPC === 'undefined' || !entry || !entry.grid || !entry._spawned) return 0;
     const anchor = scene.save.starterCratesAt || scene._starterTrailAnchor();
-    if (!anchor || !Number.isFinite(anchor.x)) return;
+    if (!anchor || !Number.isFinite(anchor.x)) return 0;
+    entry._starterTile = true;   // the arrivals pass knows where to call back
     entry.creatures = entry.creatures || [];
-    const id = `npc_warden_${tx}_${ty}`;
-    if (entry.creatures.some(c => c.id === id)) return;
     const N = entry.cellsPerEdge;
     const cellM = scene.tileEdgeM / N;
     const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
     const ax = Math.floor((anchor.x - tx0) / cellM), ay = Math.floor((anchor.y - ty0) / cellM);
     const occupied = new Set();
-    const key = (wx, wy) => Math.floor((wx - tx0) / cellM) + ',' + Math.floor((wy - ty0) / cellM);
+    const cellOf = (wx, wy) => ({ cx: Math.floor((wx - tx0) / cellM), cy: Math.floor((wy - ty0) / cellM) });
+    const key = (wx, wy) => { const c = cellOf(wx, wy); return c.cx + ',' + c.cy; };
     for (const o of (entry.objects || [])) occupied.add(key(o.x, o.y));
     for (const w of (entry.wildplants || [])) occupied.add(key(w.x, w.y));
     for (const c of entry.creatures) occupied.add(key(c.x, c.y));
     const opts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
-    let seat = null;
-    for (let r = WARDEN_MIN_CELLS; r <= WARDEN_MAX_CELLS && !seat; r++) {
-      for (let dy = -r; dy <= r && !seat; dy++) {
-        for (let dx = -r; dx <= r && !seat; dx++) {
-          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // this ring only
-          const cx = ax + dx, cy = ay + dy;
-          if (cx < 0 || cy < 0 || cx >= N || cy >= N || occupied.has(cx + ',' + cy)) continue;
-          if (Combat.faunaBlocksCell(entry.grid[cy * N + cx])) continue;
-          if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts, 'npc')) continue;
-          seat = { cx, cy };
+    const roles = (NPC.STORY_NEIGHBOURS || ['warden']).filter(role => !NPC.STORY_ROLES[role]?.radiusM && !NPC.STORY_ROLES[role]?.arrives);
+    const seated = [];   // story neighbours' cells, present already or seated now
+    for (const role of roles) {
+      const c = entry.creatures.find(o => o.id === `npc_${role}_${tx}_${ty}`);
+      if (c) seated.push(cellOf(c.x, c.y));
+    }
+    let placed = 0;
+    for (const role of roles) {
+      const id = `npc_${role}_${tx}_${ty}`;
+      if (entry.creatures.some(c => c.id === id)) continue;
+      if (!NPC.storyNeighbourDue(scene.save, role)) continue;
+      const maxR = role === 'warden' ? WARDEN_MAX_CELLS : NEIGHBOUR_MAX_CELLS;
+      let seat = null;
+      for (let r = WARDEN_MIN_CELLS; r <= maxR && !seat; r++) {
+        for (let dy = -r; dy <= r && !seat; dy++) {
+          for (let dx = -r; dx <= r && !seat; dx++) {
+            if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // this ring only
+            const cx = ax + dx, cy = ay + dy;
+            if (cx < 0 || cy < 0 || cx >= N || cy >= N || occupied.has(cx + ',' + cy)) continue;
+            if (role !== 'warden' && seated.some(s => Math.max(Math.abs(s.cx - cx), Math.abs(s.cy - cy)) < NEIGHBOUR_GAP_CELLS)) continue;
+            if (Combat.faunaBlocksCell(entry.grid[cy * N + cx])) continue;
+            if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts, 'npc')) continue;
+            seat = { cx, cy };
+          }
         }
       }
+      if (!seat) continue;
+      const x = tx0 + (seat.cx + 0.5) * cellM, y = ty0 + (seat.cy + 0.5) * cellM;
+      if (seating.offscreen && !seating.offscreen(x, y)) continue;
+      const neighbour = WorldGen.makeCreature('npc', x, y, id, { ...NPC.storyNeighbour(id, role), homeX: x, homeY: y });
+      entry.creatures.push(neighbour);
+      occupied.add(seat.cx + ',' + seat.cy);
+      seated.push(seat);
+      placed++;
     }
-    if (!seat) return;
-    const x = tx0 + (seat.cx + 0.5) * cellM, y = ty0 + (seat.cy + 0.5) * cellM;
-    const neighbour = WorldGen.makeCreature('npc', x, y, id, { ...NPC.warden(id), homeX: x, homeY: y });
-    entry.creatures.push(neighbour);
-    if (typeof MemoryStory !== 'undefined') MemoryStory.enqueueHome(scene, neighbour);
+    return placed + placeDistantStoryNeighbours(scene, seating, { entry, tx, ty });
+  }
+
+  // Distant story residents belong to the original Home, even after it moves.
+  // Search the loaded surface across tile seams, then freeze a legal reachable
+  // seat on the save. Missing tiles defer the search; they never become land.
+  function placeDistantStoryNeighbours(scene, seating = {}, suppliedTile = null) {
+    if (typeof NPC === 'undefined' || (scene.depth || 0) !== 0) return 0;
+    const anchor = scene._sandboxMode ? scene.homeWorldPos?.() : scene.save.starterCratesAt;
+    if (!anchor || !Number.isFinite(anchor.x) || !Number.isFinite(anchor.y)) return 0;
+    const edge = scene.tileEdgeM;
+    const tiles = new Map(WorldGen.tileCacheFor(0));
+    if (suppliedTile) tiles.set(WorldGen.tileKey(suppliedTile.tx, suppliedTile.ty), suppliedTile.entry);
+    const at = (x, y) => {
+      const tx = Math.floor(x / edge), ty = Math.floor(y / edge);
+      const entry = tiles.get(WorldGen.tileKey(tx, ty));
+      if (!entry?._spawned || !entry.grid) return null;
+      const N = entry.cellsPerEdge, cellM = edge / N;
+      const cx = Math.floor((x - tx * edge) / cellM), cy = Math.floor((y - ty * edge) / cellM);
+      return { entry, tx, ty, N, cellM, cx, cy, x: tx * edge + (cx + 0.5) * cellM,
+        y: ty * edge + (cy + 0.5) * cellM, key: `${tx}:${ty}:${cx}:${cy}` };
+    };
+    const around = c => [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) =>
+      at(c.x + dx * (c.cellM / 2 + 0.001), c.y + dy * (c.cellM / 2 + 0.001))).filter(Boolean);
+    const road = c => WorldGen.isRoadTerrain(c.entry.grid[c.cy * c.N + c.cx]) || c.entry.grid[c.cy * c.N + c.cx] === WorldGen.T.PATH;
+    const occupied = new Map();
+    const free = (c, includeCreatures = true) => {
+      if (!occupied.has(c.entry)) {
+        const fixed = new Set();
+        for (const o of [...(c.entry.objects || []), ...(c.entry.wildplants || [])]) {
+          const p = at(o.x, o.y);
+          if (p) fixed.add(p.key);
+        }
+        const all = new Set(fixed);
+        for (const o of c.entry.creatures || []) { const p = at(o.x, o.y); if (p) all.add(p.key); }
+        occupied.set(c.entry, { fixed, all });
+      }
+      return !occupied.get(c.entry)[includeCreatures ? 'all' : 'fixed'].has(c.key) && WorldGen.isSpawnCell(c.entry.grid, c.N, c.N, c.cx, c.cy,
+        { ...c.entry._spawnOpts, roadMask: c.entry.roadMask, quiet: c.entry.quietMask, spawnWhy: c.entry.spawnWhy }, 'npc');
+    };
+    let placed = 0;
+    for (const [role, row] of Object.entries(NPC.STORY_ROLES)) {
+      if (!row.radiusM || !NPC.storyNeighbourDue(scene.save, role)) continue;
+      const id = `npc_${role}_${Math.floor(anchor.x / edge)}_${Math.floor(anchor.y / edge)}`;
+      if ([...tiles.values()].some(e => e.creatures?.some(c => c.id === id))) continue;
+      const owner = scene._sandboxMode ? scene : scene.save;
+      const ledgerKey = scene._sandboxMode ? '_sandboxStoryNeighbourSeats' : 'storyNeighbourSeats';
+      if (!owner[ledgerKey] || typeof owner[ledgerKey] !== 'object' || Array.isArray(owner[ledgerKey])) owner[ledgerKey] = {};
+      const ledger = owner[ledgerKey];
+      let point = ledger[role];
+      if (point && (!Number.isFinite(point.x) || !Number.isFinite(point.y)
+        || Math.abs(Math.hypot(point.x - anchor.x, point.y - anchor.y) - row.radiusM) > row.radiusM * 0.3)) {
+        delete ledger[role];
+        point = null;
+      }
+      // A changed landscape may cover an old dig. Only a loaded, permanently
+      // blocked seat triggers relocation; streaming and passing people do not.
+      const oldSeat = point && at(point.x, point.y);
+      if (oldSeat && !free(oldSeat, false)) point = null;
+      if (!point) {
+        const start = at(anchor.x, anchor.y);
+        if (!start) continue;
+        const slack = Math.max(start.cellM * 3, row.radiusM * 0.1);
+        const queue = [start], seen = new Set([start.key]), candidates = [];
+        for (let head = 0; head < queue.length; head++) {
+          const c = queue[head], d = Math.hypot(c.x - anchor.x, c.y - anchor.y);
+          if (Math.abs(d - row.radiusM) <= slack && free(c)) {
+            candidates.push({ ...c, error: Math.abs(d - row.radiusM), verge: road(c) || around(c).some(road) });
+          }
+          for (const next of around(c)) {
+            if (seen.has(next.key) || Math.hypot(next.x - anchor.x, next.y - anchor.y) > row.radiusM + slack * 2) continue;
+            seen.add(next.key);
+            if (!starterRoutePassable(next.entry.grid[next.cy * next.N + next.cx])) continue;
+            queue.push(next);
+          }
+        }
+        candidates.sort((a, b) => Number(b.verge) - Number(a.verge) || a.error - b.error || a.x - b.x || a.y - b.y);
+        const chosen = candidates[0];
+        if (!chosen) continue;
+        point = { x: chosen.x, y: chosen.y };
+        ledger[role] = point;
+        if (!scene._sandboxMode && typeof persistSave === 'function') persistSave(scene.save);
+      }
+      const seat = at(point.x, point.y);
+      if (!seat || !free(seat) || (seating.offscreen && !seating.offscreen(point.x, point.y))) continue;
+      const neighbour = WorldGen.makeCreature('npc', point.x, point.y, id,
+        { ...NPC.storyNeighbour(id, role), homeX: point.x, homeY: point.y });
+      (seat.entry.creatures ||= []).push(neighbour);
+      occupied.get(seat.entry).all.add(seat.key);
+      placed++;
+    }
+    return placed;
+  }
+
+  // A memory has just been banked (app.js _bankDiscovery): seat whichever
+  // story neighbour it brings, if the starter tile is up — off screen only,
+  // like every arrival (NPC.offscreenAt); a seat in view waits for the
+  // arrivals pass (NPC.tickArrivals) to find the player looking elsewhere.
+  function seatStoryNeighbours(scene) {
+    const home = scene._starterTileEntry?.();
+    if (!home) return 0;
+    const offscreen = typeof NPC !== 'undefined' && NPC.offscreenAt ? NPC.offscreenAt(scene) : undefined;
+    return placeSafeAreaWarden(scene, home.entry, home.tx, home.ty, { offscreen });
   }
 
   // Hard mode has no supply handout: drop the starter crates (the `crate: true`
@@ -1986,6 +2123,8 @@
     provisionStarterHome,
     placeHomeGreeter,
     placeSafeAreaWarden,
+    placeDistantStoryNeighbours,
+    seatStoryNeighbours,
     stripStarterCrates,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

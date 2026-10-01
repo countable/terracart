@@ -65,6 +65,12 @@ One frame each, foot-anchored and drawn like the market stall (loot.js `chestLoo
 | driftwood.png | the TIDE LINE's driftwood (a daily shore pickup, gives wood) | generated placeholder (gpt-image-2, down-res'd) — replace with hand art when available |
 | bottle.png | the TIDE LINE's rare message bottle (a daily shore pickup that reads a note) | generated placeholder (gpt-image-2, down-res'd) — replace with hand art when available |
 
+## Batch 6 — roadside/zone shrines (`gpt-image-2`, chroma-keyed, one image per kind, down-res'd to 16x24)
+
+| File | Intended use | Status |
+|---|---|---|
+| shrines.png | shrine boons: 10 zone/road shrine kinds (src/shrines.js SHRINE_KINDS `frame`) — one 160x24 row of 16x24 frames: 0 wayfarer_post, 1 lantern_saint, 2 tide_bell, 3 bone_watcher, 4 moss_cairn, 5 rust_totem, 6 wishing_well, 7 harvest_idol, 8 toad_idol, 9 ember_altar | generated placeholder (gpt-image-2, down-res'd; 16x24) — replace with hand art when available |
+
 ## Contact sheets
 
 | File | Contents | Status |

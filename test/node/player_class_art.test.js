@@ -56,7 +56,7 @@
   // Execute the shipping scene methods with a small sprite stub. This checks
   // texture switching, fallback, and direction retention without Phaser/GPS.
   const sceneMethod = (name) => {
-    const source = APP_JS_SRC.match(new RegExp('^  ' + name + '\\([^\\n]*\\) \\{[\\s\\S]*?^  \\}', 'm'))[0];
+    const source = SCENE_SRC.match(new RegExp('^  ' + name + '\\([^\\n]*\\) \\{[\\s\\S]*?^  \\}', 'm'))[0];
     return new Function('SpriteLayout', 'PLAYER_FEET_DROP_PX', 'Lighting', 'WALK_TIRED_SLOW_MUL',
       'return ({' + source + '}).' + name)(SL, 12, { lowEnergyFrac: () => 0 }, 0.5);
   };
@@ -84,16 +84,32 @@
     assert.eq(scene.playerFeetNudgeY, -SL.PLAYER_ART.runner.footDrop * SL.PLAYER_ART.runner.scale);
   });
 
-  test('player art: unavailable sheet or animations safely fall back to original art', () => {
+  test('player art: unavailable sheet or animations safely fall back to the cyan farmer', () => {
+    // The farmer is the base sheet every save starts on: while a calling's
+    // sheet or cycles are missing, its authored four-direction cycles stand
+    // in — never a mirrored side pose, never the retired Idle/Walk sheets.
     const scene = makeScene({ playerClass: 'hunter' });
     scene.textures.exists = () => false;
     play.call(scene, scene.player, 'walk', -1, 0);
-    assert.eq(scene.player.anims.currentAnim.key, 'walk-side');
-    assert.eq(scene.player.flipX, true); assert.eq(scene.player.scale, 1);
+    assert.eq(scene.player.anims.currentAnim.key, 'player_farmer-walk-left');
+    assert.eq(scene.player.flipX, false); assert.eq(scene.player.scale, 1);
     scene.textures.exists = () => true; scene.anims.get = () => null;
     play.call(scene, scene.player, 'idle', 0, -1);
-    assert.eq(scene.player.anims.currentAnim.key, 'idle-up');
+    assert.eq(scene.player.anims.currentAnim.key, 'player_farmer-idle-up');
     assert.eq(scene._playerArt, null);
+  });
+
+  test('player art: the retired Idle/Walk sheets are gone, and nothing asks for them', () => {
+    assert.falsy(pngDims('assets/Character/Idle.png'), 'Idle.png deleted');
+    assert.falsy(pngDims('assets/Character/Walk.png'), 'Walk.png deleted');
+    assert.falsy(/Idle\.png|Walk\.png|'idle-down'|'walk-side'|`\$\{baseKey\}-\$\{dir\}`/.test(SCENE_SRC), 'app.js');
+    assert.falsy(/Idle\.png|Walk\.png|'idle-down'|`\$\{base\}-\$\{dir\}`/.test(ALL_SRC['multiplayer.js']), 'multiplayer.js');
+    assert.falsy(/Character\/(Idle|Walk)\.png/.test(ALL_SRC['assets.js']), 'assets.js');
+    assert.falsy(/Idle\.png|Walk\.png/.test(INDEX_HTML_SRC), 'the how-to card');
+    assert.truthy(/FarmerCyan\.png/.test(INDEX_HTML_SRC), 'which walks the cyan farmer instead');
+    // The base constants app.js keeps for the body are the farmer's own row.
+    const f = SL.PLAYER_ART.farmer;
+    assert.eq(PLAYER_FEET_DROP_PX, f.footDrop); assert.eq(PLAYER_FRAME_PX, f.fh); assert.eq(PLAYER_ART_SCALE, f.scale);
   });
 
   test('player art: dragon remains visually dominant over an active bicycle', () => {

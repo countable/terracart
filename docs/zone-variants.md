@@ -14,7 +14,7 @@ The preview's surroundings selector shows conditional probabilities among specia
 
 ## Placement contract
 
-Repeating motifs prefer at most 6 × 6 cells, with a hard maximum of 8 cells on either axis. Smaller squares and rectangles such as 3 × 3 and 3 × 5 are welcome; choose dimensions for the pattern rather than padding every row to a square. Silent Circle uses 8 × 8 so its radius-four circles touch. Legacy rows above 8 cells remain listed in `rules.repeatPatternPolicy.migrationPending` pending layout review. Beach drafts now follow the limit. Fixed compositions such as Stone Garden and Work Yard are not repeating motifs.
+Repeating motifs prefer at most 6 × 6 cells, with a hard maximum of 8 cells on either axis. Smaller squares and rectangles such as 3 × 3 and 3 × 5 are welcome; choose dimensions for the pattern rather than padding every row to a square. Silent Circle uses 8 × 8 so its radius-four circles touch. All repeating rows now satisfy the limit. Ordered Graves, Overgrown Graves, Broken Masonry and Broken Depot use 6 × 6 motifs; no motif migrations remain pending. Fixed compositions such as Stone Garden and Work Yard are not repeating motifs.
 
 - Six grove variants, five each for churchyards and tar yards, and three beach variants. Base weights are adjusted by soft geographic affinities, then chosen from the stable anchor identity. Meadow and Flint Field explicitly use seeded scatter keyed by anchor, variant, and global cell; they do not repeat a random tile or change between visits. Other variants use structured patterns; Ancient Grove adds light seeded grass only between its fixed clusters.
 - Background slots use their declared repeat motif, seeded scatter, or continuous line grid throughout the coverage union, without radial density falloff. Coordinates are zero-based. One cell is currently 7 metres. Work Yard uses a fixed 5 × 5 arrangement with one-cell-wide lines every four cells and its POI centered in the middle plot. Hedge Garden uses continuous lines every four cells throughout the coverage union; the preview shows a 4 × 4 sample. Shared borders belong to one grid; intersections count once.
@@ -29,7 +29,7 @@ Repeating motifs prefer at most 6 × 6 cells, with a hard maximum of 8 cells on 
 - Zone ground styling overrides ordinary land zoning throughout the coverage union. Roads, drawn road bands, paths, piers, water and buildings retain their visible footprint; source-land spawn restrictions and trap rules remain authoritative.
 - Themed surface encounters use `EnemyHabitats.SURFACE_FAMILIES` and `SURFACE_ENCOUNTERS`: one roll per 12-cell square, mostly singles with occasional pairs or trios. Group members start within two cells of their leader inside the same zone, respect occupied features and enemy spawn gates, and retain normal Home, daylight and tutorial visibility rules. Defeats remove fixed identities without rerolling survivors. These encounters are separate from finite guards and generic ambient enemies.
 - Fauna may share cells with interactables and do not reserve layout cells. Their terrain and road restrictions still apply; guards and other enemies retain occupancy checks.
-- Grove shrines remain the existing one-per-POI daily interactable, separate from the finite ground finds. Headstone ghosts retain their current interaction behavior.
+- Grove shrines remain the existing one-per-POI daily interactable, separate from the finite ground finds. A variant listed in `Shrines.SHRINE_KINDS` (`src/shrines.js`) makes that shrine its kind, whose timed boon replaces the gift; churchyard and tar-yard kinds stand beside the chest on the first free `Zones.SHRINE_SEAT_R` ring cell. Headstone ghosts retain their current interaction behavior.
 
 ## Coverage union
 
@@ -43,7 +43,20 @@ The variant frame extends continuously over this union. Fixed compositions such 
 
 Parking-lane geometry generates Quarry coverage instead of becoming a visible road. Connected lane buffers merge into a coverage region, extending 21 metres from the source lines. The source lanes remain absent from pavement, street variants, lamps and road restoration. Actual access roads remain roads and keep their spawn restrictions.
 
-Quarries use broken stone rows on eligible cells, with alternating empty rows and seeded gaps in the populated rows: 38% ordinary mineable stone, 2% Sapphire crystals (40% total). These percentages are expected cell coverage before clipping; they do not promise crystals in a small quarry. Rocks use normal mining mechanics, with an Iron pick required for crystals; each crystal cluster gives one Sapphire and no metal bars. Quarry has no POI, shrine, finite finds, route decoration, guards, lighting source or lamp tint. The preview draws the actual generated coverage and dressing; dashed lane lines explain the source and are not game roads.
+Complete parking-lane footprints select one of four stable quarry stories:
+
+| Variant | Layout | Site-wide finds and guards |
+|---|---|---|
+| Destroyed crater | One broken elliptical rim and open bowl scaled to usable coverage; sparse hot vents, one clear approach | Up to two finite Crimson ore deposits |
+| Abandoned quarry | Repeating 3–8-cell rock-and-salvage patches | Two one-off Iron-pick crates; discarded equipment yields one Iron bar each, timber uses the existing wood pickup |
+| Strip mine | Repeating 3–8-cell benches with open cuts | Sapphire candidates reduced to one quarter of the former preview rule; no extra finite reward |
+| Ruined stronghold | Whole 5 × 5 foundations with doors and gaps between buildings | Three finite buried X marks and three goblins per site, not per foundation |
+
+`QuarryLayout` fits complete modules around the shared spawn gate and occupied cells. Requested finite counts that cannot fit are reported as shortfalls. Mined rocks, opened salvage, dug treasures and defeated guards use the existing progress ledgers; none refill daily. Crater vents use the existing lava terrain, damage rate and enemy immunity, plus a small orange light. Home/live terrain adjustments remain per-player overlays, leaving generated identities intact.
+
+A component touching a tile edge has incomplete source geometry: its complete bounds cannot be recovered from clipped MVT lane fragments. Such components conservatively use cell-addressed strip-mine scatter without finite finds, guards or a partial crater. This fallback is explicit in coverage metadata and diagnostics. Its expected cell coverage is 39.5% stone and 0.5% Sapphire, down from the former 2% Sapphire. The old `quarry` table row remains addressable for explicit legacy overrides but is excluded from random selection.
+
+The zone preview exports actual runtime rasterization and dressing for all four stories. Its removed-lane overlay is source evidence, never a rendered road.
 
 ## Shared connection operators
 
@@ -72,12 +85,12 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | grove | Hedge Garden | 43.75% shrub, 4.69% flowers, 1.56% orange | flowers in hedge room | 2 medium: rose | none | rabbit 60% |
 | grove | Ancient Grove | 2.78% tree, 22.22% shrub, 35% grass (expected) | stone tree ring | 1 rare: star | 2 slime at find | deer 60% |
 | stones | Stone Garden | 4.54% iron_ore, 18.14% stone, 6.8% grass | four stones | 3 medium: gemfruit | none | none |
-| stones | Ordered Graves | 6% grave, 6% stone, 3% grass | flanking stone rows | 2 medium: gemfruit | headstone ghosts on interaction | crow 65% |
-| stones | Overgrown Graves | 8% grass, 4% shrub, 4% stone, 2% grave | overgrown crescent | 1 rare: star | headstone ghosts on interaction | crow 40%, butterfly 35% |
-| stones | Broken Masonry | 12% rubble, 8% stone | stone square | 1 rare: platinum_ore | 1 slime at find | none |
+| stones | Ordered Graves | 5.56% grave, 5.56% stone, 2.78% grass | flanking stone rows | 2 medium: gemfruit | headstone ghosts on interaction | crow 65% |
+| stones | Overgrown Graves | 8.33% grass, 5.56% shrub, 2.78% stone, 2.78% grave | overgrown crescent | 1 rare: star | headstone ghosts on interaction | crow 40%, butterfly 35% |
+| stones | Broken Masonry | 11.11% rubble, 8.33% stone | stone square | 1 rare: platinum_ore | 1 slime at find | none |
 | stones | Silent Circle | 26.56% stone, 1.56% grass | inner stone ring | 1 rare: star | none | crow 50% |
 | tar | Flint Field | 15% rubble outside the circle | R=2 flint disk with rubble rim | 3 medium: gemfruit | none | none |
-| tar | Broken Depot | 12% rubble; hazards: 6% trap | rubble and trap flanks | 2 medium: gemfruit | none | none |
+| tar | Broken Depot | 11.11% rubble; hazards: 5.56% trap | rubble and trap flanks | 2 medium: gemfruit | none | none |
 | tar | Seep | 6.25% rubble; hazards: 15.63% tar | tar crescent | 1 rare: star | none | none |
 | tar | Work Yard | 28.57% copper_rock, 20.41% rubble | material grid | 1 rare: crimson_ore | none | none |
 | tar | Black Ring | 25% rubble; hazards: 12.5% tar | tar ring | 2 rare: gold_ore | none | none |
@@ -116,7 +129,7 @@ Mushroom pairs occupy opposite halves of a 6 × 6 repeat. Two shrubs stagger bet
 
 - Work Yard uses copper-bearing mineral rocks (`yieldTier: 2`, `requiredTier: 1`) in place of flint, including its adjacent POI pattern. Vertical rubble lines remain.
 - Seep replaces all flint with tar pits, including the crescent and connection markers. Its 8 × 8 repeat has 6.25% gatherable rubble plus 15.625% tar hazards; the latter includes its two existing extra pits per repeat tile.
-- Broken Depot replaces all flint with traps, including the POI flanks and offset-row markers. Background coverage is 12% rubble plus 6% trap hazards. Surface trap records must enter the existing trap collection and pass both the enemy spawn gate and `Traps.isTrapGround`. This can omit traps where the real location has no eligible footpath or park edge.
+- Broken Depot replaces all flint with traps, including the POI flanks and offset-row markers. Background coverage is 11.11% rubble plus 5.56% trap hazards. Surface trap records must enter the existing trap collection and pass both the enemy spawn gate and `Traps.isTrapGround`. This can omit traps where the real location has no eligible footpath or park edge.
 - Black Ring replaces all flint with tar pits. Background coverage is 25% rubble plus 12.5% tar hazards in an 8 × 8 repeat, with a smaller, near-continuous outer circle.
 - Material replacements retain the declared finite special-find counts. Tar pits and traps are shown separately from gatherable coverage.
 
@@ -177,12 +190,12 @@ Only the POI cell and actual decoration slots replace existing background slots.
 | Hedge Garden | [6, 6] | plot center |
 | Ancient Grove | [3, 3] | cluster center replacing center tree |
 | Stone Garden | [10, 10] | center of three concentric stone rings |
-| Ordered Graves | [5, 4] | central stone row between graves |
-| Overgrown Graves | [5, 4] | middle of shrub row |
-| Broken Masonry | [4, 4] | clearing between masonry groups |
+| Ordered Graves | [3, 3] | central stone row between graves |
+| Overgrown Graves | [3, 3] | middle of shrub row |
+| Broken Masonry | [3, 3] | clearing between masonry groups |
 | Silent Circle | [4, 4] | circle center; adjacent radius-four rims touch |
 | Flint Field | [0, 0] | scatter seed origin |
-| Broken Depot | [5, 4] | middle of material row |
+| Broken Depot | [3, 3] | middle of material row |
 | Seep | [3, 3] | central seep replaced by poi |
 | Work Yard | [10, 10] | plot center |
 | Black Ring | [3, 3] | inner ring clearing |
@@ -203,6 +216,6 @@ Uses a smaller version of the Meadow arrangement: 12 flint cells within radius t
 
 An 8 × 8 repeat holds a radius-three circle of sixteen touching rubble cells and a tight inner ring of eight tar cells. The POI replaces its center. This makes the circles smaller and two cells closer than the previous repeat.
 
-## Proposed beach family
+## Beach family
 
-Three beach-specific variants are drafted separately in [beach-zone-variants.draft.md](beach-zone-variants.draft.md), with the declarative rows in [beach-zone-variants.draft.json](beach-zone-variants.draft.json): Mystic Reef, Pirate Cove and Shellwater Strand. They are not loaded by the game. The draft includes beach detection, shoreline orientation and rules for sharing coverage with inland groves and the existing daily tide.
+Mystic Reef, Pirate Cove and Shellwater Strand are active runtime rows. Beach ownership, the Pirate Cove shipwreck and its whole-footprint fallback are implemented. Shoreline orientation is derived from buffered mapped water geometry at the canonical anchor; unresolved evidence retains deterministic fallback orientation and is reported in diagnostics. Zone placement explicitly reserves the existing daily tide pool, including seats whose daily roll is absent today, so a later tide does not collide with permanent dressing. The historical beach draft files retain design rationale, not an activation backlog.

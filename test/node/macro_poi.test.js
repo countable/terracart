@@ -247,10 +247,10 @@
     for (const id of Macros.scriptoriumStock()) {
       assert.eq(Macros.stallPrice(save, id), ShopsMath.standPrice(save, PRICES[id]), `${id} at the stall price`);
     }
-    assert.falsy(/_presentScriptorium/.test(APP_JS_SRC), 'the free-page dialog is gone');
-    assert.truthy(/case 'scriptorium': return this\._presentStallOffer\(sx, sy,\s*\{ \.\.\.dress, items: Macros\.scriptoriumStock\(\)/.test(APP_JS_SRC),
+    assert.falsy(/_presentScriptorium/.test(SCENE_SRC), 'the free-page dialog is gone');
+    assert.truthy(/case 'scriptorium': return this\._presentStallOffer\(sx, sy,\s*\{ \.\.\.dress, items: Macros\.scriptoriumStock\(\)/.test(SCENE_SRC),
       'the scriptorium opens the stall counter');
-    assert.falsy(/_presentBookRead\(\)/.test(APP_JS_SRC.slice(APP_JS_SRC.indexOf('presentMacro('), APP_JS_SRC.indexOf('buildingFlavorTitle('))),
+    assert.falsy(/_presentBookRead\(\)/.test(SCENE_SRC.slice(SCENE_SRC.indexOf('presentMacro('), SCENE_SRC.indexOf('buildingFlavorTitle('))),
       'no macro reads a Book page for free');
   });
 
@@ -258,11 +258,11 @@
     // presentMarketStandOffer is _presentStallOffer with the stall's item —
     // the same price (standPrice), stepper cap (money and bag room) and no
     // stock limit; the three macro counters route to the very same method.
-    assert.truthy(/presentMarketStandOffer\(sx, sy, stand\) \{\s*this\._presentStallOffer\(/.test(APP_JS_SRC), 'the stall is the counter');
+    assert.truthy(/presentMarketStandOffer\(sx, sy, stand\) \{\s*this\._presentStallOffer\(/.test(SCENE_SRC), 'the stall is the counter');
     for (const kind of ['apothecary', 'sundries', 'scriptorium']) {
-      assert.truthy(new RegExp(`case '${kind}':\\s*return this\\._presentStallOffer\\(`).test(APP_JS_SRC), `${kind} opens the counter`);
+      assert.truthy(new RegExp(`case '${kind}':\\s*return this\\._presentStallOffer\\(`).test(SCENE_SRC), `${kind} opens the counter`);
     }
-    assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const unitPrice = ShopsMath\.standPrice\(this\.save, PRICES\[id\] \?\? 1\);/.test(APP_JS_SRC),
+    assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const unitPrice = ShopsMath\.standPrice\(this\.save, PRICES\[id\] \?\? 1\);/.test(SCENE_SRC),
       'priced by ShopsMath.standPrice');
   });
 
@@ -341,18 +341,18 @@
     const f = withTile(entry, () => walkableDestination(scene, P.x, P.y, 5, { seed: 'b1', accept: (x, y) => !(x === d.x && y === d.y) }));
     assert.truthy(f && (f.ix !== d.ix || f.iy !== d.iy), 'accept refuses a cell');
     assert.eq(walkableDestinationRings(3).join(), '3,2,4,1,5,6', 'the ring order: dist, nearer, farther');
-    assert.truthy(/findWalkableDestination\(dist, opts\) \{[\s\S]*?this\.startWorldM\.x \+ this\.playerM\.x[\s\S]*?walkableDestination\(this, px, py, dist, opts\)/.test(SCENE_CREATURES_SRC),
+    assert.truthy(/findWalkableDestination\(dist, opts\) \{[\s\S]*?this\.startWorldM\.x \+ this\.playerM\.x[\s\S]*?walkableDestination\(this, px, py, dist, opts\)/.test(SCENE_SRC),
       'the scene method measures from the FEET');
   });
 
   test('guildhall: the pack is seated at findWalkableDestination\'s cell, off the road, and pays once on clear', () => {
     // The app.js methods, run whole against a stub scene on the synthetic tile.
     const grab = (name) => {
-      const at = APP_JS_SRC.indexOf(`  ${name}(`);
-      const open = APP_JS_SRC.indexOf('{\n', at);
-      const end = APP_JS_SRC.indexOf('\n  }\n', open);
-      const sig = APP_JS_SRC.slice(at + 2, open).trim();
-      return { args: sig.slice(sig.indexOf('(') + 1, sig.lastIndexOf(')')), body: APP_JS_SRC.slice(open + 2, end) };
+      const at = SCENE_SRC.indexOf(`  ${name}(`);
+      const open = SCENE_SRC.indexOf('{\n', at);
+      const end = SCENE_SRC.indexOf('\n  }\n', open);
+      const sig = SCENE_SRC.slice(at + 2, open).trim();
+      return { args: sig.slice(sig.indexOf('(') + 1, sig.lastIndexOf(')')), body: SCENE_SRC.slice(open + 2, end) };
     };
     const mk = (name) => { const g = grab(name); return new Function(...g.args.split(',').map((x) => x.trim().replace(/ = .*/, '')), g.body); };
     const spawn = mk('_spawnGuildBounty');
@@ -404,9 +404,9 @@
         assert.eq(stories.join(), 'macro:bounty', 'the first bounty tells its story');
       });
     } finally { globalThis.persistSave = realPersist; }
-    assert.truthy(/if \(victim\.bounty\) this\._guildBountyDefeat\(victim\);/.test(APP_JS_SRC), 'resolveDefeat calls it');
-    assert.truthy(/guildfoe\)_\(-\?\\d\+\)_/.test(SCENE_CREATURES_SRC), 'the caught-prune knows the prefix');
-    assert.truthy(/this\._tickTraps\(dt\);\s*\/\/[^\n]*\n\s*this\._tickGuildBounty\(\);/.test(APP_JS_SRC), 'the leash ticks');
+    assert.truthy(/if \(victim\.bounty\) this\._guildBountyDefeat\(victim\);/.test(SCENE_SRC), 'resolveDefeat calls it');
+    assert.truthy(/guildfoe\)_\(-\?\\d\+\)_/.test(SCENE_SRC), 'the caught-prune knows the prefix');
+    assert.truthy(/this\._tickTraps\(dt\);\s*\/\/[^\n]*\n\s*this\._tickGuildBounty\(\);/.test(SCENE_SRC), 'the leash ticks');
   });
 
   // ── Curio hall ────────────────────────────────────────────────────────────
@@ -452,8 +452,8 @@
     assert.eq(Macros.curioCount({ donated: ['potato', 'iron_bar'] }), 1);
     // The memory is the discovery ledger's, keyed per milestone — once per save.
     assert.eq(Macros.curioMilestoneKey(10), 'curio:10');
-    assert.truthy(/if \(r\.milestone\) \{\s*this\._bankDiscovery\(Macros\.curioMilestoneKey\(r\.milestone\)/.test(APP_JS_SRC), 'banked as a memory');
-    const curioSrc = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _presentCurio(sx, sy, o, dress) {'), APP_JS_SRC.indexOf('  // TRAINING HALL'));
+    assert.truthy(/if \(r\.milestone\) \{\s*this\._bankDiscovery\(Macros\.curioMilestoneKey\(r\.milestone\)/.test(SCENE_SRC), 'banked as a memory');
+    const curioSrc = SCENE_SRC.slice(SCENE_SRC.indexOf('  _presentCurio(sx, sy, o, dress) {'), SCENE_SRC.indexOf('  // TRAINING HALL'));
     assert.truthy(curioSrc.length > 100 && !/addMoney/.test(curioSrc), 'the hall pays no coin');
   });
 
@@ -521,12 +521,12 @@
   });
 
   test('training: each attack type reads its own discipline, and speed shortens every beat', () => {
-    assert.truthy(/_attackFlat\(kind\) \{\s*return Combat\.TRAINING_KINDS\[kind\]\?\.unit === 'dmg' \? Combat\.trainingBonus\(this\.save, kind\) : 0;/.test(APP_JS_SRC), '_attackFlat, by type');
-    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass\)\s*\+ this\._attackFlat\('melee'\);/.test(APP_JS_SRC), 'melee blows take melee');
-    assert.truthy(/\* dmgMul\s*\+ this\._attackFlat\(Combat\.TRAINING_SLOT_KIND\[slot\]\),/.test(APP_JS_SRC), 'shots take their slot\'s');
+    assert.truthy(/_attackFlat\(kind\) \{\s*return Combat\.TRAINING_KINDS\[kind\]\?\.unit === 'dmg' \? Combat\.trainingBonus\(this\.save, kind\) : 0;/.test(SCENE_SRC), '_attackFlat, by type');
+    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass\)\s*\+ this\._attackFlat\('melee'\);/.test(SCENE_SRC), 'melee blows take melee');
+    assert.truthy(/\* dmgMul\s*\+ this\._attackFlat\(Combat\.TRAINING_SLOT_KIND\[slot\]\),/.test(SCENE_SRC), 'shots take their slot\'s');
     assert.eq(Combat.TRAINING_SLOT_KIND.bow, 'ranged'); assert.eq(Combat.TRAINING_SLOT_KIND.staff, 'magic');
-    assert.truthy(/this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS \* Combat\.trainingIntervalMul\(this\.save\);/.test(APP_JS_SRC), 'the melee beat');
-    const body = APP_JS_SRC.slice(APP_JS_SRC.indexOf('  _presentTraining(sx, sy, o, dress) {'), APP_JS_SRC.indexOf('  buildingFlavorTitle('));
+    assert.truthy(/this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS \* Combat\.trainingIntervalMul\(this\.save\);/.test(SCENE_SRC), 'the melee beat');
+    const body = SCENE_SRC.slice(SCENE_SRC.indexOf('  _presentTraining(sx, sy, o, dress) {'), SCENE_SRC.indexOf('  buildingFlavorTitle('));
     assert.truthy(/memories required/.test(body), 'the lesson states its requirement');
     assert.truthy(/Macros\.buyLesson\(this\.save, kind, this\.memoriesTotal\(\)\)/.test(body), 'gated on memories RECOVERED');
   });
@@ -542,6 +542,18 @@
   });
 
   // ── The picture ───────────────────────────────────────────────────────────
+  test('macro: an inn has its host and each weapon discipline has matching art', () => {
+    assert.eq(Macros.stallArt('inn'), 'kind_inn');
+    const seen = new Set();
+    const expected = { melee: 'tool_sword', ranged: 'tool_shoot', magic: 'tool_staff', energy: 'tool_sword', speed: 'tool_sword' };
+    for (let id = 0; id < 100; id++) {
+      const o = { id };
+      const discipline = Macros.trainingKindFor(o);
+      seen.add(discipline);
+      assert.eq(Macros.stallArt('training', o), expected[discipline]);
+    }
+    assert.eq(seen.size, 5, 'all hall disciplines are exercised');
+  });
   test('macro: each kind ships its 80×80 art and an ASSETS row under its texKey', () => {
     const files = { inn: 'inn', chapel: 'chapel', apothecary: 'apothecary', scriptorium: 'scriptorium',
       guildhall: 'guildhall', curio: 'curio', sundries: 'sundries', training: 'training' };
@@ -566,7 +578,7 @@
       /\(L\.stand \|\| L\.macro\) \? 19\.3/,
       /seat: \(o\) => \{ const L = chestLook\(o\); return !L\.stand && !L\.macro && !L\.coin && !L\.wagon; \}/,
       /if \(produceStandFor\(o\) \|\| macroFor\(o\)\) continue;/,
-      /const L = chestLook\(o\); return !L\.box && !L\.macro && !L\.barrel && !L\.bike && !L\.coin; \}/,
+      /const L = chestLook\(o\); return !L\.equipment && !L\.box && !L\.macro && !L\.barrel && !L\.bike && !L\.coin; \}/,
     ]) assert.truthy(re.test(RENDER_SRC), String(re));
   });
 

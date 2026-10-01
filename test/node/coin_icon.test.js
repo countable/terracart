@@ -1,7 +1,7 @@
 // The HUD keeps its detailed jade coin; ground drops use coarse native-size art.
 
 (function () {
-const app = APP_JS_SRC;
+const app = SCENE_SRC;
 
 // ── The asset ─────────────────────────────────────────────────────────────
 test('coin icon: ground and HUD each load their intended artwork', () => {
@@ -91,9 +91,9 @@ test('coin icon: money amounts in HTML go through moneyHTML', () => {
 });
 
 test('coin icon: the shop modal category glyph is the coin asset', () => {
-  assert.truthy(/shop:\s*\{ coinIcon: true, label: 'Shop'[,}]/.test(MODAL_SHELL_SRC),
+  assert.truthy(/shop:\s*\{ coinIcon: true, label: 'Shop'[,}]/.test(SCENE_SRC),
     'the MODAL_KINDS shop row asks for the coin');
-  assert.truthy(/\} else if \(k\.coinIcon\) \{[\s\S]*?ico\.innerHTML = this\.coinIconHTML\(22\);/.test(MODAL_SHELL_SRC),
+  assert.truthy(/\} else if \(k\.coinIcon\) \{[\s\S]*?ico\.innerHTML = this\.coinIconHTML\(22\);/.test(SCENE_SRC),
     'the kind header renders it');
 });
 
@@ -115,5 +115,7 @@ test('coin piles: pickup amounts select the exact quantity boundaries', () => {
     [50, 'coin_pile_medium'], [51, 'coin_pile_large'], [75, 'coin_pile_large']]) {
     assert.eq(Render.coinPile({ amount }).texture, texture, `amount ${amount}`);
   }
-  for (const row of Render.COIN_PILES) assert.lte(row.width, 30, 'fits a map cell');
+  for (const row of Render.COIN_PILES) assert.lte(row.width, 20, 'well inside a map cell (owner, Sep 2026: smaller again)');
+  assert.eq(Render.COIN_PILES.map(r => r.width).join(','), '10,14,17,20');
+  assert.lt(Render.COIN_PILES[0].width, Render.COIN_DROP_PX, 'a lone coin draws under its native width');
 });

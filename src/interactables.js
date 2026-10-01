@@ -131,6 +131,53 @@ function plainRockBaseDrop(scene, stones) {
   if (Math.random() < PLAIN_ROCK_FLINT_P) scene.addToInv('coal', 1);
   return qty;
 }
+// A PLAIN rock: a cave rock or a T1 surface rock with no named deposit —
+// bare-hand-breakable, drawn off SpriteLayout.PLAIN_ROCK_VARIANTS, paid off
+// the base table above. The one test the gate, the tier-shortfall, the
+// completion and the glint below all read.
+function isPlainRock(o) {
+  return !!o && !mineralDeposit(o) && (o.caveVariant != null || (o.yieldTier || 1) <= 1);
+}
+
+// The gem an ORE rock (T4+) may hold beside its bar, per yield tier, and how
+// often. The T7 (frost) rock's headline gem is the diamond — listed FIRST so
+// it reads as the primary — with the emerald as its secondary. pickFromArray
+// rolls the list uniformly. Both tables are also what the glint rock's
+// crystal odds derive from (GLINT_ROCK_FINDS).
+const GEM_BY_TIER = { 4: ['sapphire'], 5: ['ruby'], 6: ['emerald'], 7: ['diamond', 'emerald'] };
+const GEM_P_BY_TIER = { 4: 0.25, 5: 0.35, 6: 0.40, 7: 0.50 };
+
+// ── The GLINT ROCK ────────────────────────────────────────────────────────
+// One plain rock in twenty (SHINY_RATE.rock, off the rock's id like every
+// shiny — the same rocks glint for every player, and a cave rock's id is its
+// cell too) catches the light for a moment every 10-60 s. Breaking it pays
+// what any plain rock pays PLUS ONE GUARANTEED FIND, drawn from the plain
+// rock's own rarity ladder: flint at its base chance, each bar at its bonus
+// chance, and a crystal — the sapphire, the T4 gem — at the gold rock's own
+// gem odds against its bar (GEM_P_BY_TIER[4] × the T4 bar chance). So a
+// glint rock's find is most often flint or copper, sometimes iron, rarely a
+// gem — the ordinary luck of a hundred rocks, promised on this one.
+// Identity and drop are ONE predicate (isGlintRock); render.js reads it for
+// the glint and never keeps a list of glinting rocks.
+function isGlintRock(o) {
+  return isPlainRock(o) && isShiny(o.id, SHINY_RATE.rock);
+}
+const GLINT_ROCK_FINDS = Object.freeze([
+  Object.freeze({ id: 'coal', weight: PLAIN_ROCK_FLINT_P }),
+  ...[2, 3, 4, 5, 6, 7].map(t => Object.freeze({ id: mineralBarId(t), weight: plainRockBarChance(t) })),
+  Object.freeze({ id: GEM_BY_TIER[4][0], weight: GEM_P_BY_TIER[4] * plainRockBarChance(4) }),
+]);
+function glintRockFind(rng) {
+  return weightedPickBy(GLINT_ROCK_FINDS, f => f.weight, rng).id;
+}
+// When a glint rock glints: its own BEAT (util.js beatPhase) — a period of
+// 10-60 s off the rock's id, the glint showing GLINT_ROCK_SHOW_MS once per
+// period. Returns the glint's progress 0..1 while it shows, else -1.
+const GLINT_ROCK_PERIOD_MS = Object.freeze({ min: 10000, max: 60000 });
+const GLINT_ROCK_SHOW_MS = 700;
+const GLINT_ROCK_BEAT = Object.freeze({ salt: 'glint', minMs: GLINT_ROCK_PERIOD_MS.min, maxMs: GLINT_ROCK_PERIOD_MS.max, showMs: GLINT_ROCK_SHOW_MS });
+function glintRockPeriodMs(id) { return beatPeriodMs(id, GLINT_ROCK_BEAT); }
+function glintRockPhase(id, nowMs) { return beatPhase(id, nowMs, GLINT_ROCK_BEAT); }
 
 // A CAVE WALL dug out — by a tap (interact.js cave-wall) or by walking into
 // it (app.js auto-mine), both through here: always one stone, and flint on
@@ -251,9 +298,7 @@ const INTERACTABLES = {
     spentAction: 'consume',
     gate: (o, save) => {
       const deposit = mineralDeposit(o);
-      const isCave = o.caveVariant != null;
-      const isPlain = !deposit && (isCave || (o.yieldTier || 1) <= 1);
-      if (isPlain) return null;   // plain rock is ungated
+      if (isPlainRock(o)) return null;   // plain rock is ungated
       const pickTier = save.relics?.pick?.tier || 0;
       const reqTier = deposit?.requiredTier || o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
       if (pickTier < reqTier) {
@@ -266,8 +311,7 @@ const INTERACTABLES = {
     // Plain rock is ungated, so it never reports short.
     tierShort: (o, save) => {
       const deposit = mineralDeposit(o);
-      const isPlain = !deposit && (o.caveVariant != null || (o.yieldTier || 1) <= 1);
-      if (isPlain) return 0;
+      if (isPlainRock(o)) return 0;
       const reqTier = deposit?.requiredTier || o.requiredTier || Math.max(1, (o.yieldTier || 1) - 1);
       return reqTier - (save.relics?.pick?.tier || 0);
     },
@@ -288,12 +332,11 @@ const INTERACTABLES = {
         scene.flashLoot(`+${deposit.quantity} ${ITEM_BY_ID[deposit.item]?.name || deposit.item}`, '#a7ffb0', 1, deposit.item);
         return;
       }
-      const isCave = o.caveVariant != null;
-      const isPlain = isCave || (o.yieldTier || 1) <= 1;
-      if (isPlain) {
+      if (isPlainRock(o)) {
         // Plain rock — stone, coal on ~10% (shared base table, see
         // plainRockBaseDrop), plus the shared, tier-steepened bonus-bar
-        // chances, on top of the base.
+        // chances, on top of the base — and, on a GLINT rock, one
+        // guaranteed find off that same ladder (glintRockFind).
         // The stone count follows the ART: the pair-of-stones variant drops
         // 2, a single stone 1. Both numbers come off the one table in
         // sprite_layout.js that render.js picks the frame from, so the rock the
@@ -305,6 +348,15 @@ const INTERACTABLES = {
             const bar = mineralBarId(t);
             if (bar) { scene.addToInv(bar, 1); flashId = bar; }
           }
+        }
+        if (isGlintRock(o)) {
+          // The glint's promise: one find, always, rolled AFTER the chance
+          // rolls so it upstages them in the toast. A crystal is a gem find
+          // and takes the ore rock's jackpot fanfare.
+          const find = glintRockFind();
+          scene.addToInv(find, 1);
+          flashId = find;
+          if (GEM_BY_TIER[4].includes(find) && typeof scene.flashJackpot === 'function') scene.flashJackpot(1);
         }
         persistSave(save);
         const item = ITEM_BY_ID[flashId];
@@ -325,11 +377,7 @@ const INTERACTABLES = {
       scene.addToInv(primaryBar, 1);
       let flashId = primaryBar;
       let gemsFound = 0;
-      // One gem per tier of the ladder; the T7 (frost) rock's headline gem is
-      // the diamond — listed FIRST so it reads as the primary — with the
-      // emerald as its secondary. pickFromArray rolls the list uniformly.
-      const GEM_BY_TIER = { 4: ['sapphire'], 5: ['ruby'], 6: ['emerald'], 7: ['diamond', 'emerald'] };
-      const GEM_P_BY_TIER = { 4: 0.25, 5: 0.35, 6: 0.40, 7: 0.50 };
+      // One gem per tier of the ladder (GEM_BY_TIER / GEM_P_BY_TIER above).
       const gems = GEM_BY_TIER[t];
       if (gems && Math.random() < (GEM_P_BY_TIER[t] || 0)) {
         const gemId = pickFromArray(gems);
@@ -356,7 +404,8 @@ const INTERACTABLES = {
 
   // ---- Fruit tree: instant harvest, respawn-timer gated --------------------
   // Not a tool interaction (no axe/pick, no work wheel, no energy) — handled
-  // via `custom`. A planted sapling must mature (~4 days) before its first pick,
+  // via `custom`. A planted sapling must mature (PLANTED_TREE_GROW_MS, a day)
+  // before its first pick,
   // and each tree fruits once per 24h.
   fruittree: {
     custom: (ctx, o) => {
@@ -416,7 +465,7 @@ const INTERACTABLES = {
   // relic / armor / gold results, with a bag-full TAKE/LEAVE modal.
   chest: {
     // Chest loot IS luck-aware, but not from here: pickReward() (rarity.js)
-    // reads the ring + amulet straight off `save`. The GATHER drops in this
+    // reads permanent luck straight off `save`. The GATHER drops in this
     // registry (wood, ore, gems, fruit) are not — the declarative `luck` field
     // that would have made them so shipped switched OFF and was removed.
     custom: (ctx, o) => {
@@ -440,15 +489,13 @@ const INTERACTABLES = {
       // (save.bikeUntil, read by app.js _walkRelics → items.js
       // steerSpeedMul), not a speed system of its own.
       if (isBikeRack(o) && typeof Macros !== 'undefined') {
-        if (Macros.usedToday(save, o.id)) {
-          scene.flash(`Bikes all out. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
-          return true;
-        }
-        Macros.markToday(save, o.id);
-        save.bikeUntil = Date.now() + BIKE_RACK_MS;
-        ctx.dirty = true;
-        scene.flash(bikeRackFlash(), sx, sy);
-        return true;
+        return Macros.dailyVisit(ctx, o, { grant: () => {
+          save.bikeUntil = Math.max(save.bikeUntil || 0, Date.now() + BIKE_RACK_MS);
+          scene.flash(bikeRackFlash(), sx, sy);
+        } });
+      }
+      if (Macros.visitKindForObject(o) === Macros.DAILY_VISIT_KINDS.wagon) {
+        return Macros.hireMercenary(ctx, o);
       }
       // A BARREL (loot.js isBarrel — a bin or a recycling point): SMASHED,
       // not opened. It restocks like a crate (crateRestoreDays, the day
@@ -522,7 +569,7 @@ const INTERACTABLES = {
           scene.flash(`The crate is bare. ${shortDuration(Macros.restockWaitMs(save, o.id, days))}.`, sx, sy);
           return true;
         }
-      } else if (save.opened.includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
+      } else if ((save.opened || []).includes(o.id)) { scene.flash('Picked clean already.', sx, sy); return true; }
       // The hero glyph every ceremony below opens with: the sprite this chest
       // was standing as, off the SAME resolver render.js draws it from
       // (loot.js chestLook), so a crate opens under a crate and a trunk under
@@ -605,7 +652,8 @@ const INTERACTABLES = {
           : `${result.slot} T${result.tier}`;
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(result.kind, result.slot, result.tier, 64) : '★';
-        scene.showChestRewardModal({ ...dress, iconHTML, name, sub: 'equipped', color: UI_TREASURE, kindIcon });
+        scene.showChestRewardModal({ ...dress, iconHTML, name, sub: 'equipped', color: UI_TREASURE, kindIcon,
+                                     tier: result.tier });
         if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
           scene.flashJackpot(result.jackpot);
         }
@@ -641,7 +689,7 @@ const INTERACTABLES = {
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(gearKind, result.slot, result.tier, 64) : '★';
         scene.showChestRewardModal({ ...dress, iconHTML, name, sub: 'already own better — discarded', color: '#aaa',
-                                     kindIcon });
+                                     kindIcon, tier: result.tier });
         if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
           scene.flashJackpot(result.jackpot);
         }
@@ -652,6 +700,7 @@ const INTERACTABLES = {
       const lootQty = result.qty;
       const lootName = itemName(lootId).toString();
       const lootColor = (typeof tierInfo === 'function') ? tierInfo(lootId).color : UI_TREASURE;
+      const lootTier = (typeof itemTierOf === 'function') ? itemTierOf(lootId) : 0;
       // A starter supply crate is not treasure. `o.crate` is the same test the
       // renderer uses to draw the box sprite instead of the tier-2 trunk, and
       // the same one the label pass uses to keep its name horizontal — so the
@@ -668,19 +717,24 @@ const INTERACTABLES = {
       // buttons fire after this handler returns, so they persist themselves.
       const room = (typeof scene.invRoomFor === 'function') ? scene.invRoomFor(lootId) : Infinity;
       if (lootQty > room) {
+        let resolved = false;
         scene.showChestRewardModal({ ...dress,
-          iconHTML, name: lootName, qty: qtyLabel, color: lootColor, kind: rewardKind, kindIcon,
+          iconHTML, name: lootName, qty: qtyLabel, color: lootColor, kind: rewardKind, kindIcon, tier: lootTier,
           sub: room > 0
             ? `Bag full — room for only ${room} of ${lootQty}.`
             : 'Your bag is full.',
           actions: [
             { label: 'Leave for later', primary: true, onClick: () => {
+              if (resolved) return;
+              resolved = true;
               save.chestHold = save.chestHold || {};
               save.chestHold[o.id] = { id: lootId, n: lootQty, consolation: result.consolation || 0 };
               persistSave(save);
               scene.flash?.('Left it in the chest.', sx, sy);
             } },
             { label: room > 0 ? `Take ${room}` : 'Discard', onClick: () => {
+              if (resolved) return;
+              resolved = true;
               // Discard still claims the chest's coins, without attempting
               // an item grant into a full bag.
               Rewards.apply(save, room > 0 ? result : { kind: 'gold', amount: result.consolation || 0 }, scene);
@@ -706,7 +760,7 @@ const INTERACTABLES = {
       if (save.chestHold) delete save.chestHold[o.id];
       ctx.dirty = true;
       scene.showChestRewardModal({ ...dress, iconHTML, name: lootName, qty: qtyLabel, color: lootColor,
-                                   kind: rewardKind, kindIcon,
+                                   kind: rewardKind, kindIcon, tier: lootTier,
                                    onDismiss: () => scene._revealPendingBookReads() });
       if (result.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
         scene.flashJackpot(result.jackpot);
@@ -737,17 +791,21 @@ const INTERACTABLES = {
     },
   },
 
-  // ---- Page stones: the waystone and the notice board ---------------------
-  // A thing that remembers a page of the Book: the first tap reads the NEXT
-  // page of the curriculum (app.js _bookRead — the Book's own bookmark,
-  // save.tipsRead) without spending a Book, and records the thing in
-  // save.opened, the POI delta, so each gives one page ever. Read, it is
-  // only scenery: it stays standing and says so. ONE lane, two reasons:
-  //   waystone  — a Pilgrim's Way street end (src/street_variants.js)
-  //   infoboard — an INFORMATION POI (worldgen.js — an OSM tourism /
-  //               information board, which used to be a chest)
-  waystone: pageStone({ title: 'The waystone remembers', art: 'street_pilgrim',
-    spent: 'The stone is worn smooth.', read: 'The stone remembers.' }),
+  // Waystones share the daily visit ledger; notice boards remain one-time.
+  waystone: {
+    custom: (ctx, o) => {
+      const { scene, save } = ctx;
+      if (typeof scene._bookRead !== 'function') return true;
+      return Macros.dailyVisit(ctx, o, { afterStory: () => {
+        const { body } = scene._bookRead();
+        if (typeof scene.showMessageModal === 'function') {
+          scene.showMessageModal({ title: 'The waystone remembers', body,
+            art: Shrines.REWARD_KINDS.waystone.art, kind: 'story' });
+        }
+        if (typeof persistSave === 'function') persistSave(save);
+      } });
+    },
+  },
   infoboard: pageStone({ title: 'A notice board', art: null,
     spent: 'Read it already.', read: 'You read the notice.' }),
 
@@ -788,14 +846,17 @@ const INTERACTABLES = {
   grove_shrine: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
-      if (Macros.usedToday(save, o.id)) {
-        scene.flash(`The shrine rests. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
-        return true;
-      }
-      Macros.markToday(save, o.id);
-      ctx.dirty = true;
-      grantTreasureRoll(scene, save, sx, sy, '\u{1F33F}', Zones.SHRINE_CONTEXT);
-      return true;
+      const row = Shrines.kindForObject(o);
+      return Macros.dailyVisit(ctx, o, {
+        row,
+        grant: row.reward ? null : () => {
+          Shrines.grant(save, o.shrineKind, Date.now(), scene);
+          scene.flash(Shrines.boonFlash(o.shrineKind), sx, sy);
+        },
+        afterStory: row.reward === 'treasure'
+          ? () => grantTreasureRoll(scene, save, sx, sy, '\u{1F33F}', Zones.SHRINE_CONTEXT)
+          : null,
+      });
     },
   },
 
@@ -929,9 +990,9 @@ function chestNeverSpent(o) {
 // the tile is crowded with) before it restocks at its normal tier.
 // It is NOT save.opened: an id there (a save from before Sep 2026) is ignored
 // for a crate — savemigrate.js carried those onto the ledger once.
-// X marks, headstones, trunks, wagons, nexus chests and cave chests never
-// restock; the chapel and the shrine are places, not chests — they share the
-// ledger and the glow (poiLit), not this predicate.
+// X marks, headstones, trunks, nexus chests and cave chests never restock.
+// Wagons and daily visit sites share the day ledger and glow through their
+// own visit predicate, rather than this crate/barrel schedule.
 function restocks(o) {
   if (!o || o.kind !== 'chest' || !o.poiClass || o.crate || o.fixedLoot) return false;
   if (o.depth > 0 || o.caveOf) return false;
@@ -955,7 +1016,7 @@ function isSpent(o, sets) {
         const age = sets.burst ? sets.burst.get(o.id) : undefined;
         return age !== undefined && age < crateRestoreDays(o);
       }
-      if (isPotOfGold(o) || isBikeRack(o)) return takenToday(o, sets);
+      if (Macros.visitKindForObject(o)) return takenToday(o, sets);
       return sets.opened.has(o.id) || takenToday(o, sets);
     }
     // o.chopped is the in-memory flag the chop wheel sets; save.chopped is the
@@ -991,7 +1052,7 @@ function isSpent(o, sets) {
 function poiLit(o, sets) {
   if (!o) return false;
   const today = takenToday(o, sets);
-  if (o.kind === 'grove_shrine' || o.kind === 'vista_scope') return !today;
+  if (Macros.visitKindForObject(o) || o.kind === 'vista_scope') return !today;
   if (o.kind !== 'chest' || o.crate || isSpent(o, sets)) return false;
   const macro = (typeof macroFor === 'function') ? macroFor(o) : null;
   if (macro && macro.kind === 'chapel') return !serviceTakenToday(o, sets);
@@ -1058,6 +1119,19 @@ function runInteractable(ctx, o) {
   // Non-tool interactables (fruit harvest, …) own their whole flow.
   if (def.custom) return def.custom(ctx, o);
 
+  // Capture equipment when the wheel starts, including a later slow-grind
+  // acceptance. Cancellation never invokes the completion story.
+  const startJob = (duration, cost) => {
+    const startingTier = save.relics?.[def.tool]?.tier || 0;
+    const action = { axe: 'chop', pick: 'dig', hoe: 'till' }[def.tool];
+    if (action) scene._toolActionStory?.(action);
+    scene.startWorkProgress(o.x, o.y, () => {
+      if (def.spent && def.spent(o, ctx)) return;
+      def.complete(ctx, o);
+      scene._barehandWorkStory?.(def.tool, startingTier, o.kind === 'tree' && o.size !== 'bush');
+    }, duration, cost, def.tool);
+  };
+
   // Tool pipeline: gate → spend energy → start the tier-driven work wheel.
   const blockMsg = def.gate ? def.gate(o, save) : null;
   if (blockMsg) {
@@ -1071,7 +1145,7 @@ function runInteractable(ctx, o) {
         kind: 'note',
         title: 'Your tools would make hard work of this.',
         get: 'Do it anyway?',
-        cost: `${SLOW_GRIND_ENERGY}⚡ · ${Math.round(SLOW_GRIND_MS / 1000)}s of work`,
+        cost: `${SLOW_GRIND_ENERGY}⚡ · ${shortDuration(Gear.workDurationMs(save, SLOW_GRIND_MS))} of work`,
         canAfford: (save.energy ?? 0) >= SLOW_GRIND_ENERGY,
         acceptLabel: 'Do it',
         cancelLabel: 'Not now',
@@ -1079,8 +1153,7 @@ function runInteractable(ctx, o) {
           if (!scene.spendEnergy(SLOW_GRIND_ENERGY, sx, sy)) return;
           // Same completion as a proper-tool job; the energy rides along as
           // the refund if the player cancels the wheel mid-grind.
-          scene.startWorkProgress(o.x, o.y, () => def.complete(ctx, o),
-            SLOW_GRIND_MS, SLOW_GRIND_ENERGY, def.tool);
+          startJob(SLOW_GRIND_MS, SLOW_GRIND_ENERGY);
         },
       });
       return true;
@@ -1093,6 +1166,6 @@ function runInteractable(ctx, o) {
   const durMs = toolDurationMs(save.relics, def.tool);
   if (cost && !scene.spendEnergy(cost, sx, sy)) return true;   // can't afford — tap consumed
   // cost is passed through as the refund amount if the player cancels mid-work.
-  scene.startWorkProgress(o.x, o.y, () => def.complete(ctx, o), durMs, cost || 0, def.tool);
+  startJob(durMs, cost || 0);
   return true;
 }

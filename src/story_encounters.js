@@ -1,15 +1,22 @@
-// The fourth rebuilt home brings a hunted neighbour into the existing world.
-// Records are per-save overlays; combat, death and NPC rest remain shared rules.
+// Maud, the survivor (NPC.STORY_ROLES.witness), arrives hunted by a goblin
+// archer. Records are per-save overlays; combat, death and NPC rest remain
+// shared rules.
 const StoryEncounters = (() => {
+  // WHEN it arms: her row's minMemories (Oct 2026, owner's call; it was the
+  // sixth rebuilt home). She stays where she was saved; the trailer never
+  // seats her (STORY_ROLES `arrives`). The save key keeps its old name: it
+  // is a stored id.
+  const armAtMemories = () => NPC.STORY_ROLES.witness.minMemories;
   const KEY = 'fourth_home';
   const WORRIED = 'A goblin archer has been hunting me. Please help me!';
   const THANKS = 'You stopped the archer. Thank you! Take this starfruit seed.';
   const persist = scene => { if (typeof persistSave === 'function') persistSave(scene.save); };
-  function arm(scene, house) {
-    if (scene.save.storyEncounter || Object.keys(scene.save.restoredHouses || {}).length !== 4) return false;
+  function arm(scene) {
+    if (scene.save.storyEncounter || typeof MemoryStory === 'undefined'
+        || MemoryStory.total(scene.save) < armAtMemories()) return false;
     scene.save.storyEncounter = {
-      key: KEY, houseId: house.id, npcId: `story_${KEY}_${house.id}_npc`,
-      enemyId: `story_${KEY}_${house.id}_archer`, status: 'hunted', greeted: false,
+      key: KEY, npcId: `story_${KEY}_survivor`,
+      enemyId: `story_${KEY}_survivor_archer`, status: 'hunted', greeted: false,
     };
     persist(scene);
     return true;
@@ -74,7 +81,7 @@ const StoryEncounters = (() => {
       persist(scene);
     }
     const fields = kind === 'npc'
-      ? { ...NPC.identity(id), role: 'scout', roleLabel: 'Neighbour', storyEncounter: KEY, homeX: p.x, homeY: p.y }
+      ? { ...NPC.storyNeighbour(id, 'witness'), storyEncounter: KEY, homeX: p.x, homeY: p.y }
       : { shiny: false, storyEncounter: KEY };
     const c = WorldGen.makeCreature(kind, p.x, p.y, id, fields);
     if (kind === 'npc') NPC.restore?.(scene, c);
@@ -89,8 +96,10 @@ const StoryEncounters = (() => {
     return true;
   }
   function tick(scene, now = Date.now()) {
+    if (scene.depth > 0) return;
+    arm(scene);
     const q = scene.save.storyEncounter;
-    if (!q || scene.depth > 0) return;
+    if (!q) return;
     if ((scene.save.caught || []).includes(q.enemyId)) defeated(scene, { id: q.enemyId });
     if (now < (scene._storyEncounterNext || 0)) return;
     scene._storyEncounterNext = now + 1000;
@@ -108,12 +117,13 @@ const StoryEncounters = (() => {
     if (!q.greeted && near && find(q.enemyId) && !busy(scene) && !NPC.isDormant?.(c)) {
       q.greeted = true;
       persist(scene);
-      scene.showMessageModal({ title: `${c.name} · Neighbour`, body: WORRIED, art: NPC.portrait(scene, c), kind: 'note' });
+      scene.showMessageModal({ title: `${c.name} · ${c.roleLabel}`, body: WORRIED, art: NPC.portrait(scene, c), kind: 'note' });
     }
   }
   function interact(scene, c) {
     const q = scene.save.storyEncounter;
-    if (!q || c.id !== q.npcId) return false;
+    // Once the seed is given she speaks as the survivor (MemoryStory).
+    if (!q || c.id !== q.npcId || q.status === 'rewarded') return false;
     if (busy(scene) || NPC.isDormant?.(c)) return true;
     if ((scene.save.caught || []).includes(q.enemyId)) defeated(scene, { id: q.enemyId });
     let body = WORRIED;
@@ -127,11 +137,11 @@ const StoryEncounters = (() => {
         scene._finishInventoryChange?.();
         body = THANKS;
       } else body = 'Thank you for stopping the archer. Make room in your bag; I have a starfruit seed for you.';
-    } else if (q.status === 'rewarded') body = 'I feel safe again. Thank you for helping me.';
+    }
     q.greeted = true;
     persist(scene);
-    scene.showMessageModal({ title: `${c.name} · Neighbour`, body, art: NPC.portrait(scene, c), kind: 'note' });
+    scene.showMessageModal({ title: `${c.name} · ${c.roleLabel}`, body, art: NPC.portrait(scene, c), kind: 'note' });
     return true;
   }
-  return { arm, tick, defeated, interact, WORRIED, THANKS };
+  return { arm, tick, defeated, interact, WORRIED, THANKS, armAtMemories };
 })();

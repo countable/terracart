@@ -192,6 +192,8 @@
     // mirror underground). A real flame: warm, a little smaller than a
     // campfire, and it breathes like one. Bright enough to read a cave
     // junction by from across the level.
+    // The terrain supplies the lava art; its marker supplies a local ember glow.
+    lava_vent: { radiusCells: 1.5, colour: 0xff702a, peak: 0.7, flicker: 0.18 },
     torch:    { radiusCells: 2.5, colour: 0xffa54a, peak: 1.00, flicker: 0.22 },
     // A wild mushroom — the faint one. Every `mushroom` wildplant glows, on
     // the surface as well as in the caves (where spawnCaveMushrooms scatters
@@ -275,6 +277,26 @@
     // `dyPx`, so the glow sits on the orb, not on the ground under it.
     bolt:     { radiusCells: 1.5, colour: 0x9ad6ff, peak: 0.95, flicker: 0.14 },
   };
+  // The shrine kinds (src/shrines.js): the grove shrine's own light in each
+  // kind's colour — one row per kind, `shrine_<id>` (sourceKind).
+  if (window.Shrines) {
+    for (const id of window.Shrines.KIND_IDS) {
+      KINDS['shrine_' + id] = { ...KINDS.shrine, colour: window.Shrines.SHRINE_KINDS[id].light };
+    }
+  }
+  // Daily visit sites keep their own light after today's reward is claimed.
+  // Their separate POI pulse still means "available today".
+  const VISIT_LIGHT_KINDS = new Map();
+  for (const [id, row] of Object.entries(window.Shrines?.REWARD_KINDS || {})) {
+    const key = id === 'grove' ? 'shrine' : 'shrine_' + id;
+    KINDS[key] = { ...KINDS.shrine, colour: row.light };
+    VISIT_LIGHT_KINDS.set(row, key);
+  }
+  for (const [id, row] of Object.entries(window.Macros?.DAILY_VISIT_KINDS || {})) {
+    const key = 'visit_' + id;
+    KINDS[key] = { ...KINDS.shrine, colour: row.light };
+    VISIT_LIGHT_KINDS.set(row, key);
+  }
 
   // Seconds per POI breath. Slow on purpose (see the row above).
   const POI_PULSE_PERIOD_S = 4.5;
@@ -697,8 +719,11 @@
     if (o.kind === '_fire') return 'fire';
     if (o.kind === '_magic_trap') return 'magic_trap';
     if (o.kind === 'torch') return 'torch';
+    const visit = window.Macros?.visitKindForObject(o);
+    if (visit && VISIT_LIGHT_KINDS.has(visit)) return VISIT_LIGHT_KINDS.get(visit);
+    if (o.kind === 'lava_vent') return 'lava_vent';
     // A grove's shrine (src/zones.js) — its own soft green row.
-    if (o.kind === 'grove_shrine') return 'shrine';
+    if (o.kind === 'grove_shrine') return (o.shrineKind && KINDS['shrine_' + o.shrineKind]) ? 'shrine_' + o.shrineKind : 'shrine';
     // A viewpoint's scope (src/scenic.js) — its rest ring's steady light.
     if (o.kind === 'vista_scope') return 'vista';
     // A wild plant is offered as ITSELF from drawObjects' wildplant scan, and

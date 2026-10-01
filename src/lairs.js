@@ -734,7 +734,16 @@
     if (cap <= 0) return [];
     const baseCount = countFor(cap, rng);
     // Hard barricades introduce ranged support, capped at a two-member team.
-    const n = cand.tier === 'barricade' && root.Difficulty?.mode() === 'hard' ? 2 : baseCount;
+    const nWorld = cand.tier === 'barricade' && root.Difficulty?.mode() === 'hard' ? 2 : baseCount;
+    // THE MODE'S GROUP CAP (Difficulty lairGuardMax — 2 on easy, none on
+    // hard; owner, Sep 2026). Applied to the ROLLED count, after every world
+    // draw above (occupancy, strength, count), so the world's garrison is the
+    // same for everyone and easy simply wakes the first `lairGuardMax` of it:
+    // guard i's id, kind and seat draws in the loop below are the same in
+    // both modes, hard just keeps going. Never a second roll, never a
+    // different pair.
+    const modeMax = root.Difficulty?.get?.().lairGuardMax;
+    const n = modeMax > 0 ? Math.min(nWorld, modeMax) : nWorld;
     // A BUILDING's garrison comes out after you, so its themed family drops
     // the rooted kinds (EnemyRoster.isRooted — the plants); a road variant's
     // stretch (a street tier) keeps them. The kind is picked off the filtered
@@ -792,7 +801,10 @@
         ? root.creatureSpawnClass(kind) : 'fastEnemy';
       let seat = null;
       for (let a = 0; a < LAIR_SEAT_TRIES && !seat; a++) {
-        const ang = (i / n) * Math.PI * 2 + (rng() - 0.5) * 0.8 + a * 0.7;
+        // Spaced round the ring by the WORLD's count (nWorld), not the woken
+        // one, so a mode that wakes fewer (Difficulty lairGuardMax) seats
+        // its guards exactly where the full garrison's first ones stand.
+        const ang = (i / nWorld) * Math.PI * 2 + (rng() - 0.5) * 0.8 + a * 0.7;
         const r = core ? seatR * Math.sqrt(rng()) : seatR * (1 + rng() * 0.35);
         const lx = cand.lx + Math.cos(ang) * r;
         const ly = cand.ly + Math.sin(ang) * r;

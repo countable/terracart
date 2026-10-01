@@ -86,7 +86,7 @@ test('steady state: drawObjects culls a creature to the viewport before asking w
 
 // ── Turrets are derived per tile, not walked out of every object ──────────
 function towerHelper() {
-  const src = APP_JS_SRC;
+  const src = SCENE_SRC;
   const start = src.indexOf('  _forEachTowerNear(pc, fn) {');
   assert.truthy(start > 0, 'the helper exists');
   const end = src.indexOf('\n  }\n', start);
@@ -127,7 +127,7 @@ test('steady state: the turret scans read a per-tile tower list that re-derives 
   } finally {
     WorldGen.tileCache.clear();
   }
-  const src = APP_JS_SRC;
+  const src = SCENE_SRC;
   const ward = src.slice(src.indexOf('  _castleWardPoints(now, pc) {'), src.indexOf('  _forEachTowerNear(pc, fn) {'));
   const fire = src.slice(src.indexOf('  _turretFire(now, px, py, halfSpanM, enemies, pc) {'), src.indexOf('  _drawShots() {'));
   for (const [name, body] of [['_castleWardPoints', ward], ['_turretFire', fire]]) {
@@ -230,7 +230,7 @@ test('steady state: a still, breathing view bakes the lightmap\'s static layer o
 
 // ── The footprint trail repaints only when a print moves ──────────────────
 test('steady state: the footprint trail is rebuilt only when a drawn print moves or fades', () => {
-  const a = APP_JS_SRC;
+  const a = SCENE_SRC;
   const blk = a.slice(a.indexOf('const prints = [];'), a.indexOf('// Pairy chest-compass indicator.'));
   assert.truthy(/printKey \+= `\$\{sx2\},\$\{sy2\},\$\{fp\.alpha\},\$\{fp\.ux\},\$\{fp\.uy\},\$\{fp\.side\};`;/.test(blk),
     'the key names every input of a print: its drawn point, ink, step and foot');

@@ -20,16 +20,92 @@ test('bucket: advances by one each hour; the offset shifts the boundary', () => 
   assert.eq(ShopsMath.bucket(id, boundary), b0 + 1, 'rotates at the staggered boundary');
 });
 
-test('dealCap: castle/tower, starter-blacksmith and fort infinite; house 1', () => {
-  assert.eq(ShopsMath.dealCap(null), Infinity, 'no house = infinite');
-  assert.eq(ShopsMath.dealCap({ kind: 'tower' }), Infinity, 'tower');
-  assert.eq(ShopsMath.dealCap({ tier: 12 }), Infinity, 'castle (tier 12)');
-  assert.eq(ShopsMath.dealCap({ tier: 9 }, true), Infinity, 'starter blacksmith flag');
-  assert.eq(ShopsMath.dealCap({ tier: 11 }), Infinity, 'fort (a slot machine)');
-  assert.eq(ShopsMath.dealCap({ tier: 9 }), 1, 'small house');
+// NO DEAL CAP (Sep 2026): a shop is never "busy". The old per-hour ration
+// (dealCap / readiness) is gone from the module, not set to Infinity — a cap
+// that never binds is a cap someone will one day lower again.
+test('no deal cap: ShopsMath has no ration and no readiness to ask', () => {
+  assert.eq(typeof ShopsMath.dealCap, 'undefined', 'no dealCap');
+  assert.eq(typeof ShopsMath.readiness, 'undefined', 'no readiness');
+  assert.eq(typeof ShopsMath.msToNextBucket, 'undefined', 'no wait to print');
 });
 
-test('bucketState: creates a record and GCs a stale-bucket predecessor', () => {
+// THE ONE CLOCK ON A DOOR: a short cooldown after a closed deal, for the
+// roles with a row in DEAL_COOLDOWN_MS — the trader alone. Short (minutes,
+// not the old hourly ration), stamped by recordDeal, read by dealWaitMs.
+const TRADER_MS = ShopsMath.DEAL_COOLDOWN_MS.trader;
+test('deal cooldown: the table has one row, the trader, and it is short', () => {
+  assert.eq(Object.keys(ShopsMath.DEAL_COOLDOWN_MS).join(','), 'trader', 'only the trader waits');
+  assert.truthy(TRADER_MS >= 60 * 1000 && TRADER_MS <= 15 * 60 * 1000, `a breather, not a ration: ${TRADER_MS}ms`);
+  assert.eq(ShopsMath.MAX_DEAL_COOLDOWN_MS, TRADER_MS, 'the longest row is the record keepers\' horizon');
+});
+
+test('deal cooldown: recordDeal banks the deal and stamps the moment', () => {
+  const save = {};
+  const house = { id: 'tr-1' };
+  const cur = ShopsMath.recordDeal(save, house, 1000);
+  assert.eq(cur.deals, 1); assert.eq(cur.dealAt, 1000);
+  assert.eq(save.shopState['tr-1'], cur, 'on the house\'s own record');
+  ShopsMath.recordDeal(save, house, 2000);
+  assert.eq(cur.deals, 2, 'each deal counts (the trader\'s stock turnover)');
+  assert.eq(cur.dealAt, 2000, 'the stamp is the LAST deal');
+  assert.eq(ShopsMath.recordDeal(save, { }, 3000), null, 'a house with no id banks nothing');
+});
+
+test('deal cooldown: dealWaitMs counts down from the last deal and only for a role with a row', () => {
+  const save = {};
+  const house = { id: 'tr-2' };
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 5000), 0, 'never dealt with: open');
+  assert.falsy(save.shopState && save.shopState['tr-2'], 'and asking created no record');
+  ShopsMath.recordDeal(save, house, 10000);
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000), TRADER_MS, 'the whole row at the moment of the deal');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 + TRADER_MS / 2), TRADER_MS / 2, 'half way');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 + TRADER_MS), 0, 'open again on the dot');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 + TRADER_MS * 9), 0, 'and stays open');
+  for (const role of ['market', 'blacksmith', 'wizard', null, undefined]) {
+    assert.eq(ShopsMath.dealWaitMs(save, house, role, 10000), 0, `${role}: no row, no wait`);
+  }
+  assert.eq(ShopsMath.dealWaitMs(save, { }, 'trader', 10000), 0, 'no id, no wait');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', 10000 - TRADER_MS * 3), TRADER_MS,
+    'a clock that ran backwards prints the row\'s length at worst, never a lifetime');
+});
+
+test('deal cooldown: the stamp survives the hour bucket while it still cools, and is dropped once spent', () => {
+  const save = {};
+  const house = { id: 'tr-3' };
+  // A deal a minute before the bucket turns: the fresh bucket record must
+  // still refuse for the rest of the row.
+  const b0 = ShopsMath.bucketState(save, house, 0);
+  const turn = (b0.bucket + 1) * HOUR - ShopsMath.bucketOffset(house.id);
+  ShopsMath.recordDeal(save, house, turn - 60 * 1000);
+  const b1 = ShopsMath.bucketState(save, house, turn + 1000);
+  assert.truthy(b1 !== b0 && b1.bucket === b0.bucket + 1, 'a new bucket record');
+  assert.eq(b1.deals, 0, 'the deal count starts over with the new offer');
+  assert.eq(b1.dealAt, turn - 60 * 1000, 'but the stamp is carried');
+  assert.eq(ShopsMath.dealWaitMs(save, house, 'trader', turn + 1000), TRADER_MS - 61 * 1000, 'and still counts down');
+  // Hours later the stamp is spent: the carried record sheds it, so it is
+  // the exact shape a fresh record would be (pruneShopState's lossless rule).
+  const b2 = ShopsMath.bucketState(save, house, turn + HOUR * 3);
+  assert.eq(JSON.stringify(b2), JSON.stringify({ bucket: b1.bucket + 3, deals: 0, rerolls: 0 }), 'no stamp once spent');
+});
+
+test('deal cooldown: pruneShopState keeps a stale entry whose deal still cools', () => {
+  const save = {};
+  const cooling = { id: 'tr-cool' }, spent = { id: 'tr-spent' };
+  const b0 = ShopsMath.bucketState(save, cooling, 0);
+  const turn = (b0.bucket + 1) * HOUR - ShopsMath.bucketOffset(cooling.id);
+  ShopsMath.recordDeal(save, cooling, turn - 1000);
+  // The other house has its own bucket offset: deal three hours back so its
+  // record is a stale bucket at the probe whatever that offset is.
+  ShopsMath.recordDeal(save, spent, turn - HOUR * 3);
+  const later = turn + HOUR * 2;    // both records are now stale buckets
+  assert.eq(ShopsMath.pruneShopState(save, turn + 1000), 1, 'at the turn, only the spent deal goes');
+  assert.truthy(save.shopState['tr-cool'], 'the cooling one is kept');
+  assert.falsy(save.shopState['tr-spent']);
+  assert.eq(ShopsMath.dealWaitMs(save, cooling, 'trader', turn + 1000), TRADER_MS - 2000, 'and still refuses');
+  assert.eq(ShopsMath.pruneShopState(save, later), 1, 'hours on, it is spent too');
+});
+
+test('bucketState: creates a record; a new hour resets deals and keeps easing re-rolls', () => {
   const save = {};
   const house = { id: 'shopA' };
   const cur = ShopsMath.bucketState(save, house, 0);
@@ -37,14 +113,53 @@ test('bucketState: creates a record and GCs a stale-bucket predecessor', () => {
   assert.eq(cur.rerolls, 0);
   assert.eq(save.shopState.shopA, cur, 'persisted under the id');
   cur.deals = 3;
-  // Same hour → same record (deals preserved).
+  cur.rerolls = 4;
+  // Same hour → same record (deals + rerolls preserved).
   assert.eq(ShopsMath.bucketState(save, house, HOUR / 4).deals, 3, 'same bucket keeps deals');
-  // Next hour → fresh record (deals reset).
+  assert.eq(ShopsMath.bucketState(save, house, HOUR / 4).rerolls, 4, 'same bucket keeps rerolls');
+  // Two hours on → the deal count starts over with the new offer, but the
+  // re-roll ladder only eases: one rung per hour that passed.
   const next = ShopsMath.bucketState(save, house, HOUR * 2);
-  assert.eq(next.deals, 0, 'stale bucket GC’d → deals reset');
+  assert.eq(next.deals, 0, 'new bucket → deals reset');
+  assert.eq(next.rerolls, 2, 'new bucket → two rungs off, not a reset');
+  assert.eq(next.bucket, ShopsMath.bucket(house.id, HOUR * 2), 'stamped with the new bucket');
+  assert.eq(save.shopState.shopA, next, 'and persisted in place of the old record');
 });
 
-test('pruneShopState: deletes stale-bucket entries, keeps current-bucket ones', () => {
+// THE ONE THING THE CLOCK DOES TO A SHOP: the paid re-roll level (the rung
+// of the cost ladder) comes off one per hour bucket. Never a full reset, never
+// below zero, and a clock that ran backwards forgives nothing.
+test('easedRerolls: one rung per elapsed hour bucket, floored at zero', () => {
+  const at = (rerolls, bucket) => ({ bucket, deals: 0, rerolls });
+  assert.eq(ShopsMath.easedRerolls(at(5, 10), 10), 5, 'same bucket: untouched');
+  assert.eq(ShopsMath.easedRerolls(at(5, 10), 11), 4, 'an hour later: one off');
+  assert.eq(ShopsMath.easedRerolls(at(5, 10), 13), 2, 'three hours: three off');
+  assert.eq(ShopsMath.easedRerolls(at(5, 10), 40), 0, 'a day later: floored at zero');
+  assert.eq(ShopsMath.easedRerolls(at(0, 10), 11), 0, 'nothing to ease stays nothing');
+  assert.eq(ShopsMath.easedRerolls(at(5, 10), 8), 5, 'a clock run backwards eases nothing');
+});
+
+test('re-roll cost: eases one rung an hour through bucketState, and the seed follows', () => {
+  const save = { offerSalt: 1 };
+  const house = { id: 'smithy-ease' };
+  const smithy = (now) => ShopsMath.smithyRerollCost(ShopsMath.bucketState(save, house, now).rerolls);
+  ShopsMath.bucketState(save, house, 0).rerolls = 3;
+  assert.eq(smithy(0), ShopsMath.smithyRerollCost(3), 'three re-rolls deep');
+  assert.eq(smithy(HOUR), ShopsMath.smithyRerollCost(2), 'an hour later one rung cheaper');
+  assert.eq(smithy(HOUR * 2), ShopsMath.smithyRerollCost(1), 'two hours: another rung');
+  assert.eq(smithy(HOUR * 3), ShopsMath.smithyRerollCost(0), 'three hours: back at the base…');
+  assert.eq(smithy(HOUR * 9), ShopsMath.smithyRerollCost(0), '…and it stays there');
+  // Easing is a state change, so it must pivot the seeded offer like a paid
+  // re-roll does — the same lane, drawn at the same moment, differs only by
+  // the rung.
+  const b0 = ShopsMath.bucket(house.id, 0), b1 = ShopsMath.bucket(house.id, HOUR);
+  const eased  = { offerSalt: 1, shopState: { 'smithy-ease': { bucket: b0, deals: 0, rerolls: 3 } } };
+  const direct = { offerSalt: 1, shopState: { 'smithy-ease': { bucket: b1, deals: 0, rerolls: 2 } } };
+  assert.eq(ShopsMath.rng(eased, house, 'relic', HOUR)(), ShopsMath.rng(direct, house, 'relic', HOUR)(),
+    'an eased record draws exactly as a record written at that rung would');
+});
+
+test('pruneShopState: deletes spent stale-bucket entries, keeps current-bucket ones', () => {
   const save = { shopState: {} };
   const stale = { id: 'stale-house' };
   const fresh = { id: 'fresh-house' };
@@ -82,24 +197,22 @@ test('pruneShopState: lossless — a pruned entry rerolls to the exact same shap
     'pruning then recreating matches bucketState\'s own stale-replace exactly');
 });
 
+test('pruneShopState: a stale entry still carrying re-roll rungs is kept, and eases on touch', () => {
+  const save = { shopState: {} };
+  const deep = { id: 'h-deep' };
+  const shallow = { id: 'h-shallow' };
+  ShopsMath.bucketState(save, deep, 0).rerolls = 5;
+  ShopsMath.bucketState(save, shallow, 0).rerolls = 2;
+  const later = ShopsMath.HOUR * 3;
+  assert.eq(ShopsMath.pruneShopState(save, later), 1, 'only the entry whose ladder has eased away goes');
+  assert.falsy(save.shopState['h-shallow'], 'two rungs, three hours: spent');
+  assert.truthy(save.shopState['h-deep'], 'five rungs, three hours: two still owed');
+  assert.eq(ShopsMath.bucketState(save, deep, later).rerolls, 2, 'and the touch eases it, not resets it');
+});
+
 test('pruneShopState: no-op on an empty or missing shopState', () => {
   assert.eq(ShopsMath.pruneShopState({}), 0, 'no shopState at all');
   assert.eq(ShopsMath.pruneShopState({ shopState: {} }), 0, 'empty shopState');
-});
-
-test('readiness: ready until the cap, then reports a positive waitMin', () => {
-  const save = {};
-  const fort = { id: 'fortB', tier: 9 };         // an ordinary shop
-  const cap = ShopsMath.dealCap(fort);           // 1
-  let r = ShopsMath.readiness(save, fort, cap, 0);
-  assert.eq(r.ready, true, 'fresh bucket is ready');
-  assert.eq(r.waitMin, 0);
-  ShopsMath.bucketState(save, fort, 0).deals = cap;   // hit the cap
-  r = ShopsMath.readiness(save, fort, cap, 0);
-  assert.eq(r.ready, false, 'capped → not ready');
-  assert.gt(r.waitMin, 0, 'reports minutes until the next bucket');
-  // Infinite-cap shops are always ready.
-  assert.eq(ShopsMath.readiness(save, { id: 't', kind: 'tower' }, Infinity, 0).ready, true);
 });
 
 test('rng: deterministic per (id, bucket, salt, lane); lane + rerolls vary it', () => {
@@ -289,6 +402,31 @@ test('shop offer: spending deals does not reshuffle the offer', () => {
     assert.eq(after.swap, first.swap, `after ${deal} deals: swap unchanged`);
     assert.eq(after.price, first.price, `after ${deal} deals: price unchanged`);
   }
+});
+
+// The trader is the one shop whose stock LEAVES with the deal: what it offers
+// is what it hands over, so a closed trade must turn its goods over on the
+// spot (app.js traderGivePick reads shopRng with perDeal). Cash shops keep
+// their shelf — the test above — so the fold is opt-in, and a re-roll still
+// pivots on top of it.
+test('rng: perDeal turns the stream over with each deal; plain lanes ignore deals', () => {
+  const save = { offerSalt: 5 };
+  const house = { id: 'trader-A', kind: 'house', tier: 9 };
+  const draw = (perDeal) => ShopsMath.rng(save, house, 'trader', 0, { perDeal })();
+  ShopsMath.bucketState(save, house, 0).deals = 0;
+  const fresh = draw(true);
+  assert.eq(draw(true), fresh, 'stable while no deal is made');
+  assert.eq(draw(false), fresh, 'no deals yet: perDeal and plain agree');
+  const seen = new Set([fresh]);
+  for (let deal = 1; deal <= 4; deal++) {
+    ShopsMath.bucketState(save, house, 0).deals = deal;
+    const next = draw(true);
+    assert.falsy(seen.has(next), `deal ${deal}: new goods`);
+    seen.add(next);
+    assert.eq(draw(false), fresh, `deal ${deal}: a plain lane still ignores the deal`);
+  }
+  ShopsMath.bucketState(save, house, 0).rerolls = 1;
+  assert.falsy(seen.has(draw(true)), 'a re-roll still pivots the per-deal stream');
 });
 
 test('shop offer: two shops in the same hour make their own independent offers', () => {
@@ -562,7 +700,7 @@ test('slots: deluxe doubles the coin payouts too', () => {
   assert.truthy(three.starJackpot && three.doubled, 'three stars, flagged for the caller to double its coin');
   assert.falsy(S.slotSpin(m, slotSeq(['star', 'star', 'star'])).doubled, 'not doubled outside deluxe');
   assert.eq(S.slotSpin(m, slotSeq(['a', 'b', 'a'])).coins, S.SLOT_JACKPOT_PAIR_COINS, 'plain spins pay plain');
-  assert.truthy(/_payStarJackpot\(out\.doubled \? ShopsMath\.SLOT_DELUXE_MUL : 1\)/.test(APP_JS_SRC),
+  assert.truthy(/_payStarJackpot\(out\.doubled \? ShopsMath\.SLOT_DELUXE_MUL : 1\)/.test(SCENE_SRC),
     'the machine pays the star jackpot\'s coin doubled');
 });
 
@@ -588,7 +726,7 @@ test('slots: a mixed row with no star loses', () => {
 });
 
 test('slots: app.js pays three stars from the badge ledger, then coin', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const m = app.match(/\n  _payStarJackpot\(mul = 1\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(m, '_payStarJackpot exists');
   assert.truthy(/ShopsMath\.SLOT_STAR_BADGES/.test(m[1]), 'counts up to SLOT_STAR_BADGES');
@@ -609,7 +747,7 @@ test('slots: three distinct prizes a day, the same all day, seeded on the fort a
 });
 
 test('slots: the machine fixes a spin\'s deluxe state when it is paid, and saves the count at once', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const i = app.indexOf('\n  presentFortSlots(sx, sy, house) {');
   const body = app.slice(i, app.indexOf('\n  }\n', i));
   assert.truthy(/const wasDeluxe = deluxeLeft\(\) > 0;\s*\n\s*const out = ShopsMath\.slotSpin\(m, Math\.random, wasDeluxe\);\s*\n\s*this\.save\.slotDeluxe = ShopsMath\.slotDeluxeNext\(deluxeLeft\(\), out\);\s*\n\s*persistSave\(this\.save\);/.test(body),
@@ -619,7 +757,7 @@ test('slots: the machine fixes a spin\'s deluxe state when it is paid, and saves
 });
 
 test('slots: a paid spin cannot be closed before its precomputed payout settles', () => {
-  const app = APP_JS_SRC;
+  const app = SCENE_SRC;
   const i = app.indexOf('\n  presentFortSlots(sx, sy, house) {');
   const body = app.slice(i, app.indexOf('\n  }\n', i));
   assert.truthy(/makeModalShell\('slots-modal',\s*\{ kind: 'slots' \}\)/.test(body),
@@ -627,4 +765,80 @@ test('slots: a paid spin cannot be closed before its precomputed payout settles'
   assert.truthy(/later\._setEnabled\(!spinning\)/.test(body), 'Later is disabled while the reels turn');
   assert.truthy(/later\.addEventListener\('click',[\s\S]*?if \(spinning\) return;[\s\S]*?timers\.forEach\(clearTimeout\)/.test(body),
     'the cancel handler preserves settle timers during a spin');
+});
+
+// ── A re-roll always lands on something else (ShopsMath.rerollPeek) ─────────
+test('rerollPeek: one rung on the ladder, then FREE re-draws until the offer differs', () => {
+  assert.eq(ShopsMath.REROLL_RETRIES, 4, 'a couple of retries at least');
+  // A pool of two: the draw alternates same, same, other.
+  const cur = { bucket: 1, deals: 0, rerolls: 2 };
+  const draws = ['sword', 'sword', 'shield'];
+  let i = 0;
+  const next = ShopsMath.rerollPeek(cur, () => draws[i++], 'sword');
+  assert.eq(next, 'shield', 'lands on the other item');
+  assert.eq(cur.rerolls, 3, 'the ladder climbed ONE rung for the paid re-roll');
+  assert.eq(cur.skips, 2, 'the two same-again draws went on the seed-only counter');
+  // A first draw that already differs costs no skips.
+  const cur2 = { bucket: 1, deals: 0, rerolls: 0 };
+  assert.eq(ShopsMath.rerollPeek(cur2, () => 'axe', 'sword'), 'axe');
+  assert.eq(cur2.rerolls, 1); assert.eq(cur2.skips, undefined, 'untouched: the record keeps its old shape');
+  // A pool of one gives up after the retries, same thing in hand.
+  const cur3 = { bucket: 1, deals: 0, rerolls: 0 };
+  let n = 0;
+  assert.eq(ShopsMath.rerollPeek(cur3, () => { n++; return 'bar'; }, 'bar'), 'bar');
+  assert.eq(n, 1 + ShopsMath.REROLL_RETRIES, 'the first draw plus every retry');
+  assert.eq(cur3.rerolls, 1, 'still one rung');
+  // Nothing left (null) returns at once, no retry.
+  const cur4 = { bucket: 1, deals: 0, rerolls: 0 };
+  n = 0;
+  assert.eq(ShopsMath.rerollPeek(cur4, () => { n++; return null; }, 'bar'), null);
+  assert.eq(n, 1); assert.eq(cur4.skips, undefined);
+  // No record (the unseeded house): the retry loop alone.
+  let j = 0;
+  assert.eq(ShopsMath.rerollPeek(null, () => ['a', 'b'][j++], 'a'), 'b');
+});
+
+test('rerollPeek: offerKey — gear by kind/slot/tier, a barter by give/ask, never by price or qty', () => {
+  const k = ShopsMath.offerKey;
+  assert.eq(k({ kind: 'relic', slot: 'bow', tier: 3, price: 40 }), k({ kind: 'relic', slot: 'bow', tier: 3, price: 55 }), 'a repriced relic is the same relic');
+  assert.truthy(k({ kind: 'relic', slot: 'bow', tier: 3 }) !== k({ kind: 'relic', slot: 'bow', tier: 4 }), 'a tier up is different');
+  assert.truthy(k({ kind: 'relic', slot: 'bow', tier: 3 }) !== k({ kind: 'armor', slot: 'bow', tier: 3 }), 'kind counts');
+  assert.eq(k({ giveId: 'rockfruit', askId: 'wood', askQty: 3 }), k({ giveId: 'rockfruit', askId: 'wood', askQty: 5 }), 'a barter is its goods, not the count');
+  assert.truthy(k({ giveId: 'rockfruit', askId: 'wood' }) !== k({ giveId: 'rockfruit', askId: 'stone' }), 'a different ask is a different deal');
+  assert.eq(k('starfruit_seed'), 'starfruit_seed', 'a themed pick is its id');
+  assert.eq(k(null), ''); assert.eq(k(undefined), '');
+});
+
+test('rerollPeek: skips pivot the seeded stream and the ladder\'s cost ignores them', () => {
+  const save = { offerSalt: 7 };
+  const house = { id: 'shopR' };
+  const b = ShopsMath.bucket('shopR', 0);
+  const first = (rec) => { save.shopState = { shopR: { ...rec } }; return ShopsMath.rng(save, house, 'pool', 0)(); };
+  const base = first({ bucket: b, deals: 0, rerolls: 1 });
+  assert.eq(first({ bucket: b, deals: 0, rerolls: 1, skips: 0 }), base, 'skips 0 is the old seed exactly');
+  assert.truthy(first({ bucket: b, deals: 0, rerolls: 1, skips: 1 }) !== base, 'a skip re-draws');
+  assert.truthy(first({ bucket: b, deals: 0, rerolls: 1, skips: 2 }) !== first({ bucket: b, deals: 0, rerolls: 1, skips: 1 }), 'and each skip differently');
+  // The cost curves read rerolls alone: a re-roll that skipped three times
+  // costs the same next time as one that did not.
+  assert.eq(ShopsMath.smithyRerollCost(1), ShopsMath.smithyRerollCost(1));
+  save.shopState = { shopR: { bucket: b, deals: 0, rerolls: 1, skips: 3 } };
+  assert.eq(ShopsMath.bucketState(save, house, 0).rerolls, 1, 'the record reads one rung');
+  // A new hour drops the skips with the offer they belonged to.
+  const later = ShopsMath.bucketState(save, house, ShopsMath.HOUR * 1);
+  assert.eq(later.skips, undefined, 'carried forward without skips');
+  assert.eq(later.rerolls, 0, 'and eased as before');
+});
+
+test('rerollPeek: every re-roll button draws through it with what is on display', () => {
+  const src = SCENE_SRC;
+  const shared = src.slice(src.indexOf('  _makeRerollSecondary('), src.indexOf('  presentThemedShop('));
+  assert.truthy(/const next = ShopsMath\.rerollPeek\(curState, peek, opts\.current\);/.test(shared), 'the shared button');
+  assert.falsy(/curState\.rerolls \+= 1/.test(shared), 'and bumps the ladder nowhere else');
+  const trader = src.slice(src.indexOf('  presentTraderOffer('), src.indexOf('  // REST: a flat CASTLE_REST_ENERGY'));
+  assert.truthy(/ShopsMath\.rerollPeek\(curState, \(\) => this\.peekOrBuildTraderOffer\(house\), offer\);/.test(trader), 'the trader\'s inline button');
+  assert.falsy(/curState\.rerolls \+= 1/.test(trader));
+  // Each caller names its current offer.
+  assert.truthy(/peek: \(\) => this\.themedShopPick\(house\), current: id \}/.test(src), 'the themed shelf: the item id');
+  assert.truthy(/\{ cost: ShopsMath\.smithyRerollCost, current: offer \}/.test(src), 'the smithy: the forge target');
+  assert.truthy(/\{ \.\.\.rerollOpts, current: offer \}/.test(src), 'the relic stall: the piece');
 });

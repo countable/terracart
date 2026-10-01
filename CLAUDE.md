@@ -2,7 +2,8 @@
 
 ## Purpose
 
-Working guidance for Mending Lane, a GPS farming RPG rendered with Phaser 3.
+Working guidance for Dragon Hood, a GPS farming RPG rendered with Phaser 3.
+(Mending Lane, the former title, is now the neighbourhood the player starts in.)
 Keep project-wide constraints here; keep implementation rationale beside the code.
 
 ## Scope and navigation
@@ -18,6 +19,8 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - [docs/QC_RULES.md](docs/QC_RULES.md): checklist for art, sprites and item surfaces;
   read it for asset changes. This file owns mechanic invariants if notes disagree.
 - [docs/spec.txt](docs/spec.txt): game design; code owns current numeric values.
+- [docs/story.txt](docs/story.txt): the story bible (Dragon Hood); it wins over
+  story copy in `src/`, and its open [Q#] items are not yet canon.
 - [docs/SANDBOX.md](docs/SANDBOX.md): hand-built world for visual checks.
 - Preserve the `terracart.*` storage keys despite the game's name change.
 
@@ -71,7 +74,7 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   while available (`poiLit`); a refusal prints the wait via `shortDuration`. A
   new recurring thing joins that ledger and that glow, never a list of its own.
 - Derive generated ids/seeds from tile + local cell or OSM id, never array
-  indices, timestamps or save-relative metres. The transient pest crow is the
+  indices, timestamps or save-relative metres. The transient pest deer is the
   id exception. Per-save salts may vary rewards, not positions;
   `WorldGen.setReviewSalt` is for the map-review tool only.
 - Every player with the same tile data sees the same generated identities and
@@ -143,7 +146,19 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   `BIOME_ATTRACTS`) read by `_seatFaunaOnFavouriteGround`: relocate existing
   spawns, never add, each species on its own stream. SLOW is a reason inside `_bodyHold`
   fed by `entry.slowCells` (`StreetVariants.SLOW_KINDS`); a new slowing
-  hazard joins that map, never a new movement gate.
+  hazard joins that map, never a new movement gate. Top speeds are BASE
+  numbers: no wild kind's gait, bolt, glide or flee — shiny included — exceeds
+  `WILD_SPEED_CEILING_MPS` (creature_ai.js; `test/node/speed_ceiling.test.js`
+  measures every lane). Retune the row, never add a cap; a hurry (the rout,
+  a struck animal) never stacks on a bolt. The hunted crow's retreat hop
+  (`CROW_DEPART_HOP`) is the one declared exception, tied to the hunt's odds.
+  A RETREAT among houses
+  (a bolt, Home's rout, wandering off, a pet's shove) runs the ROADSIDE:
+  `roadsideRunAngle` (creature_ai.js) bends the away angle along the nearest
+  street on the creature's own side, and a retreat step never enters a yard
+  (`yardReasonAt` — the gate's BEHIND_HOUSE / PRIVATE) it is not already in.
+  A new retreat reason takes that bend, never its own steering
+  (`test/node/roadside_run.test.js`).
 - Influence zones: `ZoneCoverage` owns the union of influence and the
   associated park footprint plus fringe. Its ground and declarative layout
   (`docs/zone-variants.json`, `ZoneDressing`) replace ordinary zoning and
@@ -261,6 +276,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 
 ## Combat, energy and Home
 
+- Timed followers use `Companions.KINDS` and its shared lifecycle; register
+  movement/targeting in `SpriteLayout.CREATURE_BEHAVIOUR` and reuse the pet
+  combat lane. Persist contract expiry and any durable health state, not live
+  map instances. Test reload, tile replacement and expiry when adding a kind.
 - `combat.js` owns foe HP for melee, projectiles and pets. Damage derives from
   `TOOL_DURATION_MS`; tune that or monster HP, not an extra combat multiplier.
   Game animals (crow/deer) are not enemies or projectile targets; released
@@ -274,6 +293,10 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
   sight range through `unseen`. Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.
+- A status effect is a row of `Conditions.DEFINITIONS` (poison, burning): the
+  player's condition, a foe's (`Combat.ignite` / `burnTick` read the same row),
+  the HUD chip and the body tint all derive from it. A new status is a row
+  there, never a timer, colour or label of its own.
 - Job costs use `spendEnergy`; passive restoration pauses while `working`
   (work wheel or rest hold). Walking drains and enemy blows are not jobs.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
@@ -317,6 +340,12 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
 
 ## Dialogs, feedback and teaching
 
+- Daily sites share `Macros.visitKindForObject` and `beginDailyVisit` / `dailyVisit`.
+  Claim the UTC-day ledger only when the benefit is granted; cancellation must
+  leave the visit available. Keep presentation, light and effects in the owning
+  row. Ambient site light persists after a visit; the availability pulse does not.
+  Successful visits show their story painting each time. `tools/idols.html`
+  reads the same rows for the design sheet.
 - Dialogs use `makeModalShell` with a kind, which supplies a scene painting.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
@@ -328,9 +357,22 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   wizard and survivor are dragons; the survivor was his Warmonger. Keep earlier
   scenes ambiguous; most paintings need no hint. Reuse existing art for this arc.
 - Format every visible wait with `shortDuration`; UTC-day gates pair it with
-  `msToNextUtcDay`. A timed gate needs a visible wait.
+  `msToNextUtcDay`. A timed gate needs a visible wait. A wait a CHARACTER
+  SAYS uses `spokenDuration` ("a day"), the same ladder in words.
+- Neighbour talk (`NPC.dialogue`, `MemoryStory.npcDialogue`) is PAGES: spoken
+  words in curly quotes, an action in `<em>` on its own line, HTML body, a
+  second panel only when the first is full (an array of pages; `interact`
+  shows them with Next). Survivors speak the bible's words: the Breaking,
+  fifty years, Mending Lane, the wizard the old folk call Tim; the hood is
+  looked at, never asked about twice.
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including
   interpolations. Cut copy or use a modal; do not interpolate unbounded POI names.
+- Statuses, buffs and timers on the player live in ONE place: the status
+  row under the top HUD (`_syncStatusRow`, `STATUS_ROW_CSS`), one chip per
+  row of `Conditions.DEFINITIONS` (poison, burning) and of `Buffs.KINDS`
+  (`src/buffs.js`: a potion, powder, torch, coffee, the bike, the compass, a
+  shrine boon — its expiry field, word and ink). A new timed effect is a
+  row there; never a label over the player or a chip of its own.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls
@@ -343,6 +385,17 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   revealing the player’s identity or the wizard’s secret. Preserve approved
   excerpts and keep `ITEM_GUIDE_TIPS` as the owner of shared item parables. Authors
   describe their world, not interface elements such as work circles or health bars.
+- Story delivery separates required, ordered canon from optional, asynchronous
+  lore (docs/story.txt, ACT STRUCTURE). Memory and restoration are independent
+  progress tracks; required events join them through prerequisites and world
+  context. A painted panel can carry either layer. Lore never blocks canon.
+- Story panels use a direct second-person narrator focused on the current
+  experience: what happens, what the Hood notices, and how people respond.
+  Keep them to one or two short sentences with occasional sensory detail.
+  Avoid clever observations, implied lessons, and explanations of the Hood's
+  thoughts. State emotions plainly when they matter. Preserve story beats and
+  useful facts without early revelations. Do not assume the player's time of
+  day or weather. Books and spoken dialogue retain their separate voices.
 - Story panels, books and item descriptions carry at most one useful fact,
   told through the world, physical sensations or a character's voice. Hint at
   the advantage and leave exact effects for discovery. Confirmations state
@@ -353,9 +406,21 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   stay out of public item descriptions (sapphire taming stays in the closing riddle).
 - Loot identity by place uses per-context `favourite`; general frequency uses
   `dropWeight`.
+- A neighbour's talk is its ROLE, a row of `NPC.PROFILES[zone].roles` with a
+  label in every `NPC.LABELS` zone and a branch in `NPC.dialogue` that reads
+  an owning ledger (restoration, lamps), never a count of its own. A zone's
+  story in a resident's voice is the `keeper` column of `Zones.ZONE_KINDS`.
+  The story neighbours by the trailer (`NPC.STORY_ROLES`, seated by
+  `Starter.placeSafeAreaWarden`) arrive by the memory ledger (`minMemories`;
+  only the warden on a new save, re-run from `_bankDiscovery` and
+  `NPC.tickArrivals`) and speak through `MemoryStory.npcDialogue` by act; a
+  new story voice is a role there, not a new placer or dialog path. Ordinary
+  residents are drawn in full by `NPC.spawn` but seated by `NPC.arrivals`:
+  they return with memories to Home's ring or a restored house, off screen;
+  a named zone's keeper stays. The warden's home plea is a tap, never a splash.
 
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
-`item_descriptions`, `books`.
+`item_descriptions`, `books`, `story_neighbours`, `buffs`.
 
 ## Maintaining this file
 
