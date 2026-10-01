@@ -1,12 +1,19 @@
-// The fourth rebuilt home brings a hunted neighbour into the existing world.
+// The sixth rebuilt home brings a hunted neighbour into the existing world.
 // Records are per-save overlays; combat, death and NPC rest remain shared rules.
 const StoryEncounters = (() => {
+  // WHICH restore arms it: the count of restored houses the moment the one
+  // just rebuilt is in the ledger. Was the fourth (the market, the end of
+  // the fixed opening run — Houses.PRESEED_RESTORE_ROLES); moved two later
+  // (owner, Oct 2026) so the tutorial shops settle before the first fight
+  // with a name on it. The save key keeps its old name: it is a stored id.
+  const ARM_AT_RESTORES = 6;
   const KEY = 'fourth_home';
   const WORRIED = 'A goblin archer has been hunting me. Please help me!';
   const THANKS = 'You stopped the archer. Thank you! Take this starfruit seed.';
   const persist = scene => { if (typeof persistSave === 'function') persistSave(scene.save); };
   function arm(scene, house) {
-    if (scene.save.storyEncounter || Object.keys(scene.save.restoredHouses || {}).length !== 4) return false;
+    if (scene.save.storyEncounter
+        || Object.keys(scene.save.restoredHouses || {}).length !== ARM_AT_RESTORES) return false;
     scene.save.storyEncounter = {
       key: KEY, houseId: house.id, npcId: `story_${KEY}_${house.id}_npc`,
       enemyId: `story_${KEY}_${house.id}_archer`, status: 'hunted', greeted: false,
@@ -133,5 +140,5 @@ const StoryEncounters = (() => {
     scene.showMessageModal({ title: `${c.name} · Neighbour`, body, art: NPC.portrait(scene, c), kind: 'note' });
     return true;
   }
-  return { arm, tick, defeated, interact, WORRIED, THANKS };
+  return { arm, tick, defeated, interact, WORRIED, THANKS, ARM_AT_RESTORES };
 })();
