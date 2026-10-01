@@ -1181,6 +1181,11 @@ const HOUSE_WRECK_MUTTERS = ["It's a fixer upper.", 'Something here smells.', 'N
 const HOUSE_RESTORED_MUTTERS = ['Eek!', 'Why hello there.', 'Thanks for fixing my house!',
   'Welcome back!', 'Can I offer some tea?'];
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
+// Standing IN the hearth, not by it: within this of a campfire's point sets
+// a body — the player's or a foe's — BURNING (Conditions.DEFINITIONS.burning;
+// _tickFireTouch here, the foe's block in scene_creatures.js). Under a cell,
+// so the warmth ring (FIRE_REST_R) stays safe ground.
+const FIRE_TOUCH_CELLS = 0.6;
 // HOME IS A CAMPFIRE YOU OWN, and this is its ONE radius — the light it
 // throws, the ring it rests you in, and the ring an enemy turns and walks out
 // of. Three effects, one number, for the reason the campfire's warmth and the
@@ -3374,6 +3379,7 @@ class MapScene extends Phaser.Scene {
     }
     const { cellIX: ix, cellIY: iy } = tileCellToAbs(this, pc.tx, pc.ty, lix, liy);
     this._lavaAccum = (this._lavaAccum || 0) + Combat.LAVA_DMG_PER_S * dt;
+    this._ignitePlayer();   // and the burn outlasts the step out (Conditions `burning`)
     const pips = Math.floor(this._lavaAccum);
     if (pips > 0) {
       this._lavaAccum -= pips;
@@ -4593,6 +4599,8 @@ class MapScene extends Phaser.Scene {
     this._tickStreetFeet();
     // …and is the player standing in lava (the lava level only)?
     this._tickLava(dt);
+    // …or in a campfire?
+    this._tickFireTouch();
     // …and did an enemy just walk onto one of the player's Magic Traps?
     this._tickMagicTraps();
     this._revealFog();
@@ -4893,6 +4901,7 @@ class MapScene extends Phaser.Scene {
 
   _applyCondition(id) {
     const fresh = Conditions.apply(this.save, id);
+    if (fresh && id === 'burning') this.flash('🔥 You catch fire!', this.viewCenterX, this.viewCenterY);
     if (fresh && id === 'poison') {
       this.flash('Poisoned! Find an Antidote.', this.viewCenterX, this.viewCenterY);
       if (!this.save.poisonLearned) {
@@ -4918,7 +4927,7 @@ class MapScene extends Phaser.Scene {
         this.events?.off('resume', resetClock);
         this._conditionVisibilityHandler = null;
         this._conditionLastT = null;
-        document.getElementById('condition-poison')?.remove();
+        for (const id of Object.keys(Conditions.DEFINITIONS)) document.getElementById(`condition-${id}`)?.remove();
       });
     }
     const now = performance.now();
@@ -4936,21 +4945,49 @@ class MapScene extends Phaser.Scene {
     this._syncConditionHUD();
   }
 
+  // One chip under the energy bar per ACTIVE row of Conditions.DEFINITIONS —
+  // its label, ink and background are the row's — stacked in table order so
+  // a poisoned player who catches fire reads both.
   _syncConditionHUD() {
-    let el = document.getElementById('condition-poison');
-    if (!Conditions.active(this.save, 'poison')) { el?.remove(); return; }
-    if (!el) {
-      const anchor = document.getElementById('energy');
-      if (!anchor) return;
-      el = document.createElement('div');
-      el.id = 'condition-poison';
-      el.style.cssText = 'position:absolute;top:100%;right:0;white-space:nowrap;color:#d9b1ff;background:#22132ee8;padding:3px 6px;border-radius:4px;font:11px monospace;pointer-events:none;';
-      anchor.style.position = 'relative';
-      anchor.appendChild(el);
+    let row = 0;
+    for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
+      let el = document.getElementById(`condition-${id}`);
+      if (!Conditions.active(this.save, id)) { el?.remove(); continue; }
+      if (!el) {
+        const anchor = document.getElementById('energy');
+        if (!anchor) return;
+        el = document.createElement('div');
+        el.id = `condition-${id}`;
+        el.style.cssText = `position:absolute;right:0;white-space:nowrap;color:${def.ink};background:${def.bg};padding:3px 6px;border-radius:4px;font:11px monospace;pointer-events:none;`;
+        anchor.style.position = 'relative';
+        anchor.appendChild(el);
+      }
+      el.style.top = `calc(100% + ${row * 19}px)`;
+      row++;
+      const text = `${def.label} · ${shortDuration(this.save.conditions[id].remainingMs)} · −${def.energyLoss} energy / ${shortDuration(def.intervalMs)}`;
+      if (el.textContent !== text) el.textContent = text;
     }
-    const def = Conditions.DEFINITIONS.poison;
-    const text = `Poison · ${shortDuration(this.save.conditions.poison.remainingMs)} · −${def.energyLoss} energy / ${shortDuration(def.intervalMs)}`;
-    if (el.textContent !== text) el.textContent = text;
+  }
+
+  // ── Fire on the body ──────────────────────────────────────────────────────
+  // Standing IN a campfire (FIRE_TOUCH_CELLS of one on this depth — warmth is
+  // FIRE_REST_R, the touch is the hearth itself) or in lava (_tickLava) sets
+  // the player BURNING: the `burning` row of Conditions.DEFINITIONS, on the
+  // ticker poison runs on — 1 energy a second for 5 s, and it goes out on its
+  // own, no antidote. Refreshed at most once a tick-interval while the
+  // contact holds, so a stand in the hearth is one persisted save a second,
+  // not one a frame. Never off an empty bar (Combat.playerDowned).
+  _ignitePlayer() {
+    const now = performance.now();
+    if (now < (this._igniteNextT || 0) || Combat.playerDowned(this.save.energy)) return false;
+    this._igniteNextT = now + Conditions.DEFINITIONS.burning.intervalMs;
+    this._applyCondition('burning');
+    return true;
+  }
+  _tickFireTouch() {
+    if (!this.startWorldM || !this.save.fires?.length) return;
+    const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
+    if (this._nearAny('fires', px, py, FIRE_TOUCH_CELLS)) this._ignitePlayer();
   }
 
   // A monster's arrow lands. The same energy hit the melee leech deals
@@ -5419,7 +5456,7 @@ class MapScene extends Phaser.Scene {
   // resolveDefeat (Combat.isPlayerKill): 'player' unless a shot says otherwise.
   _damageEnemy(c, amount, source = 'player', options = {}) {
     if (!(amount > 0)) return false;
-    const dealt = Combat.damageDealt(c, amount, (source === 'lava' || source === 'light') ? { bypassArmor: true } : options);
+    const dealt = Combat.damageDealt(c, amount, (source === 'lava' || source === 'light' || source === 'burn') ? { bypassArmor: true } : options);
     const left = Combat.hp(c);
     // Moss hides us until we strike this creature. Environmental damage and
     // allied attacks do not reveal us; a fresh blessing hides us again.
@@ -5982,6 +6019,10 @@ class MapScene extends Phaser.Scene {
         const blow = Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass)
           + this._attackFlat('melee');
         if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
+        // A LIT TORCH (isTorchActive) SETS THE FOE ALIGHT — Combat.ignite,
+        // the `burning` row of Conditions.DEFINITIONS, as the player's own
+        // kill. The blow lands first; the fire takes on what is left.
+        if (this.isTorchActive()) Combat.ignite(c, now, 'player');
       }
     }
     const dur = wp.durationMs || 3000;
@@ -7043,16 +7084,24 @@ class MapScene extends Phaser.Scene {
     const nowMs = performance.now();
     const hitLeft = (this._hitFlashUntilT || 0) - nowMs;
     const hit = hitLeft > 0;
+    // A STATUS on the body wears its row's tint (Conditions.DEFINITIONS —
+    // the same colour a foe wears, render.js): a burn flickers against the
+    // farmer's own colour, a poison holds. Under the hit flick and the empty
+    // bar, over the far-from-GPS dim.
+    const burning = Conditions.active(this.save, 'burning') && Conditions.conditionTintOn('burning', nowMs);
+    const poisoned = Conditions.active(this.save, 'poison') && Conditions.conditionTintOn('poison', nowMs);
     // Pulse: a slow breath, faster and deeper for the empty-tank warning.
     const t = nowMs / 1000;
     const periodS = spent ? 1.2 : 2.0;
     const wave = 0.5 + 0.5 * Math.sin((t / periodS) * Math.PI * 2);
-    if (hit || spent || far) {
+    if (hit || spent || far || burning || poisoned) {
       let tint = 0xffffff;
       if (hit) {
         tint = HIT_FLASH_TINT;
       } else if (spent) {
         tint = 0xff6b6b;
+      } else if (burning || poisoned) {
+        tint = Conditions.DEFINITIONS[burning ? 'burning' : 'poison'].tint;
       } else {
         const k = Math.min(1, (away - nearM) / Math.max(1, (DARK_FULL_CELLS - NEAR_GPS_CELLS) * this.cellM));
         const v = Math.round(255 * (1 - (1 - DIM_FLOOR) * k));

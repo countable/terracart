@@ -52,6 +52,7 @@ function mkScene(creature, over = {}) {
     cellAt: () => ({ loaded: true, type: 0 }),   // 0 = GRASS, walkable
     _cellBlocked: () => false,
     _nearAny: () => false,                    // no fires, no scarecrows
+    _damageEnemy: () => false,                // a guard that walks through a fire burns (and lives)
     placedRockSet: null,
     resolveDefeat: () => {},
     _popEnergy: () => {}, _warnIfTiring: () => {}, _flashPlayerHit: () => {}, _closeShopOnHit: () => {},

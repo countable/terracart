@@ -1929,6 +1929,18 @@ class SceneCreatures {
         }
         return;
       }
+      // ON FIRE (Combat.ignite / burnTick — the `burning` row of
+      // Conditions.DEFINITIONS, 1 HP a second for 5 s, out on its own): a lit
+      // Torch's blow lit it (app.js, the combat wheel), or it stands IN a
+      // CAMPFIRE — within FIRE_TOUCH_CELLS of one on this depth, the same
+      // `fires` list the hearth's ward and warmth read — or in lava (below,
+      // which also sets it alight so the burn outlasts the step out). The
+      // torch's burn is the player's kill; a fire's or lava's is the
+      // ground's, like lava itself. Armour never soaks a burn.
+      if (Combat.isEnemy(c) && !isTame && Combat.canBurn(c)
+          && this._nearAny('fires', c.x, c.y, FIRE_TOUCH_CELLS)) Combat.ignite(c, now, 'fire');
+      const burn = Combat.burnTick(c, now);
+      if (burn > 0 && this._damageEnemy(c, burn, c._burnBy === 'player' ? 'player' : 'burn', { bypassArmor: true })) return;
       // LAVA BURNS FOES TOO (Combat.LAVA_DMG_PER_S, the player's rate — see
       // app.js _tickLava). Whole points once a second off the foe's own HP
       // through _damageEnemy, so the health bar and the "-2" read as any
@@ -1939,6 +1951,7 @@ class SceneCreatures {
           && now >= (c._lavaNextT || 0)) {
         c._lavaNextT = now + 1000;
         const under = this.cellAt(c.x, c.y);
+        if (under.loaded && under.type === WorldGen.T.CAVE_LAVA) Combat.ignite(c, now, 'lava');
         if (under.loaded && under.type === WorldGen.T.CAVE_LAVA
             && this._damageEnemy(c, Combat.LAVA_DMG_PER_S, 'lava')) return;
       }
