@@ -5,11 +5,14 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const root = path.resolve(__dirname, '..'), ctx = { console, performance, addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['sprite_layout', 'util', 'zone_variant_data', 'zone_variants', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'zones', 'zone_coverage', 'zone_dressing', 'worldgen', 'scenic', 'road_overlay']) {
+for (const name of ['enemy_roster', 'sprite_layout', 'util', 'zone_variant_data', 'zone_variants', 'streets', 'street_variants', 'biome_profiles', 'items', 'interactables', 'zones', 'zone_coverage', 'zone_dressing', 'worldgen', 'scenic', 'road_overlay']) {
   vm.runInContext(fs.readFileSync(path.join(root, 'src', name + '.js'), 'utf8'), ctx, { filename: name + '.js' });
 }
 // Candidate compositions belong only to this export tool, never shipping data.
 const draftId = process.argv[2];
+const settings = JSON.parse(fs.readFileSync(path.join(root, 'docs/art/quarry-variants.draft.json'), 'utf8'));
+const {min: minPatch, max: maxPatch} = settings.patchSizeCells;
+const foundationSize = settings.foundationSizeCells;
 const draftIds = ['quarry-crater', 'quarry-abandoned', 'quarry-strip-mine', 'quarry-stronghold'];
 if (draftId && !draftIds.includes(draftId)) throw new Error(`Unknown quarry preview: ${draftId}`);
 const WG = ctx.WorldGen, tx = 2622, ty = 5615, extent = 4096;
@@ -53,55 +56,78 @@ if (draftId) {
     objects.push({ cell: [x, y], material });
     return true;
   };
-  const requirePlaced = (x, y, material) => {
-    if (!place(x, y, material)) throw new Error(`Blocked ${material} candidate at ${x},${y}`);
+  // Pack whole, small compositions into the footprint. Leave a cell between
+  // modules; never crop a foundation wall or doorway at the coverage edge.
+  const reserved = new Set();
+  const fits = (left, top, size) => {
+    for (let y=top; y<top+size; y++) for (let x=left; x<left+size; x++) {
+      if (!covered.has(`${x},${y}`) || reserved.has(`${x},${y}`)) return false;
+    }
+    return true;
   };
-  if (draftId === 'quarry-crater') {
-    // The rim is fractured by the actual parking-footprint gaps. Its centre
-    // stays open; small hot vents, rather than a solid lava lake, tell the story.
-    for (const [x, y] of coverage) {
-      const distance = Math.hypot(x - 17, y - 18);
-      if (distance >= 9.1 && distance <= 11.6 && noise(x, y) < .69) place(x, y, 'stone');
-      if ([[13, 14], [21, 15], [14, 24], [22, 23]].some(([vx, vy]) =>
-        Math.hypot(x - vx, y - vy) <= 1.45 && noise(x, y, 23) < .82)) {
-        terrain.push({ cell: [x, y], kind: 'lava' });
+  if (draftId !== 'quarry-crater') for (let top=0; top<side; top++) for (let left=0; left<side; left++) {
+    const preferred = draftId === 'quarry-stronghold' ? foundationSize : minPatch + Math.floor(noise(left, top, 97) * (maxPatch-minPatch+1));
+    let size = preferred;
+    while (size >= minPatch && !fits(left, top, size)) size--;
+    if (size < minPatch || (draftId === 'quarry-stronghold' && size !== foundationSize)) continue;
+    for (let y=top-1; y<=top+size; y++) for (let x=left-1; x<=left+size; x++) reserved.add(`${x},${y}`);
+    const right=left+size-1, bottom=top+size-1;
+    const cx=left+Math.floor(size/2), cy=top+Math.floor(size/2);
+    const module = { kind: 'patch', bounds: [left,top,right,bottom], size };
+    landmarks.push(module);
+    if (draftId === 'quarry-abandoned') {
+      for (let y=top; y<=bottom; y++) for (let x=left; x<=right; x++) {
+        if (x!==cx && (y===top || x===left) && noise(x,y,71)<.65) place(x,y,'stone');
+      }
+      place(cx,cy,noise(left,top,41)<.5?'equipment':'driftwood');
+    } else if (draftId === 'quarry-strip-mine') {
+      for (let y=top; y<=bottom; y+=2) for (let x=left; x<=right; x++) {
+        if (x!==cx) place(x,y,'stone');
+      }
+    } else if (draftId === 'quarry-stronghold') {
+      module.kind='foundation';
+      module.doors=[[cx,bottom]];
+      for (let y=top; y<=bottom; y++) for (let x=left; x<=right; x++) {
+        if ((x===left || x===right || y===top || y===bottom) && !(x===cx && y===bottom)) place(x,y,'stone');
       }
     }
-    requirePlaced(13, 14, 'crimson_ore');
-    requirePlaced(22, 23, 'crimson_ore');
-  } else if (draftId === 'quarry-abandoned') {
-    for (const [x, y, material] of [
-      [10, 10, 'equipment'], [25, 15, 'equipment'], [11, 28, 'equipment'],
-      [12, 11, 'tool_crate'], [24, 26, 'tool_crate'],
-      [9, 14, 'driftwood'], [22, 9, 'driftwood'], [27, 23, 'driftwood'],
-      [13, 26, 'driftwood'], [7, 23, 'driftwood'], [19, 30, 'driftwood'],
-    ]) requirePlaced(x, y, material);
-    for (const [x, y] of coverage) {
-      // An open haul track winds between heaps, abandoned gear and timber.
-      const trackX = 17 + Math.round(2 * Math.sin(y / 5));
-      if (Math.abs(x - trackX) > 2 && noise(x, y, 71) < .17) place(x, y, 'stone');
+  }
+  // Keep finite finds site-wide, so smaller repeating modules do not multiply
+  // the rewards or guards. Put them inside separate modules where possible.
+  const centres=landmarks.map(m=>[m.bounds[0]+Math.floor(m.size/2),m.bounds[1]+Math.floor(m.size/2)]);
+  if (draftId==='quarry-crater') {
+    // A single elliptical crater follows the available footprint's dimensions.
+    // Clip its fractured rim and vents to coverage, never to a fixed patch grid.
+    const xs=coverage.map(c=>c[0]), ys=coverage.map(c=>c[1]);
+    const left=Math.min(...xs), right=Math.max(...xs), top=Math.min(...ys), bottom=Math.max(...ys);
+    const cx=(left+right)/2, cy=(top+bottom)/2;
+    const rx=Math.max(1,(right-left)/2-1), ry=Math.max(1,(bottom-top)/2-1);
+    landmarks.push({kind:'crater',bounds:[left,top,right,bottom],centre:[cx,cy],radii:[rx,ry]});
+    const bowl=[];
+    for (const [x,y] of coverage) {
+      const distance=Math.hypot((x-cx)/rx,(y-cy)/ry);
+      const entrance=y>cy && Math.abs(x-cx)<=Math.max(1,rx*.12);
+      if (distance>=.82 && distance<=1.04 && !entrance && noise(x,y)<.78) place(x,y,'stone');
+      if (distance<.65 && !entrance) bowl.push([x,y]);
     }
-  } else if (draftId === 'quarry-strip-mine') {
-    // Parallel benches echo the source parking lanes. Empty extraction cuts
-    // interrupt each bench; surviving blue seams expose what was taken.
-    for (const [x, y] of coverage) {
-      if (![8, 9, 15, 16, 22, 23, 29, 30].includes(y) || x < 8 || x > 28) continue;
-      if (x === 17 || x === 18 || ((x + 2 * y) % 19 === 0)) continue;
-      place(x, y, ((x + y) % 7 === 0 || (y % 7 === 2 && x > 23)) ? 'crystal' : 'stone');
-    }
-  } else if (draftId === 'quarry-stronghold') {
-    for (const [left, top, doorSide] of [[8, 7, 'south'], [21, 7, 'south'], [8, 23, 'north'], [21, 23, 'north']]) {
-      const right = left + 7, bottom = top + 7;
-      const doorY = doorSide === 'south' ? bottom : top;
-      const doors = [[left + 3, doorY], [left + 4, doorY]];
-      for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++) {
-        if (x !== left && x !== right && y !== top && y !== bottom) continue;
-        if (!doors.some(([dx, dy]) => dx === x && dy === y)) requirePlaced(x, y, 'stone');
-      }
-      landmarks.push({ kind: 'foundation', bounds: [left, top, right, bottom], doors });
-    }
-    for (const [x, y] of [[10, 10], [26, 10], [11, 27]]) requirePlaced(x, y, 'goblin');
-    for (const [x, y] of [[13, 11], [24, 27], [18, 21]]) requirePlaced(x, y, 'treasure_x');
+    const vents=bowl.filter(([x,y])=>noise(x,y,23)<.035);
+    for (const cell of vents) terrain.push({cell,kind:'lava'});
+    const finds=bowl.sort((a,b)=>noise(...a,59)-noise(...b,59)).slice(0,2);
+    for (const [x,y] of finds) place(x,y,'crimson_ore');
+  } else if (draftId==='quarry-abandoned') {
+    for (const [x,y] of centres.slice(0,2)) place(x,y+1,'tool_crate');
+  } else if (draftId==='quarry-strip-mine') {
+    // The previous sample's vein rule is retained as the reference abundance.
+    // Keep one quarter of its candidates; the remaining deposits are stone.
+    const candidates=objects.filter(o=>{
+      const [x,y]=o.cell;
+      return (x+y)%7===0 || (y%7===2 && x>23);
+    }).sort((a,b)=>noise(...a.cell,113)-noise(...b.cell,113));
+    const target=Math.round(candidates.length*settings.sapphireAbundanceMultiplier);
+    for (const o of candidates.slice(0,target)) o.material='crystal';
+  } else if (draftId==='quarry-stronghold') {
+    for (const [x,y] of centres.slice(0,3)) place(x,y,'goblin');
+    for (const [x,y] of centres.slice(0,3)) place(x+1,y,'treasure_x');
     for (const foundation of landmarks) for (const door of foundation.doors) {
       if (!covered.has(door.join(',')) || occupied.has(door.join(','))) throw new Error('Blocked foundation doorway');
     }
