@@ -139,7 +139,14 @@
       assert.eq(wildplantSprite(o).sheet, 'giant_mushroom');
       assert.eq(wildplantFrame(o), 2);
     }
-    assert.truthy(grove.wildplants.filter(o => o.crop === 'mushroom').every(o => o._plantArt === 'cap_cluster' && wildplantSprite(o).sheet === 'approved_mushroom_cluster'), 'forage gets its approved cluster look while keeping the mushroom crop');
+    // The grove's forage is the plain red cap: the mushroom has no authored
+    // surface look any more (items.js WILDPLANT_CONTEXT_ART), so no zone can
+    // ask for one — the red cap above ground, the blue caps below.
+    const forage = grove.wildplants.filter(o => o.crop === 'mushroom');
+    assert.gt(forage.length, 0);
+    assert.truthy(forage.every(o => !o._plantArt && wildplantSprite(o) === CROP_SPRITE.mushroom && wildplantFrame(o) === CROP_SPRITE.mushroom.frame), 'forage is the red cap, the same mushroom as everywhere');
+    assert.eq(typeof WILDPLANT_CONTEXT_ART, 'object', 'the context-art table is in scope');
+    assert.eq(typeof WILDPLANT_CONTEXT_ART.cap_cluster, 'undefined', 'the surface cluster look is gone');
     const ordinary = ZoneDressing.dress(context('meadow')).wildplants.filter(o => o.crop === 'shrub');
     assert.gt(ordinary.length, 0);
     assert.truthy(ordinary.every(o => !o._plantArt && wildplantSprite(o).sheet === 'bushes'), 'other groves use the same shrub');

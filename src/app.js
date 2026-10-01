@@ -9187,21 +9187,21 @@ class MapScene extends Phaser.Scene {
 
   // The auto-read fired by addToInv on pickup — framed as involuntary
   // ("your curiosity compels you") rather than readBook's deliberate "you
-  // crack open the book", since nobody chose to read here. The page-count
-  // line is worth keeping (it's the one place the course's progress shows),
-  // so it survives as a lead-in line above the quote; the plain "you crack
-  // open the book" lead-in is dropped as redundant with the new title.
+  // crack open the book", since nobody chose to read here — the read's own
+  // title heads the panel.
   // `onDismiss` (optional) fires once THIS modal is tapped away — how
   // _revealPendingBookReads chains multiple reads one at a time instead of
   // stacking them.
   _presentBookRead(onDismiss) {
     const read = this._bookRead();   // mutates + the caller persists via this call
     persistSave(this.save);
-    const detail = read.title.replace(/^📖\s*/, '');
-    const body = detail.startsWith('The book falls open') ? `${detail}\n${read.body}` : read.body;
+    // The read's own lead-in ("The worn book falls open", or the sketch's
+    // "You crack open the book") heads the panel, minus the emoji the plain
+    // consumable path shows: a painted header is a label (CLAUDE.md). The
+    // "pages rustle" line that used to sit over it was cut in Oct 2026.
     this.showMessageModal({
-      title: 'The pages rustle beneath your fingers',
-      body,
+      title: read.title.replace(/^📖\s*/, ''),
+      body: read.body,
       // A book read by firelight — the picture of the places of learning the
       // Book comes from, survivors sharing what they know.
       art: 'book_read',
