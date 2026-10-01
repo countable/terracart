@@ -37,7 +37,7 @@
       for (const s of K[id].streets) {
         const row = StreetVariants.VARIANT_BY_ID[s];
         assert.truthy(row, `${id}: street variant ${s} exists`);
-        assert.truthy(row.size === 'minor' || row.size === 'major', `${s}: a dressed street, not a scenic path`);
+        assert.truthy(['minor', 'major', 'path'].includes(row.size), `${s}: a street or scenic path row`);
         assert.falsy(seenS.has(s), `${s} has one kind`); seenS.add(s);
         assert.eq(Shrines.kindForStreet(s), id);
       }
@@ -113,5 +113,35 @@
     runInteractable(makeCtx(scene, save), o);
     assert.truthy(/^The shrine rests\./.test(flashed), 'a second visit waits, with its wait shown');
     assert.eq(save.shieldPotionUntil, 0, 'no second boon today');
+  });
+  test('shrines: one scenic-path shrine per tile beside its stretch, on a reward seat, stable', () => {
+    const N = 64, ext = 4096, cell = WorldGen.CELL_M;
+    const at = (ix, iy) => ({ x: (ix + 0.5) * ext / N, y: (iy + 0.5) * ext / N });
+    const make = (stretches) => {
+      const grid = new Uint8Array(N * N).fill(WorldGen.T.PARK);
+      const spawnOpts = { roadMask: new Uint8Array(N * N), roadClass: new Uint8Array(N * N),
+        spawnWhy: new Uint16Array(N * N), occupied: new Set() };
+      const out = Scenic.dress({ scenic: { ext, vistas: [], stretches, shore: null, grassSeats: [] },
+        tx: 0, ty: 0, N, tileEdgeM: N * cell, grid, chests: [], spawnOpts });
+      return { out, grid };
+    };
+    const stretches = [
+      { key: '1,1|shore', kind: 'shore', at: at(10, 10), m: 200 },
+      { key: '2,1|greenway', kind: 'greenway', at: at(40, 10), m: 200 },
+      { key: '1,2|park', kind: 'park', at: at(10, 40), m: 200 },
+    ];
+    const { out } = make(stretches);
+    const shrines = out.objects.filter(o => o.kind === 'grove_shrine');
+    assert.eq(shrines.length, Shrines.SCENIC_SHRINES_PER_TILE, 'capped per tile');
+    const sh = shrines[0];
+    assert.eq(sh.shrineKind, Shrines.kindForStreet(sh._shrineStreet));
+    assert.truthy(Object.values(Scenic.KIND_ROW).includes(sh._shrineStreet), 'a scenic path row');
+    assert.eq(out.objects.filter(o => o.kind === 'chest').length, 3, 'every stretch keeps its vista chest');
+    assert.eq(JSON.stringify(shrines), JSON.stringify(make([...stretches].reverse()).out.objects.filter(o => o.kind === 'grove_shrine')),
+      'the pick is the stretch key\'s hash, not list order');
+    for (const kind of ['shore', 'greenway', 'park']) {
+      const one = make([{ key: `3,3|${kind}`, kind, at: at(30, 30), m: 200 }]).out.objects.find(o => o.kind === 'grove_shrine');
+      assert.eq(one.shrineKind, Shrines.kindForStreet(Scenic.KIND_ROW[kind]), kind);
+    }
   });
 })();

@@ -37,14 +37,18 @@
   const MIN = 60 * 1000;
   const FORTUNE_TIER_BONUS = 1;
   // At most this many street shrines per tile, lowest hash of the street key
-  // first (StreetVariants.dressSteps).
+  // first (StreetVariants.dressSteps), and this many scenic-path shrines,
+  // lowest hash of the scenic stretch first (Scenic.dressSteps).
   const STREET_SHRINES_PER_TILE = 2;
+  const SCENIC_SHRINES_PER_TILE = 1;
 
+  // `streets` names StreetVariants rows: themed streets (minor / major) and
+  // the scenic path rows (promenade, greenway, parkpath — Scenic.KIND_ROW).
   // `flash` is the map line on a visit (≤ MAP_MSG_MAX); `body` the one-fact
   // description (a hint, never the number). Frames are the sheet's order.
   const SHRINE_KINDS = {
     wayfarer_post: { frame: 0, light: 0xf2d9a0, lever: 'speed', durationMs: 5 * MIN,
-      zones: ['formal_garden'], streets: ['pilgrim'],
+      zones: ['formal_garden'], streets: ['pilgrim', 'parkpath'],
       name: "Wayfarer's post", flash: 'The bell rings. Walk on.',
       body: 'Pilgrims rang the bell before a long road. Their feet remember.' },
     lantern_saint: { frame: 1, light: 0xffb347, lever: 'light', durationMs: 5 * MIN,
@@ -52,7 +56,7 @@
       name: 'Lantern saint', flash: 'Her lantern warms your hand.',
       body: 'A stone saint holds her lantern out to anyone walking late.' },
     tide_bell: { frame: 2, light: 0x9fdcff, lever: 'reach', durationMs: 3 * MIN,
-      zones: ['mystic_reef', 'shellwater_strand'], streets: [],
+      zones: ['mystic_reef', 'shellwater_strand'], streets: ['promenade'],
       name: 'Tide bell', flash: 'Your arms feel long as tides.',
       body: 'The bell sounds like surf. Things far off seem close at hand.' },
     bone_watcher: { frame: 3, light: 0xd8d4e8, lever: 'shield', durationMs: 3 * MIN,
@@ -60,7 +64,7 @@
       name: 'Bone watcher', flash: 'Something watches your back.',
       body: 'A hooded mourner keeps watch. Blows land softer on those it favours.' },
     moss_cairn: { frame: 4, light: 0x9be08a, lever: 'hidden', durationMs: 3 * MIN,
-      zones: ['ancient_grove'], streets: ['overgrown'],
+      zones: ['ancient_grove'], streets: ['overgrown', 'greenway'],
       name: 'Moss cairn', flash: 'The moss hushes your steps.',
       body: 'Moss drinks every sound. Even your footsteps.' },
     rust_totem: { frame: 5, light: 0xff8c2a, lever: 'melee', durationMs: 5 * MIN,
@@ -153,7 +157,7 @@
   }
 
   root.Shrines = {
-    SHRINE_KINDS, KIND_IDS, LEVERS, FORTUNE_TIER_BONUS, STREET_SHRINES_PER_TILE,
+    SHRINE_KINDS, KIND_IDS, LEVERS, FORTUNE_TIER_BONUS, STREET_SHRINES_PER_TILE, SCENIC_SHRINES_PER_TILE,
     kindForZoneVariant, kindForStreet, leverUntil, leverActive, grant, boonFlash, boonRemainingMs, normalize,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
