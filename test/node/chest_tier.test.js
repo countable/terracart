@@ -122,8 +122,14 @@
     for (const o of chests) {
       assert.eq(o.poiDensity, chests.filter((c) => c.poiClass === o.poiClass).length, o.id + ' carries its class count');
     }
-    const fl = chests.find((o) => o.poiClass === 'florist');
-    if (fl) assert.eq(chestTier(fl), 4, 'the lone florist is T4');
+    // Under the tier-quota pyramid a sparse tile fills from the TOP: seven
+    // chests = one T5 and the rest T4, whatever their classes (until Oct
+    // 2026 the lone florist read T4 off the count ladder).
+    assert.eq(chests.filter((o) => chestTier(o) === 5).length, 1, 'one T5 seeds the tile');
+    for (const o of chests) {
+      assert.truthy(chestTier(o) >= 4, o.id + ' rides the sparse tile top tiers');
+      assert.truthy(o.tierSeed, o.id + ' carries a quota seed');
+    }
   });
 
   test('chest tier: the depth step is 2 levels and the cap is T5', () => {

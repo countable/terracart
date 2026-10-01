@@ -357,6 +357,10 @@ function chestBaseTier(o) {
   if (o._street === 'snare') return StreetVariants.SNARE_CHEST_TIER;
   const vista = chestVistaTier(o);
   if (vista) return vista;
+  // The per-tile quota seed (worldgen.js seedChestTiers): the pyramid pick.
+  // The count ladder below stays as the fallback for objects that never went
+  // through a seeding pass - hand-placed and sandbox chests.
+  if (o && o.tierSeed) return o.tierSeed;
   return chestDensityTier(o.poiDensity);
 }
 // THE chest tier (1-5) — the one every player sees AND the one its loot rolls

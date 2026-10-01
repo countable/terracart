@@ -730,6 +730,61 @@
     }
     return counts;
   }
+  // ── Tier seeds: the per-tile quota pyramid (Oct 2026) ─────────────────────
+  // The count-threshold ladder is replaced by QUOTAS. Each tile seeds about
+  // 1 T5, 7 T4, 15 T3 and 25 T2 among its budgeted POI chests — every other
+  // chest stays T1 — scaling x1..x2 as the budgeted count runs 100..1000, so
+  // a dense downtown holds up to 2/14/30/50 promoted chests where a suburb
+  // holds the base pyramid. Seats go to the BEST POIs first: the MVT rank
+  // tag (every tile POI carries one; lower = more notable), then id as the
+  // deterministic tiebreak. Within a tier the seats round-robin across chest
+  // CATEGORIES (chestThemeForPoi), each category spending its own best-ranked
+  // first, so no single class can own a tier. Vista chests stand outside the
+  // budget entirely (a grail keeps its Scenic tier). A NEXUS chest can WIN a
+  // tier but never CONSUMES a seat — its +1 lands on top of the seed — and
+  // neither vista nor nexus chests count toward the density scaling. A sparse
+  // tile fills from the TOP and leaves the lower quotas empty: higher tiers
+  // matter more than completeness. Runs at the end of the rasterize steps
+  // (zones and scenic stamped already) and again when a settled tile restamps
+  // (loadTile after bin injection).
+  const TIER_SEED_QUOTA = { 5: 1, 4: 7, 3: 15, 2: 25 };
+  const TIER_SEED_DENSE_AT = 100, TIER_SEED_DENSE_MAX_AT = 1000;
+  function seedChestTiers(objects) {
+    const pool = [];
+    for (const o of objects || []) {
+      if (!isDensityChest(o) || o.vista) continue;
+      if (o.tierSeed !== 1) { o.tierSeed = 1; delete o._chestLook; }
+      pool.push(o);
+    }
+    const budgetN = pool.reduce((a, o) => a + (o.zoneNexus ? 0 : 1), 0);
+    const m = 1 + Math.max(0, Math.min(1, (budgetN - TIER_SEED_DENSE_AT) / (TIER_SEED_DENSE_MAX_AT - TIER_SEED_DENSE_AT)));
+    const byCat = new Map();
+    for (const o of pool) {
+      const cat = (typeof chestThemeForPoi === 'function') ? chestThemeForPoi(o.poiClass) : o.poiClass;
+      if (!byCat.has(cat)) byCat.set(cat, []);
+      byCat.get(cat).push(o);
+    }
+    for (const list of byCat.values())
+      list.sort((a, b) => ((a.rank ?? 999) - (b.rank ?? 999)) || String(a.id).localeCompare(String(b.id)));
+    const cats = [...byCat.keys()].sort();
+    for (const tier of [5, 4, 3, 2]) {
+      let seats = Math.round(TIER_SEED_QUOTA[tier] * m);
+      while (seats > 0) {
+        let gave = false;
+        for (const cat of cats) {
+          const list = byCat.get(cat);
+          if (!list || !list.length) continue;
+          const o = list.shift();
+          o.tierSeed = tier; delete o._chestLook;
+          if (!o.zoneNexus) seats--;   // a nexus takes a tier, never a seat
+          gave = true;
+          if (seats <= 0) break;
+        }
+        if (!gave) break;   // sparse tile: lower quotas stay empty
+      }
+    }
+    return budgetN;
+  }
   // Nudge a cell onto the nearest one that passes isSpawnCell, searching
   // outward in Chebyshev rings up to `maxR`. Returns null when the whole
   // neighbourhood is unusable, so the caller can drop the item instead.
@@ -4551,7 +4606,10 @@
             // subclass can name a produce stall before the Sundries counter
             // takes the rest. Tile bytes only, so the same on every device.
             objects.push(makeObject('chest', cx, cy, id,
-              { poiClass: cls, subclass: f.tags.subclass || '', name: f.tags.name || '', _poiAt: `${p.x},${p.y}` }));
+              { poiClass: cls, subclass: f.tags.subclass || '', name: f.tags.name || '', _poiAt: `${p.x},${p.y}`,
+                // The MVT rank tag (notability, lower = better): the tier
+                // seeding's "best POI first" signal. Every tile POI carries one.
+                rank: f.tags.rank }));
             // The beach shrine keeps the ordinary POI identity and later
             // dedupe/quiet-land gates, but must not pave its source sand.
             if (beachPoi) continue;
@@ -5634,6 +5692,9 @@
         tideSeats: scenicDress && scenicDress.tideSeats,
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
     }
+    // Tier seeds last: zones and scenic have stamped their nexus/vista
+    // chests, so the quota pyramid knows exactly which chests are budgeted.
+    seedChestTiers(deduped);
     return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
   }
 
@@ -5949,8 +6010,10 @@
       // up to 16 ms. No bin, no turn (and no frame spent waiting for one).
       if (bin) await runStepsSliced(() => injectTileBinSteps(entry, bin, x, y));
       // The bin's chests count too: restamp every POI chest's density off the
-      // settled tile (stampPoiDensity — the tile is the unit).
+      // settled tile (stampPoiDensity — the tile is the unit), then reseed the
+      // tier quotas off the settled set.
       stampPoiDensity(entry.objects);
+      seedChestTiers(entry.objects);
 
       // The decoded layers stay on the entry for two consumers only: the road
       // overlay re-strokes `transportation` line geometry on each rebuild, and
@@ -7559,7 +7622,8 @@
         : cellCentreM(tx, ty, seat.cx, seat.cy, tileEdgeM, N);
       const poiDensity = (o.depth > 0 || o.caveOf) ? o.poiDensity : counts.get(o.poiClass);
       out.push({ kind: 'chest', x: cx, y: cy, id: `${surfaceId}_d${depth}`,
-        caveOf: surfaceId, poiClass: o.poiClass, name: o.name || '', depth, poiDensity });
+        caveOf: surfaceId, poiClass: o.poiClass, name: o.name || '', depth, poiDensity,
+        tierSeed: o.tierSeed });   // the surface seed rides down; depth adds its bonus
     }
     return out;
   }
@@ -8167,7 +8231,7 @@
     SPAWN_SENSITIVE_BUFFER_M,
     RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
-    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
+    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, seedChestTiers, TIER_SEED_QUOTA, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
     caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
