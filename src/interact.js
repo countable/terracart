@@ -1270,7 +1270,7 @@ const TAP_HANDLERS = [
   { name: 'fire-held', try: (ctx) => {
     // 2-fire-held) Tap a lit campfire while HOLDING something. The fire either
     // MAKES something of it (items.js CAMPFIRE_MAKES: meat → grilled meat,
-    // wood → torch) or, for anything else, asks "Burn <name>?" and destroys
+    // the cooked foods) or, for anything else, asks "Burn <name>?" and destroys
     // one on yes (app.js presentBurnConfirm). Empty-handed, the tap falls
     // through to extinguish-fire. Runs before `release` so a held animal
     // over a fire is a burn question, not a release into the flames.
