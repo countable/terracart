@@ -1040,7 +1040,7 @@
       },
       "finds": {
         "rarity": "medium",
-        "material": "rose",
+        "material": "orange",
         "targets": [
           {
             "id": "1",
@@ -1079,7 +1079,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, bushes occupy 15% of cells; no grass or ordinary flowers. Three wild roses remain as special finds.",
+      "atmosphere": "A radius-three grassy clearing surrounds the shrine, edged with a continuous bush rim. Outside, bushes occupy 15% of cells; no grass or ordinary flowers. Three marigolds remain as special finds.",
       "attracts": {
         "rabbit": 0.5,
         "butterfly": 0.65
