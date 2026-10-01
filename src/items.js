@@ -387,6 +387,9 @@ const MINERAL_ICON_SHEET = {
   // multi-frame sheet, frame 0 the basic variant.
   honey:      { sheet: 'icon_honey',  frame: 0 },
   book:       { sheet: 'icon_book',   frame: 0 },
+  tome_sight: { sheet: 'icon_book',   frame: 2 },
+  tome_raven: { sheet: 'icon_book',   frame: 8 },
+  tome_storm: { sheet: 'icon_book',   frame: 13 },
   // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
   reach_potion: { sheet: 'icon_potion', frame: 0 },
   // New potions — 16×16 frames from Potions.png (5 cols × 7 rows).
@@ -588,7 +591,7 @@ const BASE_TIER = {
   dog: 5,
   // Consumables
   antidote: 1, elixir: 7,
-  honey: 3, book: 2, reach_potion: 2, vigor_potion: 4, speed_potion: 2, shield_potion: 2,
+  honey: 3, book: 1, reach_potion: 2, vigor_potion: 4, speed_potion: 2, shield_potion: 2,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_potion: 3,
@@ -606,6 +609,9 @@ const BASE_TIER = {
   growth_powder: 2, shadow_powder: 2, frost_powder: 3,
   // Unique jewelry is intrinsically magical, never a metal rung.
   stealth_ring: 2, invisibility_ring: 4, regen_amulet: 3, vigor_amulet: 5,
+  // Tomes: a tome's tier is one above the potion it channels (the books
+  // group's top-tier pick makes each tier's chest hand its own tome).
+  tome_sight: 3, tome_raven: 4, tome_storm: 5,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
   // Trap Disarm Kit — a T2 utility beside rope: situational, not a staple.
@@ -745,6 +751,15 @@ const ITEMS = [
   // 'chest:school'). This is the one item whose SCARCITY is a documentation
   // bug rather than a balance choice.
   { id: 'book',  name: 'Book',  kind: 'supply', dropWeight: 3 },
+  // ── The three TOMES — the story Book's rarer siblings. A tome replaces the
+  // plain Book in any chest whose tier meets its own (chest_themes books
+  // group: eligible() admits by baseTier, pickItem() takes the top tier
+  // present), so a T3+ book chest hands a tome, never the story Book. Read
+  // once a UTC day for the effect of the potion ONE TIER BELOW the tome
+  // (app.js readTome*); never consumed, never sold - chests only.
+  { id: 'tome_sight', name: 'Tome of Distant Sight', kind: 'supply', dropWeight: 1 },
+  { id: 'tome_raven', name: 'Tome of the Raven',     kind: 'supply', dropWeight: 1 },
+  { id: 'tome_storm', name: 'Tome of the Storm',     kind: 'supply', dropWeight: 1 },
   // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
   { id: 'antidote', name: 'Antidote', kind: 'magic', potion: true },
@@ -1036,6 +1051,12 @@ const CONSUMABLE_SPEC = {
     usable: scene => EggHatch.ready(scene.save),
   },
   book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: 'An elder has left a few words for you.' },
+  tome_sight: { verb: 'Read', method: 'readTomeSight', title: 'Read the Tome of Distant Sight?',
+    get: 'The far edge of the world leans closer with every page.' },
+  tome_raven: { verb: 'Read', method: 'readTomeRaven', title: 'Read the Tome of the Raven?',
+    get: 'A raven of smoke and starlight waits between the lines.' },
+  tome_storm: { verb: 'Read', method: 'readTomeStorm', title: 'Read the Tome of the Storm?',
+    get: 'Storm writings. The sky leans in to listen.' },
   honey: {
     radiusM: 30,
     verb: 'Use', method: 'useHoney', title: 'Set out the syrup?',
@@ -1221,6 +1242,9 @@ const PRICES = {
   // Bought from shops occasionally; small sell value if you hoard them.
   honey: 12,
   book:  20,
+  tome_sight: 90,   // T3 — a T2 reach potion's sight, once a day, forever
+  tome_raven: 170,  // T4 — a T3 raven's wings, once a day, forever
+  tome_storm: 300,  // T5 — a T4 thunderclap, once a day, forever
   reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
   antidote:     12,
   elixir:       360,
@@ -1418,6 +1442,9 @@ const ITEM_EFFECTS = {
   crow_feather: 'Held to the lips when all strength is gone, it stirs a faint pulse.',
   honey: 'Its sweet scent draws curious noses through the grass.',
   book: 'An elder’s faded words wait beneath the worn cover.',
+  tome_sight: 'Page by page, the horizon walks closer.',
+  tome_raven: 'Somewhere in the ink, wings shift.',
+  tome_storm: 'Thunder is only a sentence away.',
   reach_potion: 'The far horizon trembles close to the rim of this bottle.',
   antidote: 'A bitter draught to wash every affliction away.',
   elixir: 'Restoring warmth washes every affliction from your body.',

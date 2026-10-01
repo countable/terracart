@@ -194,7 +194,6 @@ const BRIDGE = `;Object.assign(globalThis, {
   // The market-stall sign/stock tables — vendor_parity.test.js pins that what
   // a stall's name promises is what it sells.
   POI_CATEGORY, CHEST_DENSITY_TIERS, CHEST_DENSITY_T1_AT, CHEST_TIER_UNSTAMPED,
-  CHEST_CLASS_TIER, CHEST_ONE_TIME_CLASSES,
   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_TIER_COLOR,
   chestDensityTier, chestBaseTier, chestTierDepthBonus, ZONE_NEXUS_TIER_BONUS, chestTierZoneBonus, chestTier, chestMirrorsUnderground,
   CRATE_RESTORE_PER, CRATE_RESTORE_MAX_DAYS, crateRestoreDays,

@@ -26,24 +26,22 @@
 
   test('chest tier: the same rule for every class — density, not category', () => {
     for (const cls of Object.keys(POI_CATEGORY)) {
-      if (CHEST_CLASS_TIER[cls] != null) continue;
       assert.eq(chestTier(chest(cls, 1)), 4, cls + ' alone is T4');
       assert.eq(chestTier(chest(cls, 25)), 1, cls + ' in a crowd is T1');
     }
     assert.truthy(typeof CHEST_TIER_BY_CATEGORY === 'undefined', 'the category tier table is gone');
   });
 
-  test('chest tier: public art is a fixed T1 one-time trunk', () => {
-    for (const n of [1, 3, 30]) {
-      const art = chest('art_gallery', n);
-      assert.eq(chestTier(art), 1, 'T1 at ' + n + ' of a kind');
-      assert.eq(chestLook(art).texKey, 'chest', 'wears the trunk, never the crate');
-      assert.falsy(restocks(art), 'and never restocks');
-    }
-    const art = chest('art_gallery', 30);
+  test('chest tier: public art rides the density ladder like every class', () => {
+    // Until Oct 2026 art_gallery was a fixed T1 one-time trunk
+    // (CHEST_CLASS_TIER / CHEST_ONE_TIME_CLASSES, both gone).
+    assert.eq(chestTier(chest('art_gallery', 1)), 4, 'a lone mural is a T4 find');
+    assert.eq(chestTier(chest('art_gallery', 30)), 1, 'a gallery street is T1 crates');
+    assert.eq(chestLook(chest('art_gallery', 30)).texKey, 'box', 'T1 wears the crate like anyone');
+    assert.truthy(restocks(chest('art_gallery', 30)), 'and restocks like a crate');
+    const art = chest('art_gallery', 1);
     const sets = spentSets(null, { opened: [art.id] });
-    assert.truthy(isSpent(art, sets), 'spent in save.opened, for good');
-    assert.eq(chestTier(chest('art_gallery', 1, { depth: 2 })), 2, 'the depth bonus still applies');
+    assert.truthy(isSpent(art, sets), 'a trunk is still spent in save.opened, for good');
   });
 
   test('chest tier: Home is no input — no rings, no roll-side twin, the same tier and look anywhere', () => {

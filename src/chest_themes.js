@@ -30,13 +30,19 @@
     animalFood: { ids: () => [...new Set(['cat', 'dog', 'rabbit'].flatMap(k => ANIMAL_FOOD[k] || []))], fallback: 'restorative' },
     recovery: { ids: ['vigor_potion', 'elixir'], fallback: 'restorative' },
     antidote: { ids: ['antidote'] },
-    healing: { ids: { vigor_potion: 3, revive_potion: 2, resurrection_potion: 1, elixir: 1 }, fallback: 'restorative' },
+    healing: { ids: { vigor_potion: 3, revive_potion: 2, resurrection_potion: 1, elixir: 1 }, fallback: { vista: 'antidote', default: 'restorative' } },
     revival: { ids: { revive_potion: 3, resurrection_potion: 1 }, fallback: 'restorative' },
     shield: { ids: ['shield_potion'], fallback: { health: 'restorative', worship: 'restorative', default: 'field' } },
     study: { ids: { reach_potion: 2, raven_potion: 1, shield_potion: 1 }, fallback: 'books' },
     shadow: { ids: { raven_potion: 1, shadow_powder: 1 }, fallback: 'flowers' },
-    gems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], fallback: { culture: 'books', default: 'field' } },
-    books: { ids: ['book'], minTier: { school: 1 }, fallback: 'torch' },
+    gems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], fallback: { culture: 'books', vista: 'antidote', default: 'field' } },
+    // The story Book is a T1 item: every book chest can hand one, whatever
+    // its rolled quality (the old minTier {school: 1} override died with the
+    // tomes - it would have admitted THEM at T1 too, because it replaced the
+    // baseTier check for the whole group). The TOMES sit at T3/4/5, and
+    // pickItem takes the top tier present, so they replace the Book exactly
+    // at and above its own tier.
+    books: { ids: ['book', 'tome_sight', 'tome_raven', 'tome_storm'], fallback: 'torch' },
     honey: { ids: ['honey'], fallback: 'restorative' },
     torch: { ids: ['torch'] },
     rope: { ids: ['rope'], fallback: 'torch' },
@@ -71,11 +77,17 @@
     // jackpot) so the one-time grail averages ~150 value (design target
     // 100-160), not the ~440 a civic T4 chest pays. Measured 20k-sample MC,
     // scratchpad scenic2/vista_theme.js: 149.9 avg.
-    vista: { tier: 4, weights: { noncombatGear: 3, gems: 15, healing: 42, cash: 40 } },
+    // Vista grails hold treasure, never workaday goods: equipment (armour),
+    // relics (the uniqueRelics lane), magic items (potions, gems) or coins -
+    // no tools, no produce, no field supplies (anywhere in the fallback
+    // chain, which is why every vista fallback terminates at 'antidote',
+    // a T1 magic potion whose group can never be empty).
+    vista: { tier: 4, weights: { protectiveGear: 1, gems: 15, healing: 42, cash: 42 } },
   };
   for (const [theme, row] of Object.entries(themes)) {
     row.t1Fallback = ['food', 'park', 'farm', 'health', 'worship', 'pets'].includes(theme) ? 'restorative'
-      : theme === 'flora' ? 'flowers' : theme === 'school' ? 'books' : 'torch';
+      : theme === 'flora' ? 'flowers' : theme === 'school' ? 'books'
+      : theme === 'vista' ? 'antidote' : 'torch';
   }
   const memberCache = new Map();
   const aliases = { lowtier: 'roadside' };
@@ -179,7 +191,8 @@
   function cap(id) {
     const item = ITEM_BY_ID[id];
     if (item.kind === 'unique_relic') return 1;
-    if (['antidote', 'elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap'].includes(id)) return 1;
+    if (['antidote', 'elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap',
+         'tome_sight', 'tome_raven', 'tome_storm'].includes(id)) return 1;
     if (['animal', 'sapling'].includes(item.kind) || ['sapphire', 'ruby', 'emerald', 'diamond'].includes(id)) return 1;
     if (item.kind === 'magic') return 3;
     if (item.kind === 'seed') return magicalFlowers.includes(item.grows) ? 1 : 9;

@@ -20,7 +20,7 @@ test('chest themes: every authored path terminates and conserves probability', (
           const item = ITEM_BY_ID[id];
           assert.truthy(item && !item.shiny && !item.cooked);
           assert.truthy(!item.caveOnly || depth > 0);
-          assert.truthy(item.baseTier <= tier || (theme === 'school' && id === 'book'));
+          assert.truthy(item.baseTier <= tier, 'the Book is a T1 item; every group member is tier-gated');
         }
       }
     }
@@ -107,7 +107,9 @@ test('chest themes: unrelated gear and items never leak across themes', () => {
 
 test('chest themes: school-only Book exception and named venue preference', () => {
   assert.eq(ChestThemes.resolve('books', 1, { theme: 'school' }).group, 'books');
-  assert.eq(ChestThemes.resolve('books', 1, { theme: 'culture' }).group, 'torch');
+  // The Book became a T1 item (with the tomes), so a low culture roll
+  // pays a Book where it used to fall through to a torch.
+  assert.eq(ChestThemes.resolve('books', 1, { theme: 'culture' }).group, 'books');
   const opts = { theme: 'food', venueProduct: 'potato' };
   const pool = ChestThemes.resolve('food', 5, opts);
   const rng = makeRng32(222);

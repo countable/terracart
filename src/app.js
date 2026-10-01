@@ -9384,6 +9384,72 @@ class MapScene extends Phaser.Scene {
     );
   }
 
+  // ── The Tomes ─────────────────────────────────────────────────────────────
+  // Story books' rarer siblings: READ once a UTC day for the effect of the
+  // potion one tier below the tome, never consumed. The day gate shows its
+  // wait (shortDuration over msToNextUtcDay — a timed gate needs a visible
+  // wait); the ledger save.tomeDays is keyed by item id + utcDayKey, the
+  // same day the ledger keeps (app.js never reads the Delivery one).
+  _tomeReady(id) {
+    if ((this.save.tomeDays?.[id]) === utcDayKey(new Date())) {
+      const ps = this.playerScreen();
+      this.flash(`The tome rests — ${shortDuration(msToNextUtcDay())}`, ps.x, ps.y + this.playerBodyDy());
+      return false;
+    }
+    return true;
+  }
+  _tomeSpent(id) {
+    (this.save.tomeDays ||= {})[id] = utcDayKey(new Date());
+    persistSave(this.save);
+  }
+  readTomeSight() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'tome_sight' || (sel.count ?? 0) <= 0) return false;
+    if (!this._tomeReady('tome_sight')) return false;
+    this.save.reachPotionUntil = Date.now() + REACH_POTION_MS;
+    this._tomeSpent('tome_sight');
+    this.flash('✨ The sight tome opens', this.viewCenterX, this.viewCenterY);
+    return true;
+  }
+  readTomeRaven() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'tome_raven' || (sel.count ?? 0) <= 0) return false;
+    if (!this._tomeReady('tome_raven')) return false;
+    this.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS;
+    if (this._spiritRaven) this._spiritRaven._followUntilT = performance.now() + SPIRIT_RAVEN_MS;
+    this._tickSpiritRaven();
+    this._tomeSpent('tome_raven');
+    this.flash('✨ A raven leaves the page', this.viewCenterX, this.viewCenterY);
+    return true;
+  }
+  readTomeStorm() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'tome_storm' || (sel.count ?? 0) <= 0) return false;
+    if (!this._tomeReady('tome_storm')) return false;
+    const caughtSet = setOf(this.save.caught);
+    const pc = this.playerToWorldCell();
+    const targets = [];
+    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => {
+      if (!Combat.isEnemy(c) || caughtSet.has(c.id)) return;
+      const p = this.worldMetersToScreen(c.x, c.y);
+      if (p && Particles.onScreen(this, p.x, p.y)) targets.push(c);
+    });
+    if (targets.length === 0) {
+      this.flash('No foe in sight — tome kept', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    this.cameras?.main?.flash(THUNDER_FLASH_MS, 255, 255, 255);
+    const now = performance.now();
+    let felled = 0;
+    for (const c of targets) {
+      if (this._damageEnemy(c, THUNDER_DMG)) { felled++; continue; }
+      if (!c.lair) monsterRout(c, now, this.cellM);
+    }
+    this._tomeSpent('tome_storm');
+    this.flash('⚡ The storm tome speaks', this.viewCenterX, this.viewCenterY);
+    return true;
+  }
+
   drinkVigorPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'vigor_potion' || (sel.count ?? 0) <= 0) return false;
