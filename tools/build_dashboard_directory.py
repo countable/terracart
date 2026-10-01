@@ -70,6 +70,7 @@ def build(output):
             archive.write_text((proposal / 'index.html').read_text())
         (proposal / 'index.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Monsters</title><meta http-equiv="refresh" content="0;url=../tools/monster-roster.html"></head><body><a href="../tools/monster-roster.html">Open the live monster viewer</a></body></html>')
     primary=[
+      ('chests.html','Chest index','Live POI sources, chest artwork, vista and cave rewards, and four-city expectations.','Live game data'),
       ('../tools/monster-roster.html','Monsters','Current roster, habitats, combat comparisons and palette review in the approved table viewer.','Live game data'),
       ('world-art.html','World art','Current artwork in a sortable table, filtered by zone and category.','Live game data'),
       ('zones.html','Zones','Special zones, road variants and basic tile previews, grouped by category.','Generated game data'),
@@ -77,7 +78,8 @@ def build(output):
       ('../tools/treasure-balancing.html','Treasure balancing','Roll rewards by location and tier; compare chest, treasure and fishing results.','Live game data'),
       ('../tools/items.html','Items','Current item catalogue, equipment and source information.','Live game data'),
       ('../tools/map-review.html','Map review','Inspect terrain, world generation and placements.','Live game data')]
-    (output/'index.html').write_text(page('Design dashboards','<p>Seven places to review the game. Older proposals, implementation reports and candidate studies are in the archive.</p><p><a href="../tools/treasure-balancing.html">Open treasure roll simulator →</a></p><div class="grid">'+''.join(card(*row) for row in primary)+'</div>').replace('<meta charset="utf-8">','<meta charset="utf-8"><meta name="artifact-review" content="disabled">',1).replace('padding:80px 24px 32px','padding:32px 24px 32px'))
+    (output/'index.html').write_text(page('Design dashboards','<p>Design tables for reviewing the game. Older proposals, implementation reports and candidate studies are in the archive.</p><p><a href="../tools/treasure-balancing.html">Open treasure roll simulator →</a></p><div class="grid">'+''.join(card(*row) for row in primary)+'</div>').replace('<meta charset="utf-8">','<meta charset="utf-8"><meta name="artifact-review" content="disabled">',1).replace('padding:80px 24px 32px','padding:32px 24px 32px'))
+    (output/'chests.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>Chest index</title><meta http-equiv="refresh" content="0;url=../tools/chest-report.html"><a href="../tools/chest-report.html">Open the live chest index</a></html>')
     (output/'world-art.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>World art</title><meta http-equiv="refresh" content="0;url=../tools/world-art.html"></head><body><a href="../tools/world-art.html">Open current world art</a></body></html>')
     (output/'zones.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Zones</title><meta http-equiv="refresh" content="0;url=../zone-variants/index.html"></head><body><a href="../zone-variants/index.html">Open zones and road variants</a></body></html>')
     balance_links = [('../tools/map-distribution.html', 'Map distribution', 'Placement and value tables for Kelowna, Vancouver, Seattle and Berlin.'), ('../tools/treasure-balancing.html', 'Treasure balancing', 'Live reward simulator by location, tier and player equipment.')]
