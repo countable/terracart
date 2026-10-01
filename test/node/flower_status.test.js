@@ -109,6 +109,23 @@
     try { assert.falsy(flowerCreatureTick(s, hostile, 10000, 100, 0, new Set())); }
     finally { Lairs.guardState = real; }
   }));
+  test('flower status: fear prevents ally pursuit before and after a burning sleeper wakes', () => withClock(() => {
+    const hostile = foe('afraid'), ally = foe('ally', 'zombie', 1), s = scene();
+    Combat.applyCharm(ally, wall); s._charmedOpponents = [ally];
+    hostile._fearUntilT = 30000;
+    assert.falsy(flowerCreatureTick(s, hostile, 1000, 100, 0, new Set()), 'fear leaves movement to the retreat lane');
+    assert.eq(hostile.x, 0); assert.eq(s.hits.length, 0);
+    assert.falsy(hostile._attackWindupUntil, 'no attack starts on the ally');
+    Combat.applySleep(hostile, wall); Combat.ignite(hostile, 1000, 'fire');
+    assert.truthy(flowerCreatureTick(s, hostile, 1500, 100, 0, new Set()), 'sleep still runs before fear');
+    assert.truthy(Combat.isSleeping(hostile));
+    assert.falsy(flowerCreatureTick(s, hostile, 2000, 100, 0, new Set()), 'the wake tick returns to retreat');
+    assert.falsy(Combat.isSleeping(hostile), 'burn damage wakes the existing sleep debuff');
+    assert.eq(s.hits.length, 1); assert.eq(s.hits[0].c, hostile, 'only the sleeper takes damage');
+    assert.falsy(flowerCreatureTick(s, hostile, 2100, 100, 0, new Set()), 'the awakened foe still retreats from the ally');
+    assert.falsy(hostile._attackWindupUntil); assert.eq(s.hits.length, 1);
+    assert.truthy(flowerCreatureTick(s, hostile, 30000, 100, 0, new Set()), 'ordinary ally targeting resumes at fear expiry');
+  }));
   test('flower status: creature pursuit ignores player-only visibility reduction', () => withClock(() => {
     const c = foe('ally'), target = foe('enemy', 'zombie', 20), s = scene();
     Combat.applyCharm(c, wall); const row = EnemyRoster.get(c.kind), real = Combat.seesPlayer;

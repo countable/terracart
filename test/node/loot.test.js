@@ -470,7 +470,7 @@ test('cave supplies: shallow caves add medicine and practical supplies', () => {
 
 // The deep hoard: a cave chest above the supply tiers (T3+) leans to potions,
 // powders and gems, tier-capped so a gem only comes where its tier does.
-test('deep hoard: T3+ chests underground pay potions, powders and gems more often', () => {
+test('deep hoard: T3+ chests underground pay magic consumables and gems more often', () => {
   const HOARD = new Set(Object.keys(CAVE_DEEP_SKEW.favourite.ids));
   const rate = (depth, tier) => {
     const rng = seeded(777 + depth * 11 + tier);

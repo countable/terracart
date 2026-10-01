@@ -145,6 +145,9 @@ const PLAY_TIPS = [
   // (items.js HOME_RECIPES) — every craftable has its page in the Book.
   ITEM_GUIDE_TIPS.spear,
   ITEM_GUIDE_TIPS.honey,
+  ITEM_GUIDE_TIPS.fireball_scroll,
+  ITEM_GUIDE_TIPS.fear_scroll,
+  ITEM_GUIDE_TIPS.treasure_map,
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -379,7 +382,10 @@ const PLAY_TIP_VOLUMES = [
   "ledger",
   "road",
   "brann",
-  "garden"
+  "garden",
+  "road",
+  "road",
+  "road"
 ];
 
 // Narrator observations sit outside the quoted excerpt.

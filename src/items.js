@@ -391,6 +391,11 @@ const MINERAL_ICON_SHEET = {
   tome_sight: { sheet: 'icon_book',   frame: 2 },
   tome_raven: { sheet: 'icon_book',   frame: 8 },
   tome_storm: { sheet: 'icon_book',   frame: 13 },
+  // Books.png ends with five scrolls on row 3 (15 columns).
+  blank_scroll:    { sheet: 'icon_book', frame: 45 },
+  fireball_scroll: { sheet: 'icon_book', frame: 46 },
+  fear_scroll:     { sheet: 'icon_book', frame: 47 },
+  treasure_map:    { sheet: 'icon_book', frame: 49 },
   // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
   reach_potion: { sheet: 'icon_potion', frame: 0 },
   // New potions — 16×16 frames from Potions.png (5 cols × 7 rows).
@@ -428,6 +433,7 @@ const MINERAL_ICON_SHEET = {
   invisibility_ring: { sheet: 'icon_rings',   frame: 11 },
   regen_amulet:      { sheet: 'icon_amulets', frame: 10 },
   vigor_amulet:      { sheet: 'icon_amulets', frame: 17 },
+  sleep_powder:  { sheet: 'icon_potions', frame: 3 }, // scoop of violet dream dust
   // Rope — single 16×16 coiled-rope icon (Icons/Items, hand-drawn like the
   // honey jar). Using it moves the player up or down one cave level in place
   // (useRope in app.js).
@@ -607,12 +613,13 @@ const BASE_TIER = {
   // same shape as the reach/speed/shield potions it now shares a tier with.
   // Frost is the T3 fight-changer before the T4 dragon — it is the one that turns
   // a fight you are already in.
-  growth_powder: 2, shadow_powder: 2, frost_powder: 3,
+  growth_powder: 2, shadow_powder: 2, frost_powder: 3, sleep_powder: 3,
   // Unique jewelry is intrinsically magical, never a metal rung.
   stealth_ring: 2, invisibility_ring: 4, regen_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_sight: 3, tome_raven: 4, tome_storm: 5,
+  blank_scroll: 2, fireball_scroll: 3, fear_scroll: 3, treasure_map: 4,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
   // Trap Disarm Kit — a T2 utility beside rope: situational, not a staple.
@@ -761,6 +768,11 @@ const ITEMS = [
   { id: 'tome_sight', name: 'Tome of Distant Sight', kind: 'supply', dropWeight: 1 },
   { id: 'tome_raven', name: 'Tome of the Raven',     kind: 'supply', dropWeight: 1 },
   { id: 'tome_storm', name: 'Tome of the Storm',     kind: 'supply', dropWeight: 1 },
+  { id: 'blank_scroll', name: 'Blank Scroll', kind: 'supply' },
+  { id: 'fireball_scroll', name: 'Fireball Scroll', kind: 'magic', scroll: true },
+  { id: 'fear_scroll', name: 'Scroll of Fear', kind: 'magic', scroll: true },
+  { id: 'treasure_map', name: 'Treasure Map', kind: 'magic', scroll: true },
+  { id: 'sleep_powder', name: 'Sleep Powder', kind: 'magic' },
   // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
   { id: 'antidote', name: 'Antidote', kind: 'magic', potion: true },
@@ -1031,6 +1043,26 @@ const CONSUMABLE_SPEC = {
     verb: 'Throw', method: 'useWildrose', title: 'Throw the wild rose?',
     get: 'A fragrant bloom wins a foe to your side.',
   },
+  fireball_scroll: {
+    damage: 40, blastRadiusCells: 2, projectileRadiusCells: 0.45, dotPx: 6, immediate: true,
+    verb: 'Cast', method: 'useFireballScroll', title: 'Cast the Fireball Scroll?',
+    get: 'A spark leaps from the parchment and blossoms into roaring flame.',
+  },
+  fear_scroll: {
+    durationMs: 30 * 1000,
+    verb: 'Read', method: 'useFearScroll', title: 'Read the Scroll of Fear?',
+    get: 'The words send a shiver through every watching foe.',
+  },
+  treasure_map: {
+    durationMs: 15 * _CONSUMABLE_MINUTE_MS,
+    verb: 'Read', method: 'useTreasureMap', title: 'Read the Treasure Map?',
+    get: 'A glimmer points toward a rich chest along this level.',
+  },
+  sleep_powder: {
+    get durationMs() { return Combat.FLOWER_STATUS_MS; },
+    verb: 'Use', method: 'useSleepPowder', title: 'Scatter the Sleep Powder?',
+    get: 'Dream dust settles over every foe in sight.',
+  },
   // Foods with an extra effect use the Eat button, so they own mechanics but
   // no separate action row here.
   // The rainberry's soak is a WATERING CAN'S: every crop in reach is watered
@@ -1245,6 +1277,11 @@ const PRICES = {
   tome_sight: 90,   // T3 — a T2 reach potion's sight, once a day, forever
   tome_raven: 170,  // T4 — a T3 raven's wings, once a day, forever
   tome_storm: 300,  // T5 — a T4 thunderclap, once a day, forever
+  blank_scroll: 200,
+  fireball_scroll: 120,
+  fear_scroll: 100,
+  treasure_map: 200,
+  sleep_powder: 100,
   reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
   antidote:     12,
   elixir:       360,
@@ -1381,6 +1418,9 @@ const ITEM_GUIDE_TIPS = {
   rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',
   flowers: 'Brought the shopkeeper flowers. A softer voice, a kinder price. I had meant only to give her something lovely.',
   slime: 'The slime shares my doorstep now. When I grind the blue stone, it waits beside me. Brann would disapprove. I have decided not to ask him.',
+  fireball_scroll: 'At the trailer I copied the fire spell from memory onto blank parchment. The ink warmed. I moved the bedding away.',
+  fear_scroll: 'I copied the words that had scattered my pursuers onto a blank scroll. Even here at the trailer, the parchment trembled.',
+  treasure_map: 'Back at the trailer I traced the remembered map onto a blank scroll. Its hidden paths returned. I had hoped one might lead home.',
 };
 
 // The ordered Book pages live in play_tips.js; their positions are saved bookmarks.
@@ -1445,6 +1485,11 @@ const ITEM_EFFECTS = {
   tome_sight: 'Page by page, the horizon walks closer.',
   tome_raven: 'Somewhere in the ink, wings shift.',
   tome_storm: 'Thunder is only a sentence away.',
+  blank_scroll: 'At the trailer, remembered scrolls can be written upon this empty page.',
+  fireball_scroll: CONSUMABLE_SPEC.fireball_scroll.get,
+  fear_scroll: CONSUMABLE_SPEC.fear_scroll.get,
+  treasure_map: CONSUMABLE_SPEC.treasure_map.get,
+  sleep_powder: CONSUMABLE_SPEC.sleep_powder.get,
   reach_potion: 'The far horizon trembles close to the rim of this bottle.',
   antidote: 'A bitter draught to wash every affliction away.',
   elixir: 'Restoring warmth washes every affliction from your body.',
@@ -2178,11 +2223,16 @@ const HOME_RECIPES = [
   // Four stones knock a snare's jaw shut for good.
   { id: 'trap_kit',  cost: [{ id: 'rockfruit', qty: 4 }] },
   { id: 'honey',     cost: [{ id: 'berry', qty: 2 }] }, // Syrup; keep the saved item id
+  ...ITEMS.filter(item => item.scroll).map(item => ({
+    id: item.id, cost: [{ id: 'blank_scroll', qty: 1 }],
+  })),
 ];
 // Spears are known from the start in every difficulty. Other Home recipes
 // are learned by first finding their output in the wild, never by buying,
 // bartering, forging or crafting it. addToInv owns the foundWild ledger.
+// Scrolls require previous use instead: their words must be remembered.
 function homeRecipeLocked(save, id) {
+  if (ITEM_BY_ID[id]?.scroll) return !Array.isArray(save?.usedScrolls) || !save.usedScrolls.includes(id);
   return id !== 'spear' && !save?.foundWild?.[id];
 }
 // How many times a recipe can be made from what is held: the fewest times

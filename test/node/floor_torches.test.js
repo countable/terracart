@@ -109,7 +109,7 @@ function xorRng(seed) {
 
 test('roadside chest: starter supplies give way to high-tier travel magic', () => {
   assert.eq(ChestThemes.weights('roadside', 1).supplies, 45);
-  const supplyIds = new Set(['torch', 'rope', 'trap_kit', 'spear', 'honey']);
+  const supplyIds = new Set(['torch', 'rope', 'trap_kit', 'spear', 'honey', 'blank_scroll']);
   for (const tier of [1, 2, 3, 5]) {
     const rng = xorRng(0x70C4 + tier);
     let supplies = 0, torches = 0;
