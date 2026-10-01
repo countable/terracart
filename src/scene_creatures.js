@@ -1949,6 +1949,8 @@ class SceneCreatures {
       // ground's, like lava itself. Armour never soaks a burn.
       if (Combat.isEnemy(c) && !isTame && Combat.canBurn(c)
           && this._nearAny('fires', c.x, c.y, FIRE_TOUCH_CELLS)) Combat.ignite(c, now, 'fire');
+      if (Combat.isEnemy(c) && !isTame && Combat.canBurn(c)
+          && this.save?.groundFire && GroundFire.active(this._groundFireAtWorld(c.x, c.y), Date.now())) Combat.ignite(c, now, 'fire');
       const burn = Combat.burnTick(c, now);
       if (burn > 0 && this._damageEnemy(c, burn, c._burnBy === 'player' ? 'player' : 'burn', { bypassArmor: true })) return;
       // LAVA BURNS FOES TOO (Combat.LAVA_DMG_PER_S, the player's rate — see

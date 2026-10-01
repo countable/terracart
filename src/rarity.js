@@ -485,7 +485,7 @@
       vigor_potion: 1, shield_potion: 1, reach_potion: 1, speed_potion: 1,
       revive_potion: 1, blight_potion: 1, raven_potion: 1, thunder_potion: 1, resurrection_potion: 1,
       growth_powder: 1, shadow_powder: 1, dragon_powder: 1, frost_powder: 1, sleep_powder: 1,
-      fireball_scroll: 1, fear_scroll: 1, treasure_map: 1,
+      fireball_scroll: 1, explosive_flask: 1, fear_scroll: 1, treasure_map: 1,
       sapphire: 1, ruby: 1, emerald: 1, diamond: 1,
     } },
   };

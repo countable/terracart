@@ -1127,10 +1127,25 @@
     return shot;
   }
 
+  // A thrown flask bursts at the vision boundary, clearing foes and terrain
+  // on the way. The scene ignites the square footprint on impact.
+  function spawnExplosiveFlask(x, y, dir, cellM, rangeM, spec) {
+    if (!(rangeM > 0) || !Number.isFinite(rangeM)) return null;
+    const shot = spawnShot('bow', x, y, dir, cellM, spec.damage);
+    if (!shot) return null;
+    Object.assign(shot, {
+      projectile: 'explosive_flask', rangeM, endpointOnly: true,
+      blastRadiusM: 0, radiusM: spec.projectileRadiusCells * cellM,
+      dotPx: spec.dotPx, color: 0xffa32d,
+    });
+    return shot;
+  }
+
   function explodeShot(s, targets, onHit, opts, cellM) {
     const blocked = opts?.blocked && ((x, y) => opts.blocked(x, y, s));
     const struck = new Set();
     for (const e of targets) {
+      if (!(s.damage > 0)) break;
       if (opts?.canHit && !opts.canHit(e, s)) continue;
       const key = e.id != null ? e.id : e;
       if (struck.has(key) || Math.hypot(e.x - s.x, e.y - s.y) > s.blastRadiusM) continue;
@@ -1148,14 +1163,18 @@
     const sampleM = Math.max(0.01, Math.min(cellM * BLOCK_SAMPLE_CELLS, s.radiusM));
     const samples = Math.max(1, Math.ceil(travel / sampleM));
     const step = travel / samples;
+    const ignite = s.projectile === 'fireball' ? opts?.onFireCell : null;
+    ignite?.(s.x, s.y, s);
     for (let i = 0; i < samples; i++) {
       const x = s.x + s.vx * step, y = s.y + s.vy * step;
-      if (opts?.blocked?.(x, y, s)) {
+      if (!s.endpointOnly && opts?.blocked?.(x, y, s)) {
         explodeShot(s, targets, onHit, opts, cellM);
         return false;
       }
+      if (s.projectile === 'fireball') opts?.onFireSegment?.(s.x, s.y, x, y, s);
       s.x = x; s.y = y; s.travelledM += step;
-      if (targets.some(e => (!opts?.canHit || opts.canHit(e, s))
+      ignite?.(s.x, s.y, s);
+      if (!s.endpointOnly && targets.some(e => (!opts?.canHit || opts.canHit(e, s))
           && Math.hypot(e.x - x, e.y - y) <= s.radiusM)) {
         explodeShot(s, targets, onHit, opts, cellM);
         return false;
@@ -1199,6 +1218,11 @@
   // reads as hitting the wall, and it is then dropped.
   // `opts.cellM` sizes the sampling; it falls back to the hit radius, which is
   // just under a cell.
+  // `opts.onFireCell(x, y, shot)` ignites fireball trail samples in world
+  // metres, including the launch and final positions. The scene resolves
+  // its tile grid and deduplicates cells already burned.
+  // `opts.onFireSegment(x0, y0, x1, y1, shot)` supplies each accepted sweep
+  // for exact grid traversal, including brief crossings at cell corners.
   //
   // `opts.hostileTargets` — what a HOSTILE shot (a monster's arrow, flagged
   // `hostile` by monsterShot) can hit: the player, handed over as a marker
@@ -1215,7 +1239,7 @@
       ((opts && opts.cellM) || hitRadiusM) * BLOCK_SAMPLE_CELLS);
     for (const s of shots) {
       const targets = s.hostile ? hostileTargets : enemies;
-      if (s.blastRadiusM > 0) {
+      if (s.blastRadiusM > 0 || s.endpointOnly) {
         // Blasts can reach beyond the viewport used to choose auto-attack
         // targets. The caller supplies nearby hostiles across that boundary.
         const blastTargets = !s.hostile && opts?.explosiveTargets ? opts.explosiveTargets : targets;
@@ -1431,7 +1455,7 @@
     RANGED_SLOTS, RANGED_TRIGGER_PAST_REACH, rangedTriggerM, anyEnemyWithin, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,
     OFF_GPS_ATTACK_MUL, OFF_GPS_MIN_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, BOLT_MIN_GLOW, boltGlow, shotRadiusM, shotDotPx,
-    aimAtNearest, shotHeading, spawnShot, spawnFireball, stepShots, lineOfFire, healthColor,
+    aimAtNearest, shotHeading, spawnShot, spawnFireball, spawnExplosiveFlask, stepShots, lineOfFire, healthColor,
     TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,
     MONSTER_SHOT_INTERVAL_MS, HOSTILE_ARROW_COLOR, monsterShot,
   };

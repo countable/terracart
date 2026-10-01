@@ -394,6 +394,7 @@ const MINERAL_ICON_SHEET = {
   // Books.png ends with five scrolls on row 3 (15 columns).
   blank_scroll:    { sheet: 'icon_book', frame: 45 },
   fireball_scroll: { sheet: 'icon_book', frame: 46 },
+  explosive_flask: { sheet: 'icon_potions', frame: 22 },
   fear_scroll:     { sheet: 'icon_book', frame: 47 },
   treasure_map:    { sheet: 'icon_book', frame: 49 },
   // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
@@ -619,7 +620,7 @@ const BASE_TIER = {
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_sight: 3, tome_raven: 4, tome_storm: 5,
-  blank_scroll: 2, fireball_scroll: 3, fear_scroll: 3, treasure_map: 4,
+  blank_scroll: 2, fireball_scroll: 3, explosive_flask: 3, fear_scroll: 3, treasure_map: 4,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
   // Trap Disarm Kit — a T2 utility beside rope: situational, not a staple.
@@ -770,6 +771,7 @@ const ITEMS = [
   { id: 'tome_storm', name: 'Tome of the Storm',     kind: 'supply', dropWeight: 1 },
   { id: 'blank_scroll', name: 'Blank Scroll', kind: 'supply' },
   { id: 'fireball_scroll', name: 'Fireball Scroll', kind: 'magic', scroll: true },
+  { id: 'explosive_flask', name: 'Explosive Flask', kind: 'magic' },
   { id: 'fear_scroll', name: 'Scroll of Fear', kind: 'magic', scroll: true },
   { id: 'treasure_map', name: 'Treasure Map', kind: 'magic', scroll: true },
   { id: 'sleep_powder', name: 'Sleep Powder', kind: 'magic' },
@@ -1048,6 +1050,11 @@ const CONSUMABLE_SPEC = {
     verb: 'Cast', method: 'useFireballScroll', title: 'Cast the Fireball Scroll?',
     get: 'A spark leaps from the parchment and blossoms into roaring flame.',
   },
+  explosive_flask: {
+    damage: 0, fireRadiusCells: 1, projectileRadiusCells: 0.25, dotPx: 4, immediate: true,
+    verb: 'Throw', method: 'useExplosiveFlask', title: 'Throw the Explosive Flask?',
+    get: 'At the edge of sight, the flask breaks and flame takes hold.',
+  },
   fear_scroll: {
     durationMs: 30 * 1000,
     verb: 'Read', method: 'useFearScroll', title: 'Read the Scroll of Fear?',
@@ -1279,6 +1286,7 @@ const PRICES = {
   tome_storm: 300,  // T5 — a T4 thunderclap, once a day, forever
   blank_scroll: 200,
   fireball_scroll: 120,
+  explosive_flask: 100,
   fear_scroll: 100,
   treasure_map: 200,
   sleep_powder: 100,
@@ -1487,6 +1495,7 @@ const ITEM_EFFECTS = {
   tome_storm: 'Thunder is only a sentence away.',
   blank_scroll: 'At the trailer, remembered scrolls can be written upon this empty page.',
   fireball_scroll: CONSUMABLE_SPEC.fireball_scroll.get,
+  explosive_flask: CONSUMABLE_SPEC.explosive_flask.get,
   fear_scroll: CONSUMABLE_SPEC.fear_scroll.get,
   treasure_map: CONSUMABLE_SPEC.treasure_map.get,
   sleep_powder: CONSUMABLE_SPEC.sleep_powder.get,

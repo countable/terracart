@@ -467,7 +467,7 @@ test('scenic: a tide pickup taps into the day ledger, never save.picked', () => 
   const body = src.slice(at, src.indexOf("{ name: 'coindrop'", at));
   assert.truthy(/if \(wp\.tide\) \{\s*if \(isSpent\(wp, spentSets\(scene, save\)\)\) return;\s*Macros\.markToday\(save, wp\.id\);/.test(body),
     'a tide pick is written to the day ledger');
-  assert.truthy(/\(wp\) => \(wp\.tide \? !isSpent\(wp, tideSets\) : !pickedSet\.has\(wp\.id\)\)/.test(body),
+  assert.truthy(/\(wp\) => !isSpent\(wp, tideSets\) && \(wp\.tide \|\| !pickedSet\.has\(wp\.id\)\)/.test(body),
     'and the tap asks the one spent predicate');
 });
 

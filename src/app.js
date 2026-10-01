@@ -3198,6 +3198,9 @@ class MapScene extends Phaser.Scene {
     // does too (it is a hazard, not a story).
     const was = this._slowHere;
     this._slowHere = (entry.slowCells && entry.slowCells.get(i)) || null;
+    const fireCell = tileCellToAbs(this, pc.tx, pc.ty, lix, liy);
+    const fire = this.save.groundFire?.[GroundFire.key(this.depth || 0, fireCell.cellIX, fireCell.cellIY)];
+    if (this._slowHere === 'tar' && fire && !GroundFire.active(fire, Date.now())) this._slowHere = null;
     if (this._slowHere && !was) {
       say(this._slowHere === 'tar' ? 'Tar drags at your feet.' : 'Iron stakes. Slow going.');
     }
@@ -4576,6 +4579,7 @@ class MapScene extends Phaser.Scene {
     this._tickLava(dt);
     // …or in a campfire?
     this._tickFireTouch();
+    this._tickGroundFire();
     // …and did an enemy just walk onto one of the player's Magic Traps?
     this._tickMagicTraps();
     this._revealFog();
@@ -4853,8 +4857,13 @@ class MapScene extends Phaser.Scene {
           hostileTargets: [playerTarget, ...(this._npcCombatTargets || []), ...charmedAllies],
           explosiveTargets,
           canHit: (target, shot) => this._shotCanHit(target, shot),
-          onExplode: shot => this._burstAtWorld('trailspark', shot.x, shot.y,
-            { colour: '#ff742d', ringPx: shot.blastRadiusM / this.cellM * CELL_PX }) });
+          onFireCell: (x, y) => this._igniteGroundAtWorld(x, y),
+          onFireSegment: (x0, y0, x1, y1) => this._igniteGroundSegment(x0, y0, x1, y1),
+          onExplode: shot => {
+            if (shot.projectile === 'explosive_flask') this._explodeFlask(shot);
+            this._burstAtWorld('trailspark', shot.x, shot.y,
+              { colour: '#ff742d', ringPx: shot.blastRadiusM / this.cellM * CELL_PX });
+          } });
     }
     this._drawShots();
 
@@ -14397,6 +14406,7 @@ installSceneMixin(MapScene, SceneCreatures);
 // offers, the quest board) live in scene_shops.js as the SceneShops mixin —
 // same install, same throw on a stale copy.
 installSceneMixin(MapScene, SceneShops);
+installSceneMixin(MapScene, SceneFire);
 
 const game = window.__game = new Phaser.Game({
   type: Phaser.AUTO,

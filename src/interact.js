@@ -1009,12 +1009,12 @@ const TAP_HANDLERS = [
   // rooted in picks them.
   { name: 'wildplant', try: (ctx) => {
     const { scene, save, wm, sx, sy } = ctx;
-    const pickedSet = new Set(save.picked || []);
+    const pickedSet = new Set([...(save.picked || []), ...(save.burnedObjects || [])]);
     // A TIDE pickup (src/scenic.js) is the day's: it answers through the one
     // spent predicate (isSpent — on the waterline today, not taken today).
     const tideSets = spentSets(scene, save);
     const bestWp = findItemInTapCell(scene, 'wildplants', wm,
-      (wp) => (wp.tide ? !isSpent(wp, tideSets) : !pickedSet.has(wp.id)));
+      (wp) => !isSpent(wp, tideSets) && (wp.tide || !pickedSet.has(wp.id)));
     if (bestWp) {
       const wp = bestWp;
       if (tooFar(ctx, wp.x, wp.y)) return 'far';
@@ -1032,6 +1032,7 @@ const TAP_HANDLERS = [
       // 9s bare-handed, faster per tier). Other wildplants
       // (rainberry, pairy, nut, longgrass …) stay instant.
       const award = () => {
+        if (isSpent(wp, spentSets(scene, save))) return;
         // Re-check picked at callback time. The work wheel runs async — if a
         // save reload or some other path already marked this wp.id as picked
         // between handler start and callback fire, awarding again would dupe.
@@ -1049,7 +1050,7 @@ const TAP_HANDLERS = [
           if (isSpent(wp, spentSets(scene, save))) return;
           Macros.markToday(save, wp.id);
         } else {
-          if ((save.picked || []).includes(wp.id)) return;
+          if ((save.picked || []).includes(wp.id) || (save.burnedObjects || []).includes(wp.id)) return;
           save.picked = [...(save.picked || []), wp.id];
         }
         // A pick that ROLLS instead of handing the crop over (the tide line's
@@ -1826,7 +1827,7 @@ const TAP_HANDLERS = [
   { name: 'till', try: (ctx) => {
     const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx;
     const cellHalfM = scene.cellM / 2;
-    const pickedAll = new Set(save.picked || []);
+    const pickedAll = new Set([...(save.picked || []), ...(save.burnedObjects || [])]);
     let blocker = null;
     if (scene.placedRockSet.has(cellKey)) blocker = 'Your own stone fence.';
     if (!blocker) {

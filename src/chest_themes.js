@@ -32,7 +32,7 @@
     // available above ground. Lower-tier magic remains useful in larger stacks.
     magic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry).map(i => i.id), mixedTiers: true, fallback: 'antidote' },
     travelMagic: { ids: ['reach_potion', 'speed_potion', 'shadow_powder', 'treasure_map'], mixedTiers: true, fallback: 'antidote' },
-    combatMagic: { ids: ['shield_potion', 'raven_potion', 'blight_potion', 'thunder_potion', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'fear_scroll', 'sleep_powder'], mixedTiers: true, fallback: 'antidote' },
+    combatMagic: { ids: ['shield_potion', 'raven_potion', 'blight_potion', 'thunder_potion', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder'], mixedTiers: true, fallback: 'antidote' },
     medicalMagic: { ids: { vigor_potion: 3, revive_potion: 3, shield_potion: 2, resurrection_potion: 2, elixir: 1 }, mixedTiers: true, fallback: 'antidote' },
     recovery: { ids: ['vigor_potion', 'elixir'], fallback: 'restorative' },
     antidote: { ids: ['antidote'] },
