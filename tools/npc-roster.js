@@ -196,6 +196,9 @@
     }
     // Draw one sheet: rows 0..n-1 of the standing column, cropped to the union of
     // their opaque bounds, multiplied by `tint` like Phaser's world tint.
+    // Citizen palette draft (npc-recolour.js): measured once from the citizen sheets.
+    const paletteRef = Promise.all(SpriteLayout.NPC_SHEETS.filter(s => !s.role).map(s => load('../' + s.path)))
+      .then(ims => NpcRecolour.reference(ims.filter(Boolean)));
     async function draw(sheet, { rowsToShow = 1, tint = null, zoom }) {
       const im = await load(sheet.src);
       const fig = document.createElement('figure');
@@ -203,8 +206,11 @@
       const src = document.createElement('canvas'); src.width = sheet.fw * rowsToShow; src.height = sheet.fh;
       const sx = src.getContext('2d');
       for (let r = 0; r < rowsToShow; r++) sx.drawImage(im, (sheet.ox || 0) + sheet.col * sheet.fw, (sheet.oy || 0) + r * sheet.fh, sheet.fw, sheet.fh, r * sheet.fw, 0, sheet.fw, sheet.fh);
-      const px = sx.getImageData(0, 0, src.width, src.height);
+      let px = sx.getImageData(0, 0, src.width, src.height);
       if (sheet.recolour === 'violet') recolourViolet(px.data);
+      if ($('palette').value === 'citizen' && sheet.pack !== 'citizen') {
+        sx.putImageData(px, 0, 0); NpcRecolour.apply(src, await paletteRef); px = sx.getImageData(0, 0, src.width, src.height);
+      }
       if (tint != null) for (let i = 0; i < px.data.length; i += 4) { px.data[i] *= ((tint >> 16) & 255) / 255; px.data[i + 1] *= ((tint >> 8) & 255) / 255; px.data[i + 2] *= (tint & 255) / 255; }
       sx.putImageData(px, 0, 0);
       // Crop each facing to its own columns but share one vertical band, so
