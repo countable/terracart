@@ -317,7 +317,7 @@ const FOLLOW_RAMP_M = 4;
 // the next wall along gets a fresh choice.
 const DETOUR_COMMIT_MS = 1000;
 // ─── The peek drag (see the PEEK DRAG block on the scene) ────────────────────
-// How far the camera may slide off the player, in cells. Three cells is a
+// Maximum with a carried telescope, in cells. Three cells is a
 // little over half the 5.5-cell half-view: enough to see what the frame was
 // cutting off without the character leaving the map, and far inside the loaded
 // 3×3 tile neighbourhood every world pass scans.
@@ -1412,6 +1412,14 @@ const ROAD_CHIP_SVG =
   + '</g></svg>';
 
 const ICON_SHEETS = {
+  icon_telescope: { url: 'assets/Icons/Items/telescope.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_orb: { url: 'assets/Icons/Items/orb.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_goblet: { url: 'assets/Icons/Items/goblet.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_lucky_key: { url: 'assets/Icons/Items/lucky_key.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_shield_wood: { url: 'assets/Icons/Items/shield_wood.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_shield_metal: { url: 'assets/Icons/Items/shield_metal.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_shield_gold: { url: 'assets/Icons/Items/shield_gold.png', cols: 1, srcW: 16, srcH: 16 },
+
   crops:       { url: 'assets/Objects/Approved/crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
   springcrops: { url: 'assets/Objects/Approved/springcrops.png',                cols: 14, srcW: 224, srcH: 128 },
   gems:        { url: 'assets/Icons/RPG icons/Extras/Gemstones.png',    cols: 7,  srcW: 112, srcH: 64  },
@@ -5008,7 +5016,7 @@ class MapScene extends Phaser.Scene {
   // only delivered by a shot you could see coming rather than a silent drain
   // at range.
   _shotHitsPlayer(shot) {
-    const dmg = Combat.incomingDamage(this.save, shot.damage, shot.hits);
+    const dmg = Combat.incomingProjectileDamage(this.save, shot.damage, shot.hits);
     if (!(dmg > 0)) return false;
     this._monsterDmgAccum = (this._monsterDmgAccum || 0)
       + this._losePlayerEnergy(dmg, { closeShop: true });
@@ -6299,7 +6307,9 @@ class MapScene extends Phaser.Scene {
   _setPeekFromDrag(dxPx, dyPx) {
     const k = this.cellM / CELL_PX;
     let mx = -dxPx * k, my = -dyPx * k;
-    const maxM = PEEK_MAX_CELLS * this.cellM;
+    const telescope = carriesItem(this.save, 'telescope');
+    const maxM = PEEK_MAX_CELLS * this.cellM
+      / (telescope ? 1 : CARRIED_ITEM_SPEC.telescope.peekMultiplier);
     const mag = Math.hypot(mx, my);
     if (mag > maxM) { mx = mx / mag * maxM; my = my / mag * maxM; }
     this.peekM.x = mx;
@@ -9909,6 +9919,34 @@ class MapScene extends Phaser.Scene {
   useRopeUp()   { return this.useRope(-1); }
   useRopeDown() { return this.useRope(+1); }
 
+  // Snapshot only unspent secrets currently on screen, including a peeked view.
+  // The renderer replays their own short cue; the orb and rewards stay intact.
+  useOrb() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'orb' || !(sel.count > 0)) return false;
+    const pc = this.playerToWorldCell();
+    const spent = spentSets(this, this.save);
+    const now = Date.now();
+    const reveal = new Map();
+    const collect = o => {
+      if (isSpent(o, spent)) return;
+      const at = worldMetersToScreen(this, o.x, o.y);
+      if (at.x < this.viewLeft || at.x > this.viewLeft + this.viewSize
+          || at.y < this.viewTop || at.y > this.viewTop + this.viewSize) return;
+      reveal.set(o.id, now);
+    };
+    WorldGen.forEachItemNear('wildplants', pc.tx, pc.ty, o => {
+      if (isNestBush(o.crop, o.id)) collect(o);
+    });
+    WorldGen.forEachItemNear('objects', pc.tx, pc.ty, o => {
+      if (o.kind === 'mineralrock' && isGlintRock(o)) collect(o);
+    });
+    this._orbReveal = reveal;
+    if (reveal.size) this.flash('Hidden things stir.', this.viewCenterX, this.viewCenterY);
+    else this.flash('Nothing stirs nearby.', this.viewCenterX, this.viewCenterY);
+    return true;
+  }
+
   eatSelected() {
     const sel = getSelectedSlot(this.save);
     if (!sel || (sel.count ?? 0) <= 0) return false;
@@ -9930,7 +9968,7 @@ class MapScene extends Phaser.Scene {
     const restore = featherRevive ? null : FOOD_ENERGY[sel.id];
     if (!featherRevive && restore == null) return false;
     const { gained, extra } = this._consumeFoodEffects(sel.id, featherRevive);
-    consumeSelected(this.save);
+    if (!ITEM_BY_ID[sel.id]?.reusable) consumeSelected(this.save);
     // Armed only now, after a bite has actually landed.
     Energy.startEatCooldown(this.save);
     persistSave(this.save);
@@ -13759,9 +13797,10 @@ class MapScene extends Phaser.Scene {
     this._eatCdShown = cooling ? shortDuration(cdLeft) : '';
     // While the gate refuses, the wait REPLACES the "+N⚡" it would otherwise
     // advertise: the restore isn't the actionable number until the bar fills.
-    const text = cooling ? `Eat ${this._eatCdShown}`
+    const eatVerb = ITEM_BY_ID[sel?.id]?.reusable ? 'Drink' : 'Eat';
+    const text = cooling ? `${eatVerb} ${this._eatCdShown}`
       : featherRevive ? `Use → ${FEATHER_REVIVE_ENERGY}⚡`
-      : `Eat +${restore}⚡`;
+      : `${eatVerb} +${restore}⚡`;
     const btn = existing || this._makeEatButton();
     // The icon is rebuilt only when the SELECTED STACK changes, not on every
     // repaint: this method now runs once a second for the whole cooldown, and

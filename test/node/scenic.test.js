@@ -344,7 +344,7 @@ test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hal
     if (r.kind === 'relic' || r.kind === 'armor') return (gearPrice(r.kind, r.slot, r.tier) || 0) + (r.consolation || 0);
     return (itemValue(r.id) || 0) * (r.qty || 1) + (r.consolation || 0);
   };
-  const emptySave = { relics: {}, armor: {}, inv: {} };
+  const emptySave = { relics: {}, armor: {}, inv: [] };
   let sum = 0;
   const N = 6000;
   for (let i = 0; i < N; i++) sum += val(pickReward('chest:vista', emptySave, Math.random, { tier: 4, depth: 0 }));
@@ -352,7 +352,7 @@ test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hal
 });
 
 test('scenic: the scope — story once, the relic once per save, the gift once per UTC day', () => {
-  const save = { relics: {}, coinBurstClaimed: {}, inv: {} };
+  const save = { relics: {}, coinBurstClaimed: {}, inv: [] };
   const stories = [], rolls = [], loot = [];
   const scene = makeScene({ save, flashLoot: (t) => loot.push(t),
     _storySplashOnce(key) { stories.push(key); return true; } });

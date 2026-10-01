@@ -300,6 +300,19 @@
     return playerDamage(shielded, save.armor, hits, save.mode);
   }
 
+  // Carrying several shields never stacks their protection. Subtract once
+  // per projectile after potion, armour and mode have resolved its hit bundle.
+  function projectileReduction(save) {
+    let reduction = 0;
+    for (const [id, spec] of Object.entries(CARRIED_ITEM_SPEC)) {
+      if (carriesItem(save, id)) reduction = Math.max(reduction, spec.projectileReduction || 0);
+    }
+    return reduction;
+  }
+  function incomingProjectileDamage(save, damage, hits = 1, now = Date.now()) {
+    return Math.max(0, incomingDamage(save, damage, hits, now) - projectileReduction(save));
+  }
+
   // ── A THIEF'S BLOW: the purse or the bag, never the bar ──────────────────
   // A roster row that says `steals` lands its swoop on what it names: the
   // PURSE (`'coins'` — the raven) or the BAG (`'food'` — the gull). The one
@@ -1309,7 +1322,7 @@
     trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
-    MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, playerDowned,
+    MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, incomingProjectileDamage, projectileReduction, playerDowned,
     theftKind, THEFT_COINS, theftAmount, theftFood, theftDay, theftSated, incomingTheft, bankTheft,
     MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,

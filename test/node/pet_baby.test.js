@@ -66,7 +66,7 @@ test('nest bush: wiggles once every 10-30 s on its own beat, off the shared beat
 
 test('nest bush: the renderer wiggles off the harvest predicate and resets every plant', () => {
   assert.includes(RENDER_SRC, 'isNestBush(p.crop, p.wildId)');
-  assert.includes(RENDER_SRC, 'nestBushPhase(p.wildId, _plantNow)');
+  assert.includes(RENDER_SRC, 'nestBushPhase(p.wildId, _plantNow, scene._orbReveal?.get(p.wildId))');
   assert.includes(RENDER_SRC, 's.setAngle(wig >= 0 ?');
   assert.includes(INTERACT_SRC, 'isNestBush(wp.crop, wp.id)');
 });
