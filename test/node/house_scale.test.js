@@ -78,9 +78,9 @@ test('building scale: Home draws a tenth wider than the village, on its own row'
   // is the house row's default × 1.1 (Oct 2026), still under the smallest
   // fort so Home never reads as a civic block.
   const trailerCells = (area) => cellsWide(houseArtScale(area, HOUSE_FRAMES.trailer, 'trailer', CELL_M, CELL_PX), HOUSE_FRAMES.trailer);
-  nearCells(trailerCells(undefined), HOUSE.def * 1.1, 'Home: house default × 1.1');
-  nearCells(trailerCells(10), HOUSE.def * 1.1, 'and a stray area neither shrinks it');
-  nearCells(trailerCells(50000), HOUSE.def * 1.1, 'nor grows it');
+  nearCells(trailerCells(undefined), HOUSE.def * 1.21, 'Home: house default × 1.21');
+  nearCells(trailerCells(10), HOUSE.def * 1.21, 'and a stray area neither shrinks it');
+  nearCells(trailerCells(50000), HOUSE.def * 1.21, 'nor grows it');
   assert.eq(TRAILER.def, TRAILER.min); assert.eq(TRAILER.def, TRAILER.max);
   assert.lt(TRAILER.max, FORT.min, 'Home stays under the smallest fort');
   // Every residential role without a row of its own shares the house row.

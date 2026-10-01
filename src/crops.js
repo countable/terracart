@@ -17,12 +17,13 @@
 (function (root) {
   'use strict';
 
-  // A crop's stage lasts 2 × tier³ minutes (owner's call, Sep 2026), off its
-  // BASE_TIER (items.js — the one tier the loot and prices read), rounded to a
-  // number a player can hold in their head (roundHoldMin): tier 1 2m, 2 15m,
-  // 3 55m, 4 2h, 5 4h, 6 7h. The magical flowers ride the same curve at their
-  // own tiers (sunflower 4, fireflower 5, iceflower 6).
-  const HOLD_MIN_PER_TIER_CUBED = 2;
+  // A crop's stage lasts 4 × tier³ minutes (owner's call, Oct 2026: double
+  // the Sep 2026 2 × tier³), off its BASE_TIER (items.js — the one tier the
+  // loot and prices read), rounded to a number a player can hold in their
+  // head (roundHoldMin): tier 1 4m, 2 30m, 3 2h, 4 4h, 5 8h, 6 14h. The
+  // magical flowers ride the same curve at their own tiers (sunflower 4,
+  // fireflower 5, iceflower 6).
+  const HOLD_MIN_PER_TIER_CUBED = 4;
   function roundHoldMin(m) {
     if (m < 10) return Math.max(1, Math.round(m));
     if (m < 60) return Math.round(m / 5) * 5;
@@ -43,10 +44,11 @@
   const LEGACY_STAGE_HOLD_MS = 15 * 60 * 1000;
   // THE CAN SHORTENS THE STAGE IT STARTS (owner's call, Sep 2026): a watering
   // stamps the plant's hold for the stage it begins (`p.hold_ms`), cut by the
-  // can's tier — CAN_HOLD_CUT off at Frost (three quarters), a straight line down from bare
-  // hands' full hold. A plant watered before this carried no stamp and reads
-  // its crop's own hold (plantHoldMs).
-  const CAN_HOLD_CUT = 0.75;   // a Frost can's stage is a quarter of bare hands'
+  // can's tier — CAN_HOLD_CUT off at Frost (seven eighths — owner's call,
+  // Oct 2026, up from three quarters), a straight line down from bare hands'
+  // full hold. A plant watered before this carried no stamp and reads its
+  // crop's own hold (plantHoldMs).
+  const CAN_HOLD_CUT = 0.875;  // a Frost can's stage is an eighth of bare hands'
   function canHoldMul(relics) {
     const t = relics && relics.can && relics.can.tier ? relics.can.tier : 0;
     return 1 - CAN_HOLD_CUT * Math.max(0, Math.min(1, t / CAN_TOP_TIER));

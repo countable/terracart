@@ -1160,7 +1160,7 @@ const PRICES = {
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's one-way shaft); crafted from 5 long grass, so not a money pump
   trap_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T2 — one tier-2 shot and a staff beat's hold on one foe; a revive's worth
-  spear:        40,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a shot, not as a staple
+  spear:         5,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a staple like the torch (owner, Oct 2026: 40 was far too dear for one throw)
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); one wood crafts it, so kept low
   scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
 
