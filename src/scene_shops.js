@@ -237,9 +237,10 @@ class SceneShops {
     const isDeliveryHost = !castle && !isFort && !shopType && !isStarterSmith && !!house
       && !(this.isScarecrowShop(house) && !this.save.scarecrowShopUsed);
     // There is no per-hour deal cap (shops_math.js header). A deal is still
-    // RECORDED against the house — the trader's stock turns over on it
-    // (shopRng's perDeal) and its cooldown starts from it — called from
-    // inside every accept path.
+    // RECORDED against the house — it settles the shop: the shelf turns over
+    // (the deal count is in shopRng's seed), the re-roll ladder drops back to
+    // its base rung, and the trader's cooldown starts — called from inside
+    // every accept path.
     const recordDeal = () => { ShopsMath.recordDeal(this.save, house); };
     // THE ONE CLOCK ON A DOOR: a role with a row in ShopsMath.DEAL_COOLDOWN_MS
     // (the trader) rests briefly after a closed deal. The wait is printed in
@@ -934,10 +935,9 @@ class SceneShops {
     });
   }
 
-  // Read the persisted offer for this house if set, else build a new one and
-  // persist. Persisting means the same offer "stays on display" until the
-  // player either buys it, rerolls it, or (for non-castle shops) leaves and
-  // the cap resets it. Castle offers persist forever and rotate on purchase.
+  // An offer is never persisted: it is re-derived from the shop's seeded
+  // stream, so it "stays on display" until the player buys it, re-rolls it,
+  // or the hour bucket turns.
   //
   // ─── Shop clock helpers ──────────────────────────────────────────
   // Shop hour-bucket scheduling + the seeded per-bucket RNG live in
@@ -951,16 +951,16 @@ class SceneShops {
   shopBucketState(house) {
     return ShopsMath.bucketState(this.save, house);
   }
-  // opts.perDeal: the stream also turns over with each deal this bucket —
-  // for the trader, whose goods leave with the deal (ShopsMath.rng).
-  shopRng(house, lane = '', opts = {}) {
-    return ShopsMath.rng(this.save, house, lane, Date.now(), opts);
+  // The stream turns over with each deal this bucket — a purchase takes the
+  // offer with it (ShopsMath.rng, recordDeal).
+  shopRng(house, lane = '') {
+    return ShopsMath.rng(this.save, house, lane, Date.now());
   }
 
   // Build a relic/armor offer for a specific house, derived purely from the
   // seeded RNG so the same shop in the same bucket always shows the same
   // offer — no need to persist the offer object. Re-roll bumps cur.rerolls
-  // which pivots the seed lane.
+  // which pivots the seed lane; a purchase pivots it too (cur.deals).
   // opts.maxTier caps the roll at a themed relic shop's tier (Gear.buildRelicOffer).
   peekOrBuildRelicOffer(house, opts = {}) {
     const castle = isCastle(house);
@@ -1376,12 +1376,11 @@ class SceneShops {
   // then asks for whatever count of it hits a target value (1.0..2.0× of the
   // offered item's base price). Seeded by (house, bucket, rerolls, deals) so
   // the offer is stable until the player buys, walks away through a bucket
-  // flip, or pays the re-roll cost. THE DEAL IS IN THE SEED (shopRng's
-  // perDeal): the goods on offer are what the trader hands over, so once a
-  // trade closes the trader holds something else — the next offer, and the
-  // sign over the roof, name new goods instead of the stack just bartered
-  // away. (Cash shops keep their shelf across a purchase; that fold is the
-  // trader's alone.)
+  // flip, or pays the re-roll cost. THE DEAL IS IN THE SEED (ShopsMath.rng,
+  // as at every shop): the goods on offer are what the trader hands over, so
+  // once a trade closes the trader holds something else — the next offer,
+  // and the sign over the roof, name new goods instead of the stack just
+  // bartered away.
   //
   // The GIVE side is drawn first and on its own (traderGivePick) because the
   // sign over the roof names the trader for it — "Rockfruit Trader" (render.js
@@ -1400,7 +1399,7 @@ class SceneShops {
   }
   traderGivePick(house) {
     if (!house?.id) return null;
-    const rng = this.shopRng(house, 'trader', { perDeal: true });
+    const rng = this.shopRng(house, 'trader');
     // Same houseSeed produce-vs-buylist coin flip the generic path uses.
     const houseSeed = this._houseSeed(house);
     const sellsProduce = !!houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
@@ -1727,14 +1726,10 @@ class SceneShops {
         this._clampSelSlot();
         this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
+        // Forging settles the smithy like any closed deal (ShopsMath.recordDeal):
+        // the re-roll cost drops back to the base rung and the next forge
+        // target is a fresh draw.
         recordDeal();
-        // Forging "settles" the smithy — reset its re-roll level so the next
-        // re-roll cost drops back to the $5 base (ShopsMath.smithyRerollCost)
-        // at once, rather than easing off one rung an hour.
-        if (house && house.id) {
-          const cur = this.shopBucketState(house);
-          if (cur) cur.rerolls = 0;
-        }
         persistSave(this.save);
         this.updateHUD();
         this.buildInventoryDOM();
