@@ -146,7 +146,7 @@
       const name = row.name;
       rows.push({ id: `trailer:${role}`, status: 'game', named: !!name, label: name || row.label, zone: row.arrives ? 'rescue' : row.radiusM ? 'dig site' : 'trailer',
         role: `${row.label} · from ${row.minMemories} memories`, share: null, does: DOES[role], look: STORY_LOOKS[role],
-        ownArt: !!own, tints: own ? [] : village.colors, current: own ? [own] : scaled(currentSheets), art: prop.childArt ? prop.art : scaled(prop.art), alts: prop.childArt ? (prop.alts || []) : scaled(prop.alts || []), note: prop.note || '' });
+        ownArt: !!own, tints: own ? [] : village.colors, current: own ? scaled([own]) : scaled(currentSheets), art: prop.childArt ? prop.art : scaled(prop.art), alts: prop.childArt ? (prop.alts || []) : scaled(prop.alts || []), note: prop.note || '' });
     }
     const shrine = NPC.PROFILES.shrine;
     for (const g of GROVE) rows.push({ id: `grove:${g.role}`, status: 'planned', label: g.label, zone: 'grove', role: `${g.role} · proposed grove variant of the shrine zone`, share: null,
