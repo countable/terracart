@@ -17,35 +17,48 @@ const MemoryStory = (() => {
   // splashed over the map on the first morning; it never is now (Sep 2026,
   // owner's call): the player walks up to the one neighbour on screen and
   // taps them. drain() drops a queued 'home' record from an older save.
+  // NEIGHBOUR COPY (CLAUDE.md, Dialogs): spoken words in curly quotes, an
+  // action in <em> on its own line, the body HTML; a talk that needs two
+  // panels is an ARRAY of pages (NPC.dialogue shows them with "Next"). The
+  // vocabulary is the story bible's (docs/story.txt): the Breaking, fifty
+  // years, Mending Lane, the wizard the old folk call Tim. The hood is
+  // looked at and never asked about twice.
   const HOME = {
     title: 'A neighbour at the gate', art: 'revive_found',
-    body: 'My children still ask when we can go home. I kept the key, though there is hardly a door left. If you can mend these houses, we can come back. We still have hands to help.',
+    body: '<em>Looks at your hood, then past it, down the lane.</em>\n“Nobody comes to Mending Lane any more, stranger.”\n<em>Holds up a key.</em>\n“My children still ask when we can go home. I kept this, though there is hardly a door left for it.”',
   };
-  const RUMOUR = 'They say a wise man lives somewhere around here. Nobody I know has seen him. Perhaps he knows why the old roads feel so familiar to you.';
+  // The second page of the warden's first talk — the safe area, after the
+  // plea. NPC.WARDEN_LINE is the one owner of the safe-area sentence.
+  const wardenWelcome = () => '“Mend one house and we come back. We still have hands.”\n<em>Nods at the quiet grass round the trailer.</em>\n' + NPC.WARDEN_LINE;
+  const FIRST_ROOF = '<em>Eyes red, and not hiding it.</em>\n“Lamplight, in a window that was dark fifty years. My children saw it first. We can begin again.”';
+  const RUMOUR = '<em>Lowers their voice.</em>\n“They say a wise man lives somewhere round here. Old Tim, the elders call him. Nobody I know has seen him.”\n“You walk these roads like you have walked them before. Perhaps he knows why.”';
   // THE STORY NEIGHBOURS by the starting trailer (NPC.STORY_ROLES; Starter
   // placeSafeAreaWarden seats them). Each keeps to one thread of the story
   // and moves with the act, never ahead of it: the survivor knows the
   // Warmonger only as the night the roofs went, the believer never learns
   // what the player learns at the second tower — the irony is the player's.
   const NEIGHBOURS = {
+    // The survivor is the ELDER of the bible: in act 2 they are the one who
+    // notices the Hood has not aged — foreshadowing, never the secret.
     witness: {
-      1: 'Nobody heard an army. There was a bell, then smoke, then no roofs anywhere. They call whatever did it the Warmonger. I never saw its face.',
-      2: 'The Warmonger took every roof in one night. You are putting them back one at a time. That is the only answer to it I have ever heard.',
-      3: 'Some nights I think the Warmonger is still out there. Then I see lamplight in a mended window, and I stop thinking about it.',
+      1: ['<em>Stares at the wrecks rather than at you.</em>\n“Nobody heard an army. A bell, then smoke, then no roofs anywhere. The Breaking, we call it.”\n“They call what did it the Warmonger. I never saw its face.”'],
+      2: ['“Every roof in one night, fifty years back. You put them back one at a time.”\n<em>Almost smiles.</em>\n“That is the only answer to the Warmonger I have ever heard.”',
+        '<em>Squints at you.</em>\n“I have known this lane since the first years after. You have not changed a day in it. Odd, that.”'],
+      3: ['“Some nights I think it is still out there.”\n<em>Watches a mended window glow.</em>\n“Then I see that, and I stop.”'],
     },
     // The wanderer is a CHILD (NPC.STORY_ROLES — drawn at CHILD_SCALE): short
     // sentences, one thing at a time, a door remembered before a house.
     wanderer: {
-      homeless: 'We sleep under whichever wall is driest. I had a room once, with my name on the door. Now there is only the door.',
-      housed: 'Did you see? A roof! A real one, with a lamp under it. I slept inside last night. I forgot what rain sounds like on a roof.',
-      settled: 'I have a bed now, and a window. Knock when you go past. There is always something in the pot.',
+      homeless: '<em>The child looks up at your hood, then quickly away.</em>\n“We sleep under whichever wall is driest.”\n“I had a room once. My name was on the door. Now there is only the door.”',
+      housed: '<em>Runs up, out of breath.</em>\n“Did you see? A roof! A real one, with a lamp under it.”\n“I slept inside last night. Rain sounds different on a roof. I forgot that.”',
+      settled: '“I have a bed now, and a window.”\n<em>Tugs the edge of your hood, then lets go.</em>\n“Is it warm under there? Mum says not to ask.”\n“Knock when you go past. There is always something in the pot.”',
     },
     believer: {
-      ruin: 'Before the fire a wise wizard watched over this land. His tower fell with the rest. Mend enough of these wrecks and you will find it. Restore it, and perhaps he comes back and saves us all.',
-      locked: 'His tower stands again! The door will not open for me, but he is in there, I know it. He will come out when the time is right.',
-      open: 'You have spoken with him? Then there is hope for all of us. He never turned anyone away.',
-      abandoned: 'The tower is cold again. He has not left us. A wise man does not leave. He goes ahead.',
-      moved: 'They say he keeps a new tower now. When you see him, tell him we still light a candle for him every night.',
+      ruin: '<em>Hands clasped.</em>\n“Before the Breaking a wise wizard watched over this land. Tim, the old folk called him. His tower fell with the rest.”\n“Mend enough wrecks and you will find it. Raise it, and he will come back for us. I know it.”',
+      locked: '<em>Points down the lane, beaming.</em>\n“His tower stands again! The door will not open for me. He is in there. He will come out when the time is right.”',
+      open: '“You have spoken with him?”\n<em>Touches your sleeve.</em>\n“Then there is hope for all of us. He never turned anyone away.”\n<em>A pause.</em>\n“Did he ask after us? No. He would be busy.”',
+      abandoned: '<em>Has not slept.</em>\n“The tower is cold again. He has not left us. A wise man does not leave. He goes ahead.”',
+      moved: '“They say he keeps a new tower now, out among the wrecks.”\n<em>Presses a candle stub into your hand, then takes it back.</em>\n“Tell him we still light one for him. Every night.”',
     },
   };
   const SCENES = {
@@ -129,10 +142,10 @@ const MemoryStory = (() => {
     '“Almost. There is very little left between you and what you were.”',
   ];
   const SURVIVORS = [
-    'The children have been practising how to thank you. Come by before supper, or they will have to start again tomorrow.',
-    'You look tired. There is bread on the table. It is only bread, but you do not have to earn it.',
-    'You need not fix anything today. Sit with us a while. We saved you a place.',
-    'Whatever you have remembered, you are the one who opened our door again. It is still open to you.',
+    '<em>Children’s voices carry from a mended house.</em>\n“They have been practising how to thank you. Come by before supper, or they start again tomorrow.”',
+    '<em>Looks at the shadow under your hood.</em>\n“You look tired. There is bread on the table. It is only bread. You do not have to earn it.”',
+    '“Fix nothing today.”\n<em>Moves along the bench.</em>\n“Sit a while. We saved you a place.”',
+    '<em>Does not ask what you saw at the tower.</em>\n“Whatever you remembered up there, you are the one who opened our door. It is still open.”',
   ];
   const DRAGON_DECLARATION = 'I am a dragon, and so are you. We are the alpha species of the stars, and this planet is mine. You are my sword, nearly restored. Collect your fire breath on level 9 of the dungeon from the demons there.';
   const REVEAL = [
@@ -195,10 +208,10 @@ const MemoryStory = (() => {
   function npcDialogue(scene, c) {
     if (c.role === 'warden') {
       const repaired = Object.keys(scene.save.restoredHouses || {}).length;
-      if (!repaired) return HOME.body + '\n\n' + NPC.WARDEN_LINE;
+      if (!repaired) return [HOME.body, wardenWelcome()];
       if (total(scene.save) >= 9 && act(scene.save) === 1) return RUMOUR;
       if (act(scene.save) >= 2) return survivorLine(scene.save);
-      return 'There is lamplight in a house that was dark yesterday. My children saw it first. Thank you. We can begin again.';
+      return FIRST_ROOF;
     }
     if (c.role === 'witness') return NEIGHBOURS.witness[act(scene.save)];
     if (c.role === 'wanderer') return wandererLine(scene, c);
@@ -339,7 +352,7 @@ const MemoryStory = (() => {
     try { show(); } catch (error) { scene._wizardStoryOpen = false; throw error; }
   }
   return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, LOCKED, ABANDONED, EMPTY,
-    HOME, RUMOUR, NEIGHBOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
+    HOME, FIRST_ROOF, RUMOUR, NEIGHBOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
     state, total, enqueue, panel, drain, npcDialogue, wandererLine, believerLine, survivorLine, act, towerAccess, objective,
     eligibleBeats, wizardSequence, pagesFor, visitWizard };
 })();

@@ -52,6 +52,21 @@ test('shortDuration: every output carries a unit letter and a plain integer', ()
   }
 });
 
+test('spokenDuration: the same ladder and rounding, in a speaking voice', () => {
+  assert.eq(spokenDuration(DN_DAY), 'a day', 'a neighbour says "a day", never "1d"');
+  assert.eq(spokenDuration(3 * DN_DAY), '3 days');
+  assert.eq(spokenDuration(DN_HOUR), 'an hour');
+  assert.eq(spokenDuration(5 * DN_MIN), '5 minutes');
+  assert.eq(spokenDuration(DN_HOUR + 5 * DN_MIN), '2 hours', 'rounds up like shortDuration, never "1 hour 5 minutes"');
+  assert.eq(spokenDuration(23.5 * DN_HOUR), 'a day');
+  assert.eq(spokenDuration(0), 'no time at all');
+  for (const ms of [1, 12 * DN_SEC, 90 * DN_SEC, 3 * DN_HOUR, DN_DAY + 3 * DN_HOUR, 20 * DN_DAY]) {
+    const unit = shortDuration(ms).slice(-1), word = { s: 'second', m: 'minute', h: 'hour', d: 'day' }[unit];
+    assert.truthy(spokenDuration(ms).includes(word), `${ms}ms: the two helpers agree on the unit`);
+    assert.eq(String(parseInt(shortDuration(ms), 10)), spokenDuration(ms).match(/^(\d+|an?)/)[1].replace(/^an?$/, '1'), `${ms}ms: and the count`);
+  }
+});
+
 test('UTC day identity and countdown share the same midnight', () => {
   const midnight = Date.UTC(2026, 8, 5);            // 2026-09-05T00:00:00Z
   const before = midnight - 1;

@@ -111,6 +111,21 @@ function shortDuration(ms) {
   if (h < 24) return `${h}h`;
   return `${Math.ceil(h / 24)}d`;
 }
+// The same ladder in a speaking voice — for a wait a CHARACTER SAYS (a
+// neighbour's "stay away a day and they forget"), never a toast, a price
+// line or a HUD label, which keep the lettered form. One unit, rounded up
+// the same way, so the two can never disagree about how long.
+function spokenDuration(ms) {
+  if (!(ms > 0)) return 'no time at all';
+  const say = (n, one, many) => (n === 1 ? one : `${n} ${many}`);
+  const s = Math.ceil(ms / 1000);
+  if (s < 60) return say(s, 'a second', 'seconds');
+  const m = Math.ceil(s / 60);
+  if (m < 60) return say(m, 'a minute', 'minutes');
+  const h = Math.ceil(m / 60);
+  if (h < 24) return say(h, 'an hour', 'hours');
+  return say(Math.ceil(h / 24), 'a day', 'days');
+}
 
 // One UTC boundary owns both the persistent YYYYMMDD key and the numeric day
 // used for rotation/age arithmetic, so every daily mechanic flips together.
