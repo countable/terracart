@@ -393,6 +393,36 @@ test('lighting: a torch and a mushroom glow to different degrees', () => {
   assert.gt(ch(mush.colour, 0), ch(mush.colour, 16), 'mushroom: blue over red');
 });
 
+test('lighting: T3 and higher treasure trunks cast their shared rarity colour', () => {
+  const sc = scene({_lights: []});
+  for (let tier = 3; tier <= CHEST_TIER_MAX; tier++) {
+    const chest = {kind:'chest', id:'tier_light_' + tier, poiClass:'memorial', poiDensity:3, depth:(tier - 3) * 2};
+    assert.eq(chestTier(chest), tier);
+    assert.eq(chestLook(chest).texKey, 'chest');
+    const key = 'chest_' + tier, row = Lighting.KINDS[key];
+    assert.eq(Lighting.sourceKind(sc, chest), key);
+    assert.eq(row.colour, CHEST_TIER_COLOR[tier], 'one shared tier colour');
+    for (const property of ['radiusCells', 'peak', 'flicker', 'pulse']) {
+      assert.eq(row[property], Lighting.KINDS.poi[property], property + ' follows ordinary POI light');
+    }
+    Lighting.beginFrame(sc);
+    assert.truthy(Lighting.consider(sc, chest, 2, 3, HALF_M), 'collected by the normal object light path');
+    assert.eq(sc._lights.length, 1);
+    assert.eq(sc._lights[0].kind, key);
+    assert.eq(sc._lights[0].id, chest.id);
+    assert.eq(sc._lights[0].dx, 2);
+    assert.eq(sc._lights[0].dy, 3);
+  }
+  for (const chest of [
+    {kind:'chest', poiClass:'art_gallery'},
+    {kind:'chest', poiClass:'memorial', poiDensity:7},
+    {kind:'chest', poiClass:'memorial', poiDensity:25},
+    {kind:'chest', poiClass:'waste_basket', poiDensity:1},
+    {kind:'chest', poiClass:'bakery', poiDensity:1},
+  ]) assert.eq(Lighting.sourceKind(sc, chest), 'poi', chest.poiClass + ' keeps its ordinary POI light');
+  assert.eq(Lighting.sourceKind(sc, {kind:'chest', crate:true, depth:8}), null, 'supply crates remain unlit');
+});
+
 test('lighting: a POI breathes slowly, on its own phase', () => {
   const poi = Lighting.KINDS.poi;
   assert.lt(Lighting.radiusCells('poi'), Lighting.radiusCells('building'), 'small: it marks the place, it does not light the block');

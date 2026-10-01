@@ -198,7 +198,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_TIER_COLOR,
   chestDensityTier, chestBaseTier, chestTierDepthBonus, ZONE_NEXUS_TIER_BONUS, chestTierZoneBonus, chestTier, chestMirrorsUnderground,
   CRATE_RESTORE_PER, CRATE_RESTORE_MAX_DAYS, crateRestoreDays,
-  BARREL_CLASSES, BARREL_EMPTY_P_BASE, BARREL_EMPTY_P_DENSE, BARREL_EMPTY_P_GENERATED, BARREL_LOOT, barrelEmptyP, rollBarrel, isBarrel, barrelFlash,
+  BARREL_CLASSES, BARREL_ART, BARREL_LOOT, CLAY_POT_LOOT, barrelProfile, barrelLootPool, rollBarrel, isBarrel, barrelFlash,
   POT_COINS_BY_DENSITY, potCoinsFor, isPotOfGold, isBikeRack, bikeRackFlash,
   BIKE_RACK_SPEED_MUL, BIKE_RACK_MS, steerSpeedMul,
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,

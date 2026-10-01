@@ -574,12 +574,10 @@ def quarry_card(v, d):
     v = {**story_data, **v}
     unit, side = 10, fixture['side']
     prefix = v['id'] + '-art'
-    definitions = {**d['materials'], 'equipment': {'kind':'quarry_equipment'},
-                   'tool_crate': {'kind':'box'}, 'goblin': {'kind':'goblin'}}
+    definitions = {**d['materials'],
+                   'tool_crate': {'kind':'box'}, 'barrel': {'kind':'barrel'}, 'goblin': {'kind':'goblin'}}
     names = {o['material'] for o in fixture['objects']}
     materials = {name:definitions[name] for name in names if name != 'treasure_x'}
-    if 'tool_crate' in names:
-        materials['equipment'] = definitions['equipment']
     parts = [f'<svg role="img" aria-label="{html.escape(v["name"])} layout" viewBox="0 0 {side*unit} {side*unit}">',
              '<rect width="100%" height="100%" fill="#172820"/>', sprite_symbols(materials, prefix)]
     ground = {'crater':'#45413b','abandoned':'#555042','strip_mine':'#55544b','stronghold':'#505044'}.get(v.get('layout'),'#4c4b43')
@@ -600,11 +598,9 @@ def quarry_card(v, d):
             parts.append(f'<g class="treasure-mark"><circle cx="{cx}" cy="{cy}" r="4" fill="#c7b28a" opacity=".35"/><path d="M {cx-2.5} {cy-2.5} L {cx+2.5} {cy+2.5} M {cx+2.5} {cy-2.5} L {cx-2.5} {cy+2.5}" stroke="#2a1d10" stroke-width="1.1"><title>Extra buried treasure · one-off find</title></path></g>')
         else:
             parts.append(sprite_cell(prefix, material, x*unit+1, y*unit+1, unit-2, materials[material]))
-            if material == 'tool_crate':
-                parts.append(f'<use class="sprite-cell" href="#{prefix}-equipment" x="{x*unit+5}" y="{y*unit-1}" width="6" height="6"><title>One-off tool crate</title></use>')
     parts.append('</svg>')
     labels = {'stone':'stone', 'crimson_ore':'Crimson ore', 'crystal':'Sapphire crystals',
-              'equipment':'discarded iron tools', 'tool_crate':'one-off tool crates',
+              'copper_rock':'copper ore rocks', 'tool_crate':'one-off tool crates',
               'goblin':'lurking goblins', 'treasure_x':'extra buried finds', 'driftwood':'driftwood'}
     counts = collections.Counter(o['material'] for o in fixture['objects'])
     actual = ' · '.join(f'{n} {labels.get(name,name)}' for name,n in counts.items())
@@ -622,7 +618,7 @@ def quarry_card(v, d):
     metadata += f'<dt>Guards</dt><dd>{v["guards"].get("count", 0)} per complete site.</dd>'
     metadata += f'<dt>Finite finds</dt><dd>{v["finds"]["count"]} per complete site; actual placements counted below.</dd>'
     story = f'<p><strong>Place in the story.</strong> {html.escape(v["storyConnection"])}</p>'
-    note = '<p><small>Discarded equipment yields one iron bar; each one-off tool crate contains an iron pick.</small></p>' if v['layout']=='abandoned' else ''
+    note = '<p><small>Copper ore rocks use normal mining; each one-off tool crate contains an iron pick.</small></p>' if v['layout']=='abandoned' else ''
     if fixture.get('terrain'):
         actual += f' · {len(fixture["terrain"])} lava vents'
     shortfalls = [reason for row in fixture['diagnostics'] for reason in row.get('shortfalls', [])]

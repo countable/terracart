@@ -2,8 +2,7 @@
 // POI behind it — strewn over the first cave level (worldgen.js caveBarrels)
 // and dressed into the seep and the quarries (zone-variants.json `barrel`) —
 // smashed on the surface bin's own lane (loot.js isBarrel / rollBarrel): a
-// coin, a spear, a torch or an apple when it holds anything,
-// BARREL_EMPTY_P_GENERATED (70 %) empty, back daily on the one day ledger.
+// profile-specific loot, 70% empty, back daily on the one day ledger.
 (function () {
 function seeded(seed) {
   let a = seed >>> 0;
@@ -19,22 +18,19 @@ test('generated barrel: a `barrel: true` chest is a barrel at any depth; a bin\'
   assert.falsy(isBarrel({ kind: 'mineralrock', barrel: true }), 'only a chest');
 });
 
-test('generated barrel: 70% empty, else a coin, a spear, a torch or an apple', () => {
-  assert.eq(BARREL_EMPTY_P_GENERATED, 0.7);
-  const rng = seeded(7), o = { kind: 'chest', barrel: true, id: 'cbarrel_1_0_0_1_1' };
-  let empty = 0; const got = new Set();
-  for (let i = 0; i < 20000; i++) {
-    const r = rollBarrel(o, rng);
-    if (r.kind === 'empty') { empty++; continue; }
-    got.add(r.kind === 'gold' ? 'coin' : r.id);
-    if (r.kind === 'gold') assert.inRange(r.amount, 1, 3, 'a few coins');
+test('generated containers use the same appearance-based loot as surface bins', () => {
+  for (let i = 0; i < 40; i++) {
+    const o = { kind: 'chest', barrel: true, id: `cbarrel_1_0_0_${i}_1` };
+    const surface = { ...o, barrel: false, poiClass: 'waste_basket', poiDensity: 100 };
+    const undergroundRng = seeded(7), surfaceRng = seeded(7);
+    let empty = 0;
+    for (let j = 0; j < 1000; j++) {
+      const result = rollBarrel(o, undergroundRng);
+      assert.eq(JSON.stringify(result), JSON.stringify(rollBarrel(surface, surfaceRng)));
+      if (result.kind === 'empty') empty++;
+    }
+    assert.lt(Math.abs(empty / 1000 - 0.7), 0.05);
   }
-  assert.lt(Math.abs(empty / 20000 - 0.7), 0.015, 'seven in ten are empty');
-  assert.eq([...got].sort().join(','), 'apple,coin,spear,torch', 'and nothing else');
-  // The surface bin keeps its density-read emptiness (a lone bin: 60 %).
-  let binEmpty = 0; const bin = { kind: 'chest', poiClass: 'waste_basket', poiDensity: 1 };
-  for (let i = 0; i < 20000; i++) if (rollBarrel(bin, rng).kind === 'empty') binEmpty++;
-  assert.lt(Math.abs(binEmpty / 20000 - BARREL_EMPTY_P_BASE), 0.015);
 });
 
 test('level 1: a dozen-odd barrels on free floor cells, off their own stream, positional ids; no other level', () => {

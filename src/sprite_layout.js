@@ -55,7 +55,6 @@
     'peach_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
     'peach_tree:4': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
     'chest:0': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 15, maxY: 15 },
-    'quarry_equipment:0': { fw: 32, fh: 16, minX: 2, minY: 1, maxX: 31, maxY: 15 },
     'box:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
     'crystal_cluster:0': { fw: 16, fh: 16, minX: 1, minY: 2, maxX: 15, maxY: 14 },
     'mineralrock:168': { fw: 16, fh: 16, minX: 1, minY: 5, maxX: 16, maxY: 15 },

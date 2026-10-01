@@ -48,7 +48,13 @@ const ASSETS = {
   cat:     { kind: 'spritesheet', path: 'assets/Objects/Pets/cat.png', frameWidth: 32, frameHeight: 32 },
   dog:     { kind: 'spritesheet', path: 'assets/Objects/Pets/dog.png', frameWidth: 32, frameHeight: 32 },
   // Approved closed gold chest: exact right-hand crop from Chests.png; see Gold Chest.md.
-  chest:   { kind: 'spritesheet', path: 'assets/Objects/Approved/chest.png',       frameWidth: 16, frameHeight: 16 },
+  chest:   { kind: 'spritesheet', path: 'assets/Objects/Approved/chest.png',       frameWidth: 16, frameHeight: 16,
+    onLoad: scene => {
+      const source = scene.textures.get('chest').getSourceImage();
+      const sheet = makeChestTierSheet(source);
+      scene.textures.remove('chest');
+      scene.textures.addSpriteSheet('chest', sheet, { frameWidth: 16, frameHeight: 16 });
+    } },
   // Market stall — a "produce stand" POI sprite (80×80 per frame). One frame
   // per product family (awning colour): 0 fruit, 1 veg, 2 meat, 3 fish,
   // 4 coffee/bakery, 5 dairy/egg, 6 flowers. See produceStandFor() in loot.js.
@@ -110,7 +116,10 @@ const ASSETS = {
   coin_pile_26_50: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_26_50.png' },
   coin_pile_51: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_51.png' },
   // Misc 16x16 prop — single boxed crate from the Singles tileset.
-  box:         { kind: 'image', path: 'assets/Objects/Approved/box.png' },
+  box:         { kind: 'image', path: 'assets/Objects/Approved/box.png', onLoad: scene => {
+    const canvas = makeMutedTierOne(scene.textures.get('box').getSourceImage());
+    scene.textures.remove('box'); scene.textures.addCanvas('box', canvas);
+  } },
   // Forest critters. Sheets are 16x16 frames; renderer picks frames as needed.
   // Deer + Crow sheets are 32×32 frames despite living in a "Wilderness"
   // folder that mostly holds 16×16 props. Loading them as 16×16 sliced each
@@ -286,7 +295,6 @@ const ASSETS = {
   // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
   // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
   // Used for the fishing-junk boot (88), rare-drop star (115), and memory (116).
-  quarry_equipment: { kind: 'image', path: 'assets/Icons/RPG icons/Weapons and Armor/3. Iron/Pickaxe.png' },
   pickup:      { kind: 'spritesheet', path: 'assets/Objects/Pickup_Items.png', frameWidth: 16, frameHeight: 16 },
   // Wood logs — 48×16 sheet, 3 frames of 16×16 (brown / grey / amber
   // bark variants with little green sprigs). Sliced out of Sprites/
@@ -375,6 +383,45 @@ function recolorEnemyPixels(pixels, palette) {
     for (let ch = 0; ch < 3; ch++) pixels[i + ch] = Math.round(a[ch] + (b[ch] - a[ch]) * f);
   }
   return pixels;
+}
+// T1 is deliberately quieter than higher rarities, for both crates and trunks.
+function muteTierOnePixels(pixels) {
+  for (let i = 0; i < pixels.length; i += 4) {
+    const gray = 0.2126 * pixels[i] + 0.7152 * pixels[i + 1] + 0.0722 * pixels[i + 2];
+    for (let c = 0; c < 3; c++) pixels[i + c] = Math.round(gray + (pixels[i + c] - gray) * 0.2);
+  }
+}
+function makeMutedTierOne(source) {
+  const canvas = document.createElement('canvas');
+  canvas.width = source.width; canvas.height = source.height;
+  const ctx = canvas.getContext('2d'); ctx.drawImage(source, 0, 0);
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  muteTierOnePixels(pixels.data); ctx.putImageData(pixels, 0, 0);
+  return canvas;
+}
+// Tier recolors preserve the approved chest's silhouette, shading and alpha.
+// Shared by the game loader and design report; source art stays untouched.
+function makeChestTierSheet(source) {
+  const size = ASSETS.chest.frameWidth;
+  const canvas = document.createElement('canvas');
+  canvas.width = size * CHEST_TIER_MAX; canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  for (let tier = 1; tier <= CHEST_TIER_MAX; tier++) {
+    const x = (tier - 1) * size;
+    ctx.drawImage(source, 0, 0, size, size, x, 0, size, size);
+    const color = CHEST_TIER_COLOR[tier];
+    if (color == null) continue;
+    const channels = [color >> 16 & 255, color >> 8 & 255, color & 255];
+    const hex = values => '#' + values.map(v => Math.round(v).toString(16).padStart(2, '0')).join('');
+    const pixels = ctx.getImageData(x, 0, size, size);
+    recolorEnemyPixels(pixels.data, {
+      shadow: hex(channels.map(v => v * 0.3)),
+      mid: hex(channels), highlight: hex(channels.map(v => v + (255 - v) * 0.65)),
+    });
+    if (tier === 1) muteTierOnePixels(pixels.data);
+    ctx.putImageData(pixels, x, 0);
+  }
+  return canvas;
 }
 // Fire slimes retain the 32px hop art; ordinary slimes use the roster's
 // 16px full sheet. Register this source directly instead of copying an

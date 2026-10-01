@@ -88,7 +88,6 @@
         if (m.fixedLoot) extra.fixedLoot = { ...m.fixedLoot };
         if (m.quarryCrate) extra.quarryCrate = true;
         if (m.barrel) extra.barrel = true;   // a generated barrel (loot.js isBarrel)
-        if (m.quarryEquipment) extra.quarryEquipment = true;
         if (m.species) extra.species = m.species;
         if (m.kind === 'tree') {
           extra.variant = 1;

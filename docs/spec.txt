@@ -1023,8 +1023,10 @@ CHESTS (POI-driven)
      food → produce 60/30/10   commerce → seeds 70/25/5   farm → seeds 40/40/20 (+1)
      flora → flower seeds 10/30/60   civic → 30/40/30   health → 50/30/20
      park → 40/40/20   lowtier (bus/fuel/lodging/gate) → 90/8/2, reduced yields
- - chest TIER shown as a coloured diamond above the sprite: T1 bronze (lowtier),
-   T2 silver (commerce/park), T3 gold (food/health/civic/farm), T4 cyan (flora).
+ - chest TIER is shown by recoloring the approved chest sprite: the item rarity
+   badge palette (T2 copper, T3 silver, T4 gold, T5 lavender). T1 crates and
+   trunks are desaturated. T3+ trunks emit light in their rarity color while
+   unopened. No floating tier gem.
  - some opens roll a RELIC or ARMOR instead of normal loot — the chance varies
    by POI class, roughly 3.75% (lowtier/commerce/farm) up to 15% (civic/flora),
    biased by chest tier (gear reward handled per GEAR; both show a reward modal).
@@ -1047,6 +1049,19 @@ CHESTS (POI-driven)
    School, Coffee→Roastery, …) and shown as a label above the chest + in the
    loot flash, tinted the same subtle blue as every other POI name — including
    minor/lowtier POIs; only loose supply crate labels stay plain white.
+
+================================================================================
+BREAKABLE POTS AND BARRELS
+================================================================================
+ - Waste baskets, recycling points and generated breakables choose a stable
+   barrel or clay-pot appearance. That appearance also selects their loot table
+   (loot.js BARREL_ART / barrelProfile); each smash gives at most one item.
+ - Clay pots: 5% T1–T2 magic, 5% T2 produce, 10% one coin, 10% T1 seeds,
+   70% empty. Barrels: 10% supplies from all ordinary loot tiers, 10% T1–T2
+   minerals, 10% T1 produce, 70% empty. Item pools and drop weights come from
+   the shared item tables; exclusive finds stay in their own reward sources.
+ - Both use the crate restock ledger. POI density affects restock time, not
+   reward odds; generated breakables restock daily. ATM pots of gold are separate.
 
 ================================================================================
 COIN-BURST POIs (ATM / bicycle parking)
@@ -1870,7 +1885,7 @@ FOG OF WAR
    the milliseconds for under one alpha step of accuracy.
  - LAYER: fogContainer is LAST in the display list — above the ground, the
    lighting dim, the sprites, the rim haze, the distance falloff, the POI name
-   tablets and the tier diamonds. Fog is the strongest claim of any darkening
+   tablets. Fog is the strongest claim of any darkening
    pass, and a label poking through it would name a shop the player has never
    found. (The player, the GPS ghost and the footprint trail set explicit
    depths and stay above it — they are the player's own kit, not world

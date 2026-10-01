@@ -211,6 +211,31 @@ function wMeasure(e, EDGE, errors) {
       lairs: ((zd && zd.lairs) || []).length,
     };
   }
+  // Parking-lane footprints become quarry nexuses in the shipping rasterizer.
+  // Count accepted runtime placements inside each footprint, not requested
+  // layout pieces (which can be blocked or displaced before spawnInTile).
+  m.parking = [];
+  const coverage = e.zone && (e.zone.coverage || e.zone.idx);
+  if (coverage) {
+    const sites = new Map();
+    for (const [i, a] of (e.zone.anchors || []).entries()) {
+      if (a.generated !== 'parking_lanes') continue;
+      const site = { key: a.key, variant: a.variant, clipped: !!a.clipped, cells: 0, pieces: 0, finds: 0, guards: 0 };
+      sites.set(i + 1, site); m.parking.push(site);
+    }
+    for (const slot of coverage) { const site = sites.get(slot); if (site) site.cells++; }
+    const accepted = new Set();
+    for (const o of [...(e.objects || []), ...(e.wildplants || []), ...(e.traps || []),
+      ...(e.creatures || []), ...(e.extraTreasures || [])]) {
+      if (!o.zoneVariant || accepted.has(o.id)) continue;
+      accepted.add(o.id);
+      const cell = cellOf(o), site = cell >= 0 && sites.get(coverage[cell]);
+      if (!site || site.variant !== o.zoneVariant) continue;
+      site.pieces++;
+      if (o.zoneLayer === 'find') site.finds++;
+      if (o.zoneLayer === 'guard') site.guards++;
+    }
+  }
   return m;
 }
 
@@ -314,6 +339,21 @@ function wRender(w) {
     kpi(f1(sum((m) => m.chests.n)), 'surface chests'),
     ms.some((m) => m.zone) ? kpi(wPct(shareOfCells(zoneHaloShare)), 'zone halo terrain') : '',
   ].join('') + `<div class="kpi" style="border:0;background:none"><span class="scope">${scope}</span></div>`;
+
+  const parking = new Map();
+  for (const m of ms) for (const site of m.parking) {
+    const row = parking.get(site.variant) || { n: 0, complete: 0, clipped: 0, cells: 0, pieces: 0, finds: 0, guards: 0 };
+    row.n++; row[site.clipped ? 'clipped' : 'complete']++;
+    for (const key of ['cells', 'pieces', 'finds', 'guards']) row[key] += site[key];
+    parking.set(site.variant, row);
+  }
+  $('wParkingScope').textContent = `Parking-lot aisles generate quarry nexuses. Counts use the current game's footprints and accepted placements, ${scope}. Placed pieces include finds and guards. Clipped footprints use the reward-free strip-mine layout until the complete site is known.`;
+  table($('wParking'), ['quarry variant', 'footprints', 'complete', 'clipped', 'covered cells', 'placed pieces', 'finds', 'guards'],
+    [...parking].sort(([a], [b]) => a.localeCompare(b)).map(([id, row]) => {
+      const variant = typeof ZoneVariants !== 'undefined' && ZoneVariants.byId(id);
+      return `<tr><td>${variant?.name || variant?.title || id}</td>${['n', 'complete', 'clipped', 'cells', 'pieces', 'finds', 'guards'].map(key => `<td>${row[key].toLocaleString()}</td>`).join('')}</tr>`;
+    }));
+  if (!parking.size) $('wParkingScope').textContent += ' No parking-lot quarry footprints in this area.';
 
   // Cell-weighted shares for the full loaded area.
   const terrain = {};
@@ -492,17 +532,19 @@ function wValueByType(entries) {
     const listPrice = Math.max(1, PRICES[id] ?? 1);
     return listPrice - ShopsMath.standPrice(emptySave, listPrice);
   }
-  // One smash of a barrel at `count` of its kind: loot.js BARREL_LOOT's
-  // expectation, valued at list price, times the chance it is not empty.
-  function barrelEV(count) {
-    const total = BARREL_LOOT.reduce((s, r) => s + r.w, 0);
-    let full = 0;
-    for (const r of BARREL_LOOT) {
-      const v = r.kind === 'coin' ? (r.min + r.max) / 2
-        : (r.ids || [r.id]).reduce((s, id) => s + (itemValue(id) || 0), 0) / (r.ids || [r.id]).length;
-      full += (r.w / total) * v;
-    }
-    return (1 - barrelEmptyP(count)) * full;
+  // Value the actual object's pot/barrel table, including its empty row and
+  // the same item pools and drop weights used by rollBarrel.
+  function barrelEV(o) {
+    const loot = barrelProfile(o).loot;
+    const total = loot.reduce((s, r) => s + r.w, 0);
+    return loot.reduce((sum, r) => {
+      if (r.kind === 'empty') return sum;
+      if (r.kind === 'coin') return sum + r.w / total * r.amount;
+      const pool = barrelLootPool(r);
+      const weight = pool.reduce((s, item) => s + (item.dropWeight ?? 1), 0);
+      const value = weight ? pool.reduce((s, item) => s + (item.dropWeight ?? 1) * (itemValue(item.id) || 0), 0) / weight : 0;
+      return sum + r.w / total * value;
+    }, 0);
   }
 
   const rows = new Map(); // label -> { count, oneTimeSum, recurringSum, cadence }
@@ -540,7 +582,11 @@ function wValueByType(entries) {
       let look; try { look = chestLook(o); } catch (err) { continue; }
       if (look.coin) { bump('Pot of gold (coin burst, daily)', 'recurring', potCoinsFor(o.poiDensity)); continue; }
       if (look.bike) { bump('Bike rack (speed loan, daily)', 'recurring', 0); continue; }
-      if (look.barrel) { bump('Barrel (per day)', 'recurring', barrelEV(o.poiDensity) / crateRestoreDays(o)); continue; }
+      if (look.barrel) {
+        const name = barrelProfile(o).name;
+        bump(name[0].toUpperCase() + name.slice(1) + ' (per day)', 'recurring', barrelEV(o) / crateRestoreDays(o));
+        continue;
+      }
       if (look.macro) {
         const kind = look.macro.kind;
         if (kind === 'chapel' && typeof Macros !== 'undefined' && Macros.chapelRollTier) {
@@ -604,6 +650,7 @@ function wValueByType(entries) {
 const WVALUE_ORDER = [
   (k) => k === 'Crate (tier-1 POI chest, per day)',
   (k) => k === 'Barrel (per day)',
+  (k) => k === 'Clay pot (per day)',
   (k) => k.startsWith('Trunk chest — '),
   (k) => k === 'Wagon (bandit stop)',
   (k) => k === 'Zone-nexus chest (bonus tier)',

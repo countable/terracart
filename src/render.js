@@ -1,7 +1,7 @@
 // Per-frame draw pipeline — extracted from app.js. Owns the cell-grid paint
 // (terrain, tilled overlay, pier planks, reach silhouette, treasure X marks)
 // and the dynamic sprite-pool dance for chests / planted / wild plants /
-// creatures / labels / tier diamonds.
+// creatures / labels / attack footprints.
 //
 // The scene retains thin method forwarders (drawCells / drawObjects /
 // renderPool / worldMetersToScreen / screenToWorldMeters) so existing call
@@ -37,7 +37,7 @@
 //   items.js     — CROP_SPRITE, CROP_ROW, CROPS_SHEET_COLS,
 //                  SPRING_CROPS_COLS, MAX_GROWTH_STAGE
 //   crops.js     — Crops.forEachInBox (saved crop viewport query)
-//   loot.js      — POI_CLASS_FALLBACK, CHEST_TIER_COLOR,
+//   loot.js      — POI_CLASS_FALLBACK,
 //                  padShapeKeyForPoi, chestTier, rusticifyName
 //   save.js      — persistSave (used by drawCells self-heal path)
 //   app.js consts — VIEW_CELLS, CELL_PX, COLORS, isTillable
@@ -3049,8 +3049,8 @@ Render.drawObjects = function drawObjects(scene) {
     dx: L.x - pWorldX, dy: L.y - pWorldY,
   })).filter(item => Math.abs(item.dx) <= halfM && Math.abs(item.dy) <= halfM);
 
-  // Hide objects that are temporarily gone — an opened chest (its pad, label
-  // and tier diamond go with it until it refills), a chopped tree, a mined-out
+  // Hide objects that are temporarily gone — an opened chest (its pad and label
+  // go with it until it refills), a chopped tree, a mined-out
   // mineralrock, a picked-up groundstack. That is ONE state with four names,
   // and interactables.js › isSpent is the test the tap gate refuses on too, so
   // a thing you cannot see can never be a thing you can still work.
@@ -3441,7 +3441,7 @@ Render.drawObjects = function drawObjects(scene) {
     // Full opacity EXCEPT where the label would cover the player — opened
     // chests keep their label legible (per user: the dimmed-after-open look
     // made closed shops read as inactive), the opened/closed state is carried
-    // by the chest sprite frame + the tier diamond instead.
+    // by the chest sprite itself instead.
     fadeLabelOverPlayer(tx, _playerBox);
     li++;
   }
@@ -3741,17 +3741,6 @@ Render.drawObjects = function drawObjects(scene) {
     for (; psi < pool.length; psi++) setStyleOnce(pool[psi].el, 'display', 'none');
   }
 
-  // Chest tier indicators: chunky bordered diamond above each unopened chest.
-  // Drawn into the top-most tierGfx layer so it ALWAYS reads above the chest sprite,
-  // labels, and pads — never gets occluded.
-  // Crates (the `box` sprite — starter supply crates and tier-1 chests) are
-  // excluded: the gem is a treasure-chest cue, so it shouldn't float over a crate.
-  // Nor over a macro stall (loot.js macroFor): an inn or a chapel is a
-  // service, not a chest, and its tier is only what a chapel's blessing rolls from.
-  // Nor over a barrel, a courier's post or a pot of gold: none of them is a chest
-  // with a tier to show.
-  const chestObjs = filteredObj.filter(({ o }) => { if (o.kind !== 'chest') return false;
-    const L = chestLook(o); return !L.equipment && !L.box && !L.macro && !L.barrel && !L.bike && !L.coin; });
   const g = scene.tierGfx;
   g.clear();
   // Attack footprints sit above scenery so cover cannot hide the warning.
@@ -3786,35 +3775,6 @@ Render.drawObjects = function drawObjects(scene) {
       g.strokePath();
     }
   }
-  for (const item of chestObjs) {
-    const { o, dx, dy } = item;
-    const { sx, sy } = project(dx, dy);
-    const tier = chestTier(o);
-    const color = CHEST_TIER_COLOR[tier];
-    if (color == null) continue;   // tier 1 → no gem
-    const cx = Math.round(sx + 1);   // +2px right (was sx - 1)
-    const cy = Math.round(sy - 15);  // +3px down (was sy - 18)
-    const r = 4.8;   // 20% smaller (was 6)
-    // 1) Outer dark halo — fattens the diamond so it stands out on any bg.
-    g.fillStyle(0x000000, 0.55);
-    g.fillTriangle(cx, cy - (r + 2), cx + (r + 2), cy, cx, cy + (r + 2));
-    g.fillStyle(0x000000, 0.55);
-    g.fillTriangle(cx, cy - (r + 2), cx - (r + 2), cy, cx, cy + (r + 2));
-    // 2) Filled coloured diamond — re-set fillStyle before each fillTriangle to
-    // dodge a Phaser quirk where the state can be reset between calls.
-    g.fillStyle(color, 1);
-    g.fillTriangle(cx, cy - r, cx + r, cy, cx, cy + r);
-    g.fillStyle(color, 1);
-    g.fillTriangle(cx, cy - r, cx - r, cy, cx, cy + r);
-    // 3) Thin black outline (1 px — was 2)
-    g.lineStyle(1, 0x000000, 1);
-    g.beginPath();
-    g.moveTo(cx, cy - r); g.lineTo(cx + r, cy);
-    g.lineTo(cx, cy + r); g.lineTo(cx - r, cy);
-    g.closePath();
-    g.strokePath();
-  }
-
   // ── Coin drops (ATM / bicycle_parking burst). Walked across the same
   // 3×3-tile neighbourhood as objects/wildplants above. Expired coins
   // (now >= expiresAt) are spliced out of the in-memory entry.coinDrops
@@ -4602,16 +4562,9 @@ Render.objectAppearance = function (scene, houseRoles) {
     // is never dropped: spent, its barrel or clay pot stands smashed (o._smashed,
     // stamped by the filter) until it restocks — one art per state.
     chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? L.smashedKey : L.texKey; },
-              // Both the crate and the approved closed gold chest use frame 0.
-              // Crates and coin-burst pots leave `frame` at 0.
-              // Pots of gold (ATMs) render the procedural
-              // 'potofgold' canvas texture (textures.js makePotOfGoldTexture),
-              // which is single-frame — so leave `frame` undefined for them,
-              // exactly like the themed-house sprites. The pot art already carries the jade coin palette, so no tint is applied. Produce stands pick the market_stand
-              // awning frame for their product family (see produceStandFor).
-              // A macro stall (loot.js macroFor) is one 80×80 frame per kind.
-              frame: (o) => { const L = chestLook(o);
-                              return L.coin ? undefined : (L.stand ? L.stand.frame : 0); },
+              // The shared look selects each tier's recoloured chest frame and
+              // the produce stand's awning. Procedural pots of gold have no frame.
+              frame: (o) => { const L = chestLook(o); return L.coin ? undefined : L.frame; },
               // THE WAGON (a bus stop on an old trade road): 32×32 art, drawn at
               // WAGON_SCALE (~1.5 cells wide) and foot-anchored like the stall —
               // a structure, not a chest, so it is not seated; its wheels sit
@@ -4640,7 +4593,7 @@ Render.objectAppearance = function (scene, houseRoles) {
               // SMALL_POI_SCALE (~21px) and seated like the crate.
               scale: (o) => { const L = chestLook(o);
                               return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
-                                : ((L.barrel || L.bike) ? SMALL_POI_SCALE : ((L.box || L.equipment) ? CRATE_SCALE : SpriteLayout.CHEST_SCALE)))); },
+                                : ((L.barrel || L.bike) ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE)))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px

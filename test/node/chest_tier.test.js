@@ -131,8 +131,11 @@
   test('chest tier: the depth step is 2 levels and the cap is T5', () => {
     assert.eq(CHEST_TIER_DEPTH_STEP, 2, 'levels per tier');
     assert.eq(CHEST_TIER_MAX, 5, 'cap');
-    assert.truthy(CHEST_TIER_COLOR[5], 'T5 has a gem colour');
-    assert.eq(CHEST_TIER_COLOR[1], null, 'T1 still draws no gem');
+    assert.truthy(CHEST_TIER_COLOR[5], 'T5 has a chest colour');
+    for (let tier = 1; tier <= CHEST_TIER_MAX; tier++) {
+      assert.eq(CHEST_TIER_COLOR[tier], tierBadgeColor(tier), 'chests share item rarity colors');
+      assert.includes(tierBadgeHTML(tier), '#' + CHEST_TIER_COLOR[tier].toString(16).padStart(6, '0'));
+    }
   });
 
   test('chest tier: one tier up per two levels down', () => {
@@ -324,10 +327,13 @@
   });
 
   test('chest tier: the drawer and the roll read the one tier', () => {
-    // render.js draws the gem and interactables.js rolls the loot off the SAME
+    // render.js chooses the colored frame and interactables.js rolls the loot off the SAME
     // chestTier(o) — there is no Home-softened twin to tell apart. Wishing
     // Well luck affects rarity, without changing the location’s tier.
-    assert.truthy(/const tier = chestTier\(o\);/.test(RENDER_SRC), 'render.js draws chestTier(o)');
+    for (const n of [1, 2, 5]) {
+      const o = chest('park', n);
+      assert.eq(chestLook(o).frame, chestTier(o) - 1, 'the chest frame follows the reward tier');
+    }
     assert.truthy(/chestTier\(o\) : 2\);/.test(INTERACTABLES_SRC), 'interactables.js rolls at chestTier(o)');
     for (const src of [RENDER_SRC, INTERACTABLES_SRC, SCENE_SRC]) {
       assert.falsy(/chestRollTier|CHEST_TIER_HOME_RINGS_M|chestTierHomeDrop/.test(src), 'no Home ring reader survives');

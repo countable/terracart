@@ -1581,19 +1581,23 @@ const TIER_BADGE_NAMES = {
   1: 'basic', 2: 'common', 3: 'uncommon', 4: 'rare', 5: 'epic', 6: 'legendary', 7: 'godly',
 };
 // The one cheat (owner, Sep 2026): Platinum is near white, and "epic" wants a
-// little purple — the badge alone wears this lavender-platinum; the material
+// little purple — rarity displays wear this lavender-platinum; the material
 // colour that relics, arrows and bolts read stays MATERIAL_TIERS' own.
 const TIER_BADGE_TINT = { 5: 0xc9a6f2 };
 function itemTierOf(id) {
   const t = ITEM_BY_ID[id]?.baseTier;
   return t > 0 ? Math.min(7, Math.floor(t)) : 0;
 }
+// Shared rarity color for badges, chest art and chest light sources.
+function tierBadgeColor(tier) {
+  return TIER_BADGE_TINT[tier] ?? TIER_BY_NUM[tier]?.color ?? null;
+}
 function tierBadgeHTML(tier, fontPx = 10) {
   const t = Math.min(7, Math.max(0, Math.floor(Number(tier) || 0)));
   const name = TIER_BADGE_NAMES[t];
   const row = TIER_BY_NUM[t];
   if (!name || !row) return '';
-  const c = TIER_BADGE_TINT[t] ?? row.color;
+  const c = tierBadgeColor(t);
   const r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
   // Dark ink on the pale ores (Iron, Gold, Platinum, Frost), pale on the dark.
   const ink = (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? '#1a1612' : '#fff4e0';
