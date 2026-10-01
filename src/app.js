@@ -3999,7 +3999,7 @@ class MapScene extends Phaser.Scene {
         .setPosition(pScreen.x, pScreen.y + bodyDy - 35)
         .setVisible(true);
     }
-    // Shadow Powder: the same in-memory minute (this._shadowUntil), the same
+    // Shadow Powder: the same in-memory timer (this._shadowUntil), the same
     // readout, one line above the dragon's so the two never overprint.
     const shadowActive = this.isShadowActive();
     if (shadowActive) {
@@ -9576,7 +9576,7 @@ class MapScene extends Phaser.Scene {
     }
   }
 
-  // True while a Shadow Powder is active: the same in-memory minute the dragon
+  // True while a Shadow Powder is active: the same in-memory timer the dragon
   // keeps (this._shadowUntil, NOT persisted — a refresh ends it). wanderCreatures
   // reads it to switch off every hostile's pursuit AND its hit; nothing the
   // player swings or shoots is gated by it.
