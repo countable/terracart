@@ -4338,20 +4338,20 @@ Render.objectAppearance = function (scene, houseRoles) {
   // Every building is sized by ONE rule (BUILDING_ART / houseArtScale in
   // util.js): draw at your own footprint, clamped to a range stated in DRAWN
   // CELLS. All render.js does is read the art's real frame width and hand it
-  // over — the width is what turns a cell count into a sprite scale, and it is
-  // why a role's size is stated in cells rather than in scale (see the note on
-  // the table). Frames that can't be measured come back as 0, which the rule
-  // answers with 1; the sprite is already hidden by then.
+  // over, with the role — the width is what turns a cell count into a sprite
+  // scale, and it is why a role's size is stated in cells rather than in scale
+  // (see the note on the table); the role picks the row (fort, trailer, or the
+  // shared house row). Frames that can't be measured come back as 0, which
+  // the rule answers with 1; the sprite is already hidden by then.
   const _houseFrameW = (o) => {
     if (!scene.textures || !scene.textures.exists(_houseKey(o))) return 0;
     const fr = scene.textures.get(_houseKey(o)).get(_houseFrame(o));
     return (fr && fr.width) || 0;
   };
   const _houseBaseScale = (o) =>
-    buildingBaseScale(_houseFrameW(o), _houseRole(o) === 'fort', CELL_PX);
+    buildingBaseScale(_houseFrameW(o), _houseRole(o), CELL_PX);
   const _houseScale = (o) =>
-    houseArtScale(o.area, _houseFrameW(o), _houseRole(o) === 'fort',
-                  scene.cellM, CELL_PX);
+    houseArtScale(o.area, _houseFrameW(o), _houseRole(o), scene.cellM, CELL_PX);
 
   // Ripe fruit waiting to be drawn ON its tree — filled by the fruittree
   // `after` hook as each tree is configured, drained by the fruit pass after

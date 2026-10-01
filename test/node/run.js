@@ -187,7 +187,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   plantedTreeStage, TREE_SAPLING_SCALE_MUL, PLANTED_TREE_GROW_MS, acornDropChance, ACORN_P_BASE, ACORN_P_FROST,
   // The one building roof-scale rule — house_scale.test.js asserts against the
   // SHIPPING table rather than its own copies of it.
-  houseArtScale, buildingBaseScale, buildingCellsToScale, BUILDING_ART,
+  houseArtScale, buildingBaseScale, buildingCellsToScale, buildingArt, BUILDING_ART,
   HomeArea, SpawnOwnership,
   itemValue, randInt, pickFromArray, isShiny, faunaShiny,
   TRAILER_SELL_MUL,
