@@ -124,6 +124,31 @@
     assert.truthy(/· Wanderer$/.test(NPC.dialogue(s, w).title));
   });
 
+  test('roles: every role a zone draws has its own untinted sheet, one per label', () => {
+    const byLabel = new Map();
+    for (const [zone, p] of Object.entries(NPC.PROFILES)) for (const role of new Set(p.roles)) {
+      const sheet = SpriteLayout.npcSheet({ role, zone });
+      assert.eq(sheet.role, role, `${zone} ${role} has a sheet of its own`);
+      assert.eq(sheet.tint, 0xffffff, `${zone} ${role} wears its own colours`);
+      const label = NPC.LABELS[zone][role];
+      assert.eq(byLabel.get(label) ?? sheet.idle, sheet.idle, `${label} looks the same in every zone`);
+      byLabel.set(label, sheet.idle);
+    }
+    assert.eq(new Set(byLabel.values()).size, byLabel.size, 'no two labels share a look');
+    const assets = new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC + '\nreturn ASSETS;')({}, EnemyRoster, SpriteLayout);
+    for (const sheet of SpriteLayout.NPC_SHEETS) {
+      assert.truthy(assets[sheet.idle] && assets[sheet.walk], `${sheet.idle} is preloaded`);
+      assert.eq(assets[sheet.walk].path, sheet.path.replace(/_idle\.png$/, '_walk.png'));
+      for (const key of [sheet.idle, sheet.walk]) {
+        const dims = pngDims(assets[key].path);
+        assert.truthy(dims, `${assets[key].path} exists`);
+        assert.eq(dims.w, 48 * (sheet.cols || SpriteLayout.NPC_FRAME.cols), `${key}: whole 48px columns`);
+        assert.eq(dims.h, 48 * 4, `${key}: front, back, left and right rows`);
+      }
+    }
+    assert.falsy(Object.values(NPC.LABELS).some(l => /Elven/.test(Object.values(l).join())), 'no elves');
+  });
+
   test('story neighbours: each named neighbour wears its own untinted sheet', () => {
     const sheets = {};
     for (const role of ['warden', 'witness', 'wanderer', 'believer']) {
@@ -238,7 +263,7 @@
       assert.truthy(residents.every(c => c.zoneKind === kind), 'residents know their zone');
       const keepers = residents.filter(c => c.role === 'keeper');
       assert.gt(keepers.length, 0, `${kind} has a keeper`);
-      assert.eq(keepers[0].roleLabel, NPC.LABELS.shrine.keeper);
+      assert.eq(keepers[0].roleLabel, NPC.LABELS[kind === 'grove' ? 'grove' : 'shrine'].keeper, 'the grove\'s keeper is a fox');
       const talk = NPC.dialogue(s, keepers[0]);
       assert.includes(Zones.ZONE_KINDS[kind].keeper, talk.body, `${kind}'s keeper tells its story`);
       const again = NPC.spawn(s, e, 0, 0, {});

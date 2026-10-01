@@ -318,6 +318,14 @@ const ASSETS = {
   // END approved map-art states and contexts
 };
 
+// Neighbour role sheets are listed once, in SpriteLayout.NPC_SHEETS; each
+// idle sheet has a walk sheet beside it.
+for (const sheet of SpriteLayout.NPC_SHEETS) {
+  if (ASSETS[sheet.idle]) continue;
+  ASSETS[sheet.idle] = { kind: 'spritesheet', path: sheet.path, frameWidth: 48, frameHeight: 48 };
+  ASSETS[sheet.walk] = { kind: 'spritesheet', path: sheet.path.replace(/_idle\.png$/, '_walk.png'), frameWidth: 48, frameHeight: 48 };
+}
+
 // Player class and bicycle appearances share their verified layout metadata.
 for (const art of Object.values(SpriteLayout.PLAYER_ART)) {
   ASSETS[art.sheet] = { kind: 'spritesheet', path: art.path, frameWidth: art.fw, frameHeight: art.fh };

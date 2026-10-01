@@ -20,6 +20,9 @@ const NPC = (() => {
     market: { prefixes: ['Cal', 'Dar', 'Mer', 'Val'], roots: ['an', 'ell', 'in', 'or'], suffixes: ['a', 'en', 'ie', 'is'], colors: [0xe7b1d8, 0xaacde9, 0xe5d593], roles: ['merchant', 'trader', 'merchant', 'scout', 'mason', 'lamplighter'], theme: 'supply' },
     woodland: { prefixes: ['Syl', 'Lin', 'Fa', 'El'], roots: ['ar', 'eth', 'ir', 'ow'], suffixes: ['a', 'iel', 'en', 'yn'], colors: [0xacc79a, 0xc3bf8c, 0xa4c8bd], roles: ['scout', 'scout', 'scout', 'scout', 'scout', 'trader', 'trader', 'trader', 'trader', 'scholar'], theme: 'seed' },
     shrine: { prefixes: ['Ae', 'Eli', 'Gala', 'Syl'], roots: ['lan', 'riel', 'thar', 'wen'], suffixes: ['iel', 'ia', 'eth', 'wyn'], colors: [0x70cf86, 0x87db96, 0x59bc78, 0x9bdd7f], roles: ['scout', 'scout', 'scholar', 'trader', 'keeper', 'keeper'], theme: 'potion' },
+    // The fox people of the groves (Oct 2026, owner's call): their own zone
+    // and role names, so they never read as the shrine's neighbours.
+    grove: { prefixes: ['Ru', 'Vix', 'Tod', 'Sor'], roots: ['an', 'el', 'in', 'ow'], suffixes: ['a', 'en', 'ie', 'y'], colors: [0xe0b48a, 0xd9a77c, 0xe8c49b], roles: ['scout', 'scout', 'scholar', 'trader', 'keeper', 'keeper'], theme: 'potion' },
   };
   // Every zone labels every role: a keeper reseated by the zone guarantee in
   // spawn(), or a role added to one profile later, must never title as
@@ -29,7 +32,8 @@ const NPC = (() => {
     farm: { scout: 'Fieldwalker', scholar: 'Almanac Keeper', merchant: 'Seed Seller', trader: 'Harvest Trader', mason: 'Barn Raiser', lamplighter: 'Lamplighter', keeper: 'Keeper' },
     market: { scout: 'Town Guide', scholar: 'Scribe', merchant: 'Peddler', trader: 'Market Trader', mason: 'Stonemason', lamplighter: 'Lamplighter', keeper: 'Keeper' },
     woodland: { scout: 'Ranger', scholar: 'Lorekeeper', merchant: 'Herbalist', trader: 'Forager', mason: 'Woodwright', lamplighter: 'Lamplighter', keeper: 'Grove Keeper' },
-    shrine: { scout: 'Shrine Warden', scholar: 'Elven Lorekeeper', merchant: 'Herbalist', trader: 'Grove Trader', mason: 'Shrine Mason', lamplighter: 'Lantern Keeper', keeper: 'Shrine Keeper' },
+    shrine: { scout: 'Shrine Warden', scholar: 'Shrine Lorekeeper', merchant: 'Herbalist', trader: 'Shrine Trader', mason: 'Shrine Mason', lamplighter: 'Lantern Keeper', keeper: 'Shrine Keeper' },
+    grove: { scout: 'Fox Tracker', scholar: 'Fox Storyteller', merchant: 'Fox Herbalist', trader: 'Fox Trader', mason: 'Den Builder', lamplighter: 'Fox Lantern Bearer', keeper: 'Den Keeper' },
   };
   function identity(id, zone = 'village') {
     if (!PROFILES[zone]) zone = 'village';
@@ -44,8 +48,8 @@ const NPC = (() => {
     // Zone influence also covers ground that the halo cannot repaint.
     // Hostile yards stay empty even when a shrine stands nearby.
     if (type === T.TAR_YARD || influence?.kind === 'tar') return null;
-    if (nearShrine || type === T.GROVE || type === T.CHURCHYARD
-      || influence?.kind === 'grove' || influence?.kind === 'stones') return 'shrine';
+    if (type === T.GROVE || influence?.kind === 'grove') return 'grove';
+    if (nearShrine || type === T.CHURCHYARD || influence?.kind === 'stones') return 'shrine';
     if (type === T.RESIDENTIAL || type === T.SCHOOL) return 'village';
     if (type === T.FARMLAND || type === T.ORCHARD) return 'farm';
     if (type === T.COMMERCIAL) return 'market';
@@ -101,8 +105,8 @@ const NPC = (() => {
   function seatKeepers(people) {
     const kept = new Set(people.filter(c => c.role === 'keeper' && c.zoneKind).map(c => c.zoneKind));
     for (const c of people) {
-      if (!c.zoneKind || kept.has(c.zoneKind) || c.zone !== 'shrine') continue;
-      c.role = 'keeper'; c.roleLabel = LABELS.shrine.keeper;
+      if (!c.zoneKind || kept.has(c.zoneKind) || (c.zone !== 'shrine' && c.zone !== 'grove')) continue;
+      c.role = 'keeper'; c.roleLabel = LABELS[c.zone].keeper;
       kept.add(c.zoneKind);
     }
   }
@@ -291,7 +295,7 @@ const NPC = (() => {
   // A named zone's KEEPER never left (stayers: the first keeper the draw
   // seats on each zone kind — the one seatKeepers guarantees — keeps its
   // seat and its story: "the fire took the roofs, not the stone"); the
-  // wizard tower's elves arrive with its restoration (shrineResidents).
+  // wizard tower's shrine neighbours arrive with its restoration (shrineResidents).
   // Arrivals are seated only OFF SCREEN
   // (tickArrivals), so a neighbour is found on the doorstep, never seen to
   // appear on it. The seat is drawn on the resident's own stream

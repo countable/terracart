@@ -1,7 +1,8 @@
 /* global ArtPreviewColour */
 'use strict';
-// Draft recolour for proposed NPC art: bring brighter packs into the shipping
-// citizen sheets' palette. Preview only; no asset is written.
+// Citizen-palette recolour for neighbour art: bring brighter packs into the
+// shipping citizen sheets' palette. tools/art/import_npc_art.py runs it in
+// headless Chromium and bakes the result into assets/NPC/.
 //
 // 1. Measure the citizen sheets in OKLab: their colours, median chroma,
 //    lightness band and outline ink.
