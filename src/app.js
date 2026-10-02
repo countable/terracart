@@ -749,7 +749,7 @@ function shotTierColour(slot, tier) {
   return c != null ? c : Combat.SHOT[slot].color;
 }
 // Screen-px lift a CASTLE TURRET's arrow starts at: the battlements. The tower
-// art is 42px tall (textures.js makeTowerTexture) and stands with its foot on
+// restored sprite is 42px tall (assets.js tower) and stands with its foot on
 // the cell's bottom edge, CELL_PX/2 below the cell centre the turret object
 // sits at — so its crown is 42 - 16 = 26px above that centre, and the arrow
 // leaves a few px under the crenellation line. It descends to
@@ -1836,11 +1836,6 @@ class MapScene extends Phaser.Scene {
 
     // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
     makeBiomeTextures(this, CELL_PX);
-    makeTowerTexture(this);
-    // The same turret in the unclaimed palette. Baked once here rather than
-    // tinted at draw time so a castle's stone, its turrets and its court all
-    // change together — see the unclaimed-shade note in textures.js.
-    makeTowerTexture(this, CASTLE_STONE_UNCLAIMED, 'tower_unclaimed');
     // Pot of gold — art for the coin-burst POI (the ATM — loot.js isPotOfGold).
     makePotOfGoldTexture(this);
     // Traps: the barely-there scuff of a hidden one and the sprung iron jaw of
@@ -5248,7 +5243,7 @@ class MapScene extends Phaser.Scene {
         // ONLY A CASTLE YOU HAVE TAKEN BACK FIGHTS FOR YOU. A turret is stamped
         // with its castle's footprint key (worldgen), and this is the SAME
         // isClaimedKey test the tower's own art and its light already read: an
-        // unclaimed castle draws in the shaded 'tower_unclaimed' palette
+        // unclaimed castle draws the ruined 'tower_unclaimed' sprite
         // (render.js RENDER_SPEC.tower) and contributes no light
         // (lighting.js sourceKind), so a ruin that looked dead and dark was
         // nonetheless shooting arrows at everything that walked past it. A

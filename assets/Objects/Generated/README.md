@@ -80,3 +80,13 @@ One frame each, foot-anchored and drawn like the market stall (loot.js `chestLoo
 | sheet_props2.png | labelled contact sheet of every file in this folder (both batches), for review only | generated placeholder, review aid only — not used by the game |
 
 Batch 3 (the macro stalls) is wired into the game (src/assets.js `macro_<kind>`); see src/assets.js for which of the others are.
+
+## Castle tower pair
+
+`castle_tower_restored.png` and `castle_tower_wreck.png` replace the runtime
+procedural castle turret. Both are transparent 28×42 PNGs, centered and seated
+on the bottom row; claim state selects the restored version. The separate
+castle flag remains live. Generated with the built-in image tool, using the
+user's CraftPix archer-tower reference for stone-and-timber construction;
+original designs, exported with nearest-neighbour sampling. Masters, prompts,
+and export recipe: `~/.artifacts/castle-towers/`.
