@@ -200,7 +200,7 @@
   // (petBite). One row, derived — a retune of the slime retunes the raven.
   // Its pool is the slime's BASE (FAUNA_HP), never the hard-mode enemy scale:
   // creatureMaxHp only scales Combat.isEnemy kinds, and the raven is yours.
-  const SUMMONED_AS = { spirit_raven: 'slime', mercenary: 'goblin' };
+  const SUMMONED_AS = { spirit_raven: 'slime', mercenary: 'goblin', summoned_skeleton: 'skeleton', summoned_wraith: 'ghost' };
   for (const [kind, model] of Object.entries(SUMMONED_AS)) {
     if (FAUNA_HP[model] != null) FAUNA_HP[kind] = FAUNA_HP[model];
   }

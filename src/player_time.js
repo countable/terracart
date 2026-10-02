@@ -42,6 +42,9 @@
     else scene._syncPlayerSkin?.();
     scene._dragonBuffActive = false;
     scene._tickSpiritRaven?.();
+    for (const [kind, row] of Object.entries(Companions.KINDS)) {
+      if (scene[row.instance] && !Companions.active(save, kind)) Companions.tick(scene, kind);
+    }
     scene._updatePlayerAura?.();
     scene.updateEnergyDOM?.();
     scene._syncStatusRow?.();

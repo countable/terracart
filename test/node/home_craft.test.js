@@ -237,20 +237,20 @@ test('home craft: scrolls require prior use in both modes and spend blank scroll
   } finally { Difficulty.setMode(was); }
 });
 
-test('home craft: learned scroll recipes survive saving and migration', () => {
+test('home craft: learned scroll recipes survive saving and normalization', () => {
   const slot = createSave('Scroll crafting test');
   try {
     const save = { inv: [{ id: 'fear_scroll', count: 1 }], usedScrolls: ['fireball_scroll'] };
     persistSave(save);
     flushSave();
     const loaded = loadSave();
-    SaveMigrate.migrate(loaded);
+    SaveState.normalize(loaded);
     assert.falsy(homeRecipeLocked(loaded, 'fireball_scroll', true), 'learned recipe persists');
     assert.truthy(homeRecipeLocked(loaded, 'fear_scroll', false), 'held unused scroll stays locked');
     const old = { inv: [{ id: 'treasure_map', count: 1 }] };
-    SaveMigrate.migrate(old);
+    SaveState.normalize(old);
     assert.eq(old.usedScrolls.length, 0, 'older saves start without inferred scroll uses');
-    assert.truthy(homeRecipeLocked(old, 'treasure_map', false), 'migration cannot teach a held scroll');
+    assert.truthy(homeRecipeLocked(old, 'treasure_map', false), 'normalization cannot teach a held scroll');
   } finally { deleteSave(slot); }
 });
 

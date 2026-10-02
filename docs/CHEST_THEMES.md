@@ -240,7 +240,7 @@ Inventory replaces Items with **Magic** and **Supplies**. Reuse current item ico
 
 Existing stacks store item IDs and counts, so the class split changes their catalog interpretation without rewriting inventory.
 
-Bump `SaveMigrate.SAVE_SCHEMA`. When `save.invCat` is `consumables`, move to the selected item's new tab, otherwise Supplies, and reset `invPage`. Preserve the selected item, stack counts, gear and all other progress. Migration must be idempotent.
+No compatibility migrations are maintained. Current saves retain item IDs and counts; retired formats are unsupported until requested otherwise.
 
 Opened chests stay opened. A chest held for later keeps its exact saved item, quantity and consolation; it does not reroll under the new theme. Already cached held rewards from the old rules remain valid. Unopened chests use the new rules. Persist no new per-chest theme state; derive it from the existing POI class and depth.
 
@@ -255,7 +255,7 @@ Opened chests stay opened. A chest held for later keeps its exact saved item, qu
 | `rewards.js` | Apply the chosen reward once; preserve actual accepted quantities and deferred Book behavior |
 | `interactables.js` | Ask for the chest's theme; retain full-bag take/leave decisions and opened-state handling |
 | `app.js`, `shops.js`, `sandbox.js` | Inventory/fort/label integration; existing use actions |
-| `savemigrate.js` | Old tab migration and schema version |
+| `save_state.js` | Current-state defaults, validation and runtime cleanup |
 | `tools/balancing.html`, `tools/item-catalog-data.js`, `tools/items.html` | Shared resolver for probabilities, eligible contents and sources |
 | `index.html`, browser harnesses, node runner | Register the new module in dependency order; regenerate cache hashes |
 
@@ -263,7 +263,7 @@ Prefer one `pickChestReward(theme, save, rng, {tier, depth})` entry point. Extra
 
 ## 10. Validation and release
 
-1. Inventory tests cover every potion/powder and every supply, old-tab migration, unchanged actions and fort membership.
+1. Inventory tests cover every potion/powder and every supply, unchanged actions and fort membership.
 2. Exhaustive theme tests cover every theme, T1–T7 and surface/cave modes: valid items, no forbidden kinds, no null outcomes, no fallback cycles, explicit T1 exceptions only.
 3. Quantity tests pin the healthcare examples, caps, actual price lookup, no double quantity scaling and no automatic leftover cash.
 4. Behavior tests cover starter fixed rewards, retail stalls, coin pots, duplicate gear, full-bag partial takes, held rewards and deferred Books.
@@ -271,7 +271,7 @@ Prefer one `pickChestReward(theme, save, rng, {tier, depth})` entry point. Extra
 6. Browser checks cover narrow inventory tabs, a T1 healthcare chest, a high-tier healing chest, school Books, a cave supply drop, and reopening a held chest.
 7. Run the headless suite and cache/sprite/layout audits, then review the item catalogue for misleading sources or missing classes.
 
-Implement on an isolated branch after review: taxonomy and migration; theme data and picker; integration and tools; balance simulation and browser checks. Commit and publish only after the agreed settings and validations are complete.
+Implement on an isolated branch after review: taxonomy; theme data and picker; integration and tools; balance simulation and browser checks. Commit and publish only after the agreed settings and validations are complete.
 
 ## Review decisions
 
@@ -351,10 +351,10 @@ There are four growth stages, each normally requiring watering and a wait. Propo
 
 These totals exclude delays before rewatering, watering-can stage jumps and Growth Powder. Preserve the existing can bonuses: a top-tier can roughly halves the required waits. Growth Powder still advances one stage instantly; four powders can bypass all waits, so quantify its increased value in the balance report rather than silently weakening it.
 
-Centralize the crop-specific wait in `Crops.stageHoldMs(crop)` and use it for advancement, rendering, countdowns and descriptions. Preserve elapsed progress for already-watered crops on migration: convert the fraction of the old stage timer completed into the same fraction of the new timer; if already ready under the old timer, advance that stage before migration. Mature crops stay mature. Offline time still advances a watered crop by one stage, then it needs watering again.
+Centralize the crop-specific wait in `Crops.stageHoldMs(crop)` and use it for advancement, rendering, countdowns and descriptions. Retired flat crop timers are not converted. Mature crops stay mature. Offline time still advances a watered crop by one stage, then it needs watering again.
 
 ### Added validation
 
-Test poison's 30 ticks, refresh without tick reset, armor interaction, zero-energy floor, suspension/reload, curing at a tick boundary, and downed use. Test Elixir with upgraded maximum energy and active food cooldown, full-energy refusal, and no accidental cure/revival. Test the seed probability transfers, single magical seed stacks, all new growth timers and migration, watering-can jumps and Growth Powder. Add the new item icons to sprite/layout audits and teach poison on first exposure.
+Test poison's 30 ticks, refresh without tick reset, armor interaction, zero-energy floor, suspension/reload, curing at a tick boundary, and downed use. Test Elixir with upgraded maximum energy and active food cooldown, full-energy refusal, and no accidental cure/revival. Test the seed probability transfers, single magical seed stacks, all new growth timers, watering-can jumps and Growth Powder. Add the new item icons to sprite/layout audits and teach poison on first exposure.
 
 These numeric defaults extend the reviewed chest proposal; no gameplay implementation is included in this design artifact.

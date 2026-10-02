@@ -278,34 +278,6 @@ test('magical flowers: a jumping Frost can and four powders bypass the waits', (
   }
 });
 
-test('crop timer migration: preserves fractional progress and pays out ready old stages', () => {
-  const now = 50_000_000;
-  for (const crop of ['sunflower', 'fireflower', 'iceflower']) {
-    const p = { crop, stage: 1, watered_t: now - Crops.LEGACY_STAGE_HOLD_MS / 2 };
-    const save = { planted: [p] };
-    assert.truthy(Crops.migrateStageTimers(save, now));
-    assert.eq(now - p.watered_t, Crops.stageHoldMs(crop) / 2, 'half the new hold earned');
-    assert.falsy(Crops.advanceGrowth(save, now + Crops.stageHoldMs(crop) / 2 - 1));
-    assert.truthy(Crops.advanceGrowth(save, now + Crops.stageHoldMs(crop) / 2));
-    assert.eq(p.stage, 2);
-  }
-  const ready = { crop: 'iceflower', stage: 2, watered_t: now - Crops.LEGACY_STAGE_HOLD_MS };
-  const offline = { crop: 'sunflower', stage: 0, watered_t: now - Crops.LEGACY_STAGE_HOLD_MS * 100 };
-  const mature = { crop: 'fireflower', stage: 4, watered_t: now - Crops.LEGACY_STAGE_HOLD_MS };
-  const dry = { crop: 'fireflower', stage: 1, watered_t: 0 };
-  const ordinary = { crop: 'berry', stage: 1, watered_t: now - Crops.LEGACY_STAGE_HOLD_MS / 2 };
-  const save = { planted: [ready, offline, mature, dry, ordinary] };
-  Crops.migrateStageTimers(save, now);
-  assert.eq(ready.stage, 3);
-  assert.eq(ready.watered_t, 0);
-  assert.eq(offline.stage, 1, 'long offline advances only once');
-  assert.eq(offline.watered_t, 0);
-  assert.eq(mature.stage, 4);
-  assert.eq(mature.watered_t, now - Crops.LEGACY_STAGE_HOLD_MS, 'mature crop untouched');
-  assert.eq(dry.watered_t, 0);
-  assert.eq(dry.stage, 1);
-  assert.eq(now - ordinary.watered_t, Crops.stageHoldMs('berry') / 2, 'an ordinary crop keeps its fraction, of its own hold');
-});
 
 test('crop tier sets the stage hold; the can shortens the stage it starts', () => {
   // 4 × tier³ minutes, rounded to a round number.

@@ -9,7 +9,7 @@
       if (item.id === 'revive_potion' || item.id === 'resurrection_potion') c._hp = 0;
       assert.truthy(PotionEffects.apply(s, c, item.id), item.id);
     }
-    assert.falsy(PotionEffects.apply(scene(), creature(), 'thunder_potion'));
+    assert.falsy(PotionEffects.apply(scene(), creature(), 'thunder_scroll'));
   });
 
   test('Thrown potions: Giant and Shrinking stack, expire, and preserve melee-only scaling', () => {

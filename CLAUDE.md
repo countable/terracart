@@ -62,6 +62,10 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 
 ## Generation, saves and tiles
 
+- Do not add save/data compatibility migrations until the user requests them.
+  Retired save formats may be discarded; keep current-state defaults, validation
+  and runtime cleanup separate from compatibility conversion.
+
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
   Each spawner owns a seeded RNG stream so adding one does not reroll others.
@@ -301,7 +305,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   including per-hit arrow bundles. A shield potion halves the raw blow before
   armour; difficulty multiplies the mitigated blow after armour. Armour reduces
   blows rather than increasing maximum energy.
-- `Energy.set` is the only runtime energy writer (save migration is exempt).
+- `Energy.set` is the only runtime energy writer (current-save normalization is exempt).
   Accumulate fractional per-frame gains/losses before banking whole pips.
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
   sight range through `unseen`. Traps check `Combat.playerDowned` directly:

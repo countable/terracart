@@ -327,25 +327,8 @@ class SceneShops {
     // (Home / starter trailer is handled at the top of this function — it
     // only sells, never buys.)
     if (castle) {
-      // A RESTORED castle (the player solved its quest here — see
-      // showQuestBoard/_claimCastle) is home turf: instead of the vault's
-      // relic trade, its castellan offers one daily favour. The only other
-      // castle that gets past the seal is a LEGACY-open one (a save that
-      // finished the old chain, or opened it under the retired delivery gate
-      // — see _isBuildingSealed); those still deal in relics below.
-      if (this.isCastleClaimed(house)) {
-        this.presentCastleServiceOffer(sx, sy, house);
-        return;
-      }
-      const offer = this.peekOrBuildRelicOffer(house);
-      // No re-roll at castles per balance pass — the castle's draw is the
-      // exorbitant base price (4× minus bow/staff discount), not a re-roll
-      // lottery, so the player must accept what's offered or leave.
-      if (offer) { this.presentRelicOffer(sx, sy, offer, recordDeal, house, false); return; }
-      // Every relic + armor slot is at max tier. Castles only deal in relics,
-      // so there's nothing left to sell — say so explicitly rather than
-      // silently swapping the player onto potato seeds.
-      this.flash(`You've outgrown the vault.`, sx, sy);
+      // The seal above admits claimed castles, whose castellan offers a daily favour.
+      this.presentCastleServiceOffer(sx, sy, house);
       return;
     }
     if (shopType === 'blacksmith') {
@@ -769,9 +752,7 @@ class SceneShops {
 
   // The two random wooden relics this smithy offers. Chosen once from
   // STARTER_SMITH_SLOTS and memoized in save.starterSmithSlots so reloads +
-  // re-taps keep the same pair. (A migration concern: older saves that
-  // already forged pick/axe under the fixed queue just see whichever of the
-  // two they don't yet own — owned slots are skipped in starterBlacksmithOffer.)
+  // re-taps keep the same pair. starterBlacksmithOffer skips owned slots.
   starterSmithSlots() {
     if (!Array.isArray(this.save.starterSmithSlots) || this.save.starterSmithSlots.length !== 2) {
       // Shuffle the pool, take the first two for a distinct random pair.

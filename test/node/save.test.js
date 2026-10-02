@@ -621,3 +621,26 @@ test('save: a fresh slot has no home field until one is written', () => {
     deleteSave(id);
   }
 });
+
+
+test('save: a missing registry starts a fresh slot without adopting a bare save', () => {
+  flushSave();
+  const registryKey = 'terracart.saves', bareKey = 'terracart.save.v4';
+  const registry = localStorage.getItem(registryKey), bare = localStorage.getItem(bareKey);
+  let createdKey;
+  try {
+    localStorage.removeItem(registryKey);
+    localStorage.setItem(bareKey, JSON.stringify({ money: 999 }));
+    const reg = initSaves();
+    createdKey = reg.slots[0].key;
+    assert.truthy(createdKey !== bareKey, 'new named slot has its own key');
+    assert.eq(loadSave().money, undefined, 'retired bare save is not adopted');
+  } finally {
+    if (createdKey) localStorage.removeItem(createdKey);
+    if (registry == null) localStorage.removeItem(registryKey);
+    else localStorage.setItem(registryKey, registry);
+    if (bare == null) localStorage.removeItem(bareKey);
+    else localStorage.setItem(bareKey, bare);
+    initSaves();
+  }
+});

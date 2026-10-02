@@ -147,12 +147,12 @@ test('castleKey: the footprint key stamped on the turret, or null', () => {
   assert.eq(Houses.castleKey(null), null);
 });
 
-test('isBuildingSealed: a castle is sealed until claimed, legacy-opened, or old-gate-opened', () => {
+test('isBuildingSealed: a castle is sealed until claimed', () => {
   const tower = { kind: 'tower', castle: 'b_1_1', tier: 12, id: 'tw_1' };
   assert.truthy(Houses.isBuildingSealed({}, tower), 'freshly generated: sealed');
   assert.falsy(Houses.isBuildingSealed({}, { kind: 'house', tier: 9 }), 'not a castle at all');
-  assert.falsy(Houses.isBuildingSealed({ castlesLegacyOpen: true }, tower), 'old three-quest chain finished');
-  assert.falsy(Houses.isBuildingSealed({ openedCastles: { tw_1: true } }, tower), 'opened under the retired delivery gate');
+  assert.truthy(Houses.isBuildingSealed({ castlesLegacyOpen: true }, tower), 'retired global flag grants no access');
+  assert.truthy(Houses.isBuildingSealed({ openedCastles: { tw_1: true } }, tower), 'retired delivery flag grants no access');
   const claimed = {};
   Houses.claimCastle(claimed, tower);
   assert.falsy(Houses.isBuildingSealed(claimed, tower), 'claimed outright');

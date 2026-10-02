@@ -92,4 +92,71 @@
     assert.truthy(s._mercenary, 'contract spawns once tile finishes loading');
     assert.eq(entry.creatures.length, 1);
   }));
+  function method(name) {
+    const start = SCENE_SRC.indexOf('\n  ' + name + '(');
+    const end = SCENE_SRC.indexOf('\n  }\n', start);
+    assert.truthy(start >= 0 && end > start);
+    return new Function('return ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
+  }
+  for (const [id, kind, model, tier] of [
+    ['skeleton_scroll', 'summoned_skeleton', 'skeleton', 3],
+    ['wraith_scroll', 'summoned_wraith', 'ghost', 4],
+  ]) {
+    test(`companions: ${id} is learned by use and summons one friendly fighter through reload and expiry`, () => withScene((s, entry, advance) => {
+      assert.eq(BASE_TIER[id], tier);
+      assert.truthy(ITEM_BY_ID[id].scroll);
+      assert.falsy(isPotion(id));
+      assert.eq(MINERAL_ICON_SHEET[id].sheet, 'icon_' + id);
+      assert.truthy(HOME_RECIPES.some(r => r.id === id && r.cost[0].id === 'blank_scroll'));
+      assert.truthy(homeRecipeLocked(s.save, id));
+      assert.truthy(Shops.themedStock('potion', tier).includes(id));
+      assert.eq(Combat.summonedAs(kind), model);
+      assert.eq(Combat.creatureMaxHp(kind), Combat.creatureMaxHp(model));
+      assert.eq(Combat.petBite(kind), Combat.enemyBlow(model));
+      assert.truthy(SpriteLayout.isSummoned(kind));
+      assert.truthy(huntsPrey(kind, { kind: 'goblin', id: 'foe' }));
+      assert.falsy(huntsPrey(kind, { kind: 'dog', id: 'released_dog' }));
+      assert.falsy(Combat.isEnemy({ kind }));
+      assert.eq(SpriteLayout.creatureArt(kind).sheet, SpriteLayout.creatureArt(model).sheet);
+      s.save.inv = [{ id, count: 3 }]; s.save.selSlot = 0;
+      s.buildInventoryDOM = () => {};
+      s.showMessageModal = () => {};
+      s._spendScroll = method('_spendScroll');
+      const read = method('readSummoningScroll'), row = Companions.KINDS[kind];
+      assert.truthy(read.call(s));
+      assert.eq(s.save.inv[0].count, 2);
+      assert.falsy(homeRecipeLocked(s.save, id));
+      const first = s[row.instance];
+      assert.truthy(first);
+      first._hp = 5;
+      advance(1000);
+      assert.truthy(read.call(s));
+      assert.eq(s[row.instance], first, 'refresh keeps the same ally');
+      assert.eq(Combat.hp(first), 5, 'refresh does not heal');
+      s.save = JSON.parse(JSON.stringify(s.save));
+      s[row.instance] = null; entry.creatures = [];
+      assert.truthy(read.call(s), 'refresh immediately after reload');
+      assert.eq(Combat.hp(s[row.instance]), 5, 'refresh after reload preserves wounds');
+      assert.falsy(read.call(s), 'empty slot cannot summon');
+      advance(row.durationMs);
+      Companions.tickAll(s);
+      assert.eq(s[row.instance], null);
+      assert.falsy(Companions.active(s.save, kind));
+    }));
+    test(`companions: ${id} ends when defeated and is removed by the time potion`, () => withScene((s, entry) => {
+      const row = Companions.KINDS[kind];
+      s.save[row.field] = Date.now() + row.durationMs;
+      Companions.tick(s, kind);
+      s[row.instance]._spent = true;
+      Companions.tick(s, kind);
+      assert.eq(s[row.instance], null);
+      assert.eq(s.save[row.field], 0);
+      s.save[row.field] = Date.now() + row.durationMs;
+      Companions.tick(s, kind);
+      assert.truthy(s[row.instance]);
+      PlayerTime.reset(s);
+      assert.eq(s[row.instance], null);
+      assert.falsy(Companions.active(s.save, kind));
+    }));
+  }
 })();

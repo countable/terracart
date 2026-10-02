@@ -167,16 +167,16 @@
       'and no longer doubles as an amnesty check');
   });
 
-  test('difficulty: the save rules — veterans are easy, a fresh save is asked', () => {
+  test('difficulty: normalization preserves a chosen mode and leaves an unset mode for the card', () => {
     const veteran = { tilled: ['1,1'] };
-    SaveMigrate.migrate(veteran);
-    assert.eq(veteran.mode, 'easy', 'a played pre-mode save was played with the tutorial');
+    SaveState.normalize(veteran);
+    assert.eq(veteran.mode, undefined, 'normalization does not infer a historical mode');
     const fresh = {};
-    SaveMigrate.migrate(fresh);
+    SaveState.normalize(fresh);
     assert.eq(fresh.mode, undefined, 'a fresh save is left for the card to ask');
     assert.eq(Difficulty.of(fresh).id, 'easy', 'and reads as easy until it does');
     const hard = { tilled: ['1,1'], mode: 'hard' };
-    SaveMigrate.migrate(hard);
+    SaveState.normalize(hard);
     assert.eq(hard.mode, 'hard', 'a chosen mode is never overwritten');
   });
 

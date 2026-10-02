@@ -331,11 +331,6 @@ ONBOARDING (the first session)
    re-rolled), the rest of the map is unchanged, and it expires at the first
    harvest — the ladder's own proof the player has the loop. Baked in at
    tile-build time, so nothing pops into being the moment the crop comes in.
-   Legacy saves that predate the flag: a PLAYED save is settled as already
-   harvested (SaveMigrate.stampHarvested), so a veteran never wakes up to a
-   pest-free home.
- - Saves that predate the ladder are retired on load (Quests.starterSkipAll)
-   rather than being told to go till their first cell.
 
 ================================================================================
 CORE
@@ -1175,9 +1170,7 @@ STREET RESTORATION (the road band itself)
    Flat pairs because a walked city keeps one row per line of every way the
    player has stood beside. The epoch is folded into road_overlay.js's rebuild
    key, so a restore repaints the restored canvas on the next frame and nothing
-   repaints on the frames between. savemigrate.js folds the old
-   save.trail.stones into metres (× 20) and drops save.pathStones outright —
-   lit pebble CELLS do not map onto intervals; prizes and progress are kept.
+   repaints on the frames between. Retired pebble saves are not converted.
  - THREE PASSES DRAW IT. Both baked canvases live in roadGeomContainer and
    rebuild together, keyed on the snapped anchor cell + tile readiness + epoch:
      * 'roadgeom_overlay' — the dilapidated network, at image alpha 0.61.

@@ -1459,6 +1459,8 @@ const ICON_SHEETS = {
   icon_goldenfish: { url: 'assets/Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
   // Consumables + wilderness drops.
   icon_raven_scroll: { url: 'assets/Icons/Items/RavenScroll.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_skeleton_scroll: { url: 'assets/Icons/Items/SkeletonScroll.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_wraith_scroll: { url: 'assets/Icons/Items/WraithScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_honey:    { url: 'assets/Icons/Items/Honey.png',                      cols: 1,  srcW: 16,  srcH: 16 },
   icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
   // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
@@ -1642,17 +1644,8 @@ class MapScene extends Phaser.Scene {
       },
       loadSave()
     );
-    // All one-time save-shape migrations — slot/default backfills, the maxEnergy
-    // re-derive, the history cap, the surviving data migrations (flute→honey,
-    // cobble stones→street metres) and the save.schema stamp — live in
-    // savemigrate.js so they're testable headlessly. The pre-schema ones were
-    // retired against a decision that saves that old are forfeit; see the
-    // header there for the list and for why save.schema now exists.
-    // Returns true iff a real data migration changed something and the save
-    // should be re-persisted now. Runs before any in-memory Set is mirrored off
-    // a save array below, so the HISTORY_CAP trim above actually sticks — build
-    // a mirror from the pre-trim array and the next rewrite un-trims it.
-    const needsMigrationPersist = SaveMigrate.migrate(this.save);
+    // Normalize before building runtime membership views, so history caps stick.
+    const needsStatePersist = SaveState.normalize(this.save);
     // Pin the game mode for the pure modules (prices, enemy HP, offline rest
     // read Difficulty.get(), not the save). Unset — a fresh save the how-to
     // card hasn't asked yet — reads as easy until chooseMode() runs.
@@ -1686,9 +1679,9 @@ class MapScene extends Phaser.Scene {
     if (this.save.relicSalt == null) this.save.relicSalt = (Math.random() * 0x100000000) >>> 0;
     // Offline-rest restoration. Time since the last lastSeenAt heartbeat is
     // treated as "the player was resting" — pro-rated 100% per hour, capped at
-    // maxEnergy (re-derived in migrate above). Skipped in test mode so the
+    // maxEnergy (re-derived above). Skipped in test mode so the
     // harness's deterministic energy values aren't bumped on every reload. Runs
-    // before the migration persist so a bumped energy is saved with it.
+    // before the initial-state persist so a bumped energy is saved with it.
     if (this.save.lastSeenAt && !window.__TEST_MODE) {
       this.applyOfflineRest(Math.max(0, Date.now() - this.save.lastSeenAt));
     }
@@ -1700,7 +1693,7 @@ class MapScene extends Phaser.Scene {
     this._relicsGen = 1;
     // Transient runtime state — not persisted.
     this.pairyCompass = null;   // { targetId, x, y, until } when active
-    if (needsMigrationPersist) persistSave(this.save);
+    if (needsStatePersist) persistSave(this.save);
 
     this.cameras.main.setBackgroundColor('#000');
     // Everything below this line is in LOGICAL px; the camera is what maps
@@ -2882,14 +2875,6 @@ class MapScene extends Phaser.Scene {
     this._settleInvCatOnBoot();
     this.buildInventoryDOM();
 
-    // First-session objective chip. A save that predates the starter ladder is
-    // already past the point it teaches — retire it rather than telling a
-    // player with a built farm to go till their first cell. The tell is that
-    // they have played at all: any tilled ground, any restored house, any
-    // opened chest, or money moved off the starting purse.
-    if (typeof Quests !== 'undefined' && !this.save.starter) {
-      if (SaveMigrate.hasPlayed(this.save)) Quests.starterSkipAll(this.save);
-    }
     document.getElementById('objective-hide')
       ?.addEventListener('click', (e) => { e.stopPropagation(); this.dismissObjective(); });
     this.updateObjectiveDOM();
@@ -8479,9 +8464,8 @@ class MapScene extends Phaser.Scene {
   //
   // TWO NUMBERS, ONE LEDGER. Memories recovered = the keys in
   // save.discovered (memoriesTotal); memories UNSPENT = save.memories, a
-  // plain counter (not a bag stack — the old 'discovery' item was folded
-  // into it by savemigrate.js, schema 2), which only spendMemories takes
-  // from. The HUD chip (updateMemoriesDOM) reads both.
+  // plain counter, which only spendMemories takes from. The HUD chip
+  // (updateMemoriesDOM) reads both.
   //
   // EVERY MEMORY HEALS. The moment you feel whole again is literal: the bar
   // goes to the live cap, popped on the body through _popEnergy. A one-shot
@@ -9078,7 +9062,7 @@ class MapScene extends Phaser.Scene {
     // The purse: a fresh save opened at STARTING_MONEY (the easy figure). Only
     // a save that has not been played is re-pursed — the first-run card is the
     // only path here, but the guard keeps a reset-then-answer honest.
-    if (typeof SaveMigrate !== 'undefined' && !SaveMigrate.hasPlayed(this.save)) {
+    if (typeof SaveState !== 'undefined' && !SaveState.hasPlayed(this.save)) {
       this.save.money = prof.startingMoney;
     }
     if (!prof.tutorial && typeof Quests !== 'undefined') {
@@ -9780,18 +9764,34 @@ class MapScene extends Phaser.Scene {
   // bird — never a second raven.
   readRavenScroll() {
     const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'raven_potion' || (sel.count ?? 0) <= 0) return false;
+    if (!sel || sel.id !== 'raven_scroll' || (sel.count ?? 0) <= 0) return false;
     this.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS;
     // A living bird's follow timer is its lifetime — stretch it with the refresh.
     if (this._spiritRaven) this._spiritRaven._followUntilT = performance.now() + SPIRIT_RAVEN_MS;
     this._tickSpiritRaven();   // summoned now, not a frame later
-    this._spendScroll('raven_potion');
+    this._spendScroll('raven_scroll');
     this.showMessageModal({ title: 'You read the Scroll of the Raven',
       body: 'A raven of smoke and starlight shakes itself out of the parchment. It settles beside you, watching the beasts with hungry eyes.' });
     return true;
   }
 
-  // Potion callers keep their entry point; all timed allies share the keeper.
+  readSummoningScroll() {
+    const sel = getSelectedSlot(this.save);
+    const id = sel?.id, spec = CONSUMABLE_SPEC[id], kind = spec?.summonKind;
+    const row = Companions.KINDS[kind];
+    if (!row || (sel.count ?? 0) <= 0) return false;
+    // Reconcile expiry or defeat before refreshing, including a stale live instance.
+    Companions.tick(this, kind);
+    const refreshing = Companions.active(this.save, kind);
+    if (!refreshing) delete this.save.companionState?.[kind];
+    this.save[row.field] = Date.now() + row.durationMs;
+    Companions.tick(this, kind);
+    this._spendScroll(id);
+    this.showMessageModal({ title: `You read the ${ITEM_BY_ID[id].name}`, body: spec.get });
+    return true;
+  }
+
+  // Raven scroll and tome callers share the companion keeper.
   _tickSpiritRaven() {
     Companions.tick(this, 'spirit_raven');
   }
@@ -10110,7 +10110,7 @@ class MapScene extends Phaser.Scene {
   // Refused, and the scroll kept, when nothing hostile is in sight.
   readThunderScroll() {
     const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'thunder_potion' || (sel.count ?? 0) <= 0) return false;
+    if (!sel || sel.id !== 'thunder_scroll' || (sel.count ?? 0) <= 0) return false;
     const caughtSet = setOf(this.save.caught);
     const pc = this.playerToWorldCell();
     const targets = [];
@@ -10131,7 +10131,7 @@ class MapScene extends Phaser.Scene {
       if (!c.lair) monsterRout(c, now, this.cellM);
     }
     const n = targets.length;
-    this._spendScroll('thunder_potion');
+    this._spendScroll('thunder_scroll');
     this.showMessageModal({
       title: 'You read the Scroll of Thunder',
       body: felled < n ? 'The sky splits. When your ears stop ringing, the surviving beasts are already fleeing.' : 'The sky splits. When your ears stop ringing, the beasts lie still.',
@@ -11862,7 +11862,7 @@ class MapScene extends Phaser.Scene {
   // empty), and the auto-walk home earns none of it — that is the game moving
   // the body, not the player looking at anything.
   //
-  // State shape (savemigrate.js documents it):
+  // State shape (save_state.js documents it):
   //   save.streets      = { "<z/tx/ty>": { "<lineKey>": [s0,s1, s0,s1, …] } }
   //   save.streetsEpoch = n           ← what repaints the restored canvas
   //   save.trail        = { metres, prizes }
@@ -12588,8 +12588,7 @@ class MapScene extends Phaser.Scene {
     // dialog that says what a road is for (TRAIL_INTRO_TITLE) — it opens
     // TRAIL_INTRO_DELAY_MS later, once the repair it is about has played.
     // Flagged on the SAVE, so it is once per player and not once per reload;
-    // savemigrate.js marks veterans greeted so nobody who has already walked a
-    // ladder gets introduced to it. The flag is set where the dialog actually
+    // The flag is set where the dialog actually
     // OPENS (_sweepStreets), never here — a greeting that lands behind the
     // how-to card is refused, and the next sweep that banks metres arms it
     // again. `greeting` is therefore "a greeting is owed", which is what holds

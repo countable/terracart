@@ -250,14 +250,6 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     // Claimed outright — the player solved a quest at THIS castle, so it is
     // theirs for good and the quest board never comes back here.
     if (isCastleClaimed(save, house)) return false;
-    // A save that finished the old global three-quest chain had every castle
-    // open; the per-castle seal must not take that back (see the migration in
-    // quests.js _qs).
-    if (save.castlesLegacyOpen) return false;
-    // A castle opened under the retired delivery gate stays open — the same
-    // courtesy castlesLegacyOpen pays the old chain. Read-only: nothing
-    // writes save.openedCastles any more.
-    if (house.id && save.openedCastles?.[house.id]) return false;
     // PER CASTLE, now that the board never runs dry. This was global — finish
     // the three-quest chain and every castle in the world opened at once —
     // which was the only thing it could be while there were exactly three

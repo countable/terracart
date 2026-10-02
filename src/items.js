@@ -418,7 +418,9 @@ const MINERAL_ICON_SHEET = {
   giant_potion: { sheet: 'icon_potions', frame: 27 },
   fire_resistance_potion: { sheet: 'icon_potions', frame: 32 },
   // Scroll of the Raven: dark bird inked on parchment, retaining its save id.
-  raven_potion:  { sheet: 'icon_raven_scroll', frame: 0 },
+  skeleton_scroll: { sheet: 'icon_skeleton_scroll', frame: 0 },
+  wraith_scroll: { sheet: 'icon_wraith_scroll', frame: 0 },
+  raven_scroll:  { sheet: 'icon_raven_scroll', frame: 0 },
   // Potion of Blight — the red flask of the next row down (row 3, y=48:
   // frame 17), so it doesn't read as the Speed potion's red beside it.
   blight_potion: { sheet: 'icon_potions', frame: 17 },
@@ -428,7 +430,7 @@ const MINERAL_ICON_SHEET = {
   revive_potion:       { sheet: 'icon_potions', frame: 16 },
   resurrection_potion: { sheet: 'icon_potions', frame: 21 },
   // Scroll of Thunder keeps its legacy save id; gold-lettered scroll art.
-  thunder_potion:      { sheet: 'icon_book', frame: 48 },
+  thunder_scroll:      { sheet: 'icon_book', frame: 48 },
   // Dragon Powder — the vivid crimson pouch (row 1 col 2 = frame 7). Using it
   // turns you into a red dragon (useDragonPowder in app.js).
   dragon_powder: { sheet: 'icon_potions', frame: 7 },
@@ -613,13 +615,14 @@ const BASE_TIER = {
   honey: 3, book: 1, reach_potion: 4, vigor_potion: 2, speed_potion: 2, shield_potion: 5, protection_potion: 2, time_potion: 7, immortal_potion: 7,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
-  raven_potion: 3,
+  raven_scroll: 2,
+  skeleton_scroll: 3, wraith_scroll: 4,
   dragon_powder: 4, shrinking_potion: 4, giant_potion: 4, fire_resistance_potion: 4,
   // Revival: getting up where you fell instead of walking Home at a crawl.
   // 30% of a bar is a T3 emergency; 60% of a bar is a T5 find.
   revive_potion: 3, resurrection_potion: 5,
   // Thunder: a screen-wide strike that also breaks a fight up — T4.
-  thunder_potion: 4,
+  thunder_scroll: 4,
   // Growth Powder is a T2 farm utility beside the potions, and Shadow sits with
   // it: three minutes of not being hunted is a way to WALK AWAY from a fight, the
   // same shape as the reach/speed/shield potions it now shares a tier with.
@@ -808,16 +811,16 @@ const ITEMS = [
   { id: 'giant_potion', name: 'Potion of Giant', kind: 'magic', potion: true },
   { id: 'fire_resistance_potion', name: 'Potion of Fire Resistance', kind: 'magic', potion: true },
   { id: 'blight_potion', name: 'Potion of Blight',    kind: 'magic', potion: true },
-  // Read to summon a spirit raven that hunts foes and pest deer for
-  // SPIRIT_RAVEN_MS (app.js readRavenScroll; the bird is the creature row
-  // SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven).
-  { id: 'raven_potion',  name: 'Scroll of the Raven', kind: 'magic', scroll: true },
+  // Read to summon a temporary ally through the shared companion keeper.
+  { id: 'skeleton_scroll', name: 'Scroll of Bones', kind: 'magic', scroll: true },
+  { id: 'wraith_scroll', name: 'Scroll of the Wraith', kind: 'magic', scroll: true },
+  { id: 'raven_scroll',  name: 'Scroll of the Raven', kind: 'magic', scroll: true },
   // Drunk while DOWN (zero energy) to get back up on the spot — see
   // REVIVE_POTION_FRAC and drinkRevivePotion in app.js.
   { id: 'revive_potion',       name: 'Potion of Revival',       kind: 'magic', potion: true },
   { id: 'resurrection_potion', name: 'Potion of Resurrection', kind: 'magic', potion: true },
-  // Read to strike every foe on screen; legacy id preserves saved copies.
-  { id: 'thunder_potion',      name: 'Scroll of Thunder',      kind: 'magic', scroll: true },
+  // Read to strike every foe on screen.
+  { id: 'thunder_scroll',      name: 'Scroll of Thunder',      kind: 'magic', scroll: true },
   // Dragon Powder: use it (Use button with it selected) to wear a red dragon
   // for one minute — tier-8 boot movement and 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
@@ -1206,12 +1209,22 @@ const CONSUMABLE_SPEC = {
     verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?',
     get: 'A shimmering veil softens the blows of beasts.',
   },
-  raven_potion: {
+  skeleton_scroll: {
+    durationMs: _CONSUMABLE_MINUTE_MS, summonKind: 'summoned_skeleton',
+    verb: 'Read', method: 'readSummoningScroll', title: 'Read the Scroll of Bones?',
+    get: 'A bone-white guardian rises to fight beside you.',
+  },
+  wraith_scroll: {
+    durationMs: _CONSUMABLE_MINUTE_MS, summonKind: 'summoned_wraith',
+    verb: 'Read', method: 'readSummoningScroll', title: 'Read the Scroll of the Wraith?',
+    get: 'A cold shade slips from the ink to hunt your foes.',
+  },
+  raven_scroll: {
     durationMs: _CONSUMABLE_MINUTE_MS,
     verb: 'Read', method: 'readRavenScroll', title: 'Read the Scroll of the Raven?',
     get: 'A raven of pale smoke takes wing against your foes.',
   },
-  thunder_potion: {
+  thunder_scroll: {
     damage: 25,
     verb: 'Read', method: 'readThunderScroll', title: 'Read the Scroll of Thunder?',
     get: 'Thunder breaks over the foes before you.',
@@ -1287,8 +1300,8 @@ const CONSUMABLE_SPEC = {
 // Compatibility names keep existing consumers concise while the table remains
 // the only numeric owner.
 const VIGOR_POTION_ENERGY = CONSUMABLE_SPEC.vigor_potion.energy;
-const THUNDER_DMG = CONSUMABLE_SPEC.thunder_potion.damage;
-const SPIRIT_RAVEN_MS = CONSUMABLE_SPEC.raven_potion.durationMs;
+const THUNDER_DMG = CONSUMABLE_SPEC.thunder_scroll.damage;
+const SPIRIT_RAVEN_MS = CONSUMABLE_SPEC.raven_scroll.durationMs;
 const HORSE_RIDE = CONSUMABLE_SPEC.horse;
 // A shiny horse is ridden the same way: one row, two stacks.
 CONSUMABLE_SPEC.shiny_horse = HORSE_RIDE;
@@ -1351,7 +1364,7 @@ const PRICES = {
   honey: 12,
   book:  20,
   tome_sight: 90,   // T3 — a reach potion's sight, once a day, forever
-  tome_raven: 170,  // T4 — a T3 raven's wings, once a day, forever
+  tome_raven: 170,  // T4 — a T2 raven's wings, once a day, forever
   tome_storm: 300,  // T5 — a T4 thunderclap (the unique-relic curve re-prices all tomes)
   tome_speed: 100, tome_shield: 80, tome_healing: 70, tome_blight: 170,
   tome_firewall: 170, // T4 — unique-relic pricing applies
@@ -1374,12 +1387,12 @@ const PRICES = {
   immortal_potion: 800, // T7 — full damage immunity for 1 min
   shield_potion: 250,  // T5 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura at app.js's BLIGHT_DPS
-  raven_potion:  90,   // T3 — 1 min of a slime-strength ally (one roster-slime bite
-                       //      each second on one foe, below Blight's per-foe rate, but
-                       //      it hunts pests and keeps fighting while you move): Blight's tier and price
+  raven_scroll: 55, // T2 — one minute of a slime-strength ally
+  skeleton_scroll: 90, // T3 — one minute of a skeleton-strength ally
+  wraith_scroll: 160, // T4 — one minute of a ghost-strength ally
   revive_potion: 40,   // T3 — get up where you fell with 30% of the bar
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
-  thunder_potion: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
+  thunder_scroll: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
   dragon_powder: 120,  // T4 — 1 min of dragon: tier-8 boot walking + 2× damage
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
   shadow_powder: 110,  // T2 — 3 min of monsters ignoring you entirely (priced for the
@@ -1503,8 +1516,10 @@ const ITEM_GUIDE_TIPS = {
   rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',
   flowers: 'Brought the shopkeeper flowers. A softer voice, a kinder price. I had meant only to give her something lovely.',
   slime: 'The slime shares my doorstep now. When I grind the blue stone, it waits beside me. Brann would disapprove. I have decided not to ask him.',
-  raven_potion: 'I traced a raven onto the parchment. Its ink-dark wings stirred before the page was dry.',
-  thunder_potion: 'I copied the thunder words onto a blank scroll. Outside, the sky answered.',
+  skeleton_scroll: 'I drew a skull on the blank parchment. Something tapped against the table from underneath.',
+  wraith_scroll: 'The ink paled as I finished the shade. My breath misted above the parchment.',
+  raven_scroll: 'I traced a raven onto the parchment. Its ink-dark wings stirred before the page was dry.',
+  thunder_scroll: 'I copied the thunder words onto a blank scroll. Outside, the sky answered.',
   fireball_scroll: 'At the trailer I copied the fire spell from memory onto blank parchment. The ink warmed. I moved the bedding away.',
   fear_scroll: 'I copied the words that had scattered my pursuers onto a blank scroll. Even here at the trailer, the parchment trembled.',
   treasure_map: 'Back at the trailer I traced the remembered map onto a blank scroll. Its hidden paths returned. I had hoped one might lead home.',
@@ -1588,8 +1603,10 @@ const ITEM_EFFECTS = {
   antidote: 'A bitter draught to wash every affliction away.',
   elixir: 'Restoring warmth washes every affliction from your body.',
   vigor_potion: 'A little bottled warmth for weary limbs.',
-  raven_potion: 'A pale wing stirs beneath the raven-marked ink.',
-  thunder_potion: 'A distant storm stirs between the inked lines.',
+  skeleton_scroll: 'The skull-marked parchment rattles softly in your hand.',
+  wraith_scroll: 'Cold gathers around the shade stamped into the parchment.',
+  raven_scroll: 'A pale wing stirs beneath the raven-marked ink.',
+  thunder_scroll: 'A distant storm stirs between the inked lines.',
   revive_potion: 'A faint pulse waits to call a fallen traveller back.',
   resurrection_potion: 'A deep warmth waits where a fallen traveller’s heart has quieted.',
   growth_powder: 'Spring stirs in the dust, impatient with the sleeping crops.',
@@ -1785,8 +1802,7 @@ const RELIC_DEFS = {
              effectKey: 'rockSpeed',     blurb: 'Its pointed head finds the seams in stone.' },
   axe:     { slot: 'axe',    name: 'Axe',     icon: 'Axe.png',     baseCost:  80,
              effectKey: 'chopSpeed',     blurb: 'Its keen edge bites deep into timber.' },
-  // Ring and amulet names belong to unique carried jewelry now. Legacy tiered
-  // pieces migrate in savemigrate.js; this table contains tools only.
+  // Ring and amulet names belong to unique carried jewelry; this table contains tools only.
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
   // are ranged — they fire on their own while an enemy is on screen, each on

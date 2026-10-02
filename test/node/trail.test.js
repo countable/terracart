@@ -18,7 +18,7 @@
     // edit here — and it is the walk the ladder always asked for: the counter
     // used to want ten lit pebbles at one per 20 m, which is this number said
     // in the unit that was underneath it all along (see the stones→metres fold
-    // in savemigrate.js).
+    // in save_state.js).
     assert.eq(S, 200, 'GOAL_STEP_M');
     assert.eq(T.goalFor(0), 200, 'the first goal');
   });

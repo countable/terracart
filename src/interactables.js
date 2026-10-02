@@ -1059,8 +1059,7 @@ function chestNeverSpent(o) {
 // stands bare for crateRestoreDays UTC
 // days (1 for an ordinary crate, up to CRATE_RESTORE_MAX_DAYS for a class
 // the tile is crowded with) before it restocks at its normal tier.
-// It is NOT save.opened: an id there (a save from before Sep 2026) is ignored
-// for a crate — savemigrate.js carried those onto the ledger once.
+// Crate availability reads the day ledger, independently of save.opened.
 // X marks, headstones, trunks, nexus chests and cave chests never restock.
 // Wagons and daily visit sites share the day ledger and glow through their
 // own visit predicate, rather than this crate/barrel schedule.

@@ -1,5 +1,5 @@
 test('item classes: potions and powders are Magic; practical items are Supplies', () => {
-  for (const id of ['antidote', 'elixir', 'reach_potion', 'vigor_potion', 'speed_potion', 'shield_potion', 'blight_potion', 'raven_potion', 'revive_potion', 'resurrection_potion', 'thunder_potion', 'growth_powder', 'shadow_powder', 'dragon_powder', 'frost_powder']) {
+  for (const id of ['antidote', 'elixir', 'reach_potion', 'vigor_potion', 'speed_potion', 'shield_potion', 'blight_potion', 'raven_scroll', 'revive_potion', 'resurrection_potion', 'thunder_scroll', 'growth_powder', 'shadow_powder', 'dragon_powder', 'frost_powder']) {
     assert.eq(ITEM_BY_ID[id].kind, 'magic', id);
     assert.eq(invCatForItem(id), 'magic', id);
   }
@@ -11,28 +11,7 @@ test('item classes: potions and powders are Magic; practical items are Supplies'
   assert.eq(INV_CATS.length, 8);
 });
 
-test('migration: selected magic moves old Items tab without changing stacks or held rewards', () => {
-  const held = { kind: 'item', id: 'vigor_potion', qty: 2, consolation: 7 };
-  const save = { schema: 2, invCat: 'consumables', invPage: 4, selSlot: 1,
-    inv: [{ id: 'torch', count: 2 }, { id: 'vigor_potion', count: 3 }], heldChestReward: held };
-  const before = JSON.stringify(save.inv);
-  SaveMigrate.migrate(save);
-  assert.eq(save.invCat, 'magic');
-  assert.eq(save.invPage, 0);
-  assert.eq(save.selSlot, 1);
-  assert.eq(JSON.stringify(save.inv), before);
-  assert.eq(save.heldChestReward, held);
-  assert.eq(SaveMigrate.migrate(save), false, 'idempotent');
-});
 
-test('migration: old Items tab defaults to Supplies with no selected magic', () => {
-  for (const selected of [-1, 0]) {
-    const save = { schema: 2, invCat: 'consumables', invPage: 5, selSlot: selected, inv: [{ id: 'book', count: 2 }] };
-    SaveMigrate.migrate(save);
-    assert.eq(save.invCat, 'supplies');
-    assert.eq(save.invPage, 0);
-  }
-});
 
 test('new medicines have distinct nonempty art and fixed tiers', () => {
   assert.eq(ITEM_BY_ID.antidote.baseTier, 1);

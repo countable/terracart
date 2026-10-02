@@ -157,7 +157,7 @@ test('fishing: about one spot in three is stocked, and the same for everyone', (
 test('fished spots persist as an id set bound at scene boot', () => {
   const app = ALL_SRC['app.js'];
   assert.truthy(app.includes("this.fishedSpotSet = bindIdSet(this.save, 'fishedSpots')"), 'bound');
-  assert.falsy(/'fishedSpots'/.test(ALL_SRC['savemigrate.js'] || ''), 'never capped: gone forever');
+  assert.falsy(/'fishedSpots'/.test(ALL_SRC['save_state.js'] || ''), 'never capped: gone forever');
 });
 
 (function () {

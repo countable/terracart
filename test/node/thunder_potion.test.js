@@ -16,18 +16,18 @@ const body = (() => {
 
 test('thunder scroll: a T4 scroll with a price, an icon and a ✦ line quoting its damage', () => {
   assert.eq(THUNDER_DMG, 25, '25 damage');
-  assert.eq(BASE_TIER.thunder_potion, 4, 'tier 4');
-  assert.eq(ITEM_BY_ID.thunder_potion?.kind, 'magic', 'read, not eaten');
-  assert.eq(FOOD_ENERGY.thunder_potion, undefined, 'never on the Eat button');
-  assert.gt(PRICES.thunder_potion, 0, 'priced');
-  assert.truthy(ITEM_BY_ID.thunder_potion.scroll);
-  assert.falsy(isPotion('thunder_potion'));
-  assert.eq(CONSUMABLE_SPEC.thunder_potion.verb, 'Read');
-  assert.truthy(HOME_RECIPES.some(r => r.id === 'thunder_potion'));
-  assert.truthy(body.includes("this._spendScroll('thunder_potion')"), 'successful cast teaches its recipe');
-  assert.falsy(/\d/.test(ITEM_EFFECTS.thunder_potion), 'the storm hints at its power');
-  assert.eq(CONSUMABLE_SPEC.thunder_potion.method, 'readThunderScroll', 'the Read button offers it');
-  assert.truthy(Shops.themedStock('potion', 4).includes('thunder_potion'), 'a T4 potion shop stocks it');
+  assert.eq(BASE_TIER.thunder_scroll, 4, 'tier 4');
+  assert.eq(ITEM_BY_ID.thunder_scroll?.kind, 'magic', 'read, not eaten');
+  assert.eq(FOOD_ENERGY.thunder_scroll, undefined, 'never on the Eat button');
+  assert.gt(PRICES.thunder_scroll, 0, 'priced');
+  assert.truthy(ITEM_BY_ID.thunder_scroll.scroll);
+  assert.falsy(isPotion('thunder_scroll'));
+  assert.eq(CONSUMABLE_SPEC.thunder_scroll.verb, 'Read');
+  assert.truthy(HOME_RECIPES.some(r => r.id === 'thunder_scroll'));
+  assert.truthy(body.includes("this._spendScroll('thunder_scroll')"), 'successful cast teaches its recipe');
+  assert.falsy(/\d/.test(ITEM_EFFECTS.thunder_scroll), 'the storm hints at its power');
+  assert.eq(CONSUMABLE_SPEC.thunder_scroll.method, 'readThunderScroll', 'the Read button offers it');
+  assert.truthy(Shops.themedStock('potion', 4).includes('thunder_scroll'), 'a T4 potion shop stocks it');
 });
 
 test('thunder scroll: enemies in SIGHT, through _damageEnemy, the rest routed', () => {

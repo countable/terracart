@@ -538,6 +538,8 @@
     if (row.art.directions) Object.assign(CREATURE_ART[row.id], { directions: row.art.directions, directionSideFacing: row.art.directionSideFacing });
     CREATURE_ART[row.id].tint = row.tint ? parseInt(row.tint.slice(1), 16) : (fw === 32 && old?.tint) || 0xffffff;
   }
+  CREATURE_ART.summoned_skeleton = { ...CREATURE_ART.skeleton };
+  CREATURE_ART.summoned_wraith = { ...CREATURE_ART.ghost };
   const _giantArt = {};
   function creatureArt(kind) {
     if (CREATURE_ART[kind]) return CREATURE_ART[kind];
@@ -661,6 +663,9 @@
     // enemy (no MONSTERS row), NOT game, and NOT tappable (interact.js skips a
     // `summoned` kind: there is nothing to catch, tame or pet).
     spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000, stepCells: 0.7 },
+    summoned_skeleton: { wanders: true, summoned: true, preysOnFoes: true, follows: true,
+      get stepMs() { return EnemyRoster.get('skeleton').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
+    summoned_wraith: { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000, stepCells: 0.7 },
     mercenary: { wanders: true, summoned: true, preysOnFoes: true, follows: true,
       get stepMs() { return EnemyRoster.get('goblin').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
     // `maxMps` is the kind's hard top speed, m/s (owner, Sep 2026: a

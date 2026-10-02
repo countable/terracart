@@ -45,6 +45,8 @@
     giant: { name: 'Giant', color: '#ffb18c', stroke: '#4a180b', save: 'giantPotionUntil' },
     shield:  { name: 'Shield',  color: '#c9d6ff', stroke: '#1a2250', save: 'shieldPotionUntil' },
     reach:   { name: 'Reach',   color: '#fff3a8', stroke: '#4a3a00', save: 'reachPotionUntil' },
+    skeleton: { name: 'Bones', color: '#ded6bc', stroke: '#27231d', save: 'skeletonUntil' },
+    wraith: { name: 'Wraith', color: '#b9cce2', stroke: '#162034', save: 'wraithUntil' },
     raven:   { name: 'Raven',   color: '#b8b8c8', stroke: '#101018', save: 'spiritRavenUntil' },
     coffee:  { name: 'Coffee',  color: '#e0b48a', stroke: '#3a2010', save: 'coffeeUntil' },
     dawnfruit: { name: 'Dawnfruit', color: '#fff3a8', stroke: '#4a3a00', save: 'dawnfruitUntil' },

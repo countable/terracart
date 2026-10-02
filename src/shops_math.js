@@ -100,7 +100,7 @@
     return cur;
   }
 
-  // Garbage-collect spent entries out of save.shopState (savemigrate.js, once
+  // Garbage-collect spent entries out of save.shopState (save_state.js, once
   // per boot) so the map can't grow by one record per shop ever visited. An
   // entry is spent when it is from an earlier bucket AND its re-roll level has
   // eased all the way to zero: that is exactly the record bucketState() would

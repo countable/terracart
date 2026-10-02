@@ -15,8 +15,7 @@
 //   • the DAY LEDGER - save.coinBurstClaimed, pruned of takes older than a
 //     week on every write. Plain id keys record coin bursts, shrines, crates
 //     and barrels; `macro:` id keys record inn, chapel and guildhall services.
-//     The two lanes share pruning but never keys, because migration carries
-//     old chest openings onto the plain lane and must not spend a new service;
+//     Separate keys let pickups and services at one place be used independently;
 //   • save.donated — the curio ids this save has given (progress, not world
 //     state), and its milestones in the memory ledger (save.discovered);
 //   • save.trainingPerm / save.trainingBuffUntil — the damage the player
@@ -43,12 +42,11 @@
   'use strict';
 
   // ── The day ledger (the coin-burst one) ────────────────────────────────────
-  // The ledger keeps two lanes because old chest ids can become macro places.
+  // The ledger keeps pickups and services independent at a shared place.
   // usedToday / markToday own plain `<id><day>` keys for coin bursts, shrines,
   // crates and barrels. serviceUsedToday / markServiceToday own
   // `macro:<id><day>` keys for inns, chapels and guildhalls. Both lanes share
-  // one pruning pass, but migration can carry a crate take without spending a
-  // service the player has never used. A write
+  // one pruning pass. A write
   // prunes every entry older than LEDGER_KEEP_DAYS, so a take is remembered
   // for a week: long enough for a crate that restocks after several days
   // (loot.js crateRestoreDays, capped at CRATE_RESTORE_MAX_DAYS — the same
