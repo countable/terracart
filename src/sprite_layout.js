@@ -853,19 +853,41 @@
   // A stopped creature keeps its last facing. Motion is stamped by the sim
   // only after a displacement succeeds; aiming may turn without walking.
   const CREATURE_MOVE_GRACE_MS = 200;
-  // The DRAWN facing holds at least this long before it turns again, so a foe
-  // dithering across a diagonal doesn't flicker. Art only: movement and aim
-  // read dx/dy, never the facing.
+  // The DRAWN facing turns only once a new one has been WANTED for this long
+  // without a break: a foe chasing on a diagonal, or nudged about at the
+  // player's side, wants left / down / left frame to frame, and each
+  // contradiction restarts the wait, so it keeps its pose instead of
+  // flickering. (A hold since the last turn still let it flip once a second.)
+  // Art only: movement and aim read dx/dy, never the facing.
   const CREATURE_FACE_HOLD_MS = 1000;
+  // And the facing it has is kept until the motion is this far (radians)
+  // past the diagonal into another quarter, so a path along the diagonal
+  // does not even ask to turn.
+  const CREATURE_FACE_HYSTERESIS = 0.35;
+  const FACE_AXIS = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 };
+  function wantedFacing(c, dx, dy) {
+    const cur = c._facing;
+    if (cur in FACE_AXIS) {
+      let off = Math.abs(Math.atan2(dy, dx) - FACE_AXIS[cur]) % (2 * Math.PI);
+      if (off > Math.PI) off = 2 * Math.PI - off;
+      if (off <= Math.PI / 4 + CREATURE_FACE_HYSTERESIS) return cur;
+    }
+    return Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
+  }
   function faceCreature(c, dx, dy, now = performance.now()) {
     if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.hypot(dx, dy) < 1e-6) return false;
-    const facing = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
-    const flip = Math.abs(dx) > 1e-6 ? dx < 0 : c._faceFlip;
-    if (c._facing && (facing !== c._facing || flip !== c._faceFlip)
-      && c._faceAt != null && now - c._faceAt < CREATURE_FACE_HOLD_MS) return true;
-    if (facing !== c._facing || flip !== c._faceFlip) c._faceAt = now;
-    c._facing = facing;
-    if (flip !== undefined) c._faceFlip = flip;
+    const facing = wantedFacing(c, dx, dy);
+    // The mirror of an art with no side row: a side facing names it; front
+    // and back keep the last one unless the motion clearly leans a way.
+    const flip = facing === 'left' || facing === 'right' ? facing === 'left'
+      : Math.abs(dx) > 0.5 * Math.abs(dy) ? dx < 0 : !!c._faceFlip;
+    if (!c._facing) { c._facing = facing; c._faceFlip = flip; return true; }
+    if (facing === c._facing && flip === c._faceFlip) { c._facePendingT = null; return true; }
+    if (c._facePendingT == null || c._facePending !== facing || c._facePendingFlip !== flip) {
+      c._facePending = facing; c._facePendingFlip = flip; c._facePendingT = now;
+    } else if (now - c._facePendingT >= CREATURE_FACE_HOLD_MS) {
+      c._facing = facing; c._faceFlip = flip; c._facePendingT = null;
+    }
     return true;
   }
   function updateCreatureFacing(c, dx, dy, now) {

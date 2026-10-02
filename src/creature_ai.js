@@ -208,7 +208,7 @@ function inKerbAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldG
 // the retreat is bent onto the ROADSIDE: the nearest street within
 // ROADSIDE_R_CELLS (its roadMask band or its road terrain), run ALONG it, on
 // the creature's own side, ROADSIDE_VERGE_CELLS off the road — the pavement,
-// never the carriageway (road terrain refuses every wild step; the kerb
+// never the carriageway (major road terrain refuses every wild step; the kerb
 // rules above refuse the major band and its buffer as they always did). The
 // street's line is the principal axis of its cells about the nearest one;
 // of the two ways along it the run takes the one nearer the away angle, so
@@ -1422,6 +1422,35 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   if (lunging) c._lungeHit = true;
 }
 
+// FOE SPACING: foes may brush against each other, but each keeps about
+// FOE_SPACING_CELLS from the next. The push is a unit-scaled vector away from
+// every live foe nearer than that (stronger the closer it is), or null when
+// the foe has room. It steers the step in rosterEnemyMove, inside the foe's own
+// pace; nothing is ever blocked by it, so a crowd can still squeeze through a
+// gap. Exact overlap breaks the tie off the ids, so two stacked foes part.
+// A swooping flier (enemyBatMove) and a lair guard walking home are not pushed.
+const FOE_SPACING_CELLS = 0.6;
+function foeSpacingPush(scene, c) {
+  const bodies = scene._foeBodies;
+  if (!bodies || bodies.length < 2) return null;
+  const r = FOE_SPACING_CELLS * scene.cellM;
+  let x = 0, y = 0;
+  for (const o of bodies) {
+    if (o === c) continue;
+    const dx = c.x - o.x, dy = c.y - o.y;
+    if (Math.abs(dx) >= r || Math.abs(dy) >= r) continue;
+    const d = Math.hypot(dx, dy);
+    if (d >= r) continue;
+    const w = (r - d) / r;
+    if (d > 1e-6) { x += dx / d * w; y += dy / d * w; continue; }
+    const a = (strHash31(String(c.id)) - strHash31(String(o.id))) % 628 / 100;
+    x += Math.cos(a) * w; y += Math.sin(a) * w;
+  }
+  const len = Math.hypot(x, y);
+  if (len < 1e-6) return null;
+  return len > 1 ? { x: x / len, y: y / len } : { x, y };
+}
+
 function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt, creatureTarget = null) {
   if (Combat.isSleeping(c)) return;
   if (c._lastDamagedT && Date.now() - c._lastDamagedT >= 20 * 60 * 1000) {
@@ -1520,7 +1549,17 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     speed = m.chargeSpeedMetersPerSecond || speed;
   }
   if (c._attackWindupUntil != null && !routed) return;
-  const step = Math.min(maxDistance, speed * dt * PotionEffects.speedMul(c));
+  const pace = speed * dt * PotionEffects.speedMul(c);
+  let step = Math.min(maxDistance, pace);
+  // Foes keep a little room between them (FOE_SPACING_CELLS): the spacing
+  // push joins the approach inside the same per-frame budget, so a crowd
+  // spreads round the player rather than stacking, and never moves faster.
+  const push = lairState === 'return' ? null : foeSpacingPush(scene, c);
+  if (push) {
+    const vx = Math.cos(angle) * step + push.x * pace, vy = Math.sin(angle) * step + push.y * pace;
+    const len = Math.hypot(vx, vy);
+    if (len > 1e-9) { angle = Math.atan2(vy, vx); step = Math.min(len, pace); }
+  }
   const sx = c.x, sy = c.y;
   if (!enemySweep(scene, c, row, c.x + Math.cos(angle) * step, c.y + Math.sin(angle) * step, now)) {
     if (c._lungeUntil != null) {
