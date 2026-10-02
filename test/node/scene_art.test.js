@@ -14,7 +14,7 @@ const kindsSrc = shell.slice(shell.indexOf('const MODAL_KINDS = {'), shell.index
 
 // Every stem a dialog can open on: the literal `art: '…'`s, the kind rows'
 // defaults, and the restore roles (built as 'restore_' + role).
-const stems = new Set(Object.values(NPC.STORY_ROLES).map(row => row.art).filter(Boolean));
+const stems = new Set(Object.values(NPC.STORY_ROLES).flatMap(row => [row.art, row.housedArt]).filter(Boolean));
 for (const m of app.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
 for (const m of shell.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
 for (const m of INTERACT_SRC.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);

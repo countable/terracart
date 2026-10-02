@@ -4014,6 +4014,7 @@ class MapScene extends Phaser.Scene {
       this._syncModalGate?.();
       this._drainBadgeStories();
       this._lowHealthStory();
+      this._firstSaleStory();
       DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
       NPC.tickArrivals(this, Date.now());
@@ -8551,6 +8552,17 @@ class MapScene extends Phaser.Scene {
     persistSave(this.save);
   }
 
+  _firstSaleStory() {
+    if (!this.save.firstSalePending || this.save.storySeen?.['sale:first']) return;
+    if (this._storySplashOnce('sale:first', {
+      art: 'first_sale', title: 'Fine wares',
+      body: "The neighbours offer to buy your fine wares for some 'green'.",
+    })) {
+      delete this.save.firstSalePending;
+      persistSave(this.save);
+    }
+  }
+
   _lowHealthStory() {
     this._queueLowHealthStory();
     if (!this.save.healthLowPending || this.save.storySeen?.['health:low']
@@ -11164,9 +11176,11 @@ class MapScene extends Phaser.Scene {
         this._clampSelSlot();
         const gain = unitPrice * sold;
         addMoney(this.save, gain);
+        if (!this.save.storySeen?.['sale:first']) this.save.firstSalePending = true;
         this._finishInventoryChange();
         this.flashLoot(`+${gain}`, '#ffe066', 1, sellId);
         this.questEvent('sell');
+        this._firstSaleStory();
       },
     });
   }

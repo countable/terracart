@@ -276,6 +276,8 @@ const PIECES = {
     'small travelling home wagon at dawn, wrapped in a blanket, a small campfire crackling, while a ' +
     'kindly villager hands them a steaming bowl. No bags, packs or tools anywhere near the ' +
     'survivor. The raised brown hood hides all facial features in deep shadow. Relief, home.' + HOME_WAGON),
+  npc_tilly_happy: scene('Tilly, the same small brown-haired girl in a cream headscarf and patched brown dress, now smiling with relief and trusting bright eyes. She still holds the treasured old doorknob in both hands. Match npc_tilly identity and framing, warm dithered pixel style, ruined village background and quiet dark foreground.'),
+  first_sale: scene('Close view of a neighbour’s work-worn hand in a rustic brown sleeve pushing shiny jade-green coins embossed with stars across a rough wooden table toward the viewer. Friendly exchange, warm amber lighting. All detail in the upper forty percent; the lower sixty percent is empty dark brown shadow. Coins are green, never gold.'),
   home_sell: scene(
     'A rough wooden crate brimming with fresh produce - potatoes, onions, apples and a few ' +
     'wheat bundles - set out on the grass beside a small travelling home wagon at golden hour, a little ' +
