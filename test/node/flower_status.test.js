@@ -2,13 +2,13 @@
   const wall = 1800000000000;
   const foe = (id, kind = 'zombie', x = 0) => ({ id, kind, x, y: 0 });
   function scene(creatures) {
-    return { cellM: 7, tileEdgeM: 224, startWorldM: {x:0,y:0}, originPx: {x:0,y:0}, mPerPx:7, cellsPerTile:WorldGen.TILE_PX, depth: 2, save: { energy: 100, caught: [], armor: {} },
+    return Object.assign(new SceneFire(), { cellM: 7, tileEdgeM: 224, startWorldM: {x:0,y:0}, originPx: {x:0,y:0}, mPerPx:7, cellsPerTile:WorldGen.TILE_PX, depth: 2, save: { energy: 100, caught: [], armor: {} },
       cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_FLOOR }),
       _cellBlocked: () => false, _nearAny: () => false, isUnnoticed: () => false, _shots: [], hits: [],
       _losePlayerEnergy(n) { this.save.energy -= n; return n; },
       _damageEnemy(c, n, source, opts) {
         this.hits.push({ c, n, source }); Combat.damage(c, n, opts); return Combat.hp(c) <= 0;
-      } };
+      } });
   }
   function withClock(fn) {
     const real = Date.now; Date.now = () => wall;
@@ -72,7 +72,7 @@
     assert.eq(Combat.shotSource(s._shots[0]), 'ally');
   }));
   test('flower status: burning sleepers wake and charm does not prevent lava damage', () => withClock(() => {
-    const c = foe('burn'), s = scene(); Combat.applySleep(c, wall); Combat.ignite(c, 1000, 'fire');
+    const c = foe('burn'), s = scene(); Combat.applySleep(c, wall); Combat.ignite(c, 1000, 'fire'); c._burnState.remainingMs = 15000;
     assert.truthy(flowerCreatureTick(s, c, 1500, 10, 0, new Set()));
     assert.truthy(Combat.isSleeping(c));
     assert.falsy(flowerCreatureTick(s, c, 2000, 10, 0, new Set()));
@@ -116,7 +116,7 @@
     assert.falsy(flowerCreatureTick(s, hostile, 1000, 100, 0, new Set()), 'fear leaves movement to the retreat lane');
     assert.eq(hostile.x, 0); assert.eq(s.hits.length, 0);
     assert.falsy(hostile._attackWindupUntil, 'no attack starts on the ally');
-    Combat.applySleep(hostile, wall); Combat.ignite(hostile, 1000, 'fire');
+    Combat.applySleep(hostile, wall); Combat.ignite(hostile, 1000, 'fire'); hostile._burnState.remainingMs = 15000;
     assert.truthy(flowerCreatureTick(s, hostile, 1500, 100, 0, new Set()), 'sleep still runs before fear');
     assert.truthy(Combat.isSleeping(hostile));
     assert.falsy(flowerCreatureTick(s, hostile, 2000, 100, 0, new Set()), 'the wake tick returns to retreat');

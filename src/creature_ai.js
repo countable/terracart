@@ -790,6 +790,7 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
     }
   }
   if (now - c._spawnT >= GHOST_LIFETIME_MS) return 'faded';
+  if (enemyFireEscapeTick(scene, c, EnemyRoster.get(c.kind), now, Math.min(0.1, dt / 1000))) return null;
   if (now - c._spawnT < GHOST_HOVER_MS) return null;
   let ang = null;
   if (warded) ang = Math.atan2(c.y - c._wardFrom.y, c.x - c._wardFrom.x);
@@ -802,6 +803,7 @@ function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
   // crosses INTO a major road's kerb buffer (THE KERB). One already inside
   // (risen before the rule, or routed through it) may still leave.
   if (inKerbAt(scene, nx, ny) && !inKerbAt(scene, c.x, c.y)) return null;
+  if (!fireStepAllowed(scene, c, nx, ny)) return null;
   SpriteLayout.updateCreatureFacing(c, nx - c.x, ny - c.y, now);
   c.x = nx; c.y = ny;
   if (warded) return null;
@@ -974,9 +976,104 @@ function creatureFlightEase(t) {
   return t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 }
 
+// Check the whole segment: a long hop must not skip a burning cell. An
+// escape may cross existing flames only while its starting point is on fire.
+function fireStepAllowed(scene, c, x, y, escaping = false) {
+  if (!scene._groundFireAtWorld) return true;
+  const wallNow = Date.now();
+  let leavingFire = escaping && GroundFire.active(scene._groundFireAtWorld(c.x, c.y), wallNow);
+  const n = Math.max(1, Math.ceil(Math.hypot(x - c.x, y - c.y) / (scene.cellM * 0.2)));
+  for (let i = 1; i <= n; i++) {
+    const fire = GroundFire.active(scene._groundFireAtWorld(
+      c.x + (x - c.x) * i / n, c.y + (y - c.y) * i / n), wallNow);
+    if (fire && !leavingFire) return false;
+    if (!fire) leavingFire = false;
+  }
+  return true;
+}
+
+function enemyFireSafe(scene, x, y) {
+  const record = scene._groundFireAtWorld?.(x, y);
+  if (GroundFire.active(record, Date.now())) return false;
+  // Burned ground cannot reignite, even underneath a surviving tree.
+  if (record) return true;
+  const cell = worldMetersToAbsCell(scene, x, y);
+  return !scene._groundFireFuel?.({ ...cell, depth: scene.depth || 0 }).length;
+}
+
+// A small local search prefers no fire crossings, then the shortest route.
+// Fuel is traversable: stopping at the first grass cell would strand a foe in
+// a forest. Cardinal legs and the ordinary sweep gates preserve solid walls,
+// roads and campfire wards. No search can inspect more than 289 cells.
+function enemyFireEscapeRoute(scene, c, row) {
+  if (enemyFireSafe(scene, c.x, c.y)) return [];
+  const origin = worldMetersToAbsCell(scene, c.x, c.y);
+  const start = { ...origin, x: c.x, y: c.y, cost: 0, path: [] };
+  const pending = [start], best = new Map([[`${origin.cellIX}_${origin.cellIY}`, 0]]);
+  let visited = 0;
+  while (pending.length && visited++ < 289) {
+    pending.sort((a, b) => a.cost - b.cost);
+    const current = pending.shift();
+    if (current.path.length && enemyFireSafe(scene, current.x, current.y)) return current.path;
+    for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1]]) {
+      const cell = absCellOffset(scene, current.cellIX, current.cellIY, dx, dy);
+      const point = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
+      if (Math.abs(point.x - c.x) > scene.cellM * 8 || Math.abs(point.y - c.y) > scene.cellM * 8) continue;
+      const from = { ...c, x: current.x, y: current.y };
+      if (!fireStepAllowed(scene, from, point.x, point.y, true)) continue;
+      const n = Math.max(1, Math.ceil(Math.hypot(point.x - from.x, point.y - from.y) / (scene.cellM * 0.2)));
+      let clear = true;
+      for (let i = 1; i <= n; i++) {
+        const x = from.x + (point.x - from.x) * i / n;
+        const y = from.y + (point.y - from.y) * i / n;
+        if (!enemyCanStep(scene, from, row, x, y, true)
+            || (!c.lair && yardReasonAt(scene, x, y) && !yardReasonAt(scene, from.x, from.y))) {
+          clear = false; break;
+        }
+      }
+      if (!clear) continue;
+      const fire = GroundFire.active(scene._groundFireAtWorld?.(point.x, point.y), Date.now());
+      const cost = current.cost + 1 + (fire ? 1000 : 0);
+      const key = `${cell.cellIX}_${cell.cellIY}`;
+      if (best.has(key) && best.get(key) <= cost) continue;
+      best.set(key, cost);
+      pending.push({ ...cell, ...point, cost, path: [...current.path, point] });
+    }
+  }
+  return [];
+}
+
+// Burning takes priority over attacks, charges and idle pauses. Once safe,
+// the enemy waits out its burn rather than immediately chasing into fuel.
+function enemyFireEscapeTick(scene, c, row, now, dt) {
+  if (!Combat.isEnemy(c) || !Combat.burning(c, now)) {
+    c._fireEscapeRoute = null;
+    return false;
+  }
+  c._startX = c._targetX = c.x; c._startY = c._targetY = c.y;
+  c._stepT0 = c._nextChooseT = now;
+  c._attackWindupUntil = c._lungeUntil = c._batT0 = null;
+  if (c.stationary || Combat.monster(c.kind)?.stationary || row?.movement.pattern === 'anchor_spit') return true;
+  row = row || { tier: Combat.monster(c.kind)?.minDepth || 1, movement: { pattern: 'walk' } };
+  if (!c._fireEscapeRoute || now >= (c._fireEscapePlanT || 0)) {
+    c._fireEscapeRoute = enemyFireEscapeRoute(scene, c, row);
+    c._fireEscapePlanT = now + 250;
+  }
+  const point = c._fireEscapeRoute[0];
+  if (!point) return true;
+  const distance = Math.hypot(point.x - c.x, point.y - c.y);
+  const speed = Math.min(SpriteLayout.creatureMaxMps(c.kind), foeChaseMps(c, scene.cellM) / FLEE_BEAT_MUL);
+  const step = Math.min(distance, speed * dt);
+  if (distance > 0 && !enemySweep(scene, c, row, c.x + (point.x - c.x) / distance * step,
+      c.y + (point.y - c.y) / distance * step, now, true)) c._fireEscapeRoute = null;
+  else if (step >= distance) c._fireEscapeRoute.shift();
+  return true;
+}
+
 // Every segment is swept, including fast flights and lunges. Flying permits
 // low terrain, never rock walls, buildings, unloaded cells or placed rocks.
-function enemyCanStep(scene, c, row, x, y) {
+function enemyCanStep(scene, c, row, x, y, escaping = false) {
+  if (!fireStepAllowed(scene, c, x, y, escaping)) return false;
   const cell = scene.cellAt(x, y);
   if (!cell.loaded) return false;
   if (scene._cellBlocked(x, y)) return false;
@@ -999,14 +1096,14 @@ function enemyCanStep(scene, c, row, x, y) {
   const fireAverts = !c.lair && (row.tier <= FIRE_WARD_MAX_DEPTH);
   return !(fireAverts && scene._nearAny?.('fires', x, y, FIRE_REST_R));
 }
-function enemySweep(scene, c, row, x, y, now = performance.now()) {
+function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false) {
   const dx = x - c.x, dy = y - c.y;
   const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (scene.cellM * 0.2)));
   const sx = c.x, sy = c.y;
   let clear = true;
   for (let i = 1; i <= n; i++) {
     const nx = sx + dx * i / n, ny = sy + dy * i / n;
-    if (!enemyCanStep(scene, c, row, nx, ny)) { clear = false; break; }
+    if (!enemyCanStep(scene, c, row, nx, ny, escaping)) { clear = false; break; }
     c.x = nx; c.y = ny;
   }
   // A blocked sweep can still advance partway. Face only its accepted motion.
@@ -1444,7 +1541,7 @@ function flowerCreatureTick(scene, c, now, px, py, caught, wards = null) {
     if (warded || (lairState && lairState !== 'hunt')) return false;
   }
   // Temporary allegiance and sleep do not protect from ordinary hazards.
-  if (Combat.canBurn(c) && scene._nearAny?.('fires', c.x, c.y, FIRE_TOUCH_CELLS)) Combat.ignite(c, now, 'fire');
+  if (scene._tickUnitFire?.(c, now)) return true;
   if (Combat.canBurn(c) && (scene.depth === 0 || scene.depth === WorldGen.LAVA_DEPTH)
       && now >= (c._lavaNextT || 0)) {
     c._lavaNextT = now + 1000;
@@ -1454,8 +1551,6 @@ function flowerCreatureTick(scene, c, now, px, py, caught, wards = null) {
       if (scene._damageEnemy(c, Combat.LAVA_DMG_PER_S, 'lava')) return true;
     }
   }
-  const burn = Combat.burnTick(c, now);
-  if (burn > 0 && scene._damageEnemy(c, burn, c._burnBy === 'player' ? 'player' : 'burn', { bypassArmor: true })) return true;
   if (Combat.isSleeping(c)) {
     if (SpriteLayout.creatureHaunts(c.kind)) {
       const fate = ghostTick(scene, c, now, c.x, c.y, true, false, 0);

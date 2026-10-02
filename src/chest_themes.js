@@ -30,7 +30,7 @@
     // available above ground. Lower-tier magic remains useful in larger stacks.
     magic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry).map(i => i.id), mixedTiers: true, fallback: 'antidote' },
     travelMagic: { ids: ['reach_potion', 'speed_potion', 'shadow_powder', 'treasure_map'], mixedTiers: true, fallback: 'antidote' },
-    combatMagic: { ids: ['shield_potion', 'raven_potion', 'blight_potion', 'thunder_potion', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'fear_scroll', 'sleep_powder'], mixedTiers: true, fallback: 'antidote' },
+    combatMagic: { ids: ['shield_potion', 'raven_potion', 'blight_potion', 'thunder_potion', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder'], mixedTiers: true, fallback: 'antidote' },
     medicalMagic: { ids: { vigor_potion: 3, revive_potion: 3, shield_potion: 2, resurrection_potion: 2, elixir: 1,
       regen_amulet: 0.3, vigor_amulet: 0.3, tome_healing: 0.5 }, mixedTiers: true, fallback: 'antidote' },
     recovery: { ids: ['vigor_potion', 'elixir'], fallback: 'restorative' },
@@ -47,7 +47,7 @@
     // baseTier check for the whole group). The TOMES sit at T3/4/5, and
     // pickItem takes the top tier present, so they replace the Book exactly
     // at and above its own tier.
-    books: { ids: ['book', 'tome_sight', 'tome_raven', 'tome_storm', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight'], fallback: 'torch' },
+    books: { ids: ['book', 'tome_sight', 'tome_raven', 'tome_storm', 'tome_firewall', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight'], fallback: 'torch' },
     honey: { ids: ['honey'], fallback: 'restorative' },
     torch: { ids: ['torch'] },
     rope: { ids: ['rope'], fallback: 'torch' },
@@ -134,7 +134,7 @@
     }
     if (opts.depth > 0 && theme !== 'vista') {
       for (const key of Object.keys(out)) out[key] *= 0.6;
-      const cave = tier <= 1 ? { antidote: 60, torch: 40 }
+      let cave = tier <= 1 ? { antidote: 60, torch: 40 }
         : tier === 2 ? { caveMagic: 60, torch: 15, rope: 10, trapKit: 10, field: 5 }
         : { caveMagic: 80, caveGems: 10, field: 10 };
       // The trap follows its catalog tier; moving its rarity must not remove
@@ -143,6 +143,11 @@
         cave.field -= 5;
         cave.magicTrap = 5;
       }
+      // The rebalanced identities hold UNDERGROUND too (Oct 2026): commerce
+      // is coins and gems only, so the cave mix's field supplies, magic
+      // pools and traps never join it - the whole underground share rides
+      // the gem lane instead.
+      if (normalize(theme) === 'commerce') cave = { caveGems: 100 };
       for (const [key, value] of Object.entries(cave)) out[key] = (out[key] || 0) + value * 0.4;
     }
     // Rare permanent finds: one weighted lane, never ordinary shop or loot stock.
@@ -227,7 +232,7 @@
     const item = ITEM_BY_ID[id];
     if (item.kind === 'unique_relic') return 1;
     if (['elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap',
-         'tome_sight', 'tome_raven', 'tome_storm', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight'].includes(id)) return 1;
+         'tome_sight', 'tome_raven', 'tome_storm', 'tome_firewall', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight'].includes(id)) return 1;
     if (['animal', 'sapling'].includes(item.kind) || ['sapphire', 'ruby', 'emerald', 'diamond'].includes(id)) return 1;
     if (item.kind === 'magic') return item.uniqueJewelry ? 1 : 6;
     if (item.kind === 'seed') return magicalFlowers.includes(item.grows) ? 1 : 9;

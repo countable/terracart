@@ -1192,8 +1192,8 @@ const HOUSE_RESTORED_MUTTERS = ['Eek!', 'Why hello there.', 'Thanks for fixing m
   'Welcome back!', 'Can I offer some tea?'];
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // Standing IN the hearth, not by it: within this of a campfire's point sets
-// a body — the player's or a foe's — BURNING (Conditions.DEFINITIONS.burning;
-// _tickFireTouch here, the foe's block in scene_creatures.js). Under a cell,
+// any body BURNING (Conditions.DEFINITIONS.burning;
+// _tickFireTouch here and SceneFire._tickUnitFire for other units). Under a cell,
 // so the warmth ring (FIRE_REST_R) stays safe ground.
 const FIRE_TOUCH_CELLS = 0.6;
 // HOME IS A CAMPFIRE YOU OWN, and this is its ONE radius — the light it
@@ -3208,6 +3208,9 @@ class MapScene extends Phaser.Scene {
     // does too (it is a hazard, not a story).
     const was = this._slowHere;
     this._slowHere = (entry.slowCells && entry.slowCells.get(i)) || null;
+    const fireCell = tileCellToAbs(this, pc.tx, pc.ty, lix, liy);
+    const fire = this.save.groundFire?.[GroundFire.key(this.depth || 0, fireCell.cellIX, fireCell.cellIY)];
+    if (this._slowHere === 'tar' && fire && !GroundFire.active(fire, Date.now())) this._slowHere = null;
     if (this._slowHere && !was) {
       say(this._slowHere === 'tar' ? 'Tar drags at your feet.' : 'Iron stakes. Slow going.');
     }
@@ -3386,7 +3389,8 @@ class MapScene extends Phaser.Scene {
   // (T.CAVE_LAVA): walkable, and it burns Combat.LAVA_DMG_PER_S energy a
   // second for as long as the FEET are in it (playerToWorldCell — never the
   // camera anchor). Lava owns an environmental damage lane because the ground,
-  // not a foe, deals it: mode, shield and armour never change the burn. A float
+  // not a foe, deals it: fire resistance reduces it; mode, shield and armour
+  // do not. A float
   // accumulator banks whole pips through _losePlayerEnergy (Energy.set, the hit
   // flinch); one throttled pop names the cell, and the burn leaves shop dialogs
   // open. Stands down on an empty bar (Combat.playerDowned — being upright,
@@ -3412,7 +3416,8 @@ class MapScene extends Phaser.Scene {
     const pips = Math.floor(this._lavaAccum);
     if (pips > 0) {
       this._lavaAccum -= pips;
-      this._lavaPop = (this._lavaPop || 0) + this._losePlayerEnergy(pips);
+      const damage = Conditions.fireDamage(this.save, pips);
+      this._lavaPop = (this._lavaPop || 0) + this._losePlayerEnergy(damage);
     }
     const now = performance.now();
     if (this._lavaPop > 0 && now - (this._lastLavaFlashT || 0) > 1200) {
@@ -4586,6 +4591,7 @@ class MapScene extends Phaser.Scene {
     this._tickLava(dt);
     // …or in a campfire?
     this._tickFireTouch();
+    this._tickGroundFire();
     // …and did an enemy just walk onto one of the player's Magic Traps?
     this._tickMagicTraps();
     this._revealFog();
@@ -4863,8 +4869,13 @@ class MapScene extends Phaser.Scene {
           hostileTargets: [playerTarget, ...(this._npcCombatTargets || []), ...charmedAllies],
           explosiveTargets,
           canHit: (target, shot) => this._shotCanHit(target, shot),
-          onExplode: shot => this._burstAtWorld('trailspark', shot.x, shot.y,
-            { colour: '#ff742d', ringPx: shot.blastRadiusM / this.cellM * CELL_PX }) });
+          onFireCell: (x, y, shot) => this._igniteFireballTrail(shot, x, y),
+          onFireSegment: (x0, y0, x1, y1, shot) => this._igniteFireballTrail(shot, x0, y0, x1, y1),
+          onExplode: shot => {
+            if (shot.projectile === 'explosive_flask') this._explodeFlask(shot);
+            this._burstAtWorld('trailspark', shot.x, shot.y,
+              { colour: '#ff742d', ringPx: shot.blastRadiusM / this.cellM * CELL_PX });
+          } });
     }
     this._drawShots();
 
@@ -4931,7 +4942,9 @@ class MapScene extends Phaser.Scene {
     const elapsed = !document.hidden && this._conditionLastT != null ? now - this._conditionLastT : 0;
     this._conditionLastT = document.hidden ? null : now;
     const before = this.save.energy ?? 0;
-    const result = Conditions.tick(this.save, elapsed);
+    const burningExposure = this._playerFireExposure?.() || false;
+    if (burningExposure) this._ignitePlayer();
+    const result = Conditions.tick(this.save, elapsed, { burningExposure });
     if (result.lost > 0) {
       this._flashPlayerHit(result.lost);
       this._popEnergy(-result.lost);
@@ -5040,10 +5053,10 @@ class MapScene extends Phaser.Scene {
   // Standing IN a campfire (FIRE_TOUCH_CELLS of one on this depth — warmth is
   // FIRE_REST_R, the touch is the hearth itself) or in lava (_tickLava) sets
   // the player BURNING: the `burning` row of Conditions.DEFINITIONS, on the
-  // ticker poison runs on — 1 energy a second for 5 s, and it goes out on its
-  // own, no antidote. Refreshed at most once a tick-interval while the
-  // contact holds, so a stand in the hearth is one persisted save a second,
-  // not one a frame. Never off an empty bar (Combat.playerDowned).
+  // ticker poison runs on. Conditions owns exposure accumulation and scaled
+  // damage; this hook starts the status and its feedback. Contact is reported
+  // at most once a tick-interval, preserving the accumulated duration and
+  // avoiding a save every frame. Never off an empty bar (Combat.playerDowned).
   _ignitePlayer() {
     const now = performance.now();
     if (now < (this._igniteNextT || 0) || Combat.playerDowned(this.save.energy)) return false;
@@ -14460,6 +14473,7 @@ installSceneMixin(MapScene, SceneCreatures);
 // offers, the quest board) live in scene_shops.js as the SceneShops mixin —
 // same install, same throw on a stale copy.
 installSceneMixin(MapScene, SceneShops);
+installSceneMixin(MapScene, SceneFire);
 
 const game = window.__game = new Phaser.Game({
   type: Phaser.AUTO,

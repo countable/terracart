@@ -124,7 +124,7 @@ const FILES = [
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and
   // combat.test.js registers a synthetic one), so it runs headless.
-  'combat.js', 'companions.js', 'creature_ai.js', 'npc.js',
+  'ground_fire.js', 'combat.js', 'companions.js', 'creature_ai.js', 'npc.js',
   // The wizard tower's offers — pure (reads Combat / Trail / Energy /
   // RARITY_TUNING at call time), so wizard.test.js drives the shipping rules.
   'wizard.js', 'dragon_story.js', 'memory_story.js', 'story_encounters.js',
@@ -167,13 +167,13 @@ const FILES = [
   'scene_creatures.js',
   // The scene's shops (shopInteract, the offers it opens, the shop clock): a
   // fourth mixin class nobody runs here plus its literal consts.
-  'scene_shops.js',
+  'scene_fire.js', 'scene_shops.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
-  INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, StoryEncounters,
+  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, StoryEncounters,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   REACH_CORNER_PX, ReachCorner,
