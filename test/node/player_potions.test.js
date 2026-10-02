@@ -5,7 +5,7 @@
     const start = SCENE_SRC.indexOf('\n  ' + name + '(');
     const end = SCENE_SRC.indexOf('\n  }\n', start);
     assert.truthy(start >= 0 && end > start, `found ${name}`);
-    const constants = ['SHIELD_POTION_MS', 'SPEED_POTION_MS', 'BLIGHT_MS', 'TOME_EFFECT_MUL']
+    const constants = ['SHIELD_POTION_MS', 'SPEED_POTION_MS', 'BLIGHT_MS', 'TOME_EFFECT_MUL', 'REACH_POTION_MS']
       .map(name => SCENE_SRC.match(new RegExp('^const ' + name + ' = .*;$', 'm'))[0]).join('\n');
     return new Function(constants + '\nreturn ({'
       + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
@@ -181,4 +181,18 @@
       assert.falsy(buttons.has('potion-throw-btn'), 'Thunder scroll cannot be thrown as a potion');
     } finally { Object.assign(document, original); }
   }));
+
+  // Every drink method must actually run: the Potion of Reach threw a
+  // ReferenceError (an undeclared `opts`) on every sip until Oct 2026, which
+  // no test caught because none called it.
+  test('player potions: the Potion of Reach is drinkable — the timer is set and one flask spent', () => {
+    clock(set => {
+      set(T0);
+      const s = scene('reach_potion');
+      const drink = method('drinkReachPotion');
+      assert.truthy(drink.call(s), 'drunk');
+      assert.eq(s.save.reachPotionUntil, T0 + CONSUMABLE_SPEC.reach_potion.durationMs, 'the reach timer is set from the one constant');
+      assert.eq(s.save.inv[0].count, 1, 'one flask spent');
+    });
+  });
 })();
