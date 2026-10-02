@@ -529,10 +529,13 @@
       }
     }
   }
+  function hedgeGroup(p) {
+    return p.crop === 'shrub' && ['formal_garden', 'hedge_garden'].includes(p.zoneVariant) ? p.zoneVariant : null;
+  }
   function stampHedges(plants, N) {
     const groups = new Map();
     for (const p of plants) {
-      if (p.crop !== 'shrub' || !['formal_garden', 'hedge_garden'].includes(p.zoneVariant)) continue;
+      if (!hedgeGroup(p)) continue;
       if (!groups.has(p.zoneVariant)) groups.set(p.zoneVariant, []);
       groups.get(p.zoneVariant).push(p);
     }
@@ -547,5 +550,5 @@
     }
   }
   function dress(ctx) { const it = dressSteps(ctx); let r; do { r = it.next(); } while (!r.done); return r.value; }
-  root.ZoneDressing = { dressSteps, dress, stampHedges };
+  root.ZoneDressing = { dressSteps, dress, stampHedges, hedgeGroup };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

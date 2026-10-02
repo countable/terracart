@@ -2757,7 +2757,8 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
         o.zoneVariant === 'quarry-stronghold' && o.zoneLayer === 'background')) collect(o, 'wall');
   });
   WorldGen.forEachItemInBox(entry, 'wildplants', x-pad, y-pad, x+pad, y+pad, p => {
-    if (p.crop === 'shrub' && ['formal_garden', 'hedge_garden'].includes(p.zoneVariant)) collect(p, p.zoneVariant);
+    const group = ZoneDressing.hedgeGroup(p);
+    if (group) collect(p, group);
   });
   for (const [group, {cells, pieces}] of groups) {
     for (const [o, i] of pieces) {
