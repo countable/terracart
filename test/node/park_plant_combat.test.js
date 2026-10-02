@@ -81,6 +81,13 @@
     assert.eq(plant.x, 2 * CELL, 'holds its preferred firing distance');
     assert.gt(scene._shots.length, 0);
   });
+  test('park plant: keeps attacking through repeated cooldowns while the player remains in range', () => {
+    const { plant, scene } = setup();
+    for (let i = 0; i < 120; i++) tick(scene);
+    assert.gte(scene._shots.length, 4, 'at least four attacks across twelve seconds');
+    assert.eq(plant.x, 2 * CELL);
+    assert.eq(plant.y, 0);
+  });
   test('park plant: Home, castle, shadow, downed, frozen and released safety', () => {
     for (const guard of ['home', 'castle', 'shadow', 'downed', 'frozen', 'released']) {
       const { plant, scene } = setup();
@@ -98,7 +105,7 @@
       if (guard === 'frozen') { assert.eq(plant.x, 2 * CELL); assert.eq(plant.y, 0); }
     }
   });
-  test('park plant: a blocked line cancels wind-up; wandering off suppresses shots', () => {
+  test('park plant: a blocked line cancels wind-up; rooted foes cannot wander off', () => {
     const { plant, scene } = setup();
     tick(scene);
     scene._cellBlocked = () => true;
@@ -108,7 +115,7 @@
     plant._wanderOffInMs = 1;
     plant._wanderOffSimT = scene._simT;
     for (let i = 0; i < 30; i++) tick(scene);
-    assert.eq(plant.x, 2 * CELL); assert.eq(scene._shots.length, 0);
-    assert.gt(plant._wanderOffUntilT, scene._simT);
+    assert.eq(plant.x, 2 * CELL); assert.gt(scene._shots.length, 0);
+    assert.falsy(plant._wanderOffUntilT, 'a rooted plant never enters the retreat pause');
   });
 })();

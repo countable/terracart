@@ -1,4 +1,13 @@
 {
+  "scripts": {
+    "test": "node test/node/run.js",
+    "test:browser": "python3 test/run_tests.py",
+    "test:browser:docker": "sh test/run_tests_docker.sh",
+    "test:relay": "npm --prefix server test",
+    "cache:check": "node tools/cachebust.js",
+    "cache:write": "node tools/cachebust.js --write",
+    "assets:inventory": "node tools/asset_inventory.js"
+  },
   "devDependencies": {
     "playwright-core": "^1.62.1"
   }

@@ -457,7 +457,7 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
     if (reward.jackpot >= 1 && typeof scene.flashJackpot === 'function') scene.flashJackpot(reward.jackpot);
   } else if (reward.kind === 'relic' || reward.kind === 'armor') {
     const label = (typeof gearName === 'function')
-      ? gearName(reward.kind, reward.slot, reward.tier) : `${reward.slot} T${reward.tier}`;
+      ? gearName(reward.kind, reward.slot, reward.tier) : reward.slot;
     scene.flashLoot(`${mark} → ✨ ${label} (equipped!)`, '#ffe066', 1.6);
     if (reward.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
       scene.flashJackpot(reward.jackpot);
@@ -465,7 +465,7 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
   } else if (reward.kind === 'gold' && reward.slot) {
     // A relic roll the player already beats — cashed out by reconcileRelicOffer.
     const label = (typeof gearName === 'function')
-      ? gearName(reward.gearKind || 'relic', reward.slot, reward.tier) : `${reward.slot} T${reward.tier}`;
+      ? gearName(reward.gearKind || 'relic', reward.slot, reward.tier) : reward.slot;
     scene.flashLoot(`${mark} Already better — ${reward.amount}`, '#aaa', 1.2, null, scene.coinIconEl?.());
   } else if (reward.kind === 'item') {
     const item = ITEM_BY_ID[reward.id];
@@ -768,7 +768,7 @@ const TAP_HANDLERS = [
     //   ENEMIES (wild slime + every cave monster) fight on the HP-driven
     //   COMBAT wheel. The ring is the foe's health, a sword (or bare hands)
     //   drains it while the wheel runs, and bow/staff shots drain the same
-    //   pool — so a tap here is "close in and swing", not "start a timer".
+    //   pool. The combat tick chooses the closest enemy automatically.
     //
     //   GAME (crow / deer) keeps the old timed work wheel: nothing auto-fires
     //   at them and no shot can hit them, so a hunt is still a deliberate tap.
@@ -807,24 +807,9 @@ const TAP_HANDLERS = [
       return true;
     }
 
-    // ENEMIES (wild slime + every cave monster) go on the HP combat wheel —
-    // nothing to time, the fight is over when their hit points are.
+    // Enemy taps do not choose a melee target. The combat tick continuously
+    // selects the closest foe in weapon reach; feeding/taming above still works.
     if (Combat.isEnemy(target)) {
-      // MELEE IS ARM'S LENGTH — the same one cell a melee monster has to close
-      // to before it can bite you (Combat.MELEE_REACH_CELLS, and the same
-      // centre-to-feet test its attack gate runs). The tap gate above only
-      // asked whether the foe was in the LIT reach, which starts at 2.5 cells
-      // and grows to 5.5, so a fist out-ranged everything it was fighting.
-      // Checked HERE rather than in tooFar because tooFar gates every tap in
-      // the game: feeding, catching, petting and hunting keep the lit reach.
-      const px = scene.startWorldM.x + scene.playerM.x;
-      const py = scene.startWorldM.y + scene.playerM.y;
-      if (!Combat.inMeleeReach(target.x, target.y, px, py, scene.cellM, Gear.activeWeapon(save))) {
-        scene.flash('Too far to swing.', ctx.sx, ctx.sy);
-        scene.hapticReject?.();
-        return 'far';
-      }
-      scene.startCombat(target);
       return true;
     }
 

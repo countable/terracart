@@ -803,13 +803,12 @@ test('combat: every melee gate the player has runs the shared test', () => {
   // Comments are stripped first: these files EXPLAIN the change ("this used to
   // be cellInReach"), and a prose mention is not a call site.
   const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
-  // Tap to fight (interact.js) — and NOT through tooFar, which gates every tap
-  // in the game: feeding, catching, petting and hunting keep the lit reach.
+  // Enemy taps are handled without choosing a combat target. Feeding,
+  // catching, petting and hunting keep their existing tap interactions.
   const tap = INTERACT_SRC.slice(INTERACT_SRC.indexOf('if (Combat.isEnemy(target)) {'));
   const head = code(tap.slice(0, tap.indexOf('\n    }')));
-  assert.truthy(/Combat\.inMeleeReach\(target\.x, target\.y, px, py, scene\.cellM, Gear\.activeWeapon\(save\)\)/.test(head),
-    'a tapped fight is gated at arm\'s length');
-  assert.truthy(/Too far to swing\./.test(head), 'and it says so rather than failing silently');
+  assert.falsy(/startCombat/.test(head), 'tapping a foe cannot select a melee target');
+  assert.truthy(/return true/.test(head), 'the enemy tap is consumed');
 
   // Melee auto-engage (app.js _combatTick) — was cellInReach.
   const auto = SCENE_SRC.slice(SCENE_SRC.indexOf('Gear.meleeActive(this.save) &&'));

@@ -910,7 +910,8 @@ COMBAT
    (and Unequip on a ranged weapon in hand, which puts it away: back to the
    sword, or bare hands). Highlighting a slot alone changes nothing. The
    active weapon wears a small "E" badge alongside its tier badge. The choice
-   gates both auto-engage and manual tap-to-fight. The crow/deer HUNT
+   gates auto-engage. Enemy taps never choose a melee target; melee always
+   follows the closest eligible foe in reach. The crow/deer HUNT
    wheel is the BUG NET's, not a weapon's, so which weapon is active never
    touches it.
  - STATUS EFFECTS are rows of Conditions.DEFINITIONS (src/conditions.js), one

@@ -30,6 +30,28 @@
     assert.eq(Render.objectGroundOffsetPx({ visible: true, dyPx: 16, origin: [.5, 1], scl: 1, scaleYMul: 1 }, textures), 16);
     assert.eq(Render.objectGroundOffsetPx({ visible: false }), 0);
   });
+  test('world depth: flat prop definitions stay behind actors and upright props at every baseline', () => {
+    const { resolveAppearance, RENDER_SPEC } = Render.objectAppearance({ textures: { exists: () => true }, save: {} }, new Map());
+    for (const o of [{ kind: 'tar' }, { kind: 'groundstack', itemId: 'wood' },
+      { kind: 'staircase', dir: 'down' }]) {
+      const appearance = resolveAppearance(o);
+      assert.eq(appearance.ground, true, o.kind);
+      for (const y of [-1000, 0, 1000]) {
+        const flat = { it: {}, ground: appearance.ground, groundY: y, rank: 1 };
+        const upright = { sprite: sprite(), groundY: 0, rank: 1 };
+        const actor = { sprite: sprite(), groundY: -1, rank: 3 };
+        Render.sortWorldDepth([actor, flat, upright]);
+        assert.lt(flat.it._z, actor.sprite.depth, `${o.kind} stays under player`);
+        assert.lt(flat.it._z, upright.sprite.depth, `${o.kind} stays under upright props`);
+        assert.lt(actor.sprite.depth, upright.sprite.depth, 'upright ground-Y order remains');
+      }
+    }
+    for (const o of [{ kind: 'stakes' }, { kind: 'staircase', dir: 'up' }]) {
+      assert.eq(resolveAppearance(o).ground, false, `${o.kind} stands upright`);
+    }
+    assert.eq(RENDER_SPEC._streetlamp.ground({ lit: false }), true, 'unrestored cobble lies flat');
+    assert.eq(RENDER_SPEC._streetlamp.ground({ lit: true }), false, 'restored lamp stands upright');
+  });
 })();
 
 test('world depth: pooled staff charge follows the player and returns to the projectile layer on reuse', () => {

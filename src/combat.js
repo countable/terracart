@@ -733,7 +733,7 @@
   // itself had no cadence of its own to borrow). Two blows a second read as a
   // blur, and a fight broken off mid-beat had still banked every frame of it.
   //
-  // The interval CANCELS OUT of the delivered rate, exactly the way
+  // For the sword the interval CANCELS OUT of the delivered rate, exactly the way
   // FIRE_INTERVAL_MS does for a shot: one blow is one interval's worth of the
   // tier's melee rung (meleeSwingDamage below), so halving the attack rate
   // doubles what a blow lands and the kill-time identity at the top of this

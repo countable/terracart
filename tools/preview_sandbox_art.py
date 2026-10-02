@@ -63,7 +63,7 @@ def plan(reserve):
         'The sandbox buildings are claimed. The separate audit cards show the more weathered unclaimed fort treatment.',
         'Both captures use the same frozen sandbox, identical object positions, native pixels and neutral fullbright lighting.',
         'The clipped hedge is previewed only on residential/commercial shrub placements.',
-        'The handmade sandbox has no zone-variant motifs or vector road/building polygons. Its existing tiled building mode is used for both views.',
+        'The handmade sandbox uses authored roads, zone motifs and building footprints through the live renderers.',
         'Crop growth art receives a small 5.25% lightness lift; nut plants get their own brighter olive foliage treatment and rockfruit its own ore-stone colours. Actors and inventory-only frames remain unchanged; candidates absent from the sandbox cannot be evaluated here.',
     ])
 

@@ -24,8 +24,8 @@ window.setupSandboxCapture = async function setupSandboxCapture(options = {}) {
   const margin = options.marginCells == null ? 2 : Math.max(0,Math.floor(options.marginCells));
   const pc = scene.playerToWorldCell();
   const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx,pc.ty));
-  // Sandbox has no vector footprints. Use the game's existing tiled-building
-  // mode so its authored floor/wall cells remain visible on both comparisons.
+  // Older sandbox layouts lack footprints. Fall back to tiled buildings only
+  // for those; current authored polygons use the live building renderer.
   if (!entry.buildingShapes?.length && options.tileBuildings !== false) BuildingOverlay.setEnabled(scene,false);
   const n = entry.cellsPerEdge;
   const cellM = entry.tileEdgeM/n;

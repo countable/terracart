@@ -40,7 +40,7 @@ const SHINY_SRC = lift('flashShiny(money, isNew = true, title = SHINY_FIND_TITLE
 // ── The call sites, as source ─────────────────────────────────────────────
 test('story splash: first delivery captures the tally BEFORE it moves off zero', () => {
   const cap = app.indexOf('const wasFirstDelivery = (this.save.deliveryCount ?? 0) === 0;');
-  const inc = app.indexOf('this.save.deliveryCount = (this.save.deliveryCount ?? 0) + sets;');
+  const inc = app.indexOf('this.save.deliveryCount = (this.save.deliveryCount ?? 0) + 1;');
   assert.truthy(cap > 0 && inc > cap, 'wasFirstDelivery is read before the increment');
   const splash = app.indexOf("this._storySplashOnce('delivery', {", inc);
   assert.truthy(splash > inc, 'the delivery splash fires after the delivery is banked');

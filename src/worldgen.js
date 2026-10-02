@@ -709,7 +709,7 @@
   // player; a build before the bin lands is the same transient the bin's own
   // chests are). A changed count drops the chest's memoised look.
   function isDensityChest(o) {
-    return !!o && o.kind === 'chest' && !!o.poiClass && !o.crate && !o.fixedLoot && !(o.depth > 0) && !o.caveOf;
+    return !!o && o.kind === 'chest' && !!o.poiClass && !o.crate && !o.fixedLoot && !o.chestTopUp && !(o.depth > 0) && !o.caveOf;
   }
   function poiDensityCounts(objects) {
     const counts = new Map();
@@ -790,6 +790,62 @@
       }
     }
     return budgetN;
+  }
+  // Low-tier supplies fill existing variant footprints after the POI pyramid.
+  // Both tiers must be scarce. These surface-only additions keep their seed
+  // on later density/restamp passes and never spend a higher-tier quota seat.
+  const CHEST_TOP_UP_MIN = { 1: 25, 2: 10 };
+  function* topUpChestsSteps({ objects, dressings = [], zone, streetDress, grid, N, tx, ty, tileEdgeM, spawnOpts }) {
+    const counts = { 1: 0, 2: 0 };
+    for (const list of [objects, ...dressings.map(d => d?.objects || [])]) {
+      for (let j = 0; j < list.length; j++) {
+        if ((j & 255) === 0) yield 'chest top-up census';
+        const o = list[j];
+        if (o.kind !== 'chest' || o.crate || o.fixedLoot || o.depth > 0 || o.caveOf) continue;
+        const look = chestLook(o);
+        if (look.stand || look.coin || look.bike || look.barrel || look.macro) continue;
+        const tier = chestTier(o);
+        if (tier in counts) counts[tier]++;
+      }
+    }
+    const result = { before: { ...counts }, added: { 1: 0, 2: 0 }, shortfall: { 1: 0, 2: 0 } };
+    if (Object.keys(counts).some(t => counts[t] >= CHEST_TOP_UP_MIN[t])) return result;
+    const need = Object.fromEntries(Object.keys(counts).map(t => [t, CHEST_TOP_UP_MIN[t] - counts[t]]));
+    const capacity = need[1] + need[2], seats = [];
+    const coverage = zone && (zone.coverage || zone.idx), marks = streetDress?.marks;
+    const variants = (zone?.anchors || []).map(a => ZoneVariants.pick(a));
+    // Keep only the best few hashes, bounding memory and sort work even on
+    // very large footprints. Salt is exclusive to this spawner.
+    for (let i = 0; i < N * N; i++) {
+      if ((i & 255) === 0) yield 'chest top-up seats';
+      const ai = (coverage?.[i] || 0) - 1, anchor = zone?.anchors?.[ai];
+      const street = !anchor && marks?.[i] ? StreetVariants.variantByCode(marks[i]) : null;
+      if (!anchor && !street) continue;
+      const ix = i % N, iy = Math.floor(i / N);
+      if (!isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'reward')) continue;
+      const score = cellHash(tx, ty, ix, iy) ^ 0x61c8a37;
+      let at = seats.findIndex(s => score < s.score || (score === s.score && i < s.i));
+      if (at < 0) at = seats.length;
+      if (at >= capacity) continue;
+      seats.splice(at, 0, { i, ix, iy, score, anchor, variant: variants[ai], street });
+      if (seats.length > capacity) seats.pop();
+    }
+    // Alternate tiers when space is scarce instead of starving T2 entirely.
+    let tier = 1;
+    for (const seat of seats) {
+      if (!need[tier]) tier = tier === 1 ? 2 : 1;
+      const { i, ix, iy, anchor, variant, street } = seat;
+      objects.push(makeObject('chest', (tx + (ix + 0.5) / N) * tileEdgeM,
+        (ty + (iy + 0.5) / N) * tileEdgeM, cellId('chest_topup', tx, ty, ix, iy), {
+          poiClass: 'shelter', tierSeed: tier, chestTopUp: true,
+          ...(anchor ? { zone: anchor.kind, zoneVariant: variant.id, zoneLayer: 'find' } : { _street: street.id }),
+        }));
+      spawnOpts.occupied.add(i);
+      need[tier]--; result.added[tier]++;
+      tier = tier === 1 ? 2 : 1;
+    }
+    result.shortfall = need;
+    return result;
   }
   // Nudge a cell onto the nearest one that passes isSpawnCell, searching
   // outward in Chebyshev rings up to `maxR`. Returns null when the whole
@@ -5956,7 +6012,10 @@
     // Tier seeds last: zones and scenic have stamped their nexus/vista
     // chests, so the quota pyramid knows exactly which chests are budgeted.
     seedChestTiers(deduped);
-    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
+    const chestTopUp = yield* topUpChestsSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
+      zone, streetDress, grid, N: w, tx, ty, tileEdgeM,
+      spawnOpts: { roadMask, spawnWhy, roadClass, occupied: new Set([...dressOcc, ...lampReservations]), pois: dressPois } });
+    return { grid, owners, ownerKeys, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -7866,6 +7925,29 @@
     return out;
   }
 
+  // Each tile/level keeps at most fifty mirrors of its lowest displayed
+  // tier. Higher tiers survive intact; when depth folds every seed into the
+  // same displayed tier, that shared tier is capped too. Keep the best POIs
+  // using the quota's rank/id ordering, independent of input/load order.
+  const CAVE_LOWEST_TIER_CHEST_LIMIT = 50;
+  function capCaveChests(objects, N, tx, ty, tileEdgeM, occupied) {
+    const mirrors = objects.filter(o => o.kind === 'chest' && o.caveOf && o.depth > 0 && !o.crate && !o.fixedLoot);
+    let lowest = Infinity;
+    for (const o of mirrors) lowest = Math.min(lowest, chestTier(o));
+    const lowestChests = mirrors.filter(o => chestTier(o) === lowest);
+    if (lowestChests.length <= CAVE_LOWEST_TIER_CHEST_LIMIT) return 0;
+    lowestChests.sort((a, b) => ((a.rank ?? 999) - (b.rank ?? 999)) || String(a.id).localeCompare(String(b.id)));
+    const dropped = new Set(lowestChests.slice(CAVE_LOWEST_TIER_CHEST_LIMIT));
+    let kept = 0;
+    for (const o of objects) {
+      if (!dropped.has(o)) { objects[kept++] = o; continue; }
+      const { lix, liy } = cellIndexOf(tx, ty, o.x, o.y, tileEdgeM, N);
+      occupied.delete(liy * N + lix);
+    }
+    objects.length = kept;
+    return dropped.size;
+  }
+
   // ── Cave torches: where the lowtier POIs overhead WOULD have been ───────
   // The lowtier street furniture (bus stops, crossings, bins…) is the one POI
   // class that does not mirror underground (loot.js chestMirrorsUnderground),
@@ -8265,6 +8347,9 @@
     }
     // This level's own quota pyramid, over this level's mirrors.
     seedChestTiers(objects, { cave: true });
+    // Prune only after final tiers are known; freed cells are available to
+    // ordinary cave dressing, and dropped mirrors do not descend further.
+    capCaveChests(objects, N, x, y, tileEdgeM, occupied);
     // Torches where the lowtier POIs overhead would have been (a random
     // subset per level), seated before the rocks so they keep their spot.
     const torchSites = caveTorchSites(above);
@@ -8471,8 +8556,8 @@
     SPAWN_SENSITIVE_BUFFER_M,
     RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
-    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, seedChestTiers, TIER_SEED_QUOTA, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
-    caveChestsFrom, CAVE_CHEST_SEEK_CELLS,
+    SENSITIVE_POI, isSensitivePoi, worshipFaith, QUIET_LAND, isQuietLand, stampQuietLandSteps, stampPoiDensity, poiDensityCounts, seedChestTiers, TIER_SEED_QUOTA, topUpChestsSteps, CHEST_TOP_UP_MIN, gatePostsAt, placeGatesAndBoards, POI_GATE_CLASS, POI_INFO_CLASS, SX_NOT_A_PLACE, POI_USEFUL, parkPoiLayer, setDepth, tidyFootprintCells,
+    caveChestsFrom, CAVE_CHEST_SEEK_CELLS, capCaveChests, CAVE_LOWEST_TIER_CHEST_LIMIT,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
     caveBarrels, CAVE_BARREL_DEPTH, CAVE_BARREL_MIN, CAVE_BARREL_SPAN,

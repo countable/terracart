@@ -159,12 +159,14 @@
     const unnumbered=rows.filter(row=>row.reference==null);
     let selected=null,descending=false;
     const zonesText=row=>[...row.zones].map(id=>names.get(id)||title(id)).sort().join(', ')||'Shared / other world use';
+    const sandboxZone = id => ZoneVariantData.variants.find(z=>z.id===id)?.zone || id;
     const art=(row,limit)=>row.images.slice(0,limit).map(src=>`<img class="sprite" src="${src}" alt="${esc(row.name)}" loading="lazy">`).join('')||'<small>Preview unavailable</small>';
     function renderTable(){
       const words=$('search').value.trim().toLowerCase().split(/\s+/).filter(Boolean),zone=$('zone').value,cat=$('category').value,sort=$('sort').value;
       const visible=rows.filter(r=>(!cat||r.category===cat)&&(!zone||(zone==='shared'?!r.zones.size:r.zones.has(zone)))&&words.every(w=>[r.referenceLabel,r.reference==null?'':`#${r.reference} ${r.reference}`,r.name,r.key,r.frames.join(' '),r.category,zonesText(r)].join(' ').toLowerCase().includes(w)));
       const value=r=>sort==='zone'?zonesText(r):r[sort];visible.sort((a,b)=>((sort==='reference'?(a.reference??Infinity)-(b.reference??Infinity):String(value(a)).localeCompare(String(value(b))))||a.name.localeCompare(b.name))*(descending?-1:1));
       if(!visible.some(r=>r.id===selected))selected=visible[0]?.id;
+      $('sandbox-zone').innerHTML=zone && zone !== 'shared' ? SandboxLinks.link(sandboxZone(zone)) : '';
       $('count').textContent=`${visible.length} of ${rows.length} artwork entries`;
       $('rows').innerHTML=visible.map(r=>`<tr data-id="${esc(r.id)}" class="${r.id===selected?'selected':''}"><td><strong>${esc(r.referenceLabel)}</strong></td><td><div class="preview">${art(r,3)}</div>${r.images.length>3?`<small>+${r.images.length-3} more frames</small>`:''}</td><td><button class="pick" data-pick="${esc(r.id)}">${esc(r.name)}</button>${r.key?`<br><small>Texture: ${esc(r.key)}<br>Frames: ${esc(r.frames.join(', '))}</small>`:'<br><small>Painted: '+esc(r.id)+'</small>'}</td><td>${esc(r.category)}</td><td>${esc(zonesText(r))}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No art matches these filters.</td></tr>';
       $('rows').querySelectorAll('[data-id]').forEach(tr=>tr.addEventListener('click',()=>{selected=tr.dataset.id;renderTable();}));
@@ -175,6 +177,7 @@
       });
       const row=rows.find(r=>r.id===selected);
       $('detail').innerHTML=row?`<h2>${esc(row.referenceLabel)} · ${esc(row.name)}</h2><p><span class="tag">${esc(row.category)}</span></p><div class="preview">${art(row,Infinity)}</div><h3>Zone use</h3><p>${esc(zonesText(row))}</p><small>${row.zones.size?'Declared material use in the current zone layouts. Other world placement rules may also use this art.':'Used by the shared world renderer; no specific material membership in the named zone layouts.'}</small><h3>Current source</h3><code>${esc(row.source)}</code>${row.key?`<p><small>Texture: ${esc(row.key)}<br>Frames: ${esc(row.frames.join(', '))}</small></p>`:''}`:'<h2>No selection</h2><p>Broaden your filters to inspect artwork.</p>';
+      if(row){const keys=[...new Set([...row.zones].map(sandboxZone))];$('detail').insertAdjacentHTML('beforeend', `<p>${keys.map(key=>SandboxLinks.link(key)).filter(Boolean).join('<br>')}</p>`);}
     }
     for(const id of ['search','zone','category'])$(id).addEventListener('input',renderTable);
     $('sort').addEventListener('change',()=>{descending=false;renderTable();});

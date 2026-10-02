@@ -9,7 +9,7 @@
   const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && foodIds().includes(i.grows)).map(i => i.id);
   const groups = {
     uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic' && !isTome(i.id)).map(i => i.id), mixedTiers: true, fallback: 'magic' },
-    supplies: { ids: { torch: 3, rope: 1, trap_kit: 1, spear: 1, honey: 1 }, starterWeapons: ['dagger', 'spear', 'musket'], starterWeaponChance: 0.25, fallback: 'torch' },
+    supplies: { ids: { torch: 3, rope: 1, trap_kit: 1, spear: 1, honey: 1, blank_scroll: 1 }, starterWeapons: ['dagger', 'spear', 'musket'], starterWeaponChance: 0.25, fallback: 'torch' },
     field: { ids: ['torch', 'rope', 'trap_kit', 'spear'], fallback: 'torch' },
     farmSupplies: { ids: ['scarecrow', 'honey'], fallback: 'torch' },
     materials: { ids: ['wood', 'rockfruit', 'coal', ...Object.values(MINERAL_TIERS).map(row => row.barId)] },
@@ -250,7 +250,8 @@
     const item = ITEM_BY_ID[id];
     if (item.kind === 'unique_relic') return 1;
     if (['elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap'].includes(id)) return 1;
-    if (['animal', 'sapling'].includes(item.kind) || ['sapphire', 'ruby', 'emerald', 'diamond'].includes(id)) return 1;
+    if (item.kind === 'animal' || (item.kind === 'sapling' && item.plants !== 'tree')
+      || ['sapphire', 'ruby', 'emerald', 'diamond'].includes(id)) return 1;
     if (item.kind === 'magic') return item.uniqueJewelry ? 1 : 6;
     if (item.kind === 'seed') return magicalFlowers.includes(item.grows) ? 1 : 9;
     if (magicalFlowers.includes(id) || item.kind === 'mineral') return 3;
@@ -260,8 +261,10 @@
     if (id === 'wood' || id === 'rockfruit') return Math.min(12, 3 + Math.floor(rng() * 6) + bracket * 2);
     const allowance = TIER_VALUE[tier] * (1 + 0.5 * bracket);
     const count = allowance / Math.max(1, PRICES[id] || itemValue(id));
-    // A magic roll fills its allowance with copies of one potion/powder.
-    return Math.min(cap(id), Math.max(1, ITEM_BY_ID[id].kind === 'magic' ? Math.ceil(count) : Math.floor(count)));
+    // Magic and timber seeds round up to fill the allowance. Fruit saplings
+    // still award one tree; a T2 acorn draw can now pay a small planting stack.
+    const roundUp = ITEM_BY_ID[id].kind === 'magic' || ITEM_BY_ID[id].plants === 'tree';
+    return Math.min(cap(id), Math.max(1, roundUp ? Math.ceil(count) : Math.floor(count)));
   }
   function gearSlots(group) {
     const def = groups[group];

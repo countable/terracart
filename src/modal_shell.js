@@ -354,6 +354,9 @@ class SceneModals {
         // THE CONTENT REGION of a scene dialog: bottom-anchored, capped at the
         // quiet zone, scrolling inside it when the copy is long.
         ? `margin-top:auto;flex:0 1 auto;max-height:${Math.round((1 - ART_DETAIL_FRAC) * 100)}%;` +
+          // Leave room for the controls' 2px press travel and raised edge.
+          // Without it, pressing the last button briefly creates overflow.
+          'padding-bottom:3px;box-sizing:border-box;' +
           'overflow-y:auto;overscroll-behavior:contain;text-shadow:0 1px 2px #000;' +
           // Above the painting layer (PIXEL RESOLVE), which is absolute.
           'position:relative;z-index:1;'

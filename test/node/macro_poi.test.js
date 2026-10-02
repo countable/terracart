@@ -47,6 +47,13 @@
     }
   });
 
+  test('macro: schools use the reusable scholar counter, not a chest', () => {
+    const school = poi('school');
+    assert.eq(chestLook(school).texKey, 'macro_scholar');
+    assert.eq(macroFor(school).kind, 'scholar');
+    assert.eq(macroFor(poi('school', { depth: 1 })), null, 'underground mirror remains a chest');
+  });
+
   test('macro: a cave mirror, a starter crate and a scripted chest are never macros', () => {
     assert.eq(macroFor(poi('lodging', { depth: 1 })), null, 'underground it is a chest');
     assert.eq(macroFor(poi('lodging', { crate: true })), null, 'a crate');
@@ -795,7 +802,7 @@
       { name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'park' },
         geom: [[{ x: -64, y: -64 }, { x: 4160, y: -64 }, { x: 4160, y: 4160 }, { x: -64, y: 4160 }, { x: -64, y: -64 }]] }] },
       { name: 'poi', features: [{ type: 1, tags, geom: [[{ x: 2048, y: 2048 }]] }] },
-    ], 64, 0, 0, 640).objects.filter((o) => o.kind === 'chest');
+    ], 64, 0, 0, 640).objects.filter((o) => o.kind === 'chest' && !o.chestTopUp);
     assert.eq(r({ class: 'place_of_worship', subclass: 'christian' }).map((o) => macroFor(o) && macroFor(o).kind).join(), 'chapel');
     for (const faith of ['jewish', 'muslim', 'buddhist', 'hindu']) {
       assert.eq(r({ class: 'place_of_worship', subclass: faith }).length, 0, `${faith}: no chest, no chapel`);

@@ -26,11 +26,20 @@ one of everything — see [docs/SANDBOX.md](docs/SANDBOX.md).
 ## Test it
 
 ```sh
-node test/node/run.js           # headless suite + sprite/cache-bust/layout audits
+npm test                       # headless suite + sprite/cache-bust/layout audits
 ```
 
-See [test/node/README.md](test/node/README.md). The browser harness
-(`test/harness.html`, `test/run_tests.py`) needs Chromium.
+The headless suite needs Node.js; it can also run directly with
+`node test/node/run.js`. See [test/node/README.md](test/node/README.md).
+`npm run test:browser:docker` runs the browser harness with Docker;
+`npm run test:browser` uses local Python Playwright and Chromium with the repo
+served on port 7731. Both need the tile fixtures described in
+[tools/README.md](tools/README.md#prerequisites).
+
+Other commands: `npm run cache:check`, `npm run cache:write`,
+`npm run assets:inventory`, and `npm run test:relay` (install relay dependencies
+with `npm --prefix server ci` first). See the [tool index](tools/README.md)
+for previews, generators, audits, and performance checks.
 
 ## Layout
 
@@ -54,7 +63,7 @@ src/        Game source (vanilla JS, global scope, load-order dependent). The bi
 vendor/     Third-party libraries (phaser.js — see vendor/README.md).
 assets/     Game art the build loads (Character/, Enemy/, Farm Animals/, Icons/, Objects/, art/).
 data/       Static data sidecars (satextract_osm.geojson and its sources).
-docs/       spec.txt (design spec), QC_RULES.md (art/asset checklist), SANDBOX.md.
+docs/       Design, rules, drafts and historical reports — see docs/README.md.
 tools/      Dev/debug pages and audit scripts (not shipped); cachebust.js lives here.
 test/       node/ (headless suite) and the browser harness.
 server/     Multiplayer presence relay (Node WebSocket) — see server/deploy/README.md.
