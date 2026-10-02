@@ -10917,14 +10917,15 @@ class MapScene extends Phaser.Scene {
 
   // THE BOOK CLUB (school POIs — Macros.scholarShelf / scholarNext /
   // scholarClaim): every school keeps the same booth and the same shelf, so
-  // progress is one ledger per save. The club counts the books the player
-  // found in the world and read (addToInv — save.booksFound), and every
+  // progress is one ledger per save. The club counts every Book the player
+  // has read (addToInv — save.booksRead; bought ones too, the counter's price
+  // ladder being the brake), and every
   // SCHOLAR_BOOKS_PER_PRIZE of them earns the next prize off the shelf,
   // humblest first. Nothing is sold and nothing is paid: a ready prize is a
   // Collect, an unready one is told its wait in books.
   _presentScholar(sx, sy, o, dress) {
     const shelf = Macros.scholarShelf();
-    const read = Macros.booksFound(this.save);
+    const read = Macros.booksRead(this.save);
     const next = Macros.scholarNext(this.save, shelf);
     const title = `The book club: ${read} ${read === 1 ? 'book' : 'books'} read`;
     if (!next) {
@@ -10936,8 +10937,8 @@ class MapScene extends Phaser.Scene {
       const need = next.booksAt - read;
       const left = shelf.slice(next.index).map((id) => itemName(id)).join(', ');
       this.showMessageModal({ kind: dress.kind, art: dress.art, title,
-        body: `The next prize is ${itemName(next.id)}, at ${next.booksAt} books. Find and read ${need} more. `
-          + `Only books the world gives you count, never ones bought at a counter. Still on the shelf: ${left}.` });
+        body: `The next prize is ${itemName(next.id)}, at ${next.booksAt} books. Read ${need} more. `
+          + `Still on the shelf: ${left}.` });
       return;
     }
     this.showOfferModal({
@@ -10949,9 +10950,10 @@ class MapScene extends Phaser.Scene {
       acceptLabel: 'Collect',
       cancelLabel: 'Later',
       onAccept: () => {
-        // A club prize is a gift, not a wild find (`notWild`): a Book off the
-        // shelf is read on the spot and must not count toward the next prize.
-        // A full bag refuses here, and addToInv has already said so.
+        // A club prize is a gift, not a wild find (`notWild` — the wild-finds
+        // ledger); a Book off the shelf is read on the spot and, like every
+        // Book read, counts. A full bag refuses here, and addToInv has
+        // already said so.
         if (!this.addToInv(next.id, 1, false, { notWild: true })) return;
         const r = Macros.scholarClaim(this.save, shelf);
         if (!r.ok) return;
@@ -12966,6 +12968,7 @@ class MapScene extends Phaser.Scene {
         const restoredRole = this._preseedRestoreRole(order, house);
         this.save.restoredHouses[house.id] = restoredRole;   // role string, not bare `true`
         Houses.registerWizardTower(this.save, house, order);
+        Houses.registerBookshop(this.save, house, order);
         if (restoredRole === 'wizard') NPC.restoreShrine(this, house);
         // The first wreck restored becomes the starter blacksmith (wooden-tool
         // forge). Stamp its id so isStarterBlacksmith picks it up.
@@ -13747,9 +13750,10 @@ class MapScene extends Phaser.Scene {
     if (id === 'book') {
       if (n <= 0) return 0;
       if (!silent) {
-        // THE BOOK CLUB's reading (Macros.booksFound): a Book the world gave,
-        // never one bought or bartered — `notWild`, the wild-finds rule below.
-        if (!opts.notWild) this.save.booksFound = (this.save.booksFound || 0) + n;
+        // THE BOOK CLUB's reading (Macros.booksRead): every Book read counts,
+        // found, bought or off the club's own shelf — the brake on buying is
+        // the counter's price ladder (shops_math.js listPrice), not this.
+        this.save.booksRead = (this.save.booksRead || 0) + n;
         this._pendingBookReads = (this._pendingBookReads || 0) + n;
         // deferBookRead: the caller shows its own modal right after and will
         // reveal these itself from that modal's onDismiss. Otherwise reveal

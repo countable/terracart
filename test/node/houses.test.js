@@ -72,7 +72,7 @@ test('render: each visible house carries one owner-resolved display role', () =>
 
 test('preseedRestoreRole: the fixed opening run, then the address, and the wizard at 30', () => {
   assert.eq(JSON.stringify(Houses.PRESEED_RESTORE_ROLES),
-    JSON.stringify({ 0: 'blacksmith', 1: 'trader', 2: 'plain', 3: 'market', 29: 'wizard' }),
+    JSON.stringify({ 0: 'blacksmith', 1: 'trader', 2: 'plain', 3: 'market', 14: 'market', 29: 'wizard' }),
     'the table itself');
   const save = { restoredHouses: { a: 'blacksmith' }, starterBlacksmithId: 'a' };
   assert.eq(Houses.preseedRestoreRole(save, 1, plainHouse), 'trader');
