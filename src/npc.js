@@ -160,10 +160,14 @@ const NPC = (() => {
   function isDormant(c, now = Date.now()) {
     return c?.kind === 'npc' && (c._npcRestUntilEpoch || 0) > now;
   }
-  function hit(scene, c, now = Date.now()) {
+  function hit(scene, c, now = Date.now(), damage = Combat.creatureMaxHp('npc')) {
     if (c?.kind !== 'npc') return false;
     restore(scene, c);
     if (isDormant(c, now)) return false;
+    if (c._hp <= 0) c._hp = Combat.maxHp(c);
+    const lost = Combat.damageDealt(c, damage);
+    if (!(lost > 0)) return false;
+    if (Combat.hp(c) > 0) return true;
     c._npcRestUntilEpoch = now + REST_MS_AFTER_HIT;
     c._moving = false;
     c._npcSteps = 0;
@@ -199,6 +203,8 @@ const NPC = (() => {
     d2 = Math.min(d2, (row.visionCells * scene.cellM) ** 2);
     for (const c of scene._npcCombatTargets || []) {
       const distance2 = (enemy.x - c.x) ** 2 + (enemy.y - c.y) ** 2;
+      if (typeof PotionEffects !== 'undefined' && distance2 > (Math.max(0,
+        row.visionCells - PotionEffects.visionReduction(c)) * scene.cellM) ** 2) continue;
       if (distance2 >= d2 || !canTarget(scene, c) || enemySightBlocked(scene, enemy, c.x, c.y)) continue;
       if (!Combat.lineOfFire(enemy.x, enemy.y, c.x, c.y,
         (x, y) => enemySightBlocked(scene, enemy, x, y), scene.cellM)) continue;
@@ -209,6 +215,7 @@ const NPC = (() => {
   function tick(scene, c, now, dt) {
     restore(scene, c);
     if (isDormant(c)) { c._moving = false; return; }
+    if (c._hp <= 0) c._hp = Combat.maxHp(c);
     // Integrate only active time: returning to a neighbour never jumps them
     // across their old path. Small steps cannot skip a road cell or building.
     dt = Math.min(0.1, Math.max(0, dt));
@@ -223,7 +230,7 @@ const NPC = (() => {
       c._targetX = c.x + c._npcDX * scene.cellM;
       c._targetY = c.y + c._npcDY * scene.cellM;
     }
-    const step = WALK_MPS * dt;
+    const step = WALK_MPS * dt * (typeof PotionEffects !== 'undefined' ? PotionEffects.speedMul(c) : 1);
     const x = c.x + c._npcDX * step, y = c.y + c._npcDY * step;
     const dest = scene.cellAt(x, y);
     const blocked = !dest.loaded || dest.underRoad || Combat.faunaBlocksCell(dest.type)

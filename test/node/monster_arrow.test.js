@@ -132,7 +132,9 @@ test('monster arrow: app.js — a ranged kind shoots instead of leeching, and th
 
 // Attack ranges are declared independently of the player's equipment.
 test('monster arrow: the ranged trigger radius comes from the enemy row', () => {
-  assert.truthy(CREATURE_AI_SRC.includes('dist <= row.range * scene.cellM'));
+  assert.truthy(CREATURE_AI_SRC.includes('const attackRange = PotionEffects.range(c, row.range)'));
+  assert.truthy(CREATURE_AI_SRC.includes('dist <= attackRange * scene.cellM'));
+  assert.eq(PotionEffects.range({ kind: 'goblin_archer' }, EnemyRoster.get('goblin_archer').range), 3);
   assert.eq(EnemyRoster.get('goblin_archer').range, 3);
   assert.eq(EnemyRoster.get('succubus').range, 4);
   assert.falsy(CREATURE_AI_SRC.includes("rangeCellsFor('staff'"));

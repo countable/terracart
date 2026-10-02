@@ -1777,12 +1777,13 @@ class SceneCreatures {
         if (c.kind === 'npc') c._moving = false;
         return;
       }
+      if (typeof PotionEffects !== 'undefined' && PotionEffects.tick(this, c)) return;
       if (this._tickUnitFire?.(c, now)) return;
       if (c.kind === 'npc') { NPC.tick(this, c, now, npcDt); return; }
       const unnoticed = this.isUnnoticed(c);
       const isTame = typeof c.id === 'string' && c.id.startsWith('released_');
       // HUNTS FOR THE PLAYER: a tame pet, or a summoned ally (the spirit
-      // raven, conjured by a potion — yours without being tame). One flag
+      // raven, conjured by a scroll — yours without being tame). One flag
       // the pet scan and its fight read; see huntsPrey for what each takes.
       const summoned = SpriteLayout.isSummoned(c.kind);
       // A spent ally (its HP ran out — see the pet fight) stands still until
@@ -1925,9 +1926,10 @@ class SceneCreatures {
         const pace = gm.mps / 1000;
         const fate = ghostTick(this, c, now, npcTarget?.x ?? px, npcTarget?.y ?? py,
           (npcTarget ? NPC.isDormant(npcTarget) : unnoticed) || kerbTurn, warded, pace);
-        if (fate === 'touch' && npcTarget) NPC.hit(this, npcTarget);
+        if (fate === 'touch' && npcTarget) NPC.hit(this, npcTarget, Date.now(),
+          (gm.dmg * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c));
         if (fate === 'touch' && !npcTarget) {
-          const raw = gm.dmg * Combat.powerMul(c);
+          const raw = (gm.dmg * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c);
           const dmg = Combat.incomingDamage(this.save, raw);
           if (dmg > 0) {
             const lost = this._losePlayerEnergy(dmg, { closeShop: true });
@@ -1946,7 +1948,7 @@ class SceneCreatures {
       // other blow; a foe it kills is the ground's kill ('lava' is no player
       // source — Combat.isPlayerKill), which pays the bounty coin and nothing
       // past it, the turret's rule. A tamed slime is a pet, never burned.
-      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune && (this.depth === 0 || this.depth === WorldGen.LAVA_DEPTH)
+      if (!isTame && Combat.isEnemy(c) && !Conditions.fireImmune(c) && !Combat.monster(c.kind)?.lavaImmune && (this.depth === 0 || this.depth === WorldGen.LAVA_DEPTH)
           && now >= (c._lavaNextT || 0)) {
         c._lavaNextT = now + 1000;
         const under = this.cellAt(c.x, c.y);
@@ -1972,7 +1974,7 @@ class SceneCreatures {
         if (ddx * ddx + ddy * ddy <= STEAL_R * STEAL_R &&
             (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + 1000;   // one bite a second
-          const slimeBite = SLIME_LEECH_ENERGY * Combat.powerMul(c);
+          const slimeBite = (SLIME_LEECH_ENERGY * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c);
           const slimeDmg = Combat.incomingDamage(this.save, slimeBite);
           if (slimeDmg > 0) {
             this._slimeStealAccum = (this._slimeStealAccum || 0)
@@ -2015,7 +2017,7 @@ class SceneCreatures {
         // dmg 0) skips both halves below: it is not a melee drain at strength
         // zero, which the armour floor would round up to a bite.
         const hits = Combat.monsterHits(c.kind);
-        const rangeCells = m.range > 1 ? Combat.rangeCellsFor('bow', reachCells(this)) : m.range;
+        const rangeCells = PotionEffects.range(c, m.range > 1 ? Combat.rangeCellsFor('bow', reachCells(this)) : m.range);
         const R = rangeCells * this.cellM;
         // A RANGED monster needs a clear line, for the same reason your bow
         // does: the goblin archer reaches out to the player's own live reach,
@@ -2049,7 +2051,7 @@ class SceneCreatures {
           c._attackT0 = now;
           c._attackUntil = now + 600;
           // Elite and lair power scale the attack before shield and armour.
-          const dmg = m.dmg * Combat.powerMul(c);
+          const dmg = (m.dmg * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c);
           const monDmg = Combat.incomingDamage(this.save, dmg);
           if (monDmg > 0) {
             const lost = this._losePlayerEnergy(monDmg, { closeShop: true });
@@ -2181,6 +2183,7 @@ class SceneCreatures {
                    : isMon ? STEP_MS / mon.speed
                    : sprinting ? (bolt.stepMs ?? STEP_MS)
                    : (gait?.stepMs ?? STEP_MS)) * shinyFast * (hurry ? FLEE_BEAT_MUL : 1);
+      stepMs /= PotionEffects.speedMul(c);
       const stepM = (c.kind === 'slime' ? STEP_M * SLIME_HOP_CELLS
                   : isMon ? STEP_M * monsterStrideCells(mon)
                   : sprinting ? STEP_M * (bolt.stepCells ?? 1)
@@ -2188,7 +2191,7 @@ class SceneCreatures {
       // A kind's top speed (SpriteLayout.creatureMaxMps) stretches the glide,
       // never shortens the stride: the step still lands where it was aimed.
       // A shiny's cap rises by the same factor its beat quickens by.
-      const maxMps = SpriteLayout.creatureMaxMps(c.kind) / shinyFast;
+      const maxMps = SpriteLayout.creatureMaxMps(c.kind) / shinyFast * PotionEffects.speedMul(c);
       stepMs = Math.max(stepMs, stepM / maxMps * 1000);
       if (c._nextChooseT == null) {
         c._nextChooseT = now + Math.random() * stepMs;
@@ -2338,7 +2341,7 @@ class SceneCreatures {
         if (c._chaseTarget) {
           const tgt = c._chaseTarget;
           const fd2 = (tgt.x - c.x) ** 2 + (tgt.y - c.y) ** 2;
-          const FIGHT_R2 = (1.5 * this.cellM) ** 2;
+          const FIGHT_R2 = (PotionEffects.range(c, 1.5) * this.cellM) ** 2;
           if (fd2 <= FIGHT_R2) {
             // One HP table for every fight in the game (combat.js) — a slime a
             // dog has been worrying shows the damage on the player's health

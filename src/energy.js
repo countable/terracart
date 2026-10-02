@@ -45,15 +45,34 @@
     const it = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID[id] : null;
     return Math.max(1, Math.floor(Number(it?.baseTier) || 1));
   }
-  function maxEnergy(save) {
+  function maxEnergy(save, now = Date.now()) {
     const base = (typeof STARTING_ENERGY !== 'undefined') ? STARTING_ENERGY : 100;
     let tasted = 0;
     if (Array.isArray(save.eaten)) for (const id of new Set(save.eaten)) tasted += tasteBonus(id);
     const vigour = Math.max(0, Math.floor(Number(save.vigourUpgrades) || 0));
     // A Stamina hall's levels and drill (Combat.trainingBonus 'energy').
     const trained = (typeof Combat !== 'undefined' && Combat.trainingBonus) ? Combat.trainingBonus(save, 'energy') : 0;
-    save.maxEnergy = base + tasted + vigour * VIGOUR_ENERGY_STEP + trained;
+    const giant = typeof Combat !== 'undefined' && Combat.giantActive(save, now) ? CONSUMABLE_SPEC.giant_potion.maxHpBonus : 0;
+    const shrinking = typeof Combat !== 'undefined' && Combat.shrinkingActive(save, now)
+      ? CONSUMABLE_SPEC.shrinking_potion.maxHpMul : 1;
+    save.maxEnergy = Math.max(1, Math.ceil((base + tasted + vigour * VIGOUR_ENERGY_STEP + trained + giant) * shrinking));
     return save.maxEnergy;
+  }
+
+  // Giant's expiry removes temporary headroom, never heals or leaves excess HP.
+  function expireGiant(save, now = Date.now()) {
+    if (!(save.giantPotionUntil > 0) || save.giantPotionUntil > now) return false;
+    delete save.giantPotionUntil;
+    set(save, save.energy, maxEnergy(save, now));
+    return true;
+  }
+
+  // Regaining ordinary size restores capacity, not spent HP.
+  function expireShrinking(save, now = Date.now()) {
+    if (!(save.shrinkingPotionUntil > 0) || save.shrinkingPotionUntil > now) return false;
+    delete save.shrinkingPotionUntil;
+    maxEnergy(save, now);
+    return true;
   }
 
   // "Tired" warning threshold (30% of max). Crossing it flashes a heads-up so
@@ -240,6 +259,6 @@
     return Math.max(1, Math.round((maxE || 0) * frac));
   }
 
-  root.Energy = { set, dawnfruitActive, fullViewReachActive, tickShrineRegen, FISH_REGEN_MS, fishRegenTotal, fishRegenWait, startFishRegen, tickFishRegen, VIGOUR_ENERGY_STEP, REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tasteBonus, tiredThreshold, crossedTired,
+  root.Energy = { set, expireGiant, expireShrinking, dawnfruitActive, fullViewReachActive, tickShrineRegen, FISH_REGEN_MS, fishRegenTotal, fishRegenWait, startFishRegen, tickFishRegen, VIGOUR_ENERGY_STEP, REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tasteBonus, tiredThreshold, crossedTired,
                   spend, applyOfflineRest, eatCooldownLeft, canEat, startEatCooldown };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

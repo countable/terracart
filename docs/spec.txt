@@ -1653,7 +1653,7 @@ CONSUMABLES
    below the inventory bar while one is selected — same spot and behaviour as
    the Eat CTA for food. No foot-tapping: tapping your own cell with one
    selected falls through to the normal cell handlers (till / plant / etc.).
- - SYRUP: select it and tap Use — sets out a jar that lures wandering farm
+ - POTION OF TAMING: select it and tap Use — sets out a jar that lures wandering farm
    animals (chickens / cows) within ~6 cells (30m) toward you (the modal
    reports how many respond). Consumed on use — the animals eat it. (Was the
    Flute until Sep 2026, then Honey; the save id stays `honey`.)

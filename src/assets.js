@@ -2,6 +2,10 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  // Potion projectiles use the same frames as inventory and shop icons.
+  icon_potions: { kind: 'spritesheet', path: 'assets/Icons/Items/Potions.png', frameWidth: 16, frameHeight: 16 },
+  icon_potion: { kind: 'spritesheet', path: 'assets/Icons/Items/Potion_light.png', frameWidth: 16, frameHeight: 16 },
+  icon_honey: { kind: 'spritesheet', path: 'assets/Icons/Items/Honey.png', frameWidth: 16, frameHeight: 16 },
   // Castle turrets share a 28×42 frame and a flush bottom grounding line.
   // The flag remains a separate live overlay when the castle is claimed.
   tower: { kind: 'image', path: 'assets/Objects/Generated/castle_tower_restored.png' },

@@ -278,6 +278,7 @@ test('enchanter: tome cooldowns stamp at half length', () => {
   assert.truthy(/tomeReadyAt = now \+ TOME_COOLDOWN_MS \* mul/.test(src), 'the shared lock scales');
   assert.truthy(/cooldownMs \|\| 0\) \* mul/.test(src), 'and the own magic scales');
   assert.falsy(/channelPotion/.test(app), 'the potion channel is gone');
+
 });
 
 test('enchanter: the class blurb sells the new edge', () => {

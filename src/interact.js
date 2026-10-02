@@ -470,7 +470,7 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
     const item = ITEM_BY_ID[reward.id];
     const ti = tierInfo(reward.id);
     const color = ti?.color || '#ffe066';
-    const label = `${mark} → ${item?.name || reward.id}${reward.qty > 1 ? ` ×${reward.qty}` : ''}`;
+    const label = `${item?.name || reward.id}${reward.qty > 1 ? ` ×${reward.qty}` : ''}`;
     scene.flashLoot(label, color, 1, reward.id);
     if (reward.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
       scene.flashJackpot(reward.jackpot);

@@ -272,7 +272,7 @@ test('map copy: the name-bearing loot toasts fit at their widest', () => {
   const shapes = [
     `${longestGear} × 10`,                  // the trail card (name + qty)
     longestGear,                            // the forge splash
-    `\u2715 → ${longestItem} ×10`,          // the treasure line
+    `${longestItem} ×10`,          // the treasure line
   ];
   for (const line of shapes) {
     assert.lte([...line].length, MAP_MSG_MAX, `worst-case loot toast overflows: ${line}`);

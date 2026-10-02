@@ -42,9 +42,19 @@
     const value = save.fireDamageRemainder;
     return Number.isFinite(value) && value >= 0 && value < 1 ? value : 0;
   }
+  function damageImmune(save, now = Date.now()) {
+    return (save.immortalPotionUntil || 0) > now;
+  }
+  function fireImmune(save, now = Date.now()) {
+    return damageImmune(save, now) || (save.fireResistancePotionUntil || 0) > now;
+  }
   // Energy is integral. Carry fractional fire loss between hits and saves so
   // resistance still works against small ticks; zero damage never discharges it.
-  function fireDamage(save, raw) {
+  function fireDamage(save, raw, now = Date.now()) {
+    if (fireImmune(save, now)) {
+      save.fireDamageRemainder = 0;
+      return 0;
+    }
     if (!Number.isFinite(raw) || raw <= 0) return 0;
     const total = raw * jewelryFireDamageMul(save) + fireRemainder(save);
     const damage = Math.floor(total + 1e-9);
@@ -60,9 +70,10 @@
     if (!def) return false;
     return !def.flicker || Math.floor(now / FLICKER_MS) % 2 === 0;
   }
-  function apply(save, id) {
+  function apply(save, id, now = Date.now()) {
     const def = DEFINITIONS[id];
     if (!def) return false;
+    if (id === 'burning' && fireImmune(save, now)) return false;
     // A Toad Idol's boon (src/shrines.js 'antidote'): poison cannot take hold.
     if (id === 'poison' && root.Shrines && root.Shrines.leverActive(save, 'antidote')) return false;
     const fresh = !active(save, id);
@@ -104,6 +115,11 @@
     const before = save.energy ?? 0;
     let ticks = 0;
     let expired = false;
+    const now = options.now ?? Date.now();
+    if (fireImmune(save, now)) {
+      expired = cure(save, 'burning');
+      save.fireDamageRemainder = 0;
+    }
     for (const [id, def] of Object.entries(DEFINITIONS)) {
       if (!active(save, id)) continue;
       const state = save.conditions[id];
@@ -111,7 +127,7 @@
         const result = advanceBurn(state, elapsedMs, !!options.burningExposure);
         state.remainingMs = result.remainingMs;
         state.nextTickMs = result.nextTickMs;
-        Energy.set(save, (save.energy ?? 0) - fireDamage(save, result.damage));
+        Energy.set(save, (save.energy ?? 0) - fireDamage(save, result.damage, now));
         ticks += result.ticks;
         if (state.remainingMs <= 0) {
           delete save.conditions[id];
@@ -123,7 +139,7 @@
       state.remainingMs -= elapsed;
       state.nextTickMs -= elapsed;
       while (state.nextTickMs <= 0) {
-        Energy.set(save, (save.energy ?? 0) - def.energyLoss);
+        if (!damageImmune(save, now)) Energy.set(save, (save.energy ?? 0) - def.energyLoss);
         state.nextTickMs += def.intervalMs;
         ticks++;
       }
@@ -161,5 +177,5 @@
     clearDebuffs(save, scene);
     return true;
   }
-  root.Conditions = { DEFINITIONS, FLICKER_MS, conditionTintOn, normalize, active, apply, cure, advanceBurn, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
+  root.Conditions = { DEFINITIONS, FLICKER_MS, conditionTintOn, normalize, active, apply, cure, advanceBurn, damageImmune, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

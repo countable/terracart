@@ -4182,9 +4182,11 @@ Render.drawObjects = function drawObjects(scene) {
   // radius. Instance size never changes the aura's reach.
   if (scene.auraContainer && typeof EnemyRoster !== 'undefined') {
     scene.enemyAuraPool ||= [];
-    const auraList = creatureList.filter(it => EnemyRoster.get(it.c.kind)?.aura);
+    const auraList = creatureList.filter(it => EnemyRoster.get(it.c.kind)?.aura
+      || (typeof PotionEffects !== 'undefined' && PotionEffects.active(it.c, 'blight_potion')));
     Render.renderPool(scene, scene.enemyAuraPool, scene.auraContainer, auraList, (s, item) => {
-      const aura = EnemyRoster.get(item.c.kind).aura;
+      const aura = (typeof PotionEffects !== 'undefined' && PotionEffects.active(item.c, 'blight_potion'))
+        ? CONSUMABLE_SPEC.blight_potion : EnemyRoster.get(item.c.kind).aura;
       const { sx, sy } = project(item.dx, item.dy);
       const diameter = 2 * aura.radiusCells * CELL_PX;
       setTextureIfDifferent(s, 'aura_blight');

@@ -115,7 +115,10 @@ test('fire damage: wildlife, pets, allies and NPCs keep their existing defeat or
   assert.truthy(ally._spent);
   const npc = { kind: 'npc', id: 'neighbour' };
   assert.falsy(scene._damageBurningUnit(npc, 2, 'burn', 1000));
-  assert.truthy(NPC.isDormant(npc), 'a burned neighbour rests its wounds');
+  assert.eq(Combat.hp(npc), Combat.maxHp(npc) - 2, 'burning chips actual neighbour health');
+  assert.falsy(NPC.isDormant(npc), 'a surviving neighbour stays on their feet');
+  scene._damageBurningUnit(npc, Combat.hp(npc), 'burn', 2000);
+  assert.truthy(NPC.isDormant(npc), 'a neighbour rests when the burn exhausts their health');
 });
 
 test('player: standing in a campfire or lava sets the farmer burning, once a second, never off an empty bar', () => {
