@@ -21,7 +21,7 @@
       assert.eq(wall.zoneVariant, 'quarry-stronghold');
       assert.inRange(wall.variant, 0, 14);
     }
-    assert.truthy(out.objects.some(o => o.kind === 'mineralrock'), 'broken wall ends retain ordinary stone');
+    assert.truthy(walls.some(o => o.variant >= 11), 'broken wall ends use finished caps');
     for (const id of ['quarry-abandoned', 'quarry-strip-mine', 'quarry-crater']) {
       assert.falsy(ZoneDressing.dress(context(id)).objects.some(o => o.kind === 'stronghold_wall'), id);
     }
