@@ -30,3 +30,19 @@ coin to `assets/Icons/coin.png`. It refreshes scene thumbnails after processing.
 After changing runtime paintings, run cache busting and the node suite as
 described in `CLAUDE.md`. Check both `art` references and `story` stems before
 removing a runtime painting.
+
+## Paired booth paintings
+
+The introduction is the visual reference for its transaction painting. Edit
+that image with an explicit image reference, changing only the completed
+transaction. Keep the same keeper, proportions, view, awning, sign, fixtures,
+and background. Both stages use subdued, weathered light and reserved faces;
+retain the introduction's painterly realism rather than switching to chibi.
+
+Full edit prompts and reference provenance are recorded in
+`docs/art/booth-story-art-prompts.json`. For the inn, the completed action shows
+the hooded player resting in the existing bed while pale light swirls away.
+`gen_story_art.js` retains the scene/export definitions; its text-only generator
+must not be used to recreate either half of these established pairs. Use the
+built-in image editor with the recorded visual reference, or `--reprocess` to
+export an existing master without changing the painting.
