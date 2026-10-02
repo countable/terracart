@@ -1,0 +1,72 @@
+{
+  "worldArtId": "WA-106",
+  "columns": 8,
+  "frameWidth": 24,
+  "frameHeight": 24,
+  "frames": [
+    {
+      "frame": 64,
+      "zone": "stone_garden",
+      "look": "zone_rock_stone_garden",
+      "source": "rocks/stone_garden.png",
+      "sha256": "b166a32cd54c041bcceb907d9eafbf1a78aa98eccea35d2f3857f8dda47ff63c",
+      "reviewSource": "world-art-candidates/candidates/rocks-0.png"
+    },
+    {
+      "frame": 65,
+      "zone": "broken_masonry",
+      "look": "zone_rock_broken_masonry",
+      "source": "rocks/broken_masonry.png",
+      "sha256": "2237a091bccf7003ac2ba3f03b606c356391e65641aacbcade6974db00be2664",
+      "reviewSource": "world-art-candidates/candidates/rocks-1.png"
+    },
+    {
+      "frame": 66,
+      "zone": "flint_field",
+      "look": "zone_rock_flint_field",
+      "source": "rocks/flint_field.png",
+      "sha256": "51913f925f674607de0f5d0e69a5306709da4d338b8621cba4b4f1f4662ee594",
+      "reviewSource": "world-art-candidates/candidates/rocks-2.png"
+    },
+    {
+      "frame": 67,
+      "zone": "broken_depot",
+      "look": "zone_rock_broken_depot",
+      "source": "rocks/broken_depot.png",
+      "sha256": "9468f40067d4b9a2cceae1de48d1d3c19dd5f3f37899d0983f92c78d36f1ab9c",
+      "reviewSource": "world-art-candidates/candidates/rocks-3.png"
+    },
+    {
+      "frame": 68,
+      "zone": "seep",
+      "look": "zone_rock_seep",
+      "source": "rocks/seep.png",
+      "sha256": "d380a8fa847d47053534aec9af2f54588f32d75156205ba3ef2661aa32f65775",
+      "reviewSource": "world-art-candidates/candidates/rocks-4.png"
+    },
+    {
+      "frame": 69,
+      "zone": "work_yard",
+      "look": "zone_rock_work_yard",
+      "source": "rocks/work_yard.png",
+      "sha256": "ceaf28a0dea7c8fd8be7289178ba3aa43353797e60c04ac9849c535aec17f5a8",
+      "reviewSource": "world-art-candidates/candidates/rocks-5.png"
+    },
+    {
+      "frame": 70,
+      "zone": "black_ring",
+      "look": "zone_rock_black_ring",
+      "source": "rocks/black_ring.png",
+      "sha256": "388f73627ed7600c6ad8aa8fcc1de99f71669125615ca19d7fcf05702ab47b0d",
+      "reviewSource": "world-art-candidates/candidates/rocks-6.png"
+    },
+    {
+      "frame": 71,
+      "zone": "pirate_cove",
+      "look": "zone_rock_pirate_cove",
+      "source": "rocks/pirate_cove.png",
+      "sha256": "81eae64a9d921f2fa64b5ce08f7333d37a35f570ae43759b943db40e6a69ef49",
+      "reviewSource": "world-art-candidates/candidates/rocks-7.png"
+    }
+  ]
+}

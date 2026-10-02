@@ -3770,6 +3770,9 @@
       "attracts": {},
       "materialReplacements": {
         "stone": "grave_pillar"
+      },
+      "materialLooks": {
+        "rubble": "zone_rock_stone_garden"
       }
     },
     {
@@ -4496,7 +4499,10 @@
           "material": "fallen_column",
           "count": 1
         }
-      ]
+      ],
+      "materialLooks": {
+        "rubble": "zone_rock_broken_masonry"
+      }
     },
     {
       "id": "silent_circle",
@@ -5325,7 +5331,10 @@
         "mode": "none"
       },
       "atmosphere": "A radius-two flint circle surrounds the POI, edged with a continuous rubble rim. Rubble scatters at 15% outside; three gemfruit finds remain.",
-      "attracts": {}
+      "attracts": {},
+      "materialLooks": {
+        "rubble": "zone_rock_flint_field"
+      }
     },
     {
       "id": "broken_depot",
@@ -5560,7 +5569,10 @@
           "material": "handcart",
           "count": 1
         }
-      ]
+      ],
+      "materialLooks": {
+        "rubble": "zone_rock_broken_depot"
+      }
     },
     {
       "id": "seep",
@@ -5853,7 +5865,10 @@
         "mode": "none"
       },
       "atmosphere": "Repeated tar-pit clusters seep around small rubble islands. A lone flower survives beyond the last dark crescent.",
-      "attracts": {}
+      "attracts": {},
+      "materialLooks": {
+        "rubble": "zone_rock_seep"
+      }
     },
     {
       "id": "work_yard",
@@ -6053,7 +6068,10 @@
           "material": "handcart",
           "count": 1
         }
-      ]
+      ],
+      "materialLooks": {
+        "rubble": "zone_rock_work_yard"
+      }
     },
     {
       "id": "black_ring",
@@ -6388,7 +6406,10 @@
         "mode": "none"
       },
       "atmosphere": "Smaller, near-continuous rubble circles enclose tight tar rings. The circles repeat every eight cells; two gold-bearing rocks stand at the far side.",
-      "attracts": {}
+      "attracts": {},
+      "materialLooks": {
+        "rubble": "zone_rock_black_ring"
+      }
     },
     {
       "id": "mystic_reef",
@@ -6800,7 +6821,10 @@
           "material": "amphora",
           "count": 1
         }
-      ]
+      ],
+      "materialLooks": {
+        "rubble": "zone_rock_pirate_cove"
+      }
     },
     {
       "id": "shellwater_strand",

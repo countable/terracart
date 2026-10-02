@@ -9,6 +9,16 @@ crisp chibi retro pixel style stays consistent in every state.
 candidate assessments and proposed ruins roles. These are review targets, not a
 runtime palette filter. No sprites or spawn rules are changed by this document.
 
+Approved world-art replacements are recorded by review ID and destination frame
+in `assets/Objects/Approved/world-art-imports.json`. The source crops under
+`assets/Objects/Approved/Sources/WorldArt/` retain the generated pixels before
+review downsampling, with original sheet hashes and crop coordinates in that
+manifest. Run `python3 tools/import_world_art_candidates.py` after rebuilding a
+legacy sheet. It replaces only approved frames, preserves sheet geometry and
+all neighbouring pixels, and updates the Approved manifest hashes. The map-art
+baker calls this automatically after its older recolour recipes. The approved
+wood log fills all three quantity frames so the world and inventory stay aligned.
+
 The palette was built from twelve current story paintings. Each contributes an
 equal sample: whole landscape paintings, but only the upper 40% of portrait
 paintings, excluding the deliberately dark text area. The preview shows the
@@ -73,7 +83,7 @@ frames. Baked unclaimed buildings bypass the old runtime wash to keep their slud
 and weathering visible. Chapel, macro POI booths, actors and other retained art
 remain unchanged.
 
-The sprite contexts are wetland-edge reeds and Burned Row stakes. Rocks use their ordinary art without moss, beach or masonry looks. Shrubs use the basic bush or the smaller cut hedge, with the same mechanics. Ancient Grove and Silent Circle also use their
+The sprite contexts are wetland-edge reeds and Burned Row stakes. Loose rocks in Stone Garden, Broken Masonry, Flint Field, Broken Depot, Seep, Work Yard, Black Ring and Pirate Cove use their approved contextual frames in the existing zone-object atlas. Ordinary loose rocks, planted rock crops and inventory icons keep their standard art. `assets/Objects/ZoneVariants/approved-additions.json` records these appended frames and their approved sources; `tools/pack_selected_zone_art.py` preserves them during regeneration. Shrubs use the basic bush or the smaller cut hedge, with the same mechanics. Ancient Grove and Silent Circle also use their
 approved ground accents. Context selection preserves placement IDs, quantities,
 loot and interaction types.
 

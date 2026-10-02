@@ -213,6 +213,10 @@ async def main():
     manifest=dict(version=1,sourceCommit=source_commit,
                   colourTransformSha256=hashlib.sha256((ROOT/'tools/art_preview_colour.js').read_bytes()).hexdigest(),originalAssets=original_used,inputs=inputs,files=files)
     MANIFEST.write_text(json.dumps(manifest,indent=2)+'\n');wire_assets(original,jobs)
+    # Later approved replacements own their individual frames. Reapply them
+    # after the legacy recipes so a recolour rebuild cannot restore old art.
+    from import_world_art_candidates import apply_imports
+    apply_imports(ROOT)
     args.review_output.mkdir(parents=True,exist_ok=True)
     cards=[]
     for result in baked:

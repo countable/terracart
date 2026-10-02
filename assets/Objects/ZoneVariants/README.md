@@ -17,8 +17,11 @@ and approved atlas. The original sheets remain historical generation sources.
 ## Approved selection
 
 `selection.json` owns the user's accepted source-frame numbers; `approved-24.png`
-contains only those frames, preserving original indices and leaving discarded
-cells transparent. The original atlas is retained as generation provenance.
+preserves those original frame indices, leaving discarded cells transparent.
+The approved WA-106 contextual rocks occupy appended frames 64–71 (a ninth
+row), sourced unchanged from `rocks/`. `approved-additions.json` records their
+zone, context look, frame, review source and SHA-256. They retain ordinary
+rockfruit harvest mechanics and inventory art. The packer composes both lists. The original atlas is retained as generation provenance.
 `review-baseline-assets.json` preserves the prior assets for before/after review.
 Rebuild installed standalone assets, approved atlas, and hedges with
 `python3 tools/pack_selected_zone_art.py`.

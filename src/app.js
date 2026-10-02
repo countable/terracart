@@ -199,19 +199,9 @@ const STREET_LAMP_ORIGIN_Y =
 // — it LIES on the point, and a stone in the road has nothing to stand proud
 // of.
 const STREET_LAMP_DY_PX = 3;
-// THE UNLIT LAMP IS THE OLD ROAD COBBLE. A lamp stands on every
-// LAMP_SPACING_M of street whether or not that stretch is restored yet — a
-// dark one is the stone you have not lit, and it has to be VISIBLE or the
-// lamps would seem to appear from nowhere as you walk. It draws from the
-// 'cobble' sheet (assets.js: Road copiar.png, the per-cell pebble art the
-// road band replaced in Sep 2026), at the frame that sheet used for the way's
-// tier — the same frames the old per-cell stones drew, so a dark lamp reads
-// as exactly the grey cobble a road always carried — and at the old stones'
-// own size and alpha: stepped down inside the cell so the ground shows round
-// it, and see-through enough to read as a sett laid IN the verge rather than
-// a chip dropped on it. The lit stone keeps its own baked art
-// (STREET_LAMP_TEX) over the same point — the verge point both are seated on
-// (see STREET_LAMP_R_CELLS and _streetLampsForTile), never the centreline.
+// Unrestored streets carry a snapped-off lamp post. Its weathered metal and
+// plinth are baked from RoadOverlay.paintBrokenLamp into the legacy cobble
+// sheet, retaining its four frame slots and existing street placement.
 const STREET_LAMP_DARK_TEX = 'cobble';
 // Frame per way tier, keyed by the WorldGen.T code classifyLine hands back:
 // motorway/trunk/primary the biggest densest cluster, secondary/tertiary the

@@ -7,12 +7,20 @@ root=Path(__file__).resolve().parents[1]
 out=root/'assets/Objects/ZoneVariants'
 source=Image.open(out/'objects-24.png').convert('RGBA')
 selection=json.loads((out/'selection.json').read_text())
-approved=Image.new('RGBA',source.size)
+# Keep approved additions after the original 64 slots, so existing frame IDs
+# stay fixed and rerunning the packer cannot drop the reviewed zone rocks.
+additions=json.loads((out/'approved-additions.json').read_text())
+last_frame=max([source.width//24 * (source.height//24)-1]+[r['frame'] for r in additions['frames']])
+approved=Image.new('RGBA',(source.width, (last_frame//8+1)*24))
 for frame in selection['selectedFrames']:
  x,y=frame%8*24,frame//8*24
  tile=source.crop((x,y,x+24,y+24));approved.paste(tile,(x,y))
  name=json.loads((out/'manifest.json').read_text())['frames'][frame]['name']
  tile.save(out/(name+'.png'))
+for row in additions['frames']:
+ tile=Image.open(out/row['source']).convert('RGBA')
+ if tile.size != (24,24): raise ValueError(f"Expected 24px zone art: {row['source']}")
+ approved.paste(tile,(row['frame']%8*24,row['frame']//8*24))
 approved.save(out/'approved-24.png')
 pots=Image.open(out/'pots-smashed-source.png').convert('RGBA')
 pots.putalpha(pots.getchannel('A').point(lambda a:255 if a>=128 else 0))

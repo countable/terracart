@@ -374,10 +374,22 @@
     ZoneDressing.stampHedges(edge, N);
     assert.eq(edge[0]._hedgeFrame, undefined, 'adjacent array rows cannot make a straight hedge');
   });
-  test('zone art: stone variants use ordinary rock art and formal hedges keep their harvest identity', () => {
+  test('zone art: contextual stones and formal hedges keep their harvest identity', () => {
     const masonry = ZoneDressing.dress(context('broken_masonry')).wildplants.filter(o => o.crop === 'rockfruit');
     assert.gt(masonry.length, 0);
-    assert.truthy(masonry.every(o => !o._plantArt && !wildplantSprite(o)?.sheet));
+    const zones = ['stone_garden', 'broken_masonry', 'flint_field', 'broken_depot', 'seep', 'work_yard', 'black_ring', 'pirate_cove'];
+    for (const [index, zone] of zones.entries()) {
+      const rocks = ZoneDressing.dress(context(zone)).wildplants.filter(o => o.crop === 'rockfruit');
+      assert.gt(rocks.length, 0, `${zone}: actual rubble placements`);
+      for (const rock of rocks) {
+        assert.eq(rock._plantArt, `zone_rock_${zone}`);
+        assert.eq(wildplantSprite(rock).sheet, 'zone_objects');
+        assert.eq(wildplantFrame(rock), 64 + index);
+        assert.eq(rock.id, WorldGen.cellId(rock.zoneLayer === 'background' ? 'wpf' : 'wz', 0, 0, rock._ix, rock._iy), 'art preserves the saved harvest identity');
+      }
+    }
+    assert.eq(wildplantSprite({crop:'rockfruit',stage:MAX_GROWTH_STAGE}), CROP_SPRITE.rockfruit, 'planted rocks keep their ordinary crop art');
+    assert.eq(wildplantSprite({crop:'shrub',_plantArt:'zone_rock_stone_garden'}).sheet, 'bushes', 'rock context cannot replace another crop');
     assert.eq(wildplantSprite({crop:'rockfruit',_plantArt:'masonry'})?.sheet, undefined, 'legacy masonry tags use ordinary loose stones');
     assert.eq(wildplantSprite({crop:'rockfruit'})?.sheet, undefined, 'ordinary stone keeps the crop sheet despite its placement-specific looks');
     assert.eq(inventoryIconSource('rockfruit').sheet, 'crops', 'harvest remains the same inventory item');

@@ -1274,7 +1274,7 @@
       "source": "assets/Objects/Rustic/Props.png",
       "width": 352,
       "height": 192,
-      "sha256": "dde89ac1bfcb181e4408979fead1e5120e246cf8c6b6582e71a8725ea2c40ec1",
+      "sha256": "7157df1d4b6ebb5f8189a11777436629f170be5397436992544ab3ace43230ce",
       "rows": [
         "cave-mushroom",
         "forgetmenot",
@@ -1473,6 +1473,28 @@
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": 0.1
+        }
+      ],
+      "frameImports": [
+        {
+          "reviewId": "WA-098",
+          "frame": 34,
+          "frameSize": [
+            16,
+            16
+          ],
+          "source": "assets/Objects/Approved/Sources/WorldArt/general-1.png",
+          "sourceSha256": "8b761af4a1285120be6c2f4aad9e1047b213acb253d5d8282e8ec17914d3d9ec"
+        },
+        {
+          "reviewId": "WA-113",
+          "frame": 30,
+          "frameSize": [
+            16,
+            16
+          ],
+          "source": "assets/Objects/Approved/Sources/WorldArt/general-3.png",
+          "sourceSha256": "69ce4145e53034314c5744009744b5f0cbe6493983554d195f942936f470b8f0"
         }
       ]
     },
@@ -3162,7 +3184,7 @@
       "source": "assets/Objects/Crops.png",
       "width": 144,
       "height": 256,
-      "sha256": "3bd92dfeb76f644ef553e62cdc609b8bbec7e3778fa82756f23834417d01a3dd",
+      "sha256": "00d16bdc06d67dea272c7369a6bcfe440766625b5b02ba05fc047e09a0294cdd",
       "rows": [
         "gemfruit",
         "nut-plant",
@@ -4012,6 +4034,18 @@
           "colourMap": null,
           "paletteStrength": null
         }
+      ],
+      "frameImports": [
+        {
+          "reviewId": "WA-096",
+          "frame": 67,
+          "frameSize": [
+            16,
+            16
+          ],
+          "source": "assets/Objects/Approved/Sources/WorldArt/general-0.png",
+          "sourceSha256": "f7105cb2729a03ff0d974daafdab64e01448416ae3ebf373a0aee41ef2c64468"
+        }
       ]
     },
     {
@@ -4480,7 +4514,7 @@
       "source": "assets/Objects/Generated/tar.png",
       "width": 16,
       "height": 16,
-      "sha256": "50bd2ddd315dc08c71e2eb6f32bcdbde8a0eca23e794e9621c79fa659d7d571e",
+      "sha256": "f3ede91600a568d1327e4319a4d1bce759874103bad800504f19e954cafa66bb",
       "rows": [
         "tar"
       ],
@@ -4504,6 +4538,18 @@
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": null
+        }
+      ],
+      "frameImports": [
+        {
+          "reviewId": "WA-125",
+          "frame": 0,
+          "frameSize": [
+            16,
+            16
+          ],
+          "source": "assets/Objects/Approved/Sources/WorldArt/general-6.png",
+          "sourceSha256": "b32aaf1a245f376c4faa775237d6346db7f636754b1dc81a9e158dafe88a191b"
         }
       ]
     },

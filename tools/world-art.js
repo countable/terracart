@@ -17,6 +17,10 @@
       if(!response.ok)throw new Error('Could not load '+key+' frame names');
       manifests[key]=await response.json();
     }
+    const rockResponse = await fetch('../assets/Objects/ZoneVariants/approved-additions.json', {cache:'no-store'});
+    if (!rockResponse.ok) throw new Error('Could not load zone rock frame names');
+    const rockAdditions = await rockResponse.json();
+    manifests.zone_objects.frames.push(...rockAdditions.frames.map(f => ({...f, name: 'rock_' + f.zone})));
     // A small Phaser texture adapter runs the assets' real post-load callbacks,
     // including transparent crop backgrounds and manually registered house frames.
     const textures = new Map();
@@ -114,7 +118,7 @@
       for(const group of groups) {
         const individual=groups.length>1||!!manifests[key], frame=group[0];
         const frameName=manifests[key]?.frames.find(f=>f.frame===frame)?.name;
-        rows.push({id:individual?`${key}:${frame}`:key,name:(key==='stronghold_wall'?'Stronghold wall · ':key==='zone_hedge'?'Hedge · ':'')+title(frameName||key.replace(/^approved_/,''))+(individual&&!frameName?' '+frame:''),key,frames:group,
+        rows.push({id:individual?`${key}:${frame}`:key,name:(key==='stronghold_wall'?'Stronghold wall · ':key==='zone_hedge'?'Hedge · ':'')+title(frameName||(key==='cobble'?'broken_lamp_post':key.replace(/^approved_/,'')))+(individual&&!frameName?' '+frame:''),key,frames:group,
           images:group.map(frame=>image(key,frame)).filter(Boolean),category:category(key),zones:usage.get(individual?`${key}:${frame}`:key)||new Set(),source:ASSETS[key]?.path||'src/textures.js'});
       }
     }

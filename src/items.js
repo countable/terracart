@@ -161,6 +161,14 @@ function wildplantVariantHash(p) {
 // Mushroom Grove and Mushroom Lane can select the approved red mushroom
 // atlas frame; ordinary surface and cave mushrooms retain their base art.
 const WILDPLANT_CONTEXT_ART = {
+  zone_rock_stone_garden: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 64, scale: 4 / 3 },
+  zone_rock_broken_masonry: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 65, scale: 4 / 3 },
+  zone_rock_flint_field: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 66, scale: 4 / 3 },
+  zone_rock_broken_depot: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 67, scale: 4 / 3 },
+  zone_rock_seep: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 68, scale: 4 / 3 },
+  zone_rock_work_yard: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 69, scale: 4 / 3 },
+  zone_rock_black_ring: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 70, scale: 4 / 3 },
+  zone_rock_pirate_cove: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 71, scale: 4 / 3 },
   zone_hedge: { crop: 'shrub', sheet: 'zone_hedge', custom: true, scale: 4 / 3, seat: false },
   zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frame: 0, scale: 4 / 3, seat: false },
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
