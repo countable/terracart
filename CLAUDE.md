@@ -61,12 +61,19 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
   Each spawner owns a seeded RNG stream so adding one does not reroll others.
-- A POI chest's tier is its class's DENSITY on its own tile (`loot.js`
-  `CHEST_DENSITY_TIERS` / `chestTier(o)`, off `o.poiDensity` stamped by
-  `WorldGen.stampPoiDensity`): 1 of a kind → T4 … 25+ → T1, plus depth and
-  nexus. It is the tier shown AND paid; Home never enters it. Pots of gold
-  (`potCoinsFor`) and restock days read the same count. Breakable pots and
-  barrels select their loot by stable appearance (`barrelProfile`), not density.
+- A POI chest's tier is its tile's QUOTA SEAT (`WorldGen.seedChestTiers`):
+  each tile seeds ~1 T5, 7 T4, 15 T3, 25 T2 (x1..x2 over 100..1000
+  budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),
+  round-robin across chest categories; everything else is T1. Vista chests
+  are fixed T5 outside the budget; a zone nexus can win a seat without
+  spending one (+1 on top). Each cave level re-seats its own pyramid over
+  its mirrors (the rank rides down), and the cap CLIMBS underground
+  (`loot.js chestTierMaxFor`: T6 from level 3, T7 from 6) while the depth
+  bonus stays `+floor(depth/2)`. Unseeded chests (hand-placed, sandbox) are
+  the unstamped T2 - the old count ladder is retired, and `o.poiDensity`
+  now only feeds restock days and the pots of gold. Breakable pots and
+  barrels select their loot by stable appearance (`barrelProfile`), not
+  density.
 - Chests give ONCE (`save.opened`), except what recurs: crates and barrels
   (`restocks`) come back after `crateRestoreDays` (1 for an ordinary crate, up
   to 7 for a class crowding its tile); pots of gold, bike racks, chapels and
@@ -300,12 +307,17 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   there, never a timer, colour or label of its own.
 - Job costs use `spendEnergy`; passive restoration pauses while `working`
   (work wheel or rest hold). Walking drains and enemy blows are not jobs.
+- A tame pet leaves the world only through `pickUpPet` (interact.js): a bare
+  hand pockets it, food pets it. "In the bag" is `save.caught`; a raised pet's
+  `save.released` row stays while carried and `release` hands it back
+  (`carriedRaisedRow`), so growth never lives on a stack.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap
   enemies inside Home's ring.
 
-Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`.
+Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`,
+`pet_pickup`.
 
 ## Lighting and streets
 

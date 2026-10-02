@@ -71,7 +71,7 @@ test('lava: the player burns on the surface and lava level, by the feet, through
   assert.truthy(/Combat\.playerDowned\(this\.save\.energy\)/.test(b), 'never off an empty bar');
   assert.truthy(/this\.playerToWorldCell\(\)/.test(b), 'the feet, not the camera');
   assert.truthy(/Combat\.LAVA_DMG_PER_S \* dt/.test(b), 'at the shared rate');
-  assert.truthy(/this\._losePlayerEnergy\(pips\)/.test(b), 'banked whole, through Energy.set + the flinch');
+  assert.truthy(/Conditions\.fireDamage\(this\.save, pips\);[\s\S]*this\._losePlayerEnergy\(damage\)/.test(b), 'banked whole, through Energy.set + the flinch');
   assert.truthy(/this\._popEnergy\(-burned, \{ ix, iy, label: '🔥 lava' \}\)/.test(b), 'popped on its cell');
   assert.truthy(/this\._tickLava\(dt\);/.test(SCENE_SRC), 'and ticked');
 });
@@ -89,7 +89,7 @@ test('lava: an enemy standing in it burns at the same rate, and the kill is the 
 // to the infernal region, so ordinary foes crossing that region still burn.
 test('lava: demons resist lava while neighbouring mortal enemies still burn', () => {
   const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune');
-  const end = SCENE_SRC.indexOf('      // Slime energy steal', start);
+  const end = SCENE_SRC.indexOf('      if (enemyFireEscapeTick', start);
   const tick = new Function('c', 'isTame', 'now', SCENE_SRC.slice(start, end));
   const hurt = [];
   const scene = { depth: WorldGen.LAVA_DEPTH, cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_LAVA }),
@@ -126,7 +126,7 @@ test('lava: surface vents burn fractional player time and stop on safe ground', 
 
 test('lava: surface vents respect enemy immunity, pets and the shared burn cooldown', () => {
   const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune');
-  const end = SCENE_SRC.indexOf('      // Slime energy steal', start);
+  const end = SCENE_SRC.indexOf('      if (enemyFireEscapeTick', start);
   const tick = new Function('c', 'isTame', 'now', SCENE_SRC.slice(start, end));
   const hurt = [], scene = {depth: 0,
     cellAt: () => ({loaded: true, type: WorldGen.T.CAVE_LAVA}),

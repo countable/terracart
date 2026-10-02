@@ -12,7 +12,7 @@ function bookShare(contextKey, tier, n = 4000) {
   let books = 0;
   for (let i = 0; i < n; i++) {
     const r = pickReward(contextKey, BOOK_SAVE(), rng, { tier });
-    if (r && r.kind === 'item' && ['book', 'tome_sight', 'tome_raven', 'tome_storm'].includes(r.id)) books++;
+    if (r && r.kind === 'item' && (r.id === 'book' || r.id.startsWith('tome_'))) books++;
   }
   return books / n;
 }
@@ -46,10 +46,10 @@ test('books: a school chest beats every other chest at handing one over', () => 
   }
 });
 
-test('books: themed civic uses a dedicated Book group', () => {
-  assert.eq(ChestThemes.weights('civic', 3).books, 15);
-  const share = bookShare('chest:civic', 3);
-  assert.inRange(share, 0.12, 0.18, 'the high-tier book lane pays tomes');
+test('books: the school theme owns the dedicated Book group', () => {
+  assert.eq(ChestThemes.weights('school', 3).books, 60);
+  assert.eq(ChestThemes.weights('civic', 3).books, undefined,
+    'civic chests reserve their identity for relics, supplies and coins');
 });
 
 test('books: a school dense enough to be T1 still pays a book', () => {
@@ -87,7 +87,7 @@ test('school category: the split re-priced nothing — tier, pad and cave mirror
 });
 
 test('school category: Book odds have one owner, without a second favorite roll', () => {
-  assert.eq(ChestThemes.weights('school', 3).books, 40);
+  assert.eq(ChestThemes.weights('school', 3).books, 60);
   assert.eq(LOOT_CONTEXTS['chest:school'].favourite, undefined);
 });
 
@@ -98,7 +98,7 @@ test('school category: the favourite only fires inside its own class', () => {
     const r = pickReward('chest:school', BOOK_SAVE(), rng, { tier: 3 });
     if (r && r.kind === 'item' && r.id !== 'book') kinds.add(ITEM_BY_ID[r.id]?.kind);
   }
-  assert.truthy(kinds.size > 1, 'a school chest still pays seeds, produce and ore too');
+  assert.truthy(kinds.size > 1, 'a school chest mixes study magic with its Book lane');
 });
 
 
@@ -284,13 +284,12 @@ test('mechanics: the castle board holds three jobs', () => {
   assert.eq(QUEST_SLOTS, 3, 'the board holds three jobs');
 });
 
-test('mechanics: chest density and depth determine their tiers', () => {
-  assert.eq(chestDensityTier(1), 4, 'the only one of its kind is T4');
-  assert.eq(CHEST_TIER_COLOR[4], tierBadgeColor(4), 'which shares the rare item badge color');
-  assert.eq(CHEST_DENSITY_T1_AT, 25, 'a crowd of twenty-five is T1');
-  assert.eq(chestDensityTier(CHEST_DENSITY_T1_AT), 1, '…which is the crate');
-  assert.eq(CHEST_TIER_DEPTH_STEP, 2, 'a chest climbs a tier every two levels down');
+test('mechanics: tiers come from the quota seed; the ladder retired', () => {
+  assert.eq(CHEST_TIER_COLOR[4], tierBadgeColor(4), 'T4 shares the rare item badge color');
+  assert.eq(CHEST_DENSITY_T1_AT, 25, 'the restock threshold survives the ladder (crate refill cadence)');
+  assert.eq(CHEST_TIER_DEPTH_STEP, 2, 'a cave copy climbs a tier every two levels down');
   assert.eq(CHEST_TIER_COLOR[CHEST_TIER_MAX], tierBadgeColor(CHEST_TIER_MAX), 'the deepest chest shares the epic badge color');
+  assert.eq(chestTier({ kind: 'chest', poiClass: 'bus' }), CHEST_TIER_UNSTAMPED, 'an unseeded chest is the unstamped T2');
 });
 
 test('mechanics: crates, barrels, gold pots, courier posts and gates retain their rewards', () => {

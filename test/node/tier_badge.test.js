@@ -34,7 +34,7 @@ test('tier badge: an item\'s tier is its baseTier on the rarity ladder', () => {
 
 test('tier badge: the reward ceremony hangs it under the name', () => {
   const src = MODAL_SHELL_SRC;
-  assert.truthy(/showChestRewardModal\(\{[^}]*cards = false, tier = 0 \}\)/.test(src), 'the ceremony takes a tier');
+  assert.truthy(/showChestRewardModal\(\{[^}]*cards = false, tier = 0,/.test(src), 'the ceremony takes a tier');
   assert.truthy(/const badge = \(tier > 0 && typeof tierBadgeHTML === 'function'\) \? tierBadgeHTML\(tier, 11\) : '';/.test(src));
   assert.truthy(/\$\{name\}<\/div>` \+\s*\n\s*tierHtml \+/.test(src), 'right under the name');
   const inter = INTERACTABLES_SRC;

@@ -124,7 +124,7 @@ const FILES = [
   // Fight maths — enemy HP, melee dps, bow/staff shot damage + flight. Pure by
   // design (the monster stat table is registered from app.js at boot, and
   // combat.test.js registers a synthetic one), so it runs headless.
-  'combat.js', 'companions.js', 'creature_ai.js', 'npc.js',
+  'ground_fire.js', 'combat.js', 'companions.js', 'creature_ai.js', 'npc.js',
   // The wizard tower's offers — pure (reads Combat / Trail / Energy /
   // RARITY_TUNING at call time), so wizard.test.js drives the shipping rules.
   'wizard.js', 'dragon_story.js', 'memory_story.js', 'story_encounters.js',
@@ -167,13 +167,13 @@ const FILES = [
   'scene_creatures.js',
   // The scene's shops (shopInteract, the offers it opens, the shop clock): a
   // fourth mixin class nobody runs here plus its literal consts.
-  'scene_shops.js',
+  'scene_fire.js', 'scene_shops.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
-  INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, StoryEncounters,
+  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, SceneModals, DragonStory, MemoryStory, StoryEncounters,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   REACH_CORNER_PX, ReachCorner,
@@ -193,9 +193,9 @@ const BRIDGE = `;Object.assign(globalThis, {
   TRAILER_SELL_MUL,
   // The market-stall sign/stock tables — vendor_parity.test.js pins that what
   // a stall's name promises is what it sells.
-  POI_CATEGORY, CHEST_DENSITY_TIERS, CHEST_DENSITY_T1_AT, CHEST_TIER_UNSTAMPED,
+  POI_CATEGORY, CHEST_DENSITY_T1_AT, CHEST_TIER_UNSTAMPED,
   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_TIER_COLOR,
-  chestDensityTier, chestBaseTier, chestTierDepthBonus, ZONE_NEXUS_TIER_BONUS, chestTierZoneBonus, chestTier, chestMirrorsUnderground,
+  chestBaseTier, chestTierDepthBonus, ZONE_NEXUS_TIER_BONUS, chestTierZoneBonus, chestTier, chestMirrorsUnderground,
   CRATE_RESTORE_PER, CRATE_RESTORE_MAX_DAYS, crateRestoreDays,
   BARREL_CLASSES, BARREL_ART, BARREL_LOOT, CLAY_POT_LOOT, barrelProfile, barrelLootPool, rollBarrel, isBarrel, barrelFlash,
   POT_COINS_BY_DENSITY, potCoinsFor, isPotOfGold, isBikeRack, bikeRackFlash,
@@ -216,6 +216,8 @@ const BRIDGE = `;Object.assign(globalThis, {
   wildplantWorkCost, wildplantTreasure, wildplantLight, wildplantRoll,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
+  // Pocketing a tame pet and the carried raised row — pet_pickup.test.js.
+  pickUpPet, petPickupItemId, carriedRaisedRow,
   Quests, QUEST_SLOTS, QUEST_TEMPLATES, QUEST_ENEMIES, STARTER_CHAIN,
 });`;
 try {

@@ -12,10 +12,10 @@
 //   RUSTIC_WORDS, POI_CLASS_FALLBACK, rusticifyName
 //   POI_CATEGORY, CHEST_THEME_BY_POI, chestThemeForPoi, chestThemeFor
 //   PAD_CATEGORIES, padShapeKeyForPoi
-//   CHEST_DENSITY_TIERS, CHEST_DENSITY_T1_AT, CHEST_TIER_UNSTAMPED,
+//   CHEST_DENSITY_T1_AT, CHEST_TIER_UNSTAMPED,
 //   CHEST_TIER_COLOR,
-//   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_CAVE_SKIP_CATEGORIES,
-//   chestDensityTier, chestBaseTier, chestTierDepthBonus, chestTier,
+//   CHEST_TIER_MAX, chestTierMaxFor, CHEST_TIER_DEPTH_STEP, CHEST_CAVE_SKIP_CATEGORIES,
+//   chestBaseTier, chestTierDepthBonus, chestTier,
 //   chestMirrorsUnderground, CRATE_RESTORE_PER, CRATE_RESTORE_MAX_DAYS,
 //   crateRestoreDays, BARREL_CLASSES, BARREL_LOOT, CLAY_POT_LOOT,
 //   barrelProfile, barrelLootPool, rollBarrel, isBarrel,
@@ -179,7 +179,8 @@ const POI_CATEGORY = {
   // civic/educational: rare-weighted seed drops
   town_hall: 'civic', place_of_worship: 'civic',
   attraction: 'civic', museum: 'civic',
-  pet: 'civic',
+  // ('pet' died Oct 2026 with the pets chest theme: OSM pet stores arrive as
+  // shop/pet, a commerce chest - nothing mints the bare class.)
   // healthcare: mid-weighted seed drops
   pharmacy: 'health', hospital: 'health', dentist: 'health',
   // parks: T2-leaning seed drops (garden moved to 'flora' above)
@@ -233,7 +234,7 @@ const CHEST_THEME_BY_POI = {
   // other faith's mints nothing, WorldGen.isSensitivePoi — and a surface one
   // stands as the chapel; this row is its cave mirror's loot.)
   place_of_worship: 'worship',
-  police: 'authority', fire_station: 'authority', pet: 'pets',
+  police: 'authority', fire_station: 'authority',
 };
 function chestThemeForPoi(poiClass) {
   return CHEST_THEME_BY_POI[poiClass] || ChestThemes.normalize(POI_CATEGORY[poiClass]);
@@ -262,59 +263,36 @@ function padShapeKeyForPoi(poiClass) {
   return PAD_CATEGORIES.has(POI_CATEGORY[poiClass]) ? 'round1' : null;
 }
 
-// ── A POI chest's TIER is how RARE its kind is on its tile (Sep 2026) ──────
-// The tier (1-5: the color, the look, and the curve the loot rolls on) is a
-// pure function of the world: how many chests of the SAME POI class the
-// chest's own tile holds (`o.poiDensity`, stamped by worldgen.js
-// stampPoiDensity), plus the depth and zone-nexus bonuses below. A lone
-// florist is a find; the twenty-sixth waste basket on the block is not.
-// Nothing about the player enters it — not Home, not progress — so two
-// players on the same street see the same chest (CLAUDE.md, "every player
-// sees the same generated world"). Until Sep 2026 a chest's CONTENTS rolled
-// a tier or two lower inside rings around Home (CHEST_TIER_HOME_RINGS_M);
-// that rule is gone: the tier the chest shows is the tier it pays.
+// A generated POI chest receives a deterministic quota seed from
+// worldgen.js seedChestTiers. The per-tile pyramid ranks POIs by MVT rank and
+// id, then spreads its T5-T2 seats across categories; every unseated chest is
+// T1. Nothing about the player enters the seed, so every player sees the same
+// chest colour and receives a roll from that displayed tier.
 //
-// CHEST_DENSITY_TIERS is the one table: the FIRST row whose `atLeast` the
-// count reaches wins. Exactly one of its kind on the tile → T4 (the old
-// flora/epic color); 2-4 → T3; 5-24 → T2; 25 or more → T1 — the crate, which
-// is the RECURRING look (interactables.js restocks), so a type the tile is
-// full of becomes a supply you come back to and a rare one stays a one-time
-// trunk. The steps are the powers the count has to climb by to drop a tier
-// (1, then ×2, then ×2.5, then ×5), so the common classes of a dense city
-// (bins, bike racks, cafés, shops) spread over T1-T2 and the singular ones
-// (a museum, a garden, the one pharmacy) keep the violet and blue chest colors.
-// Density also controls recurring container restock times, so "dense" is one
-// number both read.
-const CHEST_DENSITY_TIERS = [
-  { atLeast: 25, tier: 1 },
-  { atLeast: 5,  tier: 2 },
-  { atLeast: 2,  tier: 3 },
-  { atLeast: 1,  tier: 4 },
-];
-const CHEST_DENSITY_T1_AT = CHEST_DENSITY_TIERS[0].atLeast;
+// Density no longer sets a chest tier. CHEST_DENSITY_T1_AT survives as the
+// restock unit: it controls how long recurring crates and barrels stay bare.
+const CHEST_DENSITY_T1_AT = 25;
 // A chest with no stamp — a hand-placed or scripted one (the sandbox, a test
 // fixture), or an object read before its tile finished building — rolls at
 // the old unlisted-class tier. A generated surface or cave POI chest is
 // always stamped.
 const CHEST_TIER_UNSTAMPED = 2;
-function chestDensityTier(count) {
-  const n = Math.floor(Number(count) || 0);
-  if (n < 1) return CHEST_TIER_UNSTAMPED;
-  for (const row of CHEST_DENSITY_TIERS) if (n >= row.atLeast) return row.tier;
-  return CHEST_TIER_UNSTAMPED;
-}
 // Chest sprite recolors: T1 crates keep their wood; T2–T5 use distinct hues.
 const CHEST_TIER_MAX = 5;
+// THE CAP CLIMBS UNDERGROUND (Oct 2026): T6 chests exist from cave level 3,
+// T7 from level 6 - the dungeon-only tiers. A chest's own tier never demotes;
+// the cap only stops the bonuses (so an L7 T4 stays T4, capped by its own
+// rung, while a high seed plus the depth bonus reaches 6/7 down there).
+// Surface and the first two levels hold the ordinary 5.
+function chestTierMaxFor(depth) {
+  return Math.min(7, CHEST_TIER_MAX + Math.floor(Math.max(0, depth || 0) / 3));
+}
 const CHEST_TIER_COLOR = Object.fromEntries(
-  Array.from({ length: CHEST_TIER_MAX }, (_, i) => [i + 1, tierBadgeColor(i + 1)])
+  Array.from({ length: chestTierMaxFor(9) }, (_, i) => [i + 1, tierBadgeColor(i + 1)])
 );
-// Chests UNDERGROUND are PROMOTED. Every surface POI chest is mirrored down
-// the cave levels (worldgen.js caveChestsFrom stamps `depth` on the copy,
-// and carries the surface chest's density), and each CHEST_TIER_DEPTH_STEP
-// levels down raise the chest one tier over what it is on the surface —
-// depth 1 is the surface tier, depth 2-3 one up, depth 4-5 two up — capped
-// at CHEST_TIER_MAX. T5 exists only down here: it is the lavender chest and the
-// rarity.js chestTierMod[5] curve.
+// Chests UNDERGROUND are promoted. Each cave level seeds its own pyramid,
+// and each CHEST_TIER_DEPTH_STEP levels adds one tier. chestTierMaxFor sets
+// the depth cap: T6 begins at level 3 and T7 at level 6.
 const CHEST_TIER_DEPTH_STEP = 2;
 // Which POI chests go underground at all. Street furniture — the lowtier
 // boxes (bus stops, bins, shelters…) — stays on the surface: a cave under
@@ -333,17 +311,17 @@ function chestTierDepthBonus(depth) {
 // `nexus` is the chest's zone stamp (o.zoneNexus — src/zones.js): the chest
 // at the heart of a grove, churchyard or tar yard is a zone's NEXUS and
 // wears ZONE_NEXUS_TIER_BONUS more, to measure up to the fanfare around it —
-// a second reason on the same ladder as the depth bonus, capped at the same
-// CHEST_TIER_MAX. It is the world's (the zone is generated), so it shows in
+// a second reason on the same ladder as the depth bonus, capped by
+// chestTierMaxFor. It is the world's (the zone is generated), so it shows in
 // the chest color and pays in the roll alike.
 const ZONE_NEXUS_TIER_BONUS = 1;
 function chestTierZoneBonus(nexus) { return nexus ? ZONE_NEXUS_TIER_BONUS : 0; }
-// The chest's base tier before depth and nexus: its class's fixed tier, else
-// its density on its tile.
+// The chest's base tier before depth and nexus: a scenic override, its quota
+// seed, or CHEST_TIER_UNSTAMPED for a hand-built object.
 // A SCENIC chest (src/scenic.js — o.vista: a viewpoint's grail, or the one
 // chest of a scenic stretch) takes its tier from Scenic.VISTA_CHEST_TIER,
 // whatever its class's count: a third reason on the base, beside the fixed
-// classes and the density. Generated (the stamp is the world's), so the color
+// classes and the quota seed. Generated (the stamp is the world's), so the color
 // and the roll agree for every player.
 function chestVistaTier(o) {
   return (o && o.vista && typeof Scenic !== 'undefined' && Scenic.VISTA_CHEST_TIER[o.vista]) || 0;
@@ -356,19 +334,21 @@ function chestBaseTier(o) {
   const vista = chestVistaTier(o);
   if (vista) return vista;
   // The per-tile quota seed (worldgen.js seedChestTiers): the pyramid pick.
-  // The count ladder below stays as the fallback for objects that never went
-  // through a seeding pass - hand-placed and sandbox chests.
+  // A chest that never went through a seeding pass - hand-placed, sandbox,
+  // test-built - is the unstamped T2; there is no older tier to fall back to
+  // (the count ladder retired with the pyramid).
   if (o && o.tierSeed) return o.tierSeed;
-  return chestDensityTier(o.poiDensity);
+  return CHEST_TIER_UNSTAMPED;
 }
-// THE chest tier (1-5) — the one every player sees AND the one its loot rolls
+// THE chest tier (T1-T5 on the surface, through T7 underground) - the one
+// every player sees and the one its loot rolls
 // at: the sprite color in render.js, the look (chestLook), the roll in
 // interactables.js and the chapel's blessing (Macros.chapelRollTier) all read
-// this. Takes the OBJECT (poiClass, poiDensity, depth, zoneNexus).
+// this. Takes the object (tierSeed, depth, zoneNexus, and scenic stamps).
 function chestTier(o) {
   const d = o ? o.depth : 0;
   const nexus = o ? o.zoneNexus : null;
-  return Math.min(CHEST_TIER_MAX, chestBaseTier(o) + chestTierDepthBonus(d) + chestTierZoneBonus(nexus));
+  return Math.min(chestTierMaxFor(d), chestBaseTier(o) + chestTierDepthBonus(d) + chestTierZoneBonus(nexus));
 }
 
 // ── Restocking: how long a taken CRATE (or BARREL) stays bare ──────────────
@@ -382,8 +362,7 @@ function chestTier(o) {
 // its kind adds a day: 50-74 every 2 days, … 175+ once a week. So a class
 // hands back at most ~2 × CRATE_RESTORE_PER of its crates a day per tile
 // however many the tile holds. A barrel (never below one per tile) reads the
-// same rule: a lone bin smashes daily. The count is the same poiDensity the
-// tier reads (one table).
+// same rule: a lone bin smashes daily.
 const CRATE_RESTORE_PER = CHEST_DENSITY_T1_AT;
 const CRATE_RESTORE_MAX_DAYS = 7;
 function crateRestoreDays(o) {

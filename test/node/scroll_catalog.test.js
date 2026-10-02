@@ -23,12 +23,14 @@
     assert.eq(CONSUMABLE_SPEC.fireball_scroll.immediate, true, 'fireball throws on use like the spear');
   });
   test('scrolls: themed chests offer the new items without replacing tomes', () => {
+    // (Rebalance Oct 2026: roadside is supplies/minerals/coins only, so the
+    // travel scrolls live in the study pool with the blank parchment.)
     for (const [id, group, theme] of [
-      ['blank_scroll', 'supplies', 'roadside'],
+      ['blank_scroll', 'study', 'school'],
       ['fireball_scroll', 'combatMagic', 'authority'],
       ['fear_scroll', 'combatMagic', 'authority'],
       ['sleep_powder', 'combatMagic', 'authority'],
-      ['treasure_map', 'travelMagic', 'roadside'],
+      ['treasure_map', 'study', 'school'],
     ]) {
       const pool = ChestThemes.resolve(group, ITEM_BY_ID[id].baseTier, { theme });
       assert.includes(ChestThemes.selectableIds(pool), id, `${id}: available from themed loot`);

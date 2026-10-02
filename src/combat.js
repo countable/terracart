@@ -663,41 +663,36 @@
     return clamp01(hp(c) / max);
   }
 
-  // ── A foe on fire ─────────────────────────────────────────────────────────
-  // What lights it: a lit Torch's melee blow (app.js, the combat wheel —
-  // `by` 'player', so the burn's kill is the player's), a campfire it brushes
-  // or lava it stands in (scene_creatures.js — 'fire' / 'lava', the ground's
-  // kill). The NUMBERS are the player's own `burning` row of
-  // Conditions.DEFINITIONS, read live: 1 HP a second for 5 s, then out on its
-  // own; a fresh contact restarts the 5 s without moving the next tick, the
-  // way Conditions.apply refreshes the player. In-memory on the creature like
-  // `_hp`. A lava-immune kind (the demons) never catches — ONE flag for fire
-  // and lava both. Clocks are performance.now(), the wander loop's.
+  // Units and the player share the same burn clock and exposure scaling.
+  // Unit clocks are performance.now(); state remains local like `_hp`.
   function burnDef() { return Conditions.DEFINITIONS.burning; }
   function canBurn(c) { return !!c && !monster(c.kind)?.lavaImmune; }
-  function burning(c, now = performance.now()) { return (c?._burnUntilT || 0) > now; }
+  function burning(c, now = performance.now()) {
+    if (!c?._burnState) return (c?._burnUntilT || 0) > now;
+    return c._burnState.remainingMs > (c._burnExposed ? 0 : Math.max(0, now - c._burnAtT));
+  }
   function ignite(c, now = performance.now(), by = 'fire') {
     if (!canBurn(c)) return false;
+    if (c._burnState?.remainingMs > 0) { c._burnBy = by; return false; }
     const def = burnDef();
-    const fresh = !burning(c, now);
+    c._burnState = { remainingMs: def.durationMs, nextTickMs: def.intervalMs };
+    c._burnAtT = now;
+    c._burnExposed = false;
     c._burnUntilT = now + def.durationMs;
-    if (fresh) c._burnNextT = now + def.intervalMs;
+    c._burnNextT = now + def.intervalMs;
     c._burnBy = by;
-    return fresh;
+    return true;
   }
-  // The whole points due since the last call (0 while none is), the fire put
-  // out once its time is up. Every tick inside the burn lands, however late
-  // the frame — a 5 s burn is always five points.
-  function burnTick(c, now = performance.now()) {
-    if (!c || !(c._burnUntilT > 0)) return 0;
-    const def = burnDef();
-    let dmg = 0;
-    while (c._burnNextT <= now && c._burnNextT <= c._burnUntilT) {
-      dmg += def.energyLoss;
-      c._burnNextT += def.intervalMs;
-    }
-    if (now >= c._burnUntilT) { c._burnUntilT = 0; c._burnBy = null; }
-    return dmg;
+  function burnTick(c, now = performance.now(), exposed = false) {
+    if (!c?._burnState) return 0;
+    const result = Conditions.advanceBurn(c._burnState, Math.max(0, now - c._burnAtT), exposed);
+    c._burnState = { remainingMs: result.remainingMs, nextTickMs: result.nextTickMs };
+    c._burnAtT = now;
+    c._burnExposed = exposed;
+    c._burnUntilT = result.remainingMs > 0 ? now + result.remainingMs : 0;
+    c._burnNextT = now + result.nextTickMs;
+    if (result.remainingMs <= 0) c._burnBy = null;
+    return result.damage;
   }
 
   // ── Damage ladders ───────────────────────────────────────────────────────
@@ -1127,10 +1122,54 @@
     return shot;
   }
 
+  // A thrown flask bursts on the first foe or at the vision boundary. It
+  // clears terrain; the scene ignites the square footprint on impact.
+  function spawnExplosiveFlask(x, y, dir, cellM, rangeM, spec) {
+    if (!(rangeM > 0) || !Number.isFinite(rangeM)) return null;
+    const shot = spawnShot('bow', x, y, dir, cellM, spec.damage);
+    if (!shot) return null;
+    Object.assign(shot, {
+      projectile: 'explosive_flask', rangeM, impactOnly: true,
+      blastRadiusM: 0, radiusM: spec.projectileRadiusCells * cellM,
+      dotPx: spec.dotPx, color: 0xffa32d,
+    });
+    return shot;
+  }
+
+  // Find the first contact along the whole frame's flight, including a
+  // grazing contact between sample points. Only that foe takes impact damage.
+  function stepImpactShot(s, dt, targets, onHit, opts) {
+    const travel = Math.min(s.speedMps * dt, Math.max(0, s.rangeM - s.travelledM));
+    let contact = null, distance = travel;
+    for (const e of targets) {
+      if (opts?.canHit && !opts.canHit(e, s)) continue;
+      const dx = e.x - s.x, dy = e.y - s.y;
+      const along = dx * s.vx + dy * s.vy;
+      const across = dx * s.vy - dy * s.vx;
+      const chordSquared = s.radiusM * s.radiusM - across * across;
+      if (chordSquared < 0) continue;
+      const halfChord = Math.sqrt(chordSquared);
+      if (along + halfChord < 0) continue;
+      const entry = Math.max(0, along - halfChord);
+      if (entry > distance || (contact && entry === distance)) continue;
+      contact = e;
+      distance = entry;
+    }
+    s.x += s.vx * distance; s.y += s.vy * distance;
+    s.travelledM += distance;
+    if (contact) onHit(contact, s);
+    if (contact || s.travelledM >= s.rangeM - 1e-8) {
+      opts?.onExplode?.(s);
+      return false;
+    }
+    return true;
+  }
+
   function explodeShot(s, targets, onHit, opts, cellM) {
     const blocked = opts?.blocked && ((x, y) => opts.blocked(x, y, s));
     const struck = new Set();
     for (const e of targets) {
+      if (!(s.damage > 0)) break;
       if (opts?.canHit && !opts.canHit(e, s)) continue;
       const key = e.id != null ? e.id : e;
       if (struck.has(key) || Math.hypot(e.x - s.x, e.y - s.y) > s.blastRadiusM) continue;
@@ -1148,13 +1187,17 @@
     const sampleM = Math.max(0.01, Math.min(cellM * BLOCK_SAMPLE_CELLS, s.radiusM));
     const samples = Math.max(1, Math.ceil(travel / sampleM));
     const step = travel / samples;
+    const ignite = s.projectile === 'fireball' ? opts?.onFireCell : null;
+    ignite?.(s.x, s.y, s);
     for (let i = 0; i < samples; i++) {
       const x = s.x + s.vx * step, y = s.y + s.vy * step;
       if (opts?.blocked?.(x, y, s)) {
         explodeShot(s, targets, onHit, opts, cellM);
         return false;
       }
+      if (s.projectile === 'fireball') opts?.onFireSegment?.(s.x, s.y, x, y, s);
       s.x = x; s.y = y; s.travelledM += step;
+      ignite?.(s.x, s.y, s);
       if (targets.some(e => (!opts?.canHit || opts.canHit(e, s))
           && Math.hypot(e.x - x, e.y - y) <= s.radiusM)) {
         explodeShot(s, targets, onHit, opts, cellM);
@@ -1199,6 +1242,11 @@
   // reads as hitting the wall, and it is then dropped.
   // `opts.cellM` sizes the sampling; it falls back to the hit radius, which is
   // just under a cell.
+  // `opts.onFireCell(x, y, shot)` ignites fireball trail samples in world
+  // metres, including the launch and final positions. The scene resolves
+  // its tile grid and deduplicates cells already burned.
+  // `opts.onFireSegment(x0, y0, x1, y1, shot)` supplies each accepted sweep
+  // for exact grid traversal, including brief crossings at cell corners.
   //
   // `opts.hostileTargets` — what a HOSTILE shot (a monster's arrow, flagged
   // `hostile` by monsterShot) can hit: the player, handed over as a marker
@@ -1215,11 +1263,14 @@
       ((opts && opts.cellM) || hitRadiusM) * BLOCK_SAMPLE_CELLS);
     for (const s of shots) {
       const targets = s.hostile ? hostileTargets : enemies;
-      if (s.blastRadiusM > 0) {
+      if (s.blastRadiusM > 0 || s.impactOnly) {
         // Blasts can reach beyond the viewport used to choose auto-attack
         // targets. The caller supplies nearby hostiles across that boundary.
         const blastTargets = !s.hostile && opts?.explosiveTargets ? opts.explosiveTargets : targets;
-        if (stepExplosiveShot(s, dt, blastTargets, onHit, opts, opts?.cellM || hitRadiusM)) alive.push(s);
+        const flying = s.impactOnly
+          ? stepImpactShot(s, dt, blastTargets, onHit, opts)
+          : stepExplosiveShot(s, dt, blastTargets, onHit, opts, opts?.cellM || hitRadiusM);
+        if (flying) alive.push(s);
         continue;
       }
       const sr2 = s.radiusM != null ? s.radiusM * s.radiusM : r2;
@@ -1431,7 +1482,7 @@
     RANGED_SLOTS, RANGED_TRIGGER_PAST_REACH, rangedTriggerM, anyEnemyWithin, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,
     OFF_GPS_ATTACK_MUL, OFF_GPS_MIN_CELLS,
     MAX_TIER, BOLT_MAX_TIER_MUL, boltScale, BOLT_MIN_GLOW, boltGlow, shotRadiusM, shotDotPx,
-    aimAtNearest, shotHeading, spawnShot, spawnFireball, stepShots, lineOfFire, healthColor,
+    aimAtNearest, shotHeading, spawnShot, spawnFireball, spawnExplosiveFlask, stepShots, lineOfFire, healthColor,
     TURRET, TURRET_RATE_DIV, turretShotDamage, turretPhaseMs, turretShot, turretTick,
     MONSTER_SHOT_INTERVAL_MS, HOSTILE_ARROW_COLOR, monsterShot,
   };

@@ -168,6 +168,7 @@
     // wash lifts.
     building: { radiusCells: 3.0, colour: 0xffc46a, peak: 0.95, flicker: 0 },
     // A placed campfire (burned from a coal). Breathes.
+    ground_fire: { radiusCells: 1.5, colour: 0xff852b, peak: 0.75, flicker: 0.12 },
     fire:     { radiusCells: () => (typeof FIRE_REST_R !== 'undefined' ? FIRE_REST_R : 3),
                 colour: 0xff9a3c, peak: 1.00, flicker: 0.18 },
     // A live POI — a chest with something still in it (loose supply crates
@@ -278,9 +279,13 @@
     bolt:     { radiusCells: 1.5, colour: 0x9ad6ff, peak: 0.95, flicker: 0.14 },
   };
   // Treasure trunks from T3 upward cast the same colour as their rarity badge.
-  // The ordinary POI row owns their radius, strength and breathing cadence.
-  for (let tier = 3; tier <= CHEST_TIER_MAX; tier++) {
-    KINDS['chest_' + tier] = { ...KINDS.poi, colour: CHEST_TIER_COLOR[tier] };
+  // The ordinary POI row owns their radius, strength and breathing cadence;
+  // ABOVE T3 the glow DOUBLES (Oct 2026) - the high tiers read at a glance
+  // through the light alone - and the underground tiers (T6 from cave level
+  // 3, T7 from 6) keep the same doubling off their own badge colours.
+  for (let tier = 3; tier <= chestTierMaxFor(9); tier++) {
+    const bright = tier > 3 ? { radiusCells: KINDS.poi.radiusCells * 2, peak: Math.min(1, (KINDS.poi.peak ?? 0.5) * 2) } : {};
+    KINDS['chest_' + tier] = { ...KINDS.poi, colour: CHEST_TIER_COLOR[tier], ...bright };
   }
   // The shrine kinds (src/shrines.js): the grove shrine's own light in each
   // kind's colour — one row per kind, `shrine_<id>` (sourceKind).
@@ -905,8 +910,17 @@
   function collectFires(scene, ax, ay, halfM) {
     const PF = window.PlacedFloor;
     const fires = scene.save && scene.save.fires;
-    if (!PF || !fires || !fires.length) return 0;
     let n = 0;
+    const now = Date.now();
+    for (const fire of scene._groundFireIndex?.().values() || []) {
+      if (fire.depth !== (scene.depth ?? 0) || !GroundFire.active(fire, now)) continue;
+      const p = absCellCenterMeters(scene, fire.cellIX, fire.cellIY);
+      const dx = p.x - ax, dy = p.y - ay;
+      if (!inRange(scene, dx, dy, 'ground_fire', halfM)) continue;
+      scene._lights.push({ kind: 'ground_fire', dx, dy, id: GroundFire.key(fire.depth, fire.cellIX, fire.cellIY) });
+      n++;
+    }
+    if (!PF || !fires || !fires.length) return n;
     for (const fr of PF.forDepth(fires, scene.depth ?? 0)) {
       const dx = fr.x - ax, dy = fr.y - ay;
       if (!inRange(scene, dx, dy, 'fire', halfM)) continue;
@@ -1085,7 +1099,7 @@
   //     list — the scan has not looked there.
   // Each cookie is its baked shape: peak · (1 - r/R)² times the row's flicker
   // or pulse and the entry's own alpha / scale, at the colour's luminance.
-  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'fire', 'magic_trap', 'cobble', 'blast', 'bolt']);
+  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'fire', 'ground_fire', 'magic_trap', 'cobble', 'blast', 'bolt']);
   function cookieLevel(L, qx, qy, cellM, now, pulseNow) {
     const row = KINDS[L.kind];
     if (!row || !(row.peak > 0)) return 0;

@@ -411,9 +411,12 @@ for (const [key, asset] of Object.entries(ASSETS)) {
 function makeChestTierSheet(source) {
   const size = ASSETS.chest.frameWidth;
   const canvas = document.createElement('canvas');
-  canvas.width = size * CHEST_TIER_MAX; canvas.height = size;
+  // Through chestTierMaxFor(9): the underground tiers (T6 from cave level 3,
+  // T7 from 6) recolor off their rarity badges the same way - no new source
+  // art, the silhouette and shading carry.
+  canvas.width = size * chestTierMaxFor(9); canvas.height = size;
   const ctx = canvas.getContext('2d');
-  for (let tier = 1; tier <= CHEST_TIER_MAX; tier++) {
+  for (let tier = 1; tier <= chestTierMaxFor(9); tier++) {
     const x = (tier - 1) * size;
     ctx.drawImage(source, 0, 0, size, size, x, 0, size, size);
     const color = CHEST_TIER_COLOR[tier];

@@ -3,10 +3,11 @@
   const held = ids => ({ inv: ids.map(id => ({ id, count: 1 })), relics: {}, armor: {} });
   const quality = { tier: 7, bracket: 5, jackpotApplied: 0 };
 
-  test('unique relic rewards: exactly 5% in culture, authority and vista, never the other themes', () => {
+  test('unique relic rewards: civic owns a broad lane; culture, authority and vista add 5%', () => {
     for (const theme of Object.keys(ChestThemes.themes)) for (const tier of [1, 2, 7]) for (const depth of [0, 2]) {
       const weights = ChestThemes.weights(theme, tier, { depth });
-      const share = tier >= 2 && ['culture', 'authority', 'vista'].includes(theme) ? 5 : 0;
+      const share = theme === 'civic' ? 25 * (depth > 0 ? 0.6 : 1)
+        : tier >= 2 && ['culture', 'authority', 'vista'].includes(theme) ? 5 : 0;
       assert.eq(weights.uniqueRelics || 0, share, `${theme} T${tier} depth${depth}`);
       assert.inRange(Object.values(weights).reduce((sum, value) => sum + value, 0), 100 - 1e-9, 100 + 1e-9);
     }
@@ -14,7 +15,7 @@
 
   test('unique relic rewards: every held item is excluded before highest/lower tier selection', () => {
     const items = uniques().sort((a, b) => a.baseTier - b.baseTier);
-    assert.eq(items.length, 11);
+    assert.eq(items.length, 20, 'twelve finds plus eight reusable tomes');
     const available = [items[0], items[items.length - 1]];
     const save = held(items.filter(item => !available.includes(item)).map(item => item.id));
     const opts = { save, theme: 'culture' };
@@ -29,11 +30,10 @@
     }
   });
 
-  test('unique relic rewards: a jackpot never opens the unique lane on a physical T1 chest', () => {
-    for (const theme of ['culture', 'authority', 'vista']) for (const depth of [0, 2]) {
-      assert.falsy(ChestThemes.weights(theme, 7, { tier: 1, depth }).uniqueRelics);
+  test('unique relic rewards: a jackpot never pays a unique item from a physical T1 chest', () => {
+    for (const theme of ['culture', 'authority', 'vista', 'civic']) for (const depth of [0, 2]) {
+      if (theme !== 'civic') assert.falsy(ChestThemes.weights(theme, 7, { tier: 1, depth }).uniqueRelics);
       const reward = resolveChestReward(theme, quality, held([]), () => 0.999, { tier: 1, depth });
-      assert.falsy(reward.group === 'uniqueRelics');
       assert.falsy(ITEM_BY_ID[reward.id]?.kind === 'unique_relic');
     }
   });

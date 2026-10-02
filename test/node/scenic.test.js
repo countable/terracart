@@ -324,7 +324,7 @@ test('scenic: viewpoints — detection, merge, and the grail\'s tier', () => {
   assert.eq(vs.length, 4, 'the one within MERGE_M of an earlier key merges away');
   assert.eq(vs.filter((v) => v.owned).length, 3, 'a point in the buffer is the neighbour\'s');
   assert.eq(chestBaseTier({ poiClass: 'attraction', poiDensity: 30, vista: 'grail' }), S.VISTA_CHEST_TIER.grail, 'the grail is its own tier whatever the count');
-  assert.eq(chestTier({ poiClass: 'attraction', vista: 'grail' }), 4, 'T4');
+  assert.eq(chestTier({ poiClass: 'attraction', vista: 'grail' }), 5, 'T5');
   assert.eq(chestTier({ poiClass: 'vista', vista: 'shore' }), S.VISTA_CHEST_TIER.shore);
   assert.eq(POI_CATEGORY.vista, 'park', 'a stretch chest is a park chest');
 });
@@ -334,9 +334,9 @@ test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hal
   assert.eq(chestThemeFor({ poiClass: 'vista', vista: 'shore' }), 'park', 'a stretch chest keeps its poiClass theme');
   assert.eq(chestThemeFor({ poiClass: 'attraction' }), 'civic', 'an ordinary attraction (museum, town hall) is unaffected');
   assert.truthy(ChestThemes.themes.vista, 'the theme exists');
-  assert.eq(ChestThemes.themes.vista.tier, 4, 'the grail\'s own tier');
+  assert.eq(S.VISTA_CHEST_TIER.grail, 5, 'the vista table owns the grail tier');
   // Equipment is common now, but the grail uses its rolled quality as the
-  // gear ceiling: ordinary T4 opens cannot spray expensive T7 equipment.
+  // gear ceiling: ordinary T5 opens cannot spray expensive T7 equipment.
   const val = (r) => {
     if (!r) return 0;
     if (r.kind === 'gold') return (r.amount || 0) + (r.consolation || 0);
@@ -347,11 +347,11 @@ test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hal
   let sum = 0;
   const N = 6000, rng = makeRng32(4432);
   for (let i = 0; i < N; i++) {
-    const reward = pickReward('chest:vista', emptySave, rng, { tier: 4, depth: 0 });
+    const reward = pickReward('chest:vista', emptySave, rng, { tier: 5, depth: 0 });
     if (reward.slot) assert.lte(reward.tier, reward.rolledTier, 'gear respects grail quality');
     sum += val(reward);
   }
-  assert.inRange(sum / N, 200, 600, 'one-time equipment grail stays below a T7-heavy payout');
+  assert.inRange(sum / N, 700, 1100, 'the T5 grail pays its tripled treasure budget without becoming T7');
 });
 
 test('scenic: the scope — story once, the relic once per save, the gift once per UTC day', () => {
@@ -467,7 +467,7 @@ test('scenic: a tide pickup taps into the day ledger, never save.picked', () => 
   const body = src.slice(at, src.indexOf("{ name: 'coindrop'", at));
   assert.truthy(/if \(wp\.tide\) \{\s*if \(isSpent\(wp, spentSets\(scene, save\)\)\) return;\s*Macros\.markToday\(save, wp\.id\);/.test(body),
     'a tide pick is written to the day ledger');
-  assert.truthy(/\(wp\) => \(wp\.tide \? !isSpent\(wp, tideSets\) : !pickedSet\.has\(wp\.id\)\)/.test(body),
+  assert.truthy(/\(wp\) => !isSpent\(wp, tideSets\) && \(wp\.tide \|\| !pickedSet\.has\(wp\.id\)\)/.test(body),
     'and the tap asks the one spent predicate');
 });
 

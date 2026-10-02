@@ -1394,6 +1394,8 @@ Render.rampartPiece = function rampartPiece(scene, groundY, rank = 1) {
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
+  scene._groundFireGfx?.clear();
+  const fireNow = Date.now();
   // One read per pass — every building-art decision below asks it, and a
   // toggle flipping mid-pass would draw half a building.
   const POLY = polyBuildings();
@@ -1662,6 +1664,45 @@ Render.drawCells = function drawCells(scene) {
         }
       }
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
+
+      // Resolve only the cells in view; the permanent burn ledger can grow
+      // indefinitely without increasing the cost of a frame.
+      const fire = typeof GroundFire !== 'undefined'
+        ? scene.save.groundFire?.[GroundFire.key(scene.depth ?? 0, _absIX, _absIY)] : null;
+      if (fire) {
+        if (!scene._groundFireGfx) {
+          scene._groundFireGfx = scene.add.graphics();
+          scene.cobbleContainer.add(scene._groundFireGfx);
+        }
+        const fg = scene._groundFireGfx;
+        // Thin soot over the existing ground, with uneven dirt and ash.
+        // Cell-seeded marks stay fixed while the camera moves or fire flickers.
+        fg.fillStyle(0x302720, 0.10);
+        fg.fillRect(sx, sy, CELL_PX, CELL_PX);
+        let sootSeed = (Math.imul(_absIX, 73856093) ^ Math.imul(_absIY, 19349663)) >>> 0;
+        for (let n = 0; n < 18; n++) {
+          sootSeed = (Math.imul(sootSeed, 1664525) + 1013904223) >>> 0;
+          const fleck = n >= 9;
+          const w = fleck ? 1 + (sootSeed & 1) : 4 + (sootSeed & 7);
+          const h = fleck ? 1 + ((sootSeed >>> 3) & 1) : 2 + ((sootSeed >>> 3) & 3);
+          const x = (sootSeed >>> 8) % (CELL_PX - w);
+          const y = (sootSeed >>> 16) % (CELL_PX - h);
+          fg.fillStyle(fleck ? 0x756957 : 0x29241e, fleck ? 0.24 : 0.14);
+          fg.fillRect(sx + x, sy + y, w, h);
+        }
+        if (GroundFire.active(fire, fireNow)) {
+          // Three tongues stay within their cell and flicker out of phase.
+          for (let n = 0; n < 3; n++) {
+            const fx = sx + 7 + n * 9;
+            const fy = sy + 24 - (n % 2) * 4;
+            const height = 12 + 4 * Math.sin(texNow / 120 + n * 2 + _absIX + _absIY);
+            fg.fillStyle(0xed591a, 0.95);
+            fg.fillTriangle(fx - 5, fy, fx + 5, fy, fx + Math.sin(texNow / 170 + n) * 3, fy - height);
+            fg.fillStyle(0xffd45b, 1);
+            fg.fillTriangle(fx - 2, fy, fx + 2, fy, fx, fy - height * 0.55);
+          }
+        }
+      }
 
       // Mid-reveal cell: its tile just loaded, so the real terrain paints
       // below and the fog fades off it on the lighting layer (drawn there so
@@ -2782,6 +2823,8 @@ Render.drawObjects = function drawObjects(scene) {
     // of truth that survives a tile re-rasterize. isSpent checks both.
     chopped: setOf(scene.save.chopped),
     picked: pickedSet,
+    burned: setOf(scene.save.burnedObjects),
+    burnedGround: burnedGroundLookup(scene, scene.save),
     broken: scene.brokenRockSet || new Set(),
     // The UTC day the tide line is laid for (Scenic.tideLive) — once a frame.
     day: utcDayKey(),
@@ -2921,7 +2964,7 @@ Render.drawObjects = function drawObjects(scene) {
           // Gone: picked (save.picked), or a TIDE pickup (src/scenic.js) that
           // is not on the waterline today or was taken today — one predicate,
           // interactables.js isSpent, the tap asks the same.
-          if (wp.tide ? isSpent(wp, spentIds) : pickedSet.has(wp.id)) return;
+          if (isSpent(wp, spentIds) || (!wp.tide && pickedSet.has(wp.id))) return;
           const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
           // A mushroom is a (faint) light as well as a sprite — offered before
           // the cull like a building, with its own radius as the margin. The

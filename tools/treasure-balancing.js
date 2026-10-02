@@ -165,13 +165,13 @@ function defaultTiers() {
     return `<tr><td>${category}</td><td style="text-align:left;white-space:normal">${places.map((p) => p.replaceAll('_', ' ')).join(', ')}</td>`
       + `<td style="text-align:left;white-space:normal">${surface}</td><td>T${tier}</td><td>${chestMirrorsUnderground(places[0]) ? 'yes' : 'no'}</td></tr>`;
   }).concat(`<tr><td>unlisted</td><td style="text-align:left">Other chest locations</td><td>Chests</td><td>T${CHEST_TIER_UNSTAMPED} (unstamped)</td><td>yes</td></tr>`));
-  $('tierRules').textContent = 'A POI chest\'s tier is how many chests of its class its own tile holds: '
-    + CHEST_DENSITY_TIERS.slice().reverse().map((r, i, a) => {
-      const next = a[i + 1];
-      return `${r.atLeast}${next ? (next.atLeast - 1 > r.atLeast ? '–' + (next.atLeast - 1) : '') : '+'} → T${r.tier}`;
-    }).join(', ')
-    + ` (public art is a fixed T1 one-time trunk). Add one tier per ${CHEST_TIER_DEPTH_STEP} underground levels and +${ZONE_NEXUS_TIER_BONUS} at a zone nexus, capped at T${CHEST_TIER_MAX}. `
-    + `A T1 chest is a crate: it restocks after ceil(count / ${CRATE_RESTORE_PER}) days (1–${CRATE_RESTORE_MAX_DAYS}). Home plays no part. `
+  $('tierRules').textContent = 'A chest\'s tier is its tile\'s QUOTA SEAT: each tile seeds ~1 T5, 7 T4, '
+    + '15 T3 and 25 T2 (x1..x2 over 100..1000 budgeted POIs) onto its best-ranked POIs '
+    + '(the MVT rank tag), round-robin across chest categories - every other chest is T1. '
+    + `Vistas are fixed T5; a zone nexus wins a seat without spending one (+${ZONE_NEXUS_TIER_BONUS}). `
+    + `Each cave level re-seats its own pyramid; the cap CLIMBS underground `
+    + `(T6 from level 3, T7 from 6) with +1 tier per ${CHEST_TIER_DEPTH_STEP} levels. `
+    + `A T1 chest is a crate: it restocks after ceil(count / ${CRATE_RESTORE_PER}) days (1–${CRATE_RESTORE_MAX_DAYS}). `
     + 'Set Reward roll tier below to the resulting tier; Depth applies the cave loot mix.';
 }
 

@@ -51,7 +51,7 @@
   });
 
   test('restock: a crowded crate stays bare its days — spent, unlit, and says how long', () => {
-    const crate = poi('bus', { poiDensity: 80 });          // floor(80/25) = 3 days
+    const crate = poi('bus', { poiDensity: 80, tierSeed: 1 }); // density sets 3 days; the seed makes it a crate
     assert.eq(crateRestoreDays(crate), 3);
     assert.truthy(restocks(crate), 'a T1 bus stop restocks');
     const ago = (k) => spentSets(null, { coinBurstClaimed: { [crate.id + dayKeyAt(Date.now() - k * DAY)]: 1 } });

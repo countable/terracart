@@ -235,7 +235,7 @@
   }
 
   // ── INN: rest to full for money, once a day per inn ───────────────────────
-  // The price per point of energy is the Potion of Vigor's own
+  // The price per point of energy is the Potion of Healing's own
   // (PRICES.vigor_potion / VIGOR_POTION_ENERGY) × INN_RATE: cheaper than
   // carrying a potion, but you walk to it and it is once a day. Not Home's
   // passive rest (free, on HOME_R, gated on `working`): a one-shot purchase.
