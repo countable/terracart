@@ -83,6 +83,11 @@
       // deterministic step than T4 and a chain that reaches T5 on its own;
       // the absolute ceilings are already the top of the ladder.
       5: { chainSteps: 4, chainMax: 5, maxTier: 7, relicCap: 7, relicChainMax: 5 },
+      // The underground tiers (loot.js chestTierMaxFor: T6 from cave level
+      // 3, T7 from 6) ride T5's chain - the depth bonus already moved the
+      // chest; the roll just pays at the tier it lands.
+      6: { chainSteps: 4, chainMax: 5, maxTier: 7, relicCap: 7, relicChainMax: 5 },
+      7: { chainSteps: 4, chainMax: 5, maxTier: 7, relicCap: 7, relicChainMax: 5 },
     },
     // (classChainBoostMul removed — chain is deterministic and applies the
     // same 33/67 qty-vs-tier split to every class. Mineral no longer gets a
@@ -289,29 +294,15 @@
   // two items wide, compounding into a figure no other loop can match.
   const CASH_PULL_MAX = CASH_MAX * 2;
   const CASH_JITTER = 0.3;             // ±30% on the purse, so it isn't a fixed figure
-  const CASH_TIER_VALUE = (function () {
-    const _PRICES = (typeof PRICES !== 'undefined') ? PRICES : {};
-    const byTier = {};
-    for (const it of _ITEMS) {
-      if (it.shiny || it.kind === 'unique_relic') continue;
-      const t = it.baseTier, p = _PRICES[it.id];
-      if (typeof t !== 'number' || !(p > 0)) continue;
-      (byTier[t] = byTier[t] || []).push(p);
-    }
-    const out = [0];
-    let run = 1;
-    for (let t = 1; t <= 7; t++) {
-      const a = (byTier[t] || []).sort((x, y) => x - y);
-      const med = a.length ? a[Math.floor(a.length / 2)] : run;
-      run = Math.min(CASH_MAX, Math.max(run, Math.round(med)));
-      out[t] = run;
-    }
-    return out;
-  })();
-  function cashValue(tier, qty, rng) {
+  // Cash is simply the tier's budget (Oct 2026): a coins roll pays what the
+  // item lane would have spent. The median-price ladder that used to derive
+  // this retired - one table owns both lanes now (items.js TIER_VALUE).
+  const CASH_TIER_VALUE = (typeof TIER_VALUE !== 'undefined' && TIER_VALUE) || [0, 6, 24, 75, 210, 480, 1080, 2400];  function cashValue(tier, qty, rng) {
     const base = CASH_TIER_VALUE[Math.max(1, Math.min(7, tier | 0))] || 1;
     const jitter = 1 + (rng() * 2 - 1) * CASH_JITTER;
-    return Math.max(1, Math.min(CASH_PULL_MAX, Math.round(base * Math.max(1, qty) * jitter)));
+    // No pull cap (Oct 2026): the budget owns the amount, and the top tiers'
+    // budgets (T6 $1080, T7 $2400) are the dungeon payouts.
+    return Math.max(1, Math.round(base * Math.max(1, qty) * jitter));
   }
 
   // BUNDLE. Wood and stone — what every house repair and every wooden recipe
@@ -620,7 +611,7 @@
     // consume another world-generation stream or alter generated identities.
     rng = rng || makeRng32(Math.floor(Math.random() * 0x100000000));
     theme = ChestThemes.normalize(theme);
-    const chestTier = Math.max(1, Math.min(5, opts.tier || 2));
+    const chestTier = Math.max(1, Math.min(typeof chestTierMaxFor === 'function' ? chestTierMaxFor(opts.depth) : 5, opts.tier || 2));
     const ctx = RARITY_TUNING.chestTierMod[chestTier];
     const quality = rollRewardQuality(ctx, 'chestQuality', save, rng, opts);
     quality.tier = Math.max(quality.tier, ChestThemes.qualityFloor(chestTier));
@@ -631,7 +622,7 @@
   // displayed chest tier, rather than inventing unreachable T6/T7 chests.
   function resolveChestReward(theme, quality, save, rng, opts = {}) {
     theme = ChestThemes.normalize(theme);
-    const chestTier = Math.max(1, Math.min(5, opts.tier || 2));
+    const chestTier = Math.max(1, Math.min(typeof chestTierMaxFor === 'function' ? chestTierMaxFor(opts.depth) : 5, opts.tier || 2));
     const { tier, bracket, jackpotApplied } = quality;
     const selectionOpts = { ...opts, theme, chestTier, save };
     if ((_ITEM_BY_ID[opts.venueProduct]?.baseTier || 1) < ChestThemes.qualityFloor(chestTier))
@@ -647,7 +638,7 @@
     const meta = { theme, group, resolvedGroup: resolved.group, fallback: resolved.fallback,
       rolledTier: tier, jackpot: jackpotApplied, consolation: 0 };
     if (resolved.kind === 'gear') {
-      const gear = rollGearUpgrade(rng, save?.relics, chestTier, save?.armor, ChestThemes.gearSlots(resolved.group),
+      const gear = rollGearUpgrade(rng, save?.relics, tier, save?.armor, ChestThemes.gearSlots(resolved.group),
         typeof Shrines !== 'undefined' && Shrines.leverActive(save, 'fortune') ? Shrines.FORTUNE_LUCK_BONUS : 0,
         chestTier >= 3 ? chestTier - 1 : 1, theme === 'vista' ? tier : 7);
       if (theme !== 'vista' || gear.kind !== 'gold') return { ...gear, ...meta };
@@ -807,9 +798,14 @@
   function rollGearUpgrade(rng, currentRelics, chestT = 2, currentArmor = null, allowedSlots = null, luck = 0, minTier = 1, maxTier = 7) {
     const random = rng || Math.random;
     if (!Object.keys(_RELIC_DEFS).length) return null;
+    // DIRECT MAP (Oct 2026): a chest's rolled tier IS its preferred gear
+    // tier - the old doubling (T4 chest → T7 gear) retired. The caller hands
+    // the ROLLED quality tier, not the chest's own, so a jackpot over a
+    // surface chest is the one way T6/T7 gear appears above ground; the deep
+    // chests that dungeons hold make it common down there.
     // preferred is clamped to 1..7 and every tier 1..7 is allowed, so the
     // capped pool is never empty.
-    const preferred = Math.min(maxTier, Math.max(1, Math.round(1 + (chestT - 1) * 2)));
+    const preferred = Math.min(maxTier, Math.max(1, chestT));
     const capped = GEAR_ROLL_TIERS.filter(t => t >= Math.min(preferred, minTier) && t <= preferred);
     const weighted = capped.map(t => ({ t, w: 1 / (1 + Math.abs(t - preferred)) }));
     let pickedTier = weightedPickBy(weighted, (w) => w.w, random).t;

@@ -138,6 +138,7 @@
       }
       if ('amulet' in save.relics) { delete save.relics.amulet; needsPersist = true; }
     }
+    if (save.tomeDays) { delete save.tomeDays; needsPersist = true; }   // tomes moved to rolling cooldowns (tomeReadyAt / tomeMagicCd)
     if (typeof Conditions !== 'undefined') Conditions.normalize(save);
     if (typeof Shrines !== 'undefined') Shrines.normalize(save);
     if ((save.schema || 0) < 5) {

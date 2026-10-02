@@ -388,9 +388,13 @@ const MINERAL_ICON_SHEET = {
   // multi-frame sheet, frame 0 the basic variant.
   honey:      { sheet: 'icon_honey',  frame: 0 },
   book:       { sheet: 'icon_book',   frame: 0 },
-  tome_sight: { sheet: 'icon_book',   frame: 2 },
-  tome_raven: { sheet: 'icon_book',   frame: 8 },
-  tome_storm: { sheet: 'icon_book',   frame: 13 },
+  tome_sight:   { sheet: 'icon_book', frame: 2 },
+  tome_raven:   { sheet: 'icon_book', frame: 8 },
+  tome_storm:   { sheet: 'icon_book', frame: 13 },
+  tome_speed:   { sheet: 'icon_book', frame: 3 },
+  tome_shield:  { sheet: 'icon_book', frame: 4 },
+  tome_healing: { sheet: 'icon_book', frame: 5 },
+  tome_blight:  { sheet: 'icon_book', frame: 6 },
   // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
   reach_potion: { sheet: 'icon_potion', frame: 0 },
   // New potions — 16×16 frames from Potions.png (5 cols × 7 rows).
@@ -592,14 +596,14 @@ const BASE_TIER = {
   dog: 5,
   // Consumables
   antidote: 1, elixir: 7,
-  honey: 3, book: 1, reach_potion: 2, vigor_potion: 4, speed_potion: 2, shield_potion: 2,
+  honey: 3, book: 1, reach_potion: 2, vigor_potion: 2, speed_potion: 2, shield_potion: 2,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_potion: 3,
   dragon_powder: 4,
   // Revival: getting up where you fell instead of walking Home at a crawl.
   // A tenth of a bar is a T2 emergency; half a bar is a T5 find.
-  revive_potion: 2, resurrection_potion: 5,
+  revive_potion: 4, resurrection_potion: 5,
   // Thunder: a screen-wide strike that also breaks a fight up — T4.
   thunder_potion: 4,
   // Growth Powder is a T2 farm utility beside the potions, and Shadow sits with
@@ -613,6 +617,7 @@ const BASE_TIER = {
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_sight: 3, tome_raven: 4, tome_storm: 5,
+  tome_speed: 3, tome_shield: 3, tome_healing: 3, tome_blight: 4,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
   // Trap Disarm Kit — a T2 utility beside rope: situational, not a staple.
@@ -758,15 +763,19 @@ const ITEMS = [
   // present), so a T3+ book chest hands a tome, never the story Book. Read
   // once a UTC day for the effect of the potion ONE TIER BELOW the tome
   // (app.js readTome*); never consumed, never sold - chests only.
-  { id: 'tome_sight', name: 'Tome of Distant Sight', kind: 'supply', dropWeight: 1 },
-  { id: 'tome_raven', name: 'Tome of the Raven',     kind: 'supply', dropWeight: 1 },
-  { id: 'tome_storm', name: 'Tome of the Storm',     kind: 'supply', dropWeight: 1 },
+  { id: 'tome_sight',    name: 'Tome of Reach',     kind: 'unique_relic', dropWeight: 1 },
+  { id: 'tome_raven',    name: 'Tome of the Raven',   kind: 'unique_relic', dropWeight: 1 },
+  { id: 'tome_storm',    name: 'Tome of Thunder',     kind: 'unique_relic', dropWeight: 1 },
+  { id: 'tome_speed',    name: 'Tome of Speed',       kind: 'unique_relic', dropWeight: 1 },
+  { id: 'tome_shield',   name: 'Tome of Shielding',   kind: 'unique_relic', dropWeight: 1 },
+  { id: 'tome_healing',  name: 'Tome of Healing',     kind: 'unique_relic', dropWeight: 1 },
+  { id: 'tome_blight',   name: 'Tome of Blight',      kind: 'unique_relic', dropWeight: 1 },
   // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
   { id: 'antidote', name: 'Antidote', kind: 'magic', potion: true },
   { id: 'elixir', name: 'Elixir', kind: 'magic', potion: true },
   { id: 'reach_potion',  name: 'Potion of Reach',     kind: 'magic', potion: true },
-  { id: 'vigor_potion',  name: 'Potion of Vigor',     kind: 'magic', potion: true },
+  { id: 'vigor_potion',  name: 'Potion of Healing',     kind: 'magic', potion: true },
   { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'magic', potion: true },
   { id: 'shield_potion', name: 'Potion of Shielding', kind: 'magic', potion: true },
   { id: 'blight_potion', name: 'Potion of Blight',    kind: 'magic', potion: true },
@@ -967,7 +976,7 @@ const GRILL_ENERGY_MUL = 1.5;
 // the fire is a curiosity, not a value pump. Every other potion EXPLODES,
 // hurting the player by POTION_BLAST_DMG_PER_TIER × its tier, soaked by
 // armour like any other blow (Combat.playerDamage).
-const POTION_FIRE_TRANSMUTE = { vigor_potion: 'revive_potion', speed_potion: 'reach_potion' };
+const POTION_FIRE_TRANSMUTE = { revive_potion: 'vigor_potion', speed_potion: 'reach_potion' };
 const POTION_BLAST_DMG_PER_TIER = 3;
 function isPotion(id) {
   return ITEM_BY_ID[id]?.potion === true;
@@ -1051,12 +1060,32 @@ const CONSUMABLE_SPEC = {
     usable: scene => EggHatch.ready(scene.save),
   },
   book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: 'An elder has left a few words for you.' },
-  tome_sight: { verb: 'Read', method: 'readTomeSight', title: 'Read the Tome of Distant Sight?',
+  // cooldownMs: the tome's OWN magic cooldown, scaled to the spell's power
+  // (a T3 sight recovers in 2 h; the T5 storm takes a day). The SHARED 1 h
+  // activation lock (app.js TOME_COOLDOWN_MS, save.tomeReadyAt - food's
+  // eat-cooldown shape) spans every tome: reading any one locks the button
+  // for all. usable greys the button while either gate holds.
+  tome_sight: { verb: 'Read', method: 'readTomeSight', title: 'Read the Tome of Reach?',
+    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_sight'),
     get: 'The far edge of the world leans closer with every page.' },
   tome_raven: { verb: 'Read', method: 'readTomeRaven', title: 'Read the Tome of the Raven?',
+    cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_raven'),
     get: 'A raven of smoke and starlight waits between the lines.' },
-  tome_storm: { verb: 'Read', method: 'readTomeStorm', title: 'Read the Tome of the Storm?',
+  tome_storm: { verb: 'Read', method: 'readTomeStorm', title: 'Read the Tome of Thunder?',
+    cooldownMs: 24 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_storm'),
     get: 'Storm writings. The sky leans in to listen.' },
+  tome_speed: { verb: 'Read', method: 'readTomeSpeed', title: 'Read the Tome of Speed?',
+    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_speed'),
+    get: 'Every line quickens. The road unwinds faster beneath you.' },
+  tome_shield: { verb: 'Read', method: 'readTomeShield', title: 'Read the Tome of Shielding?',
+    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_shield'),
+    get: 'The words settle around you like layered plates.' },
+  tome_healing: { verb: 'Read', method: 'readTomeHealing', title: 'Read the Tome of Healing?',
+    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_healing'),
+    get: 'A warmth gathers where the page is worn softest.' },
+  tome_blight: { verb: 'Read', method: 'readTomeBlight', title: 'Read the Tome of Blight?',
+    cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_blight'),
+    get: 'The margin ink crawls. What it touches sickens.' },
   honey: {
     radiusM: 30,
     verb: 'Use', method: 'useHoney', title: 'Set out the syrup?',
@@ -1081,7 +1110,7 @@ const CONSUMABLE_SPEC = {
   },
   vigor_potion: {
     energy: 65,
-    verb: 'Drink', method: 'drinkVigorPotion', title: 'Drink the Potion of Vigor?',
+    verb: 'Drink', method: 'drinkVigorPotion', title: 'Drink the Potion of Healing?',
     get: 'A little strength returns to your limbs.',
   },
   speed_potion: {
@@ -1242,20 +1271,24 @@ const PRICES = {
   // Bought from shops occasionally; small sell value if you hoard them.
   honey: 12,
   book:  20,
-  tome_sight: 90,   // T3 — a T2 reach potion's sight, once a day, forever
-  tome_raven: 170,  // T4 — a T3 raven's wings, once a day, forever
-  tome_storm: 300,  // T5 — a T4 thunderclap, once a day, forever
+  tome_sight: 90,    // T3 — the T2 reach potion's sight, on cooldowns, forever
+  tome_raven: 170,   // T4 — the T3 raven's wings
+  tome_storm: 300,   // T5 — the T4 thunderclap
+  tome_speed: 100,   // T3 — the T2 speed potion's stride
+  tome_shield: 80,   // T3 — the T2 shielding ward
+  tome_healing: 70,  // T3 — the T2 healing restore
+  tome_blight: 170,  // T4 — the T3 blight aura
   reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
   antidote:     12,
   elixir:       360,
-  vigor_potion:  35,   // T4 — instant 65-energy restore
+  vigor_potion:  35,   // T2 — instant 65-energy restore: the common heal, handed out early
   speed_potion:  55,   // T2 — tier-9 boot stick-walking for 1 min
   shield_potion: 40,   // T2 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura at app.js's BLIGHT_DPS
   raven_potion:  90,   // T3 — 1 min of a slime-strength ally (one roster-slime bite
                        //      each second on one foe, below Blight's per-foe rate, but
                        //      it hunts pests and keeps fighting while you move): Blight's tier and price
-  revive_potion: 40,   // T2 — get up where you fell with a tenth of the bar
+  revive_potion: 40,   // T4 — get up where you fell with a tenth of the bar: the rescue, rarer than the heal
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
   thunder_potion: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
   dragon_powder: 120,  // T4 — 1 min of dragon: tier-8 boot walking + 2× damage
@@ -1307,7 +1340,11 @@ for (const [raw, c] of Object.entries(COOKED_FOODS)) {
 // (10× this) and as a value fall-through. Items with no explicit PRICES entry
 // (e.g. live animals) fall back to a tier-scaled ladder so the bonus still
 // scales with how prized the thing is rather than flattening to $1.
-const TIER_VALUE = [0, 2, 8, 25, 70, 160, 360, 800];
+// Tripled (Oct 2026): the tier's item budget - the allowance a chest divides
+// by an item's price to size its stack - and, since the same round, the cash
+// lane's own amount (rarity.js reads it directly; the median-derived cash
+// ladder retired with that).
+const TIER_VALUE = [0, 6, 24, 75, 210, 480, 1080, 2400];
 function itemValue(id) {
   if (PRICES[id] != null) return PRICES[id];
   const t = ITEM_BY_ID[id]?.baseTier || 1;
@@ -1445,6 +1482,10 @@ const ITEM_EFFECTS = {
   tome_sight: 'Page by page, the horizon walks closer.',
   tome_raven: 'Somewhere in the ink, wings shift.',
   tome_storm: 'Thunder is only a sentence away.',
+  tome_speed: 'The road forgets how long it was.',
+  tome_shield: 'Old boards, well nailed, between you and the blow.',
+  tome_healing: 'It has been read through many fevers.',
+  tome_blight: 'Do not read it near the crops.',
   reach_potion: 'The far horizon trembles close to the rim of this bottle.',
   antidote: 'A bitter draught to wash every affliction away.',
   elixir: 'Restoring warmth washes every affliction from your body.',

@@ -264,29 +264,12 @@ test('cash: a money roll carries NO slot — that is what tells it from a gear c
   assert.gt(seen, 20, 'the commerce till hands out cash often enough to sample');
 });
 
-test('cash: the purse is worth what an ITEM of the same tier is worth', () => {
-  // CASH_TIER_VALUE is the median of items.js PRICES over each tier — derived
-  // from ordinary item prices; fixed-tier equipment does not inflate cash drops.
-  const median = (a) => a.sort((x, y) => x - y)[Math.floor(a.length / 2)];
-  const byTier = {};
-  for (const it of ITEMS) {
-    if (it.shiny || it.kind === 'unique_relic') continue;
-    const p = PRICES[it.id];
-    if (typeof it.baseTier !== 'number' || !(p > 0)) continue;
-    (byTier[it.baseTier] = byTier[it.baseTier] || []).push(p);
-  }
-  let run = 1;
-  for (let t = 1; t <= 7; t++) {
-    run = Math.min(200, Math.max(run, Math.round(median(byTier[t] || [run]))));
-    assert.eq(CASH_TIER_VALUE[t], run, `T${t} is its tier's median price`);
-  }
-  // MONOTONE: the raw medians dip at T4 (a six-item pool of cheap orchard
-  // fruit), and a T4 purse paying less than a T3 one reads as a bug.
+test('cash: the purse spends the same tier budget as an item roll', () => {
+  assert.eq(CASH_TIER_VALUE.join(','), TIER_VALUE.join(','), 'one table owns cash and item budgets');
+  assert.eq(CASH_TIER_VALUE.join(','), '0,6,24,75,210,480,1080,2400');
   for (let t = 2; t <= 7; t++) {
     assert.gte(CASH_TIER_VALUE[t], CASH_TIER_VALUE[t - 1], `T${t} never pays under T${t - 1}`);
   }
-  // CAPPED: T7's pool is two items, one of them the $3000 diamond.
-  assert.lte(CASH_TIER_VALUE[7], 200, 'and the top of the ladder is capped');
 });
 
 test('cash: the quantity brackets fatten the purse rather than going to waste', () => {
