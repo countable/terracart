@@ -430,9 +430,10 @@ test('mechanics: rebuilding adds stone to later restoration costs', () => {
   assert.eq(WRECK_RESTORE_HOUSES_PER_STEP, 3, 'three completed restorations add one stone');
 });
 
-test('restore cost: 1 stone, one more per three houses restored, capped at 20', () => {
-  assert.eq([0, 1, 2, 3, 5, 6, 29, 51, 56, 57, 100].map(wreckRestoreExact).join(','), '1,1,1,2,2,3,10,18,19,20,20', 'step boundaries and story milestones');
-  for (const k of ['a', 'b', 'c']) assert.eq(wreckRestoreQty(4, k), 2, 'same price for every house');
+test('restore cost: 2 stone, one more per three houses restored, capped at 20', () => {
+  assert.eq(WRECK_RESTORE_BASE_QTY, 2, 'the first rebuild asks two stones (owner, Oct 2026)');
+  assert.eq([0, 1, 2, 3, 5, 6, 29, 51, 54, 55, 100].map(wreckRestoreExact).join(','), '2,2,2,3,3,4,11,19,20,20,20', 'step boundaries and story milestones');
+  for (const k of ['a', 'b', 'c']) assert.eq(wreckRestoreQty(4, k), 3, 'same price for every house');
 });
 
 test('stories: wizard memories precede the permanent calling', () => {
