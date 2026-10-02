@@ -374,7 +374,9 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   with its band layout. Painted headers use a label without emoji/`kindIcon`.
 - Paired story paintings must use actual image references. Establish the
   introduction first, then edit that image for the completed action; preserve
-  keeper identity, proportions, camera, architecture, signs and prop positions.
+  object designs, materials and booth identity. After-use panels zoom in on
+  the transaction object (bed, book, gift, payment or equipment), with only
+  cropped hands when needed. Keep faces and full booth views in introductions.
   Text-only style prompts are insufficient for continuity. Booth scenes use
   the introductions' painterly realism, subdued light and reserved expressions;
   avoid chibi proportions and celebratory smiles.

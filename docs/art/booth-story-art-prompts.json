@@ -1,6 +1,6 @@
 {
   "mode": "built-in image_gen reference edits",
-  "workflow": "Edit original intro for subdued mood, then edit that revised intro for completed transaction. Preserve keeper identity, proportions, camera, architecture and props.",
+  "workflow": "Introductions establish booth identity. After-use reference edits zoom in on the transaction object, preserving its design and darker painterly style; lower area stays quiet for dialog.",
   "archiveRoot": "~/.artifacts/terracart-art/",
   "paintings": [
     {
@@ -26,21 +26,12 @@
     {
       "kind": "inn",
       "phase": "used",
-      "prompt": "Precise local edit of Image 1. Keep absolutely all pixels/painting/composition/characters/bed/sign/awning/counter/landscape/palette/dark lower text field visually unchanged, except the faint smoke-like wisps immediately above the sleeping player's hood in the small existing bed at upper right. Replace these wisps with TWO clearly legible delicate curving ribbons of PALE SILVERY LIGHT, softly luminous cream-silver, gently spiraling up and away from the sleeping player, with 3 tiny fading light motes. This represents restful recovery completing, NOT smoke or fire. Make the light readable at thumbnail scale without turning it into a bright beam or flooding the room. Keep player's hooded head on pillow, body under green blanket, no duplicate standing traveller, no smile added. Preserve painterly realism. Do not alter location, architecture, keeper face, art style or framing. No text.",
+      "prompt": "Use case: precise-object-edit and reframing. Image1 is the edit target and exact visual identity/style reference. Make this AFTER-USE fantasy game story panel an extreme close detail of JUST THE TRANSACTION OBJECT described below. Preserve the same dark subdued painterly textured realism, weathered materials, restrained amber lamplight, muted brown/green palette and clearly readable object identity. Reframe radically closer: transaction detail fills only UPPER40–42% of the portrait image; LOWER58–60% remains quiet nearly-black warm-brown uninterrupted negative space for text, just like reference. Do not fill the whole canvas with the closeup. No faces, keeper, full people, booth facade, awning, outdoor vista, signage or extra props. No text, border or watermark. Close detail of the SAME dark wooden bed with green patterned blanket and pale pillow from upper right of source. Bed and reclining brown-hooded traveller under blanket fill the upper picture area, seen from bedside. Face completely hidden inside dark hood, no visible facial features; blanket covers body. Two fine pale silver luminous ribbons curl upward and away above pillow with tiny fading motes, confirming restorative rest. This is only the bed/rest detail, NOT a portrait of the traveller. Crop tightly to pillow, hood, blanket and bed wood. Match original blanket texture and quiet moody lighting. No innkeeper, cup, counter or architecture.",
       "references": [
-        "art-source/paintings/history/booths-revision/booth_inn_used_before_light_refinement.webp"
+        "art-source/paintings/history/booths-v2/booth_inn_used.png"
       ],
+      "reference_snapshot": "/tmp/booth-closeup-originals/booth_inn_used.webp",
       "source": "art-source/paintings/raw/booth_inn_used.png",
-      "generation_history": [
-        {
-          "prompt": "Use case: precise-object-edit, identity-preserve. Image 1 is the exact revised INTRO painting and edit target. Make the AFTER transaction panel by editing this same scene. Lock the identical camera, composition, architecture, background landmarks, keeper identity/costume/human proportions, painterly textured realism and dark subdued dusk palette. Retain quiet dark lower 58–60% for UI. Change only the transaction action described. No chibi, no big smiles, no enlarged heads, no lettering or watermark. The brown-hooded player is now lying INSIDE the EXISTING BED behind the innkeeper at upper right, under its green blanket, with head on the pillow and brown hood hiding the face. Remove the large standing foreground player entirely: there is exactly ONE traveller, in bed. The existing bed stays in exactly its original position and scale, with its headboard/pillow behind and footboard toward us. A few soft PALE SILVERY wisps of light swirl AWAY from the sleeping player above this bed, showing completed rest, subtle not a beam or flashy magic. Keep the same woman in white kerchief/green apron at the same counter, her expression reserved with quiet relief, looking toward bed. Keep green scalloped awning, hanging bed pictogram sign upper right, roof, bridge/river at left, lantern and cup/counter in exact positions. Use newly empty foreground as a natural quiet view of same wooden structure, no duplicate player, no added beds.",
-          "references": [
-            "assets/art/booth_inn_intro.webp"
-          ],
-          "source": "art-source/paintings/history/booths-revision/booth_inn_used_before_light_refinement.webp"
-        }
-      ],
-      "reference_snapshot": "art-source/paintings/history/booths-revision/booth_inn_used_before_light_refinement.webp",
       "source_dimensions": [
         1111,
         1415
@@ -51,7 +42,7 @@
       ],
       "runtime": "assets/art/booth_inn_used.webp",
       "master": "art-source/paintings/raw/booth_inn_used.png",
-      "sha256": "440f4e95388f2409a2fff1cd7feee25e22a03f26960bbfe01bd7dafead3a87b3"
+      "sha256": "6a6e60f6c94a1954d9c5912f563fd883d0b6ec0e68e2911fa59b7702de760626"
     },
     {
       "kind": "chapel",
@@ -76,10 +67,11 @@
     {
       "kind": "chapel",
       "phase": "used",
-      "prompt": "Use case: precise-object-edit, identity-preserve. Image 1 is the exact revised INTRO painting and edit target. Make the AFTER transaction panel by editing this same scene. Lock the identical camera, composition, architecture, background landmarks, keeper identity/costume/human proportions, painterly textured realism and dark subdued dusk palette. Retain quiet dark lower 58–60% for UI. Change only the transaction action described. No chibi, no big smiles, no enlarged heads, no lettering or watermark. Same blue-robed female keeper hands a small simple wrapped blessing gift across the counter into the brown-hooded traveller's outstretched hands. Her identity, face, adult realistically proportioned anatomy and robes MUST remain identical to reference; neutral compassionate face, no smile. Traveller remains at left with same hood/backpack, same scale. Only adjust their arms/hands to complete handoff. Keep bell niche upper left of keeper, blue scalloped awning, right banner, foreground lantern/books/whiteflowers/vase, distant chapel and river/bridge exactly where they are. No currency or money on counter: this is a free blessing. No chibi, no cuteness makeover, no demonic lore.",
+      "prompt": "Use case: precise-object-edit and reframing. Image1 is the edit target and exact visual identity/style reference. Make this AFTER-USE fantasy game story panel an extreme close detail of JUST THE TRANSACTION OBJECT described below. Preserve the same dark subdued painterly textured realism, weathered materials, restrained amber lamplight, muted brown/green palette and clearly readable object identity. Reframe radically closer: transaction detail fills only UPPER40–42% of the portrait image; LOWER58–60% remains quiet nearly-black warm-brown uninterrupted negative space for text, just like reference. Do not fill the whole canvas with the closeup. No faces, keeper, full people, booth facade, awning, outdoor vista, signage or extra props. No text, border or watermark. Close detail of the SAME small rectangular brown-paper wrapped blessing gift tied with simple cord and a tiny white flower sprig, just received onto the chapel's weathered wooden counter. The gift should be large and immediately legible in upper picture area. Only optional cropped fingertips of brown-hooded traveller at edge to confirm receipt; no body or face, and no keeper. Preserve reference gift's brown paper, twine, white flower and counter material, subdued painterly style, muted warm light. No payment coins.",
       "references": [
-        "revised introduction: assets/art/booth_chapel_intro.webp"
+        "art-source/paintings/history/booths-v2/booth_chapel_used.png"
       ],
+      "reference_snapshot": "/tmp/booth-closeup-originals/booth_chapel_used.webp",
       "source": "art-source/paintings/raw/booth_chapel_used.png",
       "source_dimensions": [
         1111,
@@ -91,7 +83,7 @@
       ],
       "runtime": "assets/art/booth_chapel_used.webp",
       "master": "art-source/paintings/raw/booth_chapel_used.png",
-      "sha256": "3974e6b752d0db523b373daa27f9926e6b4a828009ea18b960490fcdb43b7991"
+      "sha256": "3e8dbc29f042077f2eb841d5bf20e6d03cdaaf29f3a01af1078dd65a1255e610"
     },
     {
       "kind": "guildhall",
@@ -116,14 +108,15 @@
     {
       "kind": "guildhall",
       "phase": "used",
-      "prompt": "Use case: precise-object-edit, identity-preserve. Image 1 is the exact revised INTRO painting and edit target. Make the AFTER transaction panel by editing this same scene. Lock the identical camera, composition, architecture, background landmarks, keeper identity/costume/human proportions, painterly textured realism and dark subdued dusk palette. Retain quiet dark lower 58–60% for UI. Change only the transaction action described. No chibi, no big smiles, no enlarged heads, no lettering or watermark. Same BROWN-HAIRED YOUNG WOMAN keeper pays the brown-hooded traveller their bounty: change her pointing arm and pouch hand to hand several jade-green coins bearing simple pale star marks into player's receiving hand over same counter. She has identical face/hair bun, blue cape, sleeves and belt and a reserved businesslike expression. Exactly the same FOUR monster posters in same 2x2 positions on back wall: wolf top left, beast top right, spider bottom left, hulking creature bottom right. Do not change any poster into a new one. Keep awning/shield/banners, lantern, counter chest/books and barrel, village at left exactly fixed. No male keeper, beard, weapons wall or new props. Only completed payment action changes.",
+      "prompt": "Use case: precise-object-edit and reframing. Image1 is the edit target and exact visual identity/style reference. Make this AFTER-USE fantasy game story panel an extreme close detail of JUST THE TRANSACTION OBJECT described below. Preserve the same dark subdued painterly textured realism, weathered materials, restrained amber lamplight, muted brown/green palette and clearly readable object identity. Reframe radically closer: transaction detail fills only UPPER40–42% of the portrait image; LOWER58–60% remains quiet nearly-black warm-brown uninterrupted negative space for text, just like reference. Do not fill the whole canvas with the closeup. No faces, keeper, full people, booth facade, awning, outdoor vista, signage or extra props. No text, border or watermark. Close detail of the SAME JADE-GREEN circular bounty coins with pale star emblems, just paid onto the same weathered wooden counter with a small strip of worn blue cloth at edge. Several coins dominate upper picture area, one tilted so its star stamp is clear. Optional cropped receiving hand from brown sleeve at edge only, to confirm payment. Preserve original coin identity and green material, modest realistic metal reflections and counter grain. No faces, bodies, keeper, posters, pouch or entire booth. Keep solemn muted painterly realism, no bright sparkles.",
       "references": [
-        "revised introduction: assets/art/booth_guildhall_intro.webp"
+        "art-source/paintings/history/booths-v2/booth_guildhall_used.png"
       ],
+      "reference_snapshot": "/tmp/booth-closeup-originals/booth_guildhall_used.webp",
       "source": "art-source/paintings/raw/booth_guildhall_used.png",
       "source_dimensions": [
         1111,
-        1416
+        1415
       ],
       "dimensions": [
         512,
@@ -131,7 +124,7 @@
       ],
       "runtime": "assets/art/booth_guildhall_used.webp",
       "master": "art-source/paintings/raw/booth_guildhall_used.png",
-      "sha256": "fdcaa0cfca8de39fd13220af6b6887c3470c71740aa8c56444bb8b6e01ea2181"
+      "sha256": "174ab7012d83ef2ce1d5988a235971fc5388d8c1fbb00bcd8d8c9c6b898b600d"
     },
     {
       "kind": "apothecary",
@@ -148,14 +141,14 @@
     {
       "kind": "apothecary",
       "phase": "used",
-      "prompt": "Edit the supplied corrected INTRO into the immediate AFTER successful transaction scene in this SAME booth. This is the actual edit target and strict reference. Lock exact environment, layout, keeper face, age, hair, clothes, all signs, awnings, shelves, props, perspective, pixel-painterly realistic texture and proportions, restrained expressions and dark muted palette. Player remains left, fully brown hooded face/hair concealed, identical pack and bedroll. Change ONLY hands and necessary small exchange objects: the same adult female apothecary passes one small green medicine flask into the player's receiving hand, and three jade-green star-stamped coins lie visibly on the counter as payment. Existing mortar, rows of bottles, purple front cloth, hanging herbs and wooden bottle sign stay at identical places. No smiles or celebration. Keep scene in upper42%, lower58% empty dark brown text area. No new scenery, no chibi or cute giant eyes, no text.",
+      "prompt": "Use the supplied exact current transaction painting as the visual reference. Reframe as a close-up ONLY of the completed transaction object. Match precisely its existing object design, colors, material, muted darker palette, weathered detailed pixel-painterly story art medium. No keeper or full figure, no faces, no booth facade, no broad landscape. Cropped receiving fingers at frame edges are acceptable only if needed. The large object and a small supporting countertop fill only the UPPER 40–42% of this portrait canvas; bottom58–60% must remain quiet almost-black dark-brown empty copy zone. No text, labels, UI, smiles, chibi or cute-cartoon styling. Hero subject: the exact small green healing flask being handed over in this painting—round green glass body, narrow neck, cork stopper, pale botanical sprig emblem. Show it large and close on the same worn dark wooden counter, with only a few jade-green star-stamped coins nearby to confirm payment. Gentle amber edge light reveals glass and restorative green contents, sober natural low light. Background soft near-black shelves indistinct, no other hero objects. No character needed.",
       "references": [
-        "revised introduction: assets/art/booth_apothecary_intro.webp"
+        "art-source/paintings/history/booths-v2/booth_apothecary_used.png"
       ],
       "source": "art-source/paintings/raw/booth_apothecary_used.png",
       "runtime": "assets/art/booth_apothecary_used.webp",
       "master": "art-source/paintings/raw/booth_apothecary_used.png",
-      "sha256": "ac303faa77c2a92f81295ea6f05afb367ae511fe2702836999764a1733f1f3d0"
+      "sha256": "6f3875fe41d4e45a25c61ffb45d4f07e4e75f9ced9c8d0e15da52db54301b9c1"
     },
     {
       "kind": "scriptorium",
@@ -172,14 +165,24 @@
     {
       "kind": "scriptorium",
       "phase": "used",
-      "prompt": "Edit the supplied corrected INTRO into the immediate AFTER successful transaction scene in this SAME booth. This is the actual edit target and strict reference. Lock exact environment, layout, keeper face, age, hair, clothes, all signs, awnings, shelves, props, perspective, pixel-painterly realistic texture and proportions, restrained expressions and dark muted palette. Player remains left, fully brown hooded face/hair concealed, identical pack and bedroll. Change ONLY hands and necessary small exchange objects: the SAME adult woman scribe with brown bun and green shoulder cloak extends the brown star-embossed book into the player's receiving gloved hands, and the jade-green star coins already on the counter remain visible as completed payment. Same reading lantern at upper right, open-book/quill banner at right, quill and inkpot, rolled scrolls and stacked books stay fixed. No elderly man, no new fixtures, no smiles or celebration. Keep scene composition and empty dark lower text area exactly as reference. No chibi, no giant eyes, no cute cartoon, no text.",
+      "prompt": "Precise composition-only edit of this reference. Keep the exact same brown star-embossed purchased book, green payment coins, wood, low amber light and pixel-painterly material rendering. The illustrated scene currently extends too far down. Reduce and reframe the ENTIRE upper scene so it ends at 38 PERCENT of total canvas height, leaving the lower62 PERCENT entirely empty uninterrupted very dark brown-black copy space. Portrait canvas aspect unchanged. Book remains a clear large close-up in the upper region. Do not crop off book or coins; no new objects or people. Do not change colors/style/design. Strong instruction: below38% of image height must contain NO scene objects, only nearly black empty background.",
       "references": [
-        "revised introduction: assets/art/booth_scriptorium_intro.webp"
+        "art-source/paintings/history/booths-v2/booth_scriptorium_used.png"
       ],
       "source": "art-source/paintings/raw/booth_scriptorium_used.png",
+      "previous": {
+        "kind": "scriptorium",
+        "phase": "used",
+        "prompt": "Use the supplied exact current transaction painting as the visual reference. Reframe as a close-up ONLY of the completed transaction object. Match precisely its existing object design, colors, material, muted darker palette, weathered detailed pixel-painterly story art medium. No keeper or full figure, no faces, no booth facade, no broad landscape. Cropped receiving fingers at frame edges are acceptable only if needed. The large object and a small supporting countertop fill only the UPPER 40–42% of this portrait canvas; bottom58–60% must remain quiet almost-black dark-brown empty copy zone. No text, labels, UI, smiles, chibi or cute-cartoon styling. Hero subject: the exact purchased brown leather book being handed over in the reference. Large close-up resting diagonally on the same weathered wood desk, closed cover clearly showing its precise pale gold eight-point star/sun and gold rectangular tooled border with small corner ornaments, thick aged pages and raised leather spine bands. A few small jade-green star coins at an edge imply payment. Low amber reading-lantern illumination from offscreen, restrained scholarly atmosphere, shallow indistinct dark background. Just the purchased book, no other books as subjects, no person needed.",
+        "references": [
+          "/tmp/booth-closeup-originals/booth_scriptorium_used.webp"
+        ],
+        "source": "/home/claude/.codex/generated_images/01a0fda1-b986-7931-9b5b-774e10c87d65/exec-0bc3dc4c-cac9-4d90-8de7-c165c35b2ddf.png",
+        "final": "/tmp/terracart-booth-consistency/assets/art/booth_scriptorium_used.webp"
+      },
       "runtime": "assets/art/booth_scriptorium_used.webp",
       "master": "art-source/paintings/raw/booth_scriptorium_used.png",
-      "sha256": "b534605e3ca61d8cb95a2c1553fbee04f7124a1872e7606efef1a82ec44fda1f"
+      "sha256": "a67c1ce5893b966930520b7335beb31a8d23beb2005560940462a72d3a6d8455"
     },
     {
       "kind": "sundries",
@@ -196,14 +199,24 @@
     {
       "kind": "sundries",
       "phase": "used",
-      "prompt": "Edit the supplied corrected INTRO into the immediate AFTER successful transaction scene in this SAME booth. This is the actual edit target and strict reference. Lock exact environment, layout, keeper face, age, hair, clothes, all signs, awnings, shelves, props, perspective, pixel-painterly realistic texture and proportions, restrained expressions and dark muted palette. Player remains left, fully brown hooded face/hair concealed, identical pack and bedroll. Change ONLY hands and necessary small exchange objects: the SAME adult woman sundries keeper hands the middle sack of supplies into the player's receiving hands. The jade-green star coin previously in the player's hand now sits visibly on the counter as completed payment. Preserve yellow-cream awning, both sack signs, left lantern, bridge and tower, rope coil, right wood bundle, barrels and shelves in their precise existing places. Same adult woman cream cap/apron and green shirt, reserved tired face, no smiles. Player keeps identical pack and rolled bedroll; entire face/hair invisible inside hood. Preserve top scene composition and bottom empty dark text area exactly. No chibi, no giant eyes, no cute cartoon, no text.",
+      "prompt": "Precise composition-only edit of this reference. Keep the exact same cream linen supply sack with printed brown sack emblem, green payment coin, wood, low amber light and pixel-painterly material rendering. The illustrated scene currently extends too far down. Reduce and reframe the ENTIRE upper scene so it ends at 38 PERCENT of total canvas height, leaving the lower62 PERCENT entirely empty uninterrupted very dark brown-black copy space. Portrait canvas aspect unchanged. Sack remains a clear large close-up in the upper region. Do not crop off sack or coin; no new objects or people. Do not change colors/style/design. Strong instruction: below38% of image height must contain NO scene objects, only nearly black empty background.",
       "references": [
-        "revised introduction: assets/art/booth_sundries_intro.webp"
+        "art-source/paintings/history/booths-v2/booth_sundries_used.png"
       ],
       "source": "art-source/paintings/raw/booth_sundries_used.png",
+      "previous": {
+        "kind": "sundries",
+        "phase": "used",
+        "prompt": "Use the supplied exact current transaction painting as the visual reference. Reframe as a close-up ONLY of the completed transaction object. Match precisely its existing object design, colors, material, muted darker palette, weathered detailed pixel-painterly story art medium. No keeper or full figure, no faces, no booth facade, no broad landscape. Cropped receiving fingers at frame edges are acceptable only if needed. The large object and a small supporting countertop fill only the UPPER 40–42% of this portrait canvas; bottom58–60% must remain quiet almost-black dark-brown empty copy zone. No text, labels, UI, smiles, chibi or cute-cartoon styling. Hero subject: the exact purchased cream coarse-linen supply sack from reference, with brown stamped silhouette of a tied sack on its front and gathered drawstring top. Show a large close-up centered on worn wooden counter, tied closed as the purchased provisions bundle, with the single jade-green star-stamped payment coin near its base. Preserve brown printed sack emblem and tan fabric, no new contents or items. Small arc of reference rope coil may remain far behind out of focus, no people. Dim offscreen lantern light, restrained practical materials. Keep entire sack, supporting tabletop and coin ABOVE the 42% canvas-height line; begin the EMPTY dark text zone immediately at 42%, no objects below it.",
+        "references": [
+          "/tmp/booth-closeup-originals/booth_sundries_used.webp"
+        ],
+        "source": "/home/claude/.codex/generated_images/01a0fda1-b986-7931-9b5b-774e10c87d65/exec-082ccfda-8aaa-4f19-b7b3-513fceda4cc7.png",
+        "final": "/tmp/terracart-booth-consistency/assets/art/booth_sundries_used.webp"
+      },
       "runtime": "assets/art/booth_sundries_used.webp",
       "master": "art-source/paintings/raw/booth_sundries_used.png",
-      "sha256": "e6dd52f3afed02ff721684308f5363777696d65497d5f3748ec74c6605588fba"
+      "sha256": "4d69afd36878e7572d20229108f3ff9a148601c3b95bc963708cf271a3d362d6"
     },
     {
       "kind": "curio",
@@ -221,14 +234,15 @@
     {
       "kind": "curio",
       "phase": "used",
-      "prompt": "Use case: precise-object-edit and identity-preserve. Edit the provided corrected INTRO painting into its immediately-after transaction moment. This input is the exact scene to preserve, not just style inspiration. Keep the SAME keeper face, age, hair, outfit, natural adult anatomy and head/body proportions, same brown hooded adult traveller and gear, exact camera, framing, architecture, shelves and landmarks, awning, signs and lighting. Same sober painterly realism, muted slightly dark palette and textured brush finish. No chibi, giant heads/eyes, children, cartoon cuteness or grins. Only change the people’s arms/pose and involved object as described, with quiet concentration/relief rather than celebration. Keep both hands legible and uncropped, all action in upper 40–42%; lower 58–60% must remain empty very dark copy zone. No text, watermark, new plot, horns, dragons or magic glitter. Action only: the SAME young adult female keeper in teal cap/dress and cream sleeves now carefully places the SAME round bronze-and-stone relic that the traveller held onto a free space on the SAME right-hand collection shelf; the traveller watches with lowered empty hand. Her face turns only enough to see her focused reserved expression. Keep the wooden purple-lined presentation box on the counter, the PURPLE crystal sign, canopy, statuette, small glass dome with tree and all existing shelf artifacts exactly where they are. Do not substitute a vase for the round relic.",
+      "prompt": "Use case: precise-object-edit. Edit this actual game painting into a tight object-detail shot of the completed transaction. Preserve EXACT depicted object design/materials, the same subdued dark painterly realism, muted earthy palette, coarse textured brush finish and softly lit weathered setting. Change camera to a CLOSE-UP of just the specified object and necessary cropped hands. NO faces, heads, full people, full booth facade, canopy, landscape, smiles, chibi, cartoon cute proportions, text or UI. The object close-up must fill the UPPER 40–42% of this portrait only; preserve LOWER 58–60% as empty very dark brown/black softly textured quiet text zone, with a gentle dark transition. Do not place any hands/objects in lower text zone. No new magical glow or plot symbols. Subject: the SAME round broken-ring dark bronze-and-stone artifact with central bronze sun/star mechanism from the reference, now resting securely as an accepted donation on its SAME weathered wooden collection shelf. Close detail of artifact fills the upper scene. A cropped cream-cuffed keeper hand may withdraw from its edge; no other people. Keep the artifact's distinctive crescent/open-ring silhouette and central hub. Include only a little shelf wood/background to establish it has joined the collection, not a whole display.",
       "references": [
-        "revised introduction: assets/art/booth_curio_intro.webp"
+        "art-source/paintings/history/booths-v2/booth_curio_used.png"
       ],
       "source": "art-source/paintings/raw/booth_curio_used.png",
+      "originalReferenceSnapshot": "/tmp/booth-closeup-originals/booth_curio_used.webp",
       "runtime": "assets/art/booth_curio_used.webp",
       "master": "art-source/paintings/raw/booth_curio_used.png",
-      "sha256": "4231b1b087e3654318a3da5ee8c02b0ab5e3574062029f9129d0fb031d8abc58"
+      "sha256": "69acca9780f11ce1083cb1761511afcc8f5d99f5e37da841d6dadc3d7246d12f"
     },
     {
       "kind": "training",
@@ -246,14 +260,33 @@
     {
       "kind": "training",
       "phase": "used",
-      "prompt": "Use case: precise-object-edit and identity-preserve. Edit the provided corrected INTRO painting into its immediately-after transaction moment. This input is the exact scene to preserve, not just style inspiration. Keep the SAME keeper face, age, hair, outfit, natural adult anatomy and head/body proportions, same brown hooded adult traveller and gear, exact camera, framing, architecture, shelves and landmarks, awning, signs and lighting. Same sober painterly realism, muted slightly dark palette and textured brush finish. No chibi, giant heads/eyes, children, cartoon cuteness or grins. Only change the people’s arms/pose and involved object as described, with quiet concentration/relief rather than celebration. Keep both hands legible and uncropped, all action in upper 40–42%; lower 58–60% must remain empty very dark copy zone. No text, watermark, new plot, horns, dragons or magic glitter. Action only: same adult sandy-haired bearded instructor in green leather armour and burgundy scarf has completed a lesson; he demonstrates a final quiet sword grip close to the traveller, who now holds one plain wooden practice sword in the foreground at left. The instructor offers a small serious nod, not thumbs up. No new characters, no fat apron-wearing instructor. Keep same red crossed-swords/shield canopy, same wooden target dummy on RIGHT, same spare practice sword, barrels, bridge and buildings. Traveller stands in same place, same height and same adult proportions with rolled backpack. Both hands and grip visible, above the dark lower copy zone.",
+      "prompt": "Edit this image’s layout. The artwork is too tall. Make the upper illustrated band CLEARLY SHORTER: it must occupy just the TOP ONE THIRD (33%) of the whole portrait. The remaining LOWER TWO THIRDS must be blank very dark brown softly textured empty space. Move the boundary UP substantially. Fit the existing close-up wooden practice sword grip with the two people's correcting hands in that short wide top band. It is okay to crop the sleeves and sword blade at the top and sides. Preserve the same gloves, bracers, wooden sword design, painterly realism and muted lighting. No heads/faces/bodies, no text, no new items. This is a deliberate layout change, not a request to preserve the old 46% boundary.",
       "references": [
-        "revised introduction: assets/art/booth_training_intro.webp"
+        "art-source/paintings/history/booths-v2/booth_training_used.png"
       ],
       "source": "art-source/paintings/raw/booth_training_used.png",
+      "originalReferenceSnapshot": "/tmp/booth-closeup-originals/booth_training_used.webp",
+      "previousEdit": {
+        "kind": "training",
+        "phase": "used",
+        "prompt": "Edit only composition spacing of this exact supplied image. Preserve the object design, every hand, painterly style, muted colors and lighting exactly. The illustrated object-and-hands panel currently extends too far down. Recompose the SAME entire object-and-hands detail into the TOP 40% of this portrait (top 565 pixels if image height is1415). The lower 60% MUST be empty dark brown/black subtly textured copy zone, starting at exactly 40% height. Preserve all hands and object details within that top40%; cropped outer sleeves/blade at top edges are fine. No faces, no new objects, no text, no other changes.",
+        "references": [
+          "/home/claude/.codex/generated_images/01a0fd89-d1c9-7f33-895c-15806ddb597e/exec-fca957a8-daa9-4a72-a899-ceb65115e09a.png"
+        ],
+        "source": "/home/claude/.codex/generated_images/01a0fd89-d1c9-7f33-895c-15806ddb597e/exec-aa7b102a-62be-4899-b5f7-da25d8ab9d01.png",
+        "final": "/tmp/terracart-booth-consistency/assets/art/booth_training_used.webp",
+        "originalReferenceSnapshot": "/tmp/booth-closeup-originals/booth_training_used.webp",
+        "previousEdit": {
+          "prompt": "Use case: precise-object-edit. Edit this actual game painting into a tight object-detail shot of the completed transaction. Preserve EXACT depicted object design/materials, the same subdued dark painterly realism, muted earthy palette, coarse textured brush finish and softly lit weathered setting. Change camera to a CLOSE-UP of just the specified object and necessary cropped hands. NO faces, heads, full people, full booth facade, canopy, landscape, smiles, chibi, cartoon cute proportions, text or UI. The object close-up must fill the UPPER 40–42% of this portrait only; preserve LOWER 58–60% as empty very dark brown/black softly textured quiet text zone, with a gentle dark transition. Do not place any hands/objects in lower text zone. No new magical glow or plot symbols. Subject: close detail of the SAME plain wooden practice sword hilt and crossguard shown in reference, in the brown-gloved player's hands; the instructor's brown leather bracer/glove and cream sleeve hands gently correct the player's grip. Clearly readable practical tuition, no combat or shaking hands. Keep reference sword's honey-brown wood, simple straight crossguard and wooden blade; blade may run out of the top-right edge. Composition solely hands, grip and a little worn practice-table/background wood, no bodies or faces.",
+          "references": [
+            "/tmp/terracart-booth-consistency/assets/art/booth_training_used.webp"
+          ],
+          "source": "/home/claude/.codex/generated_images/01a0fd89-d1c9-7f33-895c-15806ddb597e/exec-fca957a8-daa9-4a72-a899-ceb65115e09a.png"
+        }
+      },
       "runtime": "assets/art/booth_training_used.webp",
       "master": "art-source/paintings/raw/booth_training_used.png",
-      "sha256": "a47ca070c948543ee931b154d16d8d8a0dbdefcad07117b354f1afb0b0ff2843"
+      "sha256": "f6c69bdea1e0a14f4cf0c7d019f10c309205b1c34a63bc0d4327e37a4ed1656c"
     },
     {
       "kind": "scholar",
@@ -271,14 +304,22 @@
     {
       "kind": "scholar",
       "phase": "used",
-      "prompt": "Use case: precise-object-edit and identity-preserve. Edit the provided corrected INTRO painting into its immediately-after transaction moment. This input is the exact scene to preserve, not just style inspiration. Keep the SAME keeper face, age, hair, outfit, natural adult anatomy and head/body proportions, same brown hooded adult traveller and gear, exact camera, framing, architecture, shelves and landmarks, awning, signs and lighting. Same sober painterly realism, muted slightly dark palette and textured brush finish. No chibi, giant heads/eyes, children, cartoon cuteness or grins. Only change the people’s arms/pose and involved object as described, with quiet concentration/relief rather than celebration. Keep both hands legible and uncropped, all action in upper 40–42%; lower 58–60% must remain empty very dark copy zone. No text, watermark, new plot, horns, dragons or magic glitter. Action only: the SAME elderly bespectacled white-bearded scholar in the SAME indigo cap and gold-edged blue robes now hands the SAME large blue star-emblazoned gold-cornered tome from the right-hand display to the traveller's open hands across this SAME counter. The display spot is now empty. The traveller's three ordinary collected books now rest on the counter nearby, not taken as payment. No coins/payment or magical sparks. Both adults keep reserved faces, same scale, same head sizes. Preserve indigo book emblem, shelf books, lantern, quill, plants, background bridge and architecture. Do not substitute a green tome.",
+      "prompt": "Edit only composition spacing of this exact supplied image. Preserve the object design, every hand, painterly style, muted colors and lighting exactly. The illustrated object-and-hands panel currently extends too far down. Recompose the SAME entire object-and-hands detail into the TOP 40% of this portrait (top 565 pixels if image height is1415). The lower 60% MUST be empty dark brown/black subtly textured copy zone, starting at exactly 40% height. Preserve all hands and object details within that top40%; cropped outer sleeves/blade at top edges are fine. No faces, no new objects, no text, no other changes.",
       "references": [
-        "revised introduction: assets/art/booth_scholar_intro.webp"
+        "art-source/paintings/history/booths-v2/booth_scholar_used.png"
       ],
       "source": "art-source/paintings/raw/booth_scholar_used.png",
+      "originalReferenceSnapshot": "/tmp/booth-closeup-originals/booth_scholar_used.webp",
+      "previousEdit": {
+        "prompt": "Use case: precise-object-edit. Edit this actual game painting into a tight object-detail shot of the completed transaction. Preserve EXACT depicted object design/materials, the same subdued dark painterly realism, muted earthy palette, coarse textured brush finish and softly lit weathered setting. Change camera to a CLOSE-UP of just the specified object and necessary cropped hands. NO faces, heads, full people, full booth facade, canopy, landscape, smiles, chibi, cartoon cute proportions, text or UI. The object close-up must fill the UPPER 40–42% of this portrait only; preserve LOWER 58–60% as empty very dark brown/black softly textured quiet text zone, with a gentle dark transition. Do not place any hands/objects in lower text zone. No new magical glow or plot symbols. Subject: close detail of the EXACT large royal-indigo/blue book with its large gold many-pointed STAR motif, gold corner fittings, small gold studs and clasp from the reference. The scholar's cream cuff with indigo/gold robe sleeve and hands offer that tome into the brown-cloaked player's hands. Preserve blue cover and star design exactly; do not substitute green cover, open-book symbol, coins, payment, glitter or a different book. The tome dominates upper scene against softly indistinct old wood; cropped forearms/hands only.",
+        "references": [
+          "/tmp/terracart-booth-consistency/assets/art/booth_scholar_used.webp"
+        ],
+        "source": "/home/claude/.codex/generated_images/01a0fd89-d1c9-7f33-895c-15806ddb597e/exec-1b398f4f-5d91-4f32-b152-2c3710d480db.png"
+      },
       "runtime": "assets/art/booth_scholar_used.webp",
       "master": "art-source/paintings/raw/booth_scholar_used.png",
-      "sha256": "3d79b0d75625f3a7664b1ed4020b0ab87e3f46ba72cf2720e7d8e53ba1232fe3"
+      "sha256": "f3dffdbe0c3b1066e31252101d2696bd672a4887954e29fbbed58c304840774d"
     }
   ]
 }

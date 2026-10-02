@@ -34,9 +34,10 @@ removing a runtime painting.
 ## Paired booth paintings
 
 The introduction is the visual reference for its transaction painting. Edit
-that image with an explicit image reference, changing only the completed
-transaction. Keep the same keeper, proportions, view, awning, sign, fixtures,
-and background. Both stages use subdued, weathered light and reserved faces;
+that image with an explicit image reference. After-use panels zoom in on the
+transaction object: bed, gift, medicine, book, coins, relic, supplies or practice
+weapon. Preserve its design and materials, with cropped hands only where they
+clarify the exchange. Faces and full booth views belong in introductions. Both stages use subdued, weathered light and reserved faces;
 retain the introduction's painterly realism rather than switching to chibi.
 
 Full edit prompts and reference provenance are recorded in
