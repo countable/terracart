@@ -26,12 +26,8 @@
     54,
     58,
     59,
-    61
+    61,
+    63
   ],
-  "pendingClarification": {
-    "requestedFrame": 53,
-    "possibleFrame": 63,
-    "purpose": "total pillar replacement"
-  },
   "discardOtherProposals": true
 }

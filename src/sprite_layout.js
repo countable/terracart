@@ -69,7 +69,7 @@
     'mineralrock:6': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
     'approved_charred_stakes:0': { fw: 16, fh: 16, minX: 4, minY: 0, maxX: 12, maxY: 16 },
     'well:0': { fw: 30, fh: 32, minX: 2, minY: 0, maxX: 30, maxY: 32 },
-    'pillar:0': { fw: 16, fh: 32, minX: 1, minY: 0, maxX: 15, maxY: 28 },
+    'pillar:0': { fw: 24, fh: 24, minX: 6, minY: 1, maxX: 18, maxY: 23 },
     'scarecrow:0': { fw: 48, fh: 48, minX: 3, minY: 8, maxX: 45, maxY: 47 },
     'bonfire:0': { fw: 16, fh: 32, minX: 1, minY: 9, maxX: 14, maxY: 31 },
     'torch:0': { fw: 16, fh: 32, minX: 5, minY: 5, maxX: 12, maxY: 32 },

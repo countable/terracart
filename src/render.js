@@ -4779,19 +4779,8 @@ Render.objectAppearance = function (scene, houseRoles) {
     // Stone pillar — decorative stand-in for OSM utility poles / posts.
     // Purely decorative: no interact.js branch matches 'pole', so taps fall
     // through.
-    // pillar.png is authored at 16px-per-cell (a 16×32 frame = 1 cell wide × 2
-    // tall in its native grid), but the game renders at 32px-per-cell (CELL_PX),
-    // like every other object sheet (trees are 32×48, etc.). At scale 1.0 the
-    // pole therefore drew at HALF size — a thin half-cell-wide stub — which read
-    // as "only half the sprite rendered". scale 2.0 maps the 16px art onto the
-    // 32px cell so it stands a full cell wide and ~2 cells tall (a proper pole);
-    // the seat pass then seats the now-taller-than-a-cell sprite with its base
-    // 1px above the cell's bottom edge (same as a tree).
-    // pillar.png's column art is symmetric and frame-centred (the earlier
-    // slice was cut off on the top and left; the art was redrawn complete),
-    // so a plain frame-centred origin works — the seat pass refines the
-    // final offsets from the trimmed bounds.
-    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 2.0, seat: true, shadow: true },
+    // Approved 24px pillar fills a 32px cell; shared by every mapped pole.
+    pole:   { key: 'pillar', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     // STREET VARIANT PROPS (src/street_variants.js). All 16px generated art
     // drawn at 1.6 (~26px) and SEATED in their one cell. The waystone stands
     // (a tap reads a page of the Book — INTERACTABLES.waystone); the tar pit
