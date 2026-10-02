@@ -213,7 +213,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   // hides and whether it glows. wildplant_table.test.js drives the accessors,
   // and interact.js / lighting.js / render.js are the three readers.
   WILDPLANT_RULES, wildplantRule, wildplantOutput, wildplantWorkRelic,
-  wildplantWorkCost, wildplantTreasure, wildplantLight, wildplantRoll,
+  wildplantWorkCost, wildplantTreasure, wildplantLight,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
   // Pocketing a tame pet and the carried raised row — pet_pickup.test.js.

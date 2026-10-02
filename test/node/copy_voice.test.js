@@ -463,7 +463,6 @@ test('map copy: the barrel, the bike rack and the page stones fit a map line', (
 test('map copy: every wildplant reward bundle fits the harvest toast', () => {
   const crops=new Set([...Object.keys(CROP_ROW),...Object.keys(WILDPLANT_RULES)]);
   for (const crop of crops) {
-    if (wildplantRoll(crop)) continue;
     const line=wildplantHarvestLine(crop);
     for (const reward of wildplantRewards(crop)) {
       assert.truthy(line.includes(`+${reward.qty} ${itemName(reward.id)}`),`${crop} names every guaranteed reward`);

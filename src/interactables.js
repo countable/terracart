@@ -222,7 +222,7 @@ function tierArticle(name) {
   return /^[aeiou]/i.test(String(name)) ? 'an' : 'a';
 }
 
-// A page stone's interactable (INTERACTABLES.waystone / .infoboard) — see
+// A page stone's interactable (INTERACTABLES.infoboard / .bottle) — see
 // the note on those rows.
 function pageStone({ title, art, spent, read }) {
   return {
@@ -853,6 +853,11 @@ const INTERACTABLES = {
   },
   infoboard: pageStone({ title: 'A notice board', art: null,
     spent: 'Read it already.', read: 'You read the notice.' }),
+  // A MESSAGE BOTTLE on the waterline (src/scenic.js BEACH_BOTTLES_PER_TILE):
+  // the notice board's lane — one Book page, once (save.opened) — and,
+  // unlike the board, picked up: isSpent hides it once opened.
+  bottle: pageStone({ title: 'A message in a bottle', art: 'bottle_read',
+    spent: 'Only sand here now.', read: 'You read the message.' }),
 
   // ---- Influence zones (src/zones.js) --------------------------------------
   // A HEADSTONE (an Old Stones churchyard — churches and cemeteries only).
@@ -1108,6 +1113,8 @@ function isSpent(o, sets) {
     // Same key (save.picked) as the wildplant pickup tracking, so a save
     // doesn't grow a field for it.
     case 'groundstack': return sets.picked.has(o.id);
+    // A message bottle is picked up as it is read (INTERACTABLES.bottle).
+    case 'bottle':      return sets.opened.has(o.id);
     // A wild plant is spent once picked (save.picked) — except a TIDE pickup
     // (src/scenic.js): the day's, so it is spent when it is not on the
     // waterline today (Scenic.tideLive, which also sets its crop to the day's
