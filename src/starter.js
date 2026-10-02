@@ -972,7 +972,7 @@
       return WorldGen.isSpawnCell(e.grid, eN, eN, i % eN, Math.floor(i / eN),
         { roadMask: e.roadMask, spawnWhy: e.spawnWhy }, cls);
     }, false);
-    // A synthesized POI plaza (the hospital cross, the school pyramid) —
+    // A synthesized POI plaza (the hospital cross) —
     // a pond punched into one reads as a bug.
     const padAt = (cx, cy) => cellAt(cx, cy, (e, i) => !!(e.poiPadCells && e.poiPadCells.has(i)), false);
     // Which tile owns a cell, by world position — so the 2x2 can be required
