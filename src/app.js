@@ -83,12 +83,15 @@ const TRAIL_INTRO_DELAY_MS = 2000;
 // over that one moment lands before the player has seen the repair as a
 // thing they are doing. So the greeting waits until this much road is truly
 // restored (Trail.restoredMetres — the road chip's own number, so the dialog
-// and the chip agree on what has been repaired): a couple of reaches' worth,
-// a few stretches watched come back, and still well short of the first prize
-// (Trail.goalFor(0, …), 200 m or a runner's 100 m) — the greeting is what
-// introduces the neighbours who leave gifts, so it must land before the first
-// gift does (trail.test.js pins both bounds).
-const TRAIL_INTRO_MIN_M = 60;
+// and the chip agree on what has been repaired): one reach of street (five
+// cells, 35 m, under the player's own feet) and a step or two more along it,
+// so the second flash is already in the player's eye — and still well short
+// of the first prize (Trail.goalFor(0, …), 200 m or a runner's 100 m): the
+// greeting is what introduces the neighbours who leave gifts, so it must
+// land before the first gift does (trail.test.js pins both bounds). 60 m
+// read as too long a wait (owner, Oct 2026); it is not a milestone, only a
+// beat past the first stretch.
+const TRAIL_INTRO_MIN_M = 40;
 // How long a stretch of street has to stay IN SIGHT — inside the lit reach,
 // continuously — before it is rebuilt. Walking past a street at the edge of
 // the bubble no longer harvests it in the frame it clips: the metres you bank
