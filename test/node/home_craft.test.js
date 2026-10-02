@@ -196,7 +196,7 @@ test('home craft: the wild-finds ledger — every grant counts except bought, ba
   const add = SCENE_SRC.slice(SCENE_SRC.indexOf('\n  addToInv(id, n = 1, silent = false, opts = {}) {'));
   assert.truthy(/if \(!opts\.notWild\) \(this\.save\.foundWild = this\.save\.foundWild \|\| \{\}\)\[id\] = 1;/.test(add.slice(0, 3000)),
     'addToInv records the find');
-  const notWild = (SCENE_SRC.match(/\{ notWild: true(?:, deferRefresh: true)? \}/g) || []).length;
+  const notWild = (SCENE_SRC.match(/\{ notWild: true(?:, deferRefresh: true)?(?:, deferBookRead: !!boothKind)? \}/g) || []).length;
   assert.eq(notWild, 11, 'the eleven non-wild grants in app.js: craft, smelt, trader, stand, farmhand, two shop buys, a slot win, a potion transmuted in a campfire and its full-bag refund, and a book club prize');
   assert.truthy(/addToInv\('scarecrow', 1, false, \{ notWild: true \}\)/.test(INTERACT_SRC), 'a reclaimed scarecrow is not a find');
 });

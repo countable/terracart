@@ -116,7 +116,7 @@ class SceneShops {
   _presentStallOffer(sx, sy, opts) {
     // Single-modal guard — mirror shopInteract so rapid taps can't stack modals.
     if (document.getElementById('offer-modal')) return;
-    const { items, index = 0, title, kind = 'shop', kindLabel, art } = opts;
+    const { items, index = 0, title, kind = 'shop', kindLabel, art, boothKind } = opts;
     const id = items && items[index];
     if (!id) return;
     const item = ITEM_BY_ID[id];
@@ -161,15 +161,19 @@ class SceneShops {
       quantity: { min: 1, max: maxQty, initial: 1, format: fmt },
       onAccept: (q) => {
         const want = Math.max(1, q ?? 1);
-        const take = Math.min(want, room());
+        let take = Math.min(want, room());
         if (take <= 0) { this.flash(BAG_FULL_MSG, sx, sy); return; }
-        const pay = unitPrice * take;
+        let pay = unitPrice * take;
         if (money() < pay) { this.flash(`need ${pay}`, sx, sy); return; }
+        take = this.addToInv(id, take, false, { notWild: true, deferRefresh: true, deferBookRead: !!boothKind });
+        if (!(take > 0)) return;
+        pay = unitPrice * take;
         addMoney(this.save, -pay);
-        this.addToInv(id, take, false, { notWild: true, deferRefresh: true });
         if (id === 'book') ShopsMath.bookBought(this.save, take);
         this._finishInventoryChange();
         this.flashLoot(`${take}× ${itemName}\n−${pay}`, '#ffe066', 1, id);
+        if (boothKind) this._macroTransaction(boothKind, `You paid ${this.moneyHTML(pay)} and received ${itemName} ×${take}.`,
+          () => this._revealPendingBookReads());
       },
     });
   }

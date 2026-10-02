@@ -513,43 +513,49 @@
   }
 
   const KIND_DIALOG = {
-    inn:         { label: 'Inn',         modal: 'shop',     art: 'kind_inn' },
-    chapel:      { label: 'Chapel',      modal: 'treasure', art: 'zone_stones' },
-    apothecary:  { label: 'Apothecary',  modal: 'shop',     art: 'kind_shop' },
-    scriptorium: { label: 'Scriptorium', modal: 'shop',     art: 'book_read' },
-    guildhall:   { label: 'Guildhall',   modal: 'delivery', art: 'kind_quest' },
-    curio:       { label: 'Curio Hall',  modal: 'trade',    art: 'kind_relics' },
-    sundries:    { label: 'Sundries',    modal: 'shop',     art: 'kind_supplies' },
-    training:    { label: 'Training',    modal: 'shop',     art: 'tool_sword' },
-    scholar:     { label: 'Book Club',   modal: 'trade',    art: 'book_read' },
+    inn:         { label: 'Inn',         modal: 'shop',     art: 'booth_inn_intro' },
+    chapel:      { label: 'Chapel',      modal: 'treasure', art: 'booth_chapel_intro' },
+    apothecary:  { label: 'Apothecary',  modal: 'shop',     art: 'booth_apothecary_intro' },
+    scriptorium: { label: 'Scriptorium', modal: 'shop',     art: 'booth_scriptorium_intro' },
+    guildhall:   { label: 'Guildhall',   modal: 'delivery', art: 'booth_guildhall_intro' },
+    curio:       { label: 'Curio Hall',  modal: 'trade',    art: 'booth_curio_intro' },
+    sundries:    { label: 'Sundries',    modal: 'shop',     art: 'booth_sundries_intro' },
+    training:    { label: 'Training',    modal: 'shop',     art: 'booth_training_intro' },
+    scholar:     { label: 'Book Club',   modal: 'trade',    art: 'booth_scholar_intro' },
   };  // The word a stall's sign and dialog wear: its kind's label, except a
   // training hall, which names its discipline ("Archery Training").
   function stallLabel(kind, o) {
     if (kind === 'training' && o) return `${Combat.TRAINING_KINDS[trainingKindFor(o)].label} Training`;
     return KIND_DIALOG[kind]?.label || null;
   }
-  function stallArt(kind, o) {
-    if (kind === 'training' && o) {
-      const discipline = trainingKindFor(o);
-      if (discipline === 'ranged') return 'tool_shoot';
-      if (discipline === 'magic') return 'tool_staff';
-    }
-    return KIND_DIALOG[kind]?.art;
-  }
+  function stallArt(kind, o) { return KIND_DIALOG[kind]?.art; }
 
-  // The first-tap story (app.js _storySplashOnce, key `macro:<kind>`): what
-  // the place is, told once. No numbers — those are on the dialog and in the
-  // Book.
+  // One receipt painting per service. Callers provide the exact committed
+  // result; failed or cancelled transactions never show a receipt.
+  const KIND_TRANSACTION = {
+    inn:         { title: 'Rested',              art: 'booth_inn_used' },
+    chapel:      { title: 'A blessing received', art: 'booth_chapel_used' },
+    apothecary:  { title: 'Medicine bought',     art: 'booth_apothecary_used' },
+    scriptorium: { title: 'From the scriptorium', art: 'booth_scriptorium_used' },
+    guildhall:   { title: 'Bounty paid',         art: 'booth_guildhall_used' },
+    curio:       { title: 'A curio donated',     art: 'booth_curio_used' },
+    sundries:    { title: 'Supplies bought',     art: 'booth_sundries_used' },
+    training:    { title: 'Training complete',  art: 'booth_training_used' },
+    scholar:     { title: 'A tome earned',      art: 'booth_scholar_used' },
+  };
+
+  // One introduction per physical booth, followed by its live offer. State
+  // the input and promised effect here; exact prices come from the offer.
   const KIND_STORY = {
-    inn:         { title: 'An inn', body: "Warm air drifts from the hearth. You relax at the sight of a clean bed." },
-    chapel:      { title: 'A chapel', body: 'A candle burns by the chapel door. You stop to receive the keeper\'s quiet blessing.' },
-    apothecary:  { title: 'An apothecary', body: 'The room smells of herbs. You look over the small bottles lining the shelves.' },
-    scriptorium: { title: 'A scriptorium', body: 'Books lie open on the counter, and the room smells of fresh ink. You lean closer to read.' },
-    guildhall:   { title: 'A guildhall', body: "A bounty notice hangs beside the guildhall door. You stop to read it." },
-    curio:       { title: 'A curio hall', body: "The keeper shows you the empty shelves. There is room here for your finds." },
-    sundries:    { title: 'A sundries shop', body: 'Rope and torches fill the shelves. You look over the supplies for your next trip.' },
-    training:    { title: 'A training hall', body: 'The master watches as you practise. You focus on your next swing.' },
-    scholar:     { title: 'A book club', body: 'A scholar keeps a booth by the school wall. You join the book club, and she shows you the shelf of tomes you can read your way up.' },
+    inn: { title: 'An inn', body: 'Fresh blankets cover a bed beneath the green awning. Pay coins to restore all missing HP, once a day at this inn.' },
+    chapel: { title: 'A chapel', body: 'A small bell hangs beneath the blue canopy. Receive a free blessing gift here once a day; nothing is asked in return.' },
+    apothecary: { title: 'An apothecary', body: 'The keeper grows herbs among the old foundations. Pay coins for a potion or antidote from the shelf.' },
+    scriptorium: { title: 'A scriptorium', body: 'The scribe repairs pages salvaged after the Breaking. Pay coins for a Book to read, or a torch to carry.' },
+    guildhall: { title: 'A guildhall', body: 'The keeper posts work as neighbours return. Defeat the posted creatures to earn coins; this hall offers one bounty a day.' },
+    curio: { title: 'A curio hall', body: 'Recovered keepsakes fill the shelves beneath the crystal sign. Donate one of each missing curio; collection milestones bring back memories.' },
+    sundries: { title: 'A sundries shop', body: 'Mended sacks and bundled tools fill the counter. Pay coins for the supplies offered here.' },
+    training: { title: 'A training hall', body: 'Practice rings out beneath the crossed weapons. Pay coins for a permanent lesson when you have enough memories, or buy a temporary drill.' },
+    scholar: { title: 'A book club', body: `You join the book club beneath the scholar’s open-book sign. Every ${SCHOLAR_BOOKS_PER_PRIZE} Books collected earns a tome; found and bought Books count, and no books or coins are spent to claim it.` },
   };
 
   root.Macros = {
@@ -568,6 +574,6 @@
     TRAINING_LESSON_PRICE, TRAINING_DRILL_PRICE, TRAINING_MEMORIES_PER_LEVEL, trainingKindFor, lessonMemoriesAt, lessonMemories, foldLegacyTraining, stallLabel, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
     buyLesson, buyDrill, drillLeftMs,
     SCHOLAR_BOOKS_PER_PRIZE, scholarShelf, booksRead, scholarTaken, scholarNext, scholarClaim,
-    KIND_DIALOG, KIND_STORY, stallArt,
+    KIND_DIALOG, KIND_STORY, KIND_TRANSACTION, stallArt,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
