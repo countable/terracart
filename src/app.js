@@ -957,6 +957,16 @@ const WALK_HOME_HINT_IDLE_MS = 6500;
 // Runtime names derive from items.js's CONSUMABLE_SPEC, the one owner read by
 // gameplay, item copy and the Drink / Use button.
 const REACH_POTION_MS = CONSUMABLE_SPEC.reach_potion.durationMs;
+// The SHARED tome-button lock: reading any tome locks every tome's button
+// for an hour (food's eat lock is Energy's 10 s). Each tome's own magic
+// cooldown is CONSUMABLE_SPEC[id].cooldownMs, scaled to the spell's power.
+const TOME_COOLDOWN_MS = 60 * 60 * 1000;
+// A tome's spell is HALF its potion's: half the duration for timed effects,
+// half the damage or restore for instant ones. The potion stays the strong,
+// one-shot form; the tome is the weaker spell you keep.
+const TOME_EFFECT_MUL = 0.5;
+const TOME_THUNDER_DMG = Math.floor(THUNDER_DMG * TOME_EFFECT_MUL);
+const TOME_HEALING_ENERGY = Math.floor(VIGOR_POTION_ENERGY * TOME_EFFECT_MUL);
 const SPEED_POTION_MS = CONSUMABLE_SPEC.speed_potion.durationMs;
 const SHIELD_POTION_MS = CONSUMABLE_SPEC.shield_potion.durationMs;
 const DRAGON_POWDER_MS = CONSUMABLE_SPEC.dragon_powder.durationMs;
@@ -1959,7 +1969,7 @@ class MapScene extends Phaser.Scene {
     // opens under a crate and a trunk under a trunk. Baked from the same
     // sheets the renderer draws, including each trunk's tier colour.
     window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
-    for (let frame = 0; frame < CHEST_TIER_MAX; frame++) {
+    for (let frame = 0; frame < chestTierMaxFor(9); frame++) {
       window.WORLD_ICON_URLS['chest:' + frame] = bakeSheetFrame('chest', frame, 16, 16);
     }
     window.WORLD_ICON_URLS.chest = window.WORLD_ICON_URLS['chest:0'];
@@ -9229,13 +9239,8 @@ class MapScene extends Phaser.Scene {
   // modal. Returns true so callers can `return this._finishConsumable(...)`.
   // NOTE: eatSelected deliberately does NOT use this — it consumes mid-method
   // (before computing side-effects) and gives flash feedback + energy DOM.
-  // `opts.channel` — the ENCHANTER's channel (channelPotion): the effect and
-  // its timer were applied, but the flask is NOT drunk, so nothing is
-  // consumed and the modal says so. The one place a consumable is removed is
-  // here, so this is the one place a channel can skip it.
   _finishConsumable(title, body, opts = {}) {
-    if (opts.channel) body = `${body}\n\nThe flask stays full.`;
-    else consumeSelected(this.save);
+    consumeSelected(this.save);
     persistSave(this.save);
     this.buildInventoryDOM();
     this.showMessageModal({ title, body });
@@ -9388,40 +9393,68 @@ class MapScene extends Phaser.Scene {
   // the lit silhouette AND every tap-accept gate cover everything on screen.
   // Stored in `save` (not just in-memory) so the buff survives tile reloads
   // within the minute; the timestamp self-expires, so a stale save is harmless.
-  drinkReachPotion(opts = {}) {
+  drinkReachPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'reach_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.reachPotionUntil = Date.now() + REACH_POTION_MS;
     return this._finishConsumable(
-      `✨ You ${opts.channel ? 'channel' : 'drink'} the Potion of Reach`,
+      `✨ You drink the Potion of Reach`,
       'A shiver runs through your fingers. Even the far edge of the world feels close enough to touch.',
       opts,
     );
   }
 
   // ── The Tomes ─────────────────────────────────────────────────────────────
-  // Story books' rarer siblings: READ once a UTC day for the effect of the
-  // potion one tier below the tome, never consumed. The day gate shows its
-  // wait (shortDuration over msToNextUtcDay — a timed gate needs a visible
-  // wait); the ledger save.tomeDays is keyed by item id + utcDayKey, the
-  // same day the ledger keeps (app.js never reads the Delivery one).
+  // Story books' rarer siblings: READ for the effect of the potion one tier
+  // below the tome, never consumed. TWO cooldowns: the SHARED activation
+  // lock (TOME_COOLDOWN_MS, save.tomeReadyAt - food's eat-cooldown shape,
+  // but one hour and spanning every tome: reading any one locks the button
+  // for all), and each tome's OWN magic cooldown (CONSUMABLE_SPEC
+  // cooldownMs, save.tomeMagicCd[id]) scaled to the spell's power. HOME IS
+  // THE LIBRARY: inside Home's ring (isRestingAtHome - the one predicate
+  // behind every Home-ring effect) both are considered refreshed. A refused
+  // reading shows its wait (shortDuration - a timed gate needs a visible
+  // wait).
   _tomeReady(id) {
-    if ((this.save.tomeDays?.[id]) === utcDayKey(new Date())) {
+    const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
+    if (this.isRestingAtHome(px, py)) return true;
+    const now = Date.now();
+    const shared = (this.save.tomeReadyAt ?? 0) - now;
+    if (shared > 0) {
       const ps = this.playerScreen();
-      this.flash(`The tome rests — ${shortDuration(msToNextUtcDay())}`, ps.x, ps.y + this.playerBodyDy());
+      this.flash(`The tomes rest — ${shortDuration(shared)}`, ps.x, ps.y + this.playerBodyDy());
+      return false;
+    }
+    const own = (this.save.tomeMagicCd?.[id] ?? 0) - now;
+    if (own > 0) {
+      const ps = this.playerScreen();
+      this.flash(`This tome rests — ${shortDuration(own)}`, ps.x, ps.y + this.playerBodyDy());
       return false;
     }
     return true;
   }
+  // The button gate (CONSUMABLE_SPEC usable): no flash, just grey.
+  tomeUsable(id) {
+    const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
+    if (this.isRestingAtHome(px, py)) return true;
+    const now = Date.now();
+    return (this.save.tomeReadyAt ?? 0) <= now && (this.save.tomeMagicCd?.[id] ?? 0) <= now;
+  }
   _tomeSpent(id) {
-    (this.save.tomeDays ||= {})[id] = utcDayKey(new Date());
+    // THE ENCHANTER'S EDGE (wizard.js CLASSES): half-length cooldowns, both
+    // the shared lock and the tome's own magic - the calling's whole benefit
+    // since the potion channel retired with the tomes' arrival.
+    const mul = (typeof Wizard !== 'undefined' && Wizard.isClass(this.save, 'enchanter')) ? 0.5 : 1;
+    const now = Date.now();
+    this.save.tomeReadyAt = now + TOME_COOLDOWN_MS * mul;
+    (this.save.tomeMagicCd ||= {})[id] = now + (CONSUMABLE_SPEC[id]?.cooldownMs || 0) * mul;
     persistSave(this.save);
   }
   readTomeSight() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'tome_sight' || (sel.count ?? 0) <= 0) return false;
     if (!this._tomeReady('tome_sight')) return false;
-    this.save.reachPotionUntil = Date.now() + REACH_POTION_MS;
+    this.save.reachPotionUntil = Date.now() + REACH_POTION_MS * TOME_EFFECT_MUL;
     this._tomeSpent('tome_sight');
     this.flash('✨ The sight tome opens', this.viewCenterX, this.viewCenterY);
     return true;
@@ -9430,8 +9463,8 @@ class MapScene extends Phaser.Scene {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'tome_raven' || (sel.count ?? 0) <= 0) return false;
     if (!this._tomeReady('tome_raven')) return false;
-    this.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS;
-    if (this._spiritRaven) this._spiritRaven._followUntilT = performance.now() + SPIRIT_RAVEN_MS;
+    this.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS * TOME_EFFECT_MUL;
+    if (this._spiritRaven) this._spiritRaven._followUntilT = performance.now() + SPIRIT_RAVEN_MS * TOME_EFFECT_MUL;
     this._tickSpiritRaven();
     this._tomeSpent('tome_raven');
     this.flash('✨ A raven leaves the page', this.viewCenterX, this.viewCenterY);
@@ -9457,13 +9490,54 @@ class MapScene extends Phaser.Scene {
     const now = performance.now();
     let felled = 0;
     for (const c of targets) {
-      if (this._damageEnemy(c, THUNDER_DMG)) { felled++; continue; }
+      if (this._damageEnemy(c, TOME_THUNDER_DMG)) { felled++; continue; }
       if (!c.lair) monsterRout(c, now, this.cellM);
     }
     this._tomeSpent('tome_storm');
     this.flash('⚡ The storm tome speaks', this.viewCenterX, this.viewCenterY);
     return true;
   }
+  readTomeSpeed() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'tome_speed' || (sel.count ?? 0) <= 0) return false;
+    if (!this._tomeReady('tome_speed')) return false;
+    this.save.speedPotionUntil = Date.now() + SPEED_POTION_MS;
+    this._tomeSpent('tome_speed');
+    this.flash('✨ The speed tome opens', this.viewCenterX, this.viewCenterY);
+    return true;
+  }
+  readTomeShield() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'tome_shield' || (sel.count ?? 0) <= 0) return false;
+    if (!this._tomeReady('tome_shield')) return false;
+    this.save.shieldPotionUntil = Date.now() + SHIELD_POTION_MS;
+    this._tomeSpent('tome_shield');
+    this.flash('✨ The shield tome opens', this.viewCenterX, this.viewCenterY);
+    return true;
+  }
+  readTomeHealing() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'tome_healing' || (sel.count ?? 0) <= 0) return false;
+    if (!this._tomeReady('tome_healing')) return false;
+    const max = this.getMaxEnergy();
+    const restored = Math.min(TOME_HEALING_ENERGY, max - (this.save.energy ?? 0));
+    Energy.set(this.save, (this.save.energy ?? 0) + TOME_HEALING_ENERGY, max);
+    if (restored > 0) this._popEnergy(restored);
+    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    this._tomeSpent('tome_healing');
+    this.flash('✨ The healing tome opens', this.viewCenterX, this.viewCenterY);
+    return true;
+  }
+  readTomeBlight() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'tome_blight' || (sel.count ?? 0) <= 0) return false;
+    if (!this._tomeReady('tome_blight')) return false;
+    this.save.blightPotionUntil = Date.now() + BLIGHT_MS;
+    this._tomeSpent('tome_blight');
+    this.flash('✨ The blight tome opens', this.viewCenterX, this.viewCenterY);
+    return true;
+  }
+
 
   drinkVigorPotion() {
     const sel = getSelectedSlot(this.save);
@@ -9474,7 +9548,7 @@ class MapScene extends Phaser.Scene {
     if (restored > 0) this._popEnergy(restored);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     return this._finishConsumable(
-      '\u2728 You drink the Potion of Vigor',
+      '\u2728 You drink the Potion of Healing',
       restored > 0
         ? 'Warmth spreads through your arms. Your grip feels sure again.'
         : 'You were already brimming. The flask goes down anyway.',
@@ -9513,9 +9587,9 @@ class MapScene extends Phaser.Scene {
   drinkSpeedPotion(opts = {}) {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'speed_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.speedPotionUntil = Date.now() + SPEED_POTION_MS;
+    this.save.speedPotionUntil = Date.now() + SPEED_POTION_MS * TOME_EFFECT_MUL;
     return this._finishConsumable(
-      `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Speed`,
+      `\u2728 You drink the Potion of Speed`,
       'Warmth races down to your toes. The road slips beneath your feet.',
       opts,
     );
@@ -9524,9 +9598,9 @@ class MapScene extends Phaser.Scene {
   drinkShieldPotion(opts = {}) {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'shield_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.shieldPotionUntil = Date.now() + SHIELD_POTION_MS;
+    this.save.shieldPotionUntil = Date.now() + SHIELD_POTION_MS * TOME_EFFECT_MUL;
     return this._finishConsumable(
-      `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Shielding`,
+      `\u2728 You drink the Potion of Shielding`,
       'A cool shimmer settles over your skin, taking the sting from claw and fang.',
       opts,
     );
@@ -9547,7 +9621,7 @@ class MapScene extends Phaser.Scene {
     if (this._spiritRaven) this._spiritRaven._followUntilT = performance.now() + SPIRIT_RAVEN_MS;
     this._tickSpiritRaven();   // summoned now, not a frame later
     return this._finishConsumable(
-      `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of the Raven`,
+      `\u2728 You drink the Potion of the Raven`,
       'A raven of smoke and starlight shakes itself out of the flask. It settles beside you, watching the beasts with hungry eyes.',
       opts,
     );
@@ -9590,40 +9664,15 @@ class MapScene extends Phaser.Scene {
   drinkBlightPotion(opts = {}) {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'blight_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.blightPotionUntil = Date.now() + BLIGHT_MS;
+    this.save.blightPotionUntil = Date.now() + BLIGHT_MS * TOME_EFFECT_MUL;
     return this._finishConsumable(
-      `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Blight`,
+      `\u2728 You drink the Potion of Blight`,
       'A crimson haze seeps from your skin. Nearby beasts shudder in its wake.',
       opts,
     );
   }
 
-  // THE ENCHANTER'S CHANNEL (src/wizard.js CLASSES › enchanter). An
-  // enchanter holding a TIMED potion (the CONSUMABLE rows marked `channel` in
-  // syncConsumableButton) may pay Wizard.ENCHANTER_ENERGY_COST energy for its
-  // effect and timer without drinking it: the drink method runs with
-  // { channel: true } and _finishConsumable skips the removal. The price goes
-  // through spendEnergy — it is a job, so it holds the rest (CLAUDE.md
-  // "Working is not resting") — popped on the player's own cell, and a short
-  // bar refuses with the standard too-tired flash. `id` is the potion the
-  // dialog was opened for, re-checked against the live selection BEFORE the
-  // spend, so energy is never taken for a drink that then refuses.
-  channelPotion(id, method) {
-    if (typeof Wizard === 'undefined' || !Wizard.isClass(this.save, 'enchanter')) return false;
-    if (typeof this[method] !== 'function') return false;
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== id || (sel.count ?? 0) <= 0) return false;
-    const ps = this.playerScreen ? this.playerScreen() : null;
-    const sx = ps ? ps.x : this.viewCenterX;
-    const sy = ps ? ps.y + (this.playerBodyDy ? this.playerBodyDy() : 0) : this.viewCenterY;
-    let cell = null;
-    if (typeof playerReachCell === 'function' && this.startWorldM && this.originPx) {
-      const p = playerReachCell(this);
-      cell = { ix: p.cellIX, iy: p.cellIY };
-    }
-    if (!this.spendEnergy(Wizard.ENCHANTER_ENERGY_COST, sx, sy, cell)) return false;
-    return this[method]({ channel: true });
-  }
+
 
   // True while a Potion of Blight's minute runs. In the save like the other
   // potions (save.blightPotionUntil), so it survives a tile reload; the
@@ -10586,7 +10635,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // INN: rest to full for coin, once a UTC day per inn (Macros.innRest — the
-  // Potion of Vigor's coins per energy × INN_RATE). A purchase, not a passive
+  // Potion of Healing's coins per energy × INN_RATE). A purchase, not a passive
   // rest: it is not gated on `working`, and it is not Home's (HOME_R). Hard
   // mode's empty-tank lockout refuses it like food and the fire.
   _presentInn(sx, sy, o, dress) {
@@ -14351,19 +14400,6 @@ class MapScene extends Phaser.Scene {
           this.syncConsumableButton();
         },
       } : undefined;
-      // The Enchanter's CHANNEL is the same middle button on a timed potion
-      // (a `channel` row — none of them has a `secondary` of its own): the
-      // effect and its timer for energy, the flask kept. Greyed while the bar
-      // is short; channelPotion re-checks and spends through spendEnergy.
-      if (!secondary && entry.channel && typeof Wizard !== 'undefined'
-          && Wizard.isClass(this.save, 'enchanter')) {
-        const cost = Wizard.ENCHANTER_ENERGY_COST;
-        secondary = {
-          label: `Channel −${cost}⚡`,
-          disabled: (this.save.energy ?? 0) < cost,
-          onClick: () => { this.channelPotion(id, fn); this.syncConsumableButton(); },
-        };
-      }
       this.showOfferModal({
         kind: 'use',
         title: entry.title,

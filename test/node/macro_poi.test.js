@@ -217,10 +217,10 @@
       assert.truthy(Macros.APOTHECARY_POTIONS.includes(stock[0]), stock[0]);
       assert.eq(stock[1], 'antidote', 'the cure');
       seen.add(stock[0]);
-      for (const id of stock) assert.lte(tiers(id), id === 'vigor_potion' ? 4 : 2, `${id} stays in its remedy tier`);
+      for (const id of stock) assert.lte(tiers(id), id === 'revive_potion' ? 4 : 2, `${id} stays in its remedy tier`);
     }
     assert.eq(seen.size, Macros.APOTHECARY_POTIONS.length, 'every remedy turns up somewhere');
-    assert.eq(Macros.apothecaryStock(poi('dentist', { id: 7 }))[0], 'vigor_potion', 'a dentist is Vigor');
+    assert.eq(Macros.apothecaryStock(poi('dentist', { id: 7 }))[0], 'vigor_potion', 'a dentist is Healing');
     const o = poi('pharmacy', { id: 3 });
     assert.eq(Macros.apothecaryStock(o).join(), Macros.apothecaryStock({ ...o }).join(), 'the same for everyone');
     const save = { relics: {} };

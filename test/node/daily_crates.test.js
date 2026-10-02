@@ -21,10 +21,10 @@
 (function () {
   const pos = { x: 0, y: 0 };
   let seq = 0;
-  // A crowd of CHEST_DENSITY_T1_AT of its kind: T1, the crate, restocking
-  // daily. A trunk is a class the tile holds a few of.
-  const poi = (poiClass, over) => ({ kind: 'chest', id: `c_1_2_3_${++seq}`, poiClass, poiDensity: CHEST_DENSITY_T1_AT, ...pos, ...over });
-  const FEW = { poiDensity: 3 };
+  // A seeded T1 chest is the crate, restocking daily; a seeded higher tier
+  // is a trunk (the count ladder retired with the quota pyramid).
+  const poi = (poiClass, over) => ({ kind: 'chest', id: `c_1_2_3_${++seq}`, poiClass, tierSeed: 1, ...pos, ...over });
+  const FEW = { tierSeed: 3 };
   const noHome = (fn) => {
     const prev = HomeArea.worldM;
     HomeArea.worldM = null;
