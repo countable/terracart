@@ -139,6 +139,12 @@ test('launch safety: the STAY SAFE message is the loading screen, acknowledged b
   assert.truthy(/<button id="safety-dismiss">Go to my location<\/button>\s*$/.test(safety), 'the CTA closes the message');
   // The heading keeps the warning colour; emphasis belongs to key instructions.
   assert.truthy(/#safety \.warn-title \{[^}]*font: 900[^}]*#ff8c3b/.test(html), 'a bold orange heading');
+  // The warning sign is its own span, drawn well over the heading's size:
+  // left inline, the monospace fallback's ⚠ is a third of the lettering.
+  assert.truthy(/<span class="warn-sign" aria-hidden="true">⚠<\/span>STAY SAFE/.test(safety), 'the sign is its own span before the words');
+  const signPx = Number(/#safety \.warn-sign \{[^}]*font-size: (\d+)px/.exec(html)?.[1]);
+  const titlePx = Number(/#safety \.warn-title \{[^}]*font: 900 (\d+)px/.exec(html)?.[1]);
+  assert.truthy(signPx >= titlePx * 1.6, `the sign (${signPx}px) is well over the heading (${titlePx}px)`);
   // And no second opening card once the map is up.
   assert.falsy(/_showSafetyCard\('launch'\)/.test(SCENE_SRC), 'no launch card after the map loads');
   // The loading view holds for the answer, however ready the game is.

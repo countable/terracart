@@ -867,7 +867,13 @@
     #safety .warn-title {
       font: 900 22px ui-monospace, monospace; color: #ff8c3b;
       letter-spacing: .06em; margin-bottom: 10px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
     }
+    /* The ⚠ glyph: the monospace fallback draws it at the width of one
+       letter, a third the size of the lettering beside it. Drawn as its own
+       span at close to twice the heading's size (and tested that way) so it
+       reads as the warning sign it is, first, before the words. */
+    #safety .warn-sign { font-size: 40px; line-height: 1; }
     #safety .warn-line {
       font: 400 16px/1.45 system-ui, sans-serif; color: #fff4e0;
       text-align: left; margin: 6px 0;
@@ -1205,7 +1211,7 @@
     <div class="box">
       <div class="opening-copy">
         <div id="safety" class="game-modal" role="alertdialog">
-          <div class="warn-title">⚠ STAY SAFE</div>
+          <div class="warn-title"><span class="warn-sign" aria-hidden="true">⚠</span>STAY SAFE</div>
           <div class="warn-line"><strong>Look up.</strong> Watch where you walk, not the screen.</div>
           <div class="warn-line"><strong>Never enter a street</strong> to reach an item. Use the joystick to move your farmer instead.</div>
           <div class="warn-line"><strong>Do not play while driving or cycling.</strong></div>
