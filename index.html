@@ -928,10 +928,24 @@
       padding: 12px 22px; border-radius: 8px;
       font: 700 15px ui-monospace, monospace; cursor: pointer;
     }
+    #story.nightmare { background: #000; }
+    #story.nightmare .box { background: #000; border-color: transparent; }
+    #story.nightmare .art {
+      display: block; min-height: 0; aspect-ratio: 3 / 2; overflow: hidden;
+      border-radius: 6px;
+    }
+    #story.nightmare .art img {
+      display: block; transform-origin: top left;
+      animation: nightmare-pan 8s ease-in-out both;
+    }
+    @keyframes nightmare-pan {
+      from { transform: translateY(0) scale(1); }
+      to { transform: translateY(-6%) scale(1.6); }
+    }
     #story button.nightmare-wake { animation: wake-reveal var(--wake-fade-ms) ease-in both; }
     @keyframes wake-reveal { from { opacity: 0; } to { opacity: 1; } }
     @media (prefers-reduced-motion: reduce) {
-      #story button.nightmare-wake { animation: none; }
+      #story button.nightmare-wake, #story.nightmare .art img { animation: none; }
     }
     /* How-to-play card. Shown once when a fresh save first reaches the world
        (after the boot reload, so the player can see what it describes behind
@@ -2376,6 +2390,7 @@
       const render = () => {
         clearTimeout(wakeTimer);
         const s = STORY_SLIDES[i];
+        overlay.classList.toggle('nightmare', !!s.nightmare);
         artEl.innerHTML = s.art;
         textEl.textContent = s.text;
         textEl.hidden = !s.text;

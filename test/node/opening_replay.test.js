@@ -114,6 +114,7 @@ test('opening: wake up fades slowly, ignores early clicks and resets on the norm
     const btn = nodes['story-next'], text = nodes['story-text'];
     const click = () => btn.handlers.click({ stopPropagation() {} });
     assert.eq(btn.textContent, 'wake up');
+    assert.truthy(nodes.story.classes.has('nightmare'), 'nightmare gets the opaque backdrop and camera treatment');
     assert.truthy(text.hidden);
     assert.eq(btn.disabled, !reduced);
     if (!reduced) {
@@ -125,6 +126,7 @@ test('opening: wake up fades slowly, ignores early clicks and resets on the norm
     }
     click();
     assert.eq(btn.textContent, 'Next');
+    assert.falsy(nodes.story.classes.has('nightmare'), 'normal story panes restore their original framing');
     assert.falsy(btn.classes.has('nightmare-wake'));
     assert.falsy(text.hidden);
     assert.falsy(btn.disabled);
