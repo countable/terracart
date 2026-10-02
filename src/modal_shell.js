@@ -181,6 +181,7 @@ class SceneModals {
     const vLeft = this.viewLeft ?? 0;
     const vTop = this.viewTop ?? 0;
     const grow = story ? STORY_MODAL_GROW_PX : 0;
+    const frameBorder = borderColor === UI_CONTROL_DIM ? UI_DIALOG_BORDER : borderColor;
     const box = document.createElement('div');
     box.style.cssText =
       // Seated on the map square, in #game's own (game px) space; the wrap
@@ -189,7 +190,7 @@ class SceneModals {
       `top:calc(${vTop - Math.round(grow / 4)}px - var(--view-top, 0px));height:${vSize + grow}px;` +
       `box-sizing:border-box;display:flex;flex-direction:column;` +
       `background:#1a1612;color:#fff;` +
-      `border:2px solid ${borderColor};border-radius:10px;padding:14px 16px;` +
+      `border:2px solid ${frameBorder};border-radius:10px;padding:14px 16px;` +
       `font:13px ui-monospace,monospace;` +
       // Content that outgrows the square scrolls INSIDE it — the box never
       // grows to fit. (Stats & Relics is the long one.)

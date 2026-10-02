@@ -523,6 +523,7 @@ const UI_LAMP_GLOW     = '#9a8cff';   // street lamp — its glass, its pool and
 // an accent on a dark panel.
 const UI_LAMP_GOLD     = '#d9a441';   // street lamp — its ironwork
 const UI_CONTROL       = UI_GOLD;     // player controls: buttons, pads, HUD accents
+const UI_DIALOG_BORDER = '#88764a'; // muted brass around dialog frames
 const UI_CONTROL_DIM   = UI_GOLD_DARK;// control borders / rules / inactive controls
 
 // Keep a CENTRED text object inside the canvas. A label placed at its raw

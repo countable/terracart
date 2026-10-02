@@ -15,6 +15,7 @@ const ART_THUMBS = {
   fire_first: 'data:image/webp;base64,UklGRrQAAABXRUJQVlA4IKgAAABQBQCdASoWABwAPp1Cnkolo6MhqAqosBOJaACsM2bUDgAbYDn/wDcHTbWSuZrrsfRRcEAA/tya5EnOG+BQ7kHQdQoohU/CS97yR3Yk6qy8v/gpk1khSJiSzyFf1I4VR8KWfWXkd8CPI5pAr2Wqx1v8Vfz1Z85d2hE5Pph5qqSFZpxP3RuPCjDV+U7LSRZZgVpSb2V4Cu/XqWyyyCgy+onn1GrL2tEKAAA=',
   forge_done: 'data:image/webp;base64,UklGRgQBAABXRUJQVlA4IPgAAADwBQCdASoWABwAPp1GnUslo6KhqAgAsBOJagCdMuN5mN9zoC/4tkowrlPBJEpM4T3SIQeCpn5VAAD+8zOmPMli1ywbTr5IW0TaiVSd62cJpDnBKMPNEN/RWpsxT/NV5gPngIwhfBOHtyCEXMBMOeMUFqWL1yNNoIZSJo5x2iusP6+dV6BYZU5hh94frdUxtMD5rVcRIXrPrOndr2ytKfvnGVYygxrTdKf90RDBzQJitge0VDkD3jav+HybIrPRH2CTGVucBsTtfxNgwCa+sityZzIjkadd184zZ2mW0VROIp0kBkcxz0Yszd4ONb3xZYseM/WDz7MAAA==',
   fort_unseal: 'data:image/webp;base64,UklGRuYAAABXRUJQVlA4INoAAABwBQCdASoWABwAPp1CnUolo6KhqAqosBOJZACxG6IkDl4wDzqWbJR9o2P5rt7LF2xDHCVgAPa2X40OAeCMlxMSJn80uIa2sRDB7O8Kq2hVchM/PUDRvY8xfjXJeAWjaILAOhBrQregzYfDC+RJoJl/5ci+JN/JQM5kwCkHbH9f1pm9i/fzT3uXJsNpjEBZ9ilzV1A8y/Vw6uu4n1eprTMtC0AbBumV2rq9ybxxLYpP0wamc7QZaJ36rjmCbta+FQ4Wnhdt985Vf8qXbhVq3xgbsy/qtqN2vgAAAA==',
+  health_low: 'data:image/webp;base64,UklGRsAAAABXRUJQVlA4ILQAAABQBQCdASoWABwAPp1Am0mlo6KmsBgIANATiWQAnTMceBnQiGFkjbPR3y+BphziXfah0bAA/upLDtt/NoSzcvyszZfyVHp+kTmW7lmB1EfO0GJWNTwKYSBaK4kcZ+hqaFFg97v+LEGvj63nrLsPAzHi+Zxwk0sUIRONQ438TAdNRhQXzLn0IHfylN2b2ig/cXwlSwSv/U4+xZzTvb1qn0NK6AceRXFFWBkx6Jqaq42GoQAAAAA=',
   home_sell: 'data:image/webp;base64,UklGRsgAAABXRUJQVlA4ILwAAAAwBQCdASoWABwAPp1EnEolo6KhqAqosBOJZgCdMyX5n7Myv8A+kKv2zF/Y3Imwk78H4AD+0PcNMtfA2peed3ILo/aLFscswIi/FG67KkcAO5W7P7tMSjXMJYTnsqXkYs/PmMssPxveBoci6/w/wFqSR45b1Z4zVUUI4CwqnvFGsHWgeyq6oav8s8tFZmBfNwRjQgoDbZLbvdtWXr7FZqECvijjVoOHZyvX8mHXHPN/CLzGVKHV5Kw3/pAAAA==',
   kind_build: 'data:image/webp;base64,UklGRrgAAABXRUJQVlA4IKwAAABwBQCdASoWABwAPp0+m0mloyIhMBgIALATiWYAnTMOQbCAASjl59Qp2c2IGnE0wIHnfVYaAP4FQFlAqVPha2/SFG8aT+Rhg27SmWP5gGPDCUNVpw7n181K/+kC0ukSzGY4wlKqSA3+RoE2L7KFI1OcYZL9dde+eVdkUz7hOD/5moV8PkGaft6NatopOSF/MVB/bxH1dysSy1o+QzAvhwI1Njqeb+A3CpDQZAAA',
   kind_craft: 'data:image/webp;base64,UklGRs4AAABXRUJQVlA4IMIAAAAwBQCdASoWABwAPp1EnEolo6KhqAqosBOJQBOmavQKfwDo/7H/AODeEyCZoTAKi4WEAAD+9ForqIK91vKvc1dmir+tpRKNavNc8cJySr83nuPNZbGWs7woScC78gUpU/C8PJptTr8undIjaW5rjg9IwjkUyV5PtFe+V61d/ZXxFgPJqf9BS8mcyeYkV9+lyA2skqyaKeYydJVN3BBYc6cGlODnsI/wwCdzojOYqHjPs5QKtVWm7Pp/AgGFtvnwCE8AAA==',
@@ -121,6 +122,7 @@ const ART_TONES = {
   fire_first: '#80441a',
   forge_done: '#844f29',
   fort_unseal: '#965321',
+  health_low: '#87490f',
   home_sell: '#8e4c1c',
   kind_build: '#a96223',
   kind_craft: '#6d3f23',
@@ -276,6 +278,11 @@ const ART_CUTS = {
     'data:image/webp;base64,UklGRkQAAABXRUJQVlA4IDgAAADwAQCdASoDAAQAAkA4JYgCdEf/geiAVrwA/vRf6jh49ibh5/Tx3+DjvqwxO+sbsiTuaP8An0QAAA==',
     'data:image/webp;base64,UklGRkYAAABXRUJQVlA4IDoAAADwAQCdASoGAAgAAkA4JZACdGuAAoSzYAAA/trVKq73sHDNA6LtPPKuwLh76Pw/M7QO/SZ3qeT54AAA',
     'data:image/webp;base64,UklGRl4AAABXRUJQVlA4IFIAAADwAQCdASoLAA4AAkA4JbACdAELQdizpAAA/knjYzNeqDx78qE77Dv4LMF3h3eWzZt4CBK9LxesdQn3+jf+/WbN+ygM5JO0z/wR/h/R/q56MQAA',
+  ],
+  health_low: [
+    'data:image/webp;base64,UklGRkYAAABXRUJQVlA4IDoAAAAwAgCdASoDAAQAAkA4JYgCdGuAt/8D0SzLuAD++pP9ZgEg0ey+fNua2ftuaiNfjZLVerCANtboAAAA',
+    'data:image/webp;base64,UklGRk4AAABXRUJQVlA4IEIAAADwAQCdASoGAAgAAkA4JZgCdGuAAodP6QAA/vX5mj7g3yVrk5DFyISYDvF2k8KU11P6QB03rtXZ1T+K+fVlDqjQAAA=',
+    'data:image/webp;base64,UklGRmAAAABXRUJQVlA4IFQAAAAQAgCdASoLAA4AAkA4JbACdAEYGdGtCG3QAP71kYpKSLJ1gf+OuA17etUsxa0gJyw52N2UQ8XDo7dhYwyfpr+2Zu5/lH1M622H9IDTvyddkftFQAA=',
   ],
   home_sell: [
     'data:image/webp;base64,UklGRkYAAABXRUJQVlA4IDoAAAAQAgCdASoDAAQAAkA4JYgCdEf/geiWnUgAAP724+UKEVt6Z9nk3JeZ3NKrkAvG94GvsWrvzwdAAAAA',
