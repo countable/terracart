@@ -1,10 +1,10 @@
 // THE TOMES and the VISTA RULE.
 //
-// Three special books (Books.png spare frames) replace the story Book in any
+// Special books (Books.png spare frames) replace the story Book in any
 // chest whose tier meets their own: the books group admits by baseTier
 // (ChestThemes.eligible) and pickItem takes the TOP tier present, so a T3+
 // book chest hands a tome and never the plain Book. Reading one channels the
-// potion ONE TIER BELOW the tome, once a UTC day, and consumes nothing.
+// original potions or a wall of flame, once a UTC day, and consumes nothing.
 //
 // The vista rule (same change-set): a grail chest holds treasure only —
 // equipment, relics or magic items; never tools, produce or field
@@ -24,12 +24,12 @@
     };
   }
 
-  test('tomes: three registered books with icons, tiers and prices', () => {
-    for (const [id, tier, price] of [['tome_sight', 3, 90], ['tome_raven', 4, 170], ['tome_storm', 5, 300]]) {
+  test('tomes: registered books have icons, tiers and prices', () => {
+    for (const [id, tier, price] of [['tome_sight', 3, 90], ['tome_raven', 4, 170], ['tome_storm', 5, 300], ['tome_firewall', 4, 170]]) {
       const it = ITEM_BY_ID[id];
       assert.truthy(it, `${id} registered`);
       assert.eq(it.kind, 'supply', `${id}: book family, out of the magic pools`);
-      assert.eq(BASE_TIER[id], tier, `${id}: one tier above its potion`);
+      assert.eq(BASE_TIER[id], tier, `${id}: tier`);
       assert.eq(PRICES[id], price, `${id}: price`);
       assert.truthy(MINERAL_ICON_SHEET[id] && MINERAL_ICON_SHEET[id].sheet === 'icon_book', `${id}: a Books.png frame`);
       assert.truthy(ITEM_EFFECTS[id], `${id}: a description`);
@@ -44,7 +44,7 @@
     const rng = seeded(77);
     const seen = new Set();
     for (let i = 0; i < 300; i++) seen.add(ChestThemes.pickItem(ChestThemes.resolve('books', 4, { theme: 'civic', depth: 0 }), 4, rng));
-    assert.eq([...seen].join('|'), 'tome_raven', 'T4 rolls only the T4 tome');
+    assert.eq([...seen].sort().join('|'), 'tome_firewall|tome_raven', 'T4 rolls both T4 tomes');
     seen.clear();
     for (let i = 0; i < 300; i++) seen.add(ChestThemes.pickItem(ChestThemes.resolve('books', 5, { theme: 'civic', depth: 0 }), 5, rng));
     assert.eq([...seen].join('|'), 'tome_storm', 'T5 rolls only the T5 tome');
@@ -52,6 +52,7 @@
     for (let i = 0; i < 300; i++) seen.add(ChestThemes.pickItem(ChestThemes.resolve('books', 1, { theme: 'school', depth: 0 }), 1, rng));
     assert.eq([...seen].join('|'), 'book', 'a school T1 chest still hands the story Book');
     assert.eq(ChestThemes.cap('tome_storm'), 1, 'a tome is one per chest');
+    assert.eq(ChestThemes.cap('tome_firewall'), 1, 'a wall of fire tome is one per chest');
   });
 
   test('tomes: read once a UTC day, channel the potion below, consume nothing', () => {

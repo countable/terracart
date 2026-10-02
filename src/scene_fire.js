@@ -125,6 +125,85 @@ class SceneFire {
     }
   }
 
+  _fireExposureAtWorld(x, y) {
+    if (this.save.groundFire && GroundFire.active(this._groundFireAtWorld(x, y), Date.now())) return 'fire';
+    if (this._nearAny('fires', x, y, FIRE_TOUCH_CELLS)) return 'fire';
+    if ((this.depth === 0 || this.depth === WorldGen.LAVA_DEPTH) && this.cellAt) {
+      const cell = this.cellAt(x, y);
+      if (cell.loaded && cell.type === WorldGen.T.CAVE_LAVA) return 'lava';
+    }
+    return null;
+  }
+
+  _playerFireExposure() {
+    if (!this.startWorldM || Combat.playerDowned(this.save.energy)) return false;
+    return !!this._fireExposureAtWorld(this.startWorldM.x + this.playerM.x,
+      this.startWorldM.y + this.playerM.y);
+  }
+
+  // Every nearby body takes fire exposure before its movement/AI branch,
+  // including neighbours, caught-in-progress animals and frozen creatures.
+  _tickUnitFire(c, now) {
+    if (!Combat.canBurn(c) || c._spent || this.save.caught?.includes(c.id) || c._fireTickT === now) return false;
+    c._fireTickT = now;
+    const exposure = this._fireExposureAtWorld(c.x, c.y);
+    if (exposure) Combat.ignite(c, now, exposure);
+    const source = c._burnBy === 'player' ? 'player' : 'burn';
+    const damage = Combat.burnTick(c, now, !!exposure);
+    return damage > 0 && this._damageBurningUnit(c, damage, source, now);
+  }
+
+  _damageBurningUnit(c, damage, source, now) {
+    // NPCs use their existing wounded/resting state, rather than a health bar.
+    if (c.kind === 'npc') { NPC.hit(this, c); return false; }
+    const pet = typeof c.id === 'string' && c.id.startsWith('released_');
+    const summoned = SpriteLayout.isSummoned(c.kind);
+    if (!pet && !summoned) {
+      const dead = this._damageEnemy(c, damage, source, { bypassArmor: true });
+      if (dead && this._workProgress?.flee === c) this.cancelWorkProgress();
+      return dead;
+    }
+    const dealt = Combat.damageDealt(c, damage, { bypassArmor: true });
+    if (dealt > 0) this._popDamageNumber(c, dealt);
+    c._lastDamagedT = Date.now();
+    if (Combat.hp(c) > 0) return false;
+    c._chaseTarget = null;
+    if (summoned) {
+      c._spent = true; // Companions owns removal and recovery of summoned allies.
+      return true;
+    }
+    c._hp = 1;
+    c._retreatUntilT = now + Companions.RECOVERY_MS;
+    return false;
+  }
+
+  readTomeFirewall() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'tome_firewall' || !(sel.count > 0) || Combat.playerDowned(this.save.energy)) return false;
+    if (!this._tomeReady('tome_firewall')) return false;
+    const facing = this.facing;
+    if (!facing || !Number.isFinite(facing.x) || !Number.isFinite(facing.y) || !Math.hypot(facing.x, facing.y)) return false;
+    // The compass is continuous; snap its heading to the eight cell directions.
+    const angle = Math.round(Math.atan2(facing.y, facing.x) / (Math.PI / 4)) * Math.PI / 4;
+    const dx = Math.round(Math.cos(angle)), dy = Math.round(Math.sin(angle));
+    const player = worldMetersToAbsCell(this, this.startWorldM.x + this.playerM.x,
+      this.startWorldM.y + this.playerM.y);
+    const radius = (CONSUMABLE_SPEC.tome_firewall.lengthCells - 1) / 2;
+    const now = Date.now();
+    let lit = 0;
+    for (let offset = -radius; offset <= radius; offset++) {
+      const cell = absCellOffset(this, player.cellIX, player.cellIY, dx - dy * offset, dy + dx * offset);
+      if (this._igniteGroundCell(cell, now)) lit++;
+    }
+    if (!lit) {
+      this.flash('No fresh ground — tome kept', this.viewCenterX, this.viewCenterY);
+      return false;
+    }
+    this._tomeSpent('tome_firewall');
+    this.flash('A wall of fire rises', this.viewCenterX, this.viewCenterY);
+    return true;
+  }
+
   useExplosiveFlask() {
     const sel = getSelectedSlot(this.save);
     if (sel?.id !== 'explosive_flask' || !(sel.count > 0) || Combat.playerDowned(this.save.energy)) return false;

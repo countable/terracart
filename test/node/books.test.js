@@ -12,7 +12,7 @@ function bookShare(contextKey, tier, n = 4000) {
   let books = 0;
   for (let i = 0; i < n; i++) {
     const r = pickReward(contextKey, BOOK_SAVE(), rng, { tier });
-    if (r && r.kind === 'item' && ['book', 'tome_sight', 'tome_raven', 'tome_storm'].includes(r.id)) books++;
+    if (r && r.kind === 'item' && ChestThemes.groups.books.ids.includes(r.id)) books++;
   }
   return books / n;
 }

@@ -89,7 +89,7 @@ test('lava: an enemy standing in it burns at the same rate, and the kill is the 
 // to the infernal region, so ordinary foes crossing that region still burn.
 test('lava: demons resist lava while neighbouring mortal enemies still burn', () => {
   const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune');
-  const end = SCENE_SRC.indexOf('      // Slime energy steal', start);
+  const end = SCENE_SRC.indexOf('      if (enemyFireEscapeTick', start);
   const tick = new Function('c', 'isTame', 'now', SCENE_SRC.slice(start, end));
   const hurt = [];
   const scene = { depth: WorldGen.LAVA_DEPTH, cellAt: () => ({ loaded: true, type: WorldGen.T.CAVE_LAVA }),
@@ -126,7 +126,7 @@ test('lava: surface vents burn fractional player time and stop on safe ground', 
 
 test('lava: surface vents respect enemy immunity, pets and the shared burn cooldown', () => {
   const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune');
-  const end = SCENE_SRC.indexOf('      // Slime energy steal', start);
+  const end = SCENE_SRC.indexOf('      if (enemyFireEscapeTick', start);
   const tick = new Function('c', 'isTame', 'now', SCENE_SRC.slice(start, end));
   const hurt = [], scene = {depth: 0,
     cellAt: () => ({loaded: true, type: WorldGen.T.CAVE_LAVA}),

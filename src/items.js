@@ -391,6 +391,7 @@ const MINERAL_ICON_SHEET = {
   tome_sight: { sheet: 'icon_book',   frame: 2 },
   tome_raven: { sheet: 'icon_book',   frame: 8 },
   tome_storm: { sheet: 'icon_book',   frame: 13 },
+  tome_firewall: { sheet: 'icon_book', frame: 5 },
   // Books.png ends with five scrolls on row 3 (15 columns).
   blank_scroll:    { sheet: 'icon_book', frame: 45 },
   fireball_scroll: { sheet: 'icon_book', frame: 46 },
@@ -619,7 +620,7 @@ const BASE_TIER = {
   stealth_ring: 2, invisibility_ring: 4, regen_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
-  tome_sight: 3, tome_raven: 4, tome_storm: 5,
+  tome_sight: 3, tome_raven: 4, tome_storm: 5, tome_firewall: 4,
   blank_scroll: 2, fireball_scroll: 3, explosive_flask: 3, fear_scroll: 3, treasure_map: 4,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
@@ -760,15 +761,16 @@ const ITEMS = [
   // 'chest:school'). This is the one item whose SCARCITY is a documentation
   // bug rather than a balance choice.
   { id: 'book',  name: 'Book',  kind: 'supply', dropWeight: 3 },
-  // ── The three TOMES — the story Book's rarer siblings. A tome replaces the
+  // ── The TOMES — the story Book's rarer siblings. A tome replaces the
   // plain Book in any chest whose tier meets its own (chest_themes books
   // group: eligible() admits by baseTier, pickItem() takes the top tier
   // present), so a T3+ book chest hands a tome, never the story Book. Read
-  // once a UTC day for the effect of the potion ONE TIER BELOW the tome
-  // (app.js readTome*); never consumed, never sold - chests only.
+  // once a UTC day; the original three channel the potion one tier below,
+  // and the fire tome raises a barrier. Never consumed or sold: chests only.
   { id: 'tome_sight', name: 'Tome of Distant Sight', kind: 'supply', dropWeight: 1 },
   { id: 'tome_raven', name: 'Tome of the Raven',     kind: 'supply', dropWeight: 1 },
   { id: 'tome_storm', name: 'Tome of the Storm',     kind: 'supply', dropWeight: 1 },
+  { id: 'tome_firewall', name: 'Wall of Fire Tome',  kind: 'supply', dropWeight: 1 },
   { id: 'blank_scroll', name: 'Blank Scroll', kind: 'supply' },
   { id: 'fireball_scroll', name: 'Fireball Scroll', kind: 'magic', scroll: true },
   { id: 'explosive_flask', name: 'Explosive Flask', kind: 'magic' },
@@ -1096,6 +1098,9 @@ const CONSUMABLE_SPEC = {
     get: 'A raven of smoke and starlight waits between the lines.' },
   tome_storm: { verb: 'Read', method: 'readTomeStorm', title: 'Read the Tome of the Storm?',
     get: 'Storm writings. The sky leans in to listen.' },
+  tome_firewall: { lengthCells: 5,
+    verb: 'Read', method: 'readTomeFirewall', title: 'Read the Wall of Fire Tome?',
+    get: 'A wall of flame rises across the ground ahead.' },
   honey: {
     radiusM: 30,
     verb: 'Use', method: 'useHoney', title: 'Set out the syrup?',
@@ -1284,6 +1289,7 @@ const PRICES = {
   tome_sight: 90,   // T3 — a T2 reach potion's sight, once a day, forever
   tome_raven: 170,  // T4 — a T3 raven's wings, once a day, forever
   tome_storm: 300,  // T5 — a T4 thunderclap, once a day, forever
+  tome_firewall: 170, // T4 — a wall of ground fire, once a day, forever
   blank_scroll: 200,
   fireball_scroll: 120,
   explosive_flask: 100,
@@ -1493,6 +1499,7 @@ const ITEM_EFFECTS = {
   tome_sight: 'Page by page, the horizon walks closer.',
   tome_raven: 'Somewhere in the ink, wings shift.',
   tome_storm: 'Thunder is only a sentence away.',
+  tome_firewall: CONSUMABLE_SPEC.tome_firewall.get,
   blank_scroll: 'At the trailer, remembered scrolls can be written upon this empty page.',
   fireball_scroll: CONSUMABLE_SPEC.fireball_scroll.get,
   explosive_flask: CONSUMABLE_SPEC.explosive_flask.get,

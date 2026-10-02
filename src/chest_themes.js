@@ -48,7 +48,7 @@
     // baseTier check for the whole group). The TOMES sit at T3/4/5, and
     // pickItem takes the top tier present, so they replace the Book exactly
     // at and above its own tier.
-    books: { ids: ['book', 'tome_sight', 'tome_raven', 'tome_storm'], fallback: 'torch' },
+    books: { ids: ['book', 'tome_sight', 'tome_raven', 'tome_storm', 'tome_firewall'], fallback: 'torch' },
     honey: { ids: ['honey'], fallback: 'restorative' },
     torch: { ids: ['torch'] },
     rope: { ids: ['rope'], fallback: 'torch' },
@@ -213,7 +213,7 @@
     const item = ITEM_BY_ID[id];
     if (item.kind === 'unique_relic') return 1;
     if (['elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap',
-         'tome_sight', 'tome_raven', 'tome_storm'].includes(id)) return 1;
+         'tome_sight', 'tome_raven', 'tome_storm', 'tome_firewall'].includes(id)) return 1;
     if (['animal', 'sapling'].includes(item.kind) || ['sapphire', 'ruby', 'emerald', 'diamond'].includes(id)) return 1;
     if (item.kind === 'magic') return item.uniqueJewelry ? 1 : 6;
     if (item.kind === 'seed') return magicalFlowers.includes(item.grows) ? 1 : 9;

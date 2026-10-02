@@ -1182,8 +1182,8 @@ const HOUSE_RESTORED_MUTTERS = ['Eek!', 'Why hello there.', 'Thanks for fixing m
   'Welcome back!', 'Can I offer some tea?'];
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // Standing IN the hearth, not by it: within this of a campfire's point sets
-// a body — the player's or a foe's — BURNING (Conditions.DEFINITIONS.burning;
-// _tickFireTouch here, the foe's block in scene_creatures.js). Under a cell,
+// any body BURNING (Conditions.DEFINITIONS.burning;
+// _tickFireTouch here and SceneFire._tickUnitFire for other units). Under a cell,
 // so the warmth ring (FIRE_REST_R) stays safe ground.
 const FIRE_TOUCH_CELLS = 0.6;
 // HOME IS A CAMPFIRE YOU OWN, and this is its ONE radius — the light it
@@ -4930,7 +4930,9 @@ class MapScene extends Phaser.Scene {
     const elapsed = !document.hidden && this._conditionLastT != null ? now - this._conditionLastT : 0;
     this._conditionLastT = document.hidden ? null : now;
     const before = this.save.energy ?? 0;
-    const result = Conditions.tick(this.save, elapsed);
+    const burningExposure = this._playerFireExposure?.() || false;
+    if (burningExposure) this._ignitePlayer();
+    const result = Conditions.tick(this.save, elapsed, { burningExposure });
     if (result.lost > 0) {
       this._flashPlayerHit(result.lost);
       this._popEnergy(-result.lost);
@@ -5039,10 +5041,10 @@ class MapScene extends Phaser.Scene {
   // Standing IN a campfire (FIRE_TOUCH_CELLS of one on this depth — warmth is
   // FIRE_REST_R, the touch is the hearth itself) or in lava (_tickLava) sets
   // the player BURNING: the `burning` row of Conditions.DEFINITIONS, on the
-  // ticker poison runs on — 1 energy a second for 5 s, and it goes out on its
-  // own, no antidote. Refreshed at most once a tick-interval while the
-  // contact holds, so a stand in the hearth is one persisted save a second,
-  // not one a frame. Never off an empty bar (Combat.playerDowned).
+  // ticker poison runs on. Conditions owns exposure accumulation and scaled
+  // damage; this hook starts the status and its feedback. Contact is reported
+  // at most once a tick-interval, preserving the accumulated duration and
+  // avoiding a save every frame. Never off an empty bar (Combat.playerDowned).
   _ignitePlayer() {
     const now = performance.now();
     if (now < (this._igniteNextT || 0) || Combat.playerDowned(this.save.energy)) return false;

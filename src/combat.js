@@ -663,41 +663,36 @@
     return clamp01(hp(c) / max);
   }
 
-  // ── A foe on fire ─────────────────────────────────────────────────────────
-  // What lights it: a lit Torch's melee blow (app.js, the combat wheel —
-  // `by` 'player', so the burn's kill is the player's), a campfire it brushes
-  // or lava it stands in (scene_creatures.js — 'fire' / 'lava', the ground's
-  // kill). The NUMBERS are the player's own `burning` row of
-  // Conditions.DEFINITIONS, read live: 1 HP a second for 5 s, then out on its
-  // own; a fresh contact restarts the 5 s without moving the next tick, the
-  // way Conditions.apply refreshes the player. In-memory on the creature like
-  // `_hp`. A lava-immune kind (the demons) never catches — ONE flag for fire
-  // and lava both. Clocks are performance.now(), the wander loop's.
+  // Units and the player share the same burn clock and exposure scaling.
+  // Unit clocks are performance.now(); state remains local like `_hp`.
   function burnDef() { return Conditions.DEFINITIONS.burning; }
   function canBurn(c) { return !!c && !monster(c.kind)?.lavaImmune; }
-  function burning(c, now = performance.now()) { return (c?._burnUntilT || 0) > now; }
+  function burning(c, now = performance.now()) {
+    if (!c?._burnState) return (c?._burnUntilT || 0) > now;
+    return c._burnState.remainingMs > (c._burnExposed ? 0 : Math.max(0, now - c._burnAtT));
+  }
   function ignite(c, now = performance.now(), by = 'fire') {
     if (!canBurn(c)) return false;
+    if (c._burnState?.remainingMs > 0) { c._burnBy = by; return false; }
     const def = burnDef();
-    const fresh = !burning(c, now);
+    c._burnState = { remainingMs: def.durationMs, nextTickMs: def.intervalMs };
+    c._burnAtT = now;
+    c._burnExposed = false;
     c._burnUntilT = now + def.durationMs;
-    if (fresh) c._burnNextT = now + def.intervalMs;
+    c._burnNextT = now + def.intervalMs;
     c._burnBy = by;
-    return fresh;
+    return true;
   }
-  // The whole points due since the last call (0 while none is), the fire put
-  // out once its time is up. Every tick inside the burn lands, however late
-  // the frame — a 5 s burn is always five points.
-  function burnTick(c, now = performance.now()) {
-    if (!c || !(c._burnUntilT > 0)) return 0;
-    const def = burnDef();
-    let dmg = 0;
-    while (c._burnNextT <= now && c._burnNextT <= c._burnUntilT) {
-      dmg += def.energyLoss;
-      c._burnNextT += def.intervalMs;
-    }
-    if (now >= c._burnUntilT) { c._burnUntilT = 0; c._burnBy = null; }
-    return dmg;
+  function burnTick(c, now = performance.now(), exposed = false) {
+    if (!c?._burnState) return 0;
+    const result = Conditions.advanceBurn(c._burnState, Math.max(0, now - c._burnAtT), exposed);
+    c._burnState = { remainingMs: result.remainingMs, nextTickMs: result.nextTickMs };
+    c._burnAtT = now;
+    c._burnExposed = exposed;
+    c._burnUntilT = result.remainingMs > 0 ? now + result.remainingMs : 0;
+    c._burnNextT = now + result.nextTickMs;
+    if (result.remainingMs <= 0) c._burnBy = null;
+    return result.damage;
   }
 
   // ── Damage ladders ───────────────────────────────────────────────────────
