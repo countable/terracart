@@ -1,6 +1,6 @@
 // THE TOMES (Oct 2026, expanded).
 //
-// Seven permanent books, named for their potions, replace the story Book in
+// Eight permanent books replace the story Book in
 // any book chest whose tier meets their own (the books group admits by
 // baseTier, pickItem takes the top tier present). A tome's spell is HALF its
 // potion's (TOME_EFFECT_MUL: half duration, half damage or restore); its
@@ -28,16 +28,17 @@
     ['tome_healing', 'Tome of Healing', 3, 160, 2 * 3600e3],
     ['tome_raven', 'Tome of the Raven', 4, 400, 8 * 3600e3],
     ['tome_blight', 'Tome of Blight', 4, 400, 8 * 3600e3],
+    ['tome_firewall', 'Wall of Fire Tome', 4, 400, 8 * 3600e3],
     ['tome_storm', 'Tome of Thunder', 5, 1000, 24 * 3600e3],
   ];
 
-  test('tomes: seven registered, potion-named, unique, tiered, priced, framed', () => {
+  test('tomes: eight registered, named, unique, tiered, priced, framed', () => {
     for (const [id, name, tier, price, cd] of ROSTER) {
       const it = ITEM_BY_ID[id];
       assert.truthy(it, `${id} registered`);
-      assert.eq(it.name, name, `${id}: named for its potion`);
+      assert.eq(it.name, name, `${id}: name`);
       assert.eq(it.kind, 'unique_relic', `${id}: a unique relic - never drops twice, never stacks`);
-      assert.eq(BASE_TIER[id], tier, `${id}: one tier above its potion`);
+      assert.eq(BASE_TIER[id], tier, `${id}: tier`);
       assert.eq(PRICES[id], price, `${id}: price`);
 
       assert.truthy(MINERAL_ICON_SHEET[id]?.sheet === 'icon_book', `${id}: a Books.png frame`);
@@ -57,9 +58,14 @@
     assert.eq([...seen].sort().join(), ['tome_healing', 'tome_shield', 'tome_sight', 'tome_speed'].sort().join(),
       'T3 rolls only the T3 tomes');
     seen.clear();
+    for (let i = 0; i < 400; i++) seen.add(ChestThemes.pickItem(res(4), 4, rng));
+    assert.eq([...seen].sort().join(), ['tome_blight', 'tome_firewall', 'tome_raven'].sort().join(),
+      'T4 rolls all three T4 tomes');
+    seen.clear();
     for (let i = 0; i < 400; i++) seen.add(ChestThemes.pickItem(res(5), 5, rng));
     assert.eq([...seen].join(), 'tome_storm', 'T5 rolls only the T5 tome');
     assert.eq(ChestThemes.cap('tome_storm'), 1, 'a tome is one per chest');
+    assert.eq(ChestThemes.cap('tome_firewall'), 1, 'a wall of fire tome is one per chest');
     const carried = { inv: [{ id: 'tome_sight', count: 1 }] };
     assert.falsy(ChestThemes.eligible('books', 3, { theme: 'civic', save: carried }).includes('tome_sight'),
       'a carried tome never drops again');
@@ -71,11 +77,11 @@
     for (const [, , , , cd] of ROSTER.slice(0, 3)) {
       assert.eq(cd, 2 * 3600e3, 'the T3 ladder rung');
     }
-    const m = (name) => APP.match(new RegExp(`\\n  ${name}\\(\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n`));
+    const m = (name) => SCENE_SRC.match(new RegExp(`\\n  ${name}\\(\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n`));
     for (const [id] of ROSTER) {
       const method = ['tome_sight', 'tome_raven', 'tome_storm'].includes(id)
         ? { tome_sight: 'readTomeSight', tome_raven: 'readTomeRaven', tome_storm: 'readTomeStorm' }[id]
-        : { tome_speed: 'readTomeSpeed', tome_shield: 'readTomeShield', tome_healing: 'readTomeHealing', tome_blight: 'readTomeBlight' }[id];
+        : { tome_speed: 'readTomeSpeed', tome_shield: 'readTomeShield', tome_healing: 'readTomeHealing', tome_blight: 'readTomeBlight', tome_firewall: 'readTomeFirewall' }[id];
       const r = m(method);
       assert.truthy(r, `${method} exists`);
       assert.falsy(/_finishConsumable/.test(r[1]), `${method}: never consumed`);

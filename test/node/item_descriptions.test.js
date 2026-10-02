@@ -41,8 +41,8 @@ test('consumables: one action row names every button method', () => {
     'thunder_potion', 'blight_potion', 'revive_potion',
     'resurrection_potion', 'dragon_powder', 'growth_powder', 'shadow_powder',
     'frost_powder', 'torch', 'sapphire', 'rope', 'spear', 'javelin', 'rockfruit', 'forgetmenot', 'wildrose', 'horse', 'shiny_horse',
-    'tome_sight', 'tome_raven', 'tome_storm', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight',
-    'fireball_scroll', 'fear_scroll', 'treasure_map', 'sleep_powder',
+    'tome_sight', 'tome_raven', 'tome_storm', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight', 'tome_firewall',
+    'fireball_scroll', 'explosive_flask', 'fear_scroll', 'treasure_map', 'sleep_powder',
   ];
   const actionIds = Object.keys(CONSUMABLE_SPEC).filter(id => CONSUMABLE_SPEC[id].method);
   assert.eq(actionIds.slice().sort().join('|'), ids.slice().sort().join('|'),

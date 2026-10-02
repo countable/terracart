@@ -171,3 +171,9 @@ test('chest themes: a high-tier venue does not force starter food', () => {
     if (reward.group === 'food') assert.gte(ITEM_BY_ID[reward.id].baseTier, 4);
   }
 });
+
+test('chest themes: commerce holds its identity underground - coins and gems only', () => {
+  const w = ChestThemes.weights('commerce', 5, { depth: 1 });
+  assert.eq(Object.keys(w).sort().join(), ['cash', 'caveGems', 'gems'].sort().join(),
+    'no field supplies, no magic pools, no traps at depth');
+});

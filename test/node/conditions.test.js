@@ -144,27 +144,54 @@
   });
 })();
 
-// BURNING (owner, Oct 2026): fire on the body — the second row of the one
-// status table. 1 a second for 5 s, out on its own or cleansed; the row owns
-// its look (tint, HUD chip) for the player and every burning foe alike.
+// Burn clocks are shared by the player and all units.
 (function () {
-  test('burning: five ticks of one over five seconds, then it goes out on its own', () => {
+  test('burning: five seconds of brief contact expire without damage below ten seconds', () => {
     const save = { energy: 50 };
     assert.truthy(Conditions.apply(save, 'burning'));
-    assert.eq(Conditions.tick(save, 999).ticks, 0);
-    assert.eq(Conditions.tick(save, 1).ticks, 1, 'the first point a second in');
-    const r = Conditions.tick(save, 4000);
-    assert.eq(r.ticks, 4); assert.truthy(r.expired, 'out at five seconds');
-    assert.eq(save.energy, 45, 'five points in all');
+    const result = Conditions.tick(save, 5000);
+    assert.eq(result.ticks, 5);
+    assert.eq(result.lost, 0);
+    assert.truthy(result.expired);
     assert.falsy(Conditions.active(save, 'burning'));
   });
-  test('burning: a fresh contact restarts the five seconds without moving the next tick', () => {
-    const save = { energy: 50 };
+  test('burning: exposure grows five seconds per second, caps at sixty and preserves cadence', () => {
+    const save = { energy: 100 };
     Conditions.apply(save, 'burning');
-    Conditions.tick(save, 700);
-    assert.falsy(Conditions.apply(save, 'burning'), 'not fresh');
-    assert.eq(save.conditions.burning.remainingMs, 5000);
-    assert.eq(Conditions.tick(save, 300).ticks, 1, 'the tick already due still lands on time');
+    Conditions.tick(save, 700, { burningExposure: true });
+    assert.falsy(Conditions.apply(save, 'burning'));
+    assert.eq(save.conditions.burning.remainingMs, 8500);
+    assert.eq(Conditions.tick(save, 300, { burningExposure: true }).lost, 1);
+    assert.eq(save.conditions.burning.remainingMs, 10000);
+    Conditions.tick(save, 10000, { burningExposure: true });
+    assert.eq(save.conditions.burning.remainingMs, 60000);
+    assert.eq(Conditions.tick(save, 1000, { burningExposure: true }).lost, 6);
+    assert.eq(save.conditions.burning.remainingMs, 60000);
+    assert.eq(Conditions.tick(save, 1000).lost, 5);
+    assert.eq(save.conditions.burning.remainingMs, 59000);
+  });
+  test('burning: long frames match small steps during exposure and decay', () => {
+    const state = { remainingMs: 5000, nextTickMs: 1000 };
+    const whole = Conditions.advanceBurn(state, 12000, true);
+    let stepped = state, damage = 0;
+    for (let i = 0; i < 120; i++) {
+      stepped = Conditions.advanceBurn(stepped, 100, true);
+      damage += stepped.damage;
+    }
+    assert.eq(whole.damage, damage);
+    assert.eq(whole.remainingMs, stepped.remainingMs);
+    const decay = Conditions.advanceBurn(whole, 60000);
+    assert.eq(decay.remainingMs, 0);
+    assert.eq(decay.damage, 150);
+    assert.eq(state.remainingMs, 5000, 'pure clock does not mutate input');
+  });
+  test('burning: normalization preserves accumulated duration and clamps at sixty seconds', () => {
+    const save = { conditions: { burning: { remainingMs: 43000, nextTickMs: 600 } } };
+    Conditions.normalize(save);
+    assert.eq(save.conditions.burning.remainingMs, 43000);
+    save.conditions.burning.remainingMs = 90000;
+    Conditions.normalize(save);
+    assert.eq(save.conditions.burning.remainingMs, 60000);
   });
   test('Antidote: burning alone is cured, all simultaneous debuffs clear, buffs and energy remain', () => {
     const save = { energy: 50, shieldPotionUntil: Date.now() + 100000,

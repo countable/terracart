@@ -2345,12 +2345,12 @@
     const STORY_SLIDES = [
       {
         art: '<img src="assets/art/story_wake.webp" alt="">',
-        text: "You wake up feeling disoriented and look outside.",
+        text: "Awaken, from fitful dreams… You stretch, and look outside.",
         btn: 'Next',
       },
       {
         art: '<img src="assets/art/story_wrecks.webp" alt="">',
-        text: "The neighbourhood is in shambles, with wrecked homes and streets in disrepair. What happened?",
+        text: "The neighbourhood is in shambles! What happened here?",
         btn: "Let's go",
       },
     ];
@@ -2695,10 +2695,10 @@
   <script src="src/worldgen.js?v=c45e8a07"></script>
   <script src="src/textures.js?v=51edc80a"></script>
   <script src="src/save.js?v=781185a3"></script>
-  <script src="src/items.js?v=b931e9bb"></script>
+  <script src="src/items.js?v=a42f737d"></script>
   <script src="src/inventory.js?v=61f97d28"></script>
   <script src="src/energy.js?v=151a2276"></script>
-  <script src="src/conditions.js?v=9a26684b"></script>
+  <script src="src/conditions.js?v=9f222b62"></script>
   <script src="src/crops.js?v=e3f3dac4"></script>
   <script src="src/delivery.js?v=bc509b02"></script>
   <script src="src/savemigrate.js?v=9e6d8418"></script>
@@ -2707,26 +2707,27 @@
   <script src="src/shops_math.js?v=b076764b"></script>
   <script src="src/shops.js?v=c498fd0d"></script>
   <script src="src/egg_hatch.js?v=6b07e768"></script>
-  <script src="src/chest_themes.js?v=e888ce8f"></script>
-  <script src="src/rarity.js?v=6fed8524"></script>
+  <script src="src/chest_themes.js?v=3215b04d"></script>
+  <script src="src/rarity.js?v=abd649d1"></script>
   <script src="src/loot.js?v=894a78d1"></script>
   <script src="src/macros.js?v=50a42d7d"></script>
   <script src="src/quests.js?v=59439da3"></script>
-  <script src="src/interactables.js?v=9d041bd1"></script>
+  <script src="src/interactables.js?v=fa6f4cdc"></script>
   <script src="src/houses.js?v=97527980"></script>
   <script src="src/spawn_ownership.js?v=e5f81207"></script>
   <script src="src/starter.js?v=ee48612f"></script>
-  <script src="src/combat.js?v=a66a94ad"></script>
+  <script src="src/ground_fire.js?v=5db34ead"></script>
+  <script src="src/combat.js?v=7bb10a65"></script>
   <script src="src/companions.js?v=ecac988d"></script>
-  <script src="src/creature_ai.js?v=372e89b7"></script>
+  <script src="src/creature_ai.js?v=e74b74fe"></script>
   <script src="src/wizard.js?v=e0531947"></script>
   <script src="src/dragon_story.js?v=c392538b"></script>
-  <script src="src/memory_story.js?v=b3607a05"></script>
+  <script src="src/memory_story.js?v=a1e5cb54"></script>
   <script src="src/story_encounters.js?v=86a4c845"></script>
-  <script src="src/interact.js?v=b81fd8e4"></script>
+  <script src="src/interact.js?v=22ee9e32"></script>
   <script src="src/play_tips.js?v=7c437cd4"></script>
-  <script src="src/lighting.js?v=9bbfb460"></script>
-  <script src="src/render.js?v=2abe48ec"></script>
+  <script src="src/lighting.js?v=8dc03d32"></script>
+  <script src="src/render.js?v=3f5add95"></script>
   <script src="src/multiplayer.js?v=04fb3ba8"></script>
   <script src="src/road_overlay.js?v=990bf881"></script>
   <script src="src/building_overlay.js?v=18003bd2"></script>
@@ -2738,7 +2739,8 @@
   <script src="src/modal_shell.js?v=ce638548"></script>
   <script src="src/scene_geo.js?v=96439ff3"></script>
   <script src="src/npc.js?v=eaa233d6"></script>
-  <script src="src/scene_creatures.js?v=900cadb5"></script>
+  <script src="src/scene_creatures.js?v=b085735d"></script>
+  <script src="src/scene_fire.js?v=00280bdd"></script>
   <script src="src/scene_shops.js?v=fd2f7b26"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
@@ -2800,7 +2802,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=a196d060';
+      const APP_SRC = 'src/app.js?v=21afcb76';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

@@ -15,7 +15,7 @@
 
   test('unique relic rewards: every held item is excluded before highest/lower tier selection', () => {
     const items = uniques().sort((a, b) => a.baseTier - b.baseTier);
-    assert.eq(items.length, 18, 'eleven finds plus seven reusable tomes');
+    assert.eq(items.length, 20, 'twelve finds plus eight reusable tomes');
     const available = [items[0], items[items.length - 1]];
     const save = held(items.filter(item => !available.includes(item)).map(item => item.id));
     const opts = { save, theme: 'culture' };

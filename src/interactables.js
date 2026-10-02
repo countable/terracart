@@ -968,6 +968,23 @@ function dayLedgerAges(save) {
   return out;
 }
 
+function burnedGroundLookup(scene, save) {
+  if (!scene?._groundFireAtWorld || !scene.startWorldM || !scene.originPx ||
+      !(scene.mPerPx > 0) || typeof GroundFire === 'undefined') return null;
+  // Avoid coordinate work before the first ignition, without enumerating a
+  // potentially large permanent history into an array each frame.
+  let hasHistory = false;
+  for (const key in save?.groundFire) { hasHistory = true; break; }
+  if (!hasHistory) return null;
+  const now = Date.now();
+  return o => {
+    if (!GroundFire.flammable(o) || GroundFire.survives(o) ||
+        !Number.isFinite(o.x) || !Number.isFinite(o.y)) return false;
+    const fire = scene._groundFireAtWorld(o.x, o.y);
+    return !!fire && (fire.extinguished || fire.until <= now);
+  };
+}
+
 function spentSets(scene, save) {
   const s = save || (scene && scene.save) || {};
   return {
@@ -975,6 +992,8 @@ function spentSets(scene, save) {
     burst: dayLedgerAges(s),
     chopped: setOf(s.chopped),
     picked: setOf(s.picked),
+    burned: setOf(s.burnedObjects),
+    burnedGround: burnedGroundLookup(scene, s),
     // The broken-rock ids live on the scene as a Set already (app.js rebuilds
     // it from save.brokenRocks), so it is passed through rather than rebuilt.
     broken: (scene && scene.brokenRockSet) || new Set(),
@@ -1021,6 +1040,8 @@ function restocks(o) {
   return !!(L.box && !L.stand && !L.coin && !L.bike && !L.macro && !L.wagon);
 }
 function isSpent(o, sets) {
+  if (o && sets.burned?.has(o.id)) return true;
+  if (o && sets.burnedGround?.(o)) return true;
   switch (o && o.kind) {
     // A pot of gold or a bike rack used TODAY is spent until the UTC day
     // rolls. A market stall and a macro stall (loot.js produceStandFor /
@@ -1128,6 +1149,8 @@ function toolGatedAlpha(o, save) {
 }
 
 function runInteractable(ctx, o) {
+  if (setOf(ctx.save?.burnedObjects).has(o.id)) return 'skip';
+  if (burnedGroundLookup(ctx.scene, ctx.save)?.(o)) return 'skip';
   const def = INTERACTABLES[o.kind];
   if (!def) return false;
   const { scene, save, sx, sy } = ctx;
