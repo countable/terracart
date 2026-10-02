@@ -64,6 +64,14 @@ Render.sortWorldDepth = function (pieces) {
   });
 };
 
+// Restoration clears the skulls from every tower and keeps the player's
+// existing single banner at the footprint's designated flag post.
+Render.castleFlagTexture = function (scene, tower) {
+  const claimed = scene.isCastleClaimed ? scene.isCastleClaimed(tower)
+    : scene.isClaimedKey ? scene.isClaimedKey(tower.castle) : null;
+  if (claimed === null) return null;
+  return claimed ? (tower.flagPost ? 'castle_flag' : null) : 'castle_skull_flag';
+};
 Render.towerCrownHeight = function (textures, castle) {
   const frame = textures.getFrame('tower', CastleStyles.get(castle).towerFrame);
   return (frame?.height || CastleStyles.TOWER_HEIGHT) - (frame?.castleCrownY || 0);
@@ -1381,6 +1389,21 @@ function drawAtmosRim(scene, haze) {
   if (g.flush) g.flush();   // BAKED (app.js): one upload per haze change
 }
 
+// Tiled wall sections share the same ground-depth pass as other uprights.
+Render.rampartPiece = function (scene, groundY, rank = 1) {
+  const pool = scene._rampartPool || (scene._rampartPool = []);
+  const i = scene._rampartPoolUsed++;
+  let sprite = pool[i];
+  if (!sprite) {
+    sprite = scene.add.graphics();
+    scene.worldContainer.add(sprite);
+    pool.push(sprite);
+  }
+  sprite.setVisible(true);
+  scene._uprightPieces.push({ sprite, groundY, rank });
+  return sprite;
+};
+
 Render.drawCells = function drawCells(scene) {
   const g = scene.cellGfx;
   g.clear();
@@ -1390,6 +1413,9 @@ Render.drawCells = function drawCells(scene) {
   // toggle flipping mid-pass would draw half a building.
   const POLY = polyBuildings();
   const gb2 = scene.borderGfx;
+  scene._uprightPieces = [];
+  scene._rampartPoolUsed = 0;
+  for (const piece of scene._rampartPool || []) piece.clear().setVisible(false);
   const gb = scene.rampartBackGfx || g; // flat building trim and claim wash
   if (gb !== g) gb.clear();
   const half = (VIEW_CELLS - 1) / 2;
@@ -2198,8 +2224,11 @@ Render.drawCells = function drawCells(scene) {
         const TOOTH_H = material.rampart.toothHeight;
         const CREN = 2;
         const WALL = material.rampart.wallHeight;
-        // Ramparts are part of the floor layer. Towers and actors paint
-        // over them through the ordinary world painter pass.
+        // Each section sorts at its lowest masonry base in world metres.
+        // Towers and actors use the same ordinary ground-depth pass.
+        const si = (row + 2) * RING + (col + 2);
+        const ty = _ringTY[si], cm = rowCellM(scene, ty);
+        const northY = ty * scene.tileEdgeM + _ringIY[si] * cm;
         // Horizontal battlement crest: a low parapet at `baseY` with merlons
         // rising UP from it, drawn into the supplied graphics layer `gx`. Teeth
         // share the SPAN grid on every wall so front/back crenellations line up.
@@ -2217,7 +2246,7 @@ Render.drawCells = function drawCells(scene) {
         };
         // South boundary projects its stone face beyond the floor.
         if (wallEdge(col, row, 0, 1)) {
-          const gw = g;
+          const gw = Render.rampartPiece(scene, northY + cm + WALL * cm / CELL_PX);
           gw.fillStyle(_DBG ? 0x30a030 : STONE_FACE, 1); gw.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
           gw.fillStyle(STONE_DARK, 1); gw.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
           crestH(gw, sx, sy + CELL_PX, _DBG ? 0x50c050 : undefined);
@@ -2231,7 +2260,7 @@ Render.drawCells = function drawCells(scene) {
           // castle cell. Without the widening, that band's last 12px stuck out
           // beside the crest at every stepped top edge / notch: the top wall
           // did not paint over the side wall in the cell above.
-          const gb = g;
+          const gb = Render.rampartPiece(scene, northY);
           const extL = (T(col - 1, row - 1) === 12 && wallEdge(col - 1, row - 1, 1, 0)) ? SIDE_W : 0;
           const extR = (T(col + 1, row - 1) === 12 && wallEdge(col + 1, row - 1, -1, 0)) ? SIDE_W : 0;
           gb.fillStyle(_DBG ? 0x3060c0 : STONE_FACE, 1);
@@ -2255,7 +2284,7 @@ Render.drawCells = function drawCells(scene) {
         const bandY = sy;
         const bandBot = sy + (wallEdge(col, row, 0, 1) ? CELL_PX - TOOTH_H : CELL_PX);
         const sideShade = (x, innerX) => {
-          const gb = g;
+          const gb = Render.rampartPiece(scene, northY + (bandBot - sy) * cm / CELL_PX, 0);
           gb.fillStyle(_DBG ? 0xc03030 : STONE_BODY, 1);   gb.fillRect(x, bandY, SIDE_W, bandBot - bandY);
           gb.fillStyle(_DBG ? 0xe06060 : STONE_SIDE, 1);
           // Crenel-grid dashes stay on the cell's own span; skip any dash the
@@ -3138,7 +3167,7 @@ Render.drawObjects = function drawObjects(scene) {
     groundY: groundY(it, SpriteLayout.CREATURE_GROUND_DY) });
   if (scene.playerWorldContainer) zList.push({ sprite: scene.playerWorldContainer,
     groundY: scene.startWorldM.y + scene.playerM.y, rank: 3 });
-  zList.push(...(scene._buildingUprightPieces || []),
+  zList.push(...(scene._uprightPieces || []), ...(scene._buildingUprightPieces || []),
     ...(scene._peerUprightPieces || []));
   Render.sortWorldDepth(zList);
   // Kinds that stand UP off the ground and therefore cast a contact shadow.
@@ -3278,23 +3307,20 @@ Render.drawObjects = function drawObjects(scene) {
      .setDepth(item.depth)
      .setPosition(item.x, item.y);
   });
-  // The banner over a CLAIMED castle. One per castle, not per turret: worldgen
-  // marks exactly one of a footprint's towers `flagPost`, so a castle with six
-  // turrets flies one flag rather than six.
+  // Every unrestored turret flies the square skull flag. Restoring the
+  // castle replaces them with the player's existing single flagPost banner.
   //
   // Seated on that turret's crown — the tower art is bottom-anchored at
   // sy + CELL_PX/2 and runs its full frame height upward, so the flag's own
   // bottom-anchored pole lands on the battlements. Read from the frame rather
   // than a copied number, so a retall of the turret can't leave the flag
   // floating. The flag inherits its turret's ground depth.
-  const flagList = scene.isCastleClaimed
-    ? towerList.filter(({ o }) => o.flagPost && scene.isCastleClaimed(o))
-    : [];
+  const flagList = towerList.filter(({ o }) => Render.castleFlagTexture(scene, o));
   Render.renderPool(scene, scene.castleFlagPool, scene.towerContainer, flagList, (s, item) => {
     const { dx, dy } = item;
     const { sx, sy } = project(dx, dy);
     const towerH = Render.towerCrownHeight(scene.textures, item.o.castle);
-    setTextureIfDifferent(s, 'castle_flag');
+    setTextureIfDifferent(s, Render.castleFlagTexture(scene, item.o));
     s.setDepth((item._z ?? 0) + 0.1);
     s.setOrigin(0.5, 1)
      .setScale(1)

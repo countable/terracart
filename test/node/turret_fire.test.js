@@ -42,6 +42,7 @@ test('turret art: atlas variants bake shared stone and wood in both restoration 
     source.set([120, 120, 120, 255], at(frame * W, frame + 2));
     source.set([180, 100, 60, 255], at(frame * W + 1, frame + 2));
     source.set([250, 250, 250, 80], at(frame * W + 2, 0));
+    for (let y = H - 11; y < H; y++) source.set([120, 120, 120, 255], at(frame * W, y));
   }
   const before = JSON.stringify(CastleStyles.ids.map(id => [CastleStyles.get(id), CastleStyles.get(id, false)]));
   const textures = new Map();
@@ -74,6 +75,16 @@ test('turret art: atlas variants bake shared stone and wood in both restoration 
       assert.eq(tex.get(frame).castleCrownY, frame + 2, 'crown follows opaque art, not the atlas top');
       assert.eq(tex.get(frame).x, frame * W);
       assert.eq(tex.get(frame).width, W);
+      assert.eq(tex.pixel(frame * W, H - 1)[3], 77, 'foot is 30% opaque');
+      assert.eq(tex.pixel(frame * W, H - 10)[3], 255, 'fade reaches full opacity within ten rows');
+      assert.eq(tex.pixel(frame * W, H - 11)[3], 255, 'shaft above the fade stays opaque');
+      let previous = 0;
+      for (let y = H - 1; y >= H - 10; y--) {
+        const alpha = tex.pixel(frame * W, y)[3];
+        assert.gt(alpha, previous, 'each row grows more opaque upward');
+        previous = alpha;
+      }
+      assert.eq(tex.pixel(frame * W + 3, H - 1)[3], 0, 'fade does not fill transparent silhouette gaps');
     });
   }
   assert.eq(JSON.stringify(CastleStyles.ids.map(id => [CastleStyles.get(id), CastleStyles.get(id, false)])), before,

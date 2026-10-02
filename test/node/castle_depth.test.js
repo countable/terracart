@@ -13,13 +13,27 @@
     Render.sortWorldDepth([actor, tower]);
     assert.gt(actor.sprite.depth, tower.sprite.depth, 'crossing the foot paints actor in front');
   });
-  test('castle depth: tiled ramparts paint onto ground and create no upright pool', () => {
-    const start = RENDER_SRC.indexOf('      if (type === 12) {', RENDER_SRC.indexOf('// Tier 12 (castle)'));
-    const end = RENDER_SRC.indexOf('      // South wall: tier-specific extrusion', start);
-    const castle = RENDER_SRC.slice(start, end);
-    assert.gt(castle.length, 0);
-    assert.truthy(castle.includes('const gw = g;'), 'south wall paints on the floor graphics');
-    assert.eq((castle.match(/const gb = g;/g) || []).length, 2, 'north and side walls paint on the floor graphics');
-    assert.falsy(/rampartPiece|castleCell|_uprightPieces/.test(castle), 'walls require no tower-specific depth records');
+  test('castle depth: tiled sections share wall, tower, and actor ground ordering', () => {
+    const graphics = () => ({ visible: false, depth: -1,
+      setVisible(v) { this.visible = v; return this; }, setDepth(v) { this.depth = v; return this; } });
+    const scene = { _uprightPieces: [], _rampartPoolUsed: 0,
+      add: { graphics }, worldContainer: { add() {} } };
+    const north = Render.rampartPiece(scene, 100);
+    const side = Render.rampartPiece(scene, 107, 0);
+    const south = Render.rampartPiece(scene, 107);
+    const tower = { sprite: sprite(), groundY: 107, rank: 2 };
+    const actor = { sprite: sprite(), groundY: 106.9, rank: 3 };
+    const pieces = [...scene._uprightPieces, tower, actor];
+    Render.sortWorldDepth(pieces);
+    assert.lt(north.depth, actor.sprite.depth, 'north wall stays behind approaching actor');
+    assert.lt(actor.sprite.depth, side.depth, 'side sorts by its southern endpoint');
+    assert.lt(side.depth, south.depth, 'horizontal wall wins the exact corner tie');
+    assert.lt(south.depth, tower.sprite.depth, 'tower wins only the ordinary exact foot tie');
+    actor.groundY = 107.1;
+    Render.sortWorldDepth(pieces);
+    assert.gt(actor.sprite.depth, south.depth, 'actor crossing ground foot passes in front');
+    scene._uprightPieces = []; scene._rampartPoolUsed = 0;
+    assert.eq(Render.rampartPiece(scene, 114), north, 'tiled wall graphics reuse their pool');
+    assert.eq(scene._uprightPieces[0].groundY, 114, 'reuse reads current ground anchor');
   });
 })();

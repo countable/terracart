@@ -258,8 +258,9 @@ every family, while restoration brings back clean, brighter materials.
 Towers, tiled walls, polygon walls and courtyard floors resolve the same
 building owner key through `CastleStyles.get(key, claimed)`. Its numeric
 palettes already include the condition treatment; never apply the general
-unclaimed building wash to them again. Castle walls are part of the floor layer;
-32×48 towers sit at the bottom of their cell and use ordinary object depth.
+unclaimed building wash to them again. Castle wall sections use ordinary object
+depth at their lowest masonry point. The 32×48 towers sit at the bottom of their
+cell; their bottom ten pixels fade from 30% to full opacity to soften joins.
 Archive ramparts keep a stone base and face beneath
 their wooden crest; the Ruin's uneven crenellations echo its damaged tower.
 

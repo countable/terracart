@@ -3,8 +3,9 @@
 `tower_shapes.png` contains four 32×48 frames in one 128×48 transparent sheet.
 The approved designs were regenerated with taller masonry shafts in
 `tower_master.png`, then fitted to one cell wide and one-and-a-half cells tall.
-Each tower is seated at the bottom of its cell. Castle walls belong to the floor
-layer, so towers require no special wall-ordering rules.
+Each tower is seated at the bottom of its cell. Wall sections share the ordinary
+object painter order, anchored at their lowest masonry point. No cell-based
+tower/wall ordering overrides are used.
 
 | Frame | Family | Approved candidate | Visible height |
 | --- | --- | --- | --- |
@@ -28,8 +29,10 @@ node tools/export_castle_towers.js
 Set `CHROMIUM_PATH` if Chromium is not at `/usr/bin/chromium`. The exporter
 recreates both the shape sheet and crop metadata. It uses high-quality reduction
 to combine source detail rather than randomly selecting isolated source pixels.
-The game then thresholds alpha to opaque pixel edges and maps brightness into
+The game thresholds source alpha to clean pixel edges and maps brightness into
 the family palette while baking the `tower` and `tower_unclaimed` textures.
+The bottom ten rows then fade from 30% opacity at the foot to 100% opacity,
+softening joins with irregular castle geometry in both restoration states.
 
 `src/castle_styles.js` owns all stone, wood and courtyard colours. Archive brown
 source pixels map to its wood ramp; other pixels map to stone. A family keeps
@@ -41,3 +44,6 @@ Do not apply an additional global unclaimed wash to these textures. Wall tops
 and courtyard floors consume the same already-treated material descriptors.
 The runtime also records the top occupied pixel of each frame so flags and
 claim markers clear towers of different heights.
+
+Every unclaimed tower flies a square black skull flag. Restoration removes
+those flags and shows the existing player banner on the castle's flag post.

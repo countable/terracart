@@ -991,13 +991,17 @@ function makeTowerTexture(scene, palette, key) {
   const claimed = palette !== CASTLE_STONE_UNCLAIMED;
   const crowns = CastleStyles.ids.map(() => H);
   const materials = CastleStyles.ids.map(id => CastleStyles.get(id, claimed));
+  // Soften the masonry's join with irregular castle geometry. The bottom
+  // ten rows rise from 30% opacity at the foot to fully opaque above it.
+  const fadeRows = 10, footAlpha = 0.3;
   for (let y = 0; y < H; y++) for (let x = 0; x < W * materials.length; x++) {
     const i = (y * W * materials.length + x) * 4, pixels = image.data;
     if (pixels[i + 3] < 128) { pixels[i + 3] = 0; continue; }
     const frame = Math.floor(x / W);
     const ink = castleTowerInk(pixels[i], pixels[i + 1], pixels[i + 2], materials[frame]);
     pixels[i] = ink >> 16; pixels[i + 1] = (ink >> 8) & 255; pixels[i + 2] = ink & 255;
-    pixels[i + 3] = 255;
+    pixels[i + 3] = Math.round(255 * (footAlpha + (1 - footAlpha)
+      * Math.min(1, (H - 1 - y) / (fadeRows - 1))));
     crowns[frame] = Math.min(crowns[frame], y);
   }
   ctx.putImageData(image, 0, 0);
@@ -1007,6 +1011,24 @@ function makeTowerTexture(scene, palette, key) {
     if (f) f.castleCrownY = crowns[frame];
   }
   tex.refresh();
+}
+
+// Unrestored towers fly a square black cloth with a crisp ivory skull.
+// Same canvas size and pole foot as the restored player banner in app.js.
+function makeCastleSkullFlagTexture(scene) {
+  const key = 'castle_skull_flag';
+  if (scene.textures.exists(key)) return;
+  const texture = scene.textures.createCanvas(key, 16, 18), ctx = texture.getContext();
+  ctx.fillStyle = '#29251d'; ctx.fillRect(2, 0, 3, 18);
+  ctx.fillStyle = '#8b795e'; ctx.fillRect(2, 1, 2, 17);
+  ctx.fillStyle = '#44443f'; ctx.fillRect(4, 1, 12, 12);
+  ctx.fillStyle = '#111410'; ctx.fillRect(5, 2, 10, 10);
+  const skull = ['.XXXXX.', 'XXXXXXX', 'X..X..X', 'X..X..X', '.XX.XX.', '..XXX..', '..X.X..'];
+  ctx.fillStyle = '#e8e3ce';
+  for (let y = 0; y < skull.length; y++) for (let x = 0; x < skull[y].length; x++) {
+    if (skull[y][x] === 'X') ctx.fillRect(7 + x, 3 + y, 1, 1);
+  }
+  texture.refresh();
 }
 
 // Procedural "pot of gold" — the in-world art for the coin-burst POIs

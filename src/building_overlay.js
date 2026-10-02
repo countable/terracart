@@ -623,9 +623,20 @@
 
   function uprightEdges(scene, d, isMine, projX, projY, seen) {
     const shade = shadeOf(isMine), tune = tuneOf(isMine), depth = facePx(d.tier);
-    const face = tune(shade(faceColor(d.tier, isMine)));
-    const outline = tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
+    const stone = d.tier === CASTLE ? castleStone(isMine, d.key) : null;
+    const face = stone ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
+    const outline = stone ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
     const points = d.pts;
+    // Only outward south-facing edges retain the downward face after the
+    // floor is erased from the piece. Their physical base includes that
+    // face depth; the other edges end at the perimeter. Winding keeps the
+    // classification stable for clockwise and counterclockwise rings.
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      area += a.x * b.y - b.x * a.y;
+    }
+    const winding = Math.sign(area);
     const trace = (ctx) => {
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
@@ -648,7 +659,7 @@
         // World-relative placement: the same edge at a later camera cell sits
         // at the same offset from the projected world origin.
         const wx = x - projX(0), wy = y - projY(0);
-        const cacheKey = `${d.seed}|${d.tier}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
+        const cacheKey = `${d.seed}|${d.tier}|${stone?.style.id || ''}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
         const cached = scene._buildingUprightCache.get(cacheKey);
         if (cached) {
           if (!seen.has(cacheKey)) {
@@ -676,6 +687,23 @@
         ctx.globalCompositeOperation = 'destination-out';
         trace(ctx); ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
+        if (stone) {
+          ctx.save(); trace(ctx); ctx.clip();
+          const stroke = (width, color, dash) => {
+            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
+            ctx.lineWidth = width; ctx.strokeStyle = cssOf(color);
+            ctx.setLineDash(dash || []);
+            ctx.lineDashOffset = -Math.hypot(p.x - a.x, p.y - a.y);
+            ctx.stroke();
+          };
+          stroke(BAND_PX * 2, stone.body);
+          const rampart = stone.style.rampart;
+          if (rampart.woodTop) stroke(6, stone.top);
+          const tooth = rampart.toothWidth;
+          const dash = rampart.broken ? [tooth, 4, tooth - 1, 7] : [tooth, 8 - tooth];
+          stroke(MERLON_PX * 2, stone.lite, dash);
+          ctx.restore();
+        }
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
         ctx.lineWidth = OUTLINE_PX;
         ctx.strokeStyle = cssOf(outline);
@@ -691,8 +719,9 @@
         scene.worldContainer.add(sprite);
         const piece = {
           sprite, page, frame, slot, x, y, wx, wy, width: w, height: h, rank: 1,
-          // The perimeter is the ground anchor; extrusion is visual height.
-          groundY: (Math.max(p.y, q.y) - projY(0)) * scene.cellM / CELL_PX,
+          // Lowest visible masonry, excluding transparent frame padding.
+          groundY: (Math.max(p.y, q.y) + ((a.x - b.x) * winding > 1e-6 ? depth : 0)
+            - projY(0)) * scene.cellM / CELL_PX,
         };
         scene._buildingUprightCache.set(cacheKey, piece);
         seen.add(cacheKey);
@@ -863,7 +892,7 @@
       // The wall, as the ring filled again one face-depth south and painted
       // UNDER the floor: whatever survives is exactly the polygon's
       // south-facing edges, at any angle, with no per-edge normal test.
-      if (!separateUprights || d.tier === CASTLE) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), (style ? style.stone.FACE : tune(shade(faceColor(d.tier, isMine)))));
+      if (!separateUprights) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), (style ? style.stone.FACE : tune(shade(faceColor(d.tier, isMine)))));
       g.fillPoly(d.pts, floor);
       if (g.texturePoly) g.texturePoly(d.pts, d.tier);
       // Dilapidated: the slime, over the floor and its material (it is growing
@@ -879,9 +908,8 @@
       // stay readable across a footprint, so it goes last.
       if (g.gridPoly) g.gridPoly(d.pts, gridInkFor(GRID, floor));
       if (d.columns.length && g.columnsPoly) g.columnsPoly(d.pts, d.columns, isMine);
-      // Castle ramparts belong to the floor. Other building walls retain
-      // their upright pieces and normal ground ordering.
-      if (separateUprights && d.tier !== CASTLE) {
+      // Every short wall section joins the ordinary upright painter pass.
+      if (separateUprights) {
         uprightEdges(scene, d, isMine, projX, projY, seen);
       } else if (d.tier === CASTLE) {
         // Rampart: the stone band inside the wall line, then the merlon teeth
