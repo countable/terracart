@@ -304,6 +304,7 @@ function tillAttemptWithObject(object, progress = {}) {
 test('till handler: every spent generated object leaves its cell tillable', () => {
   const cases = [
     [{ kind: 'mineralrock', id: 'spent-rock', x: 0, y: 0 }, { broken: ['spent-rock'] }],
+    [{ kind: 'stronghold_wall', id: 'spent-wall', x: 0, y: 0 }, { broken: ['spent-wall'] }],
     [{ kind: 'groundstack', id: 'spent-stack', x: 0, y: 0 }, { picked: ['spent-stack'] }],
     [{ kind: 'tree', id: 'spent-tree', x: 0, y: 0 }, { chopped: ['spent-tree'] }],
     [{ kind: 'chest', id: 'spent-chest', x: 0, y: 0 }, { opened: ['spent-chest'] }],
@@ -316,7 +317,7 @@ test('till handler: every spent generated object leaves its cell tillable', () =
 });
 
 test('till handler: every fresh generated object still blocks its cell', () => {
-  for (const kind of ['mineralrock', 'groundstack', 'tree', 'chest']) {
+  for (const kind of ['mineralrock', 'stronghold_wall', 'groundstack', 'tree', 'chest']) {
     const result = tillAttemptWithObject({ kind, id: `fresh-${kind}`, x: 0, y: 0 });
     assert.eq(result.workStarted, 0, `${kind} blocks tilling while it still stands`);
     assert.eq(result.flashes.length, 1, `${kind} explains why the hoe was refused`);

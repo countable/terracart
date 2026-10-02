@@ -975,6 +975,10 @@ const INTERACTABLES = {
   },
 };
 
+// Ruin masonry uses the same pick work, stone payout and persistent broken
+// ledger as loose quarry rocks; its connected artwork only changes its look.
+INTERACTABLES.stronghold_wall = INTERACTABLES.mineralrock;
+
 // ── "Already spent", in ONE place ──────────────────────────────────────────
 // An opened chest, a chopped tree, a mined-out mineralrock and a picked-up
 // groundstack are one state wearing four names: the object is still GENERATED
@@ -1111,6 +1115,7 @@ function isSpent(o, sets) {
     // source of truth that survives a tile re-rasterize. Both, as both sites
     // always checked both.
     case 'tree':        return !!o.chopped || sets.chopped.has(o.id);
+    case 'stronghold_wall':
     case 'mineralrock': return sets.broken.has(o.id);
     // Same key (save.picked) as the wildplant pickup tracking, so a save
     // doesn't grow a field for it.
