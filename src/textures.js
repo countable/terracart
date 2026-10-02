@@ -1445,6 +1445,7 @@ function drawBiomeTexture(ctx, size, type, variant = 0, phase = 0) {
 // alter terrain, occupancy, or the cave source. Cache anchor transforms, not
 // a cell answer, so a player-edited terrain cell still keeps its own paint.
 const ZONE_GROUND_ACCENTS = {
+  mushroom_grove: { terrain: 28, color: 0x4b5d4a, fullCoverage: true },
   ancient_grove: { terrain: 28, color: 0x94a38c },
   silent_circle: { terrain: 29, color: 0xd5d3bd },
 };
@@ -1473,6 +1474,7 @@ function zoneGroundColor(entry, ix, iy, type, tx = entry && entry.tx, ty = entry
   }
   const s = states[ai];
   if (!s || type !== s.accent.terrain) return null;
+  if (s.accent.fullCoverage) return s.accent.color;
   const dx = Math.round((tx * 4096 + (ix + 0.5) * 4096 / N - s.x) / s.unit);
   const dy = Math.round((ty * 4096 + (iy + 0.5) * 4096 / N - s.y) / s.unit);
   if (s.variant.id === 'silent_circle') return dx === 0 && dy === 0 ? s.accent.color : null;

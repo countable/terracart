@@ -79,7 +79,7 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | Zone | Variant | Background mix | POI | Finds | Guards | Fauna affinity |
 |---|---|---|---|---|---|---|
 | grove | Meadow | 15% shrub outside the clearing; no grass outside | R=3 grass disk with bush rim | 3 medium: marigold | none | rabbit 50%, butterfly 65% |
-| grove | Mushroom Grove | 11.11% mushroom, 5.56% giant mushroom (shrub mechanics) | mushroom crescent | 1 rare: star | 1 slime at find | butterfly 50% |
+| grove | Mushroom Grove | 11.11% mushroom, 8.33% giant mushroom (shrub mechanics) | mushroom crescent | 1 rare: star | 1 slime at find | butterfly 50% |
 | grove | Orchard | 6.25% apple trees, 6.25% medium maples | paired trees | 3 medium: gemfruit | none | deer 65% |
 | grove | Formal Garden | 11.11% shrub, 16.67% flowers, 5.56% orange | hedge flanks flower diamond | 2 medium: rose | none | none |
 | grove | Hedge Garden | 43.75% shrub, 4.69% flowers, 1.56% orange | flowers in hedge room | 2 medium: rose | none | rabbit 60% |
@@ -88,7 +88,7 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | stones | Ordered Graves | 5.56% grave, 5.56% stone, 2.78% grass | flanking stone rows | 2 medium: gemfruit | headstone ghosts on interaction | crow 65% |
 | stones | Overgrown Graves | 8.33% grass, 5.56% shrub, 2.78% stone, 2.78% grave | overgrown crescent | 1 rare: star | headstone ghosts on interaction | crow 40%, butterfly 35% |
 | stones | Broken Masonry | 11.11% rubble, 8.33% stone | stone square | 1 rare: platinum_ore | 1 slime at find | none |
-| stones | Silent Circle | 26.56% stone, 1.56% grass | inner stone ring | 1 rare: star | none | crow 50% |
+| stones | Silent Circle | 26.56% grave pillars, 1.56% grass | inner pillar ring | 1 rare: star | none | crow 50% |
 | tar | Flint Field | 15% rubble outside the circle | R=2 flint disk with rubble rim | 3 medium: gemfruit | none | none |
 | tar | Broken Depot | 11.11% rubble; hazards: 5.56% trap | rubble and trap flanks | 2 medium: gemfruit | none | none |
 | tar | Seep | 6.25% rubble; hazards: 15.63% tar | tar crescent | 1 rare: star | none | none |
@@ -173,7 +173,7 @@ The 5 × 5 plots share six continuous boundaries on each axis, at cell coordinat
 
 ## Silent Circle continuity
 
-Each 10 × 10 repeat contains a radius-three circle of sixteen neighboring positions: fifteen stones form one continuous arc, with one grass-marked opening. Coverage is 15% stone and 1% grass. The outdoor POI ring has seven immediately adjacent stones and one open entrance to the south. The wider indoor/frontage arrangement remains available separately.
+Each 8 × 8 repeat contains seventeen small stone pillars, purportedly graves, forming touching radius-four circles with one grass-marked opening. Coverage is 26.56% grave pillars and 1.56% grass. The outdoor POI ring has seven immediately adjacent pillars and one open entrance to the south. The wider indoor/frontage arrangement uses the same pillars.
 
 ## POI-relative pattern origins
 

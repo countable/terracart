@@ -242,7 +242,7 @@ test('zone variants: compact formal beds and touching Silent Circle rims repeat 
   for (let by = -2; by <= 2; by++) for (let bx = -2; bx <= 2; bx++) {
     const cx = 4 + bx * 8, cy = 4 + by * 8;
     for (const [dx, dy] of [[4, 0], [-4, 0], [0, 4], [0, -4]]) {
-      assert.eq(V.sample(row, cx + dx, cy + dy, 'a'), 'stone', 'neighbouring circles share cardinal rim cells');
+      assert.eq(V.sample(row, cx + dx, cy + dy, 'a'), 'grave', 'neighbouring circles share cardinal pillar cells');
     }
     assert.eq(V.sample(row, cx + 2, cy + 3, 'a'), 'grass', 'entry does not sever the shared rim');
     assert.eq(V.sample(row, cx, cy, 'a'), null, 'circle centers remain clear');

@@ -153,6 +153,7 @@
   const OVERGROWN_STEP_M = 12, OVERGROWN_MAX = 42;
   const ORCHARD_STEP_M = 12, ORCHARD_MAX = 80;
   const TOADSTOOL_STEP_M = 6, TOADSTOOL_MAX = 100;
+  const TOADSTOOL_GIANT_EVERY_GROUPS = 3;
   const BURNED_STEP_M = 8, BURNED_MAX = 100;
   const BURNED_TORCH_STEP_M = 32;
   const BARRICADE_STEP_M = 12, BARRICADE_MAX = 80;
@@ -1379,7 +1380,8 @@
         });
       } else if (v === 'toadstool') {
         // Repeating loose scallops: three caps, a breathing gap, then the
-        // opposite verge. Setback changes within each group, all spawn-gated.
+        // opposite verge. Every third group has a giant at its set-back center;
+        // setback changes within each group, all spawn-gated.
         let placed = 0, sample = 0;
         sampleLine(rec.line, gM, TOADSTOOL_STEP_M, TOADSTOOL_STEP_M / 2, (s, x, y, nx, ny) => {
           const n = sample++;
@@ -1389,7 +1391,9 @@
           const c = verge(rec, x, y, nx, ny, side, n % 4 === 1 ? 2 : 1);
           if (!c) return;
           claim(c.ix, c.iy);
-          res.wildplants.push(WG.makeWildplant('mushroom', cx(c.ix), cy(c.iy),
+          const crop = n % 4 === 1 && Math.floor(n / 4) % TOADSTOOL_GIANT_EVERY_GROUPS === 0
+            ? 'giant_mushroom' : 'mushroom';
+          res.wildplants.push(WG.makeWildplant(crop, cx(c.ix), cy(c.iy),
             WG.cellId('wp_ts', tx, ty, c.ix, c.iy), { _street: v }));
           placed++;
         });

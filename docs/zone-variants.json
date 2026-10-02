@@ -1130,15 +1130,22 @@
               5
             ],
             "material": "giant_mushroom"
+          },
+          {
+            "at": [
+              5,
+              1
+            ],
+            "material": "giant_mushroom"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.16666666666666666,
+        "nominalDensity": 0.19444444444444445,
         "materialDensity": {
           "mushroom": 0.1111111111111111,
-          "giant_mushroom": 0.05555555555555555
+          "giant_mushroom": 0.08333333333333333
         },
         "type": "repeat_motif",
         "poiOrigin": {
@@ -4322,112 +4329,112 @@
               3,
               0
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               4,
               0
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               5,
               0
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               1,
               1
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               2,
               1
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               6,
               1
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               7,
               1
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               1,
               2
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               7,
               2
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               0,
               3
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               0,
               4
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               0,
               5
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               1,
               6
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               7,
               6
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               1,
               7
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               2,
               7
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
@@ -4441,7 +4448,7 @@
               7,
               7
             ],
-            "material": "stone"
+            "material": "grave"
           }
         ],
         "densityFalloff": "none",
@@ -4449,7 +4456,7 @@
         "orientation": "quarter_turn_toward_approach",
         "nominalDensity": 0.28125,
         "materialDensity": {
-          "stone": 0.265625,
+          "grave": 0.265625,
           "grass": 0.015625
         },
         "type": "repeat_motif",
@@ -4484,49 +4491,49 @@
               -1,
               -1
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               0,
               -1
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               1,
               -1
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               1,
               0
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               1,
               1
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               -1,
               1
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
               -1,
               0
             ],
-            "material": "stone"
+            "material": "grave"
           }
         ],
         "relocation": {
@@ -4542,28 +4549,28 @@
                 0,
                 -2
               ],
-              "material": "stone"
+              "material": "grave"
             },
             {
               "at": [
                 2,
                 0
               ],
-              "material": "stone"
+              "material": "grave"
             },
             {
               "at": [
                 0,
                 2
               ],
-              "material": "stone"
+              "material": "grave"
             },
             {
               "at": [
                 -2,
                 0
               ],
-              "material": "stone"
+              "material": "grave"
             }
           ],
           "origin": "settled_poi",
@@ -4622,7 +4629,7 @@
         "fallback": "omit_guard_keep_find",
         "proximityCells": 4
       },
-      "atmosphere": "Touching stone circles form a continuous quiet lattice, with one off-axis grass entrance per circle and a single starflower find.",
+      "atmosphere": "Touching circles of small stone pillars, purportedly graves, form a continuous quiet lattice, with one off-axis grass entrance per circle and a single starflower find.",
       "attracts": {
         "crow": 0.5
       }
