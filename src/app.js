@@ -78,6 +78,17 @@ const trailIntroBody = (playerClass) =>
 // outlast the repair's own beat (STREET_SHINE_MS, the blast's clock), short
 // enough to still read as part of it.
 const TRAIL_INTRO_DELAY_MS = 2000;
+// …and not on the FIRST stretch either. One reach of street coming back is a
+// single flash; a greeting that says "you clear the rubble from the road"
+// over that one moment lands before the player has seen the repair as a
+// thing they are doing. So the greeting waits until this much road is truly
+// restored (Trail.restoredMetres — the road chip's own number, so the dialog
+// and the chip agree on what has been repaired): a couple of reaches' worth,
+// a few stretches watched come back, and still well short of the first prize
+// (Trail.goalFor(0, …), 200 m or a runner's 100 m) — the greeting is what
+// introduces the neighbours who leave gifts, so it must land before the first
+// gift does (trail.test.js pins both bounds).
+const TRAIL_INTRO_MIN_M = 60;
 // How long a stretch of street has to stay IN SIGHT — inside the lit reach,
 // continuously — before it is rebuilt. Walking past a street at the edge of
 // the bubble no longer harvests it in the frame it clips: the metres you bank
@@ -12475,8 +12486,10 @@ class MapScene extends Phaser.Scene {
     // how-to card is refused, and the next sweep that banks metres arms it
     // again. `greeting` is therefore "a greeting is owed", which is what holds
     // a prize ceremony back: whatever this sweep queues waits for the dialog
-    // rather than opening in front of it.
-    const greeting = !st.greeted && this._armTrailIntro(now);
+    // rather than opening in front of it. Nothing is owed until the save has
+    // TRAIL_INTRO_MIN_M of road behind it — the first stretches play
+    // unexplained, on purpose (see the constant).
+    const greeting = !st.greeted && this._armTrailIntro(now, st);
     if (out.owed <= 0) return;
     // A wide reach can sweep past more than one goal in a single step, so this
     // is a COUNT, not a boolean — the queue hands the ceremonies out one at a
@@ -12492,12 +12505,20 @@ class MapScene extends Phaser.Scene {
   // wait and must set the deadline exactly once — an arm per sweep would push
   // the dialog out ahead of a player who keeps walking, which is every player.
   //
+  // NOT OWED YET while the save's restored road (`st` is save.trail) is still
+  // short of TRAIL_INTRO_MIN_M: the sweep then treats its prizes as it would
+  // on a greeted save (none can be due that early — the threshold sits under
+  // the first goal) and asks again on the next metres banked. Once armed, the
+  // deadline stands whatever the later sweeps bank.
+  //
   // A DEADLINE, not a timer: it is read by _sweepStreets, which runs every
   // frame whatever the player is doing, so the wait can't fire into a scene
   // that has moved on — and it is the shape this file already waits with
   // (_restHoldUntil, _streetCounterAt, the lightmap's own clock).
-  _armTrailIntro(now) {
-    if (!this._trailIntroAt) this._trailIntroAt = now + TRAIL_INTRO_DELAY_MS;
+  _armTrailIntro(now, st) {
+    if (this._trailIntroAt) return true;
+    if (Trail.restoredMetres(st, this.save?.playerClass) < TRAIL_INTRO_MIN_M) return false;
+    this._trailIntroAt = now + TRAIL_INTRO_DELAY_MS;
     return true;
   }
 

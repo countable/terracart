@@ -308,7 +308,9 @@
     // save.trail.greeted — has this player been shown the one-time "you start
     // repairing roads" dialog (app.js TRAIL_INTRO_TITLE). A save that has
     // ALREADY walked the ladder is marked greeted rather than being introduced
-    // to a loop it is halfway up; only a save with nothing banked is new.
+    // to a loop it is halfway up; only a save with nothing banked is new. (The
+    // dialog itself now waits for TRAIL_INTRO_MIN_M of road on a new save;
+    // this fold predates that and stays as it was — a veteran is a veteran.)
     if (save.trail.greeted === undefined) {
       save.trail.greeted = (save.trail.metres > 0 || save.trail.prizes > 0);
       needsPersist = true;

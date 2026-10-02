@@ -1004,28 +1004,65 @@ const sweep = (s) => { s._sweepStreets(); };
 // Restoration has no tap and no tool, so the first stretch to come back under
 // a new player is an unexplained flash and a number. The one-time dialog is
 // what turns it into an invitation — once per SAVE, and never for someone
-// already halfway up the ladder.
-test('streets: the first metres ever banked open the one-time dialog', () => {
+// already halfway up the ladder. It waits for TRAIL_INTRO_MIN_M of road,
+// though: the first reach or two play unexplained, so the greeting lands on
+// a repair the player has already watched happen more than once.
+test('streets: the one-time dialog opens once enough road is repaired', () => {
   withStreet((clock) => {
     const s = sweepScene();
     clock.at(0); sweep(s);
     clock.at(PATH_STONE_DWELL_MS); sweep(s);
+    // The first stretch: one reach of street, 35 m, and short of the mark.
+    assert.gt(s.save.trail.metres, 0, 'the first metres banked');
+    assert.lt(Trail.restoredMetres(s.save.trail), TRAIL_INTRO_MIN_M, 'and they are not yet enough');
+    assert.eq(s.intros.length, 0, 'nothing opens over the first repair');
+    clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS); sweep(s);
+    assert.eq(s.intros.length, 0, 'nor a beat after it — this save is not owed a greeting yet');
+    assert.falsy(s._trailIntroAt, 'nothing was armed');
+    assert.falsy(s.save.trail.greeted, 'and the greeting is not spent');
+    // Five cells on: a fresh reach of street past the first, and the save
+    // crosses the mark on this sweep.
+    s.playerM = { x: MID_M + CELL_M * 5, y: MID_M };
+    clock.at(PATH_STONE_DWELL_MS * 3); sweep(s);
+    clock.at(PATH_STONE_DWELL_MS * 4); sweep(s);
+    assert.gte(Trail.restoredMetres(s.save.trail), TRAIL_INTRO_MIN_M, 'the second stretch carries it over');
     // Not yet: the repair it is about — the flash, the chips, the counter on
     // the street — gets its own beat first.
     assert.eq(s.intros.length, 0, 'nothing opens over the repair itself');
     assert.falsy(s.save.trail.greeted, 'and the greeting is not spent early');
-    clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS); sweep(s);
-    assert.eq(s.intros.length, 1, 'the dialog opened a beat after the first metres');
+    clock.at(PATH_STONE_DWELL_MS * 4 + TRAIL_INTRO_DELAY_MS); sweep(s);
+    assert.eq(s.intros.length, 1, 'the dialog opened a beat after the metres that crossed the mark');
     assert.eq(s.intros[0].title, TRAIL_INTRO_TITLE, 'with the greeting title');
     assert.truthy(s.save.trail.greeted, 'and the save remembers it');
     assert.falsy(/\d/.test(s.intros[0].body), 'thresholds stay on the road counter');
     assert.truthy(/survivor/i.test(s.intros[0].body) && /gift/.test(s.intros[0].body), 'the road has people to thank you');
     // …and never again.
-    s.playerM = { x: MID_M + CELL_M * 3, y: MID_M };
-    clock.at(PATH_STONE_DWELL_MS * 3); sweep(s);
-    clock.at(PATH_STONE_DWELL_MS * 4); sweep(s);
-    clock.at(PATH_STONE_DWELL_MS * 4 + TRAIL_INTRO_DELAY_MS); sweep(s);
+    s.playerM = { x: MID_M + CELL_M * 10, y: MID_M };
+    clock.at(PATH_STONE_DWELL_MS * 6); sweep(s);
+    clock.at(PATH_STONE_DWELL_MS * 7); sweep(s);
+    clock.at(PATH_STONE_DWELL_MS * 7 + TRAIL_INTRO_DELAY_MS); sweep(s);
     assert.eq(s.intros.length, 1, 'and never opens a second time');
+  });
+});
+
+test('streets: the mark is more than one reach of road, and short of the first prize', () => {
+  // More than a single stretch: one reach of street (35 m here, the sweep
+  // test above) must NOT be enough, or the greeting is back on the first
+  // flash it was moved off. And under the first goal for EVERY class — the
+  // dialog introduces the neighbours who leave gifts, so it has to land
+  // before the first gift does, and the ceremony waits behind it (the test
+  // below) only when the greeting is owed on the sweep that pays.
+  assert.gt(TRAIL_INTRO_MIN_M, 35, 'more road than one reach restores');
+  assert.lt(TRAIL_INTRO_MIN_M, Trail.goalFor(0, 'runner'), 'and short of the shortest first goal');
+  assert.lt(TRAIL_INTRO_MIN_M, Trail.goalFor(0), 'and of the ordinary one');
+  // The mark is read off the road chip's number, TRUE metres: a scenic path's
+  // ladder bonus (save.trail.bonusM) does not hurry the greeting.
+  withStreet(() => {
+    const s = sweepScene({ save: { energy: 10, reachUpgrades: 0,
+                                   trail: { metres: TRAIL_INTRO_MIN_M, prizes: 0, bonusM: 1 } } });
+    assert.falsy(s._armTrailIntro(Date.now(), s.save.trail), 'a bonus metre short: not owed');
+    s.save.trail.bonusM = 0;
+    assert.truthy(s._armTrailIntro(Date.now(), s.save.trail), 'on the mark in true metres: owed');
   });
 });
 
@@ -1036,10 +1073,15 @@ test('streets: the greeting is armed ONCE and read by the pass that runs every f
   withStreet(() => {
     const s = sweepScene();
     const t0 = Date.now();
-    assert.truthy(s._armTrailIntro(t0), 'arming says a greeting is owed');
+    const st = { metres: 0, prizes: 0 };
+    assert.falsy(s._armTrailIntro(t0, st), 'nothing restored: no greeting owed');
+    assert.falsy(s._trailIntroAt, 'and no deadline set');
+    st.metres = TRAIL_INTRO_MIN_M;
+    assert.truthy(s._armTrailIntro(t0, st), 'on the mark, arming says a greeting is owed');
     assert.eq(s._trailIntroAt, t0 + TRAIL_INTRO_DELAY_MS, 'the beat is TRAIL_INTRO_DELAY_MS out');
-    assert.truthy(s._armTrailIntro(t0 + 500), 'a later sweep is still owed one');
+    assert.truthy(s._armTrailIntro(t0 + 500, st), 'a later sweep is still owed one');
     assert.eq(s._trailIntroAt, t0 + TRAIL_INTRO_DELAY_MS, 'but the deadline does not move');
+    assert.truthy(s._armTrailIntro(t0 + 600, { metres: 0, prizes: 0 }), 'and, armed, it stays owed whatever that sweep reads');
   });
   // …and it is read from the TOP of _sweepStreets, before that pass's own
   // surface and reach gates: a greeting armed by a repair the player then
@@ -1049,12 +1091,17 @@ test('streets: the greeting is armed ONCE and read by the pass that runs every f
     .test(body), 'the wait is read before the sweep gates on depth or reach');
 });
 
+// A save one reach short of the mark: the first sweep's 35 m carry it over,
+// so the greeting is owed on that sweep.
+const nearMark = () => ({ energy: 10, reachUpgrades: 0,
+                          trail: { metres: TRAIL_INTRO_MIN_M - 30, prizes: 0 } });
+
 test('streets: the beat lets the repair be seen — nothing opens until it has passed', () => {
   withStreet((clock) => {
-    const s = sweepScene();
+    const s = sweepScene({ save: nearMark() });
     clock.at(0); sweep(s);
     clock.at(PATH_STONE_DWELL_MS); sweep(s);
-    assert.gt(s.save.trail.metres, 0, 'the metres banked');
+    assert.gte(Trail.restoredMetres(s.save.trail), TRAIL_INTRO_MIN_M, 'the metres banked, and over the mark');
     assert.eq(s.toasts.length, 1, 'and the counter popped on the street');
     // One millisecond short: still nothing over the moment it explains.
     clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS - 1); sweep(s);
@@ -1073,7 +1120,7 @@ test('streets: the greeting waits for a clear screen, and asks again', () => {
   // the how-to card is up. A dialog opened behind that one is a dialog nobody
   // reads, and the save's one greeting would be spent on it.
   withStreet((clock) => {
-    const s = sweepScene();
+    const s = sweepScene({ save: nearMark() });
     const body = { classList: { has: true, contains(c) { return c === 'modal-open' && this.has; } } };
     const realBody = document.body;
     document.body = body;
@@ -1085,7 +1132,7 @@ test('streets: the greeting waits for a clear screen, and asks again', () => {
       clock.at(PATH_STONE_DWELL_MS + TRAIL_INTRO_DELAY_MS); sweep(s);
       assert.eq(s.intros.length, 0, 'nothing opens behind the card');
       assert.falsy(s.save.trail.greeted, 'and the greeting is not spent');
-      assert.gt(s.save.trail.metres, 0, 'though the metres still bank');
+      assert.gte(Trail.restoredMetres(s.save.trail), TRAIL_INTRO_MIN_M, 'though the metres still bank');
       body.classList.has = false;
       s.playerM = { x: MID_M + CELL_M * 3, y: MID_M };
       clock.at(PATH_STONE_DWELL_MS * 3); sweep(s);
