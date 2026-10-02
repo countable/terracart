@@ -9,8 +9,7 @@
 //
 // app.js needs Phaser and can't load headlessly (no bridge exists for these
 // methods in run.js), so — like feet_anchor.test.js and energy_pop.test.js —
-// the wiring is pinned as SOURCE TEXT against SCENE_SRC, with the one
-// self-contained arithmetic expression (STREET_LAMP_PX) lifted out and run.
+// the wiring is pinned as SOURCE TEXT against SCENE_SRC.
 
 (function () {
 const app = SCENE_SRC;
@@ -198,21 +197,6 @@ test('street lamps: which lamps are lit is settled before the pass that draws th
   assert.truthy(iRoad > 0 && iObjects > iRoad, 'the road pass runs before the sprite pass');
 });
 
-test('street lamps: STREET_LAMP_PX is derived from RoadOverlay.LAMP_DRAW_CELLS x CELL_PX, not a hand-typed pixel count', () => {
-  // Lift the literal declaration rather than retyping the number: a retune
-  // of LAMP_DRAW_CELLS in road_overlay.js has to move this test with it.
-  const m = app.match(/const STREET_LAMP_PX = CELL_PX \*\s*\n?\s*\(\(typeof RoadOverlay !== 'undefined' && RoadOverlay\.LAMP_DRAW_CELLS\) \|\| ([\d.]+)\);/);
-  assert.truthy(m, 'STREET_LAMP_PX reads RoadOverlay.LAMP_DRAW_CELLS, with a literal fallback only for load order');
-  // RoadOverlay IS loaded in this suite, so the real expression the game
-  // computes is CELL_PX * RoadOverlay.LAMP_DRAW_CELLS — evaluate exactly
-  // that, with both operands as the real, live values (not retyped copies).
-  const expected = CELL_PX * RoadOverlay.LAMP_DRAW_CELLS;
-  assert.gt(expected, 0, 'a real, positive size in pixels');
-  // And the fallback literal in app.js agrees with RoadOverlay's own number —
-  // if RoadOverlay ever failed to load, app.js would still draw the lamp at
-  // the size RoadOverlay actually wants it.
-  assert.eq(Number(m[1]), RoadOverlay.LAMP_DRAW_CELLS, 'the load-order fallback matches RoadOverlay.LAMP_DRAW_CELLS');
-});
 
 test('street lamps: the texture is baked once with RoadOverlay.paintLamp, keyed off the module\'s own LAMP_TEX_PX', () => {
   assert.truthy(/RoadOverlay\.paintLamp\(lctx, S, glow \|\| UI_LAMP_GLOW\)/.test(app), 'the real painter draws the baked texture, in the lamp\'s glow');

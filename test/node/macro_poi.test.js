@@ -515,14 +515,6 @@
     assert.eq(Combat.trainingBonus(save, 'melee', T0 + DAY), 2, 'the drill is gone at 24 h');
     assert.eq(shortDuration(Macros.drillLeftMs(save, 'melee', T0 + DAY - 3600000)), '1h', 'shown in shortDuration');
     assert.eq(Macros.drillPrice(), 150);
-    // A pre-Sep-2026 save: one melee track, capped, folded on the next purchase.
-    const old = { money: 1e9, trainingPerm: 25, trainingBuffUntil: T0 + 1000 };
-    assert.eq(Combat.trainingLevel(old, 'melee'), 5, 'an old +25% veteran reads as melee level 5');
-    assert.truthy(Combat.trainingBuffActive(old, 'melee', T0), 'and keeps its running drill');
-    Macros.buyLesson(old, 'magic', 99);
-    assert.eq(old.trainingPerm, undefined, 'folded into the new fields');
-    assert.eq(old.training.melee, 5);
-    assert.eq(old.trainingDrills.melee, T0 + 1000);
     assert.eq(Energy.maxEnergy({ training: { energy: 3 } }) - Energy.maxEnergy({}), 30, 'stamina lifts the bar\'s cap');
   });
 

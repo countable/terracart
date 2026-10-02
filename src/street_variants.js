@@ -229,7 +229,9 @@
       stone: { weathered: '#806438', restored: '#c79a48' }, lampDensity: LANTERN_SPACING_DIV,
       words: /(lantern|lamp|light|candle|latern)/i,
       // No `attracts`: its marks lie on the major band + verge, all inside
-      // the kerb buffer, where no animal is seated (WorldGen.isFoeCell).
+      // the kerb buffer — the road is never a lure, and the spawn gate
+      // (WorldGen.isSpawnCell(…, creatureSpawnClass(kind))) keeps every fast
+      // animal out of it.
       lampGlow: '#ffb347',
       story: 'street_lantern', title: 'Lantern Row',
       body: 'Lamp posts line the road, close enough to light the whole street. You walk between the rows of lamps.',
@@ -1586,8 +1588,8 @@
     // THE CAFÉ HOARDS: the index's hoard POIs in hash order, the first
     // HOARDS_PER_TILE that seat. A hoard lies BESIDE its POI on public ground
     // within HOARD_SEAT_CELLS, on the POI's side of any major band
-    // (nearestSeat). A hoard is an ATTRACTOR (the spawn gate: OPEN ground
-    // only — out of the kerb, house, school and sensitive buffers). GUARDED
+    // (nearestSeat). A hoard is an ATTRACTOR (the spawn gate: every hard
+    // reason plus the sensitive buffer — the kerb does not refuse it). GUARDED
     // when the hoard's own cell is a foe cell: a lair candidate on it
     // (lairs.js 'cafe' tier — Lairs seats the giant as an 'enemy' too). With
     // the mask an attractor's ground IS a foe's, so every seated hoard is

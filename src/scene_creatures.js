@@ -53,8 +53,8 @@ const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;
 // FIRE WARD DEPTH CAP: a campfire only turns away the WEAKEST cave-dwellers —
 // those introduced at the first cave level (Combat.MONSTERS[kind].minDepth <= 1),
 // the same tier as the surface slime it already deters. A goblin (minDepth 2)
-// or goblin archer (minDepth 3) — and their giants, pushed GIANT_DEPTH_STEP
-// deeper still — are past what a lit campfire can plausibly hold off; only
+// or goblin archer (minDepth 3) — and their giants, at their own roster
+// depths — are past what a lit campfire can plausibly hold off; only
 // Home's stronger ward (HOME_R, surface only) turns those around.
 const FIRE_WARD_MAX_DEPTH = 1;
 
@@ -168,8 +168,9 @@ class SceneCreatures {
       // each cell is refused, as reason bits. Every spawner below names its
       // class to isSpawnCell (WorldGen.SPAWN_CLASS_BLOCKS — a creature's via
       // creatureSpawnClass), and the class's row says which typed reasons
-      // (house, kerb, school, sensitive, field edge) it refuses; the hard ones
-      // (road band, quiet / restricted land, back yards, …) refuse all.
+      // (kerb, sensitive) it refuses; the hard ones (road band, quiet /
+      // restricted land, kindergartens, back yards, a field's interior, …)
+      // refuse all.
       spawnWhy: entry.spawnWhy,
       // The major roads' band / verge / KERB BUFFER bits (worldgen
       // ROAD_CLASS_*) and the QUIET LAND: read by isSpawnCell only on an
@@ -321,10 +322,10 @@ class SceneCreatures {
     }
     // A LAIR POINT IS AN ATTRACTOR: a gate's daily foe, a street's guard, a
     // café hoard's giant — each is kept only where attractor ground (the
-    // spawn gate: out of the house buffer, off school and sensitive ground and
-    // fields, off hard land) lies within LAIR_POINT_SLACK_CELLS of its point —
-    // a gate's point sits on its own way, so the ground BESIDE it answers.
-    // A gate in a school's fence or a field gets no foe. The guards' own
+    // spawn gate: off sensitive ground and every hard reason — yards,
+    // kindergartens, a field's interior) lies within LAIR_POINT_SLACK_CELLS of
+    // its point — a gate's point sits on its own way, so the ground BESIDE it
+    // answers. A gate in a kindergarten's fence or deep in a field gets no foe. The guards' own
     // seats are their kind's class (lairs.js, creatureSpawnClass).
     if (entry.streetLairs.length) {
       const lairOpts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
@@ -397,9 +398,9 @@ class SceneCreatures {
           if (!fauna) enemyGroundSeats.add(cy * N + cx);
           if (caughtSet.has(id)) return;
           // AN ANIMAL (or a wild slime) IS SEATED BY ITS OWN CLASS (the spawn
-          // gate, creatureSpawnClass): fauna keep off school grounds and
-          // sensitive ground; a FAST one off the kerb too; a foe also off the
-          // house buffer and every field. DROPPED after the draw, like the
+          // gate, creatureSpawnClass): every class keeps off the hard reasons
+          // and sensitive ground; a FAST one (animal or foe) off the kerb
+          // too. DROPPED after the draw, like the
           // pest amnesty below, never re-rolled: the stream stays the same
           // for every later spawn, and the mask is generated, so every player
           // loses the same animals.

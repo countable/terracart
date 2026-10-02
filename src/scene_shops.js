@@ -325,8 +325,8 @@ class SceneShops {
     // their trailer to cash out.
     // BUY — generate an offer and present a confirmation modal.
     // Special tracks come BEFORE the regular seed/produce rotation:
-    //   (a) Castle / tower — always sells relics, no rate-limit, with re-roll.
-    //   (b) Blacksmith     — address-ending-in-9 houses trade 5 gems for a relic.
+    //   (a) Claimed castle — the castellan's favour (presentCastleServiceOffer).
+    //   (b) Blacksmith     — forges relics from bars (presentBlacksmithOffer).
     //   (c) Regular house  — 10% chance to swap the normal offer for a relic.
     // (Home / starter trailer is handled at the top of this function — it
     // only sells, never buys.)
@@ -658,7 +658,7 @@ class SceneShops {
           // once the player reaches it or it's satisfied — see the update loop).
           this.deliveryCompass = { id: h.id, x: h.x, y: h.y };
           wrap.remove();
-          this.flash('following the white arrow', this.viewCenterX, this.viewCenterY);
+          this.flashAtPlayer('following the white arrow');
         });
         box.appendChild(row);
       }
@@ -1144,14 +1144,9 @@ class SceneShops {
     });
   }
 
-  // Blacksmiths (houses with an address ending in 9) forge a relic for
-  // exactly 5 of a gem they pick. Gem type is deterministic per house so a
-  // smith always demands the same stone; relic comes from peekOrBuildRelicOffer
-  // so it's stable until bought. Reuses the generic showOfferModal — same UI
-  // as cash/barter trades, just with a gem cost.
-  // Blacksmith recipe lookup. Returns an array of { id, qty } ingredient
-  // entries for forging the given (kind, slot, tier) relic/armor. Recipe
-  // rules:
+  // Blacksmith recipes (gear.js Gear.blacksmithRecipe): an array of
+  // { id, qty } ingredient entries for forging the given (kind, slot, tier)
+  // relic/armor. Recipe rules:
   //   • Tools / weapons / armor / utility — pay max(5, tier) of the
   //     tier-matched bar. The low tiers (T1 wood, T2 copper, T3 iron,
   //     T4 gold, T5 platinum) all cost 5; crimson (T6) / frost (T7) keep
@@ -1541,8 +1536,9 @@ class SceneShops {
   // Houses.CASTLE_SERVICE_MS — the one timer on any building you trade at.
   presentCastleServiceOffer(sx, sy, house) {
     if (this._castleServiceUsed(house)) {
-      // A timed gate names its wait (shortDuration), never "later".
-      this.flash(`My lord! Come back in ${shortDuration(this._castleServiceWaitMs(house))}.`,
+      // A timed gate names its wait, never "later" — and the castellan SAYS
+      // it (spokenDuration), on two lines so each fits MAP_MSG_MAX.
+      this.flash(`My lord!\nCome back in ${spokenDuration(this._castleServiceWaitMs(house))}.`,
                  sx, sy);
       return;
     }
@@ -1613,8 +1609,7 @@ class SceneShops {
             body: "The vault door grinds open, and your banner rises above the gate. You step inside.",
           });
           if (!splashed) {
-            this.flash('The castle vault is yours.',
-              this.viewCenterX, this.viewCenterY - 60);
+            this.flash('The castle vault is yours.', sx, sy);
           }
         }
       },

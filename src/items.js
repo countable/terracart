@@ -1155,13 +1155,13 @@ const CONSUMABLE_SPEC = {
   antidote: {
     verb: 'Drink', method: 'drinkAntidote', title: 'Drink the Antidote?',
     get: 'The bitter draught clears every affliction.',
-    usable: scene => Conditions.hasDebuffs(scene.save, scene),
+    usable: scene => Conditions.hasDebuffs(scene.save),
   },
   elixir: {
     verb: 'Drink', method: 'drinkElixir', title: 'Drink the Elixir?',
     get: 'Warmth fills your body, washing every affliction away.',
     usable: scene => scene.save.energy > 0
-      && (scene.save.energy < scene.getMaxEnergy() || Conditions.hasDebuffs(scene.save, scene)),
+      && (scene.save.energy < scene.getMaxEnergy() || Conditions.hasDebuffs(scene.save)),
   },
   vigor_potion: {
     energy: 65,
@@ -1488,7 +1488,6 @@ const REVIVE_ITEM_FRAC = {
   revive_potion: CONSUMABLE_SPEC.revive_potion.energyFrac,
   resurrection_potion: CONSUMABLE_SPEC.resurrection_potion.energyFrac,
 };
-const revivePct = (id) => Math.round(REVIVE_ITEM_FRAC[id] * 100);
 // The Crow Feather stands you up with a flat 1 energy — enough to crawl, not
 // to fight: its pocket resurrection only buys the walk home. (It rode the
 // table above at 10% until Sep 2026.)
@@ -1881,7 +1880,6 @@ function wreckRestoreQty(restoredCount, key) {   // eslint-disable-line no-unuse
 // nearly a fifth of the ceiling for the cheapest bag in the game.
 const STACK_CAP_BY_TIER = [9, 15, 25, 40, 60, 99, 149, 249];
 const STACK_CAP_BASE = STACK_CAP_BY_TIER[0];
-const STACK_CAP_MAX  = STACK_CAP_BY_TIER[STACK_CAP_BY_TIER.length - 1];
 function stackCapForBags(bagsRelic) {
   const t = bagsRelic?.tier || 0;
   if (t <= 0) return STACK_CAP_BASE;
@@ -2280,7 +2278,7 @@ function jewelryVisionReduction(save) {
   for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
     if (row.visionCells && carriesItem(save, id)) cells = Math.max(cells, row.visionCells);
   }
-  if ((save?.shrinkingPotionUntil ?? 0) > Date.now()) cells += CONSUMABLE_SPEC.shrinking_potion.visionCells;
+  if (typeof PotionEffects !== 'undefined') cells += PotionEffects.visionReduction(save);
   return cells;
 }
 function jewelryFireDamageMul(save) {

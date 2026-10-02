@@ -55,9 +55,9 @@
   // ── How many, and where ──────────────────────────────────────────────────
   // A tile is ~236 cells (≈1.65 km) on an edge — about 21 screens across — so
   // these BASE counts read as "one every dozen-odd screens of footpath", not
-  // a minefield. (The ROAD_ / ROADSIDE_ names are historic: traps sat on the
-  // major roads' verges until Sep 2026.) The mode and the depth scale up from here — see countMul below.
-  const ROAD_TRAP_MIN = 10, ROAD_TRAP_SPAN = 9;    // 10..18 per surface tile, base rate
+  // a minefield. The mode and the depth scale up from here — see countMul
+  // below.
+  const SURFACE_TRAP_MIN = 10, SURFACE_TRAP_SPAN = 9;    // 10..18 per surface tile, base rate
   // How many trap-ground cells the one-pass scan below keeps to choose from.
   // It only needs to exceed the trap count comfortably because it samples the
   // whole ground uniformly (see sampleTrapCells); more buys nothing but
@@ -65,7 +65,7 @@
   // than this reservoir can supply candidates for, so spawnSurface widens it
   // in that case; left alone at the base rate so every existing seed and test
   // keeps drawing the exact same rng sequence.
-  const ROADSIDE_SAMPLE = 96;
+  const TRAP_GROUND_SAMPLE = 96;
   // DANGER: every surface tile rolls how trapped its paths are, a multiplier
   // on the count uniform in [DANGER_MIN, DANGER_MAX] — mean 1, so the mode's
   // average density (trapCountMul) is unchanged; the SPREAD is what it buys:
@@ -349,8 +349,8 @@
     // existing world. Leave them.
     const rng = WG.makeRng(((tx * 0x7f4a7c15) ^ (ty * 0x2545f491) ^ 0x51ed270b) >>> 0);
     const mul = (countMul > 0 ? countMul : 1) * tileDanger(tx, ty);
-    let n = Math.round((ROAD_TRAP_MIN + Math.floor(rng() * ROAD_TRAP_SPAN)) * mul);
-    const sampleSize = mul > 1 ? Math.max(ROADSIDE_SAMPLE, n * 6) : ROADSIDE_SAMPLE;
+    let n = Math.round((SURFACE_TRAP_MIN + Math.floor(rng() * SURFACE_TRAP_SPAN)) * mul);
+    const sampleSize = mul > 1 ? Math.max(TRAP_GROUND_SAMPLE, n * 6) : TRAP_GROUND_SAMPLE;
     const roadMask = spawnOpts && spawnOpts.roadMask;
     const { cells: all, path, park } = yield* sampleTrapCellsSteps(grid, roadClass, w, h, rng, sampleSize, under, roadMask);
     if (!all.length) return [];
@@ -372,8 +372,8 @@
         // The shared rule: walkable, off the band, off anything already there,
         // and out of a private yard.
         // A trap is a hazard seated for the player: an 'enemy' spawn (the
-        // spawn gate: out of the house buffer, off school / sensitive ground
-        // and fields; the kerb is trapGroundKind's).
+        // spawn gate: every hard reason — yards, kindergartens, a field's
+        // interior — plus sensitive ground; the kerb is trapGroundKind's).
         if (!WG.isSpawnCell(grid, w, h, lix, liy, spawnOpts, 'enemy')) continue;
         taken.add(idx);
         traps.push(makeTrap(tx, ty, tileEdgeM, w, lix, liy,
@@ -502,8 +502,8 @@
     if (!(N > 0) || lix < 0 || liy < 0 || lix >= N || liy >= N) return false;
     const i = liy * N + lix;
     if (!root.WorldGen.isWalkable(entry.grid[i])) return false;
-    // THE SPAWN GATE: a snare is an 'enemy' spawn (off the house buffer,
-    // school and sensitive ground, fields, hard land — entry.spawnWhy; and
+    // THE SPAWN GATE: a snare is an 'enemy' spawn (off sensitive ground and
+    // every hard reason — yards, a field's interior — entry.spawnWhy; and
     // the road band, entry.roadMask — isSpawnCell reads that unconditionally,
     // mask or no mask, so one call covers both halves and there is no raw
     // roadMask read to keep separately). It does not move, so the gate's
@@ -646,7 +646,7 @@
 
   root.Traps = {
     STEP_ENERGY, STAND_ENERGY_PER_S,
-    ROAD_TRAP_MIN, ROAD_TRAP_SPAN, ROADSIDE_SAMPLE, DANGER_MIN, DANGER_MAX, tileDanger,
+    SURFACE_TRAP_MIN, SURFACE_TRAP_SPAN, TRAP_GROUND_SAMPLE, DANGER_MIN, DANGER_MAX, tileDanger,
     CAVE_TRAP_MIN, CAVE_TRAP_SPAN, CAVE_TRAP_PER_DEPTH, CAVE_TRAP_DEPTH_CAP, CAVE_SPAWN_R,
     DUNGEON_DENSITY_MUL,
     isSprung, spring,

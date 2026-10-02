@@ -56,9 +56,10 @@ test('hit flash: the aura shows it on BOTH channels, and it wins over the states
   assert.truthy(m, '_updatePlayerAura exists');
   const body = m[1];
   assert.truthy(/const hit = hitLeft > 0;/.test(body), 'reads the deadline');
-  // A status on the body (Conditions.DEFINITIONS — burning, poison) joins
-  // the states that paint the aura; the hit still wins over all of them.
-  assert.truthy(/if \(hit \|\| spent \|\| far \|\| burning \|\| poisoned\) \{/.test(body), 'a hit lights the aura on its own');
+  // A status on the body (the first active row of Conditions.DEFINITIONS)
+  // joins the states that paint the aura; the hit still wins over all of them.
+  assert.truthy(/Object\.keys\(Conditions\.DEFINITIONS\)/.test(body), 'the status tint comes off the table');
+  assert.truthy(/if \(hit \|\| spent \|\| far \|\| status\) \{/.test(body), 'a hit lights the aura on its own');
   assert.truthy(/if \(hit\) \{\s*\n\s*tint = HIT_FLASH_TINT;/.test(body), 'the tint channel, and it wins');
   assert.truthy(/const key = \(hit \|\| spent\) \? 'halo_red' : 'halo_dark';/.test(body),
     'the halo channel — the red texture, which reads without WebGL');

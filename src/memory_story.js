@@ -17,7 +17,7 @@ const MemoryStory = (() => {
   // used to be pushed onto the pending queue by the warden's own seating and
   // splashed over the map on the first morning; it never is now (Sep 2026,
   // owner's call): the player walks up to the one neighbour on screen and
-  // taps them. drain() drops a queued 'home' record from an older save.
+  // taps them.
   // NEIGHBOUR COPY (CLAUDE.md, Dialogs): spoken words in curly quotes, an
   // action in <em> on its own line, the body HTML; a talk that needs two
   // panels is an ARRAY of pages (NPC.dialogue shows them with "Next"). The
@@ -191,20 +191,16 @@ const MemoryStory = (() => {
   function drain(scene) {
     const s = scene.save.memoryStory;
     if (!s?.pending?.length || scene._memoryStoryOpen) return false;
-    // A 'home' record queued by an older save: the warden says it on a tap
-    // now, so it leaves the queue unshown.
-    if (s.pending.some(p => p.id === 'home')) {
-      s.pending = s.pending.filter(p => p.id !== 'home');
+    // The queue holds memory records only (enqueue); anything else is
+    // dropped unshown rather than painted as "A memory returns with undefined".
+    if (!Number.isFinite(s.pending[0]?.memory)) {
+      s.pending = s.pending.filter(p => Number.isFinite(p?.memory));
       persistSave(scene.save);
       if (!s.pending.length) return false;
     }
     if (document.body?.classList?.contains('modal-open')) return false;
     const record = s.pending[0];
-    let p = panel(record, scene.save);
-    if (record.npc && scene.textures && typeof NPC !== 'undefined') {
-      p.art = NPC.portrait(scene, record.npc);
-      p.title = `${record.npc.name} · Neighbour`;
-    }
+    const p = panel(record, scene.save);
     scene._memoryStoryOpen = true;
     try {
       scene.showMessageModal({ ...p, mustAcknowledge: true, onDismiss: () => {

@@ -154,15 +154,6 @@ const ASSETS = {
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
-  // Stone pillar — 16×32 (1 cell wide × 2 tall): a fluted column with cap +
-  // stepped base. Originally sliced from a gitignored source sheet, but the
-  // slice rect clipped the column's top and left edge ("pole art is cut off"),
-  // so the art was redrawn complete and symmetric in the same palette. Used as
-  // a purely decorative stand-in for OSM utility poles / posts (power=pole,
-  // man_made=mast, barrier=bollard, highway=street_lamp) — no interaction.
-  // Authored at 16px-per-cell, so RENDER_SPEC.pole draws it at scale 2.0 to
-  // match the game's 32px cell (1 cell wide × ~2 tall — a full-height pole).
-  pillar:         { kind: 'image', path: 'assets/Objects/Approved/pillar.png' },
   // STREET VARIANTS (src/street_variants.js): the generated 16px props (see
   // assets/Objects/Generated/README.md — placeholders): the pilgrim's
   // waystone, the barricade, and the burned row's tar pit and iron stakes

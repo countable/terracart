@@ -52,9 +52,10 @@
     const vigour = Math.max(0, Math.floor(Number(save.vigourUpgrades) || 0));
     // A Stamina hall's levels and drill (Combat.trainingBonus 'energy').
     const trained = (typeof Combat !== 'undefined' && Combat.trainingBonus) ? Combat.trainingBonus(save, 'energy') : 0;
-    const giant = typeof Combat !== 'undefined' && Combat.giantActive(save, now) ? CONSUMABLE_SPEC.giant_potion.maxHpBonus : 0;
-    const shrinking = typeof Combat !== 'undefined' && Combat.shrinkingActive(save, now)
-      ? CONSUMABLE_SPEC.shrinking_potion.maxHpMul : 1;
+    // Giant and Shrinking: the same capacity rule as any creature (PotionEffects).
+    const potions = typeof PotionEffects !== 'undefined';
+    const giant = potions ? PotionEffects.maxHpBonus(save, now) : 0;
+    const shrinking = potions ? PotionEffects.maxHpMul(save, now) : 1;
     save.maxEnergy = Math.max(1, Math.ceil((base + tasted + vigour * VIGOUR_ENERGY_STEP + trained + giant) * shrinking));
     return save.maxEnergy;
   }
@@ -249,9 +250,9 @@
   }
 
   // The floor a revive lifts an empty bar to. REVIVE_FRAC (a quarter) is
-  // Home's: arriving there on hard with nothing left. An item that revives
-  // (the Crow Feather, the revival potions — items.js REVIVE_ITEM_FRAC)
-  // passes its own `frac`. ROUNDED either way: energy is a whole number
+  // Home's: arriving there on hard with nothing left. A revival potion
+  // (items.js REVIVE_ITEM_FRAC) passes its own `frac`; the Crow Feather is a
+  // flat FEATHER_REVIVE_ENERGY and never comes here. ROUNDED either way: energy is a whole number
   // everywhere (spends, rests, blows), and a bare maxE * 0.25 left a player
   // on 22.25⚡ after reviving at 89.
   const REVIVE_FRAC = 0.25;

@@ -412,9 +412,12 @@ Render.TerrainCache = TerrainCache;
 // Is the POLYGONAL building mode on? When it is, building cells paint as the
 // GROUND around them here and every piece of tiled building art below is
 // skipped — the footprints are drawn from their source rings by
-// building_overlay.js instead. Resolved per pass (the flag is a runtime toggle,
-// so a frame has to be able to change its mind) and false whenever that module
-// isn't loaded, which is what keeps the tiled path the default everywhere else.
+// building_overlay.js instead. It is ON in the game (BuildingOverlay.enabled()
+// defaults on). The tiled path below runs only where it is off: the sandbox
+// world (sandbox.js install / tools/sandbox_capture.js turn it off, since its
+// authored buildings are cells with no OSM rings) and headless code that never
+// loads building_overlay.js. Resolved per pass, since the flag can change at
+// runtime.
 const polyBuildings = () =>
   typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled();
 // Electric light blue — the POI pad's tint. Punchier and more saturated than
@@ -744,8 +747,8 @@ const WATERED_TINT = 0xc7c7c7;
 const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 27, 29, 30, 31]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, wasteland, churchyard, unmapped fog, tar yard
 // Fog of war — the wash over land the player has never visited.
 //
-// Pure black, NOT the biome's `atmos.dim` that the out-of-reach wash uses.
-// That dim is deliberately tinted so unlit ground still reads as this biome
+// Pure black, NOT the biome's `atmos.dim` that the lightmap's out-of-reach
+// ambient uses (Render.reachDimColor, read by Lighting.profile). That dim is deliberately tinted so unlit ground still reads as this biome
 // after dark; fog is the opposite claim — it is the absence of information,
 // and colouring it would say "here is a forest you haven't been to" when the
 // point is that the player doesn't know that yet.
@@ -1172,14 +1175,13 @@ const _shadeOnce = (n) => {
 // (Tints compose with util.js's mulTint — channel-wise multiply — so an
 // unclaimed shop keeps its role colour AND takes the wash, instead of one
 // replacing the other.)
-// ── The out-of-reach wash, in ONE place ───────────────────────────────────
+// ── The out-of-reach dim, in ONE place ────────────────────────────────────
 // Lighting.profile derives the lightmap's ambient, plateau and edge from these
 // two numbers (the lightmap is the only lighting pass; no sprite tint composes
-// them — spriteTint below). They are the expressions the old ground wash
-// used: the biome's
-// `dim` at 0.38 on the surface, pure black deepening half a step per level
-// underground (see the long note at the wash itself for why each is what it
-// is).
+// them — spriteTint below): the biome's `dim` at 0.38 on the surface, so
+// unlit ground still reads as its biome after dark, and pure black deepening
+// a step per level underground, where the torch bubble's contrast against
+// dead rock is the whole readability budget.
 Render.reachDimColor = (scene) =>
   ((scene.depth ?? 0) > 0 ? 0x000000 : (scene._atmos ? scene._atmos.dim : 0x000000));
 Render.reachDimAlpha = (scene) => {
@@ -1197,49 +1199,32 @@ Render.houseTextureKey = (role, o, scene) => {
   return `house_${role}`;
 };
 
-// The multiply tint a world sprite wears, resolved in ONE place so the rules
-// compose in a fixed order instead of racing each other down configureObject:
-// the biome's, then — for a house that isn't the
-// player's — the derelict wash.
+// The multiply tint a world sprite wears, resolved in ONE place: the biome's
+// tint, then — for a house that isn't the player's — the derelict wash.
 //
-// NOT in here any more: the out-of-reach dim. Until Sep 2026 the lighting
-// layer sat BELOW the sprites and every sprite was exempt from the reach
-// wash — except the wreck, whose roof had to follow its darkened footprint,
-// so this function composed the reach dim onto it by hand. The lightmap
-// (src/lighting.js) sits ABOVE the sprites now and dims every one of them
-// with the ground it stands on, so a wreck outside the bubble goes dark by
-// the same amount as its footprint with no help from here. Composing the dim
-// again would darken it twice.
+// NOT in here: the out-of-reach dim. The lightmap (src/lighting.js) sits ABOVE
+// the sprites and dims every one of them with the ground it stands on, so a
+// wreck outside the bubble goes dark by the same amount as its footprint with
+// no help from here; composing a dim here would darken it twice. Nor a shiny
+// sheen: a shiny tree GLOWS (Lighting.KINDS.shiny) and, under WebGL, glints
+// (Render.setShine) — both set in drawObjects.
 // Pure (object + scene in, a colour out), which is also what makes it
 // auditable headlessly: test/node/wreck_dim.test.js drives it directly.
 Render.spriteTint = function spriteTint(o, scene, textureKey) {
-  // White (no tint) unless one of the three rules below applies. Houses get
-  // NO role tint of any kind: a plain house is a delivery host and stays
-  // untinted, and a themed shop (blacksmith/trader/market/wizard/trailer)
-  // carries its own house_<role> sprite, which tinting would only discolour.
-  // The only thing a house can wear is the derelict wash (+ reach dim) at the
-  // bottom of this function.
   let tint = 0xffffff;
-  // No shiny sheen here any more: a gold multiply over a green canopy reads
-  // as olive, not as treasure. A shiny tree GLOWS (Lighting.KINDS.shiny) and,
-  // under WebGL, glints (Render.setShine) — both set in drawObjects.
   // Per-biome tint for primary interactables (e.g. rusty mineralrock on an
-  // industrial lot) — only when nothing more specific (shop/shiny) already
-  // tinted it. The cell's terrain was stamped as `_biome` at worldgen time.
-  // A spec.after hook (e.g. mineralrock tier shading) may still override.
-  if (tint === 0xffffff && typeof BiomeProfiles !== 'undefined' && o._biome != null) {
+  // industrial lot). The cell's terrain was stamped as `_biome` at worldgen
+  // time. A spec.after hook (e.g. mineralrock tier shading) may still override.
+  if (typeof BiomeProfiles !== 'undefined' && o._biome != null) {
     const bt = BiomeProfiles.tint(o._biome, o.kind);
     if (bt) tint = bt;
   }
-  // A HOUSE that isn't the player's is washed toward dark green with the rest
-  // of its footprint (see the wash pass in drawCells). Its SPRITE is not on
-  // that canvas — the roof is a pooled image above it — so the same shift is
-  // applied here as a multiply tint. Multiply can't reproduce a
-  // lerp exactly, so the tint is white lerped 35% toward the wash colour:
-  // mid-tones land where the wash puts them and the art keeps its shading.
-  // Applied last so it also carries over a shop's own role tint.
-  // (A TURRET is exempt: it swaps to its own baked texture above rather than
-  // taking the tint, so applying this as well would shade it twice.)
+  // A HOUSE that isn't the player's takes the derelict wash as a multiply
+  // tint: white lerped toward the wash colour (UNCLAIMED_SPRITE_TINT), so
+  // mid-tones darken and the art keeps its shading. Houses get no role tint:
+  // a themed shop carries its own house_<role> sprite. Art baked unclaimed
+  // (`unclaimedArt` in ASSETS — the wreck, the unclaimed fort) already wears
+  // it, so it is exempt rather than shaded twice.
   if (o.kind === 'house' && scene.isClaimedKey && !scene.isClaimedKey(o.id)) {
     // Appearance already resolved the owner's role and selected this texture.
     // Read that result rather than resolving house ownership a second time.
@@ -1470,7 +1455,7 @@ Render.drawCells = function drawCells(scene) {
   // shared it are gone (see the note by T_PATH). The pool and its container
   // keep their name — the layer order is pinned on it (tools/layer_audit.js)
   // and a plank is still ground decoration in the same slot.
-  // 'pier' is assets/Objects/Wilderness/Bridge Beach.png, 8×14 of
+  // 'pier' is assets/Objects/Approved/pier.png (ASSETS.pier), 8×14 of
   // 16×16 frames. Frame 20 = row 2 col 4 = an interior tile of the continuous
   // plank-deck band (frames 16-23): 100% opaque wood, no baked-in water, no
   // gaps, no support posts — so it tiles edge-to-edge across adjacent pier
@@ -2336,8 +2321,8 @@ Render.drawCells = function drawCells(scene) {
   // light. The lightmap in src/lighting.js replaced the lot: an ambient floor
   // plus one additive cookie per light (the player, Home, a restored building,
   // a campfire), multiplied over the world from the lightMap layer ABOVE the
-  // sprites. Its levels are DERIVED from the same reachDimColor /
-  // reachDimAlpha this pass painted with. See Lighting.profile.
+  // sprites. Its levels are DERIVED from reachDimColor / reachDimAlpha, the
+  // numbers this pass used to paint with. See Lighting.profile.
   //
   // The white reach OUTLINE went second (Sep 2026), and this is the pass that
   // used to draw it — a 2px line at 0.15 alpha tracing the staircase's outer
@@ -2762,7 +2747,7 @@ Render.drawObjects = function drawObjects(scene) {
   const pWorldX = _anchor.x;
   const pWorldY = _anchor.y;
   // Per-object screen projection: world-meter delta (dx, dy from the anchor)
-  // → screen pixels. Every sprite/label/diamond in this pass shares the exact
+  // → screen pixels. Every sprite/label/footprint in this pass shares the exact
   // same projection, so define it once here (viewCenterX/Y, cellM, CELL_PX are
   // all in scope for the whole function).
   const project = (dx, dy) => ({
@@ -3364,8 +3349,8 @@ Render.drawObjects = function drawObjects(scene) {
     s.setOrigin((cc + 0.5) / shape.cols, (cr + 0.5) / shape.rows)
      .setScale(mini ? POI_PAD_MINI_SCALE : 1)
      .setPosition(Math.round(sx), Math.round(sy));
-    // Pads persist even when the chest is opened — only the chest sprite + tier
-    // diamond disappear. The pad always renders (objList includes opened chests).
+    // Pads persist even when the chest is opened — only the chest sprite
+    // disappears. The pad always renders (objList includes opened chests).
     // 0.55 — the slab is a backdrop for the POI, so it lets the terrain it
     // sits on read through rather than stamping an opaque disc over it. Minis
     // sit a touch dimmer still (0.42), reading as a lesser landmark rather
@@ -4770,22 +4755,6 @@ Render.objectAppearance = function (scene, houseRoles) {
               // Ore the current pick can't mine → half alpha; plain rock is
               // ungated and always full (interactables.js toolGatedAlpha).
               after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
-    // Stone pillar — decorative stand-in for OSM utility poles / posts.
-    // Purely decorative: no interact.js branch matches 'pole', so taps fall
-    // through.
-    // pillar.png is authored at 16px-per-cell (a 16×32 frame = 1 cell wide × 2
-    // tall in its native grid), but the game renders at 32px-per-cell (CELL_PX),
-    // like every other object sheet (trees are 32×48, etc.). At scale 1.0 the
-    // pole therefore drew at HALF size — a thin half-cell-wide stub — which read
-    // as "only half the sprite rendered". scale 2.0 maps the 16px art onto the
-    // 32px cell so it stands a full cell wide and ~2 cells tall (a proper pole);
-    // the seat pass then seats the now-taller-than-a-cell sprite with its base
-    // 1px above the cell's bottom edge (same as a tree).
-    // pillar.png's column art is symmetric and frame-centred (the earlier
-    // slice was cut off on the top and left; the art was redrawn complete),
-    // so a plain frame-centred origin works — the seat pass refines the
-    // final offsets from the trimmed bounds.
-    pole:   { key: 'pillar', origin: [0.5, 0.95], scale: 2.0, seat: true, shadow: true },
     // STREET VARIANT PROPS (src/street_variants.js). All 16px generated art
     // drawn at 1.6 (~26px) and SEATED in their one cell. The waystone stands
     // (a tap reads a page of the Book — INTERACTABLES.waystone); the tar pit

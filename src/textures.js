@@ -97,12 +97,6 @@ function tuneUnclaimedMaterialPixels(pixels) {
   }
   return pixels;
 }
-function tuneUnclaimedMaterialCanvas(canvas) {
-  const ctx = canvas.getContext('2d'), image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  tuneUnclaimedMaterialPixels(image.data);
-  ctx.putImageData(image, 0, 0);
-  return canvas;
-}
 function unclaimedMaterialColor(rgb) {
   const cached = _unclaimedMaterialColours.get(rgb);
   if (cached !== undefined) return cached;

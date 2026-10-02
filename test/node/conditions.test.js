@@ -51,7 +51,6 @@
   });
   test('poison: Purple Slime variants inherit condition; guarded actual damage applies it', () => {
     assert.eq(Combat.monster('purple_slime').condition, 'poison');
-    assert.eq(Combat.monster('giant_purple_slime').condition, 'poison');
     assert.falsy(Combat.monster('cave_slime')?.condition);
     assert.truthy(/lost > 0 && !isTame && Combat.isEnemy\(c\) && m.condition/.test(SCENE_SRC));
   });
@@ -95,12 +94,13 @@
       const save = { energy: 1, inv: [{ id, count: 2 }] };
       Energy.set(save, Energy.maxEnergy(save));
       let consumed = 0, synced = 0;
-      const scene = { save, _pinnedUntil: performance.now() + 3000,
+      Conditions.apply(save, 'pinned');
+      const scene = { save,
         flash() {}, _syncStatusRow() { synced++; }, _popEnergy() {}, updateEnergyDOM() {},
         _finishConsumable() { consumed++; return true; } };
       const call = () => fn.call(scene, s => s.inv[0], Conditions);
       assert.truthy(call());
-      assert.eq(scene._pinnedUntil, 0);
+      assert.falsy(Conditions.active(save, 'pinned'));
       assert.eq(consumed, 1);
       assert.eq(synced, 1);
       assert.falsy(call());
@@ -202,11 +202,10 @@
     assert.truthy(Conditions.useAntidote(save));
     assert.falsy(Conditions.active(save, 'burning'));
     for (const id of Object.keys(Conditions.DEFINITIONS)) Conditions.apply(save, id);
-    scene._pinnedUntil = performance.now() + 3000;
+    assert.truthy(Conditions.active(save, 'pinned'), 'the trap pin is one of the rows');
     const buffsBefore = JSON.stringify(Buffs.active(save, scene, 0));
     assert.truthy(Conditions.useAntidote(save, scene));
     for (const id of Object.keys(Conditions.DEFINITIONS)) assert.falsy(Conditions.active(save, id));
-    assert.eq(scene._pinnedUntil, 0);
     assert.eq(JSON.stringify(Buffs.active(save, scene, 0)), buffsBefore);
     assert.eq(Conditions.tick(save, 60000).ticks, 0);
     assert.eq(save.energy, 50, 'no healing or delayed damage');
@@ -216,12 +215,12 @@
     for (const id of ['antidote', 'elixir']) {
       const save = { energy: 1, shieldPotionUntil: Date.now() + 100000, eatReadyAt: 12345 };
       Energy.set(save, Energy.maxEnergy(save));
-      const scene = { save, _pinnedUntil: performance.now() + 3000,
-        getMaxEnergy: () => Energy.maxEnergy(save), _slowHere: 'tar' };
+      Conditions.apply(save, 'pinned');
+      const scene = { save, getMaxEnergy: () => Energy.maxEnergy(save), _slowHere: 'tar' };
       assert.truthy(CONSUMABLE_SPEC[id].usable(scene), `${id} is usable for pin alone`);
       const method = id === 'antidote' ? 'useAntidote' : 'useElixir';
       assert.truthy(Conditions[method](save, scene));
-      assert.eq(scene._pinnedUntil, 0);
+      assert.falsy(Conditions.active(save, 'pinned'));
       assert.eq(scene._slowHere, 'tar', 'environmental hazards remain in place');
       assert.eq(save.eatReadyAt, 12345);
       assert.truthy(save.shieldPotionUntil > Date.now());

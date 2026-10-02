@@ -10,7 +10,6 @@ test('save state: backfills relic / armor / progression defaults on an empty sav
     assert.truthy(slot in save.armor, 'armor slot ' + slot + ' present');
   }
   assert.eq(save.deliveryCount, 0);
-  assert.eq(typeof save.houseSatisfied, 'object');
   assert.eq(typeof save.restoredHouses, 'object');
   assert.eq(save.activeWeapon, null, 'a fresh save has no active weapon yet');
 });

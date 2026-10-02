@@ -289,7 +289,9 @@ test('a note about a cell seats on the cell, not the camera (interact / interact
   const fc = app.match(/\n  flashAtWorld\(text, wmx, wmy, color\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(fc, 'app.js has flashAtWorld');
   assert.truthy(/worldMetersToAbsCell\(this, wmx, wmy\)/.test(fc[1]), 'resolves the cell');
-  assert.truthy(/this\._energyPopAt\(c\.cellIX, c\.cellIY\)/.test(fc[1]), 'seated by _energyPopAt');
+  assert.truthy(/this\.flashAtCell\(text, c\.cellIX, c\.cellIY, color\)/.test(fc[1]), 'seated on that cell');
+  const cc = app.match(/\n  flashAtCell\(text, ix, iy, color\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(cc && /this\._energyPopAt\(ix, iy\)/.test(cc[1]), 'by _energyPopAt');
   // The escaped catch and the well's quest tick used to sit at the viewport
   // centre minus 60px — the camera, not the cell they are about.
   for (const [name, src] of [['interact.js', INTERACT_SRC], ['interactables.js', INTERACTABLES_SRC]]) {

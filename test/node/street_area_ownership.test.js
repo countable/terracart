@@ -156,7 +156,7 @@
     assert.eq(stair(cleared).id, stair(base).id);
   });
 
-  test('cached OSM vegetation and poles obey empty reserved cells', () => {
+  test('cached OSM vegetation obeys empty reserved cells, and a cached bin\'s poles mint nothing', () => {
     const entry = { cellsPerEdge: N, tileEdgeM, grid: new Uint8Array(N * N).fill(WorldGen.T.GRASS),
       roadMask: new Uint8Array(N * N), streetArea: new Uint8Array(N * N),
       objects: [], wildplants: [], parkingTreasures: [] };
@@ -165,6 +165,7 @@
     const bin = {
       trees: [{ lix: 15, liy: 15, kind: 'tree', id: 'tree_osm_1' }],
       shrubs: [{ lix: 15, liy: 15, crop: 'shrub', id: 'shrub_osm_1' }],
+      // A bin cached before poles were cut still carries them: ignored.
       poles: [{ lix: 15, liy: 15, kind: 'pole', id: 'pole_osm_1' }],
       wells: [{ lix: 15, liy: 15, kind: 'well', id: 'well_osm_1' }],
     };

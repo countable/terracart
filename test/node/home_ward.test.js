@@ -326,9 +326,8 @@ test('ward: the ring is one number, and Home out-rests and out-reaches a fire', 
 // ── The fire ward's depth cap ────────────────────────────────────────────
 // A campfire's ward reaches past the surface slime into the cave, but only
 // its entry-level monsters (FIRE_WARD_MAX_DEPTH) — a goblin (minDepth 2) or
-// its archer (minDepth 3), and their giants pushed GIANT_DEPTH_STEP deeper
-// still, are undeterred by firelight. Only Home's stronger ward reaches
-// those, and Home does not exist underground (homeWorldPos returns null off
+// its archer (minDepth 3), and the roster's deeper giants, are undeterred by
+// firelight. Only Home's stronger ward reaches those, and Home does not exist underground (homeWorldPos returns null off
 // the surface — see the "no Home, no ring" test above), so a goblin met in a
 // cave is never warded by anything.
 
@@ -338,8 +337,7 @@ test('fire ward: the depth cap is a named number, and the real table agrees with
   assert.lte(MONSTERS.purple_slime.tier, FIRE_WARD_MAX_DEPTH, 'purple slime is warded');
   assert.gt(MONSTERS.goblin.minDepth, FIRE_WARD_MAX_DEPTH, "a goblin is past a campfire's reach");
   assert.gt(MONSTERS.goblin_archer.minDepth, FIRE_WARD_MAX_DEPTH, 'so is its archer');
-  // Giants are pushed GIANT_DEPTH_STEP deeper than their base kind, so none of
-  // them ever qualify even if a future base kind's minDepth were lowered to 1.
+  // The roster's giants all start deeper than the fire ward reaches.
   for (const kind of Object.keys(MONSTERS)) {
     if (!MONSTERS[kind].giant) continue;
     assert.gt(MONSTERS[kind].minDepth, FIRE_WARD_MAX_DEPTH, `${kind} is never warded by a campfire`);

@@ -47,15 +47,15 @@
       assert.eq(scene.save.inv[0].count, 1);
       assert.eq(scene.save.giantPotionUntil, T0 + 180_000);
       assert.eq(scene.save.energy, 40, 'drinking increases capacity without healing');
-      assert.eq(Combat.giantDamageBonus(scene.save), 5);
+      assert.eq(PotionEffects.meleeBonus(scene.save), 5);
       setNow(T0 + 60_000);
       assert.eq(drink.call(scene), true);
       assert.eq(Inventory.count(scene.save, 'giant_potion'), 0);
       assert.eq(scene.save.giantPotionUntil, T0 + 240_000, 'fresh duration, no accumulated time');
-      assert.eq(Combat.giantDamageBonus(scene.save), 5, 'second drink does not double damage');
-      assert.eq(Combat.giantDamageBonus(scene.save, T0 + 239_999), 5);
-      assert.eq(Combat.giantDamageBonus(scene.save, T0 + 240_000), 0, 'expires at the boundary');
-      assert.eq(Combat.giantDamageBonus({}, T0), 0, 'old saves have no bonus');
+      assert.eq(PotionEffects.meleeBonus(scene.save), 5, 'second drink does not double damage');
+      assert.eq(PotionEffects.meleeBonus(scene.save, T0 + 239_999), 5);
+      assert.eq(PotionEffects.meleeBonus(scene.save, T0 + 240_000), 0, 'expires at the boundary');
+      assert.eq(PotionEffects.meleeBonus({}, T0), 0, 'old saves have no bonus');
     });
   });
 
