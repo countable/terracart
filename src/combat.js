@@ -78,9 +78,6 @@
   // Approved roster stats are final values: no implicit cave or giant doubling.
   const roster = root.EnemyRoster || (typeof require === 'function' ? require('./enemy_roster.js') : null);
   if (!roster) throw new Error('Load enemy_roster.js before combat.js');
-  const CAVE_ENEMY_MUL = 1;
-  const GIANT_HP_MUL = 4; // legacy save aliases only
-  const GIANT_DEPTH_STEP = 2;
   const SLIME_SIGHT_CELLS = roster.get('slime').visionCells;
   const GHOST_SPEED_MPS = roster.get('ghost').movement.speedMetersPerSecond;
   const GHOST_TOUCH_DMG = roster.get('ghost').dmg;
@@ -111,14 +108,6 @@
   // These are final stats; it stays outside the ordinary cave and quest pools.
   MONSTERS.fire_slime = { name: 'Fire Slime', hp: 20, armor: 0, tier: 2, range: 1, dmg: 4, speed: 0.9,
     minDepth: 0, weight: 1, spawn: 'zone', sight: SLIME_SIGHT_CELLS, board: false, eliteEligible: true };
-  const MONSTERS_BASELINE = MONSTERS; // compatibility for tools reading the authored table
-  const LEGACY_MONSTERS = {};
-  for (const kind of ['cave_slime', 'purple_slime', 'goblin', 'goblin_archer', 'goblin_trapper']) {
-    const id = `giant_${kind}`, base = MONSTERS[kind];
-    if (!MONSTERS[id]) LEGACY_MONSTERS[id] = { ...base, id, name: `Giant ${base.name}`,
-      hp: base.hp * GIANT_HP_MUL, giant: kind, surface: null, cave: null,
-      spawn: 'legacy', weight: 0, eliteEligible: false };
-  }
 
   // The registered table — the shipping MONSTERS by default. Kept as a
   // reference (not a copy) so a kind added above is an enemy here the same
@@ -129,7 +118,7 @@
   // range / dmg / speed / minDepth / fly — app.js's wander loop and the fire
   // ward ask through this rather than reaching for the literal, so a test that
   // registered a synthetic kind is answered about that kind.
-  function monster(kind) { return MONSTER_STATS[kind] || (MONSTER_STATS === MONSTERS ? LEGACY_MONSTERS[kind] : undefined); }
+  function monster(kind) { return MONSTER_STATS[kind]; }
   // How far a kind wanders off, as a fraction of its activation range (the
   // `retreat` column above; 1 — a full retreat — for any kind without one,
   // the surface slime included). A giant inherits its base kind's.
@@ -409,8 +398,7 @@
 
   // ── Elites ───────────────────────────────────────────────────────────────
   // A SHINY cave monster is an elite: one multiplier over the kind's HP and
-  // damage, the same shape as CAVE_ENEMY_MUL above so the dps identity
-  // holds — an elite takes exactly twice as long to kill at any weapon tier
+  // damage together, so the dps identity holds — an elite takes exactly twice as long to kill at any weapon tier
   // and hits exactly twice as hard. Only MONSTERS are elites: a shiny deer is
   // game, and the surface slime never rolls shiny at all.
   const ELITE_MUL = 2;
@@ -454,9 +442,7 @@
   }
   // EVERY hostile kind, in the order the board should offer them: the surface
   // slime first (the only foe you can meet without going underground), then the
-  // registered table in ITS OWN order — MONSTERS above is authored
-  // shallowest-first and each `giant_` form is appended, so a giant always
-  // lands after the kind it is a giant of.
+  // registered table in ITS OWN order (enemy_roster.js row order).
   //
   // A FUNCTION, never a constant: registerMonsters can swap the table under it
   // (a test's synthetic kind), so the list is read at call time. quests.js'
@@ -496,9 +482,8 @@
   // The bounty is DERIVED from `hp` — the same number that sets the wheel
   // length — rather than hand-tuned per kind, so a tougher foe can never
   // quietly pay less than an easier one. Roughly a coin per 5 HP, floored at 1:
-  //   surface slime 10hp → $2 · purple slime 12hp → $2 · cave slime 30hp → $6 ·
-  //   archer 36hp → $7 · goblin 50hp → $10
-  //   (the cave kinds are the doubled ones — see CAVE_ENEMY_MUL above)
+  //   surface slime 10hp → $2 · purple slime 16hp → $3 · cave slime 24hp → $5 ·
+  //   goblin 48hp → $10 · archer 57hp → $11 (enemy_roster.js values, Oct 2026)
   // The HP comes from creatureMaxHp, which is the monster table first and the
   // fauna ladder second — one source, so the coins a kind pays and the HP you
   // have to chew through can't drift apart. Depth adds a slow climb on top (a
@@ -677,7 +662,7 @@
   function burnDef() { return Conditions.DEFINITIONS.burning; }
   function canBurn(c) { return !!c && !monster(c.kind)?.lavaImmune; }
   function burning(c, now = performance.now()) {
-    if (!c?._burnState) return (c?._burnUntilT || 0) > now;
+    if (!c?._burnState) return false;
     return c._burnState.remainingMs > (c._burnExposed ? 0 : Math.max(0, now - c._burnAtT));
   }
   function ignite(c, now = performance.now(), by = 'fire') {
@@ -688,8 +673,6 @@
     c._burnState = { remainingMs: def.durationMs, nextTickMs: def.intervalMs };
     c._burnAtT = now;
     c._burnExposed = false;
-    c._burnUntilT = now + def.durationMs;
-    c._burnNextT = now + def.intervalMs;
     c._burnBy = by;
     return true;
   }
@@ -703,8 +686,6 @@
     c._burnState = { remainingMs: result.remainingMs, nextTickMs: result.nextTickMs };
     c._burnAtT = now;
     c._burnExposed = exposed;
-    c._burnUntilT = result.remainingMs > 0 ? now + result.remainingMs : 0;
-    c._burnNextT = now + result.nextTickMs;
     if (result.remainingMs <= 0) c._burnBy = null;
     return result.damage;
   }
@@ -823,9 +804,7 @@
   //              — the melee blow and both shot cadences; each hit keeps its
   //              damage, so speed is more hits, not bigger ones).
   // Levels live in save.training[kind], drills in save.trainingDrills[kind]
-  // (an expiry stamp). A save from before Sep 2026 held ONE melee track
-  // (trainingPerm / trainingBuffUntil): read as melee here, folded into the
-  // new fields on the next purchase (Macros), and capped like any level.
+  // (an expiry stamp); a level is capped at TRAINING_PERM_MAX.
   // Pets, turrets, powders and potions are not the player's attacks.
   const TRAINING_KINDS = {
     melee:  { label: 'Melee',   per: 1,    drill: 5,    unit: 'dmg' },
@@ -840,14 +819,11 @@
   // Which discipline a ranged weapon slot's hits train.
   const TRAINING_SLOT_KIND = { bow: 'ranged', staff: 'magic' };
   function trainingLevel(save, kind) {
-    const t = save && save.training && save.training[kind];
-    const raw = t != null ? t : (kind === 'melee' && save ? save.trainingPerm : 0);
+    const raw = save && save.training && save.training[kind];
     return clamp(Math.floor(Number(raw) || 0), 0, TRAINING_PERM_MAX);
   }
   function trainingDrillUntil(save, kind) {
-    const d = save && save.trainingDrills && save.trainingDrills[kind];
-    const raw = d != null ? d : (kind === 'melee' && save ? save.trainingBuffUntil : 0);
-    return Number(raw) || 0;
+    return Number(save && save.trainingDrills && save.trainingDrills[kind]) || 0;
   }
   function trainingBuffActive(save, kind, now = Date.now()) {
     return trainingDrillUntil(save, kind) > now;
@@ -860,17 +836,6 @@
     const drilled = trainingBuffActive(save, kind, now)
       || ((kind === 'melee' || kind === 'ranged') && !!root.Shrines && root.Shrines.leverActive(save, 'melee', now));
     return trainingLevel(save, kind) * row.per + (drilled ? row.drill : 0);
-  }
-  // Giant adds a flat bonus after attack multipliers; the scene applies it
-  // to melee attacks only. Repeated doses refresh the expiry.
-  function shrinkingActive(save, now = Date.now()) {
-    return (save?.shrinkingPotionUntil ?? 0) > now;
-  }
-  function giantActive(save, now = Date.now()) {
-    return (save?.giantPotionUntil ?? 0) > now;
-  }
-  function giantDamageBonus(save, now = Date.now()) {
-    return giantActive(save, now) ? CONSUMABLE_SPEC.giant_potion.damageBonus : 0;
   }
   // The multiplier on every attack INTERVAL (melee blow, bow, staff): 1 over
   // one plus the speed bonus, so +25% speed is a beat 1/1.25 as long.
@@ -1486,7 +1451,7 @@
   }
 
   const api = {
-    MONSTERS, MONSTERS_BASELINE, CAVE_ENEMY_MUL, GIANT_HP_MUL, GIANT_DEPTH_STEP,
+    MONSTERS,
     registerMonsters, monster, isMonster, windupFlashes, monsterHits, monsterLays, spawnsUnderground, GHOST_SPEED_MPS, GHOST_TOUCH_DMG, LAVA_DMG_PER_S, retreatMul, sightCells, seesPlayer, SLIME_SIGHT_CELLS, FAUNA_HP, creatureMaxHp,
     SUMMONED_AS, summonedAs, PET_BITE, enemyBlow, petBite, petBlow,
     ENEMY_COIN_PER_HP, ENEMY_DEPTH_BONUS, enemyBounty,
@@ -1498,7 +1463,7 @@
     canBurn, burning, ignite, burnTick,
     ELITE_MUL, isElite, eliteMul, RAISED_MUL, raisedMul, powerMul, maxHp,
     TRAINING_KINDS, TRAINING_ORDER, TRAINING_PERM_MAX, TRAINING_BUFF_MS, TRAINING_SLOT_KIND,
-    trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul, shrinkingActive, giantActive, giantDamageBonus,
+    trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, incomingProjectileDamage, projectileReduction, playerDowned,

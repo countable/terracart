@@ -426,8 +426,8 @@ test('isSpawnCell: each class refuses every hard reason and its own row\'s typed
   // PRIVATE (no frontage) is lifted by a POI in reach.
   const iP = reasons.indexOf(WHY.PRIVATE) + 1;
   assert.truthy(ok(iP, 'enemy', { pois: [{ ix: iP, iy: 0 }] }), 'a POI in reach vouches for a PRIVATE cell');
-  assert.truthy(W.isFoeCell(g, g.length, 1, 0, 0, { spawnWhy: mask }), 'isFoeCell: the fast foe row');
-  assert.falsy(W.isFoeCell(g, g.length, 1, reasons.indexOf(WHY.KERB) + 1, 0, { spawnWhy: mask }), 'kerb included');
+  assert.truthy(W.isSpawnCell(g, g.length, 1, 0, 0, { spawnWhy: mask }, 'fastEnemy'), 'fastEnemy: the fast foe row');
+  assert.falsy(W.isSpawnCell(g, g.length, 1, reasons.indexOf(WHY.KERB) + 1, 0, { spawnWhy: mask }, 'fastEnemy'), 'kerb included');
   // Live terrain still refuses (a pond carved after the mask was stamped).
   const pond = g.slice(); pond[0] = T.WATER;
   assert.falsy(W.isSpawnCell(pond, g.length, 1, 0, 0, { spawnWhy: mask }, 'minor'), 'water on the live grid');

@@ -14,15 +14,15 @@
 //
 // ── INDEX of home-area customization still living elsewhere ──────────────────
 // (Migrate each into here as it's next touched, routing through HomeArea.)
-//   • Start origin / synthetic trailer ……… app.js  isStarterShop / ensureStarterShopId
+//   • Start origin / synthetic trailer ……… scene_shops.js  isStarterShop / ensureStarterShopId
 //   • Starter blacksmith (1st restored) …… houses.js  isStarterBlacksmith, PRESEED_RESTORE_ROLES
-//   • Scarecrow shop (early house) ………… app.js  isScarecrowShop
-//   • Shops sell a line by restore order … app.js  marketTheme
+//   • Scarecrow shop (early house) ………… scene_shops.js  isScarecrowShop
+//   • Shops sell a line by restore order … scene_shops.js  marketTheme
 //     (the first is the Seed Shop — see shops.js themeAt / roleLabel)
 //   • First 8 delivery houses → T1 produce delivery.js Delivery.isEarly
 //     (of which the first 7 walk delivery.js SCRIPTED_WISHLISTS — five
 //      single-item asks, then the starter pair, then the flower trio)
-//   • Starter loot crates (wood/rockfruit/seeds) app.js  STARTER_LOOT
+//   • Starter loot crates (wood/rockfruit/seeds) starter.js  STARTER_LOOT
 //   • Starting money / no free tools …… items.js STARTING_MONEY; a fresh save's
 //                                        relic slots all default to null
 //   • Fort unlock cost ………………………… houses.js  FORT_UNLOCK_WOOD

@@ -41,7 +41,7 @@
     WorldGen.injectTileBin(e, { chests: [
       { kind: 'chest', id: 'destination', poiClass: 'bus', lix: 5, liy: 5 },
       { kind: 'chest', id: 'blocked', poiClass: 'bus', lix: 20, liy: 20 },
-    ], poles: [{ kind: 'pole', id: 'late-pole', lix: 5, liy: 5 }] }, 0, 0);
+    ] }, 0, 0);
     assert.eq(e.objects.map(o => o.id).join(','), 'house,destination');
     assert.eq(e.wildplants.length, 0, 'displaced plants are removed');
     assert.eq(e.genObjects.length, 2, 'generated snapshots keep original scenery');

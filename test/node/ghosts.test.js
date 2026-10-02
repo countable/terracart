@@ -120,7 +120,6 @@ test('ghost: a MONSTERS row — an enemy, a jog over the ground', () => {
   for (const row of EnemyRoster.ROWS) {
     assert.gt(Combat.monster(row.id).speed, 0, `${row.id} keeps a positive legacy-step pace`);
   }
-  assert.gt(Combat.monster('giant_goblin').speed, 0, 'a legacy alias cannot freeze at speed zero');
   assert.eq(EnemySpawns.SURFACE_NIGHT_DAYLIGHT, 0.25,
     'ordinary surface foes own their night threshold outside ghost tuning');
 });

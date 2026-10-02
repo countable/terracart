@@ -67,9 +67,8 @@ test('isSatisfied: a house fed ONCE is happy for good (the house Discovery badge
   assert.eq(Delivery.isSatisfied(save, { id: 'h1' }, new Date('2027-01-01T00:00:00Z')), true,
     'still happy on any later day — the callout never reverts to a wishlist');
   assert.eq(Delivery.isSatisfied(save, { id: 'h2' }, JUNE6), false, 'never fed → asks');
-  // A legacy day stamp from an older build still counts for its own day.
-  const legacy = { houseSatisfied: { h3: '20260606' } };
-  assert.eq(Delivery.isSatisfied(legacy, { id: 'h3' }, JUNE6), true, 'legacy stamp today → happy');
+  assert.eq(Delivery.isSatisfied({ houseSatisfied: { h3: '20260606' } }, { id: 'h3' }), false,
+    'a retired day stamp is no record');
 });
 
 test('delivery: the accept path banks the house badge and writes no day stamp', () => {

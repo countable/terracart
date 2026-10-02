@@ -441,12 +441,6 @@
   function onMajorBand(roadClass, w, cx, cy) {
     return !!(roadClass && (roadClass[cy * w + cx] & ROAD_CLASS_MAJOR_BAND));
   }
-  // A cell ANY foe may take: sugar for isSpawnCell(…, 'fastEnemy') — the
-  // strictest foe row (kerb included) — kept for its readers (tests, sims).
-  // It is NOT a second rule.
-  function isFoeCell(grid, w, h, cx, cy, opts) {
-    return isSpawnCell(grid, w, h, cx, cy, opts, 'fastEnemy');
-  }
   // ── THE SPAWN GATE (Sep 2026): entry.spawnWhy + the spawn's CLASS ─────────
   // One per-tile mask (stampSpawnWhySteps, beside roadMask, in the sliced
   // build) records WHY each cell is refused — a Uint16 of reason bits, never
@@ -492,12 +486,12 @@
   // (test/node/spawn_class.test.js sweeps the source) — is a ROW of
   // SPAWN_CLASS_BLOCKS: which typed reasons it refuses (hard ones always).
   //   'minor'     flora, rocks, X marks, crates, scenery, gate posts, boards
-  //   'headstone' a churchyard stone (it raises a ghost) — not the house
-  //               buffer: stones stand on the streets round a church
-  //   'cave'      a cave entrance ("the ladder") — not the house buffer
+  //   'headstone' a churchyard stone (it raises a ghost) — SENSITIVE only,
+  //               like most rows: stones stand on the streets round a church
+  //   'cave'      a cave entrance ("the ladder") — SENSITIVE only
   //   'fauna'     friendly / wild animals at a walk (cats, dogs, crows, …)
   //   'fastFauna' an animal that out-runs a brisk walk (deer, rabbits, …)
-  //   'npc'       villagers — fauna's row, plus no villager in a field
+  //   'npc'       villagers — fauna's row (a field's interior is hard for all)
   //   'attractor' hoards, lair points, events (coin bursts), grove shrines
   //   'enemy'     anything hostile seated at a walk: slow foes and guards,
   //               traps, park plants
@@ -559,7 +553,7 @@
   // (water, building) or the road band? For the passes that have their own
   // terrain rule and seat on a road on purpose (a POI chest, a well that
   // repaints the cobble, a gate on its way).
-  function landRefused(mask, grid, roadMask, i, pois, cx, cy) {
+  function landRefused(mask, i, pois, cx, cy) {
     if (!mask) return false;
     const v = mask[i];
     if (v & SPAWN_WHY_LAND & ~W_.PRIVATE) return true;
@@ -664,9 +658,9 @@
       // A gate on quiet land (a base's gate, a level crossing's) is no
       // spawn point: its foe would stand where nothing may (QUIET_LAND).
       if (quiet && quiet[g.iy * N + g.ix]) continue;
-      // …nor one on land the spawn gate refuses (school grounds, a yard
-      // behind a house): the mask's reading of the same question.
-      if (landRefused(spawnWhy, grid, roadMask, g.iy * N + g.ix, null, g.ix, g.iy)) continue;
+      // …nor one on land the spawn gate refuses (kindergarten grounds, a
+      // yard behind a house): the mask's reading of the same question.
+      if (landRefused(spawnWhy, g.iy * N + g.ix, null, g.ix, g.iy)) continue;
       const opts = { roadMask, quiet, spawnWhy, pois: [g] };
       // The posts are scenery (a minor spawn); the gate's daily FOE is a lair
       // point spawnInTile holds to the attractor rule.
@@ -697,9 +691,10 @@
     }
   }
   // ── POI DENSITY: how many chests of each class a tile holds ─────────────
-  // The one count loot.js reads for a chest's tier (chestTier), a crate's
-  // restock days (crateRestoreDays) and a pot of gold's burst (potCoinsFor)
-  // — stamped on each POI chest as
+  // The one count loot.js reads for a crate's restock days
+  // (crateRestoreDays) and a pot of gold's burst (potCoinsFor) — never the
+  // tier, which is the quota seat (seedChestTiers below) — stamped on each
+  // POI chest as
   // `poiDensity`. Surface POI chests only (a starter crate, a fixed-loot chest
   // and a cave copy are not counted; a cave copy carries its surface chest's
   // count — caveChestsFrom). A tile counts ITS OWN chests: a POI belongs to
@@ -1359,7 +1354,7 @@
   // quiet-land mask): visit(x, y) once per cell whose centre is inside.
   // `off` (optional, cells): shift the polygon by this much on both axes —
   // the spawn gate stamps onto a grid wider than the tile by `off` each side
-  // (stampSpawnWhySteps), so a house just over the seam still buffers.
+  // (stampSpawnWhySteps), so a cemetery just over the seam still buffers.
   function* forEachPolygonCellSteps(w, h, rings, mvtToCell, visit, off) {
     // Use signed area to know outer vs inner. For simplicity, rasterize all rings with
     // even-odd fill across all rings combined per feature.
@@ -2840,8 +2835,8 @@
     'running','ice_rink','stadium',
     // ── Restful shelters (lowtier chest + safe rest spot)
     'shelter','dog_park','picnic_site',
-    // ── Culture (civic chests; public art rides the density ladder — loot.js
-    // the density ladder). An information board is NOT a chest: it reads a
+    // ── Culture (civic chests; public art is quota-seeded like every class
+    // — seedChestTiers). An information board is NOT a chest: it reads a
     // Book page (POI_INFO_CLASS below). Memorials, monuments and cemeteries
     // are NOT here and never will be: they are SENSITIVE (isSensitivePoi).
     'art_gallery','cinema','theatre',
@@ -5181,7 +5176,7 @@
             || _underRoadBand(ix, iy);
       };
       // No interactable may sit on a road tier or a building footprint. This is
-      // the blanket rule for EVERY scatter object (rocks, trees, wells, poles,
+      // the blanket rule for EVERY scatter object (rocks, trees, wells,
       // …); the sole exception is a POI chest, handled explicitly below.
       const _onRoadOrBuilding = (tc, ix, iy) =>
            tc === T.ROAD     || tc === T.ROAD_LG    || tc === T.ROAD_MD
@@ -5263,7 +5258,7 @@
         // residential cell after the grid is fully painted. A POI chest is
         // the place itself (isSpawnCell's note) and reads only the quiet land
         // above. Forts, castles, houses and towers are already exempt above.
-        if (o.kind !== 'chest' && landRefused(spawnWhy, ground, roadMask, iy * w + ix, _mrSpawnOpts.pois, ix, iy)) return true;
+        if (o.kind !== 'chest' && landRefused(spawnWhy, iy * w + ix, _mrSpawnOpts.pois, ix, iy)) return true;
         return false;
       };
       streetRockRefused = _mrDrop;
@@ -5314,7 +5309,7 @@
           if (_onRoadOrBuilding(wtc, ix, iy)) drop = true;
           else if (poiPadCells.has(iy * w + ix)) drop = true;
           // The spawn gate, a MINOR spawn (quiet land folded in).
-          else if (landRefused(spawnWhy, grid, roadMask, iy * w + ix, _mrSpawnOpts.pois, ix, iy)) drop = true;
+          else if (landRefused(spawnWhy, iy * w + ix, _mrSpawnOpts.pois, ix, iy)) drop = true;
         }
         if (!drop) wildplants[wpKeep++] = wp;
       }
@@ -5604,7 +5599,7 @@
     }
     const deduped = objects.filter(o => !o._drop);
     // Each POI chest's DENSITY — how many of its class this tile holds (loot.js
-    // chestTier / crateRestoreDays / potCoinsFor). Stamped once
+    // crateRestoreDays / potCoinsFor). Stamped once
     // the tile's chests are final; loadTile restamps once a bin has injected
     // its own.
     stampPoiDensity(deduped);
@@ -6190,7 +6185,7 @@
     const sx = {
       chests: _sxRows(binChests), trees: _sxRows(bin.trees),
       fruittrees: _sxRows(bin.fruittrees), shrubs: _sxRows(bin.shrubs),
-      poles: _sxRows(bin.poles), wells: _sxRows(bin.wells), parking: _sxRows(bin.parking),
+      wells: _sxRows(bin.wells), parking: _sxRows(bin.parking),
     };
     const onWater = (wx, wy) => {
       const { ix: lix, iy: liy } = _sxCell(wx, wy);
@@ -6237,7 +6232,7 @@
     const _sxYardOK = (wx, wy) => {
       const { ix, iy } = _sxCell(wx, wy);
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return true;
-      if (spawnWhy) return !landRefused(spawnWhy, grid, roadMask, iy * cpe + ix, _sxPois, ix, iy);
+      if (spawnWhy) return !landRefused(spawnWhy, iy * cpe + ix, _sxPois, ix, iy);
       if (quiet && quiet[iy * cpe + ix]) return false;   // quiet land hosts nothing
       if (!isLotTerrain(grid[iy * cpe + ix])) return true;
       return isSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts, 'minor');
@@ -6290,7 +6285,7 @@
     };
     // One-cell building moat (nearBuildingCell) — same rule the rasterize
     // post-pass applies, mirrored here for the sidecar GROUND furniture
-    // (poles, wells). Trees are exempt in both passes — yard trees grow
+    // (wells). Trees are exempt in both passes — yard trees grow
     // right against real houses (see tryTreeCell). And the one-cell POI
     // frontage (nearPoiCell): _sxPois already covers both rasterized and
     // bin chests.
@@ -6304,7 +6299,7 @@
     };
     // POI chests (bus stops, signals, crossings, gates, towers, pitches,
     // gardens, bicycle racks, …) are injected FIRST: a chest is a real-world
-    // destination, so it must win its cell over a generic tree/shrub/pole
+    // destination, so it must win its cell over a generic tree/shrub
     // (mirroring the rasterize occupancy pass where chest outranks all).
     // poiClass drives loot / tier / label / coin-burst via loot.js + the
     // render/interact chest paths.
@@ -6505,19 +6500,9 @@
       // file's, applied at the moment the row joins the stream.
       entry.wildplants.push(makeWildplant(s.crop, c.x, c.y, s.id));
     }
-    for (const p of sx.poles) {
-      { const y1 = tick('bin poles'); if (y1) yield y1; }
-      if (_sxReservedAt(p.x, p.y)) continue;
-      if (onWater(p.x, p.y)) continue;
-      if (_sxHard(p.x, p.y)) continue;            // never on road / building / hard cell
-      if (_sxNearBuilding(p.x, p.y)) continue;    // nor inside a house sprite's overhang
-      if (_sxNearChest(p.x, p.y)) continue;       // keep the POI frontage clear
-      if (!_sxYardOK(p.x, p.y)) continue;
-      const k = cellKeyOf(p.x, p.y);
-      if (occupied.has(k)) continue;
-      occupied.add(k);
-      entry.objects.push(p);
-    }
+    // (No poles: utility poles, masts, bollards and OSM street lamps were a
+    // non-interactive stone pillar, cut by the no-decorative-props rule. A
+    // bin cached before then still carries `poles`; nothing reads them.)
     // Wells (OSM amenity=fountain) → a tappable well object that refills the
     // watering can (interact.js 'well' branch), rendered as the well sprite.
     for (const wl of sx.wells) {
@@ -6668,9 +6653,6 @@
           }
           return b;
         };
-        // OSM kinds we render as the decorative stone pillar (utility poles /
-        // posts). All vertical post-like point features — no interaction.
-        const POLE_KINDS = new Set(['pole', 'mast', 'bollard', 'street_lamp']);
         // Sidecar POI kind → in-game chest poiClass. Each becomes a tappable
         // chest; poiClass drives loot / tier / label / pad / coin-burst via
         // loot.js + the render & interact chest paths (see POI_CATEGORY there).
@@ -6753,15 +6735,6 @@
               wild: true,            // mature & fruiting (vs a planted sapling)
               individual: true,
             });
-          } else if (POLE_KINDS.has(kind)) {
-            // Utility pole / post → decorative stone pillar. Snapped to the cell
-            // grid like trees; rendered via RENDER_SPEC.pole, no interaction.
-            const p = project(lon, lat0);
-            const { lix, liy } = p;
-            binFor(p.tx, p.ty).poles.push({
-              kind: 'pole', lix, liy,
-              id: osmId ? `pole_${osmId}` : cellId('pole', p.tx, p.ty, lix, liy),
-            });
           } else if (kind === 'tree_row') {
             // Scatter ~5 bushes in a small disc around the row centroid.
             const rng = makeRng((osmId ^ 0xB005FACE) >>> 0);
@@ -6827,7 +6800,7 @@
   // Grounding DINO) geojson once and bin it. Memoized for the session.
   // ?v bumps whenever data/satextract_osm.geojson is regenerated — the file
   // name is otherwise stable, so without a cache-bust the browser serves a
-  // stale copy and freshly-extracted features (poles, relocated trees) never
+  // stale copy and freshly-extracted features (relocated trees) never
   // appear. Bump this when you re-run satextract.
   function ensureSatextract(lat) {
     if (_satextractPromise) return _satextractPromise;
@@ -6844,7 +6817,7 @@
   // the tile's bbox at request time, mapping the OSM elements into the SAME
   // satextract-style GeoJSON `kind` vocabulary, and running them through
   // buildBinsFromGeoJSON. This revives ONLY the OSM-tagged features (trees,
-  // poles, street furniture, fountains) — the DeepForest crowns and
+  // street furniture, fountains) — the DeepForest crowns and
   // Grounding DINO objects are CV-only and stay exclusive to the static file.
   // ON by default: each tile's result is cached in IndexedDB indefinitely, so
   // we hit Overpass at most once per tile, ever. Opt out at runtime with
@@ -6866,7 +6839,6 @@
     const e = { status, ts: Date.now() };
     if (bin) {
       e.trees   = (bin.trees || []).length + (bin.fruittrees || []).length;
-      e.poles   = (bin.poles || []).length;
       e.chests  = (bin.chests || []).length;
       e.wells   = (bin.wells || []).length;
       e.shrubs  = (bin.shrubs || []).length;
@@ -6889,9 +6861,9 @@
     if (e.status === 'failed')   return 'live=on  src=overpass — fetch FAILED (offline/blocked); will retry' + tail;
     if (e.status === 'loaded' || e.status === 'cache') {
       const src = e.status === 'cache' ? 'overpass (cached)' : 'overpass (just fetched)';
-      const total = (e.trees || 0) + (e.poles || 0) + (e.chests || 0) + (e.wells || 0) + (e.shrubs || 0) + (e.parking || 0);
+      const total = (e.trees || 0) + (e.chests || 0) + (e.wells || 0) + (e.shrubs || 0) + (e.parking || 0);
       if (!total) return `live=on  src=${src} — area has 0 OSM features` + tail;
-      return `live=on  src=${src}: ${e.trees || 0} trees, ${e.poles || 0} poles, ${e.chests || 0} chests, `
+      return `live=on  src=${src}: ${e.trees || 0} trees, ${e.chests || 0} chests, `
         + `${e.wells || 0} wells, ${e.shrubs || 0} bushes, ${e.parking || 0} parking` + tail;
     }
     return 'live=on  src=none' + tail;
@@ -6906,7 +6878,7 @@
   const OVERPASS_TIMEOUT_MS = 22000;
   // Empty bin in the exact shape buildBinsFromGeoJSON / loadTile expect.
   function emptyBin() {
-    return { trees: [], fruittrees: [], shrubs: [], poles: [],
+    return { trees: [], fruittrees: [], shrubs: [],
              wells: [], chests: [], parking: [], gates: [] };
   }
   // ── POI chest dedupe: one real-world place, one chest ─────────────────────
@@ -6964,16 +6936,13 @@
   // (overpassToGeoJSON). It only ever sees the tags buildOverpassQL below
   // asks for, so this is exactly that selector list, kind for kind — the
   // static sidecar arrives with its `kind` already set and never comes
-  // through here (which is why SX_CHEST_POI / POLE_KINDS know more kinds
+  // through here (which is why SX_CHEST_POI knows more kinds
   // than this does). Order matters only where a feature could carry two
   // matching tags (rare).
   function osmKindOf(tags) {
     if (!tags) return null;
     if (tags.natural === 'tree') return 'tree';
     if (tags.natural === 'tree_row') return 'tree_row';
-    if (tags.power === 'pole' || tags.man_made === 'utility_pole') return 'pole';
-    if (tags.man_made === 'mast') return 'mast';
-    if (tags.highway === 'street_lamp') return 'street_lamp';
     if (tags.amenity === 'fountain') return 'fountain';
     if (tags.leisure === 'picnic_table') return 'picnic_table';
     if (tags.barrier === 'gate') return 'gate';
@@ -6990,14 +6959,13 @@
     // `poi` layer already gives bus stops, parking, pitches, playgrounds,
     // pools, bollards (we see them in the tile), so re-fetching them here just
     // bloats a whole-town z14 query and produces dupes. Keep the genuinely
-    // additive set: trees (satextract's whole point), utility posts, fountains,
-    // and a little street furniture MVT omits. (Waterways are intentionally
+    // additive set: trees (satextract's whole point), fountains, and a little
+    // street furniture MVT omits. (No poles, masts or street lamps: they
+    // minted only a decorative pillar, cut by the no-decorative-props rule.) (Waterways are intentionally
     // excluded — they're underground / culverted and shouldn't paint water.)
     // Nodes for point features; ways (via `out center`) for tree_row.
     const sels = [
       'node["natural"="tree"]', 'way["natural"="tree_row"]',
-      'node["power"="pole"]', 'node["man_made"="utility_pole"]',
-      'node["man_made"="mast"]', 'node["highway"="street_lamp"]',
       'node["amenity"="fountain"]',
       // (Never historic=memorial: memorials and Stolpersteine are sensitive
       // places that mint nothing — isSensitivePoi.)
@@ -7115,7 +7083,7 @@
         const bin = bins.get(`${x}_${y}`) || emptyBin();
         // Awaited so warmOverpass's evict-and-rebuild can't race a rebuild's
         // getTileBin against an uncommitted write (the rebuild would miss the
-        // bin and come back treeless again). Trees/poles ~static → cached forever.
+        // bin and come back treeless again). Trees ~static → cached forever.
         await idbPut(key, bin);
         ovpNote(x, y, 'loaded', bin);
         return bin;
@@ -7473,9 +7441,9 @@
     const pads = entry.poiPadCells;
     // THE SPAWN GATE: a mine mouth is a 'cave' spawn (the stairs down — the
     // owner's "ladders"): off the road band (see above), every hard reason
-    // (quiet / restricted land, a back yard, a field's interior), the kerb,
-    // sensitive ground and a field's edge — but NOT the house buffer, so the
-    // mouths players already know by the houses stay where they were.
+    // (quiet / restricted land, a back yard, a field's interior) and
+    // SENSITIVE ground — the cave row's one typed reason (the kerb does not
+    // refuse a mouth; a field's edge is open ground).
     const stairOpts = { roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy, roadClass: entry.roadClass };
     // Surface zones can reopen inferred lot ground; existing mine identities
     // still use the mask saved alongside their original terrain and objects.
@@ -7576,7 +7544,7 @@
     // Guarantee at least one cave per tile: beside a random cave rock if the
     // tile has any, otherwise on a random walkable cell.
     // (A rock whose ground the spawn gate refuses all round — a yard's rubble
-    // inside the house buffer — hands the guarantee on to a random OPEN
+    // behind a house — hands the guarantee on to a random OPEN
     // cell, deterministically, rather than leave the tile without a way down.)
     if (placed === 0) {
       if (!(caveRocks.length && placeBeside(caveRocks[Math.floor(rng() * caveRocks.length)]))) yield* placeRandomWalkable();
@@ -7682,8 +7650,9 @@
     // A cave copy's DENSITY is its surface chest's, counted HERE off the
     // generated surface objects (never the live entry — a bin's chests are
     // on it only when the bin happened to be cached), and carried down the
-    // levels unchanged, so loot.js chestTier is the surface tier plus the
-    // depth bonus on every level.
+    // levels unchanged. It sets no tier (each level seeds its own pyramid
+    // over the RANK below) and a cave copy never restocks; it rides along
+    // as the surface chest's record.
     const counts = poiDensityCounts(aboveObjects);
     for (const o of aboveObjects || []) {
       if (o.kind !== 'chest' || !o.poiClass || o.crate || o.fixedLoot) continue;
@@ -8362,7 +8331,7 @@
     // overlay strokes with this and rasterizeTile stamps roadMask with it, so
     // "drawn as road" and "no spawns here" are the same number.
     roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE, ROAD_CLASS_BANDIT_VERGE,
-    ROAD_CLASS_MAJOR_BUFFER, MAJOR_BUFFER_CELLS, inMajorBuffer, onMajorBand, isFoeCell,
+    ROAD_CLASS_MAJOR_BUFFER, MAJOR_BUFFER_CELLS, inMajorBuffer, onMajorBand,
     // The path-class Set classifyLine keys off — exported so road_overlay.js
     // colours exactly the classes the terrain classifier treats as PATH,
     // instead of hand-copying the list. (The large tier needs no such export:

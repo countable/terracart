@@ -119,7 +119,8 @@
       tomeReadyAt: T0 + 3600_000, tomeMagicCd: { tome_sight: T0 + 3600_000 },
       training: { melee: 3 }, tipsRead: 12, coinBurstClaimed: { 'inn:test': T0 } });
     Object.assign(s, { _throwReadyAt: T0 + 1000, _nextBlowT: T0 + 1000,
-      _nextShotT: { bow: T0 + 1000 }, _staffCharge: {}, _pinnedUntil: T0 + 3000 });
+      _nextShotT: { bow: T0 + 1000 }, _staffCharge: {} });
+    Conditions.apply(s.save, 'pinned', T0);
     Conditions.apply(s.save, 'poison', T0);
     assert.eq(method('drinkTimePotion').call(s), true);
     assert.eq(Inventory.count(s.save, 'time_potion'), 1);
@@ -130,7 +131,7 @@
     assert.eq(s._nextBlowT, 0);
     assert.eq(Object.keys(s._nextShotT).length, 0);
     assert.eq(s._staffCharge, null);
-    assert.eq(s._pinnedUntil, 0);
+    assert.falsy(Conditions.active(s.save, 'pinned'));
     assert.eq(s.save.training.melee, 3);
     assert.eq(s.save.tipsRead, 12);
     assert.eq(s.save.coinBurstClaimed['inn:test'], T0, 'world reward ledger is preserved');

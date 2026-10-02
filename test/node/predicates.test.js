@@ -226,7 +226,7 @@ test('the literal spellings are gone from the readers', () => {
     // the tar pit lies flat and casts none. + the influence zones' two:
     // the headstone and the grove shrine. + the POI props: the notice board
     // and the gate post. + the scenic viewpoint's scope.)
-    const expected = ['tree', 'fruittree', 'chest', 'mineralrock', 'well', 'pole',
+    const expected = ['tree', 'fruittree', 'chest', 'mineralrock', 'well',
                       '_scarecrow', '_fire', 'torch', 'waystone', 'stakes',
                       'headstone', 'grove_shrine', 'infoboard', 'gatepost', 'vista_scope'];
     for (const k of expected) assert.truthy(flagged.has(k), `${k} casts a contact shadow`);

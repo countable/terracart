@@ -157,11 +157,12 @@ function monsterStrideCells(mon) { return mon && mon.fly ? 1.0 : 0.6; }
 // sim reads it three ways, each a REASON on a lane that already exists:
 //   · NOTHING HOSTILE STEPS ONTO THE BAND — a refused target cell in the step
 //     chain's cell tests, beside water, rocks and fires. Wild fauna neither.
-//   · A FAST FOE (isFastFoe — anything that out-runs a BRISK walk,
+//   · A FAST FOE (isFastMover — anything that out-runs a BRISK walk,
 //     BRISK_WALK_MPS) never
 //     steps INTO the buffer from outside it (the same refused-cell test), and
-//     never spawns in it (WorldGen.isFoeCell). A slow foe may stand anywhere
-//     off the band: you out-walk it.
+//     never spawns in it (WorldGen.isSpawnCell(…, creatureSpawnClass(kind)):
+//     the fast rows refuse KERB). A slow foe may stand anywhere off the
+//     band: you out-walk it.
 //   · A PLAYER WHOSE FEET ARE IN THE BUFFER IS WHERE EVERY CHASE ENDS
 //     (`kerbLeash` in wanderCreatures): every hostile turns its back — one
 //     more reason in the wander-off lane (standDown + an away angle), a lair
@@ -193,7 +194,6 @@ function roadClassBitsAt(scene, x, y) {
   return entry.roadClass[iy * N + ix] | 0;
 }
 function inKerbAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BUFFER); }
-function onMajorRoadAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BAND); }
 
 // ── THE ROADSIDE RUN: a retreat in a residential area runs along the street ──
 // Every retreat in wanderCreatures is an AWAY angle — a bolting animal away
@@ -313,8 +313,8 @@ function foeChaseMps(c, cellM) {
   if (m && m.stationary) return 0;
   // A ROSTER foe (enemy_roster.js — the one table rosterEnemyMove moves it
   // by): the quickest of its row's own speeds — the base pace, a slime's
-  // charge, a fiend's lunge, a bat's peak flight. A legacy giant alias
-  // (giant_goblin …) reads its base kind's row.
+  // charge, a fiend's lunge, a bat's peak flight. A Giant variant row
+  // with no speeds of its own reads its base kind's row.
   const row = (typeof EnemyRoster !== 'undefined')
     && (EnemyRoster.get(c.kind) || (m && m.giant && EnemyRoster.get(m.giant)));
   if (row) return rosterChaseMps(row);
@@ -342,8 +342,6 @@ function rosterChaseMps(row) {
 // the step rule into the kerb buffer). The wild slime's 1.6 m/s charge is
 // under it: you out-walk a slime by stepping out, so it is NOT fast.
 const BRISK_WALK_MPS = 1.8;
-// A FAST FOE: one a briskly walking player cannot simply out-walk.
-function isFastFoe(c, cellM) { return foeChaseMps(c, cellM) > BRISK_WALK_MPS; }
 // An ANIMAL's top speed, m/s: the quicker of its gait hop and its bolt (the
 // CREATURE_BEHAVIOUR row — the numbers the wander loop moves it by; the base
 // beat WANDER_STEP_MS and one cell where the row is silent).
@@ -461,10 +459,11 @@ function sameSideAs(scene, x, y, fx, fy) { return sameSideField(scene, fx, fy).t
 //   "After dark" is the daylight (Lighting.daylight, 1 noon .. 0 night) under
 // GHOST_DARK_DAYLIGHT: 0.5 is the sun on the horizon, and 0.25 is a few
 // degrees under it — dusk gone to dark.
-//   Underground there is no night, so the roster's haunted-depth interval
-// gates the LEVEL instead: every second depth (2, 4, 6, …) is haunted at every
-// hour, while odd levels stay empty. The sun never reaches them either
-// (ghostSunExposureAt).
+//   Underground there is no night, so the PLACE gates them instead: a crypt
+// pocket (the cave habitat EnemySpawns.caveContextAt reads as 'crypt') from
+// EnemyRoster.GHOST_SCALING.minCryptDepth down is haunted at every hour, on
+// odd and even levels alike; every other cave ground stays empty. The sun
+// never reaches them either (ghostSunExposureAt).
 const GHOST_DARK_DAYLIGHT = 0.25;
 // (THE OLD STONES used to be a second reason here - from DUSK inside a
 // church's or cemetery's zone, twice as often, fanned from the stones. Gone,
@@ -543,8 +542,8 @@ function ghostSurfaceEligible(scene, x, y, cell) {
   return habitat.biomes.some(name => WorldGen.T[name] === cell.type);
 }
 // THE NIGHT PUMP — seats a group of ghosts in the dark about the player, once
-// every ghostSpawnDelay while ghostsHaunt says so (the surface after dark, an
-// crypt pocket from depth 3 at any hour). Returns how many rose. The timer is disarmed
+// every ghostSpawnDelay while ghostsHaunt says so (the surface after dark, a
+// crypt pocket from GHOST_SCALING.minCryptDepth at any hour). Returns how many rose. The timer is disarmed
 // whenever it doesn't, so the first group comes one delay after dark, a load,
 // or the stairs down to a haunted level — never at once.
 // `wardPts` / `wardR2` are wanderCreatures' Home + claimed-castle wards: a
@@ -1093,7 +1092,7 @@ function enemyCanStep(scene, c, row, x, y, escaping = false) {
   const road = roadClassBitsAt(scene, x, y);
   if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) return false;
   if ((road & WorldGen.ROAD_CLASS_MAJOR_BUFFER) && !inKerbAt(scene, c.x, c.y)
-      && isFastFoe(c, scene.cellM)) return false;
+      && isFastMover(c, scene.cellM)) return false;
   const fireAverts = !c.lair && (row.tier <= FIRE_WARD_MAX_DEPTH);
   return !(fireAverts && scene._nearAny?.('fires', x, y, FIRE_REST_R));
 }

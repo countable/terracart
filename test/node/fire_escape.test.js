@@ -9,7 +9,9 @@
     return s;
   }
   const row = () => EnemyRoster.get('zombie');
-  const foe = () => ({ id: 'fire_escape_zombie', kind: 'zombie', x: 0.5, y: 0.5, _burnUntilT: 60000 });
+  // Burning, exposed (so the clock never runs out under the test's short ticks).
+  const foe = () => ({ id: 'fire_escape_zombie', kind: 'zombie', x: 0.5, y: 0.5,
+    _burnState: { remainingMs: 60000, nextTickMs: 1000 }, _burnAtT: 0, _burnExposed: true });
   function light(s, x, y) { GroundFire.ignite(s.save, 2, x, y, Date.now() - 1, () => 1); }
 
   test('fire escape: ordinary movement cannot enter or hop across a burning cell', () => {
@@ -57,7 +59,7 @@
     assert.truthy(enemyFireSafe(s, c.x, c.y));
     assert.truthy(enemyFireEscapeTick(s, c, row(), 100, 0.1));
     assert.eq(c.x, 0.5);
-    c._burnUntilT = 0;
+    PotionEffects.extinguish(c);
     assert.falsy(enemyFireEscapeTick(s, c, row(), 200, 0.1));
   });
 })();

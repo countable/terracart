@@ -59,6 +59,7 @@ function harness() {
     viewCenterX: 0, viewCenterY: 0,
     addToInv: (id, n) => paid.inv.push(id),
     flash: (t) => paid.flashes.push(t),
+    flashAtWorld: (t) => paid.flashes.push(t),
     flashLoot: (t) => paid.flashes.push(t),
     flashShiny: () => { paid.shiny++; },
     awardShinyBonus: () => { paid.shiny++; },

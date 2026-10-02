@@ -1,12 +1,12 @@
 // THE CRATE (Sep 2026) — interactables.js restocks / poiLit.
 //
 // Most chests are offered ONCE (save.opened, forever). The low-tier CRATE (a
-// surface POI chest wearing loot.js chestLook's `box` — a class its tile holds
-// CHEST_DENSITY_T1_AT or more of) restocks after crateRestoreDays UTC days
-// (one for an ordinary crate — the fixtures here hold exactly
-// CHEST_DENSITY_T1_AT) at its normal tier, spent by the coin-burst DAY LEDGER alone — the lane the
-// golden cauldron, the chapel's alms and the grove shrine's gift already
-// share. What still has something to take today wears the POI light
+// surface POI chest wearing loot.js chestLook's `box` — a T1 chest, one its
+// tile's quota pyramid left unseated) restocks after crateRestoreDays UTC
+// days (one for an ordinary crate — the fixtures here carry no class count,
+// which reads as one) at its normal tier, spent by the coin-burst DAY LEDGER
+// alone — the lane the golden cauldron, the chapel's alms and the grove
+// shrine's gift already share. What still has something to take today wears the POI light
 // (Lighting.KINDS.poi); once taken it goes dark until the day rolls. Pins:
 //   • the predicate — what refills, and everything that never does (trunk,
 //     wagon, nexus chest, cave copy, starter crate / relic chest, stall,

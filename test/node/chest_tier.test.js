@@ -1,11 +1,13 @@
-// A POI chest's TIER is its class's DENSITY on its own tile (loot.js
-// CHEST_DENSITY_TIERS / chestTier, stamped by worldgen.js stampPoiDensity),
-// raised by cave depth and a zone's nexus — identical for every player,
-// wherever their Home is, and the SAME tier its loot rolls at (there is no
-// roll-side twin any more: the Home rings, CHEST_TIER_HOME_RINGS_M, are
-// gone). Pins: the table (1 → T4, 25 → T1), the fixed classes (public art),
-// no Home input anywhere, the stamp over a real rasterize, the look and the
-// restock following the new tier, and the cave mirrors carrying the count.
+// A POI chest's TIER is its tile's QUOTA SEAT (worldgen.js seedChestTiers,
+// stamped as o.tierSeed and read by loot.js chestTier), raised by cave depth
+// and a zone's nexus — identical for every player, wherever their Home is,
+// and the SAME tier its loot rolls at (there is no roll-side twin any more:
+// the Home rings, CHEST_TIER_HOME_RINGS_M, are gone). An unseeded chest is
+// CHEST_TIER_UNSTAMPED (T2). The class COUNT (o.poiDensity, stampPoiDensity)
+// sets no tier; it only paces a crate's restock and a pot's coins. Pins: the
+// retired count ladder, public art seeded like every class, no Home input
+// anywhere, the count stamp over a real rasterize, the look and the restock
+// following the tier, and the cave mirrors carrying the count and rank.
 (() => {
   const chest = (poiClass, poiDensity, extra = {}) => ({ kind: 'chest', poiClass, poiDensity, x: 0, y: 0, id: 'c_' + poiClass + '_' + poiDensity, ...extra });
 
@@ -58,7 +60,8 @@
       assert.eq(far, none, 'nor a Home far away');
     } finally { HomeArea.worldM = prev; }
     // Source: the tier code reads no Home at all.
-    const tierSrc = LOOT_SRC.slice(LOOT_SRC.indexOf('const CHEST_DENSITY_TIERS'), LOOT_SRC.indexOf('function chestLook('));
+    const tierSrc = LOOT_SRC.slice(LOOT_SRC.indexOf('const CHEST_DENSITY_T1_AT'), LOOT_SRC.indexOf('function chestLook('));
+    assert.gt(tierSrc.length, 0, 'the tier code slice is found');
     assert.falsy(/HomeArea|homeWorldPos|homeM/.test(tierSrc), 'loot.js tier code never reads Home');
   });
 

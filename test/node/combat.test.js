@@ -71,7 +71,7 @@ test('combat: a TAMED slime is a pet, not a target', () => {
 
 test('combat: max HP comes from the monster table, then the fauna ladder', () => {
   // Read the goblin's HP FROM the table rather than pinning a number here: the
-  // table is the source (and CAVE_ENEMY_MUL doubles every kind in it), so a
+  // table is the source (enemy_roster.js's approved values), so a
   // literal would only pin how stale this copy is. What is being tested is
   // which source answers, not what the number happens to be.
   assert.eq(Combat.creatureMaxHp('goblin'), MONSTERS.goblin.hp, 'monster table wins');

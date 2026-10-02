@@ -21,7 +21,6 @@
     if (save.luckUpgrades === undefined) save.luckUpgrades = 0;
     if (save.qtyUpgrades === undefined) save.qtyUpgrades = 0;
     if (save.deliveryCount === undefined) save.deliveryCount = 0;
-    if (save.houseSatisfied === undefined) save.houseSatisfied = {};
     // Per-house pinned wishlist (delivery.js wantedProduce). An older save has
     // none; each house pins itself the first time its sign is read.
     if (save.houseWishlists === undefined) save.houseWishlists = {};

@@ -10,7 +10,7 @@
 // deciding anything about quests itself.
 //
 // Depends on globals from interactables.js (isCastle), shops.js (Shops),
-// util.js (utcDayKey, msToNextUtcDay) and items.js (wreckRestoreQty) - all resolved
+// and items.js (wreckRestoreQty) - all resolved
 // at CALL time, so load order only needs this module after those modules (and
 // after shops_math.js, which shops.js itself depends on).
 //
@@ -302,13 +302,10 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // twelve hours (Sep 2026, owner's call: it was once per UTC day, and it is
   // the ONE timer left on any building the player trades at; shops never
   // wait — shops_math.js header). save.castleServiceClaimed[key] holds the
-  // ms stamp of the last favour. A save from before carries a 'YYYYMMDD'
-  // UTC-day stamp instead: it counts as spent until that day ends, so the
-  // upgrade neither steals a favour nor gifts one.
+  // ms stamp of the last favour; anything else is no stamp (and is pruned).
   const CASTLE_SERVICE_MS = 12 * 60 * 60 * 1000;
   function _stampWaitMs(stamp, now) {
-    if (stamp == null) return 0;
-    if (typeof stamp !== 'number') return stamp === utcDayKey(now) ? msToNextUtcDay(now) : 0;
+    if (typeof stamp !== 'number') return 0;
     return Math.max(0, stamp + CASTLE_SERVICE_MS - now);
   }
   // Milliseconds until this castle's favour is on offer again (0 = now). The

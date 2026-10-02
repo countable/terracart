@@ -312,7 +312,7 @@ test('traps: countMul scales the surface density, and every extra trap still obe
   }
   // No multiplier passed (undefined, as every existing call site pre-dating
   // countMul does) must reproduce the exact base-rate rng draw — the reservoir
-  // stays at ROADSIDE_SAMPLE rather than widening.
+  // stays at TRAP_GROUND_SAMPLE rather than widening.
   const implicit = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, TX, 0, TILE_EDGE_M, optsFor(r), undefined);
   assert.eq(JSON.stringify(implicit.map((t) => t.id)), JSON.stringify(base.map((t) => t.id)),
     'an omitted countMul is identical to the pre-multiplier behaviour');
