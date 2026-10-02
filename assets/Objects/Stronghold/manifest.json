@@ -1,0 +1,62 @@
+{
+  "frameWidth": 24,
+  "frameHeight": 24,
+  "displayScale": 1.3333333333333333,
+  "frames": [
+    {
+      "frame": 0,
+      "name": "horizontal",
+      "connections": "EW"
+    },
+    {
+      "frame": 1,
+      "name": "vertical",
+      "connections": "NS"
+    },
+    {
+      "frame": 2,
+      "name": "top_left",
+      "connections": "ES"
+    },
+    {
+      "frame": 3,
+      "name": "top_right",
+      "connections": "WS"
+    },
+    {
+      "frame": 4,
+      "name": "bottom_left",
+      "connections": "NE"
+    },
+    {
+      "frame": 5,
+      "name": "bottom_right",
+      "connections": "NW"
+    },
+    {
+      "frame": 6,
+      "name": "t_north",
+      "connections": "NEW"
+    },
+    {
+      "frame": 7,
+      "name": "t_east",
+      "connections": "NES"
+    },
+    {
+      "frame": 8,
+      "name": "t_south",
+      "connections": "ESW"
+    },
+    {
+      "frame": 9,
+      "name": "t_west",
+      "connections": "NSW"
+    },
+    {
+      "frame": 10,
+      "name": "cross",
+      "connections": "NESW"
+    }
+  ]
+}

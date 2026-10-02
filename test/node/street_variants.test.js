@@ -553,7 +553,7 @@ const dressedVariants = () => {
   return Object.assign({ r }, dressed(r));
 };
 
-test('toadstool lane: a minor row at 5%, its verge holds patterned glowing mushrooms only', () => {
+test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with occasional giant caps', () => {
   const row = SV.VARIANT_BY_ID.toadstool;
   assert.eq(row.size, 'minor'); assert.eq(row.share, 0.05);
   assert.eq(row.story, 'street_toadstool', 'its painting stem');
@@ -571,7 +571,8 @@ test('toadstool lane: a minor row at 5%, its verge holds patterned glowing mushr
   const plants = d.wildplants.filter((w) => w._street === 'toadstool');
   assert.gt(plants.length, 4, 'the lane is dressed');
   const mush = plants.filter((w) => w.crop === 'mushroom').length;
-  assert.truthy(plants.every((w) => w.crop === 'mushroom'), 'mushrooms only');
+  assert.truthy(plants.every((w) => ['mushroom', 'giant_mushroom'].includes(w.crop)), 'mushrooms only');
+  assert.gt(plants.filter((w) => w.crop === 'giant_mushroom').length, 0, 'occasional giant caps');
   assert.gt(mush, plants.length / 2, `mostly mushrooms (${mush} of ${plants.length})`);
   assert.truthy(wildplantLight('mushroom'), 'and a mushroom glows');
   for (const w of plants) {

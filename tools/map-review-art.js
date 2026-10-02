@@ -101,6 +101,7 @@ const MapReviewArt = (() => {
       for(const e of this._world.tiles)for(const o of e.objects||[])if(o.kind==='house')roles.set(o,Houses.displayRole(scene.save,o));
       const {resolveAppearance:resolve,fruitList}=Render.objectAppearance(scene,roles);
       this._sprites=[];
+      const tideDay=utcDayKey();
       const add=(e,o,category)=>{
         if(!Number.isFinite(o.x)||!Number.isFinite(o.y))return;
         const appearance=category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(o):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:Render.coinPile(o).texture,frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.coinPile(o).width,displayHeight:Render.coinPile(o).width}:resolve(o);
@@ -132,9 +133,13 @@ const MapReviewArt = (() => {
           if(this._restoredLamps)MapScene.prototype._ensureStreetLampTex.call(scene,lamp.glow);
           add(e,{...lamp,kind:'_streetlamp',lit:!!this._restoredLamps},'infrastructure');
         }
+        for(const o of e.reefCorals||[])add(e,o,'scenery');
         for(const o of e.objects||[])add(e,o,'object');
         for(const o of e.coinDrops||[])add(e,o,'object');
-        for(const o of e.wildplants||[])add(e,o,'plant');
+        for(const o of e.wildplants||[]) {
+          const plant=ZoneReview.livePlant(o,tideDay);
+          if(plant)add(e,plant,'plant');
+        }
         for(const o of e.creatures||[])add(e,o,'creature');
         for(const o of e.traps||[])add(e,{...o,kind:'trap'},'object');
         for(const o of [e.treasure,...(e.extraTreasures||[]),...(e.parkingTreasures||[])])if(o)add(e,{...o,kind:'xmark'},'object');

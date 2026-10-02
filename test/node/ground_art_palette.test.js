@@ -45,7 +45,7 @@
   function entry(id,tx=0) {
     const N=64,step=4096/N;
     return {tx,ty:0,cellsPerEdge:N,zone:{coverage:new Uint8Array(N*N).fill(1),anchors:[{
-      kind:id==='ancient_grove'?'grove':'stones',variant:id,key:'ground-art',rotation:0,
+      kind:ZoneVariants.byId(id).zone,variant:id,key:'ground-art',rotation:0,
       gx:tx*4096+32.5*step,gy:32.5*step,upm:WorldGen.CELL_M/step,
     }]}};
   }
@@ -57,6 +57,15 @@
     assert.eq(art.zoneGroundColor(e,35,32,28),null,'open gap stays warmer');
     assert.eq(art.zoneGroundColor(e,38,32,28),c,'repeat is phased from POI');
     for(const t of [2,7,9,13,14,24,25]) assert.eq(art.zoneGroundColor(e,32,32,t),null,'roads, buildings, sand and caves retain their material');
+    e.zone.coverage[32*64+32]=0;
+    assert.eq(art.zoneGroundColor(e,32,32,28),null,'coverage ownership required');
+  });
+  test('ground art: mushroom grove shades its full coverage without repainting roads or buildings', () => {
+    const e=entry('mushroom_grove'),c=art.ZONE_GROUND_ACCENTS.mushroom_grove.color;
+    for (const [x,y] of [[0,0],[32,32],[38,32],[63,63]])
+      assert.eq(art.zoneGroundColor(e,x,y,28),c,'empty ground and mushroom cells share the forest floor');
+    for (const t of [2,7,9,13,14,20,24,25,29])
+      assert.eq(art.zoneGroundColor(e,32,32,t),null,'other terrain retains its material');
     e.zone.coverage[32*64+32]=0;
     assert.eq(art.zoneGroundColor(e,32,32,28),null,'coverage ownership required');
   });

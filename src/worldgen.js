@@ -572,7 +572,10 @@
     // Terrain and band are read LIVE as well as through the mask: a live grid
     // (the starter pond, a dug wall) can differ from the one the mask was
     // stamped over.
-    if (!isWalkable(here)) return false;          // never on water/road/building
+    // Reef scenery and shore-reachable finds explicitly require actual water;
+    // all other callers keep the ordinary walkable-terrain gate.
+    const waterOnly = !!(opts && opts.waterOnly);
+    if (waterOnly ? here !== T.WATER : !isWalkable(here)) return false;
     // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): this IS THE
     // GATE — every other spawner's roadMask question resolves here.
     const roadMask = opts && opts.roadMask;
@@ -581,7 +584,7 @@
     if (occupied && occupied.has(cy * w + cx)) return false;   // already holds an object/wild plant
     const mask = opts && opts.spawnWhy;
     if (mask) {
-      const v = mask[cy * w + cx];
+      const v = mask[cy * w + cx] & ~(waterOnly ? W_.TERRAIN : 0);
       if (v & (SPAWN_WHY_HARD & ~W_.PRIVATE)) return false;
       if (v & spawnBlocks(cls)) return false;
       if (!(v & W_.PRIVATE)) return true;
@@ -986,7 +989,7 @@
       // looks like the scrub it is. See T.WASTELAND.
       return T.WASTELAND;
     }
-    if (layer === 'park') return T.PARK;
+    if (layer === 'park') return PARK_FAMILY_LAYER_CLASS.has(tags.class) ? T.PARK : null;
     if (layer === 'building') return T.BUILDING;
     return null;
   }
@@ -1038,7 +1041,9 @@
   //   • it is an UNLABELLED service way (no `service` subtype, or
   //     `service=parking`) the tile's own data places CLEARLY inside a lot —
   //     `lots`, the feature → Set(line index) Map lotLaneSetSteps derives
-  //     (see LOT_* below for the measured rule). Judged per LINE, not per
+  //     (see LOT_* below for the measured rule), or a connected comb of
+  //     at least three substantial rows along one long access spine.
+  //     Judged per LINE, not per
   //     feature: the tiles merge every same-tagged service way of a tile into
   //     one feature of dozens of lines, so a feature-wide share means nothing.
   // Called with tags only (no `lots`) it answers the tagged half, which is
@@ -1068,8 +1073,9 @@
   // never inferred (a lot lane is short; a long service road that merely
   // passes a lot is a road). A "parallel cluster" rule (≥3 short (<60 m)
   // parallel unlabelled ways <15 m apart) was measured too: after the two
-  // rules above it found 5 lines, 54 m, all Berlin courtyard stubs — so it
-  // is not here.
+  // rules above it found 5 lines, 54 m, all Berlin courtyard stubs — so
+  // short parallel rows alone are not enough. A separate connected-comb
+  // rule below requires substantial rows joined to one long access spine.
   // Seam: the decision is per tile, off that tile's own layers — the POI
   // layer is buffered far past the tile, the transportation layer only a few
   // metres, so a way straddling a seam is judged on the same POIs both sides
@@ -1114,6 +1120,164 @@
         return false;
       },
     };
+  }
+  // Keep diagnostic evidence beside the transient line-index set. Only the
+  // plain per-line arrays copied into parkingLanes survive tile generation.
+  function lotLineGroup(kind, members) {
+    const lines = members.map(({ f, li }) => {
+      const points = f.geom[li].map(p => `${p.x},${p.y}`);
+      const forward = points.join(';'), backward = points.reverse().join(';');
+      return forward < backward ? forward : backward;
+    });
+    // Tile-local, geometry-owned identity: no feature id, line index, member
+    // iteration order or unrelated access-spine geometry enters the key.
+    return `${kind}:${[...new Set(lines)].sort().join('|')}`;
+  }
+  function markLotLane(out, f, li, reasons, group) {
+    let set = out.get(f);
+    if (!set) { set = new Set(); set.reasons = new Map(); set.lineGroups = new Map(); out.set(f, set); }
+    set.add(li);
+    let evidence = set.reasons.get(li);
+    if (!evidence) set.reasons.set(li, evidence = new Set());
+    for (const reason of reasons) evidence.add(reason);
+    if (group) {
+      let memberships = set.lineGroups.get(li);
+      if (!memberships) set.lineGroups.set(li, memberships = new Set());
+      memberships.add(group);
+    }
+  }
+  // A three-lane parking shape can be encoded as one U-shaped way and a
+  // separate middle row. Recognise only the exact three-leg hairpin, with a
+  // substantial parallel centre row attached to its crossbar and matching
+  // the longer outer leg's far extent. The U's total length may exceed the
+  // ordinary 200 m inference cap; each of its parking rows is still short.
+  function* lotHairpinSteps(cands, mvtToM, out) {
+    const endpoints = _bucketGrid(128), hairpins = [];
+    const joinR = 2 / mvtToM, cosAngle = Math.cos(8 * Math.PI / 180);
+    let count = 0;
+    for (const f of cands) for (let li = 0; li < f.geom.length; li++) {
+      const line = f.geom[li];
+      if (!line || line.length < 2) continue;
+      if ((++count & 63) === 0) yield 'lot lanes: hairpin index';
+      const a = line[0], b = line[line.length - 1];
+      const length = Math.hypot(b.x - a.x, b.y - a.y), metres = length * mvtToM;
+      if (metres >= 45 && metres <= 160 && line.every(p => _segDist(p.x, p.y, a.x, a.y, b.x, b.y) <= joinR)) {
+        const row = { f, li, a, b };
+        for (const p of [a, b]) endpoints.addBox({ row, p }, p.x, p.y, p.x, p.y);
+      }
+      if (line.length !== 4) continue;
+      const [p, q, r, t] = line;
+      const l1 = Math.hypot(p.x - q.x, p.y - q.y), l2 = Math.hypot(t.x - r.x, t.y - r.y);
+      const width = Math.hypot(r.x - q.x, r.y - q.y);
+      if (Math.min(l1, l2) * mvtToM < 45 || Math.max(l1, l2) * mvtToM > 160 || width * mvtToM < 12 || width * mvtToM > 50) continue;
+      const ux = (p.x - q.x) / l1, uy = (p.y - q.y) / l1;
+      if (ux * (t.x - r.x) / l2 + uy * (t.y - r.y) / l2 < cosAngle) continue;
+      if (Math.abs(ux * (r.x - q.x) / width + uy * (r.y - q.y) / width) > Math.sin(8 * Math.PI / 180)) continue;
+      hairpins.push({ f, li, q, r, ux, uy, l1, l2, width });
+    }
+    for (const h of hairpins) {
+      yield 'lot lanes: hairpin rows';
+      const nearby = new Set();
+      // Query along the crossbar, never scan every service way per sample.
+      const steps = Math.ceil(h.width / joinR);
+      for (let i = 0; i <= steps; i++) {
+        const x = h.q.x + (h.r.x - h.q.x) * i / steps, y = h.q.y + (h.r.y - h.q.y) * i / steps;
+        endpoints.near(x, y, joinR * 2, hit => { nearby.add(hit.row); return false; });
+      }
+      for (const row of nearby) {
+        if (row.f === h.f && row.li === h.li) continue;
+        for (const [a, b] of [[row.a, row.b], [row.b, row.a]]) {
+          if (_segDist(a.x, a.y, h.q.x, h.q.y, h.r.x, h.r.y) > joinR) continue;
+          const length = Math.hypot(b.x - a.x, b.y - a.y);
+          if (((b.x - a.x) * h.ux + (b.y - a.y) * h.uy) / length < cosAngle) continue;
+          const across = p => ((p.x - h.q.x) * (h.r.x - h.q.x) + (p.y - h.q.y) * (h.r.y - h.q.y)) / h.width;
+          const margin = 6 / mvtToM;
+          if ([a, b].some(p => across(p) < margin || across(p) > h.width - margin)) continue;
+          const along = p => (p.x - h.q.x) * h.ux + (p.y - h.q.y) * h.uy;
+          const lo = along(a), hi = along(b), shorter = Math.min(h.l1, h.l2), longer = Math.max(h.l1, h.l2);
+          if (Math.min(hi, shorter) - Math.max(lo, 0) < shorter * 0.8 || Math.abs(hi - longer) * mvtToM > 10) continue;
+          const group = lotLineGroup('parking_hairpin', [h, row]);
+          for (const item of [h, row]) {
+            markLotLane(out, item.f, item.li, ['parking_hairpin'], group);
+          }
+        }
+      }
+    }
+  }
+  // A missing parking POI can leave a clear comb of lot rows behind. Require
+  // three substantial, straight, overlapping rows on the SAME side of one
+  // long access spine. Short parallel courtyard stubs alone prove nothing.
+  // The spine is evidence only; it remains a road, as do explicit driveways.
+  function* lotRowCombSteps(cands, mvtToM, out) {
+    const rows = [], spines = _bucketGrid(128), groups = new Map();
+    const joinR = 2 / mvtToM, cosAngle = Math.cos(8 * Math.PI / 180);
+    let serial = 0;
+    for (const f of cands) for (let li = 0; li < f.geom.length; li++) {
+      const line = f.geom[li];
+      if (!line || line.length < 2) continue;
+      if ((++serial & 63) === 0) yield 'lot lanes: comb index';
+      let length = 0;
+      for (let i = 1; i < line.length; i++) length += Math.hypot(line[i].x - line[i - 1].x, line[i].y - line[i - 1].y);
+      const metres = length * mvtToM;
+      if (metres > 100) {
+        const spine = { f, li };
+        for (let i = 1; i < line.length; i++) {
+          const a = line[i - 1], b = line[i];
+          spines.addBox({ spine, a, b }, Math.min(a.x, b.x), Math.min(a.y, b.y), Math.max(a.x, b.x), Math.max(a.y, b.y));
+        }
+      }
+      if (metres < 45 || metres > 100) continue;
+      const a = line[0], b = line[line.length - 1], chord = Math.hypot(b.x - a.x, b.y - a.y);
+      if (chord < length * 0.98 || line.some(p => _segDist(p.x, p.y, a.x, a.y, b.x, b.y) > joinR)) continue;
+      rows.push({ f, li, a, b });
+    }
+    for (const row of rows) {
+      yield 'lot lanes: comb joins';
+      const ends = [row.a, row.b].map(p => {
+        const hit = new Set();
+        spines.near(p.x, p.y, joinR, s => {
+          if (_segDist(p.x, p.y, s.a.x, s.a.y, s.b.x, s.b.y) <= joinR) hit.add(s.spine);
+          return false;
+        });
+        return hit;
+      });
+      for (let end = 0; end < 2; end++) for (const spine of ends[end]) {
+        if (ends[1 - end].has(spine)) continue; // a through connector, not a row
+        const a = end ? row.b : row.a, b = end ? row.a : row.b;
+        const length = Math.hypot(b.x - a.x, b.y - a.y);
+        let group = groups.get(spine); if (!group) groups.set(spine, group = []);
+        group.push({ ...row, a, b, ux: (b.x - a.x) / length, uy: (b.y - a.y) / length });
+      }
+    }
+    for (const group of groups.values()) {
+      if (group.length < 3) continue;
+      // Each seed checks one common direction/overlap, preventing a chain of
+      // gradually turning or staggered driveways from qualifying as a comb.
+      for (const seed of group) {
+        yield 'lot lanes: comb rows';
+        const along = p => p.x * seed.ux + p.y * seed.uy;
+        const lo = along(seed.a), hi = along(seed.b);
+        const aligned = group.filter(row => {
+          if (row.ux * seed.ux + row.uy * seed.uy < cosAngle) return false;
+          const rlo = along(row.a), rhi = along(row.b);
+          return Math.min(hi, rhi) - Math.max(lo, rlo) >= 0.8 * Math.max(hi - lo, rhi - rlo);
+        }).map(row => ({ row, across: -row.a.x * seed.uy + row.a.y * seed.ux })).sort((a, b) => a.across - b.across);
+        let run = [];
+        const flush = () => {
+          if (run.length >= 3) {
+            const group = lotLineGroup('connected_rows', run.map(({ row }) => row));
+            for (const { row } of run) markLotLane(out, row.f, row.li, ['connected_rows'], group);
+          }
+          run = [];
+        };
+        for (const entry of aligned) {
+          const gap = run.length ? (entry.across - run[run.length - 1].across) * mvtToM : 0;
+          if (run.length && (gap < 6 || gap > 28)) flush();
+          run.push(entry);
+        }
+        flush();
+      }
+    }
   }
   // Map: transportation feature → Set of its LINE indices that are inferred
   // lot lanes (tagged aisles are not in it — isLotLane answers those from
@@ -1166,6 +1330,8 @@
         nLot++;
       }
     }
+    yield* lotRowCombSteps(cands, mvtToM, out);
+    yield* lotHairpinSteps(cands, mvtToM, out);
     if (!nLot && !nAisle) return out;
     const step = LOT_SAMPLE_M / mvtToM;
     for (const f of cands) {
@@ -1176,7 +1342,7 @@
         for (let i = 1; i < line.length; i++) full += Math.hypot(line[i].x - line[i - 1].x, line[i].y - line[i - 1].y);
         if (!(full > 0) || full * mvtToM > LOT_MAX_M) continue;   // too long to be a lane
         yield 'lot lanes: ways';
-        let len = 0, inLot = 0;
+        let len = 0, inLot = 0, poiEvidence = false, aisleEvidence = false;
         for (let i = 1; i < line.length; i++) {
           const a = line[i - 1], b = line[i];
           const l = Math.hypot(b.x - a.x, b.y - a.y);
@@ -1185,13 +1351,15 @@
             const t = (j + 0.5) / n, x = a.x + t * (b.x - a.x), y = a.y + t * (b.y - a.y);
             const w = l / n;
             len += w;
-            if ((nLot && lots.near(x, y, poiR, q => Math.hypot(q.x - x, q.y - y) < poiR)) ||
-                (nAisle && aisles.near(x, y, aisleR, s => _segDist(x, y, s[0], s[1], s[2], s[3]) < aisleR))) inLot += w;
+            const nearPoi = nLot && lots.near(x, y, poiR, q => Math.hypot(q.x - x, q.y - y) < poiR);
+            const nearAisle = nAisle && aisles.near(x, y, aisleR, s => _segDist(x, y, s[0], s[1], s[2], s[3]) < aisleR);
+            if (nearPoi || nearAisle) inLot += w;
+            if (nearPoi) poiEvidence = true;
+            if (nearAisle) aisleEvidence = true;
           }
         }
         if (len > 0 && inLot >= LOT_SHARE * len) {
-          let set = out.get(f); if (!set) out.set(f, set = new Set());
-          set.add(li);
+          markLotLane(out, f, li, [...(poiEvidence ? ['parking_poi'] : []), ...(aisleEvidence ? ['nearby_aisle'] : [])]);
         }
       }
     }
@@ -1204,8 +1372,11 @@
   // (a surviving line keeps its Streets.lineKey — that hashes the line
   // itself and the feature id, not the line's index). Then every service-class `transportation_name` line whose
   // vertices all sit on a cut lane (its label) goes too. Idempotent: a second
-  // run finds nothing. Returns the cut as [{ f, lines }] (lines: the removed
-  // polylines).
+  // run finds nothing. Returns [{ f, lines, reasons, lineGroups }]: removed polylines and
+  // parallel arrays of evidence codes. POI/aisle codes report contributors to
+  // their combined length threshold, not independent sufficient thresholds.
+  // lineGroups is parallel to lines: declared same-lot geometry memberships;
+  // nearby POI/aisle evidence alone declares no shared identity.
   function* pruneLotLanesSteps(layersByName, mvtToM) {
     const tl = layersByName['transportation'];
     if (!tl || !tl.features) return [];
@@ -1214,12 +1385,21 @@
     let keep = 0;
     for (let i = 0; i < tl.features.length; i++) {
       const f = tl.features[i];
-      if (f.type === 2 && f.geom && isLotLane(f.tags)) { cut.push({ f, lines: f.geom }); continue; }
+      if (f.type === 2 && f.geom && isLotLane(f.tags)) {
+        cut.push({ f, lines: f.geom, reasons: f.geom.map(() => ['parking_aisle']), lineGroups: f.geom.map(() => []) });
+        continue;
+      }
       const set = f.type === 2 && f.geom ? lots.get(f) : null;
       if (set) {
-        const gone = [], stay = [];
-        for (let li = 0; li < f.geom.length; li++) (set.has(li) ? gone : stay).push(f.geom[li]);
-        cut.push({ f, lines: gone });
+        const gone = [], stay = [], reasons = [], lineGroups = [];
+        for (let li = 0; li < f.geom.length; li++) {
+          if (set.has(li)) {
+            gone.push(f.geom[li]);
+            reasons.push([...set.reasons.get(li)].sort());
+            lineGroups.push([...(set.lineGroups.get(li) || [])].sort());
+          } else stay.push(f.geom[li]);
+        }
+        cut.push({ f, lines: gone, reasons, lineGroups });
         if (!stay.length) continue;
         // A NEW feature object, not f.geom rewritten: Streets.lineKey memoises
         // per feature object by line index, and the indices just shifted.
@@ -3201,9 +3381,10 @@
   // typed FARM reason was dropped Sep 2026); deeper in is the hard
   // FARM_INTERIOR reason. Draws and foes never stand on a field at all.
   const FARM_TYPES = new Set([T.FARMLAND, T.ORCHARD]);
-  // Which `park`-layer polygons are PARK FAMILY for the house rules (the
-  // layer also carries designations — protected_area, historic, conservation
-  // — drawn over whole neighbourhoods). Landuse / landcover park, playground,
+  // Which `park`-layer polygons supply park ground, coverage and house-rule
+  // eligibility. The layer also carries protected_area, historic and
+  // conservation designations drawn over whole neighbourhoods.
+  // Landuse / landcover park, playground,
   // pitch, garden, beach … polygons always are.
   const PARK_FAMILY_LAYER_CLASS = new Set(['park', 'nature_reserve', 'national_park']);
   // Named park labels can live only in the `park` layer (Wilson Creek
@@ -4225,6 +4406,10 @@
             } else if (t != null) {
               yield* paintPolygonSteps(grid, w, h, f.geom, t, mvtToCell);
             }
+
+            // A designation overlay supplies no ground or procedural flora.
+            // Its independent quiet/restricted masks still run below.
+            if (name === 'park' && t == null) continue;
 
             // Per-polygon debris/decor share one centroid-derived key
             // so a given polygon looks the same across reloads.
@@ -5762,6 +5947,10 @@
       dressSpawn();
       zoneDress = yield* ZoneDressing.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
         tideSeats: scenicDress && scenicDress.tideSeats,
+        spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
+    }
+    if (zone && zoneDress && typeof ReefLayout !== 'undefined') {
+      yield* ReefLayout.dressSteps({ field: zone, zoneDress, tx, ty, N: w, tileEdgeM, grid,
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
     }
     // Tier seeds last: zones and scenic have stamped their nexus/vista

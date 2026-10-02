@@ -242,7 +242,7 @@ test('zone variants: compact formal beds and touching Silent Circle rims repeat 
   for (let by = -2; by <= 2; by++) for (let bx = -2; bx <= 2; bx++) {
     const cx = 4 + bx * 8, cy = 4 + by * 8;
     for (const [dx, dy] of [[4, 0], [-4, 0], [0, 4], [0, -4]]) {
-      assert.eq(V.sample(row, cx + dx, cy + dy, 'a'), 'stone', 'neighbouring circles share cardinal rim cells');
+      assert.eq(V.sample(row, cx + dx, cy + dy, 'a'), 'grave', 'neighbouring circles share cardinal pillar cells');
     }
     assert.eq(V.sample(row, cx + 2, cy + 3, 'a'), 'grass', 'entry does not sever the shared rim');
     assert.eq(V.sample(row, cx, cy, 'a'), null, 'circle centers remain clear');
@@ -332,7 +332,8 @@ test('zone variants: finite finds keep exact budgets and pick requirements', () 
   assert.eq(workFind.dy, 8);
 });
 test('zone variants: fauna affinities and material classes match their runtime lanes', () => {
-  assert.eq(V.rows.filter(row => Object.keys(row.attracts).length).length, 10);
+  assert.eq(V.rows.filter(row => Object.keys(row.attracts).length).length, 8);
+  assert.eq(Object.keys(V.byId('silent_circle').attracts).length, 0, 'quiet grave pillars do not pull extra crows');
   assert.eq(V.materials.grave.spawnClass, 'headstone');
   assert.eq(ZoneVariantData.materials.grave.spawnClass, 'enemy', 'runtime adapts without mutating reviewed source');
   assert.eq(V.materials.trap.collection, 'traps');

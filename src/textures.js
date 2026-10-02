@@ -181,7 +181,7 @@ const BIOME_TEX = {
 };
 
 // Tilled soil is per-cell state (not a terrain class).
-const TILLED_COLOR = 0xa48a66;        // approved lighter, desaturated turned earth
+const TILLED_COLOR = 0x927245;        // richer, darker turned earth
 const TILLED_VARIANTS = 2;
 // A tilled cell is drawn as ONE BED: an opaque soil pad baked into the
 // `tilled_N` texture, inset TILLED_INSET_PX from every cell edge with corners
@@ -768,7 +768,7 @@ function drawPitchTex(ctx, size, rng) {
   // Sports pitch — bold alternating mown stripes + the odd chalk sideline.
   drawGrassTex(ctx, size, rng);
   for (let y = 0; y < size; y += 8) {
-    ctx.fillStyle = (Math.floor(y / 8) % 2) ? 'rgba(255,255,255,0.04)' : 'rgba(0,30,0,0.05)';
+    ctx.fillStyle = (Math.floor(y / 8) % 2) ? 'rgba(255,255,255,0.06)' : 'rgba(0,30,0,0.08)';
     ctx.fillRect(0, y, size, 8);
   }
   if (rng() < 0.25) {
@@ -872,13 +872,11 @@ function drawWastelandTex(ctx, size, rng) {
 }
 
 function drawGroveTex(ctx, size, rng) {
-  // Grove — the lush sward around a park's heart: the lawn's specks, denser
-  // and greener, with clover clumps and a pale blossom or two. Never yellow
-  // (the interaction colour).
+  // Grove — deep yellow-olive clover with a pale blossom or two.
   drawGrassTex(ctx, size, rng);
   for (let i = 0; i < 5; i++) {
     const x = Math.floor(rng() * (size - 2)), y = Math.floor(rng() * (size - 2));
-    ctx.fillStyle = 'rgba(70,120,55,0.40)';
+    ctx.fillStyle = 'rgba(83,105,48,0.40)';
     ctx.fillRect(x, y, 2, 1); ctx.fillRect(x, y + 1, 1, 1);
   }
   for (let i = 0; i < 2; i++) {
@@ -888,14 +886,12 @@ function drawGroveTex(ctx, size, rng) {
 }
 
 function drawChurchyardTex(ctx, size, rng) {
-  // Churchyard — mossy grey-green sward: moss tufts and grass specks over
-  // the cool grey-green ground, and small pale stone chips working up
-  // through it.
+  // Churchyard — earthy heather ground, muted moss tufts and pale stone chips.
   ctx.clearRect(0, 0, size, size);
   for (let i = 0; i < 22; i++) {
     const x = Math.floor(rng() * size), y = Math.floor(rng() * size);
     const k = rng();
-    ctx.fillStyle = k < 0.45 ? 'rgba(62,92,58,0.34)' : k < 0.75 ? 'rgba(96,128,84,0.26)' : 'rgba(150,160,140,0.20)';
+    ctx.fillStyle = k < 0.45 ? 'rgba(76,62,73,0.34)' : k < 0.75 ? 'rgba(112,96,108,0.26)' : 'rgba(150,160,140,0.20)';
     ctx.fillRect(x, y, k < 0.25 ? 2 : 1, 1);
   }
   for (let i = 0; i < 3; i++) {
@@ -1346,8 +1342,9 @@ function drawBiomeTexture(ctx, size, type, variant = 0, phase = 0) {
 // alter terrain, occupancy, or the cave source. Cache anchor transforms, not
 // a cell answer, so a player-edited terrain cell still keeps its own paint.
 const ZONE_GROUND_ACCENTS = {
-  ancient_grove: { terrain: 28, color: 0x94a38c },
-  silent_circle: { terrain: 29, color: 0xd5d3bd },
+  mushroom_grove: { terrain: 28, color: 0x2f462e, fullCoverage: true },
+  ancient_grove: { terrain: 28, color: 0x58623a },
+  silent_circle: { terrain: 29, color: 0xc9c596 },
 };
 const _zoneGroundStates = new WeakMap();
 function zoneGroundColor(entry, ix, iy, type, tx = entry && entry.tx, ty = entry && entry.ty) {
@@ -1374,6 +1371,7 @@ function zoneGroundColor(entry, ix, iy, type, tx = entry && entry.tx, ty = entry
   }
   const s = states[ai];
   if (!s || type !== s.accent.terrain) return null;
+  if (s.accent.fullCoverage) return s.accent.color;
   const dx = Math.round((tx * 4096 + (ix + 0.5) * 4096 / N - s.x) / s.unit);
   const dy = Math.round((ty * 4096 + (iy + 0.5) * 4096 / N - s.y) / s.unit);
   if (s.variant.id === 'silent_circle') return dx === 0 && dy === 0 ? s.accent.color : null;

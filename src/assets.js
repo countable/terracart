@@ -155,6 +155,9 @@ const ASSETS = {
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
+  // Selected tall pillar (#63), replacing the global mapped-pole sprite.
+  // One 24px frame displayed in a 32px cell; purely decorative as before.
+  pillar:         { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/tall_pillar.png', frameWidth: 24, frameHeight: 24 },
   // STREET VARIANTS (src/street_variants.js): the generated 16px props (see
   // assets/Objects/Generated/README.md — placeholders): the pilgrim's
   // waystone, the barricade, and the burned row's tar pit and iron stakes
@@ -169,7 +172,7 @@ const ASSETS = {
   // INFLUENCE ZONES (src/zones.js): churchyard headstone, grove votive,
   // and the flint nodule (items.js CROP_SPRITE.flint).
   headstone:      { kind: 'spritesheet', path: 'assets/Objects/Rustic/pillar_c.png', frameWidth: 16, frameHeight: 16 },
-  grove_votive:   { kind: 'spritesheet', path: 'assets/Objects/Approved/grove_votive.png', frameWidth: 16, frameHeight: 16 },
+  grove_votive: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/seed_shrine.png', frameWidth: 24, frameHeight: 24 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Approved/flint.png', frameWidth: 16, frameHeight: 16 },
   // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — ten 16×24 generated
   // placeholders on one row, in the table's order.
@@ -178,6 +181,12 @@ const ASSETS = {
   // interactable: the viewpoint's scope (16×24, an object — RENDER_SPEC
   // vista_scope) and the tide line's driftwood and message bottle (wild
   // plants — items.js CROP_SPRITE).
+  zone_objects: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/approved-24.png', frameWidth: 24, frameHeight: 24 },
+  zone_berry_bush: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/berry_bush.png', frameWidth: 24, frameHeight: 24 },
+  zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/Hedges/single.png', frameWidth: 24, frameHeight: 24 },
+  zone_hedge: { kind: 'spritesheet', path: 'assets/Objects/Hedges/hedges-24.png', frameWidth: 24, frameHeight: 24 },
+  stronghold_wall: { kind: 'spritesheet', path: 'assets/Objects/Stronghold/walls-24.png', frameWidth: 24, frameHeight: 24 },
+  reef_coral: { kind: 'spritesheet', path: 'assets/Objects/Reef/coral.png', frameWidth: 24, frameHeight: 24 },
   vista_scope:    { kind: 'spritesheet', path: 'assets/Objects/Approved/vista_scope.png', frameWidth: 16, frameHeight: 24 },
   driftwood:      { kind: 'spritesheet', path: 'assets/Objects/Approved/driftwood.png', frameWidth: 16, frameHeight: 16 },
   bottle:         { kind: 'spritesheet', path: 'assets/Objects/Approved/bottle.png', frameWidth: 16, frameHeight: 16 },
@@ -186,10 +195,10 @@ const ASSETS = {
   // BARREL or clay pot (standing, then smashed while restocking — isBarrel), a
   // bike rack the bicycle_parking POI (isBikeRack), a notice board the
   // information POI (render.js infoboard) and a gate's two posts (gatepost).
-  barrel:         { kind: 'spritesheet', path: 'assets/Objects/Approved/barrel.png', frameWidth: 16, frameHeight: 16 },
-  barrel_smashed: { kind: 'spritesheet', path: 'assets/Objects/Approved/barrel_smashed.png', frameWidth: 16, frameHeight: 16 },
-  clay_pot:       { kind: 'spritesheet', path: 'assets/Objects/Rustic/pot.png', frameWidth: 16, frameHeight: 16, desaturated: true },
-  clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/Rustic/pot_smashed.png', frameWidth: 16, frameHeight: 16, desaturated: true },
+  barrel: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/barrel.png', frameWidth: 24, frameHeight: 24 },
+  barrel_smashed: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/broken_barrel.png', frameWidth: 24, frameHeight: 24 },
+  clay_pot: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/pots_cracked.png', frameWidth: 24, frameHeight: 24 },
+  clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/pots_smashed.png', frameWidth: 24, frameHeight: 24 },
   bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Approved/bike_rack.png', frameWidth: 16, frameHeight: 16 },
   signpost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/signpost.png', frameWidth: 16, frameHeight: 16 },
   gatepost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/gatepost.png', frameWidth: 16, frameHeight: 16 },

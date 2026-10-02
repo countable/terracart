@@ -67,6 +67,6 @@ test('quarry: the clipped benches read the whole density table, stone and crysta
   const sum = Object.values(b.materialDensity).reduce((a, v) => a + v, 0);
   assert.lt(Math.abs(sum - b.nominalDensity), 1e-12, 'the mix sums to the nominal density');
   assert.truthy(/else if \(h < d\.crystal \+ d\.stone \+ \(d\.barrel \|\| 0\)\) put\(x, y, 'barrel'\);/.test(QUARRY_LAYOUT_SRC), 'clipped benches place barrels past the stone band');
-  assert.truthy(/put\(r, b, 'barrel'\)/.test(QUARRY_LAYOUT_SRC), 'the abandoned quarry leaves one at a patch corner');
+  assert.truthy(/put\(r, b, 'quarry_barrel'\)/.test(QUARRY_LAYOUT_SRC), 'the abandoned quarry leaves one at a patch corner');
 });
 })();

@@ -13,6 +13,27 @@
   }
   const all = out => [...out.objects, ...out.wildplants, ...out.traps, ...out.guards, ...out.treasures];
   const finds = out => all(out).filter(o => o.zoneLayer === 'find');
+  test('selected zone objects: replacements keep their own role and sparse props respect occupancy', () => {
+    const garden = ZoneDressing.dress(context('stone_garden'));
+    const pillars = garden.objects.filter(o => o._zoneObjectFrame === 1);
+    assert.gt(pillars.length, 0);
+    assert.truthy(pillars.every(o => o.kind === 'headstone' && o.yieldTier == null));
+    assert.gt(garden.objects.filter(o => o.kind === 'mineralrock' && o.yieldTier === 3).length, 0, 'iron deposits remain mineable');
+    for (const id of ['ordered_graves', 'overgrown_graves']) {
+      const graves = ZoneDressing.dress(context(id)).objects.filter(o => o.kind === 'headstone');
+      assert.truthy(graves.every(o => [4, 5].includes(o._zoneObjectFrame)));
+    }
+    for (const id of ['broken_masonry', 'quarry-stronghold', 'formal_garden', 'overgrown_graves', 'quarry-abandoned', 'work_yard', 'broken_depot', 'mystic_reef', 'pirate_cove']) {
+      const c = context(id), out = ZoneDressing.dress(c), props = out.objects.filter(o => o.kind === 'zone_prop');
+      assert.gt(props.length, 0, id);
+      assert.lte(props.length, 2, 'finite site accents');
+      assert.eq(new Set(all(out).map(o => `${o._ix},${o._iy}`)).size, all(out).length, 'no collisions');
+      const observed = context(id); observed.field.anchors[0].owned = false;
+      assert.eq(ZoneDressing.dress(observed).objects.filter(o => o.kind === 'zone_prop').length, 0, 'one owner');
+      const blocked = context(id); blocked.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+      assert.eq(ZoneDressing.dress(blocked).objects.filter(o => o.kind === 'zone_prop').length, 0, 'ordinary gate');
+    }
+  });
   test('zone dressing: all variants keep finite counts, tool tiers, uniqueness and rebuild identities', () => {
     for (const row of ZoneVariants.rows) {
       const a = ZoneDressing.dress(context(row.id)), b = ZoneDressing.dress(context(row.id));
@@ -26,6 +47,149 @@
       }
     }
   });
+  test('berry bushes: Meadow and Orchard each add three harvestable berries without replacing their original finds', () => {
+    for (const [id, original] of [['meadow','marigold'], ['orchard','gemfruit']]) {
+      const row = ZoneVariants.byId(id), out = ZoneDressing.dress(context(id));
+      const berries = finds(out).filter(o => o.crop === 'berry');
+      assert.eq(berries.length, 3, id + ': three bushes per anchor');
+      assert.eq(finds(out).filter(o => o.crop === original).length, 3, id + ': existing finds retained');
+      assert.eq(row.finds.count, 6);
+      for (const berry of berries) {
+        assert.eq(berry.kind, 'wildplant');
+        assert.eq(wildplantOutput(berry.crop), 'berry');
+        assert.eq(wildplantSprite(berry).sheet, 'zone_berry_bush');
+      }
+    }
+  });
+  function stoneGardenSite() {
+    const c = context('stone_garden');
+    c.field.coverage.fill(0);
+    for (let y = 12; y <= 52; y++) for (let x = 12; x <= 52; x++) {
+      if ((x - 32) ** 2 + (y - 32) ** 2 <= 20 ** 2) c.field.coverage[y * c.N + x] = 1;
+    }
+    return c;
+  }
+  test('zone dressing: Stone Garden fits a complete compact ring beside a large building', () => {
+    const make = () => {
+      const c = stoneGardenSite();
+      c.grid.fill(WorldGen.T.BUILDING);
+      // An outdoor frontage, offset from the original indoor POI. Large
+      // rings cannot fit this pocket, but the smallest complete ring can.
+      for (let y = 25; y <= 39; y++) for (let x = 38; x <= 48; x++) c.grid[y * c.N + x] = WorldGen.T.PARK;
+      c.spawnOpts.spawnWhy[25 * c.N + 38] = WorldGen.SPAWN_WHY.RESTRICTED;
+      c.spawnOpts.occupied.add(39 * c.N + 48);
+      return c;
+    };
+    const c = make(), originalOccupied = new Set(c.spawnOpts.occupied), out = ZoneDressing.dress(c);
+    const layout = out.diagnostics[0].layout, variant = ZoneVariants.byId('stone_garden');
+    assert.truthy(layout, 'fitting is visible in diagnostics');
+    assert.eq(layout.mode, 'adapted'); assert.eq(layout.radiusCells, 3);
+    assert.truthy(layout.center[0] !== 32 || layout.center[1] !== 32, 'composition moves out of the building');
+    const stones = out.objects.filter(o => o.zoneLayer === 'background' && ['mineralrock', 'headstone'].includes(o.kind));
+    assert.eq(stones.length, variant.background.stoneRings[0].count, 'smallest stone ring remains whole');
+    for (const o of all(out)) {
+      assert.falsy(WorldGen.isBuildingTerrain(c.grid[o._iy * c.N + o._ix]), 'building footprint remains clear');
+      assert.falsy(originalOccupied.has(o._iy * c.N + o._ix), 'existing interactable retained');
+      assert.falsy(c.spawnOpts.spawnWhy[o._iy * c.N + o._ix] & WorldGen.SPAWN_WHY.RESTRICTED);
+    }
+    assert.eq(finds(out).length, variant.finds.count, 'one finite reward budget');
+    assert.eq(out.guards.filter(o => o.zoneLayer !== 'background').length, variant.guards.count || 0);
+    assert.eq(new Set(all(out).map(o => `${o._ix},${o._iy}`)).size, all(out).length, 'no stacked placements');
+    assert.eq(JSON.stringify(all(out)), JSON.stringify(all(ZoneDressing.dress(make()))), 'stable replay and IDs');
+  });
+  test('zone dressing: unobstructed Stone Garden retains its authored rings and identities', () => {
+    const c = stoneGardenSite(), out = ZoneDressing.dress(c), variant = ZoneVariants.byId('stone_garden');
+    assert.falsy(out.diagnostics[0].layout?.mode === 'adapted', 'no movement on open ground');
+    const origin = ZoneVariants.poiOrigin(variant);
+    const background = all(out).filter(o => o.zoneLayer === 'background');
+    assert.gt(background.length, 80, 'retains the full garden');
+    for (const o of background) {
+      const sampled = ZoneVariants.sample(variant, o._ix - 32 + origin[0], o._iy - 32 + origin[1], 112);
+      const material = ZoneVariants.materials[variant.materialReplacements?.[sampled] || sampled];
+      assert.truthy(material, 'same canonical authored cell');
+      assert.eq(o.kind, material.kind);
+      if (material.crop) assert.eq(o.crop, material.crop);
+      if (o.kind === 'mineralrock') assert.eq(o.id, WorldGen.cellId('mrz', 0, 0, o._ix, o._iy));
+    }
+  });
+  test('zone dressing: Stone Garden reports no fitting ring instead of leaving fragments', () => {
+    const c = stoneGardenSite(); c.grid.fill(WorldGen.T.BUILDING);
+    for (let y = 30; y <= 33; y++) for (let x = 40; x <= 43; x++) c.grid[y * c.N + x] = WorldGen.T.PARK;
+    const out = ZoneDressing.dress(c), variant = ZoneVariants.byId('stone_garden');
+    assert.eq(out.diagnostics[0].layout.mode, 'no_fit');
+    assert.includes(out.diagnostics[0].shortfalls, 'layout:no-complete-composition');
+    assert.eq(all(out).filter(o => o.zoneLayer === 'background').length, 0, 'tiny patch cannot hold a complete ring or stone bed');
+    assert.eq(finds(out).length, variant.finds.count, 'finite finds still use their ordinary fallback');
+  });
+  test('zone dressing: narrow Stone Garden frontage receives one complete bounded stone bed', () => {
+    for (const horizontal of [false, true]) {
+      const make = () => {
+        const c = stoneGardenSite(); c.grid.fill(WorldGen.T.BUILDING);
+        for (let long = 17; long <= 47; long++) for (let thin = 40; thin <= 41; thin++) {
+          const x = horizontal ? long : thin, y = horizontal ? thin : long;
+          c.grid[y * c.N + x] = WorldGen.T.PARK;
+        }
+        return c;
+      };
+      const c = make(), out = ZoneDressing.dress(c), layout = out.diagnostics[0].layout;
+      const bed = all(out).filter(o => o.zoneLayer === 'background');
+      assert.eq(layout.mode, 'border');
+      assert.eq(layout.axis, horizontal ? 'x' : 'y');
+      assert.inRange(bed.length, 3, 8, 'one small complete bed');
+      assert.eq(layout.stones, bed.length);
+      const fixed = horizontal ? '_iy' : '_ix', along = horizontal ? '_ix' : '_iy';
+      bed.sort((a, b) => a[along] - b[along]);
+      for (let n = 0; n < bed.length; n++) {
+        assert.includes(['mineralrock', 'headstone'], bed[n].kind);
+        assert.eq(bed[n][fixed], bed[0][fixed], 'one straight row');
+        if (n) assert.eq(bed[n][along] - bed[n - 1][along], 2, 'evenly spaced whole bed');
+        assert.eq(c.grid[bed[n]._iy * c.N + bed[n]._ix], WorldGen.T.PARK);
+      }
+      assert.eq(finds(out).length, ZoneVariants.byId('stone_garden').finds.count, 'finite finds remain independent');
+      assert.eq(new Set(all(out).map(o => `${o._ix},${o._iy}`)).size, all(out).length, 'no interactable collisions');
+      assert.eq(JSON.stringify(all(out)), JSON.stringify(all(ZoneDressing.dress(make()))), 'stable placements and IDs');
+    }
+  });
+  test('zone dressing: seam-spanning Stone Garden keeps its shared canonical frame', () => {
+    for (const owned of [true, false]) {
+      const c = stoneGardenSite(), a = c.field.anchors[0];
+      a.gx = a.lx = 2.5 * 4096 / c.N; a.owned = owned;
+      c.field.coverage.fill(0);
+      for (let y = 12; y <= 52; y++) for (let x = 0; x <= 22; x++) c.field.coverage[y * c.N + x] = 1;
+      for (let y = 29; y <= 35; y++) for (let x = 0; x <= 5; x++) c.grid[y * c.N + x] = WorldGen.T.BUILDING;
+      const out = ZoneDressing.dress(c), variant = ZoneVariants.byId('stone_garden');
+      assert.falsy(out.diagnostics[0].layout, 'tile-local obstacles never rephase a shared composition');
+      const origin = ZoneVariants.poiOrigin(variant), background = all(out).filter(o => o.zoneLayer === 'background');
+      assert.gt(background.length, 0);
+      for (const o of background) {
+        const sampled = ZoneVariants.sample(variant, o._ix - 2 + origin[0], o._iy - 32 + origin[1], 112);
+        const material = ZoneVariants.materials[variant.materialReplacements?.[sampled] || sampled];
+        assert.truthy(material, 'canonical ring continues across the seam');
+        assert.eq(o.kind, material.kind);
+      }
+      if (!owned) assert.eq(finds(out).length, 0, 'neighbor cannot duplicate finite finds');
+    }
+  });
+  test('churchyard containers: each variant has one clay pot beside its POI', () => {
+    for (const row of ZoneVariants.forKind('stones')) {
+      const out = ZoneDressing.dress(context(row.id));
+      const pots = out.objects.filter(o => o.barrel && o.barrelStyle === 'clay_pot');
+      assert.eq(pots.length, 1, row.id + ': one pot rather than a repeating loot carpet');
+      assert.eq(pots[0].zoneLayer, 'poi');
+      assert.eq(barrelProfile(pots[0]).texKey, 'clay_pot');
+      assert.eq(finds(out).length, row.finds.count, 'the site retains its finite finds');
+    }
+  });
+  test('overgrown graves: three actual markers per motif retain vegetation and open aisles', () => {
+    const row = ZoneVariants.byId('overgrown_graves'), b = row.background;
+    assert.eq(b.slots.filter(s => s.material === 'grave').length, 3, 'formerly one grave per 6x6 patch');
+    assert.eq(b.slots.filter(s => s.material === 'grass').length, 3);
+    assert.eq(b.slots.filter(s => s.material === 'shrub').length, 2);
+    for (let n = 0; n < 6; n++) assert.eq(ZoneVariants.sample(row, 2, n, 'grave-density'), null, 'open crossing aisle');
+    const out = ZoneDressing.dress(context(row.id));
+    assert.gt(out.objects.filter(o => o.kind === 'headstone').length, 150, 'real headstones populate the covered ground');
+    assert.eq(out.guards.filter(o => o.zoneLayer !== 'background').length, row.guards.count);
+  });
   test('abandoned quarry: copper ore rocks replace equipment pickups using ordinary mining', () => {
     const c = context('quarry-abandoned');
     const out = ZoneDressing.dress(c);
@@ -38,6 +202,9 @@
     }
     assert.falsy(all(out).some(o => o.quarryEquipment));
     assert.falsy(out.objects.some(o => o.fixedLoot?.id === 'iron_bar'));
+    const barrels = out.objects.filter(o => o.barrel);
+    assert.gt(barrels.length, 0);
+    assert.truthy(barrels.every(o => o.barrelStyle === 'barrel' && barrelProfile(o).texKey === 'barrel'), 'abandoned quarries contain barrels, never pots');
     assert.eq(finds(out).filter(o => o.quarryCrate).length, 2, 'the separate Iron-pick crates remain');
   });
   test('quarry dressing: global cell scatter ignores component centers and creates no landmark', () => {
@@ -141,8 +308,8 @@
     assert.gt(timber.length, 200);
     assert.truthy(fruit.every(o => o.species === 'apple'), 'all fruit records harvest apples');
     assert.truthy(timber.every(o => o.species === 'maple' && o.size === 'medium' && treeSizeClass(o) === 'medium'));
-    assert.eq(out.wildplants.length, 3, 'only the finite gemfruit finds remain');
-    assert.truthy(out.wildplants.every(o => o.crop === 'gemfruit' && o.zoneLayer === 'find'));
+    assert.eq(out.wildplants.length, 6, 'three gemfruit and three berry finds');
+    assert.truthy(out.wildplants.every(o => ['gemfruit', 'berry'].includes(o.crop) && o.zoneLayer === 'find'));
   });
   test('zone dressing: Mushroom Grove giant mushrooms have distinct rewards and preserve placement identities', () => {
     const grove = ZoneDressing.dress(context('mushroom_grove'));
@@ -153,21 +320,59 @@
       assert.eq(o.kind, 'wildplant');
       assert.eq(o.id, WorldGen.cellId('wpf', 0, 0, o._ix, o._iy), 'existing shrub identity survives the art change');
       assert.eq(JSON.stringify(wildplantRewards(o.crop)),JSON.stringify([{id:'wood',qty:1},{id:'mushroom',qty:1}]));
-      assert.eq(wildplantSprite(o).sheet, 'giant_mushroom');
-      assert.eq(wildplantFrame(o), 0);
+      assert.eq(wildplantSprite(o).sheet, 'zone_objects');
+      assert.eq(wildplantFrame(o), 40);
     }
-    // The grove's forage is the plain red cap: the mushroom has no authored
-    // surface look any more (items.js WILDPLANT_CONTEXT_ART), so no zone can
-    // ask for one — the red cap above ground, the blue caps below.
+    // This placement-specific red cap retains the ordinary mushroom crop.
     const forage = grove.wildplants.filter(o => o.crop === 'mushroom');
     assert.gt(forage.length, 0);
-    assert.truthy(forage.every(o => !o._plantArt && wildplantSprite(o) === CROP_SPRITE.mushroom && wildplantFrame(o) === CROP_SPRITE.mushroom.frame), 'forage is the red cap, the same mushroom as everywhere');
+    assert.truthy(forage.every(o => wildplantSprite(o).sheet === 'zone_objects' && wildplantFrame(o) === 40));
+    assert.eq(wildplantSprite({crop:'mushroom'}), CROP_SPRITE.mushroom, 'global mushrooms stay unchanged');
     assert.eq(typeof WILDPLANT_CONTEXT_ART, 'object', 'the context-art table is in scope');
     assert.eq(typeof WILDPLANT_CONTEXT_ART.cap_cluster, 'undefined', 'the surface cluster look is gone');
     assert.eq(wildplantSprite({crop:'mushroom',_plantArt:'cap_cluster'}), CROP_SPRITE.mushroom, 'saved cluster tags fall back to ordinary mushroom art');
     const ordinary = ZoneDressing.dress(context('meadow')).wildplants.filter(o => o.crop === 'shrub');
     assert.gt(ordinary.length, 0);
     assert.truthy(ordinary.every(o => !o._plantArt && wildplantSprite(o).sheet === 'bushes'), 'other groves use the same shrub');
+  });
+  test('zone hedges: joins follow surviving shrubs, never blocked cells or unrelated plants', () => {
+    const c = context('hedge_garden');
+    const before = ZoneDressing.dress(context('hedge_garden')).wildplants.filter(o => o.crop === 'shrub');
+    assert.gt(before.length, 10);
+    const removed = before.filter((_, n) => n % 5 === 0);
+    for (const p of removed) c.spawnOpts.occupied.add(p._iy * c.N + p._ix);
+    const hedges = ZoneDressing.dress(c).wildplants.filter(o => o.crop === 'shrub');
+    const cells = new Set(hedges.map(p => p._iy * c.N + p._ix));
+    for (const p of removed) assert.falsy(cells.has(p._iy * c.N + p._ix));
+    for (const p of hedges) {
+      const frame = QuarryLayout.wallFrameAt(cells, p._iy * c.N + p._ix, c.N);
+      assert.eq(wildplantSprite(p).sheet, frame == null ? 'zone_hedge_single' : 'zone_hedge');
+      assert.eq(wildplantFrame(p), frame ?? 0);
+      assert.eq(wildplantSprite(p).seat, false, 'joins keep the full frame centered');
+      assert.eq(WILDPLANT_RULES[p.crop].output, 'wood', 'hedges retain shrub harvest');
+    }
+  });
+  test('zone hedges: all cardinal junctions use the atlas orientation and edges never wrap', () => {
+    const N = 9, center = 4 * N + 4;
+    const cases = [
+      [[-1, 1], 0], [[-N, N], 1], [[1, N], 2], [[-1, N], 3],
+      [[-N, 1], 4], [[-N, -1], 5], [[-N, 1, -1], 6],
+      [[-N, 1, N], 7], [[1, N, -1], 8], [[-N, N, -1], 9],
+      [[-N, 1, N, -1], 10], [[], null], [[1], null],
+    ];
+    const plant = i => ({ crop: 'shrub', zoneVariant: 'formal_garden', _ix: i % N, _iy: Math.floor(i / N) });
+    for (const [offsets, frame] of cases) {
+      const plants = [plant(center), ...offsets.map(d => plant(center + d))];
+      // A different crop and an unrelated zone must not create an extra arm.
+      plants.push({ ...plant(center + N), crop: 'berry' }, { ...plant(center - 1), zoneVariant: 'ancient_grove' });
+      ZoneDressing.stampHedges(plants, N);
+      assert.eq(plants[0]._hedgeFrame ?? null, frame);
+      assert.eq(plants[0]._plantArt, frame == null ? 'zone_hedge_single' : 'zone_hedge');
+      assert.eq(plants[plants.length - 1]._plantArt, undefined);
+    }
+    const edge = [plant(N - 1), plant(N), plant(N - 2)];
+    ZoneDressing.stampHedges(edge, N);
+    assert.eq(edge[0]._hedgeFrame, undefined, 'adjacent array rows cannot make a straight hedge');
   });
   test('zone art: stone variants use ordinary rock art and formal hedges keep their harvest identity', () => {
     const masonry = ZoneDressing.dress(context('broken_masonry')).wildplants.filter(o => o.crop === 'rockfruit');
@@ -179,7 +384,7 @@
     for (const o of masonry) assert.eq(o.id, WorldGen.cellId(o.zoneLayer === 'background' ? 'wpf' : 'wz', 0, 0, o._ix, o._iy));
     const hedges = ZoneDressing.dress(context('formal_garden')).wildplants.filter(o => o.crop === 'shrub');
     assert.gt(hedges.length, 0);
-    assert.truthy(hedges.every(o => wildplantSprite(o).sheet === 'approved_clipped_hedge'));
+    assert.truthy(hedges.every(o => ['zone_hedge', 'zone_hedge_single'].includes(wildplantSprite(o).sheet)));
     assert.eq(wildplantSprite({crop:'shrub',_biome:5}).sheet, 'approved_clipped_hedge');
     assert.eq(wildplantSprite({crop:'shrub',_biome:16}).sheet, 'approved_clipped_hedge');
     assert.eq(wildplantSprite({crop:'shrub',_biome:6}).sheet, 'bushes');

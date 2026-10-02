@@ -194,4 +194,36 @@
     }
     assert.gt(movedAny, 40, 'the fixtures actually move animals');
   });
+  test('fauna seat pools: attracted shore crows leave space around birds and beach interactables', () => {
+    const N = 16, cellM = 7, grid = new Uint8Array(N * N).fill(WorldGen.T.SAND);
+    const mask = new Uint8Array(N * N).fill(1), occupied = new Set();
+    for (let y = 0; y < N; y++) occupied.add(y * N + 7);
+    const entry = { scenic:{shore:{mask}},
+      streetMarks:new Uint8Array(N*N).fill(StreetVariants.VARIANT_BY_ID.pilgrim.code),
+      zone:{coverage:new Uint16Array(N * N).fill(1),
+      anchors:[{kind:'beach',variant:'pirate_cove'}]} };
+    const scene = Object.assign(new SceneCreatures(), {tileEdgeM:N * cellM});
+    const run = () => {
+      const creatures = Array.from({length:300}, (_,n) => ({id:`crow_${n}`,kind:'crow',x:-100,y:-100}));
+      creatures.push({id:'resident',kind:'crow',x:3.5 * cellM,y:3.5 * cellM});
+      const moved = scene._seatFaunaOnFavouriteGround(entry,0,0,N,cellM,grid,{occupied},creatures,null,[],new Set());
+      return {creatures,moved};
+    };
+    const a = run(), b = run();
+    assert.eq(JSON.stringify(a), JSON.stringify(b), 'stable landings across rebuilds');
+    assert.eq(a.creatures.length,301,'failed attraction retains every animal');
+    const landed = a.creatures.filter(c => c.id !== 'resident' && c.x >= 0);
+    assert.gt(landed.length,0,'beach still attracts birds');
+    assert.lt(landed.length,70,'crowding limits arrivals without deleting birds');
+    const seat = c => [Math.floor(c.x/cellM),Math.floor(c.y/cellM)];
+    for (let i=0;i<landed.length;i++) {
+      const [x,y]=seat(landed[i]);
+      assert.falsy(occupied.has(y*N+x),'no landing on a beach interactable');
+      assert.gt(Math.max(Math.abs(x-3),Math.abs(y-3)),1,'existing shore bird keeps breathing room');
+      for(let j=0;j<i;j++) {
+        const [px,py]=seat(landed[j]);
+        assert.gt(Math.max(Math.abs(x-px),Math.abs(y-py)),1,'new landings are not adjacent');
+      }
+    }
+  });
 })();

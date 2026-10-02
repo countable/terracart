@@ -53,7 +53,7 @@
       // Scenic shore sand is finalized after coverage; keep late sand out
       // of ordinary grove motifs too. Beach roses require vegetated ground.
       if (grid[iy * N + ix] === WG.T.SAND && s.variant.id === 'shellwater_strand' && material === 'rose') return false;
-      const m = V.materials[material];
+      const m = V.materials[s.variant.materialReplacements?.[material] || material];
       if (!m) return false;
       const cls = m.recordType === 'enemy' && typeof root.creatureSpawnClass === 'function'
         ? root.creatureSpawnClass(m.kind) : m.spawnClass;
@@ -61,6 +61,7 @@
       return m.recordType !== 'surface_trap' || !!(root.Traps && root.Traps.isTrapGround(grid, opts.roadClass, N, N, ix, iy, field.under, opts.roadMask));
     };
     const place = (s, ix, iy, material, layer, id) => {
+      material = s.variant.materialReplacements?.[material] || material;
       let m = V.materials[material];
       if (!allowed(s, ix, iy, material)) {
         if (!m || !m.fallback || !allowed(s, ix, iy, m.fallback)) return null;
@@ -68,6 +69,9 @@
       }
       const i = iy * N + ix, [x, y] = position(ix, iy);
       const extra = { zone: s.a.kind, zoneVariant: s.variant.id, zoneLayer: layer, _ix: ix, _iy: iy };
+      const frames = s.variant.materialFrames?.[material];
+      if (frames?.length) extra._zoneObjectFrame = frames[Math.floor(Z.cellU01(tx * N + ix, ty * N + iy, 0x2416) * frames.length)];
+      else if (m._zoneObjectFrame != null) extra._zoneObjectFrame = m._zoneObjectFrame;
       const look = s.variant.materialLooks && s.variant.materialLooks[material];
       if (m.kind === 'wildplant' && (look || m._plantArt)) extra._plantArt = look || m._plantArt;
       else if (look) extra._objectArt = look;
@@ -87,12 +91,14 @@
       else {
         if (m.fixedLoot) extra.fixedLoot = { ...m.fixedLoot };
         if (m.quarryCrate) extra.quarryCrate = true;
+        if (m.barrelStyle) extra.barrelStyle = m.barrelStyle;
         if (m.barrel) extra.barrel = true;   // a generated barrel (loot.js isBarrel)
         if (m.species) extra.species = m.species;
         if (m.kind === 'tree') {
           extra.variant = 1;
           if (m.size) extra.size = m.size;
         }
+        if (m.kind === 'stronghold_wall') extra.variant = s.quarryPlan.wallFrames.get(i);
         if (m.deposit) extra.deposit = m.deposit;
         if (m.yieldTier != null) extra.yieldTier = m.yieldTier;
         if (m.requiredTier != null) extra.requiredTier = m.requiredTier;
@@ -110,6 +116,7 @@
     const motifAt = (s, ix, iy) => {
       // Generated footprints may merge or acquire a different centre as lane
       // geometry changes. Their scatter belongs to the geographic tile/cell.
+      if (s.fittedBackground) return s.fittedBackground.get(iy * N + ix) || null;
       if (s.quarryPlan) return s.quarryPlan.background.get(iy * N + ix) || null;
       if (s.a.generated || s.variant.generated) return V.sample(s.variant, ix, iy,
         `generated|${s.a.generated || s.variant.generated}|${tx}|${ty}`);
@@ -175,13 +182,16 @@
     for (const s of states) {
       if (s.a.kind === 'beach' && s.a.orientationSource === 'unresolved') s.rec.shortfalls.push('orientation:shoreline');
       if (!s.variant.quarryLayout) continue;
-      // Fit whole modules around the authoritative spawn gate and authored
-      // occupancy. The layout never truncates a foundation through a house.
+      // Fit surviving foundation walls around the authoritative spawn gate
+      // and authored occupancy; no wall is placed through a house.
       const eligible = [];
       for (let n = 0; n < s.cells.length; n++) {
         if ((n & 255) === 0) yield 'quarry usable footprint';
         const i = s.cells[n];
-        if (WG.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), opts, 'minor')) eligible.push(i);
+        const usable = s.variant.id === 'quarry-stronghold'
+          ? allowed(s, i % N, Math.floor(i / N), 'stone')
+          : WG.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), opts, 'minor');
+        if (usable) eligible.push(i);
       }
       s.quarryPlan = yield* root.QuarryLayout.planSteps({ ...s, cells: eligible }, {N, tx, ty});
       const plan = s.quarryPlan;
@@ -269,6 +279,7 @@
           // stable POI identity and settled seat at the composition's centre.
           s.chest.kind = 'grove_shrine';
           s.chest.zone = a.kind; s.chest.zoneLayer = 'shrine';
+          if (v.shrineFrame != null) s.chest._zoneObjectFrame = v.shrineFrame;
           // A shrine kind (src/shrines.js) lends its boon in place of the gift.
           const shrineKind = s.shipwreck ? null : root.Shrines && root.Shrines.kindForZoneVariant(v.id);
           if (shrineKind) s.chest.shrineKind = shrineKind;
@@ -304,7 +315,139 @@
         }
         if (!seated) s.rec.shortfalls.push('shrine:' + standKind);
       }
-      out.nexus.push({ kind: a.kind, aspect: v.id, variant: v.id, chestId: s.chest && s.chest.kind === 'chest' ? s.chest.id : null, poiId: s.chest ? s.chest.id : null, pieces: s.rec.placed });
+      out.nexus.push({ zoneAnchor: a.key, kind: a.kind, aspect: v.id, variant: v.id, chestId: s.chest && s.chest.kind === 'chest' ? s.chest.id : null, poiId: s.chest ? s.chest.id : null, pieces: s.rec.placed });
+    }
+    // Fit a bounded composition as a whole instead of clipping its stones
+    // individually against a building. Only complete owner-local sites may
+    // choose a new centre: a neighbouring tile cannot observe this occupancy.
+    for (const s of states) {
+      const b = s.variant.background, a = s.a;
+      if (!b.fitToGround || b.type !== 'concentric_rings' || !a.owned) continue;
+      const lx = a.gx - tx * EXT, ly = a.gy - ty * EXT;
+      const extent = a.R * (1 + Z.EDGE_JITTER) / a.upm;
+      if (!(extent >= 0) || lx - extent < 0 || ly - extent < 0
+          || lx + extent >= EXT || ly + extent >= EXT
+          || s.cells.some(i => i % N === 0 || i % N === N - 1 || i < N || i >= N * (N - 1))) continue;
+      const radii = b.stoneRings.map(r => r.radiusCells).sort((a, b) => b - a);
+      const innerRadius = radii[radii.length - 1];
+      if (b.fitToGround.compactRadiusCells < innerRadius) radii.push(b.fitToGround.compactRadiusCells);
+      const geometryOpts = { ...opts, occupied: initialOccupied };
+      const diskFree = (cx, cy, radius, gateOpts) => {
+        for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
+          if (dx * dx + dy * dy > (radius + 0.5) ** 2) continue;
+          const x = cx + dx, y = cy + dy;
+          if (!owns(s, x, y) || ctx.tideSeats?.has(y * N + x)
+              || !WG.isSpawnCell(grid, N, N, x, y, gateOpts, 'minor')) return false;
+        }
+        return true;
+      };
+      const original = offsetCell(s, 0, 0);
+      // Existing authored aisles/finds are intentional gaps in an otherwise
+      // unobstructed garden. Keep those layouts and their cell identities.
+      if (diskFree(...original, radii[0], geometryOpts)) continue;
+      const candidates = s.cells.map(i => [i % N, Math.floor(i / N)]);
+      candidates.sort((a, b) => (a[0] - original[0]) ** 2 + (a[1] - original[1]) ** 2
+        - (b[0] - original[0]) ** 2 - (b[1] - original[1]) ** 2 || a[1] - b[1] || a[0] - b[0]);
+      s.fittedBackground = new Map();
+      s.rec.layout = { mode: 'no_fit' };
+      search: for (const radius of radii) {
+        let slots = b.slots.filter(slot => Math.hypot(slot.at[0] - b.centerCell[0],
+          slot.at[1] - b.centerCell[1]) <= Math.max(radius, innerRadius) + 0.5);
+        if (radius < innerRadius) {
+          const compact = new Map();
+          for (const slot of slots) {
+            const at = slot.at.map((v, axis) => b.centerCell[axis] + Math.round((v - b.centerCell[axis]) * radius / innerRadius));
+            if (!compact.has(at.join(','))) compact.set(at.join(','), { at, material: slot.material });
+          }
+          slots = [...compact.values()];
+        }
+        for (let n = 0; n < candidates.length; n++) {
+          if ((n & 63) === 0) yield 'zone composition fit';
+          const [cx, cy] = candidates[n];
+          if (!diskFree(cx, cy, radius, opts)) continue;
+          const plan = new Map();
+          for (const slot of slots) {
+            const [dx, dy] = V.rotate(slot.at[0] - b.centerCell[0], slot.at[1] - b.centerCell[1], s.rotation);
+            const x = cx + dx, y = cy + dy, i = y * N + x;
+            if (s.clear.has(i) || s.poiSlots.has(i) || s.connections.has(i) || !allowed(s, x, y, slot.material)) break;
+            plan.set(i, slot.material);
+          }
+          if (plan.size !== slots.length) continue;
+          s.fittedBackground = plan;
+          s.rec.layout = { mode: 'adapted', center: [cx, cy], radiusCells: radius };
+          break search;
+        }
+      }
+      // A narrow church frontage cannot hold a circle. Try one complete
+      // straight bed beside the building, keeping its intervening cells free.
+      const bed = b.fitToGround.narrowBed;
+      if (!s.fittedBackground.size && bed) {
+        let best = null;
+        const nearBuilding = (x, y) => [[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy]) => {
+          for (let d = 1; d <= bed.spacingCells; d++) {
+            const bx = x + dx * d, by = y + dy * d;
+            if (bx >= 0 && by >= 0 && bx < N && by < N && WG.isBuildingTerrain(grid[by * N + bx])) return true;
+          }
+          return false;
+        });
+        for (let n = 0; n < candidates.length; n++) {
+          if ((n & 63) === 0) yield 'zone frontage fit';
+          const [cx, cy] = candidates[n];
+          for (const [dx, dy] of [[1,0],[0,1]]) {
+            const cells = [];
+            for (let k = 0; k <= (bed.maxStones - 1) * bed.spacingCells; k++) {
+              const x = cx + dx * k, y = cy + dy * k, i = y * N + x;
+              if (!allowed(s, x, y, 'stone') || !nearBuilding(x, y)
+                  || s.clear.has(i) || s.poiSlots.has(i) || s.connections.has(i)) break;
+              cells.push(i);
+            }
+            const count = Math.floor((cells.length - 1) / bed.spacingCells) + 1;
+            if (count < bed.minStones || (best && count <= best.count)) continue;
+            best = { cells, count, center: [cx, cy], axis: dx ? 'x' : 'y' };
+          }
+        }
+        if (best) {
+          const sequence = b.stoneRings[0].sequence;
+          for (let n = 0; n < best.count; n++) {
+            const i = best.cells[n * bed.spacingCells], material = sequence[n % sequence.length];
+            s.fittedBackground.set(i, material);
+          }
+          s.rec.layout = { mode: 'border', center: best.center, axis: best.axis, stones: best.count };
+        }
+      }
+      if (!s.fittedBackground.size) s.rec.shortfalls.push('layout:no-complete-composition');
+    }
+    // Recheck joins against final reservations and material gates, after
+    // finite finds and other authored objects have claimed their cells.
+    for (const s of states) {
+      if (s.variant.id !== 'quarry-stronghold' || !s.quarryPlan?.landmarks.some(m => m.kind === 'foundation')) continue;
+      const plan = s.quarryPlan;
+      const walls = new Set([...plan.background.keys()].filter(i =>
+        !s.clear.has(i) && !s.poiSlots.has(i) && !s.connections.has(i)
+        && !occ.has(i) && allowed(s, i % N, Math.floor(i / N), 'stone')));
+      plan.wallFrames.clear();
+      for (const i of walls) {
+        const frame = root.QuarryLayout.wallFrameAt(walls, i, N);
+        plan.background.set(i, frame == null ? 'stone' : 'stronghold_wall');
+        if (frame != null) plan.wallFrames.set(i, frame);
+      }
+    }
+    // Small finite accents belong to the source anchor, not every repeating
+    // motif. Keep authored paths, foundation cells and existing objects clear.
+    for (const s of states) {
+      if (!s.a.owned || !s.variant.decorations?.length) continue;
+      const candidates = s.cells.filter(i => !s.clear.has(i) && !s.poiSlots.has(i)
+        && !s.connections.has(i) && !s.quarryPlan?.background.has(i))
+        .sort((a, b) => Z.cellU01(tx * N + a % N, ty * N + Math.floor(a / N), 0xdec0)
+          - Z.cellU01(tx * N + b % N, ty * N + Math.floor(b / N), 0xdec0) || a - b);
+      for (const decoration of s.variant.decorations) {
+        let remaining = decoration.count;
+        for (const i of candidates) {
+          if (!remaining) break;
+          if (!allowed(s, i % N, Math.floor(i / N), decoration.material)) continue;
+          if (place(s, i % N, Math.floor(i / N), decoration.material, 'decoration')) remaining--;
+        }
+      }
     }
     const ground = { graves: 0, rocks: 0, fill: 0 };
     for (let iy = 0; iy < N; iy++) {
@@ -337,6 +480,7 @@
         }
       }
     }
+    stampHedges(out.wildplants, N);
     out.ground = ground;
     if (ctx.fringe) {
       const chars = {};
@@ -385,6 +529,23 @@
       }
     }
   }
+  function stampHedges(plants, N) {
+    const groups = new Map();
+    for (const p of plants) {
+      if (p.crop !== 'shrub' || !['formal_garden', 'hedge_garden'].includes(p.zoneVariant)) continue;
+      if (!groups.has(p.zoneVariant)) groups.set(p.zoneVariant, []);
+      groups.get(p.zoneVariant).push(p);
+    }
+    for (const group of groups.values()) {
+      const cells = new Set(group.map(p => p._iy * N + p._ix));
+      for (const p of group) {
+        const frame = root.QuarryLayout.wallFrameAt(cells, p._iy * N + p._ix, N);
+        p._plantArt = frame == null ? 'zone_hedge_single' : 'zone_hedge';
+        if (frame != null) p._hedgeFrame = frame;
+        else delete p._hedgeFrame;
+      }
+    }
+  }
   function dress(ctx) { const it = dressSteps(ctx); let r; do { r = it.next(); } while (!r.done); return r.value; }
-  root.ZoneDressing = { dressSteps, dress };
+  root.ZoneDressing = { dressSteps, dress, stampHedges };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

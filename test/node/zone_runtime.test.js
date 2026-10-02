@@ -116,8 +116,8 @@
     assert.eq(report.slept, 1);
   });
 
-  test('zone runtime: ten variants attract existing fauna across union coverage', () => {
-    assert.eq(ZoneVariants.rows.filter(r => Object.keys(r.attracts).length).length, 10);
+  test('zone runtime: eight variants attract existing fauna across union coverage', () => {
+    assert.eq(ZoneVariants.rows.filter(r => Object.keys(r.attracts).length).length, 8);
     const N = 32, grid = new Array(N * N).fill(WorldGen.T.GRASS);
     const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 10 });
     for (const row of ZoneVariants.rows) {
@@ -138,7 +138,7 @@
     }
   });
 
-  test('zone runtime: absent street attractors cannot strengthen a zone affinity', () => {
+  test('zone runtime: a neutral Pirate Cove cannot pull crows through absent street attractors', () => {
     const N = 64, grid = new Uint8Array(N * N).fill(WorldGen.T.GRASS);
     const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 7 });
     const run = marks => {
@@ -147,10 +147,10 @@
         anchors:[{kind:'beach',variant:'pirate_cove'}]} };
       const moved = scene._seatFaunaOnFavouriteGround(entry,0,0,N,7,grid,
         {spawnWhy:new Uint16Array(N*N)},creatures,null,[],new Set());
-      return {moved:moved.crow, creatures};
+      return {moved:moved.crow || 0, creatures};
     };
     const baseline = run(null);
-    assert.inRange(baseline.moved,300,400,'Pirate Cove retains its configured 35% pull');
+    assert.eq(baseline.moved,0,'Pirate Cove leaves naturally spawned birds in place');
     for (const marks of [new Uint8Array(N*N), new Uint8Array(N*N).fill(StreetVariants.STREET_VARIANTS.find(r=>r.id==='hedgerow').code)]) {
       assert.eq(JSON.stringify(run(marks)),JSON.stringify(baseline),'empty or unrelated street marks cannot alter crow draws or seats');
     }
@@ -160,6 +160,16 @@
     assert.gt(present.moved,baseline.moved,'present stronger grounds still take effect');
   });
 
+  test('zone runtime: Silent Circle leaves natural crows in place without an extra gathering', () => {
+    const N=32, grid=new Uint8Array(N*N).fill(WorldGen.T.GRASS);
+    const scene=Object.assign(new SceneCreatures(),{tileEdgeM:N*7});
+    const creatures=Array.from({length:100},(_,i)=>({kind:'crow',id:`quiet_crow_${i}`,x:3.5,y:3.5}));
+    const original=JSON.stringify(creatures);
+    const entry={zone:{coverage:new Uint16Array(N*N).fill(1),anchors:[{kind:'stones',variant:'silent_circle'}]}};
+    const moved=scene._seatFaunaOnFavouriteGround(entry,0,0,N,7,grid,{spawnWhy:new Uint16Array(N*N)},creatures,null,[],new Set());
+    assert.eq(moved.crow||0,0);
+    assert.eq(JSON.stringify(creatures),original,'naturally spawned birds are neither moved nor removed');
+  });
   test('fauna overlap: static interactables permit animals while blocking enemies and traps', () => {
     const N = 32, scene = Object.assign(new SceneCreatures(), {
       tileEdgeM: N * 10, save: { caught: [] }, startWorldM: { x: -5000, y: 0 },
@@ -183,7 +193,7 @@
     const N = 16, grid = new Array(N * N).fill(WorldGen.T.GRASS);
     const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 10 });
     const entry = { zone: { coverage: new Uint16Array(N * N).fill(1),
-      anchors: [{ kind: 'stones', variant: 'silent_circle' }] } };
+      anchors: [{ kind: 'stones', variant: 'ordered_graves' }] } };
     const opts = { occupied: new Set(Array.from({ length: N * N }, (_, i) => i)),
       spawnWhy: new Uint16Array(N * N) };
     for (let i = 0; i < N * N / 2; i++) opts.spawnWhy[i] = WorldGen.SPAWN_WHY.ROAD;

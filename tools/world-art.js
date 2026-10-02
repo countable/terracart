@@ -11,6 +11,12 @@
   const canvas = (w, h = w) => Object.assign(document.createElement('canvas'), {width:w, height:h});
   try {
     await loadGame();
+    const manifests={};
+    for(const [key,file] of Object.entries({zone_objects:'ZoneVariants',stronghold_wall:'Stronghold',zone_hedge:'Hedges'})) {
+      const response=await fetch(`../assets/Objects/${file}/manifest.json`,{cache:'no-store'});
+      if(!response.ok)throw new Error('Could not load '+key+' frame names');
+      manifests[key]=await response.json();
+    }
     // A small Phaser texture adapter runs the assets' real post-load callbacks,
     // including transparent crop backgrounds and manually registered house frames.
     const textures = new Map();
@@ -36,6 +42,7 @@
     const probeStore = {...store,exists:()=>true,get:key=>store.get(key)||{get:()=>({width:80,height:80})}};
     const probe = Render.objectAppearance({...scene,textures:probeStore},roles);
     for(const kind of Object.keys(render.RENDER_SPEC)) {
+      if(kind==='zone_prop')continue; // Only authored, selected prop frames belong in this catalog.
       const o={kind,id:'world-art:'+kind,x:0,y:0,tier:1,yieldTier:1,requiredTier:1,variant:3,stage:4,size:'large',species:'maple'};
       if(kind==='house')roles.set(o,'plain');
       try {const p=probe.resolveAppearance(o);if(p?.texKey)want(p.texKey,p.frameVal);}catch(error){console.warn('World art sample:',kind,error.message);}
@@ -50,21 +57,33 @@
     const crops = [...new Set([...Object.keys(CROP_ROW),...Object.keys(CROP_SPRITE)])];
     function plantArt(plant){const s=wildplantSprite(plant);return {key:s?.sheet||'crops',frame:s?.custom?wildplantFrame(plant):s?.sheet==='springcrops'?s.row*SPRING_CROPS_COLS+MAX_GROWTH_STAGE:(CROP_ROW[plant.crop]??1)*CROPS_SHEET_COLS+MAX_GROWTH_STAGE};}
     const plantRows=[];
-    for(const crop of crops){const plant={crop,id:'world-art:'+crop},p=plantArt(plant);want(p.key,p.frame);plantRows.push({id:'plant:'+crop,name:CROP_NAMES[crop]||title(crop),key:p.key,frames:[p.frame],category:'Plants & crops',zones:new Set(),source:'src/items.js'});}
+    for(const crop of crops){const plant={crop,stage:MAX_GROWTH_STAGE,id:'world-art:'+crop},p=plantArt(plant);want(p.key,p.frame);plantRows.push({id:'plant:'+crop,name:CROP_NAMES[crop]||title(crop),key:p.key,frames:[p.frame],category:'Plants & crops',zones:new Set(),source:'src/items.js'});}
     const usage = new Map();
-    function use(key,zone){if(!usage.has(key))usage.set(key,new Set());usage.get(key).add(zone);}
-    // A material may occur in density tables, motifs, POIs, connections or finds.
+    function use(key,zone,frame){for(const identity of [key,`${key}:${frame}`]){if(!usage.has(identity))usage.set(identity,new Set());usage.get(identity).add(zone);}}
+    // Include finite decorations and reef finds as well as the repeating layout.
     function mentions(value,id){if(value===id)return true;if(!value||typeof value!=='object')return false;return Object.entries(value).some(([k,v])=>k===id||mentions(v,id));}
     for(const zone of ZoneVariantData.variants)for(const [id,material] of Object.entries(ZoneVariantData.materials)) {
-      if(!mentions([zone.background,zone.poi,zone.connection,zone.finds],id))continue;
+      if(!mentions([zone.background,zone.poi,zone.connection,zone.finds,zone.decorations,zone.reef?.landOre,zone.materialFrames],id))continue;
+      for(const overrideFrame of zone.materialFrames?.[id]||[material._zoneObjectFrame]) {
       const o={...material,id:'world-art:'+id,x:0,y:0,variant:3,stage:4,look:zone.materialLooks?.[id],_plantArt:zone.materialLooks?.[id]};
+      if(Number.isInteger(overrideFrame))o._zoneObjectFrame=overrideFrame;
+      if(o.crop==='shrub'&&['formal_garden','hedge_garden'].includes(zone.id))o._plantArt='zone_hedge_single';
       if(typeof o.rockVariant==='string')o.rockVariant=SpriteLayout[o.rockVariant];
       if(o.kind==='wildplant') {
-        const p=plantArt(o);want(p.key,p.frame);use(p.key,zone.id);
+        const p=plantArt(o);want(p.key,p.frame);use(p.key,zone.id,p.frame);
+        if(p.key==='zone_objects')continue; // Keep the atlas frame's existing reference identity.
         const row=plantRows.find(r=>r.id==='plant:'+o.crop&&r.key===p.key);
         if(row)row.zones.add(zone.id);
         else {const key='look:'+p.key;let look=plantRows.find(r=>r.id===key);if(!look){look={id:key,name:title(zone.materialLooks?.[id]||id),key:p.key,frames:[p.frame],category:'Plants & crops',zones:new Set(),source:'src/items.js'};plantRows.push(look);}look.zones.add(zone.id);}
-      } else {try{const p=probe.resolveAppearance(o);if(p?.texKey){want(p.texKey,p.frameVal);use(p.texKey,zone.id);}}catch(error){console.warn('World art material:',id,error.message);}}
+      } else {try{const p=probe.resolveAppearance(o);if(p?.texKey){want(p.texKey,p.frameVal);use(p.texKey,zone.id,p.frameVal);}}catch(error){console.warn('World art material:',id,error.message);}}
+      }
+    }
+    wanted.delete('reef_coral'); // Bounds also retain retired coral frames; use the current generation choices.
+    for(const zone of ZoneVariantData.variants) {
+      if(Number.isInteger(zone.shrineFrame)){want('zone_objects',zone.shrineFrame);use('zone_objects',zone.id,zone.shrineFrame);}
+      for(const frame of zone.reef?.coralFrames||[]){want('reef_coral',frame);use('reef_coral',zone.id,frame);}
+      const connected=zone.quarryLayout==='stronghold'?'stronghold_wall':['formal_garden','hedge_garden'].includes(zone.id)?'zone_hedge':null;
+      if(connected)for(const frame of manifests[connected].frames){want(connected,frame.frame);use(connected,zone.id,frame.frame);}
     }
     want('castle_tower_shapes');
     // Only the selected world textures are decoded; monsters and inventory-only
@@ -87,9 +106,19 @@
     document.head.append(buildingScript);
     const rows=[];
     for(const row of plantRows)rows.push({...row,images:row.frames.map(frame=>image(row.key,frame)).filter(Boolean)});
-    const plantSheets=new Set(plantRows.map(r=>r.key));
+    const plantFrames=new Set(plantRows.flatMap(r=>r.frames.map(f=>`${r.key}:${f}`)));
     function category(key){return /house|tower|macro_|market_stand|shrine|well/.test(key)?'Buildings & landmarks':/tree|bush|mushroom/.test(key)?'Trees & foliage':/rock|ore/.test(key)?'Stone & minerals':/trap|tar/.test(key)?'Hazards':'Objects & props';}
-    for(const [key,frames] of wanted){if(plantSheets.has(key))continue;rows.push({id:key,name:title(key.replace(/^approved_/,'')),key,frames:[...frames],images:[...frames].map(frame=>image(key,frame)).filter(Boolean),category:category(key),zones:usage.get(key)||new Set(),source:ASSETS[key]?.path||'src/textures.js'});}
+    for(const [key,wantedFrames] of wanted) {
+      const frames=[...wantedFrames].filter(frame=>!plantFrames.has(`${key}:${frame}`));
+      if(!frames.length)continue;
+      const groups=manifests[key]||key==='reef_coral'?frames.map(frame=>[frame]):[frames];
+      for(const group of groups) {
+        const individual=groups.length>1||!!manifests[key], frame=group[0];
+        const frameName=manifests[key]?.frames.find(f=>f.frame===frame)?.name;
+        rows.push({id:individual?`${key}:${frame}`:key,name:(key==='stronghold_wall'?'Stronghold wall · ':key==='zone_hedge'?'Hedge · ':'')+title(frameName||key.replace(/^approved_/,''))+(individual&&!frameName?' '+frame:''),key,frames:group,
+          images:group.map(frame=>image(key,frame)).filter(Boolean),category:category(key),zones:usage.get(individual?`${key}:${frame}`:key)||new Set(),source:ASSETS[key]?.path||'src/textures.js'});
+      }
+    }
     function painted(id,name,category,painter,zones=[]){const c=canvas(96);painter(c);rows.push({id,name,category,zones:new Set(zones),images:[c.toDataURL()],source:'Current game painter',frames:[]});}
     const terrainNames=Object.fromEntries(Object.entries(WorldGen.T).map(([k,v])=>[v,title(k)]));
     for(const id of Object.keys(BIOME_TEX)) {
@@ -111,16 +140,29 @@
     const names=new Map(ZoneVariantData.variants.map(z=>[z.id,z.name]));
     for(const zone of [...ZoneVariantData.variants].sort((a,b)=>a.name.localeCompare(b.name)))$('zone').add(new Option(zone.name,zone.id));
     for(const cat of [...new Set(rows.map(r=>r.category))].sort())$('category').add(new Option(cat,cat));
+    // Numbers belong to catalog identities, not positions in the displayed list.
+    // Keep removed entries in the checked-in registry so numbers are never reused.
+    const idResponse=await fetch('world-art-ids.json',{cache:'no-store'});
+    if(!idResponse.ok)throw new Error('Could not load world art reference numbers');
+    const idRegistry=await idResponse.json();
+    const usedNumbers=new Set();
+    for(const row of rows) {
+      row.reference=idRegistry.entries[row.id] ?? null;
+      if(row.reference!=null && (!Number.isSafeInteger(row.reference)||row.reference<1||usedNumbers.has(row.reference)))throw new Error('Invalid world art reference number');
+      if(row.reference!=null)usedNumbers.add(row.reference);
+      row.referenceLabel=row.reference==null?'Unassigned':`WA-${String(row.reference).padStart(3,'0')}`;
+    }
+    const unnumbered=rows.filter(row=>row.reference==null);
     let selected=null,descending=false;
     const zonesText=row=>[...row.zones].map(id=>names.get(id)||title(id)).sort().join(', ')||'Shared / other world use';
     const art=(row,limit)=>row.images.slice(0,limit).map(src=>`<img class="sprite" src="${src}" alt="${esc(row.name)}" loading="lazy">`).join('')||'<small>Preview unavailable</small>';
     function renderTable(){
       const words=$('search').value.trim().toLowerCase().split(/\s+/).filter(Boolean),zone=$('zone').value,cat=$('category').value,sort=$('sort').value;
-      const visible=rows.filter(r=>(!cat||r.category===cat)&&(!zone||(zone==='shared'?!r.zones.size:r.zones.has(zone)))&&words.every(w=>[r.name,r.key,r.category,zonesText(r)].join(' ').toLowerCase().includes(w)));
-      const value=r=>sort==='zone'?zonesText(r):r[sort];visible.sort((a,b)=>(String(value(a)).localeCompare(String(value(b)))||a.name.localeCompare(b.name))*(descending?-1:1));
+      const visible=rows.filter(r=>(!cat||r.category===cat)&&(!zone||(zone==='shared'?!r.zones.size:r.zones.has(zone)))&&words.every(w=>[r.referenceLabel,r.reference==null?'':`#${r.reference} ${r.reference}`,r.name,r.key,r.frames.join(' '),r.category,zonesText(r)].join(' ').toLowerCase().includes(w)));
+      const value=r=>sort==='zone'?zonesText(r):r[sort];visible.sort((a,b)=>((sort==='reference'?(a.reference??Infinity)-(b.reference??Infinity):String(value(a)).localeCompare(String(value(b))))||a.name.localeCompare(b.name))*(descending?-1:1));
       if(!visible.some(r=>r.id===selected))selected=visible[0]?.id;
       $('count').textContent=`${visible.length} of ${rows.length} artwork entries`;
-      $('rows').innerHTML=visible.map(r=>`<tr data-id="${esc(r.id)}" class="${r.id===selected?'selected':''}"><td><div class="preview">${art(r,3)}</div>${r.images.length>3?`<small>+${r.images.length-3} more frames</small>`:''}</td><td><button class="pick" data-pick="${esc(r.id)}">${esc(r.name)}</button></td><td>${esc(r.category)}</td><td>${esc(zonesText(r))}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">No art matches these filters.</td></tr>';
+      $('rows').innerHTML=visible.map(r=>`<tr data-id="${esc(r.id)}" class="${r.id===selected?'selected':''}"><td><strong>${esc(r.referenceLabel)}</strong></td><td><div class="preview">${art(r,3)}</div>${r.images.length>3?`<small>+${r.images.length-3} more frames</small>`:''}</td><td><button class="pick" data-pick="${esc(r.id)}">${esc(r.name)}</button>${r.key?`<br><small>Texture: ${esc(r.key)}<br>Frames: ${esc(r.frames.join(', '))}</small>`:'<br><small>Painted: '+esc(r.id)+'</small>'}</td><td>${esc(r.category)}</td><td>${esc(zonesText(r))}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No art matches these filters.</td></tr>';
       $('rows').querySelectorAll('[data-id]').forEach(tr=>tr.addEventListener('click',()=>{selected=tr.dataset.id;renderTable();}));
       document.querySelectorAll('[data-sort]').forEach(button=>{
         const active=button.dataset.sort===sort;
@@ -128,13 +170,13 @@
         button.textContent=`${title(button.dataset.sort)} ${active?(descending?'▼':'▲'):'↕'}`;
       });
       const row=rows.find(r=>r.id===selected);
-      $('detail').innerHTML=row?`<h2>${esc(row.name)}</h2><p><span class="tag">${esc(row.category)}</span></p><div class="preview">${art(row,Infinity)}</div><h3>Zone use</h3><p>${esc(zonesText(row))}</p><small>${row.zones.size?'Declared material use in the current zone layouts. Other world placement rules may also use this art.':'Used by the shared world renderer; no specific material membership in the named zone layouts.'}</small><h3>Current source</h3><code>${esc(row.source)}</code>${row.key?`<p><small>Texture: ${esc(row.key)}<br>Frames: ${esc(row.frames.join(', '))}</small></p>`:''}`:'<h2>No selection</h2><p>Broaden your filters to inspect artwork.</p>';
+      $('detail').innerHTML=row?`<h2>${esc(row.referenceLabel)} · ${esc(row.name)}</h2><p><span class="tag">${esc(row.category)}</span></p><div class="preview">${art(row,Infinity)}</div><h3>Zone use</h3><p>${esc(zonesText(row))}</p><small>${row.zones.size?'Declared material use in the current zone layouts. Other world placement rules may also use this art.':'Used by the shared world renderer; no specific material membership in the named zone layouts.'}</small><h3>Current source</h3><code>${esc(row.source)}</code>${row.key?`<p><small>Texture: ${esc(row.key)}<br>Frames: ${esc(row.frames.join(', '))}</small></p>`:''}`:'<h2>No selection</h2><p>Broaden your filters to inspect artwork.</p>';
     }
     for(const id of ['search','zone','category'])$(id).addEventListener('input',renderTable);
     $('sort').addEventListener('change',()=>{descending=false;renderTable();});
     document.querySelectorAll('[data-sort]').forEach(b=>b.addEventListener('click',()=>{descending=$('sort').value===b.dataset.sort?!descending:false;$('sort').value=b.dataset.sort;renderTable();}));
     $('reset').addEventListener('click',()=>{for(const id of ['search','zone','category'])$(id).value='';$('sort').value='name';descending=false;renderTable();});
-    renderTable();$('status').textContent=`${rows.length} entries loaded from current game definitions.${failures.length?' Missing textures: '+failures.join(', '):''}`;
+    renderTable();$('status').textContent=`${rows.length} entries loaded from current game definitions.${failures.length?' Missing textures: '+failures.join(', '):''}${unnumbered.length?' '+unnumbered.length+' new entries await a reference number.':''}`;
     window.worldArt={rows,failures};document.documentElement.dataset.worldArtReady='true';
   } catch(error) {$('status').textContent='Could not load world art: '+error.message;$('status').className='error';document.documentElement.dataset.worldArtError=error.message;console.error(error);}
 })();

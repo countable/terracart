@@ -126,7 +126,7 @@ Render.coinPile = (coin) => {
 // Fallback fill for cells whose terrain type has no COLORS entry (and for the
 // diagonal-neighbour colour painted into rounded corners). Matches the grass
 // tone so an unmapped type reads as a green field rather than a black gap.
-const GRASS_FALLBACK_COLOR = 0x919e70;   // matches the approved COLORS[0] grass
+const GRASS_FALLBACK_COLOR = 0x7b8d4e;   // matches the approved COLORS[0] grass
 // Pseudo-3D extrusion: a building footprint is the "top surface", and its
 // south-facing edge gets a darker wall projected downward onto the row below.
 // Wall faces recover half the pre-recolour contrast against their floors — deep
@@ -2925,6 +2925,10 @@ Render.drawObjects = function drawObjects(scene) {
     for (let dtx = -1; dtx <= 1; dtx++) {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
       if (!entry) continue;   // tile not loaded yet
+      if (entry.reefCorals) WorldGen.forEachItemInBox(entry, 'reefCorals',
+        pWorldX - halfM, pWorldY - halfM, pWorldX + halfM, pWorldY + halfM, o => {
+          objList.push({ o, dx: o.x - pWorldX, dy: o.y - pWorldY });
+        }, true);
       if (entry.objects) {
         WorldGen.forEachItemInBox(entry, 'objects', sx0, sy0, sx1, sy1, (o) => {
           _boot_scanned++;
@@ -3014,7 +3018,7 @@ Render.drawObjects = function drawObjects(scene) {
           // occupancy pass never saw (cave mushrooms, the sandbox scatter), so
           // the id is what the per-cell variant hash actually keys off.
           plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id,
-                                  _cave: wp._cave, _biome: wp._biome, _plantArt: wp._plantArt, _streetArt: wp._streetArt, _ix: wp._ix, _iy: wp._iy }, dx, dy });
+                                  _cave: wp._cave, _biome: wp._biome, _plantArt: wp._plantArt, _hedgeFrame: wp._hedgeFrame, _zoneObjectFrame: wp._zoneObjectFrame, _streetArt: wp._streetArt, _ix: wp._ix, _iy: wp._iy }, dx, dy });
           _boot_kept++;
         });
       }
@@ -4487,6 +4491,12 @@ Render.objectAppearance = function (scene, houseRoles) {
   const fruitList = [];
 
   const RENDER_SPEC = {
+    // Water scenery is drawn separately from tappable objects.
+    // Connected wall tiles preserve frame alignment, including off-center corners.
+    // Seating by trimmed art would move their endpoints away from adjacent cells.
+    zone_prop: { key: 'zone_objects', frame: o => o.variant, scale: 4 / 3, origin: [0.5, 0.5], seat: true },
+    stronghold_wall: { key: 'stronghold_wall', frame: o => o.variant, scale: 4 / 3, origin: [0.5, 0.5], seat: false },
+    reef_coral: { key: 'reef_coral', frame: o => o.variant, scale: 4 / 3, origin: [0.5, 0.5], seat: true },
     // Houses pick their texture by role — the generic 'house' frame stays
     // as the fallback for plain residential. Themed sprites (sliced top-
     // left from NPC house sheets, see Objects/Houses/):
@@ -4662,7 +4672,7 @@ Render.objectAppearance = function (scene, houseRoles) {
               // SMALL_POI_SCALE (~21px) and seated like the crate.
               scale: (o) => { const L = chestLook(o);
                               return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
-                                : ((L.barrel || L.bike) ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE)))); },
+                                : (L.barrel ? 4 / 3 : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE))))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
@@ -4863,8 +4873,11 @@ Render.objectAppearance = function (scene, houseRoles) {
   // Resolve once per draw pass: animated frames, seating and shadow geometry
   // all use the same appearance. Nothing is cached on the world object.
   const resolveAppearance = (o) => {
-    const spec = RENDER_SPEC[o.kind];
+    let spec = RENDER_SPEC[o.kind];
     if (!spec) return null;
+    // Zone-local appearances retain the existing object behavior and hooks.
+    if (Number.isInteger(o._zoneObjectFrame)) spec = { ...spec, key: 'zone_objects',
+      frame: o._zoneObjectFrame, scale: 4 / 3, origin: [0.5, 0.5], seat: true };
     const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
     if (texKey == null || !scene.textures.exists(texKey)) return { spec, visible: false };
     const frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;

@@ -451,7 +451,7 @@
 
   // Fallback base colour for a type app.js has no COLORS entry for. Matches the
   // renderer's own GRASS_FALLBACK so an unmapped type hazes like a green field.
-  const BASE_FALLBACK = 0x919e70;
+  const BASE_FALLBACK = 0x7b8d4e;
 
   const _chan = (hex, sh) => (hex >> sh) & 0xff;
   const mixHex = (a, b, t) => {

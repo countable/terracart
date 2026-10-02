@@ -293,20 +293,77 @@
     }
     return painted;
   }
-  // Removed parking lanes remain map evidence. Nearby lane buffers merge into
-  // one generated quarry footprint; they never return as roads or lamp sites.
+  // Removed parking lanes remain map evidence. Connected source networks and
+  // confirmed parking rows own separate buffered quarry footprints.
   const QUARRY_BUFFER_M = root.Zones.ZONE_KINDS.quarry.R;
   function* quarrySteps({ field, parkingLanes, tx, ty, N, grid, roadMask, spawnWhy }) {
     if (!parkingLanes?.length) return field;
     const WG = root.WorldGen, Z = root.Zones;
     const mask = new Uint8Array(N * N), radius = QUARRY_BUFFER_M / WG.CELL_M;
-    let segments = 0;
+    // MVT features merge unrelated ways. Only touching source geometry or a
+    // detector's confirmed row/hairpin membership establishes the same lot.
+    const lines = [];
     for (const source of parkingLanes) {
       const scale = N / (source.extent || EXT);
-      for (const line of source.lines || []) for (let j = 1; j < line.length; j++) {
+      for (let i = 0; i < (source.lines || []).length; i++) {
+        const points = source.lines[i].map(p => ({ x: p.x * scale, y: p.y * scale }));
+        if (points.length < 2) continue;
+        const forward = points.map(p => `${p.x},${p.y}`).join('|');
+        const reverse = points.slice().reverse().map(p => `${p.x},${p.y}`).join('|');
+        lines.push({ points, key: forward < reverse ? forward : reverse, groups: source.lineGroups?.[i] || [] });
+      }
+    }
+    lines.sort((a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+    const parents = lines.map((_, i) => i), memberships = new Map();
+    const find = i => { while (parents[i] !== i) { parents[i] = parents[parents[i]]; i = parents[i]; } return i; };
+    const join = (a, b) => { a = find(a); b = find(b); parents[Math.max(a, b)] = Math.min(a, b); };
+    const tolerance = root.ZoneVariantData.quarryLayouts.sourceJoinM / WG.CELL_M;
+    const distance2 = (p, a, b) => {
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const t = Math.max(0, Math.min(1, ((p.x-a.x)*dx + (p.y-a.y)*dy) / (dx*dx+dy*dy || 1)));
+      return (p.x-a.x-t*dx)**2 + (p.y-a.y-t*dy)**2;
+    };
+    const touch = (a, b, c, d) => {
+      const cross = (p, q, r) => (q.x-p.x)*(r.y-p.y) - (q.y-p.y)*(r.x-p.x);
+      // Bounding-box rejection happens in the bucket query below.
+      if (cross(a,b,c)*cross(a,b,d) < 0 && cross(c,d,a)*cross(c,d,b) < 0) return true;
+      return Math.min(distance2(a,c,d),distance2(b,c,d),distance2(c,a,b),distance2(d,a,b)) <= tolerance*tolerance;
+    };
+    const buckets = new Map(), bucketSize = 8;
+    let networkWork = 0;
+    for (let n = 0; n < lines.length; n++) {
+      yield 'quarry source networks';
+      const source = lines[n];
+      for (const group of source.groups) {
+        if (memberships.has(group)) join(n, memberships.get(group));
+        else memberships.set(group, n);
+      }
+      for (let j = 1; j < source.points.length; j++) {
+        const a = source.points[j-1], b = source.points[j];
+        const x0 = Math.floor((Math.min(a.x,b.x)-tolerance)/bucketSize), x1 = Math.floor((Math.max(a.x,b.x)+tolerance)/bucketSize);
+        const y0 = Math.floor((Math.min(a.y,b.y)-tolerance)/bucketSize), y1 = Math.floor((Math.max(a.y,b.y)+tolerance)/bucketSize);
+        const seen = new Set(), segment = { a, b, n };
+        for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+          if ((networkWork++ & 255) === 0) yield 'quarry source contacts';
+          const key = `${x},${y}`, bucket = buckets.get(key) || [];
+          for (const other of bucket) if (other.n !== n && !seen.has(other)) {
+            if ((networkWork++ & 255) === 0) yield 'quarry source contacts';
+            seen.add(other);
+            if (find(n) !== find(other.n) && touch(a,b,other.a,other.b)) join(n, other.n);
+          }
+          bucket.push(segment); buckets.set(key, bucket);
+        }
+      }
+    }
+    const labels = new Uint32Array(mask.length), distances = new Float64Array(mask.length).fill(Infinity);
+    const clippedGroups = new Set();
+    let segments = 0;
+    for (let n = 0; n < lines.length; n++) {
+      const line = lines[n].points, group = find(n) + 1;
+      for (let j = 1; j < line.length; j++) {
         if ((segments++ & 31) === 0) yield 'quarry source segments';
         const a = line[j - 1], b = line[j];
-        const ax = a.x * scale, ay = a.y * scale, bx = b.x * scale, by = b.y * scale;
+        const ax = a.x, ay = a.y, bx = b.x, by = b.y;
         const dx = bx - ax, dy = by - ay, length2 = dx * dx + dy * dy;
         const y0 = Math.max(0, Math.ceil(Math.min(ay, by) - radius - .5));
         const y1 = Math.min(N - 1, Math.floor(Math.max(ay, by) + radius - .5));
@@ -324,10 +381,14 @@
           const right = Math.max(ax + lo * dx, ax + hi * dx) + radius;
           for (let x = Math.max(0, Math.ceil(left - .5)); x <= Math.min(N - 1, Math.floor(right - .5)); x++) {
             const i = y * N + x;
-            if (mask[i]) continue;
             const px = x + .5;
             const t = Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (length2 || 1)));
-            if ((px - ax - t * dx) ** 2 + (py - ay - t * dy) ** 2 <= radius * radius) mask[i] = 1;
+            const d = (px - ax - t * dx) ** 2 + (py - ay - t * dy) ** 2;
+            if (d > radius * radius) continue;
+            if (!x || !y || x === N-1 || y === N-1) clippedGroups.add(group);
+            if (d < distances[i] - 1e-9 || Math.abs(d-distances[i]) <= 1e-9 && group < labels[i]) {
+              distances[i] = d; labels[i] = group; mask[i] = 1;
+            }
           }
         }
       }
@@ -340,6 +401,53 @@
       && !WG.isRoadTerrain(grid[i]) && !WG.isBuildingTerrain(grid[i])
       && grid[i] !== WG.T.PATH && grid[i] !== WG.T.PIER && grid[i] !== WG.T.SAND
       && WG.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), opts, 'minor');
+    // A whole source network remains incomplete if any of its buffers reaches
+    // the tile boundary, even when another lot wins those cells by proximity.
+    const sourceClipped = new Uint8Array(mask.length);
+    for (let i = 0; i < mask.length; i++) {
+      if ((i & 511) === 0) yield 'quarry source bounds';
+      if (clippedGroups.has(labels[i])) sourceClipped[i] = 1;
+    }
+    const usable = new Uint8Array(mask.length), separator = new Uint8Array(mask.length);
+    for (let i = 0; i < mask.length; i++) {
+      if ((i & 511) === 0) yield 'quarry usable footprint';
+      usable[i] = eligible(i) ? 1 : 0;
+      // Buildings and excluded pockets remain holes inside one logical lot;
+      // crossing streets, paths and water are actual site boundaries. Keeping
+      // ownership through holes avoids a separate finite budget per sliver.
+      separator[i] = roadMask?.[i] || WG.isRoadTerrain(grid[i])
+        || grid[i] === WG.T.PATH || grid[i] === WG.T.WATER || grid[i] === WG.T.PIER ? 1 : 0;
+      if (separator[i]) mask[i] = 0;
+    }
+    // Close only short, straight gaps bounded by existing lane buffers. A
+    // single pass cannot grow outward, cascade across land, or swallow the
+    // inside of a large U-shaped access lane like a convex hull would.
+    const additions = new Uint32Array(mask.length);
+    const maxGap = root.ZoneVariantData.quarryLayouts.clusterGapCells;
+    for (let i = 0; i < mask.length; i++) {
+      if ((i & 511) === 0) yield 'quarry lane clustering';
+      if (!mask[i] || !usable[i]) continue;
+      const x = i % N, y = Math.floor(i / N);
+      for (const [dx, dy] of [[1, 0], [0, 1]]) {
+        const gap = [];
+        for (let step = 1; step <= maxGap + 1; step++) {
+          const nx = x + dx * step, ny = y + dy * step;
+          if (nx >= N || ny >= N) break;
+          const next = ny * N + nx;
+          if (!usable[next]) break;
+          if (mask[next]) {
+            if (labels[next] === labels[i]) for (const cell of gap) {
+              if (!additions[cell] || labels[i] < additions[cell]) additions[cell] = labels[i];
+            }
+            break;
+          }
+          gap.push(next);
+        }
+      }
+    }
+    for (let i = 0; i < mask.length; i++) if (additions[i]) {
+      mask[i] = 1; labels[i] = additions[i]; sourceClipped[i] = clippedGroups.has(labels[i]) ? 1 : 0;
+    }
     let result = field;
     for (let start = 0; start < mask.length; start++) {
       if ((start & 511) === 0) yield 'quarry components';
@@ -349,13 +457,14 @@
       for (let head = 0; head < queue.length; head++) {
         if ((head & 511) === 0) yield 'quarry component cells';
         const i = queue[head], x = i % N, y = Math.floor(i / N);
-        if (eligible(i)) cells.push(i);
-        // Eight neighbours merge touching buffers, including diagonal lanes.
+        if (usable[i]) cells.push(i);
+        // Diagonal buffers can join, but never across a travel barrier's corner.
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
           const nx = x + dx, ny = y + dy;
           if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+          if (dx && dy && (separator[y * N + nx] || separator[ny * N + x])) continue;
           const next = ny * N + nx;
-          if (mask[next] === 1) { mask[next] = 2; queue.push(next); }
+          if (mask[next] === 1 && labels[next] === labels[start]) { mask[next] = 2; queue.push(next); }
         }
       }
       if (!cells.length) continue;
@@ -363,22 +472,38 @@
       if (!result.coverage) result.coverage = result.idx ? Uint16Array.from(result.idx) : new Uint16Array(N * N);
       if (!(result.idx instanceof Uint16Array)) result.idx = result.idx ? Uint16Array.from(result.idx) : new Uint16Array(N * N);
       if (!result.s) result.s = new Uint8Array(N * N);
+      const clipped = cells.some(i => sourceClipped[i]);
+      const touchesEdge = cells.some(i => i % N === 0 || i % N === N - 1 || i < N || i >= N * (N - 1));
+      // Tiny inland leftovers cannot support a readable quarry composition.
+      // Keep edge fragments: their complete area is unknown until the adjacent
+      // tile arrives. Review retains rejected ground without naming/rewarding it.
+      if (cells.length < root.ZoneVariantData.quarryLayouts.minSiteCells && !touchesEdge) {
+        (result.quarrySlivers ||= []).push({ cells, reason: 'below_minimum', clipped });
+        continue;
+      }
       // Complete local components own one finite budget, without a synthetic
       // daily POI. Incomplete components retain cell-addressed scatter only.
       const first = cells.reduce((a, b) => Math.min(a, b));
       // Clipped source geometry cannot reveal the entire site's size or owner.
       // Border components use reward-free benches until a complete footprint
       // is available; never invent a second crater or duplicate finite finds.
-      const clipped = queue.some(i => i % N === 0 || i % N === N - 1 || i < N || i >= N * (N - 1));
       const variants = root.ZoneVariants.forKind('quarry').map(v => v.id);
       const variantHash = (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663) ^ Math.imul(first, 83492791)) >>> 0;
-      const variant = clipped ? 'quarry-strip-mine' : variants[variantHash % variants.length];
+      const requestedVariant = variants[variantHash % variants.length];
+      const variant = clipped ? 'quarry-strip-mine'
+        : yield* root.QuarryLayout.variantForSteps(cells, { N, tx, ty }, variantHash % variants.length);
       const lx = (first % N + .5) * EXT / N, ly = (Math.floor(first / N) + .5) * EXT / N;
       const gx = tx * EXT + lx, gy = ty * EXT + ly;
       const row = Z.ZONE_KINDS.quarry;
+      const words = root.ZoneVariantData.quarryLayouts.siteNames;
+      const nameHash = fnv1a(`quarry-name|${gx}|${gy}`);
+      const name = clipped ? 'Quarry edge' : `${words.first[nameHash % words.first.length]} ${words.last[(nameHash >>> 16) % words.last.length]} Quarry`;
       const anchor = { kind: 'quarry', variant, aspect: 'quarry', generated: 'parking_lanes',
-        clipped, layoutFallback: clipped ? 'incomplete_source_footprint' : undefined,
-        name: row.title, gx, gy, lx, ly, owned: !clipped, key: Z.anchorKey(gx, gy),
+        clipped, cluster: { sourceCells: cells.filter(i => !additions[i]).length,
+          filledCells: cells.filter(i => additions[i]).length },
+        requestedVariant: clipped ? undefined : requestedVariant,
+        layoutFallback: clipped ? 'incomplete_source_footprint' : variant !== requestedVariant ? 'usable_footprint' : undefined,
+        name, gx, gy, lx, ly, owned: !clipped, key: Z.anchorKey(gx, gy),
         code: row.code, R: QUARRY_BUFFER_M, upm: N * WG.CELL_M / EXT, q: 0 };
       result.anchors.push(anchor);
       if (result.allAnchors) result.allAnchors.push(anchor);

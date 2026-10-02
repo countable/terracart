@@ -1,0 +1,394 @@
+{
+  "columns": 8,
+  "rows": 8,
+  "sizes": [
+    16,
+    24
+  ],
+  "frames": [
+    {
+      "frame": 0,
+      "name": "capped_grave_pillar",
+      "column": 0,
+      "row": 0
+    },
+    {
+      "frame": 1,
+      "name": "mossy_grave_pillar",
+      "column": 1,
+      "row": 0
+    },
+    {
+      "frame": 2,
+      "name": "diamond_grave_pillar",
+      "column": 2,
+      "row": 0
+    },
+    {
+      "frame": 3,
+      "name": "rounded_headstone",
+      "column": 3,
+      "row": 0
+    },
+    {
+      "frame": 4,
+      "name": "paired_grave_posts",
+      "column": 4,
+      "row": 0
+    },
+    {
+      "frame": 5,
+      "name": "burial_slab",
+      "column": 5,
+      "row": 0
+    },
+    {
+      "frame": 6,
+      "name": "broken_column",
+      "column": 6,
+      "row": 0
+    },
+    {
+      "frame": 7,
+      "name": "fallen_column",
+      "column": 7,
+      "row": 0
+    },
+    {
+      "frame": 8,
+      "name": "wall_straight",
+      "column": 0,
+      "row": 1
+    },
+    {
+      "frame": 9,
+      "name": "wall_left",
+      "column": 1,
+      "row": 1
+    },
+    {
+      "frame": 10,
+      "name": "wall_right",
+      "column": 2,
+      "row": 1
+    },
+    {
+      "frame": 11,
+      "name": "wall_corner",
+      "column": 3,
+      "row": 1
+    },
+    {
+      "frame": 12,
+      "name": "wall_crenellated",
+      "column": 4,
+      "row": 1
+    },
+    {
+      "frame": 13,
+      "name": "foundation_wall",
+      "column": 5,
+      "row": 1
+    },
+    {
+      "frame": 14,
+      "name": "wall_end",
+      "column": 6,
+      "row": 1
+    },
+    {
+      "frame": 15,
+      "name": "fallen_lintel",
+      "column": 7,
+      "row": 1
+    },
+    {
+      "frame": 16,
+      "name": "pots_terracotta",
+      "column": 0,
+      "row": 2
+    },
+    {
+      "frame": 17,
+      "name": "pots_ochre",
+      "column": 1,
+      "row": 2
+    },
+    {
+      "frame": 18,
+      "name": "pots_mossy",
+      "column": 2,
+      "row": 2
+    },
+    {
+      "frame": 19,
+      "name": "pots_blue",
+      "column": 3,
+      "row": 2
+    },
+    {
+      "frame": 20,
+      "name": "pots_cracked",
+      "column": 4,
+      "row": 2
+    },
+    {
+      "frame": 21,
+      "name": "pots_pale",
+      "column": 5,
+      "row": 2
+    },
+    {
+      "frame": 22,
+      "name": "barrel",
+      "column": 6,
+      "row": 2
+    },
+    {
+      "frame": 23,
+      "name": "broken_barrel",
+      "column": 7,
+      "row": 2
+    },
+    {
+      "frame": 24,
+      "name": "coral_pink",
+      "column": 0,
+      "row": 3
+    },
+    {
+      "frame": 25,
+      "name": "coral_fan",
+      "column": 1,
+      "row": 3
+    },
+    {
+      "frame": 26,
+      "name": "coral_teal",
+      "column": 2,
+      "row": 3
+    },
+    {
+      "frame": 27,
+      "name": "coral_antler",
+      "column": 3,
+      "row": 3
+    },
+    {
+      "frame": 28,
+      "name": "coral_plate",
+      "column": 4,
+      "row": 3
+    },
+    {
+      "frame": 29,
+      "name": "coral_brain",
+      "column": 5,
+      "row": 3
+    },
+    {
+      "frame": 30,
+      "name": "coral_tube",
+      "column": 6,
+      "row": 3
+    },
+    {
+      "frame": 31,
+      "name": "coral_turquoise",
+      "column": 7,
+      "row": 3
+    },
+    {
+      "frame": 32,
+      "name": "seaweed_green",
+      "column": 0,
+      "row": 4
+    },
+    {
+      "frame": 33,
+      "name": "seaweed_red",
+      "column": 1,
+      "row": 4
+    },
+    {
+      "frame": 34,
+      "name": "shell_rock",
+      "column": 2,
+      "row": 4
+    },
+    {
+      "frame": 35,
+      "name": "reef_copper",
+      "column": 3,
+      "row": 4
+    },
+    {
+      "frame": 36,
+      "name": "reef_iron",
+      "column": 4,
+      "row": 4
+    },
+    {
+      "frame": 37,
+      "name": "reef_crystal",
+      "column": 5,
+      "row": 4
+    },
+    {
+      "frame": 38,
+      "name": "shell_shrine",
+      "column": 6,
+      "row": 4
+    },
+    {
+      "frame": 39,
+      "name": "amphora",
+      "column": 7,
+      "row": 4
+    },
+    {
+      "frame": 40,
+      "name": "mushroom_red",
+      "column": 0,
+      "row": 5
+    },
+    {
+      "frame": 41,
+      "name": "mushroom_shelf",
+      "column": 1,
+      "row": 5
+    },
+    {
+      "frame": 42,
+      "name": "mushroom_pale",
+      "column": 2,
+      "row": 5
+    },
+    {
+      "frame": 43,
+      "name": "mushroom_purple",
+      "column": 3,
+      "row": 5
+    },
+    {
+      "frame": 44,
+      "name": "sapling",
+      "column": 4,
+      "row": 5
+    },
+    {
+      "frame": 45,
+      "name": "berry_bush",
+      "column": 5,
+      "row": 5
+    },
+    {
+      "frame": 46,
+      "name": "hedge_corner",
+      "column": 6,
+      "row": 5
+    },
+    {
+      "frame": 47,
+      "name": "wildflowers",
+      "column": 7,
+      "row": 5
+    },
+    {
+      "frame": 48,
+      "name": "hollow_log",
+      "column": 0,
+      "row": 6
+    },
+    {
+      "frame": 49,
+      "name": "root_arch",
+      "column": 1,
+      "row": 6
+    },
+    {
+      "frame": 50,
+      "name": "seed_shrine",
+      "column": 2,
+      "row": 6
+    },
+    {
+      "frame": 51,
+      "name": "standing_stone",
+      "column": 3,
+      "row": 6
+    },
+    {
+      "frame": 52,
+      "name": "fern",
+      "column": 4,
+      "row": 6
+    },
+    {
+      "frame": 53,
+      "name": "seedpod",
+      "column": 5,
+      "row": 6
+    },
+    {
+      "frame": 54,
+      "name": "birdbath",
+      "column": 6,
+      "row": 6
+    },
+    {
+      "frame": 55,
+      "name": "mushroom_branch",
+      "column": 7,
+      "row": 6
+    },
+    {
+      "frame": 56,
+      "name": "copper_ore",
+      "column": 0,
+      "row": 7
+    },
+    {
+      "frame": 57,
+      "name": "iron_ore",
+      "column": 1,
+      "row": 7
+    },
+    {
+      "frame": 58,
+      "name": "quartz",
+      "column": 2,
+      "row": 7
+    },
+    {
+      "frame": 59,
+      "name": "sapphire",
+      "column": 3,
+      "row": 7
+    },
+    {
+      "frame": 60,
+      "name": "diamond_shrine",
+      "column": 4,
+      "row": 7
+    },
+    {
+      "frame": 61,
+      "name": "handcart",
+      "column": 5,
+      "row": 7
+    },
+    {
+      "frame": 62,
+      "name": "column_drums",
+      "column": 6,
+      "row": 7
+    },
+    {
+      "frame": 63,
+      "name": "tall_pillar",
+      "column": 7,
+      "row": 7
+    }
+  ]
+}

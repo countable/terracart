@@ -298,12 +298,30 @@ test('zones: every nexus piece is off the road band and off anything already the
   // Rasterized again: the same pieces, the same ids.
   const again = WorldGen.rasterizeTile(decode(`${TILE_TX}_${TILE_TY}`), N, TILE_TX, TILE_TY, edge);
   assert.eq(again.zoneDress.objects.map((o) => o.id).join(), d.objects.map((o) => o.id).join(), 'deterministic');
-  // One art per interactable, no scenery: every laid kind is tappable or a hazard.
+  // Ordinary nexus pieces remain tappable or hazardous. Stronghold walls
+  // are the explicit decorative exception: fitted structural scenery only.
   for (const o of d.objects) {
     if (o.kind === 'lava_vent') {
       assert.eq(o.zoneVariant, 'quarry-crater');
       assert.eq(on.grid[cellOf(o)], T.CAVE_LAVA, 'vent marks damaging terrain');
       assert.eq(Lighting.sourceKind({}, o), 'lava_vent', 'vent lights its hazard');
+    } else if (o.kind === 'stronghold_wall') {
+      assert.eq(o.zone, 'quarry');
+      assert.eq(o.zoneVariant, 'quarry-stronghold');
+      assert.eq(o.zoneLayer, 'background');
+      assert.truthy(Number.isInteger(o.variant));
+      assert.inRange(o.variant, 0, 10, 'wall uses an authored cardinal connection frame');
+      assert.falsy(INTERACTABLES[o.kind], 'decorative walls do not invent a reward or tap action');
+      assert.truthy(WorldGen.isSpawnCell(on.grid, N, N, o._ix, o._iy,
+        { spawnWhy: on.spawnWhy, roadMask: on.roadMask }, 'minor'), 'walls retain the normal scenery spawn gate');
+      const neighbors = new Set(d.objects.filter(p => p.zoneVariant === o.zoneVariant && p.zoneLayer === 'background').map(cellOf));
+      assert.eq(o.variant, QuarryLayout.wallFrameAt(neighbors, cellOf(o), N), 'frame follows actual surviving wall neighbors');
+    } else if (o.kind === 'zone_prop') {
+      assert.eq(o.zoneLayer, 'decoration');
+      assert.includes([6, 7, 39, 54, 61], o._zoneObjectFrame);
+      assert.falsy(INTERACTABLES[o.kind], 'scenery adds no reward or tap action');
+      assert.truthy(WorldGen.isSpawnCell(on.grid, N, N, o._ix, o._iy,
+        { spawnWhy: on.spawnWhy, roadMask: on.roadMask }, 'minor'));
     } else assert.truthy(INTERACTABLES[o.kind] || StreetVariants.isSlowKind(o.kind), `${o.kind} does something`);
   }
   // Nexus flora (roses, flint, a symmetric figure's beds and shrubs) and the
@@ -528,6 +546,38 @@ test('headstone: a hoard pays once and is spent in save.opened; the stone stays'
     assert.eq(loots.length, 1, 'a plain stone pays nothing');
     assert.falsy(save.opened.includes(plainId), 'and records nothing');
   }));
+});
+
+test('headstone: Silent Circle pillars remain quiet while other grave variants keep their rewards', () => {
+  const id = Array.from({length: 500}, (_, i) => `hs_quiet_${i}`).find(id => Z.headstoneHoards(id));
+  assert.truthy(id, 'exercise a stone that normally holds a hoard');
+  withRaise(raised => {
+    const realRandom = Math.random;
+    let rolls = 0;
+    Math.random = () => { rolls++; return 0; };
+    try {
+      for (const variant of ['silent_circle', 'ordered_graves']) {
+        const scene = makeScene(), loots = [];
+        scene.flashLoot = t => loots.push(t);
+        const save = { opened: [], inv: [], relics: {}, money: 0 };
+        const object = { kind:'headstone', id, x:3, y:4, zoneVariant:variant };
+        const ctx = makeCtx(scene, save);
+        runInteractable(ctx, object);
+        if (variant === 'silent_circle') {
+          runInteractable(ctx, object);
+          assert.eq(save.opened.length, 0, 'quiet pillars never spend a reward ledger entry');
+          assert.eq(loots.length, 0, 'quiet pillars pay no hoard');
+          assert.eq(raised.length, 0, 'quiet pillars never attempt to raise a ghost');
+          assert.eq(rolls, 0, 'quiet pillars do not roll for an encounter');
+          assert.falsy(ctx.dirty, 'quiet inspection leaves progress unchanged');
+        } else {
+          assert.includes(save.opened, id, 'ordinary variant keeps its hoard');
+          assert.eq(loots.length, 1);
+          assert.eq(raised.length, 1, 'ordinary variant keeps its ghost roll');
+        }
+      }
+    } finally { Math.random = realRandom; }
+  });
 });
 
 test('headstone: a tap raises a ghost one time in three, at any hour', () => {

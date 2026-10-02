@@ -234,7 +234,7 @@
       const xy = target.plot
         ? [Math.round((target.plot[0] + 0.5) * step - origin[0]), Math.round((target.plot[1] + 0.5) * step - origin[1])]
         : target.radiusFraction.map(value => Math.round(value * radiusCells));
-      return { id: target.id, material: variant.finds.material, dx: xy[0], dy: xy[1] };
+      return { id: target.id, material: target.material || variant.finds.material, dx: xy[0], dy: xy[1] };
     });
   }
   root.ZoneVariants = { rows, materials, byId, forKind, pick, sample, findOffsets,
