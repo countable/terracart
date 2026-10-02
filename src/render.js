@@ -2889,6 +2889,10 @@ Render.drawObjects = function drawObjects(scene) {
     for (let dtx = -1; dtx <= 1; dtx++) {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
       if (!entry) continue;   // tile not loaded yet
+      if (entry.reefCorals) WorldGen.forEachItemInBox(entry, 'reefCorals',
+        pWorldX - halfM, pWorldY - halfM, pWorldX + halfM, pWorldY + halfM, o => {
+          objList.push({ o, dx: o.x - pWorldX, dy: o.y - pWorldY });
+        }, true);
       if (entry.objects) {
         WorldGen.forEachItemInBox(entry, 'objects', sx0, sy0, sx1, sy1, (o) => {
           _boot_scanned++;
@@ -4452,6 +4456,8 @@ Render.objectAppearance = function (scene, houseRoles) {
   const fruitList = [];
 
   const RENDER_SPEC = {
+    // Water scenery is drawn separately from tappable objects.
+    reef_coral: { key: 'reef_coral', frame: o => o.variant, scale: 0.5, origin: [0.5, 0.5], seat: true },
     // Houses pick their texture by role — the generic 'house' frame stays
     // as the fallback for plain residential. Themed sprites (sliced top-
     // left from NPC house sheets, see Objects/Houses/):

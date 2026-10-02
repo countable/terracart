@@ -117,10 +117,10 @@
   // How far (cells) off the way the chest may be seated.
   const VISTA_SEAT_CELLS = 3;
   // loot.js chestBaseTier reads o.vista through this table. Every vista chest
-  // is T5: the grail uses the treasure-only vista pool, while a scenic
+  // for a viewpoint or path is T5; reef discoveries are T2–T3. The grail uses the treasure-only vista pool, while a scenic
   // stretch keeps the park theme through POI_CATEGORY.vista. Until Oct 2026,
   // the grail was T4 and stretches were T2-T3 by kind.
-  const VISTA_CHEST_TIER = { grail: 5, shore: 5, greenway: 5, park: 5 };
+  const VISTA_CHEST_TIER = { grail: 5, shore: 5, greenway: 5, park: 5, reef2: 2, reef3: 3 };
   const VISTA_POI_CLASS = 'vista';
 
   // ── Viewpoints ─────────────────────────────────────────────────────────

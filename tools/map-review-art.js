@@ -133,6 +133,7 @@ const MapReviewArt = (() => {
           if(this._restoredLamps)MapScene.prototype._ensureStreetLampTex.call(scene,lamp.glow);
           add(e,{...lamp,kind:'_streetlamp',lit:!!this._restoredLamps},'infrastructure');
         }
+        for(const o of e.reefCorals||[])add(e,o,'scenery');
         for(const o of e.objects||[])add(e,o,'object');
         for(const o of e.coinDrops||[])add(e,o,'object');
         for(const o of e.wildplants||[]) {

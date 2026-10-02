@@ -443,6 +443,13 @@ function selectZone(id, focus) {
     `${z.coverage} coverage cells · ${z.eligible} free eligible cells before placement`,
     `Finite finds ${z.finds.join('/')} · finite guards ${z.guards.join('/')}`,
     `Live enemies: ${z.enemies.authored} authored · ${z.enemies.roaming} roaming · ${z.enemies.other} other`];
+  if (z.variant?.reef) {
+    const belongs = o => o.zoneAnchor === z.anchor.key && o.zoneVariant === z.variant.id;
+    const objects = __world.tiles.flatMap(e => e.objects || []).filter(belongs);
+    const corals = __world.tiles.flatMap(e => e.reefCorals || []).filter(belongs);
+    const tiers = objects.filter(o => o.zoneLayer === 'reef_find').map(o => `T${chestBaseTier(o)}`);
+    lines.push(`Reef additions: ${corals.length} coral clusters · ${objects.filter(o => o.zoneLayer === 'reef_ore').length} pick-gated ore rocks · ${tiers.length ? tiers.join(' + ') + ' shore-reachable chests' : 'no shore-reachable chest seats'}`);
+  }
   if (z.variant?.generated === 'parking_lanes') lines.push('Quarry formed from removed parking lanes · No daily POI or shrine. Complete sites have variant finds and guards; incomplete edges use background dressing and cell-owned inhabitants.');
   if (z.layout) lines.push(z.layout.mode === 'adapted'
     ? `Building-aware layout: complete rings, outer radius ${z.layout.radiusCells} cells`

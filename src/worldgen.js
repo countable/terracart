@@ -578,7 +578,10 @@
     // Terrain and band are read LIVE as well as through the mask: a live grid
     // (the starter pond, a dug wall) can differ from the one the mask was
     // stamped over.
-    if (!isWalkable(here)) return false;          // never on water/road/building
+    // Reef scenery and shore-reachable finds explicitly require actual water;
+    // all other callers keep the ordinary walkable-terrain gate.
+    const waterOnly = !!(opts && opts.waterOnly);
+    if (waterOnly ? here !== T.WATER : !isWalkable(here)) return false;
     // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): this IS THE
     // GATE — every other spawner's roadMask question resolves here.
     const roadMask = opts && opts.roadMask;
@@ -587,7 +590,7 @@
     if (occupied && occupied.has(cy * w + cx)) return false;   // already holds an object/wild plant
     const mask = opts && opts.spawnWhy;
     if (mask) {
-      const v = mask[cy * w + cx];
+      const v = mask[cy * w + cx] & ~(waterOnly ? W_.TERRAIN : 0);
       if (v & (SPAWN_WHY_HARD & ~W_.PRIVATE)) return false;
       if (v & spawnBlocks(cls)) return false;
       if (!(v & W_.PRIVATE)) return true;
@@ -5874,6 +5877,10 @@
       dressSpawn();
       zoneDress = yield* ZoneDressing.dressSteps({ field: zone, fringe, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
         tideSeats: scenicDress && scenicDress.tideSeats,
+        spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
+    }
+    if (zone && zoneDress && typeof ReefLayout !== 'undefined') {
+      yield* ReefLayout.dressSteps({ field: zone, zoneDress, tx, ty, N: w, tileEdgeM, grid,
         spawnOpts: { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois } });
     }
     // Tier seeds last: zones and scenic have stamped their nexus/vista

@@ -63,7 +63,7 @@
       "eligibility": "existing_fauna_spawn_gate_occupied_cells_and_pest_amnesty",
       "fallback": "retain_original_seat_if_no_eligible_destination",
       "guards": "independent_finite_guard_budget",
-      "assignedVariants": 9
+      "assignedVariants": 8
     },
     "poiAdjacency": "outdoor_POI_uses_immediate_neighbors; building_POI_retains_frontage_pattern",
     "patternCoordinates": {
@@ -302,6 +302,20 @@
       "recordType": "enemy",
       "spawnClass": "enemy",
       "color": "#46a6dc"
+    },
+    "clay_pot": {
+      "kind": "chest",
+      "spawnClass": "minor",
+      "barrel": true,
+      "barrelStyle": "clay_pot",
+      "color": "#b88569"
+    },
+    "quarry_barrel": {
+      "kind": "chest",
+      "spawnClass": "minor",
+      "barrel": true,
+      "color": "#8a6a3f",
+      "barrelStyle": "barrel"
     }
   },
   "variants": [
@@ -3511,7 +3525,7 @@
               0,
               -1
             ],
-            "material": "stone"
+            "material": "clay_pot"
           },
           {
             "at": [
@@ -3548,7 +3562,7 @@
                 0,
                 -2
               ],
-              "material": "stone"
+              "material": "clay_pot"
             },
             {
               "at": [
@@ -3711,7 +3725,7 @@
               -1,
               -1
             ],
-            "material": "stone"
+            "material": "clay_pot"
           },
           {
             "at": [
@@ -3762,7 +3776,7 @@
                 -2,
                 -1
               ],
-              "material": "stone"
+              "material": "clay_pot"
             },
             {
               "at": [
@@ -3924,7 +3938,7 @@
               1,
               4
             ],
-            "material": "stone"
+            "material": "grave"
           },
           {
             "at": [
@@ -3932,17 +3946,23 @@
               3
             ],
             "material": "grave"
+          },
+          {
+            "at": [
+              4,
+              1
+            ],
+            "material": "grave"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.19444444444444445,
+        "nominalDensity": 0.2222222222222222,
         "materialDensity": {
           "grass": 0.08333333333333333,
           "shrub": 0.05555555555555555,
-          "stone": 0.027777777777777776,
-          "grave": 0.027777777777777776
+          "grave": 0.08333333333333333
         },
         "type": "repeat_motif",
         "poiOrigin": {
@@ -3969,7 +3989,7 @@
               -1,
               0
             ],
-            "material": "stone"
+            "material": "clay_pot"
           },
           {
             "at": [
@@ -4020,7 +4040,7 @@
                 -2,
                 0
               ],
-              "material": "stone"
+              "material": "clay_pot"
             },
             {
               "at": [
@@ -4112,7 +4132,7 @@
         "fallback": "omit_guard_keep_find",
         "headstoneGhostChance": 0.3333333333333333
       },
-      "atmosphere": "Vegetation follows the old rows; a deliberate gap opens onto a lone flower.",
+      "atmosphere": "Three weathered grave markers mingle with grass and shrubs in each 6 × 6-cell patch, with open aisles through the overgrowth.",
       "attracts": {
         "crow": 0.4,
         "butterfly": 0.35
@@ -4205,7 +4225,7 @@
               -1,
               -1
             ],
-            "material": "stone"
+            "material": "clay_pot"
           },
           {
             "at": [
@@ -4242,7 +4262,7 @@
                 -1,
                 -1
               ],
-              "material": "stone"
+              "material": "clay_pot"
             },
             {
               "at": [
@@ -4511,7 +4531,7 @@
               -1,
               -1
             ],
-            "material": "grave"
+            "material": "clay_pot"
           },
           {
             "at": [
@@ -4569,7 +4589,7 @@
                 0,
                 -2
               ],
-              "material": "grave"
+              "material": "clay_pot"
             },
             {
               "at": [
@@ -4650,9 +4670,7 @@
         "proximityCells": 4
       },
       "atmosphere": "Touching circles of small stone pillars, purportedly graves, form a continuous quiet lattice, with one off-axis grass entrance per circle and a single starflower find.",
-      "attracts": {
-        "crow": 0.5
-      }
+      "attracts": {}
     },
     {
       "id": "flint_field",
@@ -6390,7 +6408,25 @@
         "fallback": "omit_guard_keep_find"
       },
       "attracts": {},
-      "atmosphere": "Compact stone crescents, shell inlays and a pale wildflower center repeat every 6 × 6 cells. The single starflower remains the rare luminous find."
+      "atmosphere": "Compact stone crescents, shell inlays and a pale wildflower center repeat every 6 × 6 cells. The single starflower remains the rare luminous find.",
+      "reef": {
+        "landOre": {
+          "count": 3,
+          "materials": [
+            "copper_rock",
+            "iron_ore",
+            "gold_ore"
+          ]
+        },
+        "waterReachCells": 5,
+        "coralDensity": 0.28,
+        "chestTiers": [
+          2,
+          3
+        ],
+        "chestShoreReachCells": 2,
+        "chestSpacingCells": 4
+      }
     },
     {
       "id": "pirate_cove",

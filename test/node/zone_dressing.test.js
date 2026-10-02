@@ -133,6 +133,26 @@
       if (!owned) assert.eq(finds(out).length, 0, 'neighbor cannot duplicate finite finds');
     }
   });
+  test('churchyard containers: each variant has one clay pot beside its POI', () => {
+    for (const row of ZoneVariants.forKind('stones')) {
+      const out = ZoneDressing.dress(context(row.id));
+      const pots = out.objects.filter(o => o.barrel && o.barrelStyle === 'clay_pot');
+      assert.eq(pots.length, 1, row.id + ': one pot rather than a repeating loot carpet');
+      assert.eq(pots[0].zoneLayer, 'poi');
+      assert.eq(barrelProfile(pots[0]).texKey, 'clay_pot');
+      assert.eq(finds(out).length, row.finds.count, 'the site retains its finite finds');
+    }
+  });
+  test('overgrown graves: three actual markers per motif retain vegetation and open aisles', () => {
+    const row = ZoneVariants.byId('overgrown_graves'), b = row.background;
+    assert.eq(b.slots.filter(s => s.material === 'grave').length, 3, 'formerly one grave per 6x6 patch');
+    assert.eq(b.slots.filter(s => s.material === 'grass').length, 3);
+    assert.eq(b.slots.filter(s => s.material === 'shrub').length, 2);
+    for (let n = 0; n < 6; n++) assert.eq(ZoneVariants.sample(row, 2, n, 'grave-density'), null, 'open crossing aisle');
+    const out = ZoneDressing.dress(context(row.id));
+    assert.gt(out.objects.filter(o => o.kind === 'headstone').length, 150, 'real headstones populate the covered ground');
+    assert.eq(out.guards.filter(o => o.zoneLayer !== 'background').length, row.guards.count);
+  });
   test('abandoned quarry: copper ore rocks replace equipment pickups using ordinary mining', () => {
     const c = context('quarry-abandoned');
     const out = ZoneDressing.dress(c);
@@ -145,6 +165,9 @@
     }
     assert.falsy(all(out).some(o => o.quarryEquipment));
     assert.falsy(out.objects.some(o => o.fixedLoot?.id === 'iron_bar'));
+    const barrels = out.objects.filter(o => o.barrel);
+    assert.gt(barrels.length, 0);
+    assert.truthy(barrels.every(o => o.barrelStyle === 'barrel' && barrelProfile(o).texKey === 'barrel'), 'abandoned quarries contain barrels, never pots');
     assert.eq(finds(out).filter(o => o.quarryCrate).length, 2, 'the separate Iron-pick crates remain');
   });
   test('quarry dressing: global cell scatter ignores component centers and creates no landmark', () => {

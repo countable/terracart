@@ -207,6 +207,7 @@ class SceneCreatures {
     yield 'spawn scenic dressing';
     const zoneTraps = [], zoneGuards = [], zoneTreasures = [];
     const zDress = entry.zoneDress;
+    entry.reefCorals = !testMode ? (zDress?.corals || []).map(o => ({ ...o, kind: 'reef_coral' })) : [];
     if (zDress && !testMode) {
       const cellIdx = (p) => {
         const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);

@@ -332,7 +332,8 @@ test('zone variants: finite finds keep exact budgets and pick requirements', () 
   assert.eq(workFind.dy, 8);
 });
 test('zone variants: fauna affinities and material classes match their runtime lanes', () => {
-  assert.eq(V.rows.filter(row => Object.keys(row.attracts).length).length, 9);
+  assert.eq(V.rows.filter(row => Object.keys(row.attracts).length).length, 8);
+  assert.eq(Object.keys(V.byId('silent_circle').attracts).length, 0, 'quiet grave pillars do not pull extra crows');
   assert.eq(V.materials.grave.spawnClass, 'headstone');
   assert.eq(ZoneVariantData.materials.grave.spawnClass, 'enemy', 'runtime adapts without mutating reviewed source');
   assert.eq(V.materials.trap.collection, 'traps');

@@ -63,7 +63,7 @@
       assert.eq(p.guards.length, 2, 'narrow modules do not multiply inhabitants');
     }
   });
-  test('quarry layout: patches fit whole inside irregular footprints', () => {
+  test('quarry layout: intact patches and surviving foundation walls respect irregular footprints', () => {
     const cells = rect(35, 27).filter(i => i % N < 23 || Math.floor(i / N) > 15), covered = new Set(cells);
     for (const id of ['quarry-abandoned', 'quarry-strip-mine', 'quarry-stronghold']) {
       const p = plan(id, cells);
@@ -72,11 +72,28 @@
         assert.truthy(m.size >= 3 && m.size <= 8);
         if (id === 'quarry-stronghold') assert.eq(m.size, 5);
         const [left, top, right, bottom] = m.bounds;
-        for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++) assert.truthy(covered.has(y * N + x));
+        if (!m.partial) for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++) assert.truthy(covered.has(y * N + x));
         for (const [x, y] of m.doors || []) assert.falsy(p.background.has(y * N + x));
       }
       for (const i of p.background.keys()) assert.truthy(covered.has(i));
     }
+  });
+  test('quarry ruins: partial foundations survive building holes and cropped edges without filling them', () => {
+    const holes = rect(5,5).filter(i => i !== 6*N+6 && i !== 6*N+7);
+    for (const cells of [holes, rect(4,4), rect(4,18)]) {
+      const covered=new Set(cells), p=plan('quarry-stronghold',cells);
+      assert.gt(p.landmarks.length,0,'recognizable surviving walls remain');
+      assert.truthy(p.landmarks.some(m=>m.partial),'diagnostics report incomplete foundations');
+      assert.gt(p.background.size,4,'the remnant reads as walls rather than one loose rock');
+      for (const i of [...p.background.keys(),...p.clear,...p.finds.map(f=>f.i),...p.guards.map(g=>g.i)]) assert.truthy(covered.has(i),'nothing is placed or reserved through the obstruction');
+      assert.inRange(p.finds.length,1,3); assert.inRange(p.guards.length,1,3);
+      assert.eq(new Set([...p.finds,...p.guards].map(o=>o.i)).size,p.finds.length+p.guards.length,'finds and guards have distinct surviving seats');
+      const rebuilt=plan('quarry-stronghold',cells.slice().reverse());
+      assert.eq(JSON.stringify([...p.background]),JSON.stringify([...rebuilt.background]));
+      assert.eq(JSON.stringify(p.finds),JSON.stringify(rebuilt.finds));
+      assert.eq(JSON.stringify(p.guards),JSON.stringify(rebuilt.guards));
+    }
+    assert.eq(plan('quarry-stronghold',rect(2,24)).landmarks.length,0,'an isolated thin wall is not a fortress');
   });
   test('quarry layout: finite site budgets never multiply with modules or observers', () => {
     const cells = rect(48, 48);
@@ -95,7 +112,7 @@
     }
   });
   test('quarry layout: tiny foundations decline placement and cell ordering cannot reroll a layout', () => {
-    assert.eq(plan('quarry-stronghold', rect(4, 4)).landmarks.length, 0);
+    assert.eq(plan('quarry-stronghold', rect(3, 3)).landmarks.length, 0);
     const cells = rect(30, 30), a = plan('quarry-strip-mine', cells), b = plan('quarry-strip-mine', cells.slice().reverse());
     assert.eq(JSON.stringify([...a.background]), JSON.stringify([...b.background]));
     const candidates = [...a.background].filter(([i]) => {
@@ -120,7 +137,7 @@
     for (const cells of [rect(5, 40), rect(40, 5)]) assert.eq(choose(cells), 'quarry-stronghold', 'five-cell-wide lots retain their ruins roll in either orientation');
     assert.eq(plan('quarry-stronghold', partial).finds.length, 1, 'direct layout budgets remain maxima independent of shape selection');
     const narrow = rect(4, 24), selected = choose(narrow);
-    assert.truthy(selected !== 'quarry-stronghold', 'a long site without a whole foundation cannot be a fortress');
+    assert.eq(selected, 'quarry-stronghold', 'a cropped but readable foundation may follow a narrow boundary');
     assert.truthy(selected !== 'quarry', 'narrow ground can still host a smaller authored layout');
     const row = ZoneVariants.byId(selected), fitted = plan(selected, narrow);
     if (row.finds.count) assert.gt(fitted.finds.length, 0);
@@ -147,7 +164,7 @@
     for (const id of ['quarry-crater', 'quarry-stronghold']) {
       const start = variants.findIndex(v => v.id === id);
       const choose = cells => run(QuarryLayout.variantForSteps(cells, { N, tx: 4, ty: 5 }, start));
-      assert.includes(['quarry-abandoned', 'quarry-strip-mine'], choose(narrowL), 'large square bounds cannot disguise thin arms');
+      assert.includes(['quarry-abandoned', 'quarry-strip-mine', 'quarry-stronghold'], choose(narrowL), 'thin arms admit readable ruins but never a crater');
       assert.eq(choose(broadL), id, 'a wide usable pocket keeps its large-site roll');
       assert.eq(choose(broadL.slice().reverse()), id, 'source order cannot change the shape class');
     }

@@ -393,6 +393,8 @@ const BARREL_ART = [
 ];
 const BARREL_CLASSES = new Set(['waste_basket', 'recycling']);
 function barrelProfile(o) {
+  const authored = BARREL_ART.find(row => row.texKey === o?.barrelStyle);
+  if (authored) return authored;
   return BARREL_ART[o?.id == null ? 0 : fnv1a(String(o.id) + '#barrel-art') % BARREL_ART.length];
 }
 // Reuse the ordinary loot registry so crafted and exclusive finds stay excluded.

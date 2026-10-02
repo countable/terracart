@@ -135,15 +135,48 @@
       }
       return true;
     };
-    const centres = [], verticalBenches = bottom - top > right - left;
+    // Missing terrain may cut through a ruined wall. Keep a recognizable L
+    // or U, rather than requiring every interior cell of the square to exist.
+    const foundationAt = (x, y, size) => {
+      const r = x + size - 1, b = y + size - 1, cx = x + Math.floor(size / 2), cy = y + Math.floor(size / 2);
+      const available = (xx, yy) => xx >= 0 && yy >= 0 && xx < N && yy < N && covered.has(yy * N + xx);
+      const usable = [], walls = [];
+      for (let yy = y; yy <= b; yy++) for (let xx = x; xx <= r; xx++) {
+        if (!available(xx, yy)) continue;
+        const i = yy * N + xx;
+        if (reserved.has(i)) return null;
+        usable.push(i);
+        if (xx === x || xx === r || yy === y || yy === b) walls.push(i);
+      }
+      if (walls.length < 7 || usable.length < 9) return null;
+      const sides = [[], [], [], []];
+      for (let n = 0; n < size; n++) {
+        sides[0].push(available(x+n,y)); sides[1].push(available(r,y+n));
+        sides[2].push(available(r-n,b)); sides[3].push(available(x,b-n));
+      }
+      const runs = sides.map(side => { let best=0,run=0; for (const free of side) { run=free?run+1:0; best=Math.max(best,run); } return best; });
+      if (!sides.some((side,n) => side[size-1] && runs[n] >= 3 && runs[(n+1)%4] >= 3)) return null;
+      const wallSet = new Set(walls), preferred = [cy*N+cx, cy*N+cx+1];
+      usable.sort((a,b) => {
+        const pa=preferred.indexOf(a),pb=preferred.indexOf(b);
+        return (pa<0?2:pa)-(pb<0?2:pb) || Number(wallSet.has(a))-Number(wallSet.has(b))
+          || (a%N-cx)**2+(Math.floor(a/N)-cy)**2-(b%N-cx)**2-(Math.floor(b/N)-cy)**2 || a-b;
+      });
+      const seats = usable.slice(0,2);
+      if (walls.filter(i => !seats.includes(i)).length < 7) return null;
+      return { seats, partial: usable.length !== size*size, available };
+    };
+    const centres = [], foundationSeats = [], verticalBenches = bottom - top > right - left;
     for (let y = top; y <= bottom; y++) {
       yield 'quarry patches';
       for (let x = left; x <= right; x++) {
         let size = id === 'quarry-stronghold' ? settings.foundationSizeCells : minPatch + Math.floor(hash(x, y, 97) * (maxPatch - minPatch + 1));
         const strip = id === 'quarry-strip-mine';
         const dimensions = size => strip ? (verticalBenches ? [minPatch, size] : [size, minPatch]) : [size, size];
-        while (size >= minPatch && !fits(x, y, ...dimensions(size))) size--;
-        if (size < minPatch || (id === 'quarry-stronghold' && size !== settings.foundationSizeCells)) continue;
+        const foundation = id === 'quarry-stronghold' ? foundationAt(x, y, size) : null;
+        if (id === 'quarry-stronghold') { if (!foundation) continue; }
+        else while (size >= minPatch && !fits(x, y, ...dimensions(size))) size--;
+        if (size < minPatch) continue;
         const [width, height] = dimensions(size);
         for (let yy = y - 1; yy <= y + height; yy++) for (let xx = x - 1; xx <= x + width; xx++) {
           if (xx >= 0 && xx < N && yy >= 0 && yy < N) reserved.add(yy * N + xx);
@@ -153,9 +186,14 @@
         if (strip) module.axis = verticalBenches ? 'y' : 'x';
         plan.landmarks.push(module); centres.push(cy * N + cx);
         if (id === 'quarry-stronghold') {
-          module.doors = [[cx, b]];
-          // Keep the door and its approach clear even when background changes.
-          for (let yy = cy; yy <= b; yy++) plan.clear.add(yy * N + cx);
+          module.partial = foundation.partial; foundationSeats.push(foundation.seats);
+          const door = foundation.available(cx,b) ? [cx,b] : null;
+          module.doors = door ? [door] : [];
+          // A surviving doorway stays open, without reserving blocked terrain.
+          if (door) for (let n=0;n<=Math.max(Math.abs(door[0]-cx),Math.abs(door[1]-cy));n++) {
+            const xx=cx+Math.sign(door[0]-cx)*n,yy=cy+Math.sign(door[1]-cy)*n;
+            if (foundation.available(xx,yy)) plan.clear.add(yy*N+xx);
+          }
           for (let yy = y; yy <= b; yy++) for (let xx = x; xx <= r; xx++) {
             if (xx === x || xx === r || yy === y || yy === b) put(xx, yy, 'stone');
           }
@@ -166,7 +204,7 @@
           put(cx, cy, hash(x, y, 41) < .5 ? 'copper_rock' : 'driftwood');
           // A barrel at half the patches' far corner (Oct 2026): what the
           // last shift left beside its timber — smashed for a coin or a tool.
-          if (hash(x, y, 47) < .5) put(r, b, 'barrel');
+          if (hash(x, y, 47) < .5) put(r, b, 'quarry_barrel');
         } else if (id === 'quarry-strip-mine') {
           if (verticalBenches) {
             for (let xx = x; xx <= r; xx += 2) for (let yy = y; yy <= b; yy++) if (yy !== cy) put(xx, yy, 'stone');
@@ -187,15 +225,15 @@
         plan.guards.push({ i: centre, material: s.variant.guards.kind });
       }
       if (id === 'quarry-abandoned') for (const centre of centres.slice(0, s.variant.finds.count)) plan.finds.push({ i: centre + N, material: 'tool_crate' });
-      if (id === 'quarry-stronghold') for (const centre of centres.slice(0, Math.max(s.variant.finds.count, s.variant.guards.count || 0))) {
-        if (plan.guards.length < s.variant.guards.count) plan.guards.push({ i: centre, material: 'goblin' });
-        if (plan.finds.length < s.variant.finds.count) plan.finds.push({ i: centre + 1, material: 'treasure_x' });
+      if (id === 'quarry-stronghold') for (const seats of foundationSeats.slice(0, Math.max(s.variant.finds.count, s.variant.guards.count || 0))) {
+        if (plan.guards.length < s.variant.guards.count) plan.guards.push({ i: seats[0], material: 'goblin' });
+        if (plan.finds.length < s.variant.finds.count) plan.finds.push({ i: seats[1], material: 'treasure_x' });
       }
       for (const entry of [...plan.finds, ...plan.guards]) { plan.background.delete(entry.i); plan.clear.add(entry.i); }
     }
     return plan;
   }
-  // Ruins need one intact foundation; craters need a broader pocket and
+  // Ruins need readable surviving walls; craters need a broader pocket and
   // enough total ground. Measure usable squares, respecting holes and bends.
   function* variantForSteps(cells, context, start) {
     const settings = root.ZoneVariantData.quarryLayouts, N = context.N;
@@ -212,7 +250,7 @@
     const all = root.ZoneVariants.forKind('quarry');
     const variants = all.filter(v => v.id === 'quarry-crater'
       ? cells.length >= settings.largeSiteMinCells && widest >= settings.broadPatchSizeCells
-      : v.id !== 'quarry-stronghold' || widest >= settings.foundationSizeCells);
+      : true);
     // Keep a fitting site's original roll. Only an ineligible roll maps into
     // the smaller pool, so admitting ruins restores existing fitting sites.
     const original = variants.indexOf(all[start % all.length]);
