@@ -377,6 +377,7 @@ const TILL_BLOCKER_LINE = {
   house:       'A building stands here.',
   tower:       'A watchtower stands here.',
   infoboard:   'A notice board stands here.',
+  bottle:      'A bottle lies in the sand.',
   gatepost:    'A gate post stands here.',
   // No shrine / trailer rows: no world object has either kind — Home is a
   // `house` (its role is the trailer) and the wizard's tower draws on the
@@ -1127,18 +1128,6 @@ const TAP_HANDLERS = [
         } else {
           if ((save.picked || []).includes(wp.id) || (save.burnedObjects || []).includes(wp.id)) return;
           save.picked = [...(save.picked || []), wp.id];
-        }
-        // A pick that ROLLS instead of handing the crop over (the tide line's
-        // message bottle — items.js WILDPLANT_RULES `roll`): one roll of its
-        // context, and its note read in a story dialog (`note`).
-        const roll = wildplantRoll(wp.crop);
-        if (roll) {
-          persistSave(save);
-          grantTreasureRoll(scene, save, sx, sy, '\u{1F37E}', roll);
-          if (wildplantRule(wp.crop)?.note && typeof Scenic !== 'undefined' && scene.showMessageModal) {
-            scene.showMessageModal({ kind: 'story', title: 'A message in a bottle', body: Scenic.bottleNote(wp) });
-          }
-          return true;
         }
         const rewards = wildplantRewards(wp.crop);
         const outId = rewards[0].id;

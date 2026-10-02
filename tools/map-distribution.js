@@ -559,6 +559,7 @@ function wValueByType(entries) {
   for (const e of entries) {
     for (const o of e.objects || []) {
       if (o && o.kind === 'infoboard') bump('Notice board (one Book page)', 'one-time', 0);
+      if (o && o.kind === 'bottle') bump('Message bottle (one Book page)', 'one-time', 0);
       if (o && o.kind === 'gatepost') bump('Gate post (2 per spawn point)', 'one-time', 0);
       // A viewpoint's scope (src/scenic.js): its daily gift (Scenic.VISTA_CONTEXT).
       if (o && o.kind === 'vista_scope' && typeof Scenic !== 'undefined') {
@@ -566,14 +567,12 @@ function wValueByType(entries) {
       }
     }
     // THE TIDE LINE (src/scenic.js): each waterline pickup lies there on a day
-    // with its tideP; a pick is a shell, driftwood (wood) or — rarely — a
-    // bottle (one roll of Scenic.BOTTLE_CONTEXT). Per day, per tile.
+    // with its tideP; a pick is a shell or driftwood (wood). Per day, per tile.
     if (typeof Scenic !== 'undefined') {
       const tideP = (e.wildplants || []).filter((w) => w && w.tide).reduce((s, w) => s + (w.tideP || 0), 0);
       if (tideP > 0) {
-        const pick = Scenic.TIDE_BOTTLE_P * ev(Scenic.BOTTLE_CONTEXT, undefined, true)
-          + Scenic.TIDE_DRIFTWOOD_P * (itemValue('wood') || 0)
-          + (1 - Scenic.TIDE_BOTTLE_P - Scenic.TIDE_DRIFTWOOD_P) * (itemValue('shell') || 0);
+        const pick = Scenic.TIDE_DRIFTWOOD_P * (itemValue('wood') || 0)
+          + (1 - Scenic.TIDE_DRIFTWOOD_P) * (itemValue('shell') || 0);
         bump('Tide line (daily pickups)', 'recurring', tideP * pick);
       }
     }
@@ -656,6 +655,7 @@ const WVALUE_ORDER = [
   (k) => k === 'Zone-nexus chest (bonus tier)',
   (k) => k === 'Headstone hoard',
   (k) => k === 'Notice board (one Book page)',
+  (k) => k === 'Message bottle (one Book page)',
   (k) => k === 'Gate post (2 per spawn point)',
   (k) => k === 'Pot of gold (coin burst, daily)',
   (k) => k === 'Bike rack (speed loan, daily)',

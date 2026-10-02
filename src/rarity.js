@@ -198,8 +198,7 @@
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0,
                           favourite: { id: 'growth_powder', p: 0.5 } },
     // ── A viewpoint scope's daily gift (src/scenic.js VISTA_CONTEXT,
-    // INTERACTABLES.vista_scope) — and the tide line's message bottle
-    // (Scenic.BOTTLE_CONTEXT). A better grove shrine (~15 value, the design's
+    // INTERACTABLES.vista_scope). A better grove shrine (~15 value, the design's
     // daily re-walk target): one chain step over the shrine's flat curve, a
     // walker's classes — seeds and a magic item, some produce, a supply.
     // Measured ~15 (scratchpad scenic2/ev.js, the balancing sheet's valuation).

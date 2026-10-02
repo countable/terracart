@@ -124,11 +124,10 @@ const CROP_SPRITE = {
   // frame of art, listed.
   flint:       { sheet: 'flint', custom: true, frames: [0], scale: 1.36 },
   // ── The TIDE LINE (src/scenic.js) — what the sea leaves on the waterline
-  // each UTC day, beside the shell: a sea-worn DRIFTWOOD branch and, rarely,
-  // a MESSAGE BOTTLE. The generated 16px placeholders, one frame of art
-  // each, listed.
+  // each UTC day, beside the shell: a sea-worn DRIFTWOOD branch. The
+  // generated 16px placeholder, one frame of art, listed. (The message
+  // bottle is an object, not a tide crop — render.js RENDER_SPEC.bottle.)
   driftwood:   { sheet: 'driftwood', custom: true, frames: [0], scale: 1.36 },
-  bottle:      { sheet: 'bottle', custom: true, frames: [0], scale: 1.36 },
 };
 
 // ── Which frame does THIS wild plant draw? ─────────────────────────────────
@@ -217,13 +216,10 @@ const WILDPLANT_RULES = {
   // like a shell, and hands over the Flint item (id 'coal').
   flint:     { output: 'coal' },
   // The TIDE LINE's finds (src/scenic.js tideLive) — picked instantly, like a
-  // shell. Driftwood is wood. A MESSAGE BOTTLE is no item: it pays one roll
-  // of its context (`roll` — Scenic.BOTTLE_CONTEXT) and reads its note
-  // (`note`, Scenic.bottleNote) in a story dialog. What a tide pickup is on a
-  // given day is the day's; that it was TAKEN today is the day ledger's
-  // (interact.js 'wildplant' — never save.picked).
+  // shell. Driftwood is wood. What a tide pickup is on a given day is the
+  // day's; that it was TAKEN today is the day ledger's (interact.js
+  // 'wildplant' — never save.picked).
   driftwood: { output: 'wood' },
-  bottle:    { roll: 'treasure:vista', note: true },
   // Stone debris. The pick relic's ladder times the wheel the same way a rock
   // does — but gathering loose rubble off the ground costs no energy, so no
   // `workCharged`. The one wild plant that hides something.
@@ -266,9 +262,6 @@ function wildplantWorkCost(crop, relics, rng) {
 function wildplantTreasure(crop) { return wildplantRule(crop)?.treasure || null; }
 // Which Lighting.KINDS row this plant lights as, null for everything else.
 function wildplantLight(crop) { return wildplantRule(crop)?.light || null; }
-// The loot context a pick ROLLS instead of handing the crop over (the tide
-// line's message bottle), or null.
-function wildplantRoll(crop) { return wildplantRule(crop)?.roll || null; }
 
 // CAMPFIRE COOKING — raw food → its cooked twin, in the order the cooked icon
 // sheet lays them out (assets/Icons/Food Icons/Cooked.png, frame = index here,

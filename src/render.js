@@ -4785,6 +4785,9 @@ Render.objectAppearance = function (scene, houseRoles) {
     // the spawn point a foe rises from each day (lairs.js 'gate' tier). Not
     // tappable: no interactable row matches 'gatepost'.
     infoboard: { key: 'signpost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    // A message bottle on the waterline (src/scenic.js) lies on the sand:
+    // the old tide crop's 16px art, no contact shadow.
+    bottle: { key: 'bottle', frame: 0, origin: [0.5, 0.5], scale: 1.36, seat: true },
     gatepost:  { key: 'gatepost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // INFLUENCE ZONE PROPS (src/zones.js). Headstones may raise a ghost or
     // pay a one-off find. Plain grove shrines use the cell-seated votive,

@@ -324,6 +324,13 @@ const PIECES = {
     'dust falling, a quartermaster in boiled leather stepping out with a relic-laden rack behind him.', 'claws'),
   book_read: scene(
     'A young survivor sits on a fallen log reading a worn leather book by lantern light at dusk, a small stack of books beside them, fireflies drifting. Quiet learning.', 'mural'),
+  // A message bottle on the waterline (interactables.js INTERACTABLES.bottle):
+  // its Book page is read under this painting.
+  bottle_read: scene(
+    'A brown-hooded survivor kneels at the edge of a quiet beach where small waves wash in, ' +
+    'holding up a sea-worn green glass bottle with a cork, a rolled parchment visible inside, ' +
+    'driftwood and shells along the tideline, gulls far off over the water, dusk light. ' +
+    'Keep the hood raised and the entire face and hair concealed. No readable words on the parchment.'),
   castle_favour: scene(
     'A grey-moustached castellan in a tabard stands at an open castle gate offering a small purse of coins and a steaming mug to a young survivor. Torches lit, banners stirring. Hospitality.'),
   trail_intro: scene(

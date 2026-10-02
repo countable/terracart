@@ -443,7 +443,7 @@ test('scenic: the tide line is the same for everyone on a UTC day, new the next,
   assert.truthy(on2.join() !== on1.join(), 'a new tide the next day');
   const crops = new Set();
   for (let d = 0; d < 30; d++) for (const w of pool) if (S.tideLive(w, `202610${String(d + 1).padStart(2, '0')}`)) crops.add(w.crop);
-  assert.truthy(crops.has('shell') && crops.has('driftwood') && crops.has('bottle'), 'shells, driftwood and now and then a bottle');
+  assert.truthy(crops.has('shell') && crops.has('driftwood') && !crops.has('bottle'), 'shells and driftwood — a bottle is no tide crop');
   // Spent: not there today, or taken today — the day ledger, never picked.
   const w = pool.find((p) => S.tideLive(p, day1));
   const save = { picked: [], coinBurstClaimed: {} };
@@ -456,9 +456,7 @@ test('scenic: the tide line is the same for everyone on a UTC day, new the next,
   const absent = pool.find((p) => !S.tideLive(p, day1));
   assert.truthy(isSpent(absent, sets({ picked: [], coinBurstClaimed: {} })), 'not on the waterline today');
   assert.eq(wildplantOutput('driftwood'), 'wood', 'driftwood is wood');
-  assert.eq(wildplantRoll('bottle'), S.BOTTLE_CONTEXT, 'a bottle rolls');
-  for (const note of S.BOTTLE_NOTES) assert.lte(note.length, 80, 'a note is a line: ' + note);
-  assert.truthy(CROP_SPRITE.driftwood.frames && CROP_SPRITE.bottle.frames, 'the crops list their frames');
+  assert.truthy(CROP_SPRITE.driftwood.frames, 'driftwood lists its frames');
 });
 
 test('scenic: a tide pickup taps into the day ledger, never save.picked', () => {
@@ -487,7 +485,7 @@ const fixtureBuilds = () => {
 };
 
 test('scenic: on the Kelowna fixtures every scenic piece stands off the road, on the spawn gate, never on another piece', () => {
-  let pieces = 0, scopes = 0, grails = 0, tide = 0, chests = 0;
+  let pieces = 0, scopes = 0, grails = 0, tide = 0, chests = 0, beachTiles = 0;
   for (const [key, b] of Object.entries(fixtureBuilds())) {
     const { r, tx, ty, N: Nf, edge } = b;
     const cm = edge / Nf;
@@ -508,12 +506,19 @@ test('scenic: on the Kelowna fixtures every scenic piece stands off the road, on
       if (p.kind === 'chest') chests++;
       if (p.tide) tide++;
     }
+    const bottles = d.objects.filter((o) => o.kind === 'bottle');
+    assert.lte(bottles.length, S.BEACH_BOTTLES_PER_TILE, `${key}: at most ${S.BEACH_BOTTLES_PER_TILE} bottles`);
+    if (d.wildplants.some((w) => w.tide)) {
+      beachTiles++;
+      assert.eq(bottles.length, S.BEACH_BOTTLES_PER_TILE, `${key}: a beach washes up its bottles`);
+    }
     grails += r.objects.filter((o) => o.vista === 'grail').length;
   }
   assert.gt(scopes, 0, 'a viewpoint stood its scope');
   assert.gte(grails + 0, scopes, 'every scope\'s chest is a grail');
   assert.gt(chests, 0, 'scenic stretches stood their chests');
   assert.gt(tide, 0, 'and a beach laid its tide pool');
+  assert.gt(beachTiles, 0, 'a fixture has a beach');
   assert.gt(pieces, 0);
 });
 
