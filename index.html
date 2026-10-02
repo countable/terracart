@@ -807,15 +807,24 @@
        Driven by window.__bootStatus (script near the boot gate below):
        indeterminate pulse while the module scripts stream in, then app.js's
        real asset progress, then a fade on the first rendered frame. */
-    /* The loading view IS the welcome screen and the game's promise. Its
-       painting fills the opening panel, with the title above the copy.
-       It carries the launch safety message and its location CTA (#safety)
-       until answered:
+    /* The loading view IS the welcome screen and the game's promise: the
+       whole painting (assets/art/safety_welcome.webp, 640x960 — the title in
+       the top band, the survivor rebuilding a ruined home in the bottom
+       third, calm sky between; tools/gen_story_art.js) as a fullscreen
+       backdrop, with the box floating over the sky. It carries the launch
+       safety message and its location CTA (#safety) until answered:
        the CTA's click is the acknowledgement of the message, the genuine
        user gesture iOS needs for DeviceOrientationEvent.requestPermission()
        AND the go signal for GPS. The overlay doesn't fade while that
-       question is unanswered, however ready the game is (see vanish()). The
-       copy has a dark ground so the message stays readable. */
+       question is unanswered, however ready the game is (see vanish()).
+
+       Scaled to the viewport's HEIGHT (auto 100%), never `cover` and never
+       cropped into the box: with cover a wide screen keeps only the sky, and
+       cropped to the panel (Oct 2026, briefly) the player saw a small window
+       with the title and nothing else — the sides may crop on a phone (the
+       painting keeps them empty for that), the title and the scene never
+       do. The box keeps a translucent ground so the message stays readable
+       and the painting still shows through it. */
     #bootload, #story {
       box-sizing: border-box;
       padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
@@ -830,23 +839,23 @@
     }
     #bootload {
       position: fixed; inset: 0; z-index: 90;
-      background: #0f0d0a;
-      display: flex; align-items: center; justify-content: center;
+      background: #0f0d0a url('assets/art/safety_welcome.webp') center / auto 100% no-repeat;
+      display: flex; align-items: flex-start; justify-content: center;
+      /* The box hangs from the title's foot, never over it: the lettering
+         ends 27% down the painting, which is 27% down the viewport at
+         auto 100%. With the safety copy up the box runs on into the scene
+         below (no phone fits both in the sky) — the survivor shows under
+         it; answered, only the bar and caption sit here, in open sky. */
+      padding-top: max(28vh, env(safe-area-inset-top));
       transition: opacity .45s ease;
     }
     #bootload.done { opacity: 0; pointer-events: none; }
     #bootload .box {
-      text-align: center;
+      max-width: 360px; text-align: center;
       font: 14px ui-monospace, monospace; color: #fff; line-height: 1.45;
-      background-image: url('assets/art/safety_welcome.webp');
-      background-position: center top; background-size: 100% auto; background-repeat: no-repeat;
+      background-color: rgba(26, 22, 18, .86);
     }
-    /* Reserve the painted title before the warning, including on small phones. */
-    #bootload .box::before { content: ''; display: block; aspect-ratio: 640 / 290; }
-    #bootload .opening-copy {
-      padding: 24px 20px 20px;
-      background: linear-gradient(rgba(26,22,18,.9), #1a1612 65%);
-    }
+    #bootload .opening-copy { padding: 20px 20px 18px; }
     /* THE LAUNCH SAFETY MESSAGE IS THE LOADING SCREEN (owner, Sep 2026): the
        player is already looking at this box while the wagon packs, so the
        STAY SAFE copy sits here, over the CTA that acknowledges it — a card
