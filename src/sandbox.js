@@ -483,6 +483,7 @@
     const roadLabels = {};
     const owners = new Uint16Array(cellsPerEdge * cellsPerEdge);
     const ownerKeys = [null];
+    const buildingShapes = [];
 
     // Helper: cell index → world metres at cell centre.
     const wmAt = (ix, iy) => ({
@@ -490,7 +491,7 @@
       y: ty * tileEdgeM + (iy + 0.5) * cellM,
     });
 
-    const context = { grid, objects, wildplants, creatures, roadLabels, owners, ownerKeys,
+    const context = { grid, objects, wildplants, creatures, roadLabels, owners, ownerKeys, buildingShapes,
       cellsPerEdge, wmAt, tx, ty, cellM, tileEdgeM };
     populate(context);
 
@@ -507,7 +508,7 @@
       parkingTreasures: [],
       roadLabels,
       pathUnder: {},
-      buildingShapes: [],
+      buildingShapes,
       treasure: null,
       extraTreasures: [],
       coinDrops: [],
@@ -748,6 +749,11 @@
       // Castle floor, walls and towers share one ownership identity.
       if (s.name === 'CASTLE') {
         const owner = c.ownerKeys.push(`${baseId}_castle_${s.name}`) - 1;
+        const x0 = ix0 * c.cellM, y0 = iy0 * c.cellM;
+        const x1 = (ix0 + 5) * c.cellM, y1 = (iy0 + 8) * c.cellM;
+        c.buildingShapes.push({ key: c.ownerKeys[owner], tier: T.BUILDING_LARGE,
+          ring: Float32Array.from([x0, y0, x1, y0, x1, y1, x0, y1]),
+          areaM2: (x1 - x0) * (y1 - y0) });
         for (let dy = 0; dy < s.h; dy++) for (let dx = 0; dx < s.w; dx++) {
           const at = (iy0 + dy) * cellsPerEdge + ix0 + dx;
           if (grid[at] === T.BUILDING_LARGE) c.owners[at] = owner;
@@ -1053,9 +1059,8 @@
   function install(scene) {
     // Flag the scene so other systems (GPS, etc.) know to behave differently.
     scene._sandboxMode = true;
-    // Authored buildings have tile geometry, not OSM polygon rings. The
-    // polygon renderer suppresses their tiled floors and walls without a
-    // replacement, so keep the existing tile painter for this world.
+    // Authored buildings use the tile painter; only the castle also carries
+    // a source ring for shared floor decoration such as ruined columns.
     if (typeof BuildingOverlay !== 'undefined') BuildingOverlay.setEnabled(scene, false);
     // If a previous session had already started watching GPS, kill the watch so
     // an incoming fix doesn't race the teleport at the bottom of this function.

@@ -591,7 +591,7 @@ const INTERACTABLES = {
           const again = { scene, save, sx, sy, dirty: false };
           INTERACTABLES.chest.custom(again, o);
           if (again.dirty && typeof persistSave === 'function') persistSave(save);
-        })) return true;
+        }, o)) return true;
       } else if (daily) {
         // A crate (restocks) taken is bare for crateRestoreDays UTC days —
         // the day ledger, never save.opened. A left-for-later roll is still
@@ -613,7 +613,7 @@ const INTERACTABLES = {
         ? scene.worldIconHTML(iconLook.texKey, 26, iconLook.frame) : '';
       // The chapel's blessing opens on the chapel's own painting and name the place.
       const dress = (chapel && typeof Macros !== 'undefined')
-        ? { art: Macros.KIND_DIALOG.chapel.art, header: Macros.KIND_DIALOG.chapel.label }
+        ? { art: Macros.KIND_TRANSACTION.chapel.art, header: Macros.KIND_TRANSACTION.chapel.title }
         : { art: chestOpeningArt(o) || undefined };
       // Every path below that actually spends the chest goes through this, so
       // the starter ladder's "open a crate" step is credited exactly once no
@@ -676,6 +676,7 @@ const INTERACTABLES = {
         markOpened();
         ctx.dirty = true;
         scene.flash(`${chapel ? 'A quiet blessing. Go well.' : 'Chest had nothing useful.'}`, sx, sy);
+        if (chapel) scene._macroTransaction?.('chapel', `You received ${scene.moneyHTML(1)} as today’s blessing.`);
         return true;
       }
       if (result.kind === 'relic' || result.kind === 'armor') {
@@ -755,6 +756,7 @@ const INTERACTABLES = {
       if (lootQty > room) {
         let resolved = false;
         scene.showChestRewardModal({ ...dress,
+          ...(chapel ? { art: Macros.KIND_DIALOG.chapel.art, header: Macros.KIND_DIALOG.chapel.label } : {}),
           iconHTML, name: lootName, qty: qtyLabel, color: lootColor, kind: rewardKind, kindIcon, tier: lootTier,
           sub: room > 0
             ? `Bag full — room for only ${room} of ${lootQty}.`
@@ -773,10 +775,17 @@ const INTERACTABLES = {
               resolved = true;
               // Discard still claims the chest's coins, without attempting
               // an item grant into a full bag.
-              Rewards.apply(save, room > 0 ? result : { kind: 'gold', amount: result.consolation || 0 }, scene);
+              const granted = Rewards.apply(save, room > 0 ? result : { kind: 'gold', amount: result.consolation || 0 }, scene, { deferBookRead: chapel });
               markOpened();
               if (save.chestHold) delete save.chestHold[o.id];
               persistSave(save);
+              if (chapel && (granted.accepted > 0 || granted.money > 0)) {
+                const gifts = [];
+                if (granted.accepted > 0) gifts.push(`${lootName} ×${granted.accepted}`);
+                if (granted.money > 0) gifts.push(scene.moneyHTML(granted.money));
+                scene._macroTransaction?.('chapel', `You received ${gifts.join(' and ')} as today’s blessing.`,
+                  () => scene._revealPendingBookReads?.());
+              }
             } },
           ],
         });

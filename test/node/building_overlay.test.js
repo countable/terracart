@@ -759,9 +759,21 @@ function makeWallScene(over) {
 }
 
 clearTiles();
+test('building overlay: castle walls and ramparts stay on the floor with no upright sprites', () => {
+  clearTiles();
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
+  const { scene, log } = makeWallScene();
+  BuildingOverlay.draw(scene);
+  assert.eq(scene.buildingGeomGfx.only('fill').length, 2, 'wall face and court share the ground canvas');
+  assert.eq(scene.buildingGeomGfx.only('inset').length, 2, 'stone rampart and merlons share the ground canvas');
+  assert.eq(scene._buildingUprightPieces.length, 0, 'no castle wall participates in actor depth sorting');
+  assert.eq(log.sprites.length, 0, 'no wall sprites allocated');
+  assert.eq(log.pages.length, 0, 'no wall atlas needed');
+});
+
 test('building overlay: a cell crossing reuses baked wall pieces instead of rebaking them', () => {
   clearTiles();
-  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE)]);
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_MED)]);
   const { scene, log } = makeWallScene();
   BuildingOverlay.draw(scene);
   const first = scene._buildingUprightPieces.slice();
@@ -785,14 +797,14 @@ test('building overlay: a cell crossing reuses baked wall pieces instead of reba
 clearTiles();
 test('building overlay: upright polygon walls share world ordering and scroll independently of floors', () => {
   clearTiles();
-  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE)]);
+  putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_MED)]);
   let shutdown, shutdownRegistrations = 0;
   const { scene, log } = makeWallScene({
     events: { once(event, fn) { assert.eq(event, 'shutdown'); shutdown = fn; shutdownRegistrations++; } },
   });
   BuildingOverlay.draw(scene);
   assert.eq(scene.buildingGeomGfx.only('fill').length, 1, 'only the floor stays on the ground canvas');
-  assert.eq(scene.buildingGeomGfx.only('inset').length, 0, 'castle ramparts leave the ground canvas');
+  assert.eq(scene.buildingGeomGfx.only('inset').length, 0, 'upright building trim leaves the ground canvas');
   assert.eq(scene._buildingUprightPieces.length, 8, 'perimeter divides into cell-length wall pieces');
   const north = scene._buildingUprightPieces[0], south = scene._buildingUprightPieces[4];
   assert.lt(north.groundY, south.groundY, 'north and south walls have independent world anchors');
@@ -818,11 +830,11 @@ test('building overlay: upright polygon walls share world ordering and scroll in
 
 test('building overlay: atlas slots fit the largest piece, and an emptied page is dropped', () => {
   // A diamond footprint cuts diagonal edges, the widest pieces there are in
-  // both axes; a castle carries the deepest face and the rampart padding. No
+  // both axes; the shared slot retains its maximum face padding. No
   // frame may be clamped to its slot (that would crop a wall), so every
   // frame is the piece's own box and every box fits the slot.
   clearTiles();
-  putShapes(0, 0, [{ ring: Float32Array.from([10, 0, 20, 10, 10, 20, 0, 10]), tier: T.BUILDING_LARGE, areaM2: 200, key: null }]);
+  putShapes(0, 0, [{ ring: Float32Array.from([10, 0, 20, 10, 10, 20, 0, 10]), tier: T.BUILDING_MED, areaM2: 200, key: null }]);
   const { scene, log } = makeWallScene();
   BuildingOverlay.draw(scene);
   const A = scene._buildingWallAtlas;

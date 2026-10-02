@@ -176,8 +176,8 @@
       flash: (m) => flashes.push(m),
       showChestRewardModal: (opts) => {
         modals++;
-        assert.eq(opts.header, 'Chapel', 'names the place');
-        assert.eq(opts.art, Macros.KIND_DIALOG.chapel.art, 'keeps the chapel painting');
+        assert.eq(opts.header, Macros.KIND_TRANSACTION.chapel.title, 'confirms the blessing');
+        assert.eq(opts.art, Macros.KIND_TRANSACTION.chapel.art, 'shows the completed blessing');
       },
     });
     const real = globalThis.pickReward;
@@ -371,7 +371,8 @@
       homeWorldPos: () => null,
       findWalkableDestination(dist, opts) { return walkableDestination(this, 73.5, 73.5, dist, opts); },
       flashLoot: (m) => flashes.push(m), updateHUD: () => {},
-      _storySplashOnce: (k) => stories.push(k),
+      _macroTransaction: (k) => stories.push(k),
+      moneyHTML: (n) => `<coin>${n}</coin>`,
     };
     scene._guildBountyDefeat = onDefeat;
     const b = Macros.bountyFor({ relics: { sword: { tier: 7 } } }, poi('town_hall'), T0);
@@ -406,7 +407,7 @@
         scene._guildBountyDefeat(foes[2]);
         assert.eq(scene.save.money, b.pay, 'paid once');
         assert.eq(flashes.join('|'), `Bounty paid! +${b.pay}`);
-        assert.eq(stories.join(), 'macro:bounty', 'the first bounty tells its story');
+        assert.eq(stories.join(), 'guildhall', 'the completed bounty shows one receipt');
       });
     } finally { globalThis.persistSave = realPersist; }
     assert.truthy(/if \(victim\.bounty\) this\._guildBountyDefeat\(victim\);/.test(SCENE_SRC), 'resolveDefeat calls it');
@@ -547,17 +548,22 @@
   });
 
   // ── The picture ───────────────────────────────────────────────────────────
-  test('macro: an inn has its host and each weapon discipline has matching art', () => {
-    assert.eq(Macros.stallArt('inn'), 'kind_inn');
+  test('macro: every booth has dedicated, distinct introduction and transaction paintings', () => {
     const seen = new Set();
-    const expected = { melee: 'tool_sword', ranged: 'tool_shoot', magic: 'tool_staff', energy: 'tool_sword', speed: 'tool_sword' };
-    for (let id = 0; id < 100; id++) {
-      const o = { id };
-      const discipline = Macros.trainingKindFor(o);
-      seen.add(discipline);
-      assert.eq(Macros.stallArt('training', o), expected[discipline]);
+    for (const kind of MACRO_KINDS) {
+      assert.eq(Macros.stallArt(kind), `booth_${kind}_intro`);
+      const success = Macros.KIND_TRANSACTION[kind];
+      assert.eq(success.art, `booth_${kind}_used`);
+      assert.truthy(success.title);
+      for (const stem of [Macros.stallArt(kind), success.art]) {
+        assert.falsy(seen.has(stem), `${stem} is dedicated to one booth and stage`);
+        seen.add(stem);
+        const d = webpDims(`assets/art/${stem}.webp`);
+        assert.truthy(d, `${stem} ships`);
+        assert.truthy(Math.abs(d.w / d.h - 352 / 448) < 0.01, `${stem} fits the dialog`);
+      }
     }
-    assert.eq(seen.size, 5, 'all hall disciplines are exercised');
+    assert.eq(seen.size, 18);
   });
   test('macro: each kind ships its 80×80 art and an ASSETS row under its texKey', () => {
     for (const kind of MACRO_KINDS) {
@@ -594,7 +600,7 @@
     assert.falsy(/alms box/i.test(INTERACTABLES_SRC), 'the bare flash names no alms box');
     assert.truthy(/'A quiet blessing\. Go well\.'/.test(INTERACTABLES_SRC), 'the empty roll is a blessing too');
     assert.lte('A quiet blessing. Go well.'.length, MAP_MSG_MAX);
-    assert.eq(Macros.KIND_DIALOG.chapel.art, 'zone_stones', 'the chapel opens on the churchyard (a lore-free painting)');
+    assert.eq(Macros.KIND_DIALOG.chapel.art, 'booth_chapel_intro', 'the chapel has its own respectful booth painting');
   });
 
   // ── The scholar's booth: the BOOK CLUB (Oct 2026) ─────────────────────────

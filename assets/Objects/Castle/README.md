@@ -1,26 +1,28 @@
 # Castle tower art
 
-`tower_shapes.png` contains four 32×40 frames in one 128×40 transparent sheet.
-The frames preserve the approved generated silhouettes at their natural aspect
-ratios, centred horizontally and seated on the bottom of each frame.
+`tower_shapes.png` contains four 32×48 frames in one 128×48 transparent sheet.
+The approved designs were regenerated with taller masonry shafts in
+`tower_master.png`, then fitted to one cell wide and one-and-a-half cells tall.
+Each tower is seated at the bottom of its cell. Castle walls belong to the floor
+layer, so towers require no special wall-ordering rules.
 
 | Frame | Family | Approved candidate | Visible height |
 | --- | --- | --- | --- |
-| 0 | Citadel | 7, round crenellated tower | 37 px |
-| 1 | Weathered Ruin | 12, damaged tower | 35 px |
-| 2 | Intact Bastion | 1, square tower | 35 px |
-| 3 | Old Archive Court | 3, timber upper ramparts | 33 px |
+| 0 | Citadel | 7, round crenellated tower | 48 px |
+| 1 | Weathered Ruin | 12, damaged tower | 48 px |
+| 2 | Intact Bastion | 1, square tower | 48 px |
+| 3 | Old Archive Court | 3, timber upper ramparts | 48 px |
 
 `frames.json` records each candidate number, its crop rectangle in the approved
 master (`x, y, width, height`), and the exported silhouette height. Frame order
 matches `CastleStyles.ids` and `CastleStyles.get(ownerKey).towerFrame`.
-The candidate master is the transparent four-column, three-row sheet retained
-under `~/.artifacts/castle-tower-candidates/master.png`.
+The regenerated master is the transparent four-column, one-row sheet beside
+this file. Candidate numbers refer to the original twelve-design exploration.
 
 Regenerate from the repository root, with Playwright Core and Chromium installed:
 
 ```sh
-node tools/export_castle_towers.js ~/.artifacts/castle-tower-candidates/master.png
+node tools/export_castle_towers.js
 ```
 
 Set `CHROMIUM_PATH` if Chromium is not at `/usr/bin/chromium`. The exporter

@@ -258,6 +258,15 @@ every family, while restoration brings back clean, brighter materials.
 Towers, tiled walls, polygon walls and courtyard floors resolve the same
 building owner key through `CastleStyles.get(key, claimed)`. Its numeric
 palettes already include the condition treatment; never apply the general
-unclaimed building wash to them again. Wall atlas cache keys include the
-family and condition. Archive ramparts keep a stone base and face beneath
+unclaimed building wash to them again. Castle walls are part of the floor layer;
+32×48 towers sit at the bottom of their cell and use ordinary object depth.
+Archive ramparts keep a stone base and face beneath
 their wooden crest; the Ruin's uneven crenellations echo its damaged tower.
+
+Weathered Ruin courtyards contain a few broken fluted columns, made from the
+existing pillar's lower shaft and plinth. `CastleStyles.columnSites` scatters
+these deterministically inside the source ring (about four in a 5×8-cell
+court), away from walls and one another. Both floor modes share these sites
+and the same stone palette. They are decorative, with no collision or tap
+targets. Unclaimed materials retain roughly 70–75% of restored brightness so
+weathering stays visible without obscuring stone detail.

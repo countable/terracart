@@ -28,7 +28,7 @@
   // colour. Callers must not apply the general building wash a second time.
   function weathered(c) {
     const r = c >> 16, g = (c >> 8) & 255, b = c & 255;
-    return (Math.round(r * 0.48 + 9) << 16) | (Math.round(g * 0.50 + 13) << 8) | Math.round(b * 0.46 + 10);
+    return (Math.round(r * 0.65 + 10) << 16) | (Math.round(g * 0.68 + 10) << 8) | Math.round(b * 0.64 + 9);
   }
   function get(keyOrVariant, claimed = true) {
     const id = variantFor(keyOrVariant), key = `${id}:${claimed ? 1 : 0}`;
@@ -43,5 +43,62 @@
     cache.set(key, value);
     return value;
   }
-  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 40, ids: Object.freeze(ids), variantFor, get });
+  // Source-ring placements shared by the tiled and polygon floor passes.
+  // They never enter world objects, collision, interaction or spawn budgets.
+  const columnCache = new WeakMap();
+  function columnSites(key, ring, cellM) {
+    if (variantFor(key) !== 'ruin' || !ring || !(cellM > 0)) return [];
+    const cached = columnCache.get(ring);
+    if (cached && cached.key === key && cached.cellM === cellM) return cached.sites;
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity, area = 0;
+    for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
+      left = Math.min(left, ring[i]); right = Math.max(right, ring[i]);
+      top = Math.min(top, ring[i + 1]); bottom = Math.max(bottom, ring[i + 1]);
+      area += ring[j] * ring[i + 1] - ring[i] * ring[j + 1];
+    }
+    const count = Math.min(5, Math.floor(Math.abs(area) / 2 / (cellM * cellM) / 9));
+    let seed = 0x811c9dc5;
+    for (const ch of String(key)) seed = Math.imul(seed ^ ch.charCodeAt(0), 0x01000193);
+    const random = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+    const clear = (x, y) => {
+      let inside = false;
+      for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
+        const ax = ring[j], ay = ring[j + 1], bx = ring[i], by = ring[i + 1];
+        if ((ay > y) !== (by > y) && x < (bx - ax) * (y - ay) / (by - ay) + ax) inside = !inside;
+        const dx = bx - ax, dy = by - ay, length2 = dx * dx + dy * dy;
+        const t = length2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / length2)) : 0;
+        if (Math.hypot(x - ax - t * dx, y - ay - t * dy) < cellM * 0.8) return false;
+      }
+      return inside;
+    };
+    const sites = [];
+    for (let tries = 0; tries < 120 && sites.length < count; tries++) {
+      const x = left + random() * (right - left), y = top + random() * (bottom - top);
+      if (!clear(x, y) || sites.some(p => Math.hypot(x - p.x, y - p.y) < cellM * 1.3)) continue;
+      sites.push({ x, y, height: [12, 16, 20][sites.length % 3] });
+    }
+    columnCache.set(ring, { key, cellM, sites });
+    return sites;
+  }
+  function columnTexture(scene, claimed) {
+    const key = `castle_column_${claimed ? 'restored' : 'weathered'}`;
+    if (scene.textures.exists(key)) return key;
+    if (!scene.textures.exists('pillar')) return null;
+    const texture = scene.textures.createCanvas(key, 16, 20), ctx = texture.getContext();
+    // Keep the existing fluted shaft and stone plinth, removing its intact cap.
+    ctx.drawImage(scene.textures.get('pillar').getSourceImage(), 0, 12, 16, 18, 0, 2, 16, 18);
+    const image = ctx.getImageData(0, 0, 16, 20), data = image.data, stone = get('ruin', claimed).stone;
+    for (let y = 0; y < 20; y++) for (let x = 0; x < 16; x++) {
+      const i = (y * 16 + x) * 4;
+      if (data[i + 3] < 128 || y < 2 + (x % 3)) { data[i + 3] = 0; continue; }
+      const light = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+      const color = stone[light < 65 ? 'DARK' : light < 105 ? 'SHADOW' : light < 145 ? 'FACE' : light < 180 ? 'BODY' : 'LITE'];
+      data[i] = color >> 16; data[i + 1] = (color >> 8) & 255; data[i + 2] = color & 255; data[i + 3] = 255;
+    }
+    ctx.putImageData(image, 0, 0);
+    for (const height of [12, 16, 20]) texture.add(height, 0, 0, 20 - height, 16, height);
+    texture.refresh();
+    return key;
+  }
+  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, ids: Object.freeze(ids), variantFor, get, columnSites, columnTexture });
 })(window);

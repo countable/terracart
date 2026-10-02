@@ -8558,6 +8558,7 @@ class MapScene extends Phaser.Scene {
   // modal-gate backstop's throttle in update(), right after the sync, so
   // body.modal-open is fresh when it is read.
   _drainBadgeStories() {
+    if (this._drainMacroTransactions()) return;
     MemoryStory.drain(this);
   }
 
@@ -10766,13 +10767,13 @@ class MapScene extends Phaser.Scene {
   // it is never consumed (no save.opened). interactables.js INTERACTABLES.chest
   // routes every kind here except the chapel, which pays through the chest
   // ceremony. Each kind's FIRST tap tells what the place is (the story
-  // ledger, `macro:<kind>`) and opens the dialog when that is dismissed.
+  // ledger, `macro:<kind>:<id>`) and opens the dialog when that is dismissed.
   presentMacro(sx, sy, o, macro = macroFor(o)) {
     if (!macro || document.getElementById('offer-modal')) return;
     const kind = macro.kind;
     if (this._macroStory(kind, () => this.presentMacro(sx, sy, o, macro), o)) return;
     const d = Macros.KIND_DIALOG[kind];
-    const dress = { kind: d.modal, kindLabel: Macros.stallLabel(kind, o) || d.label, art: Macros.stallArt(kind, o) };
+    const dress = { boothKind: kind, kind: d.modal, kindLabel: Macros.stallLabel(kind, o) || d.label, art: Macros.stallArt(kind, o) };
     switch (kind) {
       case 'inn':         return this._presentInn(sx, sy, o, dress);
       case 'apothecary':  return this._presentStallOffer(sx, sy,
@@ -10788,13 +10789,31 @@ class MapScene extends Phaser.Scene {
       default:            return undefined;
     }
   }
-  // The first-visit story of a macro kind, once per save (_storySplashOnce).
+  // Each physical booth introduces its service once per save (_storySplashOnce).
   // True when it opened now; `onDismiss` runs when it is tapped away.
   _macroStory(kind, onDismiss, o) {
     const st = Macros.KIND_STORY[kind];
     const d = Macros.KIND_DIALOG[kind];
-    if (!st || !d) return false;
-    return this._storySplashOnce('macro:' + kind, { art: Macros.stallArt(kind, o), title: st.title, body: st.body, onDismiss });
+    if (!st || !d || o?.id == null) return false;
+    return this._storySplashOnce('macro:' + kind + ':' + o.id, { art: Macros.stallArt(kind, o), title: st.title, body: st.body, onDismiss });
+  }
+
+  // Successful services share one receipt surface, after the state is committed.
+  // A bounty can complete while a shop or story is open: keep its receipt
+  // until that dialog ends, ahead of queued memories in _drainBadgeStories.
+  _macroTransaction(kind, body, onDismiss) {
+    const d = Macros.KIND_DIALOG[kind], receipt = Macros.KIND_TRANSACTION[kind];
+    if (!d || !receipt) return;
+    (this._macroReceipts ||= []).push({ kind: d.modal, kindLabel: d.label,
+      art: receipt.art, title: receipt.title, body, onDismiss });
+    this._drainMacroTransactions();
+  }
+  _drainMacroTransactions() {
+    if (!this._macroReceipts?.length) return false;
+    this._syncModalGate?.();
+    if (document.body?.classList?.contains('modal-open')) return false;
+    this.showMessageModal(this._macroReceipts.shift());
+    return true;
   }
 
   // INN: rest to full for coin, once a UTC day per inn (Macros.innRest — the
@@ -10829,6 +10848,7 @@ class MapScene extends Phaser.Scene {
         if (this.updateEnergyDOM) this.updateEnergyDOM();
         // A gain to the BODY: it lands on the player's own cell.
         this._popEnergy(Math.max(0, (this.save.energy ?? 0) - cur));
+        this._macroTransaction('inn', `You paid ${this.moneyHTML(r.price)} and restored ${r.gain} HP. You are fully rested.`);
       },
     });
   }
@@ -10948,10 +10968,7 @@ class MapScene extends Phaser.Scene {
     this.updateHUD?.();
     persistSave(this.save);
     this.flashLoot(`Bounty paid! +${gb.pay}`, '#ffe066', 1);
-    this._storySplashOnce('macro:bounty', {
-      art: Macros.KIND_DIALOG.guildhall.art, title: 'A bounty paid',
-      body: 'You collect your bounty at the hall. The keeper counts the promised coins into your hand.',
-    });
+    this._macroTransaction('guildhall', `The hunt is complete. You received ${this.moneyHTML(gb.pay)}, in addition to the coins from each defeated foe.`);
   }
   // THE BOUNTY WAITS, asked each frame there is one: it stands down only when
   // the UTC day turns (no payout — "The bounty got away."). Walking off, the
@@ -11033,6 +11050,7 @@ class MapScene extends Phaser.Scene {
         const nx = Macros.curioNextMilestone(r.count);
         const line = nx != null ? `Donated! ${r.count} / ${nx}` : `Donated! ${r.count} given`;
         this.flashLoot(line, '#ffe066', 1, id);
+        this._macroTransaction('curio', `You donated ${itemName(id)}. The collection now holds ${r.count} curios${r.milestone ? ', and a memory has returned' : ''}.`);
       },
     });
   }
@@ -11076,6 +11094,7 @@ class MapScene extends Phaser.Scene {
         Macros.scholarClaim(this.save, shelf);
         this._finishInventoryChange();
         this.flashLoot('Tome collected', '#ffe066', 1, next.id);
+        this._macroTransaction('scholar', `You received ${itemName(next.id)} for ${next.booksAt} books collected. Your books remain yours.`);
       },
     });
   }
@@ -11120,6 +11139,7 @@ class MapScene extends Phaser.Scene {
           if (!r.ok) { if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy); return; }
           refresh();
           this.flash(`Drilled for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`, sx, sy);
+          this._macroTransaction('training', `You paid ${this.moneyHTML(r.price)} for a ${row.label.toLowerCase()} drill. Its bonus lasts ${shortDuration(Combat.TRAINING_BUFF_MS)}.`);
         },
       },
       onAccept: () => {
@@ -11131,6 +11151,7 @@ class MapScene extends Phaser.Scene {
         }
         refresh();
         this.flash(`${row.label} level ${Combat.trainingLevel(this.save, kind)}!`, sx, sy);
+        this._macroTransaction('training', `You paid ${this.moneyHTML(r.price)} and reached ${row.label.toLowerCase()} level ${Combat.trainingLevel(this.save, kind)}. This lesson is permanent.`);
       },
     });
   }
