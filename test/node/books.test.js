@@ -12,7 +12,7 @@ function bookShare(contextKey, tier, n = 4000) {
   let books = 0;
   for (let i = 0; i < n; i++) {
     const r = pickReward(contextKey, BOOK_SAVE(), rng, { tier });
-    if (r && r.kind === 'item' && (r.id === 'book' || r.id.startsWith('tome_'))) books++;
+    if (r && r.kind === 'item' && r.id === 'book') books++;
   }
   return books / n;
 }
@@ -31,9 +31,9 @@ test('books: the Book is the heaviest draw in its class/tier pool', () => {
   }
 });
 
-test('books: a high-tier school chest offers tomes in its book lane', () => {
+test('books: a high-tier school chest offers Books for scholar trades', () => {
   const share = bookShare('chest:school', 3);
-  assert.gt(share, 0.15, `a school chest hands over a tome often (got ${(share * 100).toFixed(1)}%)`);
+  assert.gt(share, 0.15, `a school chest hands over a Book often (got ${(share * 100).toFixed(1)}%)`);
   assert.lt(share, 0.60, 'but it is still a chest, not a book dispenser');
 });
 

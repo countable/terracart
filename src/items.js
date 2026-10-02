@@ -772,21 +772,17 @@ const ITEMS = [
   // 'chest:school'). This is the one item whose SCARCITY is a documentation
   // bug rather than a balance choice.
   { id: 'book',  name: 'Book',  kind: 'supply', dropWeight: 3 },
-  // ── The TOMES — the story Book's rarer siblings. A tome replaces the
-  // plain Book in any chest whose tier meets its own (chest_themes books
-  // group: eligible() admits by baseTier, pickItem() takes the top tier
-  // present), so a T3+ book chest hands a tome, never the story Book. Read
-  // for a spell or the effect of the potion ONE TIER BELOW the tome
-  // (app.js readTome*), with timed cooldowns; never consumed or sold.
-  // Chests only.
-  { id: 'tome_sight',    name: 'Tome of Reach',     kind: 'unique_relic', dropWeight: 1 },
-  { id: 'tome_raven',    name: 'Tome of the Raven',   kind: 'unique_relic', dropWeight: 1 },
-  { id: 'tome_storm',    name: 'Tome of Thunder',     kind: 'unique_relic', dropWeight: 1 },
-  { id: 'tome_speed',    name: 'Tome of Speed',       kind: 'unique_relic', dropWeight: 1 },
-  { id: 'tome_shield',   name: 'Tome of Shielding',   kind: 'unique_relic', dropWeight: 1 },
-  { id: 'tome_healing',  name: 'Tome of Healing',     kind: 'unique_relic', dropWeight: 1 },
-  { id: 'tome_blight',   name: 'Tome of Blight',      kind: 'unique_relic', dropWeight: 1 },
-  { id: 'tome_firewall', name: 'Wall of Fire Tome', kind: 'unique_relic', dropWeight: 1 },
+  // Tomes are the scholar's rewards for reading Books. They cast repeatable
+  // spells on timed cooldowns and are never consumed or sold. The tome flag
+  // owns scholar membership and excludes them from treasure-box pools.
+  { id: 'tome_sight',    name: 'Tome of Reach',     kind: 'unique_relic', tome: true },
+  { id: 'tome_raven',    name: 'Tome of the Raven',   kind: 'unique_relic', tome: true },
+  { id: 'tome_storm',    name: 'Tome of Thunder',     kind: 'unique_relic', tome: true },
+  { id: 'tome_speed',    name: 'Tome of Speed',       kind: 'unique_relic', tome: true },
+  { id: 'tome_shield',   name: 'Tome of Shielding',   kind: 'unique_relic', tome: true },
+  { id: 'tome_healing',  name: 'Tome of Healing',     kind: 'unique_relic', tome: true },
+  { id: 'tome_blight',   name: 'Tome of Blight',      kind: 'unique_relic', tome: true },
+  { id: 'tome_firewall', name: 'Wall of Fire Tome', kind: 'unique_relic', tome: true },
   { id: 'blank_scroll', name: 'Blank Scroll', kind: 'supply' },
   { id: 'fireball_scroll', name: 'Fireball Scroll', kind: 'magic', scroll: true },
   { id: 'explosive_flask', name: 'Explosive Flask', kind: 'magic' },
@@ -1009,6 +1005,8 @@ const GRILL_ENERGY_MUL = 1.5;
 const POTION_FIRE_TRANSMUTE = { revive_potion: 'vigor_potion', speed_potion: 'reach_potion' };
 const POTION_BLAST_DMG_PER_TIER = 3;
 const POTION_THROW_COOLDOWN_MS = 1000;
+function isTome(id) { return !!ITEM_BY_ID[id]?.tome; }
+
 function isPotion(id) {
   return ITEM_BY_ID[id]?.potion === true;
 }

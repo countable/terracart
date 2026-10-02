@@ -599,23 +599,21 @@
 
   // ── The scholar's booth: the BOOK CLUB (Oct 2026) ─────────────────────────
   // One shelf for every school, humblest first; found books read earn it.
-  test('scholar: the shelf is the school chest\'s own treasure list, humblest first', () => {
+  test('scholar: the shelf contains every tome once, humblest first, independent of chests', () => {
     const shelf = Macros.scholarShelf();
-    const own = new Set();
-    for (const g of Object.keys(ChestThemes.themes.school.weights)) for (const id of Object.keys(ChestThemes.members(g))) own.add(id);
-    assert.gt(shelf.length, 8, 'a shelf worth reading for');
-    assert.eq(new Set(shelf).size, shelf.length, 'one of each');
-    for (const id of shelf) assert.truthy(own.has(id) && ITEM_BY_ID[id], `${id} is school treasure`);
-    for (const id of own) if (ITEM_BY_ID[id]) assert.includes(shelf, id, `${id} is on the shelf`);
+    const tomes = ITEMS.filter(item => isTome(item.id)).map(item => item.id);
+    assert.eq(shelf.length, 8);
+    assert.eq(new Set(shelf).size, shelf.length, 'one of each per cycle');
+    for (const id of shelf) assert.truthy(isTome(id), `${id} is a tome`);
+    for (const id of tomes) assert.includes(shelf, id);
     for (let i = 1; i < shelf.length; i++) {
-      assert.lte(itemValue(shelf[i - 1]), itemValue(shelf[i]), `${shelf[i - 1]} before ${shelf[i]}: ascending value`);
+      assert.lte(itemValue(shelf[i - 1]), itemValue(shelf[i]), 'ascending value');
     }
-    assert.eq(shelf[0], 'book', 'the plain Book opens the shelf');
-    assert.eq(itemValue(shelf[shelf.length - 1]), Math.max(...shelf.map(itemValue)), 'the dearest closes it');
+    assert.falsy(shelf.includes('book'), 'a prize never earns its own reading credit');
     assert.eq(Macros.scholarShelf().join(), shelf.join(), 'the same shelf every time, every school');
   });
 
-  test('scholar: three found books a prize, in shelf order, once each', () => {
+  test('scholar: every three books earns a tome, with a repeating shelf', () => {
     const shelf = Macros.scholarShelf();
     const per = Macros.SCHOLAR_BOOKS_PER_PRIZE;
     assert.eq(per, 3);
@@ -639,14 +637,32 @@
       r = Macros.scholarClaim(save, shelf);
       assert.truthy(r.ok && r.id === shelf[i], `prize ${i} is ${shelf[i]}`);
     }
-    assert.eq(Macros.scholarNext(save, shelf), null, 'the shelf is bare');
-    assert.eq(Macros.scholarClaim(save, shelf).why, 'bare');
+    assert.eq(Macros.scholarNext(save, shelf).id, shelf[0], 'the next cycle starts with the first tome');
+    assert.eq(Macros.scholarNext(save, shelf).booksAt, (shelf.length + 1) * per);
+    assert.eq(Macros.scholarClaim(save, shelf).id, shelf[0]);
+    assert.eq(Macros.scholarTaken(save), shelf.length + 1);
+    assert.eq(Macros.scholarClaim(save, []).why, 'bare', 'an empty catalog has no reward');
     // Garbage in the ledger reads as nothing, never as a free shelf.
     assert.eq(Macros.booksRead({ booksRead: 'lots' }), 0);
-    assert.eq(Macros.scholarTaken({ scholarPrizes: -3 }), 0);
+    assert.eq(Macros.scholarTaken({ scholarTomes: -3 }), 0);
   });
 
-  test('scholar: every Book read counts — found, bought or off the shelf — and the counter is the brake', () => {
+
+  test('scholar: legacy mixed prizes never skip tome rewards and reading credit survives', () => {
+    const save = { booksRead: 12, scholarPrizes: 20 };
+    assert.eq(Macros.scholarTaken(save), 0);
+    assert.eq(Macros.scholarNext(save).booksAt, 3);
+    for (let i = 0; i < 4; i++) assert.truthy(Macros.scholarClaim(save).ok);
+    assert.eq(Macros.scholarNext(save).booksAt, 15);
+    assert.falsy(Macros.scholarNext(save).ready);
+    assert.eq(save.booksRead, 12);
+    assert.eq(save.scholarPrizes, 20);
+    assert.eq(save.scholarTomes, 4);
+    const reload = JSON.parse(JSON.stringify(save));
+    assert.eq(Macros.scholarNext(reload).booksAt, 15);
+  });
+
+  test('scholar: every Book read counts — found or bought — and the counter is the brake', () => {
     // addToInv's Book branch credits save.booksRead for every read, with no
     // wild-finds test: a bought Book is a read Book.
     const i = SCENE_SRC.indexOf("if (id === 'book') {");
@@ -675,16 +691,13 @@
       'the themed shop prices off the ladder');
     assert.eq((SCENE_SRC.match(/if \(id === 'book'\) ShopsMath\.bookBought\(this\.save, (?:take|buyQty)\);/g) || []).length, 2,
       'both counters climb the ladder on a sale');
-    // A prize off the shelf is handed over notWild (not a wild find) and read.
+    // A tome prize is handed over notWild and persisted together with its claim.
     const pres = SCENE_SRC.slice(SCENE_SRC.indexOf('_presentScholar(sx, sy, o, dress) {'));
-    assert.truthy(/this\.addToInv\(next\.id, 1, false, \{ notWild: true \}\)/.test(pres.slice(0, pres.indexOf('\n  }\n'))),
+    assert.truthy(/this\.addToInv\(next\.id, 1, false, \{ notWild: true, deferRefresh: true \}\)/.test(pres.slice(0, pres.indexOf('\n  }\n'))),
       'the prize is handed over notWild');
     assert.truthy(/case 'scholar': +return this\._presentScholar\(sx, sy, o, dress\);/.test(SCENE_SRC), 'presentMacro routes it');
     assert.eq(Macros.KIND_DIALOG.scholar.label, 'Book Club');
-    // The toasts fit the map line at the shelf's deepest page.
-    const shelf = Macros.scholarShelf();
-    assert.lte(`Collected! Next at ${shelf.length * Macros.SCHOLAR_BOOKS_PER_PRIZE} books`.length, MAP_MSG_MAX);
-    assert.lte('The shelf is yours'.length, MAP_MSG_MAX);
+    assert.lte('Tome collected'.length, MAP_MSG_MAX);
     assert.truthy(/book club/i.test(Macros.KIND_STORY.scholar.body) && /join/i.test(Macros.KIND_STORY.scholar.body), 'the story is the joining');
   });
 

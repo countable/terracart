@@ -483,41 +483,26 @@
   // ── Per-kind dialog dressing: the painting each opens on and its label ────
   // Default paintings for each service; training also selects by discipline.
   // `modal` is a MODAL_KINDS key.
-  // ── The scholar's booth (school POIs): THE BOOK CLUB ──────────────────────
-  // Every school keeps the same booth and the same prize shelf, so the club
-  // is ONE ledger per save, never per school. Joining is free. The club
-  // counts EVERY Book the player has read (app.js addToInv — save.booksRead:
-  // found in the world, bought at a counter, or taken off this shelf), and
-  // for every SCHOLAR_BOOKS_PER_PRIZE of them hands over the next prize off
-  // the shelf. Buying is allowed and dear: each Book bought raises the next
-  // one's price (shops_math.js listPrice), and the Book Shop that sells
-  // nothing else opens late (houses.js STORY_RESTORES.bookshop).
-  // THE SHELF is the school chest's own treasure list (chest_themes.js
-  // 'school': its books and study groups), HUMBLEST FIRST — items.js
-  // itemValue, ties by id — so it climbs from the plain Book to the Tome of
-  // Storms as the reading piles up, and retuning the chest theme retunes the
-  // club. save.scholarPrizes counts the prizes taken, in shelf order. Nothing
-  // is sold and nothing is paid (THE ECONOMY GOAL above): the booth pays in
-  // things the school chest already paid in.
+  // The scholar's Book Club uses one reading ledger across every school.
+  // Each three Books collected (read automatically, bought ones included)
+  // earns a tome, ordered by value and repeating after a full set.
+  // Treasure pools do not own this shelf.
+  // Keep tome claims separate from legacy scholarPrizes: that mixed shelf
+  // awarded ordinary items too, so its index must not skip new tome prizes.
   const SCHOLAR_BOOKS_PER_PRIZE = 3;
   function scholarShelf() {
-    const theme = root.ChestThemes.themes.school;
-    const ids = new Set();
-    for (const group of Object.keys(theme.weights)) {
-      for (const id of Object.keys(root.ChestThemes.members(group))) if (ITEM_BY_ID[id]) ids.add(id);
-    }
-    return [...ids].sort((a, b) => (itemValue(a) - itemValue(b)) || (a < b ? -1 : a > b ? 1 : 0));
+    return ITEMS.filter(item => isTome(item.id)).map(item => item.id)
+      .sort((a, b) => (itemValue(a) - itemValue(b)) || (a < b ? -1 : a > b ? 1 : 0));
   }
   function booksRead(save) { return Math.max(0, Math.floor(Number(save && save.booksRead) || 0)); }
-  function scholarTaken(save) { return Math.max(0, Math.floor(Number(save && save.scholarPrizes) || 0)); }
-  // The next prize on the shelf — { id, index, booksAt, ready } — or null once
-  // the shelf is bare. `booksAt` is the reading it asks for; `ready` whether
-  // the save has it.
+  function scholarTaken(save) { return Math.max(0, Math.floor(Number(save && save.scholarTomes) || 0)); }
+  // The next tome — { id, index, booksAt, ready } — or null for an empty
+  // shelf. The sequence repeats; booksAt is the lifetime reading milestone.
   function scholarNext(save, shelf = scholarShelf()) {
     const index = scholarTaken(save);
-    if (index >= shelf.length) return null;
+    if (!shelf.length) return null;
     const booksAt = (index + 1) * SCHOLAR_BOOKS_PER_PRIZE;
-    return { id: shelf[index], index, booksAt, ready: booksRead(save) >= booksAt };
+    return { id: shelf[index % shelf.length], index, booksAt, ready: booksRead(save) >= booksAt };
   }
   // Take the next earned prize off the shelf. The caller has already put it
   // in the bag (the bag may be full — app.js addToInv says so first).
@@ -525,7 +510,7 @@
     const next = scholarNext(save, shelf);
     if (!next) return { ok: false, why: 'bare' };
     if (!next.ready) return { ok: false, why: 'unread', next };
-    save.scholarPrizes = next.index + 1;
+    save.scholarTomes = next.index + 1;
     return { ok: true, id: next.id, index: next.index };
   }
 
@@ -566,7 +551,7 @@
     curio:       { title: 'A curio hall', body: "The keeper shows you the empty shelves. There is room here for your finds." },
     sundries:    { title: 'A sundries shop', body: 'Rope and torches fill the shelves. You look over the supplies for your next trip.' },
     training:    { title: 'A training hall', body: 'The master watches as you practise. You focus on your next swing.' },
-    scholar:     { title: 'A book club', body: 'A scholar keeps a booth by the school wall. You join the book club, and she shows you the shelf of prizes you can read your way up.' },
+    scholar:     { title: 'A book club', body: 'A scholar keeps a booth by the school wall. You join the book club, and she shows you the shelf of tomes you can read your way up.' },
   };
 
   root.Macros = {

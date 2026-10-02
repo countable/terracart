@@ -8,7 +8,7 @@
     && Number.isFinite(FOOD_ENERGY[i.id]) && FOOD_ENERGY[i.id] >= 0 && !flowers.includes(i.id)).map(i => i.id);
   const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && foodIds().includes(i.grows)).map(i => i.id);
   const groups = {
-    uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic').map(i => i.id), mixedTiers: true, fallback: 'magic' },
+    uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic' && !isTome(i.id)).map(i => i.id), mixedTiers: true, fallback: 'magic' },
     supplies: { ids: { torch: 3, rope: 1, trap_kit: 1, spear: 1, honey: 1 }, fallback: 'torch' },
     field: { ids: ['torch', 'rope', 'trap_kit', 'spear'], fallback: 'torch' },
     farmSupplies: { ids: ['scarecrow', 'honey'], fallback: 'torch' },
@@ -32,7 +32,7 @@
     travelMagic: { ids: ['reach_potion', 'speed_potion', 'shadow_powder', 'treasure_map'], mixedTiers: true, fallback: 'antidote' },
     combatMagic: { ids: ['protection_potion', 'immortal_potion', 'fire_resistance_potion', 'giant_potion', 'shield_potion', 'raven_potion', 'blight_potion', 'thunder_potion', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder'], mixedTiers: true, fallback: 'antidote' },
     medicalMagic: { ids: { vigor_potion: 3, revive_potion: 3, protection_potion: 2, shield_potion: 2, resurrection_potion: 2, elixir: 1,
-      regen_amulet: 0.3, vigor_amulet: 0.3, tome_healing: 0.5 }, mixedTiers: true, fallback: 'antidote' },
+      regen_amulet: 0.3, vigor_amulet: 0.3 }, mixedTiers: true, fallback: 'antidote' },
     recovery: { ids: ['vigor_potion', 'elixir'], fallback: 'restorative' },
     antidote: { ids: ['antidote'] },
     healing: { ids: { vigor_potion: 3, revive_potion: 2, resurrection_potion: 1, elixir: 1 }, fallback: { vista: 'antidote', default: 'restorative' } },
@@ -41,16 +41,9 @@
     study: { ids: { reach_potion: 2, raven_potion: 1, protection_potion: 1, shield_potion: 1, shadow_powder: 1, blank_scroll: 1, fireball_scroll: 1, fear_scroll: 1, treasure_map: 1 }, mixedTiers: true, fallback: 'books' },
     shadow: { ids: { raven_potion: 1, shadow_powder: 1 }, fallback: 'flowers' },
     gems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], fallback: { culture: 'books', vista: 'antidote', commerce: 'cash', default: 'field' } },
-    // The story Book is a T1 item: every book chest can hand one, whatever
-    // its rolled quality (the old minTier {school: 1} override died with the
-    // tomes - it would have admitted THEM at T1 too, because it replaced the
-    // baseTier check for the whole group). The TOMES sit at T3/4/5, and
-    // pickItem takes the top tier present, so they replace the Book exactly
-    // at and above its own tier.
-    books: { ids: ['book', 'tome_sight', 'tome_raven', 'tome_storm', 'tome_firewall', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight'], fallback: 'torch' },
-    // The plain story Book alone — the tier-2 share every row carries
-    // (weights(), BOOK_T2_SHARE): a T2 chest's jackpot roll must hand the
-    // Book, never climb into the tomes the way the books group does.
+    // Books feed the scholar's tome trades at every chest tier.
+    books: { ids: ['book'], fallback: 'torch' },
+    // Dedicated Book share for themes without their own books lane.
     plainBook: { ids: ['book'], fallback: 'torch' },
     honey: { ids: ['honey'], fallback: 'restorative' },
     torch: { ids: ['torch'] },
@@ -69,7 +62,7 @@
   //   food      food, with a small animal chance - no seeds, no supplies
   //   flora     flowers or their seeds
   //   health    medical magic and the cherry-picked healing relics
-  //   school    the story Book / tomes by tier, and study magic
+  //   school    the story Book, and study magic
   //   culture   an even spread across everything
   //   worship   the chapel's daily blessing (the theme lives here alone)
   //   civic     unique relics, supplies, coins
@@ -167,14 +160,12 @@
     // book club (macros.js scholar*) needs Books to turn up, and the Book
     // only drops from the school, culture and worship rows — so every chest
     // SEATED at tier 2 (opts.tier, the chest's own tier: its rolls climb from
-    // T1, rarity.js rollRewardQuality, and at T1 or T2 the books group is the
-    // plain Book — every tome is T3+) carries at least BOOK_T2_SHARE of
+    // T1, rarity.js rollRewardQuality) carries at least BOOK_T2_SHARE of
     // books, the rest of the row scaled to make room. Rows already past the
     // share (the school's 60) and the rare-finds lane above (uniqueRelics —
     // exactly 5 where it exists) are left alone. A row with a books lane
     // (culture, worship) has it topped up; a row without one gets the
-    // plainBook group, so a jackpot roll climbing past T2 still hands the
-    // Book and not a tome. Applied last: the net share.
+    // plainBook group. Applied last: the net share.
     if ((opts.tier ?? tier) === 2) {
       const have = out.books || 0;
       if (have < BOOK_T2_SHARE) {
@@ -201,10 +192,10 @@
     if (!def) throw new Error('Unknown chest group: ' + group);
     return Object.keys(members(group)).filter(id => {
       const item = ITEM_BY_ID[id];
-      return item && !item.shiny && (!item.caveOnly || opts.depth > 0)
+      return item && !isTome(id) && !item.shiny && (!item.caveOnly || opts.depth > 0)
         && (!(opts.chestTier >= 3 && tier >= opts.chestTier && item.kind === 'magic')
           || cap(id) * itemValue(id) >= TIER_VALUE[Math.min(5, opts.chestTier)] / 2)
-        // UNIQUE finds - the unique relics and the tomes - never drop to a
+        // Unique relics never drop to a
         // player who already carries one (ChestThemes.cap holds them to one
         // per chest; this holds them to one per save).
         && ((item.kind !== 'unique_relic' && !item.unique) || !carriesItem(opts.save, id))
@@ -258,8 +249,7 @@
   function cap(id) {
     const item = ITEM_BY_ID[id];
     if (item.kind === 'unique_relic') return 1;
-    if (['elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap',
-         'tome_sight', 'tome_raven', 'tome_storm', 'tome_firewall', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight'].includes(id)) return 1;
+    if (['elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap'].includes(id)) return 1;
     if (['animal', 'sapling'].includes(item.kind) || ['sapphire', 'ruby', 'emerald', 'diamond'].includes(id)) return 1;
     if (item.kind === 'magic') return item.uniqueJewelry ? 1 : 6;
     if (item.kind === 'seed') return magicalFlowers.includes(item.grows) ? 1 : 9;

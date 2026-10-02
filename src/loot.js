@@ -789,9 +789,8 @@ const MACRO_KIND_BY_CLASS = {
   place_of_worship: 'chapel',
   pharmacy: 'apothecary', dentist: 'apothecary', hospital: 'apothecary',
   library: 'scriptorium', college: 'scriptorium',
-  // A school is the SCHOLAR'S BOOTH — the book club (macros.js scholarShelf):
-  // its prizes are the school chest's own treasure list, so the underground
-  // mirror keeps handing out what the booth above hands out.
+  // A school is the scholar's book club: Books earn reusable tomes there.
+  // The underground mirror remains a chest supplying Books and study magic.
   school: 'scholar',
   town_hall: 'guildhall', police: 'guildhall', fire_station: 'guildhall',
   museum: 'curio', theatre: 'curio', cinema: 'curio',

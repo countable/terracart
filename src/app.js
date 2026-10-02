@@ -11040,14 +11040,8 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  // THE BOOK CLUB (school POIs — Macros.scholarShelf / scholarNext /
-  // scholarClaim): every school keeps the same booth and the same shelf, so
-  // progress is one ledger per save. The club counts every Book the player
-  // has read (addToInv — save.booksRead; bought ones too, the counter's price
-  // ladder being the brake), and every
-  // SCHOLAR_BOOKS_PER_PRIZE of them earns the next prize off the shelf,
-  // humblest first. Nothing is sold and nothing is paid: a ready prize is a
-  // Collect, an unready one is told its wait in books.
+  // The Book Club rewards each three Books collected with the next tome.
+  // All schools share reading and claim progress; the shelf repeats.
   _presentScholar(sx, sy, o, dress) {
     const shelf = Macros.scholarShelf();
     const read = Macros.booksRead(this.save);
@@ -11055,38 +11049,36 @@ class MapScene extends Phaser.Scene {
     const title = `The book club: ${read} ${read === 1 ? 'book' : 'books'} read`;
     if (!next) {
       this.showMessageModal({ kind: dress.kind, art: dress.art, title,
-        body: 'You have read your way through the whole shelf. The scholars have nothing left to give but their thanks.' });
+        body: 'The scholar has no tomes on the shelf today.' });
       return;
     }
     if (!next.ready) {
       const need = next.booksAt - read;
-      const left = shelf.slice(next.index).map((id) => itemName(id)).join(', ');
       this.showMessageModal({ kind: dress.kind, art: dress.art, title,
         body: `The next prize is ${itemName(next.id)}, at ${next.booksAt} books. Read ${need} more. `
-          + `Still on the shelf: ${left}.` });
+          + `Every ${Macros.SCHOLAR_BOOKS_PER_PRIZE} books earns a tome. Found and bought books both count; the tome shelf repeats after a full set.` });
       return;
     }
     this.showOfferModal({
       ...dress, kind: dress.kind, title,
       get: `${this.iconSpanHTML(next.id)} ${itemName(next.id)} ×1`,
       cost: `${next.booksAt} books read`,
-      blurb: 'The scholar lifts the next prize down from the shelf and sets it before you.',
+      blurb: 'The scholar lifts the next tome down from the shelf and sets it before you.',
       canAfford: true,
+      disabledReason: this.invRoomFor(next.id) < 1
+        ? 'Your bag cannot hold another copy of this tome. Equip a larger bag to collect it.' : '',
       acceptLabel: 'Collect',
       cancelLabel: 'Later',
       onAccept: () => {
-        // A club prize is a gift, not a wild find (`notWild` — the wild-finds
-        // ledger); a Book off the shelf is read on the spot and, like every
-        // Book read, counts. A full bag refuses here, and addToInv has
-        // already said so.
-        if (!this.addToInv(next.id, 1, false, { notWild: true })) return;
-        const r = Macros.scholarClaim(this.save, shelf);
-        if (!r.ok) return;
+        // Another open offer may already have collected this milestone.
+        const current = Macros.scholarNext(this.save, shelf);
+        if (!current?.ready || current.index !== next.index) return;
+        // Credit the milestone only after the complete prize fits; refresh
+        // and persist once, with both the tome and claim ledger updated.
+        if (!this.addToInv(next.id, 1, false, { notWild: true, deferRefresh: true })) return;
+        Macros.scholarClaim(this.save, shelf);
         this._finishInventoryChange();
-        const after = Macros.scholarNext(this.save, shelf);
-        // Both lines are measured against MAP_MSG_MAX in macro_poi.test.js.
-        const line = after ? `Collected! Next at ${after.booksAt} books` : 'The shelf is yours';
-        this.flashLoot(line, '#ffe066', 1, next.id);
+        this.flashLoot('Tome collected', '#ffe066', 1, next.id);
       },
     });
   }
@@ -13893,7 +13885,7 @@ class MapScene extends Phaser.Scene {
       if (n <= 0) return 0;
       if (!silent) {
         // THE BOOK CLUB's reading (Macros.booksRead): every Book read counts,
-        // found, bought or off the club's own shelf — the brake on buying is
+        // found or bought — the brake on buying is
         // the counter's price ladder (shops_math.js listPrice), not this.
         this.save.booksRead = (this.save.booksRead || 0) + n;
         this._pendingBookReads = (this._pendingBookReads || 0) + n;

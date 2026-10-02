@@ -17,6 +17,7 @@ test('chest themes: every authored path terminates and conserves probability', (
         for (const id of ChestThemes.selectableIds(r)) {
           const item = ITEM_BY_ID[id];
           assert.truthy(item && !item.shiny);
+          assert.falsy(isTome(id), `${theme}/${tier}/${depth}/${group} keeps tomes for the scholar`);
           if (item.cooked) assert.eq(r.group, 'food', 'cooked meals stay in the food pool');
           assert.truthy(!item.caveOnly || depth > 0);
           assert.truthy(item.baseTier <= tier, 'the Book is a T1 item; every group member is tier-gated');
@@ -185,4 +186,21 @@ test('chest themes: commerce holds its identity underground - coins and gems onl
   const w = ChestThemes.weights('commerce', 5, { depth: 1 });
   assert.eq(Object.keys(w).sort().join(), ['cash', 'caveGems', 'gems'].sort().join(),
     'no field supplies, no magic pools, no traps at depth');
+});
+
+
+test('chest themes: all authored pools exclude tomes and retain other unique relics', () => {
+  for (const group of Object.keys(ChestThemes.groups)) {
+    for (let tier = 1; tier <= 7; tier++) for (const depth of [0, 1]) {
+      const ids = ChestThemes.eligible(group, tier, { theme: 'culture', depth, chestTier: tier });
+      for (const id of ids) assert.falsy(isTome(id), `${group}/${tier}/${depth}: ${id}`);
+    }
+  }
+  const relics = ChestThemes.eligible('uniqueRelics', 7);
+  for (const item of ITEMS.filter(item => item.kind === 'unique_relic' && !isTome(item.id))) {
+    assert.includes(relics, item.id, item.id + ' remains treasure');
+  }
+  for (const kind of Object.values(ITEMS_BY_CLASS_TIER)) for (const ids of Object.values(kind)) {
+    for (const id of ids) assert.falsy(isTome(id), id + ' cannot enter generic treasure or barrel loot');
+  }
 });
