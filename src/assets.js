@@ -204,20 +204,19 @@ const ASSETS = {
   // THE MACRO STALLS (loot.js MACRO_KIND_BY_CLASS / macroFor): the in-building
   // POIs that are places you come back to. One 80×80 frame each, the same
   // frame and box as market_stand (art in x:[12,80) y:[0,70)), drawn by
-  // RENDER_SPEC.chest exactly like the stall. Generated placeholders (see
-  // assets/Objects/Generated/README.md, Batch 3). The key is the look's
+  // RENDER_SPEC.chest exactly like the stall. Simple silhouettes and a few
+  // large props keep each service readable at map scale. Each has its own
   // texKey (`macro_<kind>`), so the renderer and the dialog icon agree.
-  macro_inn:         { kind: 'spritesheet', path: 'assets/Objects/Generated/inn.png', frameWidth: 80, frameHeight: 80 },
-  macro_chapel:      { kind: 'spritesheet', path: 'assets/Objects/Generated/chapel.png', frameWidth: 80, frameHeight: 80 },
-  macro_apothecary:  { kind: 'spritesheet', path: 'assets/Objects/Generated/apothecary.png', frameWidth: 80, frameHeight: 80 },
-  macro_scriptorium: { kind: 'spritesheet', path: 'assets/Objects/Generated/scriptorium.png', frameWidth: 80, frameHeight: 80 },
-  macro_guildhall:   { kind: 'spritesheet', path: 'assets/Objects/Generated/guildhall.png', frameWidth: 80, frameHeight: 80 },
-  macro_curio:       { kind: 'spritesheet', path: 'assets/Objects/Generated/curio.png', frameWidth: 80, frameHeight: 80 },
-  macro_sundries:    { kind: 'spritesheet', path: 'assets/Objects/Generated/sundries.png', frameWidth: 80, frameHeight: 80 },
-  macro_training:    { kind: 'spritesheet', path: 'assets/Objects/Generated/training.png', frameWidth: 80, frameHeight: 80 },
-  // The scholar's booth wears the market stall's first frame for now (a
-  // generic booth, cropped from Approved/market_stand.png) until it has art.
-  macro_scholar:     { kind: 'spritesheet', path: 'assets/Objects/Generated/scholar.png', frameWidth: 80, frameHeight: 80 },
+  macro_inn:         { kind: 'spritesheet', path: 'assets/Objects/Generated/inn_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_chapel:      { kind: 'spritesheet', path: 'assets/Objects/Generated/chapel_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_apothecary:  { kind: 'spritesheet', path: 'assets/Objects/Generated/apothecary_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_scriptorium: { kind: 'spritesheet', path: 'assets/Objects/Generated/scriptorium_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_guildhall:   { kind: 'spritesheet', path: 'assets/Objects/Generated/guildhall_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_curio:       { kind: 'spritesheet', path: 'assets/Objects/Generated/curio_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_sundries:    { kind: 'spritesheet', path: 'assets/Objects/Generated/sundries_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_training:    { kind: 'spritesheet', path: 'assets/Objects/Generated/training_simple.png', frameWidth: 80, frameHeight: 80 },
+  // Scholar has a dedicated reading booth, distinct from the book shop.
+  macro_scholar:     { kind: 'spritesheet', path: 'assets/Objects/Generated/scholar_simple.png', frameWidth: 80, frameHeight: 80 },
   // Stone well — the in-game stand-in for OSM amenity=fountain points. Tapping
   // it refills the watering can like a water tile (see interact.js 'well'
   // branch).

@@ -90,3 +90,18 @@ castle flag remains live. Generated with the built-in image tool, using the
 user's CraftPix archer-tower reference for stone-and-timber construction;
 original designs, exported with nearest-neighbour sampling. Masters, prompts,
 and export recipe: `~/.artifacts/castle-towers/`.
+
+## Simplified macro booths
+
+The nine `*_simple.png` booth sprites replace Batch 3 in the runtime asset
+catalog. `macro_booths_simple.png` is their 3×3 sheet: inn, chapel,
+apothecary / scriptorium, guildhall, curio / sundries, training, scholar.
+Each uses broad roof colors and one large role symbol rather than tiny stock
+and wood texture. The scholar now has an open book and stacked books.
+
+Frames remain 80×80 with the art centered in x:12..80 and feet at y:70,
+matching the existing renderer's placement. Each design is sampled to at most
+34×35 pixels and doubled with nearest-neighbor sampling for readability at
+runtime scale 0.54. Original sprites are retained as reference. The built-in
+image generator produced the transparent sheet; `tools/art/export_macro_booths.py`
+exports its frames. Master and review gallery: `~/.artifacts/macro-booths/`.
