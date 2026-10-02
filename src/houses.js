@@ -199,7 +199,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   }
 
   // Restoration cost: stone (rockfruit — wild residential debris, gatherable
-  // bare-handed): 1 for the first rebuild, one more per three houses already
+  // bare-handed): 2 for the first rebuild, one more per three houses already
   // restored, capped at 20 (wreckRestoreQty in items.js). A whole price, so
   // the dialog's quote is the accept's charge. Themed shops and plain
   // residential alike rebuild from the same masonry.

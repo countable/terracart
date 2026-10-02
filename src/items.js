@@ -1794,11 +1794,12 @@ const RELIC_DEFS = {
 // Stone a wreck costs to restore, given how many the player has already
 // restored: WRECK_RESTORE_BASE_QTY for the first, one more per three
 // completed restorations, capped at WRECK_RESTORE_MAX_QTY:
-// 1, 1, 1, 2, 2, 2 … 20. A whole price, so nothing rolls:
+// 2, 2, 2, 3, 3, 3 … 20 (the first rebuild went from one stone to two,
+// owner's call, Oct 2026). A whole price, so nothing rolls:
 // the dialog's quote is the accept's charge by construction. `key` (the house
 // id) is accepted for the callers that pass it and no longer read. Lives with
 // the catalog so the Book tip can quote it (books.test re-derives it).
-const WRECK_RESTORE_BASE_QTY  = 1;
+const WRECK_RESTORE_BASE_QTY  = 2;
 const WRECK_RESTORE_HOUSES_PER_STEP = 3;
 const WRECK_RESTORE_MAX_QTY   = 20;
 function wreckRestoreExact(restoredCount) {
