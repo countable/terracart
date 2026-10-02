@@ -211,6 +211,9 @@ const ASSETS = {
   macro_curio:       { kind: 'spritesheet', path: 'assets/Objects/Generated/curio.png', frameWidth: 80, frameHeight: 80 },
   macro_sundries:    { kind: 'spritesheet', path: 'assets/Objects/Generated/sundries.png', frameWidth: 80, frameHeight: 80 },
   macro_training:    { kind: 'spritesheet', path: 'assets/Objects/Generated/training.png', frameWidth: 80, frameHeight: 80 },
+  // The scholar's booth wears the market stall's first frame for now (a
+  // generic booth, cropped from Approved/market_stand.png) until it has art.
+  macro_scholar:     { kind: 'spritesheet', path: 'assets/Objects/Generated/scholar.png', frameWidth: 80, frameHeight: 80 },
   // Stone well — the in-game stand-in for OSM amenity=fountain points. Tapping
   // it refills the watering can like a water tile (see interact.js 'well'
   // branch).

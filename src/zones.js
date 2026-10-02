@@ -169,7 +169,7 @@
   // the voice of the one who tends it. The splash `body` is the narrator's;
   // this column is the resident's. Tar has no residents (NPC.zoneFor).
   const ZONE_KINDS = {
-    quarry: { code: 5, R: 21, terrain: 'ROCK', story: 'zone_stones', title: 'Quarry',
+    quarry: { code: 5, R: 21, terrain: 'ROCK', story: 'zone_stones', art: 'zone_quarry', title: 'Quarry',
       body: 'Blue crystals glint among the broken stone. You step through the rubble for a closer look.',
       flash: 'A quarry of broken stone.',
       keeper: ['<em>Kicks a loose stone aside.</em>\n“The lanes here were paved once. The Breaking cracked the stone, and the blue crystals grew in the cracks. Mind your footing.”'] },

@@ -789,13 +789,17 @@ const MACRO_KIND_BY_CLASS = {
   place_of_worship: 'chapel',
   pharmacy: 'apothecary', dentist: 'apothecary', hospital: 'apothecary',
   library: 'scriptorium', college: 'scriptorium',
+  // A school is the SCHOLAR'S BOOTH — the book club (macros.js scholarShelf):
+  // its prizes are the school chest's own treasure list, so the underground
+  // mirror keeps handing out what the booth above hands out.
+  school: 'scholar',
   town_hall: 'guildhall', police: 'guildhall', fire_station: 'guildhall',
   museum: 'curio', theatre: 'curio', cinema: 'curio',
   shop: 'sundries',
   sports_centre: 'training', yoga: 'training',
 };
 // Every kind, in a fixed order (the balancing page, the tests).
-const MACRO_KINDS = ['inn', 'chapel', 'apothecary', 'scriptorium', 'guildhall', 'curio', 'sundries', 'training'];
+const MACRO_KINDS = ['inn', 'chapel', 'apothecary', 'scriptorium', 'guildhall', 'curio', 'sundries', 'training', 'scholar'];
 // { kind, texKey } for a chest that stands as a macro, else null. Cached on
 // the object like produceStandFor's answer (every input is fixed at spawn and
 // a rebuilt tile is a NEW object). A scripted chest (a starter crate, the
