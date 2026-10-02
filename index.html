@@ -956,15 +956,24 @@
       display: block; min-height: 0; aspect-ratio: 3 / 2; overflow: hidden;
       border-radius: 6px;
     }
+    /* The camera's slow push toward Tiamat, STORY_PAN_MS long (the script
+       sets the variable from the one constant the wake-up timing is derived
+       from). */
     #story.nightmare .art img {
       display: block; transform-origin: top left;
-      animation: nightmare-pan 8s ease-in-out both;
+      animation: nightmare-pan var(--nightmare-pan-ms, 8s) ease-in-out both;
     }
     @keyframes nightmare-pan {
       from { transform: translateY(0) scale(1); }
       to { transform: translateY(-6%) scale(1.6); }
     }
-    #story button.nightmare-wake { animation: wake-reveal var(--wake-fade-ms) ease-in both; }
+    /* "wake up" holds invisible (`both` keeps the from-frame through the
+       delay) until the push is nearly done, then comes up quickly and lands
+       with it. It is tappable from the first frame of the fade: a player who
+       sees it coming can skip the rest. */
+    #story button.nightmare-wake {
+      animation: wake-reveal var(--wake-fade-ms) ease-in var(--wake-delay-ms, 0ms) both;
+    }
     @keyframes wake-reveal { from { opacity: 0; } to { opacity: 1; } }
     @media (prefers-reduced-motion: reduce) {
       #story button.nightmare-wake, #story.nightmare .art img { animation: none; }
@@ -2383,7 +2392,16 @@
 
     // Opening dream, then the trailer and wrecked neighbourhood. The fresh-save
     // gate shows these before the safety/location CTA; replay uses that same gate.
-    const STORY_WAKE_FADE_MS = 4000;
+    //
+    // The dream's clock: the camera pushes in on the dragons for STORY_PAN_MS
+    // (the nightmare-pan animation reads it), and "wake up" fades in over the
+    // LAST STORY_WAKE_FADE_MS of that push, so it lands as the zoom does. The
+    // button is disabled only while it is still fully invisible (an unseen
+    // tap is an accident, not a skip); from the first frame of its fade a
+    // tap wakes the player — anyone who sees it coming can skip the rest.
+    const STORY_WAKE_FADE_MS = 1500;
+    const STORY_PAN_MS = 8000;
+    const STORY_WAKE_DELAY_MS = STORY_PAN_MS - STORY_WAKE_FADE_MS;
     const STORY_SLIDES = [
       {
         art: '<img src="assets/art/story_nightmare.webp" alt="Two enormous dragons clash above a burning city.">',
@@ -2424,8 +2442,10 @@
         const fadeWake = !!s.nightmare && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
         btn.classList.toggle('nightmare-wake', fadeWake);
         btn.style.setProperty('--wake-fade-ms', `${STORY_WAKE_FADE_MS}ms`);
+        btn.style.setProperty('--wake-delay-ms', `${STORY_WAKE_DELAY_MS}ms`);
+        artEl.style.setProperty('--nightmare-pan-ms', `${STORY_PAN_MS}ms`);
         btn.disabled = fadeWake;
-        if (fadeWake) wakeTimer = setTimeout(() => { btn.disabled = false; }, STORY_WAKE_FADE_MS);
+        if (fadeWake) wakeTimer = setTimeout(() => { btn.disabled = false; }, STORY_WAKE_DELAY_MS);
       };
       const advance = () => {
         if (btn.disabled) return;
