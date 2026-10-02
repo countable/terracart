@@ -60,3 +60,29 @@ def pack_connected(tile, connections, x_band, y_band):
             patch = tile.crop((sx0, sy0, sx1, sy1)).resize((dx1-dx0, dy1-dy0), Image.Resampling.NEAREST)
             frame.alpha_composite(patch, (dx0, dy0))
     return frame
+
+
+def pack_end(tile, connection, x_band, y_band):
+    """Keep the painted closed tip from half a straight source piece.
+
+    The connected edge has already been trimmed by the caller. Only that
+    edge reaches the frame boundary; the finished tip sits around its center.
+    """
+    x0, x1 = x_band
+    y0, y1 = y_band
+    if connection == 'E':
+        tile = tile.crop((0, 0, (tile.width + 1) // 2, tile.height))
+        bounds = (x0, y0, 24, y1)
+    elif connection == 'W':
+        tile = tile.crop((tile.width // 2, 0, tile.width, tile.height))
+        bounds = (0, y0, x1, y1)
+    elif connection == 'S':
+        tile = tile.crop((0, 0, tile.width, (tile.height + 1) // 2))
+        bounds = (x0, y0, x1, 24)
+    else:
+        tile = tile.crop((0, tile.height // 2, tile.width, tile.height))
+        bounds = (x0, 0, x1, y1)
+    left, top, right, bottom = bounds
+    frame = Image.new('RGBA', (24, 24))
+    frame.alpha_composite(tile.resize((right-left, bottom-top), Image.Resampling.NEAREST), (left, top))
+    return frame

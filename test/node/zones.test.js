@@ -310,7 +310,7 @@ test('zones: every nexus piece is off the road band and off anything already the
       assert.eq(o.zoneVariant, 'quarry-stronghold');
       assert.eq(o.zoneLayer, 'background');
       assert.truthy(Number.isInteger(o.variant));
-      assert.inRange(o.variant, 0, 10, 'wall uses an authored cardinal connection frame');
+      assert.inRange(o.variant, 0, 14, 'wall uses an authored cardinal connection frame');
       assert.falsy(INTERACTABLES[o.kind], 'decorative walls do not invent a reward or tap action');
       assert.truthy(WorldGen.isSpawnCell(on.grid, N, N, o._ix, o._iy,
         { spawnWhy: on.spawnWhy, roadMask: on.roadMask }, 'minor'), 'walls retain the normal scenery spawn gate');

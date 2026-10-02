@@ -3,7 +3,7 @@
 from pathlib import Path
 import json
 from PIL import Image
-from connected_art import pack_connected
+from connected_art import pack_connected, pack_end
 root=Path(__file__).resolve().parents[1]
 out=root/'assets/Objects/ZoneVariants'
 source=Image.open(out/'objects-24.png').convert('RGBA')
@@ -25,7 +25,8 @@ hedges=root/'assets/Objects/Hedges';im=Image.open(hedges/'source.png').convert('
 # arms still meet at the same centered tile edges.
 specs=[('horizontal','EW'),('vertical','NS'),('top_left','ES'),('top_right','WS'),
  ('bottom_left','NE'),('bottom_right','NW'),('t_north','NEW'),('t_east','NES'),
- ('t_south','ESW'),('t_west','NSW'),('cross','NESW')]
+ ('t_south','ESW'),('t_west','NSW'),('cross','NESW'),
+       ('end_north','S'),('end_east','W'),('end_south','N'),('end_west','E')]
 def main_bounds(tile):
  a=tile.getchannel('A');w,h=tile.size;todo={y*w+x for y in range(h) for x in range(w) if a.getpixel((x,y))};best=[]
  while todo:
@@ -40,17 +41,18 @@ def main_bounds(tile):
  return min(i%w for i in best),min(i//w for i in best),max(i%w for i in best)+1,max(i//w for i in best)+1
 atlas=Image.new('RGBA',(24*len(specs),24));frames=[]
 for n,(name,connections) in enumerate(specs):
- x,y=n%4,n//4;tile=im.crop((round(x*im.width/4),round(y*im.height/3),round((x+1)*im.width/4),round((y+1)*im.height/3)))
+ source_frame=n if n<11 else (1 if connections in ('N','S') else 0)
+ x,y=source_frame%4,source_frame//4;tile=im.crop((round(x*im.width/4),round(y*im.height/3),round((x+1)*im.width/4),round((y+1)*im.height/3)))
  tile.putalpha(tile.getchannel('A').point(lambda a:255 if a>=128 else 0));tile=tile.crop(main_bounds(tile))
  # Connected ends continue into a neighbour rather than terminating in the
  # rounded source cap. Trim only those ends before fitting common arm bands.
  dx,dy=round(tile.width*.12),round(tile.height*.12)
  tile=tile.crop((dx if 'W' in connections else 0,dy if 'N' in connections else 0,tile.width-dx if 'E' in connections else tile.width,tile.height-dy if 'S' in connections else tile.height))
- frame=pack_connected(tile,connections,(6,18),(4,20));atlas.paste(frame,(n*24,0));frame.save(hedges/(name+'.png'))
+ frame=(pack_end if len(connections)==1 else pack_connected)(tile,connections,(6,18),(4,20));atlas.paste(frame,(n*24,0));frame.save(hedges/(name+'.png'))
  frames.append({'frame':n,'name':name,'connections':connections})
 atlas.save(hedges/'hedges-24.png');(hedges/'manifest.json').write_text(json.dumps({'frameWidth':24,'frameHeight':24,'frames':frames},indent=2)+'\n')
 
-# A disconnected hedge/end uses the matching compact bush from source slot12.
+# An isolated hedge uses the matching compact bush from source slot12.
 tile=im.crop((round(3*im.width/4),round(2*im.height/3),im.width,im.height))
 tile.putalpha(tile.getchannel('A').point(lambda a:255 if a>=128 else 0));tile=tile.crop(main_bounds(tile));tile.thumbnail((22,22),Image.Resampling.NEAREST)
 frame=Image.new('RGBA',(24,24));frame.alpha_composite(tile,((24-tile.width)//2,(24-tile.height)//2));frame.save(hedges/'single.png')

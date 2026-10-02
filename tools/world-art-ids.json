@@ -183,6 +183,14 @@
     "zone_objects:7": 179,
     "look:zone_objects": 180,
     "bottle": 181,
-    "castle_tower_shapes": 182
+    "castle_tower_shapes": 182,
+    "stronghold_wall:11": 183,
+    "stronghold_wall:12": 184,
+    "stronghold_wall:13": 185,
+    "stronghold_wall:14": 186,
+    "zone_hedge:11": 187,
+    "zone_hedge:12": 188,
+    "zone_hedge:13": 189,
+    "zone_hedge:14": 190
   }
 }
