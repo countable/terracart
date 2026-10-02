@@ -38,7 +38,22 @@
     for (const owned of [true, false]) {
       const clipped = context('quarry-strip-mine', owned);
       clipped.field.anchors[0].clipped = true;
-      assert.eq(ZoneDressing.dress(clipped).guards.length, 0, 'incomplete source cannot duplicate finite inhabitants');
+      const inhabited = ZoneDressing.dress(clipped);
+      assert.gt(inhabited.guards.length, 0, 'clipped sites retain sparse splitting slimes');
+      for (const guard of inhabited.guards) {
+        assert.eq(guard.kind, 'split_slime');
+        assert.eq(guard.zoneLayer, 'background', 'clipped cells do not acquire a finite guard budget');
+      }
+      const movedAnchor = context('quarry-strip-mine', owned);
+      movedAnchor.field.anchors[0].clipped = true;
+      movedAnchor.field.anchors[0].gx += 100;
+      assert.eq(JSON.stringify(ZoneDressing.dress(movedAnchor).guards), JSON.stringify(inhabited.guards), 'anchor changes cannot reroll cell identities');
+      const excluded = context('quarry-strip-mine', owned);
+      excluded.field.anchors[0].clipped = true;
+      excluded.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.SENSITIVE);
+      const blockedClipped = ZoneDressing.dress(excluded);
+      assert.eq(blockedClipped.guards.length, 0, 'typed enemy gate applies to sparse inhabitants');
+      assert.gt(blockedClipped.objects.length, 0, 'typed enemy exclusion still allows stones');
     }
   });
   test('quarry runtime: abandoned finds are fixed-loot persistent crates, not daily POIs', () => {

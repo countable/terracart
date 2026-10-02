@@ -15,7 +15,7 @@
   }
   const owner = (f, x, y) => f?.anchors[f.coverage[y * N + x] - 1];
   const signature = f => Array.from(f.coverage, slot => {
-    const a = f.anchors[slot - 1]; return a ? `${a.kind}:${a.key}` : '-';
+    const a = f.anchors[slot - 1]; return a ? `${a.kind}:${a.key}:${a.variant}` : '-';
   }).join('|');
 
   test('quarry coverage: the 21 m buffer includes rounded ends, not a bounding rectangle', () => {

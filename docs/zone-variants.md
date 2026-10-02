@@ -49,8 +49,8 @@ Complete parking-lane footprints select one of four stable quarry stories:
 |---|---|---|
 | Destroyed crater | One broken elliptical rim and open bowl scaled to usable coverage; sparse hot vents, one clear approach | Up to two finite Crimson ore deposits |
 | Abandoned quarry | Repeating 3–8-cell rock-and-salvage patches | Two one-off Iron-pick crates; copper ore rocks use normal mining, timber uses the existing wood pickup |
-| Strip mine | Repeating 3–8-cell benches with open cuts | Sapphire candidates reduced to one quarter of the former preview rule; two splitting slimes in the open cuts; no extra finite reward |
-| Ruined stronghold | Whole 5 × 5 foundations with doors and gaps between buildings | Three finite buried X marks and three goblins per site, not per foundation |
+| Strip mine | Repeating 3–8-cell benches with open cuts | Up to two splitting slimes in complete sites; sparse cell-owned slimes on clipped edges; no extra finite reward |
+| Ruined stronghold | Whole 5 × 5 foundations with doors and gaps between buildings | Up to three finite buried X marks and three goblins per site, limited by fitting foundations |
 
 `QuarryLayout` fits complete modules around the shared spawn gate and occupied cells. Requested finite counts that cannot fit are reported as shortfalls. Mined rocks, opened salvage, dug treasures and defeated guards use the existing progress ledgers; none refill daily. Crater vents use the existing lava terrain, damage rate and enemy immunity, plus a small orange light. Home/live terrain adjustments remain per-player overlays, leaving generated identities intact.
 
@@ -173,6 +173,8 @@ The 5 × 5 plots share six continuous boundaries on each axis, at cell coordinat
 
 ## Silent Circle continuity
 
+The grave-like pillars are quiet markers: no per-pillar hoard or ghost roll. The site's finite find and authored encounter remain independent.
+
 Each 8 × 8 repeat contains seventeen small stone pillars, purportedly graves, forming touching radius-four circles with one grass-marked opening. Coverage is 26.56% grave pillars and 1.56% grass. The outdoor POI ring has seven immediately adjacent pillars and one open entrance to the south. The wider indoor/frontage arrangement uses the same pillars.
 
 ## POI-relative pattern origins
@@ -219,3 +221,5 @@ An 8 × 8 repeat holds a radius-three circle of sixteen touching rubble cells an
 ## Beach family
 
 Mystic Reef, Pirate Cove and Shellwater Strand are active runtime rows. Beach ownership, the Pirate Cove shipwreck and its whole-footprint fallback are implemented. Shoreline orientation is derived from buffered mapped water geometry at the canonical anchor; unresolved evidence retains deterministic fallback orientation and is reported in diagnostics. Zone placement explicitly reserves the existing daily tide pool, including seats whose daily roll is absent today, so a later tide does not collide with permanent dressing. The historical beach draft files retain design rationale, not an activation backlog.
+
+Pirate Cove retains naturally spawned birds without attracting extra crows. Incoming shore-bird landings keep space from other birds and occupied interactables. The map review shows only today's tide pickups, matching the game's daily filter; inactive reserved seats remain available to future tides.

@@ -372,12 +372,15 @@
       const clipped = queue.some(i => i % N === 0 || i % N === N - 1 || i < N || i >= N * (N - 1));
       const variants = root.ZoneVariants.forKind('quarry').map(v => v.id);
       const variantHash = (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663) ^ Math.imul(first, 83492791)) >>> 0;
-      const variant = clipped ? 'quarry-strip-mine' : variants[variantHash % variants.length];
+      const requestedVariant = variants[variantHash % variants.length];
+      const variant = clipped ? 'quarry-strip-mine'
+        : yield* root.QuarryLayout.variantForSteps(cells, { N, tx, ty }, variantHash % variants.length);
       const lx = (first % N + .5) * EXT / N, ly = (Math.floor(first / N) + .5) * EXT / N;
       const gx = tx * EXT + lx, gy = ty * EXT + ly;
       const row = Z.ZONE_KINDS.quarry;
       const anchor = { kind: 'quarry', variant, aspect: 'quarry', generated: 'parking_lanes',
-        clipped, layoutFallback: clipped ? 'incomplete_source_footprint' : undefined,
+        clipped, requestedVariant: clipped ? undefined : requestedVariant,
+        layoutFallback: clipped ? 'incomplete_source_footprint' : variant !== requestedVariant ? 'usable_footprint' : undefined,
         name: row.title, gx, gy, lx, ly, owned: !clipped, key: Z.anchorKey(gx, gy),
         code: row.code, R: QUARRY_BUFFER_M, upm: N * WG.CELL_M / EXT, q: 0 };
       result.anchors.push(anchor);

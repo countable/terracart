@@ -60,4 +60,35 @@
     for (const i of cells) assert.eq(a.background.get(i), b.background.get(i), 'surviving cells never reroll');
     assert.eq(a.finds.length, 0); assert.eq(a.guards.length, 0); assert.eq(a.hazards.length, 0);
   });
+  test('quarry selection: retain fitting roll and use actual layouts for narrow or tiny sites', () => {
+    const variants = ZoneVariants.forKind('quarry');
+    const start = variants.findIndex(v => v.id === 'quarry-stronghold');
+    const choose = cells => run(QuarryLayout.variantForSteps(cells, { N, tx: 4, ty: 5 }, start));
+    assert.eq(choose(rect(48, 48)), 'quarry-stronghold', 'adequate sites keep their existing roll');
+    const partial = rect(5, 5);
+    assert.eq(choose(partial), 'quarry-stronghold', 'one complete foundation preserves a small ruin');
+    assert.eq(plan('quarry-stronghold', partial).finds.length, 1, 'finite counts remain maxima, not a reason to erase the variant');
+    const narrow = rect(4, 24), selected = choose(narrow);
+    assert.truthy(selected !== 'quarry-stronghold', 'a long site without a whole foundation cannot be a fortress');
+    assert.truthy(selected !== 'quarry', 'narrow ground can still host a smaller authored layout');
+    const row = ZoneVariants.byId(selected), fitted = plan(selected, narrow);
+    if (row.finds.count) assert.gt(fitted.finds.length, 0);
+    if (row.guards.count) assert.gt(fitted.guards.length, 0);
+    assert.eq(choose(narrow.slice().reverse()), selected, 'source order cannot choose another variant');
+    assert.eq(choose(rect(2, 2)), 'quarry', 'small slivers keep ordinary quarry scatter');
+  });
+  test('quarry clipped inhabitants: one fixed seat per block, independent of fragments and anchor', () => {
+    const cells = rect(48, 48);
+    const make = list => run(QuarryLayout.planSteps({ a: { owned: false, clipped: true },
+      variant: ZoneVariants.byId('quarry-strip-mine'), cells: list }, { N, tx: 4, ty: 5 }));
+    const whole = make(cells), left = make(cells.filter(i => i % N < 24)), right = make(cells.filter(i => i % N >= 24));
+    const slimes = [...whole.background].filter(([, material]) => material === 'split_slime');
+    assert.gt(slimes.length, 0);
+    const spacing = ZoneVariantData.quarryLayouts.clippedInhabitantSpacingCells;
+    const blocks = slimes.map(([i]) => `${Math.floor((4 * N + i % N) / spacing)},${Math.floor((5 * N + Math.floor(i / N)) / spacing)}`);
+    assert.eq(new Set(blocks).size, slimes.length, 'no block grants two inhabitants');
+    for (const [i, material] of whole.background) assert.eq((i % N < 24 ? left : right).background.get(i), material);
+    assert.eq(whole.guards.length, 0, 'no finite budget is minted');
+    assert.eq(whole.finds.length, 0);
+  });
 })();

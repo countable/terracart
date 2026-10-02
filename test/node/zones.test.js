@@ -530,6 +530,38 @@ test('headstone: a hoard pays once and is spent in save.opened; the stone stays'
   }));
 });
 
+test('headstone: Silent Circle pillars remain quiet while other grave variants keep their rewards', () => {
+  const id = Array.from({length: 500}, (_, i) => `hs_quiet_${i}`).find(id => Z.headstoneHoards(id));
+  assert.truthy(id, 'exercise a stone that normally holds a hoard');
+  withRaise(raised => {
+    const realRandom = Math.random;
+    let rolls = 0;
+    Math.random = () => { rolls++; return 0; };
+    try {
+      for (const variant of ['silent_circle', 'ordered_graves']) {
+        const scene = makeScene(), loots = [];
+        scene.flashLoot = t => loots.push(t);
+        const save = { opened: [], inv: [], relics: {}, money: 0 };
+        const object = { kind:'headstone', id, x:3, y:4, zoneVariant:variant };
+        const ctx = makeCtx(scene, save);
+        runInteractable(ctx, object);
+        if (variant === 'silent_circle') {
+          runInteractable(ctx, object);
+          assert.eq(save.opened.length, 0, 'quiet pillars never spend a reward ledger entry');
+          assert.eq(loots.length, 0, 'quiet pillars pay no hoard');
+          assert.eq(raised.length, 0, 'quiet pillars never attempt to raise a ghost');
+          assert.eq(rolls, 0, 'quiet pillars do not roll for an encounter');
+          assert.falsy(ctx.dirty, 'quiet inspection leaves progress unchanged');
+        } else {
+          assert.includes(save.opened, id, 'ordinary variant keeps its hoard');
+          assert.eq(loots.length, 1);
+          assert.eq(raised.length, 1, 'ordinary variant keeps its ghost roll');
+        }
+      }
+    } finally { Math.random = realRandom; }
+  });
+});
+
 test('headstone: a tap raises a ghost one time in three, at any hour', () => {
   assert.eq(Z.HEADSTONE_GHOST_P, 1 / 3);
   withRaise((raised) => {

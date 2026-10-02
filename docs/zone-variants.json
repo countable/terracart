@@ -61,7 +61,7 @@
       "eligibility": "existing_fauna_spawn_gate_occupied_cells_and_pest_amnesty",
       "fallback": "retain_original_seat_if_no_eligible_destination",
       "guards": "independent_finite_guard_budget",
-      "assignedVariants": 8
+      "assignedVariants": 9
     },
     "poiAdjacency": "outdoor_POI_uses_immediate_neighbors; building_POI_retains_frontage_pattern",
     "patternCoordinates": {
@@ -4321,6 +4321,10 @@
     },
     {
       "id": "silent_circle",
+      "headstones": {
+        "hoards": false,
+        "ghostChance": 0
+      },
       "zone": "stones",
       "name": "Silent Circle",
       "weight": 1,
@@ -6553,9 +6557,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "attracts": {
-        "crow": 0.35
-      },
+      "attracts": {},
       "atmosphere": "Driftwood ribs and shell fragments surround one shipwreck shrine, with a reserved 3 \u00d7 3-cell footprint and one daily gift. A pirate grunt and gunner hold the separate gold-ore find. If the full wreck cannot fit on dry sand, the accessible small shrine remains."
     },
     {
@@ -7015,6 +7017,7 @@
       "max": 8
     },
     "foundationSizeCells": 5,
+    "clippedInhabitantSpacingCells": 16,
     "sapphireAbundanceMultiplier": 0.25
   }
 }

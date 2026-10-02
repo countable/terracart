@@ -424,8 +424,9 @@ function selectZone(id, focus) {
   const bg = z.background;
   const lines = [`<b>${esc(z.variant?.name || 'No variant')}</b> · ${esc(z.name || z.anchor.kind)}`,
     `${z.coverage} coverage cells · ${z.eligible} free eligible cells before placement`,
-    `Finds ${z.finds.join('/')} · guards ${z.guards.join('/')}`];
-  if (z.variant?.generated === 'parking_lanes') lines.push('Quarry formed from removed parking lanes · No daily POI or shrine. Finds and inhabitants follow the quarry variant; incomplete edge footprints use background only.');
+    `Finite finds ${z.finds.join('/')} · finite guards ${z.guards.join('/')}`,
+    `Live enemies: ${z.enemies.authored} authored · ${z.enemies.roaming} roaming · ${z.enemies.other} other`];
+  if (z.variant?.generated === 'parking_lanes') lines.push('Quarry formed from removed parking lanes · No daily POI or shrine. Complete sites have variant finds and guards; incomplete edges use background dressing and cell-owned inhabitants.');
   if (bg.planned != null) lines.push(`<b>Background: ${bg.placed || 0}/${bg.planned} slots placed</b><br>`
     + `${bg.occupied || 0} occupied by earlier spawns · ${bg.blocked || 0} refused by terrain/spawn rules · ${bg.reserved || 0} used by POI/find/connection layout`);
   lines.push(`Suppressed earlier placements: ${z.suppressed.ambient} general · ${z.suppressed.street} street`);
@@ -458,7 +459,9 @@ function updateZoneReview(world) {
   zoneReviews = ZoneReview.analyse(world, EDGE);
   zoneLabels.clearLayers();
   $('zonePick').replaceChildren(new Option('Select a park or zone…', ''));
-  for (const z of [...zoneReviews.values()].sort((a,b)=>zoneTitle(a).localeCompare(zoneTitle(b)))) {
+  // Keep zero-coverage records in diagnostics, but do not advertise a site
+  // that has no mapped ground in the loaded area.
+  for (const z of [...zoneReviews.values()].filter(z=>z.coverage>0).sort((a,b)=>zoneTitle(a).localeCompare(zoneTitle(b)))) {
     $('zonePick').appendChild(new Option(zoneTitle(z),z.id));
     const a=z.anchor, ll=toLL(a.gx*EDGE/4096,a.gy*EDGE/4096,EDGE);
     L.circleMarker(ll,{radius:4,color:'#fff',weight:1,fillColor:'#27d9c0',fillOpacity:1})
@@ -495,7 +498,10 @@ function draw(world, home) {
       add('coindrop', toLL(coin.x, coin.y, EDGE), label, coin.id, coin.x, coin.y,
         popupHTML(e, coin, label), ZoneReview.source(e, coin));
     }
-    for (const w of e.wildplants || []) add(classify(w), toLL(w.x, w.y, EDGE), w.crop, w.id, w.x, w.y, popupHTML(e, w, w.crop), ZoneReview.source(e,w));
+    for (const candidate of e.wildplants || []) {
+      const w = ZoneReview.livePlant(candidate);
+      if (w) add(classify(w), toLL(w.x, w.y, EDGE), w.crop, w.id, w.x, w.y, popupHTML(e, w, w.crop), ZoneReview.source(e,w));
+    }
     for (const t of e.traps || []) add('trap', toLL(t.x, t.y, EDGE), 'trap', t.id, t.x, t.y, popupHTML(e,t,'trap'), ZoneReview.source(e,t));
     // Buried X marks: the tile's own mark, spawned and rasterized marks in
     // extraTreasures, and parking-lot marks.

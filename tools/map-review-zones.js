@@ -13,6 +13,13 @@
     place: { label: 'POIs and buildings', color: '#ededed' },
   };
   const key = a => `${a.kind}:${a.gx},${a.gy}`;
+  // Tide generation reserves every possible seat; all review surfaces show
+  // the same daily subset as the game without mutating the stored pool.
+  function livePlant(o, day = utcDayKey()) {
+    if (!o.tide) return o;
+    const plant = { ...o };
+    return Scenic.tideLive(plant, day) ? plant : null;
+  }
   function capture(e) {
     e._reviewParkingIds = new Set((e.parkingTreasures || []).map(o => o.id));
     e._reviewBaseIds = new Set([...(e.objects || []), ...(e.wildplants || [])].map(o => o.id));
@@ -32,6 +39,7 @@
   }
   function analyse(world, edge) {
     const zones = new Map();
+    const day = utcDayKey();
     for (const e of world.tiles) {
       const f = e.zone, coverage = f && (f.coverage || f.idx);
       if (!coverage) continue;
@@ -42,7 +50,7 @@
       const local = f.anchors.map((a, i) => {
         const id = key(a);
         if (!zones.has(id)) zones.set(id, { id, anchor: a, variant: ZoneVariants.byId(a.variant), name: '', fragments: [],
-          coverage: 0, eligible: 0, suppressed: {ambient:0,street:0}, sources: {}, fauna: {}, layers: {}, finds: [0, 0], guards: [0, 0], background: {}, shortfalls: [] });
+          coverage: 0, eligible: 0, suppressed: {ambient:0,street:0}, sources: {}, fauna: {}, enemies: { authored: 0, roaming: 0, other: 0 }, layers: {}, finds: [0, 0], guards: [0, 0], background: {}, shortfalls: [] });
         const z = zones.get(id);
         z.name = z.name || a.name || names.get(`${a.lx},${a.ly}`) || '';
         z.fragments.push({ entry: e, slot: i + 1 });
@@ -61,7 +69,8 @@
       for (const slot of coverage) if (slot) local[slot - 1].coverage++;
       const seen = new Set();
       for (const [category, objects] of [['object', e.objects], ['plant', e.wildplants], ['trap', e.traps], ['creature', e.creatures], ['treasure', e.treasure ? [e.treasure] : []], ['treasure', e.extraTreasures], ['treasure', e.parkingTreasures]]) {
-        for (const o of objects || []) {
+        for (let o of objects || []) {
+          if (category === 'plant' && !(o = livePlant(o, day))) continue;
           const identity = `${category}:${o.id}`;
           if (seen.has(identity)) continue;
           seen.add(identity);
@@ -72,8 +81,12 @@
           const from = source(e, o, category);
           z.sources[from] = (z.sources[from] || 0) + 1;
           if (from === 'fauna') z.fauna[o.kind] = (z.fauna[o.kind] || 0) + 1;
+          if (category === 'creature' && Combat.isEnemy(o)) {
+            const group = o.habitat ? 'roaming' : o.zoneVariant ? 'authored' : 'other';
+            z.enemies[group]++;
+          }
           if (from === 'variant') {
-            const layer = o.zoneLayer || (category === 'creature' ? 'guard' : 'shrine');
+            const layer = o.zoneLayer || (category === 'creature' ? (o.habitat ? 'roaming' : 'guard') : 'shrine');
             z.layers[layer] = (z.layers[layer] || 0) + 1;
           }
         }
@@ -81,5 +94,5 @@
     }
     return zones;
   }
-  root.ZoneReview = { SOURCES, key, capture, source, analyse };
+  root.ZoneReview = { SOURCES, key, livePlant, capture, source, analyse };
 })(window);

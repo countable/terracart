@@ -116,8 +116,8 @@
     assert.eq(report.slept, 1);
   });
 
-  test('zone runtime: ten variants attract existing fauna across union coverage', () => {
-    assert.eq(ZoneVariants.rows.filter(r => Object.keys(r.attracts).length).length, 10);
+  test('zone runtime: nine variants attract existing fauna across union coverage', () => {
+    assert.eq(ZoneVariants.rows.filter(r => Object.keys(r.attracts).length).length, 9);
     const N = 32, grid = new Array(N * N).fill(WorldGen.T.GRASS);
     const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 10 });
     for (const row of ZoneVariants.rows) {
@@ -138,7 +138,7 @@
     }
   });
 
-  test('zone runtime: absent street attractors cannot strengthen a zone affinity', () => {
+  test('zone runtime: a neutral Pirate Cove cannot pull crows through absent street attractors', () => {
     const N = 64, grid = new Uint8Array(N * N).fill(WorldGen.T.GRASS);
     const scene = Object.assign(new SceneCreatures(), { tileEdgeM: N * 7 });
     const run = marks => {
@@ -147,10 +147,10 @@
         anchors:[{kind:'beach',variant:'pirate_cove'}]} };
       const moved = scene._seatFaunaOnFavouriteGround(entry,0,0,N,7,grid,
         {spawnWhy:new Uint16Array(N*N)},creatures,null,[],new Set());
-      return {moved:moved.crow, creatures};
+      return {moved:moved.crow || 0, creatures};
     };
     const baseline = run(null);
-    assert.inRange(baseline.moved,300,400,'Pirate Cove retains its configured 35% pull');
+    assert.eq(baseline.moved,0,'Pirate Cove leaves naturally spawned birds in place');
     for (const marks of [new Uint8Array(N*N), new Uint8Array(N*N).fill(StreetVariants.STREET_VARIANTS.find(r=>r.id==='hedgerow').code)]) {
       assert.eq(JSON.stringify(run(marks)),JSON.stringify(baseline),'empty or unrelated street marks cannot alter crow draws or seats');
     }

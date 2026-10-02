@@ -851,20 +851,22 @@ const INTERACTABLES = {
   // night's own ghost, creature_ai.js raiseGhostAt); Zones.headstoneHoards
   // (a hash of the stone's id — the same stones for every player) says which
   // hold a one-off find, rolled once from the low-tier chest table and spent
-  // in save.opened, the POI delta. The stone itself stays.
+  // in save.opened, the POI delta. The stone itself stays. A variant may
+  // keep its pillars quiet through its optional headstones policy.
   headstone: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
+      const policy = typeof ZoneVariants !== 'undefined' && ZoneVariants.byId(o.zoneVariant)?.headstones;
       let paid = false;
-      if (typeof Zones !== 'undefined' && Zones.headstoneHoards(o.id)
+      if (policy?.hoards !== false && typeof Zones !== 'undefined' && Zones.headstoneHoards(o.id)
           && !(save.opened || []).includes(o.id)) {
         save.opened = [...(save.opened || []), o.id];
         ctx.dirty = true;
         paid = true;
         grantTreasureRoll(scene, save, sx, sy, '\u{1FAA6}', Zones.HEADSTONE_CONTEXT, { tier: Zones.HEADSTONE_TIER });
       }
-      const ghostP = (typeof Zones !== 'undefined') ? Zones.HEADSTONE_GHOST_P : 0;
-      const ghost = Math.random() < ghostP && typeof raiseGhostAt === 'function'
+      const ghostP = policy?.ghostChance ?? ((typeof Zones !== 'undefined') ? Zones.HEADSTONE_GHOST_P : 0);
+      const ghost = ghostP > 0 && Math.random() < ghostP && typeof raiseGhostAt === 'function'
         && raiseGhostAt(scene, o.x, o.y, performance.now(), 'hs');
       if (ghost) scene.flash('The grave stirs\u2026', sx, sy - (paid ? 22 : 0));
       else if (!paid) scene.flash('Here lies someone. At rest.', sx, sy);

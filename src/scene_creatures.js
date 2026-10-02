@@ -1149,17 +1149,35 @@ class SceneCreatures {
       .sort((a, b) => (pOf(b) >= 1) - (pOf(a) >= 1));
     if (!species.length) return moved;
     const taken = new Set();
+    // Shore birds need room between landings and the beach's interactables.
+    // Failed attraction keeps the original animal; it never removes population.
+    const shoreMask = entry.scenic?.shore?.mask;
+    const birdLandings = new Set();
+    const reserveBirdLanding = idx => {
+      const x = idx % N, y = Math.floor(idx / N);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (x + dx >= 0 && x + dx < N && y + dy >= 0 && y + dy < N)
+          birdLandings.add((y + dy) * N + x + dx);
+      }
+    };
+    if (shoreMask) for (const c of creatures) if (c && (c.kind === 'crow' || c.kind === 'raven')) {
+      const x = Math.floor((c.x - tx * this.tileEdgeM) / cellM);
+      const y = Math.floor((c.y - ty * this.tileEdgeM) / cellM);
+      if (x >= 0 && x < N && y >= 0 && y < N && shoreMask[y * N + x]) reserveBirdLanding(y * N + x);
+    }
     for (const sp of species) {
       const p = pOf(sp);
       const pool = pools.get(sp) || [];
       if (!pool.length) continue;
       const rng = WorldGen.makeRng(fnv1a(`${sp}s|${tx},${ty}`));
       const pest = (sp === 'slime' || sp === 'crow' || sp === 'raven') ? pestFree : null;
+      const shoreBird = shoreMask && (sp === 'crow' || sp === 'raven');
       const spClass = creatureSpawnClass(sp);
       const seatOpts = spClass === 'fauna' || spClass === 'fastFauna'
         ? { ...spawnOpts, occupied: null } : spawnOpts;
       const free = (idx) => {
         if (taken.has(idx) || (blocked && blocked.has(idx))) return false;
+        if (shoreBird && shoreMask[idx] && (spawnOpts.occupied?.has(idx) || birdLandings.has(idx))) return false;
         const cx = idx % N, cy = (idx / N) | 0;
         if (pest && pest.has(cx, cy)) return false;
         // The seat rule for anything alive: its own spawn class.
@@ -1180,6 +1198,7 @@ class SceneCreatures {
         }
         if (at < 0) return false;
         taken.add(at);
+        if (shoreBird && shoreMask[at]) reserveBirdLanding(at);
         c.x = tx * this.tileEdgeM + ((at % N) + 0.5) * cellM;
         c.y = ty * this.tileEdgeM + (((at / N) | 0) + 0.5) * cellM;
         moved[sp] = (moved[sp] || 0) + 1;

@@ -21,7 +21,7 @@
       plan.background.set(i, material);
     };
     // A clipped lot has no trustworthy complete bounds. Cell-addressed scatter
-    // retain their identity as neighbouring source fragments arrive, with no
+    // retains its identity as neighbouring source fragments arrive, with no
     // finite site rewards or falsely inferred crater centre.
     if (s.a.clipped) {
       for (let n = 0; n < cells.length; n++) {
@@ -31,7 +31,16 @@
         // Crystal first, then stone, then the barrels (Oct 2026) past them —
         // the bands stone and crystal held before the barrels joined are the
         // same cells, so no bench moved when they did.
-        if (h < d.crystal) put(x, y, 'crystal');
+        // One fixed cell owns each sparse inhabitant. Never choose the first
+        // surviving cell in a clipped fragment: that would duplicate it when
+        // another piece of the same site arrives.
+        const spacing = settings.clippedInhabitantSpacingCells;
+        const gx = tx * N + x, gy = ty * N + y;
+        const bx = Math.floor(gx / spacing), by = Math.floor(gy / spacing);
+        const sx = bx * spacing + Math.floor(noise(bx, by, 157) * spacing);
+        const sy = by * spacing + Math.floor(noise(bx, by, 163) * spacing);
+        if (id === 'quarry-strip-mine' && gx === sx && gy === sy) put(x, y, s.variant.guards.kind);
+        else if (h < d.crystal) put(x, y, 'crystal');
         else if (h < d.crystal + d.stone) put(x, y, 'stone');
         else if (h < d.crystal + d.stone + (d.barrel || 0)) put(x, y, 'barrel');
       }
@@ -124,5 +133,21 @@
     }
     return plan;
   }
-  root.QuarryLayout = { planSteps };
+  // Try the original roll first, then the remaining compositions in stable
+  // order. Using the actual planner keeps shape eligibility in one place.
+  function* variantForSteps(cells, context, start) {
+    const variants = root.ZoneVariants.forKind('quarry');
+    for (let n = 0; n < variants.length; n++) {
+      const variant = variants[(start + n) % variants.length];
+      const plan = yield* planSteps({ a: { owned: true }, variant, cells }, context);
+      // Find/guard counts are site maxima. One intact foundation is still a
+      // stronghold; requiring all three would erase smaller ruins entirely.
+      if (plan.landmarks.length && (!variant.finds.count || plan.finds.length)
+          && (!variant.guards.count || plan.guards.length)) return variant.id;
+    }
+    // Slivers that cannot seat any authored composition retain useful stone
+    // scatter instead of claiming a fortress or a crater that isn't there.
+    return 'quarry';
+  }
+  root.QuarryLayout = { planSteps, variantForSteps };
 })(typeof window !== 'undefined' ? window : globalThis);

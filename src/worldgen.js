@@ -991,7 +991,7 @@
       // looks like the scrub it is. See T.WASTELAND.
       return T.WASTELAND;
     }
-    if (layer === 'park') return T.PARK;
+    if (layer === 'park') return PARK_FAMILY_LAYER_CLASS.has(tags.class) ? T.PARK : null;
     if (layer === 'building') return T.BUILDING;
     return null;
   }
@@ -3206,9 +3206,10 @@
   // typed FARM reason was dropped Sep 2026); deeper in is the hard
   // FARM_INTERIOR reason. Draws and foes never stand on a field at all.
   const FARM_TYPES = new Set([T.FARMLAND, T.ORCHARD]);
-  // Which `park`-layer polygons are PARK FAMILY for the house rules (the
-  // layer also carries designations — protected_area, historic, conservation
-  // — drawn over whole neighbourhoods). Landuse / landcover park, playground,
+  // Which `park`-layer polygons supply park ground, coverage and house-rule
+  // eligibility. The layer also carries protected_area, historic and
+  // conservation designations drawn over whole neighbourhoods.
+  // Landuse / landcover park, playground,
   // pitch, garden, beach … polygons always are.
   const PARK_FAMILY_LAYER_CLASS = new Set(['park', 'nature_reserve', 'national_park']);
   // Named park labels can live only in the `park` layer (Wilson Creek
@@ -4173,6 +4174,10 @@
             } else if (t != null) {
               yield* paintPolygonSteps(grid, w, h, f.geom, t, mvtToCell);
             }
+
+            // A designation overlay supplies no ground or procedural flora.
+            // Its independent quiet/restricted masks still run below.
+            if (name === 'park' && t == null) continue;
 
             // Per-polygon debris/decor share one centroid-derived key
             // so a given polygon looks the same across reloads.
