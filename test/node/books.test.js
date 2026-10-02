@@ -252,9 +252,11 @@ test('mechanics: enemy health uses a bar', () => {
   assert.truthy(/_drawEnemyHealthBar/.test(SCENE_SRC), 'app.js draws a bar');
 });
 
-test('mechanics: sword, bow and staff occupy weapon slots', () => {
-  assert.truthy(Gear.WEAPON_SLOTS.includes('sword') && Gear.WEAPON_SLOTS.length === 3,
-    'sword / bow / staff are the three weapon slots');
+test('mechanics: main and alternate weapons occupy weapon slots', () => {
+  for (const slot of ['sword', 'bow', 'staff', 'dagger', 'spear', 'musket']) {
+    assert.truthy(Gear.WEAPON_SLOTS.includes(slot), `${slot} is a weapon slot`);
+  }
+  assert.eq(Gear.WEAPON_SLOTS.length, 6);
 });
 
 test('descriptions: the net and the rod speed a job, they do not unlock one', () => {
@@ -386,7 +388,7 @@ test('mechanics: vendors never offer unique jewelry as gear', () => {
 });
 
 test('mechanics: melee reaches adjacent foes', () => {
-  assert.eq(Combat.MELEE_REACH_CELLS, 1, 'a sword still reaches adjacent foes');
+  assert.eq(Combat.MELEE_REACH_CELLS, 0.6, 'a sword reaches a foe at arm\'s length');
   assert.truthy(/too close/.test(RELIC_DEFS.sword.blurb),
     `the sword blurb says how far it swings: ${RELIC_DEFS.sword.blurb}`);
   assert.falsy(/in reach/.test(RELIC_DEFS.sword.blurb),

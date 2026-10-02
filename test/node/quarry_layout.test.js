@@ -3,18 +3,15 @@
   const run = it => { let r; do { r = it.next(); } while (!r.done); return r.value; };
   const rect = (w, h) => Array.from({ length: w * h }, (_, i) => (Math.floor(i / w) + 4) * N + i % w + 4);
   const plan = (id, cells, owned = true) => run(QuarryLayout.planSteps({ a: { owned }, variant: ZoneVariants.byId(id), cells }, { N, tx: 4, ty: 5 }));
-  test('stronghold joins: cardinal neighbours select straights, corners, T pieces and cross', () => {
+  test('stronghold joins: cardinal neighbours select straights, corners, T pieces, cross and end caps', () => {
     const i = 10 * N + 10, offsets = { N: -N, E: 1, S: N, W: -1 };
-    const connections = ['EW','NS','ES','WS','NE','NW','NEW','NES','ESW','NSW','NESW'];
+    const connections = ['EW','NS','ES','WS','NE','NW','NEW','NES','ESW','NSW','NESW','S','W','N','E'];
     for (const [frame, directions] of connections.entries()) {
       const cells = new Set([i, ...[...directions].map(d => i + offsets[d])]);
       assert.eq(QuarryLayout.wallFrameAt(cells, i, N), frame, directions);
     }
-    for (const directions of ['', 'N', 'E', 'S', 'W']) {
-      const cells = new Set([i, ...[...directions].map(d => i + offsets[d])]);
-      assert.eq(QuarryLayout.wallFrameAt(cells, i, N), null, 'unfinished ends remain rubble');
-    }
-    assert.eq(QuarryLayout.wallFrameAt(new Set([N - 1, N, 2 * N - 1]), N - 1, N), null,
+    assert.eq(QuarryLayout.wallFrameAt(new Set([i]), i, N), null, 'isolated remnants remain rubble');
+    assert.eq(QuarryLayout.wallFrameAt(new Set([N - 1, N, 2 * N - 1]), N - 1, N), 11,
       'a tile edge never wraps its east connection onto the next row');
   });
   test('stronghold joins: open doors and clipped footprints determine actual piece orientation', () => {
@@ -35,8 +32,11 @@
     assert.eq(whole.wallFrames.get(4*N+8), 3, 'top-right joins west and south');
     assert.eq(whole.wallFrames.get(8*N+4), 4, 'bottom-left joins north and east');
     assert.eq(whole.wallFrames.get(8*N+8), 5, 'bottom-right joins north and west');
-    assert.eq(whole.background.get(8*N+5), 'stone', 'rubble terminates beside the open doorway');
-    assert.eq(whole.background.get(8*N+7), 'stone', 'both doorway ends remain open');
+    assert.eq(whole.background.get(8*N+5), 'stronghold_wall');
+    assert.eq(whole.wallFrames.get(8*N+5), 12, 'east-facing tip caps the left side of the doorway');
+    assert.eq(whole.background.get(8*N+7), 'stronghold_wall');
+    assert.eq(whole.wallFrames.get(8*N+7), 14, 'west-facing tip caps the right side of the doorway');
+    assert.falsy(whole.background.has(8*N+6), 'the doorway stays open between its capped walls');
   });
   test('quarry layout: crater follows the footprint and reserves an entrance', () => {
     const small = plan('quarry-crater', rect(12, 8)), large = plan('quarry-crater', rect(36, 28));

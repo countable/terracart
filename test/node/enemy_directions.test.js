@@ -59,14 +59,32 @@
     SL.updateCreatureFacing(c, -2, -5, 1000); assert.eq(c._facing, 'up');
     const until = c._moveUntil;
     SL.updateCreatureFacing(c, 0, 0, 2000); assert.eq(c._facing, 'up'); assert.eq(c._moveUntil, until);
-    SL.faceCreature(c, 5, 0); assert.eq(c._facing, 'right'); assert.eq(c._moveUntil, until, 'aiming does not walk');
+    SL.faceCreature(c, 5, 0); assert.eq(c._facePending, 'right'); assert.eq(c._moveUntil, until, 'aiming does not walk');
   });
-  test('enemy direction: the drawn facing holds a second before turning, and motion stamps still land', () => {
+  test('enemy direction: a new facing shows only once wanted for a second, and motion stamps still land', () => {
+    const H = SL.CREATURE_FACE_HOLD_MS;
     const c = { kind: 'zombie' };
-    SL.updateCreatureFacing(c, 5, 0, 10000); assert.eq(c._facing, 'right');
+    SL.updateCreatureFacing(c, 5, 0, 10000); assert.eq(c._facing, 'right', 'the first facing is immediate');
     SL.updateCreatureFacing(c, 0, 5, 10400); assert.eq(c._facing, 'right', 'held');
     assert.eq(c._moveUntil, 10400 + SL.CREATURE_MOVE_GRACE_MS, 'movement animation unaffected');
-    SL.updateCreatureFacing(c, 0, 5, 10000 + SL.CREATURE_FACE_HOLD_MS); assert.eq(c._facing, 'down');
-    SL.updateCreatureFacing(c, 0, -5, 10000 + SL.CREATURE_FACE_HOLD_MS + 50); assert.eq(c._facing, 'down', 'held again');
+    SL.updateCreatureFacing(c, 0, 5, 10400 + H - 1); assert.eq(c._facing, 'right', 'not yet a full second');
+    SL.updateCreatureFacing(c, 0, 5, 10400 + H); assert.eq(c._facing, 'down');
+  });
+  test('enemy direction: dithering between two facings never turns the drawn body', () => {
+    const c = { kind: 'zombie' };
+    SL.updateCreatureFacing(c, 5, 0, 0);
+    // A chase that wants down / right / down every 100 ms for 5 s.
+    for (let t = 100; t <= 5000; t += 100) {
+      SL.updateCreatureFacing(c, (t / 100) % 2 ? 0 : 5, (t / 100) % 2 ? 5 : 0, t);
+      assert.eq(c._facing, 'right', 'held at ' + t);
+    }
+  });
+  test('enemy direction: motion just past the diagonal keeps the facing it has', () => {
+    const c = { kind: 'zombie' };
+    SL.updateCreatureFacing(c, 5, 0, 0);
+    const a = Math.PI / 4 + 0.2;   // past the diagonal, inside the hysteresis
+    for (let t = 16; t <= 3000; t += 16) SL.updateCreatureFacing(c, Math.cos(a), Math.sin(a), t);
+    assert.eq(c._facing, 'right');
+    assert.eq(c._facePendingT, null, 'not even pending');
   });
 })();

@@ -574,7 +574,7 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
 
 test('stronghold walls keep their tile frame alignment instead of centering corner art', () => {
   const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
-  for (let variant=0;variant<11;variant++) {
+  for (let variant=0;variant<15;variant++) {
     const p=art.resolveAppearance({kind:'stronghold_wall',variant});
     assert.eq(p.texKey,'stronghold_wall');
     assert.eq(p.frameVal,variant);

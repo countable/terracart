@@ -106,7 +106,7 @@
   const MONSTERS = Object.fromEntries(roster.ROWS.map(row => [row.id, combatRow(row)]));
   // Existing zone-only enemy: preserve tar-yard and burned-row encounters.
   // These are final stats; it stays outside the ordinary cave and quest pools.
-  MONSTERS.fire_slime = { name: 'Fire Slime', hp: 20, armor: 0, tier: 2, range: 1, dmg: 4, speed: 0.9,
+  MONSTERS.fire_slime = { name: 'Fire Slime', hp: 20, armor: 0, tier: 2, range: 0.6, dmg: 4, speed: 0.9,
     minDepth: 0, weight: 1, spawn: 'zone', sight: SLIME_SIGHT_CELLS, board: false, eliteEligible: true };
 
   // The registered table — the shipping MONSTERS by default. Kept as a
@@ -548,12 +548,15 @@
 
   // ── Where fauna may not step ─────────────────────────────────────────────
   // Terrain cell types fauna may NEVER move onto (spec §fauna: "no fauna may
-  // move onto a building footing, or road"). WATER (3) + all building tiers
-  // (9/11/12) + all road tiers (ROAD 7 / ROAD_LG 13 / ROAD_MD 14) + CAVE_WALL
-  // (25). PATHS (8) are pedestrian / public and stay passable. Every wander,
-  // flee, stalk and spawn seat in app.js asks this one predicate — it is about
-  // the creatures, so it lives with them.
-  const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14, 25 /* CAVE_WALL */]);
+  // move onto a building footing, or a major road"). WATER (3) + all building
+  // tiers (9/11/12) + the MAJOR road tiers (ROAD_LG 13 / ROAD_MD 14) +
+  // CAVE_WALL (25). A minor street (ROAD 7) and PATHS (8) are crossable
+  // (owner, Oct 2026: a wall at every side street boxed creatures into one
+  // block); the major band itself is also refused by its roadClass bit (THE
+  // KERB, creature_ai.js), and nothing SPAWNS on any road (isSpawnCell).
+  // Every wander, flee, stalk and spawn seat in app.js asks this one
+  // predicate — it is about the creatures, so it lives with them.
+  const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 13, 14, 25 /* CAVE_WALL */]);
   function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 
   const FLOWER_STATUS_MS = 60 * 1000;
@@ -716,10 +719,10 @@
   // (1.67 dps) nearly quadruple, a Frost blade (50 dps) barely notices.
   // Pets, turrets and monsters never pass a class.
   const ENFORCER_MELEE_DPS = 5;
-  function meleeDps(relics, playerClass) {
-    const slot = relics && relics.sword ? 'sword' : null;
+  function meleeDps(relics, playerClass, weapon = 'sword') {
+    const slot = MELEE_WEAPONS[weapon] && relics?.[weapon] ? weapon : null;
     const bonus = playerClass === 'enforcer' ? ENFORCER_MELEE_DPS : 0;
-    return dpsForDurationMs(toolDurationMs(relics, slot)) + bonus;
+    return (dpsForDurationMs(toolDurationMs(relics, slot)) + bonus) / (MELEE_WEAPONS[weapon]?.intervalMul || 1);
   }
 
   // ── Melee cadence ────────────────────────────────────────────────────────
@@ -737,9 +740,21 @@
   // file still holds at every tier. Slow it to change how a fight READS;
   // to change how LONG one takes, move TOOL_DURATION_MS or the kind's `hp`.
   const MELEE_INTERVAL_MS = 1000;
+  // Off-weapons keep the matching sword's per-hit damage. Spear trades
+  // half its attack speed for twice the reach.
+  const MELEE_WEAPONS = {
+    sword: { reachMul: 1, intervalMul: 1 },
+    // A dagger stays inside the gap a closing foe stops at (creature_ai.js
+    // rosterEnemyMove: 0.35 cell), or it could never land a blow.
+    dagger: { reachMul: 0.75, intervalMul: 1 },
+    spear: { reachMul: 2, intervalMul: 2 },
+  };
+  function meleeIntervalMs(slot) { return MELEE_INTERVAL_MS * (MELEE_WEAPONS[slot]?.intervalMul || 1); }
 
   // ── How far a melee attacker reaches ───────────────────────────────────
-  // ONE cell, for the player and for a melee monster alike — and ONE number,
+  // 0.6 CELL (owner, Oct 2026 — the foe-spacing gap: a crowd spread round the
+  // player bites from arm's length, not from a cell off), for the player and
+  // for a melee monster alike — and ONE number,
   // read by both sides, for the roadOverlayWidthM reason: a reach the player
   // has and the thing biting them does not is a difference nobody can see on
   // the screen and everybody feels in the fight.
@@ -755,14 +770,17 @@
   //
   // The RANGED weapons are untouched: a bow or a staff is the thing you buy
   // to hit what you cannot punch (SHOT[].rangeCells).
-  const MELEE_REACH_CELLS = 1;
+  // The kinds whose roster row reaches further are named there: the spear
+  // goblin's pole, a swooping flier's pass, a big body's arms (brutes, orc,
+  // minotaur, the giants, the crab) — enemy_roster.js `range`.
+  const MELEE_REACH_CELLS = 0.6;
   // The reach in metres, and the test both sides run. Centre-to-centre, which
   // is what the monster's own attack gate measures (scene_creatures.js wanderCreatures
   // compares the creature's position against the player's FEET), so the two
   // are symmetric by construction rather than by two similar-looking circles.
-  function meleeReachM(cellM) { return MELEE_REACH_CELLS * cellM; }
-  function inMeleeReach(ax, ay, bx, by, cellM) {
-    const r = meleeReachM(cellM);
+  function meleeReachM(cellM, slot) { return MELEE_REACH_CELLS * cellM * (MELEE_WEAPONS[slot]?.reachMul || 1); }
+  function inMeleeReach(ax, ay, bx, by, cellM, slot) {
+    const r = meleeReachM(cellM, slot);
     const dx = ax - bx, dy = ay - by;
     return dx * dx + dy * dy <= r * r;
   }
@@ -817,7 +835,7 @@
   const TRAINING_PERM_MAX = 5;
   const TRAINING_BUFF_MS = 24 * 60 * 60 * 1000;
   // Which discipline a ranged weapon slot's hits train.
-  const TRAINING_SLOT_KIND = { bow: 'ranged', staff: 'magic' };
+  const TRAINING_SLOT_KIND = { bow: 'ranged', musket: 'ranged', staff: 'magic' };
   function trainingLevel(save, kind) {
     const raw = save && save.training && save.training[kind];
     return clamp(Math.floor(Number(raw) || 0), 0, TRAINING_PERM_MAX);
@@ -845,8 +863,8 @@
 
 
 
-  function meleeSwingDamage(relics, mul = 1, playerClass) {
-    return meleeDps(relics, playerClass) * (mul || 1) * MELEE_INTERVAL_MS / 1000;
+  function meleeSwingDamage(relics, mul = 1, playerClass, slot = 'sword') {
+    return meleeDps(relics, playerClass, slot) * (mul || 1) * meleeIntervalMs(slot) / 1000;
   }
 
   // The BASE fire beat — one shot every two seconds, and what the bow keeps.
@@ -863,7 +881,7 @@
   // weapon quietly loses half its damage.
   const FIRE_INTERVAL_MS = 2000;
   const STAFF_BEAT_MUL = 2.5;   // a bolt every 5 s
-  const RANGED_SLOTS = ['bow', 'staff'];
+  const RANGED_SLOTS = ['bow', 'staff', 'musket'];
   // Per-slot shot geometry. (A `phaseMs` once staggered the staff half a beat
   // off the bow; only one ranged slot can ever be the active weapon now, so it
   // was 0 for both and the field is gone — app.js arms a newly active weapon
@@ -924,13 +942,17 @@
     }
     return false;
   }
+  const BOW_SHOT = { speedCps: 4.5, rangeCells: 8, rangeFromReach: RANGED_TRIGGER_PAST_REACH,
+    color: 0xffe6a8, lenPx: 9, widthPx: 2, aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS,
+    ammo: { id: 'wood', shots: 20 } };
   const SHOT = {
     // `ammo`: the bow burns one WOOD per `shots` arrows, and will not fire
     // with none in the bag (app.js _combatTick). Energy is the staff's price;
     // wood is the bow's.
-    bow:   { speedCps: 4.5, rangeCells: 8, rangeFromReach: RANGED_TRIGGER_PAST_REACH, color: 0xffe6a8, lenPx: 9, widthPx: 2,
-             aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS,
-             ammo: { id: 'wood', shots: 20 } },
+    bow: BOW_SHOT,
+    musket: { ...BOW_SHOT,
+              color: 0x555961, dotPx: 3, projectile: 'musket_ball', damageTier: 4,
+              ammo: { id: 'coin', shots: 1, currency: true } },
     staff: { speedCps: 1.0, rangeCells: 2.5, rangeFromReach: 0,
              color: 0x9ad6ff, dotPx: 3,
              pierce: true, energyCost: 1, aim: 'nearest',
@@ -1037,8 +1059,9 @@
   const HUNTER_BOW_MUL = 1.5;
   function shotDamage(relics, slot, playerClass) {
     if (!relics || !relics[slot]) return 0;
-    const classMul = (slot === 'bow' && playerClass === 'hunter') ? HUNTER_BOW_MUL : 1;
-    const perSecond = dpsForDurationMs(toolDurationMs(relics, slot)) * (SHOT_DMG_MUL[slot] || 1) * classMul;
+    const classMul = ((slot === 'bow' || slot === 'musket') && playerClass === 'hunter') ? HUNTER_BOW_MUL : 1;
+    const damageRelics = SHOT[slot]?.damageTier ? { [slot]: { tier: SHOT[slot].damageTier } } : relics;
+    const perSecond = dpsForDurationMs(toolDurationMs(damageRelics, slot)) * (SHOT_DMG_MUL[slot] || 1) * classMul;
     return Math.max(1, Math.round(perSecond * fireIntervalMs(slot) / 1000));
   }
 
@@ -1087,6 +1110,7 @@
     const spec = SHOT[slot];
     return {
       slot, x, y,
+      ...(spec.projectile ? { projectile: spec.projectile } : {}),
       vx: dir.x / mag, vy: dir.y / mag,
       speedMps: spec.speedCps * cellM,
       rangeM: (rangeCellsOverride ?? rangeCellsFor(slot, reachCells)) * cellM,
@@ -1468,7 +1492,7 @@
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, incomingProjectileDamage, projectileReduction, playerDowned,
     theftKind, THEFT_COINS, theftAmount, theftFood, theftDay, theftSated, incomingTheft, bankTheft,
-    MELEE_REACH_CELLS, meleeReachM, inMeleeReach,
+    MELEE_REACH_CELLS, MELEE_WEAPONS, meleeIntervalMs, meleeReachM, inMeleeReach,
     FIRE_INTERVAL_MS, STAFF_BEAT_MUL, fireIntervalMs,
     RANGED_SLOTS, RANGED_TRIGGER_PAST_REACH, rangedTriggerM, anyEnemyWithin, SHOT, SHOT_DMG_MUL, HIT_RADIUS_CELLS, rangeCellsFor,
     OFF_GPS_ATTACK_MUL, OFF_GPS_MIN_CELLS,

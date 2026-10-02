@@ -119,7 +119,7 @@ const CROP_SPRITE = {
   starflower:  { sheet: 'props', custom: true, frame: 102, scale: 1.13 },  // glowing purple star-flower (row 4, col 14)
   // ── Street variants (src/street_variants.js) — both CHOPPED like a shrub
   // (WILDPLANT_RULES below), never scenery. The barricade road's barricade
-  // is the generated 16px piece; clipped hedges still harvest as shrubs.
+  // uses approved 24px art; clipped hedges still harvest as shrubs.
   barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 4 / 3 },
   giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 0, scale: 4 / 3, seat: true },
   // ── Influence zones (src/zones.js) — the tar yard's FLINT: a ground
@@ -1820,6 +1820,15 @@ const RELIC_DEFS = {
   // values and the Bow lowers buy prices; the Staff bends no prices at all.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
              effectKey: 'sellPrice',     blurb: 'Its edge answers a foe that comes too close.' },
+  dagger:  { slot: 'dagger', name: 'Dagger', icon: 'Dagger.png', baseCost: 80,
+             tiers: [1, 3, 5], chestOnly: true,
+             effectKey: 'melee', blurb: 'Its short blade waits until a foe is close.' },
+  spear:   { slot: 'spear', name: 'Spear', icon: 'Spear.png', baseCost: 80,
+             tiers: [1, 3, 5], chestOnly: true,
+             effectKey: 'melee', blurb: 'Its long point holds a foe at a distance.' },
+  musket:  { slot: 'musket', name: 'Musket', icon: 'Musket.png', baseCost: 60,
+             tiers: [1, 3, 5], chestOnly: true,
+             effectKey: 'shot', blurb: 'A coin drops into its barrel before each shot.' },
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'Its drawn string follows the compass needle.' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
@@ -1931,6 +1940,9 @@ for (const item of ITEMS.filter(i => i.kind === 'unique_relic')) {
 function gearAssetPath(kind, slot, tier) {
   const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
   if (!def || !t) return null;
+  if (def.tiers) {
+    return def.tiers.includes(tier) ? `assets/Icons/AltWeapons/${tier}/${def.icon}` : null;
+  }
   // Bags live under Extras; tools and armor are per-tier.
   if (kind === 'relic' && slot === 'bags') {
     return `assets/Icons/RPG icons/Extras/${def.icon}`;
@@ -1952,7 +1964,8 @@ function gearAssetPath(kind, slot, tier) {
 function gearName(kind, slot, tier) {
   const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
   if (!def || !t) return slot;
-  return `${t.name} ${def.name}`;
+  const material = def.tiers ? ({ 1: 'Rusty', 3: 'Fine', 5: 'Magic' })[tier] : t.name;
+  return material ? `${material} ${def.name}` : def.name;
 }
 // ARMOR SOAK — what one worn piece takes off an incoming hit: ITS TIER. A Wood
 // helmet is −1, a Frost one is −7, and the four slots sum.

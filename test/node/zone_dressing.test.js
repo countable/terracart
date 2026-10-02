@@ -358,7 +358,7 @@
       [[-1, 1], 0], [[-N, N], 1], [[1, N], 2], [[-1, N], 3],
       [[-N, 1], 4], [[-N, -1], 5], [[-N, 1, -1], 6],
       [[-N, 1, N], 7], [[1, N, -1], 8], [[-N, N, -1], 9],
-      [[-N, 1, N, -1], 10], [[], null], [[1], null],
+      [[-N, 1, N, -1], 10], [[N], 11], [[-1], 12], [[-N], 13], [[1], 14], [[], null],
     ];
     const plant = i => ({ crop: 'shrub', zoneVariant: 'formal_garden', _ix: i % N, _iy: Math.floor(i / N) });
     for (const [offsets, frame] of cases) {
@@ -372,7 +372,8 @@
     }
     const edge = [plant(N - 1), plant(N), plant(N - 2)];
     ZoneDressing.stampHedges(edge, N);
-    assert.eq(edge[0]._hedgeFrame, undefined, 'adjacent array rows cannot make a straight hedge');
+    assert.eq(edge[0]._hedgeFrame, 12, 'the west connection ends at an east cap without wrapping rows');
+    assert.eq(edge[1]._plantArt, 'zone_hedge_single', 'the next row remains an isolated shrub');
   });
   test('zone art: contextual stones and formal hedges keep their harvest identity', () => {
     const masonry = ZoneDressing.dress(context('broken_masonry')).wildplants.filter(o => o.crop === 'rockfruit');

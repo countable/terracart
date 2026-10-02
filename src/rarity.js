@@ -394,7 +394,10 @@
   function reconcileRelicOffer(rolled, save, rng, cap = 7) {
     const kind = rolled.kind || 'relic';
     const slot = rolled.slot;
-    let t = Math.min(rolled.tier, cap);
+    const tiers = (kind === 'relic' && _RELIC_DEFS[slot]?.tiers) || GEAR_ROLL_TIERS;
+    const allowed = tiers.filter(t => t <= cap);
+    cap = allowed[allowed.length - 1];
+    let t = allowed.filter(t => t <= rolled.tier).pop() || allowed[0];
     const ownedTable = kind === 'armor' ? save?.armor : save?.relics;
     const owned = ownedTable?.[slot]?.tier ?? 0;
     if (t > owned) return { kind, slot, tier: t, jackpot: rolled.jackpot || 0 };
@@ -420,7 +423,7 @@
           jackpot: rolled.jackpot || 0,
         };
       }
-      t += 1;
+      t = allowed.find(tier => tier > t);
     }
     // Climbed all the way without cashing out — hand over the capped gear.
     return { kind, slot, tier: cap, jackpot: rolled.jackpot || 0 };
@@ -637,6 +640,14 @@
     }
     const meta = { theme, group, resolvedGroup: resolved.group, fallback: resolved.fallback,
       rolledTier: tier, jackpot: jackpotApplied, consolation: 0 };
+    // T2 supplies can introduce an alternate weapon, but never
+    // replace an owned weapon or turn a starter roll into a higher tier.
+    const supply = ChestThemes.groups[resolved.group];
+    const starterSlots = chestTier === 2 ? (supply.starterWeapons || [])
+      .filter(slot => _RELIC_DEFS[slot] && !(save?.relics?.[slot]?.tier > 0)) : [];
+    if (starterSlots.length && rng() < supply.starterWeaponChance) {
+      return { kind: 'relic', slot: _pickFromArray(starterSlots, rng), tier: 1, ...meta };
+    }
     if (resolved.kind === 'gear') {
       const gear = rollGearUpgrade(rng, save?.relics, tier, save?.armor, ChestThemes.gearSlots(resolved.group),
         typeof Shrines !== 'undefined' && Shrines.leverActive(save, 'fortune') ? Shrines.FORTUNE_LUCK_BONUS : 0,
@@ -819,6 +830,12 @@
       ...armorSlots.map(s => ({ kind: 'armor', slot: s })),
     ];
     const sp = _pickFromArray(slotPool, random);
+    const slotTiers = sp.kind === 'relic' && _RELIC_DEFS[sp.slot]?.tiers;
+    if (slotTiers) {
+      const eligible = slotTiers.filter(t => t >= Math.min(preferred, minTier) && t <= preferred);
+      const available = eligible.length ? eligible : slotTiers.filter(t => t <= preferred);
+      pickedTier = available.filter(t => t <= pickedTier).pop() || available[0];
+    }
     const cur = sp.kind === 'relic'
       ? (currentRelics?.[sp.slot]?.tier ?? 0)
       : (currentArmor?.[sp.slot]?.tier ?? 0);

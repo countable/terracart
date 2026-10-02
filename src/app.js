@@ -567,15 +567,14 @@ const TOAST_TIER = {
 // INV_CAT_BY_KEY / invCatForItem) is a map over item KINDS, so it lives with
 // the catalog in items.js.
 // Slot draw order within each gear tab (owned slots only are rendered).
-const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
+const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'dagger', 'spear', 'bow', 'musket', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
 const INV_ARMOR_ORDER = ['helmet', 'chest', 'legs', 'boots'];
-// The three combat weapons — the only slots save.activeWeapon ever holds. Only
-// the active one auto-engages (sword) or auto-fires (bow/staff) in _combatTick;
+// Only the active weapon auto-engages or auto-fires in _combatTick;
 // the others sit inert until switched to (the Equip button under the Relics
 // tab — syncEquipButton — or obtaining/forging a new one — see Gear.equip).
 // Melee needs no weapon at all: bare hands auto-engage like a sword whenever
-// no bow or staff is equipped (Gear.meleeActive). Mirrors Gear.WEAPON_SLOTS.
-const WEAPON_SLOTS = ['sword', 'bow', 'staff'];
+// no ranged weapon is equipped (Gear.meleeActive).
+const WEAPON_SLOTS = Gear.WEAPON_SLOTS;
 
 // Where fauna may NEVER step (WATER / buildings / roads / cave wall) is
 // Combat.faunaBlocksCell, beside the creatures it governs.
@@ -4714,11 +4713,11 @@ class MapScene extends Phaser.Scene {
         // Said ONCE per dry spell, at the player, then silent until wood is
         // back — an auto-firing weapon must not flash every beat.
         const ammo = Combat.SHOT[slot].ammo;
-        if (ammo && Inventory.count(this.save, ammo.id) < 1) {
+        if (ammo && (ammo.currency ? (this.save.money || 0) : Inventory.count(this.save, ammo.id)) < 1) {
           if (!this._ammoDryWarned) {
             this._ammoDryWarned = true;
             const ps = this.playerScreen();
-            this.flash(`Out of ${itemName(ammo.id)} — bow idle`, ps.x, ps.y + this.playerBodyDy());
+            this.flash(`Out of ${ammo.currency ? 'coins' : itemName(ammo.id)} — ${slot} idle`, ps.x, ps.y + this.playerBodyDy());
           }
           continue;
         }
@@ -4740,7 +4739,11 @@ class MapScene extends Phaser.Scene {
         if (shot && (slot === 'bow' || slot === 'staff')) {
           shot.color = shotTierColour(slot, relics[slot].tier);
         }
-        if (shot && ammo) {
+        if (shot && ammo?.currency) {
+          this._ammoDryWarned = false;
+          addMoney(this.save, -1);
+          persistSave(this.save);
+        } else if (shot && ammo) {
           // Every `ammo.shots`-th arrow burns one wood (save.ammoShots counts
           // toward it, so the tally survives a reload).
           this._ammoDryWarned = false;
@@ -4757,7 +4760,7 @@ class MapScene extends Phaser.Scene {
           this._shots.push(shot);
           // Keep the bow's existing ledger key; the staff gets its own first shot.
           // Only a fired projectile tells the story, never equip or a dry cadence.
-          this._toolActionStory(slot === 'bow' ? 'shoot' : 'staff');
+          if (slot !== 'musket') this._toolActionStory(slot === 'bow' ? 'shoot' : 'staff');
         }
       }
     } else {
@@ -4855,7 +4858,7 @@ class MapScene extends Phaser.Scene {
         // swings as far as a monster bites and no further. This used to be
         // cellInReach, so an auto-engaging sword picked up a foe 2.5 cells off
         // — 5.5 with the Inner Light upgrades — and fought it the whole way in.
-        if (!Combat.inMeleeReach(c.x, c.y, px, py, this.cellM)) continue;
+        if (!Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save))) continue;
         const d2 = (c.x - px) * (c.x - px) + (c.y - py) * (c.y - py);
         if (d2 < bestD2) { bestD2 = d2; best = c; }
       }
@@ -5308,6 +5311,13 @@ class MapScene extends Phaser.Scene {
         g.fillTriangle(hx - 2, hy - 2, hx + 2, hy - 2, hx - 1, hy + 1);
         continue;
       }
+      if (s.projectile === 'musket_ball') {
+        g.fillStyle(0x262930, 1);
+        g.fillCircle(hx, hy, s.dotPx);
+        g.fillStyle(0x9da4b0, 1);
+        g.fillCircle(hx - 1, hy - 1, 1);
+        continue;
+      }
       if (s.dotPx) {
         // The staff bolt is a ball of light, not a streak — a bolt reads as
         // a thrown thing, an arrow as a flying line. Its radius is the shot's
@@ -5643,12 +5653,12 @@ class MapScene extends Phaser.Scene {
       }
       return false;
     }
-    if (!Combat.isEnemy(victim)) return false;
+    if (!Combat.isEnemy(victim) || !Gear.meleeActive(this.save)) return false;
     // First melee the save ever starts tells its story - here in the one
     // lane both the tapped swing and the auto-engage flow through, fired
     // regardless of an owned sword: bare hands fight on the tier-0 rung too.
     this._toolActionStory('sword');
-    const dps = Combat.meleeDps(this.save.relics, this.save.playerClass);
+    const dps = Combat.meleeDps(this.save.relics, this.save.playerClass, Gear.activeWeapon(this.save));
     const estMs = (Combat.hp(victim) / Math.max(0.01, dps)) * 1000;
     const now = performance.now();
     // A fight shows the foe's health bar, not a progress arc, so the tool
@@ -5656,7 +5666,7 @@ class MapScene extends Phaser.Scene {
     // Bare hands own no sword and draw no badge — _setWorkProgressIcon answers
     // that for every wheel now, so the slot is passed plainly rather than
     // re-testing ownership here.
-    this._setWorkProgressIcon('sword');
+    this._setWorkProgressIcon(Gear.activeWeapon(this.save) || 'sword');
     this._workProgress = {
       worldX: victim.x, worldY: victim.y,
       combat: victim,
@@ -5979,7 +5989,7 @@ class MapScene extends Phaser.Scene {
     const wp = this._workProgress;
     if (!wp) return;
     // A rose can change allegiance while a melee wheel is already running.
-    if (wp.combat && !Combat.isEnemy(wp.combat)) { this.cancelWorkProgress(); return; }
+    if (wp.combat && (!Combat.isEnemy(wp.combat) || !Gear.meleeActive(this.save))) { this.cancelWorkProgress(); return; }
     const now = performance.now();
     // Stuck-wheel watchdog. A wheel always resolves at wp.durationMs (complete,
     // fail, or cancel), so one that has outlived that by a wide margin is
@@ -6076,7 +6086,7 @@ class MapScene extends Phaser.Scene {
       const outOfRange = wp.combat
         ? !Combat.inMeleeReach(c.x, c.y,
             this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y,
-            this.cellM)
+            this.cellM, Gear.activeWeapon(this.save))
         : (typeof cellInReach === 'function')
           ? !cellInReach(this, tc.cellIX, tc.cellIY)
           : ((c.x - (this.startWorldM.x + this.playerM.x)) ** 2
@@ -6130,19 +6140,19 @@ class MapScene extends Phaser.Scene {
       // than being granted a fresh interval of safety by having stepped out.
       const px = this.startWorldM.x + this.playerM.x;
       const py = this.startWorldM.y + this.playerM.y;
-      const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM);
+      const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save));
       if (inSwing && now >= this._nextBlowT) {
-        this._nextBlowT = now + Combat.MELEE_INTERVAL_MS * Combat.trainingIntervalMul(this.save);
+        this._nextBlowT = now + Combat.meleeIntervalMs(Gear.activeWeapon(this.save)) * Combat.trainingIntervalMul(this.save);
         // A blade to actually swing — bare hands (no sword owned) has none, so
         // no slash draws, same gate _setWorkProgressIcon's tool badge uses.
         // The slash rides the blow itself now rather than its own throttle:
         // one cadence, so the arc and the damage it earns can't drift apart.
-        if (this.save.relics?.sword) {
+        if (this.save.relics?.[Gear.activeWeapon(this.save)]) {
           const dx = c.x - px, dy = c.y - py;
           const d = Math.hypot(dx, dy) || 1;
           this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
         }
-        const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass)
+        const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass, Gear.activeWeapon(this.save))
           + this._attackFlat('melee')) * PotionEffects.meleeMul(this.save);
         if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
         // A LIT TORCH (isTorchActive) SETS THE FOE ALIGHT — Combat.ignite,
@@ -14392,10 +14402,10 @@ class MapScene extends Phaser.Scene {
 
   // Equip / Unequip button — the Eat button's slot, shown while a WEAPON is
   // highlighted in the Relics tab. Gear selection clears selSlot; selecting
-  // a carried relic clears selGear, so its Eat / Use action appears instead. EQUIP makes the highlighted sword, bow
-  // or staff the one that fights (Gear.selectWeapon); UNEQUIP, on the bow or
-  // staff in hand, puts it away so melee auto-engages again — the sword if
-  // owned, bare hands if not (Gear.unequipWeapon). The sword in hand needs no
+  // a carried relic clears selGear, so its Eat / Use action appears instead.
+  // Equip makes the highlighted weapon fight (Gear.selectWeapon). Unequip
+  // puts a ranged weapon away: back to the sword, or bare hands if no sword
+  // is owned (Gear.unequipWeapon). An active melee weapon needs no
   // button: melee is the default state, so there is nothing to put away.
   // This is the ONE way the active weapon changes by hand; tapping a slot
   // only highlights it.

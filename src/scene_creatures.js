@@ -1755,7 +1755,7 @@ class SceneCreatures {
               const angle = base + (k * Math.PI * 2) / 8;
               const sx = px + Math.cos(angle) * SPAWN_R, sy = py + Math.sin(angle) * SPAWN_R;
               const dest = this.cellAt(sx, sy);
-              if (!dest.loaded || Combat.faunaBlocksCell(dest.type)) continue;
+              if (!dest.loaded || Combat.faunaBlocksCell(dest.type) || WorldGen.isRoadTerrain(dest.type)) continue;
               entry.creatures.push(WorldGen.makeCreature('deer', sx, sy,
                 `pest_deer_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`));
               break;
@@ -1771,8 +1771,14 @@ class SceneCreatures {
     // Most ticks have no charm active: avoid scanning every foe against all
     // creatures just to discover there are no temporary allies to target.
     this._charmedOpponents = [];
+    // The same pass gathers the live foes in the sim bubble once a tick, so
+    // each foe's spacing (creature_ai.js foeSpacingPush) reads a short list.
+    this._foeBodies = [];
     WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, c => {
-      if (Combat.isCharmed(c) && !caughtSet.has(c.id)) this._charmedOpponents.push(c);
+      if (caughtSet.has(c.id)) return;
+      if (Combat.isCharmed(c)) this._charmedOpponents.push(c);
+      const ddx = c.x - px, ddy = c.y - py;
+      if (ddx * ddx + ddy * ddy <= RANGE_SQ && Combat.isEnemy(c) && EnemyRoster.get(c.kind)) this._foeBodies.push(c);
     });
 
     WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
