@@ -8,9 +8,10 @@
     return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
   }
   // Cardinal connections in atlas order: straights, corners, T junctions,
-  // then the cross. Single ends and isolated remnants keep ordinary rubble.
+  // then the cross and north/east/south/west end caps (named by closed tip).
+  // Only isolated remnants keep ordinary rubble.
   const WALL_FRAME_BY_MASK = { 10: 0, 5: 1, 6: 2, 12: 3, 3: 4, 9: 5,
-    11: 6, 7: 7, 14: 8, 13: 9, 15: 10 };
+    11: 6, 7: 7, 14: 8, 13: 9, 15: 10, 4: 11, 8: 12, 1: 13, 2: 14 };
   function wallFrameAt(cells, i, N) {
     const x = i % N, y = Math.floor(i / N);
     const mask = (y > 0 && cells.has(i - N) ? 1 : 0)
@@ -245,7 +246,7 @@
     }
     if (id === 'quarry-stronghold') {
       // Resolve joins only after doors, buried finds and guard seats have
-      // removed their cells. Fallback rubble still counts as a broken end.
+      // removed their cells, so exposed wall ends receive their matching cap.
       const walls = new Set(plan.background.keys());
       for (const i of walls) {
         const frame = wallFrameAt(walls, i, N);

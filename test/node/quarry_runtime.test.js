@@ -19,7 +19,7 @@
     for (const wall of walls) {
       assert.eq(wall.variant, QuarryLayout.wallFrameAt(background, wall._iy*N+wall._ix, N));
       assert.eq(wall.zoneVariant, 'quarry-stronghold');
-      assert.inRange(wall.variant, 0, 10);
+      assert.inRange(wall.variant, 0, 14);
     }
     assert.truthy(out.objects.some(o => o.kind === 'mineralrock'), 'broken wall ends retain ordinary stone');
     for (const id of ['quarry-abandoned', 'quarry-strip-mine', 'quarry-crater']) {
