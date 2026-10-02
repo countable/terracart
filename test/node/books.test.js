@@ -388,7 +388,7 @@ test('mechanics: vendors never offer unique jewelry as gear', () => {
 });
 
 test('mechanics: melee reaches adjacent foes', () => {
-  assert.eq(Combat.MELEE_REACH_CELLS, 1, 'a sword still reaches adjacent foes');
+  assert.eq(Combat.MELEE_REACH_CELLS, 0.6, 'a sword reaches a foe at arm\'s length');
   assert.truthy(/too close/.test(RELIC_DEFS.sword.blurb),
     `the sword blurb says how far it swings: ${RELIC_DEFS.sword.blurb}`);
   assert.falsy(/in reach/.test(RELIC_DEFS.sword.blurb),

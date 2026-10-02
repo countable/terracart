@@ -106,7 +106,7 @@
   const MONSTERS = Object.fromEntries(roster.ROWS.map(row => [row.id, combatRow(row)]));
   // Existing zone-only enemy: preserve tar-yard and burned-row encounters.
   // These are final stats; it stays outside the ordinary cave and quest pools.
-  MONSTERS.fire_slime = { name: 'Fire Slime', hp: 20, armor: 0, tier: 2, range: 1, dmg: 4, speed: 0.9,
+  MONSTERS.fire_slime = { name: 'Fire Slime', hp: 20, armor: 0, tier: 2, range: 0.6, dmg: 4, speed: 0.9,
     minDepth: 0, weight: 1, spawn: 'zone', sight: SLIME_SIGHT_CELLS, board: false, eliteEligible: true };
 
   // The registered table — the shipping MONSTERS by default. Kept as a
@@ -548,12 +548,15 @@
 
   // ── Where fauna may not step ─────────────────────────────────────────────
   // Terrain cell types fauna may NEVER move onto (spec §fauna: "no fauna may
-  // move onto a building footing, or road"). WATER (3) + all building tiers
-  // (9/11/12) + all road tiers (ROAD 7 / ROAD_LG 13 / ROAD_MD 14) + CAVE_WALL
-  // (25). PATHS (8) are pedestrian / public and stay passable. Every wander,
-  // flee, stalk and spawn seat in app.js asks this one predicate — it is about
-  // the creatures, so it lives with them.
-  const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 7, 13, 14, 25 /* CAVE_WALL */]);
+  // move onto a building footing, or a major road"). WATER (3) + all building
+  // tiers (9/11/12) + the MAJOR road tiers (ROAD_LG 13 / ROAD_MD 14) +
+  // CAVE_WALL (25). A minor street (ROAD 7) and PATHS (8) are crossable
+  // (owner, Oct 2026: a wall at every side street boxed creatures into one
+  // block); the major band itself is also refused by its roadClass bit (THE
+  // KERB, creature_ai.js), and nothing SPAWNS on any road (isSpawnCell).
+  // Every wander, flee, stalk and spawn seat in app.js asks this one
+  // predicate — it is about the creatures, so it lives with them.
+  const FAUNA_BLOCKED_TYPES = new Set([3, 9, 11, 12, 13, 14, 25 /* CAVE_WALL */]);
   function faunaBlocksCell(type) { return FAUNA_BLOCKED_TYPES.has(type); }
 
   const FLOWER_STATUS_MS = 60 * 1000;
@@ -741,13 +744,17 @@
   // half its attack speed for twice the reach.
   const MELEE_WEAPONS = {
     sword: { reachMul: 1, intervalMul: 1 },
-    dagger: { reachMul: 0.5, intervalMul: 1 },
+    // A dagger stays inside the gap a closing foe stops at (creature_ai.js
+    // rosterEnemyMove: 0.35 cell), or it could never land a blow.
+    dagger: { reachMul: 0.75, intervalMul: 1 },
     spear: { reachMul: 2, intervalMul: 2 },
   };
   function meleeIntervalMs(slot) { return MELEE_INTERVAL_MS * (MELEE_WEAPONS[slot]?.intervalMul || 1); }
 
   // ── How far a melee attacker reaches ───────────────────────────────────
-  // ONE cell, for the player and for a melee monster alike — and ONE number,
+  // 0.6 CELL (owner, Oct 2026 — the foe-spacing gap: a crowd spread round the
+  // player bites from arm's length, not from a cell off), for the player and
+  // for a melee monster alike — and ONE number,
   // read by both sides, for the roadOverlayWidthM reason: a reach the player
   // has and the thing biting them does not is a difference nobody can see on
   // the screen and everybody feels in the fight.
@@ -763,7 +770,10 @@
   //
   // The RANGED weapons are untouched: a bow or a staff is the thing you buy
   // to hit what you cannot punch (SHOT[].rangeCells).
-  const MELEE_REACH_CELLS = 1;
+  // The kinds whose roster row reaches further are named there: the spear
+  // goblin's pole, a swooping flier's pass, a big body's arms (brutes, orc,
+  // minotaur, the giants, the crab) — enemy_roster.js `range`.
+  const MELEE_REACH_CELLS = 0.6;
   // The reach in metres, and the test both sides run. Centre-to-centre, which
   // is what the monster's own attack gate measures (scene_creatures.js wanderCreatures
   // compares the creature's position against the player's FEET), so the two
