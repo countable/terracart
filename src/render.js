@@ -2737,6 +2737,40 @@ Render.drawVariantLabels = function drawVariantLabels(scene, ax, ay, halfM) {
   hidePoolFrom(pool, i);
 };
 
+// Art is a per-save view of surviving sections, never a mutation of the
+// generated tile. Include one cell beyond the viewport so off-screen joins
+// stay connected. The existing chunk index keeps this walk local.
+Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, spent, x, y, halfM) {
+  const result = new Map(), N = entry.cellsPerEdge;
+  if (!N || !edge) return result;
+  const step = edge / N, pad = halfM + step, groups = new Map();
+  const collect = (o, group) => {
+    if (Math.abs(o.x - x) > pad || Math.abs(o.y - y) > pad || isSpent(o, spent)) return;
+    const ix = Math.floor((o.x - tx * edge) / step), iy = Math.floor((o.y - ty * edge) / step);
+    if (ix < 0 || iy < 0 || ix >= N || iy >= N) return;
+    if (!groups.has(group)) groups.set(group, { cells: new Set(), pieces: [] });
+    const g = groups.get(group), i = iy * N + ix;
+    g.cells.add(i); g.pieces.push([o, i]);
+  };
+  WorldGen.forEachItemInBox(entry, 'objects', x-pad, y-pad, x+pad, y+pad, o => {
+    if (o.kind === 'stronghold_wall' || (o.kind === 'mineralrock' &&
+        o.zoneVariant === 'quarry-stronghold' && o.zoneLayer === 'background')) collect(o, 'wall');
+  });
+  WorldGen.forEachItemInBox(entry, 'wildplants', x-pad, y-pad, x+pad, y+pad, p => {
+    const group = ZoneDressing.hedgeGroup(p);
+    if (group) collect(p, group);
+  });
+  for (const [group, {cells, pieces}] of groups) {
+    for (const [o, i] of pieces) {
+      const frame = QuarryLayout.wallFrameAt(cells, i, N);
+      if (group === 'wall') {
+        if (o.kind === 'stronghold_wall') result.set(o, frame == null ? { kind: 'mineralrock' } : { variant: frame });
+      } else result.set(o, { _plantArt: frame == null ? 'zone_hedge_single' : 'zone_hedge', _hedgeFrame: frame ?? undefined });
+    }
+  }
+  return result;
+};
+
 // Can this object throw a light BEFORE drawObjects' sprite cull — one whose
 // glow reaches past its art (a restored building or Home, a torch, a grove
 // shrine, a viewpoint's scope)? The one predicate the sprite walk offers by
@@ -2920,11 +2954,14 @@ Render.drawObjects = function drawObjects(scene) {
       if (poiLit(o, spentIds)) LIGHTS.offerPoi(scene, o.id, dx, dy, halfM);
     }
   };
+  const connectedArt = new Map();
   let _boot_scanned = 0, _boot_kept = 0, _boot_creatures = 0;
   for (let dty = -1; dty <= 1; dty++) {
     for (let dtx = -1; dtx <= 1; dtx++) {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx + dtx, pc.ty + dty));
       if (!entry) continue;   // tile not loaded yet
+      for (const [o, art] of Render.connectedArtForTile(entry, pc.tx + dtx, pc.ty + dty,
+          scene.tileEdgeM, spentIds, pWorldX, pWorldY, halfM)) connectedArt.set(o, art);
       if (entry.reefCorals) WorldGen.forEachItemInBox(entry, 'reefCorals',
         pWorldX - halfM, pWorldY - halfM, pWorldX + halfM, pWorldY + halfM, o => {
           objList.push({ o, dx: o.x - pWorldX, dy: o.y - pWorldY });
@@ -3018,7 +3055,7 @@ Render.drawObjects = function drawObjects(scene) {
           // occupancy pass never saw (cave mushrooms, the sandbox scatter), so
           // the id is what the per-cell variant hash actually keys off.
           plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id,
-                                  _cave: wp._cave, _biome: wp._biome, _plantArt: wp._plantArt, _hedgeFrame: wp._hedgeFrame, _zoneObjectFrame: wp._zoneObjectFrame, _streetArt: wp._streetArt, _ix: wp._ix, _iy: wp._iy }, dx, dy });
+                                  _cave: wp._cave, _biome: wp._biome, _plantArt: wp._plantArt, _hedgeFrame: wp._hedgeFrame, _zoneObjectFrame: wp._zoneObjectFrame, _streetArt: wp._streetArt, _ix: wp._ix, _iy: wp._iy, ...connectedArt.get(wp) }, dx, dy });
           _boot_kept++;
         });
       }
@@ -3166,7 +3203,10 @@ Render.drawObjects = function drawObjects(scene) {
   for (const L of lampList) filteredObj.push(L);
   filteredObj.sort((a, b) => a.dy - b.dy);
   const { RENDER_SPEC, resolveAppearance, fruitList, _houseRole, _houseKey, _houseScale, _houseBaseScale } = Render.objectAppearance(scene, houseRoles);
-  for (const item of filteredObj) item._appearance = resolveAppearance(item.o);
+  for (const item of filteredObj) {
+    const art = connectedArt.get(item.o);
+    item._appearance = resolveAppearance(art ? { ...item.o, ...art } : item.o);
+  }
   // Every upright piece shares one continuous ground-Y order. Pixel offsets
   // come from the same seating geometry as the art, converted back to metres.
   const groundY = (it, offsetPx = 0) => pWorldY + it.dy + offsetPx * scene.cellM / CELL_PX;
