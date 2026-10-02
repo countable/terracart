@@ -1338,11 +1338,16 @@ STREET RESTORATION (the road band itself)
    was never theirs. The pick is "Choose one gift": a tap on a card SELECTS
    it (outlined, and what it does appears on the one line under the row); the
    single Take button pays the selected card. No flavour line, no ⓘ per card.
+   Take then opens the KEPT gift as its own card (showRewardCard, next) with
+   the neighbours' thanks as its line; the prize queue walks on when that
+   card closes, never when the pick does.
  - A SINGLE EARNED REWARD IS SHOWN AS A CARD (app.js showRewardCard): the
    item's sprite, name, tier and amount on the chest shell, framed by its
    giver — the rescued neighbour's starfruit seed under her portrait with her
    thanks, an elite's drop under "Elite slain" (grantTreasureRoll's
-   `ceremony`). Finds on the ground (an X, a shrine, a vista) stay toasts. The roll also IMPROVES as the walks get longer:
+   `ceremony`), the road pick's kept gift, and the first vista's walker's
+   relic under the vista's painting once its story is read. Finds on the
+   ground (an X, a shrine, a vista's daily gift) stay toasts. The roll also IMPROVES as the walks get longer:
    Trail.rollBonusFor spends one extra boost-chain step per prize already won,
    capped (past the cap a chain step only buys consolation coins).
  - WHICH CELLS ARE PATH AT ALL is still geometric, and still matters — the PATH

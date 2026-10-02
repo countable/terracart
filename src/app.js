@@ -62,6 +62,9 @@ const CELL_PX = 32;
 const STREET_COUNTER_LIFT_PX = Math.round(CELL_PX * 0.6);
 // Road ceremonies carry the survivors' thanks; progress stays on the road counter.
 const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
+// The line under a road prize's card: who gave it, in one sentence. Shared by
+// the single-reward ceremony and the card the pick opens for the kept gift.
+const TRAIL_PRIZE_THANKS = 'Your neighbours thank you for repairing the road and hand you a gift.';
 // The first repaired stretch introduces the neighbours who leave gifts.
 const TRAIL_INTRO_TITLE = 'The survivors are watching';
 const trailIntroBody = (playerClass) =>
@@ -12630,7 +12633,7 @@ class MapScene extends Phaser.Scene {
         art: 'trail_prize',
         iconHTML: this.coinIconHTML ? this.coinIconHTML(48) : '',
         name: '+5',
-        sub: 'Your neighbours thank you for repairing the road and hand you a gift.',
+        sub: TRAIL_PRIZE_THANKS,
         color: UI_GOLD,
         onDismiss,
       });
@@ -12648,14 +12651,15 @@ class MapScene extends Phaser.Scene {
       if (!card) { if (typeof onDismiss === 'function') onDismiss(); return; }
       this.showChestRewardModal({
         kind: 'trail', header, ...card, art: 'trail_prize',
-        sub: 'Your neighbours thank you for repairing the road and hand you a gift.',
+        sub: TRAIL_PRIZE_THANKS,
         onDismiss: () => this._revealPendingBookReads(onDismiss),
       });
       return;
     }
     // No flavour line: the header already carries the thanks, and the pick
     // names itself ("Choose one gift"). One picture row, one line, one button.
-    this._offerTreasurePick({ kind: 'trail', header, art: 'trail_prize', choices, onDismiss });
+    // The thanks are the line under the card the kept gift then opens as.
+    this._offerTreasurePick({ kind: 'trail', header, art: 'trail_prize', choices, takenSub: TRAIL_PRIZE_THANKS, onDismiss });
   }
 
   // The button face for one option: the reward's own icon over its name, so
@@ -12780,7 +12784,24 @@ class MapScene extends Phaser.Scene {
   // tap on the card itself the irreversible act). An actions modal has no
   // tap-to-dismiss, so the prize can't be lost to a stray tap on the overlay.
   // Nothing is paid until Take is pressed: the option turned down was never theirs.
-  _offerTreasurePick({ kind, header, art, choices, sub, kindIcon, onDismiss }) {
+  //
+  // AND THE KEPT GIFT IS SHOWN (Oct 2026, owner's call: every quest reward
+  // that is an item shows the item). Take closes the pick and opens the kept
+  // reward as its own card — sprite, name, tier and amount under the same
+  // banner, `takenSub` (the giver's thanks) as its line — through
+  // showRewardCard, the lane the single-reward ceremony and every other
+  // earned reward use. The pick used to flash the kept card as a toast,
+  // which on the first road prize was the only word the player got of what
+  // they had taken, and a toast under a closing dialog is missed.
+  //
+  // The caller's `onDismiss` (the prize queue walking on) fires when the
+  // CARD closes, not when the pick does: a queued prize draining on the
+  // pick's close would open its own ceremony on the same shell id and
+  // replace the card before it was read (makeModalShell drops a same-id
+  // dialog). A book taken from the row reads after the card, as on the
+  // single-reward path (deferBookRead → _revealPendingBookReads).
+  _offerTreasurePick({ kind, header, art, choices, takenSub, kindIcon, onDismiss }) {
+    let taken = null;
     this.showChestRewardModal({
       kind,
       header,
@@ -12789,8 +12810,6 @@ class MapScene extends Phaser.Scene {
       // No icon: the banner is the picture and each choice button carries its
       // own. A gem here made the dialog taller than the screen.
       name: 'Choose one gift',
-      sub,
-      onDismiss,
       cards: true,
       confirmLabel: 'Take',
       pickHint: 'Tap a gift to see what it does',
@@ -12798,17 +12817,19 @@ class MapScene extends Phaser.Scene {
         label: this._trailChoiceLabel(reward),
         info: this._trailRewardBlurb(reward),
         onClick: () => {
-          const card = this._claimTrailReward(reward);
+          const card = this._claimTrailReward(reward, { deferBookRead: true });
           if (!card) return;
-          this.flashLoot(card.qty ? `${card.name} ${card.qty}` : card.name,
-                         card.color || UI_TREASURE, 1,
-                         reward.kind === 'item' ? reward.id : null);
+          taken = reward;
           // NO jackpot fanfare on a pick: with several finds on offer, the
           // boost chain that fattened one of them is not a moment the player
           // won — they chose among what was laid out.
           persistSave(this.save);
         },
       })),
+      onDismiss: () => {
+        const done = () => this._revealPendingBookReads(onDismiss);
+        if (!taken || !this.showRewardCard(taken, { kind, header, art, kindIcon, sub: takenSub, onDismiss: done })) done();
+      },
     });
   }
 
