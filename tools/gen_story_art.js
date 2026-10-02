@@ -384,6 +384,7 @@ const PIECES = {
     'A quiet abandoned oil-stained forecourt corner on cracked industrial ground: black tar ' +
     'puddles pooled in the broken concrete, a single rusted fuel pump leaning at an angle, a ' +
     'scatter of flint shards among the weeds, nobody about, still dusk light.'),
+  safety_phone: scene('Hood, face hidden by raised brown hood, walks distractedly toward a village road while looking at a smartphone. A bold red symbolic X crosses this unsafe behaviour; phone and pose stay readable. Warm dusk, curb and safe footpath. No injury, no captions.'),
   quarry_sapphire: scene('One glowing blue sapphire exposed inside a freshly split rock, a worn pick beside it, warm terraced quarry backdrop. Quiet wonder at a single precious find.'),
   zone_quarry: scene('A welcoming terraced stone quarry in warm light, abundant blue sapphires still embedded in exposed rock seams, a broad path into the site. A small mine-cart parking bay with restrained brass and copper fittings is secondary to the quarry. No church, graves or religious structures.'),
   zone_stones: scene(

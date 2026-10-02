@@ -50,6 +50,7 @@ One frame each, foot-anchored and drawn like the market stall (loot.js `chestLoo
 | curio.png | the CURIO HALL (museum / theatre / cinema POIs): donate one of each item, once | generated placeholder — replace with hand art when available (picked from two candidates, curio_a) |
 | sundries.png | SUNDRIES (the generic `shop` POIs no produce stall claims): one supply item for sale | generated placeholder — replace with hand art when available (picked from two candidates, sundries_b) |
 | training.png | the TRAINING HALL (sports_centre / yoga POIs): buy damage, for good or for a day | generated placeholder — replace with hand art when available (picked from two candidates, training_a) |
+| scholar.png | the SCHOLAR'S BOOTH (school POIs): the book club — found books read earn prizes off the school's own shelf | temporary: the market stall's first frame (`Approved/market_stand.png` frame 0), a generic booth — replace with its own art |
 
 ## Batch 4 — `gpt-image-2` (OpenAI direct, chroma-keyed), single-subject images
 
