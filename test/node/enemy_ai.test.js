@@ -115,7 +115,7 @@
     for (const kind of ['bat', 'vampire_bat']) {
       for (const cellM of [5, 10]) {
         const s = scene(cellM), c = foe(kind), row = EnemyRoster.get(kind);
-        assert.lte(row.movement.speedMetersPerSecond, 6);
+        assert.lte(row.movement.speedMetersPerSecond, WILD_SPEED_CEILING_MPS);
         enemyBatMove(s, c, row, 10000, 20, 0);
         const f = c._batFlight;
         assert.lte(2 * Math.hypot(f.tx - f.x, f.ty - f.y) / (f.duration / 1000), row.movement.speedMetersPerSecond + 1e-9);

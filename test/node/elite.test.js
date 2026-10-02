@@ -108,8 +108,8 @@ test('elite: the shipping code stamps, scales, heals and pays the elite', () => 
   assert.falsy(/c\._hp = Combat\.creatureMaxHp\(c\.kind\)/.test(app),
     'nothing refills a creature from the KIND max any more');
   const kill = app.slice(app.indexOf("resolveDefeat(victim, source = 'player') {"), app.indexOf('_busyWheel() {'));
-  assert.truthy(/Combat\.enemyBounty\(victim\.kind, this\.depth, Combat\.powerMul\(victim\)\)/.test(kill),
-    'the bounty is paid at the power multiplier (elite × lair)');
+  assert.truthy(/Combat\.enemyBounty\(victim\.kind, this\.depth, Combat\.powerMul\(victim\) \* \(victim\._splitShare \?\? 1\)\)/.test(kill),
+    'the bounty is paid at the power multiplier (elite × lair), by a split slime\'s share');
   assert.truthy(/if \(this\._bankDiscovery\(victim\.kind, /.test(kill),
     'an elite kill banks the kind\'s memory the first time');
   assert.truthy(/grantTreasureRoll\(this, save, [^;]*Combat\.ELITE_TREASURE_CONTEXT,\s*\{ rollBonus: Combat\.eliteRollBonus\(victim\.kind, this\.depth\),\s*ceremony: \{ kind: 'treasure', header: 'Elite slain',/.test(kill),

@@ -2350,6 +2350,9 @@ class SceneCreatures {
             c._hp   = Combat.damage(c, 1);
             tgt._lastDamagedT = Date.now();
             c._lastDamagedT   = Date.now();
+            // A pet's bite is a blow too: a splitting slime divides under it
+            // (creature_ai.js enemySplit), away from the pet's side.
+            if (tgt._hp > 0) enemySplit(this, tgt, c.x, c.y, now);
             // React to the bite immediately either way — but WHICH reaction
             // depends on the prey. A bird or a deer runs (the flee override
             // below). A SLIME charges, at the player: it is an enemy, not
