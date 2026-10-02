@@ -211,7 +211,7 @@ test('tool stories: the table has all 8 actions, each with its banner', () => {
 
 test('tool stories: interact.js hooks fire at action start, one per call site', () => {
   const hook = (action, anchor, what, after = true) => {
-    const call = `scene._toolActionStory?.('${action}');`;
+    const call = action === 'catch' ? 'scene._catchStory?.(victim);' : `scene._toolActionStory?.('${action}');`;
     const c = ix.indexOf(call);
     const a = ix.indexOf(anchor);
     assert.truthy(c > 0, `${what} calls ${call}`);
