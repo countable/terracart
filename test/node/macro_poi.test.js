@@ -174,7 +174,11 @@
     let modals = 0;
     const scene = makeScene({
       flash: (m) => flashes.push(m),
-      showChestRewardModal: (opts) => { modals++; assert.eq(opts.header, 'Chapel', 'names the place'); },
+      showChestRewardModal: (opts) => {
+        modals++;
+        assert.eq(opts.header, 'Chapel', 'names the place');
+        assert.eq(opts.art, Macros.KIND_DIALOG.chapel.art, 'keeps the chapel painting');
+      },
     });
     const real = globalThis.pickReward;
     globalThis.pickReward = (key, s, rng, opts) => { tiers.push(opts.tier); return { kind: 'item', id: 'wood', qty: 1 }; };
