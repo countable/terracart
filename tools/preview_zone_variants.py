@@ -601,7 +601,7 @@ def quarry_card(v, d):
     parts.append('</svg>')
     labels = {'stone':'stone', 'crimson_ore':'Crimson ore', 'crystal':'Sapphire crystals',
               'copper_rock':'copper ore rocks', 'tool_crate':'one-off tool crates',
-              'goblin':'lurking goblins', 'treasure_x':'extra buried finds', 'driftwood':'driftwood'}
+              'goblin':'lurking goblins', 'split_slime':'splitting slimes', 'treasure_x':'extra buried finds', 'driftwood':'driftwood'}
     counts = collections.Counter(o['material'] for o in fixture['objects'])
     actual = ' · '.join(f'{n} {labels.get(name,name)}' for name,n in counts.items())
     legend = []
@@ -611,12 +611,12 @@ def quarry_card(v, d):
         else:
             swatch = '<svg viewBox="0 0 1 1" width="26" height="26" aria-hidden="true" style="width:26px;height:26px">'+art_image(material_art(materials[name]),'width="1" height="1"')+'</svg>'
         legend.append(f'<span style="display:inline-flex;align-items:center;gap:6px">{swatch}{html.escape(labels.get(name,name))}</span>')
-    status = 'Implemented · actual runtime generation'
+    status = 'Implemented · runtime layout, forced variant comparison'
     metadata = ''.join(f'<dt>{label}</dt><dd>{html.escape(v[key])}</dd>' for label,key in [
         ('Layout','layoutDescription'), ('Hazards','hazardsDescription'),
         ('Lighting','lightingDescription'), ('After a visit','persistenceDescription')])
-    metadata += f'<dt>Guards</dt><dd>{v["guards"].get("count", 0)} per complete site.</dd>'
-    metadata += f'<dt>Finite finds</dt><dd>{v["finds"]["count"]} per complete site; actual placements counted below.</dd>'
+    metadata += f'<dt>Guards</dt><dd>Up to {v["guards"].get("count", 0)} per complete site.</dd>'
+    metadata += f'<dt>Finite finds</dt><dd>Up to {v["finds"]["count"]} per complete site; actual placements counted below.</dd>'
     story = f'<p><strong>Place in the story.</strong> {html.escape(v["storyConnection"])}</p>'
     note = '<p><small>Copper ore rocks use normal mining; each one-off tool crate contains an iron pick.</small></p>' if v['layout']=='abandoned' else ''
     if fixture.get('terrain'):
@@ -624,12 +624,13 @@ def quarry_card(v, d):
     shortfalls = [reason for row in fixture['diagnostics'] for reason in row.get('shortfalls', [])]
     if shortfalls:
         note += '<p>Placement shortfalls: ' + html.escape(', '.join(shortfalls)) + '</p>'
-    return f'''<article id="{v['id']}"><header><small>{status}</small><h2>{html.escape(v['name'])}</h2></header><p>{html.escape(v['atmosphere'])}</p><figure>{''.join(parts)}<figcaption>Same parking-lot footprint · one cell = 7 m · generated runtime sample</figcaption></figure><div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:16px 0;font-size:12px">{''.join(legend)}</div>{story}<dl>{metadata}</dl><details><summary>What is shown in this sample</summary><p>{actual}</p><p><a href="{v['id']}.json">Generated objects and placement diagnostics</a></p><p>All placements fit the same generated parking-lane coverage. Positions, hazards, finite finds and guards come directly from the shipping world generator. Optional dashed lines show the removed source lanes.</p>{note}</details></article>'''
+    return f'''<article id="{v['id']}"><header><small>{status}</small><h2>{html.escape(v['name'])}</h2></header><p>{html.escape(v['atmosphere'])}</p><figure>{''.join(parts)}<figcaption>Shared footprint · one cell = 7 m · variant forced for comparison</figcaption></figure><div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:16px 0;font-size:12px">{''.join(legend)}</div>{story}<dl>{metadata}</dl><details><summary>What is shown in this sample</summary><p>{actual}</p><p><a href="{v['id']}.json">Generated objects and placement diagnostics</a></p><p>All placements fit the same generated parking-lane coverage. Positions, hazards, finite finds and guards come directly from the shipping world generator. Variant selection is overridden to compare all four layouts; this footprint need not qualify for each variant in live play. Optional dashed lines show the removed source lanes.</p>{note}</details></article>'''
 
 
-def quarry_draft_section():
+def quarry_draft_section(d):
     # Preserve the established preview URL while displaying each runtime row once.
-    return '<div id="quarry-drafts"><h3>Parking-lot remnants · four stories</h3><p>Actual runtime layouts from one shared parking-lane fixture. The crater fits its available footprint; other layouts pack complete small patches and foundations.</p><label class="art-switch"><input id="show-quarry-source" type="checkbox"> Show original parking lanes</label><style>.quarry-source{display:none}body:has(#show-quarry-source:checked) .quarry-source{display:inline}</style></div>'
+    q = d['quarryLayouts']
+    return f'<div id="quarry-drafts"><h3>Parking-lot remnants · four stories</h3><p>Runtime layouts on one shared fixture, with the variant forced for comparison. In live play, lots too narrow for a foundation use abandoned quarries or strip mines. Craters require at least {q["largeSiteMinCells"]} usable cells and a clear {q["broadPatchSizeCells"]}×{q["broadPatchSizeCells"]}-cell pocket. Ruins qualify wherever an intact {q["foundationSizeCells"]}×{q["foundationSizeCells"]}-cell foundation fits. Short gaps join only with supporting source geometry; roads, paths and water separate sites, while building holes stay clear.</p><label class="art-switch"><input id="show-quarry-source" type="checkbox"> Show original parking lanes</label><style>.quarry-source{{display:none}}body:has(#show-quarry-source:checked) .quarry-source{{display:inline}}</style></div>'
 
 
 def basic_tile_section():
@@ -703,7 +704,7 @@ def render(d, out):
         hazard = {**b.get('materialDensity', {}), **b.get('hazardDensity', {})}.get('carnivorous_plant', 0)
         if hazard and guard_text == 'None': guard_text = 'No finite guards'
         if hazard: guard_text += f'; static carnivorous plants on {hazard*100:.2f}% of motif cells'
-        if v['zone'] == 'tar': guard_text = 'Baseline tar-yard fire-slime garrison (mode-scaled); no extra variant guard'
+        if v['zone'] == 'tar': guard_text = 'No authored guards or garrison'
         if guard.get('count') or hazard: guard_text += '; defeated guards/plants stay defeated'
         light = art_registry()['lighting']['shrine' if v['zone'] in ('grove','beach') else 'poi']
         light_color = '#%06x' % light['colour']
@@ -724,13 +725,13 @@ def render(d, out):
     if 'quarry' in categories:
         quick_links += '<a href="#quarry-drafts">Parking-lot stories (4)</a>'
     quick_links += '<a href="#roads-minor">Minor roads</a><a href="#roads-major">Major roads</a><a href="#roads-path">Scenic paths</a><a href="#basic-zones">Basic tile zones</a>'
-    page += f'<h1>Zones and roads</h1><p>{len(d["variants"])} special zones · {len(streets["rows"])} road and path variants · basic terrain previews</p><nav class="page-nav" aria-label="Zone categories">{quick_links}</nav>'
+    page += f'<h1>Zones and roads</h1><p>{len(d["variants"])} special zones · {len(streets["rows"])} road and path variants · basic terrain previews · <a href="/nexus-review/">See layouts at real sites</a></p><nav class="page-nav" aria-label="Zone categories">{quick_links}</nav>'
     page += '<div class="controls"><label><input id="show-art" type="checkbox" checked> Game art</label><label><input id="show-monsters" type="checkbox" checked> Monsters</label><label><input id="show-lights" type="checkbox" checked> Light guides</label><label><input id="show-poi" type="checkbox" checked> POIs</label><label><input id="show-bg" type="checkbox" checked> Background</label></div>'
     page += '<section id="zones"><h2>Special zones</h2><p>Current runtime definitions. Previews show representative patterns before terrain and occupied cells clip placement. <a href="zone-variants.json">Zone data</a></p>'
     for key in categories:
         page += f'<section id="category-{key}"><h2>{category_names.get(key, key.title())}</h2>'
         if key == 'quarry':
-            page += quarry_draft_section()
+            page += quarry_draft_section(d)
         page += '<div class="cards">'
         page += ''.join(card for variant, card in zip(d['variants'], cards) if variant['zone'] == key)
         page += '</div></section>'

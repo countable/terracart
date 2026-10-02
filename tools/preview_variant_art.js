@@ -8,7 +8,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'util', 'sprite_layout', 'assets', 'items', 'zone_variant_data', 'zone_variants', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones']) {
+for (const name of ['enemy_roster', 'util', 'sprite_layout', 'assets', 'items', 'loot', 'zone_variant_data', 'zone_variants', 'streets', 'street_variants', 'biome_profiles', 'interactables', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 const render = read('render');
