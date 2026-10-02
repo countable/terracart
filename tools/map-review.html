@@ -257,7 +257,7 @@ const gameArt = MapReviewArt.layer({
   },
 });
 bases['Game art'] = gameArt;
-const DEFAULT_BASE = 'Game art';
+const DEFAULT_BASE = Q.get('base') === 'esri' ? 'Satellite (Esri)' : 'Game art';
 bases[DEFAULT_BASE].addTo(map);
 $('artStatus').hidden = $('artOptions').hidden = DEFAULT_BASE !== 'Game art';
 $('restoredLamps').onchange = () => gameArt.setRestoredLamps($('restoredLamps').checked);

@@ -61,7 +61,7 @@
         +(z.anchor.cluster?`<br>${z.anchor.cluster.sourceCells} lane-buffer cells + ${z.anchor.cluster.filledCells} filled-gap cells`:'')
         +`<br>Finds ${z.finds.join('/')} · finite guards ${z.guards.join('/')}`
         +(z.anchor.clipped?'<hr>Incomplete source at a tile edge; displayed area is only the loaded fragment.':'')
-        +'<hr>Coverage respects buildings, retained roads, protected ground and other nexus sites.').openOn(map);
+        +'<hr>Clusters require connected source lanes or a confirmed parking-row group. Overlapping buffers alone do not join lots. Coverage respects buildings, retained roads, protected ground and other nexus sites.').openOn(map);
     }
     map.on('click',ev=>{
       if(!toggle.checked||!world||document.getElementById('placeHome')?.classList.contains('on'))return;

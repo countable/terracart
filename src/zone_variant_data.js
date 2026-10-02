@@ -7030,6 +7030,7 @@
     "clippedInhabitantSpacingCells": 16,
     "sapphireAbundanceMultiplier": 0.25,
     "clusterGapCells": 3,
+    "sourceJoinM": 2,
     "craterMaxHazards": 3,
     "siteNames": {
       "first": [
@@ -7101,7 +7102,10 @@
         "Yard"
       ]
     },
-    "minSiteCells": 25
+    "minSiteCells": 25,
+    "largeSiteMinCells": 120,
+    "broadPatchSizeCells": 9,
+    "craterMaxAspectRatio": 2.5
   }
 };
 })(typeof window !== "undefined" ? window : globalThis);

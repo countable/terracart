@@ -40,6 +40,13 @@
     }
     assert.eq(plan('quarry-crater', rect(4, 30)).landmarks.length, 0, 'a skinny strip cannot pretend to contain a bowl');
   });
+  test('quarry layout: long broad ground keeps a compact bowl instead of a racetrack', () => {
+    for (const cells of [rect(9, 50), rect(50, 9)]) {
+      const p = plan('quarry-crater', cells), [rx, ry] = p.landmarks[0].radii;
+      assert.lte(Math.max(rx, ry) / Math.min(rx, ry), ZoneVariantData.quarryLayouts.craterMaxAspectRatio);
+      assert.eq(p.finds.length, 2, 'compact bowl retains the same finite ore budget');
+    }
+  });
   test('quarry layout: strip benches align with the usable footprint and leave cross-cuts', () => {
     for (const [w, h, axis] of [[32, 9, 'x'], [9, 32, 'y']]) {
       const p = plan('quarry-strip-mine', rect(w, h));
@@ -109,8 +116,8 @@
     const choose = cells => run(QuarryLayout.variantForSteps(cells, { N, tx: 4, ty: 5 }, start));
     assert.eq(choose(rect(48, 48)), 'quarry-stronghold', 'adequate sites keep their existing roll');
     const partial = rect(5, 5);
-    assert.eq(choose(partial), 'quarry-stronghold', 'one complete foundation preserves a small ruin');
-    assert.eq(plan('quarry-stronghold', partial).finds.length, 1, 'finite counts remain maxima, not a reason to erase the variant');
+    assert.includes(['quarry-abandoned', 'quarry-strip-mine'], choose(partial), 'tiny sites use a compact composition even when one foundation technically fits');
+    assert.eq(plan('quarry-stronghold', partial).finds.length, 1, 'direct layout budgets remain maxima independent of shape selection');
     const narrow = rect(4, 24), selected = choose(narrow);
     assert.truthy(selected !== 'quarry-stronghold', 'a long site without a whole foundation cannot be a fortress');
     assert.truthy(selected !== 'quarry', 'narrow ground can still host a smaller authored layout');
@@ -119,6 +126,30 @@
     if (row.guards.count) assert.gt(fitted.guards.length, 0);
     assert.eq(choose(narrow.slice().reverse()), selected, 'source order cannot choose another variant');
     assert.eq(choose(rect(2, 2)), 'quarry', 'small slivers keep ordinary quarry scatter');
+  });
+  test('quarry selection: every small or narrow roll stays in the compact pool', () => {
+    const variants = ZoneVariants.forKind('quarry'), allowed = ['quarry-abandoned', 'quarry-strip-mine'];
+    for (const cells of [rect(5, 5), rect(9, 9), rect(8, 40), rect(40, 5)]) {
+      const selected = new Set();
+      for (let start = 0; start < variants.length; start++) {
+        const id = run(QuarryLayout.variantForSteps(cells, { N, tx: 4, ty: 5 }, start));
+        assert.includes(allowed, id, 'neither a tiny fitting bowl nor one foundation makes this a large site');
+        selected.add(id);
+      }
+      assert.eq(selected.size, 2, 'stable rolls retain both specialized alternatives');
+    }
+  });
+  test('quarry selection: actual broad pockets qualify despite skinny arms, bounding boxes do not', () => {
+    const variants = ZoneVariants.forKind('quarry');
+    const narrowL = [...new Set([...rect(4, 36), ...rect(36, 4)])];
+    const broadL = [...new Set([...rect(12, 12), ...rect(3, 40)])];
+    for (const id of ['quarry-crater', 'quarry-stronghold']) {
+      const start = variants.findIndex(v => v.id === id);
+      const choose = cells => run(QuarryLayout.variantForSteps(cells, { N, tx: 4, ty: 5 }, start));
+      assert.includes(['quarry-abandoned', 'quarry-strip-mine'], choose(narrowL), 'large square bounds cannot disguise thin arms');
+      assert.eq(choose(broadL), id, 'a wide usable pocket keeps its large-site roll');
+      assert.eq(choose(broadL.slice().reverse()), id, 'source order cannot change the shape class');
+    }
   });
   test('quarry clipped inhabitants: one fixed seat per block, independent of fragments and anchor', () => {
     const cells = rect(48, 48);

@@ -94,7 +94,11 @@
       // Stretch inside the actual free ground, never through a missing cell.
       const axes = right - left >= bottom - top ? ['x','y'] : ['y','x'];
       for (const axis of axes) {
-        while (ellipseFits(rx + (axis === 'x'), ry + (axis === 'y'))) {
+        const withinAspect = () => {
+          const ax = rx + (axis === 'x'), ay = ry + (axis === 'y');
+          return Math.max(ax, ay) / Math.min(ax, ay) <= settings.craterMaxAspectRatio;
+        };
+        while (withinAspect() && ellipseFits(rx + (axis === 'x'), ry + (axis === 'y'))) {
           if (axis === 'x') rx++; else ry++;
           yield 'quarry crater extent';
         }
@@ -191,15 +195,34 @@
     }
     return plan;
   }
-  // Try the original roll first, then the remaining compositions in stable
-  // order. Using the actual planner keeps shape eligibility in one place.
+  // Broad compositions need both enough total ground and a genuinely wide
+  // local pocket. A long strip's bounding box (or a tiny fitting foundation)
+  // must not turn it into a crater or fortress. Largest-square dynamic
+  // programming respects holes and bent footprints without fitting a box
+  // around the entire site.
   function* variantForSteps(cells, context, start) {
-    const variants = root.ZoneVariants.forKind('quarry');
+    const settings = root.ZoneVariantData.quarryLayouts, N = context.N;
+    let broad = false;
+    if (cells.length >= settings.largeSiteMinCells) {
+      const squares = new Map(), sorted = cells.slice().sort((a, b) => a - b);
+      for (let n = 0; n < sorted.length; n++) {
+        if ((n & 255) === 0) yield 'quarry shape eligibility';
+        const i = sorted[n], x = i % N;
+        const size = 1 + Math.min(x ? squares.get(i - 1) || 0 : 0,
+          squares.get(i - N) || 0, x ? squares.get(i - N - 1) || 0 : 0);
+        squares.set(i, size);
+        if (size >= settings.broadPatchSizeCells) { broad = true; break; }
+      }
+    }
+    const variants = root.ZoneVariants.forKind('quarry').filter(v => broad
+      || v.id === 'quarry-abandoned' || v.id === 'quarry-strip-mine');
+    // Reuse the stable site roll within its eligible pool. Small sites split
+    // between their specialized variants instead of always falling through
+    // the same rejected large composition.
     for (let n = 0; n < variants.length; n++) {
       const variant = variants[(start + n) % variants.length];
       const plan = yield* planSteps({ a: { owned: true }, variant, cells }, context);
-      // Find/guard counts are site maxima. One intact foundation is still a
-      // stronghold; requiring all three would erase smaller ruins entirely.
+      // Find/guard counts remain maxima, not minimum occupancy requirements.
       if (plan.landmarks.length && (!variant.finds.count || plan.finds.length)
           && (!variant.guards.count || plan.guards.length)) return variant.id;
     }

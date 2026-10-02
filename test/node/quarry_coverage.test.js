@@ -7,6 +7,7 @@
     f:{id, type:2, tags:{class:'service', service:'parking_aisle'}}, extent,
     lines:[cells.map(([x,y]) => ({x:p(x,y).x * extent / EXT, y:p(x,y).y * extent / EXT}))],
   });
+  const grouped = (sources, key = 'confirmed-lot') => sources.map(source => ({...source, lineGroups:source.lines.map(() => [key])}));
   const run = it => { let r; do { r = it.next(); } while (!r.done); return r.value; };
   function build(parkingLanes, options = {}) {
     const grid = options.grid || new Uint8Array(N * N).fill(WorldGen.T.GRASS);
@@ -28,8 +29,8 @@
     }
   });
 
-  test('quarry coverage: nearby lane buffers form one quarry and distant buffers stay separate', () => {
-    const f = build([lane([[20,20],[30,20]],1), lane([[20,25],[30,25]],2), lane([[20,50],[30,50]],3)]);
+  test('quarry coverage: confirmed nearby lot rows form one quarry and distant buffers stay separate', () => {
+    const f = build([...grouped([lane([[20,20],[30,20]],1), lane([[20,25],[30,25]],2)]), lane([[20,50],[30,50]],3)]);
     const a = owner(f,25,20), b = owner(f,25,25), c = owner(f,25,50);
     assert.eq(a.kind, 'quarry');
     assert.truthy(a.name.endsWith(' Quarry'), 'complete clusters have a stable site name');
@@ -99,7 +100,7 @@
     }
   });
   test('quarry coverage: short empty gaps join one site without widening its outside edges', () => {
-    const sources = [lane([[20,20],[30,20]],1), lane([[20,29],[30,29]],2)];
+    const sources = grouped([lane([[20,20],[30,20]],1), lane([[20,29],[30,29]],2)]);
     const f = build(sources), a = owner(f,25,20);
     assert.eq(owner(f,25,29)?.key, a.key, 'nearby strips share one site');
     assert.eq(owner(f,25,24)?.key, a.key, 'narrow internal gap becomes usable');
@@ -128,7 +129,7 @@
       }
       const grove = {kind:'grove',code:1,key:123};
       const field = barrier === 'nexus' ? {anchors:[grove],coverage,idx:coverage.slice(),s:new Uint8Array(N*N)} : null;
-      const f = build([lane([[20,20],[30,20]],1),lane([[20,29],[30,29]],2)], {grid,roadMask,spawnWhy,field});
+      const f = build(grouped([lane([[20,20],[30,20]],1),lane([[20,29],[30,29]],2)]), {grid,roadMask,spawnWhy,field});
       assert.truthy(owner(f,25,20).key !== owner(f,25,29).key, `${barrier} separates sites`);
       assert.truthy(owner(f,25,25)?.kind !== 'quarry', `${barrier} stays unclaimed`);
     }
@@ -188,5 +189,23 @@
     assert.falsy(owner(f,63,20).owned,'tile edge retains no finite budget');
     assert.eq(f.quarrySlivers.length,1);
     assert.truthy(f.quarrySlivers[0].clipped,'inland rejection retains source uncertainty');
+  });
+  test('quarry coverage: nearby disconnected lots keep separate identities despite overlapping buffers', () => {
+    const a=lane([[20,20],[30,20]],7), b=lane([[20,25],[30,25]],7);
+    const f=build([a,b]);
+    assert.truthy(owner(f,25,20).key !== owner(f,25,25).key,'same MVT feature and touching buffers do not prove one property');
+    assert.eq(owner(f,25,22).key,owner(f,25,20).key,'overlap follows nearest source network');
+    assert.eq(owner(f,25,23).key,owner(f,25,25).key,'neighbour keeps its half of overlap');
+    const reversed=[b,a].map(source => ({...source,lines:source.lines.map(line=>line.slice().reverse())}));
+    assert.eq(signature(build(reversed)),signature(f),'nearest-source assignment is independent of input order and direction');
+    const gapped=build([a,lane([[20,29],[30,29]],8)]);
+    assert.falsy(owner(gapped,25,24),'bounded gap filling cannot merge unrelated properties');
+  });
+
+  test('quarry coverage: touching source geometry joins without feature ids or inferred group evidence', () => {
+    const f=build([lane([[20,20],[30,20]],1),lane([[25,20],[25,30]],2)]);
+    assert.eq(owner(f,20,20).key,owner(f,25,30).key,'T junction belongs to one source network');
+    const crossed=build([lane([[20,20],[30,30]],3),lane([[20,30],[30,20]],4)]);
+    assert.eq(owner(crossed,20,20).key,owner(crossed,20,30).key,'segment crossing joins even without an explicit shared vertex');
   });
 })();

@@ -1125,13 +1125,28 @@
   }
   // Keep diagnostic evidence beside the transient line-index set. Only the
   // plain per-line arrays copied into parkingLanes survive tile generation.
-  function markLotLane(out, f, li, reasons) {
+  function lotLineGroup(kind, members) {
+    const lines = members.map(({ f, li }) => {
+      const points = f.geom[li].map(p => `${p.x},${p.y}`);
+      const forward = points.join(';'), backward = points.reverse().join(';');
+      return forward < backward ? forward : backward;
+    });
+    // Tile-local, geometry-owned identity: no feature id, line index, member
+    // iteration order or unrelated access-spine geometry enters the key.
+    return `${kind}:${[...new Set(lines)].sort().join('|')}`;
+  }
+  function markLotLane(out, f, li, reasons, group) {
     let set = out.get(f);
-    if (!set) { set = new Set(); set.reasons = new Map(); out.set(f, set); }
+    if (!set) { set = new Set(); set.reasons = new Map(); set.lineGroups = new Map(); out.set(f, set); }
     set.add(li);
     let evidence = set.reasons.get(li);
     if (!evidence) set.reasons.set(li, evidence = new Set());
     for (const reason of reasons) evidence.add(reason);
+    if (group) {
+      let memberships = set.lineGroups.get(li);
+      if (!memberships) set.lineGroups.set(li, memberships = new Set());
+      memberships.add(group);
+    }
   }
   // A three-lane parking shape can be encoded as one U-shaped way and a
   // separate middle row. Recognise only the exact three-leg hairpin, with a
@@ -1183,8 +1198,9 @@
           const along = p => (p.x - h.q.x) * h.ux + (p.y - h.q.y) * h.uy;
           const lo = along(a), hi = along(b), shorter = Math.min(h.l1, h.l2), longer = Math.max(h.l1, h.l2);
           if (Math.min(hi, shorter) - Math.max(lo, 0) < shorter * 0.8 || Math.abs(hi - longer) * mvtToM > 10) continue;
+          const group = lotLineGroup('parking_hairpin', [h, row]);
           for (const item of [h, row]) {
-            markLotLane(out, item.f, item.li, ['parking_hairpin']);
+            markLotLane(out, item.f, item.li, ['parking_hairpin'], group);
           }
         }
       }
@@ -1250,8 +1266,9 @@
         }).map(row => ({ row, across: -row.a.x * seed.uy + row.a.y * seed.ux })).sort((a, b) => a.across - b.across);
         let run = [];
         const flush = () => {
-          if (run.length >= 3) for (const { row } of run) {
-            markLotLane(out, row.f, row.li, ['connected_rows']);
+          if (run.length >= 3) {
+            const group = lotLineGroup('connected_rows', run.map(({ row }) => row));
+            for (const { row } of run) markLotLane(out, row.f, row.li, ['connected_rows'], group);
           }
           run = [];
         };
@@ -1357,9 +1374,11 @@
   // (a surviving line keeps its Streets.lineKey — that hashes the line
   // itself and the feature id, not the line's index). Then every service-class `transportation_name` line whose
   // vertices all sit on a cut lane (its label) goes too. Idempotent: a second
-  // run finds nothing. Returns [{ f, lines, reasons }]: removed polylines and
+  // run finds nothing. Returns [{ f, lines, reasons, lineGroups }]: removed polylines and
   // parallel arrays of evidence codes. POI/aisle codes report contributors to
   // their combined length threshold, not independent sufficient thresholds.
+  // lineGroups is parallel to lines: declared same-lot geometry memberships;
+  // nearby POI/aisle evidence alone declares no shared identity.
   function* pruneLotLanesSteps(layersByName, mvtToM) {
     const tl = layersByName['transportation'];
     if (!tl || !tl.features) return [];
@@ -1369,19 +1388,20 @@
     for (let i = 0; i < tl.features.length; i++) {
       const f = tl.features[i];
       if (f.type === 2 && f.geom && isLotLane(f.tags)) {
-        cut.push({ f, lines: f.geom, reasons: f.geom.map(() => ['parking_aisle']) });
+        cut.push({ f, lines: f.geom, reasons: f.geom.map(() => ['parking_aisle']), lineGroups: f.geom.map(() => []) });
         continue;
       }
       const set = f.type === 2 && f.geom ? lots.get(f) : null;
       if (set) {
-        const gone = [], stay = [], reasons = [];
+        const gone = [], stay = [], reasons = [], lineGroups = [];
         for (let li = 0; li < f.geom.length; li++) {
           if (set.has(li)) {
             gone.push(f.geom[li]);
             reasons.push([...set.reasons.get(li)].sort());
+            lineGroups.push([...(set.lineGroups.get(li) || [])].sort());
           } else stay.push(f.geom[li]);
         }
-        cut.push({ f, lines: gone, reasons });
+        cut.push({ f, lines: gone, reasons, lineGroups });
         if (!stay.length) continue;
         // A NEW feature object, not f.geom rewritten: Streets.lineKey memoises
         // per feature object by line index, and the indices just shifted.

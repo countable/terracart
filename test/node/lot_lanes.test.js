@@ -137,7 +137,9 @@ test('lot lanes: removed tagged and inferred geometry remains generation-only qu
   const ownerAt = (x, y) => r.zone?.anchors[r.zone.coverage[y * CPE + x] - 1];
   const owner = ownerAt(40, 41);
   assert.eq(owner?.kind, 'quarry', 'the removed lot becomes a quarry zone');
-  assert.eq(ownerAt(40, 43)?.key, owner.key, 'nearby lane buffers share a connected quarry');
+  const adjacent = ownerAt(40, 43);
+  assert.eq(adjacent?.kind, 'quarry', 'the adjacent removed lane also becomes quarry ground');
+  assert.truthy(adjacent.key !== owner.key, 'proximity evidence alone does not merge disconnected source lanes');
   assert.eq(r.grid[41 * CPE + 40], WorldGen.T.ROCK, 'quarry has rocky ground');
   assert.eq(r.roadMask[41 * CPE + 40], 0, 'the lane never regains a carriageway');
   assert.falsy(hasLine(by.transportation, IN_LOT), 'lamps, restoration and road overlays still cannot see the lane');
@@ -148,6 +150,8 @@ test('lot lanes: removal reasons distinguish tags, parking POIs and nearby aisle
   const tagged=by.transportation.parkingLanes.find(row=>row.f.id===2);
   const inferred=by.transportation.parkingLanes.find(row=>row.f.id===3);
   assert.eq(JSON.stringify(tagged.reasons), JSON.stringify([['parking_aisle']]));
+  assert.eq(JSON.stringify(tagged.lineGroups),JSON.stringify([[]]),'tags alone do not declare a same-lot group');
+  assert.eq(JSON.stringify(inferred.lineGroups),JSON.stringify([[]]),'POI proximity alone does not merge lots');
   assert.eq(JSON.stringify(inferred.reasons), JSON.stringify([['parking_poi']]));
   for (const withPoi of [false,true]) {
     const L=layers();
@@ -224,6 +228,20 @@ test('lot lanes: quarry ground and dressing preserve original cave entrances', (
     assert.eq(prune(fixture([30,50,70].map(x=>[{x,y:110},{x,y:45}]))).length,0,'parallel rows must touch a common spine');
     assert.eq(prune(fixture([row(20),row(60),row(100)])).length,0,'widely separated access roads survive');
   });
+  test('lot lanes: distinct combs on one access spine have stable geometry-owned groups', () => {
+    const rows=[10,30,50,100,120,140].map(row);
+    const first=fixture(rows), second=fixture(rows.map(points=>points.slice().reverse()).reverse());
+    second.transportation.features.reverse();
+    for (const f of second.transportation.features) f.id+=20;
+    const a=prune(first), b=prune(second);
+    const groups=a.flatMap(record=>record.lineGroups.flat());
+    assert.eq(new Set(groups).size,2,'one long access spine does not merge distinct lots');
+    for (const key of new Set(groups)) assert.eq(groups.filter(value=>value===key).length,3);
+    assert.eq(JSON.stringify(groups.slice().sort()),JSON.stringify(b.flatMap(record=>record.lineGroups.flat()).sort()),'feature order/id, line order and direction do not affect groups');
+    const stored=JSON.stringify(first.transportation.parkingLanes);
+    prune(first);
+    assert.eq(JSON.stringify(first.transportation.parkingLanes),stored,'group evidence survives repeat pruning');
+  });
   test('lot lanes: a comb preserves unrelated lines merged into the same feature', () => {
     const unrelated=[{x:200,y:120},{x:200,y:55}];
     const by=fixture([row(30),row(50),row(70),unrelated]);
@@ -261,6 +279,13 @@ test('lot lanes: quarry ground and dressing preserve original cave entrances', (
     assert.eq(by.transportation.features[0].id,911,'separate access survives');
     assert.eq(by.transportation.parkingLanes[0].lines.length,2);
     assert.eq(prune(by).length,0);
+  });
+  test('lot lanes: a parking hairpin and its middle row share a stable declared group', () => {
+    const a=prune(fixture()), b=prune(fixture(hairpin.slice().reverse(),centre.slice().reverse()));
+    assert.eq(a[0].lineGroups.length,2);
+    assert.eq(a[0].lineGroups[0].length,1);
+    assert.eq(a[0].lineGroups[0][0],a[0].lineGroups[1][0]);
+    assert.eq(JSON.stringify(a[0].lineGroups),JSON.stringify(b[0].lineGroups),'reversing geometry preserves membership');
   });
   test('lot lanes: hairpin evidence requires a connected interior row matching the far extent', () => {
     for (const middle of [
