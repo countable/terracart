@@ -372,6 +372,14 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
   with its band layout. Painted headers use a label without emoji/`kindIcon`.
+- Paired story paintings must use actual image references. Establish the
+  introduction first, then edit that image for the completed action; preserve
+  object designs, materials and booth identity. After-use panels zoom in on
+  the transaction object (bed, book, gift, payment or equipment), with only
+  cropped hands when needed. Keep faces and full booth views in introductions.
+  Text-only style prompts are insufficient for continuity. Booth scenes use
+  the introductions' painterly realism, subdued light and reserved expressions;
+  avoid chibi proportions and celebratory smiles.
 - Before memory 30, art and dialogue may foreshadow the survivor's past but
   must not reveal it. `MemoryStory` gates Act 2 on the first tower and nine
   lifetime memories; that tower is abandoned at 21. Its memory-30 reveal

@@ -1,135 +1,325 @@
 {
-  "mode": "built-in image_gen",
-  "composition": "Portrait 11:14, action and booth identity above the lower copy area; no baked text.",
+  "mode": "built-in image_gen reference edits",
+  "workflow": "Introductions establish booth identity. After-use reference edits zoom in on the transaction object, preserving its design and darker painterly style; lower area stays quiet for dialog.",
+  "archiveRoot": "~/.artifacts/terracart-art/",
   "paintings": [
     {
       "kind": "inn",
-      "prompt": "Use case: illustration-story. Asset type: dedicated introduction painting for a cozy village rebuilding RPG booth. Detailed 16-bit SNES pixel-art storybook painting, crisp pixel clusters and visible dithering, no smooth antialiasing; amber dusty orange golden-hour sky, olive foliage, brown timber, cream highlights, gentle melancholy turning to hope. Portrait 11:14 aspect. STRICT COMPOSITION: ALL figures, booth, props, light and readable narrative fill the full width of the TOP 40% only, large close subjects; bottom 60% is empty, dark brown foreground shadow in broad simple dithered shapes, becoming darker downward, no objects or highlights or fine detail. This is a game dialog copy zone. No text, letters, UI, borders or watermark. Hooded player always wears raised BROWN hood wholly hiding hair and face in shadow. Any currency must be JADE GREEN star-marked coins, never gold coins. Cozy repaired roadside market of Mending Lane fifty years after the Breaking, no dragons or story revelations.  Composition reiteration for final export: narrative illustration must occupy ONLY TOP THIRD (33%) of this source canvas. The entire lower TWO THIRDS must be featureless black-brown shadow. Do NOT place people or counter below the top third horizontal line. Think shallow panoramic illustration banner at top of a tall nearly empty dark card.INTRO INN: welcoming timber booth with moss green canvas awning and cream BED pictogram sign. Kindly innkeeper shows the hooded traveler a clean restful bed visible behind the counter and a small cup of broth. Traveler holds a little jade coin purse, anticipating paid restorative rest; do not show a completed payment. New boards repair a weathered roof. Intimate restful welcome.",
       "phase": "intro",
+      "prompt": "Use case: identity-preserve / lighting-weather edit. Asset: portrait fantasy game story panel. Image 1 is the exact edit target and canonical location/character reference. Make a restrained revision of THIS painting, preserving its painterly textured realism, brush/pixel grain, human proportions, framing and all physical landmarks exactly. Change only mood and facial expression: reserved, tired, compassionate faces with closed neutral mouths instead of broad cheerful smiles; slightly darker weathered rebuilding-world mood, desaturated amber dusk and restrained lantern warmth instead of exuberant golden saturation. Keep brown hooded traveller and backpack identity, architecture and perspective. Preserve quiet dark lower 58–60% for UI text; no lettering, new props, borders or watermark. Do not simplify into chibi, enlarge heads, redesign costumes or shift the camera. Keep the same woman innkeeper in white kerchief and green apron, green scalloped awning, bed-pictogram hanging sign upper right, small existing bed behind her to the right, lantern and cup on counter, landscape bridge at left. Same pose offering bed.",
+      "references": [
+        "prior version introduction: assets/art/booth_inn_intro.webp"
+      ],
+      "source": "art-source/paintings/raw/booth_inn_intro.png",
+      "source_dimensions": [
+        1111,
+        1415
+      ],
+      "dimensions": [
+        512,
+        652
+      ],
       "runtime": "assets/art/booth_inn_intro.webp",
-      "master": "art-source/paintings/raw/booth_inn_intro.png"
-    },
-    {
-      "kind": "chapel",
-      "prompt": "Use case: illustration-story. Asset type: dedicated introduction painting for a cozy village rebuilding RPG booth. Detailed 16-bit SNES pixel-art storybook painting, crisp pixel clusters and visible dithering, no smooth antialiasing; amber dusty orange golden-hour sky, olive foliage, brown timber, cream highlights, gentle melancholy turning to hope. Portrait 11:14 aspect. STRICT COMPOSITION: ALL figures, booth, props, light and readable narrative fill the full width of the TOP 40% only, large close subjects; bottom 60% is empty, dark brown foreground shadow in broad simple dithered shapes, becoming darker downward, no objects or highlights or fine detail. This is a game dialog copy zone. No text, letters, UI, borders or watermark. Hooded player always wears raised BROWN hood wholly hiding hair and face in shadow. Any currency must be JADE GREEN star-marked coins, never gold coins. Cozy repaired roadside market of Mending Lane fifty years after the Breaking, no dragons or story revelations.  Composition reiteration for final export: narrative illustration must occupy ONLY TOP THIRD (33%) of this source canvas. The entire lower TWO THIRDS must be featureless black-brown shadow. Do NOT place people or counter below the top third horizontal line. Think shallow panoramic illustration banner at top of a tall nearly empty dark card.INTRO CHAPEL: tiny timber roadside chapel booth, blue canopy with pointed gold-edged bell niche and brass bell, matching a compact market icon. Warm gentle attendant offers open palm of faint peaceful light to brown-hooded traveler, free daily blessing, no coins, no payment. Old stones carefully mended, hopeful safe mood, no sinister imagery or angels.",
-      "phase": "intro",
-      "runtime": "assets/art/booth_chapel_intro.webp",
-      "master": "art-source/paintings/raw/booth_chapel_intro.png"
-    },
-    {
-      "kind": "apothecary",
-      "prompt": "Use case: illustration-story. Asset type: dedicated introduction painting for a cozy village rebuilding RPG booth. Detailed 16-bit SNES pixel-art storybook painting, crisp pixel clusters and visible dithering, no smooth antialiasing; amber dusty orange golden-hour sky, olive foliage, brown timber, cream highlights, gentle melancholy turning to hope. Portrait 11:14 aspect. STRICT COMPOSITION: ALL figures, booth, props, light and readable narrative fill the full width of the TOP 40% only, large close subjects; bottom 60% is empty, dark brown foreground shadow in broad simple dithered shapes, becoming darker downward, no objects or highlights or fine detail. This is a game dialog copy zone. No text, letters, UI, borders or watermark. Hooded player always wears raised BROWN hood wholly hiding hair and face in shadow. Any currency must be JADE GREEN star-marked coins, never gold coins. Cozy repaired roadside market of Mending Lane fifty years after the Breaking, no dragons or story revelations.  Composition reiteration for final export: narrative illustration must occupy ONLY TOP THIRD (33%) of this source canvas. The entire lower TWO THIRDS must be featureless black-brown shadow. Do NOT place people or counter below the top third horizontal line. Think shallow panoramic illustration banner at top of a tall nearly empty dark card.INTRO APOTHECARY: timber market stall under plum-purple awning, hanging GREEN POTION bottle pictogram. Herbalist welcomes brown-hooded traveler to a neat shelf of small healing and resistance potions and dried herbs, jade green star-marked coins at traveler belt. Distinct green potion bottle prominently shown on counter, shop browsing before purchase, pots of herbs by repaired boards.",
-      "phase": "intro",
-      "runtime": "assets/art/booth_apothecary_intro.webp",
-      "master": "art-source/paintings/raw/booth_apothecary_intro.png"
-    },
-    {
-      "kind": "scriptorium",
-      "prompt": "Use case: illustration-story. Asset type: dedicated introduction painting for a cozy village rebuilding RPG booth. Detailed 16-bit SNES pixel-art storybook painting, crisp pixel clusters and visible dithering, no smooth antialiasing; amber dusty orange golden-hour sky, olive foliage, brown timber, cream highlights, gentle melancholy turning to hope. Portrait 11:14 aspect. STRICT COMPOSITION: ALL figures, booth, props, light and readable narrative fill the full width of the TOP 40% only, large close subjects; bottom 60% is empty, dark brown foreground shadow in broad simple dithered shapes, becoming darker downward, no objects or highlights or fine detail. This is a game dialog copy zone. No text, letters, UI, borders or watermark. Hooded player always wears raised BROWN hood wholly hiding hair and face in shadow. Any currency must be JADE GREEN star-marked coins, never gold coins. Cozy repaired roadside market of Mending Lane fifty years after the Breaking, no dragons or story revelations.  Composition reiteration for final export: narrative illustration must occupy ONLY TOP THIRD (33%) of this source canvas. The entire lower TWO THIRDS must be featureless black-brown shadow. Do NOT place people or counter below the top third horizontal line. Think shallow panoramic illustration banner at top of a tall nearly empty dark card.INTRO SCRIPTORIUM: timber stall under muted RED canvas awning, cream PARCHMENT AND QUILL pictogram sign. Scribe presents bound books, rolled parchment and one unlit wooden torch to brown-hooded traveler whose jade green star coins await purchase. Recovered old book pages carefully sewn into sturdy new bindings. Intro shop browsing not completed trade.",
-      "phase": "intro",
-      "runtime": "assets/art/booth_scriptorium_intro.webp",
-      "master": "art-source/paintings/raw/booth_scriptorium_intro.png"
-    },
-    {
-      "kind": "guildhall",
-      "prompt": "Use case: illustration-story. Asset type: dedicated introduction painting for a cozy village rebuilding RPG booth. Detailed 16-bit SNES pixel-art storybook painting, crisp pixel clusters and visible dithering, no smooth antialiasing; amber dusty orange golden-hour sky, olive foliage, brown timber, cream highlights, gentle melancholy turning to hope. Portrait 11:14 aspect. STRICT COMPOSITION: ALL figures, booth, props, light and readable narrative fill the full width of the TOP 40% only, large close subjects; bottom 60% is empty, dark brown foreground shadow in broad simple dithered shapes, becoming darker downward, no objects or highlights or fine detail. This is a game dialog copy zone. No text, letters, UI, borders or watermark. Hooded player always wears raised BROWN hood wholly hiding hair and face in shadow. Any currency must be JADE GREEN star-marked coins, never gold coins. Cozy repaired roadside market of Mending Lane fifty years after the Breaking, no dragons or story revelations.  Composition reiteration for final export: narrative illustration must occupy ONLY TOP THIRD (33%) of this source canvas. The entire lower TWO THIRDS must be featureless black-brown shadow. Do NOT place people or counter below the top third horizontal line. Think shallow panoramic illustration banner at top of a tall nearly empty dark card.INTRO GUILDHALL: timber booth with BLUE canvas awning and large GOLD SHIELD pictogram fixed high on front, guild attendant points out a bounty board with wordless monster silhouette sketches and a jade coin reward purse. Brown-hooded traveler studies the offered monster-defeating bounty. No corpse or gore, promise of protecting the rebuilt lane, freshly replaced wood beams.",
-      "phase": "intro",
-      "runtime": "assets/art/booth_guildhall_intro.webp",
-      "master": "art-source/paintings/raw/booth_guildhall_intro.png"
-    },
-    {
-      "kind": "curio",
-      "prompt": "CHANGE THE CRYSTAL SIGN TO BRIGHT PURPLE. This is a local recolor edit. At x=260,y=50 in the 512x652 image, the wooden rectangular hanging shop sign contains three pointed beige crystals. Repaint THOSE THREE CRYSTALS vivid saturated AMETHYST PURPLE (#9b42d1) with lavender (#d09aef) highlights and deep violet shadows. The currently beige center crystal MUST visibly become purple. This is the sole requested change; it is important the sign is immediately visibly purple even at thumbnail scale, matching the game's purple crystal shop map icon. Preserve every other pixel-art subject, position, brown hood, shopkeeper, warm scene, teal canopy, dark lower blank zone, portrait proportions. No writing or new objects.",
-      "original_source": "/home/claude/.codex/generated_images/01a0fd88-d767-7863-bcbc-81d86c5a6ba5/exec-5f88e7e7-cfc2-40a6-9910-233181155718.png",
-      "original_prompt": "Use case: illustration-story. Asset type: dedicated introduction painting for a cozy village rebuilding RPG booth. Detailed 16-bit SNES pixel-art storybook painting, crisp pixel clusters and visible dithering, no smooth antialiasing; amber dusty orange golden-hour sky, olive foliage, brown timber, cream highlights, gentle melancholy turning to hope. Portrait 11:14 aspect. STRICT COMPOSITION: ALL figures, booth, props, light and readable narrative fill the full width of the TOP 40% only, large close subjects; bottom 60% is empty, dark brown foreground shadow in broad simple dithered shapes, becoming darker downward, no objects or highlights or fine detail. This is a game dialog copy zone. No text, letters, UI, borders or watermark. Hooded player always wears raised BROWN hood wholly hiding hair and face in shadow. Any currency must be JADE GREEN star-marked coins, never gold coins. Cozy repaired roadside market of Mending Lane fifty years after the Breaking, no dragons or story revelations.  Composition reiteration for final export: narrative illustration must occupy ONLY TOP THIRD (33%) of this source canvas. The entire lower TWO THIRDS must be featureless black-brown shadow. Do NOT place people or counter below the top third horizontal line. Think shallow panoramic illustration banner at top of a tall nearly empty dark card.INTRO CURIO: cozy timber collector booth under TEAL awning with a suspended PURPLE CRYSTAL pictogram, curio keeper opens a cloth-lined receiving tray as brown-hooded traveler considers bringing an ancient salvaged artifact. Gentle misty memory glow from a small relic in display cabinet, no specific story scene or revelations. Artifact donation in exchange for recovering memories, not buying loot, no coins.",
-      "phase": "intro",
-      "runtime": "assets/art/booth_curio_intro.webp",
-      "master": "art-source/paintings/raw/booth_curio_intro.png"
-    },
-    {
-      "kind": "sundries",
-      "prompt": "Use case: illustration-story. Asset type: dedicated introduction painting for a cozy village rebuilding RPG booth. Detailed 16-bit SNES pixel-art storybook painting, crisp pixel clusters and visible dithering, no smooth antialiasing; amber dusty orange golden-hour sky, olive foliage, brown timber, cream highlights, gentle melancholy turning to hope. Portrait 11:14 aspect. STRICT COMPOSITION: ALL figures, booth, props, light and readable narrative fill the full width of the TOP 40% only, large close subjects; bottom 60% is empty, dark brown foreground shadow in broad simple dithered shapes, becoming darker downward, no objects or highlights or fine detail. This is a game dialog copy zone. No text, letters, UI, borders or watermark. Hooded player always wears raised BROWN hood wholly hiding hair and face in shadow. Any currency must be JADE GREEN star-marked coins, never gold coins. Cozy repaired roadside market of Mending Lane fifty years after the Breaking, no dragons or story revelations.  Composition reiteration for final export: narrative illustration must occupy ONLY TOP THIRD (33%) of this source canvas. The entire lower TWO THIRDS must be featureless black-brown shadow. Do NOT place people or counter below the top third horizontal line. Think shallow panoramic illustration banner at top of a tall nearly empty dark card.INTRO SUNDRIES: compact timber supply booth, YELLOW AND CREAM STRIPED canvas awning and beige SACK pictogram. Friendly merchant displays rope, bundled kindling, a sturdy sack and ordinary practical supplies to brown-hooded traveler with jade star coin purse. Rebuilding everyday life, patched roof, warm welcoming market, buying supplies, no potion or weapon emphasis.",
-      "phase": "intro",
-      "runtime": "assets/art/booth_sundries_intro.webp",
-      "master": "art-source/paintings/raw/booth_sundries_intro.png"
-    },
-    {
-      "kind": "training",
-      "prompt": "Use case: illustration-story. Asset type: dedicated introduction painting for a cozy village rebuilding RPG booth. Detailed 16-bit SNES pixel-art storybook painting, crisp pixel clusters and visible dithering, no smooth antialiasing; amber dusty orange golden-hour sky, olive foliage, brown timber, cream highlights, gentle melancholy turning to hope. Portrait 11:14 aspect. STRICT COMPOSITION: ALL figures, booth, props, light and readable narrative fill the full width of the TOP 40% only, large close subjects; bottom 60% is empty, dark brown foreground shadow in broad simple dithered shapes, becoming darker downward, no objects or highlights or fine detail. This is a game dialog copy zone. No text, letters, UI, borders or watermark. Hooded player always wears raised BROWN hood wholly hiding hair and face in shadow. Any currency must be JADE GREEN star-marked coins, never gold coins. Cozy repaired roadside market of Mending Lane fifty years after the Breaking, no dragons or story revelations.  Composition reiteration for final export: narrative illustration must occupy ONLY TOP THIRD (33%) of this source canvas. The entire lower TWO THIRDS must be featureless black-brown shadow. Do NOT place people or counter below the top third horizontal line. Think shallow panoramic illustration banner at top of a tall nearly empty dark card.INTRO TRAINING: sturdy timber roadside booth, RED canvas awning and CROSSED SWORD AND SHIELD pictogram. Veteran trainer stands beside practice dummy and a wooden practice sword, welcoming brown-hooded traveler who carries jade green star coins for a useful lesson or drill. No magic instant level-up, no real combat, an inviting training service outside booth.",
-      "phase": "intro",
-      "runtime": "assets/art/booth_training_intro.webp",
-      "master": "art-source/paintings/raw/booth_training_intro.png"
-    },
-    {
-      "kind": "scholar",
-      "prompt": "Use case: illustration-story. Asset type: dedicated introduction painting for a cozy village rebuilding RPG booth. Detailed 16-bit SNES pixel-art storybook painting, crisp pixel clusters and visible dithering, no smooth antialiasing; amber dusty orange golden-hour sky, olive foliage, brown timber, cream highlights, gentle melancholy turning to hope. Portrait 11:14 aspect. STRICT COMPOSITION: ALL figures, booth, props, light and readable narrative fill the full width of the TOP 40% only, large close subjects; bottom 60% is empty, dark brown foreground shadow in broad simple dithered shapes, becoming darker downward, no objects or highlights or fine detail. This is a game dialog copy zone. No text, letters, UI, borders or watermark. Hooded player always wears raised BROWN hood wholly hiding hair and face in shadow. Any currency must be JADE GREEN star-marked coins, never gold coins. Cozy repaired roadside market of Mending Lane fifty years after the Breaking, no dragons or story revelations.  Composition reiteration for final export: narrative illustration must occupy ONLY TOP THIRD (33%) of this source canvas. The entire lower TWO THIRDS must be featureless black-brown shadow. Do NOT place people or counter below the top third horizontal line. Think shallow panoramic illustration banner at top of a tall nearly empty dark card.INTRO SCHOLAR: timber booth under INDIGO canvas awning, prominent OPEN BOOK pictogram and stacks of tomes. Kindly scholar welcomes brown-hooded traveler holding three modest collected books; scholar gestures toward a beautiful weighty bound magical tome on a shelf, promised prize for books collected and read. Salvaged bindings gently repaired after the Breaking, no coins, no literal text, no floating spell power or story revelations.",
-      "phase": "intro",
-      "runtime": "assets/art/booth_scholar_intro.webp",
-      "master": "art-source/paintings/raw/booth_scholar_intro.png"
+      "master": "art-source/paintings/raw/booth_inn_intro.png",
+      "sha256": "9ca9c8301a48e2b16f2ce0999cf2c0cdf4ab7098b0ad554583a4aaf59d77d247"
     },
     {
       "kind": "inn",
-      "prompt": "Use case: illustration-story. Dedicated booth transaction confirmation painting for Dragon Hood, cozy village-rebuilding RPG. Detailed crisp SNES 16-bit pixel storybook illustration; warm muted amber, dusty orange, olive foliage, brown earth, cream highlights, visible dithering, no smooth gradients. Portrait 11:14. Strict composition: all figures, objects, detail and light wholly inside TOP 40%, filling that band horizontally. BOTTOM 60% only empty dark low-detail shadowed ground in broad simple dithered blocks, darkening downward; absolutely no figures, props, lights or focal details there. Player wears raised brown hood completely hiding entire face and hair, no eyes visible. Jade-green star-marked coins only, never yellow gold. No text, letters, signs with lettering, UI, borders or watermark. No dragons or identity hints. Inn booth with moss-green canopy, a small carved bed emblem and patched old timbers. Friendly innkeeper at the counter; rested brown-hooded traveller stands beside a freshly offered modest bed and folded blanket. Confirm renewed health and shelter through calm refreshed posture, no dramatic magical effects. Small warm lantern overhead.",
       "phase": "used",
+      "prompt": "Use case: precise-object-edit and reframing. Image1 is the edit target and exact visual identity/style reference. Make this AFTER-USE fantasy game story panel an extreme close detail of JUST THE TRANSACTION OBJECT described below. Preserve the same dark subdued painterly textured realism, weathered materials, restrained amber lamplight, muted brown/green palette and clearly readable object identity. Reframe radically closer: transaction detail fills only UPPER40–42% of the portrait image; LOWER58–60% remains quiet nearly-black warm-brown uninterrupted negative space for text, just like reference. Do not fill the whole canvas with the closeup. No faces, keeper, full people, booth facade, awning, outdoor vista, signage or extra props. No text, border or watermark. Close detail of the SAME dark wooden bed with green patterned blanket and pale pillow from upper right of source. Bed and reclining brown-hooded traveller under blanket fill the upper picture area, seen from bedside. Face completely hidden inside dark hood, no visible facial features; blanket covers body. Two fine pale silver luminous ribbons curl upward and away above pillow with tiny fading motes, confirming restorative rest. This is only the bed/rest detail, NOT a portrait of the traveller. Crop tightly to pillow, hood, blanket and bed wood. Match original blanket texture and quiet moody lighting. No innkeeper, cup, counter or architecture.",
+      "references": [
+        "art-source/paintings/history/booths-v2/booth_inn_used.png"
+      ],
+      "reference_snapshot": "/tmp/booth-closeup-originals/booth_inn_used.webp",
+      "source": "art-source/paintings/raw/booth_inn_used.png",
+      "source_dimensions": [
+        1111,
+        1415
+      ],
+      "dimensions": [
+        512,
+        652
+      ],
       "runtime": "assets/art/booth_inn_used.webp",
-      "master": "art-source/paintings/raw/booth_inn_used.png"
+      "master": "art-source/paintings/raw/booth_inn_used.png",
+      "sha256": "6a6e60f6c94a1954d9c5912f563fd883d0b6ec0e68e2911fa59b7702de760626"
     },
     {
       "kind": "chapel",
-      "prompt": "Use case: illustration-story. Dedicated booth transaction confirmation painting for Dragon Hood, cozy village-rebuilding RPG. Detailed crisp SNES 16-bit pixel storybook illustration; warm muted amber, dusty orange, olive foliage, brown earth, cream highlights, visible dithering, no smooth gradients. Portrait 11:14. Strict composition: all figures, objects, detail and light wholly inside TOP 40%, filling that band horizontally. BOTTOM 60% only empty dark low-detail shadowed ground in broad simple dithered blocks, darkening downward; absolutely no figures, props, lights or focal details there. Player wears raised brown hood completely hiding entire face and hair, no eyes visible. Jade-green star-marked coins only, never yellow gold. No text, letters, signs with lettering, UI, borders or watermark. No dragons or identity hints. Respectful chapel booth with blue pointed canopy and golden bell hanging in its niche. Humble keeper places a small wrapped blessing gift into the brown-hooded visitor's hands after an offering. Peaceful warm sacred glow. No demons, horns, sinister symbols or lore hints of any kind.",
+      "phase": "intro",
+      "prompt": "Use case: identity-preserve / lighting-weather edit. Asset: portrait fantasy game story panel. Image 1 is the exact edit target and canonical location/character reference. Make a restrained revision of THIS painting, preserving its painterly textured realism, brush/pixel grain, human proportions, framing and all physical landmarks exactly. Change only mood and facial expression: reserved, tired, compassionate faces with closed neutral mouths instead of broad cheerful smiles; slightly darker weathered rebuilding-world mood, desaturated amber dusk and restrained lantern warmth instead of exuberant golden saturation. Keep brown hooded traveller and backpack identity, architecture and perspective. Preserve quiet dark lower 58–60% for UI text; no lettering, new props, borders or watermark. Do not simplify into chibi, enlarge heads, redesign costumes or shift the camera. Keep the same realistically proportioned blue-robed female keeper, her gentle reserved face, bell immediately above-left of her in its wooden niche, blue scalloped awning, blue side banner, foreground lantern and white flowers, distant chapel and river. Same open-hand blessing invitation.",
+      "references": [
+        "prior version introduction: assets/art/booth_chapel_intro.webp"
+      ],
+      "source": "art-source/paintings/raw/booth_chapel_intro.png",
+      "source_dimensions": [
+        1111,
+        1415
+      ],
+      "dimensions": [
+        512,
+        652
+      ],
+      "runtime": "assets/art/booth_chapel_intro.webp",
+      "master": "art-source/paintings/raw/booth_chapel_intro.png",
+      "sha256": "d1ddf3ac1c3d32cf41858acd7747f9135f422135a12df18790816302487e5d5e"
+    },
+    {
+      "kind": "chapel",
       "phase": "used",
+      "prompt": "Use case: precise-object-edit and reframing. Image1 is the edit target and exact visual identity/style reference. Make this AFTER-USE fantasy game story panel an extreme close detail of JUST THE TRANSACTION OBJECT described below. Preserve the same dark subdued painterly textured realism, weathered materials, restrained amber lamplight, muted brown/green palette and clearly readable object identity. Reframe radically closer: transaction detail fills only UPPER40–42% of the portrait image; LOWER58–60% remains quiet nearly-black warm-brown uninterrupted negative space for text, just like reference. Do not fill the whole canvas with the closeup. No faces, keeper, full people, booth facade, awning, outdoor vista, signage or extra props. No text, border or watermark. Close detail of the SAME small rectangular brown-paper wrapped blessing gift tied with simple cord and a tiny white flower sprig, just received onto the chapel's weathered wooden counter. The gift should be large and immediately legible in upper picture area. Only optional cropped fingertips of brown-hooded traveller at edge to confirm receipt; no body or face, and no keeper. Preserve reference gift's brown paper, twine, white flower and counter material, subdued painterly style, muted warm light. No payment coins.",
+      "references": [
+        "art-source/paintings/history/booths-v2/booth_chapel_used.png"
+      ],
+      "reference_snapshot": "/tmp/booth-closeup-originals/booth_chapel_used.webp",
+      "source": "art-source/paintings/raw/booth_chapel_used.png",
+      "source_dimensions": [
+        1111,
+        1415
+      ],
+      "dimensions": [
+        512,
+        652
+      ],
       "runtime": "assets/art/booth_chapel_used.webp",
-      "master": "art-source/paintings/raw/booth_chapel_used.png"
-    },
-    {
-      "kind": "apothecary",
-      "prompt": "Use case: illustration-story. Dedicated booth transaction confirmation painting for Dragon Hood, cozy village-rebuilding RPG. Detailed crisp SNES 16-bit pixel storybook illustration; warm muted amber, dusty orange, olive foliage, brown earth, cream highlights, visible dithering, no smooth gradients. Portrait 11:14. Strict composition: all figures, objects, detail and light wholly inside TOP 40%, filling that band horizontally. BOTTOM 60% only empty dark low-detail shadowed ground in broad simple dithered blocks, darkening downward; absolutely no figures, props, lights or focal details there. Player wears raised brown hood completely hiding entire face and hair, no eyes visible. Jade-green star-marked coins only, never yellow gold. No text, letters, signs with lettering, UI, borders or watermark. No dragons or identity hints. Apothecary booth with plum canopy and green potion flask emblem. Herbalist hands a corked green healing flask to brown-hooded customer; a few jade-green star-marked coins have been paid on the counter. Repaired timber, tiny drying herbs and neat bottles at the top. Show completed exchange.",
-      "phase": "used",
-      "runtime": "assets/art/booth_apothecary_used.webp",
-      "master": "art-source/paintings/raw/booth_apothecary_used.png"
-    },
-    {
-      "kind": "scriptorium",
-      "prompt": "Use case: illustration-story. Dedicated booth transaction confirmation painting for Dragon Hood, cozy village-rebuilding RPG. Detailed crisp SNES 16-bit pixel storybook illustration; warm muted amber, dusty orange, olive foliage, brown earth, cream highlights, visible dithering, no smooth gradients. Portrait 11:14. Strict composition: all figures, objects, detail and light wholly inside TOP 40%, filling that band horizontally. BOTTOM 60% only empty dark low-detail shadowed ground in broad simple dithered blocks, darkening downward; absolutely no figures, props, lights or focal details there. Player wears raised brown hood completely hiding entire face and hair, no eyes visible. Jade-green star-marked coins only, never yellow gold. No text, letters, signs with lettering, UI, borders or watermark. No dragons or identity hints. Scriptorium booth with faded red canopy and parchment-and-quill emblem. Keeper hands a modest clothbound book to brown-hooded reader, beside a small reading torch, after payment of jade-green star coins visible on counter. Some salvaged books have lightly scorched repaired bindings, hopeful learning restored after catastrophe.",
-      "phase": "used",
-      "runtime": "assets/art/booth_scriptorium_used.webp",
-      "master": "art-source/paintings/raw/booth_scriptorium_used.png"
+      "master": "art-source/paintings/raw/booth_chapel_used.png",
+      "sha256": "3e8dbc29f042077f2eb841d5bf20e6d03cdaaf29f3a01af1078dd65a1255e610"
     },
     {
       "kind": "guildhall",
-      "prompt": "Use case: illustration-story. Dedicated booth transaction confirmation painting for Dragon Hood, cozy village-rebuilding RPG. Detailed crisp SNES 16-bit pixel storybook illustration; warm muted amber, dusty orange, olive foliage, brown earth, cream highlights, visible dithering, no smooth gradients. Portrait 11:14. Strict composition: all figures, objects, detail and light wholly inside TOP 40%, filling that band horizontally. BOTTOM 60% only empty dark low-detail shadowed ground in broad simple dithered blocks, darkening downward; absolutely no figures, props, lights or focal details there. Player wears raised brown hood completely hiding entire face and hair, no eyes visible. Jade-green star-marked coins only, never yellow gold. No text, letters, signs with lettering, UI, borders or watermark. No dragons or identity hints. Guildhall booth with blue canopy and gold shield emblem. Guild keeper awards jade-green star coins to brown-hooded traveller for a completed monster bounty; keeper's satisfied approving posture confirms reward. A rolled completed warrant has no legible text. Do not show accepting or posting a new quest.",
-      "phase": "used",
-      "runtime": "assets/art/booth_guildhall_used.webp",
-      "master": "art-source/paintings/raw/booth_guildhall_used.png"
+      "phase": "intro",
+      "prompt": "Use case: identity-preserve / lighting-weather edit. Asset: portrait fantasy game story panel. Image 1 is the exact edit target and canonical location/character reference. Make a restrained revision of THIS painting, preserving its painterly textured realism, brush/pixel grain, human proportions, framing and all physical landmarks exactly. Change only mood and facial expression: reserved, tired, compassionate faces with closed neutral mouths instead of broad cheerful smiles; slightly darker weathered rebuilding-world mood, desaturated amber dusk and restrained lantern warmth instead of exuberant golden saturation. Keep brown hooded traveller and backpack identity, architecture and perspective. Preserve quiet dark lower 58–60% for UI text; no lettering, new props, borders or watermark. Do not simplify into chibi, enlarge heads, redesign costumes or shift the camera. Keep the SAME brown-haired young woman keeper, blue cape and tunic, same pose pointing at the same FOUR monster posters in a 2x2 block on back wall (wolf top left, beast top right, spider bottom left, hulking creature bottom right), blue awning, central shield, side banners, lantern, counter and barrel, with landscape at left. Keep all posters exactly in same positions.",
+      "references": [
+        "prior version introduction: assets/art/booth_guildhall_intro.webp"
+      ],
+      "source": "art-source/paintings/raw/booth_guildhall_intro.png",
+      "source_dimensions": [
+        1111,
+        1415
+      ],
+      "dimensions": [
+        512,
+        652
+      ],
+      "runtime": "assets/art/booth_guildhall_intro.webp",
+      "master": "art-source/paintings/raw/booth_guildhall_intro.png",
+      "sha256": "a41849c09c762770d5dcccc76208d7b8b385e8adf1259df3ed8a48e413518d30"
     },
     {
-      "kind": "curio",
-      "prompt": "Use case: illustration-story. Dedicated booth transaction confirmation painting for Dragon Hood, cozy village-rebuilding RPG. Detailed crisp SNES 16-bit pixel storybook illustration; warm muted amber, dusty orange, olive foliage, brown earth, cream highlights, visible dithering, no smooth gradients. Portrait 11:14. Strict composition: all figures, objects, detail and light wholly inside TOP 40%, filling that band horizontally. BOTTOM 60% only empty dark low-detail shadowed ground in broad simple dithered blocks, darkening downward; absolutely no figures, props, lights or focal details there. Player wears raised brown hood completely hiding entire face and hair, no eyes visible. Jade-green star-marked coins only, never yellow gold. No text, letters, signs with lettering, UI, borders or watermark. No dragons or identity hints.  Extra strict layout: compose the booth and completed exchange inside the upper ONE THIRD (35%) of canvas, with all hands and exchanged objects ABOVE the 30% height line. No booth structure or character extends below40% height. Remaining lower65% empty dark ground.Curio booth with teal canopy and suspended purple crystal emblem. Keeper gently places an old donated ceramic artifact into a small carefully repaired collection cabinet while brown-hooded donor pauses with a hand near their chest, subtly moved by familiar recollection. Small salvaged curios, a patched burnt wooden edge. No literal dragon imagery or identity revelation.",
+      "kind": "guildhall",
       "phase": "used",
-      "runtime": "assets/art/booth_curio_used.webp",
-      "master": "art-source/paintings/raw/booth_curio_used.png"
+      "prompt": "Use case: precise-object-edit and reframing. Image1 is the edit target and exact visual identity/style reference. Make this AFTER-USE fantasy game story panel an extreme close detail of JUST THE TRANSACTION OBJECT described below. Preserve the same dark subdued painterly textured realism, weathered materials, restrained amber lamplight, muted brown/green palette and clearly readable object identity. Reframe radically closer: transaction detail fills only UPPER40–42% of the portrait image; LOWER58–60% remains quiet nearly-black warm-brown uninterrupted negative space for text, just like reference. Do not fill the whole canvas with the closeup. No faces, keeper, full people, booth facade, awning, outdoor vista, signage or extra props. No text, border or watermark. Close detail of the SAME JADE-GREEN circular bounty coins with pale star emblems, just paid onto the same weathered wooden counter with a small strip of worn blue cloth at edge. Several coins dominate upper picture area, one tilted so its star stamp is clear. Optional cropped receiving hand from brown sleeve at edge only, to confirm payment. Preserve original coin identity and green material, modest realistic metal reflections and counter grain. No faces, bodies, keeper, posters, pouch or entire booth. Keep solemn muted painterly realism, no bright sparkles.",
+      "references": [
+        "art-source/paintings/history/booths-v2/booth_guildhall_used.png"
+      ],
+      "reference_snapshot": "/tmp/booth-closeup-originals/booth_guildhall_used.webp",
+      "source": "art-source/paintings/raw/booth_guildhall_used.png",
+      "source_dimensions": [
+        1111,
+        1415
+      ],
+      "dimensions": [
+        512,
+        652
+      ],
+      "runtime": "assets/art/booth_guildhall_used.webp",
+      "master": "art-source/paintings/raw/booth_guildhall_used.png",
+      "sha256": "174ab7012d83ef2ce1d5988a235971fc5388d8c1fbb00bcd8d8c9c6b898b600d"
+    },
+    {
+      "kind": "apothecary",
+      "phase": "intro",
+      "prompt": "Edit this exact supplied game story illustration, preserving the exact camera, composition, building, signs and awning, props, keeper identity, character proportions, adult anatomy, detailed pixel-painterly realistic medium and brown hooded player with pack and rolled bedroll. Hood entirely conceals face and hair. Change ONLY the mood: keeper has a reserved, tired, closed-mouth attentive expression, never a broad smile; gently mute the syrupy orange/gold saturation and make the weathered rebuilding village atmosphere slightly darker and more grounded, still legible. Do not add or remove fixtures or change clothing or identities. Preserve the original upper 40–42% scene with lower 58–60% empty very dark brown/black text space. No text, no chibi, no enlarged heads, no giant eyes, no cute cartoon figures. Existing introduction is the strict visual reference and edit target.",
+      "references": [
+        "prior version introduction: assets/art/booth_apothecary_intro.webp"
+      ],
+      "source": "art-source/paintings/raw/booth_apothecary_intro.png",
+      "runtime": "assets/art/booth_apothecary_intro.webp",
+      "master": "art-source/paintings/raw/booth_apothecary_intro.png",
+      "sha256": "52174659c282113ac6614a83e4fc66e9ca31806c1de18b3b0a928b384c55c4e8"
+    },
+    {
+      "kind": "apothecary",
+      "phase": "used",
+      "prompt": "Use the supplied exact current transaction painting as the visual reference. Reframe as a close-up ONLY of the completed transaction object. Match precisely its existing object design, colors, material, muted darker palette, weathered detailed pixel-painterly story art medium. No keeper or full figure, no faces, no booth facade, no broad landscape. Cropped receiving fingers at frame edges are acceptable only if needed. The large object and a small supporting countertop fill only the UPPER 40–42% of this portrait canvas; bottom58–60% must remain quiet almost-black dark-brown empty copy zone. No text, labels, UI, smiles, chibi or cute-cartoon styling. Hero subject: the exact small green healing flask being handed over in this painting—round green glass body, narrow neck, cork stopper, pale botanical sprig emblem. Show it large and close on the same worn dark wooden counter, with only a few jade-green star-stamped coins nearby to confirm payment. Gentle amber edge light reveals glass and restorative green contents, sober natural low light. Background soft near-black shelves indistinct, no other hero objects. No character needed.",
+      "references": [
+        "art-source/paintings/history/booths-v2/booth_apothecary_used.png"
+      ],
+      "source": "art-source/paintings/raw/booth_apothecary_used.png",
+      "runtime": "assets/art/booth_apothecary_used.webp",
+      "master": "art-source/paintings/raw/booth_apothecary_used.png",
+      "sha256": "6f3875fe41d4e45a25c61ffb45d4f07e4e75f9ced9c8d0e15da52db54301b9c1"
+    },
+    {
+      "kind": "scriptorium",
+      "phase": "intro",
+      "prompt": "Edit this exact supplied game story illustration, preserving the exact camera, composition, building, signs and awning, props, keeper identity, character proportions, adult anatomy, detailed pixel-painterly realistic medium and brown hooded player with pack and rolled bedroll. Hood entirely conceals face and hair. Change ONLY the mood: keeper has a reserved, tired, closed-mouth attentive expression, never a broad smile; gently mute the syrupy orange/gold saturation and make the weathered rebuilding village atmosphere slightly darker and more grounded, still legible. Do not add or remove fixtures or change clothing or identities. Preserve the original upper 40–42% scene with lower 58–60% empty very dark brown/black text space. No text, no chibi, no enlarged heads, no giant eyes, no cute cartoon figures. Existing introduction is the strict visual reference and edit target. Keep this SAME adult woman scribe with brown hair bun and green shoulder cloak, not a man. Preserve the existing right hanging reading lantern as the reading light.",
+      "references": [
+        "prior version introduction: assets/art/booth_scriptorium_intro.webp"
+      ],
+      "source": "art-source/paintings/raw/booth_scriptorium_intro.png",
+      "runtime": "assets/art/booth_scriptorium_intro.webp",
+      "master": "art-source/paintings/raw/booth_scriptorium_intro.png",
+      "sha256": "cd0b9e6354f952474be696f524618e87f84f7a3be708ab837117e097cb7f1154"
+    },
+    {
+      "kind": "scriptorium",
+      "phase": "used",
+      "prompt": "Precise composition-only edit of this reference. Keep the exact same brown star-embossed purchased book, green payment coins, wood, low amber light and pixel-painterly material rendering. The illustrated scene currently extends too far down. Reduce and reframe the ENTIRE upper scene so it ends at 38 PERCENT of total canvas height, leaving the lower62 PERCENT entirely empty uninterrupted very dark brown-black copy space. Portrait canvas aspect unchanged. Book remains a clear large close-up in the upper region. Do not crop off book or coins; no new objects or people. Do not change colors/style/design. Strong instruction: below38% of image height must contain NO scene objects, only nearly black empty background.",
+      "references": [
+        "art-source/paintings/history/booths-v2/booth_scriptorium_used.png"
+      ],
+      "source": "art-source/paintings/raw/booth_scriptorium_used.png",
+      "previous": {
+        "kind": "scriptorium",
+        "phase": "used",
+        "prompt": "Use the supplied exact current transaction painting as the visual reference. Reframe as a close-up ONLY of the completed transaction object. Match precisely its existing object design, colors, material, muted darker palette, weathered detailed pixel-painterly story art medium. No keeper or full figure, no faces, no booth facade, no broad landscape. Cropped receiving fingers at frame edges are acceptable only if needed. The large object and a small supporting countertop fill only the UPPER 40–42% of this portrait canvas; bottom58–60% must remain quiet almost-black dark-brown empty copy zone. No text, labels, UI, smiles, chibi or cute-cartoon styling. Hero subject: the exact purchased brown leather book being handed over in the reference. Large close-up resting diagonally on the same weathered wood desk, closed cover clearly showing its precise pale gold eight-point star/sun and gold rectangular tooled border with small corner ornaments, thick aged pages and raised leather spine bands. A few small jade-green star coins at an edge imply payment. Low amber reading-lantern illumination from offscreen, restrained scholarly atmosphere, shallow indistinct dark background. Just the purchased book, no other books as subjects, no person needed.",
+        "references": [
+          "/tmp/booth-closeup-originals/booth_scriptorium_used.webp"
+        ],
+        "source": "/home/claude/.codex/generated_images/01a0fda1-b986-7931-9b5b-774e10c87d65/exec-0bc3dc4c-cac9-4d90-8de7-c165c35b2ddf.png",
+        "final": "/tmp/terracart-booth-consistency/assets/art/booth_scriptorium_used.webp"
+      },
+      "runtime": "assets/art/booth_scriptorium_used.webp",
+      "master": "art-source/paintings/raw/booth_scriptorium_used.png",
+      "sha256": "a67c1ce5893b966930520b7335beb31a8d23beb2005560940462a72d3a6d8455"
     },
     {
       "kind": "sundries",
-      "prompt": "Use case: illustration-story. Dedicated booth transaction confirmation painting for Dragon Hood, cozy village-rebuilding RPG. Detailed crisp SNES 16-bit pixel storybook illustration; warm muted amber, dusty orange, olive foliage, brown earth, cream highlights, visible dithering, no smooth gradients. Portrait 11:14. Strict composition: all figures, objects, detail and light wholly inside TOP 40%, filling that band horizontally. BOTTOM 60% only empty dark low-detail shadowed ground in broad simple dithered blocks, darkening downward; absolutely no figures, props, lights or focal details there. Player wears raised brown hood completely hiding entire face and hair, no eyes visible. Jade-green star-marked coins only, never yellow gold. No text, letters, signs with lettering, UI, borders or watermark. No dragons or identity hints.  Extra strict layout: compose the booth and completed exchange inside the upper ONE THIRD (35%) of canvas, with all hands and exchanged objects ABOVE the 30% height line. No booth structure or character extends below40% height. Remaining lower65% empty dark ground.Sundries booth with warm ochre-yellow striped canopy and canvas sack emblem. Friendly keeper hands a tied bundle of ordinary travel supplies to brown-hooded customer; paid jade-green star coins on counter. Rope, folded cloth and one supply sack in upper detail band. Everyday commerce returning among repaired timbers.",
+      "phase": "intro",
+      "prompt": "Edit this exact supplied game story illustration, preserving the exact camera, composition, building, signs and awning, props, keeper identity, character proportions, adult anatomy, detailed pixel-painterly realistic medium and brown hooded player with pack and rolled bedroll. Hood entirely conceals face and hair. Change ONLY the mood: keeper has a reserved, tired, closed-mouth attentive expression, never a broad smile; gently mute the syrupy orange/gold saturation and make the weathered rebuilding village atmosphere slightly darker and more grounded, still legible. Do not add or remove fixtures or change clothing or identities. Preserve the original upper 40–42% scene with lower 58–60% empty very dark brown/black text space. No text, no chibi, no enlarged heads, no giant eyes, no cute cartoon figures. Existing introduction is the strict visual reference and edit target. Preserve the yellow-and-cream striped awning, sack emblem right, left sack sign, bridge, rope coil, wood bundle, middle supply sack, same adult woman in cream cap, cream apron and green sleeves. Keep the player's jade-green star coin visible.",
+      "references": [
+        "prior version introduction: assets/art/booth_sundries_intro.webp"
+      ],
+      "source": "art-source/paintings/raw/booth_sundries_intro.png",
+      "runtime": "assets/art/booth_sundries_intro.webp",
+      "master": "art-source/paintings/raw/booth_sundries_intro.png",
+      "sha256": "a2e8afb9a00f2685d2984554279509d5cff6f5ff34a6e9ccd6c6293535e5d158"
+    },
+    {
+      "kind": "sundries",
       "phase": "used",
+      "prompt": "Precise composition-only edit of this reference. Keep the exact same cream linen supply sack with printed brown sack emblem, green payment coin, wood, low amber light and pixel-painterly material rendering. The illustrated scene currently extends too far down. Reduce and reframe the ENTIRE upper scene so it ends at 38 PERCENT of total canvas height, leaving the lower62 PERCENT entirely empty uninterrupted very dark brown-black copy space. Portrait canvas aspect unchanged. Sack remains a clear large close-up in the upper region. Do not crop off sack or coin; no new objects or people. Do not change colors/style/design. Strong instruction: below38% of image height must contain NO scene objects, only nearly black empty background.",
+      "references": [
+        "art-source/paintings/history/booths-v2/booth_sundries_used.png"
+      ],
+      "source": "art-source/paintings/raw/booth_sundries_used.png",
+      "previous": {
+        "kind": "sundries",
+        "phase": "used",
+        "prompt": "Use the supplied exact current transaction painting as the visual reference. Reframe as a close-up ONLY of the completed transaction object. Match precisely its existing object design, colors, material, muted darker palette, weathered detailed pixel-painterly story art medium. No keeper or full figure, no faces, no booth facade, no broad landscape. Cropped receiving fingers at frame edges are acceptable only if needed. The large object and a small supporting countertop fill only the UPPER 40–42% of this portrait canvas; bottom58–60% must remain quiet almost-black dark-brown empty copy zone. No text, labels, UI, smiles, chibi or cute-cartoon styling. Hero subject: the exact purchased cream coarse-linen supply sack from reference, with brown stamped silhouette of a tied sack on its front and gathered drawstring top. Show a large close-up centered on worn wooden counter, tied closed as the purchased provisions bundle, with the single jade-green star-stamped payment coin near its base. Preserve brown printed sack emblem and tan fabric, no new contents or items. Small arc of reference rope coil may remain far behind out of focus, no people. Dim offscreen lantern light, restrained practical materials. Keep entire sack, supporting tabletop and coin ABOVE the 42% canvas-height line; begin the EMPTY dark text zone immediately at 42%, no objects below it.",
+        "references": [
+          "/tmp/booth-closeup-originals/booth_sundries_used.webp"
+        ],
+        "source": "/home/claude/.codex/generated_images/01a0fda1-b986-7931-9b5b-774e10c87d65/exec-082ccfda-8aaa-4f19-b7b3-513fceda4cc7.png",
+        "final": "/tmp/terracart-booth-consistency/assets/art/booth_sundries_used.webp"
+      },
       "runtime": "assets/art/booth_sundries_used.webp",
-      "master": "art-source/paintings/raw/booth_sundries_used.png"
+      "master": "art-source/paintings/raw/booth_sundries_used.png",
+      "sha256": "4d69afd36878e7572d20229108f3ff9a148601c3b95bc963708cf271a3d362d6"
+    },
+    {
+      "kind": "curio",
+      "phase": "intro",
+      "prompt": "Use case: identity-preserve / lighting-weather edit. Edit this exact existing portrait game painting; do not redraw a new booth. Preserve painterly realism and natural adult proportions, the keeper’s identity, face, age, hair and clothing, the brown hooded adult traveller’s cloak, backpack and gear, camera perspective, architecture, shelf positions and all landmarks. Keep the existing limited-resolution textured hand-painted game-art finish. Change only mood: replace overt smiles/grins with reserved, tired but welcoming neutral expressions, gently reduce sugary orange/golden glow and saturation, subtly darken into a sober, weathered rebuilding settlement atmosphere. Not horror, not miserable, still readable. All figures, hands, props and meaningful action remain in top 40–42% of portrait; lower 58–60% remains very dark empty quiet textured copy zone exactly like reference. No text, UI, watermark, giant eyes, chibi, oversized heads, new symbols, horns, dragons or new plot. Keep teal canopy and the PURPLE amethyst crystal emblem, young adult fair-haired female keeper with teal cap/cream sleeves/teal dress, the brown-hooded traveller holding the same round relic, open cloth-lined wooden box, right collection shelves and background bridge.",
+      "references": [
+        "prior version introduction: assets/art/booth_curio_intro.webp"
+      ],
+      "source": "art-source/paintings/raw/booth_curio_intro.png",
+      "originalReferenceSnapshot": "/tmp/booth-consistency-c-originals/booth_curio_intro.webp",
+      "runtime": "assets/art/booth_curio_intro.webp",
+      "master": "art-source/paintings/raw/booth_curio_intro.png",
+      "sha256": "2be40e27545d66513df4df1f83edb1559aef15e3730e1c265dd08558fd18b873"
+    },
+    {
+      "kind": "curio",
+      "phase": "used",
+      "prompt": "Use case: precise-object-edit. Edit this actual game painting into a tight object-detail shot of the completed transaction. Preserve EXACT depicted object design/materials, the same subdued dark painterly realism, muted earthy palette, coarse textured brush finish and softly lit weathered setting. Change camera to a CLOSE-UP of just the specified object and necessary cropped hands. NO faces, heads, full people, full booth facade, canopy, landscape, smiles, chibi, cartoon cute proportions, text or UI. The object close-up must fill the UPPER 40–42% of this portrait only; preserve LOWER 58–60% as empty very dark brown/black softly textured quiet text zone, with a gentle dark transition. Do not place any hands/objects in lower text zone. No new magical glow or plot symbols. Subject: the SAME round broken-ring dark bronze-and-stone artifact with central bronze sun/star mechanism from the reference, now resting securely as an accepted donation on its SAME weathered wooden collection shelf. Close detail of artifact fills the upper scene. A cropped cream-cuffed keeper hand may withdraw from its edge; no other people. Keep the artifact's distinctive crescent/open-ring silhouette and central hub. Include only a little shelf wood/background to establish it has joined the collection, not a whole display.",
+      "references": [
+        "art-source/paintings/history/booths-v2/booth_curio_used.png"
+      ],
+      "source": "art-source/paintings/raw/booth_curio_used.png",
+      "originalReferenceSnapshot": "/tmp/booth-closeup-originals/booth_curio_used.webp",
+      "runtime": "assets/art/booth_curio_used.webp",
+      "master": "art-source/paintings/raw/booth_curio_used.png",
+      "sha256": "69acca9780f11ce1083cb1761511afcc8f5d99f5e37da841d6dadc3d7246d12f"
     },
     {
       "kind": "training",
-      "prompt": "Use case: illustration-story. Dedicated booth transaction confirmation painting for Dragon Hood, cozy village-rebuilding RPG. Detailed crisp SNES 16-bit pixel storybook illustration; warm muted amber, dusty orange, olive foliage, brown earth, cream highlights, visible dithering, no smooth gradients. Portrait 11:14. Strict composition: all figures, objects, detail and light wholly inside TOP 40%, filling that band horizontally. BOTTOM 60% only empty dark low-detail shadowed ground in broad simple dithered blocks, darkening downward; absolutely no figures, props, lights or focal details there. Player wears raised brown hood completely hiding entire face and hair, no eyes visible. Jade-green star-marked coins only, never yellow gold. No text, letters, signs with lettering, UI, borders or watermark. No dragons or identity hints.  Extra strict layout: compose the booth and completed exchange inside the upper ONE THIRD (35%) of canvas, with all hands and exchanged objects ABOVE the 30% height line. No booth structure or character extends below40% height. Remaining lower65% empty dark ground.Training booth with muted red canopy and crossed wooden weapons emblem. Experienced tutor finishes a paid lesson, approving as brown-hooded student practices a confident clean wooden-sword stance. Two jade-green star-marked coins on small counter. Both entire figures confined to top band. Modest practice equipment; hope in rebuilding skills.",
+      "phase": "intro",
+      "prompt": "Use case: identity-preserve / lighting-weather edit. Edit this exact existing portrait game painting; do not redraw a new booth. Preserve painterly realism and natural adult proportions, the keeper’s identity, face, age, hair and clothing, the brown hooded adult traveller’s cloak, backpack and gear, camera perspective, architecture, shelf positions and all landmarks. Keep the existing limited-resolution textured hand-painted game-art finish. Change only mood: replace overt smiles/grins with reserved, tired but welcoming neutral expressions, gently reduce sugary orange/golden glow and saturation, subtly darken into a sober, weathered rebuilding settlement atmosphere. Not horror, not miserable, still readable. All figures, hands, props and meaningful action remain in top 40–42% of portrait; lower 58–60% remains very dark empty quiet textured copy zone exactly like reference. No text, UI, watermark, giant eyes, chibi, oversized heads, new symbols, horns, dragons or new plot. Keep red canopy with crossed swords and shield emblem, same adult sandy-haired and bearded instructor in green leather armour with burgundy scarf, wooden practice dummy at right, traveller at left with rolled backpack holding the same two green star tokens. Especially remove instructor's broad toothy grin without replacing his face or clothes.",
+      "references": [
+        "prior version introduction: assets/art/booth_training_intro.webp"
+      ],
+      "source": "art-source/paintings/raw/booth_training_intro.png",
+      "originalReferenceSnapshot": "/tmp/booth-consistency-c-originals/booth_training_intro.webp",
+      "runtime": "assets/art/booth_training_intro.webp",
+      "master": "art-source/paintings/raw/booth_training_intro.png",
+      "sha256": "37d5675b3b6bd97cd001aeb4f9413ccd5117afda4dd54e53ca5a3712c273092b"
+    },
+    {
+      "kind": "training",
       "phase": "used",
+      "prompt": "Edit this image’s layout. The artwork is too tall. Make the upper illustrated band CLEARLY SHORTER: it must occupy just the TOP ONE THIRD (33%) of the whole portrait. The remaining LOWER TWO THIRDS must be blank very dark brown softly textured empty space. Move the boundary UP substantially. Fit the existing close-up wooden practice sword grip with the two people's correcting hands in that short wide top band. It is okay to crop the sleeves and sword blade at the top and sides. Preserve the same gloves, bracers, wooden sword design, painterly realism and muted lighting. No heads/faces/bodies, no text, no new items. This is a deliberate layout change, not a request to preserve the old 46% boundary.",
+      "references": [
+        "art-source/paintings/history/booths-v2/booth_training_used.png"
+      ],
+      "source": "art-source/paintings/raw/booth_training_used.png",
+      "originalReferenceSnapshot": "/tmp/booth-closeup-originals/booth_training_used.webp",
+      "previousEdit": {
+        "kind": "training",
+        "phase": "used",
+        "prompt": "Edit only composition spacing of this exact supplied image. Preserve the object design, every hand, painterly style, muted colors and lighting exactly. The illustrated object-and-hands panel currently extends too far down. Recompose the SAME entire object-and-hands detail into the TOP 40% of this portrait (top 565 pixels if image height is1415). The lower 60% MUST be empty dark brown/black subtly textured copy zone, starting at exactly 40% height. Preserve all hands and object details within that top40%; cropped outer sleeves/blade at top edges are fine. No faces, no new objects, no text, no other changes.",
+        "references": [
+          "/home/claude/.codex/generated_images/01a0fd89-d1c9-7f33-895c-15806ddb597e/exec-fca957a8-daa9-4a72-a899-ceb65115e09a.png"
+        ],
+        "source": "/home/claude/.codex/generated_images/01a0fd89-d1c9-7f33-895c-15806ddb597e/exec-aa7b102a-62be-4899-b5f7-da25d8ab9d01.png",
+        "final": "/tmp/terracart-booth-consistency/assets/art/booth_training_used.webp",
+        "originalReferenceSnapshot": "/tmp/booth-closeup-originals/booth_training_used.webp",
+        "previousEdit": {
+          "prompt": "Use case: precise-object-edit. Edit this actual game painting into a tight object-detail shot of the completed transaction. Preserve EXACT depicted object design/materials, the same subdued dark painterly realism, muted earthy palette, coarse textured brush finish and softly lit weathered setting. Change camera to a CLOSE-UP of just the specified object and necessary cropped hands. NO faces, heads, full people, full booth facade, canopy, landscape, smiles, chibi, cartoon cute proportions, text or UI. The object close-up must fill the UPPER 40–42% of this portrait only; preserve LOWER 58–60% as empty very dark brown/black softly textured quiet text zone, with a gentle dark transition. Do not place any hands/objects in lower text zone. No new magical glow or plot symbols. Subject: close detail of the SAME plain wooden practice sword hilt and crossguard shown in reference, in the brown-gloved player's hands; the instructor's brown leather bracer/glove and cream sleeve hands gently correct the player's grip. Clearly readable practical tuition, no combat or shaking hands. Keep reference sword's honey-brown wood, simple straight crossguard and wooden blade; blade may run out of the top-right edge. Composition solely hands, grip and a little worn practice-table/background wood, no bodies or faces.",
+          "references": [
+            "/tmp/terracart-booth-consistency/assets/art/booth_training_used.webp"
+          ],
+          "source": "/home/claude/.codex/generated_images/01a0fd89-d1c9-7f33-895c-15806ddb597e/exec-fca957a8-daa9-4a72-a899-ceb65115e09a.png"
+        }
+      },
       "runtime": "assets/art/booth_training_used.webp",
-      "master": "art-source/paintings/raw/booth_training_used.png"
+      "master": "art-source/paintings/raw/booth_training_used.png",
+      "sha256": "f6c69bdea1e0a14f4cf0c7d019f10c309205b1c34a63bc0d4327e37a4ed1656c"
     },
     {
       "kind": "scholar",
-      "prompt": "Use case: illustration-story. Dedicated booth transaction confirmation painting for Dragon Hood, cozy village-rebuilding RPG. Detailed crisp SNES 16-bit pixel storybook illustration; warm muted amber, dusty orange, olive foliage, brown earth, cream highlights, visible dithering, no smooth gradients. Portrait 11:14. Strict composition: all figures, objects, detail and light wholly inside TOP 40%, filling that band horizontally. BOTTOM 60% only empty dark low-detail shadowed ground in broad simple dithered blocks, darkening downward; absolutely no figures, props, lights or focal details there. Player wears raised brown hood completely hiding entire face and hair, no eyes visible. Jade-green star-marked coins only, never yellow gold. No text, letters, signs with lettering, UI, borders or watermark. No dragons or identity hints.  Extra strict layout: compose the booth and completed exchange inside the upper ONE THIRD (35%) of canvas, with all hands and exchanged objects ABOVE the 30% height line. No booth structure or character extends below40% height. Remaining lower65% empty dark ground.Scholar booth with indigo canopy, an open-book emblem and stacked tomes. Elder scholar hands a substantial ornate reusable magic tome to brown-hooded reader after a reading milestone, three modest collected books grouped neatly on counter as visual context. Repaired bindings preserve learning after the Breaking. Gentle cream magic gleam from the reward, no words or runes.",
+      "phase": "intro",
+      "prompt": "Use case: identity-preserve / lighting-weather edit. Edit this exact existing portrait game painting; do not redraw a new booth. Preserve painterly realism and natural adult proportions, the keeper’s identity, face, age, hair and clothing, the brown hooded adult traveller’s cloak, backpack and gear, camera perspective, architecture, shelf positions and all landmarks. Keep the existing limited-resolution textured hand-painted game-art finish. Change only mood: replace overt smiles/grins with reserved, tired but welcoming neutral expressions, gently reduce sugary orange/golden glow and saturation, subtly darken into a sober, weathered rebuilding settlement atmosphere. Not horror, not miserable, still readable. All figures, hands, props and meaningful action remain in top 40–42% of portrait; lower 58–60% remains very dark empty quiet textured copy zone exactly like reference. No text, UI, watermark, giant eyes, chibi, oversized heads, new symbols, horns, dragons or new plot. Keep indigo canopy/open-book emblem, same elderly white-bearded scholar with round spectacles and indigo cap/robes edged in gold, traveller at left holding stack of ordinary books, same large blue-and-gold star tome displayed behind scholar, same wooden shelves and background bridge. Keep the intro offer pose, no exchange yet.",
+      "references": [
+        "prior version introduction: assets/art/booth_scholar_intro.webp"
+      ],
+      "source": "art-source/paintings/raw/booth_scholar_intro.png",
+      "originalReferenceSnapshot": "/tmp/booth-consistency-c-originals/booth_scholar_intro.webp",
+      "runtime": "assets/art/booth_scholar_intro.webp",
+      "master": "art-source/paintings/raw/booth_scholar_intro.png",
+      "sha256": "4932e85bd4e128c017d57077ff3ea9681b67506e0de29db04e7e9555b0bd62e9"
+    },
+    {
+      "kind": "scholar",
       "phase": "used",
+      "prompt": "Edit only composition spacing of this exact supplied image. Preserve the object design, every hand, painterly style, muted colors and lighting exactly. The illustrated object-and-hands panel currently extends too far down. Recompose the SAME entire object-and-hands detail into the TOP 40% of this portrait (top 565 pixels if image height is1415). The lower 60% MUST be empty dark brown/black subtly textured copy zone, starting at exactly 40% height. Preserve all hands and object details within that top40%; cropped outer sleeves/blade at top edges are fine. No faces, no new objects, no text, no other changes.",
+      "references": [
+        "art-source/paintings/history/booths-v2/booth_scholar_used.png"
+      ],
+      "source": "art-source/paintings/raw/booth_scholar_used.png",
+      "originalReferenceSnapshot": "/tmp/booth-closeup-originals/booth_scholar_used.webp",
+      "previousEdit": {
+        "prompt": "Use case: precise-object-edit. Edit this actual game painting into a tight object-detail shot of the completed transaction. Preserve EXACT depicted object design/materials, the same subdued dark painterly realism, muted earthy palette, coarse textured brush finish and softly lit weathered setting. Change camera to a CLOSE-UP of just the specified object and necessary cropped hands. NO faces, heads, full people, full booth facade, canopy, landscape, smiles, chibi, cartoon cute proportions, text or UI. The object close-up must fill the UPPER 40–42% of this portrait only; preserve LOWER 58–60% as empty very dark brown/black softly textured quiet text zone, with a gentle dark transition. Do not place any hands/objects in lower text zone. No new magical glow or plot symbols. Subject: close detail of the EXACT large royal-indigo/blue book with its large gold many-pointed STAR motif, gold corner fittings, small gold studs and clasp from the reference. The scholar's cream cuff with indigo/gold robe sleeve and hands offer that tome into the brown-cloaked player's hands. Preserve blue cover and star design exactly; do not substitute green cover, open-book symbol, coins, payment, glitter or a different book. The tome dominates upper scene against softly indistinct old wood; cropped forearms/hands only.",
+        "references": [
+          "/tmp/terracart-booth-consistency/assets/art/booth_scholar_used.webp"
+        ],
+        "source": "/home/claude/.codex/generated_images/01a0fd89-d1c9-7f33-895c-15806ddb597e/exec-1b398f4f-5d91-4f32-b152-2c3710d480db.png"
+      },
       "runtime": "assets/art/booth_scholar_used.webp",
-      "master": "art-source/paintings/raw/booth_scholar_used.png"
+      "master": "art-source/paintings/raw/booth_scholar_used.png",
+      "sha256": "f3dffdbe0c3b1066e31252101d2696bd672a4887954e29fbbed58c304840774d"
     }
-  ],
-  "archiveRoot": "~/.artifacts/terracart-art/"
+  ]
 }
