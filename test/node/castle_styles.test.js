@@ -5,9 +5,11 @@
       const lit = CastleStyles.get(id), old = CastleStyles.get(id, false);
       assert.eq(lit.id, old.id);
       assert.eq(lit.towerFrame, old.towerFrame);
-      for (const [a, b] of [[lit.floor, old.floor], ...Object.keys(lit.stone).map(k => [lit.stone[k], old.stone[k]]), ...Object.keys(lit.wood).map(k => [lit.wood[k], old.wood[k]])]) {
+      assert.gt(luma(lit.floor), luma(old.floor) * 1.06, `${id}: floor still signals condition`);
+      assert.gt(luma(old.floor), luma(old.stone.BODY) + 20, `${id}: floor contrasts with masonry`);
+      for (const [a, b] of [...Object.keys(lit.stone).map(k => [lit.stone[k], old.stone[k]]), ...Object.keys(lit.wood).map(k => [lit.wood[k], old.wood[k]])]) {
         assert.gt(luma(a), luma(b) * 1.12, `${id}: condition stays visible`);
-        assert.gte(luma(b), luma(a) * 0.67, `${id}: unclaimed stone remains readable`);
+        assert.gte(luma(b), luma(a) * 0.78, `${id}: unclaimed stone remains readable`);
       }
     }
   });

@@ -19,6 +19,9 @@ master (`x, y, width, height`), and the exported silhouette height. Frame order
 matches `CastleStyles.ids` and `CastleStyles.get(ownerKey).towerFrame`.
 The regenerated master is the transparent four-column, one-row sheet beside
 this file. Candidate numbers refer to the original twelve-design exploration.
+Frame 1 now uses `tower_ruin_master.png`: a further-damaged version with a
+broken parapet lip and cracked shaft. Its built-in imagegen prompt is saved in
+`ruin-generation.json`; the exporter preserves the other three frames.
 
 Regenerate from the repository root, with Playwright Core and Chromium installed:
 
@@ -47,3 +50,11 @@ claim markers clear towers of different heights.
 
 Every unclaimed tower flies a square black skull flag. Restoration removes
 those flags and shows the existing player banner on the castle's flag post.
+
+Unrestored tower flags share a square dark cloth and skull motif, with distinct
+heraldry: Citadel has a midnight-blue skull banner; Weathered Ruin a cracked
+skull on moss-black cloth; Intact Bastion a skull inside a shield on burgundy;
+Old Archive Court a skull above an open book on plum. `makeCastleSkullFlagTexture`
+bakes these four native pixel canvases once. The renderer selects them using
+the same castle identity as the masonry. Restoration removes the skull flags
+and keeps the original cream and green-heart player banner at `flagPost`.

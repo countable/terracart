@@ -70,7 +70,8 @@ Render.castleFlagTexture = function (scene, tower) {
   const claimed = scene.isCastleClaimed ? scene.isCastleClaimed(tower)
     : scene.isClaimedKey ? scene.isClaimedKey(tower.castle) : null;
   if (claimed === null) return null;
-  return claimed ? (tower.flagPost ? 'castle_flag' : null) : 'castle_skull_flag';
+  return claimed ? (tower.flagPost ? 'castle_flag' : null)
+    : `castle_skull_flag_${CastleStyles.get(tower.castle).id}`;
 };
 Render.towerCrownHeight = function (textures, castle) {
   const frame = textures.getFrame('tower', CastleStyles.get(castle).towerFrame);

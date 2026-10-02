@@ -26,9 +26,12 @@
   }
   // A shared, pure condition treatment, already baked into every returned
   // colour. Callers must not apply the general building wash a second time.
-  function weathered(c) {
+  function weathered(c, floor = false) {
     const r = c >> 16, g = (c >> 8) & 255, b = c & 255;
-    return (Math.round(r * 0.65 + 10) << 16) | (Math.round(g * 0.68 + 10) << 8) | Math.round(b * 0.64 + 9);
+    // Floors get a small additional lift so the masonry reads against them.
+    const lift = floor ? 0.08 : 0;
+    return (Math.round(r * (0.80 + lift)) << 16)
+      | (Math.round(g * (0.82 + lift)) << 8) | Math.round(b * (0.78 + lift));
   }
   function get(keyOrVariant, claimed = true) {
     const id = variantFor(keyOrVariant), key = `${id}:${claimed ? 1 : 0}`;
@@ -36,7 +39,8 @@
     const source = variants.find(v => v.id === id);
     const paint = c => claimed ? c : weathered(c);
     const palette = p => Object.freeze(Object.fromEntries(Object.entries(p).map(([k, c]) => [k, paint(c)])));
-    const value = Object.freeze({ id, name: source.name, guards: source.guards !== false, floor: paint(source.floor),
+    const value = Object.freeze({ id, name: source.name, guards: source.guards !== false,
+      floor: claimed ? source.floor : weathered(source.floor, true),
       stone: palette(source.stone), wood: palette(wood),
       rampart: Object.freeze({ woodTop: false, broken: false, ...source.rampart }),
       towerFrame: ids.indexOf(id) });
