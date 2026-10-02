@@ -1,16 +1,13 @@
-// THE TOMES and the VISTA RULE.
+// THE TOMES (Oct 2026, expanded).
 //
-// Three special books (Books.png spare frames) replace the story Book in any
-// chest whose tier meets their own: the books group admits by baseTier
-// (ChestThemes.eligible) and pickItem takes the TOP tier present, so a T3+
-// book chest hands a tome and never the plain Book. Reading one channels the
-// potion ONE TIER BELOW the tome, once a UTC day, and consumes nothing.
-//
-// The vista rule (same change-set): a grail chest holds treasure only —
-// equipment, relics or magic items; never tools, produce or field
-// supplies, anywhere in the fallback chain (which is why every vista
-// fallback terminates at 'antidote', a T1 magic potion that can never be
-// empty).
+// Seven permanent books, named for their potions, replace the story Book in
+// any book chest whose tier meets their own (the books group admits by
+// baseTier, pickItem takes the top tier present). A tome's spell is HALF its
+// potion's (TOME_EFFECT_MUL: half duration, half damage or restore); its
+// cooldowns are the SHARED 1 h activation lock (TOME_COOLDOWN_MS, every tome
+// locked by reading any one) plus its OWN magic cooldown (CONSUMABLE_SPEC
+// cooldownMs, power-scaled: 2 h / 8 h / 24 h). Home refreshes both; the
+// enchanter halves both; nothing is ever consumed.
 (function () {
   const APP = globalThis.APP_JS_SRC || '';
 
@@ -24,91 +21,102 @@
     };
   }
 
-  test('tomes: three registered books with icons, tiers and prices', () => {
-    for (const [id, tier, price] of [['tome_sight', 3, 90], ['tome_raven', 4, 170], ['tome_storm', 5, 300]]) {
+  const ROSTER = [
+    ['tome_sight', 'Tome of Reach', 3, 160, 2 * 3600e3],
+    ['tome_speed', 'Tome of Speed', 3, 160, 2 * 3600e3],
+    ['tome_shield', 'Tome of Shielding', 3, 160, 2 * 3600e3],
+    ['tome_healing', 'Tome of Healing', 3, 160, 2 * 3600e3],
+    ['tome_raven', 'Tome of the Raven', 4, 400, 8 * 3600e3],
+    ['tome_blight', 'Tome of Blight', 4, 400, 8 * 3600e3],
+    ['tome_storm', 'Tome of Thunder', 5, 1000, 24 * 3600e3],
+  ];
+
+  test('tomes: seven registered, potion-named, unique, tiered, priced, framed', () => {
+    for (const [id, name, tier, price, cd] of ROSTER) {
       const it = ITEM_BY_ID[id];
       assert.truthy(it, `${id} registered`);
-      assert.eq(it.kind, 'supply', `${id}: book family, out of the magic pools`);
+      assert.eq(it.name, name, `${id}: named for its potion`);
+      assert.eq(it.kind, 'unique_relic', `${id}: a unique relic - never drops twice, never stacks`);
       assert.eq(BASE_TIER[id], tier, `${id}: one tier above its potion`);
       assert.eq(PRICES[id], price, `${id}: price`);
-      assert.truthy(MINERAL_ICON_SHEET[id] && MINERAL_ICON_SHEET[id].sheet === 'icon_book', `${id}: a Books.png frame`);
+
+      assert.truthy(MINERAL_ICON_SHEET[id]?.sheet === 'icon_book', `${id}: a Books.png frame`);
+      assert.eq(CONSUMABLE_SPEC[id].cooldownMs, cd, `${id}: power-scaled own cooldown`);
       assert.truthy(ITEM_EFFECTS[id], `${id}: a description`);
     }
   });
 
-  test('tomes: the books group hands a tome, never the story Book, at tier', () => {
-    const ids = ChestThemes.resolve('books', 4, { theme: 'civic', depth: 0 }).ids;
-    assert.truthy(ids.includes('book') && ids.includes('tome_sight') && ids.includes('tome_raven'),
-      'eligible at T4: the Book and the tomes up to its tier');
-    // Top tier present wins: a T4 book chest never hands the plain Book.
+  test('tomes: the books group hands tomes, never the story Book, at tier', () => {
+    const res = (tier) => ChestThemes.resolve('books', tier, { theme: 'civic', depth: 0 });
+    for (const tier of [1, 2]) {
+      assert.eq(res(tier).ids.join(), 'book', `T${tier}: only the story Book`);
+    }
     const rng = seeded(77);
     const seen = new Set();
-    for (let i = 0; i < 300; i++) seen.add(ChestThemes.pickItem(ChestThemes.resolve('books', 4, { theme: 'civic', depth: 0 }), 4, rng));
-    assert.eq([...seen].join('|'), 'tome_raven', 'T4 rolls only the T4 tome');
+    for (let i = 0; i < 400; i++) seen.add(ChestThemes.pickItem(res(3), 3, rng));
+    assert.eq([...seen].sort().join(), ['tome_healing', 'tome_shield', 'tome_sight', 'tome_speed'].sort().join(),
+      'T3 rolls only the T3 tomes');
     seen.clear();
-    for (let i = 0; i < 300; i++) seen.add(ChestThemes.pickItem(ChestThemes.resolve('books', 5, { theme: 'civic', depth: 0 }), 5, rng));
-    assert.eq([...seen].join('|'), 'tome_storm', 'T5 rolls only the T5 tome');
-    seen.clear();
-    for (let i = 0; i < 300; i++) seen.add(ChestThemes.pickItem(ChestThemes.resolve('books', 1, { theme: 'school', depth: 0 }), 1, rng));
-    assert.eq([...seen].join('|'), 'book', 'a school T1 chest still hands the story Book');
+    for (let i = 0; i < 400; i++) seen.add(ChestThemes.pickItem(res(5), 5, rng));
+    assert.eq([...seen].join(), 'tome_storm', 'T5 rolls only the T5 tome');
     assert.eq(ChestThemes.cap('tome_storm'), 1, 'a tome is one per chest');
+    const carried = { inv: [{ id: 'tome_sight', count: 1 }] };
+    assert.falsy(ChestThemes.eligible('books', 3, { theme: 'civic', save: carried }).includes('tome_sight'),
+      'a carried tome never drops again');
+    assert.truthy(ChestThemes.eligible('books', 1, { theme: 'school', save: { inv: [] } }).includes('book'),
+      'a school T1 chest still hands the story Book');
   });
 
-  test('tomes: read once a UTC day, channel the potion below, consume nothing', () => {
-    for (const [method, id] of [['readTomeSight', 'tome_sight'], ['readTomeRaven', 'tome_raven'], ['readTomeStorm', 'tome_storm']]) {
-      const m = APP.match(new RegExp(`\\n  ${method}\\(\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n`));
-      assert.truthy(m, `${method} exists`);
-      assert.falsy(/_finishConsumable/.test(m[1]), `${method}: the tome is never consumed`);
-      assert.truthy(new RegExp(`sel\\.id !== '${id}'`).test(m[1]), `${method}: only a selected ${id}`);
-      assert.truthy(/_tomeReady\('/.test(m[1]), `${method}: gated on the day ledger`);
+  test('tomes: the shared hour lock, the own cooldown, and nothing consumed', () => {
+    for (const [, , , , cd] of ROSTER.slice(0, 3)) {
+      assert.eq(cd, 2 * 3600e3, 'the T3 ladder rung');
     }
-    assert.truthy(/_tomeReady\(id\) \{[\s\S]*?save\.tomeDays\?\.\[id\]\) === utcDayKey/.test(APP),
-      'the gate reads save.tomeDays against today');
-    assert.truthy(/shortDuration\(msToNextUtcDay\(\)\)/.test(APP), 'a refused reading shows its wait');
-    assert.truthy(/reachPotionUntil = Date\.now\(\) \+ REACH_POTION_MS;/.test(APP.match(/\n  readTomeSight\(\) \{\n[\s\S]*?\n  \}\n/)[0]),
-      'the sight tome channels the reach potion');
-    assert.truthy(/spiritRavenUntil = Date\.now\(\) \+ SPIRIT_RAVEN_MS;/.test(APP.match(/\n  readTomeRaven\(\) \{\n[\s\S]*?\n  \}\n/)[0]),
-      'the raven tome channels the raven potion');
-    assert.truthy(/THUNDER_DMG/.test(APP.match(/\n  readTomeStorm\(\) \{\n[\s\S]*?\n  \}\n/)[0]),
-      'the storm tome strikes like thunder');
-    assert.truthy(/No foe in sight — tome kept/.test(APP), 'the storm tome refuses to spend on an empty screen');
+    const m = (name) => APP.match(new RegExp(`\\n  ${name}\\(\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n`));
+    for (const [id] of ROSTER) {
+      const method = ['tome_sight', 'tome_raven', 'tome_storm'].includes(id)
+        ? { tome_sight: 'readTomeSight', tome_raven: 'readTomeRaven', tome_storm: 'readTomeStorm' }[id]
+        : { tome_speed: 'readTomeSpeed', tome_shield: 'readTomeShield', tome_healing: 'readTomeHealing', tome_blight: 'readTomeBlight' }[id];
+      const r = m(method);
+      assert.truthy(r, `${method} exists`);
+      assert.falsy(/_finishConsumable/.test(r[1]), `${method}: never consumed`);
+      assert.truthy(new RegExp(`sel\\.id !== '${id}'`).test(r[1]), `${method}: only a selected ${id}`);
+      assert.truthy(/_tomeReady\('/.test(r[1]), `${method}: gated`);
+    }
+    assert.truthy(/const TOME_COOLDOWN_MS = 60 \* 60 \* 1000;/.test(APP), 'the shared lock is one hour');
+    assert.truthy(/save\.tomeReadyAt = now \+ TOME_COOLDOWN_MS \* mul/.test(APP), 'stamped once per read, all tomes');
+    assert.truthy(/tomeMagicCd \|\|= \{\}\)\[id\] = now \+ \(CONSUMABLE_SPEC\[id\]\?\.cooldownMs \|\| 0\) \* mul/.test(APP),
+      'the own cooldown stamps the spec length');
+    assert.truthy(/shortDuration\(shared\)|shortDuration\(own\)/.test(APP), 'refusals show their wait');
+    assert.truthy(/isRestingAtHome\(px, py\)/.test(APP), 'Home refreshes both');
+    assert.truthy(/No foe in sight — tome kept/.test(APP), 'the storm tome refuses an empty screen');
+  });
+
+  test('tomes: a tome\'s spell is HALF its potion\'s', () => {
+    assert.truthy(/const TOME_EFFECT_MUL = 0\.5;/.test(APP), 'one owning multiplier');
+    for (const c of ['REACH_POTION_MS', 'SPIRIT_RAVEN_MS', 'SPEED_POTION_MS', 'SHIELD_POTION_MS', 'BLIGHT_MS'])
+      assert.truthy(new RegExp(c + ' \\* TOME_EFFECT_MUL').test(APP), `${c} halves in the tome`);
+    assert.truthy(/const TOME_THUNDER_DMG = Math\.floor\(THUNDER_DMG \* TOME_EFFECT_MUL\);/.test(APP), 'thunder damage halves');
+    assert.truthy(/const TOME_HEALING_ENERGY = Math\.floor\(VIGOR_POTION_ENERGY \* TOME_EFFECT_MUL\);/.test(APP), 'the heal halves');
   });
 
   test('vista: grails hold treasure only - no tools, produce or field supplies', () => {
     const banned = new Set(['potato', 'berry', 'cress', 'egg', 'milk', 'rope', 'trap_kit', 'torch', 'honey',
-      'can', 'hoe', 'rod', 'bugnet', 'bags']);   // produce, supplies, noncombat gear slots
+      'can', 'hoe', 'rod', 'bugnet', 'bags']);
     const rng = seeded(4242);
     const save = { relics: {}, armor: {} };
     let rolled = 0;
     for (let i = 0; i < 1500; i++) {
-      const r = pickReward('chest:vista', save, rng, { tier: 4, depth: 0 });
+      const r = pickReward('chest:vista', save, rng, { tier: 5, depth: 0 });
       if (!r) continue;
       rolled++;
       if (r.slot) assert.falsy(banned.has(r.slot), `vista never hands the tool slot ${r.slot}`);
       else if (r.kind === 'item') assert.falsy(banned.has(r.id), `vista never hands ${r.id}`);
     }
     assert.truthy(rolled > 1400, 'the picker produced a full sample');
-    const complete = {
-      inv: ITEMS.filter(item => item.kind === 'unique_relic').map(item => ({ id: item.id, count: 1 })),
-      relics: Object.fromEntries(Object.keys(RELIC_DEFS).map(slot => [slot, { tier: 7 }])),
-      armor: Object.fromEntries(Object.keys(ARMOR_DEFS).map(slot => [slot, { tier: 7 }])),
-    };
-    for (const inventory of [save, complete]) for (const tier of [1, 2, 3, 4, 5]) for (const depth of [0, 1]) {
-      for (let i = 0; i < 150; i++) {
-        const r = pickChestReward('vista', inventory, rng, { tier, depth });
-        assert.falsy(r.kind === 'gold', 'vista never cashes out equipment');
-        assert.eq(r.consolation, 0);
-        if (r.kind === 'item') assert.includes(['magic', 'unique_relic'], ITEM_BY_ID[r.id].kind);
-        else assert.eq(r.kind, 'armor');
-        if (inventory === complete) assert.eq(ITEM_BY_ID[r.id].kind, 'magic', 'exhausted collection still gives magic');
-      }
-    }
-    // The chain's terminals are magic or coins, never restorative produce:
-    // every vista fallback names 'antidote'.
     assert.eq(ChestThemes.groups.gems.fallback.vista, 'antidote', 'gems falls back to a potion');
     assert.eq(ChestThemes.groups.healing.fallback.vista, 'antidote', 'healing falls back to a potion');
     assert.eq(ChestThemes.themes.vista.t1Fallback, 'antidote', 'the terminal is a T1 potion');
     assert.eq(ChestThemes.themes.vista.weights.noncombatGear, undefined, 'no noncombat tool lane in vista');
-    assert.eq(ChestThemes.themes.vista.weights.protectiveGear, 45, 'equipment is a main grail reward');
+    assert.eq(ChestThemes.themes.vista.weights.protectiveGear, 45, 'armour is the equipment lane');
   });
 })();

@@ -9,7 +9,7 @@
   const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && foodIds().includes(i.grows)).map(i => i.id);
   const groups = {
     uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic').map(i => i.id), mixedTiers: true, fallback: 'magic' },
-    supplies: { ids: { torch: 3, rope: 1, trap_kit: 1, spear: 1, honey: 1, blank_scroll: 1 }, fallback: 'torch' },
+    supplies: { ids: { torch: 3, rope: 1, trap_kit: 1, spear: 1, honey: 1 }, fallback: 'torch' },
     field: { ids: ['torch', 'rope', 'trap_kit', 'spear'], fallback: 'torch' },
     farmSupplies: { ids: ['scarecrow', 'honey'], fallback: 'torch' },
     materials: { ids: ['wood', 'rockfruit', 'coal', ...Object.values(MINERAL_TIERS).map(row => row.barId)] },
@@ -26,14 +26,13 @@
     saplings: { ids: ['acorn', 'apple_sapling', 'peach_sapling'], fallback: { flora: 'flowers', default: 'parkSeeds' } },
     growth: { ids: ['growth_powder'], fallback: { flora: 'flowers', farm: 'farmSupplies', default: 'parkSeeds' } },
     farmAnimals: { ids: ['chicken', 'cow', 'rabbit'], fallback: 'farmProduce' },
-    companions: { ids: ['cat', 'dog', 'rabbit'], fallback: 'animalFood' },
-    animalFood: { ids: () => [...new Set(['cat', 'dog', 'rabbit'].flatMap(k => ANIMAL_FOOD[k] || []))], fallback: 'restorative' },
     // Surface magic lanes keep place identity while making cave-only potions
     // available above ground. Lower-tier magic remains useful in larger stacks.
     magic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry).map(i => i.id), mixedTiers: true, fallback: 'antidote' },
     travelMagic: { ids: ['reach_potion', 'speed_potion', 'shadow_powder', 'treasure_map'], mixedTiers: true, fallback: 'antidote' },
     combatMagic: { ids: ['shield_potion', 'raven_potion', 'blight_potion', 'thunder_potion', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'fear_scroll', 'sleep_powder'], mixedTiers: true, fallback: 'antidote' },
-    medicalMagic: { ids: { vigor_potion: 3, revive_potion: 3, shield_potion: 2, resurrection_potion: 2, elixir: 1 }, mixedTiers: true, fallback: 'antidote' },
+    medicalMagic: { ids: { vigor_potion: 3, revive_potion: 3, shield_potion: 2, resurrection_potion: 2, elixir: 1,
+      regen_amulet: 0.3, vigor_amulet: 0.3, tome_healing: 0.5 }, mixedTiers: true, fallback: 'antidote' },
     recovery: { ids: ['vigor_potion', 'elixir'], fallback: 'restorative' },
     antidote: { ids: ['antidote'] },
     healing: { ids: { vigor_potion: 3, revive_potion: 2, resurrection_potion: 1, elixir: 1 }, fallback: { vista: 'antidote', default: 'restorative' } },
@@ -41,14 +40,14 @@
     shield: { ids: ['shield_potion'], fallback: { health: 'restorative', worship: 'restorative', default: 'field' } },
     study: { ids: { reach_potion: 2, raven_potion: 1, shield_potion: 1, shadow_powder: 1, blank_scroll: 1, fireball_scroll: 1, fear_scroll: 1, treasure_map: 1 }, mixedTiers: true, fallback: 'books' },
     shadow: { ids: { raven_potion: 1, shadow_powder: 1 }, fallback: 'flowers' },
-    gems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], fallback: { culture: 'books', vista: 'antidote', default: 'field' } },
+    gems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], fallback: { culture: 'books', vista: 'antidote', commerce: 'cash', default: 'field' } },
     // The story Book is a T1 item: every book chest can hand one, whatever
     // its rolled quality (the old minTier {school: 1} override died with the
     // tomes - it would have admitted THEM at T1 too, because it replaced the
     // baseTier check for the whole group). The TOMES sit at T3/4/5, and
     // pickItem takes the top tier present, so they replace the Book exactly
     // at and above its own tier.
-    books: { ids: ['book', 'tome_sight', 'tome_raven', 'tome_storm'], fallback: 'torch' },
+    books: { ids: ['book', 'tome_sight', 'tome_raven', 'tome_storm', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight'], fallback: 'torch' },
     honey: { ids: ['honey'], fallback: 'restorative' },
     torch: { ids: ['torch'] },
     rope: { ids: ['rope'], fallback: 'torch' },
@@ -60,46 +59,58 @@
     protectiveGear: { kind: 'gear', armorOnly: true, fallback: { vista: 'magic', default: 'field' } },
     culturalGear: { kind: 'gear', fallback: 'books' },
   };
+  // THE OCT 2026 REBALANCE — one clean identity per theme:
+  //   roadside  supplies, minerals, coins - never produce
+  //   commerce  coins or gems, nothing else
+  //   food      food, with a small animal chance - no seeds, no supplies
+  //   flora     flowers or their seeds
+  //   health    medical magic and the cherry-picked healing relics
+  //   school    the story Book / tomes by tier, and study magic
+  //   culture   an even spread across everything
+  //   worship   the chapel's daily blessing (the theme lives here alone)
+  //   civic     unique relics, supplies, coins
+  //   authority armour, supplies, combat magic - never produce
   const themes = {
-    roadside: { tier: 1, weights: { supplies: 45, materials: 40, cash: 15 } },
-    commerce: { tier: 1, weights: { cash: 60, supplies: 25, restorative: 15 } },
-    food: { tier: 1, weights: { food: 80, foodSeeds: 15, honey: 5 } },
-    park: { tier: 2, weights: { parkSeeds: 45, saplings: 25, forage: 20, growth: 10 } },
-    farm: { tier: 3, weights: { farmSeeds: 40, farmProduce: 30, farmAnimals: 15, farmSupplies: 10, growth: 5 } },
-    flora: { tier: 4, weights: { flowerSeeds: 45, flowers: 30, saplings: 15, growth: 10 } },
-    health: { tier: 3, weights: { recovery: 35, antidote: 25, revival: 20, restorative: 10, shield: 10 } },
-    school: { tier: 3, weights: { books: 55, field: 15, study: 20, noncombatGear: 10 } },
-    culture: { tier: 3, weights: { culturalGear: 35, gems: 30, books: 25, study: 10 } },
-    worship: { tier: 3, weights: { revival: 50, shield: 25, books: 15, flowers: 10 } },
-    civic: { tier: 3, weights: { supplies: 35, cash: 30, books: 20, noncombatGear: 15 } },
-    authority: { tier: 3, weights: { protectiveGear: 40, field: 40, healing: 15, cash: 5 } },
-    pets: { tier: 3, weights: { companions: 70, animalFood: 20, supplies: 10 } },
+    roadside: { weights: { supplies: 45, materials: 40, cash: 15 } },
+    commerce: { weights: { cash: 70, gems: 30 } },
+    food: { weights: { food: 95, farmAnimals: 5 } },
+    park: { weights: { parkSeeds: 45, saplings: 25, forage: 20, growth: 10 } },
+    farm: { weights: { farmSeeds: 40, farmProduce: 30, farmAnimals: 15, farmSupplies: 10, growth: 5 } },
+    flora: { weights: { flowerSeeds: 50, flowers: 50 } },
+    health: { weights: { medicalMagic: 100 } },
+    school: { weights: { books: 60, study: 40 } },
+    culture: { weights: { culturalGear: 20, gems: 20, books: 20, magic: 20, cash: 20 } },
+    worship: { weights: { revival: 50, shield: 25, books: 15, flowers: 10 } },
+    civic: { weights: { uniqueRelics: 25, supplies: 45, cash: 30 } },
+    authority: { weights: { protectiveGear: 40, supplies: 25, combatMagic: 35 } },
     // One-time grails reward equipment, unique relics or magic only. Their
     // exhausted/owned equipment and relic lanes also terminate in magic.
-    vista: { tier: 4, weights: { protectiveGear: 45, uniqueRelics: 5, magic: 50 } },
+    vista: { weights: { protectiveGear: 45, uniqueRelics: 5, magic: 50 } },
   };
   // Final surface weights for displayed T3+ chests. Starter chests keep
   // their supplies; higher-tier chests favour progression and useful magic.
   const highTierWeights = {
-    roadside: { materials: 40, supplies: 10, travelMagic: 35, cash: 15 },
-    commerce: { cash: 60, travelMagic: 30, supplies: 10 },
-    food: { food: 90, foodSeeds: 5, growth: 5 },
-    park: { parkSeeds: 30, saplings: 30, forage: 15, growth: 25 },
+    roadside: { supplies: 45, materials: 40, cash: 15 },
+    commerce: { cash: 70, gems: 30 },
+    food: { food: 95, farmAnimals: 5 },
+    // (Oct 2026) The high rows fold SAPLINGS into the seed lane - one
+    // plant-things lane at the top, not two.
+    park: { parkSeeds: 60, forage: 15, growth: 25 },
     farm: { farmSeeds: 25, farmProduce: 30, farmAnimals: 15, farmSupplies: 5, growth: 25 },
-    flora: { flowerSeeds: 35, flowers: 35, saplings: 10, growth: 20 },
+    flora: { flowerSeeds: 50, flowers: 50 },
     health: { medicalMagic: 100 },
-    school: { books: 40, study: 40, noncombatGear: 20 },
-    culture: { culturalGear: 35, gems: 25, books: 15, magic: 25 },
+    school: { books: 60, study: 40 },
+    culture: { culturalGear: 20, gems: 20, books: 20, magic: 20, cash: 20 },
     worship: { revival: 55, shield: 20, books: 15, healing: 10 },
-    civic: { noncombatGear: 25, cash: 35, books: 15, travelMagic: 25 },
-    authority: { protectiveGear: 40, combatMagic: 45, field: 10, healing: 5 },
-    pets: { companions: 70, animalFood: 20, travelMagic: 10 },
+    civic: { uniqueRelics: 25, supplies: 45, cash: 30 },
+    authority: { protectiveGear: 40, supplies: 25, combatMagic: 35 },
   };
   const qualityFloor = chestTier => chestTier >= 3 ? chestTier : 1;
   for (const [theme, row] of Object.entries(themes)) {
-    row.t1Fallback = ['food', 'park', 'farm', 'health', 'worship', 'pets'].includes(theme) ? 'restorative'
+    row.t1Fallback = ['food', 'park', 'farm', 'worship'].includes(theme) ? 'restorative'
       : theme === 'flora' ? 'flowers' : theme === 'school' ? 'books'
-      : theme === 'vista' ? 'antidote' : 'torch';
+      : theme === 'health' || theme === 'vista' ? 'antidote'
+      : theme === 'commerce' ? 'cash' : 'torch';
   }
   const memberCache = new Map();
   const aliases = { lowtier: 'roadside' };
@@ -161,7 +172,10 @@
       return item && !item.shiny && (!item.caveOnly || opts.depth > 0)
         && (!(opts.chestTier >= 3 && tier >= opts.chestTier && item.kind === 'magic')
           || cap(id) * itemValue(id) >= TIER_VALUE[Math.min(5, opts.chestTier)] / 2)
-        && (item.kind !== 'unique_relic' || !carriesItem(opts.save, id))
+        // UNIQUE finds - the unique relics and the tomes - never drop to a
+        // player who already carries one (ChestThemes.cap holds them to one
+        // per chest; this holds them to one per save).
+        && ((item.kind !== 'unique_relic' && !item.unique) || !carriesItem(opts.save, id))
         && (def.minTier?.[normalize(opts.theme)] ?? item.baseTier ?? 1) <= tier;
     });
   }
@@ -213,7 +227,7 @@
     const item = ITEM_BY_ID[id];
     if (item.kind === 'unique_relic') return 1;
     if (['elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap',
-         'tome_sight', 'tome_raven', 'tome_storm'].includes(id)) return 1;
+         'tome_sight', 'tome_raven', 'tome_storm', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight'].includes(id)) return 1;
     if (['animal', 'sapling'].includes(item.kind) || ['sapphire', 'ruby', 'emerald', 'diamond'].includes(id)) return 1;
     if (item.kind === 'magic') return item.uniqueJewelry ? 1 : 6;
     if (item.kind === 'seed') return magicalFlowers.includes(item.grows) ? 1 : 9;

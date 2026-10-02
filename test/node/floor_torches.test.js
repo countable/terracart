@@ -107,7 +107,7 @@ function xorRng(seed) {
   return () => { x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; };
 }
 
-test('roadside chest: starter supplies give way to high-tier travel magic', () => {
+test('roadside chest: every tier stays with supplies, minerals and cash', () => {
   assert.eq(ChestThemes.weights('roadside', 1).supplies, 45);
   const supplyIds = new Set(['torch', 'rope', 'trap_kit', 'spear', 'honey', 'blank_scroll']);
   for (const tier of [1, 2, 3, 5]) {
@@ -127,14 +127,12 @@ test('roadside chest: starter supplies give way to high-tier travel magic', () =
         if (r.id === 'torch') torches++;
       } else if (r.group === 'materials') {
         assert.includes(['wood', 'rockfruit', 'coal', ...Object.values(MINERAL_TIERS).map(row => row.barId)], r.id);
-      } else if (r.group === 'travelMagic') {
-        assert.eq(ITEM_BY_ID[r.id].kind, 'magic');
       } else {
         assert.eq(r.group, 'cash');
         assert.eq(r.kind, 'gold');
       }
     }
-    assert.inRange(supplies / n, tier >= 3 ? 0.07 : 0.42, tier >= 3 ? 0.13 : 0.48, `T${tier}: supply share`);
+    assert.inRange(supplies / n, 0.42, 0.48, `T${tier}: supply share`);
     if (tier === 1) assert.gt(torches / n, 0.30, 'roadside T1 is a dependable Torch source');
   }
 });

@@ -13,7 +13,10 @@ function describe(r) {
       value: (r.amount || 0) + (r.consolation || 0), tier: r.tier || 0, text: `$${r.amount}${r.slot ? ` (for ${r.slot} T${r.tier}, owned)` : ''}${r.consolation ? ` + $${r.consolation}` : ''}` };
   }
   if (r.slot && r.tier && (r.kind === 'relic' || r.kind === 'armor' || !r.kind)) {
-    const kind = r.kind === 'armor' ? 'armor' : 'relic';
+    // Display name only: the gear the game internally calls a relic reads as
+    // EQUIPMENT here, so it never collides with the unique-relic finds
+    // (telescope, amulets, rings) the same tables now show.
+    const kind = r.kind === 'armor' ? 'armor' : 'equipment';
     const v = (typeof gearPrice === 'function') ? gearPrice(kind, r.slot, r.tier) : 0;
     return { cls: kind, key: `${kind}: ${r.slot} T${r.tier}`, value: (v || 0) + (r.consolation || 0), tier: r.tier,
       text: `${r.slot} T${r.tier}${r.consolation ? ` + $${r.consolation}` : ''}` };

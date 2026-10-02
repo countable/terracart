@@ -269,84 +269,21 @@ test('classes: Runner keeps shorter goals without numeric story copy', () => {
   assert.falsy(/\d/.test(trailIntroBody('runner')), 'the story does not quote a threshold');
 });
 
-// ── The Enchanter's channel ───────────────────────────────────────────────
-const FINISH_SRC = lift('_finishConsumable(title, body, opts = {}) {', '_finishConsumable');
-const CHANNEL_SRC = lift('channelPotion(id, method) {', 'channelPotion');
-const SPEND_E_SRC = lift('spendEnergy(cost, sx, sy, cell = null) {', 'spendEnergy');
-const HOLD_SRC = lift('_holdRest(now = performance.now()) {', '_holdRest');
-const DRINKS = {
-  reach_potion: ['drinkReachPotion', 'reachPotionUntil'],
-  speed_potion: ['drinkSpeedPotion', 'speedPotionUntil'],
-  shield_potion: ['drinkShieldPotion', 'shieldPotionUntil'],
-  blight_potion: ['drinkBlightPotion', 'blightPotionUntil'],
-  raven_potion: ['drinkRavenPotion', 'spiritRavenUntil'],
-};
-const DRINK_SRC = Object.values(DRINKS).map(([m]) => lift(`${m}(opts = {}) {`, m)).join('\n');
-
-function potionScene({ id = 'reach_potion', count = 2, energy = 50, cls = 'enchanter' } = {}) {
-  const methods = new Function('persistSave', 'MINUTE_MS', 'REACH_POTION_MS', 'SPEED_POTION_MS', 'SHIELD_POTION_MS',
-    'BLIGHT_MS', 'BLIGHT_R_CELLS', 'BLIGHT_DPS', 'REST_SETTLE_S', 'TOO_TIRED_MSG',
-    `return class { ${FINISH_SRC}\n${CHANNEL_SRC}\n${SPEND_E_SRC}\n${HOLD_SRC}\n${DRINK_SRC} }`);
-  const s = new (methods(() => {}, 60000, 60000, 60000, 60000, 60000, 3, 5, 3, 'Too tired — eat or rest.'))();
-  s.save = { inv: [{ id, count }], selSlot: 0, energy, playerClass: cls };
-  s.flashes = []; s.flash = (m) => s.flashes.push(m);
-  s.pops = []; s._popEnergy = (d, at) => s.pops.push([d, at]);
-  s._cellAtScreen = () => ({ ix: 4, iy: 5 });
-  s._warnIfTiring = () => {};
-  s.updateEnergyDOM = () => {};
-  s.buildInventoryDOM = () => {};
-  s.playerScreen = () => ({ x: 10, y: 20 });
-  s.playerBodyDy = () => 0;
-  s.messages = []; s.showMessageModal = (o) => s.messages.push(o);
-  // The raven potion summons through its keeper; the timer is what is pinned.
-  s._tickSpiritRaven = () => {};
-  return s;
-}
-
-test('enchanter: channelling a timed potion applies its timer, keeps the flask, spends energy', () => {
-  const cost = Wizard.ENCHANTER_ENERGY_COST;
-  for (const [id, [method, field]] of Object.entries(DRINKS)) {
-    const s = potionScene({ id });
-    const before = Date.now();
-    assert.eq(s.channelPotion(id, method), true, `${id} channelled`);
-    assert.eq(s.save.inv[0].count, 2, `${id}: the flask is not drunk`);
-    assert.gte(s.save[field], before, `${id}: its timer runs`);
-    assert.eq(s.save.energy, 50 - cost, `${id}: paid ${cost}⚡`);
-    assert.eq(JSON.stringify(s.pops), JSON.stringify([[-cost, { ix: 4, iy: 5 }]]), `${id}: popped on a cell`);
-    assert.truthy(s._restHoldUntil > 0, `${id}: a channel is work — it holds the rest`);
-    assert.truthy(/channel/.test(s.messages[0].title), `${id}: the modal says channel`);
-    assert.truthy(/flask stays full/.test(s.messages[0].body), `${id}: and that the flask is kept`);
-  }
+test('enchanter: tome cooldowns stamp at half length', () => {
+  // The potion channel retired with the tomes' arrival (Oct 2026): the
+  // calling's whole edge is half-length cooldowns, stamped in _tomeSpent.
+  const src = lift('_tomeSpent(id) {', '_tomeSpent');
+  assert.truthy(/Wizard\.isClass\(this\.save, 'enchanter'\)\) \? 0\.5 : 1/.test(src),
+    '_tomeSpent halves both cooldowns for an enchanter');
+  assert.truthy(/tomeReadyAt = now \+ TOME_COOLDOWN_MS \* mul/.test(src), 'the shared lock scales');
+  assert.truthy(/cooldownMs \|\| 0\) \* mul/.test(src), 'and the own magic scales');
+  assert.falsy(/channelPotion/.test(app), 'the potion channel is gone');
 });
 
-test('enchanter: drinking still consumes; a channel is refused for others, a short bar, a stale pick', () => {
-  const d = potionScene();
-  d.drinkReachPotion();
-  assert.eq(d.save.inv[0].count, 1, 'a plain drink consumes one');
-  assert.eq(d.save.energy, 50, 'and costs no energy');
-  const other = potionScene({ cls: 'hunter' });
-  assert.eq(other.channelPotion('reach_potion', 'drinkReachPotion'), false, 'only an enchanter channels');
-  assert.eq(other.save.energy, 50); assert.eq(other.save.reachPotionUntil, undefined);
-  const tired = potionScene({ energy: Wizard.ENCHANTER_ENERGY_COST - 1 });
-  assert.eq(tired.channelPotion('reach_potion', 'drinkReachPotion'), false, 'a short bar refuses');
-  assert.eq(tired.flashes.join(), 'Too tired — eat or rest.', 'with the standard message');
-  assert.eq(tired.save.reachPotionUntil, undefined, 'and no timer');
-  assert.eq(tired.save.inv[0].count, 2);
-  const stale = potionScene({ id: 'speed_potion' });
-  assert.eq(stale.channelPotion('reach_potion', 'drinkReachPotion'), false, 'the live pick must match the dialog');
-  assert.eq(stale.save.energy, 50, 'nothing taken for a drink that would refuse');
-});
-
-test('enchanter: the Use dialog offers Channel on exactly the timed potions', () => {
-  const sync = lift('syncConsumableButton() {', 'syncConsumableButton');
-  const rows = Object.entries(CONSUMABLE_SPEC)
-    .filter(([, row]) => row.channel).map(([id]) => id).sort();
-  assert.eq(rows.join(), Object.keys(DRINKS).sort().join(), 'the timed potions, no more');
-  assert.truthy(/entry\.channel && typeof Wizard !== 'undefined'\s*\n\s*&& Wizard\.isClass\(this\.save, 'enchanter'\)/.test(sync),
-    'only for an enchanter');
-  assert.truthy(/label: `Channel −\$\{cost\}⚡`/.test(sync), 'priced on the button');
-  assert.truthy(/const cost = Wizard\.ENCHANTER_ENERGY_COST;/.test(sync), 'off wizard.js');
-  assert.truthy(/disabled: \(this\.save\.energy \?\? 0\) < cost/.test(sync), 'greyed when the bar is short');
-  assert.truthy(/this\.channelPotion\(id, fn\)/.test(sync), 'and it channels the dialog\'s own potion');
+test('enchanter: the class blurb sells the new edge', () => {
+  const enchanter = Wizard.CLASSES.find(row => row.key === 'enchanter');
+  assert.truthy(/tomes recover their magic in half the time/i.test(enchanter.blurb()),
+    'the blurb names the cooldown edge');
+  assert.truthy(typeof Wizard.ENCHANTER_ENERGY_COST === 'undefined', 'the channel price retired with it');
 });
 })();
