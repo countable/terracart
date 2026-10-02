@@ -255,3 +255,40 @@ fog, shadows and tool-lock fading. It makes no game-art changes.
 The pack licence is preserved beside it. Mineral-rock records with
 `deposit: 'crystal'` use this cluster at the shared rock scale and measured
 cell-centred seating; ordinary stone and ore artwork are unchanged.
+
+## Castle families
+
+`src/castle_styles.js` owns four stable material families: Citadel (cool pale
+stone), Weathered Ruin (sage limestone and surviving broken battlements),
+Intact Bastion (warm sandstone, no guards), and Old Archive Court (warm stone
+with timber rampart tops). There is no Mended Court family. The Citadel name
+has no “dark” qualifier: darkness means an unclaimed, weathered condition in
+every family, while restoration brings back clean, brighter materials.
+
+Towers, tiled walls, polygon walls and courtyard floors resolve the same
+building owner key through `CastleStyles.get(key, claimed)`. Its numeric
+palettes already include the condition treatment; never apply the general
+unclaimed building wash to them again. Castle wall sections use ordinary object
+depth at their lowest masonry point. The 32×48 towers sit at the bottom of their
+cell; their bottom ten pixels fade from 30% to full opacity to soften joins.
+Archive ramparts keep a stone base and face beneath
+their wooden crest; the Ruin's uneven crenellations echo its damaged tower.
+
+Weathered Ruin courtyards contain a few broken fluted columns, made from the
+existing pillar's lower shaft and plinth. `CastleStyles.columnSites` scatters
+these deterministically inside the source ring (about four in a 5×8-cell
+court), away from walls and one another. Both floor modes share these sites
+and the same stone palette. They are decorative, with no collision or tap
+targets. Unclaimed masonry retains roughly 80% of restored brightness;
+courtyard floors retain roughly 89%, providing extra contrast against walls.
+Each family has its own dark skull banner: black for Citadel and
+Ruin, grey with a shield for Bastion, and brown with a book for Archive.
+
+The Ruin also has sparse missing paving, fine cracks and small rubble marks,
+with chips and missing sections along its battlements. Damage is seeded and
+cached in the existing floor and wall artwork; it creates no world objects,
+collision changes or animated effects. Restoration changes its palette while
+preserving the damage, and the other castle families keep their intact surfaces.
+Floor damage uses at most eight 96×96 textures (four patterns in two condition
+palettes), lazily baked and shared by all ruins. Tiled floors reuse their
+existing texture pool; polygon floors and wall chips use their existing caches.

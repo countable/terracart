@@ -1,7 +1,6 @@
 // Approved enemy roster owns final stats, declared habitats and variant limits.
 (() => {
   test('roster: combat uses approved values without cave or giant multipliers', () => {
-    assert.eq(CAVE_ENEMY_MUL, 1);
     for (const row of EnemyRoster.ROWS) {
       const live = Combat.monster(row.id);
       for (const key of ['hp', 'armor', 'dmg', 'tier', 'range', 'damageIntervalSeconds', 'attackHits']) {
@@ -24,9 +23,8 @@
     }
     assert.gte(dungeonOnly, rolled / 2);
   });
-  test('roster: legacy giant saves resolve without entering spawn or quest pools', () => {
-    assert.truthy(Combat.monster('giant_goblin'));
-    assert.falsy(Combat.spawnsUnderground('giant_goblin'));
+  test('roster: retired giant aliases are gone; roster giants keep their own rows', () => {
+    assert.eq(Combat.monster('giant_goblin'), undefined);
     assert.falsy(Combat.enemyKinds().includes('giant_goblin'));
     assert.eq(Combat.monster('giant_plant').hp, EnemyRoster.get('giant_plant').hp);
   });

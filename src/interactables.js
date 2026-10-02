@@ -222,7 +222,7 @@ function tierArticle(name) {
   return /^[aeiou]/i.test(String(name)) ? 'an' : 'a';
 }
 
-// A page stone's interactable (INTERACTABLES.waystone / .infoboard) — see
+// A page stone's interactable (INTERACTABLES.infoboard / .bottle) — see
 // the note on those rows.
 function pageStone({ title, art, spent, read }) {
   return {
@@ -591,7 +591,7 @@ const INTERACTABLES = {
           const again = { scene, save, sx, sy, dirty: false };
           INTERACTABLES.chest.custom(again, o);
           if (again.dirty && typeof persistSave === 'function') persistSave(save);
-        })) return true;
+        }, o)) return true;
       } else if (daily) {
         // A crate (restocks) taken is bare for crateRestoreDays UTC days —
         // the day ledger, never save.opened. A left-for-later roll is still
@@ -613,7 +613,7 @@ const INTERACTABLES = {
         ? scene.worldIconHTML(iconLook.texKey, 26, iconLook.frame) : '';
       // The chapel's blessing opens on the chapel's own painting and name the place.
       const dress = (chapel && typeof Macros !== 'undefined')
-        ? { art: Macros.KIND_DIALOG.chapel.art, header: Macros.KIND_DIALOG.chapel.label }
+        ? { art: Macros.KIND_TRANSACTION.chapel.art, header: Macros.KIND_TRANSACTION.chapel.title }
         : { art: chestOpeningArt(o) || undefined };
       // Every path below that actually spends the chest goes through this, so
       // the starter ladder's "open a crate" step is credited exactly once no
@@ -676,6 +676,7 @@ const INTERACTABLES = {
         markOpened();
         ctx.dirty = true;
         scene.flash(`${chapel ? 'A quiet blessing. Go well.' : 'Chest had nothing useful.'}`, sx, sy);
+        if (chapel) scene._macroTransaction?.('chapel', `You received ${scene.moneyHTML(1)} as today’s blessing.`);
         return true;
       }
       if (result.kind === 'relic' || result.kind === 'armor') {
@@ -755,6 +756,7 @@ const INTERACTABLES = {
       if (lootQty > room) {
         let resolved = false;
         scene.showChestRewardModal({ ...dress,
+          ...(chapel ? { art: Macros.KIND_DIALOG.chapel.art, header: Macros.KIND_DIALOG.chapel.label } : {}),
           iconHTML, name: lootName, qty: qtyLabel, color: lootColor, kind: rewardKind, kindIcon, tier: lootTier,
           sub: room > 0
             ? `Bag full — room for only ${room} of ${lootQty}.`
@@ -773,10 +775,17 @@ const INTERACTABLES = {
               resolved = true;
               // Discard still claims the chest's coins, without attempting
               // an item grant into a full bag.
-              Rewards.apply(save, room > 0 ? result : { kind: 'gold', amount: result.consolation || 0 }, scene);
+              const granted = Rewards.apply(save, room > 0 ? result : { kind: 'gold', amount: result.consolation || 0 }, scene, { deferBookRead: chapel });
               markOpened();
               if (save.chestHold) delete save.chestHold[o.id];
               persistSave(save);
+              if (chapel && (granted.accepted > 0 || granted.money > 0)) {
+                const gifts = [];
+                if (granted.accepted > 0) gifts.push(`${lootName} ×${granted.accepted}`);
+                if (granted.money > 0) gifts.push(scene.moneyHTML(granted.money));
+                scene._macroTransaction?.('chapel', `You received ${gifts.join(' and ')} as today’s blessing.`,
+                  () => scene._revealPendingBookReads?.());
+              }
             } },
           ],
         });
@@ -844,6 +853,11 @@ const INTERACTABLES = {
   },
   infoboard: pageStone({ title: 'A notice board', art: null,
     spent: 'Read it already.', read: 'You read the notice.' }),
+  // A MESSAGE BOTTLE on the waterline (src/scenic.js BEACH_BOTTLES_PER_TILE):
+  // the notice board's lane — one Book page, once (save.opened) — and,
+  // unlike the board, picked up: isSpent hides it once opened.
+  bottle: pageStone({ title: 'A message in a bottle', art: 'bottle_read',
+    spent: 'Only sand here now.', read: 'You read the message.' }),
 
   // ---- Influence zones (src/zones.js) --------------------------------------
   // A HEADSTONE (an Old Stones churchyard — churches and cemeteries only).
@@ -1051,7 +1065,7 @@ function chestNeverSpent(o) {
 // Most chests are offered ONCE (save.opened, the delta, forever — that is what
 // keeps a dense city from being a fountain). What comes back is the CRATE — a
 // surface POI chest wearing the crate look (loot.js chestLook `box`: tier 1,
-// i.e. a class the tile holds CHEST_DENSITY_T1_AT or more of, after a nexus)
+// i.e. one the tile's quota pyramid left unseated, with no nexus bonus)
 // — and the BARREL (a bin, loot.js isBarrel), never a starter supply crate
 // (`o.crate`, fixedLoot), never a cave copy (depth / caveOf), never a wagon,
 // stall, macro, pot of gold or bike rack. Taking one is written to the DAY LEDGER
@@ -1061,8 +1075,7 @@ function chestNeverSpent(o) {
 // stands bare for crateRestoreDays UTC
 // days (1 for an ordinary crate, up to CRATE_RESTORE_MAX_DAYS for a class
 // the tile is crowded with) before it restocks at its normal tier.
-// It is NOT save.opened: an id there (a save from before Sep 2026) is ignored
-// for a crate — savemigrate.js carried those onto the ledger once.
+// Crate availability reads the day ledger, independently of save.opened.
 // X marks, headstones, trunks, nexus chests and cave chests never restock.
 // Wagons and daily visit sites share the day ledger and glow through their
 // own visit predicate, rather than this crate/barrel schedule.
@@ -1102,6 +1115,8 @@ function isSpent(o, sets) {
     // Same key (save.picked) as the wildplant pickup tracking, so a save
     // doesn't grow a field for it.
     case 'groundstack': return sets.picked.has(o.id);
+    // A message bottle is picked up as it is read (INTERACTABLES.bottle).
+    case 'bottle':      return sets.opened.has(o.id);
     // A wild plant is spent once picked (save.picked) — except a TIDE pickup
     // (src/scenic.js): the day's, so it is spent when it is not on the
     // waterline today (Scenic.tideLive, which also sets its crop to the day's

@@ -78,7 +78,7 @@ test('lava: the player burns on the surface and lava level, by the feet, through
 
 test('lava: an enemy standing in it burns at the same rate, and the kill is the ground\'s', () => {
   const src = SCENE_SRC;
-  assert.truthy(/!isTame && Combat\.isEnemy\(c\) && !Combat\.monster\(c\.kind\)\?\.lavaImmune && \(this\.depth === 0 \|\| this\.depth === WorldGen\.LAVA_DEPTH\)/.test(src), 'enemies, surface and lava level');
+  assert.truthy(/!isTame && Combat\.isEnemy\(c\) && !Conditions\.fireImmune\(c\) && !Combat\.monster\(c\.kind\)\?\.lavaImmune && \(this\.depth === 0 \|\| this\.depth === WorldGen\.LAVA_DEPTH\)/.test(src), 'enemies, surface and lava level');
   assert.truthy(/under\.type === WorldGen\.T\.CAVE_LAVA\s*\n\s*&& this\._damageEnemy\(c, Combat\.LAVA_DMG_PER_S, 'lava'\)\) return;/.test(src),
     'through _damageEnemy at the shared rate');
   assert.falsy(Combat.isPlayerKill('lava'), 'not a player kill: the bounty coin and nothing else');
@@ -88,7 +88,8 @@ test('lava: an enemy standing in it burns at the same rate, and the kill is the 
 // Exercise the shipping hazard branch: immunity belongs to the creature, not
 // to the infernal region, so ordinary foes crossing that region still burn.
 test('lava: demons resist lava while neighbouring mortal enemies still burn', () => {
-  const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune');
+  const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Conditions.fireImmune(c)');
+  assert.truthy(start >= 0, 'shipping lava branch was found');
   const end = SCENE_SRC.indexOf('      if (enemyFireEscapeTick', start);
   const tick = new Function('c', 'isTame', 'now', SCENE_SRC.slice(start, end));
   const hurt = [];
@@ -125,7 +126,8 @@ test('lava: surface vents burn fractional player time and stop on safe ground', 
 });
 
 test('lava: surface vents respect enemy immunity, pets and the shared burn cooldown', () => {
-  const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Combat.monster(c.kind)?.lavaImmune');
+  const start = SCENE_SRC.indexOf('      if (!isTame && Combat.isEnemy(c) && !Conditions.fireImmune(c)');
+  assert.truthy(start >= 0, 'shipping lava branch was found');
   const end = SCENE_SRC.indexOf('      if (enemyFireEscapeTick', start);
   const tick = new Function('c', 'isTame', 'now', SCENE_SRC.slice(start, end));
   const hurt = [], scene = {depth: 0,
@@ -134,6 +136,7 @@ test('lava: surface vents respect enemy immunity, pets and the shared burn coold
   const mortal = {kind: 'skeleton'};
   tick.call(scene, {kind: 'red_demon'}, false, 1000);
   tick.call(scene, {kind: 'slime'}, true, 1000);
+  tick.call(scene, {kind: 'skeleton', fireResistancePotionUntil: Date.now() + 180000}, false, 1000);
   tick.call(scene, mortal, false, 1000); tick.call(scene, mortal, false, 1100);
   assert.eq(hurt.length, 1); assert.eq(hurt[0].source, 'lava');
   assert.eq(hurt[0].damage, Combat.LAVA_DMG_PER_S);

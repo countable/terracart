@@ -164,7 +164,7 @@ class SceneFire {
 
   _damageBurningUnit(c, damage, source, now) {
     // NPCs use their existing wounded/resting state, rather than a health bar.
-    if (c.kind === 'npc') { NPC.hit(this, c); return false; }
+    if (c.kind === 'npc') { NPC.hit(this, c, Date.now(), damage); return false; }
     const pet = typeof c.id === 'string' && c.id.startsWith('released_');
     const summoned = SpriteLayout.isSummoned(c.kind);
     if (!pet && !summoned) {
@@ -200,6 +200,7 @@ class SceneFire {
     const radius = (CONSUMABLE_SPEC.tome_firewall.lengthCells - 1) / 2;
     const now = Date.now();
     let lit = 0;
+    const mid = absCellOffset(this, player.cellIX, player.cellIY, dx, dy);
     for (let offset = -radius; offset <= radius; offset++) {
       const cell = absCellOffset(this, player.cellIX, player.cellIY, dx - dy * offset, dy + dx * offset);
       if (cell.cellIX === player.cellIX && cell.cellIY === player.cellIY) continue;
@@ -210,7 +211,7 @@ class SceneFire {
       return false;
     }
     this._tomeSpent('tome_firewall');
-    this.flash('A wall of fire rises', this.viewCenterX, this.viewCenterY);
+    this.flashAtCell('A wall of fire rises', mid.cellIX, mid.cellIY);
     return true;
   }
 

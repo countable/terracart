@@ -32,22 +32,22 @@ Magic Trap stays a supply: the requested magic class means potions and powders, 
 
 Weights below sum to 100% per row. They select a themed reward group. Item eligibility and the explicit fallbacks in section 4 determine the final item. Thus a low-tier garden may turn a flower-seed draw into ordinary flowers, but never an unrelated coal drop.
 
-| Theme | Normal surface tier | Reward-group weights |
-|---|---:|---|
-| Roadside / shelters | 1 | Supplies 45%; building materials 40%; cash 15% |
-| Commerce | 1 | Cash 60%; supplies 25%; provisions 15% |
-| Food | 1 | Food 80%; matching crop seeds 15%; Honey 5% |
-| Parks / recreation | 2 | Seeds 45%; saplings/acorns 25%; forage 20%; Growth Powder 10% |
-| Farms | 3 | Crop seeds 40%; produce 30%; farm animals 15%; farm supplies 10%; Growth Powder 5% |
-| Gardens / flora | 4 | Flower seeds 45%; flowers 30%; saplings/acorns 15%; Growth Powder 10% |
-| Healthcare | 3 | Recovery magic 35%; Antidote 25%; revival magic 20%; restorative food 10%; Shielding 10% |
-| Schools / libraries | 3 | Books 55%; exploration supplies 15%; study magic 20%; noncombat gear 10% |
-| Museums / culture | 3 | Gear 35%; gems 30%; Books 25%; study magic 10% |
-| Worship | 3 | Revival magic 50%; Shielding 25%; Books 15%; flowers 10% |
-| Memorials / cemeteries | 3 | Raven/Shadow magic 55%; flowers 25%; Books 15%; gems 5% |
-| General civic | 3 | Supplies 35%; cash 30%; Books 20%; noncombat gear 15% |
-| Police / fire stations | 3 | Protective gear 40%; field supplies 40%; healing magic 15%; cash 5% |
-| Pet locations | 3 | Companion animals 70%; animal food 20%; supplies 10% |
+| Theme | Reward-group weights |
+|---|---|
+| Roadside / shelters | Supplies 45%; building materials 40%; cash 15% |
+| Commerce | Cash 60%; supplies 25%; provisions 15% |
+| Food | Food 80%; matching crop seeds 15%; Honey 5% |
+| Parks / recreation | Seeds 45%; saplings/acorns 25%; forage 20%; Growth Powder 10% |
+| Farms | Crop seeds 40%; produce 30%; farm animals 15%; farm supplies 10%; Growth Powder 5% |
+| Gardens / flora | Flower seeds 45%; flowers 30%; saplings/acorns 15%; Growth Powder 10% |
+| Healthcare | Recovery magic 35%; Antidote 25%; revival magic 20%; restorative food 10%; Shielding 10% |
+| Schools / libraries | Books 55%; exploration supplies 15%; study magic 20%; noncombat gear 10% |
+| Museums / culture | Gear 35%; gems 30%; Books 25%; study magic 10% |
+| Worship | Revival magic 50%; Shielding 25%; Books 15%; flowers 10% |
+| Memorials / cemeteries | Raven/Shadow magic 55%; flowers 25%; Books 15%; gems 5% |
+| General civic | Supplies 35%; cash 30%; Books 20%; noncombat gear 15% |
+| Police / fire stations | Protective gear 40%; field supplies 40%; healing magic 15%; cash 5% |
+| Pet locations | Companion animals 70%; animal food 20%; supplies 10% |
 
 These replace the vague 80/15/5 suggestion with specific, reviewable rows. Surprises come from rarer eligible items within each theme. There is no universal off-theme surprise pool.
 
@@ -170,7 +170,7 @@ Food, seed, flower, Torch and building-material fallback groups have T1 members.
 
 ## 5. Quality and quantities
 
-Retain the current Home downgrade, cave depth bonus, Ring luck, quantity upgrades and 16% jackpot entry / 25% continuation rates. Retain the existing tier-versus-quantity chain split: the effective chest tier is not a guaranteed minimum item tier. Roll quality before resolving the group's item pool. A thin pool must not cap the quality roll: a T4 school can spend quality on useful lower-tier items even though supplies stop at T2.
+Retain the cave depth bonus, Ring luck, quantity upgrades and 16% jackpot entry / 25% continuation rates. Retain the existing tier-versus-quantity chain split: the effective chest tier is not a guaranteed minimum item tier. Roll quality before resolving the group's item pool. A thin pool must not cap the quality roll: a T4 school can spend quality on useful lower-tier items even though supplies stop at T2.
 
 Use the existing `TIER_VALUE` table as the allowance for extra copies: T1–T7 currently map to 2, 8, 25, 70, 160, 360, 800. This is a quantity allowance, not a cash payment or a promise of equal resale value.
 
@@ -240,7 +240,7 @@ Inventory replaces Items with **Magic** and **Supplies**. Reuse current item ico
 
 Existing stacks store item IDs and counts, so the class split changes their catalog interpretation without rewriting inventory.
 
-Bump `SaveMigrate.SAVE_SCHEMA`. When `save.invCat` is `consumables`, move to the selected item's new tab, otherwise Supplies, and reset `invPage`. Preserve the selected item, stack counts, gear and all other progress. Migration must be idempotent.
+No compatibility migrations are maintained. Current saves retain item IDs and counts; retired formats are unsupported until requested otherwise.
 
 Opened chests stay opened. A chest held for later keeps its exact saved item, quantity and consolation; it does not reroll under the new theme. Already cached held rewards from the old rules remain valid. Unopened chests use the new rules. Persist no new per-chest theme state; derive it from the existing POI class and depth.
 
@@ -255,7 +255,7 @@ Opened chests stay opened. A chest held for later keeps its exact saved item, qu
 | `rewards.js` | Apply the chosen reward once; preserve actual accepted quantities and deferred Book behavior |
 | `interactables.js` | Ask for the chest's theme; retain full-bag take/leave decisions and opened-state handling |
 | `app.js`, `shops.js`, `sandbox.js` | Inventory/fort/label integration; existing use actions |
-| `savemigrate.js` | Old tab migration and schema version |
+| `save_state.js` | Current-state defaults, validation and runtime cleanup |
 | `tools/balancing.html`, `tools/item-catalog-data.js`, `tools/items.html` | Shared resolver for probabilities, eligible contents and sources |
 | `index.html`, browser harnesses, node runner | Register the new module in dependency order; regenerate cache hashes |
 
@@ -263,7 +263,7 @@ Prefer one `pickChestReward(theme, save, rng, {tier, depth})` entry point. Extra
 
 ## 10. Validation and release
 
-1. Inventory tests cover every potion/powder and every supply, old-tab migration, unchanged actions and fort membership.
+1. Inventory tests cover every potion/powder and every supply, unchanged actions and fort membership.
 2. Exhaustive theme tests cover every theme, T1–T7 and surface/cave modes: valid items, no forbidden kinds, no null outcomes, no fallback cycles, explicit T1 exceptions only.
 3. Quantity tests pin the healthcare examples, caps, actual price lookup, no double quantity scaling and no automatic leftover cash.
 4. Behavior tests cover starter fixed rewards, retail stalls, coin pots, duplicate gear, full-bag partial takes, held rewards and deferred Books.
@@ -271,7 +271,7 @@ Prefer one `pickChestReward(theme, save, rng, {tier, depth})` entry point. Extra
 6. Browser checks cover narrow inventory tabs, a T1 healthcare chest, a high-tier healing chest, school Books, a cave supply drop, and reopening a held chest.
 7. Run the headless suite and cache/sprite/layout audits, then review the item catalogue for misleading sources or missing classes.
 
-Implement on an isolated branch after review: taxonomy and migration; theme data and picker; integration and tools; balance simulation and browser checks. Commit and publish only after the agreed settings and validations are complete.
+Implement on an isolated branch after review: taxonomy; theme data and picker; integration and tools; balance simulation and browser checks. Commit and publish only after the agreed settings and validations are complete.
 
 ## Review decisions
 
@@ -351,10 +351,10 @@ There are four growth stages, each normally requiring watering and a wait. Propo
 
 These totals exclude delays before rewatering, watering-can stage jumps and Growth Powder. Preserve the existing can bonuses: a top-tier can roughly halves the required waits. Growth Powder still advances one stage instantly; four powders can bypass all waits, so quantify its increased value in the balance report rather than silently weakening it.
 
-Centralize the crop-specific wait in `Crops.stageHoldMs(crop)` and use it for advancement, rendering, countdowns and descriptions. Preserve elapsed progress for already-watered crops on migration: convert the fraction of the old stage timer completed into the same fraction of the new timer; if already ready under the old timer, advance that stage before migration. Mature crops stay mature. Offline time still advances a watered crop by one stage, then it needs watering again.
+Centralize the crop-specific wait in `Crops.stageHoldMs(crop)` and use it for advancement, rendering, countdowns and descriptions. Retired flat crop timers are not converted. Mature crops stay mature. Offline time still advances a watered crop by one stage, then it needs watering again.
 
 ### Added validation
 
-Test poison's 30 ticks, refresh without tick reset, armor interaction, zero-energy floor, suspension/reload, curing at a tick boundary, and downed use. Test Elixir with upgraded maximum energy and active food cooldown, full-energy refusal, and no accidental cure/revival. Test the seed probability transfers, single magical seed stacks, all new growth timers and migration, watering-can jumps and Growth Powder. Add the new item icons to sprite/layout audits and teach poison on first exposure.
+Test poison's 30 ticks, refresh without tick reset, armor interaction, zero-energy floor, suspension/reload, curing at a tick boundary, and downed use. Test Elixir with upgraded maximum energy and active food cooldown, full-energy refusal, and no accidental cure/revival. Test the seed probability transfers, single magical seed stacks, all new growth timers, watering-can jumps and Growth Powder. Add the new item icons to sprite/layout audits and teach poison on first exposure.
 
 These numeric defaults extend the reviewed chest proposal; no gameplay implementation is included in this design artifact.

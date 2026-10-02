@@ -1,0 +1,8 @@
+{
+  "tool": "built-in image_gen",
+  "transparent_background": true,
+  "prompt": "Use case: precise-object-edit. Input is the existing four-castle-tower sprite sheet. Edit target is ONLY the SECOND tower from the left, the mossy round Weathered Ruin. Output ONE isolated tower on transparent alpha, no other towers. Preserve that tower's front/top game view, stone colors, moss, cylindrical shaft, small dark arrow slit, footprint and 2:3 width-to-height proportion for a 32x48 pixel game sprite. Make it a bit MORE BROKEN: remove about half the surviving battlements, leave two irregular surviving merlons, break a conspicuous notch from the front-left parapet lip, add a readable jagged crack descending through the upper left masonry and a small chipped recess in the shaft. Keep the lower shaft standing and structurally readable, not a collapsed rubble heap. Preserve its overall full height with a surviving merlon and same base width. Crisp coherent pixel-art clusters that survive downsampling to32x48, matching the source. No text, no flag, no ground, no scattered debris beyond its base, no cast shadow. Actual transparent background.",
+  "master": "tower_ruin_master.png",
+  "runtime_atlas": "tower_shapes.png",
+  "frame": 1
+}

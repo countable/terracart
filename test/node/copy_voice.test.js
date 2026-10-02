@@ -272,7 +272,7 @@ test('map copy: the name-bearing loot toasts fit at their widest', () => {
   const shapes = [
     `${longestGear} × 10`,                  // the trail card (name + qty)
     longestGear,                            // the forge splash
-    `\u2715 → ${longestItem} ×10`,          // the treasure line
+    `${longestItem} ×10`,          // the treasure line
   ];
   for (const line of shapes) {
     assert.lte([...line].length, MAP_MSG_MAX, `worst-case loot toast overflows: ${line}`);
@@ -463,7 +463,6 @@ test('map copy: the barrel, the bike rack and the page stones fit a map line', (
 test('map copy: every wildplant reward bundle fits the harvest toast', () => {
   const crops=new Set([...Object.keys(CROP_ROW),...Object.keys(WILDPLANT_RULES)]);
   for (const crop of crops) {
-    if (wildplantRoll(crop)) continue;
     const line=wildplantHarvestLine(crop);
     for (const reward of wildplantRewards(crop)) {
       assert.truthy(line.includes(`+${reward.qty} ${itemName(reward.id)}`),`${crop} names every guaranteed reward`);

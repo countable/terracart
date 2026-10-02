@@ -95,10 +95,21 @@ test('opening: the story plays FIRST, and the safety CTA waits for its last slid
   assert.truthy(/startStory\(\(\) => \{ if \(safetyEl\) safetyEl\.style\.display = 'flex'; \}\);/.test(flow),
     'and comes back when the last slide clears');
 });
-test('opening: wake up fades slowly, ignores early clicks and resets on the normal slides', () => {
+test('opening: wake up fades in with the end of the zoom, taps during the fade skip, early ones do not', () => {
   const start = html.indexOf('    const STORY_WAKE_FADE_MS');
   const end = html.indexOf('    // Is one of the boot overlays', start);
   const source = html.slice(start, end);
+  // The clock: the button comes up over the last STORY_WAKE_FADE_MS of the
+  // STORY_PAN_MS push, quickly — a wait you can see the end of, not a slow
+  // reveal from the first frame — and the CSS reads the same numbers.
+  const num = (name) => Number(new RegExp(`const ${name} = (\\d+);`).exec(source)?.[1]);
+  const fadeMs = num('STORY_WAKE_FADE_MS'), panMs = num('STORY_PAN_MS');
+  assert.truthy(fadeMs >= 800 && fadeMs <= 2000, `a quick fade (${fadeMs}ms)`);
+  assert.truthy(panMs >= 6000, `over a long push (${panMs}ms)`);
+  assert.truthy(/const STORY_WAKE_DELAY_MS = STORY_PAN_MS - STORY_WAKE_FADE_MS;/.test(source), 'the fade ends with the push');
+  assert.truthy(/animation: nightmare-pan var\(--nightmare-pan-ms, 8s\)/.test(html), 'the push reads its length from the script');
+  assert.truthy(/animation: wake-reveal var\(--wake-fade-ms\) ease-in var\(--wake-delay-ms, 0ms\) both;/.test(html),
+    'the reveal holds invisible through the delay (both), then fades over the fade');
   for (const reduced of [false, true]) {
     const nodes = {};
     for (const id of ['story', 'story-art', 'story-text', 'story-next']) nodes[id] = {
@@ -118,11 +129,12 @@ test('opening: wake up fades slowly, ignores early clicks and resets on the norm
     assert.truthy(text.hidden);
     assert.eq(btn.disabled, !reduced);
     if (!reduced) {
-      assert.eq(delay, 4000);
+      assert.eq(delay, panMs - fadeMs, 'the button is held only while it is still fully invisible');
       assert.truthy(btn.classes.has('nightmare-wake'));
       click();
       assert.eq(btn.textContent, 'wake up', 'invisible CTA cannot advance');
       ready();
+      assert.falsy(btn.disabled, 'tappable from the first frame of its fade — a tap mid-fade skips');
     }
     click();
     assert.eq(btn.textContent, 'Next');

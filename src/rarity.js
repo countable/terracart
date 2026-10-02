@@ -53,9 +53,9 @@
     // Chest tier 1..5 modifiers. Applied on top of the biome's classBias to
     // produce the effective context. Chest worldgen picks (biome, tier)
     // independently — same biome can appear at different tiers, same tier
-    // across different biomes. The tier is the chest's class DENSITY on its
-    // tile (loot.js CHEST_DENSITY_TIERS / chestTier — also the renderer's
-    // coloured diamond).
+    // across different biomes. The tier is the chest's per-tile quota seat
+    // (worldgen.js seedChestTiers, read through loot.js chestTier — also the
+    // renderer's coloured diamond).
     //
     // chainMax bounds what the boost chain alone can reach; maxTier bounds
     // the absolute (post-jackpot) tier. Every tier gets a small jackpot
@@ -198,8 +198,7 @@
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0,
                           favourite: { id: 'growth_powder', p: 0.5 } },
     // ── A viewpoint scope's daily gift (src/scenic.js VISTA_CONTEXT,
-    // INTERACTABLES.vista_scope) — and the tide line's message bottle
-    // (Scenic.BOTTLE_CONTEXT). A better grove shrine (~15 value, the design's
+    // INTERACTABLES.vista_scope). A better grove shrine (~15 value, the design's
     // daily re-walk target): one chain step over the shrine's flat curve, a
     // walker's classes — seeds and a magic item, some produce, a supply.
     // Measured ~15 (scratchpad scenic2/ev.js, the balancing sheet's valuation).
@@ -474,7 +473,7 @@
     classAdd:  { legacyConsumable: 0.25, mineral: 0.25 },
     favourite: { p: 0.75, tierCapped: true, ids: {
       vigor_potion: 1, shield_potion: 1, reach_potion: 1, speed_potion: 1,
-      revive_potion: 1, blight_potion: 1, raven_potion: 1, thunder_potion: 1, resurrection_potion: 1,
+      revive_potion: 1, blight_potion: 1, raven_scroll: 1, skeleton_scroll: 1, wraith_scroll: 1, thunder_scroll: 1, resurrection_potion: 1,
       growth_powder: 1, shadow_powder: 1, dragon_powder: 1, frost_powder: 1, sleep_powder: 1,
       fireball_scroll: 1, explosive_flask: 1, fear_scroll: 1, treasure_map: 1,
       sapphire: 1, ruby: 1, emerald: 1, diamond: 1,

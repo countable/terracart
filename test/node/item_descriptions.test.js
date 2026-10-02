@@ -37,8 +37,9 @@ test('consumable confirmations: outcomes stay brief and enigmatic', () => {
 test('consumables: one action row names every button method', () => {
   const ids = [
     'orb', 'egg', 'book', 'honey', 'reach_potion', 'antidote', 'elixir',
-    'vigor_potion', 'speed_potion', 'shield_potion', 'raven_potion',
-    'thunder_potion', 'blight_potion', 'revive_potion',
+    'vigor_potion', 'speed_potion', 'shield_potion', 'raven_scroll', 'skeleton_scroll', 'wraith_scroll',
+    'giant_potion', 'fire_resistance_potion', 'protection_potion', 'time_potion', 'immortal_potion', 'shrinking_potion',
+    'thunder_scroll', 'blight_potion', 'revive_potion',
     'resurrection_potion', 'dragon_powder', 'growth_powder', 'shadow_powder',
     'frost_powder', 'torch', 'sapphire', 'rope', 'spear', 'javelin', 'rockfruit', 'forgetmenot', 'wildrose', 'horse', 'shiny_horse',
     'tome_sight', 'tome_raven', 'tome_storm', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight', 'tome_firewall',

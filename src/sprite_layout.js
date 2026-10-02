@@ -330,7 +330,7 @@
   // GHOST_TINT colours only the halo; the supplied body needs no tint.
   const GHOST_TINT = 0xc8d8ff;
   const GHOST_ALPHA = 0.6;
-  // The SPIRIT RAVEN (the Potion of the Raven's ally) is the crow drawn
+  // The SPIRIT RAVEN (the Scroll of the Raven's ally) is the crow drawn
   // at half opacity — see its CREATURE_ART row. Its own constant rather than
   // GHOST_ALPHA: the ghost is a foe and this is yours, and a retune of one must
   // not quietly retune the other.
@@ -514,12 +514,6 @@
     // goblin row above (one body cannot have two ground lines); the tint is
     // the one thing that differs (TRAPPER_TINT).
     goblin_trapper: { sheet: 'goblin',       frames: 6, frameMs: CREATURE_FRAME_MS, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27, tint: TRAPPER_TINT },
-    // Front-facing idle cycle from the supplied 16px sheet. Keep the spectral
-    // float and halo; its white/blue artwork replaces the tinted slime.
-    ghost:         { sheet: 'ghost', frames: 4, frameMs: 200, hop: true, hopMs: 1600, hopPx: 3, airborne: true, fw: 16, fh: 16, scale: 1.70, foot: 15 / 16, float: 6, minY: 1, maxY: 15, alpha: GHOST_ALPHA, glow: GHOST_GLOW },
-    // Rooted plant: front idle (row 0) and bite (row 2), four frames each.
-    // No hop/float: the roots stay at the same ground line during the bite.
-    plant:         { sheet: 'plant', frames: 4, frameMs: 150, attackFrames: [24, 25, 26, 27], fw: 16, fh: 16, scale: 1.60, foot: 1, float: 0, minY: 0, maxY: 16 },
   };
   // New art consists of four 16px idle frames. Bounds measured from frame 0;
   // the audit checks these against the shipped pixels. Old 32px goblins and
@@ -540,7 +534,7 @@
       side: { idle: [12], move: frameRun(12, 6) },
     } },
   };
-  const enemyBounds = { slime: [5, 16], cave_slime: [5, 16], bat: [3, 11],
+  const enemyBounds = { bat: [3, 11],
     vampire_bat: [3, 11], spider: [1, 16], poison_spider: [1, 16],
     ghost: [1, 15], pink_ghost: [1, 15] };
   const GIANT_PREFIX = 'giant_';
@@ -569,6 +563,8 @@
     if (row.art.directions) Object.assign(CREATURE_ART[row.id], { directions: row.art.directions, directionSideFacing: row.art.directionSideFacing });
     CREATURE_ART[row.id].tint = row.tint ? parseInt(row.tint.slice(1), 16) : (fw === 32 && old?.tint) || 0xffffff;
   }
+  CREATURE_ART.summoned_skeleton = { ...CREATURE_ART.skeleton };
+  CREATURE_ART.summoned_wraith = { ...CREATURE_ART.ghost };
   const _giantArt = {};
   function creatureArt(kind) {
     if (CREATURE_ART[kind]) return CREATURE_ART[kind];
@@ -674,9 +670,9 @@
                      flee: { cells: 4, jitter: 1.1, stepMs: 650, stepCells: 0.6,
                              pauseMs: [80, 120] } },
     crow:          { wanders: true, game: true, drop: 'crow_feather', avoids: ['scarecrow'] },
-    // THE SPIRIT RAVEN — summoned by the Potion of the Raven (app.js
-    // drinkRavenPotion / _tickSpiritRaven) for SPIRIT_RAVEN_MS. It is a PET's
-    // hunt by another reason, not a second hunter: wanderCreatures' pet scan
+    // THE SPIRIT RAVEN — summoned by the Scroll or Tome of the Raven (app.js
+    // readRavenScroll / readTomeRaven, kept by _tickSpiritRaven) for
+    // SPIRIT_RAVEN_MS. It is a PET's hunt by another reason, not a second hunter: wanderCreatures' pet scan
     // runs for it (`summoned`), asks huntsPrey (creature_ai.js) what it may
     // take — `preysOnFoes`: every Combat.isEnemy foe and every pest deer,
     // where a pet's `prey` is a list of kinds — and its kill pays as the pet's
@@ -692,6 +688,9 @@
     // enemy (no MONSTERS row), NOT game, and NOT tappable (interact.js skips a
     // `summoned` kind: there is nothing to catch, tame or pet).
     spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000, stepCells: 0.7 },
+    summoned_skeleton: { wanders: true, summoned: true, preysOnFoes: true, follows: true,
+      get stepMs() { return EnemyRoster.get('skeleton').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
+    summoned_wraith: { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000, stepCells: 0.7 },
     mercenary: { wanders: true, summoned: true, preysOnFoes: true, follows: true,
       get stepMs() { return EnemyRoster.get('goblin').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
     // `maxMps` is the kind's hard top speed, m/s (owner, Sep 2026: a
@@ -824,7 +823,8 @@
   // creature's drawn size (render.js, the tap box, the wheel and health bar
   // seats) comes through here, so the whole body shrinks together.
   function creatureInstScale(c, now) {
-    return (c._artScale ?? c.artScale ?? 1) * (isBabyPet(c, now) ? PET_BABY.scale : 1);
+    return (c._artScale ?? c.artScale ?? 1) * (isBabyPet(c, now) ? PET_BABY.scale : 1)
+      * (root.PotionEffects ? root.PotionEffects.scaleMul(c) : 1);
   }
   function creatureFloat(kind) { return creatureArt(kind)?.float ?? 0; }
   // The sheet a kind is drawn from, and how many frames of its row-0 cycle the
@@ -901,7 +901,6 @@
   }
   function creatureCycleFrame(c, now) { return creatureAppearance(c, now).frame; }
 
-  function creatureHops(kind) { return !!creatureArt(kind)?.hop; }
   // The code bounce a hopping kind wears: { ms, px } (null if it doesn't).
   function creatureHop(kind) {
     const a = creatureArt(kind);
@@ -1054,7 +1053,7 @@
     CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
     creaturePrey, creatureDrop, creatureProduce, creatureCatchMul, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
     creatureAppearance, faceCreature, CREATURE_FACE_HOLD_MS, CREATURE_MOVE_GRACE_MS, updateCreatureFacing, CREATURE_DIRECTION_LAYOUTS,
-    creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHops, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
+    creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,

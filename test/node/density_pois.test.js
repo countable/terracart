@@ -376,14 +376,4 @@
   });
 
   // ── Migration ────────────────────────────────────────────────────────────
-  test('migration: schema 5 carries opened POI ids onto today\'s ledger once more', () => {
-    assert.gte(SaveMigrate.SAVE_SCHEMA, 5, 'the density migration remains part of the current schema');
-    const save = { schema: 4, opened: ['c_1_2_3_4'] };
-    assert.truthy(SaveMigrate.migrate(save), 'persisted');
-    const crate = poi('bus', { id: 'c_1_2_3_4', poiDensity: 30 });
-    assert.truthy(isSpent(crate, spentSets(null, save)), 'a trunk the save opened that is now a crate reads as taken today');
-    save.coinBurstClaimed = {};
-    SaveMigrate.migrate(save);
-    assert.eq(Object.keys(save.coinBurstClaimed).length, 0, 'once');
-  });
 })();

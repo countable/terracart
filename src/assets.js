@@ -2,10 +2,11 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
-  // Castle turrets share a 28×42 frame and a flush bottom grounding line.
-  // The flag remains a separate live overlay when the castle is claimed.
-  tower: { kind: 'image', path: 'assets/Objects/Generated/castle_tower_restored.png' },
-  tower_unclaimed: { kind: 'image', path: 'assets/Objects/Generated/castle_tower_wreck.png' },
+  castle_tower_shapes: { kind: 'image', path: 'assets/Objects/Castle/tower_shapes.png' },
+  // Potion projectiles use the same frames as inventory and shop icons.
+  icon_potions: { kind: 'spritesheet', path: 'assets/Icons/Items/Potions.png', frameWidth: 16, frameHeight: 16 },
+  icon_potion: { kind: 'spritesheet', path: 'assets/Icons/Items/Potion_light.png', frameWidth: 16, frameHeight: 16 },
+  icon_honey: { kind: 'spritesheet', path: 'assets/Icons/Items/Honey.png', frameWidth: 16, frameHeight: 16 },
   orrin_idle: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_idle.png', frameWidth: 48, frameHeight: 48 },
   orrin_walk: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_walk.png', frameWidth: 48, frameHeight: 48 },
   npc_0_idle: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman01_idle.png', frameWidth: 48, frameHeight: 48 },
@@ -175,7 +176,7 @@ const ASSETS = {
   // plants — items.js CROP_SPRITE).
   zone_objects: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/approved-24.png', frameWidth: 24, frameHeight: 24 },
   zone_berry_bush: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/berry_bush.png', frameWidth: 24, frameHeight: 24 },
-  zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/Hedges/single.png', frameWidth: 24, frameHeight: 24 },
+  zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/Approved/approved_clipped_hedge.png', frameWidth: 16, frameHeight: 16 },
   zone_hedge: { kind: 'spritesheet', path: 'assets/Objects/Hedges/hedges-24.png', frameWidth: 24, frameHeight: 24 },
   stronghold_wall: { kind: 'spritesheet', path: 'assets/Objects/Stronghold/walls-24.png', frameWidth: 24, frameHeight: 24 },
   reef_coral: { kind: 'spritesheet', path: 'assets/Objects/Reef/coral.png', frameWidth: 24, frameHeight: 24 },

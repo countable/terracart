@@ -38,10 +38,12 @@
 //                 inland sand, bunkers and volleyball keep today's behaviour):
 //                 its buried X marks follow the SHORELINE (beachXCount, one per
 //                 BEACH_X_SHORE_M, capped) instead of the tile's flat cap, and
-//                 a DAILY TIDE LINE — shells, driftwood and now and then a
-//                 message bottle on the waterline cells, the same for every
-//                 player (seeded by cell id + UTC day, tideLive), picked into
-//                 the day ledger (never save.picked) and back tomorrow.
+//                 a DAILY TIDE LINE — shells and driftwood on the waterline
+//                 cells, the same for every player (seeded by cell id + UTC
+//                 day, tideLive), picked into the day ledger (never
+//                 save.picked) and back tomorrow — and a few MESSAGE BOTTLES
+//                 (BEACH_BOTTLES_PER_TILE, fixed seats): each reads one Book
+//                 page once (interactables.js pageStone, save.opened).
 //
 // SEAM-SAFE BY CONSTRUCTION. Every distance test is geometry within the MVT
 // buffer (transportation / water / landcover carry ~64 units, the radii here
@@ -152,21 +154,14 @@
   const TIDE_MAX = 12;
   // A shore-sand cell this close to water (cells) is the WATERLINE.
   const WATERLINE_CELLS = 1.5;
-  // What the tide leaves, by one hash of (cell, day): a message bottle this
-  // rarely, driftwood this often, else a shell.
-  const TIDE_BOTTLE_P = 0.04;
+  // What the tide leaves, by one hash of (cell, day): driftwood this often,
+  // else a shell.
   const TIDE_DRIFTWOOD_P = 0.40;
-  // The bottle's roll (the vista's curve) and what its note may say — short,
-  // and at most a FALL hint, never the secret.
-  const BOTTLE_CONTEXT = VISTA_CONTEXT;
-  const BOTTLE_NOTES = [
-    'If you find this: the lamps still work. Light them.',
-    'We went north to the high ground. Do not follow the smoke.',
-    'The fire came down from the hills and did not stop at the river.',
-    'Plant something. Anything. It helps.',
-    'Whoever mends the roads: we saw. Thank you.',
-    'The sea keeps what the fire left. Look along the tideline.',
-  ];
+  // MESSAGE BOTTLES: at most this many per tile, on waterline cells, the
+  // lowest hashes of their cell ids — the same seats for every player. A
+  // bottle is a ground pickup that reads one Book page (interactables.js
+  // INTERACTABLES.bottle — the notice board's pageStone lane) and is gone.
+  const BEACH_BOTTLES_PER_TILE = 3;
 
   const u01 = (s) => (fnv1a(String(s)) >>> 0) / 4294967296;
 
@@ -673,7 +668,7 @@
   // ctx: { scenic, tx, ty, N, tileEdgeM, grid, chests (the tile's deduped
   //        objects), spawnOpts (roadMask + spawnWhy + roadClass + occupied —
   //        occupied GROWS: each piece claims its cell) }
-  // Returns { objects (scopes, vista chests), wildplants (tide pool + greenway grass) }.
+  // Returns { objects (scopes, vista chests, message bottles), wildplants (tide pool + greenway grass) }.
   function* dressSteps(ctx) {
     const WG = root.WorldGen, SV = root.StreetVariants;
     const res = { objects: [], wildplants: [], tideSeats: new Set() };
@@ -771,10 +766,30 @@
         { _shrineStreet: KIND_ROW[st.kind], shrineKind: Sh.kindForStreet(KIND_ROW[st.kind]) }));
     }
 
+    // MESSAGE BOTTLES: before the tide pool, so a bottle's cell is claimed
+    // and never doubles as a tide seat.
+    const sh = sc.shore;
+    if (sh && sh.waterline.length) {
+      yield 'scenic bottles';
+      const seats = [];
+      let scanned = 0;
+      for (const i of sh.waterline) {
+        if ((scanned++ & 255) === 0) yield 'scenic bottle eligibility';
+        const ix = i % N, iy = Math.floor(i / N);
+        if (!rewardOk(ix, iy)) continue;
+        const id = WG.cellId('bottle', tx, ty, ix, iy);
+        seats.push({ ix, iy, id, h: u01('bottle|' + id) });
+      }
+      seats.sort((a, b) => a.h - b.h);
+      for (const b of seats.slice(0, BEACH_BOTTLES_PER_TILE)) {
+        claim(b.ix, b.iy);
+        res.objects.push(WG.makeObject('bottle', cx(b.ix), cy(b.iy), b.id));
+      }
+    }
+
     // THE TIDE POOL: every waterline cell that takes a minor spawn holds a
     // tide pickup, shown on a day by tideLive (its own hash of id + day) at
     // the rate that lays tideCount(shoreM) a day over the pool.
-    const sh = sc.shore;
     if (sh && sh.waterline.length) {
       yield 'scenic tide pool';
       const pool = [];
@@ -832,7 +847,7 @@
   // ── THE TIDE: which pickups lie on a waterline cell TODAY ────────────────
   // A pure function of the wildplant's id and the UTC day key — the same for
   // every player and every device. Memoised on the plant for the day, and
-  // sets its `crop` to the day's find (shell / driftwood / bottle), so every
+  // sets its `crop` to the day's find (shell / driftwood), so every
   // reader (the sprite, the tap, the light) sees one answer. Returns whether
   // it lies there today.
   function tideLive(wp, day) {
@@ -842,13 +857,8 @@
     wp._tideDay = d;
     wp._tideOn = u01(`tide|${wp.id}|${d}`) < (wp.tideP || 0);
     const k = u01(`tidek|${wp.id}|${d}`);
-    wp.crop = k < TIDE_BOTTLE_P ? 'bottle' : k < TIDE_BOTTLE_P + TIDE_DRIFTWOOD_P ? 'driftwood' : 'shell';
+    wp.crop = k < TIDE_DRIFTWOOD_P ? 'driftwood' : 'shell';
     return wp._tideOn;
-  }
-  // The message a bottle carries (by its id + the day).
-  function bottleNote(wp, day) {
-    const d = day || utcDayKey();
-    return BOTTLE_NOTES[Math.floor(u01(`note|${wp && wp.id}|${d}`) * BOTTLE_NOTES.length)];
   }
 
   // ── THE LADDER: what a restore of scenic metres banks on top ────────────
@@ -910,11 +920,11 @@
     PARK_MIN_M2, SAMPLE_M, GREENWAY_GRASS_STEP_M, GREENWAY_RE, PATH_SUBCLASSES,
     VISTA_STRETCH_MIN_M, VISTA_SEAT_CELLS, VISTA_CHEST_TIER, VISTA_POI_CLASS, VISTA_MERGE_M, SCOPE_SEAT_R,
     VISTA_CONTEXT, FIRST_VISTA_SLOT, VISTA_STORY,
-    BEACH_X_SHORE_M, BEACH_X_MAX, TIDE_PER_M, TIDE_MAX, WATERLINE_CELLS, TIDE_BOTTLE_P, TIDE_DRIFTWOOD_P,
-    BOTTLE_CONTEXT, BOTTLE_NOTES,
+    BEACH_X_SHORE_M, BEACH_X_MAX, TIDE_PER_M, TIDE_MAX, WATERLINE_CELLS, TIDE_DRIFTWOOD_P,
+    BEACH_BOTTLES_PER_TILE,
     isEligibleWay, isVehicleWay, isBusyWay, isShoreWater, isShoreWaterway, isBeachSand, isViewpoint,
     geoSteps, classify, nearWater, lineIntervals, linesSteps, shoreSandSteps, collectVistas,
-    buildSteps, build, dressSteps, dress, beachXCount, tideCount, tideLive, bottleNote,
+    buildSteps, build, dressSteps, dress, beachXCount, tideCount, tideLive,
     bonusMetres, kindAt, kindOfNewly, rowFor, firstVistaPrize, ringsAreaU2,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

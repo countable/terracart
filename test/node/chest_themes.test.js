@@ -17,6 +17,7 @@ test('chest themes: every authored path terminates and conserves probability', (
         for (const id of ChestThemes.selectableIds(r)) {
           const item = ITEM_BY_ID[id];
           assert.truthy(item && !item.shiny);
+          assert.falsy(isTome(id), `${theme}/${tier}/${depth}/${group} keeps tomes for the scholar`);
           if (item.cooked) assert.eq(r.group, 'food', 'cooked meals stay in the food pool');
           assert.truthy(!item.caveOnly || depth > 0);
           assert.truthy(item.baseTier <= tier, 'the Book is a T1 item; every group member is tier-gated');
@@ -69,15 +70,16 @@ test('chest themes: cave mixture adds medicine and retains the location share', 
     if (tier === 1) assert.eq(w.antidote, 24);
     else assert.eq(w.caveMagic, tier === 2 ? 24 : 32);
   }
-  for (const [tier, top] of [[6, 'resurrection_potion'], [7, 'elixir']]) {
+  for (const tier of [6, 7]) {
     const r = ChestThemes.resolve('caveMagic', tier, { depth: 1 });
+    const topTier = Math.max(...r.ids.map(id => ITEM_BY_ID[id].baseTier));
     const rng = makeRng32(101);
     let powders = 0, topItems = 0;
     for (let i = 0; i < 5000; i++) {
       const id = ChestThemes.pickItem(r, tier, rng);
       assert.lte(ITEM_BY_ID[id].baseTier, tier, 'no medicine above the rolled tier');
       if (id.endsWith('_powder')) powders++;
-      if (id === top) topItems++;
+      if (ITEM_BY_ID[id].baseTier === topTier) topItems++;
     }
     assert.inRange(topItems / 5000, 0.67, 0.73);
     assert.gt(powders, 150, 'deep magic retains useful lower-tier powders');
@@ -87,6 +89,13 @@ test('chest themes: cave mixture adds medicine and retains the location share', 
 test('chest themes: health stays in its medical-magic lane', () => {
   for (let tier = 1; tier <= 7; tier++) {
     const opts = { theme: 'health' };
+    const recovery = ChestThemes.resolve('recovery', tier, opts);
+    const ids = ChestThemes.selectableIds(recovery);
+    if (tier < 2) assert.eq(recovery.group, 'restorative');
+    else assert.eq(ids.join(','), tier >= 7 ? 'elixir' : 'vigor_potion');
+    const revival = ChestThemes.resolve('revival', tier, opts);
+    if (tier < 3) assert.eq(revival.group, 'restorative');
+    else assert.eq(ChestThemes.selectableIds(revival).join(','), tier >= 5 ? 'resurrection_potion' : 'revive_potion');
     // (A T2 chest lends a fifth of its row to the Book — ChestThemes.BOOK_T2_SHARE.)
     assert.eq(ChestThemes.weights('health', tier).medicalMagic, tier === 2 ? 100 - ChestThemes.BOOK_T2_SHARE : 100);
     const resolved = ChestThemes.resolve('medicalMagic', tier, opts);
@@ -177,4 +186,21 @@ test('chest themes: commerce holds its identity underground - coins and gems onl
   const w = ChestThemes.weights('commerce', 5, { depth: 1 });
   assert.eq(Object.keys(w).sort().join(), ['cash', 'caveGems', 'gems'].sort().join(),
     'no field supplies, no magic pools, no traps at depth');
+});
+
+
+test('chest themes: all authored pools exclude tomes and retain other unique relics', () => {
+  for (const group of Object.keys(ChestThemes.groups)) {
+    for (let tier = 1; tier <= 7; tier++) for (const depth of [0, 1]) {
+      const ids = ChestThemes.eligible(group, tier, { theme: 'culture', depth, chestTier: tier });
+      for (const id of ids) assert.falsy(isTome(id), `${group}/${tier}/${depth}: ${id}`);
+    }
+  }
+  const relics = ChestThemes.eligible('uniqueRelics', 7);
+  for (const item of ITEMS.filter(item => item.kind === 'unique_relic' && !isTome(item.id))) {
+    assert.includes(relics, item.id, item.id + ' remains treasure');
+  }
+  for (const kind of Object.values(ITEMS_BY_CLASS_TIER)) for (const ids of Object.values(kind)) {
+    for (const id of ids) assert.falsy(isTome(id), id + ' cannot enter generic treasure or barrel loot');
+  }
 });

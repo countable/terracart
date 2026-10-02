@@ -14,13 +14,10 @@
 //
 // Multiple saved games:
 //   A small registry (SAVES_KEY) tracks named slots and which one is active.
-//   Each slot owns its own data key; the legacy single-save key is adopted as
-//   the default slot so existing players keep their progress untouched. The
-//   menu drives switchSave / createSave / deleteSave; each reloads the page so
+//   Each slot owns its own data key. The menu drives switchSave / createSave / deleteSave; each reloads the page so
 //   the whole scene + in-memory caches re-init cleanly for the new slot.
 
-// Legacy single-save key — also the data key of the migrated default slot, so
-// existing saves need no data move.
+// Stable storage namespace for named save slots.
 const SAVE_VERSION_KEY = 'terracart.save.v4';
 // Slot registry: { active: <id>, slots: [{ id, name, key, createdAt, lastPlayedAt }] }.
 const SAVES_KEY = 'terracart.saves';
@@ -42,15 +39,14 @@ function _newSaveId() {
 }
 
 // Ensure the registry exists and SAVE_KEY points at the active slot. Idempotent:
-// safe to call on every load. On first run (or for a pre-multislot player) it
-// adopts any existing legacy save as "Game 1" keyed to SAVE_VERSION_KEY.
+// safe to call on every load. Without a registry, start a fresh named slot.
 function initSaves() {
   let reg = _readSavesReg();
   if (!reg || !Array.isArray(reg.slots) || reg.slots.length === 0) {
     const id = _newSaveId();
     reg = {
       active: id,
-      slots: [{ id, name: 'Game 1', key: SAVE_VERSION_KEY, createdAt: Date.now(), lastPlayedAt: Date.now() }],
+      slots: [{ id, name: 'Game 1', key: SAVE_VERSION_KEY + '.' + id, createdAt: Date.now(), lastPlayedAt: Date.now() }],
     };
     _writeSavesReg(reg);
   }
@@ -329,8 +325,7 @@ window.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') SaveSession.flush();
 });
 
-// Resolve the active slot (and migrate a legacy single save into a default
-// slot) at load, before app.js create() / the test harness read SAVE_KEY.
+// Resolve the active slot before app.js create() / the test harness reads SAVE_KEY.
 // Bump the active slot's lastPlayedAt so the menu lists the game you're
 // actually in first.
 (function () {

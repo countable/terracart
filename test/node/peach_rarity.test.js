@@ -45,7 +45,7 @@
     const day = 24 * 60 * 60 * 1000;
     const tree = { id: 'pft_saved_peach', x: 0, y: 0, species: 'peach', planted_t: Date.now() - 2 * day };
     const save = JSON.parse(JSON.stringify({ fruittrees: [tree], inv: [], selSlot: 0 }));
-    SaveMigrate.migrate(save);
+    SaveState.normalize(save);
     assert.eq(save.fruittrees.length, 1);
     assert.eq(save.fruittrees[0].species, 'peach');
     assert.eq(save.fruittrees[0].id, tree.id);

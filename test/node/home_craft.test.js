@@ -36,14 +36,14 @@ function scene(inv) {
 }
 const last = (s) => s.modals[s.modals.length - 1];
 
-test('home craft: recipes include the starter Spear and Syrup from two berries', () => {
+test('home craft: recipes include the starter Spear and Potion of Taming from two berries', () => {
   const by = Object.fromEntries(HOME_RECIPES.map(r => [r.id, r.cost]));
   assert.eq(JSON.stringify(by.spear), JSON.stringify([{ id: 'rockfruit', qty: 1 }, { id: 'wood', qty: 1 }]), 'spear');
   assert.falsy(by.torch, 'the torch is bought or found, never crafted (Oct 2026)');
   assert.eq(JSON.stringify(by.scarecrow), JSON.stringify([{ id: 'wood', qty: 3 }]), 'scarecrow');
   assert.eq(JSON.stringify(by.rope), JSON.stringify([{ id: 'longgrass', qty: 5 }]), 'rope from five long grass');
   assert.eq(JSON.stringify(by.trap_kit), JSON.stringify([{ id: 'rockfruit', qty: 4 }]), 'a disarm kit from four stones');
-  assert.eq(JSON.stringify(by.honey), JSON.stringify([{ id: 'berry', qty: 2 }]), 'Syrup from two berries');
+  assert.eq(JSON.stringify(by.honey), JSON.stringify([{ id: 'berry', qty: 2 }]), 'Potion of Taming from two berries');
   assert.truthy(/wall/.test(ITEM_EFFECTS.rockfruit), 'stone hints at rebuilding');
   assert.truthy(/twist/.test(ITEM_EFFECTS.longgrass), 'grass hints at binding');
   for (const r of HOME_RECIPES) {
@@ -114,7 +114,7 @@ test('home craft: short on wood, the page says so and nothing changes hands', ()
 test('home craft: opens on something the bag can make, and the pager walks the recipes', () => {
   const s = scene([['wood', 1], ['rockfruit', 1]]);
   s.save.foundWild = Object.fromEntries(HOME_RECIPES.map(r => [r.id, 1]));
-  s.save.usedScrolls = ['fireball_scroll', 'fear_scroll', 'treasure_map'];
+  s.save.usedScrolls = ITEMS.filter(item => item.scroll).map(item => item.id);
   s.presentHomeCraft(0, 0);
   const m = last(s);
   assert.truthy(m.canAfford, 'a wood and a stone: the page opens on the spear it can make');
@@ -174,7 +174,7 @@ test('home craft: every mode starts with only Spear and hides undiscovered recip
   } finally { Difficulty.setMode(was); }
 });
 
-test('home craft: learned Syrup consumes two berries per jar, rechecks ingredients and persists its unlock', () => {
+test('home craft: learned Potion of Taming consumes two berries per jar, rechecks ingredients and persists its unlock', () => {
   const s = scene([['berry', 5]]);
   s.save.foundWild = { honey: 1 };
   s.presentHomeCraft(0, 0, 'honey');
@@ -196,7 +196,7 @@ test('home craft: the wild-finds ledger — every grant counts except bought, ba
   const add = SCENE_SRC.slice(SCENE_SRC.indexOf('\n  addToInv(id, n = 1, silent = false, opts = {}) {'));
   assert.truthy(/if \(!opts\.notWild\) \(this\.save\.foundWild = this\.save\.foundWild \|\| \{\}\)\[id\] = 1;/.test(add.slice(0, 3000)),
     'addToInv records the find');
-  const notWild = (SCENE_SRC.match(/\{ notWild: true(?:, deferRefresh: true)? \}/g) || []).length;
+  const notWild = (SCENE_SRC.match(/\{ notWild: true(?:, deferRefresh: true)?(?:, deferBookRead: !!boothKind)? \}/g) || []).length;
   assert.eq(notWild, 11, 'the eleven non-wild grants in app.js: craft, smelt, trader, stand, farmhand, two shop buys, a slot win, a potion transmuted in a campfire and its full-bag refund, and a book club prize');
   assert.truthy(/addToInv\('scarecrow', 1, false, \{ notWild: true \}\)/.test(INTERACT_SRC), 'a reclaimed scarecrow is not a find');
 });
@@ -237,20 +237,20 @@ test('home craft: scrolls require prior use in both modes and spend blank scroll
   } finally { Difficulty.setMode(was); }
 });
 
-test('home craft: learned scroll recipes survive saving and migration', () => {
+test('home craft: learned scroll recipes survive saving and normalization', () => {
   const slot = createSave('Scroll crafting test');
   try {
     const save = { inv: [{ id: 'fear_scroll', count: 1 }], usedScrolls: ['fireball_scroll'] };
     persistSave(save);
     flushSave();
     const loaded = loadSave();
-    SaveMigrate.migrate(loaded);
+    SaveState.normalize(loaded);
     assert.falsy(homeRecipeLocked(loaded, 'fireball_scroll', true), 'learned recipe persists');
     assert.truthy(homeRecipeLocked(loaded, 'fear_scroll', false), 'held unused scroll stays locked');
     const old = { inv: [{ id: 'treasure_map', count: 1 }] };
-    SaveMigrate.migrate(old);
+    SaveState.normalize(old);
     assert.eq(old.usedScrolls.length, 0, 'older saves start without inferred scroll uses');
-    assert.truthy(homeRecipeLocked(old, 'treasure_map', false), 'migration cannot teach a held scroll');
+    assert.truthy(homeRecipeLocked(old, 'treasure_map', false), 'normalization cannot teach a held scroll');
   } finally { deleteSave(slot); }
 });
 

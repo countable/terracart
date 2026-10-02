@@ -67,9 +67,7 @@
   //
   // It ends at the FIRST HARVEST, not on a clock: bringing in a crop is the
   // ladder's proof the player has the loop (and the produce to fight with),
-  // where a timer just measured how long the tab sat closed. A veteran's save
-  // can never fall into the grace — SaveMigrate.stampHarvested marks any save
-  // that predates the flag and has been played as already harvested.
+  // where a timer just measured how long the tab sat closed.
   function pestFreeZone(scene, tx, ty) {
     const sv = scene.save;
     if (!sv || sv.hasHarvested) return null;   // first crop is in: the map is itself again

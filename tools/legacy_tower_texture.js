@@ -1,6 +1,4 @@
-// Historical castle painter for before/after art-review exports only.
-// Loaded by export_map_art_painters.js after src/textures.js.
-
+// Historical painter for pre-sprite art comparisons only.
 // Simple procedural castle turret — a stout stone column with a crenellated
 // top. One 28×42 canvas, anchor at bottom-centre so it sits on its cell. The
 // column still rises clearly above the rampart battlements it stands among
@@ -18,9 +16,7 @@
 // `palette` / `key` bake the SECOND turret: an unclaimed castle draws
 // 'tower_unclaimed', generated from CASTLE_STONE_UNCLAIMED, instead of taking a
 // multiply tint over the claimed one (see the unclaimed-shade note up top).
-// Retained for legacy art-review tools only; gameplay preloads the generated
-// restored/wreck pair from ASSETS instead of drawing either texture here.
-function makeTowerTexture(scene, palette, key) {
+function makeLegacyTowerTexture(scene, palette, key) {
   const KEY = key || 'tower';
   const P = palette || CASTLE_STONE;
   if (scene.textures.exists(KEY)) return;

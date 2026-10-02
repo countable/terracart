@@ -147,12 +147,12 @@ test('castleKey: the footprint key stamped on the turret, or null', () => {
   assert.eq(Houses.castleKey(null), null);
 });
 
-test('isBuildingSealed: a castle is sealed until claimed, legacy-opened, or old-gate-opened', () => {
+test('isBuildingSealed: a castle is sealed until claimed', () => {
   const tower = { kind: 'tower', castle: 'b_1_1', tier: 12, id: 'tw_1' };
   assert.truthy(Houses.isBuildingSealed({}, tower), 'freshly generated: sealed');
   assert.falsy(Houses.isBuildingSealed({}, { kind: 'house', tier: 9 }), 'not a castle at all');
-  assert.falsy(Houses.isBuildingSealed({ castlesLegacyOpen: true }, tower), 'old three-quest chain finished');
-  assert.falsy(Houses.isBuildingSealed({ openedCastles: { tw_1: true } }, tower), 'opened under the retired delivery gate');
+  assert.truthy(Houses.isBuildingSealed({ castlesLegacyOpen: true }, tower), 'retired global flag grants no access');
+  assert.truthy(Houses.isBuildingSealed({ openedCastles: { tw_1: true } }, tower), 'retired delivery flag grants no access');
   const claimed = {};
   Houses.claimCastle(claimed, tower);
   assert.falsy(Houses.isBuildingSealed(claimed, tower), 'claimed outright');
@@ -189,26 +189,13 @@ test('castleServiceUsed / markCastleServiceUsed: once per castle per twelve hour
   assert.eq(Houses.castleServiceWaitMs(save, tower, t0 + 20 * H), 0, 'and the wait never goes negative');
 });
 
-test('castleServiceUsed: a legacy UTC-day stamp is spent until that day ends, then gone', () => {
-  // Saves from before the twelve-hour clock hold 'YYYYMMDD' (utcDayKey).
-  const save = { castleServiceClaimed: { b_1_1: '20260926' } };
-  const tower = { castle: 'b_1_1' };
-  const sameDay = Date.parse('2026-09-26T23:00:00Z');
-  assert.truthy(Houses.castleServiceUsed(save, tower, sameDay), 'today\'s favour was already taken');
-  assert.eq(Houses.castleServiceWaitMs(save, tower, sameDay), msToNextUtcDay(sameDay), 'and it waits for the old day to roll');
-  const nextDay = Date.parse('2026-09-27T00:00:00Z');
-  assert.falsy(Houses.castleServiceUsed(save, tower, nextDay), 'a new UTC day pours again');
-  Houses.markCastleServiceUsed(save, tower, nextDay);
-  assert.eq(save.castleServiceClaimed['b_1_1'], nextDay, 'and the next use writes the new stamp');
-});
-
 test('markCastleServiceUsed: prunes every OTHER castle\'s spent stamp, keeps a live one', () => {
   const H = 60 * 60 * 1000;
   const now = Date.parse('2026-09-26T12:00:00Z');
   const save = { castleServiceClaimed: { old_castle: now - 13 * H, live_castle: now - 3 * H, legacy_castle: '20000101' } };
   Houses.markCastleServiceUsed(save, { castle: 'b_1_1' }, now);
   assert.falsy('old_castle' in save.castleServiceClaimed, 'spent stamp pruned');
-  assert.falsy('legacy_castle' in save.castleServiceClaimed, 'a stale legacy day stamp pruned too');
+  assert.falsy('legacy_castle' in save.castleServiceClaimed, 'a non-numeric stamp is no stamp, pruned too');
   assert.truthy('live_castle' in save.castleServiceClaimed, 'a castle still owed nine hours keeps its stamp');
   assert.truthy('b_1_1' in save.castleServiceClaimed, 'the current one kept');
 });

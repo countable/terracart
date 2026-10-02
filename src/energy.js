@@ -45,15 +45,35 @@
     const it = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID[id] : null;
     return Math.max(1, Math.floor(Number(it?.baseTier) || 1));
   }
-  function maxEnergy(save) {
+  function maxEnergy(save, now = Date.now()) {
     const base = (typeof STARTING_ENERGY !== 'undefined') ? STARTING_ENERGY : 100;
     let tasted = 0;
     if (Array.isArray(save.eaten)) for (const id of new Set(save.eaten)) tasted += tasteBonus(id);
     const vigour = Math.max(0, Math.floor(Number(save.vigourUpgrades) || 0));
     // A Stamina hall's levels and drill (Combat.trainingBonus 'energy').
     const trained = (typeof Combat !== 'undefined' && Combat.trainingBonus) ? Combat.trainingBonus(save, 'energy') : 0;
-    save.maxEnergy = base + tasted + vigour * VIGOUR_ENERGY_STEP + trained;
+    // Giant and Shrinking: the same capacity rule as any creature (PotionEffects).
+    const potions = typeof PotionEffects !== 'undefined';
+    const giant = potions ? PotionEffects.maxHpBonus(save, now) : 0;
+    const shrinking = potions ? PotionEffects.maxHpMul(save, now) : 1;
+    save.maxEnergy = Math.max(1, Math.ceil((base + tasted + vigour * VIGOUR_ENERGY_STEP + trained + giant) * shrinking));
     return save.maxEnergy;
+  }
+
+  // Giant's expiry removes temporary headroom, never heals or leaves excess HP.
+  function expireGiant(save, now = Date.now()) {
+    if (!(save.giantPotionUntil > 0) || save.giantPotionUntil > now) return false;
+    delete save.giantPotionUntil;
+    set(save, save.energy, maxEnergy(save, now));
+    return true;
+  }
+
+  // Regaining ordinary size restores capacity, not spent HP.
+  function expireShrinking(save, now = Date.now()) {
+    if (!(save.shrinkingPotionUntil > 0) || save.shrinkingPotionUntil > now) return false;
+    delete save.shrinkingPotionUntil;
+    maxEnergy(save, now);
+    return true;
   }
 
   // "Tired" warning threshold (30% of max). Crossing it flashes a heads-up so
@@ -230,9 +250,9 @@
   }
 
   // The floor a revive lifts an empty bar to. REVIVE_FRAC (a quarter) is
-  // Home's: arriving there on hard with nothing left. An item that revives
-  // (the Crow Feather, the revival potions — items.js REVIVE_ITEM_FRAC)
-  // passes its own `frac`. ROUNDED either way: energy is a whole number
+  // Home's: arriving there on hard with nothing left. A revival potion
+  // (items.js REVIVE_ITEM_FRAC) passes its own `frac`; the Crow Feather is a
+  // flat FEATHER_REVIVE_ENERGY and never comes here. ROUNDED either way: energy is a whole number
   // everywhere (spends, rests, blows), and a bare maxE * 0.25 left a player
   // on 22.25⚡ after reviving at 89.
   const REVIVE_FRAC = 0.25;
@@ -240,6 +260,6 @@
     return Math.max(1, Math.round((maxE || 0) * frac));
   }
 
-  root.Energy = { set, dawnfruitActive, fullViewReachActive, tickShrineRegen, FISH_REGEN_MS, fishRegenTotal, fishRegenWait, startFishRegen, tickFishRegen, VIGOUR_ENERGY_STEP, REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tasteBonus, tiredThreshold, crossedTired,
+  root.Energy = { set, expireGiant, expireShrinking, dawnfruitActive, fullViewReachActive, tickShrineRegen, FISH_REGEN_MS, fishRegenTotal, fishRegenWait, startFishRegen, tickFishRegen, VIGOUR_ENERGY_STEP, REVIVE_FRAC, reviveLevel, OFFLINE_FULL_REST_MS, EAT_COOLDOWN_MS, maxEnergy, tasteBonus, tiredThreshold, crossedTired,
                   spend, applyOfflineRest, eatCooldownLeft, canEat, startEatCooldown };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

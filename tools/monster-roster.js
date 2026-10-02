@@ -136,7 +136,7 @@ function extraRole(x){return x.roles.map(r=>ROLES.find(([id])=>id===r)[1].replac
 function extraAttack(x){const b=x.behaviour;if(b.summoned)return {dmg:Combat.petBite(x.id),label:`${fmt(Combat.petBite(x.id))} per bite every ${fmt((b.stepMs||Combat.MELEE_INTERVAL_MS)/1000)} s`,note:'Hunts every foe and pest crow'};if(b.prey)return {dmg:Combat.PET_BITE,label:`${Combat.PET_BITE} per bite once tame`,note:`Hunts ${[...b.prey].join(', ')}`};if(b.fightsBack)return {dmg:b.fightsBack.dmg,label:`${b.fightsBack.dmg} per butt every ${fmt(b.fightsBack.hitMs/1000)} s`,note:`Enraged ${fmt(b.fightsBack.rageMs/1000)} s when hunted`};return {dmg:null,label:'Does not attack',note:''}}
 function extraFacts(x){const b=x.behaviour,f=[];
   if(PESTS[x.id])f.push(PESTS[x.id]);
-  if(b.summoned)f.push(`Summoned by the ${esc(ITEM_BY_ID.raven_potion?.name||'raven potion')} for ${shortDuration(SPIRIT_RAVEN_MS)}. Follows its summoner; never a tap target.`);
+  if(b.summoned){const id=x.id==='spirit_raven'?'raven_scroll':Object.keys(CONSUMABLE_SPEC).find(id=>CONSUMABLE_SPEC[id].summonKind===x.id);f.push(id?`Summoned by the ${esc(ITEM_BY_ID[id].name)} for ${shortDuration(CONSUMABLE_SPEC[id].durationMs)}. Follows its summoner; never a tap target.`:'A hired ally. Follows its employer; never a tap target.');}
   if(summoners[x.id])f.push(`Raised as a minion by ${summoners[x.id].join(', ')}.`);
   if(ANIMAL_FOOD[x.id])f.push(ANIMAL_FOOD[x.id].length?`Tamed with ${ANIMAL_FOOD[x.id].map(id=>ITEM_BY_ID[id]?.name||id).join(', ')}.`:'Tamed with any seed.');
   if(isCatchable(x.id))f.push(`Caught with the bug net${SpriteLayout.creatureCatchMul(x.id)>1?` (×${SpriteLayout.creatureCatchMul(x.id)} net time)`:''}.`);

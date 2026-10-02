@@ -33,7 +33,7 @@ test('burning foe: repeat contact preserves duration and cadence, updates the so
   Combat.burnTick(c, 1000, true);
   assert.falsy(Combat.ignite(c, 1500, 'fire'));
   assert.eq(c._burnState.remainingMs, 10000);
-  assert.eq(c._burnNextT, 2000);
+  assert.eq(c._burnAtT + c._burnState.nextTickMs, 2000, 'the next tick keeps its cadence');
   assert.eq(c._burnBy, 'fire');
   assert.eq(Combat.burnTick(c, 2000, true), 1);
   assert.eq(c._burnState.remainingMs, 15000);
@@ -115,7 +115,10 @@ test('fire damage: wildlife, pets, allies and NPCs keep their existing defeat or
   assert.truthy(ally._spent);
   const npc = { kind: 'npc', id: 'neighbour' };
   assert.falsy(scene._damageBurningUnit(npc, 2, 'burn', 1000));
-  assert.truthy(NPC.isDormant(npc), 'a burned neighbour rests its wounds');
+  assert.eq(Combat.hp(npc), Combat.maxHp(npc) - 2, 'burning chips actual neighbour health');
+  assert.falsy(NPC.isDormant(npc), 'a surviving neighbour stays on their feet');
+  scene._damageBurningUnit(npc, Combat.hp(npc), 'burn', 2000);
+  assert.truthy(NPC.isDormant(npc), 'a neighbour rests when the burn exhausts their health');
 });
 
 test('player: standing in a campfire or lava sets the farmer burning, once a second, never off an empty bar', () => {
@@ -140,7 +143,7 @@ test('player: standing in a campfire or lava sets the farmer burning, once a sec
 test('look: both bodies wear the row\'s tint, and the HUD chips come off the table', () => {
   assert.truthy(/Combat\.burning\(c\) && Conditions\.conditionTintOn\('burning', performance\.now\(\)\)/.test(RENDER_SRC));
   assert.truthy(/afire \? Conditions\.DEFINITIONS\.burning\.tint/.test(RENDER_SRC), 'a burning foe');
-  assert.truthy(/Conditions\.DEFINITIONS\[burning \? 'burning' : 'poison'\]\.tint/.test(SCENE_SRC), 'the burning or poisoned farmer');
+  assert.truthy(/tint = Conditions\.DEFINITIONS\[status\]\.tint;/.test(SCENE_SRC), 'the burning or poisoned farmer');
   const hud = SCENE_SRC.match(/\n  _syncStatusRow\(\) \{([\s\S]*?)\n  \}\n/)[1];
   assert.truthy(/Object\.entries\(Conditions\.DEFINITIONS\)/.test(hud), 'one chip per row');
   assert.falsy(/'condition-poison'/.test(hud), 'no row named by hand');

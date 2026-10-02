@@ -33,10 +33,11 @@
     const sources = new Map();
     for (const [biome, definition] of Object.entries(ChestThemes.themes)) {
       const context = 'chest:' + biome;
-      // A chest's tier is its class's DENSITY on its tile (loot.js
-      // chestTier): any theme can stand at T1 (a crowd of its kind) up to T4
-      // (the only one), and a zone nexus lifts that one more — so every
-      // theme is listed at every tier, on the surface and below.
+      // A chest's tier is its tile's quota seat (worldgen.js
+      // seedChestTiers, read by loot.js chestTier): seats round-robin across
+      // categories, so any theme can stand at T1 (unseated) up to T5, and a
+      // zone nexus lifts that one more — so every theme is listed at every
+      // tier, on the surface and below.
       void definition;
       for (const depth of [0, 1]) {
         if (depth && biome === 'roadside') continue;

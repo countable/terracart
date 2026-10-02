@@ -12,7 +12,7 @@ function bookShare(contextKey, tier, n = 4000) {
   let books = 0;
   for (let i = 0; i < n; i++) {
     const r = pickReward(contextKey, BOOK_SAVE(), rng, { tier });
-    if (r && r.kind === 'item' && (r.id === 'book' || r.id.startsWith('tome_'))) books++;
+    if (r && r.kind === 'item' && r.id === 'book') books++;
   }
   return books / n;
 }
@@ -31,9 +31,9 @@ test('books: the Book is the heaviest draw in its class/tier pool', () => {
   }
 });
 
-test('books: a high-tier school chest offers tomes in its book lane', () => {
+test('books: a high-tier school chest offers Books for scholar trades', () => {
   const share = bookShare('chest:school', 3);
-  assert.gt(share, 0.15, `a school chest hands over a tome often (got ${(share * 100).toFixed(1)}%)`);
+  assert.gt(share, 0.15, `a school chest hands over a Book often (got ${(share * 100).toFixed(1)}%)`);
   assert.lt(share, 0.60, 'but it is still a chest, not a book dispenser');
 });
 
@@ -138,7 +138,10 @@ test('course: the reader opens the book as a story', () => {
 });
 
 test('course: story topics retain their saved-bookmark positions', () => {
-  assert.eq(PLAY_TIPS.length, 142, 'new guides append after the existing saved bookmarks');
+  assert.eq(PLAY_TIPS.length, 146, 'new guides append after the existing saved bookmarks');
+  assert.truthy(/Joined the book club/.test(PLAY_TIPS[141]), 'the published book club page keeps its bookmark');
+  assert.eq(PLAY_TIPS[142], ITEM_GUIDE_TIPS.thunder_scroll);
+  assert.eq(PLAY_TIPS[143], ITEM_GUIDE_TIPS.raven_scroll);
   const topics = {1:/strength/, 11:/wounded goblin/, 13:/snare/, 20:/hoe/, 24:/ruined house/, 25:/smithy/, 35:/car park/, 56:/smith/, 69:/stone/, 77:/path/, 88:/favourite food/, 98:/weapon/, 106:/stairs/, 121:/quartermaster/, 130:/sapphire/};
   for (const [page, topic] of Object.entries(topics)) assert.truthy(topic.test(PLAY_TIPS[page]), 'topic stays at page ' + page);
 });
@@ -427,9 +430,10 @@ test('mechanics: rebuilding adds stone to later restoration costs', () => {
   assert.eq(WRECK_RESTORE_HOUSES_PER_STEP, 3, 'three completed restorations add one stone');
 });
 
-test('restore cost: 1 stone, one more per three houses restored, capped at 20', () => {
-  assert.eq([0, 1, 2, 3, 5, 6, 29, 51, 56, 57, 100].map(wreckRestoreExact).join(','), '1,1,1,2,2,3,10,18,19,20,20', 'step boundaries and story milestones');
-  for (const k of ['a', 'b', 'c']) assert.eq(wreckRestoreQty(4, k), 2, 'same price for every house');
+test('restore cost: 2 stone, one more per three houses restored, capped at 20', () => {
+  assert.eq(WRECK_RESTORE_BASE_QTY, 2, 'the first rebuild asks two stones (owner, Oct 2026)');
+  assert.eq([0, 1, 2, 3, 5, 6, 29, 51, 54, 55, 100].map(wreckRestoreExact).join(','), '2,2,2,3,3,4,11,19,20,20,20', 'step boundaries and story milestones');
+  for (const k of ['a', 'b', 'c']) assert.eq(wreckRestoreQty(4, k), 3, 'same price for every house');
 });
 
 test('stories: wizard memories precede the permanent calling', () => {

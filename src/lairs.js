@@ -933,6 +933,8 @@
     // Draw seats from the tile's generated layer. Player overlays may hide a
     // drawn guard below, but they never make its seat search consume another
     // random number and move the guards that follow it.
+    if (cand.tier === 12 && typeof CastleStyles !== 'undefined'
+      && !CastleStyles.get(cand.key).guards) return [];
     const genGrid = entry.baseGrid || entry.grid;
     const genObjects = entry.genObjects || entry.objects || [];
     if (!cand.sid) cand.sid = structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
@@ -1196,7 +1198,8 @@
   // sleep ring are removed. Returns a small report for the tests.
   //
   //   ring   [{ entry, tx, ty }] — the player's 3×3 tile neighbourhood
-  //   opts   cellM, tileEdgeM, playerM {x,y}, homeM {x,y} (the nerf only),
+  //   opts   cellM, tileEdgeM, playerM {x,y}, homeM {x,y} (only so the
+  //          wake waits for Home's anchor — no tier or garrison reads it),
   //          isClaimed(key), caughtSet, hpMemo (Map id → hp, session-only),
   //          liveMax (test override)
   function stepResidency(ring, opts) {

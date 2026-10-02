@@ -251,22 +251,7 @@
 
   // ── Migration off the old chain ─────────────────────────────────────────
 
-  test('quest board: an old mid-chain save gets a fresh board and no free castles', () => {
-    const save = { quests: { step: 1, progress: { q1_slimes: 4 } } };
-    const board = Quests.board(save);
-    assert.eq(board.length, QUEST_SLOTS, 'three jobs');
-    assert.falsy(save.castlesLegacyOpen, 'they had not finished, so nothing is owed');
-    assert.falsy(save.quests.step, 'the old chain step is gone');
-  });
 
-  test('quest board: an old FINISHED save keeps the castles it had opened', () => {
-    // Finishing the old chain unsealed every castle in the world, because a
-    // global gate could not do anything else. The seal is per castle now and
-    // there is no way to name the ones they had — so the access is carried.
-    const save = { quests: { step: 3, progress: {} } };
-    Quests.board(save);
-    assert.truthy(save.castlesLegacyOpen, 'earned access survives the rework');
-  });
 
   // ── Which castle offers which slot ──────────────────────────────────────
 

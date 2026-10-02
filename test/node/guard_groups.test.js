@@ -46,7 +46,10 @@
   }
   function mkShape(tier, cxM, cyM, sizeM) {
     const h = sizeM / 2;
-    return { tier, areaM2: sizeM * sizeM, key: `k_${tier}_${Math.round(cxM)}_${Math.round(cyM)}`,
+    // These fixtures exercise held groups, so use the guard-eligible Citadel.
+    // Group RNG remains seeded from the unchanged tile/cell structureKey.
+    const key = tier === 12 ? 'citadel' : `k_${tier}_${Math.round(cxM)}_${Math.round(cyM)}`;
+    return { tier, areaM2: sizeM * sizeM, key,
       ring: new Float32Array([cxM - h, cyM - h, cxM + h, cyM - h, cxM + h, cyM + h, cxM - h, cyM + h]) };
   }
   const HOME = { x: -5000, y: 0 };

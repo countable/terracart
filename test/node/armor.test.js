@@ -70,7 +70,7 @@ test('armor: the pool is the sum over the worn set, and empties cleanly', () => 
   assert.eq(armorReduction(null), 0, 'no armour at all');
   assert.eq(armorReduction({}), 0, 'no armour worn');
   assert.eq(armorReduction({ helmet: null, chest: null, legs: null, boots: null }), 0,
-    'four empty slots — the shape savemigrate backfills');
+    'four empty slots — the shape normalization initializes');
   assert.eq(armorReduction({ helmet: { tier: 1 }, boots: { tier: 2 } }), 1 + 2,
     'additive across slots');
   const full = {};

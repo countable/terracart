@@ -493,10 +493,16 @@ class SceneModals {
   // `art` (optional) — the story's own SCENE painting (assets/art/ stem); a
   // dialog with one is a STORY unless the caller names another kind.
   // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
-  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, kind = art ? 'story' : 'note', mustAcknowledge = false }) {
+  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false }) {
     document.getElementById('offer-modal')?.remove();
+    let dismissed = false;
+    const dismiss = () => {
+      if (dismissed) return;
+      dismissed = true;
+      if (typeof onDismiss === 'function') onDismiss();
+    };
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
-      { zIndex: 60, onClose: mustAcknowledge ? undefined : () => {}, kind: kind, art });
+      { zIndex: 60, onClose: mustAcknowledge ? undefined : dismiss, kind: kind, kindLabel, art });
     const safeBody = String(body).replace(/\n/g, '<br>');
     box.innerHTML =
       `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>` +
@@ -505,7 +511,7 @@ class SceneModals {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       wrap.remove();
-      if (typeof onDismiss === 'function') onDismiss();
+      dismiss();
     });
     box.appendChild(btn);
     mount();
@@ -579,6 +585,7 @@ class SceneModals {
   //   blurb:        OPTIONAL HTML, smaller text below `get` (e.g. relic effect)
   //   cost:         HTML for the price line ("$30", "1× icon Item", "5× gem")
   //   canAfford:    grey out the accept button when false
+  //   disabledReason: explain a non-money blocker without marking the cost unaffordable
   //   onAccept:     called after the modal closes
   //   acceptLabel:  primary button label ('Buy' default; 'Sell' / 'Trade'…)
   //   cancelLabel:  dismiss button label. Defaults to 'Cancel'; pass 'Later'
@@ -595,7 +602,7 @@ class SceneModals {
   //                 which read as a second way to SMELT rather than as a way
   //                 to look at the next bar. `showIndex: false` drops the
   //                 "i / n" line (Home's Craft page) and keeps the arrows.
-  showOfferModal({ title, get, blurb, cost, canAfford, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art }) {
+  showOfferModal({ title, get, blurb, cost, canAfford, disabledReason, onAccept, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, quantity, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art }) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
       { onClose: () => {}, kind, kindLabel, kindIcon, art });
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
@@ -704,6 +711,13 @@ class SceneModals {
       costDiv.innerHTML = cost;
       box.appendChild(costDiv);
     }
+    if (disabledReason) {
+      const reason = document.createElement('div');
+      reason.className = 'offer-disabled-reason';
+      reason.style.cssText = 'color:#ffcf8a;font-size:13px;margin:4px 0 10px;';
+      reason.textContent = disabledReason;
+      box.appendChild(reason);
+    }
     // Quantity stepper (only when caller passes `quantity`). Lays out as
     // [ − ]  N / MAX  [ + ] just above the action-button row.
     let qty = 1;
@@ -753,7 +767,7 @@ class SceneModals {
         dim(minusBtn, qty <= minQ);
         dim(plusBtn,  qty >= maxQ);
         // Keep the primary action button in sync with the live canAfford.
-        if (accept) accept._setEnabled(liveCanAfford);
+        if (accept) accept._setEnabled(liveCanAfford && !disabledReason);
       };
       minusBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -768,7 +782,7 @@ class SceneModals {
     row.style.cssText = 'display:flex;gap:6px;justify-content:center;margin-top:4px;flex-wrap:wrap;';
     const cancel = mkBtn(cancelLabel, false, false);
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled) : null;
-    const accept = mkBtn(acceptLabel, true, !canAfford);
+    const accept = mkBtn(acceptLabel, true, !canAfford || !!disabledReason);
     cancel.addEventListener('click', (e) => { e.stopPropagation(); wrap.remove(); });
     accept.addEventListener('click', (e) => {
       e.stopPropagation(); wrap.remove();

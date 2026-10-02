@@ -956,15 +956,24 @@
       display: block; min-height: 0; aspect-ratio: 3 / 2; overflow: hidden;
       border-radius: 6px;
     }
+    /* The camera's slow push toward Tiamat, STORY_PAN_MS long (the script
+       sets the variable from the one constant the wake-up timing is derived
+       from). */
     #story.nightmare .art img {
       display: block; transform-origin: top left;
-      animation: nightmare-pan 8s ease-in-out both;
+      animation: nightmare-pan var(--nightmare-pan-ms, 8s) ease-in-out both;
     }
     @keyframes nightmare-pan {
       from { transform: translateY(0) scale(1); }
       to { transform: translateY(-6%) scale(1.6); }
     }
-    #story button.nightmare-wake { animation: wake-reveal var(--wake-fade-ms) ease-in both; }
+    /* "wake up" holds invisible (`both` keeps the from-frame through the
+       delay) until the push is nearly done, then comes up quickly and lands
+       with it. It is tappable from the first frame of the fade: a player who
+       sees it coming can skip the rest. */
+    #story button.nightmare-wake {
+      animation: wake-reveal var(--wake-fade-ms) ease-in var(--wake-delay-ms, 0ms) both;
+    }
     @keyframes wake-reveal { from { opacity: 0; } to { opacity: 1; } }
     @media (prefers-reduced-motion: reduce) {
       #story button.nightmare-wake, #story.nightmare .art img { animation: none; }
@@ -2383,7 +2392,16 @@
 
     // Opening dream, then the trailer and wrecked neighbourhood. The fresh-save
     // gate shows these before the safety/location CTA; replay uses that same gate.
-    const STORY_WAKE_FADE_MS = 4000;
+    //
+    // The dream's clock: the camera pushes in on the dragons for STORY_PAN_MS
+    // (the nightmare-pan animation reads it), and "wake up" fades in over the
+    // LAST STORY_WAKE_FADE_MS of that push, so it lands as the zoom does. The
+    // button is disabled only while it is still fully invisible (an unseen
+    // tap is an accident, not a skip); from the first frame of its fade a
+    // tap wakes the player — anyone who sees it coming can skip the rest.
+    const STORY_WAKE_FADE_MS = 1500;
+    const STORY_PAN_MS = 8000;
+    const STORY_WAKE_DELAY_MS = STORY_PAN_MS - STORY_WAKE_FADE_MS;
     const STORY_SLIDES = [
       {
         art: '<img src="assets/art/story_nightmare.webp" alt="Two enormous dragons clash above a burning city.">',
@@ -2424,8 +2442,10 @@
         const fadeWake = !!s.nightmare && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
         btn.classList.toggle('nightmare-wake', fadeWake);
         btn.style.setProperty('--wake-fade-ms', `${STORY_WAKE_FADE_MS}ms`);
+        btn.style.setProperty('--wake-delay-ms', `${STORY_WAKE_DELAY_MS}ms`);
+        artEl.style.setProperty('--nightmare-pan-ms', `${STORY_PAN_MS}ms`);
         btn.disabled = fadeWake;
-        if (fadeWake) wakeTimer = setTimeout(() => { btn.disabled = false; }, STORY_WAKE_FADE_MS);
+        if (fadeWake) wakeTimer = setTimeout(() => { btn.disabled = false; }, STORY_WAKE_DELAY_MS);
       };
       const advance = () => {
         if (btn.disabled) return;
@@ -2729,75 +2749,78 @@
   <script src="src/particles.js?v=1285fe88"></script>
   <script src="src/trail.js?v=ca804603"></script>
   <script src="src/streets.js?v=959b140a"></script>
-  <script src="src/street_variants.js?v=348a6e5e"></script>
-  <script src="src/scenic.js?v=429990ce"></script>
+  <script src="src/street_variants.js?v=b25365d3"></script>
+  <script src="src/scenic.js?v=cc21049f"></script>
   <script src="src/zones.js?v=28859055"></script>
   <script src="src/zone_variant_data.js?v=96dea35c"></script>
   <script src="src/zone_variants.js?v=71560fbb"></script>
   <script src="src/shrines.js?v=14db9569"></script>
-  <script src="src/buffs.js?v=0d21094a"></script>
+  <script src="src/buffs.js?v=9dfe4e35"></script>
   <script src="src/zone_coverage.js?v=001d00bf"></script>
   <script src="src/quarry_layout.js?v=ef68626f"></script>
   <script src="src/zone_dressing.js?v=829394d0"></script>
   <script src="src/reef_layout.js?v=4f859489"></script>
-  <script src="src/sprite_layout.js?v=d2485656"></script>
+  <script src="src/sprite_layout.js?v=e32f3577"></script>
   <script src="src/placed_floor.js?v=d6c42e37"></script>
-  <script src="src/home.js?v=e3fcba80"></script>
-  <script src="src/coords.js?v=bbbf323b"></script>
+  <script src="src/home.js?v=b7fecea7"></script>
+  <script src="src/coords.js?v=dea428ec"></script>
   <script src="src/fog.js?v=bdf27172"></script>
   <script src="src/biome_profiles.js?v=1082ffd3"></script>
-  <script src="src/traps.js?v=807fe888"></script>
-  <script src="src/lairs.js?v=50b11b28"></script>
-  <script src="src/worldgen.js?v=c4664714"></script>
-  <script src="src/textures.js?v=2789d179"></script>
-  <script src="src/save.js?v=781185a3"></script>
-  <script src="src/items.js?v=e5efc9fe"></script>
+  <script src="src/traps.js?v=17dbf176"></script>
+  <script src="src/lairs.js?v=01498704"></script>
+  <script src="src/worldgen.js?v=3e4af9c1"></script>
+  <script src="src/castle_styles.js?v=51966f77"></script>
+  <script src="src/textures.js?v=f7edb029"></script>
+  <script src="src/save.js?v=db24d82d"></script>
+  <script src="src/items.js?v=b2fd0789"></script>
   <script src="src/inventory.js?v=61f97d28"></script>
-  <script src="src/energy.js?v=151a2276"></script>
-  <script src="src/conditions.js?v=9f222b62"></script>
-  <script src="src/crops.js?v=e3f3dac4"></script>
-  <script src="src/delivery.js?v=bc509b02"></script>
-  <script src="src/savemigrate.js?v=7c40d3a3"></script>
+  <script src="src/energy.js?v=081455ab"></script>
+  <script src="src/conditions.js?v=f40a5963"></script>
+  <script src="src/player_time.js?v=bcfa05e1"></script>
+  <script src="src/potion_effects.js?v=fc874d63"></script>
+  <script src="src/crops.js?v=f638c777"></script>
+  <script src="src/delivery.js?v=aa7217c5"></script>
+  <script src="src/save_state.js?v=7876ef4a"></script>
   <script src="src/gear.js?v=e4a793ff"></script>
   <script src="src/rewards.js?v=0a2582f3"></script>
-  <script src="src/shops_math.js?v=4b9bd477"></script>
+  <script src="src/shops_math.js?v=99eb700f"></script>
   <script src="src/shops.js?v=f2758d3d"></script>
   <script src="src/egg_hatch.js?v=6b07e768"></script>
-  <script src="src/chest_themes.js?v=6a5a9762"></script>
-  <script src="src/rarity.js?v=abd649d1"></script>
-  <script src="src/loot.js?v=d0727c67"></script>
-  <script src="src/macros.js?v=05a3e638"></script>
-  <script src="src/quests.js?v=59439da3"></script>
-  <script src="src/interactables.js?v=d9b801a8"></script>
-  <script src="src/houses.js?v=193b86f0"></script>
+  <script src="src/chest_themes.js?v=e44814ad"></script>
+  <script src="src/rarity.js?v=e71f9552"></script>
+  <script src="src/loot.js?v=ea86a2ac"></script>
+  <script src="src/macros.js?v=65b17793"></script>
+  <script src="src/quests.js?v=50d40212"></script>
+  <script src="src/interactables.js?v=be3f2817"></script>
+  <script src="src/houses.js?v=035e6b15"></script>
   <script src="src/spawn_ownership.js?v=e5f81207"></script>
-  <script src="src/starter.js?v=a88641c8"></script>
+  <script src="src/starter.js?v=2c3e03a6"></script>
   <script src="src/ground_fire.js?v=5db34ead"></script>
-  <script src="src/combat.js?v=7bb10a65"></script>
-  <script src="src/companions.js?v=ecac988d"></script>
-  <script src="src/creature_ai.js?v=b52a9541"></script>
+  <script src="src/combat.js?v=ac53464d"></script>
+  <script src="src/companions.js?v=e726224b"></script>
+  <script src="src/creature_ai.js?v=13e4ce94"></script>
   <script src="src/wizard.js?v=e0531947"></script>
   <script src="src/dragon_story.js?v=c392538b"></script>
-  <script src="src/memory_story.js?v=e1a9844d"></script>
+  <script src="src/memory_story.js?v=158e9ff3"></script>
   <script src="src/story_encounters.js?v=86a4c845"></script>
-  <script src="src/interact.js?v=eb9c43f1"></script>
-  <script src="src/play_tips.js?v=e68833b6"></script>
+  <script src="src/interact.js?v=bf6152d9"></script>
+  <script src="src/play_tips.js?v=2ad7f442"></script>
   <script src="src/lighting.js?v=8dc03d32"></script>
-  <script src="src/render.js?v=9b6ea069"></script>
+  <script src="src/render.js?v=888ddb5d"></script>
   <script src="src/multiplayer.js?v=04fb3ba8"></script>
   <script src="src/road_overlay.js?v=667f560f"></script>
-  <script src="src/building_overlay.js?v=18003bd2"></script>
-  <script src="src/assets.js?v=30256443"></script>
-  <script src="src/sandbox.js?v=9377bbd1"></script>
+  <script src="src/building_overlay.js?v=04427f6e"></script>
+  <script src="src/assets.js?v=647fab30"></script>
+  <script src="src/sandbox.js?v=48e25519"></script>
   <script src="src/testtools.js?v=e112a59e"></script>
   <script src="src/geo.js?v=0a205c42"></script>
-  <script src="src/art_thumbs.js?v=06278c25"></script>
-  <script src="src/modal_shell.js?v=3bc0a717"></script>
+  <script src="src/art_thumbs.js?v=f39c511a"></script>
+  <script src="src/modal_shell.js?v=8cf9aa69"></script>
   <script src="src/scene_geo.js?v=96439ff3"></script>
-  <script src="src/npc.js?v=f51e8feb"></script>
-  <script src="src/scene_creatures.js?v=cea7eaa3"></script>
-  <script src="src/scene_fire.js?v=00280bdd"></script>
-  <script src="src/scene_shops.js?v=498b5353"></script>
+  <script src="src/npc.js?v=dd4ca6d1"></script>
+  <script src="src/scene_creatures.js?v=ddb20e53"></script>
+  <script src="src/scene_fire.js?v=564f85cb"></script>
+  <script src="src/scene_shops.js?v=3c3f9641"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2858,7 +2881,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=7d202ef8';
+      const APP_SRC = 'src/app.js?v=58a1c62a';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

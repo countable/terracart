@@ -157,11 +157,12 @@ function monsterStrideCells(mon) { return mon && mon.fly ? 1.0 : 0.6; }
 // sim reads it three ways, each a REASON on a lane that already exists:
 //   · NOTHING HOSTILE STEPS ONTO THE BAND — a refused target cell in the step
 //     chain's cell tests, beside water, rocks and fires. Wild fauna neither.
-//   · A FAST FOE (isFastFoe — anything that out-runs a BRISK walk,
+//   · A FAST FOE (isFastMover — anything that out-runs a BRISK walk,
 //     BRISK_WALK_MPS) never
 //     steps INTO the buffer from outside it (the same refused-cell test), and
-//     never spawns in it (WorldGen.isFoeCell). A slow foe may stand anywhere
-//     off the band: you out-walk it.
+//     never spawns in it (WorldGen.isSpawnCell(…, creatureSpawnClass(kind)):
+//     the fast rows refuse KERB). A slow foe may stand anywhere off the
+//     band: you out-walk it.
 //   · A PLAYER WHOSE FEET ARE IN THE BUFFER IS WHERE EVERY CHASE ENDS
 //     (`kerbLeash` in wanderCreatures): every hostile turns its back — one
 //     more reason in the wander-off lane (standDown + an away angle), a lair
@@ -193,7 +194,6 @@ function roadClassBitsAt(scene, x, y) {
   return entry.roadClass[iy * N + ix] | 0;
 }
 function inKerbAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BUFFER); }
-function onMajorRoadAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BAND); }
 
 // ── THE ROADSIDE RUN: a retreat in a residential area runs along the street ──
 // Every retreat in wanderCreatures is an AWAY angle — a bolting animal away
@@ -313,8 +313,8 @@ function foeChaseMps(c, cellM) {
   if (m && m.stationary) return 0;
   // A ROSTER foe (enemy_roster.js — the one table rosterEnemyMove moves it
   // by): the quickest of its row's own speeds — the base pace, a slime's
-  // charge, a fiend's lunge, a bat's peak flight. A legacy giant alias
-  // (giant_goblin …) reads its base kind's row.
+  // charge, a fiend's lunge, a bat's peak flight. A Giant variant row
+  // with no speeds of its own reads its base kind's row.
   const row = (typeof EnemyRoster !== 'undefined')
     && (EnemyRoster.get(c.kind) || (m && m.giant && EnemyRoster.get(m.giant)));
   if (row) return rosterChaseMps(row);
@@ -342,8 +342,6 @@ function rosterChaseMps(row) {
 // the step rule into the kerb buffer). The wild slime's 1.6 m/s charge is
 // under it: you out-walk a slime by stepping out, so it is NOT fast.
 const BRISK_WALK_MPS = 1.8;
-// A FAST FOE: one a briskly walking player cannot simply out-walk.
-function isFastFoe(c, cellM) { return foeChaseMps(c, cellM) > BRISK_WALK_MPS; }
 // An ANIMAL's top speed, m/s: the quicker of its gait hop and its bolt (the
 // CREATURE_BEHAVIOUR row — the numbers the wander loop moves it by; the base
 // beat WANDER_STEP_MS and one cell where the row is silent).
@@ -461,10 +459,11 @@ function sameSideAs(scene, x, y, fx, fy) { return sameSideField(scene, fx, fy).t
 //   "After dark" is the daylight (Lighting.daylight, 1 noon .. 0 night) under
 // GHOST_DARK_DAYLIGHT: 0.5 is the sun on the horizon, and 0.25 is a few
 // degrees under it — dusk gone to dark.
-//   Underground there is no night, so the roster's haunted-depth interval
-// gates the LEVEL instead: every second depth (2, 4, 6, …) is haunted at every
-// hour, while odd levels stay empty. The sun never reaches them either
-// (ghostSunExposureAt).
+//   Underground there is no night, so the PLACE gates them instead: a crypt
+// pocket (the cave habitat EnemySpawns.caveContextAt reads as 'crypt') from
+// EnemyRoster.GHOST_SCALING.minCryptDepth down is haunted at every hour, on
+// odd and even levels alike; every other cave ground stays empty. The sun
+// never reaches them either (ghostSunExposureAt).
 const GHOST_DARK_DAYLIGHT = 0.25;
 // (THE OLD STONES used to be a second reason here - from DUSK inside a
 // church's or cemetery's zone, twice as often, fanned from the stones. Gone,
@@ -543,8 +542,8 @@ function ghostSurfaceEligible(scene, x, y, cell) {
   return habitat.biomes.some(name => WorldGen.T[name] === cell.type);
 }
 // THE NIGHT PUMP — seats a group of ghosts in the dark about the player, once
-// every ghostSpawnDelay while ghostsHaunt says so (the surface after dark, an
-// crypt pocket from depth 3 at any hour). Returns how many rose. The timer is disarmed
+// every ghostSpawnDelay while ghostsHaunt says so (the surface after dark, a
+// crypt pocket from GHOST_SCALING.minCryptDepth at any hour). Returns how many rose. The timer is disarmed
 // whenever it doesn't, so the first group comes one delay after dark, a load,
 // or the stairs down to a haunted level — never at once.
 // `wardPts` / `wardR2` are wanderCreatures' Home + claimed-castle wards: a
@@ -769,6 +768,7 @@ function fireWardTrip(scene, c) {
 // straight away from the ward; `unnoticed` (NOTHING HUNTS A BODY, or a Shadow
 // Powder) it hovers where it is. Neither touches.
 function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {
+  pace *= PotionEffects.speedMul(c);
   // A finite memorial guard is visible but dormant until approached. Its
   // lifetime begins at awakening, not while the player passes far away.
   if (c.proximityCells && !c._awakened) {
@@ -1092,7 +1092,7 @@ function enemyCanStep(scene, c, row, x, y, escaping = false) {
   const road = roadClassBitsAt(scene, x, y);
   if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) return false;
   if ((road & WorldGen.ROAD_CLASS_MAJOR_BUFFER) && !inKerbAt(scene, c.x, c.y)
-      && isFastFoe(c, scene.cellM)) return false;
+      && isFastMover(c, scene.cellM)) return false;
   const fireAverts = !c.lair && (row.tier <= FIRE_WARD_MAX_DEPTH);
   return !(fireAverts && scene._nearAny?.('fires', x, y, FIRE_REST_R));
 }
@@ -1295,7 +1295,7 @@ function enemyAreaContains(c, row, px, py, cellM) {
   if (row.attackType === 'blast') return Math.hypot(px - c.x, py - c.y) <= row.blast.radiusCells * cellM;
   const angle = Math.atan2(py - c.y, px - c.x);
   const delta = Math.atan2(Math.sin(angle - aim.angle), Math.cos(angle - aim.angle));
-  return Math.hypot(px - c.x, py - c.y) <= row.range * cellM
+  return Math.hypot(px - c.x, py - c.y) <= PotionEffects.range(c, row.range) * cellM
     && Math.abs(delta) <= row.breath.halfAngleRadians;
 }
 function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget = null, creatureTarget = null) {
@@ -1309,6 +1309,9 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   c._attackTargetKey = targetKey;
   if (npcTarget && !NPC.canTarget(scene, npcTarget)) inactive = true;
   const dist = Math.hypot(px - c.x, py - c.y);
+  const attackRange = PotionEffects.range(c, row.range);
+  if ((creatureTarget || npcTarget) && dist > Math.max(0,
+    row.visionCells - PotionEffects.visionReduction(creatureTarget || npcTarget)) * scene.cellM) inactive = true;
   const territory = row.movement.territoryCells;
   const inTerritory = !territory || Math.hypot(px - (c._territoryX ?? c.homeX ?? c.x),
     py - (c._territoryY ?? c.homeY ?? c.y)) <= territory * scene.cellM;
@@ -1326,14 +1329,14 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
     return;
   }
   if (row.aura && clear && dist <= row.aura.radiusCells * scene.cellM) {
-    if (npcTarget) { NPC.hit(scene, npcTarget); return; }
+    if (npcTarget) { NPC.hit(scene, npcTarget, Date.now(), row.aura.rawDps * Combat.powerMul(c) * dt); return; }
     if (creatureTarget) {
       scene._damageEnemy(creatureTarget, row.aura.rawDps * Combat.powerMul(c) * dt,
         Combat.isCharmed(c) ? 'ally' : 'enemy', { bypassArmor: true });
     } else {
       const a = row.aura;
       const raw = a.rawDps * Combat.powerMul(c);
-      const shield = (scene.save.shieldPotionUntil ?? 0) > Date.now() ? 0.5 : 1;
+      const shield = PotionEffects.damageMul(scene.save);
       // Energy.set stores integers. Bank fractions BEFORE calling the scene's
       // loss writer so 60 tiny frames cannot each become a minimum-one hit.
       const loss = Combat.playerDamageRate(raw * shield, scene.save.armor, dt,
@@ -1348,7 +1351,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
     }
   }
   if (row.attackType === 'trap') {
-    const ready = enemyAttackReady(c, row, now, clear && dist <= row.range * scene.cellM);
+    const ready = enemyAttackReady(c, row, now, clear && dist <= attackRange * scene.cellM);
     if (ready || c._attackWindupUntil != null) SpriteLayout.faceCreature(c, px - c.x, py - c.y);
     if (ready && !Combat.isCharmed(c)) {
       scene._trapperLay(c, now, px, py);
@@ -1362,7 +1365,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   const winding = c._attackWindupUntil != null;
   // A `chargeOnly` charger (the boar) has no blow of its own: it hurts only
   // what it runs into mid-charge, once a charge.
-  const eligible = (shaped && winding ? attentive : clear && dist <= row.range * scene.cellM)
+  const eligible = (shaped && winding ? attentive : clear && dist <= attackRange * scene.cellM)
     && (!swoop || (c._batSwooping && !c._batHit)) && (!lunging || !c._lungeHit)
     && (!row.movement.chargeOnly || lunging);
   // The charge already warned before moving; contact lands once without
@@ -1378,7 +1381,9 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   if (!ready) return;
   c._attackT0 = now;
   c._attackUntil = now + Math.max(600, row.windupSeconds * 1000);
-  const raw = row.dmg * Combat.powerMul(c);
+  const raw = row.attackType === 'melee' || row.attackType === 'touch'
+    ? (row.dmg * Combat.powerMul(c) + PotionEffects.meleeBonus(c)) * PotionEffects.meleeMul(c)
+    : row.dmg * Combat.powerMul(c);
   if (row.movement.stopToReload) c._reloadUntil = now + row.movement.reloadSeconds * 1000;
   if (row.attackType === 'blast') {
     // A spent bomb carrier disappears without paying a kill reward.
@@ -1399,7 +1404,7 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   } else if (creatureTarget) {
     scene._damageEnemy(creatureTarget, raw, Combat.isCharmed(c) ? 'ally' : 'enemy');
   } else if (npcTarget) {
-    NPC.hit(scene, npcTarget);
+    NPC.hit(scene, npcTarget, Date.now(), raw);
   } else if (row.steals) {
     // A THIEF'S SWOOP (Combat.incomingTheft — the raven's coins, the gull's
     // food): the same hit, on the purse or the bag instead of the bar, banked
@@ -1438,7 +1443,7 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     if (!sees && !routed) {
       const distance = Math.hypot(c.x - c._territoryX, c.y - c._territoryY);
       if (distance > scene.cellM * 0.2) {
-        const step = Math.min(distance, m.speedMetersPerSecond * dt);
+        const step = Math.min(distance, m.speedMetersPerSecond * dt * PotionEffects.speedMul(c));
         enemySweep(scene, c, row, c.x + (c._territoryX - c.x) / distance * step,
           c.y + (c._territoryY - c.y) / distance * step, now);
       }
@@ -1515,7 +1520,7 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     speed = m.chargeSpeedMetersPerSecond || speed;
   }
   if (c._attackWindupUntil != null && !routed) return;
-  const step = Math.min(maxDistance, speed * dt);
+  const step = Math.min(maxDistance, speed * dt * PotionEffects.speedMul(c));
   const sx = c.x, sy = c.y;
   if (!enemySweep(scene, c, row, c.x + Math.cos(angle) * step, c.y + Math.sin(angle) * step, now)) {
     if (c._lungeUntil != null) {
@@ -1561,8 +1566,9 @@ function enemyBatMove(scene, c, row, now, px, py) {
   const tx = px + Math.cos(a) * radius * scene.cellM;
   const ty = py + Math.sin(a) * radius * scene.cellM;
   const distance = Math.hypot(tx - c.x, ty - c.y);
-  const duration = m.flightSeconds[0] + Math.random() * (m.flightSeconds[1] - m.flightSeconds[0]);
-  const leg = Math.min(distance, m.maxLegCells * scene.cellM, m.speedMetersPerSecond * duration / 2);
+  const duration = (m.flightSeconds[0] + Math.random() * (m.flightSeconds[1] - m.flightSeconds[0])) / PotionEffects.speedMul(c);
+  const leg = Math.min(distance, m.maxLegCells * scene.cellM,
+    m.speedMetersPerSecond * PotionEffects.speedMul(c) * duration / 2);
   const scale = distance > 0 ? leg / distance : 0;
   c._batFlight = { start: now, duration: duration * 1000,
     x: c.x, y: c.y, tx: c.x + (tx - c.x) * scale, ty: c.y + (ty - c.y) * scale };
@@ -1582,6 +1588,7 @@ function flowerOpponent(scene, c, px, py, caught, wall = Date.now()) {
     const opponent = charmed ? Combat.isEnemy(other, wall) : Combat.isCharmed(other, wall);
     if (!opponent || Combat.hp(other) <= 0) return;
     const d = Math.hypot(other.x - c.x, other.y - c.y);
+    if (d > sight - PotionEffects.visionReduction(other, wall) * scene.cellM) return;
     if (d > distance || !Combat.lineOfFire(c.x, c.y, other.x, other.y,
       (x, y) => enemySightBlocked(scene, c, x, y), scene.cellM)) return;
     best = other; distance = d;
@@ -1604,7 +1611,7 @@ function flowerCreatureTick(scene, c, now, px, py, caught, wards = null) {
   }
   // Temporary allegiance and sleep do not protect from ordinary hazards.
   if (scene._tickUnitFire?.(c, now)) return true;
-  if (Combat.canBurn(c) && (scene.depth === 0 || scene.depth === WorldGen.LAVA_DEPTH)
+  if (Combat.canBurn(c) && !Conditions.fireImmune(c) && (scene.depth === 0 || scene.depth === WorldGen.LAVA_DEPTH)
       && now >= (c._lavaNextT || 0)) {
     c._lavaNextT = now + 1000;
     const under = scene.cellAt(c.x, c.y);

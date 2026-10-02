@@ -64,6 +64,20 @@ Render.sortWorldDepth = function (pieces) {
   });
 };
 
+// Restoration clears the skulls from every tower and keeps the player's
+// existing single banner at the footprint's designated flag post.
+Render.castleFlagTexture = function (scene, tower) {
+  const claimed = scene.isCastleClaimed ? scene.isCastleClaimed(tower)
+    : scene.isClaimedKey ? scene.isClaimedKey(tower.castle) : null;
+  if (claimed === null) return null;
+  return claimed ? (tower.flagPost ? 'castle_flag' : null)
+    : `castle_skull_flag_${CastleStyles.get(tower.castle).id}`;
+};
+Render.towerCrownHeight = function (textures, castle) {
+  const frame = textures.getFrame('tower', CastleStyles.get(castle).towerFrame);
+  return (frame?.height || CastleStyles.TOWER_HEIGHT) - (frame?.castleCrownY || 0);
+};
+
 Render.objectGroundOffsetPx = function (appearance, textures) {
   if (!appearance?.visible) return 0;
   if (appearance.foot) return appearance.foot.footFromCentre;
@@ -412,9 +426,12 @@ Render.TerrainCache = TerrainCache;
 // Is the POLYGONAL building mode on? When it is, building cells paint as the
 // GROUND around them here and every piece of tiled building art below is
 // skipped — the footprints are drawn from their source rings by
-// building_overlay.js instead. Resolved per pass (the flag is a runtime toggle,
-// so a frame has to be able to change its mind) and false whenever that module
-// isn't loaded, which is what keeps the tiled path the default everywhere else.
+// building_overlay.js instead. It is ON in the game (BuildingOverlay.enabled()
+// defaults on). The tiled path below runs only where it is off: the sandbox
+// world (sandbox.js install / tools/sandbox_capture.js turn it off, since its
+// authored buildings are cells with no OSM rings) and headless code that never
+// loads building_overlay.js. Resolved per pass, since the flag can change at
+// runtime.
 const polyBuildings = () =>
   typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled();
 // Electric light blue — the POI pad's tint. Punchier and more saturated than
@@ -523,9 +540,9 @@ Render.drawFlowerStatusMarkers = (scene, creatures, project, depth, now) => {
 // texture-rebind work on the common frame where the key is unchanged. Returns
 // whether it swapped, so a caller can gate a same-frame side effect (e.g.
 // (re)starting an animation) on the swap actually having happened.
-function setTextureIfDifferent(s, key) {
-  if (s.texture.key === key) return false;
-  s.setTexture(key);
+function setTextureIfDifferent(s, key, frame) {
+  if (s.texture.key === key && (frame === undefined || s.frame.name === frame)) return false;
+  s.setTexture(key, frame);
   return true;
 }
 
@@ -744,8 +761,8 @@ const WATERED_TINT = 0xc7c7c7;
 const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 25, 27, 29, 30, 31]);  // sand, water, residential, all roads, path, all buildings, rock, cave wall, wasteland, churchyard, unmapped fog, tar yard
 // Fog of war — the wash over land the player has never visited.
 //
-// Pure black, NOT the biome's `atmos.dim` that the out-of-reach wash uses.
-// That dim is deliberately tinted so unlit ground still reads as this biome
+// Pure black, NOT the biome's `atmos.dim` that the lightmap's out-of-reach
+// ambient uses (Render.reachDimColor, read by Lighting.profile). That dim is deliberately tinted so unlit ground still reads as this biome
 // after dark; fog is the opposite claim — it is the absence of information,
 // and colouring it would say "here is a forest you haven't been to" when the
 // point is that the player doesn't know that yet.
@@ -1172,14 +1189,13 @@ const _shadeOnce = (n) => {
 // (Tints compose with util.js's mulTint — channel-wise multiply — so an
 // unclaimed shop keeps its role colour AND takes the wash, instead of one
 // replacing the other.)
-// ── The out-of-reach wash, in ONE place ───────────────────────────────────
+// ── The out-of-reach dim, in ONE place ────────────────────────────────────
 // Lighting.profile derives the lightmap's ambient, plateau and edge from these
 // two numbers (the lightmap is the only lighting pass; no sprite tint composes
-// them — spriteTint below). They are the expressions the old ground wash
-// used: the biome's
-// `dim` at 0.38 on the surface, pure black deepening half a step per level
-// underground (see the long note at the wash itself for why each is what it
-// is).
+// them — spriteTint below): the biome's `dim` at 0.38 on the surface, so
+// unlit ground still reads as its biome after dark, and pure black deepening
+// a step per level underground, where the torch bubble's contrast against
+// dead rock is the whole readability budget.
 Render.reachDimColor = (scene) =>
   ((scene.depth ?? 0) > 0 ? 0x000000 : (scene._atmos ? scene._atmos.dim : 0x000000));
 Render.reachDimAlpha = (scene) => {
@@ -1197,49 +1213,32 @@ Render.houseTextureKey = (role, o, scene) => {
   return `house_${role}`;
 };
 
-// The multiply tint a world sprite wears, resolved in ONE place so the rules
-// compose in a fixed order instead of racing each other down configureObject:
-// the biome's, then — for a house that isn't the
-// player's — the derelict wash.
+// The multiply tint a world sprite wears, resolved in ONE place: the biome's
+// tint, then — for a house that isn't the player's — the derelict wash.
 //
-// NOT in here any more: the out-of-reach dim. Until Sep 2026 the lighting
-// layer sat BELOW the sprites and every sprite was exempt from the reach
-// wash — except the wreck, whose roof had to follow its darkened footprint,
-// so this function composed the reach dim onto it by hand. The lightmap
-// (src/lighting.js) sits ABOVE the sprites now and dims every one of them
-// with the ground it stands on, so a wreck outside the bubble goes dark by
-// the same amount as its footprint with no help from here. Composing the dim
-// again would darken it twice.
+// NOT in here: the out-of-reach dim. The lightmap (src/lighting.js) sits ABOVE
+// the sprites and dims every one of them with the ground it stands on, so a
+// wreck outside the bubble goes dark by the same amount as its footprint with
+// no help from here; composing a dim here would darken it twice. Nor a shiny
+// sheen: a shiny tree GLOWS (Lighting.KINDS.shiny) and, under WebGL, glints
+// (Render.setShine) — both set in drawObjects.
 // Pure (object + scene in, a colour out), which is also what makes it
 // auditable headlessly: test/node/wreck_dim.test.js drives it directly.
 Render.spriteTint = function spriteTint(o, scene, textureKey) {
-  // White (no tint) unless one of the three rules below applies. Houses get
-  // NO role tint of any kind: a plain house is a delivery host and stays
-  // untinted, and a themed shop (blacksmith/trader/market/wizard/trailer)
-  // carries its own house_<role> sprite, which tinting would only discolour.
-  // The only thing a house can wear is the derelict wash (+ reach dim) at the
-  // bottom of this function.
   let tint = 0xffffff;
-  // No shiny sheen here any more: a gold multiply over a green canopy reads
-  // as olive, not as treasure. A shiny tree GLOWS (Lighting.KINDS.shiny) and,
-  // under WebGL, glints (Render.setShine) — both set in drawObjects.
   // Per-biome tint for primary interactables (e.g. rusty mineralrock on an
-  // industrial lot) — only when nothing more specific (shop/shiny) already
-  // tinted it. The cell's terrain was stamped as `_biome` at worldgen time.
-  // A spec.after hook (e.g. mineralrock tier shading) may still override.
-  if (tint === 0xffffff && typeof BiomeProfiles !== 'undefined' && o._biome != null) {
+  // industrial lot). The cell's terrain was stamped as `_biome` at worldgen
+  // time. A spec.after hook (e.g. mineralrock tier shading) may still override.
+  if (typeof BiomeProfiles !== 'undefined' && o._biome != null) {
     const bt = BiomeProfiles.tint(o._biome, o.kind);
     if (bt) tint = bt;
   }
-  // A HOUSE that isn't the player's is washed toward dark green with the rest
-  // of its footprint (see the wash pass in drawCells). Its SPRITE is not on
-  // that canvas — the roof is a pooled image above it — so the same shift is
-  // applied here as a multiply tint. Multiply can't reproduce a
-  // lerp exactly, so the tint is white lerped 35% toward the wash colour:
-  // mid-tones land where the wash puts them and the art keeps its shading.
-  // Applied last so it also carries over a shop's own role tint.
-  // (A TURRET is exempt: it swaps to its own baked texture above rather than
-  // taking the tint, so applying this as well would shade it twice.)
+  // A HOUSE that isn't the player's takes the derelict wash as a multiply
+  // tint: white lerped toward the wash colour (UNCLAIMED_SPRITE_TINT), so
+  // mid-tones darken and the art keeps its shading. Houses get no role tint:
+  // a themed shop carries its own house_<role> sprite. Art baked unclaimed
+  // (`unclaimedArt` in ASSETS — the wreck, the unclaimed fort) already wears
+  // it, so it is exempt rather than shaded twice.
   if (o.kind === 'house' && scene.isClaimedKey && !scene.isClaimedKey(o.id)) {
     // Appearance already resolved the owner's role and selected this texture.
     // Read that result rather than resolving house ownership a second time.
@@ -1376,9 +1375,8 @@ function drawAtmosRim(scene, haze) {
   if (g.flush) g.flush();   // BAKED (app.js): one upload per haze change
 }
 
-// A wall segment is a first-class upright drawable, just like a tree or
-// tower. Its geometry is screen-space; its sorting anchor stays world-space.
-Render.rampartPiece = function rampartPiece(scene, groundY, rank = 1) {
+// Tiled wall sections share the same ground-depth pass as other uprights.
+Render.rampartPiece = function (scene, groundY, rank = 1) {
   const pool = scene._rampartPool || (scene._rampartPool = []);
   const i = scene._rampartPoolUsed++;
   let sprite = pool[i];
@@ -1401,8 +1399,6 @@ Render.drawCells = function drawCells(scene) {
   // toggle flipping mid-pass would draw half a building.
   const POLY = polyBuildings();
   const gb2 = scene.borderGfx;
-  // Tiled walls join the same painter pass as sprites. Reuse their Graphics
-  // objects, clearing/hiding every old piece before this frame's geometry.
   scene._uprightPieces = [];
   scene._rampartPoolUsed = 0;
   for (const piece of scene._rampartPool || []) piece.clear().setVisible(false);
@@ -1470,7 +1466,7 @@ Render.drawCells = function drawCells(scene) {
   // shared it are gone (see the note by T_PATH). The pool and its container
   // keep their name — the layer order is pinned on it (tools/layer_audit.js)
   // and a plank is still ground decoration in the same slot.
-  // 'pier' is assets/Objects/Wilderness/Bridge Beach.png, 8×14 of
+  // 'pier' is assets/Objects/Approved/pier.png (ASSETS.pier), 8×14 of
   // 16×16 frames. Frame 20 = row 2 col 4 = an interior tile of the continuous
   // plank-deck band (frames 16-23): 100% opaque wood, no baked-in water, no
   // gaps, no support posts — so it tiles edge-to-edge across adjacent pier
@@ -1586,6 +1582,18 @@ Render.drawCells = function drawCells(scene) {
   const atmos = updateAtmos(scene, types, RING, borderDirty);
   const OWN = (c, r) => owners[(r + 2) * RING + (c + 2)];
   const UNCLAIMED = (c, r) => unclaimed[(r + 2) * RING + (c + 2)] === 1;
+  const castleKeys = new Map();
+  const castleOwner = (c, r) => {
+    const owner = OWN(c, r);
+    if (castleKeys.has(owner)) return castleKeys.get(owner);
+    const i = (r + 2) * RING + (c + 2);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[i], _ringTY[i]));
+    const n = rowCells(scene, _ringTY[i]);
+    const local = entry?.owners?.[_ringIY[i] * n + _ringIX[i]];
+    const key = entry?.ownerKeys?.[local];
+    castleKeys.set(owner, key);
+    return key;
+  };
   // An unclaimed castle's COURT is painted in the shaded colour, so every place
   // that resolves a cell's painted colour has to agree: the fill, the rounded
   // corners' diagonal fills, and the wavy-border test that asks whether two
@@ -1596,9 +1604,10 @@ Render.drawCells = function drawCells(scene) {
     return accent >= 0 ? accent : colour;
   };
   const courtShaded = (t, colour, c, r) =>
+    t === 12 ? CastleStyles.get(castleOwner(c, r), !UNCLAIMED(c, r)).floor :
     UNCLAIMED(c, r) && typeof UNCLAIMED_BUILDING_BASE !== 'undefined' && UNCLAIMED_BUILDING_BASE.floors[t] != null
       ? unclaimedMaterialColor(unclaimedShade(UNCLAIMED_BUILDING_BASE.floors[t]))
-      : (t === 12 && UNCLAIMED(c, r)) ? _shadeOnce(colour) : groundColor(colour, c, r);
+      : groundColor(colour, c, r);
   // Cells whose PAINTED colour isn't COLORS[type] — the ones every neighbour
   // test has to look THROUGH to the zone underneath. Road and path cells are
   // painted the majority biome around them; in polygonal mode a building cell
@@ -1973,6 +1982,14 @@ Render.drawCells = function drawCells(scene) {
             }
           }
         }
+        let damageFrame;
+        if (texKey && !POLY && !isTilled && type === 12) {
+          const damaged = CastleStyles.damageTexture(scene, castleOwner(col, row), !UNCLAIMED(col, row));
+          if (damaged) {
+            texKey = damaged;
+            damageFrame = CastleStyles.damageCellIndex(_ringIX[_si], _ringIY[_si]);
+          }
+        }
         if (texKey) {
           // Only on a swap: Phaser's setTexture is NOT a no-op for the key a
           // sprite already wears (it re-derives the frame, size and crop), and
@@ -1980,7 +1997,9 @@ Render.drawCells = function drawCells(scene) {
           // 169 unconditional swaps a step were pure waste on a still view.
           // setTexture resets the sprite's intrinsic size; re-apply CELL_PX
           // with it (the scale it leaves stands until the next swap).
-          if (setTextureIfDifferent(ns, texKey)) ns.setDisplaySize(CELL_PX, CELL_PX);
+          if (damageFrame !== undefined) {
+            if (setTextureIfDifferent(ns, texKey, damageFrame)) ns.setDisplaySize(CELL_PX, CELL_PX);
+          } else if (setTextureIfDifferent(ns, texKey)) ns.setDisplaySize(CELL_PX, CELL_PX);
           ns.setPosition(Math.round(sx), Math.round(sy))
             .setVisible(true);
           // Watered soil reads a shade darker (damp). The pad is an opaque
@@ -2050,6 +2069,34 @@ Render.drawCells = function drawCells(scene) {
     }
   }
   scene.terrainCache?.flush();
+  // Short broken columns are floor decoration: no object, collision or tap target.
+  // Polygon mode draws these same source-ring sites into its floor canvas.
+  const columnPool = scene._castleColumnPool || (scene._castleColumnPool = []);
+  let columnUsed = 0;
+  if (!POLY && (scene.depth ?? 0) === 0 && scene.noiseContainer) {
+    const { tiles } = overlayFrame(scene, entry => !!entry.buildingShapes);
+    for (const { tx, ty, entry } of tiles) for (const shape of entry.buildingShapes) {
+      if (shape.tier !== 12) continue;
+      const sites = CastleStyles.columnSites(shape.key, shape.ring,
+        entry.tileEdgeM / (entry.cellsPerEdge || scene.cellsPerTile));
+      if (!sites.length) continue;
+      const claimed = !scene.isClaimedKey || scene.isClaimedKey(shape.key);
+      const texture = CastleStyles.columnTexture(scene, claimed);
+      if (!texture) continue;
+      for (const site of sites) {
+        const at = worldMetersToScreen(scene, tx * entry.tileEdgeM + site.x, ty * entry.tileEdgeM + site.y);
+        if (at.x < scene.viewLeft - 16 || at.x > scene.viewLeft + scene.viewSize + 16
+          || at.y < scene.viewTop - 20 || at.y > scene.viewTop + scene.viewSize + 20) continue;
+        let sprite = columnPool[columnUsed++];
+        if (!sprite) {
+          sprite = scene.add.image(0, 0, texture, site.height).setOrigin(0.5, 1);
+          scene.noiseContainer.add(sprite); columnPool.push(sprite);
+        }
+        sprite.setTexture(texture, site.height).setPosition(Math.round(at.x), Math.round(at.y)).setVisible(true);
+      }
+    }
+  }
+  for (let i = columnUsed; i < columnPool.length; i++) columnPool[i].setVisible(false);
   // Building outline pass — runs AFTER all cells are filled so a neighbour
   // cell's fillRect can't overpaint the shared boundary. For each building cell,
   // stroke each side whose 4-neighbour isn't itself a building.
@@ -2160,47 +2207,30 @@ Render.drawCells = function drawCells(scene) {
       // dashes on the same merlon grid so they line up with the crests.
       // Drawn INSTEAD of the tier-9/12 extrusion + outline below.
       if (type === 12) {
-        // Stone comes from the shared castle palette (textures.js
-        // CASTLE_STONE) — the same six values the turret texture is drawn
-        // from, so a tower reads as the same masonry as the wall it stands on.
-        //   BODY  — lit battlement tops
-        //   FACE  — the tall extruded N/S wall faces: darker than BODY so the
-        //           wall mass reads with depth instead of looking washed out
-        //           against the light castle floor
-        //   SIDE  — the E/W side-wall crenel dashes: a soft mid-grey so the
-        //           gaps between the side merlons aren't harshly dark
-        // ...and in the SECOND palette when the castle isn't the player's:
-        // CASTLE_STONE_UNCLAIMED is every one of those six stones put through
-        // unclaimedShade(). Picked per cell, which is what makes it possible
-        // for the castle across the road to be lit while this one isn't.
-        const _claimedHere = !UNCLAIMED(col, row);
-        const _CS = (typeof CASTLE_STONE === 'undefined') ? null
-          : (_claimedHere || typeof CASTLE_STONE_UNCLAIMED === 'undefined'
-              ? CASTLE_STONE : CASTLE_STONE_UNCLAIMED);
-        // window.__RAMPART_DEBUG tints the three wall pieces apart (north blue,
-        // south green, sides red) so corner stacking bugs are visible at a
-        // glance — the stone greys are too close to eyeball draw order.
+        // Resolve the same owner identity and condition as the tower and
+        // polygon overlay. Returned colours already include weathering.
+        const material = CastleStyles.get(castleOwner(col, row), !UNCLAIMED(col, row));
+        const crest = material.rampart.woodTop ? material.wood : material.stone;
         const _DBG = (typeof window !== 'undefined') && window.__RAMPART_DEBUG;
-        const _sh = (n) => (_claimedHere || typeof unclaimedShade === 'undefined')
-          ? n : unclaimedShade(n);
-        const stone = n => !_claimedHere && typeof unclaimedMaterialColor === 'function' ? unclaimedMaterialColor(n) : n;
-        const STONE_LITE   = stone(_CS ? _CS.LITE.n   : _sh(0xb9bcc2));
-        const STONE_BODY   = stone(_CS ? _CS.BODY.n   : _sh(0x8f9298));
-        const STONE_SHADOW = stone(_CS ? _CS.SHADOW.n : _sh(0x5a5d63));
-        const STONE_DARK   = stone(_CS ? _CS.DARK.n   : _sh(0x303134));
-        const STONE_FACE   = stone(_CS ? _CS.FACE.n   : _sh(0x7e8188));
-        const STONE_SIDE   = stone(_CS ? _CS.SIDE.n   : _sh(0x7a7d84));
-        const MERLONS = 4, SPAN = CELL_PX / MERLONS;   // 8px span, divides the cell evenly so teeth tile
-        const MW = 4, MOFF = (SPAN - MW) >> 1;         // 4px tooth centred → clear 4px crenel gaps
-        const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
-        const CREN = 2;          // crenel-level wall (the gaps still show a low parapet)
-        const WALL = 8;          // south wall-face height (the lit 3-D extrusion)
-        // Each boundary has its own ground anchor in world metres, so
-        // camera motion cannot change its ordering against moving sprites.
+        const STONE_LITE = crest.LITE, STONE_BODY = crest.BODY;
+        const STONE_SHADOW = crest.SHADOW, STONE_DARK = material.stone.DARK;
+        const STONE_FACE = material.stone.FACE, STONE_SIDE = material.stone.SIDE;
+        const MERLONS = material.rampart.merlons, SPAN = CELL_PX / MERLONS;
+        const MW = material.rampart.toothWidth, MOFF = (SPAN - MW) >> 1;
+        const TOOTH_H = material.rampart.toothHeight;
+        const CREN = 2;
+        const WALL = material.rampart.wallHeight;
+        // Each section sorts at its lowest masonry base in world metres.
+        // Towers and actors use the same ordinary ground-depth pass.
         const si = (row + 2) * RING + (col + 2);
         const ty = _ringTY[si], cm = rowCellM(scene, ty);
         const northY = ty * scene.tileEdgeM + _ringIY[si] * cm;
-        const wallPiece = fraction => Render.rampartPiece(scene, northY + fraction * cm);
+        const damage = CastleStyles.damageCell(castleOwner(col, row), _ringIX[si], _ringIY[si]);
+        const wallChip = (gx, x, y) => {
+          if (!damage) return;
+          gx.fillStyle(STONE_SHADOW, 0.9); gx.fillRect(x + damage.chip, y + 1, 2, 3);
+          gx.fillStyle(STONE_LITE, 0.7); gx.fillRect(x + damage.chip + 2, y + 3, 2, 1);
+        };
         // Horizontal battlement crest: a low parapet at `baseY` with merlons
         // rising UP from it, drawn into the supplied graphics layer `gx`. Teeth
         // share the SPAN grid on every wall so front/back crenellations line up.
@@ -2209,19 +2239,20 @@ Render.drawCells = function drawCells(scene) {
           gx.fillStyle(body, 1);   gx.fillRect(x, baseY - CREN, CELL_PX, CREN);
           gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x, baseY - 1, CELL_PX, 1);
           for (let i = 0; i < MERLONS; i++) {
+            if ((material.rampart.broken && i === 2) || (damage && i === damage.missing)) continue;
             const mx = x + i * SPAN + MOFF;
             gx.fillStyle(body, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
             gx.fillStyle(STONE_LITE, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, 1);
             gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(mx + MW - 1, baseY - TOOTH_H + 1, 1, TOOTH_H - 1);
           }
         };
-        // South boundary: a turret standing here shares this ground row;
-        // its tie rank keeps the turret above the wall's stone.
+        // South boundary projects its stone face beyond the floor.
         if (wallEdge(col, row, 0, 1)) {
-          const gw = wallPiece(1);
+          const gw = Render.rampartPiece(scene, northY + cm + WALL * cm / CELL_PX);
           gw.fillStyle(_DBG ? 0x30a030 : STONE_FACE, 1); gw.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
           gw.fillStyle(STONE_DARK, 1); gw.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
           crestH(gw, sx, sy + CELL_PX, _DBG ? 0x50c050 : undefined);
+          wallChip(gw, sx, sy + CELL_PX);
         }
         // North boundary rises into the cell above from its own ground line.
         const SIDE_W = 5;
@@ -2232,12 +2263,13 @@ Render.drawCells = function drawCells(scene) {
           // castle cell. Without the widening, that band's last 12px stuck out
           // beside the crest at every stepped top edge / notch: the top wall
           // did not paint over the side wall in the cell above.
-          const gb = wallPiece(0);
+          const gb = Render.rampartPiece(scene, northY);
           const extL = (T(col - 1, row - 1) === 12 && wallEdge(col - 1, row - 1, 1, 0)) ? SIDE_W : 0;
           const extR = (T(col + 1, row - 1) === 12 && wallEdge(col + 1, row - 1, -1, 0)) ? SIDE_W : 0;
           gb.fillStyle(_DBG ? 0x3060c0 : STONE_FACE, 1);
           gb.fillRect(sx - extL, sy - WALL, CELL_PX + extL + extR, WALL);
           crestH(gb, sx, sy - WALL, _DBG ? 0x5080e0 : undefined);
+          wallChip(gb, sx, sy - WALL);
           // SOLID crest-height shoulders over the widened columns — the crest
           // rows there must be full stone, not tooth-and-gap, or the covered
           // side band's last pixels still show through beside the teeth. This
@@ -2256,18 +2288,22 @@ Render.drawCells = function drawCells(scene) {
         const bandY = sy;
         const bandBot = sy + (wallEdge(col, row, 0, 1) ? CELL_PX - TOOTH_H : CELL_PX);
         const sideShade = (x, innerX) => {
-          const gb = Render.rampartPiece(scene, northY + cm, 0);
+          const gb = Render.rampartPiece(scene, northY + (bandBot - sy) * cm / CELL_PX, 0);
           gb.fillStyle(_DBG ? 0xc03030 : STONE_BODY, 1);   gb.fillRect(x, bandY, SIDE_W, bandBot - bandY);
           gb.fillStyle(_DBG ? 0xe06060 : STONE_SIDE, 1);
           // Crenel-grid dashes stay on the cell's own span; skip any dash the
           // shortened bottom would clip so a half-dash can't fray the band end.
           for (let i = 0; i < MERLONS; i++) {
             const dy = sy + i * SPAN + MOFF;
-            if (dy + MW <= bandBot) gb.fillRect(x, dy, SIDE_W, MW);
+            if (dy + MW <= bandBot && !(material.rampart.broken && i === 2)
+              && (!damage || i !== damage.missing)) gb.fillRect(x, dy, SIDE_W, MW);
           }
           // 1px darker line on the wall's INTERIOR edge so the side wall reads as
           // a distinct band instead of blurring into the adjacent floor / wall.
           gb.fillStyle(STONE_SHADOW, 1); gb.fillRect(innerX, bandY, 1, bandBot - bandY);
+          if (damage) {
+            gb.fillStyle(STONE_SHADOW, 0.9); gb.fillRect(x + 1, sy + damage.chip, 3, 2);
+          }
         };
         if (wallEdge(col, row, -1, 0)) sideShade(sx, sx + SIDE_W - 1);
         if (wallEdge(col, row, 1, 0)) sideShade(sx + CELL_PX - SIDE_W, sx + CELL_PX - SIDE_W);
@@ -2336,8 +2372,8 @@ Render.drawCells = function drawCells(scene) {
   // light. The lightmap in src/lighting.js replaced the lot: an ambient floor
   // plus one additive cookie per light (the player, Home, a restored building,
   // a campfire), multiplied over the world from the lightMap layer ABOVE the
-  // sprites. Its levels are DERIVED from the same reachDimColor /
-  // reachDimAlpha this pass painted with. See Lighting.profile.
+  // sprites. Its levels are DERIVED from reachDimColor / reachDimAlpha, the
+  // numbers this pass used to paint with. See Lighting.profile.
   //
   // The white reach OUTLINE went second (Sep 2026), and this is the pass that
   // used to draw it — a 2px line at 0.15 alpha tracing the staircase's outer
@@ -2762,7 +2798,7 @@ Render.drawObjects = function drawObjects(scene) {
   const pWorldX = _anchor.x;
   const pWorldY = _anchor.y;
   // Per-object screen projection: world-meter delta (dx, dy from the anchor)
-  // → screen pixels. Every sprite/label/diamond in this pass shares the exact
+  // → screen pixels. Every sprite/label/footprint in this pass shares the exact
   // same projection, so define it once here (viewCenterX/Y, cellM, CELL_PX are
   // all in scope for the whole function).
   const project = (dx, dy) => ({
@@ -3283,23 +3319,20 @@ Render.drawObjects = function drawObjects(scene) {
      .setDepth(item.depth)
      .setPosition(item.x, item.y);
   });
-  // The banner over a CLAIMED castle. One per castle, not per turret: worldgen
-  // marks exactly one of a footprint's towers `flagPost`, so a castle with six
-  // turrets flies one flag rather than six.
+  // Every unrestored turret flies the square skull flag. Restoring the
+  // castle replaces them with the player's existing single flagPost banner.
   //
   // Seated on that turret's crown — the tower art is bottom-anchored at
   // sy + CELL_PX/2 and runs its full frame height upward, so the flag's own
   // bottom-anchored pole lands on the battlements. Read from the frame rather
   // than a copied number, so a retall of the turret can't leave the flag
   // floating. The flag inherits its turret's ground depth.
-  const flagList = scene.isCastleClaimed
-    ? towerList.filter(({ o }) => o.flagPost && scene.isCastleClaimed(o))
-    : [];
-  const towerH = flagList.length ? (scene.textures.getFrame('tower')?.height ?? 42) : 0;
+  const flagList = towerList.filter(({ o }) => Render.castleFlagTexture(scene, o));
   Render.renderPool(scene, scene.castleFlagPool, scene.towerContainer, flagList, (s, item) => {
     const { dx, dy } = item;
     const { sx, sy } = project(dx, dy);
-    setTextureIfDifferent(s, 'castle_flag');
+    const towerH = Render.towerCrownHeight(scene.textures, item.o.castle);
+    setTextureIfDifferent(s, Render.castleFlagTexture(scene, item.o));
     s.setDepth((item._z ?? 0) + 0.1);
     s.setOrigin(0.5, 1)
      .setScale(1)
@@ -3368,8 +3401,8 @@ Render.drawObjects = function drawObjects(scene) {
     s.setOrigin((cc + 0.5) / shape.cols, (cr + 0.5) / shape.rows)
      .setScale(mini ? POI_PAD_MINI_SCALE : 1)
      .setPosition(Math.round(sx), Math.round(sy));
-    // Pads persist even when the chest is opened — only the chest sprite + tier
-    // diamond disappear. The pad always renders (objList includes opened chests).
+    // Pads persist even when the chest is opened — only the chest sprite
+    // disappears. The pad always renders (objList includes opened chests).
     // 0.55 — the slab is a backdrop for the POI, so it lets the terrain it
     // sits on read through rather than stamping an opaque disc over it. Minis
     // sit a touch dimmer still (0.42), reading as a lesser landmark rather
@@ -4186,9 +4219,11 @@ Render.drawObjects = function drawObjects(scene) {
   // radius. Instance size never changes the aura's reach.
   if (scene.auraContainer && typeof EnemyRoster !== 'undefined') {
     scene.enemyAuraPool ||= [];
-    const auraList = creatureList.filter(it => EnemyRoster.get(it.c.kind)?.aura);
+    const auraList = creatureList.filter(it => EnemyRoster.get(it.c.kind)?.aura
+      || (typeof PotionEffects !== 'undefined' && PotionEffects.active(it.c, 'blight_potion')));
     Render.renderPool(scene, scene.enemyAuraPool, scene.auraContainer, auraList, (s, item) => {
-      const aura = EnemyRoster.get(item.c.kind).aura;
+      const aura = (typeof PotionEffects !== 'undefined' && PotionEffects.active(item.c, 'blight_potion'))
+        ? CONSUMABLE_SPEC.blight_potion : EnemyRoster.get(item.c.kind).aura;
       const { sx, sy } = project(item.dx, item.dy);
       const diameter = 2 * aura.radiusCells * CELL_PX;
       setTextureIfDifferent(s, 'aura_blight');
@@ -4489,21 +4524,13 @@ Render.objectAppearance = function (scene, houseRoles) {
       dyPx: (o) => (_houseRole(o) === 'wizard' ? CELL_PX * 0.5 : 0),
       scale: _houseScale,
     },
-    // Turret placement, exactly: the art is anchored by its frame's
-    // bottom-centre (origin 0.5, 1.0) and dropped half a cell from the cell
-    // CENTRE that sy gives us, so its grounding line lands ON the cell's
-    // bottom edge — not the ~2px short of it the old 0.95 origin left. The
-    // generated sprite carries no bottom padding (assets.js) so frame bottom
-    // IS art bottom, and its art is symmetric about the frame's centre column,
-    // so origin x 0.5 centres it on the cell. Towers share the world painter
-    // pass and give way to anything whose feet are farther south.
-    // Separate restored and ruined sprites keep the same footprint. Claiming
-    // the castle swaps the art; the flag stays a live overlay above the crown.
-    // Fall back to the restored key if a stale cache lacks the wreck sprite.
-    tower:  { key: (o, sc) => (sc && sc.isClaimedKey && !sc.isClaimedKey(o.castle)
+    // Bottom-seat each sprite at its data cell. A castle's identity selects
+    // one material family; restoring it changes only the condition palette.
+    tower: { key: (o, sc) => (sc && sc.isClaimedKey && !sc.isClaimedKey(o.castle)
                                && sc.textures.exists('tower_unclaimed'))
                               ? 'tower_unclaimed' : 'tower',
-              origin: [0.5, 1.0], scale: 1.0, dyPx: CELL_PX * 0.5 },
+             frame: o => CastleStyles.get(o.castle).towerFrame,
+             origin: [0.5, 1], scale: 1, dyPx: CELL_PX * 0.5 },
     // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
     // foot nudge). The trimmed art is 43×39 (the PNG bakes a 39%-alpha shadow
     // ellipse under the feet; the figure itself is fully opaque), so scale 0.6
@@ -4776,11 +4803,6 @@ Render.objectAppearance = function (scene, houseRoles) {
               // Ore the current pick can't mine → half alpha; plain rock is
               // ungated and always full (interactables.js toolGatedAlpha).
               after: (s, o, scene) => { s.setAlpha(toolGatedAlpha(o, scene.save)); } },
-    // Stone pillar — decorative stand-in for OSM utility poles / posts.
-    // Purely decorative: no interact.js branch matches 'pole', so taps fall
-    // through.
-    // Approved 24px pillar fills a 32px cell; shared by every mapped pole.
-    pole:   { key: 'pillar', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     // STREET VARIANT PROPS (src/street_variants.js). All 16px generated art
     // drawn at 1.6 (~26px) and SEATED in their one cell. The waystone stands
     // (a tap reads a page of the Book — INTERACTABLES.waystone); the tar pit
@@ -4795,6 +4817,9 @@ Render.objectAppearance = function (scene, houseRoles) {
     // the spawn point a foe rises from each day (lairs.js 'gate' tier). Not
     // tappable: no interactable row matches 'gatepost'.
     infoboard: { key: 'signpost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    // A message bottle on the waterline (src/scenic.js) lies on the sand:
+    // the old tide crop's 16px art, no contact shadow.
+    bottle: { key: 'bottle', frame: 0, origin: [0.5, 0.5], scale: 1.36, seat: true },
     gatepost:  { key: 'gatepost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // INFLUENCE ZONE PROPS (src/zones.js). Headstones may raise a ghost or
     // pay a one-off find. Plain grove shrines use the cell-seated votive,

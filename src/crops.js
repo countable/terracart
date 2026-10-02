@@ -39,9 +39,6 @@
   function stageHoldMs(crop) { return tierHoldMs(cropTier(crop)); }
   // A tier-1 crop's stage — the first crop a player grows (the starter seeds).
   const STAGE_HOLD_MS = tierHoldMs(1);
-  // The flat 15-minute stage every crop had before per-crop holds. Only the
-  // one-time save migration below still reads it.
-  const LEGACY_STAGE_HOLD_MS = 15 * 60 * 1000;
   // THE CAN SHORTENS THE STAGE IT STARTS (owner's call, Sep 2026): a watering
   // stamps the plant's hold for the stage it begins (`p.hold_ms`), cut by the
   // can's tier — CAN_HOLD_CUT off at Frost (seven eighths — owner's call,
@@ -55,25 +52,6 @@
   }
   function plantHoldMs(p) {
     return p && p.hold_ms > 0 ? p.hold_ms : stageHoldMs(p && p.crop);
-  }
-
-  // Called once by save migration. Old watered crops keep the fraction of
-  // their 15-minute stage already earned; a completed stage pays out first.
-  function migrateStageTimers(save, now = Date.now()) {
-    let changed = false;
-    for (const p of save.planted || []) {
-      if (!p.watered_t || isMature(p)) continue;
-      const elapsed = Math.max(0, now - p.watered_t);
-      if (elapsed >= LEGACY_STAGE_HOLD_MS) {
-        p.stage = (p.stage ?? 0) + 1;
-        p.watered_t = 0;
-        changed = true;
-      } else if (stageHoldMs(p.crop) !== LEGACY_STAGE_HOLD_MS) {
-        p.watered_t = now - elapsed / LEGACY_STAGE_HOLD_MS * stageHoldMs(p.crop);
-        changed = true;
-      }
-    }
-    return changed;
   }
 
   // The one crop no raider touches: a potato grows underground, and the deer
@@ -306,7 +284,7 @@
     return q;
   }
 
-  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, LEGACY_STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, migrateStageTimers, CAN_TOP_TIER, maxStage, isMature, raiderEats,
+  root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, fruitTreeState, STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, CAN_TOP_TIER, maxStage, isMature, raiderEats,
                  advanceGrowth, waterWithin, waterOne, waterJumpChance, advanceWithin,
                  bedQuality, setBedQuality, clearBedQuality, takeBedQuality,
                  forEachInBox, invalidateSpatialIndex };

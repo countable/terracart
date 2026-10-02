@@ -179,7 +179,6 @@ test('wander-off: each kind retreats its own fraction of the range (default a fu
   assert.eq(Combat.retreatMul('slime'), 1, 'the surface slime: full retreat');
   assert.eq(Combat.retreatMul('cave_slime'), 1, 'a kind with no retreat column: full');
   assert.eq(Combat.retreatMul('goblin'), 0.5, 'a goblin goes half as far — and comes back');
-  assert.eq(Combat.retreatMul('giant_goblin'), 0.5, 'a giant inherits its base kind');
   assert.eq(Combat.retreatMul('purple_slime'), 0.75);
   const W = __monsterWanderingOff;
   const CELL = 7, RANGE = SIM_CELLS * CELL;
