@@ -24,6 +24,7 @@ const ART_THUMBS = {
   booth_sundries_used: 'data:image/webp;base64,UklGRqAAAABXRUJQVlA4IJQAAAAwBACdASoWABwAPp1EnEolo6KhqAqosBOJYwC/OAyZH1dbthQlY4dulOAA/uzRuz/iX1l87jMvwOWTU6e5IG6hCzkMWO/ZgiK4aeeVCLht5CpEDw5YNC255Ktb4BGUgyR7nz0e4P+1ZC2fLTjSiFf3UTDT+A4k1uu8JAqK/O5k942HLaRiA7NToUirKWaKDs3cUAAA',
   booth_training_intro: 'data:image/webp;base64,UklGRpIAAABXRUJQVlA4IIYAAABwBACdASoWABwAPp0+nEmloyKhMBgIALATiWUAsR8vwbj/sa7BreQLQn1EAAD+8tJk86Fv8of4hGM+2NeNdhoe7XGn3lHsjsCflfyuH1ZUYwp/kI75NXb16oG+N29ukqt/We6aLLJbXLZXQnKhuKKSQruJixd5cRuvW3shuJ/jRUXZgAAAAA==',
   booth_training_used: 'data:image/webp;base64,UklGRpgAAABXRUJQVlA4IIwAAAAwBACdASoWABwAPp1Enkolo6MhqAqosBOJYwCsABI0R8O/hyXPqPXIbAAA/vGgJT5ZVdHeO891oi8NqerJyCOAm97tRW8MnZJB0uCGYC5FMuMLvelRB+9LqZ+ET13NpT2ygR3ArTHem9FBicSSi/cCjeMoLw9E3M1mDqH1KY367NnddZKvxkCML5AAAA==',
+  bottle_read: 'data:image/webp;base64,UklGRuwAAABXRUJQVlA4IOAAAACwBQCdASoWABwAPp1Amkklo6IhKA1QsBOJaACdMzQ/d8i5QAzeX+VYKklKJel6fTkynwRbGmAA/bDwZ88YfHdiHmdYNRJcG3j+9zm+hrQMJBA98GcXY3v9CDbEwQWZcW06gMW1inJqjml/+Mp6A77dQ+sAXF9XPRGn8rJIzkxd8/1W4ZyzSMvanvq2WJTjiQRByQe+poUJUb+Kq0/1Ko1dRaPgJ/IFmsiAGKWvAKq+Etf8PuCxoTj9Zl4/d2dZSay7adyJ1I84Fya6nTrktgNn6sBSTmWuG9JzMg4REAAAAA==',
   castle_claim: 'data:image/webp;base64,UklGRgIBAABXRUJQVlA4IPYAAAAQBgCdASoWABwAPp1EmUolo6IhqA1QsBOJbACdMuN/h6BTR3bsU/4LM/mkZDqDrDVzL6kWTqpedHgA/sHQepZNFRZeWYbDSJ/5IFTb5Poqmqj8ziiDpJoUgmpW9xyEiX+qpQIAZV0XsnnLZi19iQruSuhUJfRJ5GW6y+Dv8WwELVrbTKCQSI9GPk/EDigvLZGjz7HP75dLZ0jOzvRa4bjtUOrZ23qAKM3Rus/viTroM6AdsS8ziqkgfyOxobbXr/g8bfK3x1vxTOSbIz7jGbhQghfXA2fSdWvcCFpLt0ZikNiXpIUICmwOg/T0bF1UaUge2VmmAAA=',
   castle_favour: 'data:image/webp;base64,UklGRu4AAABXRUJQVlA4IOIAAAAQBgCdASoWABwAPp1CmUmlo6IhKA1QsBOJZgCdMoRkm8UMZtMxAM9wAargixvivg1Oz0x3y585/gAA/t2wzs+dxwBp7fdXmzPM6V6G0tHVhIf3B/DqJmHa1YQailmdMSPCvxYEMEPwv2gVpILFGkWyQ6LnK+3JaLcNWfsBhQJ+Od7vANTY3xTEMc0rqs+10FAP88S1eVh5cY4k4AA9mNzE7GzwoLnhF08VM/qICDLXyLmJB5O7QSy3D7ChxUiiXt9HbROQvJDME62Am6oWfmN7RQGt+CXo70DMRR/XWQI1mHIA',
   cave_first: 'data:image/webp;base64,UklGRrYAAABXRUJQVlA4IKoAAAAQBACdASoWABwAPp1EnEolo6KhqAqosBOJYwAAJ/86Nlb0IC60BNLvAAD+9KEWsdhz+mvpwDSGkGLmXp1y73gxXkvdhkeFjaCS0ZsY6DWs36Jb6enCRSfUX4ZvG8j4jZn/5Lde6I+DFb/+bcuBWunoyi04jE4BBX0YSxwtkbmqyidi/EvWsAFy9tTJnIOMrNFdhhNFy3Yr+PckB0d26VqDTsx+Au6q6AAAAA==',
@@ -158,6 +159,7 @@ const ART_TONES = {
   booth_sundries_used: '#664023',
   booth_training_intro: '#472f22',
   booth_training_used: '#522a15',
+  bottle_read: '#ae6f3e',
   castle_claim: '#935d29',
   castle_favour: '#834717',
   cave_first: '#4f301d',
@@ -377,6 +379,11 @@ const ART_CUTS = {
     'data:image/webp;base64,UklGRjQAAABXRUJQVlA4ICgAAACwAQCdASoDAAQAAkA4JYwCdAEO/gLsAP78uGWKFshuTtDiP/W96rAA',
     'data:image/webp;base64,UklGRjoAAABXRUJQVlA4IC4AAADQAQCdASoGAAgAAkA4JYwCdAEPAd6lsAD++pPcn/9PK8ZxKSW0giFn7yCCXAAA',
     'data:image/webp;base64,UklGRkoAAABXRUJQVlA4ID4AAADQAQCdASoLAA4AAkA4JQBOgCKepI2FAAD++KASb4iAwClH0G5sOjOZijPrzYzNZBNcXPYL0Pc/cgT7V6fgAA==',
+  ],
+  bottle_read: [
+    'data:image/webp;base64,UklGRkIAAABXRUJQVlA4IDYAAADwAQCdASoDAAQAAkA4JQBOiP/wPRL8UYAA/u9/y404cFQLi5NyWZXLQUnR3i7A12s5tVppgAA=',
+    'data:image/webp;base64,UklGRk4AAABXRUJQVlA4IEIAAADwAQCdASoGAAgAAkA4JZACdGuAAt0aNUAAzezXj38U9c/MlGQAjZ5O812F6KWxpaV9nk7auYPC+pQ0H8AgTNmAAAA=',
+    'data:image/webp;base64,UklGRmwAAABXRUJQVlA4IGAAAABQAgCdASoLAA4AAkA4JbACdFQgA5pdpX2W5gAA+V/lGBJiDtImXgsJkn/JzJVgUyqYtqNrbv+P6pOCJHZbOAempFeY/jRvD7W8bzf+A1cD4a4PzCe/9ZIfhtLYrmdgAAA=',
   ],
   castle_claim: [
     'data:image/webp;base64,UklGRkQAAABXRUJQVlA4IDgAAADQAQCdASoDAAQAAkA4JYgCdAEPClmUAAD+9KF6P8JPEiHV18YykQnvNd4V4UivG93cCczdYoAAAA==',
