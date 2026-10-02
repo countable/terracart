@@ -5619,7 +5619,21 @@ class MapScene extends Phaser.Scene {
         c._dmgPopupNextT = now + DMG_POPUP_BEAT_MS;
       }
     }
-    if (!dead) return false;
+    if (!dead) {
+      // A BLOW divides a splitting slime (creature_ai.js enemySplit — the
+      // roster row's ability); the ground's damage (lava, light, a burn) does
+      // not, or a burning slime would divide itself every tick. The striker's
+      // side is whoever dealt it: a shot's origin when the caller says, else
+      // the player's feet.
+      if (dealt > 0 && !['lava', 'light', 'burn'].includes(source)) {
+        const from = options.from || this.playerM || { x: c.x - 1, y: c.y };
+        if (enemySplit(this, c, from.x, from.y, now) && now >= (this._splitFlashT || 0)) {
+          this._splitFlashT = now + 2500;
+          this.flash('The slime splits!', this.viewCenterX, this.viewCenterY - 40);
+        }
+      }
+      return false;
+    }
     if (this._workProgress?.combat === c) this.cancelWorkProgress();
     this.resolveDefeat(c, source);
     return true;
@@ -5712,7 +5726,9 @@ class MapScene extends Phaser.Scene {
       // It is NOT credited: it falls as one coin on the foe's cell carrying
       // the whole amount, and the coin tap (interact.js 'coindrop') pays it
       // and pops the real number there.
-      const coins = Combat.enemyBounty(victim.kind, this.depth, Combat.powerMul(victim));
+      // A SPLIT slime's halves pay by share (creature_ai.js enemySplit): the
+      // lineage sums to one slime's wage however many pieces it fell in.
+      const coins = Combat.enemyBounty(victim.kind, this.depth, Combat.powerMul(victim) * (victim._splitShare ?? 1));
       if (coins > 0) this._dropBountyCoin(victim, coins);
       const name = Combat.monster(victim.kind)?.name || 'Slime';
       const elite = Combat.isElite(victim);

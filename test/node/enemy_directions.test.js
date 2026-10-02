@@ -35,7 +35,11 @@
       assert.eq(a.directions, base.directions, row.id);
       const c = { kind: row.id, _facing: 'left', _moveUntil: 2000, _artScale: 0.65 };
       assert.eq(SL.creatureScale(row.id, SL.creatureInstScale(c)), a.scale * 0.65);
-      assert.eq(SL.creatureAppearance(c, 0).frame, 16);
+      // The first MOVE frame of the base's side-facing row: 16 on an enemy48
+      // sheet, the row's own first frame on a sheet with an authored table
+      // (the goblin runt walks the club goblin's).
+      const side = base.directions.side || base.directions.left;
+      assert.eq(SL.creatureAppearance(c, 0).frame, side.move[0]);
     }
   });
   test('enemy direction: unsupported sheets keep their original cycle, mirroring and sheet hop', () => {
