@@ -31,27 +31,34 @@
 const CELL = 7;
 const goblin = (id, x, y) => ({ kind: 'goblin', id, x, y });
 
-test('turret art: generated restored and ruined sprites retain the shared cell footprint', () => {
-  const assets = new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC + '\nreturn ASSETS;')({}, EnemyRoster, SpriteLayout);
-  for (const [key, name] of [['tower', 'restored'], ['tower_unclaimed', 'wreck']]) {
-    const row = assets[key];
-    assert.eq(row.kind, 'image');
-    assert.eq(row.path, `assets/Objects/Generated/castle_tower_${name}.png`);
-    const size = pngDims(row.path);
-    assert.truthy(size, `${name} art exists`);
-    assert.eq(size.w, 28);
-    assert.eq(size.h, 42, 'the live flag and arrow lift share this crown height');
+test('turret art: both states bake from castle stone without changing the wall palette', () => {
+  const art = new Function('lerp', TEXTURES_SRC + '\nreturn { makeTowerTexture, CASTLE_STONE, CASTLE_STONE_UNCLAIMED };')(lerp);
+  const palettes = [art.CASTLE_STONE, art.CASTLE_STONE_UNCLAIMED];
+  const before = JSON.stringify(palettes);
+  const textures = new Map();
+  const scene = { textures: {
+    exists: key => textures.has(key),
+    createCanvas(key, w, h) {
+      const colours = [];
+      const ctx = { clearRect() {}, fillRect() { colours.push(this.fillStyle); },
+        createLinearGradient: () => ({ addColorStop() {} }),
+        getImageData: () => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData() {} };
+      const tex = { w, h, colours, getContext: () => ctx, refresh() {} };
+      textures.set(key, tex); return tex;
+    },
+  } };
+  art.makeTowerTexture(scene);
+  art.makeTowerTexture(scene, palettes[1], 'tower_unclaimed');
+  for (const [i, key] of ['tower', 'tower_unclaimed'].entries()) {
+    const tex = textures.get(key);
+    assert.eq(tex.w, 28); assert.eq(tex.h, 42);
+    assert.eq(tex.colours[0], palettes[i].FACE.s, 'tower uses the wall face stone');
   }
-  assert.falsy(/makeTowerTexture\(this/.test(SCENE_SRC), 'gameplay uses loaded sprites instead of procedural turrets');
-  const scene = { textures: { exists: () => true }, save: {}, isClaimedKey: () => false };
-  const row = Render.objectAppearance(scene, new Map(), false).RENDER_SPEC.tower;
-  const tower = { kind: 'tower', castle: 'art-castle' };
-  assert.eq(row.key(tower, scene), 'tower_unclaimed');
-  scene.isClaimedKey = () => true;
-  assert.eq(row.key(tower, scene), 'tower');
-  assert.eq(JSON.stringify(row.origin), '[0.5,1]');
-  assert.eq(row.scale, 1);
-  assert.eq(row.dyPx, CELL_PX / 2);
+  assert.eq(JSON.stringify(palettes), before, 'baking a tower must not recolour walls');
+  const spec = Render.objectAppearance({ textures: scene.textures, save: {} }, new Map()).RENDER_SPEC.tower;
+  assert.eq(spec.scale, 1); assert.eq(spec.dyPx, CELL_PX / 2);
+  assert.eq(spec.key({}, { textures: scene.textures, isClaimedKey: () => false }), 'tower_unclaimed');
+  assert.eq(spec.key({}, { textures: scene.textures, isClaimedKey: () => true }), 'tower');
 });
 
 test('turret: a Wood-tier bow at one fifth the player cadence — all derived', () => {

@@ -4485,13 +4485,15 @@ Render.objectAppearance = function (scene, houseRoles) {
     // bottom-centre (origin 0.5, 1.0) and dropped half a cell from the cell
     // CENTRE that sy gives us, so its grounding line lands ON the cell's
     // bottom edge — not the ~2px short of it the old 0.95 origin left. The
-    // generated sprite carries no bottom padding (assets.js) so frame bottom
+    // texture carries no bottom padding (see makeTowerTexture) so frame bottom
     // IS art bottom, and its art is symmetric about the frame's centre column,
     // so origin x 0.5 centres it on the cell. Towers share the world painter
     // pass and give way to anything whose feet are farther south.
-    // Separate restored and ruined sprites keep the same footprint. Claiming
-    // the castle swaps the art; the flag stays a live overlay above the crown.
-    // Fall back to the restored key if a stale cache lacks the wreck sprite.
+    // A turret has TWO baked textures, not one texture and a tint: an unclaimed
+    // castle's masonry is generated in the shaded palette (textures.js), and a
+    // tower that took a multiply tint instead never quite landed on the wall
+    // colour beneath it. Falls back to the lit key if the second bake is
+    // missing, so a stale texture cache can't blank the turret.
     tower:  { key: (o, sc) => (sc && sc.isClaimedKey && !sc.isClaimedKey(o.castle)
                                && sc.textures.exists('tower_unclaimed'))
                               ? 'tower_unclaimed' : 'tower',
