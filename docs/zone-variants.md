@@ -236,3 +236,12 @@ Finite finds, shrine and guards are seated first and keep their existing budgets
 and identities; background mining material can decrease. Other motifs and sites
 crossing tile boundaries keep their canonical layout until shared geometry is
 available. The review panel reports the chosen ring radius or frontage bed.
+
+Parking geometry is removed before road masks and nexus fitting. In addition to
+explicit parking aisles and parking-POI proximity, the filter recognizes narrowly
+constrained unlabelled service-road patterns: three substantial parallel rows
+joining one long access road, or a three-leg hairpin with a matching interior
+row. Explicit driveways/alleys and the separate access road remain roads. This
+recovers missing parking metadata without treating every service road near a
+church as a parking lane. Removed geometry still feeds quarries where an
+existing nexus does not already own the ground.
