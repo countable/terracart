@@ -1042,6 +1042,10 @@
   function install(scene) {
     // Flag the scene so other systems (GPS, etc.) know to behave differently.
     scene._sandboxMode = true;
+    // Authored buildings have tile geometry, not OSM polygon rings. The
+    // polygon renderer suppresses their tiled floors and walls without a
+    // replacement, so keep the existing tile painter for this world.
+    if (typeof BuildingOverlay !== 'undefined') BuildingOverlay.setEnabled(scene, false);
     // If a previous session had already started watching GPS, kill the watch so
     // an incoming fix doesn't race the teleport at the bottom of this function.
     if (scene.gpsWatchId != null && typeof Geo !== 'undefined') {

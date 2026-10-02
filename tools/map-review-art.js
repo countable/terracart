@@ -47,7 +47,7 @@ const MapReviewArt = (() => {
           if(spec.onLoad) spec.onLoad(scene);
         } catch(error) { failures.push(key); console.warn('Map art asset:',key,error); }
       }));
-      makePotOfGoldTexture(scene); makeTrapTextures(scene);
+      makeTowerTexture(scene); makePotOfGoldTexture(scene); makeTrapTextures(scene);
       // Only phase zero is needed. Use the very same painter and seed as the game.
       for(const [type,spec] of Object.entries(BIOME_TEX)) for(let v=0;v<spec.variants;v++) {
         const t=textures.createCanvas(`biome${type}_${v}`,32,32);

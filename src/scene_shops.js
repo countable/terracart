@@ -437,7 +437,8 @@ class SceneShops {
       cancelLabel: 'Later',
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
       cost: offer.label,
-      canAfford: offer.canAfford() && this.invRoomFor(id) >= buyQty,
+      canAfford: offer.canAfford(),
+      disabledReason: this._shopBagSpaceReason(id, buyQty),
       onAccept: () => {
         if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
         if (this.invRoomFor(id) < buyQty) {
@@ -1063,6 +1064,15 @@ class SceneShops {
     return `<div style="margin-top:6px">Shop tier ${tier} · ${tierBadgeHTML(tier)}</div>`;
   }
 
+  // Cash and capacity are separate requirements: a full bag must not paint
+  // an affordable price red or silently disable the purchase.
+  _shopBagSpaceReason(id, qty) {
+    if (this.invRoomFor(id) >= qty) return '';
+    const held = Inventory.count(this.save, id);
+    const cap = Inventory.stackCapFor(this.save, id);
+    return `Not enough bag space: holding ${held}/${cap}. This purchase needs room for ${qty}. Use or sell some, or equip a larger bag.`;
+  }
+
   _presentThemedItem(sx, sy, house, recordDeal, id) {
     const item = ITEM_BY_ID[id];
     // The base is the ladder's (ShopsMath.listPrice — the Book climbs with
@@ -1078,7 +1088,8 @@ class SceneShops {
       get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
       blurb: this.shopTierBadgeHTML(house),
       cost: offer.label,
-      canAfford: offer.canAfford() && this.invRoomFor(id) >= buyQty,
+      canAfford: offer.canAfford(),
+      disabledReason: this._shopBagSpaceReason(id, buyQty),
       onAccept: () => {
         if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
         if (this.invRoomFor(id) < buyQty) {

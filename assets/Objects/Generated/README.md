@@ -83,7 +83,8 @@ Batch 3 (the macro stalls) is wired into the game (src/assets.js `macro_<kind>`)
 
 ## Castle tower pair
 
-`castle_tower_restored.png` and `castle_tower_wreck.png` replace the runtime
+`castle_tower_restored.png` and `castle_tower_wreck.png` are retired candidates.
+Their reduced detail was too noisy at game scale; runtime uses the original
 procedural castle turret. Both are transparent 28×42 PNGs, centered and seated
 on the bottom row; claim state selects the restored version. The separate
 castle flag remains live. Generated with the built-in image tool, using the
