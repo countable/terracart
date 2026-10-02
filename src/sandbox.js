@@ -244,7 +244,7 @@
       // house's own row (the yard in front stays walkable so the 6m house
       // tap-target stays reachable from the street side).
       for (const [hx, hy] of [[1, 0], [7, 0], [1, 7], [7, 7]]) {
-        p.cell(hx, hy, T.BUILDING); p.cell(hx + 1, hy, T.BUILDING);
+        p.rect(hx, hy, 2, 1, T.BUILDING);
       }
       // A vacant lot across the street from the houses — WASTELAND, the
       // unclassified landuse that plays as residential but looks like scrub.
@@ -332,6 +332,7 @@
   //    BUILDING_MED (fort, with a cache chest).
   const CASTLE = {
     name: 'CASTLE', label: 'CASTLE · FORT', w: 10, h: 8, fill: T.GRASS,
+    subLabels: [{ label: 'CASTLE', dx: 2, dy: 4 }, { label: 'FORT', dx: 7, dy: 4 }],
     paint(p) {
       p.rect(0, 0, 5, 8, T.BUILDING_LARGE);
       p.rect(6, 0, 4, 8, T.BUILDING_MED);
@@ -407,12 +408,39 @@
     },
   };
 
+  // Beside the farm: ordinary targets and fuel exercise the shipping combat,
+  // potion-recipient and spreading-fire paths without distant world rolls.
+  const PRACTICE = {
+    name: 'PRACTICE', label: 'SPELLS · POTIONS · FIRE', w: 14, h: 14, fill: T.GRASS,
+    // Keep combat clear of the major-road buffers above and below the yard.
+    spawn: { dx: 6, dy: 7 },
+    ambientFlora: false,
+    subLabels: [{ label: 'POTION TARGETS', dx: 3, dy: 4 },
+      { label: 'FIRE PRACTICE', dx: 10, dy: 4 }],
+    populate(s) {
+      s.creature('plant', 2, 6, 1);
+      s.creature('plant', 4, 6, 2);
+      s.creature('plant', 6, 6, 3);
+      s.creature('goblin', 3, 9, 1);
+      s.creature('goblin_archer', 6, 9, 1);
+      s.creature('chicken', 1, 9, 1);
+      // Trees survive as charred trunks; shrubs and tar are consumed.
+      s.tree(4, 10, 6);
+      s.wildplant('shrub', 11, 6);
+      s.object('tar', 12, 6);
+      s.wildplant('longgrass', 10, 7);
+      s.tree(4, 10, 9);
+      s.wildplant('shrub', 11, 9);
+      s.object('tar', 12, 9);
+    },
+  };
+
   // Bands run north to south. Each connective road owns both its painted
   // cells and its vector/variant row through the same record.
   const BANDS = [
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Oak Road', thick: 1, variant: 'hedgerow' }, scenes: [FOREST, ORCHARD, ROCK] },
     { roadAfter: { type: T.ROAD_LG, class: 'primary', name: 'Main Street', thick: 2, variant: 'lantern' }, scenes: [BARNYARD, PADDOCK, BEACH, MARSH] },
-    { roadAfter: { type: T.ROAD_MD, class: 'tertiary', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND] },
+    { roadAfter: { type: T.ROAD_MD, class: 'tertiary', name: 'Mill Lane', thick: 1, variant: 'burned' }, scenes: [PLAZA, FARMLAND, PRACTICE] },
     { roadAfter: { type: T.ROAD, class: 'minor', name: 'Garden Row', thick: 1, variant: 'toadstool' }, scenes: [RESIDENTIAL, CIVIC, SMALLHOUSE] },
     { roadAfter: null, scenes: [RECREATION, CASTLE] },
     { roadAfter: null, scenes: [SHOWCASE, ZONES] },
@@ -453,6 +481,18 @@
     return routes;
   }
   const ROUTES = buildRoutes();
+
+  function resolveDestination(key) {
+    const destination = SandboxDestinations.find(key);
+    if (destination?.road || destination?.roadName) {
+      const route = ROUTES.find(r => destination.road ? r.variant === destination.road : r.name === destination.roadName);
+      if (route) return { lx: Math.floor((route.x0 + route.x1) / 2), ly: route.y };
+    }
+    const scene = sceneByName(destination?.scene || String(key || '').trim().toUpperCase()) || sceneByName('PLAZA');
+    const point = destination?.sub ? scene.subLabels?.find(s => s.label === destination.sub) : scene.spawn;
+    return { lx: scene.lx + (point?.dx ?? Math.floor(scene.w / 2)),
+      ly: scene.ly + (point?.dy ?? Math.floor(scene.h / 2)) };
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // Detection
@@ -535,6 +575,29 @@
       // ready so it's never awaited, but harmless to satisfy the shape.
       promise: Promise.resolve(null),
     };
+    // The live renderer draws source polygons, not building terrain cells.
+    // Give authored footprints the same ownership as their house/turrets so
+    // floors, walls and objects agree before and after claiming a building.
+    for (const shape of buildingShapes) {
+      const [x0, y0, x1, , , y1] = shape.ring;
+      const inside = (o) => o.x - tx * tileEdgeM >= x0 && o.x - tx * tileEdgeM < x1
+        && o.y - ty * tileEdgeM >= y0 && o.y - ty * tileEdgeM < y1;
+      const house = objects.find((o) => o.kind === 'house' && o.tier === shape.tier && inside(o));
+      if (house) shape.key = house.id;
+      const owner = entry.ownerKeys.length || 1;
+      entry.ownerKeys[owner] = shape.key;
+      for (let iy = Math.round(y0 / cellM); iy < Math.round(y1 / cellM); iy++) {
+        for (let ix = Math.round(x0 / cellM); ix < Math.round(x1 / cellM); ix++) {
+          entry.owners[iy * cellsPerEdge + ix] = owner;
+        }
+      }
+      let first = true;
+      for (const tower of objects.filter((o) => o.kind === 'tower' && inside(o))) {
+        tower.castle = shape.key;
+        tower.flagPost = first;
+        first = false;
+      }
+    }
     if (finalize) finalize(entry, context);
     entry.baseGrid = entry.grid.slice();
     entry.genObjects = entry.objects.slice();
@@ -683,6 +746,7 @@
       return true;
     };
     for (const s of LAYOUT.scenes) {
+      if (s.ambientFlora === false) continue;
       const byT = new Map();
       for (let dy = 0; dy < s.h; dy++) for (let dx = 0; dx < s.w; dx++) {
         const ix = originIX + s.lx + dx, iy = originIY + s.ly + dy;
@@ -735,6 +799,14 @@
       };
       const rect = (dx, dy, w, h, terrain) => {
         for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) setCell(dx + xx, dy + yy, terrain);
+        if (![T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE].includes(terrain)) return;
+        const x0 = Math.max(0, ix0 + dx) * c.cellM, y0 = Math.max(0, iy0 + dy) * c.cellM;
+        const x1 = Math.min(cellsPerEdge, ix0 + dx + w) * c.cellM;
+        const y1 = Math.min(cellsPerEdge, iy0 + dy + h) * c.cellM;
+        if (x1 <= x0 || y1 <= y0) return;
+        c.buildingShapes.push({ ring: Float32Array.from([x0, y0, x1, y0, x1, y1, x0, y1]),
+          tier: terrain, areaM2: (x1 - x0) * (y1 - y0),
+          key: `${baseId}_building_${s.name}_${dx}_${dy}` });
       };
       // 1. base terrain fill
       rect(0, 0, s.w, s.h, s.fill);
@@ -745,19 +817,6 @@
           rect,
           roadLabel: (dx, dy, text) => { roadLabels[`${ix0 + dx}_${iy0 + dy}`] = { text, angle: 0 }; },
         });
-      }
-      // Castle floor, walls and towers share one ownership identity.
-      if (s.name === 'CASTLE') {
-        const owner = c.ownerKeys.push(`${baseId}_castle_${s.name}`) - 1;
-        const x0 = ix0 * c.cellM, y0 = iy0 * c.cellM;
-        const x1 = (ix0 + 5) * c.cellM, y1 = (iy0 + 8) * c.cellM;
-        c.buildingShapes.push({ key: c.ownerKeys[owner], tier: T.BUILDING_LARGE,
-          ring: Float32Array.from([x0, y0, x1, y0, x1, y1, x0, y1]),
-          areaM2: (x1 - x0) * (y1 - y0) });
-        for (let dy = 0; dy < s.h; dy++) for (let dx = 0; dx < s.w; dx++) {
-          const at = (iy0 + dy) * cellsPerEdge + ix0 + dx;
-          if (grid[at] === T.BUILDING_LARGE) c.owners[at] = owner;
-        }
       }
       // 3. static interactables
       s.populate(makeScenePush(ix0, iy0, s.name, baseId, { objects, wildplants, creatures }, wmAt));
@@ -1007,6 +1066,11 @@
       tx: c.tx, ty: c.ty, N: c.cellsPerEdge, tileEdgeM: c.tileEdgeM }));
     layStreetDressing(entry, c, dressing);
     entry.streetArea = StreetVariants.area(index, c.cellsPerEdge);
+    // Authored hazards need the same movement index as generated dressing.
+    for (const o of entry.objects) if (StreetVariants.SLOW_KINDS.has(o.kind)) {
+      const { ix, iy } = itemCell(o, c);
+      (entry.slowCells ||= new Map()).set(iy * c.cellsPerEdge + ix, o.kind);
+    }
 
     const wagon = entry.objects.find((o) => o.wagonCandidate);
     if (wagon) {
@@ -1104,10 +1168,11 @@
       }
     }
 
-    // Teleport the player to the PLAYER PLAZA scene's centre.
-    const plaza = sceneByName('PLAZA');
-    const playerCellIX = gridOriginIX + plaza.lx + Math.floor(plaza.w / 2);
-    const playerCellIY = gridOriginIY + plaza.ly + Math.floor(plaza.h / 2);
+    // A named scene link makes a focused browser check repeatable.
+    const params = new URLSearchParams(location.search);
+    const destination = resolveDestination(params.get('sandboxZone') || params.get('sandboxScene'));
+    const playerCellIX = gridOriginIX + destination.lx;
+    const playerCellIY = gridOriginIY + destination.ly;
     const targetWorldX = centreTX * tileEdgeM + (playerCellIX + 0.5) * cellM;
     const targetWorldY = centreTY * tileEdgeM + (playerCellIY + 0.5) * cellM;
     scene.playerM.x = targetWorldX - scene.startWorldM.x;
@@ -1217,6 +1282,7 @@
     };
     if (centreEntry) seedCoverageState(save, centreEntry, originIX, originIY,
       centreTX, centreTY, cellM);
+    seedMechanicsState(scene, centreEntry);
 
     // ── Restore every house in the sandbox tile. Tier-9 houses render as a
     //    generic "wreck" until restored — so without this, the blacksmith /
@@ -1381,6 +1447,28 @@
     if (typeof scene.persistSave === 'function') scene.persistSave();
   }
 
+  function seedMechanicsState(scene, entry) {
+    const save = scene.save;
+    // Fire history is permanent in normal play; keeping it here made a second
+    // sandbox visit unable to ignite the very same demonstration cells.
+    save.groundFire = {};
+    save.burnedObjects = [];
+    save.potionEffects = {};
+    scene._groundFireSave = null;
+    delete save.tomeDays;
+    const targets = (entry?.creatures || []).filter(c => c.id.includes('_PRACTICE_plant_'));
+    for (const [i, id] of ['giant_potion', 'shrinking_potion'].entries()) {
+      if (targets[i]) PotionEffects.apply(scene, targets[i], id);
+    }
+    // An ordinary third plant makes scale and health-cap changes comparable.
+    // Ignite only the upper fuel row; the lower row remains available for casts.
+    const fuel = entry?.objects.find(o => o.id.includes('_tree_PRACTICE_') && o.id.endsWith('_10_6'));
+    if (fuel) {
+      const cell = worldMetersToAbsCell(scene, fuel.x, fuel.y);
+      scene._igniteGroundCell(cell, Date.now());
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────────────────
   // Scene name labels (debug orientation captions)
   // ─────────────────────────────────────────────────────────────────────────
@@ -1448,4 +1536,7 @@
   global.Sandbox.buildForTest = buildForTest;
   global.Sandbox.seedCoverageState = seedCoverageState;
   global.Sandbox.layoutForTest = LAYOUT;
+  global.Sandbox.seedMechanicsState = seedMechanicsState;
+  global.Sandbox.stockInventoryForTest = stockSandboxInventory;
+  global.Sandbox.resolveDestination = resolveDestination;
 })(window);

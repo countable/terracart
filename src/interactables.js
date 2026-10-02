@@ -685,7 +685,7 @@ const INTERACTABLES = {
         ctx.dirty = true;
         const name = (typeof gearName === 'function')
           ? gearName(result.kind, result.slot, result.tier)
-          : `${result.slot} T${result.tier}`;
+          : result.slot;
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(result.kind, result.slot, result.tier, 64) : '★';
         scene.showChestRewardModal({ ...dress, iconHTML, name, sub: 'equipped', color: UI_TREASURE, kindIcon,
@@ -722,7 +722,7 @@ const INTERACTABLES = {
         const gearKind = result.gearKind || 'relic';
         const name = (typeof gearName === 'function')
           ? gearName(gearKind, result.slot, result.tier)
-          : `${result.slot} T${result.tier}`;
+          : result.slot;
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(gearKind, result.slot, result.tier, 64) : '★';
         scene.showChestRewardModal({ ...dress, iconHTML, name, sub: 'already own better — discarded', color: '#aaa',
@@ -945,7 +945,7 @@ const INTERACTABLES = {
               sub: got.kind === 'gold' ? 'Already better — paid in coin instead.'
                 : 'Someone left this for whoever climbed up to look.' });
           if (shown) return;
-          const label = (typeof gearName === 'function') ? gearName('relic', got.slot, got.tier) : `${got.slot} T${got.tier}`;
+          const label = (typeof gearName === 'function') ? gearName('relic', got.slot, got.tier) : got.slot;
           if (got.kind === 'relic') scene.flashLoot(`\u{1F52D} \u2192 \u2728 ${label}`, '#ffe066', 1.6);
           else scene.flashLoot(`\u{1F52D} \u2192 ${got.amount}`, '#ffe066', 1.2, null, scene.coinIconEl?.());
         };

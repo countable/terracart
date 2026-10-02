@@ -94,6 +94,20 @@
       'and its +1 lands on top of the seed');
   });
 
+  test('quota: vistas neither spend the T5 seat nor increase the density budget', () => {
+    const ordinary = Array.from({ length: 100 }, (_, i) => mk(i, 'civic', i + 1));
+    const vistas = Array.from({ length: 900 }, (_, i) => mk(100 + i, 'civic', 0, {
+      vista: Object.keys(Scenic.VISTA_CHEST_TIER)[i % 4],
+    }));
+    assert.eq(WorldGen.seedChestTiers([...vistas, ...ordinary]), 100);
+    assert.eq(ordinary.filter(o => o.tierSeed === 5).length, 1);
+    assert.eq(ordinary[0].tierSeed, 5, 'ordinary best-ranked chest retains the T5 seat');
+    for (const vista of vistas) {
+      assert.eq(vista.tierSeed, undefined);
+      assert.eq(chestTier(vista), Scenic.VISTA_CHEST_TIER[vista.vista]);
+    }
+  });
+
   test('quota: the seed is the tier; the unseeded are the unstamped T2', () => {
     assert.eq(chestTier({ kind: 'chest', poiClass: 'bus', tierSeed: 4, poiDensity: 50 }), 4,
       'a seeded chest ignores its class count');

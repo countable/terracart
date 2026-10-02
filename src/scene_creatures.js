@@ -1860,7 +1860,8 @@ class SceneCreatures {
       //   A GHOST has one more ward point: a campfire (fireWardTrip) — the
       // same latch, a third reason, asked only for a haunting kind.
       const haunts = SpriteLayout.creatureHaunts(c.kind);
-      const stationary = !!Combat.monster(c.kind)?.stationary;
+      const stationary = !!c.stationary || EnemyRoster.isRooted(c.kind)
+        || !!Combat.monster(c.kind)?.stationary;
       // An ENRAGED game animal (a hunted deer — `fightsBack`, _rageUntil) is
       // hostile for as long as it is angry, so it takes Home's ward exactly as
       // an enemy does: one lane, another reason. Warded, it is turned away

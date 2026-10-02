@@ -54,7 +54,10 @@
     const slots = s.slots();
     assert.eq(slots[0].dataset.gear, 'relic:sword');
     assert.eq(slots[1].dataset.slot, 0); assert.eq(slots[2].dataset.slot, 1);
-    assert.truthy(slots[1].textContent.includes(`T${ITEM_BY_ID.orb.baseTier}`));
+    assert.truthy(slots[1].children.some(c => c.innerHTML === tierBadgeHTML(itemTierOf('orb'), 6, 2)),
+      'carried relic shows its colored rarity badge');
+    assert.truthy(slots[0].children.some(c => c.innerHTML === tierBadgeHTML(2, 6, 2)),
+      'equipment shows rarity without numeric tier jargon');
     s.click(slots[1]);
     assert.eq(getSelectedSlot(s.save).id, 'orb'); assert.falsy(s.save.selGear);
     assert.eq(s.useMethod, 'useOrb'); assert.falsy(s.equipSlot);

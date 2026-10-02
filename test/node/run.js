@@ -143,6 +143,7 @@ const FILES = [
   'castle_styles.js', 'building_overlay.js',
   // The browser sandbox now exposes a pure tile builder. Loading it here pins
   // the same authored scenes, vector roads and dressing that install() uses.
+  'sandbox_destinations.js',
   'sandbox.js',
   // render.js needs Phaser to DRAW, but it deliberately reads no globals at
   // load time (see the CANVAS_W comment in drawObjects), so loading it here is

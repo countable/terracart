@@ -610,8 +610,8 @@ const BASE_TIER = {
   apple: 2, cherry: 2, peach: 7, apricot: 2,
   orange: 2, mango: 3,
   banana: 2, coconut: 2,
-  // Plantable fruit-tree saplings — common apple (T3), very rare peach (T7).
-  apple_sapling: 3, peach_sapling: 7, acorn: 2,
+  // Plantable fruit-tree saplings — apple (T4), very rare peach (T7).
+  apple_sapling: 4, peach_sapling: 7, acorn: 2,
   // Animals balance basic catches, specialised fauna and lasting utility.
   // Combat HP stays in Combat; tier no longer follows HP alone.
   crow: 1, rabbit: 1,
@@ -928,8 +928,8 @@ const ITEMS = [
   // Plantable fruit-tree saplings. kind:'sapling' routes the plant action to
   // the fruit-tree growth path (a growing `fruittree` object) rather than the
   // 4-stage crop bed. `grows` is the fruit-tree species. Only two exist: the
-  // common apple (T3) and the very rare peach (T7).
-  { id: 'apple_sapling', name: 'Apple Sapling', kind: 'sapling', grows: 'apple', baseTier: 3 },
+  // apple (T4) and the very rare peach (T7).
+  { id: 'apple_sapling', name: 'Apple Sapling', kind: 'sapling', grows: 'apple', baseTier: BASE_TIER.apple_sapling },
   { id: 'peach_sapling', name: 'Peach Sapling', kind: 'sapling', grows: 'peach', baseTier: BASE_TIER.peach_sapling },
   // The ACORN is a sapling too, but it plants TIMBER, not fruit: `plants:'tree'`
   // routes it to a growing `tree` object (the thing you chop) instead of a
@@ -1413,7 +1413,8 @@ const PRICES = {
   spear:         5,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a staple like the torch (owner, Oct 2026: 40 was far too dear for one throw)
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
-  scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
+  scarecrow: 20,   // crow/deer ward — sold once at the forced scarecrow shop
+  acorn: 5,
 
   // ── Rock-break minerals ──────────────────────────────────
   coal:      3,
@@ -1787,7 +1788,7 @@ function itemTierOf(id) {
 function tierBadgeColor(tier) {
   return TIER_BADGE_TINT[tier] ?? TIER_BY_NUM[tier]?.color ?? null;
 }
-function tierBadgeHTML(tier, fontPx = 10) {
+function tierBadgeHTML(tier, fontPx = 10, paddingPx = 5) {
   const t = Math.min(7, Math.max(0, Math.floor(Number(tier) || 0)));
   const name = TIER_BADGE_NAMES[t];
   const row = TIER_BY_NUM[t];
@@ -1797,7 +1798,7 @@ function tierBadgeHTML(tier, fontPx = 10) {
   // Dark ink on the pale ores (Iron, Gold, Platinum, Frost), pale on the dark.
   const ink = (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? '#1a1612' : '#fff4e0';
   const bg = '#' + c.toString(16).padStart(6, '0');
-  return `<span class="tier-badge" data-tier="${t}" style="display:inline-block;padding:1px 5px;border-radius:4px;`
+  return `<span class="tier-badge" data-tier="${t}" style="display:inline-block;padding:1px ${paddingPx}px;border-radius:4px;`
     + `font:700 ${fontPx}px ui-monospace,monospace;letter-spacing:.04em;text-transform:uppercase;`
     + `line-height:1.35;vertical-align:middle;background:${bg};color:${ink};">${name}</span>`;
 }
