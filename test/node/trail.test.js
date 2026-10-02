@@ -294,34 +294,41 @@ test('trail prize: an unrecognised reward draws no card and pays nothing', () =>
   assert.eq(s.save.money, 0, 'nothing paid out');
 });
 
-test('trail prize: each card\'s ⓘ says what it does, off the lines the item already carries', () => {
+test('trail prize: a selected card\'s line says what it does, off the lines the item already carries', () => {
   const { _trailRewardBlurb } = __trailPrize;
   const fxId = Object.keys(ITEM_EFFECTS)[0];
   assert.eq(_trailRewardBlurb({ kind: 'item', id: fxId, qty: 1 }), `✦ ${ITEM_EFFECTS[fxId]}`,
     'an item reads its own ✦ line');
   const plain = ITEMS.find((it) => !ITEM_EFFECTS[it.id]);
   if (plain) assert.eq(_trailRewardBlurb({ kind: 'item', id: plain.id, qty: 1 }), null,
-    'an item with no ✦ line gets no ⓘ');
+    'an item with no ✦ line leaves the line empty');
   assert.eq(_trailRewardBlurb({ kind: 'relic', slot: 'axe', tier: 3 }), RELIC_DEFS.axe.blurb,
     'a relic reads its blurb');
   assert.eq(_trailRewardBlurb({ kind: 'armor', slot: 'helmet', tier: 4 }),
     ARMOR_DEFS.helmet.blurb, 'armour shares its story description');
-  assert.eq(_trailRewardBlurb({ kind: 'gold', amount: 5 }), null, 'gold needs no ⓘ');
+  assert.eq(_trailRewardBlurb({ kind: 'gold', amount: 5 }), null, 'gold has nothing to explain');
 });
 
-test('trail prize: the pick lays its cards out in one row, descriptions behind the ⓘ', () => {
+// Oct 2026: a tap on a card SELECTS it (outline + its line under the row) and
+// one Take button pays — no ⓘ per card, no irreversible tap on the card itself.
+test('trail prize: the pick lays its cards out in one row; a tap selects, Take pays', () => {
   const app = SCENE_SRC;
   const pat = app.indexOf('\n  _offerTreasurePick({');
   const pick = app.slice(pat, app.indexOf('\n  }\n', pat));
   assert.truthy(/cards: true,/.test(pick), 'the pick asks for the card row');
+  assert.truthy(/confirmLabel: 'Take',/.test(pick), 'and names its one button');
   assert.truthy(/info: this\._trailRewardBlurb\(reward\),/.test(pick), 'each card carries its description as info');
+  assert.falsy(/ⓘ/.test(pick), 'no ⓘ on the cards');
   const shell = SCENE_SRC;
   const mat = shell.indexOf('\n  showChestRewardModal(');
   const modal = shell.slice(mat, shell.indexOf('\n  }\n', mat));
-  assert.truthy(/if \(a\.info\) \{/.test(modal), 'the shell draws an ⓘ only for an action with info');
-  assert.truthy(/e\.stopPropagation\(\);\s*\/\/ reading a card never takes it/.test(modal),
-    'tapping the ⓘ does not pick the card');
-  assert.truthy(/infoLine\.style\.cssText = 'display:none;/.test(modal), 'descriptions start hidden');
+  assert.falsy(/ⓘ/.test(modal), 'the shell draws no ⓘ');
+  assert.truthy(/if \(!cards\) \{ choose\(a\); return; \}/.test(modal), 'word buttons still act on a tap');
+  assert.truthy(/selected = a;\s*\n\s*for \(const other of row\.children\) other\.style\.outline = other === b \? `2px solid \$\{accent\}` : '';\s*\n\s*infoLine\.innerHTML = a\.info \|\| '';/.test(modal),
+    'a tap on a card selects it: outline and its line, nothing paid');
+  assert.truthy(/take\._setEnabled\(false\);/.test(modal), 'Take starts disabled');
+  assert.truthy(/if \(selected\) choose\(selected\);/.test(modal), 'and pays the selected card only');
+  assert.truthy(/infoLine\.innerHTML = `<span style="opacity:\.6">\$\{pickHint\}<\/span>`;/.test(modal), 'the hint sits on the line until a tap');
 });
 
 // app.js can't load headlessly, so the wiring AROUND those two methods — that
@@ -340,7 +347,7 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
   assert.truthy(/actions: choices\.map\(/.test(pick), 'the choice opens as an actions modal');
   assert.truthy(/onClick: \(\) => \{\s*\n\s*const card = this\._claimTrailReward\(reward\);/.test(pick),
     'and each option only pays when its own button is clicked');
-  assert.truthy(/Take your pick/.test(pick), 'the offer names itself as a pick');
+  assert.truthy(/Choose one gift/.test(pick), 'the offer names itself as a pick of one');
   // The modal shell gives an actions dialog no tap-to-dismiss, so a stray tap
   // can't drop the prize — pin that the offer really is the actions variant.
   // The header: the survivors' thanks, one constant for all three shapes of
@@ -349,7 +356,7 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
     'the header constant');
   assert.truthy(/const header = TRAIL_PRIZE_HEADER;/.test(body), 'the ceremony uses it');
   assert.eq((body.match(/header,/g) || []).length, 3, 'all three shapes carry the header');
-  assert.truthy(/choose one/i.test(body), 'the choice is clear');
+  assert.falsy(/sub: 'Your neighbours offer/.test(body), 'no flavour line under the pick: header, row, line, button');
   assert.falsy(/\$\{walked\}|\$\{next\}/.test(body), 'the ceremony does not duplicate road counters');
 
 });

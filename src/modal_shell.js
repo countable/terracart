@@ -814,13 +814,19 @@ class SceneModals {
   //                          modal becomes a CHOICE (explicit buttons, no
   //                          tap-to-dismiss) instead of a tap-to-continue
   //                          acknowledgement — used for the bag-full chest open.
-  //                          An action may carry `info` (HTML): its button
-  //                          grows an ⓘ, and tapping THAT (not the button)
-  //                          shows the text under the row — tap again, or
-  //                          another card's ⓘ, to swap or hide it. Nothing is
-  //                          chosen by reading.
+  //                          An action may carry `info` (HTML): in the card
+  //                          pick it is the line shown under the row while
+  //                          that card is selected (what the thing does).
   //   cards         bool?  → lay the actions out as equal-width cards on ONE
   //                          row (the pick) instead of wrapping word buttons.
+  //                          A card is SELECTED by a tap (outlined, its info
+  //                          below), and paid only by the one `confirmLabel`
+  //                          button under the row — so a card is read and
+  //                          compared before it is taken, and nothing is
+  //                          chosen by looking. Until a tap, `pickHint` sits
+  //                          on that line and the button is disabled.
+  //   confirmLabel  string? → the pick's button (default 'Take').
+  //   pickHint      string? → the line under an unselected row.
   //   kindIcon      string? → HTML for the kind header's hero GLYPH, replacing
   //                          the MODAL_KINDS emoji (see makeModalShell). The
   //                          chest ceremony passes the sprite the chest it came
@@ -855,7 +861,8 @@ class SceneModals {
     });
   }
   showChestRewardModal({ iconHTML, name, sub, qty, color = UI_TREASURE, accent = UI_TREASURE,
-    onDismiss, header, kind = 'treasure', kindIcon, actions, art, cards = false, tier = 0 }) {
+    onDismiss, header, kind = 'treasure', kindIcon, actions, art, cards = false, tier = 0,
+    confirmLabel = 'Take', pickHint = 'Tap one to see what it does' }) {
     const { wrap, box, mount } = this.makeModalShell('chest-reward-modal', {
       zIndex: 55, borderColor: accent, wrapBg: '#000c', art, centerBody: true,
       kind, kindLabel: header, kindIcon,
@@ -917,10 +924,19 @@ class SceneModals {
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;gap:' + (cards ? 6 : 8) + 'px;justify-content:center;margin-top:10px;'
         + (cards ? 'flex-wrap:nowrap;align-items:stretch;' : 'flex-wrap:wrap;');
-      // One shared line under the row for whichever card's ⓘ was tapped.
+      // One shared line under the row: the pick's hint, then the SELECTED
+      // card's info. Word buttons (no cards) have no line.
       const infoLine = document.createElement('div');
-      infoLine.style.cssText = 'display:none;margin-top:10px;font-size:12px;line-height:1.35;opacity:.9;';
-      let infoOpen = null;
+      infoLine.style.cssText = 'margin-top:10px;font-size:12px;line-height:1.35;opacity:.9;min-height:1.35em;'
+        + (cards ? '' : 'display:none;');
+      if (cards) infoLine.innerHTML = `<span style="opacity:.6">${pickHint}</span>`;
+      const choose = (a) => {
+        wrap.remove();
+        if (typeof a.onClick === 'function') a.onClick();
+        if (typeof onDismiss === 'function') onDismiss();
+      };
+      let selected = null;
+      let take = null;
       for (const a of actions) {
         const b = document.createElement('button');
         b.innerHTML = a.label;
@@ -930,34 +946,38 @@ class SceneModals {
           (a.primary
             ? `background:${accent};color:#1a1612;border:0;`
             : 'background:transparent;color:#ddd;border:2px solid #555;');
-        if (a.info) {
-          const i = document.createElement('span');
-          i.textContent = 'ⓘ';
-          i.setAttribute('role', 'button');
-          i.setAttribute('aria-label', 'What does this do?');
-          i.style.cssText = 'position:absolute;top:0;right:0;width:24px;height:24px;'
-            + 'display:flex;align-items:center;justify-content:center;'
-            + `font:400 15px/1 sans-serif;color:${accent};opacity:.85;`;
-          i.addEventListener('click', (e) => {
-            e.stopPropagation();   // reading a card never takes it
-            const same = infoOpen === b;
-            for (const other of row.children) other.style.outline = '';
-            infoOpen = same ? null : b;
-            infoLine.style.display = same ? 'none' : 'block';
-            if (!same) { infoLine.innerHTML = a.info; b.style.outline = `2px solid ${accent}`; }
-          });
-          b.appendChild(i);
-        }
         b.addEventListener('click', (e) => {
           e.stopPropagation();
-          wrap.remove();
-          if (typeof a.onClick === 'function') a.onClick();
-          if (typeof onDismiss === 'function') onDismiss();
+          if (!cards) { choose(a); return; }
+          // A tap on a card SELECTS it: the outline moves, its line shows,
+          // the Take button arms. Selecting a card never pays it.
+          selected = a;
+          for (const other of row.children) other.style.outline = other === b ? `2px solid ${accent}` : '';
+          infoLine.innerHTML = a.info || '';
+          if (take) take._setEnabled(true);
         });
         row.appendChild(b);
       }
       box.appendChild(row);
       box.appendChild(infoLine);
+      if (cards) {
+        // The one button that pays: the shell's primary in the ceremony's
+        // accent, dead until a card is selected.
+        take = document.createElement('button');
+        take.textContent = confirmLabel;
+        take._setEnabled = (on) => {
+          take.disabled = !on;
+          take.style.cssText = 'margin-top:12px;min-width:55%;padding:10px 18px;border-radius:7px;border:0;'
+            + `font:700 14px ui-monospace,monospace;background:${accent};color:#1a1612;`
+            + (on ? 'cursor:pointer;opacity:1;' : 'cursor:not-allowed;opacity:.4;');
+        };
+        take._setEnabled(false);
+        take.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (selected) choose(selected);
+        });
+        box.appendChild(take);
+      }
     } else {
       // Dismiss on any tap — overlay or box, doesn't matter (this is a "tap
       // to acknowledge" not a "choose action" modal). stopPropagation on the

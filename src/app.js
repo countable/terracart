@@ -5710,9 +5710,13 @@ class MapScene extends Phaser.Scene {
         if (this._bankDiscovery(victim.kind, `slaying an elite ${name}`)) {
           this.flashShiny(0, true, '✨ ELITE SLAIN ✨');   // the wage is the coin
         } else {
+          // Shown as a card (showRewardCard), not a toast: an elite's drop is
+          // a quest-sized reward, and a toast under a fight is missed.
           grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀',
             Combat.ELITE_TREASURE_CONTEXT,
-            { rollBonus: Combat.eliteRollBonus(victim.kind, this.depth) });
+            { rollBonus: Combat.eliteRollBonus(victim.kind, this.depth),
+              ceremony: { kind: 'treasure', header: 'Elite slain',
+                          sub: `The ${name} falls. What it guarded is yours.` } });
         }
       } else if (Combat.isMonster(victim.kind) && Combat.spawnsUnderground(victim.kind)
                  && Math.random() < Combat.MONSTER_TREASURE_CHANCE) {
@@ -12636,16 +12640,16 @@ class MapScene extends Phaser.Scene {
       });
       return;
     }
-    this._offerTreasurePick({
-      kind: 'trail', header, art: 'trail_prize', choices, onDismiss,
-      sub: 'Your neighbours offer you gifts to thank you for repairing the road. Choose one.',
-    });
+    // No flavour line: the header already carries the thanks, and the pick
+    // names itself ("Choose one gift"). One picture row, one line, one button.
+    this._offerTreasurePick({ kind: 'trail', header, art: 'trail_prize', choices, onDismiss });
   }
 
   // The button face for one option: the reward's own icon over its name, so
   // the options read as small ceremonies rather than words. What the reward
-  // DOES is not on the face — it sits behind the card's ⓘ (_trailRewardBlurb,
-  // shown by showChestRewardModal's `info`), so three cards fit across.
+  // DOES is not on the face — it is the line under the row once the card is
+  // selected (_trailRewardBlurb, showChestRewardModal's `info`), so three
+  // cards fit across.
   // The card's `sub` is deliberately NOT drawn here — it's the ceremony's
   // outcome line ("equipped"), and on an option the player hasn't taken yet
   // that would state as done the very thing the button is asking about.
@@ -12704,11 +12708,12 @@ class MapScene extends Phaser.Scene {
     return null;   // an unrecognised kind draws no card and opens no modal
   }
 
-  // What ONE reward DOES, for the ⓘ on its pick card — the same line the item
-  // already carries elsewhere (the ✦ effect, a relic's blurb, the soak an
-  // armour piece prints in the shop), never a second description. Null when
-  // there is nothing to say (gold, an item with no ✦ line): that card gets
-  // no ⓘ at all rather than one that opens on nothing.
+  // What ONE reward DOES, the line under the pick row while its card is
+  // selected — the same line the item already carries elsewhere (the ✦
+  // effect, a relic's blurb, the soak an armour piece prints in the shop),
+  // never a second description. Null when there is nothing to say (gold, an
+  // item with no ✦ line): that card's line stays empty rather than saying
+  // nothing at length.
   _trailRewardBlurb(reward) {
     if (!reward) return null;
     if (reward.kind === 'item') {
@@ -12724,6 +12729,23 @@ class MapScene extends Phaser.Scene {
     return null;
   }
 
+  // ONE REWARD, SHOWN. The ceremony for a single reward already paid: its
+  // own sprite, name, tier badge and amount on the chest shell, framed by the
+  // caller (`kind`, `header`, `art`, `sub`, `onDismiss`). A seed a neighbour
+  // hands over or the roll an elite drops is SEEN here, not read off a toast
+  // (Oct 2026, owner's call: every quest reward that is an item shows the
+  // item). The card's own sub ('equipped') follows a given one as its own
+  // short sentence, so a relic's card still says it is worn. False, and
+  // nothing shown, for a reward that draws no card.
+  showRewardCard(reward, extra = {}) {
+    const card = this._trailRewardCard(reward);
+    if (!card) return false;
+    const own = card.sub ? card.sub[0].toUpperCase() + card.sub.slice(1) + '.' : '';
+    const sub = [extra.sub, own].filter(Boolean).join(' ') || undefined;
+    this.showChestRewardModal({ ...card, ...extra, sub });
+    return true;
+  }
+
   // Pay out the reward the player KEPT — item into the bag, gold into the
   // purse, gear equipped — and hand back its card so the caller can say what
   // arrived. Consolation coins ride along with whatever was taken; a roll
@@ -12737,11 +12759,14 @@ class MapScene extends Phaser.Scene {
 
   // THE PICK — one lane for every "several finds, keep one" in the game
   // (Trail.PRIZE_CHOICES of them): the road ladder above. (A dug-up X was a
-  // pick for a while in Sep 2026; it went back to paying one find.) Each button IS a reward card (the shell takes HTML
-  // labels), so the player reads them the same way they read a single
-  // ceremony; each card's description waits behind its ⓘ (`info`). An actions modal has no tap-to-dismiss,
-  // so the prize can't be lost to a stray tap on the overlay. Nothing is paid
-  // until a button is pressed: the option turned down was never theirs.
+  // pick for a while in Sep 2026; it went back to paying one find.) Each card
+  // IS a reward card (the shell takes HTML labels), so the player reads them
+  // the way they read a single ceremony. A tap SELECTS a card and shows what
+  // it does under the row (`info`); the one Take button pays it (Oct 2026 —
+  // this replaced an ⓘ on every card, which cluttered the row and made a
+  // tap on the card itself the irreversible act). An actions modal has no
+  // tap-to-dismiss, so the prize can't be lost to a stray tap on the overlay.
+  // Nothing is paid until Take is pressed: the option turned down was never theirs.
   _offerTreasurePick({ kind, header, art, choices, sub, kindIcon, onDismiss }) {
     this.showChestRewardModal({
       kind,
@@ -12750,10 +12775,12 @@ class MapScene extends Phaser.Scene {
       kindIcon,
       // No icon: the banner is the picture and each choice button carries its
       // own. A gem here made the dialog taller than the screen.
-      name: 'Take your pick',
+      name: 'Choose one gift',
       sub,
       onDismiss,
       cards: true,
+      confirmLabel: 'Take',
+      pickHint: 'Tap a gift to see what it does',
       actions: choices.map((reward) => ({
         label: this._trailChoiceLabel(reward),
         info: this._trailRewardBlurb(reward),

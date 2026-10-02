@@ -433,8 +433,13 @@ function grantFoundTreasure(scene, save, sx, sy, mark, tier, headline) {
   scene.flashJackpot?.(1, headline);
 }
 
+// `opts.ceremony` ({ kind, header, sub, art, onDismiss }) shows the paid
+// reward as a card (scene.showRewardCard) instead of the toast lines below —
+// a reward the player earned (an elite's drop) rather than a find on the
+// ground. The rest of `opts` is the roll's own (rollBonus, tier, classes).
 function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:default', opts) {
-  const reward = pickReward(contextKey, save, undefined, opts);
+  const { ceremony, ...rollOpts } = opts || {};
+  const reward = pickReward(contextKey, save, undefined, opts ? rollOpts : undefined);
   if (!reward) {
     // Shouldn't happen — context exists — but bail safely if the pool is empty.
     addMoney(save, 1);
@@ -443,7 +448,13 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
   }
   if (reward.kind === 'item' && isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
   Rewards.apply(save, reward, scene);
-  if (reward.kind === 'relic' || reward.kind === 'armor') {
+  // A beaten relic roll cashed out (reconcileRelicOffer) says so on its card.
+  const shown = ceremony && typeof scene.showRewardCard === 'function'
+    && scene.showRewardCard(reward, reward.kind === 'gold' && reward.slot
+      ? { ...ceremony, sub: 'Already better — paid in coin instead.' } : ceremony);
+  if (shown) {
+    if (reward.jackpot >= 1 && typeof scene.flashJackpot === 'function') scene.flashJackpot(reward.jackpot);
+  } else if (reward.kind === 'relic' || reward.kind === 'armor') {
     const label = (typeof gearName === 'function')
       ? gearName(reward.kind, reward.slot, reward.tier) : `${reward.slot} T${reward.tier}`;
     scene.flashLoot(`${mark} → ✨ ${label} (equipped!)`, '#ffe066', 1.6);

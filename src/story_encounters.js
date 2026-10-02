@@ -133,10 +133,16 @@ const StoryEncounters = (() => {
       const accepted = scene.addToInv('starfruit_seed', 1, false, { notWild: true, deferRefresh: true });
       if (accepted === 1) {
         q.status = 'rewarded';
+        q.greeted = true;
         persist(scene);
         scene._finishInventoryChange?.();
-        body = THANKS;
-      } else body = 'Thank you for stopping the archer. Make room in your bag; I have a starfruit seed for you.';
+        // The gift is SHOWN — the seed's own card under her portrait, her
+        // thanks as its line — not described in a note (showRewardCard).
+        scene.showRewardCard({ kind: 'item', id: 'starfruit_seed', qty: 1 },
+          { kind: 'story', header: `${c.name} · ${c.roleLabel}`, art: NPC.portrait(scene, c), sub: THANKS });
+        return true;
+      }
+      body = 'Thank you for stopping the archer. Make room in your bag; I have a starfruit seed for you.';
     }
     q.greeted = true;
     persist(scene);

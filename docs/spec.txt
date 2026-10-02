@@ -1335,7 +1335,14 @@ STREET RESTORATION (the road band itself)
    are offered and the player keeps one (Trail.PRIZE_CHOICES). The options must
    differ — gold is gold and the same item at another quantity is the same card
    — and nothing is granted until a button is pressed, so the roll turned down
-   was never theirs. The roll also IMPROVES as the walks get longer:
+   was never theirs. The pick is "Choose one gift": a tap on a card SELECTS
+   it (outlined, and what it does appears on the one line under the row); the
+   single Take button pays the selected card. No flavour line, no ⓘ per card.
+ - A SINGLE EARNED REWARD IS SHOWN AS A CARD (app.js showRewardCard): the
+   item's sprite, name, tier and amount on the chest shell, framed by its
+   giver — the rescued neighbour's starfruit seed under her portrait with her
+   thanks, an elite's drop under "Elite slain" (grantTreasureRoll's
+   `ceremony`). Finds on the ground (an X, a shrine, a vista) stay toasts. The roll also IMPROVES as the walks get longer:
    Trail.rollBonusFor spends one extra boost-chain step per prize already won,
    capped (past the cap a chain step only buys consolation coins).
  - WHICH CELLS ARE PATH AT ALL is still geometric, and still matters — the PATH
