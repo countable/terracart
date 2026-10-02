@@ -27,7 +27,9 @@ test('Orrin interaction: a reply persists once and uses the NPC portrait', () =>
     first.onClick();
     assert.eq(saves.length, 1);
     assert.eq(s.replies.length, 1);
-    assert.eq(s.replies[0].art, 'portrait');
+    // (Per-NPC story paintings, Oct 2026: the reply carries the NPC's own
+    // art key now - Orrin's portrait - not the generic 'portrait'.)
+    assert.eq(s.replies[0].art, 'npc_orrin');
     assert.truthy(s.replies[0].body);
     first.onClick();
     assert.eq(saves.length, 1, 'a double click cannot advance a second conversation');
