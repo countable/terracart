@@ -216,6 +216,8 @@ const BRIDGE = `;Object.assign(globalThis, {
   wildplantWorkCost, wildplantTreasure, wildplantLight, wildplantRoll,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
+  // Pocketing a tame pet and the carried raised row — pet_pickup.test.js.
+  pickUpPet, petPickupItemId, carriedRaisedRow,
   Quests, QUEST_SLOTS, QUEST_TEMPLATES, QUEST_ENEMIES, STARTER_CHAIN,
 });`;
 try {

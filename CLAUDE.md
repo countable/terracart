@@ -307,12 +307,17 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   there, never a timer, colour or label of its own.
 - Job costs use `spendEnergy`; passive restoration pauses while `working`
   (work wheel or rest hold). Walking drains and enemy blows are not jobs.
+- A tame pet leaves the world only through `pickUpPet` (interact.js): a bare
+  hand pockets it, food pets it. "In the bag" is `save.caught`; a raised pet's
+  `save.released` row stays while carried and `release` hands it back
+  (`carriedRaisedRow`), so growth never lives on a stack.
 - Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
   campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap
   enemies inside Home's ring.
 
-Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`.
+Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`,
+`pet_pickup`.
 
 ## Lighting and streets
 
