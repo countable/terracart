@@ -8584,7 +8584,7 @@ class MapScene extends Phaser.Scene {
     if (creature.kind === 'chicken') {
       this._storySplashOnce('catch:chicken', {
         art: 'tool_catch_chicken', title: 'That chicken',
-        body: '“You want to catch that chicken,” beckons a voice inside you.',
+        body: '“You want to catch that chicken,” <em>beckons a voice inside you.</em>',
       });
       return;
     }
