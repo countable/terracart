@@ -4457,7 +4457,7 @@ Render.objectAppearance = function (scene, houseRoles) {
 
   const RENDER_SPEC = {
     // Water scenery is drawn separately from tappable objects.
-    reef_coral: { key: 'reef_coral', frame: o => o.variant, scale: 0.5, origin: [0.5, 0.5], seat: true },
+    reef_coral: { key: 'reef_coral', frame: o => o.variant, scale: 1, origin: [0.5, 0.5], seat: true },
     // Houses pick their texture by role — the generic 'house' frame stays
     // as the fallback for plain residential. Themed sprites (sliced top-
     // left from NPC house sheets, see Objects/Houses/):

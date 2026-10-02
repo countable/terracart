@@ -265,7 +265,7 @@ const SHEETS = {
   ...Object.fromEntries(GROVE_SHRINE_ART.map(({ key, frame }) => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],
   }])),
-  reef_coral:    { file: 'assets/Objects/Reef/coral.png', fw: 64, fh: 64, frames: [0,1,2,3,4,5,6,7] },
+  reef_coral:    { file: 'assets/Objects/Reef/coral.png', fw: 24, fh: 24, frames: [0,1,2,3,4,5,6,7] },
   vista_scope:   { file: 'assets/Objects/Approved/vista_scope.png',               fw: 16, fh: 24, frames: [0] },
   [SHRINE_KIND_ART.key]: { file: ASSETS[SHRINE_KIND_ART.key].path, fw: ASSETS[SHRINE_KIND_ART.key].frameWidth,
     fh: ASSETS[SHRINE_KIND_ART.key].frameHeight, frames: SHRINE_KIND_ART.frames },
@@ -321,7 +321,7 @@ const SCENARIOS = [
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
   { name: 'headstone',       key: 'headstone',     frameIdx: 0, scale: 1.6 },
   ...GROVE_SHRINE_ART.map(({ name, key, frame, scale }) => ({ name, key, frameIdx: frame, scale })),
-  ...[0,1,2,3,4,5,6,7].map(frameIdx => ({ name: `reef coral ${frameIdx}`, key: 'reef_coral', frameIdx, scale: 0.5 })),
+  ...[0,1,2,3,4,5,6,7].map(frameIdx => ({ name: `reef coral ${frameIdx}`, key: 'reef_coral', frameIdx, scale: 1 })),
   { name: 'vista scope',     key: 'vista_scope',   frameIdx: 0, scale: 1.6 },
   ...SHRINE_KIND_ART.frames.map((f) => ({ name: `shrine kind ${f}`, key: SHRINE_KIND_ART.key, frameIdx: f, scale: SHRINE_KIND_ART.scale })),
   // The POI props (loot.js chestLook — barrel / bike_rack at render.js

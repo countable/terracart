@@ -186,7 +186,7 @@ const ASSETS = {
   // interactable: the viewpoint's scope (16×24, an object — RENDER_SPEC
   // vista_scope) and the tide line's driftwood and message bottle (wild
   // plants — items.js CROP_SPRITE).
-  reef_coral: { kind: 'spritesheet', path: 'assets/Objects/Reef/coral.png', frameWidth: 64, frameHeight: 64 },
+  reef_coral: { kind: 'spritesheet', path: 'assets/Objects/Reef/coral.png', frameWidth: 24, frameHeight: 24 },
   vista_scope:    { kind: 'spritesheet', path: 'assets/Objects/Approved/vista_scope.png', frameWidth: 16, frameHeight: 24 },
   driftwood:      { kind: 'spritesheet', path: 'assets/Objects/Approved/driftwood.png', frameWidth: 16, frameHeight: 16 },
   bottle:         { kind: 'spritesheet', path: 'assets/Objects/Approved/bottle.png', frameWidth: 16, frameHeight: 16 },
