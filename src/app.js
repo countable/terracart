@@ -738,13 +738,8 @@ function shotTierColour(slot, tier) {
   const c = TIER_BY_NUM[tier]?.color;
   return c != null ? c : Combat.SHOT[slot].color;
 }
-// Screen-px lift a CASTLE TURRET's arrow starts at: the battlements. The tower
-// art is 42px tall (textures.js makeTowerTexture) and stands with its foot on
-// the cell's bottom edge, CELL_PX/2 below the cell centre the turret object
-// sits at — so its crown is 42 - 16 = 26px above that centre, and the arrow
-// leaves a few px under the crenellation line. It descends to
-// SHOT_DRAW_LIFT_PX over the flight to its target (see _drawShots).
-const TURRET_ARROW_LIFT_PX = 42 - CELL_PX / 2 - 4;
+// The arrow leaves a few pixels below its own variant's visible crown.
+// SHOT_DRAW_LIFT_PX is its final lift at the target (see _drawShots).
 // How often the set of on-screen turrets is re-scanned while enemies are on
 // screen. Turrets don't move, and the objects list of nine tiles is far too
 // long to walk every frame.
@@ -1458,6 +1453,7 @@ const ICON_SHEETS = {
   icon_salmon:     { url: 'assets/Icons/Fish/Sea/Salmon.png',             cols: 4, srcW: 64, srcH: 16 },
   icon_goldenfish: { url: 'assets/Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
   // Consumables + wilderness drops.
+  icon_thunder_scroll: { url: 'assets/Icons/Items/ThunderScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_raven_scroll: { url: 'assets/Icons/Items/RavenScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_skeleton_scroll: { url: 'assets/Icons/Items/SkeletonScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_wraith_scroll: { url: 'assets/Icons/Items/WraithScroll.png', cols: 1, srcW: 16, srcH: 16 },
@@ -1818,12 +1814,10 @@ class MapScene extends Phaser.Scene {
     // story + the location CTA, so arming it here would count story-reading
     // time against the fix and could silently skip the capture.)
 
-    // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
+    // Bake terrain patterns and the two castle restoration-state atlases once.
     makeBiomeTextures(this, CELL_PX);
     makeTowerTexture(this);
-    // The same turret in the unclaimed palette. Baked once here rather than
-    // tinted at draw time so a castle's stone, its turrets and its court all
-    // change together — see the unclaimed-shade note in textures.js.
+    // Both tower atlases share their colours with the walls and courtyard.
     makeTowerTexture(this, CASTLE_STONE_UNCLAIMED, 'tower_unclaimed');
     // Pot of gold — art for the coin-burst POI (the ATM — loot.js isPotOfGold).
     makePotOfGoldTexture(this);
@@ -5259,7 +5253,7 @@ class MapScene extends Phaser.Scene {
     if (!scan.list.length) return;
     const shots = Combat.turretTick(scan.list, this._turretNextT, now, enemies, this.cellM);
     for (const shot of shots) {
-      shot.liftFromPx = TURRET_ARROW_LIFT_PX;   // leaves the battlements
+      shot.liftFromPx = Render.towerCrownHeight(this.textures, shot.castle) - CELL_PX / 2 - 4;
       this._shots.push(shot);
     }
   }

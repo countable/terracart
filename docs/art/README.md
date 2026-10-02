@@ -245,3 +245,19 @@ fog, shadows and tool-lock fading. It makes no game-art changes.
 The pack licence is preserved beside it. Mineral-rock records with
 `deposit: 'crystal'` use this cluster at the shared rock scale and measured
 cell-centred seating; ordinary stone and ore artwork are unchanged.
+
+## Castle families
+
+`src/castle_styles.js` owns four stable material families: Citadel (cool pale
+stone), Weathered Ruin (sage limestone and surviving broken battlements),
+Intact Bastion (warm sandstone, no guards), and Old Archive Court (warm stone
+with timber rampart tops). There is no Mended Court family. The Citadel name
+has no “dark” qualifier: darkness means an unclaimed, weathered condition in
+every family, while restoration brings back clean, brighter materials.
+
+Towers, tiled walls, polygon walls and courtyard floors resolve the same
+building owner key through `CastleStyles.get(key, claimed)`. Its numeric
+palettes already include the condition treatment; never apply the general
+unclaimed building wash to them again. Wall atlas cache keys include the
+family and condition. Archive ramparts keep a stone base and face beneath
+their wooden crest; the Ruin's uneven crenellations echo its damaged tower.

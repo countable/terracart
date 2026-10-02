@@ -338,7 +338,7 @@
     },
     populate(s) {
       // Towers ARE the castle-shop interactable (unlimited relic stock + reroll).
-      s.tower(2, 0); s.tower(0, 3); s.tower(4, 3); s.tower(2, 7);
+      s.tower(0, 0); s.tower(4, 0); s.tower(0, 7); s.tower(4, 7);
       // Fort BUILDING (tier 11) — renders the fort sprite AND is the fort shop
       // (up to 5 deals/hour). Placed at the fort's bottom edge so it's reachable
       // from the grass below the scene (the rest of the fort blocks the player).
@@ -481,6 +481,8 @@
     const wildplants = [];
     const creatures = [];
     const roadLabels = {};
+    const owners = new Uint16Array(cellsPerEdge * cellsPerEdge);
+    const ownerKeys = [null];
 
     // Helper: cell index → world metres at cell centre.
     const wmAt = (ix, iy) => ({
@@ -488,7 +490,7 @@
       y: ty * tileEdgeM + (iy + 0.5) * cellM,
     });
 
-    const context = { grid, objects, wildplants, creatures, roadLabels,
+    const context = { grid, objects, wildplants, creatures, roadLabels, owners, ownerKeys,
       cellsPerEdge, wmAt, tx, ty, cellM, tileEdgeM };
     populate(context);
 
@@ -499,8 +501,8 @@
       objects,
       wildplants,
       creatures,
-      owners: new Uint16Array(cellsPerEdge * cellsPerEdge),
-      ownerKeys: [],
+      owners,
+      ownerKeys,
       poiPadCells: new Set(),
       parkingTreasures: [],
       roadLabels,
@@ -599,7 +601,8 @@
       },
       tower(dx, dy) {
         const { x, y } = at(dx, dy);
-        objects.push(WorldGen.makeObject('tower', x, y, `${baseId}_tower_${tag}_${dx}_${dy}`));
+        objects.push(WorldGen.makeObject('tower', x, y, `${baseId}_tower_${tag}_${dx}_${dy}`,
+          { castle: `${baseId}_castle_${tag}`, flagPost: dx === 0 && dy === 0 }));
       },
       well(dx, dy) {
         const { x, y } = at(dx, dy);
@@ -741,6 +744,14 @@
           rect,
           roadLabel: (dx, dy, text) => { roadLabels[`${ix0 + dx}_${iy0 + dy}`] = { text, angle: 0 }; },
         });
+      }
+      // Castle floor, walls and towers share one ownership identity.
+      if (s.name === 'CASTLE') {
+        const owner = c.ownerKeys.push(`${baseId}_castle_${s.name}`) - 1;
+        for (let dy = 0; dy < s.h; dy++) for (let dx = 0; dx < s.w; dx++) {
+          const at = (iy0 + dy) * cellsPerEdge + ix0 + dx;
+          if (grid[at] === T.BUILDING_LARGE) c.owners[at] = owner;
+        }
       }
       // 3. static interactables
       s.populate(makeScenePush(ix0, iy0, s.name, baseId, { objects, wildplants, creatures }, wmAt));

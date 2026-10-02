@@ -71,7 +71,8 @@
 //   biome_profiles.js — BiomeProfiles.mixHex (the one colour lerp)
 //   render.js   — Render.BUILDING_FACE_COLOR / BUILDING_FACE_PX (the tiled
 //                 pass's own wall colours + depths, so the two can't drift)
-//   textures.js — CASTLE_STONE / CASTLE_STONE_UNCLAIMED, unclaimedShade,
+//   castle_styles.js — castle tower, wall and courtyard materials
+//   textures.js — unclaimedShade,
 //                 unclaimedMaterialColor
 //   app.js consts — COLORS, CELL_PX
 //
@@ -128,7 +129,6 @@
   // a dashed stroke as wide as the band replaces the stone rather than
   // crowning it, and the wall reads as a dashed ribbon instead of masonry.
   const MERLON_PX = 2;
-  const MERLON_DASH = [4, 4];
 
   // "Somebody else's". The tiled pass washes the finished cells; here the
   // COLOURS are shaded instead — the same unclaimedShade() transform
@@ -279,16 +279,11 @@
 
   // Castle masonry, from the shared palette so a polygon rampart is the same
   // stone as the turret sprites standing on it.
-  const castleStone = (claimed) => {
-    const CS = (typeof CASTLE_STONE === 'undefined') ? null
-      : (claimed || typeof CASTLE_STONE_UNCLAIMED === 'undefined'
-        ? CASTLE_STONE : CASTLE_STONE_UNCLAIMED);
-    const sh = shadeOf(claimed), tune = tuneOf(claimed);
-    return {
-      body: tune(CS ? CS.BODY.n : sh(0x8f9298)),
-      lite: tune(CS ? CS.LITE.n : sh(0xb9bcc2)),
-      dark: tune(CS ? CS.DARK.n : sh(0x303134)),
-    };
+  const castleStone = (claimed, key) => {
+    const style = CastleStyles.get(key, claimed);
+    const top = style.rampart.woodTop ? style.wood : style.stone;
+    return { body: style.stone.BODY, lite: top.LITE, dark: style.stone.DARK,
+      top: top.BODY, style };
   };
 
   // The dashed cell grid, from render.js so the lattice over a footprint is
@@ -618,8 +613,8 @@
 
   function uprightEdges(scene, d, isMine, projX, projY, seen) {
     const shade = shadeOf(isMine), tune = tuneOf(isMine), depth = facePx(d.tier);
-    const stone = castleStone(isMine);
-    const face = tune(shade(faceColor(d.tier, isMine)));
+    const stone = castleStone(isMine, d.key);
+    const face = d.tier === CASTLE ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
     const outline = d.tier === CASTLE ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
     const points = d.pts;
     const trace = (ctx) => {
@@ -644,7 +639,7 @@
         // World-relative placement: the same edge at a later camera cell sits
         // at the same offset from the projected world origin.
         const wx = x - projX(0), wy = y - projY(0);
-        const cacheKey = `${d.seed}|${d.tier}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
+        const cacheKey = `${d.seed}|${d.tier}|${d.tier === CASTLE ? stone.style.id : ''}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
         const cached = scene._buildingUprightCache.get(cacheKey);
         if (cached) {
           if (!seen.has(cacheKey)) {
@@ -683,7 +678,11 @@
             ctx.stroke();
           };
           stroke(BAND_PX * 2, stone.body);
-          stroke(MERLON_PX * 2, stone.lite, MERLON_DASH);
+          const rampart = stone.style.rampart;
+          if (rampart.woodTop) stroke(6, stone.top);
+          const tooth = rampart.toothWidth;
+          const dash = rampart.broken ? [tooth, 4, tooth - 1, 7] : [tooth, 8 - tooth];
+          stroke(MERLON_PX * 2, stone.lite, dash);
           ctx.restore();
         }
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
@@ -704,6 +703,12 @@
           // The perimeter is the ground anchor; extrusion is visual height,
           // just as for tiled walls. Towers at this boundary rank above it.
           groundY: (Math.max(p.y, q.y) - projY(0)) * scene.cellM / CELL_PX,
+          castleCells: d.tier === CASTLE && typeof Render.castleWallCells === 'function'
+            ? Render.castleWallCells(scene, d.key,
+              (Math.min(p.x, q.x) - projX(0)) * scene.cellM / CELL_PX - 0.001,
+              (Math.min(p.y, q.y) - projY(0)) * scene.cellM / CELL_PX - 0.001,
+              (Math.max(p.x, q.x) - projX(0)) * scene.cellM / CELL_PX + 0.001,
+              (Math.max(p.y, q.y) - projY(0)) * scene.cellM / CELL_PX + 0.001) : [],
         };
         scene._buildingUprightCache.set(cacheKey, piece);
         seen.add(cacheKey);
@@ -864,13 +869,14 @@
       const shade = shadeOf(isMine), tune = tuneOf(isMine);
       // The shaded floor is what the slime derives from (three shades deep —
       // see slimeColor); the material lift goes over every colour after.
-      const shaded = shade(floorColor(d.tier, isMine));
-      const floor = tune(shaded);
+      const style = d.tier === CASTLE ? CastleStyles.get(d.key, isMine) : null;
+      const shaded = style ? style.floor : shade(floorColor(d.tier, isMine));
+      const floor = style ? style.floor : tune(shaded);
       const depth = facePx(d.tier);
       // The wall, as the ring filled again one face-depth south and painted
       // UNDER the floor: whatever survives is exactly the polygon's
       // south-facing edges, at any angle, with no per-edge normal test.
-      if (!separateUprights) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), tune(shade(faceColor(d.tier, isMine))));
+      if (!separateUprights) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), (style ? style.stone.FACE : tune(shade(faceColor(d.tier, isMine)))));
       g.fillPoly(d.pts, floor);
       if (g.texturePoly) g.texturePoly(d.pts, d.tier);
       // Dilapidated: the slime, over the floor and its material (it is growing
@@ -891,9 +897,12 @@
         // Rampart: the stone band inside the wall line, then the merlon teeth
         // dashed along it in the light stone — the polygon's answer to the
         // tiled battlements.
-        const stone = castleStone(isMine);
+        const stone = castleStone(isMine, d.key);
         g.insetStroke(d.pts, BAND_PX, stone.body);
-        g.insetStroke(d.pts, MERLON_PX, stone.lite, MERLON_DASH);
+        if (style.rampart.woodTop) g.insetStroke(d.pts, 3, stone.top);
+        const tooth = style.rampart.toothWidth;
+        const dash = style.rampart.broken ? [tooth, 4, tooth - 1, 7] : [tooth, 8 - tooth];
+        g.insetStroke(d.pts, MERLON_PX, stone.lite, dash);
         g.strokePoly(d.pts, OUTLINE_PX, stone.dark);
       } else {
         g.strokePoly(d.pts, OUTLINE_PX, tune(dim(shaded, OUTLINE_MUL)));

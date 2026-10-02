@@ -430,7 +430,7 @@ const MINERAL_ICON_SHEET = {
   revive_potion:       { sheet: 'icon_potions', frame: 16 },
   resurrection_potion: { sheet: 'icon_potions', frame: 21 },
   // Scroll of Thunder keeps its legacy save id; gold-lettered scroll art.
-  thunder_scroll:      { sheet: 'icon_book', frame: 48 },
+  thunder_scroll:      { sheet: 'icon_thunder_scroll', frame: 0 },
   // Dragon Powder — the vivid crimson pouch (row 1 col 2 = frame 7). Using it
   // turns you into a red dragon (useDragonPowder in app.js).
   dragon_powder: { sheet: 'icon_potions', frame: 7 },

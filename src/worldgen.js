@@ -3557,6 +3557,61 @@
   // footpath and every building tier.
   const POI_PAD_KEEP = new Set([T.WATER, T.ROAD, T.PATH, ...BUILDING_TYPES, T.ROAD_LG, T.ROAD_MD]);
 
+  // Keep the existing one-in-five lattice budget, but move a seat at most
+  // two wall cells onto an available convex corner. Several seats may choose
+  // the same corner: dedupe them rather than adding towers to the budget.
+  // The caller supplies a halo, so a tile seam is never treated as a wall.
+  // All comparisons use absolute cells; neither tile load order nor a save's
+  // drawing frame participates. The scan includes neighbouring seats that
+  // can move into this tile, and emits each destination only on its owner tile.
+  function* castleTowerCellsSteps(w, h, originX, originY, ownerAt, blocked = () => false) {
+    const directions = [[1, 0], [0, 1], [-1, 0], [0, -1]];
+    const cache = new Map(), chosen = new Map();
+    function cell(x, y) {
+      const key = `${x}_${y}`;
+      if (cache.has(key)) return cache.get(key);
+      const owner = ownerAt(x, y);
+      let edge = false, corner = false;
+      if (owner != null) {
+        const outside = directions.map(([dx, dy]) => ownerAt(x + dx, y + dy) !== owner);
+        edge = outside.some(Boolean);
+        // Exactly two adjacent exposed sides: a real convex raster corner,
+        // not an isolated cell or a one-cell spur.
+        corner = outside.filter(Boolean).length === 2
+          && outside.some((v, i) => v && outside[(i + 1) % 4]);
+      }
+      const result = { owner, edge, corner };
+      cache.set(key, result);
+      return result;
+    }
+    for (let y = -2; y < h + 2; y++) {
+      if ((y + 2) % 8 === 0) yield 'tower corner seats';
+      for (let x = -2; x < w + 2; x++) {
+        if (((originX + x + (originY + y) * 13) % 5 + 5) % 5) continue;
+        const source = cell(x, y);
+        if (!source.edge) continue;
+        let best = null, distance = Infinity;
+        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+          const d = Math.abs(dx) + Math.abs(dy);
+          if (d > 2) continue;
+          const nx = x + dx, ny = y + dy, target = cell(nx, ny);
+          if (target.owner !== source.owner || !target.corner || blocked(nx, ny)) continue;
+          if (d < distance || (d === distance && (ny < best[1] || (ny === best[1] && nx < best[0])))) {
+            best = [nx, ny]; distance = d;
+          }
+        }
+        if (!best) {
+          if (blocked(x, y)) continue;
+          best = [x, y];
+        }
+        if (best[0] < 0 || best[1] < 0 || best[0] >= w || best[1] >= h) continue;
+        chosen.set(`${best[0]}_${best[1]}`, best);
+      }
+    }
+    // Preserve the row-major first-turret flag-post rule after seats move.
+    return [...chosen.values()].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+  }
+
   // Rasterize a tile, in slices. THE WHOLE POINT IS THE `yield`s: a tile build
   // is ~50k cells through a dozen sequential passes, and as one straight-line
   // call it was a single 300-800 ms block of the main thread on a desktop —
@@ -3582,6 +3637,8 @@
     // indexed by the same 1-based id `owners` stamps, so a cell resolves to the
     // building it belongs to in two hops and nothing has to search polygons.
     const ownerKeys = [];
+    const castleHalo = new Map();
+    const castleSourceRings = [];
     // Road FOOTPRINT mask (1 = under a drawn road band). The terrain grid is a
     // lossy record of where the roads are: every way rasterizes exactly ONE
     // cell wide whatever its class, while the road-geometry overlay draws each
@@ -4875,6 +4932,14 @@
           // the same ownerKey after the loop (a house's key is minted further
           // down, past two `continue`s, so it can't be read here).
           bp._ownerId = ownerId;
+          if (bp.tier === T.BUILDING_LARGE) {
+            castleSourceRings.push({ ownerId, ring: bp.ring });
+            let haloCells = 0;
+            for (const [fx, fy] of footprints[_bi]) {
+              if ((haloCells++ & 127) === 0) yield 'tower footprint halo';
+              if (fx < 0 || fy < 0 || fx >= w || fy >= h) castleHalo.set(`${fx}_${fy}`, ownerId);
+            }
+          }
           const fpCells = [];
           for (const [fx, fy] of footprints[_bi]) {
             if (fx < 0 || fy < 0 || fx >= w || fy >= h) continue;
@@ -5289,35 +5354,45 @@
     }
 
     yield 'mineralrock cleanup';
-    // Castle towers — place a tower sprite at perimeter cells of every BUILDING_LARGE
-    // footprint, roughly one per 5 cells along the wall. Deterministic per absolute
-    // cell coord so towers stay aligned across tile boundaries.
-    const _flagged = new Set();
-    for (let iy = 0; iy < h; iy++) {
-      if ((iy & 31) === 0) yield 'tower scan rows';
-      for (let ix = 0; ix < w; ix++) {
-        if (grid[iy * w + ix] !== T.BUILDING_LARGE) continue;
-        // Perimeter test: at least one 4-neighbor is not BUILDING_LARGE (or off-tile).
-        let isPerim = false;
-        for (const [ddx, ddy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-          const nx = ix + ddx, ny = iy + ddy;
-          if (nx < 0 || ny < 0 || nx >= w || ny >= h) { isPerim = true; break; }
-          if (grid[ny * w + nx] !== T.BUILDING_LARGE) { isPerim = true; break; }
-        }
-        if (!isPerim) continue;
-        const absX = tx * w + ix, absY = ty * w + iy;
-        if (((absX + absY * 13) % 5 + 5) % 5 !== 0) continue;
-        const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
-        // Which castle this turret belongs to, and whether it is the one that
-        // flies the flag. A castle has several turrets but is one place, so
-        // exactly one of them — the first the scan reaches, which is stable
-        // because the scan order is — carries anything drawn once per castle.
-        const castle = ownerKeys[owners[iy * w + ix]] || null;
-        const flagPost = !!castle && !_flagged.has(castle);
-        if (flagPost) _flagged.add(castle);
-        objects.push(makeObject('tower', cx, cy, `tw_${absX}_${absY}`,
-          { castle, flagPost }));
+    // Towers share their wall's cell. Consult the assigned footprint halo
+    // outside the tile, then the source polygon beyond that halo, so the
+    // clipping edge cannot manufacture corners or an interior row of towers.
+    const castleOwnerAt = (x, y) => {
+      if (x >= 0 && y >= 0 && x < w && y < h) {
+        return grid[y * w + x] === T.BUILDING_LARGE ? owners[y * w + x] : null;
       }
+      const key = `${x}_${y}`;
+      if (castleHalo.has(key)) return castleHalo.get(key);
+      if (x >= -3 && y >= -3 && x < w + 3 && y < h + 3) return null;
+      let owner = null;
+      for (const shape of castleSourceRings) {
+        if (pointInRings([shape.ring], (x + 0.5) / mvtToCell, (y + 0.5) / mvtToCell)) {
+          owner = shape.ownerId; break;
+        }
+      }
+      castleHalo.set(key, owner);
+      return owner;
+    };
+    const towerBlocked = new Set();
+    for (let i = 0; i < objects.length; i++) {
+      if ((i & 127) === 0) yield 'tower occupancy';
+      const o = objects[i];
+      if (!['chest', 'house', 'infoboard', 'gatepost'].includes(o.kind)) continue;
+      const { ix, iy } = cellOfWorldM(o.x, o.y);
+      towerBlocked.add(`${ix}_${iy}`);
+    }
+    const towerCells = yield* castleTowerCellsSteps(w, h, tx * w, ty * h,
+      castleOwnerAt, (x, y) => towerBlocked.has(`${x}_${y}`));
+    const _flagged = new Set();
+    for (let i = 0; i < towerCells.length; i++) {
+      if ((i & 63) === 0) yield 'tower objects';
+      const [ix, iy] = towerCells[i];
+      const absX = tx * w + ix, absY = ty * h + iy;
+      const { mx: cx, my: cy } = cellCenterMeters(ix, iy);
+      const castle = ownerKeys[owners[iy * w + ix]] || null;
+      const flagPost = !!castle && !_flagged.has(castle);
+      if (flagPost) _flagged.add(castle);
+      objects.push(makeObject('tower', cx, cy, `tw_${absX}_${absY}`, { castle, flagPost }));
     }
 
     yield 'castle towers';
@@ -8247,7 +8322,7 @@
     // Full-tile rasterization — exported for the headless spawn tests, which
     // build synthetic MVT layers and pin the "nothing spawns on a road" rule
     // end to end (test/node/spawn_roads.test.js).
-    rasterizeTile,
+    rasterizeTile, castleTowerCellsSteps,
     setReviewSalt,
     // Building-footprint assignment (see assignBuildingFootprints) — exported
     // for the headless footprint tests, which pin the no-overlap /

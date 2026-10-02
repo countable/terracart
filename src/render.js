@@ -57,11 +57,45 @@ const Render = {};
 // Ground anchors, never animated sprite tops, determine occlusion. Rank only
 // breaks exact ties, so stepping within one cell can pass behind a tree.
 Render.sortWorldDepth = function (pieces) {
-  pieces.sort((a, b) => (a.groundY - b.groundY) || ((a.rank || 0) - (b.rank || 0)));
+  const towerFeet = new Map();
+  for (const p of pieces) if (p.castleTower && p.castleCell) towerFeet.set(p.castleCell, p.groundY);
+  for (const p of pieces) {
+    p.sortGroundY = p.groundY;
+    if (p.castleTower) continue;
+    for (const cell of p.castleCells || (p.castleCell ? [p.castleCell] : [])) {
+      const foot = towerFeet.get(cell);
+      // A wall crossing a tower's cell belongs below that tower, including
+      // polygon segments and tiny floating-point differences at tiled seams.
+      if (foot !== undefined) p.sortGroundY = Math.min(p.sortGroundY, foot);
+    }
+  }
+  pieces.sort((a, b) => (a.sortGroundY - b.sortGroundY) || ((a.rank || 0) - (b.rank || 0)));
   pieces.forEach((piece, depth) => {
     if (piece.it) piece.it._z = depth;
     if (piece.sprite) piece.sprite.setDepth(depth);
   });
+};
+
+// Use the same row-aware cell identity as taps and placement, never screen Y.
+Render.castleCellKey = function (scene, castle, wx, wy) {
+  if (!scene.startWorldM || !scene.originPx || !(scene.mPerPx > 0)) return null;
+  const c = worldMetersToAbsCell(scene, wx, wy);
+  return `${castle || ''}|${c.cellIX},${c.cellIY}`;
+};
+Render.castleWallCells = function (scene, castle, x0, y0, x1, y1) {
+  if (!(scene.cellM > 0)) return [];
+  const nx = Math.max(1, Math.ceil((x1 - x0) / (scene.cellM / 2)));
+  const ny = Math.max(1, Math.ceil((y1 - y0) / (scene.cellM / 2)));
+  const cells = new Set();
+  for (let y = 0; y <= ny; y++) for (let x = 0; x <= nx; x++) {
+    const key = Render.castleCellKey(scene, castle, x0 + (x1 - x0) * x / nx, y0 + (y1 - y0) * y / ny);
+    if (key) cells.add(key);
+  }
+  return [...cells];
+};
+Render.towerCrownHeight = function (textures, castle) {
+  const frame = textures.getFrame('tower', CastleStyles.get(castle).towerFrame);
+  return (frame?.height || CastleStyles.TOWER_HEIGHT) - (frame?.castleCrownY || 0);
 };
 
 Render.objectGroundOffsetPx = function (appearance, textures) {
@@ -1378,7 +1412,7 @@ function drawAtmosRim(scene, haze) {
 
 // A wall segment is a first-class upright drawable, just like a tree or
 // tower. Its geometry is screen-space; its sorting anchor stays world-space.
-Render.rampartPiece = function rampartPiece(scene, groundY, rank = 1) {
+Render.rampartPiece = function rampartPiece(scene, groundY, rank = 1, castleCell = null) {
   const pool = scene._rampartPool || (scene._rampartPool = []);
   const i = scene._rampartPoolUsed++;
   let sprite = pool[i];
@@ -1388,7 +1422,7 @@ Render.rampartPiece = function rampartPiece(scene, groundY, rank = 1) {
     pool.push(sprite);
   }
   sprite.setVisible(true);
-  scene._uprightPieces.push({ sprite, groundY, rank });
+  scene._uprightPieces.push({ sprite, groundY, rank, castleCell });
   return sprite;
 };
 
@@ -1586,6 +1620,18 @@ Render.drawCells = function drawCells(scene) {
   const atmos = updateAtmos(scene, types, RING, borderDirty);
   const OWN = (c, r) => owners[(r + 2) * RING + (c + 2)];
   const UNCLAIMED = (c, r) => unclaimed[(r + 2) * RING + (c + 2)] === 1;
+  const castleKeys = new Map();
+  const castleOwner = (c, r) => {
+    const owner = OWN(c, r);
+    if (castleKeys.has(owner)) return castleKeys.get(owner);
+    const i = (r + 2) * RING + (c + 2);
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[i], _ringTY[i]));
+    const n = rowCells(scene, _ringTY[i]);
+    const local = entry?.owners?.[_ringIY[i] * n + _ringIX[i]];
+    const key = entry?.ownerKeys?.[local];
+    castleKeys.set(owner, key);
+    return key;
+  };
   // An unclaimed castle's COURT is painted in the shaded colour, so every place
   // that resolves a cell's painted colour has to agree: the fill, the rounded
   // corners' diagonal fills, and the wavy-border test that asks whether two
@@ -1596,9 +1642,10 @@ Render.drawCells = function drawCells(scene) {
     return accent >= 0 ? accent : colour;
   };
   const courtShaded = (t, colour, c, r) =>
+    t === 12 ? CastleStyles.get(castleOwner(c, r), !UNCLAIMED(c, r)).floor :
     UNCLAIMED(c, r) && typeof UNCLAIMED_BUILDING_BASE !== 'undefined' && UNCLAIMED_BUILDING_BASE.floors[t] != null
       ? unclaimedMaterialColor(unclaimedShade(UNCLAIMED_BUILDING_BASE.floors[t]))
-      : (t === 12 && UNCLAIMED(c, r)) ? _shadeOnce(colour) : groundColor(colour, c, r);
+      : groundColor(colour, c, r);
   // Cells whose PAINTED colour isn't COLORS[type] — the ones every neighbour
   // test has to look THROUGH to the zone underneath. Road and path cells are
   // painted the majority biome around them; in polygonal mode a building cell
@@ -2160,47 +2207,27 @@ Render.drawCells = function drawCells(scene) {
       // dashes on the same merlon grid so they line up with the crests.
       // Drawn INSTEAD of the tier-9/12 extrusion + outline below.
       if (type === 12) {
-        // Stone comes from the shared castle palette (textures.js
-        // CASTLE_STONE) — the same six values the turret texture is drawn
-        // from, so a tower reads as the same masonry as the wall it stands on.
-        //   BODY  — lit battlement tops
-        //   FACE  — the tall extruded N/S wall faces: darker than BODY so the
-        //           wall mass reads with depth instead of looking washed out
-        //           against the light castle floor
-        //   SIDE  — the E/W side-wall crenel dashes: a soft mid-grey so the
-        //           gaps between the side merlons aren't harshly dark
-        // ...and in the SECOND palette when the castle isn't the player's:
-        // CASTLE_STONE_UNCLAIMED is every one of those six stones put through
-        // unclaimedShade(). Picked per cell, which is what makes it possible
-        // for the castle across the road to be lit while this one isn't.
-        const _claimedHere = !UNCLAIMED(col, row);
-        const _CS = (typeof CASTLE_STONE === 'undefined') ? null
-          : (_claimedHere || typeof CASTLE_STONE_UNCLAIMED === 'undefined'
-              ? CASTLE_STONE : CASTLE_STONE_UNCLAIMED);
-        // window.__RAMPART_DEBUG tints the three wall pieces apart (north blue,
-        // south green, sides red) so corner stacking bugs are visible at a
-        // glance — the stone greys are too close to eyeball draw order.
+        // Resolve the same owner identity and condition as the tower and
+        // polygon overlay. Returned colours already include weathering.
+        const material = CastleStyles.get(castleOwner(col, row), !UNCLAIMED(col, row));
+        const crest = material.rampart.woodTop ? material.wood : material.stone;
         const _DBG = (typeof window !== 'undefined') && window.__RAMPART_DEBUG;
-        const _sh = (n) => (_claimedHere || typeof unclaimedShade === 'undefined')
-          ? n : unclaimedShade(n);
-        const stone = n => !_claimedHere && typeof unclaimedMaterialColor === 'function' ? unclaimedMaterialColor(n) : n;
-        const STONE_LITE   = stone(_CS ? _CS.LITE.n   : _sh(0xb9bcc2));
-        const STONE_BODY   = stone(_CS ? _CS.BODY.n   : _sh(0x8f9298));
-        const STONE_SHADOW = stone(_CS ? _CS.SHADOW.n : _sh(0x5a5d63));
-        const STONE_DARK   = stone(_CS ? _CS.DARK.n   : _sh(0x303134));
-        const STONE_FACE   = stone(_CS ? _CS.FACE.n   : _sh(0x7e8188));
-        const STONE_SIDE   = stone(_CS ? _CS.SIDE.n   : _sh(0x7a7d84));
-        const MERLONS = 4, SPAN = CELL_PX / MERLONS;   // 8px span, divides the cell evenly so teeth tile
-        const MW = 4, MOFF = (SPAN - MW) >> 1;         // 4px tooth centred → clear 4px crenel gaps
-        const TOOTH_H = 4;       // merlon height ≈ tooth width (4px) — squat, proportioned crenel
-        const CREN = 2;          // crenel-level wall (the gaps still show a low parapet)
-        const WALL = 8;          // south wall-face height (the lit 3-D extrusion)
+        const STONE_LITE = crest.LITE, STONE_BODY = crest.BODY;
+        const STONE_SHADOW = crest.SHADOW, STONE_DARK = material.stone.DARK;
+        const STONE_FACE = material.stone.FACE, STONE_SIDE = material.stone.SIDE;
+        const MERLONS = material.rampart.merlons, SPAN = CELL_PX / MERLONS;
+        const MW = material.rampart.toothWidth, MOFF = (SPAN - MW) >> 1;
+        const TOOTH_H = material.rampart.toothHeight;
+        const CREN = 2;
+        const WALL = material.rampart.wallHeight;
         // Each boundary has its own ground anchor in world metres, so
         // camera motion cannot change its ordering against moving sprites.
         const si = (row + 2) * RING + (col + 2);
         const ty = _ringTY[si], cm = rowCellM(scene, ty);
         const northY = ty * scene.tileEdgeM + _ringIY[si] * cm;
-        const wallPiece = fraction => Render.rampartPiece(scene, northY + fraction * cm);
+        const castleCell = Render.castleCellKey(scene, castleOwner(col, row),
+          _ringTX[si] * scene.tileEdgeM + (_ringIX[si] + 0.5) * cm, northY + cm / 2);
+        const wallPiece = fraction => Render.rampartPiece(scene, northY + fraction * cm, 1, castleCell);
         // Horizontal battlement crest: a low parapet at `baseY` with merlons
         // rising UP from it, drawn into the supplied graphics layer `gx`. Teeth
         // share the SPAN grid on every wall so front/back crenellations line up.
@@ -2209,6 +2236,7 @@ Render.drawCells = function drawCells(scene) {
           gx.fillStyle(body, 1);   gx.fillRect(x, baseY - CREN, CELL_PX, CREN);
           gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x, baseY - 1, CELL_PX, 1);
           for (let i = 0; i < MERLONS; i++) {
+            if (material.rampart.broken && i === 2) continue;
             const mx = x + i * SPAN + MOFF;
             gx.fillStyle(body, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
             gx.fillStyle(STONE_LITE, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, 1);
@@ -2256,7 +2284,7 @@ Render.drawCells = function drawCells(scene) {
         const bandY = sy;
         const bandBot = sy + (wallEdge(col, row, 0, 1) ? CELL_PX - TOOTH_H : CELL_PX);
         const sideShade = (x, innerX) => {
-          const gb = Render.rampartPiece(scene, northY + cm, 0);
+          const gb = Render.rampartPiece(scene, northY + cm, 0, castleCell);
           gb.fillStyle(_DBG ? 0xc03030 : STONE_BODY, 1);   gb.fillRect(x, bandY, SIDE_W, bandBot - bandY);
           gb.fillStyle(_DBG ? 0xe06060 : STONE_SIDE, 1);
           // Crenel-grid dashes stay on the cell's own span; skip any dash the
@@ -3134,6 +3162,8 @@ Render.drawObjects = function drawObjects(scene) {
   for (const it of plantedList) zList.push({ it, rank: 0,
     groundY: groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
   for (const it of filteredObj) zList.push({ it, rank: it.o.kind === 'tower' ? 2 : 1,
+    castleTower: it.o.kind === 'tower',
+    castleCell: it.o.kind === 'tower' ? Render.castleCellKey(scene, it.o.castle, it.o.x, it.o.y) : null,
     groundY: groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures)) });
   for (const it of creatureList) zList.push({ it, rank: 3,
     groundY: groundY(it, SpriteLayout.CREATURE_GROUND_DY) });
@@ -3291,10 +3321,10 @@ Render.drawObjects = function drawObjects(scene) {
   const flagList = scene.isCastleClaimed
     ? towerList.filter(({ o }) => o.flagPost && scene.isCastleClaimed(o))
     : [];
-  const towerH = flagList.length ? (scene.textures.getFrame('tower')?.height ?? 42) : 0;
   Render.renderPool(scene, scene.castleFlagPool, scene.towerContainer, flagList, (s, item) => {
     const { dx, dy } = item;
     const { sx, sy } = project(dx, dy);
+    const towerH = Render.towerCrownHeight(scene.textures, item.o.castle);
     setTextureIfDifferent(s, 'castle_flag');
     s.setDepth((item._z ?? 0) + 0.1);
     s.setOrigin(0.5, 1)
@@ -4481,23 +4511,13 @@ Render.objectAppearance = function (scene, houseRoles) {
       dyPx: (o) => (_houseRole(o) === 'wizard' ? CELL_PX * 0.5 : 0),
       scale: _houseScale,
     },
-    // Turret placement, exactly: the art is anchored by its frame's
-    // bottom-centre (origin 0.5, 1.0) and dropped half a cell from the cell
-    // CENTRE that sy gives us, so its grounding line lands ON the cell's
-    // bottom edge — not the ~2px short of it the old 0.95 origin left. The
-    // texture carries no bottom padding (see makeTowerTexture) so frame bottom
-    // IS art bottom, and its art is symmetric about the frame's centre column,
-    // so origin x 0.5 centres it on the cell. Towers share the world painter
-    // pass and give way to anything whose feet are farther south.
-    // A turret has TWO baked textures, not one texture and a tint: an unclaimed
-    // castle's masonry is generated in the shaded palette (textures.js), and a
-    // tower that took a multiply tint instead never quite landed on the wall
-    // colour beneath it. Falls back to the lit key if the second bake is
-    // missing, so a stale texture cache can't blank the turret.
-    tower:  { key: (o, sc) => (sc && sc.isClaimedKey && !sc.isClaimedKey(o.castle)
+    // Bottom-seat each sprite at its data cell. A castle's identity selects
+    // one material family; restoring it changes only the condition palette.
+    tower: { key: (o, sc) => (sc && sc.isClaimedKey && !sc.isClaimedKey(o.castle)
                                && sc.textures.exists('tower_unclaimed'))
                               ? 'tower_unclaimed' : 'tower',
-              origin: [0.5, 1.0], scale: 1.0, dyPx: CELL_PX * 0.5 },
+             frame: o => CastleStyles.get(o.castle).towerFrame,
+             origin: [0.5, 1], scale: 1, dyPx: CELL_PX * 0.5 },
     // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
     // foot nudge). The trimmed art is 43×39 (the PNG bakes a 39%-alpha shadow
     // ellipse under the feet; the figure itself is fully opaque), so scale 0.6

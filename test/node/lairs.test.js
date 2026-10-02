@@ -354,6 +354,34 @@
     throw new Error(`no plain held seat for tier ${tier} near ${cxM},${cyM}`);
   }
 
+  test('lairs: an intact bastion stays unguarded while other castle families can wake', () => {
+    const base = mkHeldShape(12, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M);
+    let bastionKey;
+    for (let i = 0; i < 100; i++) {
+      const key = `castle-bastion-fixture-${i}`;
+      if (CastleStyles.variantFor(key) === 'bastion') { bastionKey = key; break; }
+    }
+    assert.truthy(bastionKey, 'fixture uses a real hashed owner identity');
+    for (const key of ['citadel', bastionKey]) {
+      const shape = { ...base, key }, entry = mkEntry([shape]);
+      const index = Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M);
+      const cand = [...index.buckets.values()].flat()[0];
+      assert.eq(cand.key, key, 'the footprint owner selects the family');
+      const guards = Lairs.garrisonFor(entry, cand, { tileEdgeM: TILE_M, homeM: HOME });
+      if (key === 'citadel') assert.gt(guards.length, 0, 'the same held site can wake a citadel');
+      else {
+        assert.eq(guards.length, 0, 'bastions never get the held-site guards');
+        step(entry, CENTRE);
+        assert.eq(guardsOf(entry).length, 0, 'residency also leaves the bastion empty');
+      }
+    }
+    const fort = mkHeldShape(11, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M, bastionKey);
+    const entry = mkEntry([fort]);
+    const cand = [...Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M).buckets.values()].flat()[0];
+    assert.gt(Lairs.garrisonFor(entry, cand, { tileEdgeM: TILE_M, homeM: HOME }).length, 0,
+      'castle family policy does not change fort guards');
+  });
+
   test('lairs: a building garrison is never rooted plants; a road variant may be', () => {
     assert.truthy(EnemyRoster.isRooted('plant'), 'the plant is rooted');
     assert.falsy(EnemyRoster.isRooted('spider'), 'the spider walks');
@@ -479,7 +507,7 @@
     assert.eq(Lairs.occupancyFor(7, 1), 0, 'a tier that holds no lair is never held');
   });
 
-  test('lairs: over many ruins the rate really is the tier\'s rate', () => {
+  test('lairs: guard-eligible ruins retain their tier occupancy rate', () => {
     // The roll drives the shipping garrisonFor, not a reimplementation of it:
     // plant the same wreck at 600 different places and count how many hold.
     const far = { x: -FAR_HOME_M, y: 0 };
@@ -491,6 +519,12 @@
         const idx = Lairs.buildIndex(entry, 0, 0, CELL_M, TILE_M);
         const [cand] = [...idx.buckets.values()][0];
         cand.sid = Lairs.structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
+        // Intact bastions deliberately have no guards; occupancy still owns
+        // the chance for the other families, independently of their palette.
+        if (tier === 12 && !CastleStyles.get(cand.key).guards) {
+          assert.eq(Lairs.garrisonFor(entry, cand, { tileEdgeM: TILE_M }).length, 0);
+          continue;
+        }
         n++;
         if (Lairs.garrisonFor(entry, cand, {
           cellM: CELL_M, tileEdgeM: TILE_M, homeM: far, caughtSet: new Set(),
@@ -1006,12 +1040,12 @@
   });
 
   test('lairs: a claimed structure holds nothing', () => {
-    const shapes = [mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'mine')];
+    const shapes = [mkShape(12, CENTRE.x, CENTRE.y, 4 * CELL_M, 'citadel')];
     const open = mkEntry(shapes);
     step(open, CENTRE);
     assert.truthy(guardsOf(open).length > 0, 'unclaimed, it is held');
     const claimed = mkEntry(shapes);
-    step(claimed, CENTRE, { isClaimed: (k) => k === 'mine' });
+    step(claimed, CENTRE, { isClaimed: (k) => k === 'citadel' });
     assert.eq(guardsOf(claimed).length, 0, 'a ruin the player has taken back still held monsters');
   });
 

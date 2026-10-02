@@ -140,7 +140,7 @@ const FILES = [
   // Same deal for the POLYGONAL building overlay: pure draw math over WorldGen
   // + a stub fill target, so its projection, painter-rule ordering, tier
   // styling and claim shading pin headlessly.
-  'building_overlay.js',
+  'castle_styles.js', 'building_overlay.js',
   // The browser sandbox now exposes a pure tile builder. Loading it here pins
   // the same authored scenes, vector roads and dressing that install() uses.
   'sandbox.js',

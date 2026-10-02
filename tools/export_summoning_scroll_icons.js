@@ -9,7 +9,7 @@ const { chromium } = require('playwright-core');
   try {
     const page = await browser.newPage();
     const base = 'data:image/png;base64,' + fs.readFileSync('assets/Icons/RPG icons/Extras/Books.png').toString('base64');
-    for (const name of ['Skeleton', 'Wraith']) {
+    for (const name of ['Thunder', 'Raven', 'Skeleton', 'Wraith']) {
       const dir = 'assets/Icons/Items';
       const stamp = 'data:image/svg+xml;base64,' + fs.readFileSync(path.join(dir, name + 'ScrollStamp.svg')).toString('base64');
       const png = await page.evaluate(async ({ base, stamp }) => {

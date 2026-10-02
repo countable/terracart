@@ -247,7 +247,7 @@ test('building overlay: the LOWER building draws in front', () => {
 
 test('building overlay: a castle gets a rampart band, a house gets an outline', () => {
   clearTiles();
-  putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING_LARGE)]);
+  putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING_LARGE, 'citadel')]);
   let scene = makeScene();
   BuildingOverlay.draw(scene);
   const insets = scene.buildingGeomGfx.only('inset');
@@ -262,6 +262,25 @@ test('building overlay: a castle gets a rampart band, a house gets an outline', 
   BuildingOverlay.draw(scene);
   assert.eq(scene.buildingGeomGfx.only('inset').length, 0, 'a house has no rampart');
   assert.eq(scene.buildingGeomGfx.only('stroke').length, 1, 'a house is outlined');
+});
+
+test('building overlay: castle floors and ramparts share the tower material in both conditions', () => {
+  for (const id of CastleStyles.ids) for (const claimed of [true, false]) {
+    clearTiles();
+    putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING_LARGE, id)]);
+    const scene = makeScene({ isClaimedKey: () => claimed });
+    BuildingOverlay.draw(scene);
+    const material = CastleStyles.get(id, claimed), g = scene.buildingGeomGfx;
+    const fills = g.only('fill');
+    assert.eq(fills[0].color, material.stone.FACE, `${id}: stone wall face`);
+    assert.eq(fills[1].color, material.floor, `${id}: matching courtyard`);
+    const insets = g.only('inset');
+    assert.eq(insets[0].color, material.stone.BODY, `${id}: stone wall base`);
+    const top = material.rampart.woodTop ? material.wood : material.stone;
+    assert.eq(insets[insets.length - 1].color, top.LITE, `${id}: matching crenellations`);
+    if (id === 'archive') assert.eq(insets[1].color, material.wood.BODY, 'archive wood crowns a stone base');
+    if (id === 'ruin') assert.eq(insets[1].dash.length, 4, 'ruin teeth have uneven gaps');
+  }
 });
 
 test('building overlay: each floor carries its own tier material', () => {

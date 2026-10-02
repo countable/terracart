@@ -21,6 +21,8 @@ test('thunder scroll: a T4 scroll with a price, an icon and a ✦ line quoting i
   assert.eq(FOOD_ENERGY.thunder_scroll, undefined, 'never on the Eat button');
   assert.gt(PRICES.thunder_scroll, 0, 'priced');
   assert.truthy(ITEM_BY_ID.thunder_scroll.scroll);
+  assert.eq(inventoryIconSource('thunder_scroll').sheet, 'icon_thunder_scroll', 'lightning-stamped parchment');
+  assert.eq(inventoryIconSource('thunder_scroll').frame, 0, 'dedicated icon frame');
   assert.falsy(isPotion('thunder_scroll'));
   assert.eq(CONSUMABLE_SPEC.thunder_scroll.verb, 'Read');
   assert.truthy(HOME_RECIPES.some(r => r.id === 'thunder_scroll'));

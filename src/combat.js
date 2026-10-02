@@ -1418,6 +1418,7 @@
       const shot = turretShot(t.x, t.y, enemies, cellM);
       if (!shot) continue;
       clocks[t.id] = now + TURRET.fireIntervalMs;
+      shot.castle = t.castle;
       shots.push(shot);
     }
     return shots;

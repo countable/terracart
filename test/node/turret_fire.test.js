@@ -31,34 +31,65 @@
 const CELL = 7;
 const goblin = (id, x, y) => ({ kind: 'goblin', id, x, y });
 
-test('turret art: both states bake from castle stone without changing the wall palette', () => {
-  const art = new Function('lerp', TEXTURES_SRC + '\nreturn { makeTowerTexture, CASTLE_STONE, CASTLE_STONE_UNCLAIMED };')(lerp);
-  const palettes = [art.CASTLE_STONE, art.CASTLE_STONE_UNCLAIMED];
-  const before = JSON.stringify(palettes);
+test('turret art: atlas variants bake shared stone and wood in both restoration states', () => {
+  const art = new Function('lerp', 'CastleStyles', TEXTURES_SRC
+    + '\nreturn { makeTowerTexture, CASTLE_STONE, CASTLE_STONE_UNCLAIMED };')(lerp, CastleStyles);
+  const W = CastleStyles.TOWER_WIDTH, H = CastleStyles.TOWER_HEIGHT;
+  const width = W * CastleStyles.ids.length;
+  const source = new Uint8ClampedArray(width * H * 4);
+  const at = (x, y) => (y * width + x) * 4;
+  for (let frame = 0; frame < CastleStyles.ids.length; frame++) {
+    source.set([120, 120, 120, 255], at(frame * W, frame + 2));
+    source.set([180, 100, 60, 255], at(frame * W + 1, frame + 2));
+    source.set([250, 250, 250, 80], at(frame * W + 2, 0));
+  }
+  const before = JSON.stringify(CastleStyles.ids.map(id => [CastleStyles.get(id), CastleStyles.get(id, false)]));
   const textures = new Map();
   const scene = { textures: {
     exists: key => textures.has(key),
+    get: key => key === 'castle_tower_shapes' ? { getSourceImage: () => source } : textures.get(key),
+    getFrame: (key, frame) => textures.get(key)?.get(frame),
     createCanvas(key, w, h) {
-      const colours = [];
-      const ctx = { clearRect() {}, fillRect() { colours.push(this.fillStyle); },
-        createLinearGradient: () => ({ addColorStop() {} }),
-        getImageData: () => ({ data: new Uint8ClampedArray(w * h * 4) }), putImageData() {} };
-      const tex = { w, h, colours, getContext: () => ctx, refresh() {} };
+      let pixels;
+      const frames = new Map();
+      const ctx = { drawImage(img) { pixels = new Uint8ClampedArray(img); },
+        getImageData: () => ({ data: pixels }), putImageData(img) { pixels = img.data; } };
+      const tex = { w, h, getContext: () => ctx, refresh() {}, get: n => frames.get(n),
+        add(n, sourceIndex, x, y, fw, fh) { frames.set(n, { x, y, width: fw, height: fh }); },
+        pixel(x, y) { return Array.from(pixels.slice(at(x, y), at(x, y) + 4)); } };
       textures.set(key, tex); return tex;
     },
   } };
   art.makeTowerTexture(scene);
-  art.makeTowerTexture(scene, palettes[1], 'tower_unclaimed');
-  for (const [i, key] of ['tower', 'tower_unclaimed'].entries()) {
+  art.makeTowerTexture(scene, art.CASTLE_STONE_UNCLAIMED, 'tower_unclaimed');
+  const rgb = hex => [hex >> 16, (hex >> 8) & 255, hex & 255, 255].join(',');
+  for (const [key, claimed] of [['tower', true], ['tower_unclaimed', false]]) {
     const tex = textures.get(key);
-    assert.eq(tex.w, 28); assert.eq(tex.h, 42);
-    assert.eq(tex.colours[0], palettes[i].FACE.s, 'tower uses the wall face stone');
+    assert.eq(tex.w, width); assert.eq(tex.h, H);
+    CastleStyles.ids.forEach((id, frame) => {
+      const material = CastleStyles.get(id, claimed);
+      assert.eq(tex.pixel(frame * W, frame + 2).join(','), rgb(material.stone.FACE), 'stone follows wall material');
+      assert.eq(tex.pixel(frame * W + 1, frame + 2).join(','), rgb(material.rampart.woodTop ? material.wood.FACE : material.stone.FACE), 'archive timber keeps its wood material');
+      assert.eq(tex.pixel(frame * W + 2, 0)[3], 0, 'soft source fringe does not become opaque');
+      assert.eq(tex.get(frame).castleCrownY, frame + 2, 'crown follows opaque art, not the atlas top');
+      assert.eq(tex.get(frame).x, frame * W);
+      assert.eq(tex.get(frame).width, W);
+    });
   }
-  assert.eq(JSON.stringify(palettes), before, 'baking a tower must not recolour walls');
+  assert.eq(JSON.stringify(CastleStyles.ids.map(id => [CastleStyles.get(id), CastleStyles.get(id, false)])), before,
+    'baking must not recolour walls or floors');
   const spec = Render.objectAppearance({ textures: scene.textures, save: {} }, new Map()).RENDER_SPEC.tower;
   assert.eq(spec.scale, 1); assert.eq(spec.dyPx, CELL_PX / 2);
+  for (const id of CastleStyles.ids) {
+    assert.eq(spec.frame({ castle: id }), CastleStyles.get(id).towerFrame);
+    assert.eq(Render.towerCrownHeight(scene.textures, id), H - CastleStyles.get(id).towerFrame - 2);
+  }
   assert.eq(spec.key({}, { textures: scene.textures, isClaimedKey: () => false }), 'tower_unclaimed');
   assert.eq(spec.key({}, { textures: scene.textures, isClaimedKey: () => true }), 'tower');
+});
+
+test('turret art: missing frame uses the shared tower height for its crown', () => {
+  assert.eq(Render.towerCrownHeight({ getFrame: () => null }, 'ruin'), CastleStyles.TOWER_HEIGHT);
 });
 
 test('turret: a Wood-tier bow at one fifth the player cadence — all derived', () => {
@@ -134,7 +165,7 @@ test('turret: over a long fight a turret looses one fifth of what the bow does',
 });
 
 test('turret: first sighting arms at the phase, out-of-range keeps the clock due, and a cleared clock re-arms', () => {
-  const turret = { id: 'tw_2_2', x: 0, y: 0 };
+  const turret = { id: 'tw_2_2', x: 0, y: 0, castle: 'archive' };
   const inRange = goblin('i', 2 * CELL, 0);
   const beyond = goblin('b', (Combat.SHOT.bow.rangeCells + 2) * CELL, 0);
   const phase = Combat.turretPhaseMs(turret.id);
@@ -147,7 +178,9 @@ test('turret: first sighting arms at the phase, out-of-range keeps the clock due
   assert.eq(Combat.turretTick([turret], clocks, due + 1, [beyond], CELL).length, 0, 'holds fire');
   assert.eq(clocks[turret.id], due, 'the clock is left due, not pushed out');
   // One steps in: fires at once.
-  assert.eq(Combat.turretTick([turret], clocks, due + 2, [beyond, inRange], CELL).length, 1, 'fires the instant one is in range');
+  const fired = Combat.turretTick([turret], clocks, due + 2, [beyond, inRange], CELL);
+  assert.eq(fired.length, 1, 'fires the instant one is in range');
+  assert.eq(fired[0].castle, turret.castle, 'arrow keeps castle identity for the correct variant crown');
   assert.eq(clocks[turret.id], due + 2 + Combat.TURRET.fireIntervalMs, 'and the full interval is charged');
   // app.js clears the clocks while no enemy is on screen; the next sighting
   // then re-arms at the phase instead of firing immediately.
@@ -192,7 +225,7 @@ test('turret: app.js fires the turrets from _combatTick with the SAME enemy list
   assert.truthy(/this\._shots\.push\(shot\)/.test(fire), 'turret arrows join the one shot list — same flight, same hit, same bounty');
   // Turret arrows are drawn leaving the battlements and descending to the
   // common chest height — derived from the tower art, not a tuned lift.
-  assert.truthy(/const TURRET_ARROW_LIFT_PX = 42 - CELL_PX \/ 2 - 4;/.test(app), 'the start lift is derived from the 42px tower art');
+  assert.truthy(/shot\.liftFromPx = Render\.towerCrownHeight\(this\.textures, shot\.castle\) - CELL_PX \/ 2 - 4;/.test(fire), 'each arrow starts at its own castle variant crown');
   assert.truthy(/if \(s\.liftFromPx != null\)/.test(app), '_drawShots honours the turret lift');
 });
 test('ranged weapons: wake only for a foe within the reach plus a cell', () => {

@@ -1,0 +1,46 @@
+[
+  {
+    "frame": 0,
+    "candidate": 7,
+    "source": [
+      991,
+      307,
+      230,
+      264
+    ],
+    "height": 37
+  },
+  {
+    "frame": 1,
+    "candidate": 12,
+    "source": [
+      1425,
+      602,
+      239,
+      263
+    ],
+    "height": 35
+  },
+  {
+    "frame": 2,
+    "candidate": 1,
+    "source": [
+      117,
+      26,
+      227,
+      246
+    ],
+    "height": 35
+  },
+  {
+    "frame": 3,
+    "candidate": 3,
+    "source": [
+      983,
+      17,
+      249,
+      260
+    ],
+    "height": 33
+  }
+]

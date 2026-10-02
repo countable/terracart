@@ -66,6 +66,7 @@
         else {const key='look:'+p.key;let look=plantRows.find(r=>r.id===key);if(!look){look={id:key,name:title(zone.materialLooks?.[id]||id),key:p.key,frames:[p.frame],category:'Plants & crops',zones:new Set(),source:'src/items.js'};plantRows.push(look);}look.zones.add(zone.id);}
       } else {try{const p=probe.resolveAppearance(o);if(p?.texKey){want(p.texKey,p.frameVal);use(p.texKey,zone.id);}}catch(error){console.warn('World art material:',id,error.message);}}
     }
+    want('castle_tower_shapes');
     // Only the selected world textures are decoded; monsters and inventory-only
     // assets are not included in this viewer.
     await Promise.all([...wanted.keys()].map(async key=>{

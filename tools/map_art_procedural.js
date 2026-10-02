@@ -120,7 +120,7 @@ const MapArtProcedural = (() => {
     }
     const scene = textureScene();
     if (spec.kind === 'tower') {
-      makeTowerTexture(scene, spec.unclaimed ? CASTLE_STONE_UNCLAIMED : CASTLE_STONE, 'sample');
+      makeLegacyTowerTexture(scene, spec.unclaimed ? CASTLE_STONE_UNCLAIMED : CASTLE_STONE, 'sample');
       return scene.result('sample');
     }
     if (spec.kind === 'pad') {
