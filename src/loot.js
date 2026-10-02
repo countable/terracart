@@ -25,7 +25,7 @@
 //   STAND_NEVER_CLASSES,
 //   standWordItem, standNameItems, subclassProductFor, produceStandFor
 //   MACRO_KIND_BY_CLASS, MACRO_KINDS, macroFor
-//   chestLook
+//   chestLook, chestOpeningArt
 //
 // Loot pickers (pickTreasure, pickLoot, pickChestRelic / rollGearUpgrade)
 // AND the old per-category loot tables (CATEGORY_LOOT /
@@ -860,6 +860,16 @@ function chestLook(o) {
   return (o._chestLook = { stand, coin, bike, barrel, macro, smashedKey: barrelArt?.smashedKey, barrelName: barrelArt?.name,
     box: box && !wagon && !macro && !special, wagon, texKey,
     frame: texKey === 'chest' ? chestTier(o) - 1 : (stand ? stand.frame : 0) });
+}
+
+
+// Opening paintings follow the source container, never the rolled item's tier.
+// Places and other special looks retain their own ceremony art.
+function chestOpeningArt(o) {
+  const look = chestLook(o);
+  if (look.texKey === 'box') return o.crate ? 'kind_supplies' : 'chest_t1';
+  if (look.texKey === 'chest') return 'chest_t' + chestTier(o);
+  return null;
 }
 
 
