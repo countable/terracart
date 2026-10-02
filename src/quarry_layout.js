@@ -7,10 +7,22 @@
     h = Math.imul(h ^ (h >>> 13), 1274126177);
     return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
   }
+  // Cardinal connections in atlas order: straights, corners, T junctions,
+  // then the cross. Single ends and isolated remnants keep ordinary rubble.
+  const WALL_FRAME_BY_MASK = { 10: 0, 5: 1, 6: 2, 12: 3, 3: 4, 9: 5,
+    11: 6, 7: 7, 14: 8, 13: 9, 15: 10 };
+  function wallFrameAt(cells, i, N) {
+    const x = i % N, y = Math.floor(i / N);
+    const mask = (y > 0 && cells.has(i - N) ? 1 : 0)
+      | (x < N - 1 && cells.has(i + 1) ? 2 : 0)
+      | (y < N - 1 && cells.has(i + N) ? 4 : 0)
+      | (x > 0 && cells.has(i - 1) ? 8 : 0);
+    return WALL_FRAME_BY_MASK[mask] ?? null;
+  }
   function* planSteps(s, { N, tx = 0, ty = 0 }) {
     const settings = root.ZoneVariantData.quarryLayouts;
     const { min: minPatch, max: maxPatch } = settings.patchSizeCells;
-    const plan = { background: new Map(), finds: [], guards: [], hazards: [], clear: new Set(), landmarks: [] };
+    const plan = { background: new Map(), wallFrames: new Map(), finds: [], guards: [], hazards: [], clear: new Set(), landmarks: [] };
     const cells = s.cells.slice().sort((a, b) => a - b), covered = new Set(cells);
     if (!cells.length) return plan;
     const id = s.variant.id.replace(/_/g, '-');
@@ -231,6 +243,17 @@
       }
       for (const entry of [...plan.finds, ...plan.guards]) { plan.background.delete(entry.i); plan.clear.add(entry.i); }
     }
+    if (id === 'quarry-stronghold') {
+      // Resolve joins only after doors, buried finds and guard seats have
+      // removed their cells. Fallback rubble still counts as a broken end.
+      const walls = new Set(plan.background.keys());
+      for (const i of walls) {
+        const frame = wallFrameAt(walls, i, N);
+        if (frame == null) continue;
+        plan.background.set(i, 'stronghold_wall');
+        plan.wallFrames.set(i, frame);
+      }
+    }
     return plan;
   }
   // Ruins need readable surviving walls; craters need a broader pocket and
@@ -266,5 +289,5 @@
     // scatter instead of claiming a fortress or a crater that isn't there.
     return 'quarry';
   }
-  root.QuarryLayout = { planSteps, variantForSteps };
+  root.QuarryLayout = { planSteps, variantForSteps, wallFrameAt };
 })(typeof window !== 'undefined' ? window : globalThis);

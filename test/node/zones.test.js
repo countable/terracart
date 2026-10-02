@@ -298,12 +298,24 @@ test('zones: every nexus piece is off the road band and off anything already the
   // Rasterized again: the same pieces, the same ids.
   const again = WorldGen.rasterizeTile(decode(`${TILE_TX}_${TILE_TY}`), N, TILE_TX, TILE_TY, edge);
   assert.eq(again.zoneDress.objects.map((o) => o.id).join(), d.objects.map((o) => o.id).join(), 'deterministic');
-  // One art per interactable, no scenery: every laid kind is tappable or a hazard.
+  // Ordinary nexus pieces remain tappable or hazardous. Stronghold walls
+  // are the explicit decorative exception: fitted structural scenery only.
   for (const o of d.objects) {
     if (o.kind === 'lava_vent') {
       assert.eq(o.zoneVariant, 'quarry-crater');
       assert.eq(on.grid[cellOf(o)], T.CAVE_LAVA, 'vent marks damaging terrain');
       assert.eq(Lighting.sourceKind({}, o), 'lava_vent', 'vent lights its hazard');
+    } else if (o.kind === 'stronghold_wall') {
+      assert.eq(o.zone, 'quarry');
+      assert.eq(o.zoneVariant, 'quarry-stronghold');
+      assert.eq(o.zoneLayer, 'background');
+      assert.truthy(Number.isInteger(o.variant));
+      assert.inRange(o.variant, 0, 10, 'wall uses an authored cardinal connection frame');
+      assert.falsy(INTERACTABLES[o.kind], 'decorative walls do not invent a reward or tap action');
+      assert.truthy(WorldGen.isSpawnCell(on.grid, N, N, o._ix, o._iy,
+        { spawnWhy: on.spawnWhy, roadMask: on.roadMask }, 'minor'), 'walls retain the normal scenery spawn gate');
+      const neighbors = new Set(d.objects.filter(p => p.zoneVariant === o.zoneVariant && p.zoneLayer === 'background').map(cellOf));
+      assert.eq(o.variant, QuarryLayout.wallFrameAt(neighbors, cellOf(o), N), 'frame follows actual surviving wall neighbors');
     } else assert.truthy(INTERACTABLES[o.kind] || StreetVariants.isSlowKind(o.kind), `${o.kind} does something`);
   }
   // Nexus flora (roses, flint, a symmetric figure's beds and shrubs) and the

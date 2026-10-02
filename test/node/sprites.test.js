@@ -571,3 +571,16 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
   assert.truthy(/const g = scene\.tierGfx;\s*g\.clear\(\);/.test(RENDER_SRC), 'attack warning layer still clears each draw');
   assert.truthy(/g\.strokeCircle\(centre\.sx, centre\.sy, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
 });
+
+test('stronghold walls keep their tile frame alignment instead of centering corner art', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  for (let variant=0;variant<11;variant++) {
+    const p=art.resolveAppearance({kind:'stronghold_wall',variant});
+    assert.eq(p.texKey,'stronghold_wall');
+    assert.eq(p.frameVal,variant);
+    assert.eq(p.scl*24,SpriteLayout.CELL_PX);
+    assert.eq(p.dxPx,0); assert.eq(p.dyPx,0);
+    assert.eq(p.spec.seat,false,'corner quadrants must not be recentered');
+  }
+  assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:2}).texKey,'mineralrock','global rock art retained');
+});

@@ -3,6 +3,41 @@
   const run = it => { let r; do { r = it.next(); } while (!r.done); return r.value; };
   const rect = (w, h) => Array.from({ length: w * h }, (_, i) => (Math.floor(i / w) + 4) * N + i % w + 4);
   const plan = (id, cells, owned = true) => run(QuarryLayout.planSteps({ a: { owned }, variant: ZoneVariants.byId(id), cells }, { N, tx: 4, ty: 5 }));
+  test('stronghold joins: cardinal neighbours select straights, corners, T pieces and cross', () => {
+    const i = 10 * N + 10, offsets = { N: -N, E: 1, S: N, W: -1 };
+    const connections = ['EW','NS','ES','WS','NE','NW','NEW','NES','ESW','NSW','NESW'];
+    for (const [frame, directions] of connections.entries()) {
+      const cells = new Set([i, ...[...directions].map(d => i + offsets[d])]);
+      assert.eq(QuarryLayout.wallFrameAt(cells, i, N), frame, directions);
+    }
+    for (const directions of ['', 'N', 'E', 'S', 'W']) {
+      const cells = new Set([i, ...[...directions].map(d => i + offsets[d])]);
+      assert.eq(QuarryLayout.wallFrameAt(cells, i, N), null, 'unfinished ends remain rubble');
+    }
+    assert.eq(QuarryLayout.wallFrameAt(new Set([N - 1, N, 2 * N - 1]), N - 1, N), null,
+      'a tile edge never wraps its east connection onto the next row');
+  });
+  test('stronghold joins: open doors and clipped footprints determine actual piece orientation', () => {
+    for (const cells of [rect(5,5), rect(4,4), rect(5,5).filter(i => i !== 4*N+6)]) {
+      const p = plan('quarry-stronghold', cells), walls = new Set(p.background.keys());
+      assert.gt(p.wallFrames.size, 0);
+      for (const [i, material] of p.background) {
+        const frame = QuarryLayout.wallFrameAt(walls, i, N);
+        assert.eq(material, frame == null ? 'stone' : 'stronghold_wall');
+        assert.eq(p.wallFrames.get(i), frame == null ? undefined : frame);
+        assert.falsy(p.clear.has(i), 'doorways and finite reward seats stay open');
+      }
+      const reversed = plan('quarry-stronghold', cells.slice().reverse());
+      assert.eq(JSON.stringify([...p.wallFrames]), JSON.stringify([...reversed.wallFrames]));
+    }
+    const whole = plan('quarry-stronghold', rect(5,5));
+    assert.eq(whole.wallFrames.get(4*N+4), 2, 'top-left joins east and south');
+    assert.eq(whole.wallFrames.get(4*N+8), 3, 'top-right joins west and south');
+    assert.eq(whole.wallFrames.get(8*N+4), 4, 'bottom-left joins north and east');
+    assert.eq(whole.wallFrames.get(8*N+8), 5, 'bottom-right joins north and west');
+    assert.eq(whole.background.get(8*N+5), 'stone', 'rubble terminates beside the open doorway');
+    assert.eq(whole.background.get(8*N+7), 'stone', 'both doorway ends remain open');
+  });
   test('quarry layout: crater follows the footprint and reserves an entrance', () => {
     const small = plan('quarry-crater', rect(12, 8)), large = plan('quarry-crater', rect(36, 28));
     assert.eq(small.landmarks.length, 1); assert.eq(large.landmarks.length, 1);

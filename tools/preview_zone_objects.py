@@ -48,9 +48,12 @@ def assign(first,last,category,zones,note,before=None,label=None):
 assign(0,2,'Zone-replacement','Silent Circle; Stone Garden','Replace stone-marker objects with new grave-pillar types only in these zones. Preserve the global stone object and art; pillar interactions remain to be specified.',('mineralrock',171),'Current churchyard stone marker')
 assign(3,5,'Variant','Ordered Graves; Overgrown Graves; Silent Circle','Alternate grave silhouettes for the existing headstone role.',('headstone',0),'Current headstone / short pillar')
 assign(6,7,'New prop','Broken Masonry; Ruined Stronghold','New decorative column object; no new loot or interaction defined.')
-assign(8,14,'Zone-replacement','Ruined Stronghold; Broken Masonry','Replace foundation stone objects with new wall-piece types only in these zones; preserve global stones. Recommended: connected wall set with two straight orientations, four corners, and a broken-end / rubble fallback. Select from adjacent foundation cells, like cave walls. These generated candidates need matching connection points before tiling.',('mineralrock',171),'Current foundation stone (one cell)')
+assign(8,14,'Zone-replacement','Ruined Stronghold; Broken Masonry','Superseded angled-art proposal. Ruined Stronghold now uses the separate square-grid wall set linked above: straights, corners, four T junctions and a cross selected from surviving neighbors. Ends retain rubble; global stone art is unchanged. Broken Masonry integration remains a proposal.',('mineralrock',171),'Current foundation stone (one cell)')
 assign(15,15,'New prop','Ruined Stronghold; Broken Masonry','New fallen-lintel decoration; no new interaction defined.')
 assign(16,21,'Variant','Stone Garden; Ordered Graves; Overgrown Graves; Broken Masonry; Silent Circle','Three pots in ONE occupied cell and one container interaction. Matching smashed-cluster state still needed.',('clay_pot',0),'Current clay pot (runtime muted colors)')
+for frame, zone in zip(range(16,22), ['Stone Garden','Ordered Graves','Overgrown Graves','Silent Circle','Broken Masonry','Ordered Graves']):
+    rows[frame]['zones'] = [zone]
+
 assign(22,22,'Total-replacement','Abandoned Quarry; Global barrel locations','Intact barrel appearance; existing loot and restock behavior.',('barrel',0),'Current intact barrel')
 assign(23,23,'Total-replacement','Abandoned Quarry; Global barrel locations','Broken/restocking appearance paired with the intact barrel, not a separate loot object.',('barrel_smashed',0),'Current smashed barrel')
 assign(24,27,'Variant','Mystic Reef','Installed as noninteractive water scenery at scale 4/3: a 24px source frame occupies a 32px game cell.')

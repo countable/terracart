@@ -32,6 +32,31 @@
       "frame": 5,
       "name": "bottom_right",
       "connections": "NW"
+    },
+    {
+      "frame": 6,
+      "name": "t_north",
+      "connections": "NEW"
+    },
+    {
+      "frame": 7,
+      "name": "t_east",
+      "connections": "NES"
+    },
+    {
+      "frame": 8,
+      "name": "t_south",
+      "connections": "ESW"
+    },
+    {
+      "frame": 9,
+      "name": "t_west",
+      "connections": "NSW"
+    },
+    {
+      "frame": 10,
+      "name": "cross",
+      "connections": "NESW"
     }
   ]
 }

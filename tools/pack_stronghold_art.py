@@ -11,9 +11,16 @@ im=Image.open(out/'source.png').convert('RGBA')
 specs=[('horizontal',(24,6),(0,9),'EW'),('vertical',(6,24),(9,0),'NS'),
        ('top_left',(15,15),(9,9),'ES'),('top_right',(15,15),(0,9),'WS'),
        ('bottom_left',(15,15),(9,0),'NE'),('bottom_right',(15,15),(0,0),'NW')]
-atlas=Image.new('RGBA',(144,24));frames=[]
+base=im
+junctions=Image.open(out/'junction-source.png').convert('RGBA')
+specs += [('t_north',(24,15),(0,0),'NEW'),('t_east',(15,24),(9,0),'NES'),
+          ('t_south',(24,15),(0,9),'ESW'),('t_west',(15,24),(0,0),'NSW'),
+          ('cross',(24,24),(0,0),'NESW')]
+atlas=Image.new('RGBA',(24*len(specs),24));frames=[]
 for n,(name,size,pos,connections) in enumerate(specs):
- x,y=n%3,n//3
+ im=base if n<6 else junctions
+ source_frame=n if n<6 else [2,1,0,3,4][n-6]
+ x,y=source_frame%3,source_frame//3
  tile=im.crop((round(x*im.width/3),round(y*im.height/2),round((x+1)*im.width/3),round((y+1)*im.height/2)))
  tile.putalpha(tile.getchannel('A').point(lambda a:255 if a>=128 else 0))
  tile=tile.crop(tile.getbbox()).resize(size,Image.Resampling.NEAREST)

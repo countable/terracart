@@ -4457,6 +4457,9 @@ Render.objectAppearance = function (scene, houseRoles) {
 
   const RENDER_SPEC = {
     // Water scenery is drawn separately from tappable objects.
+    // Connected wall tiles preserve frame alignment, including off-center corners.
+    // Seating by trimmed art would move their endpoints away from adjacent cells.
+    stronghold_wall: { key: 'stronghold_wall', frame: o => o.variant, scale: 4 / 3, origin: [0.5, 0.5], seat: false },
     reef_coral: { key: 'reef_coral', frame: o => o.variant, scale: 4 / 3, origin: [0.5, 0.5], seat: true },
     // Houses pick their texture by role — the generic 'house' frame stays
     // as the fallback for plain residential. Themed sprites (sliced top-

@@ -147,6 +147,11 @@
       "spawnClass": "minor",
       "color": "#b5b8bf"
     },
+    "stronghold_wall": {
+      "kind": "stronghold_wall",
+      "spawnClass": "minor",
+      "color": "#999583"
+    },
     "rubble": {
       "kind": "wildplant",
       "crop": "rockfruit",

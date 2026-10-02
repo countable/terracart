@@ -11,6 +11,33 @@
       spawnOpts: { occupied: new Set(), quiet: new Uint8Array(N * N), spawnWhy: new Uint16Array(N * N), roadMask: new Uint8Array(N * N) } };
   }
   const records = out => [...out.objects, ...out.guards, ...(out.treasures || [])];
+  test('quarry runtime: stronghold walls preserve fitted frames and never replace global stone', () => {
+    const ctx = context('quarry-stronghold'), out = ZoneDressing.dress(ctx);
+    const walls = out.objects.filter(o => o.kind === 'stronghold_wall');
+    assert.gt(walls.length, 0);
+    const background = new Set(out.objects.filter(o => o.zoneLayer === 'background').map(o => o._iy*N+o._ix));
+    for (const wall of walls) {
+      assert.eq(wall.variant, QuarryLayout.wallFrameAt(background, wall._iy*N+wall._ix, N));
+      assert.eq(wall.zoneVariant, 'quarry-stronghold');
+      assert.inRange(wall.variant, 0, 10);
+    }
+    assert.truthy(out.objects.some(o => o.kind === 'mineralrock'), 'broken wall ends retain ordinary stone');
+    for (const id of ['quarry-abandoned', 'quarry-strip-mine', 'quarry-crater']) {
+      assert.falsy(ZoneDressing.dress(context(id)).objects.some(o => o.kind === 'stronghold_wall'), id);
+    }
+    const blocked = context('quarry-stronghold'), wall = walls[0], i = wall._iy*N+wall._ix;
+    blocked.spawnOpts.spawnWhy[i] = WorldGen.SPAWN_WHY.RESTRICTED;
+    const rerun = ZoneDressing.dress(blocked);
+    assert.falsy(records(rerun).some(o => o._iy*N+o._ix === i), 'partial fitting retains the authoritative spawn gate');
+    const tide = context('quarry-stronghold');
+    tide.tideSeats = new Set([i]);
+    const tidal = ZoneDressing.dress(tide);
+    assert.falsy(records(tidal).some(o => o._iy*N+o._ix === i), 'reserved tide seats cannot acquire walls');
+    const tidalBackground = new Set(tidal.objects.filter(o => o.zoneLayer === 'background').map(o => o._iy*N+o._ix));
+    for (const o of tidal.objects.filter(o => o.kind === 'stronghold_wall')) {
+      assert.eq(o.variant, QuarryLayout.wallFrameAt(tidalBackground, o._iy*N+o._ix, N), 'joins follow final placed neighbours');
+    }
+  });
   test('quarry runtime: all four compositions ship their finite site budgets and stable identities', () => {
     for (const [id, finds, guards] of [['quarry-crater', 2, 0], ['quarry-abandoned', 2, 0], ['quarry-strip-mine', 0, 2], ['quarry-stronghold', 3, 3]]) {
       const a = ZoneDressing.dress(context(id)), b = ZoneDressing.dress(context(id));

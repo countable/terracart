@@ -94,6 +94,7 @@
           extra.variant = 1;
           if (m.size) extra.size = m.size;
         }
+        if (m.kind === 'stronghold_wall') extra.variant = s.quarryPlan.wallFrames.get(i);
         if (m.deposit) extra.deposit = m.deposit;
         if (m.yieldTier != null) extra.yieldTier = m.yieldTier;
         if (m.requiredTier != null) extra.requiredTier = m.requiredTier;
@@ -177,13 +178,16 @@
     for (const s of states) {
       if (s.a.kind === 'beach' && s.a.orientationSource === 'unresolved') s.rec.shortfalls.push('orientation:shoreline');
       if (!s.variant.quarryLayout) continue;
-      // Fit whole modules around the authoritative spawn gate and authored
-      // occupancy. The layout never truncates a foundation through a house.
+      // Fit surviving foundation walls around the authoritative spawn gate
+      // and authored occupancy; no wall is placed through a house.
       const eligible = [];
       for (let n = 0; n < s.cells.length; n++) {
         if ((n & 255) === 0) yield 'quarry usable footprint';
         const i = s.cells[n];
-        if (WG.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), opts, 'minor')) eligible.push(i);
+        const usable = s.variant.id === 'quarry-stronghold'
+          ? allowed(s, i % N, Math.floor(i / N), 'stone')
+          : WG.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), opts, 'minor');
+        if (usable) eligible.push(i);
       }
       s.quarryPlan = yield* root.QuarryLayout.planSteps({ ...s, cells: eligible }, {N, tx, ty});
       const plan = s.quarryPlan;
@@ -407,6 +411,21 @@
         }
       }
       if (!s.fittedBackground.size) s.rec.shortfalls.push('layout:no-complete-composition');
+    }
+    // Recheck joins against final reservations and material gates, after
+    // finite finds and other authored objects have claimed their cells.
+    for (const s of states) {
+      if (s.variant.id !== 'quarry-stronghold' || !s.quarryPlan?.landmarks.some(m => m.kind === 'foundation')) continue;
+      const plan = s.quarryPlan;
+      const walls = new Set([...plan.background.keys()].filter(i =>
+        !s.clear.has(i) && !s.poiSlots.has(i) && !s.connections.has(i)
+        && !occ.has(i) && allowed(s, i % N, Math.floor(i / N), 'stone')));
+      plan.wallFrames.clear();
+      for (const i of walls) {
+        const frame = root.QuarryLayout.wallFrameAt(walls, i, N);
+        plan.background.set(i, frame == null ? 'stone' : 'stronghold_wall');
+        if (frame != null) plan.wallFrames.set(i, frame);
+      }
     }
     const ground = { graves: 0, rocks: 0, fill: 0 };
     for (let iy = 0; iy < N; iy++) {
