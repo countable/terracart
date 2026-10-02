@@ -446,6 +446,12 @@
     // column matches the crow row, one body, one ground line. It steals FOOD
     // (the roster row's `steals`).
     gull:          { sheet: 'gull',      airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
+    // The STORM GULL (a wreck's gull swarm — lairs.js GROUPS) is the same
+    // crow sheet again under its own grey ramp (its roster row's `palette`,
+    // baked into the 'storm_gull' texture); same geometry, same ground line.
+    // A hostile kind (combat.js MONSTERS), so a row here only so the 32px
+    // roster branch below keeps the crow's seating rather than the 16px default.
+    storm_gull:    { sheet: 'storm_gull', airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
     // The raven too — the crow's sheet under an inky blue-violet ramp (its
     // roster row's `palette`), the coin thief; same geometry, same reason.
     raven:         { sheet: 'raven',     airborne: true, fw: 32, fh: 32, scale: 1.30, foot: 31 / 32, float: 13, minY: 18, maxY: 31 },
@@ -648,10 +654,10 @@
     // life). Its stepMs is one bite a second (Combat.MELEE_INTERVAL_MS — the
     // pet fight resolves once per step), the slime's own cadence. Its PACE is
     // the stride, not the beat (owner, Sep 2026: "a little too fast" at a
-    // full cell a second, 7 m/s): 0.7 of a cell a hop is 4.9 m/s, still over
-    // every ground foe's chase (the goblin's 3.5 m/s is the quickest — it
-    // still catches what it hunts) but no longer a blur beside a walking
-    // player. Slow it by the stride; the beat is the bite. It is NOT an
+    // full cell a second, 7 m/s): 0.7 of a cell a hop is 4.9 m/s, over every
+    // ground foe's chase but the goblins' (7 m/s since Oct 2026 — and a
+    // goblin pursues, so it comes to the raven; the orc's 3 is the quickest
+    // of the rest) and no longer a blur beside a walking player. Slow it by the stride; the beat is the bite. It is NOT an
     // enemy (no MONSTERS row), NOT game, and NOT tappable (interact.js skips a
     // `summoned` kind: there is nothing to catch, tame or pet).
     spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000, stepCells: 0.7 },

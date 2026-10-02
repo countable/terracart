@@ -52,6 +52,10 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   `SpriteLayout.CREATURE_BEHAVIOUR`, `CREATURE_ART`, `Combat.MONSTERS`,
   `interactables.js` predicates, `RENDER_SPEC`, and `Lighting.KINDS`.
   Creature variants inherit through `baseKind`; hostility uses `Combat.isEnemy`.
+  An authored garrison (a horde, a decoy, an elite with minions) is a row of
+  `Lairs.GROUPS` — members, placement (`seatPolar`) and what each is told
+  (`aggroCells`, `proximityCells`, `elite`) — never a branch in
+  `garrisonFor`; `tools/guard_groups_sheet.js` draws the table.
 - Read the relevant tests under `test/node/` before changing a mechanic. If a
   supposed mechanic change touches no existing regression assertion, check that
   it actually uses the existing implementation.
@@ -197,7 +201,8 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 
 Tests: `world_frame`, `worldgen_dedup`, `traps`, `lairs`, `spawn_roads`,
 `spawn_rebuild`, `tile_url`, `tile_build_blocks`, `street_variants`, `zones`,
-`chest_tier`, `daily_crates`, `density_pois`, `spawn_class` (`test/node/*.test.js`).
+`chest_tier`, `daily_crates`, `density_pois`, `spawn_class`, `guard_groups`
+(`test/node/*.test.js`).
 
 ## Spawn precedence
 

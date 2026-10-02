@@ -246,6 +246,198 @@
     KIND_LADDER[tier] = kinds.map((kind, i) => ({ kind, minT: i / kinds.length }));
   }
 
+  // ── GUARD GROUPS — an AUTHORED garrison in place of the plain roll ───────
+  // (owner, Oct 2026: "more interesting guard groups"). The plain garrison is
+  // a count off the tier's ladder; a GROUP is a composition — who stands
+  // where, and what each one is told about the player — so a ruin can be a
+  // horde, an ambush, a firing line or one monster worth the walk. Whether a
+  // held structure takes a group, and which, is ONE draw of its own stream
+  // (groupFor), after "held at all?" and its strength and before the count,
+  // so it is the world's like everything else here: the same ruin is the
+  // same ambush for every player. GROUP_RATE is the share of held structures
+  // that take one; the rest roll the plain garrison as before.
+  //
+  // A ROW: `tiers` (which building tiers may hold it), `minT` (the strength
+  // below which it is not offered — a horde or an elite is a strong ruin's),
+  // `coastal` (only a structure by the shore — the gulls), and `members` in
+  // ORDER (easy wakes only the first lairGuardMax of a garrison, so what
+  // matters most comes first: the decoy before its orcs, the elite before its
+  // minions). A member: its `kind` (a registered enemy), `n` (a number, or a
+  // map by tier), its `place` (seatPolar — where in the formation), and what
+  // it is told:
+  //   `aggroCells`      its own notice ring past the ruin's edge (guardState;
+  //                     the decoy sees you from six cells, the orcs behind the
+  //                     walls from two — so the one draws you in and the rest
+  //                     come round once you are committed);
+  //   `proximityCells`  a GHOST's dormancy (creature_ai.js ghostTick — the
+  //                     zone variants' memorial-guard lane): it hovers on its
+  //                     seat until you are this close, then the whole burst
+  //                     rushes at once and burns, touches or fades (its
+  //                     lifetime starts at the wake, not at the tile load);
+  //   `elite`           stamped shiny — Combat.isElite's double pool and
+  //                     blow, the elite's drop (the kind must be eliteEligible);
+  //   `band`            a ring placement's radius band (× the ring), so a
+  //                     horde stands two deep.
+  // PLACES (seatPolar): 'ring' round the footprint (the plain garrison's
+  // seating), 'core' the knot inside it (the keep's), 'front' a short arc at
+  // the group's FACING (one draw per group), 'behind' the arc opposite,
+  // 'cloud' anywhere about the ruin, roof included, for a kind that flies.
+  // Kinds here that live nowhere else (the runt, the splitting slime, the
+  // storm gull) are roster rows with no surface or cave pool: an authored
+  // garrison is the only thing that seats them.
+  const GROUPS = {
+    horde: { label: 'Goblin horde', tiers: [11], minT: 0.35,
+      story: 'Fifteen runts round the walls: nothing alone, a wall of teeth together.',
+      members: [{ kind: 'goblin_runt', n: 15, place: 'ring', band: [1, 1.9] }] },
+    decoy: { label: 'Decoy and rush', tiers: [11], minT: 0.3,
+      story: 'One goblin out front draws you in. The orcs behind the walls come round once you are close.',
+      members: [{ kind: 'goblin', n: 1, place: 'front', aggroCells: 6 },
+                { kind: 'orc', n: 3, place: 'behind', aggroCells: 2 }] },
+    archers: { label: 'Archer line', tiers: [11], minT: 0.2,
+      story: 'A firing line and nothing to charge: four archers keep their distance and loose together.',
+      members: [{ kind: 'archer_goblin', n: 4, place: 'front', spread: 0.5 }] },
+    ghosts: { label: 'Ghost burst', tiers: [9, 12], minT: 0,
+      story: 'They hang over the roof until you are close, then rise together. A torch or the sun burns them out.',
+      members: [{ kind: 'ghost', n: { 9: 4, 12: 7 }, place: 'core', proximityCells: 4 }] },
+    splitter: { label: 'Splitting slime', tiers: [9], minT: 0,
+      story: 'Strike it and it divides, half its health to each side. Finish a half before it divides again.',
+      members: [{ kind: 'split_slime', n: 1, place: 'ring' }] },
+    bats: { label: 'Bat swarm', tiers: [9, 12], minT: 0.2,
+      story: 'A roost in the rafters: they hang still until the ruin notices you, then the whole swarm swoops.',
+      members: [{ kind: 'bat', n: { 9: 6, 12: 10 }, place: 'cloud' }] },
+    gulls: { label: 'Gull swarm', tiers: [9], minT: 0, coastal: true,
+      story: 'A shore wreck under a storm of gulls. Each peck is small; the flock is not.',
+      members: [{ kind: 'storm_gull', n: 7, place: 'cloud' }] },
+    elite_orc: { label: 'Elite orc', tiers: [11], minT: 0.5,
+      story: 'One strong one, alone in the keep. Twice the pool, twice the blow, and an elite\'s drop.',
+      members: [{ kind: 'orc', n: 1, place: 'core', elite: true }] },
+    elite_soldier: { label: 'Elite skeleton soldier', tiers: [12], minT: 0.5,
+      story: 'The castle\'s last captain, armoured and alone at its heart.',
+      members: [{ kind: 'skeleton_soldier', n: 1, place: 'core', elite: true }] },
+    warband: { label: 'Elite orc and runts', tiers: [11], minT: 0.5,
+      story: 'An elite in the keep with five runts round the walls. The runts die fast; the orc does not.',
+      members: [{ kind: 'orc', n: 1, place: 'core', elite: true },
+                { kind: 'goblin_runt', n: 5, place: 'ring' }] },
+    honour_guard: { label: 'Elite soldier and skeletons', tiers: [12], minT: 0.5,
+      story: 'An elite captain at the heart of the castle and four skeletons on the walls.',
+      members: [{ kind: 'skeleton_soldier', n: 1, place: 'core', elite: true },
+                { kind: 'skeleton', n: 4, place: 'ring' }] },
+  };
+  // The share of HELD structures of each tier that take a group at all (the
+  // rest roll the plain garrison). A landmark is where the interesting fight
+  // belongs; a wreck is still mostly slimes.
+  const GROUP_RATE = { 9: 0.3, 11: 0.5, 12: 0.5 };
+  const TAU = Math.PI * 2;
+  // A member's count at this tier (a number, or a map by tier).
+  function memberCount(m, tier) {
+    const n = m.n;
+    return (n && typeof n === 'object') ? (n[tier] || 0) : (n || 0);
+  }
+  // The groups a structure of `tier` at strength `t` may take, in table order.
+  function groupRows(tier, t, coastal) {
+    const out = [];
+    for (const [name, g] of Object.entries(GROUPS)) {
+      if (!g.tiers.includes(tier)) continue;
+      if (t < (g.minT || 0)) continue;
+      if (g.coastal && !coastal) continue;
+      out.push(name);
+    }
+    return out;
+  }
+  // Which group this structure takes, or null for the plain garrison — ONE
+  // draw: the rate decides whether, and the same number's remainder decides
+  // which, so a caller can reason about the stream.
+  function groupFor(tier, t, rng, coastal) {
+    const rate = GROUP_RATE[tier] || 0;
+    const r = rng();
+    if (!(rate > 0) || r >= rate) return null;
+    const rows = groupRows(tier, t, coastal);
+    if (!rows.length) return null;
+    return rows[Math.min(rows.length - 1, Math.floor((r / rate) * rows.length))];
+  }
+  // A group laid out as per-guard specs, in member order: each with its
+  // index within its member row (idx) and that row's count (of), which is what
+  // seatPolar spaces by.
+  function expandGroup(name, tier) {
+    const g = GROUPS[name];
+    if (!g) return [];
+    const out = [];
+    for (const m of g.members) {
+      const n = memberCount(m, tier);
+      for (let i = 0; i < n; i++) out.push({ ...m, n, group: name, idx: i, of: n });
+    }
+    return out;
+  }
+  // Where one guard stands, in polar terms about the ruin: the angle and the
+  // radius as a multiple of the ring (or, for 'core', of the knot). Try `a` is
+  // the seat attempt (each later try turns a little further round). EXACTLY
+  // TWO DRAWS per call whatever the placement, so every placement spends the
+  // stream alike. `facing` is the group's one facing draw (front / behind).
+  //   `core`: the seat may be a building cell (the keep's own floor);
+  //   `over`: it may be a building cell for a kind that flies (the cloud).
+  function seatPolar(spec, a, facing, rng) {
+    const u = rng(), v = rng();
+    const j = u - 0.5, i = spec.idx || 0, n = spec.of || 1;
+    switch (spec.place) {
+      case 'core':   return { ang: (i / n) * TAU + j * 0.8 + a * 0.7, rMul: Math.sqrt(v), core: true };
+      case 'front':  return { ang: facing + (i - (n - 1) / 2) * (spec.spread ?? 0.45) + j * 0.3 + a * 0.5, rMul: 1 + v * 0.35 };
+      case 'behind': return { ang: facing + Math.PI + (i - (n - 1) / 2) * (spec.spread ?? 0.55) + j * 0.3 + a * 0.5, rMul: 1 + v * 0.35 };
+      case 'cloud':  return { ang: u * TAU + a * 0.7, rMul: 0.35 + v, over: true };
+      default: {
+        const band = spec.band || [1, 1.35];
+        return { ang: (i / n) * TAU + j * 0.8 + a * 0.7, rMul: band[0] + v * (band[1] - band[0]) };
+      }
+    }
+  }
+  // Does this kind fly (a cloud seat may be over the roof)? The roster's own
+  // movement pattern, read at call time.
+  function flies(kind) {
+    const p = root.EnemyRoster?.get?.(kind)?.movement?.pattern;
+    return p === 'orbit_swoop' || p === 'ghost_glide';
+  }
+  // Is this structure BY THE SHORE (the gulls' condition)? Any shore-sand cell
+  // (scenic.js's mask) within NEAR_SHORE_CELLS of its footprint.
+  const NEAR_SHORE_CELLS = 6;
+  function nearShore(entry, cand, N, cellM) {
+    const mask = entry && entry.scenic && entry.scenic.shore && entry.scenic.shore.mask;
+    if (!mask || !(N > 0)) return false;
+    const r = Math.ceil(Math.max(cand.halfW || 0, cand.halfH || 0) / cellM) + NEAR_SHORE_CELLS;
+    for (let y = Math.max(0, cand.iy - r); y <= Math.min(N - 1, cand.iy + r); y++) {
+      for (let x = Math.max(0, cand.ix - r); x <= Math.min(N - 1, cand.ix + r); x++) {
+        if (mask[y * N + x]) return true;
+      }
+    }
+    return false;
+  }
+  // THE PREVIEW'S LAYOUT (tools/guard_groups_sheet.js): a group seated about a
+  // square footprint on open ground by the SAME seatPolar and seat tries the
+  // game uses, so the design sheet shows the arrangement the player meets.
+  // Cells, relative to the footprint centre; halfW/halfH in cells. Ground
+  // kinds never land on the footprint unless placed 'core'; a flier may
+  // ('cloud'). `seed` picks the stream.
+  function groupLayout(name, tier, halfW, halfH, seed) {
+    const WG = root.WorldGen;
+    const rng = WG ? WG.makeRng(hashKey(`preview_${name}_${tier}_${seed || 0}`)) : Math.random;
+    const facing = rng() * TAU;
+    const coreR = Math.max(0.5, Math.min(LAIR_CORE_SPREAD_CELLS, halfW, halfH));
+    const ringR = Math.hypot(halfW, halfH) + LAIR_RING_PAD_CELLS;
+    const out = [];
+    for (const spec of expandGroup(name, tier)) {
+      let seat = null;
+      for (let a = 0; a < LAIR_SEAT_TRIES && !seat; a++) {
+        const p = seatPolar(spec, a, facing, rng);
+        const r = (p.core ? coreR : ringR) * p.rMul;
+        const x = Math.cos(p.ang) * r, y = Math.sin(p.ang) * r;
+        const onRoof = Math.abs(x) <= halfW && Math.abs(y) <= halfH;
+        if (onRoof && !p.core && !(p.over && flies(spec.kind))) continue;
+        seat = { x, y };
+      }
+      if (seat) out.push({ kind: spec.kind, x: seat.x, y: seat.y, place: spec.place, elite: !!spec.elite,
+        aggroCells: spec.aggroCells, proximityCells: spec.proximityCells });
+    }
+    return { facing, coreR, ringR, seats: out };
+  }
+
   // ── Is this ruin held AT ALL? ────────────────────────────────────────────
   // Until Sep 2026 every eligible structure past a safe ring was, which made
   // a garrison a property of the MAP rather than a discovery: on a suburban
@@ -432,11 +624,10 @@
   const LAIR_CORE_SPREAD_CELLS = 1.5;
   const LAIR_CORE_AGGRO_CELLS = 3;
   const LAIR_LEASH_CELLS = 10;   // and this far out it gives up and goes home
-  //   IN PRACTICE THE LEASH RARELY BINDS, which is the point: a goblin covers
-  // 0.84 m/s against a walking player's 1.4, so a player who simply keeps
-  // walking opens the gap and the garrison turns round having strayed a
-  // fraction of the leash. The leash is what catches the player who stands and
-  // fights and then thinks better of it.
+  //   THE LEASH IS WHAT ENDS A CHASE (Oct 2026 — the goblins and orcs run at
+  // twice their old pace, 7 and 3 m/s, so a walking player no longer opens
+  // the gap): a garrison follows to the leash and turns round there, whoever
+  // is running. lair_chase_sim.test.js walks it.
   //   A GUARD WALKING HOME CAN FREEZE, and it is meant to. Past
   // CREATURE_SIM_CELLS (creature_ai.js, 12) wanderCreatures (scene_creatures.js) culls a creature entirely,
   // so a returning guard whose player kept going simply stops where it is.
@@ -695,9 +886,12 @@
   //   1. held at all?          (occupancy — the tile's thinning is the only
   //                             input that is not the building's own)
   //   2. t, its strength       (0..1 → cap and kind ladder)
-  //   3. the count             (countFor, exactly one draw)
+  //   3. a group, or not       (groupFor, exactly one draw — GROUPS)
+  //   4. the group's facing    (one draw, taken on every path)
+  //   5. the count             (countFor, exactly one draw — plain path only;
+  //                             a group's count is its composition)
   //   then per guard: its kind (kindFor, exactly one draw), then its seat
-  //   tries (two draws each).
+  //   tries (seatPolar, two draws each).
   // NOTHING about the player — Home, save, frame — reaches a draw. Home is
   // applied after the fact, per player (the safe area, EnemySpawns.homeAllows).
   function garrisonFor(entry, cand, opts) {
@@ -710,7 +904,6 @@
     // Draw seats from the tile's generated layer. Player overlays may hide a
     // drawn guard below, but they never make its seat search consume another
     // random number and move the guards that follow it.
-    const cellM = tileEdgeM / N;
     const genGrid = entry.baseGrid || entry.grid;
     const genObjects = entry.genObjects || entry.objects || [];
     if (!cand.sid) cand.sid = structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
@@ -732,7 +925,15 @@
     const t = rng();
     const cap = capFor(cand.tier, t);
     if (cap <= 0) return [];
-    const baseCount = countFor(cap, rng);
+    const cellM = tileEdgeM / N;
+    // A GROUP OR THE PLAIN ROLL (GROUPS above) — one draw, then the group's
+    // one FACING draw (front / behind placements turn on it). Both are taken
+    // on every path so the plain garrison's seat draws start at the same
+    // point of the stream whether or not the tier offers any group at all.
+    const group = TIERS.includes(cand.tier) ? groupFor(cand.tier, t, rng, nearShore(entry, cand, N, cellM)) : null;
+    const facing = rng() * TAU;
+    const plan = group ? expandGroup(group, cand.tier) : null;
+    const baseCount = plan ? plan.length : countFor(cap, rng);
     // Hard barricades introduce ranged support, capped at a two-member team.
     const nWorld = cand.tier === 'barricade' && root.Difficulty?.mode() === 'hard' ? 2 : baseCount;
     // THE MODE'S GROUP CAP (Difficulty lairGuardMax — 2 on easy, none on
@@ -780,11 +981,15 @@
     };
     // A keep seats inside (CORE_SEATED_TIERS); every other lair on a ring
     // just off its footprint. seatR is the knot's / ring's radius either way,
-    // and it is the `lairR` both chase rings are offset by.
+    // and it is the `lairR` both chase rings are offset by — for a GROUP too,
+    // whatever mix of placements its members take, so the garrison still
+    // notices and gives up as one. A group member is placed by its own spec
+    // (seatPolar): the knot (coreR) or the ring (ringR) by its place.
     const core = CORE_SEATED_TIERS.has(cand.tier);
-    const seatR = core
-      ? Math.max(0.5 * cellM, Math.min(LAIR_CORE_SPREAD_CELLS * cellM, cand.halfW, cand.halfH))
-      : Math.hypot(cand.halfW, cand.halfH) + LAIR_RING_PAD_CELLS * cellM;
+    const coreR = Math.max(0.5 * cellM, Math.min(LAIR_CORE_SPREAD_CELLS * cellM, cand.halfW, cand.halfH));
+    const ringR = Math.hypot(cand.halfW, cand.halfH) + LAIR_RING_PAD_CELLS * cellM;
+    const seatR = core ? coreR : ringR;
+    const plainSpec = { place: core ? 'core' : 'ring', of: nWorld };
     const C = root.Combat;
     const out = [];
     // A DAILY tier's guard carries the UTC day in its id (see DAILY_TIERS).
@@ -792,29 +997,37 @@
       ? String(o.dayKey || (root.Delivery && root.Delivery.dayKey ? root.Delivery.dayKey() : '0')) : null;
     for (let i = 0; i < n; i++) {
       const id = day ? `lair_${cand.sid}_${day}_${i}` : `lair_${cand.sid}_${i}`;
+      const spec = plan ? plan[i] : Object.assign({ idx: i }, plainSpec);
       const legacyKind = kindFor(cand.tier, t, rng); // preserve the seat RNG stream
-      const kind = cand.tier === 'barricade' ? (i === 0 ? 'spear_goblin' : 'archer_goblin')
+      const kind = plan ? spec.kind
+        : cand.tier === 'barricade' ? (i === 0 ? 'spear_goblin' : 'archer_goblin')
         : family ? family[i % Math.min(family.length, 1 + Math.floor(t * family.length))] : legacyKind;
       if (!kind) continue;                    // no ladder for this tier
+      const flier = plan && flies(kind);
       // Its seat class (the spawn gate): a fast guard also keeps off the kerb.
       const guardClass = Object.hasOwn(STREET_TIER_GUARDS, cand.tier) ? 'fastEnemy' : (typeof root.creatureSpawnClass === 'function')
         ? root.creatureSpawnClass(kind) : 'fastEnemy';
       let seat = null;
+      let inKeep = false;
       for (let a = 0; a < LAIR_SEAT_TRIES && !seat; a++) {
-        // Spaced round the ring by the WORLD's count (nWorld), not the woken
-        // one, so a mode that wakes fewer (Difficulty lairGuardMax) seats
-        // its guards exactly where the full garrison's first ones stand.
-        const ang = (i / nWorld) * Math.PI * 2 + (rng() - 0.5) * 0.8 + a * 0.7;
-        const r = core ? seatR * Math.sqrt(rng()) : seatR * (1 + rng() * 0.35);
-        const lx = cand.lx + Math.cos(ang) * r;
-        const ly = cand.ly + Math.sin(ang) * r;
+        // Spaced round the ring by the WORLD's count (nWorld, the spec's
+        // `of`), not the woken one, so a mode that wakes fewer (Difficulty
+        // lairGuardMax) seats its guards exactly where the full garrison's
+        // first ones stand. seatPolar is the one placement rule (two draws a
+        // try), for the plain ring / knot and every group placement alike.
+        const p = seatPolar(spec, a, facing, rng);
+        const r = (p.core ? coreR : ringR) * p.rMul;
+        const lx = cand.lx + Math.cos(p.ang) * r;
+        const ly = cand.ly + Math.sin(p.ang) * r;
         const ix = Math.floor(lx / cellM), iy = Math.floor(ly / cellM);
         if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
         // A keep's guard stands on its own floor — the one building cell the
         // shared rule (rightly) refuses everything else — at the exact drawn
         // point, not the cell centre, or a knot of them would stack into one.
-        if (core && WG.isBuildingTerrain(genGrid[iy * N + ix])) {
+        // A flier of a cloud may hang over the roof the same way.
+        if ((p.core || (p.over && flier)) && WG.isBuildingTerrain(genGrid[iy * N + ix])) {
           seat = { x: ox + lx, y: oy + ly, ix, iy };
+          inKeep = !!p.core;
           break;
         }
         // The shared seat rule (WorldGen.isSpawnCell at the guard's own
@@ -830,8 +1043,9 @@
         // changed (Sep 2026): the draws are the same, so every seat that
         // passes both rules is the seat it always was.
         if (!WG.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, guardClass)) continue;
-        seat = core ? { x: ox + lx, y: oy + ly, ix, iy }   // a knot, not a stack
+        seat = (p.core || p.over) ? { x: ox + lx, y: oy + ly, ix, iy }   // a knot, not a stack
           : { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM, ix, iy };
+        inKeep = !!p.core;
       }
       if (!seat) continue;                    // ringed by water / road / building
       if (liveBlocks(seat.ix, seat.iy)) continue; // player overlay: drop, never reroll
@@ -848,7 +1062,11 @@
       // SHINY_RATE by bare name: a top-level `const` in util.js is a script-
       // global binding, never a property of window, so reading it off root is
       // undefined in the browser (the node bridge used to hide that).
-      const shiny = !!(C && C.monster(kind)?.eliteEligible) && root.isShiny(id, SHINY_RATE.monster);
+      // A GROUP's `elite` member is stamped shiny outright (the kind must be
+      // eliteEligible — guard_groups.test.js pins the table); every other
+      // guard rolls the world's rate.
+      const eligible = !!(C && C.monster(kind)?.eliteEligible);
+      const shiny = eligible && (spec.elite === true || root.isShiny(id, SHINY_RATE.monster));
       const g = WG.makeCreature(kind, seat.x, seat.y, id, {
         shiny,
         // `immobile` still means "this creature does not wander": app.js reads
@@ -859,7 +1077,15 @@
         // from (see LAIR_AGGRO_CELLS).
         immobile: true, lair: cand.sid, lairX: cand.wx, lairY: cand.wy,
         lairR: seatR, seatX: seat.x, seatY: seat.y,
-        ...(core ? { keepHW: cand.halfW, keepHH: cand.halfH, aggroCells: LAIR_CORE_AGGRO_CELLS } : {}),
+        // Inside the footprint (the keep's knot, or a group member placed
+        // 'core' at any tier): it may cross its own floor to come out
+        // (inOwnKeep), and it notices only a player who comes near the knot.
+        ...((core || inKeep) ? { keepHW: cand.halfW, keepHH: cand.halfH, aggroCells: LAIR_CORE_AGGRO_CELLS } : {}),
+        // What the group tells this member (GROUPS): its own notice ring, a
+        // ghost's dormancy, and the group it belongs to (tests, the sheet).
+        ...(spec.aggroCells != null ? { aggroCells: spec.aggroCells } : {}),
+        ...(spec.proximityCells != null ? { proximityCells: spec.proximityCells } : {}),
+        ...(plan ? { group } : {}),
       });
       // A guard the player wounded and walked away from comes back wounded.
       // Session-only, like every other creature's `_hp` (combat.js) — it is
@@ -1115,6 +1341,7 @@
     OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, tileHeldExpected, guardState,
     TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, GATE_TIER_GUARDS, DAILY_TIERS, dailyGuardDay, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, MODE_SCALED_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
     capFor, countFor, kindsAt, kindFor, structureKey, tileCellM,
+    GROUPS, GROUP_RATE, NEAR_SHORE_CELLS, memberCount, groupRows, groupFor, expandGroup, seatPolar, flies, nearShore, groupLayout,
     hashKey, ringBox,
     bucketKey,
     newIndex, indexChunk, buildIndex, indexFor, garrisonFor, stepResidency,
