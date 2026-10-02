@@ -119,6 +119,12 @@ test('roadside chest: every tier stays with supplies, minerals and cash', () => 
       assert.truthy(r, 'every roadside roll resolves');
       if (r.group === 'supplies') {
         supplies++;
+        if (r.kind === 'relic') {
+          assert.eq(tier, 2, 'only T2 supplies introduce alternate weapons');
+          assert.eq(r.tier, 1, 'supply weapons are always Rusty');
+          assert.includes(['dagger', 'spear', 'musket'], r.slot);
+          continue;
+        }
         assert.eq(r.kind, 'item');
         assert.truthy(supplyIds.has(r.id), `roadside supply ${r.id}`);
         assert.eq(ITEM_BY_ID[r.id].kind, 'supply');

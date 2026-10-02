@@ -13,11 +13,11 @@
 (function (root) {
   'use strict';
 
-  // The three combat weapons — the ONLY slots `save.activeWeapon` ever holds.
+  // The combat weapons — the ONLY slots `save.activeWeapon` ever holds.
   // Shared with app.js (inventory tap-to-activate) and combat.js (what
   // auto-engages / auto-fires); kept here too since equip() is what flips it
   // on a fresh pickup.
-  const WEAPON_SLOTS = ['sword', 'bow', 'staff'];
+  const WEAPON_SLOTS = ['sword', 'dagger', 'spear', 'bow', 'staff', 'musket'];
 
   // Boons change what can be used, never what is owned. Expiry is read live
   // so a reload or an expired altar restores the original gear automatically.
@@ -79,6 +79,10 @@
   // energy CAP, and this function had to grant the freshly-unlocked headroom
   // as a delta so a second piece didn't refill the whole bar.
   function equip(save, kind, slot, tier) {
+    const def = gearDef(kind, slot);
+    if (!def || !TIER_BY_NUM[tier] || (def.tiers && !def.tiers.includes(tier))) return;
+    const owned = (kind === 'armor' ? save.armor : save.relics)?.[slot]?.tier || 0;
+    if (tier <= owned) return;
     if (kind === 'armor') {
       save.armor = save.armor || {};
       save.armor[slot] = { tier };
@@ -126,6 +130,7 @@
       }
     };
     for (const slot of Object.keys(RELIC_DEFS)) {
+      if (RELIC_DEFS[slot].chestOnly) continue;
       consider('relic', slot, save.relics?.[slot]?.tier ?? 0);
     }
     for (const slot of Object.keys(ARMOR_DEFS)) consider('armor', slot, save.armor?.[slot]?.tier ?? 0);
@@ -182,6 +187,7 @@
   function blacksmithRecipe(kind, slot, tier) {
     if (!tier) return null;
     if (kind === 'relic' && !RELIC_DEFS[slot]) return null;
+    if (kind === 'relic' && RELIC_DEFS[slot].chestOnly) return null;
     if (kind === 'armor' && !ARMOR_DEFS[slot]) return null;
     const JEWELRY_GEM = { staff: 'emerald' };
     const BAR_BY_TIER = [, 'wood', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar'];

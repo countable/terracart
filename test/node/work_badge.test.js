@@ -102,8 +102,8 @@ test('work badge: the call sites hand over the slot plainly', () => {
   // The ownership question is answered in the helper, so no call site
   // re-asks it — a second copy is exactly how the catch wheel came to
   // disagree with startCombat.
-  assert.truthy(/this\._setWorkProgressIcon\('sword'\);/.test(app),
-    "startCombat passes 'sword' plainly");
+  assert.truthy(/this\._setWorkProgressIcon\(Gear\.activeWeapon\(this\.save\) \|\| 'sword'\);/.test(app),
+    "startCombat passes the equipped melee weapon, with the bare-hands sword fallback");
   assert.truthy(!/_setWorkProgressIcon\([^)]*\?[^)]*:/.test(app),
     'no call site in app.js re-tests ownership with a ternary');
   assert.truthy(/const netSlot = 'bugnet';/.test(INTERACT_SRC),

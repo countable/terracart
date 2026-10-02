@@ -819,7 +819,7 @@ const TAP_HANDLERS = [
       // the game: feeding, catching, petting and hunting keep the lit reach.
       const px = scene.startWorldM.x + scene.playerM.x;
       const py = scene.startWorldM.y + scene.playerM.y;
-      if (!Combat.inMeleeReach(target.x, target.y, px, py, scene.cellM)) {
+      if (!Combat.inMeleeReach(target.x, target.y, px, py, scene.cellM, Gear.activeWeapon(save))) {
         scene.flash('Too far to swing.', ctx.sx, ctx.sy);
         scene.hapticReject?.();
         return 'far';

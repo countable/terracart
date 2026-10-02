@@ -27,7 +27,7 @@
       _effectLineEl(text) { const row = el('div'); row.textContent = text; return row; },
     };
     const decl = ['INV_RELIC_ORDER', 'INV_ARMOR_ORDER', 'WEAPON_SLOTS'].map(name =>
-      SCENE_SRC.match(new RegExp('const ' + name + ' = \\[[^;]+;'))[0]).join('\n');
+      SCENE_SRC.match(new RegExp('const ' + name + ' = [^;]+;'))[0]).join('\n');
     for (const name of ['invEntriesForCat', 'invDisplayEntriesForCat', 'gearEntriesForCat', '_settleInvCatOnBoot',
       'selectInvCat', 'buildInventoryDOM', 'refreshInventoryHighlight', 'addToInv', '_finishInventoryChange', '_clampSelSlot']) {
       const match = SCENE_SRC.match(new RegExp('^  ' + name + '\\([^\\n]*\\) \\{[\\s\\S]*?^  \\}', 'm'));
@@ -89,6 +89,21 @@
     s._clampSelSlot(); s.buildInventoryDOM();
     assert.eq(s.save.selSlot, -1); assert.eq(s.invEntriesForCat('relic').length, 0);
     assert.eq(s.gearEntriesForCat('relic').length, 6, 'dropping/removing a carried item preserves gear');
+  });
+
+  test('inventory relics: alternate weapons have separate selectable slots and one active badge', () => {
+    const s = harness({ inv: [], relics: { sword: { tier: 3 }, dagger: { tier: 1 },
+      spear: { tier: 3 }, musket: { tier: 5 } }, armor: {}, activeWeapon: 'spear',
+      invCat: 'relic', invPage: 0, selSlot: -1 });
+    s.buildInventoryDOM();
+    for (const slot of ['sword', 'dagger', 'spear', 'musket']) {
+      const button = s.slots().find(b => b.dataset.gear === `relic:${slot}`);
+      assert.truthy(button, `${slot} appears in Relics`);
+      assert.eq(button.children.some(child => child.textContent === 'E'), slot === 'spear');
+      s.click(button);
+      assert.eq(s.save.selGear.slot, slot);
+      assert.eq(s.save.activeWeapon, 'spear', 'highlight alone does not equip');
+    }
   });
 
   test('inventory relics: boot keeps a carried-only Relics tab and empty-hand selection works', () => {
