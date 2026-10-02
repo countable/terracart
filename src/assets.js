@@ -183,8 +183,8 @@ const ASSETS = {
   // plants — items.js CROP_SPRITE).
   zone_objects: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/approved-24.png', frameWidth: 24, frameHeight: 24 },
   zone_berry_bush: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/berry_bush.png', frameWidth: 24, frameHeight: 24 },
-  zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/Hedges/single.png?v=d8680af9', frameWidth: 24, frameHeight: 24 },
-  zone_hedge: { kind: 'spritesheet', path: 'assets/Objects/Hedges/hedges-24.png?v=2e338df1', frameWidth: 24, frameHeight: 24 },
+  zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/Hedges/single.png?v=ccb05ab3', frameWidth: 24, frameHeight: 24 },
+  zone_hedge: { kind: 'spritesheet', path: 'assets/Objects/Hedges/hedges-24.png?v=b465bfa1', frameWidth: 24, frameHeight: 24 },
   stronghold_wall: { kind: 'spritesheet', path: 'assets/Objects/Stronghold/walls-24.png?v=42926d98', frameWidth: 24, frameHeight: 24 },
   reef_coral: { kind: 'spritesheet', path: 'assets/Objects/Reef/coral.png', frameWidth: 24, frameHeight: 24 },
   vista_scope:    { kind: 'spritesheet', path: 'assets/Objects/Approved/vista_scope.png', frameWidth: 16, frameHeight: 24 },
