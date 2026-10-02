@@ -10,7 +10,8 @@ bottom-left (NE), bottom-right (NW), T north (NEW), T east (NES),
 T south (ESW), T west (NSW), cross (NESW). Directions refer to screen/grid axes.
 
 Rebuild exact 24×24 transparent frames with `python3 tools/pack_stronghold_art.py`.
-The packer trims the generated source, uses nearest-neighbour sampling and hard
+The packer isolates the largest connected sprite in each source cell, excluding
+stray pixels from neighboring art, then trims the generated source, uses nearest-neighbour sampling and hard
 alpha, and seats the six-pixel wall bands around cell midpoints. Render at 4/3
 scale for a 32px map cell. Source corners are normalized to 15×15 quadrants.
 
