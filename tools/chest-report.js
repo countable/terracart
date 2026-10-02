@@ -84,7 +84,11 @@ async function crBuildCities() {
     for(const cls of Object.keys(POI_CATEGORY).sort()){const o={kind:'chest',id:'report:'+cls,poiClass:cls,poiDensity:5,depth:0};crRows.push({cls,theme:chestThemeFor(o),look:chestLook(o)});}
     for (const [vista,tier] of Object.entries(Scenic.VISTA_CHEST_TIER)) { const o={kind:'chest',id:'report:vista:'+vista,poiClass:Scenic.VISTA_POI_CLASS,vista,depth:0};crRows.push({cls:'Scenic '+vista,theme:chestThemeFor(o),look:chestLook(o),tier:chestTier(o)}); }
     for(const theme of Object.keys(ChestThemes.themes)){const option=document.createElement('option');option.value=theme;option.textContent=theme;cr('theme').append(option);}
-    cr('tiers').textContent='Base tiers by POIs of the same class on one tile: '+CHEST_DENSITY_TIERS.map(r=>`${r.atLeast}+ → T${r.tier}`).join('; ')+`. Nexus bonus: +${ZONE_NEXUS_TIER_BONUS}. Cave bonus: +1 per ${CHEST_TIER_DEPTH_STEP} levels. Theme and tier are independent.`;
+    cr('tiers').textContent = 'Each tile gives its best-ranked POI chests quota seats: '
+      + 'about 1 T5, 7 T4, 15 T3 and 25 T2, scaled from x1 to x2 over 100 to 1000 budgeted POIs; '
+      + 'the rest are T1. Categories share seats round-robin. Vistas are fixed T5, and a zone nexus can win a seat without spending one '
+      + `(+${ZONE_NEXUS_TIER_BONUS}). Each cave level re-seats its own pyramid; caps climb to T6 from level 3 and T7 from level 6. `
+      + 'Unstamped hand-placed chests are T2. Theme and tier are independent.';
     const gift = LOOT_CONTEXTS[Scenic.VISTA_CONTEXT];
     const giftTotal = Object.values(gift.classBias).reduce((a,b)=>a+b,0);
     cr('scope').textContent = `Viewpoint scope: the telescope beside a vista, a resting spot with one gift per UTC day: ${Object.entries(gift.classBias).map(([k,w])=>`${k} ${(100*w/giftTotal).toFixed(0)}%`).join(', ')} (up to T${gift.maxTier}). Your first vista also offers a ${Scenic.FIRST_VISTA_SLOT} relic upgrade. The grail chest is a separate one-time reward.`;

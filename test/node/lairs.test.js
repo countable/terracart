@@ -335,13 +335,31 @@
     }
     throw new Error(`no held seat for tier ${tier} near ${cxM},${cyM}`);
   }
+  // …and a held one that takes the PLAIN garrison rather than an authored
+  // group (Lairs.GROUPS — guard_groups.test.js is theirs): the first three
+  // draws of the structure's stream, as garrisonFor takes them (held?,
+  // strength, group?).
+  const plainAt = (tier, cxM, cyM) => {
+    const sid = Lairs.structureKey(0, 0, Math.floor(cxM / CELL_M), Math.floor(cyM / CELL_M));
+    const rng = WorldGen.makeRng(Lairs.hashKey(sid));
+    if (rng() >= Lairs.occupancyFor(tier)) return false;
+    const t = rng();
+    return Lairs.groupFor(tier, t, rng, true) == null;
+  };
+  function mkPlainShape(tier, cxM, cyM, sizeM, key) {
+    for (let i = 0; i < 80; i++) {
+      const dx = ((i % 2) ? -1 : 1) * Math.ceil(i / 2) * CELL_M;
+      if (plainAt(tier, cxM + dx, cyM)) return mkShape(tier, cxM + dx, cyM, sizeM, key);
+    }
+    throw new Error(`no plain held seat for tier ${tier} near ${cxM},${cyM}`);
+  }
 
   test('lairs: a building garrison is never rooted plants; a road variant may be', () => {
     assert.truthy(EnemyRoster.isRooted('plant'), 'the plant is rooted');
     assert.falsy(EnemyRoster.isRooted('spider'), 'the spider walks');
     const EH = EnemyHabitats, keep = EH.buildingKinds;
     const wake = (tier, family) => {
-      const shape = mkHeldShape(tier, 20 * CELL_M, 20 * CELL_M, 4 * CELL_M);
+      const shape = mkPlainShape(tier, 20 * CELL_M, 20 * CELL_M, 4 * CELL_M);
       const c = [...Lairs.buildIndex({ buildingShapes: [shape] }, 0, 0, CELL_M, TILE_M).buckets.values()].flat()[0];
       EH.buildingKinds = () => family;
       try { return Lairs.garrisonFor(mkEntry([shape]), c, { tileEdgeM: TILE_M, homeM: HOME }); }
@@ -651,7 +669,10 @@
       step(entry, { x: (8 + (k % 24)) * CELL_M, y: (8 + Math.floor(k / 24) * 8) * CELL_M });
       for (const g of guardsOf(entry)) {
         seen++;
-        const want = Combat.monster(g.kind).eliteEligible && isShiny(g.id, SHINY_RATE.monster);
+        // An authored group's `elite` member is the one stamp that is not
+        // the id's (Lairs.GROUPS — guard_groups.test.js).
+        const authored = !!g.group && Lairs.expandGroup(g.group, k % 2 ? 12 : 9).some((m) => m.kind === g.kind && m.elite);
+        const want = Combat.monster(g.kind).eliteEligible && (authored || isShiny(g.id, SHINY_RATE.monster));
         assert.eq(!!g.shiny, want, `${g.id} (${g.kind}): elite flag is not its id's`);
         if (Combat.monster(g.kind).variantType === 'Giant') assert.falsy(g.shiny, 'giants cannot be elites');
       }
@@ -764,8 +785,9 @@
     // from the wrong one would still look right in every unit test above.
     const want = { 9: /slime$/, 11: /^goblin/, 12: /skeleton$/ };
     for (const tier of Lairs.TIERS) {
-      // A HELD one — a wreck is a 1-in-3 and this test is about families.
-      const entry = mkEntry([mkHeldShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
+      // A HELD one, with the PLAIN garrison — a wreck is a 1-in-3 and this
+      // test is about the ladder's families, not the authored groups.
+      const entry = mkEntry([mkPlainShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
       step(entry, CENTRE);
       const guards = guardsOf(entry);
       assert.gt(guards.length, 0, `tier ${tier}: the ruin woke empty`);
@@ -894,9 +916,10 @@
   test('lairs: a garrison is immobile, and a house is ringed but a keep is held from INSIDE', () => {
     // A wrecked house's slimes sit on a ring just off its footing; a fort's or
     // a castle's garrison stands in a knot about the footprint's centre
-    // (CORE_SEATED_TIERS) — the keep is walked INTO for the fight.
+    // (CORE_SEATED_TIERS) — the keep is walked INTO for the fight. The PLAIN
+    // garrison: a group places its members by its own table (guard_groups.test.js).
     for (const tier of [9, 11, 12]) {
-      const entry = mkEntry([mkHeldShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
+      const entry = mkEntry([mkPlainShape(tier, CENTRE.x, CENTRE.y, 4 * CELL_M)]);
       step(entry, CENTRE);
       const gs = guardsOf(entry);
       assert.truthy(gs.length > 0, `tier ${tier}: the ruin woke empty`);

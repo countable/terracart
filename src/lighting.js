@@ -279,9 +279,13 @@
     bolt:     { radiusCells: 1.5, colour: 0x9ad6ff, peak: 0.95, flicker: 0.14 },
   };
   // Treasure trunks from T3 upward cast the same colour as their rarity badge.
-  // The ordinary POI row owns their radius, strength and breathing cadence.
-  for (let tier = 3; tier <= CHEST_TIER_MAX; tier++) {
-    KINDS['chest_' + tier] = { ...KINDS.poi, colour: CHEST_TIER_COLOR[tier] };
+  // The ordinary POI row owns their radius, strength and breathing cadence;
+  // ABOVE T3 the glow DOUBLES (Oct 2026) - the high tiers read at a glance
+  // through the light alone - and the underground tiers (T6 from cave level
+  // 3, T7 from 6) keep the same doubling off their own badge colours.
+  for (let tier = 3; tier <= chestTierMaxFor(9); tier++) {
+    const bright = tier > 3 ? { radiusCells: KINDS.poi.radiusCells * 2, peak: Math.min(1, (KINDS.poi.peak ?? 0.5) * 2) } : {};
+    KINDS['chest_' + tier] = { ...KINDS.poi, colour: CHEST_TIER_COLOR[tier], ...bright };
   }
   // The shrine kinds (src/shrines.js): the grove shrine's own light in each
   // kind's colour — one row per kind, `shrine_<id>` (sourceKind).

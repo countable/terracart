@@ -193,8 +193,8 @@
   // different quantity is still the same card, and gold is gold.
   // Three, not two: with two the pick was usually "the seed or the coins".
   // A third card makes it a real comparison while the row still fits across
-  // the ceremony (app.js lays the cards three across and keeps each one's
-  // description behind an ⓘ so the row stays one line of pictures).
+  // the ceremony (app.js lays the cards three across and shows a card's
+  // description only once it is selected, so the row stays one line of pictures).
   // ONE CARD PER GROUP (see rollCardRow): money, something to grow or carry,
   // and something to wear or drink.
   const PRIZE_CARDS = [['cash'], ['seed', 'supply'], ['boots', 'magic']];

@@ -94,11 +94,11 @@
       'and its +1 lands on top of the seed');
   });
 
-  test('quota: the seed outranks the ladder; the ladder stays for the unseeded', () => {
+  test('quota: the seed is the tier; the unseeded are the unstamped T2', () => {
     assert.eq(chestTier({ kind: 'chest', poiClass: 'bus', tierSeed: 4, poiDensity: 50 }), 4,
       'a seeded chest ignores its class count');
-    assert.eq(chestTier({ kind: 'chest', poiClass: 'bus', poiDensity: 50 }), 1,
-      'an unseeded one still falls to the ladder');
+    assert.eq(chestTier({ kind: 'chest', poiClass: 'bus', poiDensity: 50 }), CHEST_TIER_UNSTAMPED,
+      'counts no longer tier anything (the ladder retired, Oct 2026)');
     assert.eq(chestTier({ kind: 'chest', poiClass: 'bus', tierSeed: 2, depth: 4 }), 4,
       'depth adds its bonus on top of the seed');
   });
@@ -115,7 +115,8 @@ test('quota: each CAVE level runs its own pyramid over its mirrors', () => {
   assert.eq(n(4), 7, 'seven T4');
   assert.eq(n(3), 15, 'fifteen T3');
   assert.eq(n(2), 25, 'twenty-five T2');
-  assert.eq(chestTier(level.find(o => o.tierSeed === 5)), 5, 'the depth bonus caps the T5 at 5');
+  assert.eq(chestTier(level.find(o => o.tierSeed === 5)), chestTierMaxFor(4),
+    'the depth bonus reaches this level\'s cap');
   assert.eq(chestTier(level.find(o => o.tierSeed === 2)), 4, 'a T2 seed at depth 4 reads T4 (+2 bonus)');
   assert.eq(chestTier(level.find(o => o.tierSeed === 1)), 3, 'and a T1 mirror reads T3 - no crates down deep');
   // The rank rides down with the mirror: the level's best takes the T5.

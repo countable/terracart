@@ -222,9 +222,11 @@ test('baby feeding: favourites count per pet, ordinary treats and petting do not
   const row = { ...pet };
   const other = { ...pet, id: 'released_dog_other' };
   const save = { caught: [], released: [row, other] };
-  for (const food of [null, 'apple', 'milk']) {
+  // (An empty hand no longer pets: it picks the pet up — pet_pickup.test.js.)
+  for (const food of ['apple', 'milk']) {
     assert.eq(feedBaby(pet, save, food), true);
     assert.eq(pet.favouriteFeeds, 0);
+    assert.falsy(save.caught.includes(pet.id), `${food} offers, never pockets`);
   }
   for (let n = 1; n <= 7; n++) {
     assert.eq(feedBaby(pet, save, 'meat'), true);

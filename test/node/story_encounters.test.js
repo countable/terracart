@@ -5,6 +5,7 @@
     const s = { save: { discovered: remembered(memories), restoredHouses: {}, caught: [] },
       depth: 0, cellM: 7, tileEdgeM: 224, startWorldM: { x: 0, y: 0 }, playerM: { x: 112, y: 112 },
       _dialogOpen: () => false, showMessageModal: p => s.lastDialog = p,
+      showRewardCard: (reward, extra) => { s.lastCard = { reward, extra }; return true; },
       addToInv: (id, n) => { const accepted = Inventory.add(s.save, id, n).accepted; s.gifts = (s.gifts || 0) + accepted; s.giftId = id; return accepted; } };
     return s;
   }
@@ -46,9 +47,14 @@
       assert.eq(s.gifts || 0, 0);
       assert.eq(s.lastDialog.body, StoryEncounters.WORRIED);
       s.save.caught.push(q.enemyId);
+      const notes = s.lastDialog;
       StoryEncounters.interact(s, c);
       assert.eq(s.gifts, 1); assert.eq(s.giftId, 'starfruit_seed');
       assert.eq(q.status, 'rewarded');
+      // The seed is SHOWN as a card under her portrait, her thanks its line.
+      assert.eq(s.lastCard.reward.id, 'starfruit_seed'); assert.eq(s.lastCard.reward.kind, 'item');
+      assert.eq(s.lastCard.extra.sub, StoryEncounters.THANKS); assert.eq(s.lastCard.extra.art, 'portrait');
+      assert.eq(s.lastCard.extra.kind, 'story'); assert.eq(s.lastDialog, notes, 'no note on top of the card');
       s.save = JSON.parse(JSON.stringify(s.save));
       StoryEncounters.interact(s, c);
       assert.eq(s.gifts, 1);

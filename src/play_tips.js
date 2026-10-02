@@ -148,6 +148,7 @@ const PLAY_TIPS = [
   ITEM_GUIDE_TIPS.fireball_scroll,
   ITEM_GUIDE_TIPS.fear_scroll,
   ITEM_GUIDE_TIPS.treasure_map,
+  "Joined the book club at the school booth. The scholars count every book I read and take a prize down from the shelf as the pile grows. Bought ones count too, at a climbing price.",
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -385,7 +386,8 @@ const PLAY_TIP_VOLUMES = [
   "garden",
   "road",
   "road",
-  "road"
+  "road",
+  "ledger"
 ];
 
 // Narrator observations sit outside the quoted excerpt.

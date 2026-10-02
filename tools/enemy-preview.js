@@ -1,4 +1,4 @@
-/* global loadGame, EnemyRoster, SpriteLayout, ASSETS, recolorEnemyPixels, ArtPreviewColour, EnemyHabitats, ZoneVariantData */
+/* global loadGame, Lairs, EnemyRoster, SpriteLayout, ASSETS, recolorEnemyPixels, ArtPreviewColour, EnemyHabitats, ZoneVariantData */
 'use strict';
 (async () => {
   const status = document.querySelector('#status');
@@ -12,6 +12,8 @@
     const colour = document.querySelector('#colour');
     const search = document.querySelector('#search');
     const tier = document.querySelector('#tier');
+    const linkParams = new URLSearchParams(location.search);
+    search.value = linkParams.get('enemy') || linkParams.get('search') || '';
     const gallery = document.querySelector('#gallery');
     const direction = document.querySelector('#direction');
     const state = document.querySelector('#state');
@@ -36,6 +38,11 @@
       }));
       return images.get(url);
     };
+    function habitatMemberships(row) {
+      return Object.values(Lairs.GROUPS)
+        .filter(group => group.members.some(member => member.kind === row.id))
+        .map(group => `${group.label}: ${group.story}`);
+    }
     for (const row of rows) {
       const art = SpriteLayout.creatureArt(row.id);
       const asset = ASSETS[art.sheet];
@@ -91,11 +98,13 @@
       const details = [
         row.surface ? `Surface: ${row.surface.biomes.join(', ')}; ${row.surface.time}; ${row.surface.minDistance}–${row.surface.maxDistance ?? '∞'} m` : 'No general surface spawn',
         row.cave ? `Caves: depth ${row.cave.minDepth}–${row.cave.maxDepth ?? '∞'} (${row.cave.depthRule})` : 'No general cave spawn',
+        ['Authored garrisons', habitatMemberships(row)],
         ['Zone encounters', memberships(EnemyHabitats.SURFACE_FAMILIES)],
         ['Building habitats', memberships(EnemyHabitats.BUILDING_FAMILIES)],
         ['Cave habitats', memberships(EnemyHabitats.FAMILIES)],
         ['Zone guards', ZoneVariantData.variants.filter(zone => zone.guards?.kind === row.id || zone.guards?.choices?.includes(row.id)).map(zone => zone.name)],
       ];
+      if (row.ability?.type === 'split') details.push(`Splits after a direct hit if both halves retain at least ${row.ability.minHp} HP and space is available; remaining HP is shared; cooldown ${row.ability.cooldownSeconds}s. Burning does not trigger a split.`);
       for (const detail of details) {
         if (Array.isArray(detail) && !detail[1].length) continue;
         const line = document.createElement('div');
@@ -170,7 +179,7 @@
     function filterCards() {
       const query = search.value.trim().toLowerCase().replaceAll('_', ' ');
       for (const { row, card } of cards) {
-        card.hidden = !(row.name + ' ' + row.id.replaceAll('_', ' ')).toLowerCase().includes(query)
+        card.hidden = !(row.name + ' ' + row.id.replaceAll('_', ' ') + ' ' + habitatMemberships(row).join(' ')).toLowerCase().includes(query)
           || (tier.value !== '' && String(row.tier) !== tier.value);
       }
       const count = cards.filter(({ card }) => !card.hidden).length;

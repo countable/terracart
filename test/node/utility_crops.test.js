@@ -65,11 +65,14 @@
       assert.includes(ITEMS_BY_CLASS_TIER.seed[tier], id + '_seed');
       assert.includes(ITEMS_BY_CLASS_TIER.produce[tier], id);
       assert.falsy(BUY_LIST.includes(id + '_seed'));
-      for (const [theme, group] of [['farm', 'farmSeeds'], ['park', 'parkSeeds'], ['food', 'foodSeeds']]) {
+      for (const [theme, group] of [['farm', 'farmSeeds'], ['park', 'parkSeeds']]) {
         assert.gt(ChestThemes.weights(theme, tier)[group], 0);
         const resolved = ChestThemes.resolve(group, tier, { theme });
         assert.includes(ChestThemes.selectableIds(resolved), id + '_seed');
       }
+      assert.gt(ChestThemes.weights('food', tier).food, 0);
+      assert.includes(ChestThemes.selectableIds(ChestThemes.resolve('food', tier, { theme: 'food' })), id,
+        'food chests offer the crop itself, never its seed');
       assert.includes(ChestThemes.selectableIds(ChestThemes.resolve('farmProduce', tier, { theme: 'farm' })), id);
       assert.falsy(Object.keys(ChestThemes.members('flowers')).includes(id), 'a utility crop is not a flower');
     }

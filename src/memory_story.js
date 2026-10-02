@@ -48,9 +48,12 @@ const MemoryStory = (() => {
       3: ['“Some nights I think it is still out there.”\n<em>Watches a mended window glow.</em>\n“Then I see that, and I stop.”'],
     },
     // The wanderer is a CHILD (NPC.STORY_ROLES — drawn at CHILD_SCALE): short
-    // sentences, one thing at a time, a door remembered before a house.
+    // sentences, one thing at a time, a doorknob remembered before a house
+    // (the doorknob is in the child's hands — the portrait art shows it).
     wanderer: {
-      homeless: '<em>The child looks up at your hood, then quickly away.</em>\n“We sleep under whichever wall is driest.”\n“I had a room once. My name was on the door. Now there is only the door.”',
+      // Owner's copy (Oct 2026), spoken only: no action line — the painting
+      // already shows the child and the handle in her hands.
+      homeless: '“Oh hi Hood. I know you don’t remember me. It’s Tilly. I used to have a room, but now this door handle is all that’s left.”',
       housed: '<em>Runs up, out of breath.</em>\n“Did you see? A roof! A real one, with a lamp under it.”\n“I slept inside last night. Rain sounds different on a roof. I forgot that.”',
       settled: '“I have a bed now, and a window.”\n<em>Tugs the edge of your hood, then lets go.</em>\n“Is it warm under there? Mum says not to ask.”\n“Knock when you go past. There is always something in the pot.”',
     },
@@ -393,6 +396,10 @@ const MemoryStory = (() => {
   }
   // The child needs two new roofs after meeting. Freeze the target per child;
   // legacy children who already qualified for housing keep their home.
+  function wandererHoused(save, c) {
+    const target = save?.memoryStory?.childHomeAt?.[c.id];
+    return Number.isFinite(target) && Object.keys(save.restoredHouses || {}).length >= target;
+  }
   function wandererLine(scene, c) {
     const s = state(scene.save), mended = Object.keys(scene.save.restoredHouses || {}).length;
     if (!s.met || typeof s.met !== 'object') s.met = {};
@@ -404,7 +411,7 @@ const MemoryStory = (() => {
         ? s.met[c.id] + 1 : s.met[c.id] + Houses.STORY_RESTORES.childHome;
       if (typeof persistSave === 'function') persistSave(scene.save);
     }
-    if (mended < s.childHomeAt[c.id]) return NEIGHBOURS.wanderer.homeless;
+    if (!wandererHoused(scene.save, c)) return NEIGHBOURS.wanderer.homeless;
     return act(scene.save) >= 2 ? NEIGHBOURS.wanderer.settled : NEIGHBOURS.wanderer.housed;
   }
   // The believer follows the tower itself (Houses.wizardTowerIds and the
@@ -525,6 +532,6 @@ const MemoryStory = (() => {
   }
   return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, HALF_FORMED, LOCKED, ABANDONED, EMPTY,
     HOME, FIRST_ROOF, RUMOUR, NEIGHBOURS, SCENES, AFTER, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
-    state, total, enqueue, panel, drain, npcDialogue, wandererLine, believerLine, survivorLine, act, towerAccess, objective,
+    state, total, enqueue, panel, drain, npcDialogue, wandererLine, wandererHoused, believerLine, survivorLine, act, towerAccess, objective,
     eligibleBeats, wizardSequence, pagesFor, visitWizard, archaeologistConversation, acknowledgeArchaeologist };
 })();

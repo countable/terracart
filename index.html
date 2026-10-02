@@ -154,6 +154,7 @@
          fits rather than adding a near-duplicate shade. */
       --gold:       #ffe066;   /* the game's gold: money, highlights, accents */
       --gold-deep:  #ffd23a;   /* saturated gold — shiny + jackpot accents    */
+      --dialog-border: #88764a; /* muted brass dialog frames */
       --gold-dark:  #c8a64a;   /* dim gold — borders, rules, inactive accents */
       --gold-pale:  #fff3b0;   /* pale gold — the lit core of a highlight     */
       --green:      #a7ffb0;   /* success / ready / energy gain               */
@@ -758,7 +759,7 @@
     }
     #locating .box {
       max-width: 320px; background: #1a1612; color: #fff;
-      border: 2px solid var(--gold-dark); border-radius: 12px;
+      border: 2px solid var(--dialog-border); border-radius: 12px;
       padding: 22px 20px; text-align: center;
       font: 14px ui-monospace, monospace; line-height: 1.45;
     }
@@ -774,7 +775,7 @@
     }
     #tooshort .box {
       max-width: 340px; background: #1a1612; color: #fff;
-      border: 2px solid var(--gold-dark); border-radius: 12px;
+      border: 2px solid var(--dialog-border); border-radius: 12px;
       padding: 22px 20px; text-align: center;
       font: 14px ui-monospace, monospace; line-height: 1.45;
     }
@@ -806,15 +807,24 @@
        Driven by window.__bootStatus (script near the boot gate below):
        indeterminate pulse while the module scripts stream in, then app.js's
        real asset progress, then a fade on the first rendered frame. */
-    /* The loading view IS the welcome screen and the game's promise. Its
-       painting fills the opening panel, with the title above the copy.
-       It carries the launch safety message and its location CTA (#safety)
-       until answered:
+    /* The loading view IS the welcome screen and the game's promise: the
+       whole painting (assets/art/safety_welcome.webp, 640x960 — the title in
+       the top band, the survivor rebuilding a ruined home in the bottom
+       third, calm sky between; tools/gen_story_art.js) as a fullscreen
+       backdrop, with the box floating over the sky. It carries the launch
+       safety message and its location CTA (#safety) until answered:
        the CTA's click is the acknowledgement of the message, the genuine
        user gesture iOS needs for DeviceOrientationEvent.requestPermission()
        AND the go signal for GPS. The overlay doesn't fade while that
-       question is unanswered, however ready the game is (see vanish()). The
-       copy has a dark ground so the message stays readable. */
+       question is unanswered, however ready the game is (see vanish()).
+
+       Scaled to the viewport's HEIGHT (auto 100%), never `cover` and never
+       cropped into the box: with cover a wide screen keeps only the sky, and
+       cropped to the panel (Oct 2026, briefly) the player saw a small window
+       with the title and nothing else — the sides may crop on a phone (the
+       painting keeps them empty for that), the title and the scene never
+       do. The box keeps a translucent ground so the message stays readable
+       and the painting still shows through it. */
     #bootload, #story {
       box-sizing: border-box;
       padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right))
@@ -829,23 +839,23 @@
     }
     #bootload {
       position: fixed; inset: 0; z-index: 90;
-      background: #0f0d0a;
-      display: flex; align-items: center; justify-content: center;
+      background: #0f0d0a url('assets/art/safety_welcome.webp') center / auto 100% no-repeat;
+      display: flex; align-items: flex-start; justify-content: center;
+      /* The box hangs from the title's foot, never over it: the lettering
+         ends 27% down the painting, which is 27% down the viewport at
+         auto 100%. With the safety copy up the box runs on into the scene
+         below (no phone fits both in the sky) — the survivor shows under
+         it; answered, only the bar and caption sit here, in open sky. */
+      padding-top: max(28vh, env(safe-area-inset-top));
       transition: opacity .45s ease;
     }
     #bootload.done { opacity: 0; pointer-events: none; }
     #bootload .box {
-      text-align: center;
+      max-width: 360px; text-align: center;
       font: 14px ui-monospace, monospace; color: #fff; line-height: 1.45;
-      background-image: url('assets/art/safety_welcome.webp');
-      background-position: center top; background-size: 100% auto; background-repeat: no-repeat;
+      background-color: rgba(26, 22, 18, .86);
     }
-    /* Reserve the painted title before the warning, including on small phones. */
-    #bootload .box::before { content: ''; display: block; aspect-ratio: 640 / 290; }
-    #bootload .opening-copy {
-      padding: 24px 20px 20px;
-      background: linear-gradient(rgba(26,22,18,.9), #1a1612 65%);
-    }
+    #bootload .opening-copy { padding: 20px 20px 18px; }
     /* THE LAUNCH SAFETY MESSAGE IS THE LOADING SCREEN (owner, Sep 2026): the
        player is already looking at this box while the wagon packs, so the
        STAY SAFE copy sits here, over the CTA that acknowledges it — a card
@@ -858,7 +868,13 @@
     #safety .warn-title {
       font: 900 22px ui-monospace, monospace; color: #ff8c3b;
       letter-spacing: .06em; margin-bottom: 10px;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
     }
+    /* The ⚠ glyph: the monospace fallback draws it at the width of one
+       letter, a third the size of the lettering beside it. Drawn as its own
+       span at close to twice the heading's size (and tested that way) so it
+       reads as the warning sign it is, first, before the words. */
+    #safety .warn-sign { font-size: 40px; line-height: 1; }
     #safety .warn-line {
       font: 400 16px/1.45 system-ui, sans-serif; color: #fff4e0;
       text-align: left; margin: 6px 0;
@@ -934,6 +950,25 @@
       font: 700 15px ui-monospace, monospace; cursor: pointer;
       width: 100%; min-height: 48px;
     }
+    #story.nightmare { background: #000; }
+    #story.nightmare .box { background: #000; border-color: transparent; }
+    #story.nightmare .art {
+      display: block; min-height: 0; aspect-ratio: 3 / 2; overflow: hidden;
+      border-radius: 6px;
+    }
+    #story.nightmare .art img {
+      display: block; transform-origin: top left;
+      animation: nightmare-pan 8s ease-in-out both;
+    }
+    @keyframes nightmare-pan {
+      from { transform: translateY(0) scale(1); }
+      to { transform: translateY(-6%) scale(1.6); }
+    }
+    #story button.nightmare-wake { animation: wake-reveal var(--wake-fade-ms) ease-in both; }
+    @keyframes wake-reveal { from { opacity: 0; } to { opacity: 1; } }
+    @media (prefers-reduced-motion: reduce) {
+      #story button.nightmare-wake, #story.nightmare .art img { animation: none; }
+    }
     /* How-to-play card. Shown once when a fresh save first reaches the world
        (after the boot reload, so the player can see what it describes behind
        it), and reopenable any time from the ☰ menu. Same box as #story. */
@@ -946,7 +981,7 @@
     #howto .box {
       max-width: 320px; width: 100%;
       background: #1a1612; color: #fff;
-      border: 2px solid var(--gold-dark); border-radius: 12px;
+      border: 2px solid var(--dialog-border); border-radius: 12px;
       padding: 20px; text-align: left;
       font: 13px ui-monospace, monospace; line-height: 1.45;
       max-height: 80vh; overflow-y: auto;
@@ -1177,7 +1212,7 @@
     <div class="box">
       <div class="opening-copy">
         <div id="safety" class="game-modal" role="alertdialog">
-          <div class="warn-title">⚠ STAY SAFE</div>
+          <div class="warn-title"><span class="warn-sign" aria-hidden="true">⚠</span>STAY SAFE</div>
           <div class="warn-line"><strong>Look up.</strong> Watch where you walk, not the screen.</div>
           <div class="warn-line"><strong>Never enter a street</strong> to reach an item. Use the joystick to move your farmer instead.</div>
           <div class="warn-line"><strong>Do not play while driving or cycling.</strong></div>
@@ -1471,8 +1506,8 @@
     // negative --view-top would centre dialogs above the box and clip them.
     //
     // __gameCssScale: the CSS transform this layout just put on #game. app.js
-    // sizes the canvas backing store to scale x devicePixelRatio so the canvas
-    // is 1:1 with the screen rather than a 352-wide buffer blown up — see the
+    // sizes the canvas backing store from scale x devicePixelRatio, capped
+    // to keep high-DPR phones within the rendering memory budget. See the
     // canvas-resolution note beside W/H in src/app.js. Published rather than
     // read back off getComputedStyle because a matrix() string is a lossy way
     // to ask a question we already know the answer to, and because the game
@@ -2346,21 +2381,22 @@
       try { localStorage.removeItem('terracart.howtoSeen'); } catch {}
     }
 
-    // Two-slide opening story shown once after the safety splash. Slide 1
-    // is the player's trailer and missing memory; slide 2 is the wrecked
-    // neighbourhood and the first wish to mend it. Pure DOM overlay — the game runs
-    // underneath; clicking through it just hides the overlay. The art is the
-    // painted banner pair in assets/art/ (generated by tools/gen_story_art.js);
-    // the raw sprite version of these slides survives only on the how-to card.
+    // Opening dream, then the trailer and wrecked neighbourhood. The fresh-save
+    // gate shows these before the safety/location CTA; replay uses that same gate.
+    const STORY_WAKE_FADE_MS = 4000;
     const STORY_SLIDES = [
       {
+        art: '<img src="assets/art/story_nightmare.webp" alt="Two enormous dragons clash above a burning city.">',
+        text: '', btn: 'wake up', nightmare: true,
+      },
+      {
         art: '<img src="assets/art/story_wake.webp" alt="">',
-        text: "You wake up feeling disoriented and look outside.",
+        text: "Awaken, from fitful dreams… You stretch, and look outside.",
         btn: 'Next',
       },
       {
         art: '<img src="assets/art/story_wrecks.webp" alt="">',
-        text: "The neighbourhood is in shambles, with wrecked homes and streets in disrepair. What happened?",
+        text: "The neighbourhood is in shambles! What happened here?",
         btn: "Let's go",
       },
     ];
@@ -2376,14 +2412,23 @@
       const btn = document.getElementById('story-next');
       if (!overlay || !artEl || !textEl || !btn) return;
       __storyStarted = true;
-      let i = 0;
+      let i = 0, wakeTimer;
       const render = () => {
+        clearTimeout(wakeTimer);
         const s = STORY_SLIDES[i];
+        overlay.classList.toggle('nightmare', !!s.nightmare);
         artEl.innerHTML = s.art;
         textEl.textContent = s.text;
+        textEl.hidden = !s.text;
         btn.textContent = s.btn;
+        const fadeWake = !!s.nightmare && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+        btn.classList.toggle('nightmare-wake', fadeWake);
+        btn.style.setProperty('--wake-fade-ms', `${STORY_WAKE_FADE_MS}ms`);
+        btn.disabled = fadeWake;
+        if (fadeWake) wakeTimer = setTimeout(() => { btn.disabled = false; }, STORY_WAKE_FADE_MS);
       };
       const advance = () => {
+        if (btn.disabled) return;
         i++;
         if (i >= STORY_SLIDES.length) {
           try { localStorage.setItem('terracart.introSeen', '1'); } catch {}
@@ -2676,17 +2721,17 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js?v=3fa1b12c"></script>
   <script src="src/mvt.js?v=92edfd8d"></script>
-  <script src="src/enemy_roster.js?v=c230443e"></script>
+  <script src="src/enemy_roster.js?v=200aed7e"></script>
   <script src="src/enemy_spawns.js?v=bcdbb0d6"></script>
   <script src="src/enemy_habitats.js?v=5325c09f"></script>
   <script src="src/difficulty.js?v=81f55f2c"></script>
-  <script src="src/util.js?v=f53aa271"></script>
+  <script src="src/util.js?v=65b5daf1"></script>
   <script src="src/particles.js?v=1285fe88"></script>
-  <script src="src/trail.js?v=4f074692"></script>
+  <script src="src/trail.js?v=ca804603"></script>
   <script src="src/streets.js?v=959b140a"></script>
   <script src="src/street_variants.js?v=51513edf"></script>
-  <script src="src/scenic.js?v=f7a1669c"></script>
-  <script src="src/zones.js?v=d8f8a2d7"></script>
+  <script src="src/scenic.js?v=84eddf04"></script>
+  <script src="src/zones.js?v=28859055"></script>
   <script src="src/zone_variant_data.js?v=40d2dc75"></script>
   <script src="src/zone_variants.js?v=99665654"></script>
   <script src="src/shrines.js?v=14db9569"></script>
@@ -2694,64 +2739,64 @@
   <script src="src/zone_coverage.js?v=c9373ef9"></script>
   <script src="src/quarry_layout.js?v=6a116d48"></script>
   <script src="src/zone_dressing.js?v=19e31f40"></script>
-  <script src="src/sprite_layout.js?v=33af2b49"></script>
+  <script src="src/sprite_layout.js?v=4f2f6756"></script>
   <script src="src/placed_floor.js?v=d6c42e37"></script>
   <script src="src/home.js?v=e3fcba80"></script>
   <script src="src/coords.js?v=bbbf323b"></script>
   <script src="src/fog.js?v=bdf27172"></script>
   <script src="src/biome_profiles.js?v=eeeb4f91"></script>
   <script src="src/traps.js?v=807fe888"></script>
-  <script src="src/lairs.js?v=701b3c10"></script>
-  <script src="src/worldgen.js?v=c45e8a07"></script>
-  <script src="src/textures.js?v=a48beea4"></script>
+  <script src="src/lairs.js?v=50b11b28"></script>
+  <script src="src/worldgen.js?v=3e996663"></script>
+  <script src="src/textures.js?v=299aaef9"></script>
   <script src="src/save.js?v=781185a3"></script>
-  <script src="src/items.js?v=2507415b"></script>
+  <script src="src/items.js?v=a42f737d"></script>
   <script src="src/inventory.js?v=61f97d28"></script>
   <script src="src/energy.js?v=151a2276"></script>
   <script src="src/conditions.js?v=9f222b62"></script>
   <script src="src/crops.js?v=e3f3dac4"></script>
   <script src="src/delivery.js?v=bc509b02"></script>
-  <script src="src/savemigrate.js?v=307005eb"></script>
+  <script src="src/savemigrate.js?v=7c40d3a3"></script>
   <script src="src/gear.js?v=e4a793ff"></script>
   <script src="src/rewards.js?v=0a2582f3"></script>
-  <script src="src/shops_math.js?v=b076764b"></script>
-  <script src="src/shops.js?v=c498fd0d"></script>
+  <script src="src/shops_math.js?v=4b9bd477"></script>
+  <script src="src/shops.js?v=f2758d3d"></script>
   <script src="src/egg_hatch.js?v=6b07e768"></script>
-  <script src="src/chest_themes.js?v=161f1b60"></script>
-  <script src="src/rarity.js?v=a8745ecf"></script>
-  <script src="src/loot.js?v=88ed5a82"></script>
-  <script src="src/macros.js?v=f797798e"></script>
+  <script src="src/chest_themes.js?v=6a5a9762"></script>
+  <script src="src/rarity.js?v=abd649d1"></script>
+  <script src="src/loot.js?v=9109f6c1"></script>
+  <script src="src/macros.js?v=05a3e638"></script>
   <script src="src/quests.js?v=59439da3"></script>
-  <script src="src/interactables.js?v=094157f3"></script>
-  <script src="src/houses.js?v=97527980"></script>
+  <script src="src/interactables.js?v=fe0b7134"></script>
+  <script src="src/houses.js?v=193b86f0"></script>
   <script src="src/spawn_ownership.js?v=e5f81207"></script>
-  <script src="src/starter.js?v=ee48612f"></script>
+  <script src="src/starter.js?v=a88641c8"></script>
   <script src="src/ground_fire.js?v=5db34ead"></script>
   <script src="src/combat.js?v=7bb10a65"></script>
   <script src="src/companions.js?v=ecac988d"></script>
-  <script src="src/creature_ai.js?v=e74b74fe"></script>
-  <script src="src/wizard.js?v=85832638"></script>
+  <script src="src/creature_ai.js?v=b52a9541"></script>
+  <script src="src/wizard.js?v=e0531947"></script>
   <script src="src/dragon_story.js?v=c392538b"></script>
-  <script src="src/memory_story.js?v=b3607a05"></script>
-  <script src="src/story_encounters.js?v=576665bd"></script>
-  <script src="src/interact.js?v=ab8c2914"></script>
-  <script src="src/play_tips.js?v=7c437cd4"></script>
-  <script src="src/lighting.js?v=d13dafd1"></script>
-  <script src="src/render.js?v=3f5add95"></script>
+  <script src="src/memory_story.js?v=e1a9844d"></script>
+  <script src="src/story_encounters.js?v=86a4c845"></script>
+  <script src="src/interact.js?v=eb9c43f1"></script>
+  <script src="src/play_tips.js?v=e68833b6"></script>
+  <script src="src/lighting.js?v=8dc03d32"></script>
+  <script src="src/render.js?v=8d818eff"></script>
   <script src="src/multiplayer.js?v=04fb3ba8"></script>
   <script src="src/road_overlay.js?v=990bf881"></script>
   <script src="src/building_overlay.js?v=18003bd2"></script>
-  <script src="src/assets.js?v=314fab58"></script>
+  <script src="src/assets.js?v=8c47e68f"></script>
   <script src="src/sandbox.js?v=9377bbd1"></script>
   <script src="src/testtools.js?v=e112a59e"></script>
   <script src="src/geo.js?v=0a205c42"></script>
-  <script src="src/art_thumbs.js?v=a8210cf6"></script>
-  <script src="src/modal_shell.js?v=528c79dc"></script>
+  <script src="src/art_thumbs.js?v=06278c25"></script>
+  <script src="src/modal_shell.js?v=3bc0a717"></script>
   <script src="src/scene_geo.js?v=96439ff3"></script>
-  <script src="src/npc.js?v=eaa233d6"></script>
-  <script src="src/scene_creatures.js?v=b085735d"></script>
+  <script src="src/npc.js?v=f51e8feb"></script>
+  <script src="src/scene_creatures.js?v=c981e8dd"></script>
   <script src="src/scene_fire.js?v=00280bdd"></script>
-  <script src="src/scene_shops.js?v=fd2f7b26"></script>
+  <script src="src/scene_shops.js?v=498b5353"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2812,7 +2857,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=ccb88435';
+      const APP_SRC = 'src/app.js?v=0d38ddc3';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

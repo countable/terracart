@@ -1193,6 +1193,68 @@ function enemySummon(scene, c, ability) {
   }
   return false;
 }
+// ── THE SPLITTING SLIME (a roster row's `ability.type === 'split'`) ───────
+// Struck, it DIVIDES: the blow's victim keeps half its remaining pool and
+// steps one cell to one side of the blow, and a twin with the other half
+// rises one cell to the other side — perpendicular to the striker first (the
+// two flank you), along the line of the blow when a flank is blocked, and not
+// at all when neither pair of cells is open. It stops dividing once a half
+// would carry less than the row's minHp, so the total pool is CONSERVED and
+// the swarm is bounded (32 hp at minHp 4 is at most eight slimes). One split
+// per cooldownSeconds: the melee wheel calls the damage lane every frame.
+//   The twin is the lineage's: its id is the root guard's plus a serial that
+// skips anything already in save.caught (a killed twin stays killed, and a
+// re-split never re-mints it), it inherits the garrison fields exactly as a
+// summoned escort does (enemySummon), and both halves carry `_splitShare`,
+// halved each time, so the BOUNTY of the lineage sums to one slime's
+// (resolveDefeat reads it) however many pieces it is paid in. Session-only
+// like every other `_hp`: a re-woken ruin seats the one slime it generated.
+//   Returns the twin, or null when nothing divided. Pure of any particular
+// damage source: app.js _damageEnemy (a blow, never lava, light or a burn —
+// a burning slime would divide every tick) and the pet fight both call it.
+function enemySplit(scene, c, fromX, fromY, now) {
+  const row = EnemyRoster.get(c.kind), a = row && row.ability;
+  if (!a || a.type !== 'split') return null;
+  const hp = Combat.hp(c);
+  if (hp < 2 * a.minHp) return null;
+  if (now < (c._splitNextT || 0)) return null;
+  const cellM = scene.cellM;
+  const base = Math.atan2(c.y - fromY, c.x - fromX);
+  let seats = null;
+  for (const angles of [[base + Math.PI / 2, base - Math.PI / 2], [base, base + Math.PI]]) {
+    const pair = [];
+    for (const ang of angles) {
+      const x = c.x + Math.cos(ang) * cellM, y = c.y + Math.sin(ang) * cellM;
+      if (!enemyCanStep(scene, c, row, x, y)) break;
+      pair.push({ x, y });
+    }
+    if (pair.length === 2) { seats = pair; break; }
+  }
+  if (!seats) return null;
+  const tc = worldMetersToTileCell(scene, seats[1].x, seats[1].y);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(tc.tx, tc.ty));
+  if (!entry || !entry.creatures) return null;
+  const caught = new Set((scene.save && scene.save.caught) || []);
+  const root = c._splitRoot || c.id;
+  const serial = scene._splitSerial || (scene._splitSerial = new Map());
+  let n = serial.get(root) || 0, id;
+  do { n++; id = `${root}_s${n}`; } while (caught.has(id) || entry.creatures.some(o => o.id === id));
+  serial.set(root, n);
+  const half = Math.floor(hp / 2);
+  const share = (c._splitShare ?? 1) / 2;
+  c._hp = hp - half; c._splitShare = share; c._splitRoot = root; c._splitNextT = now + a.cooldownSeconds * 1000;
+  c.x = seats[0].x; c.y = seats[0].y;
+  const twin = WorldGen.makeCreature(c.kind, seats[1].x, seats[1].y, id, { shiny: false });
+  for (const key of ['lair', 'immobile', 'lairX', 'lairY', 'lairR', 'keepHW', 'keepHH', 'aggroCells', 'homeX', 'homeY', '_surfaceSpawn', 'habitat', 'zoneVariant', '_hunting', '_lastDamagedT']) {
+    if (c[key] != null) twin[key] = c[key];
+  }
+  twin._hp = half; twin._splitShare = share; twin._splitRoot = root; twin._splitNextT = c._splitNextT;
+  // Each half's seat is where it now stands, so a garrison's halves walk home
+  // to two seats rather than piling onto one.
+  if (c.lair) { c.seatX = c.x; c.seatY = c.y; twin.seatX = twin.x; twin.seatY = twin.y; }
+  entry.creatures.push(twin);
+  return twin;
+}
 function enemySupportTick(scene, c, row, now, eligible) {
   const a = row.ability;
   if (!a) return false;

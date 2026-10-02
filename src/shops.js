@@ -111,6 +111,7 @@
   const THEME_LABEL = {
     seed: 'Seed Shop', supply: 'Supply Shop', potion: 'Magic Shop',
     ore: 'Ore Shop', relic: 'Relic Shop', pet: 'Pet Shop',
+    book: 'Book Shop',   // the one BOOKSHOP (lineFor) — outside the THEMES cycle
   };
   // Resolved at CALL time: items.js (BUY_LIST, the catalogue) is read when a
   // shop is opened, not when this file loads.
@@ -123,6 +124,9 @@
     ore:    () => ['coal', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar',
                    'frost_bar', 'sapphire', 'ruby', 'emerald', 'diamond'],
     pet:    () => ['chicken', 'dog', 'rabbit', 'cat', 'butterfly', 'crow', 'deer', 'cow'],
+    // The bookshop's line: the Book, and only the Book, at the price ladder
+    // (shops_math.js listPrice — it climbs with every one bought).
+    book:   () => ['book'],
   };
 
   // Shared by pet shops and egg hatching; callers receive their own array.
@@ -144,12 +148,27 @@
     if (rh[house.id] === 'market') {
       let n = 0;
       for (const id of Object.keys(rh)) {
-        if (rh[id] !== 'market') continue;
+        if (rh[id] !== 'market' || isBookshop(save, id)) continue;   // the bookshop takes no place in the cycle
         if (id === house.id) return n;
         n++;
       }
     }
     return fnv1a(String(house.id) + '|theme') % THEMES.length;
+  }
+
+  // THE BOOKSHOP (Oct 2026): the market the STORY_RESTORES.bookshop-th
+  // restoration reveals (houses.js PRESEED_RESTORE_ROLES / registerBookshop
+  // stamps save.bookshopId at restore time — the book club's hard-won backup
+  // supply). It sells the Book line, and it stands OUTSIDE the cycle above:
+  // shopOrder skips it, so the markets after it keep the lines they would
+  // have had. Every themed-shop reader goes through lineFor, never themeAt
+  // directly, so the one override lives here.
+  function isBookshop(save, houseId) {
+    return !!(save && save.bookshopId != null && houseId != null && String(houseId) === String(save.bookshopId));
+  }
+  function lineFor(save, house) {
+    if (house && isBookshop(save, house.id)) return { theme: 'book', tier: 1 };
+    return themeAt(shopOrder(save, house));
   }
 
   function itemTier(id) {
@@ -183,6 +202,6 @@
   global.Shops = {
     shopType, shopInk,
     ROLE_LABEL, roleLabel,
-    THEMES, THEME_LABEL, THEME_POOL, themeAt, shopOrder, themedStock, pickThemed, petItems,
+    THEMES, THEME_LABEL, THEME_POOL, themeAt, shopOrder, isBookshop, lineFor, themedStock, pickThemed, petItems,
   };
 })(window);
