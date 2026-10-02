@@ -7521,6 +7521,15 @@ class MapScene extends Phaser.Scene {
       });
     }
   }
+
+  // Every collapse tells this beat before its existing outcome panel.
+  _deathStory(onDismiss) {
+    this.showMessageModal({
+      art: 'death_memories', kind: 'story', title: 'Fading memories',
+      body: 'You desperately try to hold onto your memories... your vision goes dark and red.',
+      okLabel: 'Next', mustAcknowledge: true, onDismiss,
+    });
+  }
   // Black out at 0 energy underground and wake on the surface. Keeps the same
   // world coordinates (GPS re-asserts position up top); the player wakes still
   // drained, so they must rest before heading back down (changeDepth gate).
@@ -7548,7 +7557,7 @@ class MapScene extends Phaser.Scene {
     const lost = Math.floor((this.save.money ?? 0) / 2);
     if (lost > 0) addMoney(this.save, -lost);
     persistSave(this.save);
-    this.showChestRewardModal({
+    this._deathStory(() => this.showChestRewardModal({
       kind: 'rest',
       header: 'Exhausted',
       iconHTML: '<span style="font-size:42px">😵</span>',
@@ -7556,7 +7565,7 @@ class MapScene extends Phaser.Scene {
       sub: lost > 0 ? `Lost ${this.moneyHTML(lost)} while you were out cold.` : undefined,
       color: '#ff8c3b', accent: '#ff8c3b',
       onDismiss: () => { this._passingOut = false; },
-    });
+    }));
   }
   // Hard mode's surface exhaustion: the same half-purse cost as the
   // underground blackout above, but nothing else about it — no cave to wake
@@ -7567,7 +7576,7 @@ class MapScene extends Phaser.Scene {
     const lost = Math.floor((this.save.money ?? 0) / 2);
     if (lost > 0) addMoney(this.save, -lost);
     persistSave(this.save);
-    this.showChestRewardModal({
+    this._deathStory(() => this.showChestRewardModal({
       kind: 'rest',
       header: 'Exhausted',
       iconHTML: '<span style="font-size:42px">😵</span>',
@@ -7575,7 +7584,7 @@ class MapScene extends Phaser.Scene {
       sub: lost > 0 ? `Lost ${this.moneyHTML(lost)} while you were out cold.` : undefined,
       color: '#ff8c3b', accent: '#ff8c3b',
       onDismiss: () => { this._passingOut = false; },
-    });
+    }));
   }
   // Guarantee an UP staircase (and never a DOWN one) on the home cell of every
   // cave level, so the player can always climb back toward the surface from the
@@ -8571,6 +8580,17 @@ class MapScene extends Phaser.Scene {
   // moments. Hooked where each action STARTS (the wheel spinning up, the
   // shot loosed, the watering landing) - a dry tap that never runs the
   // action tells no story, and a busy screen just asks again next time.
+  _catchStory(creature) {
+    if (creature.kind === 'chicken') {
+      this._storySplashOnce('catch:chicken', {
+        art: 'tool_catch_chicken', title: 'That chicken',
+        body: 'You want to catch that chicken, beckons a voice inside you.',
+      });
+      return;
+    }
+    this._toolActionStory('catch');
+  }
+
   _toolActionStory(action) {
     const slot = { till: 'hoe', chop: 'axe', dig: 'pick', water: 'can',
       catch: 'bugnet', sword: 'sword', staff: 'staff', shoot: 'bow' }[action];
@@ -9804,46 +9824,43 @@ class MapScene extends Phaser.Scene {
   // owner, Sep 2026: a card over the freshly loaded map got tapped away
   // unread; on the loading screen it is what there is to read). Every
   // version says the one thing the game most needs you to do: reach what is
-  // out of reach with the STICK, never by stepping into the street. Not a makeModalShell dialog —
-  // it carries no painting and must cover the whole game box, above every
-  // dialog; it does wear .game-modal so the movement pads hide under it.
+  // out of reach with the STICK, never by stepping into the street. The shared
+  // story shell frames its painting; the full-cover backdrop stays above every
+  // other dialog and .game-modal keeps movement pads hidden underneath.
   _showSafetyCard(which) {
     if (window.__TEST_MODE || typeof document === 'undefined') return;
     const card = SAFETY_CARDS[which];
     const host = document.getElementById('game');
     if (!card || !host) return;
-    document.getElementById('safety-card')?.remove();
-    const wrap = document.createElement('div');
-    wrap.id = 'safety-card';
-    wrap.className = 'game-modal';
+    const { wrap, box, mount } = this.makeModalShell('safety-card', {
+      kind: 'story', kindLabel: 'Safety', art: 'safety_phone',
+      zIndex: 400, wrapBg: 'rgba(12,9,6,0.96)',
+      wrapExtra: 'cursor:pointer;',
+      boxExtra: 'color:#fff4e0;font-weight:700;line-height:1.35;',
+    });
     wrap.setAttribute('role', 'alertdialog');
-    // The VISIBLE slice of the game box (fitGame's --view-top / --view-h, the
-    // band every modal covers): #game is taller than a tall phone's screen,
-    // so centring on the whole box sat the card low.
-    wrap.style.cssText = 'position:absolute;left:0;right:0;top:var(--view-top,0px);height:var(--view-h,100%);'
-      + 'z-index:400;display:flex;flex-direction:column;'
-      + 'align-items:center;justify-content:center;padding:24px 20px;box-sizing:border-box;'
-      + 'background:rgba(12,9,6,0.96);color:#fff4e0;text-align:center;cursor:pointer;'
-      + 'font-weight:700;line-height:1.35;';
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-labelledby', 'safety-card-title');
     const title = document.createElement('div');
+    title.id = 'safety-card-title';
     title.textContent = card.title;
-    title.style.cssText = 'font-size:26px;font-weight:900;color:#ff8c3b;letter-spacing:1px;margin-bottom:14px;';
-    wrap.appendChild(title);
+    title.style.cssText = 'font-size:22px;font-weight:900;color:#ff8c3b;letter-spacing:1px;margin-bottom:10px;';
+    box.appendChild(title);
     for (const line of card.lines) {
       const p = document.createElement('div');
       p.textContent = line;
       p.style.cssText = 'font-size:17px;margin:6px 0;max-width:340px;';
-      wrap.appendChild(p);
+      box.appendChild(p);
     }
     const tap = document.createElement('div');
     tap.textContent = 'Tap to continue';
-    tap.style.cssText = 'margin-top:22px;font-size:15px;font-weight:800;color:#ffe066;'
+    tap.style.cssText = 'margin-top:14px;font-size:15px;font-weight:800;color:#ffe066;'
       + 'border:2px solid #ffe066;border-radius:8px;padding:10px 18px;';
-    wrap.appendChild(tap);
+    box.appendChild(tap);
     const done = (e) => { e?.stopPropagation?.(); e?.preventDefault?.(); wrap.remove(); };
     wrap.addEventListener('pointerup', done);
     wrap.addEventListener('click', done);
-    host.appendChild(wrap);
+    mount();
   }
   // THE HEADS-UP BUZZ: wanderCreatures hands over the nearest hostile taking
   // an interest this tick; inside SAFETY_FOE_BUZZ_CELLS the phone vibrates,
@@ -10642,6 +10659,7 @@ class MapScene extends Phaser.Scene {
       case 'guildhall':   return this._presentGuildhall(sx, sy, o, dress);
       case 'curio':       return this._presentCurio(sx, sy, o, dress);
       case 'training':    return this._presentTraining(sx, sy, o, dress);
+      case 'scholar':     return this._presentScholar(sx, sy, o, dress);
       default:            return undefined;
     }
   }
@@ -10890,6 +10908,55 @@ class MapScene extends Phaser.Scene {
         const nx = Macros.curioNextMilestone(r.count);
         const line = nx != null ? `Donated! ${r.count} / ${nx}` : `Donated! ${r.count} given`;
         this.flashLoot(line, '#ffe066', 1, id);
+      },
+    });
+  }
+
+  // THE BOOK CLUB (school POIs — Macros.scholarShelf / scholarNext /
+  // scholarClaim): every school keeps the same booth and the same shelf, so
+  // progress is one ledger per save. The club counts the books the player
+  // found in the world and read (addToInv — save.booksFound), and every
+  // SCHOLAR_BOOKS_PER_PRIZE of them earns the next prize off the shelf,
+  // humblest first. Nothing is sold and nothing is paid: a ready prize is a
+  // Collect, an unready one is told its wait in books.
+  _presentScholar(sx, sy, o, dress) {
+    const shelf = Macros.scholarShelf();
+    const read = Macros.booksFound(this.save);
+    const next = Macros.scholarNext(this.save, shelf);
+    const title = `The book club: ${read} ${read === 1 ? 'book' : 'books'} read`;
+    if (!next) {
+      this.showMessageModal({ kind: dress.kind, art: dress.art, title,
+        body: 'You have read your way through the whole shelf. The scholars have nothing left to give but their thanks.' });
+      return;
+    }
+    if (!next.ready) {
+      const need = next.booksAt - read;
+      const left = shelf.slice(next.index).map((id) => itemName(id)).join(', ');
+      this.showMessageModal({ kind: dress.kind, art: dress.art, title,
+        body: `The next prize is ${itemName(next.id)}, at ${next.booksAt} books. Find and read ${need} more. `
+          + `Only books the world gives you count, never ones bought at a counter. Still on the shelf: ${left}.` });
+      return;
+    }
+    this.showOfferModal({
+      ...dress, kind: dress.kind, title,
+      get: `${this.iconSpanHTML(next.id)} ${itemName(next.id)} ×1`,
+      cost: `${next.booksAt} books read`,
+      blurb: 'The scholar lifts the next prize down from the shelf and sets it before you.',
+      canAfford: true,
+      acceptLabel: 'Collect',
+      cancelLabel: 'Later',
+      onAccept: () => {
+        // A club prize is a gift, not a wild find (`notWild`): a Book off the
+        // shelf is read on the spot and must not count toward the next prize.
+        // A full bag refuses here, and addToInv has already said so.
+        if (!this.addToInv(next.id, 1, false, { notWild: true })) return;
+        const r = Macros.scholarClaim(this.save, shelf);
+        if (!r.ok) return;
+        this._finishInventoryChange();
+        const after = Macros.scholarNext(this.save, shelf);
+        // Both lines are measured against MAP_MSG_MAX in macro_poi.test.js.
+        const line = after ? `Collected! Next at ${after.booksAt} books` : 'The shelf is yours';
+        this.flashLoot(line, '#ffe066', 1, next.id);
       },
     });
   }
@@ -13677,6 +13744,9 @@ class MapScene extends Phaser.Scene {
     if (id === 'book') {
       if (n <= 0) return 0;
       if (!silent) {
+        // THE BOOK CLUB's reading (Macros.booksFound): a Book the world gave,
+        // never one bought or bartered — `notWild`, the wild-finds rule below.
+        if (!opts.notWild) this.save.booksFound = (this.save.booksFound || 0) + n;
         this._pendingBookReads = (this._pendingBookReads || 0) + n;
         // deferBookRead: the caller shows its own modal right after and will
         // reveal these itself from that modal's onDismiss. Otherwise reveal

@@ -22,6 +22,40 @@ function mkScene() {
   return s;
 }
 
+test('death story: both collapse paths show memories before the existing outcome', () => {
+  const methods = ['_deathStory(onDismiss) {', '_passOutToSurface() {', '_passOutOnSurface() {'].map(lift).join('\n');
+  const K = new Function('persistSave', 'addMoney', 'WorldGen', `return class { ${methods} }`)(
+    () => {}, (save, delta) => { save.money += delta; }, { setDepth: () => {} });
+  for (const underground of [false, true]) {
+    const s = new K();
+    s.save = { money: 101, energy: 0, exhausted: true, depth: underground ? 2 : 0 };
+    s.depth = s.save.depth;
+    s.modals = [];
+    s.showMessageModal = s.showChestRewardModal = o => s.modals.push(o);
+    s.moneyHTML = String;
+    s.syncMoveTarget = () => {};
+    s.cameras = { main: { setBackgroundColor: () => {} } };
+    s.ensureTilesAround = () => Promise.resolve();
+    s[underground ? '_passOutToSurface' : '_passOutOnSurface']();
+    assert.eq(s.modals.length, 1);
+    assert.eq(s.modals[0].art, 'death_memories');
+    assert.eq(s.modals[0].body, 'You desperately try to hold onto your memories... your vision goes dark and red.');
+    assert.eq(s.modals[0].okLabel, 'Next');
+    assert.truthy(s.modals[0].mustAcknowledge, 'backdrop dismissal cannot skip the collapse continuation');
+    assert.eq(s.save.money, 51);
+    assert.eq(s.save.energy, 0);
+    assert.eq(s.depth, 0);
+    assert.truthy(s._passingOut);
+    s.modals[0].onDismiss();
+    assert.eq(s.modals[1].header, 'Exhausted');
+    assert.truthy(s._passingOut);
+    assert.eq(s.save.money, 51);
+    s.modals[1].onDismiss();
+    assert.falsy(s._passingOut);
+    assert.truthy(s.save.exhausted);
+  }
+});
+
 test('revive story: three panels in order, Next between them, once per save', () => {
   const real = globalThis.document.body;
   globalThis.document.body = { classList: { contains: () => false } };

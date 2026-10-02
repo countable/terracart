@@ -483,6 +483,50 @@
   // ── Per-kind dialog dressing: the painting each opens on and its label ────
   // Default paintings for each service; training also selects by discipline.
   // `modal` is a MODAL_KINDS key.
+  // ── The scholar's booth (school POIs): THE BOOK CLUB ──────────────────────
+  // Every school keeps the same booth and the same prize shelf, so the club
+  // is ONE ledger per save, never per school. Joining is free. The club
+  // counts the books the player FOUND in the world and read (app.js addToInv
+  // — save.booksFound; a Book bought at the scriptorium or the supply shop
+  // arrives with `notWild` and earns nothing), and for every
+  // SCHOLAR_BOOKS_PER_PRIZE of them hands over the next prize off the shelf.
+  // THE SHELF is the school chest's own treasure list (chest_themes.js
+  // 'school': its books and study groups), HUMBLEST FIRST — items.js
+  // itemValue, ties by id — so it climbs from the plain Book to the Tome of
+  // Storms as the reading piles up, and retuning the chest theme retunes the
+  // club. save.scholarPrizes counts the prizes taken, in shelf order. Nothing
+  // is sold and nothing is paid (THE ECONOMY GOAL above): the booth pays in
+  // things the school chest already paid in.
+  const SCHOLAR_BOOKS_PER_PRIZE = 3;
+  function scholarShelf() {
+    const theme = root.ChestThemes.themes.school;
+    const ids = new Set();
+    for (const group of Object.keys(theme.weights)) {
+      for (const id of Object.keys(root.ChestThemes.members(group))) if (ITEM_BY_ID[id]) ids.add(id);
+    }
+    return [...ids].sort((a, b) => (itemValue(a) - itemValue(b)) || (a < b ? -1 : a > b ? 1 : 0));
+  }
+  function booksFound(save) { return Math.max(0, Math.floor(Number(save && save.booksFound) || 0)); }
+  function scholarTaken(save) { return Math.max(0, Math.floor(Number(save && save.scholarPrizes) || 0)); }
+  // The next prize on the shelf — { id, index, booksAt, ready } — or null once
+  // the shelf is bare. `booksAt` is the reading it asks for; `ready` whether
+  // the save has it.
+  function scholarNext(save, shelf = scholarShelf()) {
+    const index = scholarTaken(save);
+    if (index >= shelf.length) return null;
+    const booksAt = (index + 1) * SCHOLAR_BOOKS_PER_PRIZE;
+    return { id: shelf[index], index, booksAt, ready: booksFound(save) >= booksAt };
+  }
+  // Take the next earned prize off the shelf. The caller has already put it
+  // in the bag (the bag may be full — app.js addToInv says so first).
+  function scholarClaim(save, shelf = scholarShelf()) {
+    const next = scholarNext(save, shelf);
+    if (!next) return { ok: false, why: 'bare' };
+    if (!next.ready) return { ok: false, why: 'unread', next };
+    save.scholarPrizes = next.index + 1;
+    return { ok: true, id: next.id, index: next.index };
+  }
+
   const KIND_DIALOG = {
     inn:         { label: 'Inn',         modal: 'shop',     art: 'kind_inn' },
     chapel:      { label: 'Chapel',      modal: 'treasure', art: 'zone_stones' },
@@ -492,6 +536,7 @@
     curio:       { label: 'Curio Hall',  modal: 'trade',    art: 'kind_relics' },
     sundries:    { label: 'Sundries',    modal: 'shop',     art: 'kind_supplies' },
     training:    { label: 'Training',    modal: 'shop',     art: 'tool_sword' },
+    scholar:     { label: 'Book Club',   modal: 'trade',    art: 'book_read' },
   };  // The word a stall's sign and dialog wear: its kind's label, except a
   // training hall, which names its discipline ("Archery Training").
   function stallLabel(kind, o) {
@@ -519,6 +564,7 @@
     curio:       { title: 'A curio hall', body: "The keeper shows you the empty shelves. There is room here for your finds." },
     sundries:    { title: 'A sundries shop', body: 'Rope and torches fill the shelves. You look over the supplies for your next trip.' },
     training:    { title: 'A training hall', body: 'The master watches as you practise. You focus on your next swing.' },
+    scholar:     { title: 'A book club', body: 'A scholar keeps a booth by the school wall. You join the book club, and she shows you the shelf of prizes you can read your way up.' },
   };
 
   root.Macros = {
@@ -536,6 +582,7 @@
     curioNextMilestone, curioMilestoneKey, curioMissing, curioDonate,
     TRAINING_LESSON_PRICE, TRAINING_DRILL_PRICE, TRAINING_MEMORIES_PER_LEVEL, trainingKindFor, lessonMemoriesAt, lessonMemories, foldLegacyTraining, stallLabel, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
     buyLesson, buyDrill, drillLeftMs,
+    SCHOLAR_BOOKS_PER_PRIZE, scholarShelf, booksFound, scholarTaken, scholarNext, scholarClaim,
     KIND_DIALOG, KIND_STORY, stallArt,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

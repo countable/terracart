@@ -27,7 +27,7 @@ test('Orrin interaction: a reply persists once and uses the NPC portrait', () =>
     first.onClick();
     assert.eq(saves.length, 1);
     assert.eq(s.replies.length, 1);
-    assert.eq(s.replies[0].art, 'portrait');
+    assert.eq(s.replies[0].art, 'npc_orrin', 'named story painting overrides the cached sprite portrait');
     assert.truthy(s.replies[0].body);
     first.onClick();
     assert.eq(saves.length, 1, 'a double click cannot advance a second conversation');

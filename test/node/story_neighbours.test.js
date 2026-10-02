@@ -155,6 +155,19 @@
     assert.falsy(Object.values(NPC.LABELS).some(l => /Elven/.test(Object.values(l).join())), 'no elves');
   });
 
+  test('story neighbours: named dialogue uses paintings and ordinary residents keep their sprite portraits', () => {
+    for (const role of NPC.STORY_NEIGHBOURS) {
+      const c = person(role);
+      c._portrait = 'data:image/png;base64,old-sprite';
+      assert.eq(NPC.portrait({}, c), `npc_${c.name.toLowerCase()}`, `${c.name} uses the painting even after a cached sprite portrait`);
+    }
+    const ordinary = { role: 'mason', _portrait: 'data:image/png;base64,resident' };
+    assert.eq(NPC.portrait({}, ordinary), ordinary._portrait, 'ordinary residents retain the sprite fallback');
+    const homeless = MemoryStory.NEIGHBOURS.wanderer.homeless;
+    assert.truthy(/clutching a doorknob/.test(homeless), 'Tilly holds the surviving piece of her home');
+    assert.truthy(/doorknob is all that is left/.test(homeless), 'her words agree with the painting');
+  });
+
   test('story neighbours: each named neighbour wears its own untinted sheet', () => {
     const sheets = {};
     for (const role of ['warden', 'witness', 'wanderer', 'believer']) {

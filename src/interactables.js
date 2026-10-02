@@ -139,6 +139,30 @@ function isPlainRock(o) {
   return !!o && !mineralDeposit(o) && (o.caveVariant != null || (o.yieldTier || 1) <= 1);
 }
 
+// One first find per surface quarry, shared by every tile seeing its anchor.
+// Existing sapphire loot satisfies the find rather than duplicating it.
+const QUARRY_SAPPHIRE_CHANCE = 0.10;
+function quarrySapphire(ctx, rock, alreadyFound = false, rng = Math.random) {
+  const { scene, save } = ctx;
+  if ((scene.depth || 0) !== 0 || !scene.cellAt || typeof Zones === 'undefined') return false;
+  const cell = scene.cellAt(rock.x, rock.y);
+  const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+  const zone = Zones.at(entry, cell.ix, cell.iy);
+  if (zone?.kind !== 'quarry') return false;
+  const key = `${zone.anchor.gx},${zone.anchor.gy}`;
+  const mined = save.quarryMined = save.quarryMined || {};
+  const reward = !mined[key] || rng() < QUARRY_SAPPHIRE_CHANCE;
+  mined[key] = true;
+  if (!reward && !alreadyFound) return false;
+  if (!alreadyFound) {
+    scene.addToInv('sapphire', 1);
+    scene.flashLoot('+1 Sapphire', '#a7ffb0', 1, 'sapphire');
+  }
+  scene.showMessageModal?.({ art: 'quarry_sapphire', title: 'Inside the rock',
+    body: 'Inside the rock... a glowing sapphire.\n<em>precious...</em>' });
+  return true;
+}
+
 // The gem an ORE rock (T4+) may hold beside its bar, per yield tier, and how
 // often. The T7 (frost) rock's headline gem is the diamond — listed FIRST so
 // it reads as the primary — with the emerald as its secondary. pickFromArray
@@ -325,9 +349,15 @@ const INTERACTABLES = {
     complete: (ctx, o) => {
       const { scene, save } = ctx;
       scene.brokenRockSet.add(o.id);
+      let sapphireFound = false;
+      const addLoot = (id, n) => {
+        if (id === 'sapphire') sapphireFound = true;
+        scene.addToInv(id, n);
+      };
       const deposit = mineralDeposit(o);
       if (deposit) {
-        scene.addToInv(deposit.item, deposit.quantity);
+        addLoot(deposit.item, deposit.quantity);
+        quarrySapphire(ctx, o, sapphireFound);
         persistSave(save);
         scene.flashLoot(`+${deposit.quantity} ${ITEM_BY_ID[deposit.item]?.name || deposit.item}`, '#a7ffb0', 1, deposit.item);
         return;
@@ -346,7 +376,7 @@ const INTERACTABLES = {
         for (let t = 2; t <= 7; t++) {
           if (Math.random() < plainRockBarChance(t)) {
             const bar = mineralBarId(t);
-            if (bar) { scene.addToInv(bar, 1); flashId = bar; }
+            if (bar) { addLoot(bar, 1); flashId = bar; }
           }
         }
         if (isGlintRock(o)) {
@@ -354,10 +384,11 @@ const INTERACTABLES = {
           // rolls so it upstages them in the toast. A crystal is a gem find
           // and takes the ore rock's jackpot fanfare.
           const find = glintRockFind();
-          scene.addToInv(find, 1);
+          addLoot(find, 1);
           flashId = find;
           if (GEM_BY_TIER[4].includes(find) && typeof scene.flashJackpot === 'function') scene.flashJackpot(1);
         }
+        quarrySapphire(ctx, o, sapphireFound);
         persistSave(save);
         const item = ITEM_BY_ID[flashId];
         // Report the REAL count. A bar upstages the stones in the toast and
@@ -371,27 +402,28 @@ const INTERACTABLES = {
       }
       // Ore-bearing rock — exactly ONE bar of the indicated type, plus a coal
       // nugget and a tier-rolled gem on T4+.
-      scene.addToInv('coal', randInt(1, 2));
+      addLoot('coal', randInt(1, 2));
       const t = o.yieldTier || 1;
       const primaryBar = mineralBarId(t) || mineralBarId(2);
-      scene.addToInv(primaryBar, 1);
+      addLoot(primaryBar, 1);
       let flashId = primaryBar;
       let gemsFound = 0;
       // One gem per tier of the ladder (GEM_BY_TIER / GEM_P_BY_TIER above).
       const gems = GEM_BY_TIER[t];
       if (gems && Math.random() < (GEM_P_BY_TIER[t] || 0)) {
         const gemId = pickFromArray(gems);
-        scene.addToInv(gemId, 1);
+        addLoot(gemId, 1);
         flashId = gemId;
         gemsFound++;
       }
       // T7 rocks have a bonus 25% chance for a second ruby on top — a lesser
       // gem, so the diamond stays the T7 headline.
       if (t === 7 && Math.random() < 0.25) {
-        scene.addToInv('ruby', 1);
+        addLoot('ruby', 1);
         flashId = 'ruby';
         gemsFound++;
       }
+      quarrySapphire(ctx, o, sapphireFound);
       persistSave(save);
       // Finding a gem fires the jackpot fanfare on top of the loot flash.
       if (gemsFound >= 1 && typeof scene.flashJackpot === 'function') {
