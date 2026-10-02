@@ -1515,8 +1515,8 @@
     // negative --view-top would centre dialogs above the box and clip them.
     //
     // __gameCssScale: the CSS transform this layout just put on #game. app.js
-    // sizes the canvas backing store to scale x devicePixelRatio so the canvas
-    // is 1:1 with the screen rather than a 352-wide buffer blown up — see the
+    // sizes the canvas backing store from scale x devicePixelRatio, capped
+    // to keep high-DPR phones within the rendering memory budget. See the
     // canvas-resolution note beside W/H in src/app.js. Published rather than
     // read back off getComputedStyle because a matrix() string is a lossy way
     // to ask a question we already know the answer to, and because the game
@@ -2784,10 +2784,10 @@
   <script src="src/egg_hatch.js?v=6b07e768"></script>
   <script src="src/chest_themes.js?v=6a5a9762"></script>
   <script src="src/rarity.js?v=abd649d1"></script>
-  <script src="src/loot.js?v=cea26490"></script>
+  <script src="src/loot.js?v=9109f6c1"></script>
   <script src="src/macros.js?v=05a3e638"></script>
   <script src="src/quests.js?v=59439da3"></script>
-  <script src="src/interactables.js?v=a69b1d68"></script>
+  <script src="src/interactables.js?v=fe0b7134"></script>
   <script src="src/houses.js?v=193b86f0"></script>
   <script src="src/spawn_ownership.js?v=e5f81207"></script>
   <script src="src/starter.js?v=a88641c8"></script>
@@ -2802,15 +2802,15 @@
   <script src="src/interact.js?v=eb9c43f1"></script>
   <script src="src/play_tips.js?v=e68833b6"></script>
   <script src="src/lighting.js?v=8dc03d32"></script>
-  <script src="src/render.js?v=944c1f6a"></script>
+  <script src="src/render.js?v=8d818eff"></script>
   <script src="src/multiplayer.js?v=04fb3ba8"></script>
   <script src="src/road_overlay.js?v=990bf881"></script>
   <script src="src/building_overlay.js?v=18003bd2"></script>
-  <script src="src/assets.js?v=393ed0ec"></script>
+  <script src="src/assets.js?v=8c47e68f"></script>
   <script src="src/sandbox.js?v=9377bbd1"></script>
   <script src="src/testtools.js?v=e112a59e"></script>
   <script src="src/geo.js?v=0a205c42"></script>
-  <script src="src/art_thumbs.js?v=6f51fa4a"></script>
+  <script src="src/art_thumbs.js?v=06278c25"></script>
   <script src="src/modal_shell.js?v=3bc0a717"></script>
   <script src="src/scene_geo.js?v=96439ff3"></script>
   <script src="src/npc.js?v=f51e8feb"></script>
@@ -2877,7 +2877,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=8199b516';
+      const APP_SRC = 'src/app.js?v=0d38ddc3';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

@@ -174,7 +174,11 @@
     let modals = 0;
     const scene = makeScene({
       flash: (m) => flashes.push(m),
-      showChestRewardModal: (opts) => { modals++; assert.eq(opts.header, 'Chapel', 'names the place'); },
+      showChestRewardModal: (opts) => {
+        modals++;
+        assert.eq(opts.header, 'Chapel', 'names the place');
+        assert.eq(opts.art, Macros.KIND_DIALOG.chapel.art, 'keeps the chapel painting');
+      },
     });
     const real = globalThis.pickReward;
     globalThis.pickReward = (key, s, rng, opts) => { tiers.push(opts.tier); return { kind: 'item', id: 'wood', qty: 1 }; };
@@ -555,10 +559,8 @@
     assert.eq(seen.size, 5, 'all hall disciplines are exercised');
   });
   test('macro: each kind ships its 80×80 art and an ASSETS row under its texKey', () => {
-    const files = { inn: 'inn', chapel: 'chapel', apothecary: 'apothecary', scriptorium: 'scriptorium',
-      guildhall: 'guildhall', curio: 'curio', sundries: 'sundries', training: 'training', scholar: 'scholar' };
     for (const kind of MACRO_KINDS) {
-      const rel = `assets/Objects/Generated/${files[kind]}.png`;
+      const rel = `assets/Objects/Generated/${kind}_simple.png`;
       const d = pngDims(rel);
       assert.truthy(d && d.w === 80 && d.h === 80, `${rel} is 80×80 (got ${JSON.stringify(d)})`);
       assert.truthy(new RegExp(`macro_${kind}: +\\{ kind: 'spritesheet', path: '${rel}', frameWidth: 80, frameHeight: 80 \\}`).test(ASSETS_SRC),

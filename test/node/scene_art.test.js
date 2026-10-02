@@ -163,14 +163,21 @@ test('pixel resolve: an uncached painting resolves out of its tone, then fades i
     'index.html loads the thumbnails before the shell');
 });
 
-test('preload: every kind painting is warmed after boot, at the address the shell draws', () => {
+test('preload: paintings keep their on-demand address without joining the icon warmup', () => {
   assert.eq(sceneArtUrl('house'), 'assets/art/house.webp', 'one address for a painting');
   const portrait = 'data:image/png;base64,dGVzdA==';
   assert.eq(sceneArtUrl(portrait), portrait, 'generated tinted portraits keep their data URL');
   assert.falsy(/`assets\/art\/\$\{art\}\.webp`/.test(MODAL_SHELL_SRC_TEXT), 'the shell builds no second one');
   const i = SCENE_SRC.indexOf('  _prewarmModalIcons() {');
   const body = SCENE_SRC.slice(i, SCENE_SRC.indexOf('\n  }\n', i));
-  assert.truthy(/for \(const k of Object\.values\(MODAL_KINDS\)\) if \(k\.art\) urls\.add\(sceneArtUrl\(k\.art\)\);/.test(body),
-    'the boot prewarm queues every kind painting');
-  assert.truthy(body.indexOf('sceneArtUrl') < body.indexOf('IconNet.prewarm('), 'into the same two-at-a-time queue');
+  const warm = new Function('ICON_SHEETS', 'RELIC_DEFS', 'ARMOR_DEFS', 'TIER_BY_NUM', 'gearAssetPath', 'IconNet',
+    'return ({' + body + '\n}})._prewarmModalIcons();');
+  let queued;
+  warm({ crops: { url: 'crops.png' }, duplicate: { url: 'crops.png' } },
+    { axe: {} }, { helmet: {} }, { 1: {}, 2: {} },
+    (kind, slot, tier) => `${kind}-${slot}-${tier}.png`,
+    { prewarm(urls) { queued = urls; } });
+  assert.eq(queued.length, 5, 'deduplicated icon sheet and four gear icons');
+  assert.truthy(queued.includes('crops.png') && queued.includes('armor-helmet-2.png'), 'icons are still warmed');
+  assert.falsy(queued.some(url => url.includes('assets/art/')), 'paintings wait for an opened modal');
 });
