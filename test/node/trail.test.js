@@ -345,7 +345,7 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
   const pat = app.indexOf('\n  _offerTreasurePick({');
   const pick = app.slice(pat, app.indexOf('\n  }\n', pat));
   assert.truthy(/actions: choices\.map\(/.test(pick), 'the choice opens as an actions modal');
-  assert.truthy(/onClick: \(\) => \{\s*\n\s*const card = this\._claimTrailReward\(reward\);/.test(pick),
+  assert.truthy(/onClick: \(\) => \{\s*\n\s*const card = this\._claimTrailReward\(reward, \{ deferBookRead: true \}\);/.test(pick),
     'and each option only pays when its own button is clicked');
   assert.truthy(/Choose one gift/.test(pick), 'the offer names itself as a pick of one');
   // The modal shell gives an actions dialog no tap-to-dismiss, so a stray tap
