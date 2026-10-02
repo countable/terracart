@@ -132,9 +132,56 @@ test('chest themes: unrelated gear and items never leak across themes', () => {
       if (r.kind === 'relic' || r.kind === 'armor') {
         assert.gt(tier, 1);
         assert.truthy(r.slot !== 'ring');
-        if (theme === 'authority') assert.eq(r.kind, 'armor');
-        if (['school', 'civic'].includes(theme)) assert.includes(['bags', 'can', 'hoe', 'rod', 'bugnet'], r.slot);
+        if (r.resolvedGroup === 'supplies') {
+          assert.eq(tier, 2);
+          assert.eq(r.kind, 'relic');
+          assert.eq(r.tier, 1);
+          assert.includes(['dagger', 'spear', 'musket'], r.slot);
+        } else if (theme === 'authority') assert.eq(r.kind, 'armor');
+        if (['school', 'civic'].includes(theme)) assert.includes(
+          r.resolvedGroup === 'supplies' ? ['dagger', 'spear', 'musket'] : ['bags', 'can', 'hoe', 'rod', 'bugnet'], r.slot);
       }
+    }
+  }
+});
+
+test('chest themes: alternate weapons use only their three material tiers', () => {
+  const rng = makeRng32(1872);
+  for (const slot of ['dagger', 'spear', 'musket']) {
+    assert.truthy(ChestThemes.gearSlots('culturalGear').some(row => row.slot === slot));
+    const found = new Set();
+    for (let chestTier = 2; chestTier <= 5; chestTier++) for (let i = 0; i < 200; i++) {
+      const r = rollGearUpgrade(rng, {}, chestTier, {}, [{ kind: 'relic', slot }]);
+      assert.eq(r.kind, 'relic');
+      assert.includes([1, 3, 5], r.tier);
+      found.add(r.tier);
+    }
+    assert.eq(found.size, 3, slot + ' can drop at every material tier');
+    const top = reconcileRelicOffer({ slot, tier: 2 }, { relics: { [slot]: { tier: 3 } } }, () => 0.99);
+    assert.eq(top.tier, 5, 'duplicate walk-up stops at Magic');
+    const owned = reconcileRelicOffer({ slot, tier: 7 }, { relics: { [slot]: { tier: 5 } } }, () => 0.99);
+    assert.eq(owned.kind, 'gold', 'Magic cannot upgrade beyond its final tier');
+  }
+});
+
+test('chest themes: T2 supplies introduce Rusty weapons only in empty slots', () => {
+  const slots = ['dagger', 'spear', 'musket'];
+  const rng = makeRng32(497);
+  const found = new Set();
+  for (const tier of [1, 2, 3]) for (let i = 0; i < 1500; i++) {
+    const r = resolveChestReward('roadside', { tier: 7, bracket: 0, jackpotApplied: 0 }, {}, rng, { tier });
+    if (r.kind !== 'relic') continue;
+    assert.eq(tier, 2, 'starter weapons require displayed T2 even with jackpot quality');
+    assert.eq(r.tier, 1);
+    assert.includes(slots, r.slot);
+    found.add(r.slot);
+  }
+  assert.eq(found.size, 3);
+  for (const ownedTier of [1, 3, 5]) {
+    const save = { relics: Object.fromEntries(slots.map(slot => [slot, { tier: ownedTier }])) };
+    for (let i = 0; i < 500; i++) {
+      const r = resolveChestReward('roadside', { tier: 2, bracket: 0, jackpotApplied: 0 }, save, rng, { tier: 2 });
+      assert.truthy(r.kind !== 'relic', 'supply rolls do not duplicate or downgrade held weapons');
     }
   }
 });

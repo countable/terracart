@@ -252,9 +252,11 @@ test('mechanics: enemy health uses a bar', () => {
   assert.truthy(/_drawEnemyHealthBar/.test(SCENE_SRC), 'app.js draws a bar');
 });
 
-test('mechanics: sword, bow and staff occupy weapon slots', () => {
-  assert.truthy(Gear.WEAPON_SLOTS.includes('sword') && Gear.WEAPON_SLOTS.length === 3,
-    'sword / bow / staff are the three weapon slots');
+test('mechanics: main and alternate weapons occupy weapon slots', () => {
+  for (const slot of ['sword', 'bow', 'staff', 'dagger', 'spear', 'musket']) {
+    assert.truthy(Gear.WEAPON_SLOTS.includes(slot), `${slot} is a weapon slot`);
+  }
+  assert.eq(Gear.WEAPON_SLOTS.length, 6);
 });
 
 test('descriptions: the net and the rod speed a job, they do not unlock one', () => {
