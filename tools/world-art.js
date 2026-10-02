@@ -2,7 +2,7 @@
           CROP_ROW, CROP_SPRITE, CROP_NAMES, wildplantSprite, wildplantFrame,
           MAX_GROWTH_STAGE, SPRING_CROPS_COLS, CROPS_SHEET_COLS, BIOME_TEX, COLORS,
           drawBiomeTexture, drawTilledTex, seededRand, RoadOverlay, BuildingOverlay,
-          makePotOfGoldTexture, makeTrapTextures */
+          makeTowerTexture, makePotOfGoldTexture, makeTrapTextures */
 'use strict';
 (async () => {
   const $ = id => document.getElementById(id);
@@ -72,7 +72,7 @@
       const asset=ASSETS[key];if(!asset)return;
       try{const img=new Image();img.src='../'+asset.path;await img.decode();add(key,img,asset.kind==='spritesheet'?asset:null);asset.onLoad?.(scene);}catch(error){failures.push(key);console.warn('World art asset:',key,error);}
     }));
-    makePotOfGoldTexture(scene);makeTrapTextures(scene);
+    makeTowerTexture(scene);makePotOfGoldTexture(scene);makeTrapTextures(scene);
     function image(key,frame){const t=textures.get(key),f=t?.get(frame);if(!f)return null;const c=canvas(f.width,f.height);c.getContext('2d').drawImage(t.getSourceImage(),f.x,f.y,f.width,f.height,0,0,f.width,f.height);return c.toDataURL();}
     // Like export_map_art_painters.js, expose the live private polygon painter
     // in a viewer-only namespace without changing the game's public API.
