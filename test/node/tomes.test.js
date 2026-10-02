@@ -1,8 +1,6 @@
 // THE TOMES (Oct 2026, expanded).
 //
-// Eight permanent books replace the story Book in
-// any book chest whose tier meets their own (the books group admits by
-// baseTier, pickItem takes the top tier present). A tome's spell is HALF its
+// Eight permanent books are scholar prizes. A tome's spell is HALF its
 // potion's (TOME_EFFECT_MUL: half duration, half damage or restore); its
 // cooldowns are the SHARED 1 h activation lock (TOME_COOLDOWN_MS, every tome
 // locked by reading any one) plus its OWN magic cooldown (CONSUMABLE_SPEC
@@ -10,16 +8,6 @@
 // enchanter halves both; nothing is ever consumed.
 (function () {
   const APP = globalThis.APP_JS_SRC || '';
-
-  function seeded(seed) {
-    let a = seed >>> 0;
-    return function () {
-      a |= 0; a = (a + 0x6D2B79F5) | 0;
-      let t = Math.imul(a ^ (a >>> 15), 1 | a);
-      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
 
   const ROSTER = [
     ['tome_sight', 'Tome of Reach', 3, 160, 2 * 3600e3],
@@ -47,30 +35,12 @@
     }
   });
 
-  test('tomes: the books group hands tomes, never the story Book, at tier', () => {
-    const res = (tier) => ChestThemes.resolve('books', tier, { theme: 'civic', depth: 0 });
-    for (const tier of [1, 2]) {
-      assert.eq(res(tier).ids.join(), 'book', `T${tier}: only the story Book`);
+  test('tomes: book chests keep supplying story Books at every tier', () => {
+    for (let tier = 1; tier <= 7; tier++) {
+      const resolved = ChestThemes.resolve('books', tier, { theme: 'school', depth: 0 });
+      assert.eq(resolved.ids.join(), 'book', `T${tier}: only the story Book`);
+      assert.eq(ChestThemes.pickItem(resolved, tier, () => 0.5), 'book');
     }
-    const rng = seeded(77);
-    const seen = new Set();
-    for (let i = 0; i < 400; i++) seen.add(ChestThemes.pickItem(res(3), 3, rng));
-    assert.eq([...seen].sort().join(), ['tome_healing', 'tome_shield', 'tome_sight', 'tome_speed'].sort().join(),
-      'T3 rolls only the T3 tomes');
-    seen.clear();
-    for (let i = 0; i < 400; i++) seen.add(ChestThemes.pickItem(res(4), 4, rng));
-    assert.eq([...seen].sort().join(), ['tome_blight', 'tome_firewall', 'tome_raven'].sort().join(),
-      'T4 rolls all three T4 tomes');
-    seen.clear();
-    for (let i = 0; i < 400; i++) seen.add(ChestThemes.pickItem(res(5), 5, rng));
-    assert.eq([...seen].join(), 'tome_storm', 'T5 rolls only the T5 tome');
-    assert.eq(ChestThemes.cap('tome_storm'), 1, 'a tome is one per chest');
-    assert.eq(ChestThemes.cap('tome_firewall'), 1, 'a wall of fire tome is one per chest');
-    const carried = { inv: [{ id: 'tome_sight', count: 1 }] };
-    assert.falsy(ChestThemes.eligible('books', 3, { theme: 'civic', save: carried }).includes('tome_sight'),
-      'a carried tome never drops again');
-    assert.truthy(ChestThemes.eligible('books', 1, { theme: 'school', save: { inv: [] } }).includes('book'),
-      'a school T1 chest still hands the story Book');
   });
 
   test('tomes: the shared hour lock, the own cooldown, and nothing consumed', () => {
