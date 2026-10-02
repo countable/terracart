@@ -627,6 +627,7 @@ Render.setShine = function setShine(s, on, id) {
   const fx = s && s.preFX;
   if (!fx) return false;
   if (on) {
+    if (!Render.canShine(s.scene)) return false;
     if (!s._shinyGlowFx) {
       s._shinyGlowPadding = fx.padding;
       fx.setPadding(Math.max(fx.padding, SHINY_GLOW_PADDING));
@@ -647,11 +648,11 @@ Render.setShine = function setShine(s, on, id) {
   }
   return false;
 };
-// Whether this renderer can draw the shine at all — the spark marker is the
-// Canvas fallback's cue and stands down where the shine is drawn.
+// Disabled pre-FX uses the same light and spark cues as Canvas. A WebGL
+// renderer alone does not imply that its optional FX pipeline was allocated.
 Render.canShine = function canShine(scene) {
   const r = scene && scene.sys && scene.sys.game && scene.sys.game.renderer;
-  return !!(r && typeof Phaser !== 'undefined' && r.type === Phaser.WEBGL);
+  return !!(r && typeof Phaser !== 'undefined' && r.type === Phaser.WEBGL && r.pipelines?.FX_PIPELINE);
 };
 
 // Linear blend between two packed RGB colours. t=0 -> a, t=1 -> b.

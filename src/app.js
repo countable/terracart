@@ -486,37 +486,13 @@ if (typeof window !== 'undefined') window.__renderScaleCap = urlNumParam('rscale
 // W × H is the LOGICAL grid — the coordinate system every other line in this
 // codebase thinks in. It is NOT the canvas's pixel count.
 //
-// The canvas backing store is W × H times renderScale(), and the main camera is
-// zoomed by the same factor, so a logical point p lands at p × renderScale()
-// device px. That factor is the exact CSS→device ratio of the canvas
-// (index.html's fitGame transform × devicePixelRatio), which makes the backing
-// store exactly the size of the screen area the canvas covers: the browser
-// composites it 1:1, with no resampling step at all.
-//
-// Until then the canvas was a fixed 352×844 buffer that #game's CSS transform
-// blew up. On a DPR-3 phone that is under a third of the screen's linear
-// resolution, magnified by a FRACTIONAL factor with nearest-neighbour — so
-// every terrain cell edge, road band, building outline, progress ring and
-// label was drawn coarse and then re-chunked unevenly on the way to the glass.
-//
-// Sprites do not change in LOOK: pixel art magnified by renderScale() through
-// the pixelArt NEAREST filter is precisely what the CSS upscale was already
-// doing to them. What sharpens is everything drawn as geometry rather than as
-// a texture — which, on this screen, is most of it.
-//
-// The cap is a guard, not a tuning knob: every real device lands under it
-// (DPR 3 × the ~1.12 a 393-wide phone scales by is 3.35), and it only stops a
-// pathologically high DPR from asking the GPU for a 7-megapixel buffer.
-//
-// "1:1" is exact to within the buffer's own integer size: canvas.width/height
-// are integers, so H × RENDER_SCALE truncates (844 × 3.3494 = 2826.92 → 2826)
-// and the logical box's bottom edge falls a fraction of a device pixel outside
-// the buffer. Measured on a 393-wide DPR-3 phone that is 0.92 device px — a
-// third of a CSS px, at the bottom of the 844-tall box, which is HUD chrome
-// drawn in the DOM rather than on the canvas. There is no rounding that avoids
-// it: the canvas's LAYOUT box is fractional too, so an integer buffer sized to
-// anything else would be resampled to reach it.
-const RENDER_SCALE_MAX = 4;
+// The backing store and camera use the same scale, capped at 2 game pixels
+// per logical pixel. Full DPR-3 rendering allocated 1179×2826 on a 393px
+// phone, including the offscreen part of the logical box. The cap reduces
+// that to 704×1688 (64% fewer pixels) and bounds render targets on resize.
+// CSS still lays out the same game grid; pointer coordinates divide by the
+// camera scale. High-DPR phones trade some geometric sharpness for memory.
+const RENDER_SCALE_MAX = 2;
 // Never below 1 — a viewport narrower than 352 CSS px still gets the full
 // logical grid rather than a canvas coarser than the one it replaced.
 function renderScale() {
@@ -524,7 +500,7 @@ function renderScale() {
   const dpr = window.devicePixelRatio || 1;
   // ?rscale=N (see urlNumParam) lowers the cap for one run — the A/B that
   // tells GPU fill from main-thread cost, which no JS timer can measure.
-  const cap = window.__renderScaleCap > 0 ? Math.min(RENDER_SCALE_MAX, window.__renderScaleCap) : RENDER_SCALE_MAX;
+  const cap = window.__renderScaleCap > 0 ? clamp(window.__renderScaleCap, 1, RENDER_SCALE_MAX) : RENDER_SCALE_MAX;
   return clamp(css * dpr, 1, cap);
 }
 // Live value: read by the pointer conversion below and re-applied on resize.
@@ -13290,12 +13266,9 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
-    // Then every category's default painting (MODAL_KINDS `art`), queued
-    // after the icons: most dialogs then open on a painting already in the
-    // cache, and the PIXEL RESOLVE mosaic is only ever seen by a story piece
-    // on a cold start. Same two-at-a-time queue, so it never competes with
-    // the map for more than two connections.
-    for (const k of Object.values(MODAL_KINDS)) if (k.art) urls.add(sceneArtUrl(k.art));
+    // Keep startup prewarming to small icons. Category paintings total about
+    // 27 MiB of decoded pixels; opening a modal loads its own painting over
+    // the inline PIXEL RESOLVE placeholder instead of decoding them all here.
     IconNet.prewarm([...urls]);
   }
 
@@ -14659,6 +14632,12 @@ const game = window.__game = new Phaser.Game({
   zoom: 1 / RENDER_SCALE,
   backgroundColor: '#000',
   pixelArt: true,
+  // Phaser 3.87 preallocates three square pre-FX targets every 32px up to
+  // the canvas width, plus three full-size targets. At 1179×2826 that pool
+  // alone is ~228 MiB of RGBA pixels, even before any shiny uses it.
+  // Use the existing light/spark fallback for shinies and disable optional FX.
+  disablePreFX: true,
+  disablePostFX: true,
   // See FPS_LIMIT / PHASER_FPS_LIMIT: 30 steps/s on any display, 0 = uncapped (?fps=0).
   fps: { limit: PHASER_FPS_LIMIT },
   scene: [MapScene],
@@ -14692,8 +14671,7 @@ const game = window.__game = new Phaser.Game({
 // viewport changes, and publishes its scale through this hook; devicePixelRatio
 // moves too, when a window is dragged between monitors or the browser zooms. If
 // the canvas didn't follow, it would keep a backing store sized for the old
-// screen and the 1:1 match — the whole point of the exercise — would quietly
-// lapse into a fractional rescale until the next reload.
+// screen. The same memory cap applies at boot and after every resize.
 //
 // The epsilon is not a tuning knob: resizing a WebGL drawing buffer reallocates
 // it, and fitGame fires on every resize event, so a scale that wobbles in the

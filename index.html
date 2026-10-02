@@ -1506,8 +1506,8 @@
     // negative --view-top would centre dialogs above the box and clip them.
     //
     // __gameCssScale: the CSS transform this layout just put on #game. app.js
-    // sizes the canvas backing store to scale x devicePixelRatio so the canvas
-    // is 1:1 with the screen rather than a 352-wide buffer blown up — see the
+    // sizes the canvas backing store from scale x devicePixelRatio, capped
+    // to keep high-DPR phones within the rendering memory budget. See the
     // canvas-resolution note beside W/H in src/app.js. Published rather than
     // read back off getComputedStyle because a matrix() string is a lossy way
     // to ask a question we already know the answer to, and because the game
@@ -2782,7 +2782,7 @@
   <script src="src/interact.js?v=eb9c43f1"></script>
   <script src="src/play_tips.js?v=e68833b6"></script>
   <script src="src/lighting.js?v=8dc03d32"></script>
-  <script src="src/render.js?v=944c1f6a"></script>
+  <script src="src/render.js?v=8d818eff"></script>
   <script src="src/multiplayer.js?v=04fb3ba8"></script>
   <script src="src/road_overlay.js?v=990bf881"></script>
   <script src="src/building_overlay.js?v=18003bd2"></script>
@@ -2857,7 +2857,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=8199b516';
+      const APP_SRC = 'src/app.js?v=0d38ddc3';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
