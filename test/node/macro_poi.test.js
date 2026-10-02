@@ -262,8 +262,8 @@
     for (const kind of ['apothecary', 'sundries', 'scriptorium']) {
       assert.truthy(new RegExp(`case '${kind}':\\s*return this\\._presentStallOffer\\(`).test(SCENE_SRC), `${kind} opens the counter`);
     }
-    assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const unitPrice = ShopsMath\.standPrice\(this\.save, PRICES\[id\] \?\? 1\);/.test(SCENE_SRC),
-      'priced by ShopsMath.standPrice');
+    assert.truthy(/_presentStallOffer\(sx, sy, opts\) \{[\s\S]*?const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*const unitPrice = ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
+      'priced by ShopsMath.standPrice off the list price (the Book\'s ladder rides in listPrice)');
   });
 
   // ── Guildhall ─────────────────────────────────────────────────────────────
@@ -617,13 +617,13 @@
     const per = Macros.SCHOLAR_BOOKS_PER_PRIZE;
     assert.eq(per, 3);
     const save = {};
-    assert.eq(Macros.booksFound(save), 0, 'a fresh save has read nothing');
+    assert.eq(Macros.booksRead(save), 0, 'a fresh save has read nothing');
     let next = Macros.scholarNext(save, shelf);
     assert.eq(next.id, shelf[0]); assert.eq(next.booksAt, per); assert.falsy(next.ready, 'unread: not ready');
     assert.eq(Macros.scholarClaim(save, shelf).why, 'unread', 'nothing to collect yet');
-    save.booksFound = per - 1;
+    save.booksRead = per - 1;
     assert.falsy(Macros.scholarNext(save, shelf).ready, 'one short');
-    save.booksFound = per;
+    save.booksRead = per;
     assert.truthy(Macros.scholarNext(save, shelf).ready, 'the third book earns the first prize');
     let r = Macros.scholarClaim(save, shelf);
     assert.truthy(r.ok && r.id === shelf[0], 'the humblest prize first');
@@ -631,7 +631,7 @@
     assert.eq(Macros.scholarClaim(save, shelf).why, 'unread', 'the same reading pays once');
     assert.eq(Macros.scholarNext(save, shelf).id, shelf[1], 'then the next up the shelf');
     // Read far ahead: the prizes still come one at a time, in order.
-    save.booksFound = per * shelf.length + 100;
+    save.booksRead = per * shelf.length + 100;
     for (let i = 1; i < shelf.length; i++) {
       r = Macros.scholarClaim(save, shelf);
       assert.truthy(r.ok && r.id === shelf[i], `prize ${i} is ${shelf[i]}`);
@@ -639,22 +639,40 @@
     assert.eq(Macros.scholarNext(save, shelf), null, 'the shelf is bare');
     assert.eq(Macros.scholarClaim(save, shelf).why, 'bare');
     // Garbage in the ledger reads as nothing, never as a free shelf.
-    assert.eq(Macros.booksFound({ booksFound: 'lots' }), 0);
+    assert.eq(Macros.booksRead({ booksRead: 'lots' }), 0);
     assert.eq(Macros.scholarTaken({ scholarPrizes: -3 }), 0);
   });
 
-  test('scholar: the club counts books the world gave, never ones bought at a counter', () => {
-    // addToInv's Book branch credits save.booksFound under the wild-finds rule
-    // (`notWild` — what every purchase, barter and forge passes).
+  test('scholar: every Book read counts — found, bought or off the shelf — and the counter is the brake', () => {
+    // addToInv's Book branch credits save.booksRead for every read, with no
+    // wild-finds test: a bought Book is a read Book.
     const i = SCENE_SRC.indexOf("if (id === 'book') {");
     const branch = SCENE_SRC.slice(i, SCENE_SRC.indexOf('return n;', i));
-    assert.truthy(/if \(!opts\.notWild\) this\.save\.booksFound = \(this\.save\.booksFound \|\| 0\) \+ n;/.test(branch),
-      'a found Book is the club\'s reading');
-    assert.truthy(/if \(!silent\) \{[\s\S]*booksFound/.test(branch), 'a silent grant reads nothing');
-    // The stall and the shop both buy with notWild, so neither feeds the club.
-    assert.truthy(/this\.addToInv\(id, take, false, \{ notWild: true/.test(SCENE_SRC), 'a stall purchase is notWild');
-    assert.truthy(/this\.addToInv\(id, buyQty, false, \{ notWild: true/.test(SCENE_SRC), 'a shop purchase is notWild');
-    // A prize off the shelf is a gift, not a find: a Book prize cannot feed the next prize.
+    assert.truthy(/if \(!silent\) \{[\s\S]*this\.save\.booksRead = \(this\.save\.booksRead \|\| 0\) \+ n;/.test(branch),
+      'every non-silent Book read is the club\'s reading');
+    assert.falsy(/notWild[\s\S]*booksRead|booksRead[^\n]*notWild/.test(branch), 'no purchase test on the reading');
+    // The brake: the Book's list price climbs ×BOOK_PRICE_GROWTH per Book
+    // bought, to a cap, at EVERY counter — one lane, ShopsMath.listPrice.
+    const base = PRICES.book;
+    assert.eq(ShopsMath.listPrice({}, 'book'), base, 'the first Book is the catalogue price');
+    const save = {};
+    ShopsMath.bookBought(save);
+    assert.eq(save.booksBought, 1);
+    assert.eq(ShopsMath.listPrice(save, 'book'), Math.ceil(base * ShopsMath.BOOK_PRICE_GROWTH), 'the second climbs');
+    assert.eq(ShopsMath.listPrice(save, 'torch'), PRICES.torch, 'nothing else does');
+    assert.eq(ShopsMath.listPrice(save, 'chicken', 99), 99, 'a passed base (itemValue) is honoured');
+    ShopsMath.bookBought(save, 40);
+    assert.eq(ShopsMath.listPrice(save, 'book'), base * ShopsMath.BOOK_PRICE_CAP_MUL, 'capped');
+    assert.gt(ShopsMath.listPrice(save, 'book'), 300, 'and dear');
+    assert.eq(Macros.stallPrice(save, 'book'), ShopsMath.standPrice(save, ShopsMath.listPrice(save, 'book')), 'the stall reads the ladder');
+    assert.truthy(/const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*const unitPrice = ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
+      'the stall counter prices off the ladder');
+    assert.truthy(/const maxQty = id === 'book' \? 1 :/.test(SCENE_SRC), 'and sells a Book one at a time');
+    assert.truthy(/this\.buildShopOffer\(id, ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house \}\)/.test(SCENE_SRC),
+      'the themed shop prices off the ladder');
+    assert.eq((SCENE_SRC.match(/if \(id === 'book'\) ShopsMath\.bookBought\(this\.save, (?:take|buyQty)\);/g) || []).length, 2,
+      'both counters climb the ladder on a sale');
+    // A prize off the shelf is handed over notWild (not a wild find) and read.
     const pres = SCENE_SRC.slice(SCENE_SRC.indexOf('_presentScholar(sx, sy, o, dress) {'));
     assert.truthy(/this\.addToInv\(next\.id, 1, false, \{ notWild: true \}\)/.test(pres.slice(0, pres.indexOf('\n  }\n'))),
       'the prize is handed over notWild');
@@ -665,6 +683,71 @@
     assert.lte(`Collected! Next at ${shelf.length * Macros.SCHOLAR_BOOKS_PER_PRIZE} books`.length, MAP_MSG_MAX);
     assert.lte('The shelf is yours'.length, MAP_MSG_MAX);
     assert.truthy(/book club/i.test(Macros.KIND_STORY.scholar.body) && /join/i.test(Macros.KIND_STORY.scholar.body), 'the story is the joining');
+  });
+
+  test('bookshop: the 15th restoration is a market that sells only the Book, outside the line cycle', () => {
+    assert.eq(Houses.STORY_RESTORES.bookshop, 15);
+    assert.eq(Houses.PRESEED_RESTORE_ROLES[14], 'market', 'the 15th rebuild is a shop');
+    assert.eq(Shops.THEME_LABEL.book, 'Book Shop');
+    assert.eq(Shops.themedStock('book', 1).join(), 'book', 'the Book and nothing else');
+    assert.falsy(Shops.THEMES.includes('book'), 'not a line of the cycle');
+    // Stamped at restore time, once, the first market at or past the slot.
+    const save = { restoredHouses: {} };
+    const rh = save.restoredHouses;
+    for (let i = 0; i < 14; i++) rh['h' + i] = i % 3 === 0 ? 'market' : 'plain';
+    assert.eq(Houses.registerBookshop(save, { id: 'h3' }, 3), null, 'an early market is not it');
+    rh.b = 'market';
+    assert.eq(Houses.registerBookshop(save, { id: 'b' }, 14), 'b', 'the 15th is');
+    rh.m = 'market';
+    assert.eq(Houses.registerBookshop(save, { id: 'm' }, 15), 'b', 'once per save');
+    assert.eq(Shops.lineFor(save, { id: 'b' }).theme, 'book');
+    assert.eq(Shops.lineFor(save, { id: 'b' }).tier, 1);
+    // Outside the cycle: the markets before it keep their order, and the one
+    // after it takes the line the bookshop would otherwise have spent.
+    const markets = Object.keys(rh).filter((id) => rh[id] === 'market' && id !== 'b');
+    markets.forEach((id, n) => assert.eq(Shops.shopOrder(save, { id }), n, `${id} keeps place ${n}`));
+    assert.eq(Shops.lineFor(save, { id: 'm' }).theme, Shops.themeAt(markets.length - 1).theme, 'the next shop is not skipped a line');
+    assert.truthy(/Houses\.registerBookshop\(this\.save, house, order\);/.test(SCENE_SRC), 'the restore path stamps it');
+    assert.truthy(/return Shops\.lineFor\(this\.save, house\);/.test(SCENE_SRC), 'marketTheme reads lineFor');
+    assert.falsy(/Shops\.themeAt\(Shops\.shopOrder/.test(SCENE_SRC), 'and nothing reads the cycle directly');
+    // A save past the slot before the bookshop existed: its next market is it.
+    const old = { restoredHouses: {} };
+    for (let i = 0; i < 20; i++) old.restoredHouses['o' + i] = i % 2 ? 'market' : 'plain';
+    assert.eq(Shops.lineFor(old, { id: 'o15' }).theme, Shops.themeAt(Shops.shopOrder(old, { id: 'o15' })).theme, 'no old shop is re-labelled');
+    old.restoredHouses.n = 'market';
+    assert.eq(Houses.registerBookshop(old, { id: 'n' }, 20), 'n');
+  });
+
+  test('chest themes: the Book is in every tier-2 roll at the owner\'s share', () => {
+    assert.eq(ChestThemes.BOOK_T2_SHARE, 20);
+    for (const theme of Object.keys(ChestThemes.themes)) {
+      for (const depth of [0, 1]) {
+        const w = ChestThemes.weights(theme, 2, { depth, tier: 2 });
+        assert.inRange(Object.values(w).reduce((a, b) => a + b, 0), 99.999, 100.001, `${theme} d${depth} conserves`);
+        assert.gte((w.books || 0) + (w.plainBook || 0), ChestThemes.BOOK_T2_SHARE - 1e-9, `${theme} d${depth}: books ≥ ${ChestThemes.BOOK_T2_SHARE}`);
+        assert.falsy(w.books && w.plainBook, `${theme} d${depth}: one book lane, not two`);
+      }
+      // The share's lane is the plain Book at every roll tier a T2 chest can
+      // climb to: a row with its own books lane keeps it (the Book at T1/T2,
+      // a tome only from T3), a row without gets plainBook (the Book always).
+      assert.eq(ChestThemes.eligible('books', 2, { theme }).join(), 'book', `${theme}: the Book, not a tome`);
+      for (const t of [1, 2, 3, 5]) assert.eq(ChestThemes.eligible('plainBook', t, { theme }).join(), 'book', `${theme}: plainBook at T${t}`);
+    }
+    assert.eq(ChestThemes.weights('food', 2, { tier: 2 }).plainBook, ChestThemes.BOOK_T2_SHARE, 'a row without a book lane gets the plain Book');
+    assert.eq(ChestThemes.weights('worship', 2, { tier: 2 }).books, ChestThemes.BOOK_T2_SHARE, 'a row with one is topped up');
+    assert.gt(ChestThemes.weights('school', 2).books, ChestThemes.BOOK_T2_SHARE, 'a row already past the share is left alone');
+    assert.falsy(ChestThemes.weights('food', 1).books, 'a T1 chest is untouched');
+    assert.falsy(ChestThemes.weights('food', 3, { tier: 3 }).books, 'so is a T3 chest');
+    assert.eq(ChestThemes.weights('food', 1, { tier: 2 }).plainBook, ChestThemes.BOOK_T2_SHARE, 'a T2 chest rolling at T1 still carries it');
+    assert.eq(ChestThemes.weights('culture', 2, { tier: 2 }).uniqueRelics, 5, 'the rare-finds lane keeps its exact share');
+    // Measured: a fifth of tier-2 rolls from a theme that never carried it.
+    let books = 0; const N = 4000;
+    let x = 0xB00C2; const rng = () => { x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; };
+    for (let i = 0; i < N; i++) {
+      const r = pickReward('chest:food', { relics: {}, armor: {} }, rng, { tier: 2 });
+      if (r && r.kind === 'item' && r.id === 'book') books++;
+    }
+    assert.inRange(books / N, 0.15, 0.25, 'about a fifth of T2 food chests hand a Book: ' + (books / N).toFixed(3));
   });
 
   test('scholar: an open-ground school raises a block and the booth stands at its wall — no pyramid', () => {

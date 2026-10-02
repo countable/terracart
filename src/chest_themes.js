@@ -48,6 +48,10 @@
     // pickItem takes the top tier present, so they replace the Book exactly
     // at and above its own tier.
     books: { ids: ['book', 'tome_sight', 'tome_raven', 'tome_storm', 'tome_firewall', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight'], fallback: 'torch' },
+    // The plain story Book alone — the tier-2 share every row carries
+    // (weights(), BOOK_T2_SHARE): a T2 chest's jackpot roll must hand the
+    // Book, never climb into the tomes the way the books group does.
+    plainBook: { ids: ['book'], fallback: 'torch' },
     honey: { ids: ['honey'], fallback: 'restorative' },
     torch: { ids: ['torch'] },
     rope: { ids: ['rope'], fallback: 'torch' },
@@ -112,6 +116,7 @@
       : theme === 'health' || theme === 'vista' ? 'antidote'
       : theme === 'commerce' ? 'cash' : 'torch';
   }
+  const BOOK_T2_SHARE = 20;
   const memberCache = new Map();
   const aliases = { lowtier: 'roadside' };
   const normalize = theme => themes[theme] ? theme : aliases[theme] || 'roadside';
@@ -156,6 +161,28 @@
       if (share) {
         for (const key of Object.keys(out)) out[key] *= (100 - share) / 100;
         out.uniqueRelics = share;
+      }
+    }
+    // THE BOOK IN EVERY TIER-2 ROLL (Oct 2026, owner's call): the school's
+    // book club (macros.js scholar*) needs Books to turn up, and the Book
+    // only drops from the school, culture and worship rows — so every chest
+    // SEATED at tier 2 (opts.tier, the chest's own tier: its rolls climb from
+    // T1, rarity.js rollRewardQuality, and at T1 or T2 the books group is the
+    // plain Book — every tome is T3+) carries at least BOOK_T2_SHARE of
+    // books, the rest of the row scaled to make room. Rows already past the
+    // share (the school's 60) and the rare-finds lane above (uniqueRelics —
+    // exactly 5 where it exists) are left alone. A row with a books lane
+    // (culture, worship) has it topped up; a row without one gets the
+    // plainBook group, so a jackpot roll climbing past T2 still hands the
+    // Book and not a tome. Applied last: the net share.
+    if ((opts.tier ?? tier) === 2) {
+      const have = out.books || 0;
+      if (have < BOOK_T2_SHARE) {
+        const keep = out.uniqueRelics || 0;
+        const lane = have > 0 ? 'books' : 'plainBook';
+        const rest = Object.values(out).reduce((a, b) => a + b, 0) - have - keep;
+        if (rest > 0) for (const key of Object.keys(out)) if (key !== lane && key !== 'uniqueRelics') out[key] *= (100 - BOOK_T2_SHARE - keep) / rest;
+        out[lane] = BOOK_T2_SHARE;
       }
     }
     return out;
@@ -267,5 +294,5 @@
   // Catch authored errors early; runtime still has each theme's declared T1
   // terminal so an unexpected bad entry cannot consume a chest for nothing.
   try { validate(); } catch (error) { console.error('Chest theme validation failed', error); }
-  global.ChestThemes = { themes, highTierWeights, qualityFloor, groups, normalize, weights, members, eligible, resolve, selectableIds, pickItem, cap, quantity, gearSlots, seedMultiplier, validate };
+  global.ChestThemes = { themes, highTierWeights, qualityFloor, groups, normalize, weights, members, BOOK_T2_SHARE, eligible, resolve, selectableIds, pickItem, cap, quantity, gearSlots, seedMultiplier, validate };
 })(window);

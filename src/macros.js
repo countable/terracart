@@ -226,7 +226,7 @@
   // What every stall counter charges for `id`: the market stall's price
   // (ShopsMath.standPrice — below par, never an arbitrage pump).
   function stallPrice(save, id) {
-    return ShopsMath.standPrice(save, (typeof PRICES !== 'undefined' && PRICES[id]) || 1);
+    return ShopsMath.standPrice(save, ShopsMath.listPrice(save, id));   // the Book's ladder rides in listPrice
   }
   // A stable pick from `pool` for this POI — a hash of its id and a per-kind
   // salt, so every player's apothecary on that corner sells the same thing.
@@ -486,10 +486,12 @@
   // ── The scholar's booth (school POIs): THE BOOK CLUB ──────────────────────
   // Every school keeps the same booth and the same prize shelf, so the club
   // is ONE ledger per save, never per school. Joining is free. The club
-  // counts the books the player FOUND in the world and read (app.js addToInv
-  // — save.booksFound; a Book bought at the scriptorium or the supply shop
-  // arrives with `notWild` and earns nothing), and for every
-  // SCHOLAR_BOOKS_PER_PRIZE of them hands over the next prize off the shelf.
+  // counts EVERY Book the player has read (app.js addToInv — save.booksRead:
+  // found in the world, bought at a counter, or taken off this shelf), and
+  // for every SCHOLAR_BOOKS_PER_PRIZE of them hands over the next prize off
+  // the shelf. Buying is allowed and dear: each Book bought raises the next
+  // one's price (shops_math.js listPrice), and the Book Shop that sells
+  // nothing else opens late (houses.js STORY_RESTORES.bookshop).
   // THE SHELF is the school chest's own treasure list (chest_themes.js
   // 'school': its books and study groups), HUMBLEST FIRST — items.js
   // itemValue, ties by id — so it climbs from the plain Book to the Tome of
@@ -506,7 +508,7 @@
     }
     return [...ids].sort((a, b) => (itemValue(a) - itemValue(b)) || (a < b ? -1 : a > b ? 1 : 0));
   }
-  function booksFound(save) { return Math.max(0, Math.floor(Number(save && save.booksFound) || 0)); }
+  function booksRead(save) { return Math.max(0, Math.floor(Number(save && save.booksRead) || 0)); }
   function scholarTaken(save) { return Math.max(0, Math.floor(Number(save && save.scholarPrizes) || 0)); }
   // The next prize on the shelf — { id, index, booksAt, ready } — or null once
   // the shelf is bare. `booksAt` is the reading it asks for; `ready` whether
@@ -515,7 +517,7 @@
     const index = scholarTaken(save);
     if (index >= shelf.length) return null;
     const booksAt = (index + 1) * SCHOLAR_BOOKS_PER_PRIZE;
-    return { id: shelf[index], index, booksAt, ready: booksFound(save) >= booksAt };
+    return { id: shelf[index], index, booksAt, ready: booksRead(save) >= booksAt };
   }
   // Take the next earned prize off the shelf. The caller has already put it
   // in the bag (the bag may be full — app.js addToInv says so first).
@@ -582,7 +584,7 @@
     curioNextMilestone, curioMilestoneKey, curioMissing, curioDonate,
     TRAINING_LESSON_PRICE, TRAINING_DRILL_PRICE, TRAINING_MEMORIES_PER_LEVEL, trainingKindFor, lessonMemoriesAt, lessonMemories, foldLegacyTraining, stallLabel, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
     buyLesson, buyDrill, drillLeftMs,
-    SCHOLAR_BOOKS_PER_PRIZE, scholarShelf, booksFound, scholarTaken, scholarNext, scholarClaim,
+    SCHOLAR_BOOKS_PER_PRIZE, scholarShelf, booksRead, scholarTaken, scholarNext, scholarClaim,
     KIND_DIALOG, KIND_STORY, stallArt,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

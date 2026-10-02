@@ -148,7 +148,7 @@ const PLAY_TIPS = [
   ITEM_GUIDE_TIPS.fireball_scroll,
   ITEM_GUIDE_TIPS.fear_scroll,
   ITEM_GUIDE_TIPS.treasure_map,
-  "Joined the book club at the school booth. The scholars count the books the world hands me and take a prize down from the shelf as the pile grows. They do not count the ones I bought. I asked twice.",
+  "Joined the book club at the school booth. The scholars count every book I read and take a prize down from the shelf as the pile grows. Bought ones count too, at a climbing price.",
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.

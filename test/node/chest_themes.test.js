@@ -87,7 +87,8 @@ test('chest themes: cave mixture adds medicine and retains the location share', 
 test('chest themes: health stays in its medical-magic lane', () => {
   for (let tier = 1; tier <= 7; tier++) {
     const opts = { theme: 'health' };
-    assert.eq(ChestThemes.weights('health', tier).medicalMagic, 100);
+    // (A T2 chest lends a fifth of its row to the Book — ChestThemes.BOOK_T2_SHARE.)
+    assert.eq(ChestThemes.weights('health', tier).medicalMagic, tier === 2 ? 100 - ChestThemes.BOOK_T2_SHARE : 100);
     const resolved = ChestThemes.resolve('medicalMagic', tier, opts);
     assert.eq(resolved.group, tier === 1 ? 'antidote' : 'medicalMagic');
     for (const id of ChestThemes.selectableIds(resolved)) {
