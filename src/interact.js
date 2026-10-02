@@ -1066,9 +1066,9 @@ const TAP_HANDLERS = [
     const catchCost = effectiveCatchCost(save.relics);
     if (catchCost && !scene.spendEnergy(catchCost, sx, sy)) return true;
     const victim = target;
-    // First catch the save ever starts tells its story - after the spend, so
-    // a tap that could not afford the attempt tells none.
-    scene._toolActionStory?.('catch');
+    // The chicken has its own first-attempt story; other catches use the net
+    // story. After the spend, so an unaffordable attempt tells neither.
+    scene._catchStory?.(victim);
     scene.startCatchProgress(victim, catchMs, () => {
       scene.catchCreature(victim, sx, sy);
     }, () => {

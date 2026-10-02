@@ -7521,6 +7521,15 @@ class MapScene extends Phaser.Scene {
       });
     }
   }
+
+  // Every collapse tells this beat before its existing outcome panel.
+  _deathStory(onDismiss) {
+    this.showMessageModal({
+      art: 'death_memories', kind: 'story', title: 'Fading memories',
+      body: 'You desperately try to hold onto your memories... your vision goes dark and red.',
+      okLabel: 'Next', mustAcknowledge: true, onDismiss,
+    });
+  }
   // Black out at 0 energy underground and wake on the surface. Keeps the same
   // world coordinates (GPS re-asserts position up top); the player wakes still
   // drained, so they must rest before heading back down (changeDepth gate).
@@ -7548,7 +7557,7 @@ class MapScene extends Phaser.Scene {
     const lost = Math.floor((this.save.money ?? 0) / 2);
     if (lost > 0) addMoney(this.save, -lost);
     persistSave(this.save);
-    this.showChestRewardModal({
+    this._deathStory(() => this.showChestRewardModal({
       kind: 'rest',
       header: 'Exhausted',
       iconHTML: '<span style="font-size:42px">😵</span>',
@@ -7556,7 +7565,7 @@ class MapScene extends Phaser.Scene {
       sub: lost > 0 ? `Lost ${this.moneyHTML(lost)} while you were out cold.` : undefined,
       color: '#ff8c3b', accent: '#ff8c3b',
       onDismiss: () => { this._passingOut = false; },
-    });
+    }));
   }
   // Hard mode's surface exhaustion: the same half-purse cost as the
   // underground blackout above, but nothing else about it — no cave to wake
@@ -7567,7 +7576,7 @@ class MapScene extends Phaser.Scene {
     const lost = Math.floor((this.save.money ?? 0) / 2);
     if (lost > 0) addMoney(this.save, -lost);
     persistSave(this.save);
-    this.showChestRewardModal({
+    this._deathStory(() => this.showChestRewardModal({
       kind: 'rest',
       header: 'Exhausted',
       iconHTML: '<span style="font-size:42px">😵</span>',
@@ -7575,7 +7584,7 @@ class MapScene extends Phaser.Scene {
       sub: lost > 0 ? `Lost ${this.moneyHTML(lost)} while you were out cold.` : undefined,
       color: '#ff8c3b', accent: '#ff8c3b',
       onDismiss: () => { this._passingOut = false; },
-    });
+    }));
   }
   // Guarantee an UP staircase (and never a DOWN one) on the home cell of every
   // cave level, so the player can always climb back toward the surface from the
@@ -8571,6 +8580,17 @@ class MapScene extends Phaser.Scene {
   // moments. Hooked where each action STARTS (the wheel spinning up, the
   // shot loosed, the watering landing) - a dry tap that never runs the
   // action tells no story, and a busy screen just asks again next time.
+  _catchStory(creature) {
+    if (creature.kind === 'chicken') {
+      this._storySplashOnce('catch:chicken', {
+        art: 'tool_catch_chicken', title: 'That chicken',
+        body: 'You want to catch that chicken, beckons a voice inside you.',
+      });
+      return;
+    }
+    this._toolActionStory('catch');
+  }
+
   _toolActionStory(action) {
     const slot = { till: 'hoe', chop: 'axe', dig: 'pick', water: 'can',
       catch: 'bugnet', sword: 'sword', staff: 'staff', shoot: 'bow' }[action];

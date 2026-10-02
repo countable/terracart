@@ -150,6 +150,11 @@ const PIECES = {
     scene(
     'A farmer tips a watering can over a small green sprout in a tilled bed, silver water ' +
     'arcing down, the soil darkening with damp, morning light.'),
+  // Original chicken painting retained for the first chicken catch attempt.
+  tool_catch_chicken:
+    scene(
+    'A farmer gently lowers a bug net over a startled chicken in long grass, the net hoop ' +
+    'about to settle, playful tension, warm light.'),
   tool_catch:
     scene(
     'A hooded survivor sweeps a bug net through tall grass. The target is completely hidden ' +
@@ -379,6 +384,8 @@ const PIECES = {
     'A quiet abandoned oil-stained forecourt corner on cracked industrial ground: black tar ' +
     'puddles pooled in the broken concrete, a single rusted fuel pump leaning at an angle, a ' +
     'scatter of flint shards among the weeds, nobody about, still dusk light.'),
+  quarry_sapphire: scene('One glowing blue sapphire exposed inside a freshly split rock, a worn pick beside it, warm terraced quarry backdrop. Quiet wonder at a single precious find.'),
+  zone_quarry: scene('A welcoming terraced stone quarry in warm light, abundant blue sapphires still embedded in exposed rock seams, a broad path into the site. A small mine-cart parking bay with restrained brass and copper fittings is secondary to the quarry. No church, graves or religious structures.'),
   zone_stones: scene(
     // A CHURCHYARD, nothing more (Sep 2026): no ghosts, no pale figures —
     // and no lore hint on sacred ground (LORE_FREE_SUBJECT / scene() throws).

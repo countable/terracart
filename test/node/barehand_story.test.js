@@ -7,6 +7,7 @@ const lift = (sig) => {
 };
 const methods = new Function('return ({' + [
   lift('_toolActionStory(action) {'),
+  lift('_catchStory(creature) {'),
   lift('_barehandWorkStory(tool, startingTier, isTree = false) {'),
   lift('_storySplashOnce(key, { art, title, body, okLabel, onDismiss } = {}) {'),
 ].join(',') + '});')();
@@ -29,6 +30,20 @@ test('tool story requires its own owned tool, not an unrelated relic', () => {
   s.save.relics.hoe.tier = 1;
   s._toolActionStory('till');
   assert.eq(s.modals[1].art, 'tool_till');
+});
+
+test('chicken catch story uses its original art and voice with bare hands, once per save', () => {
+  const s = sceneFor();
+  s._catchStory({ kind: 'chicken' });
+  assert.eq(s.modals[0].art, 'tool_catch_chicken');
+  assert.eq(s.modals[0].body, 'You want to catch that chicken, beckons a voice inside you.');
+  s._catchStory({ kind: 'chicken' });
+  assert.eq(s.modals.length, 1);
+  assert.falsy(s.save.storySeen['tool:catch']);
+  s.save.relics.bugnet = { tier: 1 };
+  s._catchStory({ kind: 'cow' });
+  assert.eq(s.modals[1].art, 'tool_catch', 'other targets keep generic net art');
+  assert.truthy(/if \(catchCost && !scene\.spendEnergy[\s\S]{0,400}scene\._catchStory\?\.\(victim\)/.test(INTERACT_SRC), 'story follows the successful energy spend');
 });
 
 test('barehand story shares one independent key, tree artwork only for a tree', () => {
