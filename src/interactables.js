@@ -876,17 +876,34 @@ const INTERACTABLES = {
       const { scene, save, sx, sy } = ctx;
       if (typeof Scenic === 'undefined') return true;
       const st = Scenic.VISTA_STORY;
-      scene._storySplashOnce?.(st.story, { art: st.story, title: st.title, body: st.body });
+      // The first vista's relic is paid on the tap and SHOWN as a card
+      // (scene.showRewardCard — Oct 2026, owner's call: an earned reward shows
+      // the item) under the vista's own painting, once its story has been
+      // read: the card waits on the splash's dismiss rather than opening under
+      // it. A save that has had the story (or a busy screen that refused it)
+      // gets the card at once; a scene with no card lane keeps the old toast.
+      // The daily gift below stays a find on the ground, a toast.
       const prize = Scenic.firstVistaPrize(save);
+      let showPrize = null;
       if (prize) {
         save.vistaRelic = 1;
         ctx.dirty = true;
         const got = (typeof reconcileRelicOffer === 'function') ? reconcileRelicOffer(prize, save, Math.random) : prize;
         Rewards.apply(save, got, scene);
-        const label = (typeof gearName === 'function') ? gearName('relic', got.slot, got.tier) : `${got.slot} T${got.tier}`;
-        if (got.kind === 'relic') scene.flashLoot(`\u{1F52D} \u2192 \u2728 ${label}`, '#ffe066', 1.6);
-        else scene.flashLoot(`\u{1F52D} \u2192 ${got.amount}`, '#ffe066', 1.2, null, scene.coinIconEl?.());
+        showPrize = () => {
+          const shown = typeof scene.showRewardCard === 'function'
+            && scene.showRewardCard(got, { kind: 'treasure', header: 'Left at the lookout', art: st.story,
+              sub: got.kind === 'gold' ? 'Already better — paid in coin instead.'
+                : 'Someone left this for whoever climbed up to look.' });
+          if (shown) return;
+          const label = (typeof gearName === 'function') ? gearName('relic', got.slot, got.tier) : `${got.slot} T${got.tier}`;
+          if (got.kind === 'relic') scene.flashLoot(`\u{1F52D} \u2192 \u2728 ${label}`, '#ffe066', 1.6);
+          else scene.flashLoot(`\u{1F52D} \u2192 ${got.amount}`, '#ffe066', 1.2, null, scene.coinIconEl?.());
+        };
       }
+      const told = scene._storySplashOnce?.(st.story, { art: st.story, title: st.title, body: st.body,
+        onDismiss: showPrize || undefined });
+      if (showPrize && !told) showPrize();
       if (Macros.usedToday(save, o.id)) {
         if (!prize) scene.flash(`The view rests. ${shortDuration(msToNextUtcDay())}.`, sx, sy);
         return true;

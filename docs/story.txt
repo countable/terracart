@@ -598,7 +598,9 @@ Hard rules, enforced by the tests (memory_arc, story_neighbours, books):
   prose; survivors say "the hooded one", "stranger", "neighbour").
 - ORRIN: working name for the dragon archaeologist.
 - The story neighbours: TILLY (the child), BRYN (the warden), MAUD (the
-  survivor), EDDA (the believer).
+  survivor), EDDA (the believer). Tilly keeps a doorknob, all that remains
+  of her house. She is frightened but cautiously trusting, and stubbornly
+  holds on.
 - The FROST DRAGON QUEEN: Tiamat's late wife; personal name still open.
 - The Warmonger: the title, never a name.
 - The Breaking: the survivors' word for fifty years ago.
