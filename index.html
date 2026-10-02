@@ -154,6 +154,7 @@
          fits rather than adding a near-duplicate shade. */
       --gold:       #ffe066;   /* the game's gold: money, highlights, accents */
       --gold-deep:  #ffd23a;   /* saturated gold — shiny + jackpot accents    */
+      --dialog-border: #88764a; /* muted brass dialog frames */
       --gold-dark:  #c8a64a;   /* dim gold — borders, rules, inactive accents */
       --gold-pale:  #fff3b0;   /* pale gold — the lit core of a highlight     */
       --green:      #a7ffb0;   /* success / ready / energy gain               */
@@ -758,7 +759,7 @@
     }
     #locating .box {
       max-width: 320px; background: #1a1612; color: #fff;
-      border: 2px solid var(--gold-dark); border-radius: 12px;
+      border: 2px solid var(--dialog-border); border-radius: 12px;
       padding: 22px 20px; text-align: center;
       font: 14px ui-monospace, monospace; line-height: 1.45;
     }
@@ -774,7 +775,7 @@
     }
     #tooshort .box {
       max-width: 340px; background: #1a1612; color: #fff;
-      border: 2px solid var(--gold-dark); border-radius: 12px;
+      border: 2px solid var(--dialog-border); border-radius: 12px;
       padding: 22px 20px; text-align: center;
       font: 14px ui-monospace, monospace; line-height: 1.45;
     }
@@ -980,7 +981,7 @@
     #howto .box {
       max-width: 320px; width: 100%;
       background: #1a1612; color: #fff;
-      border: 2px solid var(--gold-dark); border-radius: 12px;
+      border: 2px solid var(--dialog-border); border-radius: 12px;
       padding: 20px; text-align: left;
       font: 13px ui-monospace, monospace; line-height: 1.45;
       max-height: 80vh; overflow-y: auto;
@@ -2724,7 +2725,7 @@
   <script src="src/enemy_spawns.js?v=bcdbb0d6"></script>
   <script src="src/enemy_habitats.js?v=5325c09f"></script>
   <script src="src/difficulty.js?v=81f55f2c"></script>
-  <script src="src/util.js?v=f53aa271"></script>
+  <script src="src/util.js?v=65b5daf1"></script>
   <script src="src/particles.js?v=1285fe88"></script>
   <script src="src/trail.js?v=ca804603"></script>
   <script src="src/streets.js?v=959b140a"></script>
@@ -2789,8 +2790,8 @@
   <script src="src/sandbox.js?v=9377bbd1"></script>
   <script src="src/testtools.js?v=e112a59e"></script>
   <script src="src/geo.js?v=0a205c42"></script>
-  <script src="src/art_thumbs.js?v=0e72f59d"></script>
-  <script src="src/modal_shell.js?v=ce638548"></script>
+  <script src="src/art_thumbs.js?v=7379b331"></script>
+  <script src="src/modal_shell.js?v=3bc0a717"></script>
   <script src="src/scene_geo.js?v=96439ff3"></script>
   <script src="src/npc.js?v=33d34bb8"></script>
   <script src="src/scene_creatures.js?v=c981e8dd"></script>
@@ -2856,7 +2857,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=b6d71bad';
+      const APP_SRC = 'src/app.js?v=3cd47172';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

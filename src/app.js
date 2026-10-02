@@ -4010,6 +4010,7 @@ class MapScene extends Phaser.Scene {
     if (this._modalGateTick % 10 === 0) {
       this._syncModalGate?.();
       this._drainBadgeStories();
+      this._lowHealthStory();
       DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
       NPC.tickArrivals(this, Date.now());
@@ -8535,6 +8536,31 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
+  // Queue from the shared energy display update, covering damage, work and
+  // conditions. Keep the request across a busy dialog, healing or a reload.
+  _queueLowHealthStory() {
+    if (this.save.storySeen?.['health:low'] || this.save.healthLowPending) return;
+    const energy = this.save.energy ?? 0;
+    if (!(energy > 0)) return;
+    Energy.maxEnergy(this.save);
+    if (energy > Energy.tiredThreshold(this.save)) return;
+    this.save.healthLowPending = true;
+    persistSave(this.save);
+  }
+
+  _lowHealthStory() {
+    this._queueLowHealthStory();
+    if (!this.save.healthLowPending || this.save.storySeen?.['health:low']
+        || !(this.save.energy > 0) || this._passingOut) return;
+    if (this._storySplashOnce('health:low', {
+      art: 'health_low', title: 'Running low',
+      body: 'Your hands tremble, and every step feels heavier. You need food or a place to rest.',
+    })) {
+      delete this.save.healthLowPending;
+      persistSave(this.save);
+    }
+  }
+
   // Opens the next queued memory story once nothing else is up. Rides the
   // modal-gate backstop's throttle in update(), right after the sync, so
   // body.modal-open is fresh when it is read.
@@ -8775,6 +8801,7 @@ class MapScene extends Phaser.Scene {
   }
 
   updateEnergyDOM() {
+    this._queueLowHealthStory();
     // Element refs are looked up once and kept: the energy widget is static
     // markup in index.html and is never rebuilt. Re-query until found, so a
     // call that somehow lands before the DOM is parsed can't cache nulls.

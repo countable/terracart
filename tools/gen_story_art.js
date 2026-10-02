@@ -155,6 +155,7 @@ const PIECES = {
     scene(
     'A farmer gently lowers a bug net over a startled chicken in long grass, the net hoop ' +
     'about to settle, playful tension, warm light.'),
+  health_low: scene('An exhausted brown-hooded survivor braces against a rough stone wall beside a ruined village, one hand on a bent knee. Face concealed, alive but struggling to keep going. No wounds. All detail in the top forty percent, empty dark brown foreground below.'),
   tool_catch:
     scene(
     'A hooded survivor sweeps a bug net through tall grass. The target is completely hidden ' +
