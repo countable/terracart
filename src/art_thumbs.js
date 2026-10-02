@@ -54,6 +54,7 @@ const ART_THUMBS = {
   revive_fall: 'data:image/webp;base64,UklGRugAAABXRUJQVlA4INwAAAAwBgCdASoWABwAPp1Em0qlo6IhqAqosBOJaACdMoR+N5zxUu/8A8NDebzGBVovDWwBOLiBPf4LtT2AAPyDRyW67x+YrtjqhPo7CpmlZdtFVT3n0rVdprB1NTWkK0Hme5Lwuzpp1bSJwRkqKACWd/6SgYGsm0Siz/RyP2xkICPaRJdt4zpvNgXyfHJzY4w+re6b+LbUHCNGwdOLRrvMOPHKL1M+a7ko3K/tQe7Tn+4BU956KLWC0GgjnE6rgW2Go4JEjAiMNzS0oBfCJunKAGT7xLvGskfJ5qHiQAAA',
   revive_found: 'data:image/webp;base64,UklGRu4AAABXRUJQVlA4IOIAAADwBQCdASoWABwAPp1GnUslo6KhqAgAsBOJbACdMuN5n7NxRuTQqGQk79Db/pBDWC3Q1mPNLnqxFAD+6jP/LqJpjFpoenk/pqFG/1Lt3GbE8b5hRxXL3urNO66jW128ZC8JPeihg8MkK9euSHV5SUe0t1lD2zl/UMcrnfXMlf94nyIwV6TiV5XjZnnF445XMIqYaJifKHXnYkeKdFZZrm6RD7VdbqtG23xbVZ0JiTyBXd9QMkAWBjzr6f1lNoMpSuyX63e+Awdy0P5+OKDkVu5xAZftZ6Zj7a8+3t/VIzGVwyQA',
   revive_wake: 'data:image/webp;base64,UklGRuAAAABXRUJQVlA4INQAAADQBQCdASoWABwAPp1GnUslo6KhqAgAsBOJaACdM1AEIeBbf4CB0Wps5/vXH+2B4sLta2AcjLPIAP2b+BQKMPaCpw+Po/Jur08Qr9H9GR0zZBvlgGkEN7vJgOJuU1I2O5hI7Xa30aItI6DuxKXD4aXrZPvyMELRf5azS7w5/cTSZXvziKS4xT2IfruNJPWCcOozi2ALzxptA7qiCfu9Eje89W14rQM47Dq1x3Yd69/BzXQnAiq+ki99ybTUTQ5XOEox9wOqGUbROjxqj9r1cm+WdIyAAA==',
+  safety_phone: 'data:image/webp;base64,UklGRs4AAABXRUJQVlA4IMIAAABQBQCdASoWABwAPp1EnUolo6KhqAqosBOJaACdMsu6gA8IGzVOr78wEiVeXSDy2Hus9wAA/uxXB87rjf8DKLijFxJMPx+xVsnpsk11zW9ZuNWnotz8FhVbyfIMmN7h60iGAXmUb5/m+iIuDMp1SOZP4srvm18prM0W4j3vl4u6a7LdyzOyGIs+MRrSZpFmL0cFa7AGESi9zDPVbWYj3sM4rhiOjOXYVnlqZxGFGwPkh750ti/qNESZunWGVAFI2HoAAA==',
   shiny_first: 'data:image/webp;base64,UklGRr4AAABXRUJQVlA4ILIAAADQBACdASoWABwAPp1Cnkmlo6MhKAqosBOJYgCdMoR/ZfqgGNqfxe9lHg8UmmwwUAD+rFPlWmX5zBnz7GiIJrM2E9i29CmCFxPlLwtEhXDBXwHSJ9W3Xu2WvX8pxpHPoS6Rhfvf9A6SRDbHVsTZE15c3KhvAej7+l4+kvnwvP+hIa9XFGhcFVnFiFjjTTglmGNkwjEmOAyt5429bTxZ0mgbiHLZbiMoFw6jLiHlEQc4AAAA',
   shrine_bone_watcher: 'data:image/webp;base64,UklGRrQAAABXRUJQVlA4IKgAAABwBACdASoWABwAPp1Enkolo6MhqAqosBOJQBYj6rgpNi7qo+Ka9+oH6bRjAAD+9JCOBaHbkn6I/zOaqyFGEyOi5TTuMFCy8npGmYuVIbx+k5ro9jza53kt/P/lg5f9e9nCfhDLe3WJn0Wpg/W9YMmKXiI+27akw6SVAOWKSq7yG6TwRDHBDhTIijkbWs8hsQSmLwxbbsPFqN1wy5D6/w+2ZVOMwFuAAAA=',
   shrine_ember_altar: 'data:image/webp;base64,UklGRqgAAABXRUJQVlA4IJwAAADQBACdASoWABwAPp1Cnkmlo6MhKAqosBOJYgCdMoSCmBH9xhkSYbo0O7P3XmJkwAD+9X5LODlbQpl8+wRgiDCiG7nRqZ9mJL0RPYGMK03pq+JmAvSvAnI/9Yd0pbLCusie3hGnuOED9T7LcJSlPl9dI4BWSAmQGOD52m1SQL1m3BjoeiZC/Z/HJZIyax5a56tsUKRB15amtN6AAAA=',
@@ -159,6 +160,7 @@ const ART_TONES = {
   revive_fall: '#b6742d',
   revive_found: '#7e481f',
   revive_wake: '#a1612d',
+  safety_phone: '#97500e',
   shiny_first: '#8c5725',
   shrine_bone_watcher: '#664623',
   shrine_ember_altar: '#603315',
@@ -469,6 +471,11 @@ const ART_CUTS = {
     'data:image/webp;base64,UklGRkQAAABXRUJQVlA4IDgAAADwAQCdASoDAAQAAkA4JYgCdEf/geiWZEAA/vRf97YJJ9xMnstXiazNd9WGJ31X8Xc4E5tVppgAAA==',
     'data:image/webp;base64,UklGRkwAAABXRUJQVlA4IEAAAAAwAgCdASoGAAgAAkA4JZgCdGuAAs2W98SQAAD+rd79F0Ovx/93VpmLqFYXplbSUd7PkVKb2toa2H27P6nNIkAA',
     'data:image/webp;base64,UklGRmQAAABXRUJQVlA4IFgAAADQAQCdASoLAA4AAkA4JbACdADZZjOSAAD+0pVAWVgttLAgXUphaI0nvm+KY8fh6c4goz7Zl784TUkHe713+HK4T+V/5eXaf/f9uYGHi/4nniG6/I68XsAA',
+  ],
+  safety_phone: [
+    'data:image/webp;base64,UklGRkYAAABXRUJQVlA4IDoAAAAwAgCdASoDAAQAAkA4JYgCdGuAt/8D0SzLuAD++VN91ufHxoIvslcUr1jdilTE79TAVA9ij4N3YIAA',
+    'data:image/webp;base64,UklGRk4AAABXRUJQVlA4IEIAAACwAQCdASoGAAgAAkA4JagCdAEOZzdAAP7xtIxvTUlsVjy5baNZC3PduPv3UMp/K+yepp/GVz0mRft0W/Z7k0q1oAA=',
+    'data:image/webp;base64,UklGRmIAAABXRUJQVlA4IFYAAAAQAgCdASoLAA4AAkA4JbACdAEWzOV5B8XwAP71tjQ+vXpAgKY0JgZo0ZBA4XTNrmiTlGkSVajRyQIqn0z/+eD6Ct/65m/kZqCdf8VMtv6dLHBuonKAAA==',
   ],
   shiny_first: [
     'data:image/webp;base64,UklGRj4AAABXRUJQVlA4IDIAAACwAQCdASoDAAQAAkA4JQBOgCHhSxYAAP72tHBYF/IYWxDWC+ShVUbP2jWnDxVLs24AAA==',
