@@ -52,7 +52,8 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    in 1.5 s, a 28 m/s peak) — the hunt's timed odds are tuned on it and no
    10 m/s hop clears the reach inside a T1 net's wheel; flagged for the
    owner.
- - no fauna may move onto a building footing, or road. Nor is any SEATED on one:
+ - no fauna may move onto a building footing, or a major (MD/LG) road; minor
+   streets and paths are crossable. None is SEATED on any road:
    every spawner goes through WorldGen.isSpawnCell with the tile's roadMask.
  - animals simulate when within the SIM BUBBLE, 12 cells of the player's feet
    (CREATURE_SIM_CELLS); stationary beyond that. The viewport corner is ~7.8

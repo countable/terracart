@@ -759,33 +759,38 @@ test('combat: the health tint reads full → hurt → nearly dead', () => {
 // upgrades for farming quietly bought combat range too.
 
 test('combat: melee reaches exactly as far as a melee monster does', () => {
-  assert.eq(Combat.MELEE_REACH_CELLS, 1,
-    'one cell — the range every melee monster in the MONSTERS table attacks at');
-  assert.eq(Combat.meleeReachM(COMBAT_CELL_M), COMBAT_CELL_M,
-    'and in metres it is one cell of whatever the world is scaled to');
+  assert.eq(Combat.MELEE_REACH_CELLS, 0.6,
+    'arm\'s length — the range an ordinary melee monster in the MONSTERS table attacks at');
+  assert.eq(Combat.meleeReachM(COMBAT_CELL_M), 0.6 * COMBAT_CELL_M,
+    'and in metres it is that share of whatever the world is scaled to');
   // The real registered table — combat.js owns it, so this reads the ranges
   // the game actually attacks at rather than a regex over app.js's source.
-  const ranges = Object.values(Combat.MONSTERS).map((m) => m.range);
-  assert.gt(ranges.length, 3, 'found the monster ranges');
-  const melee = ranges.filter((r) => r <= 1);
-  assert.gt(melee.length, 0, 'there are melee monsters at all');
-  for (const r of melee) {
-    assert.eq(r, Combat.MELEE_REACH_CELLS,
-      'a melee monster reaches exactly what the player does — one number, both sides');
+  // Melee is a blow: a ghost's touch and a bomb's blast keep their own reach.
+  const melee = Object.entries(Combat.MONSTERS).filter(([kind, m]) => m.range <= 1 && (m.dmg || m.steals)
+    && (EnemyRoster.get(kind)?.attackType ?? 'melee') === 'melee');
+  assert.gt(melee.length, 3, 'found the melee monsters');
+  // Only a declared long reach (a swooping pass, a big body's arms) may
+  // out-reach the player's fist; nothing reaches less.
+  const LONG = new Set(['bat', 'vampire_bat', 'gull', 'raven', 'storm_gull', 'brute', 'hell_brute', 'obsidian_brute',
+    'orc', 'minotaur', 'giant_slime', 'giant_spider', 'giant_skeleton', 'giant_cave_slime', 'giant_crab',
+    'red_demon', 'armoured_demon']);
+  for (const [kind, m] of melee) {
+    if (LONG.has(kind)) assert.gte(m.range, Combat.MELEE_REACH_CELLS, kind);
+    else assert.eq(m.range, Combat.MELEE_REACH_CELLS, `${kind}: a melee monster reaches exactly what the player does`);
   }
-  assert.truthy(ranges.some((r) => r > Combat.MELEE_REACH_CELLS),
+  assert.truthy(Object.values(Combat.MONSTERS).some((m) => m.range > 1),
     'and the goblin archer still out-ranges a fist, which is what makes it archer');
 });
 
 test('combat: the melee test is symmetric with the monster\'s own attack gate', () => {
-  const C = COMBAT_CELL_M;
+  const C = COMBAT_CELL_M, R = Combat.MELEE_REACH_CELLS * C;
   // Centre-to-centre, the same measure wanderCreatures runs from the creature
   // to the player's FEET — so "it can bite me" and "I can hit it" agree.
   assert.truthy(Combat.inMeleeReach(0, 0, 0, 0, C), 'on top of it');
-  assert.truthy(Combat.inMeleeReach(C, 0, 0, 0, C), 'exactly one cell east');
-  assert.truthy(Combat.inMeleeReach(0, -C, 0, 0, C), 'exactly one cell north');
-  assert.falsy(Combat.inMeleeReach(C * 1.01, 0, 0, 0, C), 'a hair past one cell');
-  assert.falsy(Combat.inMeleeReach(C, C, 0, 0, C), 'the diagonal is √2 cells — out');
+  assert.truthy(Combat.inMeleeReach(R, 0, 0, 0, C), 'exactly arm\'s length east');
+  assert.truthy(Combat.inMeleeReach(0, -R, 0, 0, C), 'exactly arm\'s length north');
+  assert.falsy(Combat.inMeleeReach(R * 1.01, 0, 0, 0, C), 'a hair past it');
+  assert.falsy(Combat.inMeleeReach(R, R, 0, 0, C), 'the diagonal is √2 of it — out');
   // The reach the LIT diamond would have granted, at every rung, is out of it.
   for (const upgrades of [0, 3, 6]) {
     const litCells = Math.min(5.5, 2.5 + 0.5 * upgrades);
@@ -1002,10 +1007,12 @@ test('alternate melee: material-equivalent blows and distinct reach/cadence', ()
   }
   assert.eq(Combat.meleeIntervalMs('dagger'), Combat.MELEE_INTERVAL_MS);
   assert.eq(Combat.meleeIntervalMs('spear'), Combat.MELEE_INTERVAL_MS * 2);
-  assert.truthy(Combat.inMeleeReach(3.5, 0, 0, 0, 7, 'dagger'));
-  assert.falsy(Combat.inMeleeReach(3.51, 0, 0, 0, 7, 'dagger'));
-  assert.truthy(Combat.inMeleeReach(14, 0, 0, 0, 7, 'spear'));
-  assert.falsy(Combat.inMeleeReach(14.01, 0, 0, 0, 7, 'spear'));
+  const fist = Combat.MELEE_REACH_CELLS * 7;
+  assert.truthy(Combat.inMeleeReach(fist * 0.75, 0, 0, 0, 7, 'dagger'));
+  assert.falsy(Combat.inMeleeReach(fist * 0.75 + 0.01, 0, 0, 0, 7, 'dagger'));
+  assert.gt(fist * 0.75, 0.35 * 7, 'a dagger reaches a foe stopped at its closing gap');
+  assert.truthy(Combat.inMeleeReach(fist * 2, 0, 0, 0, 7, 'spear'));
+  assert.falsy(Combat.inMeleeReach(fist * 2 + 0.01, 0, 0, 0, 7, 'spear'));
 });
 
 test('musket: every material fires gold bow damage with one coin and a round ball', () => {
