@@ -867,9 +867,18 @@ CREATURES
        the HP-driven combat wheel instead, and a sword starts it for you.
  - RELEASE: select a caught animal and tap a passable cell to place it, one at a
    time. Released animals persist in save.released and re-spawn at their spot.
- - PET: tap a released ("tame") animal with anything (or nothing) for a happy
+ - PET: tap a released ("tame") animal while holding any FOOD (or seed) for a happy
    sound + a 10-minute petting boost (the +50% double-yield above). Petting a
-   cat also makes it follow you for 5 minutes.
+   cat also makes it follow you for 5 minutes. A treat (favourite or plant
+   produce) is eaten; other food is a free pet, never a yuck.
+ - PICK UP: tap a tame animal with an EMPTY hand (or a tool) and it goes
+   straight into the bag — no wheel, no fleeing, no energy, and no shiny
+   windfall (it is already yours). A full stack leaves it standing. A pet
+   RAISED from a baby keeps its id, birth and favourite meals while carried
+   (its save.released row stays, its id in save.caught) and comes back as
+   the same pet when a baby/shiny of its kind is next released; it pockets as
+   a Baby while still a baby, as a Shiny once grown. A sapphire-tamed slime
+   has no bag item and is petted instead.
  - SCARECROW: a placeable item — wild crows and deer steer around it (4-cell
    aversion). Pick it back up any time.
  - CROWS additionally try to destroy nearby crops over time — scarecrows and
