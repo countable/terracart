@@ -35,7 +35,12 @@ const FORT_UNLOCK_WOOD_STEP = 6;
 (function (root) {
   'use strict';
 
-  const STORY_RESTORES = Object.freeze({ firstTower: 30, secondTower: 52, earlyMending: 2, childHome: 2 });
+  // `bookshop`: the restoration that reveals the Book Shop (shops.js lineFor —
+  // the book club's late, dear backup supply of Books), stamped by
+  // registerBookshop. Index 14 is also LEGACY_FIRST_TOWER_INDEX below: an old
+  // unstamped save reads a 'wizard' there, a new save a 'market', so the two
+  // never collide.
+  const STORY_RESTORES = Object.freeze({ firstTower: 30, secondTower: 52, earlyMending: 2, childHome: 2, bookshop: 15 });
   // Old unstamped saves retain the tower identities their original schedule gave them.
   const LEGACY_FIRST_TOWER_INDEX = 14, LEGACY_SECOND_TOWER_INDEX = 25;
 
@@ -53,6 +58,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     1:  'trader',
     2:  'plain',
     3:  'market',
+    [STORY_RESTORES.bookshop - 1]: 'market',   // the Book Shop (registerBookshop)
     [STORY_RESTORES.firstTower - 1]: 'wizard',
   };
 
@@ -137,6 +143,15 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return null;
   }
 
+  // Stamp the bookshop (save.bookshopId) when a market is frozen at or past
+  // its restoration — once per save, the first such market. Saves already
+  // past that point get one on their next market, never a re-labelled old shop.
+  function registerBookshop(save, house, order) {
+    if (save.bookshopId != null || house?.id == null) return save.bookshopId ?? null;
+    if (save.restoredHouses?.[house.id] !== 'market' || order < STORY_RESTORES.bookshop - 1) return null;
+    save.bookshopId = String(house.id);
+    return save.bookshopId;
+  }
   function registerWizardTower(save, house, order) {
     const towers = wizardTowerIds(save);
     if (house?.id != null && save.restoredHouses?.[house.id] === 'wizard') {
@@ -328,7 +343,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   root.Houses = {
     PRESEED_RESTORE_ROLES, STORY_RESTORES,
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith, preseedRestoreRole,
-    wizardTowerIds, wizardTowerIdentity, registerWizardTower,
+    wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerBookshop,
     shopCharmMul,
     isHouseWreck, wreckRestoreCost,
     fortUnlockCost, isFortLocked,

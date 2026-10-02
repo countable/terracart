@@ -2,6 +2,10 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  // Castle turrets share a 28×42 frame and a flush bottom grounding line.
+  // The flag remains a separate live overlay when the castle is claimed.
+  tower: { kind: 'image', path: 'assets/Objects/Generated/castle_tower_restored.png' },
+  tower_unclaimed: { kind: 'image', path: 'assets/Objects/Generated/castle_tower_wreck.png' },
   orrin_idle: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_idle.png', frameWidth: 48, frameHeight: 48 },
   orrin_walk: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_walk.png', frameWidth: 48, frameHeight: 48 },
   npc_0_idle: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman01_idle.png', frameWidth: 48, frameHeight: 48 },

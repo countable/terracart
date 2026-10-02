@@ -277,6 +277,31 @@
     return Math.max(1, Math.ceil(baseValue * standBuyMul(save && save.relics)));
   }
 
+  // ─── The Book's price ladder ─────────────────────────────────────────────
+  // A bought Book counts toward the school's book club exactly like a found
+  // one (macros.js scholar* — every Book read counts), so the COUNTER is the
+  // brake: every Book bought (save.booksBought — at any counter: the
+  // scriptorium stall, the supply shop line, the bookshop) raises the list
+  // price of the next by BOOK_PRICE_GROWTH, up to BOOK_PRICE_CAP_MUL × the
+  // catalogue price. The first is the catalogue price. listPrice is the ONE
+  // lane every counter reads for its base, so the ladder cannot be dodged by
+  // shopping elsewhere; bookBought is the one writer.
+  const BOOK_PRICE_GROWTH = 1.5;
+  const BOOK_PRICE_CAP_MUL = 16;
+  function booksBought(save) { return Math.max(0, Math.floor(Number(save && save.booksBought) || 0)); }
+  function bookPriceMul(bought) { return Math.min(BOOK_PRICE_CAP_MUL, Math.pow(BOOK_PRICE_GROWTH, bought)); }
+  // The list price a counter starts from for `id` — `base` defaults to the
+  // catalogue price (a themed shop passes itemValue, which also prices the
+  // unpriced live animals). Only the Book climbs.
+  function listPrice(save, id, base) {
+    const b = Math.max(1, base ?? ((typeof PRICES !== 'undefined' && PRICES[id]) || 1));
+    return id === 'book' ? Math.ceil(b * bookPriceMul(booksBought(save))) : b;
+  }
+  function bookBought(save, n = 1) {
+    save.booksBought = booksBought(save) + Math.max(0, n | 0);
+    return save.booksBought;
+  }
+
   // ─── Trader ask ──────────────────────────────────────────────────────────
   // What a trader asks in return for its goods: an item id and a count worth
   // `target` (the give side's value × 1..2). The ask used to be ANY priced
@@ -554,5 +579,6 @@
                      SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, SLOT_JACKPOT_PAIR_COINS,
                      SLOT_STAR_WEIGHT, SLOT_NATURAL_MUL, SLOT_STAR_PAIR_MUL, SLOT_DELUXE_SPINS, SLOT_DELUXE_MUL, slotDeluxeShare, slotDeluxeNext, SLOT_STAR_BADGES, SLOT_STAR_JACKPOT_COINS, slotMachine, slotSpin, slotPrizes,
                      STAND_BUY_MUL, STAND_ARB_MARGIN, standBuyMul, standPrice,
+                     BOOK_PRICE_GROWTH, BOOK_PRICE_CAP_MUL, booksBought, bookPriceMul, listPrice, bookBought,
                      TRADER_AFFORDABLE_CHANCE, TRADER_MAX_OVERPAY, traderAsk };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

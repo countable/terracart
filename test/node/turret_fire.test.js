@@ -31,6 +31,29 @@
 const CELL = 7;
 const goblin = (id, x, y) => ({ kind: 'goblin', id, x, y });
 
+test('turret art: generated restored and ruined sprites retain the shared cell footprint', () => {
+  const assets = new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC + '\nreturn ASSETS;')({}, EnemyRoster, SpriteLayout);
+  for (const [key, name] of [['tower', 'restored'], ['tower_unclaimed', 'wreck']]) {
+    const row = assets[key];
+    assert.eq(row.kind, 'image');
+    assert.eq(row.path, `assets/Objects/Generated/castle_tower_${name}.png`);
+    const size = pngDims(row.path);
+    assert.truthy(size, `${name} art exists`);
+    assert.eq(size.w, 28);
+    assert.eq(size.h, 42, 'the live flag and arrow lift share this crown height');
+  }
+  assert.falsy(/makeTowerTexture\(this/.test(SCENE_SRC), 'gameplay uses loaded sprites instead of procedural turrets');
+  const scene = { textures: { exists: () => true }, save: {}, isClaimedKey: () => false };
+  const row = Render.objectAppearance(scene, new Map(), false).RENDER_SPEC.tower;
+  const tower = { kind: 'tower', castle: 'art-castle' };
+  assert.eq(row.key(tower, scene), 'tower_unclaimed');
+  scene.isClaimedKey = () => true;
+  assert.eq(row.key(tower, scene), 'tower');
+  assert.eq(JSON.stringify(row.origin), '[0.5,1]');
+  assert.eq(row.scale, 1);
+  assert.eq(row.dyPx, CELL_PX / 2);
+});
+
 test('turret: a Wood-tier bow at one fifth the player cadence — all derived', () => {
   assert.eq(Combat.TURRET.slot, 'bow', 'a turret is an archer');
   assert.eq(Combat.TURRET.tier, 1, 'Wood tier');

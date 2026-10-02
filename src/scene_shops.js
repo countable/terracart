@@ -120,14 +120,18 @@ class SceneShops {
     const id = items && items[index];
     if (!id) return;
     const item = ITEM_BY_ID[id];
-    const unitPrice = ShopsMath.standPrice(this.save, PRICES[id] ?? 1);
-    const listPrice = Math.max(1, PRICES[id] ?? 1);
+    // The list price is the ladder's (ShopsMath.listPrice — only the Book
+    // climbs, with every one bought); the stall discount comes off that.
+    const listPrice = ShopsMath.listPrice(this.save, id);
+    const unitPrice = ShopsMath.standPrice(this.save, listPrice);
     const iconHTML = this.iconSpanHTML(id);
     const itemName = item?.name || id;
     // Cap the stepper at what the player can both afford AND fit in their bag.
     const money = () => this.save.money ?? 0;
     const room  = () => { const r = this.invRoomFor(id); return r === Infinity ? 99 : r; };
-    const maxQty = clamp(Math.max(1, Math.floor(money() / unitPrice)), 1, room());
+    // A Book is sold one at a time: its price climbs with each one bought, so
+    // a stack at one price would walk round the ladder.
+    const maxQty = id === 'book' ? 1 : clamp(Math.max(1, Math.floor(money() / unitPrice)), 1, room());
     // Show what the stall is knocking off, so the discount reads as a deal
     // rather than as an arbitrary number. Suppressed at par (a maxed-out sword
     // pushes the price back up to the listed value — see ShopsMath.standPrice).
@@ -163,6 +167,7 @@ class SceneShops {
         if (money() < pay) { this.flash(`need ${pay}`, sx, sy); return; }
         addMoney(this.save, -pay);
         this.addToInv(id, take, false, { notWild: true, deferRefresh: true });
+        if (id === 'book') ShopsMath.bookBought(this.save, take);
         this._finishInventoryChange();
         this.flashLoot(`${take}× ${itemName}\n−${pay}`, '#ffe066', 1, id);
       },
@@ -579,7 +584,7 @@ class SceneShops {
   // and the stock all read this one answer.
   marketTheme(house) {
     if (house?.kind === 'npc') return { theme: house.shopTheme, tier: 1 };
-    return Shops.themeAt(Shops.shopOrder(this.save, house));
+    return Shops.lineFor(this.save, house);
   }
 
   // Every restored delivery house currently asking for a bundle (not satisfied
@@ -1060,7 +1065,9 @@ class SceneShops {
 
   _presentThemedItem(sx, sy, house, recordDeal, id) {
     const item = ITEM_BY_ID[id];
-    const offer = this.buildShopOffer(id, itemValue(id), { house });
+    // The base is the ladder's (ShopsMath.listPrice — the Book climbs with
+    // every one bought; everything else is its itemValue).
+    const offer = this.buildShopOffer(id, ShopsMath.listPrice(this.save, id, itemValue(id)), { house });
     // One unit, as every cash buy — low-tier seeds keep their bulk bonus.
     const buyQty = 1 + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0);
     this.showOfferModal({
@@ -1080,6 +1087,7 @@ class SceneShops {
         }
         offer.consume();
         this.addToInv(id, buyQty, false, { notWild: true, deferRefresh: true });
+        if (id === 'book') ShopsMath.bookBought(this.save, buyQty);
         recordDeal();
         this._finishInventoryChange();
         this.flashLoot(`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);

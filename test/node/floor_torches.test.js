@@ -127,12 +127,17 @@ test('roadside chest: every tier stays with supplies, minerals and cash', () => 
         if (r.id === 'torch') torches++;
       } else if (r.group === 'materials') {
         assert.includes(['wood', 'rockfruit', 'coal', ...Object.values(MINERAL_TIERS).map(row => row.barId)], r.id);
+      } else if (r.group === 'plainBook') {
+        // A T2 chest lends a fifth of its row to the Book (ChestThemes.BOOK_T2_SHARE).
+        assert.eq(tier, 2, 'the Book joins the roadside row at tier 2 only');
+        assert.eq(r.id, 'book', 'the Book itself, whatever the roll climbed to');
       } else {
         assert.eq(r.group, 'cash');
         assert.eq(r.kind, 'gold');
       }
     }
-    assert.inRange(supplies / n, 0.42, 0.48, `T${tier}: supply share`);
+    const bookMul = tier === 2 ? (100 - ChestThemes.BOOK_T2_SHARE) / 100 : 1;
+    assert.inRange(supplies / n, 0.42 * bookMul, 0.48 * bookMul, `T${tier}: supply share`);
     if (tier === 1) assert.gt(torches / n, 0.30, 'roadside T1 is a dependable Torch source');
   }
 });
