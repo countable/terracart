@@ -9497,7 +9497,10 @@ class MapScene extends Phaser.Scene {
   // the lit silhouette AND every tap-accept gate cover everything on screen.
   // Stored in `save` (not just in-memory) so the buff survives tile reloads
   // within the minute; the timestamp self-expires, so a stale save is harmless.
-  drinkReachPotion() {
+  // `opts` rides through to _finishConsumable like the other drinks; it
+  // used to be read here without being declared, which threw on every
+  // Potion of Reach (sandbox run, Oct 2026 — player_potions.test.js).
+  drinkReachPotion(opts = {}) {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'reach_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.reachPotionUntil = Date.now() + REACH_POTION_MS;
