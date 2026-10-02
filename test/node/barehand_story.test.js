@@ -36,7 +36,7 @@ test('chicken catch story uses its original art and voice with bare hands, once 
   const s = sceneFor();
   s._catchStory({ kind: 'chicken' });
   assert.eq(s.modals[0].art, 'tool_catch_chicken');
-  assert.eq(s.modals[0].body, 'You want to catch that chicken, beckons a voice inside you.');
+  assert.eq(s.modals[0].body, '“You want to catch that chicken,” <em>beckons a voice inside you.</em>');
   s._catchStory({ kind: 'chicken' });
   assert.eq(s.modals.length, 1);
   assert.falsy(s.save.storySeen['tool:catch']);

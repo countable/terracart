@@ -8584,7 +8584,7 @@ class MapScene extends Phaser.Scene {
     if (creature.kind === 'chicken') {
       this._storySplashOnce('catch:chicken', {
         art: 'tool_catch_chicken', title: 'That chicken',
-        body: 'You want to catch that chicken, beckons a voice inside you.',
+        body: '“You want to catch that chicken,” <em>beckons a voice inside you.</em>',
       });
       return;
     }
@@ -9824,46 +9824,43 @@ class MapScene extends Phaser.Scene {
   // owner, Sep 2026: a card over the freshly loaded map got tapped away
   // unread; on the loading screen it is what there is to read). Every
   // version says the one thing the game most needs you to do: reach what is
-  // out of reach with the STICK, never by stepping into the street. Not a makeModalShell dialog —
-  // it carries no painting and must cover the whole game box, above every
-  // dialog; it does wear .game-modal so the movement pads hide under it.
+  // out of reach with the STICK, never by stepping into the street. The shared
+  // story shell frames its painting; the full-cover backdrop stays above every
+  // other dialog and .game-modal keeps movement pads hidden underneath.
   _showSafetyCard(which) {
     if (window.__TEST_MODE || typeof document === 'undefined') return;
     const card = SAFETY_CARDS[which];
     const host = document.getElementById('game');
     if (!card || !host) return;
-    document.getElementById('safety-card')?.remove();
-    const wrap = document.createElement('div');
-    wrap.id = 'safety-card';
-    wrap.className = 'game-modal';
+    const { wrap, box, mount } = this.makeModalShell('safety-card', {
+      kind: 'story', kindLabel: 'Safety', art: 'safety_phone',
+      zIndex: 400, wrapBg: 'rgba(12,9,6,0.96)',
+      wrapExtra: 'cursor:pointer;',
+      boxExtra: 'color:#fff4e0;font-weight:700;line-height:1.35;',
+    });
     wrap.setAttribute('role', 'alertdialog');
-    // The VISIBLE slice of the game box (fitGame's --view-top / --view-h, the
-    // band every modal covers): #game is taller than a tall phone's screen,
-    // so centring on the whole box sat the card low.
-    wrap.style.cssText = 'position:absolute;left:0;right:0;top:var(--view-top,0px);height:var(--view-h,100%);'
-      + 'z-index:400;display:flex;flex-direction:column;'
-      + 'align-items:center;justify-content:center;padding:24px 20px;box-sizing:border-box;'
-      + 'background:rgba(12,9,6,0.96);color:#fff4e0;text-align:center;cursor:pointer;'
-      + 'font-weight:700;line-height:1.35;';
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-labelledby', 'safety-card-title');
     const title = document.createElement('div');
+    title.id = 'safety-card-title';
     title.textContent = card.title;
-    title.style.cssText = 'font-size:26px;font-weight:900;color:#ff8c3b;letter-spacing:1px;margin-bottom:14px;';
-    wrap.appendChild(title);
+    title.style.cssText = 'font-size:22px;font-weight:900;color:#ff8c3b;letter-spacing:1px;margin-bottom:10px;';
+    box.appendChild(title);
     for (const line of card.lines) {
       const p = document.createElement('div');
       p.textContent = line;
       p.style.cssText = 'font-size:17px;margin:6px 0;max-width:340px;';
-      wrap.appendChild(p);
+      box.appendChild(p);
     }
     const tap = document.createElement('div');
     tap.textContent = 'Tap to continue';
-    tap.style.cssText = 'margin-top:22px;font-size:15px;font-weight:800;color:#ffe066;'
+    tap.style.cssText = 'margin-top:14px;font-size:15px;font-weight:800;color:#ffe066;'
       + 'border:2px solid #ffe066;border-radius:8px;padding:10px 18px;';
-    wrap.appendChild(tap);
+    box.appendChild(tap);
     const done = (e) => { e?.stopPropagation?.(); e?.preventDefault?.(); wrap.remove(); };
     wrap.addEventListener('pointerup', done);
     wrap.addEventListener('click', done);
-    host.appendChild(wrap);
+    mount();
   }
   // THE HEADS-UP BUZZ: wanderCreatures hands over the nearest hostile taking
   // an interest this tick; inside SAFETY_FOE_BUZZ_CELLS the phone vibrates,

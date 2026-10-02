@@ -28,7 +28,7 @@ test('modal layering: every element appended to <body> stands down under body.mo
 });
 
 test('modal layering: the safety card is a .game-modal inside #game', () => {
-  assert.truthy(/wrap\.id = 'safety-card';\s*wrap\.className = 'game-modal';/.test(SCENE_SRC),
+  assert.truthy(/makeModalShell\('safety-card'/.test(SCENE_SRC) && /wrap\.classList\.add\('game-modal'\)/.test(SCENE_SRC),
     'wears .game-modal so the body-level HUD stands down under it');
   assert.truthy(/body\.modal-open \.hud-action,/.test(INDEX_HTML_SRC), 'the Eat / Use buttons hide under a dialog');
 });
