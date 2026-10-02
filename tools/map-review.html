@@ -77,6 +77,9 @@
   <label for="laneFilter">Removed-lane evidence</label>
   <select id="laneFilter"><option value="all">All removed lanes</option><option value="inferred">Inferred removals only</option><option value="explicit">Explicit parking-aisle tags only</option></select>
   <div id="laneSummary" style="font-size:11px;color:#aaa;line-height:1.5"></div>
+  <h3>Quarry clusters</h3>
+  <label><input id="quarryClusters" type="checkbox"> Colour quarry footprints</label>
+  <div id="quarrySummary" hidden style="font-size:11px;color:#aaa;line-height:1.5"></div>
   <h3>Overlays</h3><div id="ovl"></div>
   <h3>Density band</h3>
   <div>interactables per view: <input id="dmin" type="number" value="5" min="0" style="width:3.5em"> to
@@ -92,6 +95,7 @@
 <script src="game-loader.js"></script>
 <script src="map-review-zones.js"></script>
 <script src="map-review-lanes.js"></script>
+<script src="map-review-quarries.js"></script>
 <script src="map-review-art.js"></script>
 <script>
 // ── Tiles ───────────────────────────────────────────────────────────────────
@@ -241,6 +245,9 @@ const mkRow = (host, type, html, checked, on, name) => {
 $('removedLanes').checked = Q.get('removedLanes') === '1';
 const laneReview = MapReviewLanes.create({map,toLL,getEdge:()=>EDGE,
   removedToggle:$('removedLanes'),keptToggle:$('keptServiceRoads'),filter:$('laneFilter'),summary:$('laneSummary')});
+$('quarryClusters').checked = Q.get('quarryClusters') === '1';
+const quarryReview = MapReviewQuarries.create({map,toLL,getEdge:()=>EDGE,toggle:$('quarryClusters'),summary:$('quarrySummary'),
+  onSelect:id=>{selectZone(id,false);zoneSelection.clearLayers();}});
 const gameArt = MapReviewArt.layer({
   toLL, getEdge: () => EDGE,
   onStatus: (message) => { $('artStatus').textContent = message; },
@@ -483,6 +490,7 @@ function updateZoneReview(world) {
       .on('click',()=>selectZone(z.id,true)).addTo(zoneLabels);
   }
   selectZone(zoneReviews.has(selected) ? selected : '', false);
+  quarryReview.update(world,zoneReviews);
 }
 $('zonePick').onchange=()=>selectZone($('zonePick').value,true);
 $('zoneLabels').onchange=()=> $('zoneLabels').checked ? zoneLabels.addTo(map) : map.removeLayer(zoneLabels);

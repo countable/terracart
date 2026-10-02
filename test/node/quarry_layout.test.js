@@ -10,8 +10,51 @@
     assert.truthy(large.landmarks[0].radii[1] > small.landmarks[0].radii[1]);
     assert.eq(large.finds.length, 2, 'finite ore does not grow with area');
     assert.truthy(large.hazards.length > 0);
+    assert.lte(large.hazards.length, ZoneVariantData.quarryLayouts.craterMaxHazards, 'a few vents keep the bowl readable');
     for (const i of large.clear) assert.falsy(large.background.has(i), 'entrance and rewards stay clear');
     for (const f of large.finds) assert.falsy(large.hazards.includes(f.i), 'ore avoids lava');
+  });
+  test('quarry layout: crater chooses intact ground beside holes and irregular arms', () => {
+    const footprints = [
+      rect(36, 28).filter(i => i % N < 16 || Math.floor(i / N) > 20),
+      rect(36, 28).filter(i => i % N < 16 || i % N > 27 || Math.floor(i / N) < 12 || Math.floor(i / N) > 23)
+    ];
+    for (const cells of footprints) {
+      const covered = new Set(cells), p = plan('quarry-crater', cells), crater = p.landmarks[0];
+      assert.truthy(crater, 'an intact crater fits an outdoor pocket');
+      const [cx, cy] = crater.centre, [rx, ry] = crater.radii;
+      assert.truthy(covered.has(cy * N + cx), 'centre is actual usable ground');
+      for (let y = Math.floor(cy - ry * 1.04); y <= Math.ceil(cy + ry * 1.04); y++) {
+        for (let x = Math.floor(cx - rx * 1.04); x <= Math.ceil(cx + rx * 1.04); x++) {
+          if (Math.hypot((x - cx) / rx, (y - cy) / ry) <= 1.04) assert.truthy(covered.has(y * N + x), 'whole bowl and rim avoid the missing footprint');
+        }
+      }
+      for (const [i] of p.background) {
+        const d = Math.hypot((i % N - cx) / rx, (Math.floor(i / N) - cy) / ry);
+        assert.lte(d, 1.04, 'all rim stones belong to one coherent crater');
+        assert.truthy([[-1,0],[1,0],[0,-1],[0,1]].some(([dx,dy]) =>
+          Math.hypot((i % N + dx - cx) / rx, (Math.floor(i / N) + dy - cy) / ry) > 1.04), 'rim follows the raster boundary');
+      }
+      assert.eq(p.finds.length, 2);
+      assert.eq(JSON.stringify([...p.background]), JSON.stringify([...plan('quarry-crater', cells.slice().reverse()).background]), 'input order cannot move the crater');
+    }
+    assert.eq(plan('quarry-crater', rect(4, 30)).landmarks.length, 0, 'a skinny strip cannot pretend to contain a bowl');
+  });
+  test('quarry layout: strip benches align with the usable footprint and leave cross-cuts', () => {
+    for (const [w, h, axis] of [[32, 9, 'x'], [9, 32, 'y']]) {
+      const p = plan('quarry-strip-mine', rect(w, h));
+      assert.gt(p.landmarks.length, 1);
+      for (const m of p.landmarks) {
+        const [left, top, right, bottom] = m.bounds;
+        assert.eq(m.axis, axis);
+        assert.eq(axis === 'x' ? bottom - top + 1 : right - left + 1, 3, 'bench is a narrow intact module');
+        const middle = axis === 'x' ? left + Math.floor((right - left + 1) / 2) : top + Math.floor((bottom - top + 1) / 2);
+        for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++) {
+          if ((axis === 'x' ? x : y) === middle) assert.falsy(p.background.has(y * N + x), 'cross-cut stays open');
+        }
+      }
+      assert.eq(p.guards.length, 2, 'narrow modules do not multiply inhabitants');
+    }
   });
   test('quarry layout: patches fit whole inside irregular footprints', () => {
     const cells = rect(35, 27).filter(i => i % N < 23 || Math.floor(i / N) > 15), covered = new Set(cells);

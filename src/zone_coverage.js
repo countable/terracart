@@ -340,6 +340,66 @@
       && !WG.isRoadTerrain(grid[i]) && !WG.isBuildingTerrain(grid[i])
       && grid[i] !== WG.T.PATH && grid[i] !== WG.T.PIER && grid[i] !== WG.T.SAND
       && WG.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), opts, 'minor');
+    // Keep the source component's boundary uncertainty even if a building or
+    // retained road splits its usable ground into smaller inland pieces.
+    const sourceSeen = new Uint8Array(mask.length), sourceClipped = new Uint8Array(mask.length);
+    for (let start = 0; start < mask.length; start++) {
+      if ((start & 511) === 0) yield 'quarry source bounds';
+      if (!mask[start] || sourceSeen[start]) continue;
+      const queue = [start]; sourceSeen[start] = 1;
+      let clipped = false;
+      for (let head = 0; head < queue.length; head++) {
+        if ((head & 511) === 0) yield 'quarry source boundary cells';
+        const i = queue[head], x = i % N, y = Math.floor(i / N);
+        if (!x || !y || x === N - 1 || y === N - 1) clipped = true;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx, ny = y + dy;
+          if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+          const next = ny * N + nx;
+          if (mask[next] && !sourceSeen[next]) { sourceSeen[next] = 1; queue.push(next); }
+        }
+      }
+      if (clipped) for (const i of queue) sourceClipped[i] = 1;
+    }
+    const usable = new Uint8Array(mask.length), separator = new Uint8Array(mask.length);
+    for (let i = 0; i < mask.length; i++) {
+      if ((i & 511) === 0) yield 'quarry usable footprint';
+      usable[i] = eligible(i) ? 1 : 0;
+      // Buildings and excluded pockets remain holes inside one logical lot;
+      // crossing streets, paths and water are actual site boundaries. Keeping
+      // ownership through holes avoids a separate finite budget per sliver.
+      separator[i] = roadMask?.[i] || WG.isRoadTerrain(grid[i])
+        || grid[i] === WG.T.PATH || grid[i] === WG.T.WATER || grid[i] === WG.T.PIER ? 1 : 0;
+      if (separator[i]) mask[i] = 0;
+    }
+    // Close only short, straight gaps bounded by existing lane buffers. A
+    // single pass cannot grow outward, cascade across land, or swallow the
+    // inside of a large U-shaped access lane like a convex hull would.
+    const additions = new Uint8Array(mask.length);
+    const maxGap = root.ZoneVariantData.quarryLayouts.clusterGapCells;
+    for (let i = 0; i < mask.length; i++) {
+      if ((i & 511) === 0) yield 'quarry lane clustering';
+      if (!mask[i] || !usable[i]) continue;
+      const x = i % N, y = Math.floor(i / N);
+      for (const [dx, dy] of [[1, 0], [0, 1]]) {
+        const gap = [];
+        for (let step = 1; step <= maxGap + 1; step++) {
+          const nx = x + dx * step, ny = y + dy * step;
+          if (nx >= N || ny >= N) break;
+          const next = ny * N + nx;
+          if (!usable[next]) break;
+          if (mask[next]) {
+            for (const cell of gap) {
+              additions[cell] = 1;
+              if (sourceClipped[i] || sourceClipped[next]) sourceClipped[cell] = 1;
+            }
+            break;
+          }
+          gap.push(next);
+        }
+      }
+    }
+    for (let i = 0; i < mask.length; i++) if (additions[i]) mask[i] = 1;
     let result = field;
     for (let start = 0; start < mask.length; start++) {
       if ((start & 511) === 0) yield 'quarry components';
@@ -349,11 +409,12 @@
       for (let head = 0; head < queue.length; head++) {
         if ((head & 511) === 0) yield 'quarry component cells';
         const i = queue[head], x = i % N, y = Math.floor(i / N);
-        if (eligible(i)) cells.push(i);
-        // Eight neighbours merge touching buffers, including diagonal lanes.
+        if (usable[i]) cells.push(i);
+        // Diagonal buffers can join, but never across a travel barrier's corner.
         for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
           const nx = x + dx, ny = y + dy;
           if ((!dx && !dy) || nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
+          if (dx && dy && (separator[y * N + nx] || separator[ny * N + x])) continue;
           const next = ny * N + nx;
           if (mask[next] === 1) { mask[next] = 2; queue.push(next); }
         }
@@ -363,13 +424,21 @@
       if (!result.coverage) result.coverage = result.idx ? Uint16Array.from(result.idx) : new Uint16Array(N * N);
       if (!(result.idx instanceof Uint16Array)) result.idx = result.idx ? Uint16Array.from(result.idx) : new Uint16Array(N * N);
       if (!result.s) result.s = new Uint8Array(N * N);
+      const clipped = cells.some(i => sourceClipped[i]);
+      const touchesEdge = cells.some(i => i % N === 0 || i % N === N - 1 || i < N || i >= N * (N - 1));
+      // Tiny inland leftovers cannot support a readable quarry composition.
+      // Keep edge fragments: their complete area is unknown until the adjacent
+      // tile arrives. Review retains rejected ground without naming/rewarding it.
+      if (cells.length < root.ZoneVariantData.quarryLayouts.minSiteCells && !touchesEdge) {
+        (result.quarrySlivers ||= []).push({ cells, reason: 'below_minimum', clipped });
+        continue;
+      }
       // Complete local components own one finite budget, without a synthetic
       // daily POI. Incomplete components retain cell-addressed scatter only.
       const first = cells.reduce((a, b) => Math.min(a, b));
       // Clipped source geometry cannot reveal the entire site's size or owner.
       // Border components use reward-free benches until a complete footprint
       // is available; never invent a second crater or duplicate finite finds.
-      const clipped = queue.some(i => i % N === 0 || i % N === N - 1 || i < N || i >= N * (N - 1));
       const variants = root.ZoneVariants.forKind('quarry').map(v => v.id);
       const variantHash = (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663) ^ Math.imul(first, 83492791)) >>> 0;
       const requestedVariant = variants[variantHash % variants.length];
@@ -378,10 +447,15 @@
       const lx = (first % N + .5) * EXT / N, ly = (Math.floor(first / N) + .5) * EXT / N;
       const gx = tx * EXT + lx, gy = ty * EXT + ly;
       const row = Z.ZONE_KINDS.quarry;
+      const words = root.ZoneVariantData.quarryLayouts.siteNames;
+      const nameHash = fnv1a(`quarry-name|${gx}|${gy}`);
+      const name = clipped ? 'Quarry edge' : `${words.first[nameHash % words.first.length]} ${words.last[(nameHash >>> 16) % words.last.length]} Quarry`;
       const anchor = { kind: 'quarry', variant, aspect: 'quarry', generated: 'parking_lanes',
-        clipped, requestedVariant: clipped ? undefined : requestedVariant,
+        clipped, cluster: { sourceCells: cells.filter(i => !additions[i]).length,
+          filledCells: cells.filter(i => additions[i]).length },
+        requestedVariant: clipped ? undefined : requestedVariant,
         layoutFallback: clipped ? 'incomplete_source_footprint' : variant !== requestedVariant ? 'usable_footprint' : undefined,
-        name: row.title, gx, gy, lx, ly, owned: !clipped, key: Z.anchorKey(gx, gy),
+        name, gx, gy, lx, ly, owned: !clipped, key: Z.anchorKey(gx, gy),
         code: row.code, R: QUARRY_BUFFER_M, upm: N * WG.CELL_M / EXT, q: 0 };
       result.anchors.push(anchor);
       if (result.allAnchors) result.allAnchors.push(anchor);

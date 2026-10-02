@@ -245,3 +245,30 @@ row. Explicit driveways/alleys and the separate access road remain roads. This
 recovers missing parking metadata without treating every service road near a
 church as a parking lane. Removed geometry still feeds quarries where an
 existing nexus does not already own the ground.
+
+### Quarry clustering and visual fit trial
+
+Removed lane buffers close short internal gaps (at most three cells / 21 m)
+only through eligible ground. This is one pass, not outward growth or a convex
+hull. Retained roads, paths and water divide sites. Buildings and excluded
+pockets inside the original buffer remain unpainted holes in a shared site,
+rather than each tiny island receiving its own finite budget.
+
+Local sites need at least 25 usable cells (1,225 square metres). Smaller inland
+slivers remain ordinary ground and are recorded for review without a quarry
+name, terrain paint or finite budget. Actual tile-edge fragments are retained;
+their full footprint is unknown. Complete sites receive deterministic generated
+names and fit-tested types. Edge fragments are labelled “Quarry edge”. No
+maximum-area cap is imposed on genuinely connected sites.
+
+Craters fit an intact bowl within usable ground, with a continuous raster rim,
+an entrance and at most three lava vents. Strip-mine benches use narrow
+rectangular modules along the footprint's long axis, with open cross-cuts.
+Finite budgets remain per generated site; changing the number/types of sites
+can change the area's total finds and guards.
+
+The map-review “Colour quarry footprints” overlay shows exact ownership in
+separate colours. Dashed coloured boundaries mark incomplete edge sites; grey
+outlines expose rejected small fragments. Clicking shows area, connected ground
+pieces and original-buffer versus filled-gap cells. Add `?quarryClusters=1` to
+open with this overlay enabled; it can be combined with `removedLanes=1`.

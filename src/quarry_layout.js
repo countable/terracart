@@ -52,9 +52,54 @@
       top = Math.min(top, Math.floor(i / N)); bottom = Math.max(bottom, Math.floor(i / N));
     }
     if (id === 'quarry-crater') {
-      const cx = (left + right) / 2, cy = (top + bottom) / 2;
-      const rx = Math.max(1, (right - left) / 2 - 1), ry = Math.max(1, (bottom - top) / 2 - 1);
-      plan.landmarks.push({ kind: 'crater', bounds: [left, top, right, bottom], centre: [cx, cy], radii: [rx, ry] });
+      // Eight-neighbour erosion finds a genuine interior, even when the
+      // footprint wraps around a building or has a long, thin connecting arm.
+      const depth = new Map(), queue = [], directions = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
+      const neighbour = (x, y) => x >= 0 && y >= 0 && x < N && y < N && covered.has(y * N + x);
+      let meanX = 0, meanY = 0;
+      for (const i of cells) {
+        const x = i % N, y = Math.floor(i / N); meanX += x; meanY += y;
+        if (directions.some(([dx,dy]) => !neighbour(x + dx, y + dy))) { depth.set(i, 1); queue.push(i); }
+      }
+      for (let n = 0; n < queue.length; n++) {
+        if ((n & 255) === 0) yield 'quarry crater clearance';
+        const i = queue[n], x = i % N, y = Math.floor(i / N);
+        for (const [dx,dy] of directions) {
+          const j = (y + dy) * N + x + dx;
+          if (neighbour(x + dx, y + dy) && !depth.has(j)) { depth.set(j, depth.get(i) + 1); queue.push(j); }
+        }
+      }
+      meanX /= cells.length; meanY /= cells.length;
+      let centre = cells[0], clearance = 0, distance = Infinity;
+      for (const i of cells) {
+        const d = (i % N - meanX) ** 2 + (Math.floor(i / N) - meanY) ** 2;
+        if (depth.get(i) > clearance || (depth.get(i) === clearance && d < distance)) {
+          centre = i; clearance = depth.get(i); distance = d;
+        }
+      }
+      // An intact bowl needs room for its rim, ore and an entrance. A sliver
+      // should select another quarry form instead of advertising a crater.
+      if (clearance < 3) return plan;
+      const cx = centre % N, cy = Math.floor(centre / N);
+      let rx = clearance - 1, ry = clearance - 1;
+      const ellipseFits = (ax, ay) => {
+        for (let y = -Math.floor(ay * 1.04); y <= Math.floor(ay * 1.04); y++) {
+          for (let x = -Math.floor(ax * 1.04); x <= Math.floor(ax * 1.04); x++) {
+            if (Math.hypot(x / ax, y / ay) <= 1.04 && !neighbour(cx + x, cy + y)) return false;
+          }
+        }
+        return true;
+      };
+      while (!ellipseFits(rx, ry)) { rx--; ry--; }
+      // Stretch inside the actual free ground, never through a missing cell.
+      const axes = right - left >= bottom - top ? ['x','y'] : ['y','x'];
+      for (const axis of axes) {
+        while (ellipseFits(rx + (axis === 'x'), ry + (axis === 'y'))) {
+          if (axis === 'x') rx++; else ry++;
+          yield 'quarry crater extent';
+        }
+      }
+      plan.landmarks.push({ kind: 'crater', bounds: [cx - rx, cy - ry, cx + rx, cy + ry], centre: [cx, cy], radii: [rx, ry] });
       const bowl = [];
       for (let n = 0; n < cells.length; n++) {
         if ((n & 255) === 0) yield 'quarry crater';
@@ -62,37 +107,46 @@
         const d = Math.hypot((x - cx) / rx, (y - cy) / ry);
         const entrance = y > cy && Math.abs(x - cx) <= Math.max(1, rx * .12);
         if (entrance) { plan.clear.add(i); continue; }
-        if (d >= .82 && d <= 1.04 && hash(x, y) < .78) put(x, y, 'stone');
-        if (d < .65) bowl.push(i);
+        const rim = d <= 1.04 && [[-1,0],[1,0],[0,-1],[0,1]].some(([dx,dy]) =>
+          Math.hypot((x + dx - cx) / rx, (y + dy - cy) / ry) > 1.04);
+        if (rim) put(x, y, 'stone');
+        if (d < .65 && !rim) bowl.push(i);
       }
       bowl.sort((a, b) => hash(a % N, Math.floor(a / N), 59) - hash(b % N, Math.floor(b / N), 59) || a - b);
       if (s.a.owned) for (const i of bowl.slice(0, s.variant.finds.count)) { plan.finds.push({ i, material: 'crimson_ore' }); plan.clear.add(i); }
-      for (const i of bowl) if (!plan.clear.has(i) && hash(i % N, Math.floor(i / N), 23) < .035) {
+      const vents = bowl.filter(i => !plan.clear.has(i) && hash(i % N, Math.floor(i / N), 23) < .035);
+      const centreDistance = i => (i % N - cx) ** 2 + (Math.floor(i / N) - cy) ** 2;
+      vents.sort((a, b) => centreDistance(a) - centreDistance(b) || a - b);
+      for (const i of vents.slice(0, settings.craterMaxHazards)) {
         plan.hazards.push(i); plan.clear.add(i);
       }
       return plan;
     }
     const reserved = new Set();
-    const fits = (x, y, size) => {
-      if (x + size > N || y + size > N) return false;
-      for (let dy = 0; dy < size; dy++) for (let dx = 0; dx < size; dx++) {
+    const fits = (x, y, width, height = width) => {
+      if (x + width > N || y + height > N) return false;
+      for (let dy = 0; dy < height; dy++) for (let dx = 0; dx < width; dx++) {
         const i = (y + dy) * N + x + dx;
         if (!covered.has(i) || reserved.has(i)) return false;
       }
       return true;
     };
-    const centres = [];
+    const centres = [], verticalBenches = bottom - top > right - left;
     for (let y = top; y <= bottom; y++) {
       yield 'quarry patches';
       for (let x = left; x <= right; x++) {
         let size = id === 'quarry-stronghold' ? settings.foundationSizeCells : minPatch + Math.floor(hash(x, y, 97) * (maxPatch - minPatch + 1));
-        while (size >= minPatch && !fits(x, y, size)) size--;
+        const strip = id === 'quarry-strip-mine';
+        const dimensions = size => strip ? (verticalBenches ? [minPatch, size] : [size, minPatch]) : [size, size];
+        while (size >= minPatch && !fits(x, y, ...dimensions(size))) size--;
         if (size < minPatch || (id === 'quarry-stronghold' && size !== settings.foundationSizeCells)) continue;
-        for (let yy = y - 1; yy <= y + size; yy++) for (let xx = x - 1; xx <= x + size; xx++) {
+        const [width, height] = dimensions(size);
+        for (let yy = y - 1; yy <= y + height; yy++) for (let xx = x - 1; xx <= x + width; xx++) {
           if (xx >= 0 && xx < N && yy >= 0 && yy < N) reserved.add(yy * N + xx);
         }
-        const r = x + size - 1, b = y + size - 1, cx = x + Math.floor(size / 2), cy = y + Math.floor(size / 2);
+        const r = x + width - 1, b = y + height - 1, cx = x + Math.floor(width / 2), cy = y + Math.floor(height / 2);
         const module = { kind: id === 'quarry-stronghold' ? 'foundation' : 'patch', bounds: [x, y, r, b], size };
+        if (strip) module.axis = verticalBenches ? 'y' : 'x';
         plan.landmarks.push(module); centres.push(cy * N + cx);
         if (id === 'quarry-stronghold') {
           module.doors = [[cx, b]];
@@ -110,7 +164,11 @@
           // last shift left beside its timber — smashed for a coin or a tool.
           if (hash(x, y, 47) < .5) put(r, b, 'barrel');
         } else if (id === 'quarry-strip-mine') {
-          for (let yy = y; yy <= b; yy += 2) for (let xx = x; xx <= r; xx++) if (xx !== cx) put(xx, yy, 'stone');
+          if (verticalBenches) {
+            for (let xx = x; xx <= r; xx += 2) for (let yy = y; yy <= b; yy++) if (yy !== cy) put(xx, yy, 'stone');
+          } else {
+            for (let yy = y; yy <= b; yy += 2) for (let xx = x; xx <= r; xx++) if (xx !== cx) put(xx, yy, 'stone');
+          }
         }
       }
     }
