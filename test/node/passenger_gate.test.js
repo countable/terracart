@@ -100,8 +100,10 @@ test('safety card: full-screen, bold, tap to continue — resume and dusk', () =
   const app = SCENE_SRC;
   const body = app.slice(app.indexOf('  _showSafetyCard(which) {'));
   const card = body.slice(0, body.indexOf('\n  }\n'));
-  assert.truthy(/position:absolute;left:0;right:0;top:var\(--view-top,0px\);height:var\(--view-h,100%\)/.test(card),
-    'it covers the visible slice of the game box, so it centres on the screen');
+  assert.truthy(/makeModalShell\('safety-card'/.test(card) && /zIndex: 400/.test(card),
+    'the shared shell covers the visible game box above other modals');
+  assert.truthy(/art: 'safety_phone'/.test(card), 'both reminders use the safety painting');
+  assert.truthy(/setAttribute\('role', 'alertdialog'\)/.test(card), 'safety remains an alert dialog');
   assert.truthy(/font-weight:900/.test(card) && /font-weight:700/.test(card), 'bold');
   assert.truthy(/Tap to continue/.test(card) && /addEventListener\('pointerup', done\)/.test(card), 'dismissed by a tap');
   assert.truthy(/this\._safetyOnResume\?\.\(Date\.now\(\) - this\._hiddenAt\)/.test(SCENE_GEO_SRC), 'on resume');
@@ -137,6 +139,12 @@ test('launch safety: the STAY SAFE message is the loading screen, acknowledged b
   assert.truthy(/<button id="safety-dismiss">Go to my location<\/button>\s*$/.test(safety), 'the CTA closes the message');
   // The heading keeps the warning colour; emphasis belongs to key instructions.
   assert.truthy(/#safety \.warn-title \{[^}]*font: 900[^}]*#ff8c3b/.test(html), 'a bold orange heading');
+  // The warning sign is its own span, drawn well over the heading's size:
+  // left inline, the monospace fallback's ⚠ is a third of the lettering.
+  assert.truthy(/<span class="warn-sign" aria-hidden="true">⚠<\/span>STAY SAFE/.test(safety), 'the sign is its own span before the words');
+  const signPx = Number(/#safety \.warn-sign \{[^}]*font-size: (\d+)px/.exec(html)?.[1]);
+  const titlePx = Number(/#safety \.warn-title \{[^}]*font: 900 (\d+)px/.exec(html)?.[1]);
+  assert.truthy(signPx >= titlePx * 1.6, `the sign (${signPx}px) is well over the heading (${titlePx}px)`);
   // And no second opening card once the map is up.
   assert.falsy(/_showSafetyCard\('launch'\)/.test(SCENE_SRC), 'no launch card after the map loads');
   // The loading view holds for the answer, however ready the game is.
@@ -174,3 +182,37 @@ test('tips: real-world safety stays direct', () => {
 });
 
 })();
+
+test('safety card: resume and dusk keep their own copy, painted shell and tap dismissal', () => {
+  const start = SCENE_SRC.indexOf('  _showSafetyCard(which) {');
+  const method = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start) + 4);
+  const cards = /const SAFETY_CARDS = (\{[\s\S]*?\n\});/.exec(SCENE_SRC)[1];
+  const element = () => ({ style: {}, attrs: {}, children: [], handlers: {},
+    appendChild(c) { this.children.push(c); },
+    setAttribute(k, v) { this.attrs[k] = v; },
+    addEventListener(k, cb) { this.handlers[k] = cb; },
+    remove() { this.removed = true; },
+  });
+  const doc = { getElementById: () => ({}), createElement: element };
+  const K = new Function('document', 'window', `const SAFETY_CARDS = ${cards}; return class { ${method} };`)(doc, {});
+  for (const which of ['resume', 'dusk']) {
+    const s = new K(), wrap = element(), box = element();
+    let options, mounted = false;
+    s.makeModalShell = (id, opts) => {
+      assert.eq(id, 'safety-card'); options = opts;
+      return { wrap, box, mount: () => { mounted = true; } };
+    };
+    s._showSafetyCard(which);
+    assert.truthy(mounted);
+    assert.eq(options.art, 'safety_phone');
+    assert.eq(options.zIndex, 400);
+    assert.eq(wrap.attrs.role, 'alertdialog');
+    assert.eq(wrap.attrs['aria-modal'], 'true');
+    const copy = box.children.map(c => c.textContent).join('\n');
+    assert.truthy(copy.includes(which === 'resume' ? 'Welcome back.' : 'Stay on lit pavements'));
+    assert.truthy(copy.includes('Out of reach? Use the stick — never the street.'));
+    assert.truthy(copy.includes('Tap to continue'));
+    wrap.handlers.pointerup({});
+    assert.truthy(wrap.removed);
+  }
+});

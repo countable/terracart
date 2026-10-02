@@ -25,7 +25,7 @@
 //   hunter    → Combat.shotDamage(…, playerClass)   HUNTER_BOW_MUL
 //   runner    → Trail.goalFor(…, playerClass)       RUNNER_GOAL_DIV
 //   enforcer  → Combat.meleeDps(…, playerClass)     ENFORCER_MELEE_DPS
-//   enchanter → app.js (a held potion's timed effect for ENCHANTER_ENERGY_COST)
+//   enchanter → app.js _tomeSpent (tome cooldowns at half length)
 //   vigour    → Energy.maxEnergy                    VIGOUR_ENERGY_STEP
 // The copy here reads those at CALL time, so load order only has to put this
 // file before app.js.
@@ -48,8 +48,6 @@
   const REACH_UPGRADE_MAX = 6;
   // Keen Eye keeps seven permanent luck rungs.
   const LUCK_UPGRADE_MAX = 7;
-  // The enchanter's price for a potion's timed effect without drinking it.
-  const ENCHANTER_ENERGY_COST = 20;
   // The wizard's own RNG stream (CLAUDE.md: each spawner seeds its own).
   const OFFER_SALT = 0x3A7D1C55;
 
@@ -134,7 +132,7 @@
     },
     {
       key: 'enchanter', icon: '🔮', name: 'Enchanter',
-      blurb: () => "Draw magic from a flask without drinking it.",
+      blurb: () => 'Your tomes recover their magic in half the time.',
     },
   ];
   const CLASS_BY_KEY = Object.fromEntries(CLASSES.map((c) => [c.key, c]));
@@ -268,7 +266,7 @@
 
   root.Wizard = {
     TRACK_COST, VIGOUR_COST, VIGOUR_MAX, CLASS_COST, CLASS_AT_BUYS, OFFER_COUNT,
-    REACH_UPGRADE_MAX, LUCK_UPGRADE_MAX, ENCHANTER_ENERGY_COST, INTRO,
+    REACH_UPGRADE_MAX, LUCK_UPGRADE_MAX, INTRO,
     TRACKS, CLASSES, playerClass, isClass, classDue,
     buys, derivedBuys, offers, buy, unfinishedTracks, qtyLuckAt,
   };

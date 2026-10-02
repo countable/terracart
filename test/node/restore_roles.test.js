@@ -9,7 +9,7 @@ const role = (save, order, house) => Houses.preseedRestoreRole(save, order, hous
 const plainHouse = { kind: 'house', tier: 9, address: 3 };   // shopType → null
 
 test('restore roles: the opening run, then the address, and the wizard at 30', () => {
-  assert.eq(JSON.stringify(ROLES), JSON.stringify({ 0: 'blacksmith', 1: 'trader', 2: 'plain', 3: 'market', 29: 'wizard' }),
+  assert.eq(JSON.stringify(ROLES), JSON.stringify({ 0: 'blacksmith', 1: 'trader', 2: 'plain', 3: 'market', 14: 'market', 29: 'wizard' }),
     'no plain-house override at rebuilds 5 and 6');
   const s = { restoredHouses: { a: 'blacksmith' }, starterBlacksmithId: 'a' };
   assert.eq(role(s, 1, plainHouse), 'trader');

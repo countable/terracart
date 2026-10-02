@@ -42,7 +42,7 @@ function consumeSelected(save, n = 1) {
 }
 
 // Count only a favourite meal actually consumed, on both the live pet and its
-// saved release row. Tame pets cannot be caught back into inventory.
+// saved release row. (A tame pet leaves the world only by pickUpPet below.)
 function consumePetFood(save, pet, foodId) {
   const sel = getSelectedSlot(save);
   if (!sel || sel.id !== foodId || !(sel.count > 0)) return false;
@@ -80,6 +80,61 @@ function tameInPlace(scene, save, target, flashMsg, flashIcon, flashScale) {
   target.id = tameId;   // convert the in-world creature in place → now tame
   scene.flashLoot(flashMsg, '#a7ffb0', flashScale, flashIcon);
   persistSave(save);
+}
+
+// PICK UP a tame pet (a 'released_' id) — the owner's own animal goes
+// straight into the bag: no wheel, no flee, no energy, and never the shiny
+// windfall (awardShinyBonus pays cash every time, so a re-pocketed shiny pet
+// must not farm it). Returns false when the kind has no bag item (a sapphire-
+// tamed slime) so the tap falls through to petting; true once handled, even
+// when the bag was full (the pet stays where it is).
+//   The bag's stacks are fungible, so a RAISED pet (nest bush / hatched egg:
+// `raised`, `born`, `favouriteFeeds`) would lose its growth in a plain stack.
+// Its save.released row therefore STAYS while it is carried, with its id in
+// save.caught — the one flag the spawner and the wander loop already read for
+// "not in the world" — and `release` below hands that row back to the first
+// baby_/shiny_ of the kind set down (carriedRaisedRow). A plain pet's row is
+// dropped as catchCreature drops it. The item a raised pet pockets as is its
+// state NOW: still a baby → baby_<kind>, grown → shiny_<kind> (a raised pet is
+// always shiny). Its clock keeps running in the bag, which changes nothing a
+// player can see: adulthood also needs its seven meals (isBabyPet).
+function petPickupItemId(c) {
+  if (c.raised) return SpriteLayout.isBabyPet(c) ? babyItemId(c.kind) : `shiny_${c.kind}`;
+  if (c.shiny && ITEM_BY_ID[`shiny_${c.kind}`]) return `shiny_${c.kind}`;
+  return c.kind;
+}
+function pickUpPet(scene, save, target, sx, sy) {
+  const invId = petPickupItemId(target);
+  const item = ITEM_BY_ID[invId];
+  if (!item || item.kind !== 'animal') return false;
+  if (Inventory.roomFor(save, invId) < 1) {
+    scene.flash('Make room for a pet first.', sx, sy);
+    return true;
+  }
+  save.caught = save.caught || [];
+  if (!save.caught.includes(target.id)) save.caught.push(target.id);
+  save.released = save.released || [];
+  const ri = save.released.findIndex(r => r.id === target.id);
+  const raised = !!(target.raised || (ri >= 0 && save.released[ri].raised));
+  if (ri >= 0 && !raised) save.released.splice(ri, 1);
+  scene.addToInv(invId, 1);
+  scene.flashLoot(`+1 ${item.name || invId}`, raised || item.shiny ? '#ffd23a' : '#a7ffb0', 1, invId);
+  persistSave(save);
+  return true;
+}
+// The carried raised row a set-down baby_/shiny_ of `kind` brings back, or
+// null for a fresh birth / a plain shiny. A row still a baby answers a baby
+// item and a grown row a shiny one; a baby item with only grown rows left
+// takes one of those (it grew up in the bag), a shiny item never takes a
+// baby's row. Stacks are indistinguishable, so whichever release gets which
+// row, the pets that come back are the pets that were picked up.
+function carriedRaisedRow(save, kind, wantBaby) {
+  const caught = save.caught || [];
+  const rows = (save.released || []).filter(r => r && r.raised && r.kind === kind && caught.includes(r.id));
+  if (!rows.length) return null;
+  const exact = rows.find(r => SpriteLayout.isBabyPet(r) === !!wantBaby);
+  if (exact) return exact;
+  return wantBaby ? rows[0] : null;
 }
 
 // True when planted entry `p` sits in the cell at (cwmx, cwmy). eps is 0.1 for
@@ -378,8 +433,13 @@ function grantFoundTreasure(scene, save, sx, sy, mark, tier, headline) {
   scene.flashJackpot?.(1, headline);
 }
 
+// `opts.ceremony` ({ kind, header, sub, art, onDismiss }) shows the paid
+// reward as a card (scene.showRewardCard) instead of the toast lines below —
+// a reward the player earned (an elite's drop) rather than a find on the
+// ground. The rest of `opts` is the roll's own (rollBonus, tier, classes).
 function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:default', opts) {
-  const reward = pickReward(contextKey, save, undefined, opts);
+  const { ceremony, ...rollOpts } = opts || {};
+  const reward = pickReward(contextKey, save, undefined, opts ? rollOpts : undefined);
   if (!reward) {
     // Shouldn't happen — context exists — but bail safely if the pool is empty.
     addMoney(save, 1);
@@ -388,7 +448,13 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
   }
   if (reward.kind === 'item' && isLowTierSeed(reward.id)) reward.qty += LOW_TIER_SEED_QTY_BONUS;
   Rewards.apply(save, reward, scene);
-  if (reward.kind === 'relic' || reward.kind === 'armor') {
+  // A beaten relic roll cashed out (reconcileRelicOffer) says so on its card.
+  const shown = ceremony && typeof scene.showRewardCard === 'function'
+    && scene.showRewardCard(reward, reward.kind === 'gold' && reward.slot
+      ? { ...ceremony, sub: 'Already better — paid in coin instead.' } : ceremony);
+  if (shown) {
+    if (reward.jackpot >= 1 && typeof scene.flashJackpot === 'function') scene.flashJackpot(reward.jackpot);
+  } else if (reward.kind === 'relic' || reward.kind === 'armor') {
     const label = (typeof gearName === 'function')
       ? gearName(reward.kind, reward.slot, reward.tier) : `${reward.slot} T${reward.tier}`;
     scene.flashLoot(`${mark} → ✨ ${label} (equipped!)`, '#ffe066', 1.6);
@@ -826,10 +892,11 @@ const TAP_HANDLERS = [
     const isPlantProduce = selItem && selItem.kind === 'produce' && !!selItem.crop;
 
     // ── TAME PETS — released animals (id starts with 'released_'). Tame
-    // pets never get "yuck'd"; tapping them with any item (or none) plays
+    // pets never get "yuck'd"; tapping them while holding FOOD plays
     // a brief species-specific happy interaction (cluck / purr / etc.),
     // arms the shared petting-boost timer and its next-yield double chance,
-    // and - for cats - kicks off the shared follow timer the wander loop honours. (isTame is decided above, before the mango path.)
+    // and - for cats - kicks off the shared follow timer the wander loop honours. (isTame is decided above, before the mango path;
+    // an empty hand or a tool PICKS THE PET UP instead — pickUpPet, just above.)
     // A tame PRODUCER (cow / chicken) fed PLANT PRODUCE must fall through to the
     // produce path below — that's where milk / eggs are granted and where the
     // petting boost armed here is consumed. Without this exception the isTame
@@ -838,6 +905,14 @@ const TAP_HANDLERS = [
     // with an empty hand or a non-produce treat still runs the pet branch.
     const tameProducerFeed = isTame && isPlantProduce && (sel?.count ?? 0) > 0
       && !!SpriteLayout.creatureProduce(target.kind);
+    // FOOD IS OFFERED, A HAND TAKES. Holding anything an animal could eat (a
+    // treat, produce, a seed, a bite it won't want) pets the animal below; an
+    // EMPTY hand or a tool picks the pet UP into the bag (pickUpPet) — the
+    // same split the wild branch makes between feeding and the catch wheel,
+    // minus the wheel: it is yours.
+    const offering = sel && (sel.count ?? 0) > 0
+      && (isEdible || isPlantProduce || selItem?.kind === 'seed' || animalLikesFood(target.kind, sel.id));
+    if (isTame && !offering && pickUpPet(scene, save, target, sx, sy)) return true;
     if (isTame && !tameProducerFeed) {
       const SOUND = { chicken: 'cluck', cow: 'moo', cat: 'purr', dog: 'woof',
                       butterfly: 'flutter', crow: 'caw', rabbit: 'twitch', deer: 'snort',
@@ -991,9 +1066,9 @@ const TAP_HANDLERS = [
     const catchCost = effectiveCatchCost(save.relics);
     if (catchCost && !scene.spendEnergy(catchCost, sx, sy)) return true;
     const victim = target;
-    // First catch the save ever starts tells its story - after the spend, so
-    // a tap that could not afford the attempt tells none.
-    scene._toolActionStory?.('catch');
+    // The chicken has its own first-attempt story; other catches use the net
+    // story. After the spend, so an unaffordable attempt tells neither.
+    scene._catchStory?.(victim);
     scene.startCatchProgress(victim, catchMs, () => {
       scene.catchCreature(victim, sx, sy);
     }, () => {
@@ -1339,14 +1414,25 @@ const TAP_HANDLERS = [
     // size (SpriteLayout.isBabyPet) and, once grown, the double strength
     // (combat.js raisedMul) read them. A raised pet is always shiny.
     const isBaby = !!item.baby;
-    const isShinyItem = !!item.shiny || isBaby;
-    const birth = isBaby ? { raised: true, born: Date.now(), favouriteFeeds: 0 } : {};
     const tx = Math.floor(cwmx / scene.tileEdgeM);
     const ty = Math.floor(cwmy / scene.tileEdgeM);
     save.released = save.released || [];
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
-    const id = releasedId(baseKind);
-    save.released.push({ x: cwmx, y: cwmy, kind: baseKind, id, tx, ty, shiny: isShinyItem, ...birth });
+    // A raised pet PICKED UP earlier (pickUpPet) comes back as itself: its row
+    // kept its id, birth and meals while its id sat in save.caught, so the
+    // row moves here and the mark comes off instead of a new birth.
+    const carried = carriedRaisedRow(save, baseKind, isBaby);
+    const isShinyItem = !!item.shiny || isBaby || !!carried;
+    const birth = carried
+      ? { raised: true, born: carried.born, favouriteFeeds: carried.favouriteFeeds || 0 }
+      : isBaby ? { raised: true, born: Date.now(), favouriteFeeds: 0 } : {};
+    const id = carried ? carried.id : releasedId(baseKind);
+    if (carried) {
+      Object.assign(carried, { x: cwmx, y: cwmy, tx, ty });
+      save.caught = (save.caught || []).filter(cid => cid !== id);
+    } else {
+      save.released.push({ x: cwmx, y: cwmy, kind: baseKind, id, tx, ty, shiny: isShinyItem, ...birth });
+    }
     if (entry && entry.creatures) {
       entry.creatures.push(WorldGen.makeCreature(baseKind, cwmx, cwmy, id, { shiny: isShinyItem, ...birth }));
     }

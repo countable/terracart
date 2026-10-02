@@ -1,5 +1,5 @@
 // Revival potions: drunk while DOWN (zero energy, either mode) to get back up
-// where you fell — the Potion of Revival (T2) at 30% of the bar, the
+// where you fell - the Potion of Revival (T3) at 30% of the bar, the
 // Potion of Resurrection (T5) at 60%. (The Crow Feather is a flat 1 energy,
 // FEATHER_REVIVE_ENERGY, and is EATEN, through the hard-mode lockout.) One table (items.js REVIVE_ITEM_FRAC)
 // is read by the drink, the ✦ line and the Drink dialog.
@@ -11,7 +11,7 @@
 (function () {
 const app = SCENE_SRC;
 
-test('revive potions: T2 at 30%, T5 at 60%, both drunk not eaten', () => {
+test('revive potions: T3 at 30%, T5 at 60%, both drunk not eaten', () => {
   assert.eq(REVIVE_ITEM_FRAC.revive_potion, CONSUMABLE_SPEC.revive_potion.energyFrac,
     'Revival runtime derives its 30% from the consumable owner');
   assert.eq(REVIVE_ITEM_FRAC.resurrection_potion, CONSUMABLE_SPEC.resurrection_potion.energyFrac,

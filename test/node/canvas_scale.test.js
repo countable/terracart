@@ -2,13 +2,8 @@
 //
 // W × H (352 × 844) is the LOGICAL grid every other line of this codebase
 // thinks in. The canvas backing store is that grid times RENDER_SCALE — the
-// exact CSS→device ratio of the canvas — so the buffer is the same size as the
-// screen area it covers and the browser composites it 1:1, with no resampling
-// step at all. Until Sep 2026 the canvas WAS 352 × 844: on a DPR-3 phone that
-// is under a third of the screen's linear resolution, magnified by a
-// fractional factor with nearest-neighbour, so every terrain edge, road band,
-// building outline and progress ring was drawn coarse and then re-chunked
-// unevenly on the way to the glass.
+// CSS-to-device ratio capped to a bounded backing store. High-DPR phones
+// keep the logical layout and pointer mapping while using fewer pixels.
 //
 // Three things have to agree or the picture is wrong in a way no other test
 // notices — it still renders, just at the wrong size or the wrong sharpness:
@@ -37,20 +32,22 @@ const html = INDEX_HTML_SRC;
 // ── renderScale(): the real function, driven at real screens ───────────────
 
 // Drive it by setting the globals it reads, the way the browser does.
-function at(cssScale, dpr) {
+function at(cssScale, dpr, cap) {
   const prevW = globalThis.window, prevD = globalThis.devicePixelRatio;
-  globalThis.window = { __gameCssScale: cssScale, devicePixelRatio: dpr };
+  globalThis.window = { __gameCssScale: cssScale, devicePixelRatio: dpr, __renderScaleCap: cap };
   globalThis.devicePixelRatio = dpr;
   try { return renderScale(); }
   finally { globalThis.window = prevW; globalThis.devicePixelRatio = prevD; }
 }
 
-test('canvas scale: a real phone gets its real pixels', () => {
-  // 393-wide phone (iPhone 15/16) filling the width: 393/352 = 1.116.
-  assert.inRange(at(393 / 352, 3), 3.34, 3.36, 'DPR-3 phone renders at ~3.35x');
-  // 430-wide Pro Max, and the desktop preview column at the same width.
-  assert.inRange(at(430 / 352, 2), 2.44, 2.45, 'DPR-2 retina renders at ~2.44x');
-  assert.eq(at(1, 1), 1, 'a plain 1x screen is unchanged — no free upscale');
+test('canvas scale: high-DPR phones stay within the backing-store budget', () => {
+  for (const width of [320, 352, 393, 430]) {
+    const scale = at(width / 352, 3);
+    assert.eq(scale, 2, 'DPR-3 phone uses the memory cap');
+    assert.lte(352 * 844 * scale * scale, 704 * 1688, 'bounded pixel area');
+  }
+  assert.eq(at(430 / 352, 2), 2, 'a wide DPR-2 phone is also bounded');
+  assert.eq(at(1, 1), 1, 'a plain 1x screen is unchanged');
 });
 
 test('canvas scale: never coarser than the grid it replaced', () => {
@@ -62,13 +59,11 @@ test('canvas scale: never coarser than the grid it replaced', () => {
   assert.inRange(at(0.8, 2), 1.6, 1.6, 'but a narrow 2x screen keeps its DPR');
 });
 
-test('canvas scale: the cap is a guard, not a ceiling real devices hit', () => {
-  // If a real phone were being capped, the buffer would stop matching the
-  // screen and the browser would resample it — the exact fault this change
-  // removes. The cap only exists so a pathological DPR can't ask the GPU for
-  // a 7-megapixel buffer.
-  assert.gte(RENDER_SCALE_MAX, 3.36, 'a DPR-3 phone is not capped');
-  assert.eq(at(2, 8), RENDER_SCALE_MAX, 'an absurd DPR is');
+test('canvas scale: diagnostic overrides can lower but never raise the memory cap', () => {
+  assert.eq(at(2, 8), 2, 'an absurd DPR remains bounded');
+  assert.eq(at(393 / 352, 3, 1.5), 1.5, 'the lower diagnostic cap works');
+  assert.eq(at(393 / 352, 3, 4), 2, 'a query cannot bypass the memory cap');
+  assert.eq(at(393 / 352, 3, 0.5), 1, 'an override preserves the logical-grid floor');
 });
 
 test('canvas scale: a missing publish degrades to the logical grid', () => {

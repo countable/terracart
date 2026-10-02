@@ -43,7 +43,7 @@
     assert.eq(INV_CATS.length, 8);
     assert.falsy(INV_CAT_BY_KEY.unique_relic);
     const ids = ITEMS.filter(i => i.kind === 'unique_relic').map(i => i.id);
-    assert.eq(ids.length, 12);
+    assert.eq(ids.length, 20, 'twelve finds plus eight reusable tomes');
     for (const id of ids) assert.eq(invCatForItem(id), 'relic', id);
   });
 

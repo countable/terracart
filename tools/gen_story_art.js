@@ -150,6 +150,12 @@ const PIECES = {
     scene(
     'A farmer tips a watering can over a small green sprout in a tilled bed, silver water ' +
     'arcing down, the soil darkening with damp, morning light.'),
+  // Original chicken painting retained for the first chicken catch attempt.
+  tool_catch_chicken:
+    scene(
+    'A farmer gently lowers a bug net over a startled chicken in long grass, the net hoop ' +
+    'about to settle, playful tension, warm light.'),
+  health_low: scene('An exhausted brown-hooded survivor braces against a rough stone wall beside a ruined village, one hand on a bent knee. Face concealed, alive but struggling to keep going. No wounds. All detail in the top forty percent, empty dark brown foreground below.'),
   tool_catch:
     scene(
     'A hooded survivor sweeps a bug net through tall grass. The target is completely hidden ' +
@@ -203,6 +209,7 @@ const PIECES = {
       'framing over scorched brick, a sunflower sprouting through rubble - with an overgrown ' +
       'neighbourhood of caved roofs stretching to the horizon. Hopeful reconstruction amid ruin.',
   },
+  story_nightmare: { subject: 'Dark nightmarish16-bit pixel story illustration. Five-headed hydra Tiamat fights white dragon Ayo over a burning collapsing medieval city. Crimson fire and cold white magic, black-red smoke, no names or text. Landscape3:2 opening panel.', size: '1536x1024', width: 768 },
   story_wake:
     'Morning inside-and-out of a small travelling home wagon parked in a misty meadow. ' +
     'A survivor stretches awake at the wagon door, face fully hidden by a raised brown hood, ' +
@@ -269,6 +276,8 @@ const PIECES = {
     'small travelling home wagon at dawn, wrapped in a blanket, a small campfire crackling, while a ' +
     'kindly villager hands them a steaming bowl. No bags, packs or tools anywhere near the ' +
     'survivor. The raised brown hood hides all facial features in deep shadow. Relief, home.' + HOME_WAGON),
+  npc_tilly_happy: scene('Tilly, the same small brown-haired girl in a cream headscarf and patched brown dress, now smiling with relief and trusting bright eyes. She still holds the treasured old doorknob in both hands. Match npc_tilly identity and framing, warm dithered pixel style, ruined village background and quiet dark foreground.'),
+  first_sale: scene('Close view of a neighbour’s work-worn hand in a rustic brown sleeve pushing shiny jade-green coins embossed with stars across a rough wooden table toward the viewer. Friendly exchange, warm amber lighting. All detail in the upper forty percent; the lower sixty percent is empty dark brown shadow. Coins are green, never gold.'),
   home_sell: scene(
     'A rough wooden crate brimming with fresh produce - potatoes, onions, apples and a few ' +
     'wheat bundles - set out on the grass beside a small travelling home wagon at golden hour, a little ' +
@@ -303,6 +312,28 @@ const PIECES = {
     'A castle notice board by a stone gate, pinned with three parchment quests and a wax seal, a torch burning beside it at dusk.', 'claws'),
   kind_treasure: scene(
     'An old wooden treasure chest, lid thrown open, a glowing gem and a few jade-green star coins inside, nothing spilled on the ground, dusty light falling on it in a ruined cottage.'),
+  // The seven source chest tiers, matching the world sprites and chestOpeningArt.
+  chest_t1: scene(
+    'A humble square wooden supply box with straight plank sides, a flat lid lifted open, weathered warm brown timber and simple dark corner fittings. ' +
+    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+  chest_t2: scene(
+    'A stout copper treasure chest with a curved open lid, warm orange copper metal #e08a4c, heavy dark straps and a bright square latch. ' +
+    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+  chest_t3: scene(
+    'A stout iron treasure chest with a curved open lid, cool silver-grey iron metal #b9c2cc, heavy dark straps and a bright square latch. ' +
+    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+  chest_t4: scene(
+    'A stout golden treasure chest with a curved open lid, rich yellow gold metal #f4cc4a, heavy dark straps and a bright square latch. ' +
+    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+  chest_t5: scene(
+    'An enchanted lavender treasure chest with a curved open lid, pale violet metal #c9a6f2, dark straps and a bright square latch. ' +
+    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+  chest_t6: scene(
+    'A crimson treasure chest with a curved open lid, vivid red metal #e0384f, heavy dark straps and a bright square latch. ' +
+    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
+  chest_t7: scene(
+    'A frost treasure chest with a curved open lid, icy cyan metal #8fdcff, heavy dark straps, frost along the edges and a bright square latch. ' +
+    'Three-quarter view, close and large, a restrained glow from within, on worn stone in a quiet ruined room. No specific reward or scattered loot.'),
   kind_supplies: scene(
     'Two sturdy wooden supply crates on the grass beside a small travelling home wagon, lids pried open to show seed packets, a trowel and a lantern. Morning of a new start.' + HOME_WAGON),
   kind_trail: scene(
@@ -379,6 +410,9 @@ const PIECES = {
     'A quiet abandoned oil-stained forecourt corner on cracked industrial ground: black tar ' +
     'puddles pooled in the broken concrete, a single rusted fuel pump leaning at an angle, a ' +
     'scatter of flint shards among the weeds, nobody about, still dusk light.'),
+  safety_phone: scene('Hood, face hidden by raised brown hood, walks distractedly toward a village road while looking at a smartphone. A bold red symbolic X crosses this unsafe behaviour; phone and pose stay readable. Warm dusk, curb and safe footpath. No injury, no captions.'),
+  quarry_sapphire: scene('One glowing blue sapphire exposed inside a freshly split rock, a worn pick beside it, warm terraced quarry backdrop. Quiet wonder at a single precious find.'),
+  zone_quarry: scene('A welcoming terraced stone quarry in warm light, abundant blue sapphires still embedded in exposed rock seams, a broad path into the site. A small mine-cart parking bay with restrained brass and copper fittings is secondary to the quarry. No church, graves or religious structures.'),
   zone_stones: scene(
     // A CHURCHYARD, nothing more (Sep 2026): no ghosts, no pale figures —
     // and no lore hint on sacred ground (LORE_FREE_SUBJECT / scene() throws).

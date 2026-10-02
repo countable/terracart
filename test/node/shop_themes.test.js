@@ -119,10 +119,11 @@ test('themed shops: the wiring — the tap, the stock, the price and the re-roll
   const app = SCENE_SRC;
   assert.truthy(/if \(shopType === 'market'\) \{\s*\n\s*this\.presentThemedShop\(sx, sy, house, recordDeal\);/.test(app),
     'a shop tap opens the themed shop');
-  assert.truthy(/return Shops\.themeAt\(Shops\.shopOrder\(this\.save, house\)\);/.test(app), 'one resolver');
+  assert.truthy(/return Shops\.lineFor\(this\.save, house\);/.test(app), 'one resolver (lineFor — the bookshop override, then the cycle)');
   assert.truthy(/const rng = house\?\.id \? this\.shopRng\(house, 'theme'\) : Math\.random;/.test(app),
     'the stock holds for the hour on its own lane');
-  assert.truthy(/this\.buildShopOffer\(id, itemValue\(id\), \{ house \}\)/.test(app), 'priced by the shared markup');
+  assert.truthy(/this\.buildShopOffer\(id, ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house \}\)/.test(app),
+    'priced by the shared markup off the list price (only the Book climbs)');
   assert.truthy(/\{ cost: ShopsMath\.themedRerollCost, peek: \(\) => this\.themedShopPick\(house\), current: id \}/.test(app),
     'the cheap re-roll moves the item on');
   assert.truthy(/peekOrBuildRelicOffer\(house, \{ maxTier: tier \}\)/.test(app), 'the relic line is capped at its tier');

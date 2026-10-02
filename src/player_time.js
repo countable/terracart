@@ -28,6 +28,8 @@
 
     delete save.eatReadyAt;
     delete save.tomeDays;
+    delete save.tomeReadyAt;
+    delete save.tomeMagicCd;
     scene._throwReadyAt = 0;
     scene._nextBlowT = 0;
     scene._nextShotT = {};

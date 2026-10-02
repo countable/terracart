@@ -50,6 +50,7 @@ One frame each, foot-anchored and drawn like the market stall (loot.js `chestLoo
 | curio.png | the CURIO HALL (museum / theatre / cinema POIs): donate one of each item, once | generated placeholder — replace with hand art when available (picked from two candidates, curio_a) |
 | sundries.png | SUNDRIES (the generic `shop` POIs no produce stall claims): one supply item for sale | generated placeholder — replace with hand art when available (picked from two candidates, sundries_b) |
 | training.png | the TRAINING HALL (sports_centre / yoga POIs): buy damage, for good or for a day | generated placeholder — replace with hand art when available (picked from two candidates, training_a) |
+| scholar.png | the SCHOLAR'S BOOTH (school POIs): the book club — found books read earn prizes off the school's own shelf | temporary: the market stall's first frame (`Approved/market_stand.png` frame 0), a generic booth — replace with its own art |
 
 ## Batch 4 — `gpt-image-2` (OpenAI direct, chroma-keyed), single-subject images
 
@@ -79,3 +80,28 @@ One frame each, foot-anchored and drawn like the market stall (loot.js `chestLoo
 | sheet_props2.png | labelled contact sheet of every file in this folder (both batches), for review only | generated placeholder, review aid only — not used by the game |
 
 Batch 3 (the macro stalls) is wired into the game (src/assets.js `macro_<kind>`); see src/assets.js for which of the others are.
+
+## Castle tower pair
+
+`castle_tower_restored.png` and `castle_tower_wreck.png` replace the runtime
+procedural castle turret. Both are transparent 28×42 PNGs, centered and seated
+on the bottom row; claim state selects the restored version. The separate
+castle flag remains live. Generated with the built-in image tool, using the
+user's CraftPix archer-tower reference for stone-and-timber construction;
+original designs, exported with nearest-neighbour sampling. Masters, prompts,
+and export recipe: `~/.artifacts/castle-towers/`.
+
+## Simplified macro booths
+
+The nine `*_simple.png` booth sprites replace Batch 3 in the runtime asset
+catalog. `macro_booths_simple.png` is their 3×3 sheet: inn, chapel,
+apothecary / scriptorium, guildhall, curio / sundries, training, scholar.
+Each uses broad roof colors and one large role symbol rather than tiny stock
+and wood texture. The scholar now has an open book and stacked books.
+
+Frames remain 80×80 with the art centered in x:12..80 and feet at y:70,
+matching the existing renderer's placement. Each design is sampled to at most
+34×35 pixels and doubled with nearest-neighbor sampling for readability at
+runtime scale 0.54. Original sprites are retained as reference. The built-in
+image generator produced the transparent sheet; `tools/art/export_macro_booths.py`
+exports its frames. Master and review gallery: `~/.artifacts/macro-booths/`.

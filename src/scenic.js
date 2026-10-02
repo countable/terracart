@@ -26,7 +26,7 @@
 //                 spawn gate: open ground, off the road, out of the kerb
 //                 buffer), on the path's own side of any major band.
 //   VIEWPOINTS    a poi `attraction / viewpoint` point (OMT tourism=viewpoint).
-//                 Its own POI chest is the grail (VISTA_CHEST_TIER.grail, T4,
+//                 Its own POI chest is the grail (VISTA_CHEST_TIER.grail, T5,
 //                 one-time — loot.js chestBaseTier reads the `vista` stamp),
 //                 and a SCOPE stands beside it: its daily gift (the coin-burst
 //                 day ledger, lit by poiLit while there), the first vista a
@@ -116,17 +116,11 @@
   const VISTA_STRETCH_MIN_M = 120;
   // How far (cells) off the way the chest may be seated.
   const VISTA_SEAT_CELLS = 3;
-  // The chest's tier (loot.js chestBaseTier reads o.vista through this):
-  // the viewpoint's grail T4 — its OWN pool now (loot.js chestThemeFor,
-  // chest_themes.js 'vista' theme), equipment, relics or magic: the
-  // grail is a lookout's one-time find, not the town hall's. A stretch's
-  // chest is a park chest (loot.js POI_CATEGORY.vista), T3 on the water
-  // (~25), T2 else (~13) — MEASURED over the 36 census tiles (~2-4 stretches
-  // a scenic km): with the ladder at ~220 a km at 10 km restored, a shore
-  // path pays ~500-540 a km and a park path ~405-430 (up from ~350-380 at
-  // the old 1.5× — SCENIC_MUL.park/greenway is 1.75× now), the design's
-  // targets (scratchpad scenic2/measure.js).
-  const VISTA_CHEST_TIER = { grail: 4, shore: 3, greenway: 2, park: 2 };
+  // loot.js chestBaseTier reads o.vista through this table. Every vista chest
+  // is T5: the grail uses the treasure-only vista pool, while a scenic
+  // stretch keeps the park theme through POI_CATEGORY.vista. Until Oct 2026,
+  // the grail was T4 and stretches were T2-T3 by kind.
+  const VISTA_CHEST_TIER = { grail: 5, shore: 5, greenway: 5, park: 5 };
   const VISTA_POI_CLASS = 'vista';
 
   // ── Viewpoints ─────────────────────────────────────────────────────────

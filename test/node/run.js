@@ -193,9 +193,9 @@ const BRIDGE = `;Object.assign(globalThis, {
   TRAILER_SELL_MUL,
   // The market-stall sign/stock tables — vendor_parity.test.js pins that what
   // a stall's name promises is what it sells.
-  POI_CATEGORY, CHEST_DENSITY_TIERS, CHEST_DENSITY_T1_AT, CHEST_TIER_UNSTAMPED,
+  POI_CATEGORY, CHEST_DENSITY_T1_AT, CHEST_TIER_UNSTAMPED,
   CHEST_TIER_MAX, CHEST_TIER_DEPTH_STEP, CHEST_TIER_COLOR,
-  chestDensityTier, chestBaseTier, chestTierDepthBonus, ZONE_NEXUS_TIER_BONUS, chestTierZoneBonus, chestTier, chestMirrorsUnderground,
+  chestBaseTier, chestTierDepthBonus, ZONE_NEXUS_TIER_BONUS, chestTierZoneBonus, chestTier, chestMirrorsUnderground,
   CRATE_RESTORE_PER, CRATE_RESTORE_MAX_DAYS, crateRestoreDays,
   BARREL_CLASSES, BARREL_ART, BARREL_LOOT, CLAY_POT_LOOT, barrelProfile, barrelLootPool, rollBarrel, isBarrel, barrelFlash,
   POT_COINS_BY_DENSITY, potCoinsFor, isPotOfGold, isBikeRack, bikeRackFlash,
@@ -216,6 +216,8 @@ const BRIDGE = `;Object.assign(globalThis, {
   wildplantWorkCost, wildplantTreasure, wildplantLight, wildplantRoll,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
+  // Pocketing a tame pet and the carried raised row — pet_pickup.test.js.
+  pickUpPet, petPickupItemId, carriedRaisedRow,
   Quests, QUEST_SLOTS, QUEST_TEMPLATES, QUEST_ENEMIES, STARTER_CHAIN,
 });`;
 try {
@@ -508,7 +510,7 @@ const starterWrapper = (name) => {
                    '_scenicWalkStory(kind) {', '_afterRestoreBeat(fn) {',
                    '_bankStreetMetres(addedM, at, now, opts) {', '_showTrailIntro() {',
                    '_visitStreetLamps(now) {', '_markLampsRestored(meta, newly, now) {',
-                   '_armTrailIntro(now) {', '_openTrailIntroIfDue() {',
+                   '_armTrailIntro(now, st) {', '_openTrailIntroIfDue() {',
                    '_drawStreetLive(now) {',
                    '_blastAt(wmx, wmy, opts) {',
                    '_houseMutter() {']
@@ -557,6 +559,8 @@ const starterWrapper = (name) => {
     `globalThis.TRAIL_INTRO_TITLE = ${constOf('TRAIL_INTRO_TITLE')};\n` +
     // …and the beat it waits out before opening over the repair it explains.
     `globalThis.TRAIL_INTRO_DELAY_MS = ${constOf('TRAIL_INTRO_DELAY_MS')};\n` +
+    // …and the road it waits to see repaired before it opens at all.
+    `globalThis.TRAIL_INTRO_MIN_M = ${constOf('TRAIL_INTRO_MIN_M')};\n` +
     declOf('trailIntroBody') + '\n' +
     // What a house says underfoot (_houseMutter; house_mutter.test.js).
     declOf('HOUSE_WRECK_MUTTERS') + '\n' +

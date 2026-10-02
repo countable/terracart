@@ -26,7 +26,8 @@
     assert.eq(byKey.eye.max(), 7, 'seven Keen Eye rungs');
     assert.eq(byKey.measure.max(), RARITY_TUNING.qtyLuckLevels, 'measure reads rarity.js');
     assert.eq(W.CLASS_COST, 3);
-    assert.gt(W.ENCHANTER_ENERGY_COST, 0, 'the enchanter pays energy');
+    const enchanter = W.CLASSES.find((c) => c.key === 'enchanter');
+    assert.truthy(enchanter && enchanter.blurb().includes('half the time'), 'the enchanter halves tome cooldowns');
   });
 
   test('wizard: two DISTINCT offers, the same pair every time the tower reopens', () => {

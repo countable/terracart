@@ -137,7 +137,7 @@ test('campfire: two potions TRANSMUTE through fixed recipes; the rest EXPLODE', 
     assert.truthy(isPotion(from) && isPotion(to), `${from} → ${to} are both potions`);
     assert.eq(fireBurnOutcome(from).transmute, to);
   }
-  assert.eq(POTION_FIRE_TRANSMUTE.vigor_potion, 'revive_potion');
+  assert.eq(POTION_FIRE_TRANSMUTE.revive_potion, 'vigor_potion');
   assert.eq(POTION_FIRE_TRANSMUTE.speed_potion, 'reach_potion');
   assert.eq(Object.keys(POTION_FIRE_TRANSMUTE).length, 2, 'a couple, not all');
   const potions = ITEMS.filter(i => isPotion(i.id)).map(i => i.id);

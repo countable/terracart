@@ -144,7 +144,7 @@ function matrix() {
 
 function chestGrid() {
   const cats = chestContexts();
-  const tiers = [1, 2, 3, 4, 5], N = 1500, owned = +$('owned').value;
+  const tiers = [1, 2, 3, 4, 5, 6, 7], N = 1500, owned = +$('owned').value;
   table($('chestGrid'), ['category', ...tiers.map((t) => 'T' + t)], cats.map((ctx) =>
     `<tr><td>${ctx.slice(6)}</td>${tiers.map((t) => {
       const rows = sample(ctx, { tier: t, depth: 0 }, owned, N);
@@ -153,25 +153,29 @@ function chestGrid() {
 }
 
 function defaultTiers() {
-  const rows = Object.entries(ChestThemes.themes).map(([theme, def]) => [theme, def.tier]).sort((a, b) => a[1] - b[1]);
-  table($('defaultTiers'), ['theme', 'locations', 'surface interaction', 'theme tier (loot mix only)', 'mirrors underground'], rows.map(([category, tier]) => {
+  const rows = Object.keys(ChestThemes.themes).sort();
+  table($('defaultTiers'), ['theme', 'locations', 'surface interaction', 'mirrors underground'], rows.map((category) => {
     const places = Object.keys(POI_CATEGORY).filter((p) => chestThemeForPoi(p) === category);
     const stalls = places.filter((poiClass) => produceStandFor({ kind: 'chest', poiClass }));
+    const macros = places.map((poiClass) => macroFor({ kind: 'chest', poiClass }))
+      .filter(Boolean).map((macro) => macro.kind);
     const chestOnly = places.filter((p) => STAND_NEVER_CLASSES.has(p));
-    const surface = stalls.length === places.length ? 'Market stalls'
+    const surface = !places.length ? 'One-time grail chests'
+      : macros.length ? `Macro: ${[...new Set(macros)].join(', ')}`
+      : stalls.length === places.length ? 'Market stalls'
       : stalls.length ? `Market stalls: ${stalls.map((p) => p.replaceAll('_', ' ')).join(', ')}. `
         + (chestOnly.length ? `Chests: ${chestOnly.join(', ')}.` : 'Other locations: chests or name-based stalls.')
       : category === 'roadside' ? 'Chests; bins and recycling are barrels, ATMs pots of gold, bike racks a speed boost' : 'Chests';
-    return `<tr><td>${category}</td><td style="text-align:left;white-space:normal">${places.map((p) => p.replaceAll('_', ' ')).join(', ')}</td>`
-      + `<td style="text-align:left;white-space:normal">${surface}</td><td>T${tier}</td><td>${chestMirrorsUnderground(places[0]) ? 'yes' : 'no'}</td></tr>`;
-  }).concat(`<tr><td>unlisted</td><td style="text-align:left">Other chest locations</td><td>Chests</td><td>T${CHEST_TIER_UNSTAMPED} (unstamped)</td><td>yes</td></tr>`));
-  $('tierRules').textContent = 'A POI chest\'s tier is how many chests of its class its own tile holds: '
-    + CHEST_DENSITY_TIERS.slice().reverse().map((r, i, a) => {
-      const next = a[i + 1];
-      return `${r.atLeast}${next ? (next.atLeast - 1 > r.atLeast ? '–' + (next.atLeast - 1) : '') : '+'} → T${r.tier}`;
-    }).join(', ')
-    + ` (public art is a fixed T1 one-time trunk). Add one tier per ${CHEST_TIER_DEPTH_STEP} underground levels and +${ZONE_NEXUS_TIER_BONUS} at a zone nexus, capped at T${CHEST_TIER_MAX}. `
-    + `A T1 chest is a crate: it restocks after ceil(count / ${CRATE_RESTORE_PER}) days (1–${CRATE_RESTORE_MAX_DAYS}). Home plays no part. `
+    return `<tr><td>${category}</td><td style="text-align:left;white-space:normal">${places.map((p) => p.replaceAll('_', ' ')).join(', ') || 'vista only'}</td>`
+      + `<td style="text-align:left;white-space:normal">${surface}</td><td>${places.length ? (chestMirrorsUnderground(places[0]) ? 'yes' : 'no') : 'no'}</td></tr>`;
+  }).concat(`<tr><td>unlisted</td><td style="text-align:left">Other chest locations</td><td>Chests</td><td>yes</td></tr>`));
+  $('tierRules').textContent = 'A chest\'s tier is its tile\'s QUOTA SEAT: each tile seeds ~1 T5, 7 T4, '
+    + '15 T3 and 25 T2 (x1..x2 over 100..1000 budgeted POIs) onto its best-ranked POIs '
+    + '(the MVT rank tag), round-robin across chest categories - every other chest is T1. '
+    + `Vistas are fixed T5; a zone nexus wins a seat without spending one (+${ZONE_NEXUS_TIER_BONUS}). `
+    + `Each cave level re-seats its own pyramid; the cap CLIMBS underground `
+    + `(T6 from level 3, T7 from 6) with +1 tier per ${CHEST_TIER_DEPTH_STEP} levels. `
+    + `A T1 chest is a crate: it restocks after floor(count / ${CRATE_RESTORE_PER}) days (1–${CRATE_RESTORE_MAX_DAYS}). `
     + 'Set Reward roll tier below to the resulting tier; Depth applies the cave loot mix.';
 }
 
@@ -199,7 +203,7 @@ function syncControls() {
     defaultTiers();
     const opt = (el, vals, sel) => { el.innerHTML = vals.map(([v, t]) => `<option value="${v}"${v == sel ? ' selected' : ''}>${t}</option>`).join(''); };
     opt($('ctx'), rewardContexts().map((c) => [c, c.startsWith('chest:') ? c.slice(6).replaceAll('_', ' ') + ' chest' : c.replaceAll(':', ' · ').replaceAll('_', ' ')]), 'chest:park');
-    opt($('tier'), [1, 2, 3, 4, 5].map((t) => [t, 'T' + t]), 2);
+    opt($('tier'), [1, 2, 3, 4, 5, 6, 7].map((t) => [t, 'T' + t]), 2);
     opt($('depth'), [0, 1, 2, 3, 4, 5, 6, 7, 8, 10].map((d) => [d, d ? 'level ' + d : 'surface']), 0);
     opt($('bonus'), Array.from({ length: Trail.PRIZE_ROLL_BONUS_MAX }, (_, i) => i + 1).map((b) => [b, '#' + b]), 1);
     opt($('monster'), Object.keys(Combat.MONSTERS).filter((k) => Combat.spawnsUnderground(k)).map((k) => [k, k]), 'cave_slime');

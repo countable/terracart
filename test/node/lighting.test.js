@@ -395,14 +395,18 @@ test('lighting: a torch and a mushroom glow to different degrees', () => {
 
 test('lighting: T3 and higher treasure trunks cast their shared rarity colour', () => {
   const sc = scene({_lights: []});
-  for (let tier = 3; tier <= CHEST_TIER_MAX; tier++) {
-    const chest = {kind:'chest', id:'tier_light_' + tier, poiClass:'memorial', poiDensity:3, depth:(tier - 3) * 2};
+  for (let tier = 3; tier <= chestTierMaxFor(9); tier++) {
+    const depth = tier <= 5 ? 0 : tier === 6 ? 3 : 6;
+    const chest = {kind:'chest', id:'tier_light_' + tier, poiClass:'memorial', tierSeed:Math.min(5, tier), depth};
     assert.eq(chestTier(chest), tier);
     assert.eq(chestLook(chest).texKey, 'chest');
     const key = 'chest_' + tier, row = Lighting.KINDS[key];
     assert.eq(Lighting.sourceKind(sc, chest), key);
     assert.eq(row.colour, CHEST_TIER_COLOR[tier], 'one shared tier colour');
-    for (const property of ['radiusCells', 'peak', 'flicker', 'pulse']) {
+    assert.eq(row.radiusCells, Lighting.KINDS.poi.radiusCells * (tier >= 4 ? 2 : 1), 'high-tier radius doubles');
+    assert.eq(row.peak, tier >= 4 ? Math.min(1, Lighting.KINDS.poi.peak * 2) : Lighting.KINDS.poi.peak,
+      'high-tier strength doubles');
+    for (const property of ['flicker', 'pulse']) {
       assert.eq(row[property], Lighting.KINDS.poi[property], property + ' follows ordinary POI light');
     }
     Lighting.beginFrame(sc);

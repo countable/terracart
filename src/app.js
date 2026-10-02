@@ -62,6 +62,9 @@ const CELL_PX = 32;
 const STREET_COUNTER_LIFT_PX = Math.round(CELL_PX * 0.6);
 // Road ceremonies carry the survivors' thanks; progress stays on the road counter.
 const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
+// The line under a road prize's card: who gave it, in one sentence. Shared by
+// the single-reward ceremony and the card the pick opens for the kept gift.
+const TRAIL_PRIZE_THANKS = 'Your neighbours thank you for repairing the road and hand you a gift.';
 // The first repaired stretch introduces the neighbours who leave gifts.
 const TRAIL_INTRO_TITLE = 'The survivors are watching';
 const trailIntroBody = (playerClass) =>
@@ -75,6 +78,20 @@ const trailIntroBody = (playerClass) =>
 // outlast the repair's own beat (STREET_SHINE_MS, the blast's clock), short
 // enough to still read as part of it.
 const TRAIL_INTRO_DELAY_MS = 2000;
+// …and not on the FIRST stretch either. One reach of street coming back is a
+// single flash; a greeting that says "you clear the rubble from the road"
+// over that one moment lands before the player has seen the repair as a
+// thing they are doing. So the greeting waits until this much road is truly
+// restored (Trail.restoredMetres — the road chip's own number, so the dialog
+// and the chip agree on what has been repaired): one reach of street (five
+// cells, 35 m, under the player's own feet) and a couple more cells along
+// it, so the second flash is already in the player's eye — and still well
+// short of the first prize (Trail.goalFor(0, …), 200 m or a runner's 100 m):
+// the greeting is what introduces the neighbours who leave gifts, so it must
+// land before the first gift does (trail.test.js pins both bounds). Tuned by
+// feel (owner, Oct 2026): 60 m read as too long a wait, 40 m as too soon;
+// it is not a milestone, only a beat past the first stretch.
+const TRAIL_INTRO_MIN_M = 50;
 // How long a stretch of street has to stay IN SIGHT — inside the lit reach,
 // continuously — before it is rebuilt. Walking past a street at the edge of
 // the bubble no longer harvests it in the frame it clips: the metres you bank
@@ -469,37 +486,13 @@ if (typeof window !== 'undefined') window.__renderScaleCap = urlNumParam('rscale
 // W × H is the LOGICAL grid — the coordinate system every other line in this
 // codebase thinks in. It is NOT the canvas's pixel count.
 //
-// The canvas backing store is W × H times renderScale(), and the main camera is
-// zoomed by the same factor, so a logical point p lands at p × renderScale()
-// device px. That factor is the exact CSS→device ratio of the canvas
-// (index.html's fitGame transform × devicePixelRatio), which makes the backing
-// store exactly the size of the screen area the canvas covers: the browser
-// composites it 1:1, with no resampling step at all.
-//
-// Until then the canvas was a fixed 352×844 buffer that #game's CSS transform
-// blew up. On a DPR-3 phone that is under a third of the screen's linear
-// resolution, magnified by a FRACTIONAL factor with nearest-neighbour — so
-// every terrain cell edge, road band, building outline, progress ring and
-// label was drawn coarse and then re-chunked unevenly on the way to the glass.
-//
-// Sprites do not change in LOOK: pixel art magnified by renderScale() through
-// the pixelArt NEAREST filter is precisely what the CSS upscale was already
-// doing to them. What sharpens is everything drawn as geometry rather than as
-// a texture — which, on this screen, is most of it.
-//
-// The cap is a guard, not a tuning knob: every real device lands under it
-// (DPR 3 × the ~1.12 a 393-wide phone scales by is 3.35), and it only stops a
-// pathologically high DPR from asking the GPU for a 7-megapixel buffer.
-//
-// "1:1" is exact to within the buffer's own integer size: canvas.width/height
-// are integers, so H × RENDER_SCALE truncates (844 × 3.3494 = 2826.92 → 2826)
-// and the logical box's bottom edge falls a fraction of a device pixel outside
-// the buffer. Measured on a 393-wide DPR-3 phone that is 0.92 device px — a
-// third of a CSS px, at the bottom of the 844-tall box, which is HUD chrome
-// drawn in the DOM rather than on the canvas. There is no rounding that avoids
-// it: the canvas's LAYOUT box is fractional too, so an integer buffer sized to
-// anything else would be resampled to reach it.
-const RENDER_SCALE_MAX = 4;
+// The backing store and camera use the same scale, capped at 2 game pixels
+// per logical pixel. Full DPR-3 rendering allocated 1179×2826 on a 393px
+// phone, including the offscreen part of the logical box. The cap reduces
+// that to 704×1688 (64% fewer pixels) and bounds render targets on resize.
+// CSS still lays out the same game grid; pointer coordinates divide by the
+// camera scale. High-DPR phones trade some geometric sharpness for memory.
+const RENDER_SCALE_MAX = 2;
 // Never below 1 — a viewport narrower than 352 CSS px still gets the full
 // logical grid rather than a canvas coarser than the one it replaced.
 function renderScale() {
@@ -507,7 +500,7 @@ function renderScale() {
   const dpr = window.devicePixelRatio || 1;
   // ?rscale=N (see urlNumParam) lowers the cap for one run — the A/B that
   // tells GPU fill from main-thread cost, which no JS timer can measure.
-  const cap = window.__renderScaleCap > 0 ? Math.min(RENDER_SCALE_MAX, window.__renderScaleCap) : RENDER_SCALE_MAX;
+  const cap = window.__renderScaleCap > 0 ? clamp(window.__renderScaleCap, 1, RENDER_SCALE_MAX) : RENDER_SCALE_MAX;
   return clamp(css * dpr, 1, cap);
 }
 // Live value: read by the pointer conversion below and re-applied on resize.
@@ -746,7 +739,7 @@ function shotTierColour(slot, tier) {
   return c != null ? c : Combat.SHOT[slot].color;
 }
 // Screen-px lift a CASTLE TURRET's arrow starts at: the battlements. The tower
-// art is 42px tall (textures.js makeTowerTexture) and stands with its foot on
+// restored sprite is 42px tall (assets.js tower) and stands with its foot on
 // the cell's bottom edge, CELL_PX/2 below the cell centre the turret object
 // sits at — so its crown is 42 - 16 = 26px above that centre, and the arrow
 // leaves a few px under the crenellation line. It descends to
@@ -957,6 +950,16 @@ const WALK_HOME_HINT_IDLE_MS = 6500;
 // Runtime names derive from items.js's CONSUMABLE_SPEC, the one owner read by
 // gameplay, item copy and the Drink / Use button.
 const REACH_POTION_MS = CONSUMABLE_SPEC.reach_potion.durationMs;
+// The SHARED tome-button lock: reading any tome locks every tome's button
+// for an hour (food's eat lock is Energy's 10 s). Each tome's own magic
+// cooldown is CONSUMABLE_SPEC[id].cooldownMs, scaled to the spell's power.
+const TOME_COOLDOWN_MS = 60 * 60 * 1000;
+// A tome's spell is HALF its potion's: half the duration for timed effects,
+// half the damage or restore for instant ones. The potion stays the strong,
+// one-shot form; the tome is the weaker spell you keep.
+const TOME_EFFECT_MUL = 0.5;
+const TOME_THUNDER_DMG = Math.floor(THUNDER_DMG * TOME_EFFECT_MUL);
+const TOME_HEALING_ENERGY = Math.floor(VIGOR_POTION_ENERGY * TOME_EFFECT_MUL);
 const SPEED_POTION_MS = CONSUMABLE_SPEC.speed_potion.durationMs;
 const SHIELD_POTION_MS = CONSUMABLE_SPEC.shield_potion.durationMs;
 const DRAGON_POWDER_MS = CONSUMABLE_SPEC.dragon_powder.durationMs;
@@ -1824,11 +1827,6 @@ class MapScene extends Phaser.Scene {
 
     // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
     makeBiomeTextures(this, CELL_PX);
-    makeTowerTexture(this);
-    // The same turret in the unclaimed palette. Baked once here rather than
-    // tinted at draw time so a castle's stone, its turrets and its court all
-    // change together — see the unclaimed-shade note in textures.js.
-    makeTowerTexture(this, CASTLE_STONE_UNCLAIMED, 'tower_unclaimed');
     // Pot of gold — art for the coin-burst POI (the ATM — loot.js isPotOfGold).
     makePotOfGoldTexture(this);
     // Traps: the barely-there scuff of a hidden one and the sprung iron jaw of
@@ -1960,7 +1958,7 @@ class MapScene extends Phaser.Scene {
     // opens under a crate and a trunk under a trunk. Baked from the same
     // sheets the renderer draws, including each trunk's tier colour.
     window.WORLD_ICON_URLS = window.WORLD_ICON_URLS || {};
-    for (let frame = 0; frame < CHEST_TIER_MAX; frame++) {
+    for (let frame = 0; frame < chestTierMaxFor(9); frame++) {
       window.WORLD_ICON_URLS['chest:' + frame] = bakeSheetFrame('chest', frame, 16, 16);
     }
     window.WORLD_ICON_URLS.chest = window.WORLD_ICON_URLS['chest:0'];
@@ -3992,6 +3990,8 @@ class MapScene extends Phaser.Scene {
     if (this._modalGateTick % 10 === 0) {
       this._syncModalGate?.();
       this._drainBadgeStories();
+      this._lowHealthStory();
+      this._firstSaleStory();
       DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
       NPC.tickArrivals(this, Date.now());
@@ -5252,7 +5252,7 @@ class MapScene extends Phaser.Scene {
         // ONLY A CASTLE YOU HAVE TAKEN BACK FIGHTS FOR YOU. A turret is stamped
         // with its castle's footprint key (worldgen), and this is the SAME
         // isClaimedKey test the tower's own art and its light already read: an
-        // unclaimed castle draws in the shaded 'tower_unclaimed' palette
+        // unclaimed castle draws the ruined 'tower_unclaimed' sprite
         // (render.js RENDER_SPEC.tower) and contributes no light
         // (lighting.js sourceKind), so a ruin that looked dead and dark was
         // nonetheless shooting arrows at everything that walked past it. A
@@ -5623,7 +5623,21 @@ class MapScene extends Phaser.Scene {
         c._dmgPopupNextT = now + DMG_POPUP_BEAT_MS;
       }
     }
-    if (!dead) return false;
+    if (!dead) {
+      // A BLOW divides a splitting slime (creature_ai.js enemySplit — the
+      // roster row's ability); the ground's damage (lava, light, a burn) does
+      // not, or a burning slime would divide itself every tick. The striker's
+      // side is whoever dealt it: a shot's origin when the caller says, else
+      // the player's feet.
+      if (dealt > 0 && !['lava', 'light', 'burn'].includes(source)) {
+        const from = options.from || this.playerM || { x: c.x - 1, y: c.y };
+        if (enemySplit(this, c, from.x, from.y, now) && now >= (this._splitFlashT || 0)) {
+          this._splitFlashT = now + 2500;
+          this.flash('The slime splits!', this.viewCenterX, this.viewCenterY - 40);
+        }
+      }
+      return false;
+    }
     if (this._workProgress?.combat === c) this.cancelWorkProgress();
     this.resolveDefeat(c, source);
     return true;
@@ -5716,7 +5730,9 @@ class MapScene extends Phaser.Scene {
       // It is NOT credited: it falls as one coin on the foe's cell carrying
       // the whole amount, and the coin tap (interact.js 'coindrop') pays it
       // and pops the real number there.
-      const coins = Combat.enemyBounty(victim.kind, this.depth, Combat.powerMul(victim));
+      // A SPLIT slime's halves pay by share (creature_ai.js enemySplit): the
+      // lineage sums to one slime's wage however many pieces it fell in.
+      const coins = Combat.enemyBounty(victim.kind, this.depth, Combat.powerMul(victim) * (victim._splitShare ?? 1));
       if (coins > 0) this._dropBountyCoin(victim, coins);
       const name = Combat.monster(victim.kind)?.name || 'Slime';
       const elite = Combat.isElite(victim);
@@ -5730,9 +5746,13 @@ class MapScene extends Phaser.Scene {
         if (this._bankDiscovery(victim.kind, `slaying an elite ${name}`)) {
           this.flashShiny(0, true, '✨ ELITE SLAIN ✨');   // the wage is the coin
         } else {
+          // Shown as a card (showRewardCard), not a toast: an elite's drop is
+          // a quest-sized reward, and a toast under a fight is missed.
           grantTreasureRoll(this, save, this.viewCenterX, this.viewCenterY - 24, '💀',
             Combat.ELITE_TREASURE_CONTEXT,
-            { rollBonus: Combat.eliteRollBonus(victim.kind, this.depth) });
+            { rollBonus: Combat.eliteRollBonus(victim.kind, this.depth),
+              ceremony: { kind: 'treasure', header: 'Elite slain',
+                          sub: `The ${name} falls. What it guarded is yours.` } });
         }
       } else if (Combat.isMonster(victim.kind) && Combat.spawnsUnderground(victim.kind)
                  && Math.random() < Combat.MONSTER_TREASURE_CHANCE) {
@@ -7523,6 +7543,15 @@ class MapScene extends Phaser.Scene {
       });
     }
   }
+
+  // Every collapse tells this beat before its existing outcome panel.
+  _deathStory(onDismiss) {
+    this.showMessageModal({
+      art: 'death_memories', kind: 'story', title: 'Fading memories',
+      body: 'You desperately try to hold onto your memories... your vision goes dark and red.',
+      okLabel: 'Next', mustAcknowledge: true, onDismiss,
+    });
+  }
   // Black out at 0 energy underground and wake on the surface. Keeps the same
   // world coordinates (GPS re-asserts position up top); the player wakes still
   // drained, so they must rest before heading back down (changeDepth gate).
@@ -7550,7 +7579,7 @@ class MapScene extends Phaser.Scene {
     const lost = Math.floor((this.save.money ?? 0) / 2);
     if (lost > 0) addMoney(this.save, -lost);
     persistSave(this.save);
-    this.showChestRewardModal({
+    this._deathStory(() => this.showChestRewardModal({
       kind: 'rest',
       header: 'Exhausted',
       iconHTML: '<span style="font-size:42px">😵</span>',
@@ -7558,7 +7587,7 @@ class MapScene extends Phaser.Scene {
       sub: lost > 0 ? `Lost ${this.moneyHTML(lost)} while you were out cold.` : undefined,
       color: '#ff8c3b', accent: '#ff8c3b',
       onDismiss: () => { this._passingOut = false; },
-    });
+    }));
   }
   // Hard mode's surface exhaustion: the same half-purse cost as the
   // underground blackout above, but nothing else about it — no cave to wake
@@ -7569,7 +7598,7 @@ class MapScene extends Phaser.Scene {
     const lost = Math.floor((this.save.money ?? 0) / 2);
     if (lost > 0) addMoney(this.save, -lost);
     persistSave(this.save);
-    this.showChestRewardModal({
+    this._deathStory(() => this.showChestRewardModal({
       kind: 'rest',
       header: 'Exhausted',
       iconHTML: '<span style="font-size:42px">😵</span>',
@@ -7577,7 +7606,7 @@ class MapScene extends Phaser.Scene {
       sub: lost > 0 ? `Lost ${this.moneyHTML(lost)} while you were out cold.` : undefined,
       color: '#ff8c3b', accent: '#ff8c3b',
       onDismiss: () => { this._passingOut = false; },
-    });
+    }));
   }
   // Guarantee an UP staircase (and never a DOWN one) on the home cell of every
   // cave level, so the player can always climb back toward the surface from the
@@ -8506,6 +8535,42 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
+  // Queue from the shared energy display update, covering damage, work and
+  // conditions. Keep the request across a busy dialog, healing or a reload.
+  _queueLowHealthStory() {
+    if (this.save.storySeen?.['health:low'] || this.save.healthLowPending) return;
+    const energy = this.save.energy ?? 0;
+    if (!(energy > 0)) return;
+    Energy.maxEnergy(this.save);
+    if (energy > Energy.tiredThreshold(this.save)) return;
+    this.save.healthLowPending = true;
+    persistSave(this.save);
+  }
+
+  _firstSaleStory() {
+    if (!this.save.firstSalePending || this.save.storySeen?.['sale:first']) return;
+    if (this._storySplashOnce('sale:first', {
+      art: 'first_sale', title: 'Fine wares',
+      body: "The neighbours offer to buy your fine wares for some 'green'.",
+    })) {
+      delete this.save.firstSalePending;
+      persistSave(this.save);
+    }
+  }
+
+  _lowHealthStory() {
+    this._queueLowHealthStory();
+    if (!this.save.healthLowPending || this.save.storySeen?.['health:low']
+        || !(this.save.energy > 0) || this._passingOut) return;
+    if (this._storySplashOnce('health:low', {
+      art: 'health_low', title: 'Running low',
+      body: 'Your hands tremble, and every step feels heavier. You need food or a place to rest.',
+    })) {
+      delete this.save.healthLowPending;
+      persistSave(this.save);
+    }
+  }
+
   // Opens the next queued memory story once nothing else is up. Rides the
   // modal-gate backstop's throttle in update(), right after the sync, so
   // body.modal-open is fresh when it is read.
@@ -8573,6 +8638,17 @@ class MapScene extends Phaser.Scene {
   // moments. Hooked where each action STARTS (the wheel spinning up, the
   // shot loosed, the watering landing) - a dry tap that never runs the
   // action tells no story, and a busy screen just asks again next time.
+  _catchStory(creature) {
+    if (creature.kind === 'chicken') {
+      this._storySplashOnce('catch:chicken', {
+        art: 'tool_catch_chicken', title: 'That chicken',
+        body: '“You want to catch that chicken,” <em>beckons a voice inside you.</em>',
+      });
+      return;
+    }
+    this._toolActionStory('catch');
+  }
+
   _toolActionStory(action) {
     const slot = { till: 'hoe', chop: 'axe', dig: 'pick', water: 'can',
       catch: 'bugnet', sword: 'sword', staff: 'staff', shoot: 'bow' }[action];
@@ -8735,6 +8811,7 @@ class MapScene extends Phaser.Scene {
   }
 
   updateEnergyDOM() {
+    this._queueLowHealthStory();
     // Element refs are looked up once and kept: the energy widget is static
     // markup in index.html and is never rebuilt. Re-query until found, so a
     // call that somehow lands before the DOM is parsed can't cache nulls.
@@ -9261,13 +9338,8 @@ class MapScene extends Phaser.Scene {
   // modal. Returns true so callers can `return this._finishConsumable(...)`.
   // NOTE: eatSelected deliberately does NOT use this — it consumes mid-method
   // (before computing side-effects) and gives flash feedback + energy DOM.
-  // `opts.channel` — the ENCHANTER's channel (channelPotion): the effect and
-  // its timer were applied, but the flask is NOT drunk, so nothing is
-  // consumed and the modal says so. The one place a consumable is removed is
-  // here, so this is the one place a channel can skip it.
   _finishConsumable(title, body, opts = {}) {
-    if (opts.channel) body = `${body}\n\nThe flask stays full.`;
-    else consumeSelected(this.save);
+    consumeSelected(this.save);
     persistSave(this.save);
     this.buildInventoryDOM();
     this.showMessageModal({ title, body });
@@ -9420,40 +9492,68 @@ class MapScene extends Phaser.Scene {
   // the lit silhouette AND every tap-accept gate cover everything on screen.
   // Stored in `save` (not just in-memory) so the buff survives tile reloads
   // within the minute; the timestamp self-expires, so a stale save is harmless.
-  drinkReachPotion(opts = {}) {
+  drinkReachPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'reach_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.reachPotionUntil = Date.now() + REACH_POTION_MS;
     return this._finishConsumable(
-      `✨ You ${opts.channel ? 'channel' : 'drink'} the Potion of Reach`,
+      `✨ You drink the Potion of Reach`,
       'A shiver runs through your fingers. Even the far edge of the world feels close enough to touch.',
       opts,
     );
   }
 
   // ── The Tomes ─────────────────────────────────────────────────────────────
-  // Story books' rarer siblings: READ once a UTC day for the effect of the
-  // potion one tier below the tome, never consumed. The day gate shows its
-  // wait (shortDuration over msToNextUtcDay — a timed gate needs a visible
-  // wait); the ledger save.tomeDays is keyed by item id + utcDayKey, the
-  // same day the ledger keeps (app.js never reads the Delivery one).
+  // Story books' rarer siblings: READ for the effect of the potion one tier
+  // below the tome, never consumed. TWO cooldowns: the SHARED activation
+  // lock (TOME_COOLDOWN_MS, save.tomeReadyAt - food's eat-cooldown shape,
+  // but one hour and spanning every tome: reading any one locks the button
+  // for all), and each tome's OWN magic cooldown (CONSUMABLE_SPEC
+  // cooldownMs, save.tomeMagicCd[id]) scaled to the spell's power. HOME IS
+  // THE LIBRARY: inside Home's ring (isRestingAtHome - the one predicate
+  // behind every Home-ring effect) both are considered refreshed. A refused
+  // reading shows its wait (shortDuration - a timed gate needs a visible
+  // wait).
   _tomeReady(id) {
-    if ((this.save.tomeDays?.[id]) === utcDayKey(new Date())) {
+    const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
+    if (this.isRestingAtHome(px, py)) return true;
+    const now = Date.now();
+    const shared = (this.save.tomeReadyAt ?? 0) - now;
+    if (shared > 0) {
       const ps = this.playerScreen();
-      this.flash(`The tome rests — ${shortDuration(msToNextUtcDay())}`, ps.x, ps.y + this.playerBodyDy());
+      this.flash(`The tomes rest — ${shortDuration(shared)}`, ps.x, ps.y + this.playerBodyDy());
+      return false;
+    }
+    const own = (this.save.tomeMagicCd?.[id] ?? 0) - now;
+    if (own > 0) {
+      const ps = this.playerScreen();
+      this.flash(`This tome rests — ${shortDuration(own)}`, ps.x, ps.y + this.playerBodyDy());
       return false;
     }
     return true;
   }
+  // The button gate (CONSUMABLE_SPEC usable): no flash, just grey.
+  tomeUsable(id) {
+    const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
+    if (this.isRestingAtHome(px, py)) return true;
+    const now = Date.now();
+    return (this.save.tomeReadyAt ?? 0) <= now && (this.save.tomeMagicCd?.[id] ?? 0) <= now;
+  }
   _tomeSpent(id) {
-    (this.save.tomeDays ||= {})[id] = utcDayKey(new Date());
+    // THE ENCHANTER'S EDGE (wizard.js CLASSES): half-length cooldowns, both
+    // the shared lock and the tome's own magic - the calling's whole benefit
+    // since the potion channel retired with the tomes' arrival.
+    const mul = (typeof Wizard !== 'undefined' && Wizard.isClass(this.save, 'enchanter')) ? 0.5 : 1;
+    const now = Date.now();
+    this.save.tomeReadyAt = now + TOME_COOLDOWN_MS * mul;
+    (this.save.tomeMagicCd ||= {})[id] = now + (CONSUMABLE_SPEC[id]?.cooldownMs || 0) * mul;
     persistSave(this.save);
   }
   readTomeSight() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'tome_sight' || (sel.count ?? 0) <= 0) return false;
     if (!this._tomeReady('tome_sight')) return false;
-    this.save.reachPotionUntil = Date.now() + REACH_POTION_MS;
+    this.save.reachPotionUntil = Date.now() + REACH_POTION_MS * TOME_EFFECT_MUL;
     this._tomeSpent('tome_sight');
     this.flash('✨ The sight tome opens', this.viewCenterX, this.viewCenterY);
     return true;
@@ -9462,8 +9562,8 @@ class MapScene extends Phaser.Scene {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'tome_raven' || (sel.count ?? 0) <= 0) return false;
     if (!this._tomeReady('tome_raven')) return false;
-    this.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS;
-    if (this._spiritRaven) this._spiritRaven._followUntilT = performance.now() + SPIRIT_RAVEN_MS;
+    this.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS * TOME_EFFECT_MUL;
+    if (this._spiritRaven) this._spiritRaven._followUntilT = performance.now() + SPIRIT_RAVEN_MS * TOME_EFFECT_MUL;
     this._tickSpiritRaven();
     this._tomeSpent('tome_raven');
     this.flash('✨ A raven leaves the page', this.viewCenterX, this.viewCenterY);
@@ -9489,13 +9589,54 @@ class MapScene extends Phaser.Scene {
     const now = performance.now();
     let felled = 0;
     for (const c of targets) {
-      if (this._damageEnemy(c, THUNDER_DMG)) { felled++; continue; }
+      if (this._damageEnemy(c, TOME_THUNDER_DMG)) { felled++; continue; }
       if (!c.lair) monsterRout(c, now, this.cellM);
     }
     this._tomeSpent('tome_storm');
     this.flash('⚡ The storm tome speaks', this.viewCenterX, this.viewCenterY);
     return true;
   }
+  readTomeSpeed() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'tome_speed' || (sel.count ?? 0) <= 0) return false;
+    if (!this._tomeReady('tome_speed')) return false;
+    this.save.speedPotionUntil = Date.now() + SPEED_POTION_MS * TOME_EFFECT_MUL;
+    this._tomeSpent('tome_speed');
+    this.flash('✨ The speed tome opens', this.viewCenterX, this.viewCenterY);
+    return true;
+  }
+  readTomeShield() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'tome_shield' || (sel.count ?? 0) <= 0) return false;
+    if (!this._tomeReady('tome_shield')) return false;
+    this.save.shieldPotionUntil = Date.now() + SHIELD_POTION_MS * TOME_EFFECT_MUL;
+    this._tomeSpent('tome_shield');
+    this.flash('✨ The shield tome opens', this.viewCenterX, this.viewCenterY);
+    return true;
+  }
+  readTomeHealing() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'tome_healing' || (sel.count ?? 0) <= 0) return false;
+    if (!this._tomeReady('tome_healing')) return false;
+    const max = this.getMaxEnergy();
+    const restored = Math.min(TOME_HEALING_ENERGY, max - (this.save.energy ?? 0));
+    Energy.set(this.save, (this.save.energy ?? 0) + TOME_HEALING_ENERGY, max);
+    if (restored > 0) this._popEnergy(restored);
+    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    this._tomeSpent('tome_healing');
+    this.flash('✨ The healing tome opens', this.viewCenterX, this.viewCenterY);
+    return true;
+  }
+  readTomeBlight() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'tome_blight' || (sel.count ?? 0) <= 0) return false;
+    if (!this._tomeReady('tome_blight')) return false;
+    this.save.blightPotionUntil = Date.now() + BLIGHT_MS * TOME_EFFECT_MUL;
+    this._tomeSpent('tome_blight');
+    this.flash('✨ The blight tome opens', this.viewCenterX, this.viewCenterY);
+    return true;
+  }
+
 
   drinkVigorPotion() {
     const sel = getSelectedSlot(this.save);
@@ -9506,7 +9647,7 @@ class MapScene extends Phaser.Scene {
     if (restored > 0) this._popEnergy(restored);
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     return this._finishConsumable(
-      '\u2728 You drink the Potion of Vigor',
+      '\u2728 You drink the Potion of Healing',
       restored > 0
         ? 'Warmth spreads through your arms. Your grip feels sure again.'
         : 'You were already brimming. The flask goes down anyway.',
@@ -9547,7 +9688,7 @@ class MapScene extends Phaser.Scene {
     if (!sel || sel.id !== 'speed_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.speedPotionUntil = Date.now() + SPEED_POTION_MS;
     return this._finishConsumable(
-      `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Speed`,
+      `\u2728 You drink the Potion of Speed`,
       'Warmth races down to your toes. The road slips beneath your feet.',
       opts,
     );
@@ -9560,25 +9701,25 @@ class MapScene extends Phaser.Scene {
     return this._finishConsumable('You drink the Potion of Time', 'All effects fade. Your items are ready again.');
   }
 
-  drinkProtectionPotion(opts = {}) {
+  drinkProtectionPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'protection_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.protectionPotionUntil = Date.now() + CONSUMABLE_SPEC.protection_potion.durationMs;
-    return this._finishConsumable(`You ${opts.channel ? 'channel' : 'drink'} the Potion of Protection`,
-      CONSUMABLE_SPEC.protection_potion.get, opts);
+    return this._finishConsumable(`You drink the Potion of Protection`,
+      CONSUMABLE_SPEC.protection_potion.get);
   }
 
-  drinkImmortalPotion(opts = {}) {
+  drinkImmortalPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'immortal_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.immortalPotionUntil = Date.now() + CONSUMABLE_SPEC.immortal_potion.durationMs;
     this._incomingDamageFraction = 0;
     this.save.fireDamageRemainder = 0;
-    return this._finishConsumable(`You ${opts.channel ? 'channel' : 'drink'} the Potion of Immortal`,
-      `Immune to all damage for ${shortDuration(CONSUMABLE_SPEC.immortal_potion.durationMs)}.`, opts);
+    return this._finishConsumable(`You drink the Potion of Immortal`,
+      `Immune to all damage for ${shortDuration(CONSUMABLE_SPEC.immortal_potion.durationMs)}.`);
   }
 
-  drinkFireResistancePotion(opts = {}) {
+  drinkFireResistancePotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'fire_resistance_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.fireResistancePotionUntil = Date.now() + CONSUMABLE_SPEC.fire_resistance_potion.durationMs;
@@ -9586,33 +9727,31 @@ class MapScene extends Phaser.Scene {
     this.save.fireDamageRemainder = 0;
     this._lavaAccum = 0;
     return this._finishConsumable(
-      `You ${opts.channel ? 'channel' : 'drink'} the Potion of Fire Resistance`,
+      `You drink the Potion of Fire Resistance`,
       `Immune to fire for ${shortDuration(CONSUMABLE_SPEC.fire_resistance_potion.durationMs)}.`,
-      opts,
     );
   }
 
-  drinkShrinkingPotion(opts = {}) {
+  drinkShrinkingPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'shrinking_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.shrinkingPotionUntil = Date.now() + CONSUMABLE_SPEC.shrinking_potion.durationMs;
     Energy.set(this.save, this.save.energy, Energy.maxEnergy(this.save));
     this._syncPlayerSkin();
     this.updateEnergyDOM();
-    return this._finishConsumable(`You ${opts.channel ? 'channel' : 'drink'} the Potion of Shrinking`,
-      `Half size, maximum HP and melee damage; +${CONSUMABLE_SPEC.shrinking_potion.visionCells} stealth for ${shortDuration(CONSUMABLE_SPEC.shrinking_potion.durationMs)}.`, opts);
+    return this._finishConsumable(`You drink the Potion of Shrinking`,
+      `Half size, maximum HP and melee damage; +${CONSUMABLE_SPEC.shrinking_potion.visionCells} stealth for ${shortDuration(CONSUMABLE_SPEC.shrinking_potion.durationMs)}.`);
   }
 
-  drinkGiantPotion(opts = {}) {
+  drinkGiantPotion() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'giant_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.giantPotionUntil = Date.now() + CONSUMABLE_SPEC.giant_potion.durationMs;
     this._syncPlayerSkin();
     this.updateEnergyDOM();
     return this._finishConsumable(
-      `You ${opts.channel ? 'channel' : 'drink'} the Potion of Giant`,
+      `You drink the Potion of Giant`,
       `+${CONSUMABLE_SPEC.giant_potion.maxHpBonus} maximum HP and +${CONSUMABLE_SPEC.giant_potion.damageBonus} melee damage for ${shortDuration(CONSUMABLE_SPEC.giant_potion.durationMs)}.`,
-      opts,
     );
   }
 
@@ -9621,7 +9760,7 @@ class MapScene extends Phaser.Scene {
     if (!sel || sel.id !== 'shield_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.shieldPotionUntil = Date.now() + SHIELD_POTION_MS;
     return this._finishConsumable(
-      `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Shielding`,
+      `\u2728 You drink the Potion of Shielding`,
       'A cool shimmer settles over your skin, taking the sting from claw and fang.',
       opts,
     );
@@ -9686,38 +9825,13 @@ class MapScene extends Phaser.Scene {
     if (!sel || sel.id !== 'blight_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.blightPotionUntil = Date.now() + BLIGHT_MS;
     return this._finishConsumable(
-      `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of Blight`,
+      `\u2728 You drink the Potion of Blight`,
       'A crimson haze seeps from your skin. Nearby beasts shudder in its wake.',
       opts,
     );
   }
 
-  // THE ENCHANTER'S CHANNEL (src/wizard.js CLASSES › enchanter). An
-  // enchanter holding a TIMED potion (the CONSUMABLE rows marked `channel` in
-  // syncConsumableButton) may pay Wizard.ENCHANTER_ENERGY_COST energy for its
-  // effect and timer without drinking it: the drink method runs with
-  // { channel: true } and _finishConsumable skips the removal. The price goes
-  // through spendEnergy — it is a job, so it holds the rest (CLAUDE.md
-  // "Working is not resting") — popped on the player's own cell, and a short
-  // bar refuses with the standard too-tired flash. `id` is the potion the
-  // dialog was opened for, re-checked against the live selection BEFORE the
-  // spend, so energy is never taken for a drink that then refuses.
-  channelPotion(id, method) {
-    if (typeof Wizard === 'undefined' || !Wizard.isClass(this.save, 'enchanter')) return false;
-    if (typeof this[method] !== 'function') return false;
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== id || (sel.count ?? 0) <= 0) return false;
-    const ps = this.playerScreen ? this.playerScreen() : null;
-    const sx = ps ? ps.x : this.viewCenterX;
-    const sy = ps ? ps.y + (this.playerBodyDy ? this.playerBodyDy() : 0) : this.viewCenterY;
-    let cell = null;
-    if (typeof playerReachCell === 'function' && this.startWorldM && this.originPx) {
-      const p = playerReachCell(this);
-      cell = { ix: p.cellIX, iy: p.cellIY };
-    }
-    if (!this.spendEnergy(Wizard.ENCHANTER_ENERGY_COST, sx, sy, cell)) return false;
-    return this[method]({ channel: true });
-  }
+
 
   // True while a Potion of Blight's minute runs. In the save like the other
   // potions (save.blightPotionUntil), so it survives a tile reload; the
@@ -9829,46 +9943,43 @@ class MapScene extends Phaser.Scene {
   // owner, Sep 2026: a card over the freshly loaded map got tapped away
   // unread; on the loading screen it is what there is to read). Every
   // version says the one thing the game most needs you to do: reach what is
-  // out of reach with the STICK, never by stepping into the street. Not a makeModalShell dialog —
-  // it carries no painting and must cover the whole game box, above every
-  // dialog; it does wear .game-modal so the movement pads hide under it.
+  // out of reach with the STICK, never by stepping into the street. The shared
+  // story shell frames its painting; the full-cover backdrop stays above every
+  // other dialog and .game-modal keeps movement pads hidden underneath.
   _showSafetyCard(which) {
     if (window.__TEST_MODE || typeof document === 'undefined') return;
     const card = SAFETY_CARDS[which];
     const host = document.getElementById('game');
     if (!card || !host) return;
-    document.getElementById('safety-card')?.remove();
-    const wrap = document.createElement('div');
-    wrap.id = 'safety-card';
-    wrap.className = 'game-modal';
+    const { wrap, box, mount } = this.makeModalShell('safety-card', {
+      kind: 'story', kindLabel: 'Safety', art: 'safety_phone',
+      zIndex: 400, wrapBg: 'rgba(12,9,6,0.96)',
+      wrapExtra: 'cursor:pointer;',
+      boxExtra: 'color:#fff4e0;font-weight:700;line-height:1.35;',
+    });
     wrap.setAttribute('role', 'alertdialog');
-    // The VISIBLE slice of the game box (fitGame's --view-top / --view-h, the
-    // band every modal covers): #game is taller than a tall phone's screen,
-    // so centring on the whole box sat the card low.
-    wrap.style.cssText = 'position:absolute;left:0;right:0;top:var(--view-top,0px);height:var(--view-h,100%);'
-      + 'z-index:400;display:flex;flex-direction:column;'
-      + 'align-items:center;justify-content:center;padding:24px 20px;box-sizing:border-box;'
-      + 'background:rgba(12,9,6,0.96);color:#fff4e0;text-align:center;cursor:pointer;'
-      + 'font-weight:700;line-height:1.35;';
+    wrap.setAttribute('aria-modal', 'true');
+    wrap.setAttribute('aria-labelledby', 'safety-card-title');
     const title = document.createElement('div');
+    title.id = 'safety-card-title';
     title.textContent = card.title;
-    title.style.cssText = 'font-size:26px;font-weight:900;color:#ff8c3b;letter-spacing:1px;margin-bottom:14px;';
-    wrap.appendChild(title);
+    title.style.cssText = 'font-size:22px;font-weight:900;color:#ff8c3b;letter-spacing:1px;margin-bottom:10px;';
+    box.appendChild(title);
     for (const line of card.lines) {
       const p = document.createElement('div');
       p.textContent = line;
       p.style.cssText = 'font-size:17px;margin:6px 0;max-width:340px;';
-      wrap.appendChild(p);
+      box.appendChild(p);
     }
     const tap = document.createElement('div');
     tap.textContent = 'Tap to continue';
-    tap.style.cssText = 'margin-top:22px;font-size:15px;font-weight:800;color:#ffe066;'
+    tap.style.cssText = 'margin-top:14px;font-size:15px;font-weight:800;color:#ffe066;'
       + 'border:2px solid #ffe066;border-radius:8px;padding:10px 18px;';
-    wrap.appendChild(tap);
+    box.appendChild(tap);
     const done = (e) => { e?.stopPropagation?.(); e?.preventDefault?.(); wrap.remove(); };
     wrap.addEventListener('pointerup', done);
     wrap.addEventListener('click', done);
-    host.appendChild(wrap);
+    mount();
   }
   // THE HEADS-UP BUZZ: wanderCreatures hands over the nearest hostile taking
   // an interest this tick; inside SAFETY_FOE_BUZZ_CELLS the phone vibrates,
@@ -10671,6 +10782,7 @@ class MapScene extends Phaser.Scene {
       case 'guildhall':   return this._presentGuildhall(sx, sy, o, dress);
       case 'curio':       return this._presentCurio(sx, sy, o, dress);
       case 'training':    return this._presentTraining(sx, sy, o, dress);
+      case 'scholar':     return this._presentScholar(sx, sy, o, dress);
       default:            return undefined;
     }
   }
@@ -10684,7 +10796,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // INN: rest to full for coin, once a UTC day per inn (Macros.innRest — the
-  // Potion of Vigor's coins per energy × INN_RATE). A purchase, not a passive
+  // Potion of Healing's coins per energy × INN_RATE). A purchase, not a passive
   // rest: it is not gated on `working`, and it is not Home's (HOME_R). Hard
   // mode's empty-tank lockout refuses it like food and the fire.
   _presentInn(sx, sy, o, dress) {
@@ -10923,6 +11035,57 @@ class MapScene extends Phaser.Scene {
     });
   }
 
+  // THE BOOK CLUB (school POIs — Macros.scholarShelf / scholarNext /
+  // scholarClaim): every school keeps the same booth and the same shelf, so
+  // progress is one ledger per save. The club counts every Book the player
+  // has read (addToInv — save.booksRead; bought ones too, the counter's price
+  // ladder being the brake), and every
+  // SCHOLAR_BOOKS_PER_PRIZE of them earns the next prize off the shelf,
+  // humblest first. Nothing is sold and nothing is paid: a ready prize is a
+  // Collect, an unready one is told its wait in books.
+  _presentScholar(sx, sy, o, dress) {
+    const shelf = Macros.scholarShelf();
+    const read = Macros.booksRead(this.save);
+    const next = Macros.scholarNext(this.save, shelf);
+    const title = `The book club: ${read} ${read === 1 ? 'book' : 'books'} read`;
+    if (!next) {
+      this.showMessageModal({ kind: dress.kind, art: dress.art, title,
+        body: 'You have read your way through the whole shelf. The scholars have nothing left to give but their thanks.' });
+      return;
+    }
+    if (!next.ready) {
+      const need = next.booksAt - read;
+      const left = shelf.slice(next.index).map((id) => itemName(id)).join(', ');
+      this.showMessageModal({ kind: dress.kind, art: dress.art, title,
+        body: `The next prize is ${itemName(next.id)}, at ${next.booksAt} books. Read ${need} more. `
+          + `Still on the shelf: ${left}.` });
+      return;
+    }
+    this.showOfferModal({
+      ...dress, kind: dress.kind, title,
+      get: `${this.iconSpanHTML(next.id)} ${itemName(next.id)} ×1`,
+      cost: `${next.booksAt} books read`,
+      blurb: 'The scholar lifts the next prize down from the shelf and sets it before you.',
+      canAfford: true,
+      acceptLabel: 'Collect',
+      cancelLabel: 'Later',
+      onAccept: () => {
+        // A club prize is a gift, not a wild find (`notWild` — the wild-finds
+        // ledger); a Book off the shelf is read on the spot and, like every
+        // Book read, counts. A full bag refuses here, and addToInv has
+        // already said so.
+        if (!this.addToInv(next.id, 1, false, { notWild: true })) return;
+        const r = Macros.scholarClaim(this.save, shelf);
+        if (!r.ok) return;
+        this._finishInventoryChange();
+        const after = Macros.scholarNext(this.save, shelf);
+        // Both lines are measured against MAP_MSG_MAX in macro_poi.test.js.
+        const line = after ? `Collected! Next at ${after.booksAt} books` : 'The shelf is yours';
+        this.flashLoot(line, '#ffe066', 1, next.id);
+      },
+    });
+  }
+
   // TRAINING HALL: one DISCIPLINE per hall (Macros.trainingKindFor — melee,
   // ranged or magic damage, max energy, attack speed; Combat.TRAINING_KINDS).
   // A LEVEL for good (money AND memories recovered — Macros.buyLesson) or a
@@ -11072,9 +11235,11 @@ class MapScene extends Phaser.Scene {
         this._clampSelSlot();
         const gain = unitPrice * sold;
         addMoney(this.save, gain);
+        if (!this.save.storySeen?.['sale:first']) this.save.firstSalePending = true;
         this._finishInventoryChange();
         this.flashLoot(`+${gain}`, '#ffe066', 1, sellId);
         this.questEvent('sell');
+        this._firstSaleStory();
       },
     });
   }
@@ -12424,8 +12589,10 @@ class MapScene extends Phaser.Scene {
     // how-to card is refused, and the next sweep that banks metres arms it
     // again. `greeting` is therefore "a greeting is owed", which is what holds
     // a prize ceremony back: whatever this sweep queues waits for the dialog
-    // rather than opening in front of it.
-    const greeting = !st.greeted && this._armTrailIntro(now);
+    // rather than opening in front of it. Nothing is owed until the save has
+    // TRAIL_INTRO_MIN_M of road behind it — the first stretches play
+    // unexplained, on purpose (see the constant).
+    const greeting = !st.greeted && this._armTrailIntro(now, st);
     if (out.owed <= 0) return;
     // A wide reach can sweep past more than one goal in a single step, so this
     // is a COUNT, not a boolean — the queue hands the ceremonies out one at a
@@ -12441,12 +12608,20 @@ class MapScene extends Phaser.Scene {
   // wait and must set the deadline exactly once — an arm per sweep would push
   // the dialog out ahead of a player who keeps walking, which is every player.
   //
+  // NOT OWED YET while the save's restored road (`st` is save.trail) is still
+  // short of TRAIL_INTRO_MIN_M: the sweep then treats its prizes as it would
+  // on a greeted save (none can be due that early — the threshold sits under
+  // the first goal) and asks again on the next metres banked. Once armed, the
+  // deadline stands whatever the later sweeps bank.
+  //
   // A DEADLINE, not a timer: it is read by _sweepStreets, which runs every
   // frame whatever the player is doing, so the wait can't fire into a scene
   // that has moved on — and it is the shape this file already waits with
   // (_restHoldUntil, _streetCounterAt, the lightmap's own clock).
-  _armTrailIntro(now) {
-    if (!this._trailIntroAt) this._trailIntroAt = now + TRAIL_INTRO_DELAY_MS;
+  _armTrailIntro(now, st) {
+    if (this._trailIntroAt) return true;
+    if (Trail.restoredMetres(st, this.save?.playerClass) < TRAIL_INTRO_MIN_M) return false;
+    this._trailIntroAt = now + TRAIL_INTRO_DELAY_MS;
     return true;
   }
 
@@ -12662,7 +12837,7 @@ class MapScene extends Phaser.Scene {
         art: 'trail_prize',
         iconHTML: this.coinIconHTML ? this.coinIconHTML(48) : '',
         name: '+5',
-        sub: 'Your neighbours thank you for repairing the road and hand you a gift.',
+        sub: TRAIL_PRIZE_THANKS,
         color: UI_GOLD,
         onDismiss,
       });
@@ -12680,21 +12855,22 @@ class MapScene extends Phaser.Scene {
       if (!card) { if (typeof onDismiss === 'function') onDismiss(); return; }
       this.showChestRewardModal({
         kind: 'trail', header, ...card, art: 'trail_prize',
-        sub: 'Your neighbours thank you for repairing the road and hand you a gift.',
+        sub: TRAIL_PRIZE_THANKS,
         onDismiss: () => this._revealPendingBookReads(onDismiss),
       });
       return;
     }
-    this._offerTreasurePick({
-      kind: 'trail', header, art: 'trail_prize', choices, onDismiss,
-      sub: 'Your neighbours offer you gifts to thank you for repairing the road. Choose one.',
-    });
+    // No flavour line: the header already carries the thanks, and the pick
+    // names itself ("Choose one gift"). One picture row, one line, one button.
+    // The thanks are the line under the card the kept gift then opens as.
+    this._offerTreasurePick({ kind: 'trail', header, art: 'trail_prize', choices, takenSub: TRAIL_PRIZE_THANKS, onDismiss });
   }
 
   // The button face for one option: the reward's own icon over its name, so
   // the options read as small ceremonies rather than words. What the reward
-  // DOES is not on the face — it sits behind the card's ⓘ (_trailRewardBlurb,
-  // shown by showChestRewardModal's `info`), so three cards fit across.
+  // DOES is not on the face — it is the line under the row once the card is
+  // selected (_trailRewardBlurb, showChestRewardModal's `info`), so three
+  // cards fit across.
   // The card's `sub` is deliberately NOT drawn here — it's the ceremony's
   // outcome line ("equipped"), and on an option the player hasn't taken yet
   // that would state as done the very thing the button is asking about.
@@ -12753,11 +12929,12 @@ class MapScene extends Phaser.Scene {
     return null;   // an unrecognised kind draws no card and opens no modal
   }
 
-  // What ONE reward DOES, for the ⓘ on its pick card — the same line the item
-  // already carries elsewhere (the ✦ effect, a relic's blurb, the soak an
-  // armour piece prints in the shop), never a second description. Null when
-  // there is nothing to say (gold, an item with no ✦ line): that card gets
-  // no ⓘ at all rather than one that opens on nothing.
+  // What ONE reward DOES, the line under the pick row while its card is
+  // selected — the same line the item already carries elsewhere (the ✦
+  // effect, a relic's blurb, the soak an armour piece prints in the shop),
+  // never a second description. Null when there is nothing to say (gold, an
+  // item with no ✦ line): that card's line stays empty rather than saying
+  // nothing at length.
   _trailRewardBlurb(reward) {
     if (!reward) return null;
     if (reward.kind === 'item') {
@@ -12773,6 +12950,23 @@ class MapScene extends Phaser.Scene {
     return null;
   }
 
+  // ONE REWARD, SHOWN. The ceremony for a single reward already paid: its
+  // own sprite, name, tier badge and amount on the chest shell, framed by the
+  // caller (`kind`, `header`, `art`, `sub`, `onDismiss`). A seed a neighbour
+  // hands over or the roll an elite drops is SEEN here, not read off a toast
+  // (Oct 2026, owner's call: every quest reward that is an item shows the
+  // item). The card's own sub ('equipped') follows a given one as its own
+  // short sentence, so a relic's card still says it is worn. False, and
+  // nothing shown, for a reward that draws no card.
+  showRewardCard(reward, extra = {}) {
+    const card = this._trailRewardCard(reward);
+    if (!card) return false;
+    const own = card.sub ? card.sub[0].toUpperCase() + card.sub.slice(1) + '.' : '';
+    const sub = [extra.sub, own].filter(Boolean).join(' ') || undefined;
+    this.showChestRewardModal({ ...card, ...extra, sub });
+    return true;
+  }
+
   // Pay out the reward the player KEPT — item into the bag, gold into the
   // purse, gear equipped — and hand back its card so the caller can say what
   // arrived. Consolation coins ride along with whatever was taken; a roll
@@ -12786,12 +12980,32 @@ class MapScene extends Phaser.Scene {
 
   // THE PICK — one lane for every "several finds, keep one" in the game
   // (Trail.PRIZE_CHOICES of them): the road ladder above. (A dug-up X was a
-  // pick for a while in Sep 2026; it went back to paying one find.) Each button IS a reward card (the shell takes HTML
-  // labels), so the player reads them the same way they read a single
-  // ceremony; each card's description waits behind its ⓘ (`info`). An actions modal has no tap-to-dismiss,
-  // so the prize can't be lost to a stray tap on the overlay. Nothing is paid
-  // until a button is pressed: the option turned down was never theirs.
-  _offerTreasurePick({ kind, header, art, choices, sub, kindIcon, onDismiss }) {
+  // pick for a while in Sep 2026; it went back to paying one find.) Each card
+  // IS a reward card (the shell takes HTML labels), so the player reads them
+  // the way they read a single ceremony. A tap SELECTS a card and shows what
+  // it does under the row (`info`); the one Take button pays it (Oct 2026 —
+  // this replaced an ⓘ on every card, which cluttered the row and made a
+  // tap on the card itself the irreversible act). An actions modal has no
+  // tap-to-dismiss, so the prize can't be lost to a stray tap on the overlay.
+  // Nothing is paid until Take is pressed: the option turned down was never theirs.
+  //
+  // AND THE KEPT GIFT IS SHOWN (Oct 2026, owner's call: every quest reward
+  // that is an item shows the item). Take closes the pick and opens the kept
+  // reward as its own card — sprite, name, tier and amount under the same
+  // banner, `takenSub` (the giver's thanks) as its line — through
+  // showRewardCard, the lane the single-reward ceremony and every other
+  // earned reward use. The pick used to flash the kept card as a toast,
+  // which on the first road prize was the only word the player got of what
+  // they had taken, and a toast under a closing dialog is missed.
+  //
+  // The caller's `onDismiss` (the prize queue walking on) fires when the
+  // CARD closes, not when the pick does: a queued prize draining on the
+  // pick's close would open its own ceremony on the same shell id and
+  // replace the card before it was read (makeModalShell drops a same-id
+  // dialog). A book taken from the row reads after the card, as on the
+  // single-reward path (deferBookRead → _revealPendingBookReads).
+  _offerTreasurePick({ kind, header, art, choices, takenSub, kindIcon, onDismiss }) {
+    let taken = null;
     this.showChestRewardModal({
       kind,
       header,
@@ -12799,25 +13013,27 @@ class MapScene extends Phaser.Scene {
       kindIcon,
       // No icon: the banner is the picture and each choice button carries its
       // own. A gem here made the dialog taller than the screen.
-      name: 'Take your pick',
-      sub,
-      onDismiss,
+      name: 'Choose one gift',
       cards: true,
+      confirmLabel: 'Take',
+      pickHint: 'Tap a gift to see what it does',
       actions: choices.map((reward) => ({
         label: this._trailChoiceLabel(reward),
         info: this._trailRewardBlurb(reward),
         onClick: () => {
-          const card = this._claimTrailReward(reward);
+          const card = this._claimTrailReward(reward, { deferBookRead: true });
           if (!card) return;
-          this.flashLoot(card.qty ? `${card.name} ${card.qty}` : card.name,
-                         card.color || UI_TREASURE, 1,
-                         reward.kind === 'item' ? reward.id : null);
+          taken = reward;
           // NO jackpot fanfare on a pick: with several finds on offer, the
           // boost chain that fattened one of them is not a moment the player
           // won — they chose among what was laid out.
           persistSave(this.save);
         },
       })),
+      onDismiss: () => {
+        const done = () => this._revealPendingBookReads(onDismiss);
+        if (!taken || !this.showRewardCard(taken, { kind, header, art, kindIcon, sub: takenSub, onDismiss: done })) done();
+      },
     });
   }
 
@@ -12884,6 +13100,7 @@ class MapScene extends Phaser.Scene {
         const restoredRole = this._preseedRestoreRole(order, house);
         this.save.restoredHouses[house.id] = restoredRole;   // role string, not bare `true`
         Houses.registerWizardTower(this.save, house, order);
+        Houses.registerBookshop(this.save, house, order);
         if (restoredRole === 'wizard') NPC.restoreShrine(this, house);
         // The first wreck restored becomes the starter blacksmith (wooden-tool
         // forge). Stamp its id so isStarterBlacksmith picks it up.
@@ -13132,12 +13349,9 @@ class MapScene extends Phaser.Scene {
         }
       }
     }
-    // Then every category's default painting (MODAL_KINDS `art`), queued
-    // after the icons: most dialogs then open on a painting already in the
-    // cache, and the PIXEL RESOLVE mosaic is only ever seen by a story piece
-    // on a cold start. Same two-at-a-time queue, so it never competes with
-    // the map for more than two connections.
-    for (const k of Object.values(MODAL_KINDS)) if (k.art) urls.add(sceneArtUrl(k.art));
+    // Keep startup prewarming to small icons. Category paintings total about
+    // 27 MiB of decoded pixels; opening a modal loads its own painting over
+    // the inline PIXEL RESOLVE placeholder instead of decoding them all here.
     IconNet.prewarm([...urls]);
   }
 
@@ -13673,6 +13887,10 @@ class MapScene extends Phaser.Scene {
     if (id === 'book') {
       if (n <= 0) return 0;
       if (!silent) {
+        // THE BOOK CLUB's reading (Macros.booksRead): every Book read counts,
+        // found, bought or off the club's own shelf — the brake on buying is
+        // the counter's price ladder (shops_math.js listPrice), not this.
+        this.save.booksRead = (this.save.booksRead || 0) + n;
         this._pendingBookReads = (this._pendingBookReads || 0) + n;
         // deferBookRead: the caller shows its own modal right after and will
         // reveal these itself from that modal's onDismiss. Otherwise reveal
@@ -14475,19 +14693,6 @@ class MapScene extends Phaser.Scene {
           this.syncConsumableButton();
         },
       } : undefined;
-      // The Enchanter's CHANNEL is the same middle button on a timed potion
-      // (a `channel` row — none of them has a `secondary` of its own): the
-      // effect and its timer for energy, the flask kept. Greyed while the bar
-      // is short; channelPotion re-checks and spends through spendEnergy.
-      if (!secondary && entry.channel && typeof Wizard !== 'undefined'
-          && Wizard.isClass(this.save, 'enchanter')) {
-        const cost = Wizard.ENCHANTER_ENERGY_COST;
-        secondary = {
-          label: `Channel −${cost}⚡`,
-          disabled: (this.save.energy ?? 0) < cost,
-          onClick: () => { this.channelPotion(id, fn); this.syncConsumableButton(); },
-        };
-      }
       this.showOfferModal({
         kind: 'use',
         title: entry.title,
@@ -14536,6 +14741,12 @@ const game = window.__game = new Phaser.Game({
   zoom: 1 / RENDER_SCALE,
   backgroundColor: '#000',
   pixelArt: true,
+  // Phaser 3.87 preallocates three square pre-FX targets every 32px up to
+  // the canvas width, plus three full-size targets. At 1179×2826 that pool
+  // alone is ~228 MiB of RGBA pixels, even before any shiny uses it.
+  // Use the existing light/spark fallback for shinies and disable optional FX.
+  disablePreFX: true,
+  disablePostFX: true,
   // See FPS_LIMIT / PHASER_FPS_LIMIT: 30 steps/s on any display, 0 = uncapped (?fps=0).
   fps: { limit: PHASER_FPS_LIMIT },
   scene: [MapScene],
@@ -14569,8 +14780,7 @@ const game = window.__game = new Phaser.Game({
 // viewport changes, and publishes its scale through this hook; devicePixelRatio
 // moves too, when a window is dragged between monitors or the browser zooms. If
 // the canvas didn't follow, it would keep a backing store sized for the old
-// screen and the 1:1 match — the whole point of the exercise — would quietly
-// lapse into a fractional rescale until the next reload.
+// screen. The same memory cap applies at boot and after every resize.
 //
 // The epsilon is not a tuning knob: resizing a WebGL drawing buffer reallocates
 // it, and fitGame fires on every resize event, so a scale that wobbles in the

@@ -6,12 +6,15 @@
       originPx: { x: 0, y: 0 }, mPerPx: 1, cellsPerTile: 32, cellM: 8,
       depth: 2, facing: { x: 0, y: -1 }, flashes: [],
       _groundFireFuel() { return []; },
+      isRestingAtHome() { return false; },
       flash(message) { this.flashes.push(message); },
     }, overrides);
-    // Exercise the same UTC ledger as the other reusable tomes.
+    // Exercise the shared activation lock and own cooldown of the other tomes.
     for (const name of ['_tomeReady', '_tomeSpent']) {
       const match = SCENE_SRC.match(new RegExp(`\\n  ${name}\\(id\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n`));
-      s[name] = new Function('id', match[1]);
+      const cooldown = SCENE_SRC.match(/const TOME_COOLDOWN_MS = ([^;]+);/)[1];
+      s[name] = new Function('TOME_COOLDOWN_MS', 'shortDuration',
+        'return function(id) {' + match[1] + '}')(new Function('return ' + cooldown)(), ms => String(ms));
     }
     s.playerScreen = () => ({ x: 0, y: 0 });
     s.playerBodyDy = () => 0;
@@ -29,18 +32,21 @@
       }
       assert.falsy(s.save.groundFire[GroundFire.key(2, 31, 31)], 'player cell stays clear');
       assert.eq(s.save.inv[0].count, 1, 'the tome is reusable');
-      assert.falsy(s.readTomeFirewall(), 'second reading waits until tomorrow');
+      assert.inRange(s.save.tomeReadyAt - Date.now(), 3600e3 - 1000, 3600e3);
+      assert.inRange(s.save.tomeMagicCd.tome_firewall - Date.now(), 8 * 3600e3 - 1000, 8 * 3600e3);
+      assert.falsy(s.readTomeFirewall(), 'second reading waits for cooldown');
     }
   });
 
-  test('wall of fire tome: compass quantizes and unusable burned ground preserves the daily charge', () => {
+  test('wall of fire tome: compass quantizes and unusable burned ground preserves both cooldowns', () => {
     const s = scene({ facing: { x: 0.12, y: -0.9 } });
     for (let x = 29; x <= 33; x++) {
       s._igniteGroundCell({ cellIX: x, cellIY: 30 }, Date.now() - 60000);
       s.save.groundFire[GroundFire.key(2, x, 30)].extinguished = true;
     }
     assert.falsy(s.readTomeFirewall());
-    assert.falsy(s.save.tomeDays?.tome_firewall);
+    assert.falsy(s.save.tomeMagicCd?.tome_firewall);
+    assert.falsy(s.save.tomeReadyAt);
     assert.eq(s.flashes[0], 'No fresh ground — tome kept');
     s.facing = { x: 1, y: 0 };
     assert.truthy(s.readTomeFirewall(), 'a partly scorched wall can light the fresh cells');
@@ -54,7 +60,8 @@
       { save: { energy: 100, inv: [{ id: 'book', count: 1 }], selSlot: 0 } }]) {
       const s = scene(overrides);
       assert.falsy(s.readTomeFirewall());
-      assert.falsy(s.save.tomeDays?.tome_firewall);
+      assert.falsy(s.save.tomeMagicCd?.tome_firewall);
+      assert.falsy(s.save.tomeReadyAt);
       assert.falsy(s.save.groundFire);
     }
   });

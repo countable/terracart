@@ -59,7 +59,7 @@
     });
   });
 
-  test('giant potion: empty or wrong selections cannot activate the buff; channel preserves flask', () => {
+  test('giant potion: empty or wrong selections cannot activate the buff; drinking consumes the flask', () => {
     withClock(() => {
       const drink = sceneMethod('drinkGiantPotion');
       for (const scene of [potionScene('giant_potion', 0), potionScene('reach_potion')]) {
@@ -67,8 +67,8 @@
         assert.eq(scene.save.giantPotionUntil, undefined);
       }
       const scene = potionScene('giant_potion', 1);
-      assert.eq(drink.call(scene, { channel: true }), true);
-      assert.eq(Inventory.count(scene.save, 'giant_potion'), 1);
+      assert.eq(drink.call(scene), true);
+      assert.eq(Inventory.count(scene.save, 'giant_potion'), 0);
       assert.eq(scene.save.giantPotionUntil, T0 + 180_000);
     });
   });

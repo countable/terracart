@@ -92,8 +92,10 @@ test('enemy art: size reduction targets 2x foes and the two selected giants only
     goblin_archer: 1.25, goblin_trapper: 1.25, mini_slime: 0.78,
     mini_spider: 1.3, giant_slime: 1.536, giant_spider: 3.2,
     moss_slime: 1.2, giant_plant: 3.2,
-    // The gull and the raven wear the crow's geometry (CREATURE_ART), unscaled.
-    gull: 1.3, raven: 1.3 });
+    // The gull and the raven wear the crow's geometry (CREATURE_ART), unscaled;
+    // so does the storm gull (lairs.js GROUPS). The splitting slime is the
+    // surface slime's row under its own palette.
+    gull: 1.3, raven: 1.3, storm_gull: 1.3, split_slime: 1.2 });
   assert.eq(Object.keys(expected).length, EnemyRoster.ROWS.filter(row => !row.art.directions).length);
   for (const [kind, scale] of Object.entries(expected)) {
     assert.lt(Math.abs(SpriteLayout.creatureScale(kind) - scale), 1e-9, kind);

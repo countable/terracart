@@ -148,6 +148,8 @@ const PLAY_TIPS = [
   ITEM_GUIDE_TIPS.fireball_scroll,
   ITEM_GUIDE_TIPS.fear_scroll,
   ITEM_GUIDE_TIPS.treasure_map,
+  "Joined the book club at the school booth. The scholars count every book I read and take a prize down from the shelf as the pile grows. Bought ones count too, at a climbing price.",
+  // Append new guides after all published pages to preserve saved bookmarks.
   ITEM_GUIDE_TIPS.thunder_potion,
   ITEM_GUIDE_TIPS.raven_potion,
 ];
@@ -388,6 +390,7 @@ const PLAY_TIP_VOLUMES = [
   "road",
   "road",
   "road",
+  "ledger",
   "wizard",
   "wizard",
 ];

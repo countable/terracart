@@ -3549,7 +3549,10 @@
   // actually shows as a structure (the same slate slab schools and malls
   // render as). Excludes outdoor pools (swimming/swimming_pool become water
   // elsewhere).
-  const POI_CIVIC_BUILDING = new Set(['sports_centre','ice_rink','stadium']);
+  // Includes the schools (Oct 2026): the scholar's booth stands at the school's
+  // outer wall, so a school with no building polygon raises a block for the
+  // booth to be pushed to the edge of — the old synthesized pyramid pad is gone.
+  const POI_CIVIC_BUILDING = new Set(['sports_centre','ice_rink','stadium','school','college','university']);
   // Cells a synthesized POI pad never overwrites: water, every road tier, the
   // footpath and every building tier.
   const POI_PAD_KEEP = new Set([T.WATER, T.ROAD, T.PATH, ...BUILDING_TYPES, T.ROAD_LG, T.ROAD_MD]);
@@ -3656,8 +3659,8 @@
     // Gate and information POI cells (tile-local), placed after the road mask
     // is resolved — see POI_GATE_CLASS / POI_INFO_CLASS.
     const gatePoints = [], infoPoints = [];
-    // Grid indices of synthesized CONCRETE POI pads (the hospital cross /
-    // school pyramid painted around a POI chest). Scatter interactables are
+    // Grid indices of synthesized CONCRETE POI pads (the hospital cross
+    // painted around a POI chest). Scatter interactables are
     // culled off these cells in the post-pass — a rock/tree on a POI's plaza
     // reads as junk dumped on the destination. Park-family buffers (padType
     // PARK) are deliberately NOT tracked: they're meant to read as meadow.
@@ -4787,15 +4790,6 @@
                 }
                 shapeOffsets = arr;
                 padType = T.COMMERCIAL;
-              } else if (cls === 'school' || cls === 'college' || cls === 'university') {
-                const arr = [];
-                const rows = [1, 3, 5, 7];
-                for (let r = 0; r < rows.length; r++) {
-                  const half = (rows[r] - 1) / 2;
-                  for (let dx = -half; dx <= half; dx++) arr.push([dx, r]);
-                }
-                shapeOffsets = arr;
-                padType = T.COMMERCIAL;
               }
             }
             if (shapeOffsets) {
@@ -5184,7 +5178,7 @@
           // naturally where a rock on the foundation reads as junk.
           const _mrIsTree = isTreeLike(o.kind);
           if (!_mrIsTree && nearBuildingCell(ground, w, h, ix, iy)) return true;
-          // Synthesized concrete POI pads (hospital cross / school pyramid)
+          // Synthesized concrete POI pads (the hospital cross)
           // repaint cells AFTER scatter spawns ran — e.g. a residential rock
           // cluster's cell becomes COMMERCIAL pad, skipping the RESIDENTIAL
           // spawn gate below. Nothing but the chest belongs on its plaza.

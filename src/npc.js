@@ -270,11 +270,11 @@ const NPC = (() => {
   // CHILD_SCALE of a grown neighbour.
   const CHILD_SCALE = 0.7;
   const STORY_ROLES = {
-    warden: { label: 'Warden', name: 'Bryn', minMemories: 3 },
-    witness: { label: 'Survivor', name: 'Maud', minMemories: 6, arrives: 'rescue' },
-    wanderer: { label: 'Wanderer', name: 'Tilly', artScale: CHILD_SCALE, minMemories: 0 },
-    believer: { label: 'Believer', name: 'Edda', minMemories: 9 },
-    archaeologist: { label: 'Dragon Archaeologist', name: 'Orrin', minMemories: 0, radiusM: 250 },
+    warden: { label: 'Warden', name: 'Bryn', art: 'npc_bryn', minMemories: 3 },
+    witness: { label: 'Survivor', name: 'Maud', art: 'npc_maud', minMemories: 6, arrives: 'rescue' },
+    wanderer: { label: 'Wanderer', name: 'Tilly', art: 'npc_tilly', housedArt: 'npc_tilly_happy', artScale: CHILD_SCALE, minMemories: 0 },
+    believer: { label: 'Believer', name: 'Edda', art: 'npc_edda', minMemories: 9 },
+    archaeologist: { label: 'Dragon Archaeologist', name: 'Orrin', art: 'npc_orrin', minMemories: 0, radiusM: 250 },
   };
   const STORY_NEIGHBOURS = Object.keys(STORY_ROLES);
   function storyNeighbour(id, role) {
@@ -532,9 +532,13 @@ const NPC = (() => {
     }
     return talkOf(title, body);
   }
-  // Use the same RGB multiplication as Phaser's world tint, including alpha.
-  // Cache on the live NPC, not in a growing global table of everyone met.
+  // Named neighbours share a story painting across every dialogue surface.
+  // Other residents use the same RGB multiplication as Phaser's world tint,
+  // including alpha, cached on the live NPC rather than a global roster.
   function portrait(scene, c) {
+    const row = STORY_ROLES[c.role];
+    if (row?.housedArt && typeof MemoryStory !== 'undefined' && MemoryStory.wandererHoused(scene.save, c)) return row.housedArt;
+    if (row?.art) return row.art;
     if (c._portrait) return c._portrait;
     const sheet = SpriteLayout.npcSheet(c);
     const source = scene.textures.get(sheet.idle).getSourceImage();

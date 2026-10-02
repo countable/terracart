@@ -390,8 +390,12 @@ const MINERAL_ICON_SHEET = {
   book:       { sheet: 'icon_book',   frame: 0 },
   tome_sight: { sheet: 'icon_book',   frame: 2 },
   tome_raven: { sheet: 'icon_book',   frame: 8 },
-  tome_storm: { sheet: 'icon_book',   frame: 13 },
-  tome_firewall: { sheet: 'icon_book', frame: 5 },
+  tome_storm:   { sheet: 'icon_book', frame: 13 },
+  tome_speed:   { sheet: 'icon_book', frame: 3 },
+  tome_shield:  { sheet: 'icon_book', frame: 4 },
+  tome_healing: { sheet: 'icon_book', frame: 5 },
+  tome_blight:  { sheet: 'icon_book', frame: 6 },
+  tome_firewall: { sheet: 'icon_book', frame: 7 },
   // Books.png ends with five scrolls on row 3 (15 columns).
   blank_scroll:    { sheet: 'icon_book', frame: 45 },
   fireball_scroll: { sheet: 'icon_book', frame: 46 },
@@ -628,6 +632,7 @@ const BASE_TIER = {
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_sight: 3, tome_raven: 4, tome_storm: 5, tome_firewall: 4,
   blank_scroll: 2, fireball_scroll: 3, explosive_flask: 3, fear_scroll: 3, treasure_map: 4,
+  tome_speed: 3, tome_shield: 3, tome_healing: 3, tome_blight: 4,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
   // Trap Disarm Kit — a T2 utility beside rope: situational, not a staple.
@@ -771,12 +776,17 @@ const ITEMS = [
   // plain Book in any chest whose tier meets its own (chest_themes books
   // group: eligible() admits by baseTier, pickItem() takes the top tier
   // present), so a T3+ book chest hands a tome, never the story Book. Read
-  // once a UTC day; the original three channel the potion one tier below,
-  // and the fire tome raises a barrier. Never consumed or sold: chests only.
-  { id: 'tome_sight', name: 'Tome of Distant Sight', kind: 'supply', dropWeight: 1 },
-  { id: 'tome_raven', name: 'Tome of the Raven',     kind: 'supply', dropWeight: 1 },
-  { id: 'tome_storm', name: 'Tome of the Storm',     kind: 'supply', dropWeight: 1 },
-  { id: 'tome_firewall', name: 'Wall of Fire Tome',  kind: 'supply', dropWeight: 1 },
+  // for a spell or the effect of the potion ONE TIER BELOW the tome
+  // (app.js readTome*), with timed cooldowns; never consumed or sold.
+  // Chests only.
+  { id: 'tome_sight',    name: 'Tome of Reach',     kind: 'unique_relic', dropWeight: 1 },
+  { id: 'tome_raven',    name: 'Tome of the Raven',   kind: 'unique_relic', dropWeight: 1 },
+  { id: 'tome_storm',    name: 'Tome of Thunder',     kind: 'unique_relic', dropWeight: 1 },
+  { id: 'tome_speed',    name: 'Tome of Speed',       kind: 'unique_relic', dropWeight: 1 },
+  { id: 'tome_shield',   name: 'Tome of Shielding',   kind: 'unique_relic', dropWeight: 1 },
+  { id: 'tome_healing',  name: 'Tome of Healing',     kind: 'unique_relic', dropWeight: 1 },
+  { id: 'tome_blight',   name: 'Tome of Blight',      kind: 'unique_relic', dropWeight: 1 },
+  { id: 'tome_firewall', name: 'Wall of Fire Tome', kind: 'unique_relic', dropWeight: 1 },
   { id: 'blank_scroll', name: 'Blank Scroll', kind: 'supply' },
   { id: 'fireball_scroll', name: 'Fireball Scroll', kind: 'magic', scroll: true },
   { id: 'explosive_flask', name: 'Explosive Flask', kind: 'magic' },
@@ -788,7 +798,7 @@ const ITEMS = [
   { id: 'antidote', name: 'Antidote', kind: 'magic', potion: true },
   { id: 'elixir', name: 'Elixir', kind: 'magic', potion: true },
   { id: 'reach_potion',  name: 'Potion of Reach',     kind: 'magic', potion: true },
-  { id: 'vigor_potion',  name: 'Potion of Vigor',     kind: 'magic', potion: true },
+  { id: 'vigor_potion',  name: 'Potion of Healing',    kind: 'magic', potion: true },
   { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'magic', potion: true },
   { id: 'shield_potion', name: 'Potion of Shielding', kind: 'magic', potion: true },
   { id: 'protection_potion', name: 'Potion of Protection', kind: 'magic', potion: true },
@@ -993,10 +1003,10 @@ const CAMPFIRE_MAKES = { meat: 'grilled_meat',
 const GRILL_ENERGY_MUL = 1.5;
 // POTIONS IN THE FIRE (the burn confirm's accept, app.js presentBurnConfirm).
 // Two TRANSMUTE into another potion. Their recipes stay fixed when loot
-// tiers change: Vigor becomes Revival, Speed becomes Reach. Every other potion EXPLODES,
+// tiers change: Revival becomes Healing, Speed becomes Reach. Every other potion EXPLODES,
 // hurting the player by POTION_BLAST_DMG_PER_TIER × its tier, soaked by
 // armour like any other blow (Combat.playerDamage).
-const POTION_FIRE_TRANSMUTE = { vigor_potion: 'revive_potion', speed_potion: 'reach_potion' };
+const POTION_FIRE_TRANSMUTE = { revive_potion: 'vigor_potion', speed_potion: 'reach_potion' };
 const POTION_BLAST_DMG_PER_TIER = 3;
 const POTION_THROW_COOLDOWN_MS = 1000;
 function isPotion(id) {
@@ -1106,14 +1116,30 @@ const CONSUMABLE_SPEC = {
     usable: scene => EggHatch.ready(scene.save),
   },
   book: { verb: 'Read', method: 'readBook', title: 'Read the book?', get: 'An elder has left a few words for you.' },
-  tome_sight: { verb: 'Read', method: 'readTomeSight', title: 'Read the Tome of Distant Sight?',
+  tome_sight: { verb: 'Read', method: 'readTomeSight', title: 'Read the Tome of Reach?',
+    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_sight'),
     get: 'The far edge of the world leans closer with every page.' },
   tome_raven: { verb: 'Read', method: 'readTomeRaven', title: 'Read the Tome of the Raven?',
+    cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_raven'),
     get: 'A raven of smoke and starlight waits between the lines.' },
-  tome_storm: { verb: 'Read', method: 'readTomeStorm', title: 'Read the Tome of the Storm?',
+  tome_storm: { verb: 'Read', method: 'readTomeStorm', title: 'Read the Tome of Thunder?',
+    cooldownMs: 24 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_storm'),
     get: 'Storm writings. The sky leans in to listen.' },
+  tome_speed: { verb: 'Read', method: 'readTomeSpeed', title: 'Read the Tome of Speed?',
+    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_speed'),
+    get: 'Every line quickens. The road unwinds faster beneath you.' },
+  tome_shield: { verb: 'Read', method: 'readTomeShield', title: 'Read the Tome of Shielding?',
+    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_shield'),
+    get: 'The words settle around you like layered plates.' },
+  tome_healing: { verb: 'Read', method: 'readTomeHealing', title: 'Read the Tome of Healing?',
+    cooldownMs: 2 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_healing'),
+    get: 'A warmth gathers where the page is worn softest.' },
+  tome_blight: { verb: 'Read', method: 'readTomeBlight', title: 'Read the Tome of Blight?',
+    cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_blight'),
+    get: 'The margin ink crawls. What it touches sickens.' },
   tome_firewall: { lengthCells: 5,
     verb: 'Read', method: 'readTomeFirewall', title: 'Read the Wall of Fire Tome?',
+    cooldownMs: 8 * 60 * 60 * 1000, usable: scene => scene.tomeUsable('tome_firewall'),
     get: 'A wall of flame rises across the ground ahead.' },
   honey: {
     radiusM: 30,
@@ -1124,7 +1150,6 @@ const CONSUMABLE_SPEC = {
     durationMs: _CONSUMABLE_MINUTE_MS,
     verb: 'Drink', method: 'drinkReachPotion', title: 'Drink the Potion of Reach?',
     get: 'The far edges of the world draw close enough to touch.',
-    channel: true,
   },
   antidote: {
     verb: 'Drink', method: 'drinkAntidote', title: 'Drink the Antidote?',
@@ -1146,17 +1171,16 @@ const CONSUMABLE_SPEC = {
     durationMs: _CONSUMABLE_MINUTE_MS, movementTier: 9,
     verb: 'Drink', method: 'drinkSpeedPotion', title: 'Drink the Potion of Speed?',
     get: 'Warmth rushes into your legs. For a little while, your steps are light and swift.',
-    channel: true,
   },
   protection_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.75,
     verb: 'Drink', method: 'drinkProtectionPotion', title: 'Drink the Potion of Protection?',
-    get: 'A pale ward softens the blows that reach you.', channel: true,
+    get: 'A pale ward softens the blows that reach you.',
   },
   immortal_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS,
     verb: 'Drink', method: 'drinkImmortalPotion', title: 'Drink the Potion of Immortal?',
-    get: 'For a brief while, no wound can reach you.', channel: true,
+    get: 'For a brief while, no wound can reach you.',
   },
   time_potion: {
     verb: 'Drink', method: 'drinkTimePotion', title: 'Drink the Potion of Time?',
@@ -1166,24 +1190,21 @@ const CONSUMABLE_SPEC = {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS,
     verb: 'Drink', method: 'drinkFireResistancePotion', title: 'Drink the Potion of Fire Resistance?',
     get: 'Flames curl harmlessly around your skin.',
-    channel: true,
   },
   shrinking_potion: {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS, scaleMul: 0.5, maxHpMul: 0.5, meleeDamageMul: 0.5, visionCells: 1,
     verb: 'Drink', method: 'drinkShrinkingPotion', title: 'Drink the Potion of Shrinking?',
-    get: 'You dwindle beneath the grass, small and easily overlooked.', channel: true,
+    get: 'You dwindle beneath the grass, small and easily overlooked.',
   },
   giant_potion: {
     durationMs: 3 * _CONSUMABLE_MINUTE_MS, damageBonus: 5, maxHpBonus: 100, scaleMul: 1.5,
     verb: 'Drink', method: 'drinkGiantPotion', title: 'Drink the Potion of Giant?',
     get: 'Your body rises tall, and strength swells through your limbs.',
-    channel: true,
   },
   shield_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.5,
     verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?',
     get: 'A shimmering veil softens the blows of beasts.',
-    channel: true,
   },
   raven_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS,
@@ -1199,7 +1220,6 @@ const CONSUMABLE_SPEC = {
     durationMs: _CONSUMABLE_MINUTE_MS, radiusCells: 1.5, damagePerSecond: 2,
     verb: 'Drink', method: 'drinkBlightPotion', title: 'Drink the Potion of Blight?',
     get: 'A sickly haze clings to you, withering foes that stray too close.',
-    channel: true,
   },
   revive_potion: {
     energyFrac: 0.30,
@@ -1332,8 +1352,9 @@ const PRICES = {
   book:  20,
   tome_sight: 90,   // T3 — a reach potion's sight, once a day, forever
   tome_raven: 170,  // T4 — a T3 raven's wings, once a day, forever
-  tome_storm: 300,  // T5 — a T4 thunderclap, once a day, forever
-  tome_firewall: 170, // T4 — a wall of ground fire, once a day, forever
+  tome_storm: 300,  // T5 — a T4 thunderclap (the unique-relic curve re-prices all tomes)
+  tome_speed: 100, tome_shield: 80, tome_healing: 70, tome_blight: 170,
+  tome_firewall: 170, // T4 — unique-relic pricing applies
   blank_scroll: 200,
   fireball_scroll: 120,
   explosive_flask: 100,
@@ -1408,7 +1429,7 @@ for (const [raw, c] of Object.entries(COOKED_FOODS)) {
 // (10× this) and as a value fall-through. Items with no explicit PRICES entry
 // (e.g. live animals) fall back to a tier-scaled ladder so the bonus still
 // scales with how prized the thing is rather than flattening to $1.
-const TIER_VALUE = [0, 2, 8, 25, 70, 160, 360, 800];
+const TIER_VALUE = [0, 6, 24, 75, 210, 480, 1080, 2400];   // tripled Oct 2026; the cash lane pays this too
 function itemValue(id) {
   if (PRICES[id] != null) return PRICES[id];
   const t = ITEM_BY_ID[id]?.baseTier || 1;
@@ -1552,6 +1573,10 @@ const ITEM_EFFECTS = {
   tome_sight: 'Page by page, the horizon walks closer.',
   tome_raven: 'Somewhere in the ink, wings shift.',
   tome_storm: 'Thunder is only a sentence away.',
+  tome_speed: 'The road forgets how long it was.',
+  tome_shield: 'Old boards, well nailed, between you and the blow.',
+  tome_healing: 'It has been read through many fevers.',
+  tome_blight: 'Do not read it near the crops.',
   tome_firewall: CONSUMABLE_SPEC.tome_firewall.get,
   blank_scroll: 'At the trailer, remembered scrolls can be written upon this empty page.',
   fireball_scroll: CONSUMABLE_SPEC.fireball_scroll.get,

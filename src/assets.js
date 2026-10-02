@@ -6,6 +6,10 @@ const ASSETS = {
   icon_potions: { kind: 'spritesheet', path: 'assets/Icons/Items/Potions.png', frameWidth: 16, frameHeight: 16 },
   icon_potion: { kind: 'spritesheet', path: 'assets/Icons/Items/Potion_light.png', frameWidth: 16, frameHeight: 16 },
   icon_honey: { kind: 'spritesheet', path: 'assets/Icons/Items/Honey.png', frameWidth: 16, frameHeight: 16 },
+  // Castle turrets share a 28×42 frame and a flush bottom grounding line.
+  // The flag remains a separate live overlay when the castle is claimed.
+  tower: { kind: 'image', path: 'assets/Objects/Generated/castle_tower_restored.png' },
+  tower_unclaimed: { kind: 'image', path: 'assets/Objects/Generated/castle_tower_wreck.png' },
   orrin_idle: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_idle.png', frameWidth: 48, frameHeight: 48 },
   orrin_walk: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_walk.png', frameWidth: 48, frameHeight: 48 },
   npc_0_idle: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman01_idle.png', frameWidth: 48, frameHeight: 48 },
@@ -204,17 +208,19 @@ const ASSETS = {
   // THE MACRO STALLS (loot.js MACRO_KIND_BY_CLASS / macroFor): the in-building
   // POIs that are places you come back to. One 80×80 frame each, the same
   // frame and box as market_stand (art in x:[12,80) y:[0,70)), drawn by
-  // RENDER_SPEC.chest exactly like the stall. Generated placeholders (see
-  // assets/Objects/Generated/README.md, Batch 3). The key is the look's
+  // RENDER_SPEC.chest exactly like the stall. Simple silhouettes and a few
+  // large props keep each service readable at map scale. Each has its own
   // texKey (`macro_<kind>`), so the renderer and the dialog icon agree.
-  macro_inn:         { kind: 'spritesheet', path: 'assets/Objects/Generated/inn.png', frameWidth: 80, frameHeight: 80 },
-  macro_chapel:      { kind: 'spritesheet', path: 'assets/Objects/Generated/chapel.png', frameWidth: 80, frameHeight: 80 },
-  macro_apothecary:  { kind: 'spritesheet', path: 'assets/Objects/Generated/apothecary.png', frameWidth: 80, frameHeight: 80 },
-  macro_scriptorium: { kind: 'spritesheet', path: 'assets/Objects/Generated/scriptorium.png', frameWidth: 80, frameHeight: 80 },
-  macro_guildhall:   { kind: 'spritesheet', path: 'assets/Objects/Generated/guildhall.png', frameWidth: 80, frameHeight: 80 },
-  macro_curio:       { kind: 'spritesheet', path: 'assets/Objects/Generated/curio.png', frameWidth: 80, frameHeight: 80 },
-  macro_sundries:    { kind: 'spritesheet', path: 'assets/Objects/Generated/sundries.png', frameWidth: 80, frameHeight: 80 },
-  macro_training:    { kind: 'spritesheet', path: 'assets/Objects/Generated/training.png', frameWidth: 80, frameHeight: 80 },
+  macro_inn:         { kind: 'spritesheet', path: 'assets/Objects/Generated/inn_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_chapel:      { kind: 'spritesheet', path: 'assets/Objects/Generated/chapel_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_apothecary:  { kind: 'spritesheet', path: 'assets/Objects/Generated/apothecary_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_scriptorium: { kind: 'spritesheet', path: 'assets/Objects/Generated/scriptorium_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_guildhall:   { kind: 'spritesheet', path: 'assets/Objects/Generated/guildhall_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_curio:       { kind: 'spritesheet', path: 'assets/Objects/Generated/curio_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_sundries:    { kind: 'spritesheet', path: 'assets/Objects/Generated/sundries_simple.png', frameWidth: 80, frameHeight: 80 },
+  macro_training:    { kind: 'spritesheet', path: 'assets/Objects/Generated/training_simple.png', frameWidth: 80, frameHeight: 80 },
+  // Scholar has a dedicated reading booth, distinct from the book shop.
+  macro_scholar:     { kind: 'spritesheet', path: 'assets/Objects/Generated/scholar_simple.png', frameWidth: 80, frameHeight: 80 },
   // Stone well — the in-game stand-in for OSM amenity=fountain points. Tapping
   // it refills the watering can like a water tile (see interact.js 'well'
   // branch).
@@ -415,9 +421,12 @@ for (const [key, asset] of Object.entries(ASSETS)) {
 function makeChestTierSheet(source) {
   const size = ASSETS.chest.frameWidth;
   const canvas = document.createElement('canvas');
-  canvas.width = size * CHEST_TIER_MAX; canvas.height = size;
+  // Through chestTierMaxFor(9): the underground tiers (T6 from cave level 3,
+  // T7 from 6) recolor off their rarity badges the same way - no new source
+  // art, the silhouette and shading carry.
+  canvas.width = size * chestTierMaxFor(9); canvas.height = size;
   const ctx = canvas.getContext('2d');
-  for (let tier = 1; tier <= CHEST_TIER_MAX; tier++) {
+  for (let tier = 1; tier <= chestTierMaxFor(9); tier++) {
     const x = (tier - 1) * size;
     ctx.drawImage(source, 0, 0, size, size, x, 0, size, size);
     const color = CHEST_TIER_COLOR[tier];

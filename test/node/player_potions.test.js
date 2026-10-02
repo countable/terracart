@@ -5,8 +5,10 @@
     const start = SCENE_SRC.indexOf('\n  ' + name + '(');
     const end = SCENE_SRC.indexOf('\n  }\n', start);
     assert.truthy(start >= 0 && end > start, `found ${name}`);
-    const shieldConstant = SCENE_SRC.match(/^const SHIELD_POTION_MS = .*;$/m)[0];
-    return new Function(shieldConstant + '\nreturn ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
+    const constants = ['SHIELD_POTION_MS', 'SPEED_POTION_MS', 'BLIGHT_MS', 'TOME_EFFECT_MUL']
+      .map(name => SCENE_SRC.match(new RegExp('^const ' + name + ' = .*;$', 'm'))[0]).join('\n');
+    return new Function(constants + '\nreturn ({'
+      + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
   }
   function clock(fn) {
     const old = Date.now;
@@ -58,6 +60,8 @@
     for (const [id, key, duration] of [
       ['protection_potion', 'protectionPotionUntil', 60_000],
       ['shield_potion', 'shieldPotionUntil', 60_000],
+      ['speed_potion', 'speedPotionUntil', CONSUMABLE_SPEC.speed_potion.durationMs],
+      ['blight_potion', 'blightPotionUntil', CONSUMABLE_SPEC.blight_potion.durationMs],
       ['immortal_potion', 'immortalPotionUntil', 60_000],
       ['fire_resistance_potion', 'fireResistancePotionUntil', 180_000],
     ]) {
@@ -112,6 +116,7 @@
     Object.assign(s.save, { giantPotionUntil: T0 + 180_000, immortalPotionUntil: T0 + 60_000,
       protectionPotionUntil: T0 + 60_000, fireResistancePotionUntil: T0 + 180_000,
       eatReadyAt: T0 + 10_000, tomeDays: { tome_sight: '2023-11-14' },
+      tomeReadyAt: T0 + 3600_000, tomeMagicCd: { tome_sight: T0 + 3600_000 },
       training: { melee: 3 }, tipsRead: 12, coinBurstClaimed: { 'inn:test': T0 } });
     Object.assign(s, { _throwReadyAt: T0 + 1000, _nextBlowT: T0 + 1000,
       _nextShotT: { bow: T0 + 1000 }, _staffCharge: {}, _pinnedUntil: T0 + 3000 });
@@ -119,7 +124,7 @@
     assert.eq(method('drinkTimePotion').call(s), true);
     assert.eq(Inventory.count(s.save, 'time_potion'), 1);
     for (const key of ['giantPotionUntil', 'immortalPotionUntil', 'protectionPotionUntil',
-      'fireResistancePotionUntil', 'eatReadyAt', 'tomeDays']) assert.falsy(s.save[key], key);
+      'fireResistancePotionUntil', 'eatReadyAt', 'tomeDays', 'tomeReadyAt', 'tomeMagicCd']) assert.falsy(s.save[key], key);
     assert.falsy(Conditions.hasDebuffs(s.save, s));
     assert.eq(s._throwReadyAt, 0);
     assert.eq(s._nextBlowT, 0);
