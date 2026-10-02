@@ -963,7 +963,7 @@ const DRAGON_POWDER_MS = CONSUMABLE_SPEC.dragon_powder.durationMs;
 const SHADOW_POWDER_MS = CONSUMABLE_SPEC.shadow_powder.durationMs;
 const GROWTH_POWDER_R_M = CONSUMABLE_SPEC.growth_powder.radiusM;
 const FROST_POWDER_MS = CONSUMABLE_SPEC.frost_powder.durationMs;
-// The Potion of Thunder's flash (drinkThunderPotion) — long enough to read as
+// The Scroll of Thunder's flash (readThunderScroll) — long enough to read as
 // lightning, short enough not to blind the next tap. Its damage is items.js
 // THUNDER_DMG, beside the ✦ line that quotes it.
 const THUNDER_FLASH_MS = 350;
@@ -1455,6 +1455,7 @@ const ICON_SHEETS = {
   icon_salmon:     { url: 'assets/Icons/Fish/Sea/Salmon.png',             cols: 4, srcW: 64, srcH: 16 },
   icon_goldenfish: { url: 'assets/Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
   // Consumables + wilderness drops.
+  icon_raven_scroll: { url: 'assets/Icons/Items/RavenScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_honey:    { url: 'assets/Icons/Items/Honey.png',                      cols: 1,  srcW: 16,  srcH: 16 },
   icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
   // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
@@ -3317,7 +3318,7 @@ class MapScene extends Phaser.Scene {
       // elite's snare bites harder); a generated trap at 1.
       // Only boots protect against traps; apply their soak before banking pips.
       const bite = Traps.STEP_ENERGY * Difficulty.get().trapBiteMul * Traps.trapPower(trap);
-      Energy.set(this.save, before - Combat.playerDamage(bite, { boots: this.save.armor?.boots }));
+      Energy.set(this.save, before - (Conditions.damageImmune(this.save) ? 0 : Combat.playerDamage(bite, { boots: this.save.armor?.boots })));
       const spent = before - this.save.energy;
       this._painFlash(spent);
       // Say the real number: an empty bar loses nothing, so nothing is popped —
@@ -4659,6 +4660,7 @@ class MapScene extends Phaser.Scene {
     // drawing fire the moment it appears rather than a cell later.
     const halfSpanM = (VIEW_CELLS / 2 + 0.5) * this.cellM;
     const enemies = [], charmedAllies = [];
+    const potionTargets = this._shots.some(shot => shot.potionId) ? [] : null;
     const explosiveTargets = this._shots.some(shot => !shot.hostile && shot.blastRadiusM > 0) ? [] : null;
     // 3×3 neighbourhood + memoised caught-Set: this runs every frame, and the
     // all-tiles forEachItem with a per-creature Array.includes was an
@@ -4672,6 +4674,7 @@ class MapScene extends Phaser.Scene {
       if (explosiveTargets && !caughtSet.has(c.id) && Combat.isEnemy(c)) explosiveTargets.push(c);
       if (Math.abs(c.x - px) > halfSpanM || Math.abs(c.y - py) > halfSpanM) return;
       if (caughtSet.has(c.id) || c._surfaceInactive) return;
+      if (potionTargets) potionTargets.push(c);
       if (Combat.isCharmed(c)) { charmedAllies.push(c); return; }
       if (!Combat.isEnemy(c)) return;
       enemies.push(c);
@@ -4857,7 +4860,7 @@ class MapScene extends Phaser.Scene {
         (target, shot) => this._shotHitsTarget(target, shot),
         { blocked: shotBlocked, cellM: this.cellM,
           hostileTargets: [playerTarget, ...(this._npcCombatTargets || []), ...charmedAllies],
-          explosiveTargets,
+          explosiveTargets, potionTargets,
           canHit: (target, shot) => this._shotCanHit(target, shot),
           onFireCell: (x, y, shot) => this._igniteFireballTrail(shot, x, y),
           onFireSegment: (x0, y0, x1, y1, shot) => this._igniteFireballTrail(shot, x0, y0, x1, y1),
@@ -4912,6 +4915,13 @@ class MapScene extends Phaser.Scene {
   }
 
   _tickConditions() {
+    const giantExpired = Energy.expireGiant(this.save);
+    const shrinkingExpired = Energy.expireShrinking(this.save);
+    if (giantExpired || shrinkingExpired) {
+      this._syncPlayerSkin();
+      this.updateEnergyDOM();
+      persistSave(this.save);
+    }
     if (!this._conditionVisibilityHandler) {
       this._conditionVisibilityHandler = () => { this._conditionLastT = null; };
       document.addEventListener('visibilitychange', this._conditionVisibilityHandler);
@@ -5061,6 +5071,7 @@ class MapScene extends Phaser.Scene {
   }
 
   _shotCanHit(target, shot) {
+    if (shot.potionId) return target.id !== 'player';
     // Recheck at impact: an earlier flower in this same frame may have changed
     // the source's or target's allegiance since the target lists were built.
     if (shot._sourceGuard && shot.hostile === Combat.isCharmed(shot._sourceGuard)) return false;
@@ -5071,8 +5082,13 @@ class MapScene extends Phaser.Scene {
 
   _shotHitsTarget(target, shot) {
     if (!this._shotCanHit(target, shot)) return false;
+    if (shot.potionId) {
+      PotionEffects.apply(this, target, shot.potionId);
+      this._burstAtWorld('trailspark', target.x, target.y);
+      return true;
+    }
     if (!shot.hostile) return this._friendlyShotHitsEnemy(target, shot);
-    if (target.kind === 'npc') return NPC.hit(this, target);
+    if (target.kind === 'npc') return NPC.hit(this, target, Date.now(), shot.damage);
     if (target.id === 'player') return this._shotHitsPlayer(shot);
     return this._damageEnemy(target, shot.damage, 'enemy');
   }
@@ -5145,6 +5161,7 @@ class MapScene extends Phaser.Scene {
   _losePlayerEnergy(dmg, { closeShop = false } = {}) {
     const before = this.save.energy ?? 0;
     if (!(before > 0) || !(dmg > 0)) return 0;
+    if (Conditions.damageImmune(this.save)) { this._incomingDamageFraction = 0; return 0; }
     // Hard's post-armour penalty can leave half-pips. Bank them across hits
     // instead of rounding every attack into a different damage rate.
     this._incomingDamageFraction = (this._incomingDamageFraction || 0) + dmg;
@@ -6126,8 +6143,8 @@ class MapScene extends Phaser.Scene {
           const d = Math.hypot(dx, dy) || 1;
           this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
         }
-        const blow = Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass)
-          + this._attackFlat('melee');
+        const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass)
+          + this._attackFlat('melee')) * (Combat.shrinkingActive(this.save) ? CONSUMABLE_SPEC.shrinking_potion.meleeDamageMul : 1);
         if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
         // A LIT TORCH (isTorchActive) SETS THE FOE ALIGHT — Combat.ignite,
         // the `burning` row of Conditions.DEFINITIONS, as the player's own
@@ -6825,9 +6842,11 @@ class MapScene extends Phaser.Scene {
   // The FLAT damage a hit of the player's own carries on top, after
   // _attackMul — its own attack type's training ('melee' a blow, 'ranged' an
   // arrow, 'magic' a bolt; Combat.trainingBonus). One answer every attack
-  // path reads, by type.
+  // path reads, by type. Giant adds its flat bonus to melee blows.
   _attackFlat(kind) {
-    return Combat.TRAINING_KINDS[kind]?.unit === 'dmg' ? Combat.trainingBonus(this.save, kind) : 0;
+    const training = Combat.TRAINING_KINDS[kind]?.unit === 'dmg' ? Combat.trainingBonus(this.save, kind) : 0;
+    const giant = kind === 'melee' ? Combat.giantDamageBonus(this.save) : 0;
+    return training + giant;
   }
   // Is the stick actually being PUSHED right now? Pointer-down alone isn't
   // enough — a finger resting on a centred nub holds _movePadHeld true while
@@ -9234,7 +9253,7 @@ class MapScene extends Phaser.Scene {
   // Returns true if eaten, false if not edible / nothing selected.
   // Side-effects read their duration and radius from CONSUMABLE_SPEC.
   // === Consumables ============================================
-  // Set out syrup (consumed): every wandering producer inside its radius has
+  // Set out the Potion of Taming (consumed): every wandering producer inside its radius has
   // its home position re-anchored to ~3m from the player so it wanders toward you
   // over the next few seconds. Doesn't teleport — that would feel cheesy.
   // Shared tail for modal-feedback consumables (honey, book): consume the
@@ -9280,8 +9299,8 @@ class MapScene extends Phaser.Scene {
       }
     }
     return this._finishConsumable(
-      '🍯 You set out the syrup',
-      lured > 0 ? 'The sweet scent carries. Nearby creatures turn their noses toward you.' : 'The syrup gleams in the quiet. Nothing stirs nearby.',
+      '🍯 You set out the Potion of Taming',
+      lured > 0 ? 'The sweet scent carries. Nearby creatures turn their noses toward you.' : 'The potion gleams in the quiet. Nothing stirs nearby.',
     );
   }
 
@@ -9534,6 +9553,69 @@ class MapScene extends Phaser.Scene {
     );
   }
 
+  drinkTimePotion() {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'time_potion' || (sel.count ?? 0) <= 0) return false;
+    PlayerTime.reset(this);
+    return this._finishConsumable('You drink the Potion of Time', 'All effects fade. Your items are ready again.');
+  }
+
+  drinkProtectionPotion(opts = {}) {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'protection_potion' || (sel.count ?? 0) <= 0) return false;
+    this.save.protectionPotionUntil = Date.now() + CONSUMABLE_SPEC.protection_potion.durationMs;
+    return this._finishConsumable(`You ${opts.channel ? 'channel' : 'drink'} the Potion of Protection`,
+      CONSUMABLE_SPEC.protection_potion.get, opts);
+  }
+
+  drinkImmortalPotion(opts = {}) {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'immortal_potion' || (sel.count ?? 0) <= 0) return false;
+    this.save.immortalPotionUntil = Date.now() + CONSUMABLE_SPEC.immortal_potion.durationMs;
+    this._incomingDamageFraction = 0;
+    this.save.fireDamageRemainder = 0;
+    return this._finishConsumable(`You ${opts.channel ? 'channel' : 'drink'} the Potion of Immortal`,
+      `Immune to all damage for ${shortDuration(CONSUMABLE_SPEC.immortal_potion.durationMs)}.`, opts);
+  }
+
+  drinkFireResistancePotion(opts = {}) {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'fire_resistance_potion' || (sel.count ?? 0) <= 0) return false;
+    this.save.fireResistancePotionUntil = Date.now() + CONSUMABLE_SPEC.fire_resistance_potion.durationMs;
+    Conditions.cure(this.save, 'burning');
+    this.save.fireDamageRemainder = 0;
+    this._lavaAccum = 0;
+    return this._finishConsumable(
+      `You ${opts.channel ? 'channel' : 'drink'} the Potion of Fire Resistance`,
+      `Immune to fire for ${shortDuration(CONSUMABLE_SPEC.fire_resistance_potion.durationMs)}.`,
+      opts,
+    );
+  }
+
+  drinkShrinkingPotion(opts = {}) {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'shrinking_potion' || (sel.count ?? 0) <= 0) return false;
+    this.save.shrinkingPotionUntil = Date.now() + CONSUMABLE_SPEC.shrinking_potion.durationMs;
+    Energy.set(this.save, this.save.energy, Energy.maxEnergy(this.save));
+    this._syncPlayerSkin();
+    this.updateEnergyDOM();
+    return this._finishConsumable(`You ${opts.channel ? 'channel' : 'drink'} the Potion of Shrinking`,
+      `Half size, maximum HP and melee damage; +${CONSUMABLE_SPEC.shrinking_potion.visionCells} stealth for ${shortDuration(CONSUMABLE_SPEC.shrinking_potion.durationMs)}.`, opts);
+  }
+
+  drinkGiantPotion(opts = {}) {
+    const sel = getSelectedSlot(this.save);
+    if (!sel || sel.id !== 'giant_potion' || (sel.count ?? 0) <= 0) return false;
+    this.save.giantPotionUntil = Date.now() + CONSUMABLE_SPEC.giant_potion.durationMs;
+    this._syncPlayerSkin();
+    this.updateEnergyDOM();
+    return this._finishConsumable(
+      `You ${opts.channel ? 'channel' : 'drink'} the Potion of Giant`,
+      `+${CONSUMABLE_SPEC.giant_potion.maxHpBonus} maximum HP and +${CONSUMABLE_SPEC.giant_potion.damageBonus} melee damage for ${shortDuration(CONSUMABLE_SPEC.giant_potion.durationMs)}.`,
+      opts,
+    );
+  }
+
   drinkShieldPotion(opts = {}) {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'shield_potion' || (sel.count ?? 0) <= 0) return false;
@@ -9545,25 +9627,24 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // Potion of the Raven: SPIRIT_RAVEN_MS of a slime-strength ally
+  // Scroll of the Raven: SPIRIT_RAVEN_MS of a slime-strength ally
   // (SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven) hunting the nearest foe or
   // pest deer through wanderCreatures' pet lane. Only the EXPIRY reaches the
   // save (save.spiritRavenUntil), so the timer is honest across a reload; the
   // bird is session state that _tickSpiritRaven keeps at your side while it
-  // runs. Drinking again while one is out refreshes the timer on the SAME
+  // runs. Reading again while one is out refreshes the timer on the SAME
   // bird — never a second raven.
-  drinkRavenPotion(opts = {}) {
+  readRavenScroll() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'raven_potion' || (sel.count ?? 0) <= 0) return false;
     this.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS;
     // A living bird's follow timer is its lifetime — stretch it with the refresh.
     if (this._spiritRaven) this._spiritRaven._followUntilT = performance.now() + SPIRIT_RAVEN_MS;
     this._tickSpiritRaven();   // summoned now, not a frame later
-    return this._finishConsumable(
-      `\u2728 You ${opts.channel ? 'channel' : 'drink'} the Potion of the Raven`,
-      'A raven of smoke and starlight shakes itself out of the flask. It settles beside you, watching the beasts with hungry eyes.',
-      opts,
-    );
+    this._spendScroll('raven_potion');
+    this.showMessageModal({ title: 'You read the Scroll of the Raven',
+      body: 'A raven of smoke and starlight shakes itself out of the parchment. It settles beside you, watching the beasts with hungry eyes.' });
+    return true;
   }
 
   // Potion callers keep their entry point; all timed allies share the keeper.
@@ -9902,7 +9983,7 @@ class MapScene extends Phaser.Scene {
     );
   }
 
-  // Potion of Thunder: a white flash across the screen, and every ENEMY
+  // Scroll of Thunder: a white flash across the screen, and every ENEMY
   // (Combat.isEnemy — never a crow, a deer or a pet) VISIBLE on it — drawn
   // inside the viewport, so this one is a draw-space test (Particles.onScreen
   // on worldMetersToScreen), not a reach test — takes THUNDER_DMG through
@@ -9910,8 +9991,8 @@ class MapScene extends Phaser.Scene {
   // leaves standing turns tail (monsterRout — the ordinary wander-off, away
   // from the player to the usual random range). A lair guard is on its own
   // leash (Lairs.guardState), so it takes the damage but holds its ruin.
-  // Refused, and the potion kept, when nothing hostile is in sight.
-  drinkThunderPotion() {
+  // Refused, and the scroll kept, when nothing hostile is in sight.
+  readThunderScroll() {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'thunder_potion' || (sel.count ?? 0) <= 0) return false;
     const caughtSet = setOf(this.save.caught);
@@ -9923,7 +10004,7 @@ class MapScene extends Phaser.Scene {
       if (p && Particles.onScreen(this, p.x, p.y)) targets.push(c);
     });
     if (targets.length === 0) {
-      this.flash('No foe in sight — potion kept.', this.viewCenterX, this.viewCenterY);
+      this.flash('No foe in sight — scroll kept.', this.viewCenterX, this.viewCenterY);
       return false;
     }
     this.cameras?.main?.flash(THUNDER_FLASH_MS, 255, 255, 255);
@@ -9934,10 +10015,12 @@ class MapScene extends Phaser.Scene {
       if (!c.lair) monsterRout(c, now, this.cellM);
     }
     const n = targets.length;
-    return this._finishConsumable(
-      '\u26a1 You drink the Potion of Thunder',
-      felled < n ? 'The sky splits. When your ears stop ringing, the surviving beasts are already fleeing.' : 'The sky splits. When your ears stop ringing, the beasts lie still.',
-    );
+    this._spendScroll('thunder_potion');
+    this.showMessageModal({
+      title: 'You read the Scroll of Thunder',
+      body: felled < n ? 'The sky splits. When your ears stop ringing, the surviving beasts are already fleeing.' : 'The sky splits. When your ears stop ringing, the beasts lie still.',
+    });
+    return true;
   }
 
   // Only successful uses teach a recipe; owning or crafting a scroll does not.
@@ -10051,7 +10134,8 @@ class MapScene extends Phaser.Scene {
   // Reuse arrow flight/collision while keeping fixed damage independent of gear.
   _throwItem(id) {
     if (!this.canThrowItem(id)) return false;
-    const cfg = CONSUMABLE_SPEC[id];
+    const potion = isPotion(id);
+    const cfg = potion ? { damage: 0, projectile: id, throwCooldownMs: POTION_THROW_COOLDOWN_MS } : CONSUMABLE_SPEC[id];
     const x = this.startWorldM.x + this.playerM.x;
     const y = this.startWorldM.y + this.playerM.y;
     const heading = Combat.shotHeading('bow', x, y, this.facing);
@@ -10059,6 +10143,7 @@ class MapScene extends Phaser.Scene {
       cfg.damage, 1, reachCells(this));
     if (!shot) return false;
     shot.projectile = cfg.projectile;
+    if (potion) shot.potionId = id;
     if (cfg.effect) shot.effect = cfg.effect;
     this._shots.push(shot);
     this._throwReadyAt = performance.now() + cfg.throwCooldownMs;
@@ -10552,7 +10637,7 @@ class MapScene extends Phaser.Scene {
     if (fire) this._burstAtWorld('pain', fire.x, fire.y, { ringPx: CELL_PX / 3 });
     if (fire) this.flashAtWorld('💥 It exploded!', fire.x, fire.y);
     else this.flash('💥 It exploded!');
-    if (Combat.playerDowned(before)) return 0;
+    if (Combat.playerDowned(before) || Conditions.damageImmune(this.save)) return 0;
     const dmg = Combat.playerDamage(rawDmg, this.save.armor);
     Energy.set(this.save, before - dmg);
     const lost = before - this.save.energy;
@@ -13101,13 +13186,20 @@ class MapScene extends Phaser.Scene {
     // Only the SIZE is set here: the ALPHA is written every frame by
     // _updatePlayerAura, which multiplies the level this form calls for by the
     // ghost fade, so the two can't fight over the property.
-    if (!ready) this._syncPlayerSkin();
+    this._syncPlayerSkin();
     if (this.playerShadow) this.playerShadow.setDisplaySize(ready ? 13 : 17, ready ? 5 : 6);
   }
   // Resolve directly from wizard assignment / bicycle deadline every frame,
   // including restored saves. The dragon transform keeps visual priority.
   _syncPlayerSkin() {
-    if (!this.player || this._dragonActive) return;
+    if (!this.player) return;
+    const giantScale = (Combat.giantActive(this.save) ? CONSUMABLE_SPEC.giant_potion.scaleMul : 1)
+      * (Combat.shrinkingActive(this.save) ? CONSUMABLE_SPEC.shrinking_potion.scaleMul : 1);
+    if (this._dragonActive) {
+      this.player.setScale(this.dragonScale * giantScale);
+      this.playerFeetNudgeY = -PLAYER_FEET_DROP_PX * this.playerScale * giantScale;
+      return;
+    }
     const desired = SpriteLayout.playerArt(this.save);
     // Is the desired skin's sheet loaded and every directional anim built?
     // Runs every step, so a YES is remembered per skin (`_skinReady`): the
@@ -13119,8 +13211,8 @@ class MapScene extends Phaser.Scene {
         this.anims.get(`${desired.sheet}-${state}-${dir}`)?.frames?.length > 0))
       && (this._skinReady = desired))) ? desired : null;
     this._playerArt = art;
-    this.player.setScale(art?.scale ?? this.playerScale);
-    this.playerFeetNudgeY = art ? -art.footDrop * art.scale : -PLAYER_FEET_DROP_PX * this.playerScale;
+    this.player.setScale((art?.scale ?? this.playerScale) * giantScale);
+    this.playerFeetNudgeY = (art ? -art.footDrop * art.scale : -PLAYER_FEET_DROP_PX * this.playerScale) * giantScale;
   }
   _playDirected(sprite, baseKey, dx, dy) {
     if (dx !== undefined) {
@@ -13132,6 +13224,7 @@ class MapScene extends Phaser.Scene {
     // Keep the flap looping and just mirror by heading (art faces
     // right at rest), ignoring the human walk/idle directional sheets.
     if (this._dragonActive && sprite === this.player) {
+      this._syncPlayerSkin();
       if (sprite.anims.currentAnim?.key !== 'dragon-fly') sprite.play('dragon-fly');
       if (Math.abs(x) > 0.001) sprite.setFlipX(x < 0);
       sprite.anims.timeScale = 1;
@@ -14291,7 +14384,7 @@ class MapScene extends Phaser.Scene {
 
   _tickThrowButton() {
     const id = getSelectedSlot(this.save)?.id;
-    if (!CONSUMABLE_SPEC[id]?.throwCooldownMs) { this._throwButtonState = null; return; }
+    if (!CONSUMABLE_SPEC[id]?.throwCooldownMs && !isPotion(id)) { this._throwButtonState = null; return; }
     const state = `${id}:${this.throwActionLabel()}:${this.canThrowItem(id)}`;
     if (state === this._throwButtonState) return;
     this._throwButtonState = state;
@@ -14302,6 +14395,24 @@ class MapScene extends Phaser.Scene {
     const sel = this.save.inv?.[this.save.selSlot];
     const existing = document.getElementById('consumable-btn');
     const cfg = sel && CONSUMABLE_SPEC[sel.id];
+    let throwBtn = document.getElementById('potion-throw-btn');
+    if (sel && isPotion(sel.id) && sel.count > 0) {
+      if (!throwBtn) {
+        throwBtn = document.createElement('button');
+        throwBtn.id = 'potion-throw-btn';
+        throwBtn.className = 'hud-action';
+        throwBtn.style.cssText = 'position:fixed;bottom:calc(4px + env(safe-area-inset-bottom, 0px));right:calc(var(--phone-right, 0px) + 130px);z-index:7;padding:6px 10px;border:2px solid #c8a64a;border-radius:8px;color:#ffe066;font:700 12px ui-monospace,monospace;';
+        throwBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          const id = getSelectedSlot(this.save)?.id;
+          if (isPotion(id)) this._throwItem(id);
+          this.syncConsumableButton();
+        });
+        document.body.appendChild(throwBtn);
+      }
+      throwBtn.textContent = this.throwActionLabel();
+      throwBtn.disabled = !this.canThrowItem(sel.id);
+    } else throwBtn?.remove();
     // Only a row with an ACTION gets the button. The foods with an extra
     // effect (rainberry, pairy, coffee) keep tuning rows in CONSUMABLE_SPEC
     // but no verb — they go through Eat — and without this check the

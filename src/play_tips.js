@@ -148,6 +148,8 @@ const PLAY_TIPS = [
   ITEM_GUIDE_TIPS.fireball_scroll,
   ITEM_GUIDE_TIPS.fear_scroll,
   ITEM_GUIDE_TIPS.treasure_map,
+  ITEM_GUIDE_TIPS.thunder_potion,
+  ITEM_GUIDE_TIPS.raven_potion,
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -385,7 +387,9 @@ const PLAY_TIP_VOLUMES = [
   "garden",
   "road",
   "road",
-  "road"
+  "road",
+  "wizard",
+  "wizard",
 ];
 
 // Narrator observations sit outside the quoted excerpt.

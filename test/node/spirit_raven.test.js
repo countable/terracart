@@ -1,4 +1,4 @@
-// The Potion of the Raven: a minute of a slime-strength ally — the crow
+// The Scroll of the Raven: a minute of a slime-strength ally — the crow
 // drawn at half opacity — that hunts the nearest FOE (Combat.isEnemy) or PEST
 // CROW through wanderCreatures' pet lane, and whose kills pay as a pet's.
 //
@@ -16,11 +16,14 @@ const methodBody = (sig) => {
 
 test('spirit raven: a potion with an icon, a tier, a price and a ✦ line quoting its length', () => {
   assert.eq(ITEM_BY_ID.raven_potion?.kind, 'magic', 'drunk, not eaten');
+  assert.truthy(ITEM_BY_ID.raven_potion.scroll);
+  assert.falsy(isPotion('raven_potion'));
+  assert.falsy(CONSUMABLE_SPEC.raven_potion.channel);
   assert.eq(FOOD_ENERGY.raven_potion, undefined, 'never on the Eat button');
-  assert.eq(MINERAL_ICON_SHEET.raven_potion?.sheet, 'icon_potions', 'drawn from the potion sheet');
+  assert.eq(MINERAL_ICON_SHEET.raven_potion?.sheet, 'icon_raven_scroll', 'drawn from raven-marked parchment');
   const frame = MINERAL_ICON_SHEET.raven_potion.frame;
   for (const [id, ic] of Object.entries(MINERAL_ICON_SHEET)) {
-    if (id !== 'raven_potion' && ic.sheet === 'icon_potions') {
+    if (id !== 'raven_potion' && ic.sheet === 'icon_raven_scroll') {
       assert.truthy(ic.frame !== frame, `its flask is its own (frame ${frame} is not ${id}'s)`);
     }
   }
@@ -30,7 +33,7 @@ test('spirit raven: a potion with an icon, a tier, a price and a ✦ line quotin
   assert.truthy(line && line.length <= 55, `the ✦ line fits its row (${line && line.length} chars)`);
   assert.falsy(/\d/.test(line), 'the raven description leaves its duration for discovery');
   assert.eq(SPIRIT_RAVEN_MS, 60 * 1000, 'one minute');
-  assert.eq(CONSUMABLE_SPEC.raven_potion.method, 'drinkRavenPotion', 'the Drink button offers it');
+  assert.eq(CONSUMABLE_SPEC.raven_potion.method, 'readRavenScroll', 'the Read button offers it');
   assert.truthy(/foes/.test(CONSUMABLE_SPEC.raven_potion.get), 'the confirmation hints at an ally');
   assert.truthy(Shops.themedStock('potion', 3).includes('raven_potion'), 'a T3 potion shop stocks it');
 });
@@ -108,12 +111,12 @@ test('spirit raven: the pet lane is the raven\'s lane', () => {
     'a tap goes through it — nothing to catch, tame or pet');
 });
 
-test('spirit raven: the drink refreshes one timer; the keeper summons one bird', () => {
-  const drink = methodBody('  drinkRavenPotion(opts = {}) {');
+test('spirit raven: the scroll refreshes one timer; the keeper summons one bird', () => {
+  const drink = methodBody('  readRavenScroll() {');
   assert.truthy(/sel\.id !== 'raven_potion'/.test(drink), 'only with the potion selected');
   assert.truthy(/this\.save\.spiritRavenUntil = Date\.now\(\) \+ SPIRIT_RAVEN_MS;/.test(drink),
     'the expiry is on the save, from the one constant');
-  assert.truthy(/this\._finishConsumable\(/.test(drink), 'the one consume / channel exit');
+  assert.truthy(/this\._spendScroll\('raven_potion'\)/.test(drink), 'consumes and teaches the scroll recipe');
   const keep = methodBody('  _tickSpiritRaven() {');
   assert.truthy(/Companions\.tick\(this, 'spirit_raven'\)/.test(keep), 'the shared companion keeper');
   assert.eq(Companions.KINDS.spirit_raven.field, 'spiritRavenUntil', 'existing saves retain their timer');

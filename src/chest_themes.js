@@ -32,14 +32,14 @@
     // available above ground. Lower-tier magic remains useful in larger stacks.
     magic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry).map(i => i.id), mixedTiers: true, fallback: 'antidote' },
     travelMagic: { ids: ['reach_potion', 'speed_potion', 'shadow_powder', 'treasure_map'], mixedTiers: true, fallback: 'antidote' },
-    combatMagic: { ids: ['shield_potion', 'raven_potion', 'blight_potion', 'thunder_potion', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder'], mixedTiers: true, fallback: 'antidote' },
-    medicalMagic: { ids: { vigor_potion: 3, revive_potion: 3, shield_potion: 2, resurrection_potion: 2, elixir: 1 }, mixedTiers: true, fallback: 'antidote' },
+    combatMagic: { ids: ['protection_potion', 'immortal_potion', 'fire_resistance_potion', 'giant_potion', 'shield_potion', 'raven_potion', 'blight_potion', 'thunder_potion', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder'], mixedTiers: true, fallback: 'antidote' },
+    medicalMagic: { ids: { vigor_potion: 3, revive_potion: 3, protection_potion: 2, shield_potion: 2, resurrection_potion: 2, elixir: 1 }, mixedTiers: true, fallback: 'antidote' },
     recovery: { ids: ['vigor_potion', 'elixir'], fallback: 'restorative' },
     antidote: { ids: ['antidote'] },
     healing: { ids: { vigor_potion: 3, revive_potion: 2, resurrection_potion: 1, elixir: 1 }, fallback: { vista: 'antidote', default: 'restorative' } },
     revival: { ids: { revive_potion: 3, resurrection_potion: 1 }, fallback: 'restorative' },
-    shield: { ids: ['shield_potion'], fallback: { health: 'restorative', worship: 'restorative', default: 'field' } },
-    study: { ids: { reach_potion: 2, raven_potion: 1, shield_potion: 1, shadow_powder: 1, blank_scroll: 1, fireball_scroll: 1, fear_scroll: 1, treasure_map: 1 }, mixedTiers: true, fallback: 'books' },
+    shield: { ids: ['protection_potion', 'shield_potion'], fallback: { health: 'restorative', worship: 'restorative', default: 'field' } },
+    study: { ids: { reach_potion: 2, raven_potion: 1, protection_potion: 1, shield_potion: 1, shadow_powder: 1, blank_scroll: 1, fireball_scroll: 1, fear_scroll: 1, treasure_map: 1 }, mixedTiers: true, fallback: 'books' },
     shadow: { ids: { raven_potion: 1, shadow_powder: 1 }, fallback: 'flowers' },
     gems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], fallback: { culture: 'books', vista: 'antidote', default: 'field' } },
     // The story Book is a T1 item: every book chest can hand one, whatever

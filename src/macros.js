@@ -276,10 +276,10 @@
   }
 
   // ── APOTHECARY: a potion counter, and the cure ────────────────────────────
-  // One remedy per apothecary (a dentist is always T4 Vigor), plus the
+  // One remedy per apothecary (a dentist is always Vigor), plus the
   // Antidote (T1 — the poison cure, src/conditions.js) at every counter.
-  // Other counter remedies are T2; Vigor remains available after its retier.
-  const APOTHECARY_POTIONS = ['vigor_potion', 'revive_potion', 'shield_potion', 'reach_potion'];
+  // Counter remedies stay available independently of their loot tiers.
+  const APOTHECARY_POTIONS = ['vigor_potion', 'revive_potion', 'protection_potion', 'reach_potion'];
   const APOTHECARY_CURE = 'antidote';
   function apothecaryStock(o) {
     const potion = (o && o.poiClass === 'dentist') ? 'vigor_potion' : _pick(o, 'apothecary', APOTHECARY_POTIONS);

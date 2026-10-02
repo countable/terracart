@@ -5,7 +5,9 @@ test('item tiers: fish span T1–T7 with no gap larger than two', () => {
   assert.eq(tiers[tiers.length - 1], 7);
   for (let i = 1; i < tiers.length; i++) assert.inRange(tiers[i] - tiers[i - 1], 1, 2);
   assert.eq(ITEM_BY_ID.egg.baseTier, 2);
-  assert.eq(ITEM_BY_ID.vigor_potion.baseTier, 4);
+  assert.eq(ITEM_BY_ID.vigor_potion.baseTier, 2);
+  assert.eq(ITEM_BY_ID.reach_potion.baseTier, 4);
+  assert.eq(ITEM_BY_ID.revive_potion.baseTier, 3);
 });
 
 test('item tiers: ordinary fauna span the approved catch and utility bands', () => {

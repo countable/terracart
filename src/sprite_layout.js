@@ -299,7 +299,7 @@
   // GHOST_TINT colours only the halo; the supplied body needs no tint.
   const GHOST_TINT = 0xc8d8ff;
   const GHOST_ALPHA = 0.6;
-  // The SPIRIT RAVEN (the Potion of the Raven's ally) is the crow drawn
+  // The SPIRIT RAVEN (the Scroll of the Raven's ally) is the crow drawn
   // at half opacity — see its CREATURE_ART row. Its own constant rather than
   // GHOST_ALPHA: the ghost is a foe and this is yours, and a retune of one must
   // not quietly retune the other.
@@ -637,7 +637,7 @@
                      flee: { cells: 4, jitter: 1.1, stepMs: 650, stepCells: 0.6,
                              pauseMs: [80, 120] } },
     crow:          { wanders: true, game: true, drop: 'crow_feather', avoids: ['scarecrow'] },
-    // THE SPIRIT RAVEN — summoned by the Potion of the Raven (app.js
+    // THE SPIRIT RAVEN — summoned by the Scroll of the Raven (app.js
     // drinkRavenPotion / _tickSpiritRaven) for SPIRIT_RAVEN_MS. It is a PET's
     // hunt by another reason, not a second hunter: wanderCreatures' pet scan
     // runs for it (`summoned`), asks huntsPrey (creature_ai.js) what it may
@@ -787,7 +787,8 @@
   // creature's drawn size (render.js, the tap box, the wheel and health bar
   // seats) comes through here, so the whole body shrinks together.
   function creatureInstScale(c, now) {
-    return (c._artScale ?? c.artScale ?? 1) * (isBabyPet(c, now) ? PET_BABY.scale : 1);
+    return (c._artScale ?? c.artScale ?? 1) * (isBabyPet(c, now) ? PET_BABY.scale : 1)
+      * (root.PotionEffects ? root.PotionEffects.scaleMul(c) : 1);
   }
   function creatureFloat(kind) { return creatureArt(kind)?.float ?? 0; }
   // The sheet a kind is drawn from, and how many frames of its row-0 cycle the

@@ -152,7 +152,7 @@ test('themed shops: three market digits and one blacksmith digit on small houses
   assert.eq(Houses.houseShopRole({ restoredHouses: { old: 'plain' } }, { kind: 'house', id: 'old', tier: WorldGen.T.BUILDING, address: 24 }), null, 'existing frozen roles stay put');
 });
 
-test('themed shops: syrup and magic traps fill tier 3 supplies; dragon powder stays tier 4 Magic', () => {
+test('themed shops: Potion of Taming and magic traps fill tier 3 supplies; dragon powder stays tier 4 Magic', () => {
   assert.eq(Shops.themedStock('supply', 3).slice().sort().join(), 'honey,magic_trap');
   assert.eq(Shops.themedStock('supply', 4).slice().sort().join(), 'javelin', 'T4 has its own supply stock');
   for (const id of ['honey', 'magic_trap']) {

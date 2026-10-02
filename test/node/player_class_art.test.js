@@ -114,7 +114,7 @@
 
   test('player art: dragon remains visually dominant over an active bicycle', () => {
     const scene = makeScene({ playerClass: 'enchanter', bikeUntil: Date.now() + 60000 });
-    scene._dragonActive = true; scene.player.scale = 2;
+    scene._dragonActive = true; scene.dragonScale = 2; scene.player.scale = 2;
     play.call(scene, scene.player, 'walk', -1, 0);
     assert.eq(scene.player.anims.currentAnim.key, 'dragon-fly');
     assert.eq(scene.player.flipX, true); assert.eq(scene.player.scale, 2);

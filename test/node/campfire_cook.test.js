@@ -132,12 +132,13 @@ test('campfire: fire-held runs before release and extinguish-fire', () => {
   assert.truthy(names.indexOf('fire-held') < names.indexOf('extinguish-fire'), 'holding something never just puts it out');
 });
 
-test('campfire: two potions TRANSMUTE, never higher tier; the rest EXPLODE', () => {
+test('campfire: two potions TRANSMUTE through fixed recipes; the rest EXPLODE', () => {
   for (const [from, to] of Object.entries(POTION_FIRE_TRANSMUTE)) {
     assert.truthy(isPotion(from) && isPotion(to), `${from} → ${to} are both potions`);
-    assert.lte(ITEM_BY_ID[to].baseTier, ITEM_BY_ID[from].baseTier, `${from} → ${to} never climbs the ladder`);
     assert.eq(fireBurnOutcome(from).transmute, to);
   }
+  assert.eq(POTION_FIRE_TRANSMUTE.vigor_potion, 'revive_potion');
+  assert.eq(POTION_FIRE_TRANSMUTE.speed_potion, 'reach_potion');
   assert.eq(Object.keys(POTION_FIRE_TRANSMUTE).length, 2, 'a couple, not all');
   const potions = ITEMS.filter(i => isPotion(i.id)).map(i => i.id);
   assert.gt(potions.length, 4, 'the potion predicate finds the potions');
@@ -147,7 +148,7 @@ test('campfire: two potions TRANSMUTE, never higher tier; the rest EXPLODE', () 
       `${id} explodes for its tier's blast`);
   }
   assert.eq(JSON.stringify(fireBurnOutcome('potato')), '{}', 'not a potion: plain ash');
-  assert.falsy(isPotion('honey'), 'honey is not a potion');
+  assert.truthy(isPotion('honey'), 'the legacy honey id is Potion of Taming');
 });
 
 test('campfire: a potion blast is a blow on the body — armour soaks it', () => {

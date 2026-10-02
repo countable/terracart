@@ -278,8 +278,12 @@ const DRINKS = {
   reach_potion: ['drinkReachPotion', 'reachPotionUntil'],
   speed_potion: ['drinkSpeedPotion', 'speedPotionUntil'],
   shield_potion: ['drinkShieldPotion', 'shieldPotionUntil'],
+  giant_potion: ['drinkGiantPotion', 'giantPotionUntil'],
+  shrinking_potion: ['drinkShrinkingPotion', 'shrinkingPotionUntil'],
+  fire_resistance_potion: ['drinkFireResistancePotion', 'fireResistancePotionUntil'],
+  protection_potion: ['drinkProtectionPotion', 'protectionPotionUntil'],
+  immortal_potion: ['drinkImmortalPotion', 'immortalPotionUntil'],
   blight_potion: ['drinkBlightPotion', 'blightPotionUntil'],
-  raven_potion: ['drinkRavenPotion', 'spiritRavenUntil'],
 };
 const DRINK_SRC = Object.values(DRINKS).map(([m]) => lift(`${m}(opts = {}) {`, m)).join('\n');
 
@@ -294,6 +298,7 @@ function potionScene({ id = 'reach_potion', count = 2, energy = 50, cls = 'encha
   s._cellAtScreen = () => ({ ix: 4, iy: 5 });
   s._warnIfTiring = () => {};
   s.updateEnergyDOM = () => {};
+  s._syncPlayerSkin = () => {};
   s.buildInventoryDOM = () => {};
   s.playerScreen = () => ({ x: 10, y: 20 });
   s.playerBodyDy = () => 0;

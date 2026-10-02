@@ -406,20 +406,25 @@ const MINERAL_ICON_SHEET = {
   elixir:       { sheet: 'icon_potions', frame: 33 }, // large violet flask
   vigor_potion:  { sheet: 'icon_potions', frame: 11 },
   speed_potion:  { sheet: 'icon_potions', frame: 12 },
-  shield_potion: { sheet: 'icon_potions', frame: 13 },
-  // Potion of the Raven — the blue flask that closes the same row
-  // (frame 14): a cold, ghostly blue for a bird that is not quite there.
-  raven_potion:  { sheet: 'icon_potions', frame: 14 },
+  shield_potion: { sheet: 'icon_potions', frame: 28 },
+  protection_potion: { sheet: 'icon_potions', frame: 13 },
+  time_potion: { sheet: 'icon_potions', frame: 34 },
+  immortal_potion: { sheet: 'icon_potions', frame: 31 },
+  shrinking_potion: { sheet: 'icon_potions', frame: 18 },
+  giant_potion: { sheet: 'icon_potions', frame: 27 },
+  fire_resistance_potion: { sheet: 'icon_potions', frame: 32 },
+  // Scroll of the Raven: dark bird inked on parchment, retaining its save id.
+  raven_potion:  { sheet: 'icon_raven_scroll', frame: 0 },
   // Potion of Blight — the red flask of the next row down (row 3, y=48:
   // frame 17), so it doesn't read as the Speed potion's red beside it.
   blight_potion: { sheet: 'icon_potions', frame: 17 },
   // Revival potions — green for life, the small flask of row 3 (frame 16) for
-  // the T2 draught and the larger bottle of row 4 (frame 21) for the T5 one,
+  // the T3 draught and the larger bottle of row 4 (frame 21) for the T5 one,
   // so the pair read as one potion in two strengths.
   revive_potion:       { sheet: 'icon_potions', frame: 16 },
   resurrection_potion: { sheet: 'icon_potions', frame: 21 },
-  // Potion of Thunder — the blue jug of row 4 (frame 24): lightning blue.
-  thunder_potion:      { sheet: 'icon_potions', frame: 24 },
+  // Scroll of Thunder keeps its legacy save id; gold-lettered scroll art.
+  thunder_potion:      { sheet: 'icon_book', frame: 48 },
   // Dragon Powder — the vivid crimson pouch (row 1 col 2 = frame 7). Using it
   // turns you into a red dragon (useDragonPowder in app.js).
   dragon_powder: { sheet: 'icon_potions', frame: 7 },
@@ -601,14 +606,14 @@ const BASE_TIER = {
   dog: 5,
   // Consumables
   antidote: 1, elixir: 7,
-  honey: 3, book: 1, reach_potion: 2, vigor_potion: 4, speed_potion: 2, shield_potion: 2,
+  honey: 3, book: 1, reach_potion: 4, vigor_potion: 2, speed_potion: 2, shield_potion: 5, protection_potion: 2, time_potion: 7, immortal_potion: 7,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
   raven_potion: 3,
-  dragon_powder: 4,
+  dragon_powder: 4, shrinking_potion: 4, giant_potion: 4, fire_resistance_potion: 4,
   // Revival: getting up where you fell instead of walking Home at a crawl.
-  // A tenth of a bar is a T2 emergency; half a bar is a T5 find.
-  revive_potion: 2, resurrection_potion: 5,
+  // 30% of a bar is a T3 emergency; 60% of a bar is a T5 find.
+  revive_potion: 3, resurrection_potion: 5,
   // Thunder: a screen-wide strike that also breaks a fight up — T4.
   thunder_potion: 4,
   // Growth Powder is a T2 farm utility beside the potions, and Shadow sits with
@@ -749,10 +754,10 @@ const ITEMS = [
   { id: 'starflower',  name: 'Starflower',    kind: 'produce', crop: 'starflower' },
   // Consumables — used on yourself via the Use button that appears below the
   // inventory bar while one is selected (syncConsumableButton in app.js).
-  // Syrup (legacy save id honey): set it out to lure wandering chickens + cows within 30m toward
+  // Potion of Taming (legacy save id honey): set it out to lure wandering chickens + cows within 30m toward
   //        you (eaten, so it's consumed — hence not a flute any more).
   // Book:  reveals a play tip or a directional hint to a nearby chest.
-  { id: 'honey', name: 'Syrup', kind: 'supply' },
+  { id: 'honey', name: 'Potion of Taming', kind: 'supply', potion: true },
   // dropWeight 3: a Book is THE documentation (see play_tips.js), so it is
   // the one consumable that has to turn up often enough to be read. At an even
   // draw it was one of seven T2 consumables — a sliver of an already-thin
@@ -786,17 +791,23 @@ const ITEMS = [
   { id: 'vigor_potion',  name: 'Potion of Vigor',     kind: 'magic', potion: true },
   { id: 'speed_potion',  name: 'Potion of Speed',     kind: 'magic', potion: true },
   { id: 'shield_potion', name: 'Potion of Shielding', kind: 'magic', potion: true },
+  { id: 'protection_potion', name: 'Potion of Protection', kind: 'magic', potion: true },
+  { id: 'time_potion', name: 'Potion of Time', kind: 'magic', potion: true },
+  { id: 'immortal_potion', name: 'Potion of Immortal', kind: 'magic', potion: true },
+  { id: 'shrinking_potion', name: 'Potion of Shrinking', kind: 'magic', potion: true },
+  { id: 'giant_potion', name: 'Potion of Giant', kind: 'magic', potion: true },
+  { id: 'fire_resistance_potion', name: 'Potion of Fire Resistance', kind: 'magic', potion: true },
   { id: 'blight_potion', name: 'Potion of Blight',    kind: 'magic', potion: true },
-  // Drunk to summon a spirit raven that hunts foes and pest deer for
-  // SPIRIT_RAVEN_MS (app.js drinkRavenPotion; the bird is the creature row
+  // Read to summon a spirit raven that hunts foes and pest deer for
+  // SPIRIT_RAVEN_MS (app.js readRavenScroll; the bird is the creature row
   // SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven).
-  { id: 'raven_potion',  name: 'Potion of the Raven', kind: 'magic', potion: true },
+  { id: 'raven_potion',  name: 'Scroll of the Raven', kind: 'magic', scroll: true },
   // Drunk while DOWN (zero energy) to get back up on the spot — see
   // REVIVE_POTION_FRAC and drinkRevivePotion in app.js.
   { id: 'revive_potion',       name: 'Potion of Revival',       kind: 'magic', potion: true },
   { id: 'resurrection_potion', name: 'Potion of Resurrection', kind: 'magic', potion: true },
-  // Drunk to strike every foe on screen (app.js drinkThunderPotion).
-  { id: 'thunder_potion',      name: 'Potion of Thunder',      kind: 'magic', potion: true },
+  // Read to strike every foe on screen; legacy id preserves saved copies.
+  { id: 'thunder_potion',      name: 'Scroll of Thunder',      kind: 'magic', scroll: true },
   // Dragon Powder: use it (Use button with it selected) to wear a red dragon
   // for one minute — tier-8 boot movement and 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
@@ -981,12 +992,13 @@ const CAMPFIRE_MAKES = { meat: 'grilled_meat',
 // steak is worth the fire to sell as well as to eat.
 const GRILL_ENERGY_MUL = 1.5;
 // POTIONS IN THE FIRE (the burn confirm's accept, app.js presentBurnConfirm).
-// Two TRANSMUTE into another potion of the same or lower tier, so
-// the fire is a curiosity, not a value pump. Every other potion EXPLODES,
+// Two TRANSMUTE into another potion. Their recipes stay fixed when loot
+// tiers change: Vigor becomes Revival, Speed becomes Reach. Every other potion EXPLODES,
 // hurting the player by POTION_BLAST_DMG_PER_TIER × its tier, soaked by
 // armour like any other blow (Combat.playerDamage).
 const POTION_FIRE_TRANSMUTE = { vigor_potion: 'revive_potion', speed_potion: 'reach_potion' };
 const POTION_BLAST_DMG_PER_TIER = 3;
+const POTION_THROW_COOLDOWN_MS = 1000;
 function isPotion(id) {
   return ITEM_BY_ID[id]?.potion === true;
 }
@@ -1105,7 +1117,7 @@ const CONSUMABLE_SPEC = {
     get: 'A wall of flame rises across the ground ahead.' },
   honey: {
     radiusM: 30,
-    verb: 'Use', method: 'useHoney', title: 'Set out the syrup?',
+    verb: 'Use', method: 'useHoney', title: 'Set out the Potion of Taming?',
     get: 'Sweetness draws curious noses through the grass.',
   },
   reach_potion: {
@@ -1136,6 +1148,37 @@ const CONSUMABLE_SPEC = {
     get: 'Warmth rushes into your legs. For a little while, your steps are light and swift.',
     channel: true,
   },
+  protection_potion: {
+    durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.75,
+    verb: 'Drink', method: 'drinkProtectionPotion', title: 'Drink the Potion of Protection?',
+    get: 'A pale ward softens the blows that reach you.', channel: true,
+  },
+  immortal_potion: {
+    durationMs: _CONSUMABLE_MINUTE_MS,
+    verb: 'Drink', method: 'drinkImmortalPotion', title: 'Drink the Potion of Immortal?',
+    get: 'For a brief while, no wound can reach you.', channel: true,
+  },
+  time_potion: {
+    verb: 'Drink', method: 'drinkTimePotion', title: 'Drink the Potion of Time?',
+    get: 'Every spell falls away. Your rested belongings are ready once more.',
+  },
+  fire_resistance_potion: {
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS,
+    verb: 'Drink', method: 'drinkFireResistancePotion', title: 'Drink the Potion of Fire Resistance?',
+    get: 'Flames curl harmlessly around your skin.',
+    channel: true,
+  },
+  shrinking_potion: {
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS, scaleMul: 0.5, maxHpMul: 0.5, meleeDamageMul: 0.5, visionCells: 1,
+    verb: 'Drink', method: 'drinkShrinkingPotion', title: 'Drink the Potion of Shrinking?',
+    get: 'You dwindle beneath the grass, small and easily overlooked.', channel: true,
+  },
+  giant_potion: {
+    durationMs: 3 * _CONSUMABLE_MINUTE_MS, damageBonus: 5, maxHpBonus: 100, scaleMul: 1.5,
+    verb: 'Drink', method: 'drinkGiantPotion', title: 'Drink the Potion of Giant?',
+    get: 'Your body rises tall, and strength swells through your limbs.',
+    channel: true,
+  },
   shield_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS, damageMul: 0.5,
     verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?',
@@ -1144,13 +1187,12 @@ const CONSUMABLE_SPEC = {
   },
   raven_potion: {
     durationMs: _CONSUMABLE_MINUTE_MS,
-    verb: 'Drink', method: 'drinkRavenPotion', title: 'Drink the Potion of the Raven?',
+    verb: 'Read', method: 'readRavenScroll', title: 'Read the Scroll of the Raven?',
     get: 'A raven of pale smoke takes wing against your foes.',
-    channel: true,
   },
   thunder_potion: {
     damage: 25,
-    verb: 'Drink', method: 'drinkThunderPotion', title: 'Drink the Potion of Thunder?',
+    verb: 'Read', method: 'readThunderScroll', title: 'Read the Scroll of Thunder?',
     get: 'Thunder breaks over the foes before you.',
   },
   blight_potion: {
@@ -1288,7 +1330,7 @@ const PRICES = {
   // Bought from shops occasionally; small sell value if you hoard them.
   honey: 12,
   book:  20,
-  tome_sight: 90,   // T3 — a T2 reach potion's sight, once a day, forever
+  tome_sight: 90,   // T3 — a reach potion's sight, once a day, forever
   tome_raven: 170,  // T4 — a T3 raven's wings, once a day, forever
   tome_storm: 300,  // T5 — a T4 thunderclap, once a day, forever
   tome_firewall: 170, // T4 — a wall of ground fire, once a day, forever
@@ -1298,17 +1340,23 @@ const PRICES = {
   fear_scroll: 100,
   treasure_map: 200,
   sleep_powder: 100,
-  reach_potion:  45,   // T2 — full-screen reach for 1 min is a strong utility pop
+  reach_potion:  45,   // T4 — full-screen reach for 1 min is a strong utility pop
   antidote:     12,
   elixir:       360,
-  vigor_potion:  35,   // T4 — instant 65-energy restore
+  vigor_potion:  35,   // T2 — instant 65-energy restore
   speed_potion:  55,   // T2 — tier-9 boot stick-walking for 1 min
-  shield_potion: 40,   // T2 — half monster damage for 1 min
+  fire_resistance_potion: 100, // T4 — three minutes of full fire immunity
+  shrinking_potion: 100, // T4 — small, fragile and harder to notice
+  giant_potion: 100, // T4 — three minutes of greater size, health capacity and melee strength
+  protection_potion: 40, // T2 — one quarter less monster damage for 1 min
+  time_potion: 800, // T7 — clears effects and readies item cooldowns
+  immortal_potion: 800, // T7 — full damage immunity for 1 min
+  shield_potion: 250,  // T5 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura at app.js's BLIGHT_DPS
   raven_potion:  90,   // T3 — 1 min of a slime-strength ally (one roster-slime bite
                        //      each second on one foe, below Blight's per-foe rate, but
                        //      it hunts pests and keeps fighting while you move): Blight's tier and price
-  revive_potion: 40,   // T2 — get up where you fell with a tenth of the bar
+  revive_potion: 40,   // T3 — get up where you fell with 30% of the bar
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
   thunder_potion: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
   dragon_powder: 120,  // T4 — 1 min of dragon: tier-8 boot walking + 2× damage
@@ -1430,10 +1478,12 @@ const ITEM_GUIDE_TIPS = {
   trap_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
   torch: 'Light a torch before descending. By its flame, my hand could reach farther into the dark.',
   spear: 'I lash a sharp stone to a straight branch and call it a spear. It flies once. I carry a second.',
-  honey: 'I simmered the berries into syrup and left a little by the gate. The hens followed its scent home.',
+  honey: 'I simmered the berries into a potion and left a little by the gate. The hens followed its scent home.',
   rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',
   flowers: 'Brought the shopkeeper flowers. A softer voice, a kinder price. I had meant only to give her something lovely.',
   slime: 'The slime shares my doorstep now. When I grind the blue stone, it waits beside me. Brann would disapprove. I have decided not to ask him.',
+  raven_potion: 'I traced a raven onto the parchment. Its ink-dark wings stirred before the page was dry.',
+  thunder_potion: 'I copied the thunder words onto a blank scroll. Outside, the sky answered.',
   fireball_scroll: 'At the trailer I copied the fire spell from memory onto blank parchment. The ink warmed. I moved the bedding away.',
   fear_scroll: 'I copied the words that had scattered my pursuers onto a blank scroll. Even here at the trailer, the parchment trembled.',
   treasure_map: 'Back at the trailer I traced the remembered map onto a blank scroll. Its hidden paths returned. I had hoped one might lead home.',
@@ -1513,8 +1563,8 @@ const ITEM_EFFECTS = {
   antidote: 'A bitter draught to wash every affliction away.',
   elixir: 'Restoring warmth washes every affliction from your body.',
   vigor_potion: 'A little bottled warmth for weary limbs.',
-  raven_potion: 'A pale wing brushes the inside of the glass.',
-  thunder_potion: 'A distant storm rolls beneath the stopper.',
+  raven_potion: 'A pale wing stirs beneath the raven-marked ink.',
+  thunder_potion: 'A distant storm stirs between the inked lines.',
   revive_potion: 'A faint pulse waits to call a fallen traveller back.',
   resurrection_potion: 'A deep warmth waits where a fallen traveller’s heart has quieted.',
   growth_powder: 'Spring stirs in the dust, impatient with the sleeping crops.',
@@ -1531,6 +1581,12 @@ const ITEM_EFFECTS = {
   meat: 'Its rich scent draws a dog from the edge of the path.',
   wood: 'A fire waits beneath the grain of this dry branch.',
   speed_potion: CONSUMABLE_SPEC.speed_potion.get,
+  protection_potion: CONSUMABLE_SPEC.protection_potion.get,
+  time_potion: CONSUMABLE_SPEC.time_potion.get,
+  immortal_potion: CONSUMABLE_SPEC.immortal_potion.get,
+  fire_resistance_potion: CONSUMABLE_SPEC.fire_resistance_potion.get,
+  shrinking_potion: CONSUMABLE_SPEC.shrinking_potion.get,
+  giant_potion: CONSUMABLE_SPEC.giant_potion.get,
   shield_potion: CONSUMABLE_SPEC.shield_potion.get,
   blight_potion: CONSUMABLE_SPEC.blight_potion.get,
   dragon_powder: CONSUMABLE_SPEC.dragon_powder.get,
@@ -2184,6 +2240,7 @@ function jewelryVisionReduction(save) {
   for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
     if (row.visionCells && carriesItem(save, id)) cells = Math.max(cells, row.visionCells);
   }
+  if ((save?.shrinkingPotionUntil ?? 0) > Date.now()) cells += CONSUMABLE_SPEC.shrinking_potion.visionCells;
   return cells;
 }
 function jewelryFireDamageMul(save) {
@@ -2249,7 +2306,7 @@ const HOME_RECIPES = [
   { id: 'rope',      cost: [{ id: 'longgrass', qty: 5 }] },
   // Four stones knock a snare's jaw shut for good.
   { id: 'trap_kit',  cost: [{ id: 'rockfruit', qty: 4 }] },
-  { id: 'honey',     cost: [{ id: 'berry', qty: 2 }] }, // Syrup; keep the saved item id
+  { id: 'honey',     cost: [{ id: 'berry', qty: 2 }] }, // Potion of Taming; keep the saved item id
   ...ITEMS.filter(item => item.scroll).map(item => ({
     id: item.id, cost: [{ id: 'blank_scroll', qty: 1 }],
   })),

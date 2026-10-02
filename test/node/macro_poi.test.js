@@ -217,7 +217,7 @@
       assert.truthy(Macros.APOTHECARY_POTIONS.includes(stock[0]), stock[0]);
       assert.eq(stock[1], 'antidote', 'the cure');
       seen.add(stock[0]);
-      for (const id of stock) assert.lte(tiers(id), id === 'vigor_potion' ? 4 : 2, `${id} stays in its remedy tier`);
+      for (const id of stock) assert.lte(tiers(id), 4, `${id} stays within the counter remedy tiers`);
     }
     assert.eq(seen.size, Macros.APOTHECARY_POTIONS.length, 'every remedy turns up somewhere');
     assert.eq(Macros.apothecaryStock(poi('dentist', { id: 7 }))[0], 'vigor_potion', 'a dentist is Vigor');
@@ -521,8 +521,8 @@
   });
 
   test('training: each attack type reads its own discipline, and speed shortens every beat', () => {
-    assert.truthy(/_attackFlat\(kind\) \{\s*return Combat\.TRAINING_KINDS\[kind\]\?\.unit === 'dmg' \? Combat\.trainingBonus\(this\.save, kind\) : 0;/.test(SCENE_SRC), '_attackFlat, by type');
-    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass\)\s*\+ this\._attackFlat\('melee'\);/.test(SCENE_SRC), 'melee blows take melee');
+    assert.truthy(/_attackFlat\(kind\) \{\s*const training = Combat\.TRAINING_KINDS\[kind\]\?\.unit === 'dmg' \? Combat\.trainingBonus\(this\.save, kind\) : 0;/.test(SCENE_SRC), '_attackFlat, by type');
+    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass\)\s*\+ this\._attackFlat\('melee'\)\)/.test(SCENE_SRC), 'melee blows take melee');
     assert.truthy(/\* dmgMul\s*\+ this\._attackFlat\(Combat\.TRAINING_SLOT_KIND\[slot\]\),/.test(SCENE_SRC), 'shots take their slot\'s');
     assert.eq(Combat.TRAINING_SLOT_KIND.bow, 'ranged'); assert.eq(Combat.TRAINING_SLOT_KIND.staff, 'magic');
     assert.truthy(/this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS \* Combat\.trainingIntervalMul\(this\.save\);/.test(SCENE_SRC), 'the melee beat');

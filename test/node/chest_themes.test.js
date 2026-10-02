@@ -70,15 +70,16 @@ test('chest themes: cave mixture adds medicine and retains the location share', 
     if (tier === 1) assert.eq(w.antidote, 24);
     else assert.eq(w.caveMagic, tier === 2 ? 24 : 32);
   }
-  for (const [tier, top] of [[6, 'resurrection_potion'], [7, 'elixir']]) {
+  for (const tier of [6, 7]) {
     const r = ChestThemes.resolve('caveMagic', tier, { depth: 1 });
+    const topTier = Math.max(...r.ids.map(id => ITEM_BY_ID[id].baseTier));
     const rng = makeRng32(101);
     let powders = 0, topItems = 0;
     for (let i = 0; i < 5000; i++) {
       const id = ChestThemes.pickItem(r, tier, rng);
       assert.lte(ITEM_BY_ID[id].baseTier, tier, 'no medicine above the rolled tier');
       if (id.endsWith('_powder')) powders++;
-      if (id === top) topItems++;
+      if (ITEM_BY_ID[id].baseTier === topTier) topItems++;
     }
     assert.inRange(topItems / 5000, 0.67, 0.73);
     assert.gt(powders, 150, 'deep magic retains useful lower-tier powders');
@@ -90,10 +91,10 @@ test('chest themes: recovery, revival and protection remain distinct', () => {
     const opts = { theme: 'health' };
     const recovery = ChestThemes.resolve('recovery', tier, opts);
     const ids = ChestThemes.selectableIds(recovery);
-    if (tier < 4) assert.eq(recovery.group, 'restorative');
+    if (tier < 2) assert.eq(recovery.group, 'restorative');
     else assert.eq(ids.join(','), tier >= 7 ? 'elixir' : 'vigor_potion');
     const revival = ChestThemes.resolve('revival', tier, opts);
-    if (tier === 1) assert.eq(revival.group, 'restorative');
+    if (tier < 3) assert.eq(revival.group, 'restorative');
     else assert.eq(ChestThemes.selectableIds(revival).join(','), tier >= 5 ? 'resurrection_potion' : 'revive_potion');
     if (tier <= 2) assert.eq(ChestThemes.weights('health', tier).antidote, 25);
     else assert.eq(ChestThemes.weights('health', tier).medicalMagic, 100);

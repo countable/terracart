@@ -195,7 +195,7 @@
   // reading of this table.
   const FAUNA_HP = { cat: 20, dog: 40, crow: 8, deer: 15, slime: 10 };
   // A SUMMONED ally borrows a kind's stats rather than carrying its own: the
-  // spirit raven (the Potion of the Raven) is "equal to a slime", so
+  // spirit raven (the Scroll of the Raven) is "equal to a slime", so
   // its pool is the surface slime's here and its bite is the slime's below
   // (petBite). One row, derived — a retune of the slime retunes the raven.
   // Its pool is the slime's BASE (FAUNA_HP), never the hard-mode enemy scale:
@@ -294,9 +294,11 @@
   // attack cooldowns use performance.now() and must not be passed as `now`.
   // Callers own energy loss, cooldowns and popup accumulation.
   function incomingDamage(save, damage, hits = 1, now = Date.now()) {
-    if (playerDowned(save?.energy)) return 0;
-    const shielded = (save.shieldPotionUntil ?? 0) > now
-      ? Math.ceil(damage * CONSUMABLE_SPEC.shield_potion.damageMul) : damage;
+    if (playerDowned(save?.energy) || Conditions.damageImmune(save, now)) return 0;
+    let mul = 1;
+    if ((save.protectionPotionUntil ?? 0) > now) mul = CONSUMABLE_SPEC.protection_potion.damageMul;
+    if ((save.shieldPotionUntil ?? 0) > now) mul = Math.min(mul, CONSUMABLE_SPEC.shield_potion.damageMul);
+    const shielded = mul < 1 ? Math.ceil(damage * mul) : damage;
     return playerDamage(shielded, save.armor, hits, save.mode);
   }
 
@@ -440,7 +442,11 @@
   // creatureMaxHp(kind) directly, or an elite heals back to half its health.
   // Rounded (a softened pool is a fraction of the kind's), never below 1;
   // at power 1 or 2 it is exactly the integer it always was.
-  function maxHp(c) { return Math.max(1, Math.round(creatureMaxHp(c.kind) * powerMul(c))); }
+  function maxHp(c) {
+    const base = Math.max(1, Math.round(creatureMaxHp(c.kind) * powerMul(c)));
+    return root.PotionEffects ? Math.max(1, Math.ceil((base + root.PotionEffects.maxHpBonus(c))
+      * root.PotionEffects.maxHpMul(c))) : base;
+  }
 
   // Hostile kinds — every cave monster, plus the surface slime.
   function isEnemyKind(kind) {
@@ -633,7 +639,10 @@
   }
   // THIS pet's blow: its kind's bite times its own power (a raised pet's
   // double). The fight in scene_creatures.js reads this, never petBite alone.
-  function petBlow(c) { return petBite(c.kind) * powerMul(c); }
+  function petBlow(c) {
+    const base = petBite(c.kind) * powerMul(c);
+    return root.PotionEffects ? (base + root.PotionEffects.meleeBonus(c)) * root.PotionEffects.meleeMul(c) : base;
+  }
 
   // Current HP, lazily seeded from the kind's max the first time anything hits
   // it. Creatures are re-spawned from tile data on every reload, so `_hp` is
@@ -648,7 +657,7 @@
   // bypassArmor after computing a packet rate, avoiding a per-frame hit floor.
   function damageDealt(c, amount, options = {}) {
     const before = hp(c);
-    const raw = Math.max(0, amount);
+    const raw = Math.max(0, amount) * (root.PotionEffects ? root.PotionEffects.damageMul(c) : 1);
     const hit = options.bypassArmor ? raw : mitigate(raw, monster(c.kind)?.armor || 0);
     if (hit > 0 && before > 0) c._sleepUntil = 0;
     c._hp = Math.max(0, before - hit);
@@ -672,6 +681,7 @@
     return c._burnState.remainingMs > (c._burnExposed ? 0 : Math.max(0, now - c._burnAtT));
   }
   function ignite(c, now = performance.now(), by = 'fire') {
+    if (root.Conditions?.fireImmune(c)) return false;
     if (!canBurn(c)) return false;
     if (c._burnState?.remainingMs > 0) { c._burnBy = by; return false; }
     const def = burnDef();
@@ -684,6 +694,10 @@
     return true;
   }
   function burnTick(c, now = performance.now(), exposed = false) {
+    if (root.Conditions?.fireImmune(c)) {
+      if (root.PotionEffects) root.PotionEffects.extinguish(c);
+      return 0;
+    }
     if (!c?._burnState) return 0;
     const result = Conditions.advanceBurn(c._burnState, Math.max(0, now - c._burnAtT), exposed);
     c._burnState = { remainingMs: result.remainingMs, nextTickMs: result.nextTickMs };
@@ -846,6 +860,17 @@
     const drilled = trainingBuffActive(save, kind, now)
       || ((kind === 'melee' || kind === 'ranged') && !!root.Shrines && root.Shrines.leverActive(save, 'melee', now));
     return trainingLevel(save, kind) * row.per + (drilled ? row.drill : 0);
+  }
+  // Giant adds a flat bonus after attack multipliers; the scene applies it
+  // to melee attacks only. Repeated doses refresh the expiry.
+  function shrinkingActive(save, now = Date.now()) {
+    return (save?.shrinkingPotionUntil ?? 0) > now;
+  }
+  function giantActive(save, now = Date.now()) {
+    return (save?.giantPotionUntil ?? 0) > now;
+  }
+  function giantDamageBonus(save, now = Date.now()) {
+    return giantActive(save, now) ? CONSUMABLE_SPEC.giant_potion.damageBonus : 0;
   }
   // The multiplier on every attack INTERVAL (melee blow, bow, staff): 1 over
   // one plus the speed bonus, so +25% speed is a beat 1/1.25 as long.
@@ -1262,7 +1287,7 @@
     const sampleM = Math.max(0.01,
       ((opts && opts.cellM) || hitRadiusM) * BLOCK_SAMPLE_CELLS);
     for (const s of shots) {
-      const targets = s.hostile ? hostileTargets : enemies;
+      const targets = s.potionId ? (opts?.potionTargets || enemies) : s.hostile ? hostileTargets : enemies;
       if (s.blastRadiusM > 0 || s.impactOnly) {
         // Blasts can reach beyond the viewport used to choose auto-attack
         // targets. The caller supplies nearby hostiles across that boundary.
@@ -1472,7 +1497,7 @@
     canBurn, burning, ignite, burnTick,
     ELITE_MUL, isElite, eliteMul, RAISED_MUL, raisedMul, powerMul, maxHp,
     TRAINING_KINDS, TRAINING_ORDER, TRAINING_PERM_MAX, TRAINING_BUFF_MS, TRAINING_SLOT_KIND,
-    trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul,
+    trainingLevel, trainingDrillUntil, trainingBuffActive, trainingBonus, trainingIntervalMul, shrinkingActive, giantActive, giantDamageBonus,
     dpsForDurationMs, meleeDps, MELEE_INTERVAL_MS, meleeSwingDamage, shotDamage,
     HUNTER_BOW_MUL, ENFORCER_MELEE_DPS,
     MITIGATION_ROUNDS, MIN_PLAYER_DAMAGE, mitigate, playerDamage, playerDamageRate, playerDamageMultiplier, incomingDamage, incomingProjectileDamage, projectileReduction, playerDowned,
