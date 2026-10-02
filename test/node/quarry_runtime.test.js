@@ -12,7 +12,7 @@
   }
   const records = out => [...out.objects, ...out.guards, ...(out.treasures || [])];
   test('quarry runtime: all four compositions ship their finite site budgets and stable identities', () => {
-    for (const [id, finds, guards] of [['quarry-crater', 2, 0], ['quarry-abandoned', 2, 0], ['quarry-strip-mine', 0, 0], ['quarry-stronghold', 3, 3]]) {
+    for (const [id, finds, guards] of [['quarry-crater', 2, 0], ['quarry-abandoned', 2, 0], ['quarry-strip-mine', 0, 2], ['quarry-stronghold', 3, 3]]) {
       const a = ZoneDressing.dress(context(id)), b = ZoneDressing.dress(context(id));
       assert.eq(records(a).filter(o => o.zoneLayer === 'find').length, finds, id);
       assert.eq(a.guards.length, guards, id);
@@ -21,6 +21,24 @@
       const observer = ZoneDressing.dress(context(id, false));
       assert.eq(records(observer).filter(o => o.zoneLayer === 'find').length, 0, 'observer cannot multiply finds');
       assert.eq(observer.guards.length, 0, 'observer cannot multiply guards');
+    }
+  });
+  test('quarry runtime: strip mine inhabitants split and respect enemy-only exclusions', () => {
+    const out = ZoneDressing.dress(context('quarry-strip-mine'));
+    assert.eq(out.guards.length, 2);
+    for (const guard of out.guards) {
+      assert.eq(guard.kind, 'split_slime');
+      assert.eq(EnemyRoster.get(guard.kind).ability.type, 'split');
+    }
+    const ctx = context('quarry-strip-mine');
+    ctx.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.SENSITIVE);
+    const blocked = ZoneDressing.dress(ctx);
+    assert.eq(blocked.guards.length, 0, 'enemy gate suppresses the slimes');
+    assert.gt(blocked.objects.length, 0, 'ordinary bench stones remain eligible');
+    for (const owned of [true, false]) {
+      const clipped = context('quarry-strip-mine', owned);
+      clipped.field.anchors[0].clipped = true;
+      assert.eq(ZoneDressing.dress(clipped).guards.length, 0, 'incomplete source cannot duplicate finite inhabitants');
     }
   });
   test('quarry runtime: abandoned finds are fixed-loot persistent crates, not daily POIs', () => {

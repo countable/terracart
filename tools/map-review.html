@@ -425,7 +425,7 @@ function selectZone(id, focus) {
   const lines = [`<b>${esc(z.variant?.name || 'No variant')}</b> · ${esc(z.name || z.anchor.kind)}`,
     `${z.coverage} coverage cells · ${z.eligible} free eligible cells before placement`,
     `Finds ${z.finds.join('/')} · guards ${z.guards.join('/')}`];
-  if (z.variant?.generated === 'parking_lanes') lines.push('Generated from removed parking lanes · Quarry background only; no POI, shrine, finite finds, guards or light source.');
+  if (z.variant?.generated === 'parking_lanes') lines.push('Quarry formed from removed parking lanes · No daily POI or shrine. Finds and inhabitants follow the quarry variant; incomplete edge footprints use background only.');
   if (bg.planned != null) lines.push(`<b>Background: ${bg.placed || 0}/${bg.planned} slots placed</b><br>`
     + `${bg.occupied || 0} occupied by earlier spawns · ${bg.blocked || 0} refused by terrain/spawn rules · ${bg.reserved || 0} used by POI/find/connection layout`);
   lines.push(`Suppressed earlier placements: ${z.suppressed.ambient} general · ${z.suppressed.street} street`);

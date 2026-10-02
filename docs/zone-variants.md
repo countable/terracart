@@ -49,7 +49,7 @@ Complete parking-lane footprints select one of four stable quarry stories:
 |---|---|---|
 | Destroyed crater | One broken elliptical rim and open bowl scaled to usable coverage; sparse hot vents, one clear approach | Up to two finite Crimson ore deposits |
 | Abandoned quarry | Repeating 3–8-cell rock-and-salvage patches | Two one-off Iron-pick crates; copper ore rocks use normal mining, timber uses the existing wood pickup |
-| Strip mine | Repeating 3–8-cell benches with open cuts | Sapphire candidates reduced to one quarter of the former preview rule; no extra finite reward |
+| Strip mine | Repeating 3–8-cell benches with open cuts | Sapphire candidates reduced to one quarter of the former preview rule; two splitting slimes in the open cuts; no extra finite reward |
 | Ruined stronghold | Whole 5 × 5 foundations with doors and gaps between buildings | Three finite buried X marks and three goblins per site, not per foundation |
 
 `QuarryLayout` fits complete modules around the shared spawn gate and occupied cells. Requested finite counts that cannot fit are reported as shortfalls. Mined rocks, opened salvage, dug treasures and defeated guards use the existing progress ledgers; none refill daily. Crater vents use the existing lava terrain, damage rate and enemy immunity, plus a small orange light. Home/live terrain adjustments remain per-player overlays, leaving generated identities intact.

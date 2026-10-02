@@ -112,6 +112,9 @@
       for (const i of candidates.slice(0, Math.round(candidates.length * settings.sapphireAbundanceMultiplier))) plan.background.set(i, 'crystal');
     }
     if (s.a.owned) {
+      if (id === 'quarry-strip-mine') for (const centre of centres.slice(0, s.variant.guards.count || 0)) {
+        plan.guards.push({ i: centre, material: s.variant.guards.kind });
+      }
       if (id === 'quarry-abandoned') for (const centre of centres.slice(0, s.variant.finds.count)) plan.finds.push({ i: centre + N, material: 'tool_crate' });
       if (id === 'quarry-stronghold') for (const centre of centres.slice(0, Math.max(s.variant.finds.count, s.variant.guards.count || 0))) {
         if (plan.guards.length < s.variant.guards.count) plan.guards.push({ i: centre, material: 'goblin' });

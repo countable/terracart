@@ -296,6 +296,12 @@
       "recordType": "enemy",
       "spawnClass": "enemy",
       "color": "#79a15d"
+    },
+    "split_slime": {
+      "kind": "split_slime",
+      "recordType": "enemy",
+      "spawnClass": "enemy",
+      "color": "#46a6dc"
     }
   },
   "variants": [
@@ -6929,9 +6935,11 @@
         "shape": "none"
       },
       "guards": {
-        "mode": "none"
+        "mode": "quarry_layout",
+        "kind": "split_slime",
+        "count": 2
       },
-      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches.",
+      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Blue slimes divide and gather in the open cuts.",
       "attracts": {},
       "quarryLayout": "strip_mine",
       "affinities": [

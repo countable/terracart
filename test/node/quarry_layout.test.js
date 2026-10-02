@@ -31,9 +31,15 @@
   test('quarry layout: finite site budgets never multiply with modules or observers', () => {
     const cells = rect(48, 48);
     assert.eq(plan('quarry-abandoned', cells).finds.length, 2);
+    const strip = plan('quarry-strip-mine', cells);
+    assert.eq(strip.guards.length, 2, 'slime budget does not grow with the number of benches');
+    for (const guard of strip.guards) {
+      assert.eq(guard.material, 'split_slime');
+      assert.falsy(strip.background.has(guard.i), 'slimes occupy open cuts');
+    }
     const stronghold = plan('quarry-stronghold', cells);
     assert.eq(stronghold.finds.length, 3); assert.eq(stronghold.guards.length, 3);
-    for (const id of ['quarry-abandoned', 'quarry-stronghold', 'quarry-crater']) {
+    for (const id of ['quarry-abandoned', 'quarry-stronghold', 'quarry-crater', 'quarry-strip-mine']) {
       const observer = plan(id, cells, false);
       assert.eq(observer.finds.length, 0); assert.eq(observer.guards.length, 0);
     }
