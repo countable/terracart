@@ -271,5 +271,5 @@ court), away from walls and one another. Both floor modes share these sites
 and the same stone palette. They are decorative, with no collision or tap
 targets. Unclaimed masonry retains roughly 80% of restored brightness;
 courtyard floors retain roughly 89%, providing extra contrast against walls.
-Each family has its own dark skull banner: midnight blue for Citadel, moss
-black for Ruin, burgundy with a shield for Bastion, and plum with a book for Archive.
+Each family has its own dark skull banner: black for Citadel and
+Ruin, grey with a shield for Bastion, and brown with a book for Archive.

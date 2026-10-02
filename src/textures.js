@@ -1011,16 +1011,16 @@ function makeTowerTexture(scene, palette, key) {
 // Each family keeps a readable skull, with distinct cloth and pixel geometry.
 function makeCastleSkullFlagTexture(scene) {
   const heraldry = {
-    citadel: { cloth: '#172431', edge: '#647383', bone: '#e8e3ce', accent: '#92abc0', glyph: [
+    citadel: { cloth: '#111111', edge: '#494949', bone: '#e8e3ce', accent: '#929292', glyph: [
       '.........', '..XXXXX..', '.XXXXXXX.', '.X..X..X.', '.X..X..X.', '..XX.XX..', '...XXX...', '...X.X...', '.........',
     ] },
-    ruin: { cloth: '#263123', edge: '#59644b', bone: '#d9d1b1', accent: '#849268', glyph: [
+    ruin: { cloth: '#111111', edge: '#494949', bone: '#d9d1b1', accent: '#8a877b', glyph: [
       '.........', '..XX.XX..', '.XXX.XXX.', '.X..X..X.', '.X..X..X.', '..XX..X..', '...XX....', '...X.X...', 'O.......O',
     ] },
-    bastion: { cloth: '#3b2027', edge: '#75535a', bone: '#eee2cb', accent: '#bc9862', glyph: [
+    bastion: { cloth: '#484848', edge: '#737373', bone: '#eee2cb', accent: '#bc9862', glyph: [
       'OOOOOOOOO', 'O.XXXXX.O', 'OXXXXXXXO', 'OX..X..XO', 'OX..X..XO', 'O.XX.XX.O', '.O.XXX.O.', '..O.X.O..', '...OOO...',
     ] },
-    archive: { cloth: '#30223d', edge: '#706076', bone: '#e7dfcd', accent: '#b49c76', glyph: [
+    archive: { cloth: '#493425', edge: '#79614b', bone: '#e7dfcd', accent: '#b49c76', glyph: [
       '..XXXXX..', '.XXXXXXX.', '.X..X..X.', '..XX.XX..', '...XXX...', 'OOOO.OOOO', 'O..O.O..O', 'OOOOOOOOO', '....O....',
     ] },
   };

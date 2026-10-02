@@ -48,13 +48,13 @@ and courtyard floors consume the same already-treated material descriptors.
 The runtime also records the top occupied pixel of each frame so flags and
 claim markers clear towers of different heights.
 
-Every unclaimed tower flies a square black skull flag. Restoration removes
+Every unclaimed tower flies a square dark skull flag. Restoration removes
 those flags and shows the existing player banner on the castle's flag post.
 
 Unrestored tower flags share a square dark cloth and skull motif, with distinct
-heraldry: Citadel has a midnight-blue skull banner; Weathered Ruin a cracked
-skull on moss-black cloth; Intact Bastion a skull inside a shield on burgundy;
-Old Archive Court a skull above an open book on plum. `makeCastleSkullFlagTexture`
+heraldry: Citadel has a black skull banner; Weathered Ruin a cracked
+skull on black cloth; Intact Bastion a skull inside a shield on grey;
+Old Archive Court a skull above an open book on brown. `makeCastleSkullFlagTexture`
 bakes these four native pixel canvases once. The renderer selects them using
 the same castle identity as the masonry. Restoration removes the skull flags
 and keeps the original cream and green-heart player banner at `flagPost`.

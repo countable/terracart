@@ -57,7 +57,11 @@
       assert.gt(emblemPixels, 18, `${id}: a readable emblem survives at native size`);
       geometry.add(silhouette);
     }
-    assert.eq(cloths.size, 4, 'every family has its own dark cloth');
+    assert.eq(cloths.size, 3, 'Citadel and Ruin share black; Bastion is grey and Archive brown');
+    assert.eq(images.get('castle_skull_flag_citadel').get('14,11'), '#111111');
+    assert.eq(images.get('castle_skull_flag_ruin').get('14,11'), '#111111');
+    assert.eq(images.get('castle_skull_flag_bastion').get('14,11'), '#484848');
+    assert.eq(images.get('castle_skull_flag_archive').get('14,11'), '#493425');
     assert.eq(geometry.size, 4, 'families differ by emblem shape as well as colour');
   });
 })();
