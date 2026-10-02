@@ -208,6 +208,7 @@ const PIECES = {
       'framing over scorched brick, a sunflower sprouting through rubble - with an overgrown ' +
       'neighbourhood of caved roofs stretching to the horizon. Hopeful reconstruction amid ruin.',
   },
+  story_nightmare: { subject: 'Dark nightmarish16-bit pixel story illustration. Five-headed hydra Tiamat fights white dragon Ayo over a burning collapsing medieval city. Crimson fire and cold white magic, black-red smoke, no names or text. Landscape3:2 opening panel.', size: '1536x1024', width: 768 },
   story_wake:
     'Morning inside-and-out of a small travelling home wagon parked in a misty meadow. ' +
     'A survivor stretches awake at the wagon door, face fully hidden by a raised brown hood, ' +

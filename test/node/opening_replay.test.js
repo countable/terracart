@@ -1,6 +1,6 @@
 // THE OPENING PLAYS FOR EVERY GAME, not once per device.
 //
-// A fresh game opens on the two story slides (the trailer, then the wrecked
+// A fresh game opens on three story slides (a nightmare, trailer, then wrecked
 // neighbourhood), then the safety / "Go to my location" CTA, then the how-to
 // card. Whether that has happened is remembered in localStorage —
 // `terracart.introSeen` for the slides, `terracart.howtoSeen` for the card —
@@ -24,7 +24,7 @@ const count = (needle) => html.split(needle).length - 1;
 
 test('opening: the two "seen" keys have exactly ONE writer that clears them', () => {
   const src = html.slice(html.indexOf('function replayOpening() {'),
-                         html.indexOf('// Two-slide opening story shown once'));
+                         html.indexOf('// Opening dream, then the trailer'));
   assert.truthy(src.length > 0, 'index.html declares replayOpening');
   assert.truthy(src.includes(`localStorage.removeItem(${INTRO_KEY})`), 'it clears the story flag');
   assert.truthy(src.includes(`localStorage.removeItem(${HOWTO_KEY})`), 'and the how-to flag');
@@ -65,18 +65,20 @@ test('opening: the gate that reads the flag and the line that sets it spell the 
     'and sets it when the card is closed');
 });
 
-test('opening: the FULL sequence is two slides, in order, each with its own art', () => {
+test('opening: the FULL sequence is three slides, in order, each with its own art', () => {
   // "Full" is the point of this file: the bug showed as an opening that was
   // partly there (the CTA, then the world) with the story and the how-to
   // missing, so what the sequence IS gets pinned beside the flag that plays it.
   const slides = html.slice(html.indexOf('const STORY_SLIDES = ['), html.indexOf('let __storyStarted'));
   const arts = [...slides.matchAll(/assets\/art\/(story_\w+)\.webp/g)].map((m) => m[1]);
-  assert.eq(arts.length, 2, 'two slides');
-  assert.eq(arts[0], 'story_wake', 'the trailer first');
-  assert.eq(arts[1], 'story_wrecks', 'then the neighbourhood');
+  assert.eq(arts.length, 3, 'three slides');
+  assert.eq(arts[0], 'story_nightmare', 'the nightmare comes before waking');
+  assert.eq(arts[1], 'story_wake', 'then the trailer');
+  assert.eq(arts[2], 'story_wrecks', 'then the neighbourhood');
+  assert.truthy(/text: '', btn: 'wake up', nightmare: true/.test(slides), 'the dream has only its wake-up CTA');
   assert.truthy(/btn: 'Next'/.test(slides) && /btn: "Let's go"/.test(slides),
     'the last slide says where it is going, the first just turns the page');
-  // Both banners are real files with real pixels (the vm sandbox has no fs —
+  // Every banner is a real file with real pixels (the vm sandbox has no fs —
   // webpDims is run.js's bridge, beside the pngDims the item icons use).
   for (const stem of arts) {
     const d = webpDims('assets/art/' + stem + '.webp');
@@ -93,4 +95,47 @@ test('opening: the story plays FIRST, and the safety CTA waits for its last slid
   assert.truthy(/startStory\(\(\) => \{ if \(safetyEl\) safetyEl\.style\.display = 'flex'; \}\);/.test(flow),
     'and comes back when the last slide clears');
 });
+test('opening: wake up fades slowly, ignores early clicks and resets on the normal slides', () => {
+  const start = html.indexOf('    const STORY_WAKE_FADE_MS');
+  const end = html.indexOf('    // Is one of the boot overlays', start);
+  const source = html.slice(start, end);
+  for (const reduced of [false, true]) {
+    const nodes = {};
+    for (const id of ['story', 'story-art', 'story-text', 'story-next']) nodes[id] = {
+      style: { setProperty() {} }, classes: new Set(), handlers: {},
+      classList: { toggle(key, on) { if (on) nodes[id].classes.add(key); else nodes[id].classes.delete(key); } },
+      addEventListener(type, cb) { this.handlers[type] = cb; }, remove() { this.removed = true; },
+    };
+    let ready, delay, done = false, stored = false;
+    const startStory = new Function('document', 'window', 'localStorage', 'setTimeout', 'clearTimeout', source + '\nreturn startStory;')(
+      { getElementById: id => nodes[id] }, { matchMedia: () => ({ matches: reduced }) },
+      { setItem: () => { stored = true; } }, (cb, ms) => { ready = cb; delay = ms; }, () => {});
+    startStory(() => { done = true; });
+    const btn = nodes['story-next'], text = nodes['story-text'];
+    const click = () => btn.handlers.click({ stopPropagation() {} });
+    assert.eq(btn.textContent, 'wake up');
+    assert.truthy(text.hidden);
+    assert.eq(btn.disabled, !reduced);
+    if (!reduced) {
+      assert.eq(delay, 4000);
+      assert.truthy(btn.classes.has('nightmare-wake'));
+      click();
+      assert.eq(btn.textContent, 'wake up', 'invisible CTA cannot advance');
+      ready();
+    }
+    click();
+    assert.eq(btn.textContent, 'Next');
+    assert.falsy(btn.classes.has('nightmare-wake'));
+    assert.falsy(text.hidden);
+    assert.falsy(btn.disabled);
+    click();
+    assert.eq(btn.textContent, "Let's go");
+    assert.falsy(done);
+    click();
+    assert.truthy(done && stored && nodes.story.removed);
+  }
+  assert.truthy(/@keyframes wake-reveal/.test(html));
+  assert.truthy(/prefers-reduced-motion: reduce/.test(html));
+});
+
 })();
