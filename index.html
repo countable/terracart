@@ -832,9 +832,9 @@
     #bootload.done { opacity: 0; pointer-events: none; }
     #bootload .box {
       position: relative;
-      max-width: 320px; width: 100%; text-align: center;
+      max-width: 360px; width: 100%; text-align: center;
       font: 14px ui-monospace, monospace; color: #fff; line-height: 1.45;
-      background: #1a1612; border: 2px solid var(--gold-dark); border-radius: 12px;
+      background: #1a1612; border: 1px solid #6b5a2c; border-radius: 12px;
       padding: 22px 20px; box-sizing: border-box;
       box-shadow: 0 8px 40px rgba(0,0,0,.7);
     }
@@ -844,21 +844,21 @@
        shown once the map is up competes with the map and gets tapped away
        unread. #safety carries the copy AND the CTA; it is removed once
        answered, or up front on a same-session reload (already acknowledged).
-       The resume / dusk reminders stay app.js's cards (SAFETY_CARDS). Bold,
-       in the card's own orange-on-dark, so it reads as a warning, not chrome. */
-    #safety { display: flex; flex-direction: column; align-items: center; margin-bottom: 18px; }
+       The resume / dusk reminders stay app.js's cards (SAFETY_CARDS).
+       The orange heading and bold instructions keep the warning easy to scan. */
+    #safety { display: flex; flex-direction: column; align-items: stretch; margin-bottom: 24px; }
     #safety .warn-title {
       font: 900 22px ui-monospace, monospace; color: #ff8c3b;
       letter-spacing: .06em; margin-bottom: 10px;
     }
     #safety .warn-line {
-      font-weight: 700; font-size: 15px; line-height: 1.35; color: #fff4e0;
-      margin: 5px 0; max-width: 280px;
+      font: 400 16px/1.45 system-ui, sans-serif; color: #fff4e0;
+      text-align: left; margin: 6px 0;
     }
-    #safety button { margin-top: 16px; }
+    #safety button { margin-top: 20px; width: 100%; min-height: 48px; }
     #bootload .bar {
-      height: 10px; border: 1px solid var(--gold-dark); border-radius: 6px;
-      overflow: hidden; background: #1a1612; padding: 1px;
+      height: 4px; border-radius: 4px;
+      overflow: hidden; background: #383022;
     }
     #bootload .fill {
       height: 100%; width: 6%; background: var(--gold-dark); border-radius: 4px;
@@ -1171,10 +1171,10 @@
     <div class="box">
       <div id="safety" class="game-modal" role="alertdialog">
         <div class="warn-title">⚠ STAY SAFE</div>
-        <div class="warn-line">Look up. Watch where you walk, not the screen.</div>
-        <div class="warn-line">NEVER step into a street to reach something — use the stick to walk your farmer to it.</div>
-        <div class="warn-line">Do not play while driving or cycling.</div>
-        <div class="warn-line">Keep out of private, unsafe and prohibited places.</div>
+        <div class="warn-line"><strong>Look up.</strong> Watch where you walk, not the screen.</div>
+        <div class="warn-line"><strong>Never enter a street</strong> to reach an item. Use the joystick to move your farmer instead.</div>
+        <div class="warn-line"><strong>Do not play while driving or cycling.</strong></div>
+        <div class="warn-line"><strong>Keep out</strong> of private, unsafe and prohibited places.</div>
         <button id="safety-dismiss">Go to my location</button>
       </div>
       <div class="bar"><div class="fill" id="bootload-fill"></div></div>
