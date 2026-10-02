@@ -7,6 +7,6 @@ OpenAI image generation on 2 October 2026 for this project. No external art pack
 atlas. Rebuild with `python3 tools/pack_zone_art.py` followed by
 `python3 tools/pack_reef_art.py`. The original atlas is retained for reference.
 
-Frames 0–3 are used as noninteractive water scenery near Mystic Reef zones.
-Chests and ore use the existing game art and interaction mechanics. Remaining
-atlas objects are proposals, not installed gameplay objects.
+Frames 0–6 are used as noninteractive water scenery near Mystic Reef zones.
+Chests and ore use the existing game art and interaction mechanics. Frame 7 is retained only in this source pack and is not selected by generation;
+other accepted objects use the selected zone atlas.

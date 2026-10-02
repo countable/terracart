@@ -13,12 +13,14 @@ out.mkdir(parents=True, exist_ok=True)
 (out / 'art').mkdir(exist_ok=True)
 manifest = json.loads((ROOT / 'assets/Objects/ZoneVariants/manifest.json').read_text())
 registry = (ROOT / 'src/assets.js').read_text()
+baseline = json.loads((ROOT / 'assets/Objects/ZoneVariants/review-baseline-assets.json').read_text())
+selection = json.loads((ROOT / 'assets/Objects/ZoneVariants/selection.json').read_text())
 # Frame references are explicitly selected examples, not claims that every zone
 # uses every growth stage or shrine kind. The registry owns image dimensions.
 def current(key, frame=0):
     match = re.search(r'^\s*' + re.escape(key) + r':\s*\{([^\n]+)', registry, re.M)
     assert match, key
-    row = match.group(1)
+    row = baseline.get(key, match.group(1))
     path = re.search(r'[\"\']?path[\"\']?\s*:\s*[\"\']([^\"\']+)', row)[1]
     im = Image.open(ROOT / path).convert('RGBA')
     width = re.search(r'[\"\']?frameWidth[\"\']?\s*:\s*(\d+)', row)
@@ -94,13 +96,44 @@ assign(61,61,'New prop','Abandoned Quarry; Work Yard; Broken Depot','New decorat
 assign(62,62,'New prop','Broken Masonry; Ruined Stronghold','New stacked-column-drum decoration.')
 assign(63,63,'Zone-replacement','Silent Circle; Stone Garden; Ruined Stronghold','Replace stone-marker objects with a new tall-pillar type only in these zones. Preserve global stones and utility poles; interactions remain to be specified.',('mineralrock',171),'Current churchyard stone marker')
 
+rows = [r for r in rows if r['frame'] in selection['selectedFrames']]
+for r in rows:
+    r['status'] = 'Live'
+    if r['frame'] in (20,45,50,63): r['category'] = 'Total-replacement'
+    if r['frame'] == 20:
+        r['zones'] = ['All clay-pot locations']
+        r['note'] = 'All pots use this three-pot cluster. One occupied cell and one container interaction; matching smashed cluster remains after use until normal restock.'
+    elif r['frame'] == 45:
+        r['note'] = 'Replaces all mature berry-bush art. Meadow and Orchard each add three harvestable berry bushes per anchor, yielding one berry each. Growing stages and seed/produce icons remain appropriate.'
+    elif r['frame'] == 46:
+        r['note'] = 'Connected hedge set uses straight, corner, T and cross frames selected from surviving clipped shrubs. Matching compact bushes handle ends and isolated shrubs. Normal wood harvest is retained.'
+    elif r['frame'] == 50:
+        r['note'] = 'Total replacement for the generic grove votive sprite. Retains daily shrine behavior; specialized shrine kinds keep their own art.'
+    elif r['frame'] in (1,4,5):
+        r['note'] = 'Installed zone-local grave appearance; global mineral-rock art stays unchanged. Silent Circle remains quiet; other graves retain existing outcomes.'
+    elif r['frame'] in (6,7,39,54,61):
+        r['note'] = 'One decorative prop of this type per eligible owned zone, using a free spawn-gated cell. No extra loot or invented interaction.'
+    elif 24 <= r['frame'] <= 30:
+        r['note'] = 'One of seven active Mystic Reef coral appearances, used as noninteractive nearby-water scenery.'
+    elif r['frame'] == 34:
+        r['note'] = 'Zone-local shell rock appearance in Mystic Reef; one finite shell rock added in Shellwater Strand. Existing rock interaction retained.'
+    elif r['frame'] == 37:
+        r['note'] = 'One of the Mystic Reef ore finds is a crystal deposit using this art. Existing crystal yield and pick gate retained.'
+    elif r['frame'] == 38:
+        r['note'] = 'Mystic Reef daily shrine uses this art. A reef without an existing shrine receives one on eligible dry ground. Treasure chests keep chest art and normal rewards.'
+    elif r['frame'] == 40:
+        r['note'] = 'Small mushroom appearance in Mushroom Grove and Mushroom Lane. Existing harvest is retained; cave mushrooms keep their art.'
+    elif r['frame'] in (58,59):
+        r['note'] = 'Two stable appearances for existing quarry crystal deposits. Same crystal resource and pick requirement; no new quartz item.'
+
 atlas=Image.open(ROOT/'assets/Objects/ZoneVariants/objects-24.png')
 for r in rows:
     x,y=r['column']*24,r['row']*24
     path=f'art/{r["name"]}.png';atlas.crop((x,y,x+24,y+24)).save(out/path)
     r.update(image=path,sourcePixels=24,previewPixels=32,previewScale=32/24)
 (out/'catalog.json').write_text(json.dumps(rows,indent=2)+'\n')
-shutil.copy2(ROOT/'assets/Objects/ZoneVariants/objects-24.png',out/'objects-24.png')
+shutil.copy2(ROOT/'assets/Objects/ZoneVariants/approved-24.png',out/'objects-24.png')
+shutil.copy2(ROOT/'assets/Objects/ZoneVariants/pots_smashed.png',out/'art/pots_smashed.png')
 esc=html.escape
 body=[]
 for r in rows:
@@ -108,11 +141,12 @@ for r in rows:
     oldhtml=(f'<div class="oldart"><img src="{before["image"]}" alt="{esc(before["label"])}"></div><strong>{esc(before["label"])}</strong><details><summary>Source</summary><code>{esc(before["source"])}</code><br>Frame {before["frame"]}</details>') if before else '<span class="muted">— New object; no direct replacement</span>'
     zones=''.join(f'<span class="zone">{esc(z)}</span>' for z in r['zones'])
     name=r['name'].replace('_',' ')
-    body.append(f'''<tr data-status="{r['status']}" data-type="{r['category']}"><td><small>R{r['row']+1} C{r['column']+1} · #{r['frame']}</small><strong>{esc(name)}</strong></td><td><div class="newart"><div class="cell"><img src="{r['image']}" width="32" height="32" alt="{esc(name)}"></div><img class="zoom" src="{r['image']}" width="96" height="96" alt="{esc(name)} enlarged"></div><small>32px cell · 3× detail</small></td><td>{oldhtml}</td><td><span class="badge {r['status'].lower()}">{r['status']}</span><br>{r['category']}</td><td>{zones}</td><td>{esc(r['note'])}</td></tr>''')
+    used = '<br><small>After use</small><br><img width=32 height=32 src=art/pots_smashed.png alt="Smashed pot cluster">' if r['frame']==20 else ''
+    body.append(f'''<tr data-status="{r['status']}" data-type="{r['category']}"><td><small>R{r['row']+1} C{r['column']+1} · #{r['frame']}</small><strong>{esc(name)}</strong></td><td><div class="newart"><div class="cell"><img src="{r['image']}" width="32" height="32" alt="{esc(name)}"></div><img class="zoom" src="{r['image']}" width="96" height="96" alt="{esc(name)} enlarged"></div><small>32px cell · 3× detail</small>{used}</td><td>{oldhtml}</td><td><span class="badge {r['status'].lower()}">{r['status']}</span><br>{r['category']}</td><td>{zones}</td><td>{esc(r['note'])}</td></tr>''')
 page='''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Zone object review — 24px art</title><style>
 *{box-sizing:border-box}body{margin:0;background:#17201d;color:#eef0e5;font:14px/1.5 system-ui}header{padding:28px 32px 16px;max-width:1160px}h1{margin:0 0 12px;font-size:28px}p{margin:8px 0}a{color:#a9dfd5}nav{position:sticky;top:0;z-index:3;background:#202d26;padding:12px 32px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #52644f}input,select{font:inherit;background:#101a16;color:inherit;padding:8px;border:1px solid #6a7a62;border-radius:4px}input{width:270px}label{display:flex;gap:8px;align-items:center}.tablewrap{overflow:auto;padding:0 24px 32px}table{border-collapse:collapse;width:100%;min-width:1100px}th{text-align:left;background:#26362c;padding:12px}td{padding:16px 12px;border-bottom:1px solid #415042;vertical-align:top}tr:nth-child(even){background:#1d2922}td:first-child{width:185px}td:nth-child(2){width:200px}td:nth-child(3){width:210px}td:nth-child(4){width:115px}td:nth-child(5){width:240px}small,.muted{color:#b4c0af;font-size:12px}td strong{display:block;font-weight:550}img{image-rendering:pixelated;object-fit:contain}.newart{display:flex;align-items:center;gap:20px;height:100px}.cell{width:32px;height:32px;outline:1px solid #9db098;background:#455039;flex:none}.zoom{background:#35412f;outline:1px solid #5a6b50}.oldart{height:70px;display:flex;align-items:center}.oldart img{width:64px;height:64px;object-fit:contain}details{font-size:11px;margin-top:6px}code{overflow-wrap:anywhere}.badge{display:inline-block;border:1px solid #9b9c70;border-radius:12px;padding:1px 8px;margin-bottom:8px}.live{background:#285941;border-color:#81c39a}.zone{display:block;margin-bottom:5px}#count{margin-left:auto}tr[hidden]{display:none}
-</style><header><h1>Zone object review</h1><p><b>Selected: 24×24 source sprites, framed at 32×32 game pixels (scale 4/3).</b> Each proposed sprite is shown in one 32px cell, plus a 3× enlargement. Transparent padding leaves a little breathing room. Nearest-neighbour display keeps hard edges; 4/3 scaling produces uneven pixel widths.</p><p><b>4 live / 60 previews.</b> Preview status and object type are separate. Zones below are proposed destinations for previews. Live corals use this 32px framing. This page does not install the other objects.</p><p><b>Type key:</b> Total-replacement = replace an old sprite everywhere it is used, retaining the existing object type. Variant = another appearance of the same object type. <b>Zone-replacement = replace an existing object with a new type in specified zones, preserving the original global object and art.</b> New prop / concept = an addition with no replacement assigned. For zone-replacements, the comparison shows the object being displaced locally.</p><p>Current-art comparisons use exact asset frames, enlarged to fit a 64px reference box for recognition; that column is <b>not a measurement of current game scale</b>. Generic shrine references and example growth stages are explicitly labeled. Walls currently use rock cells.</p><p><a href="../stronghold-walls/">New square-grid stronghold wall set</a> · <a href="objects-24.png">24px spritesheet</a> · <a href="catalog.json">Structured catalog JSON</a> · <a href="../zone-object-pixels/">Earlier size comparison</a> · <a href="../road-review/tools/map-review.html">Map review</a></p></header><nav><label>Search <input id="search" type="search" placeholder="Name, zone, or notes…"></label><label>Status <select id="status"><option value="">All</option><option>Live</option><option>Preview</option></select></label><label>Type <select id="type"><option value="">All</option><option>Total-replacement</option><option>Variant</option><option>Zone-replacement</option><option>New prop</option><option>New concept</option></select></label><span id="count" aria-live="polite">64 objects</span></nav><div class="tablewrap"><table><thead><tr><th scope="col">Object / sheet position</th><th scope="col">Selected 24px art → 32px</th><th scope="col">Current / previous art</th><th scope="col">Status / type</th><th scope="col">Zones / scope</th><th scope="col">Implementation notes</th></tr></thead><tbody>'''+''.join(body)+'''</tbody></table></div><script>
-const rows=[...document.querySelectorAll('tbody tr')],search=document.querySelector('#search'),statusSelect=document.querySelector('#status'),typeSelect=document.querySelector('#type');function filter(){let count=0;for(const row of rows){row.hidden=!!((statusSelect.value&&row.dataset.status!==statusSelect.value)||(typeSelect.value&&row.dataset.type!==typeSelect.value)||!row.textContent.toLowerCase().includes(search.value.toLowerCase()));if(!row.hidden)count++;}document.querySelector('#count').textContent=count+' / 64 objects';}for(const el of [search,statusSelect,typeSelect])el.addEventListener('input',filter);
+</style><header><h1>Zone object review</h1><p><b>Selected: 24×24 source sprites, framed at 32×32 game pixels (scale 4/3).</b> Each proposed sprite is shown in one 32px cell, plus a 3× enlargement. Transparent padding leaves a little breathing room. Nearest-neighbour display keeps hard edges; 4/3 scaling produces uneven pixel widths.</p><p><b>Selected art only.</b> These choices are installed; unselected proposals are discarded from this review. Original # numbers are retained for reference. Connected walls and hedges use their derived tile sets. The #53/#63 pillar selection is awaiting clarification.</p><p><b>Type key:</b> Total-replacement = replace an old sprite everywhere it is used, retaining the existing object type. Variant = another appearance of the same object type. <b>Zone-replacement = replace an existing object with a new type in specified zones, preserving the original global object and art.</b> New prop / concept = an addition with no replacement assigned. For zone-replacements, the comparison shows the object being displaced locally.</p><p>Current-art comparisons use exact asset frames, enlarged to fit a 64px reference box for recognition; that column is <b>not a measurement of current game scale</b>. Generic shrine references and example growth stages are explicitly labeled. Walls currently use rock cells.</p><p><a href="../stronghold-walls/">Installed square-grid stronghold wall set</a> · <a href="objects-24.png">24px spritesheet</a> · <a href="catalog.json">Structured catalog JSON</a> · <a href="/tools/world-art.html">World art catalog</a> · <a href="../road-review/tools/map-review.html">Map review</a></p></header><nav><label>Search <input id="search" type="search" placeholder="Name, zone, or notes…"></label><label>Status <select id="status"><option value="">All</option><option>Live</option><option>Preview</option></select></label><label>Type <select id="type"><option value="">All</option><option>Total-replacement</option><option>Variant</option><option>Zone-replacement</option><option>New prop</option><option>New concept</option></select></label><span id="count" aria-live="polite">Selected objects</span></nav><div class="tablewrap"><table><thead><tr><th scope="col">Object / sheet position</th><th scope="col">Selected 24px art → 32px</th><th scope="col">Current / previous art</th><th scope="col">Status / type</th><th scope="col">Zones / scope</th><th scope="col">Implementation notes</th></tr></thead><tbody>'''+''.join(body)+'''</tbody></table></div><script>
+const rows=[...document.querySelectorAll('tbody tr')],search=document.querySelector('#search'),statusSelect=document.querySelector('#status'),typeSelect=document.querySelector('#type');function filter(){let count=0;for(const row of rows){row.hidden=!!((statusSelect.value&&row.dataset.status!==statusSelect.value)||(typeSelect.value&&row.dataset.type!==typeSelect.value)||!row.textContent.toLowerCase().includes(search.value.toLowerCase()));if(!row.hidden)count++;}document.querySelector('#count').textContent=count+' / Selected objects';}for(const el of [search,statusSelect,typeSelect])el.addEventListener('input',filter);
 </script></html>'''
 (out/'index.html').write_text(page)
 print(f'Published {len(rows)} rows, {sum(bool(r["before"]) for r in rows)} source-art comparisons to {out}')

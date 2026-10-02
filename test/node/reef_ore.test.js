@@ -25,6 +25,9 @@
     const c = context(), out = dress(c), rocks = ore(out), cfg = ZoneVariants.byId('mystic_reef').reef.landOre;
     assert.eq(rocks.length, cfg.count);
     assert.eq(rocks.length, 3, 'one small budget per site');
+    const crystal = rocks.find(o => o.deposit === 'crystal');
+    assert.truthy(crystal, 'one existing crystal deposit uses the selected reef art');
+    assert.eq(crystal._zoneObjectFrame, 37);
     for (const rock of rocks) {
       assert.eq(c.grid[rock._iy * c.N + rock._ix], WorldGen.T.SAND, 'ore stays on dry eligible ground');
       assert.includes([2, 3, 4], rock.yieldTier);

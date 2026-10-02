@@ -1394,7 +1394,7 @@
           const crop = n % 4 === 1 && Math.floor(n / 4) % TOADSTOOL_GIANT_EVERY_GROUPS === 0
             ? 'giant_mushroom' : 'mushroom';
           res.wildplants.push(WG.makeWildplant(crop, cx(c.ix), cy(c.iy),
-            WG.cellId('wp_ts', tx, ty, c.ix, c.iy), { _street: v }));
+            WG.cellId('wp_ts', tx, ty, c.ix, c.iy), { _street: v, _zoneObjectFrame: 40 }));
           placed++;
         });
       } else if (v === 'orchard') {

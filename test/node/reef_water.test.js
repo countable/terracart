@@ -17,6 +17,7 @@
     const corals=ctx.zoneDress.corals,chests=ctx.zoneDress.objects.filter(o=>o.kind==='chest');
     assert.gt(corals.length,0);assert.eq(chests.length,2);
     for(const o of corals) {
+      assert.includes([0,1,2,3,4,5,6], o.variant, 'only selected coral frames spawn');
       assert.eq(ctx.grid[o._iy*N+o._ix],T.WATER,'coral only decorates water');
       assert.lte(o._ix,16,'five-cell water extension stays bounded');
     }
@@ -48,6 +49,36 @@
     const ctx=fixture(false);run(ReefLayout.dressSteps(ctx));
     assert.gt(ctx.zoneDress.corals.length,0);
     assert.eq(ctx.zoneDress.objects.length,0,'neighbour fragment owns neither chests nor ore');
+  });
+  test('reef shrine: a park-shore site gets one gated daily shrine without duplicating a nexus', () => {
+    const ctx = fixture(); ctx.field.anchors[0].parkShore = true;
+    ctx.zoneDress.nexus = [
+      { zoneAnchor: ctx.field.anchors[0].key, kind: 'grove', variant: 'orchard', poiId: 'inland-park-shrine' },
+      { zoneAnchor: ctx.field.anchors[0].key, kind: 'beach', variant: 'mystic_reef', poiId: null }
+    ];
+    run(ReefLayout.dressSteps(ctx));
+    const shrines = ctx.zoneDress.objects.filter(o => o.kind === 'grove_shrine');
+    assert.eq(shrines.length, 1);
+    const shrine = shrines[0];
+    assert.eq(shrine._zoneObjectFrame, 38);
+    assert.eq(shrine.shrineKind, Shrines.kindForZoneVariant('mystic_reef'));
+    assert.eq(ctx.grid[shrine._iy * N + shrine._ix], T.SAND);
+    assert.truthy(WorldGen.isSpawnCell(ctx.grid, N, N, shrine._ix, shrine._iy,
+      { ...ctx.spawnOpts, occupied: null }, 'reward'));
+    const rebuilt = fixture(); run(ReefLayout.dressSteps(rebuilt));
+    assert.eq(rebuilt.zoneDress.objects.find(o => o.kind === 'grove_shrine').id, shrine.id);
+    const existing = fixture();
+    existing.zoneDress.nexus = [{ zoneAnchor: existing.field.anchors[0].key, kind: 'beach', variant: 'mystic_reef', poiId: 'existing-daily-shrine' }];
+    run(ReefLayout.dressSteps(existing));
+    assert.eq(existing.zoneDress.objects.filter(o => o.kind === 'grove_shrine').length, 0, 'existing POI shrine remains the only daily shrine');
+    const blocked = fixture();
+    for (let i = 0; i < N * N; i++) if (blocked.field.coverage[i]) blocked.spawnOpts.spawnWhy[i] |= W.RESTRICTED;
+    run(ReefLayout.dressSteps(blocked));
+    assert.eq(blocked.zoneDress.objects.filter(o => o.kind === 'grove_shrine').length, 0, 'protected land refuses shrine');
+    const occupied = fixture();
+    for (let i = 0; i < N * N; i++) if (occupied.field.coverage[i]) occupied.spawnOpts.occupied.add(i);
+    run(ReefLayout.dressSteps(occupied));
+    assert.eq(occupied.zoneDress.objects.filter(o => o.kind === 'grove_shrine').length, 0, 'occupied shore refuses shrine');
   });
   test('reef water: explicit water spawn gate preserves protection, occupancy and road bands',()=>{
     const ctx=fixture(),i=12+12*N,opts={...ctx.spawnOpts,waterOnly:true};

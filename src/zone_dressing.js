@@ -53,7 +53,7 @@
       // Scenic shore sand is finalized after coverage; keep late sand out
       // of ordinary grove motifs too. Beach roses require vegetated ground.
       if (grid[iy * N + ix] === WG.T.SAND && s.variant.id === 'shellwater_strand' && material === 'rose') return false;
-      const m = V.materials[material];
+      const m = V.materials[s.variant.materialReplacements?.[material] || material];
       if (!m) return false;
       const cls = m.recordType === 'enemy' && typeof root.creatureSpawnClass === 'function'
         ? root.creatureSpawnClass(m.kind) : m.spawnClass;
@@ -61,6 +61,7 @@
       return m.recordType !== 'surface_trap' || !!(root.Traps && root.Traps.isTrapGround(grid, opts.roadClass, N, N, ix, iy, field.under, opts.roadMask));
     };
     const place = (s, ix, iy, material, layer, id) => {
+      material = s.variant.materialReplacements?.[material] || material;
       let m = V.materials[material];
       if (!allowed(s, ix, iy, material)) {
         if (!m || !m.fallback || !allowed(s, ix, iy, m.fallback)) return null;
@@ -68,6 +69,9 @@
       }
       const i = iy * N + ix, [x, y] = position(ix, iy);
       const extra = { zone: s.a.kind, zoneVariant: s.variant.id, zoneLayer: layer, _ix: ix, _iy: iy };
+      const frames = s.variant.materialFrames?.[material];
+      if (frames?.length) extra._zoneObjectFrame = frames[Math.floor(Z.cellU01(tx * N + ix, ty * N + iy, 0x2416) * frames.length)];
+      else if (m._zoneObjectFrame != null) extra._zoneObjectFrame = m._zoneObjectFrame;
       const look = s.variant.materialLooks && s.variant.materialLooks[material];
       if (m.kind === 'wildplant' && (look || m._plantArt)) extra._plantArt = look || m._plantArt;
       else if (look) extra._objectArt = look;
@@ -275,6 +279,7 @@
           // stable POI identity and settled seat at the composition's centre.
           s.chest.kind = 'grove_shrine';
           s.chest.zone = a.kind; s.chest.zoneLayer = 'shrine';
+          if (v.shrineFrame != null) s.chest._zoneObjectFrame = v.shrineFrame;
           // A shrine kind (src/shrines.js) lends its boon in place of the gift.
           const shrineKind = s.shipwreck ? null : root.Shrines && root.Shrines.kindForZoneVariant(v.id);
           if (shrineKind) s.chest.shrineKind = shrineKind;
@@ -310,7 +315,7 @@
         }
         if (!seated) s.rec.shortfalls.push('shrine:' + standKind);
       }
-      out.nexus.push({ kind: a.kind, aspect: v.id, variant: v.id, chestId: s.chest && s.chest.kind === 'chest' ? s.chest.id : null, poiId: s.chest ? s.chest.id : null, pieces: s.rec.placed });
+      out.nexus.push({ zoneAnchor: a.key, kind: a.kind, aspect: v.id, variant: v.id, chestId: s.chest && s.chest.kind === 'chest' ? s.chest.id : null, poiId: s.chest ? s.chest.id : null, pieces: s.rec.placed });
     }
     // Fit a bounded composition as a whole instead of clipping its stones
     // individually against a building. Only complete owner-local sites may
@@ -427,6 +432,23 @@
         if (frame != null) plan.wallFrames.set(i, frame);
       }
     }
+    // Small finite accents belong to the source anchor, not every repeating
+    // motif. Keep authored paths, foundation cells and existing objects clear.
+    for (const s of states) {
+      if (!s.a.owned || !s.variant.decorations?.length) continue;
+      const candidates = s.cells.filter(i => !s.clear.has(i) && !s.poiSlots.has(i)
+        && !s.connections.has(i) && !s.quarryPlan?.background.has(i))
+        .sort((a, b) => Z.cellU01(tx * N + a % N, ty * N + Math.floor(a / N), 0xdec0)
+          - Z.cellU01(tx * N + b % N, ty * N + Math.floor(b / N), 0xdec0) || a - b);
+      for (const decoration of s.variant.decorations) {
+        let remaining = decoration.count;
+        for (const i of candidates) {
+          if (!remaining) break;
+          if (!allowed(s, i % N, Math.floor(i / N), decoration.material)) continue;
+          if (place(s, i % N, Math.floor(i / N), decoration.material, 'decoration')) remaining--;
+        }
+      }
+    }
     const ground = { graves: 0, rocks: 0, fill: 0 };
     for (let iy = 0; iy < N; iy++) {
       if ((iy & 7) === 0) yield 'zone variant pattern rows';
@@ -458,6 +480,7 @@
         }
       }
     }
+    stampHedges(out.wildplants, N);
     out.ground = ground;
     if (ctx.fringe) {
       const chars = {};
@@ -506,6 +529,23 @@
       }
     }
   }
+  function stampHedges(plants, N) {
+    const groups = new Map();
+    for (const p of plants) {
+      if (p.crop !== 'shrub' || !['formal_garden', 'hedge_garden'].includes(p.zoneVariant)) continue;
+      if (!groups.has(p.zoneVariant)) groups.set(p.zoneVariant, []);
+      groups.get(p.zoneVariant).push(p);
+    }
+    for (const group of groups.values()) {
+      const cells = new Set(group.map(p => p._iy * N + p._ix));
+      for (const p of group) {
+        const frame = root.QuarryLayout.wallFrameAt(cells, p._iy * N + p._ix, N);
+        p._plantArt = frame == null ? 'zone_hedge_single' : 'zone_hedge';
+        if (frame != null) p._hedgeFrame = frame;
+        else delete p._hedgeFrame;
+      }
+    }
+  }
   function dress(ctx) { const it = dressSteps(ctx); let r; do { r = it.next(); } while (!r.done); return r.value; }
-  root.ZoneDressing = { dressSteps, dress };
+  root.ZoneDressing = { dressSteps, dress, stampHedges };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

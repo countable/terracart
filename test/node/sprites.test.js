@@ -584,3 +584,35 @@ test('stronghold walls keep their tile frame alignment instead of centering corn
   }
   assert.eq(art.resolveAppearance({kind:'mineralrock',yieldTier:2}).texKey,'mineralrock','global rock art retained');
 });
+
+// A mature replacement must not turn the seed packet or growing crop into a bush.
+test('berry bush: mature map art replaces wild and farmed berries while growth and inventory remain distinct', () => {
+  for (const plant of [{kind:'wildplant',crop:'berry'}, {crop:'berry',wildId:'wz:berry'}, {crop:'berry',stage:MAX_GROWTH_STAGE}]) {
+    const art = wildplantSprite(plant);
+    assert.eq(art.sheet, 'zone_berry_bush');
+    assert.eq(art.scale, 4 / 3);
+    assert.eq(wildplantFrame(plant), 0);
+  }
+  for (let stage=0; stage<MAX_GROWTH_STAGE; stage++) {
+    assert.eq(wildplantSprite({crop:'berry',stage}).sheet, 'springcrops');
+  }
+  assert.eq(inventoryIconSource('berry_seed').frame, 21);
+  assert.eq(inventoryIconSource('berry').frame, 22);
+  assert.eq(wildplantOutput('berry'), 'berry');
+  assert.eq(wildplantRewards('berry')[0].qty, 1);
+});
+
+test('selected zone appearances keep mineral interactions and global art separate', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  const original = art.resolveAppearance({kind:'mineralrock',yieldTier:2});
+  const selected = art.resolveAppearance({kind:'mineralrock',deposit:'crystal',_zoneObjectFrame:37});
+  assert.eq(original.texKey,'mineralrock');
+  assert.eq(selected.texKey,'zone_objects'); assert.eq(selected.frameVal,37);
+  assert.eq(selected.spec.after,original.spec.after,'pick-gate appearance hook is retained');
+  assert.eq(selected.scl*24,32);
+  const pot = {kind:'chest',barrel:true,barrelStyle:'clay_pot',id:'selected-pot'};
+  assert.eq(art.resolveAppearance(pot).texKey,'clay_pot');
+  assert.eq(art.resolveAppearance({...pot,_smashed:true}).texKey,'clay_pot_smashed');
+  assert.eq(art.resolveAppearance(pot).scl*24,32);
+  assert.truthy(/_zoneObjectFrame: wp\._zoneObjectFrame/.test(RENDER_SRC),'wild mushroom appearance reaches the plant renderer');
+});

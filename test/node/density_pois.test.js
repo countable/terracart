@@ -176,8 +176,10 @@
     assert.truthy(/if \(o\.kind === 'chest' && isBarrel\(o\)\) \{ o\._smashed = spent; return true; \}/.test(RENDER_SRC),
       'render.js keeps a spent barrel on the draw list');
     assert.truthy(/\(L\.barrel && o\._smashed\) \? L\.smashedKey : L\.texKey/.test(RENDER_SRC), 'and draws it smashed');
-    assert.truthy(/barrel_smashed: +\{ kind: 'spritesheet', path: 'assets\/Objects\/Approved\/barrel_smashed\.png'/.test(ASSETS_SRC),
-      'the smashed art is loaded');
+    const smashedAsset = ASSETS_SRC.match(/barrel_smashed: +\{ kind: 'spritesheet', path: '([^']+)'/);
+    assert.truthy(smashedAsset, 'the smashed art is loaded');
+    const dims = pngDims(smashedAsset[1]);
+    assert.truthy(dims && dims.w > 0 && dims.h > 0, 'the registered smashed art exists');
   });
 
   // ── Bike racks ───────────────────────────────────────────────────────────

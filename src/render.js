@@ -2982,7 +2982,7 @@ Render.drawObjects = function drawObjects(scene) {
           // occupancy pass never saw (cave mushrooms, the sandbox scatter), so
           // the id is what the per-cell variant hash actually keys off.
           plantedList.push({ p: { x: wp.x, y: wp.y, crop: wp.crop, stage: MAX_GROWTH_STAGE, wildId: wp.id,
-                                  _cave: wp._cave, _biome: wp._biome, _plantArt: wp._plantArt, _streetArt: wp._streetArt, _ix: wp._ix, _iy: wp._iy }, dx, dy });
+                                  _cave: wp._cave, _biome: wp._biome, _plantArt: wp._plantArt, _hedgeFrame: wp._hedgeFrame, _zoneObjectFrame: wp._zoneObjectFrame, _streetArt: wp._streetArt, _ix: wp._ix, _iy: wp._iy }, dx, dy });
           _boot_kept++;
         });
       }
@@ -4459,6 +4459,7 @@ Render.objectAppearance = function (scene, houseRoles) {
     // Water scenery is drawn separately from tappable objects.
     // Connected wall tiles preserve frame alignment, including off-center corners.
     // Seating by trimmed art would move their endpoints away from adjacent cells.
+    zone_prop: { key: 'zone_objects', frame: o => o.variant, scale: 4 / 3, origin: [0.5, 0.5], seat: true },
     stronghold_wall: { key: 'stronghold_wall', frame: o => o.variant, scale: 4 / 3, origin: [0.5, 0.5], seat: false },
     reef_coral: { key: 'reef_coral', frame: o => o.variant, scale: 4 / 3, origin: [0.5, 0.5], seat: true },
     // Houses pick their texture by role — the generic 'house' frame stays
@@ -4644,7 +4645,7 @@ Render.objectAppearance = function (scene, houseRoles) {
               // SMALL_POI_SCALE (~21px) and seated like the crate.
               scale: (o) => { const L = chestLook(o);
                               return L.wagon ? WAGON_SCALE : ((L.stand || L.macro) ? 0.54 : (L.coin ? 1.12
-                                : ((L.barrel || L.bike) ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE)))); },
+                                : (L.barrel ? 4 / 3 : (L.bike ? SMALL_POI_SCALE : (L.box ? CRATE_SCALE : SpriteLayout.CHEST_SCALE))))); },
               // Produce stands are foot-anchored (not seated), so origin 0.5
               // centres the FRAME box — but market_stand.png's art is shifted
               // right (every frame's opaque pixels are x:[12,80] in the 80px
@@ -4858,8 +4859,11 @@ Render.objectAppearance = function (scene, houseRoles) {
   // Resolve once per draw pass: animated frames, seating and shadow geometry
   // all use the same appearance. Nothing is cached on the world object.
   const resolveAppearance = (o) => {
-    const spec = RENDER_SPEC[o.kind];
+    let spec = RENDER_SPEC[o.kind];
     if (!spec) return null;
+    // Zone-local appearances retain the existing object behavior and hooks.
+    if (Number.isInteger(o._zoneObjectFrame)) spec = { ...spec, key: 'zone_objects',
+      frame: o._zoneObjectFrame, scale: 4 / 3, origin: [0.5, 0.5], seat: true };
     const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
     if (texKey == null || !scene.textures.exists(texKey)) return { spec, visible: false };
     const frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;

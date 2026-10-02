@@ -66,7 +66,7 @@
         if(score(i,'coral')/4294967296 >= config.coralDensity) continue;
         coralCells.add(i);
         out.corals.push({ id:WG.cellId('reef_coral',tx,ty,i%N,Math.floor(i/N)), ...position(i), ...extra,
-          _ix:i%N,_iy:Math.floor(i/N),variant:score(i,'coral_art')%4 });
+          _ix:i%N,_iy:Math.floor(i/N),variant:config.coralFrames[score(i,'coral_art')%config.coralFrames.length] });
       }
       if(!s.a.owned) continue;
       // All chests remain within base shore reach. Scenery can continue farther
@@ -97,8 +97,27 @@
         const p=position(i);
         out.objects.push(WG.makeObject(m.kind,p.x,p.y,WG.cellId(`reef_ore_${s.a.key}`,tx,ty,i%N,Math.floor(i/N)),
           {...extra,zoneLayer:'reef_ore',_ix:i%N,_iy:Math.floor(i/N),deposit:m.deposit,yieldTier:m.yieldTier,
-            requiredTier:m.requiredTier,rockVariant:root.SpriteLayout?.[m.rockVariant] || 3}));
+            requiredTier:m.requiredTier,_zoneObjectFrame:m._zoneObjectFrame,rockVariant:root.SpriteLayout?.[m.rockVariant] || 3}));
         occupied.add(i);
+      }
+      // Park-shore anchors have no POI chest to become the site's daily
+      // shrine. Give only those owner sites one ordinary shrine on free dry
+      // ground, after protecting treasure approaches and the finite ore budget.
+      const nexus = out.nexus?.find(n => n.zoneAnchor === s.a.key && n.variant === s.variant.id && n.kind === s.a.kind);
+      const hasShrine = !!nexus?.poiId || out.objects.some(o =>
+        o.kind === 'grove_shrine' && o.zoneAnchor === s.a.key && o.zoneVariant === s.variant.id);
+      if (!hasShrine && s.variant.shrineFrame != null) {
+        const i = dry.find(cell => allowed(cell, false, 'reward'));
+        if (i != null) {
+          const p = position(i), id = WG.cellId(`reef_shrine_${s.a.key}`, tx, ty, i % N, Math.floor(i / N));
+          out.objects.push(WG.makeObject('grove_shrine', p.x, p.y, id, {
+            ...extra, zoneLayer: 'shrine', _ix: i % N, _iy: Math.floor(i / N),
+            _zoneObjectFrame: s.variant.shrineFrame,
+            shrineKind: root.Shrines.kindForZoneVariant(s.variant.id)
+          }));
+          occupied.add(i);
+          if (nexus) nexus.poiId = id;
+        }
       }
     }
     out.corals=out.corals.filter(o=>coralCells.has(o._iy*N+o._ix));

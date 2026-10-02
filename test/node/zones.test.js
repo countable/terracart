@@ -316,6 +316,12 @@ test('zones: every nexus piece is off the road band and off anything already the
         { spawnWhy: on.spawnWhy, roadMask: on.roadMask }, 'minor'), 'walls retain the normal scenery spawn gate');
       const neighbors = new Set(d.objects.filter(p => p.zoneVariant === o.zoneVariant && p.zoneLayer === 'background').map(cellOf));
       assert.eq(o.variant, QuarryLayout.wallFrameAt(neighbors, cellOf(o), N), 'frame follows actual surviving wall neighbors');
+    } else if (o.kind === 'zone_prop') {
+      assert.eq(o.zoneLayer, 'decoration');
+      assert.includes([6, 7, 39, 54, 61], o._zoneObjectFrame);
+      assert.falsy(INTERACTABLES[o.kind], 'scenery adds no reward or tap action');
+      assert.truthy(WorldGen.isSpawnCell(on.grid, N, N, o._ix, o._iy,
+        { spawnWhy: on.spawnWhy, roadMask: on.roadMask }, 'minor'));
     } else assert.truthy(INTERACTABLES[o.kind] || StreetVariants.isSlowKind(o.kind), `${o.kind} does something`);
   }
   // Nexus flora (roses, flint, a symmetric figure's beds and shrubs) and the

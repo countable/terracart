@@ -56,7 +56,10 @@ const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
 const SPRING_CROPS_COLS = 14;
 const CROP_SPRITE = {
   potato: { sheet: 'springcrops', row: 5 },
-  berry:  { sheet: 'springcrops', row: 1 },   // strawberry-style red fruit bush
+  // Preserve seed, produce and growing-stage art; every mature berry bush
+  // uses the approved map sprite, including farmed bushes.
+  berry:  { sheet: 'springcrops', row: 1,
+    mature: { sheet: 'zone_berry_bush', custom: true, frame: 0, scale: 4 / 3 } },
   cress:  { sheet: 'springcrops', row: 3 },   // spoon-leaf watercress
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
   // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
@@ -155,20 +158,25 @@ function wildplantVariantHash(p) {
 // These placement looks retain the base crop's harvest and inventory icon.
 // Zone materialLooks chooses authored looks; ordinary wetland-edge grass is
 // stamped by the rasterizer. None adds an item or changes planted crop art.
-// The mushroom has NO row here (Oct 2026, owner's call): the surface cluster
-// look is gone, and a mushroom is the red cap above ground or the blue cave
-// caps below (CROP_SPRITE.mushroom), wherever it grows.
+// Mushroom Grove and Mushroom Lane can select the approved red mushroom
+// atlas frame; ordinary surface and cave mushrooms retain their base art.
 const WILDPLANT_CONTEXT_ART = {
+  zone_hedge: { crop: 'shrub', sheet: 'zone_hedge', custom: true, scale: 4 / 3, seat: false },
+  zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frame: 0, scale: 4 / 3, seat: false },
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
 function wildplantSprite(p) {
+  if (p && !p._cave && p._zoneObjectFrame === 40 && ['mushroom', 'giant_mushroom'].includes(p.crop))
+    return { custom: true, sheet: 'zone_objects', frame: 40, scale: 4 / 3 };
   const base = CROP_SPRITE[p && p.crop];
   const rawLook = p && (p._plantArt || p._streetArt);
   const look = rawLook === 'trimmed' ? 'clipped' : rawLook;
   const context = WILDPLANT_CONTEXT_ART[look];
-  if (context && context.crop === p.crop) return context;
+  if (context && context.crop === p.crop) return look === 'zone_hedge'
+    ? { ...context, frame: p._hedgeFrame ?? 0 } : context;
   if (base?.looks?.[look]) return base.looks[look];
   if (p && !p._cave && p.crop === 'shrub' && [5, 16].includes(p._biome)) return base.looks.clipped;
+  if (base?.mature && (p.kind === 'wildplant' || p.wildId != null || p.stage >= MAX_GROWTH_STAGE)) return base.mature;
   return base;
 }
 function wildplantFrame(p) {

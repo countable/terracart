@@ -10,5 +10,21 @@ emulating 24-pixel art. The model returned 1254-square artwork (`source.png`).
 `python3 tools/pack_zone_art.py`, then `python3 tools/pack_reef_art.py`.
 Exports use nearest-neighbour sampling, hard alpha and one-pixel margins.
 
-The first four corals (row 4) are used by Mystic Reef. Other frames are candidate
-art, including masonry and three-pot clusters; they do not create new mechanics.
+The accepted frames are recorded in selection.json and installed through the
+zone/material tables. Unselected proposals are excluded from the active review
+and approved atlas. The original sheets remain historical generation sources.
+
+## Approved selection
+
+`selection.json` owns the user's accepted source-frame numbers; `approved-24.png`
+contains only those frames, preserving original indices and leaving discarded
+cells transparent. The original atlas is retained as generation provenance.
+`review-baseline-assets.json` preserves the prior assets for before/after review.
+Rebuild installed standalone assets, approved atlas, and hedges with
+`python3 tools/pack_selected_zone_art.py`.
+
+All clay-pot locations use selected frame20 and `pots_smashed.png` after use.
+The latter was generated with the built-in image tool on 2 October 2026:
+matching three cracked terracotta pots, all smashed into jagged bases and large
+shards, same reddish palette, overhead 24px-style pixel art, transparent
+background. `pots-smashed-source.png` preserves the generated source.

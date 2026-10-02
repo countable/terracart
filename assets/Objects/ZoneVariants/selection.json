@@ -1,0 +1,37 @@
+{
+  "selectedFrames": [
+    1,
+    4,
+    5,
+    6,
+    7,
+    20,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    34,
+    37,
+    38,
+    39,
+    40,
+    45,
+    46,
+    50,
+    54,
+    58,
+    59,
+    61
+  ],
+  "pendingClarification": {
+    "requestedFrame": 53,
+    "possibleFrame": 63,
+    "purpose": "total pillar replacement"
+  },
+  "discardOtherProposals": true
+}

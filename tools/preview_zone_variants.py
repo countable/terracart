@@ -76,6 +76,8 @@ def material_art(material):
             ov = r['contextLooks'][look]
         elif ov and look:
             ov = ov.get('looks', {}).get(look, ov)
+        if ov and ov.get('mature'):
+            ov = ov['mature']
         if ov and ov.get('custom'):
             sheet, frames = ov['sheet'], ov.get('frames', [ov.get('frame', 0)])
         elif ov and ov.get('sheet') == 'springcrops':
@@ -417,7 +419,7 @@ def svg_for(v, d, detail=False):
             continue
         x,y = (draw_x,draw_y) if guard['mode']=='guard_poi' else targets[n%len(targets)]
         if guard['mode']=='guard_find':
-            material = v['finds']['material']
+            material = v['finds']['targets'][n % len(targets)].get('material', v['finds']['material'])
             parts.append(sprite_cell(art_prefix, material, x*unit+1,y*unit+1,8,materials[material]))
             parts.append(f'<rect class="monster-layer" x="{x*unit}" y="{y*unit}" width="10" height="10" fill="none" stroke="#ffd68d" stroke-width=".6"><title>Guarded special find</title></rect>')
         dx,dy = guard['offsetCells'][n%len(guard['offsetCells'])]
@@ -711,6 +713,8 @@ def render(d, out):
         light = art_registry()['lighting']['shrine' if v['zone'] in ('grove','beach') else 'poi']
         light_color = '#%06x' % light['colour']
         light_text = f'{light["radiusCells"]:g}-cell ' + ('shrine glow; daily reward adds a POI light when available' if v['zone'] in ('grove','beach') else 'available-POI glow; consumed rewards extinguish it')
+        find_counts = collections.Counter(t.get('material', v['finds']['material']) for t in v['finds']['targets'])
+        find_text = ', '.join(f'{count} {material}' for material, count in find_counts.items())
         crops = {d['materials'][m].get('crop') for m in set(b['materialDensity']) | {slot['material'] for slot in v['poi']['slots']} | {v['finds']['material']}}
         for crop in sorted(c for c in crops if c):
             source = art_registry()['wildplantRules'].get(crop, {}).get('light')
@@ -720,7 +724,7 @@ def render(d, out):
         if v.get('reef'):
             reef = v['reef']
             reef_note = f'<p>Up to {reef["landOre"]["count"]} scattered pick-gated ore rocks on land; coral extends into nearby water with up to {len(reef["chestTiers"])} one-time T2–T3 chests within dry-shore reach.</p><svg viewBox="0 0 192 48">' + ''.join(f'<g transform="translate({i*48},0)">'+art_image({'sheet':'reef_coral','frames':[i]}, 'width="48" height="48"')+'</g>' for i in range(4)) + '</svg><p><a href="/zone-object-sheets/#live-mystic_reef">See the water treatment at a real site</a></p>'
-        cards.append(f'''<article id="{v['id']}"><header><small>{v['zone']} · {mode}</small><h2>{v['name']}</h2></header><p class="mix"><b>{b['nominalDensity']*100:.2f}% {coverage_label} coverage</b><br>{mix}</p><div class="visual"><figure>{svg_for(v,d)}<figcaption>Background + POI arrangement</figcaption></figure><figure class="detail">{svg_for(v,d,True)}<figcaption>Outdoor POI close-up<br>1 cell = 7 m</figcaption></figure></div><p>{v['atmosphere']}</p>{reef_note}<dl><dt>Traits</dt><dd>{html.escape(", ".join(art_registry()["zoneTraits"].get(v["id"], []))) or "Neutral"}</dd><dt>Alignment</dt><dd>{b["poiOrigin"]["role"].replace("_"," ")}</dd><dt>POI</dt><dd>{v['poi']['id'].replace('_',' ')}</dd><dt>Finds</dt><dd>{len(v['finds']['targets'])} {v['finds']['rarity']} · {v['finds']['material']}</dd><dt>Connection</dt><dd>{v['connection']['shape'].replace('_',' ')}</dd><dt>Monsters</dt><dd>{guard_text}</dd><dt>Lighting</dt><dd><span class="swatch" style="background:{light_color}"></span>{light_text}</dd><dt>Fauna</dt><dd>{fauna}</dd></dl></article>''')
+        cards.append(f'''<article id="{v['id']}"><header><small>{v['zone']} · {mode}</small><h2>{v['name']}</h2></header><p class="mix"><b>{b['nominalDensity']*100:.2f}% {coverage_label} coverage</b><br>{mix}</p><div class="visual"><figure>{svg_for(v,d)}<figcaption>Background + POI arrangement</figcaption></figure><figure class="detail">{svg_for(v,d,True)}<figcaption>Outdoor POI close-up<br>1 cell = 7 m</figcaption></figure></div><p>{v['atmosphere']}</p>{reef_note}<dl><dt>Traits</dt><dd>{html.escape(", ".join(art_registry()["zoneTraits"].get(v["id"], []))) or "Neutral"}</dd><dt>Alignment</dt><dd>{b["poiOrigin"]["role"].replace("_"," ")}</dd><dt>POI</dt><dd>{v['poi']['id'].replace('_',' ')}</dd><dt>Finds</dt><dd>{html.escape(find_text)} · {v['finds']['rarity']}</dd><dt>Connection</dt><dd>{v['connection']['shape'].replace('_',' ')}</dd><dt>Monsters</dt><dd>{guard_text}</dd><dt>Lighting</dt><dd><span class="swatch" style="background:{light_color}"></span>{light_text}</dd><dt>Fauna</dt><dd>{fauna}</dd></dl></article>''')
     page = '''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Zone and street variants · pattern review</title><style>
 *{box-sizing:border-box}html{scroll-behavior:smooth}section,article{scroll-margin-top:110px}section>h2{margin-top:32px}.page-nav a{padding:8px 12px;background:#23372b;border-radius:6px}.tile-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px}.tile-grid canvas{width:100%;image-rendering:pixelated}.tile-grid article{padding:16px}.tile-grid h3{margin-top:0}#streets{margin-top:56px}.swatch{display:inline-block;width:12px;height:12px;margin-right:5px}.page-nav{display:flex;flex-wrap:wrap;gap:20px;margin-bottom:24px}body{background:#101a15;color:#e5ecdf;font:16px system-ui;margin:32px auto;max-width:1420px;padding:0 24px}h1{font-size:34px}p{line-height:1.6}small,figcaption{font-size:12px;color:#b4c6b4}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,540px),1fr));gap:24px}article,.coverage{background:#1b2a21;padding:24px;border:1px solid #334a3a;border-radius:14px}article h2{margin:8px 0 0}article .mix{min-height:60px}.visual{display:grid;grid-template-columns:2fr 1fr;gap:16px;align-items:center}figure{margin:0}svg{width:100%;display:block}figcaption{margin-top:8px}.legend{display:flex;flex-wrap:wrap;gap:14px;margin:24px 0}.legend i{display:inline-block;width:12px;height:12px;margin-right:6px}a{color:#95d7d1}h2{font-size:23px}dl{display:grid;grid-template-columns:95px 1fr;gap:7px;font-size:14px}dt{color:#a8bbaa}dd{margin:0}.controls{display:flex;flex-wrap:wrap;gap:16px;position:sticky;top:0;background:#101a15ed;padding:16px 0;z-index:1}.coverage{display:grid;grid-template-columns:1fr 1fr;gap:24px}.coverage svg{max-height:250px}body:has(#show-poi:not(:checked)) figure:not(.detail) .poi-layer{display:none}body:has(#show-bg:not(:checked)) .background{display:none}@media(max-width:640px){.coverage{grid-template-columns:1fr}.visual{grid-template-columns:2fr 1fr}body{padding:0 12px}}</style></head><body>'''
     page = page.replace('</style>', art_styles() + '</style>')
