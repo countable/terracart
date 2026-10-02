@@ -143,6 +143,24 @@ test('lot lanes: removed tagged and inferred geometry remains generation-only qu
   assert.falsy(hasLine(by.transportation, IN_LOT), 'lamps, restoration and road overlays still cannot see the lane');
 });
 
+test('lot lanes: removal reasons distinguish tags, parking POIs and nearby aisles', () => {
+  const {by}=build();
+  const tagged=by.transportation.parkingLanes.find(row=>row.f.id===2);
+  const inferred=by.transportation.parkingLanes.find(row=>row.f.id===3);
+  assert.eq(JSON.stringify(tagged.reasons), JSON.stringify([['parking_aisle']]));
+  assert.eq(JSON.stringify(inferred.reasons), JSON.stringify([['parking_poi']]));
+  for (const withPoi of [false,true]) {
+    const L=layers();
+    if (!withPoi) L.find(l=>l.name==='poi').features=[];
+    const tl=L.find(l=>l.name==='transportation');
+    tl.features.find(f=>f.id===3).geom=[line([[37,39],[43,39]])];
+    WorldGen.rasterizeTile(L,CPE,0,0,TILE_EDGE_M);
+    const row=tl.parkingLanes.find(row=>row.f.id===3);
+    assert.eq(JSON.stringify(row.reasons),JSON.stringify([withPoi ? ['nearby_aisle','parking_poi'] : ['nearby_aisle']]));
+    for(const removed of tl.parkingLanes) assert.eq(removed.reasons.length,removed.lines.length,'evidence aligns with removed lines');
+  }
+});
+
 test('lot lanes: quarry coverage and identity survive rebuilding an already-pruned layer', () => {
   const { L, r: first, by } = build();
   const source = JSON.stringify(by.transportation.parkingLanes);
@@ -191,6 +209,7 @@ test('lot lanes: quarry ground and dressing preserve original cave entrances', (
     const cut=prune(by);
     assert.eq(cut.length,1);
     assert.eq(cut[0].lines.length,3);
+    assert.eq(JSON.stringify(cut[0].reasons),JSON.stringify([['connected_rows'],['connected_rows'],['connected_rows']]));
     assert.eq(by.transportation.features.length,1);
     assert.eq(by.transportation.features[0].id,900,'access spine remains a road');
     assert.eq(by.transportation.parkingLanes[0].lines.length,3,'rows remain quarry evidence');
@@ -237,6 +256,7 @@ test('lot lanes: quarry ground and dressing preserve original cave entrances', (
     const by=fixture(), cut=prune(by);
     assert.eq(cut.length,1);
     assert.eq(cut[0].lines.length,2,'both the U and its middle row disappear');
+    assert.eq(JSON.stringify(cut[0].reasons),JSON.stringify([['parking_hairpin'],['parking_hairpin']]));
     assert.eq(by.transportation.features.length,1);
     assert.eq(by.transportation.features[0].id,911,'separate access survives');
     assert.eq(by.transportation.parkingLanes[0].lines.length,2);

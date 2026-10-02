@@ -47,7 +47,7 @@
   button.on{background:#c8a64a;color:#1a1612;border-color:#c8a64a}
   #status{color:#c8a64a;margin:6px 0;min-height:1.2em}
   #game{display:none}
-  #zonePick,#sourceFilter{width:100%;background:#292929;color:#eee;border:1px solid #666;padding:5px;margin:3px 0}
+  #zonePick,#sourceFilter,#laneFilter{width:100%;background:#292929;color:#eee;border:1px solid #666;padding:5px;margin:3px 0}
   #zoneDetails{font-size:12px;line-height:1.5;margin:8px 0;padding:8px;background:#242c2c}
   #zoneDetails p{margin:6px 0} #sourceLegend{font-size:11px;line-height:1.5}
   .zone-label{background:#122f2be8;border:1px solid #3c8f80;color:#fff;font-weight:600;font-size:11px}
@@ -71,6 +71,12 @@
   <h3>Base map</h3><div id="bases"></div>
   <div id="artStatus" hidden style="color:#aaa;margin:4px 0"></div>
   <div id="artOptions" hidden><label><input id="restoredLamps" type="checkbox">Preview restored roads and lamps</label></div>
+  <h3>Parking-lane review</h3>
+  <label><input id="removedLanes" type="checkbox"><span class="sw" style="background:#ff40c8"></span> Removed lanes (pink dashed)</label>
+  <label><input id="keptServiceRoads" type="checkbox"><span class="sw" style="background:#31d9ff"></span> Kept service roads (cyan)</label>
+  <label for="laneFilter">Removed-lane evidence</label>
+  <select id="laneFilter"><option value="all">All removed lanes</option><option value="inferred">Inferred removals only</option><option value="explicit">Explicit parking-aisle tags only</option></select>
+  <div id="laneSummary" style="font-size:11px;color:#aaa;line-height:1.5"></div>
   <h3>Overlays</h3><div id="ovl"></div>
   <h3>Density band</h3>
   <div>interactables per view: <input id="dmin" type="number" value="5" min="0" style="width:3.5em"> to
@@ -85,6 +91,7 @@
 <div id="game"></div>
 <script src="game-loader.js"></script>
 <script src="map-review-zones.js"></script>
+<script src="map-review-lanes.js"></script>
 <script src="map-review-art.js"></script>
 <script>
 // ── Tiles ───────────────────────────────────────────────────────────────────
@@ -231,6 +238,9 @@ const mkRow = (host, type, html, checked, on, name) => {
   l.innerHTML = `<input type="${type}"${name ? ` name="${name}"` : ''}${checked ? ' checked' : ''}> ${html}`;
   const i = l.querySelector('input'); i.onchange = () => on(i.checked); host.appendChild(l); return i;
 };
+$('removedLanes').checked = Q.get('removedLanes') === '1';
+const laneReview = MapReviewLanes.create({map,toLL,getEdge:()=>EDGE,
+  removedToggle:$('removedLanes'),keptToggle:$('keptServiceRoads'),filter:$('laneFilter'),summary:$('laneSummary')});
 const gameArt = MapReviewArt.layer({
   toLL, getEdge: () => EDGE,
   onStatus: (message) => { $('artStatus').textContent = message; },
@@ -886,6 +896,7 @@ function rebuild(home) {
   setTimeout(() => {
     const t0 = performance.now();
     const world = window.__world = buildWorld(home);
+    laneReview.update(world);
     updateZoneReview(world);
     draw(world, home);
     const s = Math.round((performance.now() - t0) / 100) / 10;
@@ -906,6 +917,7 @@ function rebuild(home) {
     map.setView(toLL(home.x, home.y, EDGE), 16);
     const first = window.__world = buildWorld(home);
     overlays(first);
+    laneReview.update(first);
     updateZoneReview(first);
     draw(first, home);
     $('status').textContent = first.errors.length ? `${first.errors.length} error(s), see console` : 'ready';
