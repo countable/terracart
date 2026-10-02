@@ -110,6 +110,7 @@
     const motifAt = (s, ix, iy) => {
       // Generated footprints may merge or acquire a different centre as lane
       // geometry changes. Their scatter belongs to the geographic tile/cell.
+      if (s.fittedBackground) return s.fittedBackground.get(iy * N + ix) || null;
       if (s.quarryPlan) return s.quarryPlan.background.get(iy * N + ix) || null;
       if (s.a.generated || s.variant.generated) return V.sample(s.variant, ix, iy,
         `generated|${s.a.generated || s.variant.generated}|${tx}|${ty}`);
@@ -305,6 +306,106 @@
         if (!seated) s.rec.shortfalls.push('shrine:' + standKind);
       }
       out.nexus.push({ kind: a.kind, aspect: v.id, variant: v.id, chestId: s.chest && s.chest.kind === 'chest' ? s.chest.id : null, poiId: s.chest ? s.chest.id : null, pieces: s.rec.placed });
+    }
+    // Fit a bounded composition as a whole instead of clipping its stones
+    // individually against a building. Only complete owner-local sites may
+    // choose a new centre: a neighbouring tile cannot observe this occupancy.
+    for (const s of states) {
+      const b = s.variant.background, a = s.a;
+      if (!b.fitToGround || b.type !== 'concentric_rings' || !a.owned) continue;
+      const lx = a.gx - tx * EXT, ly = a.gy - ty * EXT;
+      const extent = a.R * (1 + Z.EDGE_JITTER) / a.upm;
+      if (!(extent >= 0) || lx - extent < 0 || ly - extent < 0
+          || lx + extent >= EXT || ly + extent >= EXT
+          || s.cells.some(i => i % N === 0 || i % N === N - 1 || i < N || i >= N * (N - 1))) continue;
+      const radii = b.stoneRings.map(r => r.radiusCells).sort((a, b) => b - a);
+      const innerRadius = radii[radii.length - 1];
+      if (b.fitToGround.compactRadiusCells < innerRadius) radii.push(b.fitToGround.compactRadiusCells);
+      const geometryOpts = { ...opts, occupied: initialOccupied };
+      const diskFree = (cx, cy, radius, gateOpts) => {
+        for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
+          if (dx * dx + dy * dy > (radius + 0.5) ** 2) continue;
+          const x = cx + dx, y = cy + dy;
+          if (!owns(s, x, y) || ctx.tideSeats?.has(y * N + x)
+              || !WG.isSpawnCell(grid, N, N, x, y, gateOpts, 'minor')) return false;
+        }
+        return true;
+      };
+      const original = offsetCell(s, 0, 0);
+      // Existing authored aisles/finds are intentional gaps in an otherwise
+      // unobstructed garden. Keep those layouts and their cell identities.
+      if (diskFree(...original, radii[0], geometryOpts)) continue;
+      const candidates = s.cells.map(i => [i % N, Math.floor(i / N)]);
+      candidates.sort((a, b) => (a[0] - original[0]) ** 2 + (a[1] - original[1]) ** 2
+        - (b[0] - original[0]) ** 2 - (b[1] - original[1]) ** 2 || a[1] - b[1] || a[0] - b[0]);
+      s.fittedBackground = new Map();
+      s.rec.layout = { mode: 'no_fit' };
+      search: for (const radius of radii) {
+        let slots = b.slots.filter(slot => Math.hypot(slot.at[0] - b.centerCell[0],
+          slot.at[1] - b.centerCell[1]) <= Math.max(radius, innerRadius) + 0.5);
+        if (radius < innerRadius) {
+          const compact = new Map();
+          for (const slot of slots) {
+            const at = slot.at.map((v, axis) => b.centerCell[axis] + Math.round((v - b.centerCell[axis]) * radius / innerRadius));
+            if (!compact.has(at.join(','))) compact.set(at.join(','), { at, material: slot.material });
+          }
+          slots = [...compact.values()];
+        }
+        for (let n = 0; n < candidates.length; n++) {
+          if ((n & 63) === 0) yield 'zone composition fit';
+          const [cx, cy] = candidates[n];
+          if (!diskFree(cx, cy, radius, opts)) continue;
+          const plan = new Map();
+          for (const slot of slots) {
+            const [dx, dy] = V.rotate(slot.at[0] - b.centerCell[0], slot.at[1] - b.centerCell[1], s.rotation);
+            const x = cx + dx, y = cy + dy, i = y * N + x;
+            if (s.clear.has(i) || s.poiSlots.has(i) || s.connections.has(i) || !allowed(s, x, y, slot.material)) break;
+            plan.set(i, slot.material);
+          }
+          if (plan.size !== slots.length) continue;
+          s.fittedBackground = plan;
+          s.rec.layout = { mode: 'adapted', center: [cx, cy], radiusCells: radius };
+          break search;
+        }
+      }
+      // A narrow church frontage cannot hold a circle. Try one complete
+      // straight bed beside the building, keeping its intervening cells free.
+      const bed = b.fitToGround.narrowBed;
+      if (!s.fittedBackground.size && bed) {
+        let best = null;
+        const nearBuilding = (x, y) => [[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy]) => {
+          for (let d = 1; d <= bed.spacingCells; d++) {
+            const bx = x + dx * d, by = y + dy * d;
+            if (bx >= 0 && by >= 0 && bx < N && by < N && WG.isBuildingTerrain(grid[by * N + bx])) return true;
+          }
+          return false;
+        });
+        for (let n = 0; n < candidates.length; n++) {
+          if ((n & 63) === 0) yield 'zone frontage fit';
+          const [cx, cy] = candidates[n];
+          for (const [dx, dy] of [[1,0],[0,1]]) {
+            const cells = [];
+            for (let k = 0; k <= (bed.maxStones - 1) * bed.spacingCells; k++) {
+              const x = cx + dx * k, y = cy + dy * k, i = y * N + x;
+              if (!allowed(s, x, y, 'stone') || !nearBuilding(x, y)
+                  || s.clear.has(i) || s.poiSlots.has(i) || s.connections.has(i)) break;
+              cells.push(i);
+            }
+            const count = Math.floor((cells.length - 1) / bed.spacingCells) + 1;
+            if (count < bed.minStones || (best && count <= best.count)) continue;
+            best = { cells, count, center: [cx, cy], axis: dx ? 'x' : 'y' };
+          }
+        }
+        if (best) {
+          const sequence = b.stoneRings[0].sequence;
+          for (let n = 0; n < best.count; n++) {
+            const i = best.cells[n * bed.spacingCells], material = sequence[n % sequence.length];
+            s.fittedBackground.set(i, material);
+          }
+          s.rec.layout = { mode: 'border', center: best.center, axis: best.axis, stones: best.count };
+        }
+      }
+      if (!s.fittedBackground.size) s.rec.shortfalls.push('layout:no-complete-composition');
     }
     const ground = { graves: 0, rocks: 0, fill: 0 };
     for (let iy = 0; iy < N; iy++) {

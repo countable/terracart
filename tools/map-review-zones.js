@@ -59,6 +59,7 @@
         const d = e.zoneDress?.diagnostics.find(d => d.anchorKey === a.key && d.variant === a.variant);
         if (d) {
           z.eligible += d.eligible;
+          if (d.layout) z.layout = d.layout;
           z.finds[0] += d.findsPlaced; z.finds[1] += d.findsRequested;
           z.guards[0] += d.guardsPlaced; z.guards[1] += d.guardsRequested;
           for (const [k, n] of Object.entries(d.background || {})) z.background[k] = (z.background[k] || 0) + n;

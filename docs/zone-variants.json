@@ -3490,7 +3490,15 @@
         "orientation": "quarter_turn_toward_approach",
         "densityFalloff": "none",
         "extentPolicy": "fixed_concentric_composition_clipped_to_coverage_union",
-        "densityBasis": "finite_21_by_21_footprint_before_poi_decoration"
+        "densityBasis": "finite_21_by_21_footprint_before_poi_decoration",
+        "fitToGround": {
+          "compactRadiusCells": 2,
+          "narrowBed": {
+            "minStones": 3,
+            "maxStones": 8,
+            "spacingCells": 2
+          }
+        }
       },
       "poi": {
         "id": "four_stones",

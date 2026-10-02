@@ -26,6 +26,113 @@
       }
     }
   });
+  function stoneGardenSite() {
+    const c = context('stone_garden');
+    c.field.coverage.fill(0);
+    for (let y = 12; y <= 52; y++) for (let x = 12; x <= 52; x++) {
+      if ((x - 32) ** 2 + (y - 32) ** 2 <= 20 ** 2) c.field.coverage[y * c.N + x] = 1;
+    }
+    return c;
+  }
+  test('zone dressing: Stone Garden fits a complete compact ring beside a large building', () => {
+    const make = () => {
+      const c = stoneGardenSite();
+      c.grid.fill(WorldGen.T.BUILDING);
+      // An outdoor frontage, offset from the original indoor POI. Large
+      // rings cannot fit this pocket, but the smallest complete ring can.
+      for (let y = 25; y <= 39; y++) for (let x = 38; x <= 48; x++) c.grid[y * c.N + x] = WorldGen.T.PARK;
+      c.spawnOpts.spawnWhy[25 * c.N + 38] = WorldGen.SPAWN_WHY.RESTRICTED;
+      c.spawnOpts.occupied.add(39 * c.N + 48);
+      return c;
+    };
+    const c = make(), originalOccupied = new Set(c.spawnOpts.occupied), out = ZoneDressing.dress(c);
+    const layout = out.diagnostics[0].layout, variant = ZoneVariants.byId('stone_garden');
+    assert.truthy(layout, 'fitting is visible in diagnostics');
+    assert.eq(layout.mode, 'adapted'); assert.eq(layout.radiusCells, 3);
+    assert.truthy(layout.center[0] !== 32 || layout.center[1] !== 32, 'composition moves out of the building');
+    const stones = out.objects.filter(o => o.zoneLayer === 'background' && o.kind === 'mineralrock');
+    assert.eq(stones.length, variant.background.stoneRings[0].count, 'smallest stone ring remains whole');
+    for (const o of all(out)) {
+      assert.falsy(WorldGen.isBuildingTerrain(c.grid[o._iy * c.N + o._ix]), 'building footprint remains clear');
+      assert.falsy(originalOccupied.has(o._iy * c.N + o._ix), 'existing interactable retained');
+      assert.falsy(c.spawnOpts.spawnWhy[o._iy * c.N + o._ix] & WorldGen.SPAWN_WHY.RESTRICTED);
+    }
+    assert.eq(finds(out).length, variant.finds.count, 'one finite reward budget');
+    assert.eq(out.guards.filter(o => o.zoneLayer !== 'background').length, variant.guards.count || 0);
+    assert.eq(new Set(all(out).map(o => `${o._ix},${o._iy}`)).size, all(out).length, 'no stacked placements');
+    assert.eq(JSON.stringify(all(out)), JSON.stringify(all(ZoneDressing.dress(make()))), 'stable replay and IDs');
+  });
+  test('zone dressing: unobstructed Stone Garden retains its authored rings and identities', () => {
+    const c = stoneGardenSite(), out = ZoneDressing.dress(c), variant = ZoneVariants.byId('stone_garden');
+    assert.falsy(out.diagnostics[0].layout?.mode === 'adapted', 'no movement on open ground');
+    const origin = ZoneVariants.poiOrigin(variant);
+    const background = all(out).filter(o => o.zoneLayer === 'background');
+    assert.gt(background.length, 80, 'retains the full garden');
+    for (const o of background) {
+      const material = ZoneVariants.materials[ZoneVariants.sample(variant, o._ix - 32 + origin[0], o._iy - 32 + origin[1], 112)];
+      assert.truthy(material, 'same canonical authored cell');
+      assert.eq(o.kind, material.kind);
+      if (material.crop) assert.eq(o.crop, material.crop);
+      if (o.kind === 'mineralrock') assert.eq(o.id, WorldGen.cellId('mrz', 0, 0, o._ix, o._iy));
+    }
+  });
+  test('zone dressing: Stone Garden reports no fitting ring instead of leaving fragments', () => {
+    const c = stoneGardenSite(); c.grid.fill(WorldGen.T.BUILDING);
+    for (let y = 30; y <= 33; y++) for (let x = 40; x <= 43; x++) c.grid[y * c.N + x] = WorldGen.T.PARK;
+    const out = ZoneDressing.dress(c), variant = ZoneVariants.byId('stone_garden');
+    assert.eq(out.diagnostics[0].layout.mode, 'no_fit');
+    assert.includes(out.diagnostics[0].shortfalls, 'layout:no-complete-composition');
+    assert.eq(all(out).filter(o => o.zoneLayer === 'background').length, 0, 'tiny patch cannot hold a complete ring or stone bed');
+    assert.eq(finds(out).length, variant.finds.count, 'finite finds still use their ordinary fallback');
+  });
+  test('zone dressing: narrow Stone Garden frontage receives one complete bounded stone bed', () => {
+    for (const horizontal of [false, true]) {
+      const make = () => {
+        const c = stoneGardenSite(); c.grid.fill(WorldGen.T.BUILDING);
+        for (let long = 17; long <= 47; long++) for (let thin = 40; thin <= 41; thin++) {
+          const x = horizontal ? long : thin, y = horizontal ? thin : long;
+          c.grid[y * c.N + x] = WorldGen.T.PARK;
+        }
+        return c;
+      };
+      const c = make(), out = ZoneDressing.dress(c), layout = out.diagnostics[0].layout;
+      const bed = all(out).filter(o => o.zoneLayer === 'background');
+      assert.eq(layout.mode, 'border');
+      assert.eq(layout.axis, horizontal ? 'x' : 'y');
+      assert.inRange(bed.length, 3, 8, 'one small complete bed');
+      assert.eq(layout.stones, bed.length);
+      const fixed = horizontal ? '_iy' : '_ix', along = horizontal ? '_ix' : '_iy';
+      bed.sort((a, b) => a[along] - b[along]);
+      for (let n = 0; n < bed.length; n++) {
+        assert.eq(bed[n].kind, 'mineralrock');
+        assert.eq(bed[n][fixed], bed[0][fixed], 'one straight row');
+        if (n) assert.eq(bed[n][along] - bed[n - 1][along], 2, 'evenly spaced whole bed');
+        assert.eq(c.grid[bed[n]._iy * c.N + bed[n]._ix], WorldGen.T.PARK);
+      }
+      assert.eq(finds(out).length, ZoneVariants.byId('stone_garden').finds.count, 'finite finds remain independent');
+      assert.eq(new Set(all(out).map(o => `${o._ix},${o._iy}`)).size, all(out).length, 'no interactable collisions');
+      assert.eq(JSON.stringify(all(out)), JSON.stringify(all(ZoneDressing.dress(make()))), 'stable placements and IDs');
+    }
+  });
+  test('zone dressing: seam-spanning Stone Garden keeps its shared canonical frame', () => {
+    for (const owned of [true, false]) {
+      const c = stoneGardenSite(), a = c.field.anchors[0];
+      a.gx = a.lx = 2.5 * 4096 / c.N; a.owned = owned;
+      c.field.coverage.fill(0);
+      for (let y = 12; y <= 52; y++) for (let x = 0; x <= 22; x++) c.field.coverage[y * c.N + x] = 1;
+      for (let y = 29; y <= 35; y++) for (let x = 0; x <= 5; x++) c.grid[y * c.N + x] = WorldGen.T.BUILDING;
+      const out = ZoneDressing.dress(c), variant = ZoneVariants.byId('stone_garden');
+      assert.falsy(out.diagnostics[0].layout, 'tile-local obstacles never rephase a shared composition');
+      const origin = ZoneVariants.poiOrigin(variant), background = all(out).filter(o => o.zoneLayer === 'background');
+      assert.gt(background.length, 0);
+      for (const o of background) {
+        const material = ZoneVariants.materials[ZoneVariants.sample(variant, o._ix - 2 + origin[0], o._iy - 32 + origin[1], 112)];
+        assert.truthy(material, 'canonical ring continues across the seam');
+        assert.eq(o.kind, material.kind);
+      }
+      if (!owned) assert.eq(finds(out).length, 0, 'neighbor cannot duplicate finite finds');
+    }
+  });
   test('abandoned quarry: copper ore rocks replace equipment pickups using ordinary mining', () => {
     const c = context('quarry-abandoned');
     const out = ZoneDressing.dress(c);

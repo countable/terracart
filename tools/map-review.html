@@ -427,6 +427,10 @@ function selectZone(id, focus) {
     `Finite finds ${z.finds.join('/')} · finite guards ${z.guards.join('/')}`,
     `Live enemies: ${z.enemies.authored} authored · ${z.enemies.roaming} roaming · ${z.enemies.other} other`];
   if (z.variant?.generated === 'parking_lanes') lines.push('Quarry formed from removed parking lanes · No daily POI or shrine. Complete sites have variant finds and guards; incomplete edges use background dressing and cell-owned inhabitants.');
+  if (z.layout) lines.push(z.layout.mode === 'adapted'
+    ? `Building-aware layout: complete rings, outer radius ${z.layout.radiusCells} cells`
+    : z.layout.mode === 'border' ? `Building-aware layout: ${z.layout.stones}-stone bed along the building`
+    : 'Building-aware layout: no complete composition fits; finite finds retained.');
   if (bg.planned != null) lines.push(`<b>Background: ${bg.placed || 0}/${bg.planned} slots placed</b><br>`
     + `${bg.occupied || 0} occupied by earlier spawns · ${bg.blocked || 0} refused by terrain/spawn rules · ${bg.reserved || 0} used by POI/find/connection layout`);
   lines.push(`Suppressed earlier placements: ${z.suppressed.ambient} general · ${z.suppressed.street} street`);

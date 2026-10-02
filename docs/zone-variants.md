@@ -223,3 +223,16 @@ An 8 × 8 repeat holds a radius-three circle of sixteen touching rubble cells an
 Mystic Reef, Pirate Cove and Shellwater Strand are active runtime rows. Beach ownership, the Pirate Cove shipwreck and its whole-footprint fallback are implemented. Shoreline orientation is derived from buffered mapped water geometry at the canonical anchor; unresolved evidence retains deterministic fallback orientation and is reported in diagnostics. Zone placement explicitly reserves the existing daily tide pool, including seats whose daily roll is absent today, so a later tide does not collide with permanent dressing. The historical beach draft files retain design rationale, not an activation backlog.
 
 Pirate Cove retains naturally spawned birds without attracting extra crows. Incoming shore-bird landings keep space from other birds and occupied interactables. The map review shows only today's tide pickups, matching the game's daily filter; inactive reserved seats remain available to future tides.
+
+### Building-aware Stone Garden trial
+
+Stone Garden keeps its existing rings on unobstructed ground. At a complete,
+owner-local site with a blocked composition, it searches for the largest intact
+ring arrangement that fits the shared spawn gate and existing placements. It
+can use only the inner rings or a compact two-cell-radius ring. If even that
+cannot fit, it tries one straight bed of 3–8 stones along a building, with clear
+cells between stones. If neither fits, it reports a composition shortfall.
+Finite finds, shrine and guards are seated first and keep their existing budgets
+and identities; background mining material can decrease. Other motifs and sites
+crossing tile boundaries keep their canonical layout until shared geometry is
+available. The review panel reports the chosen ring radius or frontage bed.
