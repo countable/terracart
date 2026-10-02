@@ -1058,7 +1058,7 @@ function chestNeverSpent(o) {
 // Most chests are offered ONCE (save.opened, the delta, forever — that is what
 // keeps a dense city from being a fountain). What comes back is the CRATE — a
 // surface POI chest wearing the crate look (loot.js chestLook `box`: tier 1,
-// i.e. a class the tile holds CHEST_DENSITY_T1_AT or more of, after a nexus)
+// i.e. one the tile's quota pyramid left unseated, with no nexus bonus)
 // — and the BARREL (a bin, loot.js isBarrel), never a starter supply crate
 // (`o.crate`, fixedLoot), never a cave copy (depth / caveOf), never a wagon,
 // stall, macro, pot of gold or bike rack. Taking one is written to the DAY LEDGER

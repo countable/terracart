@@ -168,11 +168,6 @@ function streetLampTexKey(glow) {
   const g = (typeof glow === 'string') ? glow.toLowerCase() : '';
   return (!g || g === String(UI_LAMP_GLOW).toLowerCase()) ? STREET_LAMP_TEX : `${STREET_LAMP_TEX}@${g}`;
 }
-// Drawn LAMP_DRAW_CELLS cells across — the pool of glow at its foot included;
-// the ironwork inside that is about a fifth of it wide and half of it tall, so
-// a lamp stands on one cell of the verge and reads from a couple away.
-const STREET_LAMP_PX = CELL_PX *
-  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 2.4);
 // WHERE THE ART SITS ON THE POINT. The baked lamp STANDS on its point: its
 // plinth, its shadow and its pool of glow are all on the square's ground line
 // (RoadOverlay.LAMP_GROUND_FRAC), which is below the middle because a lamp is
@@ -1201,13 +1196,14 @@ const HOME_R = 4;   // cells — Home's light / rest / ward ring
 // linearly) now lives with the offline-rest formula in energy.js as
 // Energy.OFFLINE_FULL_REST_MS.
 
-// Chest tiers are not rolled: a chest's tier (1-5) is how RARE its POI class
-// is on its own tile — loot.js › chestTier off CHEST_DENSITY_TIERS (one of
-// its kind → T4, 25+ → T1; worldgen.js stampPoiDensity counts it) — raised
-// one tier per two cave levels down (CHEST_TIER_DEPTH_STEP, cap T5) for the
-// POI's underground mirrors (worldgen.js caveChestsFrom; lowtier street
-// furniture never goes down, loot.js chestMirrorsUnderground) and one for a
-// zone's nexus. That tier — the look and gem render.js draws from it, and the
+// Chest tiers are not rolled: a chest's tier is its tile's QUOTA SEAT —
+// worldgen.js seedChestTiers stamps `tierSeed` on each tile's best-ranked
+// POIs (a small pyramid of T5..T2 seats; everything else T1), read by
+// loot.js › chestTier (chestBaseTier; an unseeded chest is the unstamped T2).
+// It rises one tier per CHEST_TIER_DEPTH_STEP cave levels down for the POI's
+// underground mirrors (worldgen.js caveChestsFrom; capped by chestTierMaxFor;
+// lowtier street furniture never goes down, loot.js chestMirrorsUnderground)
+// and one for a zone's nexus. That tier — the look and gem render.js draws from it, and the
 // chestTierMod curve in rarity.js the loot rolls on — is the WORLD's: every
 // player sees, and is paid by, the same chest on the same street (CLAUDE.md
 // "Every player sees the SAME generated world"). Home decides nothing about
@@ -2155,14 +2151,16 @@ class MapScene extends Phaser.Scene {
     // depth 100+ and the DOM modals). Without its own layer the labels lived in
     // objectsContainer and the castle front wall painted over them.
     this.labelContainer = this.add.container(0, 0);
-    // Tier-diamond layer — drawn LAST so the indicator floats above chests / labels / pads.
+    // Top world Graphics layer (the name is historical: it once drew tier
+    // diamonds). render.js now draws enemy attack-warning footprints here,
+    // above scenery and labels so cover cannot hide a warning.
     this.tierGfx = this.add.graphics();
     // FOG OF WAR — the wash over cells the player has never visited. The very
     // top of the world display list, above EVERYTHING the world draws: ground,
-    // the lighting dim, the sprites, the rim haze, the distance falloff, the
-    // POI name tablets and the tier diamonds. That is the point of it — "you
-    // have not been here" has to beat every other pass, and a label or a tier
-    // pip poking through the fog would announce the contents of a place the
+    // the sprites, the lighting, the POI name tablets and the attack-warning
+    // footprints. That is the point of it — "you have not been here" has to
+    // beat every other pass, and a label or a chest's tier look poking through
+    // the fog would announce the contents of a place the
     // player has not found yet. (Everything drawn ABOVE this is deliberately
     // not world: the vignette, the work wheel and flash text all set an
     // explicit depth, which floats them clear of the insertion-ordered layers.)
@@ -3233,7 +3231,8 @@ class MapScene extends Phaser.Scene {
 
   // ── What holds the BODY back from the fix ─────────────────────────────────
   // ONE gate, two reasons (the movement block in update() reads it):
-  //   pinned — a trap's jaw holds the body still (_pinnedUntil).
+  //   pinned — a trap's jaw holds the body still (the `pinned` row of
+  //            Conditions.DEFINITIONS, set by _tickTraps).
   //   capMS  — the feet are on a Burned Row's tar pit or iron stakes
   //            (_tickStreetFeet's `_slowHere`): the body may advance toward
   //            the target at no more than SLOW_BODY_M_S, so it falls behind
@@ -3242,7 +3241,7 @@ class MapScene extends Phaser.Scene {
   //            move the TARGET, so all of them obey it. No damage, no save.
   //            (A downed body does not walk anyway.)
   _bodyHold() {
-    const pinned = performance.now() < (this._pinnedUntil || 0);
+    const pinned = Conditions.active(this.save, 'pinned');
     // An Ember Altar's boon (src/shrines.js 'surefoot') frees the feet like the dragon.
     const capMS = (!pinned && this._slowHere && !this._dragonActive
       && !Shrines.leverActive(this.save, 'surefoot')) ? SLOW_BODY_M_S : null;
@@ -3317,10 +3316,11 @@ class MapScene extends Phaser.Scene {
       // waiting on some later caller's persist.
       if (typeof persistSave === 'function') persistSave(this.save);
       // TRAP PIN: the jaw clamps your leg - the body holds while the world
-      // waits. update() reads _pinnedUntil and skips the whole movement block
-      // for these three seconds (no walking, so no walking energy drain while
-      // clamped); the "pried free" story fires there when the pin expires.
-      this._pinnedUntil = performance.now() + 3000;
+      // waits. The `pinned` row of Conditions.DEFINITIONS owns how long;
+      // update() skips the whole movement block while it holds (_bodyHold —
+      // no walking, so no walking energy drain while clamped), and
+      // _tickConditions tells the "pried free" story when it runs out.
+      Conditions.apply(this.save, 'pinned');
       // The FIRST trap a save ever springs tells its story. A busy screen
       // returns false unmarked (see the story ledger), so the next trap asks
       // again rather than burning the moment - that is correct, not a bug.
@@ -4074,23 +4074,14 @@ class MapScene extends Phaser.Scene {
     // TRAP PIN: the jaw clamps your leg - the body holds while the world
     // waits. The whole movement block is gated, so the inputs die with the
     // body: no steering, no drift home, no follow step, and no walking
-    // energy drain while clamped. When the pin expires it clears itself and
-    // tells the "pried free" story once per save (a busy screen returns
-    // false unmarked; the splash is lost that once, which is fine).
+    // energy drain while clamped. The pin is a status row (Conditions
+    // `pinned`); its expiry story lives in _tickConditions.
     // The gate is _bodyHold: the pin above, and SLOW (tar / stakes) as its
     // second reason — a cap on the follow step rather than a hold.
     const bodyHold = this._bodyHold();
     if (bodyHold.pinned) {
       // held fast - no movement this frame
     } else {
-      if (this._pinnedUntil) {
-        this._pinnedUntil = 0;
-        this._storySplashOnce('trap_free', {
-          art: 'trap_free',
-          title: 'You pry yourself free',
-          body: "You force the iron jaws apart and pull your leg free.",
-        });
-      }
       // Stick → walk yourself off the GPS (costs stamina, boots-scaled).
       if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, dt);
       // Stick idle for a few seconds → walk back to where you really are.
@@ -4886,9 +4877,9 @@ class MapScene extends Phaser.Scene {
 
   _applyCondition(id) {
     const fresh = Conditions.apply(this.save, id);
-    if (fresh && id === 'burning') this.flash('🔥 You catch fire!', this.viewCenterX, this.viewCenterY);
+    if (fresh && id === 'burning') this.flashAtPlayer('🔥 You catch fire!');
     if (fresh && id === 'poison') {
-      this.flash('Poisoned! Find an Antidote.', this.viewCenterX, this.viewCenterY);
+      this.flashAtPlayer('Poisoned! Find an Antidote.');
       if (!this.save.poisonLearned) {
         this.save.poisonLearned = true;
         this.showMessageModal({ title: 'Poisoned', body:
@@ -4929,7 +4920,18 @@ class MapScene extends Phaser.Scene {
     const before = this.save.energy ?? 0;
     const burningExposure = this._playerFireExposure?.() || false;
     if (burningExposure) this._ignitePlayer();
+    const wasPinned = Conditions.active(this.save, 'pinned');
     const result = Conditions.tick(this.save, elapsed, { burningExposure });
+    // A trap's pin that RUNS OUT (not one an Antidote pried open) tells the
+    // "pried free" story once per save (a busy screen returns false
+    // unmarked; the splash is lost that once, which is fine).
+    if (wasPinned && !Conditions.active(this.save, 'pinned')) {
+      this._storySplashOnce('trap_free', {
+        art: 'trap_free',
+        title: 'You pry yourself free',
+        body: "You force the iron jaws apart and pull your leg free.",
+      });
+    }
     if (result.lost > 0) {
       this._flashPlayerHit(result.lost);
       this._popEnergy(-result.lost);
@@ -4940,14 +4942,11 @@ class MapScene extends Phaser.Scene {
     this._syncStatusRow();
   }
 
-  // One chip under the energy bar per ACTIVE row of Conditions.DEFINITIONS —
-  // its label, ink and background are the row's — stacked in table order so
-  // a poisoned player who catches fire reads both.
   // THE STATUS ROW — every status, buff and timer on the player, as chips
   // under the top HUD row (#status-row, STATUS_ROW_CSS; built by
   // _buildStatusRow): first the conditions (the rows of
-  // Conditions.DEFINITIONS the player carries — label, time left and the
-  // drain, in the row's ink on its bg), then every running timed effect
+  // Conditions.DEFINITIONS the player carries, in table order — label, time
+  // left and the drain it levies now, in the row's ink on its bg), then every running timed effect
   // (Buffs.active — potions, powders, the torch, coffee, the bike, the
   // compass, every shrine boon — "<name> · <wait>", in the row's ink on its
   // stroke). One chip per id, kept in that order; a chip whose effect has
@@ -4973,8 +4972,13 @@ class MapScene extends Phaser.Scene {
     const chips = [];
     for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
       if (!Conditions.active(this.save, id)) continue;
-      chips.push({ id, ink: def.ink, bg: def.bg,
-        text: `${def.label} · ${shortDuration(this.save.conditions[id].remainingMs)} · −${def.energyLoss} energy / ${shortDuration(def.intervalMs)}` });
+      // The drain the row levies NOW: a burn's grows with its exposure
+      // (Conditions.burnTickLoss, the charge advanceBurn levies); a row with
+      // no drain of its own (the trap pin) shows only its time.
+      const left = this.save.conditions[id].remainingMs;
+      const loss = id === 'burning' ? Conditions.burnTickLoss(left) : def.energyLoss;
+      const drain = def.intervalMs ? ` · −${loss} energy / ${shortDuration(def.intervalMs)}` : '';
+      chips.push({ id, ink: def.ink, bg: def.bg, text: `${def.label} · ${shortDuration(left)}${drain}` });
     }
     for (const b of Buffs.active(this.save, this)) {
       chips.push({ id: b.id, action: b.action, ink: b.color, bg: b.stroke + 'e8', text: `${b.name} · ${shortDuration(b.remainingMs)}` });
@@ -5618,7 +5622,7 @@ class MapScene extends Phaser.Scene {
         const from = options.from || this.playerM || { x: c.x - 1, y: c.y };
         if (enemySplit(this, c, from.x, from.y, now) && now >= (this._splitFlashT || 0)) {
           this._splitFlashT = now + 2500;
-          this.flash('The slime splits!', this.viewCenterX, this.viewCenterY - 40);
+          this.flashAtWorld('The slime splits!', c.x, c.y);
         }
       }
       return false;
@@ -5721,7 +5725,7 @@ class MapScene extends Phaser.Scene {
       if (coins > 0) this._dropBountyCoin(victim, coins);
       const name = Combat.monster(victim.kind)?.name || 'Slime';
       const elite = Combat.isElite(victim);
-      if (mine) this.flash(`⚔️ ${name} slain`, this.viewCenterX, this.viewCenterY - 60);
+      if (mine) this.flashAtWorld(`⚔️ ${name} slain`, victim.x, victim.y);
       if (!mine) {
         // A turret's (or any non-player) kill: the coin is the whole payout.
       } else if (elite) {
@@ -5751,7 +5755,7 @@ class MapScene extends Phaser.Scene {
       // Nothing defeatable reaches here today — interact.js sends only slimes,
       // crows and deer down the hunt wheel, and the other two routes only ever
       // carry enemies. A kind that ever did would otherwise die in silence.
-      this.flash(`${victim.kind} defeated`, this.viewCenterX, this.viewCenterY - 60);
+      this.flashAtWorld(`${victim.kind} defeated`, victim.x, victim.y);
     }
     if (mine && typeof Quests !== 'undefined') {
       // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
@@ -6096,7 +6100,7 @@ class MapScene extends Phaser.Scene {
           // foe drifts, the reach diamond shrinks as energy drains. That's
           // normal, not a failed hunt, so it says nothing; a hunt or a fight
           // you actually chose still reports the getaway.
-          if (!wasAuto && this.flash) this.flash('It got away.', this.viewCenterX, this.viewCenterY - 60);
+          if (!wasAuto && this.flash) this.flashAtWorld('It got away.', c.x, c.y);
           return;
         }
       } else {
@@ -6149,7 +6153,7 @@ class MapScene extends Phaser.Scene {
           this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
         }
         const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass)
-          + this._attackFlat('melee')) * (Combat.shrinkingActive(this.save) ? CONSUMABLE_SPEC.shrinking_potion.meleeDamageMul : 1);
+          + this._attackFlat('melee')) * PotionEffects.meleeMul(this.save);
         if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
         // A LIT TORCH (isTorchActive) SETS THE FOE ALIGHT — Combat.ignite,
         // the `burning` row of Conditions.DEFINITIONS, as the player's own
@@ -6850,7 +6854,7 @@ class MapScene extends Phaser.Scene {
   // path reads, by type. Giant adds its flat bonus to melee blows.
   _attackFlat(kind) {
     const training = Combat.TRAINING_KINDS[kind]?.unit === 'dmg' ? Combat.trainingBonus(this.save, kind) : 0;
-    const giant = kind === 'melee' ? Combat.giantDamageBonus(this.save) : 0;
+    const giant = kind === 'melee' ? PotionEffects.meleeBonus(this.save) : 0;
     return training + giant;
   }
   // Is the stick actually being PUSHED right now? Pointer-down alone isn't
@@ -7224,20 +7228,21 @@ class MapScene extends Phaser.Scene {
     // the same colour a foe wears, render.js): a burn flickers against the
     // farmer's own colour, a poison holds. Under the hit flick and the empty
     // bar, over the far-from-GPS dim.
-    const burning = Conditions.active(this.save, 'burning') && Conditions.conditionTintOn('burning', nowMs);
-    const poisoned = Conditions.active(this.save, 'poison') && Conditions.conditionTintOn('poison', nowMs);
+    // The first active row, in table order, whose tint shows this instant.
+    const status = Object.keys(Conditions.DEFINITIONS)
+      .find((id) => Conditions.active(this.save, id) && Conditions.conditionTintOn(id, nowMs));
     // Pulse: a slow breath, faster and deeper for the empty-tank warning.
     const t = nowMs / 1000;
     const periodS = spent ? 1.2 : 2.0;
     const wave = 0.5 + 0.5 * Math.sin((t / periodS) * Math.PI * 2);
-    if (hit || spent || far || burning || poisoned) {
+    if (hit || spent || far || status) {
       let tint = 0xffffff;
       if (hit) {
         tint = HIT_FLASH_TINT;
       } else if (spent) {
         tint = 0xff6b6b;
-      } else if (burning || poisoned) {
-        tint = Conditions.DEFINITIONS[burning ? 'burning' : 'poison'].tint;
+      } else if (status) {
+        tint = Conditions.DEFINITIONS[status].tint;
       } else {
         const k = Math.min(1, (away - nearM) / Math.max(1, (DARK_FULL_CELLS - NEAR_GPS_CELLS) * this.cellM));
         const v = Math.round(255 * (1 - (1 - DIM_FLOOR) * k));
@@ -8058,12 +8063,25 @@ class MapScene extends Phaser.Scene {
   // viewCenterX/Y, which is the camera, not the cell. Falls back to the
   // toast's centred default when nothing projects.
   flashAtWorld(text, wmx, wmy, color) {
-    let at = {};
     if (this.startWorldM && this.originPx && typeof worldMetersToAbsCell === 'function') {
       const c = worldMetersToAbsCell(this, wmx, wmy);
-      at = this._energyPopAt(c.cellIX, c.cellIY);
-    }
+      this.flashAtCell(text, c.cellIX, c.cellIY, color);
+    } else this.flash(text, undefined, undefined, color);
+  }
+  // The same note, for a known absolute cell (a wall of fire's middle cell).
+  flashAtCell(text, ix, iy, color) {
+    const at = this._energyPopAt(ix, iy);
     this.flash(text, at.x, at.y, color);
+  }
+  // A note about the player's BODY ("You catch fire!") — over the
+  // character's head at scene.playerScreen() (which follows a peek drag),
+  // clear of the energy pop that hangs at ENERGY_POP_HEAD_PX; never at
+  // viewCenterX/Y. The toast's centred default when nothing projects.
+  flashAtPlayer(text, color) {
+    const ps = this.playerScreen ? this.playerScreen() : null;
+    const ok = !!ps && isFinite(ps.x) && isFinite(ps.y);
+    this.flash(text, ok ? Math.round(ps.x) : undefined,
+      ok ? Math.round(ps.y) - ENERGY_POP_HEAD_PX - 22 : undefined, color);
   }
 
   // ── Energy pops ──────────────────────────────────────────────────────────
@@ -9551,8 +9569,7 @@ class MapScene extends Phaser.Scene {
     if (!sel || sel.id !== 'tome_raven' || (sel.count ?? 0) <= 0) return false;
     if (!this._tomeReady('tome_raven')) return false;
     this.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS * TOME_EFFECT_MUL;
-    if (this._spiritRaven) this._spiritRaven._followUntilT = performance.now() + SPIRIT_RAVEN_MS * TOME_EFFECT_MUL;
-    this._tickSpiritRaven();
+    this._tickSpiritRaven();   // a living bird's follow timer re-derives from the save
     this._tomeSpent('tome_raven');
     this.flash('✨ A raven leaves the page', this.viewCenterX, this.viewCenterY);
     return true;
@@ -9645,7 +9662,7 @@ class MapScene extends Phaser.Scene {
   drinkAntidote() {
     const sel = getSelectedSlot(this.save);
     if (sel?.id !== 'antidote' || !(sel.count > 0)) return false;
-    if (!Conditions.useAntidote(this.save, this)) {
+    if (!Conditions.useAntidote(this.save)) {
       this.flash('No debuffs — Antidote kept.', this.viewCenterX, this.viewCenterY);
       return false;
     }
@@ -9657,7 +9674,7 @@ class MapScene extends Phaser.Scene {
     const sel = getSelectedSlot(this.save);
     if (sel?.id !== 'elixir' || !(sel.count > 0)) return false;
     const before = this.save.energy ?? 0;
-    if (!Conditions.useElixir(this.save, this)) {
+    if (!Conditions.useElixir(this.save)) {
       if (before <= 0) this.flash('Elixir cannot revive you.', this.viewCenterX, this.viewCenterY);
       else this.flash('No need — Elixir kept.', this.viewCenterX, this.viewCenterY);
       return false;
@@ -9765,9 +9782,9 @@ class MapScene extends Phaser.Scene {
     const sel = getSelectedSlot(this.save);
     if (!sel || sel.id !== 'raven_scroll' || (sel.count ?? 0) <= 0) return false;
     this.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS;
-    // A living bird's follow timer is its lifetime — stretch it with the refresh.
-    if (this._spiritRaven) this._spiritRaven._followUntilT = performance.now() + SPIRIT_RAVEN_MS;
-    this._tickSpiritRaven();   // summoned now, not a frame later
+    // Summoned now, not a frame later; a living bird's follow timer (its
+    // lifetime) is re-derived from the refreshed expiry by Companions.tick.
+    this._tickSpiritRaven();
     this._spendScroll('raven_scroll');
     this.showMessageModal({ title: 'You read the Scroll of the Raven',
       body: 'A raven of smoke and starlight shakes itself out of the parchment. It settles beside you, watching the beasts with hungry eyes.' });
@@ -9790,17 +9807,10 @@ class MapScene extends Phaser.Scene {
     return true;
   }
 
-  // Raven scroll and tome callers share the companion keeper.
+  // Raven scroll and tome callers share the companion keeper (player_time.js
+  // calls it too, so it stays a named method).
   _tickSpiritRaven() {
     Companions.tick(this, 'spirit_raven');
-  }
-
-  // The Drink dialog's line for a revival potion: what it will do while you
-  // are down, and why the button is grey while you are not.
-  _reviveGetLine(id) {
-    return Combat.playerDowned(this.save.energy)
-      ? '❤ rise where you fell'
-      : '❤ drink only when you have fallen';
   }
 
   // Potion of Revival (T2) and Potion of Resurrection (T5): drunk while
@@ -10560,7 +10570,7 @@ class MapScene extends Phaser.Scene {
       const spec = CONSUMABLE_SPEC.miracle_lettuce;
       this.save.miracleLettuceUntil = Math.max(this.save.miracleLettuceUntil || 0, now + spec.durationMs);
       extra = `\n+${spec.luckBonus} Luck: ${shortDuration(this.save.miracleLettuceUntil - now)}`;
-    } else if (id === 'peach' && Conditions.clearDebuffs(this.save, this)) {
+    } else if (id === 'peach' && Conditions.clearDebuffs(this.save)) {
       extra = '\nDebuffs cleared';
     }
     if (firstTaste) extra += `\n🍽 first taste: +${Energy.tasteBonus(id)} max ⚡`;
@@ -13422,8 +13432,7 @@ class MapScene extends Phaser.Scene {
   // including restored saves. The dragon transform keeps visual priority.
   _syncPlayerSkin() {
     if (!this.player) return;
-    const giantScale = (Combat.giantActive(this.save) ? CONSUMABLE_SPEC.giant_potion.scaleMul : 1)
-      * (Combat.shrinkingActive(this.save) ? CONSUMABLE_SPEC.shrinking_potion.scaleMul : 1);
+    const giantScale = PotionEffects.scaleMul(this.save);
     if (this._dragonActive) {
       this.player.setScale(this.dragonScale * giantScale);
       this.playerFeetNudgeY = -PLAYER_FEET_DROP_PX * this.playerScale * giantScale;

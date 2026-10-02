@@ -32,22 +32,22 @@ Magic Trap stays a supply: the requested magic class means potions and powders, 
 
 Weights below sum to 100% per row. They select a themed reward group. Item eligibility and the explicit fallbacks in section 4 determine the final item. Thus a low-tier garden may turn a flower-seed draw into ordinary flowers, but never an unrelated coal drop.
 
-| Theme | Normal surface tier | Reward-group weights |
-|---|---:|---|
-| Roadside / shelters | 1 | Supplies 45%; building materials 40%; cash 15% |
-| Commerce | 1 | Cash 60%; supplies 25%; provisions 15% |
-| Food | 1 | Food 80%; matching crop seeds 15%; Honey 5% |
-| Parks / recreation | 2 | Seeds 45%; saplings/acorns 25%; forage 20%; Growth Powder 10% |
-| Farms | 3 | Crop seeds 40%; produce 30%; farm animals 15%; farm supplies 10%; Growth Powder 5% |
-| Gardens / flora | 4 | Flower seeds 45%; flowers 30%; saplings/acorns 15%; Growth Powder 10% |
-| Healthcare | 3 | Recovery magic 35%; Antidote 25%; revival magic 20%; restorative food 10%; Shielding 10% |
-| Schools / libraries | 3 | Books 55%; exploration supplies 15%; study magic 20%; noncombat gear 10% |
-| Museums / culture | 3 | Gear 35%; gems 30%; Books 25%; study magic 10% |
-| Worship | 3 | Revival magic 50%; Shielding 25%; Books 15%; flowers 10% |
-| Memorials / cemeteries | 3 | Raven/Shadow magic 55%; flowers 25%; Books 15%; gems 5% |
-| General civic | 3 | Supplies 35%; cash 30%; Books 20%; noncombat gear 15% |
-| Police / fire stations | 3 | Protective gear 40%; field supplies 40%; healing magic 15%; cash 5% |
-| Pet locations | 3 | Companion animals 70%; animal food 20%; supplies 10% |
+| Theme | Reward-group weights |
+|---|---|
+| Roadside / shelters | Supplies 45%; building materials 40%; cash 15% |
+| Commerce | Cash 60%; supplies 25%; provisions 15% |
+| Food | Food 80%; matching crop seeds 15%; Honey 5% |
+| Parks / recreation | Seeds 45%; saplings/acorns 25%; forage 20%; Growth Powder 10% |
+| Farms | Crop seeds 40%; produce 30%; farm animals 15%; farm supplies 10%; Growth Powder 5% |
+| Gardens / flora | Flower seeds 45%; flowers 30%; saplings/acorns 15%; Growth Powder 10% |
+| Healthcare | Recovery magic 35%; Antidote 25%; revival magic 20%; restorative food 10%; Shielding 10% |
+| Schools / libraries | Books 55%; exploration supplies 15%; study magic 20%; noncombat gear 10% |
+| Museums / culture | Gear 35%; gems 30%; Books 25%; study magic 10% |
+| Worship | Revival magic 50%; Shielding 25%; Books 15%; flowers 10% |
+| Memorials / cemeteries | Raven/Shadow magic 55%; flowers 25%; Books 15%; gems 5% |
+| General civic | Supplies 35%; cash 30%; Books 20%; noncombat gear 15% |
+| Police / fire stations | Protective gear 40%; field supplies 40%; healing magic 15%; cash 5% |
+| Pet locations | Companion animals 70%; animal food 20%; supplies 10% |
 
 These replace the vague 80/15/5 suggestion with specific, reviewable rows. Surprises come from rarer eligible items within each theme. There is no universal off-theme surprise pool.
 
@@ -170,7 +170,7 @@ Food, seed, flower, Torch and building-material fallback groups have T1 members.
 
 ## 5. Quality and quantities
 
-Retain the current Home downgrade, cave depth bonus, Ring luck, quantity upgrades and 16% jackpot entry / 25% continuation rates. Retain the existing tier-versus-quantity chain split: the effective chest tier is not a guaranteed minimum item tier. Roll quality before resolving the group's item pool. A thin pool must not cap the quality roll: a T4 school can spend quality on useful lower-tier items even though supplies stop at T2.
+Retain the cave depth bonus, Ring luck, quantity upgrades and 16% jackpot entry / 25% continuation rates. Retain the existing tier-versus-quantity chain split: the effective chest tier is not a guaranteed minimum item tier. Roll quality before resolving the group's item pool. A thin pool must not cap the quality roll: a T4 school can spend quality on useful lower-tier items even though supplies stop at T2.
 
 Use the existing `TIER_VALUE` table as the allowance for extra copies: T1–T7 currently map to 2, 8, 25, 70, 160, 360, 800. This is a quantity allowance, not a cash payment or a promise of equal resale value.
 

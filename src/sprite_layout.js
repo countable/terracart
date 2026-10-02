@@ -69,7 +69,6 @@
     'mineralrock:6': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
     'approved_charred_stakes:0': { fw: 16, fh: 16, minX: 4, minY: 0, maxX: 12, maxY: 16 },
     'well:0': { fw: 30, fh: 32, minX: 2, minY: 0, maxX: 30, maxY: 32 },
-    'pillar:0': { fw: 16, fh: 32, minX: 1, minY: 0, maxX: 15, maxY: 28 },
     'scarecrow:0': { fw: 48, fh: 48, minX: 3, minY: 8, maxX: 45, maxY: 47 },
     'bonfire:0': { fw: 16, fh: 32, minX: 1, minY: 9, maxX: 14, maxY: 31 },
     'torch:0': { fw: 16, fh: 32, minX: 5, minY: 5, maxX: 12, maxY: 32 },
@@ -483,12 +482,6 @@
     // goblin row above (one body cannot have two ground lines); the tint is
     // the one thing that differs (TRAPPER_TINT).
     goblin_trapper: { sheet: 'goblin',       frames: 6, frameMs: CREATURE_FRAME_MS, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27, tint: TRAPPER_TINT },
-    // Front-facing idle cycle from the supplied 16px sheet. Keep the spectral
-    // float and halo; its white/blue artwork replaces the tinted slime.
-    ghost:         { sheet: 'ghost', frames: 4, frameMs: 200, hop: true, hopMs: 1600, hopPx: 3, airborne: true, fw: 16, fh: 16, scale: 1.70, foot: 15 / 16, float: 6, minY: 1, maxY: 15, alpha: GHOST_ALPHA, glow: GHOST_GLOW },
-    // Rooted plant: front idle (row 0) and bite (row 2), four frames each.
-    // No hop/float: the roots stay at the same ground line during the bite.
-    plant:         { sheet: 'plant', frames: 4, frameMs: 150, attackFrames: [24, 25, 26, 27], fw: 16, fh: 16, scale: 1.60, foot: 1, float: 0, minY: 0, maxY: 16 },
   };
   // New art consists of four 16px idle frames. Bounds measured from frame 0;
   // the audit checks these against the shipped pixels. Old 32px goblins and
@@ -509,7 +502,7 @@
       side: { idle: [12], move: frameRun(12, 6) },
     } },
   };
-  const enemyBounds = { slime: [5, 16], cave_slime: [5, 16], bat: [3, 11],
+  const enemyBounds = { bat: [3, 11],
     vampire_bat: [3, 11], spider: [1, 16], poison_spider: [1, 16],
     ghost: [1, 15], pink_ghost: [1, 15] };
   const GIANT_PREFIX = 'giant_';
@@ -645,9 +638,9 @@
                      flee: { cells: 4, jitter: 1.1, stepMs: 650, stepCells: 0.6,
                              pauseMs: [80, 120] } },
     crow:          { wanders: true, game: true, drop: 'crow_feather', avoids: ['scarecrow'] },
-    // THE SPIRIT RAVEN — summoned by the Scroll of the Raven (app.js
-    // drinkRavenPotion / _tickSpiritRaven) for SPIRIT_RAVEN_MS. It is a PET's
-    // hunt by another reason, not a second hunter: wanderCreatures' pet scan
+    // THE SPIRIT RAVEN — summoned by the Scroll or Tome of the Raven (app.js
+    // readRavenScroll / readTomeRaven, kept by _tickSpiritRaven) for
+    // SPIRIT_RAVEN_MS. It is a PET's hunt by another reason, not a second hunter: wanderCreatures' pet scan
     // runs for it (`summoned`), asks huntsPrey (creature_ai.js) what it may
     // take — `preysOnFoes`: every Combat.isEnemy foe and every pest deer,
     // where a pet's `prey` is a list of kinds — and its kill pays as the pet's
@@ -876,7 +869,6 @@
   }
   function creatureCycleFrame(c, now) { return creatureAppearance(c, now).frame; }
 
-  function creatureHops(kind) { return !!creatureArt(kind)?.hop; }
   // The code bounce a hopping kind wears: { ms, px } (null if it doesn't).
   function creatureHop(kind) {
     const a = creatureArt(kind);
@@ -1029,7 +1021,7 @@
     CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
     creaturePrey, creatureDrop, creatureProduce, creatureCatchMul, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
     creatureAppearance, faceCreature, CREATURE_FACE_HOLD_MS, CREATURE_MOVE_GRACE_MS, updateCreatureFacing, CREATURE_DIRECTION_LAYOUTS,
-    creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHops, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
+    creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,

@@ -53,9 +53,9 @@
     // Chest tier 1..5 modifiers. Applied on top of the biome's classBias to
     // produce the effective context. Chest worldgen picks (biome, tier)
     // independently — same biome can appear at different tiers, same tier
-    // across different biomes. The tier is the chest's class DENSITY on its
-    // tile (loot.js CHEST_DENSITY_TIERS / chestTier — also the renderer's
-    // coloured diamond).
+    // across different biomes. The tier is the chest's per-tile quota seat
+    // (worldgen.js seedChestTiers, read through loot.js chestTier — also the
+    // renderer's coloured diamond).
     //
     // chainMax bounds what the boost chain alone can reach; maxTier bounds
     // the absolute (post-jackpot) tier. Every tier gets a small jackpot

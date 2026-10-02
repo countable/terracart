@@ -43,10 +43,6 @@ test('trapper: a MONSTERS row that lands no blow and lays a trap', () => {
   assert.truthy(Combat.monsterHits('goblin') && Combat.monsterHits('goblin_archer'), 'the others still hit');
   assert.eq(Combat.monsterLays('goblin_trapper'), 'trap', 'it lays a trap');
   assert.eq(Combat.monsterLays('goblin'), null, 'nothing else does');
-  // A giant is derived, and inherits the habit.
-  assert.truthy(Combat.isEnemyKind('giant_goblin_trapper'), 'it has a giant');
-  assert.eq(Combat.monsterLays('giant_goblin_trapper'), 'trap', 'which lays too');
-  assert.falsy(Combat.monsterHits('giant_goblin_trapper'), 'and never hits');
   assert.gte(row.minDepth, Combat.monster('goblin_archer').minDepth,
     'met no shallower than the archer (the garrison ladder never runs backwards)');
   assert.gt(Combat.enemyBounty('goblin_trapper', row.minDepth), 0, 'and it pays a bounty');
@@ -481,7 +477,7 @@ test('trapper: its kill drops a Magic Trap ON TOP of the bounty coin — for the
       const scene = Object.assign(Object.create(methods), {
         save: { money: 0, caught: [] }, depth: 3, tileEdgeM: 1000, cellsPerTile: 200,
         viewCenterX: 0, viewCenterY: 0,
-        addToInv: (id) => inv.push(id), flash: () => {}, flashLoot: () => {}, flashShiny: () => {},
+        addToInv: (id) => inv.push(id), flash: () => {}, flashAtWorld: () => {}, flashLoot: () => {}, flashShiny: () => {},
         awardShinyBonus: () => {}, _bankDiscovery: () => false,
       });
       const v = { kind: 'goblin_trapper', id: `mon_tr_${source}`, x: 7311 * 1000 + 12, y: 4111 * 1000 + 17 };

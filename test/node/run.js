@@ -642,17 +642,13 @@ const starterWrapper = (name) => {
 // The monster table, the defeat bounty derived from it and the fauna's blocked
 // terrain all live in combat.js now — real module exports, loaded above with
 // the rest of the bundle. They used to be lifted out of app.js as source text
-// (the table, its giants, the cave doubling and every constant around them),
+// (the table and every constant around it),
 // which is what a missing extraction looks like: the tests below run the
 // SHIPPING table and the SHIPPING formula because there is only one of each.
 // Republished here under their bare names so the test files reach them the way
 // app.js does.
 Object.assign(ctx, {
   MONSTERS: ctx.Combat.MONSTERS,
-  MONSTERS_BASELINE: ctx.Combat.MONSTERS_BASELINE,
-  CAVE_ENEMY_MUL: ctx.Combat.CAVE_ENEMY_MUL,
-  GIANT_HP_MUL: ctx.Combat.GIANT_HP_MUL,
-  GIANT_DEPTH_STEP: ctx.Combat.GIANT_DEPTH_STEP,
   isMonster: ctx.Combat.isMonster,
   enemyBounty: ctx.Combat.enemyBounty,
   ENEMY_COIN_PER_HP: ctx.Combat.ENEMY_COIN_PER_HP,
@@ -1109,7 +1105,7 @@ Object.assign(ctx, {
   // The tree + mineralrock RENDER_SPEC entries (a const inside drawObjects, so
   // not reachable as a value) — tool_gate_fade.test.js pins that both `after`
   // hooks apply the shared tool-gate fade rather than a local copy of it.
-  ctx.RENDER_TREE_ROCK_SPEC_SRC = slice(readSrc('render.js'), '    tree:   { key: (o) => {', '    // Stone pillar', 'the tree/mineralrock render specs');
+  ctx.RENDER_TREE_ROCK_SPEC_SRC = slice(readSrc('render.js'), '    tree:   { key: (o) => {', '    // STREET VARIANT PROPS', 'the tree/mineralrock render specs');
   // The fruit-tree life-cycle frame table + its RENDER_SPEC entry, and the
   // pass that draws the fruit ON the tree — all inside drawObjects, so
   // fruit_overlay.test.js pins them as text: what has to hold is that the

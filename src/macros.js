@@ -18,9 +18,8 @@
 //     Separate keys let pickups and services at one place be used independently;
 //   • save.donated — the curio ids this save has given (progress, not world
 //     state), and its milestones in the memory ledger (save.discovered);
-//   • save.trainingPerm / save.trainingBuffUntil — the damage the player
-//     bought (the pre-Sep-2026 melee track; save.training / trainingDrills
-//     now — combat.js Combat.trainingBonus).
+//   • save.training / save.trainingDrills — the levels and drills the player
+//     bought (combat.js Combat.trainingBonus).
 // The stalls (apothecary, sundries, scriptorium) have no gate at all: a
 // counter, like the market stall they share their dialog with (app.js
 // _presentStallOffer — one price lane, ShopsMath.standPrice).
@@ -434,20 +433,6 @@
     return out;
   }
   function drillPrice() { return TRAINING_DRILL_PRICE; }
-  // Fold a pre-Sep-2026 save's single melee track into the per-discipline
-  // fields before the first write, so there is one place a level lives.
-  function foldLegacyTraining(save) {
-    save.training = save.training || {};
-    save.trainingDrills = save.trainingDrills || {};
-    if (save.trainingPerm != null) {
-      if (save.training.melee == null) save.training.melee = Combat.trainingLevel(save, 'melee');
-      delete save.trainingPerm;
-    }
-    if (save.trainingBuffUntil != null) {
-      if (save.trainingDrills.melee == null) save.trainingDrills.melee = Number(save.trainingBuffUntil) || 0;
-      delete save.trainingBuffUntil;
-    }
-  }
   // `memories` is the player's RECOVERED total (scene.memoriesTotal()).
   function buyLesson(save, kind, memories) {
     if (!Combat.TRAINING_KINDS[kind]) return { ok: false, why: 'kind' };
@@ -456,8 +441,8 @@
     const need = lessonMemories(save, kind);
     if ((Number(memories) || 0) < need) return { ok: false, why: 'memories', need };
     if ((save.money ?? 0) < price) return { ok: false, why: 'money', price };
-    foldLegacyTraining(save);
     addMoney(save, -price);
+    save.training = save.training || {};
     save.training[kind] = Combat.trainingLevel(save, kind) + 1;
     return { ok: true, price };
   }
@@ -468,8 +453,8 @@
     if (Combat.trainingBuffActive(save, kind, now)) return { ok: false, why: 'active' };
     const price = drillPrice();
     if ((save.money ?? 0) < price) return { ok: false, why: 'money', price };
-    foldLegacyTraining(save);
     addMoney(save, -price);
+    save.trainingDrills = save.trainingDrills || {};
     save.trainingDrills[kind] = now + Combat.TRAINING_BUFF_MS;
     return { ok: true, price };
   }
@@ -571,7 +556,7 @@
     bountyWeaponTier, bountyFor, bountyPay, bountyCleared,
     CURIO_COLLECTION, CURIO_MILESTONES, curioEligible, curioCollection, curioDonated, curioCount,
     curioNextMilestone, curioMilestoneKey, curioMissing, curioDonate,
-    TRAINING_LESSON_PRICE, TRAINING_DRILL_PRICE, TRAINING_MEMORIES_PER_LEVEL, trainingKindFor, lessonMemoriesAt, lessonMemories, foldLegacyTraining, stallLabel, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
+    TRAINING_LESSON_PRICE, TRAINING_DRILL_PRICE, TRAINING_MEMORIES_PER_LEVEL, trainingKindFor, lessonMemoriesAt, lessonMemories, stallLabel, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
     buyLesson, buyDrill, drillLeftMs,
     SCHOLAR_BOOKS_PER_PRIZE, scholarShelf, booksRead, scholarTaken, scholarNext, scholarClaim,
     KIND_DIALOG, KIND_STORY, KIND_TRANSACTION, stallArt,

@@ -405,7 +405,7 @@
   });
 
   // ── The kerb buffer (Sep 2026 safety pass) ───────────────────────────────
-  test('lairs: no guard of any lair seats inside the major roads\' kerb buffer (WorldGen.isFoeCell)', () => {
+  test('lairs: no guard of any lair seats inside the major roads\' kerb buffer (WorldGen.isSpawnCell at the guard\'s spawn class)', () => {
     const castle = mkHeldShape(12, 20 * CELL_M, 20 * CELL_M, 5 * CELL_M);
     const cand = () => Lairs.buildIndex({ buildingShapes: [castle] }, 0, 0, CELL_M, TILE_M);
     const wake = (entry) => {

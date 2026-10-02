@@ -168,8 +168,8 @@ const POI_CATEGORY = {
   florist: 'flora', garden_centre: 'flora', garden: 'flora',
   // farm: rare-weighted seed drops, any tier
   farm: 'farm',
-  // ── Places of LEARNING — the book category. Same chest tier as civic (3)
-  // and the same pad, but its own loot row: a hedge school, a loremaster's
+  // ── Places of LEARNING — the book category. The same pad as civic, but
+  // its own loot row: a hedge school, a loremaster's
   // college, a scriptorium and a scrivener's shop are where the written word
   // lives, so their chests hand out BOOKS by the shelf-load (rarity.js
   // 'chest:school' pins the consumable roll to one). The Book is the game's
@@ -194,7 +194,7 @@ const POI_CATEGORY = {
   bus: 'lowtier', fuel: 'lowtier', lodging: 'lowtier',
   // ── satextract OSM point features → low-tier street furniture. These reach
   // the game only via the Overpass sidecar (data/satextract_osm.geojson), not
-  // the MVT poi layer, so they're wired here as plain lowtier box chests.
+  // the MVT poi layer, so they're wired here as plain lowtier chests.
   // ('tower' is the chest poiClass for man_made=tower — distinct from the
   // castle 'tower' OBJECT kind.) Road furniture that is no PLACE at all —
   // traffic signals, crossings, stop signs, fences, power lines, carports —
@@ -213,18 +213,18 @@ const POI_CATEGORY = {
   // looted (isPotOfGold / isBikeRack below). motorcycle_parking is diverted
   // to a treasure X in worldgen (no chest), so it needs no category here.
   bicycle_parking: 'lowtier', atm: 'lowtier',
-  // ── Athletic facilities — park-class T2 chest, fits the "leisure" feel
+  // ── Athletic facilities — park-class chests, fits the "leisure" feel
   sports_centre: 'park', yoga: 'park', swimming: 'park',
   swimming_pool: 'park', bowls: 'park', running: 'park',
   ice_rink: 'park', stadium: 'park', dog_park: 'park',
   // ── Culture — civic chests. PUBLIC ART (art_gallery) is an ordinary
-  // density-ladder chest like every class (until Oct 2026 it was a fixed T1
-  // one-time trunk); an INFORMATION board is no chest at
+  // quota-seeded chest like every class (worldgen.js seedChestTiers); an
+  // INFORMATION board is no chest at
   // all — it reads one Book page (worldgen.js infoboard, the waystone's lane
   // in interactables.js). Memorials, monuments and cemeteries have NO row:
   // they are sensitive places that mint nothing (WorldGen.isSensitivePoi).
   art_gallery: 'civic', cinema: 'civic', theatre: 'civic',
-  // ── Authority buildings — civic T3 chests
+  // ── Authority buildings — civic chests
   police: 'civic', fire_station: 'civic', harbor: 'civic',
 };
 // Loot identity is separate from world category: no map IDs, tiers or pads change.
@@ -319,10 +319,9 @@ function chestTierZoneBonus(nexus) { return nexus ? ZONE_NEXUS_TIER_BONUS : 0; }
 // The chest's base tier before depth and nexus: a scenic override, its quota
 // seed, or CHEST_TIER_UNSTAMPED for a hand-built object.
 // A SCENIC chest (src/scenic.js — o.vista: a viewpoint's grail, or the one
-// chest of a scenic stretch) takes its tier from Scenic.VISTA_CHEST_TIER,
-// whatever its class's count: a third reason on the base, beside the fixed
-// classes and the quota seed. Generated (the stamp is the world's), so the color
-// and the roll agree for every player.
+// chest of a scenic stretch) takes its tier from Scenic.VISTA_CHEST_TIER and
+// stands outside the tile's quota budget. Generated (the stamp is the
+// world's), so the color and the roll agree for every player.
 function chestVistaTier(o) {
   return (o && o.vista && typeof Scenic !== 'undefined' && Scenic.VISTA_CHEST_TIER[o.vista]) || 0;
 }
@@ -356,12 +355,13 @@ function chestTier(o) {
 // of must not be a fountain. It stands bare for crateRestoreDays UTC days
 // after it is taken: floor(count / CRATE_RESTORE_PER), at least one day and
 // at most CRATE_RESTORE_MAX_DAYS (a week — also how long the day ledger keeps
-// a take, macros.js). CRATE_RESTORE_PER is the crate threshold itself
-// (CHEST_DENSITY_T1_AT), so an ORDINARY crate — a class just dense enough to
-// be one, 25-49 of it on the tile — restocks daily, and every further 25 of
-// its kind adds a day: 50-74 every 2 days, … 175+ once a week. So a class
-// hands back at most ~2 × CRATE_RESTORE_PER of its crates a day per tile
-// however many the tile holds. A barrel (never below one per tile) reads the
+// a take, macros.js). Which chest IS a crate is the tier's business (a T1
+// chest — one the quota pyramid did not seat); how long it stays bare is the
+// class COUNT's (o.poiDensity, worldgen.js stampPoiDensity): a class with
+// fewer than 2 × CRATE_RESTORE_PER on the tile restocks daily, and every
+// further CRATE_RESTORE_PER of its kind adds a day: 50-74 every 2 days, …
+// 175+ once a week. So a class hands back at most ~2 × CRATE_RESTORE_PER of
+// its crates a day per tile however many the tile holds. A barrel reads the
 // same rule: a lone bin smashes daily.
 const CRATE_RESTORE_PER = CHEST_DENSITY_T1_AT;
 const CRATE_RESTORE_MAX_DAYS = 7;
@@ -428,7 +428,7 @@ function isBarrel(o) {
 // ── POTS OF GOLD (ATMs) and BIKE RACKS ────────────────────────────────────
 // An ATM is a pot of gold: a coin burst once a UTC day (app.js
 // _coinBurstInteract). How many coins it spills is its DENSITY on its tile,
-// the same poiDensity count the tier reads: POT_COINS_BY_DENSITY's anchors,
+// the poiDensity count restock days also read: POT_COINS_BY_DENSITY's anchors,
 // interpolated linearly in log(count) between them, rounded, never below 1 —
 // a lone ATM spills 30, one of 50 on the tile 3, one of 150+ a single coin.
 // A cave-level mirror is never a pot (lowtier chests don't mirror anyway).
@@ -831,17 +831,18 @@ function macroFor(o) {
 //            chest: id, tier, contents and `opened` are untouched; only the
 //            look (and the one goblin lairs.js seats beside it) changes.
 //   box    → the small crate sprite: a starter supply crate, or a tier-1
-//            chest (chestTier — a class dense on its tile)
+//            chest (chestTier — one the tile's quota pyramid left unseated)
 //   —      → the trunk chest
 // `texKey` is the texture key the RENDERER draws, so a caller that wants the
 // picture (app.js worldIconHTML) asks for it by the same name rather than
 // re-deciding which art a look means.
 // Resolved ONCE per object and cached on it, the same way produceStandFor
-// caches its own answer: every input (poiClass, poiDensity, crate, depth,
+// caches its own answer: every input (poiClass, tierSeed, crate, depth,
 // position) is fixed once the tile is built and a rebuilt tile is a NEW
-// object, so the memo can't go stale — worldgen.js stampPoiDensity drops it
-// when it restamps a count. Nothing about the player enters it (chestTier is
-// the world's), so every player sees the same look on the same chest.
+// object, so the memo can't go stale — worldgen.js seedChestTiers (and
+// stampPoiDensity) drop it when they restamp. Nothing about the player
+// enters it (chestTier is the world's), so every player sees the same look
+// on the same chest.
 function chestLook(o) {
   if (o._chestLook) return o._chestLook;
   const stand = (typeof produceStandFor === 'function') ? produceStandFor(o) : null;

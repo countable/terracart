@@ -393,7 +393,7 @@ function popupHTML(e, o, label) {
     else {
       const look = typeof chestLook === 'function' ? chestLook(o) : null;
       const wt = typeof chestTier === 'function' ? chestTier(o) : '?';
-      rows.push(`look: ${esc(look ? (look.texKey || look.kind || JSON.stringify(look)) : '?')} · tier T${wt} (${o.poiDensity || '?'} of its kind on the tile)`);
+      rows.push(`look: ${esc(look ? (look.texKey || look.kind || JSON.stringify(look)) : '?')} · tier T${wt} (quota seat; ${o.poiDensity || '?'} of its kind on the tile)`);
     }
     const z = zoneAnchorOf(e, o);
     if (z) {
@@ -540,7 +540,7 @@ function draw(world, home) {
   gameArt.setWorld(world);
   density();
   // Home's own ring: the softwood pines. (The chest-tier rings are gone — a
-  // chest's tier is its class's density on its tile, loot.js chestTier.)
+  // chest's tier is its tile's quota seat, WorldGen.seedChestTiers → loot.js chestTier.)
   const hll = toLL(home.x, home.y, EDGE);
   const ring = (r, c, t) => { const l = L.circle(hll, { radius: r, color: c, weight: 1, fill: false, dashArray: '6 4' }).bindTooltip(t).addTo(map); drawn.push(l); };
   ring(HomeArea.NEAR_M, '#1f9d3a', `softwood pines within ${HomeArea.NEAR_M} m`);

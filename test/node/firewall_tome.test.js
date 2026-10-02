@@ -8,6 +8,7 @@
       _groundFireFuel() { return []; },
       isRestingAtHome() { return false; },
       flash(message) { this.flashes.push(message); },
+      flashAtCell(message) { this.flashes.push(message); },
     }, overrides);
     // Exercise the shared activation lock and own cooldown of the other tomes.
     for (const name of ['_tomeReady', '_tomeSpent']) {
