@@ -48,6 +48,7 @@
       boonUntil: { regen: until, melee: until }, trainingDrills: { melee: until, energy: until },
       trainingBuffUntil: until, fishRegen: { total: 50, paid: 10, startedAt: Date.now(), until },
       treasureCompass: { targetId: 'treasure', until },
+      tomeReadyAt: until, tomeMagicCd: { tome_sight: until, tome_storm: until },
       eatReadyAt: until, tomeDays: { tome_sight: utcDayKey(new Date()), tome_storm: utcDayKey(new Date()) },
       fireDamageRemainder: 0.75,
       conditions: { poison: { remainingMs: 60_000, nextTickMs: 2000 }, burning: { remainingMs: 5000, nextTickMs: 1000 } },
@@ -60,7 +61,7 @@
       if (row.save) assert.eq(save[row.save], undefined, row.save);
       if (row.scene) assert.eq(scene[row.scene], 0, row.scene);
     }
-    for (const key of ['boonUntil', 'trainingDrills', 'trainingBuffUntil', 'fishRegen', 'treasureCompass', 'eatReadyAt', 'tomeDays']) {
+    for (const key of ['boonUntil', 'trainingDrills', 'trainingBuffUntil', 'fishRegen', 'treasureCompass', 'eatReadyAt', 'tomeDays', 'tomeReadyAt', 'tomeMagicCd']) {
       assert.eq(save[key], undefined, key);
     }
     assert.eq(Object.keys(save.conditions).length, 0);
