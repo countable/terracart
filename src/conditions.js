@@ -23,6 +23,7 @@
       label: 'Burning', tint: 0xff8c42, flicker: true, ink: '#ffb36b', bg: '#2e1a0ee8' }),
   });
   function normalize(save) {
+    save.fireDamageRemainder = fireRemainder(save);
     const old = save.conditions || {};
     save.conditions = {};
     for (const [id, def] of Object.entries(DEFINITIONS)) {
@@ -37,6 +38,19 @@
     return save.conditions;
   }
   function active(save, id) { return (save.conditions?.[id]?.remainingMs || 0) > 0; }
+  function fireRemainder(save) {
+    const value = save.fireDamageRemainder;
+    return Number.isFinite(value) && value >= 0 && value < 1 ? value : 0;
+  }
+  // Energy is integral. Carry fractional fire loss between hits and saves so
+  // resistance still works against small ticks; zero damage never discharges it.
+  function fireDamage(save, raw) {
+    if (!Number.isFinite(raw) || raw <= 0) return 0;
+    const total = raw * jewelryFireDamageMul(save) + fireRemainder(save);
+    const damage = Math.floor(total + 1e-9);
+    save.fireDamageRemainder = total - damage > 1e-9 ? total - damage : 0;
+    return damage;
+  }
   // Does the row's tint show at this instant? A `flicker` row alternates
   // every FLICKER_MS (a burn licks); a steady row always shows. One clock for
   // the player's body and every burning foe, so they flicker in step.
@@ -97,7 +111,7 @@
         const result = advanceBurn(state, elapsedMs, !!options.burningExposure);
         state.remainingMs = result.remainingMs;
         state.nextTickMs = result.nextTickMs;
-        Energy.set(save, (save.energy ?? 0) - result.damage);
+        Energy.set(save, (save.energy ?? 0) - fireDamage(save, result.damage));
         ticks += result.ticks;
         if (state.remainingMs <= 0) {
           delete save.conditions[id];
@@ -147,5 +161,5 @@
     clearDebuffs(save, scene);
     return true;
   }
-  root.Conditions = { DEFINITIONS, FLICKER_MS, conditionTintOn, normalize, active, apply, cure, advanceBurn, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
+  root.Conditions = { DEFINITIONS, FLICKER_MS, conditionTintOn, normalize, active, apply, cure, advanceBurn, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

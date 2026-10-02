@@ -58,4 +58,15 @@
       assert.falsy(s.save.groundFire);
     }
   });
+  test('wall of fire tome: caster cell stays clear at fractional positions and tile edges', () => {
+    for (const position of [248.01, 255.99, 256, 256.01]) {
+      for (const [dx, dy] of [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]]) {
+        const s = scene({ playerM: { x: position, y: position }, facing: { x: dx, y: dy } });
+        const player = worldMetersToAbsCell(s, position, position);
+        assert.truthy(s.readTomeFirewall());
+        assert.eq(Object.keys(s.save.groundFire).length, 5);
+        assert.falsy(s.save.groundFire[GroundFire.key(2, player.cellIX, player.cellIY)]);
+      }
+    }
+  });
 })();

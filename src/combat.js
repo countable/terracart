@@ -1122,18 +1122,47 @@
     return shot;
   }
 
-  // A thrown flask bursts at the vision boundary, clearing foes and terrain
-  // on the way. The scene ignites the square footprint on impact.
+  // A thrown flask bursts on the first foe or at the vision boundary. It
+  // clears terrain; the scene ignites the square footprint on impact.
   function spawnExplosiveFlask(x, y, dir, cellM, rangeM, spec) {
     if (!(rangeM > 0) || !Number.isFinite(rangeM)) return null;
     const shot = spawnShot('bow', x, y, dir, cellM, spec.damage);
     if (!shot) return null;
     Object.assign(shot, {
-      projectile: 'explosive_flask', rangeM, endpointOnly: true,
+      projectile: 'explosive_flask', rangeM, impactOnly: true,
       blastRadiusM: 0, radiusM: spec.projectileRadiusCells * cellM,
       dotPx: spec.dotPx, color: 0xffa32d,
     });
     return shot;
+  }
+
+  // Find the first contact along the whole frame's flight, including a
+  // grazing contact between sample points. Only that foe takes impact damage.
+  function stepImpactShot(s, dt, targets, onHit, opts) {
+    const travel = Math.min(s.speedMps * dt, Math.max(0, s.rangeM - s.travelledM));
+    let contact = null, distance = travel;
+    for (const e of targets) {
+      if (opts?.canHit && !opts.canHit(e, s)) continue;
+      const dx = e.x - s.x, dy = e.y - s.y;
+      const along = dx * s.vx + dy * s.vy;
+      const across = dx * s.vy - dy * s.vx;
+      const chordSquared = s.radiusM * s.radiusM - across * across;
+      if (chordSquared < 0) continue;
+      const halfChord = Math.sqrt(chordSquared);
+      if (along + halfChord < 0) continue;
+      const entry = Math.max(0, along - halfChord);
+      if (entry > distance || (contact && entry === distance)) continue;
+      contact = e;
+      distance = entry;
+    }
+    s.x += s.vx * distance; s.y += s.vy * distance;
+    s.travelledM += distance;
+    if (contact) onHit(contact, s);
+    if (contact || s.travelledM >= s.rangeM - 1e-8) {
+      opts?.onExplode?.(s);
+      return false;
+    }
+    return true;
   }
 
   function explodeShot(s, targets, onHit, opts, cellM) {
@@ -1162,14 +1191,14 @@
     ignite?.(s.x, s.y, s);
     for (let i = 0; i < samples; i++) {
       const x = s.x + s.vx * step, y = s.y + s.vy * step;
-      if (!s.endpointOnly && opts?.blocked?.(x, y, s)) {
+      if (opts?.blocked?.(x, y, s)) {
         explodeShot(s, targets, onHit, opts, cellM);
         return false;
       }
       if (s.projectile === 'fireball') opts?.onFireSegment?.(s.x, s.y, x, y, s);
       s.x = x; s.y = y; s.travelledM += step;
       ignite?.(s.x, s.y, s);
-      if (!s.endpointOnly && targets.some(e => (!opts?.canHit || opts.canHit(e, s))
+      if (targets.some(e => (!opts?.canHit || opts.canHit(e, s))
           && Math.hypot(e.x - x, e.y - y) <= s.radiusM)) {
         explodeShot(s, targets, onHit, opts, cellM);
         return false;
@@ -1234,11 +1263,14 @@
       ((opts && opts.cellM) || hitRadiusM) * BLOCK_SAMPLE_CELLS);
     for (const s of shots) {
       const targets = s.hostile ? hostileTargets : enemies;
-      if (s.blastRadiusM > 0 || s.endpointOnly) {
+      if (s.blastRadiusM > 0 || s.impactOnly) {
         // Blasts can reach beyond the viewport used to choose auto-attack
         // targets. The caller supplies nearby hostiles across that boundary.
         const blastTargets = !s.hostile && opts?.explosiveTargets ? opts.explosiveTargets : targets;
-        if (stepExplosiveShot(s, dt, blastTargets, onHit, opts, opts?.cellM || hitRadiusM)) alive.push(s);
+        const flying = s.impactOnly
+          ? stepImpactShot(s, dt, blastTargets, onHit, opts)
+          : stepExplosiveShot(s, dt, blastTargets, onHit, opts, opts?.cellM || hitRadiusM);
+        if (flying) alive.push(s);
         continue;
       }
       const sr2 = s.radiusM != null ? s.radiusM * s.radiusM : r2;

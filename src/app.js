@@ -3379,7 +3379,8 @@ class MapScene extends Phaser.Scene {
   // (T.CAVE_LAVA): walkable, and it burns Combat.LAVA_DMG_PER_S energy a
   // second for as long as the FEET are in it (playerToWorldCell — never the
   // camera anchor). Lava owns an environmental damage lane because the ground,
-  // not a foe, deals it: mode, shield and armour never change the burn. A float
+  // not a foe, deals it: fire resistance reduces it; mode, shield and armour
+  // do not. A float
   // accumulator banks whole pips through _losePlayerEnergy (Energy.set, the hit
   // flinch); one throttled pop names the cell, and the burn leaves shop dialogs
   // open. Stands down on an empty bar (Combat.playerDowned — being upright,
@@ -3405,7 +3406,8 @@ class MapScene extends Phaser.Scene {
     const pips = Math.floor(this._lavaAccum);
     if (pips > 0) {
       this._lavaAccum -= pips;
-      this._lavaPop = (this._lavaPop || 0) + this._losePlayerEnergy(pips);
+      const damage = Conditions.fireDamage(this.save, pips);
+      this._lavaPop = (this._lavaPop || 0) + this._losePlayerEnergy(damage);
     }
     const now = performance.now();
     if (this._lavaPop > 0 && now - (this._lastLavaFlashT || 0) > 1200) {
@@ -4857,8 +4859,8 @@ class MapScene extends Phaser.Scene {
           hostileTargets: [playerTarget, ...(this._npcCombatTargets || []), ...charmedAllies],
           explosiveTargets,
           canHit: (target, shot) => this._shotCanHit(target, shot),
-          onFireCell: (x, y) => this._igniteGroundAtWorld(x, y),
-          onFireSegment: (x0, y0, x1, y1) => this._igniteGroundSegment(x0, y0, x1, y1),
+          onFireCell: (x, y, shot) => this._igniteFireballTrail(shot, x, y),
+          onFireSegment: (x0, y0, x1, y1, shot) => this._igniteFireballTrail(shot, x0, y0, x1, y1),
           onExplode: shot => {
             if (shot.projectile === 'explosive_flask') this._explodeFlask(shot);
             this._burstAtWorld('trailspark', shot.x, shot.y,

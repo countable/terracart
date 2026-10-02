@@ -104,17 +104,57 @@ test('fireball scroll: ignition segments continuously cover a diagonal flight', 
   assert.gt(count, 1);
 });
 
-test('explosive flask: flies past enemies and obstacles to the exact vision edge', () => {
+test('explosive flask: a miss flies over obstacles to the exact vision edge', () => {
   const spec = CONSUMABLE_SPEC.explosive_flask;
   const s = Combat.spawnExplosiveFlask(3, 5, { x: 3, y: 4 }, CELL, 43, spec);
-  const foe = { id: 'foe', x: 3 + 0.6 * CELL, y: 5 + 0.8 * CELL };
+  const foe = { id: 'foe', x: 3 + 0.6 * 50, y: 5 + 0.8 * 50 };
   let fireSamples = 0;
   const hits = fly(s, [foe], { blocked: () => true, onFireCell: () => fireSamples++ }, 10);
-  assert.eq(hits.length, 0, 'flask damage comes from the burning cells');
+  assert.eq(hits.length, 0, 'cannot strike a foe beyond maximum range');
   assert.eq(fireSamples, 0, 'flask does not leave a fire trail');
   assert.inRange(Math.hypot(s.x - 3, s.y - 5), 43 - 1e-7, 43 + 1e-7);
   assert.eq(s.projectile, 'explosive_flask');
   assert.eq(spec.fireRadiusCells, 1);
+});
+
+test('explosive flask: long frame hits the nearest foe for 30 without splash damage', () => {
+  const s = Combat.spawnExplosiveFlask(0, 0, { x: 1, y: 0 }, CELL, 43, CONSUMABLE_SPEC.explosive_flask);
+  const near = { id: 'near', x: 14, y: 0 };
+  const far = { id: 'far', x: 28, y: 0 };
+  const side = { id: 'side', x: 14, y: 4 };
+  const events = [];
+  const alive = Combat.stepShots([s], 10, [far, side, near, near], CELL,
+    (e, projectile) => {
+      events.push('hit');
+      assert.eq(e, near);
+      assert.eq(projectile.damage, 30);
+      assert.eq(projectile.x, near.x - projectile.radiusM);
+    }, { cellM: CELL, blocked: () => true, onExplode: projectile => {
+      events.push('explode');
+      assert.eq(projectile.x, near.x - projectile.radiusM, 'ground fire centers on impact');
+    } });
+  assert.eq(alive.length, 0);
+  assert.eq(events.join(','), 'hit,explode', 'one direct hit then one explosion');
+});
+
+test('explosive flask: exact sweep catches a grazing foe between samples', () => {
+  const s = Combat.spawnExplosiveFlask(0, 0, { x: 1, y: 0 }, CELL, 43, CONSUMABLE_SPEC.explosive_flask);
+  const foe = { id: 'graze', x: 12.123, y: s.radiusM - 0.000001 };
+  const hits = fly(s, [foe], {}, 10);
+  assert.eq(hits.length, 1);
+  assert.eq(hits[0].enemy, foe);
+  const impactX = foe.x - Math.sqrt(s.radiusM * s.radiusM - foe.y * foe.y);
+  assert.inRange(s.x, impactX - 1e-8, impactX + 1e-8);
+});
+
+test('explosive flask: eligibility and expanded target list govern direct impact', () => {
+  const s = Combat.spawnExplosiveFlask(0, 0, { x: 1, y: 0 }, CELL, 43, CONSUMABLE_SPEC.explosive_flask);
+  const ally = { id: 'ally', x: 7, y: 0 };
+  const foe = { id: 'foe', x: 28, y: 0 };
+  const hits = fly(s, [ally], { explosiveTargets: [ally, foe], canHit: e => e === foe }, 10);
+  assert.eq(hits.length, 1);
+  assert.eq(hits[0].enemy, foe);
+  assert.eq(s.x, foe.x - s.radiusM);
 });
 
 test('explosive flask: range snapshots vision and invalid casts are refused', () => {

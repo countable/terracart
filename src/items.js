@@ -433,6 +433,7 @@ const MINERAL_ICON_SHEET = {
   // Unique jewelry uses spare 16px frames from the old tier sheets.
   stealth_ring:      { sheet: 'icon_rings',   frame: 8 },
   invisibility_ring: { sheet: 'icon_rings',   frame: 11 },
+  ember_ring:        { sheet: 'icon_rings',   frame: 9 },
   regen_amulet:      { sheet: 'icon_amulets', frame: 10 },
   vigor_amulet:      { sheet: 'icon_amulets', frame: 17 },
   sleep_powder:  { sheet: 'icon_potions', frame: 3 }, // scoop of violet dream dust
@@ -617,7 +618,7 @@ const BASE_TIER = {
   // a fight you are already in.
   growth_powder: 2, shadow_powder: 2, frost_powder: 3, sleep_powder: 3,
   // Unique jewelry is intrinsically magical, never a metal rung.
-  stealth_ring: 2, invisibility_ring: 4, regen_amulet: 3, vigor_amulet: 5,
+  stealth_ring: 2, invisibility_ring: 4, ember_ring: 3, regen_amulet: 3, vigor_amulet: 5,
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_sight: 3, tome_raven: 4, tome_storm: 5, tome_firewall: 4,
@@ -816,6 +817,7 @@ const ITEMS = [
   // ordinary class rolls from selling it; named chest pools remain its source.
   { id: 'stealth_ring',      name: 'Stealth Ring',          kind: 'unique_relic', uniqueJewelry: true },
   { id: 'invisibility_ring', name: 'Ring of Invisibility',  kind: 'unique_relic', uniqueJewelry: true },
+  { id: 'ember_ring',        name: 'Ember Ring',            kind: 'unique_relic', uniqueJewelry: true },
   { id: 'regen_amulet',      name: 'Amulet of Regeneration', kind: 'unique_relic', uniqueJewelry: true },
   { id: 'vigor_amulet',      name: 'Amulet of Vigor',        kind: 'unique_relic', uniqueJewelry: true },
   // Rope: use it (Use button with it selected) and the dialog asks which way —
@@ -1053,9 +1055,9 @@ const CONSUMABLE_SPEC = {
     get: 'A spark leaps from the parchment and blossoms into roaring flame.',
   },
   explosive_flask: {
-    damage: 0, fireRadiusCells: 1, projectileRadiusCells: 0.25, dotPx: 4, immediate: true,
+    damage: 30, fireRadiusCells: 1, projectileRadiusCells: 0.25, dotPx: 4, immediate: true,
     verb: 'Throw', method: 'useExplosiveFlask', title: 'Throw the Explosive Flask?',
-    get: 'At the edge of sight, the flask breaks and flame takes hold.',
+    get: 'The flask shatters against a foe and flame takes hold.',
   },
   fear_scroll: {
     durationMs: 30 * 1000,
@@ -1315,7 +1317,7 @@ const PRICES = {
                        //      effect, not the tier: the T2 butterfly is 100 too)
   frost_powder:  100,  // T3 — every enemy in reach frozen for 30 s
   // Initial entries are replaced by fixed-tier equipment values after gearPrice is defined.
-  stealth_ring: 0, invisibility_ring: 0, regen_amulet: 0, vigor_amulet: 0,
+  stealth_ring: 0, invisibility_ring: 0, ember_ring: 0, regen_amulet: 0, vigor_amulet: 0,
   rope:          15,   // T2 — one climb up or down a level, in place (cheaper than a sapphire's brief round trip); crafted from 5 long grass, so not a money pump
   trap_kit:      20,   // T2 — permanently removes a trap; situational, not a staple
   magic_trap:    40,   // T3 — one tier-3 shot and a staff beat's hold on one foe
@@ -1486,6 +1488,7 @@ const ITEM_EFFECTS = {
   crimson_bar: 'An iceflower’s chill waits beneath its red sheen.',
   frost_bar: 'A smith’s breath turns white above this cold metal.',
   stealth_ring: 'Hungry eyes slide past the stone in its band.',
+  ember_ring: 'Its banked ember drinks the heat before it reaches your skin.',
   invisibility_ring: 'The eye forgets the hand it almost saw.',
   regen_amulet: 'A slow warmth mends what the day takes.',
   vigor_amulet: 'A quickened warmth mends what the day takes.',
@@ -2169,6 +2172,7 @@ function steerEnergyCost(gear) {
 const UNIQUE_JEWELRY = Object.freeze({
   stealth_ring: Object.freeze({ visionCells: 1 }),
   invisibility_ring: Object.freeze({ visionCells: 2 }),
+  ember_ring: Object.freeze({ fireDamageMul: 0.4 }),
   regen_amulet: Object.freeze({ regenMs: 4000 }),
   vigor_amulet: Object.freeze({ regenMs: 2000 }),
 });
@@ -2181,6 +2185,13 @@ function jewelryVisionReduction(save) {
     if (row.visionCells && carriesItem(save, id)) cells = Math.max(cells, row.visionCells);
   }
   return cells;
+}
+function jewelryFireDamageMul(save) {
+  let mul = 1;
+  for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
+    if (row.fireDamageMul != null && carriesItem(save, id)) mul = Math.min(mul, row.fireDamageMul);
+  }
+  return mul;
 }
 function jewelryRegenIntervalMs(save) {
   let interval = Infinity;

@@ -101,4 +101,29 @@ test('scene fire: a diagonal trail includes a briefly crossed corner cell', () =
   }
   assert.eq(Object.keys(s.save.groundFire).length, 3);
 });
+test('scene fire: casting a fireball leaves its launch cell safe in every direction', () => {
+  for (const [dx, dy] of [[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]]) {
+    for (const position of [4, 255.99, 256]) {
+      const s = scene({ playerM: { x: position, y: position },
+        _ignitePlayer() { Conditions.apply(this.save, 'burning'); }, _nearAny() { return false; } });
+      const origin = worldMetersToAbsCell(s, position, position);
+      const projectile = Combat.spawnFireball(position, position, { x: dx, y: dy }, s.cellM, CONSUMABLE_SPEC.fireball_scroll);
+      const remaining = Combat.stepShots([projectile], 10, [], s.cellM, () => {}, {
+        cellM: s.cellM,
+        onFireCell: (x, y, shot) => s._igniteFireballTrail(shot, x, y),
+        onFireSegment: (x0, y0, x1, y1, shot) => s._igniteFireballTrail(shot, x0, y0, x1, y1),
+      });
+      assert.eq(remaining.length, 0);
+      assert.falsy(s.save.groundFire[GroundFire.key(0, origin.cellIX, origin.cellIY)], 'launch cell stays unlit');
+      assert.gt(Object.keys(s.save.groundFire).length, 0, 'the trail beyond the caster still burns');
+      s._tickGroundFire();
+      assert.falsy(Conditions.active(s.save, 'burning'), 'casting does not set the player alight');
+      const trail = Object.values(s.save.groundFire)[0];
+      const p = absCellCenterMeters(s, trail.cellIX, trail.cellIY);
+      s.playerM = p;
+      s._tickGroundFire();
+      assert.truthy(Conditions.active(s.save, 'burning'), 'entering the trail still burns normally');
+    }
+  }
+});
 })();

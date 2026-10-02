@@ -71,7 +71,7 @@ test('lava: the player burns on the surface and lava level, by the feet, through
   assert.truthy(/Combat\.playerDowned\(this\.save\.energy\)/.test(b), 'never off an empty bar');
   assert.truthy(/this\.playerToWorldCell\(\)/.test(b), 'the feet, not the camera');
   assert.truthy(/Combat\.LAVA_DMG_PER_S \* dt/.test(b), 'at the shared rate');
-  assert.truthy(/this\._losePlayerEnergy\(pips\)/.test(b), 'banked whole, through Energy.set + the flinch');
+  assert.truthy(/Conditions\.fireDamage\(this\.save, pips\);[\s\S]*this\._losePlayerEnergy\(damage\)/.test(b), 'banked whole, through Energy.set + the flinch');
   assert.truthy(/this\._popEnergy\(-burned, \{ ix, iy, label: '🔥 lava' \}\)/.test(b), 'popped on its cell');
   assert.truthy(/this\._tickLava\(dt\);/.test(SCENE_SRC), 'and ticked');
 });

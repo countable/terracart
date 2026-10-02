@@ -49,14 +49,23 @@ class SceneFire {
     return true;
   }
 
-  _igniteGroundAtWorld(x, y) {
-    return this._igniteGroundCell(worldMetersToAbsCell(this, x, y));
+  _igniteGroundAtWorld(x, y, excludedCell = null) {
+    const cell = worldMetersToAbsCell(this, x, y);
+    if (excludedCell && cell.cellIX === excludedCell.cellIX && cell.cellIY === excludedCell.cellIY) return false;
+    return this._igniteGroundCell(cell);
+  }
+
+  _igniteFireballTrail(shot, x0, y0, x1 = x0, y1 = y0) {
+    // Snapshot the launch cell before the shot moves, so casting is safe
+    // even from a cell edge or while the player is walking.
+    shot.launchCell ||= worldMetersToAbsCell(this, shot.x, shot.y);
+    this._igniteGroundSegment(x0, y0, x1, y1, shot.launchCell);
   }
 
   // Split the ray at tile-row boundaries first: neighbouring Mercator rows
   // can have different cell sizes. Streets owns exact grid traversal, which
   // also catches a cell crossed only at a narrow corner.
-  _igniteGroundSegment(x0, y0, x1, y1) {
+  _igniteGroundSegment(x0, y0, x1, y1, excludedCell = null) {
     const a = worldMetersToTilePx(this, x0, y0), b = worldMetersToTilePx(this, x1, y1);
     const cuts = [0, 1], dy = b.y - a.y, T = WorldGen.TILE_PX;
     if (dy !== 0) {
@@ -73,12 +82,12 @@ class SceneFire {
       Streets.reachIntervals(line, 1, T / n, (ix, iy) => {
         const tx = Math.floor(ix / n);
         const c = tileCellToAbs(this, tx, ty, ix - tx * n, Math.max(0, Math.min(n - 1, iy)));
-        this._igniteGroundCell(c);
+        if (!excludedCell || c.cellIX !== excludedCell.cellIX || c.cellIY !== excludedCell.cellIY) this._igniteGroundCell(c);
         return false;
       });
     }
-    this._igniteGroundAtWorld(x0, y0);
-    this._igniteGroundAtWorld(x1, y1);
+    this._igniteGroundAtWorld(x0, y0, excludedCell);
+    this._igniteGroundAtWorld(x1, y1, excludedCell);
   }
 
   _explodeFlask(shot) {
@@ -193,6 +202,7 @@ class SceneFire {
     let lit = 0;
     for (let offset = -radius; offset <= radius; offset++) {
       const cell = absCellOffset(this, player.cellIX, player.cellIY, dx - dy * offset, dy + dx * offset);
+      if (cell.cellIX === player.cellIX && cell.cellIY === player.cellIY) continue;
       if (this._igniteGroundCell(cell, now)) lit++;
     }
     if (!lit) {
