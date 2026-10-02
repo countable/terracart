@@ -19,12 +19,12 @@ pots.putalpha(pots.getchannel('A').point(lambda a:255 if a>=128 else 0))
 pots=pots.crop(pots.getbbox());pots.thumbnail((22,18),Image.Resampling.NEAREST)
 frame=Image.new('RGBA',(24,24));frame.alpha_composite(pots,((24-pots.width)//2,(24-pots.height)//2));frame.save(out/'pots_smashed.png')
 hedges=root/'assets/Objects/Hedges';im=Image.open(hedges/'source.png').convert('RGBA')
-# Packing follows the same centered connection geometry as stronghold walls.
-specs=[('horizontal',(24,8),(0,8),'EW'),('vertical',(8,24),(8,0),'NS'),
- ('top_left',(16,16),(8,8),'ES'),('top_right',(16,16),(0,8),'WS'),
- ('bottom_left',(16,16),(8,0),'NE'),('bottom_right',(16,16),(0,0),'NW'),
- ('t_north',(24,16),(0,0),'NEW'),('t_east',(16,24),(8,0),'NES'),
- ('t_south',(24,16),(0,8),'ESW'),('t_west',(16,24),(0,0),'NSW'),('cross',(24,24),(0,0),'NESW')]
+# Full, clipped foliage occupies half a tile; all arms remain centered.
+specs=[('horizontal',(24,12),(0,6),'EW'),('vertical',(12,24),(6,0),'NS'),
+ ('top_left',(18,18),(6,6),'ES'),('top_right',(18,18),(0,6),'WS'),
+ ('bottom_left',(18,18),(6,0),'NE'),('bottom_right',(18,18),(0,0),'NW'),
+ ('t_north',(24,18),(0,0),'NEW'),('t_east',(18,24),(6,0),'NES'),
+ ('t_south',(24,18),(0,6),'ESW'),('t_west',(18,24),(0,0),'NSW'),('cross',(24,24),(0,0),'NESW')]
 def main_bounds(tile):
  a=tile.getchannel('A');w,h=tile.size;todo={y*w+x for y in range(h) for x in range(w) if a.getpixel((x,y))};best=[]
  while todo:

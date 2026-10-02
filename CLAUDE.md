@@ -43,6 +43,12 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 
 ## Shared design rules
 
+- World artwork uses a 45-degree downward viewing angle (isometric), showing
+  both top surfaces and front/side depth. Apply this consistently to bushes,
+  hedges, props, walls and buildings. Bushes show a broad rounded top canopy
+  over a shorter shaded front face; keep foliage full and softly clipped.
+  Preserve the existing cell placement and connected-tile joins when drawing
+  this perspective.
 - Search for an existing predicate, state flag or table before adding one.
   Extend it when the mechanism is the same; similar names alone do not justify
   combining mechanisms. Read its comments and regression tests before changing it.

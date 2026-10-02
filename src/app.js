@@ -1063,6 +1063,7 @@ const EAT_COOLING_INK  = '#6f8f74';
 const EAT_COOLING_EDGE = '#37522f';
 
 const COLORS = {
+  // Ground HSL saturation +0.1, lightness -0.1 after palette review.
   // POST-APOCALYPTIC FARM PALETTE. The world is a neighbourhood going back to
   // seed: sun-bleached, dust-blown, overgrown rather than landscaped. Every
   // ground tone is pulled toward khaki / olive / grey-brown, and saturation is
@@ -1073,52 +1074,50 @@ const COLORS = {
   // can touch this" turns into scenery. That is why sand, the paths, the
   // farmland mud, the plank floors and tilled soil all sit in grey-brown and
   // olive here rather than the golds they used to carry.
-  0: 0x919e70,  // grass — dry meadow khaki-green (was a fresh lawn green)
-  1: 0x6d7a5e,  // forest — deep desaturated olive
-  2: 0xd4c9b4,  // sand — pale grit; was a golden tan, the worst yellow offender
-  3: 0x749ca5,  // water — murky standing teal, not swimming-pool blue
-  4: 0x9f9677,  // farmland — dull olive-brown mud
-  5: 0xb2aca0,  // residential — dirty concrete
-  6: 0xa0ac7c,  // park — unmown, going to seed
-  7: 0x474441,  // road — asphalt with dust blown over it
-  8: 0xaaa090,  // path — a worn grey dust track
+  0: 0x7b8d4e,  // grass — dry meadow khaki-green (was a fresh lawn green)
+  1: 0x546540,  // forest — deep desaturated olive
+  2: 0xcab48b,  // sand — pale grit; was a golden tan, the worst yellow offender
+  3: 0x4f8a97,  // water — murky standing teal, not swimming-pool blue
+  4: 0x908353,  // farmland — dull olive-brown mud
+  5: 0xa69779,  // residential — dirty concrete
+  6: 0x8ea253,  // park — unmown, going to seed
+  7: 0x312a24,  // road — asphalt with dust blown over it
+  8: 0xa08a67,  // path — a worn grey dust track
   // Building footprints: halfway between original and approved recolour.
-  9: 0xae685d,  // building — small house: weathered red brick (Sep 2026: redder, a touch more contrast)
-  10: 0xa09a8c, // rock
-  11: 0xaa9577, // building_med — weathered grey-brown plank floor
-  12: 0x919395, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
-  13: 0x3b3936, // road_lg (motorway/trunk/primary) — darkest
-  14: 0x413f3b, // road_md (secondary/tertiary)
+  9: 0x9b4a3d,  // building — small house: weathered red brick (Sep 2026: redder, a touch more contrast)
+  10: 0x958664, // rock
+  11: 0x9e7e50, // building_med — weathered grey-brown plank floor
+  12: 0x6b7988, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
+  13: 0x23201b, // road_lg (motorway/trunk/primary) — darkest
+  14: 0x2a261f, // road_md (secondary/tertiary)
   // --- Subtype splits — each tile fits into one of three base biomes ---
-  15: 0x9da384, // SCHOOL       (GRASSLAND) — schoolyard: greyer, patchier turf than the meadow around it
-  16: 0xb1afa9, // COMMERCIAL   (ROCKY)     — grimy floor tile
-  17: 0xb0a496, // INDUSTRIAL   (ROCKY)     — same hue, rust-dusted
-  18: 0xaba28e, // PLAYGROUND   (GRASSLAND) — rotting mulch
-  19: 0x8e9b6a, // PITCH        (GRASSLAND) — pitch markings long gone
-  20: 0x4b5d4a, // WETLAND      (FOREST)    — dim swampy green
-  21: 0x87995c, // GOLF         (GRASSLAND) — fairway reverting to scrub
-  22: 0x818c63, // ORCHARD      (FOREST)    — olive
+  15: 0x8c985c, // SCHOOL       (GRASSLAND) — schoolyard: greyer, patchier turf than the meadow around it
+  16: 0xa39b84, // COMMERCIAL   (ROCKY)     — grimy floor tile
+  17: 0xa68c6d, // INDUSTRIAL   (ROCKY)     — same hue, rust-dusted
+  18: 0xa28f64, // PLAYGROUND   (GRASSLAND) — rotting mulch
+  19: 0x78884a, // PITCH        (GRASSLAND) — pitch markings long gone
+  20: 0x2f462e, // WETLAND      (FOREST)    — dim swampy green
+  21: 0x6f833f, // GOLF         (GRASSLAND) — fairway reverting to scrub
+  22: 0x6a7844, // ORCHARD      (FOREST)    — olive
   // PIER (transportation:pier OSM lines, painted as T.PIER=23 in worldgen).
   // Base cell colour is the water tone — the wooden plank sprite from
   // Objects/Wilderness/Bridge Beach.png is drawn on top via the cobblePool
   // (see render.js PIER_FRAME). The water peeks through any plank-art alpha
   // so the cell still reads as "walkway over water".
-  23: 0x749ca5, // PIER         (WATER base) — plank sprite overlays on top
+  23: 0x4f8a97, // PIER         (WATER base) — plank sprite overlays on top
   // --- Underground cave biome (depth > 0) ---
-  24: 0x6e6860, // CAVE_FLOOR — packed earth/stone floor (walkable)
-  25: 0x4a4742, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
+  24: 0x5b4f40, // CAVE_FLOOR — packed earth/stone floor (walkable)
+  25: 0x332e26, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
   26: 0x78240f, // CAVE_LAVA  — molten rock under the buildings on WorldGen.LAVA_DEPTH
   // WASTELAND (27) — unclassified landuse (railway yards, brownfield,
   // neighbourhood outlines). Plays as residential; looks like the abandoned
   // scrub it is: residential's dirty concrete pulled toward dusty khaki.
-  27: 0xb1a888, // WASTELAND  — dusty grey-ochre scrub
+  27: 0xa9985d, // WASTELAND  — dusty grey-ochre scrub
   // INFLUENCE ZONES (src/zones.js) — the halo a park / church / fuel yard
   // paints over the lot and commercial ground around it.
-  28: 0x90a87b, // GROVE       — lush green sward, the one fresh green in town
-  29: 0x97a48b, // CHURCHYARD  — mossy grey-green sward among the stones: darker and
-               //                greener than the residential concrete it replaces
-               //                (was 0x7d8672, which read as the same grey at a glance)
-  31: 0x7f7e78, // TAR_YARD    — dark oily ground
+  28: 0x687143, // GROVE       — forest-depth yellow-olive sward
+  29: 0x827080, // CHURCHYARD  — earthy heather-purple among the stones
+  31: 0x6f6b55, // TAR_YARD    — dark oily ground
   // UNMAPPED (30) — render-only: render.js stamps this on cells whose map tile
   // hasn't loaded yet (never appears in a tile's grid). Dark fog, deliberately
   // darker than every real biome so "beyond the charted world" reads as the
