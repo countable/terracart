@@ -129,7 +129,7 @@ test('launch safety: the STAY SAFE message is the loading screen, acknowledged b
   const safety = /<div id="safety" class="game-modal"[\s\S]*?<\/button>/.exec(box)?.[0];
   assert.truthy(safety, 'the message and its CTA are one #safety block (removed together once answered)');
   assert.truthy(/STAY SAFE/.test(safety), 'headed STAY SAFE');
-  const lines = [...safety.matchAll(/<div class="warn-line">([^<]*)<\/div>/g)].map((m) => m[1]);
+  const lines = [...safety.matchAll(/<div class="warn-line">([\s\S]*?)<\/div>/g)].map((m) => m[1].replace(/<[^>]*>/g, ''));
   assert.truthy(lines.length >= 3, `the full message, not a one-liner (${lines.length})`);
   assert.truthy(lines.some((l) => /stick/i.test(l) && /(never|not).*street|street.*(never|not)/i.test(l)), 'use the stick, never the street');
   assert.truthy(lines.some((l) => /driving|cycling/i.test(l)), 'not while driving');
@@ -137,9 +137,8 @@ test('launch safety: the STAY SAFE message is the loading screen, acknowledged b
   // Only the game's own risks: no general heat advice.
   assert.falsy(lines.some((l) => /water|hot day/i.test(l)), 'no heat and water line');
   assert.truthy(/<button id="safety-dismiss">Go to my location<\/button>\s*$/.test(safety), 'the CTA closes the message');
-  // Bold and in the warning colour, like the reminder cards.
+  // The heading keeps the warning colour; emphasis belongs to key instructions.
   assert.truthy(/#safety \.warn-title \{[^}]*font: 900[^}]*#ff8c3b/.test(html), 'a bold orange heading');
-  assert.truthy(/#safety \.warn-line \{[^}]*font-weight: 700/.test(html), 'bold lines');
   // And no second opening card once the map is up.
   assert.falsy(/_showSafetyCard\('launch'\)/.test(SCENE_SRC), 'no launch card after the map loads');
   // The loading view holds for the answer, however ready the game is.

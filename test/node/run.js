@@ -510,7 +510,7 @@ const starterWrapper = (name) => {
                    '_scenicWalkStory(kind) {', '_afterRestoreBeat(fn) {',
                    '_bankStreetMetres(addedM, at, now, opts) {', '_showTrailIntro() {',
                    '_visitStreetLamps(now) {', '_markLampsRestored(meta, newly, now) {',
-                   '_armTrailIntro(now) {', '_openTrailIntroIfDue() {',
+                   '_armTrailIntro(now, st) {', '_openTrailIntroIfDue() {',
                    '_drawStreetLive(now) {',
                    '_blastAt(wmx, wmy, opts) {',
                    '_houseMutter() {']
@@ -559,6 +559,8 @@ const starterWrapper = (name) => {
     `globalThis.TRAIL_INTRO_TITLE = ${constOf('TRAIL_INTRO_TITLE')};\n` +
     // …and the beat it waits out before opening over the repair it explains.
     `globalThis.TRAIL_INTRO_DELAY_MS = ${constOf('TRAIL_INTRO_DELAY_MS')};\n` +
+    // …and the road it waits to see repaired before it opens at all.
+    `globalThis.TRAIL_INTRO_MIN_M = ${constOf('TRAIL_INTRO_MIN_M')};\n` +
     declOf('trailIntroBody') + '\n' +
     // What a house says underfoot (_houseMutter; house_mutter.test.js).
     declOf('HOUSE_WRECK_MUTTERS') + '\n' +

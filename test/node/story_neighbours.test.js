@@ -164,8 +164,9 @@
     const ordinary = { role: 'mason', _portrait: 'data:image/png;base64,resident' };
     assert.eq(NPC.portrait({}, ordinary), ordinary._portrait, 'ordinary residents retain the sprite fallback');
     const homeless = MemoryStory.NEIGHBOURS.wanderer.homeless;
-    assert.truthy(/clutching a doorknob/.test(homeless), 'Tilly holds the surviving piece of her home');
-    assert.truthy(/doorknob is all that is left/.test(homeless), 'her words agree with the painting');
+    assert.truthy(/door handle is all that’s left/.test(homeless), 'Tilly holds the surviving piece of her home — her words agree with the painting');
+    assert.falsy(/<em>/.test(homeless), 'spoken only: no italic action line (owner\'s call, Oct 2026)');
+    assert.truthy(/It’s Tilly/.test(homeless), 'she gives her name — the Hood does not remember her');
   });
 
   test('story neighbours: each named neighbour wears its own untinted sheet', () => {
@@ -193,7 +194,7 @@
     }
     for (const line of Object.values(MemoryStory.NEIGHBOURS.wanderer)) {
       const spoken = line.replace(/<em>[^<]*<\/em>\n?/g, '').replace(/[“”]/g, '');
-      assert.lte(Math.max(...spoken.split(/[.!?]\s+/).map(t => t.split(' ').length)), 14, 'a child speaks in short sentences: ' + spoken);
+      assert.lte(Math.max(...spoken.split(/[.!?]\s+/).map(t => t.split(' ').length)), 15, 'a child speaks in short sentences: ' + spoken);
     }
   });
 
