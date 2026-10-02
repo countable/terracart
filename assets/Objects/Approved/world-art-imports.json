@@ -326,6 +326,42 @@
         1983,
         793
       ]
+    },
+    {
+      "reviewId": "WA-095",
+      "sheet": "assets/Objects/Approved/giant_mushroom.png",
+      "frame": 0,
+      "frameSize": [
+        24,
+        32
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/giant_mushroom-native.png",
+      "sourceSha256": "4089d7ae03982c248d097ef14b5c9308b0d0c1909b2f0b3c7ae172cb3df49ca6",
+      "native": true
+    },
+    {
+      "reviewId": "WA-083",
+      "sheet": "assets/Objects/Approved/barricade.png",
+      "frame": 0,
+      "frameSize": [
+        24,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/barricade-native.png",
+      "sourceSha256": "34456b11476f90f1194b259aee27046952b9b8b706d49d33a88d9a10fa51c6f9",
+      "native": true
+    },
+    {
+      "reviewId": "WA-002",
+      "sheet": "assets/Objects/Approved/approved_charred_stakes.png",
+      "frame": 0,
+      "frameSize": [
+        24,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/approved_charred_stakes-native.png",
+      "sourceSha256": "380d334c25133ed0426a41e55af1067cc258bbb9d2c7a48d759da0f83bdd7725",
+      "native": true
     }
   ]
 }

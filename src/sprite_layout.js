@@ -38,7 +38,7 @@
   // Trimmed opaque bounds per "<textureKey>:<frameIndex>" (max EXCLUSIVE).
   // GENERATED — see `node tools/sprite_audit.js --emit-bounds`.
   const ART_BOUNDS = {
-    'giant_mushroom:0': { fw: 32, fh: 48, minX: 1, minY: 2, maxX: 31, maxY: 46 },
+    'giant_mushroom:0': { fw: 24, fh: 32, minX: 1, minY: 11, maxX: 23, maxY: 31 },
     'trees:1': { fw: 32, fh: 48, minX: 11, minY: 37, maxX: 21, maxY: 48 },
     'trees:2': { fw: 32, fh: 48, minX: 7, minY: 16, maxX: 25, maxY: 48 },
     'trees:3': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 48 },
@@ -67,7 +67,7 @@
     'mineralrock:3': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
     'mineralrock:5': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
     'mineralrock:6': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
-    'approved_charred_stakes:0': { fw: 16, fh: 16, minX: 4, minY: 0, maxX: 12, maxY: 16 },
+    'approved_charred_stakes:0': { fw: 24, fh: 24, minX: 1, minY: 4, maxX: 23, maxY: 23 },
     'well:0': { fw: 30, fh: 32, minX: 2, minY: 0, maxX: 30, maxY: 32 },
     'pillar:0': { fw: 24, fh: 24, minX: 6, minY: 1, maxX: 18, maxY: 23 },
     'scarecrow:0': { fw: 48, fh: 48, minX: 3, minY: 8, maxX: 45, maxY: 47 },

@@ -61,7 +61,13 @@ def apply_imports(root=ROOT):
             source = root / entry['source']
             if digest(source) != entry['sourceSha256']:
                 raise ValueError(f'Approved source changed: {source}')
-            sheet.paste(candidate_frame(source, (w, h)), (x, y))
+            if entry.get('native'):
+                native = Image.open(source).convert('RGBA')
+                if native.size != (w, h):
+                    raise ValueError(f'Native frame size mismatch: {source}')
+                sheet.paste(native, (x, y))
+            else:
+                sheet.paste(candidate_frame(source, (w, h)), (x, y))
             selected.paste(255, (x, y, x + w, y + h))
         # Check all channels: RGBA.getbbox() alone can miss an RGB-only change.
         delta = ImageChops.difference(before, sheet)

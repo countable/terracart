@@ -120,8 +120,8 @@ const CROP_SPRITE = {
   // ── Street variants (src/street_variants.js) — both CHOPPED like a shrub
   // (WILDPLANT_RULES below), never scenery. The barricade road's barricade
   // is the generated 16px piece; clipped hedges still harvest as shrubs.
-  barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 1.6 },
-  giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 0, scale: 0.7, seat: true },
+  barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 4 / 3 },
+  giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 0, scale: 4 / 3, seat: true },
   // ── Influence zones (src/zones.js) — the tar yard's FLINT: a ground
   // pickup (WILDPLANT_RULES.flint below), the generated 16px nodule. One
   // frame of art, listed.

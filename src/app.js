@@ -1400,6 +1400,7 @@ const ROAD_CHIP_SVG =
   + '</g></svg>';
 
 const ICON_SHEETS = {
+  giant_mushroom: { url: 'assets/Icons/Items/GiantMushroom.png', cols: 1, srcW: 16, srcH: 16 },
   icon_telescope: { url: 'assets/Icons/Items/telescope.png', cols: 1, srcW: 16, srcH: 16 },
   icon_orb: { url: 'assets/Icons/Items/orb.png', cols: 1, srcW: 16, srcH: 16 },
   icon_goblet: { url: 'assets/Icons/Items/goblet.png', cols: 1, srcW: 16, srcH: 16 },

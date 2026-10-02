@@ -237,7 +237,7 @@ const ASSETS = assetsCtx.window.ASSETS;
 // ── Sheet metadata: where each texture key's PNG lives + frame size, and the
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const SHEETS = {
-  giant_mushroom: { file: ASSETS.giant_mushroom.path, fw: 32, fh: 48, frames: [0] },
+  giant_mushroom: { file: ASSETS.giant_mushroom.path, fw: 24, fh: 32, frames: [0] },
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
   // 32×48, not 32×64: at 64 the birch frame reached into the sheet's lower
   // band and picked up the tip of the red autumn tree (see assets.js).
@@ -252,7 +252,7 @@ const SHEETS = {
   box:           { file: 'assets/Objects/Approved/box.png',   fw: 16, fh: 16, frames: [0] },
   crystal_cluster: { file: 'assets/Objects/Wilderness/crystal_cluster.png', fw: 16, fh: 16, frames: [0] },
   mineralrock:   { file: 'assets/Objects/Approved/mineralrock.png',fw: 16, fh: 16, frames: [168, 169, 170, 171, 0, 1, 2, 3, 5, 6] },
-  approved_charred_stakes: { file: 'assets/Objects/Approved/approved_charred_stakes.png', fw: 16, fh: 16, frames: [0] },
+  approved_charred_stakes: { file: 'assets/Objects/Approved/approved_charred_stakes.png', fw: 24, fh: 24, frames: [0] },
   well:          { file: 'assets/Objects/Wilderness/well.png',               fw: 30, fh: 32, frames: [0] },
   pillar:        { file: ASSETS.pillar.path, fw: 24, fh: 24, frames: [0] },
   scarecrow:     { file: 'assets/Objects/Approved/scarecrow.png',               fw: 48, fh: 48, frames: [0] },
@@ -319,7 +319,7 @@ const SCENARIOS = [
   { name: 'torch',           key: 'torch',         frameIdx: 0, scale: 1.1 },
   { name: 'waystone',        key: 'waystone',      frameIdx: 0, scale: 1.6 },
   { name: 'stakes',          key: 'stakes',        frameIdx: 0, scale: 1.6 },
-  { name: 'charred stakes', key: 'approved_charred_stakes', frameIdx: 0, scale: 1.6 },
+  { name: 'charred stakes', key: 'approved_charred_stakes', frameIdx: 0, scale: 4 / 3 },
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
   { name: 'headstone',       key: 'headstone',     frameIdx: 0, scale: 1.6 },
   ...GROVE_SHRINE_ART.map(({ name, key, frame, scale }) => ({ name, key, frameIdx: frame, scale })),
