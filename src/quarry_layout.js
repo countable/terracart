@@ -195,30 +195,28 @@
     }
     return plan;
   }
-  // Broad compositions need both enough total ground and a genuinely wide
-  // local pocket. A long strip's bounding box (or a tiny fitting foundation)
-  // must not turn it into a crater or fortress. Largest-square dynamic
-  // programming respects holes and bent footprints without fitting a box
-  // around the entire site.
+  // Ruins need one intact foundation; craters need a broader pocket and
+  // enough total ground. Measure usable squares, respecting holes and bends.
   function* variantForSteps(cells, context, start) {
     const settings = root.ZoneVariantData.quarryLayouts, N = context.N;
-    let broad = false;
-    if (cells.length >= settings.largeSiteMinCells) {
-      const squares = new Map(), sorted = cells.slice().sort((a, b) => a - b);
-      for (let n = 0; n < sorted.length; n++) {
-        if ((n & 255) === 0) yield 'quarry shape eligibility';
-        const i = sorted[n], x = i % N;
-        const size = 1 + Math.min(x ? squares.get(i - 1) || 0 : 0,
-          squares.get(i - N) || 0, x ? squares.get(i - N - 1) || 0 : 0);
-        squares.set(i, size);
-        if (size >= settings.broadPatchSizeCells) { broad = true; break; }
-      }
+    const squares = new Map(), sorted = cells.slice().sort((a, b) => a - b);
+    let widest = 0;
+    for (let n = 0; n < sorted.length; n++) {
+      if ((n & 255) === 0) yield 'quarry shape eligibility';
+      const i = sorted[n], x = i % N;
+      const size = 1 + Math.min(x ? squares.get(i - 1) || 0 : 0,
+        squares.get(i - N) || 0, x ? squares.get(i - N - 1) || 0 : 0);
+      squares.set(i, size); widest = Math.max(widest, size);
+      if (widest >= Math.max(settings.foundationSizeCells, settings.broadPatchSizeCells)) break;
     }
-    const variants = root.ZoneVariants.forKind('quarry').filter(v => broad
-      || v.id === 'quarry-abandoned' || v.id === 'quarry-strip-mine');
-    // Reuse the stable site roll within its eligible pool. Small sites split
-    // between their specialized variants instead of always falling through
-    // the same rejected large composition.
+    const all = root.ZoneVariants.forKind('quarry');
+    const variants = all.filter(v => v.id === 'quarry-crater'
+      ? cells.length >= settings.largeSiteMinCells && widest >= settings.broadPatchSizeCells
+      : v.id !== 'quarry-stronghold' || widest >= settings.foundationSizeCells);
+    // Keep a fitting site's original roll. Only an ineligible roll maps into
+    // the smaller pool, so admitting ruins restores existing fitting sites.
+    const original = variants.indexOf(all[start % all.length]);
+    start = original >= 0 ? original : start % variants.length;
     for (let n = 0; n < variants.length; n++) {
       const variant = variants[(start + n) % variants.length];
       const plan = yield* planSteps({ a: { owned: true }, variant, cells }, context);

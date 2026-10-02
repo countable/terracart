@@ -116,7 +116,8 @@
     const choose = cells => run(QuarryLayout.variantForSteps(cells, { N, tx: 4, ty: 5 }, start));
     assert.eq(choose(rect(48, 48)), 'quarry-stronghold', 'adequate sites keep their existing roll');
     const partial = rect(5, 5);
-    assert.includes(['quarry-abandoned', 'quarry-strip-mine'], choose(partial), 'tiny sites use a compact composition even when one foundation technically fits');
+    assert.eq(choose(partial), 'quarry-stronghold', 'one intact five-cell foundation qualifies for ruins');
+    for (const cells of [rect(5, 40), rect(40, 5)]) assert.eq(choose(cells), 'quarry-stronghold', 'five-cell-wide lots retain their ruins roll in either orientation');
     assert.eq(plan('quarry-stronghold', partial).finds.length, 1, 'direct layout budgets remain maxima independent of shape selection');
     const narrow = rect(4, 24), selected = choose(narrow);
     assert.truthy(selected !== 'quarry-stronghold', 'a long site without a whole foundation cannot be a fortress');
@@ -127,16 +128,16 @@
     assert.eq(choose(narrow.slice().reverse()), selected, 'source order cannot choose another variant');
     assert.eq(choose(rect(2, 2)), 'quarry', 'small slivers keep ordinary quarry scatter');
   });
-  test('quarry selection: every small or narrow roll stays in the compact pool', () => {
-    const variants = ZoneVariants.forKind('quarry'), allowed = ['quarry-abandoned', 'quarry-strip-mine'];
+  test('quarry selection: small and narrow sites admit fitting ruins but exclude craters', () => {
+    const variants = ZoneVariants.forKind('quarry'), allowed = ['quarry-abandoned', 'quarry-strip-mine', 'quarry-stronghold'];
     for (const cells of [rect(5, 5), rect(9, 9), rect(8, 40), rect(40, 5)]) {
       const selected = new Set();
       for (let start = 0; start < variants.length; start++) {
         const id = run(QuarryLayout.variantForSteps(cells, { N, tx: 4, ty: 5 }, start));
-        assert.includes(allowed, id, 'neither a tiny fitting bowl nor one foundation makes this a large site');
+        assert.includes(allowed, id, 'narrow sites allow ruins without admitting a crater');
         selected.add(id);
       }
-      assert.eq(selected.size, 2, 'stable rolls retain both specialized alternatives');
+      assert.eq(selected.size, 3, 'stable rolls retain all three fitting alternatives');
     }
   });
   test('quarry selection: actual broad pockets qualify despite skinny arms, bounding boxes do not', () => {
