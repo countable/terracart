@@ -257,18 +257,23 @@
   // same ambush for every player. GROUP_RATE is the share of held structures
   // that take one; the rest roll the plain garrison as before.
   //
-  // A ROW: `tiers` (which building tiers may hold it), `minT` (the strength
-  // below which it is not offered — a horde or an elite is a strong ruin's),
-  // `coastal` (only a structure by the shore — the gulls), and `members` in
-  // ORDER (easy wakes only the first lairGuardMax of a garrison, so what
-  // matters most comes first: the decoy before its orcs, the elite before its
-  // minions). A member: its `kind` (a registered enemy), `n` (a number, or a
-  // map by tier), its `place` (seatPolar — where in the formation), and what
-  // it is told:
-  //   `aggroCells`      its own notice ring past the ruin's edge (guardState;
-  //                     the decoy sees you from six cells, the orcs behind the
-  //                     walls from two — so the one draws you in and the rest
-  //                     come round once you are committed);
+  // A GROUP IS A HOUSE'S OR A CASTLE'S, never both and never a fort's
+  // (owner): a wrecked house's groups are SMALL — one or two, a flock at
+  // most — and sit round the walls as a wreck's slimes do; a castle's are
+  // the big ones and start INSIDE THE KEEP like every castle garrison
+  // (CORE_SEATED_TIERS: walking past is safe, walking in is the fight).
+  //
+  // A ROW: `tiers` (the one building tier that holds it), `minT` (the
+  // strength below which it is not offered — a horde or an elite is a strong
+  // ruin's), `coastal` (only a structure by the shore — the gulls), and
+  // `members` in ORDER (easy wakes only the first lairGuardMax of a garrison,
+  // so what matters most comes first: the decoy before its orcs, the elite
+  // before its minions). A member: its `kind` (a registered enemy), `n`, its
+  // `place` (seatPolar — where in the formation), and what it is told:
+  //   `aggroCells`      its own notice ring past the ruin's knot (guardState;
+  //                     the decoy sees you from six cells, the orcs at the
+  //                     back wall from two — so the one runs out at you and
+  //                     the rest come once you are committed);
   //   `proximityCells`  a GHOST's dormancy (creature_ai.js ghostTick — the
   //                     zone variants' memorial-guard lane): it hovers on its
   //                     seat until you are this close, then the whole burst
@@ -276,57 +281,65 @@
   //                     lifetime starts at the wake, not at the tile load);
   //   `elite`           stamped shiny — Combat.isElite's double pool and
   //                     blow, the elite's drop (the kind must be eliteEligible);
-  //   `band`            a ring placement's radius band (× the ring), so a
-  //                     horde stands two deep.
-  // PLACES (seatPolar): 'ring' round the footprint (the plain garrison's
-  // seating), 'core' the knot inside it (the keep's), 'front' a short arc at
-  // the group's FACING (one draw per group), 'behind' the arc opposite,
-  // 'cloud' anywhere about the ruin, roof included, for a kind that flies.
-  // Kinds here that live nowhere else (the runt, the splitting slime, the
-  // storm gull) are roster rows with no surface or cave pool: an authored
-  // garrison is the only thing that seats them.
+  //   `band`            a ring placement's radius band (× the ring).
+  // PLACES (seatPolar): 'ring' round the footprint outside the walls (a
+  // wreck's seating); inside the keep: 'core' the tight knot at the centre
+  // (an elite), 'floor' anywhere on the floor (a horde), 'front' the inside
+  // of the wall at the group's FACING (one draw per group) and 'behind' the
+  // inside of the wall opposite; 'cloud' over the ruin, roof included, for a
+  // kind that flies. Kinds here that live nowhere else (the runt, the
+  // splitting slime, the storm gull) are roster rows with no surface or cave
+  // pool: an authored garrison is the only thing that seats them.
   const GROUPS = {
-    horde: { label: 'Goblin horde', tiers: [11], minT: 0.35,
-      story: 'Fifteen runts round the walls: nothing alone, a wall of teeth together.',
-      members: [{ kind: 'goblin_runt', n: 15, place: 'ring', band: [1, 1.9] }] },
-    decoy: { label: 'Decoy and rush', tiers: [11], minT: 0.3,
-      story: 'One goblin out front draws you in. The orcs behind the walls come round once you are close.',
-      members: [{ kind: 'goblin', n: 1, place: 'front', aggroCells: 6 },
-                { kind: 'orc', n: 3, place: 'behind', aggroCells: 2 }] },
-    archers: { label: 'Archer line', tiers: [11], minT: 0.2,
-      story: 'A firing line and nothing to charge: four archers keep their distance and loose together.',
-      members: [{ kind: 'archer_goblin', n: 4, place: 'front', spread: 0.5 }] },
-    ghosts: { label: 'Ghost burst', tiers: [9, 12], minT: 0,
-      story: 'They hang over the roof until you are close, then rise together. A torch or the sun burns them out.',
-      members: [{ kind: 'ghost', n: { 9: 4, 12: 7 }, place: 'core', proximityCells: 4 }] },
+    // ── A wrecked house: small ──
     splitter: { label: 'Splitting slime', tiers: [9], minT: 0,
       story: 'Strike it and it divides, half its health to each side. Finish a half before it divides again.',
       members: [{ kind: 'split_slime', n: 1, place: 'ring' }] },
-    bats: { label: 'Bat swarm', tiers: [9, 12], minT: 0.2,
-      story: 'A roost in the rafters: they hang still until the ruin notices you, then the whole swarm swoops.',
-      members: [{ kind: 'bat', n: { 9: 6, 12: 10 }, place: 'cloud' }] },
+    haunting: { label: 'Haunted wreck', tiers: [9], minT: 0,
+      story: 'Two ghosts hang over the roof until you are close, then rise together. A torch or the sun burns them out.',
+      members: [{ kind: 'ghost', n: 2, place: 'cloud', proximityCells: 4 }] },
+    roost: { label: 'Bat roost', tiers: [9], minT: 0,
+      story: 'A pair in the rafters: they hang still until the wreck notices you, then both swoop.',
+      members: [{ kind: 'bat', n: 2, place: 'cloud' }] },
     gulls: { label: 'Gull swarm', tiers: [9], minT: 0, coastal: true,
       story: 'A shore wreck under a storm of gulls. Each peck is small; the flock is not.',
-      members: [{ kind: 'storm_gull', n: 7, place: 'cloud' }] },
-    elite_orc: { label: 'Elite orc', tiers: [11], minT: 0.5,
+      members: [{ kind: 'storm_gull', n: 4, place: 'cloud' }] },
+    // ── A castle: the big ones, inside the keep ──
+    horde: { label: 'Goblin horde', tiers: [12], minT: 0.35,
+      story: 'Fifteen runts fill the keep: nothing alone, a wall of teeth together.',
+      members: [{ kind: 'goblin_runt', n: 15, place: 'floor' }] },
+    decoy: { label: 'Decoy and rush', tiers: [12], minT: 0.3,
+      story: 'One goblin at the front wall runs out to draw you in. The orcs at the back wall come once you are close.',
+      members: [{ kind: 'goblin', n: 1, place: 'front', aggroCells: 6 },
+                { kind: 'orc', n: 3, place: 'behind', aggroCells: 2 }] },
+    archers: { label: 'Archer line', tiers: [12], minT: 0.2,
+      story: 'A firing line along the front wall and nothing to charge: four archers keep their distance and loose together.',
+      members: [{ kind: 'archer_goblin', n: 4, place: 'front', spread: 0.5 }] },
+    ghosts: { label: 'Ghost burst', tiers: [12], minT: 0,
+      story: 'Seven hang over the keep until you are close, then rise together. A torch or the sun burns them out.',
+      members: [{ kind: 'ghost', n: 7, place: 'cloud', proximityCells: 4 }] },
+    bats: { label: 'Bat swarm', tiers: [12], minT: 0.2,
+      story: 'A roost in the towers: they hang still until the castle notices you, then the whole swarm swoops.',
+      members: [{ kind: 'bat', n: 10, place: 'cloud' }] },
+    elite_orc: { label: 'Elite orc', tiers: [12], minT: 0.5,
       story: 'One strong one, alone in the keep. Twice the pool, twice the blow, and an elite\'s drop.',
       members: [{ kind: 'orc', n: 1, place: 'core', elite: true }] },
     elite_soldier: { label: 'Elite skeleton soldier', tiers: [12], minT: 0.5,
       story: 'The castle\'s last captain, armoured and alone at its heart.',
       members: [{ kind: 'skeleton_soldier', n: 1, place: 'core', elite: true }] },
-    warband: { label: 'Elite orc and runts', tiers: [11], minT: 0.5,
-      story: 'An elite in the keep with five runts round the walls. The runts die fast; the orc does not.',
+    warband: { label: 'Elite orc and runts', tiers: [12], minT: 0.5,
+      story: 'An elite at the heart of the keep with five runts about the floor. The runts die fast; the orc does not.',
       members: [{ kind: 'orc', n: 1, place: 'core', elite: true },
-                { kind: 'goblin_runt', n: 5, place: 'ring' }] },
+                { kind: 'goblin_runt', n: 5, place: 'floor' }] },
     honour_guard: { label: 'Elite soldier and skeletons', tiers: [12], minT: 0.5,
-      story: 'An elite captain at the heart of the castle and four skeletons on the walls.',
+      story: 'An elite captain at the heart of the castle and four skeletons about the floor.',
       members: [{ kind: 'skeleton_soldier', n: 1, place: 'core', elite: true },
-                { kind: 'skeleton', n: 4, place: 'ring' }] },
+                { kind: 'skeleton', n: 4, place: 'floor' }] },
   };
   // The share of HELD structures of each tier that take a group at all (the
-  // rest roll the plain garrison). A landmark is where the interesting fight
-  // belongs; a wreck is still mostly slimes.
-  const GROUP_RATE = { 9: 0.3, 11: 0.5, 12: 0.5 };
+  // rest roll the plain garrison). A castle is where the interesting fight
+  // belongs; a wreck is still mostly slimes; a fort takes none.
+  const GROUP_RATE = { 9: 0.3, 12: 0.5 };
   const TAU = Math.PI * 2;
   // A member's count at this tier (a number, or a map by tier).
   function memberCount(m, tier) {
@@ -346,7 +359,9 @@
   }
   // Which group this structure takes, or null for the plain garrison — ONE
   // draw: the rate decides whether, and the same number's remainder decides
-  // which, so a caller can reason about the stream.
+  // which, so a caller can reason about the stream. The draw is taken for a
+  // tier with no rate too (a fort), so every tier's seats start at the same
+  // point of the stream.
   function groupFor(tier, t, rng, coastal) {
     const rate = GROUP_RATE[tier] || 0;
     const r = rng();
@@ -368,26 +383,41 @@
     }
     return out;
   }
-  // Where one guard stands, in polar terms about the ruin: the angle and the
-  // radius as a multiple of the ring (or, for 'core', of the knot). Try `a` is
-  // the seat attempt (each later try turns a little further round). EXACTLY
-  // TWO DRAWS per call whatever the placement, so every placement spends the
-  // stream alike. `facing` is the group's one facing draw (front / behind).
+  // Where one guard stands, in polar terms about the ruin: the angle, and the
+  // radius as a multiple of the BASE the placement names (`base`, one of the
+  // four radii a structure has — see seatRadii). Try `a` is the seat attempt
+  // (each later try turns a little further round). EXACTLY TWO DRAWS per
+  // call whatever the placement, so every placement spends the stream alike.
+  // `facing` is the group's one facing draw (front / behind).
   //   `core`: the seat may be a building cell (the keep's own floor);
   //   `over`: it may be a building cell for a kind that flies (the cloud).
   function seatPolar(spec, a, facing, rng) {
     const u = rng(), v = rng();
     const j = u - 0.5, i = spec.idx || 0, n = spec.of || 1;
     switch (spec.place) {
-      case 'core':   return { ang: (i / n) * TAU + j * 0.8 + a * 0.7, rMul: Math.sqrt(v), core: true };
-      case 'front':  return { ang: facing + (i - (n - 1) / 2) * (spec.spread ?? 0.45) + j * 0.3 + a * 0.5, rMul: 1 + v * 0.35 };
-      case 'behind': return { ang: facing + Math.PI + (i - (n - 1) / 2) * (spec.spread ?? 0.55) + j * 0.3 + a * 0.5, rMul: 1 + v * 0.35 };
-      case 'cloud':  return { ang: u * TAU + a * 0.7, rMul: 0.35 + v, over: true };
+      case 'core':   return { ang: (i / n) * TAU + j * 0.8 + a * 0.7, rMul: Math.sqrt(v), core: true, base: 'core' };
+      case 'floor':  return { ang: u * TAU + a * 0.7, rMul: Math.sqrt(v), core: true, base: 'floor' };
+      case 'front':  return { ang: facing + (i - (n - 1) / 2) * (spec.spread ?? 0.45) + j * 0.3 + a * 0.5, rMul: 0.7 + v * 0.3, core: true, base: 'floor' };
+      case 'behind': return { ang: facing + Math.PI + (i - (n - 1) / 2) * (spec.spread ?? 0.55) + j * 0.3 + a * 0.5, rMul: 0.7 + v * 0.3, core: true, base: 'floor' };
+      case 'cloud':  return { ang: u * TAU + a * 0.7, rMul: 0.3 + v * 0.9, over: true, base: 'cloud' };
       default: {
         const band = spec.band || [1, 1.35];
-        return { ang: (i / n) * TAU + j * 0.8 + a * 0.7, rMul: band[0] + v * (band[1] - band[0]) };
+        return { ang: (i / n) * TAU + j * 0.8 + a * 0.7, rMul: band[0] + v * (band[1] - band[0]), base: 'ring' };
       }
     }
+  }
+  // The four radii a structure of half-extents (halfW, halfH) has, in the
+  // units it is measured in (metres in the game, cells on the sheet):
+  //   core   the tight knot at the centre (LAIR_CORE_SPREAD_CELLS, never
+  //          wider than the footprint) — the plain keep garrison, an elite;
+  //   floor  the whole floor: a disc that fits inside the walls;
+  //   cloud  just over the walls, for a flier;
+  //   ring   outside the walls (LAIR_RING_PAD_CELLS past the corner) — a
+  //          wreck's seating.
+  function seatRadii(halfW, halfH, cellM) {
+    const core = Math.max(0.5 * cellM, Math.min(LAIR_CORE_SPREAD_CELLS * cellM, halfW, halfH));
+    const floor = Math.max(0.5 * cellM, Math.min(halfW, halfH) - 0.5 * cellM);
+    return { core, floor, cloud: floor + cellM, ring: Math.hypot(halfW, halfH) + LAIR_RING_PAD_CELLS * cellM };
   }
   // Does this kind fly (a cloud seat may be over the roof)? The roster's own
   // movement pattern, read at call time.
@@ -419,14 +449,13 @@
     const WG = root.WorldGen;
     const rng = WG ? WG.makeRng(hashKey(`preview_${name}_${tier}_${seed || 0}`)) : Math.random;
     const facing = rng() * TAU;
-    const coreR = Math.max(0.5, Math.min(LAIR_CORE_SPREAD_CELLS, halfW, halfH));
-    const ringR = Math.hypot(halfW, halfH) + LAIR_RING_PAD_CELLS;
+    const radii = seatRadii(halfW, halfH, 1);
     const out = [];
     for (const spec of expandGroup(name, tier)) {
       let seat = null;
       for (let a = 0; a < LAIR_SEAT_TRIES && !seat; a++) {
         const p = seatPolar(spec, a, facing, rng);
-        const r = (p.core ? coreR : ringR) * p.rMul;
+        const r = radii[p.base] * p.rMul;
         const x = Math.cos(p.ang) * r, y = Math.sin(p.ang) * r;
         const onRoof = Math.abs(x) <= halfW && Math.abs(y) <= halfH;
         if (onRoof && !p.core && !(p.over && flies(spec.kind))) continue;
@@ -435,7 +464,7 @@
       if (seat) out.push({ kind: spec.kind, x: seat.x, y: seat.y, place: spec.place, elite: !!spec.elite,
         aggroCells: spec.aggroCells, proximityCells: spec.proximityCells });
     }
-    return { facing, coreR, ringR, seats: out };
+    return { facing, coreR: radii.core, ringR: radii.ring, floorR: radii.floor, seats: out };
   }
 
   // ── Is this ruin held AT ALL? ────────────────────────────────────────────
@@ -986,9 +1015,8 @@
     // notices and gives up as one. A group member is placed by its own spec
     // (seatPolar): the knot (coreR) or the ring (ringR) by its place.
     const core = CORE_SEATED_TIERS.has(cand.tier);
-    const coreR = Math.max(0.5 * cellM, Math.min(LAIR_CORE_SPREAD_CELLS * cellM, cand.halfW, cand.halfH));
-    const ringR = Math.hypot(cand.halfW, cand.halfH) + LAIR_RING_PAD_CELLS * cellM;
-    const seatR = core ? coreR : ringR;
+    const radii = seatRadii(cand.halfW, cand.halfH, cellM);
+    const seatR = core ? radii.core : radii.ring;
     const plainSpec = { place: core ? 'core' : 'ring', of: nWorld };
     const C = root.Combat;
     const out = [];
@@ -1016,7 +1044,7 @@
         // first ones stand. seatPolar is the one placement rule (two draws a
         // try), for the plain ring / knot and every group placement alike.
         const p = seatPolar(spec, a, facing, rng);
-        const r = (p.core ? coreR : ringR) * p.rMul;
+        const r = radii[p.base] * p.rMul;
         const lx = cand.lx + Math.cos(p.ang) * r;
         const ly = cand.ly + Math.sin(p.ang) * r;
         const ix = Math.floor(lx / cellM), iy = Math.floor(ly / cellM);
@@ -1341,7 +1369,7 @@
     OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, tileHeldExpected, guardState,
     TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, GATE_TIER_GUARDS, DAILY_TIERS, dailyGuardDay, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, MODE_SCALED_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
     capFor, countFor, kindsAt, kindFor, structureKey, tileCellM,
-    GROUPS, GROUP_RATE, NEAR_SHORE_CELLS, memberCount, groupRows, groupFor, expandGroup, seatPolar, flies, nearShore, groupLayout,
+    GROUPS, GROUP_RATE, NEAR_SHORE_CELLS, memberCount, groupRows, groupFor, expandGroup, seatPolar, seatRadii, flies, nearShore, groupLayout,
     hashKey, ringBox,
     bucketKey,
     newIndex, indexChunk, buildIndex, indexFor, garrisonFor, stepResidency,

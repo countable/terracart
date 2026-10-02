@@ -175,7 +175,7 @@ td .cap { color: var(--elite); font-weight: 600; }
 </style>
 <div class="wrap">
   <h1>Guard Groups</h1>
-  <p class="lede">The authored garrisons a held ruin may take in place of its plain roll (<b>src/lairs.js GROUPS</b>). One card per group and building tier, seated about a footprint by the game's own placement rule, drawn with the game's own sprites, at 1.6× their size against the ground so they read here. A cell is 7 m. The player's reach is about 2.5 cells.</p>
+  <p class="lede">The authored garrisons a held ruin may take in place of its plain roll (<b>src/lairs.js GROUPS</b>): a wrecked house's are small and ring its walls, a castle's are the big ones and start inside the keep. One card per group, seated about its footprint by the game's own placement rule, drawn with the game's own sprites, at 1.6× their size against the ground so they read here. A cell is 7 m. The player's reach is about 2.5 cells.</p>
   <ul class="legend">
     <li><span class="sw roof"></span> the footprint (roof and walls)</li>
     <li><span class="sw"></span> the seating ring, or the knot inside a keep</li>
@@ -294,7 +294,7 @@ async function drawCard(card, canvas) {
   ctx.font = '600 10px "Public Sans", sans-serif'; ctx.fillStyle = css('--fg'); ctx.fillText('5 cells · 35 m', 10, sizeCss - 17); ctx.restore();
 }
 function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-const PLACE = { ring: 'round the walls', core: 'inside the keep', front: 'out front', behind: 'behind the walls', cloud: 'over the ruin' };
+const PLACE = { ring: 'round the walls', core: 'at the heart of the keep', floor: 'about the floor', front: 'inside the front wall', behind: 'inside the back wall', cloud: 'over the ruin' };
 async function build() {
   const grid = document.getElementById('cards');
   const jobs = [];
@@ -339,7 +339,8 @@ async function build() {
   const rules = document.getElementById('rules');
   const rc = DATA.consts;
   for (const [b, t] of [
-    ['A share of held ruins', 'A wrecked house takes a group ' + Math.round(rc.groupRate[9] * 100) + '% of the time it is held, a fort or castle ' + Math.round(rc.groupRate[11] * 100) + '%. The rest roll the plain garrison. Which group is the ruin\\'s own draw: the same ambush for every player.'],
+    ['A share of held ruins', 'A wrecked house takes a group ' + Math.round(rc.groupRate[9] * 100) + '% of the time it is held, a castle ' + Math.round(rc.groupRate[12] * 100) + '%; a fort never does. The rest roll the plain garrison. Which group is the ruin\\'s own draw: the same ambush for every player.'],
+    ['A house\\'s or a castle\\'s', 'A wreck\\'s groups are one or two (a flock at most) and sit round or over its walls, as its slimes do. A castle\\'s are the big ones and start inside the keep like every castle garrison: walking past is safe, walking in is the fight.'],
     ['Notice and leash', 'A garrison holds its seats until you cross its notice ring (' + rc.aggro + ' cells past a wreck\\'s ring, ' + rc.coreAggro + ' past a keep\\'s knot), hunts you to ' + rc.leash + ' cells from the ruin, then walks home. A member can be told its own ring: the decoy\\'s is long, the orcs\\' short.'],
     ['Dormant ghosts', 'A ghost member hangs over the roof and does nothing until you are within its proximity. Then the whole burst rises at once; its three-minute life starts there. A torch, a lit lamp or daylight burns it.'],
     ['The splitting slime', 'Struck, it keeps half its health and steps a cell to one side; a twin with the other half rises a cell to the other side. It stops dividing when a half would fall under its floor, so the pool is conserved and the whole lineage pays one slime\\'s bounty.'],

@@ -3,7 +3,9 @@
 // burst, the splitting slime, a bat swarm, a gull swarm, an elite alone and
 // an elite with minions — plus the kinds that exist only for them (the goblin
 // runt, the splitting slime, the storm gull) and the paces doubled the same
-// day (every goblin and orc; the bats to the ceiling).
+// day (every goblin and orc; the bats to the ceiling). A group is a HOUSE'S
+// or a CASTLE'S (owner): a wreck's are one or two and ring the walls, a
+// castle's are the big ones and start inside the keep; a fort takes none.
 //
 // What is pinned:
 //   · THE TABLE: every member is a registered enemy with art, behaviour and a
@@ -94,12 +96,14 @@
       assert.eq(G[name].members.map((m) => m.kind).join(), kinds, `${name}'s members`);
     };
     has('horde', 'goblin_runt');                 // a horde of 15 weak goblins
-    assert.eq(Lairs.memberCount(G.horde.members[0], 11), 15, 'fifteen of them');
+    assert.eq(Lairs.memberCount(G.horde.members[0], 12), 15, 'fifteen of them');
     has('decoy', 'goblin,orc');                  // a decoy goblin with fast orcs behind
     has('archers', 'archer_goblin');             // a group of just archers
     has('ghosts', 'ghost');                      // a burst of ghosts
+    has('haunting', 'ghost');                    // …and a wreck's pair
     has('splitter', 'split_slime');              // the slime that replicates when damaged
     has('bats', 'bat');                          // a swarm of bats
+    has('roost', 'bat');                         // …and a wreck's pair
     has('gulls', 'storm_gull');                  // a swarm of seagulls
     assert.truthy(G.gulls.coastal, 'the gulls are a shore wreck\'s');
     has('elite_orc', 'orc');                     // one strong guy, elite
@@ -111,8 +115,31 @@
     }
   });
 
+  test('guard groups: a group is a house\'s or a castle\'s — a wreck\'s small and outside, a castle\'s inside the keep, a fort\'s none', () => {
+    const inside = new Set(['core', 'floor', 'front', 'behind', 'cloud']);
+    for (const [name, g] of Object.entries(Lairs.GROUPS)) {
+      assert.eq(g.tiers.length, 1, `${name}: one tier, never both`);
+      assert.truthy(g.tiers[0] === 9 || g.tiers[0] === 12, `${name}: a house's or a castle's, never a fort's`);
+      const n = Lairs.expandGroup(name, g.tiers[0]).length;
+      if (g.tiers[0] === 9) {
+        assert.lte(n, 4, `${name}: a wreck's group is small (${n})`);
+        for (const m of g.members) assert.truthy(m.place === 'ring' || m.place === 'cloud', `${name}: a wreck's guards sit round or over it, never on its floor`);
+      } else {
+        for (const m of g.members) assert.truthy(inside.has(m.place), `${name}: a castle's guards start inside the keep (${m.place})`);
+      }
+    }
+    const house = Object.values(Lairs.GROUPS).filter((g) => g.tiers[0] === 9);
+    assert.gte(house.filter((g) => Lairs.expandGroup(Object.keys(Lairs.GROUPS).find((k) => Lairs.GROUPS[k] === g), 9).length <= 2).length, house.length / 2,
+      'a wreck\'s groups are usually one or two');
+    assert.eq(Lairs.groupRows(11, 1, true).length, 0, 'a fort offers no group');
+    assert.eq(Lairs.GROUP_RATE[11], undefined);
+    let draws = 0;
+    assert.eq(Lairs.groupFor(11, 1, () => { draws++; return 0; }, true), null, 'a fort rolls plain');
+    assert.eq(draws, 1, 'but still spends the one draw, so its seats start where every tier\'s do');
+  });
+
   test('guard groups: every member is a registered enemy with art, behaviour and a pool; every tier holds a lair', () => {
-    const places = new Set(['ring', 'core', 'front', 'behind', 'cloud']);
+    const places = new Set(['ring', 'core', 'floor', 'front', 'behind', 'cloud']);
     for (const [name, g] of Object.entries(Lairs.GROUPS)) {
       assert.truthy(g.label && g.story, `${name}: a label and a line for the design sheet`);
       assert.gt(g.tiers.length, 0, `${name}: holds somewhere`);
@@ -134,7 +161,7 @@
         assert.inRange(n, 1, Lairs.LAIR_LIVE_MAX / 2, `${name} at tier ${tier}: ${n} guards`);
       }
     }
-    for (const tier of Lairs.TIERS) {
+    for (const tier of Object.keys(Lairs.GROUP_RATE).map(Number)) {
       assert.gt(Lairs.groupRows(tier, 1, true).length, 1, `tier ${tier} offers more than one group`);
       assert.inRange(Lairs.GROUP_RATE[tier], 0.05, 0.95, `tier ${tier}: a group is a share of ruins, not all of them`);
     }
@@ -149,7 +176,7 @@
 
   // ── The draws ────────────────────────────────────────────────────────────
   test('guard groups: groupFor is one draw — the rate and the pick off the same number', () => {
-    for (const tier of Lairs.TIERS) {
+    for (const tier of Object.keys(Lairs.GROUP_RATE).map(Number)) {
       for (const t of [0, 0.5, 1]) {
         let draws = 0;
         Lairs.groupFor(tier, t, () => { draws++; return 0.5; }, true);
@@ -167,10 +194,10 @@
       assert.eq([...seen].sort().join(), rows.slice().sort().join(), `tier ${tier}: every row is reachable`);
     }
     assert.eq(Lairs.groupFor('cafe', 1, () => 0, true), null, 'a street tier takes no group');
-    // Strength gates: a weak fort offers no horde or elite.
-    assert.falsy(Lairs.groupRows(11, 0.1, false).includes('horde'), 'a weak fort has no horde');
-    assert.falsy(Lairs.groupRows(11, 0.1, false).includes('elite_orc'), 'nor an elite');
-    assert.truthy(Lairs.groupRows(11, 0.9, false).includes('horde'), 'a strong one does');
+    // Strength gates: a weak castle offers no horde or elite.
+    assert.falsy(Lairs.groupRows(12, 0.1, false).includes('horde'), 'a weak castle has no horde');
+    assert.falsy(Lairs.groupRows(12, 0.1, false).includes('elite_orc'), 'nor an elite');
+    assert.truthy(Lairs.groupRows(12, 0.9, false).includes('horde'), 'a strong one does');
     // The gulls only by the shore.
     assert.falsy(Lairs.groupRows(9, 1, false).includes('gulls'), 'inland: no gulls');
     assert.truthy(Lairs.groupRows(9, 1, true).includes('gulls'), 'by the shore: gulls');
@@ -178,7 +205,7 @@
 
   test('guard groups: seatPolar takes two draws a try for every placement, and places as it says', () => {
     const facing = 1.0;
-    for (const place of ['ring', 'core', 'front', 'behind', 'cloud']) {
+    for (const place of ['ring', 'core', 'floor', 'front', 'behind', 'cloud']) {
       let draws = 0;
       Lairs.seatPolar({ place, idx: 0, of: 1 }, 0, facing, () => { draws++; return 0.5; });
       assert.eq(draws, 2, `${place}: two draws`);
@@ -188,10 +215,21 @@
     const behind = Lairs.seatPolar({ place: 'behind', idx: 0, of: 1 }, 0, facing, mid);
     assert.lt(Math.abs(front.ang - facing), 1e-9, 'front is the facing');
     assert.lt(Math.abs(behind.ang - facing - Math.PI), 1e-9, 'behind is opposite');
-    assert.truthy(Lairs.seatPolar({ place: 'core', idx: 0, of: 1 }, 0, facing, mid).core, 'core may stand on the floor');
+    for (const place of ['core', 'floor', 'front', 'behind']) {
+      const p = Lairs.seatPolar({ place, idx: 0, of: 1 }, 0, facing, mid);
+      assert.truthy(p.core, `${place} may stand on the floor`);
+      assert.eq(p.base, place === 'core' ? 'core' : 'floor', `${place} is measured on the ${place === 'core' ? 'knot' : 'floor'}`);
+    }
+    assert.lte(Lairs.seatPolar({ place: 'front', idx: 0, of: 1 }, 0, facing, () => 0.999).rMul, 1, 'the front wall is inside the floor');
     const cloud = Lairs.seatPolar({ place: 'cloud', idx: 0, of: 1 }, 0, facing, mid);
     assert.truthy(cloud.over, 'a cloud may hang over the roof');
-    assert.inRange(cloud.rMul, 0.35, 1.35);
+    assert.inRange(cloud.rMul, 0.3, 1.2);
+    // The radii the bases name: a floor disc inside the walls, a cloud just
+    // over them, a ring outside the corner.
+    const r = Lairs.seatRadii(28, 21, 7);
+    assert.eq(r.core, 10.5); assert.eq(r.floor, 17.5); assert.eq(r.cloud, 24.5);
+    assert.lt(r.floor, 21, 'the floor disc fits inside the shorter wall');
+    assert.gt(r.ring, Math.hypot(28, 21), 'the ring is outside the corner');
     // A ring band spreads a horde two deep.
     const deep = Lairs.seatPolar({ place: 'ring', idx: 0, of: 1, band: [1, 1.9] }, 0, facing, () => 0.99);
     assert.gt(deep.rMul, 1.8, 'the far edge of the band');
@@ -202,33 +240,35 @@
   });
 
   test('guard groups: expandGroup lays the members out in order, counted by tier', () => {
-    const horde = Lairs.expandGroup('horde', 11);
+    const horde = Lairs.expandGroup('horde', 12);
     assert.eq(horde.length, 15);
     assert.truthy(horde.every((s) => s.kind === 'goblin_runt' && s.of === 15), 'fifteen runts, each spaced over fifteen');
-    const decoy = Lairs.expandGroup('decoy', 11);
+    const decoy = Lairs.expandGroup('decoy', 12);
     assert.eq(decoy.map((s) => s.kind).join(), 'goblin,orc,orc,orc', 'the decoy first — easy wakes it and one orc');
     assert.eq(decoy[0].aggroCells, 6); assert.eq(decoy[1].aggroCells, 2);
-    assert.eq(Lairs.expandGroup('ghosts', 9).length, 4, 'four ghosts over a wreck');
+    assert.eq(Lairs.expandGroup('haunting', 9).length, 2, 'two ghosts over a wreck');
     assert.eq(Lairs.expandGroup('ghosts', 12).length, 7, 'seven over a castle');
     assert.eq(Lairs.expandGroup('nothing', 9).length, 0);
   });
 
   // ── The wake, end to end ─────────────────────────────────────────────────
-  test('guard groups: a horde wakes fifteen runts round the fort, two deep, every one a guard', () => {
-    const { guards, cx, cy } = wakeGroup('horde', 11);
-    assert.gte(guards.length, 13, `the horde woke ${guards.length} — open ground should seat nearly all fifteen`);
+  const HALF = 3 * CELL_M;    // the test castle: six cells a side
+  const insideKeep = (g, cx, cy) => Math.abs(g.x - cx) <= HALF && Math.abs(g.y - cy) <= HALF;
+  test('guard groups: a horde wakes fifteen runts inside the keep, every one a guard that may walk out', () => {
+    const { guards, cx, cy } = wakeGroup('horde', 12, 2 * HALF);
+    assert.gte(guards.length, 13, `the horde woke ${guards.length} — a six-cell keep should seat nearly all fifteen`);
     for (const g of guards) {
       assert.eq(g.kind, 'goblin_runt'); assert.eq(g.group, 'horde');
       assert.truthy(g.immobile && g.lair, 'a guard');
-      const d = Math.hypot(g.x - cx, g.y - cy);
-      assert.gt(d, 2 * CELL_M, 'round the walls, not on the roof');
-      assert.lt(d, 7 * CELL_M, 'and not off down the street');
+      assert.truthy(insideKeep(g, cx, cy), 'inside the keep, as a castle\'s garrison starts');
+      assert.truthy(g.keepHW > 0 && g.keepHH > 0, 'and it may cross its own floor to come out');
+      assert.eq(g.aggroCells, Lairs.LAIR_CORE_AGGRO_CELLS, 'it notices the near player, as the keep does');
     }
     assert.eq(new Set(guards.map((g) => g.id)).size, guards.length, 'every runt its own id');
   });
 
-  test('guard groups: the decoy stands out front with a long notice ring; the orcs behind, told to wait', () => {
-    const { guards, cx, cy } = wakeGroup('decoy', 11);
+  test('guard groups: the decoy stands at the front wall with a long notice ring; the orcs at the back, told to wait', () => {
+    const { guards, cx, cy } = wakeGroup('decoy', 12, 2 * HALF);
     const decoy = guards.find((g) => g.kind === 'goblin'), orcs = guards.filter((g) => g.kind === 'orc');
     assert.truthy(decoy, 'the decoy woke');
     assert.gte(orcs.length, 2, 'the orcs woke');
@@ -237,43 +277,50 @@
       assert.eq(o.aggroCells, 2, 'an orc waits until you are two cells off');
       // Opposite side of the ruin from the decoy.
       const dot = (decoy.x - cx) * (o.x - cx) + (decoy.y - cy) * (o.y - cy);
-      assert.lt(dot, 0, 'an orc stands on the far side of the fort from the decoy');
+      assert.lt(dot, 0, 'an orc stands at the far wall from the decoy');
+      assert.truthy(insideKeep(o, cx, cy), 'inside the keep');
     }
+    assert.truthy(insideKeep(decoy, cx, cy), 'the decoy too: it runs OUT at you');
     assert.eq(guards[0].kind, 'goblin', 'the decoy is guard 0, so easy mode wakes it');
   });
 
   test('guard groups: an elite stands shiny in the knot; its minions ring the walls', () => {
-    const lone = wakeGroup('elite_orc', 11);
+    const lone = wakeGroup('elite_orc', 12, 2 * HALF);
     assert.eq(lone.guards.length, 1, 'one strong one');
     assert.truthy(lone.guards[0].shiny && Combat.isElite(lone.guards[0]), 'and it is an elite');
     assert.eq(Combat.maxHp(lone.guards[0]), Combat.creatureMaxHp('orc') * Combat.ELITE_MUL, 'twice the pool');
     assert.lte(Math.hypot(lone.guards[0].x - lone.cx, lone.guards[0].y - lone.cy), Lairs.LAIR_CORE_SPREAD_CELLS * CELL_M + 1e-6, 'in the knot');
     assert.truthy(lone.guards[0].keepHW > 0, 'and it may cross its own floor to come out');
-    const band = wakeGroup('warband', 11);
+    const band = wakeGroup('warband', 12, 2 * HALF);
     const orc = band.guards.find((g) => g.kind === 'orc'), runts = band.guards.filter((g) => g.kind === 'goblin_runt');
     assert.truthy(orc && orc.shiny, 'the warband\'s orc is the elite');
     assert.gte(runts.length, 4, 'with its runts');
     for (const r of runts) {
       assert.falsy(r.shiny && !isShiny(r.id, SHINY_RATE.monster), 'a runt is shiny only off its id');
-      assert.gt(Math.hypot(r.x - band.cx, r.y - band.cy), 2 * CELL_M, 'round the walls');
+      assert.truthy(insideKeep(r, band.cx, band.cy), 'about the floor of the keep');
     }
     assert.eq(band.guards[0].kind, 'orc', 'the elite is guard 0, so easy mode wakes it');
   });
 
   test('guard groups: the ghosts hang over the roof, dormant until approached; the bats and gulls cloud the ruin', () => {
-    const ghosts = wakeGroup('ghosts', 12, 6 * CELL_M);
+    const ghosts = wakeGroup('ghosts', 12, 2 * HALF);
     assert.gte(ghosts.guards.length, 5, 'the burst woke');
+    const cloudR = Lairs.seatRadii(HALF, HALF, CELL_M).cloud * 1.2 + 1e-6;
     for (const g of ghosts.guards) {
       assert.eq(g.kind, 'ghost'); assert.eq(g.proximityCells, 4, 'dormant until you are four cells off');
-      assert.truthy(Math.abs(g.x - ghosts.cx) <= 3 * CELL_M && Math.abs(g.y - ghosts.cy) <= 3 * CELL_M, 'over the footprint');
+      assert.lte(Math.hypot(g.x - ghosts.cx, g.y - ghosts.cy), cloudR, 'over the keep');
     }
-    const bats = wakeGroup('bats', 12, 6 * CELL_M);
+    const pair = wakeGroup('haunting', 9);
+    assert.eq(pair.guards.length, 2, 'a wreck\'s pair');
+    for (const g of pair.guards) { assert.eq(g.kind, 'ghost'); assert.eq(g.proximityCells, 4); }
+    const bats = wakeGroup('bats', 12, 2 * HALF);
     assert.gte(bats.guards.length, 8, `the swarm woke ${bats.guards.length}`);
     for (const b of bats.guards) assert.eq(b.kind, 'bat');
+    assert.eq(wakeGroup('roost', 9).guards.length, 2, 'a wreck roosts a pair');
     // The gulls: a shore wreck only — the same ruin inland rolls something else.
     const shore = new Uint8Array(N * N).fill(1);
     const gulls = wakeGroup('gulls', 9, 4 * CELL_M, { shore });
-    assert.gte(gulls.guards.length, 5, 'the flock woke');
+    assert.gte(gulls.guards.length, 3, 'the flock woke');
     for (const g of gulls.guards) assert.eq(g.kind, 'storm_gull');
     const inland = mkEntry([gulls.shape]);
     step(inland, { x: gulls.cx, y: gulls.cy });
@@ -283,12 +330,12 @@
   });
 
   test('guard groups: a grouped ruin is the same ruin for everyone, and the easy cap wakes its head', () => {
-    const a = wakeGroup('decoy', 11), b = wakeGroup('decoy', 11);
+    const a = wakeGroup('decoy', 12), b = wakeGroup('decoy', 12);
     const sig = (gs) => gs.map((g) => `${g.id}:${g.kind}:${g.x.toFixed(2)},${g.y.toFixed(2)}:${g.aggroCells}`).join('|');
     assert.eq(sig(a.guards), sig(b.guards), 'two wakes, one garrison');
-    const easy = wakeGroup('horde', 11, 4 * CELL_M, { mode: 'easy' });
+    const easy = wakeGroup('horde', 12, 2 * HALF, { mode: 'easy' });
     assert.eq(easy.guards.length, Difficulty.PROFILES.easy.lairGuardMax, 'easy wakes the cap');
-    assert.eq(easy.guards.map((g) => g.id).join(), wakeGroup('horde', 11).guards.slice(0, 2).map((g) => g.id).join(),
+    assert.eq(easy.guards.map((g) => g.id).join(), wakeGroup('horde', 12, 2 * HALF).guards.slice(0, 2).map((g) => g.id).join(),
       'the first two of the world\'s fifteen, in their seats');
   });
 
