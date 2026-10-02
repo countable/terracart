@@ -511,6 +511,18 @@
         ctx.fillRect(-TILE, -TILE, size + TILE * 2, size + TILE * 2);
         ctx.restore();
       },
+      damagePoly(pts, key, claimed, anchorX, anchorY) {
+        const texture = CastleStyles.damageTexture(scene, key, claimed);
+        if (!texture) return false;
+        if (!patterns.has(texture)) patterns.set(texture,
+          ctx.createPattern(scene.textures.get(texture).getSourceImage(), 'repeat'));
+        ctx.save(); trace(pts); ctx.clip();
+        ctx.translate(anchorX - originX, anchorY - originY);
+        ctx.fillStyle = patterns.get(texture);
+        ctx.fillRect(originX - anchorX, originY - anchorY, size, size);
+        ctx.restore();
+        return true;
+      },
       columnsPoly(pts, columns, claimed) {
         if (!columns.length) return;
         const key = CastleStyles.columnTexture(scene, claimed);
@@ -702,6 +714,25 @@
           const tooth = rampart.toothWidth;
           const dash = rampart.broken ? [tooth, 4, tooth - 1, 7] : [tooth, 8 - tooth];
           stroke(MERLON_PX * 2, stone.lite, dash);
+          // Sample just inside the edge, so east/south boundaries use the
+          // same owner's cell as the tiled wall rather than its neighbour.
+          const damageX = (p.x + q.x) / 2 - Math.sign(q.y - p.y) * winding * 0.01;
+          const damageY = (p.y + q.y) / 2 + Math.sign(q.x - p.x) * winding * 0.01;
+          const damage = CastleStyles.damageCell(d.key,
+            Math.floor((damageX - d.damageOriginX) / CELL_PX),
+            Math.floor((damageY - d.damageOriginY) / CELL_PX));
+          if (damage) {
+            const chip = damage.chip / CELL_PX;
+            const cx = Math.round(p.x + (q.x - p.x) * chip);
+            const cy = Math.round(p.y + (q.y - p.y) * chip);
+            ctx.fillStyle = cssOf(stone.style.stone.SHADOW); ctx.fillRect(cx - 1, cy - 3, 2, 6);
+            if (damage.missing >= 0) {
+              const t = (damage.missing + 0.5) / 4;
+              ctx.fillStyle = cssOf(stone.style.floor);
+              ctx.fillRect(Math.round(p.x + (q.x - p.x) * t) - 2,
+                Math.round(p.y + (q.y - p.y) * t) - 2, 4, 4);
+            }
+          }
           ctx.restore();
         }
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
@@ -860,6 +891,7 @@
         draws.push({
           pts, south: by1, left: bx0, north: by0, right: bx1,
           tier: shape.tier, key: shape.key,
+          damageOriginX: projX(originMx), damageOriginY: projY(originMy),
           columns: shape.tier === CASTLE ? CastleStyles.columnSites(shape.key, r,
             entry.tileEdgeM / (entry.cellsPerEdge || scene.cellsPerTile))
             .map(p => ({ x: projX(originMx + p.x), y: projY(originMy + p.y), height: p.height })) : [],
@@ -894,7 +926,9 @@
       // south-facing edges, at any angle, with no per-edge normal test.
       if (!separateUprights) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), (style ? style.stone.FACE : tune(shade(faceColor(d.tier, isMine)))));
       g.fillPoly(d.pts, floor);
-      if (g.texturePoly) g.texturePoly(d.pts, d.tier);
+      const damagedFloor = style?.id === 'ruin' && g.damagePoly
+        && g.damagePoly(d.pts, d.key, isMine, d.damageOriginX, d.damageOriginY);
+      if (!damagedFloor && g.texturePoly) g.texturePoly(d.pts, d.tier);
       // Dilapidated: the slime, over the floor and its material (it is growing
       // on them) but under the lattice, the rampart and the outline — the
       // building's own lines stay clean, only its floor is overgrown.

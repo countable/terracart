@@ -540,9 +540,9 @@ Render.drawFlowerStatusMarkers = (scene, creatures, project, depth, now) => {
 // texture-rebind work on the common frame where the key is unchanged. Returns
 // whether it swapped, so a caller can gate a same-frame side effect (e.g.
 // (re)starting an animation) on the swap actually having happened.
-function setTextureIfDifferent(s, key) {
-  if (s.texture.key === key) return false;
-  s.setTexture(key);
+function setTextureIfDifferent(s, key, frame) {
+  if (s.texture.key === key && (frame === undefined || s.frame.name === frame)) return false;
+  s.setTexture(key, frame);
   return true;
 }
 
@@ -1982,6 +1982,14 @@ Render.drawCells = function drawCells(scene) {
             }
           }
         }
+        let damageFrame;
+        if (texKey && !POLY && !isTilled && type === 12) {
+          const damaged = CastleStyles.damageTexture(scene, castleOwner(col, row), !UNCLAIMED(col, row));
+          if (damaged) {
+            texKey = damaged;
+            damageFrame = CastleStyles.damageCellIndex(_ringIX[_si], _ringIY[_si]);
+          }
+        }
         if (texKey) {
           // Only on a swap: Phaser's setTexture is NOT a no-op for the key a
           // sprite already wears (it re-derives the frame, size and crop), and
@@ -1989,7 +1997,9 @@ Render.drawCells = function drawCells(scene) {
           // 169 unconditional swaps a step were pure waste on a still view.
           // setTexture resets the sprite's intrinsic size; re-apply CELL_PX
           // with it (the scale it leaves stands until the next swap).
-          if (setTextureIfDifferent(ns, texKey)) ns.setDisplaySize(CELL_PX, CELL_PX);
+          if (damageFrame !== undefined) {
+            if (setTextureIfDifferent(ns, texKey, damageFrame)) ns.setDisplaySize(CELL_PX, CELL_PX);
+          } else if (setTextureIfDifferent(ns, texKey)) ns.setDisplaySize(CELL_PX, CELL_PX);
           ns.setPosition(Math.round(sx), Math.round(sy))
             .setVisible(true);
           // Watered soil reads a shade darker (damp). The pad is an opaque
@@ -2215,6 +2225,12 @@ Render.drawCells = function drawCells(scene) {
         const si = (row + 2) * RING + (col + 2);
         const ty = _ringTY[si], cm = rowCellM(scene, ty);
         const northY = ty * scene.tileEdgeM + _ringIY[si] * cm;
+        const damage = CastleStyles.damageCell(castleOwner(col, row), _ringIX[si], _ringIY[si]);
+        const wallChip = (gx, x, y) => {
+          if (!damage) return;
+          gx.fillStyle(STONE_SHADOW, 0.9); gx.fillRect(x + damage.chip, y + 1, 2, 3);
+          gx.fillStyle(STONE_LITE, 0.7); gx.fillRect(x + damage.chip + 2, y + 3, 2, 1);
+        };
         // Horizontal battlement crest: a low parapet at `baseY` with merlons
         // rising UP from it, drawn into the supplied graphics layer `gx`. Teeth
         // share the SPAN grid on every wall so front/back crenellations line up.
@@ -2223,7 +2239,7 @@ Render.drawCells = function drawCells(scene) {
           gx.fillStyle(body, 1);   gx.fillRect(x, baseY - CREN, CELL_PX, CREN);
           gx.fillStyle(STONE_SHADOW, 1); gx.fillRect(x, baseY - 1, CELL_PX, 1);
           for (let i = 0; i < MERLONS; i++) {
-            if (material.rampart.broken && i === 2) continue;
+            if ((material.rampart.broken && i === 2) || (damage && i === damage.missing)) continue;
             const mx = x + i * SPAN + MOFF;
             gx.fillStyle(body, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, TOOTH_H);
             gx.fillStyle(STONE_LITE, 1);   gx.fillRect(mx, baseY - TOOTH_H, MW, 1);
@@ -2236,6 +2252,7 @@ Render.drawCells = function drawCells(scene) {
           gw.fillStyle(_DBG ? 0x30a030 : STONE_FACE, 1); gw.fillRect(sx, sy + CELL_PX, CELL_PX, WALL);
           gw.fillStyle(STONE_DARK, 1); gw.fillRect(sx, sy + CELL_PX + WALL - 1, CELL_PX, 1);
           crestH(gw, sx, sy + CELL_PX, _DBG ? 0x50c050 : undefined);
+          wallChip(gw, sx, sy + CELL_PX);
         }
         // North boundary rises into the cell above from its own ground line.
         const SIDE_W = 5;
@@ -2252,6 +2269,7 @@ Render.drawCells = function drawCells(scene) {
           gb.fillStyle(_DBG ? 0x3060c0 : STONE_FACE, 1);
           gb.fillRect(sx - extL, sy - WALL, CELL_PX + extL + extR, WALL);
           crestH(gb, sx, sy - WALL, _DBG ? 0x5080e0 : undefined);
+          wallChip(gb, sx, sy - WALL);
           // SOLID crest-height shoulders over the widened columns — the crest
           // rows there must be full stone, not tooth-and-gap, or the covered
           // side band's last pixels still show through beside the teeth. This
@@ -2277,11 +2295,15 @@ Render.drawCells = function drawCells(scene) {
           // shortened bottom would clip so a half-dash can't fray the band end.
           for (let i = 0; i < MERLONS; i++) {
             const dy = sy + i * SPAN + MOFF;
-            if (dy + MW <= bandBot) gb.fillRect(x, dy, SIDE_W, MW);
+            if (dy + MW <= bandBot && !(material.rampart.broken && i === 2)
+              && (!damage || i !== damage.missing)) gb.fillRect(x, dy, SIDE_W, MW);
           }
           // 1px darker line on the wall's INTERIOR edge so the side wall reads as
           // a distinct band instead of blurring into the adjacent floor / wall.
           gb.fillStyle(STONE_SHADOW, 1); gb.fillRect(innerX, bandY, 1, bandBot - bandY);
+          if (damage) {
+            gb.fillStyle(STONE_SHADOW, 0.9); gb.fillRect(x + 1, sy + damage.chip, 3, 2);
+          }
         };
         if (wallEdge(col, row, -1, 0)) sideShade(sx, sx + SIDE_W - 1);
         if (wallEdge(col, row, 1, 0)) sideShade(sx + CELL_PX - SIDE_W, sx + CELL_PX - SIDE_W);

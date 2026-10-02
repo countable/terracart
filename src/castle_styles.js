@@ -104,5 +104,66 @@
     texture.refresh();
     return key;
   }
-  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, ids: Object.freeze(ids), variantFor, get, columnSites, columnTexture });
+  // Four authored 3×3-cell repeats bound both geometry and texture memory.
+  // Each repeat loses one paving slab; its other marks are hairline cracks
+  // and a few stone fragments. The castle key selects a repeat, never a frame.
+  const damagePatterns = Array.from({ length: 4 }, (_, variant) => {
+    const cells = Array.from({ length: 9 }, (_, i) => ({ rects: [],
+      missing: (i + variant) % 3 === 0 ? (i + variant) % 4 : -1,
+      chip: (i * 7 + variant * 5) % 19 + 6 }));
+    const add = (cell, x, y, w, h, ink, alpha = 1) => cells[cell].rects.push({ x, y, w, h, ink, alpha });
+    const slab = (variant * 2 + 4) % 9;
+    add(slab, 10, 12, 8, 6, 'floor');
+    add(slab, 10, 12, 8, 6, 'SHADOW', 0.55);
+    add(slab, 10, 12, 8, 1, 'DARK', 0.5);
+    add(slab, 17, 13, 1, 4, 'FACE');
+    add(slab, 8, 19, 3, 2, 'BODY'); add(slab, 8, 19, 2, 1, 'LITE');
+    add(slab, 20, 16, 2, 2, 'BODY'); add(slab, 20, 16, 2, 1, 'LITE');
+    for (const cell of [(slab + 2) % 9, (slab + 5) % 9]) {
+      const x = 8 + variant * 2, y = 8 + (cell % 3) * 4;
+      add(cell, x, y, 1, 4, 'SHADOW', 0.6);
+      add(cell, x + 1, y + 3, 3, 1, 'SHADOW', 0.6);
+      add(cell, x + 3, y + 4, 1, 4, 'SHADOW', 0.6);
+      add(cell, x + 4, y + 7, 3, 1, 'SHADOW', 0.6);
+    }
+    return Object.freeze({ index: variant, cells });
+  });
+  const damageSelections = new Map();
+  function damagePattern(key) {
+    if (variantFor(key) !== 'ruin') return null;
+    if (damageSelections.has(key)) return damageSelections.get(key);
+    let hash = 0x811c9dc5;
+    for (const ch of String(key)) hash = Math.imul(hash ^ ch.charCodeAt(0), 0x01000193);
+    const pattern = damagePatterns[(hash >>> 2) % damagePatterns.length];
+    if (damageSelections.size >= 256) damageSelections.clear();
+    damageSelections.set(key, pattern);
+    return pattern;
+  }
+  const damageCellIndex = (x, y) => ((y % 3 + 3) % 3) * 3 + (x % 3 + 3) % 3;
+  function damageCell(key, x, y) {
+    return damagePattern(key)?.cells[damageCellIndex(x, y)] || null;
+  }
+  function damageTexture(scene, key, claimed) {
+    const pattern = damagePattern(key);
+    if (!pattern) return null;
+    const name = `castle_ruin_floor_${pattern.index}_${claimed ? 1 : 0}`;
+    if (scene.textures.exists(name)) return name;
+    if (!scene.textures.exists('biome12_0')) return null;
+    const texture = scene.textures.createCanvas(name, 96, 96), ctx = texture.getContext();
+    const paving = scene.textures.get('biome12_0').getSourceImage(), material = get('ruin', claimed);
+    for (let i = 0; i < 9; i++) {
+      const x = i % 3 * 32, y = Math.floor(i / 3) * 32;
+      ctx.drawImage(paving, x, y);
+      for (const r of pattern.cells[i].rects) {
+        const color = r.ink === 'floor' ? material.floor : material.stone[r.ink];
+        ctx.fillStyle = '#' + color.toString(16).padStart(6, '0'); ctx.globalAlpha = r.alpha;
+        ctx.fillRect(x + r.x, y + r.y, r.w, r.h);
+      }
+      ctx.globalAlpha = 1;
+      texture.add(i, 0, x, y, 32, 32);
+    }
+    texture.refresh();
+    return name;
+  }
+  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, ids: Object.freeze(ids), variantFor, get, columnSites, columnTexture, damagePattern, damageCellIndex, damageCell, damageTexture });
 })(window);

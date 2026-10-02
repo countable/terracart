@@ -283,6 +283,26 @@ test('building overlay: castle floors and ramparts share the tower material in b
   }
 });
 
+test('building overlay: only ruin floors use the shared damage sheet in both conditions', () => {
+  for (const id of CastleStyles.ids) for (const claimed of [true, false]) {
+    clearTiles();
+    putShapes(0, 0, [rectShape(0, 0, 20, 20, T.BUILDING_LARGE, id)]);
+    const scene = makeScene({ isClaimedKey: () => claimed });
+    const calls = [];
+    scene.buildingGeomGfx.damagePoly = (pts, key, condition, x, y) => {
+      calls.push({ key, condition, x, y }); return true;
+    };
+    BuildingOverlay.draw(scene);
+    assert.eq(calls.length, id === 'ruin' ? 1 : 0);
+    assert.eq(scene.buildingGeomGfx.only('texture').length, id === 'ruin' ? 0 : 1,
+      'ruin replacement includes its paving; other materials keep their existing texture');
+    if (calls.length) {
+      assert.eq(calls[0].key, id); assert.eq(calls[0].condition, claimed);
+      assert.truthy(Number.isFinite(calls[0].x) && Number.isFinite(calls[0].y), 'tile anchor is projected once');
+    }
+  }
+});
+
 test('building overlay: each floor carries its own tier material', () => {
   clearTiles();
   putShapes(0, 0, [

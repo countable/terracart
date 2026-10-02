@@ -273,3 +273,12 @@ targets. Unclaimed masonry retains roughly 80% of restored brightness;
 courtyard floors retain roughly 89%, providing extra contrast against walls.
 Each family has its own dark skull banner: black for Citadel and
 Ruin, grey with a shield for Bastion, and brown with a book for Archive.
+
+The Ruin also has sparse missing paving, fine cracks and small rubble marks,
+with chips and missing sections along its battlements. Damage is seeded and
+cached in the existing floor and wall artwork; it creates no world objects,
+collision changes or animated effects. Restoration changes its palette while
+preserving the damage, and the other castle families keep their intact surfaces.
+Floor damage uses at most eight 96×96 textures (four patterns in two condition
+palettes), lazily baked and shared by all ruins. Tiled floors reuse their
+existing texture pool; polygon floors and wall chips use their existing caches.
