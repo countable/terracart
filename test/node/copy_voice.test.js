@@ -7,12 +7,9 @@
 // lowercase fragments, colon-separated key/value pairs, and raw internal ids
 // printed straight to the screen.
 //
-// Three of those had shipped:
-//   • `occupied: ${blocker}` — a key/value line whose value fell through to
-//     `oo.kind`, so a plot could be refused with "occupied: mineralrock".
-//   • `planted ${item.grows}` — the raw crop id, beside loot toasts that have
-//     resolved names since QC_RULES §4 was written.
-//   • 'bag full' and 'Bag full' — one sentence, two casings, two call sites.
+// Leaks the rules catch: key/value lines like `occupied: ${blocker}` whose
+// value fell through to a raw kind, raw crop ids (`planted ${item.grows}`),
+// and one sentence in two casings ('bag full' / 'Bag full').
 //
 // These pin the rules, not the sentences, so the copy stays free to be
 // reworded and cannot slide back.

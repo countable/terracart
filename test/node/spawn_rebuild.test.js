@@ -1,18 +1,12 @@
 // A REBUILT TILE MUST RUN ITS SPAWN PASS AGAIN.
 //
-// WHAT BROKE. The starter crates vanished a few seconds into a session — "like
-// something loaded over them" — and came back on refresh. What loaded over them
-// was the tile itself: when a tile rasterizes before its Overpass bin arrives,
-// rebuildTileWithBin builds a replacement entry with the real-world trees in it
-// and swaps it into the cache. The replacement inherits the live creatures from
-// the entry it replaces, because their wander positions and tamed state cannot
-// be reconstructed — and app.js was reading exactly that field to decide
-// whether the tile still needed spawning. So the replacement arrived already
-// looking spawned, the pass was skipped, and everything it places that ISN'T
-// creatures was gone with the old entry: the starter crate trail first, plus
-// the buried X, the extra treasure scatter and the fruit trees. On reload the
-// bin is already cached, the tile builds with it first time, no rebuild
-// happens — hence "it comes back after refresh".
+// WHAT BROKE. When a tile rasterizes before its Overpass bin arrives,
+// rebuildTileWithBin swaps in a replacement entry that inherits the live
+// creatures of the one it replaces. app.js read that field to decide whether
+// the tile still needed spawning, so the replacement looked already spawned,
+// the pass was skipped, and everything it places that ISN'T creatures (the
+// starter crate trail, buried X, treasure scatter, fruit trees) vanished until
+// a refresh.
 //
 // THE CONTRACT, and why it takes both files. The spawn gate lives in app.js and
 // the carry-over list lives in worldgen.js, and neither is wrong on its own:
@@ -32,10 +26,9 @@ const gateProps = [...new Set(
 
 // The shipping gate, RUN rather than pattern-matched: the two lines are lifted
 // verbatim and called with a stub `this`, so these tests fail on the behaviour
-// changing and not merely on the spelling. (Driving it this way is what the
-// existing trail tests could not reach — they call _placeStarterTrail directly,
-// which is why "a rebuild lays the same trail again" passed all along while the
-// crates were disappearing: the trail was fine, the call to it was not.)
+// verbatim and called with a stub `this`, so these tests fail on the behaviour
+// changing and not merely on the spelling. (The trail tests call
+// _placeStarterTrail directly, so they passed while the call to it was wrong.)
 const runGate = (entry, depth = 0) => {
   const calls = [];
   const self = {

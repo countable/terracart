@@ -188,11 +188,9 @@ test('walk home: distance decides HOW the return is made, never when it starts',
 });
 
 // ── Underground ───────────────────────────────────────────────────────────
-// Until Sep 2026 the walk home was surface-only, so a stick walk down a cave
-// parked the character that far off the GPS for good: every later fix
-// re-targeted fix + offset and nothing ever bled the offset away. The one real
-// reason to keep it out of the caves was the far snap dropping the body inside
-// solid rock; the placement now carves its landing cell instead.
+// The walk home runs underground too: a cave stick walk would otherwise park
+// the character off the GPS for good. The far snap carves its landing cell so
+// the body never lands inside solid rock.
 
 test('walk home: underground the offset bleeds just as it does on the surface', () => {
   const scene = walkHomeScene(30, { depth: 2, landing: 24 });

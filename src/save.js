@@ -14,8 +14,8 @@
 //
 // Multiple saved games:
 //   A small registry (SAVES_KEY) tracks named slots and which one is active.
-//   Each slot owns its own data key. The menu drives switchSave / createSave / deleteSave; each reloads the page so
-//   the whole scene + in-memory caches re-init cleanly for the new slot.
+//   Each slot owns its own data key. The menu drives switchSave / createSave /
+//   deleteSave; each reloads the page so the scene + in-memory caches re-init.
 //   renameSave relabels a slot without a reload (index.html uses it to derive
 //   a fresh slot's name from the player name entered for multiplayer).
 
@@ -71,10 +71,8 @@ function getActiveSaveId() {
 }
 
 // Placeholder name for a slot created without one. Deletions can leave holes
-// (slots.length + 1 may already be taken), so walk up to the first free "Game N"
-// rather than trusting the count. The "+ New game" flow leans on this default:
-// there is no name prompt any more — the slot starts as "Game N" and the
-// optional multiplayer name christens it (renameSave) later.
+// (slots.length + 1 may already be taken), so walk up to the first free "Game N".
+// The optional multiplayer name christens it later (renameSave).
 function _defaultSaveName(reg) {
   const used = new Set(reg.slots.map(s => s.name));
   let n = reg.slots.length + 1;
@@ -143,10 +141,8 @@ function deleteSave(id) {
   try { localStorage.removeItem(removed.key); } catch {}
   if (reg.slots.length === 0) {
     const nid = _newSaveId();
-    // Start genuinely clean: use a fresh per-slot key (like createSave) and
-    // clear any stale data at it, rather than reusing the bare legacy
-    // SAVE_VERSION_KEY — which could silently resurrect leftover/legacy
-    // progress sitting at that key.
+    // Start genuinely clean: a fresh per-slot key (like createSave), clearing any
+    // stale data at it, so legacy progress cannot be resurrected.
     const nkey = SAVE_VERSION_KEY + '.' + nid;
     try { localStorage.removeItem(nkey); } catch {}
     reg.slots.push({ id: nid, name: 'Game 1', key: nkey, createdAt: Date.now(), lastPlayedAt: Date.now() });
@@ -328,11 +324,10 @@ const SaveSession = Object.freeze({
 });
 window.SaveSession = SaveSession;
 
-// Hard-disable all writes. Used by the menu's "Reset save" path: once
-// localStorage is wiped, the in-memory _pendingSave (and any in-flight
-// persistSave calls between here and location.reload) must NOT make it back
-// to disk — otherwise the pagehide flush rewrites the old save on top of
-// the clean slate and the reset appears to do nothing.
+// Hard-disable all writes (the menu's "Reset save" path): once localStorage is
+// wiped, the in-memory _pendingSave and any persistSave calls before
+// location.reload must NOT reach disk, or the pagehide flush rewrites the old
+// save over the clean slate.
 function disableSave() {
   _savingDisabled = true;
   _pendingSave = null;

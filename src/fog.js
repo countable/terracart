@@ -52,21 +52,10 @@
   // still dark would be off-screen ones.
   const REVEAL_CELLS = 3;
 
-  // ── Why there are no sweep arms any more (Sep 2026) ───────────────────────
-  // A step used to ALSO reveal the row and the column through the player, six
-  // cells to either side — a cross laid over the disc, sized to clear the
-  // viewport edge to edge. That was aimed at a rendering complaint (fog 0.8
-  // stacked on the distance falloff parked a near-black band down the sides of
-  // a phone screen, which read as letterboxing) and it paid for it in the one
-  // currency the feature is made of: the player cleared ground 42 m away, on
-  // both axes, without going anywhere near it. Walking one street opened the
-  // cross-streets, and the revealed region stopped tracking where you had been.
-  //
-  // The reveal is the circle. If the wash at the screen edge reads wrong again,
-  // that is the RAMP's problem to solve where it is drawn — FOG_ALPHA and
-  // FOG_RAMP_A in render.js, tuned against the distance falloff they stack
-  // with — not a reason to hand the player ground they never walked. Widening
-  // the reveal to fix a darkness is how the arms got here.
+  // The reveal is the circle alone, with no row/column sweep arms: arms
+  // cleared ground the player never went near. If the wash at the screen edge
+  // reads wrong, fix the RAMP where it is drawn (FOG_ALPHA and FOG_RAMP_A in
+  // render.js), never by widening the reveal.
 
   // tileKey → Uint8Array bitset, one bit per cell of that tile, row-major.
   let _masks = new Map();

@@ -183,9 +183,8 @@
     } finally { Object.assign(document, original); }
   }));
 
-  // Every drink method must actually run: the Potion of Reach threw a
-  // ReferenceError (an undeclared `opts`) on every sip until Oct 2026, which
-  // no test caught because none called it.
+  // Every drink method must actually run (the Potion of Reach once threw a
+  // ReferenceError on every sip because no test called it).
   test('player potions: the Potion of Reach is drinkable — the timer is set and one flask spent', () => {
     clock(set => {
       set(T0);

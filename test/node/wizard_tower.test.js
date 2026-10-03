@@ -1,7 +1,5 @@
 // The wizard tower's WIRING in app.js (the offers themselves are src/wizard.js,
-// pinned for real in wizard.test.js). Until Sep 2026 the tower sold one strict
-// ladder — Inner Light, Full Measure, Keen Eye — out of app.js's own
-// wizardLadder, paid in Discovery badges from the bag. Now:
+// pinned for real in wizard.test.js):
 //
 //   • presentWizardOffer ALWAYS shows Wizard.offers — two track cards, or the
 //     four callings on the third purchase — each with its icon, what it

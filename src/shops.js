@@ -20,20 +20,14 @@
 //   Shops.shopInk(house)          → signage lettering colour or null
 //   Shops.roleLabel(role, seed, goods) → the player-facing NAME of a shop role
 //
-// shopTint() and shopLabel() used to live here too, but render.js deliberately
-// reimplements both rather than calling them (see the comments by
-// _houseSignText / the tint block in render.js): both read the OSM street
-// ADDRESS digit, so a plain residential house whose address merely ended in
-// the wrong digit got painted/labelled as a shop it wasn't — restore-order
-// roles fixed that by keying off the house's resolved role instead. Deleted
-// along with the now-unreferenced `label`/`tint` SHOP_CONFIG fields.
+// There is no shopTint() / shopLabel(): the OSM address digit would paint a
+// plain house as a shop it isn't, so render.js keys off the house's resolved
+// role instead (see _houseSignText and the tint block there).
 
 (function (global) {
-  // Per-type config — adding a new shop type means one entry here, plus
-  // wiring into shopInteract() for buy-side behaviour. Render.js reads this
-  // table directly.
-  //   ink: lettering colour painted on the shop's wood sign — picked to
-  //        read on the SHOP_INK_BG dark-wood background (see render.js)
+  // Per-type config — a new shop type is one entry here plus wiring into
+  // shopInteract(). ink: lettering colour on the wood sign, picked to read on
+  // the SHOP_INK_BG dark-wood background (render.js).
   const SHOP_CONFIG = {
     blacksmith: { ink: '#d8d8d8' },  // steel
     market:     { ink: '#ff7a6a' },  // red
@@ -43,26 +37,20 @@
   // ── What the player calls each shop ───────────────────────────────────────
   // ONE table for every player-facing name: the map sign (render.js
   // _houseSignText), the restoration card (app.js shopInteract) and the offer
-  // modal's flavour line (app.js buildingFlavorTitle) all read it, so a rename
-  // lands in all three at once instead of drifting between them.
+  // modal's flavour line (app.js buildingFlavorTitle).
   //
-  // The themed storefront (role key 'market') is named for the LINE IT SELLS,
-  // never for the trade idiom — "Potion Shop", never "Market" — off its theme
-  // (THEME_LABEL, resolved by themeAt). Category, not item: the specific stock
-  // re-rolls every hour and on a paid re-roll, so a per-item name would rewrite
-  // the sign every time the player looked away.
+  // The themed storefront (role key 'market') is named for the LINE IT SELLS
+  // ("Potion Shop", never "Market") off its theme (THEME_LABEL, resolved by
+  // themeAt). Category, not item: stock re-rolls hourly, so a per-item name
+  // would rewrite the sign constantly.
   //
-  // The trader is named for the GOODS IT OFFERS, never for its street number:
-  // "Rockfruit Trader", "Potato Seed Trader". Its barter is one item at a time
-  // (app.js peekOrBuildTraderOffer), so unlike the produce shop the specific
-  // item IS the identity — the sign is the advert for the deal inside, and it
-  // rotates exactly when the offer does (the hourly shop bucket, a purchase or
-  // a paid re-roll). Item, not category: the address numeral it replaced told
-  // the player nothing about whether the walk over was worth it. With no offer
-  // to name (no house id, an empty catalogue) it falls back to a bare "Trader".
+  // The trader is named for the GOODS IT OFFERS ("Rockfruit Trader"). Its
+  // barter is one item at a time (app.js peekOrBuildTraderOffer), so the item
+  // IS the identity, and the sign rotates exactly when the offer does. With no
+  // offer to name it falls back to a bare "Trader".
   //
-  // The role KEY stays 'market'. It is persisted in save.restoredHouses and
-  // is read back by shopOrder, so renaming it would strand every save.
+  // The role KEY stays 'market': it is persisted in save.restoredHouses and
+  // read back by shopOrder.
   const ROLE_LABEL = {
     blacksmith: 'Blacksmith',
     market:     'Shop',          // a themed shop with no theme to name (see THEME_LABEL)
@@ -92,8 +80,6 @@
   // Resolve a house to its SHOP_CONFIG entry (or null for non-shops).
   const shopConfig = (house) => SHOP_CONFIG[shopType(house)] ?? null;
 
-  // Lettering colour for the shop's wood-signage label. Picked to read on
-  // SHOP_INK_BG (warm dark wood — see the label block in render.js).
   const shopInk = (house) => shopConfig(house)?.ink ?? null;
 
   // ── THEMED SHOPS ──────────────────────────────────────────────────────────
@@ -105,9 +91,7 @@
   // after the sixth is a better version of one they already know.
   //
   // The order is the save's own record (save.restoredHouses keeps insertion
-  // order, the delivery.js houseOrder idiom), so a restored shop keeps its
-  // line for good and a save that restored its shops before themes existed is
-  // converted in place, in the order it restored them.
+  // order, the delivery.js houseOrder idiom), so a restored shop keeps its line.
   //
   // Each visit sells ONE random item from the line at the shop's tier — the
   // nearest tier the line actually stocks (ties go LOWER), since no line has
@@ -141,8 +125,7 @@
     ore:    () => ['coal', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar',
                    'frost_bar', 'sapphire', 'ruby', 'emerald', 'diamond'],
     pet:    () => ['chicken', 'dog', 'rabbit', 'cat', 'butterfly', 'crow', 'deer', 'cow'],
-    // The bookshop's line: the Book, and only the Book (no other line stocks it), at the price ladder
-    // (shops_math.js listPrice — it climbs with every one bought).
+    // The bookshop's line: only the Book, at the price ladder (shops_math.js listPrice).
     book:   () => ['book'],
   };
 
@@ -173,23 +156,19 @@
     return fnv1a(String(house.id) + '|theme') % THEMES.length;
   }
 
-  // THE BOOKSHOP (Oct 2026): the market the player picked the Book Shop card
-  // for, on offer from the STORY_RESTORES.bookshop-th restoration (houses.js
-  // BUILD_OPTIONS / restoreAs stamps save.bookshopId — the book club's
-  // hard-won backup supply). It sells the Book line, and it stands OUTSIDE the cycle above:
-  // shopOrder skips it, so the markets after it keep the lines they would
-  // have had. Every themed-shop reader goes through lineFor, never themeAt
-  // directly, so the one override lives here.
+  // THE BOOKSHOP: the market the player picked the Book Shop card for, on offer
+  // from the STORY_RESTORES.bookshop-th restoration (houses.js restoreAs stamps
+  // save.bookshopId). It sells the Book line and stands OUTSIDE the cycle above:
+  // shopOrder skips it, so later markets keep the lines they would have had.
+  // Every themed-shop reader goes through lineFor, never themeAt directly.
   function isBookshop(save, houseId) {
     return !!(save && save.bookshopId != null && houseId != null && String(houseId) === String(save.bookshopId));
   }
-  // THE LINE IS THE PLAYER'S PICK (Oct 2026): a market restored off the
-  // Shop cards carries its chosen line in save.shopLines[id] (houses.js
-  // restoreAs); its TIER is one more than the markets before it on the same
-  // line, so the second Seed Shop raised is the T2 one. A market with no
-  // stored line (restored before the cards existed) keeps the cycle's
-  // answer, themeAt(shopOrder), unchanged. One walk over the ledger resolves
-  // every market's line and tier in restore order (marketLines).
+  // THE LINE IS THE PLAYER'S PICK: a market restored off the Shop cards carries
+  // its chosen line in save.shopLines[id] (houses.js restoreAs); its TIER is one
+  // more than the markets before it on the same line. A market with no stored
+  // line keeps the cycle's answer, themeAt(shopOrder). One walk over the ledger
+  // resolves every market's line and tier in restore order (marketLines).
   function marketLines(save) {
     const rh = (save && save.restoredHouses) || {};
     const stored = (save && save.shopLines) || {};
@@ -220,9 +199,8 @@
   function lineTierFor(save, theme) {
     return 1 + marketLines(save).filter((r) => r.theme === theme).length;
   }
-  // The line the next shop restored off the cycle would sell — the one Shop
-  // card before the pairs begin (marketOffers). The same count shopOrder
-  // would hand that shop: every restored market but the bookshop.
+  // The line the next shop would sell: the one Shop card before the pairs begin
+  // (marketOffers); counts every restored market but the bookshop.
   function nextLine(save) {
     return themeAt(marketLines(save).length);
   }
@@ -250,7 +228,7 @@
     return (it && it.baseTier) ?? ((typeof BASE_TIER !== 'undefined' && BASE_TIER[id]) || 1);
   }
 
-  // ── SMITHY AND TRADER TIERS (owner, Oct 2026) ─────────────────────────────
+  // ── SMITHY AND TRADER TIERS ───────────────────────────────────────────────
   // A blacksmith and a trader carry a tier the way a shop carries its line's
   // tier, and both come off the restoration ledger, never a stored number:
   //   SMITHY  — one per tier. The Nth blacksmith raised is tier N (its place

@@ -91,9 +91,7 @@ const ASSETS = {
   // Spring Crops sheet (224x128, 14x8 of 16x16 frames). Used by crops whose
   // art lives here (e.g. potato) — see CROP_SPRITE override below.
   springcrops: { kind: 'spritesheet', path: 'assets/Objects/Approved/springcrops.png',  frameWidth: 16, frameHeight: 16 },
-  // The legacy 16px cobble sheet. The game draws nothing from it any more
-  // (Oct 2026: the dark street lamp is baked at runtime from
-  // RoadOverlay.paintBrokenLamp, like the lit one); it stays loaded for the
+  // The legacy 16px cobble sheet. The game draws nothing from it; it stays loaded for the
   // art review tools (tools/world-art.js, tools/preview_map_art.py) that
   // still read its frames.
   cobble:      { kind: 'spritesheet', path: 'assets/Objects/Road copiar.png',   frameWidth: 16, frameHeight: 16 },

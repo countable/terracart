@@ -164,7 +164,7 @@ function msToNextUtcDay(now = Date.now()) {
 // === Shared hashing / seeded RNG ============================================
 // One FNV-1a implementation for every id-derived hash in the game (the shiny
 // roll below, the shop bucket offset, the delivery day-seed + theme pick, and
-// the sandbox flora placer each used to hand-roll this same 32-bit loop —
+// the sandbox flora placer all share this 32-bit loop —
 // same seed 2166136261 / prime 16777619 everywhere, differing only in what
 // string gets salted in and what the caller does with the final uint32).
 // Callers that need [0,1) divide by 4294967296 themselves; callers that need

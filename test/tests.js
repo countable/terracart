@@ -41,7 +41,6 @@ test('picking a wildplant within reach adds to inventory and marks picked', (sce
     w.crop !== 'rockfruit' &&
     Math.hypot(w.x - scene.startWorldM.x, w.y - scene.startWorldM.y) < 100);
   assert.truthy(wp, 'found a starter non-rockfruit wildplant');
-  // Stand right on top of it.
   teleport(scene, wp.x, wp.y);
   const before = invCount(scene, wp.crop);
   tapWorld(scene, wp.x, wp.y);
@@ -157,11 +156,8 @@ test('reach shape follows cellInReach circle; origin is the FEET cell', (scene) 
     bodyCell = absCellCenterMeters(scene, cellIX, cellIY);
   }
   if (!bodyCell) { scene.save.reachUpgrades = _savedUpgrades; scene.save.energy = _savedEnergy; return; }
-  // The reach is centred on the FEET cell. feetOffsetM (~0.44 cell) now keeps
-  // the feet in the SAME cell as the body when standing at the cell centre, so
-  // the feet cell == the body cell and offsets map straight through. (It was
-  // +1 row south back when feetOffsetM was 0.75 cell and overshot into the
-  // next cell — the bug that left the reach centred a cell below the player.)
+  // The reach is centred on the FEET cell; feetOffsetM keeps the feet in the
+  // SAME cell as the body at the cell centre, so offsets map straight through.
   const FEET_ROW_OFFSET = 0;
 
   const origFlash = scene.flash;
@@ -181,8 +177,7 @@ test('reach shape follows cellInReach circle; origin is the FEET cell', (scene) 
       tapWorld(scene,
         bodyCell.x + dxCells * scene.cellM,
         bodyCell.y + (dyCells + FEET_ROW_OFFSET) * scene.cellM);
-      // Flash text was reflavoured from "too far" → "Just out of reach.";
-      // match the new copy (both forms work in case of future churn).
+      // Match the current flash copy (both forms work in case of churn).
       return flashes.some(m => typeof m === 'string' && /too far|out of reach/i.test(m));
     };
 
@@ -246,13 +241,10 @@ test('tapping an already-opened chest is a no-op', (scene) => {
 });
 
 test('every loaded chest is openable — per-cell dedupe, not one collapsed key', (scene) => {
-  // Regression: the tap-side chest dedupe hashed each chest by `this.cellM`,
-  // but these handlers are module-level arrow fns so `this` is the global
-  // (window), making `this.cellM` undefined and every key "NaN_NaN". All
-  // loaded chests collapsed to a single dedupe key, so only the first chest
-  // iterated stayed tappable — every other chest fell through to the till
-  // handler and flashed "occupied: chest" instead of opening. Verify several
-  // chests in DISTINCT cells each open.
+  // Regression: the tap-side chest dedupe hashed each chest by `this.cellM`, but
+  // these handlers are module-level arrow fns so it was undefined and every key
+  // "NaN_NaN": only the first chest stayed tappable. Verify several chests in
+  // DISTINCT cells each open.
   const cellM = scene.cellM;
   const cellKey = (o) => Math.floor(o.x / cellM) + '_' + Math.floor(o.y / cellM);
   const seen = new Set();
@@ -295,7 +287,6 @@ test('cellAt returns a numeric terrain type for every loaded cell', (scene) => {
   const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
   const tileEdgeM = startTile.tileEdgeM;
   const cellM = scene.cellM;
-  // Sample 50 random cells in the start tile.
   let coverage = 0;
   for (let i = 0; i < 50; i++) {
     const cx = Math.floor(Math.random() * scene.cellsPerTile);
@@ -360,11 +351,9 @@ test('tilling an empty grass cell adds it to tilledSet', (scene) => {
 });
 
 test('tapping a tilled cell with no seed leaves the soil alone', (scene) => {
-  // This used to un-till. It fired on exactly the tap a beginner makes — break
-  // ground, tap it to ask what now — and handed back the plot they had just
-  // paid energy for. Reuse the cell tilled in the previous test. Convert the
-  // saved key (abs tile-pixel-basis cell index) back to world meters via the
-  // scene helper.
+  // Tapping a tilled cell again must not un-till it. Reuse the cell tilled in
+  // the previous test: convert the saved key (abs tile-pixel-basis cell index)
+  // back to world meters via the scene helper.
   assert.gt(scene.tilledSet.size, 0, 'precondition: at least one tilled cell');
   const cellKey = [...scene.tilledSet][0];
   const [cellIX, cellIY] = cellKey.split('_').map(Number);
@@ -378,7 +367,6 @@ test('tapping a tilled cell with no seed leaves the soil alone', (scene) => {
 test('water cells are blocked from tilling', (scene) => {
   scene.save.tilled = [];
   scene.tilledSet = new Set();
-  // Find a water cell.
   let water = null;
   const startTile = WorldGen.tileCache.get(`${WorldGen.Z}/2754/5566`);
   for (let i = 0; i < startTile.grid.length && !water; i++) {
@@ -525,10 +513,8 @@ test('REG #5: watered crop ready to mature advances but does NOT harvest in one 
     stage: MAX_GROWTH_STAGE - 1, watered_t: oneHourAgo,
   });
   scene.tilledSet.add(`${target.cellIX}_${target.cellIY}`);
-  // Tap → should advance to MAX and STOP, not harvest.
   const before = (scene.save.inv || []).length;
   tapWorld(scene, target.x, target.y);
-  // After tap: planted entry should still exist; stage advanced to MAX.
   const entry = scene.save.planted.find(p =>
     Math.abs(p.x - target.x) < 0.1 && Math.abs(p.y - target.y) < 0.1);
   assert.truthy(entry, 'plant still present (not harvested)');
@@ -541,10 +527,8 @@ test('REG #5: watered crop ready to mature advances but does NOT harvest in one 
 test('REG #8: looted-chest duplicate doesn\'t hide unlooted sibling from tap', (scene) => {
   scene.save.opened = [];
   scene.save.inv = [];
-  // Find any chest. Synthesize a looted duplicate 5m offset with a different id.
   const real = findObject(o => o.kind === 'chest' && o.poiClass);
   assert.truthy(real, 'have a real chest');
-  // Inject a looted ghost duplicate into the same tile's objects list.
   const tile = [...WorldGen.tileCache.values()].find(e => (e.objects || []).includes(real));
   const ghostId = `c_ghost_${Date.now()}`;
   const ghost = { kind: 'chest', x: real.x + 5, y: real.y + 5, id: ghostId,
@@ -559,7 +543,6 @@ test('REG #8: looted-chest duplicate doesn\'t hide unlooted sibling from tap', (
     teleport(scene, real.x, real.y - 2);
     const invBefore = (scene.save.inv || []).length;
     tapWorld(scene, real.x, real.y);
-    // Real chest should now be opened (loot added).
     assert.truthy(scene.save.opened.includes(real.id), 'real chest got opened, not ghost');
     assert.gt((scene.save.inv || []).length, invBefore, 'loot was added');
   } finally {
@@ -680,13 +663,10 @@ test('feeding longgrass to a chicken yields an egg without catching', (scene) =>
   scene.save.selSlot = 0;
   teleport(scene, target.x, target.y - 1);
   tapWorld(scene, target.x, target.y);
-  // Longgrass consumed by 1.
   const lg = scene.save.inv.find(s => s && s.id === 'longgrass');
   assert.eq(lg ? lg.count : 0, 1, 'one longgrass consumed');
-  // Egg added.
   const eggStack = scene.save.inv.find(s => s && s.id === 'egg');
   assert.truthy(eggStack && eggStack.count >= 1, 'egg added to inventory');
-  // Chicken NOT caught — still wandering for next feed.
   assert.falsy(scene.save.caught.includes(target.id), 'chicken stays in world');
 });
 
@@ -942,9 +922,7 @@ test('REG #15: sell modal succeeds even if the stack moved to a new slot index',
   scene.shopInteract(0, 0, house);
   const modal = document.getElementById('offer-modal');
   assert.truthy(modal, 'modal opened');
-  // Simulate inv shift: spend the first stack.
   scene.save.inv.splice(0, 1);   // potato_seed now at index 0
-  // Click Sell.
   const sellBtn = [...modal.querySelectorAll('button')].filter(b => b.textContent === 'Sell').pop();
   assert.truthy(sellBtn, 'Sell button present');
   sellBtn.click();
@@ -1138,29 +1116,20 @@ test('eating rainberry restores energy + waters nearby crops + shows message mod
   scene.save.maxEnergy = 100;
   scene.save.planted = [];
   const sx = scene.startWorldM.x, sy = scene.startWorldM.y;
-  // Crops within range (unwatered).
   scene.save.planted.push({ x: sx + 5,  y: sy,     crop: 'potato', stage: 0, watered_t: 0 });
   scene.save.planted.push({ x: sx - 5,  y: sy + 8, crop: 'potato', stage: 0, watered_t: 0 });
   scene.save.planted.push({ x: sx + 12, y: sy - 7, crop: 'potato', stage: 0, watered_t: 0 });
-  // Out of range (unwatered).
   scene.save.planted.push({ x: sx + 40, y: sy,     crop: 'potato', stage: 0, watered_t: 0 });
   teleport(scene, sx, sy);
-  // Select rainberry and eat.
   scene.save.inv = [{ id: 'rainberry', count: 2 }];
   scene.save.selSlot = 0;
   scene.save.eatReadyAt = 0;
   assert.truthy(scene.eatSelected(), 'rainberry was eaten');
   assert.eq(scene.save.energy, 10 + FOOD_ENERGY.rainberry, 'energy bumped by rainberry restore');
   assert.eq(scene.save.inv[0].count, 1, 'rainberry stack decremented');
-  // Three crops near should now be watered (have watered_t > 0).
   const wateredNear = scene.save.planted.filter((p, i) => i < 3 && p.watered_t).length;
   assert.eq(wateredNear, 3, 'all three nearby crops watered');
-  // Distant one should remain unwatered.
   assert.eq(scene.save.planted[3].watered_t, 0, 'distant crop NOT watered');
-  // (Previously asserted a #message-modal was shown — the eat flow now
-  // uses scene.flashLoot for the energy-gain pop instead of a dismiss-
-  // modal, since eating is a frequent action. The energy/water/inv
-  // assertions above cover the actual side-effects.)
 });
 
 test('eating pairy arms chest compass for 5 minutes toward nearest unopened chest', (scene) => {
@@ -1168,7 +1137,6 @@ test('eating pairy arms chest compass for 5 minutes toward nearest unopened ches
   scene.save.maxEnergy = 100;
   scene.save.opened = [];
   scene.pairyCompass = null;
-  // Find any chest as a target.
   const chest = findObject(o => o.kind === 'chest');
   assert.truthy(chest, 'a chest exists somewhere');
   // Stand near it (but not on top, so it's still unopened).
@@ -2039,14 +2007,6 @@ test('fishing: bare-handed tap water starts a 9s cast queue (no rod needed)', (s
   }
 });
 
-// (Removed: "fishing handler: with rod equipped catches a fish".)
-// The fishing flow now rolls a tier-scaled "nothing biting" skunk first —
-// 50% at T1, down to 20% at T7 — so a single deterministic tap can return
-// nothing even with a T7 rod (20% miss). A balanced version of this test
-// would need to pin Math.random and is brittle to future weight tweaks;
-// the boot-junk / relic-jackpot / per-tier weight maths are covered by
-// the directly-evaluated `fishing handler tap water without rod flashes`
-// + the explicit fish-weight unit tests.
 
 // Creatures are now DEFEATED via a work queue (slime/crow/deer): tapping
 // starts the wheel; finishing it removes the creature + grants its drop.
@@ -2771,10 +2731,8 @@ test('a wild crow beside a planted crop leaves it alone (the deer is the crop ra
   const crop = { x: pWX, y: pWY, id: 'rainberry', stage: 0, t: 0 };
   scene.save.planted.push(crop);
   const before = scene.save.planted.length;
-  // Crow co-located with the crop. Until Sep 2026 _wildCrowTick armed a
-  // destroy timer on landing here and ate the crop two perch cycles later;
-  // the owner moved crop-raiding to the deer (wanderCreatures `raidsCrops`),
-  // so a crow on the bed is just a crow on the bed.
+  // Crow co-located with the crop: a crow on the bed is just a crow on the bed
+  // (crop-raiding belongs to the deer, wanderCreatures `raidsCrops`).
   const crow = { x: pWX, y: pWY, kind: 'crow', id: 'eat_crow_' + Date.now() };
   entry.creatures.push(crow);
   try {
@@ -2789,10 +2747,9 @@ test('a wild crow beside a planted crop leaves it alone (the deer is the crop ra
 });
 
 test('REG: sapphire/ruby/emerald icons resolve to Gemstones.png (not Crops.png berry)', () => {
-  // The SHEETS table in app.js used to be an if/else that fell through to
-  // Crops.png for any unknown sheet — sapphire {sheet:'gems', frame:4}
-  // rendered as a rainberry bush. Guard against the regression by asserting
-  // the catalog entry routes to the gems sheet.
+  // Regression: an unknown sheet fell through to Crops.png (sapphire
+  // {sheet:'gems', frame:4} rendered as a rainberry bush). Assert the catalog
+  // entry routes to the gems sheet.
   if (typeof inventoryIconSource !== 'function') return;
   for (const id of ['sapphire', 'ruby', 'emerald']) {
     const src = inventoryIconSource(id);

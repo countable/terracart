@@ -278,9 +278,7 @@ const Multiplayer = (function () {
   // "Near" = heard from recently AND within PEER_NEAR_M. The relay only
   // forwards moves within INTEREST_PX, so a peer that walked out of range
   // goes quiet — it stays in the roster (its next frame in range revives it).
-  // Recency alone used to be the whole test, which put "1 near" on the HUD
-  // chip for a player half a suburb away; now the chip, the edge dot and the
-  // ping arrow all agree on the same 300 m.
+  // The chip, the edge dot and the ping arrow all agree on the same distance.
   const isNear = (p, now) => now - p.seenAt < PEER_STALE_MS && peerDistM(p) <= PEER_NEAR_M;
   function nearCount(now) { let n = 0; for (const p of S.peers.values()) if (isNear(p, now)) n++; return n; }
   function clearPeers() { for (const id of [...S.peers.keys()]) dropPeer(id); }

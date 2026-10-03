@@ -276,9 +276,7 @@
   // A shore-sand cell must never come out of ANY zone/fringe pass as a
   // zone's ground: not the ragged HALO (Zones.haloSteps), not the PARK FRINGE
   // band (Zones.fringeSteps), not the full placement union (ZoneCoverage.
-  // paintSteps — this is where the bug lived: it painted every walkable,
-  // non-road/building/pier cell, T.SAND included, which read as ~3/4 of
-  // Vancouver's dry beach wearing grove ground). Runs the real pipeline
+  // paintSteps, which must skip T.SAND). Runs the real pipeline
   // order from worldgen.js rasterizeTileSteps (halo, then fringe, then
   // coverage) over a tile scattered with sand under a full-tile park/anchor,
   // so every pass gets a real chance to touch it.

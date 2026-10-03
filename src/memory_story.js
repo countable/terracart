@@ -13,11 +13,8 @@ const MemoryStory = (() => {
     body: 'You knock on the tower door. No one answers.' };
   // THE WARDEN'S FIRST WORDS, ON A TAP. This page is what the safe area's
   // warden says the first time the player talks to her, whenever she arrives
-  // (npcDialogue below; save.memoryStory.wardenMet). It
-  // used to be pushed onto the pending queue by the warden's own seating and
-  // splashed over the map on the first morning; it never is now (Sep 2026,
-  // owner's call): the player walks up to the one neighbour on screen and
-  // taps them.
+  // (npcDialogue below; save.memoryStory.wardenMet). Never a splash over the map
+  // (owner's call, Sep 2026): the player walks up to the neighbour and taps.
   // NEIGHBOUR COPY (CLAUDE.md, Dialogs): spoken words in curly quotes, an
   // action in <em> on its own line, the body HTML; a talk that needs two
   // panels is an ARRAY of pages (NPC.dialogue shows them with "Next"). The

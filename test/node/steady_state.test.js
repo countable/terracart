@@ -1,11 +1,9 @@
 // ── Steady state: what a step costs while nothing is changing ─────────────
 //
 // A GPS walker spends most of a session standing still or strolling, with
-// every tile loaded. The Sep 2026 phone profile read a still step costing as
-// much as a moving one — per-step work whose answer only moves on a crossing,
-// a claim or the clock. Each rule below keeps one such answer derived once
-// and re-read, and each is pinned where it could quietly regress into a
-// per-step walk again. (The lightmap's own gate is still_frames.test.js.)
+// every tile loaded. Each rule below keeps one answer (which only moves on a
+// crossing, a claim or the clock) derived once and re-read, and pins it
+// against regressing into a per-step walk. (The lightmap's own gate is still_frames.test.js.)
 
 (function () {
 

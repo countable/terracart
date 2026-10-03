@@ -519,9 +519,7 @@ test('particles: a crop reaching its next stage bursts on every path that grows 
 });
 
 test('particles: watering a crop says so and sprinkles the cell', () => {
-  // The tap on a dry plant used to flash only the stage readout — the same
-  // line an already-watered plant gives — with no burst, so nothing showed
-  // the watering had happened. Now it names the action like till / plant /
+  // The tap on a dry plant names the action like till / plant /
   // harvest do, says HOW when there is no can (the only hint one exists), and
   // throws the water burst on the cell, before the jump's sprout burst.
   const inter = INTERACT_JS_SRC;

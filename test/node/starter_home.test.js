@@ -110,10 +110,9 @@ test('starter home: an untameable shiny tree is not counted as provision', () =>
 });
 
 test('starter home: a fruit tree is neither a tree to chop nor one to tame', () => {
-  // A fruit tree is never chopped — its only interaction is the pick, which
-  // hands out the item named by `species`. Taming it used to stamp 'pine' on
-  // it (not an item), so picking an apple tree near spawn flashed "harvested
-  // pine" and gave nothing. It must be scenery to this audit, whatever it is.
+  // A fruit tree is never chopped; its only interaction is the pick, which
+  // hands out the item named by `species`. It must be scenery to this audit
+  // (taming it once stamped 'pine' on it, which is not an item).
   const wild = shAt(12, { kind: 'fruittree', species: 'apple', wild: true, id: 'ft_w' });
   const sapling = shAt(12, { kind: 'fruittree', species: 'peach', planted: true, id: 'ft_p' });
   for (const ft of [wild, sapling]) {
@@ -279,10 +278,8 @@ test('starter home: the pocket sits inside the ring, and both are non-empty', ()
 // ── The ring has to be ON SCREEN ─────────────────────────────────────────
 // The bug this guards: the pocket was cleared to 10 cells and the ring seated
 // at 11..16, but the viewport is VIEW_CELLS (11) across with the player in the
-// middle of it — 5 cells of sight in every direction. So the whole ring stood
-// two screens out, past HOME_REVEAL_CELLS as well, and a new save opened on
-// bald ground running off every edge of the display. The trees were in the
-// tile and correct in every unit test; no player ever saw one.
+// middle: 5 cells of sight in every direction. The ring stood two screens
+// out, so a new save opened on bald ground.
 //
 // The rendered range is offsets -6..+6 (render.js draws a one-cell halo past
 // the visible 11), so a ring item at Chebyshev 6 is already at the frame edge.

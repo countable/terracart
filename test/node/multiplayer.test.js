@@ -48,8 +48,7 @@ test('peer roster batches the near count and shares feet-based world ordering', 
     const mPerPx = sc.mPerPx;
     Object.defineProperty(sc, 'mPerPx', { get() { metreScaleReads++; return mPerPx; } });
     const before = paints;
-    // Before batching, this roster made 101 HUD writes and 5,050 nearCount
-    // visits (10,100 metre-scale reads). Now it makes one pass over 100 peers.
+    // Batched: one pass over 100 peers (not 101 HUD writes / 5,050 nearCount visits).
     FakeWebSocket.last.onmessage({ data: JSON.stringify({ t: 'welcome', id: 1, peers }) });
     assert.eq(paints - before, 1);
     assert.eq(metreScaleReads, 200);

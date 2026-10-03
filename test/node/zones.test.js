@@ -466,7 +466,7 @@ function checkSeam(tag, A, Bt, gx, gy, label) {
     }
   }
   // The chest is the owner's: stamped there. No zone holds a garrison — the
-  // tar yard's fire slimes are gone (an oil-stained lot, Sep 2026).
+  // tar yard is an oil-stained lot, not a garrison.
   assert.eq(a.chests[0].zoneNexus, ra.kind, `${label}: the owner stamps its chest`);
   assert.eq(a.res.lairs.length + b.res.lairs.length, 0, `${label}: no garrison on either side`);
   if (ra.kind === 'grove') {

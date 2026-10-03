@@ -2,13 +2,8 @@
 // (src/sprite_layout.js › CREATURE_BEHAVIOUR, read by app.js's wander loop and
 // kill payout, interact.js's tap handler and render.js's draw pass).
 //
-// Per-kind creature GEOMETRY has been one table since CREATURE_ART landed; per-
-// kind BEHAVIOUR was a chain of kind literals spread over three files — a
-// nine-name OR-chain for what wanders, a pair of prey Sets in app.js, a
-// HUNT_KINDS set in interact.js, a crow/deer scarecrow test, a crow/deer drop
-// ternary, a cow/chicken produce ternary written out twice. Each of those was a
-// place a kind had to be REMEMBERED, and a new kind had to be remembered in all
-// of them at once.
+// Per-kind creature GEOMETRY is one table (CREATURE_ART); BEHAVIOUR is too, so
+// a new kind is a row rather than a literal to remember in several files.
 //
 // What is pinned here is the contract the table has to keep for those readers:
 // that every kind the renderer draws has a row, that a GIANT inherits its base

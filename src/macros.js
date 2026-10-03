@@ -24,8 +24,7 @@
 // counter, like the market stall they share their dialog with (app.js
 // _presentStallOffer — one price lane, ShopsMath.standPrice).
 //
-// THE ECONOMY GOAL (Sep 2026): these POIs used to be free chests, and the
-// commonest of them injected the most coin. So a macro either SELLS at the
+// THE ECONOMY GOAL: a macro either SELLS at the
 // stall price, charges for a service, or pays in something that is not coin
 // (the curio hall's memories). The chapel's daily roll and the guildhall's
 // bounty (a fight, paid by the kill lane plus a matched wage) are the only
@@ -293,8 +292,7 @@
   }
 
   // ── SCRIPTORIUM: a book counter ───────────────────────────────────────────
-  // A plain stall (no free page any more — it was a free daily Book read,
-  // i.e. a Book's worth of value a day per scriptorium). It sells the Book and
+  // A plain stall (no free daily page). It sells the Book and
   // the one other scholarly thing the game has, a Torch to read by. Priced by
   // stallPrice like every counter; no gate, no cooldown.
   const SCRIPTORIUM_BOOK = 'book';

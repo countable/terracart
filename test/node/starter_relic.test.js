@@ -274,9 +274,8 @@
       _carveStarterPlot() {},
       _provisionStarterHome() {},
       _scatterStarterStash() {},
-      // The fog lift is NOT stubbed — it is the real method. Fog of war hid
-      // this entire trail when it shipped, so "no crate is laid under fog" is
-      // a property of the trail, checked below against the real seater.
+      // The fog lift is NOT stubbed: it is the real method, since "no crate is
+      // laid under fog" is a property of the trail, checked below.
       _revealStarterTrail: revealStarterTrail,
       depth: 0,
     }, over));
@@ -294,10 +293,8 @@
 
   test('starter trail: the clearing stops where the starter ring starts', () => {
     // The clearing pass and the starter-home audit describe the SAME pocket,
-    // so CLEAR_R reads HomeArea.POCKET_CELLS rather than restating it. When
-    // the two drifted apart — a flat CLEAR_R of 10 against a ring that began
-    // at 11 — the strip reached a full screen further than the player can see
-    // and swept the ground the ring was supposed to be seen against.
+    // so CLEAR_R reads HomeArea.POCKET_CELLS rather than restating it (a drifted
+    // flat CLEAR_R once swept ground the ring was supposed to be seen against).
     const entry = srEntry();
     // One anonymous procedural tree per radius, out past the ring's inner edge.
     for (let d = 2; d <= HomeArea.RING_MIN_CELLS + 3; d++) {
@@ -327,8 +324,7 @@
     // the inventory starts empty. So the nearest crate — the one step 1 sends
     // the player to, and the only one they are sure to have opened by step 3 —
     // has to be the one with a seed in it. Wood is step 4's, and rides at the
-    // far end. It shipped the other way round once: follow the chip exactly and
-    // "select a seed from your bag" met an empty bag.
+    // far end.
     const { crates } = srTrail(srEntry());
     const carried = crates.map(c => c.fixedLoot.id);
     assert.eq(carried.length, 4, 'four payloads');

@@ -9,7 +9,7 @@
 //      so they're safe to cache forever. Strategy: cache-first with network
 //      fallback. This makes a visited region playable offline.
 
-const SHELL_VERSION = 'shell-8986a571';
+const SHELL_VERSION = 'shell-efd95f0f';
 const TILE_CACHE    = 'tiles-v1';
 // How old a cached tile may get before it is refreshed IN THE BACKGROUND. It
 // is never an expiry: a stale tile is still served, and a failed refresh keeps
@@ -17,14 +17,11 @@ const TILE_CACHE    = 'tiles-v1';
 // moves, and re-fetching costs the player data.
 const TILE_REFRESH_MS = 30 * 24 * 60 * 60 * 1000;   // 30 days
 
-// The non-script shell. The SCRIPTS are not listed here on purpose — they're
+// The non-script shell. The SCRIPTS are not listed here on purpose: they're
 // read out of index.html at install time (see scriptUrlsFromIndex), because a
-// hand-maintained list drifts: this one once named 6 of the ~25 modules the
-// page loads, app.js among them and save.js not, which is exactly how a boot
-// could end up with the app but not its save layer ("loadSave is not defined").
-// That includes vendor/phaser.js — it is a same-origin <script src> like the
-// rest, so the page scan already covers it (tools/shell_audit.js fails on any
-// .js hand-listed here).
+// hand-maintained list drifts and a boot could end up with the app but not its
+// save layer. That includes vendor/phaser.js (tools/shell_audit.js fails on
+// any .js hand-listed here).
 const SHELL_ASSETS = [
   './',
   './index.html',
@@ -75,7 +72,6 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
-// Helper: is this request an OpenFreeMap MVT tile?
 function isTileRequest(url) {
   return url.host === 'tiles.openfreemap.org' && url.pathname.endsWith('.pbf');
 }
@@ -162,15 +158,11 @@ self.addEventListener('fetch', (event) => {
         cache.put(req, resp.clone());
         return resp;
       }
-      // The fetch died or came back 4xx/5xx. A page HALF loads in that case:
-      // the modules already cached run, the one that failed doesn't, and the
-      // app throws on the first symbol from the missing file ("loadSave is not
-      // defined" on a refresh right after a deploy, when a single request
-      // hiccuped). So fall back to ANY cached build of the same PATH, ignoring
-      // the ?v=. A module one deploy stale still defines its functions; a
-      // missing one defines nothing, and the whole game is dead until the
-      // network comes back. Mixed versions are the lesser evil, and only ever
-      // happen on a request that already failed.
+      // The fetch died or came back 4xx/5xx. A page HALF loads then and the app
+      // throws on the first symbol from the missing file, so fall back to ANY cached
+      // build of the same PATH, ignoring the ?v=. A module one deploy stale still
+      // defines its functions; a missing one leaves the game dead. Mixed versions
+      // only ever happen on a request that already failed.
       const stale = await cache.match(req, { ignoreSearch: true });
       if (stale) return stale;
       // Nothing cached under that path either. NEVER resolve respondWith()

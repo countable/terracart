@@ -239,10 +239,7 @@
     // Loot in the order the crates are seated — nearest the door first — which
     // is deliberately the LADDER's order of need, not the tidiest reading of
     // the list. STARTER_CHAIN goes open a crate → till → SOW A SEED → rebuild a
-    // wreck, so the first crate has to be the one holding a seed: it used to
-    // hold the wood, and a player who did exactly what the chip told them
-    // reached "select a seed from your bag" with an empty bag while the seeds
-    // sat at the far end of the trail. Wood (5 per plain house, and what
+    // wreck, so the first crate has to be the one holding a seed. Wood (5 per plain house, and what
     // unseals a fort) rides at the far end instead, arriving about when step 4
     // asks for it — and the green arrow, which always points at the nearest
     // unopened crate, now agrees with the chip instead of contradicting it.
@@ -714,8 +711,7 @@
     // the moment of upgrade) degrades to the old purely-location roll.
     const slotRng = WorldGen.makeRng((seed ^ (scene.save?.relicSalt || 0)) >>> 0);
     const slot = STARTER_RELIC_SLOTS[Math.floor(slotRng() * STARTER_RELIC_SLOTS.length)];
-    // The slot used to be drawn off `rng`; burn that draw so every chest laid
-    // by the old code keeps its seat under the new one.
+    // Burn the draw the slot once took so later rolls off `rng` keep their seats.
     rng();
     // A caller may nominate the seat — the kerb trail (mode 1 in
     // _placeStarterTrail) wants the chest at the end of the crate line, on
@@ -1492,10 +1488,8 @@
     for (const o of (Array.isArray(scene.save.fruittrees) ? scene.save.fruittrees : [])) mark(o.x, o.y);
     for (const o of (Array.isArray(scene.save.planted) ? scene.save.planted : [])) mark(o.x, o.y);
     // Terrain lookup that CROSSES TILE SEAMS, in cells relative to the anchor
-    // tile. Seating used to be clamped to the anchor's own tile, so a spawn
-    // landing within ring-distance of a seam lost that whole arc — measured on
-    // a real spawn at cell iy=213 of a 222-cell tile, the entire southern side
-    // was unreachable and came out bare. A tile is only consulted once it has
+    // tile, so a spawn near a seam keeps its whole
+    // arc. A tile is only consulted once it has
     // loaded; an unloaded neighbour reads as unusable rather than being
     // guessed at, so nothing is ever seated into unseen water or road.
     // Returns null when the cell can't be resolved.
@@ -1688,9 +1682,8 @@
     const TOKEN0 = HomeArea.TOKEN_MIN_CELLS;
     const R0 = HomeArea.RING_MIN_CELLS, R1 = HomeArea.RING_MAX_CELLS;
     // Widen the search when the band can't take something. A spawn on a pier or
-    // a riverbank has most of its ring in water; an all-water spawn used to
-    // seat nothing at all, leaving no wreck to rebuild and the ladder
-    // unfinishable. Built lazily — the wide band is only paid for if needed.
+    // a riverbank has most of its ring in water, and an all-water spawn would seat
+    // nothing, leaving no wreck to rebuild. Built lazily — the wide band is only paid for if needed.
     let wideCells = null;
     const seatOrWiden = (kind, cells, bearing, plain) => {
       if (seatAt(kind, cells, bearing, plain)) return true;

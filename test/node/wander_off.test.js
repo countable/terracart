@@ -1,13 +1,11 @@
 // A FOE WANDERS OFF NOW AND THEN — so none piles up against a campfire ring.
 //
-// A slime refused at a lit fire's ring (the fire ward refuses its target
-// CELLS) keeps stalking the player standing inside it, gets every hop toward
-// them refused, and stands on the ring's edge. Over a long rest they pile up.
-// Every few minutes (WANDER_OFF_MIN_MS + random × WANDER_OFF_SPREAD_MS of time
-// spent thinking) each wild foe turns its back and walks out to the edge of its
-// range — the sim bubble, CREATURE_SIM_CELLS, since a foe has no notice radius
-// of its own — times a random [1, WANDER_OFF_MAX_MUL]. It does not bite on the
-// way, and WANDER_OFF_TIMEOUT_MS ends it if it cannot arrive.
+// A slime refused at a lit fire's ring keeps stalking the player inside it and
+// piles up on the ring's edge. Every few minutes (WANDER_OFF_MIN_MS + random ×
+// WANDER_OFF_SPREAD_MS of time spent thinking) each wild foe turns its back and
+// walks out to the edge of its range (the sim bubble, CREATURE_SIM_CELLS) times
+// a random [1, WANDER_OFF_MAX_MUL], without biting; WANDER_OFF_TIMEOUT_MS ends
+// it if it cannot arrive.
 //
 // It is a new REASON in existing lanes, not a mover of its own: `standDown`
 // (the attack gates), `routed` (the flee pace Home's rout runs at) and one
