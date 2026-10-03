@@ -72,7 +72,7 @@
     for (const c of ['REACH_POTION_MS', 'SPIRIT_RAVEN_MS', 'SPEED_POTION_MS', 'SHIELD_POTION_MS', 'BLIGHT_MS'])
       assert.truthy(new RegExp(c + ' \\* TOME_EFFECT_MUL').test(APP), `${c} halves in the tome`);
     assert.truthy(/const TOME_THUNDER_DMG = Math\.floor\(THUNDER_DMG \* TOME_EFFECT_MUL\);/.test(APP), 'thunder damage halves');
-    assert.truthy(/const TOME_HEALING_ENERGY = Math\.floor\(VIGOR_POTION_ENERGY \* TOME_EFFECT_MUL\);/.test(APP), 'the heal halves');
+    assert.truthy(/const TOME_HEALING_ENERGY = Math\.floor\(HEALING_POTION_ENERGY \* TOME_EFFECT_MUL\);/.test(APP), 'the heal halves');
   });
 
   test('vista: grails hold treasure only - no tools, produce or field supplies', () => {

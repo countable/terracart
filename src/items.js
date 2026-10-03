@@ -398,7 +398,7 @@ const MINERAL_ICON_SHEET = {
   // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
   reach_potion: { sheet: 'icon_potion', frame: 0 },
   // New potions — 16×16 frames from Potions.png (5 cols × 7 rows).
-  // Row 2 (y=32): frame 11=green (vigor), 12=red (speed), 13=purple (shield).
+  // Row 2 (y=32): frame 11=green (healing), 12=red (speed), 13=purple (shield).
   antidote:     { sheet: 'icon_potions', frame: 26 }, // green conical flask
   elixir:       { sheet: 'icon_potions', frame: 33 }, // large violet flask
   healing_potion:  { sheet: 'icon_potions', frame: 11 },
@@ -1204,7 +1204,7 @@ const CONSUMABLE_SPEC = {
   },
   healing_potion: {
     energy: 65,
-    verb: 'Drink', method: 'drinkVigorPotion', title: 'Drink the Potion of Healing?',
+    verb: 'Drink', method: 'drinkHealingPotion', title: 'Drink the Potion of Healing?',
     get: 'A little strength returns to your limbs.',
   },
   speed_potion: {
@@ -1336,7 +1336,7 @@ const CONSUMABLE_SPEC = {
 
 // Compatibility names keep existing consumers concise while the table remains
 // the only numeric owner.
-const VIGOR_POTION_ENERGY = CONSUMABLE_SPEC.healing_potion.energy;
+const HEALING_POTION_ENERGY = CONSUMABLE_SPEC.healing_potion.energy;
 const THUNDER_DMG = CONSUMABLE_SPEC.thunder_scroll.damage;
 const SPIRIT_RAVEN_MS = CONSUMABLE_SPEC.raven_scroll.durationMs;
 const HORSE_RIDE = CONSUMABLE_SPEC.horse;
@@ -1531,7 +1531,7 @@ const SHOP_CHARM_MS = 5 * 60 * 1000;
 // with (through Energy.reviveLevel, so it rounds like Home's quarter). The
 // Crow Feather is EATEN, and only through the hard-mode lockout (eatSelected);
 // the revival potions are DRUNK, only while down (Combat.playerDowned — zero
-// energy, either mode), because above zero they would just be Vigor potions.
+// energy, either mode), because above zero they would just be Healing potions.
 // One table, read by the eat / drink, the ✦ lines below, the Eat button and
 // the Drink dialog.
 const REVIVE_ITEM_FRAC = {
