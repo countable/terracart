@@ -1303,6 +1303,18 @@
     c.width = S; c.height = S;
     return c;
   }
+  // Paint a radial cookie onto `canvas` (square, cleared first): a gradient
+  // from its centre out to `radius` px through `stops` — [offset 0..1,
+  // colour, alpha] — filled edge to edge. Both cookies below are this.
+  function bakeRadialCookie(canvas, radius, stops) {
+    const S = canvas.width, c = S / 2;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, S, S);
+    const g = ctx.createRadialGradient(c, c, 0, c, c, radius);
+    for (const [t, colour, a] of stops) g.addColorStop(t, rgba(colour, a));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, S, S);
+  }
 
   // One cookie canvas per kind, baked once: peak at the centre, (1 - r/R)^2
   // out to zero, the kind's colour baked in.
@@ -1324,16 +1336,13 @@
     if (store[key]) return store[key];
     const cellPx = (typeof CELL_PX !== 'undefined') ? CELL_PX : 32;
     const R = Math.ceil(r * cellPx);
-    const S = 2 * R;
-    const canvas = makeCanvas(S);
-    const ctx = canvas.getContext('2d');
-    const g = ctx.createRadialGradient(R, R, 0, R, R, R);
+    const canvas = makeCanvas(2 * R);
+    const stops = [];
     for (let i = 0; i <= KIND_STOPS; i++) {
       const t = i / KIND_STOPS;
-      g.addColorStop(t, rgba(col, row.peak * (1 - t) * (1 - t)));
+      stops.push([t, col, row.peak * (1 - t) * (1 - t)]);
     }
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, S, S);
+    bakeRadialCookie(canvas, R, stops);
     store[key] = { canvas, R };
     return store[key];
   }
@@ -1367,23 +1376,18 @@
     const r0T = Math.min(r0, rMax) / K;
     const S = 2 * Math.ceil(rMaxT);
     if (!st.canvas || st.S !== S) { st.canvas = makeCanvas(S); st.S = S; }
-    const c = S / 2;
-    const ctx = st.canvas.getContext('2d');
-    ctx.clearRect(0, 0, S, S);
-    const g = ctx.createRadialGradient(c, c, 0, c, c, rMaxT);
     const fr = (r) => clamp01(r / rMaxT);
     const white = KINDS.player.colour;
-    g.addColorStop(0, rgba(white, prof.edge));
+    const stops = [[0, white, prof.edge]];
     // The ramp starts at r0 with `edge` and lands on 0 at rMax. Sample the
     // super-linear curve at RAMP_STOPS points so the gradient's linear
     // segments track it.
     const span = rMaxT - r0T;
     for (let i = 0; i <= RAMP_STOPS; i++) {
       const t = i / RAMP_STOPS;
-      g.addColorStop(fr(r0T + t * span), rgba(white, playerCookieAlpha(t, prof)));
+      stops.push([fr(r0T + t * span), white, playerCookieAlpha(t, prof)]);
     }
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, S, S);
+    bakeRadialCookie(st.canvas, rMaxT, stops);
     return st;
   }
 

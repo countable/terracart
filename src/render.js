@@ -196,6 +196,21 @@ Render.fillCornerFan = fillCornerFan;
 // was drawn.
 const BAKED_PAD_CELLS = 2;
 const BAKED_MAX_SCALE = 2;
+// A VIEWPORT CANVAS LAYER: the view box padded `padPx` each side (so a
+// sub-cell scroll never shows a bare edge) and a canvas texture `key` of
+// that box's size — reused if the texture manager already holds it,
+// resized if the view moved, created otherwise. `k` scales the backing
+// store (a DPR-aware bake). The baked grid / borders / rim (BakedGfx) and
+// the building footprints (building_overlay.js) open their layer here; the
+// lightmap and the fog wash in app.js are the same shape.
+Render.viewportCanvas = function viewportCanvas(scene, key, padPx, k = 1) {
+  const x = scene.viewLeft - padPx, y = scene.viewTop - padPx, w = scene.viewSize + 2 * padPx;
+  const cw = Math.ceil(w * k);
+  let tex = scene.textures.exists(key) ? scene.textures.get(key) : null;
+  if (!tex) tex = scene.textures.createCanvas(key, cw, cw);
+  else if (tex.width !== cw || tex.height !== cw) tex.setSize(cw, cw);
+  return { tex, x, y, w, cw };
+};
 class BakedGfx {
   constructor(scene, key, container) {
     this.scene = scene;
@@ -213,19 +228,13 @@ class BakedGfx {
   // Size the canvas to the CURRENT viewport and scale (both can move on a
   // resize), and seat the image over it in game pixels.
   _fit() {
-    const sc = this.scene;
-    const pad = BAKED_PAD_CELLS * CELL_PX;
-    const x = sc.viewLeft - pad, y = sc.viewTop - pad, w = sc.viewSize + 2 * pad;
     const rs = (typeof RENDER_SCALE === 'number') ? RENDER_SCALE : 1;
     const k = Math.max(1, Math.min(BAKED_MAX_SCALE, rs));
-    const cw = Math.ceil(w * k);
+    const { tex, x, y, w } = Render.viewportCanvas(this.scene, this.key, BAKED_PAD_CELLS * CELL_PX, k);
     if (!this.tex) {
-      this.tex = sc.textures.exists(this.key)
-        ? sc.textures.get(this.key) : sc.textures.createCanvas(this.key, cw, cw);
+      this.tex = tex;
       if (typeof Phaser !== 'undefined') this.tex.setFilter(Phaser.Textures.FilterMode.LINEAR);
       this.image.setTexture(this.key);
-    } else if (this.tex.width !== cw) {
-      this.tex.setSize(cw, cw);
     }
     this.image.setPosition(x, y).setDisplaySize(w, w);
     this.ctx = this.tex.context;
