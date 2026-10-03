@@ -54,7 +54,7 @@ test('spirit raven: a slime\'s stats, derived — and never an enemy', () => {
   assert.eq(Combat.summonedAs('spirit_raven'), 'slime', 'summoned as a slime');
   assert.eq(Combat.FAUNA_HP.spirit_raven, Combat.FAUNA_HP.slime, 'the slime\'s HP pool');
   assert.eq(Combat.creatureMaxHp('spirit_raven'), Combat.FAUNA_HP.slime, 'what the fight seeds it with');
-  assert.eq(Combat.petBite('spirit_raven'), SLIME_LEECH_ENERGY, 'it bites with the slime\'s leech');
+  assert.eq(Combat.petBite('spirit_raven'), EnemyRoster.get('slime').dmg, 'it bites with the slime\'s leech (the roster row\'s dmg)');
   assert.eq(Combat.petBite('dog'), Combat.PET_BITE, 'a tame pet still worries its prey a point a bite');
   assert.eq(Combat.PET_BITE, 1);
   // One bite per step, one step a second: the slime's own cadence.

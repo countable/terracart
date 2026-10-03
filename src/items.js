@@ -1635,11 +1635,6 @@ const REVIVE_ITEM_FRAC = {
 // to fight: its pocket resurrection only buys the walk home. (It rode the
 // table above at 10% until Sep 2026.)
 const FEATHER_REVIVE_ENERGY = 1;
-// The wild (green) surface slime's leech: energy per bite, one bite a second
-// (scene_creatures.js wanderCreatures), before the shield potion, its power,
-// the mode and armour. Here so the pest tip quotes the live number. (3 until
-// Sep 2026, doubled with the basic goblin's hit.)
-const SLIME_LEECH_ENERGY = EnemyRoster.get('slime').dmg;
 
 // Book guides tell a small story about an item, with one useful hint.
 // Exact effects belong to gameplay owners and the dedicated stat readouts.
