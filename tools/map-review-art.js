@@ -73,13 +73,13 @@ const MapReviewArt = (() => {
       tint:npc?.tint??SpriteLayout.creatureTint(o.kind),alpha:SpriteLayout.creatureAlpha(o.kind)};
   }
   const Layer = L.Layer.extend({
-    initialize(options) { L.setOptions(this,options); this._world=null; this._sprites=[]; },
+    initialize(options) { L.setOptions(this,options); this._world=null; this._sprites=[];this._groundCache=new Map();this._groundBytes=0; },
     onAdd(map) {
       this._map=map;
       const pane=map.getPane('gameArt')||map.createPane('gameArt'); pane.style.zIndex=250; pane.style.pointerEvents='none';
       this._canvas=L.DomUtil.create('canvas','leaflet-layer',pane);
       this._canvas.style.pointerEvents='none'; this._canvas.style.imageRendering='pixelated';
-      map.on('moveend zoomend resize',this.redraw,this);
+      map.on('moveend zoomend resize',this._requestRedraw,this);
       this.redraw();
       this._load();
     },
@@ -89,11 +89,14 @@ const MapReviewArt = (() => {
       assets().then(data=>{this._assets=data;this._prepare();this.redraw();})
         .catch(error=>{console.error('Game art could not load',error);this.options.onStatus?.('Game art could not load: '+error.message);});
     },
-    onRemove(map) { map.off('moveend zoomend resize',this.redraw,this);this._canvas.remove();this._canvas=null;this._map=null; },
+    onRemove(map) { map.off('moveend zoomend resize',this._requestRedraw,this);cancelAnimationFrame(this._redrawFrame);this._redrawFrame=null;this._canvas.remove();this._canvas=null;this._map=null; },
+    _requestRedraw() {
+      if(this._redrawFrame==null)this._redrawFrame=requestAnimationFrame(()=>{this._redrawFrame=null;this.redraw();});
+    },
     bringToBack() { return this; },
-    setWorld(world) { this._world=world;if(this._map)this._load();this._prepare();this.redraw();return this; },
+    setWorld(world) { this._groundCache.clear();this._groundBytes=0;this._roadGeometry=new WeakMap();this._world=world;if(this._map)this._load();this._prepare();this.redraw();return this; },
     setRestoredLamps(restored) {
-      this._restoredLamps=!!restored;this._prepare();this.redraw();return this;
+      this._groundCache.clear();this._groundBytes=0;this._restoredLamps=!!restored;this._prepare();this.redraw();return this;
     },
     _prepare() {
       if(!this._world||!this._assets)return;
@@ -160,6 +163,15 @@ const MapReviewArt = (() => {
       connectedArt=new Map();
       for(const o of this._world.guards||[])add(null,o,'creature');
       this._sprites.sort((a,b)=>a.o.y-b.o.y||a.o.x-b.o.x);
+      this._spriteBuckets=new Map();
+      this._bucketSize=this.options.getEdge()/16;
+      this._sprites.forEach((item,order)=>{
+        item.order=order;
+        const key=Math.floor(item.o.x/this._bucketSize)+','+Math.floor(item.o.y/this._bucketSize);
+        let bucket=this._spriteBuckets.get(key);
+        if(!bucket)this._spriteBuckets.set(key,bucket=[]);
+        bucket.push(item);
+      });
     },
     _tintedFrame(texture,frame,tint=0xffffff) {
       // Cache the cropped, multiply-tinted frame just as Phaser's sprite tint
@@ -179,26 +191,35 @@ const MapReviewArt = (() => {
       }
       variants.set(tint,canvas);return canvas;
     },
-    redraw() {
-      if(!this._map||!this._canvas)return this;
-      const map=this._map,size=map.getSize(),c=this._canvas,dpr=Math.min(devicePixelRatio||1,2);
-      c.width=size.x*dpr;c.height=size.y*dpr;c.style.width=size.x+'px';c.style.height=size.y+'px';
-      L.DomUtil.setPosition(c,map.containerPointToLayerPoint([0,0]));
-      const g=c.getContext('2d');g.scale(dpr,dpr);g.imageSmoothingEnabled=false;
-      g.fillStyle='#24332b';g.fillRect(0,0,size.x,size.y);
-      if(!this._world||!this._assets)return this;
+    _roadsForTile(e,edge) {
+      this._roadGeometry ||= new WeakMap();
+      if(this._roadGeometry.has(e))return this._roadGeometry.get(e);
+      const result=[],roads=e.layers?.find(l=>l.name==='transportation');
+      for(const [fi,f] of (roads?.features||[]).entries()) {
+        if(f.type!==2||WorldGen.isLotLane(f.tags)||WorldGen.classifyLine('transportation',f.tags)==null)continue;
+        const width=WorldGen.roadOverlayWidthM(f.tags);if(!width)continue;
+        const mvtToM=edge/(roads.extent||4096),isPath=WorldGen.PATH_CLASSES.has(f.tags?.class);
+        for(const [li,line] of (f.geom||[]).entries()) {
+          if(line.length<2)continue;
+          for(const style of StreetVariants.lineStyles(e,f,fi,li,mvtToM)) {
+            const points=Streets.subLineM(line,mvtToM,style.a,style.b);
+            let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+            for(const p of points) {minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y);}
+            result.push({width,isPath,variant:style.variant,points,minX,minY,maxX,maxY});
+          }
+        }
+      }
+      this._roadGeometry.set(e,result);return result;
+    },
+    _paintGround(g,size,project) {
       const edge=this.options.getEdge(),textures=this._assets.textures;
-      const project=(x,y)=>map.latLngToContainerPoint(this.options.toLL(x,y,edge));
-      const view=map.getBounds();
-      let detailed=false,drawn=0;
       for(const e of this._world.tiles) {
-        const bounds=L.latLngBounds(this.options.toLL(e.tx*edge,(e.ty+1)*edge,edge),this.options.toLL((e.tx+1)*edge,e.ty*edge,edge));
-        if(!view.intersects(bounds))continue;
         const a=project(e.tx*edge,e.ty*edge),b=project((e.tx+1)*edge,(e.ty+1)*edge),N=e.cellsPerEdge;
         const dx=(b.x-a.x)/N,dy=(b.y-a.y)/N;
+        // Include road caps that extend beyond the source tile.
+        if(a.x>size.x+128||a.y>size.y+128||b.x < -128||b.y < -128)continue;
         const x0=Math.max(0,Math.floor(-a.x/dx)),y0=Math.max(0,Math.floor(-a.y/dy));
         const x1=Math.min(N,Math.ceil((size.x-a.x)/dx)),y1=Math.min(N,Math.ceil((size.y-a.y)/dy));
-        detailed ||= dx>=4;
         for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++) {
           let type=e.grid[y*N+x];
           if(type===WorldGen.T.PATH&&e.pathUnder?.[`${x}_${y}`]!=null)type=e.pathUnder[`${x}_${y}`];
@@ -208,34 +229,105 @@ const MapReviewArt = (() => {
 
         }
         // Follow the source road centreline, using the game's physical widths.
-        const roads=e.layers?.find(l=>l.name==='transportation');
         g.lineCap='round';g.lineJoin='round';
-        for(const [fi,f] of (roads?.features||[]).entries()) {
-          if(f.type!==2||WorldGen.isLotLane(f.tags)||WorldGen.classifyLine('transportation',f.tags)==null)continue;
-          const width=WorldGen.roadOverlayWidthM(f.tags);if(!width)continue;
-          const mvtToM=edge/(roads.extent||4096),isPath=WorldGen.PATH_CLASSES.has(f.tags?.class);
-          g.lineWidth=width/edge*(b.x-a.x);
-          for(const [li,line] of (f.geom||[]).entries()) {
-            if(line.length<2)continue;
-            for(const style of StreetVariants.lineStyles(e,f,fi,li,mvtToM)) {
-              const key=JSON.stringify([style.variant,isPath,!!this._restoredLamps]);
-              this._pavementTiles ||= new Map();
-              let tile=this._pavementTiles.get(key);
-              if(!tile) {
-                tile=document.createElement('canvas');tile.width=tile.height=RoadOverlay.CLEAN_TILE_PX;
-                RoadOverlay.paintPavementTile(tile.getContext('2d'),RoadOverlay.CLEAN_TILE_PX,isPath,!!this._restoredLamps,style.variant);
-                this._pavementTiles.set(key,tile);
-              }
-              const pattern=g.createPattern(tile,'repeat');
-              pattern.setTransform(new DOMMatrix([dx/32,0,0,dy/32,a.x-e.tx*N*dx,a.y-e.ty*N*dy]));
-              g.strokeStyle=pattern;g.beginPath();
-              Streets.subLineM(line,mvtToM,style.a,style.b).forEach((p,i)=>g[i?'lineTo':'moveTo'](a.x+p.x/edge*(b.x-a.x),a.y+p.y/edge*(b.y-a.y)));
-              g.stroke();
+        const patterns=new Map();
+        for(const road of this._roadsForTile(e,edge)) {
+          const lineWidth=road.width/edge*(b.x-a.x),pad=lineWidth/2;
+          if(a.x+road.minX/edge*(b.x-a.x)>size.x+pad||a.y+road.minY/edge*(b.y-a.y)>size.y+pad||
+            a.x+road.maxX/edge*(b.x-a.x)<-pad||a.y+road.maxY/edge*(b.y-a.y)<-pad)continue;
+          const key=JSON.stringify([road.variant,road.isPath,!!this._restoredLamps]);
+          let pattern=patterns.get(key);
+          if(!pattern) {
+            this._pavementTiles ||= new Map();
+            let tile=this._pavementTiles.get(key);
+            if(!tile) {
+              tile=document.createElement('canvas');tile.width=tile.height=RoadOverlay.CLEAN_TILE_PX;
+              RoadOverlay.paintPavementTile(tile.getContext('2d'),RoadOverlay.CLEAN_TILE_PX,road.isPath,!!this._restoredLamps,road.variant);
+              this._pavementTiles.set(key,tile);
             }
+            pattern=g.createPattern(tile,'repeat');
+            pattern.setTransform(new DOMMatrix([dx/32,0,0,dy/32,a.x-e.tx*N*dx,a.y-e.ty*N*dy]));
+            patterns.set(key,pattern);
           }
+          g.lineWidth=lineWidth;g.strokeStyle=pattern;g.beginPath();
+          road.points.forEach((p,i)=>g[i?'lineTo':'moveTo'](a.x+p.x/edge*(b.x-a.x),a.y+p.y/edge*(b.y-a.y)));
+          g.stroke();
         }
       }
-      for(const item of this._sprites) {
+    },
+    _drawGround(g,size,project,dpr) {
+      // Fixed world anchors let panning reuse already painted pixels. Keep
+      // chunks small even at close zoom, and bound retained canvas memory.
+      const edge=this.options.getEdge(),first=this._world.tiles[0];
+      if(!first)return;
+      const anchor=project(first.tx*edge,first.ty*edge),chunkSize=512;
+      const x0=Math.floor(-anchor.x/chunkSize),y0=Math.floor(-anchor.y/chunkSize);
+      const x1=Math.ceil((size.x-anchor.x)/chunkSize),y1=Math.ceil((size.y-anchor.y)/chunkSize);
+      const byteLimit=64*1024*1024;
+      for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++) {
+        const key=[this._map.getZoom(),dpr,x,y].join(',');
+        let chunk=this._groundCache.get(key);
+        if(chunk)this._groundCache.delete(key);
+        else {
+          chunk=document.createElement('canvas');chunk.width=chunk.height=chunkSize*dpr;
+          this._groundBytes+=chunk.width*chunk.height*4;
+          const cg=chunk.getContext('2d');cg.scale(dpr,dpr);cg.imageSmoothingEnabled=false;
+          const ox=anchor.x+x*chunkSize,oy=anchor.y+y*chunkSize;
+          this._paintGround(cg,{x:chunkSize,y:chunkSize},(wx,wy)=>{
+            const p=project(wx,wy);return {x:p.x-ox,y:p.y-oy};
+          });
+        }
+        this._groundCache.set(key,chunk);
+        while(this._groundBytes>byteLimit) {
+          const oldest=this._groundCache.keys().next().value,cached=this._groundCache.get(oldest);
+          this._groundBytes-=cached.width*cached.height*4;this._groundCache.delete(oldest);
+        }
+        g.drawImage(chunk,anchor.x+x*chunkSize,anchor.y+y*chunkSize,chunkSize,chunkSize);
+      }
+    },
+    _visibleSprites(size,project) {
+      const first=this._world.tiles[0];
+      if(!first||!this._spriteBuckets)return [];
+      const edge=this.options.getEdge(),wx=first.tx*edge,wy=first.ty*edge;
+      const anchor=project(wx,wy);
+      // Use unrounded world scale for bucket selection. The two extra pixels
+      // cover Leaflet's rounding; retain the renderer's 180px sprite overhang.
+      const a=this._map.project(this.options.toLL(wx,wy,edge));
+      const b=this._map.project(this.options.toLL(wx+edge,wy+edge,edge));
+      const sx=(b.x-a.x)/edge,sy=(b.y-a.y)/edge,bs=this._bucketSize,margin=182;
+      const x0=Math.floor((wx+(-margin-anchor.x)/sx)/bs),x1=Math.floor((wx+(size.x+margin-anchor.x)/sx)/bs);
+      const y0=Math.floor((wy+(-margin-anchor.y)/sy)/bs),y1=Math.floor((wy+(size.y+margin-anchor.y)/sy)/bs);
+      const items=[];
+      // At distant zoom, visiting occupied buckets is cheaper than walking a
+      // huge empty coordinate range surrounding the loaded world.
+      if((x1-x0+1)*(y1-y0+1)>this._spriteBuckets.size*2) {
+        for(const [key,bucket] of this._spriteBuckets) {
+          const [x,y]=key.split(',').map(Number);
+          if(x>=x0&&x<=x1&&y>=y0&&y<=y1)items.push(...bucket);
+        }
+      } else {
+        for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++) {
+          const bucket=this._spriteBuckets.get(x+','+y);if(bucket)items.push(...bucket);
+        }
+      }
+      return items.sort((a,b)=>a.order-b.order);
+    },
+    redraw() {
+      cancelAnimationFrame(this._redrawFrame);this._redrawFrame=null;
+      if(!this._map||!this._canvas)return this;
+      const map=this._map,size=map.getSize(),c=this._canvas,dpr=Math.min(devicePixelRatio||1,2);
+      c.width=size.x*dpr;c.height=size.y*dpr;c.style.width=size.x+'px';c.style.height=size.y+'px';
+      L.DomUtil.setPosition(c,map.containerPointToLayerPoint([0,0]));
+      const g=c.getContext('2d');g.scale(dpr,dpr);g.imageSmoothingEnabled=false;
+      g.fillStyle='#24332b';g.fillRect(0,0,size.x,size.y);
+      if(!this._world||!this._assets)return this;
+      const edge=this.options.getEdge(),textures=this._assets.textures;
+      const project=(x,y)=>map.latLngToContainerPoint(this.options.toLL(x,y,edge));
+      let detailed=false,drawn=0;
+      this._drawGround(g,size,project,dpr);
+      const first=this._world.tiles[0];
+      if(first)detailed=(project((first.tx+1)*edge,first.ty*edge).x-project(first.tx*edge,first.ty*edge).x)/first.cellsPerEdge>=4;
+      for(const item of this._visibleSprites(size,project)) {
         const {e,o,category,appearance:p}=item;
         if(category!=='infrastructure'&&this.options.visible&&!this.options.visible(e,o,category,item.kind))continue;
         const at=project(o.x,o.y);if(at.x < -180 || at.y < -180 || at.x>size.x+180||at.y>size.y+180)continue;
