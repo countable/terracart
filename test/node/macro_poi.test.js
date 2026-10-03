@@ -243,13 +243,14 @@
 
   test('sundries: one supply item off the Supply Shop line, never the Book', () => {
     const line = Shops.THEME_POOL.supply();
+    assert.falsy(line.includes('book'), 'the Supply Shop leaves the Book to the Bookshop');
     const seen = new Set();
     for (let i = 0; i < 80; i++) {
       const [id] = Macros.sundriesStock(poi('shop', { id: 'x' + i }));
       assert.truthy(line.includes(id) && id !== 'book', id);
       seen.add(id);
     }
-    assert.eq(seen.size, line.length - 1, 'every other supply item turns up');
+    assert.eq(seen.size, line.length, 'every supply item turns up');
   });
 
   test('scriptorium: a plain stall — Books (and a torch) at the stall price, no free page', () => {
