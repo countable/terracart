@@ -776,8 +776,12 @@ class SceneShops {
   // the shop open": the bucket only rotates the offer and eases the re-roll
   // ladder (ShopsMath.bucketState); the trader's short cooldown is asked of
   // ShopsMath.dealWaitMs at the two dispatchers, not here.
-  // Flower charm multiplier — see Houses.shopCharmMul.
+  // Flower charm multiplier — see Houses.shopCharmMul (the gift branch asks
+  // it alone, so a charm is never bought twice).
   shopCharmMul(house) { return Houses.shopCharmMul(this.save, house); }
+  // What every price here multiplies by: the charm's hour times the Magic
+  // Hammer's standing cut on a shiny building — see Houses.priceMul.
+  priceMul(house) { return Houses.priceMul(this.save, house); }
   // A price or material count after the carried guild badge for this place's
   // guild (items.js guildDiscounted, Houses.guildRole) — every deal a shop,
   // smithy or trader quotes passes through here once.
@@ -956,9 +960,9 @@ class SceneShops {
     const name = gearName(offer.kind, offer.slot, offer.tier);
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
     const blurb = (gearDef(offer.kind, offer.slot)?.blurb || '') + this.shopTierBadgeHTML(house);
-    // Flower charm halves the asking price for the charm window (floor $1);
-    // a guild badge takes its share off after.
-    const price = this.guildPrice(house, Math.max(1, Math.ceil(offer.price * this.shopCharmMul(house))));
+    // The charm's hour and the hammer's standing cut (floor $1) — priceMul —
+    // then a guild badge takes its share off (guildPrice).
+    const price = this.guildPrice(house, Math.max(1, Math.ceil(offer.price * this.priceMul(house))));
     this.showOfferModal({
       kind: 'relics',
       title: this.buildingFlavorTitle(house, 'relic'),
@@ -1285,8 +1289,9 @@ class SceneShops {
     if (!pick) return null;
     const { rng, giveId } = pick;
     const baseValue = Math.max(1, PRICES[giveId] ?? 1);
-    // Target trade value the trader considers appropriate.
-    const target = baseValue * (1.0 + rng());
+    // Target trade value the trader considers appropriate — a shiny trader's
+    // (the Magic Hammer's) asks for less of your stack, priceMul.
+    const target = baseValue * (1.0 + rng()) * this.priceMul(house);
     // Asking item: ShopsMath.traderAsk — half the time a stack that already
     // covers the count, otherwise anything owned, then the wishlist; never a
     // count the bag's stack cap could not hold.
@@ -1618,7 +1623,7 @@ class SceneShops {
   // hour) and applies its flower-charm discount; with no house the markup is
   // a plain roll and there is no charm to apply.
   buildShopOffer(id, baseValue, opts = {}) {
-    // Pricing (incl. the Bow-discounted markup) lives in ShopsMath.buyPrice; the
+    // Pricing (the 1.2–3.0× markup) lives in ShopsMath.buyPrice; the
     // offer object's afford/consume closures stay here (they bind this.save).
     // Seed the markup roll off the shop's hour bucket when we know which shop
     // is asking. buyPrice spans 1.2x-3.0x base, so on Math.random the player
@@ -1627,10 +1632,10 @@ class SceneShops {
     const priceRng = (opts.house && opts.house.id)
       ? this.shopRng(opts.house, 'price')
       : undefined;
-    // Flower charm halves the quoted price (floor $1) — see shopCharmMul —
-    // and a guild badge takes its share off after (guildPrice).
+    // The charm's hour and the hammer's standing cut (floor $1) — see priceMul —
+    // then a guild badge takes its share off (guildPrice).
     const cashCost = this.guildPrice(opts.house, Math.max(1,
-      Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng) * this.shopCharmMul(opts.house))));
+      Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng) * this.priceMul(opts.house))));
     return {
       kind: 'money',
       label: this.moneyHTML(cashCost),

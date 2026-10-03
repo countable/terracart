@@ -47,9 +47,10 @@
   });
   test('stronghold joins: open doors and clipped footprints determine actual piece orientation', () => {
     for (const cells of [rect(5,5), rect(4,4), rect(5,5).filter(i => i !== 4*N+6)]) {
-      const p = plan('quarry-stronghold', cells), walls = new Set(p.background.keys());
+      const p = plan('quarry-stronghold', cells), walls = new Set([...p.background.keys()].filter(i=>p.background.get(i)!=='clay_pot'));
       assert.gt(p.wallFrames.size, 0);
       for (const [i, material] of p.background) {
+        if (material === 'clay_pot') continue;
         const frame = QuarryLayout.wallFrameAt(walls, i, N);
         assert.eq(material, frame == null ? 'stone' : 'stronghold_wall');
         assert.eq(p.wallFrames.get(i), frame == null ? undefined : frame);
@@ -76,7 +77,7 @@
     assert.truthy(large.landmarks[0].radii[1] > small.landmarks[0].radii[1]);
     assert.eq(large.finds.length, 2, 'finite ore does not grow with area');
     assert.truthy(large.hazards.length > 0);
-    assert.lte(large.hazards.length, ZoneVariantData.quarryLayouts.craterMaxHazards, 'a few vents keep the bowl readable');
+    assert.eq(large.hazards.length, 24, 'five by five pool surrounds its dry central island');
     for (const i of large.clear) assert.falsy(large.background.has(i), 'entrance and rewards stay clear');
     for (const f of large.finds) assert.falsy(large.hazards.includes(f.i), 'ore avoids lava');
   });

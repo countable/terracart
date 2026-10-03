@@ -75,7 +75,7 @@
       name: 'Toad idol', flash: 'Your wounds begin to heal.',
       body: "You touch the cool stone toad. The pain eases as your wounds begin to heal." },
     ember_altar: { art: 'shrine_ember_altar', frame: 9, light: 0xff5a3c, lever: 'wand', durationMs: 5 * MIN, boon: 'Ember',
-      zones: ['black_ring', 'flint_field', 'quarry-stronghold'], streets: ['burned'],
+      zones: ['black_ring', 'flint_field', 'quarry-crater'], streets: ['burned'],
       name: 'Ember altar', flash: 'Fire gathers in your hands.',
       body: "You reach toward the glowing ember. Fire gathers in your hands, ready to strike." },
   };

@@ -8,7 +8,7 @@
 // here so every way a piece can be obtained lands in exactly one place.
 //
 // Depends on globals from items.js: MATERIAL_TIERS, RELIC_DEFS, ARMOR_DEFS,
-// gearPrice, bestWeaponTier.
+// gearPrice.
 
 (function (root) {
   'use strict';
@@ -114,6 +114,7 @@
   // either is — "missing a few wood pieces" is what the forge is for before
   // it is for finer metal. Cash shops and castles keep the original curve
   // and their exact seeded draws.
+  const CASTLE_RELIC_MARKUP = 4;
   const SMITHY_NEXT_RUNG_BIAS = 4;
   // A TIERED SMITHY (opts.smithTier — shops.js smithTier, owner Oct 2026)
   // forges only within one tier of its own rank, and leans to its own: a
@@ -174,16 +175,12 @@
     const { kind, slot, tier } = weightedPickBy(weighted, (w) => w.w, rng).c;
     const pick = { kind, slot, tier };
 
-    // Pricing: castle = flat 4.0× discounted by Bow tier (1 - t/7) → T7 par;
-    // everything else = random 1.2..3.0× markup.
+    // Pricing: castle = a flat CASTLE_RELIC_MARKUP; everything else = random
+    // 1.2..3.0× markup. (The Bow used to bend both toward par — gone, Oct
+    // 2026: the Magic Hammer's building is the one standing discount, and the
+    // flower charm the one timed one — houses.js priceMul.)
     const baseP = gearPrice(pick.kind, pick.slot, pick.tier);
-    let mul;
-    if (opts.isCastle) {
-      const f = 1 - ((typeof bestWeaponTier === 'function') ? bestWeaponTier(save.relics) : 0) / 7;
-      mul = 1 + 3 * f;
-    } else {
-      mul = 1.2 + rng() * 1.8;
-    }
+    const mul = opts.isCastle ? CASTLE_RELIC_MARKUP : 1.2 + rng() * 1.8;
     const price = Math.max(1, Math.ceil(baseP * mul));
     return { ...pick, price };
   }

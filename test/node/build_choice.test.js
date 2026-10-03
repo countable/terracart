@@ -9,12 +9,12 @@ test('build choice: the restore modal offers the table and freezes the pick, nev
   const src = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start));
   assert.truthy(/const options = Houses\.buildOptions\(this\.save, house\);/.test(src), 'the cards are the table');
   assert.truthy(/choices,/.test(src) && /onAccept: \(key\) =>/.test(src), 'the pick rides the offer modal\'s choice row');
-  assert.truthy(/const row = Houses\.restoreAs\(this\.save, house, key\);/.test(src), 'the ledger is written by restoreAs');
+  assert.truthy(/const row = Houses\.restoreAs\(this\.save, house, key, \{ hammer \}\);/.test(src), 'the ledger is written by restoreAs');
   assert.truthy(src.indexOf('Houses.restoreAs(') < src.indexOf('Inventory.remove('), 'a refused pick is never charged');
   assert.falsy(/shopType|preseed|PRESEED/.test(src), 'no address digit, no fixed run');
   assert.falsy(/preseedRestoreRole|PRESEED_RESTORE_ROLES/.test(SCENE_SRC), 'the fixed run is gone from the scene');
   assert.eq(Houses.PRESEED_RESTORE_ROLES, undefined);
-  assert.truthy(/Shops\.nextLine\(this\.save\)/.test(src), 'the Shop card promises the next line');
+  assert.truthy(/row\.role === 'market' \? \(row\.theme \|\| theme\) : null/.test(src), 'a Shop card is named for its own line');
   assert.truthy(/art: row\.art/.test(src), 'the Restored! card opens on the row\'s painting');
 });
 

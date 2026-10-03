@@ -81,6 +81,7 @@ function scene(role, badge) {
     save,
     shopRng: () => () => 0,
     shopCharmMul: () => 1,
+    priceMul: () => 1,
     moneyHTML: n => String(n),
     iconSpanHTML: () => '',
     gearIconHTML: () => '',

@@ -403,6 +403,8 @@ const MINERAL_ICON_SHEET = {
   explosive_flask: { sheet: 'icon_potions', frame: 22 },
   fear_scroll:     { sheet: 'icon_book', frame: 47 },
   treasure_map:    { sheet: 'icon_book', frame: 49 },
+  // The Magic Hammer — the RPG pack's glowing hammer (Icons/Items/MagicHammer.png, see SOURCES.md).
+  magic_hammer:    { sheet: 'icon_magic_hammer', frame: 0 },
   // Potion of Reach — single-frame 16×16 glowing flask (Icons/Items).
   reach_potion: { sheet: 'icon_potion', frame: 0 },
   // New potions — 16×16 frames from Potions.png (5 cols × 7 rows).
@@ -636,7 +638,7 @@ const BASE_TIER = {
   // Tomes: a tome's tier is one above the potion it channels (the books
   // group's top-tier pick makes each tier's chest hand its own tome).
   tome_sight: 3, tome_raven: 4, tome_storm: 5, tome_firewall: 4,
-  blank_scroll: 2, fireball_scroll: 3, explosive_flask: 3, fear_scroll: 3, treasure_map: 4,
+  blank_scroll: 2, fireball_scroll: 3, explosive_flask: 3, fear_scroll: 3, treasure_map: 4, magic_hammer: 4,
   tome_speed: 3, tome_shield: 3, tome_healing: 3, tome_blight: 4,
   // Rope — a T2 utility like the potions: one climb up or down a level.
   rope: 2,
@@ -803,6 +805,8 @@ const ITEMS = [
   { id: 'explosive_flask', name: 'Explosive Flask', kind: 'magic' },
   { id: 'fear_scroll', name: 'Scroll of Fear', kind: 'magic', scroll: true },
   { id: 'treasure_map', name: 'Treasure Map', kind: 'magic', scroll: true },
+  // Spent on a wreck restore (houses.js HAMMER_ID): the building comes up shiny and sells cheaper for good.
+  { id: 'magic_hammer', name: 'Magic Hammer', kind: 'magic' },
   { id: 'sleep_powder', name: 'Sleep Powder', kind: 'magic' },
   // Potion of Reach: drink it (Use button with it selected) to light up
   // the whole screen — full-range reach for 1 minute, regardless of energy.
@@ -1382,6 +1386,7 @@ const PRICES = {
   explosive_flask: 100,
   fear_scroll: 100,
   treasure_map: 200,
+  magic_hammer: 220,   // T4 — a standing discount at one building, forever
   sleep_powder: 100,
   reach_potion:  45,   // T4 — full-screen reach for 1 min is a strong utility pop
   antidote:     12,
@@ -1610,6 +1615,7 @@ const ITEM_EFFECTS = {
   explosive_flask: CONSUMABLE_SPEC.explosive_flask.get,
   fear_scroll: CONSUMABLE_SPEC.fear_scroll.get,
   treasure_map: CONSUMABLE_SPEC.treasure_map.get,
+  magic_hammer: 'Masons say a wall raised under this hammer never stops gleaming, and the folk inside deal kindly with whoever swung it.',
   sleep_powder: CONSUMABLE_SPEC.sleep_powder.get,
   reach_potion: 'The far horizon trembles close to the rim of this bottle.',
   antidote: 'A bitter draught to wash every affliction away.',
@@ -2412,22 +2418,18 @@ function recipeCap(cost, count) {
 // Buy-discount tier — the BOW alone shrinks buy prices now. The Staff used to
 // share this discount, but it's been demoted to a pure combat weapon (it's a
 // ranged weapon in combat.js, and still counts toward the crow/deer hunt-speed
-// max in interact.js); only the Bow bends shop prices. Shared by buyMarkupRange and castle pricing in app.js.
-function bestWeaponTier(relics) {
-  return relics?.bow?.tier || 0;
-}
-// Bow relic: shrinks the random buy-cash markup. Without one, the trader still
-// wants 1.2..3.0× base. At tier 7 the markup collapses to 1.0× (the player
-// buys at par).
-// Hard mode scales the whole range (Difficulty.buyMul, 1.5×): the bow still
-// closes the spread the same way, it just closes on 1.5× par instead of par.
-// Applied HERE so every reader — the trader's roll, the castle's pricing —
-// asks one function and gets the same answer.
-function buyMarkupRange(relics) {
-  const t = bestWeaponTier(relics);
-  const f = 1 - t / 7;   // 1 → 0 as tier rises
+// max in interact.js). NO RELIC BENDS SHOP PRICES any more (owner, Oct 2026):
+// the Bow used to shrink the buy markup to par at tier 7 and discount the
+// castle vault the same way; a standing discount now comes from a building
+// raised under the Magic Hammer (houses.js priceMul) or a carried guild
+// badge (guildDiscounted), never from gear.
+// The random buy-cash markup: 1.2..3.0× base. Hard mode scales the whole
+// range (Difficulty.buyMul, 1.5×). Applied HERE so every reader — the
+// trader's roll, the castle's pricing — asks one function and gets the same
+// answer. `relics` is accepted and ignored so every caller keeps its shape.
+function buyMarkupRange(relics) {   // eslint-disable-line no-unused-vars
   const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().buyMul : 1;
-  return { lo: (1 + 0.2 * f) * modeMul, hi: (1 + 2.0 * f) * modeMul };
+  return { lo: 1.2 * modeMul, hi: 3.0 * modeMul };
 }
 
 // === Per-crop loot tier config (used by chests + treasure marks) ===

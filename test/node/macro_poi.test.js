@@ -720,22 +720,23 @@
     const h = (id) => ({ kind: 'house', tier: 9, id });
     assert.eq(Houses.restoreAs(save, h('h0'), 'plain').key, 'plain');
     assert.eq(Houses.restoreAs(save, h('h1'), 'bookshop'), null, 'not on offer yet');
-    for (let i = 1; i < 14; i++) Houses.restoreAs(save, h('h' + i), i % 3 === 0 ? 'market' : 'plain');
+    const shopKey = () => Houses.buildOptions(save, null).find((r) => r.role === 'market' && r.key !== 'bookshop').key;
+    for (let i = 1; i < 14; i++) Houses.restoreAs(save, h('h' + i), i % 3 === 0 ? shopKey() : 'plain');
     assert.eq(save.bookshopId, undefined, 'an ordinary market is not it');
     assert.eq(Houses.restoreAs(save, h('b'), 'bookshop').key, 'bookshop');
     assert.eq(save.bookshopId, 'b', 'the pick is');
     assert.eq(rh.b, 'market');
     assert.eq(Houses.restoreAs(save, h('m'), 'bookshop'), null, 'once per save');
-    assert.eq(Houses.restoreAs(save, h('m'), 'market').key, 'market');
+    assert.eq(Houses.restoreAs(save, h('m'), shopKey()).role, 'market');
     assert.eq(Shops.lineFor(save, { id: 'b' }).theme, 'book');
     assert.eq(Shops.lineFor(save, { id: 'b' }).tier, 1);
     // Outside the cycle: the markets before it keep their order, and the one
     // after it takes the line the bookshop would otherwise have spent.
     const markets = Object.keys(rh).filter((id) => rh[id] === 'market' && id !== 'b');
     markets.forEach((id, n) => assert.eq(Shops.shopOrder(save, { id }), n, `${id} keeps place ${n}`));
-    assert.eq(Shops.lineFor(save, { id: 'm' }).theme, Shops.themeAt(markets.length - 1).theme, 'the next shop is not skipped a line');
-    assert.eq(Shops.nextLine(save).theme, Shops.themeAt(markets.length).theme, 'and the Shop card promises the line after');
-    assert.truthy(/const row = Houses\.restoreAs\(this\.save, house, key\);/.test(SCENE_SRC), 'the restore path freezes the pick');
+    const lines = Shops.marketLines(save), mine = lines.find((r) => r.id === 'm');
+    assert.eq(mine.tier, 1 + lines.filter((r) => r.theme === mine.theme && r.id !== 'm').length, 'a picked line\'s tier counts the shops before it on that line');
+    assert.truthy(/const row = Houses\.restoreAs\(this\.save, house, key, \{ hammer \}\);/.test(SCENE_SRC), 'the restore path freezes the pick');
     assert.truthy(/return Shops\.lineFor\(this\.save, house\);/.test(SCENE_SRC), 'marketTheme reads lineFor');
     assert.falsy(/Shops\.themeAt\(Shops\.shopOrder/.test(SCENE_SRC), 'and nothing reads the cycle directly');
     // A save past the slot before the bookshop existed: no old shop is re-labelled.
