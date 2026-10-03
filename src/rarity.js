@@ -173,7 +173,7 @@
     // only split a group between its classes; boots are capped a tier a km
     // (Trail.bootsTierCap). Favourites make the magic card usually a potion.
     // The caller's rollBonus buys tiers up to T4; higher tiers need a jackpot.
-    'treasure:road':    { classBias: { seed:0.20, magic:0.225, supply:0.025, boots:0.15, cash:0.15 }, cashMul: 0.5,
+    'treasure:road':    { classBias: { seed:0.20, magic:0.225, supply:0.025, boots:0.15, cash:0.15 }, cashMul: 1/6,
                           chainSteps: 1, chainMax: 4, maxTier: 6, relicCap: 0,
                           favourite: { p: 0.85, ids: {
                             reach_potion: 1, vigor_potion: 1,
