@@ -52,8 +52,12 @@ test('consumables: one action row names every button method', () => {
     const row = CONSUMABLE_SPEC[id];
     assert.truthy(ITEM_BY_ID[id], `${id}: real item`);
     assert.truthy(row && row.verb && row.title && row.method, `${id}: complete action row`);
-    assert.truthy(new RegExp(`\\n  ${row.method}\\(`).test(SCENE_SRC),
-      `${id}: MapScene implements ${row.method}`);
+    // _useConsumable routes by column: a `buff` row to _useTimedBuff, a `tome`
+    // row to _readTome, a CAST_ROWS row to _castOnFoes; the rest by `method`.
+    if (row.buff) assert.truthy(Buffs.KINDS[row.buff], `${id}: a timed buff (Buffs row ${row.buff})`);
+    else if (row.tome) assert.truthy(CONSUMABLE_SPEC[row.tome.of], `${id}: a tome of ${row.tome.of}`);
+    else if (new RegExp(`\\n  ${id}: \\{ noun:`).test(SCENE_SRC)) assert.truthy(true, `${id}: a CAST_ROWS row`);
+    else assert.truthy(new RegExp(`\\n  ${row.method}\\(`).test(SCENE_SRC), `${id}: MapScene implements ${row.method}`);
   }
   assert.truthy(/const cfg = sel && CONSUMABLE_SPEC\[sel\.id\];/.test(SCENE_SRC),
     'the button reads the static owner instead of rebuilding a local registry');

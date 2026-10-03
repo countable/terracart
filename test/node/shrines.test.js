@@ -152,8 +152,8 @@
     const a = SCENE_SRC.indexOf('  _consumeFoodEffects(');
     const b = SCENE_SRC.indexOf('\n  }', a) + 4;
     const method = new Function('Energy', 'FOOD_ENERGY', 'CONSUMABLE_SPEC', 'shortDuration',
-      'FEATHER_REVIVE_ENERGY', 'COFFEE_BUFF_MS', 'return ({' + SCENE_SRC.slice(a,b) + '})._consumeFoodEffects;')(
-        Energy, FOOD_ENERGY, CONSUMABLE_SPEC, shortDuration, FEATHER_REVIVE_ENERGY, 60000);
+      'FEATHER_REVIVE_ENERGY', 'Buffs', 'return ({' + SCENE_SRC.slice(a,b) + '})._consumeFoodEffects;')(
+        Energy, FOOD_ENERGY, CONSUMABLE_SPEC, shortDuration, FEATHER_REVIVE_ENERGY, Buffs);
     const save = { energy: 5, eatReadyAt: T0 + 99999 };
     const scene = { save, _consumeFoodEffects: method, getMaxEnergy: () => Energy.maxEnergy(save),
       findNearestUnopenedChest: () => ({ id: 'chest1', x: 12, y: 34 }) };

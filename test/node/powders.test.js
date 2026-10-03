@@ -40,9 +40,10 @@ const POWDERS = {
   frost_powder:  { tier: 3, price: 100, frame: 9, method: 'useFrostPowder'  },
 };
 const methodBody = (name) => {
-  const m = app.match(new RegExp(`\\n  ${name}\\(\\) \\{\\n([\\s\\S]*?)\\n  \\}\\n`));
-  assert.truthy(m, `${name}() exists`);
-  return m[1];
+  const sig = name.includes('(') ? name + ') {' : name + '() {';
+  const a = app.indexOf('\n  ' + sig + '\n');
+  assert.truthy(a > 0, `${name}() exists`);
+  return app.slice(a + sig.length + 4, app.indexOf('\n  }\n', a));
 };
 
 // ── Registry ────────────────────────────────────────────────────────────────
@@ -118,9 +119,15 @@ test('powders: each has a CONSUMABLE_SPEC action row and the method exists', () 
     assert.eq(row.verb, 'Use', `${id}: Use verb`);
     assert.eq(row.method, want.method, `${id}: method`);
     assert.truthy(/^Use the \w+ Powder\?$/.test(row.title), `${id}: the confirm title`);
-    const body = methodBody(want.method);
-    assert.truthy(new RegExp(`sel\\.id !== '${id}'`).test(body), `${want.method}: only a selected ${id}`);
+    // Shadow is a `buff` row and Frost a CAST_ROWS row (both reached through
+    // _useConsumable, guarded by _selectedConsumable there); Growth keeps a
+    // method of its own with the same guard.
+    if (row.buff) assert.truthy(Buffs.KINDS[row.buff], `${id}: a timed buff row`);
+    else if (/_powder: \{ noun:/.test(app) && app.includes(`\n  ${id}: { noun:`)) assert.truthy(true, `${id}: a cast row`);
+    else assert.truthy(methodBody(want.method).includes(`this._selectedConsumable('${id}')`), `${want.method}: only a selected ${id}`);
   }
+  const use = methodBody('_useTimedBuff(id, { mul = 1, spend = true } = {}'), cast = methodBody('_castOnFoes(id, { damage = CONSUMABLE_SPEC[id]?.damage, spend = true, noun } = {}');
+  assert.truthy(/this\._selectedConsumable\(id\)/.test(use) && /this\._selectedConsumable\(id\)/.test(cast), 'the one slot guard, in both lanes');
 });
 
 // ── Growth ─────────────────────────────────────────────────────────────────
@@ -160,7 +167,7 @@ test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE 
   const body = methodBody('useGrowthPowder');
   assert.truthy(/const n = this\.advanceCropsWithin\(GROWTH_POWDER_R_M\);/.test(body), 'sweeps the radius');
   const refuseAt = body.indexOf('if (n <= 0) {');
-  const consumeAt = body.indexOf('consumeSelected(this.save);');
+  const consumeAt = body.indexOf('this._consumeSelected();');
   assert.truthy(refuseAt >= 0, 'refuses on zero');
   assert.truthy(body.slice(refuseAt, consumeAt).includes('return false;'), 'the refusal returns before the consume');
   assert.truthy(consumeAt > refuseAt, 'the powder is consumed AFTER the refusal');
@@ -173,20 +180,23 @@ test('growth: useGrowthPowder sweeps advanceCropsWithin(20m) and refuses BEFORE 
     'thrown off the scatter radius, in px');
   assert.truthy(/radiusCells: GROWTH_POWDER_R_M \/ this\.cellM,/.test(body),
     'and the light flash covers the same ground');
-  assert.truthy(body.indexOf('this._blastAt(') < body.indexOf('consumeSelected(this.save);'),
+  assert.truthy(body.indexOf('this._blastAt(') < body.indexOf('this._consumeSelected();'),
     'the blast goes off on a use that actually moved something');
 });
 
 // ── Shadow ─────────────────────────────────────────────────────────────────
 test('shadow: a 3-minute in-memory buff, read out with shortDuration beside the dragon\'s', () => {
-  const body = methodBody('useShadowPowder');
-  assert.truthy(/this\._shadowUntil = Date\.now\(\) \+ SHADOW_POWDER_MS;/.test(body), 'one SHADOW_POWDER_MS on this._shadowUntil');
-  assert.eq(CONSUMABLE_SPEC.shadow_powder.durationMs, 3 * 60 * 1000, 'and that is three minutes');
-  assert.truthy(/if \(this\._workProgress\?\.combat\) this\.cancelWorkProgress\(\);/.test(body),
+  // A `buff` row: _useTimedBuff extends Buffs.KINDS.shadow (this._shadowUntil)
+  // by the row's durationMs; its own work is the TIMED_BUFF_HOOKS.shadow hook.
+  assert.eq(CONSUMABLE_SPEC.shadow_powder.buff, 'shadow', 'a timed buff row');
+  const hooks = app.match(/\nconst TIMED_BUFF_HOOKS = \{[\s\S]*?\n\};/)[0];
+  assert.truthy(/shadow: \{ after: \(s\) => \{ if \(s\._workProgress\?\.combat\) s\.cancelWorkProgress\(\); \} \}/.test(hooks),
     'the truce ends the fight you are in: the wheel drops');
-  assert.truthy(/const SHADOW_POWDER_MS = CONSUMABLE_SPEC\.shadow_powder\.durationMs;/.test(app),
-    'runtime derives the duration');
-  assert.truthy(/return this\._finishConsumable\(/.test(body), 'consumed through the shared tail');
+  assert.eq(CONSUMABLE_SPEC.shadow_powder.durationMs, 3 * 60 * 1000, 'and that is three minutes');
+  assert.falsy(/SHADOW_POWDER_MS/.test(app), 'no duration alias: the row is read at the use');
+  const body = methodBody('_useTimedBuff(id, { mul = 1, spend = true } = {}');
+  assert.truthy(/Buffs\.extend\(this\.save, this, buff, spec\.durationMs \* mul\);/.test(body), 'extended through the one writer');
+  assert.truthy(/this\._spendScroll\(id\);/.test(body), 'consumed through the shared spend');
   assert.truthy(/isShadowActive\(\) \{\n    return \(this\._shadowUntil \?\? 0\) > Date\.now\(\);/.test(app),
     'isShadowActive reads the timer');
   assert.truthy(!/save\.shadowUntil|save\._shadowUntil|shadowPowderUntil/.test(app), 'never written to the save');
@@ -231,23 +241,27 @@ test('shadow: one `unnoticed` read gates BOTH the pursuit and the hit in wanderC
 });
 
 // ── Frost ──────────────────────────────────────────────────────────────────
-test('frost: freezes every Combat.isEnemy in cellInReach for 30 s, refusing BEFORE consuming when none is', () => {
+test('frost: chills every Combat.isEnemy in cellInReach for 30 s, refusing BEFORE consuming when none is', () => {
   assert.eq(CONSUMABLE_SPEC.frost_powder.durationMs, 30 * 1000, '30 s');
-  assert.truthy(/const FROST_POWDER_MS = CONSUMABLE_SPEC\.frost_powder\.durationMs;/.test(app),
-    'runtime derives the duration');
-  const body = methodBody('useFrostPowder');
-  assert.truthy(/if \(!Combat\.isEnemy\(c\)\) return;/.test(body), 'enemies only — never crow, deer or a pet');
-  assert.truthy(/caughtSet\.has\(c\.id\)\) return;/.test(body), 'not a caught one');
-  assert.truthy(/if \(!cellInReach\(this, fc\.cellIX, fc\.cellIY\)\) return;/.test(body),
+  assert.falsy(/FROST_POWDER_MS/.test(app), 'no duration alias: the row is read at the cast');
+  // A CAST_ROWS row with `scope: 'reach'`, cast by _castOnFoes over _enemiesInReach.
+  const a = app.indexOf('  frost_powder: { noun:');
+  assert.truthy(a > 0, 'the frost row of CAST_ROWS');
+  const row = app.slice(a, app.indexOf('\n};', a));
+  const cast = methodBody('_castOnFoes(id, { damage = CONSUMABLE_SPEC[id]?.damage, spend = true, noun } = {}');
+  const where = methodBody('_enemiesWhere(where'), reach = methodBody('_enemiesInReach');
+  assert.truthy(/Combat\.isEnemy\(c\) && !caught\.has\(c\.id\)/.test(where), 'enemies only — never crow, deer, a pet or a caught one');
+  assert.truthy(/scope: 'reach'/.test(row) && /return cellInReach\(this, fc\.cellIX, fc\.cellIY\);/.test(reach)
+    && /row\.scope === 'reach'/.test(cast) && /this\._enemiesInReach\(\)/.test(cast),
     'the shipping reach test — the lit plateau the tap gate accepts');
-  const refuseAt = body.indexOf('if (targets.length === 0) {');
-  const consumeAt = body.indexOf('consumeSelected(this.save);');
+  const refuseAt = cast.indexOf('if (!targets.length) {');
+  const consumeAt = cast.indexOf('this._spendScroll(id);');
   assert.truthy(refuseAt >= 0 && consumeAt > refuseAt, 'consumed AFTER the refusal');
-  assert.truthy(body.slice(refuseAt, consumeAt).includes('return false;'), 'the refusal returns');
-  assert.truthy(/c\._frozenUntil = until;/.test(body) && /const until = Date\.now\(\) \+ FROST_POWDER_MS;/.test(body),
-    'stamps _frozenUntil = now + 30 s');
-  assert.truthy(/c\._startX = c\._targetX = c\.x;/.test(body), 'pins the in-flight hop so the thaw does not snap it on');
-  assert.truthy(/shortDuration\(FROST_POWDER_MS\)/.test(body), 'the flash prints the freeze with shortDuration');
+  assert.truthy(cast.slice(refuseAt, consumeAt).includes('return false;'), 'the refusal returns');
+  assert.truthy(/Combat\.applyFrost\(c, CONSUMABLE_SPEC\.frost_powder\.durationMs, now\)/.test(row),
+    'lands the frost status (Combat.applyFrost — a slow, never a pin) for the row\'s 30 s');
+  assert.truthy(/chilled for \$\{shortDuration\(CONSUMABLE_SPEC\.frost_powder\.durationMs\)\}/.test(row),
+    'the flash says chilled, with shortDuration');
 });
 
 test('frost: a chilled creature is SLOWED, never pinned — half pace, half cadence, its tell untouched', () => {

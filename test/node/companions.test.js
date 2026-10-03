@@ -167,11 +167,19 @@
     assert.truthy(s._mercenary, 'contract spawns once tile finishes loading');
     assert.eq(entry.creatures.length, 1);
   }));
+  const APP_TABLES = (() => {
+  const grab = (name) => {
+    const m = SCENE_SRC.match(new RegExp('\\nconst ' + name + ' = \\{[\\s\\S]*?\\n\\};'));
+    assert.truthy(m, name + ' table in app.js');
+    return m[0];
+  };
+  return grab('SUMMON_HOOK') + grab('TIMED_BUFF_HOOKS');
+})();
   function method(name) {
     const start = SCENE_SRC.indexOf('\n  ' + name + '(');
     const end = SCENE_SRC.indexOf('\n  }\n', start);
     assert.truthy(start >= 0 && end > start);
-    return new Function('return ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
+    return new Function(APP_TABLES + '\nreturn ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
   }
   for (const [id, kind, model, tier] of [
     ['skeleton_scroll', 'summoned_skeleton', 'skeleton', 3],
@@ -196,8 +204,12 @@
       s.save.inv = [{ id, count: 3 }]; s.save.selSlot = 0;
       s.buildInventoryDOM = () => {};
       s.showMessageModal = () => {};
-      s._spendScroll = method('_spendScroll');
-      const read = method('readSummoningScroll'), row = Companions.KINDS[kind];
+      for (const name of ['_selectedConsumable', '_spendScroll', '_consumeSelected', '_finishInventoryChange']) s[name] = method(name);
+      // The scroll is a `buff` row: _useTimedBuff extends the companion's own
+      // field (the Buffs row reads it) around Companions.tick (SUMMON_HOOK).
+      assert.eq(Buffs.KINDS[CONSUMABLE_SPEC[id].buff].save, Companions.KINDS[kind].field, `${id}: one expiry field`);
+      const use = method('_useTimedBuff'), row = Companions.KINDS[kind];
+      const read = { call: (scene) => use.call(scene, id) };
       assert.truthy(read.call(s));
       assert.eq(s.save.inv[0].count, 2);
       assert.falsy(homeRecipeLocked(s.save, id));
@@ -213,7 +225,7 @@
       assert.truthy(read.call(s), 'refresh immediately after reload');
       assert.eq(Combat.hp(s[row.instance]), 5, 'refresh after reload preserves wounds');
       assert.falsy(read.call(s), 'empty slot cannot summon');
-      advance(row.durationMs);
+      advance(3 * row.durationMs);   // three reads, each banked on the last (Buffs.laterOf)
       Companions.tickAll(s);
       assert.eq(s[row.instance], null);
       assert.falsy(Companions.active(s.save, kind));

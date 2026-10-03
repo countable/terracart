@@ -23,7 +23,7 @@ function scene(creatures = []) {
     save: { energy: 50, inv: [{ id: ID, count: 2 }], selSlot: 0, caught: [] },
     startWorldM: { x: 100, y: 200 }, playerM: { x: 0, y: 0 }, depth: 3,
     cellM: 7, persisted: 0, rebuilt: 0, loot: [],
-    buildInventoryDOM() { this.rebuilt++; }, flash() {}, flashLoot(...a) { this.loot.push(a); },
+    buildInventoryDOM() { this.rebuilt++; }, flash() {}, flashAtPlayer() {}, flashLoot(...a) { this.loot.push(a); },
     playerToWorldCell() { return { tx: 0, ty: 0 }; },
     worldMetersToScreen(x, y) { return { x, y }; },
   };
@@ -32,9 +32,15 @@ function scene(creatures = []) {
     persistSave: () => s.persisted++, setOf: arr => new Set(arr || []),
     WorldGen: { forEachItemNear: (_kind, _tx, _ty, visit) => creatures.forEach(visit) },
     Particles: { onScreen: (_scene, x, y) => x >= 0 && x < 100 && y >= 0 && y < 100 },
-    PSYCHOSIS_POWDER_MS: CONSUMABLE_SPEC[ID].durationMs, shortDuration,
+    shortDuration, monsterRout: () => {}, THUNDER_FLASH_MS: 350,
   };
-  for (const name of ['_onscreenEnemies', 'usePsychosisPowder']) s[name] = method(name, deps);
+  // The powder is a CAST_ROWS row cast by _castOnFoes: the table and the
+  // refusal formatter are lifted from app.js beside the methods.
+  Object.assign(deps, new Function(...Object.keys(deps),
+    app.match(/\nconst CAST_ROWS = \{[\s\S]*?\n\};/)[0] + app.match(/\nfunction kept\(why, noun\) \{[^\n]*\n/)[0]
+    + 'return { CAST_ROWS, kept };')(...Object.values(deps)));
+  for (const name of ['_selectedConsumable', '_consumeSelected', '_finishInventoryChange', '_spendScroll', '_enemiesWhere', '_onscreenEnemies', '_castOnFoes']) s[name] = method(name, deps);
+  s.usePsychosisPowder = () => s._castOnFoes(ID);
   return s;
 }
 
@@ -72,8 +78,8 @@ test('psychosis powder: the action row, its duration and the app constant', () =
   assert.eq(row.durationMs, 10 * 1000, 'ten seconds');
   assert.truthy(/^Scatter the .*\?$/.test(row.title), 'the confirm title');
   assert.eq(ITEM_EFFECTS[ID], row.get, 'the description is the outcome line');
-  assert.truthy(/const PSYCHOSIS_POWDER_MS = CONSUMABLE_SPEC\.psychosis_powder\.durationMs;/.test(app),
-    'app derives the duration from the spec');
+  assert.truthy(/psychosis_powder: [\s\S]*?Combat\.applyPsychosis\(c, CONSUMABLE_SPEC\.psychosis_powder\.durationMs, now\)/.test(app),
+    'the cast reads the row\'s duration');
 });
 
 test('psychosis: Combat.applyPsychosis is fear\'s shape — hostile only, drops the wind-up, turns now', () => {

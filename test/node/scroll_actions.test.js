@@ -4,12 +4,17 @@ function method(name, deps = {}) {
   assert.truthy(match, name + ' exists');
   return new Function(...Object.keys(deps), 'return function(' + match[1] + '){' + match[2] + '}')(...Object.values(deps));
 }
+// The casts (fear, sleep) are CAST_ROWS rows cast by _castOnFoes; the table
+// and the refusal formatter are lifted from app.js beside the methods.
+const TABLE = (deps) => new Function(...Object.keys(deps),
+  APP_JS_SRC.match(/\nconst CAST_ROWS = \{[\s\S]*?\n\};/)[0] + APP_JS_SRC.match(/\nfunction kept\(why, noun\) \{[^\n]*\n/)[0]
+  + 'return { CAST_ROWS, kept };')(...Object.values(deps));
 function scene(id, creatures = []) {
   const s = {
     save: { energy: 50, inv: [{ id, count: 2 }], selSlot: 0, caught: [] },
     startWorldM: { x: 100, y: 200 }, playerM: { x: 0, y: 0 }, depth: 3,
     facing: { x: 1, y: 0 }, cellM: 7, _shots: [], persisted: 0, rebuilt: 0,
-    buildInventoryDOM() { this.rebuilt++; }, flash() {}, flashLoot() {},
+    buildInventoryDOM() { this.rebuilt++; }, flash() {}, flashAtPlayer() {}, flashLoot() {},
     playerToWorldCell() { return { tx: 0, ty: 0 }; },
     worldMetersToScreen(x, y) { return { x, y }; },
   };
@@ -19,10 +24,15 @@ function scene(id, creatures = []) {
     WorldGen: { forEachItemNear: (_kind, _tx, _ty, visit) => creatures.forEach(visit) },
     Particles: { onScreen: (_scene, x, y) => x >= 0 && x < 100 && y >= 0 && y < 100 },
     monsterRout: c => { c.routed = true; }, shortDuration: () => '15m',
+    THUNDER_FLASH_MS: 350,
   };
-  for (const name of ['_spendScroll', '_onscreenEnemies', 'useFireballScroll', 'useFearScroll', 'useSleepPowder', 'useTreasureMap']) {
+  Object.assign(deps, TABLE(deps));
+  for (const name of ['_selectedConsumable', '_consumeSelected', '_finishInventoryChange', '_spendScroll', '_enemiesWhere',
+    '_onscreenEnemies', '_castOnFoes', 'useFireballScroll', 'useTreasureMap']) {
     s[name] = method(name, deps);
   }
+  s.useFearScroll = () => s._castOnFoes('fear_scroll');
+  s.useSleepPowder = () => s._castOnFoes('sleep_powder');
   return s;
 }
 function assertSpent(s, id, learned) {
@@ -82,7 +92,8 @@ test('scroll actions: fear retreats every visible foe and cancels pending attack
   assert.truthy(c.routed);
   assert.truthy(c._fearUntilT >= before + CONSUMABLE_SPEC.fear_scroll.durationMs);
   assert.eq(c._startX, 20); assert.eq(c._targetY, 30);
-  assert.eq(c._attackWindupUntil, 0); assert.eq(c._lungeWindupUntil, 0); assert.eq(c._abilityWindupUntil, 0);
+  assert.falsy(c._attackWindupUntil); assert.falsy(c._lungeWindupUntil); assert.falsy(c._abilityWindupUntil);
+  assert.eq(c._statusPop?.label, Combat.STATUS_LOOKS.fear.label, 'the status announces itself (Combat.applyFear)');
 });
 
 test('scroll actions: sleep powder applies the existing sleep field without teaching a scroll', () => {

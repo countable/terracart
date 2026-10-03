@@ -13,7 +13,7 @@ function throwScene(overrides = {}) {
     isShadowActive() { return false; },
     ...overrides,
   };
-  const names = ['throwCooldownLeft', 'throwActionLabel', 'canThrowItem', '_throwItem', 'useSpear', 'useJavelin', 'useRock', '_tickThrowButton', 'useForgetmenot', 'useWildrose', '_friendlyShotHitsEnemy', '_shotCanHit', '_shotHitsTarget'];
+  const names = ['_consumeSelected', '_finishInventoryChange', 'throwCooldownLeft', 'throwActionLabel', 'canThrowItem', '_throwItem', 'useSpear', 'useJavelin', 'useRock', '_tickThrowButton', 'useForgetmenot', 'useWildrose', '_friendlyShotHitsEnemy', '_shotCanHit', '_shotHitsTarget'];
   const methods = names.map(name => {
     const method = APP_JS_SRC.match(new RegExp('\\n  (' + name + '\\([^\\n]*\\) \\{\\n[\\s\\S]*?\\n  \\})\\n'));
     assert.truthy(method, `${name} exists`);

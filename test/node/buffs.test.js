@@ -25,9 +25,14 @@
     for (const src of [app, INTERACTABLES_SRC]) {
       for (const m of src.matchAll(/save\.(\w+Until)\s*=/g)) writers.add(m[1]);
     }
-    assert.truthy(writers.size >= 7, `found the potion writers (${[...writers].join(', ')})`);
+    // Oct 2026: there is no raw writer left — every expiry goes through
+    // Buffs.extend (app.js _useTimedBuff, the eat lane, the bike rack), so
+    // the sweep now holds the line at zero; a row check stays for any that
+    // slips back in.
+    assert.eq(writers.size, 0, `no raw potion writer: Buffs.extend is the one (${[...writers].join(', ')})`);
     const rows = new Set(Object.values(Buffs.KINDS).map(k => k.save).filter(Boolean));
     for (const f of writers) assert.truthy(rows.has(f), `${f}: a row of Buffs.KINDS reads it`);
+    for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) if (row.buff) assert.truthy(Buffs.KINDS[row.buff], `${id}: its buff is a row`);
     for (const f of ['_dragonUntil', '_shadowUntil', '_torchUntil']) {
       assert.truthy(Object.values(Buffs.KINDS).some(k => k.scene === f), `${f}: the in-memory powders have rows`);
     }

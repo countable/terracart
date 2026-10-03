@@ -576,8 +576,9 @@ const WEAPON_SLOTS = Gear.WEAPON_SLOTS;
 // Where fauna may NEVER step (WATER / buildings / roads / cave wall) is
 // Combat.faunaBlocksCell, beside the creatures it governs.
 //
-// The MONSTER table is Combat's too — Combat.MONSTERS / Combat.monster(kind) —
-// with the giants and the cave doubling derived there, registered at load. It
+// The MONSTER table is Combat's too — Combat.MONSTERS / Combat.monster(kind),
+// the roster (every kind an enemy_roster.js row) with the giants and the cave
+// doubling derived there, registered at load. It
 // lived here until Sep 2026, which meant combat.js could only answer about a
 // real foe once app.js had booted and handed the table over, and every
 // headless test of one ran on a copy lifted out of this file by regex.
@@ -927,36 +928,24 @@ const WALK_HOME_SPEED_MUL = 1.5;
 // WALK_HOME_IDLE_MS — it is that plus a beat and a half.
 const WALK_HOME_HINT_IDLE_MS = 6500;
 // Runtime names derive from items.js's CONSUMABLE_SPEC, the one owner read by
-// gameplay, item copy and the Drink / Use button.
-const REACH_POTION_MS = CONSUMABLE_SPEC.reach_potion.durationMs;
+// gameplay, item copy and the Drink / Use button. A TIMED consumable's length
+// is read off its row at the use (_useTimedBuff) — no alias of it lives here.
 // The SHARED tome-button lock: reading any tome locks every tome's button
 // for an hour (food's eat lock is Energy's 10 s). Each tome's own magic
 // cooldown is CONSUMABLE_SPEC[id].cooldownMs, scaled to the spell's power.
+// A tome's spell is HALF its potion's (items.js TOME_MUL, the row's `tome`).
 const TOME_COOLDOWN_MS = 60 * 60 * 1000;
-// A tome's spell is HALF its potion's: half the duration for timed effects,
-// half the damage or restore for instant ones. The potion stays the strong,
-// one-shot form; the tome is the weaker spell you keep.
-const TOME_EFFECT_MUL = 0.5;
-const TOME_THUNDER_DMG = Math.floor(THUNDER_DMG * TOME_EFFECT_MUL);
-const TOME_HEALING_ENERGY = Math.floor(VIGOR_POTION_ENERGY * TOME_EFFECT_MUL);
-const SPEED_POTION_MS = CONSUMABLE_SPEC.speed_potion.durationMs;
-const SHIELD_POTION_MS = CONSUMABLE_SPEC.shield_potion.durationMs;
-const DRAGON_POWDER_MS = CONSUMABLE_SPEC.dragon_powder.durationMs;
-const SHADOW_POWDER_MS = CONSUMABLE_SPEC.shadow_powder.durationMs;
 const GROWTH_POWDER_R_M = CONSUMABLE_SPEC.growth_powder.radiusM;
-const FROST_POWDER_MS = CONSUMABLE_SPEC.frost_powder.durationMs;
-const PSYCHOSIS_POWDER_MS = CONSUMABLE_SPEC.psychosis_powder.durationMs;
-// The Scroll of Thunder's flash (readThunderScroll) — long enough to read as
-// lightning, short enough not to blind the next tap. Its damage is items.js
-// THUNDER_DMG, beside the ✦ line that quotes it.
+// The Scroll of Thunder's flash (CAST_ROWS.thunder_scroll) — long enough to
+// read as lightning, short enough not to blind the next tap. Its damage is
+// items.js THUNDER_DMG, beside the ✦ line that quotes it.
 const THUNDER_FLASH_MS = 350;
-// Potion of Blight: for BLIGHT_MS a round aura on the ground around the
+// Potion of Blight: for its minute a round aura on the ground around the
 // player hurts every ENEMY whose centre is inside BLIGHT_R_CELLS cells of the
 // feet, BLIGHT_DPS HP a second (_tickBlightAura). A plain Euclidean radius on
 // purpose — it is a smooth circle, not the per-cell reach staircase — and the
 // baked 'aura_blight' texture is drawn exactly that wide, so the edge the
 // player sees is the edge that bites.
-const BLIGHT_MS = CONSUMABLE_SPEC.blight_potion.durationMs;
 const BLIGHT_R_CELLS = CONSUMABLE_SPEC.blight_potion.radiusCells;
 const BLIGHT_DPS = CONSUMABLE_SPEC.blight_potion.damagePerSecond;
 // SHOP_CHARM_MS (the Flowers charm) lives in items.js beside the Flowers ✦
@@ -973,10 +962,87 @@ const SPEED_POTION_WALK_COST_TIER = CONSUMABLE_SPEC.speed_potion.movementTier;
 // for a while after the constant went to 2, and so did the item-effect line
 // the player reads (items.js ITEM_EFFECTS); both quote the constant now.
 const COFFEE_BOOT_BOOST = CONSUMABLE_SPEC.coffee.speedTierBoost;
-const COFFEE_BUFF_MS = CONSUMABLE_SPEC.coffee.durationMs;
-// Torch: how long one burns (useTorch). Lighting another while one burns
-// extends from the current end, so a bag of them is one long light.
-const TORCH_MS = CONSUMABLE_SPEC.torch.durationMs;
+// ── THE TIMED CONSUMABLES' OWN WORK ─────────────────────────────────────────
+// What a CONSUMABLE_SPEC row with a `buff` does BESIDES extending its Buffs
+// row (_useTimedBuff): keyed by the buff id, `before(scene, spec)` runs ahead
+// of the extend and `after(scene, spec)` behind it. A row not listed here
+// only extends. The summons (skeleton, wraith) reconcile the live ally
+// around the extend through Companions.tick — the ally's lifetime is the
+// expiry it reads (Companions.KINDS[kind].field is the Buffs row's `save`).
+const SUMMON_HOOK = {
+  before: (s, spec) => {
+    const kind = spec.summonKind;
+    Companions.tick(s, kind);   // expiry or defeat first, a stale live instance too
+    if (!Companions.active(s.save, kind)) delete s.save.companionState?.[kind];
+  },
+  after: (s, spec) => Companions.tick(s, spec.summonKind),
+};
+const TIMED_BUFF_HOOKS = {
+  // Immune from this instant: no half-pip of an earlier blow or burn lands later.
+  immortal: { after: (s) => { s._incomingDamageFraction = 0; s.save.fireDamageRemainder = 0; } },
+  fireResistance: { after: (s) => { Conditions.cure(s.save, 'burning'); s.save.fireDamageRemainder = 0; s._lavaAccum = 0; } },
+  // The bar's cap moves with the body: current HP is capped (never healed), the skin resized.
+  shrinking: { after: (s) => { Energy.set(s.save, s.save.energy, Energy.maxEnergy(s.save)); s._syncPlayerSkin(); s.updateEnergyDOM(); } },
+  giant: { after: (s) => { s._syncPlayerSkin(); s.updateEnergyDOM(); } },
+  // The truce ends the fight you are in: the melee wheel drops (the same
+  // cancel the stairs use); arrows already in the air finish their flight.
+  shadow: { after: (s) => { if (s._workProgress?.combat) s.cancelWorkProgress(); } },
+  // Summoned now, not a frame later; a living bird's follow timer is
+  // re-derived from the refreshed expiry by Companions.tick.
+  raven: { after: (s) => s._tickSpiritRaven() },
+  skeleton: SUMMON_HOOK,
+  wraith: SUMMON_HOOK,
+};
+// ── "EVERY FOE IN SIGHT" ─────────────────────────────────────────────────────
+// The screen-wide spells share one shape (_castOnFoes): the ENEMIES drawn
+// inside the viewport (_onscreenEnemies — Combat.isEnemy, never a crow, a
+// deer or a pet; the frost's `reach` scope is the lit plateau the tap gate
+// accepts, cellInReach), ONE refusal when there are none ("No foe in sight —
+// <noun> kept."), `before(scene)`, the row's `apply(scene, c, now, damage)`
+// per foe (true for a kill), the spend, and the row's `note` when something
+// was spent. `clock` is the status's own — perf for the rout lanes (fear,
+// psychosis, the thunder's wander-off), wall for sleep and frost.
+const CAST_ROWS = {
+  // A white flash across the screen; THUNDER_DMG through _damageEnemy (the
+  // one damage lane: popups, bar, bounty); whatever the bolt leaves standing
+  // turns tail (monsterRout — the ordinary wander-off, away from the player
+  // to the usual random range). A lair guard is on its own leash
+  // (Lairs.guardState), so it takes the damage but holds its ruin.
+  thunder_scroll: { noun: 'scroll', clock: 'perf',
+    before: (s) => s.cameras?.main?.flash(THUNDER_FLASH_MS, 255, 255, 255),
+    apply: (s, c, now, damage) => {
+      if (s._damageEnemy(c, damage)) return true;
+      if (!c.lair) monsterRout(c, now, s.cellM);
+      return false;
+    },
+    note: (s, n, felled) => s.showMessageModal({
+      title: 'You read the Scroll of Thunder',
+      body: felled < n ? 'The sky splits. When your ears stop ringing, the surviving beasts are already fleeing.'
+        : 'The sky splits. When your ears stop ringing, the beasts lie still.',
+    }) },
+  // The rout, away from the player, for the scroll's half minute (Combat.applyFear).
+  fear_scroll: { noun: 'scroll', clock: 'perf',
+    apply: (s, c, now) => { monsterRout(c, now, s.cellM); Combat.applyFear(c, CONSUMABLE_SPEC.fear_scroll.durationMs, now); },
+    note: (s, n, felled, id) => s.flashLoot('The beasts turn and flee.', Combat.STATUS_LOOKS.fear.color, 1.8, id) },
+  sleep_powder: { noun: 'powder', clock: 'wall',
+    apply: (s, c, now) => Combat.applySleep(c, now),
+    note: (s, n, felled, id) => s.flashLoot(`Sleep falls for ${shortDuration(CONSUMABLE_SPEC.sleep_powder.durationMs)}.`, '#bca5e8', 1.8, id) },
+  // Every foe on screen loses its head (Combat.applyPsychosis — the
+  // `psychotic` reason in wanderCreatures' rout lane: the flee pace on a
+  // random heading each hop, no blow, no target). Weak on purpose: ten
+  // seconds to get clear, or to get the first blow in.
+  psychosis_powder: { noun: 'powder', clock: 'perf',
+    apply: (s, c, now) => Combat.applyPsychosis(c, CONSUMABLE_SPEC.psychosis_powder.durationMs, now),
+    note: (s, n, felled, id) => s.flashLoot(`Madness takes them for ${shortDuration(CONSUMABLE_SPEC.psychosis_powder.durationMs)}.`, Combat.STATUS_LOOKS.psychosis.color, 1.8, id) },
+  // Every ENEMY standing IN REACH is CHILLED (Combat.applyFrost — a SLOW,
+  // never a freeze: half pace, half cadence) for the powder's half minute.
+  frost_powder: { noun: 'powder', clock: 'wall', scope: 'reach',
+    apply: (s, c, now) => Combat.applyFrost(c, CONSUMABLE_SPEC.frost_powder.durationMs, now),
+    note: (s, n, felled, id) => s.flashLoot(`❄ ${n} enem${n === 1 ? 'y' : 'ies'} chilled for ${shortDuration(CONSUMABLE_SPEC.frost_powder.durationMs)}`, '#9ad8ff', 1.8, id) },
+};
+// THE REFUSAL that keeps the item: "<why> — <noun> kept." — a cast with no
+// foe in sight, an Antidote with nothing to cure, a map with no chest.
+function kept(why, noun) { return `${why} — ${noun} kept.`; }
 // Tap diagnostics (interact.js _tapDiag): when on, a canvas tap that produces no
 // visible action flashes WHY (out-of-bounds / busy wheel / nothing here), to
 // debug "taps randomly stop working". On by default in DEBUG builds; force on
@@ -3627,8 +3693,8 @@ class MapScene extends Phaser.Scene {
   // ── The player's Magic Traps ──────────────────────────────────────────────
   // Every MAGIC_TRAP_TICK_MS: the first ENEMY (Combat.isEnemy — never game,
   // never a pet, never the player) standing on the cell of an armed trap on
-  // this level is HELD for MAGIC_TRAP_HOLD_MS — the Frost Powder's own
-  // c._frozenUntil, with its hop pinned where it stands — and takes
+  // this level is CHILLED for MAGIC_TRAP_HOLD_MS — the Frost Powder's own
+  // status (Combat.applyFrost: a SLOW, half pace and cadence) — and takes
   // magicTrapDamage() through _damageEnemy with source 'player': the player
   // set the trap, so a trap kill is a player kill (bounty, drop, quest tick).
   // The trap is spent — spliced out of save.magicTraps, which also takes its
@@ -3660,14 +3726,10 @@ class MapScene extends Phaser.Scene {
       hits.push({ t, c, ix: a.cellIX, iy: a.cellIY });
     });
     if (!hits.length) return;
-    const until = Date.now() + MAGIC_TRAP_HOLD_MS;
     for (const { t, c, ix, iy } of hits) {
       const i = list.indexOf(t);
       if (i >= 0) list.splice(i, 1);
-      c._frozenUntil = Math.max(c._frozenUntil || 0, until);
-      c._startX = c._targetX = c.x;
-      c._startY = c._targetY = c.y;
-      Combat.flagStatus(c, Combat.STATUS_LOOKS.frozen);
+      Combat.applyFrost(c, MAGIC_TRAP_HOLD_MS);
       this._damageEnemy(c, magicTrapDamage(), 'player');
       const at = this._cellToastAt(ix, iy, CELL_PX);
       this.flash('✨ Magic trap sprung', at.x, at.y);
@@ -5844,7 +5906,7 @@ class MapScene extends Phaser.Scene {
   }
   // Any short word ON a creature: the "-N" above, and the name of a status
   // that has just landed on it (render.js drawCreatures, off
-  // Combat.flagStatus — "Sleep", "Frozen", "Psychosis", in the status's own
+  // Combat.flagStatus — "Sleep", "Chilled", "Psychosis", in the status's own
   // ink). Seated over the health bar like the number, in the `damage` tier.
   _popCreatureText(c, text, color) {
     if (!this.add) return;                       // headless / teardown guard
@@ -6094,7 +6156,7 @@ class MapScene extends Phaser.Scene {
       // never credit toward its base kind's. A turret's kill is not the
       // player's job done.
       const qDone = Quests.onKill(save, victim.kind);
-      if (qDone) this.flash('Quest done — see the castle.', this.viewCenterX, this.viewCenterY - 60);
+      if (qDone) this.flashAtPlayer('Quest done — see the castle.');
     }
     // A guildhall bounty's foe: the pack's reward when it was the last one
     // (whoever felled it — the wage above was paid either way).
@@ -7346,7 +7408,7 @@ class MapScene extends Phaser.Scene {
       const now = Date.now();
       if (now - (this._steerTiredFlashAt || 0) > 3000) {
         this._steerTiredFlashAt = now;
-        this.flash(TOO_TIRED_MSG, this.viewCenterX, this.viewCenterY);
+        this.flashAtPlayer(TOO_TIRED_MSG);
       }
       return;
     }
@@ -7896,7 +7958,7 @@ class MapScene extends Phaser.Scene {
     // Charge at COMPLETION instead (in the wheel callback below): a dug wall
     // always costs, an interrupted one costs nothing — and isn't dug.
     if (cost > (this.save.energy ?? 0)) {
-      this.flash(TOO_TIRED_MSG, this.viewCenterX, this.viewCenterY);
+      this.flashAtPlayer(TOO_TIRED_MSG);
       this._followPaused = true;   // out of energy — stop chewing the wall
       return;
     }
@@ -7935,7 +7997,7 @@ class MapScene extends Phaser.Scene {
     // Can't descend on an empty tank — you'd just pass out down there. Climbing
     // up is always allowed (it's how you escape exhaustion).
     if (delta > 0 && (this.save.energy ?? 0) <= 0) {
-      this.flash('Too tired to go down.', this.viewCenterX, this.viewCenterY);
+      this.flashAtPlayer('Too tired to go down.');
       return;
     }
     // Leaving the portal's destination by any other route closes the return.
@@ -9878,22 +9940,90 @@ class MapScene extends Phaser.Scene {
   // Set out the Potion of Taming (consumed): every wandering producer inside its radius has
   // its home position re-anchored to ~3m from the player so it wanders toward you
   // over the next few seconds. Doesn't teleport — that would feel cheesy.
-  // Shared tail for modal-feedback consumables (honey, book): consume the
-  // selected item, persist, rebuild the inventory bar, and pop a message
-  // modal. Returns true so callers can `return this._finishConsumable(...)`.
+  // ── THE SLOT GUARD ────────────────────────────────────────────────────────
+  // The one test every Drink / Use / Read makes first: the selected stack is
+  // `id` with something left — the slot, or null. The handlers ask it
+  // themselves (a test drives them directly), so an empty or wrong selection
+  // is refused in one place however the action was reached.
+  _selectedConsumable(id) {
+    const sel = getSelectedSlot(this.save);
+    return sel && sel.id === id && (sel.count ?? 0) > 0 ? sel : null;
+  }
+  // The selected stack SPENT: one off the count, persisted, the bar redrawn.
+  // Every consume of the selected slot ends here.
+  _consumeSelected() {
+    consumeSelected(this.save);
+    this._finishInventoryChange();
+    return true;
+  }
+  // Spend the selected consumable `id`. A SCROLL teaches its recipe first
+  // (save.usedScrolls — only a successful use, never owning or crafting one).
+  _spendScroll(id) {
+    if (ITEM_BY_ID[id]?.scroll) {
+      this.save.usedScrolls ||= [];
+      if (!this.save.usedScrolls.includes(id)) this.save.usedScrolls.push(id);
+    }
+    return this._consumeSelected();
+  }
+  // Shared tail for modal-feedback consumables (honey, book): spend the
+  // selected item and pop a message modal. Returns true so callers can
+  // `return this._finishConsumable(...)`.
   // NOTE: eatSelected deliberately does NOT use this — it consumes mid-method
   // (before computing side-effects) and gives flash feedback + energy DOM.
-  _finishConsumable(title, body, opts = {}) {
-    consumeSelected(this.save);
-    persistSave(this.save);
-    this.buildInventoryDOM();
+  _finishConsumable(title, body) {
+    this._consumeSelected();
     this.showMessageModal({ title, body });
     return true;
   }
+  // Energy BACK on the bar (a heal, a tome, a revival): capped at the max,
+  // the "+N" popped for what actually landed, the HUD refreshed. Returns
+  // what landed.
+  _restoreEnergy(amount) {
+    const before = this.save.energy ?? 0;
+    Energy.set(this.save, before + amount, this.getMaxEnergy());
+    const gained = this.save.energy - before;
+    if (gained > 0) this._popEnergy(gained);
+    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    return gained;
+  }
+  // ── THE TIMED CONSUMABLE ─────────────────────────────────────────────────
+  // Every CONSUMABLE_SPEC row with a `buff` (the potions, the powders, the
+  // torch, the scrolls that summon) is used HERE and nowhere else: the slot
+  // guard once; the row's expiry EXTENDED through the one writer
+  // (Buffs.extend — max(now, until) + the row's durationMs: a second dose is
+  // banked on top of what is left, never thrown away, never refused); the
+  // buff's own work (TIMED_BUFF_HOOKS); the stack spent with the row's
+  // `used` dialog. A tome reads for `mul` of the dose and spends nothing.
+  _useTimedBuff(id, { mul = 1, spend = true } = {}) {
+    const spec = CONSUMABLE_SPEC[id], buff = spec?.buff;
+    if (!buff || (spend && !this._selectedConsumable(id))) return false;
+    // The dialog's words are picked BEFORE the extend (the torch's title
+    // says whether one was already burning).
+    const used = spec.used || {}, text = (v) => (typeof v === 'function' ? v(this, spec) : v);
+    const title = text(used.title), body = text(used.body);
+    const hook = TIMED_BUFF_HOOKS[buff];
+    hook?.before?.(this, spec);
+    Buffs.extend(this.save, this, buff, spec.durationMs * mul);
+    hook?.after?.(this, spec);
+    if (!spend) return true;
+    this._spendScroll(id);
+    this.showMessageModal({ title, body });
+    return true;
+  }
+  // One route from a CONSUMABLE_SPEC row to its action: a `buff` row is a
+  // timed buff, a `tome` row is read, a CAST_ROWS row is cast on the foes in
+  // sight; anything else names its own `method`.
+  _useConsumable(id) {
+    const row = CONSUMABLE_SPEC[id];
+    if (!row) return false;
+    if (row.buff) return this._useTimedBuff(id);
+    if (row.tome) return this._readTome(id);
+    if (CAST_ROWS[id]) return this._castOnFoes(id);
+    return typeof this[row.method] === 'function' ? this[row.method]() : false;
+  }
 
   useHoney() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'honey' || (sel.count ?? 0) <= 0) return false;
+    if (!this._selectedConsumable('honey')) return false;
     const pWX = this.startWorldM.x + this.playerM.x;
     const pWY = this.startWorldM.y + this.playerM.y;
     let lured = 0;
@@ -9984,8 +10114,7 @@ class MapScene extends Phaser.Scene {
   // Read a book (consumed). Kept for saves that already have one sitting in
   // inventory from before books started auto-reading on pickup (addToInv).
   readBook() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'book' || (sel.count ?? 0) <= 0) return false;
+    if (!this._selectedConsumable('book')) return false;
     const { title, body } = this._bookRead();
     return this._finishConsumable(title, body);
   }
@@ -10034,61 +10163,47 @@ class MapScene extends Phaser.Scene {
     showNext();
   }
 
-  // Drink a Potion of Reach (consumed): light up the whole visible view for
-  // 1 minute. coords.js' reachRadiusM checks save.reachPotionUntil and, while
-  // it's in the future, returns a full-screen radius regardless of energy — so
-  // the lit silhouette AND every tap-accept gate cover everything on screen.
-  // Stored in `save` (not just in-memory) so the buff survives tile reloads
-  // within the minute; the timestamp self-expires, so a stale save is harmless.
-  // `opts` rides through to _finishConsumable like the other drinks; it
-  // used to be read here without being declared, which threw on every
-  // Potion of Reach (sandbox run, Oct 2026 — player_potions.test.js).
-  drinkReachPotion(opts = {}) {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'reach_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.reachPotionUntil = Date.now() + REACH_POTION_MS;
-    return this._finishConsumable(
-      `✨ You drink the Potion of Reach`,
-      'A shiver runs through your fingers. Even the far edge of the world feels close enough to touch.',
-      opts,
-    );
-  }
-
   // ── The Tomes ─────────────────────────────────────────────────────────────
   // Story books' rarer siblings: READ for the effect of the potion one tier
-  // below the tome, never consumed. TWO cooldowns: the SHARED activation
-  // lock (TOME_COOLDOWN_MS, save.tomeReadyAt - food's eat-cooldown shape,
-  // but one hour and spanning every tome: reading any one locks the button
-  // for all), and each tome's OWN magic cooldown (CONSUMABLE_SPEC
-  // cooldownMs, save.tomeMagicCd[id]) scaled to the spell's power. HOME IS
-  // THE LIBRARY: inside Home's ring (isRestingAtHome - the one predicate
-  // behind every Home-ring effect) both are considered refreshed. A refused
-  // reading shows its wait (shortDuration - a timed gate needs a visible
-  // wait).
-  _tomeReady(id) {
-    const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
-    if (this.isRestingAtHome(px, py)) return true;
+  // below the tome, never consumed. Every tome but the Wall of Fire is its
+  // row's `tome` column — _readTome gives `mul` of the potion `of`'s effect
+  // (a timed buff's dose, the heal's energy, the storm's damage) and says
+  // `flash`. TWO cooldowns: the SHARED activation lock (TOME_COOLDOWN_MS,
+  // save.tomeReadyAt - food's eat-cooldown shape, but one hour and spanning
+  // every tome: reading any one locks the button for all), and each tome's
+  // OWN magic cooldown (CONSUMABLE_SPEC cooldownMs, save.tomeMagicCd[id])
+  // scaled to the spell's power. HOME IS THE LIBRARY: inside Home's ring
+  // (isRestingAtHome - the one predicate behind every Home-ring effect)
+  // both are considered refreshed. A refused reading shows its wait
+  // (Macros.waitLine - a timed gate needs a visible wait).
+  // The wait on a tome — { ms, line } for the longer of the two locks, or
+  // null when it may be read. _tomeReady flashes it; tomeUsable greys on it.
+  _tomeWait(id) {
+    const { x, y } = playerWorldM(this);
+    if (this.isRestingAtHome(x, y)) return null;
     const now = Date.now();
-    const shared = (this.save.tomeReadyAt ?? 0) - now;
-    if (shared > 0) {
-      const ps = this.playerScreen();
-      this.flash(`The tomes rest — ${shortDuration(shared)}`, ps.x, ps.y + this.playerBodyDy());
-      return false;
-    }
-    const own = (this.save.tomeMagicCd?.[id] ?? 0) - now;
-    if (own > 0) {
-      const ps = this.playerScreen();
-      this.flash(`This tome rests — ${shortDuration(own)}`, ps.x, ps.y + this.playerBodyDy());
-      return false;
-    }
-    return true;
+    const shared = (this.save.tomeReadyAt ?? 0) - now, own = (this.save.tomeMagicCd?.[id] ?? 0) - now;
+    if (shared > 0) return { ms: shared, line: 'The tomes rest' };
+    if (own > 0) return { ms: own, line: 'This tome rests' };
+    return null;
+  }
+  _tomeReady(id) {
+    const wait = this._tomeWait(id);
+    if (wait) this.flashAtPlayer(Macros.waitLine(wait.line, wait.ms));
+    return !wait;
   }
   // The button gate (CONSUMABLE_SPEC usable): no flash, just grey.
-  tomeUsable(id) {
-    const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
-    if (this.isRestingAtHome(px, py)) return true;
-    const now = Date.now();
-    return (this.save.tomeReadyAt ?? 0) <= now && (this.save.tomeMagicCd?.[id] ?? 0) <= now;
+  tomeUsable(id) { return !this._tomeWait(id); }
+  _readTome(id) {
+    const t = CONSUMABLE_SPEC[id]?.tome;
+    if (!t || !this._selectedConsumable(id) || !this._tomeReady(id)) return false;
+    const of = CONSUMABLE_SPEC[t.of];
+    if (of.buff) this._useTimedBuff(t.of, { mul: t.mul, spend: false });
+    else if (of.energy) this._restoreEnergy(Math.floor(of.energy * t.mul));
+    else if (!this._castOnFoes(t.of, { damage: Math.floor(of.damage * t.mul), spend: false, noun: 'tome' })) return false;
+    this._tomeSpent(id);
+    this.flashAtPlayer(t.flash);
+    return true;
   }
   _tomeSpent(id) {
     // THE ENCHANTER'S EDGE (wizard.js CLASSES): half-length cooldowns, both
@@ -10100,102 +10215,10 @@ class MapScene extends Phaser.Scene {
     (this.save.tomeMagicCd ||= {})[id] = now + (CONSUMABLE_SPEC[id]?.cooldownMs || 0) * mul;
     persistSave(this.save);
   }
-  readTomeSight() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'tome_sight' || (sel.count ?? 0) <= 0) return false;
-    if (!this._tomeReady('tome_sight')) return false;
-    this.save.reachPotionUntil = Date.now() + REACH_POTION_MS * TOME_EFFECT_MUL;
-    this._tomeSpent('tome_sight');
-    this.flash('✨ The sight tome opens', this.viewCenterX, this.viewCenterY);
-    return true;
-  }
-  readTomeRaven() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'tome_raven' || (sel.count ?? 0) <= 0) return false;
-    if (!this._tomeReady('tome_raven')) return false;
-    this.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS * TOME_EFFECT_MUL;
-    this._tickSpiritRaven();   // a living bird's follow timer re-derives from the save
-    this._tomeSpent('tome_raven');
-    this.flash('✨ A raven leaves the page', this.viewCenterX, this.viewCenterY);
-    return true;
-  }
-  readTomeStorm() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'tome_storm' || (sel.count ?? 0) <= 0) return false;
-    if (!this._tomeReady('tome_storm')) return false;
-    const caughtSet = setOf(this.save.caught);
-    const pc = this.playerToWorldCell();
-    const targets = [];
-    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => {
-      if (!Combat.isEnemy(c) || caughtSet.has(c.id)) return;
-      const p = this.worldMetersToScreen(c.x, c.y);
-      if (p && Particles.onScreen(this, p.x, p.y)) targets.push(c);
-    });
-    if (targets.length === 0) {
-      this.flash('No foe in sight — tome kept', this.viewCenterX, this.viewCenterY);
-      return false;
-    }
-    this.cameras?.main?.flash(THUNDER_FLASH_MS, 255, 255, 255);
-    const now = performance.now();
-    let felled = 0;
-    for (const c of targets) {
-      if (this._damageEnemy(c, TOME_THUNDER_DMG)) { felled++; continue; }
-      if (!c.lair) monsterRout(c, now, this.cellM);
-    }
-    this._tomeSpent('tome_storm');
-    this.flash('⚡ The storm tome speaks', this.viewCenterX, this.viewCenterY);
-    return true;
-  }
-  readTomeSpeed() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'tome_speed' || (sel.count ?? 0) <= 0) return false;
-    if (!this._tomeReady('tome_speed')) return false;
-    this.save.speedPotionUntil = Date.now() + SPEED_POTION_MS * TOME_EFFECT_MUL;
-    this._tomeSpent('tome_speed');
-    this.flash('✨ The speed tome opens', this.viewCenterX, this.viewCenterY);
-    return true;
-  }
-  readTomeShield() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'tome_shield' || (sel.count ?? 0) <= 0) return false;
-    if (!this._tomeReady('tome_shield')) return false;
-    this.save.shieldPotionUntil = Date.now() + SHIELD_POTION_MS * TOME_EFFECT_MUL;
-    this._tomeSpent('tome_shield');
-    this.flash('✨ The shield tome opens', this.viewCenterX, this.viewCenterY);
-    return true;
-  }
-  readTomeHealing() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'tome_healing' || (sel.count ?? 0) <= 0) return false;
-    if (!this._tomeReady('tome_healing')) return false;
-    const max = this.getMaxEnergy();
-    const restored = Math.min(TOME_HEALING_ENERGY, max - (this.save.energy ?? 0));
-    Energy.set(this.save, (this.save.energy ?? 0) + TOME_HEALING_ENERGY, max);
-    if (restored > 0) this._popEnergy(restored);
-    if (this.updateEnergyDOM) this.updateEnergyDOM();
-    this._tomeSpent('tome_healing');
-    this.flash('✨ The healing tome opens', this.viewCenterX, this.viewCenterY);
-    return true;
-  }
-  readTomeBlight() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'tome_blight' || (sel.count ?? 0) <= 0) return false;
-    if (!this._tomeReady('tome_blight')) return false;
-    this.save.blightPotionUntil = Date.now() + BLIGHT_MS * TOME_EFFECT_MUL;
-    this._tomeSpent('tome_blight');
-    this.flash('✨ The blight tome opens', this.viewCenterX, this.viewCenterY);
-    return true;
-  }
-
 
   drinkVigorPotion() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'vigor_potion' || (sel.count ?? 0) <= 0) return false;
-    const max = this.getMaxEnergy();
-    const restored = Math.min(VIGOR_POTION_ENERGY, max - (this.save.energy ?? 0));
-    Energy.set(this.save, (this.save.energy ?? 0) + VIGOR_POTION_ENERGY, max);
-    if (restored > 0) this._popEnergy(restored);
-    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    if (!this._selectedConsumable('vigor_potion')) return false;
+    const restored = this._restoreEnergy(VIGOR_POTION_ENERGY);
     return this._finishConsumable(
       '\u2728 You drink the Potion of Healing',
       restored > 0
@@ -10205,10 +10228,9 @@ class MapScene extends Phaser.Scene {
   }
 
   drinkAntidote() {
-    const sel = getSelectedSlot(this.save);
-    if (sel?.id !== 'antidote' || !(sel.count > 0)) return false;
+    if (!this._selectedConsumable('antidote')) return false;
     if (!Conditions.useAntidote(this.save)) {
-      this.flash('No debuffs — Antidote kept.', this.viewCenterX, this.viewCenterY);
+      this.flashAtPlayer(kept('No debuffs', 'Antidote'));
       return false;
     }
     this._syncStatusRow();
@@ -10216,12 +10238,10 @@ class MapScene extends Phaser.Scene {
   }
 
   drinkElixir() {
-    const sel = getSelectedSlot(this.save);
-    if (sel?.id !== 'elixir' || !(sel.count > 0)) return false;
+    if (!this._selectedConsumable('elixir')) return false;
     const before = this.save.energy ?? 0;
     if (!Conditions.useElixir(this.save)) {
-      if (before <= 0) this.flash('Elixir cannot revive you.', this.viewCenterX, this.viewCenterY);
-      else this.flash('No need — Elixir kept.', this.viewCenterX, this.viewCenterY);
+      this.flashAtPlayer(before <= 0 ? 'Elixir cannot revive you.' : kept('No need', 'Elixir'));
       return false;
     }
     this._popEnergy(this.save.energy - before);
@@ -10230,153 +10250,29 @@ class MapScene extends Phaser.Scene {
     return this._finishConsumable('You drink the Elixir', 'The draught glows against your lips. Strength returns as every affliction falls away.');
   }
 
-  // Potion of Speed: a minute of tier-9 boot walking, even without either
-  // — the stick moves you faster and costs almost no stamina (_walkRelics
-  // reads speedPotionUntil).
-  drinkSpeedPotion(opts = {}) {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'speed_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.speedPotionUntil = Date.now() + SPEED_POTION_MS;
-    return this._finishConsumable(
-      `\u2728 You drink the Potion of Speed`,
-      'Warmth races down to your toes. The road slips beneath your feet.',
-      opts,
-    );
-  }
-
   drinkTimePotion() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'time_potion' || (sel.count ?? 0) <= 0) return false;
+    if (!this._selectedConsumable('time_potion')) return false;
     PlayerTime.reset(this);
     return this._finishConsumable('You drink the Potion of Time', 'All effects fade. Your items are ready again.');
-  }
-
-  drinkProtectionPotion() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'protection_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.protectionPotionUntil = Date.now() + CONSUMABLE_SPEC.protection_potion.durationMs;
-    return this._finishConsumable(`You drink the Potion of Protection`,
-      CONSUMABLE_SPEC.protection_potion.get);
-  }
-
-  // Potion of Hardworking: pulls the Harvest Idol's `work` lever
-  // (Shrines.extend — the one writer, so it extends the idol's countdown
-  // rather than keeping a clock of its own; the `work` row of Buffs.KINDS
-  // shows it as "Hardworking" either way).
-  drinkHardworkingPotion() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'hardworking_potion' || (sel.count ?? 0) <= 0) return false;
-    Shrines.extend(this.save, 'work', CONSUMABLE_SPEC.hardworking_potion.durationMs, Date.now(), this);
-    return this._finishConsumable(`You drink the Potion of Hardworking`,
-      CONSUMABLE_SPEC.hardworking_potion.get);
   }
 
   // Poison Flask, drunk: the player's own `poison` row (_applyCondition —
   // the lesson, the row and the announcement), the flask spent either way;
   // a poison already running is refreshed to its full minute.
   drinkPoisonFlask() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'poison_flask' || (sel.count ?? 0) <= 0) return false;
+    if (!this._selectedConsumable('poison_flask')) return false;
     this._applyCondition('poison');
     return this._finishConsumable(`You drink the Poison Flask`,
       CONSUMABLE_SPEC.poison_flask.get);
   }
 
-  drinkImmortalPotion() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'immortal_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.immortalPotionUntil = Date.now() + CONSUMABLE_SPEC.immortal_potion.durationMs;
-    this._incomingDamageFraction = 0;
-    this.save.fireDamageRemainder = 0;
-    return this._finishConsumable(`You drink the Potion of Immortal`,
-      `Immune to all damage for ${shortDuration(CONSUMABLE_SPEC.immortal_potion.durationMs)}.`);
-  }
-
-  drinkFireResistancePotion() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'fire_resistance_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.fireResistancePotionUntil = Date.now() + CONSUMABLE_SPEC.fire_resistance_potion.durationMs;
-    Conditions.cure(this.save, 'burning');
-    this.save.fireDamageRemainder = 0;
-    this._lavaAccum = 0;
-    return this._finishConsumable(
-      `You drink the Potion of Fire Resistance`,
-      `Immune to fire for ${shortDuration(CONSUMABLE_SPEC.fire_resistance_potion.durationMs)}.`,
-    );
-  }
-
-  drinkShrinkingPotion() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'shrinking_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.shrinkingPotionUntil = Date.now() + CONSUMABLE_SPEC.shrinking_potion.durationMs;
-    Energy.set(this.save, this.save.energy, Energy.maxEnergy(this.save));
-    this._syncPlayerSkin();
-    this.updateEnergyDOM();
-    return this._finishConsumable(`You drink the Potion of Shrinking`,
-      `Half size, maximum HP and melee damage; +${CONSUMABLE_SPEC.shrinking_potion.visionCells} stealth for ${shortDuration(CONSUMABLE_SPEC.shrinking_potion.durationMs)}.`);
-  }
-
-  drinkGiantPotion() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'giant_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.giantPotionUntil = Date.now() + CONSUMABLE_SPEC.giant_potion.durationMs;
-    this._syncPlayerSkin();
-    this.updateEnergyDOM();
-    return this._finishConsumable(
-      `You drink the Potion of Giant`,
-      `+${CONSUMABLE_SPEC.giant_potion.maxHpBonus} maximum HP and +${CONSUMABLE_SPEC.giant_potion.damageBonus} melee damage for ${shortDuration(CONSUMABLE_SPEC.giant_potion.durationMs)}.`,
-    );
-  }
-
-  drinkShieldPotion(opts = {}) {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'shield_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.shieldPotionUntil = Date.now() + SHIELD_POTION_MS;
-    return this._finishConsumable(
-      `\u2728 You drink the Potion of Shielding`,
-      'A cool shimmer settles over your skin, taking the sting from claw and fang.',
-      opts,
-    );
-  }
-
-  // Scroll of the Raven: SPIRIT_RAVEN_MS of a slime-strength ally
-  // (SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven) hunting the nearest foe or
-  // pest deer through wanderCreatures' pet lane. Only the EXPIRY reaches the
-  // save (save.spiritRavenUntil), so the timer is honest across a reload; the
-  // bird is session state that _tickSpiritRaven keeps at your side while it
-  // runs. Reading again while one is out refreshes the timer on the SAME
-  // bird — never a second raven.
-  readRavenScroll() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'raven_scroll' || (sel.count ?? 0) <= 0) return false;
-    this.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS;
-    // Summoned now, not a frame later; a living bird's follow timer (its
-    // lifetime) is re-derived from the refreshed expiry by Companions.tick.
-    this._tickSpiritRaven();
-    this._spendScroll('raven_scroll');
-    this.showMessageModal({ title: 'You read the Scroll of the Raven',
-      body: 'A raven of smoke and starlight shakes itself out of the parchment. It settles beside you, watching the beasts with hungry eyes.' });
-    return true;
-  }
-
-  readSummoningScroll() {
-    const sel = getSelectedSlot(this.save);
-    const id = sel?.id, spec = CONSUMABLE_SPEC[id], kind = spec?.summonKind;
-    const row = Companions.KINDS[kind];
-    if (!row || (sel.count ?? 0) <= 0) return false;
-    // Reconcile expiry or defeat before refreshing, including a stale live instance.
-    Companions.tick(this, kind);
-    const refreshing = Companions.active(this.save, kind);
-    if (!refreshing) delete this.save.companionState?.[kind];
-    this.save[row.field] = Date.now() + row.durationMs;
-    Companions.tick(this, kind);
-    this._spendScroll(id);
-    this.showMessageModal({ title: `You read the ${ITEM_BY_ID[id].name}`, body: spec.get });
-    return true;
-  }
-
-  // Raven scroll and tome callers share the companion keeper (player_time.js
-  // calls it too, so it stays a named method).
+  // The Scroll of the Raven's bird (SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven,
+  // a slime-strength ally hunting the nearest foe or pest deer through
+  // wanderCreatures' pet lane): only the EXPIRY reaches the save
+  // (save.spiritRavenUntil, the `raven` buff), so the timer is honest across
+  // a reload; the bird is session state this keeper holds at your side while
+  // it runs. The scroll, the tome and player_time.js all call it, so it stays
+  // a named method.
   _tickSpiritRaven() {
     Companions.tick(this, 'spirit_raven');
   }
@@ -10391,29 +10287,13 @@ class MapScene extends Phaser.Scene {
     const frac = sel && sel.id !== 'crow_feather' && REVIVE_ITEM_FRAC[sel.id];
     if (!frac || (sel.count ?? 0) <= 0) return false;
     if (!Combat.playerDowned(this.save.energy)) return false;
-    const before = this.save.energy ?? 0;
-    Energy.set(this.save, Math.max(before, Energy.reviveLevel(this.getMaxEnergy(), frac)));
-    this._popEnergy(this.save.energy - before);
-    if (this.updateEnergyDOM) this.updateEnergyDOM();
+    this._restoreEnergy(Energy.reviveLevel(this.getMaxEnergy(), frac) - (this.save.energy ?? 0));
     const name = ITEM_BY_ID[sel.id]?.name || 'Potion of Revival';
     return this._finishConsumable(
       `\u2728 You drink the ${name}`,
       'Your eyes snap open. The ground presses cold against your palms as you rise.',
     );
   }
-
-  drinkBlightPotion(opts = {}) {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'blight_potion' || (sel.count ?? 0) <= 0) return false;
-    this.save.blightPotionUntil = Date.now() + BLIGHT_MS;
-    return this._finishConsumable(
-      `\u2728 You drink the Potion of Blight`,
-      'A crimson haze seeps from your skin. Nearby beasts shudder in its wake.',
-      opts,
-    );
-  }
-
-
 
   // True while a Potion of Blight's minute runs. In the save like the other
   // potions (save.blightPotionUntil), so it survives a tile reload; the
@@ -10469,28 +10349,19 @@ class MapScene extends Phaser.Scene {
     return (this._dragonUntil ?? 0) > Date.now();
   }
 
-  // Dragon Powder: for ONE MINUTE you wear a red dragon and get its stats —
-  // tier-8 boots (DRAGON_WALK_COST_TIER, so the stick walks faster
-  // and for less stamina than Frost boots can) and 2× attack damage
-  // (interact.js halves the kill-wheel duration while in dragon form). No
-  // flight, no separate movement mode: a dragon walks the way everyone walks.
-  useDragonPowder() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'dragon_powder' || (sel.count ?? 0) <= 0) return false;
-    this._dragonUntil = Date.now() + DRAGON_POWDER_MS;
-    return this._finishConsumable(
-      '🐉 You toss the Dragon Powder',
-      'Scales ripple across your skin. Heat swells in your chest, and the ground shakes beneath your claws.',
-    );
-  }
+  // Dragon Powder (the `dragon` buff): for its minute you wear a red dragon
+  // and get its stats — tier-8 boots (DRAGON_WALK_COST_TIER, so the stick
+  // walks faster and for less stamina than Frost boots can) and 2× attack
+  // damage (interact.js halves the kill-wheel duration while in dragon
+  // form). No flight, no separate movement mode: a dragon walks the way
+  // everyone walks.
 
   // Growth Powder: every crop within 20 m springs ahead ONE stage on the spot,
   // watered or not (Crops.advanceWithin — the crop model stays in crops.js).
   // Refused, and the powder kept, when no unripe crop is in range: a scatter
   // that moved nothing is not a use.
   useGrowthPowder() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'growth_powder' || (sel.count ?? 0) <= 0) return false;
+    if (!this._selectedConsumable('growth_powder')) return false;
     const n = this.advanceCropsWithin(GROWTH_POWDER_R_M);
     if (n <= 0) {
       this.flash(`No crop within ${GROWTH_POWDER_R_M}m — kept.`,
@@ -10510,9 +10381,7 @@ class MapScene extends Phaser.Scene {
       ringPx: GROWTH_POWDER_R_M * CELL_PX / this.cellM,
       sparks: 'greenspark',
     });
-    consumeSelected(this.save);
-    persistSave(this.save);
-    this.buildInventoryDOM();
+    this._consumeSelected();
     this.flashLoot(`🌱 ${n} crop${n === 1 ? '' : 's'} sprang ahead`, '#a7ffb0', 1.8, 'growth_powder');
     return true;
   }
@@ -10638,112 +10507,70 @@ class MapScene extends Phaser.Scene {
     });
   }
 
-  useShadowPowder() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'shadow_powder' || (sel.count ?? 0) <= 0) return false;
-    this._shadowUntil = Date.now() + SHADOW_POWDER_MS;
-    // The truce ends the fight you are in: the melee wheel drops (the same
-    // cancel the stairs use); arrows already in the air finish their flight.
-    if (this._workProgress?.combat) this.cancelWorkProgress();
-    return this._finishConsumable(
-      '🌑 You cast the Shadow Powder',
-      'The dark folds around you. Hungry eyes pass you by.',
-    );
-  }
-
   // True while a Torch burns: the same in-memory timer the dragon keeps
   // (this._torchUntil, NOT persisted — a refresh puts it out). Lighting.draw
   // reads it through Lighting.playerKind to stamp the `torch` row at the feet.
+  // The Torch (the `torch` buff): for its three minutes the player's own light
+  // reaches TORCH_RADIUS_MUL times as far — the `torch` row of Lighting.KINDS,
+  // added on top of the reach ramp (light adds; the plateau, and so the tap
+  // gate, are untouched). Never gated on depth: a torch by night on the
+  // surface is fine, and free.
   isTorchActive() {
     return (this._torchUntil ?? 0) > Date.now();
   }
 
-  // Torch: for TORCH_MS the player's own light reaches TORCH_RADIUS_MUL times
-  // as far — the `torch` row of Lighting.KINDS, added on top of the reach ramp
-  // (light adds; the plateau, and so the tap gate, are untouched). Lighting
-  // one while another burns EXTENDS from the current end rather than wasting
-  // what is left. Never gated on depth: a torch by night on the surface is
-  // fine, and free.
-  useTorch() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'torch' || (sel.count ?? 0) <= 0) return false;
-    const now = Date.now();
-    const burning = this.isTorchActive();
-    this._torchUntil = Math.max(now, this._torchUntil ?? 0) + TORCH_MS;
-    return this._finishConsumable(
-      burning ? '🔥 You light another Torch' : '🔥 You light the Torch',
-      'The flame takes with a soft roar. Shadows retreat beyond the reach of your footsteps.',
-    );
-  }
-
-  // Scroll of Thunder: a white flash across the screen, and every ENEMY
-  // (Combat.isEnemy — never a crow, a deer or a pet) VISIBLE on it — drawn
-  // inside the viewport, so this one is a draw-space test (Particles.onScreen
-  // on worldMetersToScreen), not a reach test — takes THUNDER_DMG through
-  // _damageEnemy (the one damage lane: popups, bar, bounty). Whatever the bolt
-  // leaves standing turns tail (monsterRout — the ordinary wander-off, away
-  // from the player to the usual random range). A lair guard is on its own
-  // leash (Lairs.guardState), so it takes the damage but holds its ruin.
-  // Refused, and the scroll kept, when nothing hostile is in sight.
-  readThunderScroll() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'thunder_scroll' || (sel.count ?? 0) <= 0) return false;
-    const caughtSet = setOf(this.save.caught);
-    const pc = this.playerToWorldCell();
-    const targets = [];
-    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => {
-      if (!Combat.isEnemy(c) || caughtSet.has(c.id)) return;
-      const p = this.worldMetersToScreen(c.x, c.y);
-      if (p && Particles.onScreen(this, p.x, p.y)) targets.push(c);
-    });
-    if (targets.length === 0) {
-      this.flash('No foe in sight — scroll kept.', this.viewCenterX, this.viewCenterY);
-      return false;
-    }
-    this.cameras?.main?.flash(THUNDER_FLASH_MS, 255, 255, 255);
-    const now = performance.now();
-    let felled = 0;
-    for (const c of targets) {
-      if (this._damageEnemy(c, THUNDER_DMG)) { felled++; continue; }
-      if (!c.lair) monsterRout(c, now, this.cellM);
-    }
-    const n = targets.length;
-    this._spendScroll('thunder_scroll');
-    this.showMessageModal({
-      title: 'You read the Scroll of Thunder',
-      body: felled < n ? 'The sky splits. When your ears stop ringing, the surviving beasts are already fleeing.' : 'The sky splits. When your ears stop ringing, the beasts lie still.',
-    });
-    return true;
-  }
-
-  // Only successful uses teach a recipe; owning or crafting a scroll does not.
-  _spendScroll(id) {
-    this.save.usedScrolls ||= [];
-    if (!this.save.usedScrolls.includes(id)) this.save.usedScrolls.push(id);
-    consumeSelected(this.save);
-    persistSave(this.save);
-    this.buildInventoryDOM();
-    return true;
-  }
-
-  _onscreenEnemies() {
+  // The ENEMIES (Combat.isEnemy, never a caught one) `where` accepts, over
+  // the loaded tiles round the player.
+  _enemiesWhere(where) {
     const caught = setOf(this.save.caught);
     const targets = [];
     const pc = this.playerToWorldCell();
     WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, c => {
-      if (!Combat.isEnemy(c) || caught.has(c.id)) return;
-      const p = this.worldMetersToScreen(c.x, c.y);
-      if (p && Particles.onScreen(this, p.x, p.y)) targets.push(c);
+      if (Combat.isEnemy(c) && !caught.has(c.id) && where(c)) targets.push(c);
     });
     return targets;
   }
+  // …drawn inside the viewport (a draw-space test, Particles.onScreen on
+  // worldMetersToScreen — not a reach test).
+  _onscreenEnemies() {
+    return this._enemiesWhere(c => {
+      const p = this.worldMetersToScreen(c.x, c.y);
+      return !!p && Particles.onScreen(this, p.x, p.y);
+    });
+  }
+  // …standing IN REACH — the lit plateau the tap gate accepts (cellInReach).
+  _enemiesInReach() {
+    return this._enemiesWhere(c => {
+      const fc = worldMetersToAbsCell(this, c.x, c.y);
+      return cellInReach(this, fc.cellIX, fc.cellIY);
+    });
+  }
+  // CAST row `id` on every foe its scope holds (CAST_ROWS above). Refused —
+  // and the item kept — when none is there, or while downed (no reach). A
+  // tome passes its own `damage`, `noun` and `spend: false`.
+  _castOnFoes(id, { damage = CONSUMABLE_SPEC[id]?.damage, spend = true, noun } = {}) {
+    const row = CAST_ROWS[id];
+    if (!row || (spend && !this._selectedConsumable(id)) || Combat.playerDowned(this.save.energy)) return false;
+    const reach = row.scope === 'reach';
+    const targets = reach ? this._enemiesInReach() : this._onscreenEnemies();
+    if (!targets.length) {
+      this.flashAtPlayer(kept(reach ? 'No foe in reach' : 'No foe in sight', noun || row.noun));
+      return false;
+    }
+    row.before?.(this);
+    const now = row.clock === 'wall' ? Date.now() : performance.now();
+    let felled = 0;
+    for (const c of targets) if (row.apply(this, c, now, damage)) felled++;
+    if (!spend) return true;
+    this._spendScroll(id);
+    row.note?.(this, targets.length, felled, id);
+    return true;
+  }
 
   useFireballScroll() {
-    const sel = getSelectedSlot(this.save);
-    if (sel?.id !== 'fireball_scroll' || !(sel.count > 0)
-        || Combat.playerDowned(this.save.energy)) return false;
-    const x = this.startWorldM.x + this.playerM.x;
-    const y = this.startWorldM.y + this.playerM.y;
+    const sel = this._selectedConsumable('fireball_scroll');
+    if (!sel || Combat.playerDowned(this.save.energy)) return false;
+    const { x, y } = playerWorldM(this);
     const heading = Combat.shotHeading('bow', x, y, this.facing);
     const shot = Combat.spawnFireball(x, y, heading, this.cellM, CONSUMABLE_SPEC.fireball_scroll);
     if (!shot) return false;
@@ -10751,80 +10578,18 @@ class MapScene extends Phaser.Scene {
     return this._spendScroll(sel.id);
   }
 
-  useFearScroll() {
-    const sel = getSelectedSlot(this.save);
-    if (sel?.id !== 'fear_scroll' || !(sel.count > 0)
-        || Combat.playerDowned(this.save.energy)) return false;
-    const targets = this._onscreenEnemies();
-    if (!targets.length) {
-      this.flash('No foe in sight — scroll kept.', this.viewCenterX, this.viewCenterY);
-      return false;
-    }
-    const now = performance.now();
-    for (const c of targets) {
-      monsterRout(c, now, this.cellM);
-      c._fearUntilT = now + CONSUMABLE_SPEC.fear_scroll.durationMs;
-      c._startX = c._targetX = c.x;
-      c._startY = c._targetY = c.y;
-      c._attackWindupUntil = c._lungeWindupUntil = c._abilityWindupUntil = 0;
-      Combat.flagStatus(c, Combat.STATUS_LOOKS.fear, now);
-    }
-    this._spendScroll(sel.id);
-    this.flashLoot('The beasts turn and flee.', '#c77dff', 1.8, sel.id);
-    return true;
-  }
-
-  useSleepPowder() {
-    const sel = getSelectedSlot(this.save);
-    if (sel?.id !== 'sleep_powder' || !(sel.count > 0)
-        || Combat.playerDowned(this.save.energy)) return false;
-    const targets = this._onscreenEnemies();
-    if (!targets.length) {
-      this.flash('No foe in sight — powder kept.', this.viewCenterX, this.viewCenterY);
-      return false;
-    }
-    const now = Date.now();
-    for (const c of targets) Combat.applySleep(c, now);
-    consumeSelected(this.save);
-    persistSave(this.save);
-    this.buildInventoryDOM();
-    this.flashLoot(`Sleep falls for ${shortDuration(CONSUMABLE_SPEC.sleep_powder.durationMs)}.`, '#bca5e8', 1.8, sel.id);
-    return true;
-  }
-
-  // Powder of Psychosis (T1): every foe on screen loses its head for
-  // PSYCHOSIS_POWDER_MS (Combat.applyPsychosis — the `psychotic` reason in
-  // wanderCreatures' rout lane: the flee pace on a random heading each hop,
-  // no blow, no target). Weak on purpose: ten seconds to get clear, or to
-  // get the first blow in. Refused — and kept — when no foe is in sight.
-  usePsychosisPowder() {
-    const sel = getSelectedSlot(this.save);
-    if (sel?.id !== 'psychosis_powder' || !(sel.count > 0)
-        || Combat.playerDowned(this.save.energy)) return false;
-    const targets = this._onscreenEnemies();
-    if (!targets.length) {
-      this.flash('No foe in sight — powder kept.', this.viewCenterX, this.viewCenterY);
-      return false;
-    }
-    const now = performance.now();
-    for (const c of targets) Combat.applyPsychosis(c, PSYCHOSIS_POWDER_MS, now);
-    consumeSelected(this.save);
-    persistSave(this.save);
-    this.buildInventoryDOM();
-    this.flashLoot(`Madness takes them for ${shortDuration(PSYCHOSIS_POWDER_MS)}.`, Combat.STATUS_LOOKS.psychosis.color, 1.8, sel.id);
-    return true;
-  }
-
+  // The map's mark EXTENDS like every timed thing (Buffs.laterOf): a second
+  // map read inside the first's quarter hour banks the time on the new mark.
   useTreasureMap() {
-    const sel = getSelectedSlot(this.save);
-    if (sel?.id !== 'treasure_map' || !(sel.count > 0)) return false;
+    const sel = this._selectedConsumable('treasure_map');
+    if (!sel) return false;
     const target = this.findNearestUnopenedChest([4, 5]);
     if (!target) {
-      this.flash('No treasure found — map kept.', this.viewCenterX, this.viewCenterY);
+      this.flashAtPlayer(kept('No treasure found', 'map'));
       return false;
     }
     this.save.treasureCompass = { x: target.x, y: target.y, targetId: target.id,
-      depth: this.depth || 0, until: Date.now() + CONSUMABLE_SPEC.treasure_map.durationMs };
+      depth: this.depth || 0, until: Buffs.laterOf(this.save.treasureCompass?.until, CONSUMABLE_SPEC.treasure_map.durationMs) };
     this._spendScroll(sel.id);
     this.flashLoot(`Treasure marked for ${shortDuration(CONSUMABLE_SPEC.treasure_map.durationMs)}.`, '#ffd166', 1.8, sel.id);
     return true;
@@ -10864,10 +10629,7 @@ class MapScene extends Phaser.Scene {
     if (cfg.effect) shot.effect = cfg.effect;
     this._shots.push(shot);
     this._throwReadyAt = performance.now() + cfg.throwCooldownMs;
-    consumeSelected(this.save);
-    persistSave(this.save);
-    this.buildInventoryDOM();
-    return true;
+    return this._consumeSelected();
   }
 
   useSpear() {
@@ -10890,44 +10652,6 @@ class MapScene extends Phaser.Scene {
     return this._throwItem('wildrose');
   }
 
-  // Frost Powder: every ENEMY (Combat.isEnemy — never a crow, a deer or a pet)
-  // standing IN REACH — the lit plateau the tap gate accepts, cellInReach —
-  // is frozen for FROST_POWDER_MS: wanderCreatures skips it (no step, no hit)
-  // and render.js tints it ice until c._frozenUntil passes. Its in-flight hop
-  // is pinned where it stands so the thaw doesn't snap it a half-step on.
-  // Refused, and the powder kept, when nothing hostile is in reach.
-  useFrostPowder() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'frost_powder' || (sel.count ?? 0) <= 0) return false;
-    const caughtSet = setOf(this.save.caught);
-    const pc = this.playerToWorldCell();
-    const targets = [];
-    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, (c) => {
-      if (!Combat.isEnemy(c)) return;
-      if (caughtSet.has(c.id)) return;
-      const fc = worldMetersToAbsCell(this, c.x, c.y);
-      if (!cellInReach(this, fc.cellIX, fc.cellIY)) return;
-      targets.push(c);
-    });
-    if (targets.length === 0) {
-      this.flash('No foe in reach — powder kept.', this.viewCenterX, this.viewCenterY);
-      return false;
-    }
-    const until = Date.now() + FROST_POWDER_MS;
-    for (const c of targets) {
-      c._frozenUntil = until;
-      c._startX = c._targetX = c.x;
-      c._startY = c._targetY = c.y;
-      Combat.flagStatus(c, Combat.STATUS_LOOKS.frozen);
-    }
-    consumeSelected(this.save);
-    persistSave(this.save);
-    this.buildInventoryDOM();
-    const n = targets.length;
-    this.flashLoot(`❄ ${n} enem${n === 1 ? 'y' : 'ies'} frozen for ${shortDuration(FROST_POWDER_MS)}`, '#9ad8ff', 1.8, 'frost_powder');
-    return true;
-  }
-
   // Ride / Dismount (items.js CONSUMABLE_SPEC.horse — an `immediate` row, so
   // nothing is spent). The skin follows from isRiding every frame
   // (SpriteLayout.playerArt), and so does the stick's speed and cost.
@@ -10944,10 +10668,9 @@ class MapScene extends Phaser.Scene {
   // A sapphire opens a descent and a brief return to the exact entry point.
   // The Return status chip stays available after spending the last gem.
   useSapphirePortal() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'sapphire' || (sel.count ?? 0) <= 0) return false;
+    if (!this._selectedConsumable('sapphire')) return false;
     if ((this.save.energy ?? 0) <= 0) {
-      this.flash('Too tired to open a portal.', this.viewCenterX, this.viewCenterY);
+      this.flashAtPlayer('Too tired to open a portal.');
       return false;
     }
     const fromDepth = this.depth || 0;
@@ -11014,15 +10737,14 @@ class MapScene extends Phaser.Scene {
   // the new level comes in, so the rope never lowers the player into the wall
   // of the tunnel they just dug. The surface has no walls to open.
   useRope(delta) {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'rope' || (sel.count ?? 0) <= 0) return false;
+    if (!this._selectedConsumable('rope')) return false;
     const target = (this.depth || 0) + delta;
     if (target < 0) {
-      this.flash('Nowhere to climb up here.', this.viewCenterX, this.viewCenterY);
+      this.flashAtPlayer('Nowhere to climb up here.');
       return false;
     }
     if (delta > 0 && (this.save.energy ?? 0) <= 0) {
-      this.flash('Too tired to climb down.', this.viewCenterX, this.viewCenterY);
+      this.flashAtPlayer('Too tired to climb down.');
       return false;
     }
     // Synthetic "stair" at the player's own world cell, as the portal does:
@@ -11047,8 +10769,7 @@ class MapScene extends Phaser.Scene {
   // Snapshot only unspent secrets currently on screen, including a peeked view.
   // The renderer replays their own short cue; the orb and rewards stay intact.
   useOrb() {
-    const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'orb' || !(sel.count > 0)) return false;
+    if (!this._selectedConsumable('orb')) return false;
     const pc = this.playerToWorldCell();
     const spent = spentSets(this, this.save);
     const now = Date.now();
@@ -11073,8 +10794,7 @@ class MapScene extends Phaser.Scene {
       }
     });
     this._orbReveal = reveal;
-    if (reveal.size) this.flash('Hidden things stir.', this.viewCenterX, this.viewCenterY);
-    else this.flash('Nothing stirs nearby.', this.viewCenterX, this.viewCenterY);
+    this.flashAtPlayer(reveal.size ? 'Hidden things stir.' : 'Nothing stirs nearby.');
     return true;
   }
 
@@ -11138,12 +10858,14 @@ class MapScene extends Phaser.Scene {
     const gained = this.save.energy - before;
     // Special effects.
     let extra = fish ? `\nRegen: ${fish}⚡ over ${shortDuration(Energy.FISH_REGEN_MS)}` : '';
+    // Every timed effect a food lends EXTENDS (Buffs.extend / laterOf — the
+    // one rule): a second coffee inside the first banks its three minutes.
     if (id === 'pairy') {
       const target = this.findNearestUnopenedChest();
       if (target) {
         this.pairyCompass = { targetId: target.id, x: target.x, y: target.y,
-          until: now + CONSUMABLE_SPEC.pairy.durationMs };
-        extra = `\n🧭 chest compass: ${shortDuration(CONSUMABLE_SPEC.pairy.durationMs)}`;
+          until: Buffs.laterOf(this.pairyCompass?.until, CONSUMABLE_SPEC.pairy.durationMs, now) };
+        extra = `\n🧭 chest compass: ${shortDuration(this.pairyCompass.until - now)}`;
       } else {
         extra = `\n🧭 no chests nearby`;
       }
@@ -11154,15 +10876,15 @@ class MapScene extends Phaser.Scene {
       extra = watered > 0 ? `\n💧 watered ${watered} crop${watered === 1 ? '' : 's'}` : '\n💧 no crops nearby';
       if (jumped > 0) extra += `\n🌱 ${jumped} sprang ahead a stage`;
     } else if (id === 'coffee') {
-      this.save.coffeeUntil = now + COFFEE_BUFF_MS;
-      extra = `\n☕ faster stick walking, ${shortDuration(COFFEE_BUFF_MS)}`;
+      Buffs.extend(this.save, this, 'coffee', CONSUMABLE_SPEC.coffee.durationMs, now);
+      extra = `\n☕ faster stick walking, ${shortDuration(Buffs.until('coffee', this.save, this) - now)}`;
     } else if (id === 'dawnfruit') {
-      this.save.dawnfruitUntil = Math.max(this.save.dawnfruitUntil || 0, now + CONSUMABLE_SPEC.dawnfruit.durationMs);
-      extra = `\nFull light and vision: ${shortDuration(this.save.dawnfruitUntil - now)}`;
+      Buffs.extend(this.save, this, 'dawnfruit', CONSUMABLE_SPEC.dawnfruit.durationMs, now);
+      extra = `\nFull light and vision: ${shortDuration(Buffs.until('dawnfruit', this.save, this) - now)}`;
     } else if (id === 'miracle_lettuce') {
       const spec = CONSUMABLE_SPEC.miracle_lettuce;
-      this.save.miracleLettuceUntil = Math.max(this.save.miracleLettuceUntil || 0, now + spec.durationMs);
-      extra = `\n+${spec.luckBonus} Luck: ${shortDuration(this.save.miracleLettuceUntil - now)}`;
+      Buffs.extend(this.save, this, 'lettuce', spec.durationMs, now);
+      extra = `\n+${spec.luckBonus} Luck: ${shortDuration(Buffs.until('lettuce', this.save, this) - now)}`;
     } else if (id === 'peach' && Conditions.clearDebuffs(this.save)) {
       extra = '\nDebuffs cleared';
     }
@@ -11785,9 +11507,7 @@ class MapScene extends Phaser.Scene {
     const need = Macros.lessonMemories(this.save, kind);
     const have = this.memoriesTotal();
     const dp = Macros.drillPrice();
-    const left = Macros.drillLeftMs(this.save, kind);
     const money = this.save.money ?? 0;
-    const drillLine = left > 0 ? ` Drill again in ${shortDuration(left)}.` : '';
     const hint = row.unit === 'energy' ? 'Your breath deepens with each lesson.'
       : row.unit !== 'dmg' ? 'Your hands begin to move before you think.'
       : 'The master adjusts your stance. The next strike feels surer.';
@@ -11800,13 +11520,13 @@ class MapScene extends Phaser.Scene {
       title: `The master teaches ${row.label.toLowerCase()}:`,
       get: lp != null ? 'A lesson that stays with you' : 'The master has taught you all they can',
       cost: lp != null ? `${this.moneyHTML(lp)} · ${need} memories required` : undefined,
-      blurb: `${hint}${drillLine}`,
+      blurb: hint,
       canAfford: lp != null && money >= lp && have >= need,
       acceptLabel: 'Train',
       cancelLabel: 'Later',
       secondary: {
         label: `Drill ${this.moneyHTML(dp, 12)}`,
-        disabled: left > 0 || money < dp,
+        disabled: money < dp,   // a drill bought mid-drill EXTENDS it (Macros.buyDrill)
         onClick: () => {
           const r = Macros.buyDrill(this.save, kind);
           if (!r.ok) { if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy); return; }
@@ -15437,10 +15157,9 @@ class MapScene extends Phaser.Scene {
       e.stopPropagation();
       const id = btn.dataset.id;
       const entry = CONSUMABLE_SPEC[id];
-      const fn = entry?.method;
-      if (!fn || typeof this[fn] !== 'function') return;
+      if (!entry) return;
       if (entry.immediate) {
-        this[fn]();
+        this._useConsumable(id);
         this.syncConsumableButton();
         return;
       }
@@ -15467,7 +15186,7 @@ class MapScene extends Phaser.Scene {
         canAfford: typeof entry.usable === 'function' ? entry.usable(this, entry) : true,
         acceptLabel: entry.acceptLabel || entry.verb,
         secondary,
-        onAccept: () => { this[fn](); this.syncConsumableButton(); },
+        onAccept: () => { this._useConsumable(id); this.syncConsumableButton(); },
       });
     });
     document.body.appendChild(btn);

@@ -120,11 +120,15 @@ test('spirit raven: the pet lane is the raven\'s lane', () => {
 });
 
 test('spirit raven: the scroll refreshes one timer; the keeper summons one bird', () => {
-  const drink = methodBody('  readRavenScroll() {');
-  assert.truthy(/sel\.id !== 'raven_scroll'/.test(drink), 'only with the potion selected');
-  assert.truthy(/this\.save\.spiritRavenUntil = Date\.now\(\) \+ SPIRIT_RAVEN_MS;/.test(drink),
-    'the expiry is on the save, from the one constant');
-  assert.truthy(/this\._spendScroll\('raven_scroll'\)/.test(drink), 'consumes and teaches the scroll recipe');
+  // A `buff` row: _useTimedBuff extends save.spiritRavenUntil (the `raven`
+  // Buffs row — the companion row's own field) and the hook wakes the keeper.
+  assert.eq(CONSUMABLE_SPEC.raven_scroll.buff, 'raven', 'a timed buff row');
+  assert.eq(Buffs.KINDS.raven.save, Companions.KINDS.spirit_raven.field, 'the buff row and the companion row read one field');
+  const hooks = app.match(/\nconst TIMED_BUFF_HOOKS = \{[\s\S]*?\n\};/)[0];
+  assert.truthy(/raven: \{ after: \(s\) => s\._tickSpiritRaven\(\) \}/.test(hooks), 'summoned now, not a frame later');
+  const drink = methodBody('  _useTimedBuff(id, { mul = 1, spend = true } = {}) {');
+  assert.truthy(/this\._selectedConsumable\(id\)/.test(drink), 'only with the scroll selected');
+  assert.truthy(/this\._spendScroll\(id\);/.test(drink), 'consumes and teaches the scroll recipe');
   const keep = methodBody('  _tickSpiritRaven() {');
   assert.truthy(/Companions\.tick\(this, 'spirit_raven'\)/.test(keep), 'the shared companion keeper');
   assert.eq(Companions.KINDS.spirit_raven.field, 'spiritRavenUntil', 'existing saves retain their timer');

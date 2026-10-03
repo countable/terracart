@@ -1,13 +1,24 @@
 // Exercise the real drink and damage helpers without a Phaser scene.
 (function () {
   const T0 = 1_700_000_000_000;
+  const APP_TABLES = (() => {
+  const grab = (name) => {
+    const m = SCENE_SRC.match(new RegExp('\\nconst ' + name + ' = \\{[\\s\\S]*?\\n\\};'));
+    assert.truthy(m, name + ' table in app.js');
+    return m[0];
+  };
+  return grab('SUMMON_HOOK') + grab('TIMED_BUFF_HOOKS');
+})();
   function sceneMethod(name) {
     const start = SCENE_SRC.indexOf('\n  ' + name + '(');
     assert.truthy(start >= 0, `found ${name}`);
     const end = SCENE_SRC.indexOf('\n  }\n', start);
-    return new Function('return ({' + SCENE_SRC.slice(start, end + 4)
+    return new Function(APP_TABLES + '\nreturn ({' + SCENE_SRC.slice(start, end + 4)
       + '})[' + JSON.stringify(name) + ']')();
   }
+  // _useTimedBuff bound to the giant's row: the drink every test below pours.
+  const drinkGiant = sceneMethod('_useTimedBuff');
+  const GIANT = function () { return drinkGiant.call(this, 'giant_potion'); };
   function withClock(fn) {
     const original = Date.now;
     let now = T0;
@@ -18,7 +29,8 @@
   function potionScene(id = 'giant_potion', count = 2) {
     return {
       save: { inv: [{ id, count }], selSlot: 0, energy: 40 },
-      _finishConsumable: sceneMethod('_finishConsumable'),
+      _selectedConsumable: sceneMethod('_selectedConsumable'), _spendScroll: sceneMethod('_spendScroll'),
+      _consumeSelected: sceneMethod('_consumeSelected'), _finishInventoryChange: sceneMethod('_finishInventoryChange'),
       buildInventoryDOM() {},
       updateEnergyDOM() {},
       _syncPlayerSkin() {},
@@ -39,10 +51,10 @@
     assert.truthy(Shops.themedStock('potion', 4).includes('giant_potion'));
   });
 
-  test('giant potion: drinking consumes one flask, refreshes without stacking, and expires', () => {
+  test('giant potion: drinking consumes one flask, extends without stacking strength, and expires', () => {
     withClock(setNow => {
       const scene = potionScene();
-      const drink = sceneMethod('drinkGiantPotion');
+      const drink = GIANT;
       assert.eq(drink.call(scene), true);
       assert.eq(scene.save.inv[0].count, 1);
       assert.eq(scene.save.giantPotionUntil, T0 + 180_000);
@@ -51,17 +63,17 @@
       setNow(T0 + 60_000);
       assert.eq(drink.call(scene), true);
       assert.eq(Inventory.count(scene.save, 'giant_potion'), 0);
-      assert.eq(scene.save.giantPotionUntil, T0 + 240_000, 'fresh duration, no accumulated time');
+      assert.eq(scene.save.giantPotionUntil, T0 + 360_000, 'the second bottle is banked on the first\'s end (Buffs.laterOf)');
       assert.eq(PotionEffects.meleeBonus(scene.save), 5, 'second drink does not double damage');
-      assert.eq(PotionEffects.meleeBonus(scene.save, T0 + 239_999), 5);
-      assert.eq(PotionEffects.meleeBonus(scene.save, T0 + 240_000), 0, 'expires at the boundary');
+      assert.eq(PotionEffects.meleeBonus(scene.save, T0 + 359_999), 5);
+      assert.eq(PotionEffects.meleeBonus(scene.save, T0 + 360_000), 0, 'expires at the boundary');
       assert.eq(PotionEffects.meleeBonus({}, T0), 0, 'old saves have no bonus');
     });
   });
 
   test('giant potion: empty or wrong selections cannot activate the buff; drinking consumes the flask', () => {
     withClock(() => {
-      const drink = sceneMethod('drinkGiantPotion');
+      const drink = GIANT;
       for (const scene of [potionScene('giant_potion', 0), potionScene('reach_potion')]) {
         assert.eq(drink.call(scene), false);
         assert.eq(scene.save.giantPotionUntil, undefined);

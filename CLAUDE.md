@@ -324,6 +324,13 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   blows rather than increasing maximum energy.
 - `Energy.set` is the only runtime energy writer (current-save normalization is exempt).
   Accumulate fractional per-frame gains/losses before banking whole pips.
+- A TIMED CONSUMABLE is a `CONSUMABLE_SPEC` row with `buff` (its `Buffs.KINDS`
+  row) and `used` (its dialog): app.js `_useTimedBuff` is its one user,
+  `Buffs.extend` its one writer (a second dose is banked on the first's end,
+  never reset or refused), `TIMED_BUFF_HOOKS` its only side effects. A tome is
+  the row's `tome` column (`_readTome`); an "every foe in sight" spell is a
+  `CAST_ROWS` row (`_castOnFoes`); the slot guard is `_selectedConsumable`,
+  the spend `_spendScroll` / `_consumeSelected`. Never a hand-written handler.
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
   sight range through `unseen`. Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.

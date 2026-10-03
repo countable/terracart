@@ -139,12 +139,13 @@
   test('condition item methods consume only successful effects', () => {
     for (const [method, id] of [['drinkAntidote', 'antidote'], ['drinkElixir', 'elixir']]) {
       const body = SCENE_SRC.match(new RegExp('\\n  ' + method + '\\(\\) \\{([\\s\\S]*?)\\n  \\}\\n'))[1];
-      const fn = new Function('getSelectedSlot', 'Conditions', body);
+      const fn = new Function('getSelectedSlot', 'Conditions', 'kept', body);
       const save = { energy: 0, inv: [{ id, count: 2 }] };
       let consumed = 0;
-      const scene = { save, flash() {}, _syncStatusRow() {}, _announceStatuses() {}, _syncAttackConditionSpeed() {}, _popEnergy() {}, updateEnergyDOM() {},
+      const scene = { save, flash() {}, flashAtPlayer() {}, _syncStatusRow() {}, _announceStatuses() {}, _syncAttackConditionSpeed() {}, _popEnergy() {}, updateEnergyDOM() {},
+        _selectedConsumable(id) { const sel = this.save.inv[0]; return sel && sel.id === id && sel.count > 0 ? sel : null; },
         _finishConsumable() { consumed++; return true; } };
-      const call = () => fn.call(scene, s => s.inv[0], Conditions);
+      const call = () => fn.call(scene, s => s.inv[0], Conditions, (why, noun) => `${why} — ${noun} kept.`);
       assert.falsy(call());
       assert.eq(consumed, 0);
       if (id === 'antidote') Conditions.apply(save, 'poison');
@@ -156,15 +157,16 @@
   test('cleansing item methods release a trap pin at full energy and consume once', () => {
     for (const [method, id] of [['drinkAntidote', 'antidote'], ['drinkElixir', 'elixir']]) {
       const body = SCENE_SRC.match(new RegExp('\\n  ' + method + '\\(\\) \\{([\\s\\S]*?)\\n  \\}\\n'))[1];
-      const fn = new Function('getSelectedSlot', 'Conditions', body);
+      const fn = new Function('getSelectedSlot', 'Conditions', 'kept', body);
       const save = { energy: 1, inv: [{ id, count: 2 }] };
       Energy.set(save, Energy.maxEnergy(save));
       let consumed = 0, synced = 0;
       Conditions.apply(save, 'pinned');
       const scene = { save,
-        flash() {}, _syncStatusRow() { synced++; }, _popEnergy() {}, updateEnergyDOM() {},
+        flash() {}, flashAtPlayer() {}, _syncStatusRow() { synced++; }, _popEnergy() {}, updateEnergyDOM() {},
+        _selectedConsumable(id) { const sel = this.save.inv[0]; return sel && sel.id === id && sel.count > 0 ? sel : null; },
         _finishConsumable() { consumed++; return true; } };
-      const call = () => fn.call(scene, s => s.inv[0], Conditions);
+      const call = () => fn.call(scene, s => s.inv[0], Conditions, (why, noun) => `${why} — ${noun} kept.`);
       assert.truthy(call());
       assert.falsy(Conditions.active(save, 'pinned'));
       assert.eq(consumed, 1);
