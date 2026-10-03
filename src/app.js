@@ -13600,16 +13600,17 @@ class MapScene extends Phaser.Scene {
       const texKey = Render.houseTextureKey(row.role, house, this);
       const frame = row.role === 'plain' ? 'front' : row.role === 'wizard' ? 3
         : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
-      return this.worldIconHTML(texKey, 28, frame);
+      return this.worldIconHTML(texKey, 56, frame);
     };
     const order = Houses.restoredCount(this.save);
     const tierOf = (row) => (typeof row.tier === 'function' ? row.tier(this.save, order) : 0);
+    // Each card is the building's picture, its name and (when ranked: a shop,
+    // a smithy, a trader) its rarity badge — no pitch; the Restored! card
+    // tells what it does.
     const choices = options.map((row) => ({
       key: row.key,
-      // A ranked card (a shop, a smithy, a trader) wears its rarity badge.
       label: labelFor(row, null)
-        + (tierOf(row) ? `<div style="margin-top:3px;line-height:0">${tierBadgeHTML(tierOf(row), 10)}</div>` : ''),
-      info: row.pick,
+        + (tierOf(row) ? `<div style="margin-top:5px;line-height:0">${tierBadgeHTML(tierOf(row), 11)}</div>` : ''),
       iconHTML: iconFor(row),
       suggested: !!row.suggested?.(this.save),
     }));
@@ -13619,8 +13620,10 @@ class MapScene extends Phaser.Scene {
     // than a tease. The player will dismiss, go collect, come back.
     this.showOfferModal({
       kind: 'build',
+      fullscreen: true,
       get: options.length > 1 ? 'Restore this wreck as…' : 'Restore this wreck?',
       choices,
+      pickHint: 'Tap one to choose',
       costLabel: 'Cost',
       cancelLabel: 'Later',
       cost: `${cost.qty}× ${this.iconSpanHTML(cost.id)} ${item?.name || cost.id}`

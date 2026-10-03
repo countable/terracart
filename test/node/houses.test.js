@@ -86,7 +86,7 @@ test('buildOptions: the cards unlock by how many wrecks already stand', () => {
   assert.eq(Houses.buildOptions({ restoredHouses: {}, bookshopId: 'b' }, plainHouse, 20).map((r) => r.key).includes('bookshop'), false, 'one Book Shop per save');
   assert.eq(Houses.restoredCount({ restoredHouses: { a: 'plain', b: 'market' } }), 2, 'the order is the ledger\'s size');
   for (const row of Houses.BUILD_OPTIONS) {
-    assert.truthy(row.pick && row.blurb && row.art && row.role, `${row.key} carries its pitch, blurb, painting and role`);
+    assert.truthy(row.blurb && row.art && row.role, `${row.key} carries its blurb, painting and role`);
   }
   assert.eq(Houses.buildOption('turret').role, 'turret');
   assert.eq(Houses.buildOption('bookshop').role, 'market', 'the Book Shop is stored as a market plus its stamp');
