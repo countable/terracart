@@ -9,7 +9,7 @@
 //      so they're safe to cache forever. Strategy: cache-first with network
 //      fallback. This makes a visited region playable offline.
 
-const SHELL_VERSION = 'shell-87827de3';
+const SHELL_VERSION = 'shell-20c24b07';
 const TILE_CACHE    = 'tiles-v1';
 // How old a cached tile may get before it is refreshed IN THE BACKGROUND. It
 // is never an expiry: a stale tile is still served, and a failed refresh keeps

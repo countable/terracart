@@ -121,3 +121,11 @@
     assert.eq(s.document.getElementById('inv-name').textContent, 'Select a relic');
   });
 })();
+
+// The inventory's gear tabs list slots from these two arrays, so a slot
+// missing from one (a renamed id left behind) never shows in the bag.
+test('inventory relics: the gear tab orders name every relic and armour slot', () => {
+  const order = (name) => (0, eval)(SCENE_SRC.match(new RegExp('const ' + name + ' = (\\[[^\\]]+\\]);'))[1]);
+  assert.eq(order('INV_RELIC_ORDER').slice().sort().join(), Object.keys(RELIC_DEFS).sort().join());
+  assert.eq(order('INV_ARMOR_ORDER').slice().sort().join(), Object.keys(ARMOR_DEFS).sort().join());
+});

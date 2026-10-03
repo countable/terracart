@@ -558,7 +558,7 @@ const TOAST_TIER = {
 // the catalog in items.js.
 // Slot draw order within each gear tab (owned slots only are rendered).
 const INV_RELIC_ORDER = ['pickaxe', 'axe', 'sword', 'dagger', 'lance', 'bow', 'musket', 'staff', 'watering_can', 'hoe', 'net', 'fishing_rod', 'bag'];
-const INV_ARMOR_ORDER = ['helmet', 'chest', 'leggings', 'boots'];
+const INV_ARMOR_ORDER = ['helmet', 'chestplate', 'leggings', 'boots'];
 // Only the active weapon auto-engages or auto-fires in _combatTick;
 // the others sit inert until switched to (the Equip button under the Relics
 // tab — syncEquipButton — or obtaining/forging a new one — see Gear.equip).
@@ -1423,16 +1423,16 @@ const ROAD_CHIP_SVG =
 
 const ICON_SHEETS = {
   giant_mushroom: { url: 'assets/Icons/Items/GiantMushroom.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_field_scope: { url: 'assets/Icons/Items/telescope.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_field_scope: { url: 'assets/Icons/Items/field_scope.png', cols: 1, srcW: 16, srcH: 16 },
   icon_orb: { url: 'assets/Icons/Items/orb.png', cols: 1, srcW: 16, srcH: 16 },
   icon_goblet: { url: 'assets/Icons/Items/goblet.png', cols: 1, srcW: 16, srcH: 16 },
   icon_lucky_key: { url: 'assets/Icons/Items/lucky_key.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_wood_shield: { url: 'assets/Icons/Items/shield_wood.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_metal_shield: { url: 'assets/Icons/Items/shield_metal.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_gold_shield: { url: 'assets/Icons/Items/shield_gold.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_smiths_guild_badge: { url: 'assets/Icons/Items/guild_blacksmith.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_marketeers_guild_badge: { url: 'assets/Icons/Items/guild_market.png', cols: 1, srcW: 16, srcH: 16 },
-  icon_traders_guild_badge: { url: 'assets/Icons/Items/guild_trader.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_wood_shield: { url: 'assets/Icons/Items/wood_shield.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_metal_shield: { url: 'assets/Icons/Items/metal_shield.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_gold_shield: { url: 'assets/Icons/Items/gold_shield.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_smiths_guild_badge: { url: 'assets/Icons/Items/smiths_guild_badge.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_marketeers_guild_badge: { url: 'assets/Icons/Items/marketeers_guild_badge.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_traders_guild_badge: { url: 'assets/Icons/Items/traders_guild_badge.png', cols: 1, srcW: 16, srcH: 16 },
 
   crops:       { url: 'assets/Objects/Approved/crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
   springcrops: { url: 'assets/Objects/Approved/springcrops.png',                cols: 14, srcW: 224, srcH: 128 },

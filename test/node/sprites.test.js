@@ -60,7 +60,7 @@ test('MINERAL_ICON_SHEET: wood uses the wood sheet, frame 2', () => {
   assert.eq(MINERAL_ICON_SHEET['wood'].frame, 2);
 });
 
-test('MINERAL_ICON_SHEET: coal uses coal_icon sheet, frame 0', () => {
+test('MINERAL_ICON_SHEET: flint_shard uses icon_flint_shard sheet, frame 0', () => {
   assert.eq(MINERAL_ICON_SHEET['flint_shard'].sheet, 'icon_flint_shard');
   assert.eq(MINERAL_ICON_SHEET['flint_shard'].frame, 0);
 });
