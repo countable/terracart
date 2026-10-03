@@ -1375,11 +1375,14 @@ const PRICES = {
   telescope: 80, orb: 180, goblet: 180, lucky_key: 100,
   shield_wood: 40, shield_metal: 160, shield_gold: 500,
   // ── Seeds ────────────────────────────────────────────────
-  rainberry_seed: 2, pairy_seed: 2, nut_seed: 1, potato_seed: 1,
-  berry_seed: 2, cress_seed: 1, onion_seed: 2, starfruit_seed: 5,
-  gemfruit_seed: 8, rockfruit_seed: 8, coffee_seed: 12,
-  sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50, dawnfruit_seed: 100,
-  miracle_lettuce_seed: 80,
+  // A seed's price is also its chest allowance divisor (chest_themes.js
+  // quantity): ~TIER_VALUE[baseTier] / 5, so a same-tier chest with no
+  // bumps holds about five, not the nine-seed cap.
+  rainberry_seed: 42, pairy_seed: 42, nut_seed: 5, potato_seed: 1,
+  berry_seed: 5, cress_seed: 1, onion_seed: 5, starfruit_seed: 15,
+  gemfruit_seed: 15, rockfruit_seed: 8, coffee_seed: 12,
+  sunflower_seed: 30, fireflower_seed: 40, iceflower_seed: 50, dawnfruit_seed: 480,
+  miracle_lettuce_seed: 216,
   // ── Produce (sell value) ─────────────────────────────────
   rockfruit: 1,    // wild debris in every residential tile — the floor
   nut: 4,

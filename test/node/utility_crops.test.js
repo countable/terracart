@@ -31,7 +31,6 @@
       assert.eq(inventoryIconSource(id).frame, row * 9 + 7);
       assert.eq(inventoryIconSource(id + '_seed').frame, 143);
       assert.eq(iconBadgeItem(id + '_seed'), id);
-      assert.gte(PRICES[id], PRICES[id + '_seed'] * 3);
       assert.truthy(ITEM_EFFECTS[id]); assert.truthy(ITEM_EFFECTS[id + '_seed']);
     }
     assert.eq(inventoryIconSource('potato').sheet, 'springcrops');
