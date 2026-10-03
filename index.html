@@ -2046,8 +2046,6 @@
       const scene = window.__scene;
       if (!scene) return;
       scene.setDebugGpsStick(!scene._debugGpsEnabled);
-      e.currentTarget.textContent = `GPS stick: ${scene._debugGpsEnabled ? 'on' : 'off'}`;
-      e.currentTarget.setAttribute('aria-pressed', String(scene._debugGpsEnabled));
       const m = document.getElementById('menu'); if (m) m.open = false;
     });
     document.getElementById('debug-variant-labels').addEventListener('click', (e) => {
@@ -2853,12 +2851,12 @@
   <script src="src/geo.js?v=0a205c42"></script>
   <script src="src/art_thumbs.js?v=f39c511a"></script>
   <script src="src/modal_shell.js?v=426b7946"></script>
-  <script src="src/scene_geo.js?v=d3648da1"></script>
+  <script src="src/scene_geo.js?v=71abcf9f"></script>
   <script src="src/npc.js?v=aea3453d"></script>
   <script src="src/scene_creatures.js?v=5d9753ee"></script>
   <script src="src/scene_fire.js?v=77663d8b"></script>
   <script src="src/scene_shops.js?v=1c12757b"></script>
-  <script src="src/scene_create.js?v=13d5e214"></script>
+  <script src="src/scene_create.js?v=7a858c26"></script>
   <script src="src/scene_consumables.js?v=c580dcd6"></script>
   <script src="src/scene_venues.js?v=f0550ab7"></script>
   <script src="src/scene_streets.js?v=8f11c09c"></script>

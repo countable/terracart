@@ -1385,6 +1385,10 @@ class SceneCreate {
     this._steerCostAccrue = 0;
 
 
+    let debugGpsStick = false;
+    try { debugGpsStick = localStorage.getItem('terracart.debugGpsStick') === '1'; } catch (_) {}
+    this.setDebugGpsStick(debugGpsStick);
+
     // GPS watch + device compass (best-effort). Test mode skips them so the
     // test harness can drive playerM directly without GPS easing fighting it.
     // Compass + GPS are gated behind the safety-splash button click (the

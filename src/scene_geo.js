@@ -242,12 +242,18 @@ class SceneGeo {
     if (!was && this._speedGate.tooFast) this._showPassengerCard?.();
   }
 
-  // Debug GPS is session-only. Hiding the stick keeps its last simulated fix;
-  // reload to hand location back to the device.
+  // The control preference persists; simulated fixes remain session-only.
+  // Hiding the stick keeps its last fix; reload restores device tracking.
   setDebugGpsStick(enabled) {
     this._debugGpsReset?.();
     document.getElementById('gps-pad')?.remove();
     this._debugGpsEnabled = !!enabled;
+    try { localStorage.setItem('terracart.debugGpsStick', enabled ? '1' : '0'); } catch (_) {}
+    const toggle = document.getElementById('debug-gps-stick');
+    if (toggle) {
+      toggle.textContent = `GPS stick: ${enabled ? 'on' : 'off'}`;
+      toggle.setAttribute('aria-pressed', String(!!enabled));
+    }
     if (!enabled) return;
     const pad = document.createElement('div');
     pad.id = 'gps-pad';
