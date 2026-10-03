@@ -34,8 +34,8 @@
 // drawing (render.js draws the list), not the work wheel itself
 // (startWorkProgress / _drawWorkProgress stay in app.js; the catch wheel only
 // arms it), not traps' tick (_tickTraps), not the starter placers
-// (starter.js, reached through app.js's one-line wrappers), and not Home's
-// yard predicate (_cropRaidable / homeGuardsCrop, app.js). See CLAUDE.md
+// (starter.js, reached through app.js's one-line wrappers), and not the crop
+// raider's predicate (_cropRaidable, app.js). See CLAUDE.md
 // "NOTHING HUNTS A BODY", "Home is a CAMPFIRE YOU OWN", "Nothing spawns on a
 // road" and "A tile can be REBUILT under you" before changing a branch here.
 
@@ -2338,7 +2338,7 @@ class SceneCreatures {
         const dxp = px - c.x, dyp = py - c.y;
         const distToPlayer = Math.hypot(dxp, dyp);
         // A CROP RAIDER NOTICES A FIELD: the nearest planted crop it may eat
-        // (_cropRaidable — never potato, never Home's yard) within
+        // (_cropRaidable — never potato) within
         // RAID_NOTICE_CELLS (the on-screen sim range, so a deer spots a field
         // from across the viewport; a dispatched pest — isPest — from
         // anywhere), and about half its steps walk at it: a grazer that has
@@ -2618,7 +2618,7 @@ class SceneCreatures {
           const DR2 = (1.5 * this.cellM) * (1.5 * this.cellM);
           if (Math.random() < 0.20) {
             const idx = this.save.planted.findIndex(p => {
-              if (!this._cropRaidable(p)) return false;   // potato, or Home's yard
+              if (!this._cropRaidable(p)) return false;   // potato
               const ddx = p.x - c.x, ddy = p.y - c.y;
               return ddx * ddx + ddy * ddy <= DR2;
             });
