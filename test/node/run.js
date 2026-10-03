@@ -994,7 +994,7 @@ Object.assign(ctx, {
   // feet line is the sim's own and not the first look-alike in app.js.
   const sim = readSrc('scene_creatures.js');
   const cull = sim.match(/const RANGE_M = [^\n]+\n\s*const RANGE_SQ = [^\n]+/);
-  const feet = sim.match(/const px = this\.startWorldM[^\n]+\n\s*const py = [^\n]+/);
+  const feet = sim.match(/const \{ x: px, y: py \} = playerWorldM\(this\);\n\s*const kerbLeash = [^\n]+/);
   // There are two `const SPAWN_R` in scene_creatures.js (the cave entrance
   // scatter is the other), so take the one in the pump — the last before the
   // pest-deer id.

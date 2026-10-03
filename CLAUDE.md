@@ -52,7 +52,8 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 - Keep numbers shared by rendering, gameplay and copy in one owning table.
   Derive consumers from it; do not add independent tuning factors.
 - Add kinds as table rows and repeated kind groups as predicates:
-  `SpriteLayout.CREATURE_BEHAVIOUR`, `CREATURE_ART`, `Combat.MONSTERS`,
+  `SpriteLayout.CREATURE_BEHAVIOUR`, `CREATURE_ART`, `enemy_roster.js` rows
+  (`Combat.MONSTERS` is their view),
   `interactables.js` predicates, `RENDER_SPEC`, `Lighting.KINDS`, and what a
   wreck can be restored as (`Houses.BUILD_OPTIONS`: the player's pick, cards
   unlocked by restore count in `STORY_RESTORES`; `restoreAs` is the ledger's

@@ -63,7 +63,7 @@
     scene._petFollowCheck = wall + 1000;
     const pc = scene.playerToWorldCell(), entry = WorldGen.tileCache.get(WorldGen.tileKey(pc.tx, pc.ty));
     if (!entry?.creatures) return;
-    const px = scene.startWorldM.x + scene.playerM.x, py = scene.startWorldM.y + scene.playerM.y;
+    const { x: px, y: py } = playerWorldM(scene);
     const caught = new Set(scene.save.caught || []);
     const live = new Map(), owners = new Map();
     const travelling = scene._travellingPets ||= new Map();
@@ -138,8 +138,7 @@
     let live = active(save, kind, wall);
     if (!creature && !live) return;
     if (!scene.startWorldM || !scene.playerM) return;
-    const px = scene.startWorldM.x + scene.playerM.x;
-    const py = scene.startWorldM.y + scene.playerM.y;
+    const { x: px, y: py } = playerWorldM(scene);
     const pc = scene.playerToWorldCell();
     const state = row.persistHealth ? ((save.companionState ||= {})[kind] ||= {}) : {};
     if (creature) {

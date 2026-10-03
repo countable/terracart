@@ -29,10 +29,9 @@
     if (m < 60) return Math.round(m / 5) * 5;
     return Math.round(m / 60) * 60;
   }
-  function cropTier(crop) {
-    const t = (typeof BASE_TIER !== 'undefined' && BASE_TIER[crop]) || 1;
-    return Math.max(1, t);
-  }
+  // A crop's tier is its item's (items.js itemTierOf — BASE_TIER through
+  // ITEM_BY_ID), T1 when unranked.
+  function cropTier(crop) { return itemTierOf(crop, 1); }
   function tierHoldMs(tier) {
     return roundHoldMin(HOLD_MIN_PER_TIER_CUBED * tier ** 3) * 60 * 1000;
   }

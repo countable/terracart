@@ -1792,9 +1792,10 @@ UNDERGROUND CAVES (Phase 1)
    longer quiet: hostile WANDERING MONSTERS spawn on CAVE_FLOOR cells (no
    surface fauna underground). They're the slime mechanic, parametrised — each
    drifts toward the player and drains energy when within RANGE, differing by
-   HP / RANGE / DAMAGE / SPEED (combat.js MONSTERS, built from enemy_roster.js), and is an ENEMY:
-   fought on HIT POINTS (see COMBAT) and paid for with the bounty. Each melee
-   monster lands at most one hit every MONSTER_HIT_MS; a ranged one looses
+   HP / RANGE / DAMAGE / SPEED (an enemy_roster.js row; Combat.MONSTERS is the
+   rows' view), and is an ENEMY: fought on HIT POINTS (see COMBAT) and paid
+   for with the bounty. Each melee monster lands at most one hit per its row's
+   damageIntervalSeconds; a ranged one looses
    visible arrows carrying the same damage per minute. Kinds are gated by depth
    so descending introduces new foes; density rises gently with depth:
      * cave slime    (depth 1+) — slow

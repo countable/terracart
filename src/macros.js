@@ -475,7 +475,7 @@
   // `curio:<n>`) when the count reaches each of CURIO_MILESTONES — once per
   // save, because the memory ledger pays each key once.
   const CURIO_COLLECTION = [
-    'coal', 'copper_bar', 'iron_bar', 'gold_bar', 'platinum_bar', 'crimson_bar', 'frost_bar',
+    'coal', ...BAR_IDS.slice(1),   // the six forge bars (items.js BAR_IDS; T1 is plain wood)
     'sapphire', 'ruby', 'emerald', 'diamond',
     'shell', 'crow_feather', 'rabbit_pelt', 'boot', 'book', 'honey',
     'rope', 'torch', 'trap_kit', 'magic_trap', 'scarecrow',
@@ -605,16 +605,25 @@
     return { ok: true, id: next.id, index: next.index };
   }
 
+  // One row per booth kind: `label` (its sign and dialog word), `modal` (the
+  // modal_shell kind), `art` (the introduction painting) and `present` — the
+  // scene method (app.js) that opens its dialog, `(sx, sy, o, dress)`. A
+  // counter that sells off a shelf presents through `_presentStallOffer` with
+  // its `stock(o)` and `title` columns; the chapel is no dialog of its own
+  // (interactables.js' daily visit), so it names no presenter.
   const KIND_DIALOG = {
-    inn:         { label: 'Inn',         modal: 'shop',     art: 'booth_inn_intro' },
+    inn:         { label: 'Inn',         modal: 'shop',     art: 'booth_inn_intro',         present: '_presentInn' },
     chapel:      { label: 'Chapel',      modal: 'treasure', art: 'booth_chapel_intro' },
-    apothecary:  { label: 'Apothecary',  modal: 'shop',     art: 'booth_apothecary_intro' },
-    scriptorium: { label: 'Scriptorium', modal: 'shop',     art: 'booth_scriptorium_intro' },
-    guildhall:   { label: 'Guildhall',   modal: 'delivery', art: 'booth_guildhall_intro' },
-    curio:       { label: 'Curio Hall',  modal: 'trade',    art: 'booth_curio_intro' },
-    sundries:    { label: 'Sundries',    modal: 'shop',     art: 'booth_sundries_intro' },
-    training:    { label: 'Training',    modal: 'shop',     art: 'booth_training_intro' },
-    scholar:     { label: 'Book Club',   modal: 'trade',    art: 'booth_scholar_intro' },
+    apothecary:  { label: 'Apothecary',  modal: 'shop',     art: 'booth_apothecary_intro',  present: '_presentStallOffer',
+      stock: (o) => apothecaryStock(o), title: 'The apothecary has on the shelf:' },
+    scriptorium: { label: 'Scriptorium', modal: 'shop',     art: 'booth_scriptorium_intro', present: '_presentStallOffer',
+      stock: () => scriptoriumStock(), title: 'The scriptorium sells:' },
+    guildhall:   { label: 'Guildhall',   modal: 'delivery', art: 'booth_guildhall_intro',   present: '_presentGuildhall' },
+    curio:       { label: 'Curio Hall',  modal: 'trade',    art: 'booth_curio_intro',       present: '_presentCurio' },
+    sundries:    { label: 'Sundries',    modal: 'shop',     art: 'booth_sundries_intro',    present: '_presentStallOffer',
+      stock: (o) => sundriesStock(o), title: 'The counter has in stock:' },
+    training:    { label: 'Training',    modal: 'shop',     art: 'booth_training_intro',    present: '_presentTraining' },
+    scholar:     { label: 'Book Club',   modal: 'trade',    art: 'booth_scholar_intro',     present: '_presentScholar' },
   };  // The word a stall's sign and dialog wear: its kind's label, except a
   // training hall, which names its discipline ("Archery Training").
   function stallLabel(kind, o) {

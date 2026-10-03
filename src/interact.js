@@ -17,7 +17,7 @@
 //   coords.js    — worldMetersToAbsCell, absCellCenterMeters, sameAbsCell,
 //                  cellInReach (tap targeting is cell-bounded, see below)
 //   worldgen.js  — WorldGen.tileCache, WorldGen.Z
-//   items.js     — ITEM_BY_ID, SEED_TIER, MAX_GROWTH_STAGE
+//   items.js     — ITEM_BY_ID, MAX_GROWTH_STAGE
 //   loot.js      — POI_CATEGORY, chestTier, rusticifyName
 //   rarity.js    — pickReward
 //   save.js      — persistSave
@@ -788,7 +788,7 @@ const TAP_HANDLERS = [
     // it in place instead of catching or fighting. Checked before the slime /
     // DEFEAT / favourite-food paths so mango always wins. Already-tame pets
     // (id starts with 'released_') skip this and fall through to petting.
-    const isTame = typeof target.id === 'string' && target.id.startsWith('released_');
+    const isTame = Combat.isTame(target);
     const _mangoSel = getSelectedSlot(save);
     // Underground monsters can't be befriended — they're DEFEAT-only foes.
     if (!isTame && !Combat.isMonster(target.kind) && _mangoSel?.id === 'mango' && (_mangoSel.count ?? 0) > 0) {

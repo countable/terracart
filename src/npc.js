@@ -399,7 +399,7 @@ const NPC = (() => {
   function offscreenAt(scene) {
     if (!(scene.viewSize > 0) || !(scene.mPerPx > 0) || !scene.playerM || !scene.startWorldM) return () => true;
     const half = (scene.viewSize / 2) * scene.mPerPx + scene.cellM;
-    const px = scene.startWorldM.x + scene.playerM.x, py = scene.startWorldM.y + scene.playerM.y;
+    const { x: px, y: py } = playerWorldM(scene);
     return (x, y) => Math.max(Math.abs(x - px), Math.abs(y - py)) > half;
   }
   // The arrivals pass (app.js update, on the modal-gate cadence): every

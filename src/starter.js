@@ -1768,7 +1768,7 @@
     const idFor = (dir) => `${kind || ''}${dir ? '_' + dir : ''}${tag}`;
     const wanted = new Set(dirs.map(idFor));
     const stale = entry.creatures.filter(c => typeof c.id === 'string'
-      && c.id.endsWith(tag) && !wanted.has(c.id) && !c.id.startsWith('released_'));
+      && c.id.endsWith(tag) && !wanted.has(c.id) && !Combat.isTame(c));
     if (stale.length) entry.creatures = entry.creatures.filter(c => !stale.includes(c));
     if (!kind) return;                                   // a mode with no greeter
 

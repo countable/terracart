@@ -336,7 +336,7 @@
     // Yesterday's corpse is pruned from save.caught; today's is kept.
     assert.eq(Lairs.dailyGuardDay(d1[0].id), '20260928', 'the day reads back off the id');
     assert.eq(Lairs.dailyGuardDay('lair_wagon_1_2_3_4_0'), null, 'a wagon guard is no daily one');
-    assert.truthy(/const gateDay = Lairs\.dailyGuardDay\(id\);\s*if \(gateDay\) return gateDay === Delivery\.dayKey\(\);/.test(SCENE_SRC),
+    assert.truthy(/const gateDay = Lairs\.dailyGuardDay\(id\);\s*if \(gateDay\) return gateDay === utcDayKey\(\);/.test(SCENE_SRC),
       'scene_creatures.js prunes the other days');
     assert.truthy(/o\.kind !== 'gatepost' \|\| !o\.gateSid \|\| seen\.has\(o\.gateSid\)/.test(SCENE_SRC),
       'spawnInTile hands in one lair per gate');

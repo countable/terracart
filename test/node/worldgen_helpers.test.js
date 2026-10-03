@@ -134,7 +134,7 @@
     assert.eq(entry.streetLairs.length, lairs.length, 'handed to the entry\'s lair candidates');
     assert.eq(entry.habitatSites.length, lairs.length, 'and recorded for variantAt');
     assert.eq(EnemyHabitats.variantAt(entry, entry.habitatSites[0].cx, entry.habitatSites[0].cy), 'hungry_marsh');
-    assert.eq(EnemyHabitats.surfaceSites(mk(tx, ty), tx, ty).length, 0, 'the old seater seats nothing itself');
+    assert.eq(EnemyHabitats.surfaceSites, undefined, 'the old seater is gone: habitatLairs is the one entry point');
     // Wake it: the whole group stands, each guard a lair guard of the site.
     const prev = Difficulty.mode();
     Difficulty.setMode('hard');

@@ -73,10 +73,8 @@ const Multiplayer = (function () {
   // lonLatToLocalM), so dividing by mPerPx undoes exactly that — no matter
   // where the peer reading it anchored THEIR world.
   function toWorldPx(scene) {
-    return {
-      x: (scene.startWorldM.x + scene.playerM.x) / scene.mPerPx,
-      y: (scene.startWorldM.y + scene.playerM.y) / scene.mPerPx,
-    };
+    const p = playerWorldM(scene);
+    return { x: p.x / scene.mPerPx, y: p.y / scene.mPerPx };
   }
   // Wire px → absolute world metres in THIS save's frame (worldMetersToScreen's input).
   function fromWorldPx(scene, px, py) {
@@ -271,9 +269,8 @@ const Multiplayer = (function () {
   function peerDistM(p) {
     const sc = S.scene;
     if (!sc) return Infinity;
-    const wm = fromWorldPx(sc, p.x, p.y);
-    return Math.hypot(wm.x - (sc.startWorldM.x + sc.playerM.x),
-                      wm.y - (sc.startWorldM.y + sc.playerM.y));
+    const wm = fromWorldPx(sc, p.x, p.y), me = playerWorldM(sc);
+    return Math.hypot(wm.x - me.x, wm.y - me.y);
   }
   // "Near" = heard from recently AND within PEER_NEAR_M. The relay only
   // forwards moves within INTEREST_PX, so a peer that walked out of range
@@ -385,8 +382,8 @@ const Multiplayer = (function () {
     S.pings = S.pings.filter(q => { if (q.id === ping.id) { q.gfx?.destroy(); q.txt?.destroy(); return false; } return true; });
     S.pings.push(ping);
     if (!mine) {
-      const wm = fromWorldPx(scene, ping.x, ping.y);
-      const dx = wm.x - (scene.startWorldM.x + scene.playerM.x), dy = wm.y - (scene.startWorldM.y + scene.playerM.y);
+      const wm = fromWorldPx(scene, ping.x, ping.y), me = playerWorldM(scene);
+      const dx = wm.x - me.x, dy = wm.y - me.y;
       const dist = Math.round(Math.hypot(dx, dy));
       const arrow = ['→', '↘', '↓', '↙', '←', '↖', '↑', '↗'][((Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) % 8) + 8) % 8];
       scene._toast?.(`📍 ${ping.name}: ${ping.label || 'here'} · ${dist} m ${arrow}`, { tier: 'sub', color: cssOf(ping.color) });
@@ -428,8 +425,8 @@ const Multiplayer = (function () {
       // Off screen: an arrow on the view edge pointing at the spot, with the
       // remaining distance, so a nearby ping can be walked to. Beyond
       // PING_ARROW_MAX_M the marker just waits at its spot — no arrow.
-      const dxm = wm.x - (scene.startWorldM.x + scene.playerM.x);
-      const dym = wm.y - (scene.startWorldM.y + scene.playerM.y);
+      const me = playerWorldM(scene);
+      const dxm = wm.x - me.x, dym = wm.y - me.y;
       const dist = Math.hypot(dxm, dym);
       if (dist > PING_ARROW_MAX_M) { q.txt.setVisible(false); continue; }
       const kk = (half - PING_ARROW_INSET) / Math.max(Math.abs(vx), Math.abs(vy));

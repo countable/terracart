@@ -568,8 +568,7 @@ class SceneShops {
   // the delivery menu (openDeliveryMenu). Home / forts / castles / wrecks are
   // excluded — only plain residential delivery houses appear.
   knownDeliveryHouses() {
-    const pWX = this.startWorldM.x + this.playerM.x;
-    const pWY = this.startWorldM.y + this.playerM.y;
+    const { x: pWX, y: pWY } = playerWorldM(this);
     const out = [];
     const seen = new Set();
     for (const e of WorldGen.tileCache.values()) {
@@ -604,12 +603,11 @@ class SceneShops {
       empty.textContent = 'No delivery requests nearby. Restore a house to start.';
       box.appendChild(empty);
     } else {
+      // One row per house: a ghost button (modal_shell mkBtn — the one
+      // factory) laid out as a two-line row, its label the HTML below.
+      const rowCss = 'display:flex;align-items:center;gap:8px;width:100%;margin:3px 0;padding:8px;'
+        + 'background:#222a;color:#fff;font:12px ui-monospace,monospace;text-align:left;';
       for (const h of houses) {
-        const row = document.createElement('button');
-        row.style.cssText =
-          'display:flex;align-items:center;gap:8px;width:100%;margin:3px 0;padding:8px;'
-          + 'background:#222a;border:2px solid #555;border-radius:6px;color:#fff;'
-          + 'cursor:pointer;font:12px ui-monospace,monospace;text-align:left;';
         // Icons alone told you nothing: three unlabelled sprites and a
         // distance, so you couldn't tell what a run needed, what it paid, or
         // which of five rows you could actually complete. Name every item,
@@ -628,7 +626,7 @@ class SceneShops {
         const stock = missing.length ? `need ${missing.join(', ')}` : '✓ you have everything';
         const setPrice = Math.max(1, Math.round(
           h.wanted.reduce((sum, id) => sum + Math.max(1, itemValue(id)), 0) * DELIVERY_BONUS_MULT));
-        row.innerHTML =
+        const row = mkBtn(
           `<span style="flex:1;min-width:0;">`
           + `<span style="display:flex;align-items:center;gap:4px;">${icons}`
           + `<b style="font-weight:700;">${names}</b></span>`
@@ -637,7 +635,8 @@ class SceneShops {
           + `${stock}</span></span>`
           + `<span style="white-space:nowrap;text-align:right;">`
           + `<b style="color:var(--gold);">${this.moneyHTML(`+${setPrice}`)}</b><br>`
-          + `<span style="opacity:.7;font-size:11px;">${Math.round(h.dist)}m ›</span></span>`;
+          + `<span style="opacity:.7;font-size:11px;">${Math.round(h.dist)}m ›</span></span>`,
+          { variant: 'ghost', css: rowCss });
         // A row you can complete right now reads as ready.
         if (ready) row.style.borderColor = '#4a8c4a';
         row.addEventListener('click', (e) => {
@@ -1439,10 +1438,10 @@ class SceneShops {
   // Houses.CASTLE_SERVICE_MS — the one timer on any building you trade at.
   presentCastleServiceOffer(sx, sy, house) {
     if (this._castleServiceUsed(house)) {
-      // A timed gate names its wait, never "later" — and the castellan SAYS
-      // it (spokenDuration), on two lines so each fits MAP_MSG_MAX.
-      this.flash(`My lord!\nCome back in ${spokenDuration(this._castleServiceWaitMs(house))}.`,
-                 sx, sy);
+      // A timed gate names its wait, never "later" — the one refusal shape
+      // every recurring site takes (Macros.waitLine, the castle row's `spent`
+      // prefix): "The castellan is away — 12h".
+      this.flash(Macros.waitLine(Macros.DAILY_VISIT_KINDS.castle.spent, this._castleServiceWaitMs(house)), sx, sy);
       return;
     }
     this.showOfferModal({

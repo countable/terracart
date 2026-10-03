@@ -5,7 +5,7 @@
 // Depends on:
 //   util.js (fnv1a, for the per-cell sprite-variant hash). Pure data + small
 //   lookup helpers otherwise. Must load BEFORE
-//   loot.js (tierInfo falls back to SEED_TIER for raw seed ids) and app.js.
+//   loot.js (lootFlashColor reads itemTierOf) and app.js.
 //
 // Exports as globals:
 //   CROP_ROW, MAX_GROWTH_STAGE, PRODUCE_COL, SEEDBOX_COL, CROPS_SHEET_COLS
@@ -15,7 +15,6 @@
 //   PRICES, BUY_LIST, STARTING_MONEY
 //   NON_TILLABLE, isTillable, isTillableCell   (which ground takes a hoe)
 //   INV_CATS, INV_CAT_BY_KEY, invCatForItem    (the inventory's type tabs)
-//   SEED_TIER  (loot tier config; co-located with the crops it describes)
 
 // Crops sheet (assets/Objects/Crops.png, 9 cols x 16 rows of 16x16 cells).
 // Each crop = 1 row. In-world growth: col 0 (sprout) → col 4 (harvestable).
@@ -887,9 +886,10 @@ const ITEMS = [
   // stalk nor drain you, and your own arm stays quiet: no swing, no shot
   // (useShadowPowder).
   { id: 'shadow_powder', name: 'Shadow Powder',       kind: 'magic' },
-  // Frost Powder: every enemy within reach is frozen solid for 30 s — no
-  // moving, no attacking (useFrostPowder). Refused — and kept — when nothing
-  // hostile is in reach.
+  // Frost Powder: every enemy within reach is CHILLED for 30 s — a SLOW
+  // (Combat.applyFrost, the `frozen` status row: half pace, half attack
+  // cadence), never a freeze in place (useFrostPowder). Refused — and kept —
+  // when nothing hostile is in reach.
   { id: 'frost_powder',  name: 'Frost Powder',        kind: 'magic' },
   // Unique jewelry works while carried. Its designation keeps magic shops and
   // ordinary class rolls from selling it; named chest pools remain its source.
@@ -2564,14 +2564,6 @@ function buyMarkupRange(relics) {   // eslint-disable-line no-unused-vars
   const modeMul = (typeof Difficulty !== 'undefined') ? Difficulty.get().buyMul : 1;
   return { lo: 1.2 * modeMul, hi: 3.0 * modeMul };
 }
-
-// === Per-crop loot tier config (used by chests + treasure marks) ===
-// T1 common (10 seeds/chest default yield), T2 uncommon (5), T3 rare (2).
-// Sourced from BASE_TIER so rarity stays single-source. The legacy callers
-// (loot.js pickLoot, REG tests) keep working unchanged.
-const SEED_TIER = Object.fromEntries(
-  Object.keys(CROP_ROW).map(c => [`${c}_seed`, BASE_TIER[c] || 1])
-);
 
 // Low-tier seeds (baseTier ≤ 2 — the cheap starter crops) are planted in bulk,
 // so the places that hand out seeds — trader barter, treasure X, and cash

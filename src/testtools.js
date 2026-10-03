@@ -84,15 +84,14 @@
     if (s._workProgress) s.cancelWorkProgress();
     // Convert player WORLD → screen, then add cell offset in screen pixels.
     const pc = (typeof worldMetersToAbsCell === 'function')
-      ? worldMetersToAbsCell(s, s.startWorldM.x + s.playerM.x, s.startWorldM.y + s.playerM.y)
+      ? worldMetersToAbsCell(s, playerWorldM(s).x, playerWorldM(s).y)
       : null;
     let centreX, centreY;
     if (pc && typeof absCellCenterMeters === 'function') {
       const c = absCellCenterMeters(s, pc.cellIX, pc.cellIY);
       centreX = c.x; centreY = c.y;
     } else {
-      centreX = s.startWorldM.x + s.playerM.x;
-      centreY = s.startWorldM.y + s.playerM.y;
+      ({ x: centreX, y: centreY } = playerWorldM(s));
     }
     const wx = centreX + dxCells * s.cellM;
     const wy = centreY + dyCells * s.cellM;
@@ -117,8 +116,7 @@
   // differ.
   function _nearest(listKey, predicate) {
     const s = S();
-    const pWX = s.startWorldM.x + s.playerM.x;
-    const pWY = s.startWorldM.y + s.playerM.y;
+    const { x: pWX, y: pWY } = playerWorldM(s);
     let best = null, bestD2 = Infinity;
     for (const entry of WorldGen.tileCache.values()) {
       for (const o of (entry[listKey] || [])) {

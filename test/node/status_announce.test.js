@@ -80,7 +80,7 @@ test('status looks: every creature applier flags its look', () => {
 });
 
 test('status looks: drawCreatures flicks the body over every state and pops the word once, never late', () => {
-  const body = RENDER_SRC.match(/    const frozen = c\._frozenUntil[\s\S]*?Render\.setShine\(s, [^;]+;/);
+  const body = RENDER_SRC.match(/    const chilled = Combat\.isChilled\(c, Date\.now\(\)\);[\s\S]*?Render\.setShine\(s, [^;]+;/);
   assert.truthy(body, 'live creature tint block exists');
   const paint = new Function('c', 's', 'performance', 'Date', 'Combat', 'Conditions',
     'FROZEN_TINT', 'SHINY_TINT', 'npcArt', 'creatureTint', 'Render', 'scene', body[0]);

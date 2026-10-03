@@ -47,19 +47,12 @@ const StoryEncounters = (() => {
     return { x: px, y: py, tx: cell.tx, ty: cell.ty };
   }
   function choose(scene, kind, other, anchor) {
-    const x = anchor ? anchor.x : scene.startWorldM.x + scene.playerM.x;
-    const y = anchor ? anchor.y : scene.startWorldM.y + scene.playerM.y;
+    const { x, y } = anchor || playerWorldM(scene);
     // Near the player's feet for the neighbour; inside the visible five-cell
     // half-width for the foe. Never defeat the Home ward to force a scene.
     const first = kind === 'npc' ? 1 : 3, last = kind === 'npc' ? 2 : 4;
-    for (let r = first; r <= last; r++) {
-      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
-        const p = seat(scene, x + dx * scene.cellM, y + dy * scene.cellM, kind, other);
-        if (p) return p;
-      }
-    }
-    return null;
+    return WorldGen.ringCells(0, 0, first, last,
+      (dx, dy) => seat(scene, x + dx * scene.cellM, y + dy * scene.cellM, kind, other));
   }
   function materialize(scene, q, prop, kind, id) {
     const existing = find(id);

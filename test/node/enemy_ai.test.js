@@ -118,7 +118,7 @@
     assert.falsy(enemyAttackReady(c, row, 15101, true));
   });
   test('enemy rendering: attack wind-ups keep the body palette and status tints', () => {
-    const body = RENDER_SRC.match(/    const frozen = c\._frozenUntil[\s\S]*?Render\.setShine\(s, [^;]+;/);
+    const body = RENDER_SRC.match(/    const chilled = Combat\.isChilled\(c, Date\.now\(\)\);[\s\S]*?Render\.setShine\(s, [^;]+;/);
     assert.truthy(body, 'live creature tint block exists');
     const paint = new Function('c', 's', 'performance', 'Date', 'Combat', 'Conditions',
       'FROZEN_TINT', 'SHINY_TINT', 'npcArt', 'creatureTint', 'Render', 'scene', body[0]);
@@ -127,7 +127,8 @@
         setTint(tint) { this.tint = tint; this.fill = false; },
         setTintFill(tint) { this.tint = tint; this.fill = true; } };
       paint(c, sprite, { now: () => now }, { now: () => now },
-        { burning: () => !!c.burning, statusFlashTint: () => null, poisoned: () => !!c.poisoned },
+        { burning: () => !!c.burning, statusFlashTint: () => null, poisoned: () => !!c.poisoned,
+          isChilled: (x, t) => x._frozenUntil != null && t < x._frozenUntil },
         { conditionTintOn: () => true, DEFINITIONS: { burning: { tint: 0xff5500 }, poison: { tint: 0x9fdc8c } } },
         0x99ccff, 0xffd23a, null, () => 0x123456, { setShine() {} }, {});
       return sprite;

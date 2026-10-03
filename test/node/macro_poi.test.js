@@ -354,7 +354,7 @@
     const f = withTile(entry, () => walkableDestination(scene, P.x, P.y, 5, { seed: 'b1', accept: (x, y) => !(x === d.x && y === d.y) }));
     assert.truthy(f && (f.ix !== d.ix || f.iy !== d.iy), 'accept refuses a cell');
     assert.eq(walkableDestinationRings(3).join(), '3,2,4,1,5,6', 'the ring order: dist, nearer, farther');
-    assert.truthy(/findWalkableDestination\(dist, opts\) \{[\s\S]*?this\.startWorldM\.x \+ this\.playerM\.x[\s\S]*?walkableDestination\(this, px, py, dist, opts\)/.test(SCENE_SRC),
+    assert.truthy(/findWalkableDestination\(dist, opts\) \{\s*const \{ x: px, y: py \} = playerWorldM\(this\);\s*return walkableDestination\(this, px, py, dist, opts\)/.test(SCENE_SRC),
       'the scene method measures from the FEET');
   });
 

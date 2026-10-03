@@ -903,7 +903,7 @@
         if (category === 'elite' ? Combat.isElite(c) && Combat.isEnemy(c, now)
           : c.shiny && !discovered[c.kind] && !Combat.isEnemyKind(c.kind)
             && (ITEM_BY_ID[`shiny_${c.kind}`] || SpriteLayout.creatureDrop(c.kind))
-            && !String(c.id).startsWith('released_')) consider(c, 'creature');
+            && !Combat.isTame(c)) consider(c, 'creature');
       }
     }
     return best;

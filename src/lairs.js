@@ -236,7 +236,7 @@
     // elite roll and every café would flood the map with gear. (The old
     // 'close' tier's ladder; there is no 'wagon' tier — the safety pass.)
     cafe: ['skeleton_soldier', 'orc'],
-    // A tar yard: fire slimes (combat.js MONSTERS.fire_slime).
+    // A tar yard: fire slimes (the enemy_roster.js fire_slime row).
     tar: ['fire_slime'],
     // A barricade: the goblin who holds it.
     barricade: ['spear_goblin', 'archer_goblin'],
@@ -1061,7 +1061,7 @@
     const out = [];
     // A DAILY tier's guard carries the UTC day in its id (see DAILY_TIERS).
     const day = DAILY_TIERS.has(cand.tier)
-      ? String(o.dayKey || (root.Delivery && root.Delivery.dayKey ? root.Delivery.dayKey() : '0')) : null;
+      ? String(o.dayKey || utcDayKey()) : null;
     for (let i = 0; i < n; i++) {
       const id = day ? `lair_${cand.sid}_${day}_${i}` : `lair_${cand.sid}_${i}`;
       const spec = plan ? plan[i] : Object.assign({ idx: i }, plainSpec);

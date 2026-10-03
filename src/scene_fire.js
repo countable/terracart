@@ -140,7 +140,7 @@ class SceneFire {
       },
     });
     if (destroyed) this.save.burnedObjects = [...destroyed];
-    const px = this.startWorldM.x + this.playerM.x, py = this.startWorldM.y + this.playerM.y;
+    const { x: px, y: py } = playerWorldM(this);
     if (GroundFire.active(this._groundFireAtWorld(px, py), now)) this._ignitePlayer();
     if (this._groundFireDirty) {
       this._groundFireDirty = false;
@@ -160,8 +160,8 @@ class SceneFire {
 
   _playerFireExposure() {
     if (!this.startWorldM || Combat.playerDowned(this.save.energy)) return false;
-    return !!this._fireExposureAtWorld(this.startWorldM.x + this.playerM.x,
-      this.startWorldM.y + this.playerM.y);
+    const feet = playerWorldM(this);
+    return !!this._fireExposureAtWorld(feet.x, feet.y);
   }
 
   // A CREATURE'S CONDITION TICK — the burn and the poison, one skeleton
@@ -209,8 +209,8 @@ class SceneFire {
     // The compass is continuous; snap its heading to the eight cell directions.
     const angle = Math.round(Math.atan2(facing.y, facing.x) / (Math.PI / 4)) * Math.PI / 4;
     const dx = Math.round(Math.cos(angle)), dy = Math.round(Math.sin(angle));
-    const player = worldMetersToAbsCell(this, this.startWorldM.x + this.playerM.x,
-      this.startWorldM.y + this.playerM.y);
+    const feet = playerWorldM(this);
+    const player = worldMetersToAbsCell(this, feet.x, feet.y);
     const radius = (CONSUMABLE_SPEC.tome_firewall.lengthCells - 1) / 2;
     const now = Date.now();
     let lit = 0;
@@ -232,7 +232,7 @@ class SceneFire {
   useExplosiveFlask() {
     const sel = getSelectedSlot(this.save);
     if (sel?.id !== 'explosive_flask' || !(sel.count > 0) || Combat.playerDowned(this.save.energy)) return false;
-    const x = this.startWorldM.x + this.playerM.x, y = this.startWorldM.y + this.playerM.y;
+    const { x, y } = playerWorldM(this);
     const heading = Combat.shotHeading('bow', x, y, this.facing);
     const shot = Combat.spawnExplosiveFlask(x, y, heading, this.cellM,
       Fog.REVEAL_CELLS * this.cellM, CONSUMABLE_SPEC.explosive_flask);

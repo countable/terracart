@@ -383,8 +383,8 @@ const SAME_SIDE_R_CELLS = 24;
 // when omitted (walkableDestination hands over the point it measures from).
 function sameSideField(scene, fx, fy) {
   const cm = scene.cellM, edge = scene.tileEdgeM;
-  const px = fx != null ? fx : scene.startWorldM.x + scene.playerM.x;
-  const py = fy != null ? fy : scene.startWorldM.y + scene.playerM.y;
+  const px = fx != null ? fx : playerWorldM(scene).x;
+  const py = fy != null ? fy : playerWorldM(scene).y;
   const R = SAME_SIDE_R_CELLS, W = 2 * R + 1;
   const cx = Math.floor(px / cm), cy = Math.floor(py / cm);
   const key = `${scene.depth || 0}|${cx}|${cy}`;
@@ -1363,12 +1363,8 @@ function enemySupportAllies(scene, c, radiusCells) {
 // What a garrison's child inherits from its parent (a necromancer's summon,
 // a split slime's twin): lairs.js GARRISON_INHERIT — the leash, the seat
 // bounds, the aggro ring, the home, the surface seat and habitat, the zone
-// variant and the hunt. Read at call time; the list here is the fallback
-// until lairs.js exports it.
-function garrisonInherit() {
-  return (typeof Lairs !== 'undefined' && Lairs.GARRISON_INHERIT) || ['lair', 'immobile', 'lairX', 'lairY', 'lairR',
-    'keepHW', 'keepHH', 'aggroCells', 'homeX', 'homeY', '_surfaceSpawn', 'habitat', 'zoneVariant', '_hunting'];
-}
+// variant and the hunt. Read at call time (lairs.js loads first).
+function garrisonInherit() { return Lairs.GARRISON_INHERIT; }
 function enemySummon(scene, c, ability) {
   const kind = ability.kind, row = EnemyRoster.get(kind);
   if (!row) return false;
@@ -1692,7 +1688,7 @@ function enemyBurrowTick(scene, c, row, now) {
   if (c._emergeUntil > now) return true;
   if (c.emergeFromGround && !c._hasEmerged) {
     c._burrowed = true;
-    const px = scene.startWorldM.x + scene.playerM.x, py = scene.startWorldM.y + scene.playerM.y;
+    const { x: px, y: py } = playerWorldM(scene);
     if (scene.isUnnoticed(c) || !Combat.seesPlayer(c.kind, Math.hypot(px - c.x, py - c.y), scene.cellM, scene.save)) return true;
     c._burrowed = false; c._hasEmerged = true;
     enemyStartEmerging(scene, c, row, now);

@@ -570,8 +570,8 @@
   // glow (Lighting.KINDS.magic_trap) over a tinted scuff on its cell.
   //
   // An ENEMY (Combat.isEnemy — never game, never a pet, never the player)
-  // that walks onto the cell is HELD — the Frost Powder's own freeze
-  // (c._frozenUntil; one lane, a second reason) for MAGIC_HOLD_MS — and takes
+  // that walks onto the cell is CHILLED — the Frost Powder's own slow
+  // (Combat.applyFrost; one lane, a second reason) for MAGIC_HOLD_MS — and takes
   // one hit, and the trap is spent. The numbers, both derived in app.js
   // (MAGIC_TRAP_HOLD_MS / magicTrapDamage) so they read off the tables they
   // stand for:

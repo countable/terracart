@@ -352,9 +352,13 @@ class SceneCreatures {
     // its point — a gate's point sits on its own way, so the ground BESIDE it
     // answers. A gate in a kindergarten's fence or deep in a field gets no foe. The guards' own
     // seats are their kind's class (lairs.js, creatureSpawnClass).
+    // HABITAT SITES (enemy_habitats.js habitatLairs — a wetland's hungry
+    // marsh, an outcrop's orc stronghold) are lair candidates too, pushed
+    // onto entry.streetLairs here so the filter below judges them like every
+    // other lair point.
+    EnemyHabitats.habitatLairs(entry, tx, ty);
     if (entry.streetLairs.length) {
-      const lairOpts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
-        roadClass: entry.roadClass, quiet: entry.quietMask };
+      const lairOpts = WorldGen.spawnOptsOf(entry);
       entry.streetLairs = entry.streetLairs.filter((L) => {
         const ix = Math.floor(L.lx / cellM), iy = Math.floor(L.ly / cellM);
         return !!WorldGen.relocateToSpawnCell(genGrid, N, N, ix, iy, lairOpts, LAIR_POINT_SLACK_CELLS, 'attractor');
@@ -518,13 +522,6 @@ class SceneCreatures {
     // Replace the existing enemy budget, without adding a population per kind.
     // Identity depends on the candidate cell, never species or this player's Home.
     entry._spawnOpts = _spawnOpts;
-    const habitatOccupied = new Set([...enemyGroundSeats, ...plantCells]);
-    const habitatGuards = EnemyHabitats.surfaceSites(entry, tx, ty, habitatOccupied);
-    const habitatSeats = new Set(habitatGuards.map(c => {
-      const x = Math.floor((c.x - tx * this.tileEdgeM) / cellM), y = Math.floor((c.y - ty * this.tileEdgeM) / cellM);
-      return y * N + x;
-    }));
-    for (const idx of habitatSeats) _spawnOpts.occupied.add(idx);
     const enemySeats = new Set();
     let enemyWrite = 0;
     for (const creature of creatures) {
@@ -536,7 +533,6 @@ class SceneCreatures {
       // Drop generic enemies in authored zone/road areas after the draw,
       // preserving every subsequent RNG draw and each variant's own guards.
       if (WorldGen.variantOwnerAt(entry, cy * N + cx)) continue;
-      if (habitatSeats.has(cy * N + cx)) continue;
       // (The seat was an 'enemy' spawn already — tryPlace / the attractor
       // lane — so whatever kind the roster puts on it stands on OPEN ground.)
       enemySeats.add(id);
@@ -576,11 +572,6 @@ class SceneCreatures {
       });
       if (creature._surfaceSpawn) EnemySpawns.surfaceActive(this, creature);
       creatures.push(creature);
-    }
-    for (const c of habitatGuards) {
-      if (caughtSet.has(c.id)) continue;
-      EnemySpawns.surfaceActive(this, c);
-      creatures.push(c);
     }
     // (Starter-cow at spawn removed — cows are valuable enough that none should be gifted.)
     // Merge in any creatures the player has released back into the world for this tile.
@@ -1329,8 +1320,7 @@ class SceneCreatures {
   // walkableDestination's (creature_ai.js); this is the scene's door to it.
   // Returns { tx, ty, ix, iy, x, y, n, entry } or null.
   findWalkableDestination(dist, opts) {
-    const px = this.startWorldM.x + this.playerM.x;
-    const py = this.startWorldM.y + this.playerM.y;
+    const { x: px, y: py } = playerWorldM(this);
     return walkableDestination(this, px, py, dist, opts);
   }
 
@@ -1626,8 +1616,7 @@ class SceneCreatures {
     const STEP_M = this.cellM;   // 1 cell per step
     // Only sim creatures near the player. Beyond the bubble they stay frozen
     // at their last position — cheap, and the player cannot see it happen.
-    const px = this.startWorldM.x + this.playerM.x;
-    const py = this.startWorldM.y + this.playerM.y;
+    const { x: px, y: py } = playerWorldM(this);
     const kerbLeash = inKerbAt(this, px, py);
     enemySlimeTrailTick(this, px, py, npcDt);
     // The nearest hostile TAKING AN INTEREST this tick (not standing down, the
@@ -1693,7 +1682,7 @@ class SceneCreatures {
         // A gate's guard (lairs.js DAILY_TIERS) carries its UTC day: one
         // from another day can never rise again, so its marker goes.
         const gateDay = Lairs.dailyGuardDay(id);
-        if (gateDay) return gateDay === Delivery.dayKey();
+        if (gateDay) return gateDay === utcDayKey();
         return !m || WorldGen.tileCache.has(WorldGen.tileKey(+m[1], +m[2]));
       });
     }

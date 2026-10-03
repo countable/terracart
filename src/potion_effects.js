@@ -2,14 +2,13 @@
 // The save ledger preserves a recipient's effects when its tile is rebuilt.
 (function (root) {
   'use strict';
-  const TIMERS = {
-    reach_potion: 'reachPotionUntil', speed_potion: 'speedPotionUntil',
-    shield_potion: 'shieldPotionUntil', protection_potion: 'protectionPotionUntil',
-    giant_potion: 'giantPotionUntil', fire_resistance_potion: 'fireResistancePotionUntil',
-    blight_potion: 'blightPotionUntil',
-    immortal_potion: 'immortalPotionUntil',
-    shrinking_potion: 'shrinkingPotionUntil',
-  };
+  // The potions a creature can wear, each timed on the SAME field its
+  // drinker's buff row names (buffs.js KINDS[CONSUMABLE_SPEC[id].buff].save),
+  // so a thrown potion and a drunk one can never disagree about where the
+  // deadline lives.
+  const TIMERS = Object.fromEntries(['reach_potion', 'speed_potion', 'shield_potion', 'protection_potion',
+    'giant_potion', 'fire_resistance_potion', 'blight_potion', 'immortal_potion', 'shrinking_potion']
+    .map(id => [id, Buffs.KINDS[CONSUMABLE_SPEC[id].buff].save]));
   function active(c, id, now = Date.now()) { return (c?.[TIMERS[id]] || 0) > now; }
   function speedMul(c, now = Date.now()) { return active(c, 'speed_potion', now) ? 2 : 1; }
   function scaleMul(c, now = Date.now()) {
@@ -148,8 +147,9 @@
       c._potionTamingUntil = now + (spec.durationMs || 60000);
       if (Combat.isEnemyKind(c.kind)) Combat.applyCharm(c, now);
       if (scene.startWorldM && scene.playerM) {
-        c._homeX = c.homeX = scene.startWorldM.x + scene.playerM.x;
-        c._homeY = c.homeY = scene.startWorldM.y + scene.playerM.y;
+        const feet = playerWorldM(scene);
+        c._homeX = c.homeX = feet.x;
+        c._homeY = c.homeY = feet.y;
       }
       c._nextChooseT = 0;
     } else if (id === 'time_potion') {
@@ -175,8 +175,7 @@
       && (!enemy || target.kind !== 'npc' || NPC.canTarget(scene, target)));
     if (enemy && scene.startWorldM && scene.playerM && !Combat.playerDowned(scene.save.energy)
         && !scene.isUnnoticed?.(c)) {
-      out.push({ id: 'player', x: scene.startWorldM.x + scene.playerM.x,
-        y: scene.startWorldM.y + scene.playerM.y });
+      out.push({ id: 'player', ...playerWorldM(scene) });
     }
     return out;
   }

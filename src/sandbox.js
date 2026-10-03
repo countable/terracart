@@ -1107,8 +1107,7 @@
     // point (scene_creatures.js). The same filter here means sandbox guards
     // never wake on ground the pipeline would refuse.
     if (entry.streetLairs.length) {
-      const lairOpts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
-        roadClass: entry.roadClass, quiet: entry.quietMask };
+      const lairOpts = WorldGen.spawnOptsOf(entry);
       entry.streetLairs = entry.streetLairs.filter((L) => {
         const ix = Math.floor(L.lx / c.cellM), iy = Math.floor(L.ly / c.cellM);
         return !!WorldGen.relocateToSpawnCell(entry.grid, c.cellsPerEdge, c.cellsPerEdge,

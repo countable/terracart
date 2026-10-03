@@ -74,8 +74,7 @@ test('UTC day identity and countdown share the same midnight', () => {
   assert.eq(utcDayKey(new Date(midnight)), '20260905', 'Date inputs use the same UTC key');
   assert.eq(utcDayIndex(midnight) - utcDayIndex(before), 1, 'the index advances at midnight');
   assert.eq(utcDayIndex(new Date(midnight)), utcDayIndex(midnight), 'Date and epoch inputs agree');
-  assert.eq(Delivery.dayKey(new Date(before)), utcDayKey(before), 'Delivery keeps a compatibility alias');
-  assert.eq(Delivery.dayKey(new Date(midnight)), utcDayKey(midnight), 'the alias flips at the same instant');
+  assert.eq(Delivery.dayKey, undefined, 'Delivery no longer carries a day-key alias');
   assert.eq(msToNextUtcDay(midnight), DN_DAY, 'a full day stands at the stroke of midnight');
   assert.eq(msToNextUtcDay(midnight + DN_HOUR), 23 * DN_HOUR);
   assert.eq(msToNextUtcDay(midnight + DN_DAY - DN_MIN), DN_MIN, 'a minute before the roll');
@@ -83,9 +82,11 @@ test('UTC day identity and countdown share the same midnight', () => {
 });
 
 test('UTC day consumers read util.js instead of inventing another boundary', () => {
-  assert.truthy(/function dayKey\(now = new Date\(\)\) \{\s*return utcDayKey\(now\);\s*\}/.test(ALL_SRC['delivery.js']),
-    'Delivery.dayKey delegates to the UTC owner');
-  assert.falsy(/Delivery\.dayKey/.test(ALL_SRC['houses.js']), 'houses read utcDayKey directly');
+  for (const f of ['delivery.js', 'scene_creatures.js', 'lairs.js', 'houses.js', 'macros.js']) {
+    assert.falsy(/Delivery\.dayKey|function dayKey\(/.test(ALL_SRC[f]), `${f} reads utcDayKey directly`);
+  }
+  assert.truthy(/gateDay === utcDayKey\(\)/.test(ALL_SRC['scene_creatures.js']), 'the gate guard\'s day is the UTC owner\'s');
+  assert.truthy(/String\(o\.dayKey \|\| utcDayKey\(\)\)/.test(ALL_SRC['lairs.js']), 'a daily guard\'s id carries the UTC owner\'s day');
   assert.falsy(/Delivery\.dayKey/.test(ALL_SRC['app.js']), 'app reads utcDayKey directly');
   assert.truthy(/const today = utcDayIndex\(Date\.now\(\)\);/.test(ALL_SRC['interactables.js']),
     'the spent ledger shares the UTC day index');
@@ -168,7 +169,8 @@ test('the day-gated messages name the wait to the UTC roll', () => {
     'shared daily visits show the wait to the UTC roll');
   assert.eq(Macros.waitLine('Already visited', 90 * 60 * 1000), 'Already visited — 2h', 'the one refusal shape, shortDuration');
   const castle = SCENE_SRC.slice(SCENE_SRC.indexOf('  presentCastleServiceOffer('), SCENE_SRC.indexOf('  showQuestBoard('));
-  assert.truthy(/spokenDuration\(this\._castleServiceWaitMs\(house\)\)/.test(castle), 'the castellan says the twelve-hour wait');
+  assert.truthy(/Macros\.waitLine\(Macros\.DAILY_VISIT_KINDS\.castle\.spent, this\._castleServiceWaitMs\(house\)\)/.test(castle),
+    'the castellan\'s refusal is the one shape, off the castle row\'s prefix and its twelve-hour wait');
   assert.truthy(/shortDuration\(Houses\.CASTLE_SERVICE_MS\)/.test(castle), 'and the blurb its length');
   assert.falsy(/msToNextUtcDay/.test(castle), 'neither counts to the UTC roll');
 });

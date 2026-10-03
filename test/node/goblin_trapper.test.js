@@ -14,7 +14,7 @@
 //     writes save.sprungTraps / save.disarmedTraps; it expires.
 //  3. THE MAGIC TRAP IS PLACED STATE that glows: save.magicTraps (id from the
 //     cell), a Lighting.KINDS row with its own collector, a cave-only tier-3
-//     find; an ENEMY stepping on it is held (the frost freeze) and hurt as a
+//     find; an ENEMY stepping on it is chilled (the frost slow) and hurt as a
 //     player kill, and the trap is spent.
 
 (function () {
@@ -439,7 +439,7 @@ test('magic trap: an ENEMY on the cell is held and hurt as a player kill; the tr
   assert.eq(hits[0].c, foe);
   assert.eq(hits[0].source, 'player', 'the player set it: a trap kill is a player kill');
   assert.eq(hits[0].amount, Combat.shotDamage({ bow: { tier: 3 } }, 'bow'), 'one tier-3 bow shot');
-  assert.gte(foe._frozenUntil, before + Combat.fireIntervalMs('staff'), 'held one staff beat (the frost freeze)');
+  assert.gte(foe._frozenUntil, before + Combat.fireIntervalMs('staff'), 'chilled one staff beat (the frost slow)');
   assert.eq(scene.save.magicTraps.map((t) => t.id).join(), other.id, 'the sprung trap is spent, the other kept');
   // A tamed slime is a pet, never a target.
   const pet = { kind: 'slime', id: 'released_slime_1', x: 9.5 * CELL, y: 9.5 * CELL };

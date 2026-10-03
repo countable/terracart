@@ -3361,7 +3361,7 @@ Render.drawObjects = function drawObjects(scene) {
     groundY: groundY(it, SpriteLayout.CREATURE_GROUND_DY) });
   // The ground shadow stays below props. The raised body clears only its
   // supporting mid-height pieces; tall trees retain ordinary depth ordering.
-  const playerGroundY = Math.max(scene.startWorldM.y + scene.playerM.y,
+  const playerGroundY = Math.max(playerWorldM(scene).y,
     ...zList.filter(row => supports.has(row.it?.o || row.it?.p)).map(row => row.groundY + 0.001));
   if (scene.playerWorldContainer) zList.push({ sprite: scene.playerWorldContainer,
     groundY: playerGroundY, rank: 3 });
@@ -3702,29 +3702,20 @@ Render.drawObjects = function drawObjects(scene) {
     // Wrecks have no sign - their identity is hidden until the player
     // restores them. The owner then returns the correct shop / house role.
     if (role === 'wreck') return null;
-    if (role === 'trailer') return 'Home';
-    if (role === 'wizard') {
-      const access = MemoryStory.towerAccess(scene.save, o);
-      return { locked: 'Sealed Tower', abandoned: 'Abandoned Tower', empty: 'Empty Tower', open: 'Wizard Tower' }[access];
-    }
-    // The frozen role the player picked at the wreck (blacksmith / trader /
+    if (role === 'trailer') return Shops.BUILDING_LABEL.trailer;
+    if (role === 'wizard') return Shops.TOWER_LABEL[MemoryStory.towerAccess(scene.save, o)];
+    // The settled role the player picked at the wreck (blacksmith / trader /
     // market / turret / wizard).
     const ordinary = role === 'plain' || role === 'fort';
     const label = ordinary ? null : _roleLabel(role, o);
     if (label) return label;
-    // No specialty? Still give the building a label so the map reads as a
-    // populated street instead of rows of anonymous huts.
-    if (o.tier === 12) return 'Castle';
-    if (o.tier === 11) return 'Fort';
-    if (o.tier === 9) {
-      // Plain residential — the delivery callout (wishlist icons while hungry,
-      // a happy face once fed) is drawn by the DOM produce-sign overlay below,
-      // not as emoji text. Fall back to a plain "House" label only for
-      // non-host tier-9 buildings that have no callout to show.
-      if (_houseIsHost(o)) return null;   // the roof bubble handles it
-      return 'House';
-    }
-    return null;
+    // No specialty? Still give the building a label (Shops.BUILDING_LABEL by
+    // tier) so the map reads as a populated street instead of rows of
+    // anonymous huts. Plain residential — the delivery callout (wishlist
+    // icons while hungry, a happy face once fed) is drawn by the DOM
+    // produce-sign overlay below, not as emoji text; a host gets no "House".
+    if (o.tier === 9 && _houseIsHost(o)) return null;   // the roof bubble handles it
+    return Shops.BUILDING_LABEL[o.tier] || null;
   };
   // True if this house is a residential delivery host — a plain tier-9 home
   // (not a wreck, the player's own home, the starter smithy or any specialty
@@ -4080,7 +4071,7 @@ Render.drawObjects = function drawObjects(scene) {
   // so the player can spot their pets at a glance. Pool is created lazily.
   scene._petHeartPool = scene._petHeartPool || [];
   const PET_HEART_RISE_PX = 16;
-  const tameList = creatureList.filter(item => typeof item.c.id === 'string' && item.c.id.startsWith('released_'));
+  const tameList = creatureList.filter(item => Combat.isTame(item.c));
   Render.renderPool(scene, scene._petHeartPool, scene.creaturesContainer, tameList, (t, { dx, dy }) => {
     const { x: sx, y: sy } = project(dx, dy);
     // Float the heart just above the creature's crown. Tame creatures sit at
@@ -4205,19 +4196,20 @@ Render.drawObjects = function drawObjects(scene) {
     // Rare shiny animals — and ELITE monsters, the same flag — wear the warm
     // sheen. Pooled sprites keep their last tint, so set an explicit colour
     // every frame (white for the common, plain case). A foe the Frost Powder
-    // froze (c._frozenUntil, app.js useFrostPowder) wears ice over either.
-    // The plain case is the KIND'S OWN tint, not a blanket white: a cave slime
-    // is the surface slime's sheet and its tint is the only thing that says so
-    // (SpriteLayout.CAVE_SLIME_TINT). Frozen and shiny still win over it —
-    // both say something about this INSTANCE, which outranks what it is.
-    const frozen = c._frozenUntil != null && Date.now() < c._frozenUntil;
+    // chilled (Combat.isChilled — the `frozen` status row, a SLOW) wears ice
+    // over either. The plain case is the KIND'S OWN tint, not a blanket
+    // white: a cave slime is the surface slime's sheet and its tint is the
+    // only thing that says so (SpriteLayout.CAVE_SLIME_TINT). Chilled and
+    // shiny still win over it — both say something about this INSTANCE,
+    // which outranks what it is.
+    const chilled = Combat.isChilled(c, Date.now());
     // ON FIRE (Combat.burning): the `burning` row's tint, FLICKERED against
     // the body's own colour so it reads as flame, not a sheen. Ice still
-    // wins — a frozen body shows the ice.
-    const afire = !frozen && Combat.burning(c) && Conditions.conditionTintOn('burning', performance.now());
+    // wins — a chilled body shows the ice.
+    const afire = !chilled && Combat.burning(c) && Conditions.conditionTintOn('burning', performance.now());
     // POISONED (Combat.poisoned): the `poison` row's steady tint, under the
     // ice and the flame — the same colour the player's body holds.
-    const poisoned = !frozen && !afire && Combat.poisoned(c, performance.now());
+    const poisoned = !chilled && !afire && Combat.poisoned(c, performance.now());
     // A STATUS JUST LANDED (Combat.flagStatus — a sleep, a charm, the frost,
     // a fear, the madness, a fresh burn, a thrown potion's buff): the body
     // flicks the status's own colour for STATUS_FLASH_MS, over everything
@@ -4232,9 +4224,9 @@ Render.drawObjects = function drawObjects(scene) {
       c._statusPop = null;
       if (flick != null && scene._popCreatureText) scene._popCreatureText(c, pop.label, pop.color);
     }
-    s.setTint(flick != null ? flick : frozen ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : poisoned ? Conditions.DEFINITIONS.poison.tint : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
-    if (c._supportUntil > performance.now() && !frozen) s.setTintFill(0x8cefa0);
-    Render.setShine(s, !!c.shiny && !frozen, c.id);
+    s.setTint(flick != null ? flick : chilled ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : poisoned ? Conditions.DEFINITIONS.poison.tint : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
+    if (c._supportUntil > performance.now() && !chilled) s.setTintFill(0x8cefa0);
+    Render.setShine(s, !!c.shiny && !chilled, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
     // sprite keeps whatever alpha its last creature wore.
     s.setAlpha(creatureAlpha(c.kind));

@@ -3,7 +3,7 @@
 // to one another and away from rendering / scene code.
 //
 // Depends on:
-//   items.js (SEED_TIER — tierInfo's fallback for raw seed ids). The 'flora'
+//   items.js (itemTierOf — lootFlashColor's tier for any item id). The 'flora'
 //   category below is just a POI-category label (florist/garden/garden_centre)
 //   consumed by rarity.js's classBias weighting — magical flower seeds are
 //   gated by BASE_TIER in items.js, not a dedicated flower-id set here.
@@ -133,12 +133,13 @@ function rusticifyName(name) {
 
 // The colour a loot toast or card wears for item `id`: the rarity badge's
 // own (items.js tierBadgeColor — the seven-rung ladder the badge beside it
-// reads, so a toast and its badge can never disagree), as a CSS colour. A
-// raw seed id falls back to SEED_TIER; an unranked id reads as treasure.
+// reads, so a toast and its badge can never disagree), as a CSS colour. An
+// unranked id reads as T1 (itemTierOf's fallback — seeds carry their crop's
+// tier as items, so SEED_TIER needs no second look).
 // (Until Oct 2026 a separate three-rung scale clamped everything over T3 to
 // pink and called T1 "common" where the badge says "basic".)
 function lootFlashColor(id) {
-  const tier = itemTierOf(id) || Math.min(7, Math.max(1, SEED_TIER[id] || 1));
+  const tier = itemTierOf(id, 1);
   const c = tierBadgeColor(tier);
   return c == null ? UI_TREASURE : '#' + c.toString(16).padStart(6, '0');
 }

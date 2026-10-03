@@ -182,10 +182,6 @@
     if (Array.isArray(entry.streetLairs)) entry.streetLairs.push(...lairs);
     return lairs;
   }
-  // The old seater's name: it hands the candidates to entry.streetLairs and
-  // seats nothing itself (the garrison wakes with the ruins'). Its callers
-  // (scene_creatures.js) can call habitatLairs ahead of their lair filter.
-  function surfaceSites(entry, tx, ty) { habitatLairs(entry, tx, ty); return []; }
   // A dragon is a single chamber encounter, never a member of the ambient bag.
   // Jittered habitat centres own seats, even when their territory crosses a
   // tile seam. Missing space means no roost; another tile never retries it.
@@ -232,6 +228,6 @@
     return out;
   }
   root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS, HABITAT_TIER,
-    unit, caveAt, surfaceAt, surfaceEncounters, variantAt, emergesFromGround, buildingKinds, habitatLairs, surfaceSites, caveSites };
+    unit, caveAt, surfaceAt, surfaceEncounters, variantAt, emergesFromGround, buildingKinds, habitatLairs, caveSites };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.EnemyHabitats;
 })(typeof window !== 'undefined' ? window : globalThis);
