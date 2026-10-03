@@ -131,11 +131,12 @@ const FILES = [
   // The modal shell: its methods are DOM work nobody runs here, but its top
   // level must load with no app.js in scope (as in the page).
   'modal_shell.js',
-  // Scene mixins (geography, creatures, shops): classes nobody runs here plus
+  // Scene mixins: classes nobody runs here plus
   // literal consts, loaded with no app.js in scope, as in the page.
   'scene_geo.js',
   'scene_creatures.js',
   'scene_fire.js', 'scene_shops.js',
+  'scene_create.js', 'scene_consumables.js', 'scene_venues.js', 'scene_streets.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
@@ -1285,6 +1286,10 @@ ctx.LOOT_SRC = readSrc('loot.js');
 // belongs in this map.
 ctx.DURATION_SOURCES = {
   'app.js': readSrc('app.js'),
+  'scene_create.js': readSrc('scene_create.js'),
+  'scene_consumables.js': readSrc('scene_consumables.js'),
+  'scene_venues.js': readSrc('scene_venues.js'),
+  'scene_streets.js': readSrc('scene_streets.js'),
   'scene_creatures.js': readSrc('scene_creatures.js'),
   'interact.js': readSrc('interact.js'),
   'interactables.js': readSrc('interactables.js'),

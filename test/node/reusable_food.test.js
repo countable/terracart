@@ -1,10 +1,10 @@
 // Exercise the shipping food action: reusable healing still shares the bite gate.
-const foodActionStart = APP_JS_SRC.indexOf('\n  eatSelected() {');
-const foodActionEnd = APP_JS_SRC.indexOf('\n  }\n', foodActionStart);
-const reusableEat = new Function('return ({' + APP_JS_SRC.slice(foodActionStart, foodActionEnd + 4) + '}).eatSelected')();
-const effectStart = APP_JS_SRC.indexOf('\n  _consumeFoodEffects(id,');
-const effectEnd = APP_JS_SRC.indexOf('\n  }\n', effectStart);
-const reusableFoodEffects = new Function('return ({' + APP_JS_SRC.slice(effectStart, effectEnd + 4) + '})._consumeFoodEffects')();
+const foodActionStart = SCENE_SRC.indexOf('\n  eatSelected() {');
+const foodActionEnd = SCENE_SRC.indexOf('\n  }\n', foodActionStart);
+const reusableEat = new Function('return ({' + SCENE_SRC.slice(foodActionStart, foodActionEnd + 4) + '}).eatSelected')();
+const effectStart = SCENE_SRC.indexOf('\n  _consumeFoodEffects(id,');
+const effectEnd = SCENE_SRC.indexOf('\n  }\n', effectStart);
+const reusableFoodEffects = new Function('return ({' + SCENE_SRC.slice(effectStart, effectEnd + 4) + '})._consumeFoodEffects')();
 function gobletScene(id = 'goblet') {
   return {
     save: { inv: [{ id, count: 1 }], selSlot: 0, energy: 20, eaten: [id] },

@@ -60,12 +60,12 @@ test('save collections: a missing or malformed array starts empty', () => {
 });
 
 test('save collections: runtime callers mutate only the bound views', () => {
-  const consumers = ['app.js', 'interact.js', 'interactables.js', 'render.js', 'sandbox.js', 'testtools.js'];
+  const consumers = ['app.js', 'scene_create.js', 'scene_consumables.js', 'scene_venues.js', 'scene_streets.js', 'interact.js', 'interactables.js', 'render.js', 'sandbox.js', 'testtools.js'];
   const direct = /\.(?:tilled|brokenRocks|placedRocks|dugWalls)\s*=/;
   for (const name of consumers) {
     assert.falsy(direct.test(ALL_SRC[name]), `${name} hand-syncs a persisted id array`);
   }
   for (const field of ['tilled', 'brokenRocks', 'placedRocks', 'dugWalls']) {
-    assert.truthy(ALL_SRC['app.js'].includes(`bindIdSet(this.save, '${field}')`), `${field} binds at scene boot`);
+    assert.truthy(ALL_SRC['scene_create.js'].includes(`bindIdSet(this.save, '${field}')`), `${field} binds at scene boot`);
   }
 });

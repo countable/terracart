@@ -146,7 +146,7 @@ test('egg: hatches a baby, never an adult', () => {
   save.eggHatchM = EggHatch.METERS;
   const r = EggHatch.hatch(save, () => 0.5);
   assert.truthy(r.ok); assert.truthy(ITEM_BY_ID[r.petId].baby, `${r.petId} is a baby`);
-  assert.includes(APP_JS_SRC, "this.showBabyFound(result.petId, 'egg')");
+  assert.includes(SCENE_SRC, "this.showBabyFound(result.petId, 'egg')");
 });
 
 test('release: a baby is set down as a raised, shiny, newborn tame pet', () => {
