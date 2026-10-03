@@ -10,6 +10,7 @@
 (function () {
   const T0 = 1_700_000_000_000;
   const app = APP_JS_SRC;
+  const kept = new Function(app.match(/\nfunction kept\(why, noun\) \{[^\n]*\n/)[0] + 'return kept;')();
   const tables = ['SUMMON_HOOK', 'TIMED_BUFF_HOOKS'].map((t) => {
     const m = app.match(new RegExp('\\nconst ' + t + ' = \\{[\\s\\S]*?\\n\\};'));
     assert.truthy(m, `${t} table in app.js`);
@@ -79,5 +80,19 @@
     assert.truthy(/if \(row\.buff\) return this\._useTimedBuff\(id\);/.test(route) && /if \(row\.tome\) return this\._readTome\(id\);/.test(route)
       && /if \(CAST_ROWS\[id\]\) return this\._castOnFoes\(id\);/.test(route), 'a row is used by its column, never by a hand-named method');
     assert.truthy(/onAccept: \(\) => \{ this\._useConsumable\(id\); this\.syncConsumableButton\(\); \},/.test(app), 'the button goes through the route');
+  });
+
+  test('footprint: a note about the body anchors on the player, never the camera centre', () => {
+    // 32 refusal / success notes used to flash at viewCenterX/Y and float off
+    // the body under a peek drag; flashAtPlayer (scene.playerScreen) is the
+    // one anchor. The road chip's help line is the HUD's, under the chip.
+    const centred = (app.match(/this\.flash\([^\n]*this\.viewCenterX, this\.viewCenterY\b/g) || []);
+    assert.eq(centred.length, 0, `no note at the camera centre: ${centred.join(' | ')}`);
+    assert.gt((app.match(/this\.flashAtPlayer\(/g) || []).length, 15, 'the notes go through flashAtPlayer');
+    assert.truthy(/else this\.flashAtPlayer\('Getting tired…', UI_DANGER_INK\);/.test(app), 'the tiring warning too, when no cell was tapped');
+    // The refusal that keeps the item has one shape.
+    assert.eq(kept('No foe in sight', 'scroll'), 'No foe in sight — scroll kept.');
+    assert.falsy(/— \w+ kept\.'/.test(app.replace(/function kept\([^\n]*/, '')), 'no hand-typed "kept." line beside the formatter');
+    assert.truthy(/this\.flashAtPlayer\(kept\(/.test(app), 'and it lands on the player');
   });
 })();

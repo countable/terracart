@@ -1050,6 +1050,65 @@ const CAST_ROWS = {
 // THE REFUSAL that keeps the item: "<why> — <noun> kept." — a cast with no
 // foe in sight, an Antidote with nothing to cure, a map with no chest.
 function kept(why, noun) { return `${why} — ${noun} kept.`; }
+// ONE <style> per rule set, injected once under `id` (the HUD chips, the
+// status row, the move pad): a second call with the same id is a no-op.
+function ensureStyle(id, css) {
+  if (typeof document === 'undefined' || document.getElementById(id)) return;
+  const st = document.createElement('style');
+  st.id = id;
+  st.textContent = css;
+  document.head.appendChild(st);
+}
+// A control that sits OVER the map swallows the press, so no tap lands on
+// the world under it; its own click handler says what it does.
+function swallowTaps(el) {
+  for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
+    el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
+}
+// ── THE MARKERS ─────────────────────────────────────────────────────────────
+// Every bearing drawn at the map's rim is a row here, drawn by _drawMarkers
+// (each through _drawMarker): `key` on `store` ('save' survives a reload;
+// 'scene' is session state), the `color`, the `shape` (a dot, or the
+// delivery's arrow), `tracked` for a find that moves (re-read twice a second
+// through _telescopeTrackedTarget), and `clearWhen(scene, m)` — the row's
+// own reason to drop the mark besides its `until` passing. A mark on another
+// level is kept but not drawn. The Pairy's mark stays session state
+// (Buffs.KINDS.compass and player_time.js read scene.pairyCompass).
+const _markClaimed = (s, m) => setOf(s.save.opened).has(m.targetId) || dayLedgerAges(s.save).get(m.targetId) === 0;
+const MARKERS = [
+  // The Pairy marks its chest in cyan until opened or its food effect expires.
+  { key: 'pairyCompass', store: 'scene', color: 0x45e5ff, shape: 'dot', clearWhen: _markClaimed },
+  { key: 'telescopeCompass', store: 'save', color: 0xffd24a, shape: 'dot', tracked: true },
+  { key: 'wayfarerCompass', store: 'save', color: 0x4488ff, shape: 'dot', tracked: true },
+  // A map keeps its original level and expires by wall clock, including reloads.
+  { key: 'treasureCompass', store: 'save', color: 0xff5555, shape: 'dot', clearWhen: _markClaimed },
+  // The delivery waypoint — a solid WHITE arrow at the house the player picked
+  // (openDeliveryMenu), cleared once they arrive or the house has been fed.
+  { key: 'deliveryCompass', store: 'scene', color: 0xffffff, shape: 'arrow',
+    clearWhen: (s, m) => Delivery.isSatisfied(s.save, { id: m.id })
+      || Math.hypot(m.x - playerWorldM(s).x, m.y - playerWorldM(s).y) < s.cellM * 1.2 },
+];
+// ── WHO IS TOLD OF A KILL ───────────────────────────────────────────────────
+// Every ledger resolveDefeat reports a fallen foe to, in order, each judging
+// the credit by ONE question — Macros.slainByPlayer: the id in save.caught
+// and a blow of the player's side (Combat.isPlayerKill). Maud's archer and
+// the fire-breath demon ask it inside their own `defeated`; the castle's
+// board asks it here; the guild bounty pays whoever felled the last foe.
+const KILL_LEDGERS = [
+  (s, v, source) => StoryEncounters.defeated(s, v, source),
+  (s, v, source) => DragonStory.defeated(s, v, source),
+  // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
+  // never credit toward its base kind's. A turret's kill is not the player's job done.
+  (s, v, source) => {
+    if (typeof Quests === 'undefined' || !Macros.slainByPlayer(s.save, v.id, source)) return;
+    if (Quests.onKill(s.save, v.kind)) s.flashAtPlayer('Quest done — see the castle.');
+  },
+  (s, v) => { if (v.bounty) s._guildBountyDefeat(v); },
+];
+// The day-ledger ids (Macros.markToday / usedToday) of the guild bounty out
+// today and the dusk safety card — a UTC day each, in the one ledger.
+const GUILD_BOUNTY_LEDGER = 'guildbounty';
+const SAFETY_DUSK_LEDGER = 'safety:dusk';
 // A soft disc for a baked glow (the ghost's glow, the Blight aura): a radial
 // gradient from the centre to the rim over `stops` ([offset, rgba]) filling
 // an S×S canvas.
@@ -4014,29 +4073,31 @@ class MapScene extends Phaser.Scene {
     this.facingGfx.fillCircle(px, py, 3);
   }
 
-  _drawTrackedEdgeDot(key, color) {
-    const marker = this.save[key];
+  // Every row of MARKERS, each frame.
+  _drawMarkers() { for (const row of MARKERS) this._drawMarker(row); }
+  _drawMarker(row) {
+    const marker = (row.store === 'scene' ? this : this.save)[row.key];
     if (!marker) return;
-    if (Date.now() >= marker.until) {
-      delete this.save[key];
-      persistSave(this.save);
-      return;
+    const clear = () => {
+      if (row.store === 'scene') this[row.key] = null;
+      else { delete this.save[row.key]; persistSave(this.save); }
+    };
+    if ((marker.until != null && Date.now() >= marker.until) || row.clearWhen?.(this, marker)) { clear(); return; }
+    if (marker.depth != null && marker.depth !== (this.depth || 0)) return;
+    let target = marker;
+    if (row.tracked) {
+      // World lookups need not run at render cadence; moving targets refresh
+      // twice per second while the edge projection still follows every frame.
+      const now = Date.now();
+      const memo = (this._edgeDotTargets ||= {});
+      if (memo[row.key]?.marker !== marker || now - memo[row.key].at >= 500) {
+        memo[row.key] = { marker, at: now, target: this._telescopeTrackedTarget(marker) };
+      }
+      target = memo[row.key].target;
+      if (!target) { clear(); return; }
     }
-    if (marker.depth !== (this.depth || 0)) return;
-    // World lookups need not run at render cadence; moving targets refresh
-    // twice per second while the edge projection still follows every frame.
-    const now = Date.now();
-    const memo = (this._edgeDotTargets ||= {});
-    if (memo[key]?.marker !== marker || now - memo[key].at >= 500) {
-      memo[key] = { marker, at: now, target: this._telescopeTrackedTarget(marker) };
-    }
-    const target = memo[key].target;
-    if (!target) {
-      delete this.save[key];
-      persistSave(this.save);
-      return;
-    }
-    this._drawEdgeDot(target.x, target.y, color);
+    if (row.shape === 'arrow') this._drawEdgeCompass(target.x, target.y, row.color, 0.9);
+    else this._drawEdgeDot(target.x, target.y, row.color);
   }
 
   // The nearest starter supply crate the player has not opened yet, or null.
@@ -4638,43 +4699,9 @@ class MapScene extends Phaser.Scene {
       }
     }
 
-    // Pairy marks its chest in cyan until opened or its food effect expires.
-    if (this.pairyCompass) {
-      const opened = setOf(this.save.opened);
-      const expired = Date.now() >= this.pairyCompass.until;
-      const claimed = opened.has(this.pairyCompass.targetId)
-        || dayLedgerAges(this.save).get(this.pairyCompass.targetId) === 0;
-      if (expired || claimed) {
-        this.pairyCompass = null;
-      } else {
-        this._drawEdgeDot(this.pairyCompass.x, this.pairyCompass.y, 0x45e5ff);
-      }
-    }
-
-    this._drawTrackedEdgeDot('telescopeCompass', 0xffd24a);
-    this._drawTrackedEdgeDot('wayfarerCompass', 0x4488ff);
-
-    // A map keeps its original level and expires by wall clock, including reloads.
-    const treasure = this.save.treasureCompass;
-    if (treasure && Date.now() < treasure.until && treasure.depth === (this.depth || 0)
-        && !setOf(this.save.opened).has(treasure.targetId)
-        && dayLedgerAges(this.save).get(treasure.targetId) !== 0) {
-      this._drawEdgeDot(treasure.x, treasure.y, 0xff5555);
-    }
-
-    // Delivery waypoint — a solid WHITE arrow at the viewport edge pointing at
-    // the house the player picked from the delivery menu (openDeliveryMenu).
-    // Cleared once the player arrives or the house has been fed.
-    if (this.deliveryCompass) {
-      const satisfied = Delivery.isSatisfied(this.save, { id: this.deliveryCompass.id });
-      const { x: pWX, y: pWY } = playerWorldM(this);
-      const mag = Math.hypot(this.deliveryCompass.x - pWX, this.deliveryCompass.y - pWY);
-      if (satisfied || mag < this.cellM * 1.2) {
-        this.deliveryCompass = null;
-      } else {
-        this._drawEdgeCompass(this.deliveryCompass.x, this.deliveryCompass.y, 0xffffff, 0.9);
-      }
-    }
+    // The bearings at the rim: the Pairy's chest, a telescope or wayfarer
+    // sighting, a map's treasure, the delivery's house (MARKERS).
+    this._drawMarkers();
 
     // Starter guidance — a LIGHT-GREEN arrow toward whatever the ACTIVE ladder
     // step actually wants, shown only while the first-session ladder is
@@ -5313,7 +5340,7 @@ class MapScene extends Phaser.Scene {
             el.type = 'button';
             el.addEventListener('click', e => {
               e.stopPropagation();
-              if (document.body.classList.contains('modal-open')) return;
+              if (this._dialogOpen()) return;
               this[c.action]?.();
               this._syncStatusRow();
             });
@@ -5337,12 +5364,7 @@ class MapScene extends Phaser.Scene {
   // beside the other chips; _syncStatusRow fills it.
   _buildStatusRow() {
     if (typeof document === 'undefined') return;
-    if (!document.getElementById('status-row-style')) {
-      const st = document.createElement('style');
-      st.id = 'status-row-style';
-      st.textContent = STATUS_ROW_CSS;
-      document.head.appendChild(st);
-    }
+    ensureStyle('status-row-style', STATUS_ROW_CSS);
     let el = document.getElementById('status-row');
     if (!el) {
       el = document.createElement('div');
@@ -5501,15 +5523,21 @@ class MapScene extends Phaser.Scene {
     const taken = Math.min(purse, Math.max(0, Math.floor(n || 0)));
     if (!(taken > 0)) return 0;
     addMoney(this.save, -taken);
+    this._theftLanded(taken, thief, `-${taken}`, UI_GOLD);
+    return taken;
+  }
+  // A theft LANDED (coins or food): the thief sated for the day
+  // (Combat.bankTheft), the flinch, the shop shut, `text` in `ink` on the
+  // player's cell, the save.
+  _theftLanded(taken, thief, text, ink) {
     if (thief) Combat.bankTheft(this.save, thief);
     this._flashPlayerHit(taken);
     this._closeShopOnHit();
     if (typeof playerReachCell === 'function' && this.startWorldM && this.originPx) {
       const p = playerReachCell(this);
-      this._popCellNumber(`-${taken}`, UI_GOLD, p.cellIX, p.cellIY);
+      this._popCellNumber(text, ink, p.cellIX, p.cellIY);
     }
     if (typeof persistSave === 'function') persistSave(this.save);
-    return taken;
   }
   // Food out of the bag: Inventory.remove is the one bag writer (never more
   // than the stack holds), the bar rebuilt so the missing piece shows, the
@@ -5518,16 +5546,9 @@ class MapScene extends Phaser.Scene {
   _losePlayerFood(id, n, thief) {
     const taken = Inventory.remove(this.save, id, Math.max(0, Math.floor(n || 0)));
     if (!(taken > 0)) return 0;
-    if (thief) Combat.bankTheft(this.save, thief);
     if ((this.save.selSlot ?? -1) >= (this.save.inv || []).length) this.save.selSlot = -1;
-    this._flashPlayerHit(taken);
-    this._closeShopOnHit();
-    if (typeof playerReachCell === 'function' && this.startWorldM && this.originPx) {
-      const p = playerReachCell(this);
-      const name = (typeof ITEM_BY_ID !== 'undefined' && ITEM_BY_ID[id]?.name) || id;
-      this._popCellNumber(`-${taken} ${name}`, UI_DANGER_INK, p.cellIX, p.cellIY);
-    }
-    if (typeof persistSave === 'function') persistSave(this.save);
+    const name = (typeof ITEM_BY_ID !== 'undefined' && ITEM_BY_ID[id]?.name) || id;
+    this._theftLanded(taken, thief, `-${taken} ${name}`, UI_DANGER_INK);
     if (this.buildInventoryDOM) this.buildInventoryDOM();
     return taken;
   }
@@ -6041,8 +6062,6 @@ class MapScene extends Phaser.Scene {
     save.caught = save.caught || [];
     if (save.caught.includes(victim.id)) return;
     save.caught.push(victim.id);
-    StoryEncounters.defeated(this, victim);
-    DragonStory.defeated(this, victim, source);
     const mine = Combat.isPlayerKill(source);
     // WHAT A KILL DROPS is the kind's own row (SpriteLayout.CREATURE_BEHAVIOUR
     // `drop`), not a ternary here: game drops a body part, and an ENEMY pays a
@@ -6053,7 +6072,7 @@ class MapScene extends Phaser.Scene {
     if (dropId) {
       this.addToInv(dropId, 1);
       const item = ITEM_BY_ID[dropId];
-      this.flashLoot(`+1 ${item?.name || dropId}`, '#ffe066', 1, dropId);
+      this.flashLoot(`+1 ${item?.name || dropId}`, UI_GOLD, 1, dropId);
     }
     if (Combat.isEnemyKind(victim.kind)) {
       // Every enemy kill pays a bounty (enemyBounty — derived from the kind's
@@ -6104,16 +6123,10 @@ class MapScene extends Phaser.Scene {
       // carry enemies. A kind that ever did would otherwise die in silence.
       this.flashAtWorld(`${victim.kind} defeated`, victim.x, victim.y);
     }
-    if (mine && typeof Quests !== 'undefined') {
-      // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
-      // never credit toward its base kind's. A turret's kill is not the
-      // player's job done.
-      const qDone = Quests.onKill(save, victim.kind);
-      if (qDone) this.flashAtPlayer('Quest done — see the castle.');
-    }
-    // A guildhall bounty's foe: the pack's reward when it was the last one
-    // (whoever felled it — the wage above was paid either way).
-    if (victim.bounty) this._guildBountyDefeat(victim);
+    // Who is told (KILL_LEDGERS): Maud's archer, the fire-breath demon, the
+    // castle's board, the guild bounty — each judging the credit by
+    // Macros.slainByPlayer (the wage above was paid either way).
+    for (const tell of KILL_LEDGERS) tell(this, victim, source);
     persistSave(save);
     // Rare shiny deer / crow — hunted fauna drop their product (meat /
     // feather), so there's no live shiny animal to keep, but the shiny find
@@ -7046,7 +7059,7 @@ class MapScene extends Phaser.Scene {
       d.entry.coinDrops = d.entry.coinDrops || [];
       d.entry.coinDrops.push({ kind: 'coindrop', x: d.x, y: d.y, id: `coin_${poi.id}_${dayKey}_${i}`, expiresAt });
     });
-    this.flashLoot(`Scattered ${drops.length} coins!`, '#ffe066', 1, null, this.coinIconEl());
+    this.flashLoot(`Scattered ${drops.length} coins!`, UI_GOLD, 1, null, this.coinIconEl());
     visit.present();
   }
 
@@ -7912,7 +7925,7 @@ class MapScene extends Phaser.Scene {
       this._autoMineKey = null;
       persistSave(this.save);
       const item = (typeof ITEM_BY_ID !== 'undefined') ? ITEM_BY_ID['rockfruit'] : null;
-      this.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rockfruit');
+      this.flashLoot(`+${qty} ${item?.name || 'Stone'}`, UI_GREEN, 1, 'rockfruit');
     }, durMs, 0, 'pick');
   }
   // Take a staircase: delta +1 descends, -1 ascends. Snaps the player onto the
@@ -8191,7 +8204,7 @@ class MapScene extends Phaser.Scene {
     if (!best) {
       // Out of decorated chests within loaded tiles — reset cycle.
       this._poiTpVisited.clear();
-      this.flash('cycle reset — press space', this.viewCenterX, this.viewCenterY - 40);
+      this.flashAtPlayer('cycle reset — press space');
       return;
     }
     this._poiTpVisited.add(bestKey);
@@ -9149,14 +9162,13 @@ class MapScene extends Phaser.Scene {
     // Money badge always shown.
     if (this.moneyEl) {
       const money = `${this.save.money ?? 0}`;
-      if (this._moneyDOM !== money) {
-        this._moneyDOM = money;
+      this._paintIfChanged('_moneyDOM', money, () => {
         // The chip is a coin icon plus a bare number span (#money-num); the
         // icon is the symbol, so the number carries no `$`. Fall back to the
         // chip itself when the span is absent.
         const numEl = document.getElementById('money-num') || this.moneyEl;
         numEl.textContent = money;
-      }
+      });
       // The chip now holds a real balance, so it can be shown. Until this
       // point body.booting keeps the whole top row off screen: the markup
       // ships "0" and "⚡100/100" as placeholder text, and on a fresh save the
@@ -9246,9 +9258,7 @@ class MapScene extends Phaser.Scene {
     // from updateHUD, so when neither has moved there is nothing to write:
     // bail before touching the DOM rather than restating the same six values
     // and dirtying style for the next layout pass.
-    if (this._energyDOMCur === cur && this._energyDOMMax === max) return;
-    this._energyDOMCur = cur;
-    this._energyDOMMax = max;
+    if (!this._paintIfChanged('_energyDOM', `${cur}|${max}`, () => {})) return;
     const pct = max > 0 ? cur / max : 0;
     // Green normally, yellow at/below 30%, red when critically low.
     // Green → GOLD → red. Gold is the interaction colour everywhere else in the
@@ -9256,7 +9266,7 @@ class MapScene extends Phaser.Scene {
     // that reason. Reverted on the call that the traffic-light reading is worth
     // more here than the strict colour law: a draining bar is an idiom players
     // already know, and the gauge carries no affordance for gold to confuse.
-    const color = pct > 0.30 ? '#a7ffb0' : (pct > 0.10 ? '#ffe066' : '#ff8a7a');
+    const color = pct > 0.30 ? UI_GREEN : (pct > 0.10 ? UI_GOLD : UI_DANGER_INK);
     el.style.borderColor = pct > 0.30 ? '#4a8c4a' : (pct > 0.10 ? '#8c7a2a' : '#a04040');
     const label = els.label;
     // Just the current energy: the bar under it already shows how full it is,
@@ -9271,6 +9281,16 @@ class MapScene extends Phaser.Scene {
     }
   }
 
+  // THE HUD PAINTERS run every frame: `paint` only when `key` differs from
+  // the value `slot` remembers (money, energy, the three chips), so a frame
+  // where nothing moved writes nothing to the DOM. True when it painted.
+  _paintIfChanged(slot, key, paint) {
+    if (this[slot] === key) return false;
+    this[slot] = key;
+    paint();
+    return true;
+  }
+
   // ── The memories chip ───────────────────────────────────────────────────
   // A third chip in the top row (#hud-row), beside the energy gauge: the gold
   // star, the memories RECOVERED ever (memoriesTotal), and a corner pip with
@@ -9280,42 +9300,53 @@ class MapScene extends Phaser.Scene {
   // body.modal-open exactly like #energy / #money. Tapping it explains itself
   // (showMemoriesHelp) and never reaches the map.
   _buildMemoriesChip() {
-    if (typeof document === 'undefined') return;
-    const row = document.getElementById('hud-row');
-    if (!row) return;
-    if (!document.getElementById('memories-style')) {
-      const st = document.createElement('style');
-      st.id = 'memories-style';
-      st.textContent = MEMORIES_CHIP_CSS;
-      document.head.appendChild(st);
-    }
-    let el = document.getElementById('memories');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'memories';
-      el.setAttribute('role', 'button');
-      el.setAttribute('aria-label', 'Memories');
-      const ico = this.renderItemIcon('memory', 18, 'block');
-      ico.classList.add('mem-ico');
-      const num = document.createElement('span');
-      num.className = 'mem-num';
-      num.textContent = '0';
-      const pip = document.createElement('span');
-      pip.className = 'mem-unspent';
-      pip.style.display = 'none';
-      el.append(ico, num, pip);
-      // The chip sits over the map: swallow the press so no tap lands on the
-      // world under it, then explain on the click.
-      for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
-        el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
-      el.addEventListener('click', (e) => { e.stopPropagation(); this.showMemoriesHelp(); });
-      const energy = document.getElementById('energy');
-      if (energy && energy.parentNode === row) row.insertBefore(el, energy);
-      else row.prepend(el);
-    }
+    const el = this._buildHudChip({
+      id: 'memories', label: 'Memories', css: MEMORIES_CHIP_CSS,
+      fill: (el) => {
+        const ico = this.renderItemIcon('memory', 18, 'block');
+        ico.classList.add('mem-ico');
+        const num = document.createElement('span');
+        num.className = 'mem-num';
+        num.textContent = '0';
+        const pip = document.createElement('span');
+        pip.className = 'mem-unspent';
+        pip.style.display = 'none';
+        el.append(ico, num, pip);
+      },
+      seat: (row, el) => {
+        const energy = document.getElementById('energy');
+        if (energy && energy.parentNode === row) row.insertBefore(el, energy);
+        else row.prepend(el);
+      },
+      onTap: () => this.showMemoriesHelp(),
+    });
+    if (!el) return;
     this.memoriesEl = el;
     this._memoriesDOM = null;
     this.updateMemoriesDOM();
+  }
+  // ONE HUD CHIP (the memories, road and books chips of #hud-row): its rule
+  // once (ensureStyle, `<id>-style`), the element once — `fill(el)` adds its
+  // children, `seat(row, el)` places it in the row — the press swallowed so
+  // no tap lands on the world under it, `onTap` on the click. Null when
+  // there is no document or no row.
+  _buildHudChip({ id, label, css, fill, seat, onTap }) {
+    if (typeof document === 'undefined') return null;
+    const row = document.getElementById('hud-row');
+    if (!row) return null;
+    ensureStyle(id + '-style', css);
+    let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = id;
+      el.setAttribute('role', 'button');
+      el.setAttribute('aria-label', label);
+      fill(el);
+      swallowTaps(el);
+      el.addEventListener('click', (e) => { e.stopPropagation(); onTap(); });
+      seat(row, el);
+    }
+    return el;
   }
 
   // Paints the chip from the two numbers. Called every frame from updateHUD
@@ -9324,9 +9355,7 @@ class MapScene extends Phaser.Scene {
     const el = this.memoriesEl;
     if (!el) return;
     const total = this.memoriesTotal(), unspent = this.memoriesUnspent();
-    const key = total + '|' + unspent;
-    if (this._memoriesDOM === key) return;
-    this._memoriesDOM = key;
+    if (!this._paintIfChanged('_memoriesDOM', total + '|' + unspent, () => {})) return;
     const num = el.querySelector('.mem-num');
     if (num) num.textContent = String(total);
     const pip = el.querySelector('.mem-unspent');
@@ -9343,30 +9372,19 @@ class MapScene extends Phaser.Scene {
   // the on-street counter prints — so the chip and the counter can't disagree
   // (the Runner's shorter rungs come through save.playerClass, as everywhere).
   _buildRoadChip() {
-    if (typeof document === 'undefined' || typeof Trail === 'undefined') return;
-    const row = document.getElementById('hud-row');
-    if (!row) return;
-    if (!document.getElementById('roadchip-style')) {
-      const st = document.createElement('style');
-      st.id = 'roadchip-style';
-      st.textContent = ROAD_CHIP_CSS;
-      document.head.appendChild(st);
-    }
-    let el = document.getElementById('roadchip');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'roadchip';
-      el.setAttribute('role', 'button');
-      el.setAttribute('aria-label', 'Road repair');
+    if (typeof Trail === 'undefined') return;
+    const el = this._buildHudChip({
+      id: 'roadchip', label: 'Road repair', css: ROAD_CHIP_CSS,
       // The road strip is the bar; the total restored sits small beneath it.
-      el.innerHTML = ROAD_CHIP_SVG + '<span class="road-num">0km</span>';
-      for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
-        el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
-      el.addEventListener('click', (e) => { e.stopPropagation(); this._showRoadChipHelp(); });
-      const mem = document.getElementById('memories');
-      if (mem && mem.parentNode === row) mem.after(el);
-      else row.append(el);
-    }
+      fill: (el) => { el.innerHTML = ROAD_CHIP_SVG + '<span class="road-num">0km</span>'; },
+      seat: (row, el) => {
+        const mem = document.getElementById('memories');
+        if (mem && mem.parentNode === row) mem.after(el);
+        else row.append(el);
+      },
+      onTap: () => this._showRoadChipHelp(),
+    });
+    if (!el) return;
     this.roadChipEl = el;
     this._roadChipDOM = null;
     this.updateRoadChipDOM();
@@ -9385,9 +9403,8 @@ class MapScene extends Phaser.Scene {
     const p = this.roadChipProgress();
     const st = this.save?.trail || { metres: 0, prizes: 0 };
     const total = Trail.distanceLabel(Trail.restoredMetres(st, this.save?.playerClass));
-    const pos = Math.floor(p.pos), key = pos + '|' + p.target + '|' + total;
-    if (this._roadChipDOM === key) return;
-    this._roadChipDOM = key;
+    const pos = Math.floor(p.pos);
+    if (!this._paintIfChanged('_roadChipDOM', pos + '|' + p.target + '|' + total, () => {})) return;
     // The bar is THIS rung: metres banked toward the next prize.
     const clip = el.querySelector('.road-clip');
     const frac = Math.min(1, Math.max(0, pos / Math.max(1, p.target)));
@@ -9415,34 +9432,25 @@ class MapScene extends Phaser.Scene {
   // read (play_tips.js bookPagesRead — the bookmark save.tipsRead, capped at
   // the course's length). A tap opens the list of them to read again.
   _buildBookChip() {
-    if (typeof document === 'undefined' || typeof bookPagesRead !== 'function') return;
-    const row = document.getElementById('hud-row');
-    if (!row) return;
-    if (!document.getElementById('bookchip-style')) {
-      const st = document.createElement('style');
-      st.id = 'bookchip-style';
-      st.textContent = BOOK_CHIP_CSS;
-      document.head.appendChild(st);
-    }
-    let el = document.getElementById('bookchip');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'bookchip';
-      el.setAttribute('role', 'button');
-      el.setAttribute('aria-label', 'Books read');
-      const ico = this.renderItemIcon('book', 18, 'block');
-      ico.classList.add('book-ico');
-      const num = document.createElement('span');
-      num.className = 'book-num';
-      num.textContent = '0';
-      el.append(ico, num);
-      for (const ev of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown'])
-        el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true });
-      el.addEventListener('click', (e) => { e.stopPropagation(); this._showBooksRead(); });
-      const road = document.getElementById('roadchip');
-      if (road && road.parentNode === row) road.after(el);
-      else row.append(el);
-    }
+    if (typeof bookPagesRead !== 'function') return;
+    const el = this._buildHudChip({
+      id: 'bookchip', label: 'Books read', css: BOOK_CHIP_CSS,
+      fill: (el) => {
+        const ico = this.renderItemIcon('book', 18, 'block');
+        ico.classList.add('book-ico');
+        const num = document.createElement('span');
+        num.className = 'book-num';
+        num.textContent = '0';
+        el.append(ico, num);
+      },
+      seat: (row, el) => {
+        const road = document.getElementById('roadchip');
+        if (road && road.parentNode === row) road.after(el);
+        else row.append(el);
+      },
+      onTap: () => this._showBooksRead(),
+    });
+    if (!el) return;
     this.bookChipEl = el;
     this._bookChipDOM = null;
     this.updateBookChipDOM();
@@ -9453,8 +9461,7 @@ class MapScene extends Phaser.Scene {
     const el = this.bookChipEl;
     if (!el || typeof bookPagesRead !== 'function') return;
     const n = bookPagesRead(this.save).length;
-    if (this._bookChipDOM === n) return;
-    this._bookChipDOM = n;
+    if (!this._paintIfChanged('_bookChipDOM', n, () => {})) return;
     const num = el.querySelector('.book-num');
     if (num) num.textContent = String(n);
     el.title = `Books read: ${n} of ${PLAY_TIPS.length}`;
@@ -9764,7 +9771,7 @@ class MapScene extends Phaser.Scene {
   // `quiet`: the step completed behind a dialog, which was the notice — the
   // chip still holds the green ✓, but no toast repeats it.
   _playStarterCheer(done, { quiet = false } = {}) {
-    if (!quiet) this.flashLoot(`✅ ${done.title}${done.reward?.money ? ` +${done.reward.money}` : ''}`, '#a7ffb0', 1.3);
+    if (!quiet) this.flashLoot(`✅ ${done.title}${done.reward?.money ? ` +${done.reward.money}` : ''}`, UI_GREEN, 1.3);
     // Hold the COMPLETED step on screen in green for a beat before swapping in
     // the next one, so finishing something is legible instead of an instant
     // relabel. The held text is written from `done` rather than left as
@@ -9821,14 +9828,13 @@ class MapScene extends Phaser.Scene {
   // Flash a "getting tired" warning the first time a drain crosses below 30%
   // energy, so running down toward 0 (where you can't reach at all) isn't a
   // silent surprise. `before` is the energy reading just before the drain;
-  // sx/sy are optional and default to the view centre.
+  // sx/sy are optional and default to the player's body.
   _warnIfTiring(before, sx, sy) {
     // Energy.crossedTired owns the reach-potion guard + 30%-threshold math; this
-    // wrapper only fires the flash (defaulting to the view centre).
-    if (Energy.crossedTired(this.save, before)) {
-      this.flash('Getting tired…', sx != null ? sx : this.viewCenterX,
-                                    sy != null ? sy : this.viewCenterY, UI_DANGER_INK);
-    }
+    // wrapper only fires the flash.
+    if (!Energy.crossedTired(this.save, before)) return;
+    if (sx != null && sy != null) this.flash('Getting tired…', sx, sy, UI_DANGER_INK);
+    else this.flashAtPlayer('Getting tired…', UI_DANGER_INK);
   }
 
   // Eat one of the selected food stack (consumes 1, restores FOOD_ENERGY[id]).
@@ -10278,7 +10284,7 @@ class MapScene extends Phaser.Scene {
       sparks: 'greenspark',
     });
     this._consumeSelected();
-    this.flashLoot(`🌱 ${n} crop${n === 1 ? '' : 's'} sprang ahead`, '#a7ffb0', 1.8, 'growth_powder');
+    this.flashLoot(`🌱 ${n} crop${n === 1 ? '' : 's'} sprang ahead`, UI_GREEN, 1.8, 'growth_powder');
     return true;
   }
 
@@ -10320,8 +10326,8 @@ class MapScene extends Phaser.Scene {
     }
     const tap = document.createElement('div');
     tap.textContent = 'Tap to continue';
-    tap.style.cssText = 'margin-top:14px;font-size:15px;font-weight:800;color:#ffe066;'
-      + 'border:2px solid #ffe066;border-radius:8px;padding:10px 18px;';
+    tap.style.cssText = `margin-top:14px;font-size:15px;font-weight:800;color:${UI_GOLD};`
+      + `border:2px solid ${UI_GOLD};border-radius:8px;padding:10px 18px;`;
     box.appendChild(tap);
     const done = (e) => { e?.stopPropagation?.(); e?.preventDefault?.(); wrap.remove(); };
     wrap.addEventListener('pointerup', done);
@@ -10351,9 +10357,10 @@ class MapScene extends Phaser.Scene {
     const day = Lighting.daylight(this, now);
     const was = this._safetyLastDay;
     this._safetyLastDay = day;
-    const key = utcDayKey(now);
-    if (was != null && was >= SAFETY_DUSK_DAYLIGHT && day < SAFETY_DUSK_DAYLIGHT && this._safetyDuskKey !== key) {
-      this._safetyDuskKey = key;
+    // Once a UTC day, in the one day ledger (a reload does not repeat it).
+    if (was != null && was >= SAFETY_DUSK_DAYLIGHT && day < SAFETY_DUSK_DAYLIGHT && !Macros.usedToday(this.save, SAFETY_DUSK_LEDGER, now)) {
+      Macros.markToday(this.save, SAFETY_DUSK_LEDGER, now);
+      persistSave(this.save);
       this._showSafetyCard('dusk');
     }
   }
@@ -10720,7 +10727,7 @@ class MapScene extends Phaser.Scene {
     // gain (+ any compass / water side-effect) is readable before fading.
     const flashMsg = Energy.fishRegenTotal(sel.id) || CONSUMABLE_SPEC[sel.id]?.eatLabel
       ? extra.trim() : `+${gained}⚡${extra}`;
-    this.flashLoot(flashMsg, '#a7ffb0', 1.8, sel.id);
+    this.flashLoot(flashMsg, UI_GREEN, 1.8, sel.id);
     return true;
   }
 
@@ -11196,16 +11203,18 @@ class MapScene extends Phaser.Scene {
       foes.push({ id, tx, ty, kind, x, y });
     });
     if (!foes.length) return 0;
-    this._guildBounty = { id: b.id, pay: b.pay, day: utcDayKey(now), foes };
+    this._guildBounty = { id: b.id, pay: b.pay, foes };
+    Macros.markToday(this.save, GUILD_BOUNTY_LEDGER, now);   // today's, in the one day ledger
     this.save.guildBounty = this._guildBounty;
     return foes.length;
   }
   // Today's bounty, if one is out: the live one, or the one the save kept
-  // (a reload). A bounty from another UTC day is dropped here.
+  // (a reload). A bounty from another UTC day (the day ledger's
+  // GUILD_BOUNTY_LEDGER mark has lapsed) is dropped here.
   _guildBountyNow() {
     if (!this._guildBounty && this.save.guildBounty) this._guildBounty = this.save.guildBounty;
     const gb = this._guildBounty;
-    if (gb && gb.day !== utcDayKey()) {
+    if (gb && !Macros.usedToday(this.save, GUILD_BOUNTY_LEDGER)) {
       this._guildBounty = null;
       delete this.save.guildBounty;
       return null;
@@ -11227,7 +11236,7 @@ class MapScene extends Phaser.Scene {
     addMoney(this.save, gb.pay);
     this.updateHUD?.();
     persistSave(this.save);
-    this.flashLoot(`Bounty paid! +${gb.pay}`, '#ffe066', 1);
+    this.flashLoot(`Bounty paid! +${gb.pay}`, UI_GOLD, 1);
     this._macroTransaction('guildhall', `The hunt is complete. You received ${this.moneyHTML(gb.pay)}, in addition to the coins from each defeated foe.`);
   }
   // THE BOUNTY WAITS, asked each frame there is one: it stands down only when
@@ -11238,7 +11247,7 @@ class MapScene extends Phaser.Scene {
   _tickGuildBounty() {
     const gb = this._guildBounty || this.save.guildBounty;
     if (!gb) return;
-    if (gb.day !== utcDayKey()) {
+    if (!Macros.usedToday(this.save, GUILD_BOUNTY_LEDGER)) {
       const caught = new Set(this.save.caught || []);
       let left = 0;
       for (const f of gb.foes) {
@@ -11250,7 +11259,7 @@ class MapScene extends Phaser.Scene {
       }
       this._guildBounty = null;
       delete this.save.guildBounty;
-      if (left) this.flash('The bounty got away.', this.viewCenterX, this.viewCenterY - 40);
+      if (left) this.flashAtPlayer('The bounty got away.');
       return;
     }
     this._guildBounty = gb;
@@ -11309,7 +11318,7 @@ class MapScene extends Phaser.Scene {
         }
         const nx = Macros.curioNextMilestone(r.count);
         const line = nx != null ? `Donated! ${r.count} / ${nx}` : `Donated! ${r.count} given`;
-        this.flashLoot(line, '#ffe066', 1, id);
+        this.flashLoot(line, UI_GOLD, 1, id);
         this._macroTransaction('curio', `You donated ${itemName(id)}. The collection now holds ${r.count} curios${r.milestone ? ', and a memory has returned' : ''}.`);
       },
     });
@@ -11353,7 +11362,7 @@ class MapScene extends Phaser.Scene {
         if (!this.addToInv(next.id, 1, false, { notWild: true, deferRefresh: true })) return;
         Macros.scholarClaim(this.save, shelf);
         this._finishInventoryChange();
-        this.flashLoot('Tome collected', '#ffe066', 1, next.id);
+        this.flashLoot('Tome collected', UI_GOLD, 1, next.id);
         this._macroTransaction('scholar', `You received ${itemName(next.id)} for ${next.booksAt} books collected. Your books remain yours.`);
       },
     });
@@ -11482,7 +11491,7 @@ class MapScene extends Phaser.Scene {
       });
       return;
     }
-    const unitPrice = trailerSellPrice(PRICES[sel.id] ?? 1);
+    const unitPrice = trailerSellPrice(itemValue(sel.id));
     const item = ITEM_BY_ID[sel.id];
     const sellId = sel.id;
     const iconHTML = this.iconSpanHTML(sellId);
@@ -11505,7 +11514,7 @@ class MapScene extends Phaser.Scene {
         addMoney(this.save, gain);
         if (!this.save.storySeen?.['sale:first']) this.save.firstSalePending = true;
         this._finishInventoryChange();
-        this.flashLoot(`+${gain}`, '#ffe066', 1, sellId);
+        this.flashLoot(`+${gain}`, UI_GOLD, 1, sellId);
         this.questEvent('sell');
         this._firstSaleStory();
       },
@@ -11518,32 +11527,28 @@ class MapScene extends Phaser.Scene {
   // bag can make, so the page opens on something usable.
   presentHomeCraft(sx, sy, targetId = null) {
     const held = (id) => Inventory.count(this.save, id);
-    const ingredientCap = (r) => recipeCap(r.cost, held);
-    const capOf = (r) => Math.min(ingredientCap(r), Math.max(0, this.invRoomFor(r.id)));
+    const capOf = (r) => Math.min(recipeCap(r.cost, held), Math.max(0, this.invRoomFor(r.id)));
     const locked = (r) => homeRecipeLocked(this.save, r.id);
     const recipes = HOME_RECIPES.filter(r => !locked(r));
     const rec = recipes.find(r => r.id === targetId)
       || recipes.find(r => capOf(r) >= 1) || recipes[0];
-    const cap = capOf(rec);
     const outName = itemName(rec.id);
     const learnVerb = ITEM_BY_ID[rec.id]?.scroll ? 'Use' : 'Find';
-    const costLine = rec.cost.map(c => {
-      const ok = held(c.id) >= c.qty;
-      return `<span style="color:${ok ? '#a7ffb0' : '#ff8a7a'}">`
-        + `${c.qty}× ${this.iconSpanHTML(c.id)} ${itemName(c.id)}</span>`;
-    }).join(' + ');
     const idx = recipes.indexOf(rec);
     const n = recipes.length;
     const pageTo = (r) => () => this.presentHomeCraft(sx, sy, r.id);
-    this.showOfferModal({
+    // The one ingredient-recipe offer (scene_shops.js _presentRecipeOffer:
+    // the coloured cost line, the shortfall flash, the consume), pointed at
+    // Home; the bag-room and the recipe lock are this page's own refusals.
+    this._presentRecipeOffer(sx, sy, {
+      recipe: rec.cost,
       kind: 'craft', kindIcon: this._homeKindIcon(),
       tabs: this._homeTabs('craft', sx, sy),
       title: 'Make something at home:',
       cancelLabel: 'Leave',
       get: `1× ${this.iconSpanHTML(rec.id)} ${outName}`,
       blurb: ITEM_EFFECTS[rec.id] ? `✦ ${ITEM_EFFECTS[rec.id]}` : undefined,
-      cost: costLine,
-      canAfford: cap >= 1,
+      canAfford: this.invRoomFor(rec.id) >= 1,
       acceptLabel: 'Craft',
       getLabel: 'You make', costLabel: 'You use',
       repeat: () => this.presentHomeCraft(sx, sy, rec.id),
@@ -11552,24 +11557,15 @@ class MapScene extends Phaser.Scene {
         onPrev: pageTo(recipes[(idx - 1 + n) % n]),
         onNext: pageTo(recipes[(idx + 1) % n]),
       },
-      onAccept: () => {
-        if (locked(rec)) { this.flash(`${learnVerb} a ${outName} first.`, sx, sy); return; }
-        if (this.invRoomFor(rec.id) < 1) {
-          this.flash(`Bag full for ${outName}.`, sx, sy);
-          return;
-        }
-        if (ingredientCap(rec) < 1) {
-          const missing = rec.cost.find(c => held(c.id) < c.qty);
-          const short = missing ? missing.qty - held(missing.id) : 0;
-          this.flash(missing ? `Need ${short} more ${itemName(missing.id)}.`
-                             : 'Not enough to craft.', sx, sy);
-          return;
-        }
-        for (const c of rec.cost) Inventory.remove(this.save, c.id, c.qty);
-        this._clampSelSlot();
+      refuse: () => {
+        if (locked(rec)) { this.flash(`${learnVerb} a ${outName} first.`, sx, sy); return true; }
+        if (this.invRoomFor(rec.id) < 1) { this.flash(bagFullFor(rec.id), sx, sy); return true; }
+        return false;
+      },
+      produce: () => {
         this.addToInv(rec.id, 1, false, { notWild: true, deferRefresh: true });
         this._finishInventoryChange();
-        this.flashLoot(`✨ ${outName} ×1`, '#ffe066', 1.25, rec.id);
+        this.flashLoot(`✨ ${outName} ×1`, UI_GOLD, 1.25, rec.id);
       },
     });
   }
@@ -11762,7 +11758,7 @@ class MapScene extends Phaser.Scene {
         } else if (out.won >= 0) {
           const p = m.symbols[out.won];
           const name = itemName(p.id);
-          const rim = p.jackpot ? GOLD : '#a7ffb0';
+          const rim = p.jackpot ? GOLD : UI_GREEN;
           light(rim, () => true);
           // As many as fit go in the bag; the rest is paid in coin at the
           // worth the stake was priced on.
@@ -11794,7 +11790,7 @@ class MapScene extends Phaser.Scene {
           result.textContent = (twoStars ? `Two stars! +${out.coins} coin` : `So close! +${out.coins} coin`)
             + (wasDeluxe ? ' (deluxe ×2)' : '');
         } else {
-          result.style.color = '#ff8a7a';
+          result.style.color = UI_DANGER_INK;
           result.textContent = 'No match.';
         }
         paintDeluxe(false);
@@ -13141,7 +13137,7 @@ class MapScene extends Phaser.Scene {
     // sits in a button, stacked under the banner and the "Take your pick"
     // copy, and at 64px the choice row was the last straw that pushed the
     // ceremony past the viewport height into a scroll.
-    const card = this._trailRewardCard(reward, 44);
+    const card = Rewards.card(this, reward, 44);
     if (!card) return '';
     const qty = card.qty
       ? `<div style="font-size:12px;font-weight:700;color:${card.color}">${card.qty}</div>` : '';
@@ -13151,45 +13147,11 @@ class MapScene extends Phaser.Scene {
            qty + '</div>';
   }
 
-  // How ONE reward PRESENTS: icon, name, quantity, colour. Display only — it
-  // grants nothing, because an option the player didn't take still has to be
-  // drawn. _claimTrailReward is the half that pays out. `iconPx` defaults to
-  // the single-reward ceremony's size (64); the choice row asks for a
-  // smaller one (see _trailChoiceLabel) so the choice row doesn't push the
-  // ceremony past the viewport height.
-  _trailRewardCard(reward, iconPx = 64) {
-    if (!reward) return null;
-    if (reward.kind === 'item') {
-      const item = ITEM_BY_ID[reward.id];
-      return {
-        iconHTML: this.iconSpanHTML ? this.iconSpanHTML(reward.id, iconPx) : '',
-        name: item?.name || reward.id,
-        qty: reward.qty > 1 ? `× ${reward.qty}` : null,
-        color: (typeof tierInfo === 'function' ? tierInfo(reward.id).color : '#a7e9ff'),
-        tier: (typeof itemTierOf === 'function') ? itemTierOf(reward.id) : 0,
-      };
-    }
-    if (reward.kind === 'gold') {
-      return {
-        iconHTML: this.coinIconHTML ? this.coinIconHTML(Math.round(iconPx * 0.75)) : '',
-        name: `+${reward.amount}`,
-        color: UI_GOLD,
-      };
-    }
-    if (reward.kind === 'relic' || reward.kind === 'armor') {
-      return {
-        iconHTML: this.gearIconHTML
-          ? this.gearIconHTML(reward.kind, reward.slot, reward.tier, iconPx) : '★',
-        name: (typeof gearName === 'function')
-          ? gearName(reward.kind, reward.slot, reward.tier)
-          : reward.slot,
-        sub: 'equipped',
-        color: UI_TREASURE,
-        tier: reward.tier,
-      };
-    }
-    return null;   // an unrecognised kind draws no card and opens no modal
-  }
+  // How ONE reward PRESENTS (icon, name, quantity, colour) is Rewards.card —
+  // display only, it grants nothing, because an option the player didn't
+  // take still has to be drawn; _claimTrailReward is the half that pays out.
+  // The choice row asks for a smaller icon (_trailChoiceLabel) so it doesn't
+  // push the ceremony past the viewport height.
 
   // What ONE reward DOES, the line under the pick row while its card is
   // selected — the same line the item already carries elsewhere (the ✦
@@ -13221,12 +13183,9 @@ class MapScene extends Phaser.Scene {
   // short sentence, so a relic's card still says it is worn. False, and
   // nothing shown, for a reward that draws no card.
   showRewardCard(reward, extra = {}) {
-    const card = this._trailRewardCard(reward);
-    if (!card) return false;
-    const own = card.sub ? card.sub[0].toUpperCase() + card.sub.slice(1) + '.' : '';
-    const sub = [extra.sub, own].filter(Boolean).join(' ') || undefined;
-    this.showChestRewardModal({ ...card, ...extra, sub });
-    return true;
+    // No fanfare of its own: the moment was framed by the caller (a pick
+    // refuses it; an elite's roll fanfares from grantTreasureRoll).
+    return Rewards.present(this, { ...reward, jackpot: 0 }, { extra });
   }
 
   // Pay out the reward the player KEPT — item into the bag, gold into the
@@ -13234,7 +13193,7 @@ class MapScene extends Phaser.Scene {
   // arrived. Consolation coins ride along with whatever was taken; a roll
   // nobody claimed pays none.
   _claimTrailReward(reward, opts = {}) {
-    const card = this._trailRewardCard(reward);
+    const card = Rewards.card(this, reward);
     if (!card) return null;
     Rewards.apply(this.save, reward, this, opts);
     return card;
@@ -13457,12 +13416,12 @@ class MapScene extends Phaser.Scene {
             tier,
             sub: (hammer ? 'The walls gleam under the hammer’s work. ' : '')
               + (order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : blurb),
-            color: '#a7ffb0', accent: '#a7ffb0',
+            color: UI_GREEN, accent: UI_GREEN,
             onDismiss: row.role === 'wizard'
               ? () => MemoryStory.visitWizard(this, () => {}, house) : undefined,
           });
         } else {
-          this.flashLoot('🛠 restored', '#a7ffb0', 1.25);
+          this.flashLoot('🛠 restored', UI_GREEN, 1.25);
         }
       });
     };
@@ -13933,10 +13892,7 @@ class MapScene extends Phaser.Scene {
   // which said nothing about being touchable). The dark keyline and blur keep
   // it legible over a bright map.
   _installMovePadCss(PAD, NUB, HALF) {
-    if (document.getElementById('move-pad-css')) return;
-    const s = document.createElement('style');
-    s.id = 'move-pad-css';
-    s.textContent = `
+    ensureStyle('move-pad-css', `
       #move-pad {
         position: fixed;
         /* Placed by fitGame, which measures what is actually left between the
@@ -14053,8 +14009,7 @@ class MapScene extends Phaser.Scene {
       @media (prefers-reduced-motion: reduce) {
         #move-pad, #move-pad::before, #move-pad .nub { transition: none; }
       }
-    `;
-    document.head.appendChild(s);
+    `);
   }
   // Dev tool (☰ › Developer): call a pack of wild slimes to the edge of the
   // screen. They spawn as ORDINARY surface slimes — same kind, same HP table,
@@ -14246,7 +14201,7 @@ class MapScene extends Phaser.Scene {
         setTimeout(() => {
           this._bagFullPending = false;
           try {
-            this.flash(BAG_FULL_MSG, this.viewCenterX, this.viewCenterY - 28);
+            this.flashAtPlayer(BAG_FULL_MSG);
           } catch (_) {}
         }, 0);
       }
@@ -14413,7 +14368,7 @@ class MapScene extends Phaser.Scene {
       caption.style.cssText =
         'font:700 7px ui-monospace,monospace;letter-spacing:-0.2px;line-height:1;' +
         'max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' +
-        (active ? 'color:#ffe066;' : 'color:#999;');
+        (active ? `color:${UI_GOLD};` : 'color:#999;');
       tab.appendChild(caption);
       // An EMPTY tab reads as empty: without this a fresh save's Relics and
       // Armor tabs looked identical to stocked ones bar a missing pip (UX audit
@@ -14526,7 +14481,7 @@ class MapScene extends Phaser.Scene {
             eBadge.textContent = 'E';
             eBadge.title = 'Active weapon';
             eBadge.className = 'hud-badge';
-            eBadge.style.cssText = 'position:absolute;top:1px;left:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;background:#ffe066;color:#3a3322;';
+            eBadge.style.cssText = `position:absolute;top:1px;left:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;background:${UI_GOLD};color:#3a3322;`;
             slot.appendChild(eBadge);
           }
           slot.addEventListener('click', (e) => {
@@ -14732,34 +14687,39 @@ class MapScene extends Phaser.Scene {
     const tier = Gear.effectiveRelics(this.save)[g.slot]?.tier;
     const verb = active ? 'Unequip' : 'Equip';
     const label = `${this.gearIconHTML('relic', g.slot, tier, 20)} ${verb}`;
-    const btn = existing || document.createElement('button');
-    if (!existing) {
-      btn.id = 'equip-btn';
-      // Same seat and face as the Drink button (control gold: a thing you
-      // press), bottom-right under the inventory bar.
-      btn.className = 'hud-action';
-      btn.style.cssText =
-        'position:fixed;' +
-        'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
-        'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
-        'display:flex;align-items:center;gap:6px;' +
-        'padding:6px 10px;border-radius:8px;cursor:pointer;' +
-        'color:#ffe066;border:2px solid #c8a64a;' +
-        'font:700 12px ui-monospace,monospace;';
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const sel = this.save.selGear;
-        if (!sel || !WEAPON_SLOTS.includes(sel.slot)) return;
-        if (Gear.activeWeapon(this.save) === sel.slot) Gear.unequipWeapon(this.save);
-        else Gear.selectWeapon(this.save, sel.slot);
-        this.markRelicsDirty();
-        persistSave(this.save);
-        this.buildInventoryDOM();   // the "E" badge moves; refreshes this button too
-      });
-      document.body.appendChild(btn);
-    }
+    // Same seat and face as the Drink button (control gold: a thing you
+    // press), bottom-right under the inventory bar.
+    const btn = existing || this._hudActionButton('equip-btn', { onClick: () => {
+      const sel = this.save.selGear;
+      if (!sel || !WEAPON_SLOTS.includes(sel.slot)) return;
+      if (Gear.activeWeapon(this.save) === sel.slot) Gear.unequipWeapon(this.save);
+      else Gear.selectWeapon(this.save, sel.slot);
+      this.markRelicsDirty();
+      persistSave(this.save);
+      this.buildInventoryDOM();   // the "E" badge moves; refreshes this button too
+    } });
     btn.dataset.slot = g.slot;
     btn.innerHTML = label;
+  }
+  // ONE fixed action button under the inventory bar (Equip, Eat, Throw,
+  // Drink / Use): the seat and face every one shares — control gold unless
+  // the row says otherwise (`ink`, `border`), `css` appended for its own
+  // needs — the press swallowed and `onClick` run. Appended to the body.
+  _hudActionButton(id, { ink = UI_GOLD, border = UI_GOLD_DARK, css = '', onClick }) {
+    const btn = document.createElement('button');
+    btn.id = id;
+    btn.className = 'hud-action';
+    btn.style.cssText =
+      'position:fixed;' +
+      'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
+      'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
+      'display:flex;align-items:center;gap:6px;' +
+      'padding:6px 10px;border-radius:8px;cursor:pointer;' +
+      `color:${ink};border:2px solid ${border};` +
+      'font:700 12px ui-monospace,monospace;' + css;
+    btn.addEventListener('click', (e) => { e.stopPropagation(); onClick(e); });
+    document.body.appendChild(btn);
+    return btn;
   }
 
   // Eat button — appears bottom-right when the selected stack is food.
@@ -14833,24 +14793,19 @@ class MapScene extends Phaser.Scene {
   // the button is no longer a bare label — it carries the cooldown bar as a
   // child, so a plain `innerHTML = label` on the whole button would wipe it.
   _makeEatButton() {
-    const btn = document.createElement('button');
-    btn.id = 'eat-btn';
     // Bottom-right, BELOW the inventory bar (the bar bottom sits at
     // safe-area + 48px, so a button at safe-area + 4px sits in the gap
-    // underneath). Right-anchored to --phone-right so the button tucks
-    // inside the simulated phone column on desktop.
-    btn.className = 'hud-action';
-    // overflow:hidden clips the cooldown bar to the rounded corners; the
-    // fixed position is also what makes the bar's absolute placement resolve
-    // against the button rather than the page.
-    btn.style.cssText =
-      'position:fixed;' +
-      'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
-      'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
-      'display:flex;align-items:center;overflow:hidden;' +
-      'padding:6px 10px;border-radius:8px;cursor:pointer;' +
-      `color:${UI_GREEN};border:2px solid #4a8c4a;` +
-      'font:700 12px ui-monospace,monospace;';
+    // underneath) — the shared seat. overflow:hidden clips the cooldown bar
+    // to the rounded corners; the fixed position is also what makes the
+    // bar's absolute placement resolve against the button rather than the
+    // page. NOT `disabled` while cooling: a disabled button swallows the tap
+    // without running the handler, so the stopPropagation never fires and
+    // the press falls through to the world underneath — tilling the ground
+    // behind the button. eatSelected owns the refusal instead.
+    const btn = this._hudActionButton('eat-btn', { ink: UI_GREEN, border: '#4a8c4a', css: 'overflow:hidden;', onClick: () => {
+      this.eatSelected();
+      this.syncEatButton();   // refresh count / hide if stack ran out
+    } });
     // The bar sits along the BOTTOM EDGE rather than washing over the face:
     // a shroud across a button this small swallows its own label, and the
     // label is carrying the exact number.
@@ -14869,16 +14824,6 @@ class MapScene extends Phaser.Scene {
     txt.className = 'eat-txt';
     lbl.append(ico, txt);
     btn.append(bar, lbl);
-    // NOT `disabled` while cooling: a disabled button swallows the tap without
-    // running this handler, so the stopPropagation below never fires and the
-    // press falls through to the world underneath — tilling the ground behind
-    // the button. eatSelected owns the refusal instead.
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.eatSelected();
-      this.syncEatButton();   // refresh count / hide if stack ran out
-    });
-    document.body.appendChild(btn);
     return btn;
   }
 
@@ -14950,17 +14895,12 @@ class MapScene extends Phaser.Scene {
     let throwBtn = document.getElementById('potion-throw-btn');
     if (sel && isPotion(sel.id) && sel.count > 0) {
       if (!throwBtn) {
-        throwBtn = document.createElement('button');
-        throwBtn.id = 'potion-throw-btn';
-        throwBtn.className = 'hud-action';
-        throwBtn.style.cssText = 'position:fixed;bottom:calc(4px + env(safe-area-inset-bottom, 0px));right:calc(var(--phone-right, 0px) + 130px);z-index:7;padding:6px 10px;border:2px solid #c8a64a;border-radius:8px;color:#ffe066;font:700 12px ui-monospace,monospace;';
-        throwBtn.addEventListener('click', e => {
-          e.stopPropagation();
+        // Beside the Drink button, to its left.
+        throwBtn = this._hudActionButton('potion-throw-btn', { css: 'right:calc(var(--phone-right, 0px) + 130px);', onClick: () => {
           const id = getSelectedSlot(this.save)?.id;
           if (isPotion(id)) this._throwItem(id);
           this.syncConsumableButton();
-        });
-        document.body.appendChild(throwBtn);
+        } });
       }
       throwBtn.textContent = this.throwActionLabel();
       throwBtn.disabled = !this.canThrowItem(sel.id);
@@ -14982,27 +14922,10 @@ class MapScene extends Phaser.Scene {
         : 'calc(4px + env(safe-area-inset-bottom, 0px))';
     };
     if (existing) { existing.innerHTML = label; existing.dataset.id = sel.id; syncState(existing); return; }
-    const btn = document.createElement('button');
-    btn.id = 'consumable-btn';
-    btn.dataset.id = sel.id;
-    // Sit to the LEFT of the Eat button (Eat lives at right:8). Since the
-    // two are mutually-exclusive in normal play (Eat = food selected,
-    // consumable = book/honey selected) we use the same right slot. CSS
-    // identical except border colour (warm tan to distinguish from
-    // Eat's green).
-    btn.className = 'hud-action';
-    btn.style.cssText =
-      'position:fixed;' +
-      'bottom:calc(4px + env(safe-area-inset-bottom, 0px));' +
-      'right:calc(var(--phone-right, 0px) + 8px);z-index:7;' +
-      'display:flex;align-items:center;gap:6px;' +
-      'padding:6px 10px;border-radius:8px;cursor:pointer;' +
-      'color:#ffe066;border:2px solid #c8a64a;' +
-      'font:700 12px ui-monospace,monospace;';
-    btn.innerHTML = label;
-    syncState(btn);
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
+    // The Eat button's seat (the two are mutually exclusive in normal play:
+    // Eat = food selected, this = a book, a honey, a potion), in control
+    // gold rather than Eat's green.
+    const btn = this._hudActionButton('consumable-btn', { onClick: () => {
       const id = btn.dataset.id;
       const entry = CONSUMABLE_SPEC[id];
       if (!entry) return;
@@ -15036,8 +14959,10 @@ class MapScene extends Phaser.Scene {
         secondary,
         onAccept: () => { this._useConsumable(id); this.syncConsumableButton(); },
       });
-    });
-    document.body.appendChild(btn);
+    } });
+    btn.dataset.id = sel.id;
+    btn.innerHTML = label;
+    syncState(btn);
   }
 }
 // The modal shell's methods (makeModalShell, showMessageModal, showOfferModal,

@@ -467,7 +467,8 @@ const METHODS = [
   "resolveDefeat(victim, source = 'player') {",
   '_dropBountyCoin(victim, amount) {',
 ].map(liftMethod).join(',\n');
-const makeKill = new Function('grantTreasureRoll', 'Quests', 'persistSave', `return {\n${METHODS}\n};`);
+const KILL = APP.match(/\nconst KILL_LEDGERS = \[[\s\S]*?\n\];/)[0];   // who a kill is reported to, lifted beside the method
+const makeKill = new Function('grantTreasureRoll', 'Quests', 'persistSave', KILL + `\nreturn {\n${METHODS}\n};`);
 test('trapper: its kill drops a Magic Trap ON TOP of the bounty coin — for the player only', () => {
   const key = WorldGen.tileKey(7311, 4111);
   const had = WorldGen.tileCache.get(key);
@@ -481,7 +482,7 @@ test('trapper: its kill drops a Magic Trap ON TOP of the bounty coin — for the
       const scene = Object.assign(Object.create(methods), {
         save: { money: 0, caught: [] }, depth: 3, tileEdgeM: 1000, cellsPerTile: 200,
         viewCenterX: 0, viewCenterY: 0,
-        addToInv: (id) => inv.push(id), flash: () => {}, flashAtWorld: () => {}, flashLoot: () => {}, flashShiny: () => {},
+        addToInv: (id) => inv.push(id), flash: () => {}, flashAtPlayer: () => {}, flashAtWorld: () => {}, flashLoot: () => {}, flashShiny: () => {},
         awardShinyBonus: () => {}, _bankDiscovery: () => false,
       });
       const v = { kind: 'goblin_trapper', id: `mon_tr_${source}`, x: 7311 * 1000 + 12, y: 4111 * 1000 + 17 };

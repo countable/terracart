@@ -175,7 +175,7 @@
       const s = Object.assign(scene('protection_potion'), {
         iconSpanHTML: () => '', throwActionLabel: method('throwActionLabel'),
         throwCooldownLeft: method('throwCooldownLeft'), canThrowItem: method('canThrowItem'),
-        syncConsumableButton: method('syncConsumableButton'), isShadowActive: () => false,
+        syncConsumableButton: method('syncConsumableButton'), _hudActionButton: method('_hudActionButton'), isShadowActive: () => false,
         _throwItem(id) { this.thrown = id; this._throwReadyAt = Date.now() + 1000; },
       });
       s.syncConsumableButton();

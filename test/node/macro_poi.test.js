@@ -368,7 +368,8 @@
       const sig = SCENE_SRC.slice(at + 2, open).trim();
       return { args: sig.slice(sig.indexOf('(') + 1, sig.lastIndexOf(')')), body: SCENE_SRC.slice(open + 2, end) };
     };
-    const mk = (name) => { const g = grab(name); return new Function(...g.args.split(',').map((x) => x.trim().replace(/ = .*/, '')), g.body); };
+    const LEDGER = SCENE_SRC.match(/\nconst GUILD_BOUNTY_LEDGER = [^\n]+/)[0];
+    const mk = (name) => { const g = grab(name); return new Function(...g.args.split(',').map((x) => x.trim().replace(/ = .*/, '')), LEDGER + '\n' + g.body); };
     const spawn = mk('_spawnGuildBounty');
     const onDefeat = mk('_guildBountyDefeat');
     const { scene: base, entry, N } = destWorld(({ N, roadMask }) => { for (let i = 0; i < N; i++) roadMask[i * N + 14] = 1; });
@@ -419,7 +420,8 @@
         assert.eq(stories.join(), 'guildhall', 'the completed bounty shows one receipt');
       });
     } finally { globalThis.persistSave = realPersist; }
-    assert.truthy(/if \(victim\.bounty\) this\._guildBountyDefeat\(victim\);/.test(SCENE_SRC), 'resolveDefeat calls it');
+    assert.truthy(/\(s, v\) => \{ if \(v\.bounty\) s\._guildBountyDefeat\(v\); \}/.test(SCENE_SRC) && /for \(const tell of KILL_LEDGERS\) tell\(this, victim, source\);/.test(SCENE_SRC),
+      'resolveDefeat calls it (a KILL_LEDGERS row)');
     assert.truthy(/guildfoe\)_\(-\?\\\\d\+\)_/.test(SCENE_SRC), 'the caught-prune knows the prefix');
     assert.truthy(/this\._tickTraps\(dt\);\s*\/\/[^\n]*\n\s*this\._tickGuildBounty\(\);/.test(SCENE_SRC), 'the leash ticks');
   });

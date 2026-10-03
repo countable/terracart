@@ -223,15 +223,17 @@ test('thieves: the theft is ONE lane — the hit site and the scene writer (sour
   const coins = lift('  _losePlayerCoins(n, thief) {');
   assert.truthy(/addMoney\(this\.save, -taken\)/.test(coins), 'off the purse');
   assert.truthy(/Math\.min\(purse,/.test(coins), 'never below $0');
-  assert.truthy(/Combat\.bankTheft\(this\.save, thief\)/.test(coins), 'the thief sated');
-  assert.truthy(/this\._flashPlayerHit\(taken\)/.test(coins), 'the body flinches');
-  assert.truthy(/this\._popCellNumber\(`-\$\{taken\}`/.test(coins), 'the number lands on the player\'s cell');
+  // The landing (the thief sated, the flinch, the shop shut, the number on the
+  // player's cell, the save) is one tail, _theftLanded, for coins and food alike.
+  const landed = lift('  _theftLanded(taken, thief, text, ink) {');
+  assert.truthy(/Combat\.bankTheft\(this\.save, thief\)/.test(landed), 'the thief sated');
+  assert.truthy(/this\._flashPlayerHit\(taken\)/.test(landed), 'the body flinches');
+  assert.truthy(/this\._popCellNumber\(text, ink, p\.cellIX, p\.cellIY\)/.test(landed), 'the number lands on the player\'s cell');
+  assert.truthy(/this\._theftLanded\(taken, thief, `-\$\{taken\}`, UI_GOLD\)/.test(coins), 'the coins through it, in gold');
   assert.falsy(/energy|Energy\./.test(coins.replace(/\/\/.*$/gm, '')), 'no energy in the coin writer');
   const food = lift('  _losePlayerFood(id, n, thief) {');
   assert.truthy(/Inventory\.remove\(this\.save, id,/.test(food), 'out of the bag through the one bag writer');
-  assert.truthy(/Combat\.bankTheft\(this\.save, thief\)/.test(food), 'the thief sated');
-  assert.truthy(/this\._flashPlayerHit\(taken\)/.test(food), 'the body flinches');
-  assert.truthy(/this\._popCellNumber\(`-\$\{taken\} \$\{name\}`/.test(food), 'the piece is named on the player\'s cell');
+  assert.truthy(/this\._theftLanded\(taken, thief, `-\$\{taken\} \$\{name\}`, UI_DANGER_INK\)/.test(food), 'the piece is named on the player\'s cell, through the one tail');
   assert.truthy(/buildInventoryDOM\(\)/.test(food), 'the bar rebuilt');
   assert.falsy(/energy|Energy\.|addMoney/.test(food.replace(/\/\/.*$/gm, '')), 'no energy and no coins in the food writer');
   const w = SCENE_CREATURES_SRC.slice(SCENE_CREATURES_SRC.indexOf('  wanderCreatures() {'));

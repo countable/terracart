@@ -436,9 +436,9 @@ const starterWrapper = (name) => {
     }
     return src.slice(start + 1, end + 4);
   };
-  const methods = ['_trailRewardCard(reward, iconPx = 64) {', '_claimTrailReward(reward, opts = {}) {',
-                   '_trailRewardBlurb(reward) {']
-    .map(lift).join(',\n');
+  // The card is Rewards.card now; the scene keeps no copy, so the lift wraps it.
+  const methods = ['_claimTrailReward(reward, opts = {}) {', '_trailRewardBlurb(reward) {']
+    .map(lift).concat(['_trailRewardCard(reward, iconPx = 64) { return Rewards.card(this, reward, iconPx); }']).join(',\n');
   vm.runInContext(`globalThis.__trailPrize = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_claimTrailReward' });
   for (const k of ['_trailRewardCard', '_claimTrailReward', '_trailRewardBlurb']) {

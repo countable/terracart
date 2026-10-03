@@ -105,6 +105,7 @@
     const document = { getElementById: () => null, createElement: element,
       body: { classList: { contains: () => false } } };
     s.statusRowEl = element('div');
+    s._dialogOpen = () => false;
     s._syncStatusRow = method('_syncStatusRow', { document, window: {}, Buffs,
       Conditions: { DEFINITIONS: {} }, shortDuration: ms => `${Math.ceil(ms / 1000)}s` });
     s._syncStatusRow();
