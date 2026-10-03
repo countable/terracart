@@ -12,17 +12,17 @@
     s.marketTheme = () => ({ theme: 'seed', tier: 4 });
     assert.truthy(Shops.themedStock('seed', 4).every(id => itemTierOf(id) !== 4));
     const badge = Render.shopTierBadge(s, house, s.houseShopRole());
-    assert.eq(badge.text, 'RARE · T4');
+    assert.eq(badge.text, 'RARE');
     assert.eq(badge.backgroundColor, '#' + (TIER_BADGE_TINT[4] ?? TIER_BY_NUM[4].color).toString(16).padStart(6, '0'));
     const html = modalBadge.call(s, house);
-    assert.includes(html, 'Shop tier 4');
+    assert.falsy(html.includes('Shop tier'), 'numeric tier jargon is not player-facing');
     assert.includes(html, tierBadgeHTML(4));
   });
 
-  test('shop badge: high shop ranks retain their number above the rarity ladder', () => {
+  test('shop badge: high shop ranks use the top rarity badge without numeric jargon', () => {
     const s = scene(9);
-    assert.eq(Render.shopTierBadge(s, house, s.houseShopRole()).text, 'GODLY · T9');
-    assert.includes(modalBadge.call(s, house), 'Shop tier 9');
+    assert.eq(Render.shopTierBadge(s, house, s.houseShopRole()).text, 'GODLY');
+    assert.falsy(modalBadge.call(s, house).includes('Shop tier'));
     assert.includes(modalBadge.call(s, house), tierBadgeHTML(7));
   });
 
@@ -36,6 +36,6 @@
     s.save.scarecrowShopId = house.id;
     assert.eq(Render.shopTierBadge(s, house, s.houseShopRole()), null);
     s.save.scarecrowShopUsed = true;
-    assert.eq(Render.shopTierBadge(s, house, s.houseShopRole()).text, 'RARE · T4');
+    assert.eq(Render.shopTierBadge(s, house, s.houseShopRole()).text, 'RARE');
   });
 })();

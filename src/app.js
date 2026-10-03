@@ -4128,6 +4128,7 @@ class MapScene extends Phaser.Scene {
       if (vx || vy) this.disableGpsForSession();
     }
     if (this._fastWalk) speedMul = 25;
+    this._stepDebugGps(dt);
     // The movement stick — always on screen, always live.
     const stick = (this._movePadHeld && this.joystickVec) ? this.joystickVec : null;
     // ONE movement model, at every depth and under every buff (see
@@ -4930,7 +4931,7 @@ class MapScene extends Phaser.Scene {
     // The wheel is flagged `auto`, which is what keeps it from behaving
     // like a tapped action — it doesn't swallow taps, hold the body still, or
     // block the walk home (see _busyWheel).
-    if (Gear.meleeActive(this.save) && !this._workProgress && enemies.length) {
+    if (Gear.meleeActive(this.save) && (!this._workProgress || this._workProgress.combat)) {
       let best = null, bestD2 = Infinity;
       for (const c of enemies) {
         // ARM'S LENGTH, not the lit reach (Combat.MELEE_REACH_CELLS): a sword
@@ -4941,7 +4942,10 @@ class MapScene extends Phaser.Scene {
         const d2 = (c.x - px) * (c.x - px) + (c.y - py) * (c.y - py);
         if (d2 < bestD2) { bestD2 = d2; best = c; }
       }
-      if (best) this.startCombat(best, { auto: true });
+      // Recheck distance while fighting too. Retargeting keeps the scene's
+      // swing deadline, so crossing targets cannot grant an extra blow.
+      if (best && this._workProgress?.combat !== best) this.startCombat(best, { auto: true });
+      else if (!best && this._workProgress?.combat) this.cancelWorkProgress();
     }
 
     this._drawEnemyHealth(enemies);
@@ -5733,8 +5737,8 @@ class MapScene extends Phaser.Scene {
       return false;
     }
     if (!Combat.isEnemy(victim) || !Gear.meleeActive(this.save)) return false;
-    // First melee the save ever starts tells its story - here in the one
-    // lane both the tapped swing and the auto-engage flow through, fired
+    // First melee the save ever starts tells its story in the auto-engage lane,
+    // fired
     // regardless of an owned sword: bare hands fight on the tier-0 rung too.
     this._toolActionStory('sword');
     const dps = Combat.meleeDps(this.save.relics, this.save.playerClass, Gear.activeWeapon(this.save));
@@ -13004,7 +13008,7 @@ class MapScene extends Phaser.Scene {
           ? this.gearIconHTML(reward.kind, reward.slot, reward.tier, iconPx) : '★',
         name: (typeof gearName === 'function')
           ? gearName(reward.kind, reward.slot, reward.tier)
-          : `${reward.slot} T${reward.tier}`,
+          : reward.slot,
         sub: 'equipped',
         color: UI_TREASURE,
         tier: reward.tier,
@@ -14271,12 +14275,18 @@ class MapScene extends Phaser.Scene {
           wrap.style.cssText = 'display:inline-block;line-height:0;';
           wrap.innerHTML = this.gearIconHTML(g.kind, g.slot, g.tier, 32);
           slot.appendChild(wrap);
-          // Tier badge mirrors the item count badge so gear reads consistently.
+          // Rarity uses the shared word/color badge; numeric tiers stay internal.
           const badge = document.createElement('span');
-          badge.textContent = 'T' + g.tier + (g.temporary ? ' ⏳' : '');
-          badge.className = 'hud-badge';
-          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;';
+          badge.innerHTML = tierBadgeHTML(g.tier, 6, 2);
+          badge.style.cssText = 'position:absolute;bottom:1px;left:50%;transform:translateX(-50%);line-height:10px;';
           slot.appendChild(badge);
+          if (g.temporary) {
+            const temporary = document.createElement('span');
+            temporary.textContent = '⏳';
+            temporary.title = 'Temporary equipment';
+            temporary.style.cssText = 'position:absolute;top:1px;right:2px;font-size:10px;';
+            slot.appendChild(temporary);
+          }
           // "E" (Equipped/active) badge — only the weapon currently doing the
           // auto-engage/auto-fire (save.activeWeapon) wears it, opposite corner
           // from the tier badge so the two never collide.
@@ -14316,10 +14326,21 @@ class MapScene extends Phaser.Scene {
         else slot.textContent = '·';
         if (entry.count != null) {
           const badge = document.createElement('span');
-          badge.textContent = item?.kind === 'unique_relic'
-            ? `T${item.baseTier}${entry.count > 1 ? ' ×' + entry.count : ''}` : entry.count;
-          badge.className = 'hud-badge';
-          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;';
+          if (item?.kind === 'unique_relic') {
+            badge.innerHTML = tierBadgeHTML(itemTierOf(item.id), 6, 2);
+            badge.style.cssText = 'position:absolute;bottom:1px;left:50%;transform:translateX(-50%);line-height:10px;';
+            if (entry.count > 1) {
+              const count = document.createElement('span');
+              count.textContent = entry.count;
+              count.className = 'hud-badge';
+              count.style.cssText = 'position:absolute;top:1px;right:2px;font-size:10px;';
+              slot.appendChild(count);
+            }
+          } else {
+            badge.textContent = entry.count;
+            badge.className = 'hud-badge';
+            badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;';
+          }
           slot.appendChild(badge);
         }
         slot.addEventListener('click', (e) => {

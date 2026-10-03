@@ -44,12 +44,6 @@ const FORGE_CEREMONY = {
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
 const DELIVERY_BONUS_MULT = 1.5;
-// The most sets of its wishlist one household takes. A house is fed ONCE (its
-// first delivery is its memory, and it stays satisfied for good), so this
-// caps everything a door can ever pay. Uncapped, one hand-over of a big
-// stack paid 1.5x list on all of it — 4x what Home pays for the same goods
-// (economy audit, 2026-09-27).
-const DELIVERY_MAX_SETS = 5;
 // The fort unlock wood ladder (FORT_UNLOCK_WOOD*) and the pre-seeded restore
 // roles (Houses.PRESEED_RESTORE_ROLES) live in houses.js with the rules that read them.
 // Delivery wishlists unlock higher tiers as the player's lifetime tally grows;
@@ -816,19 +810,8 @@ class SceneShops {
     return Delivery.isSatisfied(this.save, house);
   }
 
-  // Delivery interaction. Plain houses buy a SET — they want one of EACH of
-  // their 1-3 wanted produce, delivered together. Tap with the full set in
-  // your bags → deliver 1 of each per set for the summed full price (no sword
-  // sellMul, no specialty bonus); the quantity selector lets you turn in
-  // multiple complete sets at once. Tap without the full set → flash what is
-  // still MISSING from it, so the player sees what is left to gather. Selling a produce the
-  // house didn't ask for isn't accepted here; that keeps plain houses distinct
-  // from markets.
-  //
-  // The opening ladder (delivery.js SCRIPTED_WISHLISTS) makes the first houses
-  // ask for ONE item, and a one-item wishlist isn't a "set" — the copy below
-  // drops the set wording (and the "sets" stepper unit) in that case, so the
-  // first errand reads "1 × [ Potato ]" rather than "1 set × [ Potato ]".
+  // Each household requests one of each listed item, delivered together once.
+  // Recheck the complete order before removing anything from the live bags.
   presentDeliveryOffer(sx, sy, house, recordDeal) {
     // Already fed — one delivery per house, ever. The household stays happy
     // (and its callout stays a smiling face) for good.
@@ -838,16 +821,9 @@ class SceneShops {
     }
     const wanted = this.wantedProduce(house);
     if (!wanted.length) { this.flash('Nobody home.', sx, sy); return; }
-    const single = wanted.length === 1;
     const invCount = (id) => Inventory.count(this.save, id);
-    // Full set requires at least one of every wanted item. maxSets is how many
-    // complete sets the current bags can fulfil (0 if any item is missing).
-    // …and never more than DELIVERY_MAX_SETS: the household is fed once, for
-    // good, so the one hand-over is the whole of what it will ever pay.
-    const maxSets = Math.min(DELIVERY_MAX_SETS,
-      wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity));
-    const setIcons = wanted.map(id => this.iconSpanHTML(id)).join(' ');
-    if (!maxSets) {
+    const hasOrder = () => wanted.every(id => invCount(id) >= 1);
+    if (!hasOrder()) {
       // Only what is still missing — not the whole list (Delivery.missingLine).
       const { line } = Delivery.missingLine(wanted, invCount, id => itemName(id));
       this.flash(line, sx, sy);
@@ -858,47 +834,38 @@ class SceneShops {
     // the items individually. Drives both the modal display and the payout.
     const setPrice = Math.max(1, Math.round(
       wanted.reduce((sum, id) => sum + Math.max(1, PRICES[id] ?? 1), 0) * DELIVERY_BONUS_MULT));
-    // Name the goods rather than showing bare ~20px icons against 13px body
-    // text, and say what the stepper counts.
-    const setNames = wanted.map(id => itemName(id)).join(' + ');
-    const fmt = (q) => ({
-      get: this.moneyHTML(`+${setPrice * q}`),
-      cost: single
-        ? `${q} × [ ${setIcons} ${setNames} ]`
-        : `${q} ${q === 1 ? 'set' : 'sets'} × [ ${setIcons} ${setNames} ]`,
-      canAfford: true,
-    });
-    const first = fmt(1);
+    // Keep each icon beside its name and requested count, including bundles.
+    const requested = wanted.map(id =>
+      `<div style="display:flex;align-items:center;gap:8px;text-align:left;">` +
+      `${this.iconSpanHTML(id)}<span style="flex:1;min-width:0">${itemName(id)}</span>` +
+      `<span style="flex:none">×1</span></div>`).join('');
     this.showOfferModal({
       kind: 'delivery',
-      // The title captions the `get` line (the coins), so it names what the
-      // household OFFERS — "wants: +$5" read as the house asking for money.
-      // What it wants is the cost line, whose "set" wording covers a bundle.
-      title: 'The household offers:',
+      getLabel: 'Reward',
+      costLabel: 'Requested',
       cancelLabel: 'Later',
-      get: first.get,
-      cost: first.cost,
+      get: this.moneyHTML(`+${setPrice}`),
+      cost: `<div style="display:grid;gap:6px;font-size:13px;">${requested}</div>`,
       canAfford: true,
       acceptLabel: 'Deliver',
-      quantity: { min: 1, max: maxSets, initial: 1, format: fmt },
-      onAccept: (q) => {
-        // Re-validate against live bags so a stale modal can't over-deliver.
-        const sets = Math.max(1, Math.min(q ?? 1, DELIVERY_MAX_SETS,
-          wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity)));
-        if (!sets || sets === Infinity) {
-          this.flash(single ? 'Nothing to deliver now.' : 'Set incomplete now.', sx, sy);
+      onAccept: () => {
+        // A stale or repeated accept must not pay for an incomplete order.
+        if (this.isHouseSatisfied(house)) return;
+        if (!hasOrder()) {
+          const { line } = Delivery.missingLine(wanted, invCount, id => itemName(id));
+          this.flash(line, sx, sy);
           return;
         }
-        for (const id of wanted) Inventory.remove(this.save, id, sets);
+        for (const id of wanted) Inventory.remove(this.save, id, 1);
         this._clampSelSlot();
-        const gain = setPrice * sets;
+        const gain = setPrice;
         addMoney(this.save, gain);
         // Lifetime delivery tally — each completed SET counts as one delivery.
         // Gates the castle vault and ramps the delivery produce tier (see
         // delivery.js / shopGateInfo). The FIRST delivery ever is also a
         // story moment, so catch the tally before it moves off zero.
         const wasFirstDelivery = (this.save.deliveryCount ?? 0) === 0;
-        this.save.deliveryCount = (this.save.deliveryCount ?? 0) + sets;
+        this.save.deliveryCount = (this.save.deliveryCount ?? 0) + 1;
         // One household served — a castle job may be counting them.
         this.questEvent('deliver');
         // The FIRST delivery to this household is a discovery: one memory
@@ -1046,7 +1013,7 @@ class SceneShops {
   shopTierBadgeHTML(house) {
     if (this.houseShopRole(house) !== 'market') return '';
     const { tier } = this.marketTheme(house);
-    return `<div style="margin-top:6px">Shop tier ${tier} · ${tierBadgeHTML(tier)}</div>`;
+    return `<div style="margin-top:6px">${tierBadgeHTML(tier)}</div>`;
   }
 
   // Cash and capacity are separate requirements: a full bag must not paint

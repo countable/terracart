@@ -13,9 +13,6 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   at the repository root for its service-worker scope.
 - [README.md](README.md): setup and source map.
 - [test/node/README.md](test/node/README.md): test harness and module registration.
-- [docs/art/README.md](docs/art/README.md): palette and sprite style direction;
-  use the current chibi characters for style, muted rustic colours for natural
-  and unrestored assets, and deliberate colour contrast for restored/sacred places.
 - [docs/QC_RULES.md](docs/QC_RULES.md): checklist for art, sprites and item surfaces;
   read it for asset changes. This file owns mechanic invariants if notes disagree.
 - [docs/spec.txt](docs/spec.txt): game design; code owns current numeric values.
@@ -268,9 +265,7 @@ Higher-priority placements and their access space take precedence in this order:
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
-  Buildings, foot-anchored stalls (market stands and the in-building macro
-  stalls, `src/macros.js`), moving creatures and canvas-baked street lamps have
-  separate seating.
+  Buildings, moving creatures and canvas-baked street lamps have separate seating.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
 - List actual crop `frames`, not sheet-cell counts. Hash the full id for
@@ -353,12 +348,6 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
   width and lamp footprint; art and light share the same world point. Lantern
   rise is a draw-space offset; retune height through `LAMP_PROFILE`.
   Collect/cache lamps about the camera anchor, only after tiles finish loading.
-- Living lamps: a lit lamp's brightness and visit credit come from ONE delta,
-  `save.lampVisits[id]` (Streets `lampBrightness` / `lampCredit` / `visitLamp`,
-  pruned at `LAMP_FADE_MS`); brightness rides the lamp list as `bright` and
-  the light as a steady gain `g` in `frameKey` (never the animated `a`).
-  Credit banks through `_bankStreetMetres`, gated like the sweep (passenger,
-  surface, drift home). Walking paths lay lamps via `Streets.lampLayFor`.
 - Trail rewards use `Trail.PRIZE_CONTEXT`; the first reward uses `firstPrize`.
   Synthetic loot classes need both a `CLASS_MAX_TIER` ceiling and a branch
   before item resolution. Cash rewards have no `slot`.
@@ -440,6 +429,9 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   derived from owning constants. Keep safety and technical recovery instructions
   direct. Preserve `PLAY_TIPS` order for saved reading progress; secret uses
   stay out of public item descriptions (sapphire taming stays in the closing riddle).
+- Numeric tiers are internal jargon. Player-facing item and shop quality uses
+  the shared rarity badge names (Basic, Common, etc.) and their colors, never
+  labels such as "Shop tier 1" or "T4".
 - Loot identity by place uses per-context `favourite`; general frequency uses
   `dropWeight`.
 - A neighbour's talk is its ROLE, a row of `NPC.PROFILES[zone].roles` with a

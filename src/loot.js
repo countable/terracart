@@ -326,9 +326,10 @@ function chestVistaTier(o) {
   return (o && o.vista && typeof Scenic !== 'undefined' && Scenic.VISTA_CHEST_TIER[o.vista]) || 0;
 }
 // Authored street caches use the cave reward mix without pretending to be underground.
-function chestLootDepth(o) { return o?._street === 'snare' ? 1 : (o?.depth || 0); }
+function chestLootDepth(o) { return o?._street === 'snare' && !o.chestTopUp ? 1 : (o?.depth || 0); }
 function chestBaseTier(o) {
   if (!o) return CHEST_TIER_UNSTAMPED;
+  if (o.chestTopUp) return o.tierSeed;
   if (o._street === 'snare') return StreetVariants.SNARE_CHEST_TIER;
   const vista = chestVistaTier(o);
   if (vista) return vista;

@@ -98,7 +98,7 @@ The 14 theme rows in section 2 keep their stated reward-group percentages becaus
 | Flower seeds | T1-T3: Flowers fallback. T4: Sunflower Seed 100%. T5: Fireflower Seed 100%. T6+: Iceflower Seed 100%. |
 | Flowers | T1: Flowers 100%. T2: Forget-me-not 100%. T3: Marigold and Wild Rose 50% each. T4: Sunflower 100%. T5: Starflower and Fireflower 50% each. T6+: Iceflower 100%. |
 | Park forage | T1: Flowers, berry and mushroom 33.3% each. T2: Forget-me-not 100%. T3-T4: Marigold and Wild Rose 50% each. T5+: Starflower 100%. |
-| Saplings / acorns | T1: the theme fallback. T2: Acorn 100%. T3-T4: Apple Sapling 100%. T5+: Peach Sapling 100%. |
+| Saplings / acorns | T1: the theme fallback. T2-T3: Acorn 100%. T4-T6: Apple Sapling 100%. T7: Peach Sapling 100%. |
 | Farm animals | T1-T4: Chicken and rabbit 50% each. T5+: Cow 100%. |
 | Companion animals | T1: Dog and rabbit 50% each. T2+: Cat 100%. |
 | Recovery magic | T1: restorative-food fallback. T2-T5: Vigor 100%. T6+: Elixir 100%. |
@@ -186,7 +186,8 @@ The current bracket cap remains 3. A valid themed item always pays at least one 
 |---|---:|
 | Potions and powders | 3 |
 | Resurrection Potion, Elixir, Antidote | 1 |
-| Books, live animals, saplings, Scarecrows, gear | 1 |
+| Books, live animals, fruit-tree saplings, Scarecrows, gear | 1 |
+| Acorns | 5 |
 | Honey, Torch, Rope, Trap Disarm Kit | 5 |
 | Food and ordinary flowers | 5 |
 | Ordinary crop seeds | 9 |
@@ -200,6 +201,7 @@ Gear keeps its existing chest-tier roll, slot ownership checks and duplicate cas
 
 Examples, without quantity bonuses:
 
+- Acorns round up to fill the allowance, like magic rewards. At 5 coins each, a T2 Acorn draw pays two from its 8-coin budget; quantity brackets 1–3 pay three, four, and four.
 - A T1 healthcare draw resolves to restorative food; it cannot produce Vigor or Honey.
 - A T2 healing draw can pay one Vigor or Revival potion.
 - A T3 healing draw still pays one of those T2 potions: no unrelated Blight substitution.

@@ -53,7 +53,8 @@ test('scene art: the content region is capped at the quiet zone and scrolls insi
   assert.truthy(/const ART_DETAIL_FRAC = 0\.\d+;/.test(shell), 'the detail line is one constant');
   assert.truthy(/max-height:\$\{Math\.round\(\(1 - ART_DETAIL_FRAC\) \* 100\)\}%;/.test(shell),
     'the body never grows past the quiet zone');
-  assert.truthy(/margin-top:auto;[^`]*`\s*\+\s*'overflow-y:auto/.test(shell), 'bottom-anchored, scrolling');
+  const region = shell.slice(shell.indexOf("body.className = 'modal-body'"), shell.indexOf('let into = body'));
+  assert.truthy(region.includes('margin-top:auto;') && region.includes('overflow-y:auto;'), 'bottom-anchored, scrolling');
 });
 
 test('scene art: text-heavy copy moves to THE BAND by measurement', () => {

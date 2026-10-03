@@ -101,7 +101,7 @@
     c._charmUntil = 0; c._potionTamingUntil = 0;
     for (const field of ['_attackNextT', '_attackWindupUntil', '_attackUntil', '_abilityNextT',
       '_abilityWindupUntil', '_reloadUntil', '_lungeNextT', '_lungeUntil', '_lungeWindupUntil',
-      '_lungeRecoverUntil', '_nextChooseT', '_npcRestUntil', '_throwReadyAt', '_tomeReadyAt',
+      '_lungeRecoverUntil', '_nextChooseT', '_nextStealT', '_nextShotT', '_npcRestUntil', '_throwReadyAt', '_tomeReadyAt',
       '_lavaNextT', '_biteNextT', '_lastAttackT']) c[field] = 0;
     c._attackAim = null;
     for (const field of Object.keys(c)) {

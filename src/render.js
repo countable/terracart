@@ -54,10 +54,12 @@
 
 const Render = {};
 
-// Ground anchors, never animated sprite tops, determine occlusion. Rank only
-// breaks exact ties, so stepping within one cell can pass behind a tree.
+// Flat ground props always precede upright pieces. Within each lane, ground
+// anchors determine occlusion; rank only breaks exact ties, so stepping
+// within one cell can still pass behind a tree.
 Render.sortWorldDepth = function (pieces) {
-  pieces.sort((a, b) => (a.groundY - b.groundY) || ((a.rank || 0) - (b.rank || 0)));
+  pieces.sort((a, b) => Number(!!b.ground) - Number(!!a.ground)
+    || (a.groundY - b.groundY) || ((a.rank || 0) - (b.rank || 0)));
   pieces.forEach((piece, depth) => {
     if (piece.it) piece.it._z = depth;
     if (piece.sprite) piece.sprite.setDepth(depth);
@@ -97,7 +99,7 @@ Render.shopTierBadge = (scene, house, role) => {
   const color = TIER_BADGE_TINT[t] ?? TIER_BY_NUM[t].color;
   const r = (color >> 16) & 255, g = (color >> 8) & 255, b = color & 255;
   return {
-    text: `${TIER_BADGE_NAMES[t].toUpperCase()} · T${tier}`,
+    text: TIER_BADGE_NAMES[t].toUpperCase(),
     backgroundColor: '#' + color.toString(16).padStart(6, '0'),
     color: (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? '#1a1612' : '#fff4e0',
   };
@@ -3214,6 +3216,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const it of plantedList) zList.push({ it, rank: 0,
     groundY: groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
   for (const it of filteredObj) zList.push({ it, rank: it.o.kind === 'tower' ? 2 : 1,
+    ground: it._appearance?.ground,
     groundY: groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures)) });
   for (const it of creatureList) zList.push({ it, rank: 3,
     groundY: groundY(it, SpriteLayout.CREATURE_GROUND_DY) });
@@ -4580,6 +4583,7 @@ Render.objectAppearance = function (scene, houseRoles) {
     // The down pit uses only the lower half of its sheet, centred in the
     // cell. The standalone up ladder keeps its full image.
     staircase: { key: (o) => (o.dir === 'up' ? 'stair_up' : 'stair_down'),
+                 ground: (o) => o.dir !== 'up',
                  frame: (o) => (o.dir === 'up' ? '__BASE' : 'down'),
                  origin: [0.5, 0.5], scale: 1.0 },
     // Placed campfire — 16×32 art, foot-anchored near the logs so the flame
@@ -4609,6 +4613,7 @@ Render.objectAppearance = function (scene, houseRoles) {
     // STREET_LAMP_DARK_CELLS), and setDisplaySize says that without this row
     // having to know either texture's pixel size.
     _streetlamp: {
+      ground: (o) => !o.lit,
       // A lit lamp draws the bake for ITS glow (streetLampTexKey — the plain
       // STREET_LAMP_TEX for the default, one texture per colour otherwise,
       // baked by app.js _ensureStreetLampTex before this pass runs).
@@ -4850,7 +4855,7 @@ Render.objectAppearance = function (scene, houseRoles) {
     // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
     waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     stakes:   { key: (o) => o._street === 'burned' ? 'approved_charred_stakes' : 'stakes',   frame: 0, origin: [0.5, 0.5], scale: o => o._street === 'burned' ? 4 / 3 : 1.6, seat: true, shadow: true },
-    tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true },
+    tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, ground: true },
     // POI PROPS (worldgen.js). A NOTICE BOARD (an information POI) stands like
     // the waystone and reads a Book page the same way (INTERACTABLES.infoboard);
     // a GATE POST is one of the pair either side of a gate — scenery marking
@@ -4889,6 +4894,7 @@ Render.objectAppearance = function (scene, houseRoles) {
     // inventory icon can sit on the ground without per-kind plumbing.
     // Fallen wood always uses the grey log artwork (look 2).
     groundstack: {
+      ground: true,
       key: (o) => (inventoryIconSource(o.itemId) || {}).sheet || 'wood',
       frame: (o) => {
         // Quantity remains on the stack record; it does not change its artwork.
@@ -4941,7 +4947,8 @@ Render.objectAppearance = function (scene, houseRoles) {
           footFromCentre: artH <= CELL_PX ? artH / 2 : CELL_PX / 2 - 1 };
       }
     }
-    return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot };
+    const ground = typeof spec.ground === 'function' ? !!spec.ground(o) : !!spec.ground;
+    return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot, ground };
   };
   return { RENDER_SPEC, resolveAppearance, fruitList, _houseRole, _houseKey, _houseScale, _houseBaseScale };
 };

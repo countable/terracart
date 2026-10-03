@@ -72,7 +72,7 @@ class SceneGeo {
   // if the answer is still no) — a browser that lacks it keeps the old
   // behaviour of waiting for a reload.
   _retryGps() {
-    if (window.__TEST_MODE || this._sandboxMode || _teleportOverride) return;
+    if (this._gpsSimulated || window.__TEST_MODE || this._sandboxMode || _teleportOverride) return;
     if (this.gpsWatchId != null) return;
     if (!this._gpsDenied) { this.startGps(); return; }
     try {
@@ -97,7 +97,7 @@ class SceneGeo {
   // once a session, and names the one control that rebuilds the farm here.
   _warnStrandedOrigin(fix) {
     if (this._strandedWarned || !fix) return;
-    if (this.save.home || _teleportOverride || this._sandboxMode || window.__TEST_MODE) return;
+    if (this.save.home || this._gpsSimulated || _teleportOverride || this._sandboxMode || window.__TEST_MODE) return;
     // Wait for the boot overlay to actually be gone — a dialog stacked under
     // it is a dialog nobody reads. A later fix re-offers it. This is the
     // overlay's OWN dismissal (_bootOverlayGone, set once the initial tile
@@ -255,7 +255,169 @@ class SceneGeo {
     if (!was && this._speedGate.tooFast) this._showPassengerCard?.();
   }
 
+  // Debug GPS is session-only. Hiding the stick keeps its last simulated fix;
+  // reload to hand location back to the device.
+  setDebugGpsStick(enabled) {
+    this._debugGpsReset?.();
+    document.getElementById('gps-pad')?.remove();
+    this._debugGpsEnabled = !!enabled;
+    if (!enabled) return;
+    const pad = document.createElement('div');
+    pad.id = 'gps-pad';
+    pad.setAttribute('aria-label', 'Move simulated GPS');
+    pad.title = 'Move GPS (reload to restore real GPS)';
+    pad.style.cssText = `position:fixed;left:calc(var(--phone-left, 0px) + 16px);
+      bottom:calc(var(--stick-bottom, 160px) + env(safe-area-inset-bottom, 0px));
+      width:110px;height:110px;border-radius:50%;box-sizing:border-box;
+      z-index:6;touch-action:none;user-select:none;-webkit-user-select:none;
+      border:2px solid #8bcfe0;background:radial-gradient(circle at 50% 38%,#405d69cc,#142c38dd);
+      box-shadow:inset 0 3px 12px #0009,0 4px 14px #0007;`;
+    const nub = document.createElement('div');
+    nub.textContent = 'GPS';
+    nub.style.cssText = `position:absolute;left:29px;top:29px;width:48px;height:48px;
+      border-radius:50%;display:grid;place-items:center;pointer-events:none;
+      font:bold 12px ui-monospace,monospace;color:#e4faff;
+      background:radial-gradient(circle at 40% 30%,#79bac9,#285a70);
+      box-shadow:0 3px 6px #0008;`;
+    pad.appendChild(nub);
+    document.body.appendChild(pad);
+    let pointer = null;
+    const reset = () => {
+      pointer = null;
+      this._debugGpsVec = { x: 0, y: 0 };
+      nub.style.transform = '';
+    };
+    this._debugGpsReset = reset;
+    const place = (e) => {
+      const rect = pad.getBoundingClientRect();
+      let x = e.clientX - rect.left - rect.width / 2;
+      let y = e.clientY - rect.top - rect.height / 2;
+      const length = Math.hypot(x, y);
+      if (length > 31) { x *= 31 / length; y *= 31 / length; }
+      this._debugGpsVec = { x: x / 31, y: y / 31 };
+      nub.style.transform = `translate(${x}px,${y}px)`;
+    };
+    pad.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      if (pointer != null) return;
+      pointer = e.pointerId;
+      pad.setPointerCapture(pointer);
+      place(e);
+    });
+    pad.addEventListener('pointermove', (e) => {
+      if (pointer !== e.pointerId) return;
+      e.stopPropagation();
+      place(e);
+    });
+    for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+      pad.addEventListener(type, (e) => {
+        if (pointer !== e.pointerId) return;
+        e.stopPropagation();
+        reset();
+      });
+    }
+    // Reset a held drag on backgrounding or when a modal hides the control.
+    const onVisibility = () => { if (document.hidden) reset(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    const observer = new MutationObserver(() => {
+      if (document.body.classList.contains('modal-open')) reset();
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    this._debugGpsReset = () => {
+      reset();
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }
+
+  _stepDebugGps(dt) {
+    const v = this._debugGpsVec;
+    if (!this._debugGpsEnabled || !v || (!v.x && !v.y)) return;
+    if (document.hidden || document.body.classList.contains('modal-open')) return;
+    if (!this._gpsSimulated) {
+      this._gpsSimulated = true;
+      if (this.gpsWatchId != null) Geo.unsubscribe(this.gpsWatchId);
+      this.gpsWatchId = null;
+      this._eggHatchTracker = null;
+      this._speedGate = null;
+      this._homeCaptureArmed = false;
+      this._homeCapturePending = false;
+      if (this._homeCaptureTimer) clearTimeout(this._homeCaptureTimer);
+      this._homeCaptureTimer = null;
+      this.flash('Simulated GPS active', this.viewCenterX, this.viewCenterY - 40);
+    }
+    this._gpsManualOverride = false;
+    const off = this._manualOffsetM;
+    if (!this.gpsM) this.gpsM = { x: this.playerM.x - off.x, y: this.playerM.y - off.y };
+    const step = WALK_M_S * DEBUG_SPEED_MUL * dt;
+    this._applyGpsFix({ x: this.gpsM.x + v.x * step, y: this.gpsM.y + v.y * step });
+  }
+
+  // Both live fixes and the debug GPS stick use the same follow/snap rules.
+  _applyGpsFix(fix) {
+    const prev = this.gpsM;
+    this.gpsM = { x: fix.x, y: fix.y };
+    // A fix in hand: GPS is live again, whatever transient error the
+    // watch reported earlier (see the error handler — a cold start
+    // routinely TIMEOUTs once before the first fix lands).
+    this.gpsAvailable = true;
+    // Nothing left to anchor, and the player is nowhere near the world
+    // they were given? Say so — it can't be fixed under them.
+    this._warnStrandedOrigin(this.gpsM);
+    // A manual-control takeover this session (WASD / arrow keys / SPACE /
+    // T teleport) owns movement entirely: skip the GPS-driven target
+    // write so the keyboard isn't fighting the watcher. gpsM still tracks
+    // so the HUD's gps-live check and the facing fallback below keep
+    // working. Debug controls no longer opt out — they only make stick
+    // walking free (see _steerManual) — and neither does a dragon, which
+    // is now a stat buff rather than a flight mode.
+    if (this._gpsManualOverride) {
+      // intentionally no target / playerM write
+    } else {
+      // THE FIX IS THE TARGET — plus whatever the stick has walked you
+      // off it (_manualOffsetM). The body walks toward that in
+      // _followStep: underground through rock it mines out, on the
+      // surface as a plain walk. Adding the offset rather than
+      // overwriting the target is what lets stick walking survive the
+      // next fix a second later instead of being yanked straight back.
+      // A fresh fix counts as a steer, so it also resumes any pursuit
+      // paused by a tap-interrupt.
+      const off = this._manualOffsetM;
+      // Is this fix a jump too big to have been WALKED? Measure in the
+      // GPS's own frame — body minus the stick offset — so walking 200 m
+      // off the GPS by hand doesn't read as a 200 m GPS jump and snap
+      // you home.
+      const bodyGpsX = this.playerM.x - off.x;
+      const bodyGpsY = this.playerM.y - off.y;
+      if (!prev || Math.hypot(this.gpsM.x - bodyGpsX,
+                              this.gpsM.y - bodyGpsY) > GPS_SNAP_M) {
+        // First fix of the session, or a real jump (see GPS_SNAP_M) —
+        // place the body outright and drop the stick offset: the
+        // character is being re-anchored on the true position, and
+        // keeping the offset would just walk it back off again. At
+        // EVERY depth: underground the placement carves the landing
+        // cell out of the rock (_placeBodyOnFix), so a snap never
+        // leaves the player standing inside a wall — the same rule
+        // the walk home applies past the same gap (_driftHome).
+        off.x = 0; off.y = 0;
+        // The first fix of the session is the world simply arriving,
+        // not a trip the player takes — it gets no cut, only a real
+        // jump off an already-placed body does.
+        if (prev) this._teleportCut(() => this._placeBodyOnFix());
+        else this._placeBodyOnFix();
+      }
+      this._targetM = { x: this.gpsM.x + off.x, y: this.gpsM.y + off.y };
+      this._followPaused = false;
+    }
+    if (prev) {
+      const ddx = this.gpsM.x - prev.x, ddy = this.gpsM.y - prev.y;
+      // Only use movement as facing fallback when there's no compass.
+      if ((ddx || ddy) && this.compassDeg == null) this.facing = { x: ddx, y: ddy };
+    }
+  }
+
   startGps() {
+    if (this._gpsSimulated) return;
     // Sandbox mode parks the player at a synthetic biome-grid plot and uses
     // keyboard / joystick movement only — GPS would snap them away to their
     // real-world coords on first fix.
@@ -303,6 +465,7 @@ class SceneGeo {
     try {
       this.gpsWatchId = Geo.subscribe(
         pos => {
+          if (this._gpsSimulated) return;
           const { latitude, longitude } = pos.coords;
           this._trackEggHatch(pos);
           this._trackSpeedGate(pos);
@@ -357,67 +520,10 @@ class SceneGeo {
           // metres off their own map after a long walk and a province off it on
           // a save that never captured a home.
           const fix = lonLatToLocalM(this, longitude, latitude);
-          const prev = this.gpsM;
-          this.gpsM = { x: fix.x, y: fix.y };
-          // A fix in hand: GPS is live again, whatever transient error the
-          // watch reported earlier (see the error handler — a cold start
-          // routinely TIMEOUTs once before the first fix lands).
-          this.gpsAvailable = true;
-          // Nothing left to anchor, and the player is nowhere near the world
-          // they were given? Say so — it can't be fixed under them.
-          this._warnStrandedOrigin(this.gpsM);
-          // A manual-control takeover this session (WASD / arrow keys / SPACE /
-          // T teleport) owns movement entirely: skip the GPS-driven target
-          // write so the keyboard isn't fighting the watcher. gpsM still tracks
-          // so the HUD's gps-live check and the facing fallback below keep
-          // working. Debug controls no longer opt out — they only make stick
-          // walking free (see _steerManual) — and neither does a dragon, which
-          // is now a stat buff rather than a flight mode.
-          if (this._gpsManualOverride) {
-            // intentionally no target / playerM write
-          } else {
-            // THE FIX IS THE TARGET — plus whatever the stick has walked you
-            // off it (_manualOffsetM). The body walks toward that in
-            // _followStep: underground through rock it mines out, on the
-            // surface as a plain walk. Adding the offset rather than
-            // overwriting the target is what lets stick walking survive the
-            // next fix a second later instead of being yanked straight back.
-            // A fresh fix counts as a steer, so it also resumes any pursuit
-            // paused by a tap-interrupt.
-            const off = this._manualOffsetM;
-            // Is this fix a jump too big to have been WALKED? Measure in the
-            // GPS's own frame — body minus the stick offset — so walking 200 m
-            // off the GPS by hand doesn't read as a 200 m GPS jump and snap
-            // you home.
-            const bodyGpsX = this.playerM.x - off.x;
-            const bodyGpsY = this.playerM.y - off.y;
-            if (!prev || Math.hypot(this.gpsM.x - bodyGpsX,
-                                    this.gpsM.y - bodyGpsY) > GPS_SNAP_M) {
-              // First fix of the session, or a real jump (see GPS_SNAP_M) —
-              // place the body outright and drop the stick offset: the
-              // character is being re-anchored on the true position, and
-              // keeping the offset would just walk it back off again. At
-              // EVERY depth: underground the placement carves the landing
-              // cell out of the rock (_placeBodyOnFix), so a snap never
-              // leaves the player standing inside a wall — the same rule
-              // the walk home applies past the same gap (_driftHome).
-              off.x = 0; off.y = 0;
-              // The first fix of the session is the world simply arriving,
-              // not a trip the player takes — it gets no cut, only a real
-              // jump off an already-placed body does.
-              if (prev) this._teleportCut(() => this._placeBodyOnFix());
-              else this._placeBodyOnFix();
-            }
-            this._targetM = { x: this.gpsM.x + off.x, y: this.gpsM.y + off.y };
-            this._followPaused = false;
-          }
-          if (prev) {
-            const ddx = this.gpsM.x - prev.x, ddy = this.gpsM.y - prev.y;
-            // Only use movement as facing fallback when there's no compass.
-            if ((ddx || ddy) && this.compassDeg == null) this.facing = { x: ddx, y: ddy };
-          }
+          this._applyGpsFix(fix);
         },
         err => {
+          if (this._gpsSimulated) return;
           console.warn('GPS error', err.message);
           // The HUD's "have we actually got GPS?" line only. NOT a latch: it
           // goes true again on the next fix, and nothing decides whether to

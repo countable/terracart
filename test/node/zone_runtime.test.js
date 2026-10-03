@@ -256,12 +256,17 @@
       assert.eq(shrines[0]._poiAt, '2048,2048');
       assert.eq(shrines[0].id, WorldGen.cellId('c', tx, ty, 32, 32));
       assert.eq(shrines[0].zone, 'beach');
-      assert.eq(a.objects.filter(o => o.kind === 'chest').length, 0, 'the POI converts instead of duplicating');
+      assert.eq(a.objects.filter(o => o.kind === 'chest' && !o.chestTopUp).length, 0, 'the POI converts instead of duplicating');
+      const topUps = a.objects.filter(o => o.chestTopUp);
+      assert.eq(topUps.filter(o => chestTier(o) === 1).length, 25, 'variant fills the T1 minimum');
+      assert.eq(topUps.filter(o => chestTier(o) === 2).length, 10, 'variant fills the T2 minimum');
+      assert.eq(topUps.map(o => o.id).join(','), b.objects.filter(o => o.chestTopUp).map(o => o.id).join(','),
+        'the full rasterization reproduces every top-up identity');
       assert.eq(b.objects.find(o => o.kind === 'grove_shrine').id, shrines[0].id);
       assert.truthy(a.grid.every(t => t === WorldGen.T.SAND), 'beach POI never synthesizes a park or concrete pad');
     }
     const parking = raster({ class: 'parking', subclass: 'beach' });
-    assert.eq(parking.objects.filter(o => o.kind === 'grove_shrine' || o.kind === 'chest').length, 0,
+    assert.eq(parking.objects.filter(o => o.kind === 'grove_shrine' || (o.kind === 'chest' && !o.chestTopUp)).length, 0,
       'existing parking branch retains priority');
   });
 })();

@@ -332,6 +332,7 @@
        element appended to <body> needs a rule here
        (test/node/modal_layering.test.js). */
     body.modal-open #move-pad,
+    body.modal-open #gps-pad,
     body.modal-open #inv-tabs,
     body.modal-open #inv,
     body.modal-open #inv-name,
@@ -1198,6 +1199,7 @@
           <button id="debug-nearby-foes">Nearby foes (debug)</button>
           <button id="debug-dump-tile">Dump tile (debug)</button>
           <button id="debug-road-ids">Road IDs (debug)</button>
+          <button id="debug-gps-stick" aria-pressed="false">GPS stick: off</button>
           <button id="debug-variant-labels" aria-pressed="false">Variant labels: off</button>
           <button id="debug-load-profile">Load profile</button>
           <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
@@ -2015,6 +2017,15 @@
       if (scene && scene.debugRoadIds) scene.debugRoadIds();
       else if (window.showError) window.showError('road ids unavailable', 'scene not ready');
     });
+    document.getElementById('debug-gps-stick').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const scene = window.__scene;
+      if (!scene) return;
+      scene.setDebugGpsStick(!scene._debugGpsEnabled);
+      e.currentTarget.textContent = `GPS stick: ${scene._debugGpsEnabled ? 'on' : 'off'}`;
+      e.currentTarget.setAttribute('aria-pressed', String(scene._debugGpsEnabled));
+      const m = document.getElementById('menu'); if (m) m.open = false;
+    });
     document.getElementById('debug-variant-labels').addEventListener('click', (e) => {
       e.stopPropagation();
       const scene = window.__scene;
@@ -2768,16 +2779,16 @@
   <script src="src/biome_profiles.js?v=1082ffd3"></script>
   <script src="src/traps.js?v=17dbf176"></script>
   <script src="src/lairs.js?v=01498704"></script>
-  <script src="src/worldgen.js?v=3e4af9c1"></script>
+  <script src="src/worldgen.js?v=fad7871e"></script>
   <script src="src/castle_styles.js?v=51966f77"></script>
   <script src="src/textures.js?v=f7edb029"></script>
   <script src="src/save.js?v=db24d82d"></script>
-  <script src="src/items.js?v=6b44758d"></script>
+  <script src="src/items.js?v=3a17bd78"></script>
   <script src="src/inventory.js?v=61f97d28"></script>
   <script src="src/energy.js?v=081455ab"></script>
   <script src="src/conditions.js?v=f40a5963"></script>
   <script src="src/player_time.js?v=bcfa05e1"></script>
-  <script src="src/potion_effects.js?v=fc874d63"></script>
+  <script src="src/potion_effects.js?v=9e7a2206"></script>
   <script src="src/crops.js?v=f638c777"></script>
   <script src="src/delivery.js?v=aa7217c5"></script>
   <script src="src/save_state.js?v=7876ef4a"></script>
@@ -2786,41 +2797,42 @@
   <script src="src/shops_math.js?v=99eb700f"></script>
   <script src="src/shops.js?v=f2758d3d"></script>
   <script src="src/egg_hatch.js?v=6b07e768"></script>
-  <script src="src/chest_themes.js?v=01e96b6e"></script>
+  <script src="src/chest_themes.js?v=78d02e6a"></script>
   <script src="src/rarity.js?v=c30268c5"></script>
-  <script src="src/loot.js?v=ea86a2ac"></script>
+  <script src="src/loot.js?v=0383a2c2"></script>
   <script src="src/macros.js?v=65b17793"></script>
   <script src="src/quests.js?v=50d40212"></script>
-  <script src="src/interactables.js?v=c5eb171a"></script>
+  <script src="src/interactables.js?v=65ee2953"></script>
   <script src="src/houses.js?v=035e6b15"></script>
   <script src="src/spawn_ownership.js?v=e5f81207"></script>
   <script src="src/starter.js?v=6cf37189"></script>
   <script src="src/ground_fire.js?v=5db34ead"></script>
-  <script src="src/combat.js?v=a2f5ccc1"></script>
+  <script src="src/combat.js?v=cec8787c"></script>
   <script src="src/companions.js?v=e726224b"></script>
   <script src="src/creature_ai.js?v=640a1de2"></script>
   <script src="src/wizard.js?v=e0531947"></script>
   <script src="src/dragon_story.js?v=c392538b"></script>
   <script src="src/memory_story.js?v=158e9ff3"></script>
   <script src="src/story_encounters.js?v=86a4c845"></script>
-  <script src="src/interact.js?v=3b747b2f"></script>
+  <script src="src/interact.js?v=cdab3ebf"></script>
   <script src="src/play_tips.js?v=2ad7f442"></script>
   <script src="src/lighting.js?v=8dc03d32"></script>
-  <script src="src/render.js?v=81a70766"></script>
+  <script src="src/render.js?v=4bd8b38b"></script>
   <script src="src/multiplayer.js?v=04fb3ba8"></script>
   <script src="src/road_overlay.js?v=667f560f"></script>
   <script src="src/building_overlay.js?v=04427f6e"></script>
   <script src="src/assets.js?v=0aebc609"></script>
-  <script src="src/sandbox.js?v=6ec9a652"></script>
+  <script src="src/sandbox_destinations.js?v=92d1e32d"></script>
+  <script src="src/sandbox.js?v=df760af8"></script>
   <script src="src/testtools.js?v=e112a59e"></script>
   <script src="src/geo.js?v=0a205c42"></script>
   <script src="src/art_thumbs.js?v=f39c511a"></script>
-  <script src="src/modal_shell.js?v=8cf9aa69"></script>
-  <script src="src/scene_geo.js?v=96439ff3"></script>
+  <script src="src/modal_shell.js?v=702e6515"></script>
+  <script src="src/scene_geo.js?v=35f1f7d5"></script>
   <script src="src/npc.js?v=16d6e0da"></script>
-  <script src="src/scene_creatures.js?v=ec3a2fcb"></script>
+  <script src="src/scene_creatures.js?v=db56fb35"></script>
   <script src="src/scene_fire.js?v=564f85cb"></script>
-  <script src="src/scene_shops.js?v=3c3f9641"></script>
+  <script src="src/scene_shops.js?v=09251c02"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
     // ── Boot loading overlay ────────────────────────────────────────────
@@ -2881,7 +2893,7 @@
     // The fix comes from the shared Geo watcher, so the scene's own GPS
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
-      const APP_SRC = 'src/app.js?v=d02acb86';
+      const APP_SRC = 'src/app.js?v=05389aa0';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

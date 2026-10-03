@@ -91,7 +91,7 @@
       poi(32, 40, { class: 'place_of_worship', subclass: 'christian', name: 'St. Mary' }),
       poi(48, 40, { class: 'cafe', name: 'Corner Café' }),
     ] }]);
-    const chests = r.objects.filter((o) => o.kind === 'chest');
+    const chests = r.objects.filter((o) => o.kind === 'chest' && !o.chestTopUp);
     assert.eq(chests.map((o) => o.poiClass).sort().join(), 'cafe,place_of_worship', 'only the café and the church');
     const church = chests.find((o) => o.poiClass === 'place_of_worship');
     assert.eq(chestLook(church).macro && chestLook(church).macro.kind, 'chapel', 'the church stands as the chapel');

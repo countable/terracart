@@ -1,4 +1,17 @@
 // Themes are tested through the same groups and picker consumed by the game.
+test('chest themes: T2 acorns fill the budget with a stack while fruit saplings stay single', () => {
+  assert.eq(itemValue('acorn'), 5);
+  assert.eq(itemValue('scarecrow'), 20);
+  // T2's current 24-coin allowance buys 4.8 acorns: round up to five.
+  // Better brackets already hit that stack cap; the old 8-coin budget no
+  // longer governs this reward after main's chest-value increase.
+  for (const bracket of [0, 1, 2, 3]) {
+    assert.eq(ChestThemes.quantity('acorn', 2, bracket), 5, 'T2 fills the planting stack');
+  }
+  assert.eq(ChestThemes.quantity('acorn', 7, 3), 5, 'ordinary stack cap still applies');
+  for (const id of ['apple_sapling', 'peach_sapling']) assert.eq(ChestThemes.quantity(id, 7, 3), 1);
+});
+
 test('chest themes: every authored path terminates and conserves probability', () => {
   assert.truthy(ChestThemes.validate());
   // Memorials mint no chest, and the unused pets theme is gone because

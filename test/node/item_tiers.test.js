@@ -32,7 +32,7 @@ test('item tiers: shiny animals gain three tiers up to the T7 ceiling', () => {
 
 test('item tiers: approved food and utility shifts use their new reward tiers', () => {
   const tiers = { milk: 3, meat: 3, grilled_meat: 4, banana: 2, coconut: 2,
-    orange: 2, elixir: 7, goblet: 6, telescope: 5, orb: 7 };
+    orange: 2, elixir: 7, goblet: 6, telescope: 5, orb: 7, apple_sapling: 4 };
   for (const [id, tier] of Object.entries(tiers)) assert.eq(ITEM_BY_ID[id].baseTier, tier, id);
   assert.eq(ITEM_BY_ID.starfruit.baseTier, 3);
   assert.eq(FOOD_ENERGY.starfruit, 35, 'Starfruit healing fits its new tier');

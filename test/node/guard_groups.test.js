@@ -455,9 +455,9 @@
     assert.eq(enemySplit(splitScene(entry), goblin, 0, CENTRE.y, 1000), null, 'a goblin has no split ability');
   });
 
-  test('split slime: the damage lane divides it on a blow but not on lava, light or a burn; the pet bite too; the bounty by share', () => {
+  test('split slime: the damage lane divides it on a blow but not on lava, light, burns or obstacles; the pet bite too; the bounty by share', () => {
     const dmg = SCENE_SRC.slice(SCENE_SRC.indexOf('_damageEnemy(c, amount, source = \'player\', options = {}) {'));
-    assert.truthy(/if \(dealt > 0 && !\['lava', 'light', 'burn'\]\.includes\(source\)\) \{\s*const from = options\.from \|\| this\.playerM[^;]*;\s*if \(enemySplit\(this, c, from\.x, from\.y, now\)/.test(dmg),
+    assert.truthy(/if \(dealt > 0 && !\['lava', 'light', 'burn', 'obstacle'\]\.includes\(source\)\) \{\s*const from = options\.from \|\| this\.playerM[^;]*;\s*if \(enemySplit\(this, c, from\.x, from\.y, now\)/.test(dmg),
       '_damageEnemy divides a surviving splitting slime on a blow, never on the ground\'s damage');
     assert.truthy(/if \(tgt\._hp > 0\) enemySplit\(this, tgt, c\.x, c\.y, now\);/.test(SCENE_SRC),
       'a pet\'s bite divides it too, away from the pet');
