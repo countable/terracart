@@ -157,7 +157,7 @@
   test('difficulty: the crow pump is a hard-mode rule, read at its own site', () => {
     // The dispatched-crow pump (app.js wanderCreatures) is a MODE difference,
     // not a knob: on easy a field is only raided by a crow the tile already
-    // spawned nearby, and on hard one is sent every ~90 s. The gate is one line
+    // spawned nearby, and on hard one is sent once an hour. The gate is one line
     // in app.js; run.js hands its source text over so it cannot drift from the
     // table. It used to read pestAmnesty + save.hasHarvested — retired, because
     // the mode flag subsumes both (easy never pumps; hard has no grace).
