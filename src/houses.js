@@ -71,20 +71,35 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   //              fires through the castle turret lane (app.js _turretFire).
   //   wizard   — Tim's tower; `offered` reads the tower ledger and the
   //              memory ledger, never a count of its own.
+  // `tier(save, order)` is the rank the pick would carry (the badge on its
+  // card and on the Restored! card): a shop's line tier, the next smithy's
+  // tier, a trader's by restore number — all shops.js shopTier's arithmetic.
   const BUILD_OPTIONS = Object.freeze([
     { key: 'plain', role: 'plain', from: STORY_RESTORES.house, name: 'House', art: 'restore_house',
       pick: 'A family moves back in and buys the produce they ask for.',
       blurb: 'Children choose their beds under the repaired roof. Their parent offers to buy your harvest.' },
+    // ONE SMITHY PER TIER (shops.js smithTier): the Nth blacksmith is tier N,
+    // and after the first (the ladder's own slot) the next is offered only
+    // from restore number N × SMITH_TIER_EVERY — a T2 smith from the tenth.
     { key: 'blacksmith', role: 'blacksmith', from: STORY_RESTORES.blacksmith, art: 'restore_blacksmith',
-      pick: 'Forges tools and gear. The first wooden tools come from here.',
+      pick: 'Forges tools and gear of its own rank, give or take one. The first wooden tools come from here.',
       blurb: 'A family returns to the forge. They offer to make the tools you need.',
+      tier: (save) => Shops.nextSmithTier(save),
+      offered: (save, order) => {
+        const t = Shops.nextSmithTier(save);
+        return t === 1 ? true : Shops.smithCount(save) < Shops.SHOP_TIER_MAX && order + 1 >= Shops.smithUnlockAt(t);
+      },
       suggested: (save) => !hasBlacksmith(save) },
     { key: 'market', role: 'market', from: STORY_RESTORES.market, art: 'restore_market',
       pick: 'A shop selling one line of goods, priced at the village markup.',
-      blurb: 'A family opens the market shutters again. ' },
+      blurb: 'A family opens the market shutters again. ',
+      tier: (save) => Shops.nextLine(save).tier },
+    // Traders take the tier of the restore number that raises them (shops.js
+    // traderTierAt): any number at a tier, a rank higher every five rebuilds.
     { key: 'trader', role: 'trader', from: STORY_RESTORES.trader, art: 'restore_trader',
-      pick: 'Barters goods for goods, two of theirs for one of yours.',
-      blurb: 'The trader and his family unpack beside the hearth. They offer to share their supplies.' },
+      pick: 'Barters goods for goods, two of theirs for one of yours, leaning toward wares of its rank.',
+      blurb: 'The trader and his family unpack beside the hearth. They offer to share their supplies.',
+      tier: (save, order) => Shops.traderTierAt(order + 1) },
     { key: 'turret', role: 'turret', from: STORY_RESTORES.turret, art: 'castle_claim',
       pick: 'A lone stone tower. Its archer looses arrows at foes that come near.',
       blurb: 'Masons raise a single tower on the old footings. An archer climbs to the battlement and strings a bow.' },

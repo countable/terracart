@@ -1418,7 +1418,16 @@ ECONOMY (buying & selling)
    restore order among shops (the Shop card names the line it would open,
    Shops.nextLine), priced at the village markup, with a cheap re-roll
    (app.js presentThemedShop / marketTheme). The BOOK SHOP is a market plus
-   its stamp, outside that cycle. A TURRET is a lone castle tower on a house
+   its stamp, outside that cycle. A BLACKSMITH and a TRADER carry a tier too
+   (shops.js smithTier / traderTier, off the ledger): ONE SMITHY PER TIER — the
+   Nth raised is tier N, and after the first the card for the next is offered
+   only from restore number N × SMITH_TIER_EVERY (5); its anvil forges within
+   one rank of its own and leans to it (gear.js SMITHY_OWN_TIER_BIAS). A
+   trader takes the rank of the restore number that raised it over
+   TRADER_TIER_EVERY (5), any number per rank, and its barter leans toward
+   goods of that rank (Shops.tierAffinity, halved per rank away). Every
+   ranked door wears its rarity badge on the map and in its offers
+   (Shops.shopTier). A TURRET is a lone castle tower on a house
    lot: it draws the castle tower sheet in its own material family and its
    archer fires on the castle turret lane (COMBAT) — nothing to trade. PLAIN
    houses run deliveries (see DELIVERIES below). These are BUY/trade

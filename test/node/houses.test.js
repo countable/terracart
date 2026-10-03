@@ -92,6 +92,26 @@ test('buildOptions: the cards unlock by how many wrecks already stand', () => {
   assert.eq(Shops.roleLabel('turret'), 'Turret');
 });
 
+test('buildOptions: one smithy per tier, the next from restore number tier × 5', () => {
+  const sm = Houses.buildOption('blacksmith');
+  const save = { restoredHouses: { a: 'blacksmith' } };
+  assert.eq(sm.tier(save, 5), 2, 'the next smithy would be tier 2');
+  assert.falsy(sm.offered(save, 8), 'not at the ninth rebuild');
+  assert.truthy(sm.offered(save, 9), 'the tenth may be the T2 smithy');
+  assert.truthy(sm.offered(save, 40), 'and any later one');
+  save.restoredHouses.b = 'blacksmith';
+  assert.eq(sm.tier(save, 0), 3);
+  assert.falsy(sm.offered(save, 13)); assert.truthy(sm.offered(save, 14), 'the fifteenth may be the T3 smithy');
+  assert.truthy(sm.offered({ restoredHouses: {} }, 1), 'the first follows the ladder, not the five rule');
+  for (const k of 'cdefg') save.restoredHouses[k] = 'blacksmith';
+  assert.eq(Shops.smithCount(save), 7);
+  assert.falsy(sm.offered(save, 500), 'seven tiers, seven smithies');
+  assert.eq(Houses.buildOption('trader').tier({}, 4), 1, 'the fifth rebuild raises a T1 trader');
+  assert.eq(Houses.buildOption('trader').tier({}, 9), 2, 'the tenth a T2');
+  assert.eq(Houses.buildOption('trader').tier({}, 9), Shops.traderTierAt(10));
+  assert.eq(Houses.buildOption('market').tier({ restoredHouses: {} }, 2), 1);
+});
+
 test('buildOptions: the Blacksmith card is suggested until the lane has a smithy', () => {
   const sm = Houses.buildOption('blacksmith');
   assert.truthy(sm.suggested({ restoredHouses: {} }));
@@ -108,11 +128,15 @@ test('restoreAs: freezes the pick, stamps what it owns, refuses what is not offe
   assert.eq(save.restoredHouses.a, 'plain', 'the role string, never a bare true');
   assert.eq(Houses.restoreAs(save, h('b'), 'blacksmith').role, 'blacksmith');
   assert.eq(save.starterBlacksmithId, 'b', 'the first smithy is the wooden-tool forge');
+  assert.eq(Houses.restoreAs(save, h('c'), 'blacksmith'), null, 'a second smithy waits for the tenth rebuild');
+  for (let i = 2; i < 9; i++) Houses.restoreAs(save, h('p' + i), 'plain');
   assert.eq(Houses.restoreAs(save, h('c'), 'blacksmith').role, 'blacksmith');
-  assert.eq(save.starterBlacksmithId, 'b', 'a second smithy is not');
+  assert.eq(Shops.smithTier(save, h('c')), 2, 'and is tier 2');
+  assert.eq(save.starterBlacksmithId, 'b', 'a second smithy is not the wooden-tool forge');
   assert.eq(Houses.restoreAs(save, h('a'), 'market'), null, 'a restored house is never relabelled');
   assert.eq(save.restoredHouses.a, 'plain');
-  for (let i = 3; i < 14; i++) Houses.restoreAs(save, h('f' + i), 'plain');
+  for (let i = 10; i < 14; i++) Houses.restoreAs(save, h('f' + i), 'plain');
+  assert.eq(Houses.restoredCount(save), 14);
   assert.eq(Houses.restoreAs(save, h('book'), 'bookshop').key, 'bookshop');
   assert.eq(save.restoredHouses.book, 'market');
   assert.eq(save.bookshopId, 'book');

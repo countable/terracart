@@ -13358,9 +13358,13 @@ class MapScene extends Phaser.Scene {
         : row.role === 'turret' ? CastleStyles.get(house.id).towerFrame : 0;
       return this.worldIconHTML(texKey, 28, frame);
     };
+    const order = Houses.restoredCount(this.save);
+    const tierOf = (row) => (typeof row.tier === 'function' ? row.tier(this.save, order) : 0);
     const choices = options.map((row) => ({
       key: row.key,
-      label: labelFor(row, Shops.nextLine(this.save).theme),
+      // A ranked card (a shop, a smithy, a trader) wears its rarity badge.
+      label: labelFor(row, Shops.nextLine(this.save).theme)
+        + (tierOf(row) ? `<div style="margin-top:3px;line-height:0">${tierBadgeHTML(tierOf(row), 10)}</div>` : ''),
       info: row.pick,
       iconHTML: iconFor(row),
       suggested: !!row.suggested?.(this.save),
@@ -13425,6 +13429,7 @@ class MapScene extends Phaser.Scene {
             // line it now sells, marketTheme), the blurb and art the row's.
             const theme = row.role === 'market' ? this.marketTheme(house).theme : null;
             const name = labelFor(row, theme);
+            const tier = Shops.shopTier(this.save, house, row.role) || 0;
             const blurb = row.key === 'market' ? row.blurb + (Shops.THEME_BLURB[theme] || 'You look over the freshly stocked counter.') : row.blurb;
             this.showChestRewardModal({
               kind: 'build',
@@ -13435,6 +13440,7 @@ class MapScene extends Phaser.Scene {
               art: row.art,
               header: 'Restored!',
               name: `You restored a ${name}`,
+              tier,
               sub: order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : blurb,
               color: '#a7ffb0', accent: '#a7ffb0',
               onDismiss: row.role === 'wizard'

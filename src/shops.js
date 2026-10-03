@@ -202,6 +202,58 @@
     return (it && it.baseTier) ?? ((typeof BASE_TIER !== 'undefined' && BASE_TIER[id]) || 1);
   }
 
+  // ── SMITHY AND TRADER TIERS (owner, Oct 2026) ─────────────────────────────
+  // A blacksmith and a trader carry a tier the way a shop carries its line's
+  // tier, and both come off the restoration ledger, never a stored number:
+  //   SMITHY  — one per tier. The Nth blacksmith raised is tier N (its place
+  //             among restored blacksmiths, smithOrder), and the card for the
+  //             NEXT one is offered only once restore number ≥ N × SMITH_TIER_EVERY
+  //             (the first keeps the ladder's own slot, houses.js
+  //             STORY_RESTORES.blacksmith). Its anvil favours its own tier and
+  //             forges nothing more than one tier above or below it
+  //             (gear.js relicOfferWeights, opts.smithTier).
+  //   TRADER  — any number per tier. A trader's tier is the restore number it
+  //             was raised at over TRADER_TIER_EVERY (floored, at least 1), so
+  //             the fifth to ninth rebuild raise T1 traders, the tenth a T2.
+  //             Its barter leans toward goods of its tier (tierAffinity).
+  // The map badge, the offer blurb, the restore card and the Restored! card
+  // all read shopTier.
+  const SMITH_TIER_EVERY = 5, TRADER_TIER_EVERY = 5, SHOP_TIER_MAX = 7;
+  const clampTier = (t) => Math.max(1, Math.min(SHOP_TIER_MAX, t | 0));
+  // The restored blacksmiths, in restore order.
+  function smithIds(save) {
+    const rh = (save && save.restoredHouses) || {};
+    return Object.keys(rh).filter((id) => rh[id] === 'blacksmith');
+  }
+  function smithCount(save) { return smithIds(save).length; }
+  function smithTier(save, house) {
+    if (!house || house.id == null) return 1;
+    const n = smithIds(save).indexOf(String(house.id));
+    return clampTier(n < 0 ? 1 : n + 1);   // the stamped starter smith off the ledger: tier 1
+  }
+  // The tier of the blacksmith the NEXT pick would raise, and the restore
+  // number that pick needs (1-based); the first follows the ladder instead.
+  function nextSmithTier(save) { return clampTier(smithCount(save) + 1); }
+  function smithUnlockAt(tier) { return tier * SMITH_TIER_EVERY; }
+  // A trader raised as restore number `n` (1-based).
+  function traderTierAt(n) { return clampTier(Math.floor(n / TRADER_TIER_EVERY)); }
+  function traderTier(save, house) {
+    if (!house || house.id == null) return 1;
+    const n = Object.keys((save && save.restoredHouses) || {}).indexOf(String(house.id));
+    return n < 0 ? 1 : traderTierAt(n + 1);
+  }
+  // The one tier every badge reads, by role; null for a role with none.
+  function shopTier(save, house, role) {
+    if (role === 'market') return lineFor(save, house).tier;
+    if (role === 'blacksmith') return smithTier(save, house);
+    if (role === 'trader') return traderTier(save, house);
+    return null;
+  }
+  // How much a shop of tier `tier` wants to carry an item of tier `itemT`:
+  // full weight at its own tier, halved per tier away. A lean, not a wall —
+  // a T1 trader still hands over the odd T3 seed.
+  function tierAffinity(itemT, tier) { return 1 / Math.pow(2, Math.abs((itemT | 0) - (tier | 0))); }
+
   // What a shop of this line and tier can stock: every item of the line at the
   // nearest tier it carries (ties go to the lower tier). [] for the relic line.
   function themedStock(theme, tier) {
@@ -228,6 +280,7 @@
   global.Shops = {
     shopType, shopInk,
     ROLE_LABEL, roleLabel,
-    THEMES, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, lineFor, nextLine, themedStock, pickThemed, petItems,
+    THEMES, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, lineFor, nextLine, themedStock, itemTier,
+    SMITH_TIER_EVERY, TRADER_TIER_EVERY, SHOP_TIER_MAX, smithCount, smithTier, nextSmithTier, smithUnlockAt, traderTierAt, traderTier, shopTier, tierAffinity, pickThemed, petItems,
   };
 })(window);

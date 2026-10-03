@@ -115,6 +115,12 @@
   // it is for finer metal. Cash shops and castles keep the original curve
   // and their exact seeded draws.
   const SMITHY_NEXT_RUNG_BIAS = 4;
+  // A TIERED SMITHY (opts.smithTier — shops.js smithTier, owner Oct 2026)
+  // forges only within one tier of its own rank, and leans to its own: a
+  // candidate at exactly its tier is weighed SMITHY_OWN_TIER_BIAS times over,
+  // on top of the curve and the next-rung rule above. A kit already past the
+  // forge's reach leaves it nothing to offer ("Nothing left to forge.").
+  const SMITHY_OWN_TIER_BIAS = 4;
   // Every piece a shop could offer this save, with its weight: the pool
   // buildRelicOffer draws from (and gear.test.js reads directly). Null when
   // nothing is above what the player wears.
@@ -146,7 +152,11 @@
     }
     const tierW = (t) => 1 / Math.pow(2, t - 1);
     if (opts.isBlacksmith) {
-      return candidates.map((c) => ({ c, w: tierW(c.tier) / Math.pow(SMITHY_NEXT_RUNG_BIAS, c.rank) }));
+      const own = opts.smithTier | 0;
+      const reach = own ? candidates.filter((c) => Math.abs(c.tier - own) <= 1) : candidates;
+      if (!reach.length) return null;
+      return reach.map((c) => ({ c, w: tierW(c.tier) / Math.pow(SMITHY_NEXT_RUNG_BIAS, c.rank)
+        * (own && c.tier === own ? SMITHY_OWN_TIER_BIAS : 1) }));
     }
     const relicSum = candidates.filter((c) => c.kind === 'relic').reduce((a, c) => a + tierW(c.tier), 0);
     const armorSum = candidates.filter((c) => c.kind === 'armor').reduce((a, c) => a + tierW(c.tier), 0);
@@ -220,6 +230,6 @@
     return ['platinum_bar', 'crimson_bar', 'frost_bar'];
   }
 
-  root.Gear = { effectiveRelics, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS,
+  root.Gear = { effectiveRelics, activeWeapon, meleeActive, selectWeapon, unequipWeapon, workDurationMs, equip, buildRelicOffer, relicOfferWeights, SMITHY_NEXT_RUNG_BIAS, SMITHY_OWN_TIER_BIAS,
                 blacksmithRecipe, smeltingRecipe, smeltUnlockedBars, WEAPON_SLOTS };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -26,12 +26,24 @@
     assert.includes(modalBadge.call(s, house), tierBadgeHTML(7));
   });
 
-  test('shop badge: other buildings have no map badge', () => {
-    for (const role of ['wreck', 'plain', 'blacksmith', 'trader', 'wizard', 'turret', 'trailer']) {
+  test('shop badge: unranked buildings have no map badge; a smithy and a trader wear theirs', () => {
+    for (const role of ['wreck', 'plain', 'wizard', 'turret', 'trailer']) {
       const s = scene(4, role);
       assert.eq(Render.shopTierBadge(s, house, s.houseShopRole()), null);
       assert.eq(modalBadge.call(s, house), '');
     }
     assert.eq(Render.shopTierBadge(scene(4), house, scene(4).houseShopRole()).text, 'RARE');
+    // The second smithy on the ledger is tier 2; a trader raised as the
+    // tenth rebuild is tier 2 too (Shops.shopTier reads the ledger).
+    const ledger = { restoredHouses: {} };
+    for (let i = 0; i < 9; i++) ledger.restoredHouses['h' + i] = i === 1 ? 'blacksmith' : 'plain';
+    ledger.restoredHouses[house.id] = 'blacksmith';
+    const smith = scene(4, 'blacksmith'); smith.save = ledger;
+    assert.eq(Render.shopTierBadge(smith, house, 'blacksmith').text, 'COMMON');
+    assert.includes(modalBadge.call(smith, house), tierBadgeHTML(2));
+    ledger.restoredHouses[house.id] = 'trader';
+    const trader = scene(4, 'trader'); trader.save = ledger;
+    assert.eq(Render.shopTierBadge(trader, house, 'trader').text, 'COMMON');
+    assert.eq(Render.shopTierBadge(scene(4, 'trader'), house, 'trader').text, 'BASIC', 'off the ledger: tier 1');
   });
 })();

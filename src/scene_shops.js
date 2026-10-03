@@ -792,12 +792,15 @@ class SceneShops {
   // offer — no need to persist the offer object. Re-roll bumps cur.rerolls
   // which pivots the seed lane; a purchase pivots it too (cur.deals).
   // opts.maxTier caps the roll at a themed relic shop's tier (Gear.buildRelicOffer).
+  // A smithy also hands over its tier (Shops.smithTier): the anvil forges
+  // within one rank of it and leans to its own (Gear.relicOfferWeights).
   peekOrBuildRelicOffer(house, opts = {}) {
     const castle = isCastle(house);
     const isBlacksmith = !castle && this.houseShopRole(house) === 'blacksmith';
-    if (!house?.id) return this.buildRelicOffer(Math.random, { isCastle: castle, isBlacksmith, ...opts });
+    const smithTier = isBlacksmith ? Shops.smithTier(this.save, house) : undefined;
+    if (!house?.id) return this.buildRelicOffer(Math.random, { isCastle: castle, isBlacksmith, smithTier, ...opts });
     const rng = this.shopRng(house, 'relic');
-    return this.buildRelicOffer(rng, { isCastle: castle, isBlacksmith, ...opts });
+    return this.buildRelicOffer(rng, { isCastle: castle, isBlacksmith, smithTier, ...opts });
   }
 
   // Pick a random relic OR armor piece the player can actually use — meaning
@@ -882,9 +885,12 @@ class SceneShops {
     return Shops.themedStock(theme, tier).length;
   }
 
+  // The rank badge under an offer — a shop's line tier, a smithy's, a
+  // trader's (Shops.shopTier); nothing for a role with none.
   shopTierBadgeHTML(house) {
-    if (this.houseShopRole(house) !== 'market') return '';
-    const { tier } = this.marketTheme(house);
+    const role = this.houseShopRole(house);
+    const tier = role === 'market' ? this.marketTheme(house).tier : Shops.shopTier(this.save, house, role);
+    if (tier == null) return '';
     return `<div style="margin-top:6px">${tierBadgeHTML(tier)}</div>`;
   }
 
@@ -1248,13 +1254,12 @@ class SceneShops {
     // Same houseSeed produce-vs-buylist coin flip the generic path uses.
     const houseSeed = this._houseSeed(house);
     const sellsProduce = !!houseSeed && ((houseSeed * 2654435761) >>> 0) % 10 < 3;
-    let giveId;
-    if (sellsProduce) {
-      const ids = Object.keys(CROP_ROW);
-      giveId = ids[Math.floor(rng() * ids.length)] || ids[0];
-    } else {
-      giveId = BUY_LIST[Math.floor(rng() * BUY_LIST.length)] || BUY_LIST[0];
-    }
+    // The pool leans to the trader's own tier (Shops.traderTier /
+    // tierAffinity): one draw off the lane either way, so the ask side that
+    // follows reads the same stream it always did.
+    const ids = sellsProduce ? Object.keys(CROP_ROW) : BUY_LIST;
+    const tier = Shops.traderTier(this.save, house);
+    const giveId = weightedPickBy(ids, (id) => Shops.tierAffinity(Shops.itemTier(id), tier), rng) || ids[0];
     if (!giveId) return null;
     return { rng, giveId };
   }

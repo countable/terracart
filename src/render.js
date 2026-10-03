@@ -90,10 +90,13 @@ Render.objectGroundOffsetPx = function (appearance, textures) {
     * appearance.scl * appearance.scaleYMul;
 };
 
-// Shop rank is assigned at restoration; stock can fall back to another tier.
+// Shop rank is assigned at restoration (a shop's line tier, a smithy's own,
+// a trader's — Shops.shopTier); stock can fall back to another tier.
+// A market's tier comes through scene.marketTheme (an NPC stall carries its
+// own line); a smithy's and a trader's straight off the ledger.
 Render.shopTierBadge = (scene, house, role) => {
-  if (role !== 'market') return null;
-  const tier = scene.marketTheme(house).tier;
+  const tier = role === 'market' ? scene.marketTheme(house).tier : Shops.shopTier(scene.save, house, role);
+  if (tier == null) return null;
   const t = Math.min(7, Math.max(1, tier));
   const color = TIER_BADGE_TINT[t] ?? TIER_BY_NUM[t].color;
   const r = (color >> 16) & 255, g = (color >> 8) & 255, b = color & 255;
