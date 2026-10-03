@@ -15,8 +15,8 @@
 // ── INDEX of home-area customization still living elsewhere ──────────────────
 // (Migrate each into here as it's next touched, routing through HomeArea.)
 //   • Start origin / synthetic trailer ……… scene_shops.js  isStarterShop / ensureStarterShopId
-//   • Starter blacksmith (1st restored) …… houses.js  isStarterBlacksmith, PRESEED_RESTORE_ROLES
-//   • Scarecrow shop (early house) ………… scene_shops.js  isScarecrowShop
+//   • What a wreck can become, by count … houses.js  BUILD_OPTIONS / STORY_RESTORES
+//   • Starter blacksmith (1st smithy) ……… houses.js  isStarterBlacksmith
 //   • Shops sell a line by restore order … scene_shops.js  marketTheme
 //     (the first is the Seed Shop — see shops.js themeAt / roleLabel)
 //   • First 8 delivery houses → T1 produce delivery.js Delivery.isEarly

@@ -53,7 +53,10 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   Derive consumers from it; do not add independent tuning factors.
 - Add kinds as table rows and repeated kind groups as predicates:
   `SpriteLayout.CREATURE_BEHAVIOUR`, `CREATURE_ART`, `Combat.MONSTERS`,
-  `interactables.js` predicates, `RENDER_SPEC`, and `Lighting.KINDS`.
+  `interactables.js` predicates, `RENDER_SPEC`, `Lighting.KINDS`, and what a
+  wreck can be restored as (`Houses.BUILD_OPTIONS`: the player's pick, cards
+  unlocked by restore count in `STORY_RESTORES`; `restoreAs` is the ledger's
+  one writer — never a fixed schedule or the OSM address).
   Creature variants inherit through `baseKind`; hostility uses `Combat.isEnemy`.
   An authored garrison (a horde, a decoy, an elite with minions) is a row of
   `Lairs.GROUPS` — members, placement (`seatPolar`) and what each is told

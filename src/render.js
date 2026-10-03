@@ -92,8 +92,7 @@ Render.objectGroundOffsetPx = function (appearance, textures) {
 
 // Shop rank is assigned at restoration; stock can fall back to another tier.
 Render.shopTierBadge = (scene, house, role) => {
-  if (role !== 'market'
-      || (scene.save.scarecrowShopId === house.id && !scene.save.scarecrowShopUsed)) return null;
+  if (role !== 'market') return null;
   const tier = scene.marketTheme(house).tier;
   const t = Math.min(7, Math.max(1, tier));
   const color = TIER_BADGE_TINT[t] ?? TIER_BY_NUM[t].color;
@@ -1210,6 +1209,7 @@ Render.reachDimAlpha = (scene) => {
 Render.houseTextureKey = (role, o, scene) => {
   if (role === 'plain') return 'house';
   if (role === 'wizard') return 'shrine';
+  if (role === 'turret') return 'tower';   // the castle tower sheet, claimed palette: it is yours
   if (role === 'fort' && scene.isClaimedKey && !scene.isClaimedKey(o.id)
       && typeof ASSETS !== 'undefined' && ASSETS.house_fort_unclaimed) return 'house_fort_unclaimed';
   return `house_${role}`;
@@ -3291,7 +3291,7 @@ Render.drawObjects = function drawObjects(scene) {
       // The small extra lift tucks the ellipse's bulk behind the building.
       const role = o.kind === 'house' ? item.houseRole : null;
       let w = CELL_PX * 1.5, footY = sy - 4;
-      if (o.kind === 'tower') { w = CELL_PX * 1.1; footY = sy + 2; }
+      if (o.kind === 'tower' || role === 'turret') { w = CELL_PX * 1.1; footY = sy + 2; }
       else if (role === 'wizard') { footY = sy + CELL_PX * 0.5 - 4; }
       else if (o.kind === 'house') {
         if (role === 'fort') w = CELL_PX * 2.4;
@@ -3608,13 +3608,8 @@ Render.drawObjects = function drawObjects(scene) {
       const access = MemoryStory.towerAccess(scene.save, o);
       return { locked: 'Sealed Tower', abandoned: 'Abandoned Tower', empty: 'Empty Tower', open: 'Wizard Tower' }[access];
     }
-    // Forced scarecrow shop - signed only while it still has one to sell.
-    // After the sale it reverts to its underlying role (handled below).
-    if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
-        && !scene.save.scarecrowShopUsed) {
-      return 'Scarecrows';
-    }
-    // Frozen restore-order shop role (blacksmith / trader / market / wizard).
+    // The frozen role the player picked at the wreck (blacksmith / trader /
+    // market / turret / wizard).
     const ordinary = role === 'plain' || role === 'fort';
     const label = ordinary ? null : _roleLabel(role, o);
     if (label) return label;
@@ -3633,14 +3628,12 @@ Render.drawObjects = function drawObjects(scene) {
     return null;
   };
   // True if this house is a residential delivery host — a plain tier-9 home
-  // (not a wreck, the player's own home, the starter smithy, a scarecrow shop,
-  // or any specialty shop) that asks for produce bundles. Hosts always show a
+  // (not a wreck, the player's own home, the starter smithy or any specialty
+  // shop) that asks for produce bundles. Hosts always show a
   // roof callout: a wishlist while hungry, a happy face once fed (for good).
   const _houseIsHost = (o) => {
     if (!o || o.kind !== 'house' || o.tier !== 9) return false;
     if (_houseRole(o) !== 'plain') return false;                          // wreck, Home or storefront
-    if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
-        && !scene.save.scarecrowShopUsed) return false;                   // active scarecrow shop (text sign instead)
     const wanted = (typeof scene.wantedProduce === 'function') ? scene.wantedProduce(o) : [];
     return wanted.length > 0;
   };
@@ -3658,6 +3651,7 @@ Render.drawObjects = function drawObjects(scene) {
     trader:     '#ffae5c',
     market:     '#5ddcc0',
     wizard:     '#b98cff',   // arcane violet
+    turret:     '#9aa49a',   // the fort's mossy stone — it is a piece of castle
   };
   // Fallback inks for the non-specialty building kinds.
   const _CASTLE_INK = '#e0c060';   // gold — fits the "vault" flavor
@@ -3665,8 +3659,6 @@ Render.drawObjects = function drawObjects(scene) {
   const _HOUSE_INK  = '#d6c9a8';   // warm parchment — plain residential
   const _houseSignInk = (o) => {
     const role = _houseRole(o);
-    if (scene.save.scarecrowShopId && scene.save.scarecrowShopId === o.id
-        && !scene.save.scarecrowShopUsed) return '#cdb07a';   // straw-gold scarecrow sign
     if (role && _ROLE_INK[role]) return _ROLE_INK[role];
     if (o.tier === 12) return _CASTLE_INK;
     if (o.tier === 11) return _FORT_INK;
@@ -4501,6 +4493,9 @@ Render.objectAppearance = function (scene, houseRoles) {
     const role = _houseRole(o);
     if (role === 'plain')  return 'front';
     if (role === 'wizard') return 3;
+    // A turret picks its material family off its own id, the way a castle
+    // does off its footprint key, so two turrets on a street can differ.
+    if (role === 'turret') return CastleStyles.get(o.id).towerFrame;
     return undefined;
   };
   // Every building is sized by ONE rule (BUILDING_ART / houseArtScale in
@@ -4557,8 +4552,10 @@ Render.objectAppearance = function (scene, houseRoles) {
       // The wizard tower is the exception: it's a tall sprite that must
       // stand foot-seated at the cell's front edge, so it keeps the bottom
       // anchor + a downward nudge.
-      origin: (o) => (_houseRole(o) === 'wizard' ? [0.5, 1.0] : [0.5, 0.5]),
-      dyPx: (o) => (_houseRole(o) === 'wizard' ? CELL_PX * 0.5 : 0),
+      // A turret is the castle tower sprite and seats as the castle tower
+      // row below does: foot at the cell's front edge, half-cell nudge.
+      origin: (o) => (_houseRole(o) === 'wizard' || _houseRole(o) === 'turret' ? [0.5, 1.0] : [0.5, 0.5]),
+      dyPx: (o) => (_houseRole(o) === 'wizard' || _houseRole(o) === 'turret' ? CELL_PX * 0.5 : 0),
       scale: _houseScale,
     },
     // Bottom-seat each sprite at its data cell. A castle's identity selects
