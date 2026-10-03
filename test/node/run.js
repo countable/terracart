@@ -191,7 +191,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   houseArtScale, buildingBaseScale, buildingCellsToScale, buildingArt, BUILDING_ART,
   HomeArea, SpawnOwnership,
   itemValue, randInt, pickFromArray, isShiny, faunaShiny,
-  TRAILER_SELL_MUL,
+  TRAILER_SELL_MUL, SELL_MUL,
   // The market-stall sign/stock tables — vendor_parity.test.js pins that what
   // a stall's name promises is what it sells.
   POI_CATEGORY, CHEST_DENSITY_T1_AT, CHEST_TIER_UNSTAMPED,
@@ -1212,6 +1212,7 @@ Object.assign(ctx, {
 }
 
 ctx.ROAD_OVERLAY_SRC = readSrc('road_overlay.js');
+ctx.SHOPS_MATH_SRC = readSrc('shops_math.js');
 // …and the building overlay's, for building_overlay.test.js's read-back sweep.
 ctx.BUILDING_OVERLAY_SRC = readSrc('building_overlay.js');
 

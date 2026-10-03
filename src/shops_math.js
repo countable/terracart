@@ -237,32 +237,25 @@
   // to be the cheap, friendly way to get hold of an ingredient.
   //
   // The discount has a hard floor: THE PLAYER MUST NEVER BE ABLE TO BUY FROM A
-  // STAND AND SELL AT A PROFIT. That floor is not a constant, because the sell
-  // side is not either — the Sword relic scales selling from 0.5× base up to
-  // 1.0× at tier 7 (sellMultiplier, items.js). A flat "stands are 25% off"
-  // would be free money the moment a player carried a tier-4 sword: buy at
-  // 0.75, sell at 0.79, repeat. So the stand price tracks the player's OWN
-  // sell price and stays a margin above it, and the discount quietly shrinks
-  // as their sword improves:
+  // STAND AND SELL AT A PROFIT. The stand price is a margin above the sell
+  // rate (sellMultiplier, items.js — one flat number since Oct 2026; it used
+  // to climb with the Sword relic, and the discount shrank with it), clamped
+  // between the best discount and par:
   //
-  //     no sword (sell 0.50)  →  pay 0.75   (25% off par)
-  //     sword T4 (sell 0.79)  →  pay 0.84   (16% off par)
-  //     sword T7 (sell 1.00)  →  pay 1.00   (par — break-even, as before)
+  //     sell 0.70  →  pay max(0.75, 0.75) = 0.75   (25% off par, today)
   //
-  // Capped at par so a maxed-out player is never charged MORE than the listed
-  // price; at that point buying and reselling is exactly break-even, which is
-  // what it already was. Every combination is pinned in shops_math.test.js.
-  //
-  // What actually guarantees the invariant is the TRACKING — pricing off
-  // sellMultiplier rather than off a constant. The margin below is headroom on
-  // top of that, so a later tweak to either curve doesn't land exactly on the
-  // line; setting it to 0 still yields break-even, never profit.
+  // Capped at par so no retune ever charges MORE than the listed price.
+  // What guarantees the invariant is the TRACKING — pricing off sellMultiplier
+  // rather than off a constant, so a sell rate raised past the floor pulls the
+  // stand price up with it. The margin below is headroom on top of that, so a
+  // later tweak doesn't land exactly on the line; setting it to 0 still yields
+  // break-even, never profit. Pinned in shops_math.test.js.
   const STAND_BUY_MUL = 0.75;      // best case: what a stand charges off par
   const STAND_ARB_MARGIN = 0.05;   // headroom above resale, not the guarantee
 
-  // The multiplier a stand applies to an item's listed value, for these relics.
-  function standBuyMul(relics) {
-    const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier(relics) : 0.5;
+  // The multiplier a stand applies to an item's listed value.
+  function standBuyMul() {
+    const sellMul = (typeof sellMultiplier === 'function') ? sellMultiplier() : 0.7;
     return clamp(sellMul + STAND_ARB_MARGIN, STAND_BUY_MUL, 1);
   }
 
@@ -273,8 +266,10 @@
   // way to get an ingredient on hard too (Difficulty.buyMul is the trader's
   // markup, and this is not a markup). The no-profit floor still holds there
   // — hard mode only cuts the sell side.
-  function standPrice(save, baseValue) {
-    return Math.max(1, Math.ceil(baseValue * standBuyMul(save && save.relics)));
+  // `save` is accepted for the callers that pass it (the price lane's shape)
+  // and no longer read: nothing on the player moves a stand's price.
+  function standPrice(save, baseValue) {   // eslint-disable-line no-unused-vars
+    return Math.max(1, Math.ceil(baseValue * standBuyMul()));
   }
 
   // ─── The Book's price ladder ─────────────────────────────────────────────
