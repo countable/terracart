@@ -56,7 +56,7 @@ test('pickup: an empty hand pockets a tame pet at once — no wheel, no energy, 
 test('pickup: a tool in hand still pockets; food in hand pets instead', () => {
   const held = tame('cat');
   const save = saveWith(held);
-  assert.eq(tapPet(held, save, 'telescope').r, true);
+  assert.eq(tapPet(held, save, 'field_scope').r, true);
   assert.eq(Inventory.count(save, 'cat'), 1, 'a non-food item is a hand');
   // meat is the dog's favourite and apple plant produce: both treats, eaten.
   // Milk and a seed are food it won't want: a free pet, never a pickup.

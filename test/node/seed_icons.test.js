@@ -38,7 +38,7 @@ test('icon badges: every item sharing its base art is told apart by its badge', 
 test('icon badges: the three saplings are told apart', () => {
   // Three sheets, one picture: their young-tree frames are the same pixels,
   // which a sheet-key comparison can't see — so the trio is pinned by name.
-  const ids = ['apple_sapling', 'peach_sapling', 'acorn'];
+  const ids = ['apple_sapling', 'worldpeach_sapling', 'acorn'];
   const badges = ids.map(iconBadgeItem);
   assert.truthy(badges.every(Boolean), 'each sapling wears a badge');
   assert.eq(new Set(badges).size, ids.length, 'and no two wear the same one');

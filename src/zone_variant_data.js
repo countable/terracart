@@ -154,7 +154,7 @@
     },
     "rubble": {
       "kind": "wildplant",
-      "crop": "rockfruit",
+      "crop": "rubble",
       "spawnClass": "minor",
       "color": "#858d9c"
     },
@@ -279,7 +279,7 @@
       "quarryCrate": true,
       "fixedLoot": {
         "kind": "relic",
-        "slot": "pick",
+        "slot": "pickaxe",
         "tier": 3
       },
       "color": "#977851"

@@ -10,7 +10,7 @@ for (const file of ['src/util.js', 'src/difficulty.js', 'src/conditions.js', 'sr
 }
 vm.runInContext(`
   const STARTER_STASH = [{ id: 'book', qty: 1 }];
-  const STARTER_RELIC_SLOTS = ['pick'];
+  const STARTER_RELIC_SLOTS = ['pickaxe'];
   const STARTER_RELIC_TIER = 1;
   const pixels = new Uint8ClampedArray(32 * 32 * 4);
   pixels[(18 * 32 + 8) * 4 + 3] = 255;
@@ -33,7 +33,7 @@ vm.runInContext(`
   assert.equal(byId.get('armor:boots:7').description, '−' + armorSlotReduction(7) + ' damage soaked; ' + ARMOR_DEFS.boots.blurb);
   assert(byId.get('wood').chests.some(source => source.context === 'fixed:starter-supplies'));
   assert(byId.get('book').chests.some(source => source.context === 'fixed:starter-stash'));
-  assert(byId.get('relic:pick:7').chests.some(source => source.context === 'fixed:starter-relic'));
+  assert(byId.get('relic:pickaxe:7').chests.some(source => source.context === 'fixed:starter-relic'));
   for (const it of ITEMS) {
     const row = byId.get(it.id);
     assert.equal(row.value, itemValue(it.id));

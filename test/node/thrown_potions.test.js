@@ -6,7 +6,7 @@
   test('Thrown potions: every potion has a recipient effect, including Taming', () => {
     for (const item of ITEMS.filter(item => item.potion)) {
       const s = scene(), c = creature();
-      if (item.id === 'revive_potion' || item.id === 'resurrection_potion') c._hp = 0;
+      if (item.id === 'revival_potion' || item.id === 'resurrection_potion') c._hp = 0;
       assert.truthy(PotionEffects.apply(s, c, item.id), item.id);
     }
     assert.falsy(PotionEffects.apply(scene(), creature(), 'thunder_scroll'));
@@ -42,11 +42,11 @@
     assert.eq(Combat.hp(c), 0);
     assert.eq(s.save.npcRestUntil[c.id], restUntil);
     assert.truthy(c._frozenUntil > Date.now(), 'refused Elixir does not cure afflictions');
-    assert.truthy(PotionEffects.apply(s, c, 'revive_potion'));
+    assert.truthy(PotionEffects.apply(s, c, 'revival_potion'));
     assert.eq(Combat.hp(c), Math.round(Combat.maxHp(c) * 0.3));
     assert.falsy(NPC.isDormant(c));
     assert.falsy(s.save.npcRestUntil[c.id]);
-    assert.falsy(PotionEffects.apply(s, c, 'revive_potion'), 'healthy recipients cannot be revived');
+    assert.falsy(PotionEffects.apply(s, c, 'revival_potion'), 'healthy recipients cannot be revived');
     PotionEffects.apply(s, c, 'elixir');
     assert.eq(Combat.hp(c), Combat.maxHp(c));
   });
@@ -57,7 +57,7 @@
     PotionEffects.apply(s, c, 'elixir');
     PotionEffects.apply(s, c, 'protection_potion');
     assert.eq(Combat.damageDealt(c, 20), 15);
-    PotionEffects.apply(s, c, 'shield_potion');
+    PotionEffects.apply(s, c, 'shielding_potion');
     assert.eq(Combat.damageDealt(c, 20), 10, 'protection does not multiply with shielding');
     PotionEffects.apply(s, c, 'immortal_potion');
     assert.eq(Combat.damageDealt(c, 20), 0);
@@ -124,7 +124,7 @@
     const shot = () => ({ x: 0, y: 0, vx: 1, vy: 0, speedMps: 1,
       travelledM: 0, rangeM: 10, pierce: false });
     let hits = 0;
-    Combat.stepShots([{ ...shot(), potionId: 'vigor_potion' }], 1, [], 1,
+    Combat.stepShots([{ ...shot(), potionId: 'healing_potion' }], 1, [], 1,
       target => { assert.eq(target, c); hits++; }, { potionTargets: [c] });
     assert.eq(hits, 1);
     Combat.stepShots([shot()], 1, [], 1, () => hits++, { potionTargets: [c] });

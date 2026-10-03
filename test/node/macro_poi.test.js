@@ -140,12 +140,12 @@
   // ── Inn ───────────────────────────────────────────────────────────────────
   test('inn: the price is the Vigor potion\'s coins per energy × INN_RATE, and it rests once a day', () => {
     assert.eq(VIGOR_POTION_ENERGY, 65, 'a Vigor restores 65');
-    assert.eq(Macros.innCoinsPerEnergy(), PRICES.vigor_potion / VIGOR_POTION_ENERGY * Macros.INN_RATE, 'derived');
+    assert.eq(Macros.innCoinsPerEnergy(), PRICES.healing_potion / VIGOR_POTION_ENERGY * Macros.INN_RATE, 'derived');
     assert.eq(Macros.INN_RATE, 0.5, 'half the potion (the Book says "half")');
     assert.eq(Macros.innPrice(0), 0, 'nothing to rest');
     assert.eq(Macros.innPrice(1), 1, 'never under a coin');
-    assert.eq(Macros.innPrice(40), Math.ceil(40 * PRICES.vigor_potion / VIGOR_POTION_ENERGY * Macros.INN_RATE), 'a potion\'s worth');
-    assert.lt(Macros.innPrice(40), PRICES.vigor_potion, 'cheaper than the potion');
+    assert.eq(Macros.innPrice(40), Math.ceil(40 * PRICES.healing_potion / VIGOR_POTION_ENERGY * Macros.INN_RATE), 'a potion\'s worth');
+    assert.lt(Macros.innPrice(40), PRICES.healing_potion, 'cheaper than the potion');
     const o = poi('lodging');
     const save = { energy: 30, money: 100 };
     const r = Macros.innRest(save, o, 100, T0);
@@ -228,11 +228,11 @@
       assert.truthy(Macros.APOTHECARY_POTIONS.includes(stock[0]), stock[0]);
       assert.eq(stock[1], 'antidote', 'the cure');
       seen.add(stock[0]);
-      const remedyTiers = { vigor_potion: 2, revive_potion: 3, protection_potion: 2, reach_potion: 4, antidote: 1 };
+      const remedyTiers = { healing_potion: 2, revival_potion: 3, protection_potion: 2, reach_potion: 4, antidote: 1 };
       for (const id of stock) assert.eq(tiers(id), remedyTiers[id], `${id} stays in its remedy tier`);
     }
     assert.eq(seen.size, Macros.APOTHECARY_POTIONS.length, 'every remedy turns up somewhere');
-    assert.eq(Macros.apothecaryStock(poi('dentist', { id: 7 }))[0], 'vigor_potion', 'a dentist is Healing');
+    assert.eq(Macros.apothecaryStock(poi('dentist', { id: 7 }))[0], 'healing_potion', 'a dentist is Healing');
     const o = poi('pharmacy', { id: 3 });
     assert.eq(Macros.apothecaryStock(o).join(), Macros.apothecaryStock({ ...o }).join(), 'the same for everyone');
     const save = { relics: {} };
@@ -262,12 +262,12 @@
     assert.eq(Macros.sundriesGear(save, 'gear:lance').tier, 3, 'Fine over a Rusty one (no T2 rung)');
     save.relics.lance = { tier: 5 };
     assert.eq(Macros.sundriesGear(save, 'gear:lance'), null, 'nothing past Magic');
-    assert.eq(Macros.sundriesGear(save, 'gear:shield').id, 'shield_wood');
-    save.inv.push({ id: 'shield_wood', count: 1 });
+    assert.eq(Macros.sundriesGear(save, 'gear:shield').id, 'wood_shield');
+    save.inv.push({ id: 'wood_shield', count: 1 });
     const metal = Macros.sundriesGear(save, 'gear:shield');
-    assert.eq(metal.id, 'shield_metal', 'the Metal Shield over a carried Wood one');
-    assert.eq(metal.price, ShopsMath.standPrice(save, itemValue('shield_metal') * 3));
-    save.inv.push({ id: 'shield_gold', count: 1 });
+    assert.eq(metal.id, 'metal_shield', 'the Metal Shield over a carried Wood one');
+    assert.eq(metal.price, ShopsMath.standPrice(save, itemValue('metal_shield') * 3));
+    save.inv.push({ id: 'gold_shield', count: 1 });
     assert.eq(Macros.sundriesGear(save, 'gear:shield'), null, 'the Gold Shield is the finest');
     for (const line of ['dagger', 'musket']) assert.eq(Macros.sundriesGear(save, 'gear:' + line).tier, 1);
   });
@@ -452,14 +452,14 @@
     assert.eq(list.length, Macros.CURIO_COLLECTION.length, 'every listed id is a real item');
     assert.inRange(list.length, 20, 30, 'a real collection');
     assert.eq(new Set(list).size, list.length, 'no duplicates');
-    const keeps = new Set(['shell', 'crow_feather', 'rabbit_pelt', 'boot']);
+    const keeps = new Set(['shell', 'crow_feather', 'rabbit_pelt', 'old_boot']);
     for (const id of list) {
       const it = ITEM_BY_ID[id];
       assert.falsy(id in FOOD_ENERGY, `${id} is not food`);
       assert.falsy(['seed', 'sapling', 'magic', 'animal'].includes(it.kind), `${id} is no seed, sapling, potion or animal`);
       assert.truthy(['mineral', 'supply', 'unique_relic'].includes(it.kind) || keeps.has(id), `${id} is a lasting thing (${it.kind})`);
     }
-    for (const id of ['potato', 'apple', 'flowers', 'vigor_potion', 'egg', 'potato_seed', 'acorn']) {
+    for (const id of ['potato', 'apple', 'flowers', 'healing_potion', 'egg', 'potato_seed', 'acorn']) {
       assert.falsy(Macros.curioEligible(id), `${id} is not collected`);
     }
     assert.eq(Macros.CURIO_MILESTONES.join(), '5,10,15', 'the milestones');

@@ -12,16 +12,16 @@
 const app = SCENE_SRC;
 
 test('revive potions: T3 at 30%, T5 at 60%, both drunk not eaten', () => {
-  assert.eq(REVIVE_ITEM_FRAC.revive_potion, CONSUMABLE_SPEC.revive_potion.energyFrac,
+  assert.eq(REVIVE_ITEM_FRAC.revival_potion, CONSUMABLE_SPEC.revival_potion.energyFrac,
     'Revival runtime derives its 30% from the consumable owner');
   assert.eq(REVIVE_ITEM_FRAC.resurrection_potion, CONSUMABLE_SPEC.resurrection_potion.energyFrac,
     'Resurrection runtime derives its 60% from the consumable owner');
-  assert.eq(CONSUMABLE_SPEC.revive_potion.energyFrac, 0.30);
+  assert.eq(CONSUMABLE_SPEC.revival_potion.energyFrac, 0.30);
   assert.eq(CONSUMABLE_SPEC.resurrection_potion.energyFrac, 0.60);
   assert.eq(FEATHER_REVIVE_ENERGY, 1, 'the Crow Feather with a flat 1 energy');
-  assert.eq(BASE_TIER.revive_potion, 3, 'Revival is tier 3');
+  assert.eq(BASE_TIER.revival_potion, 3, 'Revival is tier 3');
   assert.eq(BASE_TIER.resurrection_potion, 5, 'Resurrection is tier 5');
-  for (const id of ['revive_potion', 'resurrection_potion']) {
+  for (const id of ['revival_potion', 'resurrection_potion']) {
     assert.eq(ITEM_BY_ID[id]?.kind, 'magic', `${id} is a consumable`);
     assert.eq(FOOD_ENERGY[id], undefined, `${id} never reaches the Eat button`);
     assert.gt(PRICES[id], 0, `${id} has a price`);
@@ -29,7 +29,7 @@ test('revive potions: T3 at 30%, T5 at 60%, both drunk not eaten', () => {
     assert.eq(CONSUMABLE_SPEC[id].method, 'drinkRevivePotion',
       `the Drink button offers ${id}`);
   }
-  assert.truthy(Shops.themedStock('potion', 3).includes('revive_potion'), 'a T3 potion shop stocks Revival');
+  assert.truthy(Shops.themedStock('potion', 3).includes('revival_potion'), 'a T3 potion shop stocks Revival');
   assert.truthy(Shops.themedStock('potion', 5).includes('resurrection_potion'), 'a T5 one stocks Resurrection');
 });
 
@@ -56,12 +56,12 @@ const drink = (id, energy, max = 120) => {
 };
 
 test('revive potions: down → up at the potion\'s share of the bar', () => {
-  const r = drink('revive_potion', 0, 120);
+  const r = drink('revival_potion', 0, 120);
   assert.eq(r.save.energy, 36, '30% of a 120 bar');
   assert.eq(r.popped[0], 36, 'and the gain pops on the player');
   assert.eq(r.save.inv[0].count, 0, 'the flask is used up');
   assert.eq(drink('resurrection_potion', 0, 120).save.energy, 72, 'Resurrection: 60%');
-  assert.eq(drink('revive_potion', 0, 89).save.energy, 27, 'rounded like every revive (26.7 → 27)');
+  assert.eq(drink('revival_potion', 0, 89).save.energy, 27, 'rounded like every revive (26.7 → 27)');
   assert.eq(drink('crow_feather', 0, 120).out, false, 'the feather is eaten, never drunk');
 });
 

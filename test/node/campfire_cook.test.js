@@ -137,7 +137,7 @@ test('campfire: two potions TRANSMUTE through fixed recipes; the rest EXPLODE', 
     assert.truthy(isPotion(from) && isPotion(to), `${from} → ${to} are both potions`);
     assert.eq(fireBurnOutcome(from).transmute, to);
   }
-  assert.eq(POTION_FIRE_TRANSMUTE.revive_potion, 'vigor_potion');
+  assert.eq(POTION_FIRE_TRANSMUTE.revival_potion, 'healing_potion');
   assert.eq(POTION_FIRE_TRANSMUTE.speed_potion, 'reach_potion');
   assert.eq(Object.keys(POTION_FIRE_TRANSMUTE).length, 2, 'a couple, not all');
   const potions = ITEMS.filter(i => isPotion(i.id)).map(i => i.id);
@@ -148,7 +148,7 @@ test('campfire: two potions TRANSMUTE through fixed recipes; the rest EXPLODE', 
       `${id} explodes for its tier's blast`);
   }
   assert.eq(JSON.stringify(fireBurnOutcome('potato')), '{}', 'not a potion: plain ash');
-  assert.truthy(isPotion('honey'), 'the legacy honey id is Potion of Taming');
+  assert.truthy(isPotion('taming_potion'), 'the legacy honey id is Potion of Taming');
 });
 
 test('campfire: a potion blast is a blow on the body — armour soaks it', () => {
@@ -157,17 +157,17 @@ test('campfire: a potion blast is a blow on the body — armour soaks it', () =>
   assert.truthy(/Combat\.playerDamage\(rawDmg, this\.save\.armor\)/.test(src), 'armour soaks the blast');
   assert.truthy(/Combat\.playerDowned\(before\)/.test(src), 'nothing off an empty bar');
   assert.truthy(/_flashPlayerHit\(/.test(src) && /_popEnergy\(-lost\)/.test(src), 'flinch + −N⚡ pop');
-  const worn = { chest: { tier: 7 }, helmet: { tier: 7 } };
+  const worn = { chestplate: { tier: 7 }, helmet: { tier: 7 } };
   const raw = fireBurnOutcome('resurrection_potion').blastDmg;
   assert.truthy(Combat.playerDamage(raw, worn) < raw, 'heavy armour takes the edge off');
 });
 
 test('flint: the coal item is called Flint everywhere the player reads it', () => {
-  assert.eq(ITEM_BY_ID.coal.name, 'Flint', 'id kept (saves carry it), name changed');
-  assert.falsy(/\bcoal\b/i.test(ITEM_EFFECTS.coal), 'no "coal" in its ✦ line');
+  assert.eq(ITEM_BY_ID.flint_shard.name, 'Flint', 'id kept (saves carry it), name changed');
+  assert.falsy(/\bcoal\b/i.test(ITEM_EFFECTS.flint_shard), 'no "flint_shard" in its ✦ line');
   const quoted = SCENE_SRC.match(/(['`])[^'`\n]*\bcoal\b[^'`\n]*\1/gi) || [];
   const shown = quoted.filter(q => !/^['`](coal|coal_icon)['`]$/.test(q) && !/assets\//.test(q));
-  assert.eq(shown.length, 0, 'no player-facing "coal" string in app.js: ' + shown.join(' | '));
+  assert.eq(shown.length, 0, 'no player-facing "flint_shard" string in app.js: ' + shown.join(' | '));
 });
 
 test('every src/*.js module PARSES (a stray brace once shipped app.js dead)', () => {

@@ -12,7 +12,7 @@
 (function () {
 const SL = SpriteLayout;
 // The two mature frames the renderer draws — apple 4, peach 3.
-const MATURE = [['apple_tree', 4], ['peach_tree', 3]];
+const MATURE = [['apple_tree', 4], ['worldpeach_tree', 3]];
 // How a wild fruit tree is drawn (RENDER_SPEC.fruittree): origin, scale, and
 // the 1.10 Y stretch. Mirrors the sprite_audit scenario of the same name.
 const ORIGIN_Y = 0.95, TREE_SCALE = 0.85, SCALE_Y_MUL = 1.10;

@@ -298,7 +298,7 @@ test('cash: the quantity brackets fatten the purse rather than going to waste', 
 });
 
 test('bundle: wood and rock chest rewards still pay a pile', () => {
-  assert.eq(BUNDLE_IDS.join(','), 'wood,rockfruit', 'wood and stone');
+  assert.eq(BUNDLE_IDS.join(','), 'wood,rubble', 'wood and stone');
   let seen = 0;
   for (let i = 0; i < 4000 && seen < 80; i++) {
     const r = pickReward('chest:lowtier', SAVE(), seeded(i + 1), { tier: 1 });

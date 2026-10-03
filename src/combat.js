@@ -250,7 +250,7 @@
     if (playerDowned(save?.energy) || Conditions.damageImmune(save, now)) return 0;
     let mul = 1;
     if ((save.protectionPotionUntil ?? 0) > now) mul = CONSUMABLE_SPEC.protection_potion.damageMul;
-    if ((save.shieldPotionUntil ?? 0) > now) mul = Math.min(mul, CONSUMABLE_SPEC.shield_potion.damageMul);
+    if ((save.shieldPotionUntil ?? 0) > now) mul = Math.min(mul, CONSUMABLE_SPEC.shielding_potion.damageMul);
     const shielded = mul < 1 ? Math.ceil(damage * mul) : damage;
     return playerDamage(shielded, save.armor, hits, save.mode);
   }

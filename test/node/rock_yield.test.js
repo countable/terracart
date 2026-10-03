@@ -13,10 +13,10 @@ const PLAIN_ROCK_ROW = 15, MINERALROCK_COLS = 11;
 // the variant (a hash of the id for a surface rock, caveVariant for a cave one).
 function mineOnce(o) {
   const scene = makeScene();
-  const save = { relics: { pick: { tier: 7 } } };
+  const save = { relics: { pickaxe: { tier: 7 } } };
   const res = runInteractable(makeCtx(scene, save), o);
   assert.eq(res, true, 'tap consumed');
-  return scene.invCount('rockfruit');
+  return scene.invCount('rubble');
 }
 
 // A surface plain rock whose ID hashes to variant `v`: walk candidate ids
@@ -130,7 +130,7 @@ test('ore tiers: one table owns the frame, dropped bar and item tier', () => {
     assert.eq(ITEM_BY_ID[row.barId].baseTier, tier, `T${tier}: catalog item inherits its row`);
 
     const scene = makeScene();
-    const save = { relics: { pick: { tier: 7 } } };
+    const save = { relics: { pickaxe: { tier: 7 } } };
     runInteractable(makeCtx(scene, save), {
       kind: 'mineralrock', id: `ore-table-${tier}`, x: 0, y: 0, yieldTier: tier,
     });
@@ -151,8 +151,8 @@ test('cave wall dig: always one stone, flint on 30%', () => {
   for (let i = 0; i < N; i++) {
     const scene = makeScene();
     assert.eq(caveWallDrop(scene), 1, 'one stone');
-    assert.eq(scene.invCount('rockfruit'), 1, 'and one in the bag');
-    flint += scene.invCount('coal');
+    assert.eq(scene.invCount('rubble'), 1, 'and one in the bag');
+    flint += scene.invCount('flint_shard');
   }
   assert.inRange(flint / N, 0.26, 0.34, 'flint on about 30% of digs');
   assert.truthy(/const qty = caveWallDrop\(scene\);/.test(INTERACT_SRC), 'the tapped dig pays it');
@@ -165,7 +165,7 @@ test('plain rock: flint on 10% of breaks', () => {
   for (let i = 0; i < N; i++) {
     const scene = makeScene();
     plainRockBaseDrop(scene, 1);
-    flint += scene.invCount('coal');
+    flint += scene.invCount('flint_shard');
   }
   assert.inRange(flint / N, 0.075, 0.125, 'flint on about 10% of rocks');
 });
@@ -176,13 +176,13 @@ test('plain rock: the loot toast reports the real stone count', () => {
   for (let i = 0; i < 200; i++) {
     let flashed = null;
     const scene = makeScene({ flashLoot: (msg, _c, _n, id) => { flashed = { msg, id }; } });
-    const save = { relics: { pick: { tier: 7 } } };
+    const save = { relics: { pickaxe: { tier: 7 } } };
     runInteractable(makeCtx(scene, save), surfaceRock(0, `toast${i}`));
     assert.truthy(flashed, 'a loot toast fired');
-    if (flashed.id !== 'rockfruit') continue;   // a cracked-open bar upstages the stones
+    if (flashed.id !== 'rubble') continue;   // a cracked-open bar upstages the stones
     const m = /^\+(\d+)/.exec(flashed.msg);
     assert.truthy(m, `toast leads with a count: ${flashed.msg}`);
-    assert.eq(Number(m[1]), scene.invCount('rockfruit'),
+    assert.eq(Number(m[1]), scene.invCount('rubble'),
       `toast "${flashed.msg}" matches the rockfruit actually awarded`);
   }
 });
@@ -227,7 +227,7 @@ test('plain rock: steeper bar rarity keeps copper and makes Frost three times ra
         return calls === tier ? plainRockBarChance(tier) + (win ? -1e-10 : 1e-10) : 0.99;
       };
       const scene = makeScene();
-      const save = { relics: { pick: { tier: 7 } } };
+      const save = { relics: { pickaxe: { tier: 7 } } };
       INTERACTABLES.mineralrock.complete(makeCtx(scene, save), { kind: 'mineralrock', id: 'bonus-boundary', yieldTier: 1 });
       assert.eq(scene.invCount(bars[tier]), win ? 1 : 0, `tier ${tier} threshold`);
       for (let other = 2; other <= 7; other++) if (other !== tier) assert.eq(scene.invCount(bars[other]), 0);
@@ -235,7 +235,7 @@ test('plain rock: steeper bar rarity keeps copper and makes Frost three times ra
     Math.random = () => 0.99;
     for (let tier = 2; tier <= 7; tier++) {
       const scene = makeScene();
-      const save = { relics: { pick: { tier: 7 } } };
+      const save = { relics: { pickaxe: { tier: 7 } } };
       INTERACTABLES.mineralrock.complete(makeCtx(scene, save), { kind: 'mineralrock', id: `ore-${tier}`, yieldTier: tier });
       assert.eq(scene.invCount(bars[tier]), 1, 'named ore still guarantees its primary bar');
     }

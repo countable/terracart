@@ -309,7 +309,7 @@ class SceneCreate {
     // The horse's right-facing idle (frame 8) and the turtle's top-down down
     // pose (frame 6) — the same sheets the world draws.
     window.ITEM_DATA_URLS.horse     = bakeSheetFrame('horse',     8, 32, 32);
-    window.ITEM_DATA_URLS.turtle    = bakeSheetFrame('turtle',    6, 16, 16);
+    window.ITEM_DATA_URLS.sea_turtle    = bakeSheetFrame('sea_turtle',    6, 16, 16);
     // Wilderness drops that share their world sprite. Source sheet
     // + frame come from CROP_SPRITE.mushroom so the inventory icon stays
     // glued to whatever the world renderer is drawing.

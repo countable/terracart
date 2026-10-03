@@ -83,7 +83,7 @@
     },
     "rubble": {
       "kind": "wildplant",
-      "crop": "rockfruit",
+      "crop": "rubble",
       "spawnClass": "minor",
       "color": "#858d9c"
     },

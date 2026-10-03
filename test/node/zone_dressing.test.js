@@ -58,7 +58,7 @@
       assert.eq(ZoneVariants.sample(row,x,y,'checkerboard') != null,(x+y)%2===0,'alternating occupied and empty cells');
     const pots=background.filter(o=>o.kind==='chest' && o.barrelStyle==='clay_pot');
     assert.inRange(pots.length/background.length,.85,.95,'pots dominate the actual layout');
-    assert.truthy(background.every(o=>o.barrelStyle==='clay_pot' || o.crop==='rockfruit'));
+    assert.truthy(background.every(o=>o.barrelStyle==='clay_pot' || o.crop==='rubble'));
     assert.falsy(out.objects.some(o=>o.kind==='zone_prop'),'no decorative columns remain');
     assert.eq(out.objects.filter(o=>o.zoneLayer==='poi' && o.barrelStyle==='clay_pot').length,4);
     assert.eq(out.guards.length,1);assert.eq(out.guards[0].kind,'club_goblin');
@@ -363,7 +363,7 @@
     const timber = out.objects.filter(o => o.kind === 'tree');
     assert.gt(fruit.length, 200, 'denser than the former four-percent fruit grid');
     assert.gt(timber.length, 200);
-    assert.gt(fruit.filter(o => o.species === 'peach').length, 0, 'one orchard can contain Worldpeach trees');
+    assert.gt(fruit.filter(o => o.species === 'worldpeach').length, 0, 'one orchard can contain Worldpeach trees');
     assert.truthy(fruit.every(o => o.species === WorldGen.fruitTreeSpecies(WorldGen.cellHash(0, 0, o._ix, o._iy))), 'each fruit tree rolls by its cell');
     assert.truthy(timber.every(o => o.species === 'maple' && o.size === 'medium' && treeSizeClass(o) === 'medium'));
     assert.eq(out.wildplants.length, 6, 'three gemfruit and three berry finds');
@@ -435,11 +435,11 @@
     assert.eq(edge[1]._plantArt, 'zone_hedge_single', 'the next row remains an isolated shrub');
   });
   test('zone art: contextual stones and formal hedges keep their harvest identity', () => {
-    const masonry = ZoneDressing.dress(context('broken_masonry')).wildplants.filter(o => o.crop === 'rockfruit');
+    const masonry = ZoneDressing.dress(context('broken_masonry')).wildplants.filter(o => o.crop === 'rubble');
     assert.gt(masonry.length, 0);
     const zones = ['stone_garden', 'broken_masonry', 'flint_field', 'broken_depot', 'seep', 'work_yard', 'black_ring', 'pirate_cove'];
     for (const [index, zone] of zones.entries()) {
-      const rocks = ZoneDressing.dress(context(zone)).wildplants.filter(o => o.crop === 'rockfruit');
+      const rocks = ZoneDressing.dress(context(zone)).wildplants.filter(o => o.crop === 'rubble');
       assert.gt(rocks.length, 0, `${zone}: actual rubble placements`);
       for (const rock of rocks) {
         assert.eq(rock._plantArt, `zone_rock_${zone}`);
@@ -448,11 +448,11 @@
         assert.eq(rock.id, WorldGen.cellId(rock.zoneLayer === 'background' ? 'wpf' : 'wz', 0, 0, rock._ix, rock._iy), 'art preserves the saved harvest identity');
       }
     }
-    assert.eq(wildplantSprite({crop:'rockfruit',stage:MAX_GROWTH_STAGE}), CROP_SPRITE.rockfruit, 'planted rocks keep their ordinary crop art');
+    assert.eq(wildplantSprite({crop:'rubble',stage:MAX_GROWTH_STAGE}), CROP_SPRITE.rubble, 'planted rocks keep their ordinary crop art');
     assert.eq(wildplantSprite({crop:'shrub',_plantArt:'zone_rock_stone_garden'}).sheet, 'bushes', 'rock context cannot replace another crop');
-    assert.eq(wildplantSprite({crop:'rockfruit',_plantArt:'masonry'})?.sheet, undefined, 'legacy masonry tags use ordinary loose stones');
-    assert.eq(wildplantSprite({crop:'rockfruit'})?.sheet, undefined, 'ordinary stone keeps the crop sheet despite its placement-specific looks');
-    assert.eq(inventoryIconSource('rockfruit').sheet, 'crops', 'harvest remains the same inventory item');
+    assert.eq(wildplantSprite({crop:'rubble',_plantArt:'masonry'})?.sheet, undefined, 'legacy masonry tags use ordinary loose stones');
+    assert.eq(wildplantSprite({crop:'rubble'})?.sheet, undefined, 'ordinary stone keeps the crop sheet despite its placement-specific looks');
+    assert.eq(inventoryIconSource('rubble').sheet, 'crops', 'harvest remains the same inventory item');
     for (const o of masonry) assert.eq(o.id, WorldGen.cellId(o.zoneLayer === 'background' ? 'wpf' : 'wz', 0, 0, o._ix, o._iy));
     const hedges = ZoneDressing.dress(context('formal_garden')).wildplants.filter(o => o.crop === 'shrub');
     assert.gt(hedges.length, 0);
@@ -623,11 +623,11 @@
     const out = ZoneDressing.dress(context('flint_field'));
     const poi = out.wildplants.filter(o => o.zoneLayer === 'poi');
     assert.eq(poi.filter(o => o.crop === 'flint').length, 12);
-    assert.eq(poi.filter(o => o.crop === 'rockfruit').length, 16);
+    assert.eq(poi.filter(o => o.crop === 'rubble').length, 16);
     for (const o of out.wildplants) {
       const d2 = (o._ix - 32) ** 2 + (o._iy - 32) ** 2;
       if (o.crop === 'flint') assert.lte(d2, 4, 'flint stays in the circle');
-      if (o.zoneLayer === 'background') assert.eq(o.crop, 'rockfruit');
+      if (o.zoneLayer === 'background') assert.eq(o.crop, 'rubble');
     }
   });
   test('zone dressing: different tile-row grids sample the same anchor phase across their seam', () => {

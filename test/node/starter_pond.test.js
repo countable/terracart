@@ -329,7 +329,7 @@
     const type = at(entry, c.cx, c.cy);
     assert.eq(type, TERRAIN.WATER, 'the pond cell is the terrain code the rod handler keys off');
     const tap = makeScene();
-    const save = { relics: { rod: { tier: 1 } }, inv: [], selSlot: 0 };
+    const save = { relics: { fishing_rod: { tier: 1 } }, inv: [], selSlot: 0 };
     const ctx = Object.assign(makeCtx(tap, save), { cell: { type }, sx: 0, sy: 0, cwmx: 0, cwmy: 0 });
     const h = TAP_HANDLERS.find(hh => hh.name === 'fishing');
     assert.eq(h.try(ctx), true, 'a cast is made on the pond');

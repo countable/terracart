@@ -60,9 +60,9 @@ TRADE = [
 
 BADGES = {
     # id: (pack cell (col, row), emblem)
-    "guild_blacksmith": ((33, 20), HAMMER),  # red crest
-    "guild_market": ((34, 19), COIN),        # green crest
-    "guild_trader": ((34, 20), TRADE),      # blue crest
+    "smiths_guild_badge": ((33, 20), HAMMER),  # red crest
+    "marketeers_guild_badge": ((34, 19), COIN),        # green crest
+    "traders_guild_badge": ((34, 20), TRADE),      # blue crest
 }
 
 

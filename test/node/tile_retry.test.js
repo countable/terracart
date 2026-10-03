@@ -137,7 +137,7 @@
 
 // ── WHICH failure was it, and who hears about it ──────────────────────────
 //
-// "We keep hitting 'can't reach the map'" — on a map that was loading fine.
+// "We keep hitting 'watering_can't reach the map'" — on a map that was loading fine.
 // Three separate reasons, and the banner used to fire for all of them:
 //   • a tile held back by WorldGen's own per-tile backoff (not a new failure);
 //   • a tile the host ANSWERED for, with a 4xx (nothing to retry, and nothing

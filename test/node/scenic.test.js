@@ -385,7 +385,7 @@ test('scenic: the scope opens its menu on every visit and gives one backpack', (
     tap(a);
     assert.eq(menus.length, 4, 'the next day still opens the menu');
     assert.eq(rolls.length, 0);
-    assert.eq(S.firstVistaPrize({ relics: { bags: { tier: 3 } } }).tier, 4, 'the relic is a tier over what you wear');
+    assert.eq(S.firstVistaPrize({ relics: { bag: { tier: 3 } } }).tier, 4, 'the relic is a tier over what you wear');
     assert.eq(S.firstVistaPrize({ vistaRelic: 1 }), null, 'once per save');
   } finally {
     Date.now = realNow;

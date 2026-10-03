@@ -1709,7 +1709,7 @@ CONSUMABLES
  - POTION OF TAMING: select it and tap Use — sets out a jar that lures wandering farm
    animals (chickens / cows) within ~6 cells (30m) toward you (the modal
    reports how many respond). Consumed on use — the animals eat it. (Was the
-   Flute until Sep 2026, then Honey; the save id stays `honey`.)
+   Flute until Sep 2026, then Honey; the save id stays `taming_potion`.)
  - BOOK: read on pickup (it never sits in the bag). Each Book is the next page
    of PLAY_TIPS, front to back in curriculum order (save.tipsRead); once the
    course is done, ~50% a random tip, ~50% a directional hint to the nearest

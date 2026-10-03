@@ -90,7 +90,7 @@ other renders as the **wrong sprite, not an error**.
 ## 4. Item id vs display name vs sheet (data integrity)
 
 - [ ] **Item id is stable for save-compat; display name can change freely.**
-      *(id `longgrass` shows "Fern"; `rockfruit` shows "Rock".)* A raw internal
+      *(id `longgrass` shows "Fern"; `rubble` shows "Rock".)* A raw internal
       id must never reach the screen — toasts and flashes print the name.
 - [ ] **Don't hand out a removed item id.** Crates/loot/shops referencing a
       retired id give nothing or crash.

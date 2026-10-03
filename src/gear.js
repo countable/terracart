@@ -251,7 +251,7 @@
     const out = [];
     for (const slot of Object.keys(RELIC_DEFS)) {
       const tier = gearTier(save, 'relic', slot);
-      if (tier > 0 && slot !== 'bags') out.push({ kind: 'relic', slot, tier });
+      if (tier > 0 && slot !== 'bag') out.push({ kind: 'relic', slot, tier });
     }
     for (const slot of Object.keys(ARMOR_DEFS)) {
       const tier = gearTier(save, 'armor', slot);

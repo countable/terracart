@@ -526,13 +526,13 @@
   // What this is NOT: an `attracts` pull — that moves a tile's existing
   // spawns of a species onto favourite ground; these species have no spawns
   // anywhere else to move.
-  const SHORE_FAUNA_ORDER = ['crab', 'gull', 'metal_slime', 'turtle'];
+  const SHORE_FAUNA_ORDER = ['crab', 'gull', 'metal_slime', 'sea_turtle'];
   const SHORE_FAUNA = {
     metal_slime: { perShoreM: 300, max: 2, pier: true, salt: 'shorefauna|metal_slime' },
     crab: { perShoreM: 35, max: 14, pier: false, salt: 'shorefauna|crab' },
     gull: { perShoreM: 90, max: 6,  pier: true,  salt: 'shorefauna|gull' },
     // The sea turtle: the rabbit's habits on the sand, fewer than the crabs.
-    turtle: { perShoreM: 70, max: 8, pier: false, salt: 'shorefauna|turtle' },
+    sea_turtle: { perShoreM: 70, max: 8, pier: false, salt: 'shorefauna|turtle' },
   };
 
   // The FAUNA ATTRACTOR column for GROUND (terrain code → { species: p }):

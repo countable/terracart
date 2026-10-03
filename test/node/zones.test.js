@@ -668,8 +668,8 @@ test('tar yard: no garrison — no fire slimes at a fuel station, and the copy p
 });
 
 test('flint: a ground pickup that hands over the Flint item, its frames listed', () => {
-  assert.eq(wildplantOutput('flint'), 'coal');
-  assert.eq(ITEM_BY_ID.coal.name, 'Flint');
+  assert.eq(wildplantOutput('flint'), 'flint_shard');
+  assert.eq(ITEM_BY_ID.flint_shard.name, 'Flint');
   assert.eq(wildplantWorkRelic('flint'), null, 'picked instantly');
   assert.truthy(Array.isArray(CROP_SPRITE.flint.frames), 'frames listed, never counted');
 });

@@ -24,8 +24,8 @@
   // Fixed supply-crate payloads, shared with the item catalogue.
   const STARTER_LOOT = [
     { id: 'potato_seed',    qty: 9 },
-    { id: 'rockfruit_seed', qty: 9 },
-    { id: 'rockfruit',      qty: 9 },
+    { id: 'rubble_seed', qty: 9 },
+    { id: 'rubble',      qty: 9 },
     { id: 'wood',           qty: 9 },
   ];
 
@@ -1845,7 +1845,7 @@
     // starter trail's note): the land the spawn gate refuses, not its buffers.
     const opts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
     // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): NOT the seat
-    // test (that's `pick`'s primary pass below, THE SPAWN GATE via
+    // test (that's `pickaxe`'s primary pass below, THE SPAWN GATE via
     // isSpawnCell(..., opts, 'minor')). This is the "always" greeter's
     // fallback ONLY — a mode that promises a seat on every save must still
     // never stand an animal in the carriageway, but is allowed to ignore

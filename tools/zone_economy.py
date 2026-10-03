@@ -27,7 +27,7 @@ vm.runInContext(items.match(/const PRICES = [^]*?^};/m)[0]+'\n'+
  const probabilities=bars.map((_,i)=>plainRockBarChance(i+2));
  const stone=[0,7].map(sword=>{
    const price=id=>trailerSellPrice(PRICES[id]??1,{sword:{tier:sword}});
-   return price('rockfruit')+PLAIN_ROCK_FLINT_P*price('coal')+
+   return price('rubble')+PLAIN_ROCK_FLINT_P*price('flint_shard')+
      bars.reduce((sum,id,i)=>sum+price(id)*probabilities[i],0);
  });
  const crystal=[0,7].map(sword=>CRYSTAL_DEPOSIT.quantity*trailerSellPrice(PRICES[CRYSTAL_DEPOSIT.item],{sword:{tier:sword}}));

@@ -3,10 +3,10 @@
 
 test('stackCap: 9 with no bag, 249 at tier 7, monotonic between', () => {
   assert.eq(Inventory.stackCap({ relics: {} }), 9, 'no bag = 9');
-  assert.eq(Inventory.stackCap({ relics: { bags: { tier: 7 } } }), 249, 'tier 7 = 249');
+  assert.eq(Inventory.stackCap({ relics: { bag: { tier: 7 } } }), 249, 'tier 7 = 249');
   let prev = -1;
   for (let t = 0; t <= 7; t++) {
-    const c = Inventory.stackCap({ relics: { bags: { tier: t } } });
+    const c = Inventory.stackCap({ relics: { bag: { tier: t } } });
     assert.gt(c, prev, `tier ${t} cap rises`);
     prev = c;
   }
@@ -14,7 +14,7 @@ test('stackCap: 9 with no bag, 249 at tier 7, monotonic between', () => {
 
 test('stackCap: the bag ladder is geometric, not linear', () => {
   const caps = [];
-  for (let t = 0; t <= 7; t++) caps.push(Inventory.stackCap({ relics: { bags: { tier: t } } }));
+  for (let t = 0; t <= 7; t++) caps.push(Inventory.stackCap({ relics: { bag: { tier: t } } }));
   assert.eq(caps.join(','), '9,15,25,40,60,99,149,249', 'bag caps by tier');
 });
 
@@ -38,7 +38,7 @@ test('add: caps at the bag limit and reports the overflow', () => {
 });
 
 test('add: tops up the existing stack (no second stack, no overflow)', () => {
-  const save = { inv: [], relics: { bags: { tier: 7 } } };   // cap 249
+  const save = { inv: [], relics: { bag: { tier: 7 } } };   // cap 249
   Inventory.add(save, 'wood', 5);
   const r = Inventory.add(save, 'wood', 3);
   assert.eq(r.isNewStack, false, 'reused the stack');
@@ -47,7 +47,7 @@ test('add: tops up the existing stack (no second stack, no overflow)', () => {
 });
 
 test('add: folds legacy duplicate stacks into one canonical stack', () => {
-  const save = { inv: [{ id: 'wood', count: 2 }, { id: 'wood', count: 3 }], relics: { bags: { tier: 7 } } };
+  const save = { inv: [{ id: 'wood', count: 2 }, { id: 'wood', count: 3 }], relics: { bag: { tier: 7 } } };
   Inventory.add(save, 'wood', 1);
   const woodStacks = save.inv.filter((s) => s.id === 'wood');
   assert.eq(woodStacks.length, 1, 'duplicates folded to one');
@@ -56,7 +56,7 @@ test('add: folds legacy duplicate stacks into one canonical stack', () => {
 
 test('add: a new stack never selects itself — empty hands stay empty', () => {
   const save = { inv: [{ id: 'wood', count: 1 }], relics: {}, selSlot: -1, invPage: 0 };
-  for (const id of ['rockfruit', 'coal', 'apple', 'potato', 'gold_bar']) Inventory.add(save, id, 1);
+  for (const id of ['rubble', 'flint_shard', 'apple', 'potato', 'gold_bar']) Inventory.add(save, id, 1);
   assert.eq(save.selSlot, -1, 'nothing in hand after five new pickups');
   assert.eq(save.invPage, 0, 'page untouched');
   // The legacy opt-in must be inert too — the option no longer exists.
@@ -66,13 +66,13 @@ test('add: a new stack never selects itself — empty hands stay empty', () => {
 
 test('add: a new stack never displaces what the player is holding', () => {
   const save = { inv: [{ id: 'potato_seed', count: 3 }], relics: {}, selSlot: 0, invPage: 0 };
-  Inventory.add(save, 'coal', 1);
+  Inventory.add(save, 'flint_shard', 1);
   assert.eq(save.selSlot, 0, 'seeds still in hand after picking up coal');
   assert.eq(save.inv[save.selSlot].id, 'potato_seed', 'and it is the same stack');
 });
 
 test('add: topping up an existing stack never moves the selection', () => {
-  const save = { inv: [{ id: 'wood', count: 1 }, { id: 'coal', count: 1 }], relics: {}, selSlot: 1, invPage: 0 };
+  const save = { inv: [{ id: 'wood', count: 1 }, { id: 'flint_shard', count: 1 }], relics: {}, selSlot: 1, invPage: 0 };
   Inventory.add(save, 'wood', 1);   // existing stack → keep selection
   assert.eq(save.selSlot, 1, 'harvest→replant loop keeps its selection');
 });
@@ -97,11 +97,11 @@ test('no item is cap-exempt: the old Discovery badge left the bag', () => {
 });
 
 test('remove: deducts across stacks, splices empties, reports the shortfall', () => {
-  const save = { inv: [{ id: 'wood', count: 2 }, { id: 'coal', count: 6 }], relics: {} };
-  assert.eq(Inventory.remove(save, 'coal', 5), 5, 'removed the full ask');
-  assert.eq(Inventory.count(save, 'coal'), 1, '6 - 5 left');
-  assert.eq(Inventory.remove(save, 'coal', 5), 1, 'short stack → partial removal reported');
-  assert.eq(save.inv.find((s) => s.id === 'coal'), undefined, 'emptied stack spliced out');
+  const save = { inv: [{ id: 'wood', count: 2 }, { id: 'flint_shard', count: 6 }], relics: {} };
+  assert.eq(Inventory.remove(save, 'flint_shard', 5), 5, 'removed the full ask');
+  assert.eq(Inventory.count(save, 'flint_shard'), 1, '6 - 5 left');
+  assert.eq(Inventory.remove(save, 'flint_shard', 5), 1, 'short stack → partial removal reported');
+  assert.eq(save.inv.find((s) => s.id === 'flint_shard'), undefined, 'emptied stack spliced out');
   assert.eq(Inventory.count(save, 'wood'), 2, 'other stacks untouched');
   assert.eq(Inventory.remove(save, 'wood', 0), 0, 'n<=0 is a no-op');
 });
@@ -116,8 +116,8 @@ test('roomFor: cap minus held, floored at 0', () => {
 });
 
 test('tabs: Rock files under Ores beside Wood, though it stays produce', () => {
-  assert.eq(invCatForItem('rockfruit'), 'ores', 'rock is in the Ores tab');
+  assert.eq(invCatForItem('rubble'), 'ores', 'rock is in the Ores tab');
   assert.eq(invCatForItem('wood'), 'ores', 'wood is in the Ores tab');
-  assert.eq(ITEM_BY_ID.rockfruit.kind, 'produce', 'rock keeps its kind (price, loot, eat)');
+  assert.eq(ITEM_BY_ID.rubble.kind, 'produce', 'rock keeps its kind (price, loot, eat)');
   assert.eq(invCatForItem('egg'), 'produce', 'other produce is unmoved');
 });

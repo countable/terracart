@@ -121,7 +121,7 @@ test('diamond: the T7 staff recipe is cut around diamonds — the ramp and the b
     }
   }
   // Tools never ask for a gem.
-  const pick = Gear.blacksmithRecipe('relic', 'pick', 7);
+  const pick = Gear.blacksmithRecipe('relic', 'pickaxe', 7);
   assert.eq(JSON.stringify(pick), JSON.stringify([{ id: 'frost_bar', qty: 7 }]), 'a T7 pick is bars only');
 });
 

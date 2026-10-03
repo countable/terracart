@@ -38,7 +38,7 @@ test('orb reveals only visible unspent secret bushes and rocks without consuming
   assert.eq(scene.save.inv[0].count, 1);
   scene.save.inv[0].count = 0;
   assert.eq(use.call(scene), false, 'empty stack cannot reveal');
-  scene.save.inv[0] = { id: 'telescope', count: 1 };
+  scene.save.inv[0] = { id: 'field_scope', count: 1 };
   assert.eq(use.call(scene), false, 'must select the orb');
 });
 test('orb follows the peek camera when deciding which secrets are onscreen', () => {
