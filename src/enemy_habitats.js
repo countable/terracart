@@ -45,12 +45,18 @@
   // One encounter roll per ~84 m square at the usual 7 m cell size.
   // Most are solitary; 25% are pairs and 10% are trios. No per-kind budget.
   const SURFACE_ENCOUNTERS = { blockCells: 12, chance: .6, pairAt: .65, trioAt: .9, tries: 12 };
-  function unit(key) {
-    // Avalanche FNV: nearby spatial keys must not form long same-theme runs.
-    let h = root.EnemySpawns.hash(key);
-    h = Math.imul(h ^ h >>> 16, 0x7feb352d);
-    h = Math.imul(h ^ h >>> 15, 0x846ca68b);
-    return ((h ^ h >>> 16) >>> 0) / 4294967296;
+  // Avalanche FNV (util.js avalanche32 over fnv1a): nearby spatial keys
+  // must not form long same-theme runs.
+  function unit(key) { return u01(avalanche32(root.EnemySpawns.hash(key))); }
+  // One creature on one cell: claims the cell, seats the creature at the
+  // cell's centre and stamps `extra` (a function of the seat's world point,
+  // or a plain record) — what every seater below does.
+  function seatCreature(entry, tx, ty, cx, cy, kind, id, extra, occupied) {
+    const N = entry.cellsPerEdge, cellM = entry.tileEdgeM / N;
+    const x = tx * entry.tileEdgeM + (cx + .5) * cellM;
+    const y = ty * entry.tileEdgeM + (cy + .5) * cellM;
+    occupied.add(cy * N + cx);
+    return root.WorldGen.makeCreature(kind, x, y, id, typeof extra === 'function' ? extra(x, y) : extra);
   }
   function caveAt(entry, tx, ty, cx, cy, depth) {
     const N = entry.cellsPerEdge, gx = tx * EXT + (cx + .5) * EXT / N, gy = ty * EXT + (cy + .5) * EXT / N;
@@ -83,12 +89,12 @@
   }
   function surfaceEncounters(entry, tx, ty, occupied) {
     const WG = root.WorldGen, N = entry.cellsPerEdge, grid = entry.baseGrid || entry.grid;
-    const cellM = entry.tileEdgeM / N, out = [], cfg = SURFACE_ENCOUNTERS;
+    const out = [], cfg = SURFACE_ENCOUNTERS;
     const opts = { ...entry._spawnOpts, roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
       roadClass: entry.roadClass, occupied };
     if (!entry.zone?.coverage) return out;
     for (let by = 0; by < N; by += cfg.blockCells) for (let bx = 0; bx < N; bx += cfg.blockCells) {
-      const id = `zone_encounter_${tx}_${ty}_${bx}_${by}`;
+      const id = WG.cellId('zone_encounter', tx, ty, bx, by);
       if (unit(id + ':present') >= cfg.chance) continue;
       const size = unit(id + ':size'), count = size >= cfg.trioAt ? 3 : size >= cfg.pairAt ? 2 : 1;
       let anchor = null;
@@ -113,16 +119,13 @@
           const kind = kinds[Math.floor(unit(`${id}:${n}:kind`) * kinds.length)];
           const cls = root.creatureSpawnClass(kind);
           if (!WG.isSpawnCell(grid, N, N, cx, cy, opts, cls)) continue;
-          const x = tx * entry.tileEdgeM + (cx + .5) * cellM;
-          const y = ty * entry.tileEdgeM + (cy + .5) * cellM;
-          occupied.add(cy * N + cx);
           anchor ||= { cx, cy, slot };
-          out.push(WG.makeCreature(kind, x, y, `${id}_${n}`, {
+          out.push(seatCreature(entry, tx, ty, cx, cy, kind, `${id}_${n}`, (x, y) => ({
             habitat: theme, zoneVariant: theme, shiny: false,
             ...(emergesFromGround(kind, theme)
               ? { emergeFromGround: true, _burrowed: true } : {}),
             _surfaceSpawn: { x, y, tx, ty, cx, cy },
-          }));
+          }), occupied));
           break;
         }
         if (!anchor) break;
@@ -143,53 +146,46 @@
     if (!marks) return null;
     const radius = Math.min(12, Math.ceil(Math.max(cand.halfW || 0, cand.halfH || 0) / cellM) + 3);
     let nearest = null;
-    for (let y = Math.max(0, cy - radius); y <= Math.min(N - 1, cy + radius); y++) {
-      for (let x = Math.max(0, cx - radius); x <= Math.min(N - 1, cx + radius); x++) {
-        const row = root.StreetVariants?.variantByCode(marks[y * N + x]);
-        if (!row || !BUILDING_FAMILIES[row.id]) continue;
-        const distance = (x - cx) ** 2 + (y - cy) ** 2;
-        if (!nearest || distance < nearest.distance) nearest = { distance, kinds: BUILDING_FAMILIES[row.id] };
-      }
-    }
+    root.WorldGen.boxCells(N, N, cx, cy, radius, (x, y, i) => {
+      const row = root.StreetVariants?.variantByCode(marks[i]);
+      if (!row || !BUILDING_FAMILIES[row.id]) return;
+      const distance = (x - cx) ** 2 + (y - cy) ** 2;
+      if (!nearest || distance < nearest.distance) nearest = { distance, kinds: BUILDING_FAMILIES[row.id] };
+    });
     return nearest?.kinds || null;
   }
-  // Finite optional surface sites. One owner per sub-tile block; every seat
-  // passes the normal enemy gate. No rewards or background objects are added.
-  function surfaceSites(entry, tx, ty, occupied) {
+  // Finite optional surface sites — a wetland's HUNGRY MARSH, a rock
+  // outcrop's ORC STRONGHOLD: one owner per sub-tile block, each a LAIR
+  // CANDIDATE (entry.streetLairs — the barricade's lane: { tier, sid, lx, ly })
+  // whose garrison is its GROUPS row (lairs.js HABITAT_TIER_GUARDS: marsh /
+  // stronghold), so it shares the garrison lifecycle — the wake ring, the
+  // mode's guard cap, the kerb-aware seat rule, the quiet home and the safe
+  // area — instead of seating its own. The sites are recorded on the entry
+  // (variantAt reads their theme by radius). No rewards or background
+  // objects are added. Returns the candidates; a caller that hands in the
+  // entry's streetLairs list gets them pushed there too.
+  const HABITAT_TIER = { hungry_marsh: 'habitat_marsh', orc_stronghold: 'habitat_stronghold' };
+  function habitatLairs(entry, tx, ty) {
     const WG = root.WorldGen, N = entry.cellsPerEdge, grid = entry.baseGrid || entry.grid;
-    const cellM = entry.tileEdgeM / N, out = [], sites = [];
-    const opts = { ...entry._spawnOpts, roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
-      roadClass: entry.roadClass, occupied };
+    const cellM = entry.tileEdgeM / N, sites = [], lairs = [];
     for (let by = 0; by < 4; by++) for (let bx = 0; bx < 4; bx++) {
-      const id = `habitat_surface_${tx}_${ty}_${bx}_${by}`;
+      const id = WG.cellId('habitat_surface', tx, ty, bx, by);
       if (unit(id + ':present') >= .18) continue;
       const cx = Math.floor((bx + .5) * N / 4), cy = Math.floor((by + .5) * N / 4);
       const land = root.Zones?.landAt ? root.Zones.landAt(grid, entry.zone?.under, cy * N + cx) : grid[cy * N + cx];
       const theme = land === WG.T.WETLAND ? 'hungry_marsh' : land === WG.T.ROCK ? 'orc_stronghold' : null;
       if (!theme || WG.variantOwnerAt(entry, cy * N + cx)) continue;
-      const kinds = theme === 'hungry_marsh' ? ['plant', 'slime'] : ['orc', 'orc_shaman'];
-      const site = { id, theme, cx, cy, radiusCells: 7, guards: [] };
-      for (let n = 0; n < kinds.length; n++) {
-        const kind = kinds[n], cls = root.creatureSpawnClass?.(kind) || 'enemy';
-        for (let k = 0; k < 32; k++) {
-          const angle = k * 2.399963 + n * Math.PI, radius = 2 + Math.floor(k / 8);
-          const x = cx + Math.round(Math.cos(angle) * radius), y = cy + Math.round(Math.sin(angle) * radius);
-          if (x < 0 || y < 0 || x >= N || y >= N || WG.variantOwnerAt(entry, y * N + x)) continue;
-          if (root.Zones?.landAt && root.Zones.landAt(grid, entry.zone?.under, y * N + x) !== land) continue;
-          if (!WG.isSpawnCell(grid, N, N, x, y, opts, cls)) continue;
-          const wx = (tx * N + x + .5) * cellM, wy = (ty * N + y + .5) * cellM;
-          occupied.add(y * N + x);
-          const guard = WG.makeCreature(kind, wx, wy, `${id}_${n}`, { habitat: theme,
-            immobile: true, lair: id, lairX: (tx * N + cx + .5) * cellM,
-            lairY: (ty * N + cy + .5) * cellM, lairR: 0, seatX: wx, seatY: wy, shiny: false });
-          out.push(guard); site.guards.push(guard.id); break;
-        }
-      }
-      if (site.guards.length) sites.push(site);
+      sites.push({ id, theme, cx, cy, radiusCells: 7 });
+      lairs.push({ tier: HABITAT_TIER[theme], sid: id, lx: (cx + .5) * cellM, ly: (cy + .5) * cellM });
     }
     entry.habitatSites = sites;
-    return out;
+    if (Array.isArray(entry.streetLairs)) entry.streetLairs.push(...lairs);
+    return lairs;
   }
+  // The old seater's name: it hands the candidates to entry.streetLairs and
+  // seats nothing itself (the garrison wakes with the ruins'). Its callers
+  // (scene_creatures.js) can call habitatLairs ahead of their lair filter.
+  function surfaceSites(entry, tx, ty) { habitatLairs(entry, tx, ty); return []; }
   // A dragon is a single chamber encounter, never a member of the ambient bag.
   // Jittered habitat centres own seats, even when their territory crosses a
   // tile seam. Missing space means no roost; another tile never retries it.
@@ -223,25 +219,19 @@
         if (x < 1 || y < 1 || x >= N - 1 || y >= N - 1) continue;
         if (caveAt(entry, tx, ty, x, y, depth).id !== regionId) continue;
         if (stairs.some(s => Math.hypot(x - s.x, y - s.y) < 5)) continue;
-        let room = true;
-        for (let dy = -1; dy <= 1 && room; dy++) for (let dx = -1; dx <= 1; dx++) {
-          if (grid[(y + dy) * N + x + dx] !== WG.T.CAVE_FLOOR
-            || !WG.isSpawnCell(grid, N, N, x + dx, y + dy, opts, cls)) { room = false; break; }
-        }
-        if (!room) continue;
-        const wx = tx * entry.tileEdgeM + (x + .5) * cellM;
-        const wy = ty * entry.tileEdgeM + (y + .5) * cellM;
-        occupied.add(y * N + x);
-        out.push(WG.makeCreature('red_dragon', wx, wy, `dragon_roost_${depth}_${rx}_${ry}`, {
+        // Room: the whole 3 × 3 is open cave floor.
+        if (WG.boxCells(N, N, x, y, 1, (nx, ny, i) => grid[i] !== WG.T.CAVE_FLOOR
+          || !WG.isSpawnCell(grid, N, N, nx, ny, opts, cls))) continue;
+        out.push(seatCreature(entry, tx, ty, x, y, 'red_dragon', `dragon_roost_${depth}_${rx}_${ry}`, (wx, wy) => ({
           _cave: true, habitat: 'roost', _habitatRegion: regionId,
           homeX: wx, homeY: wy, shiny: false,
-        }));
+        }), occupied));
         break;
       }
     }
     return out;
   }
-  root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS,
-    unit, caveAt, surfaceAt, surfaceEncounters, variantAt, emergesFromGround, buildingKinds, surfaceSites, caveSites };
+  root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS, HABITAT_TIER,
+    unit, caveAt, surfaceAt, surfaceEncounters, variantAt, emergesFromGround, buildingKinds, habitatLairs, surfaceSites, caveSites };
   if (typeof module !== 'undefined' && module.exports) module.exports = root.EnemyHabitats;
 })(typeof window !== 'undefined' ? window : globalThis);
