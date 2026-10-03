@@ -23,7 +23,7 @@ test('magic hammer: restoreAs marks the house shiny and every price reads priceM
   Houses.restoreAs(save, h('b'), 'plain');
   assert.falsy(Houses.isShinyHouse(save, h('b')));
   assert.eq(Houses.priceMul(save, h('b')), 1);
-  assert.eq(Houses.restoreAs(save, h('a'), 'blacksmith', { hammer: true }).key, 'blacksmith');
+  assert.eq(Houses.restoreAs(save, h('a'), 'blacksmith:1', { hammer: true }).key, 'blacksmith:1');
   assert.truthy(Houses.isShinyHouse(save, h('a')));
   assert.eq(Houses.priceMul(save, h('a')), Houses.HAMMER_PRICE_MUL);
   assert.eq(Houses.HAMMER_PRICE_MUL, 0.8);

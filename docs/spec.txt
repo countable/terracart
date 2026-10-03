@@ -1413,30 +1413,46 @@ ECONOMY (buying & selling)
    Restoring reveals the house's ROLE, which is frozen into
    save.restoredHouses[id] so it never shifts on later loads.
  - WHAT A WRECK BECOMES IS THE PLAYER'S PICK (Oct 2026): the restore modal
-   lays out cards from ONE table, houses.js Houses.BUILD_OPTIONS, unlocked by
-   how many wrecks already stand (STORY_RESTORES, 1-based restore numbers):
-   a HOUSE from the 1st, the BLACKSMITH from the 2nd, a SHOP from the 3rd, a
-   TRADER from the 5th, a TURRET from the 8th, the PET SHOP from the 12th
-   (once), the BOOK SHOP from the 15th (once), the WIZARD TOWER from the
-   30th, and his second tower from the 52nd
-   once the first stands and 21 memories are home. Nothing is forced and
-   nothing is read off the OSM address (shops.js Shops.shopType is only the
-   fallback for a legacy bare-`true` ledger entry): the Blacksmith card is
-   merely SUGGESTED (outlined) while the lane has no smithy, since the wooden
-   tools come from nowhere else. Houses.restoreAs freezes the pick and stamps
-   what it owns (starterBlacksmithId, petshopId, bookshopId, wizardTowers).
-   A MARKET is a THEMED shop: one line each — seed, supply, potion, ore or
-   relic — THE PLAYER'S PICK (Oct 2026, shops.js marketOffers): until the
-   ninth rebuild one Shop card, the cycle's next line; from the ninth TWO
-   cards, a pair that moves on with every restore (seed+supply, potion+ore,
-   relic+seed, supply+potion, ore+relic, round again every fifth). The pick
-   is stored (save.shopLines) and its tier is one past the shops already on
-   that line (the second Seed Shop is the T2 one); a market from before the
-   cards keeps the cycle's answer. Priced at the village markup, with a
-   cheap re-roll (app.js presentThemedShop / marketTheme). The PET SHOP and
-   the BOOK SHOP are ONE-OFFS (shops.js SOLO_LINES): each is its own card,
-   a market plus its stamp, outside that cycle — built once per save, always
-   T1, never coming round again at a higher tier. THE MAGIC HAMMER (items.js magic_hammer, T4 magic; houses.js
+   lays out cards cut from ONE catalogue, houses.js Houses.buildOptions (the
+   table BUILD_OPTIONS), unlocked by how many wrecks already stand
+   (STORY_RESTORES, 1-based restore numbers): a HOUSE from the 1st, the
+   BLACKSMITH from the 2nd, a SHOP from the 3rd, a TRADER from the 5th, a
+   TURRET from the 8th, the PET SHOP from the 12th (once), the BOOK SHOP
+   from the 15th (once), the WIZARD TOWER from the 30th, and his second
+   tower from the 52nd once the first stands and 21 memories are home.
+   Nothing is forced and nothing is read off the OSM address (shops.js
+   Shops.shopType is only the fallback for a legacy bare-`true` ledger
+   entry): the T1 Blacksmith card is merely SUGGESTED (outlined) while the
+   lane has no smithy, since the wooden tools come from nowhere else.
+   THE OFFER (Houses.offerCards): N = restored + 1 cards. The House always
+   (and the wizard's tower while its story offers it — canon never waits on
+   a rotation); then up to NEW_SLOTS (3) cards the player has nothing like
+   yet (Houses.isNewPick — no building of that role, or none at that line
+   and rank; the card wears a NEW pill, items.js newBadgeHTML); the rest of
+   the slots over the buildable DUPLICATES. Each pool is a window over the
+   catalogue that slides one card along with every completed wreck. ANY
+   NUMBER of a card may stand. Houses.restoreAs freezes the pick and stamps
+   what it owns (shopLines, shopTiers, starterBlacksmithId, petshopId,
+   bookshopId, wizardTowers).
+   RANKS (shops.js): a smithy, a shop and a trader each carry a tier the
+   player PICKS — one card per rank the ladder has unlocked (Shops.tierAt:
+   T2 from the tenth rebuild, a rank more every TIER_EVERY (5) rebuilds, T7
+   from the 35th), stamped in save.shopTiers and read by Shops.shopTier
+   (houses from before ranks were stored keep their old derivations). A
+   MARKET is a THEMED shop, one LINE at one rank, from the one table
+   Shops.LINE_RULES: SEED and SUPPLY exist up to T3, the MAGIC SHOP
+   (potion) runs to T7 but ONE PER TIER, the RELIC SHOP runs to T7 any
+   number deep. There is no Ore Shop. The pick is stored (save.shopLines);
+   a market from before lines were stored keeps the legacy cycle's answer
+   (themeAt by restore order). Priced at the village markup, with a cheap
+   re-roll (app.js presentThemedShop / marketTheme). The PET SHOP and the
+   BOOK SHOP are ONE-OFFS (shops.js SOLO_LINES): each is its own card, a
+   market plus its stamp — built once per save, always T1. A smithy's anvil
+   forges within one rank of its own and leans to it (gear.js
+   SMITHY_OWN_TIER_BIAS); a trader's barter leans toward goods of its rank
+   (Shops.tierAffinity, halved per rank away). Every ranked door wears its
+   rarity badge on the map and in its offers (Shops.shopTier).
+   THE MAGIC HAMMER (items.js magic_hammer, T4 magic; houses.js
    HAMMER_ID): holding one, the restore modal asks whether to spend it; the
    building comes up SHINY (it glints and glows like a shiny tree —
    save.shinyHouses) and everything it sells is HAMMER_PRICE_MUL (0.8) of the
@@ -1446,16 +1462,7 @@ ECONOMY (buying & selling)
    arrows deal double (Combat.turretShot through the shiny powerMul) and fly
    as light (a gold streak with a halo, lit on the bolt lane). A plain HOUSE
    takes no hammer (Houses.hammerTakes): the With Hammer button greys on its
-   card and restoreAs never stamps it. A BLACKSMITH and a TRADER carry a tier too
-   (shops.js smithTier / traderTier, off the ledger): ONE SMITHY PER TIER — the
-   Nth raised is tier N, and after the first the card for the next is offered
-   only from restore number N × SMITH_TIER_EVERY (5); its anvil forges within
-   one rank of its own and leans to it (gear.js SMITHY_OWN_TIER_BIAS). A
-   trader takes the rank of the restore number that raised it over
-   TRADER_TIER_EVERY (5), any number per rank, and its barter leans toward
-   goods of that rank (Shops.tierAffinity, halved per rank away). Every
-   ranked door wears its rarity badge on the map and in its offers
-   (Shops.shopTier). A TURRET is a lone castle tower on a house
+   card and restoreAs never stamps it. A TURRET is a lone castle tower on a house
    lot: it draws the castle tower sheet in its own material family and its
    archer fires on the castle turret lane (COMBAT) — nothing to trade. PLAIN
    houses run deliveries (see DELIVERIES below). These are BUY/trade

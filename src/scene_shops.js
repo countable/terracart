@@ -974,7 +974,7 @@ class SceneShops {
         this.flashLoot(`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, '#ffe066', 1, id);
       },
       // A re-roll can only land on another item of the same stock, so a line
-      // that carries ONE item at this tier (an ore shop is one bar a tier)
+      // that carries ONE item at this tier (a line with one item at a rank)
       // has nothing to re-roll to — paying would hand back the same item.
       secondary: this._themedStockCount(house) > 1
         ? this._makeRerollSecondary(house, sx, sy, 'Shelves are bare for now.',
