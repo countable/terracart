@@ -1957,7 +1957,13 @@ class SceneCreatures {
       // that steals, so the per-creature cost elsewhere is one table read.
       const sated = !isTame && !!Combat.theftKind(c.kind) && Combat.theftSated(this.save, c);
       const frightened = Combat.isEnemy(c) && c._fearUntilT > now;
-      const routed = warded || wanderOff || sated || frightened;
+      // MAD (the Powder of Psychosis — Combat.isPsychotic): the rout lane
+      // once more — the flee pace, no blow, no target — but with a RANDOM
+      // angle each hop (the chain below) in place of fear's away angle, so
+      // it runs every which way rather than off. Home's ward still outranks
+      // it: a mad foe inside the ring is walked out like any other.
+      const psychotic = Combat.isEnemy(c) && Combat.isPsychotic(c, now);
+      const routed = warded || wanderOff || sated || frightened || psychotic;
       // A LAIR GUARD'S THREE STATES — src/lairs.js owns the rings, the
       // hysteresis and the arrival test; this asks once and stores the
       // hysteresis back (session state on the creature, like `_hp`).
@@ -1968,7 +1974,7 @@ class SceneCreatures {
       //            does NOT bite on the way — the player got clear, and a
       //            guard still leeching on its walk home would mean they had
       //            not.
-      const lairState = c.lair && !frightened ? Lairs.guardState(c, { x: px, y: py }, this.cellM, !unnoticed && !kerbTurn) : null;
+      const lairState = c.lair && !frightened && !psychotic ? Lairs.guardState(c, { x: px, y: py }, this.cellM, !unnoticed && !kerbTurn) : null;
       c._hunting = lairState === 'hunt';
       // ONE READ FOR "THIS FOE IS NOT ATTACKING YOU RIGHT NOW", the way
       // `unnoticed` is one read for "no hostile takes an interest in you".
@@ -1979,7 +1985,7 @@ class SceneCreatures {
       // growing a second condition each. The MOVEMENT chain still asks
       // `warded` by name: an away-from-the-ward angle and a walk back to a seat
       // are two mechanisms, not one, whatever they have in common here.
-      const standDown = frightened || warded || wanderOff || kerbTurn || sated || (!!lairState && lairState !== 'hunt');
+      const standDown = frightened || psychotic || warded || wanderOff || kerbTurn || sated || (!!lairState && lairState !== 'hunt');
       const rosterRow = !isTame ? EnemyRoster.get(c.kind) : null;
       const npcTarget = rosterRow && !standDown
         ? NPC.enemyTarget(this, c, rosterRow, px, py, unnoticed) : null;
@@ -2165,7 +2171,7 @@ class SceneCreatures {
       // A declared stationary kind can bite above but never enters a movement
       // lane. Roster plants also remain rooted through their anchor_spit mover.
       if (stationary) return;
-      if (c.immobile && !frightened && lairState !== 'hunt' && lairState !== 'return') return;
+      if (c.immobile && !frightened && !psychotic && lairState !== 'hunt' && lairState !== 'return') return;
       if (rosterRow) {
         // Turned back at the kerb is the wander-off's away angle (as in the
         // step chain below); a lair guard walks home instead (guardState).
@@ -2511,6 +2517,11 @@ class SceneCreatures {
             // Home stands among houses: the rout runs the ROADSIDE
             // (roadsideRunAngle) — along the street, not through the yards.
             angle = roadsideRunAngle(this, c, angle) ?? angle + (Math.random() - 0.5) * 0.8;
+          } else if (psychotic) {
+            // MAD: every hop in a fresh random direction, at the rout's
+            // pace. Below the ward (Home still drives it out), above fear:
+            // a foe that is both runs about rather than away.
+            angle = Math.random() * Math.PI * 2;
           } else if (frightened || wanderOff || (kerbTurn && !c.lair)) {
             // WANDERING OFF (or TURNED BACK AT THE KERB — the same away angle,
             // at its own pace): away from the PLAYER, on the same spread as the

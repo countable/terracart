@@ -76,6 +76,9 @@ const STRUCK_REACTION_MS = 8000;
 // kinds that have none, the slime and every cave monster among them.
 const FLEE_STRIDE_MUL = 2;
 const FLEE_BEAT_MUL = 0.5;
+// How long a mad roster foe (Combat.isPsychotic, rosterEnemyMove) holds one
+// random heading before rolling the next — a stagger, not a spin.
+const PSYCHOSIS_TURN_MS = 700;
 // All shiny creatures move 1.5x faster; Combat owns the shared multiplier.
 const SHINY_SPEED_MUL = Combat.SHINY_SPEED_MUL;
 // Ordinary wild movement targets 10 m/s. The universal shiny multiplier
@@ -1693,6 +1696,15 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
   if (routed) {
     const from = c._wardFrom || { x: px, y: py };
     angle = Math.atan2(c.y - from.y, c.x - from.x);
+    // MAD (Combat.isPsychotic): the rout's pace on a RANDOM heading,
+    // re-rolled every PSYCHOSIS_TURN_MS so it runs every which way; Home's
+    // ward (_wardFrom) still drives it out of the ring.
+    if (!c._wardFrom && Combat.isPsychotic(c, now)) {
+      if (now >= (c._madTurnT || 0)) {
+        c._madAngle = Math.random() * Math.PI * 2; c._madTurnT = now + PSYCHOSIS_TURN_MS;
+      }
+      angle = c._madAngle;
+    }
     maxDistance = Infinity;
     // Retreat is brisk but never exceeds the roster's fastest flight.
     speed = Math.min(6, speed * FLEE_STRIDE_MUL / FLEE_BEAT_MUL);
@@ -1882,8 +1894,8 @@ function flowerCreatureTick(scene, c, now, px, py, caught, wards = null) {
     }
     c._moving = false; c._enemyTickT = now; c._ghostT = now; return true;
   }
-  // Fear uses the ordinary retreat lane, even when fire just woke a sleeper.
-  if (!charmed && c._fearUntilT > now) return false;
+  // Fear and madness use the ordinary retreat lane, even when fire just woke a sleeper.
+  if (!charmed && (c._fearUntilT > now || Combat.isPsychotic(c, now))) return false;
   if (!charmed && !target) return false;
   const dt = c._enemyTickT == null ? 0 : Math.min(0.1, Math.max(0, (now - c._enemyTickT) / 1000));
   c._enemyTickT = now;
