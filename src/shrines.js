@@ -47,7 +47,7 @@
       name: 'Lantern saint', flash: 'Her lantern warms your hand.',
       body: "A stone saint holds out a lantern. You pause beneath its warm light." },
     tide_bell: { art: 'shrine_tide_bell', frame: 2, light: 0x9fdcff, lever: 'reach', durationMs: 3 * MIN,
-      zones: ['mystic_reef', 'shellwater_strand'], streets: ['promenade'],
+      zones: ['shellwater_strand'], streets: ['promenade'],
       name: 'Tide bell', flash: 'Your arms feel long as tides.',
       body: "You ring the bell and hear the rush of waves. The sound seems close, though the shore is far away." },
     bone_watcher: { art: 'shrine_bone_watcher', frame: 3, light: 0xd8d4e8, lever: 'shield', durationMs: 3 * MIN,
@@ -80,6 +80,8 @@
       body: "You reach toward the glowing ember. Fire gathers in your hands, ready to strike." },
   };
   const REWARD_KINDS = {
+    mystic_reef: { name: 'Reef treasury', art: 'visit_gold', reward: 'coins', fillScreen: true,
+      body: 'You touch the sea-worn stone. Gold washes out across the shore.', light: 0x9fdcff },
     waystone: { name: 'Waystone', art: 'shrine_waystone', reward: 'book',
       body: 'You rest your hand on the stone. Words from an old book come back to you.', light: 0xf2d9a0 },
     grove: { name: 'Sacred grove shrine', art: 'shrine_grove', reward: 'treasure',
@@ -90,7 +92,7 @@
   function kindForObject(o) {
     if (o?.kind === 'waystone') return REWARD_KINDS.waystone;
     if (o?.kind !== 'grove_shrine') return null;
-    return SHRINE_KINDS[o.shrineKind] || REWARD_KINDS.grove;
+    return REWARD_KINDS[o.zoneVariant] || SHRINE_KINDS[o.shrineKind] || REWARD_KINDS.grove;
   }
   const KIND_IDS = Object.keys(SHRINE_KINDS);
   const byZone = new Map(), byStreet = new Map();

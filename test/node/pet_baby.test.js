@@ -183,7 +183,7 @@ test('baby pet: adulthood requires seven days AND seven favourite meals', () => 
   assert.eq(SpriteLayout.creatureInstScale({ ...c, _artScale: 0.8 }, born), 0.4);
 });
 
-test('raised pet: double HP and bite once grown, its kind\'s while a baby', () => {
+test('raised pet: shiny babies and grown adults double HP and bite without stacking', () => {
   const born = Date.now() - 8 * DAY_MS;
   const grown = { kind: 'dog', id: 'released_dog_g', shiny: true, raised: true, born, favouriteFeeds: 7 };
   const baby = { kind: 'dog', id: 'released_dog_b', shiny: true, raised: true, born: Date.now() };
@@ -192,9 +192,9 @@ test('raised pet: double HP and bite once grown, its kind\'s while a baby', () =
   assert.eq(Combat.raisedMul(grown), 2); assert.eq(Combat.raisedMul(baby), 1); assert.eq(Combat.raisedMul(plain), 1);
   assert.eq(Combat.powerMul(grown), 2, 'through powerMul, like an elite');
   assert.eq(Combat.maxHp(grown), Combat.FAUNA_HP.dog * 2);
-  assert.eq(Combat.maxHp(baby), Combat.FAUNA_HP.dog);
+  assert.eq(Combat.maxHp(baby), Combat.FAUNA_HP.dog * 2);
   assert.eq(Combat.petBlow(grown), Combat.PET_BITE * 2);
-  assert.eq(Combat.petBlow(baby), Combat.PET_BITE);
+  assert.eq(Combat.petBlow(baby), Combat.PET_BITE * 2);
   assert.eq(Combat.petBlow(plain), Combat.petBite('dog'));
   assert.falsy(Combat.isElite(grown), 'a shiny raised dog is no elite — that is a monster\'s word');
   assert.includes(SCENE_CREATURES_SRC, 'Combat.damage(tgt, Combat.petBlow(c))');

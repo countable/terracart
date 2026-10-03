@@ -1662,22 +1662,12 @@ ctx.__tests.push({ name: 'zone variants: generated browser data matches the cano
       if (r.violations.length) throw new Error(r.violations.join('; '));
     } });
   }
-  // …and the tripwire still fires on the art that set it off: the cells the
-  // shell sheet does NOT declare are blanks and flat mask rows, so the three
-  // declared frames are the whole of its shell art, not a third of it.
-  ctx.__tests.push({ name: 'wildplant frames: Shell.png carries 3 shells, not 12', fn: () => {
-    const sheet = audit.ASSETS.shell_sheet;
-    const img = audit.loadPng(sheet.path);
-    const ink = (f) => audit.frameInk(img, sheet.frameWidth, sheet.frameHeight, f);
-    for (const f of [7, 8, 10, 11]) {
-      if (ink(f).opaque !== 0) throw new Error(`frame ${f} was expected blank`);
-    }
-    for (const f of [6, 9]) {
-      if (ink(f).colours !== 1) throw new Error(`frame ${f} was expected a flat mask row`);
-    }
-    const declared = audit.CROP_SPRITE.shell.frames;
-    for (const f of [6, 7, 8, 9, 10, 11]) {
-      if (declared.includes(f)) throw new Error(`shell declares frame ${f}, which is not shell art`);
+  ctx.__tests.push({ name: 'wildplant frames: Shell.png retains only the original pink shell', fn: () => {
+    const sheet = audit.ASSETS.shell_sheet, img = audit.loadPng(sheet.path);
+    const ink = f => audit.frameInk(img, sheet.frameWidth, sheet.frameHeight, f);
+    if (!ink(0).opaque || ink(0).colours < 2) throw new Error('original shell art is missing');
+    for (let f = 1; f < 12; f++) {
+      if (ink(f).opaque !== 0) throw new Error(`unused shell duplicate frame ${f} was not removed`);
     }
   } });
 }

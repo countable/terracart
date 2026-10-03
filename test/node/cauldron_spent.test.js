@@ -36,7 +36,7 @@ test('cauldron: a spent pot loses its availability pulse but keeps ambient light
 test('cauldron: a burst drops extra coins at the player\'s feet, and claims only what it pays', () => {
   const app = SCENE_SRC;
   const body = app.slice(app.indexOf('  _coinBurstInteract(sx, sy, poi) {'), app.indexOf('  _coinCellsNearPlayer(count, r, taken) {'));
-  assert.truthy(/const nearN = Math\.min\(COIN_BURST_NEAR_PLAYER, Math\.floor\(burstN \/ 4\)\);/.test(body), 'a few by the player, a quarter at most');
+  assert.truthy(/const nearN = row\.fillScreen \? 0 : Math\.min\(COIN_BURST_NEAR_PLAYER, Math\.floor\(burstN \/ 4\)\);/.test(body), 'a few by the player, a quarter at most');
   assert.truthy(/this\._coinCellsNearPlayer\(burstN - n, COIN_BURST_NEAR_R, taken\)/.test(body), 'the rest of the burst at the feet');
   // The claim comes AFTER the no-room bail, never before it — through the
   // ledger's one writer.
@@ -95,7 +95,7 @@ test('pot of gold: the burst is its density on its tile — 30 alone, 3 at 50, 1
   // arithmetic middle of 30..3.
   assert.eq(potCoinsFor(Math.sqrt(50)), Math.round((30 + 3) / 2), 'log-linear in the count');
   const body = SCENE_SRC.slice(SCENE_SRC.indexOf('  _coinBurstInteract(sx, sy, poi) {'), SCENE_SRC.indexOf('  _coinCellsNearPlayer(count, r, taken) {'));
-  assert.truthy(/const burstN = potCoinsFor\(poi\.poiDensity\);/.test(body), 'the burst reads the pot\'s own count');
+  assert.truthy(/const burstN = row\.fillScreen \? candidates\.length : potCoinsFor\(poi\.poiDensity\);/.test(body), 'the burst reads the pot\'s own count');
   assert.falsy(/COIN_BURST_MIN/.test(SCENE_SRC), 'the old flat floor is gone');
 });
 

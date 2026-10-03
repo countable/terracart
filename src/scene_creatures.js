@@ -2028,7 +2028,7 @@ class SceneCreatures {
         const BUTT_R = Combat.meleeReachM(this.cellM);
         if (ddx * ddx + ddy * ddy <= BUTT_R * BUTT_R && (!c._nextStealT || now >= c._nextStealT)) {
           c._nextStealT = now + fightsBack.hitMs;
-          const raw = fightsBack.dmg;
+          const raw = fightsBack.dmg * Combat.powerMul(c);
           const dmg = Combat.incomingDamage(this.save, raw);
           if (dmg > 0) {
             this._monsterDmgAccum = (this._monsterDmgAccum || 0)
@@ -2178,14 +2178,8 @@ class SceneCreatures {
       // lumber like the slime (0.6 cell).
       const isMon = Combat.isMonster(c.kind);
       const mon = isMon ? Combat.monster(c.kind) : null;
-      // Rare shiny animals move at SHINY_SPEED_MUL — same hop distances, but
-      // the whole step cadence (hop duration + any pause) is divided by it, so
-      // they cover ground that much faster. isShiny() is keyed off the creature id, so the
-      // status is stable across reloads (matches the shiny-tint in render).
-      // An ELITE monster hits harder, not faster: its cadence comes purely
-      // from SPEED, so the shiny check is for animals only.
-      // A summoned ally is never shiny-fast: its cadence IS its bite rate.
-      const shinyFast = (!isMon && !summoned && isShiny(c.id, SHINY_RATE.animal)) ? 1 / SHINY_SPEED_MUL : 1;
+      // Read the same stamped flag as the gold tint, including pets and foes.
+      const shinyFast = 1 / Combat.shinySpeedMul(c);
       // CHARGING: hit by the player or their pet within STRUCK_REACTION_MS and
       // not warded off. Resolved once here because both halves of the charge
       // read it — the quickened beat just below and the committed angle in the
@@ -2763,7 +2757,7 @@ class SceneCreatures {
           // (CROW_FLIGHT_MPS — a quadratic leg peaks at twice its mean): the
           // panic is in the short legs and the turn, not a faster bird (it
           // used to cross two cells in 350 ms: 40 m/s).
-          c._flightUntilT = now + (2 * d / CROW_FLIGHT_MPS) * 1000;
+          c._flightUntilT = now + (2 * d / CROW_FLIGHT_MPS) * 1000 / Combat.shinySpeedMul(c);
           c._fleeDash = true;
           c._faceFlip = (ftx - c.x) < 0;
           break;
@@ -2864,7 +2858,7 @@ class SceneCreatures {
     // over the roam's 0.4–1-cell hops); a departing leg takes its row's own time
     // — the pace the hunt's odds are tuned on, the one declared exception to
     // the speed ceiling (CROW_DEPART_HOP has the reasoning).
-    c._flightUntilT = now + (departing ? CROW_DEPART_HOP.ms : (2 * Math.hypot(tx - c.x, ty - c.y) / CROW_FLIGHT_MPS) * 1000);
+    c._flightUntilT = now + (departing ? CROW_DEPART_HOP.ms : (2 * Math.hypot(tx - c.x, ty - c.y) / CROW_FLIGHT_MPS) * 1000) / Combat.shinySpeedMul(c);
     c._perchUntilT = null;
     c._faceFlip = (tx - c.x) < 0;
     // This is a normal glide, not a flee dash — clear the marker so a FUTURE

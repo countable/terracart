@@ -77,7 +77,7 @@
     assert.falsy(restocks(pot) || restocks(rack), 'neither is a crate');
     const src = INTERACTABLES_SRC;
     assert.truthy(/Macros\.serviceUsedToday\(save, o\.id\)\) \{\s*scene\.flash\(`The chapel is quiet/.test(src), 'the chapel reads the service-day gate');
-    assert.truthy(/grove_shrine: \{[\s\S]{0,200}Macros\.dailyVisit\(ctx, o/.test(src), 'and the shrine');
+    assert.truthy(INTERACTABLES.grove_shrine.custom.toString().includes('Macros.dailyVisit(ctx, o'), 'ordinary shrines use the daily visit gate');
   });
 
   // ── Barrels ──────────────────────────────────────────────────────────────

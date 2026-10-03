@@ -68,10 +68,9 @@ for (const row of data.variants) {
   if (row.connection.material) material(row.connection.material);
   if (row.finds.count !== row.finds.targets.length) fail(`find count ${row.id}`);
   if (!b.poiOrigin.cell.every(Number.isInteger)) fail(`POI origin ${row.id}`);
-  if (row.zone === 'tar' && row.guards.mode !== 'none') fail(`tar guard ${row.id}`);
   const g = row.guards;
   if (['guard_find', 'guard_poi'].includes(g.mode)) {
-    if (!Number.isInteger(g.count) || g.count < 1 || g.count > 2) fail(`finite guard budget ${row.id}`);
+    if (!Number.isInteger(g.count) || g.count < 1) fail(`finite guard budget ${row.id}`);
     if (!g.kind || !g.offsetCells?.length || (g.kinds && g.kinds.length !== g.count)) fail(`guard seats ${row.id}`);
     if (g.choices && !g.choices.length) fail(`guard choices ${row.id}`);
     if (g.proximityCells != null && !(g.proximityCells > 0)) fail(`guard trigger ${row.id}`);

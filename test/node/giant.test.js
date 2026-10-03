@@ -15,7 +15,11 @@
       const live = Combat.monster(row.id);
       assert.eq(live.hp, row.hp);
       assert.eq(live.giant, row.variantOf);
-      assert.eq(Combat.maxHp({ kind: row.id, shiny: true }), row.hp, 'size and elite do not stack');
+      const plain = { kind: row.id }, shiny = { kind: row.id, shiny: true };
+      assert.eq(Combat.maxHp(plain), row.hp, 'giant size is already included in its authored stats');
+      assert.eq(Combat.maxHp(shiny), row.hp * 2, 'universal shiny strength doubles the giant row once');
+      assert.eq(Combat.powerMul(shiny), 2, 'visual giant scale adds no second implicit multiplier');
+      assert.eq(Combat.isElite(shiny), row.eliteEligible, 'elite rewards keep their separate eligibility');
       assert.eq(SpriteLayout.baseKind(row.id), row.variantOf);
     }
     assert.falsy(Combat.monster('giant_goblin'), 'an undeclared giant is no kind at all');

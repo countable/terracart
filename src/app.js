@@ -6135,7 +6135,7 @@ class MapScene extends Phaser.Scene {
       // Rare shiny animals flee at SHINY_SPEED_MUL too — the same factor as
       // their wander, making them a slippery catch.
       const isButterfly = c.kind === 'butterfly';
-      const shinyFast = isShiny(c.id, SHINY_RATE.animal) ? SHINY_SPEED_MUL : 1;
+      const shinyFast = Combat.shinySpeedMul(c);
       const FLEE_MPS = Math.min(isButterfly ? 5.4 : 2, SpriteLayout.creatureMaxMps(c.kind)) * shinyFast;
       // Moss also conceals the catch: fauna and pets do not flee the net.
       if (!Shrines.leverActive(this.save, 'hidden')) {
@@ -6598,7 +6598,8 @@ class MapScene extends Phaser.Scene {
   _coinBurstInteract(sx, sy, poi) {
     const dayKey = utcDayKey();
     const ctx = { scene: this, save: this.save, sx, sy, dirty: false };
-    const visit = Macros.beginDailyVisit(ctx, poi, { row: Macros.DAILY_VISIT_KINDS.gold });
+    const row = Macros.visitKindForObject(poi) || Macros.DAILY_VISIT_KINDS.gold;
+    const visit = Macros.beginDailyVisit(ctx, poi, { row });
     if (!visit) return;
 
     // Find walkable cells within ~25m of the POI on the POI's host tile.
@@ -6665,12 +6666,43 @@ class MapScene extends Phaser.Scene {
     };
     // KEEP LOOKING UNTIL THERE IS A BURST TO SCATTER: widen the ring (the same
     // rule) out to MAX_BURST_CELLS.
-    let candidates = gather(RADIUS_CELLS);
+    let candidates;
+    if (row.fillScreen) {
+      // The reef fills the visible ground across tile seams. Each tile keeps
+      // its own grid, occupancy and access rules; unopened tiles add nothing.
+      candidates = [];
+      const anchor = viewAnchorWorldM(this), half = VIEW_CELLS / 2 * cellM;
+      const center = worldMetersToTileCell(this, anchor.x, anchor.y);
+      eachTile3x3(center.tx, center.ty, (coinTX, coinTY) => {
+        const coinEntry = WorldGen.tileCache.get(WorldGen.tileKey(coinTX, coinTY));
+        if (!coinEntry?.grid) return;
+        const coinN = coinEntry.cellsPerEdge || rowCells(this, coinTY), unit = tileEdgeM / coinN;
+        const x0 = coinTX * tileEdgeM, y0 = coinTY * tileEdgeM;
+        const occupied = new Set(coinEntry._spawnOpts?.occupied || []);
+        for (const coin of coinEntry.coinDrops || []) if (coin.expiresAt > Date.now())
+          occupied.add(Math.floor((coin.y - y0) / unit) * coinN + Math.floor((coin.x - x0) / unit));
+        const opts = { roadMask: coinEntry.roadMask, quiet: coinEntry.quietMask,
+          spawnWhy: coinEntry.spawnWhy, roadClass: coinEntry.roadClass, occupied,
+          pois: coinTX === tx && coinTY === ty ? [{ ix: poiLocalCX, iy: poiLocalCY }] : undefined };
+        const minX = Math.max(0, Math.ceil((anchor.x - half - x0) / unit - .5));
+        const maxX = Math.min(coinN - 1, Math.floor((anchor.x + half - x0) / unit - .5));
+        const minY = Math.max(0, Math.ceil((anchor.y - half - y0) / unit - .5));
+        const maxY = Math.min(coinN - 1, Math.floor((anchor.y + half - y0) / unit - .5));
+        for (let cy = minY; cy <= maxY; cy++) for (let cx = minX; cx <= maxX; cx++) {
+          if (coinTX === tx && coinTY === ty && cx === poiLocalCX && cy === poiLocalCY) continue;
+          if (!WorldGen.isSpawnCell(coinEntry.grid, coinN, coinN, cx, cy, opts, 'attractor')) continue;
+          if (WorldGen.privateVetoAt(coinTX, coinTY, cx, cy)) continue;
+          const x = x0 + (cx + .5) * unit, y = y0 + (cy + .5) * unit;
+          if (!sameSideAs(this, x, y)) continue;
+          candidates.push({ cx, cy, tx: coinTX, ty: coinTY, entry: coinEntry, x, y });
+        }
+      });
+    } else candidates = gather(RADIUS_CELLS);
     // The burst: its size off the pot's density on its tile (potCoinsFor),
     // a few of them (a quarter at most) at the player's feet, the rest
     // scattered round the pot.
-    const burstN = potCoinsFor(poi.poiDensity);
-    const nearN = Math.min(COIN_BURST_NEAR_PLAYER, Math.floor(burstN / 4));
+    const burstN = row.fillScreen ? candidates.length : potCoinsFor(poi.poiDensity);
+    const nearN = row.fillScreen ? 0 : Math.min(COIN_BURST_NEAR_PLAYER, Math.floor(burstN / 4));
     const scatterN = burstN - nearN;
     for (let r = RADIUS_CELLS + 2; candidates.length < scatterN && r <= MAX_BURST_CELLS; r += 2) {
       candidates = gather(r);
@@ -6687,7 +6719,7 @@ class MapScene extends Phaser.Scene {
     // actually matches what's on screen.
     const anchor = viewAnchorWorldM(this);
     const screenHalfM = (VIEW_CELLS / 2) * cellM;
-    candidates = candidates.filter(({ cx, cy }) => {
+    if (!row.fillScreen) candidates = candidates.filter(({ cx, cy }) => {
       const wx = tx * tileEdgeM + (cx + 0.5) * cellM;
       const wy = ty * tileEdgeM + (cy + 0.5) * cellM;
       return Math.abs(wx - anchor.x) <= screenHalfM && Math.abs(wy - anchor.y) <= screenHalfM;
@@ -6696,6 +6728,7 @@ class MapScene extends Phaser.Scene {
     // burst still reads as clustered on the chest the player just tapped,
     // rather than an even spread across the whole visible screen.
     candidates.sort((a, b) => {
+      if (row.fillScreen) return 0;
       const da = (a.cx - poiLocalCX) ** 2 + (a.cy - poiLocalCY) ** 2;
       const db = (b.cx - poiLocalCX) ** 2 + (b.cy - poiLocalCY) ** 2;
       return da - db;
@@ -6711,12 +6744,13 @@ class MapScene extends Phaser.Scene {
     const drops = [];
     const taken = new Set();
     for (let i = 0; i < n; i++) {
-      const { cx, cy } = pool[i];
-      const x = tx * tileEdgeM + (cx + 0.5) * cellM, y = ty * tileEdgeM + (cy + 0.5) * cellM;
-      taken.add(`${tx}_${ty}_${cx}_${cy}`);
-      drops.push({ entry, x, y });
+      const cell = pool[i], { cx, cy } = cell;
+      const x = cell.x ?? tx * tileEdgeM + (cx + 0.5) * cellM;
+      const y = cell.y ?? ty * tileEdgeM + (cy + 0.5) * cellM;
+      taken.add(`${cell.tx ?? tx}_${cell.ty ?? ty}_${cx}_${cy}`);
+      drops.push({ entry: cell.entry || entry, x, y });
     }
-    for (const d of this._coinCellsNearPlayer(burstN - n, COIN_BURST_NEAR_R, taken)) drops.push(d);
+    if (!row.fillScreen) for (const d of this._coinCellsNearPlayer(burstN - n, COIN_BURST_NEAR_R, taken)) drops.push(d);
     // NOTHING SEATED, NOTHING SPENT. The day's claim is written only once a
     // coin will actually land: "No room to scatter!" used to fire AFTER the
     // claim, so a pot in a tight spot (or tapped with the view peeked away)
