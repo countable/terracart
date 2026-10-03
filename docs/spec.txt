@@ -700,7 +700,7 @@ CHOPPING
    is the AXE's, and it is the axe's only reward besides speed and cheap swings:
    10% bare-handed (tier 0) up to a guaranteed 100% with a Frost axe, GEOMETRIC
    between (items.js acornDropChance, ACORN_P_BASE / ACORN_P_FROST).
- - PLANTING AN ACORN (items.js 'acorn', kind:'sapling' + plants:'tree'): tap a
+ - PLANTING AN ACORN (items.js 'acorn', kind:'seed' + plants:'tree'): tap a
    tilled cell with it selected, like any sapling, but it grows a `tree` (the
    thing you chop) rather than a `fruittree` (the thing you pick). It is stored
    in save.fruittrees with kind:'tree' and re-injected per tile by spawnInTile;

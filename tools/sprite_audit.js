@@ -237,7 +237,6 @@ const ASSETS = assetsCtx.window.ASSETS;
 // ── Sheet metadata: where each texture key's PNG lives + frame size, and the
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
 const SHEETS = {
-  giant_mushroom: { file: ASSETS.giant_mushroom.path, fw: 24, fh: 32, frames: [0] },
   trees:         { file: 'assets/Objects/Approved/trees.png',                    fw: 32, fh: 48, frames: [1, 2, 3] },
   // 32×48, not 32×64: at 64 the birch frame reached into the sheet's lower
   // band and picked up the tip of the red autumn tree (see assets.js).
@@ -261,7 +260,6 @@ const SHEETS = {
   waystone:      { file: 'assets/Objects/Approved/waystone.png',            fw: 16, fh: 16, frames: [0] },
   stakes:        { file: 'assets/Objects/Approved/stakes.png',            fw: 16, fh: 16, frames: [0] },
   tar:           { file: 'assets/Objects/Approved/tar.png',                 fw: 16, fh: 16, frames: [0] },
-  headstone:     { file: 'assets/Objects/Rustic/pillar_c.png',           fw: 16, fh: 16, frames: [0] },
   ...Object.fromEntries(GROVE_SHRINE_ART.map(({ key, frame }) => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],
   }])),
@@ -303,7 +301,7 @@ const SCENARIOS = [
   { name: 'pine medium',     key: 'pine_tree',     frameIdx: 2, scale: t('pine', 'medium') },
   { name: 'pine large',      key: 'pine_tree',     frameIdx: 3, scale: t('pine', 'large') },
   { name: 'bush',            key: 'bushes',        frameIdx: 0, scale: SHRUB_SCALE },
-  { name: 'giant mushroom', key: 'giant_mushroom', frameIdx: 0, scale: itemsCtx.CROP_SPRITE.giant_mushroom.scale },
+  { name: 'giant mushroom', key: 'zone_objects', frameIdx: 40, scale: itemsCtx.CROP_SPRITE.giant_mushroom.scale },
   { name: 'apple sapling',   key: 'apple_tree',    frameIdx: 2, scale: 0.85 * 0.625, scaleYMul: 1.10 },
   { name: 'apple (wild)',    key: 'apple_tree',    frameIdx: 4, scale: 0.85, scaleYMul: 1.10 },
   { name: 'peach (wild)',    key: 'peach_tree',    frameIdx: 3, scale: 0.85, scaleYMul: 1.10 },
@@ -321,7 +319,7 @@ const SCENARIOS = [
   { name: 'stakes',          key: 'stakes',        frameIdx: 0, scale: 1.6 },
   { name: 'charred stakes', key: 'approved_charred_stakes', frameIdx: 0, scale: 4 / 3 },
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
-  { name: 'headstone',       key: 'headstone',     frameIdx: 0, scale: 1.6 },
+  { name: 'headstone',       key: 'zone_objects',  frameIdx: 1, scale: 4 / 3 },
   ...GROVE_SHRINE_ART.map(({ name, key, frame, scale }) => ({ name, key, frameIdx: frame, scale })),
   ...[1,4,5,6,7,34,37,38,39,40,54,58,59,61,64,65,66,67,68,69,70,71].map(frameIdx => ({ name: `selected zone object ${frameIdx}`, key: 'zone_objects', frameIdx, scale: 4 / 3 })),
   {name: 'berry bush', key: 'zone_berry_bush', frameIdx: 0, scale: 4 / 3},

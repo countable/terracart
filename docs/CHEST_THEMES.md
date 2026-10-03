@@ -16,6 +16,13 @@ The baseline is the current working branch at `47d7f4f` (walking gear, road rewa
 
 The numbers below are proposed balance settings, not measured current behavior.
 
+Current tree-seed rule: Acorn, Apple Sapling and Worldpeach Sapling are all
+`seed` items. There is no separate sapling class or reward group. Park seeds
+include these tree seeds alongside food-crop seeds; the park's base seed share
+is 70%, and its T3+ chest seed share is 60%. Worldpeach and its sapling remain
+T7. Fruit-tree seeds still award one tree and use the existing tree-growth path.
+The historical sapling groups below are superseded by this rule.
+
 ## 1. Item classes
 
 | Class | Contents | Inventory tab |

@@ -40,7 +40,7 @@
       for (let n = 0; n < cells.length; n++) {
         if ((n & 255) === 0) yield 'quarry clipped benches';
         const i = cells[n], x = i % N, y = Math.floor(i / N);
-        const h = hash(x, y, 113), d = root.ZoneVariants.byId('quarry').background.materialDensity;
+        const h = hash(x, y, 113), d = settings.clippedMaterialDensity;
         // Crystal first, then stone, then the barrels (Oct 2026) past them —
         // the bands stone and crystal held before the barrels joined are the
         // same cells, so no bench moved when they did.
@@ -286,9 +286,8 @@
       if (plan.landmarks.length && (!variant.finds.count || plan.finds.length)
           && (!variant.guards.count || plan.guards.length)) return variant.id;
     }
-    // Slivers that cannot seat any authored composition retain useful stone
-    // scatter instead of claiming a fortress or a crater that isn't there.
-    return 'quarry';
+    // Slivers that cannot seat an authored composition remain ordinary ground.
+    return null;
   }
   root.QuarryLayout = { planSteps, variantForSteps, wallFrameAt };
 })(typeof window !== 'undefined' ? window : globalThis);

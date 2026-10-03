@@ -62,10 +62,10 @@ test('level 1: a dozen-odd barrels on free floor cells, off their own stream, po
 });
 
 test('quarry: the clipped benches read the whole density table, stone and crystal where they were', () => {
-  const b = ZoneVariants.byId('quarry').background;
-  assert.truthy(b.materialDensity.barrel > 0, 'the quarry scatter carries barrels');
-  const sum = Object.values(b.materialDensity).reduce((a, v) => a + v, 0);
-  assert.lt(Math.abs(sum - b.nominalDensity), 1e-12, 'the mix sums to the nominal density');
+  const density = ZoneVariantData.quarryLayouts.clippedMaterialDensity;
+  assert.truthy(density.barrel > 0, 'clipped quarry edges carry barrels');
+  const sum = Object.values(density).reduce((a, v) => a + v, 0);
+  assert.lt(Math.abs(sum - 0.404), 1e-12, 'clipped edge coverage is preserved');
   assert.truthy(/else if \(h < d\.crystal \+ d\.stone \+ \(d\.barrel \|\| 0\)\) put\(x, y, 'barrel'\);/.test(QUARRY_LAYOUT_SRC), 'clipped benches place barrels past the stone band');
   assert.truthy(/put\(r, b, 'quarry_barrel'\)/.test(QUARRY_LAYOUT_SRC), 'the abandoned quarry leaves one at a patch corner');
 });

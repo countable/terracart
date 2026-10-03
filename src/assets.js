@@ -158,14 +158,12 @@ const ASSETS = {
   // (one look each). wagon: the broken wagon a bandit-road bus stop wears
   // (loot.js chestLook), one compact 32×32 frame.
   waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone.png', frameWidth: 16, frameHeight: 16 },
-  giant_mushroom: { kind: 'spritesheet', path: 'assets/Objects/Approved/giant_mushroom.png', frameWidth: 24, frameHeight: 32 },
   barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 24, frameHeight: 24 },
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Approved/tar.png', frameWidth: 16, frameHeight: 16 },
   stakes:         { kind: 'spritesheet', path: 'assets/Objects/Approved/stakes.png', frameWidth: 16, frameHeight: 16 },
   wagon:          { kind: 'spritesheet', path: 'assets/Objects/DailyVisits/wagon.png', frameWidth: 32, frameHeight: 32 },
   // INFLUENCE ZONES (src/zones.js): churchyard headstone, grove votive,
   // and the flint nodule (items.js CROP_SPRITE.flint).
-  headstone:      { kind: 'spritesheet', path: 'assets/Objects/Rustic/pillar_c.png', frameWidth: 16, frameHeight: 16 },
   grove_votive: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/seed_shrine.png', frameWidth: 24, frameHeight: 24 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Approved/flint.png', frameWidth: 16, frameHeight: 16 },
   // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — ten 16×24 generated

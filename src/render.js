@@ -4226,12 +4226,6 @@ Render.drawObjects = function drawObjects(scene) {
     // wins — a frozen body shows the ice.
     const afire = !frozen && Combat.burning(c) && Conditions.conditionTintOn('burning', performance.now());
     s.setTint(frozen ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : c.shiny ? SHINY_TINT : npcArt ? npcArt.tint : creatureTint(c.kind));
-    // Wind-ups are observable before damage or a lunge lands. A brief amber
-    // flash alternates with the original palette; frozen bodies keep ice. A
-    // projectile kind (Combat.windupFlashes — the goblin archer) never
-    // strobes: its arrow is the warning.
-    const winding = Math.max(c._attackWindupUntil || 0, c._lungeWindupUntil || 0, c._abilityWindupUntil || 0) > performance.now();
-    if (winding && !frozen && Combat.windupFlashes(c.kind) && Math.floor(performance.now() / 100) % 2 === 0) s.setTintFill(0xffdb72);
     if (c._supportUntil > performance.now() && !frozen) s.setTintFill(0x8cefa0);
     Render.setShine(s, !!c.shiny && !frozen, c.id);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
@@ -4869,7 +4863,7 @@ Render.objectAppearance = function (scene, houseRoles) {
     // INFLUENCE ZONE PROPS (src/zones.js). Headstones may raise a ghost or
     // pay a one-off find. Plain grove shrines use the cell-seated votive,
     // giving the daily gift and light (Lighting.KINDS.shrine).
-    headstone:    { key: 'headstone',    frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
+    headstone:    { key: 'zone_objects', frame: 1, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     grove_shrine: {
       key: o => SpriteLayout.groveShrineArt(o).key,
       frame: o => SpriteLayout.groveShrineArt(o).frame,

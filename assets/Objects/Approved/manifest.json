@@ -5943,30 +5943,6 @@
       ]
     },
     {
-      "key": "giant_mushroom",
-      "keys": [
-        "giant_mushroom"
-      ],
-      "path": "assets/Objects/Approved/giant_mushroom.png",
-      "width": 24,
-      "height": 32,
-      "sha256": "4089d7ae03982c248d097ef14b5c9308b0d0c1909b2f0b3c7ae172cb3df49ca6",
-      "frameImports": [
-        {
-          "reviewId": "WA-095",
-          "sheet": "assets/Objects/Approved/giant_mushroom.png",
-          "frame": 0,
-          "frameSize": [
-            24,
-            32
-          ],
-          "source": "assets/Objects/Approved/Sources/WorldArt/giant_mushroom-native.png",
-          "sourceSha256": "4089d7ae03982c248d097ef14b5c9308b0d0c1909b2f0b3c7ae172cb3df49ca6",
-          "native": true
-        }
-      ]
-    },
-    {
       "key": "bramble",
       "keys": [
         "bramble"

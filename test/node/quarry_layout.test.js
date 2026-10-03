@@ -178,7 +178,7 @@
     if (row.finds.count) assert.gt(fitted.finds.length, 0);
     if (row.guards.count) assert.gt(fitted.guards.length, 0);
     assert.eq(choose(narrow.slice().reverse()), selected, 'source order cannot choose another variant');
-    assert.eq(choose(rect(2, 2)), 'quarry', 'small slivers keep ordinary quarry scatter');
+    assert.eq(choose(rect(2, 2)), null, 'small slivers remain ordinary ground');
   });
   test('quarry selection: small and narrow sites admit fitting ruins but exclude craters', () => {
     const variants = ZoneVariants.forKind('quarry'), allowed = ['quarry-abandoned', 'quarry-strip-mine', 'quarry-stronghold'];

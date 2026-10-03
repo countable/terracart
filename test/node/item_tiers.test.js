@@ -58,9 +58,9 @@ test('item tiers: cooked dishes inherit raw tiers without entering random loot',
 });
 
 
-test('item tiers: seeds have three entries at each tier from T1 through T4', () => {
+test('item tiers: crop seeds have three entries at each tier from T1 through T4', () => {
   for (let tier = 1; tier <= 4; tier++) {
-    const seeds = ITEMS.filter(it => it.kind === 'seed' && it.baseTier === tier);
+    const seeds = ITEMS.filter(it => it.kind === 'seed' && !it.plants && it.baseTier === tier);
     assert.eq(seeds.length, 3, `T${tier}: ${seeds.map(it => it.id).join(', ')}`);
     for (const seed of seeds) assert.eq(seed.baseTier, ITEM_BY_ID[seed.grows].baseTier);
   }

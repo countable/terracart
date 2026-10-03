@@ -1470,14 +1470,14 @@
       },
       "current": [
         {
-          "key": "headstone",
-          "path": "assets/Objects/Rustic/pillar_c.png",
-          "frame": 0,
+          "key": "zone_objects",
+          "path": "assets/Objects/ZoneVariants/approved-24.png",
+          "frame": 1,
           "rect": [
+            24,
             0,
-            0,
-            16,
-            16
+            24,
+            24
           ],
           "whiteKey": false
         }

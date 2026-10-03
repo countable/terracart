@@ -9,11 +9,10 @@ const count = (row, x0, y0, w, h, seed) => {
   }
   return result;
 };
-test('zone variants: 23 selectable rows select deterministically; legacy quarry remains explicitly available in their zone kind', () => {
-  assert.eq(V.rows.length, 24);
+test('zone variants: 23 rows select deterministically without a legacy quarry', () => {
+  assert.eq(V.rows.length, 23);
   assert.eq(V.rows.filter(row => row.selectable !== false).length, 23);
-  assert.eq(V.byId('quarry').selectable, false);
-  assert.eq(V.pick({kind: 'quarry', variant: 'quarry'}).id, 'quarry');
+  assert.eq(V.byId('quarry'), null);
   assert.eq(V.forKind('quarry').length, 4);
   assert.eq(V.forKind('grove').length, 6);
   assert.eq(V.forKind('stones').length, 5);
@@ -169,7 +168,7 @@ test('zone variants: repeated geometry preserves densities and phase across nega
   }
 });
 test('zone variants: seeded scatter has declared mix without dependence on traversal order', () => {
-  for (const id of ['meadow', 'flint_field', 'quarry']) {
+  for (const id of ['meadow', 'flint_field']) {
     const row = V.byId(id), counts = count(row, -150, -150, 300, 300, 'one');
     for (const [material, density] of Object.entries(row.background.materialDensity)) {
       assert.lt(Math.abs((counts[material] || 0) / 90000 - density), 0.004, `${id}/${material}`);
@@ -182,21 +181,6 @@ test('zone variants: seeded scatter has declared mix without dependence on trave
     }
     assert.gt(differences, 100, 'different anchors produce different scatter');
   }
-});
-test('zone variants: quarry rocks form broken rows with empty aisles and unchanged area density', () => {
-  const row = V.byId('quarry');
-  let gaps = 0, seats = 0, neighbours = 0;
-  for (let y = -20; y < 20; y++) for (let x = -100; x < 100; x++) {
-    const material = V.sample(row, x, y, 'parking_lanes|0|0');
-    if (Math.abs(y % 2) === 1) assert.eq(material, null, 'alternate rows are clear aisles');
-    else if (material) {
-      seats++;
-      if (V.sample(row, x + 1, y, 'parking_lanes|0|0')) neighbours++;
-    } else gaps++;
-  }
-  assert.inRange(seats / 8000, .38, .42, '40% density across both rows and aisles');
-  assert.inRange(gaps / 4000, .17, .23, 'rows contain visible seeded breaks');
-  assert.gt(neighbours / seats, .75, 'adjacent rocks read as rows');
 });
 test('zone variants: Mushroom Grove avoids wide empty strips at every repeated phase', () => {
   const row = V.byId('mushroom_grove');

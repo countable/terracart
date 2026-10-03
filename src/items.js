@@ -120,7 +120,7 @@ const CROP_SPRITE = {
   // (WILDPLANT_RULES below), never scenery. The barricade road's barricade
   // uses approved 24px art; clipped hedges still harvest as shrubs.
   barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 4 / 3 },
-  giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 0, scale: 4 / 3, seat: true },
+  giant_mushroom: { sheet: 'zone_objects', custom: true, frame: 40, scale: 4 / 3, seat: true },
   // ── Influence zones (src/zones.js) — the tar yard's FLINT: a ground
   // pickup (WILDPLANT_RULES.flint below), the generated 16px nodule. One
   // frame of art, listed.
@@ -235,9 +235,10 @@ const WILDPLANT_RULES = {
   // day's; that it was TAKEN today is the day ledger's (interact.js
   // 'wildplant' — never save.picked).
   driftwood: { output: 'wood' },
+  longgrass: { treasure: { chance: 0.01, coins: 1 } },
   // Stone debris. The pick relic's ladder times the wheel the same way a rock
   // does — but gathering loose rubble off the ground costs no energy, so no
-  // `workCharged`. The one wild plant that hides something.
+  // `workCharged`. Occasionally hides a gemfruit.
   rockfruit: { workRelic: 'pick', treasure: { chance: 0.1, bonus: 'gemfruit' } },
   // The one wild plant that is a LIGHT: `light` names its Lighting.KINDS row,
   // which is what both the collector's gate (render.js) and the source
@@ -552,8 +553,9 @@ const PLANTS_YIELD = { tree: 'wood' };
 function iconBadgeItem(itemId) {
   const item = ITEM_BY_ID[itemId];
   if (!item) return null;
-  if (item.kind === 'seed') return CROP_SPRITE[item.grows]?.sheet ? null : item.grows;
-  if (item.kind === 'sapling') return item.grows || PLANTS_YIELD[item.plants] || null;
+  if (item.kind !== 'seed') return null;
+  if (item.plants) return item.grows || PLANTS_YIELD[item.plants] || null;
+  if (item.grows) return CROP_SPRITE[item.grows]?.sheet ? null : item.grows;
   return null;
 }
 
@@ -916,7 +918,7 @@ const ITEMS = [
   // Fruit from fruit trees in orchard tiles
   { id: 'apple',   name: 'Apple',   kind: 'produce', crop: 'apple' },
   { id: 'cherry',  name: 'Cherry',  kind: 'produce', crop: 'cherry' },
-  { id: 'peach',   name: 'Peach',   kind: 'produce', crop: 'peach' },
+  { id: 'peach',   name: 'Worldpeach',   kind: 'produce', crop: 'peach' },
   { id: 'banana',  name: 'Banana',  kind: 'produce', crop: 'banana' },
   { id: 'orange',  name: 'Orange',  kind: 'produce', crop: 'orange' },
   // Mango: a rare treat that tames ANY animal (see the creature handler in
@@ -924,19 +926,18 @@ const ITEMS = [
   { id: 'mango',   name: 'Mango',   kind: 'produce' },
   { id: 'coconut', name: 'Coconut', kind: 'produce', crop: 'coconut' },
   { id: 'apricot', name: 'Apricot', kind: 'produce', crop: 'apricot' },
-  // Plantable fruit-tree saplings. kind:'sapling' routes the plant action to
-  // the fruit-tree growth path (a growing `fruittree` object) rather than the
-  // 4-stage crop bed. `grows` is the fruit-tree species. Only two exist: the
-  // apple (T4) and the very rare peach (T7).
-  { id: 'apple_sapling', name: 'Apple Sapling', kind: 'sapling', grows: 'apple', baseTier: BASE_TIER.apple_sapling },
-  { id: 'peach_sapling', name: 'Peach Sapling', kind: 'sapling', grows: 'peach', baseTier: BASE_TIER.peach_sapling },
+  // Fruit-tree seeds use plants:'fruittree' for the tree growth path
+  // rather than the four-stage crop bed. `grows` names the species:
+  // apple (T4) or Worldpeach (T7).
+  { id: 'apple_sapling', name: 'Apple Sapling', kind: 'seed', plants: 'fruittree', grows: 'apple', baseTier: BASE_TIER.apple_sapling },
+  { id: 'peach_sapling', name: 'Worldpeach Sapling', kind: 'seed', plants: 'fruittree', grows: 'peach', baseTier: BASE_TIER.peach_sapling },
   // The ACORN is a sapling too, but it plants TIMBER, not fruit: `plants:'tree'`
   // routes it to a growing `tree` object (the thing you chop) instead of a
   // `fruittree` (the thing you pick). It falls out of felling a tree — the
   // better the axe, the likelier (acornDropChance) — so a forest you clear can
   // be a forest you replant. It carries no `grows`: a species-less tree draws
   // off the default growth sheet and takes no hardwood/softwood tier shift.
-  { id: 'acorn', name: 'Acorn', kind: 'sapling', plants: 'tree', baseTier: 2 },
+  { id: 'acorn', name: 'Acorn', kind: 'seed', plants: 'tree', baseTier: 2 },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Flint',    kind: 'mineral' },   // id kept: saves carry 'coal'
@@ -2460,7 +2461,7 @@ function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad;
 // a kind added to ITEMS without a home here falls into Produce, and only this
 // file can see both halves of that.
 const INV_CATS = [
-  { key: 'seed',        label: 'Seeds',       sym: '🌱', kinds: ['seed', 'sapling'] },
+  { key: 'seed',        label: 'Seeds',       sym: '🌱', kinds: ['seed'] },
   { key: 'produce',     label: 'Produce',     sym: '🍎', kinds: ['produce'] },
   { key: 'animal',      label: 'Animals',     sym: '🐔', kinds: ['animal'] },
   { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic', kinds: ['unique_relic'] },

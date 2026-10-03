@@ -6,15 +6,15 @@
     assert.eq(FOOD_ENERGY.peach, 16);
     assert.eq(itemValue('peach'), 10);
     assert.includes(ITEMS_BY_CLASS_TIER.produce[7], 'peach');
-    assert.includes(ITEMS_BY_CLASS_TIER.sapling[7], 'peach_sapling');
+    assert.includes(ITEMS_BY_CLASS_TIER.seed[7], 'peach_sapling');
     for (let tier = 1; tier < 7; tier++) {
       assert.falsy((ITEMS_BY_CLASS_TIER.produce[tier] || []).includes('peach'));
-      assert.falsy((ITEMS_BY_CLASS_TIER.sapling[tier] || []).includes('peach_sapling'));
+      assert.falsy((ITEMS_BY_CLASS_TIER.seed[tier] || []).includes('peach_sapling'));
       assert.falsy(ChestThemes.eligible('food', tier, { theme: 'food', venueProduct: 'peach' }).includes('peach'));
-      assert.falsy(ChestThemes.eligible('saplings', tier, { theme: 'flora' }).includes('peach_sapling'));
+      assert.falsy(ChestThemes.eligible('parkSeeds', tier, { theme: 'park' }).includes('peach_sapling'));
     }
     assert.includes(ChestThemes.eligible('food', 7, { theme: 'food' }), 'peach');
-    assert.includes(ChestThemes.eligible('saplings', 7, { theme: 'flora' }), 'peach_sapling');
+    assert.includes(ChestThemes.eligible('parkSeeds', 7, { theme: 'park' }), 'peach_sapling');
   });
 
   test('peach rarity: both procedural lanes use one deterministic one-in-fifty selector', () => {

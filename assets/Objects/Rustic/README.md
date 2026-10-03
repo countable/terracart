@@ -9,7 +9,6 @@ images remain in their existing locations; their provenance is unchanged.
 | Props.png | Wilderness/Props.png; only grass frame 10 and surface mushroom frame 35 replaced (mushroom source frame 13) |
 | trees.png | Tree.png first-row sprout, young and mature frames remapped to runtime frames 1, 2, 3 |
 | bush.png | Wilderness/bushes.png rounded green frame 1 |
-| pillar_c.png | Generated/pillar_c.png |
 | pot.png | Generated/pot.png |
 | pot_smashed.png | Generated/pot_smashed.png, matching the intact pot palette |
 
