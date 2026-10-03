@@ -803,13 +803,16 @@ const TAP_HANDLERS = [
 
     // A rose befriends an enemy temporarily; it does not make it catchable.
     if (Combat.isCharmed(target)) {
-      scene.flash('Fighting at your side.', ctx.sx, ctx.sy);
+      const name = Combat.monster(target.kind)?.name || itemName(target.kind);
+      scene.flash(name, sx, sy);
       return true;
     }
 
     // Enemy taps do not choose a melee target. The combat tick continuously
     // selects the closest foe in weapon reach; feeding/taming above still works.
     if (Combat.isEnemy(target)) {
+      const name = Combat.monster(target.kind)?.name || itemName(target.kind);
+      scene.flash(name, sx, sy);
       return true;
     }
 
