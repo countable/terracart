@@ -328,6 +328,9 @@ const MINERAL_ICON_SHEET = {
   shield_wood: { sheet: 'icon_shield_wood', frame: 0 },
   shield_metal: { sheet: 'icon_shield_metal', frame: 0 },
   shield_gold: { sheet: 'icon_shield_gold', frame: 0 },
+  guild_blacksmith: { sheet: 'icon_guild_blacksmith', frame: 0 },
+  guild_market: { sheet: 'icon_guild_market', frame: 0 },
+  guild_trader: { sheet: 'icon_guild_trader', frame: 0 },
 
   giant_mushroom: { sheet: 'giant_mushroom', frame: 0 },
   // Wood — frame 2 of the 3-variant log sheet (amber bark variant).
@@ -563,6 +566,7 @@ const SHINY_TIER_UP = 3;
 const BASE_TIER = {
   telescope: 5, orb: 7, goblet: 6, lucky_key: 3,
   shield_wood: 2, shield_metal: 4, shield_gold: 6,
+  guild_blacksmith: 4, guild_market: 4, guild_trader: 4,
   // Crops (same tier for seed & produce; the seed id uses the suffix).
   // Spread across all four chest tiers.
   potato: 1, rockfruit: 1,
@@ -683,6 +687,13 @@ const CARRIED_ITEM_SPEC = {
   shield_wood: { projectileReduction: 3 },
   shield_metal: { projectileReduction: 6 },
   shield_gold: { projectileReduction: 10 },
+  // GUILD BADGES: a carried badge takes `guildDiscount` off every deal at
+  // its guild's houses (`guildRole`, the Houses.houseShopRole key) — the
+  // themed shop's price, the smith's forge and smelt materials, the trader's
+  // ask. guildDiscounted (below) is the one place it is applied.
+  guild_blacksmith: { guildRole: 'blacksmith', guildDiscount: 0.1 },
+  guild_market: { guildRole: 'market', guildDiscount: 0.1 },
+  guild_trader: { guildRole: 'trader', guildDiscount: 0.1 },
 };
 const ITEMS = [
   { id: 'telescope', name: 'Telescope', kind: 'unique_relic' },
@@ -692,6 +703,9 @@ const ITEMS = [
   { id: 'shield_wood', name: 'Wood Shield', kind: 'unique_relic' },
   { id: 'shield_metal', name: 'Metal Shield', kind: 'unique_relic' },
   { id: 'shield_gold', name: 'Gold Shield', kind: 'unique_relic' },
+  { id: 'guild_blacksmith', name: 'Smiths’ Guild Badge', kind: 'unique_relic' },
+  { id: 'guild_market', name: 'Marketeers’ Guild Badge', kind: 'unique_relic' },
+  { id: 'guild_trader', name: 'Traders’ Guild Badge', kind: 'unique_relic' },
   ...Object.keys(CROP_ROW).map(c => ({
     id: `${c}_seed`, name: `${CROP_NAMES[c]} Seed`, kind: 'seed', grows: c,
     baseTier: BASE_TIER[c] || 1,
@@ -1536,6 +1550,9 @@ const ITEM_EFFECTS = {
   shield_wood: 'Old arrowheads sleep in its sturdy wooden face.',
   shield_metal: 'Arrows glance away from its hammered metal face.',
   shield_gold: 'A golden face stands firm beneath a rain of arrows.',
+  guild_blacksmith: 'Smiths nod at the little hammer and go easier on your ore.',
+  guild_market: 'Shopkeepers see the coin on it and knock a little off.',
+  guild_trader: 'Traders spot the crossed arrows and ask a little less.',
   egg: 'A tiny heartbeat keeps time with your footsteps.',
   ...Object.fromEntries(BABY_KINDS.map(k => [babyItemId(k),
     'Too small to be left in the bag for long. Set it down on soft ground and let it grow.'])),
@@ -2283,6 +2300,23 @@ const UNIQUE_JEWELRY = Object.freeze({
 });
 function carriesItem(save, id) {
   return !!(save?.inv || []).find((st) => st?.id === id && (st.count ?? 0) > 0);
+}
+// The fraction a carried guild badge takes off deals with `role` (a
+// Houses.houseShopRole key), 0 without one. Read from CARRIED_ITEM_SPEC.
+function guildDiscount(save, role) {
+  if (!role) return 0;
+  for (const [id, row] of Object.entries(CARRIED_ITEM_SPEC)) {
+    if (row.guildRole === role && carriesItem(save, id)) return row.guildDiscount || 0;
+  }
+  return 0;
+}
+// A price or material count `n` after the guild discount for `role`. A half
+// unit rounds in the player's favour (5 bars → 4), a sub-half saving rounds
+// away (3 coins stay 3), and a deal never drops below one.
+function guildDiscounted(save, role, n) {
+  const d = guildDiscount(save, role);
+  if (!d || !(n > 0)) return n;
+  return Math.max(1, n - Math.round(n * d));
 }
 function jewelryVisionReduction(save) {
   let cells = 0;

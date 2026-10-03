@@ -1428,6 +1428,9 @@ const ICON_SHEETS = {
   icon_shield_wood: { url: 'assets/Icons/Items/shield_wood.png', cols: 1, srcW: 16, srcH: 16 },
   icon_shield_metal: { url: 'assets/Icons/Items/shield_metal.png', cols: 1, srcW: 16, srcH: 16 },
   icon_shield_gold: { url: 'assets/Icons/Items/shield_gold.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_guild_blacksmith: { url: 'assets/Icons/Items/guild_blacksmith.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_guild_market: { url: 'assets/Icons/Items/guild_market.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_guild_trader: { url: 'assets/Icons/Items/guild_trader.png', cols: 1, srcW: 16, srcH: 16 },
 
   crops:       { url: 'assets/Objects/Approved/crops.png',                       cols: 9,  srcW: 144, srcH: 256 },
   springcrops: { url: 'assets/Objects/Approved/springcrops.png',                cols: 14, srcW: 224, srcH: 128 },

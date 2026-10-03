@@ -363,7 +363,7 @@ test('copy: a shop with nothing to offer says so in a sentence, and promises no 
 
 test('copy: a short smelt names the ingredient and the shortfall', () => {
   assert.falsy(/flash\('not enough to smelt'/.test(SCENE_SRC), 'the bare fragment is gone');
-  assert.truthy(/const missing = recipe\.find\(r => heldCount\(r\.id\) < r\.qty \* q\);/.test(SCENE_SRC),
+  assert.truthy(/const missing = recipe\.find\(r => heldCount\(r\.id\) < need\(r, q\)\);/.test(SCENE_SRC),
     'it finds which ingredient is short');
   assert.truthy(/Need \$\{short\} more \$\{name\}`/.test(SCENE_SRC),
     'and says how many more of it are wanted');
