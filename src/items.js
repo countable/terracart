@@ -1860,8 +1860,8 @@ const RELIC_DEFS = {
   // the staff at the nearest foe in range every 5 s (5 damage a bolt at Wood),
   // the next bolt charging by the player's hand in between.
   // They fight ENEMIES and nothing else: the crow/deer hunt wheel is the BUG
-  // NET's job, not a weapon's. On top of the fighting, the Sword raises sell
-  // values and the Bow lowers buy prices; the Staff bends no prices at all.
+  // NET's job, not a weapon's. No weapon bends a price: selling is one flat
+  // rate (sellMultiplier) and buying one mode-scaled band (buyMarkupRange).
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
              effectKey: 'melee',         blurb: 'Its edge answers a foe that comes too close.' },
   dagger:  { slot: 'dagger', name: 'Dagger', icon: 'Dagger.png', baseCost: 80,

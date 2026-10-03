@@ -1,6 +1,6 @@
 # Beach zone variants — implementation notes
 
-Mystic Reef, Pirate Cove and Shellwater Strand are implemented in the canonical `zone-variants.json` table and its generated runtime data. `beach-zone-variants.draft.json` retains the original design snapshot for preview tooling; its filename is historical. Beach selection, composite sand/park ownership, finite rewards and the shipwreck shrine are active. The placement contract below also specifies shoreline orientation and daily tide-seat reservations.
+Mystic Reef, Pirate Cove and Shellwater Strand are implemented as `beach` variant rows of the canonical `zone-variants.json` table and its generated runtime data. This file and `beach-zone-variants.draft.json` keep their historical "draft" filenames because tools cite them; the JSON retains the original design snapshot for preview tooling, and this file keeps design rationale only. Beach selection, composite sand/park ownership, finite rewards and the shipwreck shrine are active. The placement contract below also specifies shoreline orientation and daily tide-seat reservations.
 
 ## Can we detect beach parks?
 
@@ -10,7 +10,9 @@ Sand is the primary zone, independent of the park. A beach variant requires an a
 
 Resolve sand ownership before grove coverage so parks cannot subsume it. Preserve sandy ground on the sand component; treat adjoining parkland as the landward component of the same chosen variant. One beach anchor, orientation and find budget span that composition. Remaining parkland outside the composite keeps its normal grove treatment. Use stable source sand identity, never a tile-clipped polygon centroid, for anchors, orientation and finite reward ownership. Missing or ambiguous geometry goes to review rather than inventing a sand zone.
 
-## Implemented rows
+## Original design rows
+
+The live values (repeats, counts, guards, `attracts`) are the variant rows in `zone-variants.json`; the table below is the design snapshot.
 
 Repeats prefer at most 6 × 6 cells, with an 8 × 8 ceiling. Smaller rectangles are welcome. Each frame stays anchored to the POI and aligned with the shore; dimensions are width along shore × depth toward land. Coverage is measured before clipping, shrine reservations, tide cells and finds. One cell is currently 7 m.
 
@@ -42,7 +44,7 @@ Standing objects must be interactables or hazards. A new appearance replaces an 
 - Keep the existing one-per-POI daily grove gift, with beach-themed art. Do not restore a generic park chest or add a second daily reward.
 - Small POI decoration touches its anchor; the shipwreck instead reserves its whole extent. Finds connect through clear lanes. Blocked small slots are omitted; inaccessible finds use deterministic eligible fallback seats and then report shortfalls.
 - Fauna percentages relocate existing animals, not spawn additional animals. Fauna can overlap objects; guards use normal enemy eligibility and occupancy.
-- Two of these three beach variants have fauna affinities. The original sixteen grove, stones and tar rows retain their separate half-with-affinity rule.
+- Each beach variant row declares its own `attracts` column, independently of the grove, stones and tar rows.
 
 ## Verification
 

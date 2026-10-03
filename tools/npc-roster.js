@@ -1,8 +1,8 @@
 /* global loadGame, NPC, SpriteLayout, SortableTables */
 'use strict';
 // NPC viewer: every neighbour role and named story character the game can
-// show, with the art it wears now. Roles, labels, zone shares, names and
-// sheets come from the game (NPC.PROFILES / LABELS / STORY_ROLES,
+// show, with the art it wears now. Roles, labels, culture shares, names and
+// sheets come from the game (NPC.CULTURES / LABELS / STORY_ROLES,
 // SpriteLayout.NPC_SHEETS); DOES and LOOKS below only describe them.
 (async () => {
   const $ = id => document.getElementById(id);
@@ -13,7 +13,7 @@
     const DOES = {
       scout: 'Points out a discovery within 250 m. After 9 memories passes on the rumour; from act 2 tells of the Breaking.',
       scholar: 'Reads a tip aloud from a scorched book page.',
-      merchant: 'Opens the zone\'s themed shop.',
+      merchant: 'Opens the culture\'s themed shop.',
       trader: 'Offers a swap.',
       keeper: 'Tells the story of the zone they keep.',
       mason: 'Counts the roofs mended so far and points to the nearest wreck.',
@@ -41,7 +41,7 @@
     const npcArt = SpriteLayout.CREATURE_ART.npc;
     const asSheet = (s, scale = 1) => ({ key: s.idle, label: s.path.split('/').pop().replace(/_idle\.png$/, ''), src: '../' + s.path, fw: 48, fh: 48, scale: npcArt.scale * scale, tint: s.tint });
     const citizens = SpriteLayout.NPC_SHEETS.filter(s => !s.role);
-    // A row's art: its own sheet, or the shared citizens in the zone's tints.
+    // A row's art: its own sheet, or the shared citizens in the culture's tints.
     const artFor = (c, scale) => {
       const own = SpriteLayout.npcSheet(c);
       return own.role ? [asSheet(own, scale)] : citizens.map(s => asSheet(s, scale));
@@ -51,25 +51,25 @@
     // Story neighbours first: each has a name and a look of its own.
     for (const [role, row] of Object.entries(NPC.STORY_ROLES || {})) {
       const c = NPC.storyNeighbour(`npc_${role}_0_0`, role);
-      rows.push({ id: `story:${role}`, named: true, label: row.name || row.label, zone: row.arrives ? 'rescue' : row.radiusM ? 'dig site' : 'trailer',
+      rows.push({ id: `story:${role}`, named: true, label: row.name || row.label, culture: row.arrives ? 'rescue' : row.radiusM ? 'dig site' : 'trailer',
         role: `${row.label} · from ${row.minMemories} memories`, share: null, tints: [], art: artFor(c, row.artScale || 1), does: DOES[role] });
     }
-    // Zone roles. One label is one role (Peddler, Lamplighter): a single row
-    // lists every zone it appears in, with that zone's share.
-    for (const [zone, p] of Object.entries(NPC.PROFILES)) {
+    // Culture roles. One label is one role (Peddler, Lamplighter): a single row
+    // lists every culture it appears in, with that culture's share.
+    for (const [culture, p] of Object.entries(NPC.CULTURES)) {
       const counts = {};
       for (const r of p.roles) counts[r] = (counts[r] || 0) + 1;
       for (const [role, n] of Object.entries(counts)) {
-        const label = NPC.LABELS[zone][role], same = rows.find(r => r.label === label && !r.named);
-        if (same) { same.zones.push(zone); same.shares.push([zone, n / p.roles.length]); continue; }
-        const art = artFor({ role, zone });
-        rows.push({ id: `${zone}:${role}`, label, zone, zones: [zone], role, shares: [[zone, n / p.roles.length]],
+        const label = NPC.LABELS[culture][role], same = rows.find(r => r.label === label && !r.named);
+        if (same) { same.cultures.push(culture); same.shares.push([culture, n / p.roles.length]); continue; }
+        const art = artFor({ role, culture });
+        rows.push({ id: `${culture}:${role}`, label, culture, cultures: [culture], role, shares: [[culture, n / p.roles.length]],
           tints: art.some(a => a.tint == null) ? p.colors : [], art, does: DOES[role] });
       }
     }
-    const lookOf = r => r.art.length === 1 ? LOOKS[r.art[0].key] || '' : 'One of the citizens, in the zone\'s tint.';
+    const lookOf = r => r.art.length === 1 ? LOOKS[r.art[0].key] || '' : 'One of the citizens, in the culture\'s tint.';
     const about = r => `${lookOf(r) ? `<b>Looks:</b> ${esc(lookOf(r))}` : ''}${r.does ? `<br><b>Does:</b> ${esc(r.does)}` : ''}`;
-    const zonesOf = r => r.zones || [r.zone];
+    const culturesOf = r => r.cultures || [r.culture];
 
     const images = new Map();
     const load = src => {
@@ -111,25 +111,25 @@
     }
     const fill = async (el, jobs) => el.replaceChildren(...await Promise.all(jobs.map(([s, o]) => draw(s, o))));
 
-    const zones = [...new Set(rows.flatMap(zonesOf))];
-    $('zone').insertAdjacentHTML('beforeend', zones.map(z => `<option value="${esc(z)}">${esc(z[0].toUpperCase() + z.slice(1))}</option>`).join(''));
+    const cultures = [...new Set(rows.flatMap(culturesOf))];
+    $('culture').insertAdjacentHTML('beforeend', cultures.map(z => `<option value="${esc(z)}">${esc(z[0].toUpperCase() + z.slice(1))}</option>`).join(''));
     $('summary').innerHTML = [[rows.filter(r => !r.named).length, 'neighbour roles'], [rows.filter(r => r.named).length, 'named characters'],
-      [Object.keys(NPC.PROFILES).length, 'zones'], [new Set(rows.flatMap(r => r.art.map(a => a.key))).size, 'sheets in use']]
+      [Object.keys(NPC.CULTURES).length, 'cultures'], [new Set(rows.flatMap(r => r.art.map(a => a.key))).size, 'sheets in use']]
       .map(([n, label]) => `<div class="metric"><strong>${n}</strong>${label}</div>`).join('');
 
     let selected = rows[0]?.id;
     const zoom = () => Number($('zoom').value);
-    // Shared citizens show once per zone tint; an own sheet shows once.
+    // Shared citizens show once per culture tint; an own sheet shows once.
     const jobsFor = (r, opts) => r.tints.length ? r.art.map((s, i) => [s, { ...opts, tint: r.tints[i % r.tints.length] }]) : r.art.map(s => [s, opts]);
     async function render() {
-      const q = $('search').value.trim().toLowerCase(), zone = $('zone').value, status = $('status').value;
-      const shown = rows.filter(r => (zone === 'all' || zonesOf(r).includes(zone)) && (status === 'all' || (status === 'named') === !!r.named)
-        && (!q || [r.label, r.role, ...zonesOf(r), lookOf(r)].join(' ').toLowerCase().includes(q)));
+      const q = $('search').value.trim().toLowerCase(), culture = $('culture').value, status = $('status').value;
+      const shown = rows.filter(r => (culture === 'all' || culturesOf(r).includes(culture)) && (status === 'all' || (status === 'named') === !!r.named)
+        && (!q || [r.label, r.role, ...culturesOf(r), lookOf(r)].join(' ').toLowerCase().includes(q)));
       $('count').textContent = `${shown.length} of ${rows.length} rows`;
       if (shown.length && !shown.some(r => r.id === selected)) selected = shown[0].id;
       $('rows').innerHTML = shown.length ? shown.map(r => `<tr data-id="${esc(r.id)}" tabindex="0" class="${r.id === selected ? 'selected' : ''}">
         <td class="role"><b>${esc(r.label)}</b><span class="kind">${esc(r.role)}</span>${r.named ? '<br><span class="tag keep">Named</span>' : ''}</td>
-        <td>${esc(zonesOf(r).join(', '))}${r.tints.length ? '<br>' + r.tints.map(t => `<span class="swatch" style="background:${hex(t)}" title="Tint ${hex(t)}"></span>`).join('') : ''}</td>
+        <td>${esc(culturesOf(r).join(', '))}${r.tints.length ? '<br>' + r.tints.map(t => `<span class="swatch" style="background:${hex(t)}" title="Tint ${hex(t)}"></span>`).join('') : ''}</td>
         <td data-sort-value="${r.shares?.[0][1] ?? ''}">${r.shares ? r.shares.map(([z, v]) => `${Math.round(v * 100)}% ${esc(z)}`).join('<br>') : '—'}</td>
         <td><div class="sprites" data-art></div></td>
         <td class="about">${about(r)}</td></tr>`).join('')
@@ -144,7 +144,7 @@
     async function detail() {
       const r = rows.find(x => x.id === selected);
       if (!r) { $('detail').innerHTML = '<h2>No selection</h2><p>Select a row to see its art.</p>'; return; }
-      $('detail').innerHTML = `<div class="eyebrow">${esc(zonesOf(r).join(' · '))}${r.named ? ' · named' : ''}</div><h2>${esc(r.label)}</h2><p class="note">${esc(r.role)}</p><p class="note">${about(r)}</p>
+      $('detail').innerHTML = `<div class="eyebrow">${esc(culturesOf(r).join(' · '))}${r.named ? ' · named' : ''}</div><h2>${esc(r.label)}</h2><p class="note">${esc(r.role)}</p><p class="note">${about(r)}</p>
         <h3>Front, back, left, right</h3><div class="sprites" id="dArt"></div>`;
       const z = Math.min(zoom(), 3);
       await fill($('dArt'), r.tints.length
@@ -155,7 +155,7 @@
     $('rows').addEventListener('click', e => pick(e.target.closest('tr')));
     $('rows').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(e.target.closest('tr')); } });
     for (const el of document.querySelectorAll('.controls input,.controls select')) el.addEventListener('input', render);
-    $('reset').onclick = () => { $('search').value = ''; $('zone').value = 'all'; $('status').value = 'all'; SortableTables.clear($('rows').closest('table')); render(); };
+    $('reset').onclick = () => { $('search').value = ''; $('culture').value = 'all'; $('status').value = 'all'; SortableTables.clear($('rows').closest('table')); render(); };
     await render();
   } catch (err) {
     $('count').textContent = 'Could not load the game: ' + err.message;
