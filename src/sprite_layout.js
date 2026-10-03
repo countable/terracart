@@ -364,7 +364,7 @@
   // CREATURE_FRAME_MS is what every stepped kind runs at unless it says
   // otherwise, and SLIME_FRAME_MS is HALF that rate — the slime sheet's ooze
   // reads as a slow swell rather than a flutter, which it needs more now that
-  // the surface slime covers ground faster (creature_ai.js SLIME_HOP_CELLS). It is
+  // the surface slime covers ground at its row's pace (enemy_roster.js `slime`). It is
   // derived from the common beat, not a second number, and BOTH rows on the
   // slime sheet read it: the cave slime is the surface slime's art, so if the
   // two ever animate at different rates it is the same blob moving two ways.

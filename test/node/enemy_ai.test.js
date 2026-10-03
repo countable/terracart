@@ -434,6 +434,27 @@
       if(old) WorldGen.tileCache.set(key,old); else WorldGen.tileCache.delete(key);
     }
   });
+  test('enemy AI: a summon inherits its master\'s garrison, ground and hunt — the one list a split twin reads', () => {
+    const s=scene(), c=foe('necromancer',14,14), n=WorldGen.TILE_PX;
+    Object.assign(s,{startWorldM:{x:0,y:0},originPx:{x:0,y:0},mPerPx:7,cellsPerTile:n});
+    Object.assign(c, { lair: 'ruin', aggroCells: 3, homeX: 14, homeY: 14, _surfaceSpawn: { x: 14, y: 14, tx: 0, ty: 0, cx: 2, cy: 2 },
+      habitat: 'crypt', zoneVariant: 'tar', _hunting: true });
+    const key=WorldGen.tileKey(0,0), old=WorldGen.tileCache.get(key), previous=WorldGen.forEachItemNear;
+    const entry={cellsPerEdge:n,grid:new Uint8Array(n*n).fill(WorldGen.T.CAVE_FLOOR),creatures:[c],_spawnOpts:{}};
+    WorldGen.tileCache.set(key,entry);
+    WorldGen.forEachItemNear=(what,tx,ty,fn)=>entry.creatures.forEach(fn);
+    try {
+      assert.truthy(enemySummon(s,c,EnemyRoster.get(c.kind).ability));
+      const child = entry.creatures[1];
+      for (const key of garrisonInherit()) assert.eq(child[key], c[key], `${key} inherited`);
+      assert.includes(garrisonInherit(), '_surfaceSpawn'); assert.includes(garrisonInherit(), 'habitat');
+      assert.includes(garrisonInherit(), 'zoneVariant'); assert.includes(garrisonInherit(), '_hunting');
+      if (typeof Lairs !== 'undefined' && Lairs.GARRISON_INHERIT) assert.eq(garrisonInherit(), Lairs.GARRISON_INHERIT, 'lairs.js owns the list');
+    } finally {
+      WorldGen.forEachItemNear=previous;
+      if(old) WorldGen.tileCache.set(key,old); else WorldGen.tileCache.delete(key);
+    }
+  });
   test('enemy AI: summons refuse the shared occupied spawn gate', () => {
     const s=scene(),c=foe('necromancer',14,14),n=WorldGen.TILE_PX;
     Object.assign(s,{startWorldM:{x:0,y:0},originPx:{x:0,y:0},mPerPx:7,cellsPerTile:n});
