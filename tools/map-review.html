@@ -57,6 +57,7 @@
   #legend button[aria-pressed="true"]{border-color:#fff;background:#3a3a3a;color:#fff}
   #legend button:focus-visible{outline:2px solid #fff;outline-offset:1px}
   .zone-label{background:#122f2be8;border:1px solid #3c8f80;color:#fff;font-weight:600;font-size:11px}
+  .poi-label{background:#211c16e8;border:1px solid #a99878;color:#fff;font-size:11px}
 </style>
 </head>
 <body>
@@ -66,7 +67,7 @@
   <div id="status">loading the game…</div>
   <div><button id="placeHome">Place Home</button></div>
   <details class="review-section" open><summary>Park / zone variants</summary><div class="section-body">
-  <label><input id="zoneLabels" type="checkbox" checked> Show variant labels</label>
+  <label><input id="zoneLabels" type="checkbox" checked> Show zone names and variants</label>
   <select id="zonePick" aria-label="Park or zone"><option value="">Loading zones…</option></select>
   <div id="zoneDetails">Select a park or zone to inspect its layout and other spawns.</div>
   <label for="sourceFilter">Show placements</label>
@@ -91,7 +92,8 @@
   <label><input id="quarryClusters" type="checkbox"> Colour quarry footprints</label>
   <div id="quarrySummary" hidden style="font-size:11px;color:#aaa;line-height:1.5"></div>
 </div></details>
-  <details class="review-section" open><summary>Overlays</summary><div class="section-body"><div id="ovl"></div>
+  <details class="review-section" open><summary>Overlays</summary><div class="section-body">
+  <label><input id="poiLabels" type="checkbox" checked> Show POI names</label><div id="ovl"></div>
 </div></details>
   <details class="review-section" open><summary>Density band</summary><div class="section-body">
   <div>interactables per view: <input id="dmin" type="number" value="5" min="0" style="width:3.5em"> to
@@ -450,6 +452,7 @@ function popupHTML(e, o, label) {
 }
 // Zone selection names the actual row, including parks whose chest was clipped.
 const zoneLabels = L.layerGroup().addTo(map), zoneSelection = L.layerGroup().addTo(map);
+const poiLabels = L.layerGroup().addTo(map);
 let zoneReviews = new Map();
 function zoneTitle(z) { return `${z.name || z.anchor.kind} · ${z.variant?.name || 'No variant'}`; }
 function selectZone(id, focus) {
@@ -512,14 +515,41 @@ function updateZoneReview(world) {
     $('zonePick').appendChild(new Option(zoneTitle(z),z.id));
     const a=z.anchor, ll=toLL(a.gx*EDGE/4096,a.gy*EDGE/4096,EDGE);
     L.circleMarker(ll,{radius:4,color:'#fff',weight:1,fillColor:'#27d9c0',fillOpacity:1})
-      .bindTooltip(esc(z.variant?.name || 'No variant'), {permanent:true,direction:'top',className:'zone-label'})
+      .bindTooltip(esc(zoneTitle(z)), {permanent:true,direction:'top',className:'zone-label'})
       .on('click',()=>selectZone(z.id,true)).addTo(zoneLabels);
   }
   selectZone(zoneReviews.has(selected) ? selected : '', false);
   quarryReview.update(world,zoneReviews);
+  updatePoiLabels(world);
+}
+function updatePoiLabels(world) {
+  poiLabels.clearLayers();
+  // Source names survive even when the spawn gate clips a POI's game object.
+  // Zone labels already identify named anchors; avoid printing those twice.
+  const seen = new Set([...zoneReviews.values()].filter(z => z.coverage > 0 && z.name)
+    .map(z => `${z.anchor.gx},${z.anchor.gy}:${z.name}`));
+  for (const e of world.tiles) {
+    const layer = (e.layers || []).find(l => l.name === 'poi');
+    const extent = layer?.extent || 4096;
+    for (const f of layer?.features || []) {
+      const name = f.tags?.name || f.tags?.['name:en'];
+      if (!name || f.type !== 1) continue;
+      for (const ring of f.geom || []) for (const p of ring) {
+        if (p.x < 0 || p.y < 0 || p.x >= extent || p.y >= extent) continue;
+        const gx = (e.tx + p.x / extent) * 4096, gy = (e.ty + p.y / extent) * 4096;
+        const key = `${gx},${gy}:${name}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        L.tooltip({permanent:true,direction:'top',className:'poi-label',opacity:.95})
+          .setLatLng(toLL(gx * EDGE / 4096, gy * EDGE / 4096, EDGE))
+          .setContent(esc(name)).addTo(poiLabels);
+      }
+    }
+  }
 }
 $('zonePick').onchange=()=>selectZone($('zonePick').value,true);
 $('zoneLabels').onchange=()=> $('zoneLabels').checked ? zoneLabels.addTo(map) : map.removeLayer(zoneLabels);
+$('poiLabels').onchange=()=> $('poiLabels').checked ? poiLabels.addTo(map) : map.removeLayer(poiLabels);
 const showSource = source => $('sourceFilter').value === 'all' || source === 'place'
   || ($('sourceFilter').value === 'ground' ? source !== 'fauna'
     : $('sourceFilter').value === 'variant' ? ['variant', 'street'].includes(source) : !['variant', 'street'].includes(source));

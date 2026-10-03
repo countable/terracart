@@ -802,7 +802,7 @@
     assert.inRange(books / N, 0.15, 0.25, 'about a fifth of T2 food chests hand a Book: ' + (books / N).toFixed(3));
   });
 
-  test('scholar: the real Casorso school keeps its book club at the school wall', () => {
+  test('scholar: the Casorso field keeps its book club without a fabricated school wall', () => {
     const tx=2754, ty=5566, N=WorldGen.cellsPerEdgeForTile(ty);
     const edge=WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(ty)), cellM=edge/N;
     const r=WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES['2754_5566']),N,tx,ty,edge);
@@ -815,17 +815,10 @@
     assert.falsy(WorldGen.isBuildingTerrain(r.grid[iy*N+ix]),'outside the school');
     const sourceX=Math.floor(1312*N/4096), sourceY=Math.floor(3693*N/4096);
     const owner=r.owners[sourceY*N+sourceX];
-    assert.truthy(owner,'the school owns its generated footprint');
-    assert.truthy([[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>
-      r.owners[(iy+dy)*N+ix+dx]===owner), 'a nearby road cannot pull the scholar away from its school wall');
-    assert.eq(r.owners[(iy-1)*N+ix],owner,'the counter sits in front of the school, not behind its tall turrets');
-    for (const tower of r.objects.filter(o=>o.kind==='tower')) {
-      const towerX=Math.floor(tower.x/cellM)-tx*N, towerY=Math.floor(tower.y/cellM)-ty*N;
-      assert.falsy(Math.abs(towerX-ix)<=1 && towerY>iy && towerY-iy<=3,'no nearby turret projects over the counter');
-    }
+    assert.eq(owner,0,'the school POI marks open ground, not a physical building');
   });
 
-  test('scholar: an open-ground school raises a block and the booth stands at its wall — no pyramid', () => {
+  test('scholar: an open-ground school keeps its booth without inventing a building', () => {
     const T = WorldGen.T;
     const r = WorldGen.rasterizeTile([
       { name: 'landcover', features: [{ type: 3, tags: { class: 'grass' },
@@ -842,13 +835,9 @@
     assert.falsy(WorldGen.isBuildingTerrain(at(ix, iy)), 'the booth is not inside the block');
     let block = 0, commercial = 0;
     for (let i = 0; i < N * N; i++) { if (r.grid[i] === T.BUILDING_LARGE) block++; if (r.grid[i] === T.COMMERCIAL) commercial++; }
-    assert.eq(block, 9 * 7, 'the civic block (9×7) stands where the school is');
+    assert.eq(block, 0, 'a school POI does not establish a building footprint');
     assert.eq(commercial, 0, 'no concrete pyramid pad any more');
-    let touches = false;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (at(ix + dx, iy + dy) === T.BUILDING_LARGE) touches = true;
-    assert.truthy(touches, 'the booth stands against the school\'s outer wall');
-    assert.falsy(/rows = \[1, 3, 5, 7\]/.test(WORLDGEN_SRC), 'the pyramid rows are gone');
-    assert.truthy(/POI_CIVIC_BUILDING = new Set\(\[[^\]]*'school'/.test(WORLDGEN_SRC), 'a school raises the civic block');
+    assert.eq(r.objects.filter(o => o.kind === 'tower').length, 0, 'no invented castle towers');
   });
 
   test('macro: a chapel is minted for a church only — a synagogue, mosque or temple mints nothing', () => {

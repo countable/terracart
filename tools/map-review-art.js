@@ -62,14 +62,15 @@ const MapReviewArt = (() => {
     const custom=spec?.custom, spring=spec?.sheet==='springcrops';
     return { visible:true, texKey:custom?spec.sheet:spring?'springcrops':'crops',
       frameVal:custom?wildplantFrame(o):spring?spec.row*SPRING_CROPS_COLS+stage:(CROP_ROW[o.crop]??1)*CROPS_SHEET_COLS+stage,
-      scl:spec?.scale??2,scaleYMul:1,origin:[.5,stage===0&&!custom&&!spring?.85:.5],dxPx:0,dyPx:0 };
+      scl:spec?.scale??2,scaleYMul:1,tint:BiomeProfiles.tint(o._biome,o.crop)||0xffffff,origin:[.5,stage===0&&!custom&&!spring?.85:.5],dxPx:0,dyPx:0 };
   }
   function creatureAppearance(o) {
     const art=SpriteLayout.creatureArt(o.kind); if(!art)return null;
     const npc=o.kind==='npc'?SpriteLayout.npcAppearance(o,0,false):null;
     return {visible:true,texKey:npc?.sheet||art.sheet,frameVal:npc?.frame??0,
       scl:SpriteLayout.creatureScale(o.kind,SpriteLayout.creatureInstScale(o)),scaleYMul:1,
-      origin:[.5,art.foot],dxPx:0,dyPx:-(art.float||0)};
+      origin:[.5,art.foot],dxPx:0,dyPx:-(art.float||0),
+      tint:npc?.tint??SpriteLayout.creatureTint(o.kind),alpha:SpriteLayout.creatureAlpha(o.kind)};
   }
   const Layer = L.Layer.extend({
     initialize(options) { L.setOptions(this,options); this._world=null; this._sprites=[]; },
@@ -102,9 +103,14 @@ const MapReviewArt = (() => {
       const {resolveAppearance:resolve,fruitList}=Render.objectAppearance(scene,roles);
       this._sprites=[];
       const tideDay=utcDayKey();
+      const spent=spentSets(scene,scene.save);
+      let connectedArt=new Map();
       const add=(e,o,category)=>{
         if(!Number.isFinite(o.x)||!Number.isFinite(o.y))return;
-        const appearance=category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(o):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:Render.coinPile(o).texture,frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.coinPile(o).width,displayHeight:Render.coinPile(o).width}:resolve(o);
+        const override=connectedArt.get(o);
+        const art=override?{...o,...override}:o;
+        const appearance=category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(art):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:Render.coinPile(o).texture,frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.coinPile(o).width,displayHeight:Render.coinPile(o).width}:resolve(art);
+        if(appearance?.visible&&category!=='plant'&&category!=='creature')appearance.tint=Render.spriteTint(art,scene,appearance.texKey);
         if(o.kind==='_streetlamp'&&appearance?.visible) {
           // The shipping after hook owns lamp sizing and dark-stone alpha.
           appearance.spec.after({
@@ -127,6 +133,9 @@ const MapReviewArt = (() => {
         this._sprites.push({e,o,category,kind,appearance,fruit});
       };
       for(const e of this._world.tiles) {
+        const edge=this.options.getEdge();
+        connectedArt=Render.connectedArtForTile(e,e.tx,e.ty,edge,spent,
+          (e.tx+.5)*edge,(e.ty+.5)*edge,edge/2);
         // Lamps are generated infrastructure, outside the spawned-object filters.
         // Share geometry, procedural art and sprite appearance with the game.
         for(const lamp of MapScene.prototype._streetLampsForTile.call(scene,e.tx,e.ty,e)) {
@@ -138,14 +147,37 @@ const MapReviewArt = (() => {
         for(const o of e.coinDrops||[])add(e,o,'object');
         for(const o of e.wildplants||[]) {
           const plant=ZoneReview.livePlant(o,tideDay);
-          if(plant)add(e,plant,'plant');
+          if(plant) {
+            const override=connectedArt.get(o);
+            if(override)connectedArt.set(plant,override);
+            add(e,plant,'plant');
+          }
         }
         for(const o of e.creatures||[])add(e,o,'creature');
         for(const o of e.traps||[])add(e,{...o,kind:'trap'},'object');
         for(const o of [e.treasure,...(e.extraTreasures||[]),...(e.parkingTreasures||[])])if(treasureExposed(o,this._world.scene))add(e,{...o,kind:'xmark'},'object');
       }
+      connectedArt=new Map();
       for(const o of this._world.guards||[])add(null,o,'creature');
       this._sprites.sort((a,b)=>a.o.y-b.o.y||a.o.x-b.o.x);
+    },
+    _tintedFrame(texture,frame,tint=0xffffff) {
+      // Cache the cropped, multiply-tinted frame just as Phaser's sprite tint
+      // colours shared sheets without changing their source pixels.
+      this._frameImages ||= new WeakMap();
+      let variants=this._frameImages.get(frame);
+      if(!variants)this._frameImages.set(frame,variants=new Map());
+      if(variants.has(tint))return variants.get(tint);
+      const canvas=document.createElement('canvas');canvas.width=frame.width;canvas.height=frame.height;
+      const g=canvas.getContext('2d'),source=texture.getSourceImage();
+      const draw=()=>g.drawImage(source,frame.x,frame.y,frame.width,frame.height,0,0,frame.width,frame.height);
+      draw();
+      if(tint!==0xffffff) {
+        g.globalCompositeOperation='multiply';
+        g.fillStyle='#'+tint.toString(16).padStart(6,'0');g.fillRect(0,0,frame.width,frame.height);
+        g.globalCompositeOperation='destination-in';draw();
+      }
+      variants.set(tint,canvas);return canvas;
     },
     redraw() {
       if(!this._map||!this._canvas)return this;
@@ -215,7 +247,8 @@ const MapReviewArt = (() => {
         if(!f) {g.fillStyle='#ffd86a';g.fillRect(at.x-1,at.y-1,3,3);continue;}
         const w=(p.displayWidth??f.width*p.scl)*scale,h=(p.displayHeight??f.height*p.scl*p.scaleYMul)*scale;
         g.globalAlpha=p.alpha??1;
-        g.drawImage(t.getSourceImage(),f.x,f.y,f.width,f.height,at.x+p.dxPx*scale-w*p.origin[0],at.y+p.dyPx*scale-h*p.origin[1],w,h);drawn++;
+        const source=this._tintedFrame(t,f,p.tint);
+        g.drawImage(source,0,0,f.width,f.height,at.x+p.dxPx*scale-w*p.origin[0],at.y+p.dyPx*scale-h*p.origin[1],w,h);drawn++;
         g.globalAlpha=1;
         for(const fruit of item.fruit) {
           const ft=textures.get(fruit.key),ff=ft?.get(fruit.frame);
