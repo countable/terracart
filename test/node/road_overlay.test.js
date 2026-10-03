@@ -1712,3 +1712,19 @@ test('hedgerow carpet: dark green with a repeating crown emblem', () => {
   const shape = RoadOverlay.CARPET_EMBLEMS.crown[0];
   assert.eq(up[0].map((p) => p.x - up[0][0].x).join(), shape.map((p) => p.x - shape[0].x).join(), 'not turned with the road');
 });
+
+test('broken street lamp: shared plinth, shorter post and muted metal without any light', () => {
+  const lit = roRecorder(), broken = roRecorder(), size = RoadOverlay.LAMP_TEX_PX;
+  RoadOverlay.paintLamp(lit.ctx, size);
+  RoadOverlay.paintBrokenLamp(broken.ctx, size);
+  assert.eq(broken.ops.filter(([k]) => k === 'createRadialGradient').length, 0, 'no glass, glow or light pool');
+  const a = roLampPath(lit.ops), b = roLampPath(broken.ops);
+  assert.gt(Math.min(...b.map(p => p[1])), Math.min(...a.map(p => p[1])), 'snapped column is shorter than the full lamp');
+  assert.eq(Math.max(...b.map(p => p[1])), Math.max(...a.map(p => p[1])), 'same plinth ground line');
+  const colors = broken.ops.filter(([k]) => k === 'addColorStop').map(([, , c]) => roChannels(c));
+  assert.gt(colors.length, 0, 'metal still has shaded faces');
+  for (const c of colors) {
+    assert.eq(c.a, 1, 'opaque metal');
+    assert.lte(Math.max(c.r,c.g,c.b)-Math.min(c.r,c.g,c.b), 55, 'weathered metal is desaturated');
+  }
+});

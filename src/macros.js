@@ -15,13 +15,11 @@
 //   • the DAY LEDGER - save.coinBurstClaimed, pruned of takes older than a
 //     week on every write. Plain id keys record coin bursts, shrines, crates
 //     and barrels; `macro:` id keys record inn, chapel and guildhall services.
-//     The two lanes share pruning but never keys, because migration carries
-//     old chest openings onto the plain lane and must not spend a new service;
+//     Separate keys let pickups and services at one place be used independently;
 //   • save.donated — the curio ids this save has given (progress, not world
 //     state), and its milestones in the memory ledger (save.discovered);
-//   • save.trainingPerm / save.trainingBuffUntil — the damage the player
-//     bought (the pre-Sep-2026 melee track; save.training / trainingDrills
-//     now — combat.js Combat.trainingBonus).
+//   • save.training / save.trainingDrills — the levels and drills the player
+//     bought (combat.js Combat.trainingBonus).
 // The stalls (apothecary, sundries, scriptorium) have no gate at all: a
 // counter, like the market stall they share their dialog with (app.js
 // _presentStallOffer — one price lane, ShopsMath.standPrice).
@@ -43,12 +41,11 @@
   'use strict';
 
   // ── The day ledger (the coin-burst one) ────────────────────────────────────
-  // The ledger keeps two lanes because old chest ids can become macro places.
+  // The ledger keeps pickups and services independent at a shared place.
   // usedToday / markToday own plain `<id><day>` keys for coin bursts, shrines,
   // crates and barrels. serviceUsedToday / markServiceToday own
   // `macro:<id><day>` keys for inns, chapels and guildhalls. Both lanes share
-  // one pruning pass, but migration can carry a crate take without spending a
-  // service the player has never used. A write
+  // one pruning pass. A write
   // prunes every entry older than LEDGER_KEEP_DAYS, so a take is remembered
   // for a week: long enough for a crate that restocks after several days
   // (loot.js crateRestoreDays, capped at CRATE_RESTORE_MAX_DAYS — the same
@@ -436,20 +433,6 @@
     return out;
   }
   function drillPrice() { return TRAINING_DRILL_PRICE; }
-  // Fold a pre-Sep-2026 save's single melee track into the per-discipline
-  // fields before the first write, so there is one place a level lives.
-  function foldLegacyTraining(save) {
-    save.training = save.training || {};
-    save.trainingDrills = save.trainingDrills || {};
-    if (save.trainingPerm != null) {
-      if (save.training.melee == null) save.training.melee = Combat.trainingLevel(save, 'melee');
-      delete save.trainingPerm;
-    }
-    if (save.trainingBuffUntil != null) {
-      if (save.trainingDrills.melee == null) save.trainingDrills.melee = Number(save.trainingBuffUntil) || 0;
-      delete save.trainingBuffUntil;
-    }
-  }
   // `memories` is the player's RECOVERED total (scene.memoriesTotal()).
   function buyLesson(save, kind, memories) {
     if (!Combat.TRAINING_KINDS[kind]) return { ok: false, why: 'kind' };
@@ -458,8 +441,8 @@
     const need = lessonMemories(save, kind);
     if ((Number(memories) || 0) < need) return { ok: false, why: 'memories', need };
     if ((save.money ?? 0) < price) return { ok: false, why: 'money', price };
-    foldLegacyTraining(save);
     addMoney(save, -price);
+    save.training = save.training || {};
     save.training[kind] = Combat.trainingLevel(save, kind) + 1;
     return { ok: true, price };
   }
@@ -470,8 +453,8 @@
     if (Combat.trainingBuffActive(save, kind, now)) return { ok: false, why: 'active' };
     const price = drillPrice();
     if ((save.money ?? 0) < price) return { ok: false, why: 'money', price };
-    foldLegacyTraining(save);
     addMoney(save, -price);
+    save.trainingDrills = save.trainingDrills || {};
     save.trainingDrills[kind] = now + Combat.TRAINING_BUFF_MS;
     return { ok: true, price };
   }
@@ -483,41 +466,26 @@
   // ── Per-kind dialog dressing: the painting each opens on and its label ────
   // Default paintings for each service; training also selects by discipline.
   // `modal` is a MODAL_KINDS key.
-  // ── The scholar's booth (school POIs): THE BOOK CLUB ──────────────────────
-  // Every school keeps the same booth and the same prize shelf, so the club
-  // is ONE ledger per save, never per school. Joining is free. The club
-  // counts EVERY Book the player has read (app.js addToInv — save.booksRead:
-  // found in the world, bought at a counter, or taken off this shelf), and
-  // for every SCHOLAR_BOOKS_PER_PRIZE of them hands over the next prize off
-  // the shelf. Buying is allowed and dear: each Book bought raises the next
-  // one's price (shops_math.js listPrice), and the Book Shop that sells
-  // nothing else opens late (houses.js STORY_RESTORES.bookshop).
-  // THE SHELF is the school chest's own treasure list (chest_themes.js
-  // 'school': its books and study groups), HUMBLEST FIRST — items.js
-  // itemValue, ties by id — so it climbs from the plain Book to the Tome of
-  // Storms as the reading piles up, and retuning the chest theme retunes the
-  // club. save.scholarPrizes counts the prizes taken, in shelf order. Nothing
-  // is sold and nothing is paid (THE ECONOMY GOAL above): the booth pays in
-  // things the school chest already paid in.
+  // The scholar's Book Club uses one reading ledger across every school.
+  // Each three Books collected (read automatically, bought ones included)
+  // earns a tome, ordered by value and repeating after a full set.
+  // Treasure pools do not own this shelf.
+  // Keep tome claims separate from legacy scholarPrizes: that mixed shelf
+  // awarded ordinary items too, so its index must not skip new tome prizes.
   const SCHOLAR_BOOKS_PER_PRIZE = 3;
   function scholarShelf() {
-    const theme = root.ChestThemes.themes.school;
-    const ids = new Set();
-    for (const group of Object.keys(theme.weights)) {
-      for (const id of Object.keys(root.ChestThemes.members(group))) if (ITEM_BY_ID[id]) ids.add(id);
-    }
-    return [...ids].sort((a, b) => (itemValue(a) - itemValue(b)) || (a < b ? -1 : a > b ? 1 : 0));
+    return ITEMS.filter(item => isTome(item.id)).map(item => item.id)
+      .sort((a, b) => (itemValue(a) - itemValue(b)) || (a < b ? -1 : a > b ? 1 : 0));
   }
   function booksRead(save) { return Math.max(0, Math.floor(Number(save && save.booksRead) || 0)); }
-  function scholarTaken(save) { return Math.max(0, Math.floor(Number(save && save.scholarPrizes) || 0)); }
-  // The next prize on the shelf — { id, index, booksAt, ready } — or null once
-  // the shelf is bare. `booksAt` is the reading it asks for; `ready` whether
-  // the save has it.
+  function scholarTaken(save) { return Math.max(0, Math.floor(Number(save && save.scholarTomes) || 0)); }
+  // The next tome — { id, index, booksAt, ready } — or null for an empty
+  // shelf. The sequence repeats; booksAt is the lifetime reading milestone.
   function scholarNext(save, shelf = scholarShelf()) {
     const index = scholarTaken(save);
-    if (index >= shelf.length) return null;
+    if (!shelf.length) return null;
     const booksAt = (index + 1) * SCHOLAR_BOOKS_PER_PRIZE;
-    return { id: shelf[index], index, booksAt, ready: booksRead(save) >= booksAt };
+    return { id: shelf[index % shelf.length], index, booksAt, ready: booksRead(save) >= booksAt };
   }
   // Take the next earned prize off the shelf. The caller has already put it
   // in the bag (the bag may be full — app.js addToInv says so first).
@@ -525,48 +493,54 @@
     const next = scholarNext(save, shelf);
     if (!next) return { ok: false, why: 'bare' };
     if (!next.ready) return { ok: false, why: 'unread', next };
-    save.scholarPrizes = next.index + 1;
+    save.scholarTomes = next.index + 1;
     return { ok: true, id: next.id, index: next.index };
   }
 
   const KIND_DIALOG = {
-    inn:         { label: 'Inn',         modal: 'shop',     art: 'kind_inn' },
-    chapel:      { label: 'Chapel',      modal: 'treasure', art: 'zone_stones' },
-    apothecary:  { label: 'Apothecary',  modal: 'shop',     art: 'kind_shop' },
-    scriptorium: { label: 'Scriptorium', modal: 'shop',     art: 'book_read' },
-    guildhall:   { label: 'Guildhall',   modal: 'delivery', art: 'kind_quest' },
-    curio:       { label: 'Curio Hall',  modal: 'trade',    art: 'kind_relics' },
-    sundries:    { label: 'Sundries',    modal: 'shop',     art: 'kind_supplies' },
-    training:    { label: 'Training',    modal: 'shop',     art: 'tool_sword' },
-    scholar:     { label: 'Book Club',   modal: 'trade',    art: 'book_read' },
+    inn:         { label: 'Inn',         modal: 'shop',     art: 'booth_inn_intro' },
+    chapel:      { label: 'Chapel',      modal: 'treasure', art: 'booth_chapel_intro' },
+    apothecary:  { label: 'Apothecary',  modal: 'shop',     art: 'booth_apothecary_intro' },
+    scriptorium: { label: 'Scriptorium', modal: 'shop',     art: 'booth_scriptorium_intro' },
+    guildhall:   { label: 'Guildhall',   modal: 'delivery', art: 'booth_guildhall_intro' },
+    curio:       { label: 'Curio Hall',  modal: 'trade',    art: 'booth_curio_intro' },
+    sundries:    { label: 'Sundries',    modal: 'shop',     art: 'booth_sundries_intro' },
+    training:    { label: 'Training',    modal: 'shop',     art: 'booth_training_intro' },
+    scholar:     { label: 'Book Club',   modal: 'trade',    art: 'booth_scholar_intro' },
   };  // The word a stall's sign and dialog wear: its kind's label, except a
   // training hall, which names its discipline ("Archery Training").
   function stallLabel(kind, o) {
     if (kind === 'training' && o) return `${Combat.TRAINING_KINDS[trainingKindFor(o)].label} Training`;
     return KIND_DIALOG[kind]?.label || null;
   }
-  function stallArt(kind, o) {
-    if (kind === 'training' && o) {
-      const discipline = trainingKindFor(o);
-      if (discipline === 'ranged') return 'tool_shoot';
-      if (discipline === 'magic') return 'tool_staff';
-    }
-    return KIND_DIALOG[kind]?.art;
-  }
+  function stallArt(kind, o) { return KIND_DIALOG[kind]?.art; }
 
-  // The first-tap story (app.js _storySplashOnce, key `macro:<kind>`): what
-  // the place is, told once. No numbers — those are on the dialog and in the
-  // Book.
+  // One receipt painting per service. Callers provide the exact committed
+  // result; failed or cancelled transactions never show a receipt.
+  const KIND_TRANSACTION = {
+    inn:         { title: 'Rested',              art: 'booth_inn_used' },
+    chapel:      { title: 'A blessing received', art: 'booth_chapel_used' },
+    apothecary:  { title: 'Medicine bought',     art: 'booth_apothecary_used' },
+    scriptorium: { title: 'From the scriptorium', art: 'booth_scriptorium_used' },
+    guildhall:   { title: 'Bounty paid',         art: 'booth_guildhall_used' },
+    curio:       { title: 'A curio donated',     art: 'booth_curio_used' },
+    sundries:    { title: 'Supplies bought',     art: 'booth_sundries_used' },
+    training:    { title: 'Training complete',  art: 'booth_training_used' },
+    scholar:     { title: 'A tome earned',      art: 'booth_scholar_used' },
+  };
+
+  // One introduction per physical booth, followed by its live offer. State
+  // the input and promised effect here; exact prices come from the offer.
   const KIND_STORY = {
-    inn:         { title: 'An inn', body: "Warm air drifts from the hearth. You relax at the sight of a clean bed." },
-    chapel:      { title: 'A chapel', body: 'A candle burns by the chapel door. You stop to receive the keeper\'s quiet blessing.' },
-    apothecary:  { title: 'An apothecary', body: 'The room smells of herbs. You look over the small bottles lining the shelves.' },
-    scriptorium: { title: 'A scriptorium', body: 'Books lie open on the counter, and the room smells of fresh ink. You lean closer to read.' },
-    guildhall:   { title: 'A guildhall', body: "A bounty notice hangs beside the guildhall door. You stop to read it." },
-    curio:       { title: 'A curio hall', body: "The keeper shows you the empty shelves. There is room here for your finds." },
-    sundries:    { title: 'A sundries shop', body: 'Rope and torches fill the shelves. You look over the supplies for your next trip.' },
-    training:    { title: 'A training hall', body: 'The master watches as you practise. You focus on your next swing.' },
-    scholar:     { title: 'A book club', body: 'A scholar keeps a booth by the school wall. You join the book club, and she shows you the shelf of prizes you can read your way up.' },
+    inn: { title: 'An inn', body: 'Fresh blankets cover a bed beneath the green awning. Pay coins to restore all missing HP, once a day at this inn.' },
+    chapel: { title: 'A chapel', body: 'A small bell hangs beneath the blue canopy. Receive a free blessing gift here once a day; nothing is asked in return.' },
+    apothecary: { title: 'An apothecary', body: 'The keeper grows herbs among the old foundations. Pay coins for a potion or antidote from the shelf.' },
+    scriptorium: { title: 'A scriptorium', body: 'The scribe repairs pages salvaged after the Breaking. Pay coins for a Book to read, or a torch to carry.' },
+    guildhall: { title: 'A guildhall', body: 'The keeper posts work as neighbours return. Defeat the posted creatures to earn coins; this hall offers one bounty a day.' },
+    curio: { title: 'A curio hall', body: 'Recovered keepsakes fill the shelves beneath the crystal sign. Donate one of each missing curio; collection milestones bring back memories.' },
+    sundries: { title: 'A sundries shop', body: 'Mended sacks and bundled tools fill the counter. Pay coins for the supplies offered here.' },
+    training: { title: 'A training hall', body: 'Practice rings out beneath the crossed weapons. Pay coins for a permanent lesson when you have enough memories, or buy a temporary drill.' },
+    scholar: { title: 'A book club', body: `You join the book club beneath the scholar’s open-book sign. Every ${SCHOLAR_BOOKS_PER_PRIZE} Books collected earns a tome; found and bought Books count, and no books or coins are spent to claim it.` },
   };
 
   root.Macros = {
@@ -582,9 +556,9 @@
     bountyWeaponTier, bountyFor, bountyPay, bountyCleared,
     CURIO_COLLECTION, CURIO_MILESTONES, curioEligible, curioCollection, curioDonated, curioCount,
     curioNextMilestone, curioMilestoneKey, curioMissing, curioDonate,
-    TRAINING_LESSON_PRICE, TRAINING_DRILL_PRICE, TRAINING_MEMORIES_PER_LEVEL, trainingKindFor, lessonMemoriesAt, lessonMemories, foldLegacyTraining, stallLabel, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
+    TRAINING_LESSON_PRICE, TRAINING_DRILL_PRICE, TRAINING_MEMORIES_PER_LEVEL, trainingKindFor, lessonMemoriesAt, lessonMemories, stallLabel, lessonPriceAt, lessonPrice, lessonPricesAll, drillPrice,
     buyLesson, buyDrill, drillLeftMs,
     SCHOLAR_BOOKS_PER_PRIZE, scholarShelf, booksRead, scholarTaken, scholarNext, scholarClaim,
-    KIND_DIALOG, KIND_STORY, stallArt,
+    KIND_DIALOG, KIND_STORY, KIND_TRANSACTION, stallArt,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

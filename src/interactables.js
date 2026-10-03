@@ -139,6 +139,13 @@ function isPlainRock(o) {
   return !!o && !mineralDeposit(o) && (o.caveVariant != null || (o.yieldTier || 1) <= 1);
 }
 
+// Quarry rubble takes more work for one stone; ore deposits and walls keep
+// their own costs and yields. Bonus finds still use the ordinary rock rolls.
+const QUARRY_ROCK_RULES = Object.freeze({ energyMul: 1.5, stones: 1 });
+function quarryRockRules(o) {
+  return o?.kind === 'mineralrock' && o.zone === 'quarry' && isPlainRock(o) ? QUARRY_ROCK_RULES : null;
+}
+
 // One first find per surface quarry, shared by every tile seeing its anchor.
 // Existing sapphire loot satisfies the find rather than duplicating it.
 const QUARRY_SAPPHIRE_CHANCE = 0.10;
@@ -222,7 +229,7 @@ function tierArticle(name) {
   return /^[aeiou]/i.test(String(name)) ? 'an' : 'a';
 }
 
-// A page stone's interactable (INTERACTABLES.waystone / .infoboard) — see
+// A page stone's interactable (INTERACTABLES.infoboard / .bottle) — see
 // the note on those rows.
 function pageStone({ title, art, spent, read }) {
   return {
@@ -344,7 +351,9 @@ const INTERACTABLES = {
     energy: (save, o) => {
       const pickTier = save.relics?.pick?.tier || 0;
       const rockTier = mineralDeposit(o)?.yieldTier || o.yieldTier || 1;
-      return Math.max(effectivePickCost(save.relics), 9 * (rockTier - pickTier));
+      const cost = Math.max(effectivePickCost(save.relics), 9 * (rockTier - pickTier));
+      // Energy uses whole pips; preserve the 50% increase in expectation.
+      return probEnergy(cost * (quarryRockRules(o)?.energyMul || 1));
     },
     complete: (ctx, o) => {
       const { scene, save } = ctx;
@@ -367,11 +376,9 @@ const INTERACTABLES = {
         // plainRockBaseDrop), plus the shared, tier-steepened bonus-bar
         // chances, on top of the base — and, on a GLINT rock, one
         // guaranteed find off that same ladder (glintRockFind).
-        // The stone count follows the ART: the pair-of-stones variant drops
-        // 2, a single stone 1. Both numbers come off the one table in
-        // sprite_layout.js that render.js picks the frame from, so the rock the
-        // player sees and the rocks they get can't disagree.
-        const qty = plainRockBaseDrop(scene, SpriteLayout.plainRockStones(o));
+        // Quarry rubble pays one stone regardless of its pile silhouette.
+        // Elsewhere the original pair/single artwork still owns the quantity.
+        const qty = plainRockBaseDrop(scene, quarryRockRules(o)?.stones ?? SpriteLayout.plainRockStones(o));
         let flashId = 'rockfruit';
         for (let t = 2; t <= 7; t++) {
           if (Math.random() < plainRockBarChance(t)) {
@@ -591,7 +598,7 @@ const INTERACTABLES = {
           const again = { scene, save, sx, sy, dirty: false };
           INTERACTABLES.chest.custom(again, o);
           if (again.dirty && typeof persistSave === 'function') persistSave(save);
-        })) return true;
+        }, o)) return true;
       } else if (daily) {
         // A crate (restocks) taken is bare for crateRestoreDays UTC days —
         // the day ledger, never save.opened. A left-for-later roll is still
@@ -613,7 +620,7 @@ const INTERACTABLES = {
         ? scene.worldIconHTML(iconLook.texKey, 26, iconLook.frame) : '';
       // The chapel's blessing opens on the chapel's own painting and name the place.
       const dress = (chapel && typeof Macros !== 'undefined')
-        ? { art: Macros.KIND_DIALOG.chapel.art, header: Macros.KIND_DIALOG.chapel.label }
+        ? { art: Macros.KIND_TRANSACTION.chapel.art, header: Macros.KIND_TRANSACTION.chapel.title }
         : { art: chestOpeningArt(o) || undefined };
       // Every path below that actually spends the chest goes through this, so
       // the starter ladder's "open a crate" step is credited exactly once no
@@ -676,6 +683,7 @@ const INTERACTABLES = {
         markOpened();
         ctx.dirty = true;
         scene.flash(`${chapel ? 'A quiet blessing. Go well.' : 'Chest had nothing useful.'}`, sx, sy);
+        if (chapel) scene._macroTransaction?.('chapel', `You received ${scene.moneyHTML(1)} as today’s blessing.`);
         return true;
       }
       if (result.kind === 'relic' || result.kind === 'armor') {
@@ -684,7 +692,7 @@ const INTERACTABLES = {
         ctx.dirty = true;
         const name = (typeof gearName === 'function')
           ? gearName(result.kind, result.slot, result.tier)
-          : `${result.slot} T${result.tier}`;
+          : result.slot;
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(result.kind, result.slot, result.tier, 64) : '★';
         scene.showChestRewardModal({ ...dress, iconHTML, name, sub: 'equipped', color: UI_TREASURE, kindIcon,
@@ -721,7 +729,7 @@ const INTERACTABLES = {
         const gearKind = result.gearKind || 'relic';
         const name = (typeof gearName === 'function')
           ? gearName(gearKind, result.slot, result.tier)
-          : `${result.slot} T${result.tier}`;
+          : result.slot;
         const iconHTML = scene.gearIconHTML
           ? scene.gearIconHTML(gearKind, result.slot, result.tier, 64) : '★';
         scene.showChestRewardModal({ ...dress, iconHTML, name, sub: 'already own better — discarded', color: '#aaa',
@@ -755,6 +763,7 @@ const INTERACTABLES = {
       if (lootQty > room) {
         let resolved = false;
         scene.showChestRewardModal({ ...dress,
+          ...(chapel ? { art: Macros.KIND_DIALOG.chapel.art, header: Macros.KIND_DIALOG.chapel.label } : {}),
           iconHTML, name: lootName, qty: qtyLabel, color: lootColor, kind: rewardKind, kindIcon, tier: lootTier,
           sub: room > 0
             ? `Bag full — room for only ${room} of ${lootQty}.`
@@ -773,10 +782,17 @@ const INTERACTABLES = {
               resolved = true;
               // Discard still claims the chest's coins, without attempting
               // an item grant into a full bag.
-              Rewards.apply(save, room > 0 ? result : { kind: 'gold', amount: result.consolation || 0 }, scene);
+              const granted = Rewards.apply(save, room > 0 ? result : { kind: 'gold', amount: result.consolation || 0 }, scene, { deferBookRead: chapel });
               markOpened();
               if (save.chestHold) delete save.chestHold[o.id];
               persistSave(save);
+              if (chapel && (granted.accepted > 0 || granted.money > 0)) {
+                const gifts = [];
+                if (granted.accepted > 0) gifts.push(`${lootName} ×${granted.accepted}`);
+                if (granted.money > 0) gifts.push(scene.moneyHTML(granted.money));
+                scene._macroTransaction?.('chapel', `You received ${gifts.join(' and ')} as today’s blessing.`,
+                  () => scene._revealPendingBookReads?.());
+              }
             } },
           ],
         });
@@ -844,6 +860,11 @@ const INTERACTABLES = {
   },
   infoboard: pageStone({ title: 'A notice board', art: null,
     spent: 'Read it already.', read: 'You read the notice.' }),
+  // A MESSAGE BOTTLE on the waterline (src/scenic.js BEACH_BOTTLES_PER_TILE):
+  // the notice board's lane — one Book page, once (save.opened) — and,
+  // unlike the board, picked up: isSpent hides it once opened.
+  bottle: pageStone({ title: 'A message in a bottle', art: 'bottle_read',
+    spent: 'Only sand here now.', read: 'You read the message.' }),
 
   // ---- Influence zones (src/zones.js) --------------------------------------
   // A HEADSTONE (an Old Stones churchyard — churches and cemeteries only).
@@ -851,20 +872,22 @@ const INTERACTABLES = {
   // night's own ghost, creature_ai.js raiseGhostAt); Zones.headstoneHoards
   // (a hash of the stone's id — the same stones for every player) says which
   // hold a one-off find, rolled once from the low-tier chest table and spent
-  // in save.opened, the POI delta. The stone itself stays.
+  // in save.opened, the POI delta. The stone itself stays. A variant may
+  // keep its pillars quiet through its optional headstones policy.
   headstone: {
     custom: (ctx, o) => {
       const { scene, save, sx, sy } = ctx;
+      const policy = typeof ZoneVariants !== 'undefined' && ZoneVariants.byId(o.zoneVariant)?.headstones;
       let paid = false;
-      if (typeof Zones !== 'undefined' && Zones.headstoneHoards(o.id)
+      if (policy?.hoards !== false && typeof Zones !== 'undefined' && Zones.headstoneHoards(o.id)
           && !(save.opened || []).includes(o.id)) {
         save.opened = [...(save.opened || []), o.id];
         ctx.dirty = true;
         paid = true;
         grantTreasureRoll(scene, save, sx, sy, '\u{1FAA6}', Zones.HEADSTONE_CONTEXT, { tier: Zones.HEADSTONE_TIER });
       }
-      const ghostP = (typeof Zones !== 'undefined') ? Zones.HEADSTONE_GHOST_P : 0;
-      const ghost = Math.random() < ghostP && typeof raiseGhostAt === 'function'
+      const ghostP = policy?.ghostChance ?? ((typeof Zones !== 'undefined') ? Zones.HEADSTONE_GHOST_P : 0);
+      const ghost = ghostP > 0 && Math.random() < ghostP && typeof raiseGhostAt === 'function'
         && raiseGhostAt(scene, o.x, o.y, performance.now(), 'hs');
       if (ghost) scene.flash('The grave stirs\u2026', sx, sy - (paid ? 22 : 0));
       else if (!paid) scene.flash('Here lies someone. At rest.', sx, sy);
@@ -929,7 +952,7 @@ const INTERACTABLES = {
               sub: got.kind === 'gold' ? 'Already better — paid in coin instead.'
                 : 'Someone left this for whoever climbed up to look.' });
           if (shown) return;
-          const label = (typeof gearName === 'function') ? gearName('relic', got.slot, got.tier) : `${got.slot} T${got.tier}`;
+          const label = (typeof gearName === 'function') ? gearName('relic', got.slot, got.tier) : got.slot;
           if (got.kind === 'relic') scene.flashLoot(`\u{1F52D} \u2192 \u2728 ${label}`, '#ffe066', 1.6);
           else scene.flashLoot(`\u{1F52D} \u2192 ${got.amount}`, '#ffe066', 1.2, null, scene.coinIconEl?.());
         };
@@ -958,6 +981,10 @@ const INTERACTABLES = {
     custom: (ctx, o) => { ctx.scene.shopInteract(ctx.sx, ctx.sy, o); return true; },
   },
 };
+
+// Ruin masonry uses the same pick work, stone payout and persistent broken
+// ledger as loose quarry rocks; its connected artwork only changes its look.
+INTERACTABLES.stronghold_wall = INTERACTABLES.mineralrock;
 
 // ── "Already spent", in ONE place ──────────────────────────────────────────
 // An opened chest, a chopped tree, a mined-out mineralrock and a picked-up
@@ -1049,7 +1076,7 @@ function chestNeverSpent(o) {
 // Most chests are offered ONCE (save.opened, the delta, forever — that is what
 // keeps a dense city from being a fountain). What comes back is the CRATE — a
 // surface POI chest wearing the crate look (loot.js chestLook `box`: tier 1,
-// i.e. a class the tile holds CHEST_DENSITY_T1_AT or more of, after a nexus)
+// i.e. one the tile's quota pyramid left unseated, with no nexus bonus)
 // — and the BARREL (a bin, loot.js isBarrel), never a starter supply crate
 // (`o.crate`, fixedLoot), never a cave copy (depth / caveOf), never a wagon,
 // stall, macro, pot of gold or bike rack. Taking one is written to the DAY LEDGER
@@ -1059,8 +1086,7 @@ function chestNeverSpent(o) {
 // stands bare for crateRestoreDays UTC
 // days (1 for an ordinary crate, up to CRATE_RESTORE_MAX_DAYS for a class
 // the tile is crowded with) before it restocks at its normal tier.
-// It is NOT save.opened: an id there (a save from before Sep 2026) is ignored
-// for a crate — savemigrate.js carried those onto the ledger once.
+// Crate availability reads the day ledger, independently of save.opened.
 // X marks, headstones, trunks, nexus chests and cave chests never restock.
 // Wagons and daily visit sites share the day ledger and glow through their
 // own visit predicate, rather than this crate/barrel schedule.
@@ -1096,10 +1122,13 @@ function isSpent(o, sets) {
     // source of truth that survives a tile re-rasterize. Both, as both sites
     // always checked both.
     case 'tree':        return !!o.chopped || sets.chopped.has(o.id);
+    case 'stronghold_wall':
     case 'mineralrock': return sets.broken.has(o.id);
     // Same key (save.picked) as the wildplant pickup tracking, so a save
     // doesn't grow a field for it.
     case 'groundstack': return sets.picked.has(o.id);
+    // A message bottle is picked up as it is read (INTERACTABLES.bottle).
+    case 'bottle':      return sets.opened.has(o.id);
     // A wild plant is spent once picked (save.picked) — except a TIDE pickup
     // (src/scenic.js): the day's, so it is spent when it is not on the
     // waterline today (Scenic.tideLive, which also sets its crop to the day's

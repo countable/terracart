@@ -25,6 +25,34 @@
     assert.eq(WorldGen.parkPoiLayer(poi, null), poi);
   });
 
+  test('park zones: designation polygons preserve residential ground and do not expand a nearby grove', () => {
+    const N = 64, edge = N * WorldGen.CELL_M;
+    const polygon = tags => ({ type: 3, tags, geom: [[{x:0,y:0},{x:4096,y:0},{x:4096,y:4096},{x:0,y:4096}]] });
+    const layers = [
+      { name: 'landuse', features: [polygon({class:'residential'})] },
+      { name: 'poi', features: [point(100, 512, 512, {class:'park',subclass:'park',name:'Small Access'})] },
+    ];
+    const build = features => WorldGen.rasterizeTile([...layers, {name:'park',features}], N, 0, 0, edge);
+    const baseline = build([]), far = 50 * N + 50;
+    assert.eq(baseline.grid[far], WorldGen.T.RESIDENTIAL);
+    for (const kind of ['protected_area','historic','conservation']) {
+      const world = build([polygon({class:kind,name:'Neighbourhood designation'})]);
+      assert.eq(Array.from(world.grid).join(), Array.from(baseline.grid).join(), kind + ': designation does not repaint ground');
+      assert.eq(Array.from(world.zone.coverage).join(), Array.from(baseline.zone.coverage).join(), kind + ': designation does not enlarge the grove');
+      assert.eq(JSON.stringify(world.wildplants), JSON.stringify(baseline.wildplants), kind + ': no overlay flora');
+    }
+    for (const kind of ['park','nature_reserve','national_park']) {
+      const world = build([polygon({class:kind})]);
+      assert.gt(world.zone.coverage[far], 0, kind + ': real park footprint still expands the grove');
+    }
+    const cemetery = WorldGen.rasterizeTile([{name:'landuse',features:[polygon({class:'cemetery'})]}], N, 0, 0, edge);
+    assert.eq(cemetery.grid[far], WorldGen.T.PARK);
+    assert.truthy(cemetery.quietMask[far], 'cemetery retains its quiet lawn');
+    const reserve = build([polygon({class:'aboriginal_lands'})]);
+    assert.eq(reserve.grid[far], WorldGen.T.RESIDENTIAL, 'designation preserves underlying terrain');
+    assert.truthy(reserve.quietMask[far], 'quiet restriction survives skipped designation paint');
+  });
+
   test('park zones: fallback anchors agree across buffered fixture tiles', () => {
     const seen = new Map();
     let shared = 0;
@@ -43,6 +71,18 @@
       }
     }
     assert.gt(shared, 5);
+  });
+
+  test('park zones: McTavish beach access does not inherit the Abbott neighbourhood designation', () => {
+    const tx = 2753, ty = 5565, layers = MVT.decodeTile(FIXTURE_TILES[`${tx}_${ty}`]);
+    const N = WorldGen.cellsPerEdgeForTile(ty), edge = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(ty));
+    const world = WorldGen.rasterizeTile(layers, N, tx, ty, edge);
+    const anchor = world.zone.anchors.find(a => a.kind === 'grove' && a.name === 'McTavish Avenue Beach Access');
+    assert.truthy(anchor, 'the access keeps its grove');
+    const slot = world.zone.anchors.indexOf(anchor) + 1;
+    const cells = Array.from(world.zone.coverage).filter(s => s === slot).length;
+    assert.gt(cells, 0);
+    assert.lt(cells, 300, 'small access cannot take thousands of residential cells');
   });
 
   test('park zones: Wilson Creek Linear Park receives a shrine, variant and polygon fringe coverage', () => {

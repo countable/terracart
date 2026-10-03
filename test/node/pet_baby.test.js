@@ -258,20 +258,6 @@ test('baby feeding: producer favourites count only when consumed, not during coo
   }
 });
 
-test('baby migration: preserve grown pets and initialize young pets once', () => {
-  const save = { schema: 7, released: [
-    { raised: true, born: Date.now() - 8 * DAY_MS },
-    { raised: true, born: Date.now() },
-    { raised: true, born: Date.now() - 8 * DAY_MS, favouriteFeeds: 3 },
-  ] };
-  assert.truthy(SaveMigrate.migrate(save));
-  assert.eq(save.released[0].favouriteFeeds, 7);
-  assert.eq(save.released[1].favouriteFeeds, 0);
-  assert.eq(save.released[2].favouriteFeeds, 3);
-  save.released[1].born -= 8 * DAY_MS;
-  SaveMigrate.migrate(save);
-  assert.eq(save.released[1].favouriteFeeds, 0, 'later boots never grant meals');
-});
 
 test('baby discovery: nest and egg stories teach favourite meals and a week to adulthood', () => {
   const start = SCENE_SRC.indexOf('  showBabyFound(babyId, how) {');

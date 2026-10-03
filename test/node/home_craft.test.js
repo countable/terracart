@@ -196,7 +196,7 @@ test('home craft: the wild-finds ledger — every grant counts except bought, ba
   const add = SCENE_SRC.slice(SCENE_SRC.indexOf('\n  addToInv(id, n = 1, silent = false, opts = {}) {'));
   assert.truthy(/if \(!opts\.notWild\) \(this\.save\.foundWild = this\.save\.foundWild \|\| \{\}\)\[id\] = 1;/.test(add.slice(0, 3000)),
     'addToInv records the find');
-  const notWild = (SCENE_SRC.match(/\{ notWild: true(?:, deferRefresh: true)? \}/g) || []).length;
+  const notWild = (SCENE_SRC.match(/\{ notWild: true(?:, deferRefresh: true)?(?:, deferBookRead: !!boothKind)? \}/g) || []).length;
   assert.eq(notWild, 11, 'the eleven non-wild grants in app.js: craft, smelt, trader, stand, farmhand, two shop buys, a slot win, a potion transmuted in a campfire and its full-bag refund, and a book club prize');
   assert.truthy(/addToInv\('scarecrow', 1, false, \{ notWild: true \}\)/.test(INTERACT_SRC), 'a reclaimed scarecrow is not a find');
 });
@@ -237,20 +237,20 @@ test('home craft: scrolls require prior use in both modes and spend blank scroll
   } finally { Difficulty.setMode(was); }
 });
 
-test('home craft: learned scroll recipes survive saving and migration', () => {
+test('home craft: learned scroll recipes survive saving and normalization', () => {
   const slot = createSave('Scroll crafting test');
   try {
     const save = { inv: [{ id: 'fear_scroll', count: 1 }], usedScrolls: ['fireball_scroll'] };
     persistSave(save);
     flushSave();
     const loaded = loadSave();
-    SaveMigrate.migrate(loaded);
+    SaveState.normalize(loaded);
     assert.falsy(homeRecipeLocked(loaded, 'fireball_scroll', true), 'learned recipe persists');
     assert.truthy(homeRecipeLocked(loaded, 'fear_scroll', false), 'held unused scroll stays locked');
     const old = { inv: [{ id: 'treasure_map', count: 1 }] };
-    SaveMigrate.migrate(old);
+    SaveState.normalize(old);
     assert.eq(old.usedScrolls.length, 0, 'older saves start without inferred scroll uses');
-    assert.truthy(homeRecipeLocked(old, 'treasure_map', false), 'migration cannot teach a held scroll');
+    assert.truthy(homeRecipeLocked(old, 'treasure_map', false), 'normalization cannot teach a held scroll');
   } finally { deleteSave(slot); }
 });
 

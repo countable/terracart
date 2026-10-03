@@ -52,7 +52,8 @@ Entities that can typically move around over cells, like pets, enemies, wild ani
    in 1.5 s, a 28 m/s peak) — the hunt's timed odds are tuned on it and no
    10 m/s hop clears the reach inside a T1 net's wheel; flagged for the
    owner.
- - no fauna may move onto a building footing, or road. Nor is any SEATED on one:
+ - no fauna may move onto a building footing, or a major (MD/LG) road; minor
+   streets and paths are crossable. None is SEATED on any road:
    every spawner goes through WorldGen.isSpawnCell with the tile's roadMask.
  - animals simulate when within the SIM BUBBLE, 12 cells of the player's feet
    (CREATURE_SIM_CELLS); stationary beyond that. The viewport corner is ~7.8
@@ -331,11 +332,6 @@ ONBOARDING (the first session)
    re-rolled), the rest of the map is unchanged, and it expires at the first
    harvest — the ladder's own proof the player has the loop. Baked in at
    tile-build time, so nothing pops into being the moment the crop comes in.
-   Legacy saves that predate the flag: a PLAYED save is settled as already
-   harvested (SaveMigrate.stampHarvested), so a veteran never wakes up to a
-   pest-free home.
- - Saves that predate the ladder are retired on load (Quests.starterSkipAll)
-   rather than being told to go till their first cell.
 
 ================================================================================
 CORE
@@ -704,7 +700,7 @@ CHOPPING
    is the AXE's, and it is the axe's only reward besides speed and cheap swings:
    10% bare-handed (tier 0) up to a guaranteed 100% with a Frost axe, GEOMETRIC
    between (items.js acornDropChance, ACORN_P_BASE / ACORN_P_FROST).
- - PLANTING AN ACORN (items.js 'acorn', kind:'sapling' + plants:'tree'): tap a
+ - PLANTING AN ACORN (items.js 'acorn', kind:'seed' + plants:'tree'): tap a
    tilled cell with it selected, like any sapling, but it grows a `tree` (the
    thing you chop) rather than a `fruittree` (the thing you pick). It is stored
    in save.fruittrees with kind:'tree' and re-injected per tile by spawnInTile;
@@ -902,19 +898,20 @@ COMBAT
    from any source drains the one pool, and an enemy left alone heals back to
    full after 20 minutes without a hit. HP is in-memory: a foe you softened up
    is whole again next session.
- - ONLY ONE WEAPON FIGHTS AT A TIME. `save.activeWeapon` (sword/bow/staff/null)
+ - ONLY ONE WEAPON FIGHTS AT A TIME. `save.activeWeapon`
+   (sword/dagger/spear/bow/staff/musket/null)
    picks which owned weapon auto-engages or auto-fires; the others sit inert —
    no auto-engage, no auto-fire — until switched to. MELEE IS THE DEFAULT and
-   needs no weapon: with no bow or staff equipped the hands auto-engage the
+   needs no weapon: with no ranged weapon equipped the hands auto-engage the
    nearest enemy in reach exactly as a sword does, on the bare-handed tier-0
    rung (Gear.meleeActive). Default is the newest weapon OBTAINED or UPGRADED
    (obtaining one always makes it active); switching by hand is EXPLICIT — an
    Equip button under the Relics inventory tab while a weapon is highlighted
-   (and Unequip on the bow or staff in hand, which puts it away: back to the
+   (and Unequip on a ranged weapon in hand, which puts it away: back to the
    sword, or bare hands). Highlighting a slot alone changes nothing. The
-   active weapon wears a small "E" badge alongside its tier badge. This only
-   gates the AUTOMATIC behaviours below — a manual tap-to-fight (tapping an
-   enemy directly) and the crow/deer HUNT wheel are unaffected; the hunt
+   active weapon wears a small "E" badge alongside its tier badge. The choice
+   gates auto-engage. Enemy taps never choose a melee target; melee always
+   follows the closest eligible foe in reach. The crow/deer HUNT
    wheel is the BUG NET's, not a weapon's, so which weapon is active never
    touches it.
  - STATUS EFFECTS are rows of Conditions.DEFINITIONS (src/conditions.js), one
@@ -929,7 +926,20 @@ COMBAT
                from standing IN a campfire (FIRE_TOUCH_CELLS — the warmth ring
                stays safe) or in lava. Armour never soaks a burn; the demons'
                lava immunity covers fire too. A burning body flickers orange.
- - THE THREE WEAPONS DO DIFFERENT THINGS, AND BOW/STAFF DIFFER IN KIND.
+ - WEAPONS HAVE DISTINCT REACH, CADENCE AND AMMUNITION.
+   Alternate weapons occupy independent relic slots: one dagger, one spear
+   and one musket can be held alongside the main weapons. Higher tiers
+   replace the same type. Rusty/Fine/Magic use material tiers 1/3/5
+   (Wood/Iron/Platinum). They are chest finds rather than forge recipes.
+   Equipment chests include them; a displayed T2 general-supplies roll has
+   a 25% chance to introduce a Rusty alternate in an empty slot. Owned
+   variants are excluded from this starter lane.
+     dagger — matching sword damage per hit, half its melee reach.
+     spear  — matching sword damage per hit, double its melee reach,
+              half its attack speed.
+     musket — gold-bow damage, range and cadence at every material tier.
+              A round ball follows the compass; each shot spends one coin
+              and no wood. An empty purse prevents firing.
      sword  — MELEE. Drains HP while the combat wheel runs, at
               15/durationSeconds HP per second off the WORK WHEEL ladder (bare
               hands = the 9s tier-0 rung, so you can always fight). Melee
@@ -1175,9 +1185,7 @@ STREET RESTORATION (the road band itself)
    Flat pairs because a walked city keeps one row per line of every way the
    player has stood beside. The epoch is folded into road_overlay.js's rebuild
    key, so a restore repaints the restored canvas on the next frame and nothing
-   repaints on the frames between. savemigrate.js folds the old
-   save.trail.stones into metres (× 20) and drops save.pathStones outright —
-   lit pebble CELLS do not map onto intervals; prizes and progress are kept.
+   repaints on the frames between. Retired pebble saves are not converted.
  - THREE PASSES DRAW IT. Both baked canvases live in roadGeomContainer and
    rebuild together, keyed on the snapped anchor cell + tile readiness + epoch:
      * 'roadgeom_overlay' — the dilapidated network, at image alpha 0.61.
@@ -1744,7 +1752,7 @@ UNDERGROUND CAVES (Phase 1)
    longer quiet: hostile WANDERING MONSTERS spawn on CAVE_FLOOR cells (no
    surface fauna underground). They're the slime mechanic, parametrised — each
    drifts toward the player and drains energy when within RANGE, differing by
-   HP / RANGE / DAMAGE / SPEED (combat.js MONSTERS_BASELINE), and is an ENEMY:
+   HP / RANGE / DAMAGE / SPEED (combat.js MONSTERS, built from enemy_roster.js), and is an ENEMY:
    fought on HIT POINTS (see COMBAT) and paid for with the bounty. Each melee
    monster lands at most one hit every MONSTER_HIT_MS; a ranged one looses
    visible arrows carrying the same damage per minute. Kinds are gated by depth
@@ -1753,16 +1761,11 @@ UNDERGROUND CAVES (Phase 1)
      * purple slime  (depth 1+) — fast, flies, fragile
      * goblin        (depth 2+) — tougher melee
      * goblin archer (depth 3+) — range 3, the ONLY ranged foe
-   Every kind also has a GIANT form (giant_<kind>): 4× the HP, two levels
-   deeper, drawn at SpriteLayout.GIANT_ART_SCALE.
-   THE FIRST SLIME IS THE TUTORIAL. Those numbers are the authored baseline
-   DOUBLED (CAVE_ENEMY_MUL): the wild surface slime is the only enemy above
-   ground and the first anyone meets, so it stays gentle, and every enemy
-   beyond it — all of them underground, met by a player who went looking — has
-   double the HP and does double the damage. Applied as one rule over the
-   table, so a kind added to it inherits the doubling. Knock-ons are derived:
-   double HP is exactly double the time to kill at any weapon tier (the dps
-   identity is untouched), and the coin bounty pays per HP.
+   GIANT forms are their own enemy_roster.js rows (variantType 'Giant'), with
+   their own HP and depths, drawn at SpriteLayout.GIANT_ART_SCALE.
+   THE FIRST SLIME IS THE TUTORIAL: the wild surface slime stays gentle; the
+   roster rows carry each kind's final numbers (no global multiplier), and the
+   coin bounty pays per HP.
    The goblin archer needs a CLEAR LINE, the same as your own bow — it used to
    chip at you through solid rock from a tunnel you couldn't see.
    Each kind draws from its row in SpriteLayout.CREATURE_ART. Monsters can't be

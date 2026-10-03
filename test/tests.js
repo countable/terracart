@@ -467,23 +467,7 @@ test('persistSave coalesces rapid writes', async () => {
 // references the audit bug number.
 // ───────────────────────────────────────────────────────────────────────
 
-// #2 — Legacy inv migration: items must have numeric count or arithmetic NaN's.
-test('REG #2: legacy inv migration assigns numeric count', () => {
-  // Simulate the migration code path on a synthetic save.
-  const save = { inv: ['potato_seed', 'rockfruit'] };
-  if (save.inv && typeof save.inv[0] === 'string') {
-    save.inv = save.inv.filter(Boolean).map(id => ({ id, count: 1 }));
-  }
-  for (const s of save.inv) {
-    assert.eq(typeof s.count, 'number', `${s.id}.count is numeric`);
-    assert.eq(s.count, 1, `${s.id}.count = 1`);
-    // Decrementing must not produce NaN — the failing pre-fix mode.
-    s.count -= 1;
-    assert.eq(s.count, 0, `${s.id} decrements cleanly to 0 (was NaN bug)`);
-  }
-});
-
-// #2 (continued) — verify the actual scene's migrated inv never carries undefined counts.
+// Inventory counts stay numeric through live interactions.
 test('REG #2: live scene inventory items all have numeric count', (scene) => {
   for (const s of (scene.save.inv || [])) {
     if (!s) continue;
@@ -1327,49 +1311,12 @@ test('tree chop refuses without an axe relic', (scene) => {
   assert.falsy(tree.chopped, 'tree NOT chopped without axe');
 });
 
-test('castle always offers relics with no rate-limit', (scene) => {
-  if (typeof TestTools !== 'undefined') TestTools.resetTestState();
-  scene.save.shopOffers = {};
-  scene.save.shopDeals = {};
-  // Cap money higher than before — castle pricing was hiked to flat 4× base
-  // (per balance pass) which can blow past 100k after a few buys.
-  scene.save.relics = Object.fromEntries(Object.keys(RELIC_DEFS).map(k => [k, k === 'pick' || k === 'axe' ? { tier: 1 } : null]));
-  scene.save.armor = Object.fromEntries(Object.keys(ARMOR_DEFS).map(k => [k, null]));
-  scene.save.money = 100000000;
-  scene.save.inv = []; scene.save.selSlot = 0;
-  // Make a fake castle anchored at the start position so we don't depend on
-  // worldgen happening to load one nearby.
-  const fakeCastle = { kind: 'tower', id: 'test_castle', tier: 12,
-    x: scene.startWorldM.x, y: scene.startWorldM.y };
-  // Castles start sealed until their quest is solved; a legacy-open save is
-  // the one that still reaches the relic vault, so exercise that path.
-  scene.save.castlesLegacyOpen = true;
-  teleport(scene, fakeCastle.x, fakeCastle.y - 2);
-  // 50 consecutive shops — all should open a relic modal (never blocked).
-  let opened = 0;
-  for (let i = 0; i < 50; i++) {
-    scene.shopInteract(0, 0, fakeCastle);
-    const m = document.getElementById('offer-modal');
-    // A castle offer is identified by the presence of a "Buy" button (the
-    // shopInteract castle branch always calls presentRelicOffer, never the
-    // produce-seed offer). The previous `m.innerHTML.includes('relic')`
-    // check was brittle — the modal copy doesn't literally use the word.
-    const buy = m ? [...m.querySelectorAll('button')].find(b => b.textContent === 'Buy') : null;
-    if (m && buy) {
-      opened++;
-      if (buy && !buy.disabled) buy.click(); else m.remove();
-    } else { m?.remove(); break; }
-  }
-  assert.gt(opened, 5, 'castle keeps opening relic offers');
-  scene.save.castlesLegacyOpen = false;
-});
 
 test('castle: no delivery count unseals it — only its quest board', (scene) => {
   if (typeof TestTools !== 'undefined') TestTools.resetTestState();
   document.getElementById('offer-modal')?.remove();
   document.getElementById('chest-reward-modal')?.remove();
-  scene.save.castlesLegacyOpen = false;
-  scene.save.openedCastles = {};
+  scene.save.claimedCastles = {};
   scene.save.deliveryCount = 999;
   const castle = { kind: 'tower', id: 'test_castle_gate', tier: 12, castle: 'test_castle_gate_key',
     x: scene.startWorldM.x, y: scene.startWorldM.y };
@@ -1452,32 +1399,6 @@ test('re-roll button is hidden on non-castle relic offers', (scene) => {
   document.getElementById('offer-modal')?.remove();
 });
 
-test('castle relic offer has NO re-roll button (balance pass)', (scene) => {
-  // Per balance pass: castles offer at flat 4× base price and the re-roll
-  // button is gone — the player must accept the offer or walk away. This
-  // test guards the regression that would let castles silently re-roll.
-  scene.save.shopState = {};
-  if (scene.save.offerSalt == null) scene.save.offerSalt = 0xdeadbeef;
-  // A stale modal from an earlier test would eat the tap (shopInteract's
-  // single-modal guard) and read as 'castle opened nothing'.
-  document.getElementById('offer-modal')?.remove();
-  document.getElementById('slots-modal')?.remove();
-  scene.save.relics = Object.fromEntries(Object.keys(RELIC_DEFS).map(k => [k, null]));
-  scene.save.armor = Object.fromEntries(Object.keys(ARMOR_DEFS).map(k => [k, null]));
-  scene.save.money = 100000;
-  const fakeCastle = { kind: 'tower', id: 'test_castle_noreroll', tier: 12,
-    x: scene.startWorldM.x, y: scene.startWorldM.y };
-  // Legacy-open so the vault is open, not sealed.
-  scene.save.castlesLegacyOpen = true;
-  teleport(scene, fakeCastle.x, fakeCastle.y - 2);
-  scene.shopInteract(0, 0, fakeCastle);
-  const modal = document.getElementById('offer-modal');
-  assert.truthy(modal, 'castle modal opened');
-  const reroll = [...modal.querySelectorAll('button')].find(b => b.innerHTML.includes('Re-roll'));
-  assert.falsy(reroll, 'no Re-roll button at castle');
-  document.getElementById('offer-modal')?.remove();
-  scene.save.castlesLegacyOpen = false;
-});
 
 test('shop offer persists across multiple taps on same house', (scene) => {
   scene.save.shopState = {};

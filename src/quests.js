@@ -132,17 +132,7 @@ const QUEST_OPENERS = [
 const Quests = {
   _qs(save) {
     if (!save.quests || !Array.isArray(save.quests.slots)) {
-      // MIGRATION off the old three-quest chain ({ step, progress }). The step
-      // is dropped — the jobs it counted no longer exist — but a player who
-      // FINISHED it had every castle in the world unsealed, because that was
-      // the only thing a global gate could do. The seal is per castle now, and
-      // there is no way to name the castles they had opened (a castle's key
-      // comes from the tile, which may not be loaded, or ever again). So the
-      // earned access is carried as a flag: they keep what they had, and every
-      // castle claimed from here is claimed the new way.
-      const oldStep = save.quests && typeof save.quests.step === 'number' ? save.quests.step : -1;
-      if (oldStep >= 3) save.castlesLegacyOpen = true;
-      save.quests = { slots: [], gen: 0, done: Math.max(0, oldStep) };
+      save.quests = { slots: [], gen: 0, done: 0 };
     }
     const q = save.quests;
     if (typeof q.gen !== 'number') q.gen = 0;

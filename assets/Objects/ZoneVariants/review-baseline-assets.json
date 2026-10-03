@@ -1,0 +1,8 @@
+{
+  "barrel": " kind: 'spritesheet', path: 'assets/Objects/Approved/barrel.png', frameWidth: 16, frameHeight: 16 },",
+  "barrel_smashed": " kind: 'spritesheet', path: 'assets/Objects/Approved/barrel_smashed.png', frameWidth: 16, frameHeight: 16 },",
+  "clay_pot": " kind: 'spritesheet', path: 'assets/Objects/Rustic/pot.png', frameWidth: 16, frameHeight: 16, desaturated: true },",
+  "clay_pot_smashed": " kind: 'spritesheet', path: 'assets/Objects/Rustic/pot_smashed.png', frameWidth: 16, frameHeight: 16, desaturated: true },",
+  "grove_votive": " kind: 'spritesheet', path: 'assets/Objects/Approved/grove_votive.png', frameWidth: 16, frameHeight: 16 },",
+  "pillar": " kind: 'image', path: 'assets/Objects/Approved/pillar.png' },"
+}

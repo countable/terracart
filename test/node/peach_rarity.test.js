@@ -6,15 +6,15 @@
     assert.eq(FOOD_ENERGY.peach, 16);
     assert.eq(itemValue('peach'), 10);
     assert.includes(ITEMS_BY_CLASS_TIER.produce[7], 'peach');
-    assert.includes(ITEMS_BY_CLASS_TIER.sapling[7], 'peach_sapling');
+    assert.includes(ITEMS_BY_CLASS_TIER.seed[7], 'peach_sapling');
     for (let tier = 1; tier < 7; tier++) {
       assert.falsy((ITEMS_BY_CLASS_TIER.produce[tier] || []).includes('peach'));
-      assert.falsy((ITEMS_BY_CLASS_TIER.sapling[tier] || []).includes('peach_sapling'));
+      assert.falsy((ITEMS_BY_CLASS_TIER.seed[tier] || []).includes('peach_sapling'));
       assert.falsy(ChestThemes.eligible('food', tier, { theme: 'food', venueProduct: 'peach' }).includes('peach'));
-      assert.falsy(ChestThemes.eligible('saplings', tier, { theme: 'flora' }).includes('peach_sapling'));
+      assert.falsy(ChestThemes.eligible('parkSeeds', tier, { theme: 'park' }).includes('peach_sapling'));
     }
     assert.includes(ChestThemes.eligible('food', 7, { theme: 'food' }), 'peach');
-    assert.includes(ChestThemes.eligible('saplings', 7, { theme: 'flora' }), 'peach_sapling');
+    assert.includes(ChestThemes.eligible('parkSeeds', 7, { theme: 'park' }), 'peach_sapling');
   });
 
   test('peach rarity: both procedural lanes use one deterministic one-in-fifty selector', () => {
@@ -27,8 +27,24 @@
       else assert.eq(species, 'apple');
     }
     assert.eq(peaches, 200);
-    assert.includes(WORLDGEN_SRC, 'const species = fruitTreeSpecies(polyKey >>> 8);');
+    assert.includes(WORLDGEN_SRC, 'species: fruitTreeSpecies(cellHash(tx, ty, ix, iy))');
     assert.includes(WORLDGEN_SRC, 'species: fruitTreeSpecies(ftHash),');
+  });
+
+  test('peach rarity: one orchard mixes species by cell and retains them in another metre frame', () => {
+    const tx = 4, ty = 8192, n = 64, extent = 4096;
+    const ring = [{ x: 0, y: 0 }, { x: extent, y: 0 }, { x: extent, y: extent }, { x: 0, y: extent }, { x: 0, y: 0 }];
+    const layers = [{ name: 'landcover', features: [{ type: 3, tags: { class: 'orchard' }, geom: [ring] }] }];
+    const trees = edge => WorldGen.rasterizeTile(layers, n, tx, ty, edge).objects.filter(o => o.kind === 'fruittree');
+    const a = trees(1000), b = trees(1500);
+    assert.gt(a.length, 1000, 'enough trees in one orchard to measure its mix');
+    const peaches = a.filter(o => o.species === 'peach');
+    assert.inRange(peaches.length / a.length, 0.01, 0.03, 'approximately one tree in fifty');
+    assert.eq(JSON.stringify(a.map(o => [o.id, o.species])), JSON.stringify(b.map(o => [o.id, o.species])), 'species do not depend on the save metre frame');
+    for (const tree of a) {
+      const [ix, iy] = tree.id.split('_').slice(-2).map(Number);
+      assert.eq(tree.species, WorldGen.fruitTreeSpecies(WorldGen.cellHash(tx, ty, ix, iy)));
+    }
   });
 
   test('peach rarity: a peach shop name cannot create an unlimited peach market', () => {
@@ -45,7 +61,7 @@
     const day = 24 * 60 * 60 * 1000;
     const tree = { id: 'pft_saved_peach', x: 0, y: 0, species: 'peach', planted_t: Date.now() - 2 * day };
     const save = JSON.parse(JSON.stringify({ fruittrees: [tree], inv: [], selSlot: 0 }));
-    SaveMigrate.migrate(save);
+    SaveState.normalize(save);
     assert.eq(save.fruittrees.length, 1);
     assert.eq(save.fruittrees[0].species, 'peach');
     assert.eq(save.fruittrees[0].id, tree.id);

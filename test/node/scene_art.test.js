@@ -19,7 +19,7 @@ for (const m of app.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
 for (const m of shell.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
 for (const m of INTERACT_SRC.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
 for (const r of ['house', 'blacksmith', 'market', 'trader', 'wizard']) stems.add('restore_' + r);
-for (const row of [...Object.values(Shrines.SHRINE_KINDS), ...Object.values(Shrines.REWARD_KINDS), ...Object.values(Macros.DAILY_VISIT_KINDS)]) stems.add(row.art);
+for (const row of [...Object.values(Shrines.SHRINE_KINDS), ...Object.values(Shrines.REWARD_KINDS), ...Object.values(Macros.DAILY_VISIT_KINDS), ...Object.values(Macros.KIND_DIALOG), ...Object.values(Macros.KIND_TRANSACTION)]) stems.add(row.art);
 
 test('scene art: every dialog painting is cut to the dialog box shape', () => {
   assert.truthy(stems.size > 30, `the stems were collected (${stems.size})`);
@@ -45,7 +45,7 @@ test('scene art: every kind has a default painting, except STORY, which brings i
 });
 
 test('scene art: a message with a painting is a STORY', () => {
-  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note', mustAcknowledge = false \}\)/.test(shell),
+  assert.truthy(/showMessageModal\(\{ title, body, okLabel = 'OK', onDismiss, art, kind = art \? 'story' : 'note', kindLabel, mustAcknowledge = false \}\)/.test(shell),
     'art makes it a story; a plain message stays a note');
 });
 
@@ -53,7 +53,8 @@ test('scene art: the content region is capped at the quiet zone and scrolls insi
   assert.truthy(/const ART_DETAIL_FRAC = 0\.\d+;/.test(shell), 'the detail line is one constant');
   assert.truthy(/max-height:\$\{Math\.round\(\(1 - ART_DETAIL_FRAC\) \* 100\)\}%;/.test(shell),
     'the body never grows past the quiet zone');
-  assert.truthy(/margin-top:auto;[^`]*`\s*\+\s*'overflow-y:auto/.test(shell), 'bottom-anchored, scrolling');
+  const region = shell.slice(shell.indexOf("body.className = 'modal-body'"), shell.indexOf('let into = body'));
+  assert.truthy(region.includes('margin-top:auto;') && region.includes('overflow-y:auto;'), 'bottom-anchored, scrolling');
 });
 
 test('scene art: text-heavy copy moves to THE BAND by measurement', () => {
@@ -109,8 +110,8 @@ test('scene art: no lore hint on a chapel, church, shrine or grave painting', ()
     if (SACRED.test(subject)) { sacred.push(key); assert.eq(lore, null, `${key} carries no lore (${lore})`); }
   }
   for (const key of ['zone_stones', 'zone_grove']) assert.includes(sacred, key);
-  // The chapel stall opens on the churchyard painting — one of the lore-free.
-  assert.eq(Macros.KIND_DIALOG.chapel.art, 'zone_stones', 'the chapel\'s painting is zone_stones');
+  for (const key of ['booth_chapel_intro', 'booth_chapel_used']) assert.includes(sacred, key);
+  assert.eq(Macros.KIND_DIALOG.chapel.art, 'booth_chapel_intro', 'the chapel has dedicated lore-free art');
 });
 })();
 
@@ -129,7 +130,7 @@ test('pixel resolve: every dialog painting has an inline thumbnail', () => {
   const cutKeys = new Set([...ART_THUMBS_SRC.matchAll(/^  (\w+): \[$/gm)].map((m) => m[1]));
   const tones = new Set([...ART_THUMBS_SRC.matchAll(/^  (\w+): '#[0-9a-f]{6}',$/gm)].map((m) => m[1]));
   const used = new Set();
-  for (const row of [...Object.values(Shrines.SHRINE_KINDS), ...Object.values(Shrines.REWARD_KINDS), ...Object.values(Macros.DAILY_VISIT_KINDS)]) used.add(row.art);
+  for (const row of [...Object.values(Shrines.SHRINE_KINDS), ...Object.values(Shrines.REWARD_KINDS), ...Object.values(Macros.DAILY_VISIT_KINDS), ...Object.values(Macros.KIND_DIALOG), ...Object.values(Macros.KIND_TRANSACTION)]) used.add(row.art);
   for (const src of [SCENE_SRC, INTERACT_SRC, MODAL_SHELL_SRC_TEXT]) {
     for (const m of src.matchAll(/\bart: '([^']+)'/g)) used.add(m[1]);
   }

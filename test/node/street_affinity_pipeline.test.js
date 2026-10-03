@@ -36,7 +36,7 @@ for (const hedged of [false, true]) test(`street affinities: ${hedged ? 'new' : 
       yield 'forced affinity';
     };
     const after = WorldGen.rasterizeTile(layers(name), N, tx, ty, edge);
-    const surface = after.objects.filter(o => o._street);
+    const surface = after.objects.filter(o => o._street && !o.chestTopUp);
     const cave = after.caveSource.objects.filter(o => o._street);
     if (hedged) {
       assert.gt(surface.length, 0, 'newly eligible verge has rocks');

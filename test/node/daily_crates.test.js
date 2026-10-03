@@ -1,12 +1,12 @@
 // THE CRATE (Sep 2026) — interactables.js restocks / poiLit.
 //
 // Most chests are offered ONCE (save.opened, forever). The low-tier CRATE (a
-// surface POI chest wearing loot.js chestLook's `box` — a class its tile holds
-// CHEST_DENSITY_T1_AT or more of) restocks after crateRestoreDays UTC days
-// (one for an ordinary crate — the fixtures here hold exactly
-// CHEST_DENSITY_T1_AT) at its normal tier, spent by the coin-burst DAY LEDGER alone — the lane the
-// golden cauldron, the chapel's alms and the grove shrine's gift already
-// share. What still has something to take today wears the POI light
+// surface POI chest wearing loot.js chestLook's `box` — a T1 chest, one its
+// tile's quota pyramid left unseated) restocks after crateRestoreDays UTC
+// days (one for an ordinary crate — the fixtures here carry no class count,
+// which reads as one) at its normal tier, spent by the coin-burst DAY LEDGER
+// alone — the lane the golden cauldron, the chapel's alms and the grove
+// shrine's gift already share. What still has something to take today wears the POI light
 // (Lighting.KINDS.poi); once taken it goes dark until the day rolls. Pins:
 //   • the predicate — what refills, and everything that never does (trunk,
 //     wagon, nexus chest, cave copy, starter crate / relic chest, stall,
@@ -16,7 +16,6 @@
 //     that fits a map line), open again the next day at the SAME tier, and
 //     the chest quest credited once per open, never twice in a day;
 //   • the glow on / off for a crate, the chapel and the shrine;
-//   • the migration: opened crate ids read as opened on the migration day;
 //   • the Book says so.
 (function () {
   const pos = { x: 0, y: 0 };
@@ -156,28 +155,6 @@
       'the frame sets are built before the walk that asks them');
   });
 
-  test('daily crate: the migration carries opened crate ids onto today\'s ledger, once', () => {
-    const save = { schema: 3, opened: ['c_1_2_3_4', 'sxc_12345', 'sxc_-1_2_3_4', 'c_1_2_3_4_d1', 'chest_start_0_0_1', 'hs_0_0_1_1', 'wy_9'] };
-    const needs = SaveMigrate.migrate(save);
-    assert.truthy(needs, 'persisted');
-    assert.eq(save.schema, SaveMigrate.SAVE_SCHEMA, 'stamped');
-    const keys = Object.keys(save.coinBurstClaimed).sort();
-    assert.eq(keys.join(','), ['c_1_2_3_4', 'sxc_-1_2_3_4', 'sxc_12345'].map((id) => id + today()).sort().join(','),
-      'only the surface POI ids, on the migration day');
-    assert.eq(save.opened.length, 7, 'save.opened is left as it was');
-    const crate = { ...poi('bus'), id: 'c_1_2_3_4' };
-    assert.truthy(isSpent(crate, spentSets(null, save)), 'an old crate reads as opened today — no windfall');
-    assert.truthy(Macros.usedToday(save, crate.id), 'migration carries the plain crate lane');
-    assert.falsy(Macros.serviceUsedToday(save, crate.id), 'migration leaves the macro service lane available');
-    save.coinBurstClaimed = {};
-    SaveMigrate.migrate(save);
-    assert.eq(Object.keys(save.coinBurstClaimed).length, 0, 'runs once (the schema says so)');
-    // Bounded: a write a week on prunes the carried day.
-    const s2 = { schema: 3, opened: ['c_1_2_3_4'] };
-    SaveMigrate.carryOpenedCratesToLedger(s2, Date.now() - Macros.LEDGER_KEEP_DAYS * DAY);
-    Macros.markToday(s2, 'c_9_9_9_9');
-    assert.eq(Object.keys(s2.coinBurstClaimed).join(','), 'c_9_9_9_9' + today(), 'pruned on the next write');
-  });
 
   // Narrative copy is covered by item_descriptions and books tests.
 

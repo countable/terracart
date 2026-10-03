@@ -49,8 +49,8 @@ Complete parking-lane footprints select one of four stable quarry stories:
 |---|---|---|
 | Destroyed crater | One broken elliptical rim and open bowl scaled to usable coverage; sparse hot vents, one clear approach | Up to two finite Crimson ore deposits |
 | Abandoned quarry | Repeating 3–8-cell rock-and-salvage patches | Two one-off Iron-pick crates; copper ore rocks use normal mining, timber uses the existing wood pickup |
-| Strip mine | Repeating 3–8-cell benches with open cuts | Sapphire candidates reduced to one quarter of the former preview rule; no extra finite reward |
-| Ruined stronghold | Whole 5 × 5 foundations with doors and gaps between buildings | Three finite buried X marks and three goblins per site, not per foundation |
+| Strip mine | Repeating 3–8-cell benches with open cuts | Up to two splitting slimes in complete sites; sparse cell-owned slimes on clipped edges; no extra finite reward |
+| Ruined stronghold | Whole 5 × 5 foundations with doors and gaps between buildings | Up to three finite buried X marks and three goblins per site, limited by fitting foundations |
 
 `QuarryLayout` fits complete modules around the shared spawn gate and occupied cells. Requested finite counts that cannot fit are reported as shortfalls. Mined rocks, opened salvage, dug treasures and defeated guards use the existing progress ledgers; none refill daily. Crater vents use the existing lava terrain, damage rate and enemy immunity, plus a small orange light. Home/live terrain adjustments remain per-player overlays, leaving generated identities intact.
 
@@ -79,7 +79,7 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | Zone | Variant | Background mix | POI | Finds | Guards | Fauna affinity |
 |---|---|---|---|---|---|---|
 | grove | Meadow | 15% shrub outside the clearing; no grass outside | R=3 grass disk with bush rim | 3 medium: marigold | none | rabbit 50%, butterfly 65% |
-| grove | Mushroom Grove | 11.11% mushroom, 5.56% giant mushroom (shrub mechanics) | mushroom crescent | 1 rare: star | 1 slime at find | butterfly 50% |
+| grove | Mushroom Grove | 11.11% mushroom, 8.33% giant mushroom (shrub mechanics) | mushroom crescent | 1 rare: star | 1 slime at find | butterfly 50% |
 | grove | Orchard | 6.25% apple trees, 6.25% medium maples | paired trees | 3 medium: gemfruit | none | deer 65% |
 | grove | Formal Garden | 11.11% shrub, 16.67% flowers, 5.56% orange | hedge flanks flower diamond | 2 medium: rose | none | none |
 | grove | Hedge Garden | 43.75% shrub, 4.69% flowers, 1.56% orange | flowers in hedge room | 2 medium: rose | none | rabbit 60% |
@@ -88,7 +88,7 @@ Connection operators run in `src/zone_dressing.js`. Reuse eligible pattern slots
 | stones | Ordered Graves | 5.56% grave, 5.56% stone, 2.78% grass | flanking stone rows | 2 medium: gemfruit | headstone ghosts on interaction | crow 65% |
 | stones | Overgrown Graves | 8.33% grass, 5.56% shrub, 2.78% stone, 2.78% grave | overgrown crescent | 1 rare: star | headstone ghosts on interaction | crow 40%, butterfly 35% |
 | stones | Broken Masonry | 11.11% rubble, 8.33% stone | stone square | 1 rare: platinum_ore | 1 slime at find | none |
-| stones | Silent Circle | 26.56% stone, 1.56% grass | inner stone ring | 1 rare: star | none | crow 50% |
+| stones | Silent Circle | 26.56% grave pillars, 1.56% grass | inner pillar ring | 1 rare: star | none | crow 50% |
 | tar | Flint Field | 15% rubble outside the circle | R=2 flint disk with rubble rim | 3 medium: gemfruit | none | none |
 | tar | Broken Depot | 11.11% rubble; hazards: 5.56% trap | rubble and trap flanks | 2 medium: gemfruit | none | none |
 | tar | Seep | 6.25% rubble; hazards: 15.63% tar | tar crescent | 1 rare: star | none | none |
@@ -173,7 +173,9 @@ The 5 × 5 plots share six continuous boundaries on each axis, at cell coordinat
 
 ## Silent Circle continuity
 
-Each 10 × 10 repeat contains a radius-three circle of sixteen neighboring positions: fifteen stones form one continuous arc, with one grass-marked opening. Coverage is 15% stone and 1% grass. The outdoor POI ring has seven immediately adjacent stones and one open entrance to the south. The wider indoor/frontage arrangement remains available separately.
+The grave-like pillars are quiet markers: no per-pillar hoard or ghost roll. The site's finite find and authored encounter remain independent.
+
+Each 8 × 8 repeat contains seventeen small stone pillars, purportedly graves, forming touching radius-four circles with one grass-marked opening. Coverage is 26.56% grave pillars and 1.56% grass. The outdoor POI ring has seven immediately adjacent pillars and one open entrance to the south. The wider indoor/frontage arrangement uses the same pillars.
 
 ## POI-relative pattern origins
 
@@ -219,3 +221,54 @@ An 8 × 8 repeat holds a radius-three circle of sixteen touching rubble cells an
 ## Beach family
 
 Mystic Reef, Pirate Cove and Shellwater Strand are active runtime rows. Beach ownership, the Pirate Cove shipwreck and its whole-footprint fallback are implemented. Shoreline orientation is derived from buffered mapped water geometry at the canonical anchor; unresolved evidence retains deterministic fallback orientation and is reported in diagnostics. Zone placement explicitly reserves the existing daily tide pool, including seats whose daily roll is absent today, so a later tide does not collide with permanent dressing. The historical beach draft files retain design rationale, not an activation backlog.
+
+Pirate Cove retains naturally spawned birds without attracting extra crows. Incoming shore-bird landings keep space from other birds and occupied interactables. The map review shows only today's tide pickups, matching the game's daily filter; inactive reserved seats remain available to future tides.
+
+### Building-aware Stone Garden trial
+
+Stone Garden keeps its existing rings on unobstructed ground. At a complete,
+owner-local site with a blocked composition, it searches for the largest intact
+ring arrangement that fits the shared spawn gate and existing placements. It
+can use only the inner rings or a compact two-cell-radius ring. If even that
+cannot fit, it tries one straight bed of 3–8 stones along a building, with clear
+cells between stones. If neither fits, it reports a composition shortfall.
+Finite finds, shrine and guards are seated first and keep their existing budgets
+and identities; background mining material can decrease. Other motifs and sites
+crossing tile boundaries keep their canonical layout until shared geometry is
+available. The review panel reports the chosen ring radius or frontage bed.
+
+Parking geometry is removed before road masks and nexus fitting. In addition to
+explicit parking aisles and parking-POI proximity, the filter recognizes narrowly
+constrained unlabelled service-road patterns: three substantial parallel rows
+joining one long access road, or a three-leg hairpin with a matching interior
+row. Explicit driveways/alleys and the separate access road remain roads. This
+recovers missing parking metadata without treating every service road near a
+church as a parking lane. Removed geometry still feeds quarries where an
+existing nexus does not already own the ground.
+
+### Quarry clustering and visual fit trial
+
+Removed lane buffers close short internal gaps (at most three cells / 21 m)
+only through eligible ground. This is one pass, not outward growth or a convex
+hull. Retained roads, paths and water divide sites. Buildings and excluded
+pockets inside the original buffer remain unpainted holes in a shared site,
+rather than each tiny island receiving its own finite budget.
+
+Local sites need at least 25 usable cells (1,225 square metres). Smaller inland
+slivers remain ordinary ground and are recorded for review without a quarry
+name, terrain paint or finite budget. Actual tile-edge fragments are retained;
+their full footprint is unknown. Complete sites receive deterministic generated
+names and fit-tested types. Edge fragments are labelled “Quarry edge”. No
+maximum-area cap is imposed on genuinely connected sites.
+
+Craters fit an intact bowl within usable ground, with a continuous raster rim,
+an entrance and at most three lava vents. Strip-mine benches use narrow
+rectangular modules along the footprint's long axis, with open cross-cuts.
+Finite budgets remain per generated site; changing the number/types of sites
+can change the area's total finds and guards.
+
+The map-review “Colour quarry footprints” overlay shows exact ownership in
+separate colours. Dashed coloured boundaries mark incomplete edge sites; grey
+outlines expose rejected small fragments. Clicking shows area, connected ground
+pieces and original-buffer versus filled-gap cells. Add `?quarryClusters=1` to
+open with this overlay enabled; it can be combined with `removedLanes=1`.

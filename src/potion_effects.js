@@ -41,13 +41,13 @@
   }
   function extinguish(c) {
     delete c._burnState;
-    c._burnUntilT = 0; c._burnNextT = 0; c._burnBy = null;
+    c._burnBy = null;
     c.fireDamageRemainder = 0;
   }
   function clearDebuffs(c) {
     extinguish(c);
     c.conditions = {};
-    for (const field of ['_sleepUntil', '_frozenUntil', '_fearUntilT', '_pinnedUntil']) c[field] = 0;
+    for (const field of ['_sleepUntil', '_frozenUntil', '_fearUntilT']) c[field] = 0;
   }
   function prune(scene, now = Date.now()) {
     const ledger = scene.save.potionEffects;
@@ -101,8 +101,8 @@
     c._charmUntil = 0; c._potionTamingUntil = 0;
     for (const field of ['_attackNextT', '_attackWindupUntil', '_attackUntil', '_abilityNextT',
       '_abilityWindupUntil', '_reloadUntil', '_lungeNextT', '_lungeUntil', '_lungeWindupUntil',
-      '_lungeRecoverUntil', '_nextChooseT', '_npcRestUntil', '_throwReadyAt', '_tomeReadyAt',
-      '_lavaNextT', '_burnNextT', '_biteNextT', '_lastAttackT']) c[field] = 0;
+      '_lungeRecoverUntil', '_nextChooseT', '_nextStealT', '_nextShotT', '_npcRestUntil', '_throwReadyAt', '_tomeReadyAt',
+      '_lavaNextT', '_biteNextT', '_lastAttackT']) c[field] = 0;
     c._attackAim = null;
     for (const field of Object.keys(c)) {
       if (/(?:NextT|ReadyAt|ReadyT|CooldownUntil|AttackAt)$/.test(field) && typeof c[field] === 'number') c[field] = 0;

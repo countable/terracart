@@ -7,7 +7,6 @@
   const indexed = new Map(rows.map(row => [row.id, row]));
   const kinds = new Map();
   for (const row of rows) {
-    if (row.selectable === false) continue;
     if (!kinds.has(row.zone)) kinds.set(row.zone, []);
     kinds.get(row.zone).push(row);
   }
@@ -24,7 +23,6 @@
   }
   // Traits describe appearance, not eligibility: unusual combinations remain possible.
   const TRAITS = {
-    quarry: ['ruined'],
     meadow: ['cultivated'], mushroom_grove: ['woodland', 'damp'], orchard: ['cultivated', 'woodland'],
     formal_garden: ['formal', 'cultivated'], hedge_garden: ['formal', 'cultivated'], ancient_grove: ['woodland', 'sacred'],
     stone_garden: ['formal', 'sacred'], ordered_graves: ['formal', 'sacred'], overgrown_graves: ['woodland', 'sacred'],
@@ -234,7 +232,7 @@
       const xy = target.plot
         ? [Math.round((target.plot[0] + 0.5) * step - origin[0]), Math.round((target.plot[1] + 0.5) * step - origin[1])]
         : target.radiusFraction.map(value => Math.round(value * radiusCells));
-      return { id: target.id, material: variant.finds.material, dx: xy[0], dy: xy[1] };
+      return { id: target.id, material: target.material || variant.finds.material, dx: xy[0], dy: xy[1] };
     });
   }
   root.ZoneVariants = { rows, materials, byId, forKind, pick, sample, findOffsets,

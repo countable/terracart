@@ -71,7 +71,8 @@
 //   biome_profiles.js — BiomeProfiles.mixHex (the one colour lerp)
 //   render.js   — Render.BUILDING_FACE_COLOR / BUILDING_FACE_PX (the tiled
 //                 pass's own wall colours + depths, so the two can't drift)
-//   textures.js — CASTLE_STONE / CASTLE_STONE_UNCLAIMED, unclaimedShade,
+//   castle_styles.js — castle tower, wall and courtyard materials
+//   textures.js — unclaimedShade,
 //                 unclaimedMaterialColor
 //   app.js consts — COLORS, CELL_PX
 //
@@ -128,7 +129,6 @@
   // a dashed stroke as wide as the band replaces the stone rather than
   // crowning it, and the wall reads as a dashed ribbon instead of masonry.
   const MERLON_PX = 2;
-  const MERLON_DASH = [4, 4];
 
   // "Somebody else's". The tiled pass washes the finished cells; here the
   // COLOURS are shaded instead — the same unclaimedShade() transform
@@ -279,16 +279,11 @@
 
   // Castle masonry, from the shared palette so a polygon rampart is the same
   // stone as the turret sprites standing on it.
-  const castleStone = (claimed) => {
-    const CS = (typeof CASTLE_STONE === 'undefined') ? null
-      : (claimed || typeof CASTLE_STONE_UNCLAIMED === 'undefined'
-        ? CASTLE_STONE : CASTLE_STONE_UNCLAIMED);
-    const sh = shadeOf(claimed), tune = tuneOf(claimed);
-    return {
-      body: tune(CS ? CS.BODY.n : sh(0x8f9298)),
-      lite: tune(CS ? CS.LITE.n : sh(0xb9bcc2)),
-      dark: tune(CS ? CS.DARK.n : sh(0x303134)),
-    };
+  const castleStone = (claimed, key) => {
+    const style = CastleStyles.get(key, claimed);
+    const top = style.rampart.woodTop ? style.wood : style.stone;
+    return { body: style.stone.BODY, lite: top.LITE, dark: style.stone.DARK,
+      top: top.BODY, style };
   };
 
   // The dashed cell grid, from render.js so the lattice over a footprint is
@@ -516,6 +511,28 @@
         ctx.fillRect(-TILE, -TILE, size + TILE * 2, size + TILE * 2);
         ctx.restore();
       },
+      damagePoly(pts, key, claimed, anchorX, anchorY) {
+        const texture = CastleStyles.damageTexture(scene, key, claimed);
+        if (!texture) return false;
+        if (!patterns.has(texture)) patterns.set(texture,
+          ctx.createPattern(scene.textures.get(texture).getSourceImage(), 'repeat'));
+        ctx.save(); trace(pts); ctx.clip();
+        ctx.translate(anchorX - originX, anchorY - originY);
+        ctx.fillStyle = patterns.get(texture);
+        ctx.fillRect(originX - anchorX, originY - anchorY, size, size);
+        ctx.restore();
+        return true;
+      },
+      columnsPoly(pts, columns, claimed) {
+        if (!columns.length) return;
+        const key = CastleStyles.columnTexture(scene, claimed);
+        if (!key) return;
+        const source = scene.textures.get(key).getSourceImage();
+        ctx.save(); trace(pts); ctx.clip(); ctx.imageSmoothingEnabled = false;
+        for (const p of columns) ctx.drawImage(source, 0, 20 - p.height, 16, p.height,
+          Math.round(p.x - originX - 8), Math.round(p.y - originY - p.height), 16, p.height);
+        ctx.restore();
+      },
       texturePhase(x, y) { phaseX = wrap(x - originX); phaseY = wrap(y - originY); },
       commit() { tex.refresh(); },
     };
@@ -618,10 +635,20 @@
 
   function uprightEdges(scene, d, isMine, projX, projY, seen) {
     const shade = shadeOf(isMine), tune = tuneOf(isMine), depth = facePx(d.tier);
-    const stone = castleStone(isMine);
-    const face = tune(shade(faceColor(d.tier, isMine)));
-    const outline = d.tier === CASTLE ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
+    const stone = d.tier === CASTLE ? castleStone(isMine, d.key) : null;
+    const face = stone ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
+    const outline = stone ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
     const points = d.pts;
+    // Only outward south-facing edges retain the downward face after the
+    // floor is erased from the piece. Their physical base includes that
+    // face depth; the other edges end at the perimeter. Winding keeps the
+    // classification stable for clockwise and counterclockwise rings.
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], b = points[(i + 1) % points.length];
+      area += a.x * b.y - b.x * a.y;
+    }
+    const winding = Math.sign(area);
     const trace = (ctx) => {
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
@@ -644,7 +671,7 @@
         // World-relative placement: the same edge at a later camera cell sits
         // at the same offset from the projected world origin.
         const wx = x - projX(0), wy = y - projY(0);
-        const cacheKey = `${d.seed}|${d.tier}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
+        const cacheKey = `${d.seed}|${d.tier}|${stone?.style.id || ''}|${isMine ? 1 : 0}|${i}|${j}|${Math.round(wx)}|${Math.round(wy)}|${w}|${h}`;
         const cached = scene._buildingUprightCache.get(cacheKey);
         if (cached) {
           if (!seen.has(cacheKey)) {
@@ -672,18 +699,40 @@
         ctx.globalCompositeOperation = 'destination-out';
         trace(ctx); ctx.fill();
         ctx.globalCompositeOperation = 'source-over';
-        if (d.tier === CASTLE) {
+        if (stone) {
           ctx.save(); trace(ctx); ctx.clip();
           const stroke = (width, color, dash) => {
             ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
             ctx.lineWidth = width; ctx.strokeStyle = cssOf(color);
             ctx.setLineDash(dash || []);
-            // Continue the merlon rhythm through segment boundaries.
             ctx.lineDashOffset = -Math.hypot(p.x - a.x, p.y - a.y);
             ctx.stroke();
           };
           stroke(BAND_PX * 2, stone.body);
-          stroke(MERLON_PX * 2, stone.lite, MERLON_DASH);
+          const rampart = stone.style.rampart;
+          if (rampart.woodTop) stroke(6, stone.top);
+          const tooth = rampart.toothWidth;
+          const dash = rampart.broken ? [tooth, 4, tooth - 1, 7] : [tooth, 8 - tooth];
+          stroke(MERLON_PX * 2, stone.lite, dash);
+          // Sample just inside the edge, so east/south boundaries use the
+          // same owner's cell as the tiled wall rather than its neighbour.
+          const damageX = (p.x + q.x) / 2 - Math.sign(q.y - p.y) * winding * 0.01;
+          const damageY = (p.y + q.y) / 2 + Math.sign(q.x - p.x) * winding * 0.01;
+          const damage = CastleStyles.damageCell(d.key,
+            Math.floor((damageX - d.damageOriginX) / CELL_PX),
+            Math.floor((damageY - d.damageOriginY) / CELL_PX));
+          if (damage) {
+            const chip = damage.chip / CELL_PX;
+            const cx = Math.round(p.x + (q.x - p.x) * chip);
+            const cy = Math.round(p.y + (q.y - p.y) * chip);
+            ctx.fillStyle = cssOf(stone.style.stone.SHADOW); ctx.fillRect(cx - 1, cy - 3, 2, 6);
+            if (damage.missing >= 0) {
+              const t = (damage.missing + 0.5) / 4;
+              ctx.fillStyle = cssOf(stone.style.floor);
+              ctx.fillRect(Math.round(p.x + (q.x - p.x) * t) - 2,
+                Math.round(p.y + (q.y - p.y) * t) - 2, 4, 4);
+            }
+          }
           ctx.restore();
         }
         ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
@@ -701,9 +750,9 @@
         scene.worldContainer.add(sprite);
         const piece = {
           sprite, page, frame, slot, x, y, wx, wy, width: w, height: h, rank: 1,
-          // The perimeter is the ground anchor; extrusion is visual height,
-          // just as for tiled walls. Towers at this boundary rank above it.
-          groundY: (Math.max(p.y, q.y) - projY(0)) * scene.cellM / CELL_PX,
+          // Lowest visible masonry, excluding transparent frame padding.
+          groundY: (Math.max(p.y, q.y) + ((a.x - b.x) * winding > 1e-6 ? depth : 0)
+            - projY(0)) * scene.cellM / CELL_PX,
         };
         scene._buildingUprightCache.set(cacheKey, piece);
         seen.add(cacheKey);
@@ -842,6 +891,10 @@
         draws.push({
           pts, south: by1, left: bx0, north: by0, right: bx1,
           tier: shape.tier, key: shape.key,
+          damageOriginX: projX(originMx), damageOriginY: projY(originMy),
+          columns: shape.tier === CASTLE ? CastleStyles.columnSites(shape.key, r,
+            entry.tileEdgeM / (entry.cellsPerEdge || scene.cellsPerTile))
+            .map(p => ({ x: projX(originMx + p.x), y: projY(originMy + p.y), height: p.height })) : [],
           seed: seedOf(tx, ty, r, shape.key),
         });
       }
@@ -864,15 +917,18 @@
       const shade = shadeOf(isMine), tune = tuneOf(isMine);
       // The shaded floor is what the slime derives from (three shades deep —
       // see slimeColor); the material lift goes over every colour after.
-      const shaded = shade(floorColor(d.tier, isMine));
-      const floor = tune(shaded);
+      const style = d.tier === CASTLE ? CastleStyles.get(d.key, isMine) : null;
+      const shaded = style ? style.floor : shade(floorColor(d.tier, isMine));
+      const floor = style ? style.floor : tune(shaded);
       const depth = facePx(d.tier);
       // The wall, as the ring filled again one face-depth south and painted
       // UNDER the floor: whatever survives is exactly the polygon's
       // south-facing edges, at any angle, with no per-edge normal test.
-      if (!separateUprights) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), tune(shade(faceColor(d.tier, isMine))));
+      if (!separateUprights) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + depth })), (style ? style.stone.FACE : tune(shade(faceColor(d.tier, isMine)))));
       g.fillPoly(d.pts, floor);
-      if (g.texturePoly) g.texturePoly(d.pts, d.tier);
+      const damagedFloor = style?.id === 'ruin' && g.damagePoly
+        && g.damagePoly(d.pts, d.key, isMine, d.damageOriginX, d.damageOriginY);
+      if (!damagedFloor && g.texturePoly) g.texturePoly(d.pts, d.tier);
       // Dilapidated: the slime, over the floor and its material (it is growing
       // on them) but under the lattice, the rampart and the outline — the
       // building's own lines stay clean, only its floor is overgrown.
@@ -885,15 +941,20 @@
       // top of it — and the point of the pass is that the ground's squares
       // stay readable across a footprint, so it goes last.
       if (g.gridPoly) g.gridPoly(d.pts, gridInkFor(GRID, floor));
+      if (d.columns.length && g.columnsPoly) g.columnsPoly(d.pts, d.columns, isMine);
+      // Every short wall section joins the ordinary upright painter pass.
       if (separateUprights) {
         uprightEdges(scene, d, isMine, projX, projY, seen);
       } else if (d.tier === CASTLE) {
         // Rampart: the stone band inside the wall line, then the merlon teeth
         // dashed along it in the light stone — the polygon's answer to the
         // tiled battlements.
-        const stone = castleStone(isMine);
+        const stone = castleStone(isMine, d.key);
         g.insetStroke(d.pts, BAND_PX, stone.body);
-        g.insetStroke(d.pts, MERLON_PX, stone.lite, MERLON_DASH);
+        if (style.rampart.woodTop) g.insetStroke(d.pts, 3, stone.top);
+        const tooth = style.rampart.toothWidth;
+        const dash = style.rampart.broken ? [tooth, 4, tooth - 1, 7] : [tooth, 8 - tooth];
+        g.insetStroke(d.pts, MERLON_PX, stone.lite, dash);
         g.strokePoly(d.pts, OUTLINE_PX, stone.dark);
       } else {
         g.strokePoly(d.pts, OUTLINE_PX, tune(dim(shaded, OUTLINE_MUL)));

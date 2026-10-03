@@ -281,3 +281,32 @@ test('source: melee auto-engage needs no sword, and a slot tap no longer switche
   assert.truthy(/Gear\.unequipWeapon\(this\.save\)/.test(btn), 'Unequip puts a ranged weapon away');
   assert.truthy(/Combat\.RANGED_SLOTS\.includes\(g\.slot\)/.test(btn), 'only a bow or staff can be put away');
 });
+
+test('alternate weapons: sparse material names, independent ownership and replacement', () => {
+  const save = { relics: { sword: { tier: 7 } }, activeWeapon: 'sword' };
+  for (const slot of ['dagger', 'spear', 'musket']) {
+    for (const [tier, material] of [[1, 'Rusty'], [3, 'Fine'], [5, 'Magic']]) {
+      Gear.equip(save, 'relic', slot, tier);
+      assert.eq(save.relics[slot].tier, tier);
+      assert.eq(save.activeWeapon, slot);
+      assert.eq(gearName('relic', slot, tier), `${material} ${RELIC_DEFS[slot].name}`);
+    }
+    Gear.equip(save, 'relic', slot, 1);
+    assert.eq(save.relics[slot].tier, 5, 'lower rewards never downgrade');
+    for (const tier of [2, 4, 6, 7]) {
+      Gear.equip(save, 'relic', slot, tier);
+      assert.eq(save.relics[slot].tier, 5, 'unsupported materials never replace a weapon');
+      assert.eq(gearAssetPath('relic', slot, tier), null);
+    }
+  }
+  assert.eq(Object.keys(save.relics).length, 4, 'one entry per owned weapon type');
+  assert.eq(save.relics.sword.tier, 7, 'alternates leave the sword progression intact');
+  for (const slot of ['sword', 'dagger', 'spear', 'musket']) {
+    assert.truthy(Gear.selectWeapon(save, slot));
+    assert.eq(save.activeWeapon, slot);
+    assert.eq(Gear.meleeActive(save), slot !== 'musket');
+  }
+  Gear.unequipWeapon(save);
+  assert.eq(save.activeWeapon, 'sword');
+  assert.falsy(Gear.selectWeapon(save, 'bow'), 'cannot equip an unowned weapon');
+});

@@ -2,6 +2,8 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  bramble: { kind: 'spritesheet', path: 'assets/Objects/Approved/bramble.png', frameWidth: 24, frameHeight: 24 },
+  castle_tower_shapes: { kind: 'image', path: 'assets/Objects/Castle/tower_shapes.png' },
   // Potion projectiles use the same frames as inventory and shop icons.
   icon_potions: { kind: 'spritesheet', path: 'assets/Icons/Items/Potions.png', frameWidth: 16, frameHeight: 16 },
   icon_potion: { kind: 'spritesheet', path: 'assets/Icons/Items/Potion_light.png', frameWidth: 16, frameHeight: 16 },
@@ -89,16 +91,9 @@ const ASSETS = {
   // Spring Crops sheet (224x128, 14x8 of 16x16 frames). Used by crops whose
   // art lives here (e.g. potato) — see CROP_SPRITE override below.
   springcrops: { kind: 'spritesheet', path: 'assets/Objects/Approved/springcrops.png',  frameWidth: 16, frameHeight: 16 },
-  // Road copiar.png — 80×64 = 5×4 of 16×16 frames, the OLD road cobble. It
-  // stamped a pebble cluster per road cell and a stone per path cell until
-  // Sep 2026 (a street is restored and drawn as arclength along the WAY now;
-  // road_overlay.js paints the carriageway itself). It is back for ONE job:
-  // the UNLIT street lamp. A lamp on a stretch not yet restored draws as this
-  // plain grey cobble (app.js STREET_LAMP_DARK_FRAME picks the frame by road
-  // tier, exactly the frames the per-cell stones used) — the foundation stone
-  // waiting for its lamp — and the gilded lamp itself (RoadOverlay.paintLamp)
-  // stands on it once its metres are rebuilt, so where the lamps will be is
-  // visible before they light.
+  // The legacy 16px cobble sheet now holds broken street-lamp posts in the
+  // four dark-lamp frames (0, 1, 3, 5); other frames remain unchanged.
+  // Baked from RoadOverlay.paintBrokenLamp to share the restored lamp profile.
   cobble:      { kind: 'spritesheet', path: 'assets/Objects/Road copiar.png',   frameWidth: 16, frameHeight: 16 },
   // Bridge Beach — 128×224 = 8 cols × 14 rows of 16×16 frames. Wooden plank
   // tiles for pier rendering (transportation:pier OSM lines). Rows 0-3 are a
@@ -154,30 +149,22 @@ const ASSETS = {
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
   // Mineral-bearing rocks — 176x272 sheet of 16x16 frames.
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
-  // Stone pillar — 16×32 (1 cell wide × 2 tall): a fluted column with cap +
-  // stepped base. Originally sliced from a gitignored source sheet, but the
-  // slice rect clipped the column's top and left edge ("pole art is cut off"),
-  // so the art was redrawn complete and symmetric in the same palette. Used as
-  // a purely decorative stand-in for OSM utility poles / posts (power=pole,
-  // man_made=mast, barrier=bollard, highway=street_lamp) — no interaction.
-  // Authored at 16px-per-cell, so RENDER_SPEC.pole draws it at scale 2.0 to
-  // match the game's 32px cell (1 cell wide × ~2 tall — a full-height pole).
-  pillar:         { kind: 'image', path: 'assets/Objects/Approved/pillar.png' },
+  // Selected tall pillar (#63), replacing the global mapped-pole sprite.
+  // One 24px frame displayed in a 32px cell; purely decorative as before.
+  pillar:         { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/tall_pillar.png', frameWidth: 24, frameHeight: 24 },
   // STREET VARIANTS (src/street_variants.js): the generated 16px props (see
   // assets/Objects/Generated/README.md — placeholders): the pilgrim's
   // waystone, the barricade, and the burned row's tar pit and iron stakes
   // (one look each). wagon: the broken wagon a bandit-road bus stop wears
   // (loot.js chestLook), one compact 32×32 frame.
   waystone:       { kind: 'spritesheet', path: 'assets/Objects/Approved/waystone.png', frameWidth: 16, frameHeight: 16 },
-  giant_mushroom: { kind: 'spritesheet', path: 'assets/Objects/Approved/giant_mushroom.png', frameWidth: 32, frameHeight: 48 },
-  barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 16, frameHeight: 16 },
+  barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 24, frameHeight: 24 },
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Approved/tar.png', frameWidth: 16, frameHeight: 16 },
   stakes:         { kind: 'spritesheet', path: 'assets/Objects/Approved/stakes.png', frameWidth: 16, frameHeight: 16 },
   wagon:          { kind: 'spritesheet', path: 'assets/Objects/DailyVisits/wagon.png', frameWidth: 32, frameHeight: 32 },
   // INFLUENCE ZONES (src/zones.js): churchyard headstone, grove votive,
   // and the flint nodule (items.js CROP_SPRITE.flint).
-  headstone:      { kind: 'spritesheet', path: 'assets/Objects/Rustic/pillar_c.png', frameWidth: 16, frameHeight: 16 },
-  grove_votive:   { kind: 'spritesheet', path: 'assets/Objects/Approved/grove_votive.png', frameWidth: 16, frameHeight: 16 },
+  grove_votive: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/seed_shrine.png', frameWidth: 24, frameHeight: 24 },
   flint:          { kind: 'spritesheet', path: 'assets/Objects/Approved/flint.png', frameWidth: 16, frameHeight: 16 },
   // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — ten 16×24 generated
   // placeholders on one row, in the table's order.
@@ -186,6 +173,12 @@ const ASSETS = {
   // interactable: the viewpoint's scope (16×24, an object — RENDER_SPEC
   // vista_scope) and the tide line's driftwood and message bottle (wild
   // plants — items.js CROP_SPRITE).
+  zone_objects: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/approved-24.png', frameWidth: 24, frameHeight: 24 },
+  zone_berry_bush: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/berry_bush.png', frameWidth: 24, frameHeight: 24 },
+  zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/Approved/approved_clipped_hedge.png', frameWidth: 16, frameHeight: 16 },
+  zone_hedge: { kind: 'spritesheet', path: 'assets/Objects/Hedges/hedges-24.png?v=b465bfa1', frameWidth: 24, frameHeight: 24 },
+  stronghold_wall: { kind: 'spritesheet', path: 'assets/Objects/Stronghold/walls-24.png?v=42926d98', frameWidth: 24, frameHeight: 24 },
+  reef_coral: { kind: 'spritesheet', path: 'assets/Objects/Reef/coral.png', frameWidth: 24, frameHeight: 24 },
   vista_scope:    { kind: 'spritesheet', path: 'assets/Objects/Approved/vista_scope.png', frameWidth: 16, frameHeight: 24 },
   driftwood:      { kind: 'spritesheet', path: 'assets/Objects/Approved/driftwood.png', frameWidth: 16, frameHeight: 16 },
   bottle:         { kind: 'spritesheet', path: 'assets/Objects/Approved/bottle.png', frameWidth: 16, frameHeight: 16 },
@@ -194,10 +187,10 @@ const ASSETS = {
   // BARREL or clay pot (standing, then smashed while restocking — isBarrel), a
   // bike rack the bicycle_parking POI (isBikeRack), a notice board the
   // information POI (render.js infoboard) and a gate's two posts (gatepost).
-  barrel:         { kind: 'spritesheet', path: 'assets/Objects/Approved/barrel.png', frameWidth: 16, frameHeight: 16 },
-  barrel_smashed: { kind: 'spritesheet', path: 'assets/Objects/Approved/barrel_smashed.png', frameWidth: 16, frameHeight: 16 },
-  clay_pot:       { kind: 'spritesheet', path: 'assets/Objects/Rustic/pot.png', frameWidth: 16, frameHeight: 16, desaturated: true },
-  clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/Rustic/pot_smashed.png', frameWidth: 16, frameHeight: 16, desaturated: true },
+  barrel: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/barrel.png', frameWidth: 24, frameHeight: 24 },
+  barrel_smashed: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/broken_barrel.png', frameWidth: 24, frameHeight: 24 },
+  clay_pot: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/pots_cracked.png', frameWidth: 24, frameHeight: 24 },
+  clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/pots_smashed.png', frameWidth: 24, frameHeight: 24 },
   bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Approved/bike_rack.png', frameWidth: 16, frameHeight: 16 },
   signpost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/signpost.png', frameWidth: 16, frameHeight: 16 },
   gatepost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/gatepost.png', frameWidth: 16, frameHeight: 16 },
@@ -352,7 +345,7 @@ const ASSETS = {
   house_fort_unclaimed: {"kind": "image", "path": "assets/Objects/Approved/house_fort_unclaimed.png", "unclaimedArt": true},
   approved_wetland_reeds: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_wetland_reeds.png", "frameWidth": 16, "frameHeight": 16},
   approved_clipped_hedge: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_clipped_hedge.png", "frameWidth": 16, "frameHeight": 16},
-  approved_charred_stakes: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_charred_stakes.png", "frameWidth": 16, "frameHeight": 16},
+  approved_charred_stakes: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_charred_stakes.png", "frameWidth": 24, "frameHeight": 24},
   potofgold: {"kind": "image", "path": "assets/Objects/DailyVisits/potofgold.png"},
   // END approved map-art states and contexts
 };

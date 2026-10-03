@@ -45,17 +45,16 @@
     // Index 0 is unused; tiers 1..7.
     tierQtyPerBump: [0, 5, 3, 2, 1, 1, 1, 1],
     // Classes that are inherently single-stack — relic (no qty), animal (one
-    // live catch at a time), consumable (tap-to-use), sapling (one fruit tree
-    // per find — packs of tree saplings read wrong). qty always 1 regardless
-    // of bumps for these. flora maps to the produce 'flowers' item via picker
+    // live catch at a time), consumable (tap-to-use). Fruit-tree seeds also
+    // stay single regardless of bumps. flora maps to the produce 'flowers' item via picker
     // routing, but we treat it as a small-qty class.
-    singleStackClasses: ['relic', 'animal', 'magic', 'supply', 'legacyConsumable', 'sapling'],
+    singleStackClasses: ['relic', 'animal', 'magic', 'supply', 'legacyConsumable'],
     // Chest tier 1..5 modifiers. Applied on top of the biome's classBias to
     // produce the effective context. Chest worldgen picks (biome, tier)
     // independently — same biome can appear at different tiers, same tier
-    // across different biomes. The tier is the chest's class DENSITY on its
-    // tile (loot.js CHEST_DENSITY_TIERS / chestTier — also the renderer's
-    // coloured diamond).
+    // across different biomes. The tier is the chest's per-tile quota seat
+    // (worldgen.js seedChestTiers, read through loot.js chestTier — also the
+    // renderer's coloured diamond).
     //
     // chainMax bounds what the boost chain alone can reach; maxTier bounds
     // the absolute (post-jackpot) tier. Every tier gets a small jackpot
@@ -163,9 +162,9 @@
     // Wandering trader / fort quartermaster also deal the occasional fruit-tree
     // sapling (small share; maxTier 4 keeps it to the apple — peach stays a
     // rare nature-chest find).
-    'shop:trader':      { classBias: { animal:0.35, mineral:0.15, produce:0.20, seed:0.15, magic:0.05, supply:0.05, relic:0.05, sapling:0.05 },
+    'shop:trader':      { classBias: { animal:0.35, mineral:0.15, produce:0.20, seed:0.20, magic:0.05, supply:0.05, relic:0.05 },
                           chainSteps: 2, chainMax: 3, maxTier: 4, relicCap: 3, singleItem: true },
-    'shop:fort':        { classBias: { seed:0.27, produce:0.27, mineral:0.17, magic:0.085, supply:0.085, relic:0.12, sapling:0.04 },
+    'shop:fort':        { classBias: { seed:0.31, produce:0.27, mineral:0.17, magic:0.085, supply:0.085, relic:0.12 },
                           chainSteps: 2, chainMax: 3, maxTier: 4, relicCap: 3, singleItem: true },
     'shop:castle':      { classBias: { relic: 1.00 },
                           chainSteps: 3, chainMax: 4, maxTier: 7, relicCap: 7, singleItem: true },
@@ -192,14 +191,12 @@
     // (no chain, T1-2, no relics), a gardener's classes — seeds first, then
     // produce, then a magic item — and the growth powder as its FAVOURITE,
     // the way a school is known for its Book: a grove is where things grow.
-    // (No sapling share: saplings start at T3, past this curve's ceiling, so
-    // a sapling draw would pay nothing.)
+    // Tree seeds use the same seed class and their normal tier eligibility.
     'treasure:shrine':  { classBias: { seed:0.55, produce:0.30, magic:0.15 },
                           chainSteps: 0, chainMax: 1, maxTier: 2, relicCap: 0,
                           favourite: { id: 'growth_powder', p: 0.5 } },
     // ── A viewpoint scope's daily gift (src/scenic.js VISTA_CONTEXT,
-    // INTERACTABLES.vista_scope) — and the tide line's message bottle
-    // (Scenic.BOTTLE_CONTEXT). A better grove shrine (~15 value, the design's
+    // INTERACTABLES.vista_scope). A better grove shrine (~15 value, the design's
     // daily re-walk target): one chain step over the shrine's flat curve, a
     // walker's classes — seeds and a magic item, some produce, a supply.
     // Measured ~15 (scratchpad scenic2/ev.js, the balancing sheet's valuation).
@@ -395,7 +392,10 @@
   function reconcileRelicOffer(rolled, save, rng, cap = 7) {
     const kind = rolled.kind || 'relic';
     const slot = rolled.slot;
-    let t = Math.min(rolled.tier, cap);
+    const tiers = (kind === 'relic' && _RELIC_DEFS[slot]?.tiers) || GEAR_ROLL_TIERS;
+    const allowed = tiers.filter(t => t <= cap);
+    cap = allowed[allowed.length - 1];
+    let t = allowed.filter(t => t <= rolled.tier).pop() || allowed[0];
     const ownedTable = kind === 'armor' ? save?.armor : save?.relics;
     const owned = ownedTable?.[slot]?.tier ?? 0;
     if (t > owned) return { kind, slot, tier: t, jackpot: rolled.jackpot || 0 };
@@ -421,7 +421,7 @@
           jackpot: rolled.jackpot || 0,
         };
       }
-      t += 1;
+      t = allowed.find(tier => tier > t);
     }
     // Climbed all the way without cashing out — hand over the capped gear.
     return { kind, slot, tier: cap, jackpot: rolled.jackpot || 0 };
@@ -474,7 +474,7 @@
     classAdd:  { legacyConsumable: 0.25, mineral: 0.25 },
     favourite: { p: 0.75, tierCapped: true, ids: {
       vigor_potion: 1, shield_potion: 1, reach_potion: 1, speed_potion: 1,
-      revive_potion: 1, blight_potion: 1, raven_potion: 1, thunder_potion: 1, resurrection_potion: 1,
+      revive_potion: 1, blight_potion: 1, raven_scroll: 1, skeleton_scroll: 1, wraith_scroll: 1, thunder_scroll: 1, resurrection_potion: 1,
       growth_powder: 1, shadow_powder: 1, dragon_powder: 1, frost_powder: 1, sleep_powder: 1,
       fireball_scroll: 1, explosive_flask: 1, fear_scroll: 1, treasure_map: 1,
       sapphire: 1, ruby: 1, emerald: 1, diamond: 1,
@@ -638,6 +638,14 @@
     }
     const meta = { theme, group, resolvedGroup: resolved.group, fallback: resolved.fallback,
       rolledTier: tier, jackpot: jackpotApplied, consolation: 0 };
+    // T2 supplies can introduce an alternate weapon, but never
+    // replace an owned weapon or turn a starter roll into a higher tier.
+    const supply = ChestThemes.groups[resolved.group];
+    const starterSlots = chestTier === 2 ? (supply.starterWeapons || [])
+      .filter(slot => _RELIC_DEFS[slot] && !(save?.relics?.[slot]?.tier > 0)) : [];
+    if (starterSlots.length && rng() < supply.starterWeaponChance) {
+      return { kind: 'relic', slot: _pickFromArray(starterSlots, rng), tier: 1, ...meta };
+    }
     if (resolved.kind === 'gear') {
       const gear = rollGearUpgrade(rng, save?.relics, tier, save?.armor, ChestThemes.gearSlots(resolved.group),
         typeof Shrines !== 'undefined' && Shrines.leverActive(save, 'fortune') ? Shrines.FORTUNE_LUCK_BONUS : 0,
@@ -773,7 +781,7 @@
       // Any qty bumps the chain rolled are discarded; no consolation
       // since the player is buying, not receiving.
       if (cls === 'seed') qty = itemTier >= 4 ? 1 : 5;
-    } else if ((RARITY_TUNING.singleStackClasses || []).includes(cls)) {
+    } else if ((RARITY_TUNING.singleStackClasses || []).includes(cls) || _ITEM_BY_ID[id]?.plants === 'fruittree') {
       wastedQtyBumps += bracket;          // bracket is dead for these classes
     } else {
       const perBump = (RARITY_TUNING.tierQtyPerBump || [])[Math.min(itemTier, 7)] || 1;
@@ -820,6 +828,12 @@
       ...armorSlots.map(s => ({ kind: 'armor', slot: s })),
     ];
     const sp = _pickFromArray(slotPool, random);
+    const slotTiers = sp.kind === 'relic' && _RELIC_DEFS[sp.slot]?.tiers;
+    if (slotTiers) {
+      const eligible = slotTiers.filter(t => t >= Math.min(preferred, minTier) && t <= preferred);
+      const available = eligible.length ? eligible : slotTiers.filter(t => t <= preferred);
+      pickedTier = available.filter(t => t <= pickedTier).pop() || available[0];
+    }
     const cur = sp.kind === 'relic'
       ? (currentRelics?.[sp.slot]?.tier ?? 0)
       : (currentArmor?.[sp.slot]?.tier ?? 0);

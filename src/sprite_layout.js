@@ -44,7 +44,6 @@
     'pine_tree:1': { fw: 32, fh: 48, minX: 12, minY: 36, maxX: 19, maxY: 46 },
     'pine_tree:2': { fw: 32, fh: 48, minX: 4, minY: 14, maxX: 27, maxY: 48 },
     'pine_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 48 },
-    'giant_mushroom:0': { fw: 32, fh: 48, minX: 1, minY: 2, maxX: 31, maxY: 46 },
     'bushes:0': { fw: 48, fh: 32, minX: 9, minY: 0, maxX: 41, maxY: 32 },
     'apple_tree:0': { fw: 32, fh: 48, minX: 12, minY: 43, maxX: 20, maxY: 46 },
     'apple_tree:2': { fw: 32, fh: 48, minX: 5, minY: 14, maxX: 29, maxY: 48 },
@@ -67,32 +66,62 @@
     'mineralrock:3': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
     'mineralrock:5': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
     'mineralrock:6': { fw: 16, fh: 16, minX: 2, minY: 4, maxX: 13, maxY: 14 },
-    'approved_charred_stakes:0': { fw: 16, fh: 16, minX: 4, minY: 0, maxX: 12, maxY: 16 },
+    'approved_charred_stakes:0': { fw: 24, fh: 24, minX: 1, minY: 4, maxX: 23, maxY: 23 },
     'well:0': { fw: 30, fh: 32, minX: 2, minY: 0, maxX: 30, maxY: 32 },
-    'pillar:0': { fw: 16, fh: 32, minX: 1, minY: 0, maxX: 15, maxY: 28 },
+    'pillar:0': { fw: 24, fh: 24, minX: 6, minY: 1, maxX: 18, maxY: 23 },
     'scarecrow:0': { fw: 48, fh: 48, minX: 3, minY: 8, maxX: 45, maxY: 47 },
     'bonfire:0': { fw: 16, fh: 32, minX: 1, minY: 9, maxX: 14, maxY: 31 },
     'torch:0': { fw: 16, fh: 32, minX: 5, minY: 5, maxX: 12, maxY: 32 },
     'waystone:0': { fw: 16, fh: 16, minX: 0, minY: 1, maxX: 16, maxY: 16 },
     'stakes:0': { fw: 16, fh: 16, minX: 4, minY: 0, maxX: 12, maxY: 16 },
-    'tar:0': { fw: 16, fh: 16, minX: 0, minY: 6, maxX: 16, maxY: 16 },
-    'headstone:0': { fw: 16, fh: 16, minX: 3, minY: 0, maxX: 14, maxY: 16 },
-    'grove_votive:0': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 16 },
+    'tar:0': { fw: 16, fh: 16, minX: 1, minY: 6, maxX: 15, maxY: 15 },
+    'grove_votive:0': { fw: 24, fh: 24, minX: 2, minY: 1, maxX: 21, maxY: 23 },
+    'zone_objects:1': { fw: 24, fh: 24, minX: 6, minY: 1, maxX: 18, maxY: 23 },
+    'zone_objects:4': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 22, maxY: 23 },
+    'zone_objects:5': { fw: 24, fh: 24, minX: 1, minY: 5, maxX: 23, maxY: 19 },
+    'zone_objects:6': { fw: 24, fh: 24, minX: 5, minY: 1, maxX: 18, maxY: 23 },
+    'zone_objects:7': { fw: 24, fh: 24, minX: 1, minY: 4, maxX: 23, maxY: 19 },
+    'zone_objects:34': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 23, maxY: 22 },
+    'zone_objects:37': { fw: 24, fh: 24, minX: 1, minY: 2, maxX: 23, maxY: 22 },
+    'zone_objects:38': { fw: 24, fh: 24, minX: 2, minY: 1, maxX: 22, maxY: 23 },
+    'zone_objects:39': { fw: 24, fh: 24, minX: 1, minY: 2, maxX: 23, maxY: 22 },
+    'zone_objects:40': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 23, maxY: 23 },
+    'zone_objects:54': { fw: 24, fh: 24, minX: 3, minY: 1, maxX: 21, maxY: 23 },
+    'zone_objects:58': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 22, maxY: 23 },
+    'zone_objects:59': { fw: 24, fh: 24, minX: 1, minY: 2, maxX: 23, maxY: 22 },
+    'zone_objects:61': { fw: 24, fh: 24, minX: 1, minY: 2, maxX: 23, maxY: 21 },
+    'zone_objects:64': { fw: 24, fh: 24, minX: 1, minY: 5, maxX: 23, maxY: 23 },
+    'zone_objects:65': { fw: 24, fh: 24, minX: 1, minY: 3, maxX: 23, maxY: 23 },
+    'zone_objects:66': { fw: 24, fh: 24, minX: 1, minY: 5, maxX: 23, maxY: 23 },
+    'zone_objects:67': { fw: 24, fh: 24, minX: 1, minY: 6, maxX: 23, maxY: 23 },
+    'zone_objects:68': { fw: 24, fh: 24, minX: 1, minY: 5, maxX: 23, maxY: 23 },
+    'zone_objects:69': { fw: 24, fh: 24, minX: 1, minY: 4, maxX: 23, maxY: 23 },
+    'zone_objects:70': { fw: 24, fh: 24, minX: 1, minY: 4, maxX: 23, maxY: 23 },
+    'zone_objects:71': { fw: 24, fh: 24, minX: 1, minY: 5, maxX: 23, maxY: 23 },
+    'zone_berry_bush:0': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 23, maxY: 22 },
+    'reef_coral:0': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 23, maxY: 23 },
+    'reef_coral:1': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 23, maxY: 22 },
+    'reef_coral:2': { fw: 24, fh: 24, minX: 2, minY: 1, maxX: 22, maxY: 23 },
+    'reef_coral:3': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 22, maxY: 23 },
+    'reef_coral:4': { fw: 24, fh: 24, minX: 1, minY: 2, maxX: 23, maxY: 22 },
+    'reef_coral:5': { fw: 24, fh: 24, minX: 1, minY: 3, maxX: 23, maxY: 21 },
+    'reef_coral:6': { fw: 24, fh: 24, minX: 2, minY: 1, maxX: 22, maxY: 23 },
+    'reef_coral:7': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 22, maxY: 23 },
     'vista_scope:0': { fw: 16, fh: 24, minX: 0, minY: 0, maxX: 15, maxY: 24 },
-    'shrines:0': { fw: 16, fh: 24, minX: 2, minY: 0, maxX: 14, maxY: 24 },
-    'shrines:1': { fw: 16, fh: 24, minX: 2, minY: 0, maxX: 14, maxY: 24 },
-    'shrines:2': { fw: 16, fh: 24, minX: 0, minY: 4, maxX: 16, maxY: 24 },
-    'shrines:3': { fw: 16, fh: 24, minX: 1, minY: 0, maxX: 14, maxY: 24 },
-    'shrines:4': { fw: 16, fh: 24, minX: 0, minY: 3, maxX: 15, maxY: 24 },
-    'shrines:5': { fw: 16, fh: 24, minX: 2, minY: 0, maxX: 13, maxY: 24 },
-    'shrines:6': { fw: 16, fh: 24, minX: 0, minY: 1, maxX: 16, maxY: 24 },
-    'shrines:7': { fw: 16, fh: 24, minX: 1, minY: 0, maxX: 15, maxY: 24 },
-    'shrines:8': { fw: 16, fh: 24, minX: 0, minY: 6, maxX: 16, maxY: 24 },
-    'shrines:9': { fw: 16, fh: 24, minX: 0, minY: 5, maxX: 16, maxY: 24 },
-    'barrel:0': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 14, maxY: 16 },
-    'barrel_smashed:0': { fw: 16, fh: 16, minX: 0, minY: 4, maxX: 16, maxY: 16 },
-    'clay_pot:0': { fw: 16, fh: 16, minX: 1, minY: 0, maxX: 15, maxY: 16 },
-    'clay_pot_smashed:0': { fw: 16, fh: 16, minX: 0, minY: 4, maxX: 16, maxY: 16 },
+    'shrines:0': { fw: 16, fh: 24, minX: 1, minY: 1, maxX: 15, maxY: 23 },
+    'shrines:1': { fw: 16, fh: 24, minX: 1, minY: 1, maxX: 14, maxY: 23 },
+    'shrines:2': { fw: 16, fh: 24, minX: 1, minY: 7, maxX: 15, maxY: 23 },
+    'shrines:3': { fw: 16, fh: 24, minX: 1, minY: 1, maxX: 15, maxY: 23 },
+    'shrines:4': { fw: 16, fh: 24, minX: 1, minY: 5, maxX: 15, maxY: 23 },
+    'shrines:5': { fw: 16, fh: 24, minX: 2, minY: 1, maxX: 13, maxY: 23 },
+    'shrines:6': { fw: 16, fh: 24, minX: 1, minY: 3, maxX: 15, maxY: 23 },
+    'shrines:7': { fw: 16, fh: 24, minX: 1, minY: 3, maxX: 15, maxY: 23 },
+    'shrines:8': { fw: 16, fh: 24, minX: 1, minY: 8, maxX: 15, maxY: 23 },
+    'shrines:9': { fw: 16, fh: 24, minX: 1, minY: 8, maxX: 15, maxY: 23 },
+    'barrel:0': { fw: 24, fh: 24, minX: 3, minY: 1, maxX: 20, maxY: 23 },
+    'barrel_smashed:0': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 23, maxY: 23 },
+    'clay_pot:0': { fw: 24, fh: 24, minX: 1, minY: 1, maxX: 22, maxY: 23 },
+    'clay_pot_smashed:0': { fw: 24, fh: 24, minX: 1, minY: 4, maxX: 23, maxY: 19 },
     'bike_rack:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 15, maxY: 16 },
     'signpost:0': { fw: 16, fh: 16, minX: 0, minY: 1, maxX: 16, maxY: 16 },
     'gatepost:0': { fw: 16, fh: 16, minX: 0, minY: 1, maxX: 16, maxY: 16 },
@@ -103,7 +132,7 @@
 
   // Cosmetic only: each POI keeps its appearance across reloads and save overlays.
   const GROVE_SHRINE_ART = [
-    { key: 'grove_votive', frame: 0, scale: 1.6, name: 'Stone votive' },
+    { key: 'grove_votive', frame: 0, scale: 4 / 3, name: 'Stone votive' },
   ];
   // One centered shrine object, reserving a 3×3-cell footprint.
   const SHIPWRECK_SHRINE_ART = { key: 'shipwreck_shrine', frame: 0, extentCells: 3,
@@ -483,12 +512,6 @@
     // goblin row above (one body cannot have two ground lines); the tint is
     // the one thing that differs (TRAPPER_TINT).
     goblin_trapper: { sheet: 'goblin',       frames: 6, frameMs: CREATURE_FRAME_MS, fw: 32, fh: 32, scale: 1.25, foot: 27 / 32, float: 0,  minY: 9,  maxY: 27, tint: TRAPPER_TINT },
-    // Front-facing idle cycle from the supplied 16px sheet. Keep the spectral
-    // float and halo; its white/blue artwork replaces the tinted slime.
-    ghost:         { sheet: 'ghost', frames: 4, frameMs: 200, hop: true, hopMs: 1600, hopPx: 3, airborne: true, fw: 16, fh: 16, scale: 1.70, foot: 15 / 16, float: 6, minY: 1, maxY: 15, alpha: GHOST_ALPHA, glow: GHOST_GLOW },
-    // Rooted plant: front idle (row 0) and bite (row 2), four frames each.
-    // No hop/float: the roots stay at the same ground line during the bite.
-    plant:         { sheet: 'plant', frames: 4, frameMs: 150, attackFrames: [24, 25, 26, 27], fw: 16, fh: 16, scale: 1.60, foot: 1, float: 0, minY: 0, maxY: 16 },
   };
   // New art consists of four 16px idle frames. Bounds measured from frame 0;
   // the audit checks these against the shipped pixels. Old 32px goblins and
@@ -509,7 +532,7 @@
       side: { idle: [12], move: frameRun(12, 6) },
     } },
   };
-  const enemyBounds = { slime: [5, 16], cave_slime: [5, 16], bat: [3, 11],
+  const enemyBounds = { bat: [3, 11],
     vampire_bat: [3, 11], spider: [1, 16], poison_spider: [1, 16],
     ghost: [1, 15], pink_ghost: [1, 15] };
   const GIANT_PREFIX = 'giant_';
@@ -538,6 +561,8 @@
     if (row.art.directions) Object.assign(CREATURE_ART[row.id], { directions: row.art.directions, directionSideFacing: row.art.directionSideFacing });
     CREATURE_ART[row.id].tint = row.tint ? parseInt(row.tint.slice(1), 16) : (fw === 32 && old?.tint) || 0xffffff;
   }
+  CREATURE_ART.summoned_skeleton = { ...CREATURE_ART.skeleton };
+  CREATURE_ART.summoned_wraith = { ...CREATURE_ART.ghost };
   const _giantArt = {};
   function creatureArt(kind) {
     if (CREATURE_ART[kind]) return CREATURE_ART[kind];
@@ -643,9 +668,9 @@
                      flee: { cells: 4, jitter: 1.1, stepMs: 650, stepCells: 0.6,
                              pauseMs: [80, 120] } },
     crow:          { wanders: true, game: true, drop: 'crow_feather', avoids: ['scarecrow'] },
-    // THE SPIRIT RAVEN — summoned by the Scroll of the Raven (app.js
-    // drinkRavenPotion / _tickSpiritRaven) for SPIRIT_RAVEN_MS. It is a PET's
-    // hunt by another reason, not a second hunter: wanderCreatures' pet scan
+    // THE SPIRIT RAVEN — summoned by the Scroll or Tome of the Raven (app.js
+    // readRavenScroll / readTomeRaven, kept by _tickSpiritRaven) for
+    // SPIRIT_RAVEN_MS. It is a PET's hunt by another reason, not a second hunter: wanderCreatures' pet scan
     // runs for it (`summoned`), asks huntsPrey (creature_ai.js) what it may
     // take — `preysOnFoes`: every Combat.isEnemy foe and every pest deer,
     // where a pet's `prey` is a list of kinds — and its kill pays as the pet's
@@ -661,6 +686,9 @@
     // enemy (no MONSTERS row), NOT game, and NOT tappable (interact.js skips a
     // `summoned` kind: there is nothing to catch, tame or pet).
     spirit_raven:  { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000, stepCells: 0.7 },
+    summoned_skeleton: { wanders: true, summoned: true, preysOnFoes: true, follows: true,
+      get stepMs() { return EnemyRoster.get('skeleton').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
+    summoned_wraith: { wanders: true, summoned: true, preysOnFoes: true, follows: true, stepMs: 1000, stepCells: 0.7 },
     mercenary: { wanders: true, summoned: true, preysOnFoes: true, follows: true,
       get stepMs() { return EnemyRoster.get('goblin').damageIntervalSeconds * 1000; }, stepCells: 0.7 },
     // `maxMps` is the kind's hard top speed, m/s (owner, Sep 2026: a
@@ -831,19 +859,41 @@
   // A stopped creature keeps its last facing. Motion is stamped by the sim
   // only after a displacement succeeds; aiming may turn without walking.
   const CREATURE_MOVE_GRACE_MS = 200;
-  // The DRAWN facing holds at least this long before it turns again, so a foe
-  // dithering across a diagonal doesn't flicker. Art only: movement and aim
-  // read dx/dy, never the facing.
+  // The DRAWN facing turns only once a new one has been WANTED for this long
+  // without a break: a foe chasing on a diagonal, or nudged about at the
+  // player's side, wants left / down / left frame to frame, and each
+  // contradiction restarts the wait, so it keeps its pose instead of
+  // flickering. (A hold since the last turn still let it flip once a second.)
+  // Art only: movement and aim read dx/dy, never the facing.
   const CREATURE_FACE_HOLD_MS = 1000;
+  // And the facing it has is kept until the motion is this far (radians)
+  // past the diagonal into another quarter, so a path along the diagonal
+  // does not even ask to turn.
+  const CREATURE_FACE_HYSTERESIS = 0.35;
+  const FACE_AXIS = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 };
+  function wantedFacing(c, dx, dy) {
+    const cur = c._facing;
+    if (cur in FACE_AXIS) {
+      let off = Math.abs(Math.atan2(dy, dx) - FACE_AXIS[cur]) % (2 * Math.PI);
+      if (off > Math.PI) off = 2 * Math.PI - off;
+      if (off <= Math.PI / 4 + CREATURE_FACE_HYSTERESIS) return cur;
+    }
+    return Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
+  }
   function faceCreature(c, dx, dy, now = performance.now()) {
     if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.hypot(dx, dy) < 1e-6) return false;
-    const facing = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 'left' : 'right') : (dy < 0 ? 'up' : 'down');
-    const flip = Math.abs(dx) > 1e-6 ? dx < 0 : c._faceFlip;
-    if (c._facing && (facing !== c._facing || flip !== c._faceFlip)
-      && c._faceAt != null && now - c._faceAt < CREATURE_FACE_HOLD_MS) return true;
-    if (facing !== c._facing || flip !== c._faceFlip) c._faceAt = now;
-    c._facing = facing;
-    if (flip !== undefined) c._faceFlip = flip;
+    const facing = wantedFacing(c, dx, dy);
+    // The mirror of an art with no side row: a side facing names it; front
+    // and back keep the last one unless the motion clearly leans a way.
+    const flip = facing === 'left' || facing === 'right' ? facing === 'left'
+      : Math.abs(dx) > 0.5 * Math.abs(dy) ? dx < 0 : !!c._faceFlip;
+    if (!c._facing) { c._facing = facing; c._faceFlip = flip; return true; }
+    if (facing === c._facing && flip === c._faceFlip) { c._facePendingT = null; return true; }
+    if (c._facePendingT == null || c._facePending !== facing || c._facePendingFlip !== flip) {
+      c._facePending = facing; c._facePendingFlip = flip; c._facePendingT = now;
+    } else if (now - c._facePendingT >= CREATURE_FACE_HOLD_MS) {
+      c._facing = facing; c._faceFlip = flip; c._facePendingT = null;
+    }
     return true;
   }
   function updateCreatureFacing(c, dx, dy, now) {
@@ -871,7 +921,6 @@
   }
   function creatureCycleFrame(c, now) { return creatureAppearance(c, now).frame; }
 
-  function creatureHops(kind) { return !!creatureArt(kind)?.hop; }
   // The code bounce a hopping kind wears: { ms, px } (null if it doesn't).
   function creatureHop(kind) {
     const a = creatureArt(kind);
@@ -1024,7 +1073,7 @@
     CREATURE_BEHAVIOUR, ANIMAL_INTERACTION, creatureBehaviour, creatureWanders, creatureHaunts, isPet, isGame,
     creaturePrey, creatureDrop, creatureProduce, creatureCatchMul, creatureFollows, creatureAvoids, isSummoned, preysOnFoes,
     creatureAppearance, faceCreature, CREATURE_FACE_HOLD_MS, CREATURE_MOVE_GRACE_MS, updateCreatureFacing, CREATURE_DIRECTION_LAYOUTS,
-    creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHops, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
+    creatureAnim, creatureFrameMs, creatureCycleFrame, creatureHop, creatureHopRow, hopRowFrame, creatureAirborne,
     HOP_MS, HOP_PX, SLIME_HOP_ROW, SLIME_HOP_FRAME_MS, SLIME_HOP_REST_MS,
     HEALTH_BAR_W, HEALTH_BAR_H, HEALTH_BAR_GAP,
     GIANT_PREFIX, GIANT_ART_SCALE, isGiantKind, baseKind, creatureArt,

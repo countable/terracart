@@ -157,11 +157,12 @@ function monsterStrideCells(mon) { return mon && mon.fly ? 1.0 : 0.6; }
 // sim reads it three ways, each a REASON on a lane that already exists:
 //   · NOTHING HOSTILE STEPS ONTO THE BAND — a refused target cell in the step
 //     chain's cell tests, beside water, rocks and fires. Wild fauna neither.
-//   · A FAST FOE (isFastFoe — anything that out-runs a BRISK walk,
+//   · A FAST FOE (isFastMover — anything that out-runs a BRISK walk,
 //     BRISK_WALK_MPS) never
 //     steps INTO the buffer from outside it (the same refused-cell test), and
-//     never spawns in it (WorldGen.isFoeCell). A slow foe may stand anywhere
-//     off the band: you out-walk it.
+//     never spawns in it (WorldGen.isSpawnCell(…, creatureSpawnClass(kind)):
+//     the fast rows refuse KERB). A slow foe may stand anywhere off the
+//     band: you out-walk it.
 //   · A PLAYER WHOSE FEET ARE IN THE BUFFER IS WHERE EVERY CHASE ENDS
 //     (`kerbLeash` in wanderCreatures): every hostile turns its back — one
 //     more reason in the wander-off lane (standDown + an away angle), a lair
@@ -193,7 +194,6 @@ function roadClassBitsAt(scene, x, y) {
   return entry.roadClass[iy * N + ix] | 0;
 }
 function inKerbAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BUFFER); }
-function onMajorRoadAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & WorldGen.ROAD_CLASS_MAJOR_BAND); }
 
 // ── THE ROADSIDE RUN: a retreat in a residential area runs along the street ──
 // Every retreat in wanderCreatures is an AWAY angle — a bolting animal away
@@ -208,7 +208,7 @@ function onMajorRoadAt(scene, x, y) { return !!(roadClassBitsAt(scene, x, y) & W
 // the retreat is bent onto the ROADSIDE: the nearest street within
 // ROADSIDE_R_CELLS (its roadMask band or its road terrain), run ALONG it, on
 // the creature's own side, ROADSIDE_VERGE_CELLS off the road — the pavement,
-// never the carriageway (road terrain refuses every wild step; the kerb
+// never the carriageway (major road terrain refuses every wild step; the kerb
 // rules above refuse the major band and its buffer as they always did). The
 // street's line is the principal axis of its cells about the nearest one;
 // of the two ways along it the run takes the one nearer the away angle, so
@@ -313,8 +313,8 @@ function foeChaseMps(c, cellM) {
   if (m && m.stationary) return 0;
   // A ROSTER foe (enemy_roster.js — the one table rosterEnemyMove moves it
   // by): the quickest of its row's own speeds — the base pace, a slime's
-  // charge, a fiend's lunge, a bat's peak flight. A legacy giant alias
-  // (giant_goblin …) reads its base kind's row.
+  // charge, a fiend's lunge, a bat's peak flight. A Giant variant row
+  // with no speeds of its own reads its base kind's row.
   const row = (typeof EnemyRoster !== 'undefined')
     && (EnemyRoster.get(c.kind) || (m && m.giant && EnemyRoster.get(m.giant)));
   if (row) return rosterChaseMps(row);
@@ -342,8 +342,6 @@ function rosterChaseMps(row) {
 // the step rule into the kerb buffer). The wild slime's 1.6 m/s charge is
 // under it: you out-walk a slime by stepping out, so it is NOT fast.
 const BRISK_WALK_MPS = 1.8;
-// A FAST FOE: one a briskly walking player cannot simply out-walk.
-function isFastFoe(c, cellM) { return foeChaseMps(c, cellM) > BRISK_WALK_MPS; }
 // An ANIMAL's top speed, m/s: the quicker of its gait hop and its bolt (the
 // CREATURE_BEHAVIOUR row — the numbers the wander loop moves it by; the base
 // beat WANDER_STEP_MS and one cell where the row is silent).
@@ -461,10 +459,11 @@ function sameSideAs(scene, x, y, fx, fy) { return sameSideField(scene, fx, fy).t
 //   "After dark" is the daylight (Lighting.daylight, 1 noon .. 0 night) under
 // GHOST_DARK_DAYLIGHT: 0.5 is the sun on the horizon, and 0.25 is a few
 // degrees under it — dusk gone to dark.
-//   Underground there is no night, so the roster's haunted-depth interval
-// gates the LEVEL instead: every second depth (2, 4, 6, …) is haunted at every
-// hour, while odd levels stay empty. The sun never reaches them either
-// (ghostSunExposureAt).
+//   Underground there is no night, so the PLACE gates them instead: a crypt
+// pocket (the cave habitat EnemySpawns.caveContextAt reads as 'crypt') from
+// EnemyRoster.GHOST_SCALING.minCryptDepth down is haunted at every hour, on
+// odd and even levels alike; every other cave ground stays empty. The sun
+// never reaches them either (ghostSunExposureAt).
 const GHOST_DARK_DAYLIGHT = 0.25;
 // (THE OLD STONES used to be a second reason here - from DUSK inside a
 // church's or cemetery's zone, twice as often, fanned from the stones. Gone,
@@ -543,8 +542,8 @@ function ghostSurfaceEligible(scene, x, y, cell) {
   return habitat.biomes.some(name => WorldGen.T[name] === cell.type);
 }
 // THE NIGHT PUMP — seats a group of ghosts in the dark about the player, once
-// every ghostSpawnDelay while ghostsHaunt says so (the surface after dark, an
-// crypt pocket from depth 3 at any hour). Returns how many rose. The timer is disarmed
+// every ghostSpawnDelay while ghostsHaunt says so (the surface after dark, a
+// crypt pocket from GHOST_SCALING.minCryptDepth at any hour). Returns how many rose. The timer is disarmed
 // whenever it doesn't, so the first group comes one delay after dark, a load,
 // or the stairs down to a haunted level — never at once.
 // `wardPts` / `wardR2` are wanderCreatures' Home + claimed-castle wards: a
@@ -1071,6 +1070,48 @@ function enemyFireEscapeTick(scene, c, row, now, dt) {
   return true;
 }
 
+// Shared with the GPS-following body: try a one-cell jog that also clears
+// the forward neighbour, holding the chosen side so each jog cannot reverse it.
+function committedDetourDir(owner, ux, uy, open, now, commitMs = 1000) {
+  const fwd = Math.abs(ux) >= Math.abs(uy) ? [Math.sign(ux), 0] : [0, Math.sign(uy)];
+  if (!fwd[0] && !fwd[1]) return null;
+  const perp = fwd[0] !== 0 ? [0, 1] : [1, 0];
+  const hold = owner._detourHold;
+  const held = hold && now < hold.until && hold.fx === fwd[0] && hold.fy === fwd[1];
+  const lean = fwd[0] !== 0 ? Math.sign(uy) : Math.sign(ux);
+  const first = held ? hold.side : (lean < 0 ? -1 : 1);
+  for (const side of [first, -first]) {
+    const x = perp[0] * side, y = perp[1] * side;
+    if (open(x, y) && open(x + fwd[0], y + fwd[1])) {
+      owner._detourHold = { fx: fwd[0], fy: fwd[1], side, until: now + commitMs };
+      return { x, y };
+    }
+  }
+  return null;
+}
+
+function enemyWalkHazardRate(scene, x, y) {
+  if (!scene._walkHazardCell) return 0;
+  const p = worldMetersToTileCell(scene, x, y);
+  return scene._walkHazardCell(p.tx, p.ty, p.ix, p.iy);
+}
+
+// Resolve last frame's actual movement before AI can take another step. This
+// also covers flights, fear retreats and charmed foes without a second mover.
+// The shared exposure query excludes cut/burned pieces and takes max overlap.
+function enemyWalkHazardTick(scene, c, now) {
+  const previous = c._walkHazardPrevious;
+  c._walkHazardPrevious = { x: c.x, y: c.y, now };
+  if (!previous || !Combat.isEnemy(c) || !scene._walkHazardExposure) return false;
+  const dt = Math.min(0.1, Math.max(0, (now - previous.now) / 1000));
+  const rate = scene._walkHazardExposure(previous.x, previous.y, c.x, c.y);
+  c._walkHazardAccum = (c._walkHazardAccum || 0) + rate * dt;
+  const damage = Math.floor(c._walkHazardAccum + 1e-9);
+  if (!damage) return false;
+  c._walkHazardAccum = Math.max(0, c._walkHazardAccum - damage);
+  return !!scene._damageEnemy(c, damage, 'obstacle');
+}
+
 // Every segment is swept, including fast flights and lunges. Flying permits
 // low terrain, never rock walls, buildings, unloaded cells or placed rocks.
 function enemyCanStep(scene, c, row, x, y, escaping = false) {
@@ -1093,13 +1134,24 @@ function enemyCanStep(scene, c, row, x, y, escaping = false) {
   const road = roadClassBitsAt(scene, x, y);
   if (road & WorldGen.ROAD_CLASS_MAJOR_BAND) return false;
   if ((road & WorldGen.ROAD_CLASS_MAJOR_BUFFER) && !inKerbAt(scene, c.x, c.y)
-      && isFastFoe(c, scene.cellM)) return false;
+      && isFastMover(c, scene.cellM)) return false;
   const fireAverts = !c.lair && (row.tier <= FIRE_WARD_MAX_DEPTH);
   return !(fireAverts && scene._nearAny?.('fires', x, y, FIRE_REST_R));
 }
 function enemySweep(scene, c, row, x, y, now = performance.now(), escaping = false) {
-  const dx = x - c.x, dy = y - c.y;
-  const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (scene.cellM * 0.2)));
+  let dx = x - c.x, dy = y - c.y;
+  const distance = Math.hypot(dx, dy);
+  // Sharp plants and spikes are passable. Prefer the body's same short jog
+  // when it fits; a broad belt has no trivial detour, so keep going through.
+  if (!escaping && distance > 0 && scene._walkHazardExposure?.(c.x, c.y, x, y) > 0) {
+    const open = (ox, oy) => {
+      const nx = c.x + ox * scene.cellM, ny = c.y + oy * scene.cellM;
+      return enemyCanStep(scene, c, row, nx, ny) && enemyWalkHazardRate(scene, nx, ny) === 0;
+    };
+    const jog = committedDetourDir(c, dx / distance, dy / distance, open, now);
+    if (jog) { dx = jog.x * distance; dy = jog.y * distance; }
+  }
+  const n = Math.max(1, Math.ceil(distance / (scene.cellM * 0.2)));
   const sx = c.x, sy = c.y;
   let clear = true;
   for (let i = 1; i <= n; i++) {
@@ -1423,6 +1475,35 @@ function rosterEnemyAttack(scene, c, row, now, px, py, inactive, dt, npcTarget =
   if (lunging) c._lungeHit = true;
 }
 
+// FOE SPACING: foes may brush against each other, but each keeps about
+// FOE_SPACING_CELLS from the next. The push is a unit-scaled vector away from
+// every live foe nearer than that (stronger the closer it is), or null when
+// the foe has room. It steers the step in rosterEnemyMove, inside the foe's own
+// pace; nothing is ever blocked by it, so a crowd can still squeeze through a
+// gap. Exact overlap breaks the tie off the ids, so two stacked foes part.
+// A swooping flier (enemyBatMove) and a lair guard walking home are not pushed.
+const FOE_SPACING_CELLS = 0.6;
+function foeSpacingPush(scene, c) {
+  const bodies = scene._foeBodies;
+  if (!bodies || bodies.length < 2) return null;
+  const r = FOE_SPACING_CELLS * scene.cellM;
+  let x = 0, y = 0;
+  for (const o of bodies) {
+    if (o === c) continue;
+    const dx = c.x - o.x, dy = c.y - o.y;
+    if (Math.abs(dx) >= r || Math.abs(dy) >= r) continue;
+    const d = Math.hypot(dx, dy);
+    if (d >= r) continue;
+    const w = (r - d) / r;
+    if (d > 1e-6) { x += dx / d * w; y += dy / d * w; continue; }
+    const a = (strHash31(String(c.id)) - strHash31(String(o.id))) % 628 / 100;
+    x += Math.cos(a) * w; y += Math.sin(a) * w;
+  }
+  const len = Math.hypot(x, y);
+  if (len < 1e-6) return null;
+  return len > 1 ? { x: x / len, y: y / len } : { x, y };
+}
+
 function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState, dt, creatureTarget = null) {
   if (Combat.isSleeping(c)) return;
   if (c._lastDamagedT && Date.now() - c._lastDamagedT >= 20 * 60 * 1000) {
@@ -1521,7 +1602,17 @@ function rosterEnemyMove(scene, c, row, now, px, py, inactive, routed, lairState
     speed = m.chargeSpeedMetersPerSecond || speed;
   }
   if (c._attackWindupUntil != null && !routed) return;
-  const step = Math.min(maxDistance, speed * dt * PotionEffects.speedMul(c));
+  const pace = speed * dt * PotionEffects.speedMul(c);
+  let step = Math.min(maxDistance, pace);
+  // Foes keep a little room between them (FOE_SPACING_CELLS): the spacing
+  // push joins the approach inside the same per-frame budget, so a crowd
+  // spreads round the player rather than stacking, and never moves faster.
+  const push = lairState === 'return' ? null : foeSpacingPush(scene, c);
+  if (push) {
+    const vx = Math.cos(angle) * step + push.x * pace, vy = Math.sin(angle) * step + push.y * pace;
+    const len = Math.hypot(vx, vy);
+    if (len > 1e-9) { angle = Math.atan2(vy, vx); step = Math.min(len, pace); }
+  }
   const sx = c.x, sy = c.y;
   if (!enemySweep(scene, c, row, c.x + Math.cos(angle) * step, c.y + Math.sin(angle) * step, now)) {
     if (c._lungeUntil != null) {

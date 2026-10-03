@@ -32,7 +32,7 @@ test('item tiers: shiny animals gain three tiers up to the T7 ceiling', () => {
 
 test('item tiers: approved food and utility shifts use their new reward tiers', () => {
   const tiers = { milk: 3, meat: 3, grilled_meat: 4, banana: 2, coconut: 2,
-    orange: 2, elixir: 7, goblet: 6, telescope: 5, orb: 7 };
+    orange: 2, elixir: 7, goblet: 6, telescope: 5, orb: 7, apple_sapling: 4 };
   for (const [id, tier] of Object.entries(tiers)) assert.eq(ITEM_BY_ID[id].baseTier, tier, id);
   assert.eq(ITEM_BY_ID.starfruit.baseTier, 3);
   assert.eq(FOOD_ENERGY.starfruit, 35, 'Starfruit healing fits its new tier');
@@ -58,9 +58,9 @@ test('item tiers: cooked dishes inherit raw tiers without entering random loot',
 });
 
 
-test('item tiers: seeds have three entries at each tier from T1 through T4', () => {
+test('item tiers: crop seeds have three entries at each tier from T1 through T4', () => {
   for (let tier = 1; tier <= 4; tier++) {
-    const seeds = ITEMS.filter(it => it.kind === 'seed' && it.baseTier === tier);
+    const seeds = ITEMS.filter(it => it.kind === 'seed' && !it.plants && it.baseTier === tier);
     assert.eq(seeds.length, 3, `T${tier}: ${seeds.map(it => it.id).join(', ')}`);
     for (const seed of seeds) assert.eq(seed.baseTier, ITEM_BY_ID[seed.grows].baseTier);
   }

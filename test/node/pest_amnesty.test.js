@@ -59,10 +59,7 @@
       'once a crop is in there is no zone at all');
     assert.truthy(saZone(saScene({ save: { hasHarvested: false } })),
       'still on while the first crop is ahead');
-    // A save the migration somehow never reached reads as un-harvested — safe
-    // only because SaveMigrate.stampHarvested settles the flag on every load
-    // before any tile spawns (savemigrate.test.js pins that a PLAYED legacy
-    // save is stamped true, so a veteran can never wake up to this grace).
+    // Missing harvest state reads as un-harvested.
     assert.truthy(saZone(saScene({ save: {} })), 'an unstamped save still has the grace ahead');
     assert.falsy(saZone(saScene({ save: null })), 'and a missing save is not a crash');
   });

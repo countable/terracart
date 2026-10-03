@@ -13,9 +13,6 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   at the repository root for its service-worker scope.
 - [README.md](README.md): setup and source map.
 - [test/node/README.md](test/node/README.md): test harness and module registration.
-- [docs/art/README.md](docs/art/README.md): palette and sprite style direction;
-  use the current chibi characters for style, muted rustic colours for natural
-  and unrestored assets, and deliberate colour contrast for restored/sacred places.
 - [docs/QC_RULES.md](docs/QC_RULES.md): checklist for art, sprites and item surfaces;
   read it for asset changes. This file owns mechanic invariants if notes disagree.
 - [docs/spec.txt](docs/spec.txt): game design; code owns current numeric values.
@@ -43,6 +40,12 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
 
 ## Shared design rules
 
+- World artwork uses a 45-degree downward viewing angle (isometric), showing
+  both top surfaces and front/side depth. Apply this consistently to bushes,
+  hedges, props, walls and buildings. Bushes show a broad rounded top canopy
+  over a shorter shaded front face; keep foliage full and softly clipped.
+  Preserve the existing cell placement and connected-tile joins when drawing
+  this perspective.
 - Search for an existing predicate, state flag or table before adding one.
   Extend it when the mechanism is the same; similar names alone do not justify
   combining mechanisms. Read its comments and regression tests before changing it.
@@ -61,6 +64,10 @@ Keep project-wide constraints here; keep implementation rationale beside the cod
   it actually uses the existing implementation.
 
 ## Generation, saves and tiles
+
+- Do not add save/data compatibility migrations until the user requests them.
+  Retired save formats may be discarded; keep current-state defaults, validation
+  and runtime cleanup separate from compatibility conversion.
 
 - Generate the world deterministically; save player changes as id sets and
   player-placed objects in full. The starting area is also stored explicitly.
@@ -258,9 +265,7 @@ Higher-priority placements and their access space take precedence in this order:
 - Taps resolve the data cell (`sameAbsCell`), not pixel bounds. Seat cell-bound
   sprites through `seat: true`, `seatInCell` and `ART_BOUNDS`: centre horizontally;
   centre vertically if they fit, otherwise bottom-seat 1px above the cell edge.
-  Buildings, foot-anchored stalls (market stands and the in-building macro
-  stalls, `src/macros.js`), moving creatures and canvas-baked street lamps have
-  separate seating.
+  Buildings, moving creatures and canvas-baked street lamps have separate seating.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
 - List actual crop `frames`, not sheet-cell counts. Hash the full id for
@@ -301,12 +306,12 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   including per-hit arrow bundles. A shield potion halves the raw blow before
   armour; difficulty multiplies the mitigated blow after armour. Armour reduces
   blows rather than increasing maximum energy.
-- `Energy.set` is the only runtime energy writer (save migration is exempt).
+- `Energy.set` is the only runtime energy writer (current-save normalization is exempt).
   Accumulate fractional per-frame gains/losses before banking whole pips.
 - Hostile interest checks use `unnoticed` (shadowed or downed); stalking adds
   sight range through `unseen`. Traps check `Combat.playerDowned` directly:
   concealment does not stop them. Downed players have no reach and are not hunted.
-- A status effect is a row of `Conditions.DEFINITIONS` (poison, burning): the
+- A status effect is a row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin): the
   player's condition, a foe's (`Combat.ignite` / `burnTick` read the same row),
   the HUD chip and the body tint all derive from it. A new status is a row
   there, never a timer, colour or label of its own.
@@ -343,12 +348,6 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
   width and lamp footprint; art and light share the same world point. Lantern
   rise is a draw-space offset; retune height through `LAMP_PROFILE`.
   Collect/cache lamps about the camera anchor, only after tiles finish loading.
-- Living lamps: a lit lamp's brightness and visit credit come from ONE delta,
-  `save.lampVisits[id]` (Streets `lampBrightness` / `lampCredit` / `visitLamp`,
-  pruned at `LAMP_FADE_MS`); brightness rides the lamp list as `bright` and
-  the light as a steady gain `g` in `frameKey` (never the animated `a`).
-  Credit banks through `_bankStreetMetres`, gated like the sweep (passenger,
-  surface, drift home). Walking paths lay lamps via `Streets.lampLayFor`.
 - Trail rewards use `Trail.PRIZE_CONTEXT`; the first reward uses `firstPrize`.
   Synthetic loot classes need both a `CLASS_MAX_TIER` ceiling and a branch
   before item resolution. Cash rewards have no `slot`.
@@ -368,6 +367,14 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   portrait, subject above, quiet copy zone below. The shell handles overflow
   with its band layout. Painted headers use a label without emoji/`kindIcon`.
+- Paired story paintings must use actual image references. Establish the
+  introduction first, then edit that image for the completed action; preserve
+  object designs, materials and booth identity. After-use panels zoom in on
+  the transaction object (bed, book, gift, payment or equipment), with only
+  cropped hands when needed. Keep faces and full booth views in introductions.
+  Text-only style prompts are insufficient for continuity. Booth scenes use
+  the introductions' painterly realism, subdued light and reserved expressions;
+  avoid chibi proportions and celebratory smiles.
 - Before memory 30, art and dialogue may foreshadow the survivor's past but
   must not reveal it. `MemoryStory` gates Act 2 on the first tower and nine
   lifetime memories; that tower is abandoned at 21. Its memory-30 reveal
@@ -387,7 +394,7 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   interpolations. Cut copy or use a modal; do not interpolate unbounded POI names.
 - Statuses, buffs and timers on the player live in ONE place: the status
   row under the top HUD (`_syncStatusRow`, `STATUS_ROW_CSS`), one chip per
-  row of `Conditions.DEFINITIONS` (poison, burning) and of `Buffs.KINDS`
+  row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin) and of `Buffs.KINDS`
   (`src/buffs.js`: a potion, powder, torch, coffee, the bike, the compass, a
   shrine boon — its expiry field, word and ink). A new timed effect is a
   row there; never a label over the player or a chip of its own.
@@ -422,6 +429,9 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   derived from owning constants. Keep safety and technical recovery instructions
   direct. Preserve `PLAY_TIPS` order for saved reading progress; secret uses
   stay out of public item descriptions (sapphire taming stays in the closing riddle).
+- Numeric tiers are internal jargon. Player-facing item and shop quality uses
+  the shared rarity badge names (Basic, Common, etc.) and their colors, never
+  labels such as "Shop tier 1" or "T4".
 - Loot identity by place uses per-context `favourite`; general frequency uses
   `dropWeight`.
 - A neighbour's talk is its ROLE, a row of `NPC.PROFILES[zone].roles` with a
@@ -429,8 +439,8 @@ Tests: `lighting`, `reach_corners`, `streets`, `street_lamps`, `road_overlay`,
   an owning ledger (restoration, lamps), never a count of its own. A zone's
   story in a resident's voice is the `keeper` column of `Zones.ZONE_KINDS`.
   The story neighbours by the trailer (`NPC.STORY_ROLES`, seated by
-  `Starter.placeSafeAreaWarden`) arrive by the memory ledger (`minMemories`;
-  only the warden on a new save, re-run from `_bankDiscovery` and
+  `Starter.placeSafeAreaWarden`) arrive by the memory ledger (`minMemories`
+  per role, re-run from `_bankDiscovery` and
   `NPC.tickArrivals`) and speak through `MemoryStory.npcDialogue` by act; a
   new story voice is a role there, not a new placer or dialog path. Ordinary
   residents are drawn in full by `NPC.spawn` but seated by `NPC.arrivals`:

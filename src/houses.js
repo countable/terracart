@@ -10,7 +10,7 @@
 // deciding anything about quests itself.
 //
 // Depends on globals from interactables.js (isCastle), shops.js (Shops),
-// util.js (utcDayKey, msToNextUtcDay) and items.js (wreckRestoreQty) - all resolved
+// and items.js (wreckRestoreQty) - all resolved
 // at CALL time, so load order only needs this module after those modules (and
 // after shops_math.js, which shops.js itself depends on).
 //
@@ -250,14 +250,6 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     // Claimed outright — the player solved a quest at THIS castle, so it is
     // theirs for good and the quest board never comes back here.
     if (isCastleClaimed(save, house)) return false;
-    // A save that finished the old global three-quest chain had every castle
-    // open; the per-castle seal must not take that back (see the migration in
-    // quests.js _qs).
-    if (save.castlesLegacyOpen) return false;
-    // A castle opened under the retired delivery gate stays open — the same
-    // courtesy castlesLegacyOpen pays the old chain. Read-only: nothing
-    // writes save.openedCastles any more.
-    if (house.id && save.openedCastles?.[house.id]) return false;
     // PER CASTLE, now that the board never runs dry. This was global — finish
     // the three-quest chain and every castle in the world opened at once —
     // which was the only thing it could be while there were exactly three
@@ -310,13 +302,10 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // twelve hours (Sep 2026, owner's call: it was once per UTC day, and it is
   // the ONE timer left on any building the player trades at; shops never
   // wait — shops_math.js header). save.castleServiceClaimed[key] holds the
-  // ms stamp of the last favour. A save from before carries a 'YYYYMMDD'
-  // UTC-day stamp instead: it counts as spent until that day ends, so the
-  // upgrade neither steals a favour nor gifts one.
+  // ms stamp of the last favour; anything else is no stamp (and is pruned).
   const CASTLE_SERVICE_MS = 12 * 60 * 60 * 1000;
   function _stampWaitMs(stamp, now) {
-    if (stamp == null) return 0;
-    if (typeof stamp !== 'number') return stamp === utcDayKey(now) ? msToNextUtcDay(now) : 0;
+    if (typeof stamp !== 'number') return 0;
     return Math.max(0, stamp + CASTLE_SERVICE_MS - now);
   }
   // Milliseconds until this castle's favour is on offer again (0 = now). The

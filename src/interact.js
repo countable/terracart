@@ -377,6 +377,7 @@ const TILL_BLOCKER_LINE = {
   house:       'A building stands here.',
   tower:       'A watchtower stands here.',
   infoboard:   'A notice board stands here.',
+  bottle:      'A bottle lies in the sand.',
   gatepost:    'A gate post stands here.',
   // No shrine / trailer rows: no world object has either kind — Home is a
   // `house` (its role is the trailer) and the wizard's tower draws on the
@@ -400,6 +401,12 @@ const GRASSLAND_TILL = new Set([
   WorldGen.T.GRASS, WorldGen.T.PARK, WorldGen.T.SCHOOL, WorldGen.T.PLAYGROUND,
   WorldGen.T.PITCH, WorldGen.T.GOLF, WorldGen.T.FARMLAND,
 ]);
+
+// Covered X marks become visible and tappable together after their rock is mined.
+function treasureExposed(treasure, scene, save = scene?.save) {
+  return !!treasure && (!treasure.coverRockId
+    || (scene?.brokenRockSet || setOf(save?.brokenRocks)).has(treasure.coverRockId));
+}
 
 // Grant ONE buried-treasure roll: the pickReward('treasure:default') payout
 // with every branch it can take — an item (low-tier seeds bundled up, jackpot
@@ -456,7 +463,7 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
     if (reward.jackpot >= 1 && typeof scene.flashJackpot === 'function') scene.flashJackpot(reward.jackpot);
   } else if (reward.kind === 'relic' || reward.kind === 'armor') {
     const label = (typeof gearName === 'function')
-      ? gearName(reward.kind, reward.slot, reward.tier) : `${reward.slot} T${reward.tier}`;
+      ? gearName(reward.kind, reward.slot, reward.tier) : reward.slot;
     scene.flashLoot(`${mark} → ✨ ${label} (equipped!)`, '#ffe066', 1.6);
     if (reward.jackpot >= 1 && typeof scene.flashJackpot === 'function') {
       scene.flashJackpot(reward.jackpot);
@@ -464,7 +471,7 @@ function grantTreasureRoll(scene, save, sx, sy, mark, contextKey = 'treasure:def
   } else if (reward.kind === 'gold' && reward.slot) {
     // A relic roll the player already beats — cashed out by reconcileRelicOffer.
     const label = (typeof gearName === 'function')
-      ? gearName(reward.gearKind || 'relic', reward.slot, reward.tier) : `${reward.slot} T${reward.tier}`;
+      ? gearName(reward.gearKind || 'relic', reward.slot, reward.tier) : reward.slot;
     scene.flashLoot(`${mark} Already better — ${reward.amount}`, '#aaa', 1.2, null, scene.coinIconEl?.());
   } else if (reward.kind === 'item') {
     const item = ITEM_BY_ID[reward.id];
@@ -569,7 +576,7 @@ const TAP_HANDLERS = [
     const { scene, save, wm, sx, sy } = ctx;
     const found = new Set(save.foundTreasures || []);
     const tryClaim = (tr) => {
-      if (!tr || found.has(tr.id)) return false;
+      if (!treasureExposed(tr, scene, save) || found.has(tr.id)) return false;
       if (!sameAbsCell(scene, wm.x, wm.y, tr.x, tr.y)) return false;
       if (tooFar(ctx, tr.x, tr.y)) return 'far';
       save.foundTreasures = [...found, tr.id];
@@ -767,7 +774,7 @@ const TAP_HANDLERS = [
     //   ENEMIES (wild slime + every cave monster) fight on the HP-driven
     //   COMBAT wheel. The ring is the foe's health, a sword (or bare hands)
     //   drains it while the wheel runs, and bow/staff shots drain the same
-    //   pool — so a tap here is "close in and swing", not "start a timer".
+    //   pool. The combat tick chooses the closest enemy automatically.
     //
     //   GAME (crow / deer) keeps the old timed work wheel: nothing auto-fires
     //   at them and no shot can hit them, so a hunt is still a deliberate tap.
@@ -802,28 +809,16 @@ const TAP_HANDLERS = [
 
     // A rose befriends an enemy temporarily; it does not make it catchable.
     if (Combat.isCharmed(target)) {
-      scene.flash('Fighting at your side.', ctx.sx, ctx.sy);
+      const name = Combat.monster(target.kind)?.name || itemName(target.kind);
+      scene.flash(name, sx, sy);
       return true;
     }
 
-    // ENEMIES (wild slime + every cave monster) go on the HP combat wheel —
-    // nothing to time, the fight is over when their hit points are.
+    // Enemy taps do not choose a melee target. The combat tick continuously
+    // selects the closest foe in weapon reach; feeding/taming above still works.
     if (Combat.isEnemy(target)) {
-      // MELEE IS ARM'S LENGTH — the same one cell a melee monster has to close
-      // to before it can bite you (Combat.MELEE_REACH_CELLS, and the same
-      // centre-to-feet test its attack gate runs). The tap gate above only
-      // asked whether the foe was in the LIT reach, which starts at 2.5 cells
-      // and grows to 5.5, so a fist out-ranged everything it was fighting.
-      // Checked HERE rather than in tooFar because tooFar gates every tap in
-      // the game: feeding, catching, petting and hunting keep the lit reach.
-      const px = scene.startWorldM.x + scene.playerM.x;
-      const py = scene.startWorldM.y + scene.playerM.y;
-      if (!Combat.inMeleeReach(target.x, target.y, px, py, scene.cellM)) {
-        scene.flash('Too far to swing.', ctx.sx, ctx.sy);
-        scene.hapticReject?.();
-        return 'far';
-      }
-      scene.startCombat(target);
+      const name = Combat.monster(target.kind)?.name || itemName(target.kind);
+      scene.flash(name, sx, sy);
       return true;
     }
 
@@ -1128,26 +1123,19 @@ const TAP_HANDLERS = [
           if ((save.picked || []).includes(wp.id) || (save.burnedObjects || []).includes(wp.id)) return;
           save.picked = [...(save.picked || []), wp.id];
         }
-        // A pick that ROLLS instead of handing the crop over (the tide line's
-        // message bottle — items.js WILDPLANT_RULES `roll`): one roll of its
-        // context, and its note read in a story dialog (`note`).
-        const roll = wildplantRoll(wp.crop);
-        if (roll) {
-          persistSave(save);
-          grantTreasureRoll(scene, save, sx, sy, '\u{1F37E}', roll);
-          if (wildplantRule(wp.crop)?.note && typeof Scenic !== 'undefined' && scene.showMessageModal) {
-            scene.showMessageModal({ kind: 'story', title: 'A message in a bottle', body: Scenic.bottleNote(wp) });
-          }
-          return true;
-        }
         const rewards = wildplantRewards(wp.crop);
         const outId = rewards[0].id;
         for (const reward of rewards) scene.addToInv(reward.id, reward.qty);
         let bonus = '';
         const treasure = wildplantTreasure(wp.crop);
         if (treasure && Math.random() < treasure.chance) {
-          scene.addToInv(treasure.bonus, 1);
-          bonus = ` ✨${itemName(treasure.bonus)}`;
+          if (treasure.coins) {
+            addMoney(save, treasure.coins);
+            bonus = ` ✨${treasure.coins} coin`;
+          } else {
+            scene.addToInv(treasure.bonus, 1);
+            bonus = ` ✨${itemName(treasure.bonus)}`;
+          }
         }
         persistSave(save);
         // Display NAMES, never raw ids — every other loot toast resolves the
@@ -1831,7 +1819,7 @@ const TAP_HANDLERS = [
     if (!scene.tilledSet.has(cellKey)) return false;
     const sel = getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
-    if (!item || (item.kind !== 'seed' && item.kind !== 'sapling')) {
+    if (!item || item.kind !== 'seed') {
       scene.flash('Pick a seed from your bag.', sx, sy);
       return true;
     }
@@ -1840,7 +1828,7 @@ const TAP_HANDLERS = [
       return true;
     }
     if (!scene.spendEnergy(ENERGY_COST?.plant ?? 0, sx, sy)) return true;
-    if (item.kind === 'sapling') {
+    if (item.plants) {
       // Plant a sapling → a growing tree (persisted in save.fruittrees,
       // re-injected per tile in spawnInTile). TWO kinds share this path and
       // this list:

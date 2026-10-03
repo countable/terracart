@@ -208,8 +208,8 @@
     },
     [T.COMMERCIAL]: {
       // Clipped hedge maze across the plaza paving — shrubs laid out in neat
-      // rows/walls (~25% fill, see spawnHedgeMaze in worldgen.js) plus a few
-      // planter marigolds for colour.
+      // rows/walls (~25% fill, see spawnHedgeMaze in worldgen.js), regular
+      // clay pots replacing every fourth pillar, and a few marigolds.
       flora: [{ crop: 'shrub', pattern: 'hedgemaze', salt: S.COM_SHRUB },
               fix('marigold', 0.004, 0.010, S.COM_MAR)],
     },
@@ -451,7 +451,7 @@
 
   // Fallback base colour for a type app.js has no COLORS entry for. Matches the
   // renderer's own GRASS_FALLBACK so an unmapped type hazes like a green field.
-  const BASE_FALLBACK = 0x919e70;
+  const BASE_FALLBACK = 0x7b8d4e;
 
   const _chan = (hex, sh) => (hex >> sh) & 0xff;
   const mixHex = (a, b, t) => {

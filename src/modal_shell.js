@@ -354,6 +354,9 @@ class SceneModals {
         // THE CONTENT REGION of a scene dialog: bottom-anchored, capped at the
         // quiet zone, scrolling inside it when the copy is long.
         ? `margin-top:auto;flex:0 1 auto;max-height:${Math.round((1 - ART_DETAIL_FRAC) * 100)}%;` +
+          // Leave room for the controls' 2px press travel and raised edge.
+          // Without it, pressing the last button briefly creates overflow.
+          'padding-bottom:3px;box-sizing:border-box;' +
           'overflow-y:auto;overscroll-behavior:contain;text-shadow:0 1px 2px #000;' +
           // Above the painting layer (PIXEL RESOLVE), which is absolute.
           'position:relative;z-index:1;'
@@ -493,10 +496,16 @@ class SceneModals {
   // `art` (optional) — the story's own SCENE painting (assets/art/ stem); a
   // dialog with one is a STORY unless the caller names another kind.
   // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
-  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, kind = art ? 'story' : 'note', mustAcknowledge = false }) {
+  showMessageModal({ title, body, okLabel = 'OK', onDismiss, art, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false }) {
     document.getElementById('offer-modal')?.remove();
+    let dismissed = false;
+    const dismiss = () => {
+      if (dismissed) return;
+      dismissed = true;
+      if (typeof onDismiss === 'function') onDismiss();
+    };
     const { wrap, box, mount, mkBtn } = this.makeModalShell('message-modal',
-      { zIndex: 60, onClose: mustAcknowledge ? undefined : () => {}, kind: kind, art });
+      { zIndex: 60, onClose: mustAcknowledge ? undefined : dismiss, kind: kind, kindLabel, art });
     const safeBody = String(body).replace(/\n/g, '<br>');
     box.innerHTML =
       `<div style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>` +
@@ -505,7 +514,7 @@ class SceneModals {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       wrap.remove();
-      if (typeof onDismiss === 'function') onDismiss();
+      dismiss();
     });
     box.appendChild(btn);
     mount();

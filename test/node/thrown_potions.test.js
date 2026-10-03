@@ -9,7 +9,7 @@
       if (item.id === 'revive_potion' || item.id === 'resurrection_potion') c._hp = 0;
       assert.truthy(PotionEffects.apply(s, c, item.id), item.id);
     }
-    assert.falsy(PotionEffects.apply(scene(), creature(), 'thunder_potion'));
+    assert.falsy(PotionEffects.apply(scene(), creature(), 'thunder_scroll'));
   });
 
   test('Thrown potions: Giant and Shrinking stack, expire, and preserve melee-only scaling', () => {
@@ -74,6 +74,7 @@
     PotionEffects.apply(s, c, 'speed_potion');
     Combat.ignite(c);
     c._attackNextT = 10000; c._frozenUntil = Date.now() + 10000; c._tomeReadyAt = 10000;
+    c._nextStealT = 10000; c._nextShotT = 10000;
     PotionEffects.apply(s, c, 'time_potion');
     assert.eq(PotionEffects.scaleMul(c), 1);
     assert.eq(PotionEffects.speedMul(c), 1);
@@ -81,6 +82,8 @@
     assert.eq(c._attackNextT, 0);
     assert.eq(c._frozenUntil, 0);
     assert.eq(c._tomeReadyAt, 0);
+    assert.eq(c._nextStealT, 0, 'slime, deer and legacy melee cooldown resets');
+    assert.eq(c._nextShotT, 0, 'legacy ranged cooldown resets');
     assert.eq(s.save.potionEffects[c.id], undefined);
   });
 

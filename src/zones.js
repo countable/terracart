@@ -184,7 +184,6 @@
       keeper: ['<em>Glances up at the leaning trunks.</em>\n“The trees leaned in to hide this shrine the night the roofs fell. They have not straightened since. I keep the stone swept and the lantern lit.”',
         '“The deer come here at dusk. They came before the Breaking and they came after. Nothing in this grove was ever the Warmonger’s.”'] },
     stones: { code: 2, R: 80, terrain: 'CHURCHYARD', story: 'zone_stones', title: 'The old stones',
-      attracts: { crow: 0.5 },
       body: 'Moss covers the stones around the old chapel. You walk towards the lantern by its door.',
       flash: 'The old stones. Walk softly.',
       keeper: ['“These stones are older than the chapel, and the chapel is older than the town. Someone has lit its lantern every night since the Breaking.”\n<em>Lifts the lantern.</em>\n“Tonight it is me.”',

@@ -10,7 +10,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { console, performance, addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'sprite_layout', 'util', 'zone_variant_data', 'zone_variants', 'streets', 'street_variants', 'biome_profiles', 'items', 'interactables', 'worldgen', 'scenic', 'road_overlay']) {
+for (const name of ['enemy_roster', 'sprite_layout', 'util', 'zone_variant_data', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'items', 'interactables', 'loot', 'worldgen', 'scenic', 'road_overlay']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 // The pure lamp method and its footprint constants are lifted exactly as in
@@ -88,7 +88,8 @@ function preview(row) {
   name = null;
   for (let i = 0; i < 10000; i++) {
     const candidate = `Preview ${i}`;
-    if (SV.variantFor(SV.streetKey(candidate, tx, ty), candidate, row.size, context) === row.id) {
+    if (SV.variantFor(SV.streetKey(candidate, tx, ty), candidate, row.size, context) === row.id
+        && (row.id !== 'thorny' || SV.streetShrineChosen(SV.streetKey(candidate, tx, ty)))) {
       name = candidate;
       break;
     }
@@ -163,6 +164,7 @@ const affinityContexts = Object.fromEntries(['neutral', 'cultivated', 'woodland'
     [size, SV.selectionWeights('Preview', size, trait === 'neutral' ? {} : {[trait]: 1})]))]));
 const rules = {
   hedgerow: `Two straight rows of cut hedges, one per ${cellM} m cell, with aligned gate gaps every ${SV.HEDGE_GATE_EVERY_CELLS} cells. Blocked slots stay empty. One encounter anchor holds two ordinary slimes where safe ground permits.`,
+  thorny: '50% bramble coverage across three rows of both verges; shrine enclosures stay full. Selected streets enclose a moss cairn in brambles when the whole ring fits. Brambles burn and cost 1 energy per second while crossed.',
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
   orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} trees per line piece, alternating half apple trees and half mature deciduous maples.`,
   snare: `One T${SV.SNARE_CHEST_TIER} cave-loot chest at the street midpoint, surrounded by up to ${(2 * SV.SNARE_TRAP_RADIUS_CELLS + 1) ** 2 - 1} traps on eligible verge ground. At least ${SV.SNARE_MIN_TRAPS} traps must fit.`,

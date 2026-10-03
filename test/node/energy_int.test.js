@@ -37,9 +37,9 @@ test('Energy.set: spend and offline rest leave whole numbers', () => {
 });
 
 test('Energy.set is the only writer of save.energy in src/', () => {
-  // savemigrate.js normalises a LOADED save (a missing reading becomes a full
+  // save_state.js normalises a LOADED save (a missing reading becomes a full
   // bar, then rounded) before any of this runs — the one sanctioned exception.
-  const EXEMPT = new Set(['energy.js', 'savemigrate.js']);
+  const EXEMPT = new Set(['energy.js', 'save_state.js']);
   const WRITE = /\.energy\s*(=(?!=)|\+\+|--|[-+*/]=)/;
   const bad = [];
   for (const [file, src] of Object.entries(ENERGY_WRITE_SOURCES)) {

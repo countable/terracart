@@ -44,12 +44,6 @@ const FORGE_CEREMONY = {
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
 const DELIVERY_BONUS_MULT = 1.5;
-// The most sets of its wishlist one household takes. A house is fed ONCE (its
-// first delivery is its memory, and it stays satisfied for good), so this
-// caps everything a door can ever pay. Uncapped, one hand-over of a big
-// stack paid 1.5x list on all of it — 4x what Home pays for the same goods
-// (economy audit, 2026-09-27).
-const DELIVERY_MAX_SETS = 5;
 // The fort unlock wood ladder (FORT_UNLOCK_WOOD*) and the pre-seeded restore
 // roles (Houses.PRESEED_RESTORE_ROLES) live in houses.js with the rules that read them.
 // Delivery wishlists unlock higher tiers as the player's lifetime tally grows;
@@ -116,7 +110,7 @@ class SceneShops {
   _presentStallOffer(sx, sy, opts) {
     // Single-modal guard — mirror shopInteract so rapid taps can't stack modals.
     if (document.getElementById('offer-modal')) return;
-    const { items, index = 0, title, kind = 'shop', kindLabel, art } = opts;
+    const { items, index = 0, title, kind = 'shop', kindLabel, art, boothKind } = opts;
     const id = items && items[index];
     if (!id) return;
     const item = ITEM_BY_ID[id];
@@ -161,15 +155,19 @@ class SceneShops {
       quantity: { min: 1, max: maxQty, initial: 1, format: fmt },
       onAccept: (q) => {
         const want = Math.max(1, q ?? 1);
-        const take = Math.min(want, room());
+        let take = Math.min(want, room());
         if (take <= 0) { this.flash(BAG_FULL_MSG, sx, sy); return; }
-        const pay = unitPrice * take;
+        let pay = unitPrice * take;
         if (money() < pay) { this.flash(`need ${pay}`, sx, sy); return; }
+        take = this.addToInv(id, take, false, { notWild: true, deferRefresh: true, deferBookRead: !!boothKind });
+        if (!(take > 0)) return;
+        pay = unitPrice * take;
         addMoney(this.save, -pay);
-        this.addToInv(id, take, false, { notWild: true, deferRefresh: true });
         if (id === 'book') ShopsMath.bookBought(this.save, take);
         this._finishInventoryChange();
         this.flashLoot(`${take}× ${itemName}\n−${pay}`, '#ffe066', 1, id);
+        if (boothKind) this._macroTransaction(boothKind, `You paid ${this.moneyHTML(pay)} and received ${itemName} ×${take}.`,
+          () => this._revealPendingBookReads());
       },
     });
   }
@@ -321,31 +319,14 @@ class SceneShops {
     // their trailer to cash out.
     // BUY — generate an offer and present a confirmation modal.
     // Special tracks come BEFORE the regular seed/produce rotation:
-    //   (a) Castle / tower — always sells relics, no rate-limit, with re-roll.
-    //   (b) Blacksmith     — address-ending-in-9 houses trade 5 gems for a relic.
+    //   (a) Claimed castle — the castellan's favour (presentCastleServiceOffer).
+    //   (b) Blacksmith     — forges relics from bars (presentBlacksmithOffer).
     //   (c) Regular house  — 10% chance to swap the normal offer for a relic.
     // (Home / starter trailer is handled at the top of this function — it
     // only sells, never buys.)
     if (castle) {
-      // A RESTORED castle (the player solved its quest here — see
-      // showQuestBoard/_claimCastle) is home turf: instead of the vault's
-      // relic trade, its castellan offers one daily favour. The only other
-      // castle that gets past the seal is a LEGACY-open one (a save that
-      // finished the old chain, or opened it under the retired delivery gate
-      // — see _isBuildingSealed); those still deal in relics below.
-      if (this.isCastleClaimed(house)) {
-        this.presentCastleServiceOffer(sx, sy, house);
-        return;
-      }
-      const offer = this.peekOrBuildRelicOffer(house);
-      // No re-roll at castles per balance pass — the castle's draw is the
-      // exorbitant base price (4× minus bow/staff discount), not a re-roll
-      // lottery, so the player must accept what's offered or leave.
-      if (offer) { this.presentRelicOffer(sx, sy, offer, recordDeal, house, false); return; }
-      // Every relic + armor slot is at max tier. Castles only deal in relics,
-      // so there's nothing left to sell — say so explicitly rather than
-      // silently swapping the player onto potato seeds.
-      this.flash(`You've outgrown the vault.`, sx, sy);
+      // The seal above admits claimed castles, whose castellan offers a daily favour.
+      this.presentCastleServiceOffer(sx, sy, house);
       return;
     }
     if (shopType === 'blacksmith') {
@@ -671,7 +652,7 @@ class SceneShops {
           // once the player reaches it or it's satisfied — see the update loop).
           this.deliveryCompass = { id: h.id, x: h.x, y: h.y };
           wrap.remove();
-          this.flash('following the white arrow', this.viewCenterX, this.viewCenterY);
+          this.flashAtPlayer('following the white arrow');
         });
         box.appendChild(row);
       }
@@ -769,9 +750,7 @@ class SceneShops {
 
   // The two random wooden relics this smithy offers. Chosen once from
   // STARTER_SMITH_SLOTS and memoized in save.starterSmithSlots so reloads +
-  // re-taps keep the same pair. (A migration concern: older saves that
-  // already forged pick/axe under the fixed queue just see whichever of the
-  // two they don't yet own — owned slots are skipped in starterBlacksmithOffer.)
+  // re-taps keep the same pair. starterBlacksmithOffer skips owned slots.
   starterSmithSlots() {
     if (!Array.isArray(this.save.starterSmithSlots) || this.save.starterSmithSlots.length !== 2) {
       // Shuffle the pool, take the first two for a distinct random pair.
@@ -831,19 +810,8 @@ class SceneShops {
     return Delivery.isSatisfied(this.save, house);
   }
 
-  // Delivery interaction. Plain houses buy a SET — they want one of EACH of
-  // their 1-3 wanted produce, delivered together. Tap with the full set in
-  // your bags → deliver 1 of each per set for the summed full price (no sword
-  // sellMul, no specialty bonus); the quantity selector lets you turn in
-  // multiple complete sets at once. Tap without the full set → flash what is
-  // still MISSING from it, so the player sees what is left to gather. Selling a produce the
-  // house didn't ask for isn't accepted here; that keeps plain houses distinct
-  // from markets.
-  //
-  // The opening ladder (delivery.js SCRIPTED_WISHLISTS) makes the first houses
-  // ask for ONE item, and a one-item wishlist isn't a "set" — the copy below
-  // drops the set wording (and the "sets" stepper unit) in that case, so the
-  // first errand reads "1 × [ Potato ]" rather than "1 set × [ Potato ]".
+  // Each household requests one of each listed item, delivered together once.
+  // Recheck the complete order before removing anything from the live bags.
   presentDeliveryOffer(sx, sy, house, recordDeal) {
     // Already fed — one delivery per house, ever. The household stays happy
     // (and its callout stays a smiling face) for good.
@@ -853,16 +821,9 @@ class SceneShops {
     }
     const wanted = this.wantedProduce(house);
     if (!wanted.length) { this.flash('Nobody home.', sx, sy); return; }
-    const single = wanted.length === 1;
     const invCount = (id) => Inventory.count(this.save, id);
-    // Full set requires at least one of every wanted item. maxSets is how many
-    // complete sets the current bags can fulfil (0 if any item is missing).
-    // …and never more than DELIVERY_MAX_SETS: the household is fed once, for
-    // good, so the one hand-over is the whole of what it will ever pay.
-    const maxSets = Math.min(DELIVERY_MAX_SETS,
-      wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity));
-    const setIcons = wanted.map(id => this.iconSpanHTML(id)).join(' ');
-    if (!maxSets) {
+    const hasOrder = () => wanted.every(id => invCount(id) >= 1);
+    if (!hasOrder()) {
       // Only what is still missing — not the whole list (Delivery.missingLine).
       const { line } = Delivery.missingLine(wanted, invCount, id => itemName(id));
       this.flash(line, sx, sy);
@@ -873,47 +834,38 @@ class SceneShops {
     // the items individually. Drives both the modal display and the payout.
     const setPrice = Math.max(1, Math.round(
       wanted.reduce((sum, id) => sum + Math.max(1, PRICES[id] ?? 1), 0) * DELIVERY_BONUS_MULT));
-    // Name the goods rather than showing bare ~20px icons against 13px body
-    // text, and say what the stepper counts.
-    const setNames = wanted.map(id => itemName(id)).join(' + ');
-    const fmt = (q) => ({
-      get: this.moneyHTML(`+${setPrice * q}`),
-      cost: single
-        ? `${q} × [ ${setIcons} ${setNames} ]`
-        : `${q} ${q === 1 ? 'set' : 'sets'} × [ ${setIcons} ${setNames} ]`,
-      canAfford: true,
-    });
-    const first = fmt(1);
+    // Keep each icon beside its name and requested count, including bundles.
+    const requested = wanted.map(id =>
+      `<div style="display:flex;align-items:center;gap:8px;text-align:left;">` +
+      `${this.iconSpanHTML(id)}<span style="flex:1;min-width:0">${itemName(id)}</span>` +
+      `<span style="flex:none">×1</span></div>`).join('');
     this.showOfferModal({
       kind: 'delivery',
-      // The title captions the `get` line (the coins), so it names what the
-      // household OFFERS — "wants: +$5" read as the house asking for money.
-      // What it wants is the cost line, whose "set" wording covers a bundle.
-      title: 'The household offers:',
+      getLabel: 'Reward',
+      costLabel: 'Requested',
       cancelLabel: 'Later',
-      get: first.get,
-      cost: first.cost,
+      get: this.moneyHTML(`+${setPrice}`),
+      cost: `<div style="display:grid;gap:6px;font-size:13px;">${requested}</div>`,
       canAfford: true,
       acceptLabel: 'Deliver',
-      quantity: { min: 1, max: maxSets, initial: 1, format: fmt },
-      onAccept: (q) => {
-        // Re-validate against live bags so a stale modal can't over-deliver.
-        const sets = Math.max(1, Math.min(q ?? 1, DELIVERY_MAX_SETS,
-          wanted.reduce((m, id) => Math.min(m, invCount(id)), Infinity)));
-        if (!sets || sets === Infinity) {
-          this.flash(single ? 'Nothing to deliver now.' : 'Set incomplete now.', sx, sy);
+      onAccept: () => {
+        // A stale or repeated accept must not pay for an incomplete order.
+        if (this.isHouseSatisfied(house)) return;
+        if (!hasOrder()) {
+          const { line } = Delivery.missingLine(wanted, invCount, id => itemName(id));
+          this.flash(line, sx, sy);
           return;
         }
-        for (const id of wanted) Inventory.remove(this.save, id, sets);
+        for (const id of wanted) Inventory.remove(this.save, id, 1);
         this._clampSelSlot();
-        const gain = setPrice * sets;
+        const gain = setPrice;
         addMoney(this.save, gain);
         // Lifetime delivery tally — each completed SET counts as one delivery.
         // Gates the castle vault and ramps the delivery produce tier (see
         // delivery.js / shopGateInfo). The FIRST delivery ever is also a
         // story moment, so catch the tally before it moves off zero.
         const wasFirstDelivery = (this.save.deliveryCount ?? 0) === 0;
-        this.save.deliveryCount = (this.save.deliveryCount ?? 0) + sets;
+        this.save.deliveryCount = (this.save.deliveryCount ?? 0) + 1;
         // One household served — a castle job may be counting them.
         this.questEvent('deliver');
         // The FIRST delivery to this household is a discovery: one memory
@@ -1061,7 +1013,7 @@ class SceneShops {
   shopTierBadgeHTML(house) {
     if (this.houseShopRole(house) !== 'market') return '';
     const { tier } = this.marketTheme(house);
-    return `<div style="margin-top:6px">Shop tier ${tier} · ${tierBadgeHTML(tier)}</div>`;
+    return `<div style="margin-top:6px">${tierBadgeHTML(tier)}</div>`;
   }
 
   // Cash and capacity are separate requirements: a full bag must not paint
@@ -1159,14 +1111,9 @@ class SceneShops {
     });
   }
 
-  // Blacksmiths (houses with an address ending in 9) forge a relic for
-  // exactly 5 of a gem they pick. Gem type is deterministic per house so a
-  // smith always demands the same stone; relic comes from peekOrBuildRelicOffer
-  // so it's stable until bought. Reuses the generic showOfferModal — same UI
-  // as cash/barter trades, just with a gem cost.
-  // Blacksmith recipe lookup. Returns an array of { id, qty } ingredient
-  // entries for forging the given (kind, slot, tier) relic/armor. Recipe
-  // rules:
+  // Blacksmith recipes (gear.js Gear.blacksmithRecipe): an array of
+  // { id, qty } ingredient entries for forging the given (kind, slot, tier)
+  // relic/armor. Recipe rules:
   //   • Tools / weapons / armor / utility — pay max(5, tier) of the
   //     tier-matched bar. The low tiers (T1 wood, T2 copper, T3 iron,
   //     T4 gold, T5 platinum) all cost 5; crimson (T6) / frost (T7) keep
@@ -1556,8 +1503,9 @@ class SceneShops {
   // Houses.CASTLE_SERVICE_MS — the one timer on any building you trade at.
   presentCastleServiceOffer(sx, sy, house) {
     if (this._castleServiceUsed(house)) {
-      // A timed gate names its wait (shortDuration), never "later".
-      this.flash(`My lord! Come back in ${shortDuration(this._castleServiceWaitMs(house))}.`,
+      // A timed gate names its wait, never "later" — and the castellan SAYS
+      // it (spokenDuration), on two lines so each fits MAP_MSG_MAX.
+      this.flash(`My lord!\nCome back in ${spokenDuration(this._castleServiceWaitMs(house))}.`,
                  sx, sy);
       return;
     }
@@ -1628,8 +1576,7 @@ class SceneShops {
             body: "The vault door grinds open, and your banner rises above the gate. You step inside.",
           });
           if (!splashed) {
-            this.flash('The castle vault is yours.',
-              this.viewCenterX, this.viewCenterY - 60);
+            this.flash('The castle vault is yours.', sx, sy);
           }
         }
       },

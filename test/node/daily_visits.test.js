@@ -66,6 +66,17 @@
     assert.falsy(Macros.usedToday(h.save, o.id));
   }));
 
+  test('daily visits: a message bottle reads one page with its own painting, then is gone', () => at(T0, () => {
+    const h = harness({ opened: [] }), o = { kind: 'bottle', id: 'bottle_1_2_3_4' };
+    h.tap(o);
+    assert.eq(h.pages(), 1);
+    assert.eq(h.stories[0].art, 'bottle_read');
+    assert.includes(h.save.opened, o.id);
+    assert.truthy(isSpent(o, spentSets(null, h.save)), 'picked up: hidden and refused');
+    h.tap(o);
+    assert.eq(h.pages(), 1);
+  }));
+
   test('daily visits: plain grove treasure waits for story dismissal and cannot pay twice', () => at(T0, () => {
     const h = harness({ opened: [], inv: [], relics: {}, armor: {}, money: 0 });
     let paid = 0;

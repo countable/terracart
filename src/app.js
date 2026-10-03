@@ -171,11 +171,6 @@ function streetLampTexKey(glow) {
   const g = (typeof glow === 'string') ? glow.toLowerCase() : '';
   return (!g || g === String(UI_LAMP_GLOW).toLowerCase()) ? STREET_LAMP_TEX : `${STREET_LAMP_TEX}@${g}`;
 }
-// Drawn LAMP_DRAW_CELLS cells across — the pool of glow at its foot included;
-// the ironwork inside that is about a fifth of it wide and half of it tall, so
-// a lamp stands on one cell of the verge and reads from a couple away.
-const STREET_LAMP_PX = CELL_PX *
-  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 2.4);
 // WHERE THE ART SITS ON THE POINT. The baked lamp STANDS on its point: its
 // plinth, its shadow and its pool of glow are all on the square's ground line
 // (RoadOverlay.LAMP_GROUND_FRAC), which is below the middle because a lamp is
@@ -202,19 +197,9 @@ const STREET_LAMP_ORIGIN_Y =
 // — it LIES on the point, and a stone in the road has nothing to stand proud
 // of.
 const STREET_LAMP_DY_PX = 3;
-// THE UNLIT LAMP IS THE OLD ROAD COBBLE. A lamp stands on every
-// LAMP_SPACING_M of street whether or not that stretch is restored yet — a
-// dark one is the stone you have not lit, and it has to be VISIBLE or the
-// lamps would seem to appear from nowhere as you walk. It draws from the
-// 'cobble' sheet (assets.js: Road copiar.png, the per-cell pebble art the
-// road band replaced in Sep 2026), at the frame that sheet used for the way's
-// tier — the same frames the old per-cell stones drew, so a dark lamp reads
-// as exactly the grey cobble a road always carried — and at the old stones'
-// own size and alpha: stepped down inside the cell so the ground shows round
-// it, and see-through enough to read as a sett laid IN the verge rather than
-// a chip dropped on it. The lit stone keeps its own baked art
-// (STREET_LAMP_TEX) over the same point — the verge point both are seated on
-// (see STREET_LAMP_R_CELLS and _streetLampsForTile), never the centreline.
+// Unrestored streets carry a snapped-off lamp post. Its weathered metal and
+// plinth are baked from RoadOverlay.paintBrokenLamp into the legacy cobble
+// sheet, retaining its four frame slots and existing street placement.
 const STREET_LAMP_DARK_TEX = 'cobble';
 // Frame per way tier, keyed by the WorldGen.T code classifyLine hands back:
 // motorway/trunk/primary the biggest densest cluster, secondary/tertiary the
@@ -585,15 +570,14 @@ const TOAST_TIER = {
 // INV_CAT_BY_KEY / invCatForItem) is a map over item KINDS, so it lives with
 // the catalog in items.js.
 // Slot draw order within each gear tab (owned slots only are rendered).
-const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'bow', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
+const INV_RELIC_ORDER = ['pick', 'axe', 'sword', 'dagger', 'spear', 'bow', 'musket', 'staff', 'can', 'hoe', 'bugnet', 'rod', 'bags'];
 const INV_ARMOR_ORDER = ['helmet', 'chest', 'legs', 'boots'];
-// The three combat weapons — the only slots save.activeWeapon ever holds. Only
-// the active one auto-engages (sword) or auto-fires (bow/staff) in _combatTick;
+// Only the active weapon auto-engages or auto-fires in _combatTick;
 // the others sit inert until switched to (the Equip button under the Relics
 // tab — syncEquipButton — or obtaining/forging a new one — see Gear.equip).
 // Melee needs no weapon at all: bare hands auto-engage like a sword whenever
-// no bow or staff is equipped (Gear.meleeActive). Mirrors Gear.WEAPON_SLOTS.
-const WEAPON_SLOTS = ['sword', 'bow', 'staff'];
+// no ranged weapon is equipped (Gear.meleeActive).
+const WEAPON_SLOTS = Gear.WEAPON_SLOTS;
 
 // Where fauna may NEVER step (WATER / buildings / roads / cave wall) is
 // Combat.faunaBlocksCell, beside the creatures it governs.
@@ -741,13 +725,8 @@ function shotTierColour(slot, tier) {
   const c = TIER_BY_NUM[tier]?.color;
   return c != null ? c : Combat.SHOT[slot].color;
 }
-// Screen-px lift a CASTLE TURRET's arrow starts at: the battlements. The tower
-// art is 42px tall (textures.js makeTowerTexture) and stands with its foot on
-// the cell's bottom edge, CELL_PX/2 below the cell centre the turret object
-// sits at — so its crown is 42 - 16 = 26px above that centre, and the arrow
-// leaves a few px under the crenellation line. It descends to
-// SHOT_DRAW_LIFT_PX over the flight to its target (see _drawShots).
-const TURRET_ARROW_LIFT_PX = 42 - CELL_PX / 2 - 4;
+// The arrow leaves a few pixels below its own variant's visible crown.
+// SHOT_DRAW_LIFT_PX is its final lift at the target (see _drawShots).
 // How often the set of on-screen turrets is re-scanned while enemies are on
 // screen. Turrets don't move, and the objects list of nine tiles is far too
 // long to walk every frame.
@@ -1066,6 +1045,7 @@ const EAT_COOLING_INK  = '#6f8f74';
 const EAT_COOLING_EDGE = '#37522f';
 
 const COLORS = {
+  // Ground HSL saturation +0.1, lightness -0.1 after palette review.
   // POST-APOCALYPTIC FARM PALETTE. The world is a neighbourhood going back to
   // seed: sun-bleached, dust-blown, overgrown rather than landscaped. Every
   // ground tone is pulled toward khaki / olive / grey-brown, and saturation is
@@ -1076,52 +1056,50 @@ const COLORS = {
   // can touch this" turns into scenery. That is why sand, the paths, the
   // farmland mud, the plank floors and tilled soil all sit in grey-brown and
   // olive here rather than the golds they used to carry.
-  0: 0x919e70,  // grass — dry meadow khaki-green (was a fresh lawn green)
-  1: 0x6d7a5e,  // forest — deep desaturated olive
-  2: 0xd4c9b4,  // sand — pale grit; was a golden tan, the worst yellow offender
-  3: 0x749ca5,  // water — murky standing teal, not swimming-pool blue
-  4: 0x9f9677,  // farmland — dull olive-brown mud
-  5: 0xb2aca0,  // residential — dirty concrete
-  6: 0xa0ac7c,  // park — unmown, going to seed
-  7: 0x474441,  // road — asphalt with dust blown over it
-  8: 0xaaa090,  // path — a worn grey dust track
+  0: 0x7b8d4e,  // grass — dry meadow khaki-green (was a fresh lawn green)
+  1: 0x546540,  // forest — deep desaturated olive
+  2: 0xcab48b,  // sand — pale grit; was a golden tan, the worst yellow offender
+  3: 0x4f8a97,  // water — murky standing teal, not swimming-pool blue
+  4: 0x908353,  // farmland — dull olive-brown mud
+  5: 0xa69779,  // residential — dirty concrete
+  6: 0x8ea253,  // park — unmown, going to seed
+  7: 0x312a24,  // road — asphalt with dust blown over it
+  8: 0xa08a67,  // path — a worn grey dust track
   // Building footprints: halfway between original and approved recolour.
-  9: 0xae685d,  // building — small house: weathered red brick (Sep 2026: redder, a touch more contrast)
-  10: 0xa09a8c, // rock
-  11: 0xaa9577, // building_med — weathered grey-brown plank floor
-  12: 0x919395, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
-  13: 0x3b3936, // road_lg (motorway/trunk/primary) — darkest
-  14: 0x413f3b, // road_md (secondary/tertiary)
+  9: 0x9b4a3d,  // building — small house: weathered red brick (Sep 2026: redder, a touch more contrast)
+  10: 0x958664, // rock
+  11: 0x9e7e50, // building_med — weathered grey-brown plank floor
+  12: 0x6b7988, // building_large — civic / castle floor (mid slate; carries a subtle cobble overlay (drawCastleFloorTex), kept darker than the LIGHT rampart walls)
+  13: 0x23201b, // road_lg (motorway/trunk/primary) — darkest
+  14: 0x2a261f, // road_md (secondary/tertiary)
   // --- Subtype splits — each tile fits into one of three base biomes ---
-  15: 0x9da384, // SCHOOL       (GRASSLAND) — schoolyard: greyer, patchier turf than the meadow around it
-  16: 0xb1afa9, // COMMERCIAL   (ROCKY)     — grimy floor tile
-  17: 0xb0a496, // INDUSTRIAL   (ROCKY)     — same hue, rust-dusted
-  18: 0xaba28e, // PLAYGROUND   (GRASSLAND) — rotting mulch
-  19: 0x8e9b6a, // PITCH        (GRASSLAND) — pitch markings long gone
-  20: 0x4b5d4a, // WETLAND      (FOREST)    — dim swampy green
-  21: 0x87995c, // GOLF         (GRASSLAND) — fairway reverting to scrub
-  22: 0x818c63, // ORCHARD      (FOREST)    — olive
+  15: 0x8c985c, // SCHOOL       (GRASSLAND) — schoolyard: greyer, patchier turf than the meadow around it
+  16: 0xa39b84, // COMMERCIAL   (ROCKY)     — grimy floor tile
+  17: 0xa68c6d, // INDUSTRIAL   (ROCKY)     — same hue, rust-dusted
+  18: 0xa28f64, // PLAYGROUND   (GRASSLAND) — rotting mulch
+  19: 0x78884a, // PITCH        (GRASSLAND) — pitch markings long gone
+  20: 0x2f462e, // WETLAND      (FOREST)    — dim swampy green
+  21: 0x6f833f, // GOLF         (GRASSLAND) — fairway reverting to scrub
+  22: 0x6a7844, // ORCHARD      (FOREST)    — olive
   // PIER (transportation:pier OSM lines, painted as T.PIER=23 in worldgen).
   // Base cell colour is the water tone — the wooden plank sprite from
   // Objects/Wilderness/Bridge Beach.png is drawn on top via the cobblePool
   // (see render.js PIER_FRAME). The water peeks through any plank-art alpha
   // so the cell still reads as "walkway over water".
-  23: 0x749ca5, // PIER         (WATER base) — plank sprite overlays on top
+  23: 0x4f8a97, // PIER         (WATER base) — plank sprite overlays on top
   // --- Underground cave biome (depth > 0) ---
-  24: 0x6e6860, // CAVE_FLOOR — packed earth/stone floor (walkable)
-  25: 0x4a4742, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
+  24: 0x5b4f40, // CAVE_FLOOR — packed earth/stone floor (walkable)
+  25: 0x332e26, // CAVE_WALL  — near-black solid rock (surface buildings/roads/water)
   26: 0x78240f, // CAVE_LAVA  — molten rock under the buildings on WorldGen.LAVA_DEPTH
   // WASTELAND (27) — unclassified landuse (railway yards, brownfield,
   // neighbourhood outlines). Plays as residential; looks like the abandoned
   // scrub it is: residential's dirty concrete pulled toward dusty khaki.
-  27: 0xb1a888, // WASTELAND  — dusty grey-ochre scrub
+  27: 0xa9985d, // WASTELAND  — dusty grey-ochre scrub
   // INFLUENCE ZONES (src/zones.js) — the halo a park / church / fuel yard
   // paints over the lot and commercial ground around it.
-  28: 0x90a87b, // GROVE       — lush green sward, the one fresh green in town
-  29: 0x97a48b, // CHURCHYARD  — mossy grey-green sward among the stones: darker and
-               //                greener than the residential concrete it replaces
-               //                (was 0x7d8672, which read as the same grey at a glance)
-  31: 0x7f7e78, // TAR_YARD    — dark oily ground
+  28: 0x687143, // GROVE       — forest-depth yellow-olive sward
+  29: 0x827080, // CHURCHYARD  — earthy heather-purple among the stones
+  31: 0x6f6b55, // TAR_YARD    — dark oily ground
   // UNMAPPED (30) — render-only: render.js stamps this on cells whose map tile
   // hasn't loaded yet (never appears in a tile's grid). Dark fog, deliberately
   // darker than every real biome so "beyond the charted world" reads as the
@@ -1209,13 +1187,14 @@ const HOME_R = 4;   // cells — Home's light / rest / ward ring
 // linearly) now lives with the offline-rest formula in energy.js as
 // Energy.OFFLINE_FULL_REST_MS.
 
-// Chest tiers are not rolled: a chest's tier (1-5) is how RARE its POI class
-// is on its own tile — loot.js › chestTier off CHEST_DENSITY_TIERS (one of
-// its kind → T4, 25+ → T1; worldgen.js stampPoiDensity counts it) — raised
-// one tier per two cave levels down (CHEST_TIER_DEPTH_STEP, cap T5) for the
-// POI's underground mirrors (worldgen.js caveChestsFrom; lowtier street
-// furniture never goes down, loot.js chestMirrorsUnderground) and one for a
-// zone's nexus. That tier — the look and gem render.js draws from it, and the
+// Chest tiers are not rolled: a chest's tier is its tile's QUOTA SEAT —
+// worldgen.js seedChestTiers stamps `tierSeed` on each tile's best-ranked
+// POIs (a small pyramid of T5..T2 seats; everything else T1), read by
+// loot.js › chestTier (chestBaseTier; an unseeded chest is the unstamped T2).
+// It rises one tier per CHEST_TIER_DEPTH_STEP cave levels down for the POI's
+// underground mirrors (worldgen.js caveChestsFrom; capped by chestTierMaxFor;
+// lowtier street furniture never goes down, loot.js chestMirrorsUnderground)
+// and one for a zone's nexus. That tier — the look and gem render.js draws from it, and the
 // chestTierMod curve in rarity.js the loot rolls on — is the WORLD's: every
 // player sees, and is paid by, the same chest on the same street (CLAUDE.md
 // "Every player sees the SAME generated world"). Home decides nothing about
@@ -1423,6 +1402,7 @@ const ROAD_CHIP_SVG =
   + '</g></svg>';
 
 const ICON_SHEETS = {
+  giant_mushroom: { url: 'assets/Icons/Items/GiantMushroom.png', cols: 1, srcW: 16, srcH: 16 },
   icon_telescope: { url: 'assets/Icons/Items/telescope.png', cols: 1, srcW: 16, srcH: 16 },
   icon_orb: { url: 'assets/Icons/Items/orb.png', cols: 1, srcW: 16, srcH: 16 },
   icon_goblet: { url: 'assets/Icons/Items/goblet.png', cols: 1, srcW: 16, srcH: 16 },
@@ -1461,7 +1441,10 @@ const ICON_SHEETS = {
   icon_salmon:     { url: 'assets/Icons/Fish/Sea/Salmon.png',             cols: 4, srcW: 64, srcH: 16 },
   icon_goldenfish: { url: 'assets/Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
   // Consumables + wilderness drops.
+  icon_thunder_scroll: { url: 'assets/Icons/Items/ThunderScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_raven_scroll: { url: 'assets/Icons/Items/RavenScroll.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_skeleton_scroll: { url: 'assets/Icons/Items/SkeletonScroll.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_wraith_scroll: { url: 'assets/Icons/Items/WraithScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_honey:    { url: 'assets/Icons/Items/Honey.png',                      cols: 1,  srcW: 16,  srcH: 16 },
   icon_book:     { url: 'assets/Icons/RPG icons/Extras/Books.png',           cols: 15, srcW: 240, srcH: 64 },
   // Potion of Reach — single 16×16 glowing-flask icon (hand-drawn).
@@ -1645,17 +1628,8 @@ class MapScene extends Phaser.Scene {
       },
       loadSave()
     );
-    // All one-time save-shape migrations — slot/default backfills, the maxEnergy
-    // re-derive, the history cap, the surviving data migrations (flute→honey,
-    // cobble stones→street metres) and the save.schema stamp — live in
-    // savemigrate.js so they're testable headlessly. The pre-schema ones were
-    // retired against a decision that saves that old are forfeit; see the
-    // header there for the list and for why save.schema now exists.
-    // Returns true iff a real data migration changed something and the save
-    // should be re-persisted now. Runs before any in-memory Set is mirrored off
-    // a save array below, so the HISTORY_CAP trim above actually sticks — build
-    // a mirror from the pre-trim array and the next rewrite un-trims it.
-    const needsMigrationPersist = SaveMigrate.migrate(this.save);
+    // Normalize before building runtime membership views, so history caps stick.
+    const needsStatePersist = SaveState.normalize(this.save);
     // Pin the game mode for the pure modules (prices, enemy HP, offline rest
     // read Difficulty.get(), not the save). Unset — a fresh save the how-to
     // card hasn't asked yet — reads as easy until chooseMode() runs.
@@ -1689,9 +1663,9 @@ class MapScene extends Phaser.Scene {
     if (this.save.relicSalt == null) this.save.relicSalt = (Math.random() * 0x100000000) >>> 0;
     // Offline-rest restoration. Time since the last lastSeenAt heartbeat is
     // treated as "the player was resting" — pro-rated 100% per hour, capped at
-    // maxEnergy (re-derived in migrate above). Skipped in test mode so the
+    // maxEnergy (re-derived above). Skipped in test mode so the
     // harness's deterministic energy values aren't bumped on every reload. Runs
-    // before the migration persist so a bumped energy is saved with it.
+    // before the initial-state persist so a bumped energy is saved with it.
     if (this.save.lastSeenAt && !window.__TEST_MODE) {
       this.applyOfflineRest(Math.max(0, Date.now() - this.save.lastSeenAt));
     }
@@ -1703,7 +1677,7 @@ class MapScene extends Phaser.Scene {
     this._relicsGen = 1;
     // Transient runtime state — not persisted.
     this.pairyCompass = null;   // { targetId, x, y, until } when active
-    if (needsMigrationPersist) persistSave(this.save);
+    if (needsStatePersist) persistSave(this.save);
 
     this.cameras.main.setBackgroundColor('#000');
     // Everything below this line is in LOGICAL px; the camera is what maps
@@ -1828,12 +1802,10 @@ class MapScene extends Phaser.Scene {
     // story + the location CTA, so arming it here would count story-reading
     // time against the fix and could silently skip the capture.)
 
-    // Procedural per-biome textures for flat-color terrain (water ripples, brick, etc.).
+    // Bake terrain patterns and the two castle restoration-state atlases once.
     makeBiomeTextures(this, CELL_PX);
     makeTowerTexture(this);
-    // The same turret in the unclaimed palette. Baked once here rather than
-    // tinted at draw time so a castle's stone, its turrets and its court all
-    // change together — see the unclaimed-shade note in textures.js.
+    // Both tower atlases share their colours with the walls and courtyard.
     makeTowerTexture(this, CASTLE_STONE_UNCLAIMED, 'tower_unclaimed');
     // Pot of gold — art for the coin-burst POI (the ATM — loot.js isPotOfGold).
     makePotOfGoldTexture(this);
@@ -2171,14 +2143,16 @@ class MapScene extends Phaser.Scene {
     // depth 100+ and the DOM modals). Without its own layer the labels lived in
     // objectsContainer and the castle front wall painted over them.
     this.labelContainer = this.add.container(0, 0);
-    // Tier-diamond layer — drawn LAST so the indicator floats above chests / labels / pads.
+    // Top world Graphics layer (the name is historical: it once drew tier
+    // diamonds). render.js now draws enemy attack-warning footprints here,
+    // above scenery and labels so cover cannot hide a warning.
     this.tierGfx = this.add.graphics();
     // FOG OF WAR — the wash over cells the player has never visited. The very
     // top of the world display list, above EVERYTHING the world draws: ground,
-    // the lighting dim, the sprites, the rim haze, the distance falloff, the
-    // POI name tablets and the tier diamonds. That is the point of it — "you
-    // have not been here" has to beat every other pass, and a label or a tier
-    // pip poking through the fog would announce the contents of a place the
+    // the sprites, the lighting, the POI name tablets and the attack-warning
+    // footprints. That is the point of it — "you have not been here" has to
+    // beat every other pass, and a label or a chest's tier look poking through
+    // the fog would announce the contents of a place the
     // player has not found yet. (Everything drawn ABOVE this is deliberately
     // not world: the vignette, the work wheel and flash text all set an
     // explicit depth, which floats them clear of the insertion-ordered layers.)
@@ -2406,6 +2380,7 @@ class MapScene extends Phaser.Scene {
       cg.generateTexture('gps_crosshair', 20, 20);
       cg.destroy();
     }
+    makeCastleSkullFlagTexture(this);
     // The banner a CLAIMED castle flies — a cream pennant on a short pole with
     // a green heart on it. Green because that is already this game's word for
     // energy (UI_GREEN, "success / ready / energy gain"), and the heart is
@@ -2885,14 +2860,6 @@ class MapScene extends Phaser.Scene {
     this._settleInvCatOnBoot();
     this.buildInventoryDOM();
 
-    // First-session objective chip. A save that predates the starter ladder is
-    // already past the point it teaches — retire it rather than telling a
-    // player with a built farm to go till their first cell. The tell is that
-    // they have played at all: any tilled ground, any restored house, any
-    // opened chest, or money moved off the starting purse.
-    if (typeof Quests !== 'undefined' && !this.save.starter) {
-      if (SaveMigrate.hasPlayed(this.save)) Quests.starterSkipAll(this.save);
-    }
     document.getElementById('objective-hide')
       ?.addEventListener('click', (e) => { e.stopPropagation(); this.dismissObjective(); });
     this.updateObjectiveDOM();
@@ -3256,7 +3223,8 @@ class MapScene extends Phaser.Scene {
 
   // ── What holds the BODY back from the fix ─────────────────────────────────
   // ONE gate, two reasons (the movement block in update() reads it):
-  //   pinned — a trap's jaw holds the body still (_pinnedUntil).
+  //   pinned — a trap's jaw holds the body still (the `pinned` row of
+  //            Conditions.DEFINITIONS, set by _tickTraps).
   //   capMS  — the feet are on a Burned Row's tar pit or iron stakes
   //            (_tickStreetFeet's `_slowHere`): the body may advance toward
   //            the target at no more than SLOW_BODY_M_S, so it falls behind
@@ -3265,7 +3233,7 @@ class MapScene extends Phaser.Scene {
   //            move the TARGET, so all of them obey it. No damage, no save.
   //            (A downed body does not walk anyway.)
   _bodyHold() {
-    const pinned = performance.now() < (this._pinnedUntil || 0);
+    const pinned = Conditions.active(this.save, 'pinned');
     // An Ember Altar's boon (src/shrines.js 'surefoot') frees the feet like the dragon.
     const capMS = (!pinned && this._slowHere && !this._dragonActive
       && !Shrines.leverActive(this.save, 'surefoot')) ? SLOW_BODY_M_S : null;
@@ -3340,10 +3308,11 @@ class MapScene extends Phaser.Scene {
       // waiting on some later caller's persist.
       if (typeof persistSave === 'function') persistSave(this.save);
       // TRAP PIN: the jaw clamps your leg - the body holds while the world
-      // waits. update() reads _pinnedUntil and skips the whole movement block
-      // for these three seconds (no walking, so no walking energy drain while
-      // clamped); the "pried free" story fires there when the pin expires.
-      this._pinnedUntil = performance.now() + 3000;
+      // waits. The `pinned` row of Conditions.DEFINITIONS owns how long;
+      // update() skips the whole movement block while it holds (_bodyHold —
+      // no walking, so no walking energy drain while clamped), and
+      // _tickConditions tells the "pried free" story when it runs out.
+      Conditions.apply(this.save, 'pinned');
       // The FIRST trap a save ever springs tells its story. A busy screen
       // returns false unmarked (see the story ledger), so the next trap asks
       // again rather than burning the moment - that is correct, not a bug.
@@ -3423,6 +3392,82 @@ class MapScene extends Phaser.Scene {
       this._lavaPop = 0;
       this._popEnergy(-burned, { ix, iy, label: '🔥 lava' });
       if (typeof persistSave === 'function') persistSave(this.save);
+    }
+  }
+
+  // Count only time actually walking through a sharp obstacle's occupied
+  // cell. Exact intervals catch briefly crossed cells and overlapping props
+  // count once. Fractional energy survives pauses without charging idle time.
+  _walkHazardCell(tx, ty, cx, cy) {
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
+    if (!entry?._spawned) return 0;
+    const c = tileCellToAbs(this, tx, ty, cx, cy);
+    const p = absCellCenterMeters(this, c.cellIX, c.cellIY);
+    const half = (entry.tileEdgeM || this.tileEdgeM) / entry.cellsPerEdge / 2;
+    const picked = setOf(this.save.picked), chopped = setOf(this.save.chopped);
+    const burned = setOf(this.save.burnedObjects);
+    let rate = 0;
+    for (const list of ['objects', 'wildplants']) {
+      WorldGen.forEachItemInBox(entry, list, p.x - half, p.y - half, p.x + half, p.y + half, o => {
+        if (!isWalkHazard(o) || o.chopped || picked.has(o.id) || chopped.has(o.id) || burned.has(o.id)) return;
+        const oc = worldMetersToAbsCell(this, o.x, o.y);
+        if (oc.cellIX === c.cellIX && oc.cellIY === c.cellIY) rate = Math.max(rate, walkHazardDamageRate(o));
+      });
+    }
+    return rate;
+  }
+
+  // Time-weighted contact damage rate for any moving body, in world metres.
+  _walkHazardExposure(x0, y0, x1, y1) {
+    if (!this.startWorldM) return 0;
+    if (x0 === x1 && y0 === y1) return 0;
+    const a = worldMetersToTilePx(this, x0, y0), b = worldMetersToTilePx(this, x1, y1);
+    const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
+    if (!(length > 0)) return 0;
+    // Mercator tile rows can have different cell counts, so split there
+    // before traversing each row's own grid (as ground-fire trails do).
+    const cuts = [0, 1], T = WorldGen.TILE_PX;
+    if (dy !== 0) {
+      for (let row = Math.floor(Math.min(a.y, b.y) / T) + 1; row * T < Math.max(a.y, b.y); row++) {
+        cuts.push((row * T - a.y) / dy);
+      }
+    }
+    cuts.sort((u, v) => u - v);
+    let exposed = 0;
+    for (let i = 1; i < cuts.length; i++) {
+      const lo = cuts[i - 1], hi = cuts[i];
+      const ty = Math.floor((a.y + dy * (lo + hi) / 2) / T);
+      const n = this.cellsForRow ? this.cellsForRow(ty) : this.cellsPerTile;
+      const line = [lo, hi].map(t => ({ x: a.x + dx * t, y: a.y + dy * t - ty * T }));
+      const rates = new Map();
+      Streets.reachIntervals(line, 1, T / n, (ix, iy) => {
+        const tx = Math.floor(ix / n);
+        const rate = this._walkHazardCell(tx, ty, ix - tx * n, iy);
+        if (rate > 0) rates.set(`${ix},${iy}`, rate);
+        return false;
+      });
+      for (const rate of new Set(rates.values())) {
+        const intervals = Streets.reachIntervals(line, 1, T / n,
+          (ix, iy) => rates.get(`${ix},${iy}`) === rate);
+        for (const [start, end] of intervals) exposed += rate * (end - start) / length;
+      }
+    }
+    return exposed;
+  }
+
+  _tickWalkHazards(dt, x0, y0, x1, y1) {
+    if (!this.startWorldM || !(dt > 0) || Combat.playerDowned(this.save.energy)
+        || Conditions.damageImmune(this.save)) { this._walkHazardAccum = 0; return; }
+    const exposed = this._walkHazardExposure(x0, y0, x1, y1);
+    this._walkHazardAccum = (this._walkHazardAccum || 0) + exposed * dt;
+    const pips = Math.floor(this._walkHazardAccum + 1e-9);
+    if (pips > 0) {
+      this._walkHazardAccum = Math.max(0, this._walkHazardAccum - pips);
+      const lost = this._losePlayerEnergy(pips);
+      if (lost > 0) {
+        this._popEnergy(-lost);
+        persistSave(this.save);
+      }
     }
   }
 
@@ -4086,6 +4131,7 @@ class MapScene extends Phaser.Scene {
       if (vx || vy) this.disableGpsForSession();
     }
     if (this._fastWalk) speedMul = 25;
+    this._stepDebugGps(dt);
     // The movement stick — always on screen, always live.
     const stick = (this._movePadHeld && this.joystickVec) ? this.joystickVec : null;
     // ONE movement model, at every depth and under every buff (see
@@ -4097,30 +4143,24 @@ class MapScene extends Phaser.Scene {
     // TRAP PIN: the jaw clamps your leg - the body holds while the world
     // waits. The whole movement block is gated, so the inputs die with the
     // body: no steering, no drift home, no follow step, and no walking
-    // energy drain while clamped. When the pin expires it clears itself and
-    // tells the "pried free" story once per save (a busy screen returns
-    // false unmarked; the splash is lost that once, which is fine).
+    // energy drain while clamped. The pin is a status row (Conditions
+    // `pinned`); its expiry story lives in _tickConditions.
     // The gate is _bodyHold: the pin above, and SLOW (tar / stakes) as its
     // second reason — a cap on the follow step rather than a hold.
     const bodyHold = this._bodyHold();
     if (bodyHold.pinned) {
       // held fast - no movement this frame
     } else {
-      if (this._pinnedUntil) {
-        this._pinnedUntil = 0;
-        this._storySplashOnce('trap_free', {
-          art: 'trap_free',
-          title: 'You pry yourself free',
-          body: "You force the iron jaws apart and pull your leg free.",
-        });
-      }
       // Stick → walk yourself off the GPS (costs stamina, boots-scaled).
       if (stick && (stick.x || stick.y)) this._steerManual(stick.x, stick.y, dt);
       // Stick idle for a few seconds → walk back to where you really are.
       else this._driftHome(dt);
       // Keyboard → steer the target directly, free, no offset.
       this._steerTarget(vx, vy, speedMul, dt);
-      this._followStep(dt, bodyHold.capMS);
+      const walkX = this.playerM.x, walkY = this.playerM.y;
+      const walkSeconds = this._followStep(dt, bodyHold.capMS);
+      this._tickWalkHazards(walkSeconds ?? dt, this.startWorldM.x + walkX, this.startWorldM.y + walkY,
+        this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y);
     }
     // One throttled flash for the stick-walking drain banked in _steerManual,
     // same shape as the slime-leech / monster-hit roll-ups below (1200ms, one
@@ -4756,11 +4796,11 @@ class MapScene extends Phaser.Scene {
         // Said ONCE per dry spell, at the player, then silent until wood is
         // back — an auto-firing weapon must not flash every beat.
         const ammo = Combat.SHOT[slot].ammo;
-        if (ammo && Inventory.count(this.save, ammo.id) < 1) {
+        if (ammo && (ammo.currency ? (this.save.money || 0) : Inventory.count(this.save, ammo.id)) < 1) {
           if (!this._ammoDryWarned) {
             this._ammoDryWarned = true;
             const ps = this.playerScreen();
-            this.flash(`Out of ${itemName(ammo.id)} — bow idle`, ps.x, ps.y + this.playerBodyDy());
+            this.flash(`Out of ${ammo.currency ? 'coins' : itemName(ammo.id)} — ${slot} idle`, ps.x, ps.y + this.playerBodyDy());
           }
           continue;
         }
@@ -4782,7 +4822,11 @@ class MapScene extends Phaser.Scene {
         if (shot && (slot === 'bow' || slot === 'staff')) {
           shot.color = shotTierColour(slot, relics[slot].tier);
         }
-        if (shot && ammo) {
+        if (shot && ammo?.currency) {
+          this._ammoDryWarned = false;
+          addMoney(this.save, -1);
+          persistSave(this.save);
+        } else if (shot && ammo) {
           // Every `ammo.shots`-th arrow burns one wood (save.ammoShots counts
           // toward it, so the tally survives a reload).
           this._ammoDryWarned = false;
@@ -4799,7 +4843,7 @@ class MapScene extends Phaser.Scene {
           this._shots.push(shot);
           // Keep the bow's existing ledger key; the staff gets its own first shot.
           // Only a fired projectile tells the story, never equip or a dry cadence.
-          this._toolActionStory(slot === 'bow' ? 'shoot' : 'staff');
+          if (slot !== 'musket') this._toolActionStory(slot === 'bow' ? 'shoot' : 'staff');
         }
       }
     } else {
@@ -4890,18 +4934,21 @@ class MapScene extends Phaser.Scene {
     // The wheel is flagged `auto`, which is what keeps it from behaving
     // like a tapped action — it doesn't swallow taps, hold the body still, or
     // block the walk home (see _busyWheel).
-    if (Gear.meleeActive(this.save) && !this._workProgress && enemies.length) {
+    if (Gear.meleeActive(this.save) && (!this._workProgress || this._workProgress.combat)) {
       let best = null, bestD2 = Infinity;
       for (const c of enemies) {
         // ARM'S LENGTH, not the lit reach (Combat.MELEE_REACH_CELLS): a sword
         // swings as far as a monster bites and no further. This used to be
         // cellInReach, so an auto-engaging sword picked up a foe 2.5 cells off
         // — 5.5 with the Inner Light upgrades — and fought it the whole way in.
-        if (!Combat.inMeleeReach(c.x, c.y, px, py, this.cellM)) continue;
+        if (!Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save))) continue;
         const d2 = (c.x - px) * (c.x - px) + (c.y - py) * (c.y - py);
         if (d2 < bestD2) { bestD2 = d2; best = c; }
       }
-      if (best) this.startCombat(best, { auto: true });
+      // Recheck distance while fighting too. Retargeting keeps the scene's
+      // swing deadline, so crossing targets cannot grant an extra blow.
+      if (best && this._workProgress?.combat !== best) this.startCombat(best, { auto: true });
+      else if (!best && this._workProgress?.combat) this.cancelWorkProgress();
     }
 
     this._drawEnemyHealth(enemies);
@@ -4909,9 +4956,9 @@ class MapScene extends Phaser.Scene {
 
   _applyCondition(id) {
     const fresh = Conditions.apply(this.save, id);
-    if (fresh && id === 'burning') this.flash('🔥 You catch fire!', this.viewCenterX, this.viewCenterY);
+    if (fresh && id === 'burning') this.flashAtPlayer('🔥 You catch fire!');
     if (fresh && id === 'poison') {
-      this.flash('Poisoned! Find an Antidote.', this.viewCenterX, this.viewCenterY);
+      this.flashAtPlayer('Poisoned! Find an Antidote.');
       if (!this.save.poisonLearned) {
         this.save.poisonLearned = true;
         this.showMessageModal({ title: 'Poisoned', body:
@@ -4952,7 +4999,18 @@ class MapScene extends Phaser.Scene {
     const before = this.save.energy ?? 0;
     const burningExposure = this._playerFireExposure?.() || false;
     if (burningExposure) this._ignitePlayer();
+    const wasPinned = Conditions.active(this.save, 'pinned');
     const result = Conditions.tick(this.save, elapsed, { burningExposure });
+    // A trap's pin that RUNS OUT (not one an Antidote pried open) tells the
+    // "pried free" story once per save (a busy screen returns false
+    // unmarked; the splash is lost that once, which is fine).
+    if (wasPinned && !Conditions.active(this.save, 'pinned')) {
+      this._storySplashOnce('trap_free', {
+        art: 'trap_free',
+        title: 'You pry yourself free',
+        body: "You force the iron jaws apart and pull your leg free.",
+      });
+    }
     if (result.lost > 0) {
       this._flashPlayerHit(result.lost);
       this._popEnergy(-result.lost);
@@ -4963,14 +5021,11 @@ class MapScene extends Phaser.Scene {
     this._syncStatusRow();
   }
 
-  // One chip under the energy bar per ACTIVE row of Conditions.DEFINITIONS —
-  // its label, ink and background are the row's — stacked in table order so
-  // a poisoned player who catches fire reads both.
   // THE STATUS ROW — every status, buff and timer on the player, as chips
   // under the top HUD row (#status-row, STATUS_ROW_CSS; built by
   // _buildStatusRow): first the conditions (the rows of
-  // Conditions.DEFINITIONS the player carries — label, time left and the
-  // drain, in the row's ink on its bg), then every running timed effect
+  // Conditions.DEFINITIONS the player carries, in table order — label, time
+  // left and the drain it levies now, in the row's ink on its bg), then every running timed effect
   // (Buffs.active — potions, powders, the torch, coffee, the bike, the
   // compass, every shrine boon — "<name> · <wait>", in the row's ink on its
   // stroke). One chip per id, kept in that order; a chip whose effect has
@@ -4996,8 +5051,13 @@ class MapScene extends Phaser.Scene {
     const chips = [];
     for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
       if (!Conditions.active(this.save, id)) continue;
-      chips.push({ id, ink: def.ink, bg: def.bg,
-        text: `${def.label} · ${shortDuration(this.save.conditions[id].remainingMs)} · −${def.energyLoss} energy / ${shortDuration(def.intervalMs)}` });
+      // The drain the row levies NOW: a burn's grows with its exposure
+      // (Conditions.burnTickLoss, the charge advanceBurn levies); a row with
+      // no drain of its own (the trap pin) shows only its time.
+      const left = this.save.conditions[id].remainingMs;
+      const loss = id === 'burning' ? Conditions.burnTickLoss(left) : def.energyLoss;
+      const drain = def.intervalMs ? ` · −${loss} energy / ${shortDuration(def.intervalMs)}` : '';
+      chips.push({ id, ink: def.ink, bg: def.bg, text: `${def.label} · ${shortDuration(left)}${drain}` });
     }
     for (const b of Buffs.active(this.save, this)) {
       chips.push({ id: b.id, action: b.action, ink: b.color, bg: b.stroke + 'e8', text: `${b.name} · ${shortDuration(b.remainingMs)}` });
@@ -5277,7 +5337,7 @@ class MapScene extends Phaser.Scene {
     if (!scan.list.length) return;
     const shots = Combat.turretTick(scan.list, this._turretNextT, now, enemies, this.cellM);
     for (const shot of shots) {
-      shot.liftFromPx = TURRET_ARROW_LIFT_PX;   // leaves the battlements
+      shot.liftFromPx = Render.towerCrownHeight(this.textures, shot.castle) - CELL_PX / 2 - 4;
       this._shots.push(shot);
     }
   }
@@ -5335,6 +5395,13 @@ class MapScene extends Phaser.Scene {
           { x: hx + 1, y: hy + 3 }, { x: hx - 3, y: hy + 2 }], true);
         g.fillStyle(0xa6a39a, 1);
         g.fillTriangle(hx - 2, hy - 2, hx + 2, hy - 2, hx - 1, hy + 1);
+        continue;
+      }
+      if (s.projectile === 'musket_ball') {
+        g.fillStyle(0x262930, 1);
+        g.fillCircle(hx, hy, s.dotPx);
+        g.fillStyle(0x9da4b0, 1);
+        g.fillCircle(hx - 1, hy - 1, 1);
         continue;
       }
       if (s.dotPx) {
@@ -5588,7 +5655,7 @@ class MapScene extends Phaser.Scene {
   // resolveDefeat (Combat.isPlayerKill): 'player' unless a shot says otherwise.
   _damageEnemy(c, amount, source = 'player', options = {}) {
     if (!(amount > 0)) return false;
-    const dealt = Combat.damageDealt(c, amount, (source === 'lava' || source === 'light' || source === 'burn') ? { bypassArmor: true } : options);
+    const dealt = Combat.damageDealt(c, amount, (['lava', 'light', 'burn', 'obstacle'].includes(source)) ? { bypassArmor: true } : options);
     const left = Combat.hp(c);
     // Moss hides us until we strike this creature. Environmental damage and
     // allied attacks do not reveal us; a fresh blessing hides us again.
@@ -5637,11 +5704,11 @@ class MapScene extends Phaser.Scene {
       // not, or a burning slime would divide itself every tick. The striker's
       // side is whoever dealt it: a shot's origin when the caller says, else
       // the player's feet.
-      if (dealt > 0 && !['lava', 'light', 'burn'].includes(source)) {
+      if (dealt > 0 && !['lava', 'light', 'burn', 'obstacle'].includes(source)) {
         const from = options.from || this.playerM || { x: c.x - 1, y: c.y };
         if (enemySplit(this, c, from.x, from.y, now) && now >= (this._splitFlashT || 0)) {
           this._splitFlashT = now + 2500;
-          this.flash('The slime splits!', this.viewCenterX, this.viewCenterY - 40);
+          this.flashAtWorld('The slime splits!', c.x, c.y);
         }
       }
       return false;
@@ -5672,12 +5739,12 @@ class MapScene extends Phaser.Scene {
       }
       return false;
     }
-    if (!Combat.isEnemy(victim)) return false;
-    // First melee the save ever starts tells its story - here in the one
-    // lane both the tapped swing and the auto-engage flow through, fired
+    if (!Combat.isEnemy(victim) || !Gear.meleeActive(this.save)) return false;
+    // First melee the save ever starts tells its story in the auto-engage lane,
+    // fired
     // regardless of an owned sword: bare hands fight on the tier-0 rung too.
     this._toolActionStory('sword');
-    const dps = Combat.meleeDps(this.save.relics, this.save.playerClass);
+    const dps = Combat.meleeDps(this.save.relics, this.save.playerClass, Gear.activeWeapon(this.save));
     const estMs = (Combat.hp(victim) / Math.max(0.01, dps)) * 1000;
     const now = performance.now();
     // A fight shows the foe's health bar, not a progress arc, so the tool
@@ -5685,7 +5752,7 @@ class MapScene extends Phaser.Scene {
     // Bare hands own no sword and draw no badge — _setWorkProgressIcon answers
     // that for every wheel now, so the slot is passed plainly rather than
     // re-testing ownership here.
-    this._setWorkProgressIcon('sword');
+    this._setWorkProgressIcon(Gear.activeWeapon(this.save) || 'sword');
     this._workProgress = {
       worldX: victim.x, worldY: victim.y,
       combat: victim,
@@ -5744,7 +5811,7 @@ class MapScene extends Phaser.Scene {
       if (coins > 0) this._dropBountyCoin(victim, coins);
       const name = Combat.monster(victim.kind)?.name || 'Slime';
       const elite = Combat.isElite(victim);
-      if (mine) this.flash(`⚔️ ${name} slain`, this.viewCenterX, this.viewCenterY - 60);
+      if (mine) this.flashAtWorld(`⚔️ ${name} slain`, victim.x, victim.y);
       if (!mine) {
         // A turret's (or any non-player) kill: the coin is the whole payout.
       } else if (elite) {
@@ -5774,7 +5841,7 @@ class MapScene extends Phaser.Scene {
       // Nothing defeatable reaches here today — interact.js sends only slimes,
       // crows and deer down the hunt wheel, and the other two routes only ever
       // carry enemies. A kind that ever did would otherwise die in silence.
-      this.flash(`${victim.kind} defeated`, this.viewCenterX, this.viewCenterY - 60);
+      this.flashAtWorld(`${victim.kind} defeated`, victim.x, victim.y);
     }
     if (mine && typeof Quests !== 'undefined') {
       // The kind as-is: a giant is its own job on the board (QUEST_ENEMIES),
@@ -6008,7 +6075,7 @@ class MapScene extends Phaser.Scene {
     const wp = this._workProgress;
     if (!wp) return;
     // A rose can change allegiance while a melee wheel is already running.
-    if (wp.combat && !Combat.isEnemy(wp.combat)) { this.cancelWorkProgress(); return; }
+    if (wp.combat && (!Combat.isEnemy(wp.combat) || !Gear.meleeActive(this.save))) { this.cancelWorkProgress(); return; }
     const now = performance.now();
     // Stuck-wheel watchdog. A wheel always resolves at wp.durationMs (complete,
     // fail, or cancel), so one that has outlived that by a wide margin is
@@ -6105,7 +6172,7 @@ class MapScene extends Phaser.Scene {
       const outOfRange = wp.combat
         ? !Combat.inMeleeReach(c.x, c.y,
             this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y,
-            this.cellM)
+            this.cellM, Gear.activeWeapon(this.save))
         : (typeof cellInReach === 'function')
           ? !cellInReach(this, tc.cellIX, tc.cellIY)
           : ((c.x - (this.startWorldM.x + this.playerM.x)) ** 2
@@ -6119,7 +6186,7 @@ class MapScene extends Phaser.Scene {
           // foe drifts, the reach diamond shrinks as energy drains. That's
           // normal, not a failed hunt, so it says nothing; a hunt or a fight
           // you actually chose still reports the getaway.
-          if (!wasAuto && this.flash) this.flash('It got away.', this.viewCenterX, this.viewCenterY - 60);
+          if (!wasAuto && this.flash) this.flashAtWorld('It got away.', c.x, c.y);
           return;
         }
       } else {
@@ -6159,20 +6226,20 @@ class MapScene extends Phaser.Scene {
       // than being granted a fresh interval of safety by having stepped out.
       const px = this.startWorldM.x + this.playerM.x;
       const py = this.startWorldM.y + this.playerM.y;
-      const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM);
+      const inSwing = Combat.inMeleeReach(c.x, c.y, px, py, this.cellM, Gear.activeWeapon(this.save));
       if (inSwing && now >= this._nextBlowT) {
-        this._nextBlowT = now + Combat.MELEE_INTERVAL_MS * Combat.trainingIntervalMul(this.save);
+        this._nextBlowT = now + Combat.meleeIntervalMs(Gear.activeWeapon(this.save)) * Combat.trainingIntervalMul(this.save);
         // A blade to actually swing — bare hands (no sword owned) has none, so
         // no slash draws, same gate _setWorkProgressIcon's tool badge uses.
         // The slash rides the blow itself now rather than its own throttle:
         // one cadence, so the arc and the damage it earns can't drift apart.
-        if (this.save.relics?.sword) {
+        if (this.save.relics?.[Gear.activeWeapon(this.save)]) {
           const dx = c.x - px, dy = c.y - py;
           const d = Math.hypot(dx, dy) || 1;
           this._swing = { startT: now, dir: { x: dx / d, y: dy / d } };
         }
-        const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass)
-          + this._attackFlat('melee')) * (Combat.shrinkingActive(this.save) ? CONSUMABLE_SPEC.shrinking_potion.meleeDamageMul : 1);
+        const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass, Gear.activeWeapon(this.save))
+          + this._attackFlat('melee')) * PotionEffects.meleeMul(this.save);
         if (this._damageEnemy(c, blow)) return;   // _damageEnemy clears the wheel + pays out
         // A LIT TORCH (isTorchActive) SETS THE FOE ALIGHT — Combat.ignite,
         // the `burning` row of Conditions.DEFINITIONS, as the player's own
@@ -6873,7 +6940,7 @@ class MapScene extends Phaser.Scene {
   // path reads, by type. Giant adds its flat bonus to melee blows.
   _attackFlat(kind) {
     const training = Combat.TRAINING_KINDS[kind]?.unit === 'dmg' ? Combat.trainingBonus(this.save, kind) : 0;
-    const giant = kind === 'melee' ? Combat.giantDamageBonus(this.save) : 0;
+    const giant = kind === 'melee' ? PotionEffects.meleeBonus(this.save) : 0;
     return training + giant;
   }
   // Is the stick actually being PUSHED right now? Pointer-down alone isn't
@@ -7247,20 +7314,21 @@ class MapScene extends Phaser.Scene {
     // the same colour a foe wears, render.js): a burn flickers against the
     // farmer's own colour, a poison holds. Under the hit flick and the empty
     // bar, over the far-from-GPS dim.
-    const burning = Conditions.active(this.save, 'burning') && Conditions.conditionTintOn('burning', nowMs);
-    const poisoned = Conditions.active(this.save, 'poison') && Conditions.conditionTintOn('poison', nowMs);
+    // The first active row, in table order, whose tint shows this instant.
+    const status = Object.keys(Conditions.DEFINITIONS)
+      .find((id) => Conditions.active(this.save, id) && Conditions.conditionTintOn(id, nowMs));
     // Pulse: a slow breath, faster and deeper for the empty-tank warning.
     const t = nowMs / 1000;
     const periodS = spent ? 1.2 : 2.0;
     const wave = 0.5 + 0.5 * Math.sin((t / periodS) * Math.PI * 2);
-    if (hit || spent || far || burning || poisoned) {
+    if (hit || spent || far || status) {
       let tint = 0xffffff;
       if (hit) {
         tint = HIT_FLASH_TINT;
       } else if (spent) {
         tint = 0xff6b6b;
-      } else if (burning || poisoned) {
-        tint = Conditions.DEFINITIONS[burning ? 'burning' : 'poison'].tint;
+      } else if (status) {
+        tint = Conditions.DEFINITIONS[status].tint;
       } else {
         const k = Math.min(1, (away - nearM) / Math.max(1, (DARK_FULL_CELLS - NEAR_GPS_CELLS) * this.cellM));
         const v = Math.round(255 * (1 - (1 - DIM_FLOOR) * k));
@@ -7395,6 +7463,9 @@ class MapScene extends Phaser.Scene {
         this._startAutoMine(ux, uy);
       }
     }
+    // Arrival can consume only part of a long frame. Contact hazards charge
+    // that walking time, not the idle remainder after reaching the target.
+    return move / Math.min(WALK_M_S * mul, capMS > 0 ? capMS : Infinity);
   }
   // Is the wall blocking forward progress one the body can trivially walk
   // around — one cell out of its way? Returns a unit perpendicular vector to
@@ -7411,30 +7482,7 @@ class MapScene extends Phaser.Scene {
     const bx = this.startWorldM.x + this.playerM.x;
     const by = this.startWorldM.y + this.playerM.y + this.feetOffsetM;
     const open = (cdx, cdy) => !this._cellBlocked(bx + cdx * m, by + cdy * m);
-    // Forward = dominant heading axis; perpendicular = the other axis.
-    const fwd = Math.abs(ux) >= Math.abs(uy) ? [Math.sign(ux), 0] : [0, Math.sign(uy)];
-    if (!fwd[0] && !fwd[1]) return null;
-    const perp = fwd[0] !== 0 ? [0, 1] : [1, 0];
-    // Prefer the side the target leans toward, so we round the corner the short
-    // way; with no lean (pure-axis heading) try one side then the other. But a
-    // side already chosen on this heading axis, and still held, goes first
-    // whatever the lean now says — the lean is read from where the body stands,
-    // and every jog moves it. Each jog re-stamps the hold, so it lasts the whole
-    // way round and DETOUR_COMMIT_MS past it. The other side is still tried if
-    // the held one has closed, so a hold can't wall the body in.
-    const now = performance.now();
-    const hold = this._detourHold;
-    const held = hold && now < hold.until && hold.fx === fwd[0] && hold.fy === fwd[1];
-    const lean = fwd[0] !== 0 ? Math.sign(uy) : Math.sign(ux);
-    const first = held ? hold.side : (lean < 0 ? -1 : 1);
-    for (const s of [first, -first]) {
-      const px = perp[0] * s, py = perp[1] * s;
-      if (open(px, py) && open(px + fwd[0], py + fwd[1])) {
-        this._detourHold = { fx: fwd[0], fy: fwd[1], side: s, until: now + DETOUR_COMMIT_MS };
-        return { x: px, y: py };
-      }
-    }
-    return null;
+    return committedDetourDir(this, ux, uy, open, performance.now(), DETOUR_COMMIT_MS);
   }
   // Pick the wall cell blocking progress toward the target (dominant axis first)
   // and start an auto-mine wheel on it. No-op if no adjacent wall is found.
@@ -8081,12 +8129,25 @@ class MapScene extends Phaser.Scene {
   // viewCenterX/Y, which is the camera, not the cell. Falls back to the
   // toast's centred default when nothing projects.
   flashAtWorld(text, wmx, wmy, color) {
-    let at = {};
     if (this.startWorldM && this.originPx && typeof worldMetersToAbsCell === 'function') {
       const c = worldMetersToAbsCell(this, wmx, wmy);
-      at = this._energyPopAt(c.cellIX, c.cellIY);
-    }
+      this.flashAtCell(text, c.cellIX, c.cellIY, color);
+    } else this.flash(text, undefined, undefined, color);
+  }
+  // The same note, for a known absolute cell (a wall of fire's middle cell).
+  flashAtCell(text, ix, iy, color) {
+    const at = this._energyPopAt(ix, iy);
     this.flash(text, at.x, at.y, color);
+  }
+  // A note about the player's BODY ("You catch fire!") — over the
+  // character's head at scene.playerScreen() (which follows a peek drag),
+  // clear of the energy pop that hangs at ENERGY_POP_HEAD_PX; never at
+  // viewCenterX/Y. The toast's centred default when nothing projects.
+  flashAtPlayer(text, color) {
+    const ps = this.playerScreen ? this.playerScreen() : null;
+    const ok = !!ps && isFinite(ps.x) && isFinite(ps.y);
+    this.flash(text, ok ? Math.round(ps.x) : undefined,
+      ok ? Math.round(ps.y) - ENERGY_POP_HEAD_PX - 22 : undefined, color);
   }
 
   // ── Energy pops ──────────────────────────────────────────────────────────
@@ -8482,9 +8543,8 @@ class MapScene extends Phaser.Scene {
   //
   // TWO NUMBERS, ONE LEDGER. Memories recovered = the keys in
   // save.discovered (memoriesTotal); memories UNSPENT = save.memories, a
-  // plain counter (not a bag stack — the old 'discovery' item was folded
-  // into it by savemigrate.js, schema 2), which only spendMemories takes
-  // from. The HUD chip (updateMemoriesDOM) reads both.
+  // plain counter, which only spendMemories takes from. The HUD chip
+  // (updateMemoriesDOM) reads both.
   //
   // EVERY MEMORY HEALS. The moment you feel whole again is literal: the bar
   // goes to the live cap, popped on the body through _popEnergy. A one-shot
@@ -8583,6 +8643,7 @@ class MapScene extends Phaser.Scene {
   // modal-gate backstop's throttle in update(), right after the sync, so
   // body.modal-open is fresh when it is read.
   _drainBadgeStories() {
+    if (this._drainMacroTransactions()) return;
     MemoryStory.drain(this);
   }
 
@@ -9085,7 +9146,7 @@ class MapScene extends Phaser.Scene {
     // The purse: a fresh save opened at STARTING_MONEY (the easy figure). Only
     // a save that has not been played is re-pursed — the first-run card is the
     // only path here, but the guard keeps a reset-then-answer honest.
-    if (typeof SaveMigrate !== 'undefined' && !SaveMigrate.hasPlayed(this.save)) {
+    if (typeof SaveState !== 'undefined' && !SaveState.hasPlayed(this.save)) {
       this.save.money = prof.startingMoney;
     }
     if (!prof.tutorial && typeof Quests !== 'undefined') {
@@ -9578,8 +9639,7 @@ class MapScene extends Phaser.Scene {
     if (!sel || sel.id !== 'tome_raven' || (sel.count ?? 0) <= 0) return false;
     if (!this._tomeReady('tome_raven')) return false;
     this.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS * TOME_EFFECT_MUL;
-    if (this._spiritRaven) this._spiritRaven._followUntilT = performance.now() + SPIRIT_RAVEN_MS * TOME_EFFECT_MUL;
-    this._tickSpiritRaven();
+    this._tickSpiritRaven();   // a living bird's follow timer re-derives from the save
     this._tomeSpent('tome_raven');
     this.flash('✨ A raven leaves the page', this.viewCenterX, this.viewCenterY);
     return true;
@@ -9672,7 +9732,7 @@ class MapScene extends Phaser.Scene {
   drinkAntidote() {
     const sel = getSelectedSlot(this.save);
     if (sel?.id !== 'antidote' || !(sel.count > 0)) return false;
-    if (!Conditions.useAntidote(this.save, this)) {
+    if (!Conditions.useAntidote(this.save)) {
       this.flash('No debuffs — Antidote kept.', this.viewCenterX, this.viewCenterY);
       return false;
     }
@@ -9684,7 +9744,7 @@ class MapScene extends Phaser.Scene {
     const sel = getSelectedSlot(this.save);
     if (sel?.id !== 'elixir' || !(sel.count > 0)) return false;
     const before = this.save.energy ?? 0;
-    if (!Conditions.useElixir(this.save, this)) {
+    if (!Conditions.useElixir(this.save)) {
       if (before <= 0) this.flash('Elixir cannot revive you.', this.viewCenterX, this.viewCenterY);
       else this.flash('No need — Elixir kept.', this.viewCenterX, this.viewCenterY);
       return false;
@@ -9790,28 +9850,37 @@ class MapScene extends Phaser.Scene {
   // bird — never a second raven.
   readRavenScroll() {
     const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'raven_potion' || (sel.count ?? 0) <= 0) return false;
+    if (!sel || sel.id !== 'raven_scroll' || (sel.count ?? 0) <= 0) return false;
     this.save.spiritRavenUntil = Date.now() + SPIRIT_RAVEN_MS;
-    // A living bird's follow timer is its lifetime — stretch it with the refresh.
-    if (this._spiritRaven) this._spiritRaven._followUntilT = performance.now() + SPIRIT_RAVEN_MS;
-    this._tickSpiritRaven();   // summoned now, not a frame later
-    this._spendScroll('raven_potion');
+    // Summoned now, not a frame later; a living bird's follow timer (its
+    // lifetime) is re-derived from the refreshed expiry by Companions.tick.
+    this._tickSpiritRaven();
+    this._spendScroll('raven_scroll');
     this.showMessageModal({ title: 'You read the Scroll of the Raven',
       body: 'A raven of smoke and starlight shakes itself out of the parchment. It settles beside you, watching the beasts with hungry eyes.' });
     return true;
   }
 
-  // Potion callers keep their entry point; all timed allies share the keeper.
-  _tickSpiritRaven() {
-    Companions.tick(this, 'spirit_raven');
+  readSummoningScroll() {
+    const sel = getSelectedSlot(this.save);
+    const id = sel?.id, spec = CONSUMABLE_SPEC[id], kind = spec?.summonKind;
+    const row = Companions.KINDS[kind];
+    if (!row || (sel.count ?? 0) <= 0) return false;
+    // Reconcile expiry or defeat before refreshing, including a stale live instance.
+    Companions.tick(this, kind);
+    const refreshing = Companions.active(this.save, kind);
+    if (!refreshing) delete this.save.companionState?.[kind];
+    this.save[row.field] = Date.now() + row.durationMs;
+    Companions.tick(this, kind);
+    this._spendScroll(id);
+    this.showMessageModal({ title: `You read the ${ITEM_BY_ID[id].name}`, body: spec.get });
+    return true;
   }
 
-  // The Drink dialog's line for a revival potion: what it will do while you
-  // are down, and why the button is grey while you are not.
-  _reviveGetLine(id) {
-    return Combat.playerDowned(this.save.energy)
-      ? '❤ rise where you fell'
-      : '❤ drink only when you have fallen';
+  // Raven scroll and tome callers share the companion keeper (player_time.js
+  // calls it too, so it stays a named method).
+  _tickSpiritRaven() {
+    Companions.tick(this, 'spirit_raven');
   }
 
   // Potion of Revival (T2) and Potion of Resurrection (T5): drunk while
@@ -10120,7 +10189,7 @@ class MapScene extends Phaser.Scene {
   // Refused, and the scroll kept, when nothing hostile is in sight.
   readThunderScroll() {
     const sel = getSelectedSlot(this.save);
-    if (!sel || sel.id !== 'thunder_potion' || (sel.count ?? 0) <= 0) return false;
+    if (!sel || sel.id !== 'thunder_scroll' || (sel.count ?? 0) <= 0) return false;
     const caughtSet = setOf(this.save.caught);
     const pc = this.playerToWorldCell();
     const targets = [];
@@ -10141,7 +10210,7 @@ class MapScene extends Phaser.Scene {
       if (!c.lair) monsterRout(c, now, this.cellM);
     }
     const n = targets.length;
-    this._spendScroll('thunder_potion');
+    this._spendScroll('thunder_scroll');
     this.showMessageModal({
       title: 'You read the Scroll of Thunder',
       body: felled < n ? 'The sky splits. When your ears stop ringing, the surviving beasts are already fleeing.' : 'The sky splits. When your ears stop ringing, the beasts lie still.',
@@ -10571,7 +10640,7 @@ class MapScene extends Phaser.Scene {
       const spec = CONSUMABLE_SPEC.miracle_lettuce;
       this.save.miracleLettuceUntil = Math.max(this.save.miracleLettuceUntil || 0, now + spec.durationMs);
       extra = `\n+${spec.luckBonus} Luck: ${shortDuration(this.save.miracleLettuceUntil - now)}`;
-    } else if (id === 'peach' && Conditions.clearDebuffs(this.save, this)) {
+    } else if (id === 'peach' && Conditions.clearDebuffs(this.save)) {
       extra = '\nDebuffs cleared';
     }
     if (firstTaste) extra += `\n🍽 first taste: +${Energy.tasteBonus(id)} max ⚡`;
@@ -10779,13 +10848,13 @@ class MapScene extends Phaser.Scene {
   // it is never consumed (no save.opened). interactables.js INTERACTABLES.chest
   // routes every kind here except the chapel, which pays through the chest
   // ceremony. Each kind's FIRST tap tells what the place is (the story
-  // ledger, `macro:<kind>`) and opens the dialog when that is dismissed.
+  // ledger, `macro:<kind>:<id>`) and opens the dialog when that is dismissed.
   presentMacro(sx, sy, o, macro = macroFor(o)) {
     if (!macro || document.getElementById('offer-modal')) return;
     const kind = macro.kind;
     if (this._macroStory(kind, () => this.presentMacro(sx, sy, o, macro), o)) return;
     const d = Macros.KIND_DIALOG[kind];
-    const dress = { kind: d.modal, kindLabel: Macros.stallLabel(kind, o) || d.label, art: Macros.stallArt(kind, o) };
+    const dress = { boothKind: kind, kind: d.modal, kindLabel: Macros.stallLabel(kind, o) || d.label, art: Macros.stallArt(kind, o) };
     switch (kind) {
       case 'inn':         return this._presentInn(sx, sy, o, dress);
       case 'apothecary':  return this._presentStallOffer(sx, sy,
@@ -10801,13 +10870,31 @@ class MapScene extends Phaser.Scene {
       default:            return undefined;
     }
   }
-  // The first-visit story of a macro kind, once per save (_storySplashOnce).
+  // Each physical booth introduces its service once per save (_storySplashOnce).
   // True when it opened now; `onDismiss` runs when it is tapped away.
   _macroStory(kind, onDismiss, o) {
     const st = Macros.KIND_STORY[kind];
     const d = Macros.KIND_DIALOG[kind];
-    if (!st || !d) return false;
-    return this._storySplashOnce('macro:' + kind, { art: Macros.stallArt(kind, o), title: st.title, body: st.body, onDismiss });
+    if (!st || !d || o?.id == null) return false;
+    return this._storySplashOnce('macro:' + kind + ':' + o.id, { art: Macros.stallArt(kind, o), title: st.title, body: st.body, onDismiss });
+  }
+
+  // Successful services share one receipt surface, after the state is committed.
+  // A bounty can complete while a shop or story is open: keep its receipt
+  // until that dialog ends, ahead of queued memories in _drainBadgeStories.
+  _macroTransaction(kind, body, onDismiss) {
+    const d = Macros.KIND_DIALOG[kind], receipt = Macros.KIND_TRANSACTION[kind];
+    if (!d || !receipt) return;
+    (this._macroReceipts ||= []).push({ kind: d.modal, kindLabel: d.label,
+      art: receipt.art, title: receipt.title, body, onDismiss });
+    this._drainMacroTransactions();
+  }
+  _drainMacroTransactions() {
+    if (!this._macroReceipts?.length) return false;
+    this._syncModalGate?.();
+    if (document.body?.classList?.contains('modal-open')) return false;
+    this.showMessageModal(this._macroReceipts.shift());
+    return true;
   }
 
   // INN: rest to full for coin, once a UTC day per inn (Macros.innRest — the
@@ -10842,6 +10929,7 @@ class MapScene extends Phaser.Scene {
         if (this.updateEnergyDOM) this.updateEnergyDOM();
         // A gain to the BODY: it lands on the player's own cell.
         this._popEnergy(Math.max(0, (this.save.energy ?? 0) - cur));
+        this._macroTransaction('inn', `You paid ${this.moneyHTML(r.price)} and restored ${r.gain} HP. You are fully rested.`);
       },
     });
   }
@@ -10961,10 +11049,7 @@ class MapScene extends Phaser.Scene {
     this.updateHUD?.();
     persistSave(this.save);
     this.flashLoot(`Bounty paid! +${gb.pay}`, '#ffe066', 1);
-    this._storySplashOnce('macro:bounty', {
-      art: Macros.KIND_DIALOG.guildhall.art, title: 'A bounty paid',
-      body: 'You collect your bounty at the hall. The keeper counts the promised coins into your hand.',
-    });
+    this._macroTransaction('guildhall', `The hunt is complete. You received ${this.moneyHTML(gb.pay)}, in addition to the coins from each defeated foe.`);
   }
   // THE BOUNTY WAITS, asked each frame there is one: it stands down only when
   // the UTC day turns (no payout — "The bounty got away."). Walking off, the
@@ -11046,18 +11131,13 @@ class MapScene extends Phaser.Scene {
         const nx = Macros.curioNextMilestone(r.count);
         const line = nx != null ? `Donated! ${r.count} / ${nx}` : `Donated! ${r.count} given`;
         this.flashLoot(line, '#ffe066', 1, id);
+        this._macroTransaction('curio', `You donated ${itemName(id)}. The collection now holds ${r.count} curios${r.milestone ? ', and a memory has returned' : ''}.`);
       },
     });
   }
 
-  // THE BOOK CLUB (school POIs — Macros.scholarShelf / scholarNext /
-  // scholarClaim): every school keeps the same booth and the same shelf, so
-  // progress is one ledger per save. The club counts every Book the player
-  // has read (addToInv — save.booksRead; bought ones too, the counter's price
-  // ladder being the brake), and every
-  // SCHOLAR_BOOKS_PER_PRIZE of them earns the next prize off the shelf,
-  // humblest first. Nothing is sold and nothing is paid: a ready prize is a
-  // Collect, an unready one is told its wait in books.
+  // The Book Club rewards each three Books collected with the next tome.
+  // All schools share reading and claim progress; the shelf repeats.
   _presentScholar(sx, sy, o, dress) {
     const shelf = Macros.scholarShelf();
     const read = Macros.booksRead(this.save);
@@ -11065,38 +11145,37 @@ class MapScene extends Phaser.Scene {
     const title = `The book club: ${read} ${read === 1 ? 'book' : 'books'} read`;
     if (!next) {
       this.showMessageModal({ kind: dress.kind, art: dress.art, title,
-        body: 'You have read your way through the whole shelf. The scholars have nothing left to give but their thanks.' });
+        body: 'The scholar has no tomes on the shelf today.' });
       return;
     }
     if (!next.ready) {
       const need = next.booksAt - read;
-      const left = shelf.slice(next.index).map((id) => itemName(id)).join(', ');
       this.showMessageModal({ kind: dress.kind, art: dress.art, title,
         body: `The next prize is ${itemName(next.id)}, at ${next.booksAt} books. Read ${need} more. `
-          + `Still on the shelf: ${left}.` });
+          + `Every ${Macros.SCHOLAR_BOOKS_PER_PRIZE} books earns a tome. Found and bought books both count; the tome shelf repeats after a full set.` });
       return;
     }
     this.showOfferModal({
       ...dress, kind: dress.kind, title,
       get: `${this.iconSpanHTML(next.id)} ${itemName(next.id)} ×1`,
       cost: `${next.booksAt} books read`,
-      blurb: 'The scholar lifts the next prize down from the shelf and sets it before you.',
+      blurb: 'The scholar lifts the next tome down from the shelf and sets it before you.',
       canAfford: true,
+      disabledReason: this.invRoomFor(next.id) < 1
+        ? 'Your bag cannot hold another copy of this tome. Equip a larger bag to collect it.' : '',
       acceptLabel: 'Collect',
       cancelLabel: 'Later',
       onAccept: () => {
-        // A club prize is a gift, not a wild find (`notWild` — the wild-finds
-        // ledger); a Book off the shelf is read on the spot and, like every
-        // Book read, counts. A full bag refuses here, and addToInv has
-        // already said so.
-        if (!this.addToInv(next.id, 1, false, { notWild: true })) return;
-        const r = Macros.scholarClaim(this.save, shelf);
-        if (!r.ok) return;
+        // Another open offer may already have collected this milestone.
+        const current = Macros.scholarNext(this.save, shelf);
+        if (!current?.ready || current.index !== next.index) return;
+        // Credit the milestone only after the complete prize fits; refresh
+        // and persist once, with both the tome and claim ledger updated.
+        if (!this.addToInv(next.id, 1, false, { notWild: true, deferRefresh: true })) return;
+        Macros.scholarClaim(this.save, shelf);
         this._finishInventoryChange();
-        const after = Macros.scholarNext(this.save, shelf);
-        // Both lines are measured against MAP_MSG_MAX in macro_poi.test.js.
-        const line = after ? `Collected! Next at ${after.booksAt} books` : 'The shelf is yours';
-        this.flashLoot(line, '#ffe066', 1, next.id);
+        this.flashLoot('Tome collected', '#ffe066', 1, next.id);
+        this._macroTransaction('scholar', `You received ${itemName(next.id)} for ${next.booksAt} books collected. Your books remain yours.`);
       },
     });
   }
@@ -11141,6 +11220,7 @@ class MapScene extends Phaser.Scene {
           if (!r.ok) { if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy); return; }
           refresh();
           this.flash(`Drilled for ${shortDuration(Combat.TRAINING_BUFF_MS)}.`, sx, sy);
+          this._macroTransaction('training', `You paid ${this.moneyHTML(r.price)} for a ${row.label.toLowerCase()} drill. Its bonus lasts ${shortDuration(Combat.TRAINING_BUFF_MS)}.`);
         },
       },
       onAccept: () => {
@@ -11152,6 +11232,7 @@ class MapScene extends Phaser.Scene {
         }
         refresh();
         this.flash(`${row.label} level ${Combat.trainingLevel(this.save, kind)}!`, sx, sy);
+        this._macroTransaction('training', `You paid ${this.moneyHTML(r.price)} and reached ${row.label.toLowerCase()} level ${Combat.trainingLevel(this.save, kind)}. This lesson is permanent.`);
       },
     });
   }
@@ -11872,7 +11953,7 @@ class MapScene extends Phaser.Scene {
   // empty), and the auto-walk home earns none of it — that is the game moving
   // the body, not the player looking at anything.
   //
-  // State shape (savemigrate.js documents it):
+  // State shape (save_state.js documents it):
   //   save.streets      = { "<z/tx/ty>": { "<lineKey>": [s0,s1, s0,s1, …] } }
   //   save.streetsEpoch = n           ← what repaints the restored canvas
   //   save.trail        = { metres, prizes }
@@ -12598,8 +12679,7 @@ class MapScene extends Phaser.Scene {
     // dialog that says what a road is for (TRAIL_INTRO_TITLE) — it opens
     // TRAIL_INTRO_DELAY_MS later, once the repair it is about has played.
     // Flagged on the SAVE, so it is once per player and not once per reload;
-    // savemigrate.js marks veterans greeted so nobody who has already walked a
-    // ladder gets introduced to it. The flag is set where the dialog actually
+    // The flag is set where the dialog actually
     // OPENS (_sweepStreets), never here — a greeting that lands behind the
     // how-to card is refused, and the next sweep that banks metres arms it
     // again. `greeting` is therefore "a greeting is owed", which is what holds
@@ -12935,7 +13015,7 @@ class MapScene extends Phaser.Scene {
           ? this.gearIconHTML(reward.kind, reward.slot, reward.tier, iconPx) : '★',
         name: (typeof gearName === 'function')
           ? gearName(reward.kind, reward.slot, reward.tier)
-          : `${reward.slot} T${reward.tier}`,
+          : reward.slot,
         sub: 'equipped',
         color: UI_TREASURE,
         tier: reward.tier,
@@ -13422,8 +13502,7 @@ class MapScene extends Phaser.Scene {
   // including restored saves. The dragon transform keeps visual priority.
   _syncPlayerSkin() {
     if (!this.player) return;
-    const giantScale = (Combat.giantActive(this.save) ? CONSUMABLE_SPEC.giant_potion.scaleMul : 1)
-      * (Combat.shrinkingActive(this.save) ? CONSUMABLE_SPEC.shrinking_potion.scaleMul : 1);
+    const giantScale = PotionEffects.scaleMul(this.save);
     if (this._dragonActive) {
       this.player.setScale(this.dragonScale * giantScale);
       this.playerFeetNudgeY = -PLAYER_FEET_DROP_PX * this.playerScale * giantScale;
@@ -13903,7 +13982,7 @@ class MapScene extends Phaser.Scene {
       if (n <= 0) return 0;
       if (!silent) {
         // THE BOOK CLUB's reading (Macros.booksRead): every Book read counts,
-        // found, bought or off the club's own shelf — the brake on buying is
+        // found or bought — the brake on buying is
         // the counter's price ladder (shops_math.js listPrice), not this.
         this.save.booksRead = (this.save.booksRead || 0) + n;
         this._pendingBookReads = (this._pendingBookReads || 0) + n;
@@ -14203,12 +14282,18 @@ class MapScene extends Phaser.Scene {
           wrap.style.cssText = 'display:inline-block;line-height:0;';
           wrap.innerHTML = this.gearIconHTML(g.kind, g.slot, g.tier, 32);
           slot.appendChild(wrap);
-          // Tier badge mirrors the item count badge so gear reads consistently.
+          // Rarity uses the shared word/color badge; numeric tiers stay internal.
           const badge = document.createElement('span');
-          badge.textContent = 'T' + g.tier + (g.temporary ? ' ⏳' : '');
-          badge.className = 'hud-badge';
-          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;';
+          badge.innerHTML = tierBadgeHTML(g.tier, 6, 2);
+          badge.style.cssText = 'position:absolute;bottom:1px;left:50%;transform:translateX(-50%);line-height:10px;';
           slot.appendChild(badge);
+          if (g.temporary) {
+            const temporary = document.createElement('span');
+            temporary.textContent = '⏳';
+            temporary.title = 'Temporary equipment';
+            temporary.style.cssText = 'position:absolute;top:1px;right:2px;font-size:10px;';
+            slot.appendChild(temporary);
+          }
           // "E" (Equipped/active) badge — only the weapon currently doing the
           // auto-engage/auto-fire (save.activeWeapon) wears it, opposite corner
           // from the tier badge so the two never collide.
@@ -14248,10 +14333,21 @@ class MapScene extends Phaser.Scene {
         else slot.textContent = '·';
         if (entry.count != null) {
           const badge = document.createElement('span');
-          badge.textContent = item?.kind === 'unique_relic'
-            ? `T${item.baseTier}${entry.count > 1 ? ' ×' + entry.count : ''}` : entry.count;
-          badge.className = 'hud-badge';
-          badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;';
+          if (item?.kind === 'unique_relic') {
+            badge.innerHTML = tierBadgeHTML(itemTierOf(item.id), 6, 2);
+            badge.style.cssText = 'position:absolute;bottom:1px;left:50%;transform:translateX(-50%);line-height:10px;';
+            if (entry.count > 1) {
+              const count = document.createElement('span');
+              count.textContent = entry.count;
+              count.className = 'hud-badge';
+              count.style.cssText = 'position:absolute;top:1px;right:2px;font-size:10px;';
+              slot.appendChild(count);
+            }
+          } else {
+            badge.textContent = entry.count;
+            badge.className = 'hud-badge';
+            badge.style.cssText = 'position:absolute;bottom:1px;right:2px;font-size:10px;padding:0 3px;border-radius:3px;line-height:12px;';
+          }
           slot.appendChild(badge);
         }
         slot.addEventListener('click', (e) => {
@@ -14393,10 +14489,10 @@ class MapScene extends Phaser.Scene {
 
   // Equip / Unequip button — the Eat button's slot, shown while a WEAPON is
   // highlighted in the Relics tab. Gear selection clears selSlot; selecting
-  // a carried relic clears selGear, so its Eat / Use action appears instead. EQUIP makes the highlighted sword, bow
-  // or staff the one that fights (Gear.selectWeapon); UNEQUIP, on the bow or
-  // staff in hand, puts it away so melee auto-engages again — the sword if
-  // owned, bare hands if not (Gear.unequipWeapon). The sword in hand needs no
+  // a carried relic clears selGear, so its Eat / Use action appears instead.
+  // Equip makes the highlighted weapon fight (Gear.selectWeapon). Unequip
+  // puts a ranged weapon away: back to the sword, or bare hands if no sword
+  // is owned (Gear.unequipWeapon). An active melee weapon needs no
   // button: melee is the default state, so there is nothing to put away.
   // This is the ONE way the active weapon changes by hand; tapping a slot
   // only highlights it.

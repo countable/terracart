@@ -215,8 +215,8 @@ test('world frame: cellsPerEdgeForTile is a pure function of the row', () => {
 
 test('world frame: sidecar / Overpass bins are frame-free (tile-local cells, not metres)', () => {
   // A small GeoJSON sample around the fixture tile: an OSM tree, a detected
-  // tree with no id, a fruit tree, a pole, a fountain, a parking lot, a bus
-  // stop, a tree row.
+  // tree with no id, a fruit tree, a pole (which mints nothing: decorative
+  // pillars are cut), a fountain, a parking lot, a bus stop, a tree row.
   const lon0 = -119.47, lat0 = 49.846;
   const F = (kind, dx, dy, props) => ({ type: 'Feature',
     geometry: { type: 'Point', coordinates: [lon0 + dx, lat0 + dy] },
@@ -238,7 +238,8 @@ test('world frame: sidecar / Overpass bins are frame-free (tile-local cells, not
   const bin = bins.get(`${TX}_${TY}`);
   assert.truthy(bin, 'the sample lands in the fixture tile');
   const N = W.cellsPerEdgeForTile(TY);
-  for (const k of ['trees', 'fruittrees', 'poles', 'wells', 'parking', 'chests', 'shrubs']) {
+  assert.eq(bin.poles, undefined, 'a pole mints no bin row');
+  for (const k of ['trees', 'fruittrees', 'wells', 'parking', 'chests', 'shrubs']) {
     for (const r of bin[k]) {
       assert.eq(r.x, undefined, `${k} row carries no frame x`);
       assert.inRange(r.lix, 0, N - 1, `${k} row carries a local cell`);

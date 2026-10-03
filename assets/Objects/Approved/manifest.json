@@ -1120,9 +1120,9 @@
       ],
       "path": "assets/Objects/Approved/barricade.png",
       "source": "assets/Objects/Generated/barricade.png",
-      "width": 16,
-      "height": 16,
-      "sha256": "950b90629fd356523ec48afbdc7ebcc4b9c61042e0c0e8784b5f999d445f968d",
+      "width": 24,
+      "height": 24,
+      "sha256": "34456b11476f90f1194b259aee27046952b9b8b706d49d33a88d9a10fa51c6f9",
       "rows": [
         "barricade"
       ],
@@ -1148,6 +1148,20 @@
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": null
+        }
+      ],
+      "frameImports": [
+        {
+          "reviewId": "WA-083",
+          "sheet": "assets/Objects/Approved/barricade.png",
+          "frame": 0,
+          "frameSize": [
+            24,
+            24
+          ],
+          "source": "assets/Objects/Approved/Sources/WorldArt/barricade-native.png",
+          "sourceSha256": "34456b11476f90f1194b259aee27046952b9b8b706d49d33a88d9a10fa51c6f9",
+          "native": true
         }
       ]
     },
@@ -1274,7 +1288,7 @@
       "source": "assets/Objects/Rustic/Props.png",
       "width": 352,
       "height": 192,
-      "sha256": "dde89ac1bfcb181e4408979fead1e5120e246cf8c6b6582e71a8725ea2c40ec1",
+      "sha256": "7157df1d4b6ebb5f8189a11777436629f170be5397436992544ab3ace43230ce",
       "rows": [
         "cave-mushroom",
         "forgetmenot",
@@ -1473,6 +1487,28 @@
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": 0.1
+        }
+      ],
+      "frameImports": [
+        {
+          "reviewId": "WA-098",
+          "frame": 34,
+          "frameSize": [
+            16,
+            16
+          ],
+          "source": "assets/Objects/Approved/Sources/WorldArt/general-1.png",
+          "sourceSha256": "8b761af4a1285120be6c2f4aad9e1047b213acb253d5d8282e8ec17914d3d9ec"
+        },
+        {
+          "reviewId": "WA-113",
+          "frame": 30,
+          "frameSize": [
+            16,
+            16
+          ],
+          "source": "assets/Objects/Approved/Sources/WorldArt/general-3.png",
+          "sourceSha256": "69ce4145e53034314c5744009744b5f0cbe6493983554d195f942936f470b8f0"
         }
       ]
     },
@@ -2930,7 +2966,7 @@
       "source": "assets/Objects/Wilderness/stone with minerals.png",
       "width": 176,
       "height": 272,
-      "sha256": "a033d36362ad5581999ba88fd9709103e4961cb9ddc09db8e31cbe55635bc43a",
+      "sha256": "f2aeac9050543d8e33522eee1c107a379c826e89c4963d01bc8b5692c9d5b5f5",
       "rows": [
         "ore-copper",
         "ore-crimson",
@@ -2950,12 +2986,12 @@
             16
           ],
           "palette": [
-            "#403e34",
-            "#777462",
-            "#b0aa8a",
-            "#e6d7a3"
+            "#454440",
+            "#77766f",
+            "#ada99c",
+            "#d2ccba"
           ],
-          "strength": 0.12,
+          "strength": 0.65,
           "mode": null,
           "preserveLuminance": true,
           "colourMap": null,
@@ -2970,12 +3006,12 @@
             16
           ],
           "palette": [
-            "#403e34",
-            "#777462",
-            "#b0aa8a",
-            "#e6d7a3"
+            "#454440",
+            "#77766f",
+            "#ada99c",
+            "#d2ccba"
           ],
-          "strength": 0.12,
+          "strength": 0.65,
           "mode": null,
           "preserveLuminance": true,
           "colourMap": null,
@@ -2990,12 +3026,12 @@
             16
           ],
           "palette": [
-            "#403e34",
-            "#777462",
-            "#b0aa8a",
-            "#e6d7a3"
+            "#454440",
+            "#77766f",
+            "#ada99c",
+            "#d2ccba"
           ],
-          "strength": 0.12,
+          "strength": 0.65,
           "mode": null,
           "preserveLuminance": true,
           "colourMap": null,
@@ -3010,12 +3046,12 @@
             16
           ],
           "palette": [
-            "#403e34",
-            "#777462",
-            "#b0aa8a",
-            "#e6d7a3"
+            "#454440",
+            "#77766f",
+            "#ada99c",
+            "#d2ccba"
           ],
-          "strength": 0.12,
+          "strength": 0.65,
           "mode": null,
           "preserveLuminance": true,
           "colourMap": null,
@@ -3162,7 +3198,7 @@
       "source": "assets/Objects/Crops.png",
       "width": 144,
       "height": 256,
-      "sha256": "3bd92dfeb76f644ef553e62cdc609b8bbec7e3778fa82756f23834417d01a3dd",
+      "sha256": "00d16bdc06d67dea272c7369a6bcfe440766625b5b02ba05fc047e09a0294cdd",
       "rows": [
         "gemfruit",
         "nut-plant",
@@ -4012,6 +4048,18 @@
           "colourMap": null,
           "paletteStrength": null
         }
+      ],
+      "frameImports": [
+        {
+          "reviewId": "WA-096",
+          "frame": 67,
+          "frameSize": [
+            16,
+            16
+          ],
+          "source": "assets/Objects/Approved/Sources/WorldArt/general-0.png",
+          "sourceSha256": "f7105cb2729a03ff0d974daafdab64e01448416ae3ebf373a0aee41ef2c64468"
+        }
       ]
     },
     {
@@ -4480,7 +4528,7 @@
       "source": "assets/Objects/Generated/tar.png",
       "width": 16,
       "height": 16,
-      "sha256": "50bd2ddd315dc08c71e2eb6f32bcdbde8a0eca23e794e9621c79fa659d7d571e",
+      "sha256": "f3ede91600a568d1327e4319a4d1bce759874103bad800504f19e954cafa66bb",
       "rows": [
         "tar"
       ],
@@ -4504,6 +4552,18 @@
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": null
+        }
+      ],
+      "frameImports": [
+        {
+          "reviewId": "WA-125",
+          "frame": 0,
+          "frameSize": [
+            16,
+            16
+          ],
+          "source": "assets/Objects/Approved/Sources/WorldArt/general-6.png",
+          "sourceSha256": "b32aaf1a245f376c4faa775237d6346db7f636754b1dc81a9e158dafe88a191b"
         }
       ]
     },
@@ -5801,9 +5861,9 @@
       ],
       "path": "assets/Objects/Approved/approved_charred_stakes.png",
       "source": "assets/Objects/Generated/stakes_a.png",
-      "width": 16,
-      "height": 16,
-      "sha256": "d78c4177bd6a6042d3ded51ae064ed18ab7d89309c7c42ca31c701fc40cf6198",
+      "width": 24,
+      "height": 24,
+      "sha256": "380d334c25133ed0426a41e55af1067cc258bbb9d2c7a48d759da0f83bdd7725",
       "rows": [
         "stakes-context"
       ],
@@ -5827,6 +5887,20 @@
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": null
+        }
+      ],
+      "frameImports": [
+        {
+          "reviewId": "WA-002",
+          "sheet": "assets/Objects/Approved/approved_charred_stakes.png",
+          "frame": 0,
+          "frameSize": [
+            24,
+            24
+          ],
+          "source": "assets/Objects/Approved/Sources/WorldArt/approved_charred_stakes-native.png",
+          "sourceSha256": "380d334c25133ed0426a41e55af1067cc258bbb9d2c7a48d759da0f83bdd7725",
+          "native": true
         }
       ]
     },
@@ -5865,6 +5939,30 @@
           "preserveLuminance": true,
           "colourMap": null,
           "paletteStrength": null
+        }
+      ]
+    },
+    {
+      "key": "bramble",
+      "keys": [
+        "bramble"
+      ],
+      "path": "assets/Objects/Approved/bramble.png",
+      "width": 24,
+      "height": 24,
+      "sha256": "0b1fa85c0edc14b3c3611c978a1507a77cf74fb18601ac7c5276294e9436cc7c",
+      "frameImports": [
+        {
+          "reviewId": "bramble",
+          "sheet": "assets/Objects/Approved/bramble.png",
+          "frame": 0,
+          "frameSize": [
+            24,
+            24
+          ],
+          "source": "assets/Objects/Approved/Sources/WorldArt/bramble-native.png",
+          "sourceSha256": "0b1fa85c0edc14b3c3611c978a1507a77cf74fb18601ac7c5276294e9436cc7c",
+          "native": true
         }
       ]
     }

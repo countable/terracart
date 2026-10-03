@@ -71,7 +71,7 @@ test('combat: a TAMED slime is a pet, not a target', () => {
 
 test('combat: max HP comes from the monster table, then the fauna ladder', () => {
   // Read the goblin's HP FROM the table rather than pinning a number here: the
-  // table is the source (and CAVE_ENEMY_MUL doubles every kind in it), so a
+  // table is the source (enemy_roster.js's approved values), so a
   // literal would only pin how stale this copy is. What is being tested is
   // which source answers, not what the number happens to be.
   assert.eq(Combat.creatureMaxHp('goblin'), MONSTERS.goblin.hp, 'monster table wins');
@@ -152,7 +152,7 @@ test('combat: the shipping melee wheel lands BLOWS, not a per-frame drain', () =
   // blow (see the melee-reach test below) — a swing must be both due and in
   // range — so the pin allows it and still refuses a blow that lands without
   // spending the clock.
-  assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS \* Combat\.trainingIntervalMul\(this\.save\);/.test(wheel),
+  assert.truthy(/if \((?:inSwing && )?now >= this\._nextBlowT\) \{\s*\n\s*this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\)\) \* Combat\.trainingIntervalMul\(this\.save\);/.test(wheel),
     'the wheel gates each blow on Combat.MELEE_INTERVAL_MS');
   assert.truthy(/Combat\.meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\)(?:, [^)]+)?\)/.test(wheel),
     'and one blow is one interval of the rung, dragon bonus included');
@@ -289,7 +289,7 @@ test('combat: a shot carries its tier\'s FULL melee-equivalent rate, weighted by
   for (const slot of Combat.RANGED_SLOTS) {
     for (const tier of [1, 4, 7]) {
       const relics = { [slot]: { tier } };
-      const want = Math.max(1, Math.round(Combat.dpsForDurationMs(toolDurationMs(relics, slot))
+      const want = Math.max(1, Math.round(Combat.dpsForDurationMs(toolDurationMs({ [slot]: { tier: Combat.SHOT[slot].damageTier || tier } }, slot))
                             * (Combat.SHOT_DMG_MUL[slot] || 1)
                             * Combat.fireIntervalMs(slot) / 1000));
       assert.eq(Combat.shotDamage(relics, slot), want,
@@ -759,33 +759,38 @@ test('combat: the health tint reads full → hurt → nearly dead', () => {
 // upgrades for farming quietly bought combat range too.
 
 test('combat: melee reaches exactly as far as a melee monster does', () => {
-  assert.eq(Combat.MELEE_REACH_CELLS, 1,
-    'one cell — the range every melee monster in the MONSTERS table attacks at');
-  assert.eq(Combat.meleeReachM(COMBAT_CELL_M), COMBAT_CELL_M,
-    'and in metres it is one cell of whatever the world is scaled to');
+  assert.eq(Combat.MELEE_REACH_CELLS, 0.6,
+    'arm\'s length — the range an ordinary melee monster in the MONSTERS table attacks at');
+  assert.eq(Combat.meleeReachM(COMBAT_CELL_M), 0.6 * COMBAT_CELL_M,
+    'and in metres it is that share of whatever the world is scaled to');
   // The real registered table — combat.js owns it, so this reads the ranges
   // the game actually attacks at rather than a regex over app.js's source.
-  const ranges = Object.values(Combat.MONSTERS).map((m) => m.range);
-  assert.gt(ranges.length, 3, 'found the monster ranges');
-  const melee = ranges.filter((r) => r <= 1);
-  assert.gt(melee.length, 0, 'there are melee monsters at all');
-  for (const r of melee) {
-    assert.eq(r, Combat.MELEE_REACH_CELLS,
-      'a melee monster reaches exactly what the player does — one number, both sides');
+  // Melee is a blow: a ghost's touch and a bomb's blast keep their own reach.
+  const melee = Object.entries(Combat.MONSTERS).filter(([kind, m]) => m.range <= 1 && (m.dmg || m.steals)
+    && (EnemyRoster.get(kind)?.attackType ?? 'melee') === 'melee');
+  assert.gt(melee.length, 3, 'found the melee monsters');
+  // Only a declared long reach (a swooping pass, a big body's arms) may
+  // out-reach the player's fist; nothing reaches less.
+  const LONG = new Set(['bat', 'vampire_bat', 'gull', 'raven', 'storm_gull', 'brute', 'hell_brute', 'obsidian_brute',
+    'orc', 'minotaur', 'giant_slime', 'giant_spider', 'giant_skeleton', 'giant_cave_slime', 'giant_crab',
+    'red_demon', 'armoured_demon']);
+  for (const [kind, m] of melee) {
+    if (LONG.has(kind)) assert.gte(m.range, Combat.MELEE_REACH_CELLS, kind);
+    else assert.eq(m.range, Combat.MELEE_REACH_CELLS, `${kind}: a melee monster reaches exactly what the player does`);
   }
-  assert.truthy(ranges.some((r) => r > Combat.MELEE_REACH_CELLS),
+  assert.truthy(Object.values(Combat.MONSTERS).some((m) => m.range > 1),
     'and the goblin archer still out-ranges a fist, which is what makes it archer');
 });
 
 test('combat: the melee test is symmetric with the monster\'s own attack gate', () => {
-  const C = COMBAT_CELL_M;
+  const C = COMBAT_CELL_M, R = Combat.MELEE_REACH_CELLS * C;
   // Centre-to-centre, the same measure wanderCreatures runs from the creature
   // to the player's FEET — so "it can bite me" and "I can hit it" agree.
   assert.truthy(Combat.inMeleeReach(0, 0, 0, 0, C), 'on top of it');
-  assert.truthy(Combat.inMeleeReach(C, 0, 0, 0, C), 'exactly one cell east');
-  assert.truthy(Combat.inMeleeReach(0, -C, 0, 0, C), 'exactly one cell north');
-  assert.falsy(Combat.inMeleeReach(C * 1.01, 0, 0, 0, C), 'a hair past one cell');
-  assert.falsy(Combat.inMeleeReach(C, C, 0, 0, C), 'the diagonal is √2 cells — out');
+  assert.truthy(Combat.inMeleeReach(R, 0, 0, 0, C), 'exactly arm\'s length east');
+  assert.truthy(Combat.inMeleeReach(0, -R, 0, 0, C), 'exactly arm\'s length north');
+  assert.falsy(Combat.inMeleeReach(R * 1.01, 0, 0, 0, C), 'a hair past it');
+  assert.falsy(Combat.inMeleeReach(R, R, 0, 0, C), 'the diagonal is √2 of it — out');
   // The reach the LIT diamond would have granted, at every rung, is out of it.
   for (const upgrades of [0, 3, 6]) {
     const litCells = Math.min(5.5, 2.5 + 0.5 * upgrades);
@@ -798,18 +803,17 @@ test('combat: every melee gate the player has runs the shared test', () => {
   // Comments are stripped first: these files EXPLAIN the change ("this used to
   // be cellInReach"), and a prose mention is not a call site.
   const code = (src) => src.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
-  // Tap to fight (interact.js) — and NOT through tooFar, which gates every tap
-  // in the game: feeding, catching, petting and hunting keep the lit reach.
+  // Enemy taps are handled without choosing a combat target. Feeding,
+  // catching, petting and hunting keep their existing tap interactions.
   const tap = INTERACT_SRC.slice(INTERACT_SRC.indexOf('if (Combat.isEnemy(target)) {'));
   const head = code(tap.slice(0, tap.indexOf('\n    }')));
-  assert.truthy(/Combat\.inMeleeReach\(target\.x, target\.y, px, py, scene\.cellM\)/.test(head),
-    'a tapped fight is gated at arm\'s length');
-  assert.truthy(/Too far to swing\./.test(head), 'and it says so rather than failing silently');
+  assert.falsy(/startCombat/.test(head), 'tapping a foe cannot select a melee target');
+  assert.truthy(/return true/.test(head), 'the enemy tap is consumed');
 
   // Melee auto-engage (app.js _combatTick) — was cellInReach.
   const auto = SCENE_SRC.slice(SCENE_SRC.indexOf('Gear.meleeActive(this.save) &&'));
   const autoHead = code(auto.slice(0, auto.indexOf('startCombat(best')));
-  assert.truthy(/Combat\.inMeleeReach\(c\.x, c\.y, px, py, this\.cellM\)/.test(autoHead),
+  assert.truthy(/Combat\.inMeleeReach\(c\.x, c\.y, px, py, this\.cellM, Gear\.activeWeapon\(this\.save\)\)/.test(autoHead),
     'a sword picks up only what it can actually reach');
   assert.falsy(/cellInReach/.test(autoHead),
     'the lit reach must not choose the foe a sword auto-engages');
@@ -828,7 +832,7 @@ test('combat: every melee gate the player has runs the shared test', () => {
   // that kept dipping back into reach, because that resets the grace.
   const swing = SCENE_SRC.slice(SCENE_SRC.indexOf('if (wp.combat) {\n      const c = wp.combat;'));
   const swingHead = code(swing.slice(0, swing.indexOf('const blow = Combat.meleeSwingDamage')));
-  assert.truthy(/Combat\.inMeleeReach\(c\.x, c\.y, px, py, this\.cellM\)/.test(swingHead),
+  assert.truthy(/Combat\.inMeleeReach\(c\.x, c\.y, px, py, this\.cellM, Gear\.activeWeapon\(this\.save\)\)/.test(swingHead),
     'a blow only lands while the foe is within swinging distance');
   assert.truthy(/inSwing && now >= this\._nextBlowT/.test(swingHead),
     'the reach test gates the blow alongside the cadence, not instead of it');
@@ -926,7 +930,7 @@ test('combat: the bow burns a wood every 20 arrows and will not fire without one
   assert.eq(JSON.stringify(Combat.SHOT.bow.ammo), JSON.stringify({ id: 'wood', shots: 20 }), 'the bow\'s ammo');
   assert.falsy(Combat.SHOT.staff.ammo, 'the staff pays in energy, not wood');
   const app = SCENE_SRC;
-  assert.truthy(/if \(ammo && Inventory\.count\(this\.save, ammo\.id\) < 1\) \{/.test(app), 'no wood, no arrow');
+  assert.truthy(/if \(ammo && \(ammo\.currency \? \(this\.save\.money \|\| 0\) : Inventory\.count\(this\.save, ammo\.id\)\) < 1\) \{/.test(app), 'no wood, no arrow');
   assert.truthy(/if \(!this\._ammoDryWarned\) \{\s*this\._ammoDryWarned = true;/.test(app), 'the dry message fires once');
   assert.truthy(/if \(this\.save\.ammoShots >= ammo\.shots\) \{\s*this\.save\.ammoShots = 0;\s*Inventory\.remove\(this\.save, ammo\.id, 1\);/.test(app),
     'every 20th arrow takes one wood, counted in the save');
@@ -986,4 +990,50 @@ test('sight: each approved kind uses its declared vision', () => {
     assert.falsy(Combat.seesPlayer(row.id, (sight + 0.5) * m, m));
     assert.gte(sight, row.range);
   }
+});
+
+
+test('alternate melee: material-equivalent blows and distinct reach/cadence', () => {
+  for (const tier of [1, 3, 5]) {
+    const relics = { sword: { tier: 7 }, dagger: { tier }, spear: { tier } };
+    const sword = { sword: { tier } };
+    for (const playerClass of [undefined, 'enforcer']) {
+      const blow = Combat.meleeSwingDamage(sword, 1, playerClass);
+      assert.eq(Combat.meleeSwingDamage(relics, 1, playerClass, 'dagger'), blow);
+      assert.eq(Combat.meleeSwingDamage(relics, 1, playerClass, 'spear'), blow);
+      assert.eq(Combat.meleeDps(relics, playerClass, 'spear'), Combat.meleeDps(sword, playerClass) / 2);
+    }
+  }
+  assert.eq(Combat.meleeIntervalMs('dagger'), Combat.MELEE_INTERVAL_MS);
+  assert.eq(Combat.meleeIntervalMs('spear'), Combat.MELEE_INTERVAL_MS * 2);
+  const fist = Combat.MELEE_REACH_CELLS * 7;
+  assert.truthy(Combat.inMeleeReach(fist * 0.75, 0, 0, 0, 7, 'dagger'));
+  assert.falsy(Combat.inMeleeReach(fist * 0.75 + 0.01, 0, 0, 0, 7, 'dagger'));
+  assert.gt(fist * 0.75, 0.35 * 7, 'a dagger reaches a foe stopped at its closing gap');
+  assert.truthy(Combat.inMeleeReach(fist * 2, 0, 0, 0, 7, 'spear'));
+  assert.falsy(Combat.inMeleeReach(fist * 2 + 0.01, 0, 0, 0, 7, 'spear'));
+});
+
+test('musket: every material fires gold bow damage with one coin and a round ball', () => {
+  for (const tier of [1, 3, 5]) {
+    for (const playerClass of [undefined, 'hunter']) {
+      assert.eq(Combat.shotDamage({ musket: { tier } }, 'musket', playerClass),
+        Combat.shotDamage({ bow: { tier: 4 } }, 'bow', playerClass));
+    }
+    const shot = Combat.spawnShot('musket', 0, 0, { x: 1, y: 0 }, 7, 20, tier, 2.5);
+    const arrow = Combat.spawnShot('bow', 0, 0, { x: 1, y: 0 }, 7, 20, 4, 2.5);
+    assert.eq(shot.projectile, 'musket_ball');
+    assert.gt(shot.dotPx, 0);
+    assert.eq(shot.speedMps, arrow.speedMps);
+    assert.eq(shot.rangeM, arrow.rangeM);
+    assert.eq(shot.radiusM, arrow.radiusM);
+    assert.eq(shot.pierce, arrow.pierce);
+  }
+  assert.eq(Combat.fireIntervalMs('musket'), Combat.fireIntervalMs('bow'));
+  assert.eq(Combat.SHOT.musket.ammo.currency, true);
+  assert.eq(Combat.SHOT.musket.ammo.shots, 1);
+  assert.eq(Combat.SHOT.musket.aim, Combat.SHOT.bow.aim);
+  assert.eq(Combat.TRAINING_SLOT_KIND.musket, 'ranged');
+  assert.truthy(/if \(shot && ammo\?\.currency\) \{[\s\S]*?addMoney\(this\.save, -1\);[\s\S]*?else if \(shot && ammo\)/.test(SCENE_SRC),
+    'coins are charged only after firing and do not alter the bow ammo tally');
 });

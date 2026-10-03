@@ -111,13 +111,13 @@ test('wildplant table: the old one-row maps, re-read from the table', () => {
   const t = wildplantTreasure('rockfruit');
   assert.eq(t && t.bonus, 'gemfruit', 'debris still hides a gemfruit');
   assert.eq(t && t.chance, 0.1, 'at the same rate');
-  assert.eq(wildplantTreasure('shrub'), null, 'and nothing else hides anything');
+  assert.eq(wildplantTreasure('shrub'), null, 'a shrub has no treasure roll');
 });
 
 test('wildplant table: an unlisted crop is the ordinary wild plant', () => {
   // The default is the whole point: the vast majority of crops have no row,
   // and every one of them must behave exactly as it did before the table.
-  for (const crop of ['longgrass', 'nut', 'shell', 'wildrose', 'marigold', 'rainberry']) {
+  for (const crop of ['nut', 'shell', 'wildrose', 'marigold', 'rainberry']) {
     assert.eq(wildplantRule(crop), null, `${crop} has no row`);
     assert.eq(wildplantOutput(crop), crop, `${crop} drops itself`);
     assert.eq(wildplantWorkRelic(crop), null, `${crop} is picked instantly`);

@@ -925,7 +925,7 @@
   // ironwork stays UI_LAMP_GOLD whatever the street: the metal is the lamp,
   // the glow is the street's.
   const lampGlowHex = (g) => ((typeof g === 'string' && /^#[0-9a-f]{6}$/i.test(g)) ? g : LAMP_INK);
-  function paintLamp(cx, size, glowHex) {
+  function paintLamp(cx, size, glowHex, broken = false) {
     const S = size || LAMP_TEX_PX;
     const c = S / 2;
     const gy = S * LAMP_GROUND_FRAC;          // the ground: where the lamp stands
@@ -933,7 +933,14 @@
     const lw = Math.max(1, S * 0.012);
     const glow = lampRgb(lampGlowHex(glowHex)), gold = lampRgb(LAMP_GOLD);
     const edge = lampMix(gold, LAMP_DARK, LAMP_EDGE_MIX);
-    const rgba = (c3, al) => `rgba(${c3[0]},${c3[1]},${c3[2]},${al})`;
+    const rgba = (c3, al) => {
+      // Weathered broken metal retains the standing lamp's hue and shading.
+      if (broken) {
+        const grey = c3[0] * .2126 + c3[1] * .7152 + c3[2] * .0722;
+        c3 = c3.map(v => Math.round(grey + (v - grey) * .35));
+      }
+      return `rgba(${c3[0]},${c3[1]},${c3[2]},${al})`;
+    };
     // Crisp ochre/gold material bands. Only the metal uses this small ramp;
     // coloured glass, bloom and the street's own light stay continuous.
     const metalRamp = [[76,48,24],[108,67,29],[155,101,38],gold,[230,215,163]];
@@ -1010,6 +1017,7 @@
       }
     };
 
+    if (!broken) {
     // 1. THE POOL. A flat ellipse of the lamp's own violet on the ground it
     //    stands on, falling to nothing: what says "this thing is lit" at noon,
     //    when the lightmap has nothing to multiply. Squashed rather than
@@ -1037,6 +1045,7 @@
     }
     cx.fillStyle = bloom;
     cx.fillRect(c - br, gcy - br, br * 2, br * 2);
+    }
     // 3. THE GROUND SHADOW, thrown down-right of the plinth — the side every
     //    sprite here shadows on — and squashed flat: it lies on the road.
     cx.fillStyle = `rgba(${LAMP_DARK[0]},${LAMP_DARK[1]},${LAMP_DARK[2]},${LAMP_SHADOW_A})`;
@@ -1054,9 +1063,20 @@
       if (i === LAMP_COLUMN_ROW) order.push(LAMP_BAND_ROW);
     }
     for (const i of order) {
+      if (broken && i < LAMP_COLUMN_ROW) continue;
       const s = LAMP_PROFILE[i];
       const y0 = s.y0 * S, y1 = s.y1 * S, w0 = s.w0 * S, w1 = s.w1 * S;
-      sectionPath(y0, y1, w0, w1, s.curve);
+      if (broken && i === LAMP_COLUMN_ROW) {
+        const cut = lampTilt(.402) * S;
+        cx.beginPath();
+        cx.moveTo(c - w0, cut - lw);
+        cx.lineTo(c - w0 * .2, cut + lw * 1.4);
+        cx.lineTo(c + w0 * .4, cut + lw * .4);
+        cx.lineTo(c + w0, cut + lw * 2);
+        cx.lineTo(c + w1, y1);
+        cx.quadraticCurveTo(c, y1 + w1 * LAMP_VIEW_K, c - w1, y1);
+        cx.closePath();
+      } else sectionPath(y0, y1, w0, w1, s.curve);
       cx.fillStyle = metal(c - Math.max(w0, w1), c + Math.max(w0, w1), s.tone || 0);
       cx.fill();
       strokeEdge();
@@ -1068,7 +1088,7 @@
       // The CROSS-ARM goes on once the column is up: a thin bar with a ball at
       // each end, under the lantern — the ladder rest every cast-iron lamp
       // wears, and the one piece that reads as ornament rather than structure.
-      if (i === LAMP_BAND_ROW) {
+      if (!broken && i === LAMP_BAND_ROW) {
         const ay0 = S * LAMP_ARM.y0, ay1 = S * LAMP_ARM.y1, aw = S * LAMP_ARM.w;
         const ah = ay1 - ay0, amy = (ay0 + ay1) / 2, ab = S * LAMP_ARM.ball;
         cx.beginPath();
@@ -1084,11 +1104,16 @@
         }
       }
     }
+    if (broken) return;
     // 5. THE FINIAL: the ball on the crown, the top of the whole lamp.
     const fr = S * LAMP_FINIAL.r, fy = S * LAMP_FINIAL.cy;
     cx.beginPath(); cx.arc(c, fy, fr, 0, Math.PI * 2);
     cx.fillStyle = metal(c - fr, c + fr, 0.15); cx.fill(); strokeEdge();
   }
+
+  // Baked into the existing cobble sheet's dark-lamp frames by the art tool.
+  // Uses the same 45-degree profile, plinth and moulding as the restored lamp.
+  function paintBrokenLamp(cx, size) { paintLamp(cx, size, undefined, true); }
 
   // The kerb: a hairline pale line along the outer edge of a restored band —
   // the one cue that says "this street has a built edge" rather than "this
@@ -1918,7 +1943,7 @@
   }
 
   global.RoadOverlay = { lampSitesForTile, lampReservedCells, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
-                         offsetLine, emitCarpetStrip, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
+                         offsetLine, emitCarpetStrip, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintLamp, paintBrokenLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans };

@@ -101,7 +101,7 @@ const FILES = [
   // Influence zones — the anchor field, the halo terrain and the nexus
   // dressing. Pure (reads WorldGen at CALL time), before worldgen.js like the
   // page loads it.
-  'zones.js', 'zone_variant_data.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js',
+  'zones.js', 'zone_variant_data.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
   'multiplayer.js', 'placed_floor.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'home.js',
   // Traps — placement + costs. Pure (it reads WorldGen at CALL time), so it
   // loads either side of worldgen.js; index.html puts it first, so do we.
@@ -110,7 +110,7 @@ const FILES = [
   // reads WorldGen at CALL time like traps.js, so it loads beside it.
   'lairs.js',
   'worldgen.js', 'save.js',
-  'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'savemigrate.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'rarity.js', 'loot.js',
+  'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, … — prices, stock, the
   // day gate, the curio collection, the training bought). Pure; reads the
   // modules around it at CALL time.
@@ -140,9 +140,10 @@ const FILES = [
   // Same deal for the POLYGONAL building overlay: pure draw math over WorldGen
   // + a stub fill target, so its projection, painter-rule ordering, tier
   // styling and claim shading pin headlessly.
-  'building_overlay.js',
+  'castle_styles.js', 'building_overlay.js',
   // The browser sandbox now exposes a pure tile builder. Loading it here pins
   // the same authored scenes, vector roads and dressing that install() uses.
+  'sandbox_destinations.js',
   'sandbox.js',
   // render.js needs Phaser to DRAW, but it deliberately reads no globals at
   // load time (see the CANVAS_W comment in drawObjects), so loading it here is
@@ -213,7 +214,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   // hides and whether it glows. wildplant_table.test.js drives the accessors,
   // and interact.js / lighting.js / render.js are the three readers.
   WILDPLANT_RULES, wildplantRule, wildplantOutput, wildplantWorkRelic,
-  wildplantWorkCost, wildplantTreasure, wildplantLight, wildplantRoll,
+  wildplantWorkCost, wildplantTreasure, wildplantLight,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR,
   // Pocketing a tame pet and the carried raised row — pet_pickup.test.js.
@@ -644,17 +645,13 @@ const starterWrapper = (name) => {
 // The monster table, the defeat bounty derived from it and the fauna's blocked
 // terrain all live in combat.js now — real module exports, loaded above with
 // the rest of the bundle. They used to be lifted out of app.js as source text
-// (the table, its giants, the cave doubling and every constant around them),
+// (the table and every constant around it),
 // which is what a missing extraction looks like: the tests below run the
 // SHIPPING table and the SHIPPING formula because there is only one of each.
 // Republished here under their bare names so the test files reach them the way
 // app.js does.
 Object.assign(ctx, {
   MONSTERS: ctx.Combat.MONSTERS,
-  MONSTERS_BASELINE: ctx.Combat.MONSTERS_BASELINE,
-  CAVE_ENEMY_MUL: ctx.Combat.CAVE_ENEMY_MUL,
-  GIANT_HP_MUL: ctx.Combat.GIANT_HP_MUL,
-  GIANT_DEPTH_STEP: ctx.Combat.GIANT_DEPTH_STEP,
   isMonster: ctx.Combat.isMonster,
   enemyBounty: ctx.Combat.enemyBounty,
   ENEMY_COIN_PER_HP: ctx.Combat.ENEMY_COIN_PER_HP,
@@ -1111,7 +1108,7 @@ Object.assign(ctx, {
   // The tree + mineralrock RENDER_SPEC entries (a const inside drawObjects, so
   // not reachable as a value) — tool_gate_fade.test.js pins that both `after`
   // hooks apply the shared tool-gate fade rather than a local copy of it.
-  ctx.RENDER_TREE_ROCK_SPEC_SRC = slice(readSrc('render.js'), '    tree:   { key: (o) => {', '    // Stone pillar', 'the tree/mineralrock render specs');
+  ctx.RENDER_TREE_ROCK_SPEC_SRC = slice(readSrc('render.js'), '    tree:   { key: (o) => {', '    // STREET VARIANT PROPS', 'the tree/mineralrock render specs');
   // The fruit-tree life-cycle frame table + its RENDER_SPEC entry, and the
   // pass that draws the fruit ON the tree — all inside drawObjects, so
   // fruit_overlay.test.js pins them as text: what has to hold is that the

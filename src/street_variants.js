@@ -153,6 +153,7 @@
   const OVERGROWN_STEP_M = 12, OVERGROWN_MAX = 42;
   const ORCHARD_STEP_M = 12, ORCHARD_MAX = 80;
   const TOADSTOOL_STEP_M = 6, TOADSTOOL_MAX = 100;
+  const TOADSTOOL_GIANT_EVERY_GROUPS = 3;
   const BURNED_STEP_M = 8, BURNED_MAX = 100;
   const BURNED_TORCH_STEP_M = 32;
   const BARRICADE_STEP_M = 12, BARRICADE_MAX = 80;
@@ -169,6 +170,9 @@
   // The hedged lane's carpet: centred on the first verge cell (where the
   // hedges stand, so it shows at every garden gate), this many cells wide.
   const CARPET_WIDTH_CELLS = 0.6;
+  const TERRAIN_VERGE_CELLS = 1.5;
+  const THORNY_SHRINE_RADIUS_CELLS = 2;
+  const THORNY_BRAMBLE_COVERAGE = 0.5;
   const SNARE_CHEST_TIER = 3;
   const SNARE_TRAP_RADIUS_CELLS = 2;
   const SNARE_MIN_TRAPS = 8;
@@ -201,7 +205,7 @@
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Hedges line the road, with gaps at the garden gates. You look through as you pass.',
       flash: 'A hedged lane, still kept.' },
-    { id: 'overgrown', terrain: 'FOREST', affinities: ['woodland'], size: 'minor', share: 0.08, rung: 'common',
+    { id: 'overgrown', terrain: 'FOREST', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
       stone: { weathered: '#465b42', restored: '#5d7953' }, lampDensity: 1,
       carpet: '#9caa55', carpetWidthCells: 0.28, carpetFeatherCells: 0.14,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
@@ -221,7 +225,7 @@
       // The diamond marks the ancient religion; hedged lanes bear the ruling crown.
       carpet: '#64517d', emblem: 'diamond', emblemInk: '#c5b4d5',
       words: /(church|chapel|abbey|kirch|kloster|pilgrim|cross|saint|\bst\b|priest|minster|\bdom\b|mission)/i,
-      lampGlow: '#f2eee0', attracts: { crow: 0.5 },
+      lampGlow: '#f2eee0', attracts: { crow: 0.1 },
       story: 'street_pilgrim', title: "Pilgrim's Way",
       body: 'A waystone stands beside the road. You rest your hand in its smooth, worn hollow.',
       flash: 'A waystone, worn smooth.' },
@@ -229,7 +233,9 @@
       stone: { weathered: '#806438', restored: '#c79a48' }, lampDensity: LANTERN_SPACING_DIV,
       words: /(lantern|lamp|light|candle|latern)/i,
       // No `attracts`: its marks lie on the major band + verge, all inside
-      // the kerb buffer, where no animal is seated (WorldGen.isFoeCell).
+      // the kerb buffer — the road is never a lure, and the spawn gate
+      // (WorldGen.isSpawnCell(…, creatureSpawnClass(kind))) keeps every fast
+      // animal out of it.
       lampGlow: '#ffb347',
       story: 'street_lantern', title: 'Lantern Row',
       body: 'Lamp posts line the road, close enough to light the whole street. You walk between the rows of lamps.',
@@ -303,6 +309,13 @@
       lampGlow: '#d58b52', story: 'street_snare', art: 'street_snare', title: 'Snare Lane',
       body: 'A chest sits beside the lane, surrounded by iron traps. You stop short of the open jaws in the grass.',
       flash: 'Iron teeth around a chest.' },
+    // Append so saved mark codes retain their existing meanings.
+    { id: 'thorny', terrain: 'FOREST', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'uncommon',
+      stone: { weathered: '#514638', restored: '#8c7654' }, lampDensity: 1,
+      sectionMaxM: 250, words: /(thorn|bramble|briar|brier)/i,
+      lampGlow: '#b1bd78', story: 'street_thorny', art: 'street_overgrown', title: 'Thorny Path',
+      body: 'Tangled brambles crowd both sides of the path. You follow the narrow opening between their thorns.',
+      flash: 'Brambles crowd the path.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
@@ -401,7 +414,7 @@
     let cumulative = 0;
     const roll = u01('street|' + key);
     for (const row of STREET_VARIANTS) {
-      if (row.size !== size || row.id === 'golden') continue;
+      if (row.size !== size || row.id === 'golden' || row.id === 'thorny') continue;
       const share = row.id === 'hedgerow' || row.id === 'overgrown' ? 0.10 : row.share;
       cumulative += name && row.words && row.words.test(name)
         ? Math.min(NUDGED_SHARE_MAX, share * (row.nudge || NAME_NUDGE)) : share;
@@ -907,7 +920,7 @@
     return best;
   }
 
-  // Reserve the full band and first verge cell of each themed street,
+  // Reserve the full band and themed verge of each themed street,
   // including deliberate gaps between furniture. Test cell squares against
   // the geometry; sample spacing or a missed loop endpoint cannot make holes.
   function* areaSteps(index, N) {
@@ -922,7 +935,7 @@
     for (const rec of (index.dressingLines || index.lines)) {
       if (!rec.variant) continue;
       yield 'street area';
-      const radius = rec.halfW / cellM + 1;
+      const radius = rec.halfW / cellM + TERRAIN_VERGE_CELLS;
       for (let j = 1; j < rec.line.length; j++) {
         if ((++segments & 127) === 0) yield 'street area segments';
         const a = rec.line[j - 1], b = rec.line[j];
@@ -952,7 +965,7 @@
     return root.WorldGen?.T[VARIANT_BY_ID[variant]?.terrain] ?? null;
   }
 
-  // Select all themes before painting. Cell centres in the one-cell-wide band
+  // Select all themes before painting. Cell centres in the 1.5-cell-wide band
   // outside the road receive its terrain; intersections prefer the nearest
   // road edge, with a stable key breaking ties. Source access reasons remain
   // authoritative: a cosmetic commercial verge does not become private land.
@@ -987,7 +1000,7 @@
     let candidates = 0;
     for (const rec of records) {
       yield 'street terrain lines';
-      const half = rec.halfW / WG.CELL_M, radius = half + 1;
+      const half = rec.halfW / WG.CELL_M, radius = half + TERRAIN_VERGE_CELLS;
       for (let j = 1; j < rec.line.length; j++) {
         const a = rec.line[j - 1], b = rec.line[j];
         const ax = a.x * N / ext, ay = a.y * N / ext;
@@ -1004,7 +1017,7 @@
             if (!WG.isWalkable(here) || WG.isCobbleTerrain(here) || WG.isBuildingTerrain(here) || here === WG.T.PIER) continue;
             const t = len2 ? Math.max(0, Math.min(1, ((x+.5-ax)*dx + (y+.5-ay)*dy)/len2)) : 0;
             const distance = Math.hypot(x+.5-ax-t*dx, y+.5-ay-t*dy) - half;
-            if (distance <= 0 || distance > 1 || distance >= nearest[i] - 1e-6) continue;
+            if (distance <= 0 || distance > TERRAIN_VERGE_CELLS || distance >= nearest[i] - 1e-6) continue;
             nearest[i] = distance;
             grid[i] = terrainFor(rec.variant);
             painted[i] = 1;
@@ -1280,7 +1293,7 @@
     // square (tile-local MVT points), in line order.
     const streetEnds = new Map(), habitatSeats = new Set(), snareSeats = new Set();
     // Street key → its dressed pieces here, for the street shrines.
-    const shrineStreets = new Map();
+    const shrineStreets = new Map(), thornyShrines = new Set();
     for (const rec of (idx.dressingLines || idx.lines)) {
       const v = rec.variant;
       if (!v) continue;
@@ -1289,7 +1302,7 @@
       mark(rec, row.code);
       const spans = S.tileSpans(rec.line, gM, ext);
       if (!spans.length) continue;
-      if (root.Shrines && root.Shrines.kindForStreet(v)) {
+      if (v !== 'thorny' && root.Shrines && root.Shrines.kindForStreet(v)) {
         if (!shrineStreets.has(rec.key)) shrineStreets.set(rec.key, { v, recs: [] });
         shrineStreets.get(rec.key).recs.push({ rec, spans });
       }
@@ -1363,6 +1376,47 @@
               WG.cellId('hedge', tx, ty, ix, iy), { _street: v, _streetArt: 'clipped' }));
           }
         });
+      } else if (v === 'thorny') {
+        const bramble = (ix, iy) => {
+          claim(ix, iy);
+          res.wildplants.push(WG.makeWildplant('shrub', cx(ix), cy(iy),
+            WG.cellId('bramble', tx, ty, ix, iy), { _street: v, _streetArt: 'bramble' }));
+        };
+        // Reserve the selected shrine before filling its verge. Two complete
+        // shrub rings enclose it, connected to the verge but clear of the road.
+        // Cutting or burning an approach uses the ordinary shrub picked ledger.
+        if (!thornyShrines.has(rec.key) && streetShrineChosen(rec.key)) {
+          const length = S.lineLengthM(rec.line, gM), radius = THORNY_SHRINE_RADIUS_CELLS;
+          sampleLine(rec.line, gM, length + CELL_M, length / 2, (s, x, y, nx, ny) => {
+            if (!S.covers(spans, s)) return;
+            for (const side of [1, -1]) {
+              const off = side * (rec.halfW + (radius + 1.5) * CELL_M);
+              const ix = cellOfM(x + nx * off), iy = cellOfM(y + ny * off);
+              if (!hoardOk(ix, iy)) continue;
+              const ring = [];
+              for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
+                if (dx || dy) ring.push({ ix: ix + dx, iy: iy + dy });
+              }
+              if (!ring.every(c => cellOk(c.ix, c.iy))) continue;
+              claim(ix, iy);
+              res.objects.push(WG.makeObject('grove_shrine', cx(ix), cy(iy),
+                WG.cellId('street_shrine', tx, ty, ix, iy),
+                { _shrineStreet: v, shrineKind: root.Shrines.kindForStreet(v) }));
+              for (const c of ring) bramble(c.ix, c.iy);
+              thornyShrines.add(rec.key);
+              break;
+            }
+          });
+        }
+        // Half-cell samples consider three rows on each verge. A stable cell
+        // hash keeps half the seats; shrine rings above remain fully enclosed.
+        sampleLine(rec.line, gM, CELL_M / 2, CELL_M / 4, (s, x, y, nx, ny) => {
+          if (!S.covers(spans, s)) return;
+          for (const side of [1, -1]) for (let k = 1; k <= VERGE_MAX_CELLS; k++) {
+            const c = verge(rec, x, y, nx, ny, side, k);
+            if (c && u01('thorny-coverage|' + WG.cellId('bramble', tx, ty, c.ix, c.iy)) < THORNY_BRAMBLE_COVERAGE) bramble(c.ix, c.iy);
+          }
+        });
       } else if (v === 'overgrown') {
         let placed = 0;
         const length = rec.line.slice(1).reduce((m, p, i) => m + Math.hypot(p.x - rec.line[i].x, p.y - rec.line[i].y) * gM, 0);
@@ -1379,7 +1433,8 @@
         });
       } else if (v === 'toadstool') {
         // Repeating loose scallops: three caps, a breathing gap, then the
-        // opposite verge. Setback changes within each group, all spawn-gated.
+        // opposite verge. Every third group has a giant at its set-back center;
+        // setback changes within each group, all spawn-gated.
         let placed = 0, sample = 0;
         sampleLine(rec.line, gM, TOADSTOOL_STEP_M, TOADSTOOL_STEP_M / 2, (s, x, y, nx, ny) => {
           const n = sample++;
@@ -1389,7 +1444,9 @@
           const c = verge(rec, x, y, nx, ny, side, n % 4 === 1 ? 2 : 1);
           if (!c) return;
           claim(c.ix, c.iy);
-          res.wildplants.push(WG.makeWildplant('mushroom', cx(c.ix), cy(c.iy),
+          const crop = n % 4 === 1 && Math.floor(n / 4) % TOADSTOOL_GIANT_EVERY_GROUPS === 0
+            ? 'giant_mushroom' : 'mushroom';
+          res.wildplants.push(WG.makeWildplant(crop, cx(c.ix), cy(c.iy),
             WG.cellId('wp_ts', tx, ty, c.ix, c.iy), { _street: v }));
           placed++;
         });
@@ -1407,7 +1464,7 @@
             const apple = (Math.floor(s / ORCHARD_STEP_M) + (side === 1 ? 0 : 1)) % 2 === 0;
             res.objects.push(WG.makeObject(apple ? 'fruittree' : 'tree', cx(c.ix), cy(c.iy),
               WG.cellId(apple ? 'ft_lane' : 'tree_lane', tx, ty, c.ix, c.iy),
-              apple ? { species: 'apple', wild: true, _street: v }
+              apple ? { species: WG.fruitTreeSpecies(WG.cellHash(tx, ty, c.ix, c.iy)), wild: true, _street: v }
                 : { species: 'maple', variant: 3, _street: v }));
             placed++;
           }
@@ -1586,8 +1643,8 @@
     // THE CAFÉ HOARDS: the index's hoard POIs in hash order, the first
     // HOARDS_PER_TILE that seat. A hoard lies BESIDE its POI on public ground
     // within HOARD_SEAT_CELLS, on the POI's side of any major band
-    // (nearestSeat). A hoard is an ATTRACTOR (the spawn gate: OPEN ground
-    // only — out of the kerb, house, school and sensitive buffers). GUARDED
+    // (nearestSeat). A hoard is an ATTRACTOR (the spawn gate: every hard
+    // reason plus the sensitive buffer — the kerb does not refuse it). GUARDED
     // when the hoard's own cell is a foe cell: a lair candidate on it
     // (lairs.js 'cafe' tier — Lairs seats the giant as an 'enemy' too). With
     // the mask an attractor's ground IS a foe's, so every seated hoard is
@@ -1704,7 +1761,7 @@
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     HEDGE_GATE_EVERY_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, GOLDEN_COIN_AMOUNT, BARRICADE_STEP_M, BARRICADE_MAX, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
-    SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
+    THORNY_SHRINE_RADIUS_CELLS, THORNY_BRAMBLE_COVERAGE, SNARE_CHEST_TIER, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, BANDIT_STORY, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     selectionWeights, applyAffinitiesSteps, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area,

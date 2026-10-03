@@ -21,7 +21,6 @@ SOURCES = {
     'default-mushroom': ('assets/Objects/Wilderness/Props.png', (208, 0, 16, 16)),
     'default-bush': ('assets/Objects/Wilderness/bushes.png', (48, 0, 48, 32)),
     'default-tree': ('assets/Objects/Tree.png', (64, 0, 32, 48)),
-    'default-grave': ('assets/Objects/Generated/pillar_c.png', (0, 0, 16, 16)),
     'default-clay-pot': ('assets/Objects/Generated/pot.png', (0, 0, 16, 16)),
     'broken-clay-pot': ('assets/Objects/Generated/pot_smashed.png', (0, 0, 16, 16)),
 }
@@ -71,10 +70,10 @@ async def main():
     for frame, ident in enumerate(['tree-stage-0', 'tree-stage-1', 'default-tree'], start=1):
         trees.paste(images[ident], (frame * 32, 0))
     trees.save(DEST / 'trees.png')
-    for ident, filename in [('default-bush', 'bush'), ('default-grave', 'pillar_c'),
+    for ident, filename in [('default-bush', 'bush'),
                             ('default-clay-pot', 'pot'), ('broken-clay-pot', 'pot_smashed')]:
         images[ident].save(DEST / (filename + '.png'))
-    print('Exported six default recipes, matching tree growth and broken-pot state; alpha preserved.')
+    print('Exported five default recipes, matching tree growth and broken-pot state; alpha preserved.')
 
 
 if __name__ == '__main__':

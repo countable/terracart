@@ -1,0 +1,367 @@
+{
+  "version": 1,
+  "approval": "User approved WA-096, WA-098, WA-113, WA-120 (all), WA-125 and WA-133 on 2026-10-02.",
+  "packing": "Original generated crop; alpha threshold 128; nearest-neighbour fit with one pixel border; horizontally centred and bottom aligned.",
+  "wood": "The approved log is shared by all three quantity frames so map and item icon use the same art.",
+  "frames": [
+    {
+      "reviewId": "WA-096",
+      "sheet": "assets/Objects/Approved/crops.png",
+      "frame": 67,
+      "frameSize": [
+        16,
+        16
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/general-0.png",
+      "sourceSha256": "f7105cb2729a03ff0d974daafdab64e01448416ae3ebf373a0aee41ef2c64468",
+      "generatedSheet": "general.png",
+      "generatedSheetSha256": "6a394d80ad01e0bb3c44c98500fd0d5303c451acc4d58b32d076761655238dfb",
+      "generatedRect": [
+        0,
+        0,
+        418,
+        418
+      ]
+    },
+    {
+      "reviewId": "WA-098",
+      "sheet": "assets/Objects/Approved/props.png",
+      "frame": 34,
+      "frameSize": [
+        16,
+        16
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/general-1.png",
+      "sourceSha256": "8b761af4a1285120be6c2f4aad9e1047b213acb253d5d8282e8ec17914d3d9ec",
+      "generatedSheet": "general.png",
+      "generatedSheetSha256": "6a394d80ad01e0bb3c44c98500fd0d5303c451acc4d58b32d076761655238dfb",
+      "generatedRect": [
+        418,
+        0,
+        836,
+        418
+      ]
+    },
+    {
+      "reviewId": "WA-113",
+      "sheet": "assets/Objects/Approved/props.png",
+      "frame": 30,
+      "frameSize": [
+        16,
+        16
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/general-3.png",
+      "sourceSha256": "69ce4145e53034314c5744009744b5f0cbe6493983554d195f942936f470b8f0",
+      "generatedSheet": "general.png",
+      "generatedSheetSha256": "6a394d80ad01e0bb3c44c98500fd0d5303c451acc4d58b32d076761655238dfb",
+      "generatedRect": [
+        0,
+        418,
+        418,
+        836
+      ]
+    },
+    {
+      "reviewId": "WA-125",
+      "sheet": "assets/Objects/Approved/tar.png",
+      "frame": 0,
+      "frameSize": [
+        16,
+        16
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/general-6.png",
+      "sourceSha256": "b32aaf1a245f376c4faa775237d6346db7f636754b1dc81a9e158dafe88a191b",
+      "generatedSheet": "general.png",
+      "generatedSheetSha256": "6a394d80ad01e0bb3c44c98500fd0d5303c451acc4d58b32d076761655238dfb",
+      "generatedRect": [
+        0,
+        836,
+        418,
+        1254
+      ]
+    },
+    {
+      "reviewId": "WA-133",
+      "sheet": "assets/Objects/Wilderness/wood.png",
+      "frame": 0,
+      "frameSize": [
+        16,
+        16
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/general-5.png",
+      "sourceSha256": "b88be3a47075bf9c95d91dde86fcde58e5c80d1a9fd7561140994be2e64e7ab1",
+      "generatedSheet": "general.png",
+      "generatedSheetSha256": "6a394d80ad01e0bb3c44c98500fd0d5303c451acc4d58b32d076761655238dfb",
+      "generatedRect": [
+        836,
+        418,
+        1254,
+        836
+      ]
+    },
+    {
+      "reviewId": "WA-133",
+      "sheet": "assets/Objects/Wilderness/wood.png",
+      "frame": 1,
+      "frameSize": [
+        16,
+        16
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/general-5.png",
+      "sourceSha256": "b88be3a47075bf9c95d91dde86fcde58e5c80d1a9fd7561140994be2e64e7ab1",
+      "generatedSheet": "general.png",
+      "generatedSheetSha256": "6a394d80ad01e0bb3c44c98500fd0d5303c451acc4d58b32d076761655238dfb",
+      "generatedRect": [
+        836,
+        418,
+        1254,
+        836
+      ]
+    },
+    {
+      "reviewId": "WA-133",
+      "sheet": "assets/Objects/Wilderness/wood.png",
+      "frame": 2,
+      "frameSize": [
+        16,
+        16
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/general-5.png",
+      "sourceSha256": "b88be3a47075bf9c95d91dde86fcde58e5c80d1a9fd7561140994be2e64e7ab1",
+      "generatedSheet": "general.png",
+      "generatedSheetSha256": "6a394d80ad01e0bb3c44c98500fd0d5303c451acc4d58b32d076761655238dfb",
+      "generatedRect": [
+        836,
+        418,
+        1254,
+        836
+      ]
+    },
+    {
+      "reviewId": "WA-120",
+      "sheet": "assets/Objects/Generated/shrines.png",
+      "frame": 0,
+      "frameSize": [
+        16,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/shrines-0.png",
+      "sourceSha256": "ed58892903bfab1e75045e076af5052aa975f663d4f4d814a90a18b30bedff2c",
+      "generatedSheet": "shrines.png",
+      "generatedSheetSha256": "089498bbb318965b8a936d9d64047820930687ee807364c6495e339c0c7dcd60",
+      "generatedRect": [
+        0,
+        0,
+        397,
+        396
+      ]
+    },
+    {
+      "reviewId": "WA-120",
+      "sheet": "assets/Objects/Generated/shrines.png",
+      "frame": 1,
+      "frameSize": [
+        16,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/shrines-1.png",
+      "sourceSha256": "2906f5ba168d6c738b8767089409dcd8f29bac301f509d2b32cdf3bfb8538a8e",
+      "generatedSheet": "shrines.png",
+      "generatedSheetSha256": "089498bbb318965b8a936d9d64047820930687ee807364c6495e339c0c7dcd60",
+      "generatedRect": [
+        397,
+        0,
+        793,
+        396
+      ]
+    },
+    {
+      "reviewId": "WA-120",
+      "sheet": "assets/Objects/Generated/shrines.png",
+      "frame": 2,
+      "frameSize": [
+        16,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/shrines-2.png",
+      "sourceSha256": "2333894a9322c0157b721b3ba12f0f2715c924a54ec54f1d7e4204e46f06bb1a",
+      "generatedSheet": "shrines.png",
+      "generatedSheetSha256": "089498bbb318965b8a936d9d64047820930687ee807364c6495e339c0c7dcd60",
+      "generatedRect": [
+        793,
+        0,
+        1190,
+        396
+      ]
+    },
+    {
+      "reviewId": "WA-120",
+      "sheet": "assets/Objects/Generated/shrines.png",
+      "frame": 3,
+      "frameSize": [
+        16,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/shrines-3.png",
+      "sourceSha256": "abd743c59480ea83ee1333c8baa430a385fecbdfabf22dfa78f40472868330fb",
+      "generatedSheet": "shrines.png",
+      "generatedSheetSha256": "089498bbb318965b8a936d9d64047820930687ee807364c6495e339c0c7dcd60",
+      "generatedRect": [
+        1190,
+        0,
+        1586,
+        396
+      ]
+    },
+    {
+      "reviewId": "WA-120",
+      "sheet": "assets/Objects/Generated/shrines.png",
+      "frame": 4,
+      "frameSize": [
+        16,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/shrines-4.png",
+      "sourceSha256": "4380f0845523839a0b5e5b3ec0e9e689aa8eb877c4ac35bc9ba5c3f335f5b8d1",
+      "generatedSheet": "shrines.png",
+      "generatedSheetSha256": "089498bbb318965b8a936d9d64047820930687ee807364c6495e339c0c7dcd60",
+      "generatedRect": [
+        1586,
+        0,
+        1983,
+        396
+      ]
+    },
+    {
+      "reviewId": "WA-120",
+      "sheet": "assets/Objects/Generated/shrines.png",
+      "frame": 5,
+      "frameSize": [
+        16,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/shrines-5.png",
+      "sourceSha256": "a2208560b28b50c09fd5be4feee9fa8b15d60a6c62d8c3f04a3e059545753d70",
+      "generatedSheet": "shrines.png",
+      "generatedSheetSha256": "089498bbb318965b8a936d9d64047820930687ee807364c6495e339c0c7dcd60",
+      "generatedRect": [
+        0,
+        396,
+        397,
+        793
+      ]
+    },
+    {
+      "reviewId": "WA-120",
+      "sheet": "assets/Objects/Generated/shrines.png",
+      "frame": 6,
+      "frameSize": [
+        16,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/shrines-6.png",
+      "sourceSha256": "37ad1175967c56f2e8ef48ad0c09c8ec8ecb554967d791106c05e4c1b8cef0bc",
+      "generatedSheet": "shrines.png",
+      "generatedSheetSha256": "089498bbb318965b8a936d9d64047820930687ee807364c6495e339c0c7dcd60",
+      "generatedRect": [
+        397,
+        396,
+        793,
+        793
+      ]
+    },
+    {
+      "reviewId": "WA-120",
+      "sheet": "assets/Objects/Generated/shrines.png",
+      "frame": 7,
+      "frameSize": [
+        16,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/shrines-7.png",
+      "sourceSha256": "6a7f826d4030ac673e01fb4b72d8d9bf4a51f6201e7603079f4fa5481a87566b",
+      "generatedSheet": "shrines.png",
+      "generatedSheetSha256": "089498bbb318965b8a936d9d64047820930687ee807364c6495e339c0c7dcd60",
+      "generatedRect": [
+        793,
+        396,
+        1190,
+        793
+      ]
+    },
+    {
+      "reviewId": "WA-120",
+      "sheet": "assets/Objects/Generated/shrines.png",
+      "frame": 8,
+      "frameSize": [
+        16,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/shrines-8.png",
+      "sourceSha256": "b15c291fad3c557dfbde66ffad6f35f4d64c89ed1b5b760325fccfc112c26470",
+      "generatedSheet": "shrines.png",
+      "generatedSheetSha256": "089498bbb318965b8a936d9d64047820930687ee807364c6495e339c0c7dcd60",
+      "generatedRect": [
+        1190,
+        396,
+        1586,
+        793
+      ]
+    },
+    {
+      "reviewId": "WA-120",
+      "sheet": "assets/Objects/Generated/shrines.png",
+      "frame": 9,
+      "frameSize": [
+        16,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/shrines-9.png",
+      "sourceSha256": "a287bf0cb58dca895a598bde912c97100be3e59cc9a4acd623b6527120f8acbd",
+      "generatedSheet": "shrines.png",
+      "generatedSheetSha256": "089498bbb318965b8a936d9d64047820930687ee807364c6495e339c0c7dcd60",
+      "generatedRect": [
+        1586,
+        396,
+        1983,
+        793
+      ]
+    },
+    {
+      "reviewId": "WA-083",
+      "sheet": "assets/Objects/Approved/barricade.png",
+      "frame": 0,
+      "frameSize": [
+        24,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/barricade-native.png",
+      "sourceSha256": "34456b11476f90f1194b259aee27046952b9b8b706d49d33a88d9a10fa51c6f9",
+      "native": true
+    },
+    {
+      "reviewId": "WA-002",
+      "sheet": "assets/Objects/Approved/approved_charred_stakes.png",
+      "frame": 0,
+      "frameSize": [
+        24,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/approved_charred_stakes-native.png",
+      "sourceSha256": "380d334c25133ed0426a41e55af1067cc258bbb9d2c7a48d759da0f83bdd7725",
+      "native": true
+    },
+    {
+      "reviewId": "bramble",
+      "sheet": "assets/Objects/Approved/bramble.png",
+      "frame": 0,
+      "frameSize": [
+        24,
+        24
+      ],
+      "source": "assets/Objects/Approved/Sources/WorldArt/bramble-native.png",
+      "sourceSha256": "0b1fa85c0edc14b3c3611c978a1507a77cf74fb18601ac7c5276294e9436cc7c",
+      "native": true
+    }
+  ]
+}

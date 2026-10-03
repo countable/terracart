@@ -12,7 +12,7 @@ function bookShare(contextKey, tier, n = 4000) {
   let books = 0;
   for (let i = 0; i < n; i++) {
     const r = pickReward(contextKey, BOOK_SAVE(), rng, { tier });
-    if (r && r.kind === 'item' && (r.id === 'book' || r.id.startsWith('tome_'))) books++;
+    if (r && r.kind === 'item' && r.id === 'book') books++;
   }
   return books / n;
 }
@@ -31,9 +31,9 @@ test('books: the Book is the heaviest draw in its class/tier pool', () => {
   }
 });
 
-test('books: a high-tier school chest offers tomes in its book lane', () => {
+test('books: a high-tier school chest offers Books for scholar trades', () => {
   const share = bookShare('chest:school', 3);
-  assert.gt(share, 0.15, `a school chest hands over a tome often (got ${(share * 100).toFixed(1)}%)`);
+  assert.gt(share, 0.15, `a school chest hands over a Book often (got ${(share * 100).toFixed(1)}%)`);
   assert.lt(share, 0.60, 'but it is still a chest, not a book dispenser');
 });
 
@@ -138,10 +138,10 @@ test('course: the reader opens the book as a story', () => {
 });
 
 test('course: story topics retain their saved-bookmark positions', () => {
-  assert.eq(PLAY_TIPS.length, 144, 'new guides append after the existing saved bookmarks');
+  assert.eq(PLAY_TIPS.length, 146, 'new guides append after the existing saved bookmarks');
   assert.truthy(/Joined the book club/.test(PLAY_TIPS[141]), 'the published book club page keeps its bookmark');
-  assert.eq(PLAY_TIPS[142], ITEM_GUIDE_TIPS.thunder_potion);
-  assert.eq(PLAY_TIPS[143], ITEM_GUIDE_TIPS.raven_potion);
+  assert.eq(PLAY_TIPS[142], ITEM_GUIDE_TIPS.thunder_scroll);
+  assert.eq(PLAY_TIPS[143], ITEM_GUIDE_TIPS.raven_scroll);
   const topics = {1:/strength/, 11:/wounded goblin/, 13:/snare/, 20:/hoe/, 24:/ruined house/, 25:/smithy/, 35:/car park/, 56:/smith/, 69:/stone/, 77:/path/, 88:/favourite food/, 98:/weapon/, 106:/stairs/, 121:/quartermaster/, 130:/sapphire/};
   for (const [page, topic] of Object.entries(topics)) assert.truthy(topic.test(PLAY_TIPS[page]), 'topic stays at page ' + page);
 });
@@ -252,9 +252,11 @@ test('mechanics: enemy health uses a bar', () => {
   assert.truthy(/_drawEnemyHealthBar/.test(SCENE_SRC), 'app.js draws a bar');
 });
 
-test('mechanics: sword, bow and staff occupy weapon slots', () => {
-  assert.truthy(Gear.WEAPON_SLOTS.includes('sword') && Gear.WEAPON_SLOTS.length === 3,
-    'sword / bow / staff are the three weapon slots');
+test('mechanics: main and alternate weapons occupy weapon slots', () => {
+  for (const slot of ['sword', 'bow', 'staff', 'dagger', 'spear', 'musket']) {
+    assert.truthy(Gear.WEAPON_SLOTS.includes(slot), `${slot} is a weapon slot`);
+  }
+  assert.eq(Gear.WEAPON_SLOTS.length, 6);
 });
 
 test('descriptions: the net and the rod speed a job, they do not unlock one', () => {
@@ -386,7 +388,7 @@ test('mechanics: vendors never offer unique jewelry as gear', () => {
 });
 
 test('mechanics: melee reaches adjacent foes', () => {
-  assert.eq(Combat.MELEE_REACH_CELLS, 1, 'a sword still reaches adjacent foes');
+  assert.eq(Combat.MELEE_REACH_CELLS, 0.6, 'a sword reaches a foe at arm\'s length');
   assert.truthy(/too close/.test(RELIC_DEFS.sword.blurb),
     `the sword blurb says how far it swings: ${RELIC_DEFS.sword.blurb}`);
   assert.falsy(/in reach/.test(RELIC_DEFS.sword.blurb),

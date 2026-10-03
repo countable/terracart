@@ -13,7 +13,6 @@
     // Compound effects and training drills have their own expiry readers.
     delete save.boonUntil;
     delete save.trainingDrills;
-    delete save.trainingBuffUntil;
     delete save.fishRegen;
     delete save.treasureCompass;
     scene.pairyCompass = null;
@@ -24,7 +23,6 @@
     Conditions.clearDebuffs(save, scene);
     save.fireDamageRemainder = 0;
     scene._conditionLastT = null;
-    scene._pinnedUntil = 0;
 
     delete save.eatReadyAt;
     delete save.tomeDays;
@@ -42,6 +40,9 @@
     else scene._syncPlayerSkin?.();
     scene._dragonBuffActive = false;
     scene._tickSpiritRaven?.();
+    for (const [kind, row] of Object.entries(Companions.KINDS)) {
+      if (scene[row.instance] && !Companions.active(save, kind)) Companions.tick(scene, kind);
+    }
     scene._updatePlayerAura?.();
     scene.updateEnergyDOM?.();
     scene._syncStatusRow?.();

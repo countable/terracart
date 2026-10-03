@@ -147,7 +147,7 @@
     const w = { id: 'npc_warden_0_0', kind: 'npc', ...NPC.warden('npc_warden_0_0') };
     const talk = NPC.dialogue({ save: {} }, w);
     assert.truthy(talk.body.startsWith(MemoryStory.HOME.body), 'the family\'s plea opens the warden\'s talk');
-    // An older save with the page queued: dropped, not shown.
+    // A queued record that is not a memory: dropped, not shown.
     const shown = [];
     const s = { save: { memoryStory: { pending: [{ id: 'home', npc: { id: 'x' } }], act2Seen: [], visits: 0 } }, showMessageModal: m => shown.push(m) };
     const doc = globalThis.document;

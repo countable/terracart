@@ -125,7 +125,7 @@ test('delivery: the first delivery to a house banks a memory, once', () => {
   const app = SCENE_SRC;
   const start = app.indexOf('presentDeliveryOffer(sx, sy, house, recordDeal) {');
   assert.gt(start, 0, 'the delivery handler exists');
-  const accept = app.slice(start, app.indexOf('\n  }\n', app.indexOf('onAccept: (q) =>', start)));
+  const accept = app.slice(start, app.indexOf('\n  }\n', app.indexOf('onAccept: () =>', start)));
   assert.truthy(/const firstHere = this\._bankDiscovery\(`house:\$\{house\.id\}`,/.test(accept),
     'the accept handler banks house:<id> through the shared ledger');
   assert.truthy(/if \(firstHere\) this\.flashShiny\(gain, true, '🏠 NEW DOOR 🏠'\);/.test(accept),

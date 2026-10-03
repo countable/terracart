@@ -47,6 +47,13 @@
     }
   });
 
+  test('macro: schools use the reusable scholar counter, not a chest', () => {
+    const school = poi('school');
+    assert.eq(chestLook(school).texKey, 'macro_scholar');
+    assert.eq(macroFor(school).kind, 'scholar');
+    assert.eq(macroFor(poi('school', { depth: 1 })), null, 'underground mirror remains a chest');
+  });
+
   test('macro: a cave mirror, a starter crate and a scripted chest are never macros', () => {
     assert.eq(macroFor(poi('lodging', { depth: 1 })), null, 'underground it is a chest');
     assert.eq(macroFor(poi('lodging', { crate: true })), null, 'a crate');
@@ -176,8 +183,8 @@
       flash: (m) => flashes.push(m),
       showChestRewardModal: (opts) => {
         modals++;
-        assert.eq(opts.header, 'Chapel', 'names the place');
-        assert.eq(opts.art, Macros.KIND_DIALOG.chapel.art, 'keeps the chapel painting');
+        assert.eq(opts.header, Macros.KIND_TRANSACTION.chapel.title, 'confirms the blessing');
+        assert.eq(opts.art, Macros.KIND_TRANSACTION.chapel.art, 'shows the completed blessing');
       },
     });
     const real = globalThis.pickReward;
@@ -371,7 +378,8 @@
       homeWorldPos: () => null,
       findWalkableDestination(dist, opts) { return walkableDestination(this, 73.5, 73.5, dist, opts); },
       flashLoot: (m) => flashes.push(m), updateHUD: () => {},
-      _storySplashOnce: (k) => stories.push(k),
+      _macroTransaction: (k) => stories.push(k),
+      moneyHTML: (n) => `<coin>${n}</coin>`,
     };
     scene._guildBountyDefeat = onDefeat;
     const b = Macros.bountyFor({ relics: { sword: { tier: 7 } } }, poi('town_hall'), T0);
@@ -406,7 +414,7 @@
         scene._guildBountyDefeat(foes[2]);
         assert.eq(scene.save.money, b.pay, 'paid once');
         assert.eq(flashes.join('|'), `Bounty paid! +${b.pay}`);
-        assert.eq(stories.join(), 'macro:bounty', 'the first bounty tells its story');
+        assert.eq(stories.join(), 'guildhall', 'the completed bounty shows one receipt');
       });
     } finally { globalThis.persistSave = realPersist; }
     assert.truthy(/if \(victim\.bounty\) this\._guildBountyDefeat\(victim\);/.test(SCENE_SRC), 'resolveDefeat calls it');
@@ -514,23 +522,15 @@
     assert.eq(Combat.trainingBonus(save, 'melee', T0 + DAY), 2, 'the drill is gone at 24 h');
     assert.eq(shortDuration(Macros.drillLeftMs(save, 'melee', T0 + DAY - 3600000)), '1h', 'shown in shortDuration');
     assert.eq(Macros.drillPrice(), 150);
-    // A pre-Sep-2026 save: one melee track, capped, folded on the next purchase.
-    const old = { money: 1e9, trainingPerm: 25, trainingBuffUntil: T0 + 1000 };
-    assert.eq(Combat.trainingLevel(old, 'melee'), 5, 'an old +25% veteran reads as melee level 5');
-    assert.truthy(Combat.trainingBuffActive(old, 'melee', T0), 'and keeps its running drill');
-    Macros.buyLesson(old, 'magic', 99);
-    assert.eq(old.trainingPerm, undefined, 'folded into the new fields');
-    assert.eq(old.training.melee, 5);
-    assert.eq(old.trainingDrills.melee, T0 + 1000);
     assert.eq(Energy.maxEnergy({ training: { energy: 3 } }) - Energy.maxEnergy({}), 30, 'stamina lifts the bar\'s cap');
   });
 
   test('training: each attack type reads its own discipline, and speed shortens every beat', () => {
     assert.truthy(/_attackFlat\(kind\) \{\s*const training = Combat\.TRAINING_KINDS\[kind\]\?\.unit === 'dmg' \? Combat\.trainingBonus\(this\.save, kind\) : 0;/.test(SCENE_SRC), '_attackFlat, by type');
-    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass\)\s*\+ this\._attackFlat\('melee'\)\)/.test(SCENE_SRC), 'melee blows take melee');
+    assert.truthy(/meleeSwingDamage\(this\.save\.relics, this\._attackMul\(\), this\.save\.playerClass, Gear\.activeWeapon\(this\.save\)\)\s*\+ this\._attackFlat\('melee'\)\)/.test(SCENE_SRC), 'melee blows take melee');
     assert.truthy(/\* dmgMul\s*\+ this\._attackFlat\(Combat\.TRAINING_SLOT_KIND\[slot\]\),/.test(SCENE_SRC), 'shots take their slot\'s');
     assert.eq(Combat.TRAINING_SLOT_KIND.bow, 'ranged'); assert.eq(Combat.TRAINING_SLOT_KIND.staff, 'magic');
-    assert.truthy(/this\._nextBlowT = now \+ Combat\.MELEE_INTERVAL_MS \* Combat\.trainingIntervalMul\(this\.save\);/.test(SCENE_SRC), 'the melee beat');
+    assert.truthy(/this\._nextBlowT = now \+ Combat\.meleeIntervalMs\(Gear\.activeWeapon\(this\.save\)\) \* Combat\.trainingIntervalMul\(this\.save\);/.test(SCENE_SRC), 'the melee beat');
     const body = SCENE_SRC.slice(SCENE_SRC.indexOf('  _presentTraining(sx, sy, o, dress) {'), SCENE_SRC.indexOf('  buildingFlavorTitle('));
     assert.truthy(/memories required/.test(body), 'the lesson states its requirement');
     assert.truthy(/Macros\.buyLesson\(this\.save, kind, this\.memoriesTotal\(\)\)/.test(body), 'gated on memories RECOVERED');
@@ -547,17 +547,22 @@
   });
 
   // ── The picture ───────────────────────────────────────────────────────────
-  test('macro: an inn has its host and each weapon discipline has matching art', () => {
-    assert.eq(Macros.stallArt('inn'), 'kind_inn');
+  test('macro: every booth has dedicated, distinct introduction and transaction paintings', () => {
     const seen = new Set();
-    const expected = { melee: 'tool_sword', ranged: 'tool_shoot', magic: 'tool_staff', energy: 'tool_sword', speed: 'tool_sword' };
-    for (let id = 0; id < 100; id++) {
-      const o = { id };
-      const discipline = Macros.trainingKindFor(o);
-      seen.add(discipline);
-      assert.eq(Macros.stallArt('training', o), expected[discipline]);
+    for (const kind of MACRO_KINDS) {
+      assert.eq(Macros.stallArt(kind), `booth_${kind}_intro`);
+      const success = Macros.KIND_TRANSACTION[kind];
+      assert.eq(success.art, `booth_${kind}_used`);
+      assert.truthy(success.title);
+      for (const stem of [Macros.stallArt(kind), success.art]) {
+        assert.falsy(seen.has(stem), `${stem} is dedicated to one booth and stage`);
+        seen.add(stem);
+        const d = webpDims(`assets/art/${stem}.webp`);
+        assert.truthy(d, `${stem} ships`);
+        assert.truthy(Math.abs(d.w / d.h - 352 / 448) < 0.01, `${stem} fits the dialog`);
+      }
     }
-    assert.eq(seen.size, 5, 'all hall disciplines are exercised');
+    assert.eq(seen.size, 18);
   });
   test('macro: each kind ships its 80×80 art and an ASSETS row under its texKey', () => {
     for (const kind of MACRO_KINDS) {
@@ -594,28 +599,26 @@
     assert.falsy(/alms box/i.test(INTERACTABLES_SRC), 'the bare flash names no alms box');
     assert.truthy(/'A quiet blessing\. Go well\.'/.test(INTERACTABLES_SRC), 'the empty roll is a blessing too');
     assert.lte('A quiet blessing. Go well.'.length, MAP_MSG_MAX);
-    assert.eq(Macros.KIND_DIALOG.chapel.art, 'zone_stones', 'the chapel opens on the churchyard (a lore-free painting)');
+    assert.eq(Macros.KIND_DIALOG.chapel.art, 'booth_chapel_intro', 'the chapel has its own respectful booth painting');
   });
 
   // ── The scholar's booth: the BOOK CLUB (Oct 2026) ─────────────────────────
   // One shelf for every school, humblest first; found books read earn it.
-  test('scholar: the shelf is the school chest\'s own treasure list, humblest first', () => {
+  test('scholar: the shelf contains every tome once, humblest first, independent of chests', () => {
     const shelf = Macros.scholarShelf();
-    const own = new Set();
-    for (const g of Object.keys(ChestThemes.themes.school.weights)) for (const id of Object.keys(ChestThemes.members(g))) own.add(id);
-    assert.gt(shelf.length, 8, 'a shelf worth reading for');
-    assert.eq(new Set(shelf).size, shelf.length, 'one of each');
-    for (const id of shelf) assert.truthy(own.has(id) && ITEM_BY_ID[id], `${id} is school treasure`);
-    for (const id of own) if (ITEM_BY_ID[id]) assert.includes(shelf, id, `${id} is on the shelf`);
+    const tomes = ITEMS.filter(item => isTome(item.id)).map(item => item.id);
+    assert.eq(shelf.length, 8);
+    assert.eq(new Set(shelf).size, shelf.length, 'one of each per cycle');
+    for (const id of shelf) assert.truthy(isTome(id), `${id} is a tome`);
+    for (const id of tomes) assert.includes(shelf, id);
     for (let i = 1; i < shelf.length; i++) {
-      assert.lte(itemValue(shelf[i - 1]), itemValue(shelf[i]), `${shelf[i - 1]} before ${shelf[i]}: ascending value`);
+      assert.lte(itemValue(shelf[i - 1]), itemValue(shelf[i]), 'ascending value');
     }
-    assert.eq(shelf[0], 'book', 'the plain Book opens the shelf');
-    assert.eq(itemValue(shelf[shelf.length - 1]), Math.max(...shelf.map(itemValue)), 'the dearest closes it');
+    assert.falsy(shelf.includes('book'), 'a prize never earns its own reading credit');
     assert.eq(Macros.scholarShelf().join(), shelf.join(), 'the same shelf every time, every school');
   });
 
-  test('scholar: three found books a prize, in shelf order, once each', () => {
+  test('scholar: every three books earns a tome, with a repeating shelf', () => {
     const shelf = Macros.scholarShelf();
     const per = Macros.SCHOLAR_BOOKS_PER_PRIZE;
     assert.eq(per, 3);
@@ -639,14 +642,32 @@
       r = Macros.scholarClaim(save, shelf);
       assert.truthy(r.ok && r.id === shelf[i], `prize ${i} is ${shelf[i]}`);
     }
-    assert.eq(Macros.scholarNext(save, shelf), null, 'the shelf is bare');
-    assert.eq(Macros.scholarClaim(save, shelf).why, 'bare');
+    assert.eq(Macros.scholarNext(save, shelf).id, shelf[0], 'the next cycle starts with the first tome');
+    assert.eq(Macros.scholarNext(save, shelf).booksAt, (shelf.length + 1) * per);
+    assert.eq(Macros.scholarClaim(save, shelf).id, shelf[0]);
+    assert.eq(Macros.scholarTaken(save), shelf.length + 1);
+    assert.eq(Macros.scholarClaim(save, []).why, 'bare', 'an empty catalog has no reward');
     // Garbage in the ledger reads as nothing, never as a free shelf.
     assert.eq(Macros.booksRead({ booksRead: 'lots' }), 0);
-    assert.eq(Macros.scholarTaken({ scholarPrizes: -3 }), 0);
+    assert.eq(Macros.scholarTaken({ scholarTomes: -3 }), 0);
   });
 
-  test('scholar: every Book read counts — found, bought or off the shelf — and the counter is the brake', () => {
+
+  test('scholar: legacy mixed prizes never skip tome rewards and reading credit survives', () => {
+    const save = { booksRead: 12, scholarPrizes: 20 };
+    assert.eq(Macros.scholarTaken(save), 0);
+    assert.eq(Macros.scholarNext(save).booksAt, 3);
+    for (let i = 0; i < 4; i++) assert.truthy(Macros.scholarClaim(save).ok);
+    assert.eq(Macros.scholarNext(save).booksAt, 15);
+    assert.falsy(Macros.scholarNext(save).ready);
+    assert.eq(save.booksRead, 12);
+    assert.eq(save.scholarPrizes, 20);
+    assert.eq(save.scholarTomes, 4);
+    const reload = JSON.parse(JSON.stringify(save));
+    assert.eq(Macros.scholarNext(reload).booksAt, 15);
+  });
+
+  test('scholar: every Book read counts — found or bought — and the counter is the brake', () => {
     // addToInv's Book branch credits save.booksRead for every read, with no
     // wild-finds test: a bought Book is a read Book.
     const i = SCENE_SRC.indexOf("if (id === 'book') {");
@@ -675,16 +696,13 @@
       'the themed shop prices off the ladder');
     assert.eq((SCENE_SRC.match(/if \(id === 'book'\) ShopsMath\.bookBought\(this\.save, (?:take|buyQty)\);/g) || []).length, 2,
       'both counters climb the ladder on a sale');
-    // A prize off the shelf is handed over notWild (not a wild find) and read.
+    // A tome prize is handed over notWild and persisted together with its claim.
     const pres = SCENE_SRC.slice(SCENE_SRC.indexOf('_presentScholar(sx, sy, o, dress) {'));
-    assert.truthy(/this\.addToInv\(next\.id, 1, false, \{ notWild: true \}\)/.test(pres.slice(0, pres.indexOf('\n  }\n'))),
+    assert.truthy(/this\.addToInv\(next\.id, 1, false, \{ notWild: true, deferRefresh: true \}\)/.test(pres.slice(0, pres.indexOf('\n  }\n'))),
       'the prize is handed over notWild');
     assert.truthy(/case 'scholar': +return this\._presentScholar\(sx, sy, o, dress\);/.test(SCENE_SRC), 'presentMacro routes it');
     assert.eq(Macros.KIND_DIALOG.scholar.label, 'Book Club');
-    // The toasts fit the map line at the shelf's deepest page.
-    const shelf = Macros.scholarShelf();
-    assert.lte(`Collected! Next at ${shelf.length * Macros.SCHOLAR_BOOKS_PER_PRIZE} books`.length, MAP_MSG_MAX);
-    assert.lte('The shelf is yours'.length, MAP_MSG_MAX);
+    assert.lte('Tome collected'.length, MAP_MSG_MAX);
     assert.truthy(/book club/i.test(Macros.KIND_STORY.scholar.body) && /join/i.test(Macros.KIND_STORY.scholar.body), 'the story is the joining');
   });
 
@@ -784,7 +802,7 @@
       { name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'park' },
         geom: [[{ x: -64, y: -64 }, { x: 4160, y: -64 }, { x: 4160, y: 4160 }, { x: -64, y: 4160 }, { x: -64, y: -64 }]] }] },
       { name: 'poi', features: [{ type: 1, tags, geom: [[{ x: 2048, y: 2048 }]] }] },
-    ], 64, 0, 0, 640).objects.filter((o) => o.kind === 'chest');
+    ], 64, 0, 0, 640).objects.filter((o) => o.kind === 'chest' && !o.chestTopUp);
     assert.eq(r({ class: 'place_of_worship', subclass: 'christian' }).map((o) => macroFor(o) && macroFor(o).kind).join(), 'chapel');
     for (const faith of ['jewish', 'muslim', 'buddhist', 'hindu']) {
       assert.eq(r({ class: 'place_of_worship', subclass: faith }).length, 0, `${faith}: no chest, no chapel`);

@@ -93,13 +93,6 @@ function rowCellM(scene, ty) {
 // cellIX + 1 is the next cell ALONG a row, but "the cell below" across a row
 // seam is a POSITION question — absCellOffset / absCellDelta answer it via
 // tile px, never cellIX arithmetic.
-function _cellRef(scene) {
-  const T = WorldGen.TILE_PX;
-  return {
-    tx: Math.floor(scene.originPx.x / T),
-    ty: Math.floor(scene.originPx.y / T),
-  };
-}
 function _rowMemo(scene) {
   const nref = scene.cellsPerTile;
   const refTy = Math.floor(scene.originPx.y / WorldGen.TILE_PX);

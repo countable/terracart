@@ -47,7 +47,7 @@
   button.on{background:#c8a64a;color:#1a1612;border-color:#c8a64a}
   #status{color:#c8a64a;margin:6px 0;min-height:1.2em}
   #game{display:none}
-  #zonePick,#sourceFilter{width:100%;background:#292929;color:#eee;border:1px solid #666;padding:5px;margin:3px 0}
+  #zonePick,#sourceFilter,#laneFilter{width:100%;background:#292929;color:#eee;border:1px solid #666;padding:5px;margin:3px 0}
   #zoneDetails{font-size:12px;line-height:1.5;margin:8px 0;padding:8px;background:#242c2c}
   #zoneDetails p{margin:6px 0} #sourceLegend{font-size:11px;line-height:1.5}
   .zone-label{background:#122f2be8;border:1px solid #3c8f80;color:#fff;font-weight:600;font-size:11px}
@@ -71,6 +71,15 @@
   <h3>Base map</h3><div id="bases"></div>
   <div id="artStatus" hidden style="color:#aaa;margin:4px 0"></div>
   <div id="artOptions" hidden><label><input id="restoredLamps" type="checkbox">Preview restored roads and lamps</label></div>
+  <h3>Parking-lane review</h3>
+  <label><input id="removedLanes" type="checkbox"><span class="sw" style="background:#ff40c8"></span> Removed lanes (pink dashed)</label>
+  <label><input id="keptServiceRoads" type="checkbox"><span class="sw" style="background:#31d9ff"></span> Kept service roads (cyan)</label>
+  <label for="laneFilter">Removed-lane evidence</label>
+  <select id="laneFilter"><option value="all">All removed lanes</option><option value="inferred">Inferred removals only</option><option value="explicit">Explicit parking-aisle tags only</option></select>
+  <div id="laneSummary" style="font-size:11px;color:#aaa;line-height:1.5"></div>
+  <h3>Quarry clusters</h3>
+  <label><input id="quarryClusters" type="checkbox"> Colour quarry footprints</label>
+  <div id="quarrySummary" hidden style="font-size:11px;color:#aaa;line-height:1.5"></div>
   <h3>Overlays</h3><div id="ovl"></div>
   <h3>Density band</h3>
   <div>interactables per view: <input id="dmin" type="number" value="5" min="0" style="width:3.5em"> to
@@ -85,6 +94,8 @@
 <div id="game"></div>
 <script src="game-loader.js"></script>
 <script src="map-review-zones.js"></script>
+<script src="map-review-lanes.js"></script>
+<script src="map-review-quarries.js"></script>
 <script src="map-review-art.js"></script>
 <script>
 // ── Tiles ───────────────────────────────────────────────────────────────────
@@ -231,6 +242,12 @@ const mkRow = (host, type, html, checked, on, name) => {
   l.innerHTML = `<input type="${type}"${name ? ` name="${name}"` : ''}${checked ? ' checked' : ''}> ${html}`;
   const i = l.querySelector('input'); i.onchange = () => on(i.checked); host.appendChild(l); return i;
 };
+$('removedLanes').checked = Q.get('removedLanes') === '1';
+const laneReview = MapReviewLanes.create({map,toLL,getEdge:()=>EDGE,
+  removedToggle:$('removedLanes'),keptToggle:$('keptServiceRoads'),filter:$('laneFilter'),summary:$('laneSummary')});
+$('quarryClusters').checked = Q.get('quarryClusters') === '1';
+const quarryReview = MapReviewQuarries.create({map,toLL,getEdge:()=>EDGE,toggle:$('quarryClusters'),summary:$('quarrySummary'),
+  onSelect:id=>{selectZone(id,false);zoneSelection.clearLayers();}});
 const gameArt = MapReviewArt.layer({
   toLL, getEdge: () => EDGE,
   onStatus: (message) => { $('artStatus').textContent = message; },
@@ -240,7 +257,7 @@ const gameArt = MapReviewArt.layer({
   },
 });
 bases['Game art'] = gameArt;
-const DEFAULT_BASE = 'Game art';
+const DEFAULT_BASE = Q.get('base') === 'esri' ? 'Satellite (Esri)' : 'Game art';
 bases[DEFAULT_BASE].addTo(map);
 $('artStatus').hidden = $('artOptions').hidden = DEFAULT_BASE !== 'Game art';
 $('restoredLamps').onchange = () => gameArt.setRestoredLamps($('restoredLamps').checked);
@@ -393,7 +410,7 @@ function popupHTML(e, o, label) {
     else {
       const look = typeof chestLook === 'function' ? chestLook(o) : null;
       const wt = typeof chestTier === 'function' ? chestTier(o) : '?';
-      rows.push(`look: ${esc(look ? (look.texKey || look.kind || JSON.stringify(look)) : '?')} · tier T${wt} (${o.poiDensity || '?'} of its kind on the tile)`);
+      rows.push(`look: ${esc(look ? (look.texKey || look.kind || JSON.stringify(look)) : '?')} · tier T${wt} (quota seat; ${o.poiDensity || '?'} of its kind on the tile)`);
     }
     const z = zoneAnchorOf(e, o);
     if (z) {
@@ -424,8 +441,20 @@ function selectZone(id, focus) {
   const bg = z.background;
   const lines = [`<b>${esc(z.variant?.name || 'No variant')}</b> · ${esc(z.name || z.anchor.kind)}`,
     `${z.coverage} coverage cells · ${z.eligible} free eligible cells before placement`,
-    `Finds ${z.finds.join('/')} · guards ${z.guards.join('/')}`];
-  if (z.variant?.generated === 'parking_lanes') lines.push('Generated from removed parking lanes · Quarry background only; no POI, shrine, finite finds, guards or light source.');
+    `Finite finds ${z.finds.join('/')} · finite guards ${z.guards.join('/')}`,
+    `Live enemies: ${z.enemies.authored} authored · ${z.enemies.roaming} roaming · ${z.enemies.other} other`];
+  if (z.variant?.reef) {
+    const belongs = o => o.zoneAnchor === z.anchor.key && o.zoneVariant === z.variant.id;
+    const objects = __world.tiles.flatMap(e => e.objects || []).filter(belongs);
+    const corals = __world.tiles.flatMap(e => e.reefCorals || []).filter(belongs);
+    const tiers = objects.filter(o => o.zoneLayer === 'reef_find').map(o => `T${chestBaseTier(o)}`);
+    lines.push(`Reef additions: ${corals.length} coral clusters · ${objects.filter(o => o.zoneLayer === 'reef_ore').length} pick-gated ore rocks · ${tiers.length ? tiers.join(' + ') + ' shore-reachable chests' : 'no shore-reachable chest seats'}`);
+  }
+  if (z.variant?.generated === 'parking_lanes') lines.push('Quarry formed from removed parking lanes · No daily POI. Ruined strongholds have a 50% Ember Altar chance. Complete sites have variant finds and guards; incomplete edges use background dressing and cell-owned inhabitants.');
+  if (z.layout) lines.push(z.layout.mode === 'adapted'
+    ? `Building-aware layout: complete rings, outer radius ${z.layout.radiusCells} cells`
+    : z.layout.mode === 'border' ? `Building-aware layout: ${z.layout.stones}-stone bed along the building`
+    : 'Building-aware layout: no complete composition fits; finite finds retained.');
   if (bg.planned != null) lines.push(`<b>Background: ${bg.placed || 0}/${bg.planned} slots placed</b><br>`
     + `${bg.occupied || 0} occupied by earlier spawns · ${bg.blocked || 0} refused by terrain/spawn rules · ${bg.reserved || 0} used by POI/find/connection layout`);
   lines.push(`Suppressed earlier placements: ${z.suppressed.ambient} general · ${z.suppressed.street} street`);
@@ -458,7 +487,9 @@ function updateZoneReview(world) {
   zoneReviews = ZoneReview.analyse(world, EDGE);
   zoneLabels.clearLayers();
   $('zonePick').replaceChildren(new Option('Select a park or zone…', ''));
-  for (const z of [...zoneReviews.values()].sort((a,b)=>zoneTitle(a).localeCompare(zoneTitle(b)))) {
+  // Keep zero-coverage records in diagnostics, but do not advertise a site
+  // that has no mapped ground in the loaded area.
+  for (const z of [...zoneReviews.values()].filter(z=>z.coverage>0).sort((a,b)=>zoneTitle(a).localeCompare(zoneTitle(b)))) {
     $('zonePick').appendChild(new Option(zoneTitle(z),z.id));
     const a=z.anchor, ll=toLL(a.gx*EDGE/4096,a.gy*EDGE/4096,EDGE);
     L.circleMarker(ll,{radius:4,color:'#fff',weight:1,fillColor:'#27d9c0',fillOpacity:1})
@@ -466,6 +497,7 @@ function updateZoneReview(world) {
       .on('click',()=>selectZone(z.id,true)).addTo(zoneLabels);
   }
   selectZone(zoneReviews.has(selected) ? selected : '', false);
+  quarryReview.update(world,zoneReviews);
 }
 $('zonePick').onchange=()=>selectZone($('zonePick').value,true);
 $('zoneLabels').onchange=()=> $('zoneLabels').checked ? zoneLabels.addTo(map) : map.removeLayer(zoneLabels);
@@ -495,13 +527,16 @@ function draw(world, home) {
       add('coindrop', toLL(coin.x, coin.y, EDGE), label, coin.id, coin.x, coin.y,
         popupHTML(e, coin, label), ZoneReview.source(e, coin));
     }
-    for (const w of e.wildplants || []) add(classify(w), toLL(w.x, w.y, EDGE), w.crop, w.id, w.x, w.y, popupHTML(e, w, w.crop), ZoneReview.source(e,w));
+    for (const candidate of e.wildplants || []) {
+      const w = ZoneReview.livePlant(candidate);
+      if (w) add(classify(w), toLL(w.x, w.y, EDGE), w.crop, w.id, w.x, w.y, popupHTML(e, w, w.crop), ZoneReview.source(e,w));
+    }
     for (const t of e.traps || []) add('trap', toLL(t.x, t.y, EDGE), 'trap', t.id, t.x, t.y, popupHTML(e,t,'trap'), ZoneReview.source(e,t));
     // Buried X marks: the tile's own mark, spawned and rasterized marks in
     // extraTreasures, and parking-lot marks.
-    if (e.treasure && Number.isFinite(e.treasure.x)) add('X mark', toLL(e.treasure.x, e.treasure.y, EDGE), 'buried X (the tile\'s own)', e.treasure.id, e.treasure.x, e.treasure.y, popupHTML(e,e.treasure,'Buried X'), ZoneReview.source(e,e.treasure));
-    for (const t of e.extraTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X', t.id, t.x, t.y, popupHTML(e,t,'Buried X'), ZoneReview.source(e,t));
-    for (const t of e.parkingTreasures || []) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (parking lot)', t.id, t.x, t.y, popupHTML(e,t,'Parking treasure'), ZoneReview.source(e,t));
+    if (treasureExposed(e.treasure, world.scene) && Number.isFinite(e.treasure.x)) add('X mark', toLL(e.treasure.x, e.treasure.y, EDGE), 'buried X (the tile\'s own)', e.treasure.id, e.treasure.x, e.treasure.y, popupHTML(e,e.treasure,'Buried X'), ZoneReview.source(e,e.treasure));
+    for (const t of e.extraTreasures || []) if (treasureExposed(t, world.scene)) add('X mark', toLL(t.x, t.y, EDGE), 'buried X', t.id, t.x, t.y, popupHTML(e,t,'Buried X'), ZoneReview.source(e,t));
+    for (const t of e.parkingTreasures || []) if (treasureExposed(t, world.scene)) add('X mark', toLL(t.x, t.y, EDGE), 'buried X (parking lot)', t.id, t.x, t.y, popupHTML(e,t,'Parking treasure'), ZoneReview.source(e,t));
     for (const c of e.creatures || []) {
       const hostile = typeof Combat !== 'undefined' && Combat.isEnemy && Combat.isEnemy(c);
       add(c.kind === 'npc' ? 'resident: npc' : hostile ? 'enemy: ' + c.kind : 'animal: ' + c.kind, toLL(c.x, c.y, EDGE), (c.name || c.kind) + (c.elite ? ' (elite)' : ''), c.id, c.x, c.y, () => popupHTML(e,c,c.kind), ZoneReview.source(e,c,'creature'));
@@ -540,7 +575,7 @@ function draw(world, home) {
   gameArt.setWorld(world);
   density();
   // Home's own ring: the softwood pines. (The chest-tier rings are gone — a
-  // chest's tier is its class's density on its tile, loot.js chestTier.)
+  // chest's tier is its tile's quota seat, WorldGen.seedChestTiers → loot.js chestTier.)
   const hll = toLL(home.x, home.y, EDGE);
   const ring = (r, c, t) => { const l = L.circle(hll, { radius: r, color: c, weight: 1, fill: false, dashArray: '6 4' }).bindTooltip(t).addTo(map); drawn.push(l); };
   ring(HomeArea.NEAR_M, '#1f9d3a', `softwood pines within ${HomeArea.NEAR_M} m`);
@@ -876,6 +911,7 @@ function rebuild(home) {
   setTimeout(() => {
     const t0 = performance.now();
     const world = window.__world = buildWorld(home);
+    laneReview.update(world);
     updateZoneReview(world);
     draw(world, home);
     const s = Math.round((performance.now() - t0) / 100) / 10;
@@ -896,6 +932,7 @@ function rebuild(home) {
     map.setView(toLL(home.x, home.y, EDGE), 16);
     const first = window.__world = buildWorld(home);
     overlays(first);
+    laneReview.update(first);
     updateZoneReview(first);
     draw(first, home);
     $('status').textContent = first.errors.length ? `${first.errors.length} error(s), see console` : 'ready';

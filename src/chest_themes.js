@@ -6,10 +6,10 @@
   // Utility food can restore zero energy and still be a harvestable meal.
   const foodIds = () => ITEMS.filter(i => i.kind === 'produce'
     && Number.isFinite(FOOD_ENERGY[i.id]) && FOOD_ENERGY[i.id] >= 0 && !flowers.includes(i.id)).map(i => i.id);
-  const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && foodIds().includes(i.grows)).map(i => i.id);
+  const cropSeeds = () => ITEMS.filter(i => i.kind === 'seed' && !i.plants && foodIds().includes(i.grows)).map(i => i.id);
   const groups = {
-    uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic').map(i => i.id), mixedTiers: true, fallback: 'magic' },
-    supplies: { ids: { torch: 3, rope: 1, trap_kit: 1, spear: 1, honey: 1 }, fallback: 'torch' },
+    uniqueRelics: { ids: () => ITEMS.filter(i => i.kind === 'unique_relic' && !isTome(i.id)).map(i => i.id), mixedTiers: true, fallback: 'magic' },
+    supplies: { ids: { torch: 3, rope: 1, trap_kit: 1, spear: 1, honey: 1, blank_scroll: 1 }, starterWeapons: ['dagger', 'spear', 'musket'], starterWeaponChance: 0.25, fallback: 'torch' },
     field: { ids: ['torch', 'rope', 'trap_kit', 'spear'], fallback: 'torch' },
     farmSupplies: { ids: ['scarecrow', 'honey'], fallback: 'torch' },
     materials: { ids: ['wood', 'rockfruit', 'coal', ...Object.values(MINERAL_TIERS).map(row => row.barId)] },
@@ -17,40 +17,32 @@
     restorative: { ids: ['berry', 'cress', 'potato', 'egg', 'milk'] },
     food: { ids: foodIds, fallback: 'restorative' },
     foodSeeds: { ids: cropSeeds, fallback: 'food' },
-    parkSeeds: { ids: cropSeeds, fallback: 'restorative' },
+    parkSeeds: { ids: () => [...cropSeeds(), ...ITEMS.filter(i => i.kind === 'seed' && i.plants).map(i => i.id)], fallback: 'restorative' },
     farmSeeds: { ids: cropSeeds, fallback: 'restorative' },
     farmProduce: { ids: () => cropSeeds().map(id => ITEM_BY_ID[id].grows), fallback: 'restorative' },
     flowerSeeds: { ids: magicalFlowers.map(id => id + '_seed'), fallback: 'flowers' },
     flowers: { ids: flowers },
     forage: { ids: flowers.filter(id => !magicalFlowers.includes(id)).concat(['berry', 'mushroom']) },
-    saplings: { ids: ['acorn', 'apple_sapling', 'peach_sapling'], fallback: { flora: 'flowers', default: 'parkSeeds' } },
     growth: { ids: ['growth_powder'], fallback: { flora: 'flowers', farm: 'farmSupplies', default: 'parkSeeds' } },
     farmAnimals: { ids: ['chicken', 'cow', 'rabbit'], fallback: 'farmProduce' },
     // Surface magic lanes keep place identity while making cave-only potions
     // available above ground. Lower-tier magic remains useful in larger stacks.
     magic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry).map(i => i.id), mixedTiers: true, fallback: 'antidote' },
     travelMagic: { ids: ['reach_potion', 'speed_potion', 'shadow_powder', 'treasure_map'], mixedTiers: true, fallback: 'antidote' },
-    combatMagic: { ids: ['protection_potion', 'immortal_potion', 'fire_resistance_potion', 'giant_potion', 'shield_potion', 'raven_potion', 'blight_potion', 'thunder_potion', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder'], mixedTiers: true, fallback: 'antidote' },
+    combatMagic: { ids: ['protection_potion', 'immortal_potion', 'fire_resistance_potion', 'giant_potion', 'shield_potion', 'raven_scroll', 'skeleton_scroll', 'wraith_scroll', 'blight_potion', 'thunder_scroll', 'dragon_powder', 'frost_powder', 'fireball_scroll', 'explosive_flask', 'fear_scroll', 'sleep_powder'], mixedTiers: true, fallback: 'antidote' },
     medicalMagic: { ids: { vigor_potion: 3, revive_potion: 3, protection_potion: 2, shield_potion: 2, resurrection_potion: 2, elixir: 1,
-      regen_amulet: 0.3, vigor_amulet: 0.3, tome_healing: 0.5 }, mixedTiers: true, fallback: 'antidote' },
+      regen_amulet: 0.3, vigor_amulet: 0.3 }, mixedTiers: true, fallback: 'antidote' },
     recovery: { ids: ['vigor_potion', 'elixir'], fallback: 'restorative' },
     antidote: { ids: ['antidote'] },
     healing: { ids: { vigor_potion: 3, revive_potion: 2, resurrection_potion: 1, elixir: 1 }, fallback: { vista: 'antidote', default: 'restorative' } },
     revival: { ids: { revive_potion: 3, resurrection_potion: 1 }, fallback: 'restorative' },
     shield: { ids: ['protection_potion', 'shield_potion'], fallback: { health: 'restorative', worship: 'restorative', default: 'field' } },
-    study: { ids: { reach_potion: 2, raven_potion: 1, protection_potion: 1, shield_potion: 1, shadow_powder: 1, blank_scroll: 1, fireball_scroll: 1, fear_scroll: 1, treasure_map: 1 }, mixedTiers: true, fallback: 'books' },
-    shadow: { ids: { raven_potion: 1, shadow_powder: 1 }, fallback: 'flowers' },
+    study: { ids: { reach_potion: 2, raven_scroll: 1, protection_potion: 1, shield_potion: 1, shadow_powder: 1, blank_scroll: 1, fireball_scroll: 1, fear_scroll: 1, treasure_map: 1 }, mixedTiers: true, fallback: 'books' },
+    shadow: { ids: { raven_scroll: 1, skeleton_scroll: 1, wraith_scroll: 1, shadow_powder: 1 }, mixedTiers: true, fallback: 'flowers' },
     gems: { ids: ['sapphire', 'ruby', 'emerald', 'diamond'], fallback: { culture: 'books', vista: 'antidote', commerce: 'cash', default: 'field' } },
-    // The story Book is a T1 item: every book chest can hand one, whatever
-    // its rolled quality (the old minTier {school: 1} override died with the
-    // tomes - it would have admitted THEM at T1 too, because it replaced the
-    // baseTier check for the whole group). The TOMES sit at T3/4/5, and
-    // pickItem takes the top tier present, so they replace the Book exactly
-    // at and above its own tier.
-    books: { ids: ['book', 'tome_sight', 'tome_raven', 'tome_storm', 'tome_firewall', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight'], fallback: 'torch' },
-    // The plain story Book alone — the tier-2 share every row carries
-    // (weights(), BOOK_T2_SHARE): a T2 chest's jackpot roll must hand the
-    // Book, never climb into the tomes the way the books group does.
+    // Books feed the scholar's tome trades at every chest tier.
+    books: { ids: ['book'], fallback: 'torch' },
+    // Dedicated Book share for themes without their own books lane.
     plainBook: { ids: ['book'], fallback: 'torch' },
     honey: { ids: ['honey'], fallback: 'restorative' },
     torch: { ids: ['torch'] },
@@ -69,7 +61,7 @@
   //   food      food, with a small animal chance - no seeds, no supplies
   //   flora     flowers or their seeds
   //   health    medical magic and the cherry-picked healing relics
-  //   school    the story Book / tomes by tier, and study magic
+  //   school    the story Book, and study magic
   //   culture   an even spread across everything
   //   worship   the chapel's daily blessing (the theme lives here alone)
   //   civic     unique relics, supplies, coins
@@ -78,7 +70,7 @@
     roadside: { weights: { supplies: 45, materials: 40, cash: 15 } },
     commerce: { weights: { cash: 70, gems: 30 } },
     food: { weights: { food: 95, farmAnimals: 5 } },
-    park: { weights: { parkSeeds: 45, saplings: 25, forage: 20, growth: 10 } },
+    park: { weights: { parkSeeds: 70, forage: 20, growth: 10 } },
     farm: { weights: { farmSeeds: 40, farmProduce: 30, farmAnimals: 15, farmSupplies: 10, growth: 5 } },
     flora: { weights: { flowerSeeds: 50, flowers: 50 } },
     health: { weights: { medicalMagic: 100 } },
@@ -97,8 +89,7 @@
     roadside: { supplies: 45, materials: 40, cash: 15 },
     commerce: { cash: 70, gems: 30 },
     food: { food: 95, farmAnimals: 5 },
-    // (Oct 2026) The high rows fold SAPLINGS into the seed lane - one
-    // plant-things lane at the top, not two.
+    // Crop seeds and tree seeds share the park's seed pool.
     park: { parkSeeds: 60, forage: 15, growth: 25 },
     farm: { farmSeeds: 25, farmProduce: 30, farmAnimals: 15, farmSupplies: 5, growth: 25 },
     flora: { flowerSeeds: 50, flowers: 50 },
@@ -121,7 +112,7 @@
   const aliases = { lowtier: 'roadside' };
   const normalize = theme => themes[theme] ? theme : aliases[theme] || 'roadside';
   const seedMultiplier = tier => tier >= 6 ? 0.25 : tier === 5 ? 0.33 : tier === 4 ? 0.5 : 1;
-  const seedTransfers = { foodSeeds: { food: 1 }, parkSeeds: { forage: 1 }, farmSeeds: { farmProduce: 1 }, flowerSeeds: { growth: 0.5, saplings: 0.5 } };
+  const seedTransfers = { foodSeeds: { food: 1 }, parkSeeds: { forage: 1 }, farmSeeds: { farmProduce: 1 }, flowerSeeds: { growth: 0.5, parkSeeds: 0.5 } };
   function weights(theme, tier, opts = {}) {
     theme = normalize(theme);
     const high = (opts.tier ?? tier) >= 3 && highTierWeights[theme];
@@ -167,14 +158,12 @@
     // book club (macros.js scholar*) needs Books to turn up, and the Book
     // only drops from the school, culture and worship rows — so every chest
     // SEATED at tier 2 (opts.tier, the chest's own tier: its rolls climb from
-    // T1, rarity.js rollRewardQuality, and at T1 or T2 the books group is the
-    // plain Book — every tome is T3+) carries at least BOOK_T2_SHARE of
+    // T1, rarity.js rollRewardQuality) carries at least BOOK_T2_SHARE of
     // books, the rest of the row scaled to make room. Rows already past the
     // share (the school's 60) and the rare-finds lane above (uniqueRelics —
     // exactly 5 where it exists) are left alone. A row with a books lane
     // (culture, worship) has it topped up; a row without one gets the
-    // plainBook group, so a jackpot roll climbing past T2 still hands the
-    // Book and not a tome. Applied last: the net share.
+    // plainBook group. Applied last: the net share.
     if ((opts.tier ?? tier) === 2) {
       const have = out.books || 0;
       if (have < BOOK_T2_SHARE) {
@@ -201,10 +190,10 @@
     if (!def) throw new Error('Unknown chest group: ' + group);
     return Object.keys(members(group)).filter(id => {
       const item = ITEM_BY_ID[id];
-      return item && !item.shiny && (!item.caveOnly || opts.depth > 0)
+      return item && !isTome(id) && !item.shiny && (!item.caveOnly || opts.depth > 0)
         && (!(opts.chestTier >= 3 && tier >= opts.chestTier && item.kind === 'magic')
           || cap(id) * itemValue(id) >= TIER_VALUE[Math.min(5, opts.chestTier)] / 2)
-        // UNIQUE finds - the unique relics and the tomes - never drop to a
+        // Unique relics never drop to a
         // player who already carries one (ChestThemes.cap holds them to one
         // per chest; this holds them to one per save).
         && ((item.kind !== 'unique_relic' && !item.unique) || !carriesItem(opts.save, id))
@@ -258,10 +247,11 @@
   function cap(id) {
     const item = ITEM_BY_ID[id];
     if (item.kind === 'unique_relic') return 1;
-    if (['elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap',
-         'tome_sight', 'tome_raven', 'tome_storm', 'tome_firewall', 'tome_speed', 'tome_shield', 'tome_healing', 'tome_blight'].includes(id)) return 1;
-    if (['animal', 'sapling'].includes(item.kind) || ['sapphire', 'ruby', 'emerald', 'diamond'].includes(id)) return 1;
+    if (['elixir', 'resurrection_potion', 'book', 'scarecrow', 'magic_trap'].includes(id)) return 1;
+    if (item.kind === 'animal' || item.plants === 'fruittree'
+      || ['sapphire', 'ruby', 'emerald', 'diamond'].includes(id)) return 1;
     if (item.kind === 'magic') return item.uniqueJewelry ? 1 : 6;
+    if (item.plants === 'tree') return 5;
     if (item.kind === 'seed') return magicalFlowers.includes(item.grows) ? 1 : 9;
     if (magicalFlowers.includes(id) || item.kind === 'mineral') return 3;
     return 5;
@@ -270,8 +260,10 @@
     if (id === 'wood' || id === 'rockfruit') return Math.min(12, 3 + Math.floor(rng() * 6) + bracket * 2);
     const allowance = TIER_VALUE[tier] * (1 + 0.5 * bracket);
     const count = allowance / Math.max(1, PRICES[id] || itemValue(id));
-    // A magic roll fills its allowance with copies of one potion/powder.
-    return Math.min(cap(id), Math.max(1, ITEM_BY_ID[id].kind === 'magic' ? Math.ceil(count) : Math.floor(count)));
+    // Magic and timber seeds round up to fill the allowance. Fruit saplings
+    // still award one tree; a T2 acorn draw can now pay a small planting stack.
+    const roundUp = ITEM_BY_ID[id].kind === 'magic' || ITEM_BY_ID[id].plants === 'tree';
+    return Math.min(cap(id), Math.max(1, roundUp ? Math.ceil(count) : Math.floor(count)));
   }
   function gearSlots(group) {
     const def = groups[group];

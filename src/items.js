@@ -56,7 +56,10 @@ const CROPS_SHEET_COLS = 9; // Crops.png is 9 cols wide
 const SPRING_CROPS_COLS = 14;
 const CROP_SPRITE = {
   potato: { sheet: 'springcrops', row: 5 },
-  berry:  { sheet: 'springcrops', row: 1 },   // strawberry-style red fruit bush
+  // Preserve seed, produce and growing-stage art; every mature berry bush
+  // uses the approved map sprite, including farmed bushes.
+  berry:  { sheet: 'springcrops', row: 1,
+    mature: { sheet: 'zone_berry_bush', custom: true, frame: 0, scale: 4 / 3 } },
   cress:  { sheet: 'springcrops', row: 3 },   // spoon-leaf watercress
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
   // Long grass — item id 'longgrass', display name 'Long grass'. Props.png
@@ -65,10 +68,9 @@ const CROP_SPRITE = {
   // wildplant scale. scale 1.16 (down 15% from 1.36) — the tuft was reading
   // oversized against neighbouring one-cell props.
   longgrass: { sheet: 'props', custom: true, frame: 10, scale: 1.16 },
-  // Two shrub appearances with identical harvesting: a basic bush and a cut
-  // hedge, 20% smaller than the former residential hedge.
+  // Shrub looks share harvesting; brambles mark thorny groves and roads.
   shrub: { sheet: 'bushes', custom: true, frame: 0, scale: 0.667,
-    looks: { clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frame: 0, scale: (4 / 3) * 0.8 } } },
+    looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frame: 0, scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frame: 0, scale: (4 / 3) * 0.8 } } },
   // Rustic Props.png keeps the existing 22-column layout. Frame 35 now
   // contains the approved red-spotted toadstool from original Props frame 13.
   // Small mushrooms use 80% of their former 1.224 scale. Surface and
@@ -116,19 +118,18 @@ const CROP_SPRITE = {
   starflower:  { sheet: 'props', custom: true, frame: 102, scale: 1.13 },  // glowing purple star-flower (row 4, col 14)
   // ── Street variants (src/street_variants.js) — both CHOPPED like a shrub
   // (WILDPLANT_RULES below), never scenery. The barricade road's barricade
-  // is the generated 16px piece; clipped hedges still harvest as shrubs.
-  barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 1.6 },
-  giant_mushroom: { sheet: 'giant_mushroom', custom: true, frame: 0, scale: 0.7, seat: true },
+  // uses approved 24px art; clipped hedges still harvest as shrubs.
+  barricade:   { sheet: 'barricade', custom: true, frame: 0, scale: 4 / 3 },
+  giant_mushroom: { sheet: 'zone_objects', custom: true, frame: 40, scale: 4 / 3, seat: true },
   // ── Influence zones (src/zones.js) — the tar yard's FLINT: a ground
   // pickup (WILDPLANT_RULES.flint below), the generated 16px nodule. One
   // frame of art, listed.
   flint:       { sheet: 'flint', custom: true, frames: [0], scale: 1.36 },
   // ── The TIDE LINE (src/scenic.js) — what the sea leaves on the waterline
-  // each UTC day, beside the shell: a sea-worn DRIFTWOOD branch and, rarely,
-  // a MESSAGE BOTTLE. The generated 16px placeholders, one frame of art
-  // each, listed.
+  // each UTC day, beside the shell: a sea-worn DRIFTWOOD branch. The
+  // generated 16px placeholder, one frame of art, listed. (The message
+  // bottle is an object, not a tide crop — render.js RENDER_SPEC.bottle.)
   driftwood:   { sheet: 'driftwood', custom: true, frames: [0], scale: 1.36 },
-  bottle:      { sheet: 'bottle', custom: true, frames: [0], scale: 1.36 },
 };
 
 // ── Which frame does THIS wild plant draw? ─────────────────────────────────
@@ -155,20 +156,33 @@ function wildplantVariantHash(p) {
 // These placement looks retain the base crop's harvest and inventory icon.
 // Zone materialLooks chooses authored looks; ordinary wetland-edge grass is
 // stamped by the rasterizer. None adds an item or changes planted crop art.
-// The mushroom has NO row here (Oct 2026, owner's call): the surface cluster
-// look is gone, and a mushroom is the red cap above ground or the blue cave
-// caps below (CROP_SPRITE.mushroom), wherever it grows.
+// Mushroom Grove and Mushroom Lane can select the approved red mushroom
+// atlas frame; ordinary surface and cave mushrooms retain their base art.
 const WILDPLANT_CONTEXT_ART = {
+  zone_rock_stone_garden: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 64, scale: 4 / 3 },
+  zone_rock_broken_masonry: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 65, scale: 4 / 3 },
+  zone_rock_flint_field: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 66, scale: 4 / 3 },
+  zone_rock_broken_depot: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 67, scale: 4 / 3 },
+  zone_rock_seep: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 68, scale: 4 / 3 },
+  zone_rock_work_yard: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 69, scale: 4 / 3 },
+  zone_rock_black_ring: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 70, scale: 4 / 3 },
+  zone_rock_pirate_cove: { crop: 'rockfruit', sheet: 'zone_objects', custom: true, frame: 71, scale: 4 / 3 },
+  zone_hedge: { crop: 'shrub', sheet: 'zone_hedge', custom: true, scale: 4 / 3, seat: false },
+  zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frame: 0, scale: (4 / 3) * 0.8, seat: false },
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
 function wildplantSprite(p) {
+  if (p && !p._cave && p._zoneObjectFrame === 40 && ['mushroom', 'giant_mushroom'].includes(p.crop))
+    return { custom: true, sheet: 'zone_objects', frame: 40, scale: 4 / 3 };
   const base = CROP_SPRITE[p && p.crop];
   const rawLook = p && (p._plantArt || p._streetArt);
   const look = rawLook === 'trimmed' ? 'clipped' : rawLook;
   const context = WILDPLANT_CONTEXT_ART[look];
-  if (context && context.crop === p.crop) return context;
+  if (context && context.crop === p.crop) return look === 'zone_hedge'
+    ? { ...context, frame: p._hedgeFrame ?? 0 } : context;
   if (base?.looks?.[look]) return base.looks[look];
   if (p && !p._cave && p.crop === 'shrub' && [5, 16].includes(p._biome)) return base.looks.clipped;
+  if (base?.mature && (p.kind === 'wildplant' || p.wildId != null || p.stage >= MAX_GROWTH_STAGE)) return base.mature;
   return base;
 }
 function wildplantFrame(p) {
@@ -217,16 +231,14 @@ const WILDPLANT_RULES = {
   // like a shell, and hands over the Flint item (id 'coal').
   flint:     { output: 'coal' },
   // The TIDE LINE's finds (src/scenic.js tideLive) — picked instantly, like a
-  // shell. Driftwood is wood. A MESSAGE BOTTLE is no item: it pays one roll
-  // of its context (`roll` — Scenic.BOTTLE_CONTEXT) and reads its note
-  // (`note`, Scenic.bottleNote) in a story dialog. What a tide pickup is on a
-  // given day is the day's; that it was TAKEN today is the day ledger's
-  // (interact.js 'wildplant' — never save.picked).
+  // shell. Driftwood is wood. What a tide pickup is on a given day is the
+  // day's; that it was TAKEN today is the day ledger's (interact.js
+  // 'wildplant' — never save.picked).
   driftwood: { output: 'wood' },
-  bottle:    { roll: 'treasure:vista', note: true },
+  longgrass: { treasure: { chance: 0.01, coins: 1 } },
   // Stone debris. The pick relic's ladder times the wheel the same way a rock
   // does — but gathering loose rubble off the ground costs no energy, so no
-  // `workCharged`. The one wild plant that hides something.
+  // `workCharged`. Occasionally hides a gemfruit.
   rockfruit: { workRelic: 'pick', treasure: { chance: 0.1, bonus: 'gemfruit' } },
   // The one wild plant that is a LIGHT: `light` names its Lighting.KINDS row,
   // which is what both the collector's gate (render.js) and the source
@@ -266,9 +278,6 @@ function wildplantWorkCost(crop, relics, rng) {
 function wildplantTreasure(crop) { return wildplantRule(crop)?.treasure || null; }
 // Which Lighting.KINDS row this plant lights as, null for everything else.
 function wildplantLight(crop) { return wildplantRule(crop)?.light || null; }
-// The loot context a pick ROLLS instead of handing the crop over (the tide
-// line's message bottle), or null.
-function wildplantRoll(crop) { return wildplantRule(crop)?.roll || null; }
 
 // CAMPFIRE COOKING — raw food → its cooked twin, in the order the cooked icon
 // sheet lays them out (assets/Icons/Food Icons/Cooked.png, frame = index here,
@@ -418,7 +427,9 @@ const MINERAL_ICON_SHEET = {
   giant_potion: { sheet: 'icon_potions', frame: 27 },
   fire_resistance_potion: { sheet: 'icon_potions', frame: 32 },
   // Scroll of the Raven: dark bird inked on parchment, retaining its save id.
-  raven_potion:  { sheet: 'icon_raven_scroll', frame: 0 },
+  skeleton_scroll: { sheet: 'icon_skeleton_scroll', frame: 0 },
+  wraith_scroll: { sheet: 'icon_wraith_scroll', frame: 0 },
+  raven_scroll:  { sheet: 'icon_raven_scroll', frame: 0 },
   // Potion of Blight — the red flask of the next row down (row 3, y=48:
   // frame 17), so it doesn't read as the Speed potion's red beside it.
   blight_potion: { sheet: 'icon_potions', frame: 17 },
@@ -428,7 +439,7 @@ const MINERAL_ICON_SHEET = {
   revive_potion:       { sheet: 'icon_potions', frame: 16 },
   resurrection_potion: { sheet: 'icon_potions', frame: 21 },
   // Scroll of Thunder keeps its legacy save id; gold-lettered scroll art.
-  thunder_potion:      { sheet: 'icon_book', frame: 48 },
+  thunder_scroll:      { sheet: 'icon_thunder_scroll', frame: 0 },
   // Dragon Powder — the vivid crimson pouch (row 1 col 2 = frame 7). Using it
   // turns you into a red dragon (useDragonPowder in app.js).
   dragon_powder: { sheet: 'icon_potions', frame: 7 },
@@ -542,8 +553,9 @@ const PLANTS_YIELD = { tree: 'wood' };
 function iconBadgeItem(itemId) {
   const item = ITEM_BY_ID[itemId];
   if (!item) return null;
-  if (item.kind === 'seed') return CROP_SPRITE[item.grows]?.sheet ? null : item.grows;
-  if (item.kind === 'sapling') return item.grows || PLANTS_YIELD[item.plants] || null;
+  if (item.kind !== 'seed') return null;
+  if (item.plants) return item.grows || PLANTS_YIELD[item.plants] || null;
+  if (item.grows) return CROP_SPRITE[item.grows]?.sheet ? null : item.grows;
   return null;
 }
 
@@ -599,8 +611,8 @@ const BASE_TIER = {
   apple: 2, cherry: 2, peach: 7, apricot: 2,
   orange: 2, mango: 3,
   banana: 2, coconut: 2,
-  // Plantable fruit-tree saplings — common apple (T3), very rare peach (T7).
-  apple_sapling: 3, peach_sapling: 7, acorn: 2,
+  // Plantable fruit-tree saplings — apple (T4), very rare peach (T7).
+  apple_sapling: 4, peach_sapling: 7, acorn: 2,
   // Animals balance basic catches, specialised fauna and lasting utility.
   // Combat HP stays in Combat; tier no longer follows HP alone.
   crow: 1, rabbit: 1,
@@ -613,13 +625,14 @@ const BASE_TIER = {
   honey: 3, book: 1, reach_potion: 4, vigor_potion: 2, speed_potion: 2, shield_potion: 5, protection_potion: 2, time_potion: 7, immortal_potion: 7,
   blight_potion: 3,
   // The Spirit Raven: Blight's tier — see its PRICES row for the comparison.
-  raven_potion: 3,
+  raven_scroll: 2,
+  skeleton_scroll: 3, wraith_scroll: 4,
   dragon_powder: 4, shrinking_potion: 4, giant_potion: 4, fire_resistance_potion: 4,
   // Revival: getting up where you fell instead of walking Home at a crawl.
   // 30% of a bar is a T3 emergency; 60% of a bar is a T5 find.
   revive_potion: 3, resurrection_potion: 5,
   // Thunder: a screen-wide strike that also breaks a fight up — T4.
-  thunder_potion: 4,
+  thunder_scroll: 4,
   // Growth Powder is a T2 farm utility beside the potions, and Shadow sits with
   // it: three minutes of not being hunted is a way to WALK AWAY from a fight, the
   // same shape as the reach/speed/shield potions it now shares a tier with.
@@ -772,21 +785,17 @@ const ITEMS = [
   // 'chest:school'). This is the one item whose SCARCITY is a documentation
   // bug rather than a balance choice.
   { id: 'book',  name: 'Book',  kind: 'supply', dropWeight: 3 },
-  // ── The TOMES — the story Book's rarer siblings. A tome replaces the
-  // plain Book in any chest whose tier meets its own (chest_themes books
-  // group: eligible() admits by baseTier, pickItem() takes the top tier
-  // present), so a T3+ book chest hands a tome, never the story Book. Read
-  // for a spell or the effect of the potion ONE TIER BELOW the tome
-  // (app.js readTome*), with timed cooldowns; never consumed or sold.
-  // Chests only.
-  { id: 'tome_sight',    name: 'Tome of Reach',     kind: 'unique_relic', dropWeight: 1 },
-  { id: 'tome_raven',    name: 'Tome of the Raven',   kind: 'unique_relic', dropWeight: 1 },
-  { id: 'tome_storm',    name: 'Tome of Thunder',     kind: 'unique_relic', dropWeight: 1 },
-  { id: 'tome_speed',    name: 'Tome of Speed',       kind: 'unique_relic', dropWeight: 1 },
-  { id: 'tome_shield',   name: 'Tome of Shielding',   kind: 'unique_relic', dropWeight: 1 },
-  { id: 'tome_healing',  name: 'Tome of Healing',     kind: 'unique_relic', dropWeight: 1 },
-  { id: 'tome_blight',   name: 'Tome of Blight',      kind: 'unique_relic', dropWeight: 1 },
-  { id: 'tome_firewall', name: 'Wall of Fire Tome', kind: 'unique_relic', dropWeight: 1 },
+  // Tomes are the scholar's rewards for reading Books. They cast repeatable
+  // spells on timed cooldowns and are never consumed or sold. The tome flag
+  // owns scholar membership and excludes them from treasure-box pools.
+  { id: 'tome_sight',    name: 'Tome of Reach',     kind: 'unique_relic', tome: true },
+  { id: 'tome_raven',    name: 'Tome of the Raven',   kind: 'unique_relic', tome: true },
+  { id: 'tome_storm',    name: 'Tome of Thunder',     kind: 'unique_relic', tome: true },
+  { id: 'tome_speed',    name: 'Tome of Speed',       kind: 'unique_relic', tome: true },
+  { id: 'tome_shield',   name: 'Tome of Shielding',   kind: 'unique_relic', tome: true },
+  { id: 'tome_healing',  name: 'Tome of Healing',     kind: 'unique_relic', tome: true },
+  { id: 'tome_blight',   name: 'Tome of Blight',      kind: 'unique_relic', tome: true },
+  { id: 'tome_firewall', name: 'Wall of Fire Tome', kind: 'unique_relic', tome: true },
   { id: 'blank_scroll', name: 'Blank Scroll', kind: 'supply' },
   { id: 'fireball_scroll', name: 'Fireball Scroll', kind: 'magic', scroll: true },
   { id: 'explosive_flask', name: 'Explosive Flask', kind: 'magic' },
@@ -808,16 +817,16 @@ const ITEMS = [
   { id: 'giant_potion', name: 'Potion of Giant', kind: 'magic', potion: true },
   { id: 'fire_resistance_potion', name: 'Potion of Fire Resistance', kind: 'magic', potion: true },
   { id: 'blight_potion', name: 'Potion of Blight',    kind: 'magic', potion: true },
-  // Read to summon a spirit raven that hunts foes and pest deer for
-  // SPIRIT_RAVEN_MS (app.js readRavenScroll; the bird is the creature row
-  // SpriteLayout.CREATURE_BEHAVIOUR.spirit_raven).
-  { id: 'raven_potion',  name: 'Scroll of the Raven', kind: 'magic', scroll: true },
+  // Read to summon a temporary ally through the shared companion keeper.
+  { id: 'skeleton_scroll', name: 'Scroll of Bones', kind: 'magic', scroll: true },
+  { id: 'wraith_scroll', name: 'Scroll of the Wraith', kind: 'magic', scroll: true },
+  { id: 'raven_scroll',  name: 'Scroll of the Raven', kind: 'magic', scroll: true },
   // Drunk while DOWN (zero energy) to get back up on the spot — see
   // REVIVE_POTION_FRAC and drinkRevivePotion in app.js.
   { id: 'revive_potion',       name: 'Potion of Revival',       kind: 'magic', potion: true },
   { id: 'resurrection_potion', name: 'Potion of Resurrection', kind: 'magic', potion: true },
-  // Read to strike every foe on screen; legacy id preserves saved copies.
-  { id: 'thunder_potion',      name: 'Scroll of Thunder',      kind: 'magic', scroll: true },
+  // Read to strike every foe on screen.
+  { id: 'thunder_scroll',      name: 'Scroll of Thunder',      kind: 'magic', scroll: true },
   // Dragon Powder: use it (Use button with it selected) to wear a red dragon
   // for one minute — tier-8 boot movement and 2× attack
   // damage (useDragonPowder in app.js). A stat buff, not a movement mode.
@@ -909,7 +918,7 @@ const ITEMS = [
   // Fruit from fruit trees in orchard tiles
   { id: 'apple',   name: 'Apple',   kind: 'produce', crop: 'apple' },
   { id: 'cherry',  name: 'Cherry',  kind: 'produce', crop: 'cherry' },
-  { id: 'peach',   name: 'Peach',   kind: 'produce', crop: 'peach' },
+  { id: 'peach',   name: 'Worldpeach',   kind: 'produce', crop: 'peach' },
   { id: 'banana',  name: 'Banana',  kind: 'produce', crop: 'banana' },
   { id: 'orange',  name: 'Orange',  kind: 'produce', crop: 'orange' },
   // Mango: a rare treat that tames ANY animal (see the creature handler in
@@ -917,19 +926,18 @@ const ITEMS = [
   { id: 'mango',   name: 'Mango',   kind: 'produce' },
   { id: 'coconut', name: 'Coconut', kind: 'produce', crop: 'coconut' },
   { id: 'apricot', name: 'Apricot', kind: 'produce', crop: 'apricot' },
-  // Plantable fruit-tree saplings. kind:'sapling' routes the plant action to
-  // the fruit-tree growth path (a growing `fruittree` object) rather than the
-  // 4-stage crop bed. `grows` is the fruit-tree species. Only two exist: the
-  // common apple (T3) and the very rare peach (T7).
-  { id: 'apple_sapling', name: 'Apple Sapling', kind: 'sapling', grows: 'apple', baseTier: 3 },
-  { id: 'peach_sapling', name: 'Peach Sapling', kind: 'sapling', grows: 'peach', baseTier: BASE_TIER.peach_sapling },
+  // Fruit-tree seeds use plants:'fruittree' for the tree growth path
+  // rather than the four-stage crop bed. `grows` names the species:
+  // apple (T4) or Worldpeach (T7).
+  { id: 'apple_sapling', name: 'Apple Sapling', kind: 'seed', plants: 'fruittree', grows: 'apple', baseTier: BASE_TIER.apple_sapling },
+  { id: 'peach_sapling', name: 'Worldpeach Sapling', kind: 'seed', plants: 'fruittree', grows: 'peach', baseTier: BASE_TIER.peach_sapling },
   // The ACORN is a sapling too, but it plants TIMBER, not fruit: `plants:'tree'`
   // routes it to a growing `tree` object (the thing you chop) instead of a
   // `fruittree` (the thing you pick). It falls out of felling a tree — the
   // better the axe, the likelier (acornDropChance) — so a forest you clear can
   // be a forest you replant. It carries no `grows`: a species-less tree draws
   // off the default growth sheet and takes no hardwood/softwood tier shift.
-  { id: 'acorn', name: 'Acorn', kind: 'sapling', plants: 'tree', baseTier: 2 },
+  { id: 'acorn', name: 'Acorn', kind: 'seed', plants: 'tree', baseTier: 2 },
   // Rock-break loot. Coal is common + low value, gems are rare + high value.
   // (Gem types deliberately distinct so high-tier rocks feel like a real find.)
   { id: 'coal',     name: 'Flint',    kind: 'mineral' },   // id kept: saves carry 'coal'
@@ -1009,6 +1017,8 @@ const GRILL_ENERGY_MUL = 1.5;
 const POTION_FIRE_TRANSMUTE = { revive_potion: 'vigor_potion', speed_potion: 'reach_potion' };
 const POTION_BLAST_DMG_PER_TIER = 3;
 const POTION_THROW_COOLDOWN_MS = 1000;
+function isTome(id) { return !!ITEM_BY_ID[id]?.tome; }
+
 function isPotion(id) {
   return ITEM_BY_ID[id]?.potion === true;
 }
@@ -1154,13 +1164,13 @@ const CONSUMABLE_SPEC = {
   antidote: {
     verb: 'Drink', method: 'drinkAntidote', title: 'Drink the Antidote?',
     get: 'The bitter draught clears every affliction.',
-    usable: scene => Conditions.hasDebuffs(scene.save, scene),
+    usable: scene => Conditions.hasDebuffs(scene.save),
   },
   elixir: {
     verb: 'Drink', method: 'drinkElixir', title: 'Drink the Elixir?',
     get: 'Warmth fills your body, washing every affliction away.',
     usable: scene => scene.save.energy > 0
-      && (scene.save.energy < scene.getMaxEnergy() || Conditions.hasDebuffs(scene.save, scene)),
+      && (scene.save.energy < scene.getMaxEnergy() || Conditions.hasDebuffs(scene.save)),
   },
   vigor_potion: {
     energy: 65,
@@ -1206,12 +1216,22 @@ const CONSUMABLE_SPEC = {
     verb: 'Drink', method: 'drinkShieldPotion', title: 'Drink the Potion of Shielding?',
     get: 'A shimmering veil softens the blows of beasts.',
   },
-  raven_potion: {
+  skeleton_scroll: {
+    durationMs: _CONSUMABLE_MINUTE_MS, summonKind: 'summoned_skeleton',
+    verb: 'Read', method: 'readSummoningScroll', title: 'Read the Scroll of Bones?',
+    get: 'A bone-white guardian rises to fight beside you.',
+  },
+  wraith_scroll: {
+    durationMs: _CONSUMABLE_MINUTE_MS, summonKind: 'summoned_wraith',
+    verb: 'Read', method: 'readSummoningScroll', title: 'Read the Scroll of the Wraith?',
+    get: 'A cold shade slips from the ink to hunt your foes.',
+  },
+  raven_scroll: {
     durationMs: _CONSUMABLE_MINUTE_MS,
     verb: 'Read', method: 'readRavenScroll', title: 'Read the Scroll of the Raven?',
     get: 'A raven of pale smoke takes wing against your foes.',
   },
-  thunder_potion: {
+  thunder_scroll: {
     damage: 25,
     verb: 'Read', method: 'readThunderScroll', title: 'Read the Scroll of Thunder?',
     get: 'Thunder breaks over the foes before you.',
@@ -1287,8 +1307,8 @@ const CONSUMABLE_SPEC = {
 // Compatibility names keep existing consumers concise while the table remains
 // the only numeric owner.
 const VIGOR_POTION_ENERGY = CONSUMABLE_SPEC.vigor_potion.energy;
-const THUNDER_DMG = CONSUMABLE_SPEC.thunder_potion.damage;
-const SPIRIT_RAVEN_MS = CONSUMABLE_SPEC.raven_potion.durationMs;
+const THUNDER_DMG = CONSUMABLE_SPEC.thunder_scroll.damage;
+const SPIRIT_RAVEN_MS = CONSUMABLE_SPEC.raven_scroll.durationMs;
 const HORSE_RIDE = CONSUMABLE_SPEC.horse;
 // A shiny horse is ridden the same way: one row, two stacks.
 CONSUMABLE_SPEC.shiny_horse = HORSE_RIDE;
@@ -1351,7 +1371,7 @@ const PRICES = {
   honey: 12,
   book:  20,
   tome_sight: 90,   // T3 — a reach potion's sight, once a day, forever
-  tome_raven: 170,  // T4 — a T3 raven's wings, once a day, forever
+  tome_raven: 170,  // T4 — a T2 raven's wings, once a day, forever
   tome_storm: 300,  // T5 — a T4 thunderclap (the unique-relic curve re-prices all tomes)
   tome_speed: 100, tome_shield: 80, tome_healing: 70, tome_blight: 170,
   tome_firewall: 170, // T4 — unique-relic pricing applies
@@ -1374,12 +1394,12 @@ const PRICES = {
   immortal_potion: 800, // T7 — full damage immunity for 1 min
   shield_potion: 250,  // T5 — half monster damage for 1 min
   blight_potion: 90,   // T3 — 1 min of a 1.5-cell aura at app.js's BLIGHT_DPS
-  raven_potion:  90,   // T3 — 1 min of a slime-strength ally (one roster-slime bite
-                       //      each second on one foe, below Blight's per-foe rate, but
-                       //      it hunts pests and keeps fighting while you move): Blight's tier and price
+  raven_scroll: 55, // T2 — one minute of a slime-strength ally
+  skeleton_scroll: 90, // T3 — one minute of a skeleton-strength ally
+  wraith_scroll: 160, // T4 — one minute of a ghost-strength ally
   revive_potion: 40,   // T3 — get up where you fell with 30% of the bar
   resurrection_potion: 250,   // T5 — get up where you fell with 60% of the bar
-  thunder_potion: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
+  thunder_scroll: 160,   // T4 — THUNDER_DMG to every foe on screen, survivors flee
   dragon_powder: 120,  // T4 — 1 min of dragon: tier-8 boot walking + 2× damage
   growth_powder: 60,   // T2 — every crop within 20 m springs ahead a stage, unwatered
   shadow_powder: 110,  // T2 — 3 min of monsters ignoring you entirely (priced for the
@@ -1393,7 +1413,8 @@ const PRICES = {
   spear:         5,   // T1 supply (BASE_TIER) — one thrown shot, spent on use; priced as a staple like the torch (owner, Oct 2026: 40 was far too dear for one throw)
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
-  scarecrow: 30,   // crow/deer ward — sold once at the forced scarecrow shop
+  scarecrow: 20,   // crow/deer ward — sold once at the forced scarecrow shop
+  acorn: 5,
 
   // ── Rock-break minerals ──────────────────────────────────
   coal:      3,
@@ -1477,7 +1498,6 @@ const REVIVE_ITEM_FRAC = {
   revive_potion: CONSUMABLE_SPEC.revive_potion.energyFrac,
   resurrection_potion: CONSUMABLE_SPEC.resurrection_potion.energyFrac,
 };
-const revivePct = (id) => Math.round(REVIVE_ITEM_FRAC[id] * 100);
 // The Crow Feather stands you up with a flat 1 energy — enough to crawl, not
 // to fight: its pocket resurrection only buys the walk home. (It rode the
 // table above at 10% until Sep 2026.)
@@ -1503,8 +1523,10 @@ const ITEM_GUIDE_TIPS = {
   rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',
   flowers: 'Brought the shopkeeper flowers. A softer voice, a kinder price. I had meant only to give her something lovely.',
   slime: 'The slime shares my doorstep now. When I grind the blue stone, it waits beside me. Brann would disapprove. I have decided not to ask him.',
-  raven_potion: 'I traced a raven onto the parchment. Its ink-dark wings stirred before the page was dry.',
-  thunder_potion: 'I copied the thunder words onto a blank scroll. Outside, the sky answered.',
+  skeleton_scroll: 'I drew a skull on the blank parchment. Something tapped against the table from underneath.',
+  wraith_scroll: 'The ink paled as I finished the shade. My breath misted above the parchment.',
+  raven_scroll: 'I traced a raven onto the parchment. Its ink-dark wings stirred before the page was dry.',
+  thunder_scroll: 'I copied the thunder words onto a blank scroll. Outside, the sky answered.',
   fireball_scroll: 'At the trailer I copied the fire spell from memory onto blank parchment. The ink warmed. I moved the bedding away.',
   fear_scroll: 'I copied the words that had scattered my pursuers onto a blank scroll. Even here at the trailer, the parchment trembled.',
   treasure_map: 'Back at the trailer I traced the remembered map onto a blank scroll. Its hidden paths returned. I had hoped one might lead home.',
@@ -1588,8 +1610,10 @@ const ITEM_EFFECTS = {
   antidote: 'A bitter draught to wash every affliction away.',
   elixir: 'Restoring warmth washes every affliction from your body.',
   vigor_potion: 'A little bottled warmth for weary limbs.',
-  raven_potion: 'A pale wing stirs beneath the raven-marked ink.',
-  thunder_potion: 'A distant storm stirs between the inked lines.',
+  skeleton_scroll: 'The skull-marked parchment rattles softly in your hand.',
+  wraith_scroll: 'Cold gathers around the shade stamped into the parchment.',
+  raven_scroll: 'A pale wing stirs beneath the raven-marked ink.',
+  thunder_scroll: 'A distant storm stirs between the inked lines.',
   revive_potion: 'A faint pulse waits to call a fallen traveller back.',
   resurrection_potion: 'A deep warmth waits where a fallen traveller’s heart has quieted.',
   growth_powder: 'Spring stirs in the dust, impatient with the sleeping crops.',
@@ -1764,7 +1788,7 @@ function itemTierOf(id) {
 function tierBadgeColor(tier) {
   return TIER_BADGE_TINT[tier] ?? TIER_BY_NUM[tier]?.color ?? null;
 }
-function tierBadgeHTML(tier, fontPx = 10) {
+function tierBadgeHTML(tier, fontPx = 10, paddingPx = 5) {
   const t = Math.min(7, Math.max(0, Math.floor(Number(tier) || 0)));
   const name = TIER_BADGE_NAMES[t];
   const row = TIER_BY_NUM[t];
@@ -1774,7 +1798,7 @@ function tierBadgeHTML(tier, fontPx = 10) {
   // Dark ink on the pale ores (Iron, Gold, Platinum, Frost), pale on the dark.
   const ink = (0.299 * r + 0.587 * g + 0.114 * b) > 140 ? '#1a1612' : '#fff4e0';
   const bg = '#' + c.toString(16).padStart(6, '0');
-  return `<span class="tier-badge" data-tier="${t}" style="display:inline-block;padding:1px 5px;border-radius:4px;`
+  return `<span class="tier-badge" data-tier="${t}" style="display:inline-block;padding:1px ${paddingPx}px;border-radius:4px;`
     + `font:700 ${fontPx}px ui-monospace,monospace;letter-spacing:.04em;text-transform:uppercase;`
     + `line-height:1.35;vertical-align:middle;background:${bg};color:${ink};">${name}</span>`;
 }
@@ -1785,8 +1809,7 @@ const RELIC_DEFS = {
              effectKey: 'rockSpeed',     blurb: 'Its pointed head finds the seams in stone.' },
   axe:     { slot: 'axe',    name: 'Axe',     icon: 'Axe.png',     baseCost:  80,
              effectKey: 'chopSpeed',     blurb: 'Its keen edge bites deep into timber.' },
-  // Ring and amulet names belong to unique carried jewelry now. Legacy tiered
-  // pieces migrate in savemigrate.js; this table contains tools only.
+  // Ring and amulet names belong to unique carried jewelry; this table contains tools only.
   // Weapons (see combat.js). The SWORD is melee — it drains a foe's health on
   // the combat wheel and auto-engages the nearest enemy in reach. BOW and STAFF
   // are ranged — they fire on their own while an enemy is on screen, each on
@@ -1798,6 +1821,15 @@ const RELIC_DEFS = {
   // values and the Bow lowers buy prices; the Staff bends no prices at all.
   sword:   { slot: 'sword',  name: 'Sword',   icon: 'Sword.png',   baseCost:  80,
              effectKey: 'sellPrice',     blurb: 'Its edge answers a foe that comes too close.' },
+  dagger:  { slot: 'dagger', name: 'Dagger', icon: 'Dagger.png', baseCost: 80,
+             tiers: [1, 3, 5], chestOnly: true,
+             effectKey: 'melee', blurb: 'Its short blade waits until a foe is close.' },
+  spear:   { slot: 'spear', name: 'Spear', icon: 'Spear.png', baseCost: 80,
+             tiers: [1, 3, 5], chestOnly: true,
+             effectKey: 'melee', blurb: 'Its long point holds a foe at a distance.' },
+  musket:  { slot: 'musket', name: 'Musket', icon: 'Musket.png', baseCost: 60,
+             tiers: [1, 3, 5], chestOnly: true,
+             effectKey: 'shot', blurb: 'A coin drops into its barrel before each shot.' },
   bow:     { slot: 'bow',    name: 'Bow',     icon: 'Bow.png',     baseCost:  60,
              effectKey: 'buyPrice',      blurb: 'Its drawn string follows the compass needle.' },
   staff:   { slot: 'staff',  name: 'Staff',   icon: 'Staff.png',   baseCost:  60,
@@ -1867,7 +1899,6 @@ function wreckRestoreQty(restoredCount, key) {   // eslint-disable-line no-unuse
 // nearly a fifth of the ceiling for the cheapest bag in the game.
 const STACK_CAP_BY_TIER = [9, 15, 25, 40, 60, 99, 149, 249];
 const STACK_CAP_BASE = STACK_CAP_BY_TIER[0];
-const STACK_CAP_MAX  = STACK_CAP_BY_TIER[STACK_CAP_BY_TIER.length - 1];
 function stackCapForBags(bagsRelic) {
   const t = bagsRelic?.tier || 0;
   if (t <= 0) return STACK_CAP_BASE;
@@ -1910,6 +1941,9 @@ for (const item of ITEMS.filter(i => i.kind === 'unique_relic')) {
 function gearAssetPath(kind, slot, tier) {
   const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
   if (!def || !t) return null;
+  if (def.tiers) {
+    return def.tiers.includes(tier) ? `assets/Icons/AltWeapons/${tier}/${def.icon}` : null;
+  }
   // Bags live under Extras; tools and armor are per-tier.
   if (kind === 'relic' && slot === 'bags') {
     return `assets/Icons/RPG icons/Extras/${def.icon}`;
@@ -1931,7 +1965,8 @@ function gearAssetPath(kind, slot, tier) {
 function gearName(kind, slot, tier) {
   const def = gearDef(kind, slot); const t = TIER_BY_NUM[tier];
   if (!def || !t) return slot;
-  return `${t.name} ${def.name}`;
+  const material = def.tiers ? ({ 1: 'Rusty', 3: 'Fine', 5: 'Magic' })[tier] : t.name;
+  return material ? `${material} ${def.name}` : def.name;
 }
 // ARMOR SOAK — what one worn piece takes off an incoming hit: ITS TIER. A Wood
 // helmet is −1, a Frost one is −7, and the four slots sum.
@@ -2266,7 +2301,7 @@ function jewelryVisionReduction(save) {
   for (const [id, row] of Object.entries(UNIQUE_JEWELRY)) {
     if (row.visionCells && carriesItem(save, id)) cells = Math.max(cells, row.visionCells);
   }
-  if ((save?.shrinkingPotionUntil ?? 0) > Date.now()) cells += CONSUMABLE_SPEC.shrinking_potion.visionCells;
+  if (typeof PotionEffects !== 'undefined') cells += PotionEffects.visionReduction(save);
   return cells;
 }
 function jewelryFireDamageMul(save) {
@@ -2426,7 +2461,7 @@ function isTillableCell(cell) { return isTillable(cell.type) && !cell.underRoad;
 // a kind added to ITEMS without a home here falls into Produce, and only this
 // file can see both halves of that.
 const INV_CATS = [
-  { key: 'seed',        label: 'Seeds',       sym: '🌱', kinds: ['seed', 'sapling'] },
+  { key: 'seed',        label: 'Seeds',       sym: '🌱', kinds: ['seed'] },
   { key: 'produce',     label: 'Produce',     sym: '🍎', kinds: ['produce'] },
   { key: 'animal',      label: 'Animals',     sym: '🐔', kinds: ['animal'] },
   { key: 'relic',       label: 'Relics',      sym: '💍', gear: 'relic', kinds: ['unique_relic'] },
@@ -2452,3 +2487,16 @@ function invCatForItem(id) {
   for (const c of INV_CATS) if (c.kinds && c.kinds.includes(kind)) return c.key;
   return 'produce';
 }
+
+// Contact damage is shared by player and enemy movement through these props.
+const WALK_HAZARD_ENERGY_PER_S = 1;
+const CHARRED_SPIKE_DAMAGE_PER_S = 2;
+function walkHazardDamageRate(o) {
+  if (!o) return 0;
+  if (o.kind === 'stakes') return o._street === 'burned' ? CHARRED_SPIKE_DAMAGE_PER_S : 0;
+  if (o.kind && o.kind !== 'wildplant' && o.kind !== 'shrub') return 0;
+  if (o.crop === 'barricade') return WALK_HAZARD_ENERGY_PER_S;
+  return (o.crop === 'shrub' || o.kind === 'shrub')
+    && (o._plantArt === 'bramble' || o._streetArt === 'bramble') ? WALK_HAZARD_ENERGY_PER_S : 0;
+}
+function isWalkHazard(o) { return walkHazardDamageRate(o) > 0; }

@@ -67,9 +67,7 @@
   //
   // It ends at the FIRST HARVEST, not on a clock: bringing in a crop is the
   // ladder's proof the player has the loop (and the produce to fight with),
-  // where a timer just measured how long the tab sat closed. A veteran's save
-  // can never fall into the grace — SaveMigrate.stampHarvested marks any save
-  // that predates the flag and has been played as already harvested.
+  // where a timer just measured how long the tab sat closed.
   function pestFreeZone(scene, tx, ty) {
     const sv = scene.save;
     if (!sv || sv.hasHarvested) return null;   // first crop is in: the map is itself again
@@ -1866,7 +1864,8 @@
     const standable = (cx, cy) =>
       cx >= 0 && cx < N && cy >= 0 && cy < N &&
       !occupied.has(cx + ',' + cy) &&
-      !Combat.faunaBlocksCell(entry.grid[cy * N + cx]);
+      !Combat.faunaBlocksCell(entry.grid[cy * N + cx]) &&
+      !WorldGen.isRoadTerrain(entry.grid[cy * N + cx]);   // a seat is never on a street
     // The mode's own distance, never nearer than the placer's floor.
     const dist = Math.max(HOME_GREETER_MIN_CELLS, prof.homeGreeterCells || 0);
     // Nearest cell to (ix, iy) that `accept`s, within `slack` of it and still

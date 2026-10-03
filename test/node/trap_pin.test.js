@@ -1,12 +1,12 @@
 // Trap pin + first-tool-action stories.
 //
 // TRAP PIN: walking onto a hidden trap springs it, and the jaw holds the
-// body for 3 s — _tickTraps stamps `this._pinnedUntil = performance.now() +
-// 3000` on first contact, and update() gates the WHOLE movement block
-// (_steerManual / _driftHome / _steerTarget / _followStep) on it, so the
-// inputs die with the body (no walking energy drain while clamped). When the
-// pin expires, update() clears it and fires the 'trap_free' story splash
-// once per save. The bite, the bleed, the pain flash and the cell pops are
+// body — _tickTraps applies the `pinned` row of Conditions.DEFINITIONS (its
+// durationMs, 3 s, is the one number) on first contact, and update() gates
+// the WHOLE movement block (_steerManual / _driftHome / _steerTarget /
+// _followStep) on it, so the inputs die with the body (no walking energy
+// drain while clamped). When the pin runs out, _tickConditions fires the
+// 'trap_free' story splash once per save. The bite, the bleed, the pain flash and the cell pops are
 // exactly as they were — the pin is a gate on movement, nothing else.
 //
 // STORIES: the first trap ever ('trap') and the first action of each tool
@@ -46,7 +46,7 @@ const TOOL_SRC = lift(app, '_toolActionStory(action) {', '_toolActionStory');
 const HOLD_SRC = lift(app, '_bodyHold() {', '_bodyHold');
 const MOVE_SRC = (() => {
   const a = app.indexOf('const bodyHold = this._bodyHold();');
-  const mark = 'this._followStep(dt, bodyHold.capMS);\n    }';
+  const mark = '\n    }\n    // One throttled flash for the stick-walking drain';
   const b = a < 0 ? -1 : app.indexOf(mark, a);
   assert.truthy(a > 0 && b > a, 'found the trap-pin movement gate in update()');
   return app.slice(a, b + mark.length);
@@ -62,13 +62,15 @@ const TOOL_STEMS = ['tool_till', 'tool_chop', 'tool_dig', 'tool_water',
                     'tool_catch', 'tool_sword', 'tool_shoot', 'tool_staff'];
 
 // ── The pin, as source ────────────────────────────────────────────────────
-test('trap pin: the spring branch stamps _pinnedUntil 3 s out', () => {
+test('trap pin: the spring branch applies the pinned status row', () => {
   const spring = TICK_SRC.indexOf('if (Traps.springTrap(this.save, trap)) {');
   const ret = TICK_SRC.indexOf('return;', spring);
   const branch = TICK_SRC.slice(spring, ret);
   assert.truthy(spring > 0 && ret > spring, 'found the first-contact branch');
-  assert.truthy(/this\._pinnedUntil = performance\.now\(\) \+ 3000;/.test(branch),
-    'first contact pins the body for 3000 ms');
+  assert.truthy(/Conditions\.apply\(this\.save, 'pinned'\);/.test(branch),
+    'first contact pins the body through the status table');
+  assert.eq(Conditions.DEFINITIONS.pinned.durationMs, 3000, 'the row owns the three seconds');
+  assert.falsy(/_pinnedUntil/.test(SCENE_SRC), 'no scene-local pin timer survives');
   assert.truthy(/this\._storySplashOnce\('trap', \{[\s\S]{0,200}art: 'trap_jaw'/.test(branch),
     'the first trap ever splashes with the trap_jaw banner');
   // The existing behaviour is untouched: the pin is added, nothing removed.
@@ -80,7 +82,7 @@ test('trap pin: the spring branch stamps _pinnedUntil 3 s out', () => {
 });
 
 test('trap pin: the movement block is gated on the pin, all four steps together', () => {
-  assert.truthy(/const pinned = performance\.now\(\) < \(this\._pinnedUntil \|\| 0\);/.test(HOLD_SRC),
+  assert.truthy(/const pinned = Conditions\.active\(this\.save, 'pinned'\);/.test(HOLD_SRC),
     '_bodyHold reads the pin');
   assert.truthy(/if \(bodyHold\.pinned\) \{/.test(MOVE_SRC), 'update() gates on it');
   for (const step of ['this._steerManual(stick.x, stick.y, dt);',
@@ -89,18 +91,22 @@ test('trap pin: the movement block is gated on the pin, all four steps together'
                       'this._followStep(dt, bodyHold.capMS);']) {
     assert.truthy(MOVE_SRC.includes(step), `${step} sits inside the gate`);
   }
-  const clear = MOVE_SRC.indexOf('this._pinnedUntil = 0;');
-  const splash = MOVE_SRC.indexOf("this._storySplashOnce('trap_free', {");
-  assert.truthy(clear > 0 && splash > clear, 'an expired pin clears, then tells the story');
-  assert.truthy(/art: 'trap_free'/.test(MOVE_SRC.slice(splash, splash + 400)),
+  const tick = app.match(/\n  _tickConditions\(\) \{\n([\s\S]*?)\n  \}\n/)[1];
+  const was = tick.indexOf("const wasPinned = Conditions.active(this.save, 'pinned');");
+  const run = tick.indexOf('Conditions.tick(this.save, elapsed');
+  const splash = tick.indexOf("this._storySplashOnce('trap_free', {");
+  assert.truthy(was > 0 && run > was && splash > run, 'a pin that RUNS OUT in the tick tells the story');
+  assert.truthy(/art: 'trap_free'/.test(tick.slice(splash, splash + 400)),
     'the freed splash carries the trap_free banner');
 });
 
 // ── The pin, run for real ─────────────────────────────────────────────────
 function pinScene() {
-  const calls = { steer: 0, drift: 0, target: 0, follow: 0, splashes: [] };
+  const calls = { steer: 0, drift: 0, target: 0, follow: 0, hazards: 0, splashes: [] };
   const scene = {
     save: {},
+    playerM: {x: 0, y: 0}, startWorldM: {x: 0, y: 0},
+    _tickWalkHazards: () => { calls.hazards++; },
     _steerManual: () => { calls.steer++; },
     _driftHome: () => { calls.drift++; },
     _steerTarget: () => { calls.target++; },
@@ -113,31 +119,31 @@ function pinScene() {
 
 test('trap pin (behaviour): while pinned, no movement step runs', () => {
   const { scene, calls } = pinScene();
-  scene._pinnedUntil = performance.now() + 3000;
+  Conditions.apply(scene.save, 'pinned');
   for (let i = 0; i < 10; i++) moveStep.call(scene, { x: 1, y: 0 }, 0, 0, 1, 16);
   assert.eq(calls.steer, 0, 'no steering while clamped');
   assert.eq(calls.drift, 0, 'no drift home while clamped');
   assert.eq(calls.target, 0, 'no keyboard steer while clamped');
   assert.eq(calls.follow, 0, 'no follow step while clamped');
+  assert.eq(calls.hazards, 0, 'walking hazards cannot charge while clamped');
   assert.eq(calls.splashes.length, 0, 'and no freed splash yet');
 });
 
-test('trap pin (behaviour): expiry clears the pin, fires trap_free once, and movement resumes', () => {
+test('trap pin (behaviour): the row runs out on gameplay time, and movement resumes', () => {
   const { scene, calls } = pinScene();
-  scene._pinnedUntil = performance.now() - 1;   // just expired
+  Conditions.apply(scene.save, 'pinned');
+  Conditions.tick(scene.save, 2999);
   moveStep.call(scene, null, 0, 0, 1, 16);
-  assert.eq(scene._pinnedUntil, 0, 'the pin cleared itself');
-  assert.eq(calls.splashes.length, 1, 'the freed splash fired');
-  assert.eq(calls.splashes[0][0], 'trap_free', 'it is the trap_free story');
-  assert.eq(calls.splashes[0][1].art, 'trap_free', 'carrying the trap_free banner');
-  assert.eq(calls.drift, 1, 'the drift home ran again');
-  assert.eq(calls.follow, 1, 'the follow step ran again');
-  // The next frames: movement keeps running, the splash does not re-fire.
+  assert.eq(calls.follow, 0, 'still held a millisecond short');
+  Conditions.tick(scene.save, 1);
+  assert.falsy(Conditions.active(scene.save, 'pinned'), 'the pin ran out');
+  assert.eq(scene.save.energy, undefined, 'and drained nothing of its own');
   moveStep.call(scene, null, 0, 0, 1, 16);
   moveStep.call(scene, { x: 0, y: 1 }, 0, 0, 1, 16);
-  assert.eq(calls.splashes.length, 1, 'trap_free fires once per pin, not per frame');
+  assert.eq(calls.drift, 1, 'the drift home ran again');
   assert.eq(calls.steer, 1, 'steering is live again');
-  assert.eq(calls.follow, 3, 'and keeps following');
+  assert.eq(calls.follow, 2, 'and keeps following');
+  assert.eq(calls.splashes.length, 0, 'the movement block tells no story (the tick does)');
 });
 
 // ── The trap spring, run for real ─────────────────────────────────────────
@@ -169,18 +175,17 @@ test('trap pin (behaviour): first contact sets the pin ~3 s out and splashes onc
   const realPersist = globalThis.persistSave;
   globalThis.persistSave = () => {};
   try {
-    const t0 = performance.now();
     s._tickTraps(16);
-    assert.truthy(s._pinnedUntil >= t0 + 2990 && s._pinnedUntil <= t0 + 3010,
-      `_pinnedUntil is ~3000 ms out (got ${s._pinnedUntil - t0})`);
+    assert.eq(s.save.conditions.pinned.remainingMs, Conditions.DEFINITIONS.pinned.durationMs,
+      'first contact pins for the row\'s duration');
     assert.eq(s.save.storySeen.trap, 1, 'the trap story is banked in the ledger');
     assert.eq(s.modals.length, 1, 'the splash modal opened');
     assert.eq(s.modals[0].art, 'trap_jaw', 'with the trap_jaw banner');
     // A SECOND, different trap springs: the pin re-stamps, the story does not.
-    s._pinnedUntil = 0;
+    Conditions.cure(s.save, 'pinned');
     s._trapHere = { id: 'trap_b', x: 30, y: 40 };
     s._tickTraps(16);
-    assert.truthy(s._pinnedUntil >= performance.now() + 2990, 'the new trap pins again');
+    assert.truthy(Conditions.active(s.save, 'pinned'), 'the new trap pins again');
     assert.eq(s.modals.length, 1, 'but the trap splash fires once per save');
   } finally {
     globalThis.persistSave = realPersist;

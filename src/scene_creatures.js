@@ -53,8 +53,8 @@ const MONSTER_ARROW_HITS = Combat.MONSTER_SHOT_INTERVAL_MS / MONSTER_HIT_MS;
 // FIRE WARD DEPTH CAP: a campfire only turns away the WEAKEST cave-dwellers —
 // those introduced at the first cave level (Combat.MONSTERS[kind].minDepth <= 1),
 // the same tier as the surface slime it already deters. A goblin (minDepth 2)
-// or goblin archer (minDepth 3) — and their giants, pushed GIANT_DEPTH_STEP
-// deeper still — are past what a lit campfire can plausibly hold off; only
+// or goblin archer (minDepth 3) — and their giants, at their own roster
+// depths — are past what a lit campfire can plausibly hold off; only
 // Home's stronger ward (HOME_R, surface only) turns those around.
 const FIRE_WARD_MAX_DEPTH = 1;
 
@@ -168,8 +168,9 @@ class SceneCreatures {
       // each cell is refused, as reason bits. Every spawner below names its
       // class to isSpawnCell (WorldGen.SPAWN_CLASS_BLOCKS — a creature's via
       // creatureSpawnClass), and the class's row says which typed reasons
-      // (house, kerb, school, sensitive, field edge) it refuses; the hard ones
-      // (road band, quiet / restricted land, back yards, …) refuse all.
+      // (kerb, sensitive) it refuses; the hard ones (road band, quiet /
+      // restricted land, kindergartens, back yards, a field's interior, …)
+      // refuse all.
       spawnWhy: entry.spawnWhy,
       // The major roads' band / verge / KERB BUFFER bits (worldgen
       // ROAD_CLASS_*) and the QUIET LAND: read by isSpawnCell only on an
@@ -207,6 +208,7 @@ class SceneCreatures {
     yield 'spawn scenic dressing';
     const zoneTraps = [], zoneGuards = [], zoneTreasures = [];
     const zDress = entry.zoneDress;
+    entry.reefCorals = !testMode ? (zDress?.corals || []).map(o => ({ ...o, kind: 'reef_coral' })) : [];
     if (zDress && !testMode) {
       const cellIdx = (p) => {
         const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);
@@ -227,6 +229,7 @@ class SceneCreatures {
       for (const o of entry.objects) if (o.kind !== 'lava_vent') {
         for (const i of SpawnOwnership.tileCells(this, entry, o, tx, ty)) liveSeats.add(i);
       }
+      const placedZoneObjects = new Set();
       for (const o of zDress.objects) {
         if (o.kind === 'lava_vent') {
           const i = cellIdx(o);
@@ -242,6 +245,7 @@ class SceneCreatures {
         }
         if (!lay(o)) continue;
         entry.objects.push(o);
+        placedZoneObjects.add(o.id);
         if (StreetVariants.isSlowKind(o.kind)) slow.set(cellIdx(o), o.kind);
       }
       entry.wildplants = entry.wildplants || [];
@@ -250,7 +254,10 @@ class SceneCreatures {
       // may hide a piece, but must never reveal a different spawn underneath.
       for (const trap of (zDress.traps || [])) if (lay(trap)) zoneTraps.push({ ...trap });
       for (const guard of (zDress.guards || [])) if (lay(guard)) zoneGuards.push(guard);
-      for (const treasure of (zDress.treasures || [])) if (lay(treasure)) zoneTreasures.push(treasure);
+      for (const treasure of (zDress.treasures || [])) {
+        const placed = treasure.coverRockId ? placedZoneObjects.has(treasure.coverRockId) : lay(treasure);
+        if (placed) zoneTreasures.push(treasure);
+      }
       for (const L of (zDress.lairs || [])) entry.streetLairs.push(L);
       entry.slowCells = slow.size ? slow : null;
     }
@@ -321,10 +328,10 @@ class SceneCreatures {
     }
     // A LAIR POINT IS AN ATTRACTOR: a gate's daily foe, a street's guard, a
     // café hoard's giant — each is kept only where attractor ground (the
-    // spawn gate: out of the house buffer, off school and sensitive ground and
-    // fields, off hard land) lies within LAIR_POINT_SLACK_CELLS of its point —
-    // a gate's point sits on its own way, so the ground BESIDE it answers.
-    // A gate in a school's fence or a field gets no foe. The guards' own
+    // spawn gate: off sensitive ground and every hard reason — yards,
+    // kindergartens, a field's interior) lies within LAIR_POINT_SLACK_CELLS of
+    // its point — a gate's point sits on its own way, so the ground BESIDE it
+    // answers. A gate in a kindergarten's fence or deep in a field gets no foe. The guards' own
     // seats are their kind's class (lairs.js, creatureSpawnClass).
     if (entry.streetLairs.length) {
       const lairOpts = { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
@@ -397,9 +404,9 @@ class SceneCreatures {
           if (!fauna) enemyGroundSeats.add(cy * N + cx);
           if (caughtSet.has(id)) return;
           // AN ANIMAL (or a wild slime) IS SEATED BY ITS OWN CLASS (the spawn
-          // gate, creatureSpawnClass): fauna keep off school grounds and
-          // sensitive ground; a FAST one off the kerb too; a foe also off the
-          // house buffer and every field. DROPPED after the draw, like the
+          // gate, creatureSpawnClass): every class keeps off the hard reasons
+          // and sensitive ground; a FAST one (animal or foe) off the kerb
+          // too. DROPPED after the draw, like the
           // pest amnesty below, never re-rolled: the stream stays the same
           // for every later spawn, and the mask is generated, so every player
           // loses the same animals.
@@ -1149,17 +1156,35 @@ class SceneCreatures {
       .sort((a, b) => (pOf(b) >= 1) - (pOf(a) >= 1));
     if (!species.length) return moved;
     const taken = new Set();
+    // Shore birds need room between landings and the beach's interactables.
+    // Failed attraction keeps the original animal; it never removes population.
+    const shoreMask = entry.scenic?.shore?.mask;
+    const birdLandings = new Set();
+    const reserveBirdLanding = idx => {
+      const x = idx % N, y = Math.floor(idx / N);
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (x + dx >= 0 && x + dx < N && y + dy >= 0 && y + dy < N)
+          birdLandings.add((y + dy) * N + x + dx);
+      }
+    };
+    if (shoreMask) for (const c of creatures) if (c && (c.kind === 'crow' || c.kind === 'raven')) {
+      const x = Math.floor((c.x - tx * this.tileEdgeM) / cellM);
+      const y = Math.floor((c.y - ty * this.tileEdgeM) / cellM);
+      if (x >= 0 && x < N && y >= 0 && y < N && shoreMask[y * N + x]) reserveBirdLanding(y * N + x);
+    }
     for (const sp of species) {
       const p = pOf(sp);
       const pool = pools.get(sp) || [];
       if (!pool.length) continue;
       const rng = WorldGen.makeRng(fnv1a(`${sp}s|${tx},${ty}`));
       const pest = (sp === 'slime' || sp === 'crow' || sp === 'raven') ? pestFree : null;
+      const shoreBird = shoreMask && (sp === 'crow' || sp === 'raven');
       const spClass = creatureSpawnClass(sp);
       const seatOpts = spClass === 'fauna' || spClass === 'fastFauna'
         ? { ...spawnOpts, occupied: null } : spawnOpts;
       const free = (idx) => {
         if (taken.has(idx) || (blocked && blocked.has(idx))) return false;
+        if (shoreBird && shoreMask[idx] && (spawnOpts.occupied?.has(idx) || birdLandings.has(idx))) return false;
         const cx = idx % N, cy = (idx / N) | 0;
         if (pest && pest.has(cx, cy)) return false;
         // The seat rule for anything alive: its own spawn class.
@@ -1180,6 +1205,7 @@ class SceneCreatures {
         }
         if (at < 0) return false;
         taken.add(at);
+        if (shoreBird && shoreMask[at]) reserveBirdLanding(at);
         c.x = tx * this.tileEdgeM + ((at % N) + 0.5) * cellM;
         c.y = ty * this.tileEdgeM + (((at / N) | 0) + 0.5) * cellM;
         moved[sp] = (moved[sp] || 0) + 1;
@@ -1242,22 +1268,24 @@ class SceneCreatures {
       return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
     };
     const gen = new Set(genObjects);
-    const held = new Set();
+    const held = new Map();
     const footprintFrame = { cellsPerEdge: N };
     for (const o of (entry.objects || [])) {
       if (gen.has(o)) continue;
-      for (const i of SpawnOwnership.tileCells(this, footprintFrame, o, tx, ty)) held.add(i);
+      for (const i of SpawnOwnership.tileCells(this, footprintFrame, o, tx, ty))
+        held.set(i, held.has(i) ? null : o.id);
     }
     const savedIds = SpawnOwnership.savedIds(this.save);
     for (const plant of (entry.wildplants || [])) {
       if (!SpawnOwnership.isProtected(plant, this.save, savedIds)) continue;
-      for (const i of SpawnOwnership.tileCells(this, footprintFrame, plant, tx, ty)) held.add(i);
+      for (const i of SpawnOwnership.tileCells(this, footprintFrame, plant, tx, ty)) held.set(i, null);
     }
     const repainted = grid !== genGrid;
     const off = (t, allowOverlap = false) => {
       const i = idxOf(t.x, t.y);
       if (i < 0) return false;
-      if (!allowOverlap && held.has(i)) return true;
+      if (!allowOverlap && held.has(i)
+          && !(t.coverRockId && held.get(i) === t.coverRockId)) return true;
       return repainted && grid[i] !== genGrid[i] && !WorldGen.isWalkable(grid[i]);
     };
     if (!held.size && !repainted) return;
@@ -1644,7 +1672,7 @@ class SceneCreatures {
         // the same way and are pruned by the same rule. (`pest_crow_` is the
         // pump's old prefix — a marker left by a session before the deer
         // took the job prunes the same way.)
-        const m = typeof id === 'string' && /^(?:pest_deer|pest_crow|ghost|fished_slime|spirit_raven|mercenary|guildfoe)_(-?\d+)_(-?\d+)_/.exec(id);
+        const m = typeof id === 'string' && /^(?:pest_deer|pest_crow|ghost|fished_slime|spirit_raven|summoned_skeleton|summoned_wraith|mercenary|guildfoe)_(-?\d+)_(-?\d+)_/.exec(id);
         // A gate's guard (lairs.js DAILY_TIERS) carries its UTC day: one
         // from another day can never rise again, so its marker goes.
         const gateDay = Lairs.dailyGuardDay(id);
@@ -1734,7 +1762,7 @@ class SceneCreatures {
               const angle = base + (k * Math.PI * 2) / 8;
               const sx = px + Math.cos(angle) * SPAWN_R, sy = py + Math.sin(angle) * SPAWN_R;
               const dest = this.cellAt(sx, sy);
-              if (!dest.loaded || Combat.faunaBlocksCell(dest.type)) continue;
+              if (!dest.loaded || Combat.faunaBlocksCell(dest.type) || WorldGen.isRoadTerrain(dest.type)) continue;
               entry.creatures.push(WorldGen.makeCreature('deer', sx, sy,
                 `pest_deer_${pc.tx}_${pc.ty}_${Math.floor(now)}_${Math.floor(Math.random() * 1e4)}`));
               break;
@@ -1750,8 +1778,14 @@ class SceneCreatures {
     // Most ticks have no charm active: avoid scanning every foe against all
     // creatures just to discover there are no temporary allies to target.
     this._charmedOpponents = [];
+    // The same pass gathers the live foes in the sim bubble once a tick, so
+    // each foe's spacing (creature_ai.js foeSpacingPush) reads a short list.
+    this._foeBodies = [];
     WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, c => {
-      if (Combat.isCharmed(c) && !caughtSet.has(c.id)) this._charmedOpponents.push(c);
+      if (caughtSet.has(c.id)) return;
+      if (Combat.isCharmed(c)) this._charmedOpponents.push(c);
+      const ddx = c.x - px, ddy = c.y - py;
+      if (ddx * ddx + ddy * ddy <= RANGE_SQ && Combat.isEnemy(c) && EnemyRoster.get(c.kind)) this._foeBodies.push(c);
     });
 
     WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, (c) => {
@@ -1774,11 +1808,13 @@ class SceneCreatures {
         } else if (c._surfaceInactive) return;
       }
       if (far) {
+        c._walkHazardPrevious = null;
         if (c.kind === 'npc') c._moving = false;
         return;
       }
       if (typeof PotionEffects !== 'undefined' && PotionEffects.tick(this, c)) return;
       if (this._tickUnitFire?.(c, now)) return;
+      if (!caughtSet.has(c.id) && enemyWalkHazardTick(this, c, now)) return;
       if (c.kind === 'npc') { NPC.tick(this, c, now, npcDt); return; }
       const unnoticed = this.isUnnoticed(c);
       const isTame = typeof c.id === 'string' && c.id.startsWith('released_');
@@ -1833,7 +1869,8 @@ class SceneCreatures {
       //   A GHOST has one more ward point: a campfire (fireWardTrip) — the
       // same latch, a third reason, asked only for a haunting kind.
       const haunts = SpriteLayout.creatureHaunts(c.kind);
-      const stationary = !!Combat.monster(c.kind)?.stationary;
+      const stationary = !!c.stationary || EnemyRoster.isRooted(c.kind)
+        || !!Combat.monster(c.kind)?.stationary;
       // An ENRAGED game animal (a hunted deer — `fightsBack`, _rageUntil) is
       // hostile for as long as it is angry, so it takes Home's ward exactly as
       // an enemy does: one lane, another reason. Warded, it is turned away
