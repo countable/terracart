@@ -74,6 +74,8 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // `tier(save, order)` is the rank the pick would carry (the badge on its
   // card and on the Restored! card): a shop's line tier, the next smithy's
   // tier, a trader's by restore number — all shops.js shopTier's arithmetic.
+  // `variants(save, order)` splits a row into several cards (the Shop row,
+  // one per line on offer); each variant's fields lie over the row's.
   const BUILD_OPTIONS = Object.freeze([
     { key: 'plain', role: 'plain', from: STORY_RESTORES.house, name: 'House', art: 'restore_house',
       pick: 'A family moves back in and buys the produce they ask for.',
@@ -90,10 +92,14 @@ const FORT_UNLOCK_WOOD_STEP = 6;
         return t === 1 ? true : Shops.smithCount(save) < Shops.SHOP_TIER_MAX && order + 1 >= Shops.smithUnlockAt(t);
       },
       suggested: (save) => !hasBlacksmith(save) },
+    // The Shop row is one card per LINE on offer (shops.js marketOffers: the
+    // cycle's next line, then from the ninth rebuild a rotating pair), each a
+    // variant with its `theme`; restoreAs stores the pick in save.shopLines.
     { key: 'market', role: 'market', from: STORY_RESTORES.market, art: 'restore_market',
       pick: 'A shop selling one line of goods, priced at the village markup.',
       blurb: 'A family opens the market shutters again. ',
-      tier: (save) => Shops.nextLine(save).tier },
+      variants: (save, order) => Shops.marketOffers(save, order).map(({ theme, tier }) =>
+        ({ key: 'market:' + theme, theme, tier: () => tier })) },
     // Traders take the tier of the restore number that raises them (shops.js
     // traderTierAt): any number at a tier, a rank higher every five rebuilds.
     { key: 'trader', role: 'trader', from: STORY_RESTORES.trader, art: 'restore_trader',
@@ -125,8 +131,33 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // reads as the plain price tag it always was.
   function buildOptions(save, house, order = restoredCount(save)) {
     save = save || {};
-    return BUILD_OPTIONS.filter((row) => order >= row.from - 1
-      && (!row.offered || row.offered(save, order, house)));
+    const out = [];
+    for (const row of BUILD_OPTIONS) {
+      if (order < row.from - 1 || (row.offered && !row.offered(save, order, house))) continue;
+      if (row.variants) for (const v of row.variants(save, order)) out.push({ ...row, ...v });
+      else out.push(row);
+    }
+    return out;
+  }
+
+  // THE MAGIC HAMMER (owner, Oct 2026): a T4 magic item (items.js) spent on a
+  // restore. The wreck raised under it is SHINY — it glints and glows like a
+  // shiny tree (render.js, Lighting.KINDS.shiny) — and everything its keepers
+  // sell is HAMMER_PRICE_MUL of the quoted price, for good (save.shinyHouses,
+  // an id set like the rest of the player's marks). It is the one standing
+  // discount a BUILDING carries: the relic-tier price bends are gone (items.js
+  // buyMarkupRange). The flower charm's hour and a carried guild badge
+  // (items.js guildDiscounted) still stack on top.
+  const HAMMER_ID = 'magic_hammer';
+  const HAMMER_PRICE_MUL = 0.8;
+  function isShinyHouse(save, house) {
+    return !!(house && house.id != null && save && save.shinyHouses && save.shinyHouses[house.id]);
+  }
+  // Every price a building quotes multiplies by this: the hammer's standing
+  // cut times the flower charm's hour — buildShopOffer, presentRelicOffer and
+  // the trader's asking target all read it.
+  function priceMul(save, house, now = Date.now()) {
+    return shopCharmMul(save, house, now) * (isShinyHouse(save, house) ? HAMMER_PRICE_MUL : 1);
   }
 
   // Wooden-tool blacksmith: the FIRST blacksmith the player raises (stamped
@@ -155,6 +186,15 @@ const FORT_UNLOCK_WOOD_STEP = 6;
     return (typeof Shops !== 'undefined' && Shops.shopType(house)) || null;
   }
 
+  // The guild whose badge discounts deals at `place` (items.js
+  // guildDiscounted): a house's role, or a peddling neighbour's — a merchant
+  // keeps a themed shop (role key 'market'), a trader barters.
+  const NPC_GUILD = { merchant: 'market', trader: 'trader' };
+  function guildRole(save, place) {
+    if (place?.kind === 'npc') return NPC_GUILD[place.role] || null;
+    return houseShopRole(save, place);
+  }
+
   // Does this save have a smithy? The stamped starter smithy, or any restored
   // house frozen as one.
   function hasBlacksmith(save) {
@@ -167,13 +207,16 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // owns — the first blacksmith (starterBlacksmithId), the Book Shop
   // (bookshopId), a wizard tower (wizardTowers). Refuses (null) a card not on
   // offer, so a stale modal can't raise a tower early. Returns the row.
-  function restoreAs(save, house, key) {
+  // `opts.hammer` marks the house shiny (the caller spends the Magic Hammer).
+  function restoreAs(save, house, key, opts = {}) {
     if (!house || house.id == null) return null;
     const row = buildOptions(save, house).find((r) => r.key === key);
     if (!row) return null;
     save.restoredHouses = save.restoredHouses || {};
     if (typeof save.restoredHouses[house.id] === 'string') return null;   // never relabel a restored house
     save.restoredHouses[house.id] = row.role;
+    if (row.theme) (save.shopLines = save.shopLines || {})[house.id] = row.theme;
+    if (opts.hammer) (save.shinyHouses = save.shinyHouses || {})[house.id] = 1;
     if (row.role === 'blacksmith' && save.starterBlacksmithId == null) save.starterBlacksmithId = house.id;
     if (row.key === 'bookshop') registerBookshop(save, house);
     if (row.role === 'wizard') registerWizardTower(save, house);
@@ -396,9 +439,11 @@ const FORT_UNLOCK_WOOD_STEP = 6;
 
   root.Houses = {
     STORY_RESTORES, BUILD_OPTIONS, buildOption, buildOptions, restoredCount, restoreAs,
+    HAMMER_ID, HAMMER_PRICE_MUL, isShinyHouse, priceMul,
     isStarterBlacksmith, houseShopRole, displayRole, hasBlacksmith,
     wizardTowerIds, wizardTowerIdentity, registerWizardTower, registerBookshop,
     shopCharmMul,
+    guildRole,
     isHouseWreck, wreckRestoreCost,
     fortUnlockCost, isFortLocked,
     castleKey, isBuildingSealed, isClaimedKey, isCastleClaimed, claimCastle,

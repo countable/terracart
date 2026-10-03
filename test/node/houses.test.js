@@ -76,12 +76,13 @@ test('buildOptions: the cards unlock by how many wrecks already stand', () => {
   const keys = (order) => Houses.buildOptions({ restoredHouses: {}, discovered: {} }, plainHouse, order).map((r) => r.key).join();
   assert.eq(keys(0), 'plain', 'the first restore is a House and nothing else');
   assert.eq(keys(1), 'plain,blacksmith', 'the second adds the smithy');
-  assert.eq(keys(2), 'plain,blacksmith,market');
-  assert.eq(keys(3), 'plain,blacksmith,market', 'the fourth adds nothing');
-  assert.eq(keys(4), 'plain,blacksmith,market,trader');
-  assert.eq(keys(7), 'plain,blacksmith,market,trader,turret');
-  assert.eq(keys(14), 'plain,blacksmith,market,trader,turret,bookshop');
-  assert.eq(keys(29), 'plain,blacksmith,market,trader,turret,bookshop,wizard');
+  assert.eq(keys(2), 'plain,blacksmith,market:seed', 'the third adds the Shop card, named for its line');
+  assert.eq(keys(3), 'plain,blacksmith,market:seed', 'the fourth adds nothing');
+  assert.eq(keys(4), 'plain,blacksmith,market:seed,trader');
+  assert.eq(keys(7), 'plain,blacksmith,market:seed,trader,turret');
+  assert.eq(keys(8), 'plain,blacksmith,market:seed,market:supply,trader,turret', 'the ninth: two Shop cards');
+  assert.eq(keys(14), 'plain,blacksmith,market:seed,market:supply,trader,turret,bookshop');
+  assert.eq(keys(29), 'plain,blacksmith,market:seed,market:supply,trader,turret,bookshop,wizard');
   assert.eq(Houses.buildOptions({ restoredHouses: {}, bookshopId: 'b' }, plainHouse, 20).map((r) => r.key).includes('bookshop'), false, 'one Book Shop per save');
   assert.eq(Houses.restoredCount({ restoredHouses: { a: 'plain', b: 'market' } }), 2, 'the order is the ledger\'s size');
   for (const row of Houses.BUILD_OPTIONS) {
@@ -109,7 +110,7 @@ test('buildOptions: one smithy per tier, the next from restore number tier × 5'
   assert.eq(Houses.buildOption('trader').tier({}, 4), 1, 'the fifth rebuild raises a T1 trader');
   assert.eq(Houses.buildOption('trader').tier({}, 9), 2, 'the tenth a T2');
   assert.eq(Houses.buildOption('trader').tier({}, 9), Shops.traderTierAt(10));
-  assert.eq(Houses.buildOption('market').tier({ restoredHouses: {} }, 2), 1);
+  assert.eq(Houses.buildOptions({ restoredHouses: {} }, plainHouse, 2).find((r) => r.key === 'market:seed').tier(), 1);
 });
 
 test('buildOptions: the Blacksmith card is suggested until the lane has a smithy', () => {
@@ -133,7 +134,7 @@ test('restoreAs: freezes the pick, stamps what it owns, refuses what is not offe
   assert.eq(Houses.restoreAs(save, h('c'), 'blacksmith').role, 'blacksmith');
   assert.eq(Shops.smithTier(save, h('c')), 2, 'and is tier 2');
   assert.eq(save.starterBlacksmithId, 'b', 'a second smithy is not the wooden-tool forge');
-  assert.eq(Houses.restoreAs(save, h('a'), 'market'), null, 'a restored house is never relabelled');
+  assert.eq(Houses.restoreAs(save, h('a'), 'market:seed'), null, 'a restored house is never relabelled');
   assert.eq(save.restoredHouses.a, 'plain');
   for (let i = 10; i < 14; i++) Houses.restoreAs(save, h('f' + i), 'plain');
   assert.eq(Houses.restoredCount(save), 14);

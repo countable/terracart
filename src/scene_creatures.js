@@ -1699,13 +1699,13 @@ class SceneCreatures {
     this._npcWardContext = { home: homePos, castles: castleWards, radius2: HOME_WARD_R2 };
     NPC.prepareTargets(this, pcW, px, py, RANGE_M, now);
     // Pest spawn: if the player has any planted crop and there is NO wild
-    // deer already near the player, dispatch one off-screen every ~90 s. The
-    // deer's wander (`raidsCrops`, below) walks at the nearest crop it may eat
-    // and grazes it when it stands beside it. Eased from "top up to 2 every
-    // 30 s" — that relentless pump made crops unfarmable: another raider
-    // arrived seconds after you dealt with the last. Now the pump only
-    // backfills an emptied field, and slowly, so netting or scaring off the
-    // deer near your field actually buys a quiet window. (The dispatched pest
+    // deer already near the player, dispatch one off-screen once an hour
+    // (PEST_DISPATCH_MS). The deer's wander (`raidsCrops`, below) walks at the
+    // nearest crop it may eat and grazes it when it stands beside it. Eased
+    // from "top up to 2 every 30 s", then every 90 s — both made crops a
+    // chore: another raider arrived soon after you dealt with the last. Now
+    // the pump only backfills an emptied field, once an hour, so a raid is an
+    // event rather than a drain. (The dispatched pest
     // was a CROW until Sep 2026; the owner moved crop-raiding to the deer,
     // and the crow is game now — feathers, never a field.)
     this._lastPestT = this._lastPestT || 0;
@@ -1720,11 +1720,11 @@ class SceneCreatures {
     // has no grace to wait out, so the check could only ever answer "true"
     // where it still ran.
     // Timer gate first: the planted-crop scan is O(planted) and has no
-    // business running on the ~5400 frames between pest windows.
+    // business running on the frames between pest windows.
     // SURFACE ONLY: underground WorldGen.tileCache is the cave level's map
     // (see the prune's depth gate above), so a pest minted here landed in
     // the dungeon — a deer with no crop to walk at, in a cave.
-    if ((this.depth || 0) === 0 && now - this._lastPestT > 90000) {
+    if ((this.depth || 0) === 0 && now - this._lastPestT > PEST_DISPATCH_MS) {
       const hasRaidableCrop = this.save.planted && this.save.planted.some((p) => this._cropRaidable(p));
       if (hasRaidableCrop && Difficulty.get().cropPests) {
         this._lastPestT = now;

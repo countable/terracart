@@ -251,16 +251,17 @@ test('rng: deterministic per (id, bucket, salt, lane); lane + rerolls vary it', 
   assert.truthy(rerolled !== a[0], 're-roll changes the offer');
 });
 
-test('buyPrice: within the markup band; a maxed Bow collapses it toward par', () => {
+test('buyPrice: within the markup band, and no relic collapses it', () => {
   const plain = { relics: {} };
   for (let s = 0; s < 50; s++) {
     const p = ShopsMath.buyPrice(plain, 100, () => Math.random());
     assert.inRange(p, Math.ceil(100 * 1.2), Math.ceil(100 * 3.0), 'within 1.2..3.0×');
   }
-  // Bow T7 → flat 1.0× → price == baseValue regardless of the roll.
+  // A maxed Bow pays the same band (Oct 2026: the Magic Hammer's building is
+  // the one standing discount — houses.js priceMul).
   const bowed = { relics: { bow: { tier: 7 } } };
-  assert.eq(ShopsMath.buyPrice(bowed, 100, () => 0), 100, 'par at low roll');
-  assert.eq(ShopsMath.buyPrice(bowed, 100, () => 0.999), 100, 'par at high roll too');
+  assert.eq(ShopsMath.buyPrice(bowed, 100, () => 0), 120, 'the band\'s floor at a low roll');
+  assert.eq(ShopsMath.buyPrice(bowed, 100, () => 1), 300, 'its ceiling at a high roll');
 });
 
 // ── Stand pricing: cheaper than par, never an arbitrage pump ───────────────

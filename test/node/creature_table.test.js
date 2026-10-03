@@ -211,6 +211,6 @@ test('creatures: a hunted deer fights back — a row, wired through the one blow
 });
 
 test('creatures: no pest deer is dispatched underground', () => {
-  assert.truthy(/if \(\(this\.depth \|\| 0\) === 0 && now - this\._lastPestT > 90000\)/.test(SCENE_CREATURES_SRC),
+  assert.truthy(/if \(\(this\.depth \|\| 0\) === 0 && now - this\._lastPestT > PEST_DISPATCH_MS\)/.test(SCENE_CREATURES_SRC),
     'the pump is surface-only');
 });

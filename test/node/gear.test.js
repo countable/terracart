@@ -89,21 +89,21 @@ test('buildRelicOffer: deterministic for a fixed seed', () => {
   assert.eq(JSON.stringify(a), JSON.stringify(b));
 });
 
-test('buildRelicOffer: castle pricing collapses toward par as Bow tier climbs', () => {
+test('buildRelicOffer: castle pricing is a flat markup that no relic bends', () => {
   const base = { relics: {}, armor: {} };
   const bowed = { relics: { bow: { tier: 7 } }, armor: {} };
-  // Compare the SAME pick by using a seed that lands on a non-bow slot, summed
-  // over many seeds: mean castle price with a T7 bow should be < without.
-  let sumBase = 0, sumBow = 0, n = 0;
+  let n = 0;
   for (let s = 1; s <= 200; s++) {
     const o1 = Gear.buildRelicOffer(base, seeded(s), { isCastle: true });
     const o2 = Gear.buildRelicOffer(bowed, seeded(s), { isCastle: true });
     if (o1 && o2 && o1.slot === o2.slot && o1.tier === o2.tier && o1.slot !== 'bow') {
-      sumBase += o1.price; sumBow += o2.price; n++;
+      assert.eq(o1.price, o2.price, `seed ${s}: the bow buys no discount`);
+      assert.eq(o1.price, Math.max(1, Math.ceil(gearPrice(o1.kind, o1.slot, o1.tier) * 4)), 'four times the piece\'s price');
+      n++;
     }
   }
   assert.gt(n, 0, 'had comparable offers');
-  assert.lt(sumBow, sumBase, 'a maxed Bow discounts castle prices');
+  assert.falsy(/bestWeaponTier/.test(ITEMS_JS_SRC), 'the weapon-tier price lever is gone');
 });
 
 test('blacksmithRecipe: tools use the tier bar (≥5), jewelry uses gems+bar', () => {

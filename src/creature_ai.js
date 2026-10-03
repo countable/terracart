@@ -133,6 +133,11 @@ const SURFACE_RECHECK_MS = 1000;
 // thinking, and walking at the field, from the tick it is pushed. The ghosts
 // rise on the same ring.
 const PEST_SPAWN_CELLS = 10;
+// How often that pump may dispatch one (owner, Oct 2026: "just once per
+// hour"; it was every 90 s). Timed on the page clock, so it is an hour of
+// play since the last window (or since the game opened), not a wall-clock
+// schedule that survives a reload.
+const PEST_DISPATCH_MS = 60 * 60 * 1000;
 // A MONSTER'S STRIDE, in cells: how far one step of the step chain carries it
 // (wanderCreatures' stepM) — a full cell for a flier, 0.6 for everything that
 // walks. Its PACE is this over its beat (the loop's STEP_MS / its row's
