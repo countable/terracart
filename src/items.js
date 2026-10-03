@@ -157,6 +157,8 @@ function wildplantSprite(p) {
   const base = CROP_SPRITE[p && p.crop];
   const rawLook = p && (p._plantArt || p._streetArt);
   const look = rawLook === 'trimmed' ? 'clipped' : rawLook;
+  // An authored ordinary look takes precedence over inferred biome styling.
+  if (look === 'ordinary') return base;
   const context = WILDPLANT_CONTEXT_ART[look];
   if (context && context.crop === p.crop) return look === 'zone_hedge'
     ? { ...context, frame: p._hedgeFrame ?? 0 } : context;

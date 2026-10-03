@@ -1275,9 +1275,13 @@
           if (ix < 0 || iy < 0 || ix >= N || iy >= N) break;
           const i = iy * N + ix;
           if (owned.has(i)) continue;
-          // Classify the cell center, not the sub-cell sampling point.
+          // A diagonal road's rasterized tile can overlap the band while its
+          // center sits outside it. Include that tile in a barricade crossing,
+          // or the ordinary road exclusion stops the line at the pavement.
           const normalDistance = Math.abs(((ix + .5) * CELL_M - x) * nx + ((iy + .5) * CELL_M - y) * ny);
-          const road = normalDistance <= rec.halfW;
+          const cellReach = rec.variant === 'barricade' && WG.isRoadTerrain(grid[i])
+            ? CELL_M / 2 * (Math.abs(nx) + Math.abs(ny)) : 0;
+          const road = normalDistance <= rec.halfW + cellReach;
           if (road) roadSeats.add(i);
           if (!(road ? WG.isSpawnCell(grid,N,N,ix,iy,gate,'streetObstacle') : cellOk(ix,iy))) break;
           owned.add(i); emit(ix,iy);

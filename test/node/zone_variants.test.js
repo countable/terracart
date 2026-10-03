@@ -335,12 +335,14 @@ test('zone variants: fauna affinities and material classes match their runtime l
 });
 })();
 
-test('bush groves target half of background cells before placement exclusions', () => {
+test('bush groves keep their authored background density before placement exclusions', () => {
  for (const id of ['meadow','ancient_grove']) {
    const row=ZoneVariants.byId(id); let shrubs=0;
-   assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : undefined);
+   assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : 'ordinary');
    for(let y=0;y<120;y++) for(let x=0;x<120;x++) if(ZoneVariants.sample(row,x,y,'coverage')==='shrub')shrubs++;
-   assert.eq(row.background.materialDensity.shrub,0.5);
-   assert.inRange(shrubs/14400,0.48,0.52,id);
+   const density = id === 'meadow' ? 0.35 : 0.5;
+   assert.eq(row.background.materialDensity.shrub, density);
+   if (id === 'meadow') assert.eq(row.background.nominalDensity, density);
+   assert.inRange(shrubs/14400, density - 0.02, density + 0.02, id);
  }
 });
