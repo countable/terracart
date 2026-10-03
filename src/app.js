@@ -67,6 +67,9 @@ const TRAIL_PRIZE_HEADER = 'Thank you for repairing the roads!';
 const TRAIL_PRIZE_THANKS = 'Your neighbours thank you for repairing the road and hand you a gift.';
 // The first repaired stretch introduces the neighbours who leave gifts.
 const TRAIL_INTRO_TITLE = 'The survivors are watching';
+// The tail of both "Without a tool" stories (_barehandWorkStory): the joke
+// that carries the hint — a tool would be the easier way.
+const BAREHAND_STORY_ASIDE = ' (but to be honest tools would be much less tiring!)';
 const trailIntroBody = (playerClass) =>
   'You clear the rubble from the road. A survivor watches from a doorway, then brings you a gift.';
 // …but not on the same beat as the repair. The first stretch to come back
@@ -1159,6 +1162,14 @@ const CASTLE_REST_ENERGY = 35;   // a flat 35⚡ (was a tenth of the bar until S
 // What a house says when the feet walk through it (_houseMutter). Each line
 // fits MAP_MSG_MAX.
 const HOUSE_WRECK_MUTTERS = ["It's a fixer upper.", 'Something here smells.', 'Needs a little TLC.'];
+// What the Hood grunts when a job STARTS with nothing in hand (_barehandMutter,
+// owner's copy, Oct 2026). The bare-handed rung of the tool ladder
+// (toolDurationMs: 9 s against a Wood tool's 3) is the slow way, and the grunt
+// is the hint — one line per job, cycling, on the job's own cell. Only the
+// three WORK tools (BAREHAND_MUTTER_TOOLS, the same three _barehandWorkStory
+// tells of) grunt: a bare-handed catch or fight is the normal way of those.
+const BAREHAND_MUTTERS = ['Oof!', 'Ghhhh!', 'Need tools!'];
+const BAREHAND_MUTTER_TOOLS = ['axe', 'pick', 'hoe'];
 const HOUSE_RESTORED_MUTTERS = ['Eek!', 'Why hello there.', 'Thanks for fixing my house!',
   'Welcome back!', 'Can I offer some tea?'];
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
@@ -5930,8 +5941,24 @@ class MapScene extends Phaser.Scene {
   // it slips out of reach. Omit it for static targets (rock / tree / fish).
   startWorkProgress(worldX, worldY, onComplete, durationMs = 3000, energyRefund = 0, toolSlot = null, trackCreature = null) {
     this._setWorkProgressIcon(toolSlot);
+    this._barehandMutter?.(toolSlot, worldX, worldY);
     durationMs = Gear.workDurationMs(this.save, durationMs);
     this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, startT: performance.now(), track: trackCreature };
+  }
+  // The grunt a bare-handed job starts with (BAREHAND_MUTTERS), on the job's
+  // cell. Answered HERE, beside the badge, for the same reason the badge is:
+  // every wheel starter passes its tool slot through startWorkProgress, so no
+  // call site can forget it. A slot the player owns at any tier says nothing;
+  // so does a wheel with no work tool (a catch, a fight, a dig in a cave wall
+  // passes 'pick' and grunts like the rest — the rung is the same).
+  _barehandMutter(toolSlot, worldX, worldY) {
+    if (!toolSlot || !BAREHAND_MUTTER_TOOLS.includes(toolSlot)) return false;
+    if ((this.save?.relics?.[toolSlot]?.tier || 0) > 0) return false;
+    if (!this.startWorldM || typeof worldMetersToAbsCell !== 'function') return false;
+    const c = worldMetersToAbsCell(this, worldX, worldY);
+    const n = this._barehandMutterN = (this._barehandMutterN | 0) + 1;
+    this._popCellNumber(BAREHAND_MUTTERS[(n - 1) % BAREHAND_MUTTERS.length], UI_DANGER_INK, c.cellIX, c.cellIY);
+    return true;
   }
   // Pick the tool drawn in the MIDDLE of a work-progress wheel: the equipped
   // tier's own art for `toolSlot`, or nothing. Shared by every wheel starter
@@ -8777,14 +8804,18 @@ class MapScene extends Phaser.Scene {
 
   // Completion-only: remember the equipment the job began with, even if
   // another reward changes the inventory while its wheel is running.
+  // (BAREHAND_STORY_ASIDE closes both bodies — barehand_story.test.js.)
   _barehandWorkStory(tool, startingTier, isTree = false) {
     if ((this.depth ?? 0) > 0 || startingTier > 0 || !['axe', 'pick', 'hoe'].includes(tool)) return;
     this._storySplashOnce('work:barehands', {
       art: isTree ? 'barehand_tree' : 'barehand_work',
       title: 'Without a tool',
-      body: isTree
+      // Both end on the same aside (owner's copy, Oct 2026): the job got
+      // done, and the hint that a tool is the easier way rides the joke.
+      body: (isTree
         ? 'You fell the tree with your bare hands. Nearby survivors stare in disbelief.'
-        : 'You finish the work with your bare hands before the others can fetch their tools. They stare in disbelief.',
+        : 'You finish the work with your bare hands before the others can fetch their tools. They stare in disbelief.')
+        + BAREHAND_STORY_ASIDE,
     });
   }
 
